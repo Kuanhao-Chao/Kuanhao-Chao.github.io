@@ -13,7 +13,7 @@ name                     : &name "Kuan-Hao Chao"
 description              : &description "Research assistant at Academia Sinica・Former Research assistant at the Australian National University"
 url                      : https://kuanhao-chao.github.io
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
-repository               : "academicpages/academicpages.github.io"
+repository               : "kuanhao-chao.github.io"
 teaser                   :  # filename of teaser fallback teaser image placed in /images/, .e.g. "500x300.png"
 breadcrumbs              : false # true, false (default)
 words_per_minute         : 160

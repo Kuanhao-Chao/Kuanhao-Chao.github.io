@@ -11,49 +11,56 @@ redirect_from:
 
 Education
 ======
-* B.S. in GitHub, GitHub University, 2012
-* M.S. in Jekyll, GitHub University, 2014
-* Ph.D in Version Control Theory, GitHub University, 2018 (expected)
+* B.S. in Taiwan, National Taiwan University, 2016 - 2021
+* Exchange in Australia, The Australian National University, 2019-2020
 
-Work experience
+
+Internship experience
 ======
-* Summer 2015: Research Assistant
-  * Github University
-  * Duties included: Tagging issues
-  * Supervisor: Professor Git
+* Summer Research intern (Jul. 2018 - Aug. 2018)
+  * Institute of Information Science, Academia Sinica
+  * Supervisor: Prof. Huai-Kuang Tsai
+  * I tried to find tandem repeat binding sites of lncRNA and double-stranded DNA by comparing real experiment data to software predicted results.
+  * I learned how to systematically analyze biological data
 
-* Fall 2015: Research Assistant
-  * Github University
-  * Duties included: Merging pull requests
-  * Supervisor: Professor Hub
-  
+* Software Engineer Winter Intern (Jan. 2018)
+  * Institute for Information Industry
+  * I wrote Apache Spark code to analyze business data based on methods in an article.
+  * The team was building a system to find insiders in the company by using machine learning approach. I was responsible for data preprocessing and visualization.
+
 Skills
 ======
-* Skill 1
-* Skill 2
-  * Sub-skill 2.1
-  * Sub-skill 2.2
-  * Sub-skill 2.3
-* Skill 3
+* Programming Languag 1
+  * Python
+  * R
+  * Java
+  * C/C++
+* Programming Skill
+  * Django/Flask
+  * Git
+  * R package
+  * Android App
+  * Web Development
+  * Unity Game
 
 Publications
 ======
   <ul>{% for post in site.publications %}
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
-  
+
 Talks
 ======
   <ul>{% for post in site.talks %}
     {% include archive-single-talk-cv.html %}
   {% endfor %}</ul>
-  
+
 Teaching
 ======
   <ul>{% for post in site.teaching %}
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
-  
+
 Service and leadership
 ======
 * Currently signed in to 43 different slack teams
