@@ -9,6 +9,8 @@ redirect_from:
 
 {% include base_path %}
 
+<br>
+
 Education
 ======
 * B.S. in Taiwan, National Taiwan University, 2016 - 2021
