@@ -2,11 +2,10 @@
 title: "sangeranalyseR: simple and interactive analysis of Sanger sequencing data in R"
 collection: publications
 permalink: /publication/2020_05_20-sangeranalyseR
-excerpt: 'This package builds on sangerseqR to allow users to create contigs from collections of Sanger sequencing reads. It provides a wide range of options for a number of commonly-performed actions including read trimming, detecting secondary peaks, and detecting indels using a reference sequence. All parameters can be adjusted interactively either in R or in the associated Shiny applications. There is extensive online documentation, and the package can outputs detailed HTML reports, including chromatograms.
-'
+excerpt: '<small>This package builds on sangerseqR to allow users to create contigs from collections of Sanger sequencing reads. It provides a wide range of options for a number of commonly-performed actions including read trimming, detecting secondary peaks, and detecting indels using a reference sequence. All parameters can be adjusted interactively either in R or in the associated Shiny applications. There is extensive online documentation, and the package can outputs detailed HTML reports, including chromatograms.</small>'
 date: 2020-05-20
 venue: 'bioRxiv'
-paperurl: 'http://academicpages.github.io/files/paper3.pdf'
+paperurl: 'https://www.biorxiv.org/content/10.1101/2020.05.18.102459v1.full.pdf'
 citation: '<br><b style="color:#ad0000">K.H. Chao*</b>, K. Barton, S. Palmer, and R. Lanfear (2019). "sangeranalyseR: simple and interactive analysis of Sanger sequencing data in R" in <b><i>bioRxiv</i></b>. doi: 10.1101/2020.05.18.102459.'
 ---
 
