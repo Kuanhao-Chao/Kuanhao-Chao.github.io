@@ -22,12 +22,13 @@ an MIT license. It is available for all platforms on Bioconductor
 ([https://bioconductor.org/packages/sangeranalyseR](https://bioconductor.org/packages/sangeranalyseR)) and on Github
 ([https://github.com/roblanf/sangeranalyseR](https://github.com/roblanf/sangeranalyseR)).
 
-## Selected Figure
-
-
 ## Conclusion
 sangeranalyseR is an open source R package that provides a simple but flexible set of options for analysing Sanger sequencing data in R. It is available on Bioconductor and is free and open source. We hope it will be beneficial to the community and make the analysis of Sanger sequencing simpler and more reproducible.
 
+## Selected Figure
+![]({{base_path}}/images/sangeranalyseR_figure_1.tiff)
+
+* <small>(A), (B), and (C) are SangerAlignment level data analysis workflow. (A) Input files are prepared with a simple file naming convention; (B) The Shiny app allows users to examine each read and each contig, and to adjust trimming and other parameters for each read, using the navigation panel on the left; (C) Each SangerAlignment object provides an alignment of all contigs and a phylogenetic tree of the alignment, to assist users in assessing the quality of the inferences. (D) The read trimming plot shows the Phred Quality score (Y axis) for every base in the read (X axis) along with the trimming locations determined by the trimming parameters (red lines); (E) The chromatogram shows the called bases for each read, as well as the trimmed region at both the 3’ and 5’ ends; (F) An example of the R commands necessary to perform a full analysis, including loading and analysing the reads, launching the Shiny app, and generating the HTML report.</small>
 
 ## Source code & Documentation
 * [sangeranalyseR **Bioconductor**](https://bioconductor.org/packages/sangeranalyseR)
@@ -46,4 +47,4 @@ sangeranalyseR is an open source R package that provides a simple but flexible s
 <br>
 
 ---
-[Download paper here](http://academicpages.github.io/files/paper3.pdf)
+[**>> Download paper here <<**](http://academicpages.github.io/files/paper3.pdf)
