@@ -1,4 +1,6 @@
 <script src="https://kit.fontawesome.com/yourcode.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
 
 {% include base_path %}
 
@@ -34,15 +36,19 @@
         <a href="{{ base_path }}{{ post.url }}" rel="permalink" style="color: #404040">{{ title }}</a>
       {% endif %}
     </h2>
+
     {% if post.read_time %}
       <p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {% include read-time.html %}</p>
     {% endif %}
-    {% if post.start_date %}<p class="page__meta"><b><i class="fas fa-calendar-alt" aria-hidden="true"></i> &nbsp; {{ post.start_date | date: '%B %d, %Y' }} {% if post.end_date %} - {{ post.end_date | date: '%B %d, %Y' }}{% endif %}</b></p>{% endif %}
+    {% if post.start_date %}<p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ post.start_date | date: '%B %d, %Y' }} {% if post.end_date %} - {{ post.end_date | date: '%B %d, %Y' }}{% endif %}</b></p>{% endif %}
 
-    {% if post.start_date %}<p class="page__meta"><b><i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp; {{post.location}}</b></p>{% endif %}
+    <p class="page__meta"><b>&nbsp;<i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{post.location}}</b></p>
 
-    {% if post.venue %}<p class="archive__item-excerpt" itemprop="description">{{post.type}} at {{ post.venue }} {% endif %}
-    {% if post.excerpt %}<p class="archive__item-excerpt" itemprop="description">{{ post.excerpt | markdownify }}</p> {% endif %}
+    <p class="page__meta"><b><i class="fa fa-university" aria-hidden="true"></i> &nbsp;&nbsp;  {{post.venue}}</b></p>
+
+    <p class="page__meta"><b>&nbsp;<i class="fa fa-user" aria-hidden="true"></i> &nbsp;&nbsp;&nbsp; {{post.type}}</b></p>
+
+    <p class="page__meta"><b><i class="fa fa-line-chart" aria-hidden="true"></i> &nbsp;&nbsp; {{post.status}}</b></p>
 
   <!-- </article>
 </div> -->

@@ -7,6 +7,7 @@ venue: "Bioinformatics and Biostatistics Core Lab, Center of Genomic and Precisi
 start_date: 2020-07-01
 end_date: "Present"
 location: "Taipei, Taiwan"
+status: "In progress"
 ---
 
 
