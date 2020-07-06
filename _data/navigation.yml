@@ -7,11 +7,14 @@ main:
   - title: "Talks"
     url: /talks/
 
-  - title: "Research Experience"
+  - title: "Research"
     url: /researches/
 
   - title: "Teaching"
     url: /teaching/
+
+  - title: "Internship"
+    url: /internship/
 
   - title: "CV"
     url: /cv/

@@ -8,6 +8,6 @@ author_profile: true
 {% include base_path %}
 
 {% for post in site.researches reversed %}
-  {% include archive-single-research.html %}
+  {% include archive-single-internship.html %}
   <hr>
 {% endfor %}

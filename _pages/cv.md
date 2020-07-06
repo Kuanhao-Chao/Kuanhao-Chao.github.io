@@ -14,6 +14,7 @@ Education
 * B.S. in Taiwan, National Taiwan University, 2016 - 2021
 * Exchange in Australia, The Australian National University, 2019-2020
 
+---
 
 Internship experience
 ======
@@ -27,6 +28,8 @@ Internship experience
   * Institute for Information Industry
   * I wrote Apache Spark code to analyze business data based on methods in an article.
   * The team was building a system to find insiders in the company by using machine learning approach. I was responsible for data preprocessing and visualization.
+
+  ---
 
 Skills
 ======
@@ -43,11 +46,15 @@ Skills
   * Web Development
   * Unity Game
 
+  ---
+
 Publications
 ======
   <ul>{% for post in site.publications %}
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
+
+  ---
 
 Talks & Exhibition
 ======
@@ -55,18 +62,23 @@ Talks & Exhibition
     {% include archive-single-talk-cv.html %}
   {% endfor %}</ul>
 
-Research Experience
+  ---
+
+Research
 ======
   <ul>{% for post in site.researches %}
     {% include archive-single-research-cv.html %}
   {% endfor %}</ul>
 
+  ---
 
 Teaching
 ======
   <ul>{% for post in site.teaching %}
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
+
+---
 
 Service and leadership
 ======
