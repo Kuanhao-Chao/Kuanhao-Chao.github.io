@@ -49,11 +49,18 @@ Publications
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
 
-Talks
+Talks & Exhibition
 ======
   <ul>{% for post in site.talks %}
     {% include archive-single-talk-cv.html %}
   {% endfor %}</ul>
+
+Research Experience
+======
+  <ul>{% for post in site.researches %}
+    {% include archive-single-research-cv.html %}
+  {% endfor %}</ul>
+
 
 Teaching
 ======

@@ -1,20 +1,14 @@
 ---
-title: "Teaching Assistant in Cornerstone EECS Design and Implementation Course (EE-1006)"
+title: "complex dynamic"
 collection: researches
-type: "Teaching Assistant"
+type: "Research assistant"
 permalink: /researches/2020-07-01-complex-dynamic
-venue: "National Taiwan University, Department of Electrical Engineering"
+venue: "Bioinformatics and Biostatistics Core Lab, Center of Genomic and Precision Medicine, National Taiwan University"
 date: 2020-07-01
 location: "Taipei, Taiwan"
 ---
 
-This is a description of a teaching experience. You can use markdown like any other post.
 
-Heading 1
-======
+[More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)
 
-Heading 2
-======
-
-Heading 3
-======
+This is a description of your talk, which is a markdown files that can be all markdown-ified like any other post. Yay markdown!
