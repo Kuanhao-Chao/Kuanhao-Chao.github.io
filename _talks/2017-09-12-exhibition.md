@@ -1,5 +1,5 @@
 ---
-title: "Exhibition on Smart Transportation &nbsp; (WCIT 2017)"
+title: "Exhibition on smart transportation &nbsp; (WCIT 2017)"
 collection: talks
 type: "Exhibition"
 permalink: /talks/2017-09-12-exhibition

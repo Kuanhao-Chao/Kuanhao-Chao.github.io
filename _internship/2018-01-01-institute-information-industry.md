@@ -1,13 +1,12 @@
 ---
-title: "Bacteria-NGS: a web service for bacterial Next-generation sequencing analysis"
+title: "Software engineer winter intern"
 collection: internship
-type: "Undergraduate research student"
+type: "Undergraduate software intern"
 permalink: /researches/2018-01-01-institute-information-industry
-venue: "Bioinformatics and Biostatistics Core Lab, Center of Genomic and Precision Medicine, National Taiwan University"
-start_date: 2019-01-01
-end_date: 2020-06-01
+venue: "Institute for Information Industry"
+start_date: 2018-01-14
+end_date: 2018-02-14
 location: "Taipei, Taiwan"
-status: "In progress"
 ---
 
 

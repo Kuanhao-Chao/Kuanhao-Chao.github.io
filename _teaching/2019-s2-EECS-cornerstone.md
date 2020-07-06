@@ -1,5 +1,5 @@
 ---
-title: "Teaching Assistant in Cornerstone EECS Design and Implementation Course (EE-1006)"
+title: "Teaching assistant in Cornerstone EECS Design and Implementation Course (EE-1006)"
 collection: teaching
 type: "Teaching Assistant"
 permalink: /teaching/2019-s2-EECS-cornerstone

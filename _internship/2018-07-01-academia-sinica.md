@@ -1,13 +1,12 @@
 ---
-title: "RNASeqR: an R package for automated two-group RNA-Seq analysis workflow"
+title: "Bioinformatics summer research intern"
 collection: internship
-type: "Undergraduate research student"
+type: "Undergraduate research intern"
 permalink: /researches/2018-07-01-academia-sinica
-venue: "Bioinformatics and Biostatistics Core Lab, Center of Genomic and Precision Medicine, National Taiwan University"
-start_date: 2018-04-01
-end_date: 2018-12-31
+venue: "Institute of Information Science, Academia Sinica"
+start_date: 2018-07-01
+end_date: 2018-08-31
 location: "Taipei, Taiwan"
-status: "Published"
 ---
 
 [More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)
