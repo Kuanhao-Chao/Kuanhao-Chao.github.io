@@ -1,13 +1,13 @@
 ---
 layout: archive
-title: "Research"
-permalink: /researches/
+title: "Internship"
+permalink: /internship/
 author_profile: true
 ---
 
 {% include base_path %}
 
-{% for post in site.researches reversed %}
+{% for post in site.internship reversed %}
   {% include archive-single-internship.html %}
   <hr>
 {% endfor %}
