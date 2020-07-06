@@ -9,4 +9,5 @@ author_profile: true
 
 {% for post in site.researches reversed %}
   {% include archive-single-research.html %}
+  <hr>
 {% endfor %}

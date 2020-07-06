@@ -4,7 +4,8 @@ collection: researches
 type: "Research assistant"
 permalink: /researches/2019-10-01-sangeranalyseR
 venue: "Department of Ecology and Evolution, Research School of Biology, Australian National University"
-date: 2018-04-01
+start_date: 2019-09-01
+end_date: 2020-01-01
 location: "Canberra, Australia"
 ---
 

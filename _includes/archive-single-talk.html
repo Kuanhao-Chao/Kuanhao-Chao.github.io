@@ -1,3 +1,5 @@
+<script src="https://kit.fontawesome.com/yourcode.js"></script>
+
 {% include base_path %}
 
 {% if post.header.teaser %}
@@ -35,8 +37,11 @@
     {% if post.read_time %}
       <p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {% include read-time.html %}</p>
     {% endif %}
-    {% if post.date %}<p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {{ post.date | date: '%B %d, %Y' }}</p>{% endif %}
-    {% if post.venue %}<p class="archive__item-excerpt" itemprop="description">{{post.type}}, {{ post.venue }},  {{post.location}} {% endif %}
+    {% if post.start_date %}<p class="page__meta"><i class="fas fa-calendar-alt" aria-hidden="true"></i> {{ post.start_date | date: '%B %d, %Y' }} {% if post.end_date %} - {{ post.end_date | date: '%B %d, %Y' }}{% endif %}</p>{% endif %}
+
+    {% if post.start_date %}<p class="page__meta"><i class="fas fa-map-marker-alt	" aria-hidden="true"></i> {{post.location}}</p>{% endif %}
+
+    {% if post.venue %}<p class="archive__item-excerpt" itemprop="description">{{post.type}}, {{ post.venue }} {% endif %}
     {% if post.excerpt %}<p class="archive__item-excerpt" itemprop="description">{{ post.excerpt | markdownify }}</p>{% endif %}
   </article>
 </div>

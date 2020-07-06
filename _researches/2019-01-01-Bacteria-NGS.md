@@ -4,7 +4,8 @@ collection: researches
 type: "Undergraduate research student"
 permalink: /researches/2019-01-01-Bacteria-NGS
 venue: "Bioinformatics and Biostatistics Core Lab, Center of Genomic and Precision Medicine, National Taiwan University"
-date: 2019-01-01
+start_date: 2019-01-01
+end_date: 2020-06-01
 location: "Taipei, Taiwan"
 ---
 
