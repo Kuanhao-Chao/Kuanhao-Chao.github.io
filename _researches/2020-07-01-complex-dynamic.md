@@ -1,5 +1,5 @@
 ---
-title: "complex dynamic"
+title: "Complex dynamic"
 collection: researches
 type: "Research assistant"
 permalink: /researches/2020-07-01-complex-dynamic

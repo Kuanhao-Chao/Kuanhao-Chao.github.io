@@ -1,5 +1,5 @@
 ---
-title: "Bacteria-NGS: a web service for bacterial Next-generation sequencing analysis"
+title: "Bacteria-NGS: bacterial Next-generation sequencing analysis webserver deployment"
 collection: researches
 type: "Undergraduate research student"
 permalink: /researches/2019-01-01-Bacteria-NGS

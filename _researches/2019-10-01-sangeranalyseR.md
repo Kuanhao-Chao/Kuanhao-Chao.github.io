@@ -1,5 +1,5 @@
 ---
-title: "sangeranalyseR: an R package for Sanger sequencing data analysis"
+title: "sangeranalyseR: Sanger sequencing data analysis software development"
 collection: researches
 type: "Research assistant"
 permalink: /researches/2019-10-01-sangeranalyseR
