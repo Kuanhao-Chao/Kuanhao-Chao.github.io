@@ -63,17 +63,6 @@ Internship
   {% include archive-single-internship-cv.html %}
 {% endfor %}</ul>
 
-* Summer Research intern (Jul. 2018 - Aug. 2018)
-  * Institute of Information Science, Academia Sinica
-  * Supervisor: Prof. Huai-Kuang Tsai
-  * I tried to find tandem repeat binding sites of lncRNA and double-stranded DNA by comparing real experiment data to software predicted results.
-  * I learned how to systematically analyze biological data
-
-* Software Engineer Winter Intern (Jan. 2018)
-  * Institute for Information Industry
-  * I wrote Apache Spark code to analyze business data based on methods in an article.
-  * The team was building a system to find insiders in the company by using machine learning approach. I was responsible for data preprocessing and visualization.
-
   ---
 
 Service and leadership
