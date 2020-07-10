@@ -191,7 +191,7 @@ collections:
   internship:
     output: true
     permalink: /:collection/:path/
-  Games:
+  games:
     output: true
     permalink: /:collection/:path/
 

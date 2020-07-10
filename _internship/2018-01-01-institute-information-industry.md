@@ -2,7 +2,7 @@
 title: "Software engineer winter intern"
 collection: internship
 type: "Undergraduate software intern"
-permalink: /researches/2018-01-01-institute-information-industry
+permalink: /internship/2018-01-01-institute-information-industry
 venue: "Institute for Information Industry"
 start_date: 2018-01-14
 end_date: 2018-02-14
