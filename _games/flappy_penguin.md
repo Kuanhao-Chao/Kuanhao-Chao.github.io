@@ -9,7 +9,18 @@ location: "Taipei, Taiwan"
 image: "/images/flappy_penguin.png"
 ---
 
+---
 
-[More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)
+<embed src="http://kuanhao.nctu.me/flappy_penguin/index_full.html" style="width: 500px; height: 700px; margin-left: 50px">
+<a href="http://kuanhao.nctu.me/flappy_penguin/index.html" target="_blank"><b> >>Webgame Link << </b></a>
 
-This is a description of your talk, which is a markdown files that can be all markdown-ified like any other post. Yay markdown!
+<div style="background-color: #dbdbdb; padding: 30px; margin-top:-400px">
+  <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
+  <br>
+  <p> <b style="font-size: 22px">Contact:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; kuanhao.chao@gmail.com</p>
+  <br>
+  <p style=" margin-bottom: 10px;"> <b style="font-size: 22px;">How to play:</b></p>
+  <p  style="margin-left: 170px; margin-top: -45px">Play <b>Flappy Penguin</b> here online for free. Click on the screen to fly. Fly the jet penguin as far as you can without hitting the pipes. Good luck!</p>
+</div>
+
+---
