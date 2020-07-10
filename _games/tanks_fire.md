@@ -1,13 +1,12 @@
 ---
 title: "Tanks Fire!"
 collection: games
-type: "Undergraduate research student"
-permalink: /games/2018-04-01-RNASeqR
-venue: "Bioinformatics and Biostatistics Core Lab, Center of Genomic and Precision Medicine, National Taiwan University"
-start_date: 2019-01-04
-end_date: 2018-12-31
+type: "Unity game"
+permalink: /games/tanks_fire
+start_date: 2020-01-01
+end_date: 2020-01-01
 location: "Taipei, Taiwan"
-status: "Published"
+image: "/images/tanks_fire.png"
 ---
 
 * I developed an R/Bioconductor package for two-group RNA-Seq analysis. This tool is now available on Bioconductor 3.10 release.
