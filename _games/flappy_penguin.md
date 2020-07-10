@@ -11,7 +11,7 @@ image: "/images/flappy_penguin.png"
 
 ---
 
-<embed src="http://kuanhao.nctu.me/flappy_penguin/index_full.html" style="width: 500px; height: 700px; margin-left: 50px">
+<embed src="https://storage.googleapis.com/kuanhao.nctu.me/flappy_penguin/index_full.html" style="width: 500px; height: 700px; margin-left: 50px">
 <a href="http://kuanhao.nctu.me/flappy_penguin/index.html" target="_blank"><b> >>Webgame Link << </b></a>
 
 <div style="background-color: #dbdbdb; padding: 30px; margin-top:-400px">
