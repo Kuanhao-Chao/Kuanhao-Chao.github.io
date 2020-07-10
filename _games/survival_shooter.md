@@ -6,7 +6,7 @@ permalink: /games/survival_shooter
 start_date: 2020-01-03
 end_date: 2020-06-01
 location: "Taipei, Taiwan"
-status: "/images/survival_shooter.png"
+image: "/images/survival_shooter.png"
 ---
 
 

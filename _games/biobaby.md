@@ -2,7 +2,7 @@
 title: "Biobaby"
 collection: games
 type: "Unity game"
-permalink: /games/2020-07-01-complex-dynamic
+permalink: /games/biobaby
 start_date: 2020-01-01
 end_date: 2020-01-01
 location: "Taipei, Taiwan"

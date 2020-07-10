@@ -1,13 +1,12 @@
 ---
 title: "Flappy Penguin"
 collection: games
-type: "Research  assistant"
-permalink: /games/2019-10-01-sangeranalyseR
-venue: "Department of Ecology and Evolution, Research School of Biology, Australian National University"
+type: "Unity game"
+permalink: /games/flappy_penguin
 start_date: 2020-01-02
 end_date: 2020-01-01
-location: "Canberra, Australia"
-status: "Under review"
+location: "Taipei, Taiwan"
+image: "/images/flappy_penguin.png"
 ---
 
 
