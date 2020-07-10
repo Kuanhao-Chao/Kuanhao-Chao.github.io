@@ -1,10 +1,10 @@
 ---
-title: "sangeranalyseR: Sanger sequencing data analysis software development"
+title: "Flappy Penguin"
 collection: games
-type: "Research assistant"
+type: "Research  assistant"
 permalink: /games/2019-10-01-sangeranalyseR
 venue: "Department of Ecology and Evolution, Research School of Biology, Australian National University"
-start_date: 2019-09-01
+start_date: 2020-01-02
 end_date: 2020-01-01
 location: "Canberra, Australia"
 status: "Under review"

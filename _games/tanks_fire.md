@@ -1,10 +1,10 @@
 ---
-title: "RNASeqR: RNA-Sequencing pipeline software development"
+title: "Tanks Fire!"
 collection: games
 type: "Undergraduate research student"
 permalink: /games/2018-04-01-RNASeqR
 venue: "Bioinformatics and Biostatistics Core Lab, Center of Genomic and Precision Medicine, National Taiwan University"
-start_date: 2018-04-01
+start_date: 2019-01-04
 end_date: 2018-12-31
 location: "Taipei, Taiwan"
 status: "Published"
