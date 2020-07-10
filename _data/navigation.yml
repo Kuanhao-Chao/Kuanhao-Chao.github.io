@@ -19,5 +19,8 @@ main:
   - title: "Posts"
     url: /year-archive/
 
+  - title: "Games"
+    url: /games/
+
   - title: "CV"
     url: /cv/

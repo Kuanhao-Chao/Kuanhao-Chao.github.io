@@ -191,6 +191,10 @@ collections:
   internship:
     output: true
     permalink: /:collection/:path/
+  Games:
+    output: true
+    permalink: /:collection/:path/
+
 
 
 # Defaults
@@ -261,6 +265,14 @@ defaults:
   - scope:
       path: ""
       type: internship
+    values:
+      layout: single
+      author_profile: true
+      share: true
+  # _games
+  - scope:
+      path: ""
+      type: games
     values:
       layout: single
       author_profile: true
