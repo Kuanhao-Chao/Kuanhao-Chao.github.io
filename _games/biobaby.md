@@ -10,7 +10,28 @@ status: "In progress"
 image: "/images/biobaby.png"
 ---
 
+---
 
-[More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)
+<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/biobaby/index_full.html" width="950" height="680" style="border:none;" scrolling="no"></iframe>
 
-This is a description of your talk, which is a markdown files that can be all markdown-ified like any other post. Yay markdown!
+
+<div style="background-color: #dbdbdb; padding: 30px; margin-top:50px">
+  <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
+  <br>
+  <p> <b style="font-size: 22px">Contact:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; kuanhao.chao@gmail.com</p>
+  <br>
+  <p style=" margin-bottom: 10px;"> <b style="font-size: 22px;">Introduction:</b></p>
+  <p  style="margin-left: 170px; margin-top: -45px">Play <b>Biobaby</b> here online for free. Exotic species and bacteria had escaped from Dr. Chao's lab. Please help him to defeat them and protect this place. You have to collect A, T, C, G to open the locked door on the way. Good luck!</p>
+  <br>
+  <p style=" margin-bottom: 10px;"> <b style="font-size: 22px;">How to play:</b></p>
+  <p  style="margin-left: 170px; margin-top: -45px"><b>"A"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Left</p>
+  <p style="margin-left: 170px;"><b>"D"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Right</p>
+  <p style="margin-left: 170px;"><b>"S"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Sit Down</p>
+  <p style="margin-left: 170px;"><b>"K"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Towl Attack</p>
+  <p style="margin-left: 170px;"><b>"O"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Shoot Attack</p>
+  <p style="margin-left: 170px;"><b>"Space"</b> &nbsp;&nbsp; Jump</p>
+</div>
+
+---
+
+<a href="http://kuanhao.nctu.me/biobaby/index.html" target="_blank"><b> >>Web Game Link << </b></a>

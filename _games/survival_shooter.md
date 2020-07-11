@@ -9,7 +9,28 @@ location: "Taipei, Taiwan"
 image: "/images/survival_shooter.png"
 ---
 
+---
 
-[More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)
+<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/survival_shooter/index_full.html" width="950" height="680" style="border:none;" scrolling="no"></iframe>
 
-This is a description of your talk, which is a markdown files that can be all markdown-ified like any other post. Yay markdown!
+<div style="background-color: #dbdbdb; padding: 30px; margin-top:50px">
+  <p> <b style="font-size: 22px">Source:</b> &nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; This is the official Unity <a href="https://learn.unity.com/tutorial/survival-shooter-training-day-phases?projectId=5c514921edbc2a002069465e" target="_blank">training project</a></p>
+  <br>
+  <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
+  <br>
+  <p> <b style="font-size: 22px">Contact:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; kuanhao.chao@gmail.com</p>
+  <br>
+  <p style=" margin-bottom: 10px;"> <b style="font-size: 22px;">Introduction:</b></p>
+  <p  style="margin-left: 170px; margin-top: -45px">Play <b>Survival Shooter</b> here online for free. Do your best to survive in the nightmare and score as high as you can. Good luck!</p>
+  <br>
+  <p style=" margin-bottom: 10px;"> <b style="font-size: 22px;">How to play:</b></p>
+  <p  style="margin-left: 170px; margin-top: -45px"><b>"A"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Left</p>
+  <p style="margin-left: 170px;"><b>"D"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Right</p>
+  <p style="margin-left: 170px;"><b>"W"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Forward</p>
+  <p style="margin-left: 170px;"><b>"S"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Backward</p>
+  <p style="margin-left: 170px;"><b>"Left Click"</b> &nbsp;&nbsp; Shoot</p>
+</div>
+
+---
+
+<a href="http://kuanhao.nctu.me/survival_shooter/index.html" target="_blank"><b> >>Web Game Link << </b></a>

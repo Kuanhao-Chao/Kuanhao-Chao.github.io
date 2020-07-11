@@ -11,10 +11,10 @@ image: "/images/flappy_penguin.png"
 
 ---
 
-<embed src="https://storage.googleapis.com/kuanhao.nctu.me/flappy_penguin/index_full.html" style="width: 500px; height: 700px; margin-left: 50px">
-<a href="http://kuanhao.nctu.me/flappy_penguin/index.html" target="_blank"><b> >>Webgame Link << </b></a>
+<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/flappy_penguin/index_full.html" width="500" height="680" style="margin-left: 50px; border:none;" scrolling="no"></iframe>
 
-<div style="background-color: #dbdbdb; padding: 30px; margin-top:-400px">
+
+<div style="background-color: #dbdbdb; padding: 30px;">
   <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
   <br>
   <p> <b style="font-size: 22px">Contact:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; kuanhao.chao@gmail.com</p>
@@ -24,3 +24,4 @@ image: "/images/flappy_penguin.png"
 </div>
 
 ---
+<a href="http://kuanhao.nctu.me/flappy_penguin/index.html" target="_blank"><b> >>Web Game Link << </b></a>

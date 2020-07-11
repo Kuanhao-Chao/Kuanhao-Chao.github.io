@@ -9,5 +9,37 @@ location: "Taipei, Taiwan"
 image: "/images/tanks_fire.png"
 ---
 
-* I developed an R/Bioconductor package for two-group RNA-Seq analysis. This tool is now available on Bioconductor 3.10 release.
-* I presented this work in ICIBM2019. The manuscript was published in ***IEEE/ACM Transactions on Computational Biology and Bioinformatics***.
+---
+
+<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/tanks_fire/index_full.html" width="1200" height="700" style="border:none;" scrolling="no"></iframe>
+
+<div style="background-color: #dbdbdb; padding: 30px; margin-top:50px">
+  <p> <b style="font-size: 22px">Source:</b> &nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; This is the official Unity <a href="https://learn.unity.com/project/tanks-tutorial" target="_blank">training project</a></p>
+  <br>
+  <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
+  <br>
+  <p> <b style="font-size: 22px">Contact:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; kuanhao.chao@gmail.com</p>
+  <br>
+  <p style=" margin-bottom: 10px;"> <b style="font-size: 22px;">Introduction:</b></p>
+  <p  style="margin-left: 170px; margin-top: -45px">Play <b>Tanks Fire</b> here online for free. It's a two-player Best four out of seven. Do your best to destroy your opponent's tank. Let's battle!</p>
+  <br>
+  <p style=" margin-bottom: 10px;"> <b style="font-size: 22px;">How to play:</b></p>
+  <p  style="margin-left: 170px; margin-top: -45px; color: blue"><b>Player 1</b></p>
+
+  <p  style="margin-left: 200px;"><b>"A"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Turn Left</p>
+  <p style="margin-left: 200px;"><b>"D"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Turn Right</p>
+  <p style="margin-left: 200px;"><b>"W"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Forward</p>
+  <p style="margin-left: 200px;"><b>"S"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Backward</p>
+  <p style="margin-left: 200px;"><b>"Space"</b> &nbsp;&nbsp;&nbsp;&nbsp; Fire</p>
+  <p  style="margin-left: 170px; margin-top:15px;color: red"><b>Player 2</b></p>
+
+  <p  style="margin-left: 200px;"><b>"◄"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Turn Left</p>
+  <p style="margin-left: 200px;"><b>"►"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Turn Right</p>
+  <p style="margin-left: 200px;"><b>"▲"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Forward</p>
+  <p style="margin-left: 200px;"><b>"▼"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Move Backward</p>
+  <p style="margin-left: 200px;"><b>"Enter"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Fire</p>
+</div>
+
+---
+
+<a href="http://kuanhao.nctu.me/tanks_fire/index.html" target="_blank"><b> >>Web Game Link << </b></a>
