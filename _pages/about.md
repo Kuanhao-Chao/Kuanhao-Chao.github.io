@@ -22,10 +22,24 @@ I also love cycling, hiking, traveling, and developing Unity games etc.
 
 {{ base_path }}/images/anu_logo.png
 
-<img src="{{ base_path }}/images/anu_logo.png" style="width:130px;height:120px">
+
+
+<img src="/images/bioconductor.jpg">
+
+<img src="/images/NTU.png" style="width:180px;height:180px">
+<img src="/images/NTU_EECS.png">
+
+<img src="images/anu_logo.png" style="width:180px;height:180px">
+<img src="/images/ANU_CECS.jpg" style="width:180px;height:180px">
+
+<img src="/images/iis_logo.jpg" style="width:180px;height:180px">
+
+<img src="/images/CGM_LOGO.png" style="width:180px;height:180px">
+
+<!-- <img src="{{ base_path }}/images/anu_logo.png" style="width:130px;height:120px">
 <img src="{{ base_path }}/images/ANU_CECS.jpg" style="width:130px;height:120px">
 <img src="{{ base_path }}/images/bioconductor.jpg">
 
 <img src="{{ base_path }}/images/NTU_EECS.png">
 
-<img src="{{ base_path }}/images/NTU.png">
+<img src="{{ base_path }}/images/NTU.png"> -->
