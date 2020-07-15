@@ -20,21 +20,35 @@ I have developed two [Bioconductor](https://www.bioconductor.org/) R packages. T
 
 I also love cycling, hiking, traveling, and developing Unity games etc.
 
-{{ base_path }}/images/anu_logo.png
+<br>
+<div class="demo" style="display: table; width: 100%; table-layout: fixed; ">
+    <span style="display: table-cell; text-align: center;">
+      <img src="/images/NTU.png" style="height:160px">
+    </span>
+    <span style="display: table-cell; text-align: center;">
+      <img src="/images/NTU_EECS.png" style="height:160px">
+    </span>
+    <span style="display: table-cell; text-align: center;">
+      <img src="/images/CGM_LOGO.png" style="height:160px">
+    </span>
+</div>
+
+<div class="demo" style="margin-top: 30px;display: table; width: 100%; table-layout: fixed; ">
+    <span style="display: table-cell; text-align: center;">
+      <img src="images/anu_logo_small.png" style="height:160px">
+    </span>
+    <span style="display: table-cell; text-align: center;">
+      <img src="/images/ANU_CECS.jpg" style="height:160px">
+    </span>
+    <span style="display: table-cell; text-align: center;">
+      <img src="/images/iis_logo.jpg" style="height:160px">
+    </span>
+</div>
 
 
 
-<img src="/images/bioconductor.jpg">
 
-<img src="/images/NTU.png" style="width:180px;height:180px">
-<img src="/images/NTU_EECS.png">
 
-<img src="images/anu_logo.png" style="width:180px;height:180px">
-<img src="/images/ANU_CECS.jpg" style="width:180px;height:180px">
-
-<img src="/images/iis_logo.jpg" style="width:180px;height:180px">
-
-<img src="/images/CGM_LOGO.png" style="width:180px;height:180px">
 
 <!-- <img src="{{ base_path }}/images/anu_logo.png" style="width:130px;height:120px">
 <img src="{{ base_path }}/images/ANU_CECS.jpg" style="width:130px;height:120px">
