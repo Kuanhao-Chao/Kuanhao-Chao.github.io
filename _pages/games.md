@@ -1,6 +1,6 @@
 ---
 layout: archive
-title: "Unity Games"
+title: "🎮 Unity Games"
 permalink: /games/
 author_profile: true
 ---

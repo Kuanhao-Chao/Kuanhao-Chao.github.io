@@ -1,6 +1,6 @@
 ---
 layout: archive
-title: "Internship"
+title: "💼 Internship"
 permalink: /internship/
 author_profile: true
 ---
