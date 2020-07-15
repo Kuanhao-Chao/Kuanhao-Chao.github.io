@@ -15,7 +15,6 @@ My research interests focus on Next-generation sequencing (NGS) data analysis, b
 [Institute of Information Science, Academia Sinica](https://www.iis.sinica.edu.tw) and going to apply for a USA computational biology Ph.D at the end of this year.
 
 
-I have developed two [Bioconductor](https://www.bioconductor.org/) R packages. The first project is [RNASeqR](https://ieeexplore.ieee.org/document/8918337) which is supervised by [Eric Y. Chuang](http://www.ee.ntu.edu.tw/profile1.php?teacher_id=901155&p=3) and [Tzu-pin Lu](https://scholars.lib.ntu.edu.tw/cris/rp/rp06647) at National Taiwan University. The second one is [sangeranalyseR](https://doi.org/10.1101/2020.05.18.102459) which I developed during my exchange at the Australia National University. I worked as a research assistant at [Molecular Evolution and Phylogenetics Lab](http://www.robertlanfear.com/) led by Prof. [Robert Lanfear](https://biology.anu.edu.au/people/academics/robert-lanfear).
-
+I have developed two [Bioconductor](https://www.bioconductor.org/) R packages. The first project is [RNASeqR](https://ieeexplore.ieee.org/document/8918337) which is supervised by [Eric Y. Chuang](http://www.ee.ntu.edu.tw/profile1.php?teacher_id=901155&p=3) and [Tzu-pin Lu](https://scholars.lib.ntu.edu.tw/cris/rp/rp06647) at National Taiwan University. The second one is [sangeranalyseR](https://doi.org/10.1101/2020.05.18.102459) which I developed while working as a research assistant at [Molecular Evolution and Phylogenetics Lab](http://www.robertlanfear.com/) led by Prof. [Robert Lanfear](https://biology.anu.edu.au/people/academics/robert-lanfear) during my exchange at the Australia National University.
 
 I also love cycling, hiking, traveling, and developing Unity game etc.
