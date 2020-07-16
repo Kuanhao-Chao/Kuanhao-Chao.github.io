@@ -16,11 +16,11 @@ main:
   - title: "Internship"
     url: /internship/
 
-  - title: "Posts"
-    url: /year-archive/
-
   - title: "Games"
     url: /games/
 
+  - title: "Posts"
+    url: /year-archive/
+    
   - title: "CV"
     url: /cv/
