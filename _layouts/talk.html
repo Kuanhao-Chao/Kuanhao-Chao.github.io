@@ -27,16 +27,17 @@ layout: default
       {% unless page.header.overlay_color or page.header.overlay_image %}
         <header>
           {% if page.title %}<h1 class="page__title" itemprop="headline">{{ page.title | markdownify | remove: "<p>" | remove: "</p>" }}</h1>{% endif %}
-          {% if page.read_time %}
-            <p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {% include read-time.html %}</p>
-          {% endif %}
-          
-        {% if page.modified %}
-          <p class="page__date"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i>Date:</strong> <time datetime="{{ page.modified | date: "%Y-%m-%d" }}">{{ page.modified | date: "%B %d, %Y" }}</time></p>
-        {% elsif page.date %}
-          <p class="page__date"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i>Date:</strong> <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%B %d, %Y" }}</time></p>
+
+        {% if page.read_time %}
+          <p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {% include read-time.html %}</p>
         {% endif %}
-        {% if page.talk_type %}<p>{{page.talk_type}} at {{ page.venue }},  {{page.location}} {% endif %}
+        {% if page.start_date %}<p class="page__meta" style="margin-top: 10px"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ page.start_date | date: '%B %d, %Y' }} {% if page.end_date %} - {{ page.end_date | date: '%B %d, %Y' }}{% endif %}</b></p>{% endif %}
+
+        <p class="page__meta" style="margin-top: -18px"><b>&nbsp;<i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{page.location}}</b></p>
+
+        <p class="page__meta" style="margin-top: -18px"><b><i class="fas fa-calendar-alt" aria-hidden="true"></i> &nbsp;&nbsp;&nbsp;  {{page.venue}}</b></p>
+
+        <p class="page__meta" style="margin-top: -18px"><b><i class="fa fa-ticket-alt" aria-hidden="true"></i> &nbsp;&nbsp; {{page.type}}</b></p>
 
         </header>
       {% endunless %}
