@@ -21,7 +21,35 @@ I have developed two <a href="https://www.bioconductor.org/" style="color:#57575
 I also love cycling, hiking, traveling, and developing Unity games etc.
 
 <br>
-<div class="demo" style="display: table; width: 100%; table-layout: fixed; ">
+
+<div style="text-align: center;">
+  <a href="https://www.ntu.edu.tw/english/index.html">
+    <img src="/images/NTU.png" style="height:160px; width: 160px; margin: 10px">
+  </a>
+  <a href="https://web.ee.ntu.edu.tw/eng/index.php">
+    <img src="/images/NTU_EECS.png" style="height:160px; width: 160px; margin: 10px">
+  </a>
+  <a href="https://www.sinica.edu.tw/en">
+    <img src="/images/AS_logo.png" style="height:160px; width: 160px; margin: 10px">
+  </a>
+  <a href="https://www.iis.sinica.edu.tw/index_en.html">
+    <img src="/images/iis_logo.jpg" style="height:160px; width: 160px; margin: 10px">
+  </a>
+  <a href="https://www.anu.edu.au/">
+    <img src="images/anu_logo_small.png" style="height:160px; width: 160px; margin: 10px">
+  </a>
+  <a href="http://www.robertlanfear.com/">
+    <img src="/images/ANU_Biology.jpg" style="height:160px; width: 160px; margin: 10px">
+  </a>
+  <a href="https://bits.iis.sinica.edu.tw/">
+    <img src="/images/BIOIT.png" style="height:160px; width: 160px; margin: 10px">
+  </a>
+  <a href="http://www.cgm.ntu.edu.tw/web/index/index.jsp?lang=en">
+    <img src="/images/CGM_LOGO.png" style="height:160px; width: 160px; margin: 10px">
+  </a>
+<div>
+
+<!-- <div class="demo" style="display: table; width: 100%; table-layout: fixed; ">
     <span style="display: table-cell; text-align: center;">
       <a href="https://www.ntu.edu.tw/english/index.html">
         <img src="/images/NTU.png" style="height:160px">
@@ -65,7 +93,7 @@ I also love cycling, hiking, traveling, and developing Unity games etc.
         <img src="/images/CGM_LOGO.png" style="height:160px">
       </a>
     </span>
-</div>
+</div> -->
 
 
 
