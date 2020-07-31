@@ -1,0 +1,36 @@
+---
+title: "Tsai, Huai-Kuang"
+collection: references
+type: "Oral presentation"
+permalink: /references/Huai-Kuang_Tsai
+venue: "International Conference on Intelligent Biology and Medicine (ICIBM 2019)"
+start_date: 2019-06-09
+end_date: 2019-06-11
+location: "Columbus, Ohio"
+---
+<br>
+I presented RNASeqR on 11 of June at ICIBM 2019.
+---
+# ICIBM Introduction
+The 2019 International Conference on Intelligent Biology and Medicine (ICIBM 2019) will be held on June 9-11, 2019 in Columbus, OH, USA. You are invited to submit abstracts with unpublished original work describing recent advances on all aspects of bioinformatics, Systems Biology and intelligent Computing, including but not restricted to the following topics:
+
+* Cancer Genomics
+* Metabolomics
+* Microbiome/Metagenomics
+* Translational pharmacoinformatics
+* Omics Integration
+* Medical Informatics
+* Scientific databases
+* Imaging informatics
+* Systems Biology
+* Algorithms/Artificial Intelligence
+* Single-cell analysis
+
+---
+
+**[>> ICIBM 2019 Official Website <<](https://icibm2019.org/)**
+
+**[>> ICIBM 2019 Schedule <<](https://icibm2019.org/Schedule.htm)**
+
+**[>> My ICIBM 2019 Presentation Slides <<](https://drive.google.com/open?id=1XLg_ej1cUAJ8uTVV_XM-0KxnR2DKQXIQ)**
+<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/ICIBM/icibm_2019_RNASeqR.pdf" width="800" height="500" style="border:none;" scrolling="no"></iframe>

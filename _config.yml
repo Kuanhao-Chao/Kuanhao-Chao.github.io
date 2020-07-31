@@ -176,6 +176,9 @@ collections:
   teaching:
     output: true
     permalink: /:collection/:path/
+  references:
+    output: true
+    permalink: /:collection/:path/
   publications:
     output: true
     permalink: /:collection/:path/
@@ -277,6 +280,15 @@ defaults:
       layout: single
       author_profile: true
       share: true
+  # _references
+  - scope:
+      path: ""
+      type: references
+    values:
+      layout: single
+      author_profile: true
+      share: true
+      comments: true
 
 # Sass/SCSS
 sass:
