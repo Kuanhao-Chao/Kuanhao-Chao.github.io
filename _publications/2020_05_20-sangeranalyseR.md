@@ -66,4 +66,4 @@ sangeranalyseR is an open source R package that provides a simple but flexible s
 <br>
 
 ---
-[**>> Download paper here <<**](http://academicpages.github.io/files/paper3.pdf)
+[**>> Download paper here <<**](https://www.biorxiv.org/content/10.1101/2020.05.18.102459v1.full.pdf)
