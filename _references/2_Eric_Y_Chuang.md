@@ -1,12 +1,17 @@
 ---
-title: "Tsai, Huai-Kuang"
+title: "Eric Y. Chuang"
 collection: references
-type: "Oral presentation"
-permalink: /references/Huai-Kuang_Tsai
-venue: "International Conference on Intelligent Biology and Medicine (ICIBM 2019)"
-start_date: 2019-06-09
-end_date: 2019-06-11
-location: "Columbus, Ohio"
+image: "/images/Eric_Y_Chuang.jpg"
+permalink: /references/Eric_Y_Chuang
+institute: "Graduate Institute of Biomedical Electronics and Bioinformatics, National Taiwan University"
+location: "Taipei, Taiwan"
+email: "chuangey@ntu.edu.tw"
+website: "http://www.ee.ntu.edu.tw/bio1.php?id=99"
+google_scholar: "http://www.ee.ntu.edu.tw/publist1.php?id=99"
+phone: "+886-2-3366-3660"
+fax: "+886-2-3366-3682"
+address: "Barry Lam Hall, No. 1, Sec. 4, Roosevelt Rd., Taipei 10617, TAIWAN"
+
 ---
 <br>
 I presented RNASeqR on 11 of June at ICIBM 2019.

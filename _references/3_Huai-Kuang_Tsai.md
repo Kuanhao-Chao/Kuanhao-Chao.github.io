@@ -1,12 +1,16 @@
 ---
-title: "Eric Y. Chuang"
+title: "Huai-Kuang Tsai"
 collection: references
-type: "Oral presentation"
-permalink: /references/Eric_Y_Chuang
-venue: "International Conference on Intelligent Biology and Medicine (ICIBM 2019)"
-start_date: 2019-06-09
-end_date: 2019-06-11
-location: "Columbus, Ohio"
+image: "/images/Huai-Kuang_Tsai.jpg"
+permalink: /references/Huai-Kuang_Tsai
+institute: "Institute of Information Science, Academia Sinica"
+location: "Taipei, Taiwan"
+email: "hktsai@iis.sinica.edu.tw"
+website: "https://www.iis.sinica.edu.tw/pages/hktsai/index_en.html"
+google_scholar: "https://scholar.google.com/citations?user=N47Af-wAAAAJ&hl=zh-TW&oi=ao"
+phone: "+886-2-2788-3799 #1718"
+fax: "+886-2-2782-4814"
+address: "No 128, Academia Rd. Sec.2, Nankang Dist., Taipei, TAIWAN 11529"
 ---
 <br>
 I presented RNASeqR on 11 of June at ICIBM 2019.
