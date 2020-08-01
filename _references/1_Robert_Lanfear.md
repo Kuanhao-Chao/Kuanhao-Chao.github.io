@@ -12,7 +12,3 @@ phone: "+61-2-6125-2536"
 fax: "+61-2-6125-5573"
 address: "Australian National University, Canberra, ACT, 0200, AUSTRALIA"
 ---
-
-[More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)
-
-This is a description of your talk, which is a markdown files that can be all markdown-ified like any other post. Yay markdown!

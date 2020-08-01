@@ -12,12 +12,14 @@
 
 <div clss="row" style="display: flex;">
   <div class="column" style="flex: 20%;">
-    <img src="{{ post.image }}" style="width: 140px;
-    height: 190px;
+    <img src="{{ post.image }}" style="width: 160px;
+    height: 217px;
     object-fit: cover;
-    border: 1px solid #b8b8b8;display: inline; margin-top:50px; margin-right:40px">
+    border: 1px solid #b8b8b8;display: inline; margin-top:55px;">
   </div>
-  <div  class="column" style="flex: 80%;">
+  <div class="column" style="flex: 3%;">
+  </div>
+  <div  class="column" style="flex: 77%;">
     {% if post.id %}
       {% assign title = post.title | markdownify | remove: "<p>" | remove: "</p>" %}
     {% else %}
@@ -45,7 +47,13 @@
 
         <p class="page__meta" style="margin-left:2px"><b><i class="fa fa-phone" aria-hidden="true"></i> &nbsp;&nbsp; {{post.phone}}</b></p>
 
-        <p class="page__meta" style="margin-left:2px"><b><i class="fa fa-fax" aria-hidden="true"></i> &nbsp; {{post.fax}}</b></p>
+        {% if post.fax %}
+          <p class="page__meta" style="margin-left:2px"><b><i class="fa fa-fax" aria-hidden="true"></i> &nbsp; {{post.fax}}</b></p>
+        {% else %}
+        {% endif %}
+
+
+
 
         <p class="page__meta"><b><i class="fa fa-internet-explorer" aria-hidden="true"></i> &nbsp;&nbsp; Personal Website: &nbsp;<a href="{{post.website}}" target="_blank">{{post.website}}</a></b></p>
 

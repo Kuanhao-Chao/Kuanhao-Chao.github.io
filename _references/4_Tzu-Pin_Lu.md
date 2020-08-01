@@ -9,10 +9,6 @@ email: "tplu@ntu.edu.tw"
 website: "https://scholars.lib.ntu.edu.tw/cris/rp/rp06647"
 google_scholar: "https://scholar.google.com/citations?user=F93nO98AAAAJ&hl=en"
 phone: "+886-2-3366-8042"
-fax: "+886-2-2782-4814"
+fax: False
 address: "Room 518, No.17, Xu-Zhou Rd., Taipei, TAIWAN 10055"
 ---
-
-[More information here](https://icibm2019.org/index.htm)
-
-This is a description of your conference proceedings talk, note the different field in type. You can put anything in this field.
