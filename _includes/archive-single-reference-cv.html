@@ -33,8 +33,23 @@
         <a href="{{ base_path }}{{ post.url }}" rel="permalink">{{ title }}</a>
       {% endif %}
     </h3>
-    {% if post.date %}<p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {{ post.date | date: '%B %d, %Y' }}</p>{% endif %}
-    {% if post.venue%}<p class="archive__item-excerpt" itemprop="description">{{post.type}} at {{ post.venue }},  {{post.location}}</p>{% endif %}
+
+
+
+    <p class="page__meta" style="margin-left:2px"><b><i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{post.location}}</b></p>
+
+    <p class="page__meta"><b><i class="fa fa-university" aria-hidden="true"></i> &nbsp; {{post.institute}}</b></p>
+
+    <p class="page__meta"><b><i class="fa fa-envelope" aria-hidden="true"></i> &nbsp;&nbsp;  <a href="mailto:{{post.email}}">{{post.email}}</a></b></p>
+
+    <p class="page__meta" style="margin-left:2px"><b><i class="fa fa-phone" aria-hidden="true"></i> &nbsp;&nbsp; {{post.phone}}</b></p>
+
+    {% if post.fax %}
+      <p class="page__meta" style="margin-left:2px"><b><i class="fa fa-fax" aria-hidden="true"></i> &nbsp; {{post.fax}}</b></p>
+    {% else %}
+    {% endif %}
+
+
     </li>
   </article>
 </div>

@@ -16,15 +16,6 @@ redirect_from:
 
 ---
 
-🛠 &nbsp; Skills
-======
-* Programming Languag 1
-  * Python / R / Java / C / C++
-* Programming Skill
-  * Git / R package / Django Flask / Android App / Web Development / Unity Game
-
-  ---
-
 📔 &nbsp; Publications
 ======
   <ul>{% for post in site.publications %}
@@ -33,18 +24,18 @@ redirect_from:
 
   ---
 
-🎤 &nbsp; Talks & Exhibition
-======
-  <ul>{% for post in site.talks %}
-    {% include archive-single-talk-cv.html %}
-  {% endfor %}</ul>
-
-  ---
-
 🔬 &nbsp; Research
 ======
   <ul>{% for post in site.researches %}
     {% include archive-single-research-cv.html %}
+  {% endfor %}</ul>
+
+  ---
+
+🎤 &nbsp; Talks & Exhibition
+======
+  <ul>{% for post in site.talks %}
+    {% include archive-single-talk-cv.html %}
   {% endfor %}</ul>
 
   ---
@@ -61,4 +52,21 @@ redirect_from:
 ======
 <ul>{% for post in site.internship %}
   {% include archive-single-internship-cv.html %}
+{% endfor %}</ul>
+
+---
+
+🛠 &nbsp; Skills
+======
+* Programming Languag 1
+  * <small>Python / R / Java / C / C++</small>
+* Programming Skill
+  * <small>Git / R package / Django Flask / Android App / Web Development / Unity Game</small>
+
+---
+
+✉️ &nbsp; References
+======
+<ul>{% for post in site.references %}
+  {% include archive-single-reference-cv.html %}
 {% endfor %}</ul>

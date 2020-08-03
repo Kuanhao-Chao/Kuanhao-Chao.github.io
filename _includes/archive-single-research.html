@@ -44,7 +44,7 @@
         {% endif %}
         {% if post.start_date %}<p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ post.start_date | date: '%B %d, %Y' }} {% if post.end_date %} - {{ post.end_date | date: '%B %d, %Y' }}{% endif %}</b></p>{% endif %}
 
-        <p class="page__meta"><b>&nbsp;<i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{post.location}}</b></p>
+        <p class="page__meta" style="margin-left:2px"><b><i style="margin-right:1px" class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{post.location}}</b></p>
 
         <p class="page__meta"><b><i class="fa fa-university" aria-hidden="true"></i> &nbsp;&nbsp;  {{post.venue}}</b></p>
 

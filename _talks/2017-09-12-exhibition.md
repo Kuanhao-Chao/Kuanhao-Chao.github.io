@@ -7,6 +7,7 @@ venue: "World Congress on Information Technology (WCIT 2017)"
 start_date: 2017-09-11
 end_date: 2017-09-13
 location: "Taipei, Taiwan"
+image: "/images/WCIT_2017.jpg"
 ---
 
 [More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)

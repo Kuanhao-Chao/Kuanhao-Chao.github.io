@@ -3,11 +3,11 @@ title: "Elution profile-based protein complexes inference algorithm"
 collection: researches
 type: "Research assistant"
 permalink: /researches/2020-07-01-elution_profile_complex_algorithm
-venue: "Bioinformatics Lab, Institute of Information Science, Academia Sinica"
+venue: "<a href='https://bits.iis.sinica.edu.tw/?id=1' target='_blank' style='color: inherit;'>Bioinformatics Lab, Institute of Information Science, Academia Sinica</a>"
 start_date: 2020-07-01
 end_date: "Present"
 location: "Taipei, Taiwan"
-status: "In progress"
+status: '<a style="text-decoration:none; color:orange;">In progress <i class="fa fa-spinner" aria-hidden="true"></i></a>'
 superviser: '<a href="/references/Huai-Kuang_Tsai" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfcae3; border-radius: 10px; background-color: #bfcae3;" target="_blank">&nbsp; Huai-Kuang Tsai &nbsp;</a>'
 ---
 
