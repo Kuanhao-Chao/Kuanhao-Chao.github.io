@@ -3,7 +3,7 @@ title: "Robert Lanfear"
 collection: references
 image: "/images/Robert_Lanfear.jpg"
 permalink: /references/Robert_Lanfear
-institute: "Eivision of Ecology and Evolution, Research School of Biology, The Australian National University"
+institute: "Division of Ecology and Evolution, Research School of Biology, The Australian National University"
 location: "Canberra, Australia"
 email: "rob.lanfear@anu.edu.au"
 website: "https://www.robertlanfear.com"
