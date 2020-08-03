@@ -8,6 +8,7 @@ start_date: 2020-07-24
 end_date: "Present"
 location: "Taipei, Taiwan"
 status: "In progress"
+image: "/images/vaccine_project_cover.png"
 superviser: '<a href="/references/Tzu-Pin_Lu" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfe3c3; border-radius: 10px; background-color: #bfe3c3;" target="_blank">&nbsp; Tzu-pin Lu &nbsp;</a>'
 
 ---

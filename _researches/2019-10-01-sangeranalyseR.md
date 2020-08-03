@@ -8,6 +8,7 @@ start_date: 2019-09-01
 end_date: 2020-01-01
 location: "Canberra, Australia"
 status: "Under review"
+image: "/images/sangeranalyseR_figure_1.png"
 superviser: '<a href="/references/Robert_Lanfear" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#e3bfbf; border-radius: 10px; background-color: #e3bfbf;" target="_blank">&nbsp; Robert Lanfear &nbsp;</a>'
 ---
 
