@@ -218,14 +218,14 @@ defaults:
       path: ""
       type: pages
     values:
-      layout: single
+      layout: page
       author_profile: true
   # _teaching
   - scope:
       path: ""
       type: teaching
     values:
-      layout: single
+      layout: teaching
       author_profile: true
       share: true
       comments: true
@@ -234,7 +234,7 @@ defaults:
       path: ""
       type: publications
     values:
-      layout: single
+      layout: publication
       author_profile: true
       share: true
       comments: true
@@ -243,7 +243,7 @@ defaults:
       path: ""
       type: researches
     values:
-      layout: single
+      layout: research
       author_profile: true
       share: true
       comments: true
@@ -252,7 +252,7 @@ defaults:
       path: ""
       type: portfolio
     values:
-      layout: single
+      layout: portfolio
       author_profile: true
       share: true
       comment: true
@@ -269,7 +269,7 @@ defaults:
       path: ""
       type: internship
     values:
-      layout: single
+      layout: internship
       author_profile: true
       share: true
   # _games
@@ -277,7 +277,7 @@ defaults:
       path: ""
       type: games
     values:
-      layout: single
+      layout: game
       author_profile: true
       share: true
   # _references
@@ -285,7 +285,7 @@ defaults:
       path: ""
       type: references
     values:
-      layout: single
+      layout: reference
       author_profile: true
       share: true
       comments: true

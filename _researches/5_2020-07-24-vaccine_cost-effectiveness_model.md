@@ -10,7 +10,8 @@ location: "Taipei, Taiwan"
 status: '<a style="text-decoration:none; color:orange;">In progress <i class="fa fa-spinner" aria-hidden="true"></i></a>'
 image: "/images/vaccine_project_cover.png"
 superviser: '<a href="/references/Tzu-Pin_Lu" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfe3c3; border-radius: 10px; background-color: #bfe3c3;" target="_blank">&nbsp; Tzu-pin Lu &nbsp;</a>'
-
+superviser_clean:
+  - "Tzu-Pin Lu"
 ---
 '<a href="https://scholars.lib.ntu.edu.tw/cris/rp/rp06647" style="color:#4A4F53">Tzu-pin Lu</a>'
 

@@ -1,0 +1,139 @@
+---
+layout: default
+---
+<script src="https://kit.fontawesome.com/yourcode.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+{% include base_path %}
+
+{% if page.header.overlay_color or page.header.overlay_image or page.header.image %}
+  {% include page__hero.html %}
+{% endif %}
+
+{% if page.url != "/" and site.breadcrumbs %}
+  {% unless paginator %}
+    {% include breadcrumbs.html %}
+  {% endunless %}
+{% endif %}
+
+<div id="main" role="main">
+  {% include sidebar.html %}
+
+
+  <article class="page" itemscope itemtype="http://schema.org/CreativeWork">
+    {% if page.title %}<meta itemprop="headline" content="{{ page.title | markdownify | strip_html | strip_newlines | escape_once }}">{% endif %}
+    {% if page.excerpt %}<meta itemprop="description" content="{{ page.excerpt | markdownify | strip_html | strip_newlines | escape_once }}">{% endif %}
+    {% if page.date %}<meta itemprop="datePublished" content="{{ page.date | date: "%B %d, %Y" }}">{% endif %}
+    {% if page.modified %}<meta itemprop="dateModified" content="{{ page.modified | date: "%B %d, %Y" }}">{% endif %}
+
+
+    <div class="page__inner-wrap">
+
+      <div clss="row" style="display: flex;">
+        <div class="column" style="flex: 79%;">
+          {% unless page.header.overlay_color or page.header.overlay_image %}
+            <header>
+              {% if page.title %}<h1 class="page__title" itemprop="headline">{{ page.title | markdownify | remove: "<p>" | remove: "</p>" }}</h1>{% endif %}
+              {% if page.read_time %}
+                <p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {% include read-time.html %}</p>
+              {% endif %}
+              <p class="page__meta" style="margin-left:2px; margin-top: 10px"><b><i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{page.location}}</b></p>
+
+              <p class="page__meta" style="margin-top: -13px"><b><i class="fa fa-university" aria-hidden="true"></i> &nbsp; {{page.institute}}</b></p>
+
+              <p class="page__meta" style="margin-left:2px; margin-top: -13px"><b><i class="fas fa-map-marked-alt" aria-hidden="true"></i> &nbsp; {{page.address}}</b></p>
+
+              <p class="page__meta" style="margin-top: -13px"><b><i class="fa fa-envelope" aria-hidden="true"></i> &nbsp;&nbsp;  <a href="mailto:{{page.email}}">{{page.email}}</a></b></p>
+
+              <p class="page__meta" style="margin-left:2px; margin-top: -13px"><b><i class="fa fa-phone" aria-hidden="true"></i> &nbsp;&nbsp; {{page.phone}}</b></p>
+
+              {% if page.fax %}
+                <p class="page__meta" style="margin-left:2px; margin-top: -13px"><b><i class="fa fa-fax" aria-hidden="true"></i> &nbsp; {{page.fax}}</b></p>
+              {% else %}
+              {% endif %}
+
+              <p class="page__meta" style="margin-top: -13px"><b><i class="fa fa-internet-explorer" aria-hidden="true"></i> &nbsp;&nbsp; Personal Website: &nbsp;<a href="{{page.website}}" target="_blank">{{page.website}}</a></b></p>
+
+              <p class="page__meta" style="margin-left:2px; margin-top: -13px"><b><i class="fa fa-google" aria-hidden="true"></i> &nbsp;&nbsp; Publications: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="{{page.google_scholar}}" target="_blank">{{page.google_scholar}}</a></b></p>
+
+            </header>
+          {% endunless %}
+        </div>
+        <div class="column" style="flex: 3%;">
+        </div>
+        <div  class="column" style="flex: 18%;">
+          <img src="{{ page.image }}" style="width: 160px;
+          height: 217px;
+          object-fit: contain;
+          display: inline; margin-top:40px;">
+        </div>
+      </div>
+<!-- class="page__content" -->
+      <section  itemprop="text">
+        <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;About </h2>
+        <div style="margin-left: 30px">
+          {{ content }}
+        </div>
+<!-- superviser_clean -->
+        <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Supervised Projects </h2>
+        <div style="margin-left: 30px">
+          {% for post in site.researches %}
+            {% for superviser in post.superviser_clean %}
+                {% if superviser == page.title %}
+                  {% include archive-single-research-inner.html %}
+                  <hr>
+                {% endif %}
+            {% endfor %}
+          {% endfor %}
+        </div>
+
+
+        <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Publication </h2>
+        <div style="margin-left: 30px;">
+          {% for post in site.publications %}
+            {% for superviser in post.superviser_clean %}
+                {% if superviser == page.title %}
+                  {% include archive-single-inner.html %}
+                  <hr>
+                {% endif %}
+            {% endfor %}
+          {% endfor %}
+        </div>
+
+
+        {% if page.link %}<div><a href="{{ page.link }}" class="btn">{{ site.data.ui-text[site.locale].ext_link_label | default: "Direct Link" }}</a></div>{% endif %}
+      </section>
+
+      <footer class="page__meta">
+        {% if site.data.ui-text[site.locale].meta_label %}
+          <h4 class="page__meta-title">{{ site.data.ui-text[site.locale].meta_label }}</h4>
+        {% endif %}
+        {% include page__taxonomy.html %}
+      </footer>
+
+      {% if page.share %}{% include social-share.html %}{% endif %}
+
+      {% include post_pagination.html %}
+    </div>
+
+
+
+    {% if site.comments.provider and page.comments %}
+      {% include comments.html %}
+    {% endif %}
+  </article>
+
+  {% comment %}<!-- only show related on a post page when not disabled -->{% endcomment %}
+  {% if page.id and page.related and site.related_posts.size > 0 %}
+    <div class="page__related">
+      {% if site.data.ui-text[site.locale].related_label %}
+        <h4 class="page__related-title">{{ site.data.ui-text[site.locale].related_label | default: "You May Also Enjoy" }}</h4>
+      {% endif %}
+      <div class="grid__wrapper">
+        {% for post in site.related_posts limit:4 %}
+          {% include archive-single.html type="grid" %}
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>

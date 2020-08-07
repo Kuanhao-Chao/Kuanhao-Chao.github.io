@@ -7,6 +7,8 @@ date: 2020-05-20
 venue: 'bioRxiv'
 paperurl: 'https://www.biorxiv.org/content/10.1101/2020.05.18.102459v1.full.pdf'
 citation: '<br><b style="color:#ad0000">K.H. Chao*</b>, K. Barton, S. Palmer, and R. Lanfear (2019). "sangeranalyseR: simple and interactive analysis of Sanger sequencing data in R" in <b><i>bioRxiv</i></b>. doi: 10.1101/2020.05.18.102459.'
+superviser_clean:
+  - "Robert Lanfear"
 ---
 ---
 
