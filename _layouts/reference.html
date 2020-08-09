@@ -70,35 +70,82 @@ layout: default
       </div>
 <!-- class="page__content" -->
       <section  itemprop="text">
-        <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;About </h2>
+        <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Introduction </h2>
         <div style="margin-left: 30px">
           {{ content }}
         </div>
 <!-- superviser_clean -->
-        <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Supervised Projects </h2>
-        <div style="margin-left: 30px">
-          {% for post in site.researches %}
-            {% for superviser in post.superviser_clean %}
-                {% if superviser == page.title %}
-                  {% include archive-single-research-inner.html %}
-                  <hr>
-                {% endif %}
+
+        <div id="supervised_projects">
+          <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Supervised Projects </h2>
+          <div style="margin-left: 30px" id="supervised_projects_inner">
+            {% for post in site.researches %}
+              {% for superviser in post.superviser_clean %}
+                  {% if superviser == page.title %}
+                    {% include archive-single-research-inner.html %}
+                    <hr>
+                  {% endif %}
+              {% endfor %}
             {% endfor %}
-          {% endfor %}
+          </div>
         </div>
 
+        <script>
+          var supervised_projects = document.getElementById('supervised_projects');
+          console.log("supervised_projects: ", supervised_projects)
+          if ($('#supervised_projects_inner').children().length == 0) {
+            supervised_projects.remove();
+          }
+        </script>
 
-        <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Publication </h2>
-        <div style="margin-left: 30px;">
-          {% for post in site.publications %}
-            {% for superviser in post.superviser_clean %}
-                {% if superviser == page.title %}
-                  {% include archive-single-inner.html %}
-                  <hr>
-                {% endif %}
+        <div id="publication">
+          <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Publication </h2>
+          <div style="margin-left: 30px;" id="publication_inner">
+            {% for post in site.publications %}
+              {% for superviser in post.superviser_clean %}
+                  {% if superviser == page.title %}
+                    {% include archive-single-inner.html %}
+                    <hr>
+                  {% endif %}
+              {% endfor %}
             {% endfor %}
-          {% endfor %}
+          </div>
         </div>
+
+        <script>
+          var publication = document.getElementById('publication');
+          console.log("publication: ", publication)
+          // console.log("$('#publication_inner').children().length == 0: ", $('#publication_inner').children().length == 0)
+
+          if ($('#publication_inner').children().length == 0) {
+            publication.remove();
+          }
+        </script>
+
+
+        <div id="talk">
+          <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Talks </h2>
+          <div style="margin-left: 30px;" id="talk_inner">
+            {% for post in site.talks %}
+              {% for superviser in post.superviser_clean %}
+                  {% if superviser == page.title %}
+                    {% include archive-single-talk-inner.html %}
+                    <hr>
+                  {% endif %}
+              {% endfor %}
+            {% endfor %}
+          </div>
+        </div>
+
+        <script>
+          var talk = document.getElementById('talk');
+          console.log("talk: ", talk)
+          // console.log("$('#publication_inner').children().length == 0: ", $('#publication_inner').children().length == 0)
+
+          if ($('#talk_inner').children().length == 0) {
+            talk.remove();
+          }
+        </script>
 
 
         {% if page.link %}<div><a href="{{ page.link }}" class="btn">{{ site.data.ui-text[site.locale].ext_link_label | default: "Direct Link" }}</a></div>{% endif %}
