@@ -136,16 +136,6 @@ layout: default
           </div>
         </div>
 
-        <script>
-          if (document.getElementById("talk_inner").childNodes.length != 0) {
-            var talks_content = `
-              <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Talks </h2>
-              `
-            // console.log('document.getElementById("talk_inner"): ', document.getElementById("talk_inner").childNodes.length)
-            document.getElementById("talk").insertAdjacentHTML('afterbegin', talks_content)
-          }
-        </script>
-
 
         {% if page.link %}<div><a href="{{ page.link }}" class="btn">{{ site.data.ui-text[site.locale].ext_link_label | default: "Direct Link" }}</a></div>{% endif %}
       </section>
@@ -182,4 +172,14 @@ layout: default
       </div>
     </div>
   {% endif %}
+  <script>
+    if (document.getElementById("talk_inner").childNodes.length != 0) {
+      var talks_content = `
+        <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Talks </h2>
+        `
+      // console.log('document.getElementById("talk_inner"): ', document.getElementById("talk_inner").childNodes.length)
+      document.getElementById("talk").insertAdjacentHTML('afterbegin', talks_content)
+    }
+  </script>
+
 </div>
