@@ -1,4 +1,5 @@
 if (document.getElementById("supervised_projects_inner").childNodes.length != 0) {
+  console.log("supervised_projects_inner: ")
   var supervised_projects_content = `
   <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Supervised Projects </h2>
   `
@@ -7,6 +8,7 @@ if (document.getElementById("supervised_projects_inner").childNodes.length != 0)
 }
 
 if (document.getElementById("publication_inner").childNodes.length != 0) {
+  console.log("publication_inner: ")
   var publication_content = `
     <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Publication </h2>
     `
@@ -15,6 +17,7 @@ if (document.getElementById("publication_inner").childNodes.length != 0) {
 }
 
 if (document.getElementById("talk_inner").childNodes.length != 0) {
+  console.log("talk_inner: ")
   var talks_content = `
     <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Talks </h2>
     `

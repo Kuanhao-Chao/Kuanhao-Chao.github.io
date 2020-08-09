@@ -11,8 +11,25 @@ redirect_from:
 
 🎓 &nbsp; Education
 ======
-* B.S. in Taiwan, National Taiwan University, 2016 - 2021
-* Exchange in Australia, The Australian National University, 2019-2020
+<ul>
+  <div class="{{ include.type | default: "list" }}__item">
+    <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
+      <li>
+        <h3 class="archive__item-title" itemprop="headline">B.S. in Taiwan, Department of Electrical Engineering, National Taiwan University</h3>
+        <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2016-09-01" | date: '%B, %Y' }}  - {{ "2021-01-01" | date: '%B, %Y' }}</b></p>
+      </li>
+    </article>
+  </div>
+
+  <div class="{{ include.type | default: "list" }}__item">
+    <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
+      <li>
+        <h3 class="archive__item-title" itemprop="headline">Exchange in Australia, College of Engineering and Computer Science, The Australian National University</h3>
+        <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2019-07-01" | date: '%B, %Y' }}  - {{ "2020-06-01" | date: '%B, %Y' }}</b></p>
+      </li>
+    </article>
+  </div>
+</ul>
 
 ---
 
@@ -24,7 +41,7 @@ redirect_from:
 
   ---
 
-🔬 &nbsp; Research
+🔬 &nbsp; Research Projects
 ======
   <ul>{% for post in site.researches %}
     {% include archive-single-research-cv.html %}
