@@ -124,7 +124,7 @@ layout: default
 
 
         <div id="talk">
-          <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Talks </h2>
+          <!-- <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Talks </h2> -->
           <div style="margin-left: 30px;" id="talk_inner">
             {% for post in site.talks %}
               {% for superviser in post.superviser_clean %}
@@ -138,13 +138,18 @@ layout: default
         </div>
 
         <script>
-          var talk = document.getElementById('talk');
-          console.log("talk: ", talk)
           // console.log("$('#publication_inner').children().length == 0: ", $('#publication_inner').children().length == 0)
 
-          if ($('#talk_inner').children().length == 0) {
-            talk.remove();
+          if (document.getElementById("talk_inner").childNodes.length != 0) {
+            var talks_content = `
+              <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Talks </h2>
+              `
+            // console.log('document.getElementById("talk_inner"): ', document.getElementById("talk_inner").childNodes.length)
+            document.getElementById("talk").insertAdjacentHTML('afterbegin', talks_content)
           }
+          // if ($('#talk_inner').children().length == 0) {
+          //   talk.remove();
+          // }
         </script>
 
 
