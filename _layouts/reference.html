@@ -1,7 +1,6 @@
 ---
 layout: default
 ---
-<script src="https://kit.fontawesome.com/yourcode.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
 {% include base_path %}
@@ -91,11 +90,11 @@ layout: default
         </div>
 
         <script>
-          var supervised_projects = document.getElementById('supervised_projects');
-          console.log("supervised_projects: ", supervised_projects)
-          if ($('#supervised_projects_inner').children().length == 0) {
-            supervised_projects.remove();
-          }
+          // var supervised_projects = document.getElementById('supervised_projects');
+          // console.log("supervised_projects: ", supervised_projects)
+          // if ($('#supervised_projects_inner').children().length == 0) {
+          //   supervised_projects.remove();
+          // }
         </script>
 
         <div id="publication">
@@ -113,13 +112,13 @@ layout: default
         </div>
 
         <script>
-          var publication = document.getElementById('publication');
-          console.log("publication: ", publication)
-          // console.log("$('#publication_inner').children().length == 0: ", $('#publication_inner').children().length == 0)
-
-          if ($('#publication_inner').children().length == 0) {
-            publication.remove();
-          }
+          // var publication = document.getElementById('publication');
+          // console.log("publication: ", publication)
+          // // console.log("$('#publication_inner').children().length == 0: ", $('#publication_inner').children().length == 0)
+          //
+          // if ($('#publication_inner').children().length == 0) {
+          //   publication.remove();
+          // }
         </script>
 
 
@@ -138,8 +137,6 @@ layout: default
         </div>
 
         <script>
-          // console.log("$('#publication_inner').children().length == 0: ", $('#publication_inner').children().length == 0)
-
           if (document.getElementById("talk_inner").childNodes.length != 0) {
             var talks_content = `
               <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Talks </h2>
@@ -147,9 +144,6 @@ layout: default
             // console.log('document.getElementById("talk_inner"): ', document.getElementById("talk_inner").childNodes.length)
             document.getElementById("talk").insertAdjacentHTML('afterbegin', talks_content)
           }
-          // if ($('#talk_inner').children().length == 0) {
-          //   talk.remove();
-          // }
         </script>
 
 
