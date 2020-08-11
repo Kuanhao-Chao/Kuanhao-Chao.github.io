@@ -12,6 +12,7 @@ image: "/images/sangeranalyseR_cover.png"
 superviser: '<a href="/references/Robert_Lanfear" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#e3bfbf; border-radius: 10px; background-color: #e3bfbf;" target="_blank">&nbsp; Robert Lanfear &nbsp;</a>'
 superviser_clean:
   - "Robert Lanfear"
+research_position: "RA_RSB_ANU"
 ---
 
 

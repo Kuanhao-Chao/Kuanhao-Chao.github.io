@@ -10,7 +10,7 @@ locale                   : "en-US"
 title                    : "Kuan-Hao Chao"
 title_separator          : "-"
 name                     : &name "Kuan-Hao Chao"
-description              : &description "• Research assistant @ Academia Sinica<br>• Former research assistant @ the Australian National University<br>•  Former undergraduate research student @ National Taiwan University"
+description              : &description "• Research assistant @ Institute of Information Science, Academia Sinica<br>• Research assistant @ College of Public Health, NTU<br>• Former research assistant @ Research School of Biology, ANU<br>•  Former undergraduate research student @ NTU Centers of Genomics and Precision Medicine"
 url                      : https://kuanhao-chao.github.io
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "kuanhao-chao.github.io"
@@ -82,7 +82,7 @@ analytics:
 author:
   name             : "Kuan-Hao Chao"
   avatar           : "profile.png"
-  bio              : "• Research assistant @ Academia Sinica<br>• Former research assistant @ the Australian National University<br>• Former undergraduate research student @ National Taiwan University"
+  bio              : "• Research assistant @ Institute of Information Science, Academia Sinica<br>• Research assistant @ College of Public Health, NTU<br>• Former research assistant @ Research School of Biology, ANU<br>•  Former undergraduate research student @ NTU Centers of Genomics and Precision Medicine"
   location         : "Taipei, Taiwan"
   employer         :
   googlescholar    : "https://scholar.google.com/citations?user=r7LG-XQAAAAJ&hl=zh-TW"
