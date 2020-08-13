@@ -60,13 +60,37 @@ redirect_from:
 </div> -->
 
 
+<!-- <link rel="stylesheet" href="{{ base_path }}/assets/css/collapse.css"/>
+
+<script>
+var coll = document.getElementsByClassName("collapsible");
+var i;
+
+for (i = 0; i < coll.length; i++) {
+  coll[i].addEventListener("click", function() {
+    this.classList.toggle("active");
+    var content = this.nextElementSibling;
+    if (content.style.display === "block") {
+      content.style.display = "none";
+    } else {
+      content.style.display = "block";
+    }
+  });
+}
+</script>
+
+<button type="button" class="collapsible">Open Collapsible</button>
+<div class="content">
+  <p>Lorem ipsum...</p>
+</div> -->
+
 🎓 &nbsp; Education
 ======
 <ul>
   <div class="{{ include.type | default: "list" }}__item">
     <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
       <li>
-        <h3 class="archive__item-title" itemprop="headline">B.S. in Taiwan, Department of Electrical Engineering, National Taiwan University</h3>
+        <h3 itemprop="headline">B.S. in Taiwan, Department of Electrical Engineering, National Taiwan University</h3>
         <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2016-09-01" | date: '%B, %Y' }}  - {{ "2021-01-01" | date: '%B, %Y' }}</b></p>
       </li>
     </article>
@@ -75,7 +99,7 @@ redirect_from:
   <div class="{{ include.type | default: "list" }}__item">
     <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
       <li>
-        <h3 class="archive__item-title" itemprop="headline">Exchange in Australia, College of Engineering and Computer Science, The Australian National University</h3>
+        <h3 itemprop="headline">Exchange in Australia, College of Engineering and Computer Science, The Australian National University</h3>
         <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2019-07-01" | date: '%B, %Y' }}  - {{ "2020-06-01" | date: '%B, %Y' }}</b></p>
       </li>
     </article>
@@ -98,9 +122,8 @@ redirect_from:
     <div class="{{ include.type | default: "list" }}__item">
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         <li>
-          <h3 class="archive__item-title" itemprop="headline">Research Assistant @ Institute of Information Science, Academia Sinica </h3>
+          <h3 itemprop="headline">Research Assistant @ Institute of Information Science, Academia Sinica </h3>
           <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2020-07-01" | date: '%B, %Y' }}  - {{ "Present" | date: '%B, %Y' }}</b></p>
-          <p class="page__meta" style="margin-left:2px"><b><i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{site.researches[3].venue}}, {{site.researches[3].location}}</b></p>
           <ul>{% for post in site.researches %}
             {%if post.research_position == "RA_IIS_AS" %}
               {% include archive-single-research-cv.html %}
@@ -113,9 +136,8 @@ redirect_from:
     <div class="{{ include.type | default: "list" }}__item">
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         <li>
-          <h3 class="archive__item-title" itemprop="headline">Research Assistant @ Institute of Epidemiology and Preventive Medicine, National Taiwan University</h3>
+          <h3 itemprop="headline">Research Assistant @ Institute of Epidemiology and Preventive Medicine, National Taiwan University</h3>
           <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2019-07-01" | date: '%B, %Y' }}  - {{ "2020-06-01" | date: '%B, %Y' }}</b></p>
-          <p class="page__meta" style="margin-left:2px"><b><i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{site.researches[4].venue}}, {{site.researches[4].location}}</b></p>
           <ul>{% for post in site.researches %}
             {%if post.research_position == "RA_IEPM_NTU" %}
               {% include archive-single-research-cv.html %}
@@ -128,9 +150,8 @@ redirect_from:
     <div class="{{ include.type | default: "list" }}__item">
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         <li>
-          <h3 class="archive__item-title" itemprop="headline">Research Assistant @ Division of Ecology and Evolution, The Australian National University</h3>
+          <h3 itemprop="headline">Research Assistant @ Division of Ecology and Evolution, The Australian National University</h3>
           <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2019-07-01" | date: '%B, %Y' }}  - {{ "2020-06-01" | date: '%B, %Y' }}</b></p>
-          <p class="page__meta" style="margin-left:2px"><b><i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{site.researches[1].venue}}, {{site.researches[1].location}}</b></p>
           <ul>{% for post in site.researches %}
             {%if post.research_position == "RA_RSB_ANU" %}
               {% include archive-single-research-cv.html %}
@@ -143,9 +164,8 @@ redirect_from:
     <div class="{{ include.type | default: "list" }}__item">
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         <li>
-          <h3 class="archive__item-title" itemprop="headline">Undergraduate Research Student @ Center of Genomic and Precision Medicine, National Taiwan University</h3>
+          <h3 itemprop="headline">Undergraduate Research Student @ Center of Genomic and Precision Medicine, National Taiwan University</h3>
           <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2019-07-01" | date: '%B, %Y' }}  - {{ "2020-06-01" | date: '%B, %Y' }}</b></p>
-          <p class="page__meta" style="margin-left:2px"><b><i class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{site.researches[0].venue}}, {{site.researches[0].location}}</b></p>
           <ul>{% for post in site.researches %}
             {%if post.research_position == "URS_CGM_NTU" %}
               {% include archive-single-research-cv.html %}
