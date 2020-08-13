@@ -60,32 +60,10 @@ redirect_from:
 </div> -->
 
 
-<!-- <link rel="stylesheet" href="{{ base_path }}/assets/css/collapse.css"/>
+<link rel="stylesheet" href="{{ base_path }}/assets/css/collapse.css"/>
 
-<script>
-var coll = document.getElementsByClassName("collapsible");
-var i;
+<h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;🎓 &nbsp; Education</h1>
 
-for (i = 0; i < coll.length; i++) {
-  coll[i].addEventListener("click", function() {
-    this.classList.toggle("active");
-    var content = this.nextElementSibling;
-    if (content.style.display === "block") {
-      content.style.display = "none";
-    } else {
-      content.style.display = "block";
-    }
-  });
-}
-</script>
-
-<button type="button" class="collapsible">Open Collapsible</button>
-<div class="content">
-  <p>Lorem ipsum...</p>
-</div> -->
-
-🎓 &nbsp; Education
-======
 <ul>
   <div class="{{ include.type | default: "list" }}__item">
     <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
@@ -108,16 +86,14 @@ for (i = 0; i < coll.length; i++) {
 
 ---
 
-📔 &nbsp; Publications
-======
+<h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;📔 &nbsp; Publications</h1>
   <ul>{% for post in site.publications %}
     {% include archive-single-cv.html %}
   {% endfor %}</ul>
 
   ---
 
-🔬 &nbsp; Research Experience
-======
+<h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;🔬 &nbsp; Research Experience</h1>
   <ul>
     <div class="{{ include.type | default: "list" }}__item">
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
@@ -179,32 +155,30 @@ for (i = 0; i < coll.length; i++) {
 ---
 
 
-🎤 &nbsp; Talks & Exhibition
-======
+<h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;🎤 &nbsp; Talks & Exhibition</h1>
   <ul>{% for post in site.talks %}
     {% include archive-single-talk-cv.html %}
   {% endfor %}</ul>
 
   ---
 
-🏫 &nbsp; Teaching
-======
+
+
+<h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;🏫 &nbsp; Teaching</h1>
   <ul>{% for post in site.teaching %}
     {% include archive-single-teaching-cv.html %}
   {% endfor %}</ul>
 
 ---
 
-💼 &nbsp; Internship
-======
+<h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;💼 &nbsp; Internship</h1>
 <ul>{% for post in site.internship %}
   {% include archive-single-internship-cv.html %}
 {% endfor %}</ul>
 
 ---
 
-🛠 &nbsp; Skills
-======
+<h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;🛠 &nbsp; Skills</h1>
 * Programming Languag 1
   * <small>Python / R / Java / C / C++</small>
 * Programming Skill
@@ -212,8 +186,7 @@ for (i = 0; i < coll.length; i++) {
 
 ---
 
-✉️ &nbsp; References
-======
+<h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;✉️ &nbsp; References</h1>
 <ul>{% for post in site.references %}
   {% include archive-single-reference-cv.html %}
 {% endfor %}</ul>
