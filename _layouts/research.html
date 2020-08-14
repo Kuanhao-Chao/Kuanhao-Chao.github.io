@@ -68,9 +68,9 @@ layout: default
 
         <div id="talk">
           <div style="margin-left: 30px;" id="talk_inner">
-            {% for post in site.publications %}
+            {% for post in site.talks %}
               {% if post.research_clean == page.research_clean %}
-                {% include archive-single-inner.html %}
+                {% include archive-single-talk-inner.html %}
                 <hr>
               {% endif %}
             {% endfor %}
@@ -112,4 +112,5 @@ layout: default
   {% endif %}
 
   <script src="{{ base_path }}/assets/js/research_adding_header.js"></script>
+
 </div>
