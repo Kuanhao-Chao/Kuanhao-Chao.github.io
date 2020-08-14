@@ -54,6 +54,7 @@ layout: default
         <div style="margin-left: 30px">
           {{ content }}
         </div>
+
         <div id="publication">
           <div style="margin-left: 30px;" id="publication_inner">
             {% for post in site.publications %}
@@ -64,6 +65,18 @@ layout: default
             {% endfor %}
           </div>
         </div>
+
+        <div id="talk">
+          <div style="margin-left: 30px;" id="talk_inner">
+            {% for post in site.publications %}
+              {% if post.research_clean == page.research_clean %}
+                {% include archive-single-inner.html %}
+                <hr>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+
         {% if page.link %}<div><a href="{{ page.link }}" class="btn">{{ site.data.ui-text[site.locale].ext_link_label | default: "Direct Link" }}</a></div>{% endif %}
       </section>
 
@@ -98,5 +111,5 @@ layout: default
     </div>
   {% endif %}
 
-  <script src="{{ base_path }}/assets/js/reference_adding_header.js"></script>
+  <script src="{{ base_path }}/assets/js/research_adding_header.js"></script>
 </div>

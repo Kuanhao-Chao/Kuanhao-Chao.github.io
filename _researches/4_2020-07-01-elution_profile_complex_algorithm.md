@@ -12,6 +12,7 @@ superviser: '<a href="/references/Huai-Kuang_Tsai" style="font-size: 12px; text-
 superviser_clean:
   - "Huai-Kuang Tsai"
 research_position: "RA_IIS_AS"
+research_clean: "elution_profile_complex_algorithm"
 ---
 
 

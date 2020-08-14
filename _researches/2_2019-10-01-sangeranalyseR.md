@@ -13,6 +13,7 @@ superviser: '<a href="/references/Robert_Lanfear" style="font-size: 12px; text-d
 superviser_clean:
   - "Robert Lanfear"
 research_position: "RA_RSB_ANU"
+research_clean: "sangeranalyseR"
 ---
 
 

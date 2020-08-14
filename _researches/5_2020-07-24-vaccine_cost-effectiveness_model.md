@@ -13,6 +13,7 @@ superviser: '<a href="/references/Tzu-Pin_Lu" style="font-size: 12px; text-decor
 superviser_clean:
   - "Tzu-Pin Lu"
 research_position: "RA_IEPM_NTU"
+research_clean: "vaccine_cost_effectiveness"
 ---
 '<a href="https://scholars.lib.ntu.edu.tw/cris/rp/rp06647" style="color:#4A4F53">Tzu-pin Lu</a>'
 

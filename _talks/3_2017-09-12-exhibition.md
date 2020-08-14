@@ -8,6 +8,7 @@ start_date: 2017-09-11
 end_date: 2017-09-13
 location: "Taipei, Taiwan"
 image: "/images/WCIT_2017.jpg"
+research_clean: "smart_bus_bell"
 ---
 
 [More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)
