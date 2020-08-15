@@ -9,7 +9,6 @@ redirect_from:
 
 {% include base_path %}
 <link rel="stylesheet" href="{{ base_path }}/assets/css/nav_card.css"/>
-<link rel="stylesheet" href="{{ base_path }}/assets/css/collapse.css"/>
 
 
 <!-- The navigation menu -->
@@ -18,7 +17,7 @@ redirect_from:
   <a class="nav_cv_pdf" href="#">PDF CV</a>
 </div>
 
-
+<link rel="stylesheet" href="{{ base_path }}/assets/js/nav_card.js"/>
 
 <br>
 
@@ -160,5 +159,3 @@ redirect_from:
     <iframe src="https://storage.googleapis.com/kuanhao.nctu.me/CV.pdf" width="100%" height="1200" style="border:none;" scrolling="no"></iframe>
   </p>
 </div>
-
-<link rel="stylesheet" href="{{ base_path }}/assets/js/nav_card.js"/>
