@@ -8,7 +8,7 @@ redirect_from:
 ---
 
 {% include base_path %}
-<link rel="stylesheet" href="{{ base_path }}/assets/css/nav_card.css"/>
+<!-- <link rel="stylesheet" href="{{ base_path }}/assets/css/nav_card.css"/> -->
 
 
 <!-- The navigation menu -->
@@ -57,7 +57,64 @@ nav_cv_pdf[0].addEventListener("click", function() {
     }
 }); -->
 
+<style>
+  /* Style the navigation menu */
+  .navbar {
+    width: 100%;
+    overflow: auto;
+  }
+
+  /* Navigation links */
+  .navbar a {
+    float: left;
+    padding: 12px;
+    color: #adadad;
+    text-decoration: none;
+    font-size: 25px;
+    font-weight: 900;
+    width: 50%; /* Four equal-width links. If you have two links, use 50%, and 33.33% for three links, etc.. */
+    text-align: center; /* If you want the text to be centered */
+    border-bottom: 3px solid #737373;
+  }
+
+  /* Add a background color on mouse-over */
+  .navbar a:hover {
+    /* background-color: #a8a8a8; */
+    border-top: 3px solid #cccccc;
+    border-left: 3px solid #cccccc;
+    border-right: 3px solid #cccccc;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    color: #737373;
+  }
+
+  /* Style the current/active link */
+  .navbar a.active {
+    border-bottom: none;
+    border-top: 3px solid #737373;
+    border-left: 3px solid #737373;
+    border-right: 3px solid #737373;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    background-color:white;
+    color: black;
+    /* background-image: linear-gradient(to bottom, #999999, #c4c4c4 80%, #ffffff); */
+  }
+
+  /* Add responsiveness - on screens less than 500px, make the navigation links appear on top of each other, instead of next to each other */
+  @media screen and (max-width: 500px) {
+    .navbar a {
+      float: none;
+      display: block;
+      width: 100%;
+      text-align: left; /* If you want the text to be left-aligned on small screens */
+    }
+  }
+</style>
+
 <link rel="stylesheet" href="{{ base_path }}/assets/css/collapse.css"/>
+
+<br>
 
 <div id="content_cv_online">
   <h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;🎓 &nbsp; Education</h1>
@@ -191,5 +248,9 @@ nav_cv_pdf[0].addEventListener("click", function() {
 </div>
 
 
-<div id="content_cv_pdf">
+<div id="content_cv_pdf" style="display:none;">
+  <a href="https://storage.googleapis.com/kuanhao.nctu.me/CV.pdf" target="_blan"><b> >> Download CV here << </b></a>
+  <p align="center">
+    <iframe src="https://storage.googleapis.com/kuanhao.nctu.me/CV.pdf" width="100%" height="1200" style="border:none;" scrolling="no"></iframe>
+  </p>
 </div>
