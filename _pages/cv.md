@@ -17,7 +17,8 @@ redirect_from:
   <a class="nav_cv_pdf" href="#">PDF CV</a>
 </div>
 
-<link rel="stylesheet" href="{{ base_path }}/assets/js/nav_card.js"/>
+<script src="{{ base_path }}/assets/js/nav_card.js"></script>
+
 
 <br>
 
