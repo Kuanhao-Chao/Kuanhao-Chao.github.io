@@ -1,7 +1,6 @@
 /* Style the navigation menu */
 .navbar {
   width: 100%;
-  background-color: #555;
   overflow: auto;
 }
 
@@ -9,21 +8,37 @@
 .navbar a {
   float: left;
   padding: 12px;
-  color: white;
+  color: #adadad;
   text-decoration: none;
-  font-size: 17px;
+  font-size: 25px;
+  font-weight: 900;
   width: 50%; /* Four equal-width links. If you have two links, use 50%, and 33.33% for three links, etc.. */
   text-align: center; /* If you want the text to be centered */
+  border-bottom: 3px solid #737373;
 }
 
 /* Add a background color on mouse-over */
 .navbar a:hover {
-  background-color: #000;
+  /* background-color: #a8a8a8; */
+  border-top: 3px solid #cccccc;
+  border-left: 3px solid #cccccc;
+  border-right: 3px solid #cccccc;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+  color: #737373;
 }
 
 /* Style the current/active link */
 .navbar a.active {
-  background-color: #4CAF50;
+  border-bottom: none;
+  border-top: 3px solid #737373;
+  border-left: 3px solid #737373;
+  border-right: 3px solid #737373;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+  background-color:white;
+  color: black;
+  /* background-image: linear-gradient(to bottom, #999999, #c4c4c4 80%, #ffffff); */
 }
 
 /* Add responsiveness - on screens less than 500px, make the navigation links appear on top of each other, instead of next to each other */

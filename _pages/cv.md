@@ -8,7 +8,8 @@ redirect_from:
 ---
 
 {% include base_path %}
-<!-- <link rel="stylesheet" href="{{ base_path }}/assets/css/nav_card.css"/> -->
+<link rel="stylesheet" href="{{ base_path }}/assets/css/nav_card.css"/>
+<link rel="stylesheet" href="{{ base_path }}/assets/css/collapse.css"/>
 
 
 <!-- The navigation menu -->
@@ -18,101 +19,6 @@ redirect_from:
 </div>
 
 
-
-<script>
-// Get the container element
-var navContainer = document.getElementById("switch_cv");
-console.log(navContainer)
-// Get all buttons with class="btn" inside the container
-var nav_cv_online = navContainer.getElementsByClassName("nav_cv_online");
-var nav_cv_pdf = navContainer.getElementsByClassName("nav_cv_pdf");
-
-
-nav_cv_online[0].addEventListener("click", function() {
-  var current = document.getElementsByClassName("active");
-  current[0].className = current[0].className.replace(" active", "");
-  this.className += " active";
-  $("#content_cv_online").removeAttr("style")
-  $("#content_cv_pdf").css("display", "none");
-});
-
-nav_cv_pdf[0].addEventListener("click", function() {
-  var current = document.getElementsByClassName("active");
-  current[0].className = current[0].className.replace(" active", "");
-  this.className += " active";
-  $("#content_cv_pdf").removeAttr("style");
-  $("#content_cv_online").css("display", "none");
-});
-
-</script>
-<!-- $('#switch_cv').on('click', function () {
-    $('.cv_element').toggleClass('active');
-    if ($(".active").hasClass("active")) {
-        // do this
-        console.log("hidden");
-    } else {
-        // do that
-        console.log("not hidden");
-        document.getElementById("toggle_button").className = "fas fa-angle-double-left";
-    }
-}); -->
-
-<style>
-  /* Style the navigation menu */
-  .navbar {
-    width: 100%;
-    overflow: auto;
-  }
-
-  /* Navigation links */
-  .navbar a {
-    float: left;
-    padding: 12px;
-    color: #adadad;
-    text-decoration: none;
-    font-size: 25px;
-    font-weight: 900;
-    width: 50%; /* Four equal-width links. If you have two links, use 50%, and 33.33% for three links, etc.. */
-    text-align: center; /* If you want the text to be centered */
-    border-bottom: 3px solid #737373;
-  }
-
-  /* Add a background color on mouse-over */
-  .navbar a:hover {
-    /* background-color: #a8a8a8; */
-    border-top: 3px solid #cccccc;
-    border-left: 3px solid #cccccc;
-    border-right: 3px solid #cccccc;
-    border-top-left-radius: 5px;
-    border-top-right-radius: 5px;
-    color: #737373;
-  }
-
-  /* Style the current/active link */
-  .navbar a.active {
-    border-bottom: none;
-    border-top: 3px solid #737373;
-    border-left: 3px solid #737373;
-    border-right: 3px solid #737373;
-    border-top-left-radius: 5px;
-    border-top-right-radius: 5px;
-    background-color:white;
-    color: black;
-    /* background-image: linear-gradient(to bottom, #999999, #c4c4c4 80%, #ffffff); */
-  }
-
-  /* Add responsiveness - on screens less than 500px, make the navigation links appear on top of each other, instead of next to each other */
-  @media screen and (max-width: 500px) {
-    .navbar a {
-      float: none;
-      display: block;
-      width: 100%;
-      text-align: left; /* If you want the text to be left-aligned on small screens */
-    }
-  }
-</style>
-
-<link rel="stylesheet" href="{{ base_path }}/assets/css/collapse.css"/>
 
 <br>
 
@@ -254,3 +160,5 @@ nav_cv_pdf[0].addEventListener("click", function() {
     <iframe src="https://storage.googleapis.com/kuanhao.nctu.me/CV.pdf" width="100%" height="1200" style="border:none;" scrolling="no"></iframe>
   </p>
 </div>
+
+<link rel="stylesheet" href="{{ base_path }}/assets/js/nav_card.js"/>
