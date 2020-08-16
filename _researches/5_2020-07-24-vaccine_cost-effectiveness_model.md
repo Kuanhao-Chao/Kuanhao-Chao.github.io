@@ -15,8 +15,6 @@ superviser_clean:
 research_position: "RA_IEPM_NTU"
 research_clean: "vaccine_cost_effectiveness"
 ---
-'<a href="https://scholars.lib.ntu.edu.tw/cris/rp/rp06647" style="color:#4A4F53">Tzu-pin Lu</a>'
-
-[More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)
-
-This is a description of your talk, which is a markdown files that can be all markdown-ified like any other post. Yay markdown!
+I am building a mathematical Markov chain model to simulate numbers of people infected after being vaccinated by trivalent or quadrivalent inactivated influenza vaccines (TIV/QIV) and the cost-effectiveness with different vaccine coverage.
+The main goal is to provide a powerful vaccine cost-effectiveness website for Taiwan Centers for Disease Control to assess public health policies.
+The back-end of the website is written in Python Django and Django-Q task scheduler.

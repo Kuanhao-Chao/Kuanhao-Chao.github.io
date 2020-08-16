@@ -15,7 +15,4 @@ research_position: "RA_IIS_AS"
 research_clean: "elution_profile_complex_algorithm"
 ---
 
-
-[More information here](https://www.roc-taiwan.org/cayyz_en/post/5636.html)
-
-This is a description of your talk, which is a markdown files that can be all markdown-ified like any other post. Yay markdown!
+I am developing a new software to improve the current two tools, EPIC and PrInCE, which predict protein-protein interactions (PPI) with machine learning approaches, by focusing on local features of an elution profile.
