@@ -41,14 +41,15 @@
         {% if post.read_time %}
           <p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {% include read-time.html %}</p>
         {% endif %}
+
         {% if post.start_date %}<p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ post.start_date | date: '%B %d, %Y' }} {% if post.end_date %} - {{ post.end_date | date: '%B %d, %Y' }}{% endif %}</b></p>{% endif %}
 
-        <p class="page__meta" style="margin-left:2px"><b><i style="margin-right:1px" class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{post.location}}</b></p>
+        <p class="page__meta" style="margin-left:1px"><b><i style="margin-right:1px" class="fas fa-map-marker-alt	" aria-hidden="true"></i> &nbsp;&nbsp;  {{post.location}}</b></p>
 
 
-        <p class="page__meta"><b><i class="fas fa-calendar-alt" aria-hidden="true"></i> &nbsp;&nbsp;&nbsp;  {{post.venue}}</b></p>
+        <p class="page__meta" style="margin-left:1px"><b><i class="fas fa-calendar-alt" aria-hidden="true"></i> &nbsp;&nbsp; {{post.venue}}</b></p>
 
-        <p class="page__meta"><b><i class="fa fa-ticket-alt" aria-hidden="true"></i> &nbsp;&nbsp; {{post.type}}</b></p>
+        <p class="page__meta"><b><i class="fas fa-ticket-alt" aria-hidden="true" style="margin-left:1px"></i> &nbsp; {{post.type}}</b></p>
 
 
         <!-- {% if post.excerpt %}<p class="archive__item-excerpt" itemprop="description">{{ post.excerpt | markdownify }}</p>{% endif %} -->
