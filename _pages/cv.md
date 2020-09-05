@@ -102,7 +102,7 @@ redirect_from:
         <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
           <li>
             <h3 itemprop="headline">Undergraduate Research Student @ Center of Genomic and Precision Medicine, National Taiwan University</h3>
-            <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2019-07-01" | date: '%B, %Y' }}  - {{ "2020-06-01" | date: '%B, %Y' }}</b></p>
+            <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2018-02-01" | date: '%B, %Y' }}  - {{ "2019-06-30" | date: '%B, %Y' }}</b></p>
             <ul>{% for post in site.researches %}
               {%if post.research_position == "URS_CGM_NTU" %}
                 {% include archive-single-research-cv.html %}
