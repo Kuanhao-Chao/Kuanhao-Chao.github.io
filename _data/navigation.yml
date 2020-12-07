@@ -19,8 +19,8 @@ main:
   - title: "Teaching"
     url: /teaching/
 
-  - title: "Internship"
-    url: /internship/
+  # - title: "Internship"
+  #   url: /internship/
 
   - title: "Games"
     url: /games/
