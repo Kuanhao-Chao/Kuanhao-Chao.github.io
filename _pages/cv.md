@@ -146,7 +146,7 @@ redirect_from:
     </li>
   </ul>
   <ul>
-    <li> Programming Skill &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <small>Git / R package / Django Flask / Android App / Web Development / Unity Game</small>
+    <li> Programming Skill &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <small>Keras, Pandas, Scikit-learn, Django/Flask, Git, R package, Android App, Web Development, Unity Game</small>
     </li>
   </ul>
 
