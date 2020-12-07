@@ -34,4 +34,4 @@ image: "/images/biobaby.png"
 
 ---
 
-<a href="http://kuanhao.nctu.me/biobaby/index.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a href="https://storage.googleapis.com/kuanhao.nctu.me/biobaby/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>

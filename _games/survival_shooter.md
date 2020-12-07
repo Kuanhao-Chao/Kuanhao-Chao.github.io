@@ -33,4 +33,4 @@ image: "/images/survival_shooter.png"
 
 ---
 
-<a href="http://kuanhao.nctu.me/survival_shooter/index.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a href="https://storage.googleapis.com/kuanhao.nctu.me/survival_shooter/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>

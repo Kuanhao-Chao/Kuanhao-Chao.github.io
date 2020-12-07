@@ -42,4 +42,4 @@ image: "/images/tanks_fire.png"
 
 ---
 
-<a href="http://kuanhao.nctu.me/tanks_fire/index.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a href="https://storage.googleapis.com/kuanhao.nctu.me/tanks_fire/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>

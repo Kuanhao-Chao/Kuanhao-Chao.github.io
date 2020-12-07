@@ -3,7 +3,7 @@ main:
 
   - title: "CV"
     url: /cv/
-  # 
+  #
   # - title: "References"
   #   url: /references/
 
@@ -25,5 +25,5 @@ main:
   - title: "Games"
     url: /games/
 
-  - title: "Posts"
-    url: /year-archive/
+  # - title: "Posts"
+  #   url: /year-archive/

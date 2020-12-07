@@ -61,9 +61,28 @@
   <div class="column" style="flex: 3%;">
   </div>
   <div  class="column" style="flex: 38%;">
-    <img src="{{ post.image }}" style="width: 300px;
+    {% if post.image_bioconductor == "Yes"%}
+      <img src="/images/bioconductor.jpg" style="width: 300px;
+      height: 70px;
+      object-fit: fill;
+      display: inline; margin-top:45px;">
+      <img src="{{ post.image }}" style="width: 300px;
+      height: 150px;
+      object-fit: fill;
+      display: inline; margin-top:5px;">
+    {% else %}
+      <img src="{{ post.image }}" style="width: 300px;
+      height: 200px;
+      object-fit: fill;
+      display: inline; margin-top:55px;">
+    {% endif %}
+    <!-- <img src="{{ post.image }}" style="width: 300px;
     height: 200px;
     object-fit: fill;
     display: inline; margin-top:55px;">
+    <img src="{{ post.image }}" style="width: 300px;
+    height: 200px;
+    object-fit: fill;
+    display: inline; margin-top:55px;"> -->
   </div>
 </div>

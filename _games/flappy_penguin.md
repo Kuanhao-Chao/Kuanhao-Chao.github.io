@@ -24,4 +24,4 @@ image: "/images/flappy_penguin.png"
 </div>
 
 ---
-<a href="http://kuanhao.nctu.me/flappy_penguin/index.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a href="https://storage.googleapis.com/kuanhao.nctu.me/flappy_penguin/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>
