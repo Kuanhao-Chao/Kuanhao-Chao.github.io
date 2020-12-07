@@ -58,57 +58,57 @@ redirect_from:
     <ul>
       <div class="{{ include.type | default: "list" }}__item">
         <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
-          <li>
-            <h3 itemprop="headline">Research Assistant @ Institute of Information Science, Academia Sinica </h3>
+          <!-- <li> -->
+            <h3 itemprop="headline"  style="padding: 7px; background-color:#f2f2f2; border-left: 5px solid #c4c4c4; margin-left:-10px;"> Research Assistant @ Institute of Information Science, Academia Sinica </h3>
             <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2020-07-01" | date: '%B, %Y' }}  - {{ "Present" | date: '%B, %Y' }}</b></p>
             <ul>{% for post in site.researches %}
               {%if post.research_position == "RA_IIS_AS" %}
                 {% include archive-single-research-cv.html %}
               {% endif %}
             {% endfor %}</ul>
-          </li>
+          <!-- </li> -->
         </article>
       </div>
 
       <div class="{{ include.type | default: "list" }}__item">
         <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
-          <li>
-            <h3 itemprop="headline">Research Assistant @ Institute of Epidemiology and Preventive Medicine, National Taiwan University</h3>
+          <!-- <li> -->
+            <h3 itemprop="headline"  style="padding: 7px; background-color:#f2f2f2; border-left: 5px solid #c4c4c4; margin-left:-10px;">Research Assistant @ Institute of Epidemiology and Preventive Medicine, National Taiwan University</h3>
             <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2019-07-01" | date: '%B, %Y' }}  - {{ "2020-06-01" | date: '%B, %Y' }}</b></p>
             <ul>{% for post in site.researches %}
               {%if post.research_position == "RA_IEPM_NTU" %}
                 {% include archive-single-research-cv.html %}
               {% endif %}
             {% endfor %}</ul>
-          </li>
+          <!-- </li> -->
         </article>
       </div>
 
       <div class="{{ include.type | default: "list" }}__item">
         <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
-          <li>
-            <h3 itemprop="headline">Research Assistant @ Division of Ecology and Evolution, The Australian National University</h3>
+          <!-- <li> -->
+            <h3 itemprop="headline"  style="padding: 7px; background-color:#f2f2f2; border-left: 5px solid #c4c4c4; margin-left:-10px;">Research Assistant @ Division of Ecology and Evolution, The Australian National University</h3>
             <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2019-07-01" | date: '%B, %Y' }}  - {{ "2020-06-01" | date: '%B, %Y' }}</b></p>
             <ul>{% for post in site.researches %}
               {%if post.research_position == "RA_RSB_ANU" %}
                 {% include archive-single-research-cv.html %}
               {% endif %}
             {% endfor %}</ul>
-          </li>
+          <!-- </li> -->
         </article>
       </div>
 
       <div class="{{ include.type | default: "list" }}__item">
         <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
-          <li>
-            <h3 itemprop="headline">Undergraduate Research Student @ Center of Genomic and Precision Medicine, National Taiwan University</h3>
+          <!-- <li> -->
+            <h3 itemprop="headline"  style="padding: 7px; background-color:#f2f2f2; border-left: 5px solid #c4c4c4; margin-left:-10px;">Undergraduate Research Student @ Center of Genomic and Precision Medicine, National Taiwan University</h3>
             <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2018-02-01" | date: '%B, %Y' }}  - {{ "2019-06-30" | date: '%B, %Y' }}</b></p>
             <ul>{% for post in site.researches %}
               {%if post.research_position == "URS_CGM_NTU" %}
                 {% include archive-single-research-cv.html %}
               {% endif %}
             {% endfor %}</ul>
-          </li>
+          <!-- </li> -->
         </article>
       </div>
     </ul>
@@ -140,10 +140,15 @@ redirect_from:
   <hr>
 
   <h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;🛠 &nbsp; Skills</h1>
-  * Programming Languag 1
-    * <small>Python / R / Java / C / C++</small>
-  * Programming Skill
-    * <small>Git / R package / Django Flask / Android App / Web Development / Unity Game</small>
+  <ul>
+    <li>
+      Programming Languag &nbsp;&nbsp;&nbsp; <small>Python / R / Java / C / C++</small>
+    </li>
+  </ul>
+  <ul>
+    <li> Programming Skill &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <small>Git / R package / Django Flask / Android App / Web Development / Unity Game</small>
+    </li>
+  </ul>
 
   <hr>
 
