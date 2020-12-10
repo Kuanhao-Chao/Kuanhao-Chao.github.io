@@ -26,9 +26,9 @@ This package builds on sangerseqR to allow users to create contigs from collecti
 
 <div style="margin-left: -15px">
   <ul>
-    <li><a href="https://bioconductor.org/packages/sangeranalyseR">sangeranalyseR <b>Bioconductor</b></a></li>
-    <li><a href="https://github.com/roblanf/sangeranalyseR">sangeranalyseR <b>GitHub repository</b></a></li>
-    <li><a href="https://sangeranalyser.readthedocs.io/">sangeranalyseR <b>Documentation</b></a></li>
-    <li><a href="https://bioconductor.org/packages/devel/bioc/vignettes/sangeranalyseR/inst/doc/sangeranalyseR.html">sangeranalyseR <b>Vignettes</b></a></li>
+    <li><a href="https://bioconductor.org/packages/sangeranalyseR" target="_blank">sangeranalyseR <b>Bioconductor</b></a></li>
+    <li><a href="https://github.com/roblanf/sangeranalyseR" target="_blank">sangeranalyseR <b>GitHub repository</b></a></li>
+    <li><a href="https://sangeranalyser.readthedocs.io/" target="_blank">sangeranalyseR <b>Documentation</b></a></li>
+    <li><a href="https://bioconductor.org/packages/devel/bioc/vignettes/sangeranalyseR/inst/doc/sangeranalyseR.html" target="_blank">sangeranalyseR <b>Vignettes</b></a></li>
   </ul>
 </div>
