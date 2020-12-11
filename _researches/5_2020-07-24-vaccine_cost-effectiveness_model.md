@@ -179,8 +179,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         });
 
         nodeUpdate.select("circle")
-            .attr("r", function(d) { return d.children == undefined ? 10 : 5;} ) //function(d) { return d._children.length == 0 ? 3 : 10;}
-            .style("fill", function(d) { return d.color; });
+            .attr("r", function(d) { return d.children == undefined ? 10 : 5;} ) 
 
         nodeUpdate.select("text")
             .style("fill-opacity", 1);
