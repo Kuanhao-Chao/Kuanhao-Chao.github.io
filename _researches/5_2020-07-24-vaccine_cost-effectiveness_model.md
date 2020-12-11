@@ -145,17 +145,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
         nodeUpdate.select("circle").attr("r", function(d) { return d.children == undefined ? 10 : 5;} )
 
-        nodeUpdate.select("text").style("fill-opacity", 1);
 
-        var nodeExit = node.exit().transition().duration(duration).attr("transform", function (d) { return "translate(" + source.y + "," + source.x + ")";
-        }).remove();
-
-        nodeExit.select("circle").attr("r", 1e-6);
-        nodeExit.select("text").style("fill-opacity", 1e-6);
-
-        var link = svg.selectAll("path.link").data(links, function (d) {
-            return d.target.id;
-        });
     }
 
 
@@ -186,7 +176,15 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
 <!--
 
+nodeUpdate.select("text").style("fill-opacity", 1);
 
+var nodeExit = node.exit().transition().duration(duration).attr("transform", function (d) { return "translate(" + source.y + "," + source.x + ")";
+}).remove();
+
+nodeExit.select("circle").attr("r", 1e-6);
+nodeExit.select("text").style("fill-opacity", 1e-6);
+
+var link = svg.selectAll("path.link").data(links, function (d) { return d.target.id; });
 
 
 
