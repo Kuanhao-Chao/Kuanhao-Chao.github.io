@@ -128,6 +128,15 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         nodes.forEach(function (d) {
           d.y = d.depth * 350;
         });
+
+        var node = svg.selectAll("g.node").data(nodes, function (d) {
+            return d.id || (d.id = ++i);
+        });
+        var nodeEnter = node.enter().append("g").attr("class", "node").attr("transform", function (d) {
+            return "translate(" + source.y0 + "," + source.x0 + ")";
+        }).on("click", click);
+
+        nodeEnter.append("circle").attr("r", 1e-6).style("fill", function(d) { return d.color; });
     }
 
 
@@ -157,14 +166,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 <!-- [**>> Website <<**](http://140.112.136.49:8005/) -->
 
 <!--
-var node = svg.selectAll("g.node").data(nodes, function (d) {
-    return d.id || (d.id = ++i);
-});
-var nodeEnter = node.enter().append("g").attr("class", "node").attr("transform", function (d) {
-    return "translate(" + source.y0 + "," + source.x0 + ")";
-}).on("click", click);
 
-nodeEnter.append("circle").attr("r", 1e-6).style("fill", function(d) { return d.color; });
 
 nodeEnter.append("text").attr("x", function (d) { return d.children || d._children ? -13 : 13; }).attr("dy", ".35em").attr("text-anchor", function (d) { return d.children || d._children ? "end" : "start"; }).style("fill-opacity", 1e-6).text(function (d) { return d.name; }).attr("vector-effect", "non-scaling-stroke").style("border", "red").attr("fill", function (d) { return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected")) ? "#4287f5" : "#00298f";}).style("font-size", function (d) { return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? 20 : 25;});
 var nodeUpdate = node.transition().duration(duration).attr("transform", function (d) {
