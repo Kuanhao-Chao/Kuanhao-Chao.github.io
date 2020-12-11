@@ -147,8 +147,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
         nodeUpdate.select("text").style("fill-opacity", 1);
 
-        var nodeExit = node.exit().transition().duration(duration).attr("transform", function (d) { return "translate(" + source.y + "," + source.x + ")";
-        }).remove();
+
 
     }
 
@@ -180,7 +179,8 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
 <!--
 
-
+var nodeExit = node.exit().transition().duration(duration).attr("transform", function (d) { return "translate(" + source.y + "," + source.x + ")";
+}).remove();
 
 nodeExit.select("circle").attr("r", 1e-6);
 nodeExit.select("text").style("fill-opacity", 1e-6);
