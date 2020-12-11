@@ -98,6 +98,32 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         .attr("preserveAspectRatio", "xMinYMin meet")
         .attr("viewBox", "-150 0 1800 1200")
         .append("g")
+    d3.json(display_file, function(error, tree_data) {
+      root = tree_data;
+      root.x0 = height / 2;
+      root.y0 = 0;
+
+      function collapse(d) {
+        if (d.children) {
+          d._children = d.children;
+          d._children.forEach(collapse);
+          d.children = null;
+        }
+      }
+      update(root);
+    });
+
+    function collapse(d) {
+        if (d.children) {
+            d._children = d.children;
+            d._children.forEach(collapse);
+            d.children = null;
+        }
+    }
+    root.children.forEach(collapse);
+    update(root);
+
+    d3.select(self.frameElement).style("height", "800px");
   }
   tree("#add_tree", "/files/topology.json")
 </script>
@@ -112,33 +138,10 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
 <!-- [**>> Website <<**](http://140.112.136.49:8005/) -->
 
-<!-- d3.json(display_file, function(error, tree_data) {
-  root = tree_data;
-  root.x0 = height / 2;
-  root.y0 = 0;
+<!--
 
-  function collapse(d) {
-    if (d.children) {
-      d._children = d.children;
-      d._children.forEach(collapse);
-      d.children = null;
-    }
-  }
-  update(root);
-});
 
-function collapse(d) {
-    if (d.children) {
-        d._children = d.children;
-        d._children.forEach(collapse);
-        d.children = null;
-    }
-}
 
-root.children.forEach(collapse);
-update(root);
-
-d3.select(self.frameElement).style("height", "800px");
 
 function update(source) {
     var nodes = tree.nodes(root).reverse(),
