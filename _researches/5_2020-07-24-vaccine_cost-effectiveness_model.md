@@ -93,7 +93,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         return [d.y, d.x];
     });
 
-    var svg = d3.select(select_id).append("svg").attr("style", "outline: 3px solid #d4d4d4;").attr("preserveAspectRatio", "xMinYMin meet").attr("viewBox", "-150 0 1800 1200").append("g");
+    var svg = d3.select(select_id).append("svg").attr("style", "outline: 3px solid #d4d4d4;").attr("preserveAspectRatio", "xMinYMin meet").attr("viewBox", "-200 0 2000 1200").append("g");
 
     d3.json(display_file, function(error, tree_data) {
       root = tree_data;
