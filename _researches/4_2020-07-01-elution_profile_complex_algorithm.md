@@ -17,3 +17,5 @@ research_clean: "elution_profile_complex_algorithm"
 ---
 
 I am developing a new software to improve the current two tools, EPIC and PrInCE, which predict protein-protein interactions (PPI) with machine learning approaches, by focusing on local features of an elution profile.
+
+<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/Research_Projects/Protein_EP_Complex_Prediction.pdf" width="800" height="500" style="border:none;" scrolling="no"></iframe>

@@ -19,16 +19,7 @@ I am building a mathematical Markov chain model to simulate numbers of people in
 The main goal is to provide a powerful vaccine cost-effectiveness website for Taiwan Centers for Disease Control to assess public health policies.
 The back-end of the website is written in Python Django and Django-Q task scheduler.
 
-<h2 style="color: #000f70; margin-left: -30px"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp; Website & Source code </h2>
 
-<div style="margin-left: -15px">
-  <ul>
-    <li><a href="http://140.112.136.49:8005/" target="_blank"> <b>Website Entry</b></a></li>
-  </ul>
-  <ul>
-    <li><a href="https://github.com/Kuanhao-Chao/Vaccine-Cost-effectiveness" target="_blank"> Vaccine-Cost-Effectiveness <b>GitHub repository</b></a></li>
-  </ul>
-</div>
 
 
 <h2 style="color: #000f70; margin-left:-30px" > <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Basic Model Structure </h2>
@@ -39,6 +30,17 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 <div id="add_tree" style="margin-left: -45px">
 </div>
 
+
+<h2 style="color: #000f70; margin-left: -30px"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp; Website & Source code </h2>
+
+<div style="margin-left: -15px">
+  <ul>
+    <li><a href="http://140.112.136.49:8005/" target="_blank"> <b>Website Entry</b></a></li>
+  </ul>
+  <ul>
+    <li><a href="https://github.com/Kuanhao-Chao/Vaccine-Cost-effectiveness" target="_blank"> Vaccine-Cost-Effectiveness <b>GitHub repository</b></a></li>
+  </ul>
+</div>
 <!-- <a href="http://140.112.136.49:8005/"> <b> >> Website << </b></a> -->
 
 
