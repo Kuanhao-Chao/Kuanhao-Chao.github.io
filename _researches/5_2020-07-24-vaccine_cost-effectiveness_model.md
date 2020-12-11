@@ -123,6 +123,15 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
 
 
+    function update(source) {
+        var nodes = tree.nodes(root).reverse(), links = tree.links(nodes);
+        nodes.forEach(function (d) {
+          d.y = d.depth * 350;
+        });
+    }
+
+
+
     function click(d) {
         if (d.children) {
             d._children = d.children;
@@ -148,96 +157,87 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 <!-- [**>> Website <<**](http://140.112.136.49:8005/) -->
 
 <!--
-function update(source) {
-    var nodes = tree.nodes(root).reverse(), links = tree.links(nodes);
-    nodes.forEach(function (d) {
-        d.y = d.depth * 350;
+var node = svg.selectAll("g.node").data(nodes, function (d) {
+    return d.id || (d.id = ++i);
+});
+var nodeEnter = node.enter().append("g").attr("class", "node").attr("transform", function (d) {
+    return "translate(" + source.y0 + "," + source.x0 + ")";
+}).on("click", click);
+
+nodeEnter.append("circle").attr("r", 1e-6).style("fill", function(d) { return d.color; });
+
+nodeEnter.append("text").attr("x", function (d) { return d.children || d._children ? -13 : 13; }).attr("dy", ".35em").attr("text-anchor", function (d) { return d.children || d._children ? "end" : "start"; }).style("fill-opacity", 1e-6).text(function (d) { return d.name; }).attr("vector-effect", "non-scaling-stroke").style("border", "red").attr("fill", function (d) { return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected")) ? "#4287f5" : "#00298f";}).style("font-size", function (d) { return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? 20 : 25;});
+var nodeUpdate = node.transition().duration(duration).attr("transform", function (d) {
+    return "translate(" + d.y + "," + d.x + ")";
+});
+
+nodeUpdate.select("circle").attr("r", function(d) { return d.children == undefined ? 10 : 5;} )
+
+nodeUpdate.select("text").style("fill-opacity", 1);
+
+var nodeExit = node.exit().transition().duration(duration).attr("transform", function (d) { return "translate(" + source.y + "," + source.x + ")";
+}).remove();
+
+nodeExit.select("circle").attr("r", 1e-6);
+
+nodeExit.select("text").style("fill-opacity", 1e-6);
+
+var link = svg.selectAll("path.link").data(links, function (d) {
+    return d.target.id;
+});
+
+link.enter().insert("path", "g").attr("class", "link").attr("d", function (d) {
+    var o = {
+        x: source.x0,
+        y: source.y0
+    };
+    return diagonal({
+        source: o,
+        target: o
     });
-    var node = svg.selectAll("g.node").data(nodes, function (d) {
-        return d.id || (d.id = ++i);
+});
+
+link.transition().duration(duration).attr("d", diagonal);
+
+link.exit().transition().duration(duration).attr("d", function (d) {
+    var o = {
+        x: source.x,
+        y: source.y
+    };
+    return diagonal({
+        source: o,
+        target: o
     });
-    var nodeEnter = node.enter().append("g").attr("class", "node").attr("transform", function (d) {
-        return "translate(" + source.y0 + "," + source.x0 + ")";
-    }).on("click", click);
+}).remove();
 
-    nodeEnter.append("circle").attr("r", 1e-6).style("fill", function(d) { return d.color; });
+var linktext = svg.selectAll("g.link").data(links, function (d) {
+    return d.target.id;
+});
 
-    nodeEnter.append("text").attr("x", function (d) {
-        return d.children || d._children ? -13 : 13;
-      }).attr("dy", ".35em").attr("text-anchor", function (d) {
-        return d.children || d._children ? "end" : "start";
-      }).style("fill-opacity", 1e-6).text(function (d) {
-        return d.name;
-      }).attr("vector-effect", "non-scaling-stroke").style("border", "red").attr("fill", function (d) {
-        return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? "#4287f5" : "#00298f";
-      }).style("font-size", function (d) {
-        return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? 20 : 25;
-      });
-    var nodeUpdate = node.transition().duration(duration).attr("transform", function (d) {
-        return "translate(" + d.y + "," + d.x + ")";
-    });
+linktext.enter().insert("g").attr("class", "link").append("text").attr("x", "-65px").attr("dy", "0.35em").attr("text-anchor", "middle").text(function (d) {return d.target.pb;})
 
-    nodeUpdate.select("circle").attr("r", function(d) { return d.children == undefined ? 10 : 5;} )
+linktext.transition().duration(duration).attr("transform", function (d) {
+    return "translate(" + ((d.source.y + d.target.y) / 2) + "," + ((d.source.x + d.target.x) / 2) + ")";
+})
 
-    nodeUpdate.select("text").style("fill-opacity", 1);
+linktext.exit().transition().remove();
 
-    var nodeExit = node.exit().transition().duration(duration).attr("transform", function (d) {
-        return "translate(" + source.y + "," + source.x + ")";
-    }).remove();
-
-    nodeExit.select("circle").attr("r", 1e-6);
-
-    nodeExit.select("text").style("fill-opacity", 1e-6);
-
-    var link = svg.selectAll("path.link").data(links, function (d) {
-        return d.target.id;
-    });
-
-    link.enter().insert("path", "g").attr("class", "link").attr("d", function (d) {
-        var o = {
-            x: source.x0,
-            y: source.y0
-        };
-        return diagonal({
-            source: o,
-            target: o
-        });
-    });
-
-    link.transition().duration(duration).attr("d", diagonal);
-
-    link.exit().transition().duration(duration).attr("d", function (d) {
-        var o = {
-            x: source.x,
-            y: source.y
-        };
-        return diagonal({
-            source: o,
-            target: o
-        });
-    }).remove();
-
-    var linktext = svg.selectAll("g.link").data(links, function (d) {
-        return d.target.id;
-    });
-
-    linktext.enter().insert("g").attr("class", "link").append("text").attr("x", "-65px").attr("dy", "0.35em").attr("text-anchor", "middle").text(function (d) {
-          return d.target.pb;
-        })
+nodes.forEach(function (d) {
+    d.x0 = d.x;
+    d.y0 = d.y;
+});
 
 
-    linktext.transition().duration(duration).attr("transform", function (d) {
-        return "translate(" + ((d.source.y + d.target.y) / 2) + "," + ((d.source.x + d.target.x) / 2) + ")";
-    })
-
-    linktext.exit().transition().remove();
 
 
-    nodes.forEach(function (d) {
-        d.x0 = d.x;
-        d.y0 = d.y;
-    });
-}
+
+
+
+
+
+
+
+
 
 
 
