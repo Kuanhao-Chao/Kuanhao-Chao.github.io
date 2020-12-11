@@ -137,6 +137,11 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         }).on("click", click);
 
         nodeEnter.append("circle").attr("r", 1e-6).style("fill", function(d) { return d.color; });
+
+        nodeEnter.append("text").attr("x", function (d) { return d.children || d._children ? -13 : 13; }).attr("dy", ".35em").attr("text-anchor", function (d) { return d.children || d._children ? "end" : "start"; }).style("fill-opacity", 1e-6).text(function (d) { return d.name; }).attr("vector-effect", "non-scaling-stroke").style("border", "red").attr("fill", function (d) { return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected")) ? "#4287f5" : "#00298f";}).style("font-size", function (d) { return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? 20 : 25;});
+        var nodeUpdate = node.transition().duration(duration).attr("transform", function (d) {
+            return "translate(" + d.y + "," + d.x + ")";
+        });
     }
 
 
@@ -168,10 +173,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 <!--
 
 
-nodeEnter.append("text").attr("x", function (d) { return d.children || d._children ? -13 : 13; }).attr("dy", ".35em").attr("text-anchor", function (d) { return d.children || d._children ? "end" : "start"; }).style("fill-opacity", 1e-6).text(function (d) { return d.name; }).attr("vector-effect", "non-scaling-stroke").style("border", "red").attr("fill", function (d) { return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected")) ? "#4287f5" : "#00298f";}).style("font-size", function (d) { return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? 20 : 25;});
-var nodeUpdate = node.transition().duration(duration).attr("transform", function (d) {
-    return "translate(" + d.y + "," + d.x + ")";
-});
+
 
 nodeUpdate.select("circle").attr("r", function(d) { return d.children == undefined ? 10 : 5;} )
 
