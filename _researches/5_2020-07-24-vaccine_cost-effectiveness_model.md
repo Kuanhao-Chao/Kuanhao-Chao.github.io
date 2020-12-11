@@ -153,6 +153,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         nodeExit.select("circle").attr("r", 1e-6);
         nodeExit.select("text").style("fill-opacity", 1e-6);
 
+        var link = svg.selectAll("path.link").data(links, function (d) { return d.target.id; });
 
     }
     function click(d) {
@@ -182,7 +183,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 <!--
 
 
-var link = svg.selectAll("path.link").data(links, function (d) { return d.target.id; });
+
 
 link.enter().insert("path", "g").attr("class", "link").attr("d", function (d) {
     var o = {
