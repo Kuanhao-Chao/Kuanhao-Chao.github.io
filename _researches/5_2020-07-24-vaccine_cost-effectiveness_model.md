@@ -85,15 +85,11 @@ The back-end of the website is written in Python Django and Django-Q task schedu
     width = screen_width - margin.right - margin.left,
     height = 1180 - margin.top - margin.bottom;
 
-    var i = 0,
-        duration = 750,
-        root;
+    var i = 0, duration = 750, root;
 
-    var tree = d3.layout.tree()
-        .size([height, width]);
+    var tree = d3.layout.tree().size([height, width]);
 
-    var diagonal = d3.svg.diagonal()
-        .projection(function (d) {
+    var diagonal = d3.svg.diagonal().projection(function (d) {
         return [d.y, d.x];
     });
 
@@ -102,179 +98,6 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         .attr("preserveAspectRatio", "xMinYMin meet")
         .attr("viewBox", "-150 0 1800 1200")
         .append("g")
-
-    d3.json(display_file, function(error, tree_data) {
-      root = tree_data;
-      root.x0 = height / 2;
-      root.y0 = 0;
-
-      function collapse(d) {
-        if (d.children) {
-          d._children = d.children;
-          d._children.forEach(collapse);
-          d.children = null;
-        }
-      }
-      update(root);
-    });
-
-    function collapse(d) {
-        if (d.children) {
-            d._children = d.children;
-            d._children.forEach(collapse);
-            d.children = null;
-        }
-    }
-
-    root.children.forEach(collapse);
-    update(root);
-
-    d3.select(self.frameElement).style("height", "800px");
-
-    function update(source) {
-        var nodes = tree.nodes(root).reverse(),
-            links = tree.links(nodes);
-        nodes.forEach(function (d) {
-            d.y = d.depth * 350;
-        });
-        var node = svg.selectAll("g.node")
-            .data(nodes, function (d) {
-            return d.id || (d.id = ++i);
-        });
-        var nodeEnter = node.enter().append("g")
-            .attr("class", "node")
-            .attr("transform", function (d) {
-            return "translate(" + source.y0 + "," + source.x0 + ")";
-        })
-            .on("click", click);
-
-        nodeEnter.append("circle")
-            .attr("r", 1e-6)
-            .style("fill", function(d) { return d.color; });
-
-        nodeEnter.append("text")
-            .attr("x", function (d) {
-            return d.children || d._children ? -13 : 13;
-          })
-            .attr("dy", ".35em")
-            .attr("text-anchor", function (d) {
-            return d.children || d._children ? "end" : "start";
-          })
-            .style("fill-opacity", 1e-6)
-            .text(function (d) {
-            return d.name;
-          })
-            .attr("vector-effect", "non-scaling-stroke")
-            .style("border", "red")
-            .attr("fill", function (d) {
-            return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? "#4287f5" : "#00298f";
-          })
-            .style("font-size", function (d) {
-            return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? 20 : 25;
-          });
-        var nodeUpdate = node.transition()
-            .duration(duration)
-            .attr("transform", function (d) {
-            return "translate(" + d.y + "," + d.x + ")";
-        });
-
-        nodeUpdate.select("circle")
-            .attr("r", function(d) { return d.children == undefined ? 10 : 5;} ) 
-
-        nodeUpdate.select("text")
-            .style("fill-opacity", 1);
-
-        var nodeExit = node.exit().transition()
-            .duration(duration)
-            .attr("transform", function (d) {
-            return "translate(" + source.y + "," + source.x + ")";
-        })
-            .remove();
-
-        nodeExit.select("circle")
-            .attr("r", 1e-6);
-
-        nodeExit.select("text")
-            .style("fill-opacity", 1e-6);
-
-        var link = svg.selectAll("path.link")
-            .data(links, function (d) {
-            return d.target.id;
-        });
-
-        link.enter().insert("path", "g")
-            .attr("class", "link")
-            .attr("d", function (d) {
-            var o = {
-                x: source.x0,
-                y: source.y0
-            };
-            return diagonal({
-                source: o,
-                target: o
-            });
-        });
-
-        link.transition()
-            .duration(duration)
-            .attr("d", diagonal);
-
-        link.exit().transition()
-            .duration(duration)
-            .attr("d", function (d) {
-            var o = {
-                x: source.x,
-                y: source.y
-            };
-            return diagonal({
-                source: o,
-                target: o
-            });
-        })
-            .remove();
-
-        var linktext = svg.selectAll("g.link")
-            .data(links, function (d) {
-            return d.target.id;
-        });
-
-        linktext.enter()
-            .insert("g")
-            .attr("class", "link")
-            .append("text")
-            .attr("x", "-65px")
-            .attr("dy", "0.35em")
-            .attr("text-anchor", "middle")
-            .text(function (d) {
-              return d.target.pb;
-            })
-
-
-        linktext.transition()
-            .duration(duration)
-            .attr("transform", function (d) {
-            return "translate(" + ((d.source.y + d.target.y) / 2) + "," + ((d.source.x + d.target.x) / 2) + ")";
-        })
-
-        linktext.exit().transition()
-            .remove();
-
-
-        nodes.forEach(function (d) {
-            d.x0 = d.x;
-            d.y0 = d.y;
-        });
-    }
-    function click(d) {
-        if (d.children) {
-            d._children = d.children;
-            d.children = null;
-        } else {
-            d.children = d._children;
-            d._children = null;
-        }
-        update(d);
-    }
   }
   tree("#add_tree", "/files/topology.json")
 </script>
@@ -288,3 +111,177 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
 
 <!-- [**>> Website <<**](http://140.112.136.49:8005/) -->
+
+<!-- d3.json(display_file, function(error, tree_data) {
+  root = tree_data;
+  root.x0 = height / 2;
+  root.y0 = 0;
+
+  function collapse(d) {
+    if (d.children) {
+      d._children = d.children;
+      d._children.forEach(collapse);
+      d.children = null;
+    }
+  }
+  update(root);
+});
+
+function collapse(d) {
+    if (d.children) {
+        d._children = d.children;
+        d._children.forEach(collapse);
+        d.children = null;
+    }
+}
+
+root.children.forEach(collapse);
+update(root);
+
+d3.select(self.frameElement).style("height", "800px");
+
+function update(source) {
+    var nodes = tree.nodes(root).reverse(),
+        links = tree.links(nodes);
+    nodes.forEach(function (d) {
+        d.y = d.depth * 350;
+    });
+    var node = svg.selectAll("g.node")
+        .data(nodes, function (d) {
+        return d.id || (d.id = ++i);
+    });
+    var nodeEnter = node.enter().append("g")
+        .attr("class", "node")
+        .attr("transform", function (d) {
+        return "translate(" + source.y0 + "," + source.x0 + ")";
+    })
+        .on("click", click);
+
+    nodeEnter.append("circle")
+        .attr("r", 1e-6)
+        .style("fill", function(d) { return d.color; });
+
+    nodeEnter.append("text")
+        .attr("x", function (d) {
+        return d.children || d._children ? -13 : 13;
+      })
+        .attr("dy", ".35em")
+        .attr("text-anchor", function (d) {
+        return d.children || d._children ? "end" : "start";
+      })
+        .style("fill-opacity", 1e-6)
+        .text(function (d) {
+        return d.name;
+      })
+        .attr("vector-effect", "non-scaling-stroke")
+        .style("border", "red")
+        .attr("fill", function (d) {
+        return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? "#4287f5" : "#00298f";
+      })
+        .style("font-size", function (d) {
+        return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? 20 : 25;
+      });
+    var nodeUpdate = node.transition()
+        .duration(duration)
+        .attr("transform", function (d) {
+        return "translate(" + d.y + "," + d.x + ")";
+    });
+
+    nodeUpdate.select("circle")
+        .attr("r", function(d) { return d.children == undefined ? 10 : 5;} )
+
+    nodeUpdate.select("text")
+        .style("fill-opacity", 1);
+
+    var nodeExit = node.exit().transition()
+        .duration(duration)
+        .attr("transform", function (d) {
+        return "translate(" + source.y + "," + source.x + ")";
+    })
+        .remove();
+
+    nodeExit.select("circle")
+        .attr("r", 1e-6);
+
+    nodeExit.select("text")
+        .style("fill-opacity", 1e-6);
+
+    var link = svg.selectAll("path.link")
+        .data(links, function (d) {
+        return d.target.id;
+    });
+
+    link.enter().insert("path", "g")
+        .attr("class", "link")
+        .attr("d", function (d) {
+        var o = {
+            x: source.x0,
+            y: source.y0
+        };
+        return diagonal({
+            source: o,
+            target: o
+        });
+    });
+
+    link.transition()
+        .duration(duration)
+        .attr("d", diagonal);
+
+    link.exit().transition()
+        .duration(duration)
+        .attr("d", function (d) {
+        var o = {
+            x: source.x,
+            y: source.y
+        };
+        return diagonal({
+            source: o,
+            target: o
+        });
+    })
+        .remove();
+
+    var linktext = svg.selectAll("g.link")
+        .data(links, function (d) {
+        return d.target.id;
+    });
+
+    linktext.enter()
+        .insert("g")
+        .attr("class", "link")
+        .append("text")
+        .attr("x", "-65px")
+        .attr("dy", "0.35em")
+        .attr("text-anchor", "middle")
+        .text(function (d) {
+          return d.target.pb;
+        })
+
+
+    linktext.transition()
+        .duration(duration)
+        .attr("transform", function (d) {
+        return "translate(" + ((d.source.y + d.target.y) / 2) + "," + ((d.source.x + d.target.x) / 2) + ")";
+    })
+
+    linktext.exit().transition()
+        .remove();
+
+
+    nodes.forEach(function (d) {
+        d.x0 = d.x;
+        d.y0 = d.y;
+    });
+}
+function click(d) {
+    if (d.children) {
+        d._children = d.children;
+        d.children = null;
+    } else {
+        d.children = d._children;
+        d._children = null;
+    }
+    update(d);
+}
+} -->
