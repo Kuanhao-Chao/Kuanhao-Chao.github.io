@@ -160,7 +160,20 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         link.transition().duration(duration).attr("d", diagonal);
         link.exit().transition().duration(duration).attr("d", function (d) { var o = { x: source.x, y: source.y}; return diagonal({source: o, target: o});}).remove();
 
+        var linktext = svg.selectAll("g.link").data(links, function (d) { return d.target.id; });
 
+        linktext.enter().insert("g").attr("class", "link").append("text").attr("x", "-65px").attr("dy", "0.35em").attr("text-anchor", "middle").text(function (d) {return d.target.pb;});
+
+        linktext.transition().duration(duration).attr("transform", function (d) {
+            return "translate(" + ((d.source.y + d.target.y) / 2) + "," + ((d.source.x + d.target.x) / 2) + ")";
+        });
+
+        linktext.exit().transition().remove();
+
+        nodes.forEach(function (d) {
+            d.x0 = d.x;
+            d.y0 = d.y;
+        });
 
     }
     function click(d) {
@@ -192,24 +205,11 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
 
 
-var linktext = svg.selectAll("g.link").data(links, function (d) {
-    return d.target.id;
-});
 
 
 
-linktext.enter().insert("g").attr("class", "link").append("text").attr("x", "-65px").attr("dy", "0.35em").attr("text-anchor", "middle").text(function (d) {return d.target.pb;})
 
-linktext.transition().duration(duration).attr("transform", function (d) {
-    return "translate(" + ((d.source.y + d.target.y) / 2) + "," + ((d.source.x + d.target.x) / 2) + ")";
-})
 
-linktext.exit().transition().remove();
-
-nodes.forEach(function (d) {
-    d.x0 = d.x;
-    d.y0 = d.y;
-});
 
 
 
