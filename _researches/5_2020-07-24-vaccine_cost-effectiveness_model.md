@@ -102,10 +102,6 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         .attr("preserveAspectRatio", "xMinYMin meet")
         .attr("viewBox", "-150 0 1800 1200")
         .append("g")
-        // .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-        //.attr("width", width + margin.right + margin.left)
-        //.attr("height", height + margin.top + margin.bottom)
 
     d3.json(display_file, function(error, tree_data) {
       root = tree_data;
@@ -119,13 +115,8 @@ The back-end of the website is written in Python Django and Django-Q task schedu
           d.children = null;
         }
       }
-
-      // root.children.forEach(collapse);
       update(root);
     });
-    // root = flare;
-    // root.x0 = height / 2;
-    // root.y0 = 0;
 
     function collapse(d) {
         if (d.children) {
@@ -137,28 +128,19 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
     root.children.forEach(collapse);
     update(root);
-    //});
 
     d3.select(self.frameElement).style("height", "800px");
 
     function update(source) {
-
-        // Compute the new tree layout.
         var nodes = tree.nodes(root).reverse(),
             links = tree.links(nodes);
-
-        // Normalize for fixed-depth.
         nodes.forEach(function (d) {
             d.y = d.depth * 350;
         });
-
-        // Update the nodes…
         var node = svg.selectAll("g.node")
             .data(nodes, function (d) {
             return d.id || (d.id = ++i);
         });
-
-        // Enter any new nodes at the parent's previous position.
         var nodeEnter = node.enter().append("g")
             .attr("class", "node")
             .attr("transform", function (d) {
@@ -169,9 +151,6 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         nodeEnter.append("circle")
             .attr("r", 1e-6)
             .style("fill", function(d) { return d.color; });
-        //     .style("fill", function (d) {
-        //     return d._children ? "lightsteelblue" : "#fff";
-        // });
 
         nodeEnter.append("text")
             .attr("x", function (d) {
@@ -193,17 +172,6 @@ The back-end of the website is written in Python Django and Django-Q task schedu
             .style("font-size", function (d) {
             return ( d.name.includes("Death")  || d.name.includes("Recovery") || d.name.includes("Infected") || d.name.includes("Not infected"))  ? 20 : 25;
           });
-        // nodeEnter.append("text")
-        //   .attr("x", function (d) {
-        //     return d.children || d._children ? -13 : 13;
-        //   })
-        //   .attr("dy", "1.35em")
-        //   .text("line 2")
-          //   .style("font-weight", function (d) {
-          //   return (d.name == "Death" || d.name == "Recovery" || d.name == "Infected" || d.name == "Not infected")  ? "light" : "light";
-          // });
-
-        // Transition nodes to their new position.
         var nodeUpdate = node.transition()
             .duration(duration)
             .attr("transform", function (d) {
@@ -213,18 +181,10 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         nodeUpdate.select("circle")
             .attr("r", function(d) { return d.children == undefined ? 10 : 5;} ) //function(d) { return d._children.length == 0 ? 3 : 10;}
             .style("fill", function(d) { return d.color; });
-            // .attr("r", 4.5)
-        //     .style("fill", function (d) {
-        //     return d._children ? "lightsteelblue" : "#fff";
-        // });
 
         nodeUpdate.select("text")
             .style("fill-opacity", 1);
-          //   .attr("fill", function (d) {
-          //   return d.children == undefined ? "blue" : "black";
-          // });
 
-        // Transition exiting nodes to the parent's new position.
         var nodeExit = node.exit().transition()
             .duration(duration)
             .attr("transform", function (d) {
@@ -238,13 +198,11 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         nodeExit.select("text")
             .style("fill-opacity", 1e-6);
 
-        // Update the links…
         var link = svg.selectAll("path.link")
             .data(links, function (d) {
             return d.target.id;
         });
 
-        // Enter any new links at the parent's previous position.
         link.enter().insert("path", "g")
             .attr("class", "link")
             .attr("d", function (d) {
@@ -258,12 +216,10 @@ The back-end of the website is written in Python Django and Django-Q task schedu
             });
         });
 
-        // Transition links to their new position.
         link.transition()
             .duration(duration)
             .attr("d", diagonal);
 
-        // Transition exiting nodes to the parent's new position.
         link.exit().transition()
             .duration(duration)
             .attr("d", function (d) {
@@ -278,7 +234,6 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         })
             .remove();
 
-        // Update the link text
         var linktext = svg.selectAll("g.link")
             .data(links, function (d) {
             return d.target.id;
@@ -291,31 +246,10 @@ The back-end of the website is written in Python Django and Django-Q task schedu
             .attr("x", "-65px")
             .attr("dy", "0.35em")
             .attr("text-anchor", "middle")
-            // .attr("transform", function (d,i)
-            //    {return "skewX(" + -25 + ")"; })
             .text(function (d) {
               return d.target.pb;
             })
-        // linktext.append("text")
-        //     .attr("x", "-45px")
-        //     .attr("dy", "1.35em")
-        //     .attr("text-anchor", "middle")
-        //     .text(function (d) {
-        //     //console.log(d.target.name);
-        //       return "t2";
-        //     });
 
-        // linktext.enter()
-        //     .insert("g")
-        //     .attr("class", "link")
-        //     .append("text")
-        //     .attr("x", "-45px")
-        //     .attr("dy", "1.35em")
-        //     .attr("text-anchor", "middle")
-        //     .text(function (d) {
-        //     //console.log(d.target.name);
-        //     return "t2";
-        // });
 
         linktext.transition()
             .duration(duration)
@@ -323,18 +257,15 @@ The back-end of the website is written in Python Django and Django-Q task schedu
             return "translate(" + ((d.source.y + d.target.y) / 2) + "," + ((d.source.x + d.target.x) / 2) + ")";
         })
 
-        //Transition exiting link text to the parent's new position.
         linktext.exit().transition()
             .remove();
 
 
-        // Stash the old positions for transition.
         nodes.forEach(function (d) {
             d.x0 = d.x;
             d.y0 = d.y;
         });
     }
-    // Toggle children on click.
     function click(d) {
         if (d.children) {
             d._children = d.children;
