@@ -143,7 +143,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
             return "translate(" + d.y + "," + d.x + ")";
         });
 
-        nodeUpdate.select("circle").attr("r", function(d) { return d.children == undefined ? 10 : 5;} )
+        nodeUpdate.select("circle").attr("r", function(d) { return d.children == undefined ? 10 : 5;});
 
         nodeUpdate.select("text").style("fill-opacity", 1);
 
