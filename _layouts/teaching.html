@@ -58,7 +58,7 @@ layout: default
           <p class="page__meta"><b>Status:</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {{page.status}}</p>
 
         {% elsif page.collection == 'teaching' %}
-          <h1>teaching</h1>
+          <!-- <h1>teaching</h1> -->
           <p> {{ page.type }}, <i>{{ page.venue }}</i>, {{ page.date | default: "1900-01-01" | date: "%Y" }} </p>
         {% elsif page.collection == 'internship' %}
           <h1>internship</h1>
