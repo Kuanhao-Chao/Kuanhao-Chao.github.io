@@ -3,13 +3,13 @@ title: "Electronic Health Record (EHR) genotypes and phenotypes Extraction"
 collection: researches
 type: "Research assistant"
 permalink: /researches/2019-03-01-EHR_extraction
-venue: "<a href='http://www.cgm.ntu.edu.tw/web/index/index.jsp?lang=en' style='color: inherit;' target='_blank'>Bioinformatics and Biostatistics Core Lab, Center of Genomic and Precision Medicine, National Taiwan University</a>"
+venue: "<a href='http://nuredu.mc.ntu.edu.tw/' style='color: inherit;' target='_blank'>AI team, College of Medicine, National Taiwan University</a>"
 start_date: 2019-03-01
 end_date: 2019-06-30
 location: "Taipei, Taiwan"
 status: '<a style="text-decoration:none; color:orange;">In progress <i class="fa fa-spinner" aria-hidden="true"></i></a>'
 image: "/images/EHR_cover.jpg"
-superviser: '<a href="#" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#e3dbbf; border-radius: 10px; background-color: #d0a4fc;">&nbsp; Yun-Cheng Tsai  &nbsp;</a>'
+superviser: '<a href="#" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#d0a4fc; border-radius: 10px; background-color: #d0a4fc;">&nbsp; Yun-Cheng Tsai  &nbsp;</a>'
 superviser_clean:
   - "Yun-Cheng Tsai"
 research_position: "RA_CGM_NTU"
