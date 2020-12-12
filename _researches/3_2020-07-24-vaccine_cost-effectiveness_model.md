@@ -85,7 +85,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
         left: 20
     },
     width = screen_width - margin.right - margin.left,
-    height = 1180 - margin.top - margin.bottom;
+    height = 1200 - margin.top - margin.bottom;
 
     var i = 0, duration = 750, root;
 
