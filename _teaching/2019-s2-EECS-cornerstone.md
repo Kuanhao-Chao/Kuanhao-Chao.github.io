@@ -17,7 +17,7 @@ location: "Taipei, Taiwan"
 
   <figure style="text-align: center; display: inline-block;margin-top:-3px">
     <iframe width="560" height="315" src="https://www.youtube.com/embed/Da_vvY4mkX4" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-    <figcaption style="text-align: center;">Demo video of one of the functions of the car - self-tracking. In this practice, students need to implement P, PI, and PID control.
+    <figcaption style="text-align: center;">Demo video shows one of the functions of the car - self-tracking. In this practice, students need to implement P, PI, and PID control.
     </figcaption>
   </figure>
 
@@ -25,7 +25,7 @@ location: "Taipei, Taiwan"
 
   <figure style="text-align: center; display: inline-block;margin-top:-3px">
     <iframe width="560" height="315" src="https://www.youtube.com/embed/Nj2mI1Ceqhw" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-    <figcaption style="text-align: center;">Demo video of one of the functions of the car - scavenger-hunting. This is the final project of EE-1006 course. In the project, students need to make their cars be able to self-track, write python program to plan the best route, control RFID sensor to get scores at the dead ends, build the stable communication between Arduinos and their computers, and try to get as many RFID scores as they can in a limited period of time. I was responsible for designing the map, writing final project code, and developing the final project scoring server.
+    <figcaption style="text-align: center;">Demo video shows one of the functions of the car - scavenger-hunting. This is the final project of EE-1006 course. In the project, students need to make their cars be able to self-track, write python program to plan the best route, control RFID sensor to get scores at the dead ends, build the stable communication between Arduinos and their computers, and try to get as many RFID scores as they can in a limited period of time. I was responsible for designing the map, writing final project code, and developing the final project scoring server.
     </figcaption>
   </figure>
 
