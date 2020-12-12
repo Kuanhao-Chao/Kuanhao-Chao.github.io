@@ -1,5 +1,5 @@
 ---
-title: "Electronic Health Record (EHR) genotypes and phenotypes Extraction"
+title: "Electronic Health Record (EHR) phenotypes & genotypes Extraction"
 collection: researches
 type: "Research assistant"
 permalink: /researches/2019-03-01-EHR_extraction
@@ -16,26 +16,17 @@ research_position: "RA_CGM_NTU"
 research_clean: "EHR"
 ---
 
-I developed RNASeqR for two-group (case-control) RNA-Seq analysis and it is now available on Bioconductor 3.10 release. There are six steps: "RNASeqRParam S4 Object Creation", "Environment Setup", "Quality Assessment", "Reads Alignment & Quantification", "Gene-level Differential Analyses" and "Functional Analyses". Each step corresponds to a function in this package. After running functions in order, a basic RNASeq analysis would be done easily.
+Wang Zhiming and I developed this text-mining website to help the NTU Medical Genie AI team to get the genotypes information. There are two main steps. In the first step, we use <a href="https://metamap.nlm.nih.gov/" target="_blank"> MetaMap</a> and <a href="http://bejerano.stanford.edu/clinphen/" target="_blank">Clinphen</a> to extract phenotype information from electronic health record (EHR); in the second step, we use <a href="http://phenolyzer.wglab.org/" target="_blank">Phenolyzer </a> to convert selected phenotypes to genotype information.
 
-In December, 2018, I presented this work in NTU Centers of Genomics and Precision Medicine (NTUCGM) Summer Research competition and won the first prize among all summer research students. In June, 2019, I oral presented this work in ICIBM 2019, Columbus, USA. The manuscript is now published in ***IEEE/ACM Transactions on Computational Biology and Bioinformatics***.
+<iframe src="https://docs.google.com/presentation/d/e/2PACX-1vTY4Y_eDRKSSSMSlbHBodROBF83znnw9xAkmblWFBTx_ZCHIfkBRS83EHizvztOi1gM3WGJaQz64E2O/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" height="500" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 
-<figure style="text-align: center; display: inline-block;margin-top:-3px">
-  <img src="/images/RNASeqR_research_img.jpg" style="width: 70%; display: block;margin-left: auto;margin-right: auto;">
-  <figcaption style="text-align: center;">Selected visual results of gene-level differential analyses from RNASeqR.
-  </figcaption>
-</figure>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/XlzoqvEM3JU" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-<h2 style="color: #000f70; margin-left: -30px"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Source code & Documentation </h2>
+<h2 style="color: #000f70; margin-left: -30px"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Links </h2>
 
 <div style="margin-left: -15px">
-  <div style="margin-left:30px">
-    <iframe src="https://bioconductor.org/packages/release/bioc/html/RNASeqR.html" width="75%" height="300" style="display: block;" title="W3Schools Free Online Web Tutorials"></iframe>
-  </div>
   <ul>
-    <li><a href="https://bioconductor.org/packages/release/bioc/html/RNASeqR.html" target="_blank">RNASeqR <b>Bioconductor</b></a></li>
-    <li><a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank">RNASeqR <b>GitHub repository</b></a></li>
-    <li><a href="https://bioconductor.org/packages/release/bioc/vignettes/RNASeqR/inst/doc/RNASeqR.html" target="_blank">RNASeqR <b>Vignettes</b></a></li>
-    <li><a href="https://bioconductor.org/packages/release/data/experiment/html/RNASeqRData.html" target="_blank">RNASeqRData <b>Bioconductor</b></a></li>
+    <li><a href="http://140.112.30.198:8000/MetaMap/" target="_blank"><b>Website Entry</b></a></li>
+    <li><a href="http://nuredu.mc.ntu.edu.tw/" target="_blank"><b>NTU Medical Genie website</b></a></li>
   </ul>
 </div>
