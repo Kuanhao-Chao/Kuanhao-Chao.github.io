@@ -22,6 +22,12 @@ I developed sangeranalyseR while working as a research assistant at the <a targe
 
 This package builds on sangerseqR to allow users to create contigs from collections of Sanger sequencing reads. It provides a wide range of options for a number of commonly-performed actions including read trimming, detecting secondary peaks, and detecting indels using a reference sequence. All parameters can be adjusted interactively either in R or in the associated Shiny applications. There is extensive online documentation, and the package can outputs detailed HTML reports, including chromatograms.
 
+<figure style="text-align: center; display: inline-block;margin-top:-1px">
+  <img src="/images/sangeranalyseR_figure_1.png" style="width: 90%; display: block;margin-left: auto;margin-right: auto;">
+  <figcaption style="text-align: center;">The workflow of sangeranalyseR.
+  </figcaption>
+</figure>
+
 <h2 style="color: #000f70; margin-left:-30px" > <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Source code & Documentation </h2>
 
 <div style="margin-left: -15px">
