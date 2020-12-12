@@ -24,7 +24,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 
 <h2 style="color: #000f70; margin-left:-30px" > <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Basic Model Structure </h2>
 
-<div style="margin-left: 30px; margin-bottom: 10px">
+<div style="margin-bottom: 10px">
   Click the nodes in the tree to collapse and expand the tree.
 </div>
 <div id="add_tree" style="margin-left: -45px">

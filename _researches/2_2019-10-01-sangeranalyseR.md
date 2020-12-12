@@ -25,6 +25,9 @@ This package builds on sangerseqR to allow users to create contigs from collecti
 <h2 style="color: #000f70; margin-left:-30px" > <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Source code & Documentation </h2>
 
 <div style="margin-left: -15px">
+  <div style="margin-left:30px">
+    <iframe src="https://bioconductor.riken.jp/packages/3.12/bioc/html/sangeranalyseR.html" width="75%" height="300" style="display: block;" title="W3Schools Free Online Web Tutorials"></iframe>
+  </div>
   <ul>
     <li><a href="https://bioconductor.org/packages/sangeranalyseR" target="_blank">sangeranalyseR <b>Bioconductor</b></a></li>
     <li><a href="https://github.com/roblanf/sangeranalyseR" target="_blank">sangeranalyseR <b>GitHub repository</b></a></li>
