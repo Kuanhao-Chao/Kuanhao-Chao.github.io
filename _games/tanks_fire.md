@@ -14,6 +14,9 @@ image: "/images/tanks_fire.png"
 <iframe src="https://storage.googleapis.com/kuanhao.nctu.me/tanks_fire/index_full.html" width="1200" height="700" style="border:none;" scrolling="no"></iframe>
 
 <div style="background-color: #dbdbdb; padding: 30px; margin-top:50px">
+  <p style="font-size:20px">
+    <a href="https://storage.googleapis.com/kuanhao.nctu.me/tanks_fire/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>
+  </p>
   <p> <b style="font-size: 22px">Source:</b> &nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; This is the official Unity <a href="https://learn.unity.com/project/tanks-tutorial" target="_blank">training project</a></p>
   <br>
   <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
@@ -42,4 +45,4 @@ image: "/images/tanks_fire.png"
 
 ---
 
-<a href="https://storage.googleapis.com/kuanhao.nctu.me/tanks_fire/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a style="font-size:20px" href="https://storage.googleapis.com/kuanhao.nctu.me/tanks_fire/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>

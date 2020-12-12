@@ -16,6 +16,8 @@ image: "/images/biobaby.png"
 
 
 <div style="background-color: #dbdbdb; padding: 30px; margin-top:50px">
+  <p style="font-size:20px"> <a href="https://storage.googleapis.com/kuanhao.nctu.me/biobaby/index_full.html" target="_blank"><b> >>Web Game Link << </b></a></p>
+  <br>
   <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
   <br>
   <p> <b style="font-size: 22px">Contact:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; kuanhao.chao@gmail.com</p>
@@ -30,8 +32,11 @@ image: "/images/biobaby.png"
   <p style="margin-left: 170px;"><b>"K"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Towl Attack</p>
   <p style="margin-left: 170px;"><b>"O"</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Shoot Attack</p>
   <p style="margin-left: 170px;"><b>"Space"</b> &nbsp;&nbsp; Jump</p>
+  <br>
+  <p> <b style="font-size: 22px">Game Highlights:</b></p>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/L4wPfSFFKYY" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </div>
 
 ---
 
-<a href="https://storage.googleapis.com/kuanhao.nctu.me/biobaby/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a style="font-size:20px" href="https://storage.googleapis.com/kuanhao.nctu.me/biobaby/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>
