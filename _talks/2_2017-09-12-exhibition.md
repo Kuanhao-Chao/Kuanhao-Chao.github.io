@@ -1,5 +1,5 @@
 ---
-title: "Exhibition on smart transportation &nbsp; (WCIT 2017)"
+title: "[WCIT 2017] &nbsp; Exhibition on smart transportation with Taipei City Government"
 collection: talks
 type: "Exhibition"
 permalink: /talks/2017-09-12-exhibition
@@ -15,7 +15,7 @@ research_clean: "smart_bus_bell"
 <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Introduction </h2>
 
 <div style="margin-left: 30px">
-  <p>Two friends of mine and I attended <b>2017 HackNTU</b> and won the first prize among all transportation projects by "Smart Bus Bell". During the hackathon, we proposed a novel bus bell idea and built two Android apps, user-end and driver-end apps, to provide real-time bus information in Taipei. In the three-person team, I was responsible for developing Android apps. See our team awards ceremony photo in the <b>" 2017 HackNTU Introduction"</b> section.
+  <p>Two friends of mine and I attended <b>2017 HackNTU</b> and won the Elite Prize (1$^{st}$ prize) among all transportation projects by "Smart Bus Bell". During the hackathon, we proposed a novel bus bell idea and built two Android apps, user-end and driver-end apps, to provide real-time bus information in Taipei. In the three-person team, I was responsible for developing Android apps. See our team awards ceremony photo in the <b>" 2017 HackNTU Introduction"</b> section.
   </p>
 
   <p>Our team was invited to present this work with Taipei City Government in the <b>World Congress on Information Technology 2017 (WCIT 2017)</b>. The exhibition topic is "Smart City - Smart Bus Bell". Below is the <a href="https://www.youtube.com/watch?v=2ts_NDdfEgQ&ab_channel=%E8%B6%99%E5%86%A0%E8%B1%AA">introduction video</a> for our project.</p>

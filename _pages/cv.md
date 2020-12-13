@@ -146,11 +146,13 @@ redirect_from:
     <div class="{{ include.type | default: "list" }}__item">
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         <li>
-        <h3 class="archive__item-title" itemprop="headline" style="margin-bottom: -13px">
+        <h3 class="archive__item-title" itemprop="headline">
+          <!-- style="margin-bottom: -13px" -->
           <!-- {% if post.link %}
             <a href="{{ post.link }}">{{ title }}</a> <a href="{{ base_path }}{{ post.url }}" rel="permalink"><i class="fa fa-link" aria-hidden="true" title="permalink"></i><span class="sr-only">Permalink</span></a>
           {% else %} -->
-            <p style="color: #494E52">College Student Research Fellowship</p>
+          <a href="/researches/2019-01-01-Bacteria-NGS" rel="permalink" style="color: #494E52">College Student Research Fellowship</a>
+            <!-- <p style="color: #494E52">College Student Research Fellowship</p> -->
           <!-- {% endif %} -->
         </h3>
         <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2019-7-01" | date: '%B %d, %Y' }} - {{ "2020-02-29" | date: '%B %d, %Y' }}</b></p>
@@ -162,8 +164,9 @@ redirect_from:
     <div class="{{ include.type | default: "list" }}__item">
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         <li>
-        <h3 class="archive__item-title" itemprop="headline" style="margin-bottom: -13px">
-            <p style="color: #494E52">Outstanding Research Prize (1st prize)</p>
+        <h3 class="archive__item-title" itemprop="headline">
+          <a href="/talks/2018-12-20-talk" rel="permalink" style="color: #494E52">Outstanding Research Prize &nbsp; (1$^{st}$ prize)</a>
+            <!-- <p style="color: #494E52">Outstanding Research Prize (1st prize)</p> -->
         </h3>
         <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2018-12-15" | date: '%B %d, %Y' }}</b></p>
         <p class="archive__item-excerpt" itemprop="description">NTU Centers of Genomics and Precision Medicine Summer Research Contest (10 Cores Labs)</p>
@@ -174,8 +177,9 @@ redirect_from:
     <div class="{{ include.type | default: "list" }}__item">
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         <li>
-        <h3 class="archive__item-title" itemprop="headline" style="margin-bottom: -13px">
-            <p style="color: #494E52">Elite Prize(1st prize)</p>
+        <h3 class="archive__item-title" itemprop="headline">
+          <a href="/talks/2017-09-12-exhibition" rel="permalink" style="color: #494E52">Elite Prize &nbsp; (1$^{st}$ prize)</a>
+            <!-- <p style="color: #494E52">Elite Prize(1st prize)</p> -->
         </h3>
         <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2017-07-21" | date: '%B %d, %Y' }} - {{ "2017-07-23" | date: '%B %d, %Y' }}</b></p>
         <p class="archive__item-excerpt" itemprop="description">2017 HackNTU, one of the biggest nationwide Hackathon in Taiwan (451 people)</p>

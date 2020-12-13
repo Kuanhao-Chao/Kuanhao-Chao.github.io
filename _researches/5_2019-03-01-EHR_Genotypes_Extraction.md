@@ -1,5 +1,5 @@
 ---
-title: "Electronic Health Record (EHR) phenotypes & genotypes Extraction"
+title: "Electronic Health Record (EHR) phenotypes & genotypes extraction"
 collection: researches
 type: "Research assistant"
 permalink: /researches/2019-03-01-EHR_extraction

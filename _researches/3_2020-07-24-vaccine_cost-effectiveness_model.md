@@ -1,5 +1,5 @@
 ---
-title: "Vaccine cost-effectiveness model simulation"
+title: "Vaccine cost-effectiveness evaluation model"
 collection: researches
 type: "Research assistant"
 permalink: /researches/2020-07-24-vaccine_cost-effectiveness_model

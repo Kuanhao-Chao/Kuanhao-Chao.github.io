@@ -1,5 +1,5 @@
 ---
-title: "Teaching assistant in Data Science Programming Course (CSX-4001)"
+title: "Teaching assistant for the course <i>Data Science Programming (CSX-4001)</i>"
 collection: teaching
 type: "Teaching Assistant"
 permalink: /teaching/2019-s1-R-data-science
