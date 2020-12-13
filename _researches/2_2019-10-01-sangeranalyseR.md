@@ -28,9 +28,11 @@ This package builds on sangerseqR to allow users to create contigs from collecti
   </figcaption>
 </figure>
 
+---
+
 <h2 style="color: #000f70; margin-left:-30px" > <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Source code & Documentation </h2>
 
-<div style="margin-left: -15px">
+<div>
   <div style="margin-left:30px">
     <iframe src="https://bioconductor.riken.jp/packages/3.12/bioc/html/sangeranalyseR.html" width="75%" height="300" style="display: block;" title="W3Schools Free Online Web Tutorials"></iframe>
   </div>
@@ -41,3 +43,5 @@ This package builds on sangerseqR to allow users to create contigs from collecti
     <li><a href="https://bioconductor.org/packages/devel/bioc/vignettes/sangeranalyseR/inst/doc/sangeranalyseR.html" target="_blank">sangeranalyseR <b>Vignettes</b></a></li>
   </ul>
 </div>
+
+---

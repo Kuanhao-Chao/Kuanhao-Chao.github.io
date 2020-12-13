@@ -19,21 +19,35 @@ I am building a mathematical Markov chain model to simulate numbers of people in
 The main goal is to provide a powerful vaccine cost-effectiveness website for Taiwan Centers for Disease Control to assess public health policies.
 The back-end of the website is written in Python Django and Django-Q task scheduler.
 
+I am cooperating with Dr. <a href="http://dohcm.ntunhs.edu.tw/en/teacher.aspx?id=tsunghsien&language=en&num_function=376&id_mode=1" target="_blank">Tsung-Hsien Yu</a> who provides heathcare and cost effectiveness evaluation knowledge.
 
-
+---
 
 <h2 style="color: #000f70; margin-left:-30px" > <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Basic Model Structure </h2>
 
-<div style="margin-bottom: 10px">
-  Click the nodes in the tree to collapse and expand the tree.
-</div>
-<div id="add_tree" style="margin-left: -45px">
+<div>
+  <div style="margin-bottom: 10px">
+    Click the nodes in the tree to collapse and expand the tree.
+  </div>
+  <div id="add_tree" style="margin-left: -5px">
+  </div>
 </div>
 
+---
+
+<h2 style="color: #000f70; margin-left: -30px;"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Demo video </h2>
+
+<div>
+  <p> The video below shows the basic functions of this website. Users can check the transmission Markov chain model tree and set their own model simulation parameters. Afterward, they can click the "Run the Model" model to start the simulation of transmission.  </p>
+
+  <iframe width="100%" height="65" src="https://www.youtube.com/embed/hPol-tIg99w" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
+---
 
 <h2 style="color: #000f70; margin-left: -30px"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp; Website & Source code </h2>
 
-<div style="margin-left: -15px">
+<div>
   <ul>
     <li><a href="http://140.112.136.49:8005/" target="_blank"> <b>Website Entry</b></a></li>
   </ul>
@@ -43,6 +57,7 @@ The back-end of the website is written in Python Django and Django-Q task schedu
 </div>
 <!-- <a href="http://140.112.136.49:8005/"> <b> >> Website << </b></a> -->
 
+---
 
 
 <style>
