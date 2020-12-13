@@ -165,7 +165,7 @@ redirect_from:
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         <li>
         <h3 class="archive__item-title" itemprop="headline">
-          <a href="/talks/2018-12-20-talk" rel="permalink" style="color: #494E52">Outstanding Research Prize &nbsp; (1$^{st}$ prize)</a>
+          <a href="/talks/2018-12-20-talk" rel="permalink" style="color: #494E52">Outstanding Research Prize &nbsp; (1<sup>st</sup> prize)</a>
             <!-- <p style="color: #494E52">Outstanding Research Prize (1st prize)</p> -->
         </h3>
         <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2018-12-15" | date: '%B %d, %Y' }}</b></p>
@@ -178,7 +178,7 @@ redirect_from:
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         <li>
         <h3 class="archive__item-title" itemprop="headline">
-          <a href="/talks/2017-09-12-exhibition" rel="permalink" style="color: #494E52">Elite Prize &nbsp; (1$^{st}$ prize)</a>
+          <a href="/talks/2017-09-12-exhibition" rel="permalink" style="color: #494E52">Elite Prize &nbsp; (1<sup>st</sup> prize)</a>
             <!-- <p style="color: #494E52">Elite Prize(1st prize)</p> -->
         </h3>
         <p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ "2017-07-21" | date: '%B %d, %Y' }} - {{ "2017-07-23" | date: '%B %d, %Y' }}</b></p>

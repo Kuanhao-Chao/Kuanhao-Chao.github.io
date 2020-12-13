@@ -3,7 +3,7 @@ title: "Electronic Health Record (EHR) phenotypes & genotypes extraction"
 collection: researches
 type: "Research assistant"
 permalink: /researches/2019-03-01-EHR_extraction
-venue: "<a href='http://nuredu.mc.ntu.edu.tw/' style='color: inherit;' target='_blank'>AI team, College of Medicine, National Taiwan University</a>"
+venue: "<a href='http://nuredu.mc.ntu.edu.tw/' style='color: inherit;' target='_blank'>College of Medicine AI team, National Taiwan University</a>"
 start_date: 2019-03-01
 end_date: 2019-06-30
 location: "Taipei, Taiwan"
