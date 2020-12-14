@@ -7,12 +7,12 @@ author_profile: true
 
 {% include base_path %}
 
-{% for post in site.games %}
-  {% include archive-single-game.html %}
+{% for post in site.projects %}
+  {% include archive-single-project.html %}
   <hr>
 {% endfor %}
 
-{% for post in site.course_projects %}
-  {% include archive-single-course_projects.html %}
+<!-- {% for post in site. %}
+  {% include archive-single-project.html %}
   <hr>
-{% endfor %}
+{% endfor %} -->
