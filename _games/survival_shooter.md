@@ -2,7 +2,7 @@
 title: "Survival Shooter"
 collection: games
 type: "Unity game"
-permalink: /games/survival_shooter
+permalink: /projects/games/survival_shooter
 start_date: 2020-01-03
 end_date: 2020-06-01
 location: "Taipei, Taiwan"

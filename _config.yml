@@ -194,9 +194,9 @@ collections:
   internship:
     output: true
     permalink: /:collection/:path/
-  games:
-    output: true
-    permalink: /:collection/:path/
+  # games:
+  #   output: true
+  #   permalink: /:collection/:path/
   projects:
     output: true
     permalink: /:collection/:path/
@@ -282,12 +282,12 @@ defaults:
       layout: game
       author_profile: true
       share: true
-  # _projects
+  # _course_projects
   - scope:
       path: ""
-      type: projects
+      type: course_projects
     values:
-      layout: project
+      layout: course_project
       author_profile: true
       share: true
   # _references

@@ -2,7 +2,7 @@
 title: "Flappy Penguin"
 collection: games
 type: "Unity game"
-permalink: /games/flappy_penguin
+permalink: /projects/games/flappy_penguin
 start_date: 2020-01-02
 end_date: 2020-01-01
 location: "Taipei, Taiwan"

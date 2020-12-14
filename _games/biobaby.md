@@ -2,7 +2,7 @@
 title: "Biobaby"
 collection: games
 type: "Unity game"
-permalink: /games/biobaby
+permalink: /projects/games/biobaby
 start_date: 2020-01-01
 end_date: 2020-01-01
 location: "Taipei, Taiwan"

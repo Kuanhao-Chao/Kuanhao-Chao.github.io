@@ -1,7 +1,7 @@
 ---
 layout: archive
-title: "🎮 Unity Games"
-permalink: /games/
+title: "🎮 Projects"
+permalink: /projects/
 author_profile: true
 ---
 
@@ -12,7 +12,7 @@ author_profile: true
   <hr>
 {% endfor %}
 
-{% for post in site.projects %}
+{% for post in site.course_projects %}
   {% include archive-single-game.html %}
   <hr>
 {% endfor %}
