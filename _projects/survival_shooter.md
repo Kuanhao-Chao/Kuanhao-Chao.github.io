@@ -1,6 +1,6 @@
 ---
 title: "Survival Shooter"
-collection: games
+collection: projects
 type: "Unity game"
 permalink: /projects/games/survival_shooter
 start_date: 2020-01-03

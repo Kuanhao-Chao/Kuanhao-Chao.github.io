@@ -1,6 +1,6 @@
 ---
 title: "Biobaby"
-collection: games
+collection: projects
 type: "Unity game"
 permalink: /projects/games/biobaby
 start_date: 2020-01-01
