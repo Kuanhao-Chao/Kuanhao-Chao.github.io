@@ -1,8 +1,9 @@
 ---
 title: "Biobaby"
-collection: projects
-type: "Unity game"
+collection: games
+type: "Unity Game"
 permalink: /projects/games/biobaby
+new_start: "True"
 start_date: 2020-01-01
 end_date: 2020-01-01
 location: "Taipei, Taiwan"

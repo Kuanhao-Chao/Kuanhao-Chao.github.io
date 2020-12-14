@@ -1,7 +1,7 @@
 ---
 title: "Flappy Penguin"
-collection: projects
-type: "Unity game"
+collection: games
+type: "Unity Game"
 permalink: /projects/games/flappy_penguin
 start_date: 2020-01-02
 end_date: 2020-01-01

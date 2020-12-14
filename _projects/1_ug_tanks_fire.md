@@ -1,7 +1,7 @@
 ---
 title: "Tanks Fire!"
-collection: projects
-type: "Unity game"
+collection: games
+type: "Unity Game"
 permalink: /projects/games/tanks_fire
 start_date: 2020-01-01
 end_date: 2020-01-01

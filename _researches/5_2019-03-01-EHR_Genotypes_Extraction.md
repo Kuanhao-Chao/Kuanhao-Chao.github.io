@@ -12,7 +12,7 @@ image: "/images/EHR_cover.jpg"
 superviser: '<a href="#" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#d0a4fc; border-radius: 10px; background-color: #d0a4fc;">&nbsp; Yun-Cheng Tsai  &nbsp;</a>'
 superviser_clean:
   - "Yun-Cheng Tsai"
-research_position: "RA_CGM_NTU"
+research_position: "RA_CM_NTU"
 research_clean: "EHR"
 ---
 

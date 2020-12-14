@@ -1,8 +1,8 @@
 ---
-title: "EE3009 Introduction to Biomedical Engineering"
+title: "[<i>CSX 4001</i>] Data Science Programming"
 collection: projects
 type: "Course Project"
-permalink: /projects/course_projects/Introduction_to_Biomedical_Engineering
+permalink: /projects/course_projects/Data_Science_Programming
 start_date: 2019-06-09
 end_date: 2019-06-11
 location: "Taipei, Taiwan"
