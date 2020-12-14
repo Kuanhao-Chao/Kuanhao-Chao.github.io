@@ -274,20 +274,28 @@ defaults:
       layout: internship
       author_profile: true
       share: true
-  # _games
+  # # _games
+  # - scope:
+  #     path: ""
+  #     type: games
+  #   values:
+  #     layout: game
+  #     author_profile: true
+  #     share: true
+  # # _course_projects
+  # - scope:
+  #     path: ""
+  #     type: course_projects
+  #   values:
+  #     layout: course_project
+  #     author_profile: true
+  #     share: true
+  # _projects
   - scope:
       path: ""
-      type: games
+      type: projects
     values:
-      layout: game
-      author_profile: true
-      share: true
-  # _course_projects
-  - scope:
-      path: ""
-      type: course_projects
-    values:
-      layout: course_project
+      layout: project
       author_profile: true
       share: true
   # _references
