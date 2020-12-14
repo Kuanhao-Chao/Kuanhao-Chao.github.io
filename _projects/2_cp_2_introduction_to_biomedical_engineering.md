@@ -16,14 +16,12 @@ superviser:
 
 <div style="margin-left: 30px">
   <p style="margin-top: 30px">
-  I gave a talk on <b>"RNASeqR: an R package for automated two-group RNA-Seq analysis workflow"</b> at ICIBM 2019 on 11$^{th}$ of June in Columbus, USA.
   </p>
-<iframe src="https://docs.google.com/document/d/e/2PACX-1vRDkG1OP9oVE8YKjS2O9bykjHi6DPzrKsyElr-Y4FlWruWE2sNU0KNiljWe5pyttuhYdJ3UEuw8dlHy/pub?embedded=true"></iframe>
-
-
+<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/Projects/Biomedical%20Engineering%20Lab/manuscript.pdf" width="100%" height="700"></iframe>
+</div>
 
 ---
-
+<!--
 <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;ICIBM Introduction </h2>
 
 <div style="margin-left: 30px">
@@ -73,4 +71,4 @@ superviser:
       <a href="https://drive.google.com/open?id=1XLg_ej1cUAJ8uTVV_XM-0KxnR2DKQXIQ"><b>My ICIBM 2019 Presentation Slides</b></a>
     </li>
   </ul>
-</div>
+</div> -->
