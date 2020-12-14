@@ -11,3 +11,8 @@ author_profile: true
   {% include archive-single-game.html %}
   <hr>
 {% endfor %}
+
+{% for post in site.projects %}
+  {% include archive-single-game.html %}
+  <hr>
+{% endfor %}
