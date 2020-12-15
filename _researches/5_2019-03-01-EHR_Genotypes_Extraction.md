@@ -20,6 +20,8 @@ Wang Zhiming and I developed this text-mining website to help the NTU Medical Ge
 
 We cooperated with Doctor <a href="https://scholars.lib.ntu.edu.tw/cris/rp/rp06704" target="_blank">Wuh-Liang ​​Hwu</a> who evalutated the extracted results to help us improve the phenotypes and genotypes selection accuracy.
 
+<a href="http://140.112.30.198:8000/MetaMap/" target="_blank"> <b>>> Website Entry <<</b></a>
+
 
 <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vTY4Y_eDRKSSSMSlbHBodROBF83znnw9xAkmblWFBTx_ZCHIfkBRS83EHizvztOi1gM3WGJaQz64E2O/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" height="500" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 
