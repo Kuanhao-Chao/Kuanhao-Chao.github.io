@@ -34,6 +34,8 @@ research_clean: "smart_bus_bell"
 
 <br>
 
+---
+
 <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;WCIT Introduction </h2>
 
 <div style="margin-left: 30px">
@@ -43,6 +45,7 @@ research_clean: "smart_bus_bell"
   <img src="/images/icibm_intro_img.png">
 </div>
 
+---
 
 <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;2017 HackNTU Introduction </h2>
 
@@ -65,17 +68,20 @@ research_clean: "smart_bus_bell"
 
 </div>
 
+---
 
 <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Related Links </h2>
 
 <ul>
   <li>
-    <a href="https://www.roc-taiwan.org/uploads/sites/59/2017/08/WCIT2017_Brochure.pdf"><b> WCIT 2017 Brochure </b></a>
+    <a href="https://www.roc-taiwan.org/uploads/sites/59/2017/08/WCIT2017_Brochure.pdf" target="_blank"><b> WCIT 2017 Brochure </b></a>
   </li>
   <li>
-    <a href="https://github.com/Kuanhao-Chao/Smart_Bus_Bell_Android_App"><b>  Smart Bus Bell Github Link  </b></a>
+    <a href="https://github.com/Kuanhao-Chao/Smart_Bus_Bell_Android_App" target="_blank"><b>  Smart Bus Bell Github Link  </b></a>
   </li>
 </ul>
 
 <div style="margin-left: 30px">
 </div>
+
+---

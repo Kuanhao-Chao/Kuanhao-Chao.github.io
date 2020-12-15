@@ -14,48 +14,53 @@ superviser:
 
 <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Introduction </h2>
 
-<div style="margin-left: 30px">
+<div style="margin-left: 30px;">
   <p style="margin-top: 30px">
-  I gave a talk on <b>"RNASeqR: an R package for automated two-group RNA-Seq analysis workflow"</b> at ICIBM 2019 on 11$^{th}$ of June in Columbus, USA.
+  Two team members and I built a Taipei City rental value searching & prediction engine (<b>iRenter</b>) for the <i>CSX 4001</i> final project. We demonstrated iRenter in an R Shiny app. In the team, I was responsible for data collection, preprocessing, and visualization. Below is the iRenter R Shiny app.
   </p>
-<iframe src="https://docs.google.com/document/d/e/2PACX-1vRDkG1OP9oVE8YKjS2O9bykjHi6DPzrKsyElr-Y4FlWruWE2sNU0KNiljWe5pyttuhYdJ3UEuw8dlHy/pub?embedded=true"></iframe>
+  <a href="https://csplusxfinal.shinyapps.io/real_estate_prediction/" target="_blank"><b>>> iRenter Website Entry <<</b></a>
+
+  <iframe src="https://csplusxfinal.shinyapps.io/real_estate_prediction/" width="133%" height="800px" style=" -webkit-transform: scale(0.75); transform: scale(0.75); -webkit-transform-origin: 0 0; transform-origin: 0 0; border:3px solid black; margin-bottom: -170px; margin-top: 5px"></iframe>
+    <p>
+    Following are the open datasets that we collected and used:
+    <ul>
+      <li><a href="http://lvr.land.moi.gov.tw/homePage.action" target="_blank">Actual Selling Price of Real estate</a>
+      </li>
+      <li><a href="https://data.taipei/#/" target="_blank">Locations of Mass Rapid Transit Stations </a>
+      </li>
+      <li><a href="https://parks.taipei/parks/index.php" target="_blank">Locations of parks</a>
+      </li>
+      <li><a href="https://data.taipei/#/" target="_blank">Locations of bus stops</a>
+      </li>
+      <li><a href="https://data.gov.tw/dataset/32086" target="_blank">Locations of convenient stores</a>
+      </li>
+    </ul>
+    </p>
+
+    <p>
+    Following are the machine learning model that we tried:
+    <ul>
+      <li>Non-linear SVM
+      </li>
+      <li>ExtraTree
+      </li>
+      <li>RandomForest
+      </li>
+    </ul>
+    </p>
+</div>
 
 
 
 ---
 
-<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;ICIBM Introduction </h2>
+<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;<i>CSX 4001</i> final project presentation slides </h2>
 
 <div style="margin-left: 30px">
   <p>
-  The 2019 International Conference on Intelligent Biology and Medicine (ICIBM 2019) will be held on June 9-11, 2019 in Columbus, OH, USA. You are invited to submit abstracts with unpublished original work describing recent advances on all aspects of bioinformatics, Systems Biology and intelligent Computing, including but not restricted to the following topics:
   </p>
-  <ul>
-    <li>Cancer Genomics
-    </li>
-    <li>Metabolomics
-    </li>
-    <li>Microbiome/Metagenomics
-    </li>
-    <li>Translational pharmacoinformatics
-    </li>
-    <li>Omics Integration
-    </li>
-    <li>Medical Informatics
-    </li>
-    <li>Scientific databases
-    </li>
-    <li>Imaging informatics
-    </li>
-    <li>Systems Biology
-    </li>
-    <li>Algorithms/Artificial Intelligence
-    </li>
-    <li>Single-cell analysis
-    </li>
-  </ul>
+  <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vTT2IujnU2VsvI7UD3EK_hBrZL7ZHoCHvCHVL2Fu1Lt_rnF2nd6fAN67ijQu-tJjznVYUubAvLsPPz0/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" height="400px" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 </div>
-
 
 ---
 
@@ -64,13 +69,11 @@ superviser:
 <div style="margin-left: 30px">
   <ul>
     <li>
-      <a href="https://icibm2019.org/"><b>ICIBM 2019 Official Website</b></a>
+      <a href="https://csplusxfinal.shinyapps.io/real_estate_prediction/" target="_blank"><b>iRenter Website Entry</b></a>
     </li>
     <li>
-      <a href="https://icibm2019.org/Schedule.htm"><b>ICIBM 2019 Schedule</b></a>
-    </li>
-    <li>
-      <a href="https://drive.google.com/open?id=1XLg_ej1cUAJ8uTVV_XM-0KxnR2DKQXIQ"><b>My ICIBM 2019 Presentation Slides</b></a>
+      <a href="https://github.com/Kuanhao-Chao/CSX_RProject_Spring_2018" target="_blank"><b>Course GitHub repository</b></a>
     </li>
   </ul>
 </div>
+---
