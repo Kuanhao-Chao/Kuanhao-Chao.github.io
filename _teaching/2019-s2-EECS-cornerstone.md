@@ -3,6 +3,7 @@ title: "Teaching assistant for the course <i>Cornerstone EECS Design and Impleme
 collection: teaching
 type: "Teaching Assistant"
 permalink: /teaching/2019-s2-EECS-cornerstone
+image: "/images/TA_EE_1006_cover.png"
 venue: "Department of Electrical Engineering, National Taiwan University"
 start_date: 2019-02-11
 end_date: 2019-06-23

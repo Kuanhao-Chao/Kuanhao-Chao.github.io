@@ -3,6 +3,7 @@ title: "Teaching assistant for the course <i>Data Science Programming (CSX-4001)
 collection: teaching
 type: "Teaching Assistant"
 permalink: /teaching/2019-s1-R-data-science
+image: "/images/TA_CS_4001_cover.png"
 venue: "Center for General Education, National Taiwan University"
 start_date: 2018-09-15
 end_date: 2019-01-13
