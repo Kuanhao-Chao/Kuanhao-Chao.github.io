@@ -16,9 +16,54 @@ superviser:
 
 <div style="margin-left: 30px">
   <p style="margin-top: 30px">
+    The elders are often incapable of standing up from a chair on their owns due to the lack of strength in their knees. They need an assistive technology device which can serve as their muscles. Therefore, we made "Smart Assistant Chair" to address the need. The device, which is activated by sensors noticing one is about to stand up, can alleviate the elders’ pain by utilizing a motor to elevate them. Moreover, an Android app was developed for data visualization and statistics of this chair. In this project, we have successfully constructed a “Smart Assistant Chair” prototype and went through some testing. We look forward to making it more stable in the future.
   </p>
-<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/Projects/Biomedical%20Engineering%20Lab/manuscript.pdf" width="100%" height="700"></iframe>
+  <figure style="text-align: center; display: inline-block;margin-top:-6px">
+    <img src="/images/biomedical_engineering_workflow.png" style="width: 90%; display: block;margin-left: auto;margin-right: auto;">
+    <figcaption style="text-align: center;">The main design structure of our "Smart Assistant Chair".
+    </figcaption>
+  </figure>
+
+  <figure style="width: 100%; text-align: center; display: inline-block;margin-top:-6px">
+    <div style="margin-left: 60px">
+      <div class="box" style="float:left; margin-right:20px;">
+        <iframe src="https://drive.google.com/file/d/1nEs8Qjdysp5F-XOl_gC1cyO6q2hBu5b5/preview" frameborder="0" scrolling="no" width="100%" height="280" align="left"> </iframe>
+      </div>
+
+      <div class="box" style="float:left; margin-right:20px;">
+        <iframe src="https://drive.google.com/file/d/1DflQvlfRdfWeFcq4DXeVmmOvLkTZrxZj/preview" frameborder="0" scrolling="no" width="100%" height="280" align="right"></iframe>
+      </div>
+    </div>
+    <figcaption style="text-align: center;">"Smart Assistant Chair" testing videos. The video on the left shows how the chair assists a person to stand up; the video on the right shows the Android app that I developed. It visualizes the information from the "Smart Assistant Chair".
+    </figcaption>
+  </figure>
 </div>
+
+---
+
+<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;"Smart Assistant Chair" Final Presentation Slides </h2>
+
+<div style="margin-left: 30px">
+  <p style="margin-top: 30px">
+    In the 3-person team, I was responsible for Android app development, program server deployment, presentation, and writing reports.
+  </p>
+  <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vQG383PORrHXoT1Z0c66T1_6Fw7vhhmg66X8-QjcqYQB8OLf14Bf40Llztb0L5CqkkEfcA81srHbxo-/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" height="500" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+</div>
+
+---
+
+<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;"Smart Assistant Chair" Final Report </h2>
+
+<div style="margin-left: 30px">
+  <iframe src="https://storage.googleapis.com/kuanhao.nctu.me/Projects/Introduction%20to%20Biomedical%20Engineering/%E7%94%9F%E9%86%AB%E5%B7%A5%E7%A8%8B%E6%A6%82%E8%AB%96final%20report.pdf" width="100%" height="700"></iframe>
+</div>
+
+---
+
+
+
+
+
 
 ---
 <!--
