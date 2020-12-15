@@ -41,7 +41,7 @@ superviser:
 
 ---
 
-<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;"Smart Assistant Chair" Final Presentation Slides </h2>
+<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;<i>EE 3009</i> final project presentation slides </h2>
 
 <div style="margin-left: 30px">
   <p style="margin-top: 30px">
@@ -52,7 +52,7 @@ superviser:
 
 ---
 
-<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;"Smart Assistant Chair" Final Report </h2>
+<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;<i>EE 3009</i> final project report </h2>
 
 <div style="margin-left: 30px">
   <iframe src="https://storage.googleapis.com/kuanhao.nctu.me/Projects/Introduction%20to%20Biomedical%20Engineering/%E7%94%9F%E9%86%AB%E5%B7%A5%E7%A8%8B%E6%A6%82%E8%AB%96final%20report.pdf" width="100%" height="700"></iframe>
