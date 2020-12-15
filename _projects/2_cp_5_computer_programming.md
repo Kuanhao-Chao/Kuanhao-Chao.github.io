@@ -1,5 +1,6 @@
 ---
 title: "[<i>EE 1004</i>] Computer Programming"
+course: "[<i>EE 1004</i>] Computer Programming"
 collection: projects
 type: "Course Project"
 permalink: /projects/course_projects/Computer_Programming
@@ -7,6 +8,7 @@ start_date: 2019-06-09
 end_date: 2019-06-11
 location: "Taipei, Taiwan"
 image: "/images/ICIBM_2019.jpg"
+people: '<b style="color: black">Kuan-Hao Chao</b>'
 superviser:
   - "Eric Y. Chuang"
   - "Tzu-Pin Lu"

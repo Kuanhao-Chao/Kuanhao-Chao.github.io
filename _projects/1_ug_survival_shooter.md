@@ -1,12 +1,13 @@
 ---
-title: "Survival Shooter"
+title: "Survival shooter"
 collection: games
 type: "Unity Game"
 permalink: /projects/games/survival_shooter
-start_date: 2020-01-03
-end_date: 2020-06-01
+start_date: 2017-08-01
+end_date: 2017-08-01
 location: "Taipei, Taiwan"
 image: "/images/survival_shooter.png"
+people: '<b style="color: black">Kuan-Hao Chao</b>'
 ---
 
 ---

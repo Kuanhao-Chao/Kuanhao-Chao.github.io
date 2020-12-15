@@ -1,12 +1,13 @@
 ---
-title: "Tanks Fire!"
+title: "Tanks fire!"
 collection: games
 type: "Unity Game"
 permalink: /projects/games/tanks_fire
-start_date: 2020-01-01
-end_date: 2020-01-01
+start_date: 2020-09-01
+end_date: 2020-09-01
 location: "Taipei, Taiwan"
 image: "/images/tanks_fire.png"
+people: '<b style="color: black">Kuan-Hao Chao</b>'
 ---
 
 ---

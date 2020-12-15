@@ -1,12 +1,13 @@
 ---
-title: "Flappy Penguin"
+title: "Flappy penguin"
 collection: games
 type: "Unity Game"
 permalink: /projects/games/flappy_penguin
-start_date: 2020-01-02
-end_date: 2020-01-01
+start_date: 2017-10-08
+end_date: 2017-10-10
 location: "Taipei, Taiwan"
 image: "/images/flappy_penguin.png"
+people: '<b style="color: black">Kuan-Hao Chao</b>'
 ---
 
 ---

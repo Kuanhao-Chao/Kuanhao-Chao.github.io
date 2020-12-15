@@ -1,12 +1,14 @@
 ---
-title: "[<i>EE 3002</i>] Electrical Engineering Lab (Networking and Multimedia)"
+title: 'Stealing machine learning models via prediction APIs'
+course: "[<i>EE 3002</i>] Electrical Engineering Lab (Networking and Multimedia)"
 collection: projects
 type: "Course Project"
 permalink: /projects/course_projects/Networking_and_Multimedia
-start_date: 2019-06-09
-end_date: 2019-06-11
+start_date: 2018-09-01
+end_date: 2019-01-01
 location: "Taipei, Taiwan"
-image: "/images/ICIBM_2019.jpg"
+image: "/images/EE_3002_cover.png"
+people: '<b style="color: black">Kuan-Hao Chao</b>, Cheng-De Lin, Ling-Yu Li'
 superviser:
   - "Eric Y. Chuang"
   - "Tzu-Pin Lu"

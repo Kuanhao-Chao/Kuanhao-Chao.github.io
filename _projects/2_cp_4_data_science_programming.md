@@ -1,12 +1,14 @@
 ---
-title: "[<i>CSX 4001</i>] Data Science Programming"
+title: "iRenter: Taipei City rental value searching & prediction engine"
+course: "[<i>CSX 4001</i>] Data Science Programming"
 collection: projects
 type: "Course Project"
 permalink: /projects/course_projects/Data_Science_Programming
-start_date: 2019-06-09
-end_date: 2019-06-11
+start_date: 2018-02-01
+end_date: 2019-06-01
 location: "Taipei, Taiwan"
-image: "/images/ICIBM_2019.jpg"
+image: "/images/CSX_4001_cover.png"
+people: '<b style="color: black">Kuan-Hao Chao</b>, Ji-Zhen Luo, Ting-Aa Chen'
 superviser:
   - "Eric Y. Chuang"
   - "Tzu-Pin Lu"

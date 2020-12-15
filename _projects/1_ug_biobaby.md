@@ -4,11 +4,12 @@ collection: games
 type: "Unity Game"
 permalink: /projects/games/biobaby
 new_start: "True"
-start_date: 2020-01-01
-end_date: 2020-01-01
+start_date: 2018-05-01
+end_date: 2018-06-01
 location: "Taipei, Taiwan"
 status: "In progress"
 image: "/images/biobaby.png"
+people: '<b style="color:black">Kuan-Hao Chao</b>'
 ---
 
 ---

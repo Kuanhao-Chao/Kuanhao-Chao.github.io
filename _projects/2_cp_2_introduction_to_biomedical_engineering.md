@@ -1,12 +1,14 @@
 ---
-title: "[<i>EE 3009</i>] Introduction to Biomedical Engineering"
+title: "Smart assistant chair"
+course: "[<i>EE 3009</i>] Introduction to Biomedical Engineering"
 collection: projects
 type: "Course Project"
 permalink: /projects/course_projects/Introduction_to_Biomedical_Engineering
-start_date: 2019-06-09
-end_date: 2019-06-11
+start_date: 2018-09-01
+end_date: 2019-01-01
 location: "Taipei, Taiwan"
-image: "/images/ICIBM_2019.jpg"
+image: "/images/EE_3009_cover.png"
+people: '<b style="color: black">Kuan-Hao Chao</b>, Si-Yu Mo, Xi Chen'
 superviser:
   - "Eric Y. Chuang"
   - "Tzu-Pin Lu"

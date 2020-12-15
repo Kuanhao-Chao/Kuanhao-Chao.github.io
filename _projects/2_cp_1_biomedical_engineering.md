@@ -1,13 +1,15 @@
 ---
-title: "[<i>EE 4057</i>] Electrical Engineering Lab (Biomedical Engineering)"
+title: 'Constructing <i>Mycobacterium tuberculosis</i> drug resistance prediction model'
+course: "[<i>EE 4057</i>] Electrical Engineering Lab (Biomedical Engineering)"
 collection: projects
 type: "Course Project"
 permalink: /projects/course_projects/Biomedical_Engineering
 new_start: "True"
-start_date: 2019-06-09
-end_date: 2019-06-11
+start_date: 2019-02-01
+end_date: 2019-07-01
 location: "Taipei, Taiwan"
-image: "/images/ICIBM_2019.jpg"
+image: "/images/EE4057_cover.jpg"
+people: '<b style="color: black">Kuan-Hao Chao</b>, Po-han Li, Yu-Sheng Ting'
 superviser:
   - "Eric Y. Chuang"
   - "Tzu-Pin Lu"
