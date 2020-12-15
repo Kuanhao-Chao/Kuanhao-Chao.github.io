@@ -47,7 +47,7 @@ superviser:
   <p style="margin-top: 30px">
     In the 3-person team, I was responsible for Android app development, program server deployment, presentation, and writing reports.
   </p>
-  <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vQG383PORrHXoT1Z0c66T1_6Fw7vhhmg66X8-QjcqYQB8OLf14Bf40Llztb0L5CqkkEfcA81srHbxo-/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" hight="500px" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+  <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vQG383PORrHXoT1Z0c66T1_6Fw7vhhmg66X8-QjcqYQB8OLf14Bf40Llztb0L5CqkkEfcA81srHbxo-/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" height="500px" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 </div>
 
 ---
