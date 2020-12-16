@@ -3,7 +3,7 @@ title: "Smart bus bell"
 course: "2017 HackNTU"
 collection: projects
 type: "Android App"
-permalink: /projects/course_projects/Computer_Programming
+permalink: /projects/android_apps/smart_bus_bell
 new_start: "True"
 start_date: 2016-12-15
 end_date: 2017-01-15
@@ -19,7 +19,7 @@ superviser:
 
 <div style="margin-left: 30px">
   <p style="margin-top: 30px">
-  I gave a talk on <b>"RNASeqR: an R package for automated two-group RNA-Seq analysis workflow"</b> at ICIBM 2019 on 11$^{th}$ of June in Columbus, USA.
+
   </p>
   <iframe width="100%" height="315" src="https://www.youtube.com/embed/xvpTAf3OXVc" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </div>

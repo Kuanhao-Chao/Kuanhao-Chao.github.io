@@ -3,7 +3,7 @@ title: "Safety Opener: an utility application for emergency evacuation"
 course: "2018 NASA Space Apps Challenge Hackathon"
 collection: projects
 type: "Android App"
-permalink: /projects/course_projects/Computer_Programming
+permalink: /projects/android_apps/safety_opener
 start_date: 2016-12-15
 end_date: 2017-01-15
 location: "Taipei, Taiwan"

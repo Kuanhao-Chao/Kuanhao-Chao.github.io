@@ -12,9 +12,9 @@ redirect_from:
 
 
 <!-- The navigation menu -->
-<div id="switch_cv" class="navbar">
-  <a class="nav_cv_online active" href="#">Online CV</a>
-  <a class="nav_cv_pdf" href="#">PDF CV</a>
+<div id="switch_cv" class="navbar" width="100%">
+  <a class="nav_cv_online active" width="50%" href="#">Online CV</a>
+  <a class="nav_cv_pdf" width="50%" href="#">PDF CV</a>
 </div>
 
 <script src="{{ base_path }}/assets/js/nav_card.js"></script>
