@@ -3,7 +3,7 @@ title: 'Stealing machine learning models via prediction APIs'
 course: "[<i>EE 3002</i>] Electrical Engineering Lab (Networking and Multimedia)"
 collection: projects
 type: "Course Project"
-permalink: /projects/course_projects/Networking_and_Multimedia
+permalink: /projects/course_projects/Networking_and_Multimedia_Lab
 start_date: 2018-09-01
 end_date: 2019-01-01
 location: "Taipei, Taiwan"

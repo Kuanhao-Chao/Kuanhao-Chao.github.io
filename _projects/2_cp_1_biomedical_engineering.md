@@ -3,7 +3,7 @@ title: 'Constructing <i>Mycobacterium tuberculosis</i> drug resistance predictio
 course: "[<i>EE 4057</i>] Electrical Engineering Lab (Biomedical Engineering)"
 collection: projects
 type: "Course Project"
-permalink: /projects/course_projects/Biomedical_Engineering
+permalink: /projects/course_projects/Biomedical_Engineering_Lab
 new_start: "True"
 start_date: 2019-02-01
 end_date: 2019-07-01

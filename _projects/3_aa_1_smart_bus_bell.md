@@ -1,13 +1,14 @@
 ---
-title: "iGroc: C++ desktop helper"
-course: "[<i>EE 1004</i>] Computer Programming"
+title: "Smart bus bell"
+course: "2017 HackNTU"
 collection: projects
-type: "Course Project"
+type: "Android App"
 permalink: /projects/course_projects/Computer_Programming
+new_start: "True"
 start_date: 2016-12-15
 end_date: 2017-01-15
 location: "Taipei, Taiwan"
-image: "/images/EE_1004_cover.png"
+image: "/images/Android_smart_bus_bell_cover.png"
 people: '<b style="color: black">Kuan-Hao Chao</b>'
 superviser:
   - "Eric Y. Chuang"
@@ -22,7 +23,5 @@ superviser:
   </p>
   <iframe width="100%" height="315" src="https://www.youtube.com/embed/xvpTAf3OXVc" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </div>
-
-
 
 ---

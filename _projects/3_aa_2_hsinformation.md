@@ -1,13 +1,13 @@
 ---
-title: "iGroc: C++ desktop helper"
-course: "[<i>EE 1004</i>] Computer Programming"
+title: "HsInFormaTion: Hsinchu safety information app"
+course: "2017 Hsinchu Open Data Hackathon"
 collection: projects
-type: "Course Project"
+type: "Android App"
 permalink: /projects/course_projects/Computer_Programming
 start_date: 2016-12-15
 end_date: 2017-01-15
 location: "Taipei, Taiwan"
-image: "/images/EE_1004_cover.png"
+image: "/images/Android_hsinformation.png"
 people: '<b style="color: black">Kuan-Hao Chao</b>'
 superviser:
   - "Eric Y. Chuang"

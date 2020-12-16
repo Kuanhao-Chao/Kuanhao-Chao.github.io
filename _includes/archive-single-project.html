@@ -18,13 +18,16 @@
 
 
 {% if post.new_start == "True" and post.type == "Unity Game" %}
-  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🎮 Unity Game</b></p>
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🎮 &nbsp; Unity Game</b></p>
 {% endif %}
 
 {% if post.new_start == "True" and post.type == "Course Project" %}
-  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 📝 Course Project</b></p>
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 📝 &nbsp; Course Project</b></p>
 {% endif %}
 
+{% if post.new_start == "True" and post.type == "Android App" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; <i class="fa fa-android" aria-hidden="true" style="color: green"></i> &nbsp; Android App</b></p>
+{% endif %}
 
 
 <div clss="row" style="display: flex; margin-left:30px; margin-top:-25px">
