@@ -29,11 +29,11 @@ superviser:
   <figure style="width: 100%; text-align: center; display: inline-block;margin-top:-6px">
     <div style="margin-left: 60px">
       <div class="box" style="float:left; margin-right:20px;">
-        <iframe src="https://drive.google.com/file/d/1nEs8Qjdysp5F-XOl_gC1cyO6q2hBu5b5/preview" frameborder="0" scrolling="no" width="100%" height="280" align="left"> </iframe>
+        <iframe src="https://drive.google.com/file/d/1nEs8Qjdysp5F-XOl_gC1cyO6q2hBu5b5/preview" frameborder="0" scrolling="no" width="100%" height="300" align="left"> </iframe>
       </div>
 
       <div class="box" style="float:left; margin-right:20px;">
-        <iframe src="https://drive.google.com/file/d/1DflQvlfRdfWeFcq4DXeVmmOvLkTZrxZj/preview" frameborder="0" scrolling="no" width="100%" height="280" align="right"></iframe>
+        <iframe src="https://drive.google.com/file/d/1DflQvlfRdfWeFcq4DXeVmmOvLkTZrxZj/preview" frameborder="0" scrolling="no" width="100%" height="300" align="right"></iframe>
       </div>
     </div>
     <figcaption style="text-align: center;">"Smart Assistant Chair" testing videos. The video on the left shows how the chair assists a person to stand up; the video on the right shows the Android app that I developed. It visualizes the information from the "Smart Assistant Chair".
