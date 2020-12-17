@@ -106,7 +106,7 @@ superviser:
 
 <div style="margin-left: 30px">
   <figure style="width: 100%; text-align: center; display: inline-block;margin-top:-6px">
-    <div style="column-count: 3; column-gap: 10px;">
+    <div style="column-count: 3; column-gap: 8px;">
       <div class="column">
         <iframe width="100%" height="200px" src="https://www.youtube.com/embed/k3ZBygO-Pyc" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
       </div>
