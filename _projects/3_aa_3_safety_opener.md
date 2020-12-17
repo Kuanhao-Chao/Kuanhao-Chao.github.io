@@ -8,7 +8,7 @@ start_date: 2016-12-15
 end_date: 2017-01-15
 location: "Taipei, Taiwan"
 image: "/images/Android_safety_opener.png"
-people: '<b style="color: black">Kuan-Hao Chao</b>'
+people: '<b style="color: black">Kuan-Hao Chao</b>, Cheng-De Lin, Han-Mo Ou'
 superviser:
   - "Eric Y. Chuang"
   - "Tzu-Pin Lu"

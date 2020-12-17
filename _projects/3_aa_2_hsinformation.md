@@ -8,7 +8,7 @@ start_date: 2016-12-15
 end_date: 2017-01-15
 location: "Taipei, Taiwan"
 image: "/images/Android_hsinformation.png"
-people: '<b style="color: black">Kuan-Hao Chao</b>'
+people: '<b style="color: black">Kuan-Hao Chao</b>, Cheng-De Lin, Yong-Song Zhuang, Yu-Neng Wang'
 superviser:
   - "Eric Y. Chuang"
   - "Tzu-Pin Lu"
