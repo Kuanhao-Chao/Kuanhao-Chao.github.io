@@ -18,11 +18,26 @@ superviser:
 
 <div style="margin-left: 30px">
   <p style="margin-top: 30px">
-  I gave a talk on <b>"RNASeqR: an R package for automated two-group RNA-Seq analysis workflow"</b> at ICIBM 2019 on 11$^{th}$ of June in Columbus, USA.
+  We used local government and NASA open datasets and built <b>Safety Opener</b> - an utility application for emergency evacuation. Below is our presentation slides.
   </p>
-  <iframe width="100%" height="315" src="https://www.youtube.com/embed/xvpTAf3OXVc" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  <iframe src="https://storage.googleapis.com/kuanhao.nctu.me/Hackathon/Nasa_Hackathon/36_NASA.pdf" frameborder="0" width="100%" height="500" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 </div>
 
 
+
+---
+
+<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Related Links </h2>
+
+<div style="margin-left: 30px">
+  <ul>
+    <li>
+      <a href="https://github.com/Kuanhao-Chao/NASA_HACKATHON_36" target="_blank"><b>GitHub Repository</b></a>
+    </li>
+    <li>
+      <a href="https://github.com/Kuanhao-Chao/NASA_HACKATHON_APK/tree/master" target="_blank"><b>Android App APK</b></a>
+    </li>
+  </ul>
+</div>
 
 ---
