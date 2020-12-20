@@ -1,4 +1,3 @@
-_projects/3_aa_1_smart_bus_bell.md
 ---
 title: "Smart bus bell"
 course: "2017 HackNTU"
