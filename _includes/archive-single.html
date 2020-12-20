@@ -46,22 +46,21 @@
     <div clss="row" style="display: flex;">
       <div class="column" style="flex: 59%;">
 
-        {% if post.excerpt and site.read_more != 'enabled' %}
-        <p class="archive__item-excerpt" itemprop="description">{{ post.excerpt | markdownify }}</p>
-        {% elsif post.excerpt and site.read_more == 'enabled' %}
-        <p class="archive__item-excerpt" itemprop="description"><p>{{ post.excerpt | markdownify | remove: '<p>' | remove: '</p>' }}<strong><a href="{{ base_path }}{{ post.url }}" rel="permalink"> Read more</a></strong></p></p>
-        {% endif %}
+          {% if post.excerpt and site.read_more != 'enabled' %}
+          <p class="archive__item-excerpt" itemprop="description">{{ post.excerpt | markdownify }}</p>
+          {% elsif post.excerpt and site.read_more == 'enabled' %}
+          <p class="archive__item-excerpt" itemprop="description"><p>{{ post.excerpt | markdownify | remove: '<p>' | remove: '</p>' }}<strong><a href="{{ base_path }}{{ post.url }}" rel="permalink"> Read more</a></strong></p></p>
+          {% endif %}
 
-        {% if post.citation and post.paperurl %}
-          <p style="font-size:15px"><i class="fa fa-quote-left" aria-hidden="true"></i> &nbsp; Citation: {{ post.citation }} <a href="{{ post.paperurl }}">{{ post.paperurl }}</a></p>
+          {% if post.citation and post.paperurl %}
+            <p style="font-size:15px"><i class="fa fa-quote-left" aria-hidden="true"></i> &nbsp; Citation: {{ post.citation }} <a href="{{ post.paperurl }}">{{ post.paperurl }}</a></p>
 
 
-        {% elsif post.citation %}
-          <p style="font-size:15px">Citation: {{ post.citation }} </p>
-        {% elsif post.paperurl %}
-          <p style="font-size:15px">Download <a href=" {{ post.paperurl }} "><u>here</u></a></p>
-        {% endif %}
-
+          {% elsif post.citation %}
+            <p style="font-size:15px">Citation: {{ post.citation }} </p>
+          {% elsif post.paperurl %}
+            <p style="font-size:15px">Download <a href=" {{ post.paperurl }} "><u>here</u></a></p>
+          {% endif %}
       </div>
 
       <div class="column" style="flex: 3%;">
