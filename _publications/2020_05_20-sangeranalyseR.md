@@ -7,13 +7,33 @@ date: 2020-05-20
 venue: 'bioRxiv [Accepted at <b>Genome Biology (GBE)</b> with Minor Revisions]'
 paperurl: 'https://www.biorxiv.org/content/10.1101/2020.05.18.102459v1.full.pdf'
 citation: '<br><b style="color:#ad0000">K.H. Chao*</b>, K. Barton, S. Palmer, and R. Lanfear (2019). "sangeranalyseR: simple and interactive analysis of Sanger sequencing data in R" in <b><i>bioRxiv</i></b>. doi: 10.1101/2020.05.18.102459.'
+altmetric: "<div class='altmetric-embed' data-badge-type='1' data-doi='10.1101/2020.05.18.102459' style='display:inline;'></div>"
+altmetric_inside: "<div data-badge-type='donut' class='altmetric-embed' data-badge-popover='left' data-doi='10.1101/2020.05.18.102459' style='display:inline;'></div>"
 SJR: '<a href="https://www.scimagojr.com/journalsearch.php?q=19700182013&amp;tip=sid&amp;exact=no" title="SCImago Journal &amp; Country Rank"><img border="0" src="https://www.scimagojr.com/journal_img.php?id=19700182013" style="width:235px; height: 250px;object-fit: cover;display: inline; margin-top:20px;" alt="SCImago Journal &amp; Country Rank"  /></a>'
+license: '<a href="https://opensource.org/licenses/MIT" target="_blank"><img src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>'
+document_status: '<a href="https://sangeranalyser.readthedocs.io/" target="_blank"><img src="https://readthedocs.org/projects/pip/badge/"></a>'
+platforms: '<a href="https://bioconductor.riken.jp/packages/3.12/bioc/html/sangeranalyseR.html" target="_blank"><img src="https://img.shields.io/badge/platform-macOS_/Linux_/Windows-green.svg"></a>'
 superviser_clean:
   - "Robert Lanfear"
 research_clean: "sangeranalyseR"
 ---
 
+<!-- <script type='text/javascript' src='https://d1bxh8uas1mnw7.cloudfront.net/assets/embed.js'></script> -->
+
 <script src="https://kit.fontawesome.com/yourcode.js"></script>
+
+<!-- <div data-badge-type='donut' class='altmetric-embed' data-badge-popover='left' data-doi='10.1101/2020.05.18.102459' style='display:inline;'></div> -->
+
+<div clss="row" style="display: flex; column-count: 3;">
+  <div class="column">
+    <div class='altmetric-embed' data-badge-type='medium-donut' data-doi='10.1101/2020.05.18.102459' style="inline; margin-top:10px"></div>
+  </div>
+  <div class="column">
+    <a href="https://www.scimagojr.com/journalsearch.php?q=19700182013&amp;tip=sid&amp;exact=no" title="SCImago Journal &amp; Country Rank"><img border="0" src="https://www.scimagojr.com/journal_img.php?id=19700182013" style="width:60%;object-fit: cover;display: inline; margin-left:60px;" alt="SCImago Journal &amp; Country Rank"  /></a>
+  </div>
+  <div class="column">
+  </div>
+</div>
 
 
 <h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Abstract </h2>

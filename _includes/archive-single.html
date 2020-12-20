@@ -11,6 +11,7 @@
 {% else %}
   {% assign title = post.title %}
 {% endif %}
+<script type='text/javascript' src='https://d1bxh8uas1mnw7.cloudfront.net/assets/embed.js'></script>
 <div class="{{ include.type | default: "list" }}__item" style=" margin-left:30px;">
   <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
     {% if include.type == "grid" and teaser %}
@@ -42,9 +43,9 @@
     {% elsif post.date %}
      <p style="font-size:15px"><strong><i class="fa fa-fw fa-calendar" aria-hidden="true"></i> {{ site.data.ui-text[site.locale].date_label | default: "Published:" }}</strong> <time datetime="{{ post.date | default: "1900-01-01" | date_to_xmlschema }}">{{ post.date | default: "1900-01-01" | date: "%B %d, %Y" }}</time></p>
     {% endif %}
-
+<!--
     <div clss="row" style="display: flex;">
-      <div class="column" style="flex: 59%;">
+      <div class="column" style="flex: 59%;"> -->
 
           {% if post.excerpt and site.read_more != 'enabled' %}
           <p class="archive__item-excerpt" itemprop="description">{{ post.excerpt | markdownify }}</p>
@@ -55,13 +56,19 @@
           {% if post.citation and post.paperurl %}
             <p style="font-size:15px"><i class="fa fa-quote-left" aria-hidden="true"></i> &nbsp; Citation: {{ post.citation }} <a href="{{ post.paperurl }}">{{ post.paperurl }}</a></p>
 
+            <!-- <div class='altmetric-embed' data-badge-type='1' data-doi='10.1016/S0140-6736(11)61619-x'></div> -->
 
           {% elsif post.citation %}
             <p style="font-size:15px">Citation: {{ post.citation }} </p>
           {% elsif post.paperurl %}
             <p style="font-size:15px">Download <a href=" {{ post.paperurl }} "><u>here</u></a></p>
           {% endif %}
-      </div>
+          {{post.altmetric}}
+          {{post.license}}
+          {{post.document_status}}
+          {{post.platforms}}
+          <!-- [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) -->
+      <!-- </div>
 
       <div class="column" style="flex: 3%;">
       </div>
@@ -69,7 +76,10 @@
       <div class="column" style="flex: 38%;">
         {{ post.SJR }}
       </div>
-    </div>
+    </div> -->
+
+
+    <!-- <script type="text/javascript" src="https://d1bxh8uas1mnw7.cloudfront.net/assets/embed.js"></script><div class="altmetric-embed" data-badge-type="donut" data-altmetric-id="82484632"></div> -->
 
 
 
