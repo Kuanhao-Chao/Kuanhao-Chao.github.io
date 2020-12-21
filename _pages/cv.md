@@ -148,6 +148,11 @@ redirect_from:
 
   <hr>
 
+  <!-- <h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px"><a href="https://kuanhao-chao.github.io/projects/">&nbsp;🎯  &nbsp; Projects</a></h1>
+  <ul>{% for post in site.projects %}
+    {% include archive-single-project.html %}
+  {% endfor %}</ul> -->
+
   <h1 style="margin-top: 8px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 8px">&nbsp;💼 &nbsp; Internship</h1>
   <ul>{% for post in site.internship %}
     {% include archive-single-internship-cv.html %}
