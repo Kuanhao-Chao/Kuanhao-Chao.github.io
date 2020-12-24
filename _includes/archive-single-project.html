@@ -17,6 +17,11 @@
 {% endif %}
 
 
+{% if post.new_start == "True" and post.type == "Bioinformatics Project" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🧬 &nbsp; Bioinformatics Project</b></p>
+{% endif %}
+
+
 {% if post.new_start == "True" and post.type == "Unity Game" %}
   <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🎮 &nbsp; Unity Game</b></p>
 {% endif %}
@@ -60,7 +65,15 @@
         <p class="page__meta"><b><i class="fas fa-user-alt"></i>  &nbsp;&nbsp; {{post.people}}  </b></p>
         {% if post.type == "Unity Game"%}
           <p class="page__meta"><b><i class="fa fa-gamepad" aria-hidden="true"></i> &nbsp;&nbsp;&nbsp;{{post.type}}</b></p>
-        {% else %}
+        {% endif %}
+        {% if post.type == "Bioinformatics Project"%}
+          <p class="page__meta"><b><i class="fas fa-laptop-code"></i> &nbsp;&nbsp;&nbsp;{{post.related_proj}}</b></p>
+        {% endif %}
+        {% if post.type == "Android App"%}
+          <p class="page__meta"><b><i class="fas fa-laptop-code"></i>
+          &nbsp;&nbsp;&nbsp;{{post.course}}</b></p>
+        {% endif %}
+        {% if post.type == "Course Project"%}
           <p class="page__meta"><b><i class="fas fa-laptop-code"></i>
           &nbsp;&nbsp;&nbsp;{{post.course}}</b></p>
         {% endif %}
