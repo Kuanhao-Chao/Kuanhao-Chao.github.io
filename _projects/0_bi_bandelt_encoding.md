@@ -20,7 +20,7 @@ people: '<b style="color:black">Kuan-Hao Chao</b>'
   </p>
 
   <p>
-  What this algorithm does is to compress a rooted tree with <i><b>n</b></i> nodes into an array with <i><b>n-1</b></i> elements without losing its structure information. This algorithm can be used to reduce the storing size of trees because it does not need to store the brackets information.
+  What this algorithm does is to compress a rooted tree with <i><b>n</b></i> nodes into an array with <i><b>n-1</b></i> elements without losing its structure information. This algorithm can be used to reduce the storing size of trees because it does not store the brackets information.
   </p>
 </div>
 
