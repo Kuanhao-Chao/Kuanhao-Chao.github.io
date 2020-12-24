@@ -13,6 +13,9 @@ main:
   - title: "Research"
     url: /researches/
 
+  - title: "Projects"
+    url: /projects/
+
   - title: "Talks"
     url: /talks/
 
@@ -21,9 +24,5 @@ main:
 
   # - title: "Internship"
   #   url: /internship/
-
-  - title: "Projects"
-    url: /projects/
-
   # - title: "Posts"
   #   url: /year-archive/

@@ -16,19 +16,29 @@ people: '<b style="color:black">Kuan-Hao Chao</b>'
 
 <div style="margin-left: 30px">
   <p style="margin-top: 30px">
-  The worldwide spread of antimicrobial resistance (AMR) bacteria is a serious global issue. Among them, Tuberculosis (TB) caused by <i>Mycobacterium tuberculosis</i> is the major global health problem caused from a single pathogen which listed in the 10 causes of death from 2000 to 2016. Constructing TB antidrug resistance prediction model is crucial because drug susceptibility testing in lab is time-consuming. Furthermore, it could help doctors in early diagnosis. However, current prediction sensitivity and specificity of
-  Isoniazid(INH), Rifampicin(RMP) and Ethambutol(EMB) TB drugs are not ideal. To address the need, we utilize protein information of each assembled <i>Mycobacterium tuberculosis</i> genome in PATRIC database to develop the state-of-the-art drug resistance model with machine learning approach. Our results show that with enough amount of data, the trained model with specific
-  hyperparameters can outperform the previous studies.
+  I implemented the Bandelt encoding/decoding algorithm from the paper "<i><b>Reconstructing the shape of a tree from observed dissimilarity data</b></i>" which was published by Hans-Jürgen Bandelt in 1985. I did a thorough survey and realized that this algorithm has not been implemented online.
+  </p>
+
+  <p>
+  What this algorithm does is to compress a rooted tree with <i><b>n</b></i> nodes into an array with <i><b>n-1</b></i> elements without losing its structure information. This algorithm can reduce the storing size of trees.
   </p>
 </div>
 
 ---
 
-<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;<i>EE 4057</i> final project report </h2>
-  <p style="margin-left: 30px">
-    <b>These authors contributed equally to the work</b>
-  </p>
+<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Presentation slides </h2>
 <div style="margin-left: 30px">
-<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/Projects/Biomedical%20Engineering%20Lab/manuscript.pdf" width="100%" height="700"></iframe>
+<iframe src="https://docs.google.com/presentation/d/e/2PACX-1vT-RY6jzIaJN5ptODWO3Ps4pZvmOrST1rjMjSBFIndHweyAB1RtY5W0WNTYHzhTzr6t7Ux0hElwj-CM/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" height="480" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+</div>
+---
+
+<h2 style="color: #000f70"> <i class="fas fa-dot-circle" style="font-size:18px;"></i> &nbsp;&nbsp;Related Links </h2>
+
+<div style="margin-left: 30px">
+  <ul>
+    <li>
+      <a href="https://github.com/Kuanhao-Chao/AIPhylo" target="_blank"><b>GitHub repository</b></a>
+    </li>
+  </ul>
 </div>
 ---
