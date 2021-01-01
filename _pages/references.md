@@ -1,6 +1,6 @@
 ---
 layout: archive
-title: "✉️ References"
+title: "✉️ &nbsp; References"
 permalink: /references/
 author_profile: true
 ---

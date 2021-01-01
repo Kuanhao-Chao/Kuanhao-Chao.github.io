@@ -1,6 +1,6 @@
 ---
 layout: archive
-title: "🔬 Research"
+title: "🔬 &nbsp; Research"
 permalink: /researches/
 author_profile: true
 ---
