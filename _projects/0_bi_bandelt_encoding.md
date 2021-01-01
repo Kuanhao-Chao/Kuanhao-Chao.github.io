@@ -1,4 +1,3 @@
-_projects/0_bi_bandelt_encoding.md
 ---
 title: "Bandelt encoding / decoding algorithm implementation"
 collection: projects
