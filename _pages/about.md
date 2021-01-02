@@ -1,4 +1,4 @@
-_pages/about.md---
+---
 permalink: /
 title: "🧑🏻‍💻 &nbsp; About me"
 excerpt: "About me"
