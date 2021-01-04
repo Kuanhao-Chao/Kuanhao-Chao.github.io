@@ -12,12 +12,12 @@ people: '<b style="color: black">Kuan-Hao Chao</b>'
 
 ---
 
-<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/flappy_penguin/index_full.html" width="500" height="680" style="margin-left: 50px; border:none;" scrolling="no"></iframe>
+<iframe src="https://storage.googleapis.com/storage.kuanhaochao.com/flappy_penguin/index_full.html" width="500" height="680" style="margin-left: 50px; border:none;" scrolling="no"></iframe>
 
 
 <div style="background-color: #dbdbdb; padding: 30px;">
   <p style="font-size:20px">
-    <a href="https://storage.googleapis.com/kuanhao.nctu.me/flappy_penguin/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>
+    <a href="http://storage.kuanhaochao.com/flappy_penguin/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>
   </p>
   <br>
   <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
@@ -29,4 +29,4 @@ people: '<b style="color: black">Kuan-Hao Chao</b>'
 </div>
 
 ---
-<a style="font-size:20px" href="https://storage.googleapis.com/kuanhao.nctu.me/flappy_penguin/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a style="font-size:20px" href="http://storage.kuanhaochao.com/flappy_penguin/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>

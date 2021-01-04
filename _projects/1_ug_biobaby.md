@@ -14,11 +14,11 @@ people: '<b style="color:black">Kuan-Hao Chao</b>'
 
 ---
 
-<iframe src="https://storage.googleapis.com/kuanhao.nctu.me/biobaby/index_full.html" width="950" height="680" style="border:none;" scrolling="no"></iframe>
+<iframe src="https://storage.googleapis.com/storage.kuanhaochao.com/biobaby/index_full.html" width="950" height="680" style="border:none;" scrolling="no"></iframe>
 
 
 <div style="background-color: #dbdbdb; padding: 30px; margin-top:50px">
-  <p style="font-size:20px"> <a href="https://storage.googleapis.com/kuanhao.nctu.me/biobaby/index_full.html" target="_blank"><b> >>Web Game Link << </b></a></p>
+  <p style="font-size:20px"> <a href="http://storage.kuanhaochao.com/biobaby/index_full.html" target="_blank"><b> >>Web Game Link << </b></a></p>
   <br>
   <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
   <br>
@@ -41,4 +41,4 @@ people: '<b style="color:black">Kuan-Hao Chao</b>'
 
 ---
 
-<a style="font-size:20px" href="https://storage.googleapis.com/kuanhao.nctu.me/biobaby/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a style="font-size:20px" href="http://storage.kuanhaochao.com/biobaby/index_full.html" target="_blank"><b> >>Web Game Link << </b></a>

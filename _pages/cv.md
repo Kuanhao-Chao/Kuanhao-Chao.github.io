@@ -232,8 +232,8 @@ redirect_from:
 
 
 <div id="content_cv_pdf" style="display:none;">
-  <a href="https://storage.googleapis.com/kuanhao.nctu.me/CV.pdf" target="_blan"><b> >> Download CV here << </b></a>
+  <a href="http://storage.kuanhaochao.com/CV.pdf" target="_blan"><b> >> Download CV here << </b></a>
   <p align="center">
-    <iframe src="https://storage.googleapis.com/kuanhao.nctu.me/CV.pdf" width="100%" height="1200" style="border:none;" scrolling="no"></iframe>
+    <iframe src="https://storage.googleapis.com/kuanhaochao.com/CV.pdf" width="100%" height="1200" style="border:none;" scrolling="no"></iframe>
   </p>
 </div>
