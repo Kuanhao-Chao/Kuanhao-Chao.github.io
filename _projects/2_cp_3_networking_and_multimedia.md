@@ -35,7 +35,7 @@ superviser:
   <p style="margin-top: 30px">
   </p>
 
-<iframe src="https://storage.googleapis.com/storage.kuanhaochao.com/Projects/Networking%20and%20Multimedia%20Lab/final_demo.pdf" width="100%" height="480"></iframe>
+<iframe src="http://storage.googleapis.com/storage.kuanhaochao.com/Projects/Networking%20and%20Multimedia%20Lab/final_demo.pdf" width="100%" height="480"></iframe>
 </div>
 
 ---
@@ -45,7 +45,7 @@ superviser:
 <div style="margin-left: 30px">
   <p style="margin-top: 30px">
   </p>
-<iframe src="https://storage.googleapis.com/storage.kuanhaochao.com/Projects/Networking%20and%20Multimedia%20Lab/poster.pdf" width="100%" height="800"></iframe>
+<iframe src="http://storage.googleapis.com/storage.kuanhaochao.com/Projects/Networking%20and%20Multimedia%20Lab/poster.pdf" width="100%" height="800"></iframe>
 
 </div>
 
