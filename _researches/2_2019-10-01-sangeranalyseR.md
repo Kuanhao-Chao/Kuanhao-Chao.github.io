@@ -7,7 +7,7 @@ venue: "<a href='http://www.robertlanfear.com/' target='_blank' style='color: in
 start_date: 2019-09-01
 end_date: 2020-01-01
 location: "Canberra, Australia"
-status: '<a style="text-decoration:none; color:#b5c200;">Accepted with Minor Revisions <i class="fa fa-paper-plane" aria-hidden="true"></i></a> &nbsp; <a href="https://www.biorxiv.org/content/10.1101/2020.05.18.102459v1" target="_blank"><i style="font-size: 12px; color:#c9cf7a">bioRxiv [Genome Biology and Evolution]</i></a>'
+status: '<a style="text-decoration:none; color:green;">Accepted<i class="fa fa-paper-plane" aria-hidden="true"></i></a> &nbsp; <a href="https://www.biorxiv.org/content/10.1101/2020.05.18.102459v1" target="_blank"><i style="font-size: 12px; color:green">Genome Biology and Evolution</i></a>'
 image: "/images/sangeranalyseR_cover.png"
 image_bioconductor: "Yes"
 superviser: '<a href="/references/Robert_Lanfear" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#e3bfbf; border-radius: 10px; background-color: #e3bfbf;" target="_blank">&nbsp; Robert Lanfear &nbsp;</a>'

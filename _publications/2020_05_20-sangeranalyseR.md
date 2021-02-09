@@ -3,10 +3,10 @@ title: "sangeranalyseR: simple and interactive analysis of Sanger sequencing dat
 collection: publications
 permalink: /publication/2020_05_20-sangeranalyseR
 excerpt: '<small>This package builds on sangerseqR to allow users to create contigs from collections of Sanger sequencing reads. It provides a wide range of options for a number of commonly-performed actions including read trimming, detecting secondary peaks, and detecting indels using a reference sequence. All parameters can be adjusted interactively either in R or in the associated Shiny applications. There is extensive online documentation, and the package can outputs detailed HTML reports, including chromatograms.</small>'
-date: 2020-05-20
-venue: 'bioRxiv [Accepted at <b>Genome Biology (GBE)</b> with Minor Revisions]'
+date: 2021-02-08
+venue: '<b>Genome Biology (GBE)</b>'
 paperurl: 'https://www.biorxiv.org/content/10.1101/2020.05.18.102459v1.full.pdf'
-citation: '<br><b style="color:#ad0000">K.H. Chao*</b>, K. Barton, S. Palmer, and R. Lanfear (2019). "sangeranalyseR: simple and interactive analysis of Sanger sequencing data in R" in <b><i>bioRxiv</i></b>. doi: 10.1101/2020.05.18.102459.'
+citation: '<br><b style="color:#ad0000">K.H. Chao*</b>, K. Barton, S. Palmer, and R. Lanfear (2020). "sangeranalyseR: simple and interactive analysis of Sanger sequencing data in R" in <b><i>bioRxiv</i></b>. doi: 10.1101/2020.05.18.102459.'
 altmetric: "<div class='altmetric-embed' data-badge-type='1' data-doi='10.1101/2020.05.18.102459' style='display:inline;'></div>"
 altmetric_inside: "<div data-badge-type='donut' class='altmetric-embed' data-badge-popover='left' data-doi='10.1101/2020.05.18.102459' style='display:inline;'></div>"
 SJR: '<a href="https://www.scimagojr.com/journalsearch.php?q=19700182013&amp;tip=sid&amp;exact=no" title="SCImago Journal &amp; Country Rank"><img border="0" src="https://www.scimagojr.com/journal_img.php?id=19700182013" style="width:235px; height: 250px;object-fit: cover;display: inline; margin-top:20px;" alt="SCImago Journal &amp; Country Rank"  /></a>'
