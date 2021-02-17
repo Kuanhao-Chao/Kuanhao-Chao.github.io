@@ -1,14 +1,14 @@
 ---
-title: "sangeranalyseR: simple and interactive analysis of Sanger sequencing data in R"
+title: "sangeranalyseR: simple and interactive processing of Sanger sequencing data in R"
 collection: publications
-permalink: /publication/2020_05_20-sangeranalyseR
+permalink: /publication/2021_02_16-sangeranalyseR
 excerpt: '<small>This package builds on sangerseqR to allow users to create contigs from collections of Sanger sequencing reads. It provides a wide range of options for a number of commonly-performed actions including read trimming, detecting secondary peaks, and detecting indels using a reference sequence. All parameters can be adjusted interactively either in R or in the associated Shiny applications. There is extensive online documentation, and the package can outputs detailed HTML reports, including chromatograms.</small>'
 date: 2021-02-08
-venue: '<b>Genome Biology (GBE)</b>'
-paperurl: 'https://www.biorxiv.org/content/10.1101/2020.05.18.102459v1.full.pdf'
-citation: '<br><b style="color:#ad0000">K.H. Chao*</b>, K. Barton, S. Palmer, and R. Lanfear (2020). "sangeranalyseR: simple and interactive analysis of Sanger sequencing data in R" in <b><i>bioRxiv</i></b>. doi: 10.1101/2020.05.18.102459.'
-altmetric: "<div class='altmetric-embed' data-badge-type='1' data-doi='10.1101/2020.05.18.102459' style='display:inline;'></div>"
-altmetric_inside: "<div data-badge-type='donut' class='altmetric-embed' data-badge-popover='left' data-doi='10.1101/2020.05.18.102459' style='display:inline;'></div>"
+venue: '<b>Genome Biology and Evolution(GBE)</b>'
+paperurl: 'https://academic.oup.com/gbe/advance-article/doi/10.1093/gbe/evab028/6137837?guestAccessKey=a28b32d6-ffab-41f2-8132-9c2dd28b99fe'
+citation: '<br><b style="color:#ad0000">K.H. Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). "sangeranalyseR: simple and interactive processing of Sanger sequencing data in R" in <b><i>Genome Biology and Evolution</i></b>. doi: doi.org/10.1093/gbe/evab028.'
+altmetric: "<div class='altmetric-embed' data-badge-type='1' data-doi='10.1093/gbe/evab028' style='display:inline;'></div>"
+altmetric_inside: "<div data-badge-type='donut' class='altmetric-embed' data-badge-popover='left' data-doi='10.1093/gbe/evab028' style='display:inline;'></div>"
 SJR: '<a href="https://www.scimagojr.com/journalsearch.php?q=19700182013&amp;tip=sid&amp;exact=no" title="SCImago Journal &amp; Country Rank"><img border="0" src="https://www.scimagojr.com/journal_img.php?id=19700182013" style="width:235px; height: 250px;object-fit: cover;display: inline; margin-top:20px;" alt="SCImago Journal &amp; Country Rank"  /></a>'
 license: '<a href="https://opensource.org/licenses/MIT" target="_blank"><img src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>'
 document_status: '<a href="https://sangeranalyser.readthedocs.io/" target="_blank"><img src="https://readthedocs.org/projects/pip/badge/"></a>'
@@ -26,7 +26,7 @@ research_clean: "sangeranalyseR"
 
 <div clss="row" style="display: flex; column-count: 3;">
   <div class="column">
-    <div class='altmetric-embed' data-badge-type='medium-donut' data-doi='10.1101/2020.05.18.102459' style="inline; margin-top:10px"></div>
+    <div class='altmetric-embed' data-badge-type='medium-donut' data-doi='10.1093/gbe/evab028' style="inline; margin-top:10px"></div>
   </div>
   <div class="column">
     <a href="https://www.scimagojr.com/journalsearch.php?q=19700182013&amp;tip=sid&amp;exact=no" title="SCImago Journal &amp; Country Rank"><img border="0" src="https://www.scimagojr.com/journal_img.php?id=19700182013" style="width:60%;object-fit: cover;display: inline; margin-left:60px;" alt="SCImago Journal &amp; Country Rank"  /></a>
@@ -89,4 +89,4 @@ sangeranalyseR is an open source R package that provides a simple but flexible s
 <br>
 
 ---
-[**>> Download paper here <<**](https://www.biorxiv.org/content/10.1101/2020.05.18.102459v1.full.pdf)
+[**>> Download paper here <<**](https://watermark.silverchair.com/evab028.pdf?token=AQECAHi208BE49Ooan9kkhW_Ercy7Dm3ZL_9Cf3qfKAc485ysgAAAsMwggK_BgkqhkiG9w0BBwagggKwMIICrAIBADCCAqUGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMZuPkF_0ajX9ulxRQAgEQgIICdmPS94PwF1AacCAt-pMPTnZcUQuUr41gsT4TlyNxdEn6gfiBhvV9LN6n17lf6eHyoQArwQtYsv2Jg1Ik-qbjVE8xF2Ckz-VeZ725DXDdrnaPC8sEgysTrrecCATSaWFRDTfGjXoGfrZGz9JQ8Fm2zW-niF5VAJEIWfft2QMdW2v_1Ujfa1GArWkaJo2Yz7exnzPq5D6kQ9fD7YQAsbzFIbF0EqWCEzw6A0M1Z9yGG1Jl2JnQAigJk9WdSDavgQ4gQXskmRxEGEwe3D53iGhACZSyFf_Od0MOO6AzTfFVWll3WTxULrLo-jC4yoP0oQShCqpSAsKfhE2aJc5IumP5p6N_six2mOC1lQUl1Z2B3xpXn95chDFMtxF0IYxR_P2YqkQXoM1w67W_SUTF2nE88heSup2OJbDC2gu4OfkBvM4aoCG773JE5012IIfO0I5dus0EdaUdXLcXrsPtn1u2-GpRfZL_-lYFgXJ0-aQguq1Icp7f36jPn487Nfk7Q7ZoxjEwb3kSDF6S_961jEZNhxspQrPtjRXLcOhSyGrF8LNod5a76jvSTX2zFdt4R1mduvwjQsyUW_Hh57ayosMRWls7nIjvJcsxnMXZ6j3yBU9x2SiLRa-gBKZbINOPQ4AXJlPZWi5ktkXrEOWsb05jORRHjOS25EKzJETkx5ER3J65scHB510aneuq5qYR0XCwdHK-sP7JCQM9aZcxeth4ktM83wV6FEQx-H0rQkFAarT5TDqC-Lx-butKLD-I6CvP_busI7pZ8sv9Ctx7hUe2wnlOiLdabd7uKmWAwxGBqwyzEvIjiWGrl0vQhsuZnQ3u9-veU3NWvw)
