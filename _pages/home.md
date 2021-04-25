@@ -10,8 +10,8 @@ redirect_from:
 
 
 <div id="particles-js" style="background: linear-gradient(
-        rgba(0, 0, 0, 0.75),
-        rgba(0, 0, 0, 0.75)
+        rgba(0, 0, 0, 0.85),
+        rgba(0, 0, 0, 0.85)
       ),url({{base_path}}/images/bioinfo_wallpaper.jpg);">
 
   <div id="particles-header" class="intro-header alt-font" style="width:90%">
