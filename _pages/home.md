@@ -14,8 +14,8 @@ redirect_from:
   <div id="particles-header" class="intro-header alt-font" style="width:90%">
       <div class="container">
           <div class="intro-message">
-              <h1 class="alt-font" style="font-size: 55px">Kuan-Hao Chao</h1>
-              <h3 class="alt-font" style="font-size: 30px">Johns Hopkins Computer Science PhD Student in Computational Biology</h3>
+              <h1 class="alt-font" style="font-size: 65px">Kuan-Hao Chao</h1>
+              <h3 class="alt-font" style="font-size: 25px">Computer Science PhD Student in Computational Biology <br> @ Johns Hopkins University</h3>
               <hr class="intro-divider" style="display: flex; align-items: center; text-align: center;">
           </div>
           <div class="intro-social">
@@ -54,6 +54,8 @@ redirect_from:
                   </ul>
               </div>
           </div>
+
+          <!-- <a href="url"> >> More Information << </a> -->
       </div>
   </div>
 </div>
