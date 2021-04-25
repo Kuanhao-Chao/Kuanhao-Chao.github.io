@@ -9,7 +9,7 @@ redirect_from:
 {% include base_path %}
 
 
-<div id="particles-js">
+<div id="particles-js" style="background: url({{base_path}}/images/bioinfo_wallpaper.jpg) no-repeat center center;">
 
   <div id="particles-header" class="intro-header alt-font" style="width:90%">
       <div class="container">
@@ -53,7 +53,7 @@ redirect_from:
             </div>
           </div>
           <div class="more_info" style="margin-top: 50px; pointer-events: all">
-            <a href="{{base_path}}/about"> >> More Information << </a>
+            <a href="{{base_path}}/about"> >> Read More << </a>
           </div>
       </div>
   </div>

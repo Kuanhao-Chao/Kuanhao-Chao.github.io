@@ -154,7 +154,7 @@ h6 {
 .banner {
     padding: 100px 0;
     color: #f8f8f8;
-    background: url(../img/banner-bg.jpg) no-repeat center center;
+    background: url(../../images/bioinfo_wallpaper.jpg) no-repeat center center;
     background-size: cover;
     height: 300px;
 }
