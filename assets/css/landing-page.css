@@ -4,12 +4,8 @@
  * For details, see http://www.apache.org/licenses/LICENSE-2.0.
  */
 
-body,
-html {
-    width: 100%;
-    height: 100%;
-}
 
+/* 
 body,
 h1,
 h2,
@@ -17,11 +13,11 @@ h3,
 h4,
 h5,
 h6 {
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 700;
-}
+  font-family: 'Montserrat', sans-serif;
 
-.alt-font {font-family: 'Quicksand', sans-serif !important;}
+} */
+
+.alt-font {font-family: 'Quicksand', sans-serif !important; font-weight: 700 !important;}
 
 .lead {
     font-size: 18px;
