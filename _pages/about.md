@@ -1,10 +1,10 @@
 ---
-permalink: /
+permalink: /about/
 title: "🧑🏻‍💻 &nbsp; About me"
 excerpt: "About me"
 author_profile: true
 redirect_from:
-  - /about/
+  - /about_me/
   - /about.html
 ---
 {% include base_path %}

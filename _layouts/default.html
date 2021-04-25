@@ -9,23 +9,26 @@ layout: compress
   <head>
     {% include head.html %}
     {% include head/custom.html %}
+    {% include head/custom_landing_page.html %}
   </head>
-
   <body>
 
-    {% include browser-upgrade.html %}
-    {% include masthead.html %}
-
+    {% if page.excerpt != "Home"%}
+      {% include browser-upgrade.html %}
+      {% include masthead.html %}
+    {% endif %}
     {{ content }}
 
-    <div class="page__footer">
-      <footer>
-        {% include footer/custom.html %}
-        {% include footer.html %}
-      </footer>
-    </div>
+    {% if page.excerpt != "Home"%}
+      <div class="page__footer">
+        <footer>
+          {% include footer/custom.html %}
+          {% include footer.html %}
+        </footer>
+      </div>
+    {% endif %}
 
     {% include scripts.html %}
 
-  </body>
+    </body>
 </html>
