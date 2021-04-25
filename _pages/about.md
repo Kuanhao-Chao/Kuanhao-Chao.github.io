@@ -51,7 +51,7 @@ redirect_from:
     <img src="/images/iis_logo.jpg" style="height:160px; width: 160px; margin: 10px">
   </a>
   <a target="_blank"  href="https://www.anu.edu.au/">
-    <img src="images/anu_logo_small.png" style="height:160px; width: 160px; margin: 10px">
+    <img src="/images/anu_logo_small.png" style="height:160px; width: 160px; margin: 10px">
   </a>
   <a target="_blank"  href="http://www.robertlanfear.com/">
     <img src="/images/ANU_Biology.jpg" style="height:160px; width: 160px; margin: 10px">
