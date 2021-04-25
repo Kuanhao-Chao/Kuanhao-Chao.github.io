@@ -9,7 +9,10 @@ redirect_from:
 {% include base_path %}
 
 
-<div id="particles-js" style="background: url({{base_path}}/images/bioinfo_wallpaper.jpg) no-repeat center center;">
+<div id="particles-js" style="background: linear-gradient(
+        rgba(0, 0, 0, 0.75),
+        rgba(0, 0, 0, 0.75)
+      ),url({{base_path}}/images/bioinfo_wallpaper.jpg);">
 
   <div id="particles-header" class="intro-header alt-font" style="width:90%">
       <div class="container">
