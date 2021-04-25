@@ -14,39 +14,38 @@ redirect_from:
       <div class="container">
           <div class="intro-message">
               <h1 class="alt-font">Kuan-Hao Chao</h1>
-              <h3 class="alt-font">Johns Hopkins Computer Science PhD Student in Computational Biology</h3>
+              <h3 class="alt-font" style="font-size: 25px">Johns Hopkins Computer Science PhD Student in Computational Biology</h3>
               <hr class="intro-divider">
           </div>
           <div class="intro-social">
               <div class="social-click">
                   <ul class="list-inline intro-social-buttons">
-
-                      <li>
+                      <li class="li-inline">
                           <a href="https://www.linkedin.com/in/kuan-hao-chao/" target="_blank" class="btn btn-default social-btn"><i
                                   class="fa fa-linkedin"></i> &nbsp <span class="network-name">linkedin</span></a>
                       </li>
 
-                      <li>
+                      <li class="li-inline">
                           <a href="https://scholar.google.com/citations?user=r7LG-XQAAAAJ&hl=en" target="_blank" class="btn btn-default social-btn"><i
                                   class="fa fa-flask"></i> &nbsp <span class="network-name">scholar</span></a>
                       </li>
 
-                      <li>
+                      <li class="li-inline">
                           <a href="https://github.com/Kuanhao-Chao" target="_blank" class="btn btn-default social-btn"><i
                                   class="fa fa-github"></i> &nbsp <span class="network-name">github</span></a>
                       </li>
 
-                      <li>
+                      <li class="li-inline">
                           <a href="https://www.instagram.com/wesleyy.c" target="_blank" class="btn btn-default social-btn"><i
                                   class="fa fa-instagram"></i> &nbsp <span class="network-name">life</span></a>
                       </li>
 
-                      <li>
+                      <li class="li-inline">
                           <a href="http://storage.kuanhaochao.com/CV.pdf" target="_blank" class="btn btn-default social-btn"><i
                                   class="fa fa-file-pdf-o"></i> &nbsp <span class="network-name">resume</span></a>
                       </li>
 
-                      <li>
+                      <li class="li-inline">
                           <a href="mailto:kuanhao.chao@gmail.com" target="_blank" class="btn btn-default social-btn"><i
                                   class="fa fa-envelope-o"></i> &nbsp <span class="network-name">email</span></a>
                       </li>
