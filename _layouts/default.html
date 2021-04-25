@@ -35,28 +35,30 @@ layout: compress
       #main {
         width: 100% !important;
         height: 100% !important;
-        margin-left: 0px !important;
-        margin-right: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
         clear: both;
-        margin-top: 0px !important;
-        padding-left: 0px !important;
-        padding-right: 0px !important;
         animation: intro 0.3s both;
         animation-delay: 0.35s;
       }
 
       article.page{
+        all: initial !important;
         width: 100% !important;
         height: 100% !important;
         padding: 0px !important;
         margin: 0px !important;
       }
-
-      .page__content {
+      .page__inner-wrap {
+        all: initial !important;
         width: 100% !important;
         height: 100% !important;
       }
-
+      .page__content {
+        all: initial !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
       </style>
     {% endif %}
 
