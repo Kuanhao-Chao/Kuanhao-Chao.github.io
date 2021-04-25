@@ -10,12 +10,13 @@ redirect_from:
 
 
 <div id="particles-js">
-  <div id="particles-header" class="intro-header alt-font">
+
+  <div id="particles-header" class="intro-header alt-font" style="width:90%">
       <div class="container">
           <div class="intro-message">
               <h1 class="alt-font">Kuan-Hao Chao</h1>
               <h3 class="alt-font" style="font-size: 25px">Johns Hopkins Computer Science PhD Student in Computational Biology</h3>
-              <hr class="intro-divider">
+              <hr class="intro-divider" style="  display: flex; align-items: center; text-align: center;">
           </div>
           <div class="intro-social">
               <div class="social-click">
