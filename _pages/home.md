@@ -20,7 +20,7 @@ redirect_from:
           </div>
           <div class="intro-social">
             <div class="social-click">
-              <ul class="list-inline intro-social-buttons">
+              <ul class="intro-social-buttons">
                   <li style="display:inline;">
                       <a href="https://www.linkedin.com/in/kuan-hao-chao/" target="_blank" class="btn btn-default social-btn"><i
                               class="fa fa-linkedin" style="margin-right:5px"></i>  <span class="network-name">linkedin</span></a>
@@ -52,7 +52,7 @@ redirect_from:
               </ul>
             </div>
           </div>
-          <div class="more_info">
+          <div class="more_info" style="margin-top: 50px; pointer-events: all">
             <a href="{{base_path}}/about"> >> More Information << </a>
           </div>
       </div>
