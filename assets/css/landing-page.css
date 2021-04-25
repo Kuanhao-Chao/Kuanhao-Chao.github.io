@@ -281,6 +281,6 @@ filter:alpha(opacity=100);
 
 #particles-js canvas { position:absolute; top:0; left:0; z-index:0 }
 
-.list-inline {
+.li-inline {
   display:inline;
 }
