@@ -25,7 +25,7 @@ h6 {
 
 #logo_img{
   z-index: 100;
-  max-width:30%;
+  max-width:25%;
   height: auto;
   margin-top:15px;
   margin-left:15px;
@@ -85,7 +85,7 @@ h6 {
 
 @media(max-width:767px) {
     #logo_img {
-      max-width:50%;
+      max-width:40%;
     }
     .intro-message {
         padding-bottom: 15%;
