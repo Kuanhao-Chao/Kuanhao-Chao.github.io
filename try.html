@@ -1,51 +1,84 @@
+<script src="https://unpkg.com/zdog@1/dist/zdog.dist.min.js"></script>
+<script src="zdog-demo.js"></script>
 
-<!DOCTYPE html>
-<html>
-	<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="">
-    <meta name="author" content="Kuan-Hao Chao">
-
-    <title>K.H.</title>
-
-    <!-- Bootstrap Core CSS -->
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+<canvas class="zdog-canvas" width="240" height="240"></canvas>
 
 
-    <!-- Custom CSS -->
-    <link href="css/landing-page.css" rel="stylesheet">
+<script>
+const {
+  Zdog: { Illustration, TAU, Shape },
+} = window
+const MARGIN = 15
+const SPAN = 40
+const STRAND_STROKE = 4
+const BALL_PADDING = 5
+const BALL_DIAMETER = 10
+const STRANDS = 23
+const STRAND = 'silver'
+const COLORS = [
+  'rgb(252, 254, 248)',
+  'rgb(251, 164, 82)',
+  'rgb(37, 175, 186)',
+  'rgb(225, 7, 130)',
+]
+const randomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)]
+const YSTART = -(((STRANDS - 1) * MARGIN) / 2)
 
-    <!-- Custom Fonts -->
-    <script src="https://use.fontawesome.com/071362647b.js"></script>
-    <link href="https://fonts.googleapis.com/css?family=Quicksand:500" rel="stylesheet">
+const Scene = new Illustration({
+  element: 'canvas',
+  dragRotate: true,
+  resize: 'fullscreen',
+})
 
-    <!-- Custom Logo for Icon Shortcut-->
-    <link rel="shortcut icon"
-          href="https://raw.githubusercontent.com/WesleyyC/wesleyyc.github.io/master/img/logo/logo.ico">
+const Strand = new Shape({
+  stroke: STRAND_STROKE,
+  color: STRAND,
+  path: [
+    {
+      x: -SPAN,
+    },
+    {
+      x: SPAN,
+    },
+  ],
+})
+const Ball = new Shape({
+  color: randomColor(),
+  stroke: BALL_DIAMETER * 2,
+  translate: {
+    x: -(BALL_DIAMETER + SPAN + BALL_PADDING),
+  },
+})
 
-    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-    <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
-    <![endif]-->
+new Array(STRANDS).fill().map((s, i) => {
+  const strand = Strand.copy({
+    addTo: Scene,
+    rotate: {
+      y: (TAU / STRANDS) * i,
+    },
+    translate: {
+      y: YSTART + i * MARGIN,
+    },
+  })
+  Ball.copy({
+    addTo: strand,
+    color: randomColor(),
+  })
+  Ball.copy({
+    addTo: strand,
+    color: randomColor(),
+    translate: {
+      x: BALL_DIAMETER + SPAN + BALL_PADDING,
+    },
+  })
+})
 
-    <!-- particles.js -->
-    <script type="text/javascript" src="js/particles.js"></script>
+const update = () => {
+  Scene.rotate.y -= 0.03
+  Scene.updateRenderGraph()
+  requestAnimationFrame(update)
+}
 
-</head>
-	<body>
-		<div id="B" style="display: inline;list-style-type: none;padding-right: 20px;float: left;">
-			<b>橫向水平呈現</b>
-			<ul>
-			　<li style="display: inline;list-style-type: none;padding-right: 20px;float: left;">這裡是項目一</li>
-			　<listyle="display: inline;list-style-type: none;padding-right: 20px;float: left;">這裡是項目二</li>
-			</ul>
-		</div>
+update()
 
-
-	</body>
-</html>
+</script>

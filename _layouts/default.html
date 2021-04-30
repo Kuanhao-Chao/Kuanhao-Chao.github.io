@@ -15,6 +15,10 @@ layout: compress
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+
+    <script src="https://unpkg.com/zdog@1/dist/zdog.dist.min.js"></script>
+    <script src="zdog-demo.js"></script>
+
     {% if page.excerpt == "About me"%}
       <div id="particles-js" style="background: linear-gradient(
               rgba(0, 0, 0, 0.85),
@@ -29,6 +33,7 @@ layout: compress
                     <h4 class="alt-font">Advisor: Steven Salzberg & Mihaela Pertea</h4>
                     <hr class="intro-divider" style="display: flex; align-items: center; text-align: center;">
                 </div>
+                <canvas id="canvas_DNA" class="zdog-canvas" width="240" height="240" style="pointer-events: all"></canvas>
                 <div class="intro-social">
                   <div class="social-click">
                     <ul class="intro-social-buttons">
@@ -82,6 +87,83 @@ layout: compress
         maxDistance: 22.00,
         spacing: 16.00
       })
+      </script>
+      <script>
+        const {
+          Zdog: { Illustration, TAU, Shape },
+        } = window
+        const MARGIN = 15
+        const SPAN = 40
+        const STRAND_STROKE = 4
+        const BALL_PADDING = 5
+        const BALL_DIAMETER = 10
+        const STRANDS = 23
+        const STRAND = 'silver'
+        const COLORS = [
+          'rgb(252, 254, 248)',
+          'rgb(251, 164, 82)',
+          'rgb(37, 175, 186)',
+          'rgb(225, 7, 130)',
+        ]
+        const randomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)]
+        const YSTART = -(((STRANDS - 1) * MARGIN) / 2)
+
+        const Scene = new Illustration({
+          element: '#canvas_DNA',
+          dragRotate: true,
+          resize: 'fullscreen',
+        })
+
+        const Strand = new Shape({
+          stroke: STRAND_STROKE,
+          color: STRAND,
+          path: [
+            {
+              x: -SPAN,
+            },
+            {
+              x: SPAN,
+            },
+          ],
+        })
+        const Ball = new Shape({
+          color: randomColor(),
+          stroke: BALL_DIAMETER * 2,
+          translate: {
+            x: -(BALL_DIAMETER + SPAN + BALL_PADDING),
+          },
+        })
+
+        new Array(STRANDS).fill().map((s, i) => {
+          const strand = Strand.copy({
+            addTo: Scene,
+            rotate: {
+              y: (TAU / STRANDS) * i,
+            },
+            translate: {
+              y: YSTART + i * MARGIN,
+            },
+          })
+          Ball.copy({
+            addTo: strand,
+            color: randomColor(),
+          })
+          Ball.copy({
+            addTo: strand,
+            color: randomColor(),
+            translate: {
+              x: BALL_DIAMETER + SPAN + BALL_PADDING,
+            },
+          })
+        })
+
+        const update = () => {
+          Scene.rotate.y -= 0.03
+          Scene.updateRenderGraph()
+          requestAnimationFrame(update)
+        }
+
+        update()
       </script>
     {% endif %}
 
