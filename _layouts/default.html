@@ -17,7 +17,7 @@ layout: compress
     <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
 
     <script src="https://unpkg.com/zdog@1/dist/zdog.dist.min.js"></script>
-    <script src="zdog-demo.js"></script>
+    <script src="{{base_path}}/node_modules/typed.js/lib/typed.min.js"></script>
 
     {% if page.excerpt == "About me"%}
       <div id="particles-js" style="background: linear-gradient(
@@ -34,6 +34,15 @@ layout: compress
                     <hr class="intro-divider" style="display: flex; align-items: center; text-align: center;">
                 </div>
                 <canvas id="canvas_DNA" class="zdog-canvas" width="240" height="240" style="pointer-events: all"></canvas>
+                <div class="type-wrap">
+                  <div id="typed-strings">
+                    <span>Typed.js^10 is a <strong>JavaScript</strong> library.</span>
+                    <p>It <em>types</em> out sentences.</p>
+                    <p>And then deletes them.</p>
+                    <p>Try it out!</p>
+                  </div>
+                  <span id="typed" style="white-space:pre;"></span>
+                </div>
                 <div class="intro-social">
                   <div class="social-click">
                     <ul class="intro-social-buttons">
@@ -73,20 +82,24 @@ layout: compress
       </div>
 
       <script>
-      VANTA.NET({
-        el: "#particles-js",
-        mouseControls: true,
-        touchControls: true,
-        gyroControls: false,
-        minHeight: 200.00,
-        minWidth: 200.00,
-        scale: 1.00,
-        scaleMobile: 1.00,
-        color: '#1a3737',
-        backgroundColor: '#1c1430',
-        maxDistance: 22.00,
-        spacing: 16.00
-      })
+        var typed = new Typed(".element", {
+            strings: ["String 1", "&amp; String 2", ...]
+        });
+
+        VANTA.NET({
+          el: "#particles-js",
+          mouseControls: true,
+          touchControls: true,
+          gyroControls: false,
+          minHeight: 200.00,
+          minWidth: 200.00,
+          scale: 1.00,
+          scaleMobile: 1.00,
+          color: '#1a3737',
+          backgroundColor: '#1c1430',
+          maxDistance: 22.00,
+          spacing: 16.00
+        })
       </script>
       <script>
         const {
