@@ -66,7 +66,7 @@ h6 {
     font-size: 2em;
 }
 
-.intro-message > h3 {
+.intro-message > h4 {
     text-shadow: 2px 2px 3px rgba(0,0,0,0.6);
     font-size: 1.2em;
 }
@@ -85,11 +85,11 @@ h6 {
     }
 
     .intro-message > h3 {
-        font-size: 1.2em;
+        font-size: 1.4em;
     }
 
     .intro-message > h4 {
-        font-size: 0.8em;
+        font-size: 1em;
     }
 
     ul.intro-social-buttons > li {
