@@ -46,7 +46,7 @@ h6 {
 }
 
 .intro-message {
-    position: relative;
+    /* position: relative; */
     padding-top: 20%;
 }
 
@@ -276,7 +276,7 @@ filter:alpha(opacity=100);
   position:relative;
 }
 
-#particles-js canvas { position:absolute; top:0; left:0; z-index:0 }
+/* #particles-js canvas { position:absolute; top:0; left:0; z-index:0 } */
 
 .li-inline {
   display:inline;
