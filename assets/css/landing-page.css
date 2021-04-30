@@ -76,6 +76,9 @@ h6 {
 }
 
 @media(max-width:767px) {
+    #particles-js > img {
+      max-width:50%
+    }
     .intro-message {
         padding-bottom: 15%;
     }
