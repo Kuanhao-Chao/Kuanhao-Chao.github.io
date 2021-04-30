@@ -23,6 +23,14 @@ h6 {
     font-weight: 400;
 }
 
+#logo_img{
+  z-index: 100;
+  max-width:30%;
+  height: auto;
+  margin-top:15px;
+  margin-left:15px;
+}
+
 .intro-header-backup {
     padding-top: 50px; /* If you're making other pages, make sure there is 50px of padding to make sure the navbar doesn't overlap content! */
     padding-bottom: 50px;
@@ -76,8 +84,8 @@ h6 {
 }
 
 @media(max-width:767px) {
-    #particles-js > img {
-      max-width:50%
+    #logo_img {
+      max-width:50%;
     }
     .intro-message {
         padding-bottom: 15%;
