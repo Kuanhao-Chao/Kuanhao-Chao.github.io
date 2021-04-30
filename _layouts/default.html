@@ -59,9 +59,6 @@ layout: compress
                     </ul>
                   </div>
                 </div>
-                <div class="more_info" style="margin-top: 50px; pointer-events: all">
-                  <a href="{{base_path}}/about"> >> Read More << </a>
-                </div>
             </div>
         </div>
       </div>
@@ -119,15 +116,12 @@ layout: compress
 
     {{ content }}
 
-
-    {% if page.excerpt != "Home"%}
-      <div class="page__footer">
-        <footer>
-          {% include footer/custom.html %}
-          {% include footer.html %}
-        </footer>
-      </div>
-    {% endif %}
+    <div class="page__footer">
+      <footer>
+        {% include footer/custom.html %}
+        {% include footer.html %}
+      </footer>
+    </div>
 
     {% include scripts.html %}
 

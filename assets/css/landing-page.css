@@ -68,6 +68,10 @@ h6 {
     text-shadow: 2px 2px 3px rgba(0,0,0,0.6);
 }
 
+.intro-social {
+  padding-bottom: 20%;
+}
+
 @media(max-width:767px) {
     .intro-message {
         padding-bottom: 15%;
@@ -92,10 +96,6 @@ h6 {
     }
 }
 
-.more_info {
-    position: relative;
-    padding-bottom: 20%;
-}
 .social-click {
     position: relative;
     pointer-events: all
@@ -154,7 +154,7 @@ h6 {
 .banner {
     padding: 100px 0;
     color: #f8f8f8;
-    background: url(../../images/bioinfo_wallpaper.jpg) no-repeat center center;
+    background: url() no-repeat center center;
     background-size: cover;
     height: 300px;
 }

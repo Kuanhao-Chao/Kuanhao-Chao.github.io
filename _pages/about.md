@@ -1,5 +1,5 @@
 ---
-permalink: /about/
+permalink: /
 title: "🧑🏻‍💻 &nbsp; About me"
 excerpt: "About me"
 author_profile: true
