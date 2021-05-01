@@ -51,35 +51,25 @@ layout: compress
 
                 <div class="intro-social">
                   <div class="social-click">
-                    <ul class="intro-social-buttons">
-                        <li style="display:inline;">
-                            <a href="https://www.linkedin.com/in/kuan-hao-chao/" target="_blank" class="btn btn-default social-btn"><i
-                                    class="fa fa-linkedin" style="margin-right:5px"></i>  <span class="network-name">linkedin</span></a>
-                        </li>
-
-                        <li style="display:inline;">
-                            <a href="https://scholar.google.com/citations?user=r7LG-XQAAAAJ&hl=en" target="_blank" class="btn btn-default social-btn"><i class="fa fa-flask" style="margin-right:5px"></i> <span class="network-name">scholar</span></a>
-                        </li>
-
-                        <li style="display:inline;">
-                            <a href="https://github.com/Kuanhao-Chao" target="_blank" class="btn btn-default social-btn"><i
-                                    class="fa fa-github" style="margin-right:5px"></i>  <span class="network-name">github</span></a>
-                        </li>
-
-                        <li style="display:inline;">
-                            <a href="https://www.instagram.com/wesleyy.c" target="_blank" class="btn btn-default social-btn"><i
-                                    class="fa fa-instagram" style="margin-right:5px"></i>  <span class="network-name">life</span></a>
-                        </li>
-
-                        <li style="display:inline;">
-                            <a href="http://storage.kuanhaochao.com/CV.pdf" target="_blank" class="btn btn-default social-btn"><i
-                                    class="fa fa-file-pdf-o" style="margin-right:5px"></i>  <span class="network-name">resume</span></a>
-                        </li>
-
-                        <li style="display:inline;">
-                            <a href="mailto:kuanhao.chao@gmail.com" target="_blank" class="btn btn-default social-btn"><i
-                                    class="fa fa-envelope-o" style="margin-right:5px"></i>  <span class="network-name">email</span></a>
-                        </li>
+                    <ul class="intro-social-buttons;" aria-hidden=true>
+                      <li style="display:inline;"><a href="https://github.com/Kuanhao-Chao" target=_blank rel=noopener>
+                        <i class="fab fa-github big-icon"></i></a>
+                      </li>
+                      <li style="display:inline;"><a href="mailto:kuanhao.chao@gmail.com">
+                        <i class="fas fa-envelope big-icon"></i></a>
+                      </li>
+                      <li style="display:inline;"><a href="https://www.linkedin.com/in/kuan-hao-chao/" target=_blank rel=noopener>
+                        <i class="fab fa-linkedin-in"></i></a>
+                      </li>
+                      <li style="display:inline;"><a href="https://twitter.com/KuanHaoChao" target=_blank rel=noopener>
+                        <i class="fab fa-twitter big-icon"></i></a>
+                      </li>
+                      <li style="display:inline;"><a href="https://scholar.google.com/citations?user=r7LG-XQAAAAJ&hl=en" target=_blank rel=noopener>
+                        <i class="ai ai-google-scholar big-icon"></i></a>
+                      </li>
+                      <li style="display:inline;"><a href="http://storage.kuanhaochao.com/CV.pdf">
+                        <i class="ai ai-cv big-icon"></i></a>
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -91,9 +81,10 @@ layout: compress
         var typed = new Typed("#typed", {
           strings: ["research.", "bioinformatics.", "computer science.", "algorithm.", "genomics."],
           typeSpeed: 100,
+          backSpeed: 70,
           startDelay: 1000,
           smartBackspace: true,
-          backDelay: 1000,
+          backDelay: 1200,
           loop: true,
           showCursor: true,
         });
