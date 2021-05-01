@@ -36,7 +36,7 @@ layout: compress
                       </div>
                       <div class="column" style="flex: 80%;">
                         <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Computer Science PhD Student in Computational Biology Group <br>@ Johns Hopkins University</h3>
-                        <h4 id="intro-message-advisor" class="alt-font">Advisor: Steven Salzberg & Mihaela Pertea</h4>
+                        <h4 id="intro-message-advisor" class="alt-font">Advisor: <a href="https://salzberg-lab.org/">Steven Salzberg</a> & <a href="http://ccb.jhu.edu/people/mpertea/">Mihaela Pertea</a></h4>
                       </div>
                       <div class="column" style="flex: 10%;">
                         <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
@@ -46,8 +46,8 @@ layout: compress
                     </div>
                     <hr class="intro-divider" style="display: flex; align-items: center; text-align: center;">
                 </div>
-                <div class="type-wrap">
-                  <span id="typed" style="white-space:pre;"></span>
+                <div class="type-wrap" style="margin-top:50px;">
+                  <span id="typed" style="white-space:pre; font-size:40px; font-family:'Courier New', Monospace; color:'#949494'"></span>
                 </div>
 
                 <div class="intro-social">
@@ -90,8 +90,13 @@ layout: compress
 
       <script>
         var typed = new Typed("#typed", {
-          strings: ["First sentence.", "Second sentence."],
-          typeSpeed: 30
+          strings: ["My personal website of research.", "My personal website of bioinformatics.", "My personal website of computer science.", "My personal website of algorithm.", "My personal website of genomics."],
+          typeSpeed: 25,
+          startDelay: 700,
+          smartBackspace: true,
+          backDelay: 700,
+          loop: true,
+          showCursor: true,
         });
 
         VANTA.NET({
