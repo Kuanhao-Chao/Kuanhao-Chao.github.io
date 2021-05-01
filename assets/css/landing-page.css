@@ -137,6 +137,14 @@ h6 {
     pointer-events: all
 }
 
+.intro-social-li {
+  style="display:inline;"
+}
+
+.intro-social-a {
+  text-decoration:none;
+}
+
 .social-btn {
   font-size: 12px;
     padding: 6px 14px;
