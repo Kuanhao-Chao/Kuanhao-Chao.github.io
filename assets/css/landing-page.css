@@ -55,6 +55,17 @@ h6 {
     padding-top: 13%;
 }
 
+#type-wrap {
+  color: #58accc;
+  text-align: center;
+  margin-top:30px;
+  margin-bottom:30px;
+  word-wrap:break-word;
+  font-size:1.2em;
+  font-family:'Courier New', Monospace;
+  display: inline-block;
+  line-height:1.1;
+}
 
 #intro-message-name {
     margin: 0;
@@ -80,8 +91,6 @@ h6 {
 }
 
 .intro-social {
-  font-size: 20px;
-  word-spacing: 10px;
   padding-bottom: 20%;
 }
 
@@ -95,6 +104,9 @@ h6 {
 
     #intro-message-name {
         font-size: 3em;
+    }
+    #type-wrap {
+      font-size: 1em;
     }
 
     #intro-message-main {
