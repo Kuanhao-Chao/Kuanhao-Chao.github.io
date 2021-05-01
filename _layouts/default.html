@@ -46,7 +46,7 @@ layout: compress
                     </div>
                     <hr class="intro-divider" style="display: flex; align-items: center; text-align: center;">
                 </div>
-                <span style="text-align: center; margin-top:50px;white-space:pre; font-size:30px; font-family:'Courier New', Monospace; color:'#949494'; display: block; line-height:1.1;"> My personal website of <span id="typed"></span>
+                <span style="text-align: center; margin-top:50px;word-wrap:break-word; font-size:20px; font-family:'Courier New', Monospace; color:#949494; display: inline-block; line-height:1.1;"> My personal website of <span id="typed"></span>
                 </span>
 
                 <div class="intro-social">
@@ -90,10 +90,10 @@ layout: compress
       <script>
         var typed = new Typed("#typed", {
           strings: ["research.", "bioinformatics.", "computer science.", "algorithm.", "genomics."],
-          typeSpeed: 25,
-          startDelay: 700,
+          typeSpeed: 10,
+          startDelay: 1000,
           smartBackspace: true,
-          backDelay: 700,
+          backDelay: 1000,
           loop: true,
           showCursor: true,
         });
