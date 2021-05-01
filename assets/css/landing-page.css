@@ -61,7 +61,7 @@ h6 {
   margin-top:30px;
   margin-bottom:30px;
   word-wrap:break-word;
-  font-size:1.2em;
+  font-size:1.4em;
   font-family:'Courier New', Monospace;
   display: inline-block;
   line-height:1.1;
@@ -106,7 +106,7 @@ h6 {
         font-size: 3em;
     }
     #type-wrap {
-      font-size: 1em;
+      font-size: 1.1em;
     }
 
     #intro-message-main {
