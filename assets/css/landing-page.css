@@ -133,7 +133,7 @@ h6 {
 }
 
 .social-click {
-    margin-top: 20px
+    margin-top: 20px;
     position: relative;
     pointer-events: all
 }
