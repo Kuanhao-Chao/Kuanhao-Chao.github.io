@@ -56,7 +56,7 @@ h6 {
 }
 
 
-.intro-message > h1 {
+#intro-message-name {
     margin: 0;
     text-shadow: 2px 2px 3px rgba(0,0,0,0.6);
     font-size: 5em;
@@ -69,12 +69,12 @@ h6 {
     border-bottom: 1px solid rgba(0,0,0,0.2);
 }
 
-.intro-message > h3 {
+#intro-message-main {
     text-shadow: 2px 2px 3px rgba(0,0,0,0.6);
     font-size: 2em;
 }
 
-.intro-message > h4 {
+#intro-message-advisor {
     text-shadow: 2px 2px 3px rgba(0,0,0,0.6);
     font-size: 1.2em;
 }
@@ -91,15 +91,15 @@ h6 {
         padding-bottom: 12%;
     }
 
-    .intro-message > h1 {
+    #intro-message-name {
         font-size: 3em;
     }
 
-    .intro-message > h3 {
+    #intro-message-main {
         font-size: 1.2em;
     }
 
-    .intro-message > h4 {
+    #intro-message-advisor {
         font-size: 1em;
     }
 
