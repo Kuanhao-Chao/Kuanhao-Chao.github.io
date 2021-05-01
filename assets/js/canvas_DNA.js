@@ -19,7 +19,7 @@ function DNA_plot(DNA_ID) {
   const YSTART = -(((STRANDS - 1) * MARGIN) / 2)
 
   const Scene = new Illustration({
-    element: 'DNA_ID',
+    element: DNA_ID,
     dragRotate: true,
   })
 
