@@ -18,6 +18,11 @@ layout: compress
     <script src="https://unpkg.com/zdog@1/dist/zdog.dist.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.0.12"></script>
 
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+    <script>
+      AOS.init();
+    </script>
+
     {% if page.excerpt == "About me"%}
       <div id="particles-js" style="background: linear-gradient(
               rgba(0, 0, 0, 0.85),
@@ -107,8 +112,11 @@ layout: compress
       <script src="{{base_path}}/assets/js/canvas_DNA.js"></script>
     {% endif %}
 
-    {% include browser-upgrade.html %}
-    {% include masthead.html %}
+    <div data-aos="fade-up">
+      {% include browser-upgrade.html %}
+      {% include masthead.html %}
+    </div>
+
     {% if page.excerpt == "Home"%}
       <style>
       html, body {
@@ -157,9 +165,11 @@ layout: compress
       </style>
     {% endif %}
 
-    {{ content }}
+    <div data-aos="fade-up">
+      {{ content }}
+    </div>
 
-    <div class="page__footer">
+    <div data-aos="fade-up" class="page__footer">
       <footer>
         {% include footer/custom.html %}
         {% include footer.html %}
