@@ -95,7 +95,7 @@ layout: compress
           showCursor: true,
         });
 
-        VANTA.NET({
+        const effect = VANTA.NET({
           el: "#particles-js",
           mouseControls: true,
           touchControls: true,
@@ -107,9 +107,19 @@ layout: compress
           color: '#46415c',
           backgroundColor: '#1c1430',
           points: 9.00
-        })
+        });
+
       </script>
       <script src="{{base_path}}/assets/js/canvas_DNA.js"></script>
+
+      <script>
+        var canvas = document.getElementsByClassName("vanta-canvas")[0];
+        console.log('canvas', canvas)
+        var ctx = canvas.getContext("webgl2");
+        console.log('ctx', ctx)
+        ctx.fillStyle = "blue";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      </script>
     {% endif %}
 
     <div data-aos="fade-up" data-aos-duration="1000">
