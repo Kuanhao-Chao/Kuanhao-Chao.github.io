@@ -24,10 +24,7 @@ layout: compress
     </script>
 
     {% if page.excerpt == "About me"%}
-      <div id="particles-js" style="background: linear-gradient(
-              rgba(0, 0, 0, 0.85),
-              rgba(0, 0, 0, 0.85)
-            ),url();">
+      <div id="particles-js" style="background: #1c1430;">
         <img id="logo_img" src="{{base_path}}/images/JHU_logo.png">
         <div id="particles-header" class="intro-header alt-font">
             <div class="container">
@@ -120,12 +117,13 @@ layout: compress
         ctx.fillStyle = "blue";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       </script>
+
+      <div style="height: 500px; width: 100%; background: linear-gradient(0deg, #ededed 0%, #cac9ce 10%, #a7a5ae 30%, #84818e 50%, #625c6f 60%, #3f384f 80%, #1c1430 100%);">
+      </div>
     {% endif %}
 
-    <div data-aos="fade-up" data-aos-duration="1000">
-      {% include browser-upgrade.html %}
-      {% include masthead.html %}
-    </div>
+    {% include browser-upgrade.html %}
+    {% include masthead.html %}
 
     {% if page.excerpt == "Home"%}
       <style>
