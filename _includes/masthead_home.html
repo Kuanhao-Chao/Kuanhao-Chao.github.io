@@ -1,22 +1,22 @@
 {% include base_path %}
 
-<div class="masthead" style="background-color:#ededed">
+<div class="masthead" style="background-color:#1c1430">
   <div class="masthead__inner-wrap">
-    <div class="masthead__menu" style="background-color:#ededed">
-      <nav id="site-nav" class="greedy-nav" style="background-color:#ededed">
+    <div class="masthead__menu" style="background-color:#1c1430">
+      <nav id="site-nav" class="greedy-nav" style="background-color:#1c1430; border-color:#1c1430">
         <button><div class="navicon"></div></button>
         <ul class="visible-links">
-          <li class="masthead__menu-item masthead__menu-item--lg" style="background-color:#ededed; font-size: 25px"><a href="{{ base_path }}/">{{ site.title }}</a></li>
+          <li class="masthead__menu-item masthead__menu-item--lg" style="background-color:#1c1430; font-size: 25px;"><img src="{{base_path}}/images/JHU_logo.png" style="height=10px; width: auto;"></li>
           {% for link in site.data.navigation.main %}
             {% if link.url contains 'http' %}
               {% assign domain = '' %}
               {% else %}
               {% assign domain = base_path %}
             {% endif %}
-            <li class="masthead__menu-item" style="background-color:#ededed; font-weight: 500"><a href="{{ domain }}{{ link.url }}">{{ link.title }}</a></li>
+            <li class="masthead__menu-item" style="background-color:#1c1430; font-weight: 500;"><a href="{{ domain }}{{ link.url }}" style="color: white;">{{ link.title }}</a></li>
           {% endfor %}
         </ul>
-        <ul class="hidden-links hidden"></ul>
+        <ul class="hidden-links hidden" style="background-color:#1c1430;"></ul>
       </nav>
     </div>
   </div>
