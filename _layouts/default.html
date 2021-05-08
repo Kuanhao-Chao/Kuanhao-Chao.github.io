@@ -163,38 +163,7 @@ layout: compress
           		console.log( 'Scrolling has stopped.' );
               lastScrollTop = st <= 0 ? 0 : st;
           	}, 66);
-          }, false);
-          // $(window).scroll($.debounce( 250, true, function(){
-          //   console.log("Scrolling");
-          // } ) );
-          // $(window).scroll($.debounce( 250, function(){
-          //   console.log("Done");
-          // } ) );
-
-          // $(window).scroll(function() {
-          //   var st = window.pageYOffset || document.documentElement.scrollTop;
-          //   if (st > lastScrollTop){
-          //     console.log("Scroll down");
-          //     if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY-10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
-          //        // var navigation_btn_link = document.getElementById('navigation_btn');
-          //        // navigation_btn_link.click();
-          //        // $('html, body').animate({
-          //        //     scrollTop: $("#transition_background").offset().top + $("#transition_background").height()
-          //        // }, 200, function() {
-          //        // });
-          //        console.log("Button clicked");
-          //      }
-          //   } else {
-          //     // if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY+10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
-          //     //   console.log("Scroll up");
-          //     //   $('html, body').stop().animate({
-          //     //       scrollTop: 0
-          //     //   }, 200, function() {
-          //     //   });
-          //     // }
-          //   }
-          //   lastScrollTop = st <= 0 ? 0 : st;
-          // });
+          }, false)
         });
       </script>
     {% endif %}
