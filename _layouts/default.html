@@ -17,6 +17,7 @@ layout: compress
 
     <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="http://benalman.com/code/projects/jquery-throttle-debounce/jquery.ba-throttle-debounce.js"></script>
   </head>
 
   <body id="main_body">
@@ -86,7 +87,7 @@ layout: compress
                   </div>
                 </div>
                 <section id="section03" class="demo" style="height:300px">
-                  <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%" href=""><span></span>Scroll</a>
+                  <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%" href=""><span></span>More Info</a>
                 </section>
             </div>
         </div>
@@ -120,7 +121,7 @@ layout: compress
 
       <script src="{{base_path}}/assets/js/canvas_DNA.js"></script>
 
-      <div id="transition_background" style="height: 400px; width: 100%; background: linear-gradient(to top, #ffffff, #1c1430);"></div>
+      <div id="transition_background" style="height: 1500px; width: 100%; background: linear-gradient(to top, #ffffff, #1c1430);"></div>
 
       <script>
         $(document).ready(function(){
@@ -130,32 +131,74 @@ layout: compress
                 scrollTop: $('#transition_background').offset().top + $('#transition_background').height()
               }, 920);
           });
+
+          var lastScrollTop = 0;
+          var elementTarget = document.getElementById("transition_background");
+          var particles_js = document.getElementById("particles-js");
+          var isScrolling;
+          // Listen for scroll events
+          window.addEventListener('scroll', function ( event ) {
+            var st = window.pageYOffset || document.documentElement.scrollTop;
+          	window.clearTimeout( isScrolling );
+          	isScrolling = setTimeout(function() {
+              console.log("st: ", st);
+              console.log("lastScrollTop: ", lastScrollTop);
+              if (st > lastScrollTop){
+                console.log("Scroll down");
+                if (((window.scrollY+200 >= (elementTarget.offsetTop)) && (window.scrollY <= (elementTarget.offsetTop + elementTarget.offsetHeight))) || (window.scrollY > $("#navigation_btn").offset().top && (window.scrollY <= (elementTarget.offsetTop + elementTarget.offsetHeight)))) {
+                   // var navigation_btn_link = document.getElementById('navigation_btn');
+                   // navigation_btn_link.click();
+                   $('html, body').stop().animate({
+                       scrollTop: $("#transition_background").offset().top + $("#transition_background").height()
+                   }, 1800, function() {
+                   });
+                 }
+              } else if (st < lastScrollTop) {
+                console.log("Scroll up");
+                if ((window.scrollY+50 >= (elementTarget.offsetTop)) && (window.scrollY+50 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
+                  console.log("Scroll up");
+                  $('html, body').stop().animate({
+                      scrollTop: 0
+                  }, 1800, function() {
+                  });
+                }
+              }
+          		console.log( 'Scrolling has stopped.' );
+              lastScrollTop = st <= 0 ? 0 : st;
+          	}, 66);
+          }, false);
+          // $(window).scroll($.debounce( 250, true, function(){
+          //   console.log("Scrolling");
+          // } ) );
+          // $(window).scroll($.debounce( 250, function(){
+          //   console.log("Done");
+          // } ) );
+
+          // $(window).scroll(function() {
+          //   var st = window.pageYOffset || document.documentElement.scrollTop;
+          //   if (st > lastScrollTop){
+          //     console.log("Scroll down");
+          //     if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY-10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
+          //        // var navigation_btn_link = document.getElementById('navigation_btn');
+          //        // navigation_btn_link.click();
+          //        // $('html, body').animate({
+          //        //     scrollTop: $("#transition_background").offset().top + $("#transition_background").height()
+          //        // }, 200, function() {
+          //        // });
+          //        console.log("Button clicked");
+          //      }
+          //   } else {
+          //     // if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY+10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
+          //     //   console.log("Scroll up");
+          //     //   $('html, body').stop().animate({
+          //     //       scrollTop: 0
+          //     //   }, 200, function() {
+          //     //   });
+          //     // }
+          //   }
+          //   lastScrollTop = st <= 0 ? 0 : st;
+          // });
         });
-      //   var lastScrollTop = 0;
-      //   var elementTarget = document.getElementById("transition_background");
-      //   var particles_js = document.getElementById("particles-js");
-      //
-      //   $(window).scroll(function() {
-      //     var st = window.pageYOffset || document.documentElement.scrollTop;
-      //     if (st > lastScrollTop){
-      //       if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY-10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
-      //          console.log("Scroll down");
-      //          $('html, body').stop().animate({
-      //              scrollTop: $("#intro_head").offset().top
-      //          }, 200, function() {
-      //          });
-      //        }
-      //     } else {
-      //       if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY+10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
-      //         console.log("Scroll up");
-      //         $('html, body').stop().animate({
-      //             scrollTop: 0
-      //         }, 200, function() {
-      //         });
-      //       }
-      //     }
-      //     lastScrollTop = st <= 0 ? 0 : st;
-      //   });
       </script>
     {% endif %}
 
