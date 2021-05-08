@@ -355,17 +355,6 @@ section h1 {
   white-space: nowrap;
 }
 
-#section01 { background: url(https://picsum.photos/1200/800?image=575) center center / cover no-repeat;}
-#section02 { background: url(https://picsum.photos/1200/800?image=1016) center center / cover no-repeat;}
-#section03 { background: url(https://picsum.photos/1200/800?image=869) center center / cover no-repeat;}
-#section04 { background: url(https://picsum.photos/1200/800?image=506) center center / cover no-repeat;}
-#section05 { background: url(https://picsum.photos/1200/800?image=1037) center center / cover no-repeat;}
-#section06 { background: url(https://picsum.photos/1200/800?image=901) center center / cover no-repeat;}
-#section07 { background: url(https://picsum.photos/1200/800?image=675) center center / cover no-repeat;}
-#section08 { background: url(https://picsum.photos/1200/800?image=1050) center center / cover no-repeat;}
-#section09 { background: url(https://picsum.photos/1200/800?image=902) center center / cover no-repeat;}
-#section10 { background: url(https://picsum.photos/1200/800?image=516) center center / cover no-repeat;}
-
 #thanks {
   background-color: #fff;
 }
