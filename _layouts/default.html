@@ -85,8 +85,8 @@ layout: compress
                     </ul>
                   </div>
                 </div>
-                <section id="section03" class="demo">
-                  <a id="navigation_btn" style="pointer-events: all; z-index:100;" href="#section04"><span></span>Scroll</a>
+                <section id="section03" class="demo" style="height:300px">
+                  <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%" href=""><span></span>Scroll</a>
                 </section>
             </div>
         </div>
@@ -126,15 +126,11 @@ layout: compress
 
       <script>
         $(document).ready(function(){
-          // Add smooth scrolling to all links
           $("#navigation_btn").on('click', function(event) {
             event.preventDefault();
-              // Using jQuery's animate() method to add smooth page scroll
-              // The optional number (800) specifies the number of milliseconds it takes to scroll to the specified area
               $('html, body').animate({
                 scrollTop: $('#transition_background').offset().top + $('#transition_background').height()
-              }, 800, function(){
-              });
+              }, 220);
           });
         });
       //   var lastScrollTop = 0;
@@ -217,9 +213,9 @@ layout: compress
       </style>
     {% endif %}
 
-    <!-- <div data-aos="fade-up" data-aos-duration="1000"> -->
+    <div data-aos="fade-up" data-aos-duration="1000">
       {{ content }}
-    <!-- </div> -->
+    </div>
 
     <div data-aos="fade-up" data-aos-duration="1000" class="page__footer">
       <footer>
