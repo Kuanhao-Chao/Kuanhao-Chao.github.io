@@ -136,7 +136,6 @@ layout: compress
           var elementTarget = document.getElementById("transition_background");
           var particles_js = document.getElementById("particles-js");
           var isScrolling;
-          // Listen for scroll events
           window.addEventListener('scroll', function ( event ) {
             var st = window.pageYOffset || document.documentElement.scrollTop;
           	window.clearTimeout( isScrolling );
@@ -146,8 +145,6 @@ layout: compress
               if (st > lastScrollTop){
                 console.log("Scroll down");
                 if (((window.scrollY+200 >= (elementTarget.offsetTop)) && (window.scrollY <= (elementTarget.offsetTop + elementTarget.offsetHeight))) || (window.scrollY > $("#navigation_btn").offset().top && (window.scrollY <= (elementTarget.offsetTop + elementTarget.offsetHeight)))) {
-                   // var navigation_btn_link = document.getElementById('navigation_btn');
-                   // navigation_btn_link.click();
                    $('html, body').stop().animate({
                        scrollTop: $("#transition_background").offset().top + $("#transition_background").height()
                    }, 1800, function() {
