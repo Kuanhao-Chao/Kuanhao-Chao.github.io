@@ -121,7 +121,7 @@ layout: compress
       </script>
       <script src="{{base_path}}/assets/js/canvas_DNA.js"></script>
 
-      <div id="transition_background" style="height: 800px; width: 100%; background: linear-gradient(to top, #ffffff, #1c1430);">
+      <div id="transition_background" style="height: 600px; width: 100%; background: linear-gradient(to top, #ffffff, #1c1430);">
       </div>
 
       <script>
@@ -163,54 +163,6 @@ layout: compress
 
     {% if page.excerpt != "About me"%}
       {% include masthead.html %}
-    {% endif %}
-
-    {% if page.excerpt == "Home"%}
-      <style>
-      html, body {
-        all: initial !important;
-        width: 100% !important;
-        height: 100% !important;
-      }
-
-      body {
-        margin: 0px !important;
-        padding: 0px !important;
-        padding-bottom: 0px !important;
-        color: #494e52;
-        font-family: -apple-system,".SFNSText-Regular","San Francisco","Roboto","Segoe UI","Helvetica Neue","Lucida Grande",Arial,sans-serif;
-        line-height: 1.5;
-      }
-      #main {
-        all: initial !important;
-        width: 100% !important;
-        height: 100% !important;
-        margin: 0px !important;
-        margin-right: 0px !important;
-        padding: 0px !important;
-        clear: both;
-        animation: intro 0.3s both;
-        animation-delay: 0.35s;
-      }
-
-      article.page{
-        all: initial !important;
-        width: 100% !important;
-        height: 100% !important;
-        padding: 0px !important;
-        margin: 0px !important;
-      }
-      .page__inner-wrap {
-        all: initial !important;
-        width: 100% !important;
-        height: 100% !important;
-      }
-      .page__content {
-        all: initial !important;
-        width: 100% !important;
-        height: 100% !important;
-      }
-      </style>
     {% endif %}
 
     <div data-aos="fade-up" data-aos-duration="1000">
