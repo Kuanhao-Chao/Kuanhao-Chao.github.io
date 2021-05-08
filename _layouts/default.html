@@ -134,23 +134,23 @@ layout: compress
               });
           });
         });
-        var lastScrollTop = 0;
-        var elementTarget = document.getElementById("transition_background");
-
-        $(window).scroll(function() {
-          var st = window.pageYOffset || document.documentElement.scrollTop;
-          if (st > lastScrollTop){
-          } else {
-            if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY+10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
-              console.log("Scroll up");
-              $('html, body').stop().animate({
-                  scrollTop: 0
-              }, 220, function() {
-              });
-            }
-          }
-          lastScrollTop = st <= 0 ? 0 : st;
-        });
+        // var lastScrollTop = 0;
+        // var elementTarget = document.getElementById("transition_background");
+        //
+        // $(window).scroll(function() {
+        //   var st = window.pageYOffset || document.documentElement.scrollTop;
+        //   if (st > lastScrollTop){
+        //   } else {
+        //     if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY+10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
+        //       console.log("Scroll up");
+        //       $('html, body').stop().animate({
+        //           scrollTop: 0
+        //       }, 220, function() {
+        //       });
+        //     }
+        //   }
+        //   lastScrollTop = st <= 0 ? 0 : st;
+        // });
       </script>
     {% endif %}
 
