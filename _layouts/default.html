@@ -103,7 +103,6 @@ layout: compress
           loop: true,
           showCursor: true,
         });
-
         const effect = VANTA.NET({
           el: "#particles-js",
           mouseControls: true,
@@ -117,12 +116,11 @@ layout: compress
           backgroundColor: '#1c1430',
           points: 9.00
         });
-
       </script>
+
       <script src="{{base_path}}/assets/js/canvas_DNA.js"></script>
 
-      <div id="transition_background" style="height: 600px; width: 100%; background: linear-gradient(to top, #ffffff, #1c1430);">
-      </div>
+      <div id="transition_background" style="height: 600px; width: 100%; background: linear-gradient(to top, #ffffff, #1c1430);"></div>
 
       <script>
         $(document).ready(function(){
@@ -130,7 +128,7 @@ layout: compress
             event.preventDefault();
               $('html, body').animate({
                 scrollTop: $('#transition_background').offset().top + $('#transition_background').height()
-              }, 220);
+              }, 420);
           });
         });
       //   var lastScrollTop = 0;
@@ -169,14 +167,19 @@ layout: compress
       {{ content }}
     </div>
 
-    <div data-aos="fade-up" data-aos-duration="1000" class="page__footer">
+    <style>
+      . page {
+        display: flex;
+        flex-wrap: wrap;
+      }
+    </style>
+
+    <div data-aos="fade-up" data-aos-duration="1000" class="page__footer" style="margin-top: auto;">
       <footer>
         {% include footer/custom.html %}
         {% include footer.html %}
       </footer>
     </div>
-
-
 
 
     {% include scripts.html %}
