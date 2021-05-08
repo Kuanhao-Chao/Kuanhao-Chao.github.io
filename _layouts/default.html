@@ -119,37 +119,38 @@ layout: compress
       <script src="{{base_path}}/assets/js/canvas_DNA.js"></script>
 
       <div id="transition_background" style="height: 1500px; width: 100%; background: linear-gradient(to top, #ffffff, #1c1430);">
+        <section id="section03" class="demo">
+          <h1>Scroll Down Button #3</h1>
+          <a href="#section04"><span></span>Scroll</a>
+        </section>
       </div>
-      <div id="intro_head">
-      </div>
-
 
       <script>
-        var lastScrollTop = 0;
-        var elementTarget = document.getElementById("transition_background");
-        var particles_js = document.getElementById("particles-js");
-
-        $(window).scroll(function() {
-          var st = window.pageYOffset || document.documentElement.scrollTop;
-          if (st > lastScrollTop){
-            if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY-10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
-               console.log("Scroll down");
-               $('html, body').stop().animate({
-                   scrollTop: $("#intro_head").offset().top
-               }, 200, function() {
-               });
-             }
-          } else {
-            if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY+10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
-              console.log("Scroll up");
-              $('html, body').stop().animate({
-                  scrollTop: 0
-              }, 200, function() {
-              });
-            }
-          }
-          lastScrollTop = st <= 0 ? 0 : st;
-        });
+      //   var lastScrollTop = 0;
+      //   var elementTarget = document.getElementById("transition_background");
+      //   var particles_js = document.getElementById("particles-js");
+      //
+      //   $(window).scroll(function() {
+      //     var st = window.pageYOffset || document.documentElement.scrollTop;
+      //     if (st > lastScrollTop){
+      //       if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY-10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
+      //          console.log("Scroll down");
+      //          $('html, body').stop().animate({
+      //              scrollTop: $("#intro_head").offset().top
+      //          }, 200, function() {
+      //          });
+      //        }
+      //     } else {
+      //       if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY+10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
+      //         console.log("Scroll up");
+      //         $('html, body').stop().animate({
+      //             scrollTop: 0
+      //         }, 200, function() {
+      //         });
+      //       }
+      //     }
+      //     lastScrollTop = st <= 0 ? 0 : st;
+      //   });
       </script>
     {% endif %}
 
