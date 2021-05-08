@@ -120,6 +120,8 @@ layout: compress
 
       <div id="transition_background" style="height: 1500px; width: 100%; background: linear-gradient(to top, #ffffff, #1c1430);">
       </div>
+      <div id="intro_head">
+      </div>
 
 
       <script>
@@ -133,8 +135,8 @@ layout: compress
             if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY-10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
                console.log("Scroll down");
                $('html, body').stop().animate({
-                   scrollTop: elementTarget.offsetTop + elementTarget.offsetHeight
-               }, 200, 'swing', function() {
+                   scrollTop: $("#intro_head").offset().top
+               }, 200, function() {
                });
              }
           } else {
@@ -142,7 +144,7 @@ layout: compress
               console.log("Scroll up");
               $('html, body').stop().animate({
                   scrollTop: 0
-              }, 200, 'swing', function() {
+              }, 200, function() {
               });
             }
           }
