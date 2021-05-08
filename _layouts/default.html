@@ -85,8 +85,8 @@ layout: compress
                     </ul>
                   </div>
                 </div>
-                <section id="section03" class="demo" style="height:300px">
-                  <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%" href=""><span></span>Scroll</a>
+                <section id="section03" class="demo">
+                  <a id="navigation_btn" style="pointer-events: all; z-index:100;" href="#section04"><span></span>Scroll</a>
                 </section>
             </div>
         </div>
@@ -126,31 +126,42 @@ layout: compress
 
       <script>
         $(document).ready(function(){
+          // Add smooth scrolling to all links
           $("#navigation_btn").on('click', function(event) {
             event.preventDefault();
+              // Using jQuery's animate() method to add smooth page scroll
+              // The optional number (800) specifies the number of milliseconds it takes to scroll to the specified area
               $('html, body').animate({
                 scrollTop: $('#transition_background').offset().top + $('#transition_background').height()
               }, 800, function(){
               });
           });
         });
-        // var lastScrollTop = 0;
-        // var elementTarget = document.getElementById("transition_background");
-        //
-        // $(window).scroll(function() {
-        //   var st = window.pageYOffset || document.documentElement.scrollTop;
-        //   if (st > lastScrollTop){
-        //   } else {
-        //     if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY+10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
-        //       console.log("Scroll up");
-        //       $('html, body').stop().animate({
-        //           scrollTop: 0
-        //       }, 220, function() {
-        //       });
-        //     }
-        //   }
-        //   lastScrollTop = st <= 0 ? 0 : st;
-        // });
+      //   var lastScrollTop = 0;
+      //   var elementTarget = document.getElementById("transition_background");
+      //   var particles_js = document.getElementById("particles-js");
+      //
+      //   $(window).scroll(function() {
+      //     var st = window.pageYOffset || document.documentElement.scrollTop;
+      //     if (st > lastScrollTop){
+      //       if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY-10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
+      //          console.log("Scroll down");
+      //          $('html, body').stop().animate({
+      //              scrollTop: $("#intro_head").offset().top
+      //          }, 200, function() {
+      //          });
+      //        }
+      //     } else {
+      //       if ((window.scrollY+30 >= (elementTarget.offsetTop)) && (window.scrollY+10 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
+      //         console.log("Scroll up");
+      //         $('html, body').stop().animate({
+      //             scrollTop: 0
+      //         }, 200, function() {
+      //         });
+      //       }
+      //     }
+      //     lastScrollTop = st <= 0 ? 0 : st;
+      //   });
       </script>
     {% endif %}
 
@@ -206,16 +217,18 @@ layout: compress
       </style>
     {% endif %}
 
-    <div data-aos="fade-up" data-aos-duration="1000">
+    <!-- <div data-aos="fade-up" data-aos-duration="1000"> -->
       {{ content }}
-    </div>
+    <!-- </div> -->
 
-    <div class="page__footer" data-aos="fade-up" data-aos-duration="1000">
+    <div data-aos="fade-up" data-aos-duration="1000" class="page__footer">
       <footer>
         {% include footer/custom.html %}
         {% include footer.html %}
       </footer>
     </div>
+
+
 
 
     {% include scripts.html %}
