@@ -63,7 +63,7 @@ layout: compress
 
                 <div class="intro-social" style="font-size: 50px;">
                   <div class="social-click">
-                    <ul class="intro-social-buttons;" style="display: inline-flex; flex-direction: row; flex-wrap: wrap; justify-content: center; list-style: none; padding: 0;">
+                    <ul class="intro-social-buttons;" style="display: inline-flex; flex-direction: row; flex-wrap: wrap; justify-content: center; list-style: none; padding: 0; margin-bottom:0px">
                       <li class="intro-social-li"><a class="intro-social-a" href="https://github.com/Kuanhao-Chao" target=_blank rel=noopener>
                         <i class="fab fa-github big-icon"></i></a>
                       </li>
@@ -86,7 +86,7 @@ layout: compress
                   </div>
                 </div>
                 <section id="section03" class="demo">
-                  <a href="#section04"><span></span>Scroll</a>
+                  <a id="navigation_btn" style="pointer-events: all; z-index:100;" href="#section04"><span></span>Scroll</a>
                 </section>
             </div>
         </div>
@@ -125,6 +125,18 @@ layout: compress
       </div>
 
       <script>
+        $(document).ready(function(){
+          // Add smooth scrolling to all links
+          $("#navigation_btn").on('click', function(event) {
+            event.preventDefault();
+              // Using jQuery's animate() method to add smooth page scroll
+              // The optional number (800) specifies the number of milliseconds it takes to scroll to the specified area
+              $('html, body').animate({
+                scrollTop: $('#transition_background').offset().top + $('#transition_background').height()
+              }, 800, function(){
+              });
+          });
+        });
       //   var lastScrollTop = 0;
       //   var elementTarget = document.getElementById("transition_background");
       //   var particles_js = document.getElementById("particles-js");

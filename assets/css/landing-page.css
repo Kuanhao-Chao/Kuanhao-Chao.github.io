@@ -91,7 +91,7 @@ h6 {
 }
 
 .intro-social {
-  padding-bottom: 2%;
+  /* padding-bottom: 2%; */
 }
 
 @media(max-width:767px) {
@@ -393,8 +393,8 @@ section h1 {
   left: 50%;
   z-index: 2;
   display: inline-block;
-  -webkit-transform: translate(0, -50%);
-  transform: translate(0, -50%);
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
   color: #fff;
   font : normal 400 20px/1 'Josefin Sans', sans-serif;
   letter-spacing: .1em;
@@ -402,7 +402,7 @@ section h1 {
   transition: opacity .3s;
 }
 .demo a:hover {
-  opacity: .5;
+  opacity: .9;
 }
 
 
