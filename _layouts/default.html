@@ -152,7 +152,7 @@ layout: compress
                  }
               } else if (st < lastScrollTop) {
                 console.log("Scroll up");
-                if ((window.scrollY+50 >= (elementTarget.offsetTop)) && (window.scrollY+50 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
+                if ((window.scrollY+50 >= (elementTarget.offsetTop)) && (window.scrollY+100 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
                   console.log("Scroll up");
                   $('html, body').stop().animate({
                       scrollTop: 0
