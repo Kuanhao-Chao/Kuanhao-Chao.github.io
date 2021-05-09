@@ -9,7 +9,8 @@ redirect_from:
 ---
 {% include base_path %}
 
-<div style="margin-left:20px; margin-top:30px">
+<div style="margin-left:20px; margin-top:30px; pointer-events: all;
+z-index:100;">
   <p>
   I’m an <i>Electrical Engineering</i> undergraduate at <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53" >National Taiwan University (NTU)</a>. In my fourth year, I went on exchange to study at the <i>College of Engineering & Computer Science</i> at <a target="_blank"  href="https://www.anu.edu.au/" style="color:#4A4F53">the Australian National University (ANU)</a>. My primary research interest is to unfold real-world biological and medical problems using computational approaches including machine learning, algorithm design, mathematical model simulation, and software engineering, and I would like to conduct multi-omics research in my graduate study.
   </p>
@@ -37,7 +38,7 @@ redirect_from:
 <hr>
 <br>
 
-<div style="text-align: center;">
+<div style="text-align: center; pointer-events: all; z-index:100;">
   <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html">
     <img src="/images/NTU.png" style="height:160px; width: 160px; margin: 10px">
   </a>
@@ -47,7 +48,7 @@ redirect_from:
   <a target="_blank"  href="https://www.sinica.edu.tw/en">
     <img src="/images/AS_logo.png" style="height:160px; width: 160px; margin: 10px">
   </a>
-  <a target="_blank"  href="https://www.iis.sinica.edu.tw/index_en.html">
+  <a target="_blank"  href="https://www.iis.sinica.edu.tw/index_en.html" >
     <img src="/images/iis_logo.jpg" style="height:160px; width: 160px; margin: 10px">
   </a>
   <a target="_blank"  href="https://www.anu.edu.au/">
@@ -67,63 +68,3 @@ redirect_from:
 <br><br>
 
 <script type="text/javascript" id="clustrmaps" src="//clustrmaps.com/map_v2.js?d=SjhWAwqGLnloAclnIVxG6gxPA8DEX2yyW2VQlroVDWw&cl=ffffff&w=a"></script>
-
-<!-- <a href="https://clustrmaps.com/site/1bf8c"  title="Visit tracker"><img src="//www.clustrmaps.com/map_v2.png?d=SjhWAwqGLnloAclnIVxG6gxPA8DEX2yyW2VQlroVDWw&cl=ffffff" /></a> -->
-<!-- <div class="demo" style="display: table; width: 100%; table-layout: fixed; ">
-    <span style="display: table-cell; text-align: center;">
-      <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html">
-        <img src="/images/NTU.png" style="height:160px">
-      </a>
-    </span>
-    <span style="display: table-cell; text-align: center;">
-      <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php">
-        <img src="/images/NTU_EECS.png" style="height:160px">
-      </a>
-    </span>
-    <span style="display: table-cell; text-align: center;">
-      <a target="_blank"  href="https://www.sinica.edu.tw/en">
-        <img src="/images/AS_logo.png" style="height:160px">
-      </a>
-    </span>
-    <span style="display: table-cell; text-align: center;">
-      <a target="_blank"  href="https://www.iis.sinica.edu.tw/index_en.html">
-        <img src="/images/iis_logo.jpg" style="height:160px">
-      </a>
-    </span>
-</div>
-
-<div class="demo" style="margin-top: 30px;display: table; width: 100%; table-layout: fixed; ">
-    <span style="display: table-cell; text-align: center;">
-      <a target="_blank"  href="https://www.anu.edu.au/">
-        <img src="images/anu_logo_small.png" style="height:160px">
-      </a>
-    </span>
-    <span style="display: table-cell; text-align: center;">
-      <a target="_blank"  href="http://www.robertlanfear.com/">
-        <img src="/images/ANU_Biology.jpg" style="height:160px">
-      </a>
-    </span>
-    <span style="display: table-cell; text-align: center;">
-      <a target="_blank"  href="https://bits.iis.sinica.edu.tw/">
-        <img src="/images/BIOIT.png" style="height:160px">
-      </a>
-    </span>
-    <span style="display: table-cell; text-align: center;">
-      <a target="_blank"  href="http://www.cgm.ntu.edu.tw/web/index/index.jsp?lang=en">
-        <img src="/images/CGM_LOGO.png" style="height:160px">
-      </a>
-    </span>
-</div> -->
-
-
-
-
-
-
-<!-- <img src="{{ base_path }}/images/anu_logo.png" style="width:130px;height:120px">
-<img src="{{ base_path }}/images/ANU_CECS.jpg" style="width:130px;height:120px">
-<img src="{{ base_path }}/images/bioconductor.jpg">
-
-<img src="{{ base_path }}/images/NTU_EECS.png">
-
-<img src="{{ base_path }}/images/NTU.png"> -->

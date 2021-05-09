@@ -160,6 +160,11 @@ layout: compress
                   });
                 }
               }
+              $('html, body').bind("scroll mousedown DOMMouseScroll mousewheel keyup", function(e){
+                  if ( e.which > 0 || e.type === "mousedown" || e.type === "mousewheel"){
+                       $('html, body').stop().unbind('scroll mousedown DOMMouseScroll mousewheel keyup');
+                  }
+              });
           		console.log( 'Scrolling has stopped.' );
               lastScrollTop = st <= 0 ? 0 : st;
           	}, 66);
@@ -181,6 +186,18 @@ layout: compress
         display: flex;
         flex-wrap: wrap;
         pointer-events: all;
+
+      }
+      .page__inner-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        pointer-events: all;
+      }
+      .page__content {
+        display: flex;
+        flex-wrap: wrap;
+        pointer-events: all;
+        z-index:100;
       }
     </style>
 
