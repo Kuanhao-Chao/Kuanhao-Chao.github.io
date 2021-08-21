@@ -63,7 +63,7 @@ z-index:100;">
   <a target="_blank"  href="http://www.cgm.ntu.edu.tw/web/index/index.jsp?lang=en">
     <img src="/images/CGM_LOGO.png" style="height:160px; width: 160px; margin: 10px">
   </a>
-<div>
+</div>
 <hr>
 <br><br>
 
