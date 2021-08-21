@@ -10,7 +10,7 @@ locale                   : "en-US"
 title                    : "Kuan-Hao Chao"
 title_separator          : "-"
 name                     : &name "Kuan-Hao Chao"
-description              : &description "I intend to apply for a computational biology Ph.D in the USA (2021 Fall). <br><br>• Research assistant @ Institute of Information Science, Academia Sinica, Taiwan<br><br>• Research assistant @ Institute of Epidemiology and Preventive Medicine, NTU, Taiwan<br><br>• Former research assistant @ Research School of Biology, ANU, Australia"
+description              : &description "• CS Ph.D student @ Center for Computational Biology, JHU, US<br><br>• Research assistant @ Institute of Information Science, Academia Sinica, Taiwan<br><br>• Research assistant @ Institute of Epidemiology and Preventive Medicine, NTU, Taiwan<br><br>• Former research assistant @ Research School of Biology, ANU, Australia"
 url                      : https://kuanhao-chao.github.io
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "kuanhao-chao.github.io"
@@ -82,7 +82,7 @@ analytics:
 author:
   name             : "Kuan-Hao Chao"
   avatar           : "profile.png"
-  bio              : "I intend to apply for a computational biology Ph.D in the USA (2021 Fall). <br><br>• Research assistant @ Institute of Information Science, Academia Sinica, Taiwan<br><br>• Research assistant @ Institute of Epidemiology and Preventive Medicine, NTU, Taiwan<br><br>• Former research assistant @ Research School of Biology, ANU, Australia"
+  bio              : "• CS Ph.D student @ Center for Computational Biology, JHU, US<br><br>• Research assistant @ Institute of Information Science, Academia Sinica, Taiwan<br><br>• Research assistant @ Institute of Epidemiology and Preventive Medicine, NTU, Taiwan<br><br>• Former research assistant @ Research School of Biology, ANU, Australia"
   location         : "Taipei, Taiwan"
   employer         :
   googlescholar    : "https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en&oi=ao"
