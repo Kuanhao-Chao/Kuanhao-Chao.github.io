@@ -33,7 +33,8 @@ layout: compress
 
 
     {% if page.excerpt == "About me"%}
-      {% include masthead_home.html %}
+      <!-- {% include masthead_home.html %} -->
+      {% include masthead.html %}
       <!-- <div id="particles-js" style="background: #1c1430;" role="main"> -->
         <div id="main" role="main">
         <!-- <img id="logo_img" src="{{base_path}}/images/JHU_logo.png"> -->
@@ -87,8 +88,8 @@ layout: compress
                     </ul>
                   </div>
                 </div>
-                <section id="section03" class="demo" style="height:300px; color: black">
-                  <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%" href=""><span></span>More Info</a>
+                <section id="section03" class="demo" style="height:300px;">
+                  <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%; color: black" href=""><span></span>More Info</a>
                 </section>
             </div>
         </div>
@@ -178,9 +179,9 @@ layout: compress
       {% include masthead.html %}
     {% endif %}
 
-    <!-- <div data-aos="fade-up" data-aos-duration="1000"> -->
+    <div data-aos="fade-up" data-aos-duration="1000">
       {{ content }}
-    <!-- </div> -->
+    </div>
 
     <style>
       .page {

@@ -468,7 +468,7 @@ section h1 {
   width: 46px;
   height: 46px;
   margin-left: -23px;
-  border: 1px solid #fff;
+  border: 1px solid #000;
   border-radius: 100%;
   box-sizing: border-box;
 }
@@ -480,8 +480,8 @@ section h1 {
   width: 16px;
   height: 16px;
   margin: -12px 0 0 -8px;
-  border-left: 1px solid #fff;
-  border-bottom: 1px solid #fff;
+  border-left: 1px solid #000;
+  border-bottom: 1px solid #000;
   -webkit-transform: rotate(-45deg);
   transform: rotate(-45deg);
   box-sizing: border-box;
