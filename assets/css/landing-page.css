@@ -82,7 +82,7 @@ h6 {
 }
 
 #intro-message-main {
-    text-shadow: 2px 2px 3px rgba(0,0,0,0.6);
+    text-shadow: 2px 2px 3px rgba(0,0,0,0.15);
     font-size: 2em;
 }
 

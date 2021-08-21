@@ -136,44 +136,6 @@ layout: compress
                 scrollTop: $('#transition_background').offset().top + $('#transition_background').height()
               }, 920);
           });
-
-          // var lastScrollTop = 0;
-          // var elementTarget = document.getElementById("transition_background");
-          // var particles_js = document.getElementById("particles-js");
-          // var isScrolling;
-          // window.addEventListener('scroll', function ( event ) {
-          //   var st = window.pageYOffset || document.documentElement.scrollTop;
-          // 	window.clearTimeout( isScrolling );
-          // 	isScrolling = setTimeout(function() {
-          //     console.log("st: ", st);
-          //     console.log("lastScrollTop: ", lastScrollTop);
-          //     if (st > lastScrollTop){
-          //       console.log("Scroll down");
-          //       if (((window.scrollY+200 >= (elementTarget.offsetTop)) && (window.scrollY <= (elementTarget.offsetTop + elementTarget.offsetHeight))) || (window.scrollY > $("#navigation_btn").offset().top && (window.scrollY <= (elementTarget.offsetTop + elementTarget.offsetHeight)))) {
-          //          $('html, body').stop().animate({
-          //              scrollTop: $("#transition_background").offset().top + $("#transition_background").height()
-          //          }, 1800, function() {
-          //          });
-          //        }
-          //     } else if (st < lastScrollTop) {
-          //       console.log("Scroll up");
-          //       if ((window.scrollY+50 >= (elementTarget.offsetTop)) && (window.scrollY+100 <= (elementTarget.offsetTop + elementTarget.offsetHeight)) ) {
-          //         console.log("Scroll up");
-          //         $('html, body').stop().animate({
-          //             scrollTop: 0
-          //         }, 1800, function() {
-          //         });
-          //       }
-          //     }
-          //     $('html, body').bind("scroll mousedown DOMMouseScroll mousewheel keyup", function(e){
-          //         if ( e.which > 0 || e.type === "mousedown" || e.type === "mousewheel"){
-          //              $('html, body').stop().unbind('scroll mousedown DOMMouseScroll mousewheel keyup');
-          //         }
-          //     });
-          // 		console.log( 'Scrolling has stopped.' );
-          //     lastScrollTop = st <= 0 ? 0 : st;
-          // 	}, 66);
-          // }, false)
         });
       </script>
     {% endif %}
