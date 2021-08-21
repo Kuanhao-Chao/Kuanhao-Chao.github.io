@@ -35,63 +35,64 @@ layout: compress
     {% if page.excerpt == "About me"%}
       <!-- {% include masthead_home.html %} -->
       {% include masthead.html %}
-      <!-- <div id="particles-js" style="background: #1c1430;" role="main"> -->
+      <div id="particles-js" style="background: #fff;" role="main">
         <div id="main" role="main">
         <!-- <img id="logo_img" src="{{base_path}}/images/JHU_logo.png"> -->
-        <div id="particles-header" class="intro-header alt-font" style="color:#000 !important">
-            <div class="container">
-                <div class="intro-message">
-                    <h1 id="intro-message-name" class="alt-font">Kuan-Hao Chao</h1>
-                    <span id="type-wrap"> $ My personal website of <span id="typed"></span>
-                    </span>
+          <div id="particles-header" class="intro-header alt-font" style="color:#000 !important">
+              <div class="container">
+                  <div class="intro-message">
+                      <h1 id="intro-message-name" class="alt-font">Kuan-Hao Chao</h1>
+                      <span id="type-wrap"> $ My personal website of <span id="typed"></span>
+                      </span>
 
-                    <div class="row" style="display: flex; margin-top: 30px">
-                      <div class="column" style="flex: 10%;">
-                        <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
-                          <canvas id="canvas_DNA_left" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
+                      <div class="row" style="display: flex; margin-top: 30px">
+                        <div class="column" style="flex: 10%;">
+                          <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
+                            <canvas id="canvas_DNA_left" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
+                          </div>
+                        </div>
+                        <div class="column" style="flex: 80%;">
+                          <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Computer Science PhD Student in Computational Biology Group <br>@ Johns Hopkins University</h3>
+                          <h4 id="intro-message-advisor" class="alt-font">Advisor: <a href="https://salzberg-lab.org/" style="pointer-events: all;">Steven Salzberg</a> & <a href="http://ccb.jhu.edu/people/mpertea/" style="pointer-events: all;">Mihaela Pertea</a></h4>
+                        </div>
+                        <div class="column" style="flex: 10%;">
+                          <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
+                            <canvas id="canvas_DNA_right" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
+                          </div>
                         </div>
                       </div>
-                      <div class="column" style="flex: 80%;">
-                        <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Computer Science PhD Student in Computational Biology Group <br>@ Johns Hopkins University</h3>
-                        <h4 id="intro-message-advisor" class="alt-font">Advisor: <a href="https://salzberg-lab.org/" style="pointer-events: all;">Steven Salzberg</a> & <a href="http://ccb.jhu.edu/people/mpertea/" style="pointer-events: all;">Mihaela Pertea</a></h4>
-                      </div>
-                      <div class="column" style="flex: 10%;">
-                        <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
-                          <canvas id="canvas_DNA_right" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
-                        </div>
-                      </div>
-                    </div>
-                    <hr class="intro-divider" style="margin-top:15px; display: flex; align-items: center; text-align: center;">
-                </div>
-
-                <div class="intro-social" style="font-size: 50px;">
-                  <div class="social-click">
-                    <ul class="intro-social-buttons;" style="display: inline-flex; flex-direction: row; flex-wrap: wrap; justify-content: center; list-style: none; padding: 0; margin-bottom:0px">
-                      <li class="intro-social-li"><a class="intro-social-a" href="https://github.com/Kuanhao-Chao" target=_blank rel=noopener>
-                        <i class="fab fa-github big-icon"></i></a>
-                      </li>
-                      <li class="intro-social-li"><a class="intro-social-a" href="mailto:kuanhao.chao@gmail.com">
-                        <i class="fas fa-envelope big-icon"></i></a>
-                      </li>
-                      <li class="intro-social-li"><a class="intro-social-a" href="https://www.linkedin.com/in/kuan-hao-chao/" target=_blank rel=noopener>
-                        <i class="fab fa-linkedin-in"></i></a>
-                      </li>
-                      <li class="intro-social-li"><a class="intro-social-a" href="https://twitter.com/KuanHaoChao" target=_blank rel=noopener>
-                        <i class="fab fa-twitter big-icon"></i></a>
-                      </li>
-                      <li class="intro-social-li"><a class="intro-social-a" href="https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en&oi=ao" target=_blank rel=noopener>
-                        <i class="ai ai-google-scholar big-icon"></i></a>
-                      </li>
-                      <li class="intro-social-li"><a class="intro-social-a" href="http://storage.kuanhaochao.com/CV.pdf">
-                        <i class="ai ai-cv big-icon"></i></a>
-                      </li>
-                    </ul>
+                      <hr class="intro-divider" style="margin-top:15px; display: flex; align-items: center; text-align: center;">
                   </div>
-                </div>
-                <section id="section03" class="demo" style="height:300px;">
-                  <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%; color: black" href=""><span></span>More Info</a>
-                </section>
-            </div>
+
+                  <div class="intro-social" style="font-size: 50px;">
+                    <div class="social-click">
+                      <ul class="intro-social-buttons;" style="display: inline-flex; flex-direction: row; flex-wrap: wrap; justify-content: center; list-style: none; padding: 0; margin-bottom:0px">
+                        <li class="intro-social-li"><a class="intro-social-a" href="https://github.com/Kuanhao-Chao" target=_blank rel=noopener>
+                          <i class="fab fa-github big-icon"></i></a>
+                        </li>
+                        <li class="intro-social-li"><a class="intro-social-a" href="mailto:kuanhao.chao@gmail.com">
+                          <i class="fas fa-envelope big-icon"></i></a>
+                        </li>
+                        <li class="intro-social-li"><a class="intro-social-a" href="https://www.linkedin.com/in/kuan-hao-chao/" target=_blank rel=noopener>
+                          <i class="fab fa-linkedin-in"></i></a>
+                        </li>
+                        <li class="intro-social-li"><a class="intro-social-a" href="https://twitter.com/KuanHaoChao" target=_blank rel=noopener>
+                          <i class="fab fa-twitter big-icon"></i></a>
+                        </li>
+                        <li class="intro-social-li"><a class="intro-social-a" href="https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en&oi=ao" target=_blank rel=noopener>
+                          <i class="ai ai-google-scholar big-icon"></i></a>
+                        </li>
+                        <li class="intro-social-li"><a class="intro-social-a" href="http://storage.kuanhaochao.com/CV.pdf">
+                          <i class="ai ai-cv big-icon"></i></a>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                  <section id="section03" class="demo" style="height:300px;">
+                    <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%; color: black" href=""><span></span>More Info</a>
+                  </section>
+              </div>
+          </div>
         </div>
       </div>
 
@@ -113,10 +114,10 @@ layout: compress
           gyroControls: false,
           minHeight: 200.00,
           minWidth: 200.00,
-          scale: 1.00,
-          scaleMobile: 1.00,
-          color: '#46415c',
-          backgroundColor: '#1c1430',
+          scale: 2.00,
+          scaleMobile: 1.50,
+          color: '#d1e8eb',
+          backgroundColor: '#ffffff',
           points: 9.00
         });
       </script>
