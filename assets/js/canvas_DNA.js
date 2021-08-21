@@ -10,10 +10,10 @@ function DNA_plot(DNA_ID) {
   const STRANDS = 23
   const STRAND = 'silver'
   const COLORS = [
-    'rgb(252, 254, 248)',
-    'rgb(251, 164, 82)',
-    'rgb(37, 175, 186)',
-    'rgb(225, 7, 130)',
+    'rgb(164, 3, 111)',
+    'rgb(4, 139, 168)',
+    'rgb(22, 219, 147)',
+    'rgb(239, 234, 90)',
   ]
   const randomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)]
   const YSTART = -(((STRANDS - 1) * MARGIN) / 2)

@@ -44,7 +44,8 @@ h6 {
 .intro-header {
   width:90%;
   margin: auto;
-  color: #f8f8f8;
+  /* color: #f8f8f8; */
+  color: #000;
   text-align: center;
   background-size: cover;
   pointer-events: none;
