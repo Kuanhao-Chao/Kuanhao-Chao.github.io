@@ -19,20 +19,6 @@ z-index:100;">
     My research interests are genome assembly and transcriptome (RNA sequencing). I am also passionate about developing open source bioinformatics tools and designing algorithms. I have developed two <a target="_blank"  href="https://www.bioconductor.org" style="color:#4A4F53" >Bioconductor</a> R packages which are <a target="_blank"  href="https://bioconductor.org/packages/release/bioc/html/RNASeqR.html" style="color:#4A4F53" >RNASeqR</a> and <a target="_blank"  href="https://bioconductor.org/packages/release/bioc/html/sangeranalyseR.html" style="color:#4A4F53" >sangeranalyseR</a>. Fore more information, please visit my <a target="_blank"  href="https://kuanhao-chao.github.io/researches/" style="color:#2c508f"><b>research page 🔬</b></a>.
   </p>
 
-  <!-- <ul>
-    <li>
-    <p>
-    Here are some of my <a target="_blank"  href="https://kuanhao-chao.github.io/projects/" style="color:#2c508f"><b>cool projects 🎯 (<small>Unity games & course projects & Android apps</small>)</b></a>.
-    </p>
-    </li>
-    <li style="margin-top:-8px">
-    <p>
-    Here is my brief <a target="_blank"  href="https://slides.com/kuan-haochao/kuan-hao-chao/" style="color:#2c508f"><b> self-introduction slides 📜</b></a>.
-    </p>
-    <iframe src="https://slides.com/kuan-haochao/kuan-hao-chao/embed" width="100%" height="420px" style="margin-top:3px"></iframe>
-    </li>
-  </ul> -->
-
 </div>
 
 <hr>
