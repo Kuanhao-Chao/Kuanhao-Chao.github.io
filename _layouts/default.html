@@ -88,8 +88,14 @@ layout: compress
                       </ul>
                     </div>
                   </div>
-                  <img id="logo_ccb" src="{{base_path}}/images/JHU_ccb.png">
-                  <img id="logo_wse" src="{{base_path}}/images/JHU_wse.png">
+                  <div class="row" style="display: flex; margin-top:10px;">
+                    <div class="column" style="flex: 50%; margin:10px">
+                      <img id="logo_ccb" src="{{base_path}}/images/JHU_ccb.png">
+                    </div>
+                    <div class="column" style="flex: 50%; margin:10px">
+                      <img id="logo_wse" src="{{base_path}}/images/JHU_wse.png">
+                    </div>
+                  </div>
                   <section id="section03" class="demo" style="height:300px;">
                     <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%; color: black" href=""><span></span>More Info</a>
                   </section>
@@ -100,7 +106,7 @@ layout: compress
 
       <script>
         var typed = new Typed("#typed", {
-          strings: ["research.", "bioinformatics.", "computer science.", "genome assembly.", "transcriptome (RNA-seq).", "genomics.", "algorithm."],
+          strings: ["research.", "bioinformatics.", "computer science.", "genome assembly.", "transcriptome(RNA-seq).", "genomics.", "algorithm."],
           typeSpeed: 100,
           backSpeed: 70,
           startDelay: 1000,
