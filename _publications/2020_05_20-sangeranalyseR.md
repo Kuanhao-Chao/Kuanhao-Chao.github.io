@@ -1,12 +1,12 @@
 ---
 title: "sangeranalyseR: simple and interactive processing of Sanger sequencing data in R"
 collection: publications
-permalink: /publication/2021_02_16-sangeranalyseR
+permalink: https://academic.oup.com/gbe/article/doi/10.1093/gbe/evab028/6137837?guestAccessKey=0252e360-4455-46b3-8513-324e5246fc92
 excerpt: '<small>This package builds on sangerseqR to allow users to create contigs from collections of Sanger sequencing reads. It provides a wide range of options for a number of commonly-performed actions including read trimming, detecting secondary peaks, and detecting indels using a reference sequence. All parameters can be adjusted interactively either in R or in the associated Shiny applications. There is extensive online documentation, and the package can outputs detailed HTML reports, including chromatograms.</small>'
 date: 2021-02-08
 venue: '<b>Genome Biology and Evolution(GBE)</b>'
-paperurl: 'https://academic.oup.com/gbe/advance-article/doi/10.1093/gbe/evab028/6137837?guestAccessKey=a28b32d6-ffab-41f2-8132-9c2dd28b99fe'
-citation: '<br><b style="color:#ad0000">K.H. Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). "sangeranalyseR: simple and interactive processing of Sanger sequencing data in R" in <b><i>Genome Biology and Evolution</i></b>. doi: doi.org/10.1093/gbe/evab028.'
+paperurl: 'https://academic.oup.com/gbe/article/13/3/evab028/6137837'
+citation: '<br><b style="color:#ad0000">K.H. Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). sangeranalyseR: simple and interactive processing of Sanger sequencing data in R, <i><b>Genome Biology and Evolution</b></i>, Volume 13, Issue 3, March 2021, evab028, <a href="https://academic.oup.com/gbe/article/doi/10.1093/gbe/evab028/6137837?guestAccessKey=0252e360-4455-46b3-8513-324e5246fc92s">https://doi.org/10.1093/gbe/evab028</a>.'
 altmetric: "<div class='altmetric-embed' data-badge-type='1' data-doi='10.1093/gbe/evab028' style='display:inline;'></div>"
 altmetric_inside: "<div data-badge-type='donut' class='altmetric-embed' data-badge-popover='left' data-doi='10.1093/gbe/evab028' style='display:inline;'></div>"
 SJR: '<a href="https://www.scimagojr.com/journalsearch.php?q=19700182013&amp;tip=sid&amp;exact=no" title="SCImago Journal &amp; Country Rank"><img border="0" src="https://www.scimagojr.com/journal_img.php?id=19700182013" style="width:235px; height: 250px;object-fit: cover;display: inline; margin-top:20px;" alt="SCImago Journal &amp; Country Rank"  /></a>'
