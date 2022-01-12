@@ -4,17 +4,12 @@
   {% assign author = site.data.authors[page.author] %}{% else %}{% assign author = site.author %}
 {% endif %}
 
-<!-- {% if page.news%} -->
-{% assign news = sites.news %}
-<!-- {% endif %} -->
+{% assign news = site.news %}
 
 <div itemscope itemtype="http://schema.org/Person">
 
   <div class="author__avatar">
-    <h1>
-      News!
-    </h1>
-    <li><i class="fa fa-fw fa-map-marker" aria-hidden="true"></i> {{ news.n1 }}</li>
+
     {% if author.avatar contains "://" %}
     	<img src="{{ author.avatar }}" alt="{{ author.name }}">
     {% else %}
@@ -23,8 +18,31 @@
   </div>
 
   <div class="author__content">
-    <h3 class="author__name">{{ author.name }}</h3>
-    {% if author.bio %}<p class="author__bio">{{ author.bio }}</p>{% endif %}
+    <h3 style="border-bottom: 5px solid #dfdfdf;
+    font-size: 16px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin: 0 0 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    text-transform: uppercase;white-space: nowrap;"> KH Chao</h4>
+    {% if author.bio %}<p class="author__bio" style="font-size: 10px;
+    font-size: 1rem; font-weight: 400;">{{ author.bio }}</p>{% endif %}
+
+    <h3 style="border-bottom: 5px solid #dfdfdf;
+    font-size: 16px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin: 0 0 10px;
+    padding-bottom: 10px;
+    text-transform: uppercase;"> News</h3>
+    {% for item in news %}
+    <p class="author__bio" style="font-size: 10px;
+    font-size: 1rem; font-weight: 400;"><strong>{{ item.time }}</strong>: <br>{{ item.story }}</p>
+    {% endfor %}
+    <br>
   </div>
 
   <div class="author__urls-wrapper">

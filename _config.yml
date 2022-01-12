@@ -10,7 +10,7 @@ locale                   : "en-US"
 title                    : "Kuan-Hao Chao"
 title_separator          : "-"
 name                     : &name "Kuan-Hao Chao"
-description              : &description "• CS Ph.D student @ Center for Computational Biology, JHU, US<br><br>• Research assistant @ Institute of Information Science, Academia Sinica, Taiwan<br><br>• Research assistant @ Institute of Epidemiology and Preventive Medicine, NTU, Taiwan<br><br>• Former research assistant @ Research School of Biology, ANU, Australia"
+description              : &description "• CS Ph.D student @ Center for Computational Biology, JHU, US<br><br>"
 url                      : https://kuanhao-chao.github.io
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "kuanhao-chao.github.io"
@@ -77,14 +77,18 @@ analytics:
   google:
     tracking_id          :
 
+# News
 news:
-  n1               : "news1"
+
+  - {time: "Aug, 2021", story: "sangeranalyseR is awarded the Best Poster at <a href='https://bioc2021.bioconductor.org/' target='_blank'>Bioc2021</a>." }
+
+  - {time: "Sep, 2021", story: "I joins Dr. Steven Salzberg's and Ela Pertea's lab as a Ph.D. student in Computer Science at JHU." }
 
 # Site Author
 author:
   name             : "Kuan-Hao Chao"
   avatar           : "profile.png"
-  bio              : "• CS Ph.D student @ Center for Computational Biology, JHU, US<br><br>• Research assistant @ Institute of Information Science, Academia Sinica, Taiwan<br><br>• Research assistant @ Institute of Epidemiology and Preventive Medicine, NTU, Taiwan<br><br>• Former research assistant @ Research School of Biology, ANU, Australia"
+  bio              : "• CS Ph.D student @ Center for Computational Biology, JHU, US<br><br>"
   location         : "Taipei, Taiwan"
   employer         :
   googlescholar    : "https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en&oi=ao"
