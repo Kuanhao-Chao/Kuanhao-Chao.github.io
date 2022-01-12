@@ -77,6 +77,8 @@ analytics:
   google:
     tracking_id          :
 
+news:
+  n1               : "news1"
 
 # Site Author
 author:

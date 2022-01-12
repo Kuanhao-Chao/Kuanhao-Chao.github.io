@@ -4,9 +4,17 @@
   {% assign author = site.data.authors[page.author] %}{% else %}{% assign author = site.author %}
 {% endif %}
 
+<!-- {% if page.news%} -->
+{% assign news = sites.news %}
+<!-- {% endif %} -->
+
 <div itemscope itemtype="http://schema.org/Person">
 
   <div class="author__avatar">
+    <h1>
+      News!
+    </h1>
+    <li><i class="fa fa-fw fa-map-marker" aria-hidden="true"></i> {{ news.n1 }}</li>
     {% if author.avatar contains "://" %}
     	<img src="{{ author.avatar }}" alt="{{ author.name }}">
     {% else %}
