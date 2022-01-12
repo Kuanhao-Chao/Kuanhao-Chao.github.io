@@ -80,9 +80,10 @@ analytics:
 # News
 news:
 
+  - {time: "Sep, 2021", story: "I joins Dr. Steven Salzberg's and Ela Pertea's lab as a Ph.D. student in Computer Science at JHU." }
+
   - {time: "Aug, 2021", story: "sangeranalyseR is awarded the Best Poster at <a href='https://bioc2021.bioconductor.org/' target='_blank'>Bioc2021</a>." }
 
-  - {time: "Sep, 2021", story: "I joins Dr. Steven Salzberg's and Ela Pertea's lab as a Ph.D. student in Computer Science at JHU." }
 
 # Site Author
 author:
