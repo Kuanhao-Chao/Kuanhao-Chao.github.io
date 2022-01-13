@@ -10,7 +10,7 @@ locale                   : "en-US"
 title                    : "Kuan-Hao Chao"
 title_separator          : "-"
 name                     : &name "Kuan-Hao Chao"
-description              : &description "• CS Ph.D student @ Center for Computational Biology, JHU, US<br><br>"
+description              : &description "CS Ph.D. student @ Center for Computational Biology, JHU, US<br><br>"
 url                      : https://kuanhao-chao.github.io
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "kuanhao-chao.github.io"
@@ -84,12 +84,14 @@ news:
 
   - {time: "Aug, 2021", story: "sangeranalyseR is awarded the Best Poster at <a href='https://bioc2021.bioconductor.org/' target='_blank'>Bioc2021</a>." }
 
+  - {time: "Mar, 2021", story: "sangeranalyseR is published on <i><a href='https://doi.org/10.1093/gbe/evab028' target='_blank'>Genome Biology and Evolution</a></i>." }
+
 
 # Site Author
 author:
   name             : "Kuan-Hao Chao"
   avatar           : "profile.png"
-  bio              : "• CS Ph.D student @ Center for Computational Biology, JHU, US<br><br>"
+  bio              : "CS Ph.D. student @ Center for Computational Biology, JHU, US<br><br>"
   location         : "Taipei, Taiwan"
   employer         :
   googlescholar    : "https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en&oi=ao"
