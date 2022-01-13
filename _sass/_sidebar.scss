@@ -70,9 +70,12 @@
    ========================================================================== */
 
 .author__avatar {
-  display: table-cell;
+  // display: table-cell;
   vertical-align: top;
-  width: 36px;
+  // width: 36px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 50%;
   // set width only, for non-square avatars
   // height: 36px;
 
@@ -94,7 +97,7 @@
 }
 
 .author__content {
-  display: table-cell;
+  // display: table-cell;
   vertical-align: top;
   padding-left: 15px;
   padding-right: 25px;
@@ -132,11 +135,14 @@
 
 .author__urls-wrapper {
   position: relative;
-  display: table-cell;
+  // display: table-cell;
   vertical-align: middle;
   font-family: $sans-serif;
   z-index: 10;
   position: relative;
+  margin-left:20px;
+  margin-bottom:20px;
+
   cursor: pointer;
 
   li:last-child {
@@ -160,7 +166,7 @@
 
 .author__urls {
   display: none;
-  position: absolute;
+  // position: absolute;
   right: 0;
   margin-top: 15px;
   padding: 10px;
