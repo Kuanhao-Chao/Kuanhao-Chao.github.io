@@ -37,10 +37,10 @@
     letter-spacing: 2px;
     margin: 0 0 10px;
     padding-bottom: 10px;
-    text-transform: uppercase;"> News</h3>
+    text-transform: uppercase;"> <i class="fa fa-fw fa-newspaper" aria-hidden="true"></i> News</h3>
     {% for item in news %}
     <p class="author__bio" style="font-size: 9px;
-    font-size: 0.9rem; font-weight: 400;"><strong style="font-size: 1rem; font-weight: 700;">{{ item.time }}</strong>: <br>{{ item.story }}</p>
+    font-size: 0.9rem; font-weight: 400; padding-bottom: 1.5px;"><strong style="font-size: 1rem; font-weight: 700;"><i class="fa fa-fw fa-bullhorn" style="font-size: 0.8rem;" aria-hidden="true"></i> {{ item.time }}</strong>: <br>{{ item.story }}</p>
     {% endfor %}
     <br>
     <br>
