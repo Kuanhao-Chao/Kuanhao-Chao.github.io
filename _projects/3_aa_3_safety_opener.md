@@ -20,7 +20,6 @@ superviser:
   <p style="margin-top: 30px">
   We used local government and NASA open datasets and built <b>Safety Opener</b> - an utility application for emergency evacuation. Below is our presentation slides.
   </p>
-  <iframe src="https://storage.googleapis.com/kuanhao.nctu.me/Hackathon/Nasa_Hackathon/36_NASA.pdf" frameborder="0" width="100%" height="500" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
 </div>
 
 
