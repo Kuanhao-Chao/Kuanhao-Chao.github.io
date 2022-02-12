@@ -234,6 +234,6 @@ redirect_from:
 <div id="content_cv_pdf" style="display:none;">
   <a href="http://storage.khchao.com/CV.pdf" target="_blan"><b> >> Download CV here << </b></a>
   <p align="center">
-    <iframe src="https://storage.googleapis.com/khchao.com/CV.pdf" width="100%" height="1200" style="border:none;" scrolling="no"></iframe>
+    <iframe src="https://storage.googleapis.com/storage.khchao.com/CV.pdf" width="100%" height="1200" style="border:none;" scrolling="no"></iframe>
   </p>
 </div>
