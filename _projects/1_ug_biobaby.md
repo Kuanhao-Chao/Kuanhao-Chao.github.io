@@ -14,7 +14,7 @@ people: '<b style="color:black">Kuan-Hao Chao</b>'
 
 ---
 
-<iframe src="http://storage.khchao.com/biobaby/index_full.html" width="950" height="680" style="border:none;" scrolling="no"></iframe>
+<iframe src="https://storage.googleapis.com/storage.khchao.com/biobaby/index_full.html" width="950" height="680" style="border:none;" scrolling="no"></iframe>
 
 
 <div style="background-color: #dbdbdb; padding: 30px; margin-top:50px">

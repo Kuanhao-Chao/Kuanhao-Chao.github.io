@@ -12,7 +12,7 @@ people: '<b style="color: black">Kuan-Hao Chao</b>'
 
 ---
 
-<iframe src="http://storage.khchao.com/tanks_fire/index_full.html" width="1200" height="700" style="border:none;" scrolling="no"></iframe>
+<iframe src="https://storage.googleapis.com/storage.khchao.com/tanks_fire/index_full.html" width="1200" height="700" style="border:none;" scrolling="no"></iframe>
 
 <div style="background-color: #dbdbdb; padding: 30px; margin-top:50px">
   <p style="font-size:20px">

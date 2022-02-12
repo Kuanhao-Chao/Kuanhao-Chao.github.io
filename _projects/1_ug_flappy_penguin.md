@@ -12,7 +12,7 @@ people: '<b style="color: black">Kuan-Hao Chao</b>'
 
 ---
 
-<iframe src="http://storage.khchao.com/flappy_penguin/index_full.html" width="500" height="680" style="margin-left: 50px; border:none;" scrolling="no"></iframe>
+<iframe src="https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index_full.html" width="500" height="680" style="margin-left: 50px; border:none;" scrolling="no"></iframe>
 
 
 <div style="background-color: #dbdbdb; padding: 30px;">
