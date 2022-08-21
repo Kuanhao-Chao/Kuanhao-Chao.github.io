@@ -80,7 +80,9 @@ analytics:
 # News
 news:
 
-  - {time: "Dec, 2021", story: "<a href='http://140.112.136.49:8005/' target='_blank'>VaccineDynamic</a> website beta version is available online. Check it out!" }
+  - {time: "Aug, 2022", story: "We are releasing <a href='https://www.ncbi.nlm.nih.gov/assembly/GCA_024586135.1/' target='_blank'>Han1</a>, the first gapless, fully annotated Chinese Han genome. Check it out!" }
+
+  # - {time: "Dec, 2021", story: "<a href='http://140.112.136.49:8005/' target='_blank'>VaccineDynamic</a> website beta version is available online. Check it out!" }
 
   - {time: "Oct, 2021", story: "<a href='https://bioconductor.org/packages/release/bioc/html/sangeranalyseR.html' target='_blank'>sangeranalyseR</a> and <a href='https://www.bioconductor.org/packages/release/bioc/html/RNASeqR.html' target='_blank'>RNASeqR</a> are released on <i>Bioconductor 3.14</i>." }
 
