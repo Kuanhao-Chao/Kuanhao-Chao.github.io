@@ -9,7 +9,7 @@ end_date: "Present"
 location: "Baltimore, MD"
 status: '<a style="text-decoration:none; color:orange;">In progress <i class="fa fa-spinner" aria-hidden="true"></i></a>'
 image: "/images/multistringtie.png"
-superviser: '<a href="/references/Mihaele_Pertea" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfcae3; border-radius: 10px; background-color: #bfcae3;" target="_blank">&nbsp; Mihaele Pertea &nbsp;</a> &nbsp;<a href="/references/Mihaele_Pertea" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfcae3; border-radius: 10px; background-color: #bfcae3;" target="_blank">&nbsp; Steven Salzberg &nbsp;</a>'
+superviser: '<a href="/references/Mihaele_Pertea" style="font-size: 12px; text-decoration:none; color:#f6b0ff; border-style: solid; border-color:#f6b0ff; border-radius: 10px; background-color: #f6b0ff;" target="_blank">&nbsp; Mihaele Pertea &nbsp;</a> &nbsp;<a href="/references/Steven_Salzberg" style="font-size: 12px; text-decoration:none; color:#8cb8ff; border-style: solid; border-color:#8cb8ff; border-radius: 10px; background-color: #8cb8ff;" target="_blank">&nbsp; Steven Salzberg &nbsp;</a>'
 superviser_clean:
   - "Mihaele Pertea"
   - "Steven Salzberg"
