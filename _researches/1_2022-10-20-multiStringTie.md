@@ -9,8 +9,9 @@ end_date: "Present"
 location: "Baltimore, MD"
 status: '<a style="text-decoration:none; color:orange;">In progress <i class="fa fa-spinner" aria-hidden="true"></i></a>'
 image: "/images/multistringtie.png"
-# superviser: '<a href="/references/Huai-Kuang_Tsai" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfcae3; border-radius: 10px; background-color: #bfcae3;" target="_blank">&nbsp; Huai-Kuang Tsai &nbsp;</a>'
+superviser: '<a href="/references/Mihaele_Pertea" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfcae3; border-radius: 10px; background-color: #bfcae3;" target="_blank">&nbsp; Mihaele Pertea &nbsp;</a> &nbsp;<a href="/references/Mihaele_Pertea" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfcae3; border-radius: 10px; background-color: #bfcae3;" target="_blank">&nbsp; Steven Salzberg &nbsp;</a>'
 superviser_clean:
+  - "Mihaele Pertea"
   - "Steven Salzberg"
 # research_position: "RA_IIS_AS"
 research_clean: "multistringtie"
