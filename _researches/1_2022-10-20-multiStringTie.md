@@ -8,7 +8,7 @@ start_date: 2021-10-01
 end_date: "Present"
 location: "Baltimore, MD"
 status: '<a style="text-decoration:none; color:orange;">In progress <i class="fa fa-spinner" aria-hidden="true"></i></a>'
-image: "/images/elution_profile_project_cover.png"
+image: "/images/multistringtie.png"
 # superviser: '<a href="/references/Huai-Kuang_Tsai" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfcae3; border-radius: 10px; background-color: #bfcae3;" target="_blank">&nbsp; Huai-Kuang Tsai &nbsp;</a>'
 superviser_clean:
   - "Steven Salzberg"
