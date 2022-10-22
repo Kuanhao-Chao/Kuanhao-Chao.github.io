@@ -79,7 +79,7 @@ analytics:
 
 # News
 news:
-  - {time: "Aug, 2022", story: "We are releasing <a href='https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit' target='_blank'>WGT</a>, first Wheeler Graph suite with the fastest recognition algorithm. It's on <a href='https://www.biorxiv.org/content/10.1101/2022.10.15.512390v2.abstract' target='_blank'>bioRxiv</a> now!" }
+  - {time: "Oct, 2022", story: "We are releasing <a href='https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit' target='_blank'>WGT</a>, tfirst Wheeler Graph suite with the fastest recognition algorithm. It's on <a href='https://www.biorxiv.org/content/10.1101/2022.10.15.512390v2.abstract' target='_blank'>bioRxiv</a> now!" }
 
   - {time: "Aug, 2022", story: "We are releasing <a href='https://www.ncbi.nlm.nih.gov/assembly/GCA_024586135.1/' target='_blank'>Han1</a>, the first gapless, fully annotated Chinese Han genome. Check it out!" }
 
