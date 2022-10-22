@@ -18,7 +18,8 @@ layout: compress
     <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script src="http://benalman.com/code/projects/jquery-throttle-debounce/jquery.ba-throttle-debounce.js"></script>
-    <!-- <script src="{{base_path}}/js/index.js"></script> -->
+    <script src="{{base_path}}/assets/js/vertical-timeline.js"></script>
+    <script src="{{base_path}}/assets/css/vertical-timeline.scss"></script>
     <!-- <script src="{{base_path}}/js/particles.js"></script> -->
 
   </head>
@@ -165,7 +166,28 @@ layout: compress
       {% include masthead.html %}
     {% endif %}
 
+    <script>
+    $('#myTimeline').verticalTimeline({
+      startLeft: false,
+      alternate: true,
+      animate: "fade",
+      arrows: false
+    });
+  </script>
+
     <div data-aos="fade-up" data-aos-duration="1000">
+      <div id="myTimeline">
+        <div data-vtdate="February 2016">
+            My Content 1
+        </div>
+        <div data-vtdate="March 2016">
+            My Content 2
+        </div>
+        <div data-vtdate="April 2016">
+            My Content 3
+        </div>
+    </div>
+    
       {{ content }}
     </div>
 
