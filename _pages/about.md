@@ -24,6 +24,45 @@ z-index:100;">
 <hr>
 <br>
 
+<div data-aos="fade-up" data-aos-duration="1500">
+  <h2>Defining Dates</h2>
+  <div id="myTimeline">
+      <div data-vtdate="Aug 2021 - Present">
+          <h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3>
+          <p>
+              Proin mattis nisl non est dapibus elementum. Etiam varius, purus sodales varius tempor, mauris nunc hendrerit velit, vitae interdum quam erat non lorem. Fusce luctus malesuada neque nec pretium. In sed turpis dui.
+          </p>
+      </div>
+      <div data-vtdate="Nov 2021 - Nov 2022">
+          <h3>Langmead Lab, Department of Computer Science, JHU</h3>
+          <p>
+              Proin mattis nisl non est dapibus elementum. Etiam varius, purus sodales varius tempor, mauris nunc hendrerit velit, vitae interdum quam erat non lorem. Fusce luctus malesuada neque nec pretium. In sed turpis dui.
+          </p>
+      </div>
+      <div data-vtdate="Aug 2020 - Feb 2021">
+          <h3>HK Tsai Lab, Institute of Information Science, Academia Sinica</h3>
+          <p>
+              Proin mattis nisl non est dapibus elementum. Etiam varius, purus sodales varius tempor, mauris nunc hendrerit velit, vitae interdum quam erat non lorem. Fusce luctus malesuada neque nec pretium. In sed turpis dui.
+          </p>
+      </div>
+      <div data-vtdate="Jul 2019 - Jul 2020">
+          <h3>Lanfear Lab, Division of Ecology and Evolution, ANU</h3>
+          <p>
+              Proin mattis nisl non est dapibus elementum. Etiam varius, purus sodales varius tempor, mauris nunc hendrerit velit, vitae interdum quam erat non lorem. Fusce luctus malesuada neque nec pretium. In sed turpis dui.
+          </p>
+      </div>
+      <div data-vtdate="Jan 2018 - Jul 2019">
+          <h3>Bioinformatics Core Lab, Centers of Genomic and Precision Medicine, NTU</h3>
+          <p>
+              Proin mattis nisl non est dapibus elementum. Etiam varius, purus sodales varius tempor, mauris nunc hendrerit velit, vitae interdum quam erat non lorem. Fusce luctus malesuada neque nec pretium. In sed turpis dui.
+          </p>
+      </div>
+  </div><!-- End vt2 -->
+</div>
+
+<hr>
+<br>
+
 <div style="text-align: center; pointer-events: all; z-index:100;">
   <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html">
     <img src="/images/NTU.png" style="height:160px; width: 160px; margin: 10px">

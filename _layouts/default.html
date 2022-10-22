@@ -161,20 +161,6 @@ layout: compress
     {% if page.excerpt != "About me"%}
       {% include masthead.html %}
     {% endif %}
-
-    <div data-aos="fade-up" data-aos-duration="1000">
-      <div id="myTimeline">
-        <div data-vtdate="February 2016">
-            My Content 1
-        </div>
-        <div data-vtdate="March 2016">
-            My Content 2
-        </div>
-        <div data-vtdate="April 2016">
-            My Content 3
-        </div>
-    </div>
-    
       {{ content }}
     </div>
 
@@ -210,10 +196,10 @@ layout: compress
     <script src="{{base_path}}/assets/js/vertical-timeline.js"></script>
     <script>
       $('#myTimeline').verticalTimeline({
-        startLeft: false,
+        startLeft: true,
         alternate: true,
-        animate: "fade",
-        arrows: false
+        animate: "slide",
+        arrows: true
       });
     </script>
     </body>
