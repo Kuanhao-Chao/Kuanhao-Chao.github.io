@@ -31,6 +31,7 @@
     "build:js": "npm run uglify"
   },
   "dependencies": {
+    "react-chrono": "^1.19.2",
     "typed.js": "^2.0.12"
   }
 }
