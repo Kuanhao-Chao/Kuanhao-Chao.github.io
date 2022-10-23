@@ -46,7 +46,7 @@ gous mutations on Han1 compared to T2T-CHM13.</li>
       </div>
       <div data-vtdate="Nov 2021 - Nov 2022">
           <div class="row">
-            <div class="column_img">
+            <div class="column_img img-comp-container">
               <!-- <div class="img-comp-container"> -->
                 <div class="img-comp-img">
                   <img src="{{base_path}}/images/JHU_small.png" width="70">

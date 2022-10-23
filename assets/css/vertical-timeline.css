@@ -131,6 +131,7 @@ h3 {
 }
 .column_img {
   margin-block-start: 18px;
+  padding-left: 5px;
   float: left;
   width: 20%;
 }
@@ -152,7 +153,7 @@ h3 {
 
 .img-comp-container {
   position: relative;
-  width: 70; /*should be the same height as the images*/
+  height: 70; /*should be the same height as the images*/
 }
 
 .img-comp-img {
