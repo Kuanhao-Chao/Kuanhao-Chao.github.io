@@ -29,7 +29,7 @@ z-index:100;">
   <div id="myTimeline">
       <div data-vtdate="Aug 2021 - Present">
           <div class="row">
-            <div class="column"><img class="pic" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYTf4zHVj4z_iuCqfmvaQQd-F2w1szPbM3w618ty1UyYdoIkdKcg" width="60"></div>
+            <div class="column"><img class="pic" src="JHU_small.png" width="60"></div>
             <div class="column"><h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3></div>
           </div>
           <p>
@@ -45,7 +45,10 @@ gous mutations on Han1 compared to T2T-CHM13.</li>
           </p>
       </div>
       <div data-vtdate="Nov 2021 - Nov 2022">
-          <h3>Langmead Lab, Department of Computer Science, JHU</h3>
+          <div class="row">
+            <div class="column"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="60"></div>
+            <div class="column"><h3>Langmead Lab, Department of Computer Science, JHU</h3></div>
+          </div>
           <p>
             <ul>
               <li>Developing algorithms to improve the graph-based sequence indexing and applying it to the pan-genome graph.</li>
@@ -57,7 +60,10 @@ levels of hardness and made this NP complete problem solvable in practice.</li>
           </p>
       </div>
       <div data-vtdate="Aug 2020 - Feb 2021">
-          <h3>HK Tsai Lab, Institute of Information Science, Academia Sinica</h3>
+          <div class="row">
+            <div class="column"><img class="pic" src="{{base_path}}/images/iis_logo.png" width="60"></div>
+            <div class="column"><h3>HK Tsai Lab, Institute of Information Science, Academia Sinica</h3></div>
+          </div>
           <p>
             <ul>
               <li>Developed a new software by applying a convolutional neural network to improve current state-of-the-art tools, EPIC
@@ -66,7 +72,10 @@ and PrInCE, on predicting protein-protein interactions (PPIs) using protein co-e
           </p> 
       </div>
       <div data-vtdate="Jul 2019 - Jul 2020">
-          <h3>Lanfear Lab, Division of Ecology and Evolution, ANU</h3>
+          <div class="row">
+            <div class="column"><img class="pic" src="{{base_path}}/images/anu_logo_small.png" width="60"></div>
+            <div class="column"><h3>Lanfear Lab, Division of Ecology and Evolution, ANU</h3></div>
+          </div>
           <p>
             <ul>
               <li>Developed an open-source software to democratize sanger sequencing data analysis in R by providing features includ-
@@ -75,7 +84,10 @@ ing reads trimming, base calling, chromatogram plotting, mutliple sequence align
           </p> 
       </div>
       <div data-vtdate="Jan 2018 - Jul 2019">
-          <h3>Bioinformatics Core Lab, Centers of Genomic and Precision Medicine, NTU</h3>
+          <div class="row">
+            <div class="column"><img class="pic" src="{{base_path}}/images/NTU.png" width="60"></div>
+            <div class="column"><h3>Bioinformatics Core Lab, Centers of Genomic and Precision Medicine, NTU</h3></div>
+          </div>
           <p>
             <ul>
               <li>Conducted differential gene expression analysis and pathway enrichment analysis using RNA-Seq data.</li>
