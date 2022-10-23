@@ -27,7 +27,7 @@ z-index:100;">
 <div data-aos="fade-up" data-aos-duration="1500">
   <!-- <h2>Defining Dates</h2> -->
   <div id="myTimeline">
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/JHU_small.png' width='70px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2021 - Present">
+      <div data-vimg="<img class='pic' src='{{base_path}}/images/multistringtie_side.png' width='70px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2021 - Present">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="70px"></div>
             <div class="column_title"><h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3></div>
