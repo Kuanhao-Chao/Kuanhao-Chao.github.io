@@ -142,5 +142,8 @@ analysis in R with several aligner and quantifier options for users to choose fr
 <br><br>
 
 <script type="text/javascript" id="clustrmaps" src="//clustrmaps.com/map_v2.js?d=SjhWAwqGLnloAclnIVxG6gxPA8DEX2yyW2VQlroVDWw&cl=ffffff&w=a" style="pointer-events: all; z-index:100;"></script>
+<script>
+initComparisons();
+</script>
 <hr>
 <br><br>
