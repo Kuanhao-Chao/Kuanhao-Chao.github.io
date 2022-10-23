@@ -78,7 +78,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
             </ul>
           </p> 
       </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/JHU_small.png' width='70px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jul 2019 - Jul 2020">
+      <div data-vimg="<img class='pic' src='{{base_path}}/images/sangeranalyseR_side.png' width='100% style='padding:12px''>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jul 2019 - Jul 2020">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/anu_logo_small.png" width="70px"></div>
             <div class="column_title"><h3>Lanfear Lab, Division of Ecology and Evolution, Research School of Biology, ANU</h3></div>
@@ -90,7 +90,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
             </ul>
           </p> 
       </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/JHU_small.png' width='70px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jan 2018 - Jul 2019">
+      <div data-vimg="<img class='pic' src='{{base_path}}/images/RNASeqR_side.png' width='100% style='padding:12px''>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jan 2018 - Jul 2019">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/NTU.png" width="70px"></div>
             <div class="column_title"><h3>Bioinformatics Core Lab, Centers of Genomic and Precision Medicine, NTU</h3></div>
