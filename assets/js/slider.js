@@ -69,6 +69,7 @@ function initComparisons() {
     function slide(x) {
       /*resize the image:*/
       img.style.width = x + "px";
+      img.style.height = "70px";
       /*position the slider:*/
       slider.style.left = img.offsetWidth - (slider.offsetWidth / 2) + "px";
     }
