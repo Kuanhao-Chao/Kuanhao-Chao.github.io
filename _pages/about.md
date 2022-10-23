@@ -43,7 +43,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
           </ul>
           </p>
       </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/wheelie_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2021 - Nov 2022">
+      <div data-vimg="<img class='pic' src='{{base_path}}/images/wheelie_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2021 - Present">
           <div class="row">
             <div class="column_img">
               <img src="{{base_path}}/images/JHU_small.png" width="60px" height="60px" style="display:block; vertical-align:middle;">
@@ -101,7 +101,21 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
               <li>Conducted differential gene expression analysis and pathway enrichment analysis using RNA-Seq data.</li>
               <li>Developed a bioconductor R package to provide a robust pipeline to automate the standard two-group RNA-Seq
 analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
-              <strong><a href="doi: 10.1109/TCBB.2019.2956708" target="_blank">RNASeqR paper <i class="fab fa-python"></i></a> (Chao et.al.)</strong>
+              <strong><a href="https://ieeexplore.ieee.org/document/8918337" target="_blank">RNASeqR paper <i class="fab fa-book"></i></a> (Chao et.al.)</strong>
+            </ul>
+          </p> 
+      </div>
+      <div data-vimg="<img class='pic' src='{{base_path}}/images/RNASeqR_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2017 - Jan 2018">
+          <div class="row">
+            <div class="column_img"><img class="pic" src="{{base_path}}/images/iii_logo.png" width="70px"></div>
+            <div class="column_title"><h3>Software Engineer at Institute for Information Industry</h3></div>
+          </div>
+          <p>
+            <ul>
+              <li>Processed and visualized PC login and logoff history to help the team build a system to find insiders in the company.</li>
+              <!-- <li>Developed a bioconductor R package to provide a robust pipeline to automate the standard two-group RNA-Seq
+analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
+              <strong><a href="https://ieeexplore.ieee.org/document/8918337" target="_blank">RNASeqR paper <i class="fab fa-book"></i></a> (Chao et.al.)</strong> -->
             </ul>
           </p> 
       </div>
