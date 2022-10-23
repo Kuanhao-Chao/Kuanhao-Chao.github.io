@@ -27,7 +27,7 @@ z-index:100;">
 <div data-aos="fade-up" data-aos-duration="1500">
   <!-- <h2>Defining Dates</h2> -->
   <div id="myTimeline">
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/multistringtie_side.png' width='100%'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2021 - Present">
+      <div data-vimg="<img class='pic' src='{{base_path}}/images/multistringtie_side.png' width='100%' style='padding:12px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2021 - Present">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="70px"></div>
             <div class="column_title"><h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3></div>
@@ -43,7 +43,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
           </ul>
           </p>
       </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/wheelie_side.png' width='100%'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2021 - Nov 2022">
+      <div data-vimg="<img class='pic' src='{{base_path}}/images/wheelie_side.png' width='100% style='padding:12px''>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2021 - Nov 2022">
           <div class="row">
             <div class="column_img">
               <img src="{{base_path}}/images/JHU_small.png" width="60px" height="60px" style="display:block; vertical-align:middle;">
@@ -62,12 +62,12 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
             <ul>
               <li>Developing algorithms to improve the graph-based sequence indexing aiming to apply them to the pan-genome graph.</li>
               <li>Developed the first Wheeler graph toolkit, WGT, to generate, recognize, and visualize Wheeler graph. <a href="https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit" target="_blank"><i class="fab fa-github"> C++</i></a> </li> 
-              <li>Proposed a fast algorithm, Wheelie <img src="{{base_path}}/images/wheelie.png" width="35px">, making the NP-complete Wheeler Graph recognition problem solvable in practice.</li>
+              <li>Proposed a fast algorithm, Wheelie <img src="{{base_path}}/images/wheelie.png" width="25px">, making the NP-complete Wheeler Graph recognition problem solvable in practice.</li>
               <strong><a href="https://www.biorxiv.org/content/10.1101/2022.10.15.512390v2.abstract" target="_blank">WGT paper <i class="fa fa-book"></i></a> (Chao et.al.) </strong>
             </ul>
           </p>
       </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/JHU_small.png' width='70px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2020 - Feb 2021">
+      <div data-vimg="<img class='pic' src='{{base_path}}/images/elution_profile_project_side.png' width='100% style='padding:12px''>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2020 - Feb 2021">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/iis_logo.png" width="70px"></div>
             <div class="column_title"><h3>HK Tsai Lab, Institute of Information Science, Academia Sinica</h3></div>
