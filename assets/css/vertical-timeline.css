@@ -163,10 +163,10 @@ h3 {
   overflow:hidden;
 }
 
-.img-comp-img img {
+/* .img-comp-img img {
   display:block;
   vertical-align:middle;
-}
+} */
 
 .img-comp-slider {
   position: absolute;
