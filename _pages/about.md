@@ -61,7 +61,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
             <ul>
               <li>Developing algorithms to improve the graph-based sequence indexing aiming to apply them to the pan-genome graph.</li>
               <li>Developed the first Wheeler graph toolkit, WGT, to generate, recognize, and visualize Wheeler graph. <a href="https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit" target="_blank"><i class="fab fa-github"> C++</i></a> </li> 
-              <li>Proposed a fast algorithm, Wheelie <img class="pic" src="{{base_path}}/images/wheelie.png" height="20px">, making the NP-complete Wheeler Graph recognition problem solvable in practice.</li>
+              <li>Proposed a fast algorithm, Wheelie <img src="{{base_path}}/images/wheelie.png" width="35px">, making the NP-complete Wheeler Graph recognition problem solvable in practice.</li>
             </ul>
           </p>
       </div>
@@ -83,7 +83,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
           </div>
           <p>
             <ul>
-              <li>Developed a bioconductor R package, sangeranalyseR, to democratize sanger sequencing data analysis in R. <i class="fab fa-github"></i> <i class="fab fa-r-project"></i></li>
+              <li>Developed a bioconductor R package, sangeranalyseR, to democratize sanger sequencing data analysis in R. <a href="https://github.com/roblanf/sangeranalyseR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
             </ul>
           </p> 
       </div>
@@ -96,7 +96,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
             <ul>
               <li>Conducted differential gene expression analysis and pathway enrichment analysis using RNA-Seq data.</li>
               <li>Developed a bioconductor R package to provide a robust pipeline to automate the standard two-group RNA-Seq
-analysis in R. <i class="fab fa-github"></i> <i class="fab fa-r-project"></i></li>
+analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
             </ul>
           </p> 
       </div>
