@@ -102,11 +102,14 @@
             $(this).find('.vtimeline-content').each(function() {
                 let date = $(this).data('vtdate');
                 let side = $(this).data('vtside');
+                let img = $(this).data('vimg');
                 // Add date if provided
                 if (date) {
                     $(this).parent().prepend(`<span class="vtimeline-date">${date}</span>`);
                 }
-
+                if (img) {
+                    $(this).parent().prepend(`<span class="vtimeline-img">${img}</span>`);
+                }
                 // Add side override if given
                 if (side) {
 					$(this).parent().removeClass('vtimeline-right');
