@@ -130,13 +130,13 @@ h3 {
   margin-left: 10px;
 }
 .column_img {
-  margin-left: 10px;
+  margin-block-start: 18px;
   float: left;
   width: 20%;
 }
 
 .column_title {
-  margin-block-start: 10px;
+  margin-block-start: -10px;
   float: left;
   width: 80%;
 }
