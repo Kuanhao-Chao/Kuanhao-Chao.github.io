@@ -30,7 +30,7 @@ z-index:100;">
       <div data-vimg="<img class='pic' src='{{base_path}}/images/multistringtie_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2021 - Present, Baltimore, MD">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="70px"></div>
-            <div class="column_title"><h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3></div>
+            <div class="column_title"><h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU  <br> <small><i>Ph.D. student</i></small></h3></div>
           </div>
           <p>
           <ul>
@@ -56,7 +56,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
                 <div class="img-comp-img img-comp-overlay">
                 </div>
             </div> -->
-            <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU <br> <small style="line-height: 200%">collab with </small><br> Seshia Lab,  Department of Electrical Engineering and Computer Sciences, UC Berkeley</h3></div>
+            <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU <br> <small style="line-height: 200%">collab with </small><br> Seshia Lab,  Department of Electrical Engineering and Computer Sciences, UC Berkeley <br> <small><i>Research student</i></small></h3></div>
           </div>
           <p>
             <ul>
@@ -70,7 +70,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
       <div data-vimg="<img class='pic' src='{{base_path}}/images/elution_profile_project_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2020 - Feb 2021, Taipei, TW">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/iis_logo.png" width="70px"></div>
-            <div class="column_title"><h3>HK Tsai Lab, Institute of Information Science, Academia Sinica</h3></div>
+            <div class="column_title"><h3>HK Tsai Lab, Institute of Information Science, Academia Sinica <br> <small><i>Research assistant</i></small></h3></div>
           </div>
           <p>
             <ul>
@@ -81,7 +81,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
       <div data-vimg="<img class='pic' src='{{base_path}}/images/sangeranalyseR_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jul 2019 - Jul 2020, Canberra, AU">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/anu_logo_small.png" width="70px"></div>
-            <div class="column_title"><h3>Lanfear Lab, Division of Ecology and Evolution, Research School of Biology, ANU</h3></div>
+            <div class="column_title"><h3>Lanfear Lab, Division of Ecology and Evolution, Research School of Biology, ANU <br> <small><i>Research assistant</i></small></h3></div>
           </div>
           <p>
             <ul>
@@ -94,7 +94,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
       <div data-vimg="<img class='pic' src='{{base_path}}/images/RNASeqR_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jan 2018 - Jul 2019, Taipei, TW">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/NTU.png" width="70px"></div>
-            <div class="column_title"><h3>Bioinformatics Core Lab, Centers of Genomic and Precision Medicine, NTU</h3></div>
+            <div class="column_title"><h3>Bioinformatics Core Lab, Centers of Genomic and Precision Medicine, NTU <br> <small><i>Research assistant</i></small></h3></div>
           </div>
           <p>
             <ul>
@@ -105,10 +105,10 @@ analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"
             </ul>
           </p> 
       </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/RNASeqR_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2017 - Jan 2018, Taipei, TW">
+      <div data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2017 - Jan 2018, Taipei, TW">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/iii_logo.png" width="70px"></div>
-            <div class="column_title"><h3>Software Engineer at Institute for Information Industry</h3></div>
+            <div class="column_title"><h3>Information Security Research Institute, Institute for Information Industry <br> <small><i>Software engineer intern</i></small></h3></div>
           </div>
           <p>
             <ul>
