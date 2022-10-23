@@ -28,7 +28,7 @@ z-index:100;">
   <!-- <h2>Defining Dates</h2> -->
   <div id="myTimeline">
       <div data-vtdate="Aug 2021 - Present">
-          <h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3>
+          <h3 style="padding:1px !important">Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3>
           <p>
           <ul>
             <li>Building a multi-sample assembler upon StringTie, the state-of-the-art transcriptome assembler, to construct a more

@@ -79,7 +79,7 @@
 .vtimeline-content {
   background: #eee;
   transition: 0.5s ease all; 
-  padding: 20px;}
+  padding: 10px;}
 
 .vt-animate-fade {
   opacity: 0; }
@@ -127,5 +127,6 @@
     -webkit-transform: translateX(100%);
             transform: translateX(100%); } }
 h3 {
-  padding: 1px !important;
+  margin-block-start: 0.5px !important;
+  margin-left: 10px;
 }
