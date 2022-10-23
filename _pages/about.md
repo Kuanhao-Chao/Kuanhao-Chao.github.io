@@ -47,7 +47,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
           <div class="row">
             <div class="column_img">
               <img src="{{base_path}}/images/JHU_small.png" width="70px" height="70px" style="display:block; vertical-align:middle;">
-              <img src="{{base_path}}/images/UC_berkeley.png" width="70px" height="70px" style="display:block; vertical-align:middle;">
+              <img src="{{base_path}}/images/UC_berkeley.png" width="70px" height="70px" style="display:block; vertical-align:middle; margin-top:5px">
             </div>
             <!-- <div class="column_img img-comp-container">
               <div class="img-comp-container">
