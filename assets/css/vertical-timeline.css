@@ -78,8 +78,8 @@
 
 .vtimeline-content {
   background: #eee;
-  padding: 5px;
-  transition: 0.5s ease all; }
+  transition: 0.5s ease all; 
+  padding: 20px;}
 
 .vt-animate-fade {
   opacity: 0; }
