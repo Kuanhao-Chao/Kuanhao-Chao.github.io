@@ -131,6 +131,7 @@
       border-left: none;
       border-right: 10px solid #eee; }
   .vtimeline-date {
+    border-radius: 12px 12px 0px 0px;
     padding:25px;
     position: relative;
     display: block;
@@ -154,6 +155,7 @@
   .vtimeline.basic .vtimeline-img {
     padding: 10px 10px 0 10px; }
   .vt-animate-slide .vtimeline-content {
+    border-radius: 0px 0px 12px 12px;
     -webkit-transform: translateX(100%);
             transform: translateX(100%); } }
 h3 {

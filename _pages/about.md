@@ -56,7 +56,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
                 <div class="img-comp-img img-comp-overlay">
                 </div>
             </div> -->
-            <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU <br> <small style="line-height: 200%">collab with </small><br> Seshia Lab,  EECS, University of California, Berkeley</h3></div>
+            <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU <br> <small style="line-height: 200%">collab with </small><br> Seshia Lab,  Department of Electrical Engineering and Computer Sciences, UC Berkeley</h3></div>
           </div>
           <p>
             <ul>
