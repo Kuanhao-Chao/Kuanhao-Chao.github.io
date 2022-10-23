@@ -113,7 +113,7 @@ analysis in R with several aligner and quantifier options for users to choose fr
     <img src="/images/AS_logo.png" style="height:160px; width: 160px; margin: 10px">
   </a>
   <a target="_blank"  href="https://www.iis.sinica.edu.tw/index_en.html" >
-    <img src="/images/iis_logo.jpg" style="height:160px; width: 160px; margin: 10px">
+    <img src="/images/iis_logo.png" style="height:160px; width: 160px; margin: 10px">
   </a>
   <a target="_blank"  href="https://www.anu.edu.au/">
     <img src="/images/anu_logo_small.png" style="height:160px; width: 160px; margin: 10px">
