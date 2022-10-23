@@ -46,8 +46,18 @@ gous mutations on Han1 compared to T2T-CHM13.</li>
       </div>
       <div data-vtdate="Nov 2021 - Nov 2022">
           <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="60"></div>
-            <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU</h3></div>
+            <div class="column_img">
+            <div class="img-comp-container">
+              <div class="img-comp-img">
+                <img src="{{base_path}}/images/JHU_small.png" width="60">
+              </div>
+              <div class="img-comp-img img-comp-overlay">
+                <img src="{{base_path}}/images/UC_berkeley.png" width="60">
+              </div>
+            </div>
+            <!-- <img class="pic" src="{{base_path}}/images/JHU_small.png" width="60"> -->
+            </div>
+            <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU (collab with Seshia Lab, UC Berkeley)</h3></div>
           </div>
           <p>
             <ul>
