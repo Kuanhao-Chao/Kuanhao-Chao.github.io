@@ -46,8 +46,8 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
       <div data-vimg="<img class='pic' src='{{base_path}}/images/wheelie_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2021 - Present, Baltimore, MD">
           <div class="row">
             <div class="column_img">
-              <img src="{{base_path}}/images/JHU_small.png" width="60px" height="60px" style="display:block; vertical-align:middle;">
-              <img src="{{base_path}}/images/UC_berkeley.png" width="60px" height="60px" style="display:block; vertical-align:middle;">
+              <img src="{{base_path}}/images/JHU_small.png" width="70px" height="70px" style="display:block; vertical-align:middle;">
+              <img src="{{base_path}}/images/UC_berkeley.png" width="70px" height="70px" style="display:block; vertical-align:middle;">
             </div>
             <!-- <div class="column_img img-comp-container">
               <div class="img-comp-container">
