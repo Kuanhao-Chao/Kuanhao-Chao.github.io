@@ -29,7 +29,7 @@ z-index:100;">
   <div id="myTimeline">
       <div data-vtdate="Aug 2021 - Present">
           <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="70"></div>
+            <div class="column_img"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="70px"></div>
             <div class="column_title"><h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3></div>
           </div>
           <p>
@@ -49,16 +49,27 @@ gous mutations on Han1 compared to T2T-CHM13.</li>
             <div class="column_img img-comp-container">
               <!-- <div class="img-comp-container"> -->
                 <div class="img-comp-img">
-                  <img src="{{base_path}}/images/JHU_small.png" width="70" height="70">
+                  <img src="{{base_path}}/images/JHU_small.png" width="70px" height="70px">
                 </div>
                 <div class="img-comp-img img-comp-overlay">
-                  <img src="{{base_path}}/images/UC_berkeley.png" width="70" height="70">
+                  <img src="{{base_path}}/images/UC_berkeley.png" width="70px" height="70px">
                 </div>
             </div>
             <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU (collab with Seshia Lab, UC Berkeley)</h3></div>
           </div>
           <p>
             <ul>
+              <li> 
+                <div class="img-comp-container">
+                <!-- <div class="img-comp-container"> -->
+                  <div class="img-comp-img">
+                    <img src="{{base_path}}/images/JHU_small.png" width="70px" height="70px">
+                  </div>
+                  <div class="img-comp-img img-comp-overlay">
+                    <img src="{{base_path}}/images/UC_berkeley.png" width="70px" height="70px">
+                  </div>
+              </div>
+              </li>
               <li>Developing algorithms to improve the graph-based sequence indexing and applying it to the pan-genome graph.</li>
               <li>Proposed a new algorithm combining a renaming heuristic with a Satisfiability Modulo Theory (SMT) to improve the
 Gibney’s and Thankachan’s state-of-art exponential algorithm on solving the Wheeler Graph recognition problem.</li>
@@ -69,7 +80,7 @@ levels of hardness and made this NP complete problem solvable in practice.</li>
       </div>
       <div data-vtdate="Aug 2020 - Feb 2021">
           <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/iis_logo.png" width="70"></div>
+            <div class="column_img"><img class="pic" src="{{base_path}}/images/iis_logo.png" width="70px"></div>
             <div class="column_title"><h3>HK Tsai Lab, Institute of Information Science, Academia Sinica</h3></div>
           </div>
           <p>
@@ -81,7 +92,7 @@ and PrInCE, on predicting protein-protein interactions (PPIs) using protein co-e
       </div>
       <div data-vtdate="Jul 2019 - Jul 2020">
           <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/anu_logo_small.png" width="70"></div>
+            <div class="column_img"><img class="pic" src="{{base_path}}/images/anu_logo_small.png" width="70px"></div>
             <div class="column_title"><h3>Lanfear Lab, Division of Ecology and Evolution, Research School of Biology, ANU</h3></div>
           </div>
           <p>
@@ -93,7 +104,7 @@ ing reads trimming, base calling, chromatogram plotting, mutliple sequence align
       </div>
       <div data-vtdate="Jan 2018 - Jul 2019">
           <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/NTU.png" width="70"></div>
+            <div class="column_img"><img class="pic" src="{{base_path}}/images/NTU.png" width="70px"></div>
             <div class="column_title"><h3>Bioinformatics Core Lab, Centers of Genomic and Precision Medicine, NTU</h3></div>
           </div>
           <p>
