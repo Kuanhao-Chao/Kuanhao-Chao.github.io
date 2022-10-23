@@ -129,6 +129,7 @@
       border-left: none;
       border-right: 10px solid #eee; }
   .vtimeline-date {
+    padding:25px;
     position: relative;
     display: block;
     top: 0;
