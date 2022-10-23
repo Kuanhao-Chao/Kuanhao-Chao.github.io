@@ -43,7 +43,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
           </ul>
           </p>
       </div>
-      <div data-vtdate="Nov 2021 - Nov 2022">
+      <div data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2021 - Nov 2022">
           <div class="row">
             <div class="column_img">
               <img src="{{base_path}}/images/JHU_small.png" width="60px" height="60px" style="display:block; vertical-align:middle;">
@@ -67,7 +67,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
             </ul>
           </p>
       </div>
-      <div data-vtdate="Aug 2020 - Feb 2021">
+      <div data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2020 - Feb 2021">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/iis_logo.png" width="70px"></div>
             <div class="column_title"><h3>HK Tsai Lab, Institute of Information Science, Academia Sinica</h3></div>
@@ -78,7 +78,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
             </ul>
           </p> 
       </div>
-      <div data-vtdate="Jul 2019 - Jul 2020">
+      <div data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jul 2019 - Jul 2020">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/anu_logo_small.png" width="70px"></div>
             <div class="column_title"><h3>Lanfear Lab, Division of Ecology and Evolution, Research School of Biology, ANU</h3></div>
@@ -90,7 +90,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
             </ul>
           </p> 
       </div>
-      <div data-vtdate="Jan 2018 - Jul 2019">
+      <div data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jan 2018 - Jul 2019">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/NTU.png" width="70px"></div>
             <div class="column_title"><h3>Bioinformatics Core Lab, Centers of Genomic and Precision Medicine, NTU</h3></div>
@@ -108,12 +108,13 @@ analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"
 </div>
 
 <hr>
+<a class="twitter-timeline" data-lang="en" data-width="500" data-height="400" data-theme="light" href="https://twitter.com/KuanHaoChao?ref_src=twsrc%5Etfw">Tweets by KuanHaoChao</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 <br>
 
 <div style="text-align: center; pointer-events: all; z-index:100;">
   <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html">
     <img src="/images/NTU.png" style="height:160px; width: 160px; margin: 10px">
-  </a>
+</a>
   <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php">
     <img src="/images/NTU_EECS.png" style="height:160px; width: 160px; margin: 10px">
   </a>
