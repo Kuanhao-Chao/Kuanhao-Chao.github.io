@@ -28,7 +28,10 @@ z-index:100;">
   <!-- <h2>Defining Dates</h2> -->
   <div id="myTimeline">
       <div data-vtdate="Aug 2021 - Present">
-          <h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3>
+          <div class="row">
+            <div class="column"><img class="pic" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYTf4zHVj4z_iuCqfmvaQQd-F2w1szPbM3w618ty1UyYdoIkdKcg" width="60"></div>
+            <div class="column"><h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3></div>
+          </div>
           <p>
           <ul>
             <li>Building a multi-sample assembler upon StringTie, the state-of-the-art transcriptome assembler, to construct a more
