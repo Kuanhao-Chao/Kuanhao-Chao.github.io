@@ -63,6 +63,9 @@
   .vtimeline-right .vtimeline-date {
     left: auto;
     right: 55%; }
+  .vtimeline-right .vtimeline-img {
+    left: auto;
+    right: 55%; }
   .vtimeline-right:after {
     left: auto;
     right: 45%;
@@ -76,7 +79,7 @@
   left: 55%;
   top: 15px;
   font-weight: bold; 
-  padding:20px; 
+  padding-left:20px; 
   font-size:22px
 }
 
@@ -85,7 +88,7 @@
   left: 55%;
   top: 105px;
   font-weight: bold; 
-  padding:20px; 
+  padding-left:20px; 
   font-size:22px
 }
 
