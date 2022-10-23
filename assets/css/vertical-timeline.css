@@ -127,7 +127,6 @@
     -webkit-transform: translateX(100%);
             transform: translateX(100%); } }
 h3 {
-  margin-block-start: 1px !important;
   margin-left: 10px;
 }
 .column_img {
@@ -151,6 +150,7 @@ h3 {
 
 .img-comp-container {
   position: relative;
+  width: 70; /*should be the same height as the images*/
 }
 
 .img-comp-img {
