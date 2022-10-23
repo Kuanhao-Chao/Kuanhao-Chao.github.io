@@ -34,42 +34,34 @@ z-index:100;">
           </div>
           <p>
           <ul>
-            <li>Building a multi-sample assembler upon StringTie to construct a more
-precise gene catalog. <i class="fab fa-github"></i> </li>
-            <li>Improving Liftoff by aligning transcriptome in the exon-level to improve the cross-species mapping accuracy.</li>
-            <li>Assembled Han1, the first gapless Southern Han Chinese individual genome, using HG00621 PacBio HiFi reads and
-Oxford Nanopore reads sequenced by Human Pangenome Reference Consortium (HPRC) guided by T2T-CHM13.</li>
-            <li>Conducted the first-ever gene content comparison between two fully annotated individuals and investigated homozy-
-gous mutations on Han1 compared to T2T-CHM13.</li>
+            <li>Building a multi-sample assembler upon StringTie aming to construct a more
+precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" target="_blank"><i class="fab fa-github"> C++</i></a> </li>
+            <li>Improving Liftoff to achieve higher cross-species lift-over accuracy. <a href="https://github.com/Kuanhao-Chao/Liftoff" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-python"></i></a> </li>
+            <li>Assembled Han1, the first gapless Southern Han Chinese individual genome <a href="https://github.com/JHUCCB/ChineseHanSouthGenome" target="_blank"><i class="fab fa-github"></i></a> | <a href="https://www.ncbi.nlm.nih.gov/assembly/GCA_024586135.1" target="_blank"><i>Han1</i><i class="fa fa-database"></i></a> </li>
+            <li>Conducted the first-ever gene content comparison between two fully annotated individuals, Han1 and T2T-CHM13.</li>
           </ul>
           </p>
       </div>
       <div data-vtdate="Nov 2021 - Nov 2022">
           <div class="row">
-            <div class="column_img img-comp-container">
-              <!-- <div class="img-comp-container"> -->
+            <div class="column_img">
+              <img src="{{base_path}}/images/JHU_small.png" width="60px" height="60px" style="display:block; vertical-align:middle;">
+              <img src="{{base_path}}/images/UC_berkeley.png" width="60px" height="60px" style="display:block; vertical-align:middle;">
+            </div>
+            <!-- <div class="column_img img-comp-container">
+              <div class="img-comp-container">
                 <div class="img-comp-img">
-                  <img src="{{base_path}}/images/JHU_small.png" width="70px" height="70px" style="display:block; vertical-align:middle;">
                 </div>
                 <div class="img-comp-img img-comp-overlay">
-                  <img src="{{base_path}}/images/UC_berkeley.png" width="70px" height="70px" style="display:block; vertical-align:middle;">
                 </div>
-            </div>
-            <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU <br>(collab with Seshia Lab, EECS, UC Berkeley)</h3></div>
+            </div> -->
+            <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU <br> <small style="line-height: 200%">collab with </small><br> Seshia Lab,  EECS, University of California, Berkeley</h3></div>
           </div>
           <p>
             <ul>
-              <li>
-              <div id="example">
-  <img src="{{base_path}}/images/JHU_small.png" alt="BEFORE" />
-  <img src="{{base_path}}/images/UC_berkeley.png" alt="AFTER" />
-</div>
-              </li>
-              <li>Developing algorithms to improve the graph-based sequence indexing and applying it to the pan-genome graph.</li>
-              <li>Proposed a new algorithm combining a renaming heuristic with a Satisfiability Modulo Theory (SMT) to improve the
-Gibney’s and Thankachan’s state-of-art exponential algorithm on solving the Wheeler Graph recognition problem.</li>
-              <li>Improved the state-of-the-art G & T’s Wheeler graph recognition algorithm on all Wheeler Graphs with different
-levels of hardness and made this NP complete problem solvable in practice.</li>
+              <li>Developing algorithms to improve the graph-based sequence indexing aiming to apply them to the pan-genome graph.</li>
+              <li>Developed the first Wheeler graph toolkit, WGT, to generate, recognize, and visualize Wheeler graph. <a href="https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit" target="_blank"><i class="fab fa-github"> C++</i></a> </li> 
+              <li>Proposed a fast algorithm, Wheelie <img class="pic" src="{{base_path}}/images/wheelie.png" height="20px">, making the NP-complete Wheeler Graph recognition problem solvable in practice.</li>
             </ul>
           </p>
       </div>
@@ -80,8 +72,7 @@ levels of hardness and made this NP complete problem solvable in practice.</li>
           </div>
           <p>
             <ul>
-              <li>Developed a new software by applying a convolutional neural network to improve current state-of-the-art tools, EPIC
-and PrInCE, on predicting protein-protein interactions (PPIs) using protein co-elution profiles</li>
+              <li>Developed SPIFFED by applying a convolutional neural network to improve current tools on predicting protein-protein interactions using protein co-elution profiles. <a href="https://github.com/bio-it-station/SPIFFED" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-python"></i></a></li>
             </ul>
           </p> 
       </div>
@@ -92,8 +83,7 @@ and PrInCE, on predicting protein-protein interactions (PPIs) using protein co-e
           </div>
           <p>
             <ul>
-              <li>Developed an open-source software to democratize sanger sequencing data analysis in R by providing features includ-
-ing reads trimming, base calling, chromatogram plotting, mutliple sequence alignments, and phylogenetic analyses.</li>
+              <li>Developed a bioconductor R package, sangeranalyseR, to democratize sanger sequencing data analysis in R. <i class="fab fa-github"></i> <i class="fab fa-r-project"></i></li>
             </ul>
           </p> 
       </div>
@@ -105,8 +95,8 @@ ing reads trimming, base calling, chromatogram plotting, mutliple sequence align
           <p>
             <ul>
               <li>Conducted differential gene expression analysis and pathway enrichment analysis using RNA-Seq data.</li>
-              <li>Developed an open-source R package to provide a robust pipeline to automate the standard two-group RNA-Seq
-analysis in R with several aligner and quantifier options for users to choose from.</li>
+              <li>Developed a bioconductor R package to provide a robust pipeline to automate the standard two-group RNA-Seq
+analysis in R. <i class="fab fa-github"></i> <i class="fab fa-r-project"></i></li>
             </ul>
           </p> 
       </div>
