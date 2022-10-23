@@ -95,7 +95,7 @@
 .vtimeline-content {
   background: #eee;
   transition: 0.5s ease all; 
-  padding-left: 10px;}
+  padding: 10px;}
 
 .vt-animate-fade {
   opacity: 0; }
