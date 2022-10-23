@@ -86,6 +86,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
           <p>
             <ul>
               <li>Developed a bioconductor R package, sangeranalyseR, to democratize sanger sequencing data analysis in R. <a href="https://github.com/roblanf/sangeranalyseR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
+              <li>Implemented Bandelt tree encoding/decoding algorithm published in 1985.</li>
               <strong><a href="https://doi.org/10.1093/gbe/evab028" target="_blank">sangeranalyseR paper <i class="fa fa-book"></i></a> (Chao et.al.)</strong>
             </ul>
           </p> 
