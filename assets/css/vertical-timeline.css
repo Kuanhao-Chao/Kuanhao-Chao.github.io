@@ -127,6 +127,6 @@
     -webkit-transform: translateX(100%);
             transform: translateX(100%); } }
 h3 {
-  margin-block-start: 0.5px !important;
+  margin-block-start: 1px !important;
   margin-left: 10px;
 }
