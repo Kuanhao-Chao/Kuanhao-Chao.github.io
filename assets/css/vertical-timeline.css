@@ -74,7 +74,11 @@
 .vtimeline-date {
   position: absolute;
   left: 55%;
-  top: 15px; }
+  top: 15px;
+  font-weight: bold; 
+  padding:20px; 
+  font-size:22px
+}
 
 .vtimeline-content {
   background: #eee;
