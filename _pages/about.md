@@ -35,10 +35,11 @@ z-index:100;">
           <p>
           <ul>
             <li>Building a multi-sample assembler upon StringTie aming to construct a more
-precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" target="_blank"><i class="fab fa-github"> C++</i></a> </li>
+precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" target="_blank"><i class="fab fa-github"> C++</i></a> | <a href="{{base_path}}/researches/2022-10-20-multistringtie" target="_blank"><i class="fa fa-television"></i></a> </li>
             <li>Improving Liftoff to achieve higher cross-species lift-over accuracy. <a href="https://github.com/Kuanhao-Chao/Liftoff" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-python"></i></a> </li>
             <li>Assembled Han1, the first gapless Southern Han Chinese individual genome <a href="https://github.com/JHUCCB/ChineseHanSouthGenome" target="_blank"><i class="fab fa-github"></i></a> | <a href="https://www.ncbi.nlm.nih.gov/assembly/GCA_024586135.1" target="_blank"><i>Han1</i><i class="fa fa-database"></i></a> </li>
             <li>Conducted the first-ever gene content comparison between two fully annotated individuals, Han1 and T2T-CHM13.</li>
+            <strong><a href="https://doi.org/10.1101/2022.08.08.503226" target="_blank">Han1 paper <i class="fa fa-book"></i></a> (Chao et.al.)</strong>
           </ul>
           </p>
       </div>
@@ -62,6 +63,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
               <li>Developing algorithms to improve the graph-based sequence indexing aiming to apply them to the pan-genome graph.</li>
               <li>Developed the first Wheeler graph toolkit, WGT, to generate, recognize, and visualize Wheeler graph. <a href="https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit" target="_blank"><i class="fab fa-github"> C++</i></a> </li> 
               <li>Proposed a fast algorithm, Wheelie <img src="{{base_path}}/images/wheelie.png" width="35px">, making the NP-complete Wheeler Graph recognition problem solvable in practice.</li>
+              <h3><a href="https://www.biorxiv.org/content/10.1101/2022.10.15.512390v2.abstract" target="_blank">WGT paper <i class="fa fa-book"></i></a> (Chao et.al.) </h3>
             </ul>
           </p>
       </div>
@@ -84,6 +86,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
           <p>
             <ul>
               <li>Developed a bioconductor R package, sangeranalyseR, to democratize sanger sequencing data analysis in R. <a href="https://github.com/roblanf/sangeranalyseR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
+              <h3><a href="https://doi.org/10.1093/gbe/evab028" target="_blank">sangeranalyseR paper <i class="fa fa-book"></i></a> (Chao et.al.)</h3>
             </ul>
           </p> 
       </div>
@@ -97,6 +100,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
               <li>Conducted differential gene expression analysis and pathway enrichment analysis using RNA-Seq data.</li>
               <li>Developed a bioconductor R package to provide a robust pipeline to automate the standard two-group RNA-Seq
 analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
+              <h3><a href="doi: 10.1109/TCBB.2019.2956708" target="_blank">RNASeqR paper <i class="fab fa-python"></i></a> (Chao et.al.)</h3>
             </ul>
           </p> 
       </div>
