@@ -29,7 +29,7 @@ z-index:100;">
   <div id="myTimeline">
       <div data-vtdate="Aug 2021 - Present">
           <div class="row">
-            <div class="column"><img class="pic" src="JHU_small.png" width="60"></div>
+            <div class="column"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="60"></div>
             <div class="column"><h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU </h3></div>
           </div>
           <p>
