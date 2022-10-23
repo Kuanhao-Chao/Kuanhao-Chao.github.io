@@ -112,6 +112,9 @@
   content: none; }
 
 @media only screen and (max-width: 992px) {
+  .vtimeline-content {
+    border-radius: 0px 0px 12px 12px !important;
+  }
   .vtimeline:before {
     left: 30px;
     right: auto;
@@ -155,7 +158,6 @@
   .vtimeline.basic .vtimeline-img {
     padding: 10px 10px 0 10px; }
   .vt-animate-slide .vtimeline-content {
-    border-radius: 0px 0px 12px 12px;
     -webkit-transform: translateX(100%);
             transform: translateX(100%); } }
 h3 {
