@@ -82,7 +82,7 @@ and PrInCE, on predicting protein-protein interactions (PPIs) using protein co-e
       <div data-vtdate="Jul 2019 - Jul 2020">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/anu_logo_small.png" width="70"></div>
-            <div class="column_title"><h3>Lanfear Lab, Division of Ecology and Evolution, ANU</h3></div>
+            <div class="column_title"><h3>Lanfear Lab, Division of Ecology and Evolution, Research School of Biology, ANU</h3></div>
           </div>
           <p>
             <ul>
