@@ -45,20 +45,23 @@ layout: compress
           <div id="particles-header" class="intro-header alt-font" style="color:#000 !important">
               <div class="container">
                   <div class="intro-message">
-                      <h1 id="intro-message-name" class="alt-font">Kuan-Hao Chao</h1>
+                      <h1 id="intro-message-name" class="alt-font" style="pointer-events: all;z-index:100;">Kuan-Hao Chao <button style="margin-left:-10px; border: none;background: none;" onclick="myFunction()" class="intro-social-a"><i id="name_pronunciation" style="font-size: 45px; pointer-events: all;z-index:100;" class="fa fa-volume-down"></i></button></h1>
+                      <div id="audio_paragraph" class="hidden" style="width: 80%; text-align: center;margin: auto;">
+                        <p>趙冠豪 is my Chinese name. My first name Kuan-Hao (冠豪), Kuan(冠) means "crown" in noun, and it also means "putting something on top of something" in verb which infers as "being champion"; Hao(豪) means "big" and "grand" which stands for "having the characteristics of a hero". Kuan-Hao (冠豪) two words combined shows my parents' loves and expectations on me.</p>
+                        <audio controls style="pointer-events: all;z-index:100;">
+                          <source src="{{base_path}}/assets/audio/my_name.mp3" type="audio/mpeg">
+                        </audio>
+                      </div>
+                      <br>
                       <span id="type-wrap"> $ My website of <span id="typed"></span>
                       </span>
-                      <br>
-                      <audio controls style="pointer-events: all;z-index:100;">
-                        <source src="{{base_path}}/assets/audio/my_name.mp3" type="audio/mpeg">
-                      </audio>
                       <div class="row" style="display: flex; margin-top: 30px">
                         <div class="column" style="flex: 10%;">
                           <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
                             <canvas id="canvas_DNA_left" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
                           </div>
                         </div>
-                        <div class="column" style="flex: 80%;">
+                        <div class="column" style="flex: 60%;">
                           <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Computer Science PhD Student in Computational Biology Group <br>@ Johns Hopkins University</h3>
                           <h4 id="intro-message-advisor" class="alt-font">Advisor: <a href="https://salzberg-lab.org/" style="pointer-events: all;">Steven Salzberg</a> & <a href="http://ccb.jhu.edu/people/mpertea/" style="pointer-events: all;">Mihaela Pertea</a></h4>
                         </div>
@@ -215,6 +218,11 @@ const myViewer = new ImageCompare(element,{
       verticalMode: false
 })
 .mount();
+
+      function myFunction() {
+        var div = document.getElementById("audio_paragraph");
+        div.classList.toggle('hidden');
+      }
     </script>
     </body>
 </html>
