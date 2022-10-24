@@ -23,9 +23,6 @@ z-index:100;">
 
 <hr>
 <br>
-<audio control>
-  <source src="{{base_path}}/assets/audio/my_name.mp3" type="audio/ogg">
-</audio>
 <div data-aos="fade-up" data-aos-duration="1500">
   <!-- <h2>Defining Dates</h2> -->
   <div id="myTimeline">
