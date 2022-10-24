@@ -108,7 +108,7 @@ analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"
       <div data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2017 - Jan 2018, Taipei, TW">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/iii_logo.png" width="70px"></div>
-            <div class="column_title"><h3>Information Security Research Institute, Institute for Information Industry <br> <small><i>Software engineer intern</i></small></h3></div>
+            <div class="column_title"><h3><a target="_blank"  href="https://web.iii.org.tw/" style="color:#4A4F53">Information Security Research Institute, Institute for Information Industry</a> <br> <small><i>Software engineer intern</i></small></h3></div>
           </div>
           <p>
             <ul>
