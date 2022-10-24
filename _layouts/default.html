@@ -46,7 +46,7 @@ layout: compress
               <div class="container">
                   <div class="intro-message">
                       <h1 id="intro-message-name" class="alt-font" style="pointer-events: all;z-index:100;">Kuan-Hao Chao <button style="margin-left:-10px; border: none;background: none;" onclick="myFunction()" class="intro-social-a"><i id="name_pronunciation" style="font-size: 45px; pointer-events: all;z-index:100;" class="fa fa-volume-down"></i></button></h1>
-                      <div id="audio_paragraph" class="hidden" style="width: 80%; text-align: center;margin: auto;">
+                      <div id="audio_paragraph" style="width: 80%; text-align: center;margin: auto; display: none;">
                         <p>趙冠豪 is my Chinese name. My first name Kuan-Hao (冠豪), Kuan(冠) means "crown" in noun, and it also means "putting something on top of something" in verb which infers as "being champion"; Hao(豪) means "big" and "grand" which stands for "having the characteristics of a hero". Kuan-Hao (冠豪) two words combined shows my parents' loves and expectations on me.</p>
                         <audio controls style="pointer-events: all;z-index:100;">
                           <source src="{{base_path}}/assets/audio/my_name.mp3" type="audio/mpeg">
@@ -220,8 +220,13 @@ const myViewer = new ImageCompare(element,{
 .mount();
 
       function myFunction() {
-        var div = document.getElementById("audio_paragraph");
-        div.classList.toggle('hidden');
+        var x = document.getElementById("audio_paragraph");
+        // div.classList.toggle('hidden');
+        if (x.style.display === "none") {
+          x.style.display = "block";
+        } else {
+          x.style.display = "none";
+        }
       }
     </script>
     </body>
