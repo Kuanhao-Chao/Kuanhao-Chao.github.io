@@ -123,8 +123,8 @@ analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"
 </div>
 
 <hr>
-<div style="width: 100%; text-align: center; margin:auto; width:500px">
-<a class="twitter-timeline" data-lang="en" data-width="500px" data-height="500" data-theme="light" href="https://twitter.com/KuanHaoChao?ref_src=twsrc%5Etfw" style="align: center">Tweets by KuanHaoChao</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+<div style="width: 70%; text-align: center; margin:auto;">
+<a class="twitter-timeline" data-lang="en" data-width="100%" data-height="500" data-theme="light" href="https://twitter.com/KuanHaoChao?ref_src=twsrc%5Etfw" style="align: center">Tweets by KuanHaoChao</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 </div>
 <br>
 
