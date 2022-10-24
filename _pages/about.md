@@ -12,7 +12,7 @@ redirect_from:
 <div style="margin-left:20px; margin-top:30px; pointer-events: all;
 z-index:100;">
   <p>
-    I am a computer science Ph.D. student supervised by Dr. <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and Dr. <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a> at <a target="_blank"  href="https://ccb.jhu.edu" style="color:#4A4F53">Center for Computational Biology</a>, <a target="_blank"  href="https://www.jhu.edu" style="color:#4A4F53">Johns Hopkins University</a>. I received my BS in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a> from <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>. In my senior year of college, I went on exchange to study at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a>, <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a>.
+    I am a second-year computer science Ph.D. student supervised by Dr. <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and Dr. <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a> at <a target="_blank"  href="https://ccb.jhu.edu" style="color:#4A4F53">Center for Computational Biology</a>, <a target="_blank"  href="https://www.jhu.edu" style="color:#4A4F53">Johns Hopkins University</a>. I received my <i>Bachelor of Science in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a></i> from <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>. In my senior year of college, I went on exchange to study at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a>, <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a>.
   </p>
 
   <p>
@@ -30,7 +30,7 @@ z-index:100;">
       <div data-vimg="<img class='pic' src='{{base_path}}/images/multistringtie_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2021 - Present, Baltimore, MD">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="70px"></div>
-            <div class="column_title"><h3>Salzberg & Pertea Lab, Center for Computational Biology, JHU  <br> <small><i>Ph.D. student</i></small></h3></div>
+            <div class="column_title"><h3><a target="_blank"  href="https://salzberg-lab.org/" style="color:#4A4F53">Salzberg</a> & <a target="_blank"  href="http://www.ccb.jhu.edu/people/mpertea/" style="color:#4A4F53">Pertea Lab</a>, Center for Computational Biology, JHU  <br> <small><i>Ph.D. student</i></small></h3></div>
           </div>
           <p>
           <ul>
@@ -56,7 +56,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
                 <div class="img-comp-img img-comp-overlay">
                 </div>
             </div> -->
-            <div class="column_title"><h3>Langmead Lab, Department of Computer Science, JHU <br> <small style="line-height: 200%">collab with </small><br> Seshia Lab,  Department of Electrical Engineering and Computer Sciences, UC Berkeley <br> <small><i>Research student</i></small></h3></div>
+            <div class="column_title"><h3><a target="_blank"  href="https://langmead-lab.org/" style="color:#4A4F53">Langmead Lab</a>, Department of Computer Science, JHU <br> <small style="line-height: 200%">collab with </small><br><a target="_blank"  href="http://people.eecs.berkeley.edu/~sseshia/" style="color:#4A4F53">Seshia Lab</a>,  Department of Electrical Engineering and Computer Sciences, UC Berkeley <br> <small><i>Research student</i></small></h3></div>
           </div>
           <p>
             <ul>
@@ -70,7 +70,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
       <div data-vimg="<img class='pic' src='{{base_path}}/images/elution_profile_project_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2020 - Feb 2021, Taipei, TW">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/iis_logo.png" width="70px"></div>
-            <div class="column_title"><h3>HK Tsai Lab, Institute of Information Science, Academia Sinica <br> <small><i>Research assistant</i></small></h3></div>
+            <div class="column_title"><h3><a target="_blank"  href="https://bits.iis.sinica.edu.tw/" style="color:#4A4F53">HK Tsai Lab</a>, Institute of Information Science, Academia Sinica <br> <small><i>Research assistant</i></small></h3></div>
           </div>
           <p>
             <ul>
@@ -81,7 +81,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
       <div data-vimg="<img class='pic' src='{{base_path}}/images/sangeranalyseR_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jul 2019 - Jul 2020, Canberra, AU">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/anu_logo_small.png" width="70px"></div>
-            <div class="column_title"><h3>Lanfear Lab, Division of Ecology and Evolution, Research School of Biology, ANU <br> <small><i>Research assistant</i></small></h3></div>
+            <div class="column_title"><h3><a target="_blank"  href="https://www.robertlanfear.com/" style="color:#4A4F53">Lanfear Lab</a>, Division of Ecology and Evolution, Research School of Biology, ANU <br> <small><i>Research assistant</i></small></h3></div>
           </div>
           <p>
             <ul>
@@ -94,7 +94,7 @@ precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" t
       <div data-vimg="<img class='pic' src='{{base_path}}/images/RNASeqR_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jan 2018 - Jul 2019, Taipei, TW">
           <div class="row">
             <div class="column_img"><img class="pic" src="{{base_path}}/images/NTU.png" width="70px"></div>
-            <div class="column_title"><h3>Bioinformatics Core Lab, Centers of Genomic and Precision Medicine, NTU <br> <small><i>Research assistant</i></small></h3></div>
+            <div class="column_title"><h3><a target="_blank"  href="http://www.cgm.ntu.edu.tw/web/laboratory/introduction.jsp?dmno=DM1510888823104" style="color:#4A4F53">Bioinformatics Core Lab</a>, Centers of Genomic and Precision Medicine, NTU <br> <small><i>Research assistant</i></small></h3></div>
           </div>
           <p>
             <ul>
