@@ -466,14 +466,14 @@ section h1 {
 @media (max-width: 1000px) {
 
   #play_sound {
-    margin:-10px;
+    margin:-20px;
     border: none;
     background: none;
     color: #404040;
   }
 
   #name_pronunciation {
-    font-size: 30px; 
+    font-size: 35px; 
   }
 }
 
