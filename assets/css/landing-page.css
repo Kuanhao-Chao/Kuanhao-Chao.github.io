@@ -454,6 +454,28 @@ section h1 {
   box-sizing: border-box;
 }
 
+#play_sound {
+  border: none;
+  background: none;
+  color: #404040;
+}
+#name_pronunciation {
+  font-size: 45px; 
+}
+
+@media (max-width: 1000px) {
+
+  #play_sound {
+    margin:-10px;
+    border: none;
+    background: none;
+    color: #404040;
+  }
+
+  #name_pronunciation {
+    font-size: 30px; 
+  }
+}
 
 
 #section03 a {
