@@ -3,9 +3,6 @@ main:
 
   - title: "CV"
     url: /cv/
-  #
-  # - title: "References"
-  #   url: /references/
 
   - title: "Publications"
     url: /publications/
@@ -13,11 +10,11 @@ main:
   - title: "Research"
     url: /researches/
 
+  - title: "Presentations"
+    url: /presentations/
+
   - title: "Projects"
     url: /projects/
-
-  - title: "Talks"
-    url: /talks/
 
   - title: "Teaching"
     url: /teaching/
