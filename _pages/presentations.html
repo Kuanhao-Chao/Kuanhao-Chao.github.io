@@ -1,0 +1,17 @@
+---
+layout: archive
+title: "🎤 &nbsp; Presentations"
+permalink: /presentations/
+author_profile: true
+---
+
+{% if site.presentationmap_link == true %}
+
+<p style="text-decoration:underline;"><a href="/presentationmap.html">See a map of all the places I've given a presentation!</a></p>
+
+{% endif %}
+
+{% for post in site.presentations %}
+  {% include archive-single-presentation.html %}
+  <hr>
+{% endfor %}

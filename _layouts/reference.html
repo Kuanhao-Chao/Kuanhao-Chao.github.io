@@ -100,12 +100,12 @@ layout: default
           </div>
         </div>
 
-        <div id="talk">
-          <div style="margin-left: 30px;" id="talk_inner">
-            {% for post in site.talks %}
+        <div id="presentation">
+          <div style="margin-left: 30px;" id="presentation_inner">
+            {% for post in site.presentations %}
               {% for superviser in post.superviser_clean %}
                   {% if superviser == page.title %}
-                    {% include archive-single-talk-inner.html %}
+                    {% include archive-single-presentation-inner.html %}
                     <hr>
                   {% endif %}
               {% endfor %}

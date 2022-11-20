@@ -65,11 +65,11 @@ layout: default
           </div>
         </div>
 
-        <div id="talk">
-          <div style="margin-left: 30px;" id="talk_inner">
-            {% for post in site.talks %}
+        <div id="presentation">
+          <div style="margin-left: 30px;" id="presentation_inner">
+            {% for post in site.presentations %}
               {% if post.research_clean == page.research_clean %}
-                {% include archive-single-talk-inner.html %}
+                {% include archive-single-presentation-inner.html %}
                 <hr>
               {% endif %}
             {% endfor %}
