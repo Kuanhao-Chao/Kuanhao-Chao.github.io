@@ -1,8 +1,8 @@
 ---
 title: "[WCIT 2017] &nbsp; Exhibition on smart transportation with Taipei City Government"
-collection: talks
+collection: presentations
 type: "Exhibition"
-permalink: /talks/2017-09-12-exhibition
+permalink: /presentations/2017-09-12-exhibition
 venue: "World Congress on Information Technology (WCIT 2017)"
 start_date: 2017-09-11
 end_date: 2017-09-13
