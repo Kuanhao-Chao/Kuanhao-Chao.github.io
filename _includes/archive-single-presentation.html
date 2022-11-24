@@ -9,6 +9,25 @@
 {% endif %}
 
 
+{% if post.new_start == "True" and post.type == "Oral presentation" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 📢 &nbsp; Oral presentation</b></p>
+{% endif %}
+
+{% if post.new_start == "True" and post.type == "Poster" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 👨🏻‍🏫 &nbsp; Poster</b></p>
+{% endif %}
+
+{% if post.new_start == "True" and post.type == "Exhibition" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; <i class="fa fa-users" aria-hidden="true"></i> &nbsp; Exhibition</b></p>
+{% endif %}
+
+{% if post.new_start == "True" and post.type == "Course Project" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 📝 &nbsp; Course Project</b></p>
+{% endif %}
+
+{% if post.new_start == "True" and post.type == "Android App" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; <i class="fa fa-android" aria-hidden="true" style="color: green"></i> &nbsp; Android App</b></p>
+{% endif %}
 
 <div clss="row" style="display: flex; margin-left:30px;">
   <div class="column" style="flex: 59%;">
@@ -17,7 +36,6 @@
     {% else %}
       {% assign title = post.title %}
     {% endif %}
-
     <div class="{{ include.type | default: "list" }}__item">
       <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
         {% if include.type == "grid" and teaser %}
