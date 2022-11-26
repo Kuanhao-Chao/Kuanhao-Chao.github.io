@@ -307,9 +307,9 @@ defaults:
       path: ""
       type: photos
     values:
-      layout: presentation
-      author_profile: true
-      share: true
+      layout: photo
+      # author_profile: true
+      # share: true
   # _references
   - scope:
       path: ""

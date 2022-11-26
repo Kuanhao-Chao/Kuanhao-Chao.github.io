@@ -1,0 +1,102 @@
+<script src="https://kit.fontawesome.com/yourcode.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+
+{% include base_path %}
+
+{% if post.header.teaser %}
+  {% capture teaser %}{{ post.header.teaser }}{% endcapture %}
+{% else %}
+  {% assign teaser = site.teaser %}
+{% endif %}
+
+{% if post.id %}
+  {% assign title = post.title | markdownify | remove: "<p>" | remove: "</p>" %}
+{% else %}
+  {% assign title = post.title %}
+{% endif %}
+
+
+{% if post.new_start == "True" and post.type == "Bioinformatics Project" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🧬 &nbsp; Bioinformatics Project</b></p>
+{% endif %}
+
+
+{% if post.new_start == "True" and post.type == "Unity Game" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🎮 &nbsp; Unity Game</b></p>
+{% endif %}
+
+{% if post.new_start == "True" and post.type == "Course Project" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 📝 &nbsp; Course Project</b></p>
+{% endif %}
+
+{% if post.new_start == "True" and post.type == "Android App" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; <i class="fa fa-android" aria-hidden="true" style="color: green"></i> &nbsp; Android App</b></p>
+{% endif %}
+
+
+<div clss="row" style="display: flex; margin-left:30px; margin-top:-25px">
+  <div class="column" style="flex: 59%;">
+    <div class="{{ include.type | default: "list" }}__item">
+      <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
+        {% if include.type == "grid" and teaser %}
+          <div class="archive__item-teaser">
+            <img src=
+              {% if teaser contains "://" %}
+                "{{ teaser }}"
+              {% else %}
+                "{{ teaser | prepend: "/images/" | prepend: base_path }}"
+              {% endif %}
+              alt="">
+          </div>
+        {% endif %}
+        <h2 class="archive__item-title" itemprop="headline">
+          {% if post.link %}
+            <a href="{{ post.link }}" style="color: #404040">{{ title }}</a> <a href="{{ base_path }}{{ post.url }}" rel="permalink"><i class="fa fa-link" aria-hidden="true" title="permalink"></i><span class="sr-only">Permalink</span></a>
+          {% else %}
+            <a href="{{ base_path }}{{ post.url }}" rel="permalink" style="color: #404040">{{ title }}</a>
+          {% endif %}
+        </h2>
+
+        {% if post.read_time %}
+          <p class="page__meta"><i class="fa fa-clock-o" aria-hidden="true"></i> {% include read-time.html %}</p>
+        {% endif %}
+        {% if post.start_date %}<p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ post.start_date | date: '%B, %Y' }} {% if post.end_date %} - {{ post.end_date | date: '%B, %Y' }}{% endif %}</b></p>{% endif %}
+        <p class="page__meta"><b><i class="fas fa-user-alt"></i>  &nbsp;&nbsp; {{post.people}}  </b></p>
+        {% if post.type == "Unity Game"%}
+          <p class="page__meta"><b><i class="fa fa-gamepad" aria-hidden="true"></i> &nbsp;&nbsp;&nbsp;{{post.type}}</b></p>
+        {% endif %}
+        {% if post.type == "Bioinformatics Project"%}
+          <p class="page__meta"><b><i class="fas fa-laptop-code"></i> &nbsp;&nbsp;&nbsp;{{post.related_proj}}</b></p>
+        {% endif %}
+        {% if post.type == "Android App"%}
+          <p class="page__meta"><b><i class="fas fa-laptop-code"></i>
+          &nbsp;&nbsp;&nbsp;{{post.course}}</b></p>
+        {% endif %}
+        {% if post.type == "Course Project"%}
+          <p class="page__meta"><b><i class="fas fa-laptop-code"></i>
+          &nbsp;&nbsp;&nbsp;{{post.course}}</b></p>
+        {% endif %}
+      </article>
+    </div>
+  </div>
+  <div class="column" style="flex: 3%;">
+  </div>
+  {% if post.type == "Unity Game"%}
+    <div  class="column" style="flex: 38%;">
+      <img src="{{ post.image }}" style="width: 130px;
+      height: 120px;
+      object-fit: fill;
+      display: inline; margin-top:30px;">
+    </div>
+  {% else %}
+    <div  class="column" style="flex: 38%;">
+      <img src="{{ post.image }}" style="width: 200px;
+      height: 150px;
+      object-fit: fill;
+      display: inline; margin-top:30px;">
+    </div>
+  {% endif %}
+
+
+</div>
