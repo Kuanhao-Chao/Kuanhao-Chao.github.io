@@ -296,23 +296,6 @@ defaults:
       layout: internship
       author_profile: true
       share: true
-  # # _games
-  # - scope:
-  #     path: ""
-  #     type: games
-  #   values:
-  #     layout: game
-  #     author_profile: true
-  #     share: true
-  # # _course_projects
-  # - scope:
-  #     path: ""
-  #     type: course_projects
-  #   values:
-  #     layout: course_project
-  #     author_profile: true
-  #     share: true
-  # _projects
   - scope:
       path: ""
       type: projects
@@ -324,7 +307,7 @@ defaults:
       path: ""
       type: photos
     values:
-      layout: photos
+      layout: presentation
       author_profile: true
       share: true
   # _references
