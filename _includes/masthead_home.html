@@ -13,7 +13,12 @@
               {% else %}
               {% assign domain = base_path %}
             {% endif %}
-            <li class="masthead__menu-item" style="background-color:#1c1430; font-weight: 500;"><a href="{{ domain }}{{ link.url }}" style="color: white;">{{ link.title }}</a></li>
+
+            {% if link.title contains 'Photos' %}
+              <li class="masthead__menu-item" style="background-color:#1c1430; font-weight: 500;"><a href="{{ domain }}{{ link.url }}" style="color: white;"> <i class="fa fa-camera" aria-hidden="true"></i>  </a></li>
+            {% else %}
+              <li class="masthead__menu-item" style="background-color:#1c1430; font-weight: 500;"><a href="{{ domain }}{{ link.url }}" style="color: white;">{{ link.title }}</a></li>
+            {% endif %}
           {% endfor %}
         </ul>
         <ul class="hidden-links hidden" style="background-color:#1c1430;"></ul>

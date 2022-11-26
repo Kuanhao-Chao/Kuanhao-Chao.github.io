@@ -308,8 +308,6 @@ defaults:
       type: photos
     values:
       layout: photo
-      # author_profile: true
-      # share: true
   # _references
   - scope:
       path: ""
