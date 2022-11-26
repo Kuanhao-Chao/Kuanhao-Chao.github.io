@@ -31,6 +31,7 @@
     "build:js": "npm run uglify"
   },
   "dependencies": {
+    "lightgallery": "^2.7.0",
     "react": "^18.2.0",
     "react-chrono": "^1.19.2",
     "react-dom": "^18.2.0",

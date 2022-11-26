@@ -26,6 +26,9 @@ layout: compress
   <link type="text/css" href="https://unpkg.com/image-compare-viewer/dist/image-compare-viewer.min.css">
     <link href="{{base_path}}/assets/css/image-compare-viewer.min.css" rel="stylesheet" />
     <script src="{{base_path}}/assets/js/image-compare-viewer.min.js"></script>
+
+    <script src="{{base_path}}/assets/js/lightgallery.umd.js"></script>
+    <link rel="stylesheet" type="text/css" href="{{base_path}}/assets/css/lightgallery-bundle.css">
   </head>
 
   <body id="main_body">
@@ -199,6 +202,16 @@ layout: compress
     </style>
 
     <div data-aos="fade-up" data-aos-duration="1000" class="page__footer" style="margin-top: auto;">
+
+      <div id="lightgallery">
+        <a href="{{base_path}}/images/JHU_wse.png" data-lg-size="1600-2400">
+            <img alt=".." src="{{base_path}}/images/JHU_wse.png" />
+        </a>
+        <a href="{{base_path}}/images/JHU_ccb.png" data-lg-size="1024-800">
+            <img alt=".." src="{{base_path}}/images/JHU_ccb.png" />
+        </a>
+      </div>
+
       <footer>
         {% include footer/custom.html %}
         {% include footer.html %}
