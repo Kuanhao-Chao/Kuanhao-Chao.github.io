@@ -61,49 +61,6 @@ layout: default
     </div>
   </div>
   
-  <script type="module">
-
-  fetch('/gallery/photos.json')
-    .then(response => response.json())
-    .then(photos => {
-      console.log(photos)
-      console.log(photos['tag1'].length)
-      for (var i = 0; i < photos['tag1'].length; i++){
-        var obj = photos['tag1'][i];
-        console.log(obj);
-        const elem = document.getElementById('my-gallery-wrapper');
-        var node1 = `
-        <div class="col">
-          <div class="p-1 border bg-light">
-            <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/`;
-        var node2 = `">
-              <img style="width: 300px; height: 200px; object-fit: cover;" alt=".." src="{{base_path}}/gallery/`;
-        var node3 = `" />
-            </a>
-          </div>
-        </div>`;
-        var node = node1 + obj + node2 + obj + node3;
-        console.log(node);
-        var doc = new DOMParser().parseFromString(node, "text/html");
-        console.log(doc);
-        elem.appendChild(doc.documentElement.childNodes[1].childNodes[0]);
-      }
-    })
-    .catch(error => console.log(error));
-
-    // var mydata = JSON.parse(photos);
-    // console.log(photos)
-    // for (var i = 0; i < mydata['tag1'].length; i++){
-    //   var obj = mydata[i];
-    //   console.log(obj)
-    //   // for (var key in obj){
-    //   //   var value = obj[key];
-    //   //   document.write("<br> - " + key + ": " + value);
-    //   // }
-    // }
-    // console.log(mydata);
-
-
-  </script>
+  <script type="text/javascript" src="{{base_path}}/assets/js/photos.js"></script>
   
 </div>
