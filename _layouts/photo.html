@@ -1,174 +1,98 @@
 ---
 layout: default
 ---
-<script src="https://kit.fontawesome.com/yourcode.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
-<script src="{{base_path}}/assets/js/photoswipe.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<div id="main" role="main">
+  <script src="https://kit.fontawesome.com/yourcode.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
+  
+  <div class="d-flex align-items-start">
+    <div class="d-flex flex-column flex-shrink-0 p-1" style="width: 280px;">
+      <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
+        <svg class="bi pe-none me-2" width="40" height="32"><use xlink:href="#bootstrap"></use></svg>
+        <span class="fs-4"> <i class="fa fa-camera fa-1x" aria-hidden="true"></i> Photos</span>
+      </a>
+      <hr>
+      <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+        <button class="nav-link active" id="v-pills-home-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-home" type="button" role="tab" aria-controls="v-pills-home" aria-selected="true">Home</button>
+        <button class="nav-link" id="v-pills-profile-tab" style="height:50px"  data-bs-toggle="pill" data-bs-target="#v-pills-profile" type="button" role="tab" aria-controls="v-pills-profile" aria-selected="false">Profile</button>
+        <button class="nav-link" id="v-pills-disabled-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-disabled" type="button" role="tab" aria-controls="v-pills-disabled" aria-selected="false" disabled>Disabled</button>
+        <button class="nav-link" id="v-pills-messages-tab" style="height:50px"  data-bs-toggle="pill" data-bs-target="#v-pills-messages" type="button" role="tab" aria-controls="v-pills-messages" aria-selected="false">Messages</button>
+        <button class="nav-link" id="v-pills-settings-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-settings" type="button" role="tab" aria-controls="v-pills-settings" aria-selected="false">Settings</button>
+      </div>
+    </div>
+    <div class="tab-content" id="v-pills-tabContent">
+      <div class="tab-pane fade show active" id="v-pills-home" role="tabpanel" aria-labelledby="v-pills-home-tab" tabindex="0">
+  
+        
+          <div class="header d-flex flex-column align-items-center">
+            <h1 class="display-6 mt-3 mb-0">Gallery</h1>
+            <!-- <p class="lead mt-2 mb-4">
+              lightGallery is a feature-rich, modular JavaScript gallery plugin for building beautiful image and video galleries for the web and the mobile
+            </p> -->
+            <!-- <a class="btn mb-5 btn-outline-primary" href="https://github.com/sachinchoolur/lightGallery" target="_blank">View on GitHub</a> -->
+          </div>
+    
+          <div class="container text-center" id="my-gallery" data-fit="cover" data-autohide="all">
+            <div id="my-gallery-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
+              <div class="col">
+                <div class="p-1 border bg-light">
+                  <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg">
+                    <img style="width: 300px; height: 200px; object-fit: cover;" alt=".." src="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg" />
+                  </a>
+                </div>
+              </div>
+              <div class="col">
+                <div class="p-1 border bg-light">
+                  <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg">
+                    <img style="width: 300px; height: 200px; object-fit: cover;" alt=".." src="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg" />
+                  </a>
+                </div>
+              </div>
+              <div class="col">
+                <div class="p-1 border bg-light">
+                  <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/44248AEF-EAF0-455D-9B95-1712E4343CBC_1_105_c.jpeg">
+                    <img style="width: 300px; height: 200px; object-fit: cover;" alt=".." src="{{base_path}}/gallery/44248AEF-EAF0-455D-9B95-1712E4343CBC_1_105_c.jpeg" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
 
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
 
-<div class="d-flex align-items-start">
-  <div class="d-flex flex-column flex-shrink-0 p-3" style="width: 280px;">
-    <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
-      <svg class="bi pe-none me-2" width="40" height="32"><use xlink:href="#bootstrap"></use></svg>
-      <span class="fs-4"> <i class="fa fa-camera fa-1x" aria-hidden="true"></i> Photos</span>
-    </a>
-    <hr>
-    <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-      <button class="nav-link active" id="v-pills-home-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-home" type="button" role="tab" aria-controls="v-pills-home" aria-selected="true">Home</button>
-      <button class="nav-link" id="v-pills-profile-tab" style="height:50px"  data-bs-toggle="pill" data-bs-target="#v-pills-profile" type="button" role="tab" aria-controls="v-pills-profile" aria-selected="false">Profile</button>
-      <button class="nav-link" id="v-pills-disabled-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-disabled" type="button" role="tab" aria-controls="v-pills-disabled" aria-selected="false" disabled>Disabled</button>
-      <button class="nav-link" id="v-pills-messages-tab" style="height:50px"  data-bs-toggle="pill" data-bs-target="#v-pills-messages" type="button" role="tab" aria-controls="v-pills-messages" aria-selected="false">Messages</button>
-      <button class="nav-link" id="v-pills-settings-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-settings" type="button" role="tab" aria-controls="v-pills-settings" aria-selected="false">Settings</button>
+        <!-- <div id="my-gallery" class="spotlight-group" data-fit="cover" data-autohide="all">
+          <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg">
+            <img alt=".." src="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg" />
+          </a>
+          <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/44248AEF-EAF0-455D-9B95-1712E4343CBC_1_105_c.jpeg">
+            <img alt=".." src="{{base_path}}/gallery/44248AEF-EAF0-455D-9B95-1712E4343CBC_1_105_c.jpeg" />
+          </a>
+        </div> -->
+  
+      </div>
+      <div class="tab-pane fade" id="v-pills-profile" role="tabpanel" aria-labelledby="v-pills-profile-tab" tabindex="0">...</div>
+      <div class="tab-pane fade" id="v-pills-disabled" role="tabpanel" aria-labelledby="v-pills-disabled-tab" tabindex="0">...</div>
+      <div class="tab-pane fade" id="v-pills-messages" role="tabpanel" aria-labelledby="v-pills-messages-tab" tabindex="0">...</div>
+      <div class="tab-pane fade" id="v-pills-settings" role="tabpanel" aria-labelledby="v-pills-settings-tab" tabindex="0">...</div>
     </div>
   </div>
-  <div class="tab-content" id="v-pills-tabContent">
-    <div class="tab-pane fade show active" id="v-pills-home" role="tabpanel" aria-labelledby="v-pills-home-tab" tabindex="0">
-
-      
-
-      <div class="header d-flex flex-column align-items-center">
-        <h1 class="display-6 mt-3 mb-0">Gallery</h1>
-        <!-- <p class="lead mt-2 mb-4">
-          lightGallery is a feature-rich, modular JavaScript gallery plugin for building beautiful image and video galleries for the web and the mobile
-        </p> -->
-        <!-- <a class="btn mb-5 btn-outline-primary" href="https://github.com/sachinchoolur/lightGallery" target="_blank">View on GitHub</a> -->
-      </div>
-
-      <div id="my-gallery">
-        <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg">
-          <img alt=".." src="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg" />
-        </a>
-        <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/44248AEF-EAF0-455D-9B95-1712E4343CBC_1_105_c.jpeg">
-          <img alt=".." src="{{base_path}}/gallery/44248AEF-EAF0-455D-9B95-1712E4343CBC_1_105_c.jpeg" />
-        </a>
-      </div>
+  
+  <script type="text/javascript">
+    
+    FileFinder()
 
 
+// <div class="col">
+//                 <div class="p-1 border bg-light">
+//                   <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg">
+//                     <img style="width: 300px; height: 200px; object-fit: cover;" alt=".." src="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg" />
+//                   </a>
+//                 </div>
+//               </div>
 
-
-
-
-
-      <div class="pswp-gallery" id="my-gallery">
-        <a
-          href="https://cdn.photoswipe.com/photoswipe-demo-images/photos/1/img-2500.jpg"
-          data-pswp-width="1875"
-          data-pswp-height="2500"
-          target="_blank"
-        >
-          <img
-            src="https://cdn.photoswipe.com/photoswipe-demo-images/photos/1/img-200.jpg"
-            alt=""
-          />
-        </a>
-        <a
-          href="https://cdn.photoswipe.com/photoswipe-demo-images/photos/2/img-2500.jpg"
-          data-pswp-width="1669"
-          data-pswp-height="2500"
-          target="_blank"
-        >
-          <img
-            src="https://cdn.photoswipe.com/photoswipe-demo-images/photos/2/img-200.jpg"
-            alt=""
-          />
-        </a>
-        <a
-          href="https://cdn.photoswipe.com/photoswipe-demo-images/photos/3/img-2500.jpg"
-          data-pswp-width="2500"
-          data-pswp-height="1666"
-          target="_blank"
-        >
-          <img
-            src="https://cdn.photoswipe.com/photoswipe-demo-images/photos/3/img-200.jpg"
-            alt=""
-          />
-        </a>
-      </div>
-    </div>
-
-
-
-
-
-
-
-    </div>
-    <div class="tab-pane fade" id="v-pills-profile" role="tabpanel" aria-labelledby="v-pills-profile-tab" tabindex="0">...</div>
-    <div class="tab-pane fade" id="v-pills-disabled" role="tabpanel" aria-labelledby="v-pills-disabled-tab" tabindex="0">...</div>
-    <div class="tab-pane fade" id="v-pills-messages" role="tabpanel" aria-labelledby="v-pills-messages-tab" tabindex="0">...</div>
-    <div class="tab-pane fade" id="v-pills-settings" role="tabpanel" aria-labelledby="v-pills-settings-tab" tabindex="0">...</div>
-  </div>
+  </script>
+  
 </div>
-
-<script src="{{base_path}}/assets/js/photoswipe.js"></script>
-
-<script type="text/javascript">
-
-import PhotoSwipeLightbox from 'https://unpkg.com/photoswipe/dist/photoswipe-lightbox.esm.js';
-
-const lightbox = new PhotoSwipeLightbox({
-  gallery: '#my-gallery',
-  children: 'a',
-  pswpModule: () => import('https://unpkg.com/photoswipe'),
-});
-
-lightbox.init();
-
-
-
-  // jQuery("#aniimated-thumbnials")
-  //   .justifiedGallery({
-  //     captions: false,
-  //     lastRow: "hide",
-  //     rowHeight: 180,
-  //     margins: 5
-  //   })
-  //   .on("jg.complete", function () {
-  //     window.lightGallery(
-  //       document.getElementById("aniimated-thumbnials"),
-  //       {
-  //         autoplayFirstVideo: false,
-  //         pager: false,
-  //         galleryId: "nature",
-  //         plugins: [lgZoom, lgThumbnail],
-  //         mobileSettings: {
-  //           controls: false,
-  //           showCloseIcon: false,
-  //           download: false,
-  //           rotate: false
-  //         }
-  //       }
-  //     );
-  //   });
-
-  // lightGallery(document.getElementById('aniimated-thumbnials'), {
-  //     thumbnail:true
-  // }); 
-  // jQuery("#animated-thumbnails-gallery")
-  //   .justifiedGallery({
-  //     captions: false,
-  //     lastRow: "hide",
-  //     rowHeight: 180,
-  //     margins: 5
-  //   })
-  //   .on("jg.complete", function () {
-  //     window.lightGallery(
-  //       document.getElementById("animated-thumbnails-gallery"),
-  //       {
-  //         autoplayFirstVideo: false,
-  //         pager: false,
-  //         galleryId: "nature",
-  //         plugins: [lgZoom, lgThumbnail],
-  //         mobileSettings: {
-  //           controls: false,
-  //           showCloseIcon: false,
-  //           download: false,
-  //           rotate: false
-  //         }
-  //       }
-  //     );
-  //   });
-</script>
