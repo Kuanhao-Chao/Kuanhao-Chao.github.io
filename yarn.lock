@@ -1222,6 +1222,11 @@
     "minimatch" "^3.1.2"
     "strip-json-comments" "^3.1.1"
 
+"@fancyapps/ui@^4.0.31":
+  "integrity" "sha512-D7+PMIloxSOFJyY+lXcNlVDhmssOmDT6PT5fqQUIiws2hT7PH29r0EKZxERmACSQpm6qrFkP7rSguzXWvRJduQ=="
+  "resolved" "https://registry.npmjs.org/@fancyapps/ui/-/ui-4.0.31.tgz"
+  "version" "4.0.31"
+
 "@humanwhocodes/config-array@^0.11.6":
   "integrity" "sha512-jJr+hPTJYKyDILJfhNSHsjiwXYf26Flsz8DvNndOsHs5pwSnpGUEy8yzF0JYhCEvTDdV2vuOK5tt8BVhwO5/hg=="
   "resolved" "https://registry.npmjs.org/@humanwhocodes/config-array/-/config-array-0.11.6.tgz"
@@ -6578,6 +6583,11 @@
     "prelude-ls" "~1.1.2"
     "type-check" "~0.3.2"
 
+"lg-thumbnail.js@^1.2.0":
+  "integrity" "sha512-qmNFbjLv1spCf3sB8HRX9vW8UtKcgq7qJIg10jLqCozSquhTJwSPUb5vyPgl3cZpgLFjRMiOpIRgBjGrX4inNQ=="
+  "resolved" "https://registry.npmjs.org/lg-thumbnail.js/-/lg-thumbnail.js-1.2.0.tgz"
+  "version" "1.2.0"
+
 "lightgallery@^2.7.0":
   "integrity" "sha512-iozIJNxKl3wPWcspCmRdaSYpYy3PjloC8BN0PDwaDOoTA1hsu1IhZdWQWI5cGgMJvnksP94/smElMwn2HS5d3Q=="
   "resolved" "https://registry.npmjs.org/lightgallery/-/lightgallery-2.7.0.tgz"
@@ -7456,6 +7466,11 @@
   "integrity" "sha512-7EAHlyLHI56VEIdK57uwHdHKIaAGbnXPiw0yWbarQZOKaKpvUIgW0jWRVLiatnM+XXlSwsanIBH/hzGMJulMow=="
   "resolved" "https://registry.npmjs.org/performance-now/-/performance-now-2.1.0.tgz"
   "version" "2.1.0"
+
+"photoswipe@^5.3.4":
+  "integrity" "sha512-SN+RWHqxJvdwzXJsh8KrG+ajjPpdTX5HpKglEd0k9o6o5fW+QHPkW8//Bo11MB+NQwTa/hFw8BDv2EdxiDXjNw=="
+  "resolved" "https://registry.npmjs.org/photoswipe/-/photoswipe-5.3.4.tgz"
+  "version" "5.3.4"
 
 "picocolors@^0.2.1":
   "integrity" "sha512-cMlDqaLEqfSaW8Z7N5Jw+lyIW869EzT73/F5lhtY9cLGoVxSXznfgfXMO0Z5K0o0Q2TkTXq+0KFsdnSe3jDViA=="

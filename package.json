@@ -31,7 +31,10 @@
     "build:js": "npm run uglify"
   },
   "dependencies": {
+    "@fancyapps/ui": "^4.0.31",
+    "lg-thumbnail.js": "^1.2.0",
     "lightgallery": "^2.7.0",
+    "photoswipe": "^5.3.4",
     "react": "^18.2.0",
     "react-chrono": "^1.19.2",
     "react-dom": "^18.2.0",
