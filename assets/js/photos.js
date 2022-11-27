@@ -7,8 +7,7 @@ fetch('/gallery/photos.json')
         var obj = photos['tag1'][i];
         console.log(obj);
         const elem = document.getElementById('my-gallery-wrapper');
-        var node1 = `
-        <div class="col">
+        var node1 = `<div class="col">
           <div class="p-1 border bg-light">
             <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/`;
         var node2 = `">
