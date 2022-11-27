@@ -24,7 +24,7 @@ layout: default
   </div>
   <div class="tab-content" id="v-pills-tabContent">
     <div class="tab-pane fade show active" id="v-pills-home" role="tabpanel" aria-labelledby="v-pills-home-tab" tabindex="0">
-      <div id="tab1_photos">
+      <div id="tab1_photos" class="col-lg-8 text-center clip-path-bg-inner">
         <a href="{{base_path}}/images/anu_logo_small_tmp.png">
             <img alt=".." src="{{base_path}}/images/anu_logo_small_tmp.png" />
         </a>
@@ -57,9 +57,3 @@ layout: default
     <div class="tab-pane fade" id="v-pills-settings" role="tabpanel" aria-labelledby="v-pills-settings-tab" tabindex="0">...</div>
   </div>
 </div>
-
-<script>
-  lightGallery(document.getElementById('tab1_photos'), {
-    thumbnail: true,
-  });
-</script>

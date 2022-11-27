@@ -27,11 +27,12 @@ layout: compress
     <link href="{{base_path}}/assets/css/image-compare-viewer.min.css" rel="stylesheet" />
     <script src="{{base_path}}/assets/js/image-compare-viewer.min.js"></script>
 
-    <script src="{{base_path}}/assets/js/lightgallery.umd.js"></script>
     <link rel="stylesheet" type="text/css" href="{{base_path}}/assets/css/lightgallery.css">
     <link rel="stylesheet" type="text/css" href="{{base_path}}/assets/css/lightgallery-bundle.css">
-    <script src="{{base_path}}/assets/js/lg-thumbnail.umd.js"></script>
-    <script src="{{base_path}}/assets/js/lg-zoom.umd.js"></script>
+
+    <script src="{{base_path}}/assets/js/lightgallery.umd.js"></script>
+    <script src="{{base_path}}/assets/js/plugins/lg-thumbnail.umd.js"></script>
+    <script src="{{base_path}}/assets/js/plugins/lg-zoom.umd.js"></script>
   </head>
 
   <body id="main_body">
@@ -244,6 +245,15 @@ layout: compress
           x.style.display = "none";
         }
       }
+    </script>
+
+    <script type="text/javascript">
+      lightGallery(document.getElementById('tab1_photos'), {
+        animateThumb: false,
+        zoomFromOrigin: false,
+        allowMediaOverlap: true,
+        toggleThumb: true,
+    });
     </script>
     </body>
 </html>
