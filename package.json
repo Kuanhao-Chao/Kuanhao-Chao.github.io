@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@fancyapps/ui": "^4.0.31",
+    "bootstrap-icons": "^1.10.2",
     "lg-thumbnail.js": "^1.2.0",
     "lightgallery": "^2.7.0",
     "photoswipe": "^5.3.4",
