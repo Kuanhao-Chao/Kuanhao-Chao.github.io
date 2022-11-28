@@ -2,7 +2,7 @@
 layout: default
 ---
 <div id="main" role="main">
-  <link rel="stylesheet" href="{{base_path}}/assets/css/sidebar_gallery.css">
+  <link rel="stylesheet" href="{{base_path}}/assets/css/sidebar-gallery.css">
   <script src="https://kit.fontawesome.com/yourcode.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
@@ -17,6 +17,15 @@ layout: default
       </a>
       <hr>
       <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+
+        <div class="collapse" id="home-collapse" style="height:50px">
+          <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
+            <li><a href="#" class="link-dark rounded">Overview</a></li>
+            <li><a href="#" class="link-dark rounded">Updates</a></li>
+            <li><a href="#" class="link-dark rounded">Reports</a></li>
+          </ul>
+        </div>
+
         <button class="nav-link active" id="v-pills-ANU-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-ANU" type="button" role="tab" aria-controls="v-pills-ANU" aria-selected="true">ANU</button>
         <button class="nav-link" id="v-pills-NTU-tab" style="height:50px"  data-bs-toggle="pill" data-bs-target="#v-pills-NTU" type="button" role="tab" aria-controls="v-pills-NTU" aria-selected="false">NTU</button>
         <button class="nav-link" id="v-pills-Electrical_Engineering-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-Electrical_Engineering" type="button" role="tab" aria-controls="v-pills-Electrical_Engineering" aria-selected="false" Electrical_Engineering>Electrical Engineering</button>
