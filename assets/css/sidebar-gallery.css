@@ -3,39 +3,10 @@
     margin: 0;
     padding: 0;
     width: 200px;
-    background-color: #f1f1f1;
-    position: fixed;
+    /* position: fixed; */
     height: 100%;
     overflow: auto;
   }
-  
-  /* sidebar_gallery links */
-  .sidebar_gallery a {
-    display: block;
-    color: black;
-    padding: 16px;
-    text-decoration: none;
-  }
-  
-  /* Active/current link */
-  .sidebar_gallery a.active {
-    background-color: #04AA6D;
-    color: white;
-  }
-  
-  /* Links on mouse-over */
-  .sidebar_gallery a:hover:not(.active) {
-    background-color: #555;
-    color: white;
-  }
-  
-  /* Page content. The value of the margin-left property should match the value of the sidebar_gallery's width property */
-  div.content {
-    margin-left: 200px;
-    padding: 1px 16px;
-    height: 1000px;
-  }
-  
   /* On screens that are less than 700px wide, make the sidebar_gallery into a topbar */
   @media screen and (max-width: 700px) {
     .sidebar_gallery {
