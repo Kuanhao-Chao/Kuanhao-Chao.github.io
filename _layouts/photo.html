@@ -16,45 +16,89 @@ layout: default
       </a>
       <hr>
       <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-        <button class="nav-link active" id="v-pills-home-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-home" type="button" role="tab" aria-controls="v-pills-home" aria-selected="true">Home</button>
-        <button class="nav-link" id="v-pills-profile-tab" style="height:50px"  data-bs-toggle="pill" data-bs-target="#v-pills-profile" type="button" role="tab" aria-controls="v-pills-profile" aria-selected="false">Profile</button>
-        <button class="nav-link" id="v-pills-disabled-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-disabled" type="button" role="tab" aria-controls="v-pills-disabled" aria-selected="false" disabled>Disabled</button>
-        <button class="nav-link" id="v-pills-messages-tab" style="height:50px"  data-bs-toggle="pill" data-bs-target="#v-pills-messages" type="button" role="tab" aria-controls="v-pills-messages" aria-selected="false">Messages</button>
-        <button class="nav-link" id="v-pills-settings-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-settings" type="button" role="tab" aria-controls="v-pills-settings" aria-selected="false">Settings</button>
+        <button class="nav-link active" id="v-pills-ANU-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-ANU" type="button" role="tab" aria-controls="v-pills-ANU" aria-selected="true">ANU</button>
+        <button class="nav-link" id="v-pills-NTU-tab" style="height:50px"  data-bs-toggle="pill" data-bs-target="#v-pills-NTU" type="button" role="tab" aria-controls="v-pills-NTU" aria-selected="false">NTU</button>
+        <button class="nav-link" id="v-pills-Electrical_Engineering-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-Electrical_Engineering" type="button" role="tab" aria-controls="v-pills-Electrical_Engineering" aria-selected="false" Electrical_Engineering>Electrical Engineering</button>
+        <button class="nav-link" id="v-pills-Nature-tab" style="height:50px"  data-bs-toggle="pill" data-bs-target="#v-pills-Nature" type="button" role="tab" aria-controls="v-pills-Nature" aria-selected="false">Nature</button>
+        <button class="nav-link" id="v-pills-Flowers-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-Flowers" type="button" role="tab" aria-controls="v-pills-Flowers" aria-selected="false">Flowers</button>
+        <button class="nav-link" id="v-pills-People-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-People" type="button" role="tab" aria-controls="v-pills-People" aria-selected="false">People</button>
+        <button class="nav-link" id="v-pills-Me-tab" style="height:50px" data-bs-toggle="pill" data-bs-target="#v-pills-Me" type="button" role="tab" aria-controls="v-pills-Me" aria-selected="false">Me</button>
       </div>
     </div>
-    <div class="tab-content" id="v-pills-tabContent">
-      <div class="tab-pane fade show active" id="v-pills-home" role="tabpanel" aria-labelledby="v-pills-home-tab" tabindex="0">
-  
-        
-          <div class="header d-flex flex-column align-items-center">
-            <h1 class="display-6 mt-3 mb-0">Gallery</h1>
-            <!-- <p class="lead mt-2 mb-4">
-              lightGallery is a feature-rich, modular JavaScript gallery plugin for building beautiful image and video galleries for the web and the mobile
-            </p> -->
-            <!-- <a class="btn mb-5 btn-outline-primary" href="https://github.com/sachinchoolur/lightGallery" target="_blank">View on GitHub</a> -->
-          </div>
     
-          <div class="container text-center" id="my-gallery" data-fit="cover" data-autohide="all">
-            <div id="my-gallery-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
-            </div>
+    <div class="tab-content" id="v-pills-tabContent">
+      <div class="tab-pane fade show active" id="v-pills-ANU" role="tabpanel" aria-labelledby="v-pills-ANU-tab" tabindex="0">
+        
+        <div class="header d-flex flex-column align-items-center">
+          <h1 class="display-6 mt-3 mb-0">Gallery</h1>
+        </div>
+        <div class="container text-center" data-fit="cover" data-autohide="all">
+          <div id="ANU-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
           </div>
-
-
-        <!-- <div id="my-gallery" class="spotlight-group" data-fit="cover" data-autohide="all">
-          <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg">
-            <img alt=".." src="{{base_path}}/gallery/CDBE8EAF-4AB3-477A-AD66-0E2EB73D3735_1_105_c.jpeg" />
-          </a>
-          <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/44248AEF-EAF0-455D-9B95-1712E4343CBC_1_105_c.jpeg">
-            <img alt=".." src="{{base_path}}/gallery/44248AEF-EAF0-455D-9B95-1712E4343CBC_1_105_c.jpeg" />
-          </a>
-        </div> -->
+        </div>
   
       </div>
-      <div class="tab-pane fade" id="v-pills-profile" role="tabpanel" aria-labelledby="v-pills-profile-tab" tabindex="0">...</div>
-      <div class="tab-pane fade" id="v-pills-disabled" role="tabpanel" aria-labelledby="v-pills-disabled-tab" tabindex="0">...</div>
-      <div class="tab-pane fade" id="v-pills-messages" role="tabpanel" aria-labelledby="v-pills-messages-tab" tabindex="0">...</div>
-      <div class="tab-pane fade" id="v-pills-settings" role="tabpanel" aria-labelledby="v-pills-settings-tab" tabindex="0">...</div>
+
+      <div class="tab-pane fade" id="v-pills-NTU" role="tabpanel" aria-labelledby="v-pills-NTU-tab" tabindex="0">
+        <div class="header d-flex flex-column align-items-center">
+          <h1 class="display-6 mt-3 mb-0">Gallery</h1>
+        </div>
+        <div class="container text-center" data-fit="cover" data-autohide="all">
+          <div id="NTU-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="v-pills-Electrical_Engineering" role="tabpanel" aria-labelledby="v-pills-Electrical_Engineering-tab" tabindex="0">
+        <div class="header d-flex flex-column align-items-center">
+          <h1 class="display-6 mt-3 mb-0">Gallery</h1>
+        </div>
+        <div class="container text-center" data-fit="cover" data-autohide="all">
+          <div id="Electrical_Engineering-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="v-pills-Nature" role="tabpanel" aria-labelledby="v-pills-Nature-tab" tabindex="0">
+        <div class="header d-flex flex-column align-items-center">
+          <h1 class="display-6 mt-3 mb-0">Gallery</h1>
+        </div>
+        <div class="container text-center" data-fit="cover" data-autohide="all">
+          <div id="Nature-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="v-pills-Flowers" role="tabpanel" aria-labelledby="v-pills-Flowers-tab" tabindex="0">
+        <div class="header d-flex flex-column align-items-center">
+          <h1 class="display-6 mt-3 mb-0">Gallery</h1>
+        </div>
+        <div class="container text-center" data-fit="cover" data-autohide="all">
+          <div id="Flowers-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="v-pills-People" role="tabpanel" aria-labelledby="v-pills-People-tab" tabindex="0">
+        <div class="header d-flex flex-column align-items-center">
+          <h1 class="display-6 mt-3 mb-0">Gallery</h1>
+        </div>
+        <div class="container text-center" data-fit="cover" data-autohide="all">
+          <div id="People-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="v-pills-Me" role="tabpanel" aria-labelledby="v-pills-Me-tab" tabindex="0">
+        <div class="header d-flex flex-column align-items-center">
+          <h1 class="display-6 mt-3 mb-0">Gallery</h1>
+        </div>
+        <div class="container text-center" data-fit="cover" data-autohide="all">
+          <div id="Me-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
   
@@ -64,27 +108,31 @@ layout: default
     .then(response => response.json())
     .then(photos => {
       console.log(photos);
-      console.log(photos['tag1'].length);
-      for (var i = 0; i < photos['tag1'].length; i++){
-        var obj = photos['tag1'][i];
-        console.log(obj);
-        const elem = document.getElementById('my-gallery-wrapper');
-        var node1 = `<div class="col">
-          <div class="p-1 border bg-light">
-            <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/`;
-        var node2 = `">
-              <img style="width: 300px; height: 200px; object-fit: cover;" alt=".." src="{{base_path}}/gallery/`;
-        var node3 = `" />
-            </a>
-          </div>
-        </div>`;
-        var node = node1 + obj + node2 + obj + node3;
-        console.log(node);
-        var doc = new DOMParser().parseFromString(node, "text/html");
-        console.log(doc);
-        elem.appendChild(doc.documentElement.childNodes[1].childNodes[0]);
+
+      for (var key in photos){
+        var value = photos[key];
+        console.log(value);
+        for (var i = 0; i < photos[key].length; i++){
+          var obj = photos[key][i];
+          console.log(obj);
+          const elem = document.getElementById(key+'-wrapper');
+          var node1 = `<div class="col">
+            <div class="p-1 border bg-light">
+              <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/`;
+          var node2 = `">
+                <img style="width: 300px; height: 200px; object-fit: cover;" alt=".." src="{{base_path}}/gallery/`;
+          var node3 = `" />
+              </a>
+            </div>
+          </div>`;
+          var node = node1 + obj + node2 + obj + node3;
+          console.log(node);
+          var doc = new DOMParser().parseFromString(node, "text/html");
+          console.log(doc);
+          elem.appendChild(doc.documentElement.childNodes[1].childNodes[0]);
+        }
       }
     })
     .catch(error => console.log(error));
-  </script>>
+  </script>
 </div>
