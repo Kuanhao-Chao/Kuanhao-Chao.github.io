@@ -56,12 +56,25 @@ layout: default
             </div>
           </li> -->
           <div>
+            <button class="btn panel-heading rounded collapsed text-primary" id="v-pills-People-tab" data-bs-toggle="collapse" data-bs-target="#People-collapse" type="button" role="tab" aria-expanded="false" style="font-size: 18px;">
+              &nbsp People
+            </button>
+            <div class="collapse" id="People-collapse">
+              <ul class="btn-toggle-nav list-unstyled fw-normal pb-1">
+                <li class="nav-link active" id="v-pills-Me-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Me" type="button" role="tab" aria-controls="v-pills-Me" aria-selected="false" style="margin-left: 15px;">Me</li>
+              </ul>
+              <ul class="btn-toggle-nav list-unstyled fw-normal pb-1">
+                <li class="nav-link" id="v-pills-Group-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Group" type="button" role="tab" aria-controls="v-pills-Group" aria-selected="false" style="margin-left: 15px;">Group</li>
+              </ul>
+            </div>
+          </div>
+          <div>
             <button class="btn panel-heading rounded collapsed text-primary" id="v-pills-City-tab" data-bs-toggle="collapse" data-bs-target="#City-collapse" type="button" role="tab" aria-expanded="false" style="font-size: 18px;">
               &nbsp City
             </button>
             <div class="collapse" id="City-collapse">
               <ul class="btn-toggle-nav list-unstyled fw-normal pb-1">
-                <li class="nav-link active" id="v-pills-Canberra-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Canberra" type="button" role="tab" aria-controls="v-pills-Canberra" aria-selected="true" style="margin-left: 15px;">Canberra</li>
+                <li class="nav-link" id="v-pills-Canberra-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Canberra" type="button" role="tab" aria-controls="v-pills-Canberra" aria-selected="true" style="margin-left: 15px;">Canberra</li>
               </ul>
               <ul class="btn-toggle-nav list-unstyled fw-normal pb-1">
                 <li class="nav-link" id="v-pills-Baltimore-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Baltimore" type="button" role="tab" aria-controls="v-pills-Baltimore" aria-selected="true" style="margin-left: 15px;">Baltimore</li>
@@ -102,19 +115,6 @@ layout: default
               </ul>
             </div>
           </div>          
-          <div>
-            <button class="btn panel-heading rounded collapsed text-primary" id="v-pills-People-tab" data-bs-toggle="collapse" data-bs-target="#People-collapse" type="button" role="tab" aria-expanded="false" style="font-size: 18px;">
-              &nbsp People
-            </button>
-            <div class="collapse" id="People-collapse">
-              <ul class="btn-toggle-nav list-unstyled fw-normal pb-1">
-                <li class="nav-link" id="v-pills-Me-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Me" type="button" role="tab" aria-controls="v-pills-Me" aria-selected="false" style="margin-left: 15px;">Me</li>
-              </ul>
-              <ul class="btn-toggle-nav list-unstyled fw-normal pb-1">
-                <li class="nav-link" id="v-pills-Group-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Group" type="button" role="tab" aria-controls="v-pills-Group" aria-selected="false" style="margin-left: 15px;">Group</li>
-              </ul>
-            </div>
-          </div>
 
           <div>
             <button class="btn panel-heading rounded collapsed text-primary" id="v-pills-Others-tab" data-bs-toggle="collapse" data-bs-target="#Others-collapse" type="button" role="tab" aria-expanded="false" style="font-size: 18px;">
@@ -144,7 +144,29 @@ layout: default
 
     
     <div class="tab-content content" id="v-pills-tabContent">
-      <div class="tab-pane fade show active" id="v-pills-Canberra" role="tabpanel" aria-labelledby="v-pills-Canberra-tab" tabindex="0">
+
+      <div class="tab-pane fade show active" id="v-pills-Me" role="tabpanel" aria-labelledby="v-pills-Me-tab" tabindex="0">
+        <div class="header d-flex flex-column align-items-center">
+          <h1 class="display-6 mt-3 mb-0">Me</h1>
+        </div>
+        <div class="container text-center" data-fit="cover" data-autohide="all">
+          <div id="Me-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
+          </div>
+        </div>
+      </div>
+      
+      <div class="tab-pane fade show" id="v-pills-Group" role="tabpanel" aria-labelledby="v-pills-Group-tab" tabindex="0">
+        <div class="header d-flex flex-column align-items-center">
+          <h1 class="display-6 mt-3 mb-0">Group</h1>
+        </div>
+        <div class="container text-center" data-fit="cover" data-autohide="all">
+          <div id="Group-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
+          </div>
+        </div>
+      </div>
+
+
+      <div class="tab-pane fade show" id="v-pills-Canberra" role="tabpanel" aria-labelledby="v-pills-Canberra-tab" tabindex="0">
         
         <div class="header d-flex flex-column align-items-center">
           <h1 class="display-6 mt-3 mb-0">Canberra</h1>
@@ -204,7 +226,7 @@ layout: default
   
       </div>
 
-      <div class="tab-pane fade" id="v-pills-NTU" role="tabpanel" aria-labelledby="v-pills-NTU-tab" tabindex="0">
+      <div class="tab-pane fade show" id="v-pills-NTU" role="tabpanel" aria-labelledby="v-pills-NTU-tab" tabindex="0">
         <div class="header d-flex flex-column align-items-center">
           <h1 class="display-6 mt-3 mb-0">NTU</h1>
         </div>
@@ -214,7 +236,7 @@ layout: default
         </div>
       </div>
 
-      <div class="tab-pane fade" id="v-pills-Nature" role="tabpanel" aria-labelledby="v-pills-Nature-tab" tabindex="0">
+      <div class="tab-pane fade show" id="v-pills-Nature" role="tabpanel" aria-labelledby="v-pills-Nature-tab" tabindex="0">
         <div class="header d-flex flex-column align-items-center">
           <h1 class="display-6 mt-3 mb-0">Nature</h1>
         </div>
@@ -224,7 +246,7 @@ layout: default
         </div>
       </div>
 
-      <div class="tab-pane fade" id="v-pills-Flowers" role="tabpanel" aria-labelledby="v-pills-Flowers-tab" tabindex="0">
+      <div class="tab-pane fade show" id="v-pills-Flowers" role="tabpanel" aria-labelledby="v-pills-Flowers-tab" tabindex="0">
         <div class="header d-flex flex-column align-items-center">
           <h1 class="display-6 mt-3 mb-0">Flowers</h1>
         </div>
@@ -234,27 +256,7 @@ layout: default
         </div>
       </div>
 
-      <div class="tab-pane fade" id="v-pills-Group" role="tabpanel" aria-labelledby="v-pills-Group-tab" tabindex="0">
-        <div class="header d-flex flex-column align-items-center">
-          <h1 class="display-6 mt-3 mb-0">Group</h1>
-        </div>
-        <div class="container text-center" data-fit="cover" data-autohide="all">
-          <div id="Group-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
-          </div>
-        </div>
-      </div>
-
-      <div class="tab-pane fade" id="v-pills-Me" role="tabpanel" aria-labelledby="v-pills-Me-tab" tabindex="0">
-        <div class="header d-flex flex-column align-items-center">
-          <h1 class="display-6 mt-3 mb-0">Me</h1>
-        </div>
-        <div class="container text-center" data-fit="cover" data-autohide="all">
-          <div id="Me-wrapper" class="row row-cols-2 row-cols-lg-3 g-4 g-lg-1">
-          </div>
-        </div>
-      </div>
-
-      <div class="tab-pane fade" id="v-pills-Lab" role="tabpanel" aria-labelledby="v-pills-Lab-tab" tabindex="0">
+      <div class="tab-pane fade show" id="v-pills-Lab" role="tabpanel" aria-labelledby="v-pills-Lab-tab" tabindex="0">
         <div class="header d-flex flex-column align-items-center">
           <h1 class="display-6 mt-3 mb-0">CCB Lab</h1>
         </div>
@@ -264,7 +266,7 @@ layout: default
         </div>
       </div>
 
-      <div class="tab-pane fade" id="v-pills-Electrical_Engineering" role="tabpanel" aria-labelledby="v-pills-Electrical_Engineering-tab" tabindex="0">
+      <div class="tab-pane fade show" id="v-pills-Electrical_Engineering" role="tabpanel" aria-labelledby="v-pills-Electrical_Engineering-tab" tabindex="0">
         <div class="header d-flex flex-column align-items-center">
           <h1 class="display-6 mt-3 mb-0">Electrical Engineering</h1>
         </div>
@@ -274,7 +276,7 @@ layout: default
         </div>
       </div>
 
-      <div class="tab-pane fade" id="v-pills-Aquarium" role="tabpanel" aria-labelledby="v-pills-Aquarium-tab" tabindex="0">
+      <div class="tab-pane fade show" id="v-pills-Aquarium" role="tabpanel" aria-labelledby="v-pills-Aquarium-tab" tabindex="0">
         <div class="header d-flex flex-column align-items-center">
           <h1 class="display-6 mt-3 mb-0">Aquarium</h1>
         </div>
@@ -284,7 +286,7 @@ layout: default
         </div>
       </div>
 
-      <div class="tab-pane fade" id="v-pills-Airplane" role="tabpanel" aria-labelledby="v-pills-Airplane-tab" tabindex="0">
+      <div class="tab-pane fade show" id="v-pills-Airplane" role="tabpanel" aria-labelledby="v-pills-Airplane-tab" tabindex="0">
         <div class="header d-flex flex-column align-items-center">
           <h1 class="display-6 mt-3 mb-0">Airplane</h1>
         </div>
