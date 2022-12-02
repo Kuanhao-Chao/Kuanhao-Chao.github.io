@@ -28,8 +28,8 @@ layout: default
     <div class="sidebar sticky">
       <div class="sidebar_gallery d-flex flex-column flex-shrink-0 p-1" >
         <!-- style="width: 30%;"> -->
-          <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
-            <svg class="bi pe-none me-2" width="40" height="32"><use xlink:href="#bootstrap"></use></svg>
+          <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none" style="font-weight: 800;">
+            <!-- <svg class="bi pe-none me-2" width="40" height="32"><use xlink:href="#bootstrap"></use></svg> -->
             <span class="fs-4"> <i class="fa fa-camera fa-1x" aria-hidden="true"></i> Photos</span>
           </a>
           <hr>
@@ -58,7 +58,7 @@ layout: default
                   </ul>
                 </div>
               </li> -->
-              <li class="nav-link active" id="v-pills-Selected-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Selected" type="button" role="tab" aria-controls="v-pills-Selected" aria-selected="false"><i class="fa fa-star" aria-hidden="true"></i> Selected</li>
+              <li class="nav-link active" id="v-pills-Selected-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Selected" type="button" role="tab" aria-controls="v-pills-Selected" aria-selected="false"><i class="fa fa-star" aria-hidden="true"></i> Select</li>
     
               <div>
                 <button class="btn panel-heading rounded collapsed text-primary" id="v-pills-People-tab" data-bs-toggle="collapse" data-bs-target="#People-collapse" type="button" role="tab" aria-expanded="false" >
@@ -154,7 +154,7 @@ layout: default
       <!-- style="width: 70%;"> -->
         <div class="tab-pane fade show active" id="v-pills-Selected" role="tabpanel" aria-labelledby="v-pills-Selected-tab" tabindex="0">
           <div class="header d-flex flex-column align-items-center">
-            <h1 class="display-6 mt-3 mb-0" style="font-weight:bold; padding-bottom:10px">Selected</h1>
+            <h1 class="display-6 mt-3 mb-0" style="font-weight:bold; padding-bottom:10px">Select</h1>
           </div>
           <div class="container text-center" data-fit="cover" data-autohide="all">
             <div id="Selected-wrapper" class="row row-cols-1 row-cols-lg-3 g-4 g-lg-1">
@@ -335,7 +335,7 @@ layout: default
             <div class="p-1 border bg-light">
               <a class="spotlight" data-theme="true" data-play="true" data-download="true" href="{{base_path}}/gallery/`;
           var node2 = `">
-                <img style="width: 300px; height: 200px; object-fit: cover;" alt=".." src="{{base_path}}/gallery/`;
+                <img style="width: 400px; height: 200px; object-fit: cover;" alt=".." src="{{base_path}}/gallery/`;
           var node3 = `" />
               </a>
             </div>
