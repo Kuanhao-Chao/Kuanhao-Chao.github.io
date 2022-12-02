@@ -25,40 +25,17 @@ layout: default
   } 
   </style>
   <div class="d-flex align-items-start">
-    <!-- <div class="sidebar sticky"> -->
-      <div class="sidebar sticky sidebar_gallery d-flex flex-column flex-shrink-0 p-1" >
+    <div class="sidebar sticky">
+      <div class="sidebar_gallery d-flex flex-column flex-shrink-0 p-1" >
         <!-- style="width: 30%;"> -->
           <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none" style="font-weight: 800;">
-            <!-- <svg class="bi pe-none me-2" width="40" height="32"><use xlink:href="#bootstrap"></use></svg> -->
             <span class="fs-4"> <i class="fa fa-camera fa-1x" aria-hidden="true"></i> Photos</span>
           </a>
           <hr>
             <ul class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-    
-              <!-- <li class="nav-link collapse" id="v-pills-home-tab" data-bs-toggle="pill" data-bs-target="#v-pills-home" type="button" role="tab" aria-controls="v-pills-home" aria-selected="true">home -->
-                <!-- <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
-                  <li><a href="#" class="link-dark rounded">Overview</a></li>
-                  <li><a href="#" class="link-dark rounded">Updates</a></li>
-                  <li><a href="#" class="link-dark rounded">Reports</a></li>
-                </ul> -->
-              <!-- </li> -->
-    
-              <!-- <li class="nav-link active" id="v-pills-ANU-tab" data-bs-toggle="pill" data-bs-target="#v-pills-ANU" type="button" role="tab" aria-controls="v-pills-ANU" aria-selected="true">ANU</li> -->
-    
-              <!-- <li class="nav-link" id="v-pills-home-tab" data-bs-toggle="pill" data-bs-target="#v-pills-home" type="button" role="tab" aria-controls="v-pills-home" aria-selected="true"> -->
-              <!-- <li class="nav-link">
-                <button class="btn btn-toggle rounded collapsed" id="v-pills-home-tab" style="width: 100%;" data-bs-toggle="collapse" data-bs-target="#home-collapse" type="button" role="tab" aria-expanded="false">
-                  Home
-                </button>
-                <div class="collapse" id="home-collapse">
-                  <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
-                    <li><a href="#" class="link-dark rounded">Overview</a></li>
-                    <li><a href="#" class="link-dark rounded">Updates</a></li>
-                    <li><a href="#" class="link-dark rounded">Reports</a></li>
-                  </ul>
-                </div>
-              </li> -->
-              <li class="nav-link active" id="v-pills-Selected-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Selected" type="button" role="tab" aria-controls="v-pills-Selected" aria-selected="false" style="margin-right:10px"><td><nobr><i class="fa fa-star" aria-hidden="true"></i> Selected</nobar></td></li>
+              <li class="nav-link active" id="v-pills-Selected-tab" data-bs-toggle="pill" data-bs-target="#v-pills-Selected" type="button" role="tab" aria-controls="v-pills-Selected" aria-selected="false" style="margin-right:10px"> 
+                <nobar><i class="fa fa-star" aria-hidden="true" style="display: inline !important"></i>&nbsp Selected</nobar>
+              </li>
     
               <div>
                 <button class="btn panel-heading rounded collapsed text-primary" id="v-pills-People-tab" data-bs-toggle="collapse" data-bs-target="#People-collapse" type="button" role="tab" aria-expanded="false" >
@@ -146,7 +123,7 @@ layout: default
             </ul>
     
       </div>
-    <!-- </div> -->
+    </div>
       <div class="tab-content content archive" id="v-pills-tabContent">
         <div class="tab-pane fade show active" id="v-pills-Selected" role="tabpanel" aria-labelledby="v-pills-Selected-tab" tabindex="0">
           <div class="header d-flex flex-column align-items-center">
