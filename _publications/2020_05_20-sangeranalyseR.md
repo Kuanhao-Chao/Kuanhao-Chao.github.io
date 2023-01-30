@@ -2,7 +2,12 @@
 title: "sangeranalyseR: simple and interactive processing of Sanger sequencing data in R"
 collection: publications
 permalink: https://academic.oup.com/gbe/article/doi/10.1093/gbe/evab028/6137837?guestAccessKey=0252e360-4455-46b3-8513-324e5246fc92
-excerpt: '<small><details><summary><b>Abstract:</b></summary>This package builds on sangerseqR to allow users to create contigs from collections of Sanger sequencing reads. It provides a wide range of options for a number of commonly-performed actions including read trimming, detecting secondary peaks, and detecting indels using a reference sequence. All parameters can be adjusted interactively either in R or in the associated Shiny applications. There is extensive online documentation, and the package can outputs detailed HTML reports, including chromatograms.</details></small>'
+excerpt: '<details>
+  <summary><b>Abstract:</b></summary>
+  <p><small>
+  sangeranalyseR is feature-rich, free, and open-source R package for processing Sanger sequencing data. It allows users to go from loading reads to saving aligned contigs in a few lines of R code by using sensible defaults for most actions. It also provides complete flexibility for determining how individual reads and contigs are processed, both at the command-line in R and via interactive Shiny applications. sangeranalyseR provides a wide range of options for all steps in Sanger processing pipelines including trimming reads, detecting secondary peaks, viewing chromatograms, detecting indels and stop codons, aligning contigs, estimating phylogenetic trees, and more. Input data can be in either ABIF or FASTA format. sangeranalyseR comes with extensive online documentation and outputs aligned and unaligned reads and contigs in FASTA format, along with detailed interactive HTML reports. sangeranalyseR supports the use of colorblind-friendly palettes for viewing alignments and chromatograms. It is released under an MIT licence and available for all platforms on Bioconductor (https://bioconductor.org/packages/sangeranalyseR, last accessed February 22, 2021) and on Github (https://github.com/roblanf/sangeranalyseR, last accessed February 22, 2021).
+  </small></p>
+  </details>'
 date: 2021-02-08
 venue: '<b>Genome Biology and Evolution(GBE)</b>'
 paperurl: 'https://academic.oup.com/gbe/article/13/3/evab028/6137837'
