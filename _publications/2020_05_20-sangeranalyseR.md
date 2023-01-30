@@ -2,7 +2,7 @@
 title: "sangeranalyseR: simple and interactive processing of Sanger sequencing data in R"
 collection: publications
 permalink: https://academic.oup.com/gbe/article/doi/10.1093/gbe/evab028/6137837?guestAccessKey=0252e360-4455-46b3-8513-324e5246fc92
-excerpt: '<small><details>This package builds on sangerseqR to allow users to create contigs from collections of Sanger sequencing reads. It provides a wide range of options for a number of commonly-performed actions including read trimming, detecting secondary peaks, and detecting indels using a reference sequence. All parameters can be adjusted interactively either in R or in the associated Shiny applications. There is extensive online documentation, and the package can outputs detailed HTML reports, including chromatograms.</details></small>'
+excerpt: '<small><details><summary><b>Abstract:</b></summary>This package builds on sangerseqR to allow users to create contigs from collections of Sanger sequencing reads. It provides a wide range of options for a number of commonly-performed actions including read trimming, detecting secondary peaks, and detecting indels using a reference sequence. All parameters can be adjusted interactively either in R or in the associated Shiny applications. There is extensive online documentation, and the package can outputs detailed HTML reports, including chromatograms.</details></small>'
 date: 2021-02-08
 venue: '<b>Genome Biology and Evolution(GBE)</b>'
 paperurl: 'https://academic.oup.com/gbe/article/13/3/evab028/6137837'
