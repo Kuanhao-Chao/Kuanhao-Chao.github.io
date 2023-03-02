@@ -80,7 +80,7 @@ analytics:
 # News
 news:
 
-  - {time: "March, 2023", story: "My paper <a href='https://doi.org/10.1101/2022.10.15.512390' target='_blank'>WGT</a>, describing the first Wheeler Graph suite and the fast recognition algorithm (<i>Wheelie</i>), is accepted to RECOMB-Seq as a proceedings track paper. Great collaboration with <a href='https://langmead-lab.org/' target='_blank'>langmead lab</a> and <a href='http://people.eecs.berkeley.edu/~sseshia/' target='_blank'>Seshia lab</a>." }
+  - {time: "March, 2023", story: "My paper <a href='https://doi.org/10.1101/2022.10.15.512390' target='_blank'>WGT</a> is accepted to <a href='https://recomb-seq.github.io/' target='_blank'>RECOMB-Seq<a> as a proceedings track paper. Great collaboration with <a href='https://langmead-lab.org/' target='_blank'>langmead lab</a> and <a href='http://people.eecs.berkeley.edu/~sseshia/' target='_blank'>Seshia lab</a>." }
 
   - {time: "Jan, 2023", story: "My new paper in G3: Genes, Genomes, Genetics describes the first gap-free assembly of a <a href='https://www.ncbi.nlm.nih.gov/assembly/GCA_024586135.1/' target='_blank'>Han Chinese human, Han1</a>. See the paper <a href='https://doi.org/10.1093/g3journal/jkac321' target='_blank'>here</a>." }
 
