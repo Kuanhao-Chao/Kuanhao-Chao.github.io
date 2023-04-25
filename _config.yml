@@ -228,6 +228,9 @@ collections:
   photos:
     output: true
     permalink: /:collection/:path/
+  contact:
+    output: true
+    permalink: /:collection/:path/
 
 # Defaults
 defaults:
@@ -313,6 +316,11 @@ defaults:
       type: photos
     values:
       layout: photo
+  - scope:
+      path: ""
+      type: contact
+    values:
+      layout: contact
   # _references
   - scope:
       path: ""
