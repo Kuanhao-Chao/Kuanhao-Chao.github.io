@@ -16,7 +16,7 @@ z-index:100;">
   </p>
 
   <p>
-    My research interests are genome assembly and transcriptome (RNA sequencing). I am also passionate about developing open source bioinformatics tools and designing algorithms. I have developed two <a target="_blank"  href="https://www.bioconductor.org" style="color:#4A4F53" >Bioconductor</a> R packages which are <a target="_blank"  href="https://bioconductor.org/packages/release/bioc/html/RNASeqR.html" style="color:#4A4F53" >RNASeqR</a> and <a target="_blank"  href="https://bioconductor.org/packages/release/bioc/html/sangeranalyseR.html" style="color:#4A4F53" >sangeranalyseR</a>. Fore more information, please visit my <a target="_blank"  href="https://kuanhao-chao.github.io/researches/" style="color:#2c508f"><b>research page 🔬</b></a>.
+    My area of interest lies in the creation of innovative algorithms that can be applied to computational genomics, with a particular emphasis on transcriptome (RNA sequencing) and genome assembly.  I have a particular passion for developing highly efficient algorithms and ultra-fast tools that improve gene annotation precision and the quality of genome. I am also a big fan of open source software. Two of my R packages on <a target="_blank"  href="https://www.bioconductor.org" style="color:#4A4F53" >Bioconductor</a> are <a target="_blank"  href="https://bioconductor.org/packages/release/bioc/html/sangeranalyseR.html" style="color:#4A4F53" >sangeranalyseR</a> and <a target="_blank"  href="https://bioconductor.org/packages/release/bioc/html/RNASeqR.html" style="color:#4A4F53" >RNASeqR</a>. Visit my <a target="_blank"  href="https://kuanhao-chao.github.io/researches/" style="color:#2c508f"><b>research page 🔬</b></a> for more information.
   </p>
 
 </div>
