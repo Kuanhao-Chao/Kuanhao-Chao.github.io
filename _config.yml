@@ -79,7 +79,7 @@ analytics:
 
 # News
 news:
-  - {time: "June, 2023", story: "My paper on analyzing protein interactome using co-elution data is published in <i>Briefing in Bioinformatics</i>. Great collaboration with  <a href='https://bits.iis.sinica.edu.tw/' target='_blank'>HK Tsai Lab</a> and <a href='http://www.imb.sinica.edu.tw/~jleu/' target='_blank'>Jun-Yi Leu Lab</a>! See the paper <a href='https://doi.org/10.1093/bib/bbad229' target='_blank'>here</a>."}
+  - {time: "June, 2023", story: "My co-first author  paper on analyzing protein interactome using co-elution data is published in <i>Briefing in Bioinformatics</i>. Great collaboration with  <a href='https://bits.iis.sinica.edu.tw/' target='_blank'>HK Tsai Lab</a> and <a href='http://www.imb.sinica.edu.tw/~jleu/' target='_blank'>Jun-Yi Leu Lab</a>! See the paper <a href='https://doi.org/10.1093/bib/bbad229' target='_blank'>here</a>."}
 
   - {time: "May, 2023", story: "SPLAM is accepted as a poster at <a href='http://cosi.iscb.org/wiki/MLCSB:Home' target='_blank'>MLCSB COSI</a>, and <a href='https://doi.org/10.1093/g3journal/jkac321' target='_blank'>Han1</a> is accepted as a highlight poster at <a href='http://hitseq.org/' target='_blank'>HiTSeq COSI</a>. Exciting to share our work at <a href='https://www.iscb.org/ismbeccb2023' target='_blank'>ISMB/ECCB 2023</a> in Lyon, France."}
 
