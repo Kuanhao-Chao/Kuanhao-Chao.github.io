@@ -78,7 +78,7 @@ analytics:
     tracking_id          :
 
 # News
-news:
+newslist:
 
   - {time: "July, 2023", story: "Thrilled to release Splam v1.0.2, a splice site predictor that enhances spliced alignments. Check out the Splam <a href='https://github.com/Kuanhao-Chao/splam' target='_blank'>GitHub</a>, <a href='https://doi.org/10.1101/2023.07.27.550754' target='_blank'>preprint</a>, and the <a href='http://ccb.jhu.edu/splam/' target='_blank'>documentation</a>!"}
 
@@ -344,7 +344,7 @@ defaults:
       type: news
     values:
       layout: news
-      author_profile: true
+      author_profile: false
       share: true
 
 

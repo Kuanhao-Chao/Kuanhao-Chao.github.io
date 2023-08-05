@@ -4,7 +4,7 @@
   {% assign author = site.data.authors[page.author] %}{% else %}{% assign author = site.author %}
 {% endif %}
 
-{% assign news = site.news %}
+{% assign news = site.newslist %}
 
 <div itemscope itemtype="http://schema.org/Person">
 
@@ -38,11 +38,16 @@
     margin: 0 0 10px;
     padding-bottom: 10px;
     text-transform: uppercase;"> <i class="fa fa-fw fa-newspaper" aria-hidden="true"></i> News</h3>
-    {% for item in news %}
+    <!-- {% for item in news %}
     <p class="author__bio" style="font-size: 9px;
     font-size: 0.9rem; font-weight: 400; padding-bottom: 1.5px;"><strong style="font-size: 1rem; font-weight: 700;"><i class="fa fa-fw fa-bullhorn" style="font-size: 0.8rem;" aria-hidden="true"></i> {{ item.time }}</strong>: <br>{{ item.story }}</p>
+    {% endfor %} -->
+
+    {% assign news = site.news | reverse %}
+
+    {% for post in news | limit:5 %}
+        {% include archive-single-news-profile.html %}
     {% endfor %}
-    
     <br>
     <br>
   </div>

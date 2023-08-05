@@ -8,14 +8,15 @@
   {% assign teaser = site.teaser %}
 {% endif %}
 
+
   {% assign title = post.title | markdownify | remove: "<p>" | remove: "</p>" %}
   {% assign date = post.date %}
 
   <div class="{{ include.type | default: "list" }}__item">
-    <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork">
-      <h2 class="archive__item-title" itemprop="headline">
-        <i class="fa fa-fw fa-bullhorn" aria-hidden="true"></i> {{ date | date: "%b %Y"}}
-      </h2>
-      {{ title }}
-    </article>
+    <!-- <article class="archive__item" itemscope itemtype="http://schema.org/CreativeWork"> -->
+      <p class="archive__item-title" itemprop="headline" style="font-size: 12pt;">
+        <b><i class="fa fa-fw fa-bullhorn" aria-hidden="true"></i> {{ date | date: "%b %Y"}}: </b>
+        {{ title }}
+      </p>
+    <!-- </article> -->
 </div>
