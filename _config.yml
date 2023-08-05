@@ -237,6 +237,10 @@ collections:
   contact:
     output: true
     permalink: /:collection/:path/
+  news:
+    output: true
+    permalink: /:collection/:path/
+
 
 # Defaults
 defaults:
@@ -327,7 +331,6 @@ defaults:
       type: contact
     values:
       layout: contact
-  # _references
   - scope:
       path: ""
       type: references
@@ -336,6 +339,14 @@ defaults:
       author_profile: true
       share: true
       comments: true
+  - scope:
+      path: ""
+      type: news
+    values:
+      layout: news
+      author_profile: true
+      share: true
+
 
 # Sass/SCSS
 sass:
