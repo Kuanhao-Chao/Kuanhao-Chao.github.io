@@ -6,7 +6,7 @@ date: "October 2021"
 location: "Taipei, Taiwan"
 ---
 
-  - {time: "Sep, 2021", story: "I join Dr. Steven Salzberg's and Dr. Mihaela Pertea's lab as a CS Ph.D. student at JHU." }
+  - {time: "Sep, 2021", story: "I join Dr. <a href='https://salzberg-lab.org/' target='_blank'>Steven Salzberg</a>'s and Dr. <a href='http://ccb.jhu.edu/people/mpertea/' target='_blank'>Mihaela Pertea</a>'s lab as a CS Ph.D. student at JHU." }
 
   - {time: "Aug, 2021", story: "sangeranalyseR is awarded the <strong>Best Poster</strong> at <a href='https://bioc2021.bioconductor.org/' target='_blank'>Bioc2021</a> <a href='https://f1000research.com/posters/10-888' target='_blank'> >>Poster<< </a>." }
 

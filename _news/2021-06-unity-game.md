@@ -1,5 +1,5 @@
 ---
-title: "Play my <a href='https://khchao.com/projects/' target='_blank'>Unity games</a>!"
+title: "Play my Unity games! <a href='https://khchao.com/projects/games/biobaby' target='_blank'>biobaby</a>, <a href='https://khchao.com/projects/games/flappy_penguin' target='_blank'>flappy penguin</a> and <a href='https://khchao.com/projects/' target='_blank'>more</a>."
 collection: news
 type: "news"
 date: "June 2021"

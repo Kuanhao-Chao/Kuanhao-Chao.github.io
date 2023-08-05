@@ -1,5 +1,5 @@
 ---
-title: "sangeranalyseR is awarded the <strong>Best Poster</strong> at <a href='https://bioc2021.bioconductor.org/' target='_blank'>Bioc2021</a> <a href='https://f1000research.com/posters/10-888' target='_blank'> >>Poster<< </a>"
+title: "sangeranalyseR is awarded the <strong>Best Poster</strong> at <a href='https://bioc2021.bioconductor.org/' target='_blank'>Bioc2021</a>. Check out my sangeranalyseR <a href='https://f1000research.com/posters/10-888' target='_blank'>poster</a>!"
 collection: news
 type: "news"
 date: "August 2021"

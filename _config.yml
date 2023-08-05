@@ -345,7 +345,6 @@ defaults:
     values:
       layout: news
       author_profile: false
-      share: true
 
 
 # Sass/SCSS

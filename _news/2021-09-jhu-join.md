@@ -1,5 +1,5 @@
 ---
-title: "I join Dr. Steven Salzberg's and Dr. Mihaela Pertea's lab as a CS Ph.D. student at JHU"
+title: "I join Dr. <a href='https://salzberg-lab.org/' target='_blank'>Steven Salzberg</a>'s and Dr. <a href='http://ccb.jhu.edu/people/mpertea/' target='_blank'>Mihaela Pertea</a>'s lab as a CS Ph.D. student at the Johns Hopkins University."
 collection: news
 type: "news"
 date: "September 2021"

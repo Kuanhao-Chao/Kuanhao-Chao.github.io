@@ -37,7 +37,7 @@
     letter-spacing: 2px;
     margin: 0 0 10px;
     padding-bottom: 10px;
-    text-transform: uppercase;"> <i class="fa fa-fw fa-newspaper" aria-hidden="true"></i> News</h3>
+    text-transform: uppercase;"> <i class="fa fa-fw fa-newspaper" aria-hidden="true"></i> <a target="_blank"  href="https://kuanhao-chao.github.io/news/" style="color:#4A4F53;">NEWS</a></h3>
     <!-- {% for item in news %}
     <p class="author__bio" style="font-size: 9px;
     font-size: 0.9rem; font-weight: 400; padding-bottom: 1.5px;"><strong style="font-size: 1rem; font-weight: 700;"><i class="fa fa-fw fa-bullhorn" style="font-size: 0.8rem;" aria-hidden="true"></i> {{ item.time }}</strong>: <br>{{ item.story }}</p>
@@ -45,9 +45,13 @@
 
     {% assign news = site.news | reverse %}
 
-    {% for post in news | limit:5 %}
+    {% for post in news | limit:6 %}
         {% include archive-single-news-profile.html %}
     {% endfor %}
+
+    <br>
+    <a target="_blank"  href="https://kuanhao-chao.github.io/news/"> >> Full list of NEWS</a>.
+    <br>
     <br>
     <br>
   </div>
