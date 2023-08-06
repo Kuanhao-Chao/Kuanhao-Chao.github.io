@@ -60,14 +60,31 @@
           {% endif %}
           {{post.altmetric}} &nbsp;
           {{post.license}}
-          {{post.document_status}}
-          {{post.platforms}}
 
           <!-- btn-outline-primary btn-page-header btn-sm js-cite-modal -->
-          <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">PDF</a>
-          <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib" >Cite</a>
-          <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Code</a>
-          <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Documentation</a>
+          {% if post.pdf %}
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">PDF</a>
+          {% endif %}
+
+          {% if post.citation %}
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib" >Cite</a>
+          {% endif %}
+
+          {% if post.code %}
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Code</a>
+          {% endif %}
+          
+          {% if post.documentation %}
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Documentation</a>
+          {% endif %}
+
+          {% if post.poster %}
+          <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Poster</a>
+          {% endif %}
+
+          {% if post.slides %}
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Slides</a>
+          {% endif %}
 
 
 
