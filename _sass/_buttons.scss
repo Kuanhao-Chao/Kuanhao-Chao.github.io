@@ -18,12 +18,13 @@
   text-align: center;
   text-decoration: none;
   background-color: #fff;
-  border: 1 !important;
+  border: 1 solid #52adc8 !important;
   border-radius: $border-radius;
   cursor: pointer;
 
   &:hover {
     background-color: mix(white, #52adc8, 20%);
+    color: #fff !important;
   }
 
   .icon {
