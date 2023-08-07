@@ -58,32 +58,32 @@
           {% if post.citation and post.paperurl %}
             <p style="font-size:15px; margin-top: -10px;"><i class="fa fa-users" aria-hidden="true"></i> &nbsp; {{ post.authors }}</p>
           {% endif %}
-          {{post.altmetric}} &nbsp;
+          <!-- {{post.altmetric}} &nbsp; -->
           {{post.license}}
 
           <!-- btn-outline-primary btn-page-header btn-sm js-cite-modal -->
           {% if post.pdf %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">PDF</a>
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">PDF</a>
           {% endif %}
 
           {% if post.citation %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib" >Cite</a>
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib" >Cite</a>
           {% endif %}
 
           {% if post.code %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Code</a>
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Code</a>
           {% endif %}
           
           {% if post.documentation %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Documentation</a>
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Documentation</a>
           {% endif %}
 
           {% if post.poster %}
-          <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Poster</a>
+          <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Poster</a>
           {% endif %}
 
           {% if post.slides %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" data-filename="/publication/journal-article/cite.bib">Slides</a>
+            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Slides</a>
           {% endif %}
 
 
