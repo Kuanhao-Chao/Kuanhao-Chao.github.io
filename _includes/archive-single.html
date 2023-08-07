@@ -55,6 +55,19 @@
           <p class="archive__item-excerpt" itemprop="description"><p>{{ post.excerpt | markdownify | remove: '<p>' | remove: '</p>' }}<strong><a href="{{ base_path }}{{ post.url }}" rel="permalink"> Read more</a></strong></p></p>
           {% endif %} -->
 
+
+          <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+          <link rel="stylesheet" href="{{base_path}}/assets/css/jquery.dialogbox.css">
+          <script src="{{base_path}}/assets/js/jquery.dialogBox.js"></script>
+
+          <script>
+            $('#btnDialog').click(function(){
+              $('#dialog').dialogBox({
+              //OPTIONS
+              })
+            })
+          </script>
+
           {% if post.citation and post.paperurl %}
             <p style="font-size:15px; margin-top: -10px;"><i class="fa fa-users" aria-hidden="true"></i> &nbsp; {{ post.authors }}</p>
           {% endif %}
@@ -63,28 +76,33 @@
 
           <!-- btn-outline-primary btn-page-header btn-sm js-cite-modal -->
           {% if post.pdf %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">PDF</a>
+            <a href="{{post.pdf}}" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">PDF</a>
           {% endif %}
 
           {% if post.citation %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib" >Cite</a>
+            <a id="btnDialog" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Cite</a>
+
+            <div id="dialog"></div>
+
+
           {% endif %}
 
           {% if post.code %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Code</a>
+            <a href="{{post.code}}" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Code</a>
           {% endif %}
           
           {% if post.documentation %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Documentation</a>
+            <a href="{{post.documentation}}" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Documentation</a>
           {% endif %}
 
           {% if post.poster %}
-          <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Poster</a>
+          <a href="{{post.poster}}" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Poster</a>
           {% endif %}
 
           {% if post.slides %}
-            <a href="#" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Slides</a>
+            <a href="{{post.slides}}" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Slides</a>
           {% endif %}
+
 
 
 
