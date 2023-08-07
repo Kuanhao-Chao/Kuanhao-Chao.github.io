@@ -12,12 +12,12 @@ date: 2021-02-08
 venue: '<b>Genome Biology and Evolution(GBE)</b>'
 paperurl: 'https://academic.oup.com/gbe/article/13/3/evab028/6137837'
 citation: '<br><b style="color:#ad0000">Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). sangeranalyseR: simple and interactive processing of Sanger sequencing data in R, <i><b>Genome Biology and Evolution</b></i>, Volume 13, Issue 3, March 2021, evab028, <a href="https://academic.oup.com/gbe/article/doi/10.1093/gbe/evab028/6137837?guestAccessKey=0252e360-4455-46b3-8513-324e5246fc92s">https://doi.org/10.1093/gbe/evab028</a>.'
-doi: 'https://doi.ieeecomputersociety.org/10.1109/TCBB.2019.2956708'
-pdf: 'https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8918337'
-code: 'https://github.com/Kuanhao-Chao/RNASeqR'
-documentation: 'https://github.com/Kuanhao-Chao/RNASeqR'
-slides: 'https://drive.google.com/file/d/1XLg_ej1cUAJ8uTVV_XM-0KxnR2DKQXIQ/view?pli=1'
-poster: ''
+doi: 'https://doi.org/10.1093/gbe/evab028'
+pdf: 'https://academic.oup.com/gbe/article/13/3/evab028/6137837'
+code: 'https://github.com/roblanf/sangeranalyseR'
+documentation: 'https://sangeranalyser.readthedocs.io/en/latest/'
+# slides: 'https://drive.google.com/file/d/1XLg_ej1cUAJ8uTVV_XM-0KxnR2DKQXIQ/view?pli=1'
+poster: 'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Bioc2021/sangeranalyseR_poster.pdf'
 authors:  '<b style="color:#ad0000">Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear*'
 altmetric: "<div class='altmetric-embed' data-badge-type='1' data-doi='10.1093/gbe/evab028' style='display:inline;'></div>"
 altmetric_inside: "<div data-badge-type='donut' class='altmetric-embed' data-badge-popover='left' data-doi='10.1093/gbe/evab028' style='display:inline;'></div>"
