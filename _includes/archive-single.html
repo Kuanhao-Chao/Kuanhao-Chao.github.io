@@ -57,19 +57,10 @@
 
 
 
-          <script src="{{base_path}}/assets/js/jquery-1.11.2.min.js"></script>
+          <script src="http://code.jquery.com/jquery-1.11.2.min.js"></script>
+          <link rel="stylesheet" type="text/css" href="{{base_path}}/assets/css/jquery.dialogbox.css">
 
-          <link rel="stylesheet" href="{{base_path}}/assets/css/jquery.dialogbox.css">
           <script src="{{base_path}}/assets/js/jquery.dialogBox.js"></script>
-
-          <script>
-            $('#btnDialog').click(function(){
-              $('#dialog').dialogBox({
-              //OPTIONS
-              })
-            })
-          </script>
-
           {% if post.citation and post.paperurl %}
             <p style="font-size:15px; margin-top: -10px;"><i class="fa fa-users" aria-hidden="true"></i> &nbsp; {{ post.authors }}</p>
           {% endif %}
@@ -82,11 +73,38 @@
           {% endif %}
 
           {% if post.citation %}
-            <a id="btnDialog" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Cite</a>
+            <a id="test" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib">Cite</a>
 
+
+            <input  type="button" value="click me" id="btnDialog" />
             <div id="dialog"></div>
+            <div id="message"></div>
 
 
+            <script>
+		$(function(){
+			$('#btnDialog').click(function(){
+				$('#dialog').dialogBox({
+					hasClose: true,
+					effect: 'fade',
+					hasBtn: true,
+					confirm:function(){
+						$('#message').dialogBox({
+							title: 'Hello Word',
+							content: 'I am a dialogBox',
+							hasClose: true
+						})
+					},
+					title: 'I am title text',
+					content: 'I am a dialog box! Please custom styles base on options!',
+					callback: function(){
+						console.log('loading over')
+					}
+				})
+			})
+		})
+            </script>
+  
           {% endif %}
 
           {% if post.code %}

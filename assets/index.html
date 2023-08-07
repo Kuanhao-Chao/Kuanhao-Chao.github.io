@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>dialogBox</title>
+	<link rel="stylesheet" type="text/css" href="css/jquery.dialogbox.css">
+</head>
+<body style="background:#eee">
+	<input  type="button" value="click me" id="btnDialog" />
+	<div id="dialog"></div>
+	<div id="message"></div>
+
+	<script src="http://code.jquery.com/jquery-1.11.2.min.js"></script>
+	<script src="js/jquery.dialogBox.js"></script>
+	<script>
+		$(function(){
+			$('#btnDialog').click(function(){
+				$('#dialog').dialogBox({
+					hasClose: true,
+					effect: 'fade',
+					hasBtn: true,
+					confirm:function(){
+						$('#message').dialogBox({
+							title: 'Hello Word',
+							content: 'I am a dialogBox',
+							hasClose: true
+						})
+					},
+					title: 'I am title text',
+					content: 'I am a dialog box! Please custom styles base on options!',
+					callback: function(){
+						console.log('loading over')
+					}
+				})
+			})
+		})
+	</script>
+</body>
+
+</html>
