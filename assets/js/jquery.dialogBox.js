@@ -8,7 +8,7 @@
 
  ;(function($,window,document){
 
- 	var pluginName = 'dialogBox',
+ 	var pluginName = 'dialogBoxXXX',
  		defaults = {
 
  			width: null, //number,弹出层宽度
