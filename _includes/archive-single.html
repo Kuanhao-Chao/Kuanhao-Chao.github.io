@@ -57,7 +57,7 @@
 
 
 
-          {% if post.citation and post.paperurl %}
+          {% if post.citation and post.permalink %}
             <p style="font-size:15px; margin-top: -10px;"><i class="fa fa-users" aria-hidden="true"></i> &nbsp; {{ post.authors }}</p>
           {% endif %}
           <!-- {{post.altmetric}} &nbsp; -->
@@ -70,38 +70,43 @@
 
           {% if post.citation %}
 
-
-          <style>
-            .popup {
-                position: fixed;
-                z-index: 1;
-                left: 0;
-                top: 0;
-                width: 100%;
-                height: 100%;
-                overflow: auto;
-                background-color: rgba(0, 0, 0, 0.4);
-                display: none;
-            }
-            .popup-content {
-                background-color: white;
-                margin: 10% auto;
-                padding: 20px;
-                border: 1px solid #888888;
-                width: 30%;
-                font-weight: bolder;
-            }
-            .popup-content button {
-                display: block;
-                margin: 0 auto;
-            }
-            .show {
-                display: block;
-            }
-        </style>
+<!-- 
+<div class="popup-overlay" id="{{post.permalink}}">
+  <div class="popup-content">
+    <span class="close-button close-popup-btn">&times;</span>
+    <h1 style="margin-top: 10px;">Citation</h1>
+    {{post.citation}}
+    <br>
+    <br>
+    <pre>{{post.citationbib}}</pre>
+  </div>
+</div> -->
 
 
-            <a id="test" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" data-filename="/publication/journal-article/cite.bib" onclick="myFunctionXXX('{{post.citation}}')">Cite</a>
+<!-- 
+<script>
+  console.log("button clicked!");
+  const showPopupBtns = document.querySelectorAll('.show-popup-btn');
+  const closePopupBtns = document.querySelectorAll('.close-popup-btn');
+  const popupOverlay = document.getElementById('{{post.permalink}}');
+
+  showPopupBtns.forEach(button => {
+  button.addEventListener('click', () => {
+  popupOverlay.style.display = 'flex';
+  });
+  });
+
+  closePopupBtns.forEach(button => {
+  button.addEventListener('click', () => {
+  popupOverlay.style.display = 'none';
+  });
+  });
+</script> -->
+
+
+
+
+            <a id="test" class="btn btn-outline-primary btn-page-header btn-sm show-popup-btn" style="text-decoration: none" onclick="dosomething('{{post.citation}}', '{{post.citationbib}}')">Cite</a>
 
             <link rel="stylesheet" type="text/css" href="{{base_path}}/assets/css/jquery.dialogbox.css">
 
@@ -109,6 +114,8 @@
             <!-- <script src="https://code.jquery.com/ui/1.11.2/jquery-ui.min.js"></script>
             <link rel="stylesheet" href="https://code.jquery.com/ui/1.11.2/themes/smoothness/jquery-ui.css" /> -->
             <script src="{{base_path}}/assets/js/jquery.dialogBox.js"></script>
+
+
 
             <style>
               .dialog-ovelay {
@@ -202,20 +209,6 @@
             }
             </script>
             
-
-          <script>
-            myButton.addEventListener("click", function () {
-                myPopup.classList.add("show");
-            });
-            closePopup.addEventListener("click", function () {
-                myPopup.classList.remove("show");
-            });
-            window.addEventListener("click", function (event) {
-                if (event.target == myPopup) {
-                    myPopup.classList.remove("show");
-                }
-            });
-          </script>
 
 
           {% endif %}
