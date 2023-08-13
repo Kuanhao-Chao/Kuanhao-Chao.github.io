@@ -30,7 +30,7 @@
       {% if post.link %}
         <a href="{{ post.link }}">{{ title }}</a> <a href="{{ base_path }}{{ post.url }}" rel="permalink"><i class="fa fa-link" aria-hidden="true" title="permalink"></i><span class="sr-only">Permalink</span></a>
       {% else %}
-        <a href="{{ base_path }}{{ post.url }}" rel="permalink" style="color: #494E52">{{ title }}</a>
+        <a href="{{ base_path }}{{ post.url }}" rel="permalink" style="color: #494E52; text-decoration: none;">{{ title }}</a>
       {% endif %}
     </h3>
     {% if post.start_date %}<p class="page__meta"><b><i class="fas fa-clock" aria-hidden="true"></i> &nbsp;&nbsp;  {{ post.start_date | date: '%B %d, %Y' }} {% if post.end_date %} - {{ post.end_date | date: '%B %d, %Y' }}{% endif %}</b></p>{% endif %}

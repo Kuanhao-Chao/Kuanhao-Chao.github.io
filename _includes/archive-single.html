@@ -35,9 +35,9 @@
 
     <h2 class="archive__item-title" itemprop="headline">
       {% if post.link %}
-        <a href="{{ post.link }}" tyle="color: #404040">{{ title }}</a> <a href="{{ post.permalink }}" rel="permalink" target=_blank><i class="fa fa-link" aria-hidden="true" title="permalink"></i><span class="sr-only">Permalink</span></a>
+        <a href="{{ post.link }}" tyle="color: #404040; text-decoration: none;">{{ title }}</a> <a href="{{ post.permalink }}" rel="permalink" target=_blank><i class="fa fa-link" aria-hidden="true" title="permalink"></i><span class="sr-only">Permalink</span></a>
       {% else %}
-        <a href="{{ post.permalink }}" rel="permalink" target=_blank style="color: #404040">{{ title }}</a>
+        <a href="{{ post.permalink }}" rel="permalink" target=_blank style="color: #404040; text-decoration: none;">{{ title }}</a>
       {% endif %}
     </h2>
 
