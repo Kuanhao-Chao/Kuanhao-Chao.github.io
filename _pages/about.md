@@ -18,116 +18,97 @@ z-index:100;">
   <p>
     My primary research interest is designing ultra-fast algorithms for computational genomics, specifically targeting transcriptome (RNA sequencing), gene annotation and genome assembly. I am also a big fan of open source software. Check out my <a target="_blank"  href="https://kuanhao-chao.github.io/news/" style="font-weight: 900;">NEWS</a> and <a target="_blank"  href="https://github.com/Kuanhao-Chao" style="font-weight: 900;">GitHub page</a>.
   </p>
-
-<!-- Two of my R packages on <a target="_blank"  href="https://www.bioconductor.org" style="color:#4A4F53" >Bioconductor</a> are <a target="_blank"  href="https://bioconductor.org/packages/release/bioc/html/sangeranalyseR.html" style="color:#4A4F53" >sangeranalyseR</a> and <a target="_blank"  href="https://bioconductor.org/packages/release/bioc/html/RNASeqR.html" style="color:#4A4F53" >RNASeqR</a>. Visit my <a target="_blank"  href="https://kuanhao-chao.github.io/researches/" style="color:#2c508f"><b>research page 🔬</b></a> for more information. -->
-
 </div>
 
-<hr>
 <br>
-<div data-aos="fade-up" data-aos-duration="1500">
-  <!-- <h2>Defining Dates</h2> -->
-  <div id="myTimeline">
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/multistringtie_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2021 - Present, Baltimore, MD">
-          <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/JHU_small.png" width="70px"></div>
-            <div class="column_title"><h3><a target="_blank"  href="https://salzberg-lab.org/" style="color:#4A4F53">Salzberg</a> & <a target="_blank"  href="http://www.ccb.jhu.edu/people/mpertea/" style="color:#4A4F53">Pertea Lab</a>, Center for Computational Biology, JHU  <br> <small><i>Ph.D. student</i></small></h3></div>
-          </div>
-          <p>
-          <ul>
-            <li>Building a multi-sample assembler upon StringTie aming to construct a more
-precise gene catalog. <a href="https://github.com/Kuanhao-Chao/multiStringTie" target="_blank"><i class="fab fa-github"> C++</i></a> | <a href="{{base_path}}/researches/2022-10-20-multistringtie" target="_blank"><i class="fa fa-television"></i></a> </li>
-            <li>Improving Liftoff to achieve higher cross-species lift-over accuracy. <a href="https://github.com/Kuanhao-Chao/Liftoff" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-python"></i></a> </li>
-            <li>Assembled Han1, the first gapless Southern Han Chinese individual genome <a href="https://github.com/JHUCCB/ChineseHanSouthGenome" target="_blank"><i class="fab fa-github"></i></a> | <a href="https://www.ncbi.nlm.nih.gov/assembly/GCA_024586135.1" target="_blank"><i>Han1</i><i class="fa fa-database"></i></a> </li>
-            <li>Conducted the first-ever gene content comparison between two fully annotated individuals, Han1 and T2T-CHM13.</li>
-            <strong><a href="https://doi.org/10.1101/2022.08.08.503226" target="_blank">Han1 paper <i class="fa fa-book"></i></a> (Chao et.al.)</strong>
-          </ul>
-          </p>
-      </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/wheelie_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2021 - Present, Baltimore, MD">
-          <div class="row">
-            <div class="column_img">
-              <img src="{{base_path}}/images/JHU_small.png" width="70px" height="70px" style="display:block; vertical-align:middle;">
-              <img src="{{base_path}}/images/UC_berkeley.png" width="70px" height="70px" style="display:block; vertical-align:middle; margin-top:5px">
-            </div>
-            <!-- <div class="column_img img-comp-container">
-              <div class="img-comp-container">
-                <div class="img-comp-img">
-                </div>
-                <div class="img-comp-img img-comp-overlay">
-                </div>
-            </div> -->
-            <div class="column_title"><h3><a target="_blank"  href="https://langmead-lab.org/" style="color:#4A4F53">Langmead Lab</a>, Department of Computer Science, JHU <br> <small style="line-height: 200%">collab with </small><br><a target="_blank"  href="http://people.eecs.berkeley.edu/~sseshia/" style="color:#4A4F53">Seshia Lab</a>,  Department of Electrical Engineering and Computer Sciences, UC Berkeley <br> <small><i>Research student</i></small></h3></div>
-          </div>
-          <p>
-            <ul>
-              <li>Developing algorithms to improve the graph-based sequence indexing aiming to apply them to the pan-genome graph.</li>
-              <li>Developed the first Wheeler graph toolkit, WGT, to generate, recognize, and visualize Wheeler graph. <a href="https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit" target="_blank"><i class="fab fa-github"> C++</i></a> </li> 
-              <li>Proposed a fast algorithm, Wheelie <img src="{{base_path}}/images/wheelie.png" width="25px">, making the NP-complete Wheeler Graph recognition problem solvable in practice.</li>
-              <strong><a href="https://www.biorxiv.org/content/10.1101/2022.10.15.512390v2.abstract" target="_blank">WGT paper <i class="fa fa-book"></i></a> (Chao et.al.) </strong>
-            </ul>
-          </p>
-      </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/elution_profile_project_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Aug 2020 - Feb 2021, Taipei, TW">
-          <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/iis_logo.png" width="70px"></div>
-            <div class="column_title"><h3><a target="_blank"  href="https://bits.iis.sinica.edu.tw/" style="color:#4A4F53">HK Tsai Lab</a>, Institute of Information Science, Academia Sinica <br> <small><i>Research assistant</i></small></h3></div>
-          </div>
-          <p>
-            <ul>
-              <li>Developed SPIFFED by applying a convolutional neural network to improve current tools on predicting protein-protein interactions using protein co-elution profiles. <a href="https://github.com/bio-it-station/SPIFFED" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-python"></i></a></li>
-            </ul>
-          </p> 
-      </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/sangeranalyseR_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jul 2019 - Jul 2020, Canberra, AU">
-          <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/anu_logo_small.png" width="70px"></div>
-            <div class="column_title"><h3><a target="_blank"  href="https://www.robertlanfear.com/" style="color:#4A4F53">Lanfear Lab</a>, Division of Ecology and Evolution, Research School of Biology, ANU <br> <small><i>Research assistant</i></small></h3></div>
-          </div>
-          <p>
-            <ul>
-              <li>Developed a bioconductor R package, sangeranalyseR, to democratize sanger sequencing data analysis in R. <a href="https://github.com/roblanf/sangeranalyseR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
-              <li>Implemented Bandelt tree encoding/decoding algorithm published in 1985.</li>
-              <strong><a href="https://doi.org/10.1093/gbe/evab028" target="_blank">sangeranalyseR paper <i class="fa fa-book"></i></a> (Chao et.al.)</strong>
-            </ul>
-          </p> 
-      </div>
-      <div data-vimg="<img class='pic' src='{{base_path}}/images/RNASeqR_side.png' width='100%' style='padding:18px'>" data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Jan 2018 - Jul 2019, Taipei, TW">
-          <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/NTU.png" width="70px"></div>
-            <div class="column_title"><h3><a target="_blank"  href="http://www.cgm.ntu.edu.tw/web/laboratory/introduction.jsp?dmno=DM1510888823104" style="color:#4A4F53">Bioinformatics Core Lab</a>, Centers of Genomic and Precision Medicine, NTU <br> <small><i>Research assistant</i></small></h3></div>
-          </div>
-          <p>
-            <ul>
-              <li>Conducted differential gene expression analysis and pathway enrichment analysis using RNA-Seq data.</li>
-              <li>Developed a bioconductor R package to provide a robust pipeline to automate the standard two-group RNA-Seq
-analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
-              <strong><a href="https://ieeexplore.ieee.org/document/8918337" target="_blank">RNASeqR paper <i class="fab fa-book"></i></a> (Chao et.al.)</strong>
-            </ul>
-          </p> 
-      </div>
-      <div data-vtdate="<i class='fa fa-calendar' aria-hidden='true'></i> Nov 2017 - Jan 2018, Taipei, TW">
-          <div class="row">
-            <div class="column_img"><img class="pic" src="{{base_path}}/images/iii_logo.png" width="70px"></div>
-            <div class="column_title"><h3><a target="_blank"  href="https://web.iii.org.tw/" style="color:#4A4F53">Information Security Research Institute, Institute for Information Industry</a> <br> <small><i>Software engineer intern</i></small></h3></div>
-          </div>
-          <p>
-            <ul>
-              <li>Processed and visualized PC login and logoff history to help the team build a system to find insiders in the company.</li>
-              <!-- <li>Developed a bioconductor R package to provide a robust pipeline to automate the standard two-group RNA-Seq
-analysis in R. <a href="https://github.com/Kuanhao-Chao/RNASeqR" target="_blank"><i class="fab fa-github"></i> <i class="fab fa-r-project"></i></a></li>
-              <strong><a href="https://ieeexplore.ieee.org/document/8918337" target="_blank">RNASeqR paper <i class="fab fa-book"></i></a> (Chao et.al.)</strong> -->
-            </ul>
-          </p> 
-      </div>
-  </div><!-- End vt2 -->
+
+<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp;  Selected Publication</h2>
+<div style="margin-left:20px; margin-top:30px; pointer-events: all;
+z-index:100;">
+  <ul>
+    <li>
+<b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). sangeranalyseR: simple and interactive processing of Sanger sequencing data in R, <i><b>Genome Biology and Evolution</b></i>, <a href="https://doi.org/10.1093/gbe/evab028" target="_blank">https://doi.org/10.1093/gbe/evab028</a>
+    </li>
+    <li>
+<b>Kuan-Hao Chao*</b>, A.V. Zimin, M. Pertea, S.L. Salzberg* (2023). The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual, <i><b>G3: Genes, Genomes, Genetics</b></i>, <a href="https://doi.org/10.1093/g3journal/jkac321" target="_blank">https://doi.org/10.1093/g3journal/jkac321</a>
+    </li>
+    <li>
+<b>Kuan-Hao Chao*<sup>†</sup></b>, Pei-Wei Chen<sup>†</sup>, Sanjit A. Seshia, Ben Langmead* (2023). WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs, <i><b>iScience</b></i>, <a href="https://doi.org/10.1101/2022.10.15.512390" target="_blank">https://doi.org/10.1101/2022.10.15.512390</a>
+    </li>
+    <li>
+<b>Kuan-Hao Chao*</b>, Alan Mao, Steven L Salzberg, Mihaela Pertea* (2023). Splam: a deep-learning-based splice site predictor that improves spliced alignments, <i><b>bioRxiv</b></i>, <a href="https://doi.org/10.1101/2023.07.27.550754" target="_blank">https://doi.org/10.1101/2023.07.27.550754</a>
+    </li>
+  </ul>
 </div>
 
-<hr>
+<br>
+
+<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp; Selected Presentation</h2>
+  <ul>
+    <li><b>RECOMB-seq Proceeding Talk</b>, Research in Computational Molecular Biology on Biological Sequence Analysis, <i>Istanbul, Türkiye, 2023</i>, <a href="https://www.youtube.com/watch?v=TkX9S024Dk8&ab_channel=RECOMBConferenceSeries" target="_blank">Link</a></li> 
+    <li><b>ISMB/ECCB Poster</b>, Intelligent Systems for Molecular Biology / European Conference on Computational Biology 2023, <i>Lyon, France, 2023</i>, <a href="https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/ISMB-ECCB2023/splam_poster_ismb.pdf" target="_blank">Link</a></li>
+    <li><b>BDS Poster</b>, Biological Data Science, <i>Cold Spring Harbor, New York, 2022</i>, <a href="https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Han1/Han1_poster.pdf" target="_blank">Link</a></li>
+  </ul>
+<br>
+
+<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp; Experience</h2>
+  <ul>
+    <li>Ph.D. Student in Computer Science, Johns Hopkins University, <i>Sep/2021 - Present</i></li>
+    <li>M.S.E. in Computer Science, Johns Hopkins University, <i>Sep/2021 - May/2023</i></li>
+    <li>Research Assistant, Institute of Information Science, Academia Sinica, <i>Jul/2020 - Jan/2021</i></li>
+    <li>Research Student, Research School of Biology, The Australian National University, <i>Jul/2019 - Jun/2020</i></li>
+    <li>Research Student, Centers of Genomic and Precision Medicine, National Taiwan University, <i>Aug/2018 - Jul/2019</i></li>
+    <li>B.S. in Electrical Engineering, National Taiwan University, <i>Sep/2016 - Jan/2021</i></li>
+  </ul>
+<br>
+
+<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp; Teaching</h2>
+<ul>
+  <li>Johns Hopkins University
+    <ul>
+      <li>EN.580.458 / 658 Computing the Transcriptome, Teaching assistant, Spring 2023</li>
+    </ul>
+  </li>
+
+  <li>National Taiwan University
+    <ul>
+      <li>CSX 4001 Data Science Programming, Teaching assistant, Spring 2019</li>
+      <li>EE 1006 Cornerstone EECS Design and Implementation, Teaching assistant, Fall 2018</li>
+    </ul>
+  </li>
+</ul>
+
+<br>
+
+<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp; Service</h2>
+<ul>
+  <li>Reviewer
+    <ul>
+      <li>
+        <!-- <i class="fa-li fa fa-bookmark"></i> -->
+        Chromatographia: 2023
+      </li>
+    </ul>
+  </li>
+
+  <li>Sub-reviewer
+    <ul>
+      <li>Nature Machine Intelligence: 2023</li>
+      <li>G3: Genes, Genomes, Genetics: 2022</li>
+    </ul>
+  </li>
+</ul>
+
+<br>
+
+<!-- <h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp; Education</h2>
+<br> -->
+
+<!-- <hr>
 <div style="width: 80%; text-align: center; margin:auto;">
 <a class="twitter-timeline" data-lang="en" data-width="100%" data-height="500" data-theme="light" href="https://twitter.com/KuanHaoChao?ref_src=twsrc%5Etfw" style="align: center">Tweets by KuanHaoChao</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 </div>
-<br>
+<br> -->
 
 <!-- <div style="text-align: center; pointer-events: all; z-index:100;">
   <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html">
