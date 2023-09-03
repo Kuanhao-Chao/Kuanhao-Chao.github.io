@@ -26,17 +26,13 @@ z-index:100;">
 <div style="margin-left:20px; margin-top:30px; pointer-events: all;
 z-index:100;">
   <ul>
-    <li>
-<b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). sangeranalyseR: simple and interactive processing of Sanger sequencing data in R, <i><b>Genome Biology and Evolution</b></i>, <a href="https://doi.org/10.1093/gbe/evab028" target="_blank">https://doi.org/10.1093/gbe/evab028</a>
+    <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). sangeranalyseR: simple and interactive processing of Sanger sequencing data in R, <i><b>Genome Biology and Evolution</b></i>, <a href="https://doi.org/10.1093/gbe/evab028" target="_blank">https://doi.org/10.1093/gbe/evab028</a>
     </li>
-    <li>
-<b>Kuan-Hao Chao*</b>, A.V. Zimin, M. Pertea, S.L. Salzberg* (2023). The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual, <i><b>G3: Genes, Genomes, Genetics</b></i>, <a href="https://doi.org/10.1093/g3journal/jkac321" target="_blank">https://doi.org/10.1093/g3journal/jkac321</a>
+    <li><b>Kuan-Hao Chao*</b>, A.V. Zimin, M. Pertea, S.L. Salzberg* (2023). The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual, <i><b>G3: Genes, Genomes, Genetics</b></i>, <a href="https://doi.org/10.1093/g3journal/jkac321" target="_blank">https://doi.org/10.1093/g3journal/jkac321</a>
     </li>
-    <li>
-<b>Kuan-Hao Chao*<sup>†</sup></b>, Pei-Wei Chen<sup>†</sup>, Sanjit A. Seshia, Ben Langmead* (2023). WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs, <i><b>iScience</b></i>, <a href="https://doi.org/10.1101/2022.10.15.512390" target="_blank">https://doi.org/10.1101/2022.10.15.512390</a>
+    <li><b>Kuan-Hao Chao*<sup>†</sup></b>, Pei-Wei Chen<sup>†</sup>, Sanjit A. Seshia, Ben Langmead* (2023). WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs, <i><b>iScience</b></i>, <a href="https://doi.org/10.1101/2022.10.15.512390" target="_blank">https://doi.org/10.1101/2022.10.15.512390</a>
     </li>
-    <li>
-<b>Kuan-Hao Chao*</b>, Alan Mao, Steven L Salzberg, Mihaela Pertea* (2023). Splam: a deep-learning-based splice site predictor that improves spliced alignments, <i><b>bioRxiv</b></i>, <a href="https://doi.org/10.1101/2023.07.27.550754" target="_blank">https://doi.org/10.1101/2023.07.27.550754</a>
+    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L Salzberg, Mihaela Pertea* (2023). Splam: a deep-learning-based splice site predictor that improves spliced alignments, <i><b>bioRxiv</b></i>, <a href="https://doi.org/10.1101/2023.07.27.550754" target="_blank">https://doi.org/10.1101/2023.07.27.550754</a>
     </li>
   </ul>
 </div>
