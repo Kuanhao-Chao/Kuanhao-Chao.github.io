@@ -22,7 +22,7 @@ z-index:100;">
 
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp;  Selected Publication</h2>
+<h2 class="page__title" style="font-size:19pt"><i class="fa fa-book"></i> &nbsp;  Selected Publication</h2>
 <div style="margin-left:20px; margin-top:30px; pointer-events: all;
 z-index:100;">
   <ul>
@@ -43,7 +43,7 @@ z-index:100;">
 
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp; Selected Presentation</h2>
+<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-bookmark"></i> &nbsp; Selected Presentation</h2>
   <ul>
     <li><b>RECOMB-seq Proceeding Talk</b>, Research in Computational Molecular Biology on Biological Sequence Analysis, <i>Istanbul, Türkiye, 2023</i>, <a href="https://www.youtube.com/watch?v=TkX9S024Dk8&ab_channel=RECOMBConferenceSeries" target="_blank">Link</a></li> 
     <li><b>ISMB/ECCB Poster</b>, Intelligent Systems for Molecular Biology / European Conference on Computational Biology 2023, <i>Lyon, France, 2023</i>, <a href="https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/ISMB-ECCB2023/splam_poster_ismb.pdf" target="_blank">Link</a></li>
@@ -51,7 +51,7 @@ z-index:100;">
   </ul>
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp; Experience</h2>
+<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-graduation-cap"></i> &nbsp; Experience</h2>
   <ul>
     <li>Ph.D. Student in Computer Science, Johns Hopkins University, <i>Sep/2021 - Present</i></li>
     <li>M.S.E. in Computer Science, Johns Hopkins University, <i>Sep/2021 - May/2023</i></li>
@@ -62,7 +62,7 @@ z-index:100;">
   </ul>
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp; Teaching</h2>
+<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-user"></i> &nbsp; Teaching</h2>
 <ul>
   <li>Johns Hopkins University
     <ul>
@@ -80,7 +80,7 @@ z-index:100;">
 
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> 🧑🏻‍💻 &nbsp; Service</h2>
+<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-list"></i> &nbsp; Service</h2>
 <ul>
   <li>Reviewer
     <ul>
