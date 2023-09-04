@@ -23,8 +23,8 @@ z-index:100;">
 <br>
 
 <h2 class="page__title" style="font-size:19pt"><i class="fa fa-book"></i> &nbsp;  Selected Publication</h2>
-<div style="margin-left:20px; margin-top:30px; pointer-events: all;
-z-index:100;">
+<!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
+z-index:100;"> -->
   <ul>
     <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). sangeranalyseR: simple and interactive processing of Sanger sequencing data in R, <i><b>Genome Biology and Evolution</b></i>, <a href="https://doi.org/10.1093/gbe/evab028" target="_blank">https://doi.org/10.1093/gbe/evab028</a>
     </li>
@@ -35,7 +35,7 @@ z-index:100;">
     <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L Salzberg, Mihaela Pertea* (2023). Splam: a deep-learning-based splice site predictor that improves spliced alignments, <i><b>bioRxiv</b></i>, <a href="https://doi.org/10.1101/2023.07.27.550754" target="_blank">https://doi.org/10.1101/2023.07.27.550754</a>
     </li>
   </ul>
-</div>
+<!-- </div> -->
 
 <br>
 
