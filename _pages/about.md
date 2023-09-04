@@ -54,10 +54,10 @@ z-index:100;"> -->
   <ul>
     <li>Ph.D. Student in <a target="_blank"  href="https://www.cs.jhu.edu/" style="color:#4A4F53">Computer Science</a>, <a target="_blank"  href="https://www.jhu.edu/">Johns Hopkins University</a>, <i>Sep/2021 - Present</i></li>
     <li>M.S.E. in <a target="_blank"  href="https://www.cs.jhu.edu/" style="color:#4A4F53">Computer Science</a>, <a target="_blank"  href="https://www.jhu.edu/">Johns Hopkins University</a>, <i>Sep/2021 - May/2023</i></li>
+    <li>B.S. in <a target="_blank"  href="https://eecs.ntu.edu.tw/?locale=en" style="color:#4A4F53">Electrical Engineering</a>, <a target="_blank"  href="https://www.ntu.edu.tw/english/">National Taiwan University</a>, <i>Sep/2016 - Jan/2021</i></li>
     <li>Research Assistant, <a target="_blank"  href="https://www.iis.sinica.edu.tw/en/index.html" style="color:#4A4F53">Institute of Information Science</a>, <a target="_blank"  href="https://www.sinica.edu.tw/en">Academia Sinica</a>, <i>Jul/2020 - Jan/2021</i></li>
     <li>Research Student, <a target="_blank"  href="https://biology.anu.edu.au/" style="color:#4A4F53">Research School of Biology</a>, <a target="_blank"  href="https://www.anu.edu.au/">The Australian National University</a>, <i>Jul/2019 - Jun/2020</i></li>
     <li>Research Student, <a target="_blank"  href="http://www.cgm.ntu.edu.tw/web/index/index.jsp?lang=en" style="color:#4A4F53">Centers of Genomic and Precision Medicine</a>, <a target="_blank"  href="https://www.ntu.edu.tw/english/">National Taiwan University</a>, <i>Aug/2018 - Jul/2019</i></li>
-    <li>B.S. in <a target="_blank"  href="https://eecs.ntu.edu.tw/?locale=en" style="color:#4A4F53">Electrical Engineering</a>, <a target="_blank"  href="https://www.ntu.edu.tw/english/">National Taiwan University</a>, <i>Sep/2016 - Jan/2021</i></li>
   </ul>
 <br>
 
