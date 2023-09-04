@@ -26,13 +26,13 @@ z-index:100;">
 <!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
 z-index:100;"> -->
   <ul>
-    <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). sangeranalyseR: simple and interactive processing of Sanger sequencing data in R, <i><b>Genome Biology and Evolution</b></i>, <a href="https://doi.org/10.1093/gbe/evab028" target="_blank">https://doi.org/10.1093/gbe/evab028</a>
+    <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). <a target="_blank"  href="https://doi.org/10.1093/gbe/evab028" style="color:#4A4F53">sangeranalyseR: simple and interactive processing of Sanger sequencing data in R</a>, <i><b>Genome Biology and Evolution</b></i>, <a href="https://doi.org/10.1093/gbe/evab028" target="_blank">https://doi.org/10.1093/gbe/evab028</a>
     </li>
-    <li><b>Kuan-Hao Chao*</b>, A.V. Zimin, M. Pertea, S.L. Salzberg* (2023). The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual, <i><b>G3: Genes, Genomes, Genetics</b></i>, <a href="https://doi.org/10.1093/g3journal/jkac321" target="_blank">https://doi.org/10.1093/g3journal/jkac321</a>
+    <li><b>Kuan-Hao Chao*</b>, A.V. Zimin, M. Pertea, S.L. Salzberg* (2023). <a target="_blank"  href="https://doi.org/10.1093/g3journal/jkac321" style="color:#4A4F53">The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual</a>, <i><b>G3: Genes, Genomes, Genetics</b></i>, <a href="https://doi.org/10.1093/g3journal/jkac321" target="_blank">https://doi.org/10.1093/g3journal/jkac321</a>
     </li>
-    <li><b>Kuan-Hao Chao*<sup>†</sup></b>, Pei-Wei Chen<sup>†</sup>, Sanjit A. Seshia, Ben Langmead* (2023). WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs, <i><b>iScience</b></i>, <a href="https://doi.org/10.1101/2022.10.15.512390" target="_blank">https://doi.org/10.1101/2022.10.15.512390</a>
+    <li><b>Kuan-Hao Chao*<sup>†</sup></b>, Pei-Wei Chen<sup>†</sup>, Sanjit A. Seshia, Ben Langmead* (2023). <a target="_blank"  href="https://doi.org/10.1016/j.isci.2023.107402" style="color:#4A4F53">WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs</a>, <i><b>iScience</b></i>, <a href="https://doi.org/10.1016/j.isci.2023.107402" target="_blank">https://doi.org/10.1016/j.isci.2023.107402</a>
     </li>
-    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L Salzberg, Mihaela Pertea* (2023). Splam: a deep-learning-based splice site predictor that improves spliced alignments, <i><b>bioRxiv</b></i>, <a href="https://doi.org/10.1101/2023.07.27.550754" target="_blank">https://doi.org/10.1101/2023.07.27.550754</a>
+    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L Salzberg, Mihaela Pertea* (2023). <a target="_blank"  href="https://doi.org/10.1101/2023.07.27.550754" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>bioRxiv</b></i>, <a href="https://doi.org/10.1101/2023.07.27.550754" target="_blank">https://doi.org/10.1101/2023.07.27.550754</a>
     </li>
   </ul>
 <!-- </div> -->
@@ -49,12 +49,12 @@ z-index:100;"> -->
 
 <h2 class="page__title" style="font-size:19pt"> <i class="fa fa-graduation-cap"></i> &nbsp; Experience</h2>
   <ul>
-    <li>Ph.D. Student in Computer Science, Johns Hopkins University, <i>Sep/2021 - Present</i></li>
-    <li>M.S.E. in Computer Science, Johns Hopkins University, <i>Sep/2021 - May/2023</i></li>
-    <li>Research Assistant, Institute of Information Science, Academia Sinica, <i>Jul/2020 - Jan/2021</i></li>
-    <li>Research Student, Research School of Biology, The Australian National University, <i>Jul/2019 - Jun/2020</i></li>
-    <li>Research Student, Centers of Genomic and Precision Medicine, National Taiwan University, <i>Aug/2018 - Jul/2019</i></li>
-    <li>B.S. in Electrical Engineering, National Taiwan University, <i>Sep/2016 - Jan/2021</i></li>
+    <li>Ph.D. Student in <a target="_blank"  href="https://www.cs.jhu.edu/" style="color:#4A4F53">Computer Science</a>, <a target="_blank"  href="https://www.jhu.edu/">Johns Hopkins University</a>, <i>Sep/2021 - Present</i></li>
+    <li>M.S.E. in <a target="_blank"  href="https://www.cs.jhu.edu/" style="color:#4A4F53">Computer Science</a>, <a target="_blank"  href="https://www.jhu.edu/">Johns Hopkins University</a>, <i>Sep/2021 - May/2023</i></li>
+    <li>Research Assistant, <a target="_blank"  href="https://www.iis.sinica.edu.tw/en/index.html" style="color:#4A4F53">Institute of Information Science</a>, <a target="_blank"  href="https://www.sinica.edu.tw/en">Academia Sinica</a>, <i>Jul/2020 - Jan/2021</i></li>
+    <li>Research Student, <a target="_blank"  href="https://biology.anu.edu.au/" style="color:#4A4F53">Research School of Biology</a>, <a target="_blank"  href="https://www.anu.edu.au/">The Australian National University</a>, <i>Jul/2019 - Jun/2020</i></li>
+    <li>Research Student, <a target="_blank"  href="http://www.cgm.ntu.edu.tw/web/index/index.jsp?lang=en" style="color:#4A4F53">Centers of Genomic and Precision Medicine</a>, <a target="_blank"  href="https://www.ntu.edu.tw/english/">National Taiwan University</a>, <i>Aug/2018 - Jul/2019</i></li>
+    <li>B.S. in <a target="_blank"  href="https://eecs.ntu.edu.tw/?locale=en" style="color:#4A4F53">Electrical Engineering</a>, <a target="_blank"  href="https://www.ntu.edu.tw/english/">National Taiwan University</a>, <i>Sep/2016 - Jan/2021</i></li>
   </ul>
 <br>
 
