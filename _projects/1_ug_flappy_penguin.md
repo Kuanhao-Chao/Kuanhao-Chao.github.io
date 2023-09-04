@@ -17,7 +17,7 @@ people: '<b style="color: black">Kuan-Hao Chao</b>'
 
 <div style="background-color: #dbdbdb; padding: 30px;">
   <p style="font-size:20px">
-    <a href="http://storage.khchao.com/flappy_penguin/index.html" target="_blank"><b> >>Web Game Link << </b></a>
+    <a href="https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html" target="_blank"><b> >>Web Game Link << </b></a>
   </p>
   <br>
   <p> <b style="font-size: 22px">Developer:</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Kuan-Hao, Chao</p>
@@ -29,4 +29,4 @@ people: '<b style="color: black">Kuan-Hao Chao</b>'
 </div>
 
 ---
-<a style="font-size:20px" href="http://storage.khchao.com/flappy_penguin/index.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a style="font-size:20px" href="https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html" target="_blank"><b> >>Web Game Link << </b></a>

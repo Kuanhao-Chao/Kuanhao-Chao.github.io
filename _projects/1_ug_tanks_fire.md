@@ -16,7 +16,7 @@ people: '<b style="color: black">Kuan-Hao Chao</b>'
 
 <div style="background-color: #dbdbdb; padding: 30px; margin-top:50px">
   <p style="font-size:20px">
-    <a href="http://storage.khchao.com/tanks_fire/index.html" target="_blank"><b> >>Web Game Link << </b></a>
+    <a href="https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html" target="_blank"><b> >>Web Game Link << </b></a>
   </p>
   <p> <b style="font-size: 22px">Source:</b> &nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; This is the official Unity <a href="https://learn.unity.com/project/tanks-tutorial" target="_blank">training project</a></p>
   <br>
@@ -46,4 +46,4 @@ people: '<b style="color: black">Kuan-Hao Chao</b>'
 
 ---
 
-<a style="font-size:20px" href="http://storage.khchao.com/tanks_fire/index.html" target="_blank"><b> >>Web Game Link << </b></a>
+<a style="font-size:20px" href="https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html" target="_blank"><b> >>Web Game Link << </b></a>

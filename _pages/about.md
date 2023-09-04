@@ -22,32 +22,35 @@ z-index:100;">
 
 <br>
 
-<h2 class="page__title" style="font-size:19pt"><i class="fa fa-book"></i> &nbsp;  Selected Publication</h2>
+<h2 class="page__title" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/publications/" style="color:#4A4F53; text-decoration: none;">Selected Publication</a></h2>
 <!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
 z-index:100;"> -->
   <ul>
-    <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). <a target="_blank"  href="https://doi.org/10.1093/gbe/evab028" style="color:#4A4F53">sangeranalyseR: simple and interactive processing of Sanger sequencing data in R</a>, <i><b>Genome Biology and Evolution</b></i>, <a href="https://doi.org/10.1093/gbe/evab028" target="_blank">https://doi.org/10.1093/gbe/evab028</a>
+    <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). <a target="_blank"  href="https://doi.org/10.1093/gbe/evab028" style="color:#4A4F53">sangeranalyseR: simple and interactive processing of Sanger sequencing data in R</a>, <i><b>Genome Biology and Evolution</b></i>
     </li>
-    <li><b>Kuan-Hao Chao*</b>, A.V. Zimin, M. Pertea, S.L. Salzberg* (2023). <a target="_blank"  href="https://doi.org/10.1093/g3journal/jkac321" style="color:#4A4F53">The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual</a>, <i><b>G3: Genes, Genomes, Genetics</b></i>, <a href="https://doi.org/10.1093/g3journal/jkac321" target="_blank">https://doi.org/10.1093/g3journal/jkac321</a>
+    <li><b>Kuan-Hao Chao*</b>, A.V. Zimin, M. Pertea, S.L. Salzberg* (2023). <a target="_blank"  href="https://doi.org/10.1093/g3journal/jkac321" style="color:#4A4F53">The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual</a>, <i><b>G3: Genes, Genomes, Genetics</b></i>
     </li>
-    <li><b>Kuan-Hao Chao*<sup>†</sup></b>, Pei-Wei Chen<sup>†</sup>, Sanjit A. Seshia, Ben Langmead* (2023). <a target="_blank"  href="https://doi.org/10.1016/j.isci.2023.107402" style="color:#4A4F53">WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs</a>, <i><b>iScience</b></i>, <a href="https://doi.org/10.1016/j.isci.2023.107402" target="_blank">https://doi.org/10.1016/j.isci.2023.107402</a>
+    <li><b>Kuan-Hao Chao*<sup>†</sup></b>, Pei-Wei Chen<sup>†</sup>, Sanjit A. Seshia, Ben Langmead* (2023). <a target="_blank"  href="https://doi.org/10.1016/j.isci.2023.107402" style="color:#4A4F53">WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs</a>, <i><b>iScience</b></i>
     </li>
-    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L Salzberg, Mihaela Pertea* (2023). <a target="_blank"  href="https://doi.org/10.1101/2023.07.27.550754" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>bioRxiv</b></i>, <a href="https://doi.org/10.1101/2023.07.27.550754" target="_blank">https://doi.org/10.1101/2023.07.27.550754</a>
+    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L Salzberg, Mihaela Pertea* (2023). <a target="_blank"  href="https://doi.org/10.1101/2023.07.27.550754" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>bioRxiv</b></i>
     </li>
   </ul>
+  <b style="padding-left:18px;"><i class="fa fa-chevron-circle-right" aria-hidden="true"></i> <a href="https://khchao.com/publications/" style="color:#4A4F53; text-decoration: none;"> &nbsp; more ...</a></b>
 <!-- </div> -->
 
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-bookmark"></i> &nbsp; Selected Presentation</h2>
+<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-bookmark"></i> &nbsp; <a href="https://khchao.com/presentations/" style="color:#4A4F53; text-decoration: none;">Selected Presentation</a></h2>
   <ul>
     <li><b>RECOMB-seq Proceeding Talk</b>, Research in Computational Molecular Biology on Biological Sequence Analysis, <i>Istanbul, Türkiye, 2023</i>, <a href="https://www.youtube.com/watch?v=TkX9S024Dk8&ab_channel=RECOMBConferenceSeries" target="_blank">Link</a></li> 
     <li><b>ISMB/ECCB Poster</b>, Intelligent Systems for Molecular Biology / European Conference on Computational Biology 2023, <i>Lyon, France, 2023</i>, <a href="https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/ISMB-ECCB2023/splam_poster_ismb.pdf" target="_blank">Link</a></li>
     <li><b>BDS Poster</b>, Biological Data Science, <i>Cold Spring Harbor, New York, 2022</i>, <a href="https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Han1/Han1_poster.pdf" target="_blank">Link</a></li>
   </ul>
+  <b style="padding-left:18px;"><i class="fa fa-chevron-circle-right" aria-hidden="true"></i> <a href="https://khchao.com/presentations/" style="color:#4A4F53; text-decoration: none;"> &nbsp; more ...</a></b>
+
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-graduation-cap"></i> &nbsp; Experience</h2>
+<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-graduation-cap"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Experience</a></h2>
   <ul>
     <li>Ph.D. Student in <a target="_blank"  href="https://www.cs.jhu.edu/" style="color:#4A4F53">Computer Science</a>, <a target="_blank"  href="https://www.jhu.edu/">Johns Hopkins University</a>, <i>Sep/2021 - Present</i></li>
     <li>M.S.E. in <a target="_blank"  href="https://www.cs.jhu.edu/" style="color:#4A4F53">Computer Science</a>, <a target="_blank"  href="https://www.jhu.edu/">Johns Hopkins University</a>, <i>Sep/2021 - May/2023</i></li>
@@ -58,7 +61,23 @@ z-index:100;"> -->
   </ul>
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-user"></i> &nbsp; Teaching</h2>
+<h2 class="page__title" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/projects/" style="color:#4A4F53; text-decoration: none;">Side Projects</a></h2>
+<!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
+z-index:100;"> -->
+  <ul>
+    <li><a target="_blank"  href="https://khchao.com/projects/games/biobaby" style="color:#4A4F53">Biobaby</a>, Unity WebGL game, <a href="https://storage.googleapis.com/storage.khchao.com/biobaby/index.html" target="_blank">Play it now!</a>
+    </li>
+    <li><a target="_blank"  href="https://khchao.com/projects/games/flappy_penguin" style="color:#4A4F53">Flappy penguin</a>, Unity WebGL game, <a href="https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html" target="_blank">Play it now!</a>
+    </li>
+    <li><a target="_blank"  href="https://khchao.com/projects/games/tanks_fire" style="color:#4A4F53">Tank fire</a>, Unity WebGL game, <a href="https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html" target="_blank">Play it now!</a>
+    </li>
+  </ul>
+  <b style="padding-left:18px;"><i class="fa fa-chevron-circle-right" aria-hidden="true"></i> <a href="https://khchao.com/projects/" style="color:#4A4F53; text-decoration: none;"> &nbsp; more ...</a></b>
+<!-- </div> -->
+
+<br>
+
+<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-user"></i> &nbsp; <a href="https://khchao.com/teaching/" style="color:#4A4F53; text-decoration: none;">Teaching</a></h2>
 <ul>
   <li>Johns Hopkins University
     <ul>
@@ -73,6 +92,8 @@ z-index:100;"> -->
     </ul>
   </li>
 </ul>
+<b style="padding-left:18px;"><i class="fa fa-chevron-circle-right" aria-hidden="true"></i> <a href="https://khchao.com/teaching/" style="color:#4A4F53; text-decoration: none;"> &nbsp; more ...</a></b>
+
 
 <br>
 
