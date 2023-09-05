@@ -204,6 +204,9 @@ kramdown:
 
 # Collections
 collections:
+  about-us:
+    output: true
+    permalink: /:collection/:path/
   teaching:
     output: true
     permalink: /:collection/:path/
@@ -244,6 +247,15 @@ collections:
 
 # Defaults
 defaults:
+  # _about-us
+  - scope:
+      path: ""
+      type: about-us
+    values:
+      layout: about-us
+      author_profile: false
+      share: true
+      comments: true
   # _posts
   - scope:
       path: ""
