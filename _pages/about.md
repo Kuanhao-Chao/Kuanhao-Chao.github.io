@@ -16,7 +16,16 @@ z-index:100;">
   </p>
 
   <p>
-    My primary research interest is designing ultra-fast algorithms for computational genomics, specifically targeting transcriptome (RNA sequencing), gene annotation and genome assembly. I am also a big fan of open source software. Check out my <a target="_blank"  href="https://kuanhao-chao.github.io/news/" style="font-weight: 900;">NEWS</a> and <a target="_blank"  href="https://github.com/Kuanhao-Chao" style="font-weight: 900;">GitHub page</a>.
+    My research interests are broadly centered around the application of "<b>graphs</b>" in genomics and transcriptomics.
+
+  </p>
+
+  <p>
+    In <b>genome assembly</b>, De Bruijn graphs are widely used. For an example of its application, check out the my <a href="https://doi.org/10.1093/g3journal/jkac321" target="_blank">Han1 assembly</a>, which is the first gapless Southern Chinese Han genome assembly. In <b>pangenome indexing</b>, we have employed heuristic methods combined with an SMT solver to make the <a href="https://doi.org/10.1016/j.isci.2023.107402" target="_blank">Wheeler graph recognition problem</a> computationally practical. In <b>genome annotation</b>, we have utilized <a href="https://ccb.jhu.edu/lifton/" target="_blank">graph-based methods</a> to stitch together fragmented DNA and protein alignments, thereby assembling them into more accurate annotations. In <b>transcriptome assembly</b>, my focus is on modeling RNA-Seq data using directed acyclic splice graphs. I am currently exploring the use of graph neural networks to decode the complexities of RNA splicing.
+  </p>
+
+  <p>
+      I am also a big fan of open source software. Check out my <a target="_blank"  href="https://kuanhao-chao.github.io/news/" style="font-weight: 900;">NEWS</a> and <a target="_blank"  href="https://github.com/Kuanhao-Chao" style="font-weight: 900;">GitHub page</a>.
   </p>
 </div>
 
