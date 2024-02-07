@@ -111,9 +111,10 @@ z-index:100;"> -->
   <li>Reviewer
     <ul>
       <li>
-        <!-- <i class="fa-li fa fa-bookmark"></i> -->
         Chromatographia: 2023
       </li>
+      <li>G3: Genes, Genomes, Genetics: 2024</li>
+      <li>International Society for Computational Biology (ISCB): 2024</li>
     </ul>
   </li>
 
