@@ -9,7 +9,7 @@ redirect_from:
 ---
 {% include base_path %}
 
-🎓 I'm currently a third-year Ph.D. Candidate in Computer Science at the Center for Computational Biology, Johns Hopkins University, working with <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a>. My academic journey started in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a> at <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>, shifting towards computer science in my final year at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a> at <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a> 🦘🐨
+🎓 I'm a third-year Ph.D. Candidate in Computer Science at the <a target="_blank"  href="https://ccb.jhu.edu/" style="color:#4A4F53">Center for Computational Biology</a>, <a target="_blank"  href="https://www.jhu.edu/" style="color:#4A4F53">Johns Hopkins University</a>, working with <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a>. My academic journey started in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a> at <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>, shifting towards computer science in my final year at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a> at <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a> 🦘🐨
 
 🧬 My research interest intersects **"graphs"** with genomics and transcriptomics:
 
@@ -21,8 +21,6 @@ redirect_from:
 💻 As a staunch advocate for open-source software, I invite you to explore my **[NEWS](https://khchao.com/news/)** page for the latest updates on my projects.
 
 💬 Feel free to reach out to me for collaborations, discussions, or just to say hi! **[Coffee chat! ☕️](https://calendly.com/kuanhao-chao/30min)**
-
-🔍 Discover more about my work on my **[personal website](https://kuanhao-chao.github.io)**.
 
 
 <br>
