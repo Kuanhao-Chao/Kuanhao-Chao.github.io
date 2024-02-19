@@ -9,25 +9,21 @@ redirect_from:
 ---
 {% include base_path %}
 
-<div style="margin-left:20px; margin-top:30px; pointer-events: all;
-z-index:100;">
-  <p>
-    I am a third-year computer science Ph.D. candidate at <a target="_blank"  href="https://ccb.jhu.edu" style="color:#4A4F53">Center for Computational Biology</a>, <a target="_blank"  href="https://www.jhu.edu" style="color:#4A4F53">Johns Hopkins University</a>. My advisors are Dr. <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and Dr. <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a>. I received my <i>Bachelor of Science in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a></i> from <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>. In my senior year of college, I went on exchange to study at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a>, <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a>.
-  </p>
+🎓 I'm currently a third-year Ph.D. Candidate in Computer Science at the Center for Computational Biology, Johns Hopkins University, working with <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a>. My academic journey started in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a> at <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>, shifting towards computer science in my final year at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a> at <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a> 🦘🐨
 
-  <p>
-    My research interests are broadly centered around the application of "<b>graphs</b>" in genomics and transcriptomics.
+🧬 My research interest intersects **"graphs"** with genomics and transcriptomics:
 
-  </p>
+- In **genome assembly**, De Bruijn graphs are widely used. For an example of its application, check out my [Han1 assembly](https://doi.org/10.1093/g3journal/jkac321), the first gapless Southern Chinese Han genome.
+- For **pangenome indexing**, I've contributed to making the Wheeler graph recognition problem computationally feasible through innovative heuristic methods combined with an SMT solver ([Learn more](https://doi.org/10.1016/j.isci.2023.107402)).
+- In **genome annotation**, I have utilized graph-based methods to stitch together fragmented DNA and protein alignments, thereby assembling them into more accurate annotations. ([Learn more](https://ccb.jhu.edu/lifton/)).
+- My **transcriptome assembly** work focuses on modeling RNA-Seq data using directed acyclic splice graphs, with ongoing research into graph neural networks to decode the complexities of RNA splicing. ([Learn more](https://www.biorxiv.org/content/10.1101/2023.07.27.550754v2)).
 
-  <p>
-    In <b>genome assembly</b>, De Bruijn graphs are widely used. For an example of its application, check out the my <a href="https://doi.org/10.1093/g3journal/jkac321" target="_blank">Han1 assembly</a>, which is the first gapless Southern Chinese Han genome assembly. In <b>pangenome indexing</b>, we have employed heuristic methods combined with an SMT solver to make the <a href="https://doi.org/10.1016/j.isci.2023.107402" target="_blank">Wheeler graph recognition problem</a> computationally practical. In <b>genome annotation</b>, we have utilized <a href="https://ccb.jhu.edu/lifton/" target="_blank">graph-based methods</a> to stitch together fragmented DNA and protein alignments, thereby assembling them into more accurate annotations. In <b>transcriptome assembly</b>, my focus is on modeling RNA-Seq data using directed acyclic splice graphs. I am currently exploring the use of graph neural networks to decode the complexities of <a href="https://doi.org/10.1101/2023.07.27.550754" target="_blank">RNA splicing</a>.
-  </p>
+💻 As a staunch advocate for open-source software, I invite you to explore my **[NEWS](https://khchao.com/news/)** page for the latest updates on my projects.
 
-  <p>
-      I am also a big fan of open source software. Check out my <a target="_blank"  href="https://kuanhao-chao.github.io/news/" style="font-weight: 900;">NEWS</a> and <a target="_blank"  href="https://github.com/Kuanhao-Chao" style="font-weight: 900;">GitHub page</a>.
-  </p>
-</div>
+💬 Feel free to reach out to me for collaborations, discussions, or just to say hi! **[Coffee chat! ☕️](https://calendly.com/kuanhao-chao/30min)**
+
+🔍 Discover more about my work on my **[personal website](https://kuanhao-chao.github.io)**.
+
 
 <br>
 
