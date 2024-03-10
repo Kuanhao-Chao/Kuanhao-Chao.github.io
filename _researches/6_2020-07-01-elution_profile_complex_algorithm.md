@@ -1,13 +1,14 @@
 ---
 title: "Elution profile-based protein complexes inference algorithm"
 collection: researches
-type: "Research assistant"
-permalink: /researches/2020-07-01-elution_profile_complex_algorithm
+type: "Protein elution profile"
+permalink: /researches/elution_profile_complex_algorithm
+new_start: "True"
 venue: "<a href='https://bits.iis.sinica.edu.tw/?id=1' target='_blank' style='color: inherit;'>Bioinformatics Lab, Institute of Information Science, Academia Sinica</a>"
 start_date: 2020-07-01
 end_date: "Present"
 location: "Taipei, Taiwan"
-status: '<a style="text-decoration:none; color:orange;">In progress <i class="fa fa-spinner" aria-hidden="true"></i></a>'
+status: '<a style="text-decoration:none; color:green;">Published <i class="fa fa-check-circle" aria-hidden="true"></i></a> &nbsp; <a href="https://doi.org/10.1093/bib/bbad229" target="_blank"><i style="font-size: 12px; color:#64a364">Briefings in Bioinformatics</i></a>'
 image: "/images/elution_profile_project_cover.png"
 superviser: '<a href="/references/Huai-Kuang_Tsai" style="font-size: 12px; text-decoration:none; color:#4A4F53; border-style: solid; border-color:#bfcae3; border-radius: 10px; background-color: #bfcae3;" target="_blank">&nbsp; Huai-Kuang Tsai &nbsp;</a>'
 superviser_clean:

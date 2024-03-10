@@ -1,10 +1,11 @@
 ---
 title: "multiStringTie: a multi-sample transcriptome assembler"
 collection: researches
-type: "PhD Student"
-permalink: /researches/2022-10-20-multistringtie
+type: "Transcriptome"
+permalink: /researches/transcriptome/multistringtie
+new_start: "False"
 venue: "<a href='https://bits.iis.sinica.edu.tw/?id=1' target='_blank' style='color: inherit;'>Center of Computational Biology, Johns Hopkins University</a>"
-start_date: 2021-10-01
+start_date: 2021-10
 end_date: "Present"
 location: "Baltimore, MD"
 status: '<a style="text-decoration:none; color:orange;">In progress <i class="fa fa-spinner" aria-hidden="true"></i></a>'

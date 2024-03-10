@@ -16,6 +16,30 @@
   {% assign title = post.title %}
 {% endif %}
 
+
+{% if post.new_start == "True" and post.type == "Genome assembly / indexing" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🎮 &nbsp; Genome assembly & Indexing</b></p>
+{% endif %}
+
+{% if post.new_start == "True" and post.type == "Transcriptome" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🧬 &nbsp; Transcriptome</b></p>
+{% endif %}
+
+
+{% if post.new_start == "True" and post.type == "Sequence analysis" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; ® &nbsp; Sequence analysis R package</b></p>
+{% endif %}
+
+{% if post.new_start == "True" and post.type == "Protein elution profile" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🧪 &nbsp; Protein elution profile</b></p>
+{% endif %}
+
+{% if post.new_start == "True" and post.type == "Website / Database" %}
+  <p style="margin-top:50px;margin-bottom:9px; font-size:28px; border-left: 8px solid #7b8287; background-color: #ededed; padding: 4px"><b> &nbsp;&nbsp; 🖥️ &nbsp; Website / Database</b></p>
+{% endif %}
+
+
+
 <div clss="row" style="display: flex; margin-left:30px;">
   <div class="column" style="flex: 59%;">
     <div class="{{ include.type | default: "list" }}__item">

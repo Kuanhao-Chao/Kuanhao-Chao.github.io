@@ -113,7 +113,7 @@ newslist:
 author:
   name             : "Kuan-Hao Chao"
   avatar           : "profile.png"
-  bio              : "CS Ph.D. student @ Center for Computational Biology, JHU, US<br><br>"
+  bio              : "CS Ph.D. Candidate @ Center for Computational Biology, JHU, US<br><br>"
   location         : "Taipei, Taiwan"
   employer         :
   googlescholar    : "https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en&oi=ao"
@@ -292,15 +292,6 @@ defaults:
       author_profile: true
       share: true
       comments: true
-  # _researches
-  - scope:
-      path: ""
-      type: researches
-    values:
-      layout: research
-      author_profile: true
-      share: true
-      comments: true
   # _portfolio
   - scope:
       path: ""
@@ -318,6 +309,15 @@ defaults:
       layout: presentation
       author_profile: true
       share: true
+  # _researches
+  - scope:
+      path: ""
+      type: researches
+    values:
+      layout: research
+      author_profile: true
+      share: true
+      comments: true
   # _internship
   - scope:
       path: ""
