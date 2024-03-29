@@ -23,6 +23,80 @@ redirect_from:
 💬 Feel free to reach out to me for collaborations, discussions, or just to say hi! **[Coffee chat! ☕️](https://calendly.com/kuanhao-chao/30min)**
 
 
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-content">
+    <span class="close-button close-popup-btn">&times;</span>
+    <h1 style="margin-top: 10px;">Citation</h1>
+    <div id="citation_holder"></div>
+    <br>
+    <br>
+    <pre id="citationbib_holder">{{post.citationbib}}</pre>
+  </div>
+</div>
+
+<style>
+  .popup-overlay {
+    z-index: 9999;
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow: auto;
+  }
+  .popup-content {
+    z-index: 10000;
+    background-color: white;
+    padding: 40px;
+    border-radius: 5px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 70%; /* Adjust maximum width for responsiveness */
+    max-height: calc(100% - 60px); /* Adjust maximum height to fit within the window */
+    overflow-y: auto; /* Enable vertical scrolling if content overflows */
+  }
+  .close-button {
+    position: absolute;
+    font-size: 35px;
+    top: 20px;
+    right: 20px;
+    cursor: pointer;
+  }
+</style>
+
+<script>
+  console.log("button clicked!");
+  const showPopupBtns = document.querySelectorAll('.show-popup-btn');
+  const closePopupBtns = document.querySelectorAll('.close-popup-btn');
+  const popupOverlay = document.getElementById('popupOverlay');
+
+  function dosomething(citation, citationbib){
+    console.log(citation);
+    console.log(citationbib);
+    var divElement = document.getElementById("citation_holder");
+    divElement.innerHTML = citation;
+    var divElement = document.getElementById("citationbib_holder");
+    divElement.innerHTML = citationbib;
+  }
+
+  showPopupBtns.forEach(button => {
+  button.addEventListener('click', () => {
+  popupOverlay.style.display = 'flex';
+  });
+  });
+
+  closePopupBtns.forEach(button => {
+  button.addEventListener('click', () => {
+  popupOverlay.style.display = 'none';
+  });
+  });
+</script>
+
 <br>
 
 <h2 class="page__title" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/publications/" style="color:#4A4F53; text-decoration: none;">Selected Publication</a></h2>
@@ -69,6 +143,25 @@ z-index:100;"> -->
     <li>Research Student, <a target="_blank"  href="http://www.cgm.ntu.edu.tw/web/index/index.jsp?lang=en" style="color:#4A4F53">Centers of Genomic and Precision Medicine</a>, <a target="_blank"  href="https://www.ntu.edu.tw/english/" style="color:#783c3c"><b>National Taiwan University</b></a>, <i>Aug/2018 - Jul/2019</i></li>
   </ul>
 <br>
+
+<h2 class="page__title" style="font-size:19pt;"><i class="fa fa-code"></i> &nbsp;  <a href="https://github.com/Kuanhao-Chao" style="color:#4A4F53; text-decoration: none;">Selected open-source software</a></h2>
+<!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
+z-index:100;"> -->
+  <ul>
+    <li><a target="_blank"  href="https://github.com/Kuanhao-Chao/splam" style="color:#4A4F53">Splam</a>, splice site predictor &emsp; <a href="https://opensource.org/licenses/MIT" target="_blank"><img src="https://img.shields.io/badge/License-MIT-yellow.svg"></a> <a href="https://github.com/Kuanhao-Chao/splam" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Code</a> <a href="https://ccb.jhu.edu/splam/" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Documentation</a> <a href="https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/ISMB-ECCB2023/splam_poster_ismb.pdf" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Poster</a> <a href="https://www.biorxiv.org/content/10.1101/2023.07.27.550754v2.full.pdf" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Paper</a> <a id="test" class="btn btn-outline-primary btn-page-header btn-sm show-popup-btn" style="text-decoration: none" onclick="dosomething('<b style=color:#ad0000>Kuan-Hao Chao*</b>, Alan Mao, Steven L Salzberg, Mihaela Pertea* (2022). Splam: a deep-learning-based splice site predictor that improves spliced alignments, <i><b>bioRxiv</b></i>, <a href=https://doi.org/10.1101/2023.07.27.550754>https://doi.org/10.1101/2023.07.27.550754</a></div>', '@article{chao2023splam,\n \ttitle={Splam: a deep-learning-based splice site predictor that improves spliced alignments},\n \tauthor={Chao, Kuan-Hao and Mao, Alan and Salzberg, Steven L and Pertea, Mihaela},\n \tjournal={bioRxiv},\n \tpages={2023--07},\n \tyear={2023},\n \tpublisher={Cold Spring Harbor Laboratory}\n }')">Cite</a>
+    </li>
+    <li><a target="_blank"  href="https://ccb.jhu.edu/lifton/" style="color:#4A4F53">LiftOn</a>, annotation lift-over tool &emsp; <a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank"><img src="https://img.shields.io/badge/License-GPLv3-green.svg"></a> <a href="https://github.com/Kuanhao-Chao/LiftOn" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Code</a> <a href="https://ccb.jhu.edu/lifton/" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Documentation</a> <a href="https://ccb.jhu.edu/lifton/" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Paper</a> 
+    </li>
+    <li><a target="_blank"  href="https://github.com/roblanf/sangeranalyseR" style="color:#4A4F53">sangeranalyseR</a>, R package for analyzing Sanger sequence &emsp; <a href="https://opensource.org/licenses/MIT" target="_blank"><img src="https://img.shields.io/badge/License-MIT-yellow.svg"></a> <a href="https://github.com/roblanf/sangeranalyseR" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Code</a> <a href="https://sangeranalyser.readthedocs.io/en/latest/" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Documentation</a> <a href="https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Bioc2021/sangeranalyseR_poster.pdf" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Poster</a> <a href="https://doi.org/10.1093/gbe/evab028" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Paper</a> <a id="test" class="btn btn-outline-primary btn-page-header btn-sm show-popup-btn" style="text-decoration: none" onclick="dosomething('<br><b style=color:#ad0000>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). sangeranalyseR&amp;#58 simple and interactive processing of Sanger sequencing data in R, <i><b>Genome Biology and Evolution</b></i>, Volume 13, Issue 3, March 2021, evab028, <a href=https://doi.org/10.1093/gbe/evab028>https://doi.org/10.1093/gbe/evab028</a>', '@article{chao2021sangeranalyser,\n \ttitle={sangeranalyseR: simple and interactive processing of Sanger sequencing data in R},\n \tauthor={Chao, Kuan-Hao and Barton, Kirston and Palmer, Sarah and Lanfear, Robert},\n \tjournal={Genome Biology and Evolution},\n \tvolume={13},\n \tnumber={3},\n \tpages={evab028},\n \tyear={2021},\n \tpublisher={Oxford University Press}\n }')">Cite</a>
+    </li>
+    <li><a target="_blank"  href="https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit" style="color:#4A4F53">Wheele Graph Toolkit</a> &emsp; <a href="https://opensource.org/licenses/MIT" target="_blank"><img src="https://img.shields.io/badge/License-MIT-yellow.svg"></a> <a href="https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Code</a> <a href="https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/RECOMB2023/WGT_poster.pdf" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Poster</a> <a href="https://doi.org/10.1016/j.isci.2023.107402" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Paper</a> <a id="test" class="btn btn-outline-primary btn-page-header btn-sm show-popup-btn" style="text-decoration: none" onclick="dosomething('<b style=color:#ad0000>Kuan-Hao Chao*<sup>†</sup></b>, Pei-Wei Chen<sup>†</sup>, Sanjit A. Seshia, Ben Langmead* (2022). WGT&amp;#58 Tools and algorithms for recognizing, visualizing and generating Wheeler graphs, <i><b>bioRxiv</b></i>, <a href=https://doi.org/10.1101/2022.10.15.512390>https://doi.org/10.1101/2022.10.15.512390</a>', '@article{chao2023splam,\n \ttitle={WGT: Tools and algorithms for recognizing, visualizing, and generating Wheeler graphs},\n \tauthor={Chao, Kuan-Hao and Chen, Pei-Wei and Seshia, Sanjit A. and Langmead, Ben},\n \tjournal={iScience},\n \tvolume={26},\n \tnumber={8},\n \tyear={2023},\n \tpublisher={Elsevier}\n }')">Cite</a>
+    </li>
+  </ul>
+  <b style="padding-left:18px;"><i class="fa fa-chevron-circle-right" aria-hidden="true"></i> <a href="https://github.com/Kuanhao-Chao" style="color:#4A4F53; text-decoration: none;"> &nbsp; more ...</a></b>
+<!-- </div> -->
+
+<br>
+
 
 <h2 class="page__title" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/projects/" style="color:#4A4F53; text-decoration: none;">Side Projects</a></h2>
 <!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
