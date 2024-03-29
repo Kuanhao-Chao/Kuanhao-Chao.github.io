@@ -115,7 +115,7 @@ z-index:100;"> -->
   </ul>
 <br>
 
-<h2 class="page__title" style="font-size:19pt;"><i class="fa fa-computer></i> &nbsp;  <a href="https://github.com/Kuanhao-Chao" style="color:#4A4F53; text-decoration: none;">Selected open-source software</a></h2>
+<h2 class="page__title" style="font-size:19pt;"><i class="fa fa-computer"></i> &nbsp;  <a href="https://github.com/Kuanhao-Chao" style="color:#4A4F53; text-decoration: none;">Selected open-source software</a></h2>
 <!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
 z-index:100;"> -->
   <ul>
