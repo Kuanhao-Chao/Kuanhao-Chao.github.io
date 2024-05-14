@@ -90,6 +90,7 @@ z-index:100;"> -->
 
 <h2 class="page__title" style="font-size:19pt"> <i class="fa fa-bookmark"></i> &nbsp; <a href="https://khchao.com/presentations/" style="color:#4A4F53; text-decoration: none;">Selected Presentation</a></h2>
   <ul>
+    <li><b>ISMB 20-min Talk</b>, International Conference on Intelligent Systems for Molecular Biology (ISMB), <i>Montreal, Canada, 2024</i>, Expected: July</li> 
     <li><b>RECOMB-seq Talk</b>, Research in Computational Molecular Biology on Biological Sequence Analysis, <i>Boston, USA, 2024</i>, <a href="https://storage.cloud.google.com/storage.khchao.com/slides/RECOMB-Seq_talk_2024.pdf" target="_blank">Slides</a></li> 
     <li><b>RECOMB-seq Proceeding Talk</b>, Research in Computational Molecular Biology on Biological Sequence Analysis, <i>Istanbul, Türkiye, 2023</i>, <a href="https://www.youtube.com/watch?v=TkX9S024Dk8&ab_channel=RECOMBConferenceSeries" target="_blank">Link</a></li> 
     <li><b>ISMB/ECCB Poster</b>, Intelligent Systems for Molecular Biology / European Conference on Computational Biology 2023, <i>Lyon, France, 2023</i>, <a href="https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/ISMB-ECCB2023/splam_poster_ismb.pdf" target="_blank">Link</a></li>
