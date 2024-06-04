@@ -110,7 +110,7 @@ redirect_from:
 
 <h2 class="page__title" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Experience</a></h2>
   <ul>
-    <li>Research Intern, <a target="_blank"  href="https://www.davidrkelley.com/" style="color:#4A4F53">Kelley lab</a>, <a target="_blank"  href="https://www.calicolabs.com/" style="color: #28bc54"><b>Calico</b></a>, <i>May/2024 - Aug/2024</i></li>
+    <li>Research Intern, <a target="_blank"  href="https://www.calicolabs.com/" style="color: #28bc54"><b>Calico</b></a>, <i>May/2024 - Aug/2024</i></li>
     <li>Research Assistant, <a target="_blank"  href="https://www.iis.sinica.edu.tw/en/index.html" style="color:#4A4F53">Institute of Information Science</a>, <a target="_blank"  href="https://www.sinica.edu.tw/en" style="color: #08447c"><b>Academia Sinica</b></a>, <i>Jul/2020 - Jan/2021</i></li>
     <li>Research Student, <a target="_blank"  href="https://biology.anu.edu.au/" style="color:#4A4F53">Research School of Biology</a>, <a target="_blank"  href="https://www.anu.edu.au/" style="color:#c0842c"><b>The Australian National University</b></a>, <i>Jul/2019 - Jun/2020</i></li>
     <li>Research Student, <a target="_blank"  href="http://www.cgm.ntu.edu.tw/web/index/index.jsp?lang=en" style="color:#4A4F53">Centers of Genomic and Precision Medicine</a>, <a target="_blank"  href="https://www.ntu.edu.tw/english/" style="color:#783c3c"><b>National Taiwan University</b></a>, <i>Aug/2018 - Jul/2019</i></li>
