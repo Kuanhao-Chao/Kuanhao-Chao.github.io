@@ -179,11 +179,12 @@ z-index:100;"> -->
   <li>Reviewer
     <ul>
       <li>
-        Chromatographia: 2023
+        Genome Research: 2024
       </li>
       <li>G3: Genes, Genomes, Genetics: 2024</li>
       <li>BMC Bioinformatics: 2024</li>
       <li>International Society for Computational Biology (ISCB): 2024</li>
+      <li>Chromatographia: 2023</li>
     </ul>
   </li>
 
