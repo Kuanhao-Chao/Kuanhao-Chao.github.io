@@ -9,9 +9,9 @@ redirect_from:
 ---
 {% include base_path %}
 
-🎓 I'm a third-year Ph.D. Candidate in Computer Science at the <a target="_blank"  href="https://ccb.jhu.edu/" style="color:#4A4F53">Center for Computational Biology</a>, <a target="_blank"  href="https://www.jhu.edu/" style="color:#4A4F53">Johns Hopkins University</a>. My academic journey started in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a> at <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>, shifting towards computer science in my final year at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a> at <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a> 🦘🐨
+🎓 I'm a third-year Ph.D. Candidate in Computer Science at the <a target="_blank"  href="https://ccb.jhu.edu/" style="color:#4A4F53">Center for Computational Biology</a>, <a target="_blank"  href="https://www.jhu.edu/" style="color:#4A4F53">Johns Hopkins University</a>, working with <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a>. My academic journey started in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a> at <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>, shifting towards computer science in my final year at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a> at <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a> 🦘🐨
 
-<!-- , working with <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a> -->
+
 
 🧬 My research interest intersects **"graphs"** with genomics and transcriptomics:
 
@@ -112,7 +112,7 @@ redirect_from:
 
 <h2 class="page__title" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Experience</a></h2>
   <ul>
-    <li>Research Intern, <a target="_blank"  href="https://www.calicolabs.com/" style="color: #28bc54"><b>Calico</b></a>, <i>May/2024 - Aug/2024</i></li>
+    <li>Genomic Machine Learning Research Intern, <a target="_blank"  href="https://www.davidrkelley.com/" style="color:#4A4F53">Kelley Lab</a>, <a target="_blank"  href="https://www.calicolabs.com/" style="color: #28bc54"><b>Calico</b></a>, <i>May/2024 - Aug/2024</i></li>
     <li>Research Assistant, <a target="_blank"  href="https://www.iis.sinica.edu.tw/en/index.html" style="color:#4A4F53">Institute of Information Science</a>, <a target="_blank"  href="https://www.sinica.edu.tw/en" style="color: #08447c"><b>Academia Sinica</b></a>, <i>Jul/2020 - Jan/2021</i></li>
     <li>Research Student, <a target="_blank"  href="https://biology.anu.edu.au/" style="color:#4A4F53">Research School of Biology</a>, <a target="_blank"  href="https://www.anu.edu.au/" style="color:#c0842c"><b>The Australian National University</b></a>, <i>Jul/2019 - Jun/2020</i></li>
     <li>Research Student, <a target="_blank"  href="http://www.cgm.ntu.edu.tw/web/index/index.jsp?lang=en" style="color:#4A4F53">Centers of Genomic and Precision Medicine</a>, <a target="_blank"  href="https://www.ntu.edu.tw/english/" style="color:#783c3c"><b>National Taiwan University</b></a>, <i>Aug/2018 - Jul/2019</i></li>
