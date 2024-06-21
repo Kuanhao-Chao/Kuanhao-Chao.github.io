@@ -9,22 +9,20 @@ redirect_from:
 ---
 {% include base_path %}
 
-🎓 I'm a third-year Ph.D. Candidate in Computer Science at the <a target="_blank"  href="https://ccb.jhu.edu/" style="color:#4A4F53">Center for Computational Biology</a>, <a target="_blank"  href="https://www.jhu.edu/" style="color:#4A4F53">Johns Hopkins University</a>, working with <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a>. My academic journey started in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a> at <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>, shifting towards computer science in my final year at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a> at <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a> 🦘🐨
+🎓 I'm a third-year Ph.D. Candidate in Computer Science at the <a target="_blank"  href="https://ccb.jhu.edu/" style="color:#4A4F53">Center for Computational Biology</a>, <a target="_blank"  href="https://www.jhu.edu/" style="color:#4A4F53">Johns Hopkins University</a>, working with <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a>. My academic journey started in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a> at <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>, shifting towards computer science in my final year at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a> at <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a>.
 
 
 
+🧬 My research interest intersects deep learning with genomics and transcriptomics:
 
-🧬 My research interest intersects **"graphs"** with genomics and transcriptomics:
-
-
-- In **deep learning in genomics**, my work focuses on utilizing sequence models to decode patterns in DNA sequences, aiming to uncover insights into the transcriptional regulatory networks that integrate cis-regulatory DNA sequences with the activity of trans-regulators. I am developing a yeast large language model (LLM) to better understand the mechanisms of yeast gene expression regulation.
-- In **splice site prediction**, I built a deep dilated residual convolutional neural network to decode the complexities of RNA splicing and understand the impact of genetic variants on cryptic splicing ([Learn more](https://www.biorxiv.org/content/10.1101/2023.07.27.550754v2)).
-- In **genome assembly**, De Bruijn graphs are widely used. For an example of its application, check out my [Han1 assembly](https://doi.org/10.1093/g3journal/jkac321), the first gapless Southern Chinese Han genome.
-- For **pangenome indexing**, I've contributed to making the Wheeler graph recognition problem computationally feasible through innovative heuristic methods combined with an SMT solver ([Learn more](https://doi.org/10.1016/j.isci.2023.107402)).
-- In **genome annotation**, I have utilized graph-based methods to stitch together fragmented DNA and protein alignments, thereby assembling them into more accurate annotations. ([Learn more](https://doi.org/10.1101/2024.05.16.593026)).
+- In **transcriptional regulatory networks**,my work uses sequence models to decode DNA patterns, aiming to uncover insights into how cis-regulatory DNA sequences and trans-regulators interact. I am developing a yeast large language model (LLM) to better understand the mechanisms of yeast gene expression regulation.
+- In **splice site predictiong**, I built a deep dilated residual convolutional neural network to decode the complexities of RNA splicing, alternative splicing, and the impact of genetic variants on cryptic splicing ([Learn more](https://www.biorxiv.org/content/10.1101/2023.07.27.550754v2)).
+- In **genome assembly**, I assembled and annotated the first gapless Southern Chinese Han genome, [Han1](https://www.ncbi.nlm.nih.gov/datasets/genome/GCA_024586135.1/), using PacBio HiFi and Oxford Nanopore long reads, with T2T-CHM13 as a guide ([Learn more](https://doi.org/10.1093/g3journal/jkac321)).
+- For **pangenome indexing**, I applied new renaming heuristics and an SMT solver to make the Wheeler graph recognition problem computationally feasible ([Learn more](https://doi.org/10.1016/j.isci.2023.107402)).
+- In **genome annotation**, I used graph-based methods to stitch together fragmented DNA and protein alignments, thereby assembling them into more accurate annotations. ([Learn more](https://doi.org/10.1101/2024.05.16.593026)).
 <!-- - My **transcriptome assembly** work focuses on modeling RNA-Seq data using directed acyclic splice graphs, with ongoing research into graph neural networks to decode the complexities of RNA splicing. ([Learn more](https://www.biorxiv.org/content/10.1101/2023.07.27.550754v2)). -->
 
-💻 I am an advocate for open-source software, embracing the philosophy of "build what you need, use what you build". I invite you to explore my **[NEWS](https://khchao.com/news/)** page for the latest updates on my projects.
+💻 I am an advocate for open-source software, embracing the philosophy of **"build what you need, use what you build"**. I invite you to explore my **[NEWS](https://khchao.com/news/)** page for the latest updates on my projects.
 
 💬 Feel free to reach out to me for collaborations, discussions, or just to say hi! **[Coffee chat! ☕️](https://calendly.com/kuanhao-chao/30min)**
 
