@@ -121,6 +121,15 @@ redirect_from:
   </ul>
 <br>
 
+<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Honor & Fellowship</a></h2>
+  <ul>
+    <li><a target="_blank"  href="https://www.arch.jhu.edu/news-events/all/robbins-award/" style="color:#4A4F53">Mark O. Robbins Prize</a> awarded by Advanced Research Computing at Hopkins (ARCH), <i>2024</i></li>
+    <li><a target="_blank"  href="https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/" style="color:#4A4F53">Research highlight</a> by JHU Whiting School of Engineering and CS Department, <i>2024</i></li>
+    <li>Best Poster Award, <a target="_blank"  href="https://bioc2021.bioconductor.org/" style="color:#4A4F53">Bioconductor Conference (Bioc2021)</a>, <i>2021</i></li>
+    <li>College Student Research Fellowship awarded by <a target="_blank"  href="https://www.nstc.gov.tw/?l=en" style="color:#4A4F53">Taiwan Ministry of Science and Technology</a>, <i>2019</i></li>
+  </ul>
+<br>
+
 <h2 class="page__title" style="font-size:19pt;"><i class="fa fa-laptop"></i> &nbsp;  <a href="https://github.com/Kuanhao-Chao" style="color:#4A4F53; text-decoration: none;">Selected open-source software</a></h2>
 <!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
 z-index:100;"> -->
