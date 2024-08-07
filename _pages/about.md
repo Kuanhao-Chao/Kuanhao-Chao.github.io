@@ -78,7 +78,7 @@ redirect_from:
   <ul>
     <li><b>Kuan-Hao Chao*</b>, Jakob M. Heinz, Celine Hoh, Alan Mao, Mihaela Pertea, Steven L. Salzberg* (2024) <a target="_blank" href="https://doi.org/10.1101/2024.05.16.593026" style="color:#4A4F53">Combining DNA and protein alignments to improve genome annotation with LiftOn</a>, <i><b>bioRxiv</b></i>
     </li>
-    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L. Salzberg, Mihaela Pertea* (2023). <a target="_blank"  href="https://doi.org/10.1101/2023.07.27.550754" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>bioRxiv</b></i>
+    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L. Salzberg, Mihaela Pertea* (2023). <a target="_blank"  href="https://doi.org/10.1101/2023.07.27.550754" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>Genome Biology in press</b></i>
     </li>
     <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). <a target="_blank"  href="https://doi.org/10.1093/gbe/evab028" style="color:#4A4F53">sangeranalyseR: simple and interactive processing of Sanger sequencing data in R</a>, <i><b>Genome Biology and Evolution</b></i>
     </li>
@@ -94,6 +94,7 @@ redirect_from:
 
 <h2 class="page__title" style="font-size:19pt"> <i class="fa fa-bookmark"></i> &nbsp; <a href="https://khchao.com/presentations/" style="color:#4A4F53; text-decoration: none;">Selected Presentation</a></h2>
   <ul>
+    <li><b>Invited Google Deep Dive 1-hour Talk</b>, <a href="https://health.google/" target="_blank">Google Health</a>, <i>Virtual & Mountain View, CA, August 2024</i>, <a href="https://storage.cloud.google.com/storage.khchao.com/slides/Google_Deep_Dive_2024_0806.pdf" target="_blank">Slides</a>, <a href="https://youtu.be/MyWwUzjIBVk" target="_blank">Video coming soon</a></li>
     <li><b>ISMB General Computational COSI Talk</b>, International Conference on Intelligent Systems for Molecular Biology, <i>Montréal, Canada, July 2024</i>, <a href="https://storage.cloud.google.com/storage.khchao.com/slides/ISMB_talk_2024.pdf" target="_blank">Slides</a>, <a href="https://youtu.be/MyWwUzjIBVk" target="_blank">Video coming soon</a></li>
     <li><b>JHU Joint Biostats-Genomics Lab Meeting Talk</b>, <i>Baltimore, MD, May 2024</i>, <a href="https://youtu.be/MyWwUzjIBVk" target="_blank">Video</a>, <a href="https://storage.googleapis.com/storage.khchao.com/slides/joint_lab_meeting_slides.pdf" target="_blank">Slides</a></li>
     <li><b>RECOMB-seq Talk</b>, Research in Computational Molecular Biology on Biological Sequence Analysis, <i>Cambridge, USA, April 2024</i>, <a href="https://storage.cloud.google.com/storage.khchao.com/slides/RECOMB-Seq_talk_2024.pdf" target="_blank">Slides</a></li>
