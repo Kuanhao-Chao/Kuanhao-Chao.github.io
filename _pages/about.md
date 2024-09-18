@@ -15,7 +15,7 @@ redirect_from:
 
 🧬 My research interest intersects deep learning with genomics and transcriptomics:
 
-- In **transcriptional regulatory networks**,my work uses sequence models to decode DNA patterns, aiming to uncover insights into how cis-regulatory DNA sequences and trans-regulators interact. I am developing a yeast large language model (LLM) to better understand the mechanisms of yeast gene expression regulation.
+- In **transcriptional regulatory networks**, my work uses sequence models to decode DNA patterns, aiming to uncover insights into how cis-regulatory DNA sequences and trans-regulators interact. I am building a yeast large language model (LLM) from hundreds of fungus genomes to better understand the mechanisms of yeast gene expression regulation.
 - In **splice site predictiong**, I built a deep dilated residual convolutional neural network to decode the complexities of RNA splicing, alternative splicing, and the impact of genetic variants on cryptic splicing ([Learn more](https://www.biorxiv.org/content/10.1101/2023.07.27.550754v2)).
 - In **genome assembly**, I assembled and annotated the first gapless Southern Chinese Han genome, [Han1](https://www.ncbi.nlm.nih.gov/datasets/genome/GCA_024586135.1/), using PacBio HiFi and Oxford Nanopore long reads, with T2T-CHM13 as a guide ([Learn more](https://doi.org/10.1093/g3journal/jkac321)).
 - For **pangenome indexing**, I applied new renaming heuristics and an SMT solver to make the Wheeler graph recognition problem computationally feasible ([Learn more](https://doi.org/10.1016/j.isci.2023.107402)).
@@ -76,9 +76,9 @@ redirect_from:
 
 <h2 class="page__title" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/publications/" style="color:#4A4F53; text-decoration: none;">Selected Publication</a></h2>
   <ul>
-    <li><b>Kuan-Hao Chao*</b>, Jakob M. Heinz, Celine Hoh, Alan Mao, Mihaela Pertea, Steven L. Salzberg* (2024) <a target="_blank" href="https://doi.org/10.1101/2024.05.16.593026" style="color:#4A4F53">Combining DNA and protein alignments to improve genome annotation with LiftOn</a>, <i><b>bioRxiv</b></i>
+    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L. Salzberg, Mihaela Pertea* (2024). <a target="_blank"  href="https://doi.org/10.1186/s13059-024-03379-4" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>Genome Biology</b></i>
     </li>
-    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L. Salzberg, Mihaela Pertea* (2023). <a target="_blank"  href="https://doi.org/10.1101/2023.07.27.550754" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>Genome Biology in press</b></i>
+    <li><b>Kuan-Hao Chao*</b>, Jakob M. Heinz, Celine Hoh, Alan Mao, Mihaela Pertea, Steven L. Salzberg* (2024) <a target="_blank" href="https://doi.org/10.1101/2024.05.16.593026" style="color:#4A4F53">Combining DNA and protein alignments to improve genome annotation with LiftOn</a>, <i><b>bioRxiv</b></i>
     </li>
     <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). <a target="_blank"  href="https://doi.org/10.1093/gbe/evab028" style="color:#4A4F53">sangeranalyseR: simple and interactive processing of Sanger sequencing data in R</a>, <i><b>Genome Biology and Evolution</b></i>
     </li>
