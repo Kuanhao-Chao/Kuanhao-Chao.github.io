@@ -125,6 +125,7 @@ redirect_from:
 
 <h2 class="page__title" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Honor & Fellowship</a></h2>
   <ul>
+    <li>Research highlight by JHU <a target="_blank"  href="https://hub.jhu.edu/2024/12/11/splam-pinpoints-gene-splicing/" style="color:#4A4F53">HUB</a>, <a target="_blank"  href="https://www.cs.jhu.edu/news/new-ai-tool-pinpoints-gene-splicing-with-unmatched-precision/" style="color:#4A4F53">Whiting School of Engineering</a> and <a target="_blank"  href="https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/" style="color:#4A4F53">CS Department</a>, <i>2024</i></li>
     <li><a target="_blank"  href="https://www.arch.jhu.edu/news-events/all/robbins-award/" style="color:#4A4F53">Mark O. Robbins Prize</a> awarded by Advanced Research Computing at Hopkins (ARCH), <i>2024</i></li>
     <li><a target="_blank"  href="https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/" style="color:#4A4F53">Research highlight</a> by JHU Whiting School of Engineering and CS Department, <i>2024</i></li>
     <li>Best Poster Award, <a target="_blank"  href="https://bioc2021.bioconductor.org/" style="color:#4A4F53">Bioconductor Conference (Bioc2021)</a>, <i>2021</i></li>
