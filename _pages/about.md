@@ -76,9 +76,9 @@ redirect_from:
 
 <h2 class="page__title" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/publications/" style="color:#4A4F53; text-decoration: none;">Selected Publication</a></h2>
   <ul>
-    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L. Salzberg, Mihaela Pertea* (2024). <a target="_blank"  href="https://doi.org/10.1186/s13059-024-03379-4" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>Genome Biology</b></i>
+    <li><b>Kuan-Hao Chao*</b>, Jakob M. Heinz, Celine Hoh, Alan Mao, Mihaela Pertea, Steven L. Salzberg* (2024) <a target="_blank" href="https://doi.org/10.1101/2024.05.16.593026" style="color:#4A4F53">Combining DNA and protein alignments to improve genome annotation with LiftOn</a>, <i><b>Genome Research</b></i>
     </li>
-    <li><b>Kuan-Hao Chao*</b>, Jakob M. Heinz, Celine Hoh, Alan Mao, Mihaela Pertea, Steven L. Salzberg* (2024) <a target="_blank" href="https://doi.org/10.1101/2024.05.16.593026" style="color:#4A4F53">Combining DNA and protein alignments to improve genome annotation with LiftOn</a>, <i><b>bioRxiv</b></i>
+    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L. Salzberg, Mihaela Pertea* (2024). <a target="_blank"  href="https://doi.org/10.1186/s13059-024-03379-4" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>Genome Biology</b></i>
     </li>
     <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). <a target="_blank"  href="https://doi.org/10.1093/gbe/evab028" style="color:#4A4F53">sangeranalyseR: simple and interactive processing of Sanger sequencing data in R</a>, <i><b>Genome Biology and Evolution</b></i>
     </li>
@@ -125,7 +125,7 @@ redirect_from:
 
 <h2 class="page__title" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Honor & Fellowship</a></h2>
   <ul>
-    <li>Research highlight by JHU <a target="_blank"  href="https://hub.jhu.edu/2024/12/11/splam-pinpoints-gene-splicing/" style="color:#4A4F53">HUB</a>, <a target="_blank"  href="https://www.cs.jhu.edu/news/new-ai-tool-pinpoints-gene-splicing-with-unmatched-precision/" style="color:#4A4F53">Whiting School of Engineering</a> and <a target="_blank"  href="https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/" style="color:#4A4F53">CS Department</a>, <i>2024</i></li>
+    <li>Research highlight by JHU <a target="_blank"  href="https://hub.jhu.edu/2024/12/11/splam-pinpoints-gene-splicing/" style="color:#4A4F53">HUB</a>, <a target="_blank"  href="https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/" style="color:#4A4F53">Whiting School of Engineering</a> and <a target="_blank"  href="https://www.cs.jhu.edu/news/new-ai-tool-pinpoints-gene-splicing-with-unmatched-precision/" style="color:#4A4F53">CS Department</a>, <i>2024</i></li>
     <li><a target="_blank"  href="https://www.arch.jhu.edu/news-events/all/robbins-award/" style="color:#4A4F53">Mark O. Robbins Prize</a> awarded by Advanced Research Computing at Hopkins (ARCH) [<a href='https://www.cs.jhu.edu/news/phd-student-kuan-hao-chao-wins-mark-o-robbins-prize-in-high-performance-computing/' target='_blank'>article</a>], <i>2024</i></li>
     <li><a target="_blank"  href="https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/" style="color:#4A4F53">Research highlight</a> by JHU Whiting School of Engineering and CS Department, <i>2024</i></li>
     <li>Best Poster Award, <a target="_blank"  href="https://bioc2021.bioconductor.org/" style="color:#4A4F53">Bioconductor Conference (Bioc2021)</a>, <i>2021</i></li>
