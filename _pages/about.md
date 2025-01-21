@@ -16,10 +16,10 @@ redirect_from:
 🧬 My research interest intersects deep learning with genomics and transcriptomics:
 
 - In **transcriptional regulatory networks**, my work uses sequence models to decode DNA patterns, aiming to uncover insights into how cis-regulatory DNA sequences and trans-regulators interact. I am building a yeast large language model (LLM) from hundreds of fungus genomes to better understand the mechanisms of yeast gene expression regulation ([Learn more](https://storage.googleapis.com/storage.khchao.com/slides/JHU_joint_lab_meeting_2025.pdf)).
-- In **splice site predictiong**, I built a deep dilated residual convolutional neural network to decode the complexities of RNA splicing, alternative splicing, and the impact of genetic variants on cryptic splicing ([Learn more](https://doi.org/10.1186/s13059-024-03379-4)).
+- In **splice site predictiong**, I built a deep dilated residual convolutional neural network to decode the complexities of RNA splicing, alternative splicing, and the impact of genetic variants on cryptic splicing ([Learn more](https://doi.org/10.1186/s13059-024-03379-4); [News](https://hub.jhu.edu/2024/12/11/splam-pinpoints-gene-splicing/)).
+- In **genome annotation**, I used graph-based methods to stitch together fragmented DNA and protein alignments, thereby assembling them into more accurate annotations. ([Learn more](https://doi.org/10.1101/gr.279620.124)).
 - In **genome assembly**, I assembled and annotated the first gapless Southern Chinese Han genome, [Han1](https://www.ncbi.nlm.nih.gov/datasets/genome/GCA_024586135.1/), using PacBio HiFi and Oxford Nanopore long reads, with T2T-CHM13 as a guide ([Learn more](https://doi.org/10.1093/g3journal/jkac321)).
 - For **pangenome indexing**, I applied new renaming heuristics and an SMT solver to make the Wheeler graph recognition problem computationally feasible ([Learn more](https://doi.org/10.1016/j.isci.2023.107402)).
-- In **genome annotation**, I used graph-based methods to stitch together fragmented DNA and protein alignments, thereby assembling them into more accurate annotations. ([Learn more](https://doi.org/10.1101/2024.05.16.593026)).
 <!-- - My **transcriptome assembly** work focuses on modeling RNA-Seq data using directed acyclic splice graphs, with ongoing research into graph neural networks to decode the complexities of RNA splicing. ([Learn more](https://www.biorxiv.org/content/10.1101/2023.07.27.550754v2)). -->
 
 💻 I am an advocate for open-source software, embracing the philosophy of **"build what you need, use what you build"**. I invite you to explore my **[NEWS](https://khchao.com/news/)** page for the latest updates on my projects.
@@ -73,8 +73,41 @@ redirect_from:
 </div>
 
 <br>
+<!-- Quick Links (centered, wrapping, separated) -->
+<div style="text-align:center; margin: 20px 0;">
+  <ul style="
+      list-style: none; 
+      padding: 0; 
+      margin: 0;
+      /* Use inline-flex or flex to keep items on one row until wrapping */
+      display: inline-flex; 
+      flex-wrap: wrap; 
+      gap: 1em; 
+      justify-content: center;
+    ">
+    <li><a href="#selected-publication">Publication</a></li>
+    <li>|</li>
+    <li><a href="#selected-presentation">Presentation</a></li>
+    <li>|</li>
+    <li><a href="#education">Education</a></li>
+    <li>|</li>
+    <li><a href="#experience">Experience</a></li>
+    <li>|</li>
+    <li><a href="#honor-fellowship">Honor & Fellowship</a></li>
+    <li>|</li>
+    <li><a href="#open-source">Open-Source Software</a></li>
+    <li>|</li>
+    <li><a href="#side-projects">Side Projects</a></li>
+    <li>|</li>
+    <li><a href="#teaching">Teaching</a></li>
+    <li>|</li>
+    <li><a href="#service">Service</a></li>
+  </ul>
+</div>
+<br>
 
-<h2 class="page__title" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/publications/" style="color:#4A4F53; text-decoration: none;">Selected Publication</a></h2>
+
+<h2 class="page__title" id="selected-publication" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/publications/" style="color:#4A4F53; text-decoration: none;">Selected Publication</a></h2>
   <ul>
     <li><b>Kuan-Hao Chao*</b>, Jakob M. Heinz, Celine Hoh, Alan Mao, Mihaela Pertea, Steven L. Salzberg* (2024) <a target="_blank" href="https://doi.org/10.1101/gr.279620.124" style="color:#4A4F53">Combining DNA and protein alignments to improve genome annotation with LiftOn</a>, <i><b>Genome Research</b></i>
     </li>
@@ -92,7 +125,7 @@ redirect_from:
 
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-bookmark"></i> &nbsp; <a href="https://khchao.com/presentations/" style="color:#4A4F53; text-decoration: none;">Selected Presentation</a></h2>
+<h2 class="page__title" id="selected-presentation" style="font-size:19pt"> <i class="fa fa-bookmark"></i> &nbsp; <a href="https://khchao.com/presentations/" style="color:#4A4F53; text-decoration: none;">Selected Presentation</a></h2>
   <ul>
     <li><b>JHU Joint Biostats-Genomics Lab Meeting Talk</b>, <i>Baltimore, MD, Jan 2025</i>,  <a href="https://storage.googleapis.com/storage.khchao.com/slides/JHU_joint_lab_meeting_2025.pdf" target="_blank">Slides</a></li>
     <li><b>Calico internship 1-hour Talk</b>, <a href="https://www.calicolabs.com/" target="_blank">Calico</a>, <i>South San Francisco, CA, August 2024</i>, <a href="https://storage.googleapis.com/storage.khchao.com/slides/Calico_project_showcase_2024_0821.pdf" target="_blank">Slides</a>, <a href="https://khchao.com/images/calico_intern_talk.png" target="_blank">Photo</a></li>
@@ -107,7 +140,7 @@ redirect_from:
 
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-graduation-cap"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Education</a></h2>
+<h2 class="page__title" id="education" style="font-size:19pt"> <i class="fa fa-graduation-cap"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Education</a></h2>
   <ul>
     <li>Ph.D. Candidate in <a target="_blank"  href="https://www.cs.jhu.edu/" style="color:#4A4F53">Computer Science</a>, <a target="_blank"  href="https://www.jhu.edu/" style="color:#002D72"><b>Johns Hopkins University</b></a>, <i>Sep/2021 - Present</i></li>
     <li>M.S.E. in <a target="_blank"  href="https://www.cs.jhu.edu/" style="color:#4A4F53">Computer Science</a>, <a target="_blank"  href="https://www.jhu.edu/" style="color:#002D72"><b>Johns Hopkins University</b></a>, <i>Sep/2021 - May/2023</i></li>
@@ -115,7 +148,7 @@ redirect_from:
   </ul>
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Experience</a></h2>
+<h2 class="page__title" id="experience" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Experience</a></h2>
   <ul>
     <li>Genomic Machine Learning Research Intern, <a target="_blank"  href="https://www.davidrkelley.com/" style="color:#4A4F53">Kelley Lab</a>, <a target="_blank"  href="https://www.calicolabs.com/" style="color: #28bc54"><b>Calico</b></a>, <i>May/2024 - Aug/2024</i></li>
     <li>Research Assistant, <a target="_blank"  href="https://www.iis.sinica.edu.tw/en/index.html" style="color:#4A4F53">Institute of Information Science</a>, <a target="_blank"  href="https://www.sinica.edu.tw/en" style="color: #08447c"><b>Academia Sinica</b></a>, <i>Jul/2020 - Jan/2021</i></li>
@@ -124,9 +157,9 @@ redirect_from:
   </ul>
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Honor & Fellowship</a></h2>
+<h2 class="page__title" id="honor-fellowship" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Honor & Fellowship</a></h2>
   <ul>
-    <li>Research highlight by JHU <a target="_blank"  href="https://hub.jhu.edu/2024/12/11/splam-pinpoints-gene-splicing/" style="color:#4A4F53">HUB</a>, <a target="_blank"  href="https://engineering.jhu.edu/news/new-ai-tool-pinpoints-gene-splicing-with-unmatched-precision/" style="color:#4A4F53">Whiting School of Engineering</a> and <a target="_blank"  href="https://www.cs.jhu.edu/news/new-ai-tool-pinpoints-gene-splicing-with-unmatched-precision/" style="color:#4A4F53">CS Department</a>, <i>2024</i></li>
+    <li>Research highlight by JHU <a target="_blank"  href="https://hub.jhu.edu/2024/12/11/splam-pinpoints-gene-splicing/" style="color:#4A4F53">HUB</a>, <a target="_blank"  href="https://engineering.jhu.edu/news/new-ai-tool-pinpoints-gene-splicing-with-unmatched-precision/" style="color:#4A4F53">Whiting School of Engineering</a> and <a target="_blank"  href="https://www.cs.jhu.edu/news/new-ai-tool-pinpoints-gene-splicing-with-unmatched-precision/" style="color:#4A4F53">CS Department</a> [<a href='https://hub.jhu.edu/2024/12/11/splam-pinpoints-gene-splicing/' target='_blank'>article</a>], <i>2024</i></li>
     <li><a target="_blank"  href="https://www.arch.jhu.edu/news-events/all/robbins-award/" style="color:#4A4F53">Mark O. Robbins Prize</a> awarded by Advanced Research Computing at Hopkins (ARCH) [<a href='https://www.cs.jhu.edu/news/phd-student-kuan-hao-chao-wins-mark-o-robbins-prize-in-high-performance-computing/' target='_blank'>article</a>], <i>2024</i></li>
     <li><a target="_blank"  href="https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/" style="color:#4A4F53">Research highlight</a> by JHU Whiting School of Engineering and CS Department, <i>2024</i></li>
     <li>Best Poster Award, <a target="_blank"  href="https://bioc2021.bioconductor.org/" style="color:#4A4F53">Bioconductor Conference (Bioc2021)</a>, <i>2021</i></li>
@@ -134,7 +167,7 @@ redirect_from:
   </ul>
 <br>
 
-<h2 class="page__title" style="font-size:19pt;"><i class="fa fa-laptop"></i> &nbsp;  <a href="https://github.com/Kuanhao-Chao" style="color:#4A4F53; text-decoration: none;">Selected open-source software</a></h2>
+<h2 class="page__title" id="open-source" style="font-size:19pt;"><i class="fa fa-laptop"></i> &nbsp;  <a href="https://github.com/Kuanhao-Chao" style="color:#4A4F53; text-decoration: none;">Selected open-source software</a></h2>
 <!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
 z-index:100;"> -->
   <ul>
@@ -152,16 +185,15 @@ z-index:100;"> -->
 
 <br>
 
-
-<h2 class="page__title" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/projects/" style="color:#4A4F53; text-decoration: none;">Side Projects</a></h2>
+<h2 class="page__title" id="side-projects" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/projects/" style="color:#4A4F53; text-decoration: none;">Side Projects</a></h2>
 <!-- <div style="margin-left:20px; margin-top:30px; pointer-events: all;
 z-index:100;"> -->
   <ul>
-    <li><a target="_blank"  href="https://khchao.com/projects/games/biobaby" style="color:#4A4F53">Biobaby</a>, Unity WebGL game, <a href="https://storage.googleapis.com/storage.khchao.com/biobaby/index.html" target="_blank">Play it now!</a>
+    <li><a target="_blank"  href="https://khchao.com/projects/games/biobaby" style="color:#4A4F53">Biobaby</a>, Unity WebGL game, <a href="https://storage.googleapis.com/storage.khchao.com/biobaby/index.html" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" target="_blank">▶️ Play it now!</a>
     </li>
-    <li><a target="_blank"  href="https://khchao.com/projects/games/flappy_penguin" style="color:#4A4F53">Flappy penguin</a>, Unity WebGL game, <a href="https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html" target="_blank">Play it now!</a>
+    <li><a target="_blank"  href="https://khchao.com/projects/games/flappy_penguin" style="color:#4A4F53">Flappy penguin</a>, Unity WebGL game, <a href="https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" target="_blank">▶️ Play it now!</a>
     </li>
-    <li><a target="_blank"  href="https://khchao.com/projects/games/tanks_fire" style="color:#4A4F53">Tank fire</a>, Unity WebGL game, <a href="https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html" target="_blank">Play it now!</a>
+    <li><a target="_blank"  href="https://khchao.com/projects/games/tanks_fire" style="color:#4A4F53">Tank fire</a>, Unity WebGL game, <a href="https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none" target="_blank">▶️ Play it now!</a>
     </li>
   </ul>
   <b style="padding-left:18px;"><i class="fa fa-chevron-circle-right" aria-hidden="true"></i> <a href="https://khchao.com/projects/" style="color:#4A4F53; text-decoration: none;"> &nbsp; more ...</a></b>
@@ -169,7 +201,7 @@ z-index:100;"> -->
 
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-user"></i> &nbsp; <a href="https://khchao.com/teaching/" style="color:#4A4F53; text-decoration: none;">Teaching</a></h2>
+<h2 class="page__title" id="teaching" style="font-size:19pt"> <i class="fa fa-user"></i> &nbsp; <a href="https://khchao.com/teaching/" style="color:#4A4F53; text-decoration: none;">Teaching</a></h2>
 <ul>
   <li>Johns Hopkins University
     <ul>
@@ -189,8 +221,16 @@ z-index:100;"> -->
 
 <br>
 
-<h2 class="page__title" style="font-size:19pt"> <i class="fa fa-list"></i> &nbsp; Service</h2>
+<h2 class="page__title" id="service" style="font-size:19pt"> <i class="fa fa-list"></i> &nbsp; Service</h2>
 <ul>
+  <li>Founder and Organizer
+    <ul>
+      <li>
+          Johns Hopkins Deep Learning + Genomics Study Group, <i>2024 - Present</i> <a href="https://drive.google.com/file/d/1E6Is-48GBmqK98Qh7FeQc8OEtGn4oN-A/view?usp=sharing" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Slides</a>, <a href="https://drive.google.com/drive/folders/15yCXZd5sCuCwPULc3b7p8X5OK8XqbdNp?usp=drive_link" target="_blank" class="btn btn-outline-primary btn-page-header btn-sm" style="text-decoration: none">Repository</a>
+      </li>
+    </ul>
+  </li>
+
   <li>Reviewer
     <ul>
       <li>
