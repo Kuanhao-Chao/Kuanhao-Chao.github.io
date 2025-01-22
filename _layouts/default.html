@@ -10,6 +10,7 @@ layout: compress
     {% include head.html %}
     {% include head/custom.html %}
     {% include head/custom_landing_page.html %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
     <script src="https://unpkg.com/zdog@1/dist/zdog.dist.min.js"></script>
@@ -50,7 +51,7 @@ layout: compress
           <div id="particles-header" class="intro-header alt-font" style="color:#000 !important">
               <div class="container">
                   <div class="intro-message">
-                      <h1 id="intro-message-name" class="alt-font" style="pointer-events: all;z-index:100;">Kuan-Hao Chao<button id="play_sound" onclick="myFunction()" class="intro-social-a"><i id="name_pronunciation" style="pointer-events: all;z-index:100;" class="fa fa-volume-down"></i></button></h1>
+                      <h1 id="intro-message-name" class="alt-font" style="pointer-events: all;z-index:100;">Kuan-Hao&nbsp;Chao&nbsp;<button id="play_sound" onclick="myFunction()" class="intro-social-a"><i id="name_pronunciation" style="pointer-events: all;z-index:100;" class="fa fa-volume-down"></i></button></h1>
                       <div id="audio_paragraph" style="width: 85%; text-align: center;margin: auto; display: none;">
                         <audio controls style="pointer-events: all;z-index:100; margin-top: 15px;">
                           <source src="{{base_path}}/assets/audio/my_name.mp3" type="audio/mpeg">
@@ -59,9 +60,9 @@ layout: compress
                         <button style="border: none;background: none; z-index:120;" onclick="myFunction()" class="intro-social-a"><i id="name_pronunciation" style="font-size: 55px; pointer-events: all;z-index:120; color: #404040;" class="fa fa-angle-double-up"></i></button>
                       </div>
                       <br>
-                      <span id="type-wrap" style="font-size: 20pt;"> $ <span id="typed"></span>
+                      <span id="type-wrap"> $ <span id="typed"></span>
                       </span>
-                      <div class="row" style="display: flex; margin-top: 30px">
+                      <div class="row" style="display: flex;">
                         <!-- <div class="column" style="flex: 5%;">
                           <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
                             <canvas id="canvas_DNA_left" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
@@ -198,6 +199,93 @@ layout: compress
     </div>
 
     <style>
+      #intro-message-name {
+        font-size: 3.5rem;
+        white-space: nowrap; /* Keep the name on one line */
+      }
+      /* Tablet: reduce name font size slightly */
+      @media (max-width: 768px) {
+        #intro-message-name {
+          font-size: 3.0rem;
+        }
+      }
+      /* Phone: reduce further if needed */
+      @media (max-width: 480px) {
+        #intro-message-name {
+          font-size: 2.0rem;
+        }
+      }
+
+
+      #intro-message-main {
+        font-size: 1.6rem;
+        white-space: nowrap; /* Keep the main message on one line */
+      }
+      /* Tablet: reduce name font size slightly */
+      @media (max-width: 768px) {
+        #intro-message-main {
+          font-size: 1.2rem;
+        }
+      }
+      /* Phone: reduce further if needed */
+      @media (max-width: 480px) {
+        #intro-message-main {
+          font-size: 1.0rem;
+        }
+      }
+
+
+      #type-wrap {
+        font-size: 1.6rem;
+        white-space: nowrap; /* Keep the main message on one line */
+      }
+      /* Tablet: reduce name font size slightly */
+      @media (max-width: 768px) {
+        #type-wrap {
+          font-size: 1.2rem;
+        }
+      }
+      /* Phone: reduce further if needed */
+      @media (max-width: 480px) {
+        #type-wrap {
+          font-size: 1.0rem;
+        }
+      }
+
+      #intro-message-advisor {
+        font-size: 1.4rem;
+        white-space: nowrap; /* Keep the main message on one line */
+      }
+      /* Tablet: reduce name font size slightly */
+      @media (max-width: 768px) {
+        #intro-message-advisor {
+          font-size: 1.0rem;
+        }
+      }
+      /* Phone: reduce further if needed */
+      @media (max-width: 480px) {
+        #intro-message-advisor {
+          font-size: 0.8rem;
+        }
+      }
+
+      /* Base size for icons */
+      .intro-social-buttons li {
+        font-size: 35px; /* or whatever your default is */
+      }
+      /* When the screen width is below 768px, reduce the icon size */
+      @media (max-width: 768px) {
+        .intro-social-buttons li {
+          font-size: 22px;
+        }
+      }
+      /* Even smaller when below 480px */
+      @media (max-width: 480px) {
+        .intro-social-buttons li {
+          font-size: 16px;
+        }
+      }
+
       /* Make a dedicated wrapper class rather than using inline styles */
       .logo-container {
         display: flex;

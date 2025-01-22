@@ -74,6 +74,7 @@ redirect_from:
 
 <br>
 <!-- Quick Links (centered, wrapping, separated) -->
+
 <div style="text-align:center; margin: 20px 0;">
   <ul style="
       list-style: none; 
