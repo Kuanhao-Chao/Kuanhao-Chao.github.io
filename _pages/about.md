@@ -110,9 +110,9 @@ redirect_from:
 
 <h2 class="page__title" id="selected-publication" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://khchao.com/publications/" style="color:#4A4F53; text-decoration: none;">Selected Publication</a></h2>
   <ul>
-    <li><b>Kuan-Hao Chao*</b>, Jakob M. Heinz, Celine Hoh, Alan Mao, Mihaela Pertea, Steven L. Salzberg* (2024) <a target="_blank" href="https://doi.org/10.1101/gr.279620.124" style="color:#4A4F53">Combining DNA and protein alignments to improve genome annotation with LiftOn</a>, <i><b>Genome Research</b></i>
+    <li><b>Kuan-Hao Chao*</b>, Jakob M. Heinz, Celine Hoh, Alan Mao, Mihaela Pertea, Steven L. Salzberg* (2025) <a target="_blank" href="https://doi.org/10.1101/gr.279620.124" style="color:#4A4F53">Combining DNA and protein alignments to improve genome annotation with LiftOn</a>, <i><b>Genome Research</b></i>
     </li>
-    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L. Salzberg, Mihaela Pertea* (2025). <a target="_blank"  href="https://doi.org/10.1186/s13059-024-03379-4" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>Genome Biology</b></i>
+    <li><b>Kuan-Hao Chao*</b>, Alan Mao, Steven L. Salzberg, Mihaela Pertea* (2024). <a target="_blank"  href="https://doi.org/10.1186/s13059-024-03379-4" style="color:#4A4F53">Splam: a deep-learning-based splice site predictor that improves spliced alignments</a>, <i><b>Genome Biology</b></i>
     </li>
     <li><b>Kuan-Hao Chao*</b>, K. Barton, S. Palmer, and R. Lanfear* (2021). <a target="_blank"  href="https://doi.org/10.1093/gbe/evab028" style="color:#4A4F53">sangeranalyseR: simple and interactive processing of Sanger sequencing data in R</a>, <i><b>Genome Biology and Evolution</b></i>
     </li>
