@@ -1,6 +1,6 @@
 ---
 permalink: /
-title: "🧑🏻‍💻 <img src='https://khchao.com/images/kh_logo.png' alt='Icon' style='width: 30px; height: 30px; margin-right: 10px;'> &nbsp; About me"
+title: "<img src='https://khchao.com/images/kh_logo.png' alt='Icon' style='width: 50px; height: 50px; margin-right: 10px;'> &nbsp; About me"
 excerpt: "About me"
 author_profile: true
 redirect_from:
