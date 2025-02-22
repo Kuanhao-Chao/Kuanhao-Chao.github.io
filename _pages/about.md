@@ -9,6 +9,30 @@ redirect_from:
 ---
 {% include base_path %}
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Kuan-Hao Chao",
+  "alternateName": [
+    "趙冠豪",
+    "Kuan-Hao",
+    "Chao Kuan-Hao",
+    "kh chao",
+    "k-h chao",
+    "khc",
+  ],
+  "jobTitle": "Computational Biologist",
+  "url": "https://khchao.com/about",
+  "sameAs": [
+    "https://www.linkedin.com/in/kuanhao-chao/",
+    "https://x.com/KuanHaoChao",
+    "https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en",
+  ]
+}
+</script>
+
+
 🎓 I'm a fourth-year Ph.D. Candidate in Computer Science at the <a target="_blank"  href="https://ccb.jhu.edu/" style="color:#4A4F53">Center for Computational Biology</a>, <a target="_blank"  href="https://www.jhu.edu/" style="color:#4A4F53">Johns Hopkins University</a>, working with <a target="_blank"  href="https://scholar.google.com/citations?user=sUVeH-4AAAAJ&hl=en" style="color:#4A4F53">Steven Salzberg</a> and <a target="_blank"  href="https://scholar.google.com/citations?user=fKjqGyEAAAAJ&hl=en" style="color:#4A4F53">Mihaela Pertea</a>. My academic journey started in <a target="_blank"  href="https://web.ee.ntu.edu.tw/eng/index.php" style="color:#4A4F53">Electrical Engineering</a> at <a target="_blank"  href="https://www.ntu.edu.tw/english/index.html" style="color:#4A4F53">National Taiwan University (NTU)</a>, shifting towards computer science in my final year at the <a target="_blank" href="https://cecs.anu.edu.au" style="color:#4A4F53">College of Engineering & Computer Science</a> at <a target="_blank"  href="https://www.anu.edu.au" style="color:#4A4F53">Australian National University (ANU)</a>.
 
 
