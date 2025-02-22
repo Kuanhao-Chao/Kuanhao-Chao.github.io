@@ -20,14 +20,14 @@ redirect_from:
     "Chao Kuan-Hao",
     "kh chao",
     "k-h chao",
-    "khc",
+    "khc"
   ],
   "jobTitle": "Computational Biologist",
   "url": "https://khchao.com/about",
   "sameAs": [
     "https://www.linkedin.com/in/kuanhao-chao/",
     "https://x.com/KuanHaoChao",
-    "https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en",
+    "https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en"
   ]
 }
 </script>
