@@ -181,11 +181,18 @@ redirect_from:
 
 <h2 class="page__title" id="experience" style="font-size:19pt"> <i class="fa fa-briefcase"></i> &nbsp; <a href="https://khchao.com/cv/" style="color:#4A4F53; text-decoration: none;">Experience</a></h2>
   <ul>
+    <li>Proteomics Machine Learning Research Intern, 
+      <a target="_blank" href="https://www.profluent.bio/team" style="color:#4A4F53">Bioinformatics team</a>, 
+      <a target="_blank" href="https://www.profluent.bio/" style="color: #28bc54; text-decoration: none !important;">
+        <img src="images/Profluent_Logo.png" alt="Profluent Logo" style="height:1.05em; vertical-align: middle; margin-bottom: 6px;">
+      </a>, 
+      <i>May/2025 - Aug/2025</i>
+    </li>
     <li>Genomics Machine Learning Research Intern, 
       <a target="_blank" href="https://www.davidrkelley.com/" style="color:#4A4F53">Kelley Lab</a>, 
       <a target="_blank" href="https://www.calicolabs.com/" style="color: #28bc54; text-decoration: none !important;">
-        <img src="images/Calico_Logo.png" alt="Calico Logo" style="height:1em; vertical-align:middle;">
-        <img src="images/Calico_LLC_logo.png" alt="Calico Logo" style="height:0.8em; vertical-align:middle;">
+        <img src="images/Calico_Logo.png" alt="Calico Logo" style="height:1em; vertical-align:middle; margin-bottom: 4px;">
+        <img src="images/Calico_LLC_logo.png" alt="Calico Logo" style="height:0.8em; vertical-align:middle; margin-bottom: 4px;">
       </a>, 
       <i>May/2024 - Aug/2024</i>
     </li>
@@ -272,6 +279,15 @@ z-index:100;"> -->
   <li>Reviewer
     <ul>
       <li>
+        Human Genetics and Genomics Advances: 2025
+      </li>
+      <li>
+        BMC Genomics: 2025
+      </li>
+      <li>
+        Scientific Reports: 2025
+      </li>
+      <li>
         Genome Research: 2024
       </li>
       <li>G3: Genes, Genomes, Genetics: 2024</li>
@@ -327,15 +343,12 @@ z-index:100;"> -->
     <img src="/images/CGM_LOGO.png" style="height:160px; width: 160px; margin: 10px">
   </a>
 </div> -->
-<hr>
-<br><br>
-
-<script type="text/javascript" id="clustrmaps" src="//clustrmaps.com/map_v2.js?d=SjhWAwqGLnloAclnIVxG6gxPA8DEX2yyW2VQlroVDWw&cl=ffffff&w=a" style="pointer-events: all; z-index:100;"></script>
+<!-- <script type="text/javascript" id="clustrmaps" src="//clustrmaps.com/map_v2.js?d=SjhWAwqGLnloAclnIVxG6gxPA8DEX2yyW2VQlroVDWw&cl=ffffff&w=a" style="pointer-events: all; z-index:100;"></script>
 <script>
   initComparisons();
-</script>
+</script> -->
 <hr>
-<br><br>
+<br>
 
 
 <script>
