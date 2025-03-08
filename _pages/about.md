@@ -186,7 +186,7 @@ redirect_from:
       <a target="_blank" href="https://www.profluent.bio/" style="color: #28bc54; text-decoration: none !important;">
         <img src="images/Profluent_Logo.png" alt="Profluent Logo" style="height:1.05em; vertical-align: middle; margin-bottom: 6px;">
       </a>, 
-      <i>May/2025 - Aug/2025</i>
+      <i>May/2025 - Aug/2025 (Expected)</i>
     </li>
     <li>Genomics Machine Learning Research Intern, 
       <a target="_blank" href="https://www.davidrkelley.com/" style="color:#4A4F53">Kelley Lab</a>, 
