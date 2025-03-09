@@ -343,10 +343,12 @@ z-index:100;"> -->
     <img src="/images/CGM_LOGO.png" style="height:160px; width: 160px; margin: 10px">
   </a>
 </div> -->
-<!-- <script type="text/javascript" id="clustrmaps" src="//clustrmaps.com/map_v2.js?d=SjhWAwqGLnloAclnIVxG6gxPA8DEX2yyW2VQlroVDWw&cl=ffffff&w=a" style="pointer-events: all; z-index:100;"></script>
+<div style="display:none !important;">
+<script type="text/javascript" id="clustrmaps" src="//clustrmaps.com/map_v2.js?d=SjhWAwqGLnloAclnIVxG6gxPA8DEX2yyW2VQlroVDWw&cl=ffffff&w=a" style="pointer-events: all; z-index:100;"></script>
 <script>
   initComparisons();
-</script> -->
+</script>
+<div>
 <hr>
 <br>
 
