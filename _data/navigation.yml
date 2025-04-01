@@ -5,10 +5,7 @@ main:
     url: /cv/
 
   - title: "Publications"
-    url: /publications/
-
-  - title: "Research"
-    url: /researches/
+    url: https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en
 
   - title: "Presentations"
     url: /presentations/
@@ -21,6 +18,12 @@ main:
 
   - title: "Photos"
     url: /photos/
+
+  # - title: "Publications"
+  #   url: /publications/
+
+  # - title: "Research"
+  #   url: /researches/
 
   # - title: "Internship"
   #   url: /internship/
