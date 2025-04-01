@@ -67,7 +67,40 @@ redirect_from:
         "@type": "Person",
         "name": "Kuan-Hao Chao"
       }
-    }
+    },
+    {
+      "@type": "ImageObject",
+      "contentUrl": "https://khchao.com/images/Kuan-Hao_Chao_bds_2022.JPG",
+      "url": "https://khchao.com/images/Kuan-Hao_Chao_bds_2022.JPG",
+      "name": "Kuan-Hao Chao - 4",
+      "caption": "Kuan-Hao Chao profile photo BDS talk",
+      "author": {
+        "@type": "Person",
+        "name": "Kuan-Hao Chao"
+      }
+    },
+    {
+      "@type": "ImageObject",
+      "contentUrl": "https://khchao.com/images/Kuan-Hao_Chao_bds_2022_2.JPG",
+      "url": "https://khchao.com/images/Kuan-Hao_Chao_bds_2022_2.JPG",
+      "name": "Kuan-Hao Chao - 5",
+      "caption": "Kuan-Hao Chao profile photo BDS talk 2",
+      "author": {
+        "@type": "Person",
+        "name": "Kuan-Hao Chao"
+      }
+    },
+    {
+      "@type": "ImageObject",
+      "contentUrl": "https://khchao.com/images/Kuan-Hao_Chao_full_2.PNG",
+      "url": "https://khchao.com/images/Kuan-Hao_Chao_full_2.PNG",
+      "name": "Kuan-Hao Chao - 6",
+      "caption": "Kuan-Hao Chao profile photo full body 2",
+      "author": {
+        "@type": "Person",
+        "name": "Kuan-Hao Chao"
+      }
+    },
   ]
 }
 </script>
