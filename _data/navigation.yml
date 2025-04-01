@@ -4,12 +4,14 @@ main:
   - title: "CV"
     url: /cv/
 
-  - title: "Publications"
-    url: https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en
 
   - title: "Presentations"
     url: /presentations/
 
+
+  - title: "Publications"
+    url: https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en
+  
   - title: "Projects"
     url: /projects/
 
