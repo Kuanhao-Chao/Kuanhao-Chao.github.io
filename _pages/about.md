@@ -234,7 +234,7 @@ redirect_from:
 
 <h2 class="page__title" id="selected-presentation" style="font-size:19pt"> <i class="fa fa-bookmark"></i> &nbsp; <a href="https://khchao.com/presentations/" style="color:#4A4F53; text-decoration: none;">Selected Presentation</a></h2>
   <ul>
-    <li><b>Robbins Prize Awardee Keynote, JHU Symposium on High-Performance Computing</b>, <i>Baltimore, MD, April 2025</i></li>
+    <li><b>Robbins Prize Awardee Talk, JHU Symposium on High-Performance Computing (HPC 2025)</b>, <i>Baltimore, MD, April 2025</i>, <a href="https://storage.googleapis.com/storage.khchao.com/slides/HPC_symposium_2025.pdf" target="_blank">Slides</a></li>
     <li><b>JHU Joint Biostats-Genomics Lab Meeting Talk</b>, <i>Baltimore, MD, Jan 2025</i>, <a href="https://youtu.be/MvpYQYQvZ0U" target="_blank">Video</a>, <a href="https://storage.googleapis.com/storage.khchao.com/slides/JHU_joint_lab_meeting_2025.pdf" target="_blank">Slides</a></li>
     <li><b>Calico internship 1-hour Talk</b>, <a href="https://www.calicolabs.com/" target="_blank">Calico</a>, <i>South San Francisco, CA, August 2024</i>, <a href="https://storage.googleapis.com/storage.khchao.com/slides/Calico_project_showcase_2024_0821.pdf" target="_blank">Slides</a>, <a href="https://khchao.com/images/calico_intern_talk.png" target="_blank">Photo</a></li>
     <li><b>Invited Google Deep Dive 1-hour Talk</b>, <a href="https://health.google/" target="_blank">Google Health</a>, <i>Virtual & Mountain View, CA, August 2024</i>, <a href="https://storage.cloud.google.com/storage.khchao.com/slides/Google_Deep_Dive_2024_0806.pdf" target="_blank">Slides</a>, <a href="https://drive.google.com/file/d/1xA0ln9r1xWXX8gYLqVgowaPpthOb6eGo/view?usp=drive_link" target="_blank">Video [Google internal only]</a></li>
