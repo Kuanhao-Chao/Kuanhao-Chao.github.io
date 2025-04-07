@@ -17,7 +17,11 @@ redirect_from:
   "alternateName": [
     "趙冠豪",
     "Kuan-Hao",
+    "kuan-hao",
+    "kuanhao",
+    "Kuanhao",
     "Chao Kuan-Hao",
+    "kuanhao chao",
     "kh chao",
     "k-h chao",
     "khc"
