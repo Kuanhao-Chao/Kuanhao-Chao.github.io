@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thesis Defense Invitation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Open+Sans&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Open Sans', sans-serif;
+      position: relative;
+      overflow: auto;
+      min-height: 100vh;
+      padding: 20px;
+      background: #000;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url('https://khchao.com/images/hopkins.png') no-repeat center center/cover;
+      filter: blur(2px);
+      opacity: 0.6;
+      z-index: -1;
+    }
+    .card {
+      position: relative;
+      max-width: 500px;
+      margin: auto;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      padding: 40px;
+      text-align: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2);
+    }
+    .card h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.2rem;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .card p {
+      color: #555;
+      line-height: 1.6;
+      margin: 10px 0;
+    }
+    .details {
+      list-style: none;
+      text-align: left;
+      margin: 20px 0;
+      padding-left: 0;
+    }
+    .details li {
+      margin-bottom: 8px;
+      font-size: 1rem;
+    }
+    .details strong {
+      color: #333;
+    }
+    .rsvp-button, .download-button {
+      display: inline-block;
+      margin: 10px 5px;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+      transition: background 0.3s ease;
+    }
+    .rsvp-button {
+      background: #3366cc;
+      color: #fff;
+    }
+    .rsvp-button:hover {
+      background: #254a99;
+    }
+    .download-button {
+      background: #ff6b6b;
+      color: #fff;
+    }
+    .download-button:hover {
+      background: #e55a5a;
+    }
+    .abstract {
+      text-align: left;
+      margin-top: 30px;
+    }
+    .abstract h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .abstract p {
+      color: #555;
+      line-height: 1.6;
+    }
+    @media (max-width: 600px) {
+      .card { padding: 20px; }
+      .card h1 { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>You're Invited!</h1>
+    <p>Dear Friends,</p>
+    <p>I am thrilled to invite you to my thesis defense public speech.</p>
+    <ul class="details">
+      <li><strong>Title:</strong> [Your Thesis Title]</li>
+      <li><strong>Date:</strong> August, 2025</li>
+      <li><strong>Time:</strong> [Start Time] – [End Time] (EST)</li>
+      <li><strong>Location:</strong> [Venue Name] or Zoom: <a href="[Zoom Link]" target="_blank">Join Here</a></li>
+    </ul>
+    <a href="[RSVP Link]" class="rsvp-button" target="_blank">RSVP Here</a>
+    <a href="[ICS Link]" class="download-button" target="_blank">Download Calendar Invite</a>
+    <p style="margin-top: 20px; font-size: 0.9rem; color: #888;">Please RSVP to help me better estimate attendance.</p>
+    <div class="abstract">
+      <h2>Abstract</h2>
+      <p>[Insert your thesis defense abstract here. Provide a concise summary of your research objectives, methods, key findings, and significance.]</p>
+    </div>
+  </div>
+</body>
+</html>
