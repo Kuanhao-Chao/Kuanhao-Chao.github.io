@@ -13,66 +13,85 @@
       position: relative;
       overflow: auto;
       min-height: 100vh;
-      padding: 20px;
-      background: #f5f5f5;
+      padding: 40px;
+      background: #f9f9f9;
+      color: #333;
     }
     body::before {
       content: '';
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
       background: url('https://khchao.com/images/hopkins.jpg') no-repeat center center/cover;
-      filter: blur(0.5px) brightness(1.2);
-      opacity: 0.8;
+      filter: blur(4px) brightness(1.1);
+      opacity: 0.6;
       z-index: -1;
     }
     .card {
       position: relative;
-      max-width: 500px;
-      margin: 40px auto;
+      max-width: 600px;
+      margin: 80px auto;
       background: rgba(255, 255, 255, 0.9);
       backdrop-filter: blur(12px);
       border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
       padding: 40px;
       text-align: center;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
     .card:hover {
       transform: translateY(-10px);
-      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
     }
     .card h1 {
       font-family: 'Playfair Display', serif;
-      font-size: 2.2rem;
-      color: #333;
-      margin-bottom: 10px;
+      font-size: 2.5rem;
+      color: #2c3e50;
+      margin-bottom: 20px;
     }
     .card p {
       color: #555;
-      line-height: 1.6;
-      margin: 10px 0;
+      line-height: 1.8;
+      margin: 12px 0;
+      font-size: 1rem;
     }
     .details {
       list-style: none;
-      text-align: left;
-      margin: 20px 0;
       padding-left: 0;
+      margin: 20px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px; /* Space between list items */
     }
     .details li {
-      margin-bottom: 8px;
-      font-size: 1rem;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
     }
-    .details strong {
-      color: #333;
+    .details li b {
+      font-weight: bold;
+      margin-right: 10px;
+      min-width: 100px; /* Ensure alignment of labels */
+    }
+    .details a {
+      text-decoration: none;
+      color: #3366cc;
+      font-weight: bold;
+      display: inline;
+    }
+    .details a:hover {
+      color: #254a99;
+      text-decoration: underline;
     }
     .rsvp-button, .download-button {
       display: inline-block;
-      margin: 10px 5px;
-      padding: 12px 24px;
+      margin: 15px 5px;
+      padding: 14px 28px;
       text-decoration: none;
       border-radius: 8px;
       font-weight: bold;
-      transition: background 0.3s ease;
+      transition: background 0.3s ease, transform 0.2s ease;
+      font-size: 1rem;
     }
     .rsvp-button {
       background: #3366cc;
@@ -80,6 +99,7 @@
     }
     .rsvp-button:hover {
       background: #254a99;
+      transform: translateY(-3px);
     }
     .download-button {
       background: #ff6b6b;
@@ -87,24 +107,37 @@
     }
     .download-button:hover {
       background: #e55a5a;
+      transform: translateY(-3px);
     }
     .abstract {
       text-align: left;
-      margin-top: 30px;
+      margin-top: 40px;
     }
     .abstract h2 {
       font-family: 'Playfair Display', serif;
-      font-size: 1.5rem;
-      color: #333;
-      margin-bottom: 10px;
+      font-size: 1.8rem;
+      color: #2c3e50;
+      margin-bottom: 12px;
     }
     .abstract p {
       color: #555;
-      line-height: 1.6;
+      line-height: 1.8;
     }
     @media (max-width: 600px) {
-      .card { padding: 20px; }
-      .card h1 { font-size: 1.8rem; }
+      body {
+        padding: 20px;
+      }
+      .card { 
+        padding: 25px; 
+        max-width: 100%; 
+      }
+      .card h1 { font-size: 2rem; }
+      .details li { 
+        font-size: 1rem;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .details li b { margin-right: 0; }
     }
   </style>
 </head>
@@ -112,15 +145,17 @@
   <div class="card">
     <h1>You're Invited!</h1>
     <p>Dear Friends,</p>
-    <p>I am thrilled to invite you to my thesis defense public speech.</p>
+    <p>I’m excited to invite you to my public thesis defense talk and share this milestone in my research journey with you.</p>
     <ul class="details">
-      <li><strong>Title:</strong> [Your Thesis Title]</li>
-      <li><strong>Date:</strong> August, 2025</li>
-      <li><strong>Time:</strong> [Start Time] – [End Time] (EST)</li>
-      <li><strong>Location:</strong> [Venue Name] or Zoom: <a href="[Zoom Link]" target="_blank">Join Here</a></li>
+      <li><b>Title:</b> Decoding the Language of Genomes: Bridging Sequences and Function through Deep Learning</li>
+      <li><b>Date:</b> August 25<sup>th</sup>, 2025</li>
+      <li><b>Time:</b> 2:30 PM – 4:30 PM (ET) <br> 11:30 AM – 1:30 PM (PT) <br> 2:30 AM – 4:30 AM (CST)</li>
+      <li><b>Location:</b> Clark Hall 110 (Homewood campus), Baltimore</li>
+      <li><b>Zoom:</b> <a href="https://jhubluejays.zoom.us/j/9385611117?pwd=GPmPSUgaAFBnuJbdHJioH8I6uzl40m.1&omn=92663205262" target="_blank">Join Here</a></li>
     </ul>
+
     <a href="[RSVP Link]" class="rsvp-button" target="_blank">RSVP Here</a>
-    <a href="[ICS Link]" class="download-button" target="_blank">Download Calendar Invite</a>
+    <a href="https://storage.googleapis.com/storage.khchao.com/K-H_Chao_thesis_defense.ics" class="download-button" target="_blank">Download Calendar Invite</a>
     <p style="margin-top: 20px; font-size: 0.9rem; color: #888;">Please RSVP to help me better estimate attendance.</p>
     <div class="abstract">
       <h2>Abstract</h2>
