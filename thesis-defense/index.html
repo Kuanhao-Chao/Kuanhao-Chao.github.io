@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Thesis Defense Invitation</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Open+Sans&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet" />
   <style>
+    /* —— Base reset —— */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; }
+
+    /* —— Body —— */
     body {
       font-family: 'Open Sans', sans-serif;
       position: relative;
@@ -17,24 +20,27 @@
       background: #f9f9f9;
       color: #333;
     }
+    /* Background photo blur */
     body::before {
       content: '';
       position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: url('https://khchao.com/images/hopkins.jpg') no-repeat center center/cover;
+      inset: 0;
+      background: url('https://khchao.com/images/hopkins.jpg') no-repeat center/cover;
       filter: blur(4px) brightness(1.1);
       opacity: 0.6;
       z-index: -1;
     }
+
+    /* —— Card —— */
     .card {
       position: relative;
-      max-width: 600px;
+      max-width: 650px;
       margin: 80px auto;
       background: rgba(255, 255, 255, 0.9);
       backdrop-filter: blur(12px);
       border-radius: 16px;
       box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
-      padding: 40px;
+      padding: 48px 56px;
       text-align: center;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
@@ -46,126 +52,116 @@
       font-family: 'Playfair Display', serif;
       font-size: 2.5rem;
       color: #2c3e50;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
-    .card p {
-      color: #555;
-      line-height: 1.8;
-      margin: 12px 0;
-      font-size: 1rem;
-    }
+
+    /* —— Details list —— */
     .details {
       list-style: none;
-      padding-left: 0;
-      margin: 20px 0;
+      margin: 32px 0;
       display: flex;
       flex-direction: column;
-      gap: 20px; /* Space between list items */
+      gap: 18px;
     }
     .details li {
-      font-size: 1.1rem;
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: flex-start;
+      flex-wrap: wrap;
+      font-size: 1.1rem;
     }
-    .details li b {
-      font-weight: 900 !important;
-      margin-right: 10px;
-      min-width: 100px; /* Ensure alignment of labels */
+    .details .label {
+      font-weight: 700;
+      color: #2c3e50;
+      min-width: 120px;
+      text-align: left;
     }
-    .details a {
-      text-decoration: none;
+    .details .value {
+      flex: 1;
+      text-align: right;
+      font-weight: 400;
+      color: #555;
+    }
+    .details .value a {
       color: #3366cc;
-      font-weight: 900 !important;
-      display: inline;
+      font-weight: 700;
+      text-decoration: none;
     }
-    .details a:hover {
+    .details .value a:hover {
       color: #254a99;
       text-decoration: underline;
     }
-    .rsvp-button, .download-button {
+
+    /* —— Buttons —— */
+    .btn {
       display: inline-block;
-      margin: 15px 5px;
+      margin: 18px 6px 0;
       padding: 14px 28px;
-      text-decoration: none;
       border-radius: 8px;
-      font-weight: 900 !important;
-      transition: background 0.3s ease, transform 0.2s ease;
       font-size: 1rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.3s ease, transform 0.2s ease;
     }
-    .rsvp-button {
-      background: #3366cc;
-      color: #fff;
-    }
-    .rsvp-button:hover {
-      background: #254a99;
-      transform: translateY(-3px);
-    }
-    .download-button {
-      background: #ff6b6b;
-      color: #fff;
-    }
-    .download-button:hover {
-      background: #e55a5a;
-      transform: translateY(-3px);
-    }
-    .abstract {
-      text-align: left;
-      margin-top: 40px;
-    }
+    .btn:hover { transform: translateY(-3px); }
+    .btn.rsvp { background: #3366cc; color: #fff; }
+    .btn.rsvp:hover { background: #254a99; }
+    .btn.download { background: #ff6b6b; color: #fff; }
+    .btn.download:hover { background: #e55a5a; }
+    .btn.dissertation { background: #28a745; color: #fff; }
+    .btn.dissertation:hover { background: #1f7c36; }
+
+    /* —— Abstract —— */
+    .abstract { margin-top: 48px; text-align: justify; }
     .abstract h2 {
       font-family: 'Playfair Display', serif;
       font-size: 1.8rem;
       color: #2c3e50;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
-    .abstract p {
-      color: #555;
-      line-height: 1.8;
-    }
-    @media (max-width: 600px) {
-      body {
-        padding: 20px;
-      }
-      .card { 
-        padding: 25px; 
-        max-width: 100%; 
-      }
+    .abstract p { line-height: 1.8; color: #555; margin-bottom: 16px; }
+
+    /* —— Responsive —— */
+    @media (max-width: 650px) {
+      body { padding: 20px; }
+      .card { padding: 32px 26px; }
       .card h1 { font-size: 2rem; }
-      .details li { 
-        font-size: 1rem;
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .details li b { margin-right: 0; }
+      .details li { font-size: 1rem; }
+      .details .label { min-width: 100px; }
     }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>You're Invited!</h1>
-    <p>Dear Friends,</p>
-    <p>I’m excited to invite you to my public thesis defense talk and share this milestone in my research journey with you.</p>
+
+    <p style="margin-bottom: 12px; font-size: 1.1rem;">Dear Friends,</p>
+    <p style="font-size: 1.1rem;">I’m excited to invite you to my public thesis‑defense talk and share this milestone in my research journey with you.</p>
+
+    <!-- —— Event details —— -->
     <ul class="details">
-      <li><strong style="font-weight:900 !important;">Title:</strong> Decoding the Language of Genomes: Bridging Sequences and Function through Deep Learning</li>
-      <li><strong style="font-weight:900 !important;">Date:</strong> August 25<sup>th</sup>, 2025</li>
-      <li><strong style="font-weight:900 !important;">Time:</strong> 2:30 PM – 4:30 PM (ET) <br> 11:30 AM – 1:30 PM (PT) <br> 2:30 AM – 4:30 AM (CST)</li>
-      <li><strong style="font-weight:900 !important;">Location:</strong> Clark Hall 110 (Homewood campus), Baltimore</li>
-      <li><strong style="font-weight:900 !important;">Zoom:</strong> <a href="https://jhubluejays.zoom.us/j/9385611117?pwd=GPmPSUgaAFBnuJbdHJioH8I6uzl40m.1&omn=92663205262" target="_blank">Join Here</a></li>
+      <li><span class="label">Title:</span><span class="value">Decoding the Language of Genomes: Bridging Sequences and Function through Deep Learning</span></li>
+      <li><span class="label">Date:</span><span class="value">August 25<sup>th</sup>, 2025</span></li>
+      <li><span class="label">Time:</span><span class="value">2:30 PM – 4:30 PM (ET)<br>11:30 AM – 1:30 PM (PT)<br>2:30 AM – 4:30 AM (CST)</span></li>
+      <li><span class="label">Location:</span><span class="value">Clark Hall 110 (Homewood Campus), Baltimore</span></li>
+      <li><span class="label">Zoom:</span><span class="value"><a href="https://jhubluejays.zoom.us/j/9385611117?pwd=GPmPSUgaAFBnuJbdHJioH8I6uzl40m.1&omn=92663205262" target="_blank">Join Here</a></span></li>
     </ul>
 
-    <a href="[RSVP Link]" class="rsvp-button" target="_blank">RSVP Here</a>
-    <a href="https://storage.googleapis.com/storage.khchao.com/K-H_Chao_thesis_defense.ics" class="download-button" target="_blank">Download Calendar Invite</a>
-    <p style="margin-top: 20px; font-size: 0.9rem; color: #888;">Please RSVP to help me better estimate attendance.</p>
+    <!-- —— Action buttons —— -->
+    <a href="[RSVP Link]" class="btn rsvp" target="_blank">RSVP Now</a>
+    <a href="https://storage.googleapis.com/storage.khchao.com/K-H_Chao_thesis_defense.ics" class="btn download" target="_blank">Add to Calendar</a>
+    <p style="margin-top: 20px; font-size: 0.9rem; color: #888;">Please RSVP so I can better estimate attendance.</p>
+
+    <!-- —— Abstract —— -->
     <div class="abstract">
       <h2>Abstract</h2>
       <p>The field of computational biology is being reshaped by two synergistic revolutions: ever‑more accurate high‑throughput sequencing and advanced computational methods. At this nexus, deep learning now exploits the exponential growth of genomic data to extract insights once out of reach. Two complementary advances exemplify the shift: (i) Transformer‑based predictive models that integrate long‑range DNA context to predict cell‑type‑specific gene expression and chromatin profiles directly from sequence, and (ii) foundational DNA language models, trained self‑supervised at scale, that learn universal, transferable nucleotide embeddings across species. Collectively, these advances inaugurate a new frontier of genome‑wide prediction at single‑nucleotide resolution, transforming how we decode, annotate, and even engineer the genome.</p>
 
+      <p>In this thesis, we introduce a suite of computationally efficient methods that systematically bridge raw nucleotide sequence to biological function. First, we present <strong>Han1</strong>, the first gapless, reference‑quality assembly and annotation of a Southern Han Chinese genome, achieved by integrating ultra‑long Oxford Nanopore and high‑fidelity PacBio reads with the T2T‑CHM13 reference. Next, the <strong>Wheeler Graph Toolkit&nbsp;(WGT)</strong> combines permutation heuristics and satisfiability‑modulo‑theory solvers to recognize and visualize Wheeler graphs, laying the theoretical foundation for pangenome indexing. We then describe <strong>LiftOn</strong>, a hybrid liftover tool that fuses protein‑to‑genome and DNA‑to‑genome alignments to refine exon boundaries, correct frameshifts, and identify additional gene copies, outperforming existing annotation‑transfer methods on divergent assemblies.</p>
 
-      <p>In this thesis, we introduce a suite of computationally efficient methods that systematically bridge raw nucleotide sequence to biological function. First, we present <strong style="font-weight:900 !important;">Han1</strong>, the first gapless, reference‑quality assembly and annotation of a Southern Han Chinese genome, achieved by integrating ultra‑long Oxford Nanopore and high‑fidelity PacBio reads with the T2T‑CHM13 reference. Next, the <strong style="font-weight:900 !important;">Wheeler Graph Toolkit (WGT)</strong> combines permutation heuristics and satisfiability‑modulo‑theory solvers to recognize and visualize Wheeler graphs, laying the theoretical foundation for pangenome indexing. We then describe <strong style="font-weight:900 !important;">LiftOn</strong>, a hybrid liftover tool that fuses protein‑to‑genome and DNA‑to‑genome alignments to refine exon boundaries, correct frameshifts, and identify additional gene copies, outperforming existing annotation‑transfer methods on divergent assemblies.</p>
-
-      <p>Building on these genomic substrates, we develop two complementary deep‑learning frameworks for splice‑site prediction: <strong style="font-weight:900 !important;">OpenSpliceAI</strong> is a PyTorch re‑implementation of SpliceAI that delivers faster inference and seamless retraining; <strong style="font-weight:900 !important;">Splam</strong> is a compact residual convolutional neural network that accurately predicts splice junctions from local sequence context. Finally, <strong style="font-weight:900 !important;">Shorkie</strong> demonstrates the power of self‑supervised foundation models by fine‑tuning a multi‑species fungal DNA language model on time‑course yeast RNA‑Seq data, achieving state‑of‑the‑art gene‑expression and variant‑effect prediction.</p>
+      <p>Building on these genomic substrates, we develop two complementary deep‑learning frameworks for splice‑site prediction: <strong>OpenSpliceAI</strong> is a PyTorch re‑implementation of SpliceAI that delivers faster inference and seamless retraining; <strong>Splam</strong> is a compact residual convolutional neural network that accurately predicts splice junctions from local sequence context. Finally, <strong>Shorkie</strong> demonstrates the power of self‑supervised foundation models by fine‑tuning a multi‑species fungal DNA language model on time‑course yeast RNA‑Seq data, achieving state‑of‑the‑art gene‑expression and variant‑effect prediction.</p>
     </div>
+    <a href="https://drive.google.com/file/d/1YRnNqznghBFOXhzUMarAMKbLzJwex7bc/view?usp=sharing" class="btn dissertation" target="_blank">Read Dissertation</a>
   </div>
 </body>
 </html>
