@@ -218,7 +218,7 @@ redirect_from:
 
 <h2 class="page__title" id="selected-publication" style="font-size:19pt;"><i class="fa fa-book"></i> &nbsp;  <a href="https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en" target="_blank" style="color:#4A4F53; text-decoration: none;">Selected Publication</a></h2>
   <ul>
-    <li><b>Kuan-Hao Chao*<sup>†</sup></b>, Alan Mao<sup>†</sup>, Anqi Liu, Steven L Salzberg*, Mihaela Pertea* (2025) <a target="_blank" href="https://doi.org/10.1101/2025.03.20.644351" style="color:#4A4F53">OpenSpliceAI: An efficient, modular implementation of SpliceAI enabling easy retraining on non-human species</a>, <i><b>bioRxiv</b></i>
+    <li><b>Kuan-Hao Chao*<sup>†</sup></b>, Alan Mao<sup>†</sup>, Anqi Liu, Steven L Salzberg*, Mihaela Pertea* (2025) <a target="_blank" href="https://doi.org/10.7554/eLife.107454.1" style="color:#4A4F53">OpenSpliceAI: An efficient, modular implementation of SpliceAI enabling easy retraining on non-human species</a>, <i><b>eLife</b></i>
     </li>
     <li><b>Kuan-Hao Chao*</b>, Jakob M. Heinz, Celine Hoh, Alan Mao, Mihaela Pertea, Steven L. Salzberg* (2025) <a target="_blank" href="https://doi.org/10.1101/gr.279620.124" style="color:#4A4F53">Combining DNA and protein alignments to improve genome annotation with LiftOn</a>, <i><b>Genome Research</b></i>
     </li>
