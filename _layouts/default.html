@@ -69,10 +69,22 @@ layout: compress
                             <canvas id="canvas_DNA_left" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
                           </div>
                         </div> -->
-                        <div class="column" style="flex: 100%;">
+
+                        <!-- <div class="column" style="flex: 100%;">
                           <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Computer Science PhD Candidate <br> in Computational Genomics <br>@ Johns Hopkins University</h3>
                           <h4 id="intro-message-advisor" class="alt-font">Advisor: <a href="https://salzberg-lab.org/" style="pointer-events: all;">Steven Salzberg</a> & <a href="http://ccb.jhu.edu/people/mpertea/" style="pointer-events: all;">Mihaela Pertea</a></h4>
+                        </div> -->
+
+                        <div class="column" style="flex: 100%;">
+                          <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Sr. Deep Learning Scientist</h3>
+                          <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">@ <a href="https://www.illumina.com/" style="pointer-events: all;" target=_blank><img id="illumina_logo" src="{{base_path}}/images/Illumina_logo.png"></a></h3>
                         </div>
+
+                        <!-- <div class="column" style="flex: 100%;">
+                          <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Computer Science PhD Candidate <br> in Computational Genomics <br>@ Johns Hopkins University</h3>
+                          <h4 id="intro-message-advisor" class="alt-font">Advisor: <a href="https://salzberg-lab.org/" style="pointer-events: all;">Steven Salzberg</a> & <a href="http://ccb.jhu.edu/people/mpertea/" style="pointer-events: all;">Mihaela Pertea</a></h4>
+                        </div> -->
+
                         <!-- <div class="column" style="flex: 5%;">
                           <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
                             <canvas id="canvas_DNA_right" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
@@ -140,7 +152,7 @@ layout: compress
                     </a>
                   </div> -->
 
-                  <div class="logo-container">
+                  <!-- <div class="logo-container">
                     <a class="logo-link" target="_blank" href="https://ccb.jhu.edu">
                       <img src="{{base_path}}/images/JHU_ccb.png" alt="JHU CCB">
                     </a>
@@ -148,7 +160,7 @@ layout: compress
                       <img src="{{base_path}}/images/JHU_wse.png" alt="JHU WSE">
                     </a>
                   </div>
-                  
+                   -->
                   
 
                   <section id="section03" class="demo" style="height:300px; margin-top:-40px">
@@ -232,16 +244,25 @@ layout: compress
         font-size: 1.6rem;
         white-space: nowrap; /* Keep the main message on one line */
       }
+      #illumina_logo {
+        height: 1.6rem;
+      }
       /* Tablet: reduce name font size slightly */
       @media (max-width: 768px) {
         #intro-message-main {
           font-size: 1.2rem;
+        }
+        #illumina_logo {
+          height: 1.2rem;
         }
       }
       /* Phone: reduce further if needed */
       @media (max-width: 480px) {
         #intro-message-main {
           font-size: 1.0rem;
+        }
+        #illumina_logo {
+          height: 1.0rem;
         }
       }
 
