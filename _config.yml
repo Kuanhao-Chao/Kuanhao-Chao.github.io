@@ -152,6 +152,11 @@ include:
   - _pages
   - files
 exclude:
+  - bin
+  - config
+  - vite.config.ts
+  - tmp
+  - Procfile.dev
   - "*.sublime-project"
   - "*.sublime-workspace"
   - .asset-cache
@@ -379,6 +384,7 @@ plugins:
   - jekyll-gist
   - jekyll-feed
   - jekyll-redirect-from
+  - jekyll/vite
 # mimic GitHub Pages with --safe
 whitelist:
   - jekyll-paginate
