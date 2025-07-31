@@ -63,12 +63,12 @@ export default class Sketch {
     window.addEventListener("wheel", event => {
       //Model
       if (this.dna) {
-        this.dna.rotation.y += event.deltaY * 0.002
+        this.dna.rotation.y += event.deltaY * 0.001
         const scrollableEnd = document.documentElement.scrollHeight - window.innerHeight
 
         if (window.scrollY >= scrollableEnd || window.scrollY <= 0) {
         } else { 
-          this.dna.position.y += event.deltaY * 0.002
+          this.dna.position.y += event.deltaY * 0.001
         }
       }
     });
