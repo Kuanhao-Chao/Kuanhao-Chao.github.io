@@ -60,18 +60,32 @@ export default class Sketch {
     )
     console.log(this.loader);
 
-    window.addEventListener("wheel", event => {
-      //Model
-      if (this.dna) {
-        this.dna.rotation.y += event.deltaY * 0.001
-        const scrollableEnd = document.documentElement.scrollHeight - window.innerHeight
+    // window.addEventListener("wheel", event => {
+    //   //Model
+    //   if (this.dna) {
+    //     this.dna.rotation.y += event.deltaY * 0.001
+    //     const scrollableEnd = document.documentElement.scrollHeight - window.innerHeight
 
-        if (window.scrollY >= scrollableEnd || window.scrollY <= 0) {
-        } else { 
-          this.dna.position.y += event.deltaY * 0.001
-        }
+    //     if (window.scrollY >= scrollableEnd || window.scrollY <= 0) {
+    //     } else { 
+    //       this.dna.position.y += event.deltaY * 0.001
+    //     }
+    //   }
+    // });
+
+    this.lastScrollY = window.scrollY;
+
+    // 1) scroll listener (works everywhere)
+    window.addEventListener('scroll', () => {
+      const scrollY = window.scrollY;
+      const delta = scrollY - this.lastScrollY;
+      if (this.dna && scrollY > 0 && scrollY < document.documentElement.scrollHeight - window.innerHeight) {
+        this.dna.rotation.y += delta * 0.001;
+        this.dna.position.y   += delta * 0.001;
       }
-    });
+      this.lastScrollY = scrollY;
+    }, { passive: true });
+
   }
 
   setupResize() {
@@ -147,7 +161,7 @@ export default class Sketch {
   render() {
     this.time += 0.05;
 
-    this.dna.rotation.y += 0.001;
+    this.dna.rotation.y += 0.002;
     this.starsMesh.rotation.y = this.time/25;
     this.material.uniforms.time.value = this.time;
     
