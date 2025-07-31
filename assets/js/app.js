@@ -22,7 +22,7 @@ export default class Sketch {
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(this.width, this.height);
     // this.renderer.setClearColor(0x141414, 1); 
-    this.renderer.setClearColor(0xffffff, 0.75); 
+    this.renderer.setClearColor(0xffffff, 0.7); 
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.container.appendChild(this.renderer.domElement);
