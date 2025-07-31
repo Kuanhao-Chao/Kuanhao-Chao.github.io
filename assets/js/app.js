@@ -22,7 +22,7 @@ export default class Sketch {
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(this.width, this.height);
     // this.renderer.setClearColor(0x141414, 1); 
-    this.renderer.setClearColor(0xffffff, 0.8); 
+    this.renderer.setClearColor(0xffffff, 0.75); 
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.container.appendChild(this.renderer.domElement);
@@ -135,6 +135,7 @@ export default class Sketch {
     this.geometry.setAttribute('colorRandoms', new THREE.BufferAttribute(colorRandoms, 1))
 
     this.dna = new THREE.Points(this.geometry, this.material);
+    this.dna.position.x = -1;   // shift left by 1 unit
     this.scene.add(this.dna);
 
     //Stars
