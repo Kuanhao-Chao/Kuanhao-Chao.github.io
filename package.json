@@ -2,6 +2,7 @@
   "name": "minimal-mistakes",
   "version": "3.4.2",
   "description": "Minimal Mistakes Jekyll theme npm build scripts",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git://github.com/mmistakes/minimal-mistakes.git"
@@ -18,28 +19,41 @@
   },
   "homepage": "https://mmistakes.github.io/minimal-mistakes/",
   "engines": {
-    "node": ">= 0.10.0"
+    "node": ">=14.0.0"
   },
   "devDependencies": {
     "npm-run-all": "^1.7.0",
-    "onchange": "^2.2.0",
-    "uglify-js": "^2.6.1"
-  },
-  "scripts": {
-    "uglify": "uglifyjs assets/js/vendor/jquery/jquery-1.12.4.min.js assets/js/plugins/jquery.fitvids.js assets/js/plugins/jquery.greedy-navigation.js assets/js/plugins/jquery.magnific-popup.js assets/js/plugins/jquery.smooth-scroll.min.js assets/js/plugins/stickyfill.min.js assets/js/_main.js -c -m -o assets/js/main.min.js",
-    "watch:js": "onchange \"assets/js/**/*.js\" -e \"assets/js/main.min.js\" -- npm run build:js",
-    "build:js": "npm run uglify"
+    "onchange": "^7.1.0",
+    "uglify-js": "^2.6.1",
+    "vite": "^7.0.6",
+    "vite-plugin-glsl": "^1.5.1",
+    "vite-plugin-ruby": "^5.1.1"
   },
   "dependencies": {
     "@fancyapps/ui": "^4.0.31",
     "bootstrap-icons": "^1.10.2",
     "lg-thumbnail.js": "^1.2.0",
     "lightgallery": "^2.7.0",
+    "lil-gui": "^0.16.1",
     "photoswipe": "^5.3.4",
     "react": "^18.2.0",
     "react-chrono": "^1.19.2",
     "react-dom": "^18.2.0",
-    "react-scripts": "^5.0.1",
+    "react-scripts": "^0.0.0",
+    "stats.js": "^0.17.0",
+    "stylus": "^0.58.1",
+    "three": "^0.178.0",
     "typed.js": "^2.0.12"
+  },
+  "scripts": {
+    "uglify": "uglifyjs assets/js/vendor/jquery/jquery-1.12.4.min.js assets/js/plugins/jquery.fitvids.js assets/js/plugins/jquery.greedy-navigation.js assets/js/plugins/jquery.magnific-popup.js assets/js/plugins/jquery.smooth-scroll.min.js assets/js/plugins/stickyfill.min.js assets/js/_main.js -c -m -o assets/js/main.min.js",
+    "watch:js": "onchange \"assets/js/**/*.js\" -e \"assets/js/main.min.js\" -- npm run build:js",
+    "build:js": "npm run uglify",
+    "dev": "vite serve --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "overrides": {
+    "fsevents": "^2.3.3"
   }
 }

@@ -25,7 +25,7 @@ layout: compress
     <script src="{{base_path}}/assets/js/slider.js"></script>
 
     <script src="https://unpkg.com/image-compare-viewer/dist/image-compare-viewer.min.js"></script>
-  <link type="text/css" href="https://unpkg.com/image-compare-viewer/dist/image-compare-viewer.min.css">
+    <link type="text/css" href="https://unpkg.com/image-compare-viewer/dist/image-compare-viewer.min.css">
     <link href="{{base_path}}/assets/css/image-compare-viewer.min.css" rel="stylesheet" />
     <script src="{{base_path}}/assets/js/image-compare-viewer.min.js"></script>
 
@@ -34,11 +34,24 @@ layout: compress
     <script src="https://rawcdn.githack.com/nextapps-de/spotlight/0.7.8/dist/spotlight.bundle.js"></script>
     <link rel="preload" href="https://rawcdn.githack.com/nextapps-de/spotlight/0.7.8/dist/spotlight.bundle.js" as="script">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script> -->
+
+
+    <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.121.1/build/three.min.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/vite-plugin-glsl@1.5.1/src/index.min.js"></script> -->
+    
+    <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.121.1/examples/js/loaders/DRACOLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.121.1/examples/js/loaders/GLTFLoader.js"></script> -->
+
+
   </head>
   <body id="main_body">
     <script>
       AOS.init();
     </script>
+
+
 
     {% include browser-upgrade.html %}
 
@@ -46,10 +59,32 @@ layout: compress
     {% if page.excerpt == "About me"%}
       <!-- {% include masthead_home.html %} -->
       {% include masthead.html %}
-      <div id="particles-js" style="background: #fff;" role="main">
+      <!-- <div id="particles-js" style="background: #fff;" role="main"> -->
+
+      <!-- <script type="importmap">
+        {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.module.js",
+            "three/": "https://cdn.jsdelivr.net/npm/three@0.150.0/"
+        }
+        }
+      </script> -->
+
+      <script type="importmap">
+      {"imports":{
+        "three": "https://threejs.org/build/three.module.js",
+        "three/addons/": "https://threejs.org/examples/jsm/"
+      }}
+      </script>
+
+      
+      <div id="dna_container"></div>
+      <script type="module" src="{{base_path}}/assets/js/app.js"></script>
+      <!-- <script src="{{base_path}}/assets/js/app.js"></script> -->
+
+      <div id="dna_container_tmp">
         <div id="main" role="main">
-        <!-- <img id="logo_img" src="{{base_path}}/images/JHU_logo.png"> -->
-          <div id="particles-header" class="intro-header alt-font" style="color:#000 !important">
+          <div class="intro-header alt-font" style="color:#000 !important">
               <div class="container">
                   <div class="intro-message">
                       <h1 id="intro-message-name" class="alt-font" style="pointer-events: all;z-index:100;">Kuan-Hao&nbsp;Chao&nbsp;<button id="play_sound" onclick="myFunction()" class="intro-social-a"><i id="name_pronunciation" style="pointer-events: all;z-index:100;" class="fa fa-volume-down"></i></button></h1>
@@ -64,31 +99,9 @@ layout: compress
                       <span id="type-wrap"> $ <span id="typed"></span>
                       </span>
                       <div class="row" style="display: flex;">
-                        <!-- <div class="column" style="flex: 5%;">
-                          <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
-                            <canvas id="canvas_DNA_left" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
-                          </div>
-                        </div> -->
-
                         <div class="column" style="flex: 100%;">
-                          <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Computer Science PhD Candidate <br> in Computational Genomics <br>@ Johns Hopkins University</h3>
-                          <h4 id="intro-message-advisor" class="alt-font">Advisor: <a href="https://salzberg-lab.org/" style="pointer-events: all;">Steven Salzberg</a> & <a href="http://ccb.jhu.edu/people/mpertea/" style="pointer-events: all;">Mihaela Pertea</a></h4>
-                        </div>
-
-                        <!-- <div class="column" style="flex: 100%;">
                           <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Sr. Deep Learning Scientist</h3>
                           <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">@ <a href="https://www.illumina.com/" style="pointer-events: all;" target=_blank><img id="illumina_logo" src="{{base_path}}/images/Illumina_logo.png"></a></h3>
-                        </div> -->
-
-                        <!-- <div class="column" style="flex: 100%;">
-                          <h3 id="intro-message-main" class="alt-font" style="margin-top:12px;">Computer Science PhD Candidate <br> in Computational Genomics <br>@ Johns Hopkins University</h3>
-                          <h4 id="intro-message-advisor" class="alt-font">Advisor: <a href="https://salzberg-lab.org/" style="pointer-events: all;">Steven Salzberg</a> & <a href="http://ccb.jhu.edu/people/mpertea/" style="pointer-events: all;">Mihaela Pertea</a></h4>
-                        </div> -->
-
-                        <!-- <div class="column" style="flex: 5%;">
-                          <div style="padding: 10px 0;  vertical-align: middle;margin: 0;position: relative;top: 50%;-ms-transform: translateY(-50%);transform: translateY(-50%);">
-                            <canvas id="canvas_DNA_right" class="zdog-canvas" heigh=350 width=100 style="pointer-events: all; z-index:100; margin: auto; display: block; vertical-align: middle;"></canvas>
-                          </div> -->
                         </div>
                       </div>
                       <hr class="intro-divider" style="margin-top:15px; display: flex; align-items: center; text-align: center;">
@@ -120,9 +133,6 @@ layout: compress
                         <li class="intro-social-li"><a class="intro-social-a" href="https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en&oi=ao" target=_blank rel=noopener>
                           <i class="ai ai-google-scholar"></i></a>
                         </li>
-                        <!-- <li class="intro-social-li"><a class="intro-social-a" href="https://storage.googleapis.com/storage.khchao.com/CV.pdf">
-                          <i class="ai ai-cv big-icon"></i></a>
-                        </li> -->
                         <li class="intro-social-li"><a class="intro-social-a" href="https://storage.googleapis.com/storage.khchao.com/CV.pdf" style="font-size:32px;">
                           <b style="font-weight:900 !important;">CV</b>
                         </a>
@@ -132,37 +142,7 @@ layout: compress
                         </li>
                       </ul>
                     </div>
-                  </div>
-                  
-                  <div class="row" style="display: flex; margin-top:10px;">
-                    <div class="column" style="flex: 50%; margin:40px; margin-left:60px">
-                      <img id="logo_ccb" src="{{base_path}}/images/JHU_ccb.png">
-                    </div>
-                    <div class="column" style="flex: 50%; margin:40px; margin-right:60px">
-                      <img id="logo_wse" src="{{base_path}}/images/JHU_wse.png">
-                    </div>
-                  </div>
-<!-- 
-                  <div style="display: flex; justify-content: center; align-items: center; margin-top: 10px; flex-wrap: wrap;">
-                    <a target="_blank" href="https://ccb.jhu.edu" style="margin: 10px;">
-                      <img src="{{base_path}}/images/JHU_ccb.png" style="height: 100px; width: auto;">
-                    </a>
-                    <a target="_blank" href="https://engineering.jhu.edu" style="margin: 10px;">
-                      <img src="{{base_path}}/images/JHU_wse.png" style="height: 100px; width: auto;">
-                    </a>
-                  </div> -->
-
-                  <!-- <div class="logo-container">
-                    <a class="logo-link" target="_blank" href="https://ccb.jhu.edu">
-                      <img src="{{base_path}}/images/JHU_ccb.png" alt="JHU CCB">
-                    </a>
-                    <a class="logo-link" target="_blank" href="https://engineering.jhu.edu">
-                      <img src="{{base_path}}/images/JHU_wse.png" alt="JHU WSE">
-                    </a>
-                  </div>
-                   -->
-                  
-
+                  </div>                  
                   <section id="section03" class="demo" style="height:300px; margin-top:-40px">
                     <a id="navigation_btn" style="pointer-events: all; z-index:100; top:50%; color: black" href=""><span></span>More Info</a>
                   </section>
@@ -170,7 +150,7 @@ layout: compress
           </div>
         </div>
       </div>
-
+      
       <script>
         var typed = new Typed("#typed", {
           strings: ["Hello, welcome!", "哈囉你好！"],
@@ -181,25 +161,28 @@ layout: compress
           backDelay: 1200,
           loop: true,
           showCursor: true,
+          color: "#ffaa27",
         });
-        const effect = VANTA.NET({
-          el: "#particles-js",
-          mouseControls: true,
-          touchControls: true,
-          gyroControls: false,
-          minHeight: 200.00,
-          minWidth: 200.00,
-          scale: 2.00,
-          scaleMobile: 1.50,
-          color: '#d1e8eb',
-          backgroundColor: '#ffffff',
-          maxDistance: 17.00,
-          points: 12.00,
-          spacing: 15.00
-        });
+        // const effect = VANTA.NET({
+        //   el: "#particles-js",
+        //   mouseControls: true,
+        //   touchControls: true,
+        //   gyroControls: false,
+        //   minHeight: 200.00,
+        //   minWidth: 200.00,
+        //   scale: 2.00,
+        //   scaleMobile: 1.50,
+        //   color: '#F9E7CD',
+        //   backgroundColor: '#ffffff',
+        //   maxDistance: 17.00,
+        //   points: 12.00,
+        //   spacing: 15.00
+        // });
       </script>
 
-      <script src="{{base_path}}/assets/js/canvas_DNA.js"></script>
+
+
+      <!-- <script src="{{base_path}}/assets/js/canvas_DNA.js"></script> -->
 
       <div id="transition_background" style="height: 10px; width: 100%; background: linear-gradient(to top, #ffffff, #ffffff);"></div>
 
@@ -222,6 +205,19 @@ layout: compress
     </div>
 
     <style>
+      canvas {
+        display: block;
+      }
+
+      #dna_container {
+        position: fixed;  /* fill the viewport */
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        z-index: -1;      /* behind all siblings in the same context */
+        pointer-events: none; /* allow clicks through the canvas */
+      }
+
+
       #intro-message-name {
         font-size: 3.5rem;
         white-space: nowrap; /* Keep the name on one line */
