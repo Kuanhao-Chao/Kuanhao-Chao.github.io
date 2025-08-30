@@ -267,6 +267,14 @@ I’m a Senior Deep Learning Scientist at the <a target="_blank" href="https://w
       </a>, 
       <i>May/2025 - Aug/2025 (Expected)</i>
     </li> -->
+    <li>Sr. Deep Learning Scientist & Engineer, 
+      <a target="_blank" href="https://www.illumina.com/informatics/ai-in-genomics.html" style="color:#4A4F53">Artificial Intelligence Lab</a>, 
+      <a target="_blank" href="https://www.illumina.com" style="color: #28bc54; text-decoration: none !important;">
+        <img src="images/Illumina_logo.png" alt="Illumina Logo" style="height:1em; vertical-align:middle; margin-bottom: 4px;">
+        <!-- <img src="images/Illumina_logo.png" alt="Illumina Logo" style="height:0.8em; vertical-align:middle; margin-bottom: 4px;"> -->
+      </a>, 
+      <i>Aug/2025 - Present</i>
+    </li>
     <li>Genomics Machine Learning Research Intern, 
       <a target="_blank" href="https://www.davidrkelley.com/" style="color:#4A4F53">Kelley Lab</a>, 
       <a target="_blank" href="https://www.calicolabs.com/" style="color: #28bc54; text-decoration: none !important;">
