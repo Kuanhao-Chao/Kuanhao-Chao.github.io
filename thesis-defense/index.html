@@ -129,13 +129,29 @@
       .details li { font-size: 1rem; }
       .details .label { min-width: 100px; }
     }
+
+    .slides-embed {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;         /* tweak if you prefer 4/3, etc. */
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .slides-embed iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
   </style>
 </head>
 <body>
   <div class="card">
     
     <h1>Kua-Hao Chao's Doctoral Dissertation Defense</h1>
-
+    <br>
     <!-- <p style="margin-bottom: 12px; font-size: 1.15rem;">Dear Friends,</p>
     <p style="font-size: 1.15rem; padding-bottom: 3%;">I’m excited to invite you to my public dissertation talk. It would mean a lot to have you there as I share this special milestone in my PhD journey!</p> -->
 
@@ -154,11 +170,22 @@
     <a href="https://storage.googleapis.com/storage.khchao.com/K-H_Chao_thesis_defense.ics" class="btn download" target="_blank">Add to Calendar</a> -->
     <!-- <p style="margin-top: 20px; font-size: 0.9rem; color: #888;">Please RSVP so I can better estimate attendance.</p> -->
 
+    <br>
     <div class="abstract">
       <h2>Presentation Slides</h2>
-        <iframe src="https://www.slideshare.net/slideshow/embed_code/key/jFG68Bmit51GtA?hostedIn=slideshare&page=upload" width="476" height="400" frameborder="0" marginwidth="0" marginheight="0" scrolling="no"></iframe>
+        <div class="slides-embed">
+          <iframe
+            src="https://www.slideshare.net/slideshow/embed_code/key/jFG68Bmit51GtA?hostedIn=slideshare&page=upload"
+            loading="lazy"
+            allowfullscreen
+            referrerpolicy="no-referrer-when-downgrade">
+          </iframe>
+        </div>
+        <!-- <iframe src="https://www.slideshare.net/slideshow/embed_code/key/jFG68Bmit51GtA?hostedIn=slideshare&page=upload" width="476" height="400" frameborder="0" marginwidth="0" marginheight="0" scrolling="no"></iframe> -->
     </div>
 
+    <br>
+    
     <!-- —— Abstract —— -->
     <div class="abstract">
       <h2>Abstract</h2>
