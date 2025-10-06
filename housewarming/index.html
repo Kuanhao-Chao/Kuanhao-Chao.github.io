@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>喬遷派對｜冠豪 & 珮如</title>
+  <meta name="description" content="冠豪 & 珮如的喬遷派對邀請：10/26（週日）下午 5:00，Belmont。歡迎攜伴 +1，也歡迎自帶食物。" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg1:#f8fafc; --tx:#0f172a; --muted:#475569; --brand:#2563eb; --card:rgba(255,255,255,.85); --glass:blur(12px); --accent:#16a34a; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{ margin:0; padding:32px; min-height:100vh; color:var(--tx); font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"; background: radial-gradient(1200px 600px at 10% -10%, #dbeafe 0%, transparent 60%), radial-gradient(900px 500px at 90% 10%, #dcfce7 0%, transparent 60%), linear-gradient(180deg, #ffffff, var(--bg1)); }
+    body::before{ content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background-image:url('https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=1600&auto=format&fit=crop'); background-size:cover; background-position:center; opacity:.10; filter:saturate(1.1) contrast(1.05); }
+    .wrap{max-width:880px; margin:0 auto}
+    .card{ background:var(--card); backdrop-filter:var(--glass); -webkit-backdrop-filter:var(--glass); border-radius:20px; box-shadow:0 20px 60px rgba(2,6,23,.12); padding:32px 32px 28px; position:relative; overflow:hidden; }
+    .title{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .title h1{font-family:'Playfair Display',serif; font-size:clamp(28px,5vw,44px); margin:0; letter-spacing:.2px; color:#0b1220}
+    .pill{font-size:.9rem; padding:6px 12px; border-radius:999px; background:#e0f2fe; color:#075985; font-weight:700}
+    .lead{margin:14px 0 8px; color:var(--muted); font-size:1.05rem; line-height:1.7}
+    .details{margin:22px 0 8px; display:grid; grid-template-columns: 1fr; gap:14px}
+    .row{display:flex; gap:12px; align-items:flex-start}
+    .label{min-width:86px; font-weight:700; color:#1e293b}
+    .value{color:#0f172a}
+    .value a{color:var(--brand); text-decoration:none; font-weight:700}
+    .value a:hover{text-decoration:underline}
+    .notes{margin-top:18px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:14px; padding:16px}
+    .notes h3{margin:0 0 8px; font-size:1.05rem}
+    .notes ul{margin:8px 0 0 18px}
+    .notes li{margin:6px 0; color:#1f2937}
+    .cta{display:flex; flex-wrap:wrap; gap:10px; margin-top:20px}
+    .btn{ display:inline-flex; align-items:center; gap:8px; border:none; cursor:pointer; text-decoration:none; user-select:none; padding:12px 16px; border-radius:12px; font-weight:700; transition:transform .15s ease, box-shadow .15s ease; font-size:.98rem }
+    .btn:hover{transform:translateY(-1.5px); box-shadow:0 8px 22px rgba(2,6,23,.12)}
+    .primary{background:var(--brand); color:#fff}
+    .success{background:var(--accent); color:#fff}
+    .ghost{background:#ffffff; border:1px solid #e2e8f0; color:#0f172a}
+    .subtle{font-size:.92rem; color:var(--muted); margin-top:12px}
+    .footer{margin-top:28px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; color:var(--muted)}
+    .heart{color:#ef4444}
+    @media (min-width:720px){ .details{grid-template-columns: 1fr 1fr} .row{min-height:44px} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="card">
+      <div class="title">
+        <h1>🏡 喬遷派對</h1>
+        <span class="pill">歡迎攜伴 +1</span>
+      </div>
+      <p class="lead">搬到加州啦！誠摯邀請大家來家裡坐坐、喝點東西、聊聊天，讓新家更有溫度～</p>
+
+      <!-- 細節資訊 -->
+      <div class="details" id="details">
+        <div class="row"><div class="label">日期</div><div class="value" id="dateText">2025/10/26（週日）</div></div>
+        <div class="row"><div class="label">時間</div><div class="value" id="timeText">下午 5:00 開始（太平洋時間）｜可自由進出</div></div>
+        <div class="row"><div class="label">地址</div><div class="value"><a id="addrLink" href="https://maps.google.com/?q=1325%20Old%20County%20Rd%2C%20Unit%202056%2C%20Belmont%2C%20CA" target="_blank" rel="noopener">1325 Old County Rd, Unit 2056, Belmont, CA</a> <button class="btn ghost" id="copyBtn" aria-label="Copy address">複製地址</button></div></div>
+      </div>
+
+      <div class="notes">
+        <h3>小提醒</h3>
+        <ul>
+          <li>食物與飲料會先去 Costco 補一輪，也歡迎大家自帶好物（potluck 可）。</li>
+          <li>穿著輕鬆即可，社交零壓力。</li>
+          <li>附近路邊停車為主，請留意社區標示；有過敏或飲食需求可事先告知。</li>
+        </ul>
+      </div>
+
+      <div class="cta">
+        <a class="btn primary" id="addCal">加入行事曆（.ics）</a>
+        <a class="btn success" id="gcal" target="_blank" rel="noopener">加到 Google 行事曆</a>
+        <button class="btn ghost" id="shareBtn">分享連結</button>
+      </div>
+
+      <p class="subtle">提示：若之後需要改時間或地址，只要修改下方「設定」區塊即可全站更新。</p>
+
+      <div class="footer">
+        <span>期待與你在 Belmont 相見！</span>
+        <span>— 冠豪 & 珮如</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- —— 設定（修改這裡即可套用全站） —— -->
+  <script>
+    const EVENT = {
+      title: "喬遷派對",
+      host: "冠豪 & 珮如",
+      dateISO: "2025-10-26",     // YYYY-MM-DD
+      startTime: "17:00",        // 24h
+      endTime: "20:00",          // 沒給結束時間則預設 3 小時
+      address: "1325 Old County Rd, Unit 2056, Belmont, CA",
+      city: "Belmont, CA",
+      mapsUrl: "https://maps.google.com/?q=1325%20Old%20County%20Rd%2C%20Unit%202056%2C%20Belmont%2C%20CA",
+      notes: "會先去 Costco 準備食物與飲料，也歡迎自帶拿手菜（potluck）！歡迎攜伴 +1。",
+      timezone: "America/Los_Angeles"
+    };
+
+    // —— Helpers ——
+    const pad = n => String(n).padStart(2,'0');
+    function fmtChineseDate(dateStr){
+      const dt = new Date(dateStr+"T12:00:00");
+      const w = ['週日','週一','週二','週三','週四','週五','週六'][dt.getDay()];
+      return `${dt.getFullYear()}/${pad(dt.getMonth()+1)}/${pad(dt.getDate())}（${w}）`;
+    }
+    function toLocalDateTime(dateISO, timeHHMM){
+      const [hh,mm] = timeHHMM.split(':').map(Number);
+      return new Date(dateISO+`T${pad(hh)}:${pad(mm)}:00`);
+    }
+
+    function icsBlob(){
+      const dtStart = toLocalDateTime(EVENT.dateISO, EVENT.startTime);
+      const dtEnd   = toLocalDateTime(EVENT.dateISO, EVENT.endTime);
+      const icsDate = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+      const uid = `${Date.now()}@housewarming.khc`;
+      const desc = `${EVENT.notes}`;
+      const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Housewarming//khchao//ZH-HANT\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${icsDate(new Date())}\nDTSTART:${icsDate(dtStart)}\nDTEND:${icsDate(dtEnd)}\nSUMMARY:${EVENT.host} 的 ${EVENT.title}\nLOCATION:${EVENT.address}\nDESCRIPTION:${desc}\nEND:VEVENT\nEND:VCALENDAR`;
+      return new Blob([ics], {type:'text/calendar'});
+    }
+
+    function googleCalUrl(){
+      const toUTC = (d)=>{ const z = new Date(d.getTime() - d.getTimezoneOffset()*60000); return `${z.getUTCFullYear()}${pad(z.getUTCMonth()+1)}${pad(z.getUTCDate())}T${pad(z.getUTCHours())}${pad(z.getUTCMinutes())}00Z`; };
+      const start = toUTC(toLocalDateTime(EVENT.dateISO, EVENT.startTime));
+      const end   = toUTC(toLocalDateTime(EVENT.dateISO, EVENT.endTime));
+      const text  = encodeURIComponent(`${EVENT.host} 的 ${EVENT.title}`);
+      const details = encodeURIComponent(EVENT.notes);
+      const location = encodeURIComponent(EVENT.address);
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${start}%2F${end}&details=${details}&location=${location}`;
+    }
+
+    function updateUI(){
+      // 日期與時間（中文為主）
+      document.getElementById('dateText').textContent = fmtChineseDate(EVENT.dateISO);
+      document.getElementById('timeText').textContent = `下午 ${EVENT.startTime.replace(':',':')} 開始（太平洋時間）｜可自由進出`;
+      // 地址
+      const addrLink = document.getElementById('addrLink');
+      addrLink.textContent = EVENT.address;
+      addrLink.href = EVENT.mapsUrl || `https://maps.google.com/?q=${encodeURIComponent(EVENT.address)}`;
+      // 按鈕
+      document.getElementById('gcal').href = googleCalUrl();
+    }
+
+    // 事件
+    document.getElementById('addCal').addEventListener('click', ()=>{
+      const blob = icsBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'housewarming.ics'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(EVENT.address); const b = document.getElementById('copyBtn'); b.textContent='已複製 ✓'; setTimeout(()=>b.textContent='複製地址', 1200);
+      }catch(e){ alert('複製失敗，請手動複製'); }
+    });
+
+    document.getElementById('shareBtn').addEventListener('click', async ()=>{
+      const shareData = {title: `${EVENT.host} 的 ${EVENT.title}`, text: '喬遷派對，歡迎攜伴 +1，一起熱鬧熱鬧！', url: location.href};
+      if(navigator.share){ try{ await navigator.share(shareData); }catch(_){} }
+      else{ try{ await navigator.clipboard.writeText(location.href); alert('已複製連結！'); }catch{ alert('複製失敗'); } }
+    });
+
+    updateUI();
+  </script>
+</body>
+</html>
