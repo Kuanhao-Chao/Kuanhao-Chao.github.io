@@ -10,7 +10,7 @@
   <meta name="description" content="冠豪 & 珮如的喬遷派對邀請：10/26（週日）下午 5:00，Belmont。歡迎攜伴 +1，也歡迎自帶食物。" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    :root{ --bg1:#f8fafc; --tx:#0f172a; --muted:#475569; --brand:#2563eb; --card:rgba(255,255,255,.85); --glass:blur(12px); --accent:#16a34a; }
+    :root{ --bg1:#f8fafc; --tx:#0f172a; --muted:#475569; --brand:#2563eb; --card:rgba(255,255,255,.85); --glass:blur(12px); --accent:#16a34a; --highlight: #DAA520}
     *{box-sizing:border-box}
     html,body{height:100%}
     body{ margin:0; padding:32px; min-height:100vh; color:var(--tx); font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"; background: radial-gradient(1200px 600px at 10% -10%, #dbeafe 0%, transparent 60%), radial-gradient(900px 500px at 90% 10%, #dcfce7 0%, transparent 60%), linear-gradient(180deg, #ffffff, var(--bg1)); }
@@ -36,6 +36,7 @@
     .btn:hover{transform:translateY(-1.5px); box-shadow:0 8px 22px rgba(2,6,23,.12)}
     .primary{background:var(--brand); color:#fff}
     .success{background:var(--accent); color:#fff}
+    .danger{background:var(--highlight); color:#fff}
     .ghost{background:#ffffff; border:1px solid #e2e8f0; color:#0f172a}
     .subtle{font-size:.92rem; color:var(--muted); margin-top:12px}
     .footer{margin-top:28px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; color:var(--muted)}
@@ -102,12 +103,12 @@
       <div class="cta">
         <a class="btn primary" id="addCal">加入行事曆（.ics）</a>
         <a class="btn success" id="gcal" target="_blank" rel="noopener">加到 Google 行事曆</a>
-        <!-- 已移除分享連結 -->
+        <a class="btn danger" id="gcal" target="_blank" href="https://docs.google.com/forms/d/e/1FAIpQLSesaYQt04RGojbzd9PFmRerm6WXxbKXbDEUXaPl9pTLvmV76A/viewform?usp=header" rel="noopener">RSVP</a>
       </div>
 
       <div class="footer">
         <!-- <span>期待與你在 Belmont 相見！</span> -->
-        <span>— 冠豪 & 珮如</span>
+        <span><h3>— 冠豪 & 珮如</h3></span>
       </div>
     </div>
   </div>
