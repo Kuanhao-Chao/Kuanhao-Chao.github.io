@@ -37,6 +37,11 @@
     .subtle{font-size:.92rem; color:var(--muted); margin-top:12px}
     .footer{margin-top:28px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; color:var(--muted)}
     .heart{color:#ef4444}
+
+    /* 地圖樣式 */
+    .map{margin-top:16px; border-radius:14px; overflow:hidden; border:1px solid #e2e8f0}
+    .map iframe{width:100%; height:320px; border:0; display:block}
+
     @media (min-width:720px){ .details{grid-template-columns: 1fr 1fr} .row{min-height:44px} }
   </style>
 </head>
@@ -47,31 +52,54 @@
         <h1>🏡 喬遷派對</h1>
         <span class="pill">歡迎攜伴 +1</span>
       </div>
-      <p class="lead">搬到加州啦！誠摯邀請大家來家裡坐坐、喝點東西、聊聊天，讓新家更有溫度～</p>
+      <p class="lead">我搬到加州啦！誠摯邀請大家來家裡坐坐、喝點東西、聊聊天，讓新家更有溫度～</p>
 
       <!-- 細節資訊 -->
       <div class="details" id="details">
         <div class="row"><div class="label">日期</div><div class="value" id="dateText">2025/10/26（週日）</div></div>
         <div class="row"><div class="label">時間</div><div class="value" id="timeText">下午 5:00 開始（太平洋時間）｜可自由進出</div></div>
-        <div class="row"><div class="label">地址</div><div class="value"><a id="addrLink" href="https://maps.google.com/?q=1325%20Old%20County%20Rd%2C%20Unit%202056%2C%20Belmont%2C%20CA" target="_blank" rel="noopener">1325 Old County Rd, Unit 2056, Belmont, CA</a> <button class="btn ghost" id="copyBtn" aria-label="Copy address">複製地址</button></div></div>
+
+        <!-- 地址獨立一行 -->
+        <div class="row" style="grid-column: 1 / -1;">
+          <div class="label">地址</div>
+          <div class="value">
+            <div><a id="addrLink" href="https://maps.google.com/?q=1325%20Old%20County%20Rd%2C%20Unit%202056%2C%20Belmont%2C%20CA" target="_blank" rel="noopener">1325 Old County Rd, Unit 2056, Belmont, CA</a></div>
+            <div style="margin-top:8px;"><button class="btn ghost" id="copyBtn" aria-label="Copy address">複製地址</button></div>
+          </div>
+        </div>
       </div>
 
+      <!-- 地圖 -->
+      <div class="map">
+        <iframe id="mapFrame" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      </div>
+
+      <!-- 小提醒（更新處） -->
       <div class="notes">
         <h3>小提醒</h3>
         <ul>
-          <li>食物與飲料會先去 Costco 補一輪，也歡迎大家自帶好物（potluck 可）。</li>
-          <li>穿著輕鬆即可，社交零壓力。</li>
-          <li>附近路邊停車為主，請留意社區標示；有過敏或飲食需求可事先告知。</li>
+          <li>我們會準備一些 light food 和飲料，也歡迎大家帶一些食物和大家分享，有過敏或飲食需求可事先告知。</li>
+          <li>穿著輕鬆即可</li>
+          <li>附近路邊停車，請留意社區標示</li>
+        </ul>
+      </div>
+
+      <!-- 停車指南（充實週日規定與備案） -->
+      <div class="notes">
+        <h3>停車指南</h3>
+        <ul>
+          <li>Artison crossing 前面以及側邊有一些停車格</li>
+          <li>Old County Rd（住家前後路段）：週日可以停車，不適用這些時限；仍以現場路牌為準。</li>
+          <li>O’Neill Ave（Old County Rd ↔ Elmer St）：該區段不開放路邊停車</li>
+          <li>Belmont Caltrain 停車場（備案）：站內停車24/7 皆須付費</li>
         </ul>
       </div>
 
       <div class="cta">
         <a class="btn primary" id="addCal">加入行事曆（.ics）</a>
         <a class="btn success" id="gcal" target="_blank" rel="noopener">加到 Google 行事曆</a>
-        <button class="btn ghost" id="shareBtn">分享連結</button>
+        <!-- 已移除分享連結 -->
       </div>
-
-      <p class="subtle">提示：若之後需要改時間或地址，只要修改下方「設定」區塊即可全站更新。</p>
 
       <div class="footer">
         <span>期待與你在 Belmont 相見！</span>
@@ -85,17 +113,16 @@
     const EVENT = {
       title: "喬遷派對",
       host: "冠豪 & 珮如",
-      dateISO: "2025-10-26",     // YYYY-MM-DD
-      startTime: "17:00",        // 24h
-      endTime: "20:00",          // 沒給結束時間則預設 3 小時
+      dateISO: "2025-10-26",
+      startTime: "17:00",
+      endTime: "21:00",
       address: "1325 Old County Rd, Unit 2056, Belmont, CA",
       city: "Belmont, CA",
-      mapsUrl: "https://maps.google.com/?q=1325%20Old%20County%20Rd%2C%20Unit%202056%2C%20Belmont%2C%20CA",
-      notes: "會先去 Costco 準備食物與飲料，也歡迎自帶拿手菜（potluck）！歡迎攜伴 +1。",
+      mapsUrl: "https://maps.google.com/?q=1325%20Old%20County%20Rd%2C%20Belmont%2C%20CA",
+      notes: "我們會準備一些 light food 和飲料，也歡迎大家帶一些食物和大家分享，有過敏或飲食需求可事先告知; 穿著輕鬆即可; 附近路邊停車，請留意社區標示",
       timezone: "America/Los_Angeles"
     };
 
-    // —— Helpers ——
     const pad = n => String(n).padStart(2,'0');
     function fmtChineseDate(dateStr){
       const dt = new Date(dateStr+"T12:00:00");
@@ -128,33 +155,29 @@
     }
 
     function updateUI(){
-      // 日期與時間（中文為主）
       document.getElementById('dateText').textContent = fmtChineseDate(EVENT.dateISO);
-      document.getElementById('timeText').textContent = `下午 ${EVENT.startTime.replace(':',':')} 開始（太平洋時間）｜可自由進出`;
-      // 地址
+      document.getElementById('timeText').textContent = `下午 ${EVENT.startTime.replace(':',':')} 開始（太平洋時間）`;
       const addrLink = document.getElementById('addrLink');
       addrLink.textContent = EVENT.address;
       addrLink.href = EVENT.mapsUrl || `https://maps.google.com/?q=${encodeURIComponent(EVENT.address)}`;
-      // 按鈕
       document.getElementById('gcal').href = googleCalUrl();
+
+      // 地圖嵌入（免 API key）
+      const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(EVENT.address)}&output=embed`;
+      document.getElementById('mapFrame').src = mapSrc;
     }
 
-    // 事件
+    // 下載 .ics
     document.getElementById('addCal').addEventListener('click', ()=>{
       const blob = icsBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = 'housewarming.ics'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 2000);
     });
 
+    // 複製地址
     document.getElementById('copyBtn').addEventListener('click', async ()=>{
       try{ await navigator.clipboard.writeText(EVENT.address); const b = document.getElementById('copyBtn'); b.textContent='已複製 ✓'; setTimeout(()=>b.textContent='複製地址', 1200);
       }catch(e){ alert('複製失敗，請手動複製'); }
-    });
-
-    document.getElementById('shareBtn').addEventListener('click', async ()=>{
-      const shareData = {title: `${EVENT.host} 的 ${EVENT.title}`, text: '喬遷派對，歡迎攜伴 +1，一起熱鬧熱鬧！', url: location.href};
-      if(navigator.share){ try{ await navigator.share(shareData); }catch(_){} }
-      else{ try{ await navigator.clipboard.writeText(location.href); alert('已複製連結！'); }catch{ alert('複製失敗'); } }
     });
 
     updateUI();
