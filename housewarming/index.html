@@ -81,6 +81,7 @@
           <li>我們會準備一些 light food 和飲料，也歡迎大家帶一些食物和大家分享，有過敏或飲食需求可事先告知。</li>
           <li>穿著輕鬆即可</li>
           <li>附近路邊停車，請留意社區標示</li>
+          <li>預計人數大概 5-10 位</li>
         </ul>
       </div>
 
@@ -89,7 +90,7 @@
         <h3>停車指南</h3>
         <ul>
           <li>Artison crossing 前面以及側邊有一些停車格</li>
-          <li>Old County Rd（住家前後路段）：週日可以停車，不適用這些時限；仍以現場路牌為準。</li>
+          <li>Old County Rd（住家前後路段）：週日可以停車，不適用時限；仍以現場路牌為準。</li>
           <li>O’Neill Ave（Old County Rd ↔ Elmer St）：該區段不開放路邊停車</li>
           <li>Belmont Caltrain 停車場（備案）：站內停車24/7 皆須付費</li>
         </ul>
@@ -144,14 +145,20 @@
       return new Blob([ics], {type:'text/calendar'});
     }
 
+    function fmtLocalYmdHis(dateISO, timeHHMM) {
+      const [y, m, d] = dateISO.split('-').map(Number);
+      const [hh, mm]  = timeHHMM.split(':').map(Number);
+      return `${y}${pad(m)}${pad(d)}T${pad(hh)}${pad(mm)}00`;
+    }
+
     function googleCalUrl(){
-      const toUTC = (d)=>{ const z = new Date(d.getTime() - d.getTimezoneOffset()*60000); return `${z.getUTCFullYear()}${pad(z.getUTCMonth()+1)}${pad(z.getUTCDate())}T${pad(z.getUTCHours())}${pad(z.getUTCMinutes())}00Z`; };
-      const start = toUTC(toLocalDateTime(EVENT.dateISO, EVENT.startTime));
-      const end   = toUTC(toLocalDateTime(EVENT.dateISO, EVENT.endTime));
-      const text  = encodeURIComponent(`${EVENT.host} 的 ${EVENT.title}`);
+      const startLocal = fmtLocalYmdHis(EVENT.dateISO, EVENT.startTime);
+      const endLocal   = fmtLocalYmdHis(EVENT.dateISO, EVENT.endTime);
+      const text    = encodeURIComponent(`${EVENT.host} 的 ${EVENT.title}`);
       const details = encodeURIComponent(EVENT.notes);
-      const location = encodeURIComponent(EVENT.address);
-      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${start}%2F${end}&details=${details}&location=${location}`;
+      const location= encodeURIComponent(EVENT.address);
+      const ctz     = encodeURIComponent(EVENT.timezone || 'America/Los_Angeles'); // 關鍵：指定事件所在時區
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${startLocal}%2F${endLocal}&details=${details}&location=${location}&ctz=${ctz}`;
     }
 
     function updateUI(){
