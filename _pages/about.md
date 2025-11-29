@@ -238,8 +238,7 @@ I am a Senior Deep Learning Scientist at the <a target="_blank" href="https://ww
     <li><b>Kuan-Hao Chao*<sup>†</sup></b>, Pei-Wei Chen<sup>†</sup>, Sanjit A. Seshia, Ben Langmead* (2023). <a target="_blank"  href="https://doi.org/10.1016/j.isci.2023.107402" style="color:#4A4F53">WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs</a>, <i><b>iScience</b></i>
     </li>
   </ul>
-  <b style="padding-left:18px;"><i class="fa fa-chevron-circle-right" aria-hidden="true"></i> <a href="https://khchao.com/publications/" style="color:#4A4F53; text-decoration: none;"> &nbsp; more ...</a></b>
-<!-- </div> -->
+  <b style="padding-left:18px;"><i class="fa fa-chevron-circle-right" aria-hidden="true"></i> <a href="https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en&oi=ao" style="color:#4A4F53; text-decoration: none;"> &nbsp; more ...</a></b>
 
 <br>
 
