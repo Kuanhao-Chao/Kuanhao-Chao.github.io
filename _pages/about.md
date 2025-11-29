@@ -214,6 +214,8 @@ I am a Senior Deep Learning Scientist at the <a target="_blank" href="https://ww
     <li><a href="#teaching">Teaching</a></li>
     <li>|</li>
     <li><a href="#service">Service</a></li>
+    <li>|</li>
+    <li><a href="#mentorship">Mentorship</a></li>
   </ul>
 </div>
 <br>
@@ -407,6 +409,13 @@ z-index:100;"> -->
     </ul>
   </li>
 </ul>
+
+<br>
+
+<h2 class="page__title" id="mentorship" style="font-size:19pt"> <i class="fa fa-users"></i> &nbsp; Mentorship</h2>
+<p>
+I am open to mentor students who are interested to do computational genomics + AI research! We can work together on a focused six-month research project. I’ve been fortunate to learn from many wonderful mentors, and I’d love to give back to the community. If this sounds interesting to you, please feel free to reach out.
+</p>
 
 <br>
 
