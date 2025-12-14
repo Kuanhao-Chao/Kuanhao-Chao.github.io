@@ -215,9 +215,9 @@ collections:
   teaching:
     output: true
     permalink: /:collection/:path/
-  references:
-    output: true
-    permalink: /:collection/:path/
+  # references:
+  #   output: true
+  #   permalink: /:collection/:path/
   publications:
     output: true
     permalink: /:collection/:path/
@@ -236,9 +236,9 @@ collections:
   # games:
   #   output: true
   #   permalink: /:collection/:path/
-  projects:
-    output: true
-    permalink: /:collection/:path/
+  # projects:
+  #   output: true
+  #   permalink: /:collection/:path/
   photos:
     output: true
     permalink: /:collection/:path/
@@ -331,13 +331,13 @@ defaults:
       layout: internship
       author_profile: true
       share: true
-  - scope:
-      path: ""
-      type: projects
-    values:
-      layout: project
-      author_profile: true
-      share: true
+  # - scope:
+  #     path: ""
+  #     type: projects
+  #   values:
+  #     layout: project
+  #     author_profile: true
+  #     share: true
   - scope:
       path: ""
       type: photos
@@ -348,14 +348,14 @@ defaults:
       type: contact
     values:
       layout: contact
-  - scope:
-      path: ""
-      type: references
-    values:
-      layout: reference
-      author_profile: true
-      share: true
-      comments: true
+  # - scope:
+  #     path: ""
+  #     type: references
+  #   values:
+  #     layout: reference
+  #     author_profile: true
+  #     share: true
+  #     comments: true
   - scope:
       path: ""
       type: news
