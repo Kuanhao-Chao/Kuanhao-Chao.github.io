@@ -45,6 +45,8 @@
             padding: 32px;
             min-height: 100vh;
             color: var(--tx);
+            font-size: 1.08rem;
+            /* bumped up from browser default */
             font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
             background:
                 radial-gradient(1200px 600px at 10% -10%, #fce4ec 0%, transparent 60%),
@@ -168,10 +170,11 @@
         }
 
         .lead {
-            margin: 14px 0 6px;
+            margin: 18px 0 10px;
             color: var(--muted);
-            font-size: 1.05rem;
-            line-height: 1.75;
+            font-size: 1.15rem;
+            /* increased */
+            line-height: 1.8;
             font-style: italic;
             font-family: 'Playfair Display', serif;
         }
@@ -180,35 +183,43 @@
         .divider {
             border: none;
             border-top: 1px solid #f0d9e0;
-            margin: 20px 0;
+            margin: 32px 0;
+            /* increased from 20 */
         }
 
         /* ── Section title ── */
         .section-title {
-            font-size: .78rem;
+            font-size: .85rem;
+            /* increased */
             letter-spacing: .12em;
             text-transform: uppercase;
             font-weight: 700;
             color: var(--brand);
-            margin: 22px 0 10px;
+            margin: 36px 0 16px;
+            /* increased margins */
         }
 
         /* ── Details grid ── */
         .details {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 12px;
-            margin: 0 0 6px;
+            gap: 16px;
+            /* increased */
+            margin: 0 0 12px;
         }
 
         .row {
             display: flex;
-            gap: 12px;
+            gap: 16px;
+            /* increased */
             align-items: flex-start;
+            line-height: 1.6;
+            /* improved readability */
         }
 
         .label {
-            min-width: 94px;
+            min-width: 104px;
+            /* increased slightly for larger text */
             font-weight: 700;
             color: #2d0f1b;
             flex-shrink: 0;
@@ -245,11 +256,13 @@
 
         /* ── Notes ── */
         .notes {
-            margin-top: 20px;
+            margin-top: 32px;
+            /* increased */
             background: #fff5f7;
             border: 1px solid #f0d9e0;
             border-radius: 14px;
-            padding: 16px 18px;
+            padding: 22px 24px;
+            /* increased */
         }
 
         .notes h3 {
@@ -259,21 +272,25 @@
         }
 
         .notes ul {
-            margin: 8px 0 0 18px;
+            margin: 12px 0 0 20px;
+            /* increased */
             padding: 0;
         }
 
         .notes li {
-            margin: 6px 0;
+            margin: 10px 0;
+            /* increased */
             color: #2d0f1b;
+            line-height: 1.6;
         }
 
         /* ── CTA Buttons ── */
         .cta {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 22px;
+            gap: 12px;
+            margin-top: 36px;
+            /* increased */
         }
 
         .btn {
@@ -315,7 +332,8 @@
 
         /* ── Footer ── */
         .footer {
-            margin-top: 28px;
+            margin-top: 42px;
+            /* increased */
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
@@ -349,6 +367,55 @@
 
         .copy-btn:hover {
             background: #fce4ec;
+        }
+
+        /* ── Couple Photo ── */
+        .couple-photo {
+            margin: 0 auto;
+            padding: 0;
+            /* cinematic banner crop */
+            position: relative;
+            width: 80%;
+            height: clamp(200px, 30vw, 360px);
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #f0d9e0;
+            box-shadow: 0 6px 24px rgba(80, 10, 30, .10);
+        }
+
+        .couple-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* nudge focus toward the faces — lower crop shows less sky */
+            object-position: center 35%;
+            display: block;
+            transition: transform .5s ease;
+        }
+
+        .couple-photo:hover img {
+            transform: scale(1.03);
+        }
+
+        /* bottom-fade gradient overlay blending into card */
+        .couple-photo::after {
+            content: "";
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 40%;
+            background: linear-gradient(to bottom, transparent, rgba(255, 249, 249, .55));
+            pointer-events: none;
+        }
+
+        .couple-photo figcaption {
+            position: absolute;
+            bottom: 10px;
+            right: 14px;
+            font-size: .78rem;
+            font-style: italic;
+            color: rgba(26, 10, 15, .5);
+            font-family: 'Playfair Display', serif;
+            pointer-events: none;
         }
 
         /* ── Responsive ── */
@@ -427,6 +494,12 @@
             </div>
 
             <hr class="divider">
+
+            <!-- ── Couple Photo ── -->
+            <figure class="couple-photo">
+                <img src="../images/chao_chiang.jpg" alt="Kuan-Hao and Pei-Ju" loading="eager" decoding="async">
+                <figcaption data-en="Kuan-Hao &amp; Pei-Ju" data-zh="冠豪 &amp; 珮如">Kuan-Hao &amp; Pei-Ju</figcaption>
+            </figure>
 
             <!-- ── Ceremony ── -->
             <div class="section-title" data-en="🕙 Ceremony" data-zh="🕙 婚禮儀式">🕙 Ceremony</div>
@@ -513,8 +586,9 @@
                     to Calendar (.ics)</a>
                 <a class="btn success" id="gcal" target="_blank" rel="noopener" data-en="📆 Add to Google Calendar"
                     data-zh="📆 加到 Google 行事曆">📆 Add to Google Calendar</a>
-                <a class="btn ghost" id="rsvpBtn" href="#" target="_blank" rel="noopener" data-en="💌 RSVP"
-                    data-zh="💌 RSVP">💌 RSVP</a>
+                <a class="btn ghost" id="rsvpBtn"
+                    href="https://docs.google.com/forms/d/e/1FAIpQLSeXa4y0QF055Hs5R5D_QAJFc_eJZUndhvTCWltFrAzn88fQWw/viewform?usp=publish-editor"
+                    target="_blank" rel="noopener" data-en="💌 RSVP" data-zh="💌 RSVP">💌 RSVP</a>
             </div>
 
             <!-- ── Footer ── -->
@@ -545,7 +619,7 @@
             title: "Kuan-Hao & Pei-Ju's Wedding — Reception",
             dateISO: "2026-07-06",
             startTime: "12:00",
-            endTime: "16:00",
+            endTime: "14:00",
             address: "[Insert Reception Location Here]",
             mapsUrl: "",
             notes: "Reception: 12:00 PM (Noon) onward",
