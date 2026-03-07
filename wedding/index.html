@@ -418,6 +418,257 @@
             pointer-events: none;
         }
 
+        /* ── Guest Details section ── */
+        .gd-section {
+            margin-top: 8px;
+        }
+
+        .gd-section-heading {
+            font-size: .85rem;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--brand);
+            margin: 36px 0 18px;
+        }
+
+        .gd-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        @media (min-width: 640px) {
+            .gd-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .gd-card {
+            background: #fff5f7;
+            border: 1px solid #f0d9e0;
+            border-radius: 14px;
+            padding: 20px 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .gd-card-full {
+            grid-column: 1 / -1;
+        }
+
+        .gd-card-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .gd-icon {
+            font-size: 1.35rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .gd-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--brand-dark);
+            font-family: 'Playfair Display', serif;
+            margin: 0;
+        }
+
+        .gd-body {
+            font-size: 1rem;
+            line-height: 1.65;
+            color: #2d0f1b;
+            margin: 0;
+        }
+
+        .gd-body strong {
+            color: var(--brand-dark);
+        }
+
+        .gd-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .gd-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: .9rem;
+            font-weight: 600;
+            color: var(--brand);
+            text-decoration: none;
+            background: #fff;
+            border: 1.5px solid #f0c2cf;
+            border-radius: 8px;
+            padding: 6px 12px;
+            transition: background .15s, transform .15s;
+        }
+
+        .gd-link:hover {
+            background: #fce4ec;
+            transform: translateY(-1px);
+        }
+
+        /* virtual-tour iframe */
+        .gd-tour {
+            margin-top: 12px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #f0d9e0;
+            background: #f9f0f2;
+        }
+
+        .gd-tour iframe {
+            width: 100%;
+            height: 320px;
+            border: 0;
+            display: block;
+        }
+
+        /* fallback shown when iframe can't load */
+        .gd-tour-fallback {
+            display: none;
+            padding: 22px;
+            text-align: center;
+            font-size: .95rem;
+            color: var(--muted);
+        }
+
+        /* ─── Photo Carousel ─── */
+        .carousel {
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #f0d9e0;
+            aspect-ratio: 4/3;
+            max-width: 720px;
+            /* Added */
+            margin: 0 auto;
+            box-shadow: 0 8px 24px rgba(180, 68, 110, 0.12);
+        }
+
+        .photo-banner {
+            text-align: center;
+            margin: 30px 0 20px;
+        }
+
+        .carousel-track {
+            display: flex;
+            height: 100%;
+            transition: transform .45s cubic-bezier(.4, 0, .2, 1);
+            will-change: transform;
+        }
+
+        .carousel-slide {
+            min-width: 100%;
+            height: 100%;
+        }
+
+        .carousel-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 30%;
+            display: block;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        /* Prev / Next arrows */
+        .carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 249, 249, .85);
+            border: 1.5px solid #f0c2cf;
+            color: var(--brand);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+            transition: background .15s, transform .15s;
+            z-index: 3;
+            backdrop-filter: blur(4px);
+        }
+
+        .carousel-btn:hover {
+            background: #fff;
+            transform: translateY(-50%) scale(1.08);
+        }
+
+        .carousel-prev {
+            left: 12px;
+        }
+
+        .carousel-next {
+            right: 12px;
+        }
+
+        /* Dot indicators */
+        .carousel-dots {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 7px;
+            z-index: 3;
+        }
+
+        .carousel-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .55);
+            border: 1.5px solid rgba(180, 68, 110, .5);
+            cursor: pointer;
+            transition: background .2s, transform .2s;
+        }
+
+        .carousel-dot.active {
+            background: var(--brand);
+            transform: scale(1.25);
+        }
+
+        /* Touch swipe hint gradient on sides */
+        .carousel::before,
+        .carousel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .carousel::before {
+            left: 0;
+            background: linear-gradient(to right, rgba(255, 245, 247, .25), transparent);
+        }
+
+        .carousel::after {
+            right: 0;
+            background: linear-gradient(to left, rgba(255, 245, 247, .25), transparent);
+        }
+
+        /* Tour iframe height */
+        .gd-tour iframe {
+            height: 420px;
+        }
+
         /* ── Responsive ── */
         @media (min-width: 720px) {
             .details {
@@ -426,6 +677,10 @@
 
             .row {
                 min-height: 42px;
+            }
+
+            .photo-banner .carousel {
+                width: 80%;
             }
         }
 
@@ -496,10 +751,33 @@
             <hr class="divider">
 
             <!-- ── Couple Photo ── -->
-            <figure class="couple-photo">
-                <img src="../images/chao_chiang.jpg" alt="Kuan-Hao and Pei-Ju" loading="eager" decoding="async">
-                <figcaption data-en="Kuan-Hao &amp; Pei-Ju" data-zh="冠豪 &amp; 珮如">Kuan-Hao &amp; Pei-Ju</figcaption>
-            </figure>
+            <div class="photo-banner">
+                <div class="carousel" id="photoCarousel" aria-label="Couple photos">
+                    <div class="carousel-track" id="carouselTrack">
+                        <!-- Placeholder center values; will be refined to center faces -->
+                        <div class="carousel-slide"><img src="../images/chao_chiang.jpg"
+                                style="object-position: 50% 35%;" alt="Kuan-Hao & Pei-Ju Photo 1" loading="eager"></div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_2.jpg"
+                                style="object-position: 50% 40%;" alt="Kuan-Hao & Pei-Ju Photo 2" loading="eager"></div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_3.JPG"
+                                style="object-position: 50% 100%;" alt="Kuan-Hao & Pei-Ju Photo 3" loading="eager">
+                        </div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_4.JPG"
+                                style="object-position: 50% 35%;" alt="Kuan-Hao & Pei-Ju Photo 4" loading="eager"></div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_5.jpg"
+                                style="object-position: 50% 65%;" alt="Kuan-Hao & Pei-Ju Photo 5" loading="eager">
+                        </div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_6.JPG"
+                                style="object-position: 50% 90%;" alt="Kuan-Hao & Pei-Ju Photo 6" loading="eager">
+                        </div>
+                    </div>
+                    <button class="carousel-btn carousel-prev" id="carouselPrev"
+                        aria-label="Previous photo">&#8592;</button>
+                    <button class="carousel-btn carousel-next" id="carouselNext"
+                        aria-label="Next photo">&#8594;</button>
+                    <div class="carousel-dots" id="carouselDots" role="tablist" aria-label="Photo navigation"></div>
+                </div>
+            </div>
 
             <!-- ── Ceremony ── -->
             <div class="section-title" data-en="🕙 Ceremony" data-zh="🕙 婚禮儀式">🕙 Ceremony</div>
@@ -523,8 +801,9 @@
                             <a id="ceremonyAddrLink"
                                 href="https://maps.google.com/?q=SF+City+Hall,+1+Dr+Carlton+B+Goodlett+Pl,+San+Francisco,+CA+94102"
                                 target="_blank" rel="noopener"
-                                data-en="SF City Hall, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102"
-                                data-zh="舊金山市政廳, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102">SF City Hall, 1 Dr
+                                data-en="Mayor's Balcony, SF City Hall, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102"
+                                data-zh="市長陽台, 舊金山市政廳, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102">Mayor's
+                                Balcony, SF City Hall, 1 Dr
                                 Carlton B Goodlett Pl, San Francisco, CA 94102</a>
                         </div>
                         <div>
@@ -566,19 +845,111 @@
                 </div>
             </div>
 
-            <!-- ── Notes ── -->
-            <div class="notes">
-                <h3 data-en="Notes" data-zh="注意事項">Notes</h3>
-                <ul>
-                    <li data-en="Dress code: cocktail attire / semi-formal." data-zh="服裝：雞尾酒禮服 / 半正式。">Dress code:
-                        cocktail attire / semi-formal.</li>
-                    <li data-en="Parking is available near SF City Hall — paid street parking and garages nearby."
-                        data-zh="舊金山市政廳附近有停車場——路邊計費停車與停車庫皆可。">Parking is available near SF City Hall — paid street
-                        parking and garages nearby.</li>
-                    <li data-en="Please RSVP so we can plan accordingly." data-zh="請回覆出席意願，以便我們妥善安排。">Please RSVP so we
-                        can plan accordingly.</li>
-                </ul>
-            </div>
+            <!-- ── Guest Details ── -->
+            <div class="gd-section">
+                <hr class="divider">
+                <div class="gd-section-heading" data-en="📋 Guest Details" data-zh="📋 賓客須知">📋 Guest Details</div>
+
+                <div class="gd-grid">
+
+                    <!-- Dress code -->
+                    <div class="gd-card">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">🤺</span>
+                            <h3 class="gd-title" data-en="Dress Code" data-zh="服裝規定">Dress Code</h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="We invite you to dress in <strong>cocktail / semi-formal</strong> attire and feel your most radiant self. Think elegant and celebratory — this is a day to shine!"
+                            data-zh="我們誠挙您穿著 <strong> 雞尾酒禮服 / 半正式服裝</strong>，並以最亮麗的姿態出席。請以氣度尌感、歡樂喜慶為主！">
+                            We invite you to dress in <strong>cocktail / semi-formal</strong> attire and feel your most
+                            radiant self. Think elegant and celebratory — this is a day to shine!
+                        </p>
+                    </div>
+
+                    <!-- Punctuality -->
+                    <div class="gd-card">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">⏰</span>
+                            <h3 class="gd-title" data-en="Please Arrive on Time" data-zh="請展時到場">Please Arrive on Time
+                            </h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="San Francisco City Hall grants us <strong>exactly 60 minutes</strong> in the Mayor&rsquo;s Balcony. Every moment is precious! Please plan to arrive <strong>at least 10&ndash;15 minutes early</strong> so we can begin right on the hour and savour every second together."
+                            data-zh="舊金山市政廳僅提供我們 <strong>正好 60 分鐘</strong>的市長陽台空間。每一秒都弥足珍貴！請務必 <strong>提前 10–15 分鐘抖到</strong>，讓我們能將每一刻美好的時光共享。">
+                            San Francisco City Hall grants us <strong>exactly 60 minutes</strong> in the Mayor&rsquo;s
+                            Balcony. Every moment is precious! Please plan to arrive <strong>at least 10&ndash;15
+                                minutes early</strong> so we can begin right on the hour and savour every second
+                            together.
+                        </p>
+                    </div>
+
+                    <!-- Food & Drink -->
+                    <div class="gd-card">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">🚫</span>
+                            <h3 class="gd-title" data-en="No Food or Drinks" data-zh="禁止飲食">No Food or Drinks</h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="City Hall has a <strong>strict no food or beverage policy</strong> during the ceremony — including water. We appreciate your understanding in helping us follow the venue&rsquo;s rules and keep the space beautiful for everyone."
+                            data-zh="市政廳對必須严格遵守：儲式進行期間，包括清水在內，<strong>一律禁止飲食</strong>。感謝您的理解與配合，讓我們共同維護這個美麗的空間。">
+                            City Hall has a <strong>strict no food or beverage policy</strong> during the ceremony —
+                            including water. We appreciate your understanding in helping us follow the venue&rsquo;s
+                            rules and keep the space beautiful for everyone.
+                        </p>
+                    </div>
+
+                    <!-- Getting There -->
+                    <div class="gd-card">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">🚇</span>
+                            <h3 class="gd-title" data-en="Getting There" data-zh="交通指引">Getting There</h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="There is <strong>no on-site parking</strong> at SF City Hall. We highly recommend public transit — the Civic Center BART/Muni station is right across the street!"
+                            data-zh="舊金山市政廳無場內停車場。我們強烈建議那廿乘大眾交通前往——Civic Center BART/Muni 車站就在對面！">
+                            There is <strong>no on-site parking</strong> at SF City Hall. We highly recommend public
+                            transit — the Civic Center BART/Muni station is right across the street!
+                        </p>
+                        <div class="gd-links">
+                            <a class="gd-link" href="http://sfcityhallevents.org/directions-parking" target="_blank"
+                                rel="noopener" data-en="🅿️ Parking Info" data-zh="🅿️ 停車資訊">🅿️ Parking Info</a>
+                            <a class="gd-link" href="http://sfcityhallevents.org/public-transit" target="_blank"
+                                rel="noopener" data-en="🚇 Public Transit" data-zh="🚇 大眾交通">🚇 Public Transit</a>
+                        </div>
+                    </div>
+
+                    <!-- ── Explore the Venue (Virtual Tour) ── -->
+                    <div class="gd-card gd-card-full">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">🏛️</span>
+                            <h3 class="gd-title" data-en="Explore the Venue" data-zh="場地虛擬導覽">Explore the Venue</h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="Get a feel for the breathtaking Mayor&rsquo;s Balcony at SF City Hall! Take an interactive 360&deg; virtual tour of our ceremony space below."
+                            data-zh="在儀式前先感受一下舊金山市政廳市長陽台的壯麗氛圍！透過下方的 360° 互動式虛擬導覽親身體驗婚禮場地。">
+                            Get a feel for the breathtaking Mayor&rsquo;s Balcony at SF City Hall! Take an interactive
+                            360&deg; virtual tour of our ceremony space below.
+                        </p>
+                        <!-- Virtual Tour iframe -->
+                        <div class="gd-tour">
+                            <iframe src="https://tour.tourbuilder.com/?tour=654132cc1b2d3b65a17c8d6a"
+                                title="Mayor's Balcony, SF City Hall — 360° Virtual Tour" loading="lazy" allowfullscreen
+                                allow="xr-spatial-tracking; gyroscope; accelerometer"
+                                referrerpolicy="no-referrer-when-downgrade"
+                                onerror="this.closest('.gd-tour').querySelector('.gd-tour-fallback').style.display='block'; this.style.display='none';"></iframe>
+                            <div class="gd-tour-fallback">
+                                <p data-en="Virtual tour not available in this preview &mdash; <a href=&quot;https://tour.tourbuilder.com/?tour=654132cc1b2d3b65a17c8d6a&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; style=&quot;color:var(--brand);&quot;>open it here</a>."
+                                    data-zh="目前無法顯示虛擬導覽，請<a href=&quot;https://tour.tourbuilder.com/?tour=654132cc1b2d3b65a17c8d6a&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; style=&quot;color:var(--brand);&quot;>點此開啟</a>。">
+                                    Virtual tour not available in this preview &mdash;
+                                    <a href="https://tour.tourbuilder.com/?tour=654132cc1b2d3b65a17c8d6a"
+                                        target="_blank" rel="noopener" style="color:var(--brand);">open it here</a>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /.gd-grid -->
+            </div><!-- /.gd-section -->
 
             <!-- ── CTA Buttons ── -->
             <div class="cta">
@@ -605,11 +976,11 @@
     <script>
         /* ── Event data ── */
         const CEREMONY = {
-            title: "Kuan-Hao & Pei-Ju's Wedding — Ceremony",
+            title: "Kuan-Hao & Pei-Ju's Wedding Ceremony",
             dateISO: "2026-07-06",
             startTime: "10:00",
             endTime: "11:00",
-            address: "SF City Hall, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102",
+            address: "Mayor's Balcony, SF City Hall, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102",
             mapsUrl: "https://maps.google.com/?q=SF+City+Hall,+1+Dr+Carlton+B+Goodlett+Pl,+San+Francisco,+CA+94102",
             notes: "Ceremony: 10:00 AM – 11:00 AM | SF City Hall",
             timezone: "America/Los_Angeles"
@@ -785,6 +1156,56 @@
         });
 
         updateUI();
+
+        /* ─── Photo Carousel ─── */
+        (function () {
+            const track = document.getElementById('carouselTrack');
+            const dotsWrap = document.getElementById('carouselDots');
+            const total = track ? track.children.length : 0;
+            if (!total) return;
+
+            let current = 0;
+            let startX = 0;
+            let dragging = false;
+
+            // Build dots
+            for (let i = 0; i < total; i++) {
+                const d = document.createElement('button');
+                d.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+                d.setAttribute('role', 'tab');
+                d.setAttribute('aria-label', 'Photo ' + (i + 1));
+                d.addEventListener('click', () => goTo(i));
+                dotsWrap.appendChild(d);
+            }
+
+            function goTo(idx) {
+                current = (idx + total) % total;
+                track.style.transform = 'translateX(-' + (current * 100) + '%)';
+                dotsWrap.querySelectorAll('.carousel-dot').forEach((d, i) =>
+                    d.classList.toggle('active', i === current));
+            }
+
+            document.getElementById('carouselPrev').addEventListener('click', () => goTo(current - 1));
+            document.getElementById('carouselNext').addEventListener('click', () => goTo(current + 1));
+
+            // Keyboard navigation
+            document.getElementById('photoCarousel').addEventListener('keydown', e => {
+                if (e.key === 'ArrowLeft') goTo(current - 1);
+                if (e.key === 'ArrowRight') goTo(current + 1);
+            });
+
+            // Touch / drag swipe
+            const el = document.getElementById('photoCarousel');
+            el.addEventListener('pointerdown', e => { startX = e.clientX; dragging = true; });
+            el.addEventListener('pointermove', e => { if (!dragging) return; });
+            el.addEventListener('pointerup', e => {
+                if (!dragging) return;
+                dragging = false;
+                const dx = e.clientX - startX;
+                if (Math.abs(dx) > 40) goTo(dx < 0 ? current + 1 : current - 1);
+            });
+            el.addEventListener('pointercancel', () => { dragging = false; });
+        })();
     </script>
 </body>
 
