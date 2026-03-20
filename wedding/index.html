@@ -791,9 +791,9 @@
                             <a id="ceremonyAddrLink"
                                 href="https://maps.google.com/?q=SF+City+Hall,+1+Dr+Carlton+B+Goodlett+Pl,+San+Francisco,+CA+94102"
                                 target="_blank" rel="noopener"
-                                data-en="Mayor's Balcony, SF City Hall, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102"
-                                data-zh="市長陽台, 舊金山市政廳, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102">Mayor's
-                                Balcony, SF City Hall, 1 Dr
+                                data-en="Mayor's Balcony (2nd Floor), SF City Hall, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102"
+                                data-zh="市長陽台（2樓）, 舊金山市政廳, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102">Mayor's
+                                Balcony (2nd&nbsp;Floor), SF City Hall, 1 Dr
                                 Carlton B Goodlett Pl, San Francisco, CA 94102</a>
                         </div>
                         <div>
@@ -823,14 +823,24 @@
                 </div>
                 <div class="row">
                     <div class="label" data-en="Time" data-zh="時間">Time</div>
-                    <div class="value" data-en="12:00 PM (Noon) – onward (Pacific Time)" data-zh="中午 12:00 起（太平洋時間）">
-                        12:00 PM (Noon) – onward (Pacific Time)</div>
+                    <div class="value" data-en="12:00 PM – 2:30 PM (Pacific Time)" data-zh="中午 12:00 – 下午 2:30（太平洋時間）">
+                        12:00 PM – 2:30 PM (Pacific Time)</div>
                 </div>
                 <div class="row" style="grid-column: 1 / -1;">
                     <div class="label" data-en="Location" data-zh="地點">Location</div>
                     <div class="value">
-                        <em data-en="[Reception details coming soon!]" data-zh="【待定婚宴場地】">[Reception details coming
-                            soon!]</em>
+                        <div>
+                            <a id="receptionAddrLink"
+                                href="https://maps.google.com/?q=Espetus+Churrascaria+San+Francisco,+1686+Market+St,+San+Francisco,+CA+94102"
+                                target="_blank" rel="noopener"
+                                data-en="Espetus Churrascaria San Francisco, 1686 Market St, San Francisco, CA 94102"
+                                data-zh="Espetus Churrascaria 舊金山, 1686 Market St, San Francisco, CA 94102">Espetus
+                                Churrascaria San Francisco, 1686 Market St, San Francisco, CA 94102</a>
+                        </div>
+                        <div>
+                            <button class="copy-btn" id="copyReceptionBtn" aria-label="Copy address"
+                                data-en="Copy address" data-zh="複製地址">Copy address</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -981,10 +991,10 @@
             title: "Kuan-Hao & Pei-Ju's Wedding — Reception",
             dateISO: "2026-07-06",
             startTime: "12:00",
-            endTime: "14:00",
-            address: "[Reception details coming soon!]",
-            mapsUrl: "",
-            notes: "Reception: 12:00 PM (Noon) onward",
+            endTime: "14:30",
+            address: "Espetus Churrascaria San Francisco, 1686 Market St, San Francisco, CA 94102",
+            mapsUrl: "https://maps.google.com/?q=Espetus+Churrascaria+San+Francisco,+1686+Market+St,+San+Francisco,+CA+94102",
+            notes: "Reception: 12:00 PM – 2:30 PM | Espetus Churrascaria SF",
             timezone: "America/Los_Angeles"
         };
 
@@ -1137,6 +1147,20 @@
                 await navigator.clipboard.writeText(CEREMONY.address);
                 const btn = document.getElementById('copyCeremonyBtn');
                 // Show language-aware confirmation
+                btn.textContent = currentLang === 'zh' ? '已複製 ✓' : 'Copied ✓';
+                setTimeout(() => {
+                    btn.textContent = currentLang === 'zh' ? '複製地址' : 'Copy address';
+                }, 1400);
+            } catch (e) {
+                alert(currentLang === 'zh' ? '複製失敗，請手動複製' : 'Copy failed — please copy manually.');
+            }
+        });
+
+        /* ── Copy reception address ── */
+        document.getElementById('copyReceptionBtn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(RECEPTION.address);
+                const btn = document.getElementById('copyReceptionBtn');
                 btn.textContent = currentLang === 'zh' ? '已複製 ✓' : 'Copied ✓';
                 setTimeout(() => {
                     btn.textContent = currentLang === 'zh' ? '複製地址' : 'Copy address';
