@@ -381,11 +381,15 @@ z-index:100;"> -->
 <ul>
   <li>Reviewer
     <ul>
+      <li>Cell Reports Methods: 2026</li>
+      <li>Journal of Translational Medicine: 2026</li>
+      <li>PLOS ONE: 2026</li>
+      <li>Computational and Structural Biotechnology Journal: 2026</li>
       <li>
         Human Genetics and Genomics Advances: 2025
       </li>
       <li>
-        BMC Bioinformatics: 2025
+        BMC Bioinformatics: 2025, 2026
       </li>
       <li>
         BMC Genomics: 2025
