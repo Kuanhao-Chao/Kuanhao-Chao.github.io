@@ -6,4 +6,4 @@ location: 'Taipei, Taiwan'
 link: 'https://salzberg-lab.org/'
 ---
 
-I join Dr. [Steven Salzberg](https://salzberg-lab.org/)'s and Dr. [Mihaela Pertea](http://ccb.jhu.edu/people/mpertea/)'s lab as a CS Ph.D. student at the Johns Hopkins University.
+I join Dr. [Steven Salzberg](https://salzberg-lab.org/)'s and Dr. [Mihaela Pertea](https://ccb.jhu.edu/people/mpertea/)'s lab as a CS Ph.D. student at the Johns Hopkins University.

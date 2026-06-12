@@ -7,7 +7,22 @@ import { legacyRedirects } from './src/legacy-redirects.mjs';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://khchao.com',
-  integrations: [mdx(), sitemap()],
+  integrations: [
+    mdx(),
+    sitemap({
+      serialize(item) {
+        // Nudge crawl priority: homepage highest, primary sections next.
+        if (item.url === 'https://khchao.com/') {
+          item.priority = 1.0;
+        } else if (/\/(research|publications|talks|cv|teaching|news|photos)\/$/.test(item.url)) {
+          item.priority = 0.8;
+        } else {
+          item.priority = 0.7;
+        }
+        return item;
+      },
+    }),
+  ],
   redirects: {
     // Renamed or removed top-level pages from the previous Jekyll site.
     '/about': '/',

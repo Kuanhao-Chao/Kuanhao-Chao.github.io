@@ -20,6 +20,32 @@ export const site = {
     'Kuan-Hao Chao is a computational biologist and Senior Deep Learning Scientist at the Illumina AI Lab, working on AI for genomics: sequence-to-function models, genome annotation, and DNA language models.',
 };
 
+/**
+ * Structured-identity facts for JSON-LD (schema.org Person). Kept here so the
+ * Knowledge-Graph signal stays in sync with the rendered bio/CV.
+ */
+export const identity = {
+  jobTitle: 'Senior Deep Learning Scientist',
+  worksFor: { name: 'Illumina', url: 'https://www.illumina.com' },
+  alumniOf: [
+    { name: 'Johns Hopkins University', url: 'https://www.jhu.edu' },
+    { name: 'National Taiwan University', url: 'https://www.ntu.edu.tw/english/' },
+  ],
+  knowsAbout: [
+    'Computational biology',
+    'Genomics',
+    'Bioinformatics',
+    'Deep learning',
+    'Machine learning',
+    'DNA language models',
+    'Sequence-to-function models',
+    'Genome annotation',
+    'RNA splicing',
+    'Genome assembly',
+  ],
+  twitter: '@KuanHaoChao',
+};
+
 export type NavItem = { label: string; href: string };
 
 export const nav: NavItem[] = [

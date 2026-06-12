@@ -1,5 +1,5 @@
 ---
-import { site, socials } from '../data/site';
+import { site, socials, identity } from '../data/site';
 
 interface Props {
   title?: string;
@@ -18,18 +18,45 @@ const {
 const pageTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.role}`;
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const ogImage = new URL(image, Astro.site).href;
+// The default share card is a known 1200×630; only assert dimensions for it.
+const isDefaultImage = image === '/og.jpg';
 
 const personLd = {
-  '@context': 'https://schema.org',
   '@type': 'Person',
+  '@id': `${site.url}/#person`,
   name: site.name,
   alternateName: [site.nameZh, 'kuanhao chao', 'khc'],
-  jobTitle: 'Computational Biologist',
+  jobTitle: identity.jobTitle,
+  worksFor: {
+    '@type': 'Organization',
+    name: identity.worksFor.name,
+    url: identity.worksFor.url,
+  },
+  alumniOf: identity.alumniOf.map((a) => ({
+    '@type': 'CollegeOrUniversity',
+    name: a.name,
+    url: a.url,
+  })),
+  knowsAbout: identity.knowsAbout,
   email: `mailto:${site.email}`,
   url: site.url,
-  sameAs: socials
-    .filter((s) => !['email', 'calendly'].includes(s.key))
-    .map((s) => s.href),
+  image: `${site.url}/headshot.jpg`,
+  description: site.description,
+  sameAs: socials.filter((s) => !['email', 'calendly'].includes(s.key)).map((s) => s.href),
+};
+
+const websiteLd = {
+  '@type': 'WebSite',
+  '@id': `${site.url}/#website`,
+  name: site.name,
+  url: site.url,
+  inLanguage: 'en',
+  publisher: { '@id': `${site.url}/#person` },
+};
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [personLd, websiteLd],
 };
 ---
 <meta charset="utf-8" />
@@ -41,6 +68,10 @@ const personLd = {
 <meta name="generator" content={Astro.generator} />
 
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+<link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="manifest" href="/site.webmanifest" />
 <link rel="sitemap" href="/sitemap-index.xml" />
 <link
   rel="alternate"
@@ -55,14 +86,20 @@ const personLd = {
 <meta property="og:description" content={description} />
 <meta property="og:url" content={canonical} />
 <meta property="og:image" content={ogImage} />
+{isDefaultImage && <meta property="og:image:width" content="1200" />}
+{isDefaultImage && <meta property="og:image:height" content="630" />}
+<meta property="og:image:alt" content={`${site.name} — ${site.role}`} />
 <meta property="og:site_name" content={site.name} />
+<meta property="og:locale" content="en_US" />
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content={identity.twitter} />
+<meta name="twitter:creator" content={identity.twitter} />
 <meta name="twitter:title" content={pageTitle} />
 <meta name="twitter:description" content={description} />
 <meta name="twitter:image" content={ogImage} />
 
 <meta name="theme-color" content="#fafaf8" />
 
-<script type="application/ld+json" is:inline set:html={JSON.stringify(personLd)} />
+<script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />

@@ -1,5 +1,6 @@
 ---
 import Icon from './Icon.astro';
+import { pubSlug } from '../lib/slug';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
 const { pub } = Astro.props;
 const d = pub.data;
 const year = d.date.getFullYear();
+const slug = pubSlug(pub.id);
 
 // Highlight the site owner's name within the author list.
 const OWNER = 'Kuan-Hao Chao';
@@ -40,7 +42,7 @@ const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
 
   <div class="pub-body">
     <h3 class="pub-title">
-      {d.doi ? <a href={d.doi} target="_blank" rel="noopener">{d.title}</a> : d.title}
+      <a href={`/publications/${slug}/`}>{d.title}</a>
     </h3>
 
     <p class="pub-authors">

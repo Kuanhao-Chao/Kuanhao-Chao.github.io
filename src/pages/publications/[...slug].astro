@@ -1,0 +1,178 @@
+---
+import { getCollection, render } from 'astro:content';
+import EntryLayout from '../../layouts/EntryLayout.astro';
+import Prose from '../../components/Prose.astro';
+import { pubSlug } from '../../lib/slug';
+import { fullDate } from '../../lib/format';
+import { site } from '../../data/site';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('publications');
+  return entries.map((entry) => ({ params: { slug: pubSlug(entry.id) }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const d = entry.data;
+const { Content } = await render(entry);
+
+const year = d.date.getUTCFullYear();
+const typeLabel = {
+  journal: 'Journal article',
+  conference: 'Conference paper',
+  preprint: 'Preprint',
+  thesis: 'Thesis',
+}[d.type];
+
+// Highlight the site owner within the author list (same pattern as PublicationItem).
+const OWNER = 'Kuan-Hao Chao';
+const authorParts = d.authors.split(OWNER);
+
+const eyebrow = [typeLabel, d.venue].filter(Boolean).join(' · ');
+const statusLabel = { published: null, preprint: 'Preprint', accepted: 'Accepted' }[d.status];
+const meta = [
+  fullDate(d.date),
+  statusLabel,
+  d.advisors.length ? `Advised by ${d.advisors.join(' & ')}` : null,
+].filter(Boolean) as string[];
+
+const links = [
+  { label: 'DOI', icon: 'link', href: d.doi },
+  { label: 'PDF', icon: 'file', href: d.pdf },
+  { label: 'Code', icon: 'code', href: d.code },
+  { label: 'Docs', icon: 'book', href: d.docs },
+  { label: 'Slides', icon: 'slides', href: d.slides },
+  { label: 'Poster', icon: 'image', href: d.poster },
+  { label: 'Talk', icon: 'play', href: d.video },
+  { label: 'News', icon: 'external', href: d.news },
+].filter((l): l is { label: string; icon: string; href: string } => Boolean(l.href));
+
+const description = d.abstract
+  ? d.abstract.replace(/\s+/g, ' ').trim().slice(0, 155)
+  : `${d.authors} — ${d.venue} (${year}). A publication by Kuan-Hao Chao.`;
+
+// Structured data: ScholarlyArticle + breadcrumb (emitted in-body; valid for Google).
+const canonical = new URL(`/publications/${pubSlug(entry.id)}/`, site.url).href;
+const authorLd = d.authors
+  .split(',')
+  .map((a) => a.replace(/[*†]/g, '').trim())
+  .filter(Boolean)
+  .map((name) =>
+    name === OWNER
+      ? { '@type': 'Person', name, url: site.url }
+      : { '@type': 'Person', name }
+  );
+
+const articleLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ScholarlyArticle',
+  headline: d.title,
+  name: d.title,
+  author: authorLd,
+  datePublished: d.date.toISOString().slice(0, 10),
+  isPartOf: { '@type': 'Periodical', name: d.venue },
+  inLanguage: 'en',
+  url: canonical,
+  mainEntityOfPage: canonical,
+  ...(d.doi ? { sameAs: d.doi, identifier: d.doi } : {}),
+  ...(d.abstract ? { abstract: d.abstract } : {}),
+};
+
+const breadcrumbLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: `${site.url}/` },
+    { '@type': 'ListItem', position: 2, name: 'Publications', item: `${site.url}/publications/` },
+    { '@type': 'ListItem', position: 3, name: d.title, item: canonical },
+  ],
+};
+---
+<EntryLayout
+  title={d.title}
+  eyebrow={eyebrow}
+  meta={meta}
+  links={links}
+  backHref="/publications/"
+  backLabel="All publications"
+  description={description}
+>
+  <p class="authors">
+    {
+      authorParts.map((part, i) => (
+        <>
+          {i > 0 && <span class="me">{OWNER}</span>}
+          {part}
+        </>
+      ))
+    }
+  </p>
+
+  {
+    d.abstract && (
+      <section class="abstract">
+        <h2>Abstract</h2>
+        <Prose>
+          <p>{d.abstract}</p>
+        </Prose>
+      </section>
+    )
+  }
+
+  <Prose>
+    <Content />
+  </Prose>
+
+  {
+    d.bibtex && (
+      <details class="bib">
+        <summary>BibTeX</summary>
+        <pre><code>{d.bibtex}</code></pre>
+      </details>
+    )
+  }
+
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(articleLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+</EntryLayout>
+
+<style>
+  .authors {
+    font-size: var(--fs-body);
+    color: var(--color-muted);
+    line-height: var(--lh-snug);
+    margin-bottom: 2rem;
+  }
+  .authors .me {
+    color: var(--color-accent);
+    font-weight: var(--fw-semibold);
+  }
+  .abstract {
+    margin-bottom: 2.5rem;
+  }
+  .abstract h2 {
+    font-size: var(--fs-h3);
+    margin-bottom: 0.75rem;
+  }
+  .bib {
+    margin-top: 2.5rem;
+    font-size: var(--fs-small);
+  }
+  .bib summary {
+    cursor: pointer;
+    color: var(--color-ink);
+    font-weight: var(--fw-medium);
+  }
+  .bib pre {
+    margin-top: 0.8rem;
+    padding: 1rem 1.1rem;
+    background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+  .bib code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+</style>
