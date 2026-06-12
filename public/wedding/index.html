@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="googlebot" content="noindex, nofollow, noarchive" />
+    <meta name="bingbot" content="noindex, nofollow, noarchive" />
+    <title>Wedding | Kuan-Hao &amp; Pei-Ju</title>
+    <meta name="description"
+        content="You're invited to Kuan-Hao &amp; Pei-Ju's Wedding — July 6th. Ceremony at SF City Hall, 10:00 AM. Reception at Noon." />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Inter:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ── Design Tokens ── */
+        :root {
+            --bg1: #fff9f9;
+            --tx: #1a0a0f;
+            --muted: #7c4d5a;
+            --brand: #b5446e;
+            --brand-dark: #8f3055;
+            --card: rgba(255, 255, 255, .88);
+            --glass: blur(14px);
+            --accent: #c6873a;
+            --highlight: #d4955a;
+        }
+
+        /* ── Reset ── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        /* ── Body / Background ── */
+        body {
+            margin: 0;
+            padding: 32px;
+            min-height: 100vh;
+            color: var(--tx);
+            font-size: 1.08rem;
+            /* bumped up from browser default */
+            font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background:
+                radial-gradient(1200px 600px at 10% -10%, #fce4ec 0%, transparent 60%),
+                radial-gradient(900px 500px at 90% 10%, #fdf3e7 0%, transparent 60%),
+                linear-gradient(180deg, #ffffff, var(--bg1));
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            background-image: url('https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1600&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            opacity: .10;
+            filter: saturate(1.1) contrast(1.05);
+        }
+
+        /* ── Layout Wrappers ── */
+        .wrap {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card);
+            backdrop-filter: var(--glass);
+            -webkit-backdrop-filter: var(--glass);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(80, 10, 30, .12);
+            padding: 36px 36px 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: "🌹";
+            position: absolute;
+            top: 18px;
+            right: 22px;
+            font-size: 2.2rem;
+            opacity: .18;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        /* ──────────────────────────────────
+       Language Toggle
+    ────────────────────────────────── */
+        .lang-toggle {
+            position: absolute;
+            top: 20px;
+            /* nudge left of the rose decoration */
+            right: 62px;
+            display: flex;
+            align-items: center;
+            background: #fff0f4;
+            border: 1.5px solid #f0c2cf;
+            border-radius: 999px;
+            padding: 3px;
+            gap: 2px;
+            z-index: 10;
+        }
+
+        .lang-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: .8rem;
+            font-weight: 700;
+            font-family: inherit;
+            padding: 4px 10px;
+            border-radius: 999px;
+            color: var(--muted);
+            transition: background .2s, color .2s;
+            white-space: nowrap;
+        }
+
+        .lang-btn.active {
+            background: var(--brand);
+            color: #fff;
+        }
+
+        .lang-btn:not(.active):hover {
+            background: #fce4ec;
+            color: var(--brand);
+        }
+
+        /* ── Header ── */
+        .header {
+            margin-bottom: 6px;
+            padding-right: 110px;
+            /* clear toggle */
+        }
+
+        .title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .title h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(22px, 4.5vw, 40px);
+            margin: 0;
+            letter-spacing: .3px;
+            color: #1a0a0f;
+        }
+
+        .pill {
+            font-size: .88rem;
+            padding: 6px 13px;
+            border-radius: 999px;
+            background: #fce4ec;
+            color: var(--brand);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .lead {
+            margin: 18px 0 10px;
+            color: var(--muted);
+            font-size: 1.15rem;
+            /* increased */
+            line-height: 1.8;
+            font-style: italic;
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* ── Divider ── */
+        .divider {
+            border: none;
+            border-top: 1px solid #f0d9e0;
+            margin: 32px 0;
+            /* increased from 20 */
+        }
+
+        /* ── Section title ── */
+        .section-title {
+            font-size: .85rem;
+            /* increased */
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--brand);
+            margin: 36px 0 16px;
+            /* increased margins */
+        }
+
+        /* ── Details grid ── */
+        .details {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            /* increased */
+            margin: 0 0 12px;
+        }
+
+        .row {
+            display: flex;
+            gap: 16px;
+            /* increased */
+            align-items: flex-start;
+            line-height: 1.6;
+            /* improved readability */
+        }
+
+        .label {
+            min-width: 104px;
+            /* increased slightly for larger text */
+            font-weight: 700;
+            color: #2d0f1b;
+            flex-shrink: 0;
+        }
+
+        .value {
+            color: #1a0a0f;
+        }
+
+        .value a {
+            color: var(--brand);
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .value a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Map ── */
+        .map {
+            margin-top: 18px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #f0d9e0;
+        }
+
+        .map iframe {
+            width: 100%;
+            height: 300px;
+            border: 0;
+            display: block;
+        }
+
+        /* ── Notes ── */
+        .notes {
+            margin-top: 32px;
+            /* increased */
+            background: #fff5f7;
+            border: 1px solid #f0d9e0;
+            border-radius: 14px;
+            padding: 22px 24px;
+            /* increased */
+        }
+
+        .notes h3 {
+            margin: 0 0 8px;
+            font-size: 1rem;
+            color: var(--brand-dark);
+        }
+
+        .notes ul {
+            margin: 12px 0 0 20px;
+            /* increased */
+            padding: 0;
+        }
+
+        .notes li {
+            margin: 10px 0;
+            /* increased */
+            color: #2d0f1b;
+            line-height: 1.6;
+        }
+
+        /* ── CTA Buttons ── */
+        .cta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 36px;
+            /* increased */
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            user-select: none;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: .97rem;
+            transition: transform .15s ease, box-shadow .15s ease;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 22px rgba(80, 10, 30, .14);
+        }
+
+        .primary {
+            background: var(--brand);
+            color: #fff;
+        }
+
+        .success {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .ghost {
+            background: #fff;
+            border: 1.5px solid #f0c2cf;
+            color: var(--tx);
+        }
+
+        /* ── Footer ── */
+        .footer {
+            margin-top: 42px;
+            /* increased */
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: flex-end;
+            color: var(--muted);
+        }
+
+        .footer h3 {
+            margin: 0;
+            font-family: 'Playfair Display', serif;
+            font-weight: 400;
+            font-style: italic;
+            font-size: 1.1rem;
+        }
+
+        /* ── Copy button ── */
+        .copy-btn {
+            margin-top: 6px;
+            padding: 6px 12px;
+            font-size: .88rem;
+            border-radius: 8px;
+            border: 1px solid #f0c2cf;
+            background: #fff;
+            cursor: pointer;
+            color: var(--brand);
+            font-weight: 600;
+            font-family: inherit;
+            transition: background .15s;
+        }
+
+        .copy-btn:hover {
+            background: #fce4ec;
+        }
+
+        /* ── Couple Photo ── */
+        .couple-photo {
+            margin: 0 auto;
+            padding: 0;
+            /* cinematic banner crop */
+            position: relative;
+            width: 80%;
+            height: clamp(200px, 30vw, 360px);
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #f0d9e0;
+            box-shadow: 0 6px 24px rgba(80, 10, 30, .10);
+        }
+
+        .couple-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* nudge focus toward the faces — lower crop shows less sky */
+            object-position: center 35%;
+            display: block;
+            transition: transform .5s ease;
+        }
+
+        .couple-photo:hover img {
+            transform: scale(1.03);
+        }
+
+        /* bottom-fade gradient overlay blending into card */
+        .couple-photo::after {
+            content: "";
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 40%;
+            background: linear-gradient(to bottom, transparent, rgba(255, 249, 249, .55));
+            pointer-events: none;
+        }
+
+        .couple-photo figcaption {
+            position: absolute;
+            bottom: 10px;
+            right: 14px;
+            font-size: .78rem;
+            font-style: italic;
+            color: rgba(26, 10, 15, .5);
+            font-family: 'Playfair Display', serif;
+            pointer-events: none;
+        }
+
+        /* ── Guest Details section ── */
+        .gd-section {
+            margin-top: 8px;
+        }
+
+        .gd-section-heading {
+            font-size: .85rem;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--brand);
+            margin: 36px 0 18px;
+        }
+
+        .gd-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        @media (min-width: 640px) {
+            .gd-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .gd-card {
+            background: #fff5f7;
+            border: 1px solid #f0d9e0;
+            border-radius: 14px;
+            padding: 20px 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .gd-card-full {
+            grid-column: 1 / -1;
+        }
+
+        .gd-card-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .gd-icon {
+            font-size: 1.35rem;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .gd-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--brand-dark);
+            font-family: 'Playfair Display', serif;
+            margin: 0;
+        }
+
+        .gd-body {
+            font-size: 1rem;
+            line-height: 1.65;
+            color: #2d0f1b;
+            margin: 0;
+        }
+
+        .gd-body strong {
+            color: var(--brand-dark);
+        }
+
+        .gd-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .gd-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: .9rem;
+            font-weight: 600;
+            color: var(--brand);
+            text-decoration: none;
+            background: #fff;
+            border: 1.5px solid #f0c2cf;
+            border-radius: 8px;
+            padding: 6px 12px;
+            transition: background .15s, transform .15s;
+        }
+
+        .gd-link:hover {
+            background: #fce4ec;
+            transform: translateY(-1px);
+        }
+
+        /* virtual-tour iframe */
+        .gd-tour {
+            margin-top: 12px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #f0d9e0;
+            background: #f9f0f2;
+        }
+
+        .gd-tour iframe {
+            width: 100%;
+            height: 320px;
+            border: 0;
+            display: block;
+        }
+
+        /* fallback shown when iframe can't load */
+        .gd-tour-fallback {
+            display: none;
+            padding: 22px;
+            text-align: center;
+            font-size: .95rem;
+            color: var(--muted);
+        }
+
+        /* ─── Photo Carousel ─── */
+        .carousel {
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #f0d9e0;
+            aspect-ratio: 4/3;
+            max-width: 720px;
+            /* Added */
+            margin: 0 auto;
+            box-shadow: 0 8px 24px rgba(180, 68, 110, 0.12);
+        }
+
+        .photo-banner {
+            text-align: center;
+            margin: 30px 0 20px;
+        }
+
+        .carousel-track {
+            display: flex;
+            height: 100%;
+            transition: transform .45s cubic-bezier(.4, 0, .2, 1);
+            will-change: transform;
+        }
+
+        .carousel-slide {
+            min-width: 100%;
+            height: 100%;
+        }
+
+        .carousel-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 30%;
+            display: block;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        /* Prev / Next arrows */
+        .carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 249, 249, .85);
+            border: 1.5px solid #f0c2cf;
+            color: var(--brand);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+            transition: background .15s, transform .15s;
+            z-index: 3;
+            backdrop-filter: blur(4px);
+        }
+
+        .carousel-btn:hover {
+            background: #fff;
+            transform: translateY(-50%) scale(1.08);
+        }
+
+        .carousel-prev {
+            left: 12px;
+        }
+
+        .carousel-next {
+            right: 12px;
+        }
+
+        /* Dot indicators */
+        .carousel-dots {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 7px;
+            z-index: 3;
+        }
+
+        .carousel-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .55);
+            border: 1.5px solid rgba(180, 68, 110, .5);
+            cursor: pointer;
+            transition: background .2s, transform .2s;
+        }
+
+        .carousel-dot.active {
+            background: var(--brand);
+            transform: scale(1.25);
+        }
+
+        /* Touch swipe hint gradient on sides */
+        .carousel::before,
+        .carousel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .carousel::before {
+            left: 0;
+            background: linear-gradient(to right, rgba(255, 245, 247, .25), transparent);
+        }
+
+        .carousel::after {
+            right: 0;
+            background: linear-gradient(to left, rgba(255, 245, 247, .25), transparent);
+        }
+
+        /* Tour iframe height */
+        .gd-tour iframe {
+            height: 420px;
+        }
+
+        /* ── Responsive ── */
+        @media (min-width: 720px) {
+            .details {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .row {
+                min-height: 42px;
+            }
+
+            .photo-banner .carousel {
+                width: 80%;
+            }
+        }
+
+        @media (max-width: 540px) {
+            body {
+                padding: 16px;
+            }
+
+            .card {
+                padding: 24px 20px 20px;
+            }
+
+            .header {
+                padding-right: 0;
+                padding-top: 48px;
+            }
+
+            .lang-toggle {
+                top: 20px;
+                right: 20px;
+            }
+        }
+
+        /* ── Smooth lang transition ── */
+        [data-en],
+        [data-zh] {
+            transition: opacity .18s ease;
+        }
+
+        body.lang-switching [data-en],
+        body.lang-switching [data-zh] {
+            opacity: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="card" id="card">
+
+            <!-- ── Language Toggle ── -->
+            <div class="lang-toggle" role="group" aria-label="Language selector">
+                <button class="lang-btn active" id="btnEN" onclick="setLang('en')">EN</button>
+                <button class="lang-btn" id="btnZH" onclick="setLang('zh')">中文</button>
+            </div>
+
+            <!-- ── Header ── -->
+            <div class="header">
+                <div class="title">
+                    <h1>💍 <span data-en="Kuan-Hao &amp; Pei-Ju's Wedding" data-zh="冠豪 &amp; 珮如的婚禮">Kuan-Hao &amp;
+                            Pei-Ju's Wedding</span></h1>
+                    <span class="pill" data-en="July 6th" data-zh="7月6日">July 6th</span>
+                </div>
+                <p class="lead" data-en="We're getting married — and we'd love to celebrate with you!"
+                    data-zh="我們要結婚了！誠摯邀請您共同見證我們的喜悅！">We're getting married — and we'd love to celebrate with you!</p>
+            </div>
+
+            <hr class="divider">
+
+            <!-- ── Couple Photo ── -->
+            <div class="photo-banner">
+                <div class="carousel" id="photoCarousel" aria-label="Couple photos">
+                    <div class="carousel-track" id="carouselTrack">
+                        <!-- object-position tuned per photo to center faces -->
+                        <div class="carousel-slide"><img src="../images/chao_chiang_1.jpeg"
+                                style="object-position: 50% 30%;" alt="Kuan-Hao & Pei-Ju — Beach" loading="eager"></div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_2.jpeg"
+                                style="object-position: 95% 18%;" alt="Kuan-Hao & Pei-Ju — Dinner" loading="eager">
+                        </div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_3.jpeg"
+                                style="object-position: 50% 35%;" alt="Kuan-Hao & Pei-Ju — Sunset" loading="eager">
+                        </div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_4.jpeg"
+                                style="object-position: 50% 90%;" alt="Kuan-Hao & Pei-Ju — Forest" loading="eager">
+                        </div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_5.jpeg"
+                                style="object-position: 50% 40%;" alt="Kuan-Hao & Pei-Ju — Waterfront" loading="eager">
+                        </div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_6.jpeg"
+                                style="object-position: 50% 35%;" alt="Kuan-Hao & Pei-Ju — Yosemite Valley"
+                                loading="eager"></div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_7.jpeg"
+                                style="object-position: 50% 65%;" alt="Kuan-Hao & Pei-Ju — Ride" loading="eager"></div>
+                        <div class="carousel-slide"><img src="../images/chao_chiang_8.jpeg"
+                                style="object-position: 0% 85%;" alt="Kuan-Hao & Pei-Ju — Yosemite River"
+                                loading="eager"></div>
+                    </div>
+                    <button class="carousel-btn carousel-prev" id="carouselPrev"
+                        aria-label="Previous photo">&#8592;</button>
+                    <button class="carousel-btn carousel-next" id="carouselNext"
+                        aria-label="Next photo">&#8594;</button>
+                    <div class="carousel-dots" id="carouselDots" role="tablist" aria-label="Photo navigation"></div>
+                </div>
+            </div>
+
+            <!-- ── Ceremony ── -->
+            <div class="section-title" data-en="🕙 Ceremony" data-zh="🕙 婚禮儀式">🕙 Ceremony</div>
+
+            <div class="details">
+                <div class="row">
+                    <div class="label" data-en="Date" data-zh="日期">Date</div>
+                    <div class="value" data-en="July 6, 2026 (Monday)" data-zh="2026年7月6日（週一）">July 6, 2026 (Monday)
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="label" data-en="Time" data-zh="時間">Time</div>
+                    <div class="value" data-en="10:00 AM – 11:00 AM (Pacific Time)" data-zh="上午 10:00 – 11:00（太平洋時間）">
+                        10:00 AM – 11:00 AM (Pacific Time)</div>
+                </div>
+                <!-- Location spans both columns on wide screens -->
+                <div class="row" style="grid-column: 1 / -1;">
+                    <div class="label" data-en="Location" data-zh="地點">Location</div>
+                    <div class="value">
+                        <div>
+                            <a id="ceremonyAddrLink"
+                                href="https://maps.google.com/?q=SF+City+Hall,+1+Dr+Carlton+B+Goodlett+Pl,+San+Francisco,+CA+94102"
+                                target="_blank" rel="noopener"
+                                data-en="Mayor's Balcony (2nd Floor), SF City Hall, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102"
+                                data-zh="市長陽台（2樓）, 舊金山市政廳, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102">Mayor's
+                                Balcony (2nd&nbsp;Floor), SF City Hall, 1 Dr
+                                Carlton B Goodlett Pl, San Francisco, CA 94102</a>
+                        </div>
+                        <div>
+                            <button class="copy-btn" id="copyCeremonyBtn" aria-label="Copy address"
+                                data-en="Copy address" data-zh="複製地址">Copy address</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ceremony map -->
+            <div class="map">
+                <iframe id="ceremonyMap" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+                    allowfullscreen></iframe>
+            </div>
+
+            <hr class="divider">
+
+            <!-- ── Reception ── -->
+            <div class="section-title" data-en="🥂 Reception" data-zh="🥂 婚宴">🥂 Reception</div>
+
+            <div class="details">
+                <div class="row">
+                    <div class="label" data-en="Date" data-zh="日期">Date</div>
+                    <div class="value" data-en="July 6, 2026 (Monday)" data-zh="2026年7月6日（週一）">July 6, 2026 (Monday)
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="label" data-en="Time" data-zh="時間">Time</div>
+                    <div class="value" data-en="12:00 PM – 2:30 PM (Pacific Time)" data-zh="中午 12:00 – 下午 2:30（太平洋時間）">
+                        12:00 PM – 2:30 PM (Pacific Time)</div>
+                </div>
+                <div class="row" style="grid-column: 1 / -1;">
+                    <div class="label" data-en="Location" data-zh="地點">Location</div>
+                    <div class="value">
+                        <div>
+                            <a id="receptionAddrLink"
+                                href="https://maps.google.com/?q=Espetus+Churrascaria+San+Francisco,+1686+Market+St,+San+Francisco,+CA+94102"
+                                target="_blank" rel="noopener"
+                                data-en="Espetus Churrascaria San Francisco, 1686 Market St, San Francisco, CA 94102"
+                                data-zh="Espetus Churrascaria 舊金山, 1686 Market St, San Francisco, CA 94102">Espetus
+                                Churrascaria San Francisco, 1686 Market St, San Francisco, CA 94102</a>
+                        </div>
+                        <div>
+                            <button class="copy-btn" id="copyReceptionBtn" aria-label="Copy address"
+                                data-en="Copy address" data-zh="複製地址">Copy address</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Guest Details ── -->
+            <div class="gd-section">
+                <hr class="divider">
+                <div class="gd-section-heading" data-en="📋 Guest Details" data-zh="📋 賓客須知">📋 Guest Details</div>
+
+                <div class="gd-grid">
+
+                    <!-- Dress code -->
+                    <div class="gd-card">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">👔 👗</span>
+                            <h3 class="gd-title" data-en="Dress Code" data-zh="服裝規定">Dress Code</h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="We invite you to dress in <strong>cocktail / semi-formal</strong> attire and feel your most radiant self. Think elegant and celebratory — this is a day to shine!"
+                            data-zh="邀請您以 <strong>「微正式服裝」或「優雅禮服」</strong> 亮麗出席。期待您帶著愉悅的心情，與我們共享這份喜悅。">
+                            We invite you to dress in <strong>cocktail / semi-formal</strong> attire and feel your most
+                            radiant self. Think elegant and celebratory — this is a day to shine!
+                        </p>
+                    </div>
+
+                    <!-- Punctuality -->
+                    <div class="gd-card">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">⏰</span>
+                            <h3 class="gd-title" data-en="Please Arrive on Time" data-zh="請準時到場">Please Arrive on Time
+                            </h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="San Francisco City Hall grants us <strong>exactly 60 minutes</strong> in the Mayor&rsquo;s Balcony. Every moment is precious! Please plan to arrive <strong>at least 10&ndash;15 minutes early</strong> so we can begin right on the hour and savour every second together."
+                            data-zh="由於市長陽台的開放時間僅有 60 分鐘，為了與您共享每一刻的美好，誠摯邀請您<strong>提前 10–15 分鐘</strong>抵達會場，與我們一同創造難忘的回憶。">
+                            San Francisco City Hall grants us <strong>exactly 60 minutes</strong> in the Mayor&rsquo;s
+                            Balcony. Every moment is precious! Please plan to arrive <strong>at least 10&ndash;15
+                                minutes early</strong> so we can begin right on the hour and savour every second
+                            together.
+                        </p>
+                    </div>
+
+                    <!-- Food & Drink -->
+                    <div class="gd-card">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">🚫</span>
+                            <h3 class="gd-title" data-en="No Food or Drinks" data-zh="禁止飲食">No Food or Drinks</h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="City Hall has a <strong>strict no food or beverage policy</strong> during the ceremony — including water. We appreciate your understanding in helping us follow the venue&rsquo;s rules and keep the space beautiful for everyone."
+                            data-zh="為維護市政廳的美麗空間，活動期間<strong>請勿飲食</strong>。感謝您的體諒與配合！">
+                            City Hall has a <strong>strict no food or beverage policy</strong> during the ceremony —
+                            including water. We appreciate your understanding in helping us follow the venue&rsquo;s
+                            rules and keep the space beautiful for everyone.
+                        </p>
+                    </div>
+
+                    <!-- Transportation -->
+                    <div class="gd-card">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">🚇</span>
+                            <h3 class="gd-title" data-en="Transportation" data-zh="交通指引">Transportation</h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="There is <strong>no on-site parking</strong> at SF City Hall. We highly recommend Uber/Lyft or public transit — the Civic Center BART/Muni station is right across the street!"
+                            data-zh="市政廳未提供停車位，誠摯建議您搭乘大眾交通工具或 Uber/Lyft 前往。<strong>Civic Center BART / Muni 車站</strong>即在正對面，步行即可輕鬆抵達會場。">
+                            There is <strong>no on-site parking</strong> at SF City Hall. We highly recommend Uber/Lyft
+                            or public
+                            transit — the Civic Center BART/Muni station is right across the street!
+                        </p>
+                        <div class="gd-links">
+                            <a class="gd-link" href="http://sfcityhallevents.org/directions-parking" target="_blank"
+                                rel="noopener" data-en="🅿️ Parking Info" data-zh="🅿️ 停車資訊">🅿️ Parking Info</a>
+                            <a class="gd-link" href="http://sfcityhallevents.org/public-transit" target="_blank"
+                                rel="noopener" data-en="🚇 Public Transit" data-zh="🚇 大眾交通">🚇 Public Transit</a>
+                        </div>
+                    </div>
+
+                    <!-- ── Explore the Venue (Virtual Tour) ── -->
+                    <div class="gd-card gd-card-full">
+                        <div class="gd-card-head">
+                            <span class="gd-icon">🏛️</span>
+                            <h3 class="gd-title" data-en="Explore the Venue" data-zh="場地虛擬導覽">Explore the Venue</h3>
+                        </div>
+                        <p class="gd-body"
+                            data-en="Get a feel for the breathtaking Mayor&rsquo;s Balcony at SF City Hall! Take an interactive 360&deg; virtual tour of our ceremony space below."
+                            data-zh="誠摯邀請您點擊下方連結，透過 360° 虛擬導覽搶先感受舊金山市政廳「市長陽台」的優美氛圍，期待與您共享這美好的一刻。">
+                            Get a feel for the breathtaking Mayor&rsquo;s Balcony at SF City Hall! Take an interactive
+                            360&deg; virtual tour of our ceremony space below.
+                        </p>
+                        <!-- Virtual Tour iframe -->
+                        <div class="gd-tour">
+                            <iframe src="https://tour.tourbuilder.com/?tour=654132cc1b2d3b65a17c8d6a"
+                                title="Mayor's Balcony, SF City Hall — 360° Virtual Tour" loading="lazy" allowfullscreen
+                                allow="xr-spatial-tracking; gyroscope; accelerometer"
+                                referrerpolicy="no-referrer-when-downgrade"
+                                onerror="this.closest('.gd-tour').querySelector('.gd-tour-fallback').style.display='block'; this.style.display='none';"></iframe>
+                            <div class="gd-tour-fallback">
+                                <p data-en="Virtual tour not available in this preview &mdash; <a href=&quot;https://tour.tourbuilder.com/?tour=654132cc1b2d3b65a17c8d6a&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; style=&quot;color:var(--brand);&quot;>open it here</a>."
+                                    data-zh="目前無法顯示虛擬導覽，請<a href=&quot;https://tour.tourbuilder.com/?tour=654132cc1b2d3b65a17c8d6a&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot; style=&quot;color:var(--brand);&quot;>點此開啟</a>。">
+                                    Virtual tour not available in this preview &mdash;
+                                    <a href="https://tour.tourbuilder.com/?tour=654132cc1b2d3b65a17c8d6a"
+                                        target="_blank" rel="noopener" style="color:var(--brand);">open it here</a>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /.gd-grid -->
+            </div><!-- /.gd-section -->
+
+            <!-- ── CTA Buttons ── -->
+            <div class="cta">
+                <a class="btn primary" id="addCal" data-en="📅 Add to Calendar (.ics)" data-zh="📅 加入行事曆（.ics）">📅 Add
+                    to Calendar (.ics)</a>
+                <a class="btn success" id="gcal" target="_blank" rel="noopener" data-en="📆 Add to Google Calendar"
+                    data-zh="📆 加到 Google 行事曆">📆 Add to Google Calendar</a>
+                <a class="btn ghost" id="rsvpBtn"
+                    href="https://docs.google.com/forms/d/e/1FAIpQLSeXa4y0QF055Hs5R5D_QAJFc_eJZUndhvTCWltFrAzn88fQWw/viewform?usp=publish-editor"
+                    target="_blank" rel="noopener" data-en="💌 RSVP" data-zh="💌 RSVP">💌 RSVP</a>
+            </div>
+
+            <!-- ── Footer ── -->
+            <div class="footer">
+                <h3><span data-en="— Kuan-Hao &amp; Pei-Ju" data-zh="— 冠豪 &amp; 珮如">— Kuan-Hao &amp; Pei-Ju</span></h3>
+            </div>
+
+        </div><!-- /.card -->
+    </div><!-- /.wrap -->
+
+    <!-- ════════════════════════════════════════════════
+       Event Configuration — edit EVENT object below
+  ════════════════════════════════════════════════════ -->
+    <script>
+        /* ── Event data ── */
+        const CEREMONY = {
+            title: "Kuan-Hao & Pei-Ju's Wedding Ceremony",
+            dateISO: "2026-07-06",
+            startTime: "10:00",
+            endTime: "11:00",
+            address: "Mayor's Balcony, SF City Hall, 1 Dr Carlton B Goodlett Pl, San Francisco, CA 94102",
+            mapsUrl: "https://maps.google.com/?q=SF+City+Hall,+1+Dr+Carlton+B+Goodlett+Pl,+San+Francisco,+CA+94102",
+            notes: "Ceremony: 10:00 AM – 11:00 AM | SF City Hall",
+            timezone: "America/Los_Angeles"
+        };
+
+        const RECEPTION = {
+            title: "Kuan-Hao & Pei-Ju's Wedding — Reception",
+            dateISO: "2026-07-06",
+            startTime: "12:00",
+            endTime: "14:30",
+            address: "Espetus Churrascaria San Francisco, 1686 Market St, San Francisco, CA 94102",
+            mapsUrl: "https://maps.google.com/?q=Espetus+Churrascaria+San+Francisco,+1686+Market+St,+San+Francisco,+CA+94102",
+            notes: "Reception: 12:00 PM – 2:30 PM | Espetus Churrascaria SF",
+            timezone: "America/Los_Angeles"
+        };
+
+        /* ── Helpers ── */
+        const pad = n => String(n).padStart(2, '0');
+
+        function toLocalDateTime(dateISO, timeHHMM) {
+            const [hh, mm] = timeHHMM.split(':').map(Number);
+            return new Date(dateISO + `T${pad(hh)}:${pad(mm)}:00`);
+        }
+        function fmtIcsDate(d) {
+            return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+        }
+        function fmtLocalYmdHis(dateISO, timeHHMM) {
+            const [y, m, d] = dateISO.split('-').map(Number);
+            const [hh, mm] = timeHHMM.split(':').map(Number);
+            return `${y}${pad(m)}${pad(d)}T${pad(hh)}${pad(mm)}00`;
+        }
+
+        function buildVEvent(ev) {
+            const dtStart = toLocalDateTime(ev.dateISO, ev.startTime);
+            const dtEnd = toLocalDateTime(ev.dateISO, ev.endTime);
+            const uid = `${Date.now()}-${Math.random().toString(36).slice(2)}@wedding.khc`;
+            return [
+                'BEGIN:VEVENT',
+                `UID:${uid}`,
+                `DTSTAMP:${fmtIcsDate(new Date())}`,
+                `DTSTART:${fmtIcsDate(dtStart)}`,
+                `DTEND:${fmtIcsDate(dtEnd)}`,
+                `SUMMARY:${ev.title}`,
+                `LOCATION:${ev.address}`,
+                `DESCRIPTION:${ev.notes}`,
+                'END:VEVENT'
+            ].join('\r\n');
+        }
+
+        function icsBlob() {
+            const ics = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//Kuan-Hao & Pei-Ju Wedding//khchao//EN',
+                buildVEvent(CEREMONY),
+                buildVEvent(RECEPTION),
+                'END:VCALENDAR'
+            ].join('\r\n');
+            return new Blob([ics], { type: 'text/calendar' });
+        }
+
+        function googleCalUrl() {
+            const startLocal = fmtLocalYmdHis(CEREMONY.dateISO, CEREMONY.startTime);
+            const endLocal = fmtLocalYmdHis(RECEPTION.dateISO, RECEPTION.endTime);
+            const text = encodeURIComponent("Kuan-Hao & Pei-Ju's Wedding");
+            const details = encodeURIComponent(CEREMONY.notes + ' | ' + RECEPTION.notes);
+            const location = encodeURIComponent(CEREMONY.address);
+            const ctz = encodeURIComponent(CEREMONY.timezone);
+            return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${startLocal}%2F${endLocal}&details=${details}&location=${location}&ctz=${ctz}`;
+        }
+
+        /* ════════════════════════════════════════════════
+           i18n — Language Toggle
+        ════════════════════════════════════════════════ */
+
+        /**
+         * Current language. Defaults to 'en'; persisted in localStorage.
+         * Supported values: 'en' | 'zh'
+         */
+        let currentLang = localStorage.getItem('wedding-lang') || 'en';
+
+        /**
+         * setLang(lang)
+         *
+         * How it works:
+         *  1. Query every element that has a [data-en] attribute.
+         *  2. Read the data-en or data-zh value from the dataset.
+         *  3. Write it back as innerHTML (safe here — all strings are
+         *     controlled by us in the markup, none come from user input).
+         *  4. Update <html lang>, toggle-button active state, and
+         *     save the preference to localStorage.
+         *
+         * The brief body.lang-switching opacity flicker (defined in CSS)
+         * gives a smooth cross-fade rather than an instant snap.
+         */
+        function setLang(lang) {
+            if (lang === currentLang) return;
+
+            // Trigger the 180 ms fade-out via CSS class
+            document.body.classList.add('lang-switching');
+
+            setTimeout(() => {
+                // Update every translated element
+                document.querySelectorAll('[data-en]').forEach(el => {
+                    const text = el.dataset[lang === 'zh' ? 'zh' : 'en'];
+                    if (text !== undefined) el.innerHTML = text;
+                });
+
+                // Update <html lang> for accessibility / SEO bots
+                document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
+
+                // Update toggle button active state
+                document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+                document.getElementById('btnZH').classList.toggle('active', lang === 'zh');
+
+                // Persist preference
+                currentLang = lang;
+                localStorage.setItem('wedding-lang', lang);
+
+                // Fade back in
+                document.body.classList.remove('lang-switching');
+            }, 180);
+        }
+
+        /* ── Initial render ── */
+        function updateUI() {
+            // Apply saved language preference on load
+            if (currentLang === 'zh') {
+                // Silently apply without animation on first paint
+                document.querySelectorAll('[data-en]').forEach(el => {
+                    const text = el.dataset.zh;
+                    if (text !== undefined) el.innerHTML = text;
+                });
+                document.documentElement.lang = 'zh-Hant';
+                document.getElementById('btnEN').classList.remove('active');
+                document.getElementById('btnZH').classList.add('active');
+            }
+
+            // Ceremony map iframe
+            document.getElementById('ceremonyMap').src =
+                `https://www.google.com/maps?q=${encodeURIComponent(CEREMONY.address)}&output=embed`;
+
+            // Google Calendar link
+            document.getElementById('gcal').href = googleCalUrl();
+        }
+
+        /* ── ICS Download ── */
+        document.getElementById('addCal').addEventListener('click', () => {
+            const blob = icsBlob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'kuan-hao-Pei-Ju-wedding.ics';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+        });
+
+        /* ── Copy ceremony address ── */
+        document.getElementById('copyCeremonyBtn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(CEREMONY.address);
+                const btn = document.getElementById('copyCeremonyBtn');
+                // Show language-aware confirmation
+                btn.textContent = currentLang === 'zh' ? '已複製 ✓' : 'Copied ✓';
+                setTimeout(() => {
+                    btn.textContent = currentLang === 'zh' ? '複製地址' : 'Copy address';
+                }, 1400);
+            } catch (e) {
+                alert(currentLang === 'zh' ? '複製失敗，請手動複製' : 'Copy failed — please copy manually.');
+            }
+        });
+
+        /* ── Copy reception address ── */
+        document.getElementById('copyReceptionBtn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(RECEPTION.address);
+                const btn = document.getElementById('copyReceptionBtn');
+                btn.textContent = currentLang === 'zh' ? '已複製 ✓' : 'Copied ✓';
+                setTimeout(() => {
+                    btn.textContent = currentLang === 'zh' ? '複製地址' : 'Copy address';
+                }, 1400);
+            } catch (e) {
+                alert(currentLang === 'zh' ? '複製失敗，請手動複製' : 'Copy failed — please copy manually.');
+            }
+        });
+
+        updateUI();
+
+        /* ─── Photo Carousel ─── */
+        (function () {
+            const track = document.getElementById('carouselTrack');
+            const dotsWrap = document.getElementById('carouselDots');
+            const total = track ? track.children.length : 0;
+            if (!total) return;
+
+            let current = 0;
+            let startX = 0;
+            let dragging = false;
+
+            // Build dots
+            for (let i = 0; i < total; i++) {
+                const d = document.createElement('button');
+                d.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+                d.setAttribute('role', 'tab');
+                d.setAttribute('aria-label', 'Photo ' + (i + 1));
+                d.addEventListener('click', () => goTo(i));
+                dotsWrap.appendChild(d);
+            }
+
+            function goTo(idx) {
+                current = (idx + total) % total;
+                track.style.transform = 'translateX(-' + (current * 100) + '%)';
+                dotsWrap.querySelectorAll('.carousel-dot').forEach((d, i) =>
+                    d.classList.toggle('active', i === current));
+            }
+
+            document.getElementById('carouselPrev').addEventListener('click', () => goTo(current - 1));
+            document.getElementById('carouselNext').addEventListener('click', () => goTo(current + 1));
+
+            // Keyboard navigation
+            document.getElementById('photoCarousel').addEventListener('keydown', e => {
+                if (e.key === 'ArrowLeft') goTo(current - 1);
+                if (e.key === 'ArrowRight') goTo(current + 1);
+            });
+
+            // Touch / drag swipe
+            const el = document.getElementById('photoCarousel');
+            el.addEventListener('pointerdown', e => { startX = e.clientX; dragging = true; });
+            el.addEventListener('pointermove', e => { if (!dragging) return; });
+            el.addEventListener('pointerup', e => {
+                if (!dragging) return;
+                dragging = false;
+                const dx = e.clientX - startX;
+                if (Math.abs(dx) > 40) goTo(dx < 0 ? current + 1 : current - 1);
+            });
+            el.addEventListener('pointercancel', () => { dragging = false; });
+        })();
+    </script>
+</body>
+
+</html>

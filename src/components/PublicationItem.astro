@@ -13,7 +13,7 @@ const year = d.date.getFullYear();
 const OWNER = 'Kuan-Hao Chao';
 const authorParts = d.authors.split(OWNER);
 
-const typeLabel = { journal: 'Journal', conference: 'Conference', preprint: 'Preprint' }[d.type];
+const typeLabel = { journal: 'Journal', conference: 'Conference', preprint: 'Preprint', thesis: 'Thesis' }[d.type];
 
 const links = [
   { key: 'doi', label: 'DOI', icon: 'link', href: d.doi },

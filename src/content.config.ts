@@ -9,7 +9,7 @@ const publications = defineCollection({
       authors: z.string(), // plain text; "*" = corresponding, "†" = co-first
       venue: z.string(),
       date: z.coerce.date(),
-      type: z.enum(['journal', 'conference', 'preprint']),
+      type: z.enum(['journal', 'conference', 'preprint', 'thesis']),
       status: z.enum(['published', 'preprint', 'accepted']).default('published'),
       doi: z.string().url().optional(),
       pdf: z.string().url().optional(),

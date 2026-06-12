@@ -1,0 +1,275 @@
+---
+/**
+ * Site-wide ambient "living cells" background.
+ *
+ * A faint field of soft, morphing cells drifts behind every page. Cells ease away
+ * from and brighten near the cursor, and one occasionally divides (up to a density
+ * cap, then a gentle cull relaxes back toward the baseline). Pure 2D canvas, no deps.
+ *
+ * Honors prefers-reduced-motion (renders one static frame, no animation), pauses
+ * when the tab is hidden, and scales cell count + DPR down on small touch devices.
+ * Mirrors the canvas conventions in HeroBackground.astro.
+ */
+---
+<canvas data-cell-canvas aria-hidden="true"></canvas>
+
+<style>
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+  }
+</style>
+
+<script>
+  const canvas = document.querySelector<HTMLCanvasElement>('[data-cell-canvas]');
+  const ctx = canvas?.getContext('2d');
+
+  if (canvas && ctx) {
+    const TAU = Math.PI * 2;
+    // Palette mirrors tokens.css (--color-ink #141414, --color-accent #2e6e5e).
+    const INK = '20, 20, 20';
+    const TEAL = '46, 110, 94';
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const coarse = window.matchMedia('(pointer: coarse)');
+
+    type Cell = {
+      x: number; y: number; vx: number; vy: number;
+      r: number; spin: number; vspin: number;
+      phase: number; vphase: number;
+      nx: number; ny: number; // nucleus offset (fraction of r)
+      orgs: { a: number; d: number; s: number }[]; // organelle angle / dist / size
+      life: number; // 0..1 grow-in / fade-out
+      state: 'in' | 'live' | 'out';
+    };
+
+    let cells: Cell[] = [];
+    let w = 0;
+    let h = 0;
+    let base = 0;
+    let maxCount = 0;
+    let tick = 0;
+    let raf = 0;
+    let running = false;
+    let last = 0;
+    let nextDivide = 300;
+
+    const pointer = { x: 0, y: 0, active: false };
+    const rand = (a: number, b: number) => a + Math.random() * (b - a);
+    const ease = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t));
+
+    function counts() {
+      const target = Math.round((w * h) / (coarse.matches ? 52000 : 48000));
+      base = Math.max(coarse.matches ? 4 : 5, Math.min(coarse.matches ? 9 : 14, target));
+      maxCount = base + 2;
+    }
+
+    function makeCell(x?: number, y?: number, fresh = false): Cell {
+      return {
+        x: x ?? rand(0, w),
+        y: y ?? rand(0, h),
+        vx: rand(-0.16, 0.16),
+        vy: rand(-0.16, 0.16),
+        r: rand(26, 68),
+        spin: rand(0, TAU),
+        vspin: rand(-0.0016, 0.0016),
+        phase: rand(0, TAU),
+        vphase: rand(0.003, 0.006),
+        nx: rand(-0.18, 0.18),
+        ny: rand(-0.18, 0.18),
+        orgs: Array.from({ length: Math.random() < 0.6 ? 2 : 1 }, () => ({
+          a: rand(0, TAU),
+          d: rand(0.25, 0.6),
+          s: rand(1.4, 2.6),
+        })),
+        life: fresh ? 0 : 1,
+        state: fresh ? 'in' : 'live',
+      };
+    }
+
+    function seed() {
+      counts();
+      cells = Array.from({ length: base }, () => makeCell());
+    }
+
+    function fit() {
+      w = window.innerWidth;
+      h = window.innerHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, coarse.matches ? 1.5 : 2);
+      canvas!.width = Math.round(w * dpr);
+      canvas!.height = Math.round(h * dpr);
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (cells.length === 0) seed();
+      else counts();
+      if (reduce.matches) draw(); // static frame (also on resize)
+    }
+
+    function drawCell(c: Cell) {
+      const grow = ease(c.life);
+      const a = c.life;
+      let px = c.x;
+      let py = c.y;
+      let bright = 1;
+      if (pointer.active) {
+        const dx = c.x - pointer.x;
+        const dy = c.y - pointer.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const R = 175;
+        if (d < R) {
+          const f = 1 - d / R;
+          px += (dx / d) * f * 24;
+          py += (dy / d) * f * 24;
+          bright = 1 + f * 0.9;
+        }
+      }
+      const r = c.r * grow;
+
+      // Membrane — an organic, slowly morphing closed curve.
+      ctx!.beginPath();
+      const SEG = 22;
+      for (let i = 0; i <= SEG; i++) {
+        const ang = (i / SEG) * TAU;
+        const wob = 1 + 0.1 * Math.sin(ang * 3 + c.phase) + 0.055 * Math.sin(ang * 5 - c.phase * 0.7);
+        const rr = r * wob;
+        const x = px + Math.cos(ang + c.spin) * rr;
+        const y = py + Math.sin(ang + c.spin) * rr;
+        if (i === 0) ctx!.moveTo(x, y);
+        else ctx!.lineTo(x, y);
+      }
+      ctx!.closePath();
+
+      const fill = ctx!.createRadialGradient(px, py, 0, px, py, r || 1);
+      fill.addColorStop(0, `rgba(${TEAL}, ${0.026 * bright * a})`);
+      fill.addColorStop(1, `rgba(${TEAL}, 0)`);
+      ctx!.fillStyle = fill;
+      ctx!.fill();
+      ctx!.lineWidth = 1;
+      ctx!.strokeStyle = `rgba(${INK}, ${0.04 * bright * a})`;
+      ctx!.stroke();
+
+      // Nucleus + nucleolus.
+      const ncx = px + c.nx * r;
+      const ncy = py + c.ny * r;
+      const nucR = r * 0.3;
+      ctx!.beginPath();
+      ctx!.arc(ncx, ncy, nucR, 0, TAU);
+      ctx!.fillStyle = `rgba(${TEAL}, ${0.038 * bright * a})`;
+      ctx!.fill();
+      ctx!.beginPath();
+      ctx!.arc(ncx, ncy, nucR * 0.4, 0, TAU);
+      ctx!.fillStyle = `rgba(${INK}, ${0.032 * bright * a})`;
+      ctx!.fill();
+
+      // Organelles.
+      for (const o of c.orgs) {
+        ctx!.beginPath();
+        ctx!.arc(px + Math.cos(o.a) * r * o.d, py + Math.sin(o.a) * r * o.d, o.s, 0, TAU);
+        ctx!.fillStyle = `rgba(${INK}, ${0.026 * a})`;
+        ctx!.fill();
+      }
+    }
+
+    function draw() {
+      ctx!.clearRect(0, 0, w, h);
+      for (const c of cells) drawCell(c);
+    }
+
+    function step(ts: number) {
+      raf = requestAnimationFrame(step);
+      if (ts - last < 32) return; // ~30fps cap (battery-friendly)
+      last = ts;
+      tick++;
+
+      for (const c of cells) {
+        c.x += c.vx;
+        c.y += c.vy;
+        c.spin += c.vspin;
+        c.phase += c.vphase;
+        const m = c.r * 1.4;
+        if (c.x < -m) c.x = w + m;
+        else if (c.x > w + m) c.x = -m;
+        if (c.y < -m) c.y = h + m;
+        else if (c.y > h + m) c.y = -m;
+        if (c.state === 'in') {
+          c.life += 0.014;
+          if (c.life >= 1) {
+            c.life = 1;
+            c.state = 'live';
+          }
+        } else if (c.state === 'out') {
+          c.life -= 0.012;
+        }
+      }
+      cells = cells.filter((c) => !(c.state === 'out' && c.life <= 0));
+
+      const liveN = cells.reduce((n, c) => (c.state !== 'out' ? n + 1 : n), 0);
+
+      // Occasional cell division, up to the density cap.
+      if (tick > nextDivide && liveN < maxCount) {
+        const parents = cells.filter((c) => c.state === 'live');
+        if (parents.length) {
+          const p = parents[(Math.random() * parents.length) | 0];
+          const ang = Math.random() * TAU;
+          const off = p.r * 0.5;
+          const child = makeCell(p.x + Math.cos(ang) * off, p.y + Math.sin(ang) * off, true);
+          child.vx = p.vx + Math.cos(ang) * 0.06;
+          child.vy = p.vy + Math.sin(ang) * 0.06;
+          child.r = p.r * rand(0.7, 0.95);
+          cells.push(child);
+        }
+        nextDivide = tick + (rand(520, 1100) | 0);
+      }
+      // Gentle cull back toward the baseline when above it.
+      if (liveN > base && Math.random() < 0.004) {
+        const live = cells.filter((c) => c.state === 'live');
+        if (live.length) live[(Math.random() * live.length) | 0].state = 'out';
+      }
+
+      draw();
+    }
+
+    function start() {
+      if (running || reduce.matches) return;
+      running = true;
+      last = 0;
+      raf = requestAnimationFrame(step);
+    }
+    function stop() {
+      running = false;
+      cancelAnimationFrame(raf);
+    }
+
+    window.addEventListener(
+      'pointermove',
+      (e) => {
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+        pointer.active = true;
+      },
+      { passive: true }
+    );
+    window.addEventListener('blur', () => (pointer.active = false));
+    document.addEventListener('mouseleave', () => (pointer.active = false));
+
+    window.addEventListener('resize', fit, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stop();
+      else start();
+    });
+    reduce.addEventListener('change', () => {
+      if (reduce.matches) {
+        stop();
+        fit();
+      } else {
+        start();
+      }
+    });
+
+    fit();
+    if (!reduce.matches) start();
+  }
+</script>

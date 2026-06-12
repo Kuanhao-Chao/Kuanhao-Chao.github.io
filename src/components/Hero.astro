@@ -2,10 +2,12 @@
 import { Image } from 'astro:assets';
 import Icon from './Icon.astro';
 import Socials from './Socials.astro';
+import HeroBackground from './HeroBackground.astro';
 import { site } from '../data/site';
 import portrait from '../assets/profile/portrait.jpg';
 ---
 <section class="hero">
+  <HeroBackground />
   <div class="container hero-inner">
     <div class="hero-text">
       <p class="eyebrow hero-eyebrow">{site.role}</p>
@@ -37,11 +39,15 @@ import portrait from '../assets/profile/portrait.jpg';
 
 <style>
   .hero {
+    position: relative;
+    overflow: hidden;
     padding-top: clamp(2.5rem, 7vw, 5rem);
     padding-bottom: var(--section-y);
     border-bottom: 1px solid var(--color-rule);
   }
   .hero-inner {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;

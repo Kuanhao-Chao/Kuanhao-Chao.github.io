@@ -4,4 +4,5 @@ type: talk
 venue: 'Johns Hopkins University'
 location: 'Baltimore, MD'
 startDate: 2025-08-25
+link: 'https://khchao.com/thesis-defense/'
 ---

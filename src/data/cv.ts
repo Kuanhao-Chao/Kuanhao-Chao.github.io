@@ -103,7 +103,12 @@ export const honors: Honor[] = [
   { title: 'Elite Prize (1st place), HackNTU hackathon', year: '2017' },
 ];
 
-export type Mentee = { name: string; detail: string; url?: string };
+export type Mentee = {
+  name: string;
+  detail: string;
+  url?: string;
+  links?: { label: string; url: string }[];
+};
 
 export const mentorship: Mentee[] = [
   {
@@ -115,7 +120,21 @@ export const mentorship: Mentee[] = [
   {
     name: 'JHU Deep Learning + Genomics Study Group',
     detail:
-      'Co-founder and organizer of a biweekly seminar connecting deep-learning + genomics researchers at Hopkins (2024–2025).',
+      'Co-founder and organizer (with Mahler Revsine) of a biweekly deep-learning + genomics seminar at Johns Hopkins (Oct 2024 – Aug 2025), hosting speakers to spark discussion among researchers working at the intersection of deep learning and genomics.',
+    links: [
+      {
+        label: 'Slides',
+        url: 'https://drive.google.com/file/d/1E6Is-48GBmqK98Qh7FeQc8OEtGn4oN-A/view?usp=sharing',
+      },
+      {
+        label: 'Repository',
+        url: 'https://drive.google.com/drive/folders/15yCXZd5sCuCwPULc3b7p8X5OK8XqbdNp?usp=drive_link',
+      },
+      {
+        label: 'Schedule',
+        url: 'https://docs.google.com/spreadsheets/d/1mRFnzRyX5ThY69i_ne4oGkJJjmoyl4N0d_7tl2tC1Ts/edit?usp=sharing',
+      },
+    ],
   },
 ];
 

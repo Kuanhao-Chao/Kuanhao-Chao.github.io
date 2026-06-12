@@ -3,6 +3,7 @@ import '../styles/global.css';
 import BaseHead from '../components/BaseHead.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import SiteBackground from '../components/SiteBackground.astro';
 
 interface Props {
   title?: string;
@@ -18,6 +19,7 @@ const { title, description, image, type } = Astro.props;
     <BaseHead title={title} description={description} image={image} type={type} />
   </head>
   <body>
+    <SiteBackground />
     <a href="#main" class="skip-link">Skip to content</a>
     <Header />
     <main id="main">
