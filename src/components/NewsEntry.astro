@@ -1,0 +1,119 @@
+---
+import { monthYear } from '../lib/format';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  entry: CollectionEntry<'news'>;
+  variant?: 'row' | 'card';
+}
+const { entry, variant = 'row' } = Astro.props;
+const d = entry.data;
+const categoryLabel = {
+  publication: 'Publication',
+  talk: 'Talk',
+  award: 'Award',
+  release: 'Release',
+  join: 'Milestone',
+  misc: 'News',
+}[d.category];
+---
+<article class:list={['news', `news--${variant}`]}>
+  <div class="news-meta">
+    <time datetime={d.date.toISOString()}>{monthYear(d.date)}</time>
+    <span class:list={['news-tag', `news-tag--${d.category}`]}>{categoryLabel}</span>
+  </div>
+  <div class="news-text">
+    <slot />
+  </div>
+</article>
+
+<style>
+  .news {
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .news--row {
+    display: grid;
+    grid-template-columns: 11rem 1fr;
+    gap: 0 1.5rem;
+    padding-block: var(--space-5);
+  }
+  .news-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    align-items: flex-start;
+  }
+  .news--row .news-meta {
+    padding-top: 0.15rem;
+  }
+  .news-meta time {
+    font-family: var(--font-display);
+    color: var(--color-muted);
+    font-size: 0.95rem;
+  }
+  .news-tag {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: var(--fw-semibold);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    padding: 0.12em 0.55em;
+  }
+  .news-tag--award { color: #8a5a1a; border-color: #e3c79a; background: #fbf3e4; }
+  .news-tag--publication,
+  .news-tag--release {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+  .news-text {
+    font-size: var(--fs-body);
+  }
+  .news-text :global(p) {
+    margin: 0;
+  }
+
+  /* Card variant (homepage grid) */
+  .news--card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.4rem 1.5rem;
+    border: 1px solid var(--color-rule);
+    border-bottom: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    height: 100%;
+    transition: border-color var(--transition);
+  }
+  .news--card:hover {
+    border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-rule));
+  }
+  .news--card .news-meta {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .news--card .news-text {
+    font-size: var(--fs-small);
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  @media (max-width: 600px) {
+    .news--row {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+    .news--row .news-meta {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.6rem;
+    }
+  }
+</style>

@@ -1,0 +1,61 @@
+---
+import { getCollection, render } from 'astro:content';
+import { Image } from 'astro:assets';
+import EntryLayout from '../../layouts/EntryLayout.astro';
+import Prose from '../../components/Prose.astro';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('research');
+  return entries.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const d = entry.data;
+const { Content } = await render(entry);
+
+const statusLabel = { published: 'Published', ongoing: 'Ongoing', preprint: 'Preprint' }[d.status];
+const meta = [statusLabel, d.advisors.length ? `Advised by ${d.advisors.join(' & ')}` : null].filter(
+  Boolean
+) as string[];
+
+const links = [
+  { label: 'Paper', icon: 'link', href: d.paper },
+  { label: 'Code', icon: 'code', href: d.code },
+  { label: 'Talk', icon: 'play', href: d.talk },
+  { label: 'News', icon: 'external', href: d.news },
+].filter((l): l is { label: string; icon: string; href: string } => Boolean(l.href));
+---
+<EntryLayout
+  title={d.title}
+  eyebrow={d.area}
+  meta={meta}
+  links={links}
+  backHref="/research/"
+  backLabel="All research"
+  description={d.summary}
+>
+  {
+    d.image && (
+      <Image
+        class="entry-figure"
+        src={d.image}
+        alt={d.title}
+        widths={[640, 1000]}
+        sizes="(max-width: 720px) 100vw, 700px"
+      />
+    )
+  }
+  <Prose>
+    <Content />
+  </Prose>
+</EntryLayout>
+
+<style>
+  .entry-figure {
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--color-rule);
+    margin-bottom: 2.5rem;
+  }
+</style>

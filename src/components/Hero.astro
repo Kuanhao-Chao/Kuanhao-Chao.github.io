@@ -1,0 +1,103 @@
+---
+import { Image } from 'astro:assets';
+import Icon from './Icon.astro';
+import Socials from './Socials.astro';
+import { site } from '../data/site';
+import portrait from '../assets/profile/portrait.jpg';
+---
+<section class="hero">
+  <div class="container hero-inner">
+    <div class="hero-text">
+      <p class="eyebrow hero-eyebrow">{site.role}</p>
+      <h1 class="hero-title">{site.name}</h1>
+      <p class="hero-lead">
+        I build machine learning for genomics — sequence-to-function models,
+        genome annotation, and DNA language models.
+      </p>
+      <p class="hero-bio muted">{site.bio}</p>
+
+      <div class="hero-actions">
+        <a class="btn btn--accent" href="/research/">
+          Explore the research
+          <Icon name="arrow-right" size={18} />
+        </a>
+        <a class="btn" href="/cv/">View CV</a>
+        <Socials
+          class="hero-socials"
+          keys={['scholar', 'github', 'linkedin', 'bluesky', 'email']}
+        />
+      </div>
+    </div>
+
+    <div class="hero-portrait">
+      <Image src={portrait} alt={site.name} widths={[280, 460]} sizes="(max-width: 880px) 11rem, 18rem" />
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-top: clamp(2.5rem, 7vw, 5rem);
+    padding-bottom: var(--section-y);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .hero-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(2rem, 6vw, 5rem);
+  }
+  .hero-text {
+    max-width: 42rem;
+  }
+  .hero-eyebrow {
+    margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-size: var(--fs-hero);
+    margin-bottom: 1.5rem;
+  }
+  .hero-lead {
+    font-size: clamp(1.25rem, 2.2vw, 1.7rem);
+    line-height: 1.32;
+    font-family: var(--font-display);
+    font-weight: var(--fw-light);
+    max-width: 38ch;
+    margin-bottom: 1.5rem;
+    text-wrap: balance;
+  }
+  .hero-bio {
+    max-width: var(--measure);
+    font-size: var(--fs-body);
+    margin-bottom: 2rem;
+  }
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+  }
+  .hero-portrait {
+    flex: none;
+  }
+  .hero-portrait :global(img) {
+    width: clamp(11rem, 20vw, 18rem);
+    height: auto;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    border-radius: var(--radius-lg);
+    filter: grayscale(12%);
+  }
+
+  @media (max-width: 880px) {
+    .hero-inner {
+      grid-template-columns: 1fr;
+    }
+    .hero-portrait {
+      order: -1;
+    }
+    .hero-portrait :global(img) {
+      width: 8.5rem;
+    }
+  }
+</style>

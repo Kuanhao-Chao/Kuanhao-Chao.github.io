@@ -1,0 +1,181 @@
+---
+import { Image, getImage } from 'astro:assets';
+import PageLayout from '../layouts/PageLayout.astro';
+import Icon from '../components/Icon.astro';
+
+const globbed = import.meta.glob<{ default: ImageMetadata }>(
+  '../assets/photos/*/*.{jpg,jpeg,png}',
+  { eager: true }
+);
+
+const order = ['Me', 'Group', 'Taipei', 'Baltimore', 'Sydney', 'Canberra', 'Nature', 'Flowers', 'Animals', 'Bridges'];
+
+const all = await Promise.all(
+  Object.entries(globbed).map(async ([path, mod]) => {
+    const meta = mod.default;
+    const category = path.split('/assets/photos/')[1].split('/')[0];
+    const large = await getImage({ src: meta, width: 1500, format: 'webp' });
+    return { category, meta, large: large.src };
+  })
+);
+
+const groups = order
+  .map((cat) => ({ cat, items: all.filter((p) => p.category === cat) }))
+  .filter((g) => g.items.length > 0);
+
+let idx = 0; // global index for lightbox ordering
+---
+<PageLayout
+  title="Photos"
+  eyebrow="Off the clock"
+  lead="A few places I've lived and visited, and people I've shared the journey with."
+  description="Photo gallery by Kuan-Hao Chao."
+>
+  {
+    groups.map((group) => (
+      <section class="gallery-group">
+        <h2 class="gallery-cat">{group.cat}</h2>
+        <div class="gallery-grid">
+          {group.items.map((p) => {
+            const i = idx++;
+            return (
+              <button
+                class="thumb"
+                type="button"
+                data-photo={i}
+                data-large={p.large}
+                aria-label={`View photo ${i + 1}`}
+              >
+                <Image src={p.meta} widths={[280, 520]} sizes="(max-width: 600px) 45vw, 260px" alt="" />
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    ))
+  }
+
+  <dialog class="lightbox" data-lightbox aria-label="Photo viewer">
+    <button class="lb-close" data-lb-close aria-label="Close"><Icon name="close" size={26} /></button>
+    <button class="lb-nav lb-prev" data-lb-prev aria-label="Previous">
+      <Icon name="chevron-right" size={30} class="flip" />
+    </button>
+    <img data-lb-img src="" alt="" />
+    <button class="lb-nav lb-next" data-lb-next aria-label="Next"><Icon name="chevron-right" size={30} /></button>
+  </dialog>
+</PageLayout>
+
+<style>
+  .gallery-group {
+    margin-bottom: var(--space-12);
+  }
+  .gallery-cat {
+    font-size: var(--fs-h3);
+    color: var(--color-muted);
+    font-weight: var(--fw-medium);
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-5);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+    gap: 0.6rem;
+  }
+  .thumb {
+    padding: 0;
+    border: none;
+    cursor: pointer;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: var(--radius);
+    background: var(--color-rule);
+  }
+  .thumb :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 350ms ease, opacity var(--transition);
+  }
+  .thumb:hover :global(img) {
+    transform: scale(1.05);
+  }
+
+  .lightbox {
+    border: none;
+    background: transparent;
+    max-width: 100vw;
+    max-height: 100vh;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+  }
+  .lightbox::backdrop {
+    background: rgba(10, 10, 10, 0.92);
+  }
+  .lightbox[open] {
+    display: grid;
+    place-items: center;
+  }
+  .lightbox img {
+    max-width: 92vw;
+    max-height: 88vh;
+    object-fit: contain;
+    border-radius: var(--radius);
+  }
+  .lb-close,
+  .lb-nav {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 999px;
+    width: 3rem;
+    height: 3rem;
+    display: grid;
+    place-items: center;
+    transition: background var(--transition);
+  }
+  .lb-close:hover,
+  .lb-nav:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  .lb-close { top: 1.25rem; right: 1.25rem; }
+  .lb-prev { left: 1.25rem; top: 50%; transform: translateY(-50%); }
+  .lb-next { right: 1.25rem; top: 50%; transform: translateY(-50%); }
+  .lb-prev :global(.flip) { transform: rotate(180deg); }
+</style>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox]');
+  const img = document.querySelector<HTMLImageElement>('[data-lb-img]');
+  const thumbs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-photo]'));
+  if (dialog && img && thumbs.length) {
+    const sources = thumbs.map((t) => t.dataset.large ?? '');
+    let current = 0;
+    const show = (i: number) => {
+      current = (i + sources.length) % sources.length;
+      img.src = sources[current];
+    };
+    thumbs.forEach((t, i) =>
+      t.addEventListener('click', () => {
+        show(i);
+        dialog.showModal();
+      })
+    );
+    const close = () => dialog.close();
+    document.querySelector('[data-lb-close]')?.addEventListener('click', close);
+    document.querySelector('[data-lb-prev]')?.addEventListener('click', () => show(current - 1));
+    document.querySelector('[data-lb-next]')?.addEventListener('click', () => show(current + 1));
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) close();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!dialog.open) return;
+      if (e.key === 'ArrowLeft') show(current - 1);
+      if (e.key === 'ArrowRight') show(current + 1);
+    });
+  }
+</script>

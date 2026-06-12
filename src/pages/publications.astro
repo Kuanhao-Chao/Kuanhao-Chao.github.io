@@ -1,0 +1,31 @@
+---
+import { getCollection } from 'astro:content';
+import PageLayout from '../layouts/PageLayout.astro';
+import PublicationsList from '../components/PublicationsList.astro';
+
+const pubs = (await getCollection('publications')).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+);
+const count = pubs.length;
+---
+<PageLayout
+  title="Publications"
+  eyebrow="Research output"
+  lead={`Peer-reviewed papers and preprints in computational biology and machine learning. ${count} publications — see Google Scholar for the complete, up-to-date list.`}
+  description="Publications by Kuan-Hao Chao in computational biology, genomics, and machine learning."
+>
+  <PublicationsList pubs={pubs} />
+
+  <p class="scholar-note">
+    <a href="https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en" target="_blank" rel="noopener">
+      View all on Google Scholar →
+    </a>
+  </p>
+</PageLayout>
+
+<style>
+  .scholar-note {
+    margin-top: var(--space-10);
+    font-size: var(--fs-small);
+  }
+</style>

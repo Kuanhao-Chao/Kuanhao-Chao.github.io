@@ -1,0 +1,181 @@
+---
+import Icon from './Icon.astro';
+import { site, nav } from '../data/site';
+
+const path = Astro.url.pathname;
+const isActive = (href: string) =>
+  href === '/' ? path === '/' : path.startsWith(href.replace(/\/$/, ''));
+---
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="wordmark" aria-label={`${site.name} — home`}>
+      <span class="wordmark-mark" aria-hidden="true">KHC</span>
+      <span class="wordmark-name">{site.name}</span>
+    </a>
+
+    <nav class="nav-desktop" aria-label="Primary">
+      <ul>
+        {
+          nav.map((item) => (
+            <li>
+              <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <button
+      class="nav-toggle"
+      type="button"
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+      aria-label="Open menu"
+    >
+      <Icon name="menu" size={24} />
+    </button>
+  </div>
+
+  <div class="mobile-menu" id="mobile-menu" hidden>
+    <nav aria-label="Mobile">
+      <ul>
+        {
+          nav.map((item) => (
+            <li>
+              <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+    backdrop-filter: saturate(140%) blur(10px);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 4.25rem;
+  }
+  .wordmark {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+  }
+  .wordmark:hover {
+    text-decoration: none;
+    color: var(--color-ink);
+  }
+  .wordmark-mark {
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.04em;
+    font-size: 1.05rem;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius);
+    padding: 0.15em 0.4em;
+    line-height: 1;
+  }
+  .wordmark-name {
+    font-weight: var(--fw-regular);
+    font-size: 1.05rem;
+    letter-spacing: var(--tracking-tight);
+  }
+  .nav-desktop ul {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: clamp(0.75rem, 2vw, 1.75rem);
+    margin: 0;
+    padding: 0;
+  }
+  .nav-desktop a {
+    color: var(--color-ink);
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    padding-block: 0.4rem;
+    position: relative;
+  }
+  .nav-desktop a:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .nav-desktop a[aria-current='page'] {
+    color: var(--color-accent);
+  }
+  .nav-desktop a[aria-current='page']::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 1.5px;
+    background: var(--color-accent);
+  }
+  .nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--color-ink);
+    cursor: pointer;
+    padding: 0.4rem;
+  }
+  .mobile-menu {
+    border-top: 1px solid var(--color-rule);
+    background: var(--color-bg);
+  }
+  .mobile-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 0.5rem var(--gutter) 1.25rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .mobile-menu a {
+    display: block;
+    padding: 0.7rem 0;
+    color: var(--color-ink);
+    font-size: 1.05rem;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .mobile-menu a[aria-current='page'] {
+    color: var(--color-accent);
+  }
+
+  @media (max-width: 900px) {
+    .nav-desktop {
+      display: none;
+    }
+    .nav-toggle {
+      display: inline-flex;
+    }
+  }
+</style>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
+  const menu = document.querySelector<HTMLElement>('#mobile-menu');
+  if (toggle && menu) {
+    toggle.addEventListener('click', () => {
+      const open = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!open));
+      toggle.setAttribute('aria-label', open ? 'Open menu' : 'Close menu');
+      menu.hidden = open;
+    });
+  }
+</script>

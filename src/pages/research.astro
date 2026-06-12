@@ -1,0 +1,27 @@
+---
+import { getCollection } from 'astro:content';
+import PageLayout from '../layouts/PageLayout.astro';
+import ResearchCard from '../components/ResearchCard.astro';
+
+const entries = (await getCollection('research')).sort(
+  (a, b) => a.data.order - b.data.order
+);
+---
+<PageLayout
+  title="Research"
+  eyebrow="What I work on"
+  lead="I develop machine learning methods for genomics — from DNA language models that predict gene expression to algorithms for genome annotation, assembly, and indexing."
+  description="Research by Kuan-Hao Chao across gene expression prediction, RNA splicing, genome annotation, assembly, and pangenome indexing."
+>
+  <div class="research-grid">
+    {entries.map((entry) => <ResearchCard entry={entry} />)}
+  </div>
+</PageLayout>
+
+<style>
+  .research-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    gap: clamp(1.25rem, 2.5vw, 2rem);
+  }
+</style>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#2e6e5e" />
+  <text x="50%" y="52%" dominant-baseline="central" text-anchor="middle"
+    font-family="'Hanken Grotesk', system-ui, sans-serif" font-size="18"
+    font-weight="600" fill="#fafaf8">K</text>
+</svg>
