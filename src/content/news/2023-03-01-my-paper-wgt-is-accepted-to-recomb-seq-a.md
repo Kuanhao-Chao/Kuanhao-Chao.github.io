@@ -6,4 +6,4 @@ location: 'Taipei, Taiwan'
 link: 'https://doi.org/10.1101/2022.10.15.512390'
 ---
 
-My paper [WGT](https://doi.org/10.1101/2022.10.15.512390) is accepted to [RECOMB-Seq](https://recomb-seq.github.io/) as a proceedings track paper and [RECOMB](http://recomb2023.bilkent.edu.tr/) as a poster. Great collaboration with [langmead lab](https://langmead-lab.org/) and [Seshia lab](http://people.eecs.berkeley.edu/~sseshia/). See you in İstanbul, Türkiye
+My paper [WGT](https://doi.org/10.1101/2022.10.15.512390) is accepted to [RECOMB-Seq](https://recomb-seq.github.io/) as a proceedings track paper and [RECOMB](http://recomb2023.bilkent.edu.tr/) as a poster. Great collaboration with [langmead lab](https://langmead-lab.org/) and [Seshia lab](https://people.eecs.berkeley.edu/~sseshia/). See you in İstanbul, Türkiye

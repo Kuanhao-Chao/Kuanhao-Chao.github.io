@@ -17,7 +17,7 @@ const categoryLabel = {
   misc: 'News',
 }[d.category];
 ---
-<article class:list={['news', `news--${variant}`]}>
+<article id={entry.id} class:list={['news', `news--${variant}`]}>
   <div class="news-meta">
     <time datetime={d.date.toISOString()}>{monthYear(d.date)}</time>
     <span class:list={['news-tag', `news-tag--${d.category}`]}>{categoryLabel}</span>
@@ -30,6 +30,8 @@ const categoryLabel = {
 <style>
   .news {
     border-bottom: 1px solid var(--color-rule);
+    /* Offset for the fixed header when deep-linked from the RSS feed. */
+    scroll-margin-top: 6rem;
   }
   .news--row {
     display: grid;
