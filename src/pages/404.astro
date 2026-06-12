@@ -11,7 +11,16 @@ import { nav } from '../data/site';
       <a class="btn btn--accent" href="/">Back home</a>
       {nav.map((item) => <a class="notfound-link" href={item.href}>{item.label}</a>)}
     </nav>
+    <p class="notfound-archive muted">
+      Looking for a page from my previous site? It may still be on the
+      <a id="archive-link" href="https://archive.khchao.com">archived version</a>.
+    </p>
   </section>
+  <script is:inline>
+    // Point the archive link at the same path the visitor was trying to reach.
+    var a = document.getElementById('archive-link');
+    if (a) a.href = 'https://archive.khchao.com' + window.location.pathname + window.location.search;
+  </script>
 </BaseLayout>
 
 <style>
@@ -35,5 +44,13 @@ import { nav } from '../data/site';
   }
   .notfound-link:hover {
     color: var(--color-accent);
+  }
+  .notfound-archive {
+    margin-top: 2rem;
+    font-size: var(--fs-small);
+  }
+  .notfound-archive a {
+    color: var(--color-accent);
+    text-decoration: underline;
   }
 </style>
