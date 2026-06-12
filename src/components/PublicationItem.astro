@@ -1,0 +1,214 @@
+---
+import Icon from './Icon.astro';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  pub: CollectionEntry<'publications'>;
+}
+const { pub } = Astro.props;
+const d = pub.data;
+const year = d.date.getFullYear();
+
+// Highlight the site owner's name within the author list.
+const OWNER = 'Kuan-Hao Chao';
+const authorParts = d.authors.split(OWNER);
+
+const typeLabel = { journal: 'Journal', conference: 'Conference', preprint: 'Preprint' }[d.type];
+
+const links = [
+  { key: 'doi', label: 'DOI', icon: 'link', href: d.doi },
+  { key: 'pdf', label: 'PDF', icon: 'file', href: d.pdf },
+  { key: 'code', label: 'Code', icon: 'code', href: d.code },
+  { key: 'docs', label: 'Docs', icon: 'book', href: d.docs },
+  { key: 'slides', label: 'Slides', icon: 'slides', href: d.slides },
+  { key: 'poster', label: 'Poster', icon: 'image', href: d.poster },
+  { key: 'video', label: 'Talk', icon: 'play', href: d.video },
+  { key: 'news', label: 'News', icon: 'external', href: d.news },
+].filter((l) => l.href);
+
+const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
+---
+<article
+  class="pub"
+  data-type={d.type}
+  data-year={year}
+  data-venue={d.venue.toLowerCase()}
+  data-title={d.title.toLowerCase()}
+  data-search={searchText}
+>
+  <div class="pub-year" aria-hidden="true">{year}</div>
+
+  <div class="pub-body">
+    <h3 class="pub-title">
+      {d.doi ? <a href={d.doi} target="_blank" rel="noopener">{d.title}</a> : d.title}
+    </h3>
+
+    <p class="pub-authors">
+      {
+        authorParts.map((part, i) => (
+          <>
+            {i > 0 && <span class="me">{OWNER}</span>}
+            {part}
+          </>
+        ))
+      }
+    </p>
+
+    <p class="pub-meta">
+      <span class="pub-venue">{d.venue}</span>
+      <span class:list={['tag', `tag--${d.type}`]}>{typeLabel}</span>
+    </p>
+
+    <div class="pub-links">
+      {
+        links.map((l) => (
+          <a class="pub-link" href={l.href} target="_blank" rel="noopener">
+            <Icon name={l.icon} size={15} />
+            {l.label}
+          </a>
+        ))
+      }
+      {
+        d.bibtex && (
+          <details class="bib">
+            <summary>
+              <Icon name="chevron-right" size={15} />
+              BibTeX
+            </summary>
+            <pre><code>{d.bibtex}</code></pre>
+          </details>
+        )
+      }
+    </div>
+  </div>
+</article>
+
+<style>
+  .pub {
+    display: grid;
+    grid-template-columns: 4.5rem 1fr;
+    gap: 0 1.5rem;
+    padding-block: var(--space-6);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .pub-year {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: var(--fw-medium);
+    color: var(--color-muted);
+    padding-top: 0.15rem;
+  }
+  .pub-title {
+    font-size: 1.15rem;
+    font-weight: var(--fw-semibold);
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+  .pub-title a {
+    color: var(--color-ink);
+  }
+  .pub-title a:hover {
+    color: var(--color-accent);
+  }
+  .pub-authors {
+    margin-top: 0.4rem;
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+  }
+  .pub-authors .me {
+    color: var(--color-accent);
+    font-weight: var(--fw-semibold);
+  }
+  .pub-meta {
+    margin-top: 0.35rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    font-size: var(--fs-small);
+  }
+  .pub-venue {
+    font-style: italic;
+  }
+  .tag {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: var(--fw-semibold);
+    padding: 0.15em 0.5em;
+    border-radius: 999px;
+    border: 1px solid var(--color-rule);
+    color: var(--color-muted);
+  }
+  .tag--journal {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+  .tag--preprint {
+    color: #8a5a1a;
+    border-color: #e3c79a;
+    background: #fbf3e4;
+  }
+  .pub-links {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.9rem;
+  }
+  .pub-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: var(--fs-small);
+    color: var(--color-ink);
+  }
+  .pub-link:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .bib {
+    font-size: var(--fs-small);
+  }
+  .bib summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+    list-style: none;
+    color: var(--color-ink);
+  }
+  .bib summary::-webkit-details-marker {
+    display: none;
+  }
+  .bib summary :global(svg) {
+    transition: transform var(--transition);
+  }
+  .bib[open] summary :global(svg) {
+    transform: rotate(90deg);
+  }
+  .bib pre {
+    margin-top: 0.6rem;
+    padding: 0.9rem 1rem;
+    background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .bib code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+
+  @media (max-width: 560px) {
+    .pub {
+      grid-template-columns: 1fr;
+      gap: 0.35rem;
+    }
+    .pub-year {
+      padding-top: 0;
+    }
+  }
+</style>

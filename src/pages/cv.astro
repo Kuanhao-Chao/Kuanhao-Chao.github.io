@@ -1,0 +1,116 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+import Icon from '../components/Icon.astro';
+
+const docs = [
+  { id: 'cv', label: 'CV', url: 'https://storage.googleapis.com/storage.khchao.com/CV.pdf' },
+  { id: 'resume', label: 'Résumé', url: 'https://storage.googleapis.com/storage.khchao.com/Resume.pdf' },
+];
+---
+<PageLayout
+  title="CV"
+  eyebrow="Curriculum vitae"
+  lead="Full academic CV and a one-page résumé. View inline below or download the PDF."
+  description="Curriculum vitae and résumé of Kuan-Hao Chao."
+>
+  <div class="cv" data-cv>
+    <div class="cv-tabs" role="tablist" aria-label="Document">
+      {
+        docs.map((doc, i) => (
+          <button
+            type="button"
+            role="tab"
+            id={`tab-${doc.id}`}
+            aria-controls={`panel-${doc.id}`}
+            aria-selected={i === 0 ? 'true' : 'false'}
+            data-tab={doc.id}
+          >
+            {doc.label}
+          </button>
+        ))
+      }
+    </div>
+
+    {
+      docs.map((doc, i) => (
+        <section
+          id={`panel-${doc.id}`}
+          role="tabpanel"
+          aria-labelledby={`tab-${doc.id}`}
+          data-panel={doc.id}
+          hidden={i !== 0}
+        >
+          <a class="btn btn--accent cv-download" href={doc.url} target="_blank" rel="noopener">
+            <Icon name="file" size={18} /> Download {doc.label} (PDF)
+          </a>
+          <div class="cv-frame">
+            <iframe src={doc.url} title={`${doc.label} (PDF)`} loading="lazy" />
+          </div>
+        </section>
+      ))
+    }
+  </div>
+</PageLayout>
+
+<style>
+  .cv-tabs {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    margin-bottom: var(--space-6);
+  }
+  .cv-tabs button {
+    border: none;
+    background: transparent;
+    padding: 0.45em 1.4em;
+    border-radius: 999px;
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .cv-tabs button[aria-selected='true'] {
+    background: var(--color-ink);
+    color: var(--color-bg);
+  }
+  .cv-download {
+    margin-bottom: var(--space-5);
+  }
+  .cv-frame {
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+  .cv-frame iframe {
+    width: 100%;
+    height: min(85vh, 1100px);
+    border: none;
+    display: block;
+  }
+  /* On small screens an embedded PDF is awkward — shrink it; the download
+     button above remains the primary action. */
+  @media (max-width: 640px) {
+    .cv-frame iframe {
+      height: 60vh;
+    }
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-cv]');
+  if (root) {
+    const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-tab]'));
+    const panels = Array.from(root.querySelectorAll<HTMLElement>('[data-panel]'));
+    tabs.forEach((tab) =>
+      tab.addEventListener('click', () => {
+        const id = tab.dataset.tab;
+        tabs.forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+        panels.forEach((p) => (p.hidden = p.dataset.panel !== id));
+      })
+    );
+  }
+</script>

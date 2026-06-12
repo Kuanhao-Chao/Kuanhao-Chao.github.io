@@ -1,0 +1,98 @@
+---
+import Socials from './Socials.astro';
+import { site, nav } from '../data/site';
+const year = new Date().getFullYear();
+---
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <p class="footer-name">{site.name}</p>
+      <p class="footer-role muted">{site.role}</p>
+      <Socials class="footer-socials" />
+    </div>
+
+    <nav class="footer-nav" aria-label="Footer">
+      <p class="eyebrow">Navigate</p>
+      <ul>
+        {nav.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
+      </ul>
+    </nav>
+
+    <div class="footer-connect">
+      <p class="eyebrow">Connect</p>
+      <ul>
+        <li><a href={`mailto:${site.email}`}>{site.email}</a></li>
+        <li><a href="https://calendly.com/kuanhao-chao/30min" target="_blank" rel="noopener">Coffee chat ☕</a></li>
+        <li><a href="https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en" target="_blank" rel="noopener">Google Scholar</a></li>
+        <li><a href="https://github.com/Kuanhao-Chao" target="_blank" rel="noopener">GitHub</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="container footer-base">
+    <p class="muted">© {year} {site.name}</p>
+    <p class="muted footer-colophon">Built with Astro · {site.philosophy}</p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--color-rule);
+    padding-top: var(--section-y);
+    padding-bottom: var(--space-10);
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr;
+    gap: clamp(2rem, 5vw, 4rem);
+  }
+  .footer-name {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    letter-spacing: var(--tracking-tight);
+  }
+  .footer-role {
+    font-size: var(--fs-small);
+    margin-top: 0.2rem;
+    margin-bottom: 1rem;
+  }
+  .footer-nav ul,
+  .footer-connect ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.75rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .footer-nav a,
+  .footer-connect a {
+    color: var(--color-ink);
+    font-size: var(--fs-small);
+  }
+  .footer-nav a:hover,
+  .footer-connect a:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .footer-base {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: var(--space-16);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--color-rule);
+    font-size: var(--fs-small);
+  }
+
+  @media (max-width: 720px) {
+    .footer-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .footer-brand {
+      grid-column: 1 / -1;
+    }
+  }
+</style>

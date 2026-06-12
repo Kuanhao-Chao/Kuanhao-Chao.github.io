@@ -1,0 +1,39 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { nav } from '../data/site';
+---
+<BaseLayout title="Page not found">
+  <section class="notfound container">
+    <p class="eyebrow">404</p>
+    <h1>This page wandered off.</h1>
+    <p class="muted">The page you're looking for doesn't exist or has moved.</p>
+    <nav class="notfound-links" aria-label="Site sections">
+      <a class="btn btn--accent" href="/">Back home</a>
+      {nav.map((item) => <a class="notfound-link" href={item.href}>{item.label}</a>)}
+    </nav>
+  </section>
+</BaseLayout>
+
+<style>
+  .notfound {
+    padding-block: clamp(4rem, 12vw, 9rem);
+    max-width: 40rem;
+  }
+  .notfound h1 {
+    margin-block: 0.75rem 1rem;
+  }
+  .notfound-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    margin-top: 2rem;
+  }
+  .notfound-link {
+    font-size: var(--fs-small);
+    color: var(--color-ink);
+  }
+  .notfound-link:hover {
+    color: var(--color-accent);
+  }
+</style>

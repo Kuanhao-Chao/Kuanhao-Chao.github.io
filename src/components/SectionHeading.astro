@@ -1,0 +1,65 @@
+---
+import Icon from './Icon.astro';
+interface Props {
+  eyebrow?: string;
+  title: string;
+  href?: string;
+  more?: string;
+}
+const { eyebrow, title, href, more = 'View all' } = Astro.props;
+---
+<div class="section-heading">
+  <div>
+    {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+    <h2>{title}</h2>
+  </div>
+  {
+    href && (
+      <a class="more-link" href={href}>
+        {more}
+        <Icon name="arrow-right" size={18} />
+      </a>
+    )
+  }
+</div>
+
+<style>
+  .section-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: var(--space-10);
+    padding-bottom: var(--space-5);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .section-heading h2 {
+    margin-top: 0.4rem;
+  }
+  .more-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: none;
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    color: var(--color-ink);
+    white-space: nowrap;
+  }
+  .more-link:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .more-link :global(svg) {
+    transition: transform var(--transition);
+  }
+  .more-link:hover :global(svg) {
+    transform: translateX(3px);
+  }
+  @media (max-width: 520px) {
+    .section-heading {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>

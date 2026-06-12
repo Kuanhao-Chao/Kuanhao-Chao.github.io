@@ -1,0 +1,65 @@
+---
+import Icon from './Icon.astro';
+import { socials, type SocialKey } from '../data/site';
+
+interface Props {
+  keys?: SocialKey[];
+  size?: number;
+  class?: string;
+}
+const { keys, size = 20, class: className } = Astro.props;
+const items = keys ? socials.filter((s) => keys.includes(s.key)) : socials;
+const iconFor: Record<SocialKey, string> = {
+  email: 'mail',
+  scholar: 'scholar',
+  github: 'github',
+  linkedin: 'linkedin',
+  orcid: 'orcid',
+  twitter: 'twitter',
+  bluesky: 'bluesky',
+  calendly: 'coffee',
+};
+---
+<ul class:list={['socials', className]}>
+  {
+    items.map((s) => (
+      <li>
+        <a
+          href={s.href}
+          aria-label={s.label}
+          title={s.label}
+          target={s.href.startsWith('http') ? '_blank' : undefined}
+          rel={s.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+        >
+          <Icon name={iconFor[s.key]} size={size} />
+        </a>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .socials {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .socials a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: var(--radius);
+    color: var(--color-muted);
+    transition: color var(--transition), background var(--transition);
+  }
+  .socials a:hover {
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  }
+</style>

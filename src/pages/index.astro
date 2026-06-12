@@ -1,0 +1,206 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import SectionHeading from '../components/SectionHeading.astro';
+import ResearchCard from '../components/ResearchCard.astro';
+import PublicationItem from '../components/PublicationItem.astro';
+import NewsEntry from '../components/NewsEntry.astro';
+import QuoteBlock from '../components/QuoteBlock.astro';
+import Icon from '../components/Icon.astro';
+import { site } from '../data/site';
+import { experience, education } from '../data/cv';
+
+const research = (await getCollection('research'))
+  .filter((r) => r.data.featured)
+  .sort((a, b) => a.data.order - b.data.order);
+
+const pubs = (await getCollection('publications'))
+  .filter((p) => p.data.featured)
+  .sort((a, b) => (a.data.selectedOrder ?? 99) - (b.data.selectedOrder ?? 99))
+  .slice(0, 5);
+
+const latestNews = (await getCollection('news'))
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
+  .slice(0, 6);
+const news = await Promise.all(
+  latestNews.map(async (entry) => ({ entry, Content: (await render(entry)).Content }))
+);
+---
+<BaseLayout type="profile">
+  <Hero />
+
+  <section class="section container">
+    <SectionHeading eyebrow="What I work on" title="Research" href="/research/" more="All research" />
+    <div class="home-research">
+      {research.map((entry) => <ResearchCard entry={entry} />)}
+    </div>
+  </section>
+
+  <section class="section container">
+    <SectionHeading
+      eyebrow="Selected work"
+      title="Publications"
+      href="/publications/"
+      more="All publications"
+    />
+    <ol class="home-pubs">
+      {pubs.map((pub) => <li><PublicationItem pub={pub} /></li>)}
+    </ol>
+  </section>
+
+  <QuoteBlock quote={site.philosophy} cite="my approach to open-source research software" />
+
+  <section class="section container">
+    <SectionHeading eyebrow="Background" title="Experience & education" />
+    <div class="home-bg">
+      <div>
+        <p class="bg-label eyebrow">Experience</p>
+        <ul class="bg-list">
+          {
+            experience.map((p) => (
+              <li>
+                <span class="bg-period">{p.period}</span>
+                <span class="bg-role">{p.role}</span>
+                <span class="bg-org muted">
+                  {p.url ? <a href={p.url} target="_blank" rel="noopener">{p.org}</a> : p.org}
+                  {p.unit ? `, ${p.unit}` : ''}
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+      <div>
+        <p class="bg-label eyebrow">Education</p>
+        <ul class="bg-list">
+          {
+            education.map((p) => (
+              <li>
+                <span class="bg-period">{p.period}</span>
+                <span class="bg-role">{p.role}</span>
+                <span class="bg-org muted">
+                  {p.url ? <a href={p.url} target="_blank" rel="noopener">{p.org}</a> : p.org}
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section container">
+    <SectionHeading eyebrow="Updates" title="Recent news" href="/news/" more="All news" />
+    <div class="home-news">
+      {news.map(({ entry, Content }) => (
+        <NewsEntry entry={entry} variant="card">
+          <Content />
+        </NewsEntry>
+      ))}
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="container cta-inner">
+      <h2 class="cta-title">Let's work together</h2>
+      <p class="cta-text">
+        I'm always glad to talk about computational genomics, machine learning, or
+        mentoring research projects. Reach out anytime.
+      </p>
+      <div class="cta-actions">
+        <a class="btn btn--accent" href="https://calendly.com/kuanhao-chao/30min" target="_blank" rel="noopener">
+          <Icon name="coffee" size={18} /> Book a coffee chat
+        </a>
+        <a class="btn" href={`mailto:${site.email}`}>
+          <Icon name="mail" size={18} /> Email me
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .home-research {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(1.25rem, 2vw, 1.75rem);
+  }
+  .home-pubs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--color-rule);
+  }
+  .home-bg {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: clamp(2rem, 5vw, 4rem);
+  }
+  .bg-label {
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-rule);
+    margin-bottom: var(--space-4);
+  }
+  .bg-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+  .bg-list li {
+    display: grid;
+    gap: 0.15rem;
+  }
+  .bg-period {
+    font-size: var(--fs-meta);
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .bg-role {
+    font-weight: var(--fw-semibold);
+  }
+  .bg-org {
+    font-size: var(--fs-small);
+  }
+  .home-news {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(1rem, 2vw, 1.5rem);
+  }
+  .cta {
+    padding-block: var(--section-y);
+    border-top: 1px solid var(--color-rule);
+    text-align: center;
+  }
+  .cta-title {
+    font-size: var(--fs-h1);
+  }
+  .cta-text {
+    max-width: 36rem;
+    margin: 1rem auto 2rem;
+    color: var(--color-muted);
+  }
+  .cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+
+  @media (max-width: 860px) {
+    .home-research,
+    .home-news {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (max-width: 620px) {
+    .home-research,
+    .home-news,
+    .home-bg {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

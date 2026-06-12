@@ -1,0 +1,118 @@
+---
+import Icon from './Icon.astro';
+import { dateRange } from '../lib/format';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  entry: CollectionEntry<'presentations'>;
+}
+const { entry } = Astro.props;
+const d = entry.data;
+const typeLabel = { talk: 'Talk', poster: 'Poster', invited: 'Invited talk', exhibition: 'Exhibition' }[
+  d.type
+];
+const heading = d.talkTitle ?? d.title;
+const showVenueLine = d.talkTitle ? d.title : null;
+
+const links = [
+  { label: 'Slides', icon: 'slides', href: d.slides },
+  { label: 'Video', icon: 'play', href: d.video },
+  { label: 'Link', icon: 'external', href: d.link },
+].filter((l) => l.href);
+---
+<article class="talk">
+  <div class="talk-date" aria-hidden="true">{dateRange(d.startDate, d.endDate)}</div>
+  <div class="talk-body">
+    <h3 class="talk-title">{heading}</h3>
+    <p class="talk-meta">
+      {showVenueLine && <span>{showVenueLine}</span>}
+      <span class="talk-venue">{d.venue}</span>
+      {d.location && <span class="muted">· {d.location}</span>}
+      <span class:list={['tag', `tag--${d.type}`]}>{typeLabel}</span>
+    </p>
+    {
+      links.length > 0 && (
+        <div class="talk-links">
+          {links.map((l) => (
+            <a href={l.href} target="_blank" rel="noopener">
+              <Icon name={l.icon} size={15} />
+              {l.label}
+            </a>
+          ))}
+        </div>
+      )
+    }
+  </div>
+</article>
+
+<style>
+  .talk {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: 0 1.5rem;
+    padding-block: var(--space-5);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .talk-date {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    color: var(--color-muted);
+    padding-top: 0.2rem;
+  }
+  .talk-title {
+    font-size: 1.1rem;
+    font-weight: var(--fw-semibold);
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+  .talk-meta {
+    margin-top: 0.35rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+  }
+  .talk-venue {
+    color: var(--color-ink);
+  }
+  .tag {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: var(--fw-semibold);
+    padding: 0.12em 0.5em;
+    border-radius: 999px;
+    border: 1px solid var(--color-rule);
+    color: var(--color-muted);
+  }
+  .tag--invited {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+  .talk-links {
+    margin-top: 0.55rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+  }
+  .talk-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: var(--fs-small);
+    color: var(--color-ink);
+  }
+  .talk-links a:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  @media (max-width: 560px) {
+    .talk {
+      grid-template-columns: 1fr;
+      gap: 0.35rem;
+    }
+  }
+</style>

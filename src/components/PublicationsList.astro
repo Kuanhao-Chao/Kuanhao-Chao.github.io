@@ -1,0 +1,212 @@
+---
+import PublicationItem from './PublicationItem.astro';
+import Icon from './Icon.astro';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  pubs: CollectionEntry<'publications'>[];
+}
+const { pubs } = Astro.props;
+const types = [
+  { value: 'all', label: 'All' },
+  { value: 'journal', label: 'Journal' },
+  { value: 'conference', label: 'Conference' },
+  { value: 'preprint', label: 'Preprint' },
+];
+---
+<div class="pub-tools" data-pub-tools>
+  <div class="pub-filters" role="group" aria-label="Filter by type">
+    {
+      types.map((t) => (
+        <button
+          type="button"
+          class="filter-pill"
+          data-filter={t.value}
+          aria-pressed={t.value === 'all' ? 'true' : 'false'}
+        >
+          {t.label}
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="pub-controls">
+    <label class="search">
+      <Icon name="search" size={18} />
+      <input type="search" placeholder="Search title, author, venue…" data-search-input aria-label="Search publications" />
+    </label>
+    <label class="sort">
+      <span class="visually-hidden">Sort publications</span>
+      <select data-sort>
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="venue">Venue A–Z</option>
+      </select>
+      <Icon name="chevron-down" size={16} />
+    </label>
+  </div>
+</div>
+
+<ol class="pub-list" data-pub-list>
+  {pubs.map((pub) => <li><PublicationItem pub={pub} /></li>)}
+</ol>
+
+<p class="pub-empty" data-pub-empty hidden>No publications match your search.</p>
+
+<style>
+  .pub-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: var(--space-4);
+  }
+  .pub-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .filter-pill {
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    padding: 0.4em 0.9em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .filter-pill:hover {
+    border-color: var(--color-ink);
+    color: var(--color-ink);
+  }
+  .filter-pill[aria-pressed='true'] {
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+    color: var(--color-bg);
+  }
+  .pub-controls {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .search {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45em 0.8em;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-muted);
+  }
+  .search:focus-within {
+    border-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+  .search input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: var(--fs-small);
+    width: min(15rem, 50vw);
+  }
+  .sort {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .sort select {
+    appearance: none;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    padding: 0.5em 2.2em 0.5em 0.8em;
+    font-size: var(--fs-small);
+    cursor: pointer;
+  }
+  .sort :global(svg) {
+    position: absolute;
+    right: 0.6em;
+    pointer-events: none;
+    color: var(--color-muted);
+  }
+  .pub-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--color-rule);
+  }
+  .pub-list li.is-hidden {
+    display: none;
+  }
+  .pub-empty {
+    padding: var(--space-8) 0;
+    color: var(--color-muted);
+  }
+</style>
+
+<script>
+  // Lightweight, dependency-free filter / sort / search island.
+  const root = document.querySelector<HTMLElement>('[data-pub-tools]');
+  const list = document.querySelector<HTMLOListElement>('[data-pub-list]');
+  const empty = document.querySelector<HTMLElement>('[data-pub-empty]');
+  if (root && list) {
+    const items = Array.from(list.querySelectorAll<HTMLLIElement>('li'));
+    const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+    const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
+    const sortSelect = root.querySelector<HTMLSelectElement>('[data-sort]');
+
+    const meta = (li: HTMLLIElement) => {
+      const el = li.querySelector<HTMLElement>('.pub')!;
+      return {
+        type: el.dataset.type ?? '',
+        year: Number(el.dataset.year ?? 0),
+        venue: el.dataset.venue ?? '',
+        search: el.dataset.search ?? '',
+      };
+    };
+    const order = new Map(items.map((li, i) => [li, i])); // original (newest-first)
+
+    let activeType = 'all';
+    let query = '';
+
+    const apply = () => {
+      let visible = 0;
+      for (const li of items) {
+        const m = meta(li);
+        const ok =
+          (activeType === 'all' || m.type === activeType) &&
+          (query === '' || m.search.includes(query));
+        li.classList.toggle('is-hidden', !ok);
+        if (ok) visible++;
+      }
+      if (empty) empty.hidden = visible !== 0;
+
+      const mode = sortSelect?.value ?? 'newest';
+      const sorted = [...items].sort((a, b) => {
+        const ma = meta(a);
+        const mb = meta(b);
+        if (mode === 'oldest') return ma.year - mb.year || order.get(a)! - order.get(b)!;
+        if (mode === 'venue') return ma.venue.localeCompare(mb.venue);
+        return order.get(a)! - order.get(b)!; // newest (original order)
+      });
+      sorted.forEach((li) => list.appendChild(li));
+    };
+
+    pills.forEach((pill) =>
+      pill.addEventListener('click', () => {
+        activeType = pill.dataset.filter ?? 'all';
+        pills.forEach((p) => p.setAttribute('aria-pressed', String(p === pill)));
+        apply();
+      })
+    );
+    searchInput?.addEventListener('input', () => {
+      query = searchInput.value.trim().toLowerCase();
+      apply();
+    });
+    sortSelect?.addEventListener('change', apply);
+  }
+</script>
