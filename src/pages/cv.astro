@@ -46,6 +46,14 @@ const docs = [
           <div class="cv-frame">
             <iframe src={doc.url} title={`${doc.label} (PDF)`} loading="lazy" />
           </div>
+          <a class="cv-mobile" href={doc.url} target="_blank" rel="noopener">
+            <span class="cv-mobile-ic"><Icon name="file" size={26} /></span>
+            <span class="cv-mobile-text">
+              <strong>Open the {doc.label} full screen</strong>
+              <span class="muted">Opens the PDF in your device's viewer</span>
+            </span>
+            <Icon name="arrow-right" size={18} />
+          </a>
         </section>
       ))
     }
@@ -91,11 +99,43 @@ const docs = [
     border: none;
     display: block;
   }
-  /* On small screens an embedded PDF is awkward — shrink it; the download
-     button above remains the primary action. */
-  @media (max-width: 640px) {
-    .cv-frame iframe {
-      height: 60vh;
+  /* Touch devices (phones + tablets) render iframed PDFs unreliably — iOS often
+     shows a blank or single-page box. Swap the embed for a tap-to-open card that
+     hands the PDF to the device's native full-screen viewer. */
+  .cv-mobile {
+    display: none;
+  }
+  @media (pointer: coarse) {
+    .cv-frame {
+      display: none;
+    }
+    .cv-mobile {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.25rem 1.4rem;
+      border: 1px solid var(--color-rule);
+      border-radius: var(--radius-lg);
+      background: var(--color-surface);
+      color: var(--color-ink);
+    }
+    .cv-mobile:hover {
+      text-decoration: none;
+      border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-rule));
+    }
+    .cv-mobile-ic {
+      display: inline-flex;
+      flex: none;
+      color: var(--color-accent);
+    }
+    .cv-mobile-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      flex: 1;
+    }
+    .cv-mobile-text .muted {
+      font-size: var(--fs-small);
     }
   }
 </style>

@@ -11,11 +11,11 @@ const teaching = (await getCollection('teaching')).sort(
 <PageLayout
   title="Teaching & mentorship"
   eyebrow="Giving back"
-  lead="Courses I've taught, students I've mentored, and the peer-review community I contribute to. I'm always glad to mentor students interested in computational genomics + AI."
+  lead="Courses I've taught as a teaching assistant, students I've mentored, and the peer-review community I contribute to. I'm always glad to mentor students interested in computational genomics + AI."
   description="Teaching, mentorship, and academic service by Kuan-Hao Chao."
 >
   <section class="block">
-    <h2 class="block-title">Teaching</h2>
+    <h2 class="block-title">Teaching assistant experience</h2>
     <ul class="rows">
       {
         teaching.map((t) => (
@@ -48,6 +48,15 @@ const teaching = (await getCollection('teaching')).sort(
               )}
             </p>
             <p class="row-meta muted">{m.detail}</p>
+            {m.links && m.links.length > 0 && (
+              <p class="row-links">
+                {m.links.map((l) => (
+                  <a href={l.url} target="_blank" rel="noopener">
+                    {l.label}
+                  </a>
+                ))}
+              </p>
+            )}
           </li>
         ))
       }
@@ -101,6 +110,19 @@ const teaching = (await getCollection('teaching')).sort(
   .row-meta {
     margin-top: 0.3rem;
     font-size: var(--fs-small);
+  }
+  .row-links {
+    margin-top: 0.45rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    font-size: var(--fs-small);
+  }
+  .row-links a {
+    color: var(--color-accent);
+  }
+  .row-links a:hover {
+    text-decoration: underline;
   }
   .review-intro {
     margin-bottom: var(--space-4);

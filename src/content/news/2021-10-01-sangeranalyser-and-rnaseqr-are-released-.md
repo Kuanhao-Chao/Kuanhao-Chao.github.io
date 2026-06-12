@@ -6,4 +6,4 @@ location: 'Taipei, Taiwan'
 link: 'https://bioconductor.org/packages/release/bioc/html/sangeranalyseR.html'
 ---
 
-[sangeranalyseR](https://bioconductor.org/packages/release/bioc/html/sangeranalyseR.html) and [RNASeqR](https://www.bioconductor.org/packages/release/bioc/html/RNASeqR.html) are released on *Bioconductor 3.14*
+[sangeranalyseR](https://bioconductor.org/packages/release/bioc/html/sangeranalyseR.html) and [RNASeqR](https://github.com/Kuanhao-Chao/RNASeqR) are released on *Bioconductor 3.14*

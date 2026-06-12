@@ -61,6 +61,7 @@ const isActive = (href: string) =>
     top: 0;
     z-index: 100;
     background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+    -webkit-backdrop-filter: saturate(140%) blur(10px);
     backdrop-filter: saturate(140%) blur(10px);
     border-bottom: 1px solid var(--color-rule);
   }
@@ -129,6 +130,10 @@ const isActive = (href: string) =>
   }
   .nav-toggle {
     display: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
     background: none;
     border: none;
     color: var(--color-ink);
@@ -148,7 +153,7 @@ const isActive = (href: string) =>
   }
   .mobile-menu a {
     display: block;
-    padding: 0.7rem 0;
+    padding: 0.9rem 0;
     color: var(--color-ink);
     font-size: 1.05rem;
     border-bottom: 1px solid var(--color-rule);
@@ -170,12 +175,33 @@ const isActive = (href: string) =>
 <script>
   const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
   const menu = document.querySelector<HTMLElement>('#mobile-menu');
-  if (toggle && menu) {
-    toggle.addEventListener('click', () => {
-      const open = toggle.getAttribute('aria-expanded') === 'true';
-      toggle.setAttribute('aria-expanded', String(!open));
-      toggle.setAttribute('aria-label', open ? 'Open menu' : 'Close menu');
-      menu.hidden = open;
+  const header = document.querySelector<HTMLElement>('.site-header');
+  if (toggle && menu && header) {
+    const isOpen = () => toggle.getAttribute('aria-expanded') === 'true';
+    const setOpen = (open: boolean) => {
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      menu.hidden = !open;
+    };
+
+    toggle.addEventListener('click', () => setOpen(!isOpen()));
+
+    // Close on Escape (return focus to the button).
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen()) {
+        setOpen(false);
+        toggle.focus();
+      }
+    });
+
+    // Close when tapping anywhere outside the header.
+    document.addEventListener('click', (e) => {
+      if (isOpen() && !header.contains(e.target as Node)) setOpen(false);
+    });
+
+    // Reset closed once the desktop nav takes over.
+    window.matchMedia('(min-width: 900px)').addEventListener('change', (e) => {
+      if (e.matches) setOpen(false);
     });
   }
 </script>

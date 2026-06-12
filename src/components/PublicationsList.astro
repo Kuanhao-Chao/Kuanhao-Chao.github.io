@@ -12,6 +12,7 @@ const types = [
   { value: 'journal', label: 'Journal' },
   { value: 'conference', label: 'Conference' },
   { value: 'preprint', label: 'Preprint' },
+  { value: 'thesis', label: 'Thesis' },
 ];
 ---
 <div class="pub-tools" data-pub-tools>
@@ -145,6 +146,15 @@ const types = [
   .pub-empty {
     padding: var(--space-8) 0;
     color: var(--color-muted);
+  }
+
+  /* Roomier filter / search / sort controls on touch devices. */
+  @media (pointer: coarse) {
+    .filter-pill,
+    .search,
+    .sort select {
+      padding-block: 0.6em;
+    }
   }
 </style>
 

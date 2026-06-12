@@ -62,4 +62,12 @@ const iconFor: Record<SocialKey, string> = {
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 9%, transparent);
   }
+
+  /* Larger tap targets on touch devices (≥44px). */
+  @media (pointer: coarse) {
+    .socials a {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
 </style>

@@ -2,6 +2,7 @@
 title: 'Improving genome annotation with LiftOn'
 area: 'Genome annotation'
 summary: 'Graph-based methods that combine fragmented DNA and protein alignments to assemble more accurate genome annotations, implemented in the LiftOn annotation lift-over tool.'
+image: ../../assets/research/genome-annotation.png
 status: published
 paper: 'https://doi.org/10.1101/gr.279620.124'
 code: 'https://github.com/Kuanhao-Chao/LiftOn'

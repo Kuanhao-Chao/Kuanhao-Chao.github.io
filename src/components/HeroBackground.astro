@@ -1,0 +1,304 @@
+---
+/**
+ * Decorative DNA double-helix behind the homepage hero.
+ * A slowly twisting helix ribbon trails the cursor like a snake
+ * (follow-the-leader chain). A/T/C/G bases ride the rungs near the leading
+ * tip, nodes glow softly, a teal "signal" pulse sweeps along the strand, and
+ * the ribbon leaves a short comet trail as it moves. Pure canvas, no deps.
+ * Honors prefers-reduced-motion (static frame) and pauses when off-screen.
+ */
+---
+<canvas data-hero-canvas aria-hidden="true"></canvas>
+
+<style>
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+</style>
+
+<script>
+  const canvas = document.querySelector<HTMLCanvasElement>('[data-hero-canvas]');
+  const ctx = canvas?.getContext('2d');
+  const host = canvas?.parentElement;
+
+  if (canvas && ctx && host) {
+    // Colours mirror tokens.css (--color-ink, --color-accent #2e6e5e).
+    const INK = [20, 20, 20];
+    const TEAL = [46, 110, 94];
+
+    const N = 60; // spine points (length of the trailing helix)
+    const SEG = 9; // px between spine points
+    const AMP = 14; // px — helix radius
+    const TWIST_STEP = 0.45; // rad of twist per spine point
+    const TWIST_SPEED = 0.012; // rad/frame — bases travel along the ribbon (slow)
+    const EASE = 0.085; // how quickly the head chases the cursor (snappy)
+    const EASE_IDLE = 0.02; // gentler chase while drifting alone (slower acceleration)
+    const NODE_R = 2.2; // base node radius (scaled by depth)
+
+    const TRAIL = 0.18; // comet trail — fraction of the old frame erased each tick
+    const GLOW = 6; // px — max bloom radius at the head / pulse
+    const PULSE_SPEED = 0.22; // node-indices/frame — speed of the travelling pulse
+    const PULSE_WIDTH = 6; // nodes — half-width of the pulse window
+
+    const BASES = ['A', 'T', 'C', 'G'];
+    const COMP: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C' };
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const pointer = { x: 0, y: 0, active: false };
+
+    type Pt = { x: number; y: number };
+    let spine: Pt[] = [];
+    let bases: { a: string; b: string }[] = [];
+    let w = 0;
+    let h = 0;
+    let tick = 0;
+    let raf = 0;
+    let running = false;
+
+    // Blend ink → teal by m (0..1) into an "r, g, b" string.
+    function mix(m: number) {
+      const r = Math.round(INK[0] + (TEAL[0] - INK[0]) * m);
+      const g = Math.round(INK[1] + (TEAL[1] - INK[1]) * m);
+      const b = Math.round(INK[2] + (TEAL[2] - INK[2]) * m);
+      return `${r}, ${g}, ${b}`;
+    }
+
+    function seed() {
+      // Spine trailing left from the hero centre; one base-pair per node.
+      spine = Array.from({ length: N }, (_, i) => ({
+        x: w * 0.5 - i * SEG,
+        y: h * 0.5,
+      }));
+      bases = Array.from({ length: N }, () => {
+        const a = BASES[Math.floor(Math.random() * 4)];
+        return { a, b: COMP[a] };
+      });
+    }
+
+    function layoutStatic() {
+      // A calm fixed arc for the reduced-motion frame.
+      const x0 = w * 0.16;
+      for (let i = 0; i < N; i++) {
+        const u = i / (N - 1);
+        spine[i].x = x0 + u * (w * 0.68);
+        spine[i].y = h * 0.5 + Math.sin(u * Math.PI * 1.15) * h * 0.1;
+      }
+    }
+
+    function resize() {
+      const rect = host!.getBoundingClientRect();
+      w = rect.width;
+      h = rect.height;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas!.width = Math.round(w * dpr);
+      canvas!.height = Math.round(h * dpr);
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (spine.length === 0) seed();
+      if (reduce.matches) layoutStatic();
+      draw(false); // hard-cleared frame (covers reduced-motion + resize)
+    }
+
+    // One backbone marker: a base letter where it's bright enough, else a dot.
+    function mark(x: number, y: number, depth: number, col: string, baseA: number, letter: string) {
+      const t = (depth + 1) / 2; // 0 (back) .. 1 (front)
+      const a = baseA * (0.45 + 0.55 * t);
+      if (a > 0.13) {
+        const size = 8 + 4 * t;
+        ctx!.font = `600 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+        ctx!.fillStyle = `rgba(${col}, ${a})`;
+        ctx!.fillText(letter, x, y);
+      } else {
+        ctx!.fillStyle = `rgba(${col}, ${a})`;
+        ctx!.beginPath();
+        ctx!.arc(x, y, NODE_R * (0.55 + 0.45 * t), 0, Math.PI * 2);
+        ctx!.fill();
+      }
+    }
+
+    function draw(trail: boolean) {
+      if (trail) {
+        // Erode the previous frame (keeps canvas transparent → comet trail).
+        ctx!.shadowBlur = 0;
+        ctx!.globalCompositeOperation = 'destination-out';
+        ctx!.fillStyle = `rgba(0, 0, 0, ${TRAIL})`;
+        ctx!.fillRect(0, 0, w, h);
+        ctx!.globalCompositeOperation = 'source-over';
+      } else {
+        ctx!.clearRect(0, 0, w, h);
+      }
+
+      const boost = pointer.active ? 1.25 : 1; // brighter while tracking
+      const pulsePhase = (tick * PULSE_SPEED) % N; // travelling pulse position
+      ctx!.textAlign = 'center';
+      ctx!.textBaseline = 'middle';
+
+      // Draw tail → head so the leading tip sits on top.
+      for (let i = N - 1; i >= 0; i--) {
+        const p = spine[i];
+        const prev = spine[i > 0 ? i - 1 : i];
+        const next = spine[i < N - 1 ? i + 1 : i];
+        let tx = next.x - prev.x;
+        let ty = next.y - prev.y;
+        const tl = Math.hypot(tx, ty) || 1;
+        tx /= tl;
+        ty /= tl;
+        const nx = -ty; // unit normal to the spine
+        const ny = tx;
+
+        const phase = i * TWIST_STEP + tick * TWIST_SPEED;
+        const off = Math.sin(phase) * AMP;
+        const ax = p.x + nx * off;
+        const ay = p.y + ny * off;
+        const bx = p.x - nx * off;
+        const by = p.y - ny * off;
+        const depthA = Math.cos(phase);
+        const depthB = -depthA;
+
+        const hf = 1 - i / N; // 1 at the head, 0 at the tail
+        let dp = Math.abs(i - pulsePhase); // wrap distance to the pulse
+        dp = Math.min(dp, N - dp);
+        const pulse = Math.max(0, 1 - dp / PULSE_WIDTH);
+
+        const teal = Math.max(Math.max(0, (hf - 0.55) / 0.45), pulse);
+        const fade = 0.4 + 0.6 * hf; // tail fades to faint
+        const col = mix(teal);
+        const g = Math.max(hf, pulse); // glow driver
+        const alphaScale = (1 + 0.8 * pulse) * boost;
+
+        // Base-pair rung (crisp, no glow).
+        ctx!.shadowBlur = 0;
+        ctx!.strokeStyle = `rgba(${col}, ${(0.05 + 0.1 * hf) * fade * alphaScale})`;
+        ctx!.lineWidth = 1;
+        ctx!.beginPath();
+        ctx!.moveTo(ax, ay);
+        ctx!.lineTo(bx, by);
+        ctx!.stroke();
+
+        // Bloom only at the head / pulse (elsewhere flat & cheap).
+        if (g > 0.4) {
+          ctx!.shadowBlur = GLOW * g;
+          ctx!.shadowColor = `rgba(${col}, ${0.45 * alphaScale})`;
+        } else {
+          ctx!.shadowBlur = 0;
+        }
+
+        // Backbone markers, drawn back-to-front for the 3D twist.
+        const baseA = 0.26 * fade * alphaScale;
+        if (depthA <= depthB) {
+          mark(ax, ay, depthA, col, baseA, bases[i].a);
+          mark(bx, by, depthB, col, baseA, bases[i].b);
+        } else {
+          mark(bx, by, depthB, col, baseA, bases[i].b);
+          mark(ax, ay, depthA, col, baseA, bases[i].a);
+        }
+      }
+
+      // Soft glow on the leading tip.
+      ctx!.shadowBlur = 0;
+      const head = spine[0];
+      const gA = (pointer.active ? 0.16 : 0.1) * boost;
+      ctx!.fillStyle = `rgba(${TEAL[0]}, ${TEAL[1]}, ${TEAL[2]}, ${gA})`;
+      ctx!.beginPath();
+      ctx!.arc(head.x, head.y, 9, 0, Math.PI * 2);
+      ctx!.fill();
+      ctx!.fillStyle = `rgba(${TEAL[0]}, ${TEAL[1]}, ${TEAL[2]}, ${gA * 1.6})`;
+      ctx!.beginPath();
+      ctx!.arc(head.x, head.y, 4, 0, Math.PI * 2);
+      ctx!.fill();
+    }
+
+    function step() {
+      tick++;
+
+      // Target: the cursor while it's over the hero, else a slow wander.
+      let tgx: number;
+      let tgy: number;
+      if (pointer.active) {
+        tgx = pointer.x;
+        tgy = pointer.y;
+      } else {
+        tgx = w * 0.5 + Math.cos(tick * 0.002) * w * 0.3 + Math.cos(tick * 0.0032) * w * 0.06;
+        tgy = h * 0.5 + Math.sin(tick * 0.0028) * h * 0.3 + Math.sin(tick * 0.0042) * h * 0.05;
+      }
+
+      // Ease the head toward the target, then drag the body behind it.
+      // Gentler easing while idle so the self-drift accelerates slowly.
+      const ease = pointer.active ? EASE : EASE_IDLE;
+      const head = spine[0];
+      head.x += (tgx - head.x) * ease;
+      head.y += (tgy - head.y) * ease;
+      for (let i = 1; i < N; i++) {
+        const a = spine[i - 1];
+        const b = spine[i];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d = Math.hypot(dx, dy) || 1;
+        b.x = a.x + (dx / d) * SEG;
+        b.y = a.y + (dy / d) * SEG;
+      }
+
+      draw(true);
+      raf = requestAnimationFrame(step);
+    }
+
+    function start() {
+      if (running || reduce.matches) return;
+      running = true;
+      raf = requestAnimationFrame(step);
+    }
+    function stop() {
+      running = false;
+      cancelAnimationFrame(raf);
+    }
+
+    window.addEventListener(
+      'pointermove',
+      (e) => {
+        const rect = host!.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        pointer.active = x >= 0 && y >= 0 && x <= rect.width && y <= rect.height;
+        if (pointer.active) {
+          pointer.x = x;
+          pointer.y = y;
+        }
+      },
+      { passive: true }
+    );
+    window.addEventListener('blur', () => (pointer.active = false));
+
+    new ResizeObserver(() => resize()).observe(host);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stop();
+      else start();
+    });
+    new IntersectionObserver(
+      (entries) => {
+        for (const en of entries) {
+          if (en.isIntersecting) start();
+          else stop();
+        }
+      },
+      { threshold: 0 }
+    ).observe(host);
+
+    reduce.addEventListener('change', () => {
+      if (reduce.matches) {
+        stop();
+        layoutStatic();
+        draw(false);
+      } else {
+        start();
+      }
+    });
+
+    resize();
+    if (!reduce.matches) start();
+  }
+</script>
