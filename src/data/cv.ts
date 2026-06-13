@@ -154,6 +154,78 @@ export const reviewing: string[] = [
   'Chromatographia',
 ];
 
+export type SoftwareTool = {
+  name: string;
+  blurb: string;
+  license: { name: string; url: string };
+  code: string;
+  docs?: string;
+  paper?: string;
+  poster?: string;
+};
+
+const LICENSE = {
+  apache: { name: 'Apache 2.0', url: 'https://opensource.org/license/apache-2-0' },
+  gpl3: { name: 'GPLv3', url: 'https://www.gnu.org/licenses/gpl-3.0.en.html' },
+  mit: { name: 'MIT', url: 'https://opensource.org/licenses/MIT' },
+} as const;
+
+/** Open-source research software. Rendered on the /software/ page. */
+export const software: SoftwareTool[] = [
+  {
+    name: 'Shorkie',
+    blurb: 'Yeast RNA-Seq coverage predictor powered by a fungal DNA language model.',
+    license: LICENSE.apache,
+    code: 'https://github.com/calico/shorkie-paper',
+    paper: 'https://doi.org/10.1101/2025.09.19.677475',
+  },
+  {
+    name: 'OpenSpliceAI',
+    blurb: 'Efficient, modular splice-site prediction framework — easy to retrain on non-human species.',
+    license: LICENSE.gpl3,
+    code: 'https://github.com/Kuanhao-Chao/openspliceai',
+    docs: 'https://ccb.jhu.edu/openspliceai/',
+    paper: 'https://doi.org/10.7554/eLife.107454.3',
+    poster: 'https://storage.googleapis.com/storage.khchao.com/poster/BDS_OpenSpliceAI.pdf',
+  },
+  {
+    name: 'Splam',
+    blurb: 'Deep-learning splice-site predictor that improves spliced alignments.',
+    license: LICENSE.mit,
+    code: 'https://github.com/Kuanhao-Chao/splam',
+    docs: 'https://ccb.jhu.edu/splam/',
+    paper: 'https://doi.org/10.1186/s13059-024-03379-4',
+    poster:
+      'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/ISMB-ECCB2023/splam_poster_ismb.pdf',
+  },
+  {
+    name: 'LiftOn',
+    blurb: 'Genome-annotation lift-over tool that combines DNA and protein alignments.',
+    license: LICENSE.gpl3,
+    code: 'https://github.com/Kuanhao-Chao/LiftOn',
+    docs: 'https://ccb.jhu.edu/lifton/',
+    paper: 'https://doi.org/10.1101/gr.279620.124',
+  },
+  {
+    name: 'sangeranalyseR',
+    blurb: 'R/Bioconductor package for simple, interactive Sanger-sequencing analysis.',
+    license: LICENSE.mit,
+    code: 'https://github.com/roblanf/sangeranalyseR',
+    docs: 'https://sangeranalyser.readthedocs.io/en/latest/',
+    paper: 'https://doi.org/10.1093/gbe/evab028',
+    poster:
+      'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Bioc2021/sangeranalyseR_poster.pdf',
+  },
+  {
+    name: 'Wheeler Graph Toolkit',
+    blurb: 'Tools and algorithms for recognizing, visualizing, and generating Wheeler graphs.',
+    license: LICENSE.mit,
+    code: 'https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit',
+    paper: 'https://doi.org/10.1016/j.isci.2023.107402',
+    poster: 'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/RECOMB2023/WGT_poster.pdf',
+  },
+];
+
 export type SideProject = { name: string; detail: string; url: string };
 
 export const sideProjects: SideProject[] = [

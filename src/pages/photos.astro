@@ -44,6 +44,7 @@ let idx = 0; // global index for lightbox ordering
                 type="button"
                 data-photo={i}
                 data-large={p.large}
+                data-cat={p.category}
                 aria-label={`View photo ${i + 1}`}
               >
                 <Image src={p.meta} widths={[280, 520]} sizes="(max-width: 600px) 45vw, 260px" alt="" />
@@ -164,10 +165,12 @@ let idx = 0; // global index for lightbox ordering
   const thumbs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-photo]'));
   if (dialog && img && thumbs.length) {
     const sources = thumbs.map((t) => t.dataset.large ?? '');
+    const caps = thumbs.map((t) => t.dataset.cat ?? 'Photo');
     let current = 0;
     const show = (i: number) => {
       current = (i + sources.length) % sources.length;
       img.src = sources[current];
+      img.alt = `${caps[current]} — photo ${current + 1}`;
     };
     thumbs.forEach((t, i) =>
       t.addEventListener('click', () => {
