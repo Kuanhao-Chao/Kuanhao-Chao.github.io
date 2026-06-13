@@ -33,7 +33,7 @@ const news = await Promise.all(
   <section class="section container">
     <SectionHeading eyebrow="What I work on" title="Research" href="/research/" more="All research" />
     <div class="home-research">
-      {research.map((entry) => <ResearchCard entry={entry} />)}
+      {research.map((entry) => <ResearchCard entry={entry} compact />)}
     </div>
   </section>
 
@@ -201,6 +201,9 @@ const news = await Promise.all(
     .home-news,
     .home-bg {
       grid-template-columns: 1fr;
+    }
+    .home-research {
+      gap: 0.85rem;
     }
   }
 </style>

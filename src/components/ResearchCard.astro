@@ -5,8 +5,9 @@ import type { CollectionEntry } from 'astro:content';
 
 interface Props {
   entry: CollectionEntry<'research'>;
+  compact?: boolean;
 }
-const { entry } = Astro.props;
+const { entry, compact = false } = Astro.props;
 const d = entry.data;
 const href = `/research/${entry.id}/`;
 const links = [
@@ -16,7 +17,7 @@ const links = [
   { label: 'News', icon: 'external', href: d.news },
 ].filter((l) => l.href);
 ---
-<article class="rcard">
+<article class:list={['rcard', { 'rcard--compact': compact }]}>
   <a href={href} class="rcard-media" aria-hidden="true" tabindex="-1">
     {
       d.image ? (
@@ -128,5 +129,45 @@ const links = [
   .rcard-links a:hover {
     color: var(--color-accent);
     text-decoration: none;
+  }
+
+  /* Homepage "compact" variant. On wide screens it just clamps the summary so the
+     featured cards have even heights; on phones it collapses each card into a tight
+     thumbnail row so the 5 items don't stack into a long, bulky scroll. */
+  .rcard--compact .rcard-summary {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  @media (max-width: 620px) {
+    .rcard--compact {
+      flex-direction: row;
+      align-items: stretch;
+    }
+    .rcard--compact .rcard-media {
+      aspect-ratio: auto;
+      width: 38%;
+      max-width: 116px;
+      flex: none;
+    }
+    .rcard--compact .rcard-body {
+      padding: 0.85rem 1rem;
+      gap: 0.3rem;
+      justify-content: center;
+    }
+    .rcard--compact .rcard-title {
+      font-size: 1.05rem;
+    }
+    .rcard--compact .rcard-summary {
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      font-size: var(--fs-meta);
+    }
+    .rcard--compact .rcard-links {
+      display: none;
+    }
   }
 </style>
