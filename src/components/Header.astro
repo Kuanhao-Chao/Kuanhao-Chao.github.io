@@ -6,7 +6,7 @@ const path = Astro.url.pathname;
 const isActive = (href: string) =>
   href === '/' ? path === '/' : path.startsWith(href.replace(/\/$/, ''));
 ---
-<header class="site-header">
+<header class="site-header" transition:persist="site-header">
   <div class="container header-inner">
     <a href="/" class="wordmark" aria-label={`${site.name} — home`}>
       <span class="wordmark-mark" aria-hidden="true">KHC</span>
@@ -119,7 +119,8 @@ const isActive = (href: string) =>
   .nav-desktop a[aria-current='page'] {
     color: var(--color-accent);
   }
-  .nav-desktop a[aria-current='page']::after {
+  /* Underline "splices" in from the left on hover/focus; active page stays full. */
+  .nav-desktop a::after {
     content: '';
     position: absolute;
     left: 0;
@@ -127,6 +128,14 @@ const isActive = (href: string) =>
     bottom: -2px;
     height: 1.5px;
     background: var(--color-accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 200ms ease;
+  }
+  .nav-desktop a:hover::after,
+  .nav-desktop a:focus-visible::after,
+  .nav-desktop a[aria-current='page']::after {
+    transform: scaleX(1);
   }
   .nav-toggle {
     display: none;
@@ -203,5 +212,22 @@ const isActive = (href: string) =>
     window.matchMedia('(min-width: 900px)').addEventListener('change', (e) => {
       if (e.matches) setOpen(false);
     });
+
+    // Close the mobile menu when a client-side navigation begins.
+    document.addEventListener('astro:before-swap', () => setOpen(false));
   }
+
+  // The header persists across view transitions, so refresh the active-nav
+  // indicator on each navigation.
+  function updateActiveNav() {
+    const path = location.pathname;
+    for (const a of document.querySelectorAll<HTMLAnchorElement>('.nav-desktop a, .mobile-menu a')) {
+      const href = a.getAttribute('href') || '';
+      if (!href.startsWith('/')) continue;
+      const active = href === '/' ? path === '/' : path.startsWith(href.replace(/\/$/, ''));
+      if (active) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    }
+  }
+  document.addEventListener('astro:page-load', updateActiveNav);
 </script>

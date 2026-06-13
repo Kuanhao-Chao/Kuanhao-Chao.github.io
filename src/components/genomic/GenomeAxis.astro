@@ -1,0 +1,89 @@
+---
+/**
+ * Genome-browser axis used as the page-header divider: a coordinate baseline
+ * with faint ticks, a small gene-model glyph at the locus origin, and a one-shot
+ * teal "playhead" that sweeps across on load (like a browser snapping to a
+ * locus). Static + clean under reduced motion — the playhead stays hidden.
+ */
+---
+<div class="gaxis" aria-hidden="true">
+  <svg class="gaxis-gene" viewBox="0 0 60 14" fill="none" aria-hidden="true">
+    <line class="gax-intron" x1="1" y1="7" x2="59" y2="7" />
+    <rect class="gax-exon" x="1" y="3" width="12" height="8" rx="1" />
+    <rect class="gax-exon" x="23" y="3" width="9" height="8" rx="1" />
+    <rect class="gax-exon" x="42" y="3" width="14" height="8" rx="1" />
+  </svg>
+</div>
+
+<style>
+  .gaxis {
+    position: relative;
+    height: 16px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  /* Coordinate ticks rising from the baseline. */
+  .gaxis::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 6px;
+    background-image: repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-ink) 14%, transparent) 0 1px,
+      transparent 1px 32px
+    );
+  }
+  /* Gene-model glyph at the locus origin. */
+  .gaxis-gene {
+    position: absolute;
+    left: 0;
+    bottom: 1px;
+    width: 60px;
+    height: 14px;
+  }
+  .gax-intron {
+    stroke: color-mix(in srgb, var(--color-ink) 32%, transparent);
+    stroke-width: 1;
+  }
+  .gax-exon {
+    fill: color-mix(in srgb, var(--color-accent) 18%, transparent);
+    stroke: var(--color-accent);
+    stroke-width: 1;
+  }
+  /* One-shot playhead sweep across the axis. */
+  .gaxis::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 1.5px;
+    background: var(--color-accent);
+    box-shadow: 0 0 7px 1px color-mix(in srgb, var(--color-accent) 50%, transparent);
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .gaxis::after {
+      animation: gaxis-playhead 1.3s ease-out 0.15s 1;
+    }
+  }
+  @keyframes gaxis-playhead {
+    0% {
+      left: 0;
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    82% {
+      opacity: 1;
+    }
+    100% {
+      left: 100%;
+      opacity: 0;
+    }
+  }
+</style>

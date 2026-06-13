@@ -4,6 +4,9 @@ import BaseHead from '../components/BaseHead.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import SiteBackground from '../components/SiteBackground.astro';
+import ReadingProgress from '../components/ReadingProgress.astro';
+import PageScan from '../components/PageScan.astro';
+import { ClientRouter } from 'astro:transitions';
 
 interface Props {
   title?: string;
@@ -17,6 +20,7 @@ const { title, description, image, type } = Astro.props;
 <html lang="en">
   <head>
     <BaseHead title={title} description={description} image={image} type={type} />
+    <ClientRouter />
   </head>
   <body>
     <script is:inline>
@@ -26,6 +30,8 @@ const { title, description, image, type } = Astro.props;
       }
     </script>
     <SiteBackground />
+    <ReadingProgress />
+    <PageScan />
     <a href="#main" class="skip-link">Skip to content</a>
     <Header />
     <main id="main">
@@ -34,15 +40,30 @@ const { title, description, image, type } = Astro.props;
     <Footer />
     <script>
       import { prefersReducedMotion, onVisible } from '../scripts/motion';
-      if (!prefersReducedMotion()) {
-        for (const el of document.querySelectorAll('[data-reveal]')) {
-          let stop = () => {};
-          stop = onVisible(el, () => {
-            el.classList.add('is-visible');
-            stop();
-          });
-        }
+      // Scroll-reveal + section-divider pulses. Runs on the initial load and after
+      // every client-side navigation; pending observers are dropped before a swap.
+      let stoppers: Array<() => void> = [];
+      function reveal() {
+        if (prefersReducedMotion()) return;
+        const observe = (selector: string, cls: string) => {
+          for (const el of document.querySelectorAll(selector)) {
+            let stop = () => {};
+            stop = onVisible(el, () => {
+              el.classList.add(cls);
+              stop();
+            });
+            stoppers.push(stop);
+          }
+        };
+        observe('[data-reveal]', 'is-visible');
+        observe('[data-pulse]', 'is-pulsed');
       }
+      function teardown() {
+        for (const stop of stoppers) stop();
+        stoppers = [];
+      }
+      document.addEventListener('astro:page-load', reveal);
+      document.addEventListener('astro:before-swap', teardown);
     </script>
   </body>
 </html>

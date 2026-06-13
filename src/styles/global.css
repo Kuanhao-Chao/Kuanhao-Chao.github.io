@@ -204,22 +204,30 @@ hr {
   border: 1px solid var(--color-ink);
   border-radius: var(--radius);
   color: var(--color-ink);
-  background: transparent;
   cursor: pointer;
-  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  /* Hover fill "elongates" in from the left (a background-image layer wiped via
+     background-size), like polymerase along a strand. Text sits above the
+     element background, so no pseudo-element/z-index juggling is needed. */
+  background-color: transparent;
+  background-image: linear-gradient(var(--color-ink), var(--color-ink));
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 0% 100%;
+  transition: background-size 300ms ease, color var(--transition), border-color var(--transition);
 }
 .btn:hover {
-  background: var(--color-ink);
+  background-size: 100% 100%;
   color: var(--color-bg);
   text-decoration: none;
 }
 .btn--accent {
   border-color: var(--color-accent);
-  background: var(--color-accent);
+  background-color: var(--color-accent);
+  background-image: linear-gradient(var(--color-accent-dark), var(--color-accent-dark));
   color: #fff;
 }
 .btn--accent:hover {
-  background: var(--color-accent-dark);
+  background-size: 100% 100%;
   border-color: var(--color-accent-dark);
   color: #fff;
 }
@@ -236,4 +244,27 @@ hr {
 .reveal-ready [data-reveal].is-visible {
   opacity: 1;
   transform: none;
+}
+
+/* ── View transitions ────────────────────────────────────────────
+   Persisted chrome (header, backgrounds, progress bar, scanner) stays put;
+   only the page content cross-fades. Silent under reduced motion (Astro also
+   disables transitions there). */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: vt-fade-out 0.25s ease both;
+  }
+  ::view-transition-new(root) {
+    animation: vt-fade-in 0.3s ease both;
+  }
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
 }
