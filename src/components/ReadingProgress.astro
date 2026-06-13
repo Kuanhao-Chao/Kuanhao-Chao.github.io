@@ -1,0 +1,70 @@
+---
+/**
+ * Reading-progress "sequencing read" bar.
+ *
+ * A hairline pinned to the top of every page; as you scroll, a teal read extends
+ * left→right like a growing contig, led by a soft "read head" glow. It's a
+ * scroll-position indicator (not autonomous motion), so it stays active under
+ * reduced-motion — just without any shimmer. Idempotent + astro:page-load aware
+ * so it survives client-side navigation (View Transitions) when persisted.
+ */
+---
+<div class="readbar" data-readbar aria-hidden="true" transition:persist="readbar"><span class="readbar-fill"></span></div>
+
+<style>
+  .readbar {
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: 3px;
+    z-index: 200;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--color-rule) 45%, transparent);
+  }
+  .readbar-fill {
+    display: block;
+    height: 100%;
+    width: calc(var(--p, 0) * 100%);
+    background-color: var(--color-accent);
+    /* Faint base-position notches, like a sequencing read. */
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent 0 5px,
+      color-mix(in srgb, var(--color-bg) 22%, transparent) 5px 6px
+    );
+    position: relative;
+    /* Clips the leading head to the fill, so nothing shows at the top (width 0). */
+    overflow: hidden;
+  }
+  /* Leading "read head" — a brighter cap that rides the growing edge. */
+  .readbar-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 26px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-accent) 65%, #fff));
+  }
+</style>
+
+<script>
+  const bar = document.querySelector<HTMLElement>('[data-readbar]');
+  if (bar) {
+    let ticking = false;
+    const update = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+      bar.style.setProperty('--p', p.toFixed(4));
+      ticking = false;
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    update();
+    // Recompute/reset after a client-side navigation (View Transitions).
+    document.addEventListener('astro:page-load', update);
+  }
+</script>

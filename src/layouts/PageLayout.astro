@@ -1,5 +1,6 @@
 ---
 import BaseLayout from './BaseLayout.astro';
+import GenomeAxis from '../components/genomic/GenomeAxis.astro';
 
 interface Props {
   title: string;
@@ -16,6 +17,7 @@ const { title, eyebrow, lead, description, width = 'wide' } = Astro.props;
       {eyebrow && <p class="eyebrow">{eyebrow}</p>}
       <h1>{title}</h1>
       {lead && <p class="lead page-lead">{lead}</p>}
+      <div class="page-axis"><GenomeAxis /></div>
     </div>
   </header>
   <div class:list={['container', width === 'narrow' && 'container--narrow', 'page-body']} data-reveal>
@@ -26,11 +28,13 @@ const { title, eyebrow, lead, description, width = 'wide' } = Astro.props;
 <style>
   .page-head {
     padding-top: clamp(2.5rem, 6vw, 4.5rem);
-    padding-bottom: var(--space-10);
-    border-bottom: 1px solid var(--color-rule);
   }
   .page-head h1 {
     margin-top: 0.75rem;
+  }
+  /* The genome axis is the header divider; it sits where the old rule did. */
+  .page-axis {
+    margin-top: var(--space-10);
   }
   .page-lead {
     margin-top: 1.25rem;

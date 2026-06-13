@@ -68,3 +68,16 @@
   padding: 0.15em 0.4em;
   border-radius: 3px;
 }
+
+/* In-text links: a "splice-in" underline that draws from the left on hover. */
+.prose a {
+  background-image: linear-gradient(var(--color-accent), var(--color-accent));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  transition: background-size 220ms ease, color var(--transition);
+}
+.prose a:hover {
+  background-size: 100% 1px;
+  text-decoration: none;
+}

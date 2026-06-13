@@ -1,0 +1,67 @@
+---
+/**
+ * Genomic "scanner" page transition. A thin teal line sweeps top→bottom on each
+ * client-side navigation (View Transitions), like a sequencer scanning in the
+ * new page. The element is persisted so the sweep plays through the DOM swap.
+ * Silent under reduced motion (Astro also disables transitions there).
+ */
+---
+<div class="pagescan" data-pagescan aria-hidden="true" transition:persist="pagescan"></div>
+
+<style>
+  .pagescan {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .pagescan::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+    box-shadow: 0 0 12px 2px color-mix(in srgb, var(--color-accent) 40%, transparent);
+    transform: translateY(-4px);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .pagescan.is-scanning {
+      opacity: 1;
+    }
+    .pagescan.is-scanning::before {
+      animation: pagescan-sweep 0.45s ease-out 1;
+    }
+  }
+  @keyframes pagescan-sweep {
+    0% {
+      transform: translateY(-4px);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    88% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(100vh);
+      opacity: 0;
+    }
+  }
+</style>
+
+<script>
+  const el = document.querySelector<HTMLElement>('[data-pagescan]');
+  if (el) {
+    document.addEventListener('astro:before-swap', () => {
+      el.classList.remove('is-scanning');
+      // Force a reflow so the sweep restarts on every navigation.
+      void el.offsetWidth;
+      el.classList.add('is-scanning');
+    });
+    el.addEventListener('animationend', () => el.classList.remove('is-scanning'));
+  }
+</script>
