@@ -32,7 +32,7 @@ import portrait from '../assets/profile/portrait.jpg';
     </div>
 
     <div class="hero-portrait">
-      <Image src={portrait} alt={site.name} widths={[280, 460]} sizes="(max-width: 880px) 11rem, 18rem" />
+      <Image src={portrait} alt={site.name} widths={[384, 576]} sizes="(max-width: 880px) 12rem, 18rem" />
     </div>
   </div>
 </section>
@@ -95,15 +95,46 @@ import portrait from '../assets/profile/portrait.jpg';
     filter: grayscale(12%);
   }
 
+  /* Phone + tablet: centered profile-card layout with a circular avatar. */
   @media (max-width: 880px) {
     .hero-inner {
       grid-template-columns: 1fr;
+      justify-items: center;
+      text-align: center;
+      gap: clamp(1.5rem, 5vw, 2.25rem);
+    }
+    .hero-text {
+      max-width: 38rem;
     }
     .hero-portrait {
       order: -1;
     }
     .hero-portrait :global(img) {
-      width: 8.5rem;
+      width: clamp(9rem, 28vw, 12rem);
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+    }
+    .hero-eyebrow {
+      margin-bottom: 0.7rem;
+    }
+    .hero-title {
+      margin-bottom: 0.9rem;
+    }
+    .hero-lead {
+      margin-inline: auto;
+      margin-bottom: 1.25rem;
+    }
+    /* Long bio reads better left-aligned, but keep the block centered. */
+    .hero-bio {
+      text-align: left;
+      margin-inline: auto;
+    }
+    .hero-actions {
+      justify-content: center;
+    }
+    .hero-actions :global(.hero-socials) {
+      flex-basis: 100%;
+      justify-content: center;
     }
   }
 </style>
