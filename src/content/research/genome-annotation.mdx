@@ -1,0 +1,35 @@
+---
+title: 'Improving genome annotation with LiftOn'
+area: 'Genome annotation'
+summary: 'Graph-based methods that combine fragmented DNA and protein alignments to assemble more accurate genome annotations, implemented in the LiftOn annotation lift-over tool.'
+image: ../../assets/research/annotation-workflow.png
+status: published
+paper: 'https://doi.org/10.1101/gr.279620.124'
+code: 'https://github.com/Kuanhao-Chao/LiftOn'
+talk: 'https://youtu.be/1zSz67rxQtA'
+advisors: ['Steven L. Salzberg', 'Mihaela Pertea']
+order: 3
+featured: true
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figure from '../../assets/research/annotation-workflow.png';
+
+Accurate gene annotation — knowing where genes and their exons lie — is the foundation everything else in genome biology builds on. As assemblies are now produced far faster than they can be curated, I'm interested in transferring annotations across genomes reliably, and in fusing two kinds of evidence that are usually used in isolation: DNA alignment (fast, but brittle as species diverge) and protein alignment (robust to sequence change, but fragmentary).
+
+## The problem
+
+The standard way to annotate a new assembly is to *lift over* genes from a well-annotated one. DNA-based lift-over (Liftoff) is fast but, across divergence or assembly differences, it introduces frameshifts, premature stop codons, and wrong exon boundaries. Protein-based mapping (miniprot) survives sequence change but produces fragmented, sometimes conflicting gene models. Neither alone is trustworthy.
+
+## What I built
+
+I developed **LiftOn**, which combines both signals. It aligns each candidate gene's protein from Liftoff *and* from miniprot back to the reference, scores the alignments for mismatches, indels, and premature stops, and then runs a **protein-maximization CDS chaining** algorithm that stitches the best-supported coding segments into one coherent gene model.
+
+<ZoomFigure src={figure} alt="The LiftOn workflow combining DNA and protein evidence, panels A through E" variant="portrait">
+  <strong>Figure 1.</strong> The LiftOn workflow. A gene is annotated independently from DNA evidence (Liftoff) and protein evidence (miniprot) <strong>(A)</strong>; each candidate's protein is aligned to the reference to score mismatches, indels, and premature stops <strong>(B–C)</strong>; LiftOn chains coding segments to maximize protein-alignment identity <strong>(D)</strong>; and emits a final, more accurate annotation <strong>(E)</strong>.
+</ZoomFigure>
+
+## What it showed
+
+As Figure 1 traces, the two evidence types are complementary, and the chaining step in panel D is where LiftOn turns their disagreement into a gene model better than either source alone. Across human and other genomes it recovers more complete, in-frame protein-coding annotations than Liftoff or miniprot on their own — especially where the target diverges from the reference.
+
+**In brief:** a lift-over tool that fuses DNA and protein alignments for more accurate annotations across species. ([Genome Research, 2025](https://doi.org/10.1101/gr.279620.124); [documentation](https://ccb.jhu.edu/lifton/); [code](https://github.com/Kuanhao-Chao/LiftOn).)

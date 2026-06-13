@@ -1,0 +1,34 @@
+---
+title: 'Assembling the first gapless Han Chinese genome'
+area: 'Genome assembly'
+summary: 'Han1: the first gapless, reference-quality, fully annotated Southern Han Chinese genome, assembled from PacBio HiFi and Oxford Nanopore long reads using T2T-CHM13 as a guide.'
+image: ../../assets/research/genome-assembly.png
+status: published
+paper: 'https://doi.org/10.1093/g3journal/jkac321'
+news: 'https://www.ncbi.nlm.nih.gov/datasets/genome/GCA_024586135.1/'
+advisors: ['Steven L. Salzberg', 'Mihaela Pertea']
+order: 4
+featured: true
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figure from '../../assets/research/genome-assembly.png';
+
+Reference genomes shape every downstream analysis — variant calling, expression, association studies — yet they are built from only a handful of individuals. That bias quietly disadvantages anyone whose ancestry is under-represented. I'm interested in building complete, diverse references so that genomics works equally well across populations.
+
+## The problem
+
+GRCh38, the workhorse human reference, is a mosaic of a few donors and still carries gaps and errors; the first truly complete genome, T2T-CHM13, comes from a single, near-homozygous hydatidiform-mole cell line. Neither represents the diversity of the largest ethnic group in the world — Han Chinese — and reads from such genomes map worse to a mismatched reference.
+
+## What I built
+
+I assembled and annotated **Han1**, the first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual. It combines the accuracy of PacBio HiFi reads with the span of Oxford Nanopore ultra-long reads, using the T2T-CHM13 assembly as a guide to reach telomere-to-telomere completeness, followed by a full gene annotation.
+
+<ZoomFigure src={figure} alt="Chromosome ideogram of the gapless Han1 assembly across all 24 human chromosomes" variant="wide">
+  <strong>Figure 1.</strong> Chromosome ideogram of the Han1 assembly across all 24 human chromosomes. Solid coloring marks contiguous, gapless sequence resolved with T2T-CHM13 as a guide; lighter bands indicate centromeric and satellite regions.
+</ZoomFigure>
+
+## What it showed
+
+As Figure 1 shows, Han1 spans every chromosome end to end. The assembly surfaces population-specific sequence and structural variation absent from GRCh38, and reads from Han Chinese samples align more accurately to it — concrete evidence that an ancestry-matched, complete reference improves downstream analysis.
+
+**In brief:** a gapless, fully annotated Han Chinese reference that helps close the diversity gap in human genomics. ([G3: Genes, Genomes, Genetics, 2023](https://doi.org/10.1093/g3journal/jkac321); available on [NCBI](https://www.ncbi.nlm.nih.gov/datasets/genome/GCA_024586135.1/).)
