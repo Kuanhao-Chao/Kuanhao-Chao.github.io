@@ -1,0 +1,43 @@
+---
+/**
+ * Gene expression / DNA language model: a coverage signal with a "context
+ * window" that slides along the sequence on hover.
+ */
+interface Props { class?: string }
+const { class: className } = Astro.props;
+const ticks = Array.from({ length: 13 }, (_, i) => 20 + i * 10);
+const cov = 'M14 78 C 28 78 30 56 42 54 C 54 52 58 30 72 34 C 86 38 92 18 104 26 C 116 34 122 60 134 60 L146 60';
+---
+<svg class:list={['motif', 'motif-gx', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
+  <path class="gx-cov" d={`${cov} L146 78 L14 78 Z`} />
+  <path class="gx-line" d={cov} />
+  <line class="m-axis" x1="14" y1="78" x2="146" y2="78" />
+  <g class="m-seq">{ticks.map((x) => <line x1={x} y1="78" x2={x} y2="83" />)}</g>
+  <rect class="gx-win" x="22" y="20" width="30" height="64" rx="3" />
+</svg>
+
+<style>
+  .motif {
+    width: 100%;
+    height: 100%;
+    display: block;
+    --motif-ink: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  }
+  .m-axis { stroke: var(--motif-ink); stroke-width: 1.4; }
+  .m-seq line { stroke: var(--motif-ink); stroke-width: 1.2; opacity: 0.5; }
+  .gx-cov { fill: color-mix(in srgb, var(--color-accent) 14%, transparent); }
+  .gx-line { stroke: var(--color-accent); stroke-width: 1.8; stroke-linejoin: round; }
+  .gx-win {
+    fill: color-mix(in srgb, var(--color-accent) 9%, transparent);
+    stroke: var(--color-accent);
+    stroke-width: 1.4;
+    transform-box: view-box;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .motif-gx:hover .gx-win { animation: gx-slide 3.6s ease-in-out infinite; }
+  }
+  @keyframes gx-slide {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(92px); }
+  }
+</style>

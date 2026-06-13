@@ -1,0 +1,46 @@
+---
+/**
+ * Faint, slowly scrolling A/C/G/T genome-browser band. Decorative connective
+ * tissue between sections / in the footer. Pure CSS marquee (two copies for a
+ * seamless loop); static under prefers-reduced-motion.
+ */
+interface Props { class?: string }
+const { class: className } = Astro.props;
+const seq =
+  'ATCGGCATTACGATCGTAGCTAGGCTACGATCGATTACAGCATCGTAGCTAGCATCGGATCAGCTAGCTAACGTGCATCGATCGTAGCATCGTACGTTAGCAC';
+---
+<div class:list={['seqtrack', className]} aria-hidden="true">
+  <div class="seqtrack-row">
+    <span class="seqtrack-seq">{seq}</span>
+    <span class="seqtrack-seq">{seq}</span>
+  </div>
+</div>
+
+<style>
+  .seqtrack {
+    overflow: hidden;
+    width: 100%;
+    line-height: 1;
+  }
+  .seqtrack-row {
+    display: flex;
+    width: max-content;
+    animation: seq-scroll 90s linear infinite;
+  }
+  .seqtrack-seq {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.35em;
+    white-space: nowrap;
+    padding-right: 0.35em;
+    color: color-mix(in srgb, var(--color-ink) 24%, transparent);
+    user-select: none;
+  }
+  @keyframes seq-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .seqtrack-row { animation: none; }
+  }
+</style>

@@ -223,3 +223,17 @@ hr {
   border-color: var(--color-accent-dark);
   color: #fff;
 }
+
+/* ── Scroll reveal ───────────────────────────────────────────────
+   Opt-in via [data-reveal]. The hidden state only applies once JS adds
+   `reveal-ready` to <html> (and only when motion is allowed), so no-JS
+   and reduced-motion users always see fully-visible content. */
+.reveal-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+.reveal-ready [data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}

@@ -1,0 +1,51 @@
+---
+/**
+ * Pangenome indexing (Wheeler Graph Toolkit): a small node-edge graph with a
+ * token that traverses a path on hover.
+ */
+interface Props { class?: string }
+const { class: className } = Astro.props;
+const edges = [
+  'M26 50 L60 30', 'M26 50 L60 70', 'M60 30 L100 30', 'M60 70 L100 70',
+  'M100 30 L134 50', 'M100 70 L134 50', 'M60 30 L100 70',
+];
+const nodes = [
+  [26, 50], [60, 30], [60, 70], [100, 30], [100, 70], [134, 50],
+];
+---
+<svg class:list={['motif', 'motif-pg', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
+  {edges.map((d) => <path class="pg-edge" d={d} />)}
+  {nodes.map(([cx, cy]) => <circle class="pg-node" cx={cx} cy={cy} r="6" />)}
+  <circle class="pg-token" r="3.6" cx="0" cy="0" />
+</svg>
+
+<style>
+  .motif {
+    width: 100%;
+    height: 100%;
+    display: block;
+    --motif-ink: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  }
+  .pg-edge { stroke: var(--motif-ink); stroke-width: 1.3; opacity: 0.55; }
+  .pg-node {
+    fill: var(--color-bg);
+    stroke: var(--color-accent);
+    stroke-width: 1.6;
+  }
+  .pg-token {
+    fill: var(--color-accent);
+    offset-path: path('M26 50 L60 30 L100 30 L134 50');
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .motif-pg:hover .pg-token {
+      opacity: 1;
+      animation: pg-move 3.4s ease-in-out infinite;
+    }
+  }
+  @keyframes pg-move {
+    0% { offset-distance: 0%; }
+    100% { offset-distance: 100%; }
+  }
+</style>

@@ -1,0 +1,24 @@
+---
+/**
+ * Dispatcher: renders the genomic motif matching a research entry id.
+ * Usage: <ResearchMotif id={entry.id} />
+ */
+import GeneExpressionMotif from './GeneExpressionMotif.astro';
+import SpliceMotif from './SpliceMotif.astro';
+import AnnotationMotif from './AnnotationMotif.astro';
+import AssemblyMotif from './AssemblyMotif.astro';
+import PangenomeMotif from './PangenomeMotif.astro';
+
+interface Props { id: string; class?: string }
+const { id, class: className } = Astro.props;
+
+const map = {
+  'gene-expression': GeneExpressionMotif,
+  'splice-sites': SpliceMotif,
+  'genome-annotation': AnnotationMotif,
+  'genome-assembly': AssemblyMotif,
+  'pangenome-indexing': PangenomeMotif,
+};
+const Motif = map[id as keyof typeof map] ?? GeneExpressionMotif;
+---
+<Motif class={className} />

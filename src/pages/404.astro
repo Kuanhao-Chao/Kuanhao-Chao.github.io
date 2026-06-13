@@ -1,12 +1,31 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { nav } from '../data/site';
+
+// Coverage histogram with a gap in the middle — the "unmapped" locus.
+const bars: { x: number; y: number; h: number }[] = [];
+for (let x = 14; x <= 306; x += 12) {
+  if (x >= 140 && x <= 176) continue; // gap region
+  const h = 12 + Math.round(22 * Math.abs(Math.sin(x * 0.13)));
+  bars.push({ x, y: 64 - h, h });
+}
 ---
 <BaseLayout title="Page not found">
   <section class="notfound container">
-    <p class="eyebrow">404</p>
-    <h1>This page wandered off.</h1>
-    <p class="muted">The page you're looking for doesn't exist or has moved.</p>
+    <p class="eyebrow">Error 404</p>
+
+    <svg class="nf-cov" viewBox="0 0 320 80" fill="none" aria-hidden="true">
+      <line class="nf-axis" x1="10" y1="64" x2="310" y2="64" />
+      {bars.map((b) => <rect class="nf-bar" x={b.x} y={b.y} width="8" height={b.h} rx="1.5" />)}
+      <rect class="nf-gap" x="138" y="16" width="40" height="48" rx="2" />
+      <text class="nf-gapn" x="158" y="44">N N N</text>
+      <line class="nf-scan" x1="0" y1="8" x2="0" y2="70" />
+    </svg>
+
+    <h1>This read didn't map.</h1>
+    <p class="muted">
+      No alignment found at this locus — the page you're looking for doesn't exist or has moved.
+    </p>
     <nav class="notfound-links" aria-label="Site sections">
       <a class="btn btn--accent" href="/">Back home</a>
       {nav.map((item) => <a class="notfound-link" href={item.href}>{item.label}</a>)}
@@ -26,7 +45,46 @@ import { nav } from '../data/site';
 <style>
   .notfound {
     padding-block: clamp(4rem, 12vw, 9rem);
-    max-width: 40rem;
+    max-width: 44rem;
+  }
+  .nf-cov {
+    width: 100%;
+    max-width: 30rem;
+    height: auto;
+    margin-bottom: 2.25rem;
+    --motif-ink: color-mix(in srgb, var(--color-ink) 45%, transparent);
+  }
+  .nf-axis { stroke: var(--motif-ink); stroke-width: 1.4; }
+  .nf-bar {
+    fill: color-mix(in srgb, var(--color-accent) 22%, transparent);
+    stroke: var(--color-accent);
+    stroke-width: 0.8;
+  }
+  .nf-gap {
+    fill: none;
+    stroke: var(--color-muted);
+    stroke-width: 1.2;
+    stroke-dasharray: 4 4;
+  }
+  .nf-gapn {
+    fill: var(--color-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-anchor: middle;
+  }
+  .nf-scan {
+    stroke: var(--color-accent);
+    stroke-width: 1.5;
+    opacity: 0.7;
+    transform-box: view-box;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .nf-scan { animation: nf-sweep 4.5s linear infinite; }
+  }
+  @keyframes nf-sweep {
+    from { transform: translateX(10px); }
+    to { transform: translateX(310px); }
   }
   .notfound h1 {
     margin-block: 0.75rem 1rem;
