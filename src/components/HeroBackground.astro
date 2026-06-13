@@ -41,9 +41,10 @@
     const NODE_R = 2.2; // base node radius (scaled by depth)
 
     const TRAIL = 0.18; // comet trail — fraction of the old frame erased each tick
-    const GLOW = 6; // px — max bloom radius at the head / pulse
+    const GLOW = 4; // px — max bloom radius at the head / pulse
     const PULSE_SPEED = 0.22; // node-indices/frame — speed of the travelling pulse
     const PULSE_WIDTH = 6; // nodes — half-width of the pulse window
+    const DIM = 0.6; // master opacity multiplier — keeps the cursor helix subtle
 
     const BASES = ['A', 'T', 'C', 'G'];
     const COMP: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C' };
@@ -107,7 +108,7 @@
     function mark(x: number, y: number, depth: number, col: string, baseA: number, letter: string) {
       const t = (depth + 1) / 2; // 0 (back) .. 1 (front)
       const a = baseA * (0.45 + 0.55 * t);
-      if (a > 0.13) {
+      if (a > 0.085) {
         const size = 8 + 4 * t;
         ctx!.font = `600 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
         ctx!.fillStyle = `rgba(${col}, ${a})`;
@@ -132,7 +133,7 @@
         ctx!.clearRect(0, 0, w, h);
       }
 
-      const boost = pointer.active ? 1.25 : 1; // brighter while tracking
+      const boost = pointer.active ? 1.12 : 1; // brighter while tracking
       const pulsePhase = (tick * PULSE_SPEED) % N; // travelling pulse position
       ctx!.textAlign = 'center';
       ctx!.textBaseline = 'middle';
@@ -168,7 +169,7 @@
         const fade = 0.4 + 0.6 * hf; // tail fades to faint
         const col = mix(teal);
         const g = Math.max(hf, pulse); // glow driver
-        const alphaScale = (1 + 0.8 * pulse) * boost;
+        const alphaScale = (1 + 0.5 * pulse) * boost * DIM;
 
         // Base-pair rung (crisp, no glow).
         ctx!.shadowBlur = 0;
@@ -201,7 +202,7 @@
       // Soft glow on the leading tip.
       ctx!.shadowBlur = 0;
       const head = spine[0];
-      const gA = (pointer.active ? 0.16 : 0.1) * boost;
+      const gA = (pointer.active ? 0.16 : 0.1) * boost * DIM;
       ctx!.fillStyle = `rgba(${TEAL[0]}, ${TEAL[1]}, ${TEAL[2]}, ${gA})`;
       ctx!.beginPath();
       ctx!.arc(head.x, head.y, 9, 0, Math.PI * 2);
