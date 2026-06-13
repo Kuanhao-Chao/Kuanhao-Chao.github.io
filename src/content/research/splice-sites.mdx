@@ -1,0 +1,36 @@
+---
+title: 'Splice site prediction with deep neural networks'
+area: 'RNA splicing'
+summary: 'A dilated residual convolutional neural network that decodes RNA splicing, alternative splicing, and the impact of genetic variants on cryptic splicing — released as Splam and OpenSpliceAI.'
+image: ../../assets/research/splice-overview.jpg
+status: published
+paper: 'https://doi.org/10.1186/s13059-024-03379-4'
+code: 'https://github.com/Kuanhao-Chao/splam'
+news: 'https://hub.jhu.edu/2024/12/11/splam-pinpoints-gene-splicing/'
+talk: 'https://youtu.be/MyWwUzjIBVk'
+advisors: ['Steven L. Salzberg', 'Mihaela Pertea']
+order: 2
+featured: true
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figure from '../../assets/research/splice-overview.jpg';
+
+RNA splicing — excising introns and joining exons — is one of the most intricate steps of gene expression, and when it misfires it underlies a large share of genetic disease. I'm interested in teaching neural networks to read the splicing code directly from sequence: to find where splicing occurs, to understand how it shifts in alternative splicing, and to predict how a single genetic variant can create or destroy a splice site.
+
+## The problem
+
+Two gaps motivated this work. First, RNA-seq aligners place millions of spliced reads, but many junctions are spurious — noise that corrupts downstream transcript assembly and quantification. Second, the most accurate splice-site model, SpliceAI, was trained only on human and is hard to retrain, leaving other species behind.
+
+## What I built
+
+I designed a deep, **dilated residual convolutional network** that scores every base as a donor, acceptor, or neither, using dilations to see the long-range context splicing depends on while staying compact. I released it as two tools: **Splam**, which evaluates a focused window around each candidate site to clean up spliced alignments, and **OpenSpliceAI**, an efficient, modular PyTorch re-implementation of SpliceAI that anyone can retrain on a new species.
+
+<ZoomFigure src={figure} alt="Splam model overview: architecture, residual unit, donor/acceptor framing, and input encoding" variant="square">
+  <strong>Figure 1.</strong> The Splam model. <strong>(a)</strong> A dilated residual CNN whose growing dilation widens the receptive field, ending in a per-base softmax. <strong>(b)</strong> The residual unit — two grouped dilated convolutions with batch-norm and LeakyReLU. <strong>(c)</strong> Splam scores donor and acceptor sites from the 200 bp flanking each. <strong>(d)</strong> The one-hot input encoding of the 800 bp context (400 bp around the donor and acceptor).
+</ZoomFigure>
+
+## What it showed
+
+As Figure 1 shows, Splam learns splicing from local sequence context alone, and using it to filter alignments removes mis-spliced reads and sharpens transcript assembly. OpenSpliceAI reproduces SpliceAI-level accuracy while running faster and — crucially — retraining cleanly on non-human genomes, where it outperforms the human model applied off-the-shelf.
+
+**In brief:** open, retrainable splice-site models that sharpen alignments and predict the splicing impact of variants. ([Splam — Genome Biology, 2024](https://doi.org/10.1186/s13059-024-03379-4); [OpenSpliceAI — eLife, 2025](https://doi.org/10.7554/eLife.107454.3); [code](https://github.com/Kuanhao-Chao/splam).)

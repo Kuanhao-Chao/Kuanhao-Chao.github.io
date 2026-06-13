@@ -1,0 +1,35 @@
+---
+title: 'Gene expression prediction with DNA language models'
+area: 'Gene expression'
+summary: 'Shorkie is a masked-DNA language model pretrained on 165 fungal genomes and fine-tuned on high-resolution yeast transcription-factor induction time-course RNA-seq data to predict dynamic expression patterns.'
+image: ../../assets/research/gene-expression-overview.jpg
+status: preprint
+paper: 'https://doi.org/10.1101/2025.09.19.677475'
+code: 'https://github.com/calico/shorkie-paper'
+talk: 'https://youtu.be/MvpYQYQvZ0U'
+advisors: ['David R. Kelley', 'Johannes Linder']
+order: 1
+featured: true
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figure from '../../assets/research/gene-expression-overview.jpg';
+
+How does the regulatory code written in DNA give rise to gene expression? I'm drawn to **sequence-to-function models** — neural networks that read raw DNA and predict molecular phenotypes — because they let us interrogate that code directly: not just *whether* a gene is expressed, but *which* nucleotides drive it. My conviction is that a model trained across many genomes can learn a transferable "grammar" of regulation that no single genome reveals on its own.
+
+## The problem
+
+Predicting expression from sequence alone is hard: regulatory signals are sparse, combinatorial, and spread across long stretches of DNA. Budding yeast is the ideal proving ground — a compact, deeply characterized genome with rich functional data — but a model is only convincing if it learns *biology* rather than memorizing the training set.
+
+## What I built
+
+With the Kelley Lab at Calico, I built **Shorkie**, a masked-DNA language model with a multi-resolution architecture that reads 16 kb of sequence and makes predictions from single-base up to 128 bp resolution. I pretrained it across a four-level hierarchy — one *S. cerevisiae* reference (R64), 80 strains, 165 Saccharomycetales, and 1,342 fungal genomes — then fine-tuned it on high-resolution transcription-factor induction time-course RNA-seq, unifying ChIP-exo DNA-binding and RNA-seq coverage prediction in a single model.
+
+<ZoomFigure src={figure} alt="Overview of the Shorkie model: multi-resolution architecture, fungal training hierarchy, and training" variant="square">
+  <strong>Figure 1.</strong> Overview of Shorkie. A multi-resolution network ingests 16,384 bp and predicts from 1 bp to 128 bp resolution through stacked transformer blocks; pretraining spans four taxonomic levels (species → strains → order → kingdom); the fungal phylogeny shows the genomes used; and validation loss and gene-vs-intergenic perplexity track what the model learns.
+</ZoomFigure>
+
+## What it showed
+
+As Figure 1 outlines, training across the fungal tree teaches Shorkie regulatory features that transfer back to yeast. In-silico mutagenesis recovers known transcription-factor binding sites (REB1, TYE7P), the TATA box, and start codons *without supervision*, and the model predicts dynamic, condition-specific expression — evidence it has internalized regulatory logic rather than the training data.
+
+**In brief:** a transferable fungal DNA language model that predicts dynamic gene expression and exposes the regulatory grammar behind it. ([Preprint, 2025](https://doi.org/10.1101/2025.09.19.677475); [code](https://github.com/calico/shorkie-paper).)

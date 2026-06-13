@@ -1,0 +1,36 @@
+---
+title: 'Recognizing Wheeler graphs for pangenome indexing'
+area: 'Pangenome indexing'
+summary: 'New renaming heuristics and an SMT solver that make the Wheeler-graph recognition problem computationally feasible — the foundation for compact, searchable pangenome indexes.'
+image: ../../assets/research/pangenome-pipeline.jpg
+status: published
+paper: 'https://doi.org/10.1016/j.isci.2023.107402'
+code: 'https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit'
+news: 'https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/'
+talk: 'https://youtu.be/TkX9S024Dk8'
+advisors: ['Ben Langmead', 'Sanjit A. Seshia']
+order: 5
+featured: true
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figure from '../../assets/research/pangenome-pipeline.jpg';
+
+A single linear reference can't capture human diversity, so genomics is shifting toward **pangenomes** — graphs that encode many genomes at once. The challenge is indexing those graphs so they stay fast to search. Wheeler graphs are an elegant answer: a class of graphs that admit a compact, BWT-style index. But there's a catch — deciding whether an arbitrary graph even *is* a Wheeler graph is NP-complete.
+
+## The problem
+
+The power of the FM-index — the data structure behind read aligners like Bowtie and BWA — comes from a special ordering of a string's rotations. Wheeler graphs generalize that idea to graphs, but only if the nodes admit a valid "Wheeler ordering." Finding such an ordering, or proving none exists, is NP-complete, so a naive search stalls on all but the smallest graphs.
+
+## What I built
+
+I made recognition practical by pairing a **node-renaming heuristic** with exact **solvers**. The heuristic propagates an ordering from incoming edge labels and resolves the easy, unambiguous nodes cheaply; only the genuinely ambiguous cases are handed to a permutation solver (Wheelie-PM) or an SMT solver (Wheelie-SMT). I packaged the whole pipeline as the **Wheeler Graph Toolkit (WGT)** — generate, recognize, and visualize Wheeler graphs.
+
+<ZoomFigure src={figure} alt="The Wheeler Graph Toolkit pipeline: generator, recognizer (Wheelie), and visualizer" variant="square">
+  <strong>Figure 1.</strong> The Wheeler Graph Toolkit. A <em>generator</em> produces labeled graphs; the <em>recognizer</em> (Wheelie) computes a label-maximum ordering, applies the renaming heuristic, and falls back to permutation (Wheelie-PM) or SMT (Wheelie-SMT) solvers on ambiguous nodes; the <em>visualizer</em> renders the resulting Wheeler-ordered graph.
+</ZoomFigure>
+
+## What it showed
+
+As Figure 1 outlines, the heuristic disposes of most of the ordering work, leaving the solver a far smaller problem. In benchmarks across de Bruijn graphs, tries, and reverse-deterministic graphs (in both DNA and protein alphabets), Wheelie recognizes graphs orders of magnitude faster than exhaustive search, clearing many cases that otherwise blow past a 30-second timeout.
+
+**In brief:** practical Wheeler-graph recognition and tooling — a step toward compact, searchable pangenome indexes. ([iScience, 2023](https://doi.org/10.1016/j.isci.2023.107402); a JHU × UC Berkeley collaboration; [code](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit).)
