@@ -46,7 +46,7 @@ const news = await Promise.all(
       more="All publications"
     />
     <ol class="home-pubs">
-      {pubs.map((pub) => <li><PublicationItem pub={pub} /></li>)}
+      {pubs.map((pub) => <li><PublicationItem pub={pub} compact /></li>)}
     </ol>
   </section>
 
@@ -102,7 +102,7 @@ const news = await Promise.all(
     </div>
   </section>
 
-  <SequenceTrack class="home-seq" />
+  <div class="home-seq"><SequenceTrack /></div>
 
   <section class="cta" data-reveal>
     <div class="container cta-inner">
@@ -193,7 +193,7 @@ const news = await Promise.all(
     justify-content: center;
   }
   .home-seq {
-    margin-block: clamp(2.5rem, 6vw, 4rem);
+    margin-block: clamp(3rem, 8vw, 5rem);
     padding-block: 0.9rem;
     border-block: 1px solid var(--color-rule);
   }
@@ -212,6 +212,15 @@ const news = await Promise.all(
     }
     .home-research {
       gap: 0.85rem;
+    }
+    .home-bg {
+      gap: var(--space-8);
+    }
+    .bg-role {
+      font-size: 1rem;
+    }
+    .bg-list {
+      gap: 0.9rem;
     }
   }
 </style>

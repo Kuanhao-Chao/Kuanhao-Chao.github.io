@@ -60,7 +60,7 @@
   --radius: 2px;            /* near-sharp, Calico-style */
   --radius-lg: 4px;
 
-  --section-y: clamp(3.5rem, 8vw, 7rem);
+  --section-y: clamp(2.75rem, 8vw, 7rem);
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
 
   --transition: 160ms ease;
