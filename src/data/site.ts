@@ -51,6 +51,7 @@ export type NavItem = { label: string; href: string };
 export const nav: NavItem[] = [
   { label: 'Research', href: '/research/' },
   { label: 'Publications', href: '/publications/' },
+  { label: 'Software', href: '/software/' },
   { label: 'Talks', href: '/talks/' },
   { label: 'Teaching', href: '/teaching/' },
   { label: 'CV', href: '/cv/' },

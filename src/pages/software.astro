@@ -1,0 +1,169 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+import Icon from '../components/Icon.astro';
+import { software, sideProjects, type SoftwareTool } from '../data/cv';
+import { site } from '../data/site';
+
+const toolLinks = (t: SoftwareTool) =>
+  [
+    { label: 'Code', icon: 'code', href: t.code },
+    { label: 'Docs', icon: 'book', href: t.docs },
+    { label: 'Paper', icon: 'link', href: t.paper },
+    { label: 'Poster', icon: 'image', href: t.poster },
+  ].filter((l): l is { label: string; icon: string; href: string } => Boolean(l.href));
+
+// Structured data: one SoftwareSourceCode node per tool, linked to the Person node.
+const softwareLd = {
+  '@context': 'https://schema.org',
+  '@graph': software.map((t) => ({
+    '@type': 'SoftwareSourceCode',
+    name: t.name,
+    description: t.blurb,
+    codeRepository: t.code,
+    license: t.license.url,
+    author: { '@id': `${site.url}/#person` },
+    ...(t.docs ? { url: t.docs } : {}),
+  })),
+};
+---
+<PageLayout
+  title="Software"
+  eyebrow="Open source"
+  lead="Open-source tools I build and maintain for genomics — from DNA language models to splice-site prediction, genome annotation, and pangenome indexing. Build what you need, use what you build."
+  description="Open-source genomics software by Kuan-Hao Chao: Shorkie, OpenSpliceAI, Splam, LiftOn, sangeranalyseR, and the Wheeler Graph Toolkit."
+>
+  <section class="block">
+    <h2 class="block-title">Research software</h2>
+    <ul class="tools">
+      {
+        software.map((t) => {
+          const links = toolLinks(t);
+          const primary = t.docs ?? t.code;
+          return (
+            <li class="tool">
+              <div class="tool-head">
+                <h3 class="tool-name">
+                  <a href={primary} target="_blank" rel="noopener">{t.name}</a>
+                </h3>
+                <a class="tool-license" href={t.license.url} target="_blank" rel="noopener">
+                  {t.license.name}
+                </a>
+              </div>
+              <p class="tool-blurb muted">{t.blurb}</p>
+              <p class="row-links">
+                {links.map((l) => (
+                  <a href={l.href} target="_blank" rel="noopener">
+                    <Icon name={l.icon} size={15} />
+                    {l.label}
+                  </a>
+                ))}
+              </p>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </section>
+
+  <section class="block">
+    <h2 class="block-title">Side projects</h2>
+    <p class="muted side-intro">A few games I built with Unity for fun.</p>
+    <ul class="tools">
+      {
+        sideProjects.map((p) => (
+          <li class="tool">
+            <div class="tool-head">
+              <h3 class="tool-name">
+                <a href={p.url} target="_blank" rel="noopener">{p.name}</a>
+              </h3>
+            </div>
+            <p class="tool-blurb muted">{p.detail}</p>
+            <p class="row-links">
+              <a href={p.url} target="_blank" rel="noopener">
+                <Icon name="play" size={15} />
+                Play
+              </a>
+            </p>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(softwareLd)} />
+</PageLayout>
+
+<style>
+  .block {
+    margin-bottom: var(--space-16);
+  }
+  .block-title {
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+    padding-bottom: var(--space-4);
+    margin-bottom: var(--space-2);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .side-intro {
+    margin-top: var(--space-4);
+    font-size: var(--fs-small);
+  }
+  .tools {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .tool {
+    padding-block: var(--space-5);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .tool-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 0.85rem;
+  }
+  .tool-name {
+    font-size: 1.15rem;
+    font-weight: var(--fw-semibold);
+  }
+  .tool-name a {
+    color: var(--color-ink);
+  }
+  .tool-name a:hover {
+    color: var(--color-accent);
+  }
+  .tool-license {
+    font-size: var(--fs-meta);
+    padding: 0.25em 0.7em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    color: var(--color-muted);
+  }
+  .tool-license:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .tool-blurb {
+    margin-top: 0.4rem;
+    font-size: var(--fs-small);
+    max-width: var(--measure);
+  }
+  .row-links {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+    font-size: var(--fs-small);
+  }
+  .row-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--color-accent);
+  }
+  .row-links a:hover {
+    text-decoration: underline;
+  }
+</style>

@@ -143,6 +143,19 @@ const types = [
   .pub-list li.is-hidden {
     display: none;
   }
+  /* Year-group separators, injected by the island in chronological sort modes.
+     Mirrors the .year-label heading used on the Talks page. */
+  .pub-year {
+    font-size: var(--fs-h3);
+    color: var(--color-muted);
+    font-weight: var(--fw-medium);
+    padding-bottom: var(--space-3);
+    margin-top: var(--space-10);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .pub-year:first-child {
+    margin-top: var(--space-5);
+  }
   .pub-empty {
     padding: var(--space-8) 0;
     color: var(--color-muted);
@@ -183,7 +196,19 @@ const types = [
     let activeType = 'all';
     let query = '';
 
+    const makeSep = (year: number) => {
+      const li = document.createElement('li');
+      li.className = 'pub-year';
+      li.dataset.sep = '';
+      li.setAttribute('aria-hidden', 'true');
+      li.textContent = String(year);
+      return li;
+    };
+
     const apply = () => {
+      // Drop any separators from the previous render before re-laying out.
+      list.querySelectorAll('[data-sep]').forEach((s) => s.remove());
+
       let visible = 0;
       for (const li of items) {
         const m = meta(li);
@@ -204,6 +229,19 @@ const types = [
         return order.get(a)! - order.get(b)!; // newest (original order)
       });
       sorted.forEach((li) => list.appendChild(li));
+
+      // Group visible items by year in chronological views (skip Venue A–Z).
+      if (mode === 'newest' || mode === 'oldest') {
+        let lastYear: number | null = null;
+        for (const li of sorted) {
+          if (li.classList.contains('is-hidden')) continue;
+          const y = meta(li).year;
+          if (y !== lastYear) {
+            list.insertBefore(makeSep(y), li);
+            lastYear = y;
+          }
+        }
+      }
     };
 
     pills.forEach((pill) =>
