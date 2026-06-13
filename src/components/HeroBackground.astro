@@ -39,30 +39,38 @@
     const INK = [20, 20, 20];
     const TEAL = [46, 110, 94];
 
+    // Touch devices have no resting cursor: keep a calm drift instead of chasing.
+    const coarse = window.matchMedia('(pointer: coarse)');
+
     const N = 60; // spine points (length of the trailing helix)
     const SEG = 9; // px between spine points
-    const AMP = 14; // px — helix radius
+    const AMP = coarse.matches ? 10 : 14; // px — helix radius (calmer on touch)
+    const WANDER = coarse.matches ? 0.22 : 0.3; // autonomous-drift excursion
     const TWIST_STEP = 0.45; // rad of twist per spine point
-    const TWIST_SPEED = 0.012; // rad/frame — bases travel along the ribbon (slow)
+    const TWIST_SPEED = coarse.matches ? 0.009 : 0.012; // rad/frame — bases travel along the ribbon (slow)
     const EASE = 0.085; // how quickly the head chases the cursor (snappy)
     const EASE_IDLE = 0.02; // gentler chase while drifting alone (slower acceleration)
     const NODE_R = 2.2; // base node radius (scaled by depth)
 
     const TRAIL = 0.18; // comet trail — fraction of the old frame erased each tick
     const GLOW = 4; // px — max bloom radius at the head / pulse
-    const PULSE_SPEED = 0.22; // node-indices/frame — speed of the travelling pulse
+    const PULSE_SPEED = coarse.matches ? 0.16 : 0.22; // node-indices/frame — speed of the travelling pulse
     const PULSE_WIDTH = 6; // nodes — half-width of the pulse window
     const DIM = 0.6; // master opacity multiplier — keeps the cursor helix subtle
+    const TEXT_PAD = 26; // px — clearance kept around the hero copy
+    const TEXT_FEATHER = 30; // px — soft fade band so the helix tucks under the text
 
     const BASES = ['A', 'T', 'C', 'G'];
     const COMP: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C' };
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     const pointer = { x: 0, y: 0, active: false };
+    const textEl = host.querySelector<HTMLElement>('.hero-text');
 
     type Pt = { x: number; y: number };
     let spine: Pt[] = [];
     let bases: { a: string; b: string }[] = [];
+    let protect: { x: number; y: number; w: number; h: number } | null = null;
     let w = 0;
     let h = 0;
     let tick = 0;
@@ -103,10 +111,24 @@
       const rect = host!.getBoundingClientRect();
       w = rect.width;
       h = rect.height;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, coarse.matches ? 1.5 : 2);
       canvas!.width = Math.round(w * dpr);
       canvas!.height = Math.round(h * dpr);
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Region to keep clear of the helix (the hero copy), host-relative px.
+      if (textEl) {
+        const t = textEl.getBoundingClientRect();
+        protect = {
+          x: t.left - rect.left - TEXT_PAD,
+          y: t.top - rect.top - TEXT_PAD,
+          w: t.width + TEXT_PAD * 2,
+          h: t.height + TEXT_PAD * 2,
+        };
+      } else {
+        protect = null;
+      }
+
       if (spine.length === 0) seed();
       if (reduce.matches) layoutStatic();
       draw(false); // hard-cleared frame (covers reduced-motion + resize)
@@ -219,6 +241,28 @@
       ctx!.beginPath();
       ctx!.arc(head.x, head.y, 4, 0, Math.PI * 2);
       ctx!.fill();
+
+      // Tuck the helix under the hero copy: erase a feathered hole over the text
+      // so the ribbon fades out as it nears the heading/lead and never competes
+      // with reading. Measured from the live element, so it tracks every breakpoint.
+      if (protect) {
+        const { x, y, w: pw, h: ph } = protect;
+        const r = Math.min(14, pw / 2, ph / 2);
+        ctx!.save();
+        ctx!.globalCompositeOperation = 'destination-out';
+        ctx!.shadowColor = 'rgba(0, 0, 0, 1)';
+        ctx!.shadowBlur = TEXT_FEATHER;
+        ctx!.fillStyle = 'rgba(0, 0, 0, 1)';
+        ctx!.beginPath();
+        ctx!.moveTo(x + r, y);
+        ctx!.arcTo(x + pw, y, x + pw, y + ph, r);
+        ctx!.arcTo(x + pw, y + ph, x, y + ph, r);
+        ctx!.arcTo(x, y + ph, x, y, r);
+        ctx!.arcTo(x, y, x + pw, y, r);
+        ctx!.closePath();
+        ctx!.fill();
+        ctx!.restore();
+      }
     }
 
     function step() {
@@ -231,8 +275,8 @@
         tgx = pointer.x;
         tgy = pointer.y;
       } else {
-        tgx = w * 0.5 + Math.cos(tick * 0.002) * w * 0.3 + Math.cos(tick * 0.0032) * w * 0.06;
-        tgy = h * 0.5 + Math.sin(tick * 0.0028) * h * 0.3 + Math.sin(tick * 0.0042) * h * 0.05;
+        tgx = w * 0.5 + Math.cos(tick * 0.002) * w * WANDER + Math.cos(tick * 0.0032) * w * 0.06;
+        tgy = h * 0.5 + Math.sin(tick * 0.0028) * h * WANDER + Math.sin(tick * 0.0042) * h * 0.05;
       }
 
       // Ease the head toward the target, then drag the body behind it.
@@ -292,10 +336,15 @@
       }
     };
 
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
-    window.addEventListener('blur', onBlur);
+    // On touch (no resting cursor) skip pointer tracking so the helix never
+    // lurches to the finger mid-scroll; it keeps its calm autonomous drift.
+    if (!coarse.matches) {
+      window.addEventListener('pointermove', onPointerMove, { passive: true });
+      window.addEventListener('blur', onBlur);
+    }
     const ro = new ResizeObserver(() => resize());
     ro.observe(host);
+    if (textEl) ro.observe(textEl);
     document.addEventListener('visibilitychange', onVisChange);
     const io = new IntersectionObserver(
       (entries) => {
@@ -317,8 +366,10 @@
         stop();
         ro.disconnect();
         io.disconnect();
-        window.removeEventListener('pointermove', onPointerMove);
-        window.removeEventListener('blur', onBlur);
+        if (!coarse.matches) {
+          window.removeEventListener('pointermove', onPointerMove);
+          window.removeEventListener('blur', onBlur);
+        }
         document.removeEventListener('visibilitychange', onVisChange);
         reduce.removeEventListener('change', onReduceChange);
       },
