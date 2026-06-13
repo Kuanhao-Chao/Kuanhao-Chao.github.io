@@ -56,6 +56,12 @@ const { eyebrow, title, href, more = 'View all' } = Astro.props;
   .more-link:hover :global(svg) {
     transform: translateX(3px);
   }
+  @media (max-width: 620px) {
+    .section-heading {
+      margin-bottom: var(--space-6);
+      padding-bottom: var(--space-4);
+    }
+  }
   @media (max-width: 520px) {
     .section-heading {
       flex-direction: column;

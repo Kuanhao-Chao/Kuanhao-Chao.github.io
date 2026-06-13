@@ -5,8 +5,9 @@ import type { CollectionEntry } from 'astro:content';
 
 interface Props {
   pub: CollectionEntry<'publications'>;
+  compact?: boolean;
 }
-const { pub } = Astro.props;
+const { pub, compact = false } = Astro.props;
 const d = pub.data;
 const year = d.date.getFullYear();
 const slug = pubSlug(pub.id);
@@ -71,7 +72,7 @@ const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
         ))
       }
       {
-        d.bibtex && (
+        d.bibtex && !compact && (
           <details class="bib">
             <summary>
               <Icon name="chevron-right" size={15} />
@@ -207,10 +208,19 @@ const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
   @media (max-width: 560px) {
     .pub {
       grid-template-columns: 1fr;
-      gap: 0.35rem;
+      gap: 0.3rem;
+      padding-block: var(--space-4);
     }
     .pub-year {
       padding-top: 0;
+      font-size: 0.95rem;
+    }
+    .pub-title {
+      font-size: 1.02rem;
+      line-height: 1.3;
+    }
+    .pub-links {
+      margin-top: 0.5rem;
     }
   }
 </style>
