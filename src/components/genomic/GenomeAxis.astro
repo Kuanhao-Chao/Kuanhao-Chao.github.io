@@ -7,18 +7,22 @@
  */
 ---
 <div class="gaxis" aria-hidden="true">
-  <svg class="gaxis-gene" viewBox="0 0 60 14" fill="none" aria-hidden="true">
-    <line class="gax-intron" x1="1" y1="7" x2="59" y2="7" />
-    <rect class="gax-exon" x="1" y="3" width="12" height="8" rx="1" />
-    <rect class="gax-exon" x="23" y="3" width="9" height="8" rx="1" />
-    <rect class="gax-exon" x="42" y="3" width="14" height="8" rx="1" />
+  <svg class="gaxis-gene" viewBox="0 0 120 28" fill="none" aria-hidden="true">
+    <line class="gax-intron" x1="2" y1="23" x2="108" y2="23" />
+    <rect class="gax-exon" x="2" y="19" width="16" height="8" rx="1" />
+    <rect class="gax-exon" x="34" y="19" width="11" height="8" rx="1" />
+    <rect class="gax-exon" x="62" y="19" width="17" height="8" rx="1" />
+    <rect class="gax-exon" x="95" y="19" width="13" height="8" rx="1" />
+    <path class="gax-junction" pathLength="1" d="M18 19 Q26 4 34 19" />
+    <path class="gax-junction" pathLength="1" d="M45 19 Q53.5 5 62 19" />
+    <path class="gax-junction" pathLength="1" d="M79 19 Q87 4 95 19" />
   </svg>
 </div>
 
 <style>
   .gaxis {
     position: relative;
-    height: 16px;
+    height: 28px;
     overflow: hidden;
     border-bottom: 1px solid var(--color-rule);
   }
@@ -40,9 +44,9 @@
   .gaxis-gene {
     position: absolute;
     left: 0;
-    bottom: 1px;
-    width: 60px;
-    height: 14px;
+    bottom: 0;
+    width: 120px;
+    height: 28px;
   }
   .gax-intron {
     stroke: color-mix(in srgb, var(--color-ink) 32%, transparent);
@@ -52,6 +56,16 @@
     fill: color-mix(in srgb, var(--color-accent) 18%, transparent);
     stroke: var(--color-accent);
     stroke-width: 1;
+  }
+  /* Splice-junction arcs joining the exons (sashimi-style). pathLength="1" lets
+     offset 0 = fully drawn (the rest state, incl. reduced motion). */
+  .gax-junction {
+    fill: none;
+    stroke: color-mix(in srgb, var(--color-accent) 75%, transparent);
+    stroke-width: 1;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
   }
   /* One-shot playhead sweep across the axis. */
   .gaxis::after {
@@ -68,6 +82,27 @@
   @media (prefers-reduced-motion: no-preference) {
     .gaxis::after {
       animation: gaxis-playhead 1.3s ease-out 0.15s 1;
+    }
+    /* Junctions stitch in one after another as the playhead sweeps. */
+    .gax-junction {
+      animation: gax-splice 0.6s ease-out both;
+    }
+    .gax-junction:nth-of-type(1) {
+      animation-delay: 0.3s;
+    }
+    .gax-junction:nth-of-type(2) {
+      animation-delay: 0.5s;
+    }
+    .gax-junction:nth-of-type(3) {
+      animation-delay: 0.7s;
+    }
+  }
+  @keyframes gax-splice {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
     }
   }
   @keyframes gaxis-playhead {
