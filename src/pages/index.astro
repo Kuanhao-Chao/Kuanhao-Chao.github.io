@@ -8,6 +8,7 @@ import PublicationItem from '../components/PublicationItem.astro';
 import NewsEntry from '../components/NewsEntry.astro';
 import QuoteBlock from '../components/QuoteBlock.astro';
 import Icon from '../components/Icon.astro';
+import SequenceTrack from '../components/SequenceTrack.astro';
 import { site } from '../data/site';
 import { experience, education } from '../data/cv';
 
@@ -30,14 +31,14 @@ const news = await Promise.all(
 <BaseLayout type="profile">
   <Hero />
 
-  <section class="section container">
+  <section class="section container" data-reveal>
     <SectionHeading eyebrow="What I work on" title="Research" href="/research/" more="All research" />
     <div class="home-research">
       {research.map((entry) => <ResearchCard entry={entry} compact />)}
     </div>
   </section>
 
-  <section class="section container">
+  <section class="section container" data-reveal>
     <SectionHeading
       eyebrow="Selected work"
       title="Publications"
@@ -51,7 +52,7 @@ const news = await Promise.all(
 
   <QuoteBlock quote={site.philosophy} cite="my approach to open-source research software" />
 
-  <section class="section container">
+  <section class="section container" data-reveal>
     <SectionHeading eyebrow="Background" title="Experience & education" />
     <div class="home-bg">
       <div>
@@ -90,7 +91,7 @@ const news = await Promise.all(
     </div>
   </section>
 
-  <section class="section container">
+  <section class="section container" data-reveal>
     <SectionHeading eyebrow="Updates" title="Recent news" href="/news/" more="All news" />
     <div class="home-news">
       {news.map(({ entry, Content }) => (
@@ -101,7 +102,9 @@ const news = await Promise.all(
     </div>
   </section>
 
-  <section class="cta">
+  <SequenceTrack class="home-seq" />
+
+  <section class="cta" data-reveal>
     <div class="container cta-inner">
       <h2 class="cta-title">Let's work together</h2>
       <p class="cta-text">
@@ -188,6 +191,11 @@ const news = await Promise.all(
     flex-wrap: wrap;
     gap: 0.75rem;
     justify-content: center;
+  }
+  .home-seq {
+    margin-block: var(--space-8);
+    padding-block: 0.5rem;
+    border-block: 1px solid var(--color-rule);
   }
 
   @media (max-width: 860px) {

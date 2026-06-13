@@ -19,6 +19,12 @@ const { title, description, image, type } = Astro.props;
     <BaseHead title={title} description={description} image={image} type={type} />
   </head>
   <body>
+    <script is:inline>
+      // Set before paint so [data-reveal] elements never flash visible→hidden.
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.classList.add('reveal-ready');
+      }
+    </script>
     <SiteBackground />
     <a href="#main" class="skip-link">Skip to content</a>
     <Header />
@@ -26,5 +32,17 @@ const { title, description, image, type } = Astro.props;
       <slot />
     </main>
     <Footer />
+    <script>
+      import { prefersReducedMotion, onVisible } from '../scripts/motion';
+      if (!prefersReducedMotion()) {
+        for (const el of document.querySelectorAll('[data-reveal]')) {
+          let stop = () => {};
+          stop = onVisible(el, () => {
+            el.classList.add('is-visible');
+            stop();
+          });
+        }
+      }
+    </script>
   </body>
 </html>

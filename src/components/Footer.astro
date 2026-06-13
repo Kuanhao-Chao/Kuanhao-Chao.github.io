@@ -1,9 +1,11 @@
 ---
 import Socials from './Socials.astro';
+import SequenceTrack from './SequenceTrack.astro';
 import { site, nav } from '../data/site';
 const year = new Date().getFullYear();
 ---
 <footer class="site-footer">
+  <SequenceTrack class="footer-seq" />
   <div class="container footer-grid">
     <div class="footer-brand">
       <p class="footer-name">{site.name}</p>
@@ -41,6 +43,9 @@ const year = new Date().getFullYear();
     border-top: 1px solid var(--color-rule);
     padding-top: var(--section-y);
     padding-bottom: var(--space-10);
+  }
+  .footer-seq {
+    margin-bottom: var(--space-10);
   }
   .footer-grid {
     display: grid;

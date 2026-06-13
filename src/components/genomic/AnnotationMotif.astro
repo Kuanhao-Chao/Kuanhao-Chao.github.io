@@ -1,0 +1,58 @@
+---
+/**
+ * Genome annotation (LiftOn): a reference track and a target track with
+ * feature blocks joined by ribbons that draw between them on hover.
+ */
+interface Props { class?: string }
+const { class: className } = Astro.props;
+---
+<svg class:list={['motif', 'motif-an', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
+  <line class="m-axis" x1="14" y1="30" x2="146" y2="30" />
+  <rect class="an-feat" x="26" y="24" width="22" height="12" rx="2" />
+  <rect class="an-feat" x="68" y="24" width="18" height="12" rx="2" />
+  <rect class="an-feat" x="108" y="24" width="24" height="12" rx="2" />
+
+  <line class="m-axis" x1="14" y1="74" x2="146" y2="74" />
+  <rect class="an-feat an-feat--t" x="34" y="68" width="22" height="12" rx="2" />
+  <rect class="an-feat an-feat--t" x="74" y="68" width="18" height="12" rx="2" />
+  <rect class="an-feat an-feat--t" x="112" y="68" width="24" height="12" rx="2" />
+
+  <path class="an-rib" d="M37 36 C 37 52 45 52 45 68" />
+  <path class="an-rib" d="M77 36 C 77 52 83 52 83 68" />
+  <path class="an-rib" d="M120 36 C 120 52 124 52 124 68" />
+</svg>
+
+<style>
+  .motif {
+    width: 100%;
+    height: 100%;
+    display: block;
+    --motif-ink: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  }
+  .m-axis { stroke: var(--motif-ink); stroke-width: 1.4; }
+  .an-feat {
+    fill: color-mix(in srgb, var(--color-ink) 12%, transparent);
+    stroke: var(--motif-ink);
+    stroke-width: 1.2;
+  }
+  .an-feat--t {
+    fill: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    stroke: var(--color-accent);
+  }
+  .an-rib {
+    stroke: var(--color-accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 44;
+    stroke-dashoffset: 0;
+    opacity: 0.85;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .motif-an:hover .an-rib { animation: an-draw 2.8s ease-in-out infinite; }
+    .motif-an:hover .an-rib:nth-of-type(2) { animation-delay: 0.25s; }
+    .motif-an:hover .an-rib:nth-of-type(3) { animation-delay: 0.5s; }
+  }
+  @keyframes an-draw {
+    0% { stroke-dashoffset: 44; }
+    55%, 100% { stroke-dashoffset: 0; }
+  }
+</style>

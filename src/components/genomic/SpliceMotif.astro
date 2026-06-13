@@ -1,0 +1,46 @@
+---
+/**
+ * RNA splicing (Splam / OpenSpliceAI): two exon blocks joined by an intron
+ * that loops out on hover as the exons splice together.
+ */
+interface Props { class?: string }
+const { class: className } = Astro.props;
+---
+<svg class:list={['motif', 'motif-sp', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
+  <line class="m-axis" x1="14" y1="66" x2="146" y2="66" />
+  <rect class="sp-exon" x="20" y="54" width="38" height="24" rx="2" />
+  <rect class="sp-exon" x="102" y="54" width="38" height="24" rx="2" />
+  <path class="sp-intron" d="M58 62 C 74 16, 86 16, 102 62" />
+  <circle class="sp-dot" cx="58" cy="62" r="2.6" />
+  <circle class="sp-dot" cx="102" cy="62" r="2.6" />
+</svg>
+
+<style>
+  .motif {
+    width: 100%;
+    height: 100%;
+    display: block;
+    --motif-ink: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  }
+  .m-axis { stroke: var(--motif-ink); stroke-width: 1.4; }
+  .sp-exon {
+    fill: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    stroke: var(--color-accent);
+    stroke-width: 1.4;
+  }
+  .sp-intron {
+    stroke: var(--motif-ink);
+    stroke-width: 1.6;
+    stroke-dasharray: 4 4;
+    transform-box: view-box;
+    transform-origin: center;
+  }
+  .sp-dot { fill: var(--color-accent); }
+  @media (prefers-reduced-motion: no-preference) {
+    .motif-sp:hover .sp-intron { animation: sp-loop 3s ease-in-out infinite; }
+  }
+  @keyframes sp-loop {
+    0%, 100% { transform: translateY(0); opacity: 0.85; }
+    50% { transform: translateY(-7px); opacity: 1; }
+  }
+</style>

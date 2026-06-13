@@ -18,7 +18,7 @@ const { title, eyebrow, lead, description, width = 'wide' } = Astro.props;
       {lead && <p class="lead page-lead">{lead}</p>}
     </div>
   </header>
-  <div class:list={['container', width === 'narrow' && 'container--narrow', 'page-body']}>
+  <div class:list={['container', width === 'narrow' && 'container--narrow', 'page-body']} data-reveal>
     <slot />
   </div>
 </BaseLayout>
