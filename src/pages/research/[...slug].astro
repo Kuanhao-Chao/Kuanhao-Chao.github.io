@@ -3,6 +3,7 @@ import { getCollection, render } from 'astro:content';
 import EntryLayout from '../../layouts/EntryLayout.astro';
 import Prose from '../../components/Prose.astro';
 import ResearchMotif from '../../components/genomic/ResearchMotif.astro';
+import { resolveRelatedPosts } from '../../lib/relatedPosts';
 import { site } from '../../data/site';
 
 export async function getStaticPaths() {
@@ -13,6 +14,7 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const d = entry.data;
 const { Content } = await render(entry);
+const relatedPosts = await resolveRelatedPosts(d.relatedPosts.map((r) => r.id));
 
 const statusLabel = { published: 'Published', ongoing: 'Ongoing', preprint: 'Preprint' }[d.status];
 const meta = [statusLabel, d.advisors.length ? `Advised by ${d.advisors.join(' & ')}` : null].filter(
@@ -43,6 +45,7 @@ const breadcrumbLd = {
   eyebrow={d.area}
   meta={meta}
   links={links}
+  relatedPosts={relatedPosts}
   backHref="/research/"
   backLabel="All research"
   description={d.summary}

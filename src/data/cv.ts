@@ -162,6 +162,8 @@ export type SoftwareTool = {
   docs?: string;
   paper?: string;
   poster?: string;
+  /** Slug(s) of related /posts/ deep-dives (see src/content/posts). */
+  posts?: string[];
 };
 
 const LICENSE = {
@@ -178,6 +180,7 @@ export const software: SoftwareTool[] = [
     license: LICENSE.apache,
     code: 'https://github.com/calico/shorkie-paper',
     paper: 'https://doi.org/10.1101/2025.09.19.677475',
+    posts: ['shorkie'],
   },
   {
     name: 'OpenSpliceAI',
@@ -187,6 +190,7 @@ export const software: SoftwareTool[] = [
     docs: 'https://ccb.jhu.edu/openspliceai/',
     paper: 'https://doi.org/10.7554/eLife.107454.3',
     poster: 'https://storage.googleapis.com/storage.khchao.com/poster/BDS_OpenSpliceAI.pdf',
+    posts: ['openspliceai'],
   },
   {
     name: 'Splam',
@@ -194,6 +198,7 @@ export const software: SoftwareTool[] = [
     license: LICENSE.mit,
     code: 'https://github.com/Kuanhao-Chao/splam',
     docs: 'https://ccb.jhu.edu/splam/',
+    posts: ['splam'],
     paper: 'https://doi.org/10.1186/s13059-024-03379-4',
     poster:
       'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/ISMB-ECCB2023/splam_poster_ismb.pdf',
@@ -205,6 +210,7 @@ export const software: SoftwareTool[] = [
     code: 'https://github.com/Kuanhao-Chao/LiftOn',
     docs: 'https://ccb.jhu.edu/lifton/',
     paper: 'https://doi.org/10.1101/gr.279620.124',
+    posts: ['lifton'],
   },
   {
     name: 'sangeranalyseR',
@@ -212,6 +218,7 @@ export const software: SoftwareTool[] = [
     license: LICENSE.mit,
     code: 'https://github.com/roblanf/sangeranalyseR',
     docs: 'https://sangeranalyser.readthedocs.io/en/latest/',
+    posts: ['sangeranalyser'],
     paper: 'https://doi.org/10.1093/gbe/evab028',
     poster:
       'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Bioc2021/sangeranalyseR_poster.pdf',
@@ -222,6 +229,7 @@ export const software: SoftwareTool[] = [
     license: LICENSE.mit,
     code: 'https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit',
     paper: 'https://doi.org/10.1016/j.isci.2023.107402',
+    posts: ['wgt'],
     poster: 'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/RECOMB2023/WGT_poster.pdf',
   },
 ];

@@ -1,14 +1,17 @@
 ---
 import Icon from './Icon.astro';
 import { pubSlug } from '../lib/slug';
+import { resolveRelatedPosts } from '../lib/relatedPosts';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
   pub: CollectionEntry<'publications'>;
   compact?: boolean;
+  showPosts?: boolean;
 }
-const { pub, compact = false } = Astro.props;
+const { pub, compact = false, showPosts = false } = Astro.props;
 const d = pub.data;
+const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) => r.id)) : [];
 const year = d.date.getFullYear();
 const slug = pubSlug(pub.id);
 
@@ -68,6 +71,19 @@ const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
           <a class="pub-link" href={l.href} target="_blank" rel="noopener">
             <Icon name={l.icon} size={15} />
             {l.label}
+          </a>
+        ))
+      }
+      {
+        blogLinks.map((b) => (
+          <a
+            class="pub-link pub-link--blog"
+            href={b.href}
+            title={b.title}
+            aria-label={`Read the blog post: ${b.title}`}
+          >
+            <Icon name="pencil" size={15} />
+            {b.label}
           </a>
         ))
       }
@@ -170,6 +186,13 @@ const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
   .pub-link:hover {
     color: var(--color-accent);
     text-decoration: none;
+  }
+  .pub-link--blog {
+    color: var(--color-accent);
+    font-weight: var(--fw-medium);
+  }
+  .pub-link--blog:hover {
+    text-decoration: underline;
   }
   .bib {
     font-size: var(--fs-small);

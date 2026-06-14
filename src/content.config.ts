@@ -1,4 +1,4 @@
-import { defineCollection, z } from 'astro:content';
+import { defineCollection, reference, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 
 const publications = defineCollection({
@@ -25,6 +25,7 @@ const publications = defineCollection({
       advisors: z.array(z.string()).default([]),
       featured: z.boolean().default(false),
       selectedOrder: z.number().optional(),
+      relatedPosts: z.array(reference('posts')).default([]),
     }),
 });
 
@@ -68,6 +69,7 @@ const research = defineCollection({
       advisors: z.array(z.string()).default([]),
       order: z.number().default(0),
       featured: z.boolean().default(false),
+      relatedPosts: z.array(reference('posts')).default([]),
     }),
 });
 
@@ -115,6 +117,7 @@ const posts = defineCollection({
       imageAlt: z.string().optional(),
       draft: z.boolean().default(false),
       featured: z.boolean().default(false),
+      linkLabel: z.string().optional(),
     }),
 });
 

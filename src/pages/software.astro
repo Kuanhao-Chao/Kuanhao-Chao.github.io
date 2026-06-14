@@ -2,6 +2,7 @@
 import PageLayout from '../layouts/PageLayout.astro';
 import Icon from '../components/Icon.astro';
 import { software, sideProjects, type SoftwareTool } from '../data/cv';
+import { resolveRelatedPosts } from '../lib/relatedPosts';
 import { site } from '../data/site';
 
 const toolLinks = (t: SoftwareTool) =>
@@ -25,6 +26,9 @@ const softwareLd = {
     ...(t.docs ? { url: t.docs } : {}),
   })),
 };
+
+// Resolve each tool's related blog post(s) once, aligned to the `software` order.
+const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.posts ?? [])));
 ---
 <PageLayout
   title="Software"
@@ -36,8 +40,9 @@ const softwareLd = {
     <h2 class="block-title">Research software</h2>
     <ul class="tools">
       {
-        software.map((t) => {
+        software.map((t, i) => {
           const links = toolLinks(t);
+          const blogLinks = toolBlog[i];
           const primary = t.docs ?? t.code;
           return (
             <li class="tool">
@@ -55,6 +60,17 @@ const softwareLd = {
                   <a href={l.href} target="_blank" rel="noopener">
                     <Icon name={l.icon} size={15} />
                     {l.label}
+                  </a>
+                ))}
+                {blogLinks.map((b) => (
+                  <a
+                    class="row-blog"
+                    href={b.href}
+                    title={b.title}
+                    aria-label={`Read the blog post: ${b.title}`}
+                  >
+                    <Icon name="pencil" size={15} />
+                    {b.label}
                   </a>
                 ))}
               </p>
@@ -165,5 +181,8 @@ const softwareLd = {
   }
   .row-links a:hover {
     text-decoration: underline;
+  }
+  .row-blog {
+    font-weight: var(--fw-medium);
   }
 </style>
