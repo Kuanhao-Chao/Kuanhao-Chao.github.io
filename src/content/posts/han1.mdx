@@ -1,0 +1,67 @@
+---
+title: 'Why we built Han1: a complete, annotated genome for the world''s largest ethnic group'
+description: 'The story behind Han1 — the first gapless, reference-quality, fully annotated human genome from a Han Chinese individual, and what comparing two finished human genomes revealed.'
+date: 2023-03-01
+category: summary
+tags: ['Genome assembly', 'Human genome', 'Comparative genomics']
+image: ../../assets/posts/han1/han1-chromosomes.png
+imageAlt: 'The 25 chromosomes of Han1, with regions assembled from the Han Chinese individual HG00621 in red and the small remaining stretches filled from T2T-CHM13 in pink.'
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figChromosomes from '../../assets/posts/han1/han1-chromosomes.png';
+import figSynteny from '../../assets/posts/han1/han1-synteny.png';
+import figInversion from '../../assets/posts/han1/han1-inversion.png';
+
+For more than twenty years, almost all of human genetics has rested on a single reference genome. That reference — currently GRCh38 — is extraordinarily useful, but it has two awkward properties. It isn't anyone's actual genome: it's a patchwork stitched together from about twenty different people, with one anonymous donor contributing most of it. And for all its refinement, it still has hundreds of gaps, including the centromere of every chromosome and the short arms of the acrocentrics. When you map your data to it, you are comparing yourself to a composite that is incomplete and skewed toward people of European ancestry.
+
+In 2022 that changed, at least in part. The Telomere-to-Telomere consortium published T2T-CHM13, the first truly complete, gapless human genome — every centromere, every repeat array, end to end. It was a landmark. But it came from a single, nearly homozygous cell line of largely European ancestry. One complete genome is a beginning, not an end: humanity is not one genome.
+
+**Han1** is our attempt to widen that picture — the first gapless, reference-quality, fully annotated genome from a Han Chinese individual.
+
+## Why start with Han Chinese?
+
+The Han Chinese are the largest ethnic group on Earth — roughly 1.4 billion people. Despite that, there was no complete, gap-free, fully annotated reference genome representing them. Earlier Han Chinese assemblies existed, but they were fragmented into thousands of pieces and lacked the end-to-end completeness and gene annotation that make a genome a usable reference. For a population this size, that gap matters: a complete, accurate reference is the foundation for studying genetic variation, disease, and ancestry in the people it represents.
+
+So, working in Steven Salzberg's group at Johns Hopkins, we set out to build one — and to make it not just complete, but *finished*: gapless, polished, and annotated to the same standard as the reference everyone else uses.
+
+## What we built
+
+We started from HG00621, a Southern Han Chinese man from Fujian Province whose cells had been deeply sequenced by the Human Pangenome Reference Consortium. The raw material was two complementary kinds of long reads: PacBio HiFi reads (about 39× coverage), which are long and highly accurate, and Oxford Nanopore ultralong reads (about 35×), which are far longer but noisier. Accuracy and length each solve what the other can't.
+
+From there the assembly was a pipeline of careful steps: an initial de novo assembly with hifiasm; scaffolding the contigs into chromosomes with the MaSuRCA chromosome scaffolder, using the complete T2T-CHM13 genome as a guide; three iterative rounds of gap closing using the HiFi reads, Nanopore-based contigs, and CHM13 sequence where nothing else reached; manual curation of the tricky pericentromeric regions; and a final polish with JASPER to scrub out residual base errors. The result is a gap-free genome of 3.10 billion bases in 25 sequences — chromosomes 1–22, X, Y, and the mitochondrion — with a contig N50 of 148 Mb, meaning most chromosomes are a single unbroken sequence.
+
+<ZoomFigure src={figChromosomes} alt="The 25 chromosomes of Han1; regions assembled from HG00621 are shown in red, and the small stretches filled in from T2T-CHM13 are shown in pink." variant="wide">
+  <strong>Figure 1.</strong> The Han1 genome, chromosome by chromosome. Red marks sequence assembled directly from the Han Chinese individual HG00621; the small pink regions — mostly in centromeres and a few hard repeat arrays — were filled in from T2T-CHM13. The overwhelming majority of every chromosome is new, individual sequence.
+</ZoomFigure>
+
+A genome is only as useful as its annotation — the map of where the genes are. We added that by lifting the RefSeq gene annotation from T2T-CHM13 onto Han1 with Liftoff, with special two-pass handling of the ribosomal DNA arrays. (Doing this well, and seeing where simple lift-over goes wrong, is exactly the problem I'd return to later with [LiftOn](/posts/lifton/).) In the end Han1 carries 60,708 annotated genes, including 20,003 protein-coding genes.
+
+## What it showed
+
+**Two finished human genomes, side by side for the first time.** With Han1 complete and annotated, we could line it up against T2T-CHM13 — two truly gapless human genomes, compared gene by gene rather than against a gappy composite. The two are remarkably collinear: chromosome for chromosome, the sequences run in near-perfect diagonal agreement, and 98.2% of genes share more than 95% sequence identity.
+
+<ZoomFigure src={figSynteny} alt="A whole-genome dot plot and a gene-order plot comparing Han1 to T2T-CHM13, both showing strong collinearity along the diagonal with a handful of off-diagonal differences." variant="wide">
+  <strong>Figure 2.</strong> Han1 versus T2T-CHM13. <strong>(A)</strong> A whole-genome dot plot: the tight diagonal shows that the two genomes are highly collinear, with purple marking same-orientation alignments and blue marking inversions. <strong>(B)</strong> A gene-order plot, with genes numbered along both genomes and colored by sequence identity — overwhelmingly green (identical), with a few lower-identity outliers.
+</ZoomFigure>
+
+But "highly similar" is not "identical," and the differences are the interesting part. 235 protein-coding genes differ substantially between the two individuals — frameshifts, truncations, or altered start and stop codons — and 46 of those changes are homozygous, affecting both copies. Some are likely pseudogenes or hypervariable gene families; a handful sit in genes with real functional annotations. This is the kind of fine-grained, gene-level comparison that only becomes possible once *both* genomes are actually finished.
+
+**A real structural difference you can see.** The clearest example is on chromosome 8, where Han1 and T2T-CHM13 carry a 4.1 Mb stretch in opposite orientations — a large, well-known inversion polymorphism in the β-defensin gene cluster, a region central to immune defense.
+
+<ZoomFigure src={figInversion} alt="An alignment of chromosome 8 from 7 to 15 Mbp showing a 4.1 Mb inversion (orange) between the assembled Han1 genome and the reference, flanked by syntenic regions." variant="landscape">
+  <strong>Figure 3.</strong> A 4.1 Mb inversion on chromosome 8. Across the β-defensin gene cluster, Han1 (top) and T2T-CHM13 (bottom) are inverted relative to each other (orange), flanked by syntenic sequence (gray). Han1's orientation matches the older GRCh38 reference — the two complete genomes simply happen to carry opposite versions of a common human polymorphism.
+</ZoomFigure>
+
+Tellingly, Han1's orientation here matches the *old* GRCh38 reference, while T2T-CHM13 carries the other arrangement. Neither is "right" — it's a coin that the human population flips, and the two finished genomes landed on opposite faces. We found similar individuality elsewhere: copy-number differences across several gene families, and new insertions of mitochondrial DNA into the nuclear genome.
+
+## The bigger picture
+
+No single genome can represent a species of eight billion people. T2T-CHM13 proved we can finish a human genome; Han1 is a step toward finishing *many*, from many populations — the direction the field is now heading with diverse references and pangenomes. For the 1.4 billion people it represents, a complete, annotated reference is a concrete resource for genetics and medicine. And building it taught me, viscerally, how much rides on the unglamorous final step — carrying an accurate gene annotation onto a brand-new assembly — which is the thread that runs from this project into much of my later work.
+
+Han1 is freely available, assembly and annotation both, for anyone to build on.
+
+---
+
+*Read the [paper in G3: Genes|Genomes|Genetics](https://doi.org/10.1093/g3journal/jkac321), or get the assembly and annotation from [GitHub](https://github.com/JHUCCB/ChineseHanSouthGenome) (also on GenBank, accession JANJEX000000000). Han1 was built with Aleksey Zimin, Mihaela Pertea, and Steven Salzberg at Johns Hopkins.*
+
+*Further reading: [T2T-CHM13](https://doi.org/10.1126/science.abj6987) (Nurk et al., Science 2022), the first complete human genome, which we used as a scaffolding guide and comparison; and [LiftOn](/posts/lifton/), my later work on transferring gene annotations between genomes like these.*
