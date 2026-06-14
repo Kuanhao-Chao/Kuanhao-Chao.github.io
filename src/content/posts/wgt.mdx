@@ -1,0 +1,89 @@
+---
+title: 'Why we built WGT: tools for Wheeler graphs, the backbone of pangenome indexes'
+description: 'The story behind the Wheeler Graph Toolkit — software to generate, recognize, and visualize Wheeler graphs, the elegant class of graphs that can be indexed and searched like a BWT, using a fast heuristic and an SMT solver.'
+date: 2023-07-14
+category: summary
+tags: ['Pangenomics', 'Algorithms', 'Open source']
+image: ../../assets/posts/wgt/wgt-overview.png
+imageAlt: 'The Wheeler Graph Toolkit pipeline: a generator produces graphs, the Wheelie recognizer (renaming heuristic plus a permutation or SMT solver) decides whether a graph is a Wheeler graph and finds its node ordering, and a visualizer draws it.'
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figOverview from '../../assets/posts/wgt/wgt-overview.png';
+import figExample from '../../assets/posts/wgt/wgt-example.png';
+import figHeuristic from '../../assets/posts/wgt/wgt-heuristic.png';
+import figRecognition from '../../assets/posts/wgt/wgt-recognition.png';
+import figCactus from '../../assets/posts/wgt/wgt-cactus.png';
+
+Modern genomics is moving away from a single linear reference toward the **pangenome** — many genomes represented together, usually as a graph, so that all the variation between individuals is in the picture rather than flattened into one consensus. But a pangenome is only useful if you can *search* it: given a sequencing read, you need to find where it matches, and you need that to be fast even when the graph encodes thousands of genomes.
+
+For a single linear genome we have a beautiful answer to this: the Burrows–Wheeler Transform and the FM-index — the machinery underneath aligners like Bowtie and BWA — which let you index a genome once and then answer queries in time that scales with the query, not the genome. The natural question for pangenomes is whether the same trick works on a *graph*. Remarkably, for a special class of graphs, it does. Those are **Wheeler graphs**, and they're the elegant structure quietly underpinning graph-based pangenome indexes.
+
+**WGT**, the Wheeler Graph Toolkit, is the software we built to make Wheeler graphs something you can actually work with.
+
+## What's a Wheeler graph — and why it was hard to use
+
+A Wheeler graph, introduced by Gagie, Manzini, and Sirén in 2017, is a directed, edge-labeled graph whose nodes can be put in a special order — one that generalizes the sorting at the heart of the BWT. When such an ordering exists, all the fast FM-index query machinery carries over to the graph. In other words, a Wheeler graph is exactly a graph you can index and search like a BWT. That's why they form part of the basis for pangenome tools such as vg.
+
+Here's the catch that motivated us. Given some graph you've built, *is* it a Wheeler graph — does a valid ordering exist? That recognition problem is NP-complete in general, and hard even to approximate. A theoretical algorithm had been proposed (by Gibney and Thankachan), but there was no working implementation — no way to actually feed it a graph and get an answer. And beyond recognition, there were no practical tools to *visualize* a Wheeler graph, or to *generate* example graphs to test ideas on. The concept was foundational, and yet almost untouchable in practice.
+
+I took this on in Ben Langmead's lab at Johns Hopkins, together with Pei-Wei Chen and Sanjit Seshia at UC Berkeley — who brought expertise in formal methods and SMT solving, which turned out to be exactly the right hammer. Our goal was simple to state: make Wheeler graphs practical to generate, check, and see.
+
+## What WGT is
+
+WGT is an open-source suite with three parts, shown end to end below.
+
+<ZoomFigure src={figOverview} alt="The WGT pipeline: a generator emits a graph definition, the Wheelie recognizer applies a label-maximum ordering and a renaming heuristic before handing off to a permutation or SMT solver, and a visualizer draws the ordered graph in two rows." variant="landscape">
+  <strong>Figure 1.</strong> The Wheeler Graph Toolkit, end to end. A <strong>generator</strong> produces a graph (Wheeler or not); the <strong>recognizer</strong>, Wheelie, decides whether the graph is a Wheeler graph and, if so, finds a valid node ordering — first applying a renaming heuristic, then handing the remaining work to a permutation solver or an SMT solver; and a <strong>visualizer</strong> draws the result.
+</ZoomFigure>
+
+The three parts are:
+
+- **Generators** that produce graphs to work with — De Bruijn graphs and tries built from sequences, reverse-deterministic graphs built from multiple sequence alignments, and random graphs (including tunable "d-NFA" graphs) where you control the number of nodes, the edges, the alphabet size, and the branching. This gives you a steady supply of both Wheeler and non-Wheeler graphs to test on.
+- **A recognizer**, the core of the toolkit, called **Wheelie**.
+- **A visualizer** that draws a graph in a "two replicas" bipartite layout — the ordered nodes appear in two rows, with edges leaving one row and arriving in the other — which makes the otherwise-abstract Wheeler ordering something you can actually look at.
+
+To make that concrete, here is WGT applied to a real gene: take the human gene *STAU2* and its orthologs, build a De Bruijn graph from the aligned sequences, recognize it as a Wheeler graph, and draw it.
+
+<ZoomFigure src={figExample} alt="A real example: a De Bruijn graph built from STAU2 gene orthologs, a table giving each node's Wheeler-order position, and the bipartite two-row visualization with edges colored by nucleotide." variant="wide">
+  <strong>Figure 2.</strong> A Wheeler graph from real data. <strong>(A)</strong> A De Bruijn graph built from an alignment of the gene <em>STAU2</em> across species. <strong>(B)</strong> Wheelie recognizes it as a Wheeler graph and reports the valid node ordering. <strong>(C)</strong> The visualizer draws that ordering as two rows of nodes with edges colored by nucleotide — the abstract "Wheeler order" made visible.
+</ZoomFigure>
+
+## How Wheelie works
+
+The hard part is recognition, and the trick that makes it fast is a **renaming heuristic**. The intuition: in any valid Wheeler ordering, a node's position is strongly constrained by the labels on its incoming edges. So Wheelie groups the nodes by their incoming-edge label, then repeatedly sorts and relabels them, propagating those constraints until the labels stop changing.
+
+<ZoomFigure src={figHeuristic} alt="The renaming heuristic: an eight-node graph with nodes grouped by incoming-edge label, and the iterative tables that sort and relabel each group until the ordering converges, then pass to a solver." variant="wide">
+  <strong>Figure 3.</strong> The renaming heuristic. <strong>(A)</strong> The nodes are split into groups by their incoming-edge label (with a separate group for nodes that have no incoming edge). <strong>(B)</strong> The algorithm iteratively sorts and relabels the nodes in each group until everything converges — at which point it has either exposed a contradiction (the graph is not Wheeler) or narrowed each node down to a small range of possible positions, which it hands to a solver.
+</ZoomFigure>
+
+That convergence does one of two things. Often it settles the whole ordering, or proves no ordering can exist — an immediate answer. When ambiguity remains, Wheelie hands the much-reduced problem to one of two solvers: **Wheelie-Pr**, which exhaustively searches the remaining permutations, or **Wheelie-SMT**, which encodes the leftover constraints as a logic formula and lets a Satisfiability Modulo Theories solver (Z3 or cvc5) settle it. The heuristic is what makes either solver tractable: it shrinks an exponential search down to something small.
+
+## What it showed
+
+**Far faster than the only prior algorithm.** Against the previously proposed recognition algorithm (Gibney–Thankachan), Wheelie isn't a little faster — it's in a different regime. On a large benchmark suite spanning De Bruijn graphs, tries, reverse-deterministic graphs, and random graphs, the prior algorithm timed out (at 30 seconds) on **8,461** graphs; Wheelie-Pr timed out on just **784**. In practice, Wheelie can check a graph with thousands of nodes in seconds.
+
+<ZoomFigure src={figRecognition} alt="A scatter plot comparing Wheelie-Pr recognition time against the Gibney–Thankachan algorithm across graph types, with most points far below the diagonal, plus a table of graph counts and timeout counts." variant="wide">
+  <strong>Figure 4.</strong> Recognition time versus the prior algorithm. <strong>(A)</strong> Each point is a graph, plotting Wheelie-Pr's time against the Gibney–Thankachan algorithm's (log–log); points below the diagonal are wins for Wheelie, and the red lines mark the 30-second timeout. <strong>(B)</strong> Across every graph type, the prior algorithm times out far more often — 8,461 graphs in total against Wheelie-Pr's 784.
+</ZoomFigure>
+
+**The heuristic is what makes the SMT approach fly.** It's worth showing how much the renaming heuristic matters, because it's the real engine. If you hand a Wheeler-graph problem straight to an SMT solver with no heuristic, it bogs down. With the heuristic's constraints first, the same solver races.
+
+<ZoomFigure src={figCactus} alt="Two cactus plots of accumulated recognition time: Wheelie-SMT stays nearly flat while pure SMT explodes — 6.5 vs 820 seconds on De Bruijn graphs, and 9 vs over 10,000 seconds on reverse-deterministic graphs." variant="wide">
+  <strong>Figure 5.</strong> The renaming heuristic, measured. Accumulated recognition time over a whole set of graphs, comparing Wheelie-SMT (with the heuristic) against pure SMT (without it). <strong>(A)</strong> On De Bruijn graphs, the full set takes about 6.5 seconds with the heuristic versus about 820 seconds without. <strong>(B)</strong> On reverse-deterministic graphs, about 9 seconds versus more than 10,000 — two to three orders of magnitude, from the heuristic alone.
+</ZoomFigure>
+
+The two solvers also complement each other: the permutation search is great on smaller graphs, while Wheelie-SMT pulls ahead on the largest random graphs, with thousands of nodes and edges. Together they let WGT scale across the range of graphs people actually build.
+
+## The bigger picture
+
+Wheeler graphs are one of those ideas that are beautiful on paper and central in theory, yet were strangely hard to touch in practice — you couldn't easily build one, check one, or even see one. WGT turns them into a concrete object you can generate, recognize, and visualize, which is what you need to actually do research on graph indexes.
+
+I also like this project for what it represents: a genomics problem — how to index a pangenome — solved with a tool borrowed from formal verification, the SMT solver. That kind of cross-pollination is where a lot of good work comes from. As pangenomes become the default way we represent genetic variation, being able to reason about *which* graphs are efficiently indexable will only matter more — and now there's a practical toolkit for doing it.
+
+WGT is free and open source.
+
+---
+
+*Read the [paper in iScience](https://doi.org/10.1016/j.isci.2023.107402), or browse the [code](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit). WGT was built with Pei-Wei Chen, Sanjit A. Seshia, and Ben Langmead at Johns Hopkins and UC Berkeley.*
+
+*Further reading: [Wheeler graphs: A framework for BWT-based data structures](https://doi.org/10.1016/j.tcs.2017.06.016) (Gagie, Manzini & Sirén, Theoretical Computer Science 2017), the paper that introduced Wheeler graphs.*

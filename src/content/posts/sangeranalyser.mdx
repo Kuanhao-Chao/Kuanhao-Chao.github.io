@@ -1,0 +1,74 @@
+---
+title: 'Why we built sangeranalyseR: painless Sanger sequencing analysis in R'
+description: 'The story behind sangeranalyseR — a free, open-source R/Bioconductor package that takes you from raw .ab1 chromatograms to aligned consensus sequences in about four lines of code, with an interactive Shiny GUI.'
+date: 2021-03-01
+category: summary
+tags: ['Sanger sequencing', 'R / Bioconductor', 'Open source']
+image: ../../assets/posts/sangeranalyser/sanger-workflow.png
+imageAlt: 'The five-step sangeranalyseR workflow: prepare input files, load and analyse data, optionally explore in a Shiny app, output aligned contigs, and generate an interactive report.'
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figWorkflow from '../../assets/posts/sangeranalyser/sanger-workflow.png';
+import figExample from '../../assets/posts/sangeranalyser/sanger-example.png';
+import figShiny from '../../assets/posts/sangeranalyser/sanger-shiny.png';
+
+Sanger sequencing is the original way of reading DNA, and decades after it was invented it is still everywhere. It reads one fragment at a time and produces a *chromatogram* — the familiar four-colour trace of peaks — and it remains the everyday workhorse for confirming a cloned construct, barcoding a species, checking a CRISPR edit, or validating a variant a sequencer flagged. It's accurate, cheap for small jobs, and woven into the daily routine of molecular labs around the world.
+
+So here is something odd. As next-generation sequencing arrived, it brought with it a whole ecosystem of free, scriptable, interoperable software. Sanger sequencing — older, more widely used in many labs — never got the same treatment. The tools for it lagged behind.
+
+**sangeranalyseR** is the package we built to fix that.
+
+## Why the old way was painful
+
+When I was at the Australian National University, near the start of my research career, getting from a folder of `.ab1` chromatogram files to a clean, aligned consensus sequence was more annoying than it had any right to be. Your options were essentially two. You could pay for commercial software — Geneious, Sequencher, CodonCode Aligner — which is capable but expensive and awkward to fit into an automated pipeline. Or you could wrestle with venerable command-line tools like Phred, Phrap, and Consed, which are free but cumbersome and hard to glue to anything modern.
+
+What there wasn't, conspicuously, was a good option in **R** — the environment where so much of bioinformatics and phylogenetics actually happens. There was one R package, sangerseqR, but it worked on a single read at a time; it didn't do the real, repetitive job, which is assembling many reads into contigs and aligning those contigs across samples. So, with Rob Lanfear and colleagues, I built the tool I wished I'd had.
+
+## What sangeranalyseR is
+
+sangeranalyseR is a free, open-source R/Bioconductor package that carries you all the way from raw chromatograms to aligned consensus sequences. It leans on sensible defaults so the common case is trivial, while exposing every parameter for when you need control.
+
+<ZoomFigure src={figWorkflow} alt="The five-step sangeranalyseR workflow shown as three columns — workflow step, the R function or object, and the inputs/outputs — from preparing .ab1 files to generating an interactive HTML report." variant="wide">
+  <strong>Figure 1.</strong> The sangeranalyseR workflow. Five steps take you from input files to a finished report: prepare `.ab1`/FASTA inputs; load and analyse them through three nested objects (<code>SangerRead</code> → <code>SangerContig</code> → <code>SangerAlignment</code>); optionally explore the data in an interactive Shiny app; write out aligned consensus contigs as FASTA; and generate a self-contained interactive HTML report.
+</ZoomFigure>
+
+The structure mirrors how Sanger data is actually organized: individual reads (`SangerRead`) assemble into per-sample contigs (`SangerContig`), which align into a final multiple alignment (`SangerAlignment`). And the headline claim is real — a complete analysis is about four lines of R:
+
+```r
+library(sangeranalyseR)
+
+# one call: load every .ab1 file, quality-trim, assemble contigs, and align them
+aln <- SangerAlignment(inputSource = "ABIF",
+                       parentDirectory = "./Allolobophora_chlorotica")
+
+writeFasta(aln)       # write the aligned consensus contigs to FASTA
+generateReport(aln)   # write a full, interactive HTML report
+```
+
+## What it does
+
+**Four lines, but flexible underneath.** That single `SangerAlignment` call does a lot: it reads every chromatogram, trims each one by quality (using either the modified-Mott algorithm from Phred or a sliding window in the style of Trimmomatic), assembles the forward and reverse reads of each sample into a consensus contig, and aligns the contigs together. The figure below shows it on a real dataset — eight earthworm (*Allolobophora chlorotica*) samples from the Barcode of Life Database, sixteen `.ab1` files in all.
+
+<ZoomFigure src={figExample} alt="A worked example: four lines of R code, the input file structure, the Shiny overview screen, a multiple sequence alignment of eight consensus contigs, and a neighbour-joining tree." variant="wide">
+  <strong>Figure 2.</strong> A complete analysis of eight samples. <strong>(A)</strong> The few lines of R that drive it. <strong>(B)</strong> The input `.ab1` files, organized in folders. <strong>(C)</strong> The optional Shiny overview page. <strong>(D)</strong> The resulting multiple sequence alignment of the eight consensus contigs, and <strong>(E)</strong> a neighbour-joining tree built from them — a quick check that the contigs make biological sense.
+</ZoomFigure>
+
+**Interactive when you want to look closer.** Good defaults handle most reads, but some need a human eye. So sangeranalyseR ships with interactive Shiny apps that let you inspect and adjust everything without leaving R: view each read's chromatogram with the trimmed ends shaded, see per-base quality scores and secondary peaks, scan a heatmap of pairwise differences between the reads in a contig, and — if you supply a reference protein — catch indels and premature stop codons. You can re-trim a read by dragging a slider, watch the consensus update, and then save those exact parameters so the whole analysis is reproducible.
+
+<ZoomFigure src={figShiny} alt="The interactive Shiny interface: a read alignment, a Hamming-distance heatmap, indel and stop-codon tables, per-base quality scores, a quality-trimming plot, and a chromatogram with trimmed regions highlighted." variant="wide">
+  <strong>Figure 3.</strong> Inspecting the details in the Shiny GUI. The left column works at the contig level — the read alignment <strong>(A)</strong>, a pairwise-distance heatmap <strong>(B)</strong>, and indel <strong>(C)</strong> and stop-codon <strong>(D)</strong> tables. The right column drills into a single read — its trimmed sequence and quality scores <strong>(E)</strong>, an interactive quality-trimming plot <strong>(F)</strong>, and the raw chromatogram with trimmed ends highlighted <strong>(G)</strong>.
+</ZoomFigure>
+
+**And it lives in R.** Results come back both as standard FASTA files, for handing to other tools, and as R objects, for the rest of your analysis. The package is MIT-licensed, distributed through Bioconductor, documented in depth, and unit-tested — the kind of plumbing that makes a tool dependable rather than just clever.
+
+## The bigger picture
+
+Not every useful contribution is a new algorithm. Sometimes it's meeting a widely used but underserved method where its users already are, with good defaults and a gentle on-ramp. Sanger sequencing isn't fashionable, but it's in nearly every molecular lab, and making its analysis free, scriptable, and reproducible quietly removes friction for a lot of people.
+
+This was my first real software project, and it set a pattern I've followed ever since: when the tool you need doesn't exist, build it well, document it, give it away, and use it yourself. Build what you need, use what you build.
+
+---
+
+*Read the [paper in Genome Biology and Evolution](https://doi.org/10.1093/gbe/evab028), install it from [Bioconductor](https://bioconductor.org/packages/sangeranalyseR), browse the [code](https://github.com/roblanf/sangeranalyseR), or work through the [documentation](https://sangeranalyser.readthedocs.io/). sangeranalyseR was built with Kirston Barton, Sarah Palmer, and Robert Lanfear.*
+
+*Further reading: [sangerseqR](https://bioconductor.org/packages/sangerseqR), the R package for handling individual Sanger reads that sangeranalyseR builds on and extends.*
