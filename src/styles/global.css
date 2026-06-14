@@ -231,6 +231,16 @@ hr {
   border-color: var(--color-accent-dark);
   color: #fff;
 }
+/* Outlined accent button for the internal "Blog" cross-link; fills accent on hover
+   using the same left-wipe mechanic as .btn. */
+.btn--blog {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background-image: linear-gradient(var(--color-accent), var(--color-accent));
+}
+.btn--blog:hover {
+  color: #fff;
+}
 
 /* ── Scroll reveal ───────────────────────────────────────────────
    Opt-in via [data-reveal]. The hidden state only applies once JS adds

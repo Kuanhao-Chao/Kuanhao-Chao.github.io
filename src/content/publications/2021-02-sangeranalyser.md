@@ -6,6 +6,7 @@ date: 2021-02-12
 type: journal
 status: published
 doi: 'https://doi.org/10.1093/gbe/evab028'
+relatedPosts: ['sangeranalyser']
 code: 'https://github.com/roblanf/sangeranalyseR'
 docs: 'https://sangeranalyser.readthedocs.io/en/latest/'
 poster: 'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Bioc2021/sangeranalyseR_poster.pdf'

@@ -3,6 +3,7 @@ import { getCollection, render } from 'astro:content';
 import EntryLayout from '../../layouts/EntryLayout.astro';
 import Prose from '../../components/Prose.astro';
 import { pubSlug } from '../../lib/slug';
+import { resolveRelatedPosts } from '../../lib/relatedPosts';
 import { fullDate } from '../../lib/format';
 import { site } from '../../data/site';
 
@@ -14,6 +15,7 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const d = entry.data;
 const { Content } = await render(entry);
+const relatedPosts = await resolveRelatedPosts(d.relatedPosts.map((r) => r.id));
 
 const year = d.date.getUTCFullYear();
 const typeLabel = {
@@ -92,6 +94,7 @@ const breadcrumbLd = {
   eyebrow={eyebrow}
   meta={meta}
   links={links}
+  relatedPosts={relatedPosts}
   backHref="/publications/"
   backLabel="All publications"
   description={description}

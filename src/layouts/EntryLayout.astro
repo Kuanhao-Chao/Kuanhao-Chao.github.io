@@ -1,6 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import Icon from '../components/Icon.astro';
+import type { RelatedPostLink } from '../lib/relatedPosts';
 
 interface LinkItem {
   label: string;
@@ -14,11 +15,21 @@ interface Props {
   backHref: string;
   backLabel: string;
   links?: LinkItem[];
+  relatedPosts?: RelatedPostLink[];
   description?: string;
   image?: string;
 }
-const { title, eyebrow, meta = [], backHref, backLabel, links = [], description, image } =
-  Astro.props;
+const {
+  title,
+  eyebrow,
+  meta = [],
+  backHref,
+  backLabel,
+  links = [],
+  relatedPosts = [],
+  description,
+  image,
+} = Astro.props;
 ---
 <BaseLayout title={title} description={description} image={image} type="article">
   <article class="entry">
@@ -38,12 +49,23 @@ const { title, eyebrow, meta = [], backHref, backLabel, links = [], description,
       }
 
       {
-        links.length > 0 && (
+        (links.length > 0 || relatedPosts.length > 0) && (
           <div class="entry-links">
             {links.map((l) => (
               <a class="btn" href={l.href} target="_blank" rel="noopener">
                 <Icon name={l.icon} size={16} />
                 {l.label}
+              </a>
+            ))}
+            {relatedPosts.map((b) => (
+              <a
+                class="btn btn--blog"
+                href={b.href}
+                title={b.title}
+                aria-label={`Read the blog post: ${b.title}`}
+              >
+                <Icon name="pencil" size={16} />
+                {b.label}
               </a>
             ))}
           </div>

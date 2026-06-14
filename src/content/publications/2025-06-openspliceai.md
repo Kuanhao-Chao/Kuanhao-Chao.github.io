@@ -6,6 +6,7 @@ date: 2025-06-01
 type: journal
 status: published
 doi: 'https://doi.org/10.7554/eLife.107454.3'
+relatedPosts: ['openspliceai']
 code: 'https://github.com/Kuanhao-Chao/openspliceai'
 docs: 'https://ccb.jhu.edu/openspliceai/'
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/BDS_OpenSpliceAI.pdf'
