@@ -156,6 +156,8 @@ export const reviewing: string[] = [
 
 export type SoftwareTool = {
   name: string;
+  /** Release/publication date (ISO YYYY-MM-DD); /software sorts newest-first by this. */
+  date: string;
   blurb: string;
   license: { name: string; url: string };
   code: string;
@@ -178,6 +180,7 @@ const LICENSE = {
 export const software: SoftwareTool[] = [
   {
     name: 'Shorkie',
+    date: '2025-09-19',
     logo: 'shorkie',
     blurb: 'Yeast RNA-Seq coverage predictor powered by a fungal DNA language model.',
     license: LICENSE.apache,
@@ -187,6 +190,7 @@ export const software: SoftwareTool[] = [
   },
   {
     name: 'OpenSpliceAI',
+    date: '2025-06-01',
     logo: 'openspliceai',
     blurb: 'Efficient, modular splice-site prediction framework — easy to retrain on non-human species.',
     license: LICENSE.gpl3,
@@ -198,6 +202,7 @@ export const software: SoftwareTool[] = [
   },
   {
     name: 'Splam',
+    date: '2024-08-15',
     logo: 'splam',
     blurb: 'Deep-learning splice-site predictor that improves spliced alignments.',
     license: LICENSE.mit,
@@ -210,6 +215,7 @@ export const software: SoftwareTool[] = [
   },
   {
     name: 'LiftOn',
+    date: '2025-02-01',
     logo: 'lifton',
     blurb: 'Genome-annotation lift-over tool that combines DNA and protein alignments.',
     license: LICENSE.gpl3,
@@ -220,6 +226,7 @@ export const software: SoftwareTool[] = [
   },
   {
     name: 'sangeranalyseR',
+    date: '2021-03-01',
     blurb: 'R/Bioconductor package for simple, interactive Sanger-sequencing analysis.',
     license: LICENSE.mit,
     code: 'https://github.com/roblanf/sangeranalyseR',
@@ -231,6 +238,7 @@ export const software: SoftwareTool[] = [
   },
   {
     name: 'Wheeler Graph Toolkit',
+    date: '2023-07-14',
     logo: 'wgt',
     blurb: 'Tools and algorithms for recognizing, visualizing, and generating Wheeler graphs.',
     license: LICENSE.mit,

@@ -23,10 +23,13 @@ const toolLinks = (t: SoftwareTool) =>
     { label: 'Poster', icon: 'image', href: t.poster },
   ].filter((l): l is { label: string; icon: string; href: string } => Boolean(l.href));
 
+// Newest-first by release/publication date (ISO date strings sort chronologically).
+const tools = [...software].sort((a, b) => b.date.localeCompare(a.date));
+
 // Structured data: one SoftwareSourceCode node per tool, linked to the Person node.
 const softwareLd = {
   '@context': 'https://schema.org',
-  '@graph': software.map((t) => ({
+  '@graph': tools.map((t) => ({
     '@type': 'SoftwareSourceCode',
     name: t.name,
     description: t.blurb,
@@ -37,8 +40,8 @@ const softwareLd = {
   })),
 };
 
-// Resolve each tool's related blog post(s) once, aligned to the `software` order.
-const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.posts ?? [])));
+// Resolve each tool's related blog post(s) once, aligned to the `tools` order.
+const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts ?? [])));
 ---
 <PageLayout
   title="Software"
@@ -50,7 +53,7 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
     <h2 class="block-title">Research software</h2>
     <ul class="tools">
       {
-        software.map((t, i) => {
+        tools.map((t, i) => {
           const links = toolLinks(t);
           const blogLinks = toolBlog[i];
           const primary = t.docs ?? t.code;
@@ -164,7 +167,7 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
   .tool-logo {
     height: 2.25rem;
     width: auto;
-    max-width: 190px;
+    max-width: 240px;
     object-fit: contain;
     flex: none;
   }
@@ -217,8 +220,8 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
       gap: 0.85rem 1rem;
     }
     .tool-logo {
-      height: 1.9rem;
-      max-width: 130px;
+      height: 1.6rem;
+      max-width: 160px;
     }
   }
 </style>
