@@ -56,6 +56,7 @@ export const nav: NavItem[] = [
   { label: 'Teaching', href: '/teaching/' },
   { label: 'CV', href: '/cv/' },
   { label: 'Photos', href: '/photos/' },
+  { label: 'Posts', href: '/posts/' },
   { label: 'News', href: '/news/' },
 ];
 

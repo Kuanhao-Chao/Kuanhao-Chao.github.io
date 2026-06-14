@@ -9,8 +9,10 @@ import NewsEntry from '../components/NewsEntry.astro';
 import QuoteBlock from '../components/QuoteBlock.astro';
 import Icon from '../components/Icon.astro';
 import SequenceTrack from '../components/SequenceTrack.astro';
+import PostItem from '../components/PostItem.astro';
 import { site } from '../data/site';
 import { experience, education } from '../data/cv';
+import { readingTime } from '../lib/format';
 
 const research = (await getCollection('research'))
   .filter((r) => r.data.featured)
@@ -27,6 +29,11 @@ const latestNews = (await getCollection('news'))
 const news = await Promise.all(
   latestNews.map(async (entry) => ({ entry, Content: (await render(entry)).Content }))
 );
+
+const posts = (await getCollection('posts'))
+  .filter((p) => !p.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
+  .slice(0, 2);
 ---
 <BaseLayout type="profile">
   <Hero />
@@ -91,6 +98,17 @@ const news = await Promise.all(
     </div>
   </section>
 
+  {posts.length > 0 && (
+    <section class="section container" data-reveal>
+      <SectionHeading eyebrow="Writing" title="Posts" href="/posts/" more="All posts" />
+      <div class="home-posts">
+        {posts.map((entry) => (
+          <PostItem entry={entry} minutes={readingTime(entry.body ?? '')} compact />
+        ))}
+      </div>
+    </section>
+  )}
+
   <section class="section container" data-reveal>
     <SectionHeading eyebrow="Updates" title="Recent news" href="/news/" more="All news" />
     <div class="home-news">
@@ -133,6 +151,9 @@ const news = await Promise.all(
     list-style: none;
     margin: 0;
     padding: 0;
+    border-top: 1px solid var(--color-rule);
+  }
+  .home-posts {
     border-top: 1px solid var(--color-rule);
   }
   .home-bg {

@@ -1,0 +1,35 @@
+---
+import { getCollection } from 'astro:content';
+import PageLayout from '../layouts/PageLayout.astro';
+import PostItem from '../components/PostItem.astro';
+import { readingTime } from '../lib/format';
+
+const posts = (await getCollection('posts'))
+  .filter((p) => !p.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+---
+<PageLayout
+  title="Posts"
+  eyebrow="Writing"
+  lead="Research summaries and opinions — notes on the work I do and the ideas behind it."
+  description="Essays and research summaries by Kuan-Hao Chao on computational genomics, DNA language models, and machine learning."
+  width="narrow"
+>
+  {
+    posts.length === 0 ? (
+      <p class="muted">No posts yet — check back soon.</p>
+    ) : (
+      <div class="post-list">
+        {posts.map((entry) => (
+          <PostItem entry={entry} minutes={readingTime(entry.body ?? '')} />
+        ))}
+      </div>
+    )
+  }
+</PageLayout>
+
+<style>
+  .post-list > :global(.post-item:first-child) {
+    padding-top: 0;
+  }
+</style>
