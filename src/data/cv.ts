@@ -164,6 +164,8 @@ export type SoftwareTool = {
   poster?: string;
   /** Slug(s) of related /posts/ deep-dives (see src/content/posts). */
   posts?: string[];
+  /** Logo basename in src/assets/logos/software/<logo>.png (resolved on /software). */
+  logo?: string;
 };
 
 const LICENSE = {
@@ -176,6 +178,7 @@ const LICENSE = {
 export const software: SoftwareTool[] = [
   {
     name: 'Shorkie',
+    logo: 'shorkie',
     blurb: 'Yeast RNA-Seq coverage predictor powered by a fungal DNA language model.',
     license: LICENSE.apache,
     code: 'https://github.com/calico/shorkie-paper',
@@ -184,6 +187,7 @@ export const software: SoftwareTool[] = [
   },
   {
     name: 'OpenSpliceAI',
+    logo: 'openspliceai',
     blurb: 'Efficient, modular splice-site prediction framework — easy to retrain on non-human species.',
     license: LICENSE.gpl3,
     code: 'https://github.com/Kuanhao-Chao/openspliceai',
@@ -194,6 +198,7 @@ export const software: SoftwareTool[] = [
   },
   {
     name: 'Splam',
+    logo: 'splam',
     blurb: 'Deep-learning splice-site predictor that improves spliced alignments.',
     license: LICENSE.mit,
     code: 'https://github.com/Kuanhao-Chao/splam',
@@ -205,6 +210,7 @@ export const software: SoftwareTool[] = [
   },
   {
     name: 'LiftOn',
+    logo: 'lifton',
     blurb: 'Genome-annotation lift-over tool that combines DNA and protein alignments.',
     license: LICENSE.gpl3,
     code: 'https://github.com/Kuanhao-Chao/LiftOn',
@@ -225,6 +231,7 @@ export const software: SoftwareTool[] = [
   },
   {
     name: 'Wheeler Graph Toolkit',
+    logo: 'wgt',
     blurb: 'Tools and algorithms for recognizing, visualizing, and generating Wheeler graphs.',
     license: LICENSE.mit,
     code: 'https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit',

@@ -1,6 +1,8 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import Icon from '../components/Icon.astro';
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
 import type { RelatedPostLink } from '../lib/relatedPosts';
 
 interface LinkItem {
@@ -18,6 +20,7 @@ interface Props {
   relatedPosts?: RelatedPostLink[];
   description?: string;
   image?: string;
+  logo?: ImageMetadata;
 }
 const {
   title,
@@ -29,6 +32,7 @@ const {
   relatedPosts = [],
   description,
   image,
+  logo,
 } = Astro.props;
 ---
 <BaseLayout title={title} description={description} image={image} type="article">
@@ -40,6 +44,7 @@ const {
       </a>
 
       {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+      {logo && <Image class="entry-logo" src={logo} alt="" height={120} />}
       <h1>{title}</h1>
 
       {
@@ -98,6 +103,14 @@ const {
   }
   .back :global(.flip) {
     transform: rotate(180deg);
+  }
+  .entry-logo {
+    display: block;
+    height: clamp(2.5rem, 5vw, 3.25rem);
+    width: auto;
+    max-width: 240px;
+    object-fit: contain;
+    margin-bottom: 0.9rem;
   }
   h1 {
     margin-top: 0.6rem;

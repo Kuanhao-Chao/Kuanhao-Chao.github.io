@@ -1,9 +1,19 @@
 ---
 import PageLayout from '../layouts/PageLayout.astro';
 import Icon from '../components/Icon.astro';
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
 import { software, sideProjects, type SoftwareTool } from '../data/cv';
 import { resolveRelatedPosts } from '../lib/relatedPosts';
 import { site } from '../data/site';
+
+// Resolve each tool's logo (src/assets/logos/software/<logo>.png) to an optimized asset.
+const logoFiles = import.meta.glob<{ default: ImageMetadata }>(
+  '../assets/logos/software/*.png',
+  { eager: true }
+);
+const logoFor = (t: SoftwareTool) =>
+  t.logo ? logoFiles[`../assets/logos/software/${t.logo}.png`]?.default : undefined;
 
 const toolLinks = (t: SoftwareTool) =>
   [
@@ -44,9 +54,11 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
           const links = toolLinks(t);
           const blogLinks = toolBlog[i];
           const primary = t.docs ?? t.code;
+          const logo = logoFor(t);
           return (
             <li class="tool">
               <div class="tool-head">
+                {logo && <Image class="tool-logo" src={logo} alt="" height={56} />}
                 <h3 class="tool-name">
                   <a href={primary} target="_blank" rel="noopener">{t.name}</a>
                 </h3>
@@ -138,6 +150,13 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
     align-items: center;
     gap: 0.6rem 0.85rem;
   }
+  .tool-logo {
+    height: 1.6rem;
+    width: auto;
+    max-width: 150px;
+    object-fit: contain;
+    flex: none;
+  }
   .tool-name {
     font-size: 1.15rem;
     font-weight: var(--fw-semibold);
@@ -180,5 +199,12 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
   }
   .row-links a:hover {
     text-decoration: underline;
+  }
+
+  @media (max-width: 620px) {
+    .tool-logo {
+      height: 1.4rem;
+      max-width: 120px;
+    }
   }
 </style>
