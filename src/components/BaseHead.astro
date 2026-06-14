@@ -80,6 +80,12 @@ const structuredData = {
   title={`${site.name} — News`}
   href={new URL('rss.xml', Astro.site).href}
 />
+<link
+  rel="alternate"
+  type="application/rss+xml"
+  title={`${site.name} — Posts`}
+  href={new URL('posts/rss.xml', Astro.site).href}
+/>
 
 <!-- Open Graph -->
 <meta property="og:type" content={type} />

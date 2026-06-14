@@ -13,6 +13,12 @@ export function fullDate(date: Date): string {
   return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
 }
 
+/** Rough reading time in minutes from a raw markdown/MDX body (~200 wpm, min 1). */
+export function readingTime(body: string): number {
+  const words = (body ?? '').trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
 /** "Mar–Apr 2025" or "Mar 2025" for a date range. */
 export function dateRange(start: Date, end?: Date): string {
   if (!end) return monthYear(start);

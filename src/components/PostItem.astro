@@ -1,0 +1,134 @@
+---
+import { fullDate } from '../lib/format';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  entry: CollectionEntry<'posts'>;
+  minutes: number;
+  compact?: boolean;
+}
+const { entry, minutes, compact = false } = Astro.props;
+const d = entry.data;
+const href = `/posts/${entry.id}/`;
+const categoryLabel = { summary: 'Research summary', opinion: 'Opinion' }[d.category];
+---
+<article class:list={['post-item', { 'post-item--compact': compact }]}>
+  <div class="post-meta">
+    <time datetime={d.date.toISOString()}>{fullDate(d.date)}</time>
+    <span class:list={['post-tag', `post-tag--${d.category}`]}>{categoryLabel}</span>
+    <span class="post-read">{minutes} min read</span>
+  </div>
+  {
+    compact ? (
+      <h3 class="post-title"><a href={href}>{d.title}</a></h3>
+    ) : (
+      <h2 class="post-title"><a href={href}>{d.title}</a></h2>
+    )
+  }
+  <p class="post-desc muted">{d.description}</p>
+  {
+    d.tags.length > 0 && !compact && (
+      <ul class="post-tags">
+        {d.tags.map((t) => <li>{t}</li>)}
+      </ul>
+    )
+  }
+  <a class="post-more" href={href}>Read post<span aria-hidden="true">&nbsp;→</span></a>
+</article>
+
+<style>
+  .post-item {
+    padding-block: var(--space-7);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .post-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem 0.9rem;
+    margin-bottom: 0.7rem;
+  }
+  .post-meta time {
+    font-family: var(--font-display);
+    color: var(--color-muted);
+    font-size: 0.95rem;
+  }
+  .post-read {
+    font-size: var(--fs-meta);
+    color: var(--color-muted);
+  }
+  .post-tag {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: var(--fw-semibold);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    padding: 0.12em 0.55em;
+  }
+  .post-tag--summary {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+  .post-tag--opinion {
+    color: #8a5a1a;
+    border-color: #e3c79a;
+    background: #fbf3e4;
+  }
+  .post-title {
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+    line-height: 1.25;
+  }
+  .post-title a {
+    color: var(--color-ink);
+  }
+  .post-title a:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .post-desc {
+    margin-top: 0.5rem;
+    font-size: var(--fs-small);
+    max-width: var(--measure);
+  }
+  .post-tags {
+    list-style: none;
+    margin: 0.9rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.5rem;
+  }
+  .post-tags li {
+    font-size: var(--fs-meta);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    padding: 0.1em 0.5em;
+  }
+  .post-more {
+    display: inline-block;
+    margin-top: 0.9rem;
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    color: var(--color-accent);
+  }
+  .post-more:hover {
+    text-decoration: none;
+  }
+
+  /* Compact variant for the homepage teaser. */
+  .post-item--compact {
+    padding-block: var(--space-5);
+  }
+  .post-item--compact .post-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
