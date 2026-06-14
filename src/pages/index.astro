@@ -41,7 +41,7 @@ const posts = (await getCollection('posts'))
   <section class="section container" data-reveal>
     <SectionHeading eyebrow="What I work on" title="Research" href="/research/" more="All research" />
     <div class="home-research">
-      {research.map((entry) => <ResearchCard entry={entry} compact />)}
+      {research.map((entry) => <ResearchCard entry={entry} compact showPosts />)}
     </div>
   </section>
 
