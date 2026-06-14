@@ -1,15 +1,18 @@
 ---
 import Icon from './Icon.astro';
 import ResearchMotif from './genomic/ResearchMotif.astro';
+import { resolveRelatedPosts } from '../lib/relatedPosts';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
   entry: CollectionEntry<'research'>;
   compact?: boolean;
+  showPosts?: boolean;
 }
-const { entry, compact = false } = Astro.props;
+const { entry, compact = false, showPosts = false } = Astro.props;
 const d = entry.data;
 const href = `/research/${entry.id}/`;
+const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) => r.id)) : [];
 const links = [
   { label: 'Paper', icon: 'link', href: d.paper },
   { label: 'Code', icon: 'code', href: d.code },
@@ -26,12 +29,22 @@ const links = [
     <h3 class="rcard-title"><a href={href}>{d.title}</a></h3>
     <p class="rcard-summary muted">{d.summary}</p>
     {
-      links.length > 0 && (
+      (links.length > 0 || blogLinks.length > 0) && (
         <div class="rcard-links">
           {links.map((l) => (
             <a href={l.href} target="_blank" rel="noopener">
               <Icon name={l.icon} size={15} />
               {l.label}
+            </a>
+          ))}
+          {blogLinks.map((b) => (
+            <a
+              href={b.href}
+              title={b.title}
+              aria-label={`Read the blog post: ${b.title}`}
+            >
+              <Icon name="pencil" size={15} />
+              {b.label}
             </a>
           ))}
         </div>
