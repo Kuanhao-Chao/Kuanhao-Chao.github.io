@@ -1,0 +1,87 @@
+---
+title: 'Why we built LiftOn: better genome annotation by combining DNA and protein'
+description: 'The story behind LiftOn — a genome-annotation tool that fuses DNA alignment (Liftoff) and protein alignment (miniprot) so you can carry accurate gene annotations onto a new assembly, even across species.'
+date: 2025-02-01
+category: summary
+tags: ['Genome annotation', 'Comparative genomics', 'Open source']
+image: ../../assets/posts/lifton/lifton-algorithm.png
+imageAlt: "LiftOn's protein-maximization algorithm: a chaining step that combines Liftoff (DNA) and miniprot (protein) annotations, followed by an open-reading-frame search that repairs start codons and frameshifts."
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figAlgorithm from '../../assets/posts/lifton/lifton-algorithm.png';
+import figVsBoth from '../../assets/posts/lifton/lifton-vs-both.png';
+import figExtraCopies from '../../assets/posts/lifton/lifton-extra-copies.png';
+import figFixes from '../../assets/posts/lifton/lifton-fixes.png';
+import figCrossSpecies from '../../assets/posts/lifton/lifton-cross-species.png';
+
+We can sequence a genome faster than we can make sense of it. Assembling the DNA of a new species — or a new, more complete version of one we already have — has become almost routine, and thousands of eukaryotic assemblies now sit in public databases. But a bare genome is just a very long string of A, C, G, and T. The part that tells you where the genes are, where each one starts and stops, and which stretches get translated into protein — the *annotation* — is much harder to produce, and it has fallen badly behind. For most newly assembled eukaryotes we have the sequence but not the map.
+
+The pragmatic way to draw that map is to borrow one. If a closely related genome is already well annotated — say, the human reference — you can *lift* its genes over to the new assembly: line the two genomes up and carry each gene across to its matching location. Done well, annotation lift-over is fast, reproducible, and far cheaper than annotating from scratch. Done badly, it quietly fills your new genome with broken genes.
+
+**LiftOn** is the tool we built to do it well — and to keep doing it well as the two genomes drift further apart.
+
+## Why not just lift over the DNA?
+
+My lab already had a well-loved lift-over tool: [Liftoff](https://doi.org/10.1093/bioinformatics/btaa1016), written by Alaina Shumate and Steven Salzberg, which maps gene annotations between assemblies using **DNA** alignment. Within a species it is excellent — it can carry virtually every human gene from one assembly of the genome to another with near-perfect identity. But DNA alignment has a horizon. The further the target genome sits from the reference, the more the underlying DNA has changed, and the harder it becomes to line genes up correctly. Push Liftoff toward more distant species and it starts to stumble: a misplaced splice site here, a transcript with a broken open reading frame there.
+
+Meanwhile, a different signal stays legible long after the DNA has blurred: the **protein**. Protein-coding sequence is conserved across far greater evolutionary distances than the DNA that encodes it, because many DNA changes are synonymous or tolerated while the amino-acid sequence is held under strong selection. Heng Li's [miniprot](https://doi.org/10.1093/bioinformatics/btad014) exploits exactly this — it aligns a reference protein directly to a target genome, and it can find genes across distances where DNA alignment gives up.
+
+But protein alignment has its own blind spots. It only sees coding sequence, so it misses untranslated regions; it can skip very small exons; it gets fooled by pseudogenes; and it tends to merge members of tandem gene families that look identical at the protein level. Neither tool, on its own, is the whole answer.
+
+The insight behind LiftOn is simple: **DNA alignment and protein alignment fail in different ways.** Where one is weak, the other is often strong. So instead of choosing, combine them — let each contribute where it is most trustworthy, and use the protein as the arbiter of what a correct gene ought to look like. I built LiftOn on that idea in Steven Salzberg's and Mihaela Pertea's groups at Johns Hopkins — the same place Liftoff was born, with Liftoff's own author on the team and with my mentee Alan Mao — following a motto I keep coming back to: build what you need, use what you build.
+
+## What LiftOn is
+
+LiftOn is a homology-based annotation lift-over tool that runs Liftoff and miniprot, then reconciles their two annotations with a two-step **protein-maximization (PM)** algorithm. For every gene it asks a single guiding question: which combination of the available evidence best reproduces the reference protein?
+
+<ZoomFigure src={figAlgorithm} alt="LiftOn's protein-maximization algorithm: a chaining step (panels A–E) that combines Liftoff and miniprot annotations, and an open-reading-frame search (panels F–K) that repairs frameshifts, premature stops, and lost start codons." variant="wide">
+  <strong>Figure 1.</strong> The protein-maximization algorithm. <strong>(left, A–E)</strong> The <em>chaining</em> step: for a gene mapped by both Liftoff (green) and miniprot (orange), LiftOn aligns each version's protein back to the reference, breaks both into coding-sequence pieces, and chains together whichever pieces — from either tool — best reconstruct the reference protein. <strong>(right, F–K)</strong> The <em>ORF search</em> step then repairs the open reading frame, handling frameshifts, premature stop codons, and lost start codons by searching for a boundary or start site that preserves as much of the protein as possible.
+</ZoomFigure>
+
+The first step, **chaining**, treats Liftoff's and miniprot's mappings as two pools of candidate exons for the same gene. LiftOn aligns each mapped protein back to the reference, scores how faithfully each coding piece is reproduced, and stitches together the best pieces across both sources — an exon from Liftoff here, a splice junction from miniprot there — to assemble the open reading frame with the highest protein identity. The second step, the **ORF search**, cleans up what's left: if a lifted gene carries a frameshift, a premature stop, or a damaged start codon, LiftOn searches nearby for an alternative start or boundary that rescues the largest possible stretch of the reference protein. Along the way it also resolves overlapping loci and looks for extra copies of genes that exist in the new genome but aren't reached by a strict one-to-one map.
+
+## What it showed
+
+**It beats both of its parents.** The first test is the human genome itself: lifting the RefSeq annotation from the standard reference, GRCh38, onto the complete telomere-to-telomere assembly, T2T-CHM13. LiftOn mapped 99.6% of genes and 99.2% of transcripts — and, crucially, it was never worse than the better of its two inputs.
+
+<ZoomFigure src={figVsBoth} alt="Three scatter plots of per-transcript protein sequence identity for transcripts lifted from GRCh38 to T2T-CHM13: miniprot vs Liftoff, LiftOn vs Liftoff, and LiftOn vs miniprot." variant="wide">
+  <strong>Figure 2.</strong> LiftOn is never worse than its better parent. Each dot is a transcript lifted from GRCh38 to T2T-CHM13, plotted by protein sequence identity. <strong>(A)</strong> miniprot vs Liftoff — the two tools disagree constantly, each winning for different genes. <strong>(B, C)</strong> LiftOn vs Liftoff, and LiftOn vs miniprot — almost every point sits on or above the diagonal, meaning LiftOn matches or beats each tool, gene by gene.
+</ZoomFigure>
+
+That last point is the whole game. Panel A shows that Liftoff and miniprot genuinely disagree — for thousands of transcripts, one is right where the other is wrong. Panels B and C show LiftOn taking the better of the two essentially every time: it improved 866 transcripts over Liftoff and 30,266 over miniprot, while almost never doing worse. By combining them, LiftOn isn't splitting the difference — it's picking the winner for each gene.
+
+**It finds gene copies that a one-to-one map would miss.** Because T2T-CHM13 is *complete* — it fills in the repetitive, duplicated regions that earlier assemblies left as gaps — it actually contains extra copies of some genes. A strict one-to-one lift-over can't represent those; LiftOn looks for them explicitly, and found extra copies of 86 protein-coding genes, adding 320 new gene loci.
+
+<ZoomFigure src={figExtraCopies} alt="A Circos plot in which ribbons connect each gene's original copy to an additional copy LiftOn placed on the complete T2T-CHM13 assembly, colored by chromosome." variant="landscape">
+  <strong>Figure 3.</strong> Extra gene copies LiftOn recovered in T2T-CHM13. Each ribbon connects an original gene copy to an additional copy LiftOn placed on the complete T2T-CHM13 assembly, colored by the chromosome of the original. These are real duplicate copies present in the finished genome that a one-to-one lift-over would simply drop.
+</ZoomFigure>
+
+**It fixes real errors in the official annotation.** Some of the most striking results aren't comparisons against other tools at all — they're corrections to the *published* T2T-CHM13 annotation.
+
+<ZoomFigure src={figFixes} alt="Four genes — SIRPB1, OAZ3, EPHA2, and CYP4B1 — where LiftOn (blue) corrects the current T2T-CHM13 annotation (red), with DNA and protein identity rising sharply in each case." variant="landscape">
+  <strong>Figure 4.</strong> Four genes where LiftOn corrects the current T2T-CHM13 annotation (red = existing annotation, blue = LiftOn). <strong>(A)</strong> <em>SIRPB1</em>: LiftOn recovers three coding exons the current annotation omits, raising DNA identity from 81% to 99%. <strong>(B)</strong> <em>OAZ3</em>: a truncated protein is repaired, from 5% to 100% protein identity. <strong>(C)</strong> <em>EPHA2</em>: a wrong start codon is replaced, from 2% to 99%. <strong>(D)</strong> <em>CYP4B1</em>: an 11-nucleotide donor-site shift fixes a frameshift, from 53% to 99%.
+</ZoomFigure>
+
+In each case the existing annotation had something subtly wrong — missing exons, a truncated protein, the wrong start codon, a frameshift — and LiftOn's protein-maximizing search recovered a gene model that reproduces the reference protein almost perfectly. These aren't cherry-picked curiosities; they're exactly the kind of error that careful lift-over is supposed to prevent, and they turn up across the genome.
+
+**And it holds up across species.** The real motivation, though, was distance — annotating genomes that aren't just another assembly of the same species. So we pushed LiftOn outward: human to chimpanzee, fruit fly to a different fruit fly (*Drosophila melanogaster* to *D. erecta*), and mouse to rat. The mouse-to-rat jump is the hardest of these, with tens of millions of years between the two.
+
+<ZoomFigure src={figCrossSpecies} alt="LiftOn across three species pairs — human to chimpanzee, fly to fly, and mouse to rat — with gene-order dot plots, 3-D protein-identity comparisons, and identity histograms for Liftoff, miniprot, and LiftOn." variant="wide">
+  <strong>Figure 5.</strong> LiftOn across widening evolutionary distance: human→chimpanzee <strong>(A)</strong>, fly→fly <strong>(B)</strong>, and mouse→rat <strong>(C)</strong>. For each pair, the dot plot <strong>(a)</strong> shows the lifted genes preserve gene order and identity; the 3-D plot <strong>(b)</strong> compares per-transcript protein identity for Liftoff, miniprot, and LiftOn (points above the plane = LiftOn wins); and the histograms <strong>(c)</strong> show LiftOn's identity distribution shifted toward "identical" relative to either tool alone.
+</ZoomFigure>
+
+The pattern held, and the advantage of combining DNA and protein *grew* with distance. For mouse to rat, LiftOn improved 15,420 transcripts over Liftoff and 30,574 over miniprot, and left far fewer genes stranded at low identity than either tool alone. It still mapped more than 94% of genes across that gap; closer in, human-to-chimpanzee reached nearly 99%, and same-species lift-overs in honeybee, rice, and *Arabidopsis* all cleared 99%.
+
+## The bigger picture
+
+LiftOn isn't a flashy new model; it's a piece of plumbing — and I think computational biology needs good plumbing as much as it needs new ideas. Annotation is the layer everything else stands on. If the gene models are wrong, every downstream analysis inherits the error, quietly. As complete genomes and pangenomes multiply, the ability to carry accurate annotations from the genomes we understand onto the ones we've just sequenced becomes as important as the assembly itself.
+
+The lesson I took from building it is about combining evidence. It's tempting to find the single best signal and trust it everywhere. But DNA and protein tell you different things — DNA tells you *where* a gene is; protein tells you *what it should encode* — and the most reliable answer comes from letting them check each other rather than betting on one. The same instinct runs through my other work, like [OpenSpliceAI](/posts/openspliceai/), where the goal was a splice-site model you could retrain across the tree of life instead of one locked to a single species. Different problem, same conviction: build tools that travel.
+
+LiftOn is free and open source, and it builds directly on Liftoff — one lab tool standing on the shoulders of another. Point it at a new genome and an annotation you trust, and see how much of the map carries over.
+
+---
+
+*Read the [paper in Genome Research](https://doi.org/10.1101/gr.279620.124), browse the [code](https://github.com/Kuanhao-Chao/LiftOn), or work through the [documentation](https://ccb.jhu.edu/lifton/). LiftOn was built with Jakob M. Heinz, Celine Hoh, Alan Mao, Alaina Shumate, Mihaela Pertea, and Steven Salzberg at Johns Hopkins.*
+
+*Further reading: [Liftoff](https://doi.org/10.1093/bioinformatics/btaa1016) (Shumate & Salzberg, Bioinformatics 2021), the DNA-based lift-over tool LiftOn builds on; and [miniprot](https://doi.org/10.1093/bioinformatics/btad014) (Li, Bioinformatics 2023), the protein-to-genome aligner it integrates.*
