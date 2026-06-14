@@ -13,6 +13,11 @@ export function fullDate(date: Date): string {
   return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
 }
 
+/** "Sep 19" — month + day, no year (the year lives in a list separator). */
+export function monthDay(date: Date): string {
+  return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`;
+}
+
 /** Rough reading time in minutes from a raw markdown/MDX body (~200 wpm, min 1). */
 export function readingTime(body: string): number {
   const words = (body ?? '').trim().split(/\s+/).filter(Boolean).length;
