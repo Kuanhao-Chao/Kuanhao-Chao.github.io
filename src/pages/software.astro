@@ -57,34 +57,36 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
           const logo = logoFor(t);
           return (
             <li class="tool">
-              <div class="tool-head">
-                {logo && <Image class="tool-logo" src={logo} alt="" height={56} />}
-                <h3 class="tool-name">
-                  <a href={primary} target="_blank" rel="noopener">{t.name}</a>
-                </h3>
-                <a class="tool-license" href={t.license.url} target="_blank" rel="noopener">
-                  {t.license.name}
-                </a>
+              <div class="tool-main">
+                <div class="tool-head">
+                  <h3 class="tool-name">
+                    <a href={primary} target="_blank" rel="noopener">{t.name}</a>
+                  </h3>
+                  <a class="tool-license" href={t.license.url} target="_blank" rel="noopener">
+                    {t.license.name}
+                  </a>
+                </div>
+                <p class="tool-blurb muted">{t.blurb}</p>
+                <p class="row-links">
+                  {links.map((l) => (
+                    <a href={l.href} target="_blank" rel="noopener">
+                      <Icon name={l.icon} size={15} />
+                      {l.label}
+                    </a>
+                  ))}
+                  {blogLinks.map((b) => (
+                    <a
+                      href={b.href}
+                      title={b.title}
+                      aria-label={`Read the blog post: ${b.title}`}
+                    >
+                      <Icon name="pencil" size={15} />
+                      {b.label}
+                    </a>
+                  ))}
+                </p>
               </div>
-              <p class="tool-blurb muted">{t.blurb}</p>
-              <p class="row-links">
-                {links.map((l) => (
-                  <a href={l.href} target="_blank" rel="noopener">
-                    <Icon name={l.icon} size={15} />
-                    {l.label}
-                  </a>
-                ))}
-                {blogLinks.map((b) => (
-                  <a
-                    href={b.href}
-                    title={b.title}
-                    aria-label={`Read the blog post: ${b.title}`}
-                  >
-                    <Icon name="pencil" size={15} />
-                    {b.label}
-                  </a>
-                ))}
-              </p>
+              {logo && <Image class="tool-logo" src={logo} alt="" height={80} />}
             </li>
           );
         })
@@ -99,18 +101,20 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
       {
         sideProjects.map((p) => (
           <li class="tool">
-            <div class="tool-head">
-              <h3 class="tool-name">
-                <a href={p.url} target="_blank" rel="noopener">{p.name}</a>
-              </h3>
+            <div class="tool-main">
+              <div class="tool-head">
+                <h3 class="tool-name">
+                  <a href={p.url} target="_blank" rel="noopener">{p.name}</a>
+                </h3>
+              </div>
+              <p class="tool-blurb muted">{p.detail}</p>
+              <p class="row-links">
+                <a href={p.url} target="_blank" rel="noopener">
+                  <Icon name="play" size={15} />
+                  Play
+                </a>
+              </p>
             </div>
-            <p class="tool-blurb muted">{p.detail}</p>
-            <p class="row-links">
-              <a href={p.url} target="_blank" rel="noopener">
-                <Icon name="play" size={15} />
-                Play
-              </a>
-            </p>
           </li>
         ))
       }
@@ -141,8 +145,15 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
     padding: 0;
   }
   .tool {
+    display: flex;
+    align-items: center;
+    gap: 1rem 1.5rem;
     padding-block: var(--space-5);
     border-bottom: 1px solid var(--color-rule);
+  }
+  .tool-main {
+    flex: 1;
+    min-width: 0;
   }
   .tool-head {
     display: flex;
@@ -151,9 +162,9 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
     gap: 0.6rem 0.85rem;
   }
   .tool-logo {
-    height: 1.6rem;
+    height: 2.25rem;
     width: auto;
-    max-width: 150px;
+    max-width: 190px;
     object-fit: contain;
     flex: none;
   }
@@ -202,9 +213,12 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
   }
 
   @media (max-width: 620px) {
+    .tool {
+      gap: 0.85rem 1rem;
+    }
     .tool-logo {
-      height: 1.4rem;
-      max-width: 120px;
+      height: 1.9rem;
+      max-width: 130px;
     }
   }
 </style>
