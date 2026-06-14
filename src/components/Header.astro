@@ -5,6 +5,9 @@ import { site, nav } from '../data/site';
 const path = Astro.url.pathname;
 const isActive = (href: string) =>
   href === '/' ? path === '/' : path.startsWith(href.replace(/\/$/, ''));
+
+// Header (desktop + mobile) shows primary items only; footer keeps the full nav.
+const headerNav = nav.filter((item) => !item.footerOnly);
 ---
 <header class="site-header" transition:persist="site-header">
   <div class="container header-inner">
@@ -16,7 +19,7 @@ const isActive = (href: string) =>
     <nav class="nav-desktop" aria-label="Primary">
       <ul>
         {
-          nav.map((item) => (
+          headerNav.map((item) => (
             <li>
               <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
                 {item.label}
@@ -42,7 +45,7 @@ const isActive = (href: string) =>
     <nav aria-label="Mobile">
       <ul>
         {
-          nav.map((item) => (
+          headerNav.map((item) => (
             <li>
               <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
                 {item.label}
