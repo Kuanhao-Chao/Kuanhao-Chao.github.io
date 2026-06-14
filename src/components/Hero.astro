@@ -24,10 +24,15 @@ import portrait from '../assets/profile/portrait.jpg';
           <Icon name="arrow-right" size={18} />
         </a>
         <a class="btn" href="/cv/">View CV</a>
-        <Socials
-          class="hero-socials"
-          keys={['scholar', 'github', 'linkedin', 'twitter', 'bluesky', 'email']}
-        />
+        <div class="hero-icons">
+          <Socials
+            class="hero-socials"
+            keys={['scholar', 'github', 'linkedin', 'twitter', 'bluesky', 'email']}
+          />
+          <a class="hero-photos" href="/photos/" aria-label="Photos" title="Photos">
+            <Icon name="image" size={20} />
+          </a>
+        </div>
       </div>
     </div>
 
@@ -83,6 +88,31 @@ import portrait from '../assets/profile/portrait.jpg';
     align-items: center;
     gap: 0.75rem 1.25rem;
   }
+  .hero-icons {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .hero-photos {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: var(--radius);
+    color: var(--color-muted);
+    transition: color var(--transition), background var(--transition);
+  }
+  .hero-photos:hover {
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  }
+  @media (pointer: coarse) {
+    .hero-photos {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
   .hero-portrait {
     flex: none;
   }
@@ -132,7 +162,7 @@ import portrait from '../assets/profile/portrait.jpg';
     .hero-actions {
       justify-content: center;
     }
-    .hero-actions :global(.hero-socials) {
+    .hero-actions .hero-icons {
       flex-basis: 100%;
       justify-content: center;
     }

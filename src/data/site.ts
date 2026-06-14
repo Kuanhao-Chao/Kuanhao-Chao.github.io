@@ -46,7 +46,7 @@ export const identity = {
   twitter: '@KuanHaoChao',
 };
 
-export type NavItem = { label: string; href: string };
+export type NavItem = { label: string; href: string; footerOnly?: boolean };
 
 export const nav: NavItem[] = [
   { label: 'Research', href: '/research/' },
@@ -54,8 +54,8 @@ export const nav: NavItem[] = [
   { label: 'Software', href: '/software/' },
   { label: 'Talks', href: '/talks/' },
   { label: 'Teaching', href: '/teaching/' },
-  { label: 'CV', href: '/cv/' },
-  { label: 'Photos', href: '/photos/' },
+  { label: 'CV', href: '/cv/', footerOnly: true },
+  { label: 'Photos', href: '/photos/', footerOnly: true },
   { label: 'Posts', href: '/posts/' },
   { label: 'News', href: '/news/' },
 ];
