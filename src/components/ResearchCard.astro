@@ -1,15 +1,13 @@
 ---
 import Icon from './Icon.astro';
 import ResearchMotif from './genomic/ResearchMotif.astro';
-import { resolveRelatedPosts } from '../lib/relatedPosts';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
   entry: CollectionEntry<'research'>;
   compact?: boolean;
-  showPosts?: boolean;
 }
-const { entry, compact = false, showPosts = false } = Astro.props;
+const { entry, compact = false } = Astro.props;
 const d = entry.data;
 const href = `/research/${entry.id}/`;
 const links = [
@@ -18,7 +16,6 @@ const links = [
   { label: 'Talk', icon: 'play', href: d.talk },
   { label: 'News', icon: 'external', href: d.news },
 ].filter((l) => l.href);
-const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) => r.id)) : [];
 ---
 <article class:list={['rcard', { 'rcard--compact': compact }]}>
   <a href={href} class="rcard-media" aria-hidden="true" tabindex="-1">
@@ -29,23 +26,12 @@ const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) =
     <h3 class="rcard-title"><a href={href}>{d.title}</a></h3>
     <p class="rcard-summary muted">{d.summary}</p>
     {
-      (links.length > 0 || blogLinks.length > 0) && (
+      links.length > 0 && (
         <div class="rcard-links">
           {links.map((l) => (
             <a href={l.href} target="_blank" rel="noopener">
               <Icon name={l.icon} size={15} />
               {l.label}
-            </a>
-          ))}
-          {blogLinks.map((b) => (
-            <a
-              class="rcard-blog"
-              href={b.href}
-              title={b.title}
-              aria-label={`Read the blog post: ${b.title}`}
-            >
-              <Icon name="pencil" size={15} />
-              {b.label}
             </a>
           ))}
         </div>
@@ -117,13 +103,6 @@ const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) =
   .rcard-links a:hover {
     color: var(--color-accent);
     text-decoration: none;
-  }
-  .rcard-blog {
-    color: var(--color-accent);
-    font-weight: var(--fw-medium);
-  }
-  .rcard-blog:hover {
-    text-decoration: underline;
   }
 
   /* Homepage "compact" variant. On wide screens it just clamps the summary so the

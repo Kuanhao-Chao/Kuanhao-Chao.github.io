@@ -14,7 +14,7 @@ const entries = (await getCollection('research')).sort(
   description="Research by Kuan-Hao Chao across gene expression prediction, RNA splicing, genome annotation, assembly, and pangenome indexing."
 >
   <div class="research-grid">
-    {entries.map((entry) => <ResearchCard entry={entry} compact showPosts />)}
+    {entries.map((entry) => <ResearchCard entry={entry} compact />)}
   </div>
 </PageLayout>
 

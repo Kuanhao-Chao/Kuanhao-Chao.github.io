@@ -77,7 +77,7 @@ const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
       {
         blogLinks.map((b) => (
           <a
-            class="pub-link pub-link--blog"
+            class="pub-link"
             href={b.href}
             title={b.title}
             aria-label={`Read the blog post: ${b.title}`}
@@ -186,13 +186,6 @@ const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
   .pub-link:hover {
     color: var(--color-accent);
     text-decoration: none;
-  }
-  .pub-link--blog {
-    color: var(--color-accent);
-    font-weight: var(--fw-medium);
-  }
-  .pub-link--blog:hover {
-    text-decoration: underline;
   }
   .bib {
     font-size: var(--fs-small);

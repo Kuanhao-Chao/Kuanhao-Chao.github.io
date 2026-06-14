@@ -64,7 +64,6 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
                 ))}
                 {blogLinks.map((b) => (
                   <a
-                    class="row-blog"
                     href={b.href}
                     title={b.title}
                     aria-label={`Read the blog post: ${b.title}`}
@@ -181,8 +180,5 @@ const toolBlog = await Promise.all(software.map((t) => resolveRelatedPosts(t.pos
   }
   .row-links a:hover {
     text-decoration: underline;
-  }
-  .row-blog {
-    font-weight: var(--fw-medium);
   }
 </style>
