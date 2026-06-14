@@ -1,5 +1,6 @@
 ---
-import { fullDate } from '../lib/format';
+import { fullDate, monthDay } from '../lib/format';
+import { topicSlugs } from '../lib/postTopics';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -11,51 +12,83 @@ const { entry, minutes, compact = false } = Astro.props;
 const d = entry.data;
 const href = `/posts/${entry.id}/`;
 const categoryLabel = { summary: 'Research summary', opinion: 'Opinion' }[d.category];
+
+// Data for the Posts-page filter/sort/search island (non-compact rows only).
+const topics = topicSlugs(d.tags).join(' ');
+const searchText = `${d.title} ${d.description} ${d.tags.join(' ')}`.toLowerCase();
 ---
-<article class:list={['post-item', { 'post-item--compact': compact }]}>
-  <div class="post-meta">
-    <time datetime={d.date.toISOString()}>{fullDate(d.date)}</time>
-    <span class:list={['post-tag', `post-tag--${d.category}`]}>{categoryLabel}</span>
-    <span class="post-read">{minutes} min read</span>
-  </div>
-  {
-    compact ? (
+{
+  compact ? (
+    <article class="post-item post-item--compact">
+      <div class="post-meta">
+        <time datetime={d.date.toISOString()}>{fullDate(d.date)}</time>
+        <span class:list={['post-tag', `post-tag--${d.category}`]}>{categoryLabel}</span>
+        <span class="post-read">{minutes} min read</span>
+      </div>
       <h3 class="post-title"><a href={href}>{d.title}</a></h3>
-    ) : (
-      <h2 class="post-title"><a href={href}>{d.title}</a></h2>
-    )
-  }
-  <p class="post-desc muted">{d.description}</p>
-  {
-    d.tags.length > 0 && !compact && (
-      <ul class="post-tags">
-        {d.tags.map((t) => <li>{t}</li>)}
-      </ul>
-    )
-  }
-  <a class="post-more" href={href}>Read post<span aria-hidden="true">&nbsp;→</span></a>
-</article>
+      <p class="post-desc muted">{d.description}</p>
+      <a class="post-more" href={href}>Read post<span aria-hidden="true">&nbsp;→</span></a>
+    </article>
+  ) : (
+    <article
+      class="post"
+      data-ts={d.date.getTime()}
+      data-year={d.date.getFullYear()}
+      data-topics={topics}
+      data-search={searchText}
+    >
+      <time class="post-date" datetime={d.date.toISOString()} aria-hidden="true">
+        {monthDay(d.date)}
+      </time>
+      <div class="post-body">
+        <h3 class="post-title"><a href={href}>{d.title}</a></h3>
+        <p class="post-line">
+          <span class:list={['post-tag', `post-tag--${d.category}`]}>{categoryLabel}</span>
+          <span class="post-read">{minutes} min read</span>
+        </p>
+        <p class="post-desc muted">{d.description}</p>
+      </div>
+    </article>
+  )
+}
 
 <style>
-  .post-item {
-    padding-block: var(--space-7);
+  /* ---- Listing row (mirrors the Publications item grid) ---- */
+  .post {
+    display: grid;
+    grid-template-columns: 4.5rem 1fr;
+    gap: 0 1.5rem;
+    padding-block: var(--space-6);
     border-bottom: 1px solid var(--color-rule);
   }
-  .post-meta {
+  .post-date {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: var(--fw-medium);
+    color: var(--color-muted);
+    padding-top: 0.15rem;
+  }
+  .post-line {
+    margin-top: 0.4rem;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0.55rem 0.9rem;
-    margin-bottom: 0.7rem;
+    gap: 0.6rem;
+    font-size: var(--fs-small);
   }
-  .post-meta time {
-    font-family: var(--font-display);
-    color: var(--color-muted);
-    font-size: 0.95rem;
+
+  /* ---- Shared between the row and the compact teaser ---- */
+  .post-title {
+    font-size: 1.15rem;
+    font-weight: var(--fw-semibold);
+    line-height: 1.35;
   }
-  .post-read {
-    font-size: var(--fs-meta);
-    color: var(--color-muted);
+  .post-title a {
+    color: var(--color-ink);
+  }
+  .post-title a:hover {
+    color: var(--color-accent);
+    text-decoration: none;
   }
   .post-tag {
     font-size: 0.66rem;
@@ -77,37 +110,37 @@ const categoryLabel = { summary: 'Research summary', opinion: 'Opinion' }[d.cate
     border-color: #e3c79a;
     background: #fbf3e4;
   }
-  .post-title {
-    font-size: var(--fs-h3);
-    font-weight: var(--fw-semibold);
-    line-height: 1.25;
-  }
-  .post-title a {
-    color: var(--color-ink);
-  }
-  .post-title a:hover {
-    color: var(--color-accent);
-    text-decoration: none;
-  }
-  .post-desc {
-    margin-top: 0.5rem;
-    font-size: var(--fs-small);
-    max-width: var(--measure);
-  }
-  .post-tags {
-    list-style: none;
-    margin: 0.9rem 0 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem 0.5rem;
-  }
-  .post-tags li {
+  .post-read {
     font-size: var(--fs-meta);
     color: var(--color-muted);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius);
-    padding: 0.1em 0.5em;
+  }
+  .post-desc {
+    margin-top: 0.4rem;
+    font-size: var(--fs-small);
+    max-width: var(--measure);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ---- Compact teaser (homepage "Writing" section) ---- */
+  .post-item--compact {
+    padding-block: var(--space-5);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .post-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem 0.9rem;
+    margin-bottom: 0.7rem;
+  }
+  .post-meta time {
+    font-family: var(--font-display);
+    color: var(--color-muted);
+    font-size: 0.95rem;
   }
   .post-more {
     display: inline-block;
@@ -120,15 +153,19 @@ const categoryLabel = { summary: 'Research summary', opinion: 'Opinion' }[d.cate
     text-decoration: none;
   }
 
-  /* Compact variant for the homepage teaser. */
-  .post-item--compact {
-    padding-block: var(--space-5);
-  }
-  .post-item--compact .post-desc {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+  @media (max-width: 560px) {
+    .post {
+      grid-template-columns: 1fr;
+      gap: 0.3rem;
+      padding-block: var(--space-4);
+    }
+    .post-date {
+      padding-top: 0;
+      font-size: 0.95rem;
+    }
+    .post-title {
+      font-size: 1.02rem;
+      line-height: 1.3;
+    }
   }
 </style>

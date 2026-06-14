@@ -19,7 +19,7 @@ const { src, alt, variant = 'landscape' } = Astro.props;
 ---
 <figure class:list={['zfig', `zfig--${variant}`]}>
   <button type="button" class="zfig-btn" data-zoom aria-label={`Enlarge figure: ${alt}`}>
-    <Image src={src} alt={alt} widths={[480, 760, 1120]} sizes="(max-width: 720px) 92vw, 1080px" />
+    <Image src={src} alt={alt} widths={[480, 760, 920]} sizes="(max-width: 720px) 92vw, 880px" />
     <span class="zfig-hint" aria-hidden="true">⤢ Enlarge</span>
   </button>
   <figcaption><slot /></figcaption>
@@ -33,17 +33,17 @@ const { src, alt, variant = 'landscape' } = Astro.props;
 <style>
   /* Per-variant width cap; the figure centers on the viewport and never overflows it. */
   .zfig {
-    --cap: 920px;
+    --cap: 780px;
     --w: min(var(--cap), calc(100vw - 2rem));
     width: var(--w);
     margin-left: calc((100% - var(--w)) / 2);
     margin-right: calc((100% - var(--w)) / 2);
     margin-block: 2.4em;
   }
-  .zfig--wide { --cap: 1120px; }
-  .zfig--landscape { --cap: 920px; }
-  .zfig--square { --cap: 720px; }
-  .zfig--portrait { --cap: 600px; }
+  .zfig--wide { --cap: 880px; }
+  .zfig--landscape { --cap: 780px; }
+  .zfig--square { --cap: 700px; }
+  .zfig--portrait { --cap: 560px; }
 
   .zfig-btn {
     display: block;
