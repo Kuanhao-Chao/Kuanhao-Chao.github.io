@@ -172,11 +172,14 @@ const types = [
 </style>
 
 <script>
-  // Lightweight, dependency-free filter / sort / search island.
-  const root = document.querySelector<HTMLElement>('[data-pub-tools]');
-  const list = document.querySelector<HTMLOListElement>('[data-pub-list]');
-  const empty = document.querySelector<HTMLElement>('[data-pub-empty]');
-  if (root && list) {
+  // Lightweight, dependency-free filter / sort / search island. Re-wires on every view
+  // transition: ClientRouter swaps in fresh DOM and bundled module scripts run only once,
+  // so we (re)initialise on each astro:page-load against the current DOM.
+  function init() {
+    const root = document.querySelector<HTMLElement>('[data-pub-tools]');
+    const list = document.querySelector<HTMLOListElement>('[data-pub-list]');
+    const empty = document.querySelector<HTMLElement>('[data-pub-empty]');
+    if (!root || !list) return;
     const items = Array.from(list.querySelectorAll<HTMLLIElement>('li'));
     const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
     const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
@@ -257,4 +260,5 @@ const types = [
     });
     sortSelect?.addEventListener('change', apply);
   }
+  document.addEventListener('astro:page-load', init);
 </script>
