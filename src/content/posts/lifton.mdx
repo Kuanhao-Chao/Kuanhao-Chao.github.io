@@ -1,12 +1,22 @@
 ---
 title: 'Why we built LiftOn: better genome annotation by combining DNA and protein'
 description: 'The story behind LiftOn — a genome-annotation tool that fuses DNA alignment (Liftoff) and protein alignment (miniprot) so you can carry accurate gene annotations onto a new assembly, even across species.'
+authors: ['Kuan-Hao Chao']
+abstract: >-
+  This article summarizes the motivation and method behind LiftOn, a genome-annotation lift-over tool that combines DNA-based and protein-based alignments. It explains why DNA alignment and protein alignment fail in complementary ways, how LiftOn reconciles Liftoff and miniprot annotations with protein maximization, and why this improves annotation across assemblies and species.
 date: 2025-02-01
 category: summary
 tags: ['Genome annotation', 'Comparative genomics', 'Open source']
 image: ../../assets/posts/lifton/lifton-algorithm.png
 logo: ../../assets/logos/software/lifton.png
 imageAlt: "LiftOn's protein-maximization algorithm: a chaining step that combines Liftoff (DNA) and miniprot (protein) annotations, followed by an open-reading-frame search that repairs start codons and frameshifts."
+references:
+  - text: 'Chao, K.-H. et al. Combining DNA and protein alignments to improve genome annotation with LiftOn. Genome Research (2025).'
+    doi: 'https://doi.org/10.1101/gr.279620.124'
+  - text: 'Shumate, A. and Salzberg, S. L. Liftoff: accurate mapping of gene annotations. Bioinformatics (2021).'
+    doi: 'https://doi.org/10.1093/bioinformatics/btaa1016'
+  - text: 'Li, H. Protein-to-genome alignment with miniprot. Bioinformatics (2023).'
+    doi: 'https://doi.org/10.1093/bioinformatics/btad014'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figAlgorithm from '../../assets/posts/lifton/lifton-algorithm.png';
@@ -84,5 +94,3 @@ LiftOn is free and open source, and it builds directly on Liftoff — one lab to
 ---
 
 *Read the [paper in Genome Research](https://doi.org/10.1101/gr.279620.124), browse the [code](https://github.com/Kuanhao-Chao/LiftOn), or work through the [documentation](https://ccb.jhu.edu/lifton/). LiftOn was built with Jakob M. Heinz, Celine Hoh, Alan Mao, Alaina Shumate, Mihaela Pertea, and Steven Salzberg at Johns Hopkins.*
-
-*Further reading: [Liftoff](https://doi.org/10.1093/bioinformatics/btaa1016) (Shumate & Salzberg, Bioinformatics 2021), the DNA-based lift-over tool LiftOn builds on; and [miniprot](https://doi.org/10.1093/bioinformatics/btad014) (Li, Bioinformatics 2023), the protein-to-genome aligner it integrates.*

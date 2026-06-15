@@ -1,12 +1,22 @@
 ---
 title: 'Why we built Shorkie: reading the regulatory code of yeast'
 description: 'The story behind Shorkie — a fungal DNA language model that learns the regulatory grammar of budding yeast and predicts how its genes turn on and off over time.'
+authors: ['Kuan-Hao Chao']
+abstract: >-
+  This article summarizes Shorkie, a fungal DNA language model for predicting dynamic gene expression in budding yeast. It explains how cross-species self-supervised pretraining, evolutionary-scope selection, and fine-tuning on yeast regulatory measurements improve expression prediction and help identify regulatory sequence features and variant effects.
 date: 2025-09-19
 category: summary
 tags: ['DNA language models', 'Gene expression', 'Yeast']
 image: ../../assets/research/gene-expression-overview.jpg
 logo: ../../assets/logos/software/shorkie.png
 imageAlt: 'Overview of Shorkie: a multi-resolution network, the four-level fungal training hierarchy, the fungal phylogeny, and training curves.'
+references:
+  - text: 'Chao, K.-H., Magzoub, M. M., Stoops, E., Hackett, S. R., Linder, J., and Kelley, D. R. Predicting dynamic expression patterns in budding yeast with a fungal DNA language model. bioRxiv (2025).'
+    doi: 'https://doi.org/10.1101/2025.09.19.677475'
+  - text: 'Linder, J. et al. Predicting RNA-seq coverage from DNA sequence as a unifying model of gene regulation. Nature Genetics (2025).'
+    doi: 'https://doi.org/10.1038/s41588-024-02053-6'
+  - text: 'Karollus, A. et al. Species-aware DNA language models capture regulatory elements and their evolution. Genome Biology (2024).'
+    doi: 'https://doi.org/10.1186/s13059-024-03221-x'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figPhylogeny from '../../assets/posts/shorkie/shorkie-phylogeny.png';
@@ -100,5 +110,3 @@ Shorkie is open source — the code and trained models are on GitHub.
 ---
 
 *Read the [preprint on bioRxiv](https://doi.org/10.1101/2025.09.19.677475), browse the [code](https://github.com/calico/shorkie-paper), or watch the [talk](https://youtu.be/MvpYQYQvZ0U). Shorkie was built with Majed Mohamed Magzoub, Emily Stoops, Sean R. Hackett, Johannes Linder, and David R. Kelley at Calico Life Sciences.*
-
-*Further reading: [Borzoi — predicting RNA-seq coverage from DNA sequence](https://doi.org/10.1038/s41588-024-02053-6) (Linder et al., Nature Genetics 2025), the sequence-to-expression model Shorkie builds on; and [Species-aware DNA language models capture regulatory elements and their evolution](https://doi.org/10.1186/s13059-024-03221-x) (Karollus et al., Genome Biology 2024), which inspired the cross-species pretraining.*

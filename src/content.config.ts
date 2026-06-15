@@ -109,6 +109,8 @@ const posts = defineCollection({
     z.object({
       title: z.string(),
       description: z.string(),
+      authors: z.array(z.string()).default(['Kuan-Hao Chao']),
+      abstract: z.string(),
       date: z.coerce.date(),
       updated: z.coerce.date().optional(),
       category: z.enum(['summary', 'opinion']).default('summary'),
@@ -119,6 +121,16 @@ const posts = defineCollection({
       draft: z.boolean().default(false),
       featured: z.boolean().default(false),
       linkLabel: z.string().optional(),
+      scholar: z.boolean().default(true),
+      references: z
+        .array(
+          z.object({
+            text: z.string(),
+            doi: z.string().url().optional(),
+            url: z.string().url().optional(),
+          })
+        )
+        .default([]),
     }),
 });
 

@@ -1,11 +1,21 @@
 ---
 title: 'Why we built Han1: a complete, annotated genome for the world''s largest ethnic group'
 description: 'The story behind Han1 — the first gapless, reference-quality, fully annotated human genome from a Han Chinese individual, and what comparing two finished human genomes revealed.'
+authors: ['Kuan-Hao Chao']
+abstract: >-
+  This article summarizes the motivation, construction, and biological implications of Han1, the first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual. It explains how long-read assembly, chromosome scaffolding, gap closing, polishing, and annotation lift-over produced a complete population-relevant genome and enabled gene-level comparison against T2T-CHM13.
 date: 2023-03-01
 category: summary
 tags: ['Genome assembly', 'Human genome', 'Comparative genomics']
 image: ../../assets/posts/han1/han1-chromosomes.png
 imageAlt: 'The 25 chromosomes of Han1, with regions assembled from the Han Chinese individual HG00621 in red and the small remaining stretches filled from T2T-CHM13 in pink.'
+references:
+  - text: 'Chao, K.-H., Zimin, A. V., Pertea, M., and Salzberg, S. L. The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual. G3: Genes|Genomes|Genetics (2023).'
+    doi: 'https://doi.org/10.1093/g3journal/jkac321'
+  - text: 'Nurk, S. et al. The complete sequence of a human genome. Science (2022).'
+    doi: 'https://doi.org/10.1126/science.abj6987'
+  - text: 'Chao, K.-H. et al. Combining DNA and protein alignments to improve genome annotation with LiftOn. Genome Research (2025).'
+    doi: 'https://doi.org/10.1101/gr.279620.124'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figChromosomes from '../../assets/posts/han1/han1-chromosomes.png';
@@ -63,5 +73,3 @@ Han1 is freely available, assembly and annotation both, for anyone to build on.
 ---
 
 *Read the [paper in G3: Genes|Genomes|Genetics](https://doi.org/10.1093/g3journal/jkac321), or get the assembly and annotation from [GitHub](https://github.com/JHUCCB/ChineseHanSouthGenome) (also on GenBank, accession JANJEX000000000). Han1 was built with Aleksey Zimin, Mihaela Pertea, and Steven Salzberg at Johns Hopkins.*
-
-*Further reading: [T2T-CHM13](https://doi.org/10.1126/science.abj6987) (Nurk et al., Science 2022), the first complete human genome, which we used as a scaffolding guide and comparison; and [LiftOn](/posts/lifton/), my later work on transferring gene annotations between genomes like these.*

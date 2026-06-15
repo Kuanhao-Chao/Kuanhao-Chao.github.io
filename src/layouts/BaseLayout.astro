@@ -13,13 +13,26 @@ interface Props {
   description?: string;
   image?: string;
   type?: 'website' | 'article' | 'profile';
+  scholarMeta?: {
+    title: string;
+    authors: string[];
+    publicationDate: string;
+    pdfUrl?: string;
+    references?: { text: string; doi?: string; url?: string }[];
+  };
 }
-const { title, description, image, type } = Astro.props;
+const { title, description, image, type, scholarMeta } = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
   <head>
-    <BaseHead title={title} description={description} image={image} type={type} />
+    <BaseHead
+      title={title}
+      description={description}
+      image={image}
+      type={type}
+      scholarMeta={scholarMeta}
+    />
     <ClientRouter />
   </head>
   <body>

@@ -16,10 +16,14 @@ Requires Node ≥ 18.20.8 (Node 22 LTS recommended — see `.nvmrc`).
 ```sh
 npm install
 npm run dev        # dev server at http://localhost:4321
-npm run build      # production build to ./dist
+npm run build      # production build to ./dist, including post PDFs
+npm run pdf:posts  # regenerate post PDFs after an existing build
 npm run preview    # preview the production build
 npm run check      # astro check (types + content schemas)
 ```
+
+`npm run build` expects a Playwright Chromium browser for PDF generation. On a new
+machine, run `npx playwright install chromium` once after installing dependencies.
 
 ## Where things live
 
@@ -59,6 +63,9 @@ and validated in `src/content.config.ts`. Examples:
 
 PDFs and slides are linked from external storage (`storage.khchao.com`) rather than
 committed to the repo.
+
+Blog post PDFs are the exception: they are generated into `dist/posts/<slug>/<slug>.pdf`
+from the built HTML during `npm run build` and are not committed.
 
 ## Deploy (GitHub Pages → khchao.com)
 
