@@ -207,6 +207,69 @@ async function fulfillFromDist(route) {
   }
 }
 
+/**
+ * Runs inside the page (serialized by Playwright) to make every figure print-ready
+ * before `page.pdf()`:
+ *   1. Promote each ZoomFigure's visible image to the highest-resolution source the
+ *      figure carries — the lightbox copy goes up to 2400w, vs. the 920w button copy
+ *      print would otherwise embed (~128 ppi → ~330 ppi on a Letter content box).
+ *   2. Defeat `loading="lazy"` so below-the-fold figures actually fetch (otherwise
+ *      `networkidle` reports quiet while they sit unloaded and the PDF captures blanks).
+ *   3. Scroll the document top→bottom to trip any IntersectionObserver-based loads.
+ *   4. Wait for every image to finish (or error), each capped so one stuck asset
+ *      can't hang the build.
+ */
+async function preparePageForPrint() {
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const widthOf = (candidate) => parseInt(candidate.trim().split(/\s+/)[1], 10) || 0;
+
+  for (const figure of document.querySelectorAll('figure.zfig')) {
+    const shown = figure.querySelector('.zfig-btn img');
+    if (!shown) continue;
+    let best = null;
+    let bestWidth = -1;
+    for (const img of figure.querySelectorAll('img')) {
+      for (const candidate of (img.getAttribute('srcset') || '').split(',')) {
+        const url = candidate.trim().split(/\s+/)[0];
+        const width = widthOf(candidate);
+        if (url && width > bestWidth) {
+          bestWidth = width;
+          best = url;
+        }
+      }
+    }
+    if (best) {
+      shown.removeAttribute('srcset');
+      shown.removeAttribute('sizes');
+      shown.setAttribute('src', best);
+    }
+  }
+
+  for (const img of document.querySelectorAll('img')) {
+    img.loading = 'eager';
+    img.decoding = 'sync';
+  }
+
+  const step = Math.max(200, Math.floor(window.innerHeight * 0.9));
+  for (let y = 0; y <= document.body.scrollHeight; y += step) {
+    window.scrollTo(0, y);
+    await sleep(60);
+  }
+  window.scrollTo(0, 0);
+
+  await Promise.all(
+    Array.from(document.images).map((img) => {
+      if (img.complete && img.naturalWidth > 0) return img.decode().catch(() => {});
+      return new Promise((resolve) => {
+        const done = () => resolve();
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+        setTimeout(done, 15000);
+      });
+    })
+  );
+}
+
 async function main() {
   if (!(await pathExists(POSTS))) {
     throw new Error('No built posts found. Run `npm run build:site` before `npm run pdf:posts`.');
@@ -239,6 +302,7 @@ async function main() {
       const pdfPath = join(POSTS, slug, `${slug}.pdf`);
       await page.goto(url, { waitUntil: 'networkidle' });
       await page.addStyleTag({ content: PRINT_CSS });
+      await page.evaluate(preparePageForPrint);
       await page.pdf({
         path: pdfPath,
         format: 'Letter',
