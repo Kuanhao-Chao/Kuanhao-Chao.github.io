@@ -1,57 +1,17 @@
 ---
-import { getCollection, render } from 'astro:content';
+import { getCollection } from 'astro:content';
 import PageLayout from '../../layouts/PageLayout.astro';
-import NewsEntry from '../../components/NewsEntry.astro';
+import NewsList from '../../components/NewsList.astro';
 
 const news = (await getCollection('news')).sort(
   (a, b) => b.data.date.getTime() - a.data.date.getTime()
 );
-const rendered = await Promise.all(
-  news.map(async (entry) => ({ entry, Content: (await render(entry)).Content }))
-);
-
-// Group by year, preserving descending order.
-const years: { year: number; items: typeof rendered }[] = [];
-for (const item of rendered) {
-  const y = item.entry.data.date.getUTCFullYear();
-  let bucket = years.find((b) => b.year === y);
-  if (!bucket) {
-    bucket = { year: y, items: [] };
-    years.push(bucket);
-  }
-  bucket.items.push(item);
-}
 ---
 <PageLayout
   title="News"
   eyebrow="Updates"
-  lead="Papers, talks, releases, and milestones — newest first."
+  lead="Papers, talks, releases, and milestones — filter by type, search, or browse by year."
   description="News and updates from Kuan-Hao Chao: papers, talks, software releases, and milestones."
-  width="narrow"
 >
-  {
-    years.map(({ year, items }) => (
-      <section class="news-year">
-        <h2 class="year-label">{year}</h2>
-        {items.map(({ entry, Content }) => (
-          <NewsEntry entry={entry}>
-            <Content />
-          </NewsEntry>
-        ))}
-      </section>
-    ))
-  }
+  <NewsList items={news} />
 </PageLayout>
-
-<style>
-  .news-year {
-    margin-bottom: var(--space-12);
-  }
-  .year-label {
-    font-size: var(--fs-h3);
-    color: var(--color-muted);
-    font-weight: var(--fw-medium);
-    margin-bottom: var(--space-2);
-    padding-bottom: var(--space-3);
-  }
-</style>

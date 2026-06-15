@@ -1,0 +1,272 @@
+---
+import { render } from 'astro:content';
+import NewsEntry from './NewsEntry.astro';
+import Icon from './Icon.astro';
+import { NEWS_CATEGORIES } from '../lib/newsCategories';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  items: CollectionEntry<'news'>[];
+}
+const { items } = Astro.props;
+// Render each item's body once here, then lay them out as filterable rows.
+const rendered = await Promise.all(
+  items.map(async (entry) => ({ entry, Content: (await render(entry)).Content }))
+);
+const categories = [{ value: 'all', label: 'All' }, ...NEWS_CATEGORIES];
+---
+<div class="news-tools" data-news-tools>
+  <div class="news-filters" role="group" aria-label="Filter by category">
+    {
+      categories.map((c) => (
+        <button
+          type="button"
+          class="filter-pill"
+          data-filter={c.value}
+          aria-pressed={c.value === 'all' ? 'true' : 'false'}
+        >
+          {c.label}
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="news-controls">
+    <label class="search">
+      <Icon name="search" size={18} />
+      <input type="search" placeholder="Search news…" data-search-input aria-label="Search news" />
+    </label>
+    <label class="sort">
+      <span class="visually-hidden">Sort news</span>
+      <select data-sort>
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
+      <Icon name="chevron-down" size={16} />
+    </label>
+  </div>
+</div>
+
+<ol class="news-list" data-news-list>
+  {rendered.map(({ entry, Content }) => (
+    <li>
+      <NewsEntry entry={entry}>
+        <Content />
+      </NewsEntry>
+    </li>
+  ))}
+</ol>
+
+<p class="news-empty" data-news-empty hidden>No news matches your search.</p>
+
+<style>
+  .news-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: var(--space-4);
+  }
+  .news-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .filter-pill {
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    padding: 0.4em 0.9em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .filter-pill:hover {
+    border-color: var(--color-ink);
+    color: var(--color-ink);
+  }
+  .filter-pill[aria-pressed='true'] {
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+    color: var(--color-bg);
+  }
+  .news-controls {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .search {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45em 0.8em;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-muted);
+  }
+  .search:focus-within {
+    border-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+  .search input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: var(--fs-small);
+    width: min(15rem, 50vw);
+  }
+  .sort {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .sort select {
+    appearance: none;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    padding: 0.5em 2.2em 0.5em 0.8em;
+    font-size: var(--fs-small);
+    cursor: pointer;
+  }
+  .sort :global(svg) {
+    position: absolute;
+    right: 0.6em;
+    pointer-events: none;
+    color: var(--color-muted);
+  }
+  .news-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--color-rule);
+  }
+  .news-list li.is-hidden {
+    display: none;
+  }
+  /* Year-group separators are created at runtime by the island, so they carry no
+     scoped attribute — style them globally. The class is unique to this page. */
+  :global(.news-year) {
+    font-size: var(--fs-h3);
+    color: var(--color-muted);
+    font-weight: var(--fw-medium);
+    padding-bottom: var(--space-3);
+    margin-top: var(--space-10);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  :global(.news-year:first-child) {
+    margin-top: var(--space-5);
+  }
+  .news-empty {
+    padding: var(--space-8) 0;
+    color: var(--color-muted);
+  }
+
+  /* Roomier controls on touch devices. */
+  @media (pointer: coarse) {
+    .filter-pill,
+    .search,
+    .sort select {
+      padding-block: 0.6em;
+    }
+  }
+</style>
+
+<script>
+  // Lightweight, dependency-free filter / sort / search island for the News page.
+  // Single-value category filter (like PublicationsList); groups by year on load
+  // (like PostsList). Re-wires on every view transition: ClientRouter swaps in fresh
+  // DOM and bundled module scripts run only once, so we (re)initialise on each
+  // astro:page-load against the current DOM.
+  function init() {
+    const root = document.querySelector<HTMLElement>('[data-news-tools]');
+    const list = document.querySelector<HTMLOListElement>('[data-news-list]');
+    const empty = document.querySelector<HTMLElement>('[data-news-empty]');
+    if (!root || !list) return;
+    const items = Array.from(list.querySelectorAll<HTMLLIElement>('li'));
+    const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+    const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
+    const sortSelect = root.querySelector<HTMLSelectElement>('[data-sort]');
+
+    const meta = (li: HTMLLIElement) => {
+      const el = li.querySelector<HTMLElement>('.news')!;
+      return {
+        category: el.dataset.category ?? '',
+        year: Number(el.dataset.year ?? 0),
+        ts: Number(el.dataset.ts ?? 0),
+        search: el.dataset.search ?? '',
+      };
+    };
+    const order = new Map(items.map((li, i) => [li, i])); // original (newest-first)
+
+    let activeCategory = 'all';
+    let query = '';
+
+    const makeSep = (year: number) => {
+      const li = document.createElement('li');
+      li.className = 'news-year';
+      li.dataset.sep = '';
+      li.setAttribute('aria-hidden', 'true');
+      li.textContent = String(year);
+      return li;
+    };
+
+    const apply = () => {
+      // Drop any separators from the previous render before re-laying out.
+      list.querySelectorAll('[data-sep]').forEach((s) => s.remove());
+
+      let visible = 0;
+      for (const li of items) {
+        const m = meta(li);
+        const ok =
+          (activeCategory === 'all' || m.category === activeCategory) &&
+          (query === '' || m.search.includes(query));
+        li.classList.toggle('is-hidden', !ok);
+        if (ok) visible++;
+      }
+      if (empty) empty.hidden = visible !== 0;
+
+      const mode = sortSelect?.value ?? 'newest';
+      const sorted = [...items].sort((a, b) => {
+        const ma = meta(a);
+        const mb = meta(b);
+        if (mode === 'oldest') return ma.ts - mb.ts || order.get(a)! - order.get(b)!;
+        return mb.ts - ma.ts || order.get(a)! - order.get(b)!; // newest
+      });
+      sorted.forEach((li) => list.appendChild(li));
+
+      // Group visible items by year (both sort modes are chronological).
+      if (mode === 'newest' || mode === 'oldest') {
+        let lastYear: number | null = null;
+        for (const li of sorted) {
+          if (li.classList.contains('is-hidden')) continue;
+          const y = meta(li).year;
+          if (y !== lastYear) {
+            list.insertBefore(makeSep(y), li);
+            lastYear = y;
+          }
+        }
+      }
+    };
+
+    pills.forEach((pill) =>
+      pill.addEventListener('click', () => {
+        activeCategory = pill.dataset.filter ?? 'all';
+        pills.forEach((p) => p.setAttribute('aria-pressed', String(p === pill)));
+        apply();
+      })
+    );
+    searchInput?.addEventListener('input', () => {
+      query = searchInput.value.trim().toLowerCase();
+      apply();
+    });
+    sortSelect?.addEventListener('change', apply);
+
+    apply(); // group by year on load
+  }
+  document.addEventListener('astro:page-load', init);
+</script>

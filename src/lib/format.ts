@@ -18,6 +18,11 @@ export function monthDay(date: Date): string {
   return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`;
 }
 
+/** "Sep" — month only (for month-precision dates under a year separator). */
+export function month(date: Date): string {
+  return MONTHS[date.getUTCMonth()];
+}
+
 /** Rough reading time in minutes from a raw markdown/MDX body (~200 wpm, min 1). */
 export function readingTime(body: string): number {
   const words = (body ?? '').trim().split(/\s+/).filter(Boolean).length;
