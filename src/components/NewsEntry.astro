@@ -1,5 +1,6 @@
 ---
-import { monthYear } from '../lib/format';
+import { month, monthYear } from '../lib/format';
+import { NEWS_LABELS } from '../lib/newsCategories';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -8,18 +9,23 @@ interface Props {
 }
 const { entry, variant = 'row' } = Astro.props;
 const d = entry.data;
-const categoryLabel = {
-  publication: 'Publication',
-  talk: 'Talk',
-  award: 'Award',
-  release: 'Release',
-  join: 'Milestone',
-  misc: 'News',
-}[d.category];
+const categoryLabel = NEWS_LABELS[d.category];
+// The list rows sit under year separators (injected by NewsList), so they show
+// month-only; the homepage card stands alone and keeps the full month + year.
+const dateLabel = variant === 'card' ? monthYear(d.date) : month(d.date);
+// Hooks for the News-page filter / sort / search island.
+const searchText = `${d.title} ${entry.body ?? ''} ${d.location ?? ''}`.toLowerCase();
 ---
-<article id={entry.id} class:list={['news', `news--${variant}`]}>
+<article
+  id={entry.id}
+  class:list={['news', `news--${variant}`]}
+  data-category={d.category}
+  data-year={d.date.getUTCFullYear()}
+  data-ts={d.date.getTime()}
+  data-search={searchText}
+>
   <div class="news-meta">
-    <time datetime={d.date.toISOString()}>{monthYear(d.date)}</time>
+    <time datetime={d.date.toISOString()}>{dateLabel}</time>
     <span class:list={['news-tag', `news-tag--${d.category}`]}>{categoryLabel}</span>
   </div>
   <div class="news-text">
