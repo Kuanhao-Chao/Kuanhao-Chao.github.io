@@ -171,10 +171,13 @@ const topics = [{ slug: 'all', label: 'All' }, ...POST_TOPICS];
   // Lightweight, dependency-free filter / sort / search island for the Posts page.
   // Adapted from PublicationsList: posts carry MULTIPLE topics, so the type filter
   // becomes a membership test, and we group by year on load (apply runs immediately).
-  const root = document.querySelector<HTMLElement>('[data-post-tools]');
-  const list = document.querySelector<HTMLOListElement>('[data-post-list]');
-  const empty = document.querySelector<HTMLElement>('[data-post-empty]');
-  if (root && list) {
+  // Re-wires on every view transition: ClientRouter swaps in fresh DOM and bundled
+  // module scripts run only once, so we (re)initialise on each astro:page-load.
+  function init() {
+    const root = document.querySelector<HTMLElement>('[data-post-tools]');
+    const list = document.querySelector<HTMLOListElement>('[data-post-list]');
+    const empty = document.querySelector<HTMLElement>('[data-post-empty]');
+    if (!root || !list) return;
     const items = Array.from(list.querySelectorAll<HTMLLIElement>('li'));
     const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
     const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
@@ -258,4 +261,5 @@ const topics = [{ slug: 'all', label: 'All' }, ...POST_TOPICS];
 
     apply(); // group by year on load
   }
+  document.addEventListener('astro:page-load', init);
 </script>
