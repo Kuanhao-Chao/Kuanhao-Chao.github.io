@@ -1,6 +1,9 @@
 ---
 title: 'Why we rebuilt SpliceAI: an open, retrainable splice-site predictor'
 description: 'The story behind OpenSpliceAI — a faithful, fast PyTorch reimplementation of SpliceAI that anyone can retrain on any species, and use to read the splicing impact of genetic variants.'
+authors: ['Kuan-Hao Chao']
+abstract: >-
+  This article summarizes OpenSpliceAI, an efficient and modular PyTorch implementation of SpliceAI designed for retraining and variant-effect prediction across species. It explains the motivation for rebuilding SpliceAI, the software and modeling choices that make retraining practical, and the relationship between OpenSpliceAI and earlier splice-site prediction work.
 date: 2025-06-01
 category: summary
 tags: ['RNA splicing', 'Deep learning', 'Open source']
@@ -8,6 +11,13 @@ linkLabel: 'OpenSpliceAI'
 image: ../../assets/posts/openspliceai/openspliceai-framework.png
 logo: ../../assets/logos/software/openspliceai.png
 imageAlt: 'The OpenSpliceAI framework: six subcommands — create-data, train, calibrate, transfer, predict, and variant — with their inputs and outputs.'
+references:
+  - text: 'Chao, K.-H., Mao, A., Liu, A., Salzberg, S. L., and Pertea, M. OpenSpliceAI: An efficient, modular implementation of SpliceAI enabling easy retraining on non-human species. eLife (2025).'
+    doi: 'https://doi.org/10.7554/eLife.107454.3'
+  - text: 'Jaganathan, K. et al. Predicting splicing from primary sequence with deep learning. Cell (2019).'
+    doi: 'https://doi.org/10.1016/j.cell.2018.12.015'
+  - text: 'Chao, K.-H., Mao, A., Salzberg, S. L., and Pertea, M. Splam: a deep-learning-based splice site predictor that improves spliced alignments. Genome Biology (2024).'
+    doi: 'https://doi.org/10.1186/s13059-024-03379-4'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figFramework from '../../assets/posts/openspliceai/openspliceai-framework.png';
@@ -67,5 +77,3 @@ OpenSpliceAI is free and open source — the code, the trained models, and the d
 ---
 
 *Read the [paper in eLife](https://doi.org/10.7554/eLife.107454.3), browse the [code](https://github.com/Kuanhao-Chao/openspliceai), or work through the [documentation](https://ccb.jhu.edu/openspliceai/). OpenSpliceAI was built with Alan Mao, Anqi Liu, Steven Salzberg, and Mihaela Pertea at Johns Hopkins.*
-
-*Further reading: the original [SpliceAI](https://doi.org/10.1016/j.cell.2018.12.015) (Jaganathan et al., Cell 2019), which OpenSpliceAI reimplements; and [Splam](https://doi.org/10.1186/s13059-024-03379-4) (Chao et al., Genome Biology 2024), our compact splice-site model for cleaning up RNA-seq alignments.*

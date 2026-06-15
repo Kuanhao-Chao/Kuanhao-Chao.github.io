@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro build",
+    "build": "npm run build:site && npm run pdf:posts",
+    "build:site": "astro build",
+    "pdf:posts": "node scripts/gen-post-pdfs.mjs",
     "preview": "astro preview",
     "check": "astro check",
     "astro": "astro"
@@ -24,6 +26,7 @@
     "@astrojs/check": "^0.9.9",
     "@fontsource-variable/hanken-grotesk": "^5.2.8",
     "@fontsource-variable/inter": "^5.2.8",
+    "playwright": "^1.60.0",
     "typescript": "^5.9.3"
   }
 }

@@ -1,11 +1,17 @@
 ---
 title: 'Why we built sangeranalyseR: painless Sanger sequencing analysis in R'
 description: 'The story behind sangeranalyseR — a free, open-source R/Bioconductor package that takes you from raw .ab1 chromatograms to aligned consensus sequences in about four lines of code, with an interactive Shiny GUI.'
+authors: ['Kuan-Hao Chao']
+abstract: >-
+  This article summarizes sangeranalyseR, an open-source R/Bioconductor package for processing Sanger sequencing chromatograms into quality-trimmed reads, contigs, alignments, reports, and interactive visualizations. It explains the motivation for building a reproducible R-native workflow and the main design choices behind the package.
 date: 2021-03-01
 category: summary
 tags: ['Sanger sequencing', 'R / Bioconductor', 'Open source']
 image: ../../assets/posts/sangeranalyser/sanger-workflow.png
 imageAlt: 'The five-step sangeranalyseR workflow: prepare input files, load and analyse data, optionally explore in a Shiny app, output aligned contigs, and generate an interactive report.'
+references:
+  - text: 'Chao, K.-H., Barton, K., Palmer, S., and Lanfear, R. sangeranalyseR: simple and interactive processing of Sanger sequencing data in R. Genome Biology and Evolution (2021).'
+    doi: 'https://doi.org/10.1093/gbe/evab028'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figWorkflow from '../../assets/posts/sangeranalyser/sanger-workflow.png';
@@ -70,5 +76,3 @@ This was my first real software project, and it set a pattern I've followed ever
 ---
 
 *Read the [paper in Genome Biology and Evolution](https://doi.org/10.1093/gbe/evab028), install it from [Bioconductor](https://bioconductor.org/packages/sangeranalyseR), browse the [code](https://github.com/roblanf/sangeranalyseR), or work through the [documentation](https://sangeranalyser.readthedocs.io/). sangeranalyseR was built with Kirston Barton, Sarah Palmer, and Robert Lanfear.*
-
-*Further reading: [sangerseqR](https://bioconductor.org/packages/sangerseqR), the R package for handling individual Sanger reads that sangeranalyseR builds on and extends.*

@@ -1,6 +1,9 @@
 ---
 title: 'Why we built Splam: a splice-junction model that cleans up RNA-seq'
 description: 'The story behind Splam — a compact deep-learning model that scores a splice junction from its local sequence, more accurately than SpliceAI, and uses it to strip spurious alignments out of RNA-seq.'
+authors: ['Kuan-Hao Chao']
+abstract: >-
+  This article summarizes Splam, a deep-learning splice-junction model that scores donor-acceptor pairs from local sequence and removes spurious spliced alignments from RNA-seq workflows. It explains the motivation for modeling junctions directly, the compact neural architecture, and the practical effect of cleaning alignments before transcript assembly.
 date: 2024-08-15
 category: summary
 tags: ['RNA splicing', 'Deep learning', 'RNA-seq']
@@ -8,6 +11,13 @@ linkLabel: 'Splam'
 image: ../../assets/posts/splam/splam-architecture.png
 logo: ../../assets/logos/software/splam.png
 imageAlt: 'The Splam model: a dilated residual convolutional network that reads 800 nucleotides — 200 bp on each side of the donor and acceptor — and labels every base donor, acceptor, or neither.'
+references:
+  - text: 'Chao, K.-H., Mao, A., Salzberg, S. L., and Pertea, M. Splam: a deep-learning-based splice site predictor that improves spliced alignments. Genome Biology (2024).'
+    doi: 'https://doi.org/10.1186/s13059-024-03379-4'
+  - text: 'Jaganathan, K. et al. Predicting splicing from primary sequence with deep learning. Cell (2019).'
+    doi: 'https://doi.org/10.1016/j.cell.2018.12.015'
+  - text: 'Chao, K.-H., Mao, A., Liu, A., Salzberg, S. L., and Pertea, M. OpenSpliceAI: An efficient, modular implementation of SpliceAI enabling easy retraining on non-human species. eLife (2025).'
+    doi: 'https://doi.org/10.7554/eLife.107454.3'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figArchitecture from '../../assets/posts/splam/splam-architecture.png';
@@ -63,5 +73,3 @@ Splam is free and open source, with code and documentation online — drop it in
 ---
 
 *Read the [paper in Genome Biology](https://doi.org/10.1186/s13059-024-03379-4), browse the [code](https://github.com/Kuanhao-Chao/splam), work through the [documentation](https://ccb.jhu.edu/splam/), or watch the [talk](https://youtu.be/MyWwUzjIBVk). Splam was built with Alan Mao, Steven Salzberg, and Mihaela Pertea at Johns Hopkins.*
-
-*Further reading: [SpliceAI](https://doi.org/10.1016/j.cell.2018.12.015) (Jaganathan et al., Cell 2019), the splice-site model Splam is benchmarked against; and [OpenSpliceAI](/posts/openspliceai/), my open PyTorch reimplementation of SpliceAI that grew out of this work.*

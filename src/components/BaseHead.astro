@@ -6,6 +6,13 @@ interface Props {
   description?: string;
   image?: string;
   type?: 'website' | 'article' | 'profile';
+  scholarMeta?: {
+    title: string;
+    authors: string[];
+    publicationDate: string;
+    pdfUrl?: string;
+    references?: { text: string; doi?: string; url?: string }[];
+  };
 }
 
 const {
@@ -13,6 +20,7 @@ const {
   description = site.description,
   image = '/og.jpg',
   type = 'website',
+  scholarMeta,
 } = Astro.props;
 
 const pageTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.role}`;
@@ -108,5 +116,21 @@ const structuredData = {
 <meta name="twitter:image" content={ogImage} />
 
 <meta name="theme-color" content="#fafaf8" />
+
+{
+  scholarMeta && (
+    <>
+      <meta name="citation_title" content={scholarMeta.title} />
+      {scholarMeta.authors.map((author) => (
+        <meta name="citation_author" content={author} />
+      ))}
+      <meta name="citation_publication_date" content={scholarMeta.publicationDate} />
+      {scholarMeta.pdfUrl && <meta name="citation_pdf_url" content={scholarMeta.pdfUrl} />}
+      {scholarMeta.references?.map((ref) => (
+        <meta name="citation_reference" content={ref.text} />
+      ))}
+    </>
+  )
+}
 
 <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />

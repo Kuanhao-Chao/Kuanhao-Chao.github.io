@@ -13,6 +13,7 @@ interface LinkItem {
 interface Props {
   title: string;
   eyebrow?: string;
+  authors?: string[];
   meta?: string[];
   backHref: string;
   backLabel: string;
@@ -21,10 +22,18 @@ interface Props {
   description?: string;
   image?: string;
   logo?: ImageMetadata;
+  scholarMeta?: {
+    title: string;
+    authors: string[];
+    publicationDate: string;
+    pdfUrl?: string;
+    references?: { text: string; doi?: string; url?: string }[];
+  };
 }
 const {
   title,
   eyebrow,
+  authors = [],
   meta = [],
   backHref,
   backLabel,
@@ -33,9 +42,16 @@ const {
   description,
   image,
   logo,
+  scholarMeta,
 } = Astro.props;
 ---
-<BaseLayout title={title} description={description} image={image} type="article">
+<BaseLayout
+  title={title}
+  description={description}
+  image={image}
+  type="article"
+  scholarMeta={scholarMeta}
+>
   <article class="entry">
     <div class="container container--narrow">
       <a class="back" href={backHref}>
@@ -46,6 +62,13 @@ const {
       {eyebrow && <p class="eyebrow">{eyebrow}</p>}
       {logo && <Image class="entry-logo" src={logo} alt="" height={160} />}
       <h1>{title}</h1>
+      {
+        authors.length > 0 && (
+          <p class="entry-authors">
+            By {authors.join(', ')}
+          </p>
+        )
+      }
 
       {
         meta.length > 0 && (
@@ -118,6 +141,11 @@ const {
   .entry-meta {
     margin-top: 1rem;
     font-size: var(--fs-small);
+  }
+  .entry-authors {
+    margin-top: 0.9rem;
+    font-size: var(--fs-small);
+    color: var(--color-ink);
   }
   .entry-links {
     display: flex;

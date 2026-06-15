@@ -1,12 +1,20 @@
 ---
 title: 'Why we built WGT: tools for Wheeler graphs, the backbone of pangenome indexes'
 description: 'The story behind the Wheeler Graph Toolkit — software to generate, recognize, and visualize Wheeler graphs, the elegant class of graphs that can be indexed and searched like a BWT, using a fast heuristic and an SMT solver.'
+authors: ['Kuan-Hao Chao']
+abstract: >-
+  This article summarizes the Wheeler Graph Toolkit (WGT), a software suite for generating, recognizing, and visualizing Wheeler graphs for pangenome indexing research. It explains why Wheeler graph recognition is computationally difficult, how WGT combines a renaming heuristic with permutation and SMT solvers, and how the toolkit makes graph-index structures practical to inspect and test.
 date: 2023-07-14
 category: summary
 tags: ['Pangenomics', 'Algorithms', 'Open source']
 image: ../../assets/posts/wgt/wgt-overview.png
 logo: ../../assets/logos/software/wgt.png
 imageAlt: 'The Wheeler Graph Toolkit pipeline: a generator produces graphs, the Wheelie recognizer (renaming heuristic plus a permutation or SMT solver) decides whether a graph is a Wheeler graph and finds its node ordering, and a visualizer draws it.'
+references:
+  - text: 'Chao, K.-H., Chen, P.-W., Seshia, S. A., and Langmead, B. WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs. iScience (2023).'
+    doi: 'https://doi.org/10.1016/j.isci.2023.107402'
+  - text: 'Gagie, T., Manzini, G., and Siren, J. Wheeler graphs: A framework for BWT-based data structures. Theoretical Computer Science (2017).'
+    doi: 'https://doi.org/10.1016/j.tcs.2017.06.016'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figOverview from '../../assets/posts/wgt/wgt-overview.png';
@@ -86,5 +94,3 @@ WGT is free and open source.
 ---
 
 *Read the [paper in iScience](https://doi.org/10.1016/j.isci.2023.107402), or browse the [code](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit). WGT was built with Pei-Wei Chen, Sanjit A. Seshia, and Ben Langmead at Johns Hopkins and UC Berkeley.*
-
-*Further reading: [Wheeler graphs: A framework for BWT-based data structures](https://doi.org/10.1016/j.tcs.2017.06.016) (Gagie, Manzini & Sirén, Theoretical Computer Science 2017), the paper that introduced Wheeler graphs.*

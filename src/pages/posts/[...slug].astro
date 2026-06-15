@@ -24,6 +24,28 @@ const meta = [
 
 const canonical = new URL(`/posts/${entry.id}/`, site.url).href;
 const ogImage = d.image?.src;
+const pdfHref = `/posts/${entry.id}/${entry.id}.pdf`;
+const pdfUrl = new URL(pdfHref, site.url).href;
+const authorLd = d.authors.map((name) =>
+  name === site.name
+    ? { '@type': 'Person', name, url: site.url }
+    : { '@type': 'Person', name }
+);
+const referenceLd = d.references.map((ref) => ({
+  '@type': 'CreativeWork',
+  name: ref.text,
+  ...(ref.doi ? { sameAs: ref.doi, url: ref.doi } : ref.url ? { url: ref.url } : {}),
+}));
+const scholarMeta = d.scholar
+  ? {
+      title: d.title,
+      authors: d.authors,
+      publicationDate: d.date.toISOString().slice(0, 10).replaceAll('-', '/'),
+      pdfUrl,
+      references: d.references,
+    }
+  : undefined;
+const links = [{ label: 'PDF', icon: 'file', href: pdfHref }];
 
 // Structured data: BlogPosting + breadcrumb (emitted in-body, same pattern as publications).
 const blogLd = {
@@ -43,6 +65,32 @@ const blogLd = {
   mainEntityOfPage: canonical,
 };
 
+const scholarlyArticleLd = d.scholar
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'ScholarlyArticle',
+      headline: d.title,
+      name: d.title,
+      description: d.description,
+      abstract: d.abstract,
+      author: authorLd,
+      publisher: { '@id': `${site.url}/#person` },
+      datePublished: d.date.toISOString().slice(0, 10),
+      ...(d.updated ? { dateModified: d.updated.toISOString().slice(0, 10) } : {}),
+      ...(d.tags.length ? { keywords: d.tags.join(', ') } : {}),
+      ...(ogImage ? { image: new URL(ogImage, site.url).href } : {}),
+      ...(referenceLd.length ? { citation: referenceLd } : {}),
+      encoding: {
+        '@type': 'MediaObject',
+        contentUrl: pdfUrl,
+        encodingFormat: 'application/pdf',
+      },
+      inLanguage: 'en',
+      url: canonical,
+      mainEntityOfPage: canonical,
+    }
+  : null;
+
 const breadcrumbLd = {
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
@@ -56,16 +104,49 @@ const breadcrumbLd = {
 <EntryLayout
   title={d.title}
   eyebrow={categoryLabel}
+  authors={d.authors}
   meta={meta}
   backHref="/posts/"
   backLabel="All posts"
   description={d.description}
   image={ogImage}
   logo={d.logo}
+  links={links}
+  scholarMeta={scholarMeta}
 >
+  <section class="post-abstract">
+    <h2>Abstract</h2>
+    <Prose>
+      <p>{d.abstract}</p>
+    </Prose>
+  </section>
+
   <Prose>
     <Content />
   </Prose>
+
+  {
+    d.references.length > 0 && (
+      <section class="post-references">
+        <h2>References</h2>
+        <ol>
+          {d.references.map((ref) => (
+            <li>
+              <span>{ref.text}</span>
+              {(ref.doi || ref.url) && (
+                <>
+                  {' '}
+                  <a href={ref.doi ?? ref.url} target="_blank" rel="noopener">
+                    {ref.doi ? 'DOI' : 'Link'}
+                  </a>
+                </>
+              )}
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
 
   {
     d.tags.length > 0 && (
@@ -76,10 +157,45 @@ const breadcrumbLd = {
   }
 
   <script type="application/ld+json" is:inline set:html={JSON.stringify(blogLd)} />
+  {
+    scholarlyArticleLd && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(scholarlyArticleLd)} />
+    )
+  }
   <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
 </EntryLayout>
 
 <style>
+  .post-abstract {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .post-abstract h2,
+  .post-references h2 {
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0;
+    margin-bottom: 0.75rem;
+  }
+  .post-references {
+    max-width: var(--measure);
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-rule);
+  }
+  .post-references ol {
+    padding-left: 1.35rem;
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+  }
+  .post-references li + li {
+    margin-top: 0.65rem;
+  }
+  .post-references a {
+    font-weight: var(--fw-medium);
+    white-space: nowrap;
+  }
   .post-tags {
     list-style: none;
     margin: 3rem 0 0;
