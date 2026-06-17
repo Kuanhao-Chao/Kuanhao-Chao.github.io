@@ -1,22 +1,88 @@
 ---
 /**
- * Pangenome indexing (Wheeler Graph Toolkit): a small node-edge graph with a
- * token that traverses a path on hover.
+ * Pangenome indexing (Wheeler Graph Toolkit): a small Wheeler-ordered graph
+ * drawn in the WGT two-replica layout, with indexed nodes and labeled edges.
  */
 interface Props { class?: string }
 const { class: className } = Astro.props;
+
+const xByRank = [22, 45.2, 68.4, 91.6, 114.8, 138];
+const nodes = xByRank.map((x, i) => ({ rank: i + 1, x, delay: `${i * 0.08}s` }));
 const edges = [
-  'M26 50 L60 30', 'M26 50 L60 70', 'M60 30 L100 30', 'M60 70 L100 70',
-  'M100 30 L134 50', 'M100 70 L134 50', 'M60 30 L100 70',
-];
-const nodes = [
-  [26, 50], [60, 30], [60, 70], [100, 30], [100, 70], [134, 50],
+  {
+    label: 'A',
+    d: 'M22 31 C27 45 37 58 45.2 69',
+    labelX: 31,
+    labelY: 52,
+  },
+  {
+    label: 'C',
+    d: 'M22 31 C34 43 52 56 68.4 69',
+    labelX: 45,
+    labelY: 48,
+  },
+  {
+    label: 'C',
+    d: 'M45.2 31 C55 43 76 56 91.6 69',
+    labelX: 64,
+    labelY: 49,
+  },
+  {
+    label: 'C',
+    d: 'M68.4 31 C74 45 82 58 91.6 69',
+    labelX: 80,
+    labelY: 55,
+  },
+  {
+    label: 'G',
+    d: 'M91.6 31 C99 45 108 57 114.8 69',
+    labelX: 103,
+    labelY: 52,
+  },
+  {
+    label: 'T',
+    d: 'M91.6 31 C105 41 126 56 138 69',
+    labelX: 120,
+    labelY: 48,
+  },
 ];
 ---
 <svg class:list={['motif', 'motif-pg', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
-  {edges.map((d) => <path class="pg-edge" d={d} />)}
-  {nodes.map(([cx, cy]) => <circle class="pg-node" cx={cx} cy={cy} r="6" />)}
-  <circle class="pg-token" r="3.6" cx="0" cy="0" />
+  <g class="pg-edges">
+    {edges.map((edge) => (
+      <>
+        <path
+          class:list={['pg-edge', `pg-edge--${edge.label.toLowerCase()}`]}
+          pathLength="1"
+          d={edge.d}
+        />
+        <text
+          class:list={['pg-label', `pg-label--${edge.label.toLowerCase()}`]}
+          x={edge.labelX}
+          y={edge.labelY}
+        >
+          {edge.label}
+        </text>
+      </>
+    ))}
+  </g>
+
+  <g class="pg-row pg-row--out">
+    {nodes.map((node) => (
+      <g class="pg-node-pair" style={`--pg-node-delay: ${node.delay};`}>
+        <circle class="pg-node" cx={node.x} cy="24" r="7.2" />
+        <text class="pg-index" x={node.x} y="24">{node.rank}</text>
+      </g>
+    ))}
+  </g>
+  <g class="pg-row pg-row--in">
+    {nodes.map((node) => (
+      <g class="pg-node-pair" style={`--pg-node-delay: ${node.delay};`}>
+        <circle class="pg-node pg-node--in" cx={node.x} cy="76" r="7.2" />
+        <text class="pg-index" x={node.x} y="76">{node.rank}</text>
+      </g>
+    ))}
+  </g>
 </svg>
 
 <style>
@@ -25,27 +91,171 @@ const nodes = [
     height: 100%;
     display: block;
     --motif-ink: color-mix(in srgb, var(--color-ink) 55%, transparent);
+    --pg-duration: 5.4s;
+    --pg-a: #3869b1;
+    --pg-c: #a84945;
+    --pg-g: var(--color-accent);
+    --pg-t: #aa6f22;
   }
-  .pg-edge { stroke: var(--motif-ink); stroke-width: 1.3; opacity: 0.55; }
+  .pg-edge {
+    fill: none;
+    stroke-width: 1.45;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    opacity: 0.72;
+  }
+  .pg-edge--a { stroke: var(--pg-a); }
+  .pg-edge--c { stroke: var(--pg-c); }
+  .pg-edge--g { stroke: var(--pg-g); }
+  .pg-edge--t { stroke: var(--pg-t); }
   .pg-node {
-    fill: var(--color-bg);
+    fill: color-mix(in srgb, var(--color-bg) 88%, white);
     stroke: var(--color-accent);
-    stroke-width: 1.6;
+    stroke-width: 1.5;
   }
-  .pg-token {
+  .pg-node--in {
+    fill: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+  }
+  .pg-index,
+  .pg-label {
+    font-family: var(--font-body);
+    font-weight: var(--fw-semibold);
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+    letter-spacing: 0;
+  }
+  .pg-index {
     fill: var(--color-accent);
-    offset-path: path('M26 50 L60 30 L100 30 L134 50');
-    offset-distance: 0%;
-    opacity: 0;
+    font-size: 7.2px;
+  }
+  .pg-label {
+    font-size: 6.6px;
+    paint-order: stroke fill;
+    stroke: color-mix(in srgb, var(--color-bg) 88%, transparent);
+    stroke-width: 2.8px;
+    stroke-linejoin: round;
+    opacity: 0.82;
+  }
+  .pg-label--a { fill: var(--pg-a); }
+  .pg-label--c { fill: var(--pg-c); }
+  .pg-label--g { fill: var(--pg-g); }
+  .pg-label--t { fill: var(--pg-t); }
+  .pg-node-pair {
+    transform-box: view-box;
+    transform-origin: center;
   }
   @media (prefers-reduced-motion: no-preference) {
-    .motif-pg:hover .pg-token {
-      opacity: 1;
-      animation: pg-move 3.4s ease-in-out infinite;
+    .motif-pg:hover .pg-node-pair,
+    :global(.rcard:hover) .motif-pg .pg-node-pair,
+    :global(.research-motif:hover) .motif-pg .pg-node-pair {
+      animation: pg-node-pulse 1.45s ease-in-out both;
+      animation-delay: var(--pg-node-delay);
+    }
+    .motif-pg:hover .pg-edge--a,
+    :global(.rcard:hover) .motif-pg .pg-edge--a,
+    :global(.research-motif:hover) .motif-pg .pg-edge--a,
+    .motif-pg:hover .pg-label--a,
+    :global(.rcard:hover) .motif-pg .pg-label--a,
+    :global(.research-motif:hover) .motif-pg .pg-label--a {
+      animation: pg-show-a var(--pg-duration) ease-in-out infinite both;
+    }
+    .motif-pg:hover .pg-edge--c,
+    :global(.rcard:hover) .motif-pg .pg-edge--c,
+    :global(.research-motif:hover) .motif-pg .pg-edge--c,
+    .motif-pg:hover .pg-label--c,
+    :global(.rcard:hover) .motif-pg .pg-label--c,
+    :global(.research-motif:hover) .motif-pg .pg-label--c {
+      animation: pg-show-c var(--pg-duration) ease-in-out infinite both;
+    }
+    .motif-pg:hover .pg-edge--g,
+    :global(.rcard:hover) .motif-pg .pg-edge--g,
+    :global(.research-motif:hover) .motif-pg .pg-edge--g,
+    .motif-pg:hover .pg-label--g,
+    :global(.rcard:hover) .motif-pg .pg-label--g,
+    :global(.research-motif:hover) .motif-pg .pg-label--g {
+      animation: pg-show-g var(--pg-duration) ease-in-out infinite both;
+    }
+    .motif-pg:hover .pg-edge--t,
+    :global(.rcard:hover) .motif-pg .pg-edge--t,
+    :global(.research-motif:hover) .motif-pg .pg-edge--t,
+    .motif-pg:hover .pg-label--t,
+    :global(.rcard:hover) .motif-pg .pg-label--t,
+    :global(.research-motif:hover) .motif-pg .pg-label--t {
+      animation: pg-show-t var(--pg-duration) ease-in-out infinite both;
     }
   }
-  @keyframes pg-move {
-    0% { offset-distance: 0%; }
-    100% { offset-distance: 100%; }
+  @media (prefers-reduced-motion: reduce) {
+    .pg-edge,
+    .pg-label {
+      opacity: 0.82;
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes pg-node-pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    42% {
+      transform: scale(1.12);
+    }
+  }
+  @keyframes pg-show-a {
+    0%, 6% {
+      opacity: 0.1;
+      stroke-dashoffset: 1;
+    }
+    18%, 88% {
+      opacity: 0.9;
+      stroke-dashoffset: 0;
+    }
+    100% {
+      opacity: 0.72;
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes pg-show-c {
+    0%, 20% {
+      opacity: 0.1;
+      stroke-dashoffset: 1;
+    }
+    34%, 88% {
+      opacity: 0.9;
+      stroke-dashoffset: 0;
+    }
+    100% {
+      opacity: 0.72;
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes pg-show-g {
+    0%, 38% {
+      opacity: 0.1;
+      stroke-dashoffset: 1;
+    }
+    52%, 88% {
+      opacity: 0.9;
+      stroke-dashoffset: 0;
+    }
+    100% {
+      opacity: 0.72;
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes pg-show-t {
+    0%, 52% {
+      opacity: 0.1;
+      stroke-dashoffset: 1;
+    }
+    66%, 88% {
+      opacity: 0.9;
+      stroke-dashoffset: 0;
+    }
+    100% {
+      opacity: 0.72;
+      stroke-dashoffset: 0;
+    }
   }
 </style>

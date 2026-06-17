@@ -1,19 +1,89 @@
 ---
 /**
- * Gene expression / DNA language model: a coverage signal with a "context
- * window" that slides along the sequence on hover.
+ * Gene expression / Shorkie: DNA sequence tokens pass through a compact
+ * language-model core and resolve into dynamic RNA-seq-like expression traces.
  */
 interface Props { class?: string }
 const { class: className } = Astro.props;
-const ticks = Array.from({ length: 13 }, (_, i) => 20 + i * 10);
-const cov = 'M14 78 C 28 78 30 56 42 54 C 54 52 58 30 72 34 C 86 38 92 18 104 26 C 116 34 122 60 134 60 L146 60';
+const bases = 'ACGTATAAGC'.split('').map((base, i) => ({
+  base,
+  x: 12 + i * 6.1,
+  className: base.toLowerCase(),
+  masked: i === 1 || i === 8,
+  motif: i >= 3 && i <= 6,
+  delay: `${i * 0.055}s`,
+}));
+const tracks = [
+  {
+    kind: 'early',
+    base: 32,
+    delay: '0s',
+    line: 'M106 32 C112 32 116 27 121 28 C127 29 131 25 136 27 C142 28 145 31 148 30',
+    area: 'M106 32 C112 32 116 27 121 28 C127 29 131 25 136 27 C142 28 145 31 148 30 L148 32 L106 32 Z',
+  },
+  {
+    kind: 'mid',
+    base: 55,
+    delay: '0.75s',
+    line: 'M106 55 C112 54 116 45 121 46 C127 48 130 39 136 40 C142 42 144 53 148 51',
+    area: 'M106 55 C112 54 116 45 121 46 C127 48 130 39 136 40 C142 42 144 53 148 51 L148 55 L106 55 Z',
+  },
+  {
+    kind: 'late',
+    base: 78,
+    delay: '1.5s',
+    line: 'M106 78 C112 74 116 62 121 63 C127 64 130 50 136 51 C142 53 144 71 148 68',
+    area: 'M106 78 C112 74 116 62 121 63 C127 64 130 50 136 51 C142 53 144 71 148 68 L148 78 L106 78 Z',
+  },
+];
 ---
 <svg class:list={['motif', 'motif-gx', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
-  <path class="gx-cov" d={`${cov} L146 78 L14 78 Z`} />
-  <path class="gx-line" d={cov} />
-  <line class="m-axis" x1="14" y1="78" x2="146" y2="78" />
-  <g class="m-seq">{ticks.map((x) => <line x1={x} y1="78" x2={x} y2="83" />)}</g>
-  <rect class="gx-win" x="22" y="20" width="30" height="64" rx="3" />
+  <g class="gx-input">
+    <path class="gx-backbone" d="M12 38 H73" />
+    <path class="gx-motif-bars" d="M33 40 V47 M39 40 V51 M45 40 V48 M51 40 V45" />
+    {bases.map((item) => (
+      <g
+        class:list={[
+          'gx-base',
+          `gx-base--${item.className}`,
+          { 'gx-base--mask': item.masked, 'gx-base--motif': item.motif },
+        ]}
+        style={`--gx-base-delay: ${item.delay};`}
+        transform={`translate(${item.x} 20)`}
+      >
+        <rect class="gx-token" width="5.3" height="7.8" rx="1.2" />
+        <path class="gx-mask-mark" d="M1.3 2.3 H4 M1.3 5.5 H4" />
+        <text class="gx-base-letter" x="2.65" y="4.1">{item.base}</text>
+      </g>
+    ))}
+  </g>
+
+  <path class="gx-flow gx-flow--in" pathLength="1" d="M72 38 C78 40 82 45 88 50" />
+
+  <g class="gx-model">
+    <rect class="gx-core" x="76" y="36" width="26" height="28" rx="5" />
+    <path class="gx-core-band gx-core-band--top" d="M82 43 H96" />
+    <path class="gx-core-band gx-core-band--mid" d="M82 50 H96" />
+    <path class="gx-core-band gx-core-band--bottom" d="M82 57 H96" />
+    <circle class="gx-core-node" cx="84" cy="43" r="1.6" />
+    <circle class="gx-core-node" cx="94" cy="50" r="1.6" />
+    <circle class="gx-core-node" cx="84" cy="57" r="1.6" />
+  </g>
+
+  <path class="gx-flow gx-flow--out gx-flow--early" pathLength="1" d="M102 44 C108 39 102 34 106 32" />
+  <path class="gx-flow gx-flow--out gx-flow--mid" pathLength="1" d="M102 50 C106 51 102 55 106 55" />
+  <path class="gx-flow gx-flow--out gx-flow--late" pathLength="1" d="M102 56 C108 62 102 74 106 78" />
+
+  <g class="gx-output">
+    {tracks.map((track) => (
+      <g class:list={['gx-track', `gx-track--${track.kind}`]} style={`--gx-track-delay: ${track.delay};`}>
+        <line class="gx-axis" x1="105" y1={track.base} x2="149" y2={track.base} />
+        <path class="gx-area" d={track.area} />
+        <path class="gx-trace" pathLength="1" d={track.line} />
+        <circle class="gx-time-dot" cx="101.5" cy={track.base} r="1.8" />
+      </g>
+    ))}
+  </g>
 </svg>
 
 <style>
@@ -22,22 +92,296 @@ const cov = 'M14 78 C 28 78 30 56 42 54 C 54 52 58 30 72 34 C 86 38 92 18 104 26
     height: 100%;
     display: block;
     --motif-ink: color-mix(in srgb, var(--color-ink) 55%, transparent);
+    --gx-duration: 4.8s;
+    --gx-blue: #3869b1;
+    --gx-red: #a84945;
+    --gx-green: #4c8b55;
+    --gx-gold: #aa6f22;
   }
-  .m-axis { stroke: var(--motif-ink); stroke-width: 1.4; }
-  .m-seq line { stroke: var(--motif-ink); stroke-width: 1.2; opacity: 0.5; }
-  .gx-cov { fill: color-mix(in srgb, var(--color-accent) 14%, transparent); }
-  .gx-line { stroke: var(--color-accent); stroke-width: 1.8; stroke-linejoin: round; }
-  .gx-win {
-    fill: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  .gx-backbone,
+  .gx-axis {
+    stroke: var(--motif-ink);
+    stroke-linecap: round;
+  }
+  .gx-backbone {
+    stroke-width: 1.25;
+    opacity: 0.42;
+  }
+  .gx-axis {
+    stroke-width: 1.1;
+    opacity: 0.34;
+  }
+  .gx-motif-bars {
+    fill: none;
     stroke: var(--color-accent);
-    stroke-width: 1.4;
+    stroke-width: 1.35;
+    stroke-linecap: round;
+    opacity: 0.55;
+  }
+  .gx-base {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .gx-token {
+    stroke-width: 0.9;
+  }
+  .gx-base--a .gx-token {
+    fill: color-mix(in srgb, var(--gx-blue) 15%, var(--color-bg));
+    stroke: color-mix(in srgb, var(--gx-blue) 60%, transparent);
+  }
+  .gx-base--c .gx-token {
+    fill: color-mix(in srgb, var(--gx-red) 14%, var(--color-bg));
+    stroke: color-mix(in srgb, var(--gx-red) 56%, transparent);
+  }
+  .gx-base--g .gx-token {
+    fill: color-mix(in srgb, var(--gx-green) 15%, var(--color-bg));
+    stroke: color-mix(in srgb, var(--gx-green) 60%, transparent);
+  }
+  .gx-base--t .gx-token {
+    fill: color-mix(in srgb, var(--gx-gold) 16%, var(--color-bg));
+    stroke: color-mix(in srgb, var(--gx-gold) 58%, transparent);
+  }
+  .gx-base--motif .gx-token {
+    stroke: var(--color-accent);
+    stroke-width: 1.05;
+  }
+  .gx-base--mask .gx-token {
+    fill: color-mix(in srgb, var(--color-ink) 7%, var(--color-bg));
+    stroke: color-mix(in srgb, var(--motif-ink) 70%, transparent);
+    stroke-dasharray: 1.2 1.2;
+  }
+  .gx-base-letter {
+    fill: color-mix(in srgb, var(--color-ink) 74%, transparent);
+    font-family: var(--font-body);
+    font-size: 4.4px;
+    font-weight: var(--fw-semibold);
+    dominant-baseline: central;
+    text-anchor: middle;
+    pointer-events: none;
+    letter-spacing: 0;
+  }
+  .gx-mask-mark {
+    fill: none;
+    stroke: var(--motif-ink);
+    stroke-width: 0.75;
+    stroke-linecap: round;
+    opacity: 0;
+  }
+  .gx-base--mask .gx-base-letter {
+    opacity: 0.2;
+  }
+  .gx-base--mask .gx-mask-mark {
+    opacity: 0.72;
+  }
+  .gx-flow {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 1.25;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    opacity: 0.32;
+  }
+  .gx-flow--out {
+    stroke-width: 1.1;
+  }
+  .gx-core {
+    fill: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+    stroke: var(--color-accent);
+    stroke-width: 1.35;
+  }
+  .gx-core-band {
+    fill: none;
+    stroke: color-mix(in srgb, var(--color-accent) 68%, transparent);
+    stroke-width: 1.15;
+    stroke-linecap: round;
+  }
+  .gx-core-node {
+    fill: color-mix(in srgb, var(--color-bg) 70%, white);
+    stroke: var(--color-accent);
+    stroke-width: 0.95;
+  }
+  .gx-track {
+    --gx-track-color: var(--color-accent);
     transform-box: view-box;
+    transform-origin: center;
+  }
+  .gx-track--early { --gx-track-color: var(--gx-blue); }
+  .gx-track--mid { --gx-track-color: var(--color-accent); }
+  .gx-track--late { --gx-track-color: var(--gx-gold); }
+  .gx-area {
+    fill: color-mix(in srgb, var(--gx-track-color) 13%, transparent);
+    opacity: 0.42;
+  }
+  .gx-trace {
+    fill: none;
+    stroke: var(--gx-track-color);
+    stroke-width: 1.45;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.76;
+  }
+  .gx-time-dot {
+    fill: color-mix(in srgb, var(--gx-track-color) 18%, var(--color-bg));
+    stroke: var(--gx-track-color);
+    stroke-width: 1;
+    opacity: 0.7;
+  }
+  .gx-model,
+  .gx-time-dot,
+  .gx-motif-bars {
+    transform-box: view-box;
+    transform-origin: center;
   }
   @media (prefers-reduced-motion: no-preference) {
-    .motif-gx:hover .gx-win { animation: gx-slide 3.6s ease-in-out infinite; }
+    .motif-gx:hover .gx-base--motif .gx-token,
+    :global(.rcard:hover) .motif-gx .gx-base--motif .gx-token,
+    :global(.research-motif:hover) .motif-gx .gx-base--motif .gx-token {
+      animation: gx-base-pulse var(--gx-duration) ease-in-out infinite;
+      animation-delay: var(--gx-base-delay);
+    }
+    .motif-gx:hover .gx-base--mask .gx-base-letter,
+    :global(.rcard:hover) .motif-gx .gx-base--mask .gx-base-letter,
+    :global(.research-motif:hover) .motif-gx .gx-base--mask .gx-base-letter {
+      animation: gx-resolve-base var(--gx-duration) ease-in-out infinite;
+    }
+    .motif-gx:hover .gx-base--mask .gx-mask-mark,
+    :global(.rcard:hover) .motif-gx .gx-base--mask .gx-mask-mark,
+    :global(.research-motif:hover) .motif-gx .gx-base--mask .gx-mask-mark {
+      animation: gx-hide-mask var(--gx-duration) ease-in-out infinite;
+    }
+    .motif-gx:hover .gx-flow,
+    :global(.rcard:hover) .motif-gx .gx-flow,
+    :global(.research-motif:hover) .motif-gx .gx-flow {
+      animation: gx-flow-send var(--gx-duration) ease-in-out infinite;
+    }
+    .motif-gx:hover .gx-flow--mid,
+    :global(.rcard:hover) .motif-gx .gx-flow--mid,
+    :global(.research-motif:hover) .motif-gx .gx-flow--mid {
+      animation-delay: 0.3s;
+    }
+    .motif-gx:hover .gx-flow--late,
+    :global(.rcard:hover) .motif-gx .gx-flow--late,
+    :global(.research-motif:hover) .motif-gx .gx-flow--late {
+      animation-delay: 0.6s;
+    }
+    .motif-gx:hover .gx-model,
+    :global(.rcard:hover) .motif-gx .gx-model,
+    :global(.research-motif:hover) .motif-gx .gx-model {
+      animation: gx-model-breathe var(--gx-duration) ease-in-out infinite;
+    }
+    .motif-gx:hover .gx-track,
+    :global(.rcard:hover) .motif-gx .gx-track,
+    :global(.research-motif:hover) .motif-gx .gx-track {
+      animation: gx-track-pulse var(--gx-duration) ease-in-out infinite;
+      animation-delay: var(--gx-track-delay);
+    }
+    .motif-gx:hover .gx-time-dot,
+    :global(.rcard:hover) .motif-gx .gx-time-dot,
+    :global(.research-motif:hover) .motif-gx .gx-time-dot {
+      animation: gx-dot-pulse var(--gx-duration) ease-in-out infinite;
+      animation-delay: var(--gx-track-delay);
+    }
+    .motif-gx:hover .gx-motif-bars,
+    :global(.rcard:hover) .motif-gx .gx-motif-bars,
+    :global(.research-motif:hover) .motif-gx .gx-motif-bars {
+      animation: gx-motif-read var(--gx-duration) ease-in-out infinite;
+    }
   }
-  @keyframes gx-slide {
-    0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(92px); }
+  @media (prefers-reduced-motion: reduce) {
+    .gx-base--mask .gx-base-letter {
+      opacity: 0.74;
+    }
+    .gx-base--mask .gx-mask-mark {
+      opacity: 0;
+    }
+    .gx-flow,
+    .gx-track--late,
+    .gx-motif-bars {
+      opacity: 0.86;
+    }
+    .gx-track--early,
+    .gx-track--mid {
+      opacity: 0.78;
+    }
+  }
+  @keyframes gx-base-pulse {
+    0%, 26%, 100% {
+      opacity: 1;
+      stroke-width: 1.05;
+    }
+    12% {
+      opacity: 1;
+      stroke-width: 1.55;
+    }
+  }
+  @keyframes gx-resolve-base {
+    0%, 18%, 100% {
+      opacity: 0.2;
+    }
+    36%, 70% {
+      opacity: 0.82;
+    }
+  }
+  @keyframes gx-hide-mask {
+    0%, 18%, 100% {
+      opacity: 0.72;
+    }
+    36%, 70% {
+      opacity: 0.1;
+    }
+  }
+  @keyframes gx-flow-send {
+    0%, 8% {
+      opacity: 0;
+      stroke-dashoffset: 1;
+    }
+    18%, 64% {
+      opacity: 0.82;
+      stroke-dashoffset: 0;
+    }
+    82%, 100% {
+      opacity: 0.3;
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes gx-model-breathe {
+    0%, 100% {
+      transform: scale(1);
+    }
+    38% {
+      transform: scale(1.04);
+    }
+  }
+  @keyframes gx-track-pulse {
+    0%, 18%, 100% {
+      opacity: 0.74;
+      transform: translateX(0);
+    }
+    8% {
+      opacity: 1;
+      transform: translateX(1px);
+    }
+  }
+  @keyframes gx-dot-pulse {
+    0%, 20%, 100% {
+      opacity: 0.68;
+      transform: scale(1);
+    }
+    9% {
+      opacity: 1;
+      transform: scale(1.4);
+    }
+  }
+  @keyframes gx-motif-read {
+    0%, 24%, 100% {
+      opacity: 0.55;
+      transform: translateY(0);
+    }
+    12% {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
   }
 </style>
