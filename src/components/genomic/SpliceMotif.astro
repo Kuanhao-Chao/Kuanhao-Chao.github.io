@@ -1,7 +1,7 @@
 ---
 /**
  * RNA splicing (Splam / OpenSpliceAI): three exon blocks joined by two introns
- * that bend into lariat loops on hover as the exons splice together.
+ * that are removed together on hover as the exons splice together.
  */
 interface Props { class?: string }
 const { class: className } = Astro.props;
@@ -22,27 +22,6 @@ const { class: className } = Astro.props;
   <g class="sp-right">
     <rect class="sp-exon" x="116" y="58" width="28" height="20" rx="2" />
   </g>
-
-  <path
-    class="sp-junction sp-junction--first"
-    pathLength="1"
-    d="M44 58 Q55 34 66 58"
-  />
-  <path
-    class="sp-junction sp-junction--second"
-    pathLength="1"
-    d="M94 58 Q105 34 116 58"
-  />
-  <path
-    class="sp-looping-intron sp-looping-intron--first sp-lariat--first"
-    pathLength="1"
-    d="M66 68 C59 68 51 68 44 68 C44 68 44 68 44 68 C44 68 44 68 44 68"
-  />
-  <path
-    class="sp-looping-intron sp-looping-intron--second sp-lariat--second"
-    pathLength="1"
-    d="M116 68 C109 68 101 68 94 68 C94 68 94 68 94 68 C94 68 94 68 94 68"
-  />
 </svg>
 
 <style>
@@ -74,26 +53,6 @@ const { class: className } = Astro.props;
     stroke-linecap: round;
     opacity: 0.82;
   }
-  .sp-junction,
-  .sp-looping-intron {
-    fill: none;
-    stroke: color-mix(in srgb, var(--color-accent) 75%, transparent);
-    stroke-width: 1.35;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-dasharray: 1;
-    transform-box: view-box;
-  }
-  .sp-junction {
-    opacity: 0.68;
-    stroke-dashoffset: 0;
-  }
-  .sp-looping-intron {
-    opacity: 0;
-    stroke: color-mix(in srgb, var(--color-accent) 82%, transparent);
-    stroke-width: 1.45;
-    transform: translateY(0);
-  }
   @media (prefers-reduced-motion: no-preference) {
     .motif-sp:hover .sp-left,
     :global(.rcard:hover) .motif-sp .sp-left,
@@ -108,32 +67,12 @@ const { class: className } = Astro.props;
     .motif-sp:hover .sp-intron--first,
     :global(.rcard:hover) .motif-sp .sp-intron--first,
     :global(.research-motif:hover) .motif-sp .sp-intron--first {
-      animation: sp-first-intron-excise var(--sp-duration) ease-in-out forwards;
+      animation: sp-intron-excise var(--sp-duration) ease-in-out forwards;
     }
     .motif-sp:hover .sp-intron--second,
     :global(.rcard:hover) .motif-sp .sp-intron--second,
     :global(.research-motif:hover) .motif-sp .sp-intron--second {
-      animation: sp-second-intron-excise var(--sp-duration) ease-in-out forwards;
-    }
-    .motif-sp:hover .sp-junction--first,
-    :global(.rcard:hover) .motif-sp .sp-junction--first,
-    :global(.research-motif:hover) .motif-sp .sp-junction--first {
-      animation: sp-first-junction-hide var(--sp-duration) ease-in-out forwards;
-    }
-    .motif-sp:hover .sp-junction--second,
-    :global(.rcard:hover) .motif-sp .sp-junction--second,
-    :global(.research-motif:hover) .motif-sp .sp-junction--second {
-      animation: sp-second-junction-hide var(--sp-duration) ease-in-out forwards;
-    }
-    .motif-sp:hover .sp-looping-intron--first,
-    :global(.rcard:hover) .motif-sp .sp-looping-intron--first,
-    :global(.research-motif:hover) .motif-sp .sp-looping-intron--first {
-      animation: sp-first-lariat-form var(--sp-duration) ease-in-out forwards;
-    }
-    .motif-sp:hover .sp-looping-intron--second,
-    :global(.rcard:hover) .motif-sp .sp-looping-intron--second,
-    :global(.research-motif:hover) .motif-sp .sp-looping-intron--second {
-      animation: sp-second-lariat-form var(--sp-duration) ease-in-out forwards;
+      animation: sp-intron-excise var(--sp-duration) ease-in-out forwards;
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -144,169 +83,29 @@ const { class: className } = Astro.props;
     .sp-intron {
       opacity: 0.82;
     }
-    .sp-junction {
-      opacity: 0.68;
-      stroke-dashoffset: 0;
-    }
-    .sp-looping-intron {
-      opacity: 0;
-      transform: translateY(0);
-    }
   }
   @keyframes sp-left-join {
     0%, 38% {
       transform: translateX(0);
     }
-    50%, 100% {
+    48%, 100% {
       transform: translateX(22px);
     }
   }
   @keyframes sp-right-join {
-    0%, 80% {
+    0%, 38% {
       transform: translateX(0);
     }
-    94%, 100% {
+    48%, 100% {
       transform: translateX(-22px);
     }
   }
-  @keyframes sp-first-intron-excise {
+  @keyframes sp-intron-excise {
     0%, 10% {
       opacity: 0.82;
     }
     18%, 100% {
       opacity: 0;
-    }
-  }
-  @keyframes sp-second-intron-excise {
-    0%, 58% {
-      opacity: 0.82;
-    }
-    66%, 100% {
-      opacity: 0;
-    }
-  }
-  @keyframes sp-first-junction-hide {
-    0% {
-      opacity: 0.68;
-      stroke-dashoffset: 0;
-    }
-    10%, 100% {
-      opacity: 0;
-      stroke-dashoffset: 0;
-    }
-  }
-  @keyframes sp-second-junction-hide {
-    0%, 48% {
-      opacity: 0.68;
-      stroke-dashoffset: 0;
-    }
-    56%, 100% {
-      opacity: 0;
-      stroke-dashoffset: 0;
-    }
-  }
-  @keyframes sp-first-lariat-form {
-    0%, 8% {
-      opacity: 0;
-      transform: translateY(0);
-      d: path("M66 68 C59 68 51 68 44 68 C44 68 44 68 44 68 C44 68 44 68 44 68");
-    }
-    12% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M66 68 C59 68 51 68 44 68 C44 68 44 68 44 68 C44 68 44 68 44 68");
-    }
-    16% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M66 68 C59.4 64 51.2 63.2 44.8 65.6 C44 68 46.2 69.8 47.4 68 C48.2 66.4 46.8 65.2 44.8 66");
-    }
-    20% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M66 68 C59.8 60 51.4 58.4 45.6 63.2 C44 68 48.4 71.6 50.8 68 C52.4 64.8 49.6 62.4 45.6 64");
-    }
-    24% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M66 68 C60.2 56 51.6 53.6 46.4 60.8 C44 68 50.6 73.4 54.2 68 C56.6 63.2 52.4 59.6 46.4 62");
-    }
-    28% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M66 68 C60.6 52 51.8 48.8 47.2 58.4 C44 68 52.8 75.2 57.6 68 C60.8 61.6 55.2 56.8 47.2 60");
-    }
-    32% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M66 68 C60.8 50 51.9 46.4 47.6 56.8 C44 68 53.9 76.1 59.3 68 C62.9 60.8 56.6 55.4 47.6 59");
-    }
-    36% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M66 68 C61 48 52 44 48 56 C44 68 55 77 61 68 C65 60 58 54 48 58");
-    }
-    42% {
-      opacity: 0.56;
-      transform: translateY(-14px);
-      d: path("M66 68 C61 48 52 44 48 56 C44 68 55 77 61 68 C65 60 58 54 48 58");
-    }
-    48%, 100% {
-      opacity: 0.24;
-      transform: translateY(-28px);
-      d: path("M66 68 C61 48 52 44 48 56 C44 68 55 77 61 68 C65 60 58 54 48 58");
-    }
-  }
-  @keyframes sp-second-lariat-form {
-    0%, 56% {
-      opacity: 0;
-      transform: translateY(0);
-      d: path("M116 68 C109 68 101 68 94 68 C94 68 94 68 94 68 C94 68 94 68 94 68");
-    }
-    60% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M116 68 C109 68 101 68 94 68 C94 68 94 68 94 68 C94 68 94 68 94 68");
-    }
-    64% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M116 68 C109.4 64 101.2 63.2 94.8 65.6 C94 68 96.2 69.8 97.4 68 C98.2 66.4 96.8 65.2 94.8 66");
-    }
-    68% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M116 68 C109.8 60 101.4 58.4 95.6 63.2 C94 68 98.4 71.6 100.8 68 C102.4 64.8 99.6 62.4 95.6 64");
-    }
-    72% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M116 68 C110.2 56 101.6 53.6 96.4 60.8 C94 68 100.6 73.4 104.2 68 C106.6 63.2 102.4 59.6 96.4 62");
-    }
-    76% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M116 68 C110.6 52 101.8 48.8 97.2 58.4 C94 68 102.8 75.2 107.6 68 C110.8 61.6 105.2 56.8 97.2 60");
-    }
-    80% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M116 68 C110.8 50 101.9 46.4 97.6 56.8 C94 68 103.9 76.1 109.3 68 C112.9 60.8 106.6 55.4 97.6 59");
-    }
-    84% {
-      opacity: 0.86;
-      transform: translateY(0);
-      d: path("M116 68 C111 48 102 44 98 56 C94 68 105 77 111 68 C115 60 108 54 98 58");
-    }
-    90% {
-      opacity: 0.56;
-      transform: translateY(-14px);
-      d: path("M116 68 C111 48 102 44 98 56 C94 68 105 77 111 68 C115 60 108 54 98 58");
-    }
-    96%, 100% {
-      opacity: 0.24;
-      transform: translateY(-28px);
-      d: path("M116 68 C111 48 102 44 98 56 C94 68 105 77 111 68 C115 60 108 54 98 58");
     }
   }
 </style>
