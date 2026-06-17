@@ -1,22 +1,69 @@
 ---
 /**
- * Genome assembly (Han1): scattered sequencing reads that resolve into a single
- * contiguous contig, which "builds" left-to-right on hover.
+ * Genome assembly (Han1): scattered sequencing reads align into draft contigs,
+ * gaps close, and a single chromosome-scale assembly resolves on hover.
  */
 interface Props { class?: string }
 const { class: className } = Astro.props;
 const reads = [
-  { x: 22, y: 22, w: 42 },
-  { x: 76, y: 22, w: 34 },
-  { x: 40, y: 38, w: 38 },
-  { x: 92, y: 38, w: 44 },
-  { x: 28, y: 54, w: 50 },
-  { x: 86, y: 54, w: 42 },
+  { x: 16, y: 18, w: 35, kind: 'short', tx: '8px', ty: '23px', delay: '0s' },
+  { x: 57, y: 16, w: 55, kind: 'long', tx: '-5px', ty: '26px', delay: '0.08s' },
+  { x: 104, y: 25, w: 38, kind: 'short', tx: '-10px', ty: '17px', delay: '0.16s' },
+  { x: 24, y: 35, w: 48, kind: 'long', tx: '13px', ty: '13px', delay: '0.24s' },
+  { x: 70, y: 37, w: 34, kind: 'short', tx: '2px', ty: '10px', delay: '0.32s' },
+  { x: 111, y: 41, w: 31, kind: 'short', tx: '-10px', ty: '7px', delay: '0.4s' },
 ];
+const contigs = [
+  { x1: 22, x2: 60, delay: '0.72s' },
+  { x1: 66, x2: 104, delay: '0.86s' },
+  { x1: 110, x2: 138, delay: '1s' },
+];
+const gaps = [
+  { x: 63, delay: '1.12s' },
+  { x: 107, delay: '1.26s' },
+];
+const bands = [36, 49, 72, 84, 96, 119, 131];
 ---
 <svg class:list={['motif', 'motif-as', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
-  {reads.map((r) => <rect class="as-read" x={r.x} y={r.y} width={r.w} height="8" rx="3" />)}
-  <rect class="as-contig" x="20" y="74" width="120" height="12" rx="3" />
+  <g class="as-reads">
+    {reads.map((read) => (
+      <rect
+        class:list={['as-read', `as-read--${read.kind}`]}
+        x={read.x}
+        y={read.y}
+        width={read.w}
+        height={read.kind === 'long' ? 6 : 7}
+        rx="3"
+        style={`--as-tx: ${read.tx}; --as-ty: ${read.ty}; --as-delay: ${read.delay};`}
+      />
+    ))}
+  </g>
+
+  <g class="as-drafts">
+    <line class="as-draft-axis" x1="18" y1="55" x2="142" y2="55" />
+    {contigs.map((contig) => (
+      <path
+        class="as-contig"
+        pathLength="1"
+        d={`M${contig.x1} 55 H${contig.x2}`}
+        style={`--as-delay: ${contig.delay};`}
+      />
+    ))}
+    {gaps.map((gap) => (
+      <g class="as-gap" style={`--as-delay: ${gap.delay};`}>
+        <path d={`M${gap.x - 3} 50 L${gap.x + 3} 60`} />
+        <path d={`M${gap.x + 3} 50 L${gap.x - 3} 60`} />
+      </g>
+    ))}
+  </g>
+
+  <g class="as-final">
+    <path class="as-final-bar" pathLength="1" d="M22 78 H138" />
+    <path class="as-final-core" pathLength="1" d="M22 78 H138" />
+    {bands.map((x) => <line class="as-band" x1={x} y1="73.5" x2={x} y2="82.5" />)}
+    <path class="as-telomere as-telomere--left" d="M22 73.5 V82.5" />
+    <path class="as-telomere as-telomere--right" d="M138 73.5 V82.5" />
+  </g>
 </svg>
 
 <style>
@@ -25,34 +72,199 @@ const reads = [
     height: 100%;
     display: block;
     --motif-ink: color-mix(in srgb, var(--color-ink) 55%, transparent);
+    --as-duration: 5.6s;
   }
   .as-read {
     fill: color-mix(in srgb, var(--color-ink) 14%, transparent);
     stroke: var(--motif-ink);
     stroke-width: 1;
+    transform-box: view-box;
+  }
+  .as-read--long {
+    fill: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    stroke: color-mix(in srgb, var(--color-accent) 58%, var(--motif-ink));
+  }
+  .as-draft-axis {
+    stroke: var(--motif-ink);
+    stroke-width: 1;
+    stroke-dasharray: 2.5 4;
+    stroke-linecap: round;
+    opacity: 0.22;
   }
   .as-contig {
-    fill: color-mix(in srgb, var(--color-accent) 18%, transparent);
-    stroke: var(--color-accent);
-    stroke-width: 1.4;
+    fill: none;
+    stroke: color-mix(in srgb, var(--color-accent) 62%, transparent);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    opacity: 0.58;
+  }
+  .as-gap {
+    stroke: color-mix(in srgb, #b75b43 74%, var(--color-ink));
+    stroke-width: 1.35;
+    stroke-linecap: round;
+    opacity: 0.68;
     transform-box: view-box;
-    transform-origin: 20px 80px;
+    transform-origin: center;
+  }
+  .as-final-bar {
+    fill: none;
+    stroke: color-mix(in srgb, var(--color-accent) 19%, transparent);
+    stroke-width: 13;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+  .as-final-core {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 1.55;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+  .as-band {
+    stroke: color-mix(in srgb, var(--color-accent) 76%, var(--color-bg));
+    stroke-width: 1.1;
+    stroke-linecap: round;
+    opacity: 0.48;
+  }
+  .as-telomere {
+    stroke: var(--color-accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    opacity: 0.95;
+    transform-box: view-box;
+    transform-origin: center;
   }
   @media (prefers-reduced-motion: no-preference) {
-    .motif-as:hover .as-contig { animation: as-build 3.2s ease-in-out infinite; }
-    .motif-as:hover .as-read { animation: as-pulse 3.2s ease-in-out infinite; }
-    .motif-as:hover .as-read:nth-of-type(2) { animation-delay: 0.15s; }
-    .motif-as:hover .as-read:nth-of-type(3) { animation-delay: 0.3s; }
-    .motif-as:hover .as-read:nth-of-type(4) { animation-delay: 0.45s; }
-    .motif-as:hover .as-read:nth-of-type(5) { animation-delay: 0.6s; }
-    .motif-as:hover .as-read:nth-of-type(6) { animation-delay: 0.75s; }
+    .motif-as:hover .as-read,
+    :global(.rcard:hover) .motif-as .as-read,
+    :global(.research-motif:hover) .motif-as .as-read {
+      animation: as-read-align var(--as-duration) ease-in-out both;
+      animation-delay: var(--as-delay);
+    }
+    .motif-as:hover .as-contig,
+    :global(.rcard:hover) .motif-as .as-contig,
+    :global(.research-motif:hover) .motif-as .as-contig {
+      animation: as-contig-draw var(--as-duration) ease-in-out both;
+      animation-delay: var(--as-delay);
+    }
+    .motif-as:hover .as-gap,
+    :global(.rcard:hover) .motif-as .as-gap,
+    :global(.research-motif:hover) .motif-as .as-gap {
+      animation: as-gap-close var(--as-duration) ease-in-out both;
+      animation-delay: var(--as-delay);
+    }
+    .motif-as:hover .as-final-bar,
+    :global(.rcard:hover) .motif-as .as-final-bar,
+    :global(.research-motif:hover) .motif-as .as-final-bar,
+    .motif-as:hover .as-final-core,
+    :global(.rcard:hover) .motif-as .as-final-core,
+    :global(.research-motif:hover) .motif-as .as-final-core {
+      animation: as-final-build var(--as-duration) ease-in-out both;
+    }
+    .motif-as:hover .as-band,
+    :global(.rcard:hover) .motif-as .as-band,
+    :global(.research-motif:hover) .motif-as .as-band {
+      animation: as-band-show var(--as-duration) ease-in-out both;
+    }
+    .motif-as:hover .as-telomere,
+    :global(.rcard:hover) .motif-as .as-telomere,
+    :global(.research-motif:hover) .motif-as .as-telomere {
+      animation: as-telomere-show var(--as-duration) ease-in-out both;
+    }
   }
-  @keyframes as-build {
-    0% { transform: scaleX(0); }
-    45%, 100% { transform: scaleX(1); }
+  @media (prefers-reduced-motion: reduce) {
+    .as-reads,
+    .as-drafts {
+      display: none;
+    }
+    .as-final-bar,
+    .as-final-core {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    .as-band {
+      opacity: 0.52;
+    }
+    .as-telomere {
+      opacity: 0.95;
+    }
   }
-  @keyframes as-pulse {
-    0%, 100% { opacity: 0.55; }
-    50% { opacity: 1; }
+  @keyframes as-read-align {
+    0%, 8% {
+      opacity: 0.78;
+      transform: translate(0, 0);
+    }
+    24% {
+      opacity: 1;
+      transform: translate(var(--as-tx), var(--as-ty));
+    }
+    42% {
+      opacity: 0.72;
+      transform: translate(var(--as-tx), var(--as-ty));
+    }
+    56%, 100% {
+      opacity: 0.14;
+      transform: translate(var(--as-tx), var(--as-ty));
+    }
+  }
+  @keyframes as-contig-draw {
+    0%, 18% {
+      opacity: 0.08;
+      stroke-dashoffset: 1;
+    }
+    34%, 58% {
+      opacity: 0.9;
+      stroke-dashoffset: 0;
+    }
+    74%, 100% {
+      opacity: 0.22;
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes as-gap-close {
+    0%, 28% {
+      opacity: 0.68;
+      transform: scale(1);
+    }
+    40% {
+      opacity: 0.95;
+      transform: scale(1.12);
+    }
+    52%, 100% {
+      opacity: 0;
+      transform: scale(0.78);
+    }
+  }
+  @keyframes as-final-build {
+    0%, 54% {
+      opacity: 0.05;
+      stroke-dashoffset: 1;
+    }
+    78%, 100% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes as-band-show {
+    0%, 68% {
+      opacity: 0;
+    }
+    82%, 100% {
+      opacity: 0.5;
+    }
+  }
+  @keyframes as-telomere-show {
+    0%, 70% {
+      opacity: 0;
+      transform: scaleY(0.35);
+    }
+    84%, 100% {
+      opacity: 0.95;
+      transform: scaleY(1);
+    }
   }
 </style>
