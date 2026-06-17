@@ -21,49 +21,51 @@ const scorePeaks = [
 ];
 ---
 <svg class:list={['motif', 'motif-sp', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
-  <g class="sp-seq">
-    <line class="sp-seq-axis" x1="16" y1="86" x2="144" y2="86" />
-    {seqTicks.map((tick) => (
-      <line
-        class:list={['sp-base', `sp-base--${tick.base}`]}
-        x1={tick.x}
-        y1={86 - tick.h / 2}
-        x2={tick.x}
-        y2={86 + tick.h / 2}
-      />
-    ))}
+  <g transform="translate(0 -15)">
+    <g class="sp-seq">
+      <line class="sp-seq-axis" x1="16" y1="86" x2="144" y2="86" />
+      {seqTicks.map((tick) => (
+        <line
+          class:list={['sp-base', `sp-base--${tick.base}`]}
+          x1={tick.x}
+          y1={86 - tick.h / 2}
+          x2={tick.x}
+          y2={86 + tick.h / 2}
+        />
+      ))}
+    </g>
+
+    <rect class="sp-window" x="12" y="80" width="36" height="12" rx="2.5" />
+
+    <g class="sp-scores">
+      {scorePeaks.map((peak) => (
+        <path
+          class:list={['sp-score', `sp-score--${peak.kind}`]}
+          pathLength="1"
+          d={peak.d}
+        />
+      ))}
+    </g>
+
+    <g class="sp-left">
+      <rect class="sp-exon" x="16" y="58" width="28" height="20" rx="2" />
+    </g>
+
+    <path class="sp-intron sp-intron--first" pathLength="1" d="M44 68 C51 68 59 68 66 68" />
+
+    <g class="sp-mid">
+      <rect class="sp-exon" x="66" y="58" width="28" height="20" rx="2" />
+    </g>
+
+    <path class="sp-intron sp-intron--second" pathLength="1" d="M94 68 C101 68 109 68 116 68" />
+
+    <g class="sp-right">
+      <rect class="sp-exon" x="116" y="58" width="28" height="20" rx="2" />
+    </g>
+
+    <path class="sp-junction" pathLength="1" d="M44 58 Q55 34 66 58" />
+    <path class="sp-junction" pathLength="1" d="M94 58 Q105 34 116 58" />
   </g>
-
-  <rect class="sp-window" x="12" y="80" width="36" height="12" rx="2.5" />
-
-  <g class="sp-scores">
-    {scorePeaks.map((peak) => (
-      <path
-        class:list={['sp-score', `sp-score--${peak.kind}`]}
-        pathLength="1"
-        d={peak.d}
-      />
-    ))}
-  </g>
-
-  <g class="sp-left">
-    <rect class="sp-exon" x="16" y="58" width="28" height="20" rx="2" />
-  </g>
-
-  <path class="sp-intron sp-intron--first" pathLength="1" d="M44 68 C51 68 59 68 66 68" />
-
-  <g class="sp-mid">
-    <rect class="sp-exon" x="66" y="58" width="28" height="20" rx="2" />
-  </g>
-
-  <path class="sp-intron sp-intron--second" pathLength="1" d="M94 68 C101 68 109 68 116 68" />
-
-  <g class="sp-right">
-    <rect class="sp-exon" x="116" y="58" width="28" height="20" rx="2" />
-  </g>
-
-  <path class="sp-junction" pathLength="1" d="M44 58 Q55 34 66 58" />
-  <path class="sp-junction" pathLength="1" d="M94 58 Q105 34 116 58" />
 </svg>
 
 <style>
