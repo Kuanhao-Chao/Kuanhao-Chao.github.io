@@ -66,8 +66,8 @@ const exons = [
     stroke: color-mix(in srgb, var(--color-accent) 78%, transparent);
     stroke-width: 1.45;
     stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    opacity: 0;
+    stroke-dashoffset: 0;
+    opacity: 0.38;
   }
   .sp-exon-wrap {
     transform-box: view-box;
@@ -105,13 +105,13 @@ const exons = [
     .motif-sp:hover .sp-junction,
     :global(.rcard:hover) .motif-sp .sp-junction,
     :global(.research-motif:hover) .motif-sp .sp-junction {
-      animation: sp-junction-draw var(--sp-duration) var(--sp-fade-ease) forwards;
+      animation: sp-junction-fade var(--sp-duration) var(--sp-fade-ease) forwards;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .sp-junction {
-      opacity: 0.34;
+      opacity: 0.38;
       stroke-dashoffset: 0;
     }
   }
@@ -142,20 +142,12 @@ const exons = [
       stroke-dashoffset: 1;
     }
   }
-  @keyframes sp-junction-draw {
-    0%, 8% {
-      opacity: 0;
-      stroke-dashoffset: 1;
-    }
-    28% {
-      opacity: 0.9;
-      stroke-dashoffset: 0.42;
-    }
-    54% {
-      opacity: 0.86;
+  @keyframes sp-junction-fade {
+    0% {
+      opacity: 0.38;
       stroke-dashoffset: 0;
     }
-    82%, 100% {
+    6%, 100% {
       opacity: 0;
       stroke-dashoffset: 0;
     }
