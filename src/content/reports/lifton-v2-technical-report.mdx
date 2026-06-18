@@ -335,7 +335,7 @@ On *identical* aligner inputs (the controlled arm), the best-of-outcome merge im
 An attribution analysis (running the v2.0.0 binary with v1.0.8's algorithm flags, `--legacy-merge --full-dp-align --gene-only`) confirms that essentially all of this gain is the flag-gated algorithm promotions rather than incidental code changes: on drosophila the promotions contribute $+0.003741$ (115/1) and the non-flag residual is $-0.000063$ (0/2); on mouse→rat the promotions contribute $+0.005221$ (91/0).
 
 <ZoomFigure src={develVsField} alt="Two panels: LiftOn 2.0 minus best single baseline per benchmark, and per-transcript improved versus regressed against v1.0.8" variant="wide">
-  <strong>Figure 3.</strong> LiftOn 2.0 versus the field. <strong>(A)</strong> LiftOn 2.0 − best single-method baseline (Liftoff or miniprot) per completed benchmark, grouped by divergence class; the gain grows with divergence and is positive on all but *human→mouse*. <strong>(B)</strong> On identical cached aligner inputs, the per-transcript count improved versus regressed against v1.0.8 — many improved, almost none regressed.
+  <strong>Figure 3.</strong> LiftOn 2.0 versus the field. <strong>(A)</strong> LiftOn 2.0 − best single-method baseline (Liftoff or miniprot) per completed benchmark, grouped by divergence class; the gain grows with divergence and is positive on all but three extreme-divergence pairs (*human→mouse*, *rice→sorghum*, and *S. cerevisiae→S. pombe*, the last a small-*n* artifact). <strong>(B)</strong> On identical cached aligner inputs, the per-transcript count improved versus regressed against v1.0.8 — many improved, almost none regressed.
 </ZoomFigure>
 
 ### 3.3 Completeness
