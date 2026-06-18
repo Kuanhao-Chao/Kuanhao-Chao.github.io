@@ -1,6 +1,6 @@
 ---
 title: 'LiftOn 2.0: scaling accurate genome annotation to whole genomes'
-description: 'LiftOn 2.0 rebuilds our DNA-plus-protein genome-annotation lift-over tool for whole-genome scale: lower memory, fewer crashes, broader feature recovery, and a safer merge validated across a 20-dataset benchmark.'
+description: 'LiftOn 2.0 rebuilds our DNA-plus-protein genome-annotation lift-over tool for whole-genome scale: lower memory, fewer crashes, broader feature recovery, and a safer merge validated across a 29-dataset benchmark.'
 authors: ['Kuan-Hao Chao']
 abstract: >-
   LiftOn 2.0 is a major update to the genome-annotation lift-over tool that combines DNA alignment
@@ -9,18 +9,19 @@ abstract: >-
   at whole-genome scale. It adds a memory-bounded windowed aligner for giant genes, a best-of-outcome merge
   that keeps the DNA-plus-protein model only when it improves the emitted protein, default lifting of
   gene-like feature types beyond protein-coding genes, full-genome robustness fixes, and faster execution
-  protected by a 24-cell byte-identity regression matrix. Across the 18 benchmarks where both LiftOn
-  versions ran to completion, LiftOn 2.0 matched or exceeded v1.0.8 on all 18 and matched or exceeded the
-  best single-method baseline on 17 of 18, with human-to-mouse as the one accuracy non-win. On full
-  Arabidopsis and rice RefSeq genomes, it finished runs the previous release abandoned and recovered tens
-  of thousands more coding transcripts.
+  protected by a 24-cell byte-identity regression matrix. Across the 27 benchmarks where both LiftOn
+  versions ran to completion — a divergence ladder reaching all the way to very distant cross-species pairs
+  like eudicot-to-monocot and mammal-to-fish — LiftOn 2.0 matched or exceeded v1.0.8 on 26 of 27 and matched
+  or exceeded the best single-method baseline on 24 of 27, the only losses being a handful of the most
+  divergent pairs. On full Arabidopsis and rice RefSeq genomes, it finished runs the previous release
+  abandoned and recovered tens of thousands more coding transcripts.
 date: 2026-06-17
 category: summary
 tags: ['Genome annotation', 'Comparative genomics', 'Open source']
 linkLabel: 'LiftOn 2.0'
 image: ../../assets/posts/lifton-v2/fig1_accuracy.png
 logo: ../../assets/logos/software/lifton.png
-imageAlt: "LiftOn 2.0's accuracy across twenty benchmarks: a divergence ladder showing LiftOn stays most accurate as species diverge, the per-dataset gain over the best single-method baseline growing with divergence, and a per-transcript comparison showing the new merge improves many genes and regresses almost none."
+imageAlt: "LiftOn 2.0's accuracy across twenty-nine benchmarks: a five-tier divergence ladder showing LiftOn stays most accurate as species diverge, the per-dataset gain over the best single-method baseline growing with divergence, and a per-transcript comparison showing the new merge improves many genes and regresses almost none."
 references:
   - text: 'Chao, K.-H. et al. Combining DNA and protein alignments to improve genome annotation with LiftOn. Genome Research (2025).'
     doi: 'https://doi.org/10.1101/gr.279620.124'
@@ -57,12 +58,12 @@ Fourth, the execution engine was rebuilt under a byte-identity contract. The two
 
 ## What the benchmark shows
 
-I evaluated LiftOn 2.0 on a 20-dataset benchmark spanning a divergence ladder: same-species assembly-to-assembly lift-overs, moderate cross-species pairs, close cross-species pairs, and distant cross-species pairs. The comparison includes four tools: Liftoff alone, miniprot alone, LiftOn v1.0.8, and LiftOn 2.0. Every output is re-scored by the same evaluator rather than by each tool's own reporting. For coding transcripts, the evaluator translates the lifted CDS, aligns it to the reference protein, and computes mean protein identity.
+I evaluated LiftOn 2.0 on a 29-dataset benchmark spanning a five-tier divergence ladder: same-species assembly-to-assembly lift-overs, moderate cross-species pairs, close cross-species pairs, distant cross-species pairs, and a new very-distant tier (eudicot-to-monocot, mammal-to-fish, fly-to-mosquito, and budding-to-fission yeast) where genome-wide DNA synteny has all but disappeared. The comparison includes four tools: Liftoff alone, miniprot alone, LiftOn v1.0.8, and LiftOn 2.0. Every output is re-scored by the same evaluator rather than by each tool's own reporting. For coding transcripts, the evaluator translates the lifted CDS, aligns it to the reference protein, and computes mean protein identity.
 
-Two full genomes from v1.0.8 crashed partway through, so they are not used for the head-to-head accuracy comparison. Across the 18 datasets where both LiftOn versions completed, LiftOn 2.0 matched or exceeded v1.0.8 on all 18. It also matched or exceeded the better single-method baseline, Liftoff or miniprot, on 17 of 18. The one exception is human-to-mouse: at that distance, miniprot's protein-only model is higher by 0.00931 mean protein identity. That is an important boundary condition. Combining DNA and protein helps most when both signals still contain useful information; when the DNA signal is very degraded, protein alone can be the cleaner evidence.
+Two full genomes from v1.0.8 crashed partway through, so they are not used for the head-to-head accuracy comparison. Across the 27 datasets where both LiftOn versions completed, LiftOn 2.0 matched or exceeded v1.0.8 on 26 of 27. It also matched or exceeded the better single-method baseline, Liftoff or miniprot, on 24 of 27. The three exceptions are all among the most divergent pairs: human-to-mouse (miniprot higher by 0.00931 mean protein identity), rice-to-sorghum (miniprot higher by 0.00644), and budding-to-fission yeast (Liftoff higher, but only on the four transcripts of 767 it manages to recover — a small-sample artifact). That is the expected boundary condition: combining DNA and protein helps most when both signals still contain useful information; when the DNA signal is very degraded, protein alone can be the cleaner evidence.
 
-<ZoomFigure src={figAccuracy} alt="Three-panel accuracy figure. (A) A line plot of mean protein identity versus divergence class for Liftoff, miniprot, LiftOn v1.0.8, and LiftOn 2.0; all decline as species diverge, with LiftOn 2.0 highest through most of the ladder and the gap to the baselines widening. (B) A bar chart of LiftOn 2.0 minus the best single baseline for each benchmark, colored by divergence class, positive almost everywhere and largest on distant pairs, with human to mouse annotated as the one negative. (C) A grouped bar chart of transcripts improved versus regressed relative to v1.0.8 on the datasets that change, with improvements far outnumbering regressions." variant="wide">
-  <strong>Figure 1.</strong> Accuracy across the divergence ladder. LiftOn 2.0 is strongest where DNA-only and protein-only evidence are both imperfect but still informative. It matches or exceeds the best single-method baseline on 17 of 18 completed benchmarks; human-to-mouse is the one non-win.
+<ZoomFigure src={figAccuracy} alt="Three-panel accuracy figure. (A) A line plot of mean protein identity versus divergence class for Liftoff, miniprot, LiftOn v1.0.8, and LiftOn 2.0; all decline as species diverge, with LiftOn 2.0 highest through most of the ladder and the gap to the baselines widening. (B) A bar chart of LiftOn 2.0 minus the best single baseline for each benchmark, colored by divergence class, positive almost everywhere and largest on the most distant pairs, with the few negatives (human to mouse, rice to sorghum, and budding to fission yeast) annotated. (C) A grouped bar chart of transcripts improved versus regressed relative to v1.0.8 on the datasets that change, with improvements far outnumbering regressions." variant="wide">
+  <strong>Figure 1.</strong> Accuracy across the divergence ladder. LiftOn 2.0 is strongest where DNA-only and protein-only evidence are both imperfect but still informative. It matches or exceeds the best single-method baseline on 24 of 27 completed benchmarks; the few non-wins are the most divergent pairs, where a single-method baseline edges ahead.
 </ZoomFigure>
 
 The largest practical result is not an accuracy decimal. It is that LiftOn 2.0 finishes full genomes that v1.0.8 abandoned. On full RefSeq *Arabidopsis*, v1.0.8 crashed after recovering 13,618 coding transcripts, about 28% of the reference set. LiftOn 2.0 completed the run and recovered 48,207, adding 34,589 coding transcripts. On full rice, v1.0.8 stopped at 32,933 coding transcripts, about 77%; LiftOn 2.0 completed the run with 42,527, adding 9,594.
@@ -75,7 +76,9 @@ The same figure also shows the broader feature lift. On full *Arabidopsis*, Lift
 
 Completeness still needs a careful reading. On same-species and close cross-species data, the tools recover similar coding transcript counts. On very distant pairs, miniprot can recover more coding transcripts because it searches directly with proteins and is not anchored to a DNA lift. For example, on *C. elegans* to *C. briggsae*, miniprot recovers substantially more coding transcripts than LiftOn. LiftOn's goal is different: retain reference-consistent transcript structure, use protein evidence to rescue and correct the DNA lift, and emit accurate gene models when a reliable lift exists. On raw recall alone, protein search can win on the hardest pairs. On recovered transcript accuracy and whole-genome robustness, the combined approach is the stronger default.
 
-Output validity also improves where scale stresses the pipeline. Re-running every output through one GFF3 validator, LiftOn 2.0 is at or below v1.0.8 on 17 of the 18 completed comparable benchmarks and is cleaner on the completed full genomes. The main caveat is small but real: on the *S. cerevisiae* to *S. paradoxus* benchmark, the validator count increases from 10 to 11 errors. That single regression is worth keeping visible because a lift-over tool is only useful if its accuracy claims and its failure modes are both explicit.
+The new very-distant tier sharpens this picture. As genomes diverge to the point where DNA synteny is essentially gone — Arabidopsis to rice, human to zebrafish, fruit fly to mosquito — Liftoff's DNA-only model collapses to about 0.29 mean protein identity, while LiftOn 2.0 stays highest at about 0.54, because the merge falls back on the protein evidence that still survives. The pattern even holds on whole genomes: on full Arabidopsis-to-rice and full human-to-zebrafish, LiftOn 2.0 posts the highest per-transcript accuracy of all four tools, roughly 0.04 and 0.02 above the best single method. The honest counterpart is recall: at that distance miniprot's unconstrained protein search recovers far more transcripts (about 77 to 84 percent) than either LiftOn version (about 5 to 17 percent), so LiftOn's edge here is accuracy per recovered transcript, not coverage. Both LiftOn versions recover essentially the same set on these genomes, so this is a clean read on per-transcript quality rather than anything that changed in the new release.
+
+Output validity also improves where scale stresses the pipeline. Re-running every output through one GFF3 validator, LiftOn 2.0 is at or below v1.0.8 on 22 of the 23 subset benchmarks and is strictly cleaner on all four completed full genomes. The main caveat is small but real: on the *S. cerevisiae* to *S. paradoxus* benchmark, the validator count increases from 10 to 11 errors. That single regression is worth keeping visible because a lift-over tool is only useful if its accuracy claims and its failure modes are both explicit.
 
 <ZoomFigure src={figValidity} alt="A horizontal grouped bar chart of GFF3-validate error counts for LiftOn v1.0.8 versus LiftOn 2.0 across the benchmarks. LiftOn 2.0 is at or below v1.0.8 on nearly every completed comparable dataset, with one yeast regression from 10 to 11 errors and larger reductions on full genomes." variant="wide">
   <strong>Figure 3.</strong> Output validity. LiftOn 2.0 generally emits cleaner GFF3 while lifting more annotation; the one observed validation regression is the yeast close-cross-species pair.

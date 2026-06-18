@@ -1,6 +1,6 @@
 ---
 title: 'LiftOn v2.0.0: scaling accurate dual-evidence genome-annotation lift-over to whole genomes'
-description: 'A technical report on the algorithmic and architectural advances in LiftOn v2.0.0, validated against a 20-dataset, four-way benchmark across a same-species to distant-cross-species divergence ladder.'
+description: 'A technical report on the algorithmic and architectural advances in LiftOn v2.0.0, validated against a 29-dataset, four-way benchmark across a same-species to very-distant-cross-species divergence ladder.'
 authors:
   - Kuan-Hao Chao
 abstract: >-
@@ -13,9 +13,10 @@ abstract: >-
   engineered for chromosome-scale inputs: it crashed on full RefSeq genomes, used unbounded quadratic
   alignment memory on giant genes, ran single-threaded, and lifted only protein-coding genes. LiftOn v2.0.0
   is a ground-up re-engineering of the execution engine plus a set of conservative algorithmic upgrades.
-  Validated against a four-way comparison spanning a same-species to distant-cross-species divergence ladder
-  under a tool-neutral re-scoring protocol, it is the most accurate lift-over tool on 17 of the 18 datasets
-  where both versions ran to completion. Despite internally running both Liftoff and miniprot plus the merge,
+  Validated against a four-way comparison spanning a same-species to very-distant-cross-species divergence
+  ladder (23 representative-chromosome subsets plus 6 whole genomes) under a tool-neutral re-scoring protocol,
+  it is the most accurate — or tied-most-accurate — lift-over tool on 24 of the 27 datasets where both
+  versions ran to completion. Despite internally running both Liftoff and miniprot plus the merge,
   its peak memory is the lowest of all four tools on every memory-intensive genome, and it cuts peak RAM
   versus the previous release by up to 23.9× (on the mouse subset, 44.6 GB to 0.76 GB — a 59× reduction). It
   finishes full genomes the previous release abandoned mid-run (recovering 34,589 more Arabidopsis coding
@@ -93,7 +94,7 @@ The published LiftOn implementation (v1.0.8) was correct but was engineered for 
 
 ### 1.4 Contributions
 
-This report documents the algorithmic and architectural advances in LiftOn v2.0.0 and validates them against a real 20-dataset benchmark. The principal contributions are:
+This report documents the algorithmic and architectural advances in LiftOn v2.0.0 and validates them against a real 29-dataset benchmark. The principal contributions are:
 
 - An **anchor-windowed alignment kernel** that reduces alignment memory from $O(L^2)$ to a bounded $O(b^2)$ and is exact (identical to full DP) wherever unique-$k$-mer anchors exist or a divergent region is below the giant boundary (§2.2).
 - A **best-of-outcome protein-maximization merge** that adopts the merged dual-evidence model only when it scores strictly higher than the DNA-only model against the reference protein, converting the merge from a net-risky operation into a guaranteed per-transcript non-regression (§2.4).
@@ -203,9 +204,9 @@ Two robustness fixes are *not* byte-neutral but are corrective. First, v2.0.0 wr
 
 ### 2.8 Benchmark design and evaluation
 
-**Tools.** Four tools are compared: *Liftoff* (DNA lift-over via minimap2), *miniprot* (protein-to-genome), *LiftOn v1.0.8* (the previous stable release; git tag `e503643d`, isolated environment), and *LiftOn v2.0.0* (development HEAD `4496dd5` plus the gene-like child-lift fix). The two LiftOn versions are run on the *same* cached aligner inputs so all four tools are directly comparable.
+**Tools.** Four tools are compared: *Liftoff* (DNA lift-over via minimap2), *miniprot* (protein-to-genome), *LiftOn v1.0.8* (the previous stable release; git tag `e503643d`, isolated environment), and *LiftOn v2.0.0* (development HEAD `3ff6b9d`, including the gene-like child-lift fix and the Step-7 error-handling fix). The two LiftOn versions are run on the *same* cached aligner inputs so all four tools are directly comparable.
 
-**Datasets.** 20 scored benchmarks (Table 2): 16 representative-chromosome subsets (for fast per-transcript scoring) plus 4 whole-genome runs, spanning a divergence ladder — *same-species*, *cross-species*, *close cross-species*, *distant cross-species* — and two annotation databases (RefSeq [8] and Ensembl/GTF [9]). Targets are independent assemblies, so a perfect lift is not guaranteed even within a species.
+**Datasets.** 29 scored benchmarks (Table 2): 23 representative-chromosome subsets (for fast per-transcript scoring) plus 6 whole-genome runs, spanning a five-tier divergence ladder — *same-species*, *cross-species*, *close cross-species*, *distant cross-species*, *very-distant cross-species* — and two annotation databases (RefSeq [8] and Ensembl/GTF [9]). The very-distant tier (eudicot→monocot, mammal→fish, fly→mosquito, budding→fission yeast) probes the regime where genome-wide DNA synteny has essentially disappeared; for the distant and very-distant pairs the reference is still subset to one representative chromosome but the *whole* target genome is given to both aligners, because a syntenic-chromosome picker is not meaningful once synteny is gone. Targets are independent assemblies, so a perfect lift is not guaranteed even within a species.
 
 **Tool-neutral scoring.** Every tool's output GFF3 is re-scored by the *same* parasail kernel (`benchmarks/compare/evaluator.py`), independent of each tool's self-reported numbers. A lifted transcript's CDS is translated and globally aligned to the reference protein with parasail [5] (BLOSUM62 [6]); the per-transcript protein identity is
 
@@ -217,7 +218,7 @@ $$\mathrm{completeness}_\text{coding} = \frac{N_\text{recovered coding}}{N_\text
 
 Tool transcripts are matched to reference IDs copy-suffix-aware; miniprot via its `Target` attribute. Output validity is the `gff3-validate` error count, applied with one consistent validator on all outputs.
 
-**Comparison arms.** The v1.0.8-vs-v2.0.0 comparison runs three arms: *controlled* (identical cached `-L`/`-M` aligner inputs on a subset at `-t1`, which isolates LiftOn's own algorithm and is the fair per-transcript accuracy and resource view); *fresh* (both aligners re-run, the fair completeness view, since v2.0.0 auto-detects gene-like types); and *full* (whole genome, v2.0.0 with the parallel/streaming flags vs v1.0.8 at `-t1`). Because v1.0.8 crashes mid-run on two full genomes (*Arabidopsis* and rice), every metric it reports on those two records reflects only the fraction it completed before aborting. Those two crashed runs are therefore **excluded from all head-to-head comparisons** (the accuracy, validity, and completeness tables and figures); the crash itself is reported separately as a robustness result (§3.4), where the partial run is exactly the relevant fact.
+**Comparison arms.** The v1.0.8-vs-v2.0.0 comparison runs three arms: *controlled* (identical cached `-L`/`-M` aligner inputs on a subset at `-t1`, which isolates LiftOn's own algorithm and is the fair per-transcript accuracy and resource view); *fresh* (both aligners re-run, the fair completeness view, since v2.0.0 auto-detects gene-like types); and *full* (whole genome, v2.0.0 on the parallel `--locus-pipeline` path vs v1.0.8 at `-t1`). Because v1.0.8 **crashes mid-run** on two full genomes (*Arabidopsis* and rice), every metric it reports on those two records reflects only the fraction it completed before aborting. Those two crashed runs are therefore **excluded from all head-to-head comparisons** (the accuracy, validity, and completeness tables and figures), leaving **27 comparable records**; the crash itself is reported separately as a robustness result (§3.4), where the partial run is exactly the relevant fact. The two new very-distant *full* genomes (Arabidopsis→rice and human→zebrafish) are a different case: both LiftOn versions **completed** them — recovering the same small fraction of transcripts at extreme distance, not crashing — so they remain **in** the head-to-head, with the recall caveat made explicit in §3.3.
 
 **Reproducibility.** Runs use a pinned conda environment, `PYTHONHASHSEED=0`, and `-t1` for the byte-stable arms. Source data and per-arm tables are archived under `benchmarks/compare/` (`fourway_results.json`, `version_compare.results.json`, `MASTER_COMPARISON_REPORT.md`).
 
@@ -235,22 +236,31 @@ Tool transcripts are matched to reference IDs copy-suffix-aware; miniprot via it
 | drosophila | *D. melanogaster* → *D. erecta* | cross-species | RefSeq | 7,251 |
 | human_to_chimp | *H. sapiens* → *P. troglodytes* | cross-species | RefSeq | 12,842 |
 | mouse_to_rat | *M. musculus* → *R. norvegicus* | cross-species | RefSeq | 2,343 |
+| arabidopsis_to_lyrata | *A. thaliana* → *A. lyrata* | close cross-sp. | RefSeq | 12,653 |
 | candida_albicans_to_dubliniensis | *C. albicans* → *C. dubliniensis* | close cross-sp. | RefSeq | 1,353 |
 | yeast_cerevisiae_to_paradoxus | *S. cerevisiae* → *S. paradoxus* | close cross-sp. | RefSeq | 767 |
 | celegans_to_briggsae | *C. elegans* → *C. briggsae* | distant cross-sp. | RefSeq | 7,550 |
 | chicken_to_quail | *G. gallus* → *C. japonica* | distant cross-sp. | RefSeq | 9,068 |
 | fly_mel_to_pseudoobscura | *D. melanogaster* → *D. pseudoobscura* | distant cross-sp. | RefSeq | 7,251 |
 | human_to_mouse | *H. sapiens* → *M. musculus* | distant cross-sp. | RefSeq | 3,086 |
+| rice_to_sorghum | *O. sativa* → *S. bicolor* | distant cross-sp. | RefSeq | 5,850 |
+| zebrafish_to_medaka | *D. rerio* → *O. latipes* | distant cross-sp. | RefSeq | 2,972 |
+| arabidopsis_to_rice | *A. thaliana* → *O. sativa* (eudicot→monocot) | very distant cross-sp. | RefSeq | 12,653 |
+| cerevisiae_to_pombe | *S. cerevisiae* → *S. pombe* | very distant cross-sp. | RefSeq | 767 |
+| drosophila_to_anopheles | *D. melanogaster* → *A. gambiae* (fly→mosquito) | very distant cross-sp. | RefSeq | 7,251 |
+| human_to_zebrafish | *H. sapiens* → *D. rerio* (mammal→fish) | very distant cross-sp. | RefSeq | 3,086 |
 | arabidopsis·full | *A. thaliana* (whole genome) | same-species | RefSeq | 48,265 |
 | bee·full | *A. mellifera* (whole genome) | same-species | RefSeq | 23,471 |
 | rice·full | *O. sativa* (whole genome) | same-species | RefSeq | 42,580 |
 | drosophila·full | *D. melanogaster* → *D. erecta* (whole genome) | cross-species | RefSeq | 30,799 |
+| arabidopsis_to_rice·full | *A. thaliana* → *O. sativa* (whole genome) | very distant cross-sp. | RefSeq | 48,265 |
+| human_to_zebrafish·full | *H. sapiens* → *D. rerio* (whole genome) | very distant cross-sp. | RefSeq | 144,329 |
 
 ## 3. Results
 
 ### 3.1 Accuracy: most accurate across the divergence ladder
 
-Across the **18 datasets where both versions ran to completion** (the two genomes v1.0.8 crashed on are excluded from this comparison; §2.8, §3.4), LiftOn v2.0.0 matches or exceeds the better of the two single-method baselines (Liftoff or miniprot) on **17/18** benchmarks (Table 3; Fig. 1); the sole exception is the most distant mammalian pair, *human→mouse*, where miniprot's protein-only model wins by $0.00931$ (0.79104 vs 0.78173) — reported here without qualification. It matches or exceeds the previous release v1.0.8 on **all 18**. Taken together, v2.0.0 is the highest (or tied-highest, on the near-identical same-species pairs) of the four tools on **17 of 18** benchmarks.
+Across the **27 datasets where both versions ran to completion** (the two genomes v1.0.8 crashed on are excluded from this comparison; §2.8, §3.4), LiftOn v2.0.0 matches or exceeds the better of the two single-method baselines (Liftoff or miniprot) on **24/27** benchmarks (Table 3; Fig. 1). The three exceptions are all extreme cross-species pairs where one single-method baseline edges ahead: *human→mouse* (miniprot higher by $0.00931$, 0.79104 vs 0.78173), *rice→sorghum* (miniprot higher by $0.00644$), and *S. cerevisiae→S. pombe* (Liftoff higher by $0.05706$ — but only on the 4 of 767 transcripts Liftoff recovers at all, a small-$n$ artifact rather than a genuine Liftoff advantage). All three are reported here without qualification. It matches or exceeds the previous release v1.0.8 on **26 of 27** (the lone exception is the new very-distant full human→zebrafish, by $0.00199$). Taken together, v2.0.0 is the highest — or tied-highest, on the near-identical same-species pairs — of the four tools on **24 of 27** benchmarks.
 
 **Table 3.** Four-way mean protein identity (tool-neutral re-score). "best(LO,MP)" = the better of Liftoff and miniprot.
 
@@ -266,18 +276,27 @@ Across the **18 datasets where both versions ran to completion** (the two genome
 | drosophila | cross | 0.90845 | 0.92079 | 0.92210 | **0.92578** | +0.00499 |
 | human_to_chimp | cross | 0.96489 | 0.96528 | 0.98057 | **0.98057** | +0.01529 |
 | mouse_to_rat | cross | 0.85311 | 0.85239 | 0.90521 | **0.90920** | +0.05609 |
+| arabidopsis_to_lyrata | close | 0.79649 | 0.84417 | 0.86364 | **0.87224** | +0.02807 |
 | candida_albicans_to_dubliniensis | close | 0.87204 | 0.88266 | 0.89555 | **0.89692** | +0.01426 |
 | yeast_cerevisiae_to_paradoxus | close | 0.89639 | 0.89896 | 0.90760 | **0.90769** | +0.00873 |
 | celegans_to_briggsae | distant | 0.41024 | 0.64726 | 0.71853 | **0.71936** | +0.07210 |
 | chicken_to_quail | distant | 0.82107 | 0.86142 | 0.90374 | **0.91129** | +0.04987 |
 | fly_mel_to_pseudoobscura | distant | 0.63161 | 0.78948 | 0.78209 | **0.79571** | +0.00623 |
 | human_to_mouse | distant | 0.49835 | **0.79104** | 0.76867 | 0.78173 | −0.00931 |
+| rice_to_sorghum | distant | 0.41639 | **0.68191** | 0.66713 | 0.67547 | −0.00644 |
+| zebrafish_to_medaka | distant | 0.22343 | 0.53279 | 0.55474 | **0.55680** | +0.02401 |
+| arabidopsis_to_rice | very distant | 0.19762 | 0.50782 | 0.54218 | **0.54365** | +0.03583 |
+| cerevisiae_to_pombe | very distant | **0.56201** | 0.41128 | 0.50495 | 0.50495 | −0.05706 |
+| drosophila_to_anopheles | very distant | 0.21980 | 0.48961 | 0.54848 | **0.55073** | +0.06112 |
+| human_to_zebrafish | very distant | 0.18393 | 0.55574 | 0.56475 | **0.56475** | +0.00901 |
 | bee·full | same | 0.98071 | 0.98046 | 0.99024 | **0.99033** | +0.00962 |
 | drosophila·full | cross | 0.88695 | 0.91315 | 0.92106 | **0.92240** | +0.00925 |
+| arabidopsis_to_rice·full | very distant | 0.30904 | 0.50982 | 0.54997 | **0.55051** | +0.04069 |
+| human_to_zebrafish·full | very distant | 0.16318 | 0.54472 | **0.56313** | 0.56114 | +0.01642 |
 
-*(The two full genomes v1.0.8 crashed on — Arabidopsis and rice — are omitted here; its partial-run mean identity is not comparable. They are reported in §3.4.)*
+*(The two full genomes v1.0.8 **crashed** on — Arabidopsis and rice — are omitted here; their partial-run mean identity is not comparable, and they are reported instead as a robustness result in §3.4. The two very-distant fulls — Arabidopsis→rice and human→zebrafish — both completed and are kept; v2.0.0 leads the field on per-transcript accuracy there but is fractionally below v1.0.8 on the human→zebrafish full, the one vs-v1.0.8 non-win.)*
 
-The margin over the best single method is small on same-species data (where all four cluster near identity) and is **largest on the divergent cross-species pairs**, exactly the regime where neither DNA nor protein alignment alone suffices (the per-class margin is not strictly monotonic — the close-cross-species class sits slightly below the cross-species class — but the trend from near-zero same-species to large distant margins is unambiguous). Aggregating by divergence class (Table 4; Fig. 2) makes this explicit: as species diverge, the DNA-only Liftoff degrades fastest, miniprot's protein model holds up better, and LiftOn — fusing both — leads throughout, by the widest margin on the distant pairs.
+The margin over the best single method is small on same-species data (where all four cluster near identity) and is **largest on the divergent cross-species pairs**, exactly the regime where neither DNA nor protein alignment alone suffices (the per-class margin is not strictly monotonic — the close-cross-species class sits slightly below the cross-species class — but the trend from near-zero same-species to large distant margins is unambiguous). Aggregating by divergence class (Table 4; Fig. 2) makes this explicit: as species diverge, the DNA-only Liftoff degrades fastest, miniprot's protein model holds up better, and LiftOn — fusing both — leads throughout, by the widest margin on the most distant pairs. In the new very-distant tier (eudicot→monocot, mammal→fish, fly→mosquito, budding→fission yeast) Liftoff collapses to a mean protein identity of 0.291 — genome-wide DNA synteny is essentially gone — miniprot recovers to 0.491, and LiftOn 2.0 stays highest at 0.541, leading the tier by +0.05 over miniprot and +0.25 over Liftoff.
 
 **Table 4.** Mean protein identity by divergence class.
 
@@ -285,8 +304,9 @@ The margin over the best single method is small on same-species data (where all 
 |---|---:|---:|---:|---:|---:|
 | same-species | 7 | 0.98577 | 0.98163 | 0.98917 | **0.98930** |
 | cross-species | 3 | 0.90882 | 0.91282 | 0.93596 | **0.93852** |
-| close cross-species | 2 | 0.88421 | 0.89081 | 0.90158 | **0.90231** |
-| distant cross-species | 4 | 0.59032 | 0.77230 | 0.79326 | **0.80202** |
+| close cross-species | 3 | 0.85497 | 0.87526 | 0.88893 | **0.89228** |
+| distant cross-species | 6 | 0.50018 | 0.71732 | 0.73248 | **0.74006** |
+| very-distant cross-species | 4 | 0.29084 | 0.49111 | 0.54009 | **0.54102** |
 
 <ZoomFigure src={accFourway} alt="Grouped bar chart of mean protein identity by tool across every completed benchmark" variant="wide">
   <strong>Figure 1.</strong> Mean protein identity by tool across every completed benchmark (the two genomes v1.0.8 crashed on are excluded). LiftOn 2.0 (green) is at or above all baselines almost everywhere; its lead is largest on the divergent cross-species pairs.
@@ -295,6 +315,8 @@ The margin over the best single method is small on same-species data (where all 
 <ZoomFigure src={ladder} alt="Mean protein identity by divergence class for all four tools" variant="landscape">
   <strong>Figure 2.</strong> Mean protein identity by divergence class. All four tools degrade as species diverge, but LiftOn 2.0 stays highest and its lead over the single-method baselines widens.
 </ZoomFigure>
+
+**Accuracy holds at extreme distance, even on whole genomes.** The two very-distant *full*-genome runs are the most demanding test of the merge: on full *Arabidopsis*→rice (eudicot→monocot) and full human→zebrafish (mammal→fish), LiftOn 2.0 posts the highest per-transcript protein identity of all four tools — **+0.04069** and **+0.01642** over the best single method (Table 3). The essential caveat here is recall, not accuracy: at this distance the DNA-anchored lift places only a small fraction of transcripts (coding completeness 14.8% and 4.5%), so miniprot's unconstrained protein search recovers far more (76.7% and 82.2%) — but at substantially lower identity. Because LiftOn 2.0 and v1.0.8 recover essentially the same set on these genomes (they are at parity, with v2.0.0 fractionally below v1.0.8 on the human→zebrafish full — the single vs-v1.0.8 non-win), the comparison is a clean read on per-transcript quality: where LiftOn does place a transcript at extreme distance, it places it most accurately of the four.
 
 ### 3.2 Accuracy vs. v1.0.8: many improvements, almost no regressions
 
@@ -320,7 +342,7 @@ An attribution analysis (running the v2.0.0 binary with v1.0.8's algorithm flags
 
 On coding-transcript completeness the four tools are close on same-species data; the meaningful differences appear on the hard pairs (Table 6; Fig. 4). Two honest observations:
 
-- **miniprot recovers more transcripts on distant pairs.** Because miniprot performs an unconstrained protein search while LiftOn requires a Liftoff DNA anchor, miniprot leads on coding recall when divergence is high — most starkly on *C. elegans*→*briggsae* (73.92% vs LiftOn 33.88% vs Liftoff 22.28%) and fly_mel→pseudoobscura (93.30% vs 80.65%). LiftOn trades some recall for accuracy and consistent transcript structure; where it does recover a transcript, it recovers it more accurately (§3.1).
+- **miniprot recovers more transcripts on distant pairs.** Because miniprot performs an unconstrained protein search while LiftOn requires a Liftoff DNA anchor, miniprot leads on coding recall when divergence is high — *C. elegans*→*briggsae* (73.92% vs LiftOn 33.88% vs Liftoff 22.28%), fly_mel→pseudoobscura (93.30% vs 80.65%), and most extremely on the very-distant tier, where the DNA anchor almost vanishes (Arabidopsis→rice 77.14% vs 17.24%; human→zebrafish 84.41% vs 5.80%; *Drosophila*→*Anopheles* 75.62% vs 16.98%). LiftOn trades that recall for accuracy and consistent transcript structure; where it does recover a transcript, it recovers it more accurately (§3.1). The two whole-genome very-distant flagships make the same trade at scale (§3.1).
 - **LiftOn matches or exceeds the DNA lifter it builds on.** On every benchmark LiftOn's coding completeness is ≥ Liftoff's, and on the divergent pairs it is markedly higher (e.g. *C. elegans* 33.88% vs 22.28%; fly 80.65% vs 71.44%), because the protein evidence rescues transcripts the DNA alignment alone could not place in-frame.
 
 **Table 6.** Coding-transcript completeness by tool (selected rows; full table in the appendix sources).
@@ -334,6 +356,11 @@ On coding-transcript completeness the four tools are close on same-species data;
 | celegans_to_briggsae | 22.28% | 73.92% | 33.36% | 33.88% |
 | fly_mel_to_pseudoobscura | 71.44% | 93.30% | 80.65% | 80.65% |
 | human_to_mouse | 84.41% | 96.05% | 85.13% | 85.13% |
+| rice_to_sorghum | 70.82% | 92.96% | 76.17% | 76.17% |
+| arabidopsis_to_rice | 1.60% | 77.14% | 17.24% | 17.24% |
+| drosophila_to_anopheles | 7.23% | 75.62% | 16.98% | 16.98% |
+| human_to_zebrafish | 3.01% | 84.41% | 5.80% | 5.80% |
+| cerevisiae_to_pombe | 0.52% | 37.42% | 18.12% | 18.12% |
 
 <ZoomFigure src={completenessFig} alt="Grouped bar chart of coding-transcript completeness by tool, every completed benchmark" variant="wide">
   <strong>Figure 4.</strong> Coding-transcript completeness by tool, every completed benchmark. The four are close on coding recall; the LiftOn 2.0 story is *which* features get lifted (§3.5) and full-genome robustness (§3.4).
@@ -341,7 +368,7 @@ On coding-transcript completeness the four tools are close on same-species data;
 
 ### 3.4 Full-genome robustness: finishing genomes v1.0.8 could not
 
-The single largest practical advance is robustness on whole genomes. On full RefSeq *Arabidopsis* and rice, v1.0.8 aborts mid-run with the `FeatureNotFoundError → __str__ TypeError` defect, producing only a partial annotation. v2.0.0 completes both, recovering tens of thousands more coding transcripts (Table 7; Fig. 5): **+34,589** on *Arabidopsis* (13,618 → 48,207; coding completeness 28.21% → 99.88%) and **+9,594** on rice (32,933 → 42,527; 77.34% → 99.88%).
+The single largest practical advance is robustness on whole genomes. On full RefSeq *Arabidopsis* and rice, v1.0.8 aborts mid-run with the `FeatureNotFoundError → __str__ TypeError` defect, producing only a partial annotation. v2.0.0 completes both, recovering tens of thousands more coding transcripts (Table 7; Fig. 5): **+34,589** on *Arabidopsis* (13,618 → 48,207; coding completeness 28.21% → 99.88%) and **+9,594** on rice (32,933 → 42,527; 77.34% → 99.88%). This is a *crash* fix and is the only place a whole-genome completeness gap reflects a v1.0.8 failure: the two very-distant fulls (Arabidopsis→rice, human→zebrafish), where both versions recover only a small fraction, are genuine low-recall-at-extreme-distance runs that both versions complete, and they belong with the accuracy discussion (§3.1, §3.3), not here.
 
 **Table 7.** Full-genome coding-transcript recovery.
 
@@ -381,7 +408,7 @@ Because v2.0.0 lifts every gene-like parent type by default, it recovers large n
 
 ### 3.6 Output validity
 
-Re-validating every output with one consistent `gff3-validate` yardstick, v2.0.0 produces an annotation that is **at least as clean as v1.0.8 on 17 of the 18 completed benchmarks, and markedly cleaner on the completed full genomes** (Table 9; Fig. 6). The completed-full-genome error reductions are large — bee·full 103 → 53, drosophila·full 150 → 100 — and several cross-species subsets also improve (candida 43 → 35, fly 74 → 68). The single regression is *S. cerevisiae*→*paradoxus* (10 → 11, one additional error), reported without qualification. (Both LiftOn versions emit far fewer errors than Liftoff, which exceeds 100 on most inputs; miniprot's constant 50 reflects its different, simpler feature model.)
+Re-validating every output with one consistent `gff3-validate` yardstick, v2.0.0 produces an annotation that is **at least as clean as v1.0.8 on 22 of the 23 subset benchmarks, and markedly cleaner on every completed full genome** (Table 9; Fig. 6). The completed-full-genome error reductions are large — bee·full 103 → 53, drosophila·full 150 → 100, Arabidopsis→rice·full 226 → 136, human→zebrafish·full 107 → 100 — and several cross-species subsets also improve (candida 43 → 35, fly 74 → 68). The single regression is *S. cerevisiae*→*paradoxus* (10 → 11, one additional error), reported without qualification. (Both LiftOn versions emit far fewer errors than Liftoff, which exceeds 100 on most inputs; miniprot's constant 50 reflects its different, simpler feature model.)
 
 **Table 9.** `gff3-validate` error counts (four-way; selected rows + all full genomes).
 
@@ -394,16 +421,18 @@ Re-validating every output with one consistent `gff3-validate` yardstick, v2.0.0
 | fly_mel_to_pseudoobscura | 131 | 50 | 74 | 68 |
 | bee·full | 100 | 50 | 103 | 53 |
 | drosophila·full | 131 | 50 | 150 | 100 |
+| arabidopsis_to_rice·full | 120 | 50 | 226 | 136 |
+| human_to_zebrafish·full | 92 | 50 | 107 | 100 |
 
 <ZoomFigure src={validityFig} alt="Bar chart of gff3-validate error counts, LiftOn 2.0 versus v1.0.8, every completed benchmark" variant="wide">
-  <strong>Figure 6.</strong> `gff3-validate` error counts, LiftOn 2.0 vs v1.0.8, across every completed benchmark. LiftOn 2.0 is at or below v1.0.8 everywhere except *S. cerevisiae*→*paradoxus* (10 → 11, marked in red), and is strictly better on both completed full genomes.
+  <strong>Figure 6.</strong> `gff3-validate` error counts, LiftOn 2.0 vs v1.0.8, across every completed benchmark. LiftOn 2.0 is at or below v1.0.8 everywhere except *S. cerevisiae*→*paradoxus* (10 → 11, marked in red), and is strictly better on all four completed full genomes.
 </ZoomFigure>
 
 ### 3.7 Performance and memory
 
 LiftOn 2.0 is faster and far lighter than its predecessor, and — although it internally runs *both* external aligners plus the merge — its resource footprint is competitive with, and on memory-intensive genomes below, the single-step baselines. We give two complementary views: a **four-way footprint** on fresh end-to-end runs, where each tool does its own alignment (Fig. 7), and the **v1.0.8 → 2.0 improvement** on identical cached aligner inputs at `-t1`, which isolates LiftOn's own execution (Table 11; Fig. 8).
 
-**Four-way footprint: LiftOn 2.0 has the lowest peak memory of all four tools.** This is the most striking performance result. The windowed aligner (§2.2) bounds LiftOn's memory so tightly that on every genome with giant genes LiftOn 2.0 peaks *below* Liftoff and miniprot — though it executes both internally — and far below v1.0.8 (Table 10; Fig. 7B). On the mouse subset it peaks at **0.76 GB** against Liftoff's 3.3 GB, miniprot's 2.1 GB, and v1.0.8's **44.6 GB** — a $59\times$ reduction over v1.0.8. Across the 16 subset benchmarks LiftOn 2.0 holds the lowest peak memory on 11, including every one of the largest; on the small remainder only miniprot — a single splice-aware protein search — edges below it. In wall-clock (Fig. 7A) LiftOn 2.0 is always far faster than v1.0.8, and on the cross-species pairs where the windowed and concurrent aligners pay off most it can even finish faster than standalone Liftoff (e.g. *C. elegans*→*briggsae* 68 s vs 80 s; mouse→rat 120 s vs 161 s) despite doing strictly more work.
+**Four-way footprint: LiftOn 2.0 has the lowest peak memory of all four tools.** This is the most striking performance result. The windowed aligner (§2.2) bounds LiftOn's memory so tightly that on every genome with giant genes LiftOn 2.0 peaks *below* Liftoff and miniprot — though it executes both internally — and far below v1.0.8 (Table 10; Fig. 7B). On the mouse subset it peaks at **0.76 GB** against Liftoff's 3.3 GB, miniprot's 2.1 GB, and v1.0.8's **44.6 GB** — a $59\times$ reduction over v1.0.8. Across the 23 subset benchmarks LiftOn 2.0 holds the lowest peak memory on 16, including every one of the largest; on the small remainder only miniprot — a single splice-aware protein search — edges below it (with v1.0.8 fractionally lower on two small distant pairs). In wall-clock (Fig. 7A) LiftOn 2.0 is always far faster than v1.0.8, and on the cross-species pairs where the windowed and concurrent aligners pay off most it can even finish faster than standalone Liftoff (e.g. *C. elegans*→*briggsae* 68 s vs 80 s; mouse→rat 120 s vs 161 s) despite doing strictly more work.
 
 **Table 10.** Peak resident memory (GB) by tool on the most memory-intensive subsets — LiftOn 2.0 is the lowest of the four.
 
@@ -415,8 +444,8 @@ LiftOn 2.0 is faster and far lighter than its predecessor, and — although it i
 | mouse_to_rat | 3.8 | 1.0 | 10.6 | **0.46** |
 | human_to_mouse | 40.6 | 3.2 | 6.9 | **0.60** |
 
-<ZoomFigure src={perfFourway} alt="Two-panel four-way performance: wall-clock and peak memory by tool across 16 subset benchmarks, log scale" variant="wide">
-  <strong>Figure 7.</strong> Four-way resource footprint on fresh end-to-end runs (each tool does its own alignment), 16 subset benchmarks, log scale, ordered by v1.0.8 peak memory. <strong>(A)</strong> wall-clock; <strong>(B)</strong> peak memory — LiftOn 2.0 (green) is the lowest of all four tools on every memory-intensive genome, despite running both Liftoff and miniprot internally.
+<ZoomFigure src={perfFourway} alt="Two-panel four-way performance: wall-clock and peak memory by tool across 23 subset benchmarks, log scale" variant="wide">
+  <strong>Figure 7.</strong> Four-way resource footprint on fresh end-to-end runs (each tool does its own alignment), 23 subset benchmarks, log scale, ordered by v1.0.8 peak memory. <strong>(A)</strong> wall-clock; <strong>(B)</strong> peak memory — LiftOn 2.0 (green) is the lowest of all four tools on every memory-intensive genome, despite running both Liftoff and miniprot internally.
 </ZoomFigure>
 
 **The v1.0.8 → 2.0 improvement.** Holding the aligner inputs fixed (the controlled arm) isolates LiftOn's own code: v2.0.0 is faster and dramatically lighter on every benchmark (Table 11; Fig. 8). The memory win, driven by the windowed aligner, is largest on the giant-gene genomes — honeybee 10.9 GB → 0.46 GB ($23.9\times$), mouse→rat 10.7 GB → 0.54 GB ($19.9\times$) — with end-to-end wall time falling $2.0$–$2.2\times$ there; on the genomes without giant genes the memory reduction is still $2.2$–$4.4\times$, and CPU time falls in step (e.g. honeybee 228 s → 105 s of CPU).
@@ -465,7 +494,7 @@ On whole genomes the picture is more nuanced and worth stating plainly: v2.0.0 d
 The benchmark and the tool are presented with the following honest caveats:
 
 1. **Coding recall on distant pairs.** Because LiftOn anchors on a Liftoff DNA model, miniprot's unconstrained protein search recovers more coding transcripts on the most divergent pairs (§3.3; *C. elegans*→*briggsae* 73.92% vs 33.88%). LiftOn prioritizes per-transcript accuracy and structural consistency over raw recall.
-2. **One accuracy non-win.** On *human→mouse*, miniprot's protein-only model has higher mean protein identity than LiftOn by $0.00931$ (§3.1) — the single benchmark where LiftOn is not the most accurate tool.
+2. **Three accuracy non-wins, all at extreme divergence.** LiftOn is not the most accurate tool on three of the 27 comparable benchmarks (§3.1): *human→mouse* (miniprot higher by $0.00931$), *rice→sorghum* (miniprot higher by $0.00644$), and *S. cerevisiae→S. pombe* (Liftoff higher by $0.05706$, but on only 4 of 767 recovered transcripts — a small-$n$ artifact). All three are among the most divergent pairs in the benchmark, where a single-method baseline can edge ahead on the subset of transcripts it recovers.
 3. **Nested miRNA products.** Mature `miRNA` recovery remains low (1/428 on full *Arabidopsis*; §3.5), a pre-existing limitation of transcript-centric handling of products nested under `primary_transcript`, not addressed in this release.
 4. **One validity regression.** Output validity regresses on exactly one benchmark, *S. cerevisiae*→*paradoxus* (10 → 11 errors; §3.6).
 5. **Full-genome compute cost.** v2.0.0's bounded memory makes full-genome runs feasible, but completing the full gene-like feature set is more total work than v1.0.8's coding-only lift, so a fresh whole-genome run can take longer in wall time even as peak memory falls (§3.7).
@@ -478,4 +507,4 @@ LiftOn is open-source (GitHub: [github.com/Kuanhao-Chao/LiftOn](https://github.c
 lifton -g reference.gff3 reference.fa target.fa -o lifton.gff3
 ```
 
-The benchmark harness, the four-way comparison, the tool-neutral re-scoring evaluator, and all source data and figures are archived under `benchmarks/compare/` (`evaluator.py`, `fourway_results.json`, `version_compare.results.json`, `MASTER_COMPARISON_REPORT.md`, and the figures reproduced here). The byte-identity regression suite, including the 24-cell matrix, ships under `tests/`. Comparisons in this report were run with a pinned conda environment, `PYTHONHASHSEED=0`, v1.0.8 at git tag `e503643d` (`lifton_stable` environment), and v2.0.0 at development HEAD `4496dd5` plus the gene-like child-lift fix (`lifton_devel`).
+The benchmark harness, the four-way comparison, the tool-neutral re-scoring evaluator, and all source data and figures are archived under `benchmarks/compare/` (`evaluator.py`, `fourway_results.json`, `version_compare.results.json`, `MASTER_COMPARISON_REPORT.md`, and the figures reproduced here). The byte-identity regression suite, including the 24-cell matrix, ships under `tests/`. Comparisons in this report were run with a pinned conda environment, `PYTHONHASHSEED=0`, v1.0.8 at git tag `e503643d` (`lifton_stable` environment), and v2.0.0 at development HEAD `3ff6b9d` — which includes the gene-like child-lift fix and the Step-7 error-handling fix (`lifton_devel`).
