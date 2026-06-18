@@ -5,7 +5,9 @@ import { chromium } from 'playwright';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const DIST = join(ROOT, 'dist');
-const POSTS = join(DIST, 'posts');
+// Built sections that get a parallel print PDF, one `<slug>.pdf` per page. Each
+// must match a route that serves `/{section}/{slug}/` (posts blog + reports).
+const SECTIONS = ['posts', 'reports'];
 
 const CONTENT_TYPES = new Map([
   ['.css', 'text/css; charset=utf-8'],
@@ -160,15 +162,29 @@ async function pathExists(path) {
   }
 }
 
-async function postSlugs() {
-  const entries = await readdir(POSTS, { withFileTypes: true });
+async function sectionSlugs(sectionDir) {
+  const entries = await readdir(sectionDir, { withFileTypes: true });
   const slugs = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    const indexPath = join(POSTS, entry.name, 'index.html');
+    const indexPath = join(sectionDir, entry.name, 'index.html');
     if (await pathExists(indexPath)) slugs.push(entry.name);
   }
   return slugs.sort();
+}
+
+async function collectJobs() {
+  // One job per built page across every PDF section. A missing section dir
+  // (e.g. no reports yet) is skipped rather than treated as an error.
+  const jobs = [];
+  for (const section of SECTIONS) {
+    const sectionDir = join(DIST, section);
+    if (!(await pathExists(sectionDir))) continue;
+    for (const slug of await sectionSlugs(sectionDir)) {
+      jobs.push({ section, slug });
+    }
+  }
+  return jobs;
 }
 
 async function fulfillFromDist(route) {
@@ -271,13 +287,13 @@ async function preparePageForPrint() {
 }
 
 async function main() {
-  if (!(await pathExists(POSTS))) {
-    throw new Error('No built posts found. Run `npm run build:site` before `npm run pdf:posts`.');
+  if (!(await pathExists(join(DIST, 'posts')))) {
+    throw new Error('No built site found. Run `npm run build:site` before `npm run pdf:posts`.');
   }
 
-  const slugs = await postSlugs();
-  if (slugs.length === 0) {
-    console.log('No post pages found; skipping PDF generation.');
+  const jobs = await collectJobs();
+  if (jobs.length === 0) {
+    console.log('No pages found; skipping PDF generation.');
     return;
   }
 
@@ -297,9 +313,9 @@ async function main() {
     const page = await context.newPage();
     await page.emulateMedia({ media: 'print' });
 
-    for (const slug of slugs) {
-      const url = `https://khchao.com/posts/${slug}/`;
-      const pdfPath = join(POSTS, slug, `${slug}.pdf`);
+    for (const { section, slug } of jobs) {
+      const url = `https://khchao.com/${section}/${slug}/`;
+      const pdfPath = join(DIST, section, slug, `${slug}.pdf`);
       await page.goto(url, { waitUntil: 'networkidle' });
       await page.addStyleTag({ content: PRINT_CSS });
       await page.evaluate(preparePageForPrint);
