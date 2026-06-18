@@ -1,26 +1,19 @@
 ---
 /**
- * Gene expression / Shorkie: a compact genome-browser style locus.
- * A subtle scanner reads the regulatory region and the predicted RNA-seq
- * coverage track rises over the target gene.
+ * Gene expression / Shorkie: a compact genome-browser style locus with an
+ * explicit TATA box motif upstream of the target gene.
  */
 interface Props { class?: string }
 const { class: className } = Astro.props;
 
-const regulatoryMarks = [
-  { x: 25, h: 10, delay: '0s' },
-  { x: 36, h: 18, delay: '0.12s' },
-  { x: 48, h: 13, delay: '0.24s' },
-];
+const tataBases = ['T', 'A', 'T', 'A', 'A', 'A'];
 const exons = [
   { x: 75, w: 14 },
   { x: 99, w: 18 },
-  { x: 129, w: 13 },
+  { x: 125, w: 11 },
 ];
 ---
 <svg class:list={['motif', 'motif-gx', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
-  <rect class="gx-scan" x="22" y="21" width="34" height="58" rx="4" />
-
   <g class="gx-coverage">
     <line class="gx-axis gx-axis--coverage" x1="15" y1="56" x2="146" y2="56" />
     <path
@@ -36,21 +29,16 @@ const exons = [
 
   <g class="gx-locus">
     <line class="gx-axis" x1="15" y1="72" x2="146" y2="72" />
-    {regulatoryMarks.map((mark) => (
-      <rect
-        class="gx-reg-mark"
-        x={mark.x}
-        y={72 - mark.h}
-        width="5"
-        height={mark.h}
-        rx="2.5"
-        style={`--gx-delay: ${mark.delay};`}
-      />
-    ))}
+    <path class="gx-gene-arrow" d="M73 72 H148 M142 67 L149 72 L142 77" />
+    <g class="gx-tata" aria-hidden="true">
+      <rect class="gx-tata-box" x="19" y="59" width="49" height="18" rx="4" />
+      {tataBases.map((base, index) => (
+        <text class="gx-tata-base" x={24 + index * 6.6} y="71.5">{base}</text>
+      ))}
+    </g>
     {exons.map((exon) => (
       <rect class="gx-exon" x={exon.x} y="66" width={exon.w} height="12" rx="2" />
     ))}
-    <path class="gx-gene-arrow" d="M75 72 H145 M139 67 L146 72 L139 77" />
   </g>
 </svg>
 
@@ -60,7 +48,7 @@ const exons = [
     height: 100%;
     display: block;
     --motif-ink: color-mix(in srgb, var(--color-ink) 55%, transparent);
-    --gx-duration: 4.6s;
+    --gx-duration: 3.6s;
   }
   .gx-axis,
   .gx-curve,
@@ -76,13 +64,6 @@ const exons = [
   .gx-axis--coverage {
     opacity: 0.25;
   }
-  .gx-scan {
-    fill: color-mix(in srgb, var(--color-accent) 8%, transparent);
-    stroke: color-mix(in srgb, var(--color-accent) 42%, transparent);
-    stroke-width: 1;
-    opacity: 0.32;
-    transform-box: view-box;
-  }
   .gx-area {
     fill: color-mix(in srgb, var(--color-accent) 15%, transparent);
     opacity: 0.78;
@@ -94,12 +75,26 @@ const exons = [
     stroke: var(--color-accent);
     stroke-width: 2;
   }
-  .gx-reg-mark {
-    fill: color-mix(in srgb, var(--color-accent) 22%, var(--color-bg));
-    stroke: var(--color-accent);
-    stroke-width: 1.1;
+  .gx-tata {
     transform-box: fill-box;
-    transform-origin: bottom;
+    transform-origin: center;
+  }
+  .gx-tata-box {
+    fill: color-mix(in srgb, var(--color-accent) 11%, var(--color-bg));
+    stroke: color-mix(in srgb, var(--color-accent) 58%, transparent);
+    stroke-width: 1.15;
+  }
+  .gx-tata-base {
+    fill: var(--color-accent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 9.4px;
+    font-weight: 750;
+    letter-spacing: 0;
+    opacity: 0.92;
+    paint-order: stroke;
+    pointer-events: none;
+    stroke: color-mix(in srgb, var(--color-bg) 72%, transparent);
+    stroke-width: 0.45;
   }
   .gx-exon {
     fill: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg));
@@ -110,82 +105,54 @@ const exons = [
     fill: none;
     stroke: color-mix(in srgb, var(--color-accent) 70%, transparent);
     stroke-width: 1.3;
+    opacity: 0.82;
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .motif-gx:hover .gx-scan,
-    :global(.rcard:hover) .motif-gx .gx-scan,
-    :global(.research-motif:hover) .motif-gx .gx-scan {
-      animation: gx-scan-locus var(--gx-duration) ease-in-out infinite;
+    .motif-gx:hover .gx-tata,
+    :global(.rcard:hover) .motif-gx .gx-tata,
+    :global(.research-motif:hover) .motif-gx .gx-tata {
+      animation: gx-tata-pulse var(--gx-duration) ease-in-out infinite;
     }
-    .motif-gx:hover .gx-reg-mark,
-    :global(.rcard:hover) .motif-gx .gx-reg-mark,
-    :global(.research-motif:hover) .motif-gx .gx-reg-mark {
-      animation: gx-mark-pulse var(--gx-duration) ease-in-out infinite;
-      animation-delay: var(--gx-delay);
+    .motif-gx:hover .gx-tata-box,
+    :global(.rcard:hover) .motif-gx .gx-tata-box,
+    :global(.research-motif:hover) .motif-gx .gx-tata-box {
+      animation: gx-tata-box-pulse var(--gx-duration) ease-in-out infinite;
     }
-    .motif-gx:hover .gx-area,
-    :global(.rcard:hover) .motif-gx .gx-area,
-    :global(.research-motif:hover) .motif-gx .gx-area {
-      animation: gx-coverage-rise var(--gx-duration) ease-in-out infinite;
-    }
-    .motif-gx:hover .gx-curve,
-    :global(.rcard:hover) .motif-gx .gx-curve,
-    :global(.research-motif:hover) .motif-gx .gx-curve {
-      animation: gx-coverage-draw var(--gx-duration) ease-in-out infinite;
+    .motif-gx:hover .gx-tata-base,
+    :global(.rcard:hover) .motif-gx .gx-tata-base,
+    :global(.research-motif:hover) .motif-gx .gx-tata-base {
+      animation: gx-tata-base-pulse var(--gx-duration) ease-in-out infinite;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .gx-scan {
-      opacity: 0.34;
-      transform: translateX(66px);
-    }
-    .gx-area,
-    .gx-curve,
-    .gx-reg-mark {
-      opacity: 0.86;
+    .gx-tata-box {
+      fill: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg));
     }
   }
-  @keyframes gx-scan-locus {
-    0%, 10% {
-      opacity: 0;
-      transform: translateX(0);
+  @keyframes gx-tata-pulse {
+    0%, 100% {
+      transform: scale(1);
     }
-    22%, 62% {
-      opacity: 0.72;
-    }
-    72%, 100% {
-      opacity: 0;
-      transform: translateX(68px);
+    48% {
+      transform: scale(1.035);
     }
   }
-  @keyframes gx-mark-pulse {
-    0%, 24%, 100% {
-      transform: scaleY(1);
-      opacity: 0.9;
+  @keyframes gx-tata-box-pulse {
+    0%, 100% {
+      fill: color-mix(in srgb, var(--color-accent) 11%, var(--color-bg));
+      stroke: color-mix(in srgb, var(--color-accent) 58%, transparent);
     }
-    14% {
-      transform: scaleY(1.22);
-      opacity: 1;
-    }
-  }
-  @keyframes gx-coverage-rise {
-    0%, 28% {
-      opacity: 0.24;
-      transform: scaleY(0.18);
-    }
-    58%, 100% {
-      opacity: 0.78;
-      transform: scaleY(1);
+    48% {
+      fill: color-mix(in srgb, var(--color-accent) 24%, var(--color-bg));
+      stroke: color-mix(in srgb, var(--color-accent) 100%, transparent);
     }
   }
-  @keyframes gx-coverage-draw {
-    0%, 28% {
-      stroke-dashoffset: 1;
-      opacity: 0.28;
+  @keyframes gx-tata-base-pulse {
+    0%, 100% {
+      opacity: 0.92;
     }
-    58%, 100% {
-      stroke-dashoffset: 0;
+    48% {
       opacity: 1;
     }
   }
