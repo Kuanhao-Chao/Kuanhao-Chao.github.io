@@ -12,19 +12,36 @@ const exons = [
   { x: 99, w: 18 },
   { x: 125, w: 11 },
 ];
+const fmt = (value: number) => Number(value.toFixed(1));
+const coverageBaseline = 56;
+const coverageHeights = [13, 21, 15];
+const coverageSegments = exons.map((exon, index) => {
+  const height = coverageHeights[index] ?? 14;
+  const x0 = exon.x;
+  const x1 = exon.x + exon.w;
+  const xMid = exon.x + exon.w / 2;
+  const xLeft = exon.x + exon.w * 0.28;
+  const xRight = exon.x + exon.w * 0.72;
+  const yPeak = coverageBaseline - height;
+  const yShoulder = coverageBaseline - height * 0.62;
+  const curve = `M${fmt(x0)} ${coverageBaseline} C${fmt(xLeft)} ${fmt(yShoulder)} ${fmt(xLeft)} ${fmt(yPeak)} ${fmt(xMid)} ${fmt(yPeak)} C${fmt(xRight)} ${fmt(yPeak)} ${fmt(xRight)} ${fmt(yShoulder)} ${fmt(x1)} ${coverageBaseline}`;
+
+  return {
+    area: `${curve} L${fmt(x1)} ${coverageBaseline} L${fmt(x0)} ${coverageBaseline} Z`,
+    curve,
+    delay: `${0.14 + index * 0.12}s`,
+  };
+});
 ---
 <svg class:list={['motif', 'motif-gx', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
   <g class="gx-coverage">
     <line class="gx-axis gx-axis--coverage" x1="15" y1="56" x2="146" y2="56" />
-    <path
-      class="gx-area"
-      d="M15 56 C26 56 31 54 37 53 C45 52 48 41 56 40 C66 39 70 52 78 51 C87 50 91 43 98 43 C107 43 108 26 119 25 C130 24 134 40 140 41 C144 42 146 39 146 39 L146 56 L15 56 Z"
-    />
-    <path
-      class="gx-curve"
-      pathLength="1"
-      d="M15 56 C26 56 31 54 37 53 C45 52 48 41 56 40 C66 39 70 52 78 51 C87 50 91 43 98 43 C107 43 108 26 119 25 C130 24 134 40 140 41 C144 42 146 39 146 39"
-    />
+    {coverageSegments.map((segment) => (
+      <g class="gx-coverage-segment" style={`--gx-delay: ${segment.delay};`}>
+        <path class="gx-area" d={segment.area} />
+        <path class="gx-curve" pathLength="1" d={segment.curve} />
+      </g>
+    ))}
   </g>
 
   <g class="gx-locus">
@@ -64,16 +81,20 @@ const exons = [
   .gx-axis--coverage {
     opacity: 0.25;
   }
+  .gx-coverage-segment {
+    opacity: 0;
+    transform: scaleY(0.05);
+    transform-box: fill-box;
+    transform-origin: center bottom;
+  }
   .gx-area {
-    fill: color-mix(in srgb, var(--color-accent) 15%, transparent);
-    opacity: 0.78;
-    transform-box: view-box;
-    transform-origin: bottom;
+    fill: color-mix(in srgb, var(--color-accent) 22%, transparent);
+    opacity: 0.84;
   }
   .gx-curve {
     fill: none;
     stroke: var(--color-accent);
-    stroke-width: 2;
+    stroke-width: 2.1;
   }
   .gx-tata {
     transform-box: fill-box;
@@ -124,10 +145,20 @@ const exons = [
     :global(.research-motif:hover) .motif-gx .gx-tata-base {
       animation: gx-tata-base-pulse var(--gx-duration) ease-in-out infinite;
     }
+    .motif-gx:hover .gx-coverage-segment,
+    :global(.rcard:hover) .motif-gx .gx-coverage-segment,
+    :global(.research-motif:hover) .motif-gx .gx-coverage-segment {
+      animation: gx-coverage-pop var(--gx-duration) ease-in-out infinite;
+      animation-delay: var(--gx-delay);
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .gx-tata-box {
       fill: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg));
+    }
+    .gx-coverage-segment {
+      opacity: 0.92;
+      transform: scaleY(1);
     }
   }
   @keyframes gx-tata-pulse {
@@ -154,6 +185,20 @@ const exons = [
     }
     48% {
       opacity: 1;
+    }
+  }
+  @keyframes gx-coverage-pop {
+    0%, 16% {
+      opacity: 0;
+      transform: scaleY(0.05);
+    }
+    34%, 76% {
+      opacity: 0.92;
+      transform: scaleY(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scaleY(0.05);
     }
   }
 </style>
