@@ -1,20 +1,20 @@
 ---
 /**
  * Gene expression / Shorkie: a compact genome-browser style locus with an
- * explicit TATA box motif upstream of the target gene.
+ * explicit TATA box motif upstream of the target gene and noisy RNA-seq signal.
  */
 interface Props { class?: string }
 const { class: className } = Astro.props;
 
 const tataBases = ['T', 'A', 'T', 'A', 'A', 'A'];
 const exons = [
-  { x: 75, w: 14 },
-  { x: 99, w: 18 },
-  { x: 125, w: 11 },
+  { x: 72, w: 16 },
+  { x: 100, w: 23 },
+  { x: 132, w: 15 },
 ];
 const fmt = (value: number) => Number(value.toFixed(1));
-const coverageBaseline = 56;
-const coverageHeights = [13, 21, 15];
+const coverageBaseline = 45;
+const coverageHeights = [13, 20, 15];
 const coverageSegments = exons.map((exon, index) => {
   const height = coverageHeights[index] ?? 14;
   const x0 = exon.x;
@@ -32,10 +32,28 @@ const coverageSegments = exons.map((exon, index) => {
     delay: `${0.14 + index * 0.12}s`,
   };
 });
+const intronNoiseSegments = [
+  {
+    curve: `M90 ${coverageBaseline} C91.1 41.8 92.2 41.8 93.2 ${coverageBaseline} C94.2 42.8 95.3 42.8 96.4 ${coverageBaseline} C97.2 42.2 98.3 42.2 99 ${coverageBaseline}`,
+    delay: '0.24s',
+  },
+  {
+    curve: `M125 ${coverageBaseline} C126 42.6 127 42.6 128 ${coverageBaseline} C129 41.9 130.1 41.9 131 ${coverageBaseline}`,
+    delay: '0.36s',
+  },
+];
 ---
 <svg class:list={['motif', 'motif-gx', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
   <g class="gx-coverage">
-    <line class="gx-axis gx-axis--coverage" x1="15" y1="56" x2="146" y2="56" />
+    <line class="gx-axis gx-axis--coverage" x1="9" y1="45" x2="154" y2="45" />
+    {intronNoiseSegments.map((segment) => (
+      <path
+        class="gx-noise-segment"
+        style={`--gx-delay: ${segment.delay};`}
+        pathLength="1"
+        d={segment.curve}
+      />
+    ))}
     {coverageSegments.map((segment) => (
       <g class="gx-coverage-segment" style={`--gx-delay: ${segment.delay};`}>
         <path class="gx-area" d={segment.area} />
@@ -45,16 +63,16 @@ const coverageSegments = exons.map((exon, index) => {
   </g>
 
   <g class="gx-locus">
-    <line class="gx-axis" x1="15" y1="72" x2="146" y2="72" />
-    <path class="gx-gene-arrow" d="M73 72 H148 M142 67 L149 72 L142 77" />
+    <line class="gx-axis" x1="9" y1="73" x2="154" y2="73" />
+    <path class="gx-gene-arrow" d="M70 73 H154 M148 68 L156 73 L148 78" />
     <g class="gx-tata" aria-hidden="true">
-      <rect class="gx-tata-box" x="19" y="59" width="49" height="18" rx="4" />
+      <rect class="gx-tata-box" x="11" y="62" width="54" height="21" rx="4.5" />
       {tataBases.map((base, index) => (
-        <text class="gx-tata-base" x={24 + index * 6.6} y="71.5">{base}</text>
+        <text class="gx-tata-base" x={17 + index * 7.2} y="76.1">{base}</text>
       ))}
     </g>
     {exons.map((exon) => (
-      <rect class="gx-exon" x={exon.x} y="66" width={exon.w} height="12" rx="2" />
+      <rect class="gx-exon" x={exon.x} y="66" width={exon.w} height="14" rx="2.2" />
     ))}
   </g>
 </svg>
@@ -69,6 +87,7 @@ const coverageSegments = exons.map((exon, index) => {
   }
   .gx-axis,
   .gx-curve,
+  .gx-noise-segment,
   .gx-gene-arrow {
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -83,6 +102,15 @@ const coverageSegments = exons.map((exon, index) => {
   }
   .gx-coverage-segment {
     opacity: 0;
+    transform: scaleY(0.05);
+    transform-box: fill-box;
+    transform-origin: center bottom;
+  }
+  .gx-noise-segment {
+    fill: none;
+    opacity: 0;
+    stroke: color-mix(in srgb, var(--color-accent) 72%, transparent);
+    stroke-width: 1.25;
     transform: scaleY(0.05);
     transform-box: fill-box;
     transform-origin: center bottom;
@@ -151,6 +179,12 @@ const coverageSegments = exons.map((exon, index) => {
       animation: gx-coverage-pop var(--gx-duration) ease-in-out infinite;
       animation-delay: var(--gx-delay);
     }
+    .motif-gx:hover .gx-noise-segment,
+    :global(.rcard:hover) .motif-gx .gx-noise-segment,
+    :global(.research-motif:hover) .motif-gx .gx-noise-segment {
+      animation: gx-noise-pop var(--gx-duration) ease-in-out infinite;
+      animation-delay: var(--gx-delay);
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .gx-tata-box {
@@ -158,6 +192,10 @@ const coverageSegments = exons.map((exon, index) => {
     }
     .gx-coverage-segment {
       opacity: 0.92;
+      transform: scaleY(1);
+    }
+    .gx-noise-segment {
+      opacity: 0.42;
       transform: scaleY(1);
     }
   }
@@ -194,6 +232,20 @@ const coverageSegments = exons.map((exon, index) => {
     }
     34%, 76% {
       opacity: 0.92;
+      transform: scaleY(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scaleY(0.05);
+    }
+  }
+  @keyframes gx-noise-pop {
+    0%, 24% {
+      opacity: 0;
+      transform: scaleY(0.05);
+    }
+    40%, 70% {
+      opacity: 0.42;
       transform: scaleY(1);
     }
     100% {
