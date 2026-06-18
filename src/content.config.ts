@@ -99,6 +99,7 @@ const news = defineCollection({
       .default('misc'),
     location: z.string().optional(),
     link: z.string().url().optional(),
+    draft: z.boolean().default(false),
     featured: z.boolean().default(false),
   }),
 });

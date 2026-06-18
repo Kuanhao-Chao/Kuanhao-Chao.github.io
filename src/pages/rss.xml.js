@@ -3,9 +3,9 @@ import { getCollection } from 'astro:content';
 import { site } from '../data/site.ts';
 
 export async function GET(context) {
-  const news = (await getCollection('news')).sort(
-    (a, b) => b.data.date.getTime() - a.data.date.getTime()
-  );
+  const news = (await getCollection('news'))
+    .filter((entry) => !entry.data.draft)
+    .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
   return rss({
     title: `${site.name} — News`,
     description: 'Papers, talks, releases, and milestones from Kuan-Hao Chao.',
