@@ -6,8 +6,10 @@
 interface Props { class?: string }
 const { class: className } = Astro.props;
 
+type CoverageRegion = { x: number; w: number };
+
 const tataBases = ['T', 'A', 'T', 'A', 'A', 'A'];
-const exons = [
+const exons: CoverageRegion[] = [
   { x: 72, w: 16 },
   { x: 100, w: 23 },
   { x: 132, w: 15 },
@@ -15,13 +17,12 @@ const exons = [
 const fmt = (value: number) => Number(value.toFixed(1));
 const coverageBaseline = 45;
 const coverageHeights = [13, 20, 15];
-const coverageSegments = exons.map((exon, index) => {
-  const height = coverageHeights[index] ?? 14;
-  const x0 = exon.x;
-  const x1 = exon.x + exon.w;
-  const xMid = exon.x + exon.w / 2;
-  const xLeft = exon.x + exon.w * 0.28;
-  const xRight = exon.x + exon.w * 0.72;
+const createCoverageSegment = (region: CoverageRegion, height: number, delay: string) => {
+  const x0 = region.x;
+  const x1 = region.x + region.w;
+  const xMid = region.x + region.w / 2;
+  const xLeft = region.x + region.w * 0.28;
+  const xRight = region.x + region.w * 0.72;
   const yPeak = coverageBaseline - height;
   const yShoulder = coverageBaseline - height * 0.62;
   const curve = `M${fmt(x0)} ${coverageBaseline} C${fmt(xLeft)} ${fmt(yShoulder)} ${fmt(xLeft)} ${fmt(yPeak)} ${fmt(xMid)} ${fmt(yPeak)} C${fmt(xRight)} ${fmt(yPeak)} ${fmt(xRight)} ${fmt(yShoulder)} ${fmt(x1)} ${coverageBaseline}`;
@@ -29,30 +30,25 @@ const coverageSegments = exons.map((exon, index) => {
   return {
     area: `${curve} L${fmt(x1)} ${coverageBaseline} L${fmt(x0)} ${coverageBaseline} Z`,
     curve,
-    delay: `${0.14 + index * 0.12}s`,
+    delay,
   };
-});
-const intronNoiseSegments = [
-  {
-    curve: `M90 ${coverageBaseline} C91.1 41.8 92.2 41.8 93.2 ${coverageBaseline} C94.2 42.8 95.3 42.8 96.4 ${coverageBaseline} C97.2 42.2 98.3 42.2 99 ${coverageBaseline}`,
-    delay: '0.24s',
-  },
-  {
-    curve: `M125 ${coverageBaseline} C126 42.6 127 42.6 128 ${coverageBaseline} C129 41.9 130.1 41.9 131 ${coverageBaseline}`,
-    delay: '0.36s',
-  },
+};
+const coverageSegments = exons.map((exon, index) =>
+  createCoverageSegment(exon, coverageHeights[index] ?? 14, `${0.14 + index * 0.12}s`)
+);
+const intronSignalSegments = [
+  createCoverageSegment({ x: 90, w: 9 }, 4.8, '0.24s'),
+  createCoverageSegment({ x: 124.6, w: 6.8 }, 4, '0.36s'),
 ];
 ---
 <svg class:list={['motif', 'motif-gx', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
   <g class="gx-coverage">
     <line class="gx-axis gx-axis--coverage" x1="9" y1="45" x2="154" y2="45" />
-    {intronNoiseSegments.map((segment) => (
-      <path
-        class="gx-noise-segment"
-        style={`--gx-delay: ${segment.delay};`}
-        pathLength="1"
-        d={segment.curve}
-      />
+    {intronSignalSegments.map((segment) => (
+      <g class="gx-intron-signal-segment" style={`--gx-delay: ${segment.delay};`}>
+        <path class="gx-intron-area" d={segment.area} />
+        <path class="gx-intron-curve" pathLength="1" d={segment.curve} />
+      </g>
     ))}
     {coverageSegments.map((segment) => (
       <g class="gx-coverage-segment" style={`--gx-delay: ${segment.delay};`}>
@@ -87,7 +83,7 @@ const intronNoiseSegments = [
   }
   .gx-axis,
   .gx-curve,
-  .gx-noise-segment,
+  .gx-intron-curve,
   .gx-gene-arrow {
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -100,17 +96,9 @@ const intronNoiseSegments = [
   .gx-axis--coverage {
     opacity: 0.25;
   }
-  .gx-coverage-segment {
+  .gx-coverage-segment,
+  .gx-intron-signal-segment {
     opacity: 0;
-    transform: scaleY(0.05);
-    transform-box: fill-box;
-    transform-origin: center bottom;
-  }
-  .gx-noise-segment {
-    fill: none;
-    opacity: 0;
-    stroke: color-mix(in srgb, var(--color-accent) 72%, transparent);
-    stroke-width: 1.25;
     transform: scaleY(0.05);
     transform-box: fill-box;
     transform-origin: center bottom;
@@ -119,10 +107,19 @@ const intronNoiseSegments = [
     fill: color-mix(in srgb, var(--color-accent) 22%, transparent);
     opacity: 0.84;
   }
+  .gx-intron-area {
+    fill: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    opacity: 0.62;
+  }
   .gx-curve {
     fill: none;
     stroke: var(--color-accent);
     stroke-width: 2.1;
+  }
+  .gx-intron-curve {
+    fill: none;
+    stroke: color-mix(in srgb, var(--color-accent) 72%, transparent);
+    stroke-width: 1.45;
   }
   .gx-tata {
     transform-box: fill-box;
@@ -179,10 +176,10 @@ const intronNoiseSegments = [
       animation: gx-coverage-pop var(--gx-duration) ease-in-out infinite;
       animation-delay: var(--gx-delay);
     }
-    .motif-gx:hover .gx-noise-segment,
-    :global(.rcard:hover) .motif-gx .gx-noise-segment,
-    :global(.research-motif:hover) .motif-gx .gx-noise-segment {
-      animation: gx-noise-pop var(--gx-duration) ease-in-out infinite;
+    .motif-gx:hover .gx-intron-signal-segment,
+    :global(.rcard:hover) .motif-gx .gx-intron-signal-segment,
+    :global(.research-motif:hover) .motif-gx .gx-intron-signal-segment {
+      animation: gx-intron-coverage-pop var(--gx-duration) ease-in-out infinite;
       animation-delay: var(--gx-delay);
     }
   }
@@ -194,8 +191,8 @@ const intronNoiseSegments = [
       opacity: 0.92;
       transform: scaleY(1);
     }
-    .gx-noise-segment {
-      opacity: 0.42;
+    .gx-intron-signal-segment {
+      opacity: 0.48;
       transform: scaleY(1);
     }
   }
@@ -239,13 +236,13 @@ const intronNoiseSegments = [
       transform: scaleY(0.05);
     }
   }
-  @keyframes gx-noise-pop {
+  @keyframes gx-intron-coverage-pop {
     0%, 24% {
       opacity: 0;
       transform: scaleY(0.05);
     }
     40%, 70% {
-      opacity: 0.42;
+      opacity: 0.48;
       transform: scaleY(1);
     }
     100% {
