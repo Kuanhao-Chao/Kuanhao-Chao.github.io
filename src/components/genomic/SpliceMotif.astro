@@ -1,70 +1,31 @@
 ---
 /**
- * RNA splicing (Splam / OpenSpliceAI): three exon blocks joined by two introns
- * with sequence scanning, splice-site prediction peaks, and junction pairing.
+ * RNA splicing (Splam / OpenSpliceAI): a pre-mRNA transcript model whose
+ * introns are removed as neighboring exons glide into a mature transcript.
  */
 interface Props { class?: string }
 const { class: className } = Astro.props;
 
-const baseClasses = ['a', 'c', 'g', 't'];
-const seqTicks = Array.from({ length: 33 }, (_, i) => ({
-  x: 18 + i * 3.875,
-  h: [5.5, 7, 4.5, 6.5][i % 4],
-  base: baseClasses[i % 4],
-}));
-
-const scorePeaks = [
-  { kind: 'donor', d: 'M34 52 C39 52 41 43 44 38 C47 43 49 52 54 52' },
-  { kind: 'acceptor', d: 'M56 52 C61 52 63 43 66 38 C69 43 71 52 76 52' },
-  { kind: 'donor', d: 'M84 52 C89 52 91 43 94 38 C97 43 99 52 104 52' },
-  { kind: 'acceptor', d: 'M106 52 C111 52 113 43 116 38 C119 43 121 52 126 52' },
+const exons = [
+  { className: 'sp-left', x: 20, width: 30 },
+  { className: 'sp-mid', x: 65, width: 30 },
+  { className: 'sp-right', x: 110, width: 30 },
 ];
 ---
 <svg class:list={['motif', 'motif-sp', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
-  <g transform="translate(0 -15)">
-    <g class="sp-seq">
-      <line class="sp-seq-axis" x1="16" y1="86" x2="144" y2="86" />
-      {seqTicks.map((tick) => (
-        <line
-          class:list={['sp-base', `sp-base--${tick.base}`]}
-          x1={tick.x}
-          y1={86 - tick.h / 2}
-          x2={tick.x}
-          y2={86 + tick.h / 2}
-        />
-      ))}
-    </g>
+  <g class="sp-transcript">
+    <line class="sp-rail" x1="18" y1="58" x2="142" y2="58" />
+    <path class="sp-intron sp-intron--first" pathLength="1" d="M50 58 C55 58 60 58 65 58" />
+    <path class="sp-intron sp-intron--second" pathLength="1" d="M95 58 C100 58 105 58 110 58" />
 
-    <rect class="sp-window" x="12" y="80" width="36" height="12" rx="2.5" />
+    <path class="sp-junction sp-junction--first" pathLength="1" d="M50 46 C54 30 61 30 65 46" />
+    <path class="sp-junction sp-junction--second" pathLength="1" d="M95 46 C99 30 106 30 110 46" />
 
-    <g class="sp-scores">
-      {scorePeaks.map((peak) => (
-        <path
-          class:list={['sp-score', `sp-score--${peak.kind}`]}
-          pathLength="1"
-          d={peak.d}
-        />
-      ))}
-    </g>
-
-    <g class="sp-left">
-      <rect class="sp-exon" x="16" y="58" width="28" height="20" rx="2" />
-    </g>
-
-    <path class="sp-intron sp-intron--first" pathLength="1" d="M44 68 C51 68 59 68 66 68" />
-
-    <g class="sp-mid">
-      <rect class="sp-exon" x="66" y="58" width="28" height="20" rx="2" />
-    </g>
-
-    <path class="sp-intron sp-intron--second" pathLength="1" d="M94 68 C101 68 109 68 116 68" />
-
-    <g class="sp-right">
-      <rect class="sp-exon" x="116" y="58" width="28" height="20" rx="2" />
-    </g>
-
-    <path class="sp-junction" pathLength="1" d="M44 58 Q55 34 66 58" />
-    <path class="sp-junction" pathLength="1" d="M94 58 Q105 34 116 58" />
+    {exons.map((exon) => (
+      <g class:list={['sp-exon-wrap', exon.className]}>
+        <rect class="sp-exon" x={exon.x} y="46" width={exon.width} height="24" rx="3" />
+      </g>
+    ))}
   </g>
 </svg>
 
@@ -74,269 +35,129 @@ const scorePeaks = [
     height: 100%;
     display: block;
     --motif-ink: color-mix(in srgb, var(--color-ink) 55%, transparent);
-    --sp-duration: 5.2s;
-    --sp-merge-ease: cubic-bezier(0.22, 1, 0.36, 1);
-    --sp-scan-ease: cubic-bezier(0.33, 1, 0.68, 1);
-    --sp-score-ease: cubic-bezier(0.16, 1, 0.3, 1);
-    --sp-pair-ease: cubic-bezier(0.3, 0, 0.2, 1);
+    --sp-duration: 3.2s;
+    --sp-ease: cubic-bezier(0.42, 0, 0.2, 1);
     --sp-fade-ease: cubic-bezier(0.4, 0, 0.2, 1);
-    --sp-donor: color-mix(in srgb, var(--color-accent) 72%, #3869b1);
-    --sp-acceptor: #a84945;
   }
-  .sp-seq,
-  .sp-window,
-  .sp-score {
+  .sp-transcript {
     transform-box: view-box;
+    transform-origin: center;
   }
-  .sp-seq {
-    opacity: 0.66;
-  }
-  .sp-seq-axis {
-    stroke: color-mix(in srgb, var(--motif-ink) 70%, transparent);
-    stroke-width: 1;
-    stroke-linecap: round;
-  }
-  .sp-base {
-    stroke-width: 1.15;
-    stroke-linecap: round;
-    opacity: 0.74;
-  }
-  .sp-base--a {
-    stroke: color-mix(in srgb, var(--sp-donor) 78%, var(--motif-ink));
-  }
-  .sp-base--c {
-    stroke: color-mix(in srgb, var(--sp-acceptor) 72%, var(--motif-ink));
-  }
-  .sp-base--g {
-    stroke: color-mix(in srgb, var(--color-accent) 68%, var(--motif-ink));
-  }
-  .sp-base--t {
-    stroke: color-mix(in srgb, #aa6f22 72%, var(--motif-ink));
-  }
-  .sp-window {
-    fill: color-mix(in srgb, var(--color-accent) 12%, transparent);
-    stroke: color-mix(in srgb, var(--color-accent) 70%, transparent);
-    stroke-width: 1.1;
-    opacity: 0;
-    transform: translateX(0);
-  }
-  .sp-score {
+  .sp-rail,
+  .sp-intron,
+  .sp-junction {
     fill: none;
-    stroke-width: 1.55;
     stroke-linecap: round;
     stroke-linejoin: round;
+  }
+  .sp-rail {
+    stroke: var(--motif-ink);
+    stroke-width: 1.15;
+    opacity: 0.26;
+  }
+  .sp-intron {
+    stroke: color-mix(in srgb, var(--motif-ink) 86%, transparent);
+    stroke-width: 1.5;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    opacity: 0.82;
+  }
+  .sp-junction {
+    stroke: color-mix(in srgb, var(--color-accent) 78%, transparent);
+    stroke-width: 1.45;
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
     opacity: 0;
   }
-  .sp-score--donor {
-    stroke: var(--sp-donor);
-  }
-  .sp-score--acceptor {
-    stroke: var(--sp-acceptor);
-  }
-  .sp-exon {
-    fill: color-mix(in srgb, var(--color-accent) 16%, transparent);
-    stroke: var(--color-accent);
-    stroke-width: 1.4;
-  }
-  .sp-right,
-  .sp-left,
-  .sp-intron {
+  .sp-exon-wrap {
     transform-box: view-box;
-  }
-  .sp-left,
-  .sp-right {
     transform: translateX(0);
   }
-  .sp-intron {
-    --sp-rest-opacity: 0.82;
-    --sp-mid-opacity: 0.38;
-    fill: none;
-    stroke: var(--motif-ink);
-    stroke-width: 1.45;
-    stroke-linecap: round;
-    opacity: var(--sp-rest-opacity);
-  }
-  .sp-junction {
-    --sp-rest-opacity: 0.36;
-    --sp-pulse-opacity: 0.92;
-    fill: none;
-    stroke: color-mix(in srgb, var(--color-accent) 75%, transparent);
+  .sp-exon {
+    fill: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg));
+    stroke: var(--color-accent);
     stroke-width: 1.35;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    opacity: var(--sp-rest-opacity);
   }
+
   @media (prefers-reduced-motion: no-preference) {
-    .sp-seq {
-      will-change: opacity;
-    }
-    .sp-window {
-      will-change: opacity, transform;
-    }
-    .sp-score {
-      will-change: opacity, stroke-dashoffset;
-    }
-    .sp-left,
-    .sp-right {
+    .sp-exon-wrap {
       will-change: transform;
     }
     .sp-intron,
     .sp-junction {
-      will-change: opacity;
+      will-change: opacity, stroke-dashoffset;
     }
     .motif-sp:hover .sp-left,
     :global(.rcard:hover) .motif-sp .sp-left,
     :global(.research-motif:hover) .motif-sp .sp-left {
-      animation: sp-left-join var(--sp-duration) var(--sp-merge-ease) forwards;
+      animation: sp-left-splice var(--sp-duration) var(--sp-ease) forwards;
     }
     .motif-sp:hover .sp-right,
     :global(.rcard:hover) .motif-sp .sp-right,
     :global(.research-motif:hover) .motif-sp .sp-right {
-      animation: sp-right-join var(--sp-duration) var(--sp-merge-ease) forwards;
+      animation: sp-right-splice var(--sp-duration) var(--sp-ease) forwards;
     }
-    .motif-sp:hover .sp-seq,
-    :global(.rcard:hover) .motif-sp .sp-seq,
-    :global(.research-motif:hover) .motif-sp .sp-seq {
-      animation: sp-seq-settle var(--sp-duration) var(--sp-fade-ease) forwards;
-    }
-    .motif-sp:hover .sp-window,
-    :global(.rcard:hover) .motif-sp .sp-window,
-    :global(.research-motif:hover) .motif-sp .sp-window {
-      animation: sp-window-scan var(--sp-duration) var(--sp-scan-ease) forwards;
-    }
-    .motif-sp:hover .sp-score,
-    :global(.rcard:hover) .motif-sp .sp-score,
-    :global(.research-motif:hover) .motif-sp .sp-score {
-      animation: sp-score-draw var(--sp-duration) var(--sp-score-ease) forwards;
-    }
-    .motif-sp:hover .sp-intron--first,
-    :global(.rcard:hover) .motif-sp .sp-intron--first,
-    :global(.research-motif:hover) .motif-sp .sp-intron--first {
-      animation: sp-intron-excise var(--sp-duration) var(--sp-fade-ease) forwards;
-    }
-    .motif-sp:hover .sp-intron--second,
-    :global(.rcard:hover) .motif-sp .sp-intron--second,
-    :global(.research-motif:hover) .motif-sp .sp-intron--second {
-      animation: sp-intron-excise var(--sp-duration) var(--sp-fade-ease) forwards;
+    .motif-sp:hover .sp-intron,
+    :global(.rcard:hover) .motif-sp .sp-intron,
+    :global(.research-motif:hover) .motif-sp .sp-intron {
+      animation: sp-intron-remove var(--sp-duration) var(--sp-fade-ease) forwards;
     }
     .motif-sp:hover .sp-junction,
     :global(.rcard:hover) .motif-sp .sp-junction,
     :global(.research-motif:hover) .motif-sp .sp-junction {
-      animation: sp-junction-pair var(--sp-duration) var(--sp-pair-ease) forwards;
+      animation: sp-junction-draw var(--sp-duration) var(--sp-fade-ease) forwards;
     }
   }
+
   @media (prefers-reduced-motion: reduce) {
-    .sp-left,
-    .sp-right {
-      transform: translateX(0);
-    }
-    .sp-intron {
-      opacity: var(--sp-rest-opacity);
-    }
     .sp-junction {
-      opacity: var(--sp-rest-opacity);
-    }
-    .sp-window {
-      opacity: 0.14;
-      transform: translateX(46px);
-    }
-    .sp-score {
-      opacity: 0.5;
+      opacity: 0.34;
       stroke-dashoffset: 0;
     }
   }
-  @keyframes sp-left-join {
-    0%, 38% {
+
+  @keyframes sp-left-splice {
+    0% {
       transform: translateX(0);
     }
-    46% {
-      transform: translateX(10px);
-    }
-    50%, 100% {
-      transform: translateX(22px);
+    86%, 100% {
+      transform: translateX(15px);
     }
   }
-  @keyframes sp-right-join {
-    0%, 38% {
+  @keyframes sp-right-splice {
+    0% {
       transform: translateX(0);
     }
-    46% {
-      transform: translateX(-10px);
-    }
-    50%, 100% {
-      transform: translateX(-22px);
+    86%, 100% {
+      transform: translateX(-15px);
     }
   }
-  @keyframes sp-seq-settle {
-    0%, 46% {
-      opacity: 0.66;
+  @keyframes sp-intron-remove {
+    0%, 18% {
+      opacity: 0.82;
+      stroke-dashoffset: 0;
     }
-    50%, 100% {
-      opacity: 0.32;
-    }
-  }
-  @keyframes sp-window-scan {
-    0%, 12% {
+    82%, 100% {
       opacity: 0;
-      transform: translateX(0);
-    }
-    16% {
-      opacity: 0.78;
-      transform: translateX(0);
-    }
-    28% {
-      opacity: 0.78;
-      transform: translateX(96px);
-    }
-    38% {
-      opacity: 0;
-      transform: translateX(96px);
-    }
-    50%, 100% {
-      opacity: 0.1;
-      transform: translateX(96px);
+      stroke-dashoffset: 1;
     }
   }
-  @keyframes sp-score-draw {
-    0%, 22% {
+  @keyframes sp-junction-draw {
+    0%, 8% {
       opacity: 0;
       stroke-dashoffset: 1;
     }
     28% {
-      opacity: 0.82;
-      stroke-dashoffset: 0.55;
-    }
-    38% {
       opacity: 0.9;
+      stroke-dashoffset: 0.42;
+    }
+    54% {
+      opacity: 0.86;
       stroke-dashoffset: 0;
     }
-    50%, 100% {
-      opacity: 0.2;
+    82%, 100% {
+      opacity: 0;
       stroke-dashoffset: 0;
-    }
-  }
-  @keyframes sp-intron-excise {
-    0%, 38% {
-      opacity: var(--sp-rest-opacity);
-    }
-    46% {
-      opacity: var(--sp-mid-opacity);
-    }
-    50%, 100% {
-      opacity: 0;
-    }
-  }
-  @keyframes sp-junction-pair {
-    0%, 34% {
-      opacity: var(--sp-rest-opacity);
-    }
-    42%, 46% {
-      opacity: var(--sp-pulse-opacity);
-    }
-    50%, 100% {
-      opacity: 0;
     }
   }
 </style>
