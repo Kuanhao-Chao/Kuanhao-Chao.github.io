@@ -24,6 +24,7 @@ const pubs = (await getCollection('publications'))
   .slice(0, 5);
 
 const latestNews = (await getCollection('news'))
+  .filter((n) => !n.data.draft)
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
   .slice(0, 6);
 const news = await Promise.all(
