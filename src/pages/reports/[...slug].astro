@@ -1,0 +1,208 @@
+---
+import { getCollection, render } from 'astro:content';
+import EntryLayout from '../../layouts/EntryLayout.astro';
+import Prose from '../../components/Prose.astro';
+import { fullDate, readingTime } from '../../lib/format';
+import { site } from '../../data/site';
+// KaTeX styling for the `$…$` / `$$…$$` math rendered by rehype-katex. Imported
+// here so it is bundled only onto report pages (posts use no math), and so the
+// Playwright PDF render — which loads the built HTML — typesets the math too.
+import 'katex/dist/katex.min.css';
+
+export async function getStaticPaths() {
+  // Build EVERY report, including unlisted ones: an unlisted report still needs a
+  // live URL + PDF. It is hidden via per-page `noindex` + sitemap exclusion, not
+  // by being omitted from the build (that is what `posts` `draft` does).
+  const entries = await getCollection('reports');
+  return entries.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const d = entry.data;
+const { Content } = await render(entry);
+
+const minutes = readingTime(entry.body ?? '');
+const meta = [
+  fullDate(d.date),
+  `${minutes} min read`,
+  d.updated ? `Updated ${fullDate(d.updated)}` : null,
+].filter(Boolean) as string[];
+
+const canonical = new URL(`/reports/${entry.id}/`, site.url).href;
+const ogImage = d.image?.src;
+const pdfHref = `/reports/${entry.id}/${entry.id}.pdf`;
+const pdfUrl = new URL(pdfHref, site.url).href;
+const authorLd = d.authors.map((name) =>
+  name === site.name
+    ? { '@type': 'Person', name, url: site.url }
+    : { '@type': 'Person', name }
+);
+const referenceLd = d.references.map((ref) => ({
+  '@type': 'CreativeWork',
+  name: ref.text,
+  ...(ref.doi ? { sameAs: ref.doi, url: ref.doi } : ref.url ? { url: ref.url } : {}),
+}));
+const scholarMeta = d.scholar
+  ? {
+      title: d.title,
+      authors: d.authors,
+      publicationDate: d.date.toISOString().slice(0, 10).replaceAll('-', '/'),
+      pdfUrl,
+      references: d.references,
+    }
+  : undefined;
+const links = [{ label: 'PDF', icon: 'file', href: pdfHref }];
+
+// Structured data: a ScholarlyArticle (Google-Scholar-friendly) + breadcrumb.
+const scholarlyArticleLd = d.scholar
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'ScholarlyArticle',
+      headline: d.title,
+      name: d.title,
+      description: d.description,
+      abstract: d.abstract,
+      author: authorLd,
+      publisher: { '@id': `${site.url}/#person` },
+      ...(d.institution
+        ? {
+            sourceOrganization: { '@type': 'Organization', name: d.institution },
+          }
+        : {}),
+      datePublished: d.date.toISOString().slice(0, 10),
+      ...(d.updated ? { dateModified: d.updated.toISOString().slice(0, 10) } : {}),
+      ...(d.tags.length ? { keywords: d.tags.join(', ') } : {}),
+      ...(ogImage ? { image: new URL(ogImage, site.url).href } : {}),
+      ...(referenceLd.length ? { citation: referenceLd } : {}),
+      encoding: {
+        '@type': 'MediaObject',
+        contentUrl: pdfUrl,
+        encodingFormat: 'application/pdf',
+      },
+      inLanguage: 'en',
+      url: canonical,
+      mainEntityOfPage: canonical,
+    }
+  : null;
+
+const breadcrumbLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: `${site.url}/` },
+    { '@type': 'ListItem', position: 2, name: d.title, item: canonical },
+  ],
+};
+---
+<EntryLayout
+  title={d.title}
+  eyebrow={d.venue}
+  authors={d.authors}
+  meta={meta}
+  backHref="/"
+  backLabel="Home"
+  description={d.description}
+  image={ogImage}
+  logo={d.logo}
+  links={links}
+  noindex={d.unlisted}
+  scholarMeta={scholarMeta}
+>
+  <section class="post-abstract">
+    <h2>Abstract</h2>
+    <Prose>
+      <p>{d.abstract}</p>
+    </Prose>
+  </section>
+
+  <Prose>
+    <Content />
+  </Prose>
+
+  {
+    d.references.length > 0 && (
+      <section class="post-references">
+        <h2>References</h2>
+        <ol>
+          {d.references.map((ref) => (
+            <li>
+              <span>{ref.text}</span>
+              {(ref.doi || ref.url) && (
+                <>
+                  {' '}
+                  <a href={ref.doi ?? ref.url} target="_blank" rel="noopener">
+                    {ref.doi ? 'DOI' : 'Link'}
+                  </a>
+                </>
+              )}
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
+
+  {
+    d.tags.length > 0 && (
+      <ul class="post-tags">
+        {d.tags.map((t) => <li>{t}</li>)}
+      </ul>
+    )
+  }
+
+  {
+    scholarlyArticleLd && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(scholarlyArticleLd)} />
+    )
+  }
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+</EntryLayout>
+
+<style>
+  .post-abstract {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .post-abstract h2,
+  .post-references h2 {
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0;
+    margin-bottom: 0.75rem;
+  }
+  .post-references {
+    max-width: var(--measure);
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-rule);
+  }
+  .post-references ol {
+    padding-left: 1.35rem;
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+  }
+  .post-references li + li {
+    margin-top: 0.65rem;
+  }
+  .post-references a {
+    font-weight: var(--fw-medium);
+    white-space: nowrap;
+  }
+  .post-tags {
+    list-style: none;
+    margin: 3rem 0 0;
+    padding: 1.5rem 0 0;
+    border-top: 1px solid var(--color-rule);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .post-tags li {
+    font-size: var(--fs-meta);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    padding: 0.15em 0.6em;
+  }
+</style>

@@ -22,6 +22,7 @@ interface Props {
   description?: string;
   image?: string;
   logo?: ImageMetadata;
+  noindex?: boolean;
   scholarMeta?: {
     title: string;
     authors: string[];
@@ -42,6 +43,7 @@ const {
   description,
   image,
   logo,
+  noindex,
   scholarMeta,
 } = Astro.props;
 ---
@@ -50,6 +52,7 @@ const {
   description={description}
   image={image}
   type="article"
+  noindex={noindex}
   scholarMeta={scholarMeta}
 >
   <article class="entry">

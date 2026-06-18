@@ -134,4 +134,42 @@ const posts = defineCollection({
     }),
 });
 
-export const collections = { publications, presentations, research, teaching, news, posts };
+// Formal technical reports — an academic-paper format distinct from blog `posts`.
+// Mirrors the posts schema (abstract/authors/references/scholar) plus report
+// fields (venue/institution). `unlisted` defaults TRUE: a report is published
+// (URL + PDF build) but hidden from search engines (per-page noindex) and left
+// out of the sitemap until it is deliberately flipped public for Google Scholar.
+const reports = defineCollection({
+  loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/reports' }),
+  schema: ({ image }) =>
+    z.object({
+      title: z.string(),
+      description: z.string(),
+      authors: z.array(z.string()).default(['Kuan-Hao Chao']),
+      abstract: z.string(),
+      date: z.coerce.date(),
+      updated: z.coerce.date().optional(),
+      venue: z.string().default('Technical Report'),
+      institution: z.string().default('Johns Hopkins University'),
+      tags: z.array(z.string()).default([]),
+      image: image().optional(),
+      imageAlt: z.string().optional(),
+      logo: image().optional(),
+      scholar: z.boolean().default(true),
+      // Privacy switch. true => noindex + excluded from sitemap (default for this
+      // section). Flip to false (and relax the astro.config sitemap filter) to make
+      // the report public + Google-Scholar-indexable.
+      unlisted: z.boolean().default(true),
+      references: z
+        .array(
+          z.object({
+            text: z.string(),
+            doi: z.string().url().optional(),
+            url: z.string().url().optional(),
+          })
+        )
+        .default([]),
+    }),
+});
+
+export const collections = { publications, presentations, research, teaching, news, posts, reports };
