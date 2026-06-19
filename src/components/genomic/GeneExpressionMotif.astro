@@ -8,25 +8,28 @@ const { class: className } = Astro.props;
 
 const tataBases = ['T', 'A', 'T', 'A', 'A', 'A'];
 const exons = [
-  { x: 72, w: 16 },
-  { x: 100, w: 23 },
-  { x: 132, w: 15 },
+  { className: 'gx-exon--first', x: 63, w: 14 },
+  { className: 'gx-exon--middle', x: 90, w: 22 },
+  { className: 'gx-exon--third', x: 121, w: 12 },
 ];
-const coverageBaseline = 45;
+const coverageBaseline = 41.5;
 const coverageCurve =
-  `M70 ${coverageBaseline} ` +
-  'C77.1 45 80.3 43.7 84.1 43.1 ' +
-  'C89.2 42.4 91.2 35.3 96.3 34.6 ' +
-  'C102.7 34 105.3 42.4 110.4 41.8 ' +
-  'C116.2 41.1 118.7 36.6 123.2 36.6 ' +
-  'C129 36.6 129.6 25.5 136.7 24.9 ' +
-  'C143.7 24.2 146.3 34.6 150.2 35.3 ' +
-  'C152.7 35.9 154 34 154 34';
-const coverageArea = `${coverageCurve} L154 ${coverageBaseline} L70 ${coverageBaseline} Z`;
+  `M60 ${coverageBaseline} ` +
+  'C61.5 40.8 62.2 35.4 64.2 30.6 ' +
+  'C66.5 25.2 70.8 23.7 73.6 25.4 ' +
+  'C76.2 27 77.4 34.1 79.8 38.1 ' +
+  'C82.8 39.3 86.1 38.8 88.8 35.9 ' +
+  'C91.6 27.2 94.4 19.4 99.1 18 ' +
+  'C104.1 16.5 109.1 18.8 111.8 24.3 ' +
+  'C114.5 30.4 116.6 36.9 119.4 38.5 ' +
+  'C121.3 37.7 123.4 32.4 126.3 30.6 ' +
+  'C129.7 28.7 132.6 31.6 134.6 35.7 ' +
+  `C136.2 38.7 137.9 40.8 140 ${coverageBaseline}`;
+const coverageArea = `${coverageCurve} L140 ${coverageBaseline} L60 ${coverageBaseline} Z`;
 ---
 <svg class:list={['motif', 'motif-gx', className]} viewBox="0 0 160 100" fill="none" aria-hidden="true">
   <g class="gx-coverage">
-    <line class="gx-axis gx-axis--coverage" x1="9" y1="45" x2="154" y2="45" />
+    <line class="gx-axis gx-axis--coverage" x1="54" y1={coverageBaseline} x2="142" y2={coverageBaseline} />
     <g class="gx-coverage-signal">
       <path class="gx-area" d={coverageArea} />
       <path class="gx-curve" pathLength="1" d={coverageCurve} />
@@ -34,16 +37,16 @@ const coverageArea = `${coverageCurve} L154 ${coverageBaseline} L70 ${coverageBa
   </g>
 
   <g class="gx-locus">
-    <line class="gx-axis" x1="9" y1="73" x2="154" y2="73" />
-    <path class="gx-gene-arrow" d="M70 73 H154 M148 68 L156 73 L148 78" />
+    <line class="gx-axis" x1="18" y1="70" x2="145" y2="70" />
+    <path class="gx-gene-arrow" d="M60 70 H143 M137 65 L145 70 L137 75" />
     <g class="gx-tata" aria-hidden="true">
-      <rect class="gx-tata-box" x="11" y="62" width="54" height="21" rx="4.5" />
+      <rect class="gx-tata-box" x="22" y="61" width="34" height="18" rx="4" />
       {tataBases.map((base, index) => (
-        <text class="gx-tata-base" x={17 + index * 7.2} y="76.1">{base}</text>
+        <text class="gx-tata-base" x={26.1 + index * 5} y="73.5">{base}</text>
       ))}
     </g>
     {exons.map((exon) => (
-      <rect class="gx-exon" x={exon.x} y="66" width={exon.w} height="14" rx="2.2" />
+      <rect class:list={['gx-exon', exon.className]} x={exon.x} y="64" width={exon.w} height="12" rx="2" />
     ))}
   </g>
 </svg>
@@ -97,7 +100,7 @@ const coverageArea = `${coverageCurve} L154 ${coverageBaseline} L70 ${coverageBa
   .gx-tata-base {
     fill: var(--color-accent);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-    font-size: 9.4px;
+    font-size: 7.5px;
     font-weight: 750;
     letter-spacing: 0;
     opacity: 0.92;
@@ -110,6 +113,9 @@ const coverageArea = `${coverageCurve} L154 ${coverageBaseline} L70 ${coverageBa
     fill: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg));
     stroke: var(--color-accent);
     stroke-width: 1.15;
+  }
+  .gx-exon--middle {
+    fill: color-mix(in srgb, var(--color-accent) 22%, var(--color-bg));
   }
   .gx-gene-arrow {
     fill: none;
@@ -138,6 +144,16 @@ const coverageArea = `${coverageCurve} L154 ${coverageBaseline} L70 ${coverageBa
     :global(.rcard:hover) .motif-gx .gx-coverage-signal,
     :global(.research-motif:hover) .motif-gx .gx-coverage-signal {
       animation: gx-coverage-pop var(--gx-duration) ease-in-out infinite;
+    }
+    .motif-gx:hover .gx-exon,
+    :global(.rcard:hover) .motif-gx .gx-exon,
+    :global(.research-motif:hover) .motif-gx .gx-exon {
+      animation: gx-exon-pulse var(--gx-duration) ease-in-out infinite;
+    }
+    .motif-gx:hover .gx-exon--middle,
+    :global(.rcard:hover) .motif-gx .gx-exon--middle,
+    :global(.research-motif:hover) .motif-gx .gx-exon--middle {
+      animation-name: gx-exon-middle-pulse;
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -187,6 +203,22 @@ const coverageArea = `${coverageCurve} L154 ${coverageBaseline} L70 ${coverageBa
     100% {
       opacity: 0;
       transform: scaleY(0.05);
+    }
+  }
+  @keyframes gx-exon-pulse {
+    0%, 100% {
+      fill: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg));
+    }
+    48% {
+      fill: color-mix(in srgb, var(--color-accent) 22%, var(--color-bg));
+    }
+  }
+  @keyframes gx-exon-middle-pulse {
+    0%, 100% {
+      fill: color-mix(in srgb, var(--color-accent) 22%, var(--color-bg));
+    }
+    48% {
+      fill: color-mix(in srgb, var(--color-accent) 32%, var(--color-bg));
     }
   }
 </style>
