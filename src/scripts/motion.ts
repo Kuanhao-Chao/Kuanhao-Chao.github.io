@@ -20,7 +20,7 @@ export function onVisible(
   el: Element,
   onEnter: () => void,
   onLeave?: () => void,
-  options: IntersectionObserverInit = { threshold: 0.12 }
+  options: IntersectionObserverInit = { threshold: 0.01, rootMargin: '0px 0px -4% 0px' }
 ): () => void {
   if (typeof IntersectionObserver === 'undefined') {
     onEnter();
