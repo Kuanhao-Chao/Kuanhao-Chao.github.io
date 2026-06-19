@@ -39,14 +39,14 @@ const posts = (await getCollection('posts'))
 <BaseLayout type="profile">
   <Hero />
 
-  <section class="section container" data-reveal>
+  <section class="section home-section container" data-reveal>
     <SectionHeading eyebrow="What I work on" title="Research" href="/research/" more="All research" />
     <div class="home-research">
       {research.map((entry) => <ResearchCard entry={entry} compact showPosts />)}
     </div>
   </section>
 
-  <section class="section container" data-reveal>
+  <section class="section home-section container" data-reveal>
     <SectionHeading
       eyebrow="Selected work"
       title="Publications"
@@ -60,7 +60,7 @@ const posts = (await getCollection('posts'))
 
   <QuoteBlock quote={site.philosophy} cite="my open-source philosophy" />
 
-  <section class="section container" data-reveal>
+  <section class="section home-section container" data-reveal>
     <SectionHeading eyebrow="Background" title="Experience & education" />
     <div class="home-bg">
       <div>
@@ -100,7 +100,7 @@ const posts = (await getCollection('posts'))
   </section>
 
   {posts.length > 0 && (
-    <section class="section container" data-reveal>
+    <section class="section home-section container" data-reveal>
       <SectionHeading eyebrow="Writing" title="Posts" href="/posts/" more="All posts" />
       <div class="home-posts">
         {posts.map((entry) => (
@@ -110,7 +110,7 @@ const posts = (await getCollection('posts'))
     </section>
   )}
 
-  <section class="section container" data-reveal>
+  <section class="section home-section container" data-reveal>
     <SectionHeading eyebrow="Updates" title="Recent news" href="/news/" more="All news" />
     <div class="home-news">
       {news.map(({ entry, Content }) => (
@@ -215,9 +215,20 @@ const posts = (await getCollection('posts'))
     justify-content: center;
   }
   .home-seq {
-    margin-block: clamp(3rem, 8vw, 5rem);
+    margin-block: clamp(1.75rem, 4vw, 2.75rem);
     padding-block: 0.9rem;
     border-block: 1px solid var(--color-rule);
+  }
+
+  @media (min-width: 881px) {
+    .home-section,
+    .cta {
+      padding-block: clamp(2rem, 3vw, 2.5rem);
+    }
+    .home-seq {
+      margin-block: var(--space-6);
+      padding-block: 0.5rem;
+    }
   }
 
   @media (max-width: 860px) {

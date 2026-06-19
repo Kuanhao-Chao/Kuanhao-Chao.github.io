@@ -46,7 +46,7 @@ import portrait from '../assets/profile/portrait.jpg';
   .hero {
     position: relative;
     overflow: hidden;
-    padding-top: clamp(2.5rem, 7vw, 5rem);
+    padding-top: clamp(2rem, 5vw, 3.5rem);
     padding-bottom: var(--section-y);
     border-bottom: 1px solid var(--color-rule);
   }
@@ -123,6 +123,13 @@ import portrait from '../assets/profile/portrait.jpg';
     object-fit: cover;
     border-radius: var(--radius-lg);
     filter: grayscale(12%);
+  }
+
+  @media (min-width: 881px) {
+    .hero {
+      padding-top: clamp(2.5rem, 4vw, 3.5rem);
+      padding-bottom: clamp(2rem, 3.5vw, 3.25rem);
+    }
   }
 
   /* Phone + tablet: centered profile-card layout with a circular avatar. */
