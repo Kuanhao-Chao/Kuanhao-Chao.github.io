@@ -13,12 +13,21 @@ const entries = (await getCollection('research')).sort(
   lead="I develop machine learning methods for genomics — from DNA language models that predict gene expression to algorithms for genome annotation, assembly, and indexing."
   description="Research by Kuan-Hao Chao across gene expression prediction, RNA splicing, genome annotation, assembly, and pangenome indexing."
 >
+  <h2 class="research-list-title">Research areas</h2>
   <div class="research-grid">
     {entries.map((entry) => <ResearchCard entry={entry} compact showPosts />)}
   </div>
 </PageLayout>
 
 <style>
+  .research-list-title {
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0;
+    padding-bottom: var(--space-4);
+    margin-bottom: var(--space-4);
+    border-bottom: 1px solid var(--color-rule);
+  }
   .research-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));

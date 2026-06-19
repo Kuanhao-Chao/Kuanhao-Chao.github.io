@@ -1,9 +1,9 @@
 ---
-title: 'Our OpenSpliceAI **Version of Record** is now published in eLife—an open-source PyTorch framework for fast, modular splice-site prediction, transfer learning, and variant-effect scoring! Check out the'
+title: 'OpenSpliceAI version of record is published in eLife'
 date: 2025-10-30
 category: publication
 location: 'Baltimore, MD'
 link: 'https://doi.org/10.7554/eLife.107454.3'
 ---
 
-Our OpenSpliceAI **Version of Record** is now published in [eLife](https://doi.org/10.7554/eLife.107454.3)—an open-source PyTorch framework for fast, modular splice-site prediction, transfer learning, and variant-effect scoring! Check out the [GitHub](https://github.com/Kuanhao-Chao/OpenSpliceAI) and [docs](https://ccb.jhu.edu/openspliceai/).
+The OpenSpliceAI version of record is published in [eLife](https://doi.org/10.7554/eLife.107454.3). The [GitHub repository](https://github.com/Kuanhao-Chao/OpenSpliceAI) and [documentation](https://ccb.jhu.edu/openspliceai/) are available.
