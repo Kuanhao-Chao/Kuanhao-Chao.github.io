@@ -135,6 +135,9 @@ import portrait from '../assets/profile/portrait.jpg';
     }
     .hero-text {
       max-width: 38rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
     .hero-portrait {
       order: -1;
@@ -156,10 +159,16 @@ import portrait from '../assets/profile/portrait.jpg';
     }
     /* Long bio reads better left-aligned, but keep the block centered. */
     .hero-bio {
+      order: 5;
+      width: 100%;
       text-align: left;
       margin-inline: auto;
+      margin-top: 1rem;
+      margin-bottom: 0;
+      font-size: 1rem;
     }
     .hero-actions {
+      order: 4;
       justify-content: center;
     }
     .hero-actions .hero-icons {
