@@ -1,9 +1,9 @@
 ---
-title: 'I join Dr. Steven Salzberg''s and Dr. Mihaela Pertea''s lab as a CS Ph.D. student at the Johns Hopkins University.'
+title: 'I start Ph.D. study at Johns Hopkins Center for Computational Biology'
 date: 2021-09-01
 category: join
 location: 'Taipei, Taiwan'
 link: 'https://salzberg-lab.org/'
 ---
 
-I join Dr. [Steven Salzberg](https://salzberg-lab.org/)'s and Dr. [Mihaela Pertea](https://ccb.jhu.edu/people/mpertea/)'s lab as a CS Ph.D. student at the Johns Hopkins University.
+I join [Steven Salzberg](https://salzberg-lab.org/) and [Mihaela Pertea](https://ccb.jhu.edu/people/mpertea/)'s labs as a Computer Science Ph.D. student at Johns Hopkins University.

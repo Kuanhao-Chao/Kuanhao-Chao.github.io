@@ -34,7 +34,7 @@ const types = [
   <div class="pub-controls">
     <label class="search">
       <Icon name="search" size={18} />
-      <input type="search" placeholder="Search title, author, venue…" data-search-input aria-label="Search publications" />
+      <input type="search" placeholder="Search publications" data-search-input aria-label="Search publications" />
     </label>
     <label class="sort">
       <span class="visually-hidden">Sort publications</span>
@@ -167,6 +167,32 @@ const types = [
     .search,
     .sort select {
       padding-block: 0.6em;
+    }
+  }
+  @media (max-width: 640px) {
+    .pub-tools {
+      align-items: stretch;
+    }
+    .pub-filters {
+      gap: 0.45rem;
+    }
+    .pub-controls {
+      width: 100%;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .search,
+    .sort,
+    .sort select {
+      width: 100%;
+    }
+    .search input {
+      width: 100%;
+      min-width: 0;
+    }
+    .pub-year {
+      margin-top: var(--space-8);
+      padding-bottom: var(--space-2);
     }
   }
 </style>
