@@ -40,9 +40,8 @@ const coverageArea = `${coverageCurve} L140 ${coverageBaseline} L60 ${coverageBa
     <line class="gx-axis" x1="18" y1="70" x2="145" y2="70" />
     <path class="gx-gene-arrow" d="M60 70 H143 M137 65 L145 70 L137 75" />
     <g class="gx-tata" aria-hidden="true">
-      <rect class="gx-tata-box" x="22" y="61" width="34" height="18" rx="4" />
       {tataBases.map((base, index) => (
-        <text class="gx-tata-base" x={26.1 + index * 5} y="73.5">{base}</text>
+        <text class="gx-tata-base" x={27.5 + index * 5.5} y="70">{base}</text>
       ))}
     </g>
     {exons.map((exon) => (
@@ -92,11 +91,6 @@ const coverageArea = `${coverageCurve} L140 ${coverageBaseline} L60 ${coverageBa
     transform-box: fill-box;
     transform-origin: center;
   }
-  .gx-tata-box {
-    fill: color-mix(in srgb, var(--color-accent) 11%, var(--color-bg));
-    stroke: color-mix(in srgb, var(--color-accent) 58%, transparent);
-    stroke-width: 1.15;
-  }
   .gx-tata-base {
     fill: var(--color-accent);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -108,6 +102,8 @@ const coverageArea = `${coverageCurve} L140 ${coverageBaseline} L60 ${coverageBa
     pointer-events: none;
     stroke: color-mix(in srgb, var(--color-bg) 72%, transparent);
     stroke-width: 0.45;
+    text-anchor: middle;
+    dominant-baseline: middle;
   }
   .gx-exon {
     fill: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg));
@@ -129,11 +125,6 @@ const coverageArea = `${coverageCurve} L140 ${coverageBaseline} L60 ${coverageBa
     :global(.rcard:hover) .motif-gx .gx-tata,
     :global(.research-motif:hover) .motif-gx .gx-tata {
       animation: gx-tata-pulse var(--gx-duration) ease-in-out infinite;
-    }
-    .motif-gx:hover .gx-tata-box,
-    :global(.rcard:hover) .motif-gx .gx-tata-box,
-    :global(.research-motif:hover) .motif-gx .gx-tata-box {
-      animation: gx-tata-box-pulse var(--gx-duration) ease-in-out infinite;
     }
     .motif-gx:hover .gx-tata-base,
     :global(.rcard:hover) .motif-gx .gx-tata-base,
@@ -157,9 +148,6 @@ const coverageArea = `${coverageCurve} L140 ${coverageBaseline} L60 ${coverageBa
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .gx-tata-box {
-      fill: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg));
-    }
     .gx-coverage-signal {
       opacity: 0.92;
       transform: scaleY(1);
@@ -171,16 +159,6 @@ const coverageArea = `${coverageCurve} L140 ${coverageBaseline} L60 ${coverageBa
     }
     48% {
       transform: scale(1.035);
-    }
-  }
-  @keyframes gx-tata-box-pulse {
-    0%, 100% {
-      fill: color-mix(in srgb, var(--color-accent) 11%, var(--color-bg));
-      stroke: color-mix(in srgb, var(--color-accent) 58%, transparent);
-    }
-    48% {
-      fill: color-mix(in srgb, var(--color-accent) 24%, var(--color-bg));
-      stroke: color-mix(in srgb, var(--color-accent) 100%, transparent);
     }
   }
   @keyframes gx-tata-base-pulse {
