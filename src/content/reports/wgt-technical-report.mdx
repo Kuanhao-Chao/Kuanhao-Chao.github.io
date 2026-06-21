@@ -1,0 +1,373 @@
+---
+title: 'Verifying and extending the Wheeler Graph Toolkit: correctness, capability, and a faster full-range solver'
+description: 'A technical report on a verification-and-improvement pass over the Wheeler Graph Toolkit (WGT): an independent brute-force oracle and a differential-testing harness that establish recognizer correctness against ground truth, an exponential reference rebuilt into an explicit decision procedure, a sparser full-range SMT encoding, and a string-preserving graph-repair module — evaluated along three deliberately separated axes (correctness, capability, performance).'
+authors:
+  - Kuan-Hao Chao
+abstract: >-
+  A Wheeler graph is an edge-labeled directed graph whose nodes admit a total order compatible with the
+  edge labels; such graphs can be indexed and searched with BWT/FM-index machinery, which makes them a
+  foundation for compact pangenome indexes. Deciding whether an arbitrary graph is a Wheeler graph is
+  NP-complete, and the Wheeler Graph Toolkit (WGT) makes recognition practical with a renaming heuristic
+  that narrows each node to an order window before a permutation or SMT solver settles the remainder. This
+  report documents a verification-and-improvement pass over WGT, organized around a single principle: keep
+  three axes separate — whether a verdict is correct, whether it can be produced at all, and how fast it is
+  — because a faster wrong answer is not progress. On correctness, we introduce an independent brute-force
+  oracle that enumerates all n! node orderings and checks the three Wheeler axioms directly against the
+  graph's edges, and a differential-testing harness that compares the recognizer to the oracle across
+  thousands of graphs; the harness motivated targeted hardening of the recognizer's accept paths, after
+  which it agrees with the oracle on every decided graph (2,447 of 2,447, zero disagreements) and produces
+  zero false-accepts on a reject-heavy corpus of 4,559 non-Wheeler graphs. On capability, the exponential
+  reference implementation is rebuilt into an explicit axiom-checking decision procedure with a clean
+  three-way verdict; on the oracle-decidable subset it now returns a verdict on all 931 graphs (previously
+  159 exceeded its budget), including seven non-Wheeler graphs built from real human gene orthologs it could
+  not previously classify. On performance, a sparser full-range SMT encoding reduces the cross-label axiom
+  constraint from O(E^2) to O(E+L) and the within-label constraint from O(E_l^2) to O(D_l^2+E_l); on a real
+  k=5 gene graph this cuts encoding setup roughly fourteen-fold and end-to-end full-range time about
+  two-fold, with a median 1.5x speedup across 289 real DNA graphs and an honest ~2x peak-memory cost on
+  tractable graphs. A scalability sweep characterizes each backend's size limit under a 600 s budget
+  (default SMT to ~2,800 nodes; the exponential reference capped near ten), and a new repair module unfolds
+  any non-Wheeler DAG into a Wheeler graph that preserves its path-string set exactly (316 of 316 repaired,
+  zero failures over 820 DAGs). None of these changes alters WGT's published recognition method; they make
+  it verifiable, faster on the full-range path, and capable of repair.
+date: 2026-06-20
+venue: 'Technical Report'
+institution: 'Johns Hopkins University'
+tags:
+  - Pangenomics
+  - Wheeler graphs
+  - Formal methods
+  - SMT
+  - Open source
+image: ../../assets/reports/wgt-technical-report/rfig_correctness.png
+imageAlt: 'Recognizer correctness against an independent brute-force oracle: zero false-accepts on a reject-heavy non-Wheeler corpus across every backend, and full verdict agreement with the oracle on all 2,447 decided graphs.'
+scholar: true
+unlisted: true
+references:
+  - text: "Chao K-H, Chen P-W, Seshia SA, Langmead B. WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs. iScience 26(8):107402, 2023."
+    doi: https://doi.org/10.1016/j.isci.2023.107402
+  - text: "Gagie T, Manzini G, Sirén J. Wheeler graphs: A framework for BWT-based data structures. Theoretical Computer Science 698:67–78, 2017."
+    doi: https://doi.org/10.1016/j.tcs.2017.06.016
+  - text: "Gibney D, Thankachan SV. On the hardness and inapproximability of recognizing Wheeler graphs. 27th Annual European Symposium on Algorithms (ESA 2019), LIPIcs 144:51:1–51:16, 2019."
+    doi: https://doi.org/10.4230/LIPIcs.ESA.2019.51
+  - text: "de Moura L, Bjørner N. Z3: An Efficient SMT Solver. Tools and Algorithms for the Construction and Analysis of Systems (TACAS 2008), LNCS 4963:337–340, 2008."
+    doi: https://doi.org/10.1007/978-3-540-78800-3_24
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import rfigCorrectness from '../../assets/reports/wgt-technical-report/rfig_correctness.png';
+import rfigCapability from '../../assets/reports/wgt-technical-report/rfig_capability.png';
+import rfigFspeed from '../../assets/reports/wgt-technical-report/rfig_f_speed.png';
+import rfigSetupMem from '../../assets/reports/wgt-technical-report/rfig_setup_mem.png';
+import rfigScalability from '../../assets/reports/wgt-technical-report/rfig_scalability.png';
+import rfigCeiling from '../../assets/reports/wgt-technical-report/rfig_f_ceiling.png';
+import rfigRepair from '../../assets/reports/wgt-technical-report/rfig_repair.png';
+
+*Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Code: [github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit).*
+
+## 1. Introduction
+
+### 1.1 The Wheeler-graph recognition problem
+
+The Burrows–Wheeler Transform and the FM-index let a string be indexed once and then queried in time that scales with the query rather than the text — the machinery underneath read aligners such as Bowtie and BWA. **Wheeler graphs** [2] generalize that idea from a string to a labeled graph. An edge-labeled directed graph $G=(V,E)$ is a Wheeler graph if there is a total order $\pi$ on $V$ such that the following hold for all nodes $u,v\in V$ and all pairs of edges $e_1=(u_1,v_1,a_1)$, $e_2=(u_2,v_2,a_2)$:
+
+$$
+\textbf{(A1)}\quad \mathrm{indeg}(u)=0 \,\wedge\, \mathrm{indeg}(v)>0 \;\Rightarrow\; \pi(u) < \pi(v),
+$$
+$$
+\textbf{(A2)}\quad a_1 < a_2 \;\Rightarrow\; \pi(v_1) < \pi(v_2),
+$$
+$$
+\textbf{(A3)}\quad a_1 = a_2 \,\wedge\, \pi(u_1) < \pi(u_2) \;\Rightarrow\; \pi(v_1) \leq \pi(v_2).
+$$
+
+When such an order exists, the FM-index query machinery carries over to the graph, which is why Wheeler graphs underpin graph-based pangenome indexes. The difficulty is that deciding whether a valid $\pi$ exists is **NP-complete**, and hard even to approximate [3]. Every decision procedure must therefore search the space of orderings; they differ only in how cleverly they prune it.
+
+### 1.2 WGT and the heuristic-plus-solver approach
+
+The Wheeler Graph Toolkit (WGT) [1] makes recognition practical with its recognizer, **Wheelie**, which runs a three-step pipeline (§2.1). The decisive idea is a **renaming heuristic**: because a node's position in any valid order is strongly constrained by the labels on its incoming edges, the heuristic groups nodes by incoming label and repeatedly sorts and relabels them, propagating constraints until they converge. Convergence either exposes a contradiction (the graph is not a Wheeler graph) or narrows each node to a small window of possible positions, which is handed to one of two interchangeable backends: a **permutation** search that enumerates the remaining orderings with pruning, or an **SMT** backend that encodes the residual constraints for the Z3 solver [4]. WGT also ships generators (De Bruijn graphs, tries, reverse-deterministic graphs, and random graphs), a visualizer, and a benchmark harness that includes a reference implementation of the only previously proposed recognition algorithm, due to Gibney and Thankachan [3].
+
+### 1.3 What motivated this study
+
+The published WGT method [1] is unchanged here. What motivated this pass is that a recognizer is an oracle other research builds on, so it must be **demonstrably** correct, and two adjacent capabilities were missing. Three concerns drove the work:
+
+1. **No independent ground truth.** The recognizer's verdicts were trusted on the strength of the algorithm and internal checks, but not cross-validated against a separate, obviously-correct implementation. A recognizer that occasionally accepts a non-Wheeler graph silently invalidates everything downstream of that verdict, so this is the first thing that must be established, not assumed.
+2. **A reference that could not refute.** The bundled exponential reference was a timing baseline, not a decision procedure: it did not check the axioms against the graph's edges and so could not return a definite "not a Wheeler graph," which makes it unusable as an independent second opinion.
+3. **Two missing capabilities.** The full-range SMT path emitted a quadratic number of constraints and became the bottleneck on dense, few-label graphs; and there was no way to turn a "not a Wheeler graph" verdict into a constructive fix.
+
+### 1.4 Contributions
+
+This report documents the verification framework and the improvements it enabled, and evaluates them along three deliberately separated axes (§2.8). The principal contributions are:
+
+- An **independent brute-force oracle** (§2.2) that enumerates all $n!$ node orderings and checks A1–A3 directly against the graph's edges, plus a **differential-testing harness** (§2.3) that establishes recognizer correctness against it and motivated targeted **hardening** of the accept paths (§2.4): zero false-accepts and full oracle agreement (§3.1).
+- An **honest exponential decision procedure** (§2.5) — the reference implementation rebuilt to enumerate orderings and verify the axioms, returning a three-way verdict — giving a trustworthy second opinion and new verdicts on graphs it previously left undecided (§3.2).
+- A **sparser full-range SMT encoding** (§2.6) that reduces the A2 cross-label constraint from $O(E^2)$ to $O(E+L)$ and the A3 within-label constraint from $O(E_\ell^2)$ to $O(D_\ell^2+E_\ell)$, with a guard that applies the new within-label form only where it pays (§3.3, §3.4).
+- A **string-preserving repair module** (§2.7) that unfolds any non-Wheeler DAG into a Wheeler graph preserving its path-string set exactly (§3.7).
+- A **scalability characterization** (§2.8, §3.5) of every backend's size limit under a fixed time budget.
+
+## 2. Methods
+
+### 2.1 The recognizer pipeline
+
+Wheelie parses a DOT graph into an internal digraph and runs the three-step pipeline of Table 1 (`recognizer/src/`). Steps 1–2 are the heuristic; step 3 is the solver, which is interchangeable between the SMT and permutation backends and, in full-range mode (`-f`), always uses SMT with the step-2 range narrowing disabled.
+
+**Table 1.** The Wheelie recognition pipeline.
+
+| Step | Stage | Purpose |
+|---|---|---|
+| 0 | Parse | Read the `strict digraph` DOT, build the internal digraph from `A -> B [label=x]` edges. |
+| 1 | `relabel_initialization` | Impose the axiom-implied initial constraints (in-degree-0 prefix; per-label head grouping). If they are already violated, reject — the graph is not a Wheeler graph. |
+| 2 | `innodelist_sort_relabel` | The renaming heuristic: iteratively sort and relabel nodes by incoming-edge structure, narrowing each node to an order window $[\mathrm{lb},\mathrm{ub}]$. Under `-f`, the range-narrowing branches are disabled. |
+| 3 | Solve | Search within the windows: **SMT** (`solve_smt`, Z3 `QF_IDL`; the default) or **permutation** (`permutation_start`, pruned enumeration with `WG_checker`). |
+| 4 | Verdict | Exit code $1$ = Wheeler, $-1$ = not a Wheeler graph, $0$ = undecided. Benchmark mode (`-b`) prints `verdict, nodes, cpu, path`. |
+
+### 2.2 The brute-force oracle
+
+Ground truth is established by a deliberately trivial procedure (`verify/brute_oracle.py`), written independently of the recognizer so that the two cannot share a bug. For a graph with $n$ nodes it enumerates all $n!$ node orderings; for each, it checks A1–A3 directly against the edge list and accepts iff some ordering satisfies all three. Its cost,
+
+$$
+T_\text{oracle}(n,e) = O(n!\cdot e^2),
+$$
+
+confines it to $n \leq 9$, but on those graphs it is an incontrovertible decision: a completely separate implementation computing the same predicate from first principles. (One subtlety the oracle itself had to get right: a single node with two differently-labeled self-loops violates A2, so only the empty graph, not every one-node graph, is a trivial accept.)
+
+### 2.3 Differential-testing harness and corpora
+
+The harness (`verify/difftest.py`, `verify/edgecases.py`) draws graphs from many families, runs each through both the oracle and every recognizer backend, and flags any verdict that differs. Table 2 summarizes the corpora used across this report.
+
+**Table 2.** Evaluation corpora.
+
+| Corpus | Size | Role |
+|---|---:|---|
+| Reject-heavy random (non-Wheeler) | 4,559 | Stress the accept paths: count false-accepts (§3.1). |
+| Oracle-decidable real subset ($n\leq9$) | 931 | Verdict agreement + capability vs the oracle (§3.1, §3.2). |
+| Synthetic random + edge cases | 1,516 | Verdict agreement across backends (§3.1). |
+| Real DNA De Bruijn / reverse-deterministic | 289 | Full-range `-f` timing (§3.3). |
+| Synthetic `complete` / `dnfa` families | ladder | Scalability limits (§3.5). |
+| Random DAGs | 820 | Repair (§3.7). |
+
+Each family is Wheeler or non-Wheeler by construction or by oracle anchoring, so every rung doubles as a correctness test as well as a timing or scaling measurement.
+
+### 2.4 Correctness hardening
+
+Differential testing surfaced a small number of edge cases in the recognizer's *accept* paths — the places where a verdict of "Wheeler" is issued — each of which was tightened so that an accept is never issued without a satisfied check:
+
+- **Reject on permutation exhaustion.** The permutation backend (`permutation_start`) issued its verdict only on the accept branch; on a fully pruned, exhausted search it returned without a decision and the caller defaulted to "Wheeler." It now rejects explicitly when a non-exhaustive search completes with no valid order.
+- **Re-check the propagation fast path.** When step-2 propagation alone settled every node to a singleton window, the result was accepted without the final `WG_checker` the SMT and permutation paths run. The fast path now verifies A1–A3 before accepting.
+- **Overflow and degeneracy guards.** An integer overflow in the solver-dispatch heuristic (a product of per-window factorials) was made saturating; and the SMT path now guards degenerate inputs — an empty or isolated-node graph that produced an empty `z3::distinct` — that previously aborted.
+
+These are corrective, not algorithmic: they change a verdict only on inputs the un-hardened code would have decided incorrectly or crashed on, and they leave every already-correct verdict unchanged. The exponential reference rewrite (§2.5) also corrected the oracle's own one-node shortcut noted in §2.2.
+
+### 2.5 An honest exponential decision procedure
+
+The bundled reference implementation of the Gibney–Thankachan algorithm [3] was, as originally written, a timing baseline: its checker received only scalar counts rather than the graph's edges, so it could not test the axioms and never emitted a definite non-Wheeler verdict. To make it a trustworthy independent second opinion, its decision core was reimplemented (`benchmark/exponential_recognizer/`) to enumerate node orderings and verify A1–A3 against the real edges — mirroring the oracle of §2.2 — under an $O(n!\cdot e^2)$ work budget, returning a clean three-way verdict:
+
+$$
+\text{verdict} = \begin{cases}
+\text{Wheeler} & \text{some ordering satisfies A1--A3},\\
+\text{not a Wheeler graph} & \text{no ordering does, within budget exhausted},\\
+\text{undecided} & \text{work budget exceeded before exhaustion}.
+\end{cases}
+$$
+
+It is now usable as a decision procedure on small graphs and as a second independent check against the recognizer, not merely a stopwatch.
+
+### 2.6 A sparser full-range SMT encoding
+
+In full-range mode the recognizer hands the entire ordering space to Z3: one integer order variable per node, a global `distinct`, and the axiom constraints, solved as a quantifier-free integer-difference-logic (`QF_IDL`) problem [4]. The cost is dominated by the *number of axiom constraints*, and the original encoding wrote them pairwise.
+
+**Cross-label monotonicity (A2).** Writing A2 as an all-pairs constraint over edges costs $O(E^2)$. The sparse form introduces, per label, head-boundary variables ($\#\mathrm{lo}_\ell,\#\mathrm{hi}_\ell$) that bracket the order positions of that label's heads, and chains the brackets across labels in label order. This expresses the same "smaller label ⇒ earlier head" relation in
+
+$$
+O(E^2) \;\longrightarrow\; O(E+L),
+$$
+
+where $L$ is the number of distinct labels.
+
+**Within-label ordering (A3).** For a single label $\ell$ with $E_\ell$ edges, the pairwise A3 constraint costs $O(E_\ell^2)$. The sparse form encodes A3 as an endpoint block: with $D_\ell = \min(\#\text{distinct tails},\,\#\text{distinct heads})$ for that label, per-endpoint min/max position variables ($\#\mathrm{mn},\#\mathrm{mx}$) replace the all-pairs comparison, giving
+
+$$
+O(E_\ell^2) \;\longrightarrow\; O(D_\ell^2 + E_\ell).
+$$
+
+Both forms are **equisatisfiable** with the pairwise originals — they accept and reject exactly the same graphs — so correctness is unaffected; only the encoding size changes.
+
+**A shape-aware guard.** The block form trades pairwise difference atoms for $2D_\ell$ auxiliary integer variables, and those auxiliaries enlarge Z3's search. Gating the block on atom count alone (fewer atoms) is insufficient: on dense, few-label instances the auxiliaries can make the *solve* slower even when the encoding is smaller. The block is therefore applied to label $\ell$ only when
+
+$$
+2D_\ell < E_\ell \quad\wedge\quad D_\ell(D_\ell-1)+2E_\ell < E_\ell(E_\ell-1),
+$$
+
+i.e. only when the label's endpoints are genuinely sparse (the first clause; the De Bruijn regime, $D_\ell/E_\ell \approx 0.25$) *and* the block emits fewer atoms (the second). Otherwise the verified pairwise loop is used. Because the two encodings are equisatisfiable, the guard changes only *which* encoding is used, never the verdict.
+
+### 2.7 String-preserving graph repair
+
+Repair (`repair/wheelerize.py`) turns a non-Wheeler **DAG** into a Wheeler graph by unfolding it into the **trie of its path-strings**. A trie is always a Wheeler graph — order its nodes by the co-lexicographic rank of the string spelled along each incoming path — so the construction always succeeds for a DAG, and it preserves the **set of strings** the graph spells, exactly. Each repair self-verifies three independent ways before it is returned: the recognizer accepts the output, the oracle accepts it when it is small enough, and the set of path-strings is confirmed identical to the input's. The node-count ratio (output / input) can fall below one — when distinct input nodes spell the same string they are *merged* — which is a reduction in nodes, not a loss of represented strings; ratios above one are genuine node splitting. This first version is correct but not minimal; minimal node-splitting is left to future work, and cyclic graphs (where a string-preserving repair is not always possible) are out of scope.
+
+### 2.8 Benchmark design and the three-axis methodology
+
+The cardinal rule of this evaluation is that three questions are reported **separately** and never merged into a single "X% better":
+
+- **Correctness** — does the verdict match the independent oracle? Measured as false-accepts on the reject-heavy corpus and verdict agreement on the oracle-decidable and synthetic corpora.
+- **Capability** — can a verdict be produced at all? Measured as the fraction of a corpus a procedure decides within its budget (the rebuilt exponential reference), independent of speed.
+- **Performance** — how fast, and how large, when correct? Measured as full-range setup/solve time, the per-graph timing distribution, peak memory, and the largest graph each backend decides under a fixed budget.
+
+A faster wrong answer is not progress, an undecided result is not a refutation, and additional memory is a cost to be stated, not hidden. The full-range timing uses string labels (matching the biological corpora), the median of replicate runs, and the `-b` CPU-time column, which is robust to machine load; timeouts are recorded as timeouts, never as a verdict.
+
+**The scalability sweep** (`benchmark/limit_test/`) climbs a geometric size ladder per (backend, family) under a **600 s** wall-clock budget, takes the median of $R=3$ replicate graphs per rung, and bisects the largest size still decided. Limits are **typed**: *threshold* (timeout-bounded — the backend would continue with more time), *capped* (a hard capability ceiling — the exponential reference's $n!$ budget, or Z3 returning `unknown`), or *unreached* (no wall hit up to the ladder top). The two families are `complete` (dense, all-distinct endpoints — the symmetric worst case) and `dnfa` (random $d$-NFA-style), both Wheeler by construction so each rung is also a correctness check.
+
+**Environment and reproducibility.** Comparisons are run on a single Linux host with the recognizer built from source (g++ 17, Z3 linked statically). The recognizer, oracle, harnesses, and all source data and figures are versioned in the repository (`benchmark/REPORT.md` is the consolidated source for every number here; figure data lives under `benchmark/report_figs/data/` and `benchmark/limit_test/results/`).
+
+## 3. Results
+
+### 3.1 Correctness: agreement with an independent oracle
+
+Against the brute-force oracle, the hardened recognizer is correct on every graph both can decide. On the reject-heavy corpus of 4,559 non-Wheeler graphs — built specifically to exercise the accept paths — it produces **zero** false-accepts on every backend (Table 3). Before hardening, the same corpus exposed a substantial false-accept rate on the permutation paths; after the §2.4 fixes the rate is zero throughout, which is the property a recognizer must have to be usable as an oracle for other work.
+
+**Table 3.** False-accepts (non-Wheeler graphs declared Wheeler) on the 4,559-graph reject-heavy corpus, by backend, before and after hardening. The exponential figure is over its in-budget subset.
+
+| Backend | Pre-hardening | Hardened |
+|---|---:|---:|
+| default SMT | 0 | **0** |
+| permutation (`-s p`) | 950 | **0** |
+| exhaustive permutation (`-s p -e`) | 950 | **0** |
+| full-range (`-f`) | 0 | **0** |
+| exponential reference (in-budget) | 127 | **0** |
+
+On the corpora both the recognizer and the oracle can decide, verdicts agree exactly: across **2,447** graphs (1,303 Wheeler, 1,144 non-Wheeler — 931 real graphs of at most nine nodes plus 1,516 synthetic random and edge-case graphs), each of the SMT, permutation, and rebuilt exponential procedures matches the oracle on **all** of them, with **zero disagreements** (Table 4, Fig. 1).
+
+**Table 4.** Verdict agreement with the brute-force oracle.
+
+| Corpus | Graphs | SMT | Permutation | Exponential |
+|---|---:|---:|---:|---:|
+| Real ($n\leq9$) | 931 | 931/931 | 931/931 | 931/931 |
+| Synthetic + edge cases | 1,516 | 1,516/1,516 | 1,516/1,516 | 1,516/1,516 |
+| **Total** | **2,447** | **2,447/2,447** | **2,447/2,447** | **2,447/2,447** |
+
+<ZoomFigure src={rfigCorrectness} alt="Two panels. (A) Bar chart of false-accepts by backend on the reject-heavy non-Wheeler corpus: the hardened recognizer is zero across all backends, with pre-hardening counts shown for contrast. (B) Verdict-agreement matrix versus the oracle: SMT, permutation, and exponential all match the oracle on every real and synthetic graph, zero disagreements." variant="wide">
+  <strong>Figure 1.</strong> Recognizer correctness against an independent ground truth. <strong>(A)</strong> False-accepts by backend on the 4,559-graph reject-heavy corpus (red = pre-hardening, blue = hardened): zero false-accepts on every path after the §2.4 hardening. <strong>(B)</strong> Verdict agreement with the brute-force oracle — every backend matches on all 2,447 decided graphs (1,303 Wheeler, 1,144 non-Wheeler), with zero disagreements.
+</ZoomFigure>
+
+### 3.2 Capability: verdicts that did not exist before
+
+The rebuilt exponential decision procedure (§2.5) can now refute, not only confirm. On the oracle-decidable subset of the WGT benchmark corpora (931 graphs of at most nine nodes), it returns a verdict on **all 931** — where the original reference exceeded its budget on **159** of them — and every verdict matches the oracle (Table 5, Fig. 2). Among the newly decided graphs are **seven non-Wheeler graphs built from real human gene orthologs** (BTBD17, FAM53A, LCP1, TRAM1, and TRPC1 De Bruijn graphs) that the original reference could never classify. This is a pure capability gain: these are decisions that did not previously exist at any time budget, distinct from any question of speed.
+
+**Table 5.** Capability of the exponential reference on the 931-graph oracle-decidable subset.
+
+| Procedure | Decided | Undecided (over budget) | Non-Wheeler biological graphs decided |
+|---|---:|---:|---:|
+| Original reference | 772 | 159 | 0 / 7 |
+| Rebuilt decision procedure | **931** | **0** | **7 / 7** |
+
+<ZoomFigure src={rfigCapability} alt="A stacked bar chart over graph families showing how many graphs the previous exponential reference decided within budget versus left undecided, with a red cap marking seven non-Wheeler biological graphs the rebuilt procedure now decides; a side note lists the seven human-ortholog graphs." variant="wide">
+  <strong>Figure 2.</strong> Capability of the rebuilt exponential reference. Across the families of the oracle-decidable subset it now returns a verdict on all 931 graphs (the original left 159 undecided), including seven non-Wheeler graphs built from real human gene orthologs (highlighted) — verdicts that did not exist before, independent of run time.
+</ZoomFigure>
+
+### 3.3 Performance: a faster full-range encoding
+
+The sparse encoding (§2.6) reduces both the time to build the SMT problem and the time Z3 spends solving it. On the headline case — a De Bruijn graph from the human gene *DOCK4* at $k=5$, with 1,041 edges — encoding setup drops from 2.11 s to 0.14 s (≈14.5×) and end-to-end full-range time from 15.15 s to 6.59 s (≈2.3×); the gain is concentrated in setup but the leaner constraint set also roughly halves solve time (Table 6).
+
+**Table 6.** Full-range setup/solve split on *DOCK4* DNA $k=5$ (1,041 edges), by encoding generation.
+
+| Phase | pre-4.1 | pre-4.2 | This work | Speedup |
+|---|---:|---:|---:|---:|
+| Setup (encoding) | 2.11 s | 1.88 s | **0.14 s** | ≈14.5× |
+| Solve (Z3) | 13.04 s | 12.33 s | **6.44 s** | ≈2.0× |
+| **Total** | 15.15 s | 14.21 s | **6.59 s** | ≈2.3× |
+
+Across the 289-graph real DNA corpus, the full-range run is faster on essentially every graph (Table 7): a median 1.53× on Wheeler instances and 1.42× on non-Wheeler instances relative to the pre-4.1 encoding, with the shape-aware guard ensuring the within-label block is used only where it helps so that the non-Wheeler case is at worst neutral (1.00× for the isolated A3 step). There are **no regressions** beyond measurement noise and no timeouts.
+
+**Table 7.** Median full-range speedup over the 289-graph DNA corpus (181 Wheeler, 108 non-Wheeler).
+
+| Comparison | Wheeler instances | non-Wheeler instances |
+|---|---:|---:|
+| pre-4.1 → this work (total) | 1.53× | 1.42× |
+| pre-4.2 → this work (isolated A3 block) | 1.51× | 1.00× (neutral) |
+
+<ZoomFigure src={rfigFspeed} alt="Three panels. (A) Per-graph scatter of new-versus-old full-range time on the DNA corpus, most points below the diagonal (faster). (B) Speedup ECDF split by verdict, both curves right of 1.0. (C) Cactus plot of graphs solved within a time budget, the new encoding above the old." variant="wide">
+  <strong>Figure 3.</strong> The leaner full-range SMT encoding over the 289-graph DNA corpus. <strong>(A)</strong> Per-graph time, new vs old — points below the diagonal are faster (essentially all). <strong>(B)</strong> Speedup distribution (ECDF) split by verdict; both curves sit right of 1.0 (the non-Wheeler curve a near-vertical step at 1.0 = neutral fallback). <strong>(C)</strong> Cactus survival curve — the new encoding solves more graphs within any given budget.
+</ZoomFigure>
+
+### 3.4 Memory: an honest space-for-time trade
+
+The sparse encoding's auxiliary variables cost memory. On the headline graphs the new encoding uses **more** peak RAM, not less — *DOCK4* DNA $k=5$ rises from 0.66 GB to 1.21 GB, and *TRPC1* DNA $k=5$ from 0.67 GB to 1.29 GB — because it trades a quadratic *number of constraints* for a linear number of auxiliary integer variables that widen Z3's variable domain. On graphs small enough that the old quadratic constraint set never explodes (around a thousand edges here), that is a roughly 2× memory cost paid to buy the ≈14× setup and ≈2× total-time reductions of §3.3. It is reported as a trade, not a win; the memory picture only inverts on much larger graphs where the quadratic constraint count itself dominates RAM, and those are exactly the cases the full-range path does not finish within the budget (§3.5).
+
+<ZoomFigure src={rfigSetupMem} alt="Two panels. (A) Stacked setup-versus-solve bars for the full-range encodings on a real gene graph, setup falling about fourteen-fold. (B) Peak resident memory by encoding on the same graphs, the new encoding about twice as high." variant="wide">
+  <strong>Figure 4.</strong> Time and memory of the full-range encoding. <strong>(A)</strong> Setup/solve split on *DOCK4* $k=5$: setup falls ≈14×, total ≈2.3×. <strong>(B)</strong> Peak resident memory on the headline $k=5$ graphs rises ≈2× (0.66→1.21 GB), the space side of the space-for-time trade.
+</ZoomFigure>
+
+### 3.5 Scalability: how large a graph each backend decides
+
+Under the 600 s budget the backends separate cleanly by the size they can decide (Table 8, Fig. 5). The default heuristic-plus-SMT recognizer is the decisive scaler: it decides `complete` graphs of **2,816** nodes and `dnfa` graphs of **2,176** within budget, and its limit is a *timeout* (threshold), so it would climb further with more time. That is roughly **3.4×** past the full-range path, **12×** past the permutation backend, and **~280×** past the exponential reference's hard capability cap of ten nodes. Every rung is Wheeler by construction and was decided correctly — the sweep recorded **zero correctness failures** end to end.
+
+**Table 8.** Largest graph decided per backend within 600 s ($R=3$ median), with limit type.
+
+| Backend | `complete` | `dnfa` | Limit type |
+|---|---:|---:|---|
+| default SMT | **2,816** | **2,176** | threshold (timeout) |
+| permutation (`-s p`) | 240 | 256 | threshold (timeout) |
+| full-range (`-f`), this work | 832 | 832 | capped (Z3 `unknown`) |
+| full-range (`-f`), prior encoding | 832 | 832 | capped (Z3 `unknown`) |
+| exponential reference | 10 | 10 | capped ($n!\cdot e^2$ budget) |
+| repair (`wheelerize`) | — | — | unreached (8,192) |
+
+<ZoomFigure src={rfigScalability} alt="Three panels. (A) and (B) median wall time versus graph size for the complete and dnfa families, one line per backend, with the 600 s timeout marked. (C) bar chart of the largest graph each backend decides, log scale, default SMT highest." variant="wide">
+  <strong>Figure 5.</strong> Scalability under a 600 s budget. <strong>(A, B)</strong> Median wall time versus size for the `complete` and `dnfa` families; the default SMT backend climbs furthest before the timeout. <strong>(C)</strong> Largest graph decided per backend (log scale): default SMT ≈2,800, full-range 832 (a capability cap, hatched), permutation ~240–256, exponential reference 10.
+</ZoomFigure>
+
+### 3.6 The full-range ceiling is a solver limit, identical old and new
+
+The full-range path's size limit deserves a precise reading, because it bears on what §3.3 does and does not claim. Both the new and the prior `-f` encodings stop at exactly **832** nodes on both families — and not by timeout but because Z3 returns `unknown` (undecided) on the `QF_IDL` problem at that size. That ceiling is therefore a property of the solver on this encoding, the **same** for both generations (Fig. 6). The consequence is the honest scope of the §3.3 result: the sparser encoding buys per-graph **time**, not a higher size **ceiling**. On the dense `complete` family the two time curves essentially coincide, exactly as designed — `complete` has $D_\ell/E_\ell \approx 0.70$, so the shape-aware guard (§2.6) correctly keeps the within-label block *off* and the new path falls back to the verified pairwise loop, making it identical to the old one there. The block's speedup is realized on the sparse De Bruijn graphs of §3.3, not on this synthetic dense worst case.
+
+<ZoomFigure src={rfigCeiling} alt="Two panels comparing prior-encoding and new-encoding full-range wall time versus size on the complete and dnfa families; the two curves nearly coincide and both stop at the same node count well below the timeout line." variant="wide">
+  <strong>Figure 6.</strong> Full-range time, prior vs new encoding, on the `complete` (A) and `dnfa` (B) families. Both stop at the same $n=832$ ceiling, where Z3 returns `unknown` — a solver capability limit identical for both encodings, below the 600 s timeout. The curves coincide on the dense `complete` family because the shape-aware guard keeps the block off there.
+</ZoomFigure>
+
+### 3.7 Repair: turning a non-Wheeler DAG into a Wheeler graph
+
+Across 820 random DAGs, the repair module (§2.7) succeeded on every graph that needed it: **316** required repair and all 316 produced a verified Wheeler graph, **504** were already Wheeler, and there were **zero** verification failures (Table 9, Fig. 7). The node blow-up ratio averaged 0.87× (range 0.33×–1.86×): a spike at 1.0 (already Wheeler, unchanged), a sub-1.0 cluster where distinct nodes spelling the same string are merged, and a >1.0 tail of genuine node splitting. Because every output passes all three self-checks — recognizer, oracle (when small), and exact path-string-set equality — repair is a sound constructive complement to recognition: a "not a Wheeler graph" verdict becomes a concrete Wheeler graph that spells the same strings.
+
+**Table 9.** Repair over 820 random DAGs.
+
+| Outcome | Count |
+|---|---:|
+| Already Wheeler | 504 |
+| Repaired and verified | 316 |
+| Failed | **0** |
+| Node blow-up (mean; range) | 0.87× (0.33×–1.86×) |
+
+<ZoomFigure src={rfigRepair} alt="Histogram of node blow-up ratio after repair over 820 DAGs, with a tall spike at 1.0 for already-Wheeler graphs and a spread on either side for repaired graphs." variant="wide">
+  <strong>Figure 7.</strong> Repair node blow-up over 820 DAGs (316 repaired, 504 already Wheeler, 0 failures). A ratio below 1.0 is node *merging* — distinct nodes spelling the same string are merged while the represented path-string set is preserved exactly — not loss of information; above 1.0 is genuine node splitting.
+</ZoomFigure>
+
+## 4. Discussion
+
+**Correctness is the load-bearing result.** The most consequential change in this pass is not the faster encoding or the new repair capability — it is that the recognizer's verdicts are now validated against an independent, obviously-correct oracle and a trustworthy second decision procedure. A recognizer is an oracle other research builds on; if it can silently accept a non-Wheeler graph, every downstream claim that rests on "this is a Wheeler graph" is unsupported. Establishing zero false-accepts and full oracle agreement (§3.1) is therefore the prerequisite that makes the speed and capability results worth reporting at all.
+
+**Why the three axes must stay separate.** Collapsing correctness, capability, and performance into one number is how tools come to look better than they are. A backend that returns answers quickly but occasionally returns the wrong one has not improved; an `unknown` from a solver is not a refutation; and a faster encoding that doubles memory is a trade, not a free win. Keeping the axes apart is what let this study report a real per-graph speedup (§3.3) *and*, honestly, that it does not raise the full-range size ceiling (§3.6) and costs memory on tractable graphs (§3.4) — three true statements that a single headline figure would have blurred.
+
+**The heuristic is the engine.** The scalability separation (§3.5) is a quantitative restatement of WGT's core design insight: the renaming heuristic, by narrowing each node's window before the solver runs, is what lets the default backend scale orders of magnitude past the no-heuristic full-range path and the exponential reference. The improvements here sharpen the periphery — a leaner full-range encoding, a trustworthy reference, repair — around a method whose central idea is unchanged and remains the reason recognition is practical at all.
+
+**Repair changes what a negative verdict means.** Recognition answers a yes/no question; repair (§3.7) makes "no" actionable. Because the trie unfolding preserves the path-string set exactly, a graph that cannot be indexed as-is can be replaced by one that can, representing the same strings — a useful primitive for building indexable pangenome structures, and a direction (minimal node-splitting, cyclic graphs) with clear future work.
+
+**Verification as software practice.** The brute-force oracle and differential harness are cheap to run and decisive on small graphs, and they are the reason every claim in §3.1 is checkable rather than asserted. The same discipline that surfaced the accept-path edge cases (§2.4) is directly transferable to other combinatorial recognizers: build a slow, obviously-correct reference, then differential-test the fast implementation against it across many generated inputs.
+
+## 5. Limitations
+
+The study and tool are presented with the following honest caveats:
+
+1. **Oracle reach.** The brute-force oracle is exact but $O(n!\cdot e^2)$, so ground truth is direct only for $n\leq9$. Correctness on larger graphs rests on cross-backend agreement and construction-by-design families, not on the oracle.
+2. **The full-range ceiling is unchanged.** The sparse encoding lowers per-graph time but not the size at which the full-range path can decide: both the new and prior encodings stop at $n=832$ where Z3 returns `unknown` (§3.6). Raising that ceiling is a solver-encoding problem left open.
+3. **A memory cost on tractable graphs.** The sparse encoding's auxiliary variables raise peak memory by roughly 2× on graphs whose old encoding never exploded (§3.4); it is a space-for-time trade, not a uniform improvement.
+4. **Recognition remains NP-complete.** None of this changes the worst case. The dense, all-distinct-endpoint `complete` family is where every backend is slowest, and where the full-range block is correctly disabled.
+5. **Repair is not minimal and is DAG-only.** The trie unfolding always succeeds for a DAG and preserves the string set, but the result is not a minimum-node Wheeler graph; cyclic graphs, where a string-preserving repair need not exist, are out of scope.
+
+## 6. Availability and reproducibility
+
+WGT is open source ([github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit)); the verification and improvement work described here is on the `devel` branch. The recognizer builds from source against Z3 (`recognizer/`); on Linux it is built directly with g++ linking Z3 statically (the committed `recognizer/bin/recognizer` is a macOS binary and must be rebuilt on other platforms). A typical recognition run is:
+
+```
+./bin/recognizer graph.dot          # default: heuristic + SMT (Z3)
+./bin/recognizer graph.dot -s p     # permutation backend
+./bin/recognizer graph.dot -f       # full-range SMT (no heuristic narrowing)
+```
+
+The brute-force oracle and differential harness live under `verify/` (`brute_oracle.py`, `difftest.py`, `difftest_exp.py`, `edgecases.py`); the repair module under `repair/` (`wheelerize.py`); the rebuilt exponential decision procedure under `benchmark/exponential_recognizer/`; and the full benchmark — the three-axis sweeps, the scalability limit test, and the figure-generation scripts — under `benchmark/` (`REPORT.md` is the consolidated record of every number in this report, with per-figure data under `benchmark/report_figs/data/` and `benchmark/limit_test/results/`). Comparisons were run on a single Linux host with the recognizer built from source and Z3 linked statically; the scalability sweep used a 600 s per-graph budget with three replicates per size.
