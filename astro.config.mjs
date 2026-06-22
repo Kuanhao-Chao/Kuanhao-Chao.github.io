@@ -50,6 +50,11 @@ export default defineConfig({
     '/projects': '/research/',
     '/internship': '/cv/',
     '/year-archive': '/news/',
+    // LiftOn report/post renamed v2.0.0 -> v1.0.9 (this is the incremental
+    // release of the published tool; "v2.0.0" is reserved for a separate
+    // experimental project). Keep the previously-shared URLs working.
+    '/posts/lifton-v2': '/posts/lifton-v1-0-9',
+    '/reports/lifton-v2-technical-report': '/reports/lifton-v1-0-9-technical-report',
     // Per-item pages from the previous site (auto-generated; see
     // scripts/gen-legacy-redirects.mjs). Originals live on archive.khchao.com.
     ...legacyRedirects,
