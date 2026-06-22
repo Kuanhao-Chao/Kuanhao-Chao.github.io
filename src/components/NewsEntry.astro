@@ -69,7 +69,11 @@ const searchText = `${d.title} ${entry.body ?? ''} ${d.location ?? ''}`.toLowerC
     border-radius: 999px;
     padding: 0.12em 0.55em;
   }
-  .news-tag--award { color: #8a5a1a; border-color: #e3c79a; background: #fbf3e4; }
+  .news-tag--award {
+    color: var(--color-badge-warm-text);
+    border-color: var(--color-badge-warm-border);
+    background: var(--color-badge-warm-bg);
+  }
   .news-tag--publication,
   .news-tag--release {
     color: var(--color-accent);

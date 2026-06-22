@@ -181,14 +181,14 @@ hr {
   top: 0;
   z-index: 1000;
   background: var(--color-ink);
-  color: #fff;
+  color: var(--color-on-ink);
   padding: 0.6rem 1rem;
   border-radius: var(--radius);
 }
 .skip-link:focus {
   left: var(--gutter);
   top: var(--gutter);
-  color: #fff;
+  color: var(--color-on-ink);
 }
 
 /* Buttons / pills */
@@ -224,12 +224,12 @@ hr {
   border-color: var(--color-accent);
   background-color: var(--color-accent);
   background-image: linear-gradient(var(--color-accent-dark), var(--color-accent-dark));
-  color: #fff;
+  color: var(--color-on-accent);
 }
 .btn--accent:hover {
   background-size: 100% 100%;
   border-color: var(--color-accent-dark);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 /* ── Scroll reveal ───────────────────────────────────────────────

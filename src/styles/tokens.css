@@ -2,7 +2,10 @@
    Design tokens — "Calico-faithful minimalist"
    Edit colors/fonts/scale here; the whole site follows.
    ─────────────────────────────────────────────────────────────── */
-:root {
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+
   /* Palette */
   --color-bg: #fafaf8;          /* warm off-white page */
   --color-surface: #ffffff;     /* cards / raised surfaces */
@@ -12,6 +15,17 @@
   --color-muted: #6b6b6b;       /* secondary text */
   --color-rule: #e5e4df;        /* hairline dividers */
   --color-link: var(--color-accent);
+  --color-on-ink: #ffffff;
+  --color-on-accent: #ffffff;
+  --color-badge-warm-text: #8a5a1a;
+  --color-badge-warm-border: #e3c79a;
+  --color-badge-warm-bg: #fbf3e4;
+  --color-dialog-backdrop: rgba(10, 10, 10, 0.92);
+  --color-dialog-control-bg: rgba(255, 255, 255, 0.1);
+  --color-dialog-control-bg-hover: rgba(255, 255, 255, 0.25);
+  --color-dialog-control-ink: #ffffff;
+  --rgb-ink: 20, 20, 20;
+  --rgb-accent: 46, 110, 94;
 
   /* Typography */
   --font-display: 'Hanken Grotesk Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -64,4 +78,28 @@
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
 
   --transition: 160ms ease;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-bg: #0f1413;
+  --color-surface: #171d1b;
+  --color-ink: #f2f0ea;
+  --color-accent: #75c7af;
+  --color-accent-dark: #9de2ce;
+  --color-muted: #a4aaa6;
+  --color-rule: #303934;
+  --color-link: var(--color-accent);
+  --color-on-ink: #0f1413;
+  --color-on-accent: #07110e;
+  --color-badge-warm-text: #e7c27f;
+  --color-badge-warm-border: #705a31;
+  --color-badge-warm-bg: #2b241a;
+  --color-dialog-backdrop: rgba(5, 7, 8, 0.94);
+  --color-dialog-control-bg: rgba(255, 255, 255, 0.12);
+  --color-dialog-control-bg-hover: rgba(255, 255, 255, 0.26);
+  --color-dialog-control-ink: #ffffff;
+  --rgb-ink: 242, 240, 234;
+  --rgb-accent: 117, 199, 175;
 }

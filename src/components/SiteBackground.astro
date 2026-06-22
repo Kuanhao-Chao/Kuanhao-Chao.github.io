@@ -30,9 +30,18 @@
 
   if (canvas && ctx) {
     const TAU = Math.PI * 2;
-    // Palette mirrors tokens.css (--color-ink #141414, --color-accent #2e6e5e).
-    const INK = '20, 20, 20';
-    const TEAL = '46, 110, 94';
+    let INK = '20, 20, 20';
+    let TEAL = '46, 110, 94';
+
+    function cssRgb(name: string, fallback: string) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    }
+
+    function refreshPalette() {
+      INK = cssRgb('--rgb-ink', '20, 20, 20');
+      TEAL = cssRgb('--rgb-accent', '46, 110, 94');
+      draw();
+    }
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     const coarse = window.matchMedia('(pointer: coarse)');
@@ -268,8 +277,10 @@
         start();
       }
     });
+    document.addEventListener('khc:theme-change', refreshPalette);
 
     fit();
+    refreshPalette();
     if (!reduce.matches) start();
   }
 </script>

@@ -41,7 +41,11 @@
     position: absolute;
     inset: 0 0 0 auto;
     width: 26px;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-accent) 65%, #fff));
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-accent) 65%, var(--color-on-accent))
+    );
   }
 </style>
 

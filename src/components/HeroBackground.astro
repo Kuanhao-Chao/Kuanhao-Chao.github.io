@@ -35,9 +35,20 @@
     const host = canvas?.parentElement;
     if (!canvas || !ctx || !host) return;
 
-    // Colours mirror tokens.css (--color-ink, --color-accent #2e6e5e).
-    const INK = [20, 20, 20];
-    const TEAL = [46, 110, 94];
+    let INK = [20, 20, 20];
+    let TEAL = [46, 110, 94];
+
+    function cssRgb(name: string, fallback: number[]) {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      const parts = raw.split(',').map((part) => Number(part.trim()));
+      return parts.length === 3 && parts.every(Number.isFinite) ? parts : fallback;
+    }
+
+    function refreshPalette() {
+      INK = cssRgb('--rgb-ink', [20, 20, 20]);
+      TEAL = cssRgb('--rgb-accent', [46, 110, 94]);
+      if (spine.length) draw(false);
+    }
 
     // Touch devices have no resting cursor: keep a calm drift instead of chasing.
     const coarse = window.matchMedia('(pointer: coarse)');
@@ -337,6 +348,7 @@
         start();
       }
     };
+    const onThemeChange = () => refreshPalette();
 
     // On touch (no resting cursor) skip pointer tracking so the helix never
     // lurches to the finger mid-scroll; it keeps its calm autonomous drift.
@@ -348,6 +360,7 @@
     ro.observe(host);
     if (textEl) ro.observe(textEl);
     document.addEventListener('visibilitychange', onVisChange);
+    document.addEventListener('khc:theme-change', onThemeChange);
     const io = new IntersectionObserver(
       (entries) => {
         for (const en of entries) {
@@ -360,6 +373,7 @@
     io.observe(host);
     reduce.addEventListener('change', onReduceChange);
 
+    refreshPalette();
     resize();
     if (!reduce.matches) start();
 
@@ -373,6 +387,7 @@
           window.removeEventListener('blur', onBlur);
         }
         document.removeEventListener('visibilitychange', onVisChange);
+        document.removeEventListener('khc:theme-change', onThemeChange);
         reduce.removeEventListener('change', onReduceChange);
       },
     };

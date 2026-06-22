@@ -27,6 +27,22 @@ const { title, description, image, type, noindex, scholarMeta } = Astro.props;
 <!doctype html>
 <html lang="en">
   <head>
+    <script is:inline>
+      (() => {
+        const key = 'khc-theme';
+        const root = document.documentElement;
+        let theme = null;
+        try {
+          const saved = localStorage.getItem(key);
+          if (saved === 'light' || saved === 'dark') theme = saved;
+        } catch {}
+        if (!theme) {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        root.dataset.theme = theme;
+        root.style.colorScheme = theme;
+      })();
+    </script>
     <BaseHead
       title={title}
       description={description}
@@ -49,6 +65,86 @@ const { title, description, image, type, noindex, scholarMeta } = Astro.props;
     <PageScan />
     <a href="#main" class="skip-link">Skip to content</a>
     <Header />
+    <script is:inline>
+      (() => {
+        const key = 'khc-theme';
+        const colors = { light: '#fafaf8', dark: '#0f1413' };
+        const getRoot = () => document.documentElement;
+        const media = window.matchMedia('(prefers-color-scheme: dark)');
+
+        const valid = (value) => value === 'light' || value === 'dark';
+        const stored = () => {
+          try {
+            const value = localStorage.getItem(key);
+            return valid(value) ? value : null;
+          } catch {
+            return null;
+          }
+        };
+        const system = () => (media.matches ? 'dark' : 'light');
+        const resolved = () => stored() || system();
+
+        const syncControls = (theme) => {
+          const nextLabel = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+          for (const button of document.querySelectorAll('[data-theme-toggle]')) {
+            button.dataset.themeState = theme;
+            button.setAttribute('aria-label', nextLabel);
+            button.setAttribute('title', nextLabel);
+            button.setAttribute('aria-pressed', String(theme === 'dark'));
+          }
+        };
+
+        const syncMeta = (theme, doc = document) => {
+          const meta = doc.querySelector('[data-theme-color]');
+          if (meta) meta.setAttribute('content', colors[theme]);
+        };
+
+        const apply = (theme, persist = false) => {
+          const next = valid(theme) ? theme : system();
+          const root = getRoot();
+          if (persist) {
+            try {
+              localStorage.setItem(key, next);
+            } catch {}
+          }
+          root.dataset.theme = next;
+          root.style.colorScheme = next;
+          syncMeta(next);
+          syncControls(next);
+          document.dispatchEvent(new CustomEvent('khc:theme-change', { detail: { theme: next } }));
+          return next;
+        };
+
+        if (!window.__khcTheme) {
+          window.__khcTheme = {
+            get: () => getRoot().dataset.theme || resolved(),
+            apply: (theme) => apply(theme, false),
+            set: (theme) => apply(theme, true),
+            toggle: () => apply((getRoot().dataset.theme || resolved()) === 'dark' ? 'light' : 'dark', true),
+            sync: () => apply(resolved(), false),
+          };
+
+          media.addEventListener('change', () => {
+            if (!stored()) apply(system(), false);
+          });
+
+          document.addEventListener('astro:before-swap', (event) => {
+            const theme = getRoot().dataset.theme || resolved();
+            const nextDocument = event.newDocument;
+            if (!nextDocument) return;
+            nextDocument.documentElement.dataset.theme = theme;
+            nextDocument.documentElement.style.colorScheme = theme;
+            syncMeta(theme, nextDocument);
+          });
+
+          document.addEventListener('astro:page-load', () => {
+            window.__khcTheme.sync();
+          });
+        }
+
+        window.__khcTheme.sync();
+      })();
+    </script>
     <main id="main">
       <slot />
     </main>
