@@ -68,7 +68,7 @@ const { src, alt, variant = 'landscape' } = Astro.props;
     font-size: var(--fs-meta);
     font-weight: var(--fw-medium);
     background: color-mix(in srgb, var(--color-ink) 74%, transparent);
-    color: #fff;
+    color: var(--color-on-ink);
     padding: 0.25em 0.6em;
     border-radius: 999px;
     opacity: 0;
@@ -87,7 +87,7 @@ const { src, alt, variant = 'landscape' } = Astro.props;
     max-height: 100vh;
   }
   .zfig-dialog::backdrop {
-    background: rgba(10, 10, 10, 0.9);
+    background: var(--color-dialog-backdrop);
   }
   .zfig-dialog[open] {
     display: grid;
@@ -109,14 +109,14 @@ const { src, alt, variant = 'landscape' } = Astro.props;
     height: 2.8rem;
     border-radius: 999px;
     border: none;
-    background: rgba(255, 255, 255, 0.16);
-    color: #fff;
+    background: var(--color-dialog-control-bg);
+    color: var(--color-dialog-control-ink);
     font-size: 1.05rem;
     cursor: pointer;
     transition: background var(--transition);
   }
   .zfig-close:hover {
-    background: rgba(255, 255, 255, 0.32);
+    background: var(--color-dialog-control-bg-hover);
   }
 </style>
 

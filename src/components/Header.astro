@@ -30,15 +30,34 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       </ul>
     </nav>
 
-    <button
-      class="nav-toggle"
-      type="button"
-      aria-expanded="false"
-      aria-controls="mobile-menu"
-      aria-label="Open menu"
-    >
-      <Icon name="menu" size={24} />
-    </button>
+    <div class="header-actions">
+      <button
+        class="theme-toggle"
+        type="button"
+        data-theme-toggle
+        data-theme-state="light"
+        aria-label="Switch to dark mode"
+        aria-pressed="false"
+        title="Switch to dark mode"
+      >
+        <span class="theme-toggle-icon theme-toggle-icon--sun" aria-hidden="true">
+          <Icon name="sun" size={19} />
+        </span>
+        <span class="theme-toggle-icon theme-toggle-icon--moon" aria-hidden="true">
+          <Icon name="moon" size={19} />
+        </span>
+      </button>
+
+      <button
+        class="nav-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        aria-label="Open menu"
+      >
+        <Icon name="menu" size={24} />
+      </button>
+    </div>
   </div>
 
   <div class="mobile-menu" id="mobile-menu" hidden>
@@ -142,15 +161,64 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   }
   .nav-toggle {
     display: none;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .theme-toggle,
+  .nav-toggle {
+    display: none;
     align-items: center;
     justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
+    width: 44px;
+    height: 44px;
     background: none;
     border: none;
     color: var(--color-ink);
     cursor: pointer;
     padding: 0.4rem;
+  }
+  .theme-toggle {
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+    transition:
+      border-color var(--transition),
+      background var(--transition),
+      color var(--transition);
+  }
+  .theme-toggle:hover {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-rule));
+    background: color-mix(in srgb, var(--color-accent) 9%, var(--color-surface));
+  }
+  .theme-toggle-icon {
+    grid-area: 1 / 1;
+    display: grid;
+    place-items: center;
+    transition:
+      opacity var(--transition),
+      transform var(--transition);
+  }
+  .theme-toggle-icon--sun {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.75);
+  }
+  .theme-toggle-icon--moon {
+    opacity: 1;
+    transform: none;
+  }
+  .theme-toggle[data-theme-state='dark'] .theme-toggle-icon--sun {
+    opacity: 1;
+    transform: none;
+  }
+  .theme-toggle[data-theme-state='dark'] .theme-toggle-icon--moon {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.75);
   }
   .mobile-menu {
     border-top: 1px solid var(--color-rule);
@@ -185,6 +253,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 </style>
 
 <script>
+  type ThemeApi = { toggle: () => void; sync: () => void };
+  const themeApi = () => (window as Window & { __khcTheme?: ThemeApi }).__khcTheme;
+
   const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
   const menu = document.querySelector<HTMLElement>('#mobile-menu');
   const header = document.querySelector<HTMLElement>('.site-header');
@@ -219,6 +290,13 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     // Close the mobile menu when a client-side navigation begins.
     document.addEventListener('astro:before-swap', () => setOpen(false));
   }
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]')) {
+    if (button.dataset.themeBound === 'true') continue;
+    button.dataset.themeBound = 'true';
+    button.addEventListener('click', () => themeApi()?.toggle());
+  }
+  themeApi()?.sync();
 
   // The header persists across view transitions, so refresh the active-nav
   // indicator on each navigation.
