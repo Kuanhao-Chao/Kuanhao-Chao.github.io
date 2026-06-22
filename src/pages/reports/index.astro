@@ -1,0 +1,24 @@
+---
+import { getCollection } from 'astro:content';
+import PageLayout from '../../layouts/PageLayout.astro';
+import ReportsList from '../../components/ReportsList.astro';
+
+const reports = (await getCollection('reports')).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+);
+---
+<PageLayout
+  title="Reports"
+  eyebrow="Technical reports"
+  lead="Formal technical notes with full methods, benchmarks, references, and generated PDFs."
+  description="Technical reports by Kuan-Hao Chao on computational genomics, machine learning, and open-source bioinformatics software."
+  noindex
+>
+  {
+    reports.length === 0 ? (
+      <p class="muted">No reports yet.</p>
+    ) : (
+      <ReportsList reports={reports} />
+    )
+  }
+</PageLayout>
