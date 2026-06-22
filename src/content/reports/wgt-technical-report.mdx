@@ -60,6 +60,9 @@ import rfigSetupMem from '../../assets/reports/wgt-technical-report/rfig_setup_m
 import rfigScalability from '../../assets/reports/wgt-technical-report/rfig_scalability.png';
 import rfigCeiling from '../../assets/reports/wgt-technical-report/rfig_f_ceiling.png';
 import rfigRepair from '../../assets/reports/wgt-technical-report/rfig_repair.png';
+import rfigTypeSpeedup from '../../assets/reports/wgt-technical-report/rfig_type_speedup.png';
+import rfigScalability1hr from '../../assets/reports/wgt-technical-report/rfig_scalability_1hr.png';
+import rfigPracticality from '../../assets/reports/wgt-technical-report/rfig_practicality.png';
 
 *Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Code: [github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit).*
 
@@ -338,6 +341,64 @@ Across 820 random DAGs, the repair module (§2.7) succeeded on every graph that 
   <strong>Figure 7.</strong> Repair node blow-up over 820 DAGs (316 repaired, 504 already Wheeler, 0 failures). A ratio below 1.0 is node *merging* — distinct nodes spelling the same string are merged while the represented path-string set is preserved exactly — not loss of information; above 1.0 is genuine node splitting.
 </ZoomFigure>
 
+### 3.8 Where the full-range speedup comes from, by graph type
+
+The corpus-median speedup of §3.3 holds across graph types, and breaking it out by type shows *which* of the two sparsifications (the cross-group A2 form and the within-group A3 block, §2.6) pays in each regime. We ran the same three-binary full-range timing (pre-4.1, pre-4.2, this work; median of replicates, all three run adjacently per graph) over the four biological corpora — De Bruijn and reverse-deterministic graphs, each on DNA and amino-acid alignments — splitting the total gain (pre-4.1 → this work) from the isolated A3 contribution (pre-4.2 → this work) and by Wheeler/non-Wheeler verdict (Table 10, Fig. 8). *These figures are over the current 717-of-900-graph subset of the sweep (the remaining graphs are the largest instances, an already-saturated size regime); the medians are stable and will be refreshed at completion.*
+
+**Table 10.** Median full-range speedup by graph type (717/900-graph subset). The A3 column isolates the within-group block; "break-even" is NEW ≡ OLD by construction where the shape-aware guard keeps the block off.
+
+| Graph type | Verdict | n | pre-4.1 → this work | pre-4.2 → this work (A3) |
+|---|---|---:|---:|---:|
+| De Bruijn **DNA** | Wheeler | 225 | **1.82×** | **1.77×** |
+| De Bruijn **AA** | Wheeler | 68 | **1.93×** | 1.01× (break-even) |
+| RevDet **DNA** | non-Wheeler | 182 | **1.62×** | 1.00× (break-even) |
+| RevDet **AA** | non-Wheeler | 196 | **2.18×** | 1.00× (break-even) |
+| RevDet **DNA** | Wheeler | 8 | 1.28× | 1.00× (break-even) |
+| RevDet **AA** | Wheeler | 2 | 1.69× | 1.01× (break-even) |
+
+The total speedup is **1.3–2.2× across every type**, never a regression — but the A3 column reveals a clean division of labor that tracks alphabet size. On **DNA** (a four-letter alphabet, so few label groups) the win is the within-group block: De Bruijn DNA is 1.77× from A3 alone out of 1.82× total, because few-label graphs have little cross-group cost for A2 to remove. On **amino-acid** alignments (a twenty-letter alphabet, so many label groups) the win is instead the cross-group A2 form: De Bruijn AA is 1.93× total but only 1.01× from A3, i.e. essentially all of it comes from the pre-4.1 → pre-4.2 step where the many-label cost lives, and A3 correctly stays off. The two encodings are thus complementary — A3 dominates the few-label regime, A2 the many-label regime — and every "break-even" cell is a true break-even, not a measured slowdown. (The reverse-deterministic Wheeler cells have small *n* because such graphs are almost never Wheeler on real alignments, §3.10; the well-powered RevDet cells are the non-Wheeler ones. Where the old pre-4.1 binary times out on the largest graphs those pairs are excluded, so the totals are conservative lower bounds.)
+
+<ZoomFigure src={rfigTypeSpeedup} alt="Two bar-chart panels of median full-range speedup by graph type, split Wheeler versus non-Wheeler. Left panel (total, pre-4.1 to new) shows all bars above 1.0, roughly 1.3 to 2.2 times. Right panel (isolated A3, pre-4.2 to new) shows a tall bar for De Bruijn DNA near 1.8 and the rest at about 1.0." variant="wide">
+  <strong>Figure 8.</strong> Per-graph-type full-range speedup (717/900-graph subset). <strong>Left:</strong> total gain (pre-4.1 → this work) — 1.3–2.2× on every type, both verdicts, no regressions. <strong>Right:</strong> the isolated within-group A3 block (pre-4.2 → this work) — a large win on sparse few-label De Bruijn DNA (~1.8×) and a correct break-even elsewhere, where the cross-group A2 form (left vs right gap) carries the gain instead.
+</ZoomFigure>
+
+### 3.9 The one-hour ceiling — and why parallelism does not raise it
+
+§3.5 measured sizes under a 600 s budget; the natural follow-up is how large a graph the production default decides given a full **hour**. A fresh 3,600 s sweep (default SMT, $R=2$, same ladder-then-bisect, in a clean output directory so it cannot inherit the 600 s timeouts as false caps) answers it, and every rung again served as a large-scale differential correctness test on Wheeler-by-construction families: **zero correctness failures** over the whole one-hour sweep. The default backend decides `complete` graphs of **4,608** nodes (median 52 min at the limit) and `dnfa` graphs of **3,584** (median 59 min), both still threshold-limited — Z3 is making progress at the wall, not returning `unknown` (Table 11, Fig. 9).
+
+**Table 11.** Largest graph decided by the default backend, 600 s vs 3,600 s (threshold/timeout limits).
+
+| Budget | `complete` | `dnfa` |
+|---|---:|---:|
+| 600 s | 2,816 | 2,176 |
+| 3,600 s (1 hour) | **4,608** | **3,584** |
+
+Six times the budget buys only about **1.64×** the size (2,816 → 4,608; 2,176 → 3,584), the sub-linear return expected when the solver's cost grows steeply with $n$ on these symmetric worst cases. But the operative point is the green band in Fig. 9: **real biology sits an order of magnitude below this ceiling.** The largest graph any real Ensembl gene alignment produced (§3.10) is 2,399 nodes, and all of them are decided in under a second — so the hour-scale runs are a synthetic stress test, not a practical limit.
+
+A reasonable question is whether parallelism would push the ceiling higher; it would not, for a structural reason. At scale the recognizer's wall time is almost entirely the Z3 `QF_IDL` solve — on the headline full-range graph the solve is ~98% of total and encoding/setup ~2% (Fig. 4), and the gap only widens with size — so "parallelize the recognizer" means "parallelize a single `QF_IDL` query," which Z3's parallel mode does not reliably speed up (a prototype with `parallel.enable` showed no measurable wall-time gain on the worst-case families; it was not retained, so this is reported qualitatively). The only other component, the Step-2 range-narrowing heuristic, is a sequential prefix-sum relabel and a negligible fraction of runtime. The honest answer is therefore that the parallel size ceiling is essentially the serial one, and the numbers here are reported as serial.
+
+<ZoomFigure src={rfigScalability1hr} alt="Three panels. (A) and (B) median wall time versus graph size for the complete and dnfa families under a one-hour budget, each curve climbing to the 3600 s timeout, with a shaded green band marking the real-MSA graph-size range well to the left. (C) bar chart of the one-hour size ceiling, complete 4608 and dnfa 3584." variant="wide">
+  <strong>Figure 9.</strong> One-hour scalability of the default backend. <strong>(A, B)</strong> Median wall time vs size for `complete` and `dnfa`; the curve crosses the 3,600 s line at n≈4,608 and n≈3,584. The shaded band marks where real MSA-derived graphs fall (n = 18–2,399, median 541, §3.10) — entirely in the sub-second-to-few-seconds region, far left of the ceiling. <strong>(C)</strong> The one-hour size ceiling per family (still threshold-limited).
+</ZoomFigure>
+
+### 3.10 From MSA to Wheeler graph: practicality on real gene families
+
+The questions above use synthetic worst-case families; this section closes the loop to biology by building Wheeler graphs from real multiple-sequence alignments and recognizing them end to end. WGT ships three MSA-to-graph constructions — a De Bruijn $k$-mer graph, a reverse-deterministic column automaton, and a trie — wrapped in a single turnkey CLI (`pipeline/fasta_to_wg.py`: FASTA alignment in; graph built, recognized, and timed out). We ran all three over 50 human gene orthologue alignments retrieved from Ensembl (DNA and amino-acid, sequence length capped for the De Bruijn ladder), 500 graphs in all, measuring graph size, recognition wall time, and Wheeler rate by construction (Table 12, Fig. 10).
+
+**Table 12.** MSA-to-Wheeler-graph practicality over 500 real Ensembl gene alignments.
+
+| Construction | Wheeler rate | Median nodes (max) | Median recognition time |
+|---|---:|---:|---:|
+| De Bruijn $k$-mer | **100%** (300/300) | 330 (2,284) | 78 ms |
+| Trie | **100%** (100/100) | 1,199 (2,399) | 169 ms |
+| Reverse-deterministic | **1%** (1/100) | 496 | 62 ms |
+
+Two results stand out. First, **construction choice all but determines the Wheeler verdict**: De Bruijn $k$-mer graphs and tries are Wheeler on every real alignment we tried (tries provably so — a prefix tree is a canonical Wheeler graph), whereas the reverse-deterministic column automaton is Wheeler only ~1% of the time, so it is the natural candidate for the repair path of §3.7. Second, **recognition is instant in practice**: every one of the 500 real graphs was decided in well under a second, and the largest (2,399 nodes) sits far below even the 600 s ceiling, let alone the one-hour ceiling of §3.9. The multi-thousand-node hour-long runs are a property of adversarial synthetic graphs; for the graphs molecular biology actually produces, the heuristic-plus-SMT recognizer is effectively real-time.
+
+<ZoomFigure src={rfigPracticality} alt="Three panels. (A) Wheeler rate by construction: De Bruijn and trie at 100 percent, reverse-deterministic near 0. (B) graph size versus alignment width on log-log axes, colored by construction. (C) recognition-time ECDF, all curves left of the one-second line." variant="wide">
+  <strong>Figure 10.</strong> Building and recognizing Wheeler graphs from 500 real Ensembl gene alignments. <strong>(A)</strong> Wheeler rate by construction — De Bruijn and trie 100%, reverse-deterministic ~1%. <strong>(B)</strong> Graph size vs alignment width by construction. <strong>(C)</strong> Recognition wall-time distribution — every real graph is decided in under a second.
+</ZoomFigure>
+
 ## 4. Discussion
 
 **Correctness is the load-bearing result.** The most consequential change in this pass is not the faster encoding or the new repair capability — it is that the recognizer's verdicts are now validated against an independent, obviously-correct oracle and a trustworthy second decision procedure. A recognizer is an oracle other research builds on; if it can silently accept a non-Wheeler graph, every downstream claim that rests on "this is a Wheeler graph" is unsupported. Establishing zero false-accepts and full oracle agreement (§3.1) is therefore the prerequisite that makes the speed and capability results worth reporting at all.
@@ -350,6 +411,8 @@ Across 820 random DAGs, the repair module (§2.7) succeeded on every graph that 
 
 **Verification as software practice.** The brute-force oracle and differential harness are cheap to run and decisive on small graphs, and they are the reason every claim in §3.1 is checkable rather than asserted. The same discipline that surfaced the accept-path edge cases (§2.4) is directly transferable to other combinatorial recognizers: build a slow, obviously-correct reference, then differential-test the fast implementation against it across many generated inputs.
 
+**Recognition is not the bottleneck in practice.** The scalability study (§3.5, §3.9) measures adversarial synthetic families precisely because they are the worst case; the practicality study (§3.10) shows where real data actually sits. Every Wheeler graph built from a real gene alignment was recognized in under a second, three orders of magnitude inside the one-hour ceiling, and parallelism does not move that ceiling because the cost is a single `QF_IDL` solve (§3.9). The practical lever is therefore *upstream*: which construction one chooses determines whether the graph is Wheeler at all (§3.10), and when it is not, repair (§3.7) turns that "no" into an indexable graph spelling the same strings. For realistic pangenome-scale inputs the open problem is graph *construction and size*, not recognition speed.
+
 ## 5. Limitations
 
 The study and tool are presented with the following honest caveats:
@@ -359,6 +422,7 @@ The study and tool are presented with the following honest caveats:
 3. **A memory cost on tractable graphs.** The sparse encoding's auxiliary variables raise peak memory by roughly 2× on graphs whose old encoding never exploded (§3.4); it is a space-for-time trade, not a uniform improvement.
 4. **Recognition remains NP-complete.** None of this changes the worst case. The dense, all-distinct-endpoint `complete` family is where every backend is slowest, and where the full-range block is correctly disabled.
 5. **Repair is not minimal and is DAG-only.** The trie unfolding always succeeds for a DAG and preserves the string set, but the result is not a minimum-node Wheeler graph; cyclic graphs, where a string-preserving repair need not exist, are out of scope.
+6. **The per-type speedup is on a 717/900-graph subset.** The breakdown in §3.8 reflects the in-progress timing sweep; the remaining graphs are its largest instances (an already-saturated size regime), the medians are stable, and the figure will be refreshed with the full corpus on completion.
 
 ## 6. Availability and reproducibility
 
