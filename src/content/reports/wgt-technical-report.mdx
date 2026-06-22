@@ -1,6 +1,6 @@
 ---
 title: 'Verifying and extending the Wheeler Graph Toolkit: correctness, capability, and a faster full-range solver'
-description: 'A technical report on a verification-and-improvement pass over the Wheeler Graph Toolkit (WGT): an independent brute-force oracle and a differential-testing harness that establish recognizer correctness against ground truth, an exponential reference rebuilt into an explicit decision procedure, a sparser full-range SMT encoding, and a string-preserving graph-repair module — evaluated along three deliberately separated axes (correctness, capability, performance).'
+description: 'A technical report on a verification-and-improvement pass over the Wheeler Graph Toolkit (WGT): an independent brute-force oracle and differential-testing harness, a rebuilt exponential decision procedure, a sparser full-range SMT encoding, one-hour and real-MSA practicality studies, and a string-preserving graph-repair module.'
 authors:
   - Kuan-Hao Chao
 abstract: >-
@@ -23,12 +23,16 @@ abstract: >-
   not previously classify. On performance, a sparser full-range SMT encoding reduces the cross-label axiom
   constraint from O(E^2) to O(E+L) and the within-label constraint from O(E_l^2) to O(D_l^2+E_l); on a real
   k=5 gene graph this cuts encoding setup roughly fourteen-fold and end-to-end full-range time about
-  two-fold, with a median 1.5x speedup across 289 real DNA graphs and an honest ~2x peak-memory cost on
-  tractable graphs. A scalability sweep characterizes each backend's size limit under a 600 s budget
-  (default SMT to ~2,800 nodes; the exponential reference capped near ten), and a new repair module unfolds
-  any non-Wheeler DAG into a Wheeler graph that preserves its path-string set exactly (316 of 316 repaired,
-  zero failures over 820 DAGs). None of these changes alters WGT's published recognition method; they make
-  it verifiable, faster on the full-range path, and capable of repair.
+  two-fold, with a median 1.5× speedup across 289 real DNA graphs and an honest ~2× peak-memory cost on
+  tractable graphs. The full-range gain holds across biological graph types (1.3×–2.2× total speedup on the
+  paired subset), while the default heuristic-plus-SMT recognizer remains the production scaler: under a
+  600 s budget it decides synthetic complete graphs to ~2,800 nodes, and under a one-hour budget to 4,608
+  nodes. Real MSA-derived graphs are far easier — 500 Ensembl gene-alignment graphs are all decided in under
+  a second, with De Bruijn and trie constructions Wheeler in every case and reverse-deterministic automata
+  Wheeler rarely. Finally, a new repair module unfolds any non-Wheeler DAG into a Wheeler graph that
+  preserves its path-string set exactly (316 of 316 repaired, zero failures over 820 DAGs). None of these
+  changes alters WGT's published recognition method; they make it verifiable, faster on the full-range path,
+  practically scalable, and capable of repair.
 date: 2026-06-20
 venue: 'Technical Report'
 institution: 'Johns Hopkins University'
@@ -343,9 +347,9 @@ Across 820 random DAGs, the repair module (§2.7) succeeded on every graph that 
 
 ### 3.8 Where the full-range speedup comes from, by graph type
 
-The corpus-median speedup of §3.3 holds across graph types, and breaking it out by type shows *which* of the two sparsifications (the cross-group A2 form and the within-group A3 block, §2.6) pays in each regime. We ran the same three-binary full-range timing (pre-4.1, pre-4.2, this work; median of replicates, all three run adjacently per graph) over the four biological corpora — De Bruijn and reverse-deterministic graphs, each on DNA and amino-acid alignments — splitting the total gain (pre-4.1 → this work) from the isolated A3 contribution (pre-4.2 → this work) and by Wheeler/non-Wheeler verdict (Table 10, Fig. 8). *These figures are over the current 717-of-900-graph subset of the sweep (the remaining graphs are the largest instances, an already-saturated size regime); the medians are stable and will be refreshed at completion.*
+The corpus-median speedup of §3.3 holds across graph types, and breaking it out by type shows *which* of the two sparsifications (the cross-group A2 form and the within-group A3 block, §2.6) pays in each regime. We ran the same three-binary full-range timing (pre-4.1, pre-4.2, this work; median of replicates, all three run adjacently per graph) over the four biological corpora — De Bruijn and reverse-deterministic graphs, each on DNA and amino-acid alignments — splitting the total gain (pre-4.1 → this work) from the isolated A3 contribution (pre-4.2 → this work) and by Wheeler/non-Wheeler verdict (Table 10, Fig. 8). The reported subset covers 717 of the planned 900 timing jobs; Table 10 uses the 681 paired jobs with complete timing across all three binaries, excluding unpaired largest-instance rows where the pre-4.1 binary did not return a comparable time.
 
-**Table 10.** Median full-range speedup by graph type (717/900-graph subset). The A3 column isolates the within-group block; "break-even" is NEW ≡ OLD by construction where the shape-aware guard keeps the block off.
+**Table 10.** Median full-range speedup by graph type (681 paired jobs from the 717-job timing subset). The A3 column isolates the within-group block; "break-even" is NEW ≡ OLD by construction where the shape-aware guard keeps the block off.
 
 | Graph type | Verdict | n | pre-4.1 → this work | pre-4.2 → this work (A3) |
 |---|---|---:|---:|---:|
@@ -359,7 +363,7 @@ The corpus-median speedup of §3.3 holds across graph types, and breaking it out
 The total speedup is **1.3–2.2× across every type**, never a regression — but the A3 column reveals a clean division of labor that tracks alphabet size. On **DNA** (a four-letter alphabet, so few label groups) the win is the within-group block: De Bruijn DNA is 1.77× from A3 alone out of 1.82× total, because few-label graphs have little cross-group cost for A2 to remove. On **amino-acid** alignments (a twenty-letter alphabet, so many label groups) the win is instead the cross-group A2 form: De Bruijn AA is 1.93× total but only 1.01× from A3, i.e. essentially all of it comes from the pre-4.1 → pre-4.2 step where the many-label cost lives, and A3 correctly stays off. The two encodings are thus complementary — A3 dominates the few-label regime, A2 the many-label regime — and every "break-even" cell is a true break-even, not a measured slowdown. (The reverse-deterministic Wheeler cells have small *n* because such graphs are almost never Wheeler on real alignments, §3.10; the well-powered RevDet cells are the non-Wheeler ones. Where the old pre-4.1 binary times out on the largest graphs those pairs are excluded, so the totals are conservative lower bounds.)
 
 <ZoomFigure src={rfigTypeSpeedup} alt="Two bar-chart panels of median full-range speedup by graph type, split Wheeler versus non-Wheeler. Left panel (total, pre-4.1 to new) shows all bars above 1.0, roughly 1.3 to 2.2 times. Right panel (isolated A3, pre-4.2 to new) shows a tall bar for De Bruijn DNA near 1.8 and the rest at about 1.0." variant="wide">
-  <strong>Figure 8.</strong> Per-graph-type full-range speedup (717/900-graph subset). <strong>Left:</strong> total gain (pre-4.1 → this work) — 1.3–2.2× on every type, both verdicts, no regressions. <strong>Right:</strong> the isolated within-group A3 block (pre-4.2 → this work) — a large win on sparse few-label De Bruijn DNA (~1.8×) and a correct break-even elsewhere, where the cross-group A2 form (left vs right gap) carries the gain instead.
+  <strong>Figure 8.</strong> Per-graph-type full-range speedup (681 paired jobs from the 717-job timing subset). <strong>Left:</strong> total gain (pre-4.1 → this work) — 1.3–2.2× on every type, both verdicts, no regressions. <strong>Right:</strong> the isolated within-group A3 block (pre-4.2 → this work) — a large win on sparse few-label De Bruijn DNA (~1.8×) and a correct break-even elsewhere, where the cross-group A2 form (left vs right gap) carries the gain instead.
 </ZoomFigure>
 
 ### 3.9 The one-hour ceiling — and why parallelism does not raise it
@@ -383,7 +387,7 @@ A reasonable question is whether parallelism would push the ceiling higher; it w
 
 ### 3.10 From MSA to Wheeler graph: practicality on real gene families
 
-The questions above use synthetic worst-case families; this section closes the loop to biology by building Wheeler graphs from real multiple-sequence alignments and recognizing them end to end. WGT ships three MSA-to-graph constructions — a De Bruijn $k$-mer graph, a reverse-deterministic column automaton, and a trie — wrapped in a single turnkey CLI (`pipeline/fasta_to_wg.py`: FASTA alignment in; graph built, recognized, and timed out). We ran all three over 50 human gene orthologue alignments retrieved from Ensembl (DNA and amino-acid, sequence length capped for the De Bruijn ladder), 500 graphs in all, measuring graph size, recognition wall time, and Wheeler rate by construction (Table 12, Fig. 10).
+The questions above use synthetic worst-case families; this section closes the loop to biology by building Wheeler graphs from real multiple-sequence alignments and recognizing them end to end. WGT ships three MSA-to-graph constructions — a De Bruijn $k$-mer graph, a reverse-deterministic column automaton, and a trie — wrapped in a single turnkey CLI (`pipeline/fasta_to_wg.py`: FASTA alignment in; graph built, recognized, and timed). We ran all three over 50 human gene orthologue alignments retrieved from Ensembl (DNA and amino-acid, sequence length capped for the De Bruijn ladder), 500 graphs in all, measuring graph size, recognition wall time, and Wheeler rate by construction (Table 12, Fig. 10).
 
 **Table 12.** MSA-to-Wheeler-graph practicality over 500 real Ensembl gene alignments.
 
@@ -422,7 +426,7 @@ The study and tool are presented with the following honest caveats:
 3. **A memory cost on tractable graphs.** The sparse encoding's auxiliary variables raise peak memory by roughly 2× on graphs whose old encoding never exploded (§3.4); it is a space-for-time trade, not a uniform improvement.
 4. **Recognition remains NP-complete.** None of this changes the worst case. The dense, all-distinct-endpoint `complete` family is where every backend is slowest, and where the full-range block is correctly disabled.
 5. **Repair is not minimal and is DAG-only.** The trie unfolding always succeeds for a DAG and preserves the string set, but the result is not a minimum-node Wheeler graph; cyclic graphs, where a string-preserving repair need not exist, are out of scope.
-6. **The per-type speedup is on a 717/900-graph subset.** The breakdown in §3.8 reflects the in-progress timing sweep; the remaining graphs are its largest instances (an already-saturated size regime), the medians are stable, and the figure will be refreshed with the full corpus on completion.
+6. **The per-type speedup is a subset analysis.** The breakdown in §3.8 is reported on the paired 681-job subset of a 717-job timing run, not on the full planned 900-job grid; the omitted rows are the largest instances and mainly reflect missing comparable pre-4.1 timings, so the table is a conservative per-type summary rather than a complete-grid census.
 
 ## 6. Availability and reproducibility
 

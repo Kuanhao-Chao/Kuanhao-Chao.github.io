@@ -8,10 +8,11 @@ interface Props {
   lead?: string;
   description?: string;
   width?: 'wide' | 'narrow';
+  noindex?: boolean;
 }
-const { title, eyebrow, lead, description, width = 'wide' } = Astro.props;
+const { title, eyebrow, lead, description, width = 'wide', noindex = false } = Astro.props;
 ---
-<BaseLayout title={title} description={description ?? lead}>
+<BaseLayout title={title} description={description ?? lead} noindex={noindex}>
   <header class="page-head">
     <div class:list={['container', width === 'narrow' && 'container--narrow']}>
       {eyebrow && <p class="eyebrow">{eyebrow}</p>}
