@@ -1,25 +1,9 @@
 ---
-title: 'LiftOn v1.0.9: scaling accurate genome annotation to whole genomes'
-description: 'LiftOn v1.0.9 rebuilds our DNA-plus-protein genome-annotation lift-over tool for whole-genome scale: lower memory, fewer crashes, broader feature recovery, and a safer merge — validated on seventeen whole-genome end-to-end lift-overs across a four-tier divergence ladder, from same-species to mammal-to-bird.'
+title: 'LiftOn v1.0.9: bringing accurate lift-over to whole genomes'
+description: 'LiftOn v1.0.9 reworks the DNA-plus-protein lift-over engine for whole-genome scale, reducing memory, improving robustness, broadening feature recovery, and validating behavior across seventeen lift-overs.'
 authors: ['Kuan-Hao Chao']
 abstract: >-
-  LiftOn v1.0.9 is a substantial update to the genome-annotation lift-over tool that combines DNA alignment
-  (Liftoff) and protein alignment (miniprot). The core idea is unchanged: use both signals, then choose
-  the gene model that best preserves the reference protein. The update focuses on making that idea reliable
-  at whole-genome scale. It adds a memory-bounded windowed aligner for giant genes, a best-of-outcome merge
-  that keeps the DNA-plus-protein model only when it improves the emitted protein, default lifting of
-  gene-like feature types beyond protein-coding genes, full-genome robustness fixes, and faster execution
-  protected by a 24-cell byte-identity regression matrix. Evaluated on seventeen whole-genome, end-to-end
-  lift-overs spanning a four-tier divergence ladder — from same-species plant and animal assemblies, through
-  close (human-to-gorilla, mouse-to-Mus caroli) and distant (dog-to-cat, human-to-macaque) cross-species
-  pairs, to very-distant pairs (eudicot-to-monocot, mammal-to-fish, mammal-to-bird) where DNA synteny has all
-  but vanished — LiftOn v1.0.9 produced higher mean protein identity than both single-method baselines (Liftoff
-  and miniprot) on every one of the seventeen whole genomes; against Liftoff the lead widens steadily with
-  divergence, and read apples-to-apples on the transcripts both tools recover, LiftOn's per-transcript edge over
-  miniprot is genuine and peaks on the distant tier — at very-distant divergence its higher aggregate reflects
-  high-precision recovery of the small DNA-anchored core it places, not higher recall. On five RefSeq genomes that the previous release crashed on, it finished the runs and
-  recovered tens of thousands more coding transcripts, and it emitted cleaner GFF3 than v1.0.8 on every genome
-  both produced.
+  LiftOn v1.0.9 moves the DNA-plus-protein lift-over algorithm from accurate chromosome-scale annotation transfer toward reliable whole-genome use. The update adds memory-bounded alignment for giant genes, a best-of-outcome merge, broader feature lifting, robustness fixes, faster execution, and regression testing; across seventeen whole-genome lift-overs it improved mean protein identity over both Liftoff and miniprot while making previously failing full-genome runs finish.
 date: 2026-06-20
 category: summary
 draft: true

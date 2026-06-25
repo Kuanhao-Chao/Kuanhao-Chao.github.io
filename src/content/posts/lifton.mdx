@@ -1,13 +1,12 @@
 ---
-title: 'Why we built LiftOn: an algorithm for combining DNA and protein evidence'
-description: 'The story behind LiftOn — a genome-annotation lift-over algorithm that combines DNA alignment from Liftoff and protein alignment from miniprot through protein maximization, so accurate annotations can be carried onto new assemblies and related species.'
+title: 'LiftOn: combining DNA and protein evidence for genome annotation'
+description: 'LiftOn carries annotations onto new assemblies by joining Liftoff DNA alignments with miniprot protein evidence, using protein maximization to preserve accurate coding models.'
 authors: ['Kuan-Hao Chao']
 abstract: >-
-  This article summarizes the motivation and algorithm behind LiftOn, a homology-based genome-annotation lift-over
-  method that combines DNA-based and protein-based alignments. It explains why DNA alignment and protein alignment
-  fail in complementary ways, how LiftOn reconciles Liftoff and miniprot annotations with a two-step
-  protein-maximization algorithm, and what the paper showed across human, same-species, and cross-species
-  annotation transfers.
+  LiftOn addresses a practical failure mode in annotation transfer: DNA alignments preserve gene structure near the
+  reference, while protein alignments stay informative across larger evolutionary distances but lose noncoding context.
+  The post explains how LiftOn reconciles Liftoff and miniprot annotations with a two-step protein-maximization
+  algorithm and what the paper showed across human, same-species, and cross-species annotation transfers.
 date: 2025-02-01
 category: summary
 tags: ['Genome annotation', 'Comparative genomics', 'Open source']

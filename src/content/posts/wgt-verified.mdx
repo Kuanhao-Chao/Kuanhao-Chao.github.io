@@ -1,23 +1,9 @@
 ---
-title: 'Revisiting WGT: a verified recognizer, a faster solver, and graph repair'
-description: 'A verification-and-improvement pass over the Wheeler Graph Toolkit: an independent brute-force oracle and differential testing that harden the recognizer to zero false-accepts and full agreement with ground truth, a sparser SMT encoding that speeds up the full-range solver, and a new module that repairs a non-Wheeler DAG into a Wheeler graph while preserving its path-string set.'
+title: 'WGT revisited: verification, faster solving, and graph repair'
+description: 'This WGT update adds an independent oracle, differential tests, a sparser SMT encoding, and graph repair for turning DAGs Wheeler while preserving their path strings.'
 authors: ['Kuan-Hao Chao']
 abstract: >-
-  The Wheeler Graph Toolkit (WGT) generates, recognizes, and visualizes Wheeler graphs — the class of
-  edge-labeled graphs that can be indexed and searched like a BWT, and a foundation for compact pangenome
-  indexes. Recognition is NP-complete, and WGT's recognizer (Wheelie) makes it practical by pairing a
-  renaming heuristic with a permutation or SMT solver. This update is not a new method but a verification
-  and engineering pass that makes the existing one more trustworthy, faster, and more capable. I built an
-  independent brute-force oracle that enumerates every node ordering and checks the Wheeler axioms directly,
-  then differential-tested the recognizer against it across thousands of graphs; that process hardened the
-  recognizer's accept paths to zero false-accepts on a deliberately reject-heavy corpus and full agreement
-  with the oracle on every decided graph (2,447 of 2,447, zero disagreements). I rebuilt the exponential
-  reference implementation into an explicit axiom-checking decision procedure so it can serve as a
-  trustworthy second opinion, sharpened the full-range SMT encoding so its setup is roughly an order of
-  magnitude cheaper and its end-to-end time about two times faster on real DNA graphs, and added a graph
-  repair module that turns a non-Wheeler DAG into a Wheeler graph while preserving the exact set of strings
-  it spells. The theme throughout is to keep three questions separate — is a verdict correct, can it be
-  produced at all, and how fast is it — because a faster wrong answer is not progress.
+  WGT revisited focuses on whether Wheeler graph recognition is correct before asking whether it is faster. It adds an independent brute-force oracle, differential testing, a leaner SMT encoding, and a graph-repair module that converts non-Wheeler DAGs into Wheeler graphs while preserving their path-string sets. The verification pass achieved zero false-accepts on a reject-heavy corpus and full agreement with the oracle on all decided graphs, while speeding the full-range SMT solver on real DNA graphs.
 date: 2026-06-20
 category: summary
 draft: true

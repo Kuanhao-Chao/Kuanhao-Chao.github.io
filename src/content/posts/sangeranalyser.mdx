@@ -1,9 +1,9 @@
 ---
-title: 'Why we built sangeranalyseR: painless Sanger sequencing analysis in R'
-description: 'The story behind sangeranalyseR — a free, open-source R/Bioconductor package that takes you from raw .ab1 chromatograms to aligned consensus sequences in about four lines of code, with an interactive Shiny GUI.'
+title: 'sangeranalyseR: making Sanger workflows reproducible in R'
+description: 'sangeranalyseR turns ABIF or FASTA inputs into a reproducible R workflow for trimming reads, assembling consensus contigs, inspecting results, and exporting reports.'
 authors: ['Kuan-Hao Chao']
 abstract: >-
-  This article summarizes sangeranalyseR, an open-source R/Bioconductor package for processing Sanger sequencing chromatograms into quality-trimmed reads, contigs, alignments, reports, and interactive visualizations. It explains the motivation for building a reproducible R-native workflow and the main design choices behind the package.
+  sangeranalyseR packages Sanger sequencing into a reproducible R workflow: grouping reads, trimming and inspecting chromatograms, assembling contigs, aligning results, generating quality-control views, and exporting FASTA files and interactive reports. The post traces the project from Robert Lanfear's ANU mentorship and the Bioconductor ecosystem to the object model that lets users automate analysis while still inspecting chromatogram-level evidence.
 date: 2021-03-01
 category: summary
 tags: ['Sanger sequencing', 'R / Bioconductor', 'Open source']
@@ -18,32 +18,36 @@ import figWorkflow from '../../assets/posts/sangeranalyser/sanger-workflow.png';
 import figExample from '../../assets/posts/sangeranalyser/sanger-example.png';
 import figShiny from '../../assets/posts/sangeranalyser/sanger-shiny.png';
 
-Sanger sequencing is the original way of reading DNA, and decades after it was invented it is still everywhere. It reads one fragment at a time and produces a *chromatogram* — the familiar four-colour trace of peaks — and it remains the everyday workhorse for confirming a cloned construct, barcoding a species, checking a CRISPR edit, or validating a variant a sequencer flagged. It's accurate, cheap for small jobs, and woven into the daily routine of molecular labs around the world.
+Sanger sequencing was the first controllable method for reading nucleic acid sequence, and decades after its introduction it remains widely used for sequencing individual DNA fragments and validating results from next-generation sequencing projects. A Sanger run produces a *chromatogram* — the familiar four-colour trace of peaks — plus a called nucleotide sequence and quality information.
 
-So here is something odd. As next-generation sequencing arrived, it brought with it a whole ecosystem of free, scriptable, interoperable software. Sanger sequencing — older, more widely used in many labs — never got the same treatment. The tools for it lagged behind.
+The software ecosystem did not age as cleanly as the chemistry. Many Sanger tools were capable but commercial, restrictive, or difficult to place inside a reproducible analysis pipeline. At the same time, newer sequencing platforms had grown up alongside free, scriptable, interoperable tools.
 
-**sangeranalyseR** is the package we built to fix that.
+**sangeranalyseR** was our answer: a free, open-source R package that makes Sanger processing a reproducible workflow rather than a sequence of manual steps.
 
 ## Why the old way was painful
 
-When I was at the Australian National University, near the start of my research career, getting from a folder of `.ab1` chromatogram files to a clean, aligned consensus sequence was more annoying than it had any right to be. Your options were essentially two. You could pay for commercial software — Geneious, Sequencher, CodonCode Aligner — which is capable but expensive and awkward to fit into an automated pipeline. Or you could wrestle with venerable command-line tools like Phred, Phrap, and Consed, which are free but cumbersome and hard to glue to anything modern.
+When I was at the Australian National University, near the start of my research career, getting from a folder of `.ab1` chromatogram files to a clean set of consensus contigs meant leaving the environment where the rest of the analysis often happened. Tools such as Geneious, Sequencher, CodonCode Aligner, and Phred-Phrap-Consed were widely used, but the paper's point was practical: they were often expensive, restrictively licensed, cumbersome, or hard to integrate with other packages.
 
-What there wasn't, conspicuously, was a good option in **R** — the environment where so much of bioinformatics and phylogenetics actually happens. There was one R package, sangerseqR, but it worked on a single read at a time; it didn't do the real, repetitive job, which is assembling many reads into contigs and aligning those contigs across samples. So, with Rob Lanfear and colleagues, I built the tool I wished I'd had.
+The project itself began with Robert Lanfear, my mentor at ANU. I was fortunate that he introduced me to it early in my research career, and that we could work through the engineering details of the new version together: how the Sanger workflow should be represented in R, how much should be automatic, where users needed control, and how the Shiny interface should preserve reproducibility rather than become a separate manual path.
 
-## What sangeranalyseR is
+There was already useful R infrastructure. In particular, `sangerseqR` handled individual Sanger reads and provided the foundation we built on. But the missing layer was the full multi-read workflow: group reads into samples, trim them, assemble forward and reverse reads into contigs, align those contigs, inspect the results, and export the outputs for downstream analysis.
 
-sangeranalyseR is a free, open-source R/Bioconductor package that carries you all the way from raw chromatograms to aligned consensus sequences. It leans on sensible defaults so the common case is trivial, while exposing every parameter for when you need control.
+## The workflow algorithm
+
+sangeranalyseR's contribution is the workflow algorithm around Sanger data. It takes reads in ABIF or FASTA format, determines how they should be grouped into contigs, processes each read and contig with adjustable defaults, and keeps the full result inside R objects that can be inspected, revised, reported, and exported.
 
 <ZoomFigure src={figWorkflow} alt="The five-step sangeranalyseR workflow shown as three columns — workflow step, the R function or object, and the inputs/outputs — from preparing .ab1 files to generating an interactive HTML report." variant="wide">
   <strong>Figure 1.</strong> The sangeranalyseR workflow. Five steps take you from input files to a finished report: prepare `.ab1`/FASTA inputs; load and analyse them through three nested objects (<code>SangerRead</code> → <code>SangerContig</code> → <code>SangerAlignment</code>); optionally explore the data in an interactive Shiny app; write out aligned consensus contigs as FASTA; and generate a self-contained interactive HTML report.
 </ZoomFigure>
 
-The structure mirrors how Sanger data is actually organized: individual reads (`SangerRead`) assemble into per-sample contigs (`SangerContig`), which align into a final multiple alignment (`SangerAlignment`). And the headline claim is real — a complete analysis is about four lines of R:
+The object model is the key design. `SangerRead` stores one read, its chromatogram, and trimming information. `SangerContig` stores the reads that form one contig, the consensus sequence created with DECIPHER, a dendrogram, and optional indel or stop-codon information. `SangerAlignment` stores the collection of contigs, the contig alignment, and a quality-control tree. For downstream phylogenetics, the alignment and tree should be treated as QC summaries rather than final analyses.
+
+The paper's small example is intentionally simple. A complete analysis of the example data can be driven in a few lines of R:
 
 ```r
 library(sangeranalyseR)
 
-# one call: load every .ab1 file, quality-trim, assemble contigs, and align them
+# one call: group reads, trim them, assemble contigs, and align the contigs
 aln <- SangerAlignment(inputSource = "ABIF",
                        parentDirectory = "./Allolobophora_chlorotica")
 
@@ -53,25 +57,31 @@ generateReport(aln)   # write a full, interactive HTML report
 
 ## What it does
 
-**Four lines, but flexible underneath.** That single `SangerAlignment` call does a lot: it reads every chromatogram, trims each one by quality (using either the modified-Mott algorithm from Phred or a sliding window in the style of Trimmomatic), assembles the forward and reverse reads of each sample into a consensus contig, and aligns the contigs together. The figure below shows it on a real dataset — eight earthworm (*Allolobophora chlorotica*) samples from the Barcode of Life Database, sixteen `.ab1` files in all.
+**A few lines, but explicit underneath.** That single `SangerAlignment` call does a sequence of concrete operations. It reads ABIF or FASTA inputs, groups reads into contigs by filename patterns or a CSV file, trims reads with either the modified Mott algorithm used by Phred and Biopython or a sliding-window approach like Trimmomatic, assembles forward and reverse reads into consensus contigs, and aligns the contigs together. The paper demonstrates this on eight annelid (*Allolobophora chlorotica*) samples from the Barcode of Life Database, with one forward and one reverse ABIF read per sample.
 
 <ZoomFigure src={figExample} alt="A worked example: four lines of R code, the input file structure, the Shiny overview screen, a multiple sequence alignment of eight consensus contigs, and a neighbour-joining tree." variant="wide">
-  <strong>Figure 2.</strong> A complete analysis of eight samples. <strong>(A)</strong> The few lines of R that drive it. <strong>(B)</strong> The input `.ab1` files, organized in folders. <strong>(C)</strong> The optional Shiny overview page. <strong>(D)</strong> The resulting multiple sequence alignment of the eight consensus contigs, and <strong>(E)</strong> a neighbour-joining tree built from them — a quick check that the contigs make biological sense.
+  <strong>Figure 2.</strong> A complete analysis of eight samples. <strong>(A)</strong> The few lines of R that drive it. <strong>(B)</strong> The ABIF input files, organized in folders and named so the package can infer contig groups and read direction. <strong>(C)</strong> The optional Shiny overview page. <strong>(D)</strong> The resulting multiple sequence alignment of the eight consensus contigs, and <strong>(E)</strong> a neighbour-joining tree used as a quality-control view.
 </ZoomFigure>
 
-**Interactive when you want to look closer.** Good defaults handle most reads, but some need a human eye. So sangeranalyseR ships with interactive Shiny apps that let you inspect and adjust everything without leaving R: view each read's chromatogram with the trimmed ends shaded, see per-base quality scores and secondary peaks, scan a heatmap of pairwise differences between the reads in a contig, and — if you supply a reference protein — catch indels and premature stop codons. You can re-trim a read by dragging a slider, watch the consensus update, and then save those exact parameters so the whole analysis is reproducible.
+**Interactive when you need inspection.** The workflow is automated, but the paper is clear that users sometimes need to inspect reads and tune parameters. The Shiny applications expose that inspection layer inside R: users can view read alignments, Hamming-distance heatmaps between reads in a contig, trimmed primary and secondary sequences, per-base Phred quality scores, secondary peaks, trimming positions, and chromatograms with the 5' and 3' trimmed regions highlighted. If an amino-acid reference is supplied, the app also reports indels and stop codons in individual reads.
 
 <ZoomFigure src={figShiny} alt="The interactive Shiny interface: a read alignment, a Hamming-distance heatmap, indel and stop-codon tables, per-base quality scores, a quality-trimming plot, and a chromatogram with trimmed regions highlighted." variant="wide">
-  <strong>Figure 3.</strong> Inspecting the details in the Shiny GUI. The left column works at the contig level — the read alignment <strong>(A)</strong>, a pairwise-distance heatmap <strong>(B)</strong>, and indel <strong>(C)</strong> and stop-codon <strong>(D)</strong> tables. The right column drills into a single read — its trimmed sequence and quality scores <strong>(E)</strong>, an interactive quality-trimming plot <strong>(F)</strong>, and the raw chromatogram with trimmed ends highlighted <strong>(G)</strong>.
+  <strong>Figure 3.</strong> Inspecting the details in the Shiny GUI. The left column works at the contig level — the read alignment <strong>(A)</strong>, a Hamming-distance heatmap <strong>(B)</strong>, and reference-dependent indel <strong>(C)</strong> and stop-codon <strong>(D)</strong> tables. The right column drills into a single read — the trimmed primary and secondary sequences with quality scores <strong>(E)</strong>, an interactive trimming plot <strong>(F)</strong>, and the raw chromatogram with trimmed ends highlighted <strong>(G)</strong>.
 </ZoomFigure>
 
-**And it lives in R.** Results come back both as standard FASTA files, for handing to other tools, and as R objects, for the rest of your analysis. The package is MIT-licensed, distributed through Bioconductor, documented in depth, and unit-tested — the kind of plumbing that makes a tool dependable rather than just clever.
+The important implementation detail is reproducibility. When users adjust parameters in Shiny and save the updated S4 object, those parameter values are stored back in the object rather than being left as undocumented manual edits. Results can then be written as FASTA files — trimmed reads, consensus contigs, aligned consensus contigs, or all of them — and as interactive HTML reports arranged around reads, contigs, and alignments.
+
+There is also a real input-format boundary. ABIF files contain the raw trace information needed for base calling, chromatogram plotting, and trace-based trimming. FASTA input is useful for interoperability, including edited reads from other programs, but FASTA does not contain the raw chromatogram information, so those ABIF-dependent features are unavailable.
+
+**And it lives in R.** The final outputs are standard files for other tools and structured R objects for further analysis. The package is MIT-licensed, distributed through Bioconductor and GitHub, documented through ReadTheDocs, and tested with `testthat`, matching the paper's emphasis on a reproducible and maintainable tool rather than a one-off script.
 
 ## The bigger picture
 
-Not every useful contribution is a new algorithm. Sometimes it's meeting a widely used but underserved method where its users already are, with good defaults and a gentle on-ramp. Sanger sequencing isn't fashionable, but it's in nearly every molecular lab, and making its analysis free, scriptable, and reproducible quietly removes friction for a lot of people.
+The algorithmic idea in sangeranalyseR is a carefully defined processing workflow with a data model that matches the experiment: reads become contigs, contigs become alignments, and each level can be inspected, adjusted, exported, and reported. That is what made the package useful: it turned a common Sanger-processing task into something scriptable, interactive, and reproducible inside the R/Bioconductor ecosystem.
 
-This was my first real software project, and it set a pattern I've followed ever since: when the tool you need doesn't exist, build it well, document it, give it away, and use it yourself. Build what you need, use what you build.
+The limitation is important too. sangeranalyseR does not support manual editing of individual bases directly inside the Shiny chromatogram view. The paper is explicit about that boundary. If users need base-by-base editing while viewing chromatograms, they can use other tools for that step and then bring edited reads back into sangeranalyseR as FASTA input.
+
+This was my first real software project, and it set a pattern I have followed ever since: make the workflow explicit, keep the claims testable, document the tool, and return results in forms that other scientists can actually reuse.
 
 ---
 
