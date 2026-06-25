@@ -12,6 +12,8 @@ imageAlt: 'The five-step sangeranalyseR workflow: prepare input files, load and 
 references:
   - text: 'Chao, K.-H., Barton, K., Palmer, S., and Lanfear, R. sangeranalyseR: simple and interactive processing of Sanger sequencing data in R. Genome Biology and Evolution (2021).'
     doi: 'https://doi.org/10.1093/gbe/evab028'
+  - text: 'Hill, J. T. and Demarest, B. sangerseqR: Tools for Sanger Sequencing Data in R. Bioconductor package.'
+    doi: 'https://doi.org/10.18129/B9.bioc.sangerseqR'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figWorkflow from '../../assets/posts/sangeranalyser/sanger-workflow.png';
@@ -81,7 +83,7 @@ The algorithmic idea in sangeranalyseR is a carefully defined processing workflo
 
 The limitation is important too. sangeranalyseR does not support manual editing of individual bases directly inside the Shiny chromatogram view. The paper is explicit about that boundary. If users need base-by-base editing while viewing chromatograms, they can use other tools for that step and then bring edited reads back into sangeranalyseR as FASTA input.
 
-This was my first real software project, and it set a pattern I have followed ever since: make the workflow explicit, keep the claims testable, document the tool, and return results in forms that other scientists can actually reuse.
+Working on sangeranalyseR helped set a pattern I have followed since: make the workflow explicit, keep the claims testable, document the tool, and return results in forms that other scientists can reuse.
 
 ---
 
