@@ -26,13 +26,17 @@ For more than twenty years, almost all of human genetics has rested on a single 
 
 In 2022 that changed, at least in part. The Telomere-to-Telomere consortium published T2T-CHM13, the first complete human genome — every centromere, every repeat array, end to end. It was a landmark. But CHM13 represented one northern European female sample, and the Y chromosome in the T2T reference came from a second individual, HG002. One complete genome is a beginning, not an end: humanity is not one genome.
 
-**Han1** was our next step: the first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual. Just as important, it was an algorithmic test case for how to turn one person's long-read data into a finished, annotated genome that can be compared gene by gene with another finished genome.
+That paper became the spark for my first Ph.D. project. Steven Salzberg's idea was direct: if a complete human genome could now be built, we should assemble and annotate another gapless, reference-quality individual genome from a different genetic background. I went through the available samples, kept coming back to HG00621, and stepped forward to take on the project.
 
-## Why start with Han Chinese?
+**Han1** became our answer: the first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual. Just as important, it was an algorithmic test case for how to turn one person's long-read data into a finished, annotated genome that can be compared gene by gene with another finished genome.
 
-The Han Chinese are the largest ethnic group on Earth — roughly 1.4 billion people. Despite that, there was no complete, gap-free, fully annotated Han Chinese individual genome. Earlier Chinese and Han Chinese assemblies existed, including YH, HX1, NH1.0, and HJ-H1/HJ-H2, but the paper's comparison showed that they still contained gaps and none were fully annotated.
+## Why HG00621?
 
-No single genome can represent an entire population, and Han1 should not be read that way. The goal was narrower and more concrete: build a finished genome from HG00621, a Southern Han Chinese male from Fujian Province, so that studies of human variation would have one more complete, annotated individual genome rather than another fragmented draft.
+HG00621 was recorded as Southern Han Chinese. That mattered to me personally because it is my own ethnicity, and it made the annotation question feel concrete: what would a finished, annotated genome from this background look like, including gene copy-number and coding differences relative to T2T-CHM13?
+
+It also made sense scientifically. The Han Chinese are the largest ethnic group on Earth — roughly 1.4 billion people — yet there was no complete, gap-free, fully annotated Han Chinese individual genome. Earlier Chinese and Han Chinese assemblies existed, including YH, HX1, NH1.0, and HJ-H1/HJ-H2, but the paper's comparison showed that they still contained gaps and none were fully annotated. HG00621 also broadened the set of genomes our group had already been assembling and annotating: it was relatively different from the Ashkenazi and Puerto Rican samples we had worked on, rather than another nearby data point.
+
+Finally, it was practical. HG00621 had the kind of public data needed for a serious finishing attempt: high-accuracy PacBio HiFi reads, Oxford Nanopore ultralong reads, and supporting read data for checking difficult calls. No single genome can represent an entire population, and Han1 should not be read that way. The goal was narrower and more concrete: build a finished genome from HG00621, a Southern Han Chinese male from Fujian Province, so that studies of human variation would have one more complete, annotated individual genome rather than another fragmented draft.
 
 ## The algorithm we built
 
