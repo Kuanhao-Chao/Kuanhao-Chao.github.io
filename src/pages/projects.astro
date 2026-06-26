@@ -1,0 +1,53 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { projects } from '../data/projects';
+import { site } from '../data/site';
+
+const itemListLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'Research projects by Kuan-Hao Chao',
+  itemListElement: projects.map((project, index) => ({
+    '@type': 'ListItem',
+    position: index + 1,
+    name: project.title,
+    url: `${site.url}/projects/#${project.slug}`,
+  })),
+};
+---
+<PageLayout
+  title="Projects"
+  eyebrow="Connected work"
+  lead="A project-level map of the papers, software, technical posts, talks, and reports behind my research."
+  description="Research project map for Kuan-Hao Chao, connecting publications, software, posts, talks, and technical reports."
+>
+  <div class="project-intro">
+    <p>
+      Each project below collects the related outputs in one place: paper, code, docs,
+      research summary, and technical notes where available.
+    </p>
+  </div>
+
+  <div class="project-grid">
+    {projects.map((project) => <div id={project.slug}><ProjectCard project={project} /></div>)}
+  </div>
+
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(itemListLd)} />
+</PageLayout>
+
+<style>
+  .project-intro {
+    max-width: var(--measure);
+    margin-bottom: var(--space-8);
+    color: var(--color-muted);
+  }
+  .project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    gap: clamp(1rem, 2vw, 1.5rem);
+  }
+  .project-grid > div {
+    scroll-margin-top: 6rem;
+  }
+</style>

@@ -19,8 +19,16 @@ const links = [
   { label: 'Video', icon: 'play', href: d.video },
   { label: 'Link', icon: 'external', href: d.link },
 ].filter((l) => l.href);
+const searchText = `${heading} ${showVenueLine ?? ''} ${d.venue} ${d.location ?? ''}`.toLowerCase();
 ---
-<article class="talk">
+<article
+  id={entry.id}
+  class="talk"
+  data-type={d.type}
+  data-year={d.startDate.getUTCFullYear()}
+  data-ts={d.startDate.getTime()}
+  data-search={searchText}
+>
   <div class="talk-date" aria-hidden="true">{dateRange(d.startDate, d.endDate)}</div>
   <div class="talk-body">
     <h3 class="talk-title">{heading}</h3>
@@ -52,6 +60,7 @@ const links = [
     gap: 0 1.5rem;
     padding-block: var(--space-5);
     border-bottom: 1px solid var(--color-rule);
+    scroll-margin-top: 6rem;
   }
   .talk-date {
     font-family: var(--font-display);

@@ -1,0 +1,219 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+import Icon from '../components/Icon.astro';
+---
+<PageLayout
+  title="Search"
+  eyebrow="Find work"
+  lead="Search across projects, research areas, publications, software, posts, talks, news, and draft reports."
+  description="Site search for Kuan-Hao Chao's research, publications, software, talks, posts, news, and reports."
+  noindex
+>
+  <section class="site-search" data-site-search>
+    <label class="search-box">
+      <Icon name="search" size={20} />
+      <input
+        type="search"
+        placeholder="Search genome annotation, splice prediction, Shorkie..."
+        aria-label="Search the site"
+        data-search-input
+        autocomplete="off"
+      />
+    </label>
+
+    <div class="search-meta muted" data-search-meta>Loading search index...</div>
+    <ol class="search-results" data-search-results></ol>
+  </section>
+</PageLayout>
+
+<style>
+  .site-search {
+    max-width: 58rem;
+  }
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    color: var(--color-muted);
+  }
+  .search-box:focus-within {
+    color: var(--color-ink);
+    border-color: var(--color-accent);
+  }
+  .search-box input {
+    width: 100%;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: var(--fs-body);
+  }
+  .search-meta {
+    margin-top: var(--space-4);
+    font-size: var(--fs-small);
+  }
+  .search-results {
+    list-style: none;
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    border-top: 1px solid var(--color-rule);
+  }
+  .result {
+    padding-block: var(--space-5);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .result-top {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.65rem;
+  }
+  .result-type {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: var(--fw-semibold);
+    color: var(--color-accent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+    border-radius: 999px;
+    padding: 0.12em 0.55em;
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+  .result-date {
+    font-size: var(--fs-meta);
+    color: var(--color-muted);
+  }
+  .result-title {
+    margin-top: 0.45rem;
+    font-size: 1.1rem;
+    font-weight: var(--fw-semibold);
+    line-height: 1.35;
+  }
+  .result-title a {
+    color: var(--color-ink);
+  }
+  .result-title a:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .result-desc {
+    margin-top: 0.35rem;
+    font-size: var(--fs-small);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .result-tags {
+    list-style: none;
+    margin: 0.65rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .result-tags li {
+    font-size: var(--fs-meta);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    padding: 0.1em 0.45em;
+  }
+</style>
+
+<script>
+  type SearchItem = {
+    type: string;
+    title: string;
+    description: string;
+    href: string;
+    date?: string;
+    tags?: string[];
+    search?: string;
+  };
+
+  const escapeHtml = (value: string) =>
+    value.replace(/[&<>"']/g, (char) => {
+      const map: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      };
+      return map[char];
+    });
+
+  const dateLabel = (value?: string) => {
+    if (!value) return '';
+    if (/^\d{4}$/.test(value)) return value;
+    const date = new Date(`${value}T00:00:00Z`);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date);
+  };
+
+  function render(
+    items: SearchItem[],
+    query: string,
+    list: HTMLOListElement,
+    meta: HTMLElement
+  ) {
+    const q = query.trim().toLowerCase();
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const matches = tokens.length
+      ? items.filter((item) => tokens.every((token) => `${item.search ?? ''} ${item.title}`.toLowerCase().includes(token)))
+      : items.slice(0, 12);
+    const shown = matches.slice(0, 40);
+
+    meta.textContent = tokens.length
+      ? `${matches.length} result${matches.length === 1 ? '' : 's'}`
+      : `Showing ${shown.length} recent items. Type to search ${items.length} indexed entries.`;
+
+    list.innerHTML = shown
+      .map((item) => {
+        const tags = (item.tags ?? []).filter(Boolean).slice(0, 4);
+        return `<li class="result">
+          <div class="result-top">
+            <span class="result-type">${escapeHtml(item.type)}</span>
+            ${item.date ? `<span class="result-date">${escapeHtml(dateLabel(item.date))}</span>` : ''}
+          </div>
+          <h2 class="result-title"><a href="${escapeHtml(item.href)}">${escapeHtml(item.title)}</a></h2>
+          <p class="result-desc muted">${escapeHtml(item.description ?? '')}</p>
+          ${
+            tags.length
+              ? `<ul class="result-tags">${tags.map((tag) => `<li>${escapeHtml(tag)}</li>`).join('')}</ul>`
+              : ''
+          }
+        </li>`;
+      })
+      .join('');
+  }
+
+  async function initSearch() {
+    const root = document.querySelector<HTMLElement>('[data-site-search]');
+    const input = root?.querySelector<HTMLInputElement>('[data-search-input]');
+    const list = root?.querySelector<HTMLOListElement>('[data-search-results]');
+    const meta = root?.querySelector<HTMLElement>('[data-search-meta]');
+    if (!input || !list || !meta) return;
+    if (root?.dataset.searchBound === 'true') return;
+    if (root) root.dataset.searchBound = 'true';
+    try {
+      const response = await fetch('/search.json');
+      const data = (await response.json()) as { items: SearchItem[] };
+      const items = data.items ?? [];
+      render(items, input.value, list, meta);
+      input.addEventListener('input', () => render(items, input.value, list, meta));
+      input.focus({ preventScroll: true });
+    } catch {
+      meta.textContent = 'Search index could not be loaded.';
+    }
+  }
+
+  document.addEventListener('astro:page-load', initSearch);
+  initSearch();
+</script>

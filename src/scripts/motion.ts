@@ -26,12 +26,28 @@ export function onVisible(
     onEnter();
     return () => {};
   }
+  let stopped = false;
+  const enter = () => {
+    if (!stopped) onEnter();
+  };
+  const checkReached = () => {
+    if (stopped || typeof window === 'undefined') return;
+    if (el.getBoundingClientRect().top <= window.innerHeight) enter();
+  };
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) {
-      if (e.isIntersecting) onEnter();
+      if (e.isIntersecting) enter();
       else onLeave?.();
     }
   }, options);
   io.observe(el);
-  return () => io.disconnect();
+  window.addEventListener('scroll', checkReached, { passive: true });
+  window.addEventListener('resize', checkReached);
+  window.requestAnimationFrame(checkReached);
+  return () => {
+    stopped = true;
+    io.disconnect();
+    window.removeEventListener('scroll', checkReached);
+    window.removeEventListener('resize', checkReached);
+  };
 }
