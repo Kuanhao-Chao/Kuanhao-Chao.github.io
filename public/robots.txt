@@ -1,4 +1,6 @@
 User-agent: *
+Disallow: /reports/
+Disallow: /logo-options/
 Allow: /
 
 Sitemap: https://khchao.com/sitemap-index.xml
