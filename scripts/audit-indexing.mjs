@@ -223,7 +223,7 @@ async function auditRobots() {
   }
   const robots = await readFile(robotsPath, 'utf8');
   if (!/^Disallow:\s*\/reports\/\s*$/im.test(robots)) {
-    errors.push('robots.txt does not disallow /reports/ while reports are draft-only.');
+    errors.push('robots.txt does not disallow /reports/ while reports are non-indexable.');
   }
 }
 
@@ -231,17 +231,17 @@ async function auditReportsIndex(reports, urls) {
   const url = `${SITE}/reports/`;
   const htmlPath = join(DIST, 'reports', 'index.html');
 
-  if (urls.has(url)) errors.push('/reports/ appears in sitemap while reports are draft-only.');
+  if (urls.has(url)) errors.push('/reports/ appears in sitemap while reports are non-indexable.');
   if (!(await pathExists(htmlPath))) return;
 
   const html = await readFile(htmlPath, 'utf8');
   if (!metaContents(html, 'robots').includes('noindex, nofollow')) {
-    errors.push('/reports/ is missing noindex while reports are draft-only.');
+    errors.push('/reports/ is missing noindex while reports are non-indexable.');
   }
 
   for (const report of reports) {
-    if (report.data.unlisted !== false && report.data.title && html.includes(report.data.title)) {
-      errors.push(`Unlisted report appears on /reports/ listing: ${report.slug}`);
+    if (report.data.title && !html.includes(report.data.title)) {
+      errors.push(`Report is missing from /reports/ listing: ${report.slug}`);
     }
   }
 }
@@ -251,7 +251,7 @@ async function auditNoDraftReportPdfs() {
     (file) => extname(file).toLowerCase() === '.pdf'
   );
   for (const pdf of reportPdfs) {
-    errors.push(`Report PDF exists while reports are draft-only: ${pdf.replace(`${DIST}/`, '')}`);
+    errors.push(`Report PDF exists while reports are non-indexable: ${pdf.replace(`${DIST}/`, '')}`);
   }
 }
 
