@@ -1,0 +1,627 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+type LogoOption = {
+  id: string;
+  name: string;
+  signal: string;
+  intent: string;
+  svg: string;
+  baseline?: boolean;
+};
+
+const options: LogoOption[] = [
+  {
+    id: '0',
+    name: 'Current branch',
+    signal: 'Current baseline',
+    intent: 'The improved live mark: a sequence backbone branching through a central decision node.',
+    baseline: true,
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Current genome algorithm mark">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 32h10c10.5 0 11.5-18 24-18h6" stroke-width="7.5" />
+        <path d="M22 32c10.5 0 11.5 18 24 18h6" stroke-width="7.5" />
+        <path d="M16 14v36" stroke-width="7.5" />
+        <path d="M23 32h21" stroke-width="3.2" opacity=".42" />
+      </g>
+      <g fill="currentColor">
+        <circle cx="16" cy="14" r="5.2" />
+        <circle cx="16" cy="32" r="6" />
+        <circle cx="16" cy="50" r="5.2" />
+        <circle cx="52" cy="14" r="5.2" />
+        <circle cx="52" cy="50" r="5.2" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <rect x="13.1" y="20.4" width="5.8" height="2.1" rx="1.05" />
+        <rect x="13.1" y="27.4" width="5.8" height="2.1" rx="1.05" />
+        <rect x="13.1" y="34.5" width="5.8" height="2.1" rx="1.05" />
+        <rect x="13.1" y="41.5" width="5.8" height="2.1" rx="1.05" />
+      </g>
+      <circle cx="32" cy="32" r="4.4" fill="var(--logo-cut)" stroke="currentColor" stroke-width="2.4" />
+    </svg>`,
+  },
+  {
+    id: '1',
+    name: 'Genome algorithm branch',
+    signal: 'Portfolio-wide algorithmic genomics',
+    intent: 'A cleaner, stronger silhouette for sequence input, model choice, and two resolved genomic paths.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Genome algorithm branch mark">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13 32h10c10 0 11.5-16 25-16h4" stroke-width="6.8" />
+        <path d="M23 32c10 0 11.5 16 25 16h4" stroke-width="6.8" />
+        <path d="M16 18v28" stroke-width="6.8" />
+        <path d="M24 32h17" stroke-width="3" opacity=".34" />
+      </g>
+      <g fill="currentColor">
+        <circle cx="16" cy="18" r="4.8" />
+        <circle cx="16" cy="32" r="5.6" />
+        <circle cx="16" cy="46" r="4.8" />
+        <circle cx="52" cy="16" r="5" />
+        <circle cx="52" cy="48" r="5" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <rect x="13.5" y="24" width="5" height="1.9" rx=".95" />
+        <rect x="13.5" y="31" width="5" height="1.9" rx=".95" />
+        <rect x="13.5" y="38" width="5" height="1.9" rx=".95" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '2',
+    name: 'Sequence to function',
+    signal: 'DNA language models and expression prediction',
+    intent: 'Sequence enters a compact model core and exits as a measured regulatory signal.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Sequence to function mark">
+      <g fill="currentColor">
+        <rect x="8" y="17" width="4.5" height="7.5" rx="2.25" />
+        <rect x="8" y="28.2" width="4.5" height="7.5" rx="2.25" />
+        <rect x="8" y="39.5" width="4.5" height="7.5" rx="2.25" />
+        <path d="M18 26h10a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4v-4a4 4 0 0 1 4-4Z" />
+        <rect x="31" y="18" width="16" height="28" rx="5" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <circle cx="39" cy="32" r="4.1" />
+        <rect x="18.5" y="31" width="8.5" height="2" rx="1" />
+      </g>
+      <path d="M47 32c5.8-13.5 8.4 13.5 13 0" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>`,
+  },
+  {
+    id: '3',
+    name: 'Annotation transfer',
+    signal: 'LiftOn and genome annotation',
+    intent: 'A reference gene model transfers onto a target track, emphasizing evidence lift-over.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Annotation transfer mark">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 19h44" stroke-width="4.2" />
+        <path d="M10 45h44" stroke-width="4.2" opacity=".72" />
+        <path d="M24 24c2 10.5 12 10.5 14 21" stroke-width="4.4" />
+        <path d="M38 45l-5-2.5 2.6-5" stroke-width="3.2" />
+      </g>
+      <g fill="currentColor">
+        <rect x="14" y="13" width="10" height="12" rx="2.4" />
+        <rect x="31" y="13" width="8" height="12" rx="2.4" />
+        <rect x="46" y="13" width="8" height="12" rx="2.4" />
+        <rect x="20" y="39" width="10" height="12" rx="2.4" opacity=".72" />
+        <rect x="37" y="39" width="8" height="12" rx="2.4" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '4',
+    name: 'Splice junction arc',
+    signal: 'Splam and OpenSpliceAI',
+    intent: 'Exons and a single decisive junction arc, built as a compact recognizer symbol.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Splice junction arc mark">
+      <path d="M12 36h40" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" opacity=".32" />
+      <g fill="currentColor">
+        <rect x="8" y="24" width="14" height="24" rx="3.2" />
+        <rect x="25" y="24" width="14" height="24" rx="3.2" />
+        <rect x="42" y="24" width="14" height="24" rx="3.2" />
+      </g>
+      <path d="M22 25c3.6-13 16.4-13 20 0" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+      <path d="M22 48c3.6 7.8 16.4 7.8 20 0" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" opacity=".62" />
+      <circle cx="32" cy="20" r="3.6" fill="var(--logo-cut)" stroke="currentColor" stroke-width="2.6" />
+    </svg>`,
+  },
+  {
+    id: '5',
+    name: 'Gapless assembly',
+    signal: 'Han1 and reference genome completion',
+    intent: 'Scattered reads resolve into a single finished chromosome-scale path.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Gapless assembly mark">
+      <g fill="currentColor" opacity=".78">
+        <rect x="10" y="13" width="20" height="5.8" rx="2.9" />
+        <rect x="34" y="13" width="18" height="5.8" rx="2.9" />
+        <rect x="18" y="25" width="28" height="5.8" rx="2.9" />
+        <rect x="10" y="37" width="16" height="5.8" rx="2.9" />
+        <rect x="31" y="37" width="23" height="5.8" rx="2.9" />
+      </g>
+      <path d="M11 52h42" fill="none" stroke="currentColor" stroke-width="7.2" stroke-linecap="round" />
+      <g stroke="var(--logo-cut)" stroke-width="2.2" stroke-linecap="round">
+        <path d="M21 48.5v7" />
+        <path d="M32 48.5v7" />
+        <path d="M43 48.5v7" />
+      </g>
+      <g fill="currentColor">
+        <circle cx="11" cy="52" r="4.8" />
+        <circle cx="53" cy="52" r="4.8" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '6',
+    name: 'Wheeler graph',
+    signal: 'Pangenome indexing and graph algorithms',
+    intent: 'Ordered graph nodes and curved paths, simplified into an algorithmic pangenome glyph.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Wheeler graph mark">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13 18c10 2 15 26 25 28" stroke-width="4.1" />
+        <path d="M13 18c16 0 22 8 38 8" stroke-width="4.1" />
+        <path d="M25 46c8-18 15-20 26-20" stroke-width="4.1" opacity=".76" />
+      </g>
+      <g fill="currentColor">
+        <circle cx="13" cy="18" r="6" />
+        <circle cx="25" cy="46" r="6" />
+        <circle cx="38" cy="46" r="6" />
+        <circle cx="51" cy="26" r="6" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <circle cx="13" cy="18" r="2" />
+        <circle cx="25" cy="46" r="2" />
+        <circle cx="38" cy="46" r="2" />
+        <circle cx="51" cy="26" r="2" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '7',
+    name: 'Hidden monogram',
+    signal: 'Personal identity with scientific structure',
+    intent: 'A custom abstract mark that hints at K/H/C through genome-path geometry without spelling it out.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Hidden monogram mark">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 12v40" stroke-width="7.3" />
+        <path d="M18 32h20" stroke-width="7.3" />
+        <path d="M20 32 45 14" stroke-width="7.3" />
+        <path d="M20 32 45 50" stroke-width="7.3" />
+        <path d="M52 20c-11-7-24 1-24 12s13 19 24 12" stroke-width="5.8" opacity=".78" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <rect x="13.3" y="20" width="5.4" height="2" rx="1" />
+        <rect x="13.3" y="31" width="5.4" height="2" rx="1" />
+        <rect x="13.3" y="42" width="5.4" height="2" rx="1" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '8',
+    name: 'Origin map',
+    signal: 'Personal origin plus genome path',
+    intent: 'A restrained personal-origin glyph: structured strokes, a genomic path, and a small analytic node.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Origin map mark">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 14h32" stroke-width="6.4" />
+        <path d="M24 12v38" stroke-width="6.4" />
+        <path d="M15 33h27" stroke-width="6.4" />
+        <path d="M42 33c8 0 8 13 0 13H26" stroke-width="6.4" />
+        <path d="M34 22c7 0 11 3.2 15 8" stroke-width="3.6" opacity=".68" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <rect x="21.3" y="21" width="5.4" height="2" rx="1" />
+        <rect x="21.3" y="39.5" width="5.4" height="2" rx="1" />
+      </g>
+      <circle cx="48" cy="30" r="4.4" fill="var(--logo-cut)" stroke="currentColor" stroke-width="2.6" />
+    </svg>`,
+  },
+  {
+    id: '9',
+    name: 'Double helix',
+    signal: 'Core genomics identity',
+    intent:
+      'The universal double helix, reduced to a confident monoline that still reads at favicon size.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Double helix mark">
+      <g fill="none" stroke="currentColor" stroke-width="4.6" stroke-linecap="round">
+        <path d="M32 8C47 11 47 21 32 24C17 27 17 37 32 40C47 43 47 53 32 56" />
+        <path d="M32 8C17 11 17 21 32 24C47 27 47 37 32 40C17 43 17 53 32 56" />
+      </g>
+      <g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round">
+        <path d="M23 16h18" />
+        <path d="M21 32h22" />
+        <path d="M23 48h18" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <rect x="30.4" y="14.4" width="3.2" height="3.2" rx="1" />
+        <rect x="30.4" y="30.4" width="3.2" height="3.2" rx="1" />
+        <rect x="30.4" y="46.4" width="3.2" height="3.2" rx="1" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '10',
+    name: 'Condensed chromosome',
+    signal: 'Genome and heredity',
+    intent:
+      'A metaphase chromosome with its centromere constriction — the most recognizable symbol for a genome.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Chromosome mark">
+      <g fill="none" stroke="currentColor" stroke-width="7.5" stroke-linecap="round">
+        <path d="M31 31Q21 23 19 12" />
+        <path d="M33 31Q43 23 45 12" />
+        <path d="M31 33Q21 41 19 52" />
+        <path d="M33 33Q43 41 45 52" />
+      </g>
+      <circle cx="32" cy="32" r="5" fill="currentColor" />
+      <rect x="24.5" y="30.9" width="15" height="2.2" rx="1.1" fill="var(--logo-cut)" />
+    </svg>`,
+  },
+  {
+    id: '11',
+    name: 'Base-pair ‘H’',
+    signal: 'DNA ladder + initial (H)',
+    intent:
+      'Two backbones and three base-pair rungs that resolve into an ‘H’ — the initial built from the structure of DNA.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Base-pair H mark">
+      <g fill="none" stroke="currentColor" stroke-linecap="round">
+        <path d="M19 12v40" stroke-width="7" />
+        <path d="M45 12v40" stroke-width="7" />
+        <path d="M19 22h26" stroke-width="4.4" />
+        <path d="M19 32h26" stroke-width="5.6" />
+        <path d="M19 42h26" stroke-width="4.4" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <rect x="30.4" y="19.8" width="3.2" height="4.4" rx="1" />
+        <rect x="30" y="29" width="4" height="6" rx="1" />
+        <rect x="30.4" y="39.8" width="3.2" height="4.4" rx="1" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '12',
+    name: 'A·C·G·T tiles',
+    signal: 'The genetic alphabet',
+    intent:
+      'The four-letter code as a compact tiled glyph — the alphabet underneath everything in the lab.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="A C G T tiles mark">
+      <g fill="none" stroke="currentColor" stroke-width="2.6">
+        <rect x="13" y="13" width="18" height="18" rx="3" />
+        <rect x="13" y="33" width="18" height="18" rx="3" />
+        <rect x="33" y="33" width="18" height="18" rx="3" />
+      </g>
+      <rect x="33" y="13" width="18" height="18" rx="3" fill="currentColor" />
+      <text x="22" y="22" fill="currentColor" font-weight="700" font-size="13" text-anchor="middle" dominant-baseline="central">A</text>
+      <text x="42" y="22" fill="var(--logo-cut)" font-weight="700" font-size="13" text-anchor="middle" dominant-baseline="central">C</text>
+      <text x="22" y="42" fill="currentColor" font-weight="700" font-size="13" text-anchor="middle" dominant-baseline="central">G</text>
+      <text x="42" y="42" fill="currentColor" font-weight="700" font-size="13" text-anchor="middle" dominant-baseline="central">T</text>
+    </svg>`,
+  },
+  {
+    id: '13',
+    name: 'Sequence logo',
+    signal: 'Learned genomic motifs',
+    intent:
+      'A bioinformatics sequence logo — base letters scaled by information content — tying genomics to the modeling work.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Sequence logo mark">
+      <line x1="8" y1="52" x2="56" y2="52" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+      <g fill="currentColor" font-weight="700" text-anchor="middle">
+        <text x="16" y="51" font-size="40">A</text>
+        <text x="33" y="36" font-size="25">C</text>
+        <text x="33" y="51" font-size="17">G</text>
+        <text x="49" y="40" font-size="22">T</text>
+        <text x="49" y="51" font-size="13">A</text>
+      </g>
+      <g fill="var(--logo-cut)">
+        <rect x="14.6" y="50.6" width="2.8" height="2.8" rx="1.4" />
+        <rect x="31.6" y="50.6" width="2.8" height="2.8" rx="1.4" />
+        <rect x="47.6" y="50.6" width="2.8" height="2.8" rx="1.4" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '14',
+    name: 'Circular genome',
+    signal: 'The genome, mapped',
+    intent:
+      'A circular chromosome with an origin gap, annotation ticks, and one analytic node — restrained and cartographic.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Circular genome mark">
+      <path d="M35.5 15.4A17 17 0 1 1 28.5 15.4" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" />
+      <g fill="var(--logo-cut)">
+        <circle cx="49" cy="32" r="1.7" />
+        <circle cx="45" cy="42.6" r="1.7" />
+        <circle cx="45" cy="21.4" r="1.7" />
+        <circle cx="15" cy="32" r="1.7" />
+        <circle cx="19" cy="42.6" r="1.7" />
+        <circle cx="19" cy="21.4" r="1.7" />
+      </g>
+      <circle cx="32" cy="49" r="4.2" fill="currentColor" />
+      <circle cx="32" cy="49" r="1.7" fill="var(--logo-cut)" />
+    </svg>`,
+  },
+  {
+    id: '15',
+    name: 'Helix to signal',
+    signal: 'Sequence to function',
+    intent:
+      'A helix on the left resolving into a measured signal on the right — sequence read by a model and turned into function.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Helix to signal mark">
+      <g fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round">
+        <path d="M19 13C27 17 27 28 19 32C11 36 11 47 19 51" />
+        <path d="M19 13C11 17 11 28 19 32C27 36 27 47 19 51" />
+      </g>
+      <g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round">
+        <path d="M13.5 22.5h11" />
+        <path d="M13.5 41.5h11" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <rect x="17.4" y="20.9" width="3.2" height="3.2" rx="1" />
+        <rect x="17.4" y="39.9" width="3.2" height="3.2" rx="1" />
+      </g>
+      <path d="M22 32C32 32 33 16 41 16C49 16 49 44 58 38" fill="none" stroke="currentColor" stroke-width="4.8" stroke-linecap="round" />
+      <circle cx="19" cy="32" r="3.9" fill="currentColor" />
+      <circle cx="19" cy="32" r="1.6" fill="var(--logo-cut)" />
+    </svg>`,
+  },
+  {
+    id: '16',
+    name: 'Reads to consensus',
+    signal: 'Sequencing to truth',
+    intent:
+      'Short sequencing reads stacking into a single consensus, with one variant column — the everyday work of genomics.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Read pileup to consensus mark">
+      <g fill="currentColor" opacity=".82">
+        <rect x="9" y="12" width="26" height="5.4" rx="2.7" />
+        <rect x="22" y="20" width="28" height="5.4" rx="2.7" />
+        <rect x="12" y="28" width="22" height="5.4" rx="2.7" />
+        <rect x="29" y="36" width="23" height="5.4" rx="2.7" />
+      </g>
+      <rect x="9" y="47" width="46" height="7" rx="3.5" fill="currentColor" />
+      <rect x="32.7" y="10" width="2.6" height="46" fill="var(--logo-cut)" />
+    </svg>`,
+  },
+  {
+    id: '17',
+    name: 'Sequence ‘C’',
+    signal: 'Sequence monogram (C)',
+    intent:
+      'A bold ‘C’ for Chao segmented into base blocks — the initial rendered as a short strand of sequence.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Sequence C mark">
+      <path d="M42.5 44.2A15.5 15.5 0 1 0 42.5 19.8" fill="none" stroke="currentColor" stroke-width="7.5" stroke-linecap="round" />
+      <g stroke="var(--logo-cut)" stroke-width="2.4" stroke-linecap="round">
+        <path d="M32.2 41 31.2 52.9" />
+        <path d="M26.4 38.1 17.6 46.3" />
+        <path d="M24 32 12 32" />
+        <path d="M26.4 25.9 17.6 17.7" />
+        <path d="M32.2 23 31.2 11.1" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '18',
+    name: 'Sequence ‘K’',
+    signal: 'Sequence monogram (K)',
+    intent:
+      'A ‘K’ drawn as a sequence backbone splitting into two genomic paths, with base-pair ticks locking the read.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Sequence K mark">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 12v40" stroke-width="7" />
+        <path d="M20 32 44 14" stroke-width="6.4" />
+        <path d="M20 32 44 50" stroke-width="6.4" />
+      </g>
+      <g fill="currentColor">
+        <circle cx="44" cy="14" r="4" />
+        <circle cx="44" cy="50" r="4" />
+      </g>
+      <g fill="var(--logo-cut)">
+        <rect x="15.3" y="19" width="5.4" height="2" rx="1" />
+        <rect x="15.3" y="27" width="5.4" height="2" rx="1" />
+        <rect x="15.3" y="37" width="5.4" height="2" rx="1" />
+        <rect x="15.3" y="45" width="5.4" height="2" rx="1" />
+        <circle cx="44" cy="14" r="1.6" />
+        <circle cx="44" cy="50" r="1.6" />
+      </g>
+    </svg>`,
+  },
+];
+---
+
+<BaseLayout
+  title="Logo options"
+  description="Private logo exploration page for Kuan-Hao Chao."
+  noindex
+>
+  <section class="logo-hero container">
+    <p class="eyebrow">Private design review</p>
+    <h1>Logo options</h1>
+    <p class="lead">
+      Flat SVG directions exploring the site identity. The newest batch leans into clearer
+      genomic iconography — the double helix, chromosomes, the base alphabet, sequence logos,
+      and sequence-to-function — with a few that fold the initials K · H · C into the
+      structure of DNA.
+    </p>
+  </section>
+
+  <section class="container logo-grid" aria-label="Logo concepts">
+    {
+      options.map((option) => (
+        <article class:list={['logo-card', option.baseline && 'logo-card--baseline']} id={`option-${option.id}`}>
+          <div class="logo-card-head">
+            <p class="option-id">{option.baseline ? 'Baseline' : `Option ${option.id}`}</p>
+            <h2>{option.name}</h2>
+          </div>
+
+          <div class="preview-row">
+            <div class="preview-large" set:html={option.svg} />
+            <div class="preview-dark" set:html={option.svg} />
+          </div>
+
+          <div class="scale-row" aria-label={`${option.name} size previews`}>
+            <div class="header-mock">
+              <span class="header-mark" set:html={option.svg} />
+              <span>Kuan-Hao Chao</span>
+            </div>
+            <span class="tiny tiny--32" set:html={option.svg} />
+            <span class="tiny tiny--16" set:html={option.svg} />
+          </div>
+
+          <p class="signal">{option.signal}</p>
+          <p class="intent">{option.intent}</p>
+        </article>
+      ))
+    }
+  </section>
+</BaseLayout>
+
+<style>
+  :global(astro-dev-toolbar) {
+    display: none !important;
+  }
+  .logo-hero {
+    padding-block: clamp(2rem, 5vw, 4rem) var(--space-8);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .logo-hero h1 {
+    margin-top: var(--space-3);
+  }
+  .logo-hero .lead {
+    max-width: 46rem;
+    margin-top: var(--space-4);
+    color: var(--color-muted);
+  }
+  .logo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(1rem, 2vw, 1.5rem);
+    padding-block: var(--space-8) var(--space-16);
+  }
+  .logo-card {
+    display: grid;
+    gap: var(--space-5);
+    padding: clamp(1rem, 2vw, 1.35rem);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  }
+  .logo-card--baseline {
+    border-style: dashed;
+    opacity: 0.82;
+  }
+  .logo-card-head {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .option-id,
+  .signal {
+    font-size: var(--fs-meta);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tracking-meta);
+    text-transform: uppercase;
+  }
+  .option-id {
+    color: var(--color-accent);
+  }
+  .logo-card h2 {
+    font-size: 1.35rem;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0;
+  }
+  .preview-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    align-items: stretch;
+  }
+  .preview-large,
+  .preview-dark {
+    display: grid;
+    place-items: center;
+    min-height: 9.25rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    color: var(--color-accent);
+    --logo-cut: var(--color-surface);
+  }
+  .preview-large {
+    background: var(--color-surface);
+  }
+  .preview-dark {
+    color: #75c7af;
+    background: #0f1413;
+    border-color: #303934;
+    --logo-cut: #0f1413;
+  }
+  .preview-large :global(svg),
+  .preview-dark :global(svg) {
+    width: min(6.8rem, 72%);
+    height: auto;
+    overflow: visible;
+  }
+  .scale-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .header-mock {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-bg) 84%, transparent);
+    font-family: var(--font-display);
+    font-size: 0.94rem;
+    line-height: 1;
+  }
+  .header-mark {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    color: var(--color-accent);
+    --logo-cut: var(--color-bg);
+  }
+  .header-mark :global(svg),
+  .tiny :global(svg) {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .tiny {
+    display: grid;
+    place-items: center;
+    color: var(--color-accent);
+    --logo-cut: var(--color-bg);
+  }
+  .tiny--32 {
+    width: 2rem;
+    height: 2rem;
+  }
+  .tiny--16 {
+    width: 1rem;
+    height: 1rem;
+  }
+  .signal {
+    color: var(--color-muted);
+  }
+  .intent {
+    color: var(--color-muted);
+    font-size: var(--fs-small);
+    line-height: 1.55;
+  }
+  @media (max-width: 980px) {
+    .logo-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .logo-grid {
+      grid-template-columns: 1fr;
+    }
+    .preview-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
