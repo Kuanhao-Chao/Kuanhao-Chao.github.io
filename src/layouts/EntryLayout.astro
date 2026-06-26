@@ -4,6 +4,7 @@ import Icon from '../components/Icon.astro';
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 import type { RelatedPostLink } from '../lib/relatedPosts';
+import type { ScholarMeta } from '../lib/scholar';
 
 interface LinkItem {
   label: string;
@@ -23,13 +24,7 @@ interface Props {
   image?: string;
   logo?: ImageMetadata;
   noindex?: boolean;
-  scholarMeta?: {
-    title: string;
-    authors: string[];
-    publicationDate: string;
-    pdfUrl?: string;
-    references?: { text: string; doi?: string; url?: string }[];
-  };
+  scholarMeta?: ScholarMeta;
 }
 const {
   title,

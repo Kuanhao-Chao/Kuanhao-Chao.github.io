@@ -1,5 +1,6 @@
 ---
 import { site, socials, identity } from '../data/site';
+import type { ScholarMeta } from '../lib/scholar';
 
 interface Props {
   title?: string;
@@ -9,13 +10,7 @@ interface Props {
   // When true, emit `noindex, nofollow` so the page is hidden from all search
   // engines (used by the unlisted `reports` section). Defaults to indexable.
   noindex?: boolean;
-  scholarMeta?: {
-    title: string;
-    authors: string[];
-    publicationDate: string;
-    pdfUrl?: string;
-    references?: { text: string; doi?: string; url?: string }[];
-  };
+  scholarMeta?: ScholarMeta;
 }
 
 const {
@@ -131,8 +126,20 @@ const structuredData = {
       ))}
       <meta name="citation_publication_date" content={scholarMeta.publicationDate} />
       {scholarMeta.pdfUrl && <meta name="citation_pdf_url" content={scholarMeta.pdfUrl} />}
+      {scholarMeta.technicalReportInstitution && (
+        <meta
+          name="citation_technical_report_institution"
+          content={scholarMeta.technicalReportInstitution}
+        />
+      )}
+      {scholarMeta.technicalReportNumber && (
+        <meta
+          name="citation_technical_report_number"
+          content={scholarMeta.technicalReportNumber}
+        />
+      )}
       {scholarMeta.references?.map((ref) => (
-        <meta name="citation_reference" content={ref.text} />
+        <meta name="citation_reference" content={ref} />
       ))}
     </>
   )

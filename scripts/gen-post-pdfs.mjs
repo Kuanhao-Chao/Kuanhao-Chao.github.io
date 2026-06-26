@@ -1,4 +1,4 @@
-import { access, readdir, stat } from 'node:fs/promises';
+import { access, readdir, rm, stat } from 'node:fs/promises';
 import { extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -187,6 +187,11 @@ async function collectJobs() {
   return jobs;
 }
 
+async function shouldSkipPdf(section) {
+  if (section !== 'reports') return false;
+  return true;
+}
+
 async function fulfillFromDist(route) {
   const request = route.request();
   if (!['GET', 'HEAD'].includes(request.method())) {
@@ -226,9 +231,9 @@ async function fulfillFromDist(route) {
 /**
  * Runs inside the page (serialized by Playwright) to make every figure print-ready
  * before `page.pdf()`:
- *   1. Promote each ZoomFigure's visible image to the highest-resolution source the
- *      figure carries — the lightbox copy goes up to 2400w, vs. the 920w button copy
- *      print would otherwise embed (~128 ppi → ~330 ppi on a Letter content box).
+ *   1. Promote each ZoomFigure's visible image to the best print-sized source it
+ *      carries. We cap this below lightbox resolution so the PDFs stay under
+ *      Google Scholar's 5 MB per-file guidance while remaining readable on Letter.
  *   2. Defeat `loading="lazy"` so below-the-fold figures actually fetch (otherwise
  *      `networkidle` reports quiet while they sit unloaded and the PDF captures blanks).
  *   3. Scroll the document top→bottom to trip any IntersectionObserver-based loads.
@@ -237,27 +242,31 @@ async function fulfillFromDist(route) {
  */
 async function preparePageForPrint() {
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const maxPrintImageWidth = 1200;
   const widthOf = (candidate) => parseInt(candidate.trim().split(/\s+/)[1], 10) || 0;
 
   for (const figure of document.querySelectorAll('figure.zfig')) {
     const shown = figure.querySelector('.zfig-btn img');
     if (!shown) continue;
-    let best = null;
-    let bestWidth = -1;
+    const candidates = [];
     for (const img of figure.querySelectorAll('img')) {
       for (const candidate of (img.getAttribute('srcset') || '').split(',')) {
         const url = candidate.trim().split(/\s+/)[0];
         const width = widthOf(candidate);
-        if (url && width > bestWidth) {
-          bestWidth = width;
-          best = url;
-        }
+        if (url && width) candidates.push({ url, width });
       }
     }
+    const printSized = candidates
+      .filter((candidate) => candidate.width <= maxPrintImageWidth)
+      .sort((a, b) => b.width - a.width)[0];
+    const smallestLarger = candidates
+      .filter((candidate) => candidate.width > maxPrintImageWidth)
+      .sort((a, b) => a.width - b.width)[0];
+    const best = printSized ?? smallestLarger;
     if (best) {
       shown.removeAttribute('srcset');
       shown.removeAttribute('sizes');
-      shown.setAttribute('src', best);
+      shown.setAttribute('src', best.url);
     }
   }
 
@@ -273,17 +282,22 @@ async function preparePageForPrint() {
   }
   window.scrollTo(0, 0);
 
-  await Promise.all(
-    Array.from(document.images).map((img) => {
-      if (img.complete && img.naturalWidth > 0) return img.decode().catch(() => {});
-      return new Promise((resolve) => {
-        const done = () => resolve();
-        img.addEventListener('load', done, { once: true });
-        img.addEventListener('error', done, { once: true });
-        setTimeout(done, 15000);
-      });
-    })
-  );
+  const imagePromises = [];
+  for (const img of Array.from(document.images)) {
+    if (img.complete && img.naturalWidth > 0) {
+      imagePromises.push(img.decode().catch(() => {}));
+    } else {
+      imagePromises.push(
+        new Promise((resolve) => {
+          const done = () => resolve();
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true });
+          setTimeout(done, 15000);
+        })
+      );
+    }
+  }
+  await Promise.all(imagePromises);
 }
 
 async function main() {
@@ -316,6 +330,11 @@ async function main() {
     for (const { section, slug } of jobs) {
       const url = `https://khchao.com/${section}/${slug}/`;
       const pdfPath = join(DIST, section, slug, `${slug}.pdf`);
+      if (await shouldSkipPdf(section)) {
+        await rm(pdfPath, { force: true });
+        console.log(`skipped ${relative(ROOT, pdfPath)} (reports draft-only)`);
+        continue;
+      }
       await page.goto(url, { waitUntil: 'networkidle' });
       await page.addStyleTag({ content: PRINT_CSS });
       await page.evaluate(preparePageForPrint);

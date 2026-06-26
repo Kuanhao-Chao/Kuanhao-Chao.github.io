@@ -3,6 +3,7 @@ import { getCollection, render } from 'astro:content';
 import EntryLayout from '../../layouts/EntryLayout.astro';
 import Prose from '../../components/Prose.astro';
 import { fullDate, readingTime } from '../../lib/format';
+import { makeScholarMeta, referenceLabel, referenceLd, referenceUrl } from '../../lib/scholar';
 import { site } from '../../data/site';
 // KaTeX styling for the `$…$` / `$$…$$` math rendered by rehype-katex. Imported
 // here so it is bundled only onto report pages (posts use no math), and so the
@@ -37,24 +38,23 @@ const authorLd = d.authors.map((name) =>
     ? { '@type': 'Person', name, url: site.url }
     : { '@type': 'Person', name }
 );
-const referenceLd = d.references.map((ref) => ({
-  '@type': 'CreativeWork',
-  name: ref.text,
-  ...(ref.doi ? { sameAs: ref.doi, url: ref.doi } : ref.url ? { url: ref.url } : {}),
-}));
-const scholarMeta = d.scholar
-  ? {
+const referenceLdList = d.references.map(referenceLd);
+const isPublicReport = !d.unlisted;
+const isScholarVisible = d.scholar && isPublicReport;
+const scholarMeta = isScholarVisible
+  ? makeScholarMeta({
       title: d.title,
       authors: d.authors,
-      publicationDate: d.date.toISOString().slice(0, 10).replaceAll('-', '/'),
+      date: d.date,
       pdfUrl,
       references: d.references,
-    }
+      technicalReportInstitution: d.institution,
+    })
   : undefined;
-const links = [{ label: 'PDF', icon: 'file', href: pdfHref }];
+const links = isPublicReport ? [{ label: 'PDF', icon: 'file', href: pdfHref }] : [];
 
 // Structured data: a ScholarlyArticle (Google-Scholar-friendly) + breadcrumb.
-const scholarlyArticleLd = d.scholar
+const scholarlyArticleLd = isScholarVisible
   ? {
       '@context': 'https://schema.org',
       '@type': 'ScholarlyArticle',
@@ -73,7 +73,7 @@ const scholarlyArticleLd = d.scholar
       ...(d.updated ? { dateModified: d.updated.toISOString().slice(0, 10) } : {}),
       ...(d.tags.length ? { keywords: d.tags.join(', ') } : {}),
       ...(ogImage ? { image: new URL(ogImage, site.url).href } : {}),
-      ...(referenceLd.length ? { citation: referenceLd } : {}),
+      ...(referenceLdList.length ? { citation: referenceLdList } : {}),
       encoding: {
         '@type': 'MediaObject',
         contentUrl: pdfUrl,
@@ -128,11 +128,11 @@ const breadcrumbLd = {
           {d.references.map((ref) => (
             <li>
               <span>{ref.text}</span>
-              {(ref.doi || ref.url) && (
+              {referenceUrl(ref) && (
                 <>
                   {' '}
-                  <a href={ref.doi ?? ref.url} target="_blank" rel="noopener">
-                    {ref.doi ? 'DOI' : 'Link'}
+                  <a href={referenceUrl(ref)} target="_blank" rel="noopener">
+                    {referenceLabel(ref)}
                   </a>
                 </>
               )}

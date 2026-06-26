@@ -12,6 +12,7 @@
     "build": "npm run build:site && npm run pdf:posts",
     "build:site": "astro build",
     "pdf:posts": "node scripts/gen-post-pdfs.mjs",
+    "audit:indexing": "node scripts/audit-indexing.mjs",
     "preview": "astro preview",
     "check": "astro check",
     "astro": "astro"

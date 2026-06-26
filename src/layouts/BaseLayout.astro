@@ -7,6 +7,7 @@ import SiteBackground from '../components/SiteBackground.astro';
 import ReadingProgress from '../components/ReadingProgress.astro';
 import PageScan from '../components/PageScan.astro';
 import { ClientRouter } from 'astro:transitions';
+import type { ScholarMeta } from '../lib/scholar';
 
 interface Props {
   title?: string;
@@ -14,13 +15,7 @@ interface Props {
   image?: string;
   type?: 'website' | 'article' | 'profile';
   noindex?: boolean;
-  scholarMeta?: {
-    title: string;
-    authors: string[];
-    publicationDate: string;
-    pdfUrl?: string;
-    references?: { text: string; doi?: string; url?: string }[];
-  };
+  scholarMeta?: ScholarMeta;
 }
 const { title, description, image, type, noindex, scholarMeta } = Astro.props;
 ---
