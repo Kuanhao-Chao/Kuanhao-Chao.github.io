@@ -12,27 +12,19 @@ image: ../../assets/posts/wgt/wgt-overview.png
 logo: ../../assets/logos/software/wgt.png
 imageAlt: 'The Wheeler Graph Toolkit pipeline: a generator produces graphs, the Wheelie recognizer (renaming heuristic plus a permutation or SMT solver) decides whether a graph is a Wheeler graph and finds its node ordering, and a visualizer draws it.'
 references:
-  - text: 'Chao, K.-H., Chen, P.-W., Seshia, S. A., and Langmead, B. WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs. iScience (2023).'
-    doi: 'https://doi.org/10.1016/j.isci.2023.107402'
-  - text: 'Gagie, T., Manzini, G., and Siren, J. Wheeler graphs: A framework for BWT-based data structures. Theoretical Computer Science (2017).'
-    doi: 'https://doi.org/10.1016/j.tcs.2017.06.016'
   - text: 'Burrows, M. and Wheeler, D. J. A block-sorting lossless data compression algorithm. Digital Equipment Corporation Systems Research Center Technical Report 124 (1994).'
   - text: 'Ferragina, P. and Manzini, G. Indexing compressed text. Journal of the ACM (2005).'
     doi: 'https://doi.org/10.1145/1082036.1082039'
-  - text: 'Langmead, B., Trapnell, C., Pop, M., and Salzberg, S. L. Ultrafast and memory-efficient alignment of short DNA sequences to the human genome. Genome Biology (2009).'
-    doi: 'https://doi.org/10.1186/gb-2009-10-3-r25'
-  - text: 'Li, H. and Durbin, R. Fast and accurate short read alignment with Burrows-Wheeler transform. Bioinformatics (2009).'
-    doi: 'https://doi.org/10.1093/bioinformatics/btp324'
+  - text: 'Gagie, T., Manzini, G., and Siren, J. Wheeler graphs: A framework for BWT-based data structures. Theoretical Computer Science (2017).'
+    doi: 'https://doi.org/10.1016/j.tcs.2017.06.016'
+  - text: 'Chao, K.-H., Chen, P.-W., Seshia, S. A., and Langmead, B. WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs. iScience (2023).'
+    doi: 'https://doi.org/10.1016/j.isci.2023.107402'
   - text: 'Garrison, E. et al. Variation graph toolkit improves read mapping by representing genetic variation in the reference. Nature Biotechnology (2018).'
     doi: 'https://doi.org/10.1038/nbt.4227'
   - text: 'Gibney, D. and Thankachan, S. V. On the hardness and inapproximability of recognizing Wheeler graphs. ESA (2019).'
     doi: 'https://doi.org/10.4230/LIPIcs.ESA.2019.51'
   - text: 'de Moura, L. and Bjørner, N. Z3: an efficient SMT solver. TACAS (2008).'
     doi: 'https://doi.org/10.1007/978-3-540-78800-3_24'
-  - text: 'Barbosa, H. et al. cvc5: a versatile and industrial-strength SMT solver. TACAS (2022).'
-    doi: 'https://doi.org/10.1007/978-3-030-99524-9_24'
-  - text: 'Pevzner, P. A., Tang, H., and Waterman, M. S. An Eulerian path approach to DNA fragment assembly. PNAS (2001).'
-    doi: 'https://doi.org/10.1073/pnas.171285098'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figOverview from '../../assets/posts/wgt/wgt-overview.png';
@@ -43,15 +35,15 @@ import figCactus from '../../assets/posts/wgt/wgt-cactus.png';
 
 Modern genomics is moving away from a single linear reference toward the **pangenome** — many genomes represented together, usually as a graph, so that all the variation between individuals is in the picture rather than flattened into one consensus. But a pangenome is only useful if you can *search* it: given a sequencing read, you need to find where it matches, and you need that to be fast even when the graph encodes thousands of genomes.
 
-For a single linear genome we have a beautiful answer to this: the Burrows–Wheeler Transform and the FM-index — the machinery underneath aligners like Bowtie and BWA — which let you index a genome once and then answer queries in time that scales with the query, not the genome. The natural question for pangenomes is whether the same trick works on a *graph*. Remarkably, for a special class of graphs, it does. Those are **Wheeler graphs**, and they're the elegant structure quietly underpinning graph-based pangenome indexes.
+For a single linear genome we have a beautiful answer to this: the Burrows-Wheeler Transform (Burrows and Wheeler, 1994) and the [FM-index (Ferragina and Manzini, 2005)](https://doi.org/10.1145/1082036.1082039), which let you index a genome once and then answer queries in time that scales with the query, not the genome. The natural question for pangenomes is whether the same trick works on a *graph*. Remarkably, for a special class of graphs, it does. Those are **Wheeler graphs** ([Gagie et al., 2017](https://doi.org/10.1016/j.tcs.2017.06.016)), and they're the elegant structure quietly underpinning graph-based pangenome indexes.
 
-**WGT**, the Wheeler Graph Toolkit, is the software we built to make Wheeler graphs something you can actually work with.
+**WGT**, the Wheeler Graph Toolkit ([Chao et al., 2023](https://doi.org/10.1016/j.isci.2023.107402)), is the software we built to make Wheeler graphs something you can actually work with.
 
 ## What's a Wheeler graph — and why it was hard to use
 
-A Wheeler graph, introduced by Gagie, Manzini, and Sirén in 2017, is a directed, edge-labeled graph whose nodes can be put in a special order — one that generalizes the sorting at the heart of the BWT. When such an ordering exists, all the fast FM-index query machinery carries over to the graph. In other words, a Wheeler graph is exactly a graph you can index and search like a BWT. That's why they form part of the basis for pangenome tools such as vg.
+A Wheeler graph is a directed, edge-labeled graph whose nodes can be put in a special order — one that generalizes the sorting at the heart of the BWT. When such an ordering exists, all the fast FM-index query machinery carries over to the graph. In other words, a Wheeler graph is exactly a graph you can index and search like a BWT. That's why they form part of the basis for pangenome tools such as [vg (Garrison et al., 2018)](https://doi.org/10.1038/nbt.4227).
 
-Here's the catch that motivated us. Given some graph you've built, *is* it a Wheeler graph — does a valid ordering exist? That recognition problem is NP-complete in general, and hard even to approximate. A theoretical algorithm had been proposed (by Gibney and Thankachan), but there was no working implementation — no way to actually feed it a graph and get an answer. And beyond recognition, there were no practical tools to *visualize* a Wheeler graph, or to *generate* example graphs to test ideas on. The concept was foundational, and yet almost untouchable in practice.
+Here's the catch that motivated us. Given some graph you've built, *is* it a Wheeler graph — does a valid ordering exist? That recognition problem is NP-complete in general, and hard even to approximate ([Gibney and Thankachan, 2019](https://doi.org/10.4230/LIPIcs.ESA.2019.51)). A theoretical algorithm had been proposed, but there was no working implementation — no way to actually feed it a graph and get an answer. And beyond recognition, there were no practical tools to *visualize* a Wheeler graph, or to *generate* example graphs to test ideas on. The concept was foundational, and yet almost untouchable in practice.
 
 I took this on in Ben Langmead's lab at Johns Hopkins, together with Pei-Wei Chen and Sanjit Seshia at UC Berkeley — who brought expertise in formal methods and SMT solving, which turned out to be exactly the right hammer. Our goal was simple to state: make Wheeler graphs practical to generate, check, and see.
 
@@ -83,7 +75,7 @@ The hard part is recognition, and the trick that makes it fast is a **renaming h
   <strong>Figure 3.</strong> The renaming heuristic. <strong>(A)</strong> The nodes are split into groups by their incoming-edge label (with a separate group for nodes that have no incoming edge). <strong>(B)</strong> The algorithm iteratively sorts and relabels the nodes in each group until everything converges — at which point it has either exposed a contradiction (the graph is not Wheeler) or narrowed each node down to a small range of possible positions, which it hands to a solver.
 </ZoomFigure>
 
-That convergence does one of two things. Often it settles the whole ordering, or proves no ordering can exist — an immediate answer. When ambiguity remains, Wheelie hands the much-reduced problem to one of two solvers: **Wheelie-Pr**, which exhaustively searches the remaining permutations, or **Wheelie-SMT**, which encodes the leftover constraints as a logic formula and lets a Satisfiability Modulo Theories solver (Z3 or cvc5) settle it. The heuristic is what makes either solver tractable: it shrinks an exponential search down to something small.
+That convergence does one of two things. Often it settles the whole ordering, or proves no ordering can exist — an immediate answer. When ambiguity remains, Wheelie hands the much-reduced problem to one of two solvers: **Wheelie-Pr**, which exhaustively searches the remaining permutations, or **Wheelie-SMT**, which encodes the leftover constraints as a logic formula and lets a Satisfiability Modulo Theories solver such as [Z3 (de Moura and Bjørner, 2008)](https://doi.org/10.1007/978-3-540-78800-3_24) settle it. The heuristic is what makes either solver tractable: it shrinks an exponential search down to something small.
 
 ## What it showed
 

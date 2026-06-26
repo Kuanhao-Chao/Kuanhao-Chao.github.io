@@ -20,10 +20,10 @@ references:
     doi: 'https://doi.org/10.1093/bioinformatics/btaa1016'
   - text: 'Li, H. Protein-to-genome alignment with miniprot. Bioinformatics (2023).'
     doi: 'https://doi.org/10.1093/bioinformatics/btad014'
-  - text: 'Nurk, S. et al. The complete sequence of a human genome. Science (2022).'
-    doi: 'https://doi.org/10.1126/science.abj6987'
   - text: "O'Leary, N. A. et al. Reference sequence (RefSeq) database at NCBI: current status, taxonomic expansion, and functional annotation. Nucleic Acids Research (2016)."
     doi: 'https://doi.org/10.1093/nar/gkv1189'
+  - text: 'Nurk, S. et al. The complete sequence of a human genome. Science (2022).'
+    doi: 'https://doi.org/10.1126/science.abj6987'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figAlgorithm from '../../assets/posts/lifton/lifton-algorithm.png';
@@ -36,13 +36,13 @@ We can sequence a genome faster than we can make sense of it. Assembling the DNA
 
 The pragmatic way to draw that map is to borrow one. If a closely related genome is already well annotated — say, the human reference — you can *lift* its genes over to the new assembly: line the two genomes up and carry each gene across to its matching location. Done well, annotation lift-over is fast, reproducible, and far cheaper than annotating from scratch. Done badly, it quietly fills your new genome with broken genes.
 
-**LiftOn** is the algorithm we built for that problem: use DNA and protein as complementary evidence, then construct the gene model that best preserves the reference protein.
+**LiftOn** ([Chao et al., 2025](https://doi.org/10.1101/gr.279620.124)) is the algorithm we built for that problem: use DNA and protein as complementary evidence, then construct the gene model that best preserves the reference protein.
 
 ## Why not just lift over the DNA?
 
-My lab already had a well-loved lift-over tool: [Liftoff](https://doi.org/10.1093/bioinformatics/btaa1016), written by Alaina Shumate and Steven Salzberg, which maps gene annotations between assemblies using **DNA** alignment. Within a species it is excellent — it can carry virtually every human gene from one assembly of the genome to another with near-perfect identity. But DNA alignment has a horizon. The further the target genome sits from the reference, the more the underlying DNA has changed, and the harder it becomes to line genes up correctly. Push Liftoff toward more distant species and it starts to stumble: a misplaced splice site here, a transcript with a broken open reading frame there.
+My lab already had a well-loved lift-over tool: [Liftoff (Shumate and Salzberg, 2021)](https://doi.org/10.1093/bioinformatics/btaa1016), written by Alaina Shumate and Steven Salzberg, which maps gene annotations between assemblies using **DNA** alignment. Within a species it is excellent — it can carry virtually every human gene from one assembly of the genome to another with near-perfect identity. But DNA alignment has a horizon. The further the target genome sits from the reference, the more the underlying DNA has changed, and the harder it becomes to line genes up correctly. Push Liftoff toward more distant species and it starts to stumble: a misplaced splice site here, a transcript with a broken open reading frame there.
 
-Meanwhile, a different signal stays legible long after the DNA has blurred: the **protein**. Protein-coding sequence is conserved across far greater evolutionary distances than the DNA that encodes it, because many DNA changes are synonymous or tolerated while the amino-acid sequence is held under strong selection. Heng Li's [miniprot](https://doi.org/10.1093/bioinformatics/btad014) exploits exactly this — it aligns a reference protein directly to a target genome, and it can find genes across distances where DNA alignment gives up.
+Meanwhile, a different signal stays legible long after the DNA has blurred: the **protein**. Protein-coding sequence is conserved across far greater evolutionary distances than the DNA that encodes it, because many DNA changes are synonymous or tolerated while the amino-acid sequence is held under strong selection. Heng Li's [miniprot (Li, 2023)](https://doi.org/10.1093/bioinformatics/btad014) exploits exactly this — it aligns a reference protein directly to a target genome, and it can find genes across distances where DNA alignment gives up.
 
 But protein alignment has its own blind spots. It only sees coding sequence, so it misses untranslated regions; it can skip very small exons; it gets fooled by pseudogenes; and it tends to merge members of tandem gene families that look identical at the protein level. Neither tool, on its own, is the whole answer.
 
@@ -60,7 +60,7 @@ The first step, **chaining**, starts after LiftOn pairs a Liftoff transcript wit
 
 ## What it showed
 
-**It improves where the two inputs disagree.** The first test was the human genome itself: lifting RefSeq release 220 from GRCh38 onto the complete telomere-to-telomere assembly, T2T-CHM13. LiftOn mapped 37,828 of 37,986 genes, a 99.6% gene mapping rate, while the protein-coding transcript analysis showed the central reason for combining evidence: Liftoff and miniprot often made different errors, and LiftOn usually matched or improved on each input by reference-protein identity.
+**It improves where the two inputs disagree.** The first test was the human genome itself: lifting [RefSeq release 220 (O'Leary et al., 2016)](https://doi.org/10.1093/nar/gkv1189) from GRCh38 onto the complete telomere-to-telomere assembly, [T2T-CHM13 (Nurk et al., 2022)](https://doi.org/10.1126/science.abj6987). LiftOn mapped 37,828 of 37,986 genes, a 99.6% gene mapping rate, while the protein-coding transcript analysis showed the central reason for combining evidence: Liftoff and miniprot often made different errors, and LiftOn usually matched or improved on each input by reference-protein identity.
 
 <ZoomFigure src={figVsBoth} alt="Three scatter plots of per-transcript protein sequence identity for transcripts lifted from GRCh38 to T2T-CHM13: miniprot vs Liftoff, LiftOn vs Liftoff, and LiftOn vs miniprot." variant="wide">
   <strong>Figure 2.</strong> LiftOn compared with its two evidence sources. Each dot is a protein-coding transcript lifted from GRCh38 to T2T-CHM13, plotted by gap-compressed protein sequence identity. <strong>(A)</strong> miniprot vs Liftoff — neither method dominates the other. <strong>(B, C)</strong> LiftOn vs Liftoff, and LiftOn vs miniprot — most points sit on or above the diagonal, meaning the protein-maximization algorithm usually matches or improves on each input.

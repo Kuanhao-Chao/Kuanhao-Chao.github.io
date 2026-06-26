@@ -12,41 +12,35 @@ image: ../../assets/posts/openspliceai/openspliceai-framework.png
 logo: ../../assets/logos/software/openspliceai.png
 imageAlt: 'The OpenSpliceAI framework: six subcommands — create-data, train, calibrate, transfer, predict, and variant — with their inputs and outputs.'
 references:
-  - text: 'Chao, K.-H., Mao, A., Liu, A., Salzberg, S. L., and Pertea, M. OpenSpliceAI: An efficient, modular implementation of SpliceAI enabling easy retraining on non-human species. eLife (2025).'
-    doi: 'https://doi.org/10.7554/eLife.107454.3'
   - text: 'Jaganathan, K. et al. Predicting splicing from primary sequence with deep learning. Cell (2019).'
     doi: 'https://doi.org/10.1016/j.cell.2018.12.015'
-  - text: 'Chao, K.-H., Mao, A., Salzberg, S. L., and Pertea, M. Splam: a deep-learning-based splice site predictor that improves spliced alignments. Genome Biology (2024).'
-    doi: 'https://doi.org/10.1186/s13059-024-03379-4'
-  - text: 'Paszke, A. et al. PyTorch: an imperative style, high-performance deep learning library. Advances in Neural Information Processing Systems (2019).'
-    url: 'https://papers.nips.cc/paper/9015-pytorch-an-imperative-style-high-performance-deep-learning-library'
   - text: 'Abadi, M. et al. TensorFlow: a system for large-scale machine learning. OSDI (2016).'
     url: 'https://www.usenix.org/conference/osdi16/technical-sessions/presentation/abadi'
-  - text: 'Chollet, F. et al. Keras.'
-    url: 'https://keras.io/'
-  - text: 'Morales, J. et al. A joint NCBI and EMBL-EBI transcript set for clinical genomics and research. Nature (2022).'
-    doi: 'https://doi.org/10.1038/s41586-022-04558-8'
-  - text: 'Guo, C., Pleiss, G., Sun, Y., and Weinberger, K. Q. On calibration of modern neural networks. ICML (2017).'
-    url: 'https://arxiv.org/abs/1706.04599'
+  - text: 'Paszke, A. et al. PyTorch: an imperative style, high-performance deep learning library. Advances in Neural Information Processing Systems (2019).'
+    url: 'https://papers.nips.cc/paper/9015-pytorch-an-imperative-style-high-performance-deep-learning-library'
+  - text: 'Chao, K.-H., Mao, A., Salzberg, S. L., and Pertea, M. Splam: a deep-learning-based splice site predictor that improves spliced alignments. Genome Biology (2024).'
+    doi: 'https://doi.org/10.1186/s13059-024-03379-4'
+  - text: 'Chao, K.-H., Mao, A., Liu, A., Salzberg, S. L., and Pertea, M. OpenSpliceAI: An efficient, modular implementation of SpliceAI enabling easy retraining on non-human species. eLife (2025).'
+    doi: 'https://doi.org/10.7554/eLife.107454.3'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figFramework from '../../assets/posts/openspliceai/openspliceai-framework.png';
 import figBenchmark from '../../assets/posts/openspliceai/openspliceai-benchmark.png';
 import figVariant from '../../assets/posts/openspliceai/openspliceai-variant.png';
 
-Your genes are written in pieces. Before a gene becomes a protein, the cell has to cut out the introns and stitch the exons back together — a process called RNA splicing — and it has to find the boundaries exactly, down to the single base. When splicing goes wrong, the consequences are severe: somewhere between 15% and 50% of disease-causing mutations in humans act by disrupting a splice site. So a model that can read a stretch of DNA and tell you where splicing will happen — and how a mutation might change it — is enormously useful, both for basic biology and for making sense of the variants we find in patients.
+Your genes are written in pieces. Before a gene becomes a protein, the cell has to cut out the introns and stitch the exons back together — a process called RNA splicing — and it has to find the boundaries exactly, down to the single base. When splicing goes wrong, the consequences are severe: the [SpliceAI paper (Jaganathan et al., 2019)](https://doi.org/10.1016/j.cell.2018.12.015) summarizes estimates that a substantial fraction of disease-causing mutations in humans act by disrupting splice sites. So a model that can read a stretch of DNA and tell you where splicing will happen — and how a mutation might change it — is enormously useful, both for basic biology and for making sense of the variants we find in patients.
 
-In 2019, [SpliceAI](https://doi.org/10.1016/j.cell.2018.12.015) did exactly that, and did it remarkably well: a deep neural network that predicts splice sites straight from sequence, with no hand-engineered features. It quickly became the gold standard. So why would we spend a year rebuilding it?
+In 2019, SpliceAI did exactly that, and did it remarkably well: a deep neural network that predicts splice sites straight from sequence, with no hand-engineered features. It quickly became the gold standard. So why would we spend a year rebuilding it?
 
 ## Why rebuild a tool that already works?
 
 Two reasons — and both are about *using* SpliceAI rather than out-predicting it.
 
-First, the engineering had aged. SpliceAI's official implementation is built on an older version of TensorFlow and Keras. That made it awkward to run inside modern pipelines, slow on large inputs, and hard to extend or fine-tune — and most of the field has since moved to PyTorch. If you wanted to adapt SpliceAI, you spent your time fighting the framework.
+First, the engineering had aged. SpliceAI's official implementation is built on an older [TensorFlow stack (Abadi et al., 2016)](https://www.usenix.org/conference/osdi16/technical-sessions/presentation/abadi). That made it awkward to run inside modern pipelines, slow on large inputs, and hard to extend or fine-tune — and most of the field has since moved to [PyTorch (Paszke et al., 2019)](https://papers.nips.cc/paper/9015-pytorch-an-imperative-style-high-performance-deep-learning-library). If you wanted to adapt SpliceAI, you spent your time fighting the framework.
 
 Second, and more fundamentally, SpliceAI was trained only on human. Splicing signals are broadly conserved, but they are not identical across the tree of life, and a human-only model leaves accuracy on the table for every other species. In Steven Salzberg's and Mihaela Pertea's groups at Johns Hopkins, where I did my Ph.D., we annotate genomes across that whole tree — mouse, plants, insects, fish — and we kept hitting the same wall: we couldn't easily retrain SpliceAI for the organism in front of us.
 
-I'd already built a splice-site model of my own, [Splam](https://doi.org/10.1186/s13059-024-03379-4), so I knew the problem space well. OpenSpliceAI was the natural next step. The goal was never a cleverer algorithm. It was to take the best splice-site model and make it open, modern, and retrainable by anyone — true to a motto I keep coming back to: build what you need, use what you build.
+I'd already built a splice-site model of my own, [Splam (Chao et al., 2024)](https://doi.org/10.1186/s13059-024-03379-4), so I knew the problem space well. [OpenSpliceAI (Chao et al., 2025)](https://doi.org/10.7554/eLife.107454.3) was the natural next step. The goal was never a cleverer algorithm. It was to take the best splice-site model and make it open, modern, and retrainable by anyone — true to a motto I keep coming back to: build what you need, use what you build.
 
 ## What OpenSpliceAI is
 
@@ -63,7 +57,7 @@ That structure is the whole point. You can start from a reference genome and its
 **It matches SpliceAI — but runs far lighter.** The first thing to check for any reimplementation is that it faithfully reproduces the original, and it does. Across a range of flanking-context sizes, OpenSpliceAI's donor and acceptor accuracy tracks the original SpliceAI almost exactly, and in-silico mutagenesis and calibration analyses confirm the two models rely on the same sequence features and produce similarly trustworthy probabilities. The difference is efficiency: because it's built on PyTorch, OpenSpliceAI runs substantially faster and on a fraction of the memory, so you can score whole chromosomes on a single GPU.
 
 <ZoomFigure src={figBenchmark} alt="OpenSpliceAI matches SpliceAI's donor and acceptor Top-1 accuracy across flanking sizes, while running much faster and using far less memory." variant="wide">
-  <strong>Figure 2.</strong> Faithful, but far more efficient. <strong>(C, D)</strong> Donor and acceptor Top-1 accuracy for OpenSpliceAI and the original SpliceAI-Keras (both on human MANE genes) are nearly indistinguishable across flanking-context sizes. <strong>(E)</strong> At prediction time, the PyTorch implementation is dramatically faster and far lighter on memory than the Keras original as the input grows.
+  <strong>Figure 2.</strong> Faithful, but far more efficient. <strong>(C, D)</strong> Donor and acceptor Top-1 accuracy for OpenSpliceAI and the original SpliceAI implementation are nearly indistinguishable across flanking-context sizes. <strong>(E)</strong> At prediction time, the PyTorch implementation is dramatically faster and far lighter on memory as the input grows.
 </ZoomFigure>
 
 **It retrains across the tree of life.** This is the capability we most needed. With OpenSpliceAI you can train a model from scratch on a new genome or — faster — transfer-learn from the human model and let it adapt. When we did this for mouse, zebrafish, honeybee, and *Arabidopsis*, the species-specific models clearly outperformed the off-the-shelf human SpliceAI, and the gap widened the further the species sat from human: mouse, our closest relative here, gained the least; the plant and the insect gained the most. Transfer learning reached high accuracy in just a few epochs, which makes adapting the model to a new organism cheap.

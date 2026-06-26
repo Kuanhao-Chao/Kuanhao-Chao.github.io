@@ -17,14 +17,12 @@ references:
     doi: 'https://doi.org/10.1038/s41588-024-02053-6'
   - text: 'Karollus, A. et al. Species-aware DNA language models capture regulatory elements and their evolution. Genome Biology (2024).'
     doi: 'https://doi.org/10.1186/s13059-024-03221-x'
-  - text: 'Vaswani, A. et al. Attention is all you need. Advances in Neural Information Processing Systems (2017).'
-    url: 'https://arxiv.org/abs/1706.03762'
-  - text: 'Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K. BERT: Pre-training of deep bidirectional transformers for language understanding. NAACL (2019).'
-    doi: 'https://doi.org/10.18653/v1/N19-1423'
-  - text: 'Ronneberger, O., Fischer, P., and Brox, T. U-Net: convolutional networks for biomedical image segmentation. MICCAI (2015).'
-    doi: 'https://doi.org/10.1007/978-3-319-24574-4_28'
   - text: 'Rhee, H. S. and Pugh, B. F. Comprehensive genome-wide protein-DNA interactions detected at single-nucleotide resolution. Cell (2011).'
     doi: 'https://doi.org/10.1016/j.cell.2011.05.042'
+  - text: 'Vaswani, A. et al. Attention is all you need. Advances in Neural Information Processing Systems (2017).'
+    url: 'https://arxiv.org/abs/1706.03762'
+  - text: 'Ronneberger, O., Fischer, P., and Brox, T. U-Net: convolutional networks for biomedical image segmentation. MICCAI (2015).'
+    doi: 'https://doi.org/10.1007/978-3-319-24574-4_28'
   - text: 'Melnikov, A. et al. Systematic dissection and optimization of inducible enhancers in human cells using a massively parallel reporter assay. Nature Biotechnology (2012).'
     doi: 'https://doi.org/10.1038/nbt.2137'
 ---
@@ -39,7 +37,7 @@ Every cell carries essentially the same DNA, but cells do not use that DNA in th
 
 If we could read that program directly from sequence, we could do much more than predict whether a gene is active. We could ask which bases drive expression, which variants change it, and how regulation shifts when a cell enters a new state. That is the promise of sequence-to-function modeling. The hard part is proving that the model has learned regulatory biology rather than a collection of shortcuts.
 
-**Shorkie** was built for that test. It is a fungal DNA language model, pretrained on related genomes and fine-tuned to predict how budding yeast genes change expression over time. The central question was empirical: if yeast-only supervised training was limited by the amount of sequence available, could related fungal genomes provide a useful starting point? Shorkie asks whether we can learn regulatory grammar from those relatives, then transfer it back to *Saccharomyces cerevisiae*.
+**Shorkie** ([Chao et al., 2025](https://doi.org/10.1101/2025.09.19.677475)) was built for that test. It is a fungal DNA language model, pretrained on related genomes and fine-tuned to predict how budding yeast genes change expression over time. The central question was empirical: if yeast-only supervised training was limited by the amount of sequence available, could related fungal genomes provide a useful starting point? Shorkie asks whether we can learn regulatory grammar from those relatives, then transfer it back to *Saccharomyces cerevisiae*.
 
 ## Why budding yeast?
 
@@ -47,11 +45,11 @@ Budding yeast (*Saccharomyces cerevisiae*) is one of the best systems we have fo
 
 That compactness is both the opportunity and the challenge. A supervised sequence-to-expression model learns from examples: one gene's sequence paired with its measured expression, over and over. Yeast has roughly 6,000 protein-coding genes, which is small by deep-learning standards. There is enough biological knowledge to evaluate a model carefully, but it was not obvious that yeast sequence alone would provide enough independent examples for the model we wanted to train.
 
-That was the first thing we tested. Shorkie began as my summer-2024 internship in the Kelley Lab at Calico, where **Borzoi** had shown how to predict RNA-seq coverage directly from DNA sequence ([Linder et al., 2025](https://doi.org/10.1038/s41588-024-02053-6)). We trained the same supervised Shorkie architecture from random weights and pushed on the obvious knobs, including learning rate and model capacity. It fit the genes it had seen, but it did not generalize as strongly as we wanted to unseen genes. That result made pretraining the natural next experiment.
+That was the first thing we tested. Shorkie began as my summer-2024 internship in the Kelley Lab at Calico, where [Borzoi (Linder et al., 2025)](https://doi.org/10.1038/s41588-024-02053-6) had shown how to predict RNA-seq coverage directly from DNA sequence. We trained the same supervised Shorkie architecture from random weights and pushed on the obvious knobs, including learning rate and model capacity. It fit the genes it had seen, but it did not generalize as strongly as we wanted to unseen genes. That result made pretraining the natural next experiment.
 
 ## The bet: borrow power from evolution
 
-The pretraining idea was to give the model a broader sequence context before asking it to predict yeast expression. If *S. cerevisiae* alone was a narrow training source for this model, its relatives might add useful signal. Across the fungal kingdom, evolution has run many related regulatory experiments. Functional sequence tends to be constrained; neutral sequence drifts. A model trained across many related genomes should see the repeated patterns often enough to learn which DNA words matter.
+The pretraining idea was to give the model a broader sequence context before asking it to predict yeast expression. If *S. cerevisiae* alone was a narrow training source for this model, its relatives might add useful signal. Across the fungal kingdom, evolution has run many related regulatory experiments. Functional sequence tends to be constrained; neutral sequence drifts. A model trained across many related genomes should see the repeated patterns often enough to learn which DNA words matter. That motivation follows the broader evidence that [species-aware DNA language models can capture regulatory elements and their evolution (Karollus et al., 2024)](https://doi.org/10.1186/s13059-024-03221-x).
 
 This is the same self-supervised idea behind language models, applied to DNA. Instead of predicting the next word in a sentence, the model sees masked stretches of genome and learns to reconstruct the hidden bases. It is not told which sites are regulatory. It has to infer useful patterns from sequence context itself.
 
@@ -82,7 +80,7 @@ The 165-genome *Saccharomycetales* model reconstructed held-out yeast sequence b
 
 The kingdom model appears to fall behind because the corpus is too heterogeneous for this objective and model scale. Training batches can pull the network toward organisms as different as black truffle and brewer's yeast. Those competing gradients make optimization noisier, and the features most useful for *S. cerevisiae* become harder to isolate. We checked whether this was simply a model-capacity issue across four tested model capacities; the 165-genome order stayed on top.
 
-Second comes **fine-tuning**. At Calico, the team produced high-resolution RNA-seq time courses using miniaturized chemostats, or "ministats," to watch yeast genes respond minute by minute after transcription-factor induction. Shorkie fine-tunes the pretrained model on those measurements and other regulatory assays, unifying 5,215 experimental tracks: 3,053 induction RNA-seq timepoints, 1,014 strain RNA-seq profiles, 1,128 ChIP-exo transcription-factor binding datasets, and 20 histone-modification tracks.
+Second comes **fine-tuning**. At Calico, the team produced high-resolution RNA-seq time courses using miniaturized chemostats, or "ministats," to watch yeast genes respond minute by minute after transcription-factor induction. Shorkie fine-tunes the pretrained model on those measurements and other regulatory assays, unifying 5,215 experimental tracks: 3,053 induction RNA-seq timepoints, 1,014 strain RNA-seq profiles, 1,128 [ChIP-exo transcription-factor binding datasets (Rhee and Pugh, 2011)](https://doi.org/10.1016/j.cell.2011.05.042), and 20 histone-modification tracks.
 
 The evolutionary ranking carried into this downstream task. After identical fine-tuning, the models ranked **165-genome order > 1,341-genome kingdom > 80 strains > single genome > no pretraining**. The language model's own perplexity on held-out yeast sequence broadly tracked downstream fine-tuning performance, although not perfectly. That makes perplexity a useful screening signal before running the expensive supervised experiment.
 
@@ -90,7 +88,7 @@ The evolutionary ranking carried into this downstream task. After identical fine
   <strong>Figure 3.</strong> The pretraining choice carries through to expression prediction. After fine-tuning each pretrained model identically on the same yeast data, downstream expression accuracy (validation Pearson's r) lands in the same order — 165-genome order (0.63) &gt; 1,341 kingdom (0.62) &gt; 80 strains (0.57) &gt; single genome (0.55) &gt; no pretraining (0.52) (left). Lower held-out yeast perplexity broadly tracks better fine-tuning performance (right), making perplexity a useful but imperfect proxy for choosing pretraining data.
 </ZoomFigure>
 
-Architecturally, Shorkie is compact. The language model has 13.7 million parameters. It reads a 16,384 bp sequence window, compresses it through convolutional down-sampling to a 128 bp representation, uses eight Transformer layers for long-range context, and then decodes back to base-level predictions through a U-Net. The fine-tuned model keeps the same yeast-scale backbone and adds output heads for regulatory measurements. The point is not that the model is huge. The point is that the right pretraining data gives a modest model useful biological priors.
+Architecturally, Shorkie is compact. The language model has 13.7 million parameters. It reads a 16,384 bp sequence window, compresses it through convolutional down-sampling to a 128 bp representation, uses eight [Transformer layers (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762) for long-range context, and then decodes back to base-level predictions through a [U-Net (Ronneberger et al., 2015)](https://doi.org/10.1007/978-3-319-24574-4_28). The fine-tuned model keeps the same yeast-scale backbone and adds output heads for regulatory measurements. The point is not that the model is huge. The point is that the right pretraining data gives a modest model useful biological priors.
 
 <ZoomFigure src={figArchitecture} alt="Architecture diagram of the Shorkie language model: a 16,384 bp input passes through a convolutional down-sampling encoder, an eight-layer Transformer bottleneck, and a U-Net decoder back to per-base predictions." variant="square">
   <strong>Figure 4.</strong> The Shorkie LM architecture. The 13.7-million-parameter model reads a 16,384 bp window and predicts per-base nucleotide probabilities: a 1D convolution plus seven residual down-sampling blocks reduce the sequence to a 128 × 384 representation, eight Transformer layers integrate long-range context, and a U-Net decoder with skip connections restores it to full length before a final softmax over A/C/G/T.
@@ -114,7 +112,7 @@ That is what happens at *RPL26A*. The language model and fine-tuned model both h
 
 ## Variants, dynamics, and the hard caveat
 
-A useful regulatory model should say something about variants. We tested Shorkie on two association-based yeast *cis*-eQTL datasets and one MPRA-validated causal cis-regulatory variant benchmark. Across those three benchmarks, Shorkie separated positive variants from matched controls better than specialized DREAM-challenge models. It also beat both its from-scratch twin and the pretrained language model alone. That last comparison is the key: conservation from pretraining is not enough by itself. Fine-tuning on measured regulatory outputs adds functional signal.
+A useful regulatory model should say something about variants. We tested Shorkie on two association-based yeast *cis*-eQTL datasets and one massively parallel reporter assay benchmark ([MPRA; Melnikov et al., 2012](https://doi.org/10.1038/nbt.2137)) of causal cis-regulatory variants. Across those three benchmarks, Shorkie separated positive variants from matched controls better than specialized DREAM-challenge models. It also beat both its from-scratch twin and the pretrained language model alone. That last comparison is the key: conservation from pretraining is not enough by itself. Fine-tuning on measured regulatory outputs adds functional signal.
 
 The comparison has an important caveat. DREAM models were trained on synthetic promoter variants measured by massively parallel reporter assays (MPRAs). On synthetic MPRA constructs, the MPRA-trained model beats Shorkie, even though Shorkie never saw MPRA data. That is not a contradiction. Each model is strongest in the domain it was trained on: Shorkie on native genomic sequence, DREAM on designed reporter constructs.
 

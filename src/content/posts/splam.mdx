@@ -18,33 +18,31 @@ imageAlt: 'The Splam algorithm: a dilated residual convolutional network that re
 references:
   - text: 'Chao, K.-H., Mao, A., Salzberg, S. L., and Pertea, M. Splam: a deep-learning-based splice site predictor that improves spliced alignments. Genome Biology (2024).'
     doi: 'https://doi.org/10.1186/s13059-024-03379-4'
-  - text: 'Jaganathan, K. et al. Predicting splicing from primary sequence with deep learning. Cell (2019).'
-    doi: 'https://doi.org/10.1016/j.cell.2018.12.015'
   - text: 'Varabyou, A. et al. CHESS 3: an improved, comprehensive catalog of human genes and transcripts based on large-scale expression data, phylogenetic analysis, and protein structure. Genome Biology (2023).'
     doi: 'https://doi.org/10.1186/s13059-023-03088-4'
-  - text: 'Chao, K.-H., Mao, A., Liu, A., Salzberg, S. L., and Pertea, M. OpenSpliceAI: An efficient, modular implementation of SpliceAI enabling easy retraining on non-human species. eLife (2025).'
-    doi: 'https://doi.org/10.7554/eLife.107454.3'
+  - text: 'Jaganathan, K. et al. Predicting splicing from primary sequence with deep learning. Cell (2019).'
+    doi: 'https://doi.org/10.1016/j.cell.2018.12.015'
   - text: 'Morales, J. et al. A joint NCBI and EMBL-EBI transcript set for clinical genomics and research. Nature (2022).'
     doi: 'https://doi.org/10.1038/s41586-022-04558-8'
   - text: "O'Leary, N. A. et al. Reference sequence (RefSeq) database at NCBI: current status, taxonomic expansion, and functional annotation. Nucleic Acids Research (2016)."
     doi: 'https://doi.org/10.1093/nar/gkv1189'
   - text: 'Kim, D. et al. Graph-based genome alignment and genotyping with HISAT2 and HISAT-genotype. Nature Biotechnology (2019).'
     doi: 'https://doi.org/10.1038/s41587-019-0201-4'
-  - text: 'Dobin, A. et al. STAR: ultrafast universal RNA-seq aligner. Bioinformatics (2013).'
-    doi: 'https://doi.org/10.1093/bioinformatics/bts635'
   - text: 'Pertea, M. et al. StringTie enables improved reconstruction of a transcriptome from RNA-seq reads. Nature Biotechnology (2015).'
     doi: 'https://doi.org/10.1038/nbt.3122'
+  - text: 'Dobin, A. et al. STAR: ultrafast universal RNA-seq aligner. Bioinformatics (2013).'
+    doi: 'https://doi.org/10.1093/bioinformatics/bts635'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import figArchitecture from '../../assets/posts/splam/splam-architecture.png';
 import figVsSpliceAI from '../../assets/posts/splam/splam-vs-spliceai.png';
 import figCleanup from '../../assets/posts/splam/splam-cleanup.png';
 
-Almost every RNA-seq analysis begins the same way: you align millions of short reads back to the genome. Wherever a read jumps across an intron, the aligner records a *splice junction* — evidence of where the cell cut the pre-mRNA and joined the exons. The trouble is that alignment-derived junctions are not all equally trustworthy. Alignment errors, sequencing artifacts, and noisy transcription or splicing can produce low-confidence junctions that inflate false introns and distort transcript assembly.
+Almost every RNA-seq analysis begins the same way: you align millions of short reads back to the genome. Wherever a read jumps across an intron, the aligner records a *splice junction* — evidence of where the cell cut the pre-mRNA and joined the exons. The trouble is that alignment-derived junctions are not all equally trustworthy. Alignment errors, sequencing artifacts, and noisy transcription or splicing can produce low-confidence junctions that inflate false introns and distort transcript assembly. This was the practical setting behind [Splam (Chao et al., 2024)](https://doi.org/10.1186/s13059-024-03379-4).
 
-The [CHESS](https://ccb.jhu.edu/chess/) project made that problem impossible to ignore. In the Salzberg and Pertea labs, CHESS builds human gene catalogs from very large collections of RNA-seq data. At that scale, spurious spliced alignments are not just scattered mistakes. They create many false-positive junction signals, make the input to transcriptome assembly noisy, and can push assemblers toward transcript models that look supported by reads but are built on weak splice evidence.
+The [CHESS 3 project (Varabyou et al., 2023)](https://doi.org/10.1186/s13059-023-03088-4) made that problem impossible to ignore. In the Salzberg and Pertea labs, CHESS builds human gene catalogs from very large collections of RNA-seq data. At that scale, spurious spliced alignments are not just scattered mistakes. They create many false-positive junction signals, make the input to transcriptome assembly noisy, and can push assemblers toward transcript models that look supported by reads but are built on weak splice evidence.
 
-At the same time, [SpliceAI](https://doi.org/10.1016/j.cell.2018.12.015) had already shown something powerful: a deep neural network could recognize splice signals directly from sequence. It inspired the way I thought about the problem. But our use case was different from SpliceAI's original one. SpliceAI was trained and evaluated around one canonical protein-coding transcript per gene, while RNA-seq alignments contain junctions from many isoforms. For transcriptome cleanup, alternative junctions are not an edge case; they are part of the signal we want to preserve.
+At the same time, [SpliceAI (Jaganathan et al., 2019)](https://doi.org/10.1016/j.cell.2018.12.015) had already shown something powerful: a deep neural network could recognize splice signals directly from sequence. It inspired the way I thought about the problem. But our use case was different from SpliceAI's original one. SpliceAI was trained and evaluated around one canonical protein-coding transcript per gene, while RNA-seq alignments contain junctions from many isoforms. For transcriptome cleanup, alternative junctions are not an edge case; they are part of the signal we want to preserve.
 
 That led to a complementary problem, not an easier one. Detecting splice junctions is itself hard. Splam asks a downstream question: once an annotation or a spliced aligner proposes a donor-acceptor pair, can a deep-learning recognizer use the local sequence around that candidate to decide whether the junction has credible splice signals, and can that score help remove spurious junctions before transcript assembly?
 
@@ -54,7 +52,7 @@ That led to a complementary problem, not an easier one. Detecting splice junctio
 
 Splam was designed for candidate-junction recognition. In this pipeline, the input is a proposed intron from an annotation or an RNA-seq alignment, and the goal is to score whether that donor-acceptor pair looks like a plausible splice junction before the read is handed to a transcriptome assembler.
 
-Three requirements followed from that. First, the algorithm had to respect isoforms. The Splam paper tested junctions from MANE and alternative RefSeq annotations, and the alternative-junction benchmark is where the canonical-transcript framing mattered most. Second, the algorithm had to be useful after alignment, where the input is already a proposed donor-acceptor pair and the practical goal is to remove weak spliced alignments without throwing away real junctions. Third, the algorithm had to model the biological unit. SpliceAI predicts donor and acceptor sites as positions in sequence, whereas a splice junction is defined by a *pair*: a donor and an acceptor that belong to the same intron.
+Three requirements followed from that. First, the algorithm had to respect isoforms. The Splam paper tested junctions from [MANE (Morales et al., 2022)](https://doi.org/10.1038/s41586-022-04558-8) and alternative [RefSeq annotations (O'Leary et al., 2016)](https://doi.org/10.1093/nar/gkv1189), and the alternative-junction benchmark is where the canonical-transcript framing mattered most. Second, the algorithm had to be useful after alignment, where the input is already a proposed donor-acceptor pair and the practical goal is to remove weak spliced alignments without throwing away real junctions. Third, the algorithm had to model the biological unit. SpliceAI predicts donor and acceptor sites as positions in sequence, whereas a splice junction is defined by a *pair*: a donor and an acceptor that belong to the same intron.
 
 That is why Splam is not an exhaustive chromosome-wide splice-site scanner. It is a compact splice-junction recognition algorithm, focused on the candidate junction as the unit, designed to drop into an RNA-seq pipeline between spliced alignment and transcript assembly. It was my first splice-site deep-learning project — its ideas later grew into [OpenSpliceAI](/posts/openspliceai/).
 
@@ -80,7 +78,7 @@ There is a tradeoff worth naming. In that same comparison, Splam had more false 
 
 Because Splam scores a junction as a pair, its donor and acceptor scores also stay more consistent with each other. The algorithm generalized without retraining in the paper's tests on chimpanzee, mouse, and *Arabidopsis thaliana*: at a threshold of 0.8, junction recall was 91%, 87%, and 80%, compared with 57%, 47%, and 20% for SpliceAI on the same species.
 
-**And it cleans up alignments.** This closes the loop back to the CHESS-scale problem. In the workflow evaluated in the paper, Splam sits after spliced alignment and before transcript assembly: it pulls each alignment's splice junctions out of the BAM file, scores them, and removes alignments containing spurious low-scoring junctions — handing the assembler a cleaner file.
+**And it cleans up alignments.** This closes the loop back to the CHESS-scale problem. In the workflow evaluated in the paper, Splam sits after spliced alignment and before transcript assembly: it pulls each alignment's splice junctions out of the BAM file, scores them, and removes alignments containing spurious low-scoring junctions — handing the assembler a cleaner file. The benchmark placed this step after [HISAT2 alignment (Kim et al., 2019)](https://doi.org/10.1038/s41587-019-0201-4) and before [StringTie assembly (Pertea et al., 2015)](https://doi.org/10.1038/nbt.3122), while the same cleanup slot also fits spliced aligners such as [STAR (Dobin et al., 2013)](https://doi.org/10.1093/bioinformatics/bts635).
 
 <ZoomFigure src={figCleanup} alt="The Splam workflow: inserted after read alignment in an RNA-seq pipeline, it extracts and scores splice junctions and removes spurious spliced alignments before transcript assembly." variant="wide">
   <strong>Figure 3.</strong> Splam as a pipeline step. <strong>(a)</strong> After reads are aligned (HISAT2/STAR), Splam cleans the spurious spliced alignments before transcript assembly (StringTie). <strong>(b)</strong> Internally, Splam extracts each alignment's junctions, scores them as good or bad, and writes out a cleaned BAM alongside a separate file of the removed alignments.
