@@ -6,7 +6,7 @@ abstract: >-
   WGT makes Wheeler graph research practical by packaging generators, a recognizer, and visualizations for the edge-labeled graphs that can be indexed like a Burrows-Wheeler Transform. It explains why recognition is computationally difficult, how Wheelie combines a renaming heuristic with permutation and SMT solvers, and how visualization helps inspect graph-index structures.
 date: 2023-07-14
 category: summary
-draft: true
+draft: false
 tags: ['Pangenomics', 'Algorithms', 'Open source']
 image: ../../assets/posts/wgt/wgt-overview.png
 logo: ../../assets/logos/software/wgt.png
@@ -45,7 +45,7 @@ A Wheeler graph is a directed, edge-labeled graph whose nodes can be put in a sp
 
 Here's the catch that motivated us. Given some graph you've built, *is* it a Wheeler graph — does a valid ordering exist? That recognition problem is NP-complete in general, and hard even to approximate ([Gibney and Thankachan, 2019](https://doi.org/10.4230/LIPIcs.ESA.2019.51)). A theoretical algorithm had been proposed, but there was no working implementation — no way to actually feed it a graph and get an answer. And beyond recognition, there were no practical tools to *visualize* a Wheeler graph, or to *generate* example graphs to test ideas on. The concept was foundational, and yet almost untouchable in practice.
 
-I took this on in Ben Langmead's lab at Johns Hopkins, together with Pei-Wei Chen and Sanjit Seshia at UC Berkeley — who brought expertise in formal methods and SMT solving, which turned out to be exactly the right hammer. Our goal was simple to state: make Wheeler graphs practical to generate, check, and see.
+WGT began as the final project for **Ben Langmead's _Computational Genomics: Sequences_ class** at Johns Hopkins, in the fall of 2021 — an assignment that turned out to ask a question with no working answer, and one I kept building on long after the semester ended, through the spring. I carried it on in Ben's lab, together with Pei-Wei Chen and Sanjit Seshia at UC Berkeley, who brought expertise in formal methods and SMT solving — which turned out to be exactly the right hammer. Our goal was simple to state: make Wheeler graphs practical to generate, check, and see.
 
 ## What WGT is
 
@@ -98,6 +98,8 @@ The two solvers also complement each other: the permutation search is great on s
 Wheeler graphs are one of those ideas that are beautiful on paper and central in theory, yet were strangely hard to touch in practice — you couldn't easily build one, check one, or even see one. WGT turns them into a concrete object you can generate, recognize, and visualize, which is what you need to actually do research on graph indexes.
 
 I also like this project for what it represents: a genomics problem — how to index a pangenome — solved with a tool borrowed from formal verification, the SMT solver. That kind of cross-pollination is where a lot of good work comes from. As pangenomes become the default way we represent genetic variation, being able to reason about *which* graphs are efficiently indexable will only matter more — and now there's a practical toolkit for doing it.
+
+There's also a personal arc here that I'm fond of. WGT started as a class final project and grew, over the next year and a half, into the first working Wheeler-graph recognizer — work I was lucky to present at [RECOMB-Seq 2023 in Istanbul](https://youtu.be/TkX9S024Dk8) and to publish in [iScience](https://doi.org/10.1016/j.isci.2023.107402). A good course question, pushed far enough, turned into real research.
 
 WGT is free and open source.
 
