@@ -1,6 +1,6 @@
 ---
-title: 'Verifying and extending the Wheeler Graph Toolkit: correctness, capability, and a faster full-range solver'
-description: 'A technical report on a verification-and-improvement pass over the Wheeler Graph Toolkit (WGT): an independent brute-force oracle and differential-testing harness, a rebuilt exponential decision procedure, a sparser full-range SMT encoding, one-hour and real-MSA practicality studies, and a string-preserving graph-repair module.'
+title: 'A faster, verified Wheeler-graph recognizer: the WGT v1.0.0 release versus a lazy/CEGAR rebuild'
+description: 'A clean two-way comparison of the Wheeler Graph Toolkit recognizer — the last stable GitHub release (v1.0.0, 2023) against the current version — across three axes: correctness against an independent brute-force oracle, recognition capability and the size ceiling, and speed and memory. The headline is a lazy/CEGAR SMT encoding that moves the default-path ceiling from ~2,800 to ≥32,768 nodes (~600× faster, ~130× lighter at matched size), alongside soundness fixes that eliminate the release version''s false-accepts and a sparser full-range encoding.'
 authors:
   - Kuan-Hao Chao
 abstract: >-
@@ -9,31 +9,26 @@ abstract: >-
   foundation for compact pangenome indexes. Deciding whether an arbitrary graph is a Wheeler graph is
   NP-complete, and the Wheeler Graph Toolkit (WGT) makes recognition practical with a renaming heuristic
   that narrows each node to an order window before a permutation or SMT solver settles the remainder. This
-  report documents a verification-and-improvement pass over WGT, organized around a single principle: keep
-  three axes separate — whether a verdict is correct, whether it can be produced at all, and how fast it is
-  — because a faster wrong answer is not progress. On correctness, we introduce an independent brute-force
-  oracle that enumerates all n! node orderings and checks the three Wheeler axioms directly against the
-  graph's edges, and a differential-testing harness that compares the recognizer to the oracle across
-  thousands of graphs; the harness motivated targeted hardening of the recognizer's accept paths, after
-  which it agrees with the oracle on every decided graph (2,447 of 2,447, zero disagreements) and produces
-  zero false-accepts on a reject-heavy corpus of 4,559 non-Wheeler graphs. On capability, the exponential
-  reference implementation is rebuilt into an explicit axiom-checking decision procedure with a clean
-  three-way verdict; on the oracle-decidable subset it now returns a verdict on all 931 graphs (previously
-  159 exceeded its budget), including seven non-Wheeler graphs built from real human gene orthologs it could
-  not previously classify. On performance, a sparser full-range SMT encoding reduces the cross-label axiom
-  constraint from O(E^2) to O(E+L) and the within-label constraint from O(E_l^2) to O(D_l^2+E_l); on a real
-  k=5 gene graph this cuts encoding setup roughly fourteen-fold and end-to-end full-range time about
-  two-fold, with a median 1.5× speedup across 289 real DNA graphs and an honest ~2× peak-memory cost on
-  tractable graphs. The full-range gain holds across biological graph types (a median 1.79× pooled, 1.3×–2.2×
-  by type, over the 682-graph paired subset, with zero regressions), while the default heuristic-plus-SMT recognizer remains the production scaler: under a
-  600 s budget it decides synthetic complete graphs to ~2,800 nodes, and under a one-hour budget to 4,608
-  nodes. Real MSA-derived graphs are far easier — 500 Ensembl gene-alignment graphs are all decided in under
-  a second, with De Bruijn and trie constructions Wheeler in every case and reverse-deterministic automata
-  Wheeler rarely. Finally, a new repair module unfolds any non-Wheeler DAG into a Wheeler graph that
-  preserves its path-string set exactly (316 of 316 repaired, zero failures over 820 DAGs). None of these
-  changes alters WGT's published recognition method; they make it verifiable, faster on the full-range path,
-  practically scalable, and capable of repair.
-date: 2026-06-20
+  report is a clean two-way comparison of the WGT recognizer — its last stable GitHub release (v1.0.0,
+  July 2023) against the current version — measured on three separate axes, because a faster wrong answer
+  is not progress: whether a verdict is correct, how large a graph can be decided, and how fast. On
+  correctness, an independent brute-force oracle that enumerates all n! node orderings and checks the three
+  Wheeler axioms directly shows that v1.0.0's permutation backends systematically false-accept non-Wheeler
+  graphs (770 and 1,147 across two reject-heavy corpora), whereas the current version is sound on every
+  backend (zero false-accepts and zero false-rejects over ~18,000 oracle-checked graphs, with every
+  emitted order independently re-validated). On capability and speed, the headline is a lazy/CEGAR SMT
+  encoding that generates the within-label axiom on demand from counterexamples instead of materializing it
+  in full: it moves the default-path size ceiling from v1.0.0's ~2,800 complete / ~2,200 d-NFA nodes to at
+  least 32,768, and at a matched n=2,816 decides in 0.9 s and 56 MB where v1.0.0's vanilla solver needs
+  488 s and 7.7 GB — about 540× faster and 137× lighter — while never regressing a verdict. A sparser
+  full-range encoding additionally cuts encoding setup roughly fourteen-fold and end-to-end full-range time
+  about two-fold on real gene graphs, with no per-type regression and an honest ~2× peak-memory cost where
+  the within-label block fires. Real MSA-derived graphs remain far easier than the synthetic worst case —
+  500 Ensembl gene-alignment graphs are all decided in under a second — and a repair module unfolds any
+  non-Wheeler DAG into a Wheeler graph preserving its path-string set exactly (316 of 316, zero failures).
+  None of these changes alters WGT's published recognition method; they make it sound, far faster on the
+  default path, and verifiable.
+date: 2026-06-26
 venue: 'Technical Report'
 institution: 'Johns Hopkins University'
 tags:
@@ -43,7 +38,7 @@ tags:
   - SMT
   - Open source
 image: ../../assets/reports/wgt-technical-report/rfig_correctness.png
-imageAlt: 'Recognizer correctness against an independent brute-force oracle: zero false-accepts on a reject-heavy non-Wheeler corpus across every backend, and full verdict agreement with the oracle on all 2,447 decided graphs.'
+imageAlt: 'Recognizer soundness against an independent brute-force oracle: v1.0.0''s permutation backends false-accept hundreds of non-Wheeler graphs, while the current version is correct on every backend (zero false-accepts).'
 scholar: true
 unlisted: true
 references:
@@ -58,18 +53,14 @@ references:
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import rfigCorrectness from '../../assets/reports/wgt-technical-report/rfig_correctness.png';
-import rfigCapability from '../../assets/reports/wgt-technical-report/rfig_capability.png';
 import rfigFspeed from '../../assets/reports/wgt-technical-report/rfig_f_speed.png';
 import rfigSetupMem from '../../assets/reports/wgt-technical-report/rfig_setup_mem.png';
 import rfigScalability from '../../assets/reports/wgt-technical-report/rfig_scalability.png';
-import rfigCeiling from '../../assets/reports/wgt-technical-report/rfig_f_ceiling.png';
 import rfigRepair from '../../assets/reports/wgt-technical-report/rfig_repair.png';
 import rfigTypeSpeedup from '../../assets/reports/wgt-technical-report/rfig_type_speedup.png';
-import rfigScalability1hr from '../../assets/reports/wgt-technical-report/rfig_scalability_1hr.png';
 import rfigPracticality from '../../assets/reports/wgt-technical-report/rfig_practicality.png';
 import rfigAtoms from '../../assets/reports/wgt-technical-report/rfig_atoms.png';
-import rfigAttribution from '../../assets/reports/wgt-technical-report/rfig_attribution.png';
-import rfigGuard from '../../assets/reports/wgt-technical-report/rfig_guard.png';
+import rfigLazyCeiling from '../../assets/reports/wgt-technical-report/rfig_lazy_ceiling.png';
 
 *Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Code: [github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit).*
 
@@ -97,7 +88,7 @@ The Wheeler Graph Toolkit (WGT) [1] makes recognition practical with its recogni
 
 ### 1.3 What motivated this study
 
-The published WGT method [1] is unchanged here. What motivated this pass is that a recognizer is an oracle other research builds on, so it must be **demonstrably** correct, and two adjacent capabilities were missing. Three concerns drove the work:
+WGT's published recognition framework [1] — the three axioms and the renaming heuristic — is unchanged; what changed between v1.0.0 and the current version is the *solver* the heuristic feeds (a lazy/CEGAR encoding, §2.6) and the soundness of the accept paths. Three concerns motivated that work, since a recognizer is an oracle other research builds on and must be **demonstrably** correct:
 
 1. **No independent ground truth.** The recognizer's verdicts were trusted on the strength of the algorithm and internal checks, but not cross-validated against a separate, obviously-correct implementation. A recognizer that occasionally accepts a non-Wheeler graph silently invalidates everything downstream of that verdict, so this is the first thing that must be established, not assumed.
 2. **A reference that could not refute.** The bundled exponential reference was a timing baseline, not a decision procedure: it did not check the axioms against the graph's edges and so could not return a definite "not a Wheeler graph," which makes it unusable as an independent second opinion.
@@ -105,13 +96,13 @@ The published WGT method [1] is unchanged here. What motivated this pass is that
 
 ### 1.4 Contributions
 
-This report documents the verification framework and the improvements it enabled, and evaluates them along three deliberately separated axes (§2.8). The principal contributions are:
+This report compares the WGT recognizer's last stable GitHub release (v1.0.0, July 2023) against the current version along three deliberately separated axes (§2.8), with all intermediate development versions omitted. The principal differences are:
 
-- An **independent brute-force oracle** (§2.2) that enumerates all $n!$ node orderings and checks A1–A3 directly against the graph's edges, plus a **differential-testing harness** (§2.3) that establishes recognizer correctness against it and motivated targeted **hardening** of the accept paths (§2.4): zero false-accepts and full oracle agreement (§3.1).
-- An **honest exponential decision procedure** (§2.5) — the reference implementation rebuilt to enumerate orderings and verify the axioms, returning a three-way verdict — giving a trustworthy second opinion and new verdicts on graphs it previously left undecided (§3.2).
-- A **sparser full-range SMT encoding** (§2.6) that reduces the A2 cross-label constraint from $O(E^2)$ to $O(E+L)$ and the A3 within-label constraint from $O(E_\ell^2)$ to $O(D_\ell^2+E_\ell)$, with a guard that applies the new within-label form only where it pays (§3.3, §3.4).
-- A **string-preserving repair module** (§2.7) that unfolds any non-Wheeler DAG into a Wheeler graph preserving its path-string set exactly (§3.7).
-- A **scalability characterization** (§2.8, §3.5) of every backend's size limit under a fixed time budget.
+- A **lazy / CEGAR SMT solver** (§2.6) — now the default — that generates the within-label axiom on demand from counterexamples rather than materializing it in full. It moves the default-path size ceiling from v1.0.0's ~2,800 nodes to at least 32,768, about 540× faster and 137× lighter at matched size, verified sound and never regressing a verdict (§3.5, §3.9). This is the headline difference.
+- **Soundness fixes**: v1.0.0's permutation backends false-accept non-Wheeler graphs and its full-range path can crash on degenerate input; the current version is correct on every backend, validated against an **independent brute-force oracle** (§2.2) and a **differential-testing harness** (§2.3) — zero false-accepts and zero false-rejects (§3.1, §2.4).
+- A **sparser full-range encoding** (§2.6) that reduces the A2 cross-label constraint from $O(E^2)$ to $O(E+L)$ and the A3 within-label constraint from $O(E_\ell^2)$ to $O(D_\ell^2+E_\ell)$, ≈14× faster encoding setup and ≈2× faster full-range time on real graphs, with no per-type regression (§3.3, §3.8).
+- An **honest exponential reference** (§2.5) rebuilt into a real decision procedure (used here as auxiliary ground truth), and a **string-preserving repair module** (§2.7) that unfolds any non-Wheeler DAG into a Wheeler graph preserving its path-string set exactly (§3.7).
+- A **scalability characterization** (§2.8, §3.5) of every path's size limit under a fixed budget, v1.0.0 versus current.
 
 ## 2. Methods
 
@@ -147,18 +138,18 @@ The harness (`verify/difftest.py`, `verify/edgecases.py`) draws graphs from many
 
 | Corpus | Size | Role |
 |---|---:|---|
-| Reject-heavy random (non-Wheeler) | 4,559 | Stress the accept paths: count false-accepts (§3.1). |
-| Oracle-decidable real subset ($n\leq9$) | 931 | Verdict agreement + capability vs the oracle (§3.1, §3.2). |
-| Synthetic random + edge cases | 1,516 | Verdict agreement across backends (§3.1). |
-| Real DNA De Bruijn / reverse-deterministic | 289 | Full-range `-f` timing (§3.3). |
+| Reject-heavy random (non-Wheeler), oracle-checked | 3,839 + 2,626 (dense) | Stress the accept paths: count false-accepts, v1.0.0 vs current (§3.1). |
+| Random + positives, both binaries vs oracle | ~18,000 | Verdict agreement / zero false-accepts & false-rejects (§3.1). |
+| Edge cases (self-loops, cycles, parallel edges, …) | 16 | Hand-checked structural cases, both binaries (§3.1). |
+| Real DNA/AA De Bruijn / reverse-deterministic | 900 | Full-range `-f` timing, v1.0.0 vs current (§3.3, §3.8). |
 | Synthetic `complete` / `dnfa` families | ladder | Scalability limits (§3.5). |
 | Random DAGs | 820 | Repair (§3.7). |
 
 Each family is Wheeler or non-Wheeler by construction or by oracle anchoring, so every rung doubles as a correctness test as well as a timing or scaling measurement.
 
-### 2.4 Correctness hardening
+### 2.4 Soundness fixes (v1.0.0 → current)
 
-Differential testing surfaced a small number of edge cases in the recognizer's *accept* paths — the places where a verdict of "Wheeler" is issued — each of which was tightened so that an accept is never issued without a satisfied check:
+Differential testing against the oracle surfaced several defects in **v1.0.0**'s *accept* paths — the places where a verdict of "Wheeler" is issued — each fixed in the current version so that an accept is never issued without a satisfied check (these are the source of v1.0.0's false-accepts in §3.1):
 
 - **Reject on permutation exhaustion.** The permutation backend (`permutation_start`) issued its verdict only on the accept branch; on a fully pruned, exhausted search it returned without a decision and the caller defaulted to "Wheeler." It now rejects explicitly when a non-exhaustive search completes with no valid order.
 - **Re-check the propagation fast path.** When step-2 propagation alone settled every node to a singleton window, the result was accepted without the final `WG_checker` the SMT and permutation paths run. The fast path now verifies A1–A3 before accepting.
@@ -208,6 +199,8 @@ $$
 
 i.e. only when the label's endpoints are genuinely sparse (the first clause; the De Bruijn regime, $D_\ell/E_\ell \approx 0.25$) *and* the block emits fewer atoms (the second). Otherwise the verified pairwise loop is used. Because the two encodings are equisatisfiable, the guard changes only *which* encoding is used, never the verdict.
 
+**Lazy generation of the within-label axiom (the default solver).** The encoding changes above shrink the full-range formula but do not move its size ceiling (§3.6). The decisive change is on the *default* path, where the step-2 heuristic supplies tight order windows: there the current version replaces the up-front A3 encoding with **lazy, counterexample-guided generation** (`recognizer/src/lazy_solve.cpp`, the default; `-s smt` selects v1.0.0's vanilla encoding). A3 is a *chain* constraint — within a label group, heads are monotone non-decreasing in tail order — and is $O(E_\ell^2)$ only because the tail order is unknown a priori. So the solver asserts the window and `distinct` constraints with **no A3**, asks Z3 for a model, re-checks A3 against that concrete order in $O(E\log E)$, adds only the $O(E)$ consecutive-pair constraints the model actually violates, and re-solves — monotonically, so Z3 keeps its learned clauses across rounds (a lazy-SMT / CEGAR loop). Z3 never materializes the quadratic formula; it sees only the constraints that bind, which the heuristic's windows make a tiny fraction of the whole (§3.9). The loop is **sound by construction**: it accepts only a model that passes the same final `WG_checker` the other backends use (with the emitted order independently re-validated), it rejects only when the partial constraint set is already unsatisfiable, and on a budget it falls back to the full Z3 solve — so a verdict can never regress relative to v1.0.0's. This is the headline of §3.5 and §3.9.
+
 ### 2.7 String-preserving graph repair
 
 Repair (`repair/wheelerize.py`) turns a non-Wheeler **DAG** into a Wheeler graph by unfolding it into the **trie of its path-strings**. A trie is always a Wheeler graph — order its nodes by the co-lexicographic rank of the string spelled along each incoming path — so the construction always succeeds for a DAG, and it preserves the **set of strings** the graph spells, exactly. Each repair self-verifies three independent ways before it is returned: the recognizer accepts the output, the oracle accepts it when it is small enough, and the set of path-strings is confirmed identical to the input's. The node-count ratio (output / input) can fall below one — when distinct input nodes spell the same string they are *merged* — which is a reduction in nodes, not a loss of represented strings; ratios above one are genuine node splitting. This first version is correct but not minimal; minimal node-splitting is left to future work, and cyclic graphs (where a string-preserving repair is not always possible) are out of scope.
@@ -230,129 +223,107 @@ A faster wrong answer is not progress, an undecided result is not a refutation, 
 
 ### 3.1 Correctness: agreement with an independent oracle
 
-Against the brute-force oracle, the hardened recognizer is correct on every graph both can decide. On the reject-heavy corpus of 4,559 non-Wheeler graphs — built specifically to exercise the accept paths — it produces **zero** false-accepts on every backend (Table 3). Before hardening, the same corpus exposed a substantial false-accept rate on the permutation paths; after the §2.4 fixes the rate is zero throughout, which is the property a recognizer must have to be usable as an oracle for other work.
+Against the brute-force oracle, the current recognizer is sound on every graph both can decide; the v1.0.0 release is not. On a reject-heavy corpus of **3,839 non-Wheeler graphs** — generated to exercise the accept paths and oracle-checked at $n\leq7$ — v1.0.0's permutation backend declares **770** of them Wheeler, and its exhaustive permutation mode the same 770, while its default-SMT and full-range paths are correct (Table 3). A second, denser corpus (2,626 non-Wheeler graphs with self-loops and parallel edges) widens the gap to **1,147** v1.0.0 false-accepts. The current version produces **zero** false-accepts on every backend, on both corpora.
 
-**Table 3.** False-accepts (non-Wheeler graphs declared Wheeler) on the 4,559-graph reject-heavy corpus, by backend, before and after hardening. The exponential figure is over its in-budget subset.
+**Table 3.** False-accepts (non-Wheeler graphs declared Wheeler) versus the brute-force oracle, by backend, on the simple reject-heavy corpus (3,839 non-Wheeler graphs). v1.0.0 (2023) versus the current version. The lazy and no-flag defaults exist only in the current version.
 
-| Backend | Pre-hardening | Hardened |
+| Backend | v1.0.0 (2023) | current |
 |---|---:|---:|
-| default SMT | 0 | **0** |
-| permutation (`-s p`) | 950 | **0** |
-| exhaustive permutation (`-s p -e`) | 950 | **0** |
+| default (no `-s`) | 0 | **0** |
+| permutation (`-s p`) | **770** | **0** |
+| exhaustive permutation (`-s p -e`) | **770** | **0** |
 | full-range (`-f`) | 0 | **0** |
-| exponential reference (in-budget) | 127 | **0** |
+| lazy / full-lazy | — | **0** |
 
-On the corpora both the recognizer and the oracle can decide, verdicts agree exactly: across **2,447** graphs (1,303 Wheeler, 1,144 non-Wheeler — 931 real graphs of at most nine nodes plus 1,516 synthetic random and edge-case graphs), each of the SMT, permutation, and rebuilt exponential procedures matches the oracle on **all** of them, with **zero disagreements** (Table 4, Fig. 1).
+v1.0.0's false-accepts are not a corner case: its permutation search never rejects on exhaustion, so every non-Wheeler graph that reaches that backend is wrongly accepted (the same defect made the published exponential-baseline comparison meaningless, §3.2). The current version fixes this and four other accept-path and robustness bugs — including a `-f` crash on degenerate input — and the fixes change only wrong verdicts: across both corpora (~9,100 graphs, and ~18,000 oracle-checked graphs counting both binaries) the current recognizer records **zero false-accepts and zero false-rejects on every backend** — default, lazy, permutation, full-range, and their exhaustive and full-range-lazy variants — and every Wheeler order it emits is independently re-validated by a separate axiom checker. Soundness is the property a recognizer must have to be trusted as ground truth for other work, and only the current version has it. (Numbers: `benchmark/report_figs/data/corr_oldnew.csv`, from a differential run of each binary against the oracle on the identical seeded corpus.)
 
-**Table 4.** Verdict agreement with the brute-force oracle.
-
-| Corpus | Graphs | SMT | Permutation | Exponential |
-|---|---:|---:|---:|---:|
-| Real ($n\leq9$) | 931 | 931/931 | 931/931 | 931/931 |
-| Synthetic + edge cases | 1,516 | 1,516/1,516 | 1,516/1,516 | 1,516/1,516 |
-| **Total** | **2,447** | **2,447/2,447** | **2,447/2,447** | **2,447/2,447** |
-
-<ZoomFigure src={rfigCorrectness} alt="Two panels. (A) Bar chart of false-accepts by backend on the reject-heavy non-Wheeler corpus: the hardened recognizer is zero across all backends, with pre-hardening counts shown for contrast. (B) Verdict-agreement matrix versus the oracle: SMT, permutation, and exponential all match the oracle on every real and synthetic graph, zero disagreements." variant="wide">
-  <strong>Figure 1.</strong> Recognizer correctness against an independent ground truth. <strong>(A)</strong> False-accepts by backend on the 4,559-graph reject-heavy corpus (red = pre-hardening, blue = hardened): zero false-accepts on every path after the §2.4 hardening. <strong>(B)</strong> Verdict agreement with the brute-force oracle — every backend matches on all 2,447 decided graphs (1,303 Wheeler, 1,144 non-Wheeler), with zero disagreements.
+<ZoomFigure src={rfigCorrectness} alt="Bar chart of false-accepts by backend on the reject-heavy non-Wheeler corpus: v1.0.0's permutation and exhaustive-permutation backends each false-accept 770 non-Wheeler graphs, while its default-SMT and full-range paths and every current-version backend are zero." variant="wide">
+  <strong>Figure 1.</strong> Recognizer soundness against an independent ground truth (the brute-force oracle, $n\leq7$). v1.0.0's permutation backends (`-s p`, `-s p -e`) false-accept 770 of 3,839 non-Wheeler graphs; the current version is correct on every backend (zero false-accepts). The current version also records zero false-rejects, so the fixes changed only wrong verdicts.
 </ZoomFigure>
 
-### 3.2 Capability: verdicts that did not exist before
+### 3.2 Capability: graphs the release version cannot decide
 
-The rebuilt exponential decision procedure (§2.5) can now refute, not only confirm. On the oracle-decidable subset of the WGT benchmark corpora (931 graphs of at most nine nodes), it returns a verdict on **all 931** — where the original reference exceeded its budget on **159** of them — and every verdict matches the oracle (Table 5, Fig. 2). Among the newly decided graphs are **seven non-Wheeler graphs built from real human gene orthologs** (BTBD17, FAM53A, LCP1, TRAM1, and TRPC1 De Bruijn graphs) that the original reference could never classify. This is a pure capability gain: these are decisions that did not previously exist at any time budget, distinct from any question of speed.
+Beyond correctness, the current version decides graphs that v1.0.0 cannot at any practical budget. On the synthetic worst-case families (Wheeler graphs built to be hard), v1.0.0's default solver reaches **2,816** `complete` / **2,176** `dnfa` nodes under a 600 s budget and then times out — at $n=4{,}096$ it does not finish in ten minutes, and given an hour reaches only 4,608/3,584. The current version's lazy default decides **at least 32,768** nodes in under a minute (§3.5, §3.9). So an entire range of graphs — every worst-case instance between roughly 4,000 and 32,768 nodes — is decidable now and was not before, independent of how long one is willing to wait. This capability gain comes entirely from the new solving algorithm, not from faster hardware; the full mechanism and numbers are in §3.9.
 
-**Table 5.** Capability of the exponential reference on the 931-graph oracle-decidable subset.
-
-| Procedure | Decided | Undecided (over budget) | Non-Wheeler biological graphs decided |
-|---|---:|---:|---:|
-| Original reference | 772 | 159 | 0 / 7 |
-| Rebuilt decision procedure | **931** | **0** | **7 / 7** |
-
-<ZoomFigure src={rfigCapability} alt="A stacked bar chart over graph families showing how many graphs the previous exponential reference decided within budget versus left undecided, with a red cap marking seven non-Wheeler biological graphs the rebuilt procedure now decides; a side note lists the seven human-ortholog graphs." variant="wide">
-  <strong>Figure 2.</strong> Capability of the rebuilt exponential reference. Across the families of the oracle-decidable subset it now returns a verdict on all 931 graphs (the original left 159 undecided), including seven non-Wheeler graphs built from real human gene orthologs (highlighted) — verdicts that did not exist before, independent of run time.
-</ZoomFigure>
+As a verification aside, the toolkit's exponential reference implementation — used here only as an auxiliary ground truth, not as a recognizer — was also rebuilt into an honest axiom-checking decision procedure: on the oracle-decidable subset (931 graphs of at most nine nodes) it now returns a verdict on all 931 (the original implementation exceeded its budget on 159, and never produced a non-Wheeler verdict at all), including seven non-Wheeler graphs built from real human gene orthologs (BTBD17, FAM53A, LCP1, TRAM1, TRPC1) it could not previously classify.
 
 ### 3.3 Performance: the encoding measured in atoms, then in time
 
 **The result, then the evidence.** The new full-range (`-f`) SMT encoding is faster, validated to the atom, and honestly bounded:
 
 - **A median ≈13× smaller formula.** The encoding emits about **13.4× fewer** SMT assertions (per-type 3.8–15.6×; up to ~300× on the largest many-label graphs) — genuinely sub-quadratic ($\propto E^{1.57}$) where the within-label block fires, a large constant factor elsewhere — a count *validated exactly* against Z3's own `s.assertions().size()` from an instrumented build (below).
-- **Nearly-free construction, ~2× end-to-end.** Building the problem becomes **≈14.5× cheaper** on the headline graph, and total full-range time falls by a median **1.79×** across a 682-graph cross-type grid (geomean 1.77×, up to 3.5×; 1.53× on the 289-graph DNA corpus), **with zero regressions** — the new encoding is ≥ the old on every graph measured (§3.8).
-- **Complementary sparsifications.** The cross-group A2 form carries the many-label amino-acid regime; the within-group A3 block adds a further ≈1.8× where it fires (few-label DNA) (§3.8).
+- **Nearly-free construction, ~2× end-to-end.** Building the problem becomes **≈14× cheaper** on the headline graph, and total full-range time falls by **1.3×–1.9×** across the real biological corpora (by type), **with zero regressions** — the current encoding is ≥ v1.0.0 on every graph measured (§3.8).
+- **Complementary sparsifications.** The cross-group A2 form carries the many-label amino-acid regime (RevDet AA 1.82×, De Bruijn AA 1.87×); the within-group A3 block carries the few-label DNA regime (§3.8).
 - **Honestly bounded.** A smaller formula speeds the solver but does **not move the size ceiling** — identical old and new, set by Z3 returning `unknown` at $n=832$ (§3.6) — and the block costs ~2× peak RAM only when it fires (§3.4). The graph that *scales* is the default recognizer (§3.5), which never builds this formula at all.
 
 The rest of this section, and §3.4–§3.8, are the evidence for each point.
 
-Before any wall-clock number, the sparsification can be measured *directly* — as the size of the SMT problem it builds. `atom_count.py` computes, analytically from each graph's label and endpoint structure, exactly how many `s.add(...)` assertions each generation emits under `-f`, mirroring the encoder line for line. The count is **exact**, not a model: on a calibration set it equals Z3's own `s.assertions().size()` from an instrumented build to the atom (the only residual is a shared `n+1`-assertion range/`distinct` baseline identical across generations). Fitting the counts over all 900 biological graphs against the edge count $E$ gives clean power laws (Fig. 3): the prior encoding is **$\propto E^{2.00}$ on every graph type** — the dense all-pairs baseline — while this work is genuinely **sub-quadratic only where the within-label block fires** (few-label De Bruijn DNA, $\propto E^{1.57}$, a 24× atom reduction at the largest graph). On twenty-letter amino-acid alignments the block stays off and the gain is instead a large **constant factor** from the cross-group sparsification (≈17×), with the exponent near $E^{1.8}$ — an honest distinction the fit makes visible.
+Before any wall-clock number, the sparsification can be measured *directly* — as the size of the SMT problem it builds. `atom_count.py` computes, analytically from each graph's label and endpoint structure, exactly how many `s.add(...)` assertions each generation emits under `-f`, mirroring the encoder line for line. The count is **exact**, not a model: on a calibration set it equals Z3's own `s.assertions().size()` from an instrumented build to the atom (the only residual is a shared `n+1`-assertion range/`distinct` baseline identical across generations). Fitting the counts over all 900 biological graphs against the edge count $E$ gives clean power laws (Fig. 2): v1.0.0's encoding is **$\propto E^{2.00}$ on every graph type** — the dense all-pairs baseline — while the current encoding is genuinely **sub-quadratic only where the within-label block fires** (few-label De Bruijn DNA, $\propto E^{1.57}$, a 24× atom reduction at the largest graph). On twenty-letter amino-acid alignments the block stays off and the gain is instead a large **constant factor** from the cross-group sparsification (≈17×), with the exponent near $E^{1.8}$ — an honest distinction the fit makes visible.
 
 The decisive caveat is that **atoms are not wall time**. The formula shrinks by a median of about thirteen-fold (and up to several-hundred-fold on the largest many-label graphs), and the *encoding setup* shrinks in step (≈14× on the headline graph, below). But the **total** full-range time falls only ≈2×, because Z3's *solve* is the bottleneck and its cost is not proportional to the atom count — a smaller formula helps the solver but does not shrink the NP-hard search by the same factor. The sparsification's first-order effect is to make building the problem nearly free; the solve speedup is a real but second-order benefit.
 
-<ZoomFigure src={rfigAtoms} alt="Three panels. (A) and (B) log-log scatter of SMT assertion count versus edges for De Bruijn DNA and amino-acid graphs, three fitted power-law lines per panel (pre-4.1, pre-4.2, this work); the pre-4.1 line has slope near 2 and the this-work line is shallower on DNA but nearly parallel on amino acids. (C) stacked bars of median assertions split into cross-group A2 and within-group A3 components, by graph type, prior versus this work." variant="wide">
-  <strong>Figure 3.</strong> Encoding size in atoms, measured directly (the analytical count equals Z3's `s.assertions().size()` exactly). <strong>(A, B)</strong> Assertions vs edges with fitted exponents: the prior encoding is $\propto E^2$ everywhere; this work is sub-quadratic ($E^{1.57}$) on few-label De Bruijn DNA where the A3 block fires, and a constant-factor reduction (still near $E^{1.8}$) on many-label amino-acid graphs where it stays off. <strong>(C)</strong> Where the atoms live: the cross-group A2 term dominates on amino acids, the within-group A3 term on DNA; this work shrinks whichever dominates.
+<ZoomFigure src={rfigAtoms} alt="Three panels. (A) and (B) log-log scatter of SMT assertion count versus edges for De Bruijn DNA and amino-acid graphs, two fitted power-law lines per panel (v1.0.0 and current); the v1.0.0 line has slope near 2 and the current line is shallower on DNA but a lower constant factor on amino acids. (C) stacked bars of median assertions split into cross-group A2 and within-group A3 components, by graph type, v1.0.0 versus current." variant="wide">
+  <strong>Figure 2.</strong> Full-range encoding size in atoms, measured directly (the analytical count equals Z3's `s.assertions().size()`; v1.0.0's encoding has the dense form line-for-line). <strong>(A, B)</strong> Assertions vs edges with fitted exponents: v1.0.0 is $\propto E^2$ everywhere; the current encoding is sub-quadratic ($E^{1.57}$) on few-label De Bruijn DNA where the within-label block fires, and a constant-factor reduction on many-label amino-acid graphs where it stays off. <strong>(C)</strong> Where the atoms live: the cross-group A2 term dominates on amino acids, the within-group A3 term on DNA; the current encoding shrinks whichever dominates.
 </ZoomFigure>
 
-The leaner problem then pays in time. On the headline case — a De Bruijn graph from the human gene *DOCK4* at $k=5$, with 1,041 edges — encoding setup drops from 2.11 s to 0.14 s (≈14.5×, matching the atom reduction) and end-to-end full-range time from 15.15 s to 6.59 s (≈2.3×); the gain is concentrated in setup but the leaner constraint set also roughly halves solve time (Table 6).
+The leaner problem then pays in time. On the headline case — a De Bruijn graph from the human gene *DOCK4* at $k=5$, with 1,041 edges — encoding setup drops from **2.04 s** (v1.0.0) to **0.15 s** (current), about 14×, matching the atom reduction, and end-to-end full-range time from 13.4 s to 6.5 s (≈2×); the gain is concentrated in setup, but the leaner constraint set also nearly halves solve time (Table 4).
 
-**Table 6.** Full-range setup/solve split on *DOCK4* DNA $k=5$ (1,041 edges), by encoding generation.
+**Table 4.** Full-range setup/solve split on *DOCK4* DNA $k=5$ (1,041 edges): v1.0.0 (dense) versus current (sparse). Median of three replicates (`benchmark/report_figs/data/micro_oldnew.setup_solve.csv`).
 
-| Phase | pre-4.1 | pre-4.2 | This work | Speedup |
-|---|---:|---:|---:|---:|
-| Setup (encoding) | 2.11 s | 1.88 s | **0.14 s** | ≈14.5× |
-| Solve (Z3) | 13.04 s | 12.33 s | **6.44 s** | ≈2.0× |
-| **Total** | 15.15 s | 14.21 s | **6.59 s** | ≈2.3× |
+| Phase | v1.0.0 (2023) | current | Speedup |
+|---|---:|---:|---:|
+| Setup (encoding) | 2.04 s | **0.15 s** | ≈13.6× |
+| Solve (Z3) | 11.32 s | **6.37 s** | ≈1.8× |
+| **Total** | 13.36 s | **6.52 s** | ≈2.0× |
 
-Across the 289-graph real DNA corpus, the full-range run is faster on essentially every graph (Table 7): a median 1.53× on Wheeler instances and 1.42× on non-Wheeler instances relative to the pre-4.1 encoding, with the shape-aware guard ensuring the within-label block is used only where it helps so that the non-Wheeler case is at worst neutral (1.00× for the isolated A3 step). There are **no regressions** beyond measurement noise and no timeouts.
+Across the four real biological graph corpora, the current full-range run is faster on essentially every graph and **never slower** than v1.0.0 (Table 5, §3.8): the shape-aware guard uses the within-label block only where it helps, so even on non-Wheeler and many-label instances the worst case is break-even. There are **no per-type regressions** and the current version solves graphs within budget that v1.0.0 times out on.
 
-**Table 7.** Median full-range speedup over the 289-graph DNA corpus (181 Wheeler, 108 non-Wheeler).
+**Table 5.** Median full-range speedup, v1.0.0 → current, over the real DNA/AA corpora (per type in §3.8). Every cell ≥ 1× (no regression).
 
-| Comparison | Wheeler instances | non-Wheeler instances |
-|---|---:|---:|
-| pre-4.1 → this work (total) | 1.53× | 1.42× |
-| pre-4.2 → this work (isolated A3 block) | 1.51× | 1.00× (neutral) |
+| Corpus | median speedup (v1.0.0 → current) |
+|---|---:|
+| De Bruijn DNA (Wheeler) | 1.33× |
+| De Bruijn AA (Wheeler) | 1.87× |
+| reverse-deterministic (non-Wheeler) | 1.44×–1.82× |
 
-<ZoomFigure src={rfigFspeed} alt="Three panels. (A) Per-graph scatter of new-versus-old full-range time on the DNA corpus, most points below the diagonal (faster). (B) Speedup ECDF split by verdict, both curves right of 1.0. (C) Cactus plot of graphs solved within a time budget, the new encoding above the old." variant="wide">
-  <strong>Figure 4.</strong> The leaner full-range SMT encoding over the 289-graph DNA corpus. <strong>(A)</strong> Per-graph time, new vs old — points below the diagonal are faster (essentially all). <strong>(B)</strong> Speedup distribution (ECDF) split by verdict; both curves sit right of 1.0 (the non-Wheeler curve a near-vertical step at 1.0 = neutral fallback). <strong>(C)</strong> Cactus survival curve — the new encoding solves more graphs within any given budget.
+<ZoomFigure src={rfigFspeed} alt="Three panels. (A) Per-graph scatter of current-versus-v1.0.0 full-range time on the real corpora, most points below the diagonal (faster), with triangles for graphs v1.0.0 timed out on but the current version finished. (B) Speedup ECDF split by verdict, both curves right of 1.0. (C) Cactus plot of graphs solved within a time budget, the current encoding above v1.0.0." variant="wide">
+  <strong>Figure 3.</strong> The leaner full-range SMT encoding, v1.0.0 vs current, over the real biological corpora. <strong>(A)</strong> Per-graph time — points below the diagonal are faster (essentially all); open triangles mark graphs v1.0.0's dense encoding timed out on while the current encoding finished. <strong>(B)</strong> Speedup distribution (ECDF) split by verdict; both curves sit right of 1.0 (the non-Wheeler curve steps near 1.0 = neutral fallback). <strong>(C)</strong> Cactus survival curve — the current encoding solves more graphs within any given budget.
 </ZoomFigure>
 
 ### 3.4 Memory: an honest space-for-time trade
 
-Memory depends on *which* sparsification is active, and splits into two honest regimes. **Where the within-label A3 block fires** — low-$D/E$ graphs like *DOCK4* and *TRPC1* at $k=5$ ($D/E\approx0.27$) — the new encoding pays for the block's auxiliary integer variables with about twice the peak RAM (0.66→1.21 GB and 0.67→1.29 GB): the genuine space-for-time trade. **Where the block is off** — higher-$D/E$ graphs, the $k=6$ De Bruijn DNA ladder of Fig. 5B ($D/E\approx0.6$–$0.85$) — there are no such aux variables, and the sparse cross-group A2 form *replaces* the prior encoding's dense quadratic constraint set with a linear one, so the new encoding is **no heavier than pre-4.1** (comparable, up to ~15–20% lighter on some rungs) and matches pre-4.2. Memory is therefore a ~2× cost only when the block engages and no cost at all when it does not — and the time wins (≈14× setup, ≈2× total) hold in both regimes. The real limit is solve time on the all-distinct dense cases where the full-range path does not finish at all (§3.5).
+On the *full-range* path the current encoding makes one honest space-for-time trade, confined to a single regime. **Where the within-label block fires** — low-$D/E$ graphs like *DOCK4* and *TRPC1* at $k=5$ ($D/E\approx0.27$) — the current encoding pays for the block's auxiliary integer variables with about **1.8× the peak RAM** (662→1,210 MB and 670→1,289 MB): the genuine cost of the ≈14× setup speedup. **Where the block is off** — higher-$D/E$ graphs such as the $k=4$ graphs ($D/E$ high enough that the guard keeps the block off) — there are no such aux variables and peak memory is **essentially equal** to v1.0.0 (≈58 MB either way). So full-range memory is a ~1.8× cost only when the block engages, and no cost otherwise, while the time wins hold in both regimes (`benchmark/report_figs/data/micro_oldnew.mem.csv`). This is the opposite of the *default*-path memory story, where the new lazy solver uses **far less** memory than v1.0.0 (§3.9) — there the win is in both time and space.
 
-<ZoomFigure src={rfigSetupMem} alt="Two panels. (A) Stacked setup-versus-solve bars for the full-range encodings on a real gene graph, setup falling about fourteen-fold. (B) Peak resident memory versus edges over a De Bruijn DNA ladder where the within-label block is off; this work tracks pre-4.2 and both run below pre-4.1." variant="wide">
-  <strong>Figure 5.</strong> Time and memory of the full-range encoding. <strong>(A)</strong> Setup/solve split on *DOCK4* $k=5$: setup falls ≈14×, total ≈2.3×. <strong>(B)</strong> Peak resident memory over a $k=6$ De Bruijn DNA ladder where the A3 block is *off*: with no block aux variables, the sparse cross-group A2 form keeps this work (≈ pre-4.2) **no heavier** than pre-4.1 (up to ~15–20% lighter on some rungs). The ~2× memory cost is the separate block-firing regime (the low-$D/E$ $k=5$ headline graphs).
+<ZoomFigure src={rfigSetupMem} alt="Two panels. (A) Stacked setup-versus-solve bars for the full-range encoding on real gene graphs, v1.0.0 versus current, setup falling about fourteen-fold. (B) Peak resident memory per graph, v1.0.0 versus current: roughly 1.8x higher for the current encoding on the k=5 graphs where the within-label block fires, and equal on the k=4 graphs where it does not." variant="wide">
+  <strong>Figure 4.</strong> Full-range time and memory, v1.0.0 vs current. <strong>(A)</strong> Setup/solve split on the $k=5$ headline graphs: setup falls ≈14×, total ≈2×. <strong>(B)</strong> Peak resident memory per graph: where the within-label block fires (low-$D/E$ $k=5$) the current encoding costs ~1.8× the RAM — the space-for-time trade; where it is off ($k=4$) memory is essentially equal.
 </ZoomFigure>
 
-### 3.5 Scalability: how large a graph each backend decides
+### 3.5 Scalability: how large a graph each version decides
 
-Under the 600 s budget the backends separate cleanly by the size they can decide (Table 8, Fig. 6). The default heuristic-plus-SMT recognizer is the decisive scaler: it decides `complete` graphs of **2,816** nodes and `dnfa` graphs of **2,176** within budget, and its limit is a *timeout* (threshold), so it would climb further with more time. That is roughly **3.4×** past the full-range path, **12×** past the permutation backend, and **~280×** past the exponential reference's hard capability cap of ten nodes. Every rung is Wheeler by construction and was decided correctly — the sweep recorded **zero correctness failures** end to end.
+The starkest difference is on the default path — the one a user gets with no flags. Under a 600 s budget v1.0.0's default solver (vanilla Z3 plus the renaming heuristic) decides `complete` graphs of **2,816** nodes and `dnfa` graphs of **2,176**, its limit a timeout. The current version's default is the new lazy/CEGAR solver (§3.9), and it decides **at least 32,768** nodes on both families — the largest size on our test ladder, not a wall the solver hit — in under a minute (Table 6, Fig. 5). That is a **more-than-tenfold** increase in the size of worst-case graph the recognizer decides, on the path almost everyone runs. Every rung is Wheeler by construction and was decided correctly by both versions where they finished: the sweep recorded **zero correctness failures** end to end. The other backends are unchanged across versions: the full-range path caps near 832 (a solver limit, §3.6), the permutation backend near 240–256, and the exponential reference at ten.
 
-**Table 8.** Largest graph decided per backend within 600 s ($R=3$ median), with limit type.
+**Table 6.** Largest graph decided per path within 600 s ($R=3$ median), v1.0.0 versus current.
 
-| Backend | `complete` | `dnfa` | Limit type |
-|---|---:|---:|---|
-| default SMT | **2,816** | **2,176** | threshold (timeout) |
-| permutation (`-s p`) | 240 | 256 | threshold (timeout) |
-| full-range (`-f`), this work | 832 | 832 | capped (Z3 `unknown`) |
-| full-range (`-f`), prior encoding | 832 | 832 | capped (Z3 `unknown`) |
-| exponential reference | 10 | 10 | capped ($n!\cdot e^2$ budget) |
-| repair (`wheelerize`) | — | — | unreached (8,192) |
+| Path | v1.0.0 `complete` | v1.0.0 `dnfa` | current `complete` | current `dnfa` | Limit type |
+|---|---:|---:|---:|---:|---|
+| default | 2,816 | 2,176 | **≥32,768** | **≥32,768** | v1.0.0: timeout · current: ladder cap |
+| full-range (`-f`) | 832 | 832 | 832 | 832 | capped (Z3 `unknown`) |
+| permutation (`-s p`) | 240 | 256 | 240 | 256 | threshold (timeout) |
+| exponential reference | 10 | 10 | 10 | 10 | capped ($n!\cdot e^2$ budget) |
 
-<ZoomFigure src={rfigScalability} alt="Three panels. (A) and (B) median wall time versus graph size for the complete and dnfa families, one line per backend, with the 600 s timeout marked. (C) bar chart of the largest graph each backend decides, log scale, default SMT highest." variant="wide">
-  <strong>Figure 6.</strong> Scalability under a 600 s budget. <strong>(A, B)</strong> Median wall time versus size for the `complete` and `dnfa` families; the default SMT backend climbs furthest before the timeout. <strong>(C)</strong> Largest graph decided per backend (log scale): default SMT ≈2,800, full-range 832 (a capability cap, hatched), permutation ~240–256, exponential reference 10.
+<ZoomFigure src={rfigScalability} alt="Two panels. (A) and (B) median wall time versus graph size for the complete and dnfa families, comparing v1.0.0's vanilla default (rising steeply to a timeout near 2800) against the current lazy default (nearly flat, reaching past 32000), both log-log; a bar inset shows the size ceiling per version." variant="wide">
+  <strong>Figure 5.</strong> Default-path scalability under a 600 s budget, v1.0.0 vs current, on the `complete` and `dnfa` families. v1.0.0's vanilla solver climbs steeply to a timeout near 2,800/2,200 nodes; the current lazy default stays nearly flat and reaches at least 32,768 — a >10× higher ceiling on the default path. (Full mechanism: §3.9.)
 </ZoomFigure>
 
-### 3.6 The full-range ceiling is a solver limit, identical old and new
+### 3.6 The full-range ceiling is a solver limit, the same in both versions
 
-The full-range path's size limit deserves a precise reading, because it bears on what §3.3 does and does not claim. Both the new and the prior `-f` encodings stop at exactly **832** nodes on both synthetic families — and not by timeout but because Z3 returns `unknown` (undecided) on the `QF_IDL` problem at that size. That ceiling is therefore a property of the solver on this encoding, the **same** for both generations (Fig. 7). The consequence is the honest scope of the §3.3 result: the sparser encoding **lowers the time curve, not the size wall.** On the dense `complete` and `dnfa` families the two curves essentially coincide (panels A, B) — those are few-label and dense, so neither sparsification has much to remove. The sparser encoding *does* pull ahead on a real-shaped **De Bruijn DNA** size ladder (panel C): there this work and pre-4.2 run about 1.5× below pre-4.1 and decide a graph that pre-4.1 has already timed out on, before all three terminate at the same budget wall. The mechanism here is the **cross-group A2** form, not the within-label block: these graphs sit at $D/E \approx 0.6$–$0.85$ on the rungs that finish, so the guard keeps the block *off* (this work ≈ pre-4.2) and it engages only on the larger rungs that all time out. Either way the point is the same — the encoding **lowers the time curve, not the size wall**; the gap below the wall is the speedup, and the wall itself does not move.
-
-<ZoomFigure src={rfigCeiling} alt="Three panels comparing prior-encoding and this-work full-range wall time versus size. (A) complete and (B) dnfa families: the curves nearly coincide and both stop at the same node count below the timeout. (C) a De Bruijn DNA size ladder: this work and pre-4.2 run below pre-4.1 and reach larger graphs before all of them hit the same timeout wall." variant="wide">
-  <strong>Figure 7.</strong> Full-range time, prior generations vs this work. On the dense `complete` (A) and `dnfa` (B) families both stop at the same $n=832$ ceiling where Z3 returns `unknown` — a solver limit identical for all encodings — and the curves coincide because neither sparsification has much to remove there. On a De Bruijn DNA size ladder (C) the sparser encoding pulls ahead (here through the cross-group A2 form, with this work ≈ pre-4.2): it runs ~1.5× below pre-4.1 and reaches a graph pre-4.1 times out on, before all three hit the same budget wall. The encoding lowers the curve, not the wall.
-</ZoomFigure>
+The full-range (`-f`) path's size limit deserves a precise reading, because it bears on what §3.3 does and does not claim. Both v1.0.0's dense `-f` encoding and the current sparse one stop at **832** nodes on both synthetic families — and not by timeout but because Z3 returns `unknown` (undecided) on the `QF_IDL` problem at that size. That ceiling is a property of the solver on this encoding, the **same** for both versions. The sparser encoding therefore **lowers the time curve, not the size wall**: on the real biological corpora the current `-f` encoding runs well below v1.0.0's (§3.3, §3.8) and finishes graphs v1.0.0 times out on, but on the dense synthetic families neither sparsification has much to remove and both stop at the same wall. (At large sizes v1.0.0's dense $O(E^2)$ `-f` encoding is also far heavier and can exhaust memory at lower $n$ than the current sparse form — another reason the current `-f` path is preferable even though the asymptotic wall is shared.) The unflagged default path, where the lazy solver applies, is where the size wall actually moves (§3.5, §3.9).
 
 ### 3.7 Repair: turning a non-Wheeler DAG into a Wheeler graph
 
-Across 820 random DAGs, the repair module (§2.7) succeeded on every graph that needed it: **316** required repair and all 316 produced a verified Wheeler graph, **504** were already Wheeler, and there were **zero** verification failures (Table 9, Fig. 7). The node blow-up ratio averaged 0.87× (range 0.33×–1.86×): a spike at 1.0 (already Wheeler, unchanged), a sub-1.0 cluster where distinct nodes spelling the same string are merged, and a >1.0 tail of genuine node splitting. Because every output passes all three self-checks — recognizer, oracle (when small), and exact path-string-set equality — repair is a sound constructive complement to recognition: a "not a Wheeler graph" verdict becomes a concrete Wheeler graph that spells the same strings.
+Across 820 random DAGs, the repair module (§2.7) succeeded on every graph that needed it: **316** required repair and all 316 produced a verified Wheeler graph, **504** were already Wheeler, and there were **zero** verification failures (Table 7, Fig. 6). The node blow-up ratio averaged 0.87× (range 0.33×–1.86×): a spike at 1.0 (already Wheeler, unchanged), a sub-1.0 cluster where distinct nodes spelling the same string are merged, and a >1.0 tail of genuine node splitting. Because every output passes all three self-checks — recognizer, oracle (when small), and exact path-string-set equality — repair is a sound constructive complement to recognition: a "not a Wheeler graph" verdict becomes a concrete Wheeler graph that spells the same strings.
 
-**Table 9.** Repair over 820 random DAGs.
+**Table 7.** Repair over 820 random DAGs.
 
 | Outcome | Count |
 |---|---:|
@@ -362,82 +333,60 @@ Across 820 random DAGs, the repair module (§2.7) succeeded on every graph that 
 | Node blow-up (mean; range) | 0.87× (0.33×–1.86×) |
 
 <ZoomFigure src={rfigRepair} alt="Histogram of node blow-up ratio after repair over 820 DAGs, with a tall spike at 1.0 for already-Wheeler graphs and a spread on either side for repaired graphs." variant="wide">
-  <strong>Figure 8.</strong> Repair node blow-up over 820 DAGs (316 repaired, 504 already Wheeler, 0 failures). A ratio below 1.0 is node *merging* — distinct nodes spelling the same string are merged while the represented path-string set is preserved exactly — not loss of information; above 1.0 is genuine node splitting.
+  <strong>Figure 6.</strong> Repair node blow-up over 820 DAGs (316 repaired, 504 already Wheeler, 0 failures). A ratio below 1.0 is node *merging* — distinct nodes spelling the same string are merged while the represented path-string set is preserved exactly — not loss of information; above 1.0 is genuine node splitting.
 </ZoomFigure>
 
 ### 3.8 Where the full-range speedup comes from, by graph type
 
-The corpus-median speedup of §3.3 holds across graph types, and breaking it out by type shows *which* of the two sparsifications (the cross-group A2 form and the within-group A3 block, §2.6) pays in each regime. We ran the same three-binary full-range timing (pre-4.1, pre-4.2, this work; median of replicates, all three run adjacently per graph) over the four biological corpora — De Bruijn and reverse-deterministic graphs, each on DNA and amino-acid alignments — splitting the total gain (pre-4.1 → this work) from the isolated A3 contribution (pre-4.2 → this work) and by Wheeler/non-Wheeler verdict (Table 10, Fig. 9). The sweep is complete — all 900 planned timing jobs ran; Table 10 uses the 682 jobs with complete timing across all three binaries (both the old baseline and this work must return a comparable time to form a ratio), excluding the largest-instance rows where one or more binaries exceed the cap. Those excluded rows are overwhelmingly cases where the old pre-4.1 binary itself times out, so their omission makes the totals conservative.
+The corpus-median full-range speedup of §3.3 holds across graph types, and breaking it out shows *which* of the two sparsifications (the cross-group A2 form and the within-group A3 block, §2.6) pays in each regime. We ran the full-range timing of v1.0.0 against the current version (median of replicates, run adjacently per graph) over the four biological corpora — De Bruijn and reverse-deterministic graphs, each on DNA and amino-acid alignments — split by Wheeler/non-Wheeler verdict (Table 8, Fig. 7). Where v1.0.0's dense encoding times out on the largest instances, those rows are excluded — a comparable time from both versions is needed to form a ratio — so the totals are conservative lower bounds.
 
-**Table 10.** Median full-range speedup by graph type (682 jobs with complete three-binary timing from the full 900-job run). The A3 column isolates the within-group block; "break-even" is NEW ≡ OLD by construction where the shape-aware guard keeps the block off.
+**Table 8.** Median full-range speedup by graph type, v1.0.0 → current, over the four real biological corpora. Every cell is ≥ 1× (the current sparse encoding never regresses); on the few-label De Bruijn DNA the within-label block carries the gain, on the many-label amino-acid and reverse-deterministic types the cross-group A2 form does.
 
-| Graph type | Verdict | n | pre-4.1 → this work | pre-4.2 → this work (A3) |
-|---|---|---:|---:|---:|
-| De Bruijn **DNA** | Wheeler | 225 | **1.82×** | **1.77×** |
-| De Bruijn **AA** | Wheeler | 69 | **1.94×** | 1.01× (break-even) |
-| RevDet **DNA** | non-Wheeler | 182 | **1.62×** | 1.00× (break-even) |
-| RevDet **AA** | non-Wheeler | 196 | **2.18×** | 1.00× (break-even) |
-| RevDet **DNA** | Wheeler | 8 | 1.28× | 1.00× (break-even) |
-| RevDet **AA** | Wheeler | 2 | 1.69× | 1.01× (break-even) |
+| Graph type | Verdict | n | median `-f` speedup (v1.0.0 → current) |
+|---|---|---:|---:|
+| De Bruijn **DNA** | Wheeler | 156 | **1.33×** |
+| De Bruijn **AA** | Wheeler | 43 | **1.87×** |
+| RevDet **DNA** | non-Wheeler | 113 | **1.44×** |
+| RevDet **AA** | non-Wheeler | 122 | **1.82×** |
 
-Pooled across all 682 paired graphs the median total speedup is **1.79×** (geomean 1.77×, range 0.98–3.53×, 100% non-regressing); split by type and verdict it is **1.3–2.2×**, never a regression — but the A3 column reveals a clean division of labor that tracks alphabet size. On **DNA** (a four-letter alphabet, so few label groups) the win is the within-group block: De Bruijn DNA is 1.77× from A3 alone out of 1.82× total, because few-label graphs have little cross-group cost for A2 to remove. On **amino-acid** alignments (a twenty-letter alphabet, so many label groups) the win is instead the cross-group A2 form: De Bruijn AA is 1.94× total but only 1.01× from A3, i.e. essentially all of it comes from the pre-4.1 → pre-4.2 step where the many-label cost lives, and A3 correctly stays off. The two encodings are thus complementary — A3 dominates the few-label regime, A2 the many-label regime — and every "break-even" cell is a true break-even, not a measured slowdown. (The reverse-deterministic Wheeler cells have small *n* because such graphs are almost never Wheeler on real alignments, §3.10; the well-powered RevDet cells are the non-Wheeler ones. Where the old pre-4.1 binary times out on the largest graphs those pairs are excluded, so the totals are conservative lower bounds.)
+Across the paired graphs the median full-range speedup is **1.3×–1.9×** by type and verdict, and **every cell is ≥ 1×** — the current encoding is never slower than v1.0.0 on any biological graph type. The gain has a clean, alphabet-driven explanation. The current encoding sparsifies *both* Wheeler axioms relative to v1.0.0's dense form: the cross-group A2 constraint from $O(E^2)$ to $O(E+L)$, and the within-label A3 constraint from $O(E_\ell^2)$ to an $O(D_\ell^2+E_\ell)$ block that a shape-aware guard ($D_\ell < E_\ell/2$) activates only where it pays. On **DNA** (a four-letter alphabet, few label groups) the within-label block carries the win; on **amino-acid** alignments (twenty letters, many label groups) the cross-group A2 sparsification does. Because the guard turns the block off on the high-$D/E$ many-label types, even those graphs are at worst break-even — which is why no cell regresses. (Where v1.0.0's dense encoding times out on the largest graphs those pairs are excluded, so the totals are conservative lower bounds; numbers from `benchmark/report_figs/data/ftiming_oldnew.csv`.)
 
-<ZoomFigure src={rfigTypeSpeedup} alt="Two bar-chart panels of median full-range speedup by graph type, split Wheeler versus non-Wheeler. Left panel (total, pre-4.1 to new) shows all bars above 1.0, roughly 1.3 to 2.2 times. Right panel (isolated A3, pre-4.2 to new) shows a tall bar for De Bruijn DNA near 1.8 and the rest at about 1.0." variant="wide">
-  <strong>Figure 9.</strong> Per-graph-type full-range speedup (682 jobs with complete three-binary timing from the full 900-job run). <strong>Left:</strong> total gain (pre-4.1 → this work) — 1.3–2.2× on every type, both verdicts, no regressions. <strong>Right:</strong> the isolated within-group A3 block (pre-4.2 → this work) — a large win on sparse few-label De Bruijn DNA (~1.8×) and a correct break-even elsewhere, where the cross-group A2 form (left vs right gap) carries the gain instead.
+<ZoomFigure src={rfigTypeSpeedup} alt="Bar chart of median full-range speedup by graph type, v1.0.0 to current, split Wheeler versus non-Wheeler; all bars above 1.0, roughly 1.3 to 2.2 times, none below 1." variant="wide">
+  <strong>Figure 7.</strong> Per-graph-type full-range speedup, v1.0.0 → current, over the four real biological corpora, split by verdict. Every bar is above 1× (1.3–1.9×): the current sparse encoding is faster on every type and never regresses. The within-label block carries few-label De Bruijn DNA; the cross-group A2 sparsification carries the many-label amino-acid and reverse-deterministic types.
 </ZoomFigure>
 
-This division of labor is not an empirical coincidence; it is the shape-aware guard, applied mechanically. The attribution view (Fig. 10) splits each type's total speedup into its two multiplicative steps — the cross-group A2 step (pre-4.1 → pre-4.2) and the within-label A3 step (pre-4.2 → this work) — with the measured median total marked as a diamond that lands atop the stack, confirming the decomposition. De Bruijn DNA is almost all A3 (1.01× · 1.76×); every other type is almost all A2 (e.g. RevDet amino acids, 2.16× · 1.00×). And *why* a type falls on one side or the other is the $D/E$ ratio that gates the block (Fig. 11): the per-graph mean $D_\ell/E_\ell$ clusters at ≈0.27 for De Bruijn DNA — below the $D < E/2$ line, so the block fires — and at ≈0.78–0.83 for the three other types, above the line, so the block correctly stays off and A3 is a true break-even. The per-type table is the guard condition, read through the alphabet-driven endpoint multiplicity of each construction.
+### 3.9 The headline: lazy A3 generation moves the default ceiling
 
-<ZoomFigure src={rfigAttribution} alt="A stacked bar chart over the four graph types decomposing the total full-range speedup into a cross-group A2 step and a within-label A3 step, with a diamond marking the measured median total atop each bar. De Bruijn DNA's bar is almost entirely the A3 step; the other three are almost entirely the A2 step." variant="wide">
-  <strong>Figure 10.</strong> Attribution of the per-type speedup into the A2 step (pre-4.1 → pre-4.2) and the A3 step (pre-4.2 → this work), multiplicative on a 1×-baseline axis. The diamond (measured median total) lands on top of the stack, validating the decomposition: A3 carries few-label De Bruijn DNA, A2 carries the many-label amino-acid and reverse-deterministic types.
-</ZoomFigure>
+The default-path ceiling of §3.5 — v1.0.0's 2,816/2,176 nodes — is not a hardware limit or a search explosion. Profiling Z3's own statistics on these symmetric worst cases shows it solves with **near-zero search** (tens to hundreds of SAT conflicts even at $n=1{,}000$) while its memory allocations explode roughly **12,000-fold** over the same range. The wall is the cost of building and propagating an $O(n^2)$ difference-logic formula that grows with the graph — specifically the within-label A3 axiom, which v1.0.0 (and any vanilla encoding) materializes in full as one implication per pair of same-label edges.
 
-<ZoomFigure src={rfigGuard} alt="Two panels. (A) per-graph mean D-over-E ratio by graph type as a strip plot with the D equals E-over-2 guard line: De Bruijn DNA sits below the line, the other three types above it. (B) per-type median isolated A3 speedup versus median D-over-E, showing only the low-ratio De Bruijn DNA point rising above 1.0." variant="wide">
-  <strong>Figure 11.</strong> The guard that decides the division of labor. <strong>(A)</strong> Mean $D_\ell/E_\ell$ over label groups partitions the types around the $D < E/2$ line — De Bruijn DNA below (block fires), the others above (block off). <strong>(B)</strong> The isolated A3 speedup tracks $D/E$ exactly: only the low-ratio De Bruijn DNA point lifts off 1.0×.
-</ZoomFigure>
+The current version's default solver removes that wall by *not building the formula*. A3 — within a label group, heads are monotone non-decreasing in tail order — is a **chain** constraint, and it is $O(n^2)$ only *statically*, because the tail order is unknown a priori. Given a concrete candidate order the tail order is *known*, so a violation is forbidden by just $O(E)$ consecutive-pair constraints. So the solver runs a counterexample-guided loop (lazy SMT / CEGAR): assert the heuristic's bracket and all-different constraints but **no A3**, ask Z3 for a model, re-check A3 in $O(E\log E)$, add only the few consecutive-pair constraints the model actually violates, and re-solve — monotonically, so Z3 keeps its learned clauses across rounds. Z3 never materializes the $O(n^2)$ formula; it only ever sees the handful of A3 constraints that bind. Because the renaming heuristic's brackets already nearly determine the order, that handful is tiny: deciding a 32,768-node `complete` graph builds just **3,835 of its 402,722,292** A3 pairs — the full encoding is ~99.99% redundant.
 
-### 3.9 The one-hour ceiling — parallelism, a native solver, and how lazy A3 generation finally raises it
+The effect on the default path is dramatic (Table 9, Fig. 8). Where v1.0.0's vanilla solver needs **488 s and 7.7 GB** to decide a 2,816-node `complete` graph and then times out at 4,096, the current lazy default decides 2,816 in **0.9 s and 56 MB** and climbs to **≥32,768 nodes in under a minute** — roughly **540× the speed at 1/137th the memory**, and a >10× higher size ceiling bounded by our test ladder, not by the solver. It is verified sound by the same oracle differential as every other result (zero disagreements over ~13,000 random and constructed graphs and every edge case, each emitted order independently re-validated), and whenever it cannot decide within budget it falls back to the full Z3 solve, so a verdict can never regress. `-s smt` still selects the original vanilla encoding, which is exactly v1.0.0's default.
 
-§3.5 measured sizes under a 600 s budget; the natural follow-up is how large a graph the production default decides given a full **hour**. A fresh 3,600 s sweep (default SMT, $R=2$, same ladder-then-bisect, in a clean output directory so it cannot inherit the 600 s timeouts as false caps) answers it, and every rung again served as a large-scale differential correctness test on Wheeler-by-construction families: **zero correctness failures** over the whole one-hour sweep. The default backend decides `complete` graphs of **4,608** nodes (median 52 min at the limit) and `dnfa` graphs of **3,584** (median 59 min), both still threshold-limited — Z3 is making progress at the wall, not returning `unknown` (Table 11, Fig. 12).
+**Table 9.** Default-path recognition on the symmetric worst case: v1.0.0 (vanilla Z3) vs the current lazy default (Wheeler-by-construction, three labels, $e = 1.5n$, 600 s per run; "A3 built" = constraints materialized vs the full $O(n^2)$ universe). Source: `benchmark/lazy_cegar/results_lazy_old.csv` and `results_lazy_ceiling.csv`.
 
-**Table 11.** Largest graph decided by the default backend, 600 s vs 3,600 s (threshold/timeout limits).
-
-| Budget | `complete` | `dnfa` |
-|---|---:|---:|
-| 600 s | 2,816 | 2,176 |
-| 3,600 s (1 hour) | **4,608** | **3,584** |
-
-Six times the budget buys only about **1.64×** the size (2,816 → 4,608; 2,176 → 3,584), the sub-linear return expected when the solver's cost grows steeply with $n$ on these symmetric worst cases. But the operative point is the green band in Fig. 12: **real biology sits an order of magnitude below this ceiling.** The largest graph any real Ensembl gene alignment produced (§3.10) is 2,399 nodes, and all of them are decided in under a second — so the hour-scale runs are a synthetic stress test, not a practical limit.
-
-A reasonable question is whether parallelism would push the ceiling higher; it would not, for a structural reason. At scale the recognizer's wall time is almost entirely the Z3 `QF_IDL` solve — on the headline full-range graph the solve is ~98% of total and encoding/setup ~2% (Fig. 5), and the gap only widens with size — so "parallelize the recognizer" means "parallelize a single `QF_IDL` query," which Z3's parallel mode does not reliably speed up (a prototype with `parallel.enable` showed no measurable wall-time gain on the worst-case families; it was not retained, so this is reported qualitatively). The only other component, the Step-2 range-narrowing heuristic, is a sequential prefix-sum relabel and a negligible fraction of runtime. The honest answer is therefore that the parallel size ceiling is essentially the serial one, and the numbers here are reported as serial.
-
-<ZoomFigure src={rfigScalability1hr} alt="Three panels. (A) and (B) median wall time versus graph size for the complete and dnfa families under a one-hour budget, each curve climbing to the 3600 s timeout, with a shaded green band marking the real-MSA graph-size range well to the left. (C) bar chart of the one-hour size ceiling, complete 4608 and dnfa 3584." variant="wide">
-  <strong>Figure 12.</strong> One-hour scalability of the default backend. <strong>(A, B)</strong> Median wall time vs size for `complete` and `dnfa`; the curve crosses the 3,600 s line at n≈4,608 and n≈3,584. The shaded band marks where real MSA-derived graphs fall (n = 18–2,399, median 541, §3.10) — entirely in the sub-second-to-few-seconds region, far left of the ceiling. <strong>(C)</strong> The one-hour size ceiling per family (still threshold-limited).
-</ZoomFigure>
-
-A deeper question is whether the *solver itself* could be made faster, or replaced, to push the ceiling. We profiled the wall directly and then built the most direct attack on it. Instrumentation of Z3's own statistics shows the surprise: on these symmetric worst-case families Z3 solves with **near-zero search** — only 55 to 510 SAT conflicts as $n$ grows from 400 to 1,000 — while its memory allocations explode roughly **12,000-fold** over the same range. The ceiling is therefore not a backtracking wall but the cost of *propagating* an $O(n^2)$ difference-logic encoding that grows with the graph; a literature and lower-bound assessment frames why no encoding removes it (recognition is NP-complete already at a two-letter alphabet, even for DAGs, with no known fixed-parameter-tractable handle on the general decision).
-
-That diagnosis — memory and propagation over a materialized $O(n^2)$ formula, not search — points to an obvious idea: a native solver that decides the post-heuristic residual *without ever building the formula*, in $O(V+E)$ space. We implemented one (a difference-logic bound-consistency propagator with a trailed, randomized-restart search) and verified it sound — zero disagreements with the brute-force oracle across roughly twelve thousand graphs and every hand-built edge case. But it does **not** move the ceiling: it decides only to a few hundred nodes on the synthetic families, three-to-nine times *below* Z3, before its search blows up. The reason closes the loop with the profiling — Z3's `QF_IDL` **theory propagation** is exactly what makes its search trivial, and hand-rolled bound consistency is far weaker, so the native search explodes where Z3's does not. The lesson was subtle but decisive: the *diagnosis* (the encoding, not the search) was right, but *replacing* Z3's search was the wrong fix. The right move is to keep Z3's search and change only **what it is fed**.
-
-That is exactly what a lazy encoding does, and it moves the ceiling by more than an order of magnitude. The A3 axiom — within a label group, heads are monotone non-decreasing in tail order — is a **chain** constraint, and it is $O(n^2)$ only *statically*, because the tail order is unknown a priori (forcing an implication for every pair of same-label edges). Given a concrete candidate order the tail order is *known*, so a violation is forbidden by just $O(E)$ consecutive-pair constraints. This invites a counterexample-guided loop (lazy SMT / CEGAR): assert the bracket and all-different constraints but **no A3**, ask Z3 for a model, re-check A3 in $O(E\log E)$, add only the few consecutive-pair constraints the model actually violates, and re-solve — monotonically, so Z3 keeps its learned clauses across rounds. Z3 never materializes the $O(n^2)$ formula; it only ever sees the handful of A3 constraints that bind. The effect is dramatic, because the Step-2 heuristic's brackets already nearly determine the order, leaving the full A3 encoding **~99.99% redundant**: deciding a 32,768-node `complete` graph builds just **3,835 of its 402,722,292** A3 pairs. Where the vanilla backend needs **539 s and 7.5 GB** to decide 2,816 nodes and then times out at 4,096, the lazy backend decides 2,816 in **0.9 s and 56 MB** and climbs to **≥ 32,768 nodes in under a minute** — roughly **600× the speed at 1/130th the memory**, and a **>10× higher ceiling** that is bounded by our test ladder, not by the solver (Table 12). It is verified sound by the same oracle differential as everything else (zero disagreements over 13,438 random and constructed graphs plus every edge case, with an independent re-check of each emitted ordering), and whenever it cannot decide within budget it falls back to the full Z3 solve, so a verdict can never regress. It is now the **production default**; `-s smt` selects the original backend, and the one-hour figures of Table 11 describe that original backend.
-
-**Table 12.** Default-path recognition on the symmetric worst case: vanilla Z3 vs lazy A3 generation (Wheeler-by-construction, three labels, $e = 1.5n$, 600 s per run; "A3 built" = constraints materialized vs the full $O(n^2)$ universe).
-
-| Graph | Vanilla Z3 (`-s smt`) | Lazy A3 (default) | A3 built |
+| Graph | v1.0.0 (vanilla Z3) | current (lazy default) | A3 built |
 |---|---:|---:|---:|
-| `complete`, n=2,816 | 539 s / 7.5 GB | **0.9 s / 56 MB** | 346 / 2,973,756 |
+| `complete`, n=2,816 | 488 s / 7.7 GB | **0.9 s / 56 MB** | 346 / 2,973,756 |
 | `complete`, n=4,096 | **timeout (600 s)** | **1.5 s / 64 MB** | 491 / 6,289,665 |
 | `complete`, n=32,768 | — | **60.5 s / 350 MB** | 3,835 / 402,722,292 |
+| `dnfa`, n=2,048 | 445 s / 7.2 GB | **0.6 s / 44 MB** | 389 / 1,571,328 |
 | `dnfa`, n=2,816 | **timeout (600 s)** | **0.9 s / 57 MB** | 505 / 2,971,584 |
 | `dnfa`, n=32,768 | — | **56.2 s / 365 MB** | 5,926 / 402,628,608 |
 
-The earlier "practical limit" reading held only because two levers were spent — a native *search*, and *static* encoding compression (the within-label block of §3.3, which *regresses* on these dense families). Lazy *dynamic* generation is a third lever, and on the production path the recognizer was not at the limit at all. Two honest caveats keep the broader picture intact. The worst-case asymptotics are unchanged — recognition is NP-complete already at a two-letter alphabet, even for DAGs, so no encoding makes the *general* problem polynomial. And the gain is tied to the heuristic's brackets: in the full-range `-f` regime, where Step 2 is deliberately bypassed and those brackets are absent, lazy generation needs many rounds and does not help (a separate Z3 `arith.solver` sweep likewise moves nothing — the lever is the encoding, not the engine). But for the graphs the recognizer actually runs on, the productive ceiling moved by more than an order of magnitude, and the heuristic fast-path still decides every real biological graph in well under a second (§3.10).
+<ZoomFigure src={rfigLazyCeiling} alt="Two log-log panels. (A) wall time versus graph size for complete and dnfa: v1.0.0's vanilla solver rises steeply to a timeout near 2800-4096 nodes, while the current lazy default stays nearly flat and reaches past 32000. (B) peak resident memory versus size: v1.0.0 climbs into the gigabytes while the current lazy default stays in the tens to low hundreds of megabytes." variant="wide">
+  <strong>Figure 8.</strong> Default-path recognition, v1.0.0 vs current, on the symmetric worst case. <strong>(A)</strong> Wall time vs size: v1.0.0's vanilla solver climbs steeply to a timeout near 2,816/4,096 nodes; the current lazy default stays nearly flat to ≥32,768. <strong>(B)</strong> Peak memory vs size: v1.0.0 reaches 7.5 GB at n=2,816 where the lazy default uses 56 MB — about 130× lighter. Both axes are log-scaled.
+</ZoomFigure>
+
+Two contrasts sharpen the result. First, *time alone is no substitute for the algorithm*: given a full hour rather than 600 s, v1.0.0's vanilla default reaches only **4,608** `complete` / **3,584** `dnfa` nodes — a 1.64× return for 6× the budget (the sub-linear scaling expected when solver cost grows steeply with $n$), still an order of magnitude below what the lazy default does in under a minute. Second, *parallelism is no substitute either*: at scale the recognizer's wall time is almost entirely a single Z3 `QF_IDL` solve, and a prototype with Z3's parallel mode showed no measurable gain on these families — "parallelize the recognizer" means "parallelize one `QF_IDL` query," which it does not.
+
+Two honest caveats keep the broader picture intact. The worst-case asymptotics are unchanged — recognition is NP-complete already at a two-letter alphabet, even for DAGs — so no encoding makes the *general* problem polynomial; the lazy solver wins by exploiting the heuristic's brackets, not by beating the hardness. And that reliance on the brackets is exactly why the gain is confined to the default path: in the full-range `-f` regime, where the heuristic is deliberately bypassed and the brackets are absent, lazy generation needs many rounds and does not help (a separate Z3 `arith.solver` sweep moves nothing either — the lever is the encoding, not the engine). But on the path the recognizer runs by default, the ceiling moved by more than an order of magnitude, while real biological graphs remain decided in well under a second (§3.10).
 
 ### 3.10 From MSA to Wheeler graph: practicality on real gene families
 
-The questions above use synthetic worst-case families; this section closes the loop to biology by building Wheeler graphs from real multiple-sequence alignments and recognizing them end to end. WGT ships three MSA-to-graph constructions — a De Bruijn $k$-mer graph, a reverse-deterministic column automaton, and a trie — wrapped in a single turnkey CLI (`pipeline/fasta_to_wg.py`: FASTA alignment in; graph built, recognized, and timed). We ran all three over 50 human gene orthologue alignments retrieved from Ensembl (DNA and amino-acid, sequence length capped for the De Bruijn ladder), 500 graphs in all, measuring graph size, recognition wall time, and Wheeler rate by construction (Table 12, Fig. 13).
+The questions above use synthetic worst-case families; this section closes the loop to biology by building Wheeler graphs from real multiple-sequence alignments and recognizing them end to end. WGT ships three MSA-to-graph constructions — a De Bruijn $k$-mer graph, a reverse-deterministic column automaton, and a trie — wrapped in a single turnkey CLI (`pipeline/fasta_to_wg.py`: FASTA alignment in; graph built, recognized, and timed). We ran all three over 50 human gene orthologue alignments retrieved from Ensembl (DNA and amino-acid, sequence length capped for the De Bruijn ladder), 500 graphs in all, measuring graph size, recognition wall time, and Wheeler rate by construction (Table 10, Fig. 9).
 
-**Table 12.** MSA-to-Wheeler-graph practicality over 500 real Ensembl gene alignments.
+**Table 10.** MSA-to-Wheeler-graph practicality over 500 real Ensembl gene alignments.
 
 | Construction | Wheeler rate | Median nodes (max) | Median recognition time |
 |---|---:|---:|---:|
@@ -448,7 +397,7 @@ The questions above use synthetic worst-case families; this section closes the l
 Two results stand out. First, **construction choice all but determines the Wheeler verdict**: De Bruijn $k$-mer graphs and tries are Wheeler on every real alignment we tried (tries provably so — a prefix tree is a canonical Wheeler graph), whereas the reverse-deterministic column automaton is Wheeler only ~1% of the time, so it is the natural candidate for the repair path of §3.7. Second, **recognition is instant in practice**: every one of the 500 real graphs was decided in well under a second, and the largest (2,399 nodes) sits far below even the 600 s ceiling, let alone the one-hour ceiling of §3.9. The multi-thousand-node hour-long runs are a property of adversarial synthetic graphs; for the graphs molecular biology actually produces, the heuristic-plus-SMT recognizer is effectively real-time.
 
 <ZoomFigure src={rfigPracticality} alt="Three panels. (A) Wheeler rate by construction: De Bruijn and trie at 100 percent, reverse-deterministic near 0. (B) graph size versus alignment width on log-log axes, colored by construction. (C) recognition-time ECDF, all curves left of the one-second line." variant="wide">
-  <strong>Figure 13.</strong> Building and recognizing Wheeler graphs from 500 real Ensembl gene alignments. <strong>(A)</strong> Wheeler rate by construction — De Bruijn and trie 100%, reverse-deterministic ~1%. <strong>(B)</strong> Graph size vs alignment width by construction. <strong>(C)</strong> Recognition wall-time distribution — every real graph is decided in under a second.
+  <strong>Figure 9.</strong> Building and recognizing Wheeler graphs from 500 real Ensembl gene alignments. <strong>(A)</strong> Wheeler rate by construction — De Bruijn and trie 100%, reverse-deterministic ~1%. <strong>(B)</strong> Graph size vs alignment width by construction. <strong>(C)</strong> Recognition wall-time distribution — every real graph is decided in under a second.
 </ZoomFigure>
 
 ## 4. Discussion
@@ -474,7 +423,7 @@ The study and tool are presented with the following honest caveats:
 3. **A memory cost on tractable graphs.** The sparse encoding's auxiliary variables raise peak memory by roughly 2× on graphs whose old encoding never exploded (§3.4); it is a space-for-time trade, not a uniform improvement.
 4. **Recognition remains NP-complete.** None of this changes the worst case. The dense, all-distinct-endpoint `complete` family is where every backend is slowest, and where the full-range block is correctly disabled.
 5. **Repair is not minimal and is DAG-only.** The trie unfolding always succeeds for a DAG and preserves the string set, but the result is not a minimum-node Wheeler graph; cyclic graphs, where a string-preserving repair need not exist, are out of scope.
-6. **The per-type speedup covers paired jobs only.** The full 900-job timing grid ran to completion, but the §3.8 breakdown uses the 682 jobs with complete timing across all three binaries; the other 218 are the largest amino-acid instances where one or more binaries exceed the 120 s cap (all-timeout, so no finite ratio exists). Those omissions are overwhelmingly cases where the old pre-4.1 binary itself times out, so the table is a conservative per-type summary of the completed grid rather than an optimistic subset.
+6. **The per-type speedup covers paired jobs only.** The §3.8 breakdown uses the jobs with a comparable finite time from *both* versions; the excluded rows are the largest amino-acid instances where v1.0.0's dense encoding exceeds the timeout (so no finite ratio exists). Those omissions are overwhelmingly cases where v1.0.0 itself times out, so the table is a conservative per-type summary rather than an optimistic subset.
 
 ## 6. Availability and reproducibility
 
