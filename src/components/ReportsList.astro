@@ -196,7 +196,9 @@ const topics = [{ slug: 'all', label: 'All' }, ...POST_TOPICS];
     const list = document.querySelector<HTMLOListElement>('[data-report-list]');
     const empty = document.querySelector<HTMLElement>('[data-report-empty]');
     if (!root || !list) return;
-    const items = Array.from(list.querySelectorAll<HTMLLIElement>('li'));
+    if (root.dataset.filterReady) return; // already wired for this DOM (idempotent re-init)
+    root.dataset.filterReady = 'true';
+    const items = Array.from(list.querySelectorAll<HTMLLIElement>('li:not([data-sep])'));
     const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
     const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
     const sortSelect = root.querySelector<HTMLSelectElement>('[data-sort]');
@@ -278,4 +280,8 @@ const topics = [{ slug: 'all', label: 'All' }, ...POST_TOPICS];
     apply();
   }
   document.addEventListener('astro:page-load', init);
+  // Also run now: a bundled module can finish loading *after* astro:page-load has
+  // already fired on the first view-transition visit, leaving the controls unwired
+  // ("taps do nothing"). The dataset guard above keeps this idempotent.
+  init();
 </script>
