@@ -50,6 +50,7 @@ export type NavItem = { label: string; href: string; footerOnly?: boolean };
 
 export const nav: NavItem[] = [
   { label: 'Research', href: '/research/' },
+  { label: 'Projects', href: '/projects/', footerOnly: true },
   { label: 'Publications', href: '/publications/' },
   { label: 'Software', href: '/software/' },
   { label: 'Talks', href: '/talks/' },
@@ -58,6 +59,7 @@ export const nav: NavItem[] = [
   { label: 'Photos', href: '/photos/', footerOnly: true },
   { label: 'Posts', href: '/posts/' },
   { label: 'News', href: '/news/' },
+  { label: 'Search', href: '/search/', footerOnly: true },
 ];
 
 export type SocialKey =

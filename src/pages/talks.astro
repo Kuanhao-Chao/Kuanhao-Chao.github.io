@@ -1,22 +1,12 @@
 ---
 import { getCollection } from 'astro:content';
 import PageLayout from '../layouts/PageLayout.astro';
-import PresentationItem from '../components/PresentationItem.astro';
+import TalksList from '../components/TalksList.astro';
 
 const talks = (await getCollection('presentations')).sort(
   (a, b) => b.data.startDate.getTime() - a.data.startDate.getTime()
 );
 
-const years: { year: number; items: typeof talks }[] = [];
-for (const t of talks) {
-  const y = t.data.startDate.getUTCFullYear();
-  let bucket = years.find((b) => b.year === y);
-  if (!bucket) {
-    bucket = { year: y, items: [] };
-    years.push(bucket);
-  }
-  bucket.items.push(t);
-}
 ---
 <PageLayout
   title="Talks & posters"
@@ -24,25 +14,5 @@ for (const t of talks) {
   lead="Conference talks, invited lectures, and posters on machine learning for genomics."
   description="Talks and posters by Kuan-Hao Chao at conferences including ISMB, RECOMB-Seq, and ProbGen."
 >
-  {
-    years.map(({ year, items }) => (
-      <section class="talk-year">
-        <h2 class="year-label">{year}</h2>
-        {items.map((entry) => <PresentationItem entry={entry} />)}
-      </section>
-    ))
-  }
+  <TalksList talks={talks} />
 </PageLayout>
-
-<style>
-  .talk-year {
-    margin-bottom: var(--space-12);
-  }
-  .year-label {
-    font-size: var(--fs-h3);
-    color: var(--color-muted);
-    font-weight: var(--fw-medium);
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid var(--color-rule);
-  }
-</style>

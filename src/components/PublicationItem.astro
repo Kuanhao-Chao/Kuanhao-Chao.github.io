@@ -1,7 +1,9 @@
 ---
 import Icon from './Icon.astro';
+import CitationTools from './CitationTools.astro';
 import { pubSlug } from '../lib/slug';
 import { resolveRelatedPosts } from '../lib/relatedPosts';
+import { publicationCitation } from '../lib/citationText';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -33,6 +35,7 @@ const links = [
 ].filter((l) => l.href);
 
 const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
+const citation = publicationCitation(d);
 ---
 <article
   class="pub"
@@ -86,6 +89,9 @@ const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
             {b.label}
           </a>
         ))
+      }
+      {
+        !compact && <CitationTools citation={citation} compact />
       }
       {
         d.bibtex && !compact && (

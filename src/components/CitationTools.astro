@@ -1,0 +1,78 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  citation: string;
+  compact?: boolean;
+}
+
+const { citation, compact = false } = Astro.props;
+const encodedCitation = encodeURIComponent(citation);
+---
+<div class:list={['citation-tools', { 'citation-tools--compact': compact }]}>
+  <button type="button" class="citation-copy" data-copy-text={encodedCitation}>
+    <Icon name="copy" size={15} />
+    <span data-copy-label>Copy citation</span>
+  </button>
+</div>
+
+<style>
+  .citation-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.8rem;
+    align-items: center;
+  }
+  .citation-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    cursor: pointer;
+    font-size: var(--fs-small);
+    padding: 0.4em 0.7em;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+  }
+  .citation-tools--compact .citation-copy {
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+  .citation-copy:hover {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-rule));
+  }
+</style>
+
+<script>
+  function initCitationTools() {
+    for (const button of document.querySelectorAll<HTMLButtonElement>('[data-copy-text]')) {
+      if (button.dataset.copyBound === 'true') continue;
+      button.dataset.copyBound = 'true';
+      button.addEventListener('click', async () => {
+        const text = decodeURIComponent(button.dataset.copyText ?? '');
+        const label = button.querySelector<HTMLElement>('[data-copy-label]');
+        const original = label?.textContent ?? 'Copy';
+        try {
+          if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+          await navigator.clipboard.writeText(text);
+          if (label) label.textContent = 'Copied';
+          window.setTimeout(() => {
+            if (label) label.textContent = original;
+          }, 1400);
+        } catch {
+          if (label) label.textContent = 'Copy unavailable';
+          window.setTimeout(() => {
+            if (label) label.textContent = original;
+          }, 1400);
+        }
+      });
+    }
+  }
+
+  document.addEventListener('astro:page-load', initCitationTools);
+  initCitationTools();
+</script>

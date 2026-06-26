@@ -21,9 +21,9 @@ export default defineConfig({
     sitemap({
       // The `reports` section is in private launch: every report is `unlisted`
       // (noindex). Keep the whole /reports/ subtree out of the sitemap so its
-      // URLs are never advertised. When a report goes public, narrow this to
-      // exclude only the still-unlisted slugs.
-      filter: (page) => !page.includes('/reports/') && !page.includes('/logo-options/'),
+      // URLs are never advertised. Search is also noindex, so keep it out too.
+      filter: (page) =>
+        !page.includes('/reports/') && !page.includes('/logo-options/') && !page.includes('/search/'),
       serialize(item) {
         // Nudge crawl priority: homepage highest, primary sections next.
         if (item.url === 'https://khchao.com/') {
@@ -47,7 +47,6 @@ export default defineConfig({
     '/presentations': '/talks/',
     '/researches': '/research/',
     '/portfolio': '/research/',
-    '/projects': '/research/',
     '/internship': '/cv/',
     '/year-archive': '/news/',
     // LiftOn report/post renamed v2.0.0 -> v1.0.9 (this is the incremental

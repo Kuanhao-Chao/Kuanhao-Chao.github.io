@@ -1,0 +1,279 @@
+---
+import PresentationItem from './PresentationItem.astro';
+import Icon from './Icon.astro';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  talks: CollectionEntry<'presentations'>[];
+}
+
+const { talks } = Astro.props;
+const types = [
+  { value: 'all', label: 'All' },
+  { value: 'invited', label: 'Invited' },
+  { value: 'talk', label: 'Talks' },
+  { value: 'poster', label: 'Posters' },
+  { value: 'exhibition', label: 'Exhibitions' },
+];
+---
+<div class="talk-tools" data-talk-tools>
+  <div class="talk-filters" role="group" aria-label="Filter by presentation type">
+    {
+      types.map((type) => (
+        <button
+          type="button"
+          class="filter-pill"
+          data-filter={type.value}
+          aria-pressed={type.value === 'all' ? 'true' : 'false'}
+        >
+          {type.label}
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="talk-controls">
+    <label class="search">
+      <Icon name="search" size={18} />
+      <input type="search" placeholder="Search talks..." data-search-input aria-label="Search talks and posters" />
+    </label>
+    <label class="sort">
+      <span class="visually-hidden">Sort talks</span>
+      <select data-sort>
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
+      <Icon name="chevron-down" size={16} />
+    </label>
+  </div>
+</div>
+
+<ol class="talk-list" data-talk-list>
+  {talks.map((entry) => <li><PresentationItem entry={entry} /></li>)}
+</ol>
+
+<p class="talk-empty" data-talk-empty hidden>No talks match your search.</p>
+
+<style>
+  .talk-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: var(--space-4);
+  }
+  .talk-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .filter-pill {
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    padding: 0.4em 0.9em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .filter-pill:hover {
+    border-color: var(--color-ink);
+    color: var(--color-ink);
+  }
+  .filter-pill[aria-pressed='true'] {
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+    color: var(--color-bg);
+  }
+  .talk-controls {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .search {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45em 0.8em;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-muted);
+  }
+  .search:focus-within {
+    border-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+  .search input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: var(--fs-small);
+    width: min(15rem, 50vw);
+  }
+  .sort {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .sort select {
+    appearance: none;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    padding: 0.5em 2.2em 0.5em 0.8em;
+    font-size: var(--fs-small);
+    cursor: pointer;
+  }
+  .sort :global(svg) {
+    position: absolute;
+    right: 0.6em;
+    pointer-events: none;
+    color: var(--color-muted);
+  }
+  .talk-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--color-rule);
+  }
+  .talk-list li.is-hidden {
+    display: none;
+  }
+  :global(.talk-year) {
+    font-size: var(--fs-h3);
+    color: var(--color-muted);
+    font-weight: var(--fw-medium);
+    padding-bottom: var(--space-3);
+    margin-top: var(--space-10);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  :global(.talk-year:first-child) {
+    margin-top: var(--space-5);
+  }
+  .talk-empty {
+    padding: var(--space-8) 0;
+    color: var(--color-muted);
+  }
+
+  @media (pointer: coarse) {
+    .filter-pill,
+    .search,
+    .sort select {
+      padding-block: 0.6em;
+    }
+  }
+  @media (max-width: 640px) {
+    .talk-tools {
+      align-items: stretch;
+    }
+    .talk-controls {
+      width: 100%;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .search,
+    .sort,
+    .sort select {
+      width: 100%;
+    }
+    .search input {
+      width: 100%;
+      min-width: 0;
+    }
+    :global(.talk-year) {
+      margin-top: var(--space-8);
+      padding-bottom: var(--space-2);
+    }
+  }
+</style>
+
+<script>
+  function init() {
+    const root = document.querySelector<HTMLElement>('[data-talk-tools]');
+    const list = document.querySelector<HTMLOListElement>('[data-talk-list]');
+    const empty = document.querySelector<HTMLElement>('[data-talk-empty]');
+    if (!root || !list) return;
+    const items = Array.from(list.querySelectorAll<HTMLLIElement>('li'));
+    const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+    const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
+    const sortSelect = root.querySelector<HTMLSelectElement>('[data-sort]');
+
+    const meta = (li: HTMLLIElement) => {
+      const el = li.querySelector<HTMLElement>('.talk')!;
+      return {
+        type: el.dataset.type ?? '',
+        year: Number(el.dataset.year ?? 0),
+        ts: Number(el.dataset.ts ?? 0),
+        search: el.dataset.search ?? '',
+      };
+    };
+    const order = new Map(items.map((li, i) => [li, i]));
+
+    let activeType = 'all';
+    let query = '';
+
+    const makeSep = (year: number) => {
+      const li = document.createElement('li');
+      li.className = 'talk-year';
+      li.dataset.sep = '';
+      li.setAttribute('aria-hidden', 'true');
+      li.textContent = String(year);
+      return li;
+    };
+
+    const apply = () => {
+      list.querySelectorAll('[data-sep]').forEach((s) => s.remove());
+
+      let visible = 0;
+      for (const li of items) {
+        const m = meta(li);
+        const ok =
+          (activeType === 'all' || m.type === activeType) &&
+          (query === '' || m.search.includes(query));
+        li.classList.toggle('is-hidden', !ok);
+        if (ok) visible++;
+      }
+      if (empty) empty.hidden = visible !== 0;
+
+      const mode = sortSelect?.value ?? 'newest';
+      const sorted = [...items].sort((a, b) => {
+        const ma = meta(a);
+        const mb = meta(b);
+        if (mode === 'oldest') return ma.ts - mb.ts || order.get(a)! - order.get(b)!;
+        return mb.ts - ma.ts || order.get(a)! - order.get(b)!;
+      });
+      sorted.forEach((li) => list.appendChild(li));
+
+      let lastYear: number | null = null;
+      for (const li of sorted) {
+        if (li.classList.contains('is-hidden')) continue;
+        const y = meta(li).year;
+        if (y !== lastYear) {
+          list.insertBefore(makeSep(y), li);
+          lastYear = y;
+        }
+      }
+    };
+
+    pills.forEach((pill) =>
+      pill.addEventListener('click', () => {
+        activeType = pill.dataset.filter ?? 'all';
+        pills.forEach((p) => p.setAttribute('aria-pressed', String(p === pill)));
+        apply();
+      })
+    );
+    searchInput?.addEventListener('input', () => {
+      query = searchInput.value.trim().toLowerCase();
+      apply();
+    });
+    sortSelect?.addEventListener('change', apply);
+
+    apply();
+  }
+
+  document.addEventListener('astro:page-load', init);
+</script>

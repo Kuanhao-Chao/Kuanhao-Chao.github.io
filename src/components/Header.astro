@@ -33,6 +33,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     </nav>
 
     <div class="header-actions">
+      <a class="search-shortcut" href="/search/" aria-label="Search" title="Search">
+        <Icon name="search" size={19} />
+      </a>
+
       <button
         class="theme-toggle"
         type="button"
@@ -173,7 +177,8 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     gap: 0.35rem;
   }
   .theme-toggle,
-  .nav-toggle {
+  .nav-toggle,
+  .search-shortcut {
     display: none;
     align-items: center;
     justify-content: center;
@@ -184,6 +189,14 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     color: var(--color-ink);
     cursor: pointer;
     padding: 0.4rem;
+  }
+  .search-shortcut {
+    display: inline-flex;
+    text-decoration: none;
+  }
+  .search-shortcut:hover {
+    color: var(--color-accent);
+    text-decoration: none;
   }
   .theme-toggle {
     display: grid;

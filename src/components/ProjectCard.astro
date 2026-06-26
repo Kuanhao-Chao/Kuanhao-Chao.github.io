@@ -1,0 +1,151 @@
+---
+import Icon from './Icon.astro';
+import type { Project } from '../data/projects';
+
+interface Props {
+  project: Project;
+  compact?: boolean;
+}
+
+const { project, compact = false } = Astro.props;
+const primary = project.links[0]?.href ?? '/research/';
+const isExternal = (href: string) => /^https?:\/\//.test(href);
+---
+<article class:list={['project-card', { 'project-card--compact': compact }]}>
+  <div class="project-top">
+    <p class="eyebrow">{project.area}</p>
+    <span class="project-status">{project.status}</span>
+  </div>
+
+  <h3 class="project-title">
+    <a href={primary} target={isExternal(primary) ? '_blank' : undefined} rel={isExternal(primary) ? 'noopener' : undefined}>
+      {compact ? project.shortTitle : project.title}
+    </a>
+  </h3>
+
+  <p class="project-summary muted">{project.summary}</p>
+
+  <ul class="project-tags" aria-label={`${project.shortTitle} topics`}>
+    {project.tags.map((tag) => <li>{tag}</li>)}
+  </ul>
+
+  <div class="project-links">
+    {
+      project.links.map((link) => (
+        <a href={link.href} target={isExternal(link.href) ? '_blank' : undefined} rel={isExternal(link.href) ? 'noopener' : undefined}>
+          <Icon name={link.icon} size={15} />
+          {link.label}
+        </a>
+      ))
+    }
+  </div>
+</article>
+
+<style>
+  .project-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.35rem 1.45rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    min-height: 100%;
+    transition: border-color var(--transition), transform var(--transition);
+  }
+  .project-card:hover {
+    border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-rule));
+  }
+  .project-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .project-status {
+    flex: none;
+    font-size: 0.66rem;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: var(--fw-semibold);
+    padding: 0.28em 0.6em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    color: var(--color-muted);
+  }
+  .project-title {
+    font-size: 1.2rem;
+    font-weight: var(--fw-semibold);
+    line-height: 1.3;
+    letter-spacing: 0;
+  }
+  .project-title a {
+    color: var(--color-ink);
+  }
+  .project-title a:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .project-summary {
+    font-size: var(--fs-small);
+    flex: 1;
+  }
+  .project-tags {
+    list-style: none;
+    margin: 0.1rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .project-tags li {
+    font-size: var(--fs-meta);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    padding: 0.12em 0.5em;
+  }
+  .project-links {
+    margin-top: 0.25rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--color-rule);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+  }
+  .project-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: var(--fs-small);
+    color: var(--color-ink);
+  }
+  .project-links a:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+  .project-card--compact .project-title {
+    font-size: 1.12rem;
+  }
+  .project-card--compact .project-summary {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  @media (max-width: 620px) {
+    .project-card {
+      padding: 1rem 1.1rem;
+      gap: 0.55rem;
+    }
+    .project-tags {
+      display: none;
+    }
+    .project-links {
+      gap: 0.35rem 0.8rem;
+    }
+  }
+</style>

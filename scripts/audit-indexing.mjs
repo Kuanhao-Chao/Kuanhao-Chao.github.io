@@ -106,6 +106,13 @@ function hasCanonical(html, url) {
   return new RegExp(`<link\\s+[^>]*rel=["']canonical["'][^>]*href=["']${url}["']`, 'i').test(html);
 }
 
+function htmlPathForUrl(url) {
+  const { pathname } = new URL(url);
+  if (pathname === '/') return join(DIST, 'index.html');
+  if (!pathname.endsWith('/')) return null;
+  return join(DIST, pathname.slice(1), 'index.html');
+}
+
 function normalizeText(text) {
   return text.replace(/\s+/g, ' ').trim();
 }
@@ -246,6 +253,51 @@ async function auditReportsIndex(reports, urls) {
   }
 }
 
+async function auditPublicPageBasics(urls) {
+  for (const url of urls) {
+    if (!url.startsWith(SITE)) continue;
+    if (url.endsWith('.xml')) continue;
+    const htmlPath = htmlPathForUrl(url);
+    if (!htmlPath) continue;
+    if (!(await pathExists(htmlPath))) {
+      errors.push(`Sitemap URL is missing built HTML: ${url}`);
+      continue;
+    }
+
+    const html = await readFile(htmlPath, 'utf8');
+    if (!hasCanonical(html, url)) errors.push(`Sitemap page has missing/incorrect canonical URL: ${url}`);
+    if (!/<title>[^<]+<\/title>/i.test(html)) errors.push(`Sitemap page is missing title: ${url}`);
+    if (!metaContents(html, 'description').length) {
+      errors.push(`Sitemap page is missing meta description: ${url}`);
+    }
+    if (!metaContents(html, 'robots').includes('index, follow')) {
+      errors.push(`Sitemap page is not indexable by robots meta tag: ${url}`);
+    }
+    if (!html.includes('<h1')) errors.push(`Sitemap page is missing visible h1: ${url}`);
+  }
+}
+
+async function auditUtilityPages(urls) {
+  const searchUrl = `${SITE}/search/`;
+  const searchHtmlPath = join(DIST, 'search', 'index.html');
+  const searchJsonPath = join(DIST, 'search.json');
+
+  if (urls.has(searchUrl)) errors.push('/search/ appears in sitemap despite being a utility page.');
+
+  if (await pathExists(searchHtmlPath)) {
+    const html = await readFile(searchHtmlPath, 'utf8');
+    if (!metaContents(html, 'robots').includes('noindex, nofollow')) {
+      errors.push('/search/ is missing noindex.');
+    }
+  } else {
+    errors.push('/search/ is missing built HTML.');
+  }
+
+  if (!(await pathExists(searchJsonPath))) {
+    errors.push('/search.json index is missing from dist.');
+  }
+}
+
 async function auditNoDraftReportPdfs() {
   const reportPdfs = (await walkFiles(join(DIST, 'reports'))).filter(
     (file) => extname(file).toLowerCase() === '.pdf'
@@ -315,6 +367,8 @@ async function main() {
   await auditRobots();
   await auditReportsIndex(reports, urls);
   await auditNoDraftReportPdfs();
+  await auditPublicPageBasics(urls);
+  await auditUtilityPages(urls);
 
   for (const post of posts) {
     if (post.data.draft === true) await auditDraftPost(post, urls);
