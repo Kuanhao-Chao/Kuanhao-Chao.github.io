@@ -4,7 +4,6 @@ import PageLayout from '../../layouts/PageLayout.astro';
 import ReportsList from '../../components/ReportsList.astro';
 
 const reports = (await getCollection('reports'))
-  .filter((entry) => !entry.data.unlisted)
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 ---
 <PageLayout
@@ -16,7 +15,7 @@ const reports = (await getCollection('reports'))
 >
   {
     reports.length === 0 ? (
-      <p class="muted">No public reports yet.</p>
+      <p class="muted">No reports yet.</p>
     ) : (
       <ReportsList reports={reports} />
     )
