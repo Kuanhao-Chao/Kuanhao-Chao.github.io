@@ -23,7 +23,7 @@ export default defineConfig({
       // (noindex). Keep the whole /reports/ subtree out of the sitemap so its
       // URLs are never advertised. When a report goes public, narrow this to
       // exclude only the still-unlisted slugs.
-      filter: (page) => !page.includes('/reports/'),
+      filter: (page) => !page.includes('/reports/') && !page.includes('/logo-options/'),
       serialize(item) {
         // Nudge crawl priority: homepage highest, primary sections next.
         if (item.url === 'https://khchao.com/') {

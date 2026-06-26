@@ -1,6 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#2e6e5e" />
-  <text x="50%" y="52%" dominant-baseline="central" text-anchor="middle"
-    font-family="'Hanken Grotesk', system-ui, sans-serif" font-size="18"
-    font-weight="600" fill="#fafaf8">K</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Genome algorithm logo">
+  <g fill="none" stroke="#2e6e5e" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 32h10c10.5 0 11.5-18 24-18h6" stroke-width="7.5" />
+    <path d="M22 32c10.5 0 11.5 18 24 18h6" stroke-width="7.5" />
+    <path d="M16 14v36" stroke-width="7.5" />
+    <path d="M23 32h21" stroke-width="3.2" opacity=".42" />
+  </g>
+  <g fill="#2e6e5e">
+    <circle cx="16" cy="14" r="5.2" />
+    <circle cx="16" cy="32" r="6" />
+    <circle cx="16" cy="50" r="5.2" />
+    <circle cx="52" cy="14" r="5.2" />
+    <circle cx="52" cy="50" r="5.2" />
+  </g>
+  <g fill="#fafaf8">
+    <rect x="13.1" y="20.4" width="5.8" height="2.1" rx="1.05" />
+    <rect x="13.1" y="27.4" width="5.8" height="2.1" rx="1.05" />
+    <rect x="13.1" y="34.5" width="5.8" height="2.1" rx="1.05" />
+    <rect x="13.1" y="41.5" width="5.8" height="2.1" rx="1.05" />
+  </g>
+  <circle cx="32" cy="32" r="4.4" fill="#fafaf8" stroke="#2e6e5e" stroke-width="2.4" />
 </svg>
