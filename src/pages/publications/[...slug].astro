@@ -48,6 +48,7 @@ const links = [
   { label: 'Poster', icon: 'image', href: d.poster },
   { label: 'Talk', icon: 'play', href: d.video },
   { label: 'News', icon: 'external', href: d.news },
+  { label: 'Data', icon: 'database', href: d.data },
 ].filter((l): l is { label: string; icon: string; href: string } => Boolean(l.href));
 
 const description = d.abstract

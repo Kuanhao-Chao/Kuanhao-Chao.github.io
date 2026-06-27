@@ -1,36 +1,57 @@
 ---
-title: 'Gene expression prediction with DNA language models'
+title: 'Modeling gene regulation from DNA sequence'
 area: 'Gene expression'
-summary: 'Shorkie is a masked-DNA language model pretrained on 165 fungal genomes and fine-tuned on high-resolution yeast transcription-factor induction time-course RNA-seq data to predict dynamic expression patterns.'
+summary: 'I study how sequence-to-function models can learn regulatory logic, predict expression across biological conditions, and reveal which parts of DNA shape molecular phenotypes.'
 image: ../../assets/research/gene-expression-overview.jpg
-status: preprint
-paper: 'https://doi.org/10.1101/2025.09.19.677475'
-code: 'https://github.com/calico/shorkie-paper'
-talk: 'https://youtu.be/MvpYQYQvZ0U'
+status: ongoing
 advisors: ['David R. Kelley', 'Johannes Linder']
 order: 1
 featured: true
 relatedPosts: ['shorkie']
+relatedPublications:
+  - publication: '2025-09-shorkie'
+    note: 'A fungal DNA language model that tests how evolutionary pretraining transfers to dynamic gene-expression prediction in budding yeast.'
+  - publication: '2026-03-perturb-seq'
+    note: 'Adjacent work using genome-wide Perturb-seq at very large scale to connect cellular interventions, expression responses, and AI-driven drug discovery.'
+relatedReports: []
+references:
+  - text: 'Avsec, Ž. et al. Effective gene expression prediction from sequence by integrating long-range interactions. Nature Methods (2021).'
+    doi: 'https://doi.org/10.1038/s41592-021-01252-x'
+  - text: 'Linder, J. et al. Predicting RNA-seq coverage from DNA sequence as a unifying model of gene regulation. Nature Genetics (2025).'
+    doi: 'https://doi.org/10.1038/s41588-024-02053-6'
+  - text: 'Karollus, A. et al. Species-aware DNA language models capture regulatory elements and their evolution. Genome Biology (2024).'
+    doi: 'https://doi.org/10.1186/s13059-024-03221-x'
+  - text: 'Chao, K.-H. et al. Predicting dynamic expression patterns in budding yeast with a fungal DNA language model. bioRxiv (2025).'
+    doi: 'https://doi.org/10.1101/2025.09.19.677475'
+  - text: 'You, K. et al. P588: AI and drug discovery with 100 million cells of genome-wide Perturb-seq. Genetics in Medicine Open (2026).'
+    doi: 'https://doi.org/10.1016/j.gimo.2026.104079'
 ---
-import ZoomFigure from '../../components/ZoomFigure.astro';
-import figure from '../../assets/research/gene-expression-overview.jpg';
+Every cell contains essentially the same genome, yet cells use genes at different levels and at different times. Part of this regulatory program is encoded in DNA through promoters, transcription-factor binding sites, and combinations of elements whose effects depend on sequence context.
 
-How does the regulatory code written in DNA give rise to gene expression? I'm drawn to **sequence-to-function models** — neural networks that read raw DNA and predict molecular phenotypes — because they let us interrogate that code directly: not just *whether* a gene is expressed, but *which* nucleotides drive it. My conviction is that a model trained across many genomes can learn a transferable "grammar" of regulation that no single genome reveals on its own.
+I study **sequence-to-function models** because they provide a direct way to connect DNA with molecular phenotypes such as binding, chromatin accessibility, and RNA abundance. Models including [Enformer (Avsec et al., 2021)](https://doi.org/10.1038/s41592-021-01252-x) and [Borzoi (Linder et al., 2025)](https://doi.org/10.1038/s41588-024-02053-6) show that long sequence context can support detailed predictions of regulatory activity. I am interested not only in prediction, but also in whether these models can identify consequential bases, anticipate variant effects, and transfer what they learn across biological settings.
 
-## The problem
+## Questions that drive my work
 
-Predicting expression from sequence alone is hard: regulatory signals are sparse, combinatorial, and spread across long stretches of DNA. Budding yeast is the ideal proving ground — a compact, deeply characterized genome with rich functional data — but a model is only convincing if it learns *biology* rather than memorizing the training set.
+The first question is **generalization**. A genomic model can fit abundant measurements while relying on correlations that do not transfer to unseen genes, conditions, or species. Evaluation should make memorization difficult and test whether the model learned reusable biology.
 
-## What I built
+The second is **where prior knowledge should come from**. Functional labels are expensive and concentrated in a few organisms, while genome sequence is abundant. Evolution leaves patterns of conservation and divergence that self-supervised models can learn. Species-aware language models show that evolutionary context can expose regulatory structure ([Karollus et al., 2024](https://doi.org/10.1186/s13059-024-03221-x)), but the best pretraining scope depends on the target organism and task. A larger corpus is not automatically better if distant genomes dilute the relevant signal.
 
-With the Kelley Lab at Calico, I built **Shorkie**, a masked-DNA language model with a multi-resolution architecture that reads 16 kb of sequence and makes predictions from single-base up to 128 bp resolution. I pretrained it across a four-level hierarchy — one *S. cerevisiae* reference (R64), 80 strains, 165 Saccharomycetales, and 1,342 fungal genomes — then fine-tuned it on high-resolution transcription-factor induction time-course RNA-seq, unifying ChIP-exo DNA-binding and RNA-seq coverage prediction in a single model.
+The third is **biological interpretation**. Attribution and in-silico mutagenesis can highlight important bases, but a score is not yet a mechanism. I look for agreement with known motifs, controlled perturbations, independent variant measurements, and condition-specific responses. A useful model should produce hypotheses that can be tested rather than explanations that must be accepted on faith.
 
-<ZoomFigure src={figure} alt="Overview of the Shorkie model: multi-resolution architecture, fungal training hierarchy, and training" variant="square">
-  <strong>Figure 1.</strong> Overview of Shorkie. A multi-resolution network ingests 16,384 bp and predicts from 1 bp to 128 bp resolution through stacked transformer blocks; pretraining spans four taxonomic levels (species → strains → order → kingdom); the fungal phylogeny shows the genomes used; and validation loss and gene-vs-intergenic perplexity track what the model learns.
-</ZoomFigure>
+## Directions I have explored
 
-## What it showed
+### Learning regulatory priors from related genomes
 
-As Figure 1 outlines, training across the fungal tree teaches Shorkie regulatory features that transfer back to yeast. In-silico mutagenesis recovers known transcription-factor binding sites (REB1, TYE7P), the TATA box, and start codons *without supervision*, and the model predicts dynamic, condition-specific expression — evidence it has internalized regulatory logic rather than the training data.
+My main project in this direction is **Shorkie** ([Chao et al., 2025](https://doi.org/10.1101/2025.09.19.677475)), a fungal DNA language model for budding yeast. We first trained a supervised sequence-to-expression model directly. In our experiments, it learned the genes it had seen but did not generalize as strongly as we wanted to unseen genes. This led us to test whether self-supervised pretraining on related fungal genomes could provide a better starting point.
 
-**In brief:** a transferable fungal DNA language model that predicts dynamic gene expression and exposes the regulatory grammar behind it. ([Preprint, 2025](https://doi.org/10.1101/2025.09.19.677475); [code](https://github.com/calico/shorkie-paper).)
+We trained the same masked-DNA model across nested evolutionary scopes: one *Saccharomyces cerevisiae* reference, multiple strains, the Saccharomycetales order, and the fungal kingdom. Pretraining helped, but the largest corpus was not the best. The strongest transfer came from 165 Saccharomycetales genomes, which supplied useful diversity while remaining close enough to budding yeast for the learned patterns to transfer.
+
+We then fine-tuned the model on high-resolution regulatory measurements, including time-course RNA-seq after transcription-factor induction. This connects static sequence with a dynamic response. Motif sensitivity and regulatory-variant scoring provide additional tests of whether pretraining contributed biological information rather than only improving optimization.
+
+### Connecting observation with intervention
+
+Sequence models learn from naturally occurring variation and observational assays. Perturbational data ask what happens when a gene or pathway is deliberately changed. My contribution to a large genome-wide Perturb-seq effort ([You et al., 2026](https://doi.org/10.1016/j.gimo.2026.104079)) is adjacent to Shorkie, but it supports the same broader goal: connecting genomic information, cellular interventions, and expression responses at scale.
+
+## Future directions
+
+Future work in gene-regulation modeling should connect evolutionary pretraining, natural variation, functional assays, and controlled perturbations within the same evaluation framework. A promising next step is to test when these evidence sources agree and use their disagreements to design informative experiments. Building on Shorkie and large-scale perturbational data, I want to develop sequence models that generalize across genes and conditions, reveal testable regulatory hypotheses, and help distinguish predictive correlation from biological mechanism.

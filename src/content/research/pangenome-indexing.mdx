@@ -1,37 +1,63 @@
 ---
-title: 'Recognizing Wheeler graphs for pangenome indexing'
+title: 'Indexing genomic diversity with sequence graphs'
 area: 'Pangenome indexing'
-summary: 'New renaming heuristics and an SMT solver that make the Wheeler-graph recognition problem computationally feasible — the foundation for compact, searchable pangenome indexes.'
+summary: 'I study graph representations and indexing algorithms that make collections of diverse genomes compact, searchable, and computationally practical.'
 image: ../../assets/research/pangenome-pipeline.jpg
-status: published
-paper: 'https://doi.org/10.1016/j.isci.2023.107402'
-code: 'https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit'
-news: 'https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/'
-talk: 'https://youtu.be/TkX9S024Dk8'
+status: ongoing
 advisors: ['Ben Langmead', 'Sanjit A. Seshia']
 order: 5
 featured: true
 relatedPosts: ['wgt', 'wgt-verified']
+relatedPublications:
+  - publication: '2023-08-wgt'
+    note: 'A toolkit and set of algorithms for generating, recognizing, and visualizing Wheeler graphs, which support BWT-style indexing on labeled graphs.'
+relatedReports: ['wgt-technical-report']
+references:
+  - text: 'Ferragina, P. and Manzini, G. Indexing compressed text. Journal of the ACM (2005).'
+    doi: 'https://doi.org/10.1145/1082036.1082039'
+  - text: 'Garrison, E. et al. Variation graph toolkit improves read mapping by representing genetic variation in the reference. Nature Biotechnology (2018).'
+    doi: 'https://doi.org/10.1038/nbt.4227'
+  - text: 'Gagie, T., Manzini, G., and Sirén, J. Wheeler graphs: a framework for BWT-based data structures. Theoretical Computer Science (2017).'
+    doi: 'https://doi.org/10.1016/j.tcs.2017.06.016'
+  - text: 'Gibney, D. and Thankachan, S. V. On the hardness and inapproximability of recognizing Wheeler graphs. ESA (2019).'
+    doi: 'https://doi.org/10.4230/LIPIcs.ESA.2019.51'
+  - text: 'Chao, K.-H. et al. WGT: tools and algorithms for recognizing, visualizing, and generating Wheeler graphs. iScience (2023).'
+    doi: 'https://doi.org/10.1016/j.isci.2023.107402'
+  - text: 'Liao, W.-W. et al. A draft human pangenome reference. Nature (2023).'
+    doi: 'https://doi.org/10.1038/s41586-023-05896-x'
 ---
-import ZoomFigure from '../../components/ZoomFigure.astro';
-import figure from '../../assets/research/pangenome-pipeline.jpg';
+A linear reference chooses one path through a species' variation. That simplification made modern genomics possible, but it creates reference bias: divergent sequence can be harder to align, genotype, and interpret. A **pangenome** represents many genomes together so shared sequence and alternative alleles remain part of the reference.
 
-A single linear reference can't capture human diversity, so genomics is shifting toward **pangenomes** — graphs that encode many genomes at once. The challenge is indexing those graphs so they stay fast to search. Wheeler graphs are an elegant answer: a class of graphs that admit a compact, BWT-style index. But there's a catch — deciding whether an arbitrary graph even *is* a Wheeler graph is NP-complete.
+Graphs are a natural representation for this diversity. Common regions can share nodes and edges; divergent haplotypes can follow different paths. The draft [Human Pangenome Reference (Liao et al., 2023)](https://doi.org/10.1038/s41586-023-05896-x) demonstrates why this matters at human scale, while tools such as [vg (Garrison et al., 2018)](https://doi.org/10.1038/nbt.4227) show that graph references can support read mapping and variant analysis.
 
-## The problem
+Representation alone is not enough. A practical pangenome must be searchable without scanning every genome independently. The challenge is to preserve graph diversity while recovering the speed and compactness of string indexes.
 
-The power of the FM-index — the data structure behind read aligners like Bowtie and BWA — comes from a special ordering of a string's rotations. Wheeler graphs generalize that idea to graphs, but only if the nodes admit a valid "Wheeler ordering." Finding such an ordering, or proving none exists, is NP-complete, so a naive search stalls on all but the smallest graphs.
+## Questions that drive my work
 
-## What I built
+The first question is **which graph structures admit efficient indexes**. For a string, the Burrows–Wheeler Transform and FM-index support compact full-text search ([Ferragina and Manzini, 2005](https://doi.org/10.1145/1082036.1082039)). Some graph classes generalize that structure, but arbitrary graphs do not inherit the same guarantees. Biological representation therefore constrains the available search algorithms.
 
-I made recognition practical by pairing a **node-renaming heuristic** with exact **solvers**. The heuristic propagates an ordering from incoming edge labels and resolves the easy, unambiguous nodes cheaply; only the genuinely ambiguous cases are handed to a permutation solver (Wheelie-PM) or an SMT solver (Wheelie-SMT). I packaged the whole pipeline as the **Wheeler Graph Toolkit (WGT)** — generate, recognize, and visualize Wheeler graphs.
+The second is **how to recognize useful structure**. Wheeler graphs ([Gagie et al., 2017](https://doi.org/10.1016/j.tcs.2017.06.016)) are edge-labeled graphs whose nodes admit an order compatible with edge labels, extending BWT-style indexing to graphs. Recognizing that order is NP-complete and hard to approximate ([Gibney and Thankachan, 2019](https://doi.org/10.4230/LIPIcs.ESA.2019.51)). The class is practical only if we can recognize members, produce an order, and explain failures at realistic sizes.
 
-<ZoomFigure src={figure} alt="The Wheeler Graph Toolkit pipeline: generator, recognizer (Wheelie), and visualizer" variant="square">
-  <strong>Figure 1.</strong> The Wheeler Graph Toolkit. A <em>generator</em> produces labeled graphs; the <em>recognizer</em> (Wheelie) computes a label-maximum ordering, applies the renaming heuristic, and falls back to permutation (Wheelie-PM) or SMT (Wheelie-SMT) solvers on ambiguous nodes; the <em>visualizer</em> renders the resulting Wheeler-ordered graph.
-</ZoomFigure>
+The third is **how to trust a solver-backed algorithm**. Heuristics and satisfiability solvers can make hard problems practical, but speed is not correctness. Every accepted graph should have an independently checkable order, and optimizations should preserve decisions.
 
-## What it showed
+I am also interested in **repair rather than diagnosis alone**: when a graph lacks an indexable structure, can we construct a related graph while preserving the biological paths that matter?
 
-As Figure 1 outlines, the heuristic disposes of most of the ordering work, leaving the solver a far smaller problem. In benchmarks across de Bruijn graphs, tries, and reverse-deterministic graphs (in both DNA and protein alphabets), Wheelie recognizes graphs orders of magnitude faster than exhaustive search, clearing many cases that otherwise blow past a 30-second timeout.
+## Directions I have explored
 
-**In brief:** practical Wheeler-graph recognition and tooling — a step toward compact, searchable pangenome indexes. ([iScience, 2023](https://doi.org/10.1016/j.isci.2023.107402); a JHU × UC Berkeley collaboration; [code](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit).)
+### Making Wheeler graphs usable
+
+I developed the **Wheeler Graph Toolkit (WGT)** ([Chao et al., 2023](https://doi.org/10.1016/j.isci.2023.107402)) so researchers could generate, recognize, and visualize Wheeler graphs. The project addressed a practical gap between theoretical recognition algorithms and a complete workflow for deciding and inspecting an input graph.
+
+WGT's recognizer, Wheelie, combines a fast renaming heuristic with exact solvers. Incoming labels constrain where a node can appear; propagating those constraints resolves much of the order before search begins. Remaining ambiguity goes to permutation search or an SMT solver. The pattern is simple: use inexpensive structure to shrink the problem, then apply an exact method where uncertainty remains.
+
+Generators provide known examples and counterexamples, while visualization makes the structure behind a solver result inspectable.
+
+### Verification, scaling, and graph repair
+
+I have continued this work by separating correctness, capacity, and speed. Current methods compare recognition with an independent brute-force oracle on small graphs, re-validate every emitted order, and use regression tests to ensure faster encodings do not change decisions.
+
+On the algorithmic side, lazy constraint generation avoids materializing the full solver encoding up front. The solver begins with a relaxation, checks candidate orders, and adds only constraints exposed by counterexamples. A separate repair direction unfolds non-Wheeler directed acyclic graphs into Wheeler graphs while preserving their represented path strings. These results are documented in the linked technical report; I keep them separate from the published WGT paper so the original contribution and ongoing work remain clear.
+
+## Future directions
+
+As pangenomes grow, a promising goal is to make graph diversity searchable without hiding the assumptions that enable efficient indexing. The next steps are to scale verified Wheeler-graph recognition, refine lazy solver formulations, and develop repair algorithms that preserve biologically meaningful paths when an input graph is not directly indexable. I want to connect these guarantees to practical pangenome indexes, so researchers can understand which sequences are preserved, why a graph supports a given search method, and how failures are detected or repaired.

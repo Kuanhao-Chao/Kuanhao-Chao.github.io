@@ -3,7 +3,9 @@ import { getCollection, render } from 'astro:content';
 import EntryLayout from '../../layouts/EntryLayout.astro';
 import Prose from '../../components/Prose.astro';
 import ResearchMotif from '../../components/genomic/ResearchMotif.astro';
+import ResearchWorkList from '../../components/ResearchWorkList.astro';
 import { resolveRelatedPosts } from '../../lib/relatedPosts';
+import { referenceLabel, referenceUrl } from '../../lib/scholar';
 import { site } from '../../data/site';
 
 export async function getStaticPaths() {
@@ -15,18 +17,24 @@ const { entry } = Astro.props;
 const d = entry.data;
 const { Content } = await render(entry);
 const relatedPosts = await resolveRelatedPosts(d.relatedPosts.map((r) => r.id));
-
-const statusLabel = { published: 'Published', ongoing: 'Ongoing', preprint: 'Preprint' }[d.status];
-const meta = [statusLabel, d.advisors.length ? `Advised by ${d.advisors.join(' & ')}` : null].filter(
-  Boolean
-) as string[];
-
+const publicationsById = new Map((await getCollection('publications')).map((item) => [item.id, item]));
+const reportsById = new Map((await getCollection('reports')).map((item) => [item.id, item]));
+const contributions = d.relatedPublications.flatMap(({ publication, note }) => {
+  const related = publicationsById.get(publication.id);
+  return related ? [{ entry: related, note }] : [];
+});
+const relatedReports = d.relatedReports.flatMap((report) => {
+  const related = reportsById.get(report.id);
+  return related ? [related] : [];
+});
+const primaryPublication = contributions[0]?.entry.data;
 const links = [
-  { label: 'Paper', icon: 'link', href: d.paper },
-  { label: 'Code', icon: 'code', href: d.code },
-  { label: 'Talk', icon: 'play', href: d.talk },
-  { label: 'News', icon: 'external', href: d.news },
-].filter((l): l is { label: string; icon: string; href: string } => Boolean(l.href));
+  { label: 'Paper', icon: 'link', href: primaryPublication?.doi ?? primaryPublication?.pdf },
+  { label: 'Code', icon: 'code', href: primaryPublication?.code },
+  { label: 'Data', icon: 'database', href: primaryPublication?.data },
+  { label: 'News', icon: 'external', href: primaryPublication?.news },
+  { label: 'Talk', icon: 'play', href: primaryPublication?.video },
+].filter((link): link is { label: string; icon: string; href: string } => Boolean(link.href));
 
 // Structured data: breadcrumb (Home → Research → title), emitted in-body.
 const canonical = new URL(`/research/${entry.id}/`, site.url).href;
@@ -43,17 +51,39 @@ const breadcrumbLd = {
 <EntryLayout
   title={d.title}
   eyebrow={d.area}
-  meta={meta}
-  links={links}
-  relatedPosts={relatedPosts}
   backHref="/research/"
   backLabel="All research"
   description={d.summary}
+  links={links}
+  relatedPosts={relatedPosts}
 >
   <div class="research-motif"><ResearchMotif id={entry.id} /></div>
   <Prose>
     <Content />
   </Prose>
+
+  <ResearchWorkList contributions={contributions} reports={relatedReports} posts={relatedPosts} />
+
+  {d.references.length > 0 && (
+    <section class="research-references">
+      <h2>References</h2>
+      <ol>
+        {d.references.map((ref) => (
+          <li>
+            <span>{ref.text}</span>
+            {referenceUrl(ref) && (
+              <>
+                {' '}
+                <a href={referenceUrl(ref)} target="_blank" rel="noopener">
+                  {referenceLabel(ref)}
+                </a>
+              </>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  )}
 
   <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
 </EntryLayout>
@@ -66,5 +96,28 @@ const breadcrumbLd = {
     background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg));
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-lg);
+  }
+  .research-references {
+    max-width: var(--measure);
+    margin-top: var(--space-12);
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--color-rule);
+  }
+  .research-references h2 {
+    margin-bottom: var(--space-4);
+    font-size: var(--fs-h3);
+    letter-spacing: 0;
+  }
+  .research-references ol {
+    padding-left: 1.35rem;
+    color: var(--color-muted);
+    font-size: var(--fs-small);
+  }
+  .research-references li + li {
+    margin-top: 0.65rem;
+  }
+  .research-references a {
+    font-weight: var(--fw-medium);
+    white-space: nowrap;
   }
 </style>

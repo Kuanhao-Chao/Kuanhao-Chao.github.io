@@ -13,12 +13,6 @@ const { entry, variant, showPosts = false } = Astro.props;
 const d = entry.data;
 const href = `/research/${entry.id}/`;
 const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) => r.id)) : [];
-const links = [
-  { label: 'Paper', icon: 'link', href: d.paper },
-  { label: 'Code', icon: 'code', href: d.code },
-  { label: 'Talk', icon: 'play', href: d.talk },
-  { label: 'News', icon: 'external', href: d.news },
-].filter((l) => l.href);
 ---
 {
   variant === 'home' ? (
@@ -43,14 +37,14 @@ const links = [
         <h3 class="rcard-title"><a href={href}>{d.title}</a></h3>
         <p class="rcard-summary muted">{d.summary}</p>
       </div>
-      {(links.length > 0 || blogLinks.length > 0) && (
+      {(d.relatedPublications.length > 0 || blogLinks.length > 0) && (
         <nav class="rcard-links" aria-label={`${d.title} resources`}>
-          {links.map((l) => (
-            <a href={l.href} target="_blank" rel="noopener">
-              <Icon name={l.icon} size={15} />
-              {l.label}
+          {d.relatedPublications.length > 0 && (
+            <a href={`${href}#related-work`}>
+              <Icon name="arrow-right" size={15} />
+              Related work
             </a>
-          ))}
+          )}
           {blogLinks.map((b) => (
             <a href={b.href} title={b.title} aria-label={`Read the blog post: ${b.title}`}>
               <Icon name="pencil" size={15} />
