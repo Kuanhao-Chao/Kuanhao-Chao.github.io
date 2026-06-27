@@ -6,10 +6,10 @@ import type { CollectionEntry } from 'astro:content';
 
 interface Props {
   entry: CollectionEntry<'research'>;
-  compact?: boolean;
+  variant: 'home' | 'index';
   showPosts?: boolean;
 }
-const { entry, compact = false, showPosts = false } = Astro.props;
+const { entry, variant, showPosts = false } = Astro.props;
 const d = entry.data;
 const href = `/research/${entry.id}/`;
 const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) => r.id)) : [];
@@ -20,17 +20,31 @@ const links = [
   { label: 'News', icon: 'external', href: d.news },
 ].filter((l) => l.href);
 ---
-<article class:list={['rcard', { 'rcard--compact': compact }]}>
-  <a href={href} class="rcard-media" aria-hidden="true" tabindex="-1">
-    <ResearchMotif id={entry.id} />
-  </a>
-  <div class="rcard-body">
-    <p class="eyebrow">{d.area}</p>
-    <h3 class="rcard-title"><a href={href}>{d.title}</a></h3>
-    <p class="rcard-summary muted">{d.summary}</p>
-    {
-      (links.length > 0 || blogLinks.length > 0) && (
-        <div class="rcard-links">
+{
+  variant === 'home' ? (
+    <article class="rcard rcard--home">
+      <a href={href} class="rcard-home-link">
+        <span class="rcard-media">
+          <ResearchMotif id={entry.id} class="research-motif" />
+        </span>
+        <span class="rcard-home-copy">
+          <span class="eyebrow">{d.area}</span>
+          <span class="rcard-title">{d.title}</span>
+        </span>
+      </a>
+    </article>
+  ) : (
+    <article class="rcard rcard--index">
+      <a href={href} class="rcard-media" aria-hidden="true" tabindex="-1">
+        <ResearchMotif id={entry.id} class="research-motif" />
+      </a>
+      <div class="rcard-body">
+        <p class="eyebrow">{d.area}</p>
+        <h3 class="rcard-title"><a href={href}>{d.title}</a></h3>
+        <p class="rcard-summary muted">{d.summary}</p>
+      </div>
+      {(links.length > 0 || blogLinks.length > 0) && (
+        <nav class="rcard-links" aria-label={`${d.title} resources`}>
           {links.map((l) => (
             <a href={l.href} target="_blank" rel="noopener">
               <Icon name={l.icon} size={15} />
@@ -38,73 +52,119 @@ const links = [
             </a>
           ))}
           {blogLinks.map((b) => (
-            <a
-              href={b.href}
-              title={b.title}
-              aria-label={`Read the blog post: ${b.title}`}
-            >
+            <a href={b.href} title={b.title} aria-label={`Read the blog post: ${b.title}`}>
               <Icon name="pencil" size={15} />
               {b.label}
             </a>
           ))}
-        </div>
-      )
-    }
-  </div>
-</article>
+        </nav>
+      )}
+    </article>
+  )
+}
 
 <style>
   .rcard {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    background: var(--color-surface);
-    transition: border-color var(--transition), transform var(--transition);
-  }
-  .rcard:hover {
-    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-rule));
+    min-width: 0;
   }
   .rcard-media {
     display: block;
-    aspect-ratio: 16 / 10;
     overflow: hidden;
     background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg));
   }
   .rcard-media :global(svg) {
+    display: block;
     width: 100%;
     height: 100%;
-    display: block;
-  }
-  .rcard-body {
-    padding: 1.4rem 1.5rem 1.6rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    flex: 1;
   }
   .rcard-title {
-    font-size: 1.2rem;
+    color: var(--color-ink);
+    font-size: 1.12rem;
     font-weight: var(--fw-semibold);
     line-height: 1.3;
     letter-spacing: 0;
   }
-  .rcard-title a {
+
+  .rcard--home {
+    background: var(--color-surface);
+  }
+  .rcard-home-link {
+    display: flex;
+    min-height: 12.5rem;
+    height: 100%;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-4);
     color: var(--color-ink);
+    transition: background-color var(--transition), color var(--transition);
+  }
+  .rcard-home-link:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+    background: color-mix(in srgb, var(--color-accent) 4%, var(--color-surface));
+  }
+  .rcard-home-link:focus-visible {
+    position: relative;
+    z-index: 1;
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+  .rcard--home .rcard-media {
+    height: 5.75rem;
+    flex: none;
+    background: transparent;
+  }
+  .rcard-home-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .rcard--home .rcard-title {
+    color: inherit;
+    font-size: 1.02rem;
+  }
+
+  .rcard--index {
+    display: grid;
+    grid-template-columns: minmax(9rem, 11rem) minmax(0, 1fr) minmax(12rem, 16rem);
+    align-items: center;
+    gap: clamp(1.25rem, 3vw, 2.25rem);
+    padding-block: var(--space-5);
+    border-top: 1px solid var(--color-rule);
+  }
+  .rcard--index .rcard-media {
+    aspect-ratio: 16 / 10;
+    border-radius: var(--radius-lg);
+  }
+  .rcard--index .rcard-media:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  .rcard-body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .rcard-title a {
+    color: inherit;
   }
   .rcard-title a:hover {
     color: var(--color-accent);
   }
   .rcard-summary {
+    display: -webkit-box;
+    overflow: hidden;
     font-size: var(--fs-small);
-    flex: 1;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
   .rcard-links {
     display: flex;
+    align-content: center;
     flex-wrap: wrap;
-    gap: 0.4rem 1rem;
-    margin-top: 0.4rem;
+    gap: 0.5rem 1rem;
   }
   .rcard-links a {
     display: inline-flex;
@@ -118,42 +178,47 @@ const links = [
     text-decoration: none;
   }
 
-  /* Homepage "compact" variant. On wide screens it just clamps the summary so the
-     featured cards have even heights; on phones it collapses each card into a tight
-     thumbnail row so the 5 items don't stack into a long, bulky scroll. */
-  .rcard--compact .rcard-summary {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+  @media (max-width: 959px) {
+    .rcard--index {
+      grid-template-columns: 8.5rem minmax(0, 1fr);
+      gap: var(--space-5);
+    }
+    .rcard--index .rcard-links {
+      grid-column: 2;
+      margin-top: calc(-1 * var(--space-3));
+    }
   }
 
-  @media (max-width: 620px) {
-    .rcard--compact {
+  @media (max-width: 639px) {
+    .rcard-home-link {
+      min-height: 7.25rem;
       flex-direction: row;
-      align-items: stretch;
+      align-items: center;
+      gap: var(--space-4);
+      padding: 0.75rem;
     }
-    .rcard--compact .rcard-media {
-      aspect-ratio: auto;
-      width: 38%;
-      max-width: 116px;
-      flex: none;
+    .rcard--home .rcard-media {
+      width: 6.5rem;
+      height: 5.75rem;
     }
-    .rcard--compact .rcard-body {
-      padding: 0.85rem 1rem;
-      gap: 0.3rem;
-      justify-content: center;
+    .rcard--home .rcard-title {
+      font-size: 1rem;
     }
-    .rcard--compact .rcard-title {
-      font-size: 1.05rem;
+
+    .rcard--index {
+      grid-template-columns: 6.5rem minmax(0, 1fr);
+      gap: var(--space-4);
+      padding-block: 0.85rem;
     }
-    .rcard--compact .rcard-summary {
+    .rcard--index .rcard-title {
+      font-size: 1rem;
+    }
+    .rcard--index .rcard-summary {
+      font-size: var(--fs-meta);
       -webkit-line-clamp: 2;
       line-clamp: 2;
-      font-size: var(--fs-meta);
     }
-    .rcard--compact .rcard-links {
+    .rcard--index .rcard-links {
       display: none;
     }
   }

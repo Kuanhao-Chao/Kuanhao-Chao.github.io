@@ -44,7 +44,7 @@ const posts = allPosts
   <section class="section home-section container" data-reveal>
     <SectionHeading eyebrow="What I work on" title="Research" href="/research/" more="All research" />
     <div class="home-research">
-      {research.map((entry) => <ResearchCard entry={entry} compact showPosts />)}
+      {research.map((entry) => <ResearchCard entry={entry} variant="home" />)}
     </div>
   </section>
 
@@ -147,8 +147,10 @@ const posts = allPosts
 <style>
   .home-research {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: clamp(1.25rem, 2vw, 1.75rem);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1px;
+    border-block: 1px solid var(--color-rule);
+    background: var(--color-rule);
   }
   .home-pubs {
     list-style: none;
@@ -233,20 +235,30 @@ const posts = allPosts
     }
   }
 
+  @media (max-width: 1023px) and (min-width: 640px) {
+    .home-research {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    .home-research :global(.rcard--home) {
+      grid-column: span 2;
+    }
+    .home-research :global(.rcard--home:nth-child(n + 4)) {
+      grid-column: span 3;
+    }
+  }
   @media (max-width: 860px) {
-    .home-research,
     .home-news {
       grid-template-columns: 1fr 1fr;
     }
   }
-  @media (max-width: 620px) {
+  @media (max-width: 639px) {
     .home-research,
     .home-news,
     .home-bg {
       grid-template-columns: 1fr;
     }
     .home-research {
-      gap: 0.85rem;
+      gap: 1px;
     }
     .home-bg {
       gap: var(--space-8);
