@@ -1,0 +1,266 @@
+---
+title: 'A queryable Wheeler-graph pangenome index: native species and position over a multi-string BWT, from yeast to the whole genome'
+description: 'A standalone Wheeler-graph index that turns a multiple-sequence alignment into an FM-index you can query for exact pattern matches — and, unlike a De Bruijn graph, returns the native species and genomic position of every occurrence. Built directly from each alignment block as a tagged multi-string BWT (distinct per-species separators), it is validated against independent oracles over >4 million cases (0 mismatches), indexes the whole yeast genome (17 chromosomes, 44,063 blocks, 43.4 M nodes) in 318 s into 334 MB on disk, and routes a genome-wide locate in ~2.6 ms.'
+authors:
+  - Kuan-Hao Chao
+abstract: >-
+  A Wheeler graph is an edge-labeled directed graph whose nodes admit a total order compatible with the
+  edge labels, which lets BWT/FM-index machinery index the graph and makes it a foundation for compact
+  pangenome indexes. This report describes a queryable Wheeler-graph index built directly from a multiple-
+  sequence alignment (MSA): each alignment block becomes a tagged multi-string Burrows–Wheeler Transform —
+  the per-species sequences concatenated with distinct separators so a backward search interval is exactly
+  the set of occurrences and can never cross a species boundary. The index answers the three pangenome
+  questions that a De Bruijn k-mer graph cannot: count, locate, and — natively — which species and which
+  genomic coordinate each occurrence belongs to. A document array carries species, a sampled (run-length,
+  r-index) suffix array carries position, and a coordinate transform maps each hit to genome coordinates on
+  either strand. The suffix order the index uses is provably a Wheeler order, and the project's recognizer,
+  searching the whole ordering space, independently lands on exactly that order. We make three claims, each
+  recomputed from committed data by a verification authority before it is stated. (1) Resolution: over 71
+  multi-species yeast blocks and 653 queries the index returns the correct species set on 100% of queries
+  with zero false positives, where a De Bruijn graph over the same blocks resolves species on 0% and admits
+  every recombinant control as a false positive — the cost is a ~1.2× larger index (257 vs 211 median nodes
+  per block). (2) Scale: the whole sacCer3 genome (17 sequences, 44,063 MAF blocks, 43.4 M suffix nodes)
+  indexes in 318 s single-threaded (embarrassingly parallel) into 334 MB on disk — 33× smaller than the
+  11 GB needed to hold every block in memory — and a global w-mer router answers a genome-wide locate in
+  ~2.6 ms, touching a median of 2 of 992 blocks per query (162× over scanning all blocks); a C++ port of the
+  per-block locate runs 90× faster than the Python reference. (3) Correctness: an adversarial audit checks
+  eight pattern-matching algorithms against independent brute oracles over more than 4 million cases, finds
+  and fixes one degenerate bug, and otherwise records 0 mismatches at every scale, including 8,687 reference-
+  genome checks against the real chromosomes. Projected to a human-scale MSA (~262× yeast), the on-disk index
+  is ~86 GB and the routed query stays flat, so the practical architecture is a small in-memory router over
+  an on-disk, load-on-demand block index. None of these results requires the recognizer at scale; it serves
+  as an independent certificate that the suffix order is the Wheeler order.
+date: 2026-06-27
+venue: 'Technical Report'
+institution: 'Johns Hopkins University'
+tags:
+  - Pangenomics
+  - Wheeler graphs
+  - FM-index
+  - BWT
+  - Indexing
+image: ../../assets/reports/wgt-index-technical-report/rfig_hero.png
+imageAlt: 'Three-panel scorecard for the Wheeler-graph pangenome index. Resolution: 100% correct species set over 653 multi-species queries with 0 false positives, versus 0% and 592 false positives for a De Bruijn graph. Scale: the whole yeast genome is 44,063 alignment blocks and 43.4 million nodes, built in 318 seconds into 334 MB on disk. Speed and correctness: a routed locate is about 2.6 milliseconds (162 times faster than scanning every block) with 0 mismatches over more than 4 million audited cases. A footer states the honest trade — the suffix index is about 1.2 times larger than the De Bruijn graph, which buys exact native species and position resolution.'
+scholar: true
+unlisted: true
+references:
+  - text: "Chao K-H, Chen P-W, Seshia SA, Langmead B. WGT: Tools and algorithms for recognizing, visualizing and generating Wheeler graphs. iScience 26(8):107402, 2023."
+    doi: https://doi.org/10.1016/j.isci.2023.107402
+  - text: "Gagie T, Manzini G, Sirén J. Wheeler graphs: A framework for BWT-based data structures. Theoretical Computer Science 698:67–78, 2017."
+    doi: https://doi.org/10.1016/j.tcs.2017.06.016
+  - text: "Ferragina P, Manzini G. Opportunistic data structures with applications. Proc. 41st IEEE Symposium on Foundations of Computer Science (FOCS 2000), pp. 390–398, 2000."
+    doi: https://doi.org/10.1109/SFCS.2000.892127
+  - text: "Gagie T, Navarro G, Prezza N. Fully functional suffix trees and optimal text searching in BWT-runs bounded space. Journal of the ACM 67(1):2:1–2:54, 2020."
+    doi: https://doi.org/10.1145/3375890
+  - text: "Burrows M, Wheeler DJ. A block-sorting lossless data compression algorithm. Digital Systems Research Center Technical Report 124, 1994."
+  - text: "Blanchette M, Kent WJ, Riemer C, et al. Aligning multiple genomic sequences with the threaded blockset aligner. Genome Research 14(4):708–715, 2004."
+    doi: https://doi.org/10.1101/gr.1933104
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import rfigHero from '../../assets/reports/wgt-index-technical-report/rfig_hero.png';
+import rfigMechanism from '../../assets/reports/wgt-index-technical-report/rfig_mechanism.png';
+import rfigResolution from '../../assets/reports/wgt-index-technical-report/rfig_resolution.png';
+import rfigQuery from '../../assets/reports/wgt-index-technical-report/rfig_query.png';
+import rfigScale from '../../assets/reports/wgt-index-technical-report/rfig_scale.png';
+import rfigAudit from '../../assets/reports/wgt-index-technical-report/rfig_audit.png';
+
+*Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Code: [github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit) (the index lives under `index/`).*
+
+This is a companion to *[A faster, verified Wheeler-graph recognizer](/reports/wgt-technical-report/)*. That report is about **deciding** whether a graph is a Wheeler graph. This one is about **using** Wheeler graphs: turning a multiple-sequence alignment into an index you can actually query, and getting back the one thing a pangenome index is for — *which species, and where*.
+
+## 1. The problem: a pangenome index that keeps the species
+
+A pangenome replaces a single reference with many genomes at once. To search it, the standard move is to fold the sequences into a graph and index that graph. The most common construction is a **De Bruijn graph**: slide a window of length $k$ over every sequence and merge identical $k$-mers into one node. It is compact and Wheeler-friendly, and it answers *does this pattern occur*. But the merge is exactly the problem. Once two species share a $k$-mer, that node belongs to *both*; a path through the graph can splice together $k$-mers from different genomes that never co-occurred in any single one. The index then accepts **recombinant** strings that no input sequence contains, and — fatally for pangenomics — it cannot tell you which species an occurrence came from, because the node no longer remembers. The graph answers *count* but has thrown away *locate-with-provenance*.
+
+That is the gap this index closes. We want, for an exact pattern $P$ and a set of aligned genomes, **every** occurrence reported as a tuple — species, source sequence, genomic start–end, strand — with no recombinant false positives and no loss of position. The construction that delivers it is not a De Bruijn graph at all but a **tagged suffix Wheeler graph**: a multi-string Burrows–Wheeler Transform of the aligned sequences, with one structural trick that keeps the species separated.
+
+<ZoomFigure src={rfigHero} alt="Three-panel scorecard. Resolution: a single bold 100% — correct species set over 653 multi-species queries, 0 false positives, versus De Bruijn 0% and 592 false positives. Scale: 44,063 alignment blocks and 43.4 million nodes for the whole yeast genome, built in 318 seconds into 334 MB on disk. Speed and correctness: a routed locate is 162 times faster than scanning all blocks (about 2.6 milliseconds) with 0 mismatches over more than 4 million audited cases. A footer notes the suffix index is about 1.2 times larger than the De Bruijn graph (257 versus 211 median nodes per block), the price of exact native species-and-position resolution." variant="wide">
+  <strong>Figure 1.</strong> The Wheeler-graph pangenome index at a glance. **Resolution:** native species, exact — 100% correct species set over 653 multi-species yeast queries with 0 false positives, where a De Bruijn graph over the same blocks resolves 0% and accepts every recombinant control. **Scale:** the whole yeast genome (44,063 blocks, 43.4 M nodes) builds in 318 s into 334 MB on disk. **Speed:** a routed genome-wide locate touches a median of 2 of 992 blocks — 162× over scanning all of them — with 0 mismatches over the >4 M-case audit. The honest trade (a ~1.2× larger index) is stated in the footer, not hidden.
+</ZoomFigure>
+
+## 2. The algorithm: a tagged multi-string BWT
+
+### 2.1 One block, one multi-string BWT
+
+The unit of construction is a single **alignment block** — a column-aligned slice of the MSA (a `multiz`/MAF block [6]) in which each row is one species' sequence over that interval. We strip alignment gaps and build the index on the *forward* ungapped sequences $S_0,\dots,S_{a-1}$ (one per species $a$).
+
+The index is the Burrows–Wheeler Transform [5] of the concatenation
+
+$$
+T \;=\; S_0\,\#_0\,S_1\,\#_1\,\cdots\,S_{a-1}\,\#_{a-1},
+$$
+
+with one separator per sequence (written $\#_i$) and — the key choice — the separators **distinct and ordered below the DNA alphabet**: $\#_i = i$ for document $i$, so that $\#_0 < \#_1 < \cdots < \#_{a-1} < \texttt{A} < \texttt{C} < \texttt{G} < \texttt{T}$. A single shared separator (the textbook multi-string trick) would make the cyclic LF-mapping inconsistent at document boundaries; distinct separators make the BWT's LF-mapping exact and, as a bonus, give every document a unique rank-0 anchor. We compute the **cyclic-rotation suffix array** $\mathrm{SA}$ by prefix doubling in $O(n\log^2 n)$ (a brute rotation sort is kept as the test oracle), then $\mathrm{BWT}[i] = T[(\mathrm{SA}[i]-1)\bmod n]$, the symbol counts $C[\cdot]$, and a per-symbol rank structure — the same FM-index machinery [3] a string uses.
+
+### 2.2 Backward search: the interval *is* the occurrences
+
+To search for a DNA pattern $P$ we run the standard FM-index **backward search** over this BWT, narrowing a half-open interval $[\,\mathrm{lo},\mathrm{hi}\,)$ symbol by symbol. Two properties make this exact and species-clean:
+
+- **Exactness.** When backward search terminates, $[\mathrm{lo},\mathrm{hi})$ contains *exactly* the suffixes of $T$ that start with $P$, so $\mathrm{hi}-\mathrm{lo}$ is the occurrence count and the rows of the interval enumerate the occurrences — no post-filtering.
+- **No boundary crossing.** Because the separators are symbols *outside* the DNA alphabet and $P$ is pure DNA, $P$ can never span a $\#_i$. Every occurrence therefore lies wholly inside one species' sequence, and the interval never mixes provenance.
+
+`count`$(P)$ returns $\mathrm{hi}-\mathrm{lo}$ directly.
+
+### 2.3 From an interval to species + position
+
+A hit's row $i\in[\mathrm{lo},\mathrm{hi})$ is turned into a coordinate in two reads:
+
+1. **Which species.** A **document array** $\mathrm{DOC}[i]=\mathrm{doc}[\mathrm{SA}[i]]$ records, for each suffix, the document it belongs to. One lookup gives the species.
+2. **Which position.** A **sampled suffix array** recovers the text position $p=\mathrm{SA}[i]$ (LF-walking to the nearest sample), from which the within-species offset is $p-\mathrm{docstart}[\mathrm{doc}]$.
+
+The offset is then pushed through a **genomic coordinate transform** that respects the MSA's strand bookkeeping (UCSC convention). For a block coordinate with `start`, `srcSize`, and `strand`, a hit of length $m$ at ungapped offset `pos` maps to
+
+$$
+(+)\;\; [\,\texttt{start}+\texttt{pos},\;\; \texttt{start}+\texttt{pos}+m\,), \qquad
+(-)\;\; [\,\texttt{srcSize}-(\texttt{start}+\texttt{pos}+m),\;\; \texttt{srcSize}-(\texttt{start}+\texttt{pos})\,),
+$$
+
+so that on the minus strand the genomic interval is the one whose forward strand spells $\mathrm{revcomp}(P)$. Each occurrence comes back as `{species, src, gstart, gend, strand}` — multi-hit, exact, any pattern length.
+
+### 2.4 r-index locate: one toehold, then φ
+
+Holding a full sampled suffix array per block is wasteful when a query has many occurrences. The index therefore supports the **r-index** representation [4]: store the BWT as its $r$ maximal equal-symbol runs and sample the suffix array only at run boundaries. Backward search keeps a single position — the **toehold** $\mathrm{SA}[\mathrm{hi}-1]$ — and the **$\varphi$ function** (a predecessor query over the run-head samples plus a linear offset) walks from one occurrence to the next in $O(1)$ predecessor work each, independent of how long the BWT runs are. The located set is identical to the full-SA locate; only the memory changes. (The cyclic-wrap edge case of $\varphi$ is provably unreachable here: the unique-largest separator forces SA-position 0 to be a run head, so it is always a sampled key — checked over thousands of instances with zero counterexamples.)
+
+<ZoomFigure src={rfigMechanism} alt="A four-stage schematic. Stage 1: a multi-string text for one block, drawn as labeled cells A C G A C then a gray separator $0, then A C G T C then a gray separator $1, with a note that distinct per-species separators sort below A,C,G,T, that the document array gives species and the sampled suffix array gives position. An arrow leads to Stage 2: backward search of pattern P yields a half-open interval [lo,hi) that equals exactly the occurrences of P, with a note that a DNA pattern can never cross a separator so every suffix in the interval lies in one species. Arrows fan to Stage 3a, the document array giving which species, and Stage 3b, the toehold plus the phi function of the r-index giving which position and the genomic coordinate on either strand. A final box reports every occurrence as a tuple of species, source, genomic start to end, and strand. A footer certificate states the recognizer independently accepts the graph and its Wheeler order is the suffix-array rank." variant="wide">
+  <strong>Figure 2.</strong> How a query resolves species **and** position over the multi-string BWT. The distinct separators (gray, sorting below the DNA alphabet) keep documents apart, so the backward-search interval $[\mathrm{lo},\mathrm{hi})$ is *exactly* the occurrences and never crosses a species boundary. The document array reads off the species; the toehold-plus-$\varphi$ r-index locate reads off the position, which the coordinate transform maps to a genomic interval on the correct strand. The certificate (footer) is §3.
+</ZoomFigure>
+
+## 3. The order is a Wheeler order — certified
+
+The construction rests on a theorem: the **suffix-array rank** of a string (or multi-string) *is* a Wheeler order of its BWT-graph [2]. That is what lets us index the graph with FM-index machinery in the first place, and it is why the whole pipeline needs no solver at scale — the order comes for free from the suffix sort.
+
+We do not just assert this; we **certify** it. On small blocks the index emits its suffix graph as a DOT file and runs the project's Wheeler-graph recognizer on it. The recognizer, which searches the entire space of node orderings (§*[recognizer report](/reports/wgt-technical-report/)*), returns verdict *accept*, its emitted order passes independent axiom re-validation, **and** that order is order-isomorphic to the suffix-array rank the index used (`recognizer_iso_to_sa_rank = true` in the certification test). The recognizer lands on exactly the order the suffix sort produced — closing the loop between the theory (SA rank is a Wheeler order) and the implementation (the order this index queries). Recognition is the *gatekeeper*; this index is what you build once recognition is guaranteed by construction.
+
+## 4. Resolution: keeping the species, with no false positives
+
+**Result:** over 71 multi-species yeast blocks and 653 queries, the suffix index returns the **correct species set on 100% of queries with 0 false positives**; a De Bruijn graph over the same blocks resolves species on **0%** and accepts **every** one of 592 recombinant controls as a false positive. The price is a **~1.2× larger** index (257 vs 211 median nodes per block).
+
+This is the result that motivates the whole construction, measured against a brute-force oracle that enumerates occurrences directly. We took the 71 chrI alignment blocks containing more than one species (4 species each), generated 653 multi-species queries, and asked each index which species contain the pattern. The suffix index, reading its document array, named the correct set every time. The De Bruijn graph cannot answer the question at all — its merged $k$-mer nodes have no species identity — so it scores zero. We then built **recombinant controls**: strings that splice $k$-mers from different species so they exist as a *path* in the De Bruijn graph but in no real sequence. The De Bruijn index accepted all 592; the suffix index, whose interval cannot cross a species boundary, rejected all 592 (0 false positives). RevDet (a column-automaton construction) behaves like De Bruijn here — its accepted language is a superset on all 71 blocks.
+
+The honest cost is size: the suffix index keeps every species' sequence distinct, so it is larger — a median of 257 nodes per block versus 211 for De Bruijn and 117 for RevDet, about 1.2× the De Bruijn graph. That is the trade the rest of the report quantifies: **~1.2× the nodes buys exact, native species-and-position resolution** that the compact constructions structurally cannot provide.
+
+<ZoomFigure src={rfigResolution} alt="Three bar panels comparing the suffix index (violet), De Bruijn (gray), and RevDet (light gray) over 71 multi-species chrI blocks and 653 queries. Panel A, native species resolution: suffix index 100%, De Bruijn 0%, RevDet not applicable. Panel B, superset false positives, the percentage of recombinant controls accepted: suffix index 0 of 592, De Bruijn 592 of 592, RevDet a superset on 71 of 71 blocks. Panel C, index size as median nodes per block: suffix index 257, De Bruijn 211, RevDet 117." variant="wide">
+  <strong>Figure 3.</strong> Resolution × fidelity × size, against the brute oracle. **(A)** Only the suffix index resolves species (100% vs 0%). **(B)** Only the suffix index rejects recombinant controls (0/592 false positives vs 592/592 for De Bruijn; RevDet's language is a superset on all 71 blocks). **(C)** The cost is a modestly larger index — 257 vs 211 median nodes per block (~1.2×).
+</ZoomFigure>
+
+## 5. Architecture: shard, then route
+
+A single Wheeler graph for the whole genome is not an option. The whole-genome multi-string is **43.4 million** suffix nodes — orders of magnitude past the size the recognizer decides and impractical to index as one object. So the index is **sharded**: one small multi-string BWT per alignment block. Each block is tiny (tens to hundreds of bases per species), builds in milliseconds, and is embarrassingly parallel across the 44,063 blocks of the genome.
+
+Sharding moves the cost to query time — a naive genome query would touch all 44,063 blocks — so the index adds a **sound w-mer router**. For each block we record the set of length-$w$ substrings its sequences contain; a global inverted map sends each $w$-mer to the blocks that contain it. A query intersects the maps of its own $w$-mers to get a small candidate set, then runs exact locate only there. The prefilter is **sound by construction**: if $P$ occurs in a block, *every* length-$w$ substring of $P$ occurs in that block, so a true container is never skipped; the per-block exact locate then removes any false survivors. The result is a query whose cost is independent of genome size — it scales with the number of blocks a pattern actually lands in, not with how many blocks exist (§6, §7).
+
+Two engineering pieces make this deployable. A **C++ port** (`index/cpp/wg_suffix`) reimplements the per-block backward search and locate; on a real block it runs **90× faster** than the Python reference (0.39 vs 35.3 µs per locate, 200k repetitions). And a **serialization** layer writes each block's arrays to disk, so the genome index is stored once and **loaded on demand**: keep the small router in memory, leave the 44k block indexes on disk, and pull only the blocks a query routes to. That is the architecture the human-scale projection (§9) requires.
+
+## 6. How to query
+
+The index ships three interfaces over the same algorithm. All Python commands use the Biopython environment (`~/miniconda3/envs/myenv/bin/python`); paths are relative to the repository root.
+
+### 6.1 Command line (Python)
+
+`index/query.py` builds an index from a block FASTA (or loads a recognizer `out__` directory) and searches a pattern. With `--locate` it reports the genomic tuple for every occurrence (it reads the `<fasta>.coords.json` sidecar that the genome builder writes):
+
+```bash
+# count + locate a pattern in one block, with species + genomic coordinates
+~/miniconda3/envs/myenv/bin/python index/query.py block.fa --pattern CATTACCC --locate -a 4
+
+# query an existing recognizer output directory instead of building from FASTA
+~/miniconda3/envs/myenv/bin/python index/query.py --iol out__block --pattern CATTACCC --no-reverse
+```
+
+Flags: `--pattern P` (required), `--locate` (emit `species, src, gstart, gend, strand`), `-a` (rows/species to index), `-l` (cap sequence length), `-k` (De Bruijn $k$ when comparing constructions), `--no-reverse` (search $P$ as given; the default reverses it because recognizer paths spell sequences in reverse).
+
+### 6.2 Python API
+
+`SuffixIndex` is one block; `PangenomeIndex` is the sharded, routed genome index.
+
+```python
+from index.suffix_index import SuffixIndex
+from index.pangenome_index import PangenomeIndex
+
+# one block: count, then locate with species + genomic position
+idx = SuffixIndex.from_fasta("block.fa", a=4, s=4, sample="runs")   # 'runs' = r-index locate
+n   = idx.count("CATTACCC")                       # number of occurrences
+for h in idx.locate("CATTACCC"):                  # each hit is a dict
+    print(h["species"], h["src"], h["gstart"], h["gend"], h["strand"])
+
+# a whole chromosome, routed: build the global w-mer map once, then locate genome-wide
+pg = PangenomeIndex(block_fastas, a=4, s=4, w=8).build_global()
+hits = pg.locate_routed("CATTACCC")               # touches only candidate blocks
+species = pg.species_of("CATTACCC")               # set of species containing P
+```
+
+A located hit carries `record_idx` and `ungapped_pos` always, and `species, src, gstart, gend, strand` when coordinates are available; `PangenomeIndex` adds the `block` it came from. `locate` and `locate_routed` return the same set — the router only changes *which* blocks are touched, never the answer.
+
+### 6.3 C++ (per block)
+
+```bash
+make -C index/cpp wg_suffix
+index/cpp/wg_suffix block.fa --a 4 --l -1 --s 4 --coords block.coords.json --locate CATTACCC
+index/cpp/wg_suffix block.fa --a 4 --l -1 --s 4 --queries patterns.txt      # batch
+index/cpp/wg_suffix block.fa --a 4 --l -1 --s 4 --bench 200000              # us_per_locate
+index/cpp/wg_suffix block.fa --a 4 --l -1 --s 4 --info                       # n, r, samples, sigma
+```
+
+### 6.4 A worked example
+
+**Result:** the pattern `CATTACCC` returns **9 occurrences across 4 species** (sacCer3, sacKud, sacMik, sacPar) of the yeast alignment, each with its own genomic coordinate and strand — three hits on sacCer3 chrI (e.g. `126–134, +`), one on sacKud (`−` strand), three on sacMik, two on sacPar — every one of which the brute oracle confirms. This is exactly the multi-species, multi-position answer a De Bruijn index cannot produce: it could tell you the pattern *occurs*, but not that it occurs in four named species at nine specific places.
+
+<ZoomFigure src={rfigQuery} alt="Three panels. Panel A, the suffix router on chrI (992 blocks), as log-scale bars: scanning all blocks 25.5 milliseconds per query, a per-block w-mer prefilter 2.78 milliseconds, and the global routed query 0.157 milliseconds — annotated 162 times faster, with a median of 2 of 992 blocks surviving. Panel B, a De Bruijn locate baseline as log-scale bars: naive scan 43.8 milliseconds, FM prefilter 7.22 milliseconds, routed k-mer 0.0214 milliseconds — annotated 2048 times. Panel C, the worked example: the pattern CATTACCC plotted as a species-by-position hit map, with dots for sacCer3, sacKud, sacMik, and sacPar across genomic positions, 9 hits over 4 species." variant="wide">
+  <strong>Figure 4.</strong> Pattern matching — count, locate, and provenance. **(A)** The suffix router on chrI: routing a locate to its candidate blocks (median 2 of 992) is **162×** faster than scanning every block (0.157 vs 25.5 ms/query). **(B)** The same routing idea on a De Bruijn locate baseline (**2,048×** over a naive scan). **(C)** `CATTACCC` resolved to 9 occurrences across 4 species, each at its own genomic position and strand.
+</ZoomFigure>
+
+## 7. Indexing the whole yeast genome
+
+**Result:** the complete sacCer3 genome — **17 sequences, 44,063 MAF blocks, 43.4 M suffix nodes** — indexes in **318 s** single-threaded (≈5.3 min; embarrassingly parallel per chromosome) into **334 MB on disk**, which is **33× smaller** than the **11 GB** needed to hold every block index in memory at once. A routed genome-wide locate runs in **~2.6 ms**, and the build is verified end-to-end: **0 mismatches** across all 17 chromosomes, with **8,687** located hits cross-checked against the real chromosome sequences.
+
+The per-chromosome cost is linear in block count — chrIV (the largest, 5,884 blocks) takes 41 s and 1.27 GB peak RAM, which bounds the per-chromosome build; chrM (318 blocks) takes about a second. The whole genome builds **directly from each block's FASTA** — no De Bruijn generator, no recognizer in the loop — so it finishes in minutes, not the hours a generate-and-recognize pipeline would need.
+
+The chrI sweep shows the two knobs. The species count $a$ scales build time and memory roughly linearly (more sequence ⇒ a bigger index). The suffix-array sample rate $s$ is a **size↔speed dial**: raising $s$ from 1 to 16 shrinks the on-disk arrays (7.6→5.0 MB on chrI at $a{=}4$) while slowing routed locate (0.86→1.37 ms) — you choose where to sit. The router touches a median of about 8–18 of 992 blocks per query across the sweep, keeping routed locate well under 2 ms throughout.
+
+On memory, the audit-driven design matters: replacing the dense $O(\sigma n)$ rank arrays with block-rank $O(\sigma n/64)$ arrays (57× smaller on a real block) and dropping the full suffix array in `runs` mode leaves the **router** — the per-block $w$-mer sets and the global map — as the memory-binding structure. Holding everything in RAM is ~11 GB; the on-disk arrays serialization is 334 MB and reloads without re-sorting suffixes. Hence the practical shape: a small in-memory router over an on-disk, load-on-demand block index.
+
+<ZoomFigure src={rfigScale} alt="Three panels on a shared theme of scale, speed, and memory. Panel A, per-chromosome build: a scatter of 17 points, build time in seconds versus alignment blocks per chromosome, lying on a straight dashed line; annotated 17 chromosomes, 44,063 blocks, 318 seconds total. Panel B, the chrI size-versus-speed knob: as the SA-sample rate s goes 1, 4, 16 at a equals 4, on-disk size in megabytes falls (violet, left axis) while routed locate in milliseconds rises (green, right axis). Panel C, on-disk versus in-memory on a log scale in gigabytes: yeast on-disk 0.3, yeast in-memory all 10.8, human on-disk 85.7, human in-memory all 2821; titled on-disk much less than in-memory." variant="wide">
+  <strong>Figure 5.</strong> Scale, speed, and memory. **(A)** Per-chromosome build time is linear in block count (17 chromosomes, 44,063 blocks, 318 s total). **(B)** The SA-sample rate $s$ trades on-disk size against routed-locate latency on chrI. **(C)** On disk the genome is 334 MB versus ~11 GB held all in memory (33×); the human projection (§9) is ~86 GB on disk versus ~2.8 TB in memory — which is why the architecture is load-on-demand. Memory in binary units.
+</ZoomFigure>
+
+## 8. Correctness: an adversarial audit
+
+**Result:** an adversarial audit checks **8 pattern-matching algorithms** against independent brute oracles over **more than 4,000,000 cases**, finds and fixes exactly **one** degenerate bug (`DAWG.count("")` returned the text length; fixed to 0), and otherwise records **0 mismatches** — including at full-genome scale (44,063 blocks, 8,687 reference-genome checks).
+
+Every algorithm is tested against a separate, obviously-correct procedure, not against itself: a brute cyclic-SA sort, a brute BWT/rank, a hand-built inverse suffix array, a brute substring scan, and an independently-written coordinate transform. The De Bruijn `WGIndex` is checked on **2,067,185** patterns over **8,000** random graphs; the coordinate transform on **~1.6 M** cases over both strands, genome-anchored to the real chromosomes; the r-index $\varphi$/toehold on **>160,000** assertions (including the wrap-edge case proven structurally unreachable); the C++ port on an **exhaustive 27,280-case** parity sweep against the Python reference; and a cross-engine stress test confirms the suffix, r-index, and DAWG engines return identical occurrence sets on **13,858** queries. Each scale/speed benchmark above also carries a built-in `locate == locate_routed == ∪oracle` gate — which is what lets the §7 numbers be reported as verified rather than merely produced.
+
+<ZoomFigure src={rfigAudit} alt="A horizontal log-scale bar chart of independently-verified cases per audit dimension: De Bruijn WGIndex (FM) 2,067,185; coordinate transform 1,600,000; phi and toehold assertions 160,000; C++ parity exhaustive 27,280; cross-engine stress 13,858. The title states an adversarial audit of 8 algorithms over more than 4,000,000 cases versus independent oracles, largest dimensions shown, with 1 bug found and fixed in DAWG.count of the empty pattern and 0 mismatches at every scale." variant="wide">
+  <strong>Figure 6.</strong> Audit coverage by dimension (largest shown; log scale). Eight algorithms checked against independent oracles over **>4 M** cases; one bug found and fixed, **0 mismatches** at every scale. Every case count here appears verbatim in `index/AUDIT.md` and is re-checked by the verification authority (§10).
+</ZoomFigure>
+
+## 9. Toward human scale
+
+A human-scale MSA is roughly **262×** the yeast genome by aligned length, which sets the projection: about **11.6 M** alignment blocks, a single-core build of **~23 h** (minutes in parallel — the build is per-block independent), **~86 GB** on disk, and **~2.8 TB** if every block index were held in memory at once. The routed query stays essentially flat, because its cost depends on how many blocks a pattern lands in, not on how many blocks exist.
+
+The projection makes the binding constraint explicit and answers it. Holding the whole index in RAM is infeasible at ~2.8 TB; ~86 GB on disk is entirely practical. The serialization and load-on-demand router built here are exactly the path: keep the small router resident, store the block indexes on disk, and load only the candidate blocks per query. The next compression target is the router itself — its global $w$-mer map is linear in genome size — and a **minimizer/sketch** of that map is the recommended step before a full human run, alongside porting the r-index $\varphi$-locate and the router to C++.
+
+## 10. Reproducibility
+
+Everything is on the `wg-genome-index` branch under `index/` (the index, the C++ port, the audit suite, and the docs `PANGENOME_INDEX.md`, `GENOME_INDEX.md`, `LOCATE.md`, `AUDIT.md`, `EVALUATION.md`). **Every number in this report is recomputed from committed data** by a verification authority before it is stated — `benchmark/report_figs/verify_index_report_numbers.py` loads the committed JSON/CSV results plus the audit constants and prints a claimed-vs-computed PASS/FAIL table; the report cites only rows that PASS (it is all-PASS at the committed revision). Two environments are used and not crossed: index builds and queries run under `~/miniconda3/envs/myenv/bin/python` (Biopython); the figures render under `~/miniconda3/envs/spliceai/bin/python`.
+
+```bash
+# verify every cited number against committed data (all-PASS)
+python3 benchmark/report_figs/verify_index_report_numbers.py
+
+# the full audit + serialization + every locate == oracle gate
+~/miniconda3/envs/myenv/bin/python -m pytest index/tests
+
+# rebuild the benchmarks behind §4–§8
+python3 benchmark/genome_index/suffix_scaling.py --chrom chrI --a 2,4,7 --s 1,4,16 --sample rate
+python3 benchmark/genome_index/genome_build.py --a 4 --s 4        # whole-genome build + measure
+python3 benchmark/genome_index/router_micro.py                    # router + C++-vs-Python micro
+
+# re-render the six figures
+~/miniconda3/envs/spliceai/bin/python benchmark/report_figs/plot_index_report.py
+```
+
+**Limitations.** The brute oracle is exact only for small instances, so correctness above that size rests on the differential gates and the independent transform, not on full enumeration. The C++ port currently implements rate-sampling, not the `runs`/$\varphi$ mode (correctness is transitive through the Python parity test). The human numbers in §9 are a length-based projection, not a measured run. And the index answers **exact** pattern matching; approximate or seed-and-extend search over the Wheeler-graph index is future work.
+
+## 11. Conclusion
+
+A De Bruijn pangenome graph answers *whether* a pattern occurs but forgets *who* and *where*. Reframing the index as a **tagged multi-string BWT** — distinct per-species separators, a document array for species, an r-index sampled suffix array for position — recovers exact, native species-and-position resolution at a modest ~1.2× size cost, with the suffix order guaranteed (and independently recognizer-certified) to be a Wheeler order. The construction shards cleanly to the whole yeast genome (44,063 blocks, 318 s, 334 MB on disk, ~2.6 ms routed) and is verified against independent oracles over more than four million cases with zero mismatches. The same design — a small in-memory router over an on-disk, load-on-demand block index — projects to human scale, where it is the practical path. Recognition decides *can this graph be indexed*; this index is what you build, and query, once the answer is yes.
