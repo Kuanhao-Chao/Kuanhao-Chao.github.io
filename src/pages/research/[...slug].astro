@@ -18,14 +18,9 @@ const d = entry.data;
 const { Content } = await render(entry);
 const relatedPosts = await resolveRelatedPosts(d.relatedPosts.map((r) => r.id));
 const publicationsById = new Map((await getCollection('publications')).map((item) => [item.id, item]));
-const reportsById = new Map((await getCollection('reports')).map((item) => [item.id, item]));
 const contributions = d.relatedPublications.flatMap(({ publication, note }) => {
   const related = publicationsById.get(publication.id);
   return related ? [{ entry: related, note }] : [];
-});
-const relatedReports = d.relatedReports.flatMap((report) => {
-  const related = reportsById.get(report.id);
-  return related ? [related] : [];
 });
 const primaryPublication = contributions[0]?.entry.data;
 const links = [
@@ -62,7 +57,7 @@ const breadcrumbLd = {
     <Content />
   </Prose>
 
-  <ResearchWorkList contributions={contributions} reports={relatedReports} posts={relatedPosts} />
+  <ResearchWorkList contributions={contributions} posts={relatedPosts} />
 
   {d.references.length > 0 && (
     <section class="research-references">
