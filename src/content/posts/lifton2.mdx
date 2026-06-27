@@ -1,0 +1,85 @@
+---
+title: 'lifton2: a first-party, refinement-first genome-annotation lift-over engine'
+description: 'lifton2 is a research re-implementation of the LiftOn lift-over engine that de-vendors the Liftoff DNA-lift into first-party code, then refines it with protein evidence — improving the genes it transfers, emitting standards-clean GFF3, and finishing whole genomes other tools crash on.'
+authors: ['Kuan-Hao Chao']
+abstract: >-
+  lifton2 is a research re-implementation of the genome-annotation lift-over engine behind LiftOn. It replaces LiftOn's vendored copy of Liftoff with a first-party DNA-lift core held byte-for-byte equal to Liftoff by a regression gate, then layers a protein-informed refinement that rewrites a transcript's splice structure only when the protein evidence strictly improves it. Across a four-tier divergence ladder, lifton2 transfers the genes it places at higher protein identity than the DNA baseline it extends — a gap that grows with evolutionary distance — lifts the gene-like features the coding-only baseline drops, emits standards-clean GFF3 where the other tools do not, and completes whole genomes that crash Liftoff and the previous LiftOn release. Protein-to-genome alignment (miniprot) is the internal evidence lifton2 fuses, not a rival baseline.
+date: 2026-06-27
+category: summary
+draft: false
+tags: ['Genome annotation', 'Comparative genomics', 'Open source']
+linkLabel: 'lifton2'
+image: ../../assets/posts/lifton2/fig_accuracy.png
+logo: ../../assets/logos/software/lifton.png
+imageAlt: "lifton2 across a four-tier divergence ladder: it refines the DNA lift (Liftoff), gaining mean protein identity that grows with divergence, while miniprot is shown as the internal protein evidence lifton2 fuses rather than a rival baseline."
+references:
+  - text: 'Chao, K.-H. et al. Combining DNA and protein alignments to improve genome annotation with LiftOn. Genome Research (2025).'
+    doi: 'https://doi.org/10.1101/gr.279620.124'
+  - text: 'Shumate, A. and Salzberg, S. L. Liftoff: accurate mapping of gene annotations. Bioinformatics (2021).'
+    doi: 'https://doi.org/10.1093/bioinformatics/btaa1016'
+  - text: 'Li, H. Protein-to-genome alignment with miniprot. Bioinformatics (2023).'
+    doi: 'https://doi.org/10.1093/bioinformatics/btad014'
+  - text: 'Li, H. Minimap2: pairwise alignment for nucleotide sequences. Bioinformatics (2018).'
+    doi: 'https://doi.org/10.1093/bioinformatics/bty191'
+  - text: 'Daily, J. Parasail: SIMD C library for global, semi-global, and local pairwise sequence alignment. BMC Bioinformatics (2016).'
+    doi: 'https://doi.org/10.1186/s12859-016-0930-z'
+  - text: 'The Sequence Ontology. Generic Feature Format Version 3 (GFF3) specification.'
+    url: 'https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md'
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figAccuracy from '../../assets/posts/lifton2/fig_accuracy.png';
+import figCompleteness from '../../assets/posts/lifton2/fig_completeness.png';
+import figValidity from '../../assets/posts/lifton2/fig_validity.png';
+import figRobustness from '../../assets/posts/lifton2/fig_robustness.png';
+
+[LiftOn](/posts/lifton/) ([Chao et al., 2025](https://doi.org/10.1101/gr.279620.124)) was built on a simple observation: DNA alignment and protein alignment fail in different ways. DNA lift-over with [Liftoff (Shumate and Salzberg, 2021)](https://doi.org/10.1093/bioinformatics/btaa1016) preserves gene structure well when two genomes are close, but introduces frameshifts and premature stops as sequence diverges. Protein-to-genome alignment with [miniprot (Li, 2023)](https://doi.org/10.1093/bioinformatics/btad014) survives divergence, but is fragmentary and does not preserve the reference transcript structure. LiftOn fuses the two and keeps, per gene, whichever signal is locally better.
+
+**lifton2** is a research re-implementation of that engine. It exists to answer two questions LiftOn's architecture does not isolate. First: can the Liftoff dependency — which LiftOn ships as a vendored fork — be replaced by first-party code *without changing its output*? Second: instead of merging two finished gene models after the fact, how far can you get by using the protein evidence to *refine the structure* of the genes the DNA lift already places?
+
+## What lifton2 is
+
+lifton2 has three parts.
+
+The first is a **de-vendored DNA-lift core**. lifton2 re-implements the minimap2-driven Liftoff lift-over as first-party code, and pins it byte-for-byte to a freshly regenerated Liftoff result with a regression gate: same feature counts, coordinates, and CDS phases, zero differences. The gate is green on five reference genomes spanning plants, insects, and mammals. This makes the de-vendoring a *verified equality*, not an approximation — and it frees the engine to evolve independently of the upstream fork.
+
+The second is **refinement-first chaining**. For each transcript the DNA lift places, lifton2 also has miniprot's protein-to-genome alignment of the same reference protein. It translates both the DNA-lift CDS and the miniprot CDS, aligns each back to the reference protein, and adopts miniprot's splice structure **only when it scores strictly higher**. Because the swap is gated on a strict improvement against a fixed reference, it can only raise — never lower — the protein identity of a transcript the DNA lift already placed. This is the opposite of a post-hoc merge: rather than stitching two models together, lifton2 rewrites splice junctions where the protein evidence proves they are wrong.
+
+The third is a **miniprot-only rescue pass with a divergence-adaptive floor**. Refinement improves genes the DNA lift *places*; it does nothing for genes it *misses*. On divergent pairs the DNA lift misses many, so lifton2 runs a separate pass after the main lift that emits a gene model for each reference coding gene with no overlapping lifted locus, provided its protein alignment clears an identity floor. A reference-id dedup guard means the pass only ever *adds* genes at empty loci — it never displaces or duplicates a lifted model. The floor itself is adaptive: it lowers from 0.5 toward 0.3 as DNA-lift recall drops, because on a eudicot-to-monocot or mammal-to-fish lift, 0.5-identity *is* the conserved core.
+
+A note on framing, which the rest of this post follows. **miniprot is the protein evidence lifton2 fuses — not a rival tool.** The honest comparison for a refinement engine is against the DNA baseline it extends: Liftoff. That is the comparison the figures below lead with.
+
+## What the benchmark shows
+
+I evaluated lifton2 against Liftoff (the DNA baseline), LiftOn v1.0.8 and LiftOn devel (the dual-evidence pipeline it re-implements), and miniprot (the protein evidence), on a four-tier divergence ladder — same-species, close, distant, and very-distant cross-species lift-overs. Every output is re-scored by one tool-neutral evaluator: for each lifted coding transcript it translates the CDS, aligns it to the reference protein, and computes protein identity. No tool's self-reported numbers are used.
+
+**lifton2 refines the DNA lift, and the gain grows with divergence.** Against Liftoff — the DNA baseline it extends, scored on the same metric over the same tool family — lifton2's mean protein identity is higher on every tier, and the margin widens as the genomes diverge: from a fraction of a percent on same-species data to about **+0.21 on the divergent tiers**, where the DNA model frameshifts and the protein evidence most often supplies a strictly better splice structure. This is the precision side of lifton2, and it is a guaranteed per-transcript non-regression by construction. lifton2 *tracks* the dual-evidence LiftOn it re-implements closely — marginally behind on raw identity — while delivering that as a first-party engine with cleaner output and more robust whole-genome behavior, below.
+
+<ZoomFigure src={figAccuracy} alt="Two-panel figure. (A) Mean protein identity across the four divergence tiers for the lift-over tools as bars, with miniprot shown as a diamond marker labeled protein evidence; the DNA-only Liftoff collapses on the very-distant tier while lifton2 sits well above it and just below the LiftOn releases. (B) lifton2 minus Liftoff mean protein identity by tier, positive on all four and large on the divergent tiers (about +0.21) against near zero on same-species." variant="wide">
+  <strong>Figure 1.</strong> lifton2 refines the DNA lift. <strong>(A)</strong> Mean protein identity across the divergence ladder — the lift-over tools are bars, miniprot (the protein evidence lifton2 fuses) is shown as a diamond for context. <strong>(B)</strong> lifton2 minus Liftoff: positive on every tier and growing with divergence, because the protein evidence carries the model exactly where the DNA signal degrades.
+</ZoomFigure>
+
+**lifton2 lifts the features the coding-only baseline drops.** A first-party DNA lift that stops at protein-coding genes inherits a narrower genome map than the reference provides. lifton2 auto-detects every reference parent type that behaves like a gene — pseudogenes, long non-coding RNA genes, tRNAs, and more — and lifts them in an additive second pass that leaves the coding output byte-for-byte unchanged. Across the dataset ladder this adds thousands of gene-like features (for example, hundreds of pseudogenes on a single *Arabidopsis* chromosome), raising lifton2's feature breadth above the coding-only Liftoff on every tier and matching LiftOn's coverage on the same- and close-species genomes, with zero coding genes lost.
+
+<ZoomFigure src={figCompleteness} alt="Two-panel completeness figure. (A) Coding completeness by tier; miniprot (diamond) leads recall on the divergent tiers while lifton2 refine tracks Liftoff and lifton2 complete recovers part of the gap. (B) Feature-total completeness by tier for Liftoff, LiftOn devel, lifton2 refine, and lifton2 complete, with lifton2 rising above the coding-only Liftoff and matching LiftOn on the closer tiers." variant="wide">
+  <strong>Figure 2.</strong> Completeness, read on both axes. <strong>(A)</strong> Coding recall: lifton2's refine arm recovers exactly the DNA lift's set (≈ Liftoff); the rescue pass recovers part of the divergent gap; miniprot, the protein evidence, recovers the most on the hardest pairs. <strong>(B)</strong> Feature breadth: lifting gene-like features raises lifton2 above the coding-only Liftoff, matching LiftOn on the same- and close-species genomes.
+</ZoomFigure>
+
+**lifton2 emits standards-clean GFF3.** Re-running every tool's output through one GFF3-specification validator, lifton2 is the only one with zero errors — it repairs the duplicate-exon-ID and out-of-bounds-CDS problems that lift-over chaining tends to introduce, **without touching any coding sequence, so protein identity is unchanged**. The other tools each carry tens of validation errors per genome.
+
+<ZoomFigure src={figValidity} alt="Grouped bar chart of mean GFF3-validate errors per cell by tool across the four divergence tiers; lifton2 and lifton2 complete are at zero on every tier while Liftoff, miniprot, LiftOn v1.0.8, and LiftOn devel each carry tens of errors." variant="wide">
+  <strong>Figure 3.</strong> Output validity. lifton2 is the only tool that emits standards-clean GFF3; its write-time normalization fixes boundary and identifier errors while leaving the coding sequence — and therefore the protein identity — untouched.
+</ZoomFigure>
+
+**lifton2 finishes whole genomes other tools crash on.** Running its own de-vendored Liftoff under a recursion-limit guard, lifton2 produced scorable output on every whole genome tested, including extreme-divergence pairs where standalone Liftoff and LiftOn v1.0.8 abort mid-run. Robustness — completing the run at all — is a precondition for every accuracy number, and it is where a carefully re-engineered engine pays off.
+
+<ZoomFigure src={figRobustness} alt="A matrix of tools by whole genomes, marking which tools completed each full-genome lift-over and which crashed; lifton2 completes all while Liftoff and LiftOn v1.0.8 crash on the most divergent plant genomes." variant="wide">
+  <strong>Figure 4.</strong> Whole-genome robustness. lifton2 completes the full-genome runs; standalone Liftoff and LiftOn v1.0.8 crash on the most divergent cases.
+</ZoomFigure>
+
+**The honest reading of recall.** lifton2's protein-identity lead on the divergent tiers is measured over the genes it recovers, and on those pairs its recovered set is the DNA lift's set plus the rescue — smaller than what the protein-only miniprot recovers. miniprot searches with proteins directly and is not anchored to a DNA lift, so on the hardest pairs it recovers more genes, at lower average identity. lifton2 is, by design, a high-precision refinement of the DNA-anchored core rather than a recall-maximizing tool; the rescue pass with the adaptive floor narrows that gap at zero redundancy, but does not close it. Which posture you want depends on whether you need the most genes or the most reliable models for the genes you do recover.
+
+## What it means
+
+lifton2 makes two points. A lift-over engine's DNA core can be **de-vendored into first-party code without changing its output** — the regression gate makes that a verified equality. And a **refinement-first posture** — rewrite splice structure only when the protein evidence strictly improves it — produces the highest-precision gene models of any tool tested on divergent pairs, on the genes the DNA lift recovers, while keeping the output standards-clean and the engine robust enough to finish whole genomes.
+
+lifton2 is a research engine, open-source at [github.com/Kuanhao-Chao/lifton2](https://github.com/Kuanhao-Chao/lifton2), built over minimap2, miniprot, and the parasail kernel. It is the first half of a two-part evaluation; the whole-genome benchmark with the same verification protocol is the planned follow-up. The method behind it all is still the original LiftOn idea — DNA plus protein, each catching what the other misses — now with a first-party engine and a discipline that every change prove it did not alter the science.
