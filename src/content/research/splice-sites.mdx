@@ -1,37 +1,57 @@
 ---
-title: 'Splice site prediction with deep neural networks'
+title: 'Learning the rules of RNA splicing'
 area: 'RNA splicing'
-summary: 'A dilated residual convolutional neural network that decodes RNA splicing, alternative splicing, and the impact of genetic variants on cryptic splicing — released as Splam and OpenSpliceAI.'
+summary: 'I develop computational models of splice sites and junctions, with an emphasis on sequence context, cross-species transfer, variant effects, and reliable evidence for transcript reconstruction.'
 image: ../../assets/research/splice-overview.jpg
-status: published
-paper: 'https://doi.org/10.1186/s13059-024-03379-4'
-code: 'https://github.com/Kuanhao-Chao/splam'
-news: 'https://hub.jhu.edu/2024/12/11/splam-pinpoints-gene-splicing/'
-talk: 'https://youtu.be/MyWwUzjIBVk'
+status: ongoing
 advisors: ['Steven L. Salzberg', 'Mihaela Pertea']
 order: 2
 featured: true
 relatedPosts: ['openspliceai', 'splam']
+relatedPublications:
+  - publication: '2024-08-splam'
+    note: 'A splice-junction recognizer designed to distinguish well-supported junctions from spurious RNA-seq alignments and improve transcript assembly.'
+  - publication: '2025-06-openspliceai'
+    note: 'An efficient, modular PyTorch implementation of SpliceAI that supports training, transfer learning, genome-scale prediction, and variant scoring across species.'
+relatedReports: ['openspliceai-technical-report']
+references:
+  - text: 'Jaganathan, K. et al. Predicting splicing from primary sequence with deep learning. Cell (2019).'
+    doi: 'https://doi.org/10.1016/j.cell.2018.12.015'
+  - text: 'Zeng, T. and Li, Y. I. Predicting RNA splicing from DNA sequence using Pangolin. Genome Biology (2022).'
+    doi: 'https://doi.org/10.1186/s13059-022-02664-4'
+  - text: 'Chao, K.-H. et al. Splam: a deep-learning-based splice site predictor that improves spliced alignments. Genome Biology (2024).'
+    doi: 'https://doi.org/10.1186/s13059-024-03379-4'
+  - text: 'Chao, K.-H. et al. OpenSpliceAI provides an efficient modular implementation of SpliceAI enabling easy retraining across nonhuman species. eLife (2025).'
+    doi: 'https://doi.org/10.7554/eLife.107454.3'
 ---
-import ZoomFigure from '../../components/ZoomFigure.astro';
-import figure from '../../assets/research/splice-overview.jpg';
+RNA splicing forms mature transcripts by removing introns and joining exons. Boundaries must be recognized at single-base precision, but the two boundary dinucleotides are not sufficient. Nearby motifs, broader context, cell state, and regulatory proteins influence which sites are used. Alternative choices create multiple isoforms; incorrect choices can disrupt a protein or contribute to disease.
 
-RNA splicing — excising introns and joining exons — is one of the most intricate steps of gene expression, and when it misfires it underlies a large share of genetic disease. I'm interested in teaching neural networks to read the splicing code directly from sequence: to find where splicing occurs, to understand how it shifts in alternative splicing, and to predict how a single genetic variant can create or destroy a splice site.
+Computationally, we want to identify donor and acceptor sites, estimate variant effects, and determine which RNA-seq junctions reflect transcripts rather than alignment artifacts. We also need models that can adapt beyond human. These tasks share sequence context but require different data and evaluation.
 
-## The problem
+Models such as [SpliceAI (Jaganathan et al., 2019)](https://doi.org/10.1016/j.cell.2018.12.015) established the value of long sequence context, while [Pangolin (Zeng and Li, 2022)](https://doi.org/10.1186/s13059-022-02664-4) extended prediction toward tissue-specific usage. I study how recognizers can become open, testable components of alignment, annotation, and variant-interpretation workflows.
 
-Two gaps motivated this work. First, RNA-seq aligners place millions of spliced reads, but many junctions are spurious — noise that corrupts downstream transcript assembly and quantification. Second, the most accurate splice-site model, SpliceAI, was trained only on human and is hard to retrain, leaving other species behind.
+## Questions that drive my work
 
-## What I built
+One question is **what the model should recognize**. Scanning a chromosome for splice sites differs from evaluating a donor–acceptor pair proposed by an RNA-seq alignment. For junction filtering, the relevant question is whether that pair is credible in its local context. The model and evaluation should match the decision being supported.
 
-I designed a deep, **dilated residual convolutional network** that scores every base as a donor, acceptor, or neither, using dilations to see the long-range context splicing depends on while staying compact. I released it as two tools: **Splam**, which evaluates a focused window around each candidate site to clean up spliced alignments, and **OpenSpliceAI**, an efficient, modular PyTorch re-implementation of SpliceAI that anyone can retrain on a new species.
+A second question is **how to separate novelty from noise**. Unannotated RNA-seq junctions can be real alternative isoforms or alignment errors. Read support helps, but abundance does not guarantee correctness. Sequence recognition provides independent evidence to combine with the alignment.
 
-<ZoomFigure src={figure} alt="Splam model overview: architecture, residual unit, donor/acceptor framing, and input encoding" variant="square">
-  <strong>Figure 1.</strong> The Splam model. <strong>(a)</strong> A dilated residual CNN whose growing dilation widens the receptive field, ending in a per-base softmax. <strong>(b)</strong> The residual unit — two grouped dilated convolutions with batch-norm and LeakyReLU. <strong>(c)</strong> Splam scores donor and acceptor sites from the 200 bp flanking each. <strong>(d)</strong> The one-hot input encoding of the 800 bp context (400 bp around the donor and acceptor).
-</ZoomFigure>
+A third question is **portability**. Species differ in intron architecture, sequence composition, and annotation quality. A human model can be informative elsewhere, but an open training pipeline lets the model adapt to the target species.
 
-## What it showed
+## Directions I have explored
 
-As Figure 1 shows, Splam learns splicing from local sequence context alone, and using it to filter alignments removes mis-spliced reads and sharpens transcript assembly. OpenSpliceAI reproduces SpliceAI-level accuracy while running faster and — crucially — retraining cleanly on non-human genomes, where it outperforms the human model applied off-the-shelf.
+### Recognizing candidate junctions to clean RNA-seq alignments
 
-**In brief:** open, retrainable splice-site models that sharpen alignments and predict the splicing impact of variants. ([Splam — Genome Biology, 2024](https://doi.org/10.1186/s13059-024-03379-4); [OpenSpliceAI — eLife, 2025](https://doi.org/10.7554/eLife.107454.3); [code](https://github.com/Kuanhao-Chao/splam).)
+I developed **Splam** ([Chao et al., 2024](https://doi.org/10.1186/s13059-024-03379-4)) around the junction-filtering problem. Splam scores the donor and acceptor of a candidate intron jointly from focused sequence windows. It was trained with canonical-transcript junctions, alternative annotated junctions, and carefully constructed negative examples so that alternative isoforms are represented as positive biology rather than treated as errors.
+
+Applied to spliced alignments, Splam removes low-scoring junctions and reads while retaining supported transcript structure. The test is not only classification accuracy: filtering should improve transcript assembly without erasing credible alternative isoforms. This connects a local recognizer to an operational transcriptomics problem.
+
+### Making splice prediction retrainable across species
+
+**OpenSpliceAI** ([Chao et al., 2025](https://doi.org/10.7554/eLife.107454.3)) rebuilds the SpliceAI architecture in PyTorch and exposes data preparation, training, transfer learning, genome-scale prediction, and variant scoring. Its contribution is to turn a strong fixed model into a platform that can be inspected, reproduced, and adapted.
+
+We used that capability to train and transfer models for non-human species. The farther a target species is from human, the more important species-specific training becomes. The same software also supports variant-effect prediction, where the reference and alternate alleles are compared to identify gained or lost donor and acceptor signals.
+
+## Future directions
+
+Open, task-specific splicing models can connect sequence recognition to better alignments, transcript assemblies, and variant interpretation. The next steps are to make these models easier to retrain across species, calibrate them for each decision, combine their scores with RNA-seq evidence, and evaluate biological outputs rather than classification metrics alone. I want to build this evidence stack so that novel isoforms can be separated from artifacts more reliably and every prediction can be traced to a model, dataset, and downstream test.

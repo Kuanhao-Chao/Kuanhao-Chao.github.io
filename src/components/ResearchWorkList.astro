@@ -1,0 +1,129 @@
+---
+import { pubSlug } from '../lib/slug';
+import type { RelatedPostLink } from '../lib/relatedPosts';
+import type { CollectionEntry } from 'astro:content';
+
+interface Contribution {
+  entry: CollectionEntry<'publications'>;
+  note: string;
+}
+
+interface Props {
+  contributions: Contribution[];
+  reports?: CollectionEntry<'reports'>[];
+  posts?: RelatedPostLink[];
+}
+
+const { contributions, reports = [], posts = [] } = Astro.props;
+---
+<section class="related-work" id="related-work" aria-labelledby="related-work-title">
+  <h2 id="related-work-title">Related work</h2>
+
+  {contributions.length > 0 && (
+    <div class="work-group">
+      <h3>Publications</h3>
+      <div class="work-list">
+        {contributions.map(({ entry, note }) => (
+          <article class="work-item">
+            <p class="work-meta eyebrow">{entry.data.date.getUTCFullYear()} · {entry.data.venue}</p>
+            <h4><a href={`/publications/${pubSlug(entry.id)}/`}>{entry.data.title}</a></h4>
+            <p class="work-note muted">{note}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {reports.length > 0 && (
+    <div class="work-group">
+      <h3>Technical reports</h3>
+      <ul class="work-link-list">
+        {reports.map((report) => (
+          <li>
+            <a href={`/reports/${report.id}/`}>{report.data.title}</a>
+            <span class="muted">{report.data.unlisted ? 'Draft technical report' : report.data.venue}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+
+  {posts.length > 0 && (
+    <div class="work-group">
+      <h3>Research blog posts</h3>
+      <ul class="work-link-list">
+        {posts.map((post) => (
+          <li>
+            <a href={post.href}>{post.title}</a>
+            <span class="muted">Research blog post</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+</section>
+
+<style>
+  .related-work {
+    margin-top: var(--space-12);
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--color-rule);
+  }
+  .related-work > h2 {
+    font-size: var(--fs-h2);
+  }
+  .work-group {
+    margin-top: var(--space-8);
+  }
+  .work-group > h3 {
+    margin-bottom: var(--space-3);
+    font-size: var(--fs-h3);
+    letter-spacing: 0;
+  }
+  .work-list {
+    border-top: 1px solid var(--color-rule);
+  }
+  .work-item {
+    padding-block: var(--space-5);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .work-item h4 {
+    margin-top: 0.35rem;
+    font-size: 1.05rem;
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+  .work-item h4 a {
+    color: var(--color-ink);
+  }
+  .work-item h4 a:hover {
+    color: var(--color-accent);
+  }
+  .work-note {
+    margin-top: 0.45rem;
+    font-size: var(--fs-small);
+  }
+  .work-link-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--color-rule);
+  }
+  .work-link-list li {
+    display: grid;
+    gap: 0.2rem;
+    padding-block: var(--space-4);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .work-link-list li > a {
+    color: var(--color-ink);
+    font-weight: var(--fw-semibold);
+    line-height: 1.35;
+  }
+  .work-link-list li > a:hover {
+    color: var(--color-accent);
+  }
+  .work-link-list span {
+    font-size: var(--fs-meta);
+  }
+</style>

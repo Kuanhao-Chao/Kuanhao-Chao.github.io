@@ -1,36 +1,67 @@
 ---
-title: 'Improving genome annotation with LiftOn'
+title: 'Building accurate genome annotations'
 area: 'Genome annotation'
-summary: 'Graph-based methods that combine fragmented DNA and protein alignments to assemble more accurate genome annotations, implemented in the LiftOn annotation lift-over tool.'
+summary: 'I develop LiftOn, a genome annotation lift-over algorithm that combines DNA and protein alignments to transfer accurate gene models across assemblies and species.'
 image: ../../assets/research/annotation-workflow.png
-status: published
-paper: 'https://doi.org/10.1101/gr.279620.124'
-code: 'https://github.com/Kuanhao-Chao/LiftOn'
-talk: 'https://youtu.be/1zSz67rxQtA'
+status: ongoing
 advisors: ['Steven L. Salzberg', 'Mihaela Pertea']
 order: 3
 featured: true
 relatedPosts: ['lifton', 'lifton-v1-0-9']
+relatedPublications:
+  - publication: '2025-01-lifton'
+    note: 'My central contribution: a new protein-centric annotation lift-over algorithm that combines DNA and protein alignments to construct more accurate coding models.'
+  - publication: '2025-09-diploid-benchmark'
+    note: 'I contributed to the gene annotation, using LiftOn to help identify additional gene copies on the maternal and paternal HG002 haplotypes.'
+  - publication: '2023-10-chess3'
+    note: 'My contribution focused on lifting the CHESS 3 annotation from GRCh38 to the complete T2T-CHM13 assembly.'
+  - publication: '2023-01-han1'
+    note: 'Earlier annotation lift-over work using Liftoff to build a comparable gene annotation for the gapless Southern Han Chinese reference genome.'
+relatedReports: ['lifton-v1-0-9-technical-report', 'lifton2-technical-report']
+references:
+  - text: 'O’Leary, N. A. et al. Reference sequence (RefSeq) database at NCBI: current status, taxonomic expansion, and functional annotation. Nucleic Acids Research (2016).'
+    doi: 'https://doi.org/10.1093/nar/gkv1189'
+  - text: 'Brůna, T. et al. BRAKER3: fully automated genome annotation using RNA-seq and protein evidence with GeneMark-ETP, AUGUSTUS, and TSEBRA. Genome Research (2024).'
+    doi: 'https://doi.org/10.1101/gr.278090.123'
+  - text: 'Shumate, A. and Salzberg, S. L. Liftoff: accurate mapping of gene annotations. Bioinformatics (2021).'
+    doi: 'https://doi.org/10.1093/bioinformatics/btaa1016'
+  - text: 'Li, H. Protein-to-genome alignment with miniprot. Bioinformatics (2023).'
+    doi: 'https://doi.org/10.1093/bioinformatics/btad014'
+  - text: 'Chao, K.-H. et al. Combining DNA and protein alignments to improve genome annotation with LiftOn. Genome Research (2025).'
+    doi: 'https://doi.org/10.1101/gr.279620.124'
+  - text: 'Varabyou, A. et al. CHESS 3: an improved, comprehensive catalog of human genes and transcripts. Genome Biology (2023).'
+    doi: 'https://doi.org/10.1186/s13059-023-03088-4'
+  - text: 'Chao, K.-H. et al. The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual. G3 (2023).'
+    doi: 'https://doi.org/10.1093/g3journal/jkac321'
+  - text: 'Hansen, N. F. et al. A complete diploid human genome benchmark for personalized genomics. bioRxiv (2025).'
+    doi: 'https://doi.org/10.1101/2025.09.21.677443'
 ---
-import ZoomFigure from '../../components/ZoomFigure.astro';
-import figure from '../../assets/research/annotation-workflow.png';
+A genome assembly provides sequence; an annotation provides the biological map that makes the sequence useful. It identifies genes, transcripts, exons, coding regions, and their relationships. Resources such as [NCBI RefSeq (O’Leary et al., 2016)](https://doi.org/10.1093/nar/gkv1189) provide annotations for widely studied organisms, but assemblies are produced faster than annotations can be curated.
 
-Accurate gene annotation — knowing where genes and their exons lie — is the foundation everything else in genome biology builds on. As assemblies are now produced far faster than they can be curated, I'm interested in transferring annotations across genomes reliably, and in fusing two kinds of evidence that are usually used in isolation: DNA alignment (fast, but brittle as species diverge) and protein alignment (robust to sequence change, but fragmentary).
+One response is **annotation lift-over**: transfer a trusted annotation from a reference genome to a new assembly. I focus on this problem through **LiftOn**, a new algorithm I proposed to combine DNA and protein alignments. DNA preserves locus and transcript structure between related genomes; protein conservation helps recover coding structure when nucleotide sequences diverge. LiftOn turns those complementary signals into one annotation rather than treating either alignment as sufficient on its own.
 
-## The problem
+## Questions that drive my work
 
-The standard way to annotate a new assembly is to *lift over* genes from a well-annotated one. DNA-based lift-over (Liftoff) is fast but, across divergence or assembly differences, it introduces frameshifts, premature stop codons, and wrong exon boundaries. Protein-based mapping (miniprot) survives sequence change but produces fragmented, sometimes conflicting gene models. Neither alone is trustworthy.
+The first question is **how to combine complementary evidence explicitly**. [Liftoff (Shumate and Salzberg, 2021)](https://doi.org/10.1093/bioinformatics/btaa1016) maps gene models through DNA alignment and preserves their hierarchy. Protein-to-genome aligners such as [miniprot (Li, 2023)](https://doi.org/10.1093/bioinformatics/btad014) remain informative across greater evolutionary distance, but their models can be fragmented and do not preserve every non-coding feature. A useful algorithm needs a clear rule for choosing supported coding segments while retaining the broader annotation structure.
 
-## What I built
+The second is **what the algorithm should optimize and validate**. A transferred model may map to the expected locus yet contain a frameshift, premature stop, or incorrect coding boundary. Protein identity, open-reading-frame integrity, overlap resolution, and gene-copy recovery measure different aspects of quality. The objective should be explicit, and the emitted GFF should remain structurally valid.
 
-I developed **LiftOn**, which combines both signals. It aligns each candidate gene's protein from Liftoff *and* from miniprot back to the reference, scores the alignments for mismatches, indels, and premature stops, and then runs a **protein-maximization CDS chaining** algorithm that stitches the best-supported coding segments into one coherent gene model.
+The third is **scale and reproducibility**. A method must finish whole genomes, handle unusually large and repetitive genes, preserve non-coding features, and produce deterministic output. Accuracy on a small benchmark is not enough if the implementation cannot complete the assemblies researchers need to annotate. General annotation systems such as [BRAKER3 (Brůna et al., 2024)](https://doi.org/10.1101/gr.278090.123) integrate experimental and comparative evidence for de novo annotation; lift-over addresses the complementary case where a trusted reference annotation already exists.
 
-<ZoomFigure src={figure} alt="The LiftOn workflow combining DNA and protein evidence, panels A through E" variant="portrait">
-  <strong>Figure 1.</strong> The LiftOn workflow. A gene is annotated independently from DNA evidence (Liftoff) and protein evidence (miniprot) <strong>(A)</strong>; each candidate's protein is aligned to the reference to score mismatches, indels, and premature stops <strong>(B–C)</strong>; LiftOn chains coding segments to maximize protein-alignment identity <strong>(D)</strong>; and emits a final, more accurate annotation <strong>(E)</strong>.
-</ZoomFigure>
+## Directions I have explored
 
-## What it showed
+### LiftOn: combining DNA and protein alignments
 
-As Figure 1 traces, the two evidence types are complementary, and the chaining step in panel D is where LiftOn turns their disagreement into a gene model better than either source alone. Across human and other genomes it recovers more complete, in-frame protein-coding annotations than Liftoff or miniprot on their own — especially where the target diverges from the reference.
+I developed **LiftOn** ([Chao et al., 2025](https://doi.org/10.1101/gr.279620.124)) to improve annotation lift-over across both assemblies and species. It starts with DNA-based models from Liftoff and protein-based candidates from miniprot. LiftOn translates each candidate, aligns it with the reference protein, and uses a protein-maximization chaining algorithm to select the better-supported coding segments. An open-reading-frame search can then repair remaining coding disruptions. The algorithm also resolves overlapping loci and searches for additional gene copies that a one-to-one transfer can miss.
 
-**In brief:** a lift-over tool that fuses DNA and protein alignments for more accurate annotations across species. ([Genome Research, 2025](https://doi.org/10.1101/gr.279620.124); [documentation](https://ccb.jhu.edu/lifton/); [code](https://github.com/Kuanhao-Chao/LiftOn).)
+The central idea is not to average DNA and protein evidence. It preserves their distinct strengths and reconciles disagreements through a protein-centered objective. In the published evaluation, LiftOn transferred annotations within species and across more divergent species pairs, where DNA-only mapping becomes less reliable. My continuing work focuses on whole-genome robustness, bounded-memory alignment, output validation, and broader feature support so the same algorithmic principle remains practical at scale.
+
+### Applying lift-over to complete human genomes
+
+My annotation work on complete human genomes provides the path that led to and now applies LiftOn. For **CHESS 3** ([Varabyou et al., 2023](https://doi.org/10.1186/s13059-023-03088-4)), my contribution focused on lifting the CHESS 3 annotation from GRCh38 to T2T-CHM13. In the earlier **Han1** project ([Chao et al., 2023](https://doi.org/10.1093/g3journal/jkac321)), we used Liftoff in a two-stage workflow to transfer annotation to a gapless Southern Han Chinese genome, with separate handling for repetitive ribosomal DNA arrays. Han1 predates LiftOn, but it exposed the practical demands of annotating a newly completed genome.
+
+The **complete diploid HG002 benchmark** ([Hansen et al., 2025](https://doi.org/10.1101/2025.09.21.677443)) provided a later application. The project generated annotations for the maternal and paternal haplotypes and used LiftOn, together with miniprot, to help identify additional gene copies from translated MANE transcripts. My contribution was on this annotation effort. This is the setting LiftOn is designed for: carrying trusted gene knowledge onto a more complete genome while preserving differences that may represent real copy-number variation.
+
+## Future directions
+
+Complete genomes and pangenomes create a promising opportunity to make annotation lift-over both more accurate and more informative about real biological differences. My next steps for LiftOn are to strengthen whole-genome robustness, broaden feature support, integrate complementary DNA and protein evidence, and make every correction traceable through explicit validation. I want LiftOn to become a dependable algorithm for transferring trusted annotations across individuals and species while preserving genuine gene-content differences and producing reproducible, structurally valid results at genome scale.

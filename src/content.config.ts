@@ -19,6 +19,7 @@ const publications = defineCollection({
       poster: z.string().url().optional(),
       video: z.string().url().optional(),
       news: z.string().url().optional(),
+      data: z.string().url().optional(),
       bibtex: z.string().optional(),
       abstract: z.string().optional(),
       image: image().optional(),
@@ -70,6 +71,24 @@ const research = defineCollection({
       order: z.number().default(0),
       featured: z.boolean().default(false),
       relatedPosts: z.array(reference('posts')).default([]),
+      relatedPublications: z
+        .array(
+          z.object({
+            publication: reference('publications'),
+            note: z.string(),
+          })
+        )
+        .default([]),
+      relatedReports: z.array(reference('reports')).default([]),
+      references: z
+        .array(
+          z.object({
+            text: z.string(),
+            doi: z.string().url().optional(),
+            url: z.string().url().optional(),
+          })
+        )
+        .default([]),
     }),
 });
 
