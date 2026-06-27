@@ -6,7 +6,7 @@ abstract: >-
   lifton2 is a research re-implementation of the genome-annotation lift-over engine behind LiftOn. It replaces LiftOn's vendored copy of Liftoff with a first-party DNA-lift core held byte-for-byte equal to Liftoff by a regression gate, then layers a protein-informed refinement that rewrites a transcript's splice structure only when the protein evidence strictly improves it. Across a four-tier divergence ladder, lifton2 transfers the genes it places at higher protein identity than the DNA baseline it extends — a gap that grows with evolutionary distance — lifts the gene-like features the coding-only baseline drops, emits standards-clean GFF3 where the other tools do not, and completes whole genomes that crash Liftoff and the previous LiftOn release. Protein-to-genome alignment (miniprot) is the internal evidence lifton2 fuses, not a rival baseline.
 date: 2026-06-27
 category: summary
-draft: false
+draft: true
 tags: ['Genome annotation', 'Comparative genomics', 'Open source']
 linkLabel: 'lifton2'
 image: ../../assets/posts/lifton2/fig_accuracy.png
