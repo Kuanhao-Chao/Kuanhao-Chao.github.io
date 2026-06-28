@@ -5,132 +5,129 @@ import '../styles/lvz.css';
 interface Props { autoPlay?: boolean }
 const { autoPlay = false } = Astro.props;
 
-const W = 760, H = 330;
-const C = { lift: '#4c78a8', mini: '#f58518', merge: '#54a24b', ref: '#2e6e5e', bad: '#d1495b' };
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const C = { lift: '#4c78a8', mini: '#f58518', output: '#54a24b', ref: '#2e6e5e', bad: '#d1495b' };
 
-function label(text: string, y: number, color = 'var(--color-ink)') {
-  return `<text x="18" y="${y + 5}" class="lvz-tl" fill="${color}">${esc(text)}</text>`;
-}
-function axis(y: number) {
-  return `<line x1="160" y1="${y}" x2="730" y2="${y}" stroke="var(--color-muted)" stroke-width="1.2" opacity="0.65"/>`;
-}
-function locus(x: number, y: number, w: number, color: string, opts: { opacity?: number; dash?: boolean; utr?: boolean } = {}) {
-  const opacity = opts.opacity ?? 0.8;
-  let s = `<rect x="${x}" y="${y - 13}" width="${w}" height="26" rx="3" fill="${color}" fill-opacity="${opacity * 0.22}" stroke="${color}" stroke-width="1.5"${opts.dash ? ' stroke-dasharray="5 3"' : ''}/>`;
-  s += `<rect x="${x + 10}" y="${y - 9}" width="${Math.max(18, w * 0.24)}" height="18" rx="2" fill="${color}" fill-opacity="${opacity}"/>`;
-  s += `<rect x="${x + w * 0.58}" y="${y - 9}" width="${Math.max(16, w * 0.25)}" height="18" rx="2" fill="${color}" fill-opacity="${opacity}"/>`;
-  if (opts.utr) {
-    s += `<rect x="${x + 2}" y="${y - 5}" width="8" height="10" fill="${color}" fill-opacity="${opacity * 0.65}"/>`;
-    s += `<rect x="${x + w - 10}" y="${y - 5}" width="8" height="10" fill="${color}" fill-opacity="${opacity * 0.65}"/>`;
-  }
+function locus(x: number, y: number, w: number, color: string, accepted = false, faded = false, utr = false) {
+  const opacity = faded ? 0.2 : 0.78;
+  let s = `<rect x="${x}" y="${y - 14}" width="${w}" height="28" rx="4" fill="${color}" fill-opacity="${opacity * 0.18}" stroke="${accepted ? C.output : color}" stroke-width="${accepted ? 2.5 : 1.5}"${faded ? ' stroke-dasharray="4 3"' : ''}/>`;
+  s += `<rect x="${x + 10}" y="${y - 9}" width="${Math.max(18, w * 0.25)}" height="18" rx="2" fill="${color}" fill-opacity="${opacity}"/><rect x="${x + w * 0.6}" y="${y - 9}" width="${Math.max(18, w * 0.24)}" height="18" rx="2" fill="${color}" fill-opacity="${opacity}"/>`;
+  if (utr) s += `<rect x="${x + 2}" y="${y - 5}" width="8" height="10" fill="${color}" fill-opacity="0.45"/><rect x="${x + w - 10}" y="${y - 5}" width="8" height="10" fill="${color}" fill-opacity="0.45"/>`;
   return s;
 }
 
-function reject(x: number, y: number, reason: string) {
-  return `<path d="M${x} ${y - 9} l18 18 M${x + 18} ${y - 9} l-18 18" stroke="${C.bad}" stroke-width="2.7" stroke-linecap="round"/><text x="${x + 66}" y="${y + 5}" class="lvz-small" fill="${C.bad}">${esc(reason)}</text>`;
+function lane(label: string, y: number) {
+  return `<text x="18" y="${y + 5}" class="lvz-tl">${label}</text><line x1="165" y1="${y}" x2="730" y2="${y}" stroke="var(--color-muted)" opacity="0.6"/>`;
 }
 
-function frame(step: number) {
-  let s = label('Accepted loci', 46, C.ref) + axis(46);
-  s += locus(185, 46, 130, C.ref, { utr: true });
-  s += locus(475, 46, 120, C.ref, { utr: true });
-  s += `<text x="250" y="22" class="lvz-small">interval tree tracks occupied loci</text>`;
+function reject(x: number, y: number, text: string) {
+  return `<path d="M${x} ${y - 9} l18 18 M${x + 18} ${y - 9} l-18 18" stroke="${C.bad}" stroke-width="2.8"/><text x="${x + 76}" y="${y + 5}" class="lvz-small" fill="${C.bad}">${text}</text>`;
+}
 
+function desktopFrame(step: number) {
+  let s = lane('Existing annotation', 48);
+  s += locus(190, 48, 132, C.ref, true, false, true) + locus(492, 48, 118, C.ref, true, false, true);
+  s += `<text x="255" y="24" class="lvz-small">chromosome-specific interval tree</text>`;
   if (step >= 1) {
-    s += label('Liftoff copies', 120, C.lift) + axis(120);
-    s += locus(345, 120, 115, C.lift, { utr: true });
-    s += `<text x="405" y="98" class="lvz-small">DNA identity + overlap checks</text>`;
+    s += lane('Liftoff copy', 120) + locus(350, 120, 120, C.lift, step >= 1, false, true);
+    s += `<text x="410" y="98" class="lvz-small">DNA identity + reference-aware overlap</text>`;
   }
   if (step >= 2) {
-    s += label('miniprot candidates', 195, C.mini) + axis(195);
-    s += locus(620, 195, 92, C.mini, { dash: true });
-    s += locus(270, 195, 120, C.mini, { dash: true, opacity: step >= 3 ? 0.25 : 0.72 });
-    s += locus(490, 195, 82, C.mini, { dash: true, opacity: step >= 3 ? 0.25 : 0.72 });
+    s += lane('miniprot candidates', 196);
+    s += locus(245, 196, 125, C.mini, false, step >= 3) + locus(445, 196, 86, C.mini, false, step >= 4) + locus(615, 196, 98, C.mini, step >= 4);
   }
   if (step >= 3) {
-    s += reject(315, 231, '>10% overlap');
-    s += reject(515, 254, 'single-CDS / length filter');
-    s += `<rect x="610" y="174" width="110" height="42" rx="5" fill="${C.merge}" fill-opacity="0.05" stroke="${C.merge}" stroke-width="2"/>`;
+    s += reject(292, 235, 'reject: overlap > 10%');
+    s += `<text x="678" y="235" class="lvz-small" fill="${C.output}">overlap ≤ 10% ✓</text>`;
   }
   if (step >= 4) {
-    s += label('Final annotation', 290, C.merge) + axis(290);
-    s += locus(185, 290, 130, C.ref, { utr: true });
-    s += locus(345, 290, 115, C.lift, { utr: true });
-    s += locus(475, 290, 120, C.ref, { utr: true });
-    s += locus(620, 290, 92, C.mini);
-    s += `<text x="666" y="267" class="lvz-small" fill="${C.mini}">protein-only copy · no UTRs</text>`;
+    s += `<rect x="174" y="258" width="174" height="70" rx="5" fill="var(--color-bg)" stroke="${C.bad}"/><text x="261" y="281" class="lvz-nt on">Single-CDS check</text><text x="261" y="305" class="lvz-small">candidate: 1 · reference: multiple → reject</text>`;
+    s += `<rect x="374" y="258" width="174" height="70" rx="5" fill="var(--color-bg)" stroke="${C.bad}"/><text x="461" y="281" class="lvz-nt on">Coding-length ratio</text><text x="461" y="305" class="lvz-small">outside 0.9–1.5 → reject</text>`;
+    s += `<rect x="574" y="258" width="156" height="70" rx="5" fill="${C.output}" fill-opacity="0.05" stroke="${C.output}" stroke-width="2"/><text x="652" y="281" class="lvz-nt on">Candidate passes</text><text x="652" y="305" class="lvz-small">multi-CDS · ratio in range</text>`;
   }
-  return `<svg viewBox="0 0 ${W} ${H}" class="lvz-svg" role="img" aria-label="Additional gene-copy discovery and overlap filtering" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  if (step >= 5) {
+    s = lane('Final annotation', 68);
+    s += locus(190, 68, 132, C.ref, true, false, true) + locus(350, 68, 120, C.lift, true, false, true) + locus(492, 68, 118, C.ref, true, false, true) + locus(620, 68, 95, C.mini, true);
+    s += `<text x="668" y="42" class="lvz-small" fill="${C.mini}">protein-only copy · no UTRs</text>`;
+    s += `<path d="M668 110 V148" stroke="${C.output}" stroke-width="2"/><path d="M662 141 l6 8 6-8" fill="none" stroke="${C.output}" stroke-width="2"/>`;
+    s += `<rect x="430" y="165" width="290" height="145" rx="6" fill="var(--color-bg)" stroke="${C.output}" stroke-width="2"/><text x="575" y="192" class="lvz-nt on" fill="${C.output}">Reconstructed feature hierarchy</text><rect x="455" y="212" width="240" height="28" rx="4" fill="${C.ref}" fill-opacity="0.15" stroke="${C.ref}"/><text x="575" y="231" class="lvz-nt">reference gene parent</text><path d="M575 240 V258" stroke="var(--color-muted)"/><rect x="475" y="258" width="200" height="28" rx="4" fill="${C.mini}" fill-opacity="0.15" stroke="${C.mini}"/><text x="575" y="277" class="lvz-nt">new mRNA + CDS features</text>`;
+  }
+  return `<svg viewBox="0 0 760 350" class="lvz-svg" role="img" aria-label="LiftOn additional-copy recovery, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobileFrame(step: number) {
+  const card = (y: number, title: string, text: string, color: string, status: 'normal' | 'accepted' | 'rejected' = 'normal') => `<rect x="12" y="${y}" width="336" height="68" rx="5" fill="${status === 'accepted' ? C.output : 'var(--color-bg)'}" fill-opacity="${status === 'accepted' ? 0.05 : 1}" stroke="${status === 'accepted' ? C.output : status === 'rejected' ? C.bad : 'var(--color-rule)'}" stroke-width="${status === 'normal' ? 1 : 2}"/><text x="28" y="${y + 26}" class="lvz-tl" fill="${color}">${title}</text><text x="180" y="${y + 51}" class="lvz-small">${text}</text>`;
+  let s = card(12, 'Existing annotation', 'tracked in an interval tree', C.ref, 'accepted');
+  if (step >= 1) s += card(94, 'Liftoff copy', 'DNA identity + reference-aware overlap', C.lift, 'accepted');
+  if (step >= 2) s += card(176, 'miniprot candidates', 'protein-only copies Liftoff missed', C.mini);
+  if (step >= 3) {
+    s += card(258, 'Candidate A', 'overlap > 10%', C.mini, 'rejected');
+    s += card(340, 'Candidate B', 'overlap ≤ 10%', C.mini, 'accepted');
+  }
+  if (step >= 4) {
+    s += card(422, 'Single-CDS safeguard', 'allowed only when reference is single-CDS', C.mini, 'rejected');
+    s += card(504, 'Coding-length safeguard', 'require 0.9 ≤ candidate/reference ≤ 1.5', C.mini, 'accepted');
+  }
+  if (step >= 5) {
+    s = card(12, 'Accepted protein-only copy', 'source: miniprot · status: accepted', C.mini, 'accepted');
+    s += `<path d="M180 86 V122" stroke="${C.output}" stroke-width="2"/><path d="M174 115 l6 8 6-8" fill="none" stroke="${C.output}" stroke-width="2"/>`;
+    s += card(138, 'Reference gene parent', 'copied to preserve hierarchy', C.ref);
+    s += card(220, 'New mRNA + CDS features', 'coding model reconstructed from miniprot', C.mini, 'accepted');
+    s += card(302, 'No UTR boundaries', 'protein alignment does not define UTRs', C.bad);
+  }
+  const height = step >= 5 ? 390 : step >= 4 ? 590 : step >= 3 ? 425 : step >= 2 ? 260 : 180;
+  return `<svg viewBox="0 0 360 ${height}" class="lvz-svg" role="img" aria-label="LiftOn additional-copy recovery, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 
 const steps = [
-  {
-    title: 'Track every accepted locus',
-    caption: 'LiftOn stores mapped gene intervals in chromosome-specific interval trees. This makes overlap checks fast and prevents a new candidate from silently displacing an accepted annotation.',
-  },
-  {
-    title: 'Let Liftoff search for DNA-supported copies first',
-    caption: 'Liftoff iteratively maps additional copies, prioritizing DNA evidence because it can preserve the complete hierarchy and UTRs. A candidate must satisfy the requested DNA identity and may overlap another locus only where the reference already overlaps or within the 10% allowance.',
-  },
-  {
-    title: 'Use miniprot to propose coding copies Liftoff missed',
-    caption: 'LiftOn then examines remaining miniprot mappings. Because these candidates come from protein evidence, they can recover a coding copy where the DNA lift failed, but they require stricter filtering.',
-  },
-  {
-    title: 'Reject overlaps, processed pseudogenes, and partial models',
-    caption: 'A miniprot-only copy must overlap accepted loci by at most 10%. A single-CDS candidate is allowed only when the reference transcript also has one CDS, and its coding-length ratio to the reference gene’s longest isoform must fall between 0.9 and 1.5.',
-  },
-  {
-    title: 'Add the accepted copy with an explicit hierarchy',
-    caption: 'For an accepted protein-only copy, LiftOn recreates the reference gene as the parent of the new mRNA/CDS model. The copy is coding-only: miniprot does not provide UTR boundaries. Noncoding copies therefore depend on the DNA-based path.',
-  },
+  { title: 'Track every accepted gene locus', caption: 'LiftOn stores accepted intervals in chromosome-specific trees for fast, explicit overlap checks.' },
+  { title: 'Let Liftoff search for DNA-supported copies first', caption: 'Liftoff iterates through copies, enforcing DNA identity and reference-aware locus-overlap rules.' },
+  { title: 'Use miniprot for protein-coding copies Liftoff missed', caption: 'Remaining protein mappings can recover coding copies, but they do not provide UTR boundaries.' },
+  { title: 'Reject miniprot candidates with excessive overlap', caption: 'A protein-only candidate may overlap accepted loci by at most 10%.' },
+  { title: 'Apply safeguards for likely partial or processed mappings', caption: 'The single-CDS and 0.9–1.5 coding-length rules filter risky miniprot-only candidates.' },
+  { title: 'Add the accepted copy with an explicit hierarchy', caption: 'LiftOn supplies the reference gene parent and creates the new mRNA/CDS model without UTRs.' },
 ];
 ---
 
-<section
-  class="lvz lvz-copies"
-  role="group"
-  aria-label="Interactive: resolving overlaps and finding additional gene copies"
-  data-autoplay={autoPlay ? 'true' : undefined}
-  data-print-final-state="true"
->
+<section class="lvz lvz-copies" role="group" aria-label="Interactive: resolving overlaps and finding additional gene copies" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
   <div class="lvz-head">
     <p class="lvz-title">Resolve overlaps and recover additional copies</p>
-    <span class="lvz-tag">Interactive · illustrative</span>
+    <span class="lvz-tag">Published method</span>
   </div>
   <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0].caption}</p>
 
+  <nav class="lvz-progress" aria-label="Additional-copy recovery steps">
+    {steps.map((step, i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${step.title}`} title={step.title}>{i + 1}</button>)}
+  </nav>
+
   {steps.map((step, i) => (
-    <div
-      class="lvz-step"
-      data-wgi-step
-      data-print-final={i === steps.length - 1 ? 'true' : undefined}
-      data-caption={step.caption}
-      hidden={i !== 0}
-    >
+    <div class="lvz-step" data-wgi-step data-print-final={i === steps.length - 1 ? 'true' : undefined} data-caption={step.caption} hidden={i !== 0}>
       <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{step.title}</p>
-      <div class="lvz-fig" set:html={frame(i)} />
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktopFrame(i)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobileFrame(i)} />
     </div>
   ))}
 
   <div class="lvz-controls">
     <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
-    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button>
     <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
-    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Reset to first step">↺ Reset</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button>
     <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
   </div>
 
   <div class="lvz-legend">
-    <span><span class="lvz-sw" style={`background:${C.lift}`}></span>Liftoff copy</span>
-    <span><span class="lvz-sw" style={`background:${C.mini}`}></span>miniprot candidate</span>
-    <span><span class="lvz-sw" style={`background:${C.merge}`}></span>accepted copy</span>
-    <span><span class="lvz-sw" style={`background:${C.bad}`}></span>rejected candidate</span>
+    <span><span class="lvz-sw" style={`background:${C.ref}`}></span>existing annotation</span>
+    <span><span class="lvz-sw" style={`background:${C.lift}`}></span>Liftoff source</span>
+    <span><span class="lvz-sw" style={`background:${C.mini}`}></span>miniprot source</span>
+    <span><span class="lvz-outline" style={`border-color:${C.output}`}></span>accepted</span>
+    <span><span class="lvz-sw" style={`background:${C.bad}`}></span>rejected</span>
   </div>
-
-  <noscript><style>{`.lvz-copies .lvz-step[hidden]{display:block!important}.lvz-copies .lvz-controls,.lvz-copies .lvz-caption{display:none!important}`}</style></noscript>
 </section>
+
+<style>
+  .lvz-copies { --lvz-mobile-min-width: 0px; }
+  .lvz-outline { display: inline-block; width: 0.8rem; height: 0.8rem; border: 2px solid; border-radius: 2px; margin-right: 0.3rem; vertical-align: -2px; }
+</style>
 
 <script>
   import { mountStepper } from '../scripts/wgiStepper';
@@ -138,16 +135,7 @@ const steps = [
     for (const root of document.querySelectorAll<HTMLElement>('.lvz-copies')) {
       const steps = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
       const captions = steps.map((step) => step.dataset.caption || '');
-      mountStepper(root, {
-        total: steps.length,
-        onShow: (i) => steps.forEach((step, k) => {
-          const current = k === i;
-          step.hidden = !current;
-          step.setAttribute('aria-current', current ? 'step' : 'false');
-        }),
-        caption: (i) => captions[i],
-        autoPlay: root.dataset.autoplay === 'true',
-      });
+      mountStepper(root, { total: steps.length, onShow: (i) => steps.forEach((step, k) => { const current = k === i; step.hidden = !current; step.setAttribute('aria-current', current ? 'step' : 'false'); }), caption: (i) => captions[i], interval: 6500, autoPlay: root.dataset.autoplay === 'true' });
     }
   }
   boot();

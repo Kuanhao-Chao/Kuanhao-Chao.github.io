@@ -61,7 +61,7 @@ Liftoff first maps the reference annotation hierarchy through DNA alignment, inc
 
 This pairing step is also an important boundary on what protein maximization does. It operates on matched **protein-coding transcripts**. Noncoding genes and other features have no reference protein to optimize, so they remain on the DNA-based transfer path. If the Liftoff translation is already identical to the reference protein, the published algorithm has no coding discrepancy to repair.
 
-<LiftOnPairing autoPlay />
+<LiftOnPairing />
 
 ### 2. Synchronize and chain the CDS groups
 
@@ -69,23 +69,25 @@ For a matched pair, LiftOn translates both candidate CDS models and globally ali
 
 Within each chunk, LiftOn calculates partial protein identity and keeps the higher-scoring source. An exact tie goes to Liftoff, preserving the DNA-derived structure when protein evidence offers no improvement. Concatenating the selected chunks creates a new CDS model assembled from the strongest local evidence rather than choosing either input wholesale.
 
-<LiftOnChaining mode="published" autoPlay />
+The walkthrough follows the worked example in Figure 1 of the paper: the two protein alignments are annotated with their CDS boundaries, divided into five comparable groups, and resolved into the final L1–L2–M3–M4–L5–L6–L7 chain.
+
+<LiftOnChaining mode="published" />
 
 ### 3. Search for a better open reading frame
 
 Chaining can still leave a frameshift, premature stop, lost stop codon, or lost start codon. For transcripts with these damaging patterns, LiftOn scans the spliced transcript in all three reading frames. It retains the longest valid ORF from each frame, translates those candidates, aligns each one to the reference protein, and selects the highest-identity candidate. The CDS boundaries are updated only when that ORF improves on the current annotation.
 
-This search changes the annotation, not the underlying genome. Depending on the mutation, the best supported CDS may stop earlier, begin at a downstream start, extend into the 3′ UTR to reach a new stop, or begin upstream in the 5′ UTR. The mutation selector below shows how the same search rule handles each case.
+This search changes the annotation, not the underlying genome. Figure 1 shows six possible outcomes: repairing a frameshift, stopping at an earlier valid stop, switching to a downstream start after stop gain, extending into the 3′ UTR after stop loss, and moving a lost start either downstream or upstream into the 5′ UTR. The selector below applies the same search rule to each case.
 
-<LiftOnORF autoPlay />
+<LiftOnORF />
 
 ### 4. Resolve overlaps and recover additional copies
 
 A one-to-one transfer is not enough when the target contains duplicated genes. LiftOn lets Liftoff search for DNA-supported copies first because DNA mapping can preserve UTRs and the full feature hierarchy. New loci must satisfy the requested sequence-identity threshold and may overlap existing genes only where that overlap exists in the reference or remains within the allowed 10%.
 
-LiftOn then considers protein mappings that Liftoff missed. These miniprot-only candidates face stricter safeguards: at most 10% overlap with accepted loci; a single CDS only when the reference transcript is also single-CDS; and a coding-length ratio between 0.9 and 1.5 relative to the reference gene's longest isoform. An accepted protein-only copy receives a reconstructed gene–mRNA–CDS hierarchy, but no UTRs, because protein alignment does not define them. Noncoding copies therefore depend on Liftoff.
+LiftOn then considers protein mappings that Liftoff missed. These miniprot-only candidates face stricter safeguards against potential processed or partial mappings: at most 10% overlap with accepted loci; a single CDS only when the reference transcript is also single-CDS; and a coding-length ratio between 0.9 and 1.5 relative to the reference gene's longest isoform. An accepted protein-only copy receives a reconstructed gene–mRNA–CDS hierarchy, but no UTRs, because protein alignment does not define them. Noncoding copies therefore depend on Liftoff.
 
-<LiftOnCopies autoPlay />
+<LiftOnCopies />
 
 Together, these stages explain what “combining DNA and protein evidence” means operationally. DNA supplies location and transcript structure; protein supplies a conserved scoring coordinate; LiftOn makes each replacement or addition under an explicit rule rather than blending the signals into an opaque consensus.
 
