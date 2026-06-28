@@ -1,0 +1,180 @@
+---
+/**
+ * Interactive backward search: pick (or type) a DNA pattern and step through the FM-index narrowing of
+ * the [lo,hi) interval over the sorted suffixes, then read DOC -> species and SA -> position for every
+ * row in the interval. Every trace is precomputed in the FAITHFUL tiny.json (from the real index +
+ * brute-oracle asserts); this component only highlights rows — it never reimplements the algorithm.
+ */
+import data from '../data/wgi/tiny.json';
+import { cellClass } from '../scripts/wgiViz';
+import '../styles/wgi.css';
+
+const A = data.arrays as any;
+const rot = A.rotations as any[];
+const SA = A.SA as number[];
+const N = data.meta.n as number;
+const presets = data.query.presets as string[];
+const START = 'AC';
+const lastCol = rot[0].cells.length - 1;
+
+// compact client trace table (presets + every pattern of length 1..Lmax) — strips verbose fields
+const traces = data.query.traces as Record<string, any>;
+const compact: Record<string, any> = {};
+for (const [p, t] of Object.entries(traces)) {
+  compact[p] = {
+    found: t.found,
+    steps: t.steps.map((s: any) => ({ lo: s.lo, hi: s.hi, caption: s.caption })),
+    final: {
+      lo: t.final.lo, hi: t.final.hi, count: t.final.count,
+      hits: t.final.hits.map((h: any) => ({ row: h.row, species: h.species, localPos: h.localPos, sa: h.sa })),
+    },
+  };
+}
+const def = traces[START];
+const defBand = new Set<number>(def.found ? def.final.hits.map((h: any) => h.row) : []);
+const defReadout = def.found
+  ? `${def.final.count} occurrences`
+  : '0 occurrences';
+---
+
+<section class="wgi wgi-query" role="group" aria-label="Interactive: backward search resolves species and position"
+  data-n={N} data-start={START}>
+  <div class="wgi-head">
+    <p class="wgi-title">Query the index — backward search → species + position</p>
+    <span class="wgi-tag">Interactive</span>
+  </div>
+
+  <div class="wgi-picker">
+    <span class="wgi-tag">Pattern</span>
+    <span class="wgi-presets" role="group" aria-label="Preset patterns">
+      {presets.map((p) => (
+        <button type="button" class="wgi-chipbtn" data-preset={p} aria-pressed={p === START ? 'true' : 'false'}>{p}</button>
+      ))}
+    </span>
+    <input class="wgi-input" data-wgi-input type="text" maxlength="3" placeholder="type ACGT…"
+      autocomplete="off" autocapitalize="characters" spellcheck="false"
+      aria-label="Type a DNA pattern of up to three letters A, C, G or T" />
+  </div>
+
+  <p class="wgi-caption" data-wgi-caption aria-live="polite">Press Next (or Play) to run backward search on “{START}”.</p>
+
+  <div class="wgi-matrix" data-wgi-stage>
+    {rot.map((r: any, ri: number) => (
+      <div class={`wgi-mrow ${defBand.has(ri) ? 'hit' : 'faded'}`} data-row={ri}>
+        <span class="wgi-gutter">{ri}</span>
+        <span class="wgi-cells">{r.cells.map((c: any, ci: number) => (
+          <span class={`wgi-cell ${cellClass(c)} ${ci === 0 ? 'col-f' : ''} ${ci === lastCol ? 'col-l' : ''}`}>{c.sym}</span>
+        ))}</span>
+        <span class={`wgi-chip sp${r.rowDoc}`}>S{r.rowDoc}</span>
+        <span class="wgi-gutter sa">SA={SA[ri]}</span>
+      </div>
+    ))}
+  </div>
+
+  <div class="wgi-controls">
+    <button type="button" class="wgi-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="wgi-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="wgi-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="wgi-btn" data-wgi-reset aria-label="Reset">↺ Reset</button>
+    <span class="wgi-pos" data-wgi-pos>1 / 1</span>
+  </div>
+
+  <p class="wgi-readout" data-wgi-readout><span class="wgi-count">{defReadout}</span> — the rows in the final interval are the occurrences; each reads its species (DOC) and position (SA).</p>
+
+  <div class="wgi-legend">
+    <span><span class="wgi-swatch" style="background:var(--wgi-band)"></span>active interval [lo, hi)</span>
+    <span><span class="wgi-swatch" style="background:var(--wgi-sp0)"></span>S0</span>
+    <span><span class="wgi-swatch" style="background:var(--wgi-sp1)"></span>S1</span>
+    <span><span class="wgi-swatch" style="background:var(--wgi-suffix)"></span>BWT (last column) · SA</span>
+  </div>
+
+  <script type="application/json" data-wgi-traces is:inline set:html={JSON.stringify(compact)}></script>
+  <noscript><style>
+    .wgi-query .wgi-controls,.wgi-query .wgi-input{display:none !important}
+    .wgi-query .wgi-mrow.faded{opacity:1}
+  </style></noscript>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.wgi-query')) {
+      if (root.dataset.wgiQbound === 'true') continue;
+      root.dataset.wgiQbound = 'true';
+
+      const traces = JSON.parse(root.querySelector<HTMLElement>('[data-wgi-traces]')!.textContent || '{}');
+      const N = Number(root.dataset.n);
+      const rows = Array.from(root.querySelectorAll<HTMLElement>('[data-row]'));
+      const readout = root.querySelector<HTMLElement>('[data-wgi-readout]')!;
+      const input = root.querySelector<HTMLInputElement>('[data-wgi-input]');
+      const presetBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-preset]'));
+      const startCap = `Start: nothing matched yet, so the interval is all ${N} sorted suffixes.`;
+
+      let active = traces[root.dataset.start || ''] || Object.values(traces)[0];
+      const totalFor = (t: any) => 1 + t.steps.length;
+
+      const info = (i: number) => {
+        if (i === 0) return { lo: 0, hi: N, cap: startCap, final: false };
+        const s = active.steps[i - 1];
+        return { lo: s.lo, hi: s.hi, cap: s.caption, final: i === totalFor(active) - 1 };
+      };
+
+      const render = (i: number) => {
+        const { lo, hi, final } = info(i);
+        const empty = lo >= hi;
+        for (const el of rows) {
+          const r = Number(el.dataset.row);
+          const inB = r >= lo && r < hi;
+          el.classList.toggle('in-band', inB && !final);
+          el.classList.toggle('hit', inB && final);
+          el.classList.toggle('faded', !inB);
+        }
+        if (!final) { readout.innerHTML = ''; return; }
+        const f = active.final;
+        if (!active.found || f.count === 0) {
+          readout.innerHTML = `<span class="wgi-count">0 occurrences</span> — the pattern is absent (the interval is empty).`;
+          return;
+        }
+        const hits = f.hits.map((h: any) =>
+          `<li><span class="wgi-chip ${h.species === 'S0' ? 'sp0' : 'sp1'}">${h.species}</span> position ${h.localPos} <span style="color:var(--color-muted)">(SA=${h.sa}, row ${h.row})</span></li>`
+        ).join('');
+        readout.innerHTML =
+          `<span class="wgi-count">${f.count} occurrence${f.count > 1 ? 's' : ''}</span> — each interval row reads DOC→species and SA→position:` +
+          `<ul class="wgi-hits">${hits}</ul>`;
+      };
+
+      const caption = (i: number) => {
+        const { cap, final } = info(i);
+        if (final && active.found) return `${cap} Found ${active.final.count} occurrence(s).`;
+        return cap;
+      };
+
+      const api = mountStepper(root, { total: totalFor(active), onShow: render, caption });
+      if (!api) continue;
+
+      const select = (p: string) => {
+        const t = traces[p];
+        if (!t) return false;
+        active = t;
+        presetBtns.forEach((b) => b.setAttribute('aria-pressed', b.dataset.preset === p ? 'true' : 'false'));
+        api.setTotal(totalFor(active));
+        return true;
+      };
+
+      presetBtns.forEach((b) =>
+        b.addEventListener('click', () => { api.stop(); if (input) input.value = ''; input?.classList.remove('bad'); select(b.dataset.preset || ''); })
+      );
+      input?.addEventListener('input', () => {
+        const v = input.value.toUpperCase().replace(/[^ACGT]/g, '').slice(0, 3);
+        input.value = v;
+        if (!v) { input.classList.remove('bad'); return; }
+        const ok = !!traces[v];
+        input.classList.toggle('bad', !ok);
+        if (ok) { api.stop(); presetBtns.forEach((b) => b.setAttribute('aria-pressed', 'false')); active = traces[v]; api.setTotal(totalFor(active)); }
+      });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>
