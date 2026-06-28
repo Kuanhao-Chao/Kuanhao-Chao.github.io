@@ -5,139 +5,110 @@ import '../styles/lvz.css';
 interface Props { autoPlay?: boolean }
 const { autoPlay = false } = Astro.props;
 
-const W = 760, H = 330;
-const C = { lift: '#4c78a8', mini: '#f58518', merge: '#54a24b', ref: '#2e6e5e', bad: '#d1495b' };
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const C = { lift: '#4c78a8', mini: '#f58518', output: '#54a24b', ref: '#2e6e5e', bad: '#d1495b' };
 
-function label(text: string, y: number, color = 'var(--color-ink)') {
-  return `<text x="18" y="${y + 5}" class="lvz-tl" fill="${color}">${esc(text)}</text>`;
-}
-
-function axis(y: number, opacity = 1) {
-  return `<line x1="165" y1="${y}" x2="730" y2="${y}" stroke="var(--color-muted)" stroke-width="1.2" opacity="${opacity}"/>`;
-}
-
-function model(y: number, color: string, blocks: [number, number][], codingOnly = false, opacity = 1, dash = '') {
-  let out = axis(y, opacity * 0.75);
-  blocks.forEach(([x, w], i) => {
-    const edge = i === 0 || i === blocks.length - 1;
+function blocks(y: number, color: string, xs: number[], widths: number[], opacity = 0.8, codingOnly = false) {
+  let s = `<line x1="165" y1="${y}" x2="730" y2="${y}" stroke="var(--color-muted)" opacity="0.6"/>`;
+  xs.forEach((x, i) => {
+    const edge = i === 0 || i === xs.length - 1;
     const h = codingOnly || !edge ? 22 : 12;
-    out += `<rect x="${x}" y="${y - h / 2}" width="${w}" height="${h}" rx="2" fill="${color}" fill-opacity="${opacity * 0.78}" stroke="${color}" stroke-width="1.4"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+    s += `<rect x="${x}" y="${y - h / 2}" width="${widths[i]}" height="${h}" rx="2" fill="${color}" fill-opacity="${opacity}" stroke="${color}"/>`;
   });
-  return out;
+  return s;
 }
 
-const main = [[188, 34], [286, 42], [405, 32], [492, 50]] as [number, number][];
-const neighbour = [[585, 28], [660, 34]] as [number, number][];
-const protein = [[200, 24], [288, 39], [406, 29], [497, 40]] as [number, number][];
-const readthrough = [[382, 28], [490, 38], [590, 30], [660, 30]] as [number, number][];
+const mainX = [188, 288, 410, 505], mainW = [38, 44, 34, 48];
 
-function frame(opts: { liftoff?: boolean; miniprot?: boolean; filter?: boolean; paired?: boolean }) {
-  let s = '';
-  s += label('Reference model', 34, C.ref);
-  s += model(34, C.ref, main, false, 0.88);
-  s += label('Target loci', 92);
-  s += axis(92);
-  s += `<rect x="174" y="78" width="390" height="28" rx="4" fill="${C.ref}" fill-opacity="0.05" stroke="var(--color-rule)"/>`;
-  s += `<rect x="572" y="78" width="150" height="28" rx="4" fill="${C.ref}" fill-opacity="0.05" stroke="var(--color-rule)"/>`;
+function desktopFrame(step: number) {
+  let s = `<text x="18" y="38" class="lvz-tl" fill="${C.ref}">Reference transcript</text>${blocks(34, C.ref, mainX, mainW, 0.78)}`;
+  s += `<text x="18" y="98" class="lvz-tl">Target loci</text><line x1="165" y1="94" x2="730" y2="94" stroke="var(--color-muted)"/><rect x="178" y="80" width="390" height="28" rx="4" fill="${C.ref}" fill-opacity="0.05" stroke="var(--color-rule)"/><rect x="590" y="80" width="130" height="28" rx="4" fill="${C.ref}" fill-opacity="0.05" stroke="var(--color-rule)"/>`;
+  if (step >= 1) {
+    s += `<text x="18" y="160" class="lvz-tl" fill="${C.lift}">Liftoff · DNA</text>${blocks(156, C.lift, mainX, mainW)}`;
+    s += `<rect x="606" y="145" width="34" height="22" rx="2" fill="${C.lift}" fill-opacity="0.62" stroke="${C.lift}"/><rect x="674" y="145" width="32" height="22" rx="2" fill="${C.lift}" fill-opacity="0.62" stroke="${C.lift}"/>`;
+    s += `<text x="520" y="136" class="lvz-small">gene · transcript · exon · CDS · UTR</text>`;
+  }
+  if (step >= 2) {
+    const fadeA = step >= 4 ? 0.22 : 0.78;
+    s += `<text x="18" y="222" class="lvz-tl" fill="${C.mini}">Candidate A</text>${blocks(218, C.mini, [198, 292, 412, 506], [28, 40, 30, 40], step >= 4 ? 0.82 : 0.78, true)}`;
+    s += `<text x="18" y="278" class="lvz-tl" fill="${C.mini}">Candidate B</text>${blocks(274, C.mini, [210, 302, 414, 500], [26, 34, 28, 38], fadeA, true)}`;
+    s += `<text x="18" y="334" class="lvz-tl" fill="${C.mini}">Candidate C</text>${blocks(330, C.mini, [398, 494, 606, 678], [28, 35, 30, 30], step >= 3 ? 0.18 : 0.62, true)}`;
+    s += `<text x="535" y="200" class="lvz-small">protein-derived CDS only</text>`;
+  }
+  if (step >= 3) {
+    s += `<path d="M548 316 l18 18 M566 316 l-18 18" stroke="${C.bad}" stroke-width="3"/><text x="640" y="365" class="lvz-small" fill="${C.bad}">reject: crosses another Liftoff locus</text>`;
+    s += `<rect x="178" y="137" width="390" height="153" rx="7" fill="none" stroke="${C.output}" stroke-dasharray="5 3"/>`;
+  }
+  if (step >= 4) {
+    s += `<rect x="181" y="195" width="382" height="47" rx="6" fill="${C.output}" fill-opacity="0.05" stroke="${C.output}" stroke-width="2.5"/>`;
+    s += `<text x="690" y="223" class="lvz-small" fill="${C.output}">highest protein identity ✓</text><text x="680" y="279" class="lvz-small">lower identity</text>`;
+  }
+  if (step >= 5) {
+    s += `<path d="M372 245 V292 H445" fill="none" stroke="${C.output}" stroke-width="2"/><rect x="430" y="282" width="290" height="38" rx="5" fill="${C.output}" fill-opacity="0.07" stroke="${C.output}"/><text x="575" y="305" class="lvz-nt on" fill="${C.output}">Liftoff identity &lt; 100% → run PM</text>`;
+  }
+  return `<svg viewBox="0 0 760 390" class="lvz-svg" role="img" aria-label="LiftOn transcript pairing, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
 
-  if (opts.liftoff) {
-    s += label('Liftoff · DNA', 150, C.lift);
-    s += model(150, C.lift, main, false);
-    s += model(150, C.lift, neighbour, false, 0.62);
-    s += `<text x="515" y="132" class="lvz-small">full transcript + UTR context</text>`;
+function mobileFrame(step: number) {
+  const card = (y: number, label: string, color: string, detail: string, opacity = 1, selected = false) => `<rect x="12" y="${y}" width="336" height="62" rx="5" fill="var(--color-bg)" stroke="${selected ? C.output : 'var(--color-rule)'}" stroke-width="${selected ? 2 : 1}" opacity="${opacity}"/><text x="28" y="${y + 25}" class="lvz-tl" fill="${color}">${label}</text><text x="180" y="${y + 47}" class="lvz-small">${detail}</text>`;
+  let s = card(12, 'Reference transcript', C.ref, 'hierarchical annotation');
+  s += card(88, 'Target genome', 'var(--color-ink)', 'two nearby gene loci');
+  if (step >= 1) s += card(164, 'Liftoff · DNA', C.lift, 'full transcript and UTR context');
+  if (step >= 2) {
+    s += card(240, 'Candidate A', C.mini, step >= 4 ? 'highest protein identity' : 'overlaps the matched locus', 1, step >= 4);
+    s += card(316, 'Candidate B', C.mini, step >= 4 ? 'lower protein identity' : 'overlaps the matched locus', step >= 4 ? 0.45 : 1);
+    s += card(392, 'Candidate C', C.mini, step >= 3 ? 'rejected: crosses another locus' : 'spans two nearby loci', step >= 3 ? 0.38 : 1);
+    if (step >= 3) s += `<path d="M312 410 l18 18 M330 410 l-18 18" stroke="${C.bad}" stroke-width="2.5"/>`;
   }
-  if (opts.miniprot) {
-    s += label('miniprot · protein', 212, C.mini);
-    s += model(212, C.mini, protein, true);
-    s += `<text x="515" y="194" class="lvz-small">CDS only</text>`;
-    s += label('other candidate', 270, C.mini);
-    s += model(270, C.mini, readthrough, true, opts.filter ? 0.28 : 0.68, '5 3');
-  }
-  if (opts.filter) {
-    s += `<path d="M548 252 l18 18 M566 252 l-18 18" stroke="${C.bad}" stroke-width="3" stroke-linecap="round"/>`;
-    s += `<text x="625" y="302" class="lvz-small" fill="${C.bad}">rejected: spans two Liftoff loci</text>`;
-    s += `<rect x="176" y="131" width="385" height="101" rx="7" fill="none" stroke="${C.merge}" stroke-width="2" stroke-dasharray="5 4"/>`;
-  }
-  if (opts.paired) {
-    s += `<rect x="176" y="131" width="385" height="101" rx="7" fill="${C.merge}" fill-opacity="0.06" stroke="${C.merge}" stroke-width="2.4"/>`;
-    s += `<path d="M370 235 V290 H520" fill="none" stroke="${C.merge}" stroke-width="2"/>`;
-    s += `<text x="600" y="295" class="lvz-nt on" fill="${C.merge}">paired for protein maximization →</text>`;
-  }
-  return `<svg viewBox="0 0 ${W} ${H}" class="lvz-svg" role="img" aria-label="Liftoff and miniprot candidate pairing at a target locus" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  if (step >= 5) s += `<rect x="12" y="474" width="336" height="54" rx="5" fill="${C.output}" fill-opacity="0.07" stroke="${C.output}" stroke-width="2"/><text x="180" y="497" class="lvz-nt on" fill="${C.output}">paired Liftoff + candidate A</text><text x="180" y="518" class="lvz-small">run PM only when Liftoff identity &lt; 100%</text>`;
+  return `<svg viewBox="0 0 360 ${step >= 5 ? 545 : step >= 2 ? 470 : 250}" class="lvz-svg" role="img" aria-label="LiftOn transcript pairing, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 
 const steps = [
-  {
-    title: 'Start from one trusted reference model',
-    caption: 'LiftOn begins with a reference genome, its hierarchical annotation, and a target genome. Protein maximization is reserved for protein-coding transcripts; noncoding features remain on the DNA-based lift path.',
-    svg: frame({}),
-  },
-  {
-    title: 'Liftoff maps the annotation through DNA',
-    caption: 'Liftoff supplies the structural scaffold: gene, transcript, exon, CDS, and UTR context. It can also map additional copies while enforcing DNA identity and locus-overlap constraints.',
-    svg: frame({ liftoff: true }),
-  },
-  {
-    title: 'miniprot maps the reference protein',
-    caption: 'miniprot independently proposes splice-aware CDS models from protein evidence. These models can survive greater sequence divergence, but they contain coding sequence only and may be fragmented or map across nearby family members.',
-    svg: frame({ liftoff: true, miniprot: true }),
-  },
-  {
-    title: 'Reject ambiguous and read-through mappings',
-    caption: 'A miniprot transcript must overlap its Liftoff locus without crossing an unrelated Liftoff gene. If several miniprot mappings remain, LiftOn keeps the candidate with the highest reference-protein identity.',
-    svg: frame({ liftoff: true, miniprot: true, filter: true }),
-  },
-  {
-    title: 'Send the matched pair to protein maximization',
-    caption: 'Once a one-to-one correspondence is established, LiftOn compares both CDS models. If the Liftoff translation is already identical to the reference protein, the published algorithm has no coding error to repair.',
-    svg: frame({ liftoff: true, miniprot: true, paired: true }),
-  },
+  { title: 'Start with reference annotation and a target genome', caption: 'Protein maximization applies to protein-coding transcripts; noncoding features remain on Liftoff’s DNA-based path.' },
+  { title: 'Map the complete annotation with Liftoff', caption: 'DNA alignment supplies the gene hierarchy, exon structure, CDS features, and UTR context.' },
+  { title: 'Map the reference protein independently with miniprot', caption: 'Protein alignment proposes CDS-only mappings, including alternatives that may cross nearby gene-family loci.' },
+  { title: 'Require a valid locus overlap', caption: 'A candidate must overlap its Liftoff locus without crossing an unrelated Liftoff gene.' },
+  { title: 'Choose the strongest remaining protein mapping', caption: 'When several candidates remain, LiftOn selects the mapping with the highest reference-protein identity.' },
+  { title: 'Send the matched pair to protein maximization', caption: 'The published algorithm runs PM only when the Liftoff translation is not already identical to the reference protein.' },
 ];
 ---
 
-<section
-  class="lvz lvz-pair"
-  role="group"
-  aria-label="Interactive: pairing Liftoff and miniprot annotations"
-  data-autoplay={autoPlay ? 'true' : undefined}
-  data-print-final-state="true"
->
+<section class="lvz lvz-pair" role="group" aria-label="Interactive: pairing Liftoff and miniprot annotations" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
   <div class="lvz-head">
     <p class="lvz-title">Pair the two evidence tracks</p>
-    <span class="lvz-tag">Interactive · illustrative</span>
+    <span class="lvz-tag">Published method</span>
   </div>
   <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0].caption}</p>
 
+  <nav class="lvz-progress" aria-label="Pairing steps">
+    {steps.map((step, i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${step.title}`} title={step.title}>{i + 1}</button>)}
+  </nav>
+
   {steps.map((step, i) => (
-    <div
-      class="lvz-step"
-      data-wgi-step
-      data-print-final={i === steps.length - 1 ? 'true' : undefined}
-      data-caption={step.caption}
-      hidden={i !== 0}
-    >
+    <div class="lvz-step" data-wgi-step data-print-final={i === steps.length - 1 ? 'true' : undefined} data-caption={step.caption} hidden={i !== 0}>
       <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{step.title}</p>
-      <div class="lvz-fig" set:html={step.svg} />
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktopFrame(i)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobileFrame(i)} />
     </div>
   ))}
 
   <div class="lvz-controls">
     <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
-    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button>
     <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
-    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Reset to first step">↺ Reset</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button>
     <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
   </div>
 
   <div class="lvz-legend">
     <span><span class="lvz-sw" style={`background:${C.lift}`}></span>Liftoff (DNA)</span>
     <span><span class="lvz-sw" style={`background:${C.mini}`}></span>miniprot (protein)</span>
-    <span><span class="lvz-sw" style={`background:${C.merge}`}></span>accepted pair</span>
+    <span><span class="lvz-sw" style={`background:${C.output}`}></span>selected mapping</span>
+    <span><span class="lvz-sw" style={`background:${C.bad}`}></span>rejected mapping</span>
   </div>
-
-  <noscript><style>{`.lvz-pair .lvz-step[hidden]{display:block !important}.lvz-pair .lvz-controls,.lvz-pair .lvz-caption{display:none !important}`}</style></noscript>
 </section>
+
+<style>.lvz-pair { --lvz-mobile-min-width: 0px; }</style>
 
 <script>
   import { mountStepper } from '../scripts/wgiStepper';
@@ -145,16 +116,7 @@ const steps = [
     for (const root of document.querySelectorAll<HTMLElement>('.lvz-pair')) {
       const steps = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
       const captions = steps.map((step) => step.dataset.caption || '');
-      mountStepper(root, {
-        total: steps.length,
-        onShow: (i) => steps.forEach((step, k) => {
-          const current = k === i;
-          step.hidden = !current;
-          step.setAttribute('aria-current', current ? 'step' : 'false');
-        }),
-        caption: (i) => captions[i],
-        autoPlay: root.dataset.autoplay === 'true',
-      });
+      mountStepper(root, { total: steps.length, onShow: (i) => steps.forEach((step, k) => { const current = k === i; step.hidden = !current; step.setAttribute('aria-current', current ? 'step' : 'false'); }), caption: (i) => captions[i], interval: 6500, autoPlay: root.dataset.autoplay === 'true' });
     }
   }
   boot();

@@ -99,8 +99,130 @@ function base(o: {
   return frame(s);
 }
 
-type Step = { title: string; caption: string; svg: string };
-const allSteps: Step[] = [
+function publishedDesktop(step: number) {
+  const block = (x: number, y: number, w: number, color: string, id = '', faded = false) =>
+    `<rect x="${x}" y="${y}" width="${w}" height="24" rx="2" fill="${color}" fill-opacity="${faded ? 0.18 : 0.78}" stroke="${color}"/><text x="${x + w / 2}" y="${y + 16}" class="lvz-in" fill="#fff">${id}</text>`;
+  const lane = (label: string, y: number) => `<text x="18" y="${y + 16}" class="lvz-tl">${label}</text><line x1="150" y1="${y + 12}" x2="735" y2="${y + 12}" stroke="var(--color-muted)" opacity="0.55"/>`;
+  const xs = [160, 235, 310, 370, 450, 535, 610];
+  const ws = [44, 38, 32, 28, 40, 42, 38];
+  let s = '';
+
+  if (step === 0) {
+    s += lane('Reference model', 28);
+    xs.forEach((x, i) => { s += block(x, 28, ws[i], C.ref, `R${i + 1}`); });
+    s += lane('Liftoff · DNA', 112);
+    xs.forEach((x, i) => { s += block(x, 112, ws[i], C.lift, `L${i + 1}`); });
+    s += lane('miniprot · protein', 196);
+    xs.slice(0, 5).forEach((x, i) => { s += block(x, 196, ws[i], C.mini, `M${i + 1}`); });
+    s += block(xs[5], 196, xs[6] + ws[6] - xs[5], C.mini, 'M6');
+    s += `<rect x="${xs[2] - 8}" y="100" width="104" height="48" rx="5" fill="none" stroke="#d1495b" stroke-width="2"/><text x="${xs[2] + 44}" y="92" class="lvz-small" fill="#d1495b">L3–L4 splice error</text>`;
+    s += `<rect x="${xs[5] - 7}" y="184" width="130" height="48" rx="5" fill="none" stroke="#d1495b" stroke-width="2"/><text x="${xs[5] + 58}" y="250" class="lvz-small" fill="#d1495b">M6 misses a splice junction</text>`;
+  }
+
+  if (step === 1 || step === 2) {
+    const align = (label: string, y: number, color: string, stop = false, mismatch = false) => {
+      let out = `<text x="18" y="${y + 13}" class="lvz-tl">${label}</text><rect x="160" y="${y}" width="555" height="22" rx="3" fill="${C.ref}" fill-opacity="0.13" stroke="${C.ref}"/>`;
+      out += `<rect x="160" y="${y + 28}" width="${mismatch ? 515 : 555}" height="18" rx="3" fill="${color}" fill-opacity="0.76"/>`;
+      if (stop) out += `<text x="424" y="${y + 43}" class="lvz-nt" fill="#d1495b">*</text><rect x="430" y="${y + 28}" width="285" height="18" fill="var(--color-bg)" fill-opacity="0.7"/>`;
+      if (mismatch) out += `<rect x="675" y="${y + 28}" width="40" height="18" fill="#d1495b"/><text x="695" y="${y + 66}" class="lvz-small" fill="#d1495b">terminal mismatch</text>`;
+      return out;
+    };
+    s += `<text x="160" y="18" class="lvz-tl" fill="${C.ref}">full reference protein</text>`;
+    s += align('Liftoff alignment', 38, C.lift, true, false);
+    s += align('miniprot alignment', 154, C.mini, false, true);
+    if (step === 2) {
+      const lBounds = [160, 230, 305, 360, 445, 530, 610, 715];
+      const mBounds = [160, 230, 305, 360, 445, 530, 715];
+      lBounds.forEach((x, i) => { s += `<line x1="${x}" y1="58" x2="${x}" y2="105" stroke="${C.lift}" stroke-dasharray="3 2"/><text x="${Math.min(x + 11, 704)}" y="111" class="lvz-small">${i < 7 ? `L${i + 1}` : ''}</text>`; });
+      mBounds.forEach((x, i) => { s += `<line x1="${x}" y1="174" x2="${x}" y2="221" stroke="${C.mini}" stroke-dasharray="3 2"/><text x="${Math.min(x + 11, 704)}" y="227" class="lvz-small">${i < 6 ? `M${i + 1}` : ''}</text>`; });
+      s += `<text x="437" y="278" class="lvz-nt on" fill="${C.merge}">CDS boundaries are now expressed in reference-protein coordinates</text>`;
+    }
+  }
+
+  if (step === 3 || step === 4) {
+    const groups = [
+      ['1', 'L1', 'M1', '100%', '100%', 'Liftoff'],
+      ['2', 'L2', 'M2', '100%', '100%', 'Liftoff'],
+      ['3', 'L3 + L4', 'M3 + M4', '60%', '100%', 'miniprot'],
+      ['4', 'L5', 'M5', '100%', '100%', 'Liftoff'],
+      ['5', 'L6 + L7', 'M6', '100%', '90%', 'Liftoff'],
+    ];
+    const gx = [155, 270, 385, 500, 615];
+    s += `<text x="18" y="34" class="lvz-tl">Equal cumulative reference endpoints</text><line x1="155" y1="50" x2="710" y2="50" stroke="${C.ref}"/>`;
+    gx.forEach((x, i) => { s += `<circle cx="${x}" cy="50" r="4" fill="${C.ref}"/><text x="${x}" y="34" class="lvz-tick">${i === 0 ? '0' : `p${i}`}</text>`; });
+    s += `<circle cx="710" cy="50" r="4" fill="${C.ref}"/><text x="710" y="34" class="lvz-tick">end</text>`;
+    groups.forEach((g, i) => {
+      const x = 148 + i * 115;
+      const selectedL = g[5] === 'Liftoff';
+      s += `<rect x="${x}" y="76" width="105" height="190" rx="5" fill="var(--color-bg)" stroke="${step === 4 ? (selectedL ? C.lift : C.mini) : 'var(--color-rule)'}" stroke-width="${step === 4 ? 2 : 1}"/>`;
+      s += `<text x="${x + 52.5}" y="98" class="lvz-nt on">Group ${g[0]}</text>`;
+      s += `<text x="${x + 52.5}" y="128" class="lvz-small" fill="${C.lift}">G<tspan baseline-shift="sub">L${g[0]}</tspan> · ${g[1]}</text>`;
+      s += `<text x="${x + 52.5}" y="150" class="lvz-nt" fill="${C.lift}">${step === 4 ? g[3] : ''}</text>`;
+      s += `<line x1="${x + 12}" y1="165" x2="${x + 93}" y2="165" stroke="var(--color-rule)"/>`;
+      s += `<text x="${x + 52.5}" y="190" class="lvz-small" fill="${C.mini}">G<tspan baseline-shift="sub">M${g[0]}</tspan> · ${g[2]}</text>`;
+      s += `<text x="${x + 52.5}" y="212" class="lvz-nt" fill="${C.mini}">${step === 4 ? g[4] : ''}</text>`;
+      if (step === 4) s += `<text x="${x + 52.5}" y="250" class="lvz-small" fill="${selectedL ? C.lift : C.mini}">${g[3] === g[4] ? 'tie → Liftoff' : `${g[5]} wins`}</text>`;
+    });
+  }
+
+  if (step === 5) {
+    s += lane('Selected groups', 40);
+    const groups = [
+      [160, 88, C.lift, 'L1 · L2'],
+      [254, 146, C.mini, 'M3 · M4'],
+      [406, 84, C.lift, 'L5'],
+      [496, 174, C.lift, 'L6 · L7'],
+    ] as const;
+    groups.forEach(([x, w, color, id]) => { s += block(x, 40, w, color, id); });
+    s += `<path d="M415 92 V134" stroke="${C.merge}" stroke-width="2"/><path d="M409 128 l6 7 6-7" fill="none" stroke="${C.merge}" stroke-width="2"/>`;
+    s += lane('Final LiftOn CDS', 166);
+    groups.forEach(([x, w, color, id]) => { s += block(x, 166, w, color, id); });
+    s += `<rect x="154" y="160" width="522" height="36" rx="5" fill="none" stroke="${C.merge}" stroke-width="2.5"/>`;
+    s += `<text x="415" y="244" class="lvz-nt on" fill="${C.merge}">L1 · L2 · M3 · M4 · L5 · L6 · L7</text>`;
+  }
+  return `<svg viewBox="0 0 760 300" class="lvz-svg" role="img" aria-label="Published LiftOn chaining algorithm, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function publishedMobile(step: number) {
+  const colors = [C.lift, C.lift, C.mini, C.lift, C.lift];
+  let s = '';
+  if (step <= 2) {
+    const labels = step === 0 ? ['Reference', 'Liftoff', 'miniprot'] : ['Reference protein', 'Liftoff alignment', 'miniprot alignment'];
+    labels.forEach((label, i) => {
+      const y = 45 + i * 105;
+      s += `<text x="12" y="${y}" class="lvz-tl">${label}</text><line x1="12" y1="${y + 30}" x2="348" y2="${y + 30}" stroke="var(--color-muted)"/>`;
+      const color = i === 0 ? C.ref : i === 1 ? C.lift : C.mini;
+      const count = i === 2 && step === 0 ? 6 : 7;
+      for (let k = 0; k < count; k++) {
+        const x = 18 + k * 47;
+        const w = i === 2 && step === 0 && k === 5 ? 77 : 30;
+        s += `<rect x="${x}" y="${y + 18}" width="${w}" height="24" rx="2" fill="${color}" fill-opacity="0.78"/>`;
+        if (step === 2) s += `<line x1="${x}" y1="${y + 10}" x2="${x}" y2="${y + 52}" stroke="${color}" stroke-dasharray="2 2"/>`;
+      }
+    });
+    if (step === 1) s += `<text x="190" y="182" class="lvz-nt" fill="#d1495b">* premature stop</text><text x="250" y="287" class="lvz-small" fill="#d1495b">terminal mismatch</text>`;
+    if (step === 2) s += `<text x="180" y="365" class="lvz-nt on" fill="${C.merge}">boundaries projected to reference coordinates</text>`;
+  } else if (step === 3 || step === 4) {
+    const names = [['L1','M1'],['L2','M2'],['L3+L4','M3+M4'],['L5','M5'],['L6+L7','M6']];
+    names.forEach((pair, i) => {
+      const y = 20 + i * 72;
+      s += `<rect x="12" y="${y}" width="336" height="60" rx="5" fill="var(--color-bg)" stroke="${step === 4 ? colors[i] : 'var(--color-rule)'}" stroke-width="${step === 4 ? 2 : 1}"/>`;
+      s += `<text x="36" y="${y + 25}" class="lvz-tl">Group ${i + 1}</text><text x="140" y="${y + 25}" class="lvz-small" fill="${C.lift}">${pair[0]}${step === 4 ? ` · ${[100,100,60,100,100][i]}%` : ''}</text><text x="255" y="${y + 25}" class="lvz-small" fill="${C.mini}">${pair[1]}${step === 4 ? ` · ${[100,100,100,100,90][i]}%` : ''}</text>`;
+      if (step === 4) s += `<text x="180" y="${y + 48}" class="lvz-small" fill="${colors[i]}">${i === 2 ? 'miniprot wins' : [0,1,3].includes(i) ? 'tie → Liftoff' : 'Liftoff wins'}</text>`;
+    });
+  } else {
+    s += `<text x="12" y="35" class="lvz-tl">Selected CDS groups</text>`;
+    const blocks = [['L1',C.lift],['L2',C.lift],['M3',C.mini],['M4',C.mini],['L5',C.lift],['L6',C.lift],['L7',C.lift]];
+    blocks.forEach(([id,color],i)=>{const x=16+i*48;s+=`<rect x="${x}" y="58" width="42" height="34" rx="3" fill="${color}" fill-opacity="0.82"/><text x="${x+21}" y="80" class="lvz-in" fill="#fff">${id}</text>`;});
+    s += `<path d="M180 120 V175" stroke="${C.merge}" stroke-width="2"/><path d="M174 168 l6 8 6-8" fill="none" stroke="${C.merge}" stroke-width="2"/>`;
+    s += `<text x="12" y="215" class="lvz-tl">Final LiftOn CDS</text><rect x="12" y="238" width="336" height="52" rx="6" fill="${C.merge}" fill-opacity="0.08" stroke="${C.merge}" stroke-width="2"/>`;
+    blocks.forEach(([id,color],i)=>{const x=16+i*48;s+=`<rect x="${x}" y="247" width="42" height="34" rx="3" fill="${color}" fill-opacity="0.82"/><text x="${x+21}" y="269" class="lvz-in" fill="#fff">${id}</text>`;});
+  }
+  return `<svg viewBox="0 0 360 390" class="lvz-svg" role="img" aria-label="Published LiftOn chaining algorithm, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+type Step = { title: string; caption: string; svg: string; mobileSvg?: string };
+const v109Steps: Step[] = [
   { title: 'Two candidate CDS models', caption: 'LiftOn fuses two independent lifts of the same gene: Liftoff maps the CDS at the DNA level (blue), miniprot at the protein level (orange). Each proposes a set of CDS blocks, both aligned to the reference protein.', svg: base() },
   { title: 'Synchronise by cumulative reference amino-acids', caption: 'Walking both block lists 5′→3′, LiftOn tracks how many reference amino-acids each side has consumed (shown inside each block). A boundary where both have consumed the SAME cumulative count is a synchronisation point.', svg: base({ spanLabels: true }) },
   { title: 'Sync points delimit comparable chunks', caption: 'The sync points (●, dashed) split both models into chunks covering the SAME reference interval — chunk 1 = aa 0–8, chunk 2 = aa 8–20. Each chunk is decided independently.', svg: base({ sync: true }) },
@@ -109,11 +231,19 @@ const allSteps: Step[] = [
   { title: 'Concatenate the winners → merged CDS', caption: 'The per-chunk winners are concatenated into one CDS model — miniprot for chunk 1, Liftoff for chunk 2. This protein-maximised structure can beat either source alone.', svg: base({ merged: true }) },
   { title: 'Best-of-outcome: guaranteed non-regression', caption: 'After ORF rescue, LiftOn emits whichever of {chained merge, Liftoff-only} scores higher protein identity. The emitted model is never worse than the DNA-only default — fusing the protein evidence can only help.', svg: base({ merged: true, sync: true }) },
 ];
-const steps = mode === 'published' ? allSteps.slice(0, -1) : allSteps;
+const publishedSteps: Step[] = [
+  { title: 'Begin with two mapped transcript models', caption: 'Liftoff and miniprot can make different structural errors at the same protein-coding locus.', svg: publishedDesktop(0), mobileSvg: publishedMobile(0) },
+  { title: 'Align both translations to the reference protein', caption: 'The alignments expose different consequences: an early stop in Liftoff and a terminal mismatch in miniprot.', svg: publishedDesktop(1), mobileSvg: publishedMobile(1) },
+  { title: 'Project every CDS boundary onto the alignments', caption: 'Mapping CDS boundaries into reference-protein coordinates makes differently spliced models directly comparable.', svg: publishedDesktop(2), mobileSvg: publishedMobile(2) },
+  { title: 'Group CDSs at equal cumulative endpoints', caption: 'Each group ends where both models have consumed the same cumulative number of aligned reference residues.', svg: publishedDesktop(3), mobileSvg: publishedMobile(3) },
+  { title: 'Select the higher-identity source in each group', caption: 'LiftOn compares partial protein identity group by group; exact ties select Liftoff.', svg: publishedDesktop(4), mobileSvg: publishedMobile(4) },
+  { title: 'Concatenate the selected CDS groups', caption: 'The published example yields L1, L2, M3, M4, L5, L6, and L7 as the final LiftOn CDS chain.', svg: publishedDesktop(5), mobileSvg: publishedMobile(5) },
+];
+const steps = mode === 'published' ? publishedSteps : v109Steps;
 ---
 
 <section
-  class="lvz lvz-chain"
+  class:list={['lvz', 'lvz-chain', mode === 'published' ? 'lvz-chain--published' : 'lvz-chain--v109']}
   role="group"
   aria-label="Interactive: LiftOn protein-maximization CDS chaining"
   data-autoplay={autoPlay ? 'true' : undefined}
@@ -121,9 +251,15 @@ const steps = mode === 'published' ? allSteps.slice(0, -1) : allSteps;
 >
   <div class="lvz-head">
     <p class="lvz-title">Protein-maximization CDS chaining</p>
-    <span class="lvz-tag">Interactive · illustrative</span>
+    <span class="lvz-tag">{mode === 'published' ? 'Figure 1 · published method' : 'Interactive · illustrative'}</span>
   </div>
   <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0].caption}</p>
+
+  <nav class="lvz-progress" aria-label="Chaining steps">
+    {steps.map((step, i) => (
+      <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${step.title}`} title={step.title}>{i + 1}</button>
+    ))}
+  </nav>
 
   {steps.map((s, i) => (
     <div
@@ -134,15 +270,16 @@ const steps = mode === 'published' ? allSteps.slice(0, -1) : allSteps;
       hidden={i !== 0}
     >
       <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{s.title}</p>
-      <div class="lvz-fig" set:html={s.svg} />
+      <div class:list={['lvz-fig', s.mobileSvg && 'lvz-visual--desktop']} set:html={s.svg} />
+      {s.mobileSvg && <div class="lvz-fig lvz-visual--mobile" set:html={s.mobileSvg} />}
     </div>
   ))}
 
   <div class="lvz-controls">
     <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
-    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button>
     <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
-    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Reset to first step">↺ Reset</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button>
     <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
   </div>
 
@@ -165,6 +302,7 @@ const steps = mode === 'published' ? allSteps.slice(0, -1) : allSteps;
         total: steps.length,
         onShow: (i) => steps.forEach((el, k) => { const on = k === i; el.hidden = !on; el.setAttribute('aria-current', on ? 'step' : 'false'); }),
         caption: (i) => caps[i],
+        interval: 6500,
         autoPlay: root.dataset.autoplay === 'true',
       });
     }

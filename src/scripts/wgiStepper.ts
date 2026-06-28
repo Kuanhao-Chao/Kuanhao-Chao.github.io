@@ -25,6 +25,7 @@ export function mountStepper(root: HTMLElement, opts: StepperOpts): StepperApi |
   const cap = root.querySelector<HTMLElement>('[data-wgi-caption]');
   const pos = root.querySelector<HTMLElement>('[data-wgi-pos]');
   const btn = (s: string) => root.querySelector<HTMLButtonElement>(`[data-wgi-${s}]`);
+  const jumps = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-wgi-jump]'));
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let step = 0;
@@ -34,7 +35,16 @@ export function mountStepper(root: HTMLElement, opts: StepperOpts): StepperApi |
   let autoStarted = false;
   let resumeWhenVisible = false;
 
-  const setPlay = (on: boolean) => btn('play')?.setAttribute('aria-pressed', on ? 'true' : 'false');
+  const setPlay = (on: boolean) => {
+    const playButton = btn('play');
+    if (!playButton) return;
+    playButton.setAttribute('aria-pressed', on ? 'true' : 'false');
+    playButton.setAttribute('aria-label', on ? 'Pause animation' : 'Play animation');
+    const icon = playButton.querySelector<HTMLElement>('[data-wgi-play-icon]');
+    const label = playButton.querySelector<HTMLElement>('[data-wgi-play-label]');
+    if (icon) icon.textContent = on ? 'Ⅱ' : '▶';
+    if (label) label.textContent = on ? 'Pause' : 'Play';
+  };
 
   function show(i: number) {
     step = Math.max(0, Math.min(total - 1, i));
@@ -43,6 +53,11 @@ export function mountStepper(root: HTMLElement, opts: StepperOpts): StepperApi |
     if (pos) pos.textContent = `${step + 1} / ${total}`;
     btn('prev')?.toggleAttribute('disabled', step === 0);
     btn('next')?.toggleAttribute('disabled', step === total - 1);
+    jumps.forEach((jump, index) => {
+      const current = index === step;
+      jump.setAttribute('aria-current', current ? 'step' : 'false');
+      jump.setAttribute('aria-pressed', String(current));
+    });
   }
 
   function stop() {
@@ -73,6 +88,9 @@ export function mountStepper(root: HTMLElement, opts: StepperOpts): StepperApi |
     takeControl();
     if (timer) stop();
     else play();
+  });
+  jumps.forEach((jump, index) => {
+    jump.addEventListener('click', () => { takeControl(); stop(); show(index); });
   });
 
   root.addEventListener('keydown', (e: KeyboardEvent) => {
