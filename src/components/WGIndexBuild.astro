@@ -1,0 +1,128 @@
+---
+/**
+ * Interactive construction of the tagged multi-string BWT index, stepped from the FAITHFUL tiny.json
+ * (generated from the real index/suffix_index.py). Pure renderer: every step's DOM is server-rendered;
+ * the client script only toggles which step is visible. No-JS shows all steps (see <noscript>).
+ */
+import data from '../data/wgi/tiny.json';
+import { cellClass } from '../scripts/wgiViz';
+import '../styles/wgi.css';
+
+const build = data.build as any[];
+const A = data.arrays as any;
+const T = A.T, rot = A.rotations, uns = A.unsorted, SA = A.SA, BWT = A.BWT, DOC = A.DOC;
+const sampled = new Set((A.sampledSA as any[]).map((s) => s.row));
+const lastCol = rot[0].cells.length - 1;
+---
+
+<section class="wgi wgi-build" role="group" aria-label="Interactive: building the multi-string BWT index">
+  <div class="wgi-head">
+    <p class="wgi-title">Build the index — a multi-string BWT</p>
+    <span class="wgi-tag">Interactive</span>
+  </div>
+  <p class="wgi-caption" data-wgi-caption aria-live="polite">{build[0].caption}</p>
+
+  {/* 0 · MSA rows */}
+  <div class="wgi-step wgi-panel" data-wgi-step data-caption={build[0].caption}>
+    <p class="wgi-steptitle">{build[0].title}</p>
+    {build[0].rows.map((r: any) => (
+      <div class="wgi-mrow">
+        <span class={`wgi-chip sp${r.doc}`}>S{r.doc}</span>
+        <span class="wgi-cells">{r.cells.map((s: string) => <span class={`wgi-cell sp${r.doc}`}>{s}</span>)}</span>
+      </div>
+    ))}
+  </div>
+
+  {/* 1 · concatenate with distinct separators */}
+  <div class="wgi-step wgi-panel" data-wgi-step data-caption={build[1].caption} hidden>
+    <p class="wgi-steptitle">{build[1].title}</p>
+    <span class="wgi-cells">{T.map((c: any) => <span class={`wgi-cell ${cellClass(c)}`}>{c.sym}</span>)}</span>
+  </div>
+
+  {/* 2 · cyclic rotations (unsorted) */}
+  <div class="wgi-step wgi-panel" data-wgi-step data-caption={build[2].caption} hidden>
+    <p class="wgi-steptitle">{build[2].title}</p>
+    <div class="wgi-matrix">
+      {uns.map((r: any) => (
+        <div class="wgi-mrow">
+          <span class="wgi-gutter">{r.start}</span>
+          <span class="wgi-cells">{r.cells.map((c: any) => <span class={`wgi-cell ${cellClass(c)}`}>{c.sym}</span>)}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  {/* 3 · sort → the BWT matrix */}
+  <div class="wgi-step wgi-panel" data-wgi-step data-caption={build[3].caption} hidden>
+    <p class="wgi-steptitle">{build[3].title}</p>
+    <div class="wgi-matrix">
+      {rot.map((r: any, ri: number) => (
+        <div class="wgi-mrow">
+          <span class="wgi-gutter">{ri}</span>
+          <span class="wgi-cells">{r.cells.map((c: any, ci: number) => (
+            <span class={`wgi-cell ${cellClass(c)} ${ci === 0 ? 'col-f' : ''} ${ci === lastCol ? 'col-l' : ''}`}>{c.sym}</span>
+          ))}</span>
+          <span class={`wgi-chip sp${r.rowDoc}`}>S{r.rowDoc}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  {/* 4 · read off the index arrays */}
+  <div class="wgi-step wgi-panel" data-wgi-step data-caption={build[4].caption} hidden>
+    <p class="wgi-steptitle">{build[4].title}</p>
+    <div class="wgi-arrays">
+      <div class="wgi-arrline"><span class="wgi-arrlabel">rank i</span>
+        <span class="wgi-cells">{rot.map((_: any, i: number) => <span class="wgi-cell num">{i}</span>)}</span></div>
+      <div class="wgi-arrline"><span class="wgi-arrlabel">BWT</span>
+        <span class="wgi-cells">{BWT.map((c: any) => <span class={`wgi-cell ${cellClass(c)} col-l`}>{c.sym}</span>)}</span></div>
+      <div class="wgi-arrline"><span class="wgi-arrlabel">SA · position</span>
+        <span class="wgi-cells">{SA.map((v: number) => <span class="wgi-cell num sa">{v}</span>)}</span></div>
+      <div class="wgi-arrline"><span class="wgi-arrlabel">DOC · species</span>
+        <span class="wgi-cells">{DOC.map((d: number) => <span class={`wgi-cell sp${d}`}>S{d}</span>)}</span></div>
+      <div class="wgi-arrline"><span class="wgi-arrlabel">sampled SA</span>
+        <span class="wgi-cells">{rot.map((_: any, i: number) => (
+          <span class={`wgi-cell ${sampled.has(i) ? 'samp' : 'num'}`}>{sampled.has(i) ? '●' : '·'}</span>
+        ))}</span></div>
+    </div>
+  </div>
+
+  <div class="wgi-controls">
+    <button type="button" class="wgi-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="wgi-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="wgi-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="wgi-btn" data-wgi-reset aria-label="Reset to first step">↺ Reset</button>
+    <span class="wgi-pos" data-wgi-pos>1 / {build.length}</span>
+  </div>
+
+  <div class="wgi-legend">
+    <span><span class="wgi-swatch" style="background:var(--wgi-sp0)"></span>S0 ({data.meta.seqs[0]})</span>
+    <span><span class="wgi-swatch" style="background:var(--wgi-sp1)"></span>S1 ({data.meta.seqs[1]})</span>
+    <span><span class="wgi-swatch" style="background:var(--wgi-sep)"></span>separators $₀&lt;$₁&lt;A&lt;C&lt;G&lt;T</span>
+    <span><span class="wgi-swatch" style="background:var(--wgi-suffix)"></span>BWT / SA</span>
+  </div>
+
+  <noscript><style>
+    .wgi-build .wgi-step[hidden]{display:grid !important}
+    .wgi-build .wgi-controls,.wgi-build .wgi-caption{display:none !important}
+  </style></noscript>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.wgi-build')) {
+      const steps = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      const caps = steps.map((s) => s.dataset.caption || '');
+      mountStepper(root, {
+        total: steps.length,
+        onShow: (i) => steps.forEach((el, k) => {
+          const on = k === i; el.hidden = !on; el.setAttribute('aria-current', on ? 'step' : 'false');
+        }),
+        caption: (i) => caps[i],
+      });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>

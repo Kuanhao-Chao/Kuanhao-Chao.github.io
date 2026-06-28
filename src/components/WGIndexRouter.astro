@@ -1,0 +1,60 @@
+---
+/**
+ * Interactive shard + route schematic: the genome as one block per cell, toggling between scanning
+ * every block and routing to the ~2 candidate blocks a query's w-mers select. Numbers are verbatim
+ * from the committed benchmark (data/suffix_router.json), carried in tiny.json.
+ */
+import data from '../data/wgi/tiny.json';
+import '../styles/wgi.css';
+
+const r = data.router as any;
+const blocks = r.blocks as number;
+const cand = new Set([Math.floor(blocks * 0.18), Math.floor(blocks * 0.67)]); // 2 candidate blocks
+const cells = Array.from({ length: blocks }, (_, i) => i);
+---
+
+<section class="wgi wgi-router" role="group" aria-label="Interactive: scan every block versus route to candidates"
+  data-mode="route" data-cap-scan={r.caption_scan} data-cap-route={r.caption_route}>
+  <div class="wgi-head">
+    <p class="wgi-title">Shard, then route — {blocks.toLocaleString()} genome blocks</p>
+    <span class="wgi-tag">Interactive</span>
+  </div>
+  <p class="wgi-caption" data-wgi-caption aria-live="polite">{r.caption_route}</p>
+
+  <div class="wgi-grid" aria-hidden="true">
+    {cells.map((i) => <div class={`wgi-blk ${cand.has(i) ? 'cand' : ''}`}></div>)}
+  </div>
+
+  <div class="wgi-controls">
+    <button type="button" class="wgi-btn" data-wgi-prev aria-label="Previous step">← Scan all</button>
+    <button type="button" class="wgi-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="wgi-btn" data-wgi-next aria-label="Next step">Route →</button>
+    <button type="button" class="wgi-btn" data-wgi-reset aria-label="Reset">↺ Reset</button>
+    <span class="wgi-pos" data-wgi-pos>1 / 2</span>
+  </div>
+
+  <div class="wgi-router-stats">
+    <span class="wgi-stat"><b>{r.scanMs} ms</b><span>scan every block</span></span>
+    <span class="wgi-stat"><b>{r.routedMs} ms</b><span>routed (median {r.medianSurvivors} of {blocks.toLocaleString()})</span></span>
+    <span class="wgi-stat"><b>{r.speedup}×</b><span>faster, genome-size-independent</span></span>
+  </div>
+
+  <noscript><style>.wgi-router .wgi-controls,.wgi-router .wgi-caption{display:none !important}</style></noscript>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.wgi-router')) {
+      const caps = [root.dataset.capScan || '', root.dataset.capRoute || ''];
+      mountStepper(root, {
+        total: 2,
+        interval: 1900,
+        onShow: (i) => { root.dataset.mode = i === 0 ? 'scan' : 'route'; },
+        caption: (i) => caps[i],
+      });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>

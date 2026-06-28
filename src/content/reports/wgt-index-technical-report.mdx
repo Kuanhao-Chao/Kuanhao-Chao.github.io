@@ -63,6 +63,9 @@ import rfigResolution from '../../assets/reports/wgt-index-technical-report/rfig
 import rfigQuery from '../../assets/reports/wgt-index-technical-report/rfig_query.png';
 import rfigScale from '../../assets/reports/wgt-index-technical-report/rfig_scale.png';
 import rfigAudit from '../../assets/reports/wgt-index-technical-report/rfig_audit.png';
+import WGIndexBuild from '../../components/WGIndexBuild.astro';
+import WGIndexQuery from '../../components/WGIndexQuery.astro';
+import WGIndexRouter from '../../components/WGIndexRouter.astro';
 
 *Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Code: [github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit](https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit) (the index lives under `index/`).*
 
@@ -125,6 +128,10 @@ Holding a full sampled suffix array per block is wasteful when a query has many 
   <strong>Figure 2.</strong> How a query resolves species **and** position over the multi-string BWT. The distinct separators (gray, sorting below the DNA alphabet) keep documents apart, so the backward-search interval $[\mathrm{lo},\mathrm{hi})$ is *exactly* the occurrences and never crosses a species boundary. The document array reads off the species; the toehold-plus-$\varphi$ r-index locate reads off the position, which the coordinate transform maps to a genomic interval on the correct strand. The certificate (footer) is §3.
 </ZoomFigure>
 
+*Interactive — step through the construction on a two-species toy block ($S_0=$ `ACGAC`, $S_1=$ `ACGTC`). Every array below is computed by the real index code; press **Play** or **Next** to watch the multi-string BWT take shape.*
+
+<WGIndexBuild />
+
 ## 3. The order is a Wheeler order — certified
 
 The construction rests on a theorem: the **suffix-array rank** of a string (or multi-string) *is* a Wheeler order of its BWT-graph [2]. That is what lets us index the graph with FM-index machinery in the first place, and it is why the whole pipeline needs no solver at scale — the order comes for free from the suffix sort.
@@ -150,6 +157,10 @@ A single Wheeler graph for the whole genome is not an option. The whole-genome m
 Sharding moves the cost to query time — a naive genome query would touch all 44,063 blocks — so the index adds a **sound w-mer router**. For each block we record the set of length-$w$ substrings its sequences contain; a global inverted map sends each $w$-mer to the blocks that contain it. A query intersects the maps of its own $w$-mers to get a small candidate set, then runs exact locate only there. The prefilter is **sound by construction**: if $P$ occurs in a block, *every* length-$w$ substring of $P$ occurs in that block, so a true container is never skipped; the per-block exact locate then removes any false survivors. The result is a query whose cost is independent of genome size — it scales with the number of blocks a pattern actually lands in, not with how many blocks exist (§6, §7).
 
 Two engineering pieces make this deployable. A **C++ port** (`index/cpp/wg_suffix`) reimplements the per-block backward search and locate; on a real block it runs **90× faster** than the Python reference (0.39 vs 35.3 µs per locate, 200k repetitions). And a **serialization** layer writes each block's arrays to disk, so the genome index is stored once and **loaded on demand**: keep the small router in memory, leave the 44k block indexes on disk, and pull only the blocks a query routes to. That is the architecture the human-scale projection (§9) requires.
+
+*Interactive — the genome as one cell per block. Toggle between scanning every block and routing to the candidates a query's w-mers select (chrI numbers, verbatim from the benchmark).*
+
+<WGIndexRouter />
 
 ## 6. How to query
 
@@ -208,6 +219,10 @@ index/cpp/wg_suffix block.fa --a 4 --l -1 --s 4 --info                       # n
 <ZoomFigure src={rfigQuery} alt="Three panels. Panel A, the suffix router on chrI (992 blocks), as log-scale bars: scanning all blocks 25.5 milliseconds per query, a per-block w-mer prefilter 2.78 milliseconds, and the global routed query 0.157 milliseconds — annotated 162 times faster, with a median of 2 of 992 blocks surviving. Panel B, a De Bruijn locate baseline as log-scale bars: naive scan 43.8 milliseconds, FM prefilter 7.22 milliseconds, routed k-mer 0.0214 milliseconds — annotated 2048 times. Panel C, the worked example: the pattern CATTACCC plotted as a species-by-position hit map, with dots for sacCer3, sacKud, sacMik, and sacPar across genomic positions, 9 hits over 4 species." variant="wide">
   <strong>Figure 4.</strong> Pattern matching — count, locate, and provenance. **(A)** The suffix router on chrI: routing a locate to its candidate blocks (median 2 of 992) is **162×** faster than scanning every block (0.157 vs 25.5 ms/query). **(B)** The same routing idea on a De Bruijn locate baseline (**2,048×** over a naive scan). **(C)** `CATTACCC` resolved to 9 occurrences across 4 species, each at its own genomic position and strand.
 </ZoomFigure>
+
+*Interactive — run backward search yourself on the toy block. Pick a preset (or type a short A/C/G/T pattern) and step the $[\mathrm{lo},\mathrm{hi})$ interval down to the rows that are the occurrences, each reading its species (DOC) and position (SA).*
+
+<WGIndexQuery />
 
 ## 7. Indexing the whole yeast genome
 
