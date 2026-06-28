@@ -1,0 +1,162 @@
+---
+/** Published LiftOn method: pair DNA- and protein-derived models at one locus. */
+import '../styles/lvz.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+const W = 760, H = 330;
+const C = { lift: '#4c78a8', mini: '#f58518', merge: '#54a24b', ref: '#2e6e5e', bad: '#d1495b' };
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+function label(text: string, y: number, color = 'var(--color-ink)') {
+  return `<text x="18" y="${y + 5}" class="lvz-tl" fill="${color}">${esc(text)}</text>`;
+}
+
+function axis(y: number, opacity = 1) {
+  return `<line x1="165" y1="${y}" x2="730" y2="${y}" stroke="var(--color-muted)" stroke-width="1.2" opacity="${opacity}"/>`;
+}
+
+function model(y: number, color: string, blocks: [number, number][], codingOnly = false, opacity = 1, dash = '') {
+  let out = axis(y, opacity * 0.75);
+  blocks.forEach(([x, w], i) => {
+    const edge = i === 0 || i === blocks.length - 1;
+    const h = codingOnly || !edge ? 22 : 12;
+    out += `<rect x="${x}" y="${y - h / 2}" width="${w}" height="${h}" rx="2" fill="${color}" fill-opacity="${opacity * 0.78}" stroke="${color}" stroke-width="1.4"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+  });
+  return out;
+}
+
+const main = [[188, 34], [286, 42], [405, 32], [492, 50]] as [number, number][];
+const neighbour = [[585, 28], [660, 34]] as [number, number][];
+const protein = [[200, 24], [288, 39], [406, 29], [497, 40]] as [number, number][];
+const readthrough = [[382, 28], [490, 38], [590, 30], [660, 30]] as [number, number][];
+
+function frame(opts: { liftoff?: boolean; miniprot?: boolean; filter?: boolean; paired?: boolean }) {
+  let s = '';
+  s += label('Reference model', 34, C.ref);
+  s += model(34, C.ref, main, false, 0.88);
+  s += label('Target loci', 92);
+  s += axis(92);
+  s += `<rect x="174" y="78" width="390" height="28" rx="4" fill="${C.ref}" fill-opacity="0.05" stroke="var(--color-rule)"/>`;
+  s += `<rect x="572" y="78" width="150" height="28" rx="4" fill="${C.ref}" fill-opacity="0.05" stroke="var(--color-rule)"/>`;
+
+  if (opts.liftoff) {
+    s += label('Liftoff · DNA', 150, C.lift);
+    s += model(150, C.lift, main, false);
+    s += model(150, C.lift, neighbour, false, 0.62);
+    s += `<text x="515" y="132" class="lvz-small">full transcript + UTR context</text>`;
+  }
+  if (opts.miniprot) {
+    s += label('miniprot · protein', 212, C.mini);
+    s += model(212, C.mini, protein, true);
+    s += `<text x="515" y="194" class="lvz-small">CDS only</text>`;
+    s += label('other candidate', 270, C.mini);
+    s += model(270, C.mini, readthrough, true, opts.filter ? 0.28 : 0.68, '5 3');
+  }
+  if (opts.filter) {
+    s += `<path d="M548 252 l18 18 M566 252 l-18 18" stroke="${C.bad}" stroke-width="3" stroke-linecap="round"/>`;
+    s += `<text x="625" y="302" class="lvz-small" fill="${C.bad}">rejected: spans two Liftoff loci</text>`;
+    s += `<rect x="176" y="131" width="385" height="101" rx="7" fill="none" stroke="${C.merge}" stroke-width="2" stroke-dasharray="5 4"/>`;
+  }
+  if (opts.paired) {
+    s += `<rect x="176" y="131" width="385" height="101" rx="7" fill="${C.merge}" fill-opacity="0.06" stroke="${C.merge}" stroke-width="2.4"/>`;
+    s += `<path d="M370 235 V290 H520" fill="none" stroke="${C.merge}" stroke-width="2"/>`;
+    s += `<text x="600" y="295" class="lvz-nt on" fill="${C.merge}">paired for protein maximization →</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" class="lvz-svg" role="img" aria-label="Liftoff and miniprot candidate pairing at a target locus" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+const steps = [
+  {
+    title: 'Start from one trusted reference model',
+    caption: 'LiftOn begins with a reference genome, its hierarchical annotation, and a target genome. Protein maximization is reserved for protein-coding transcripts; noncoding features remain on the DNA-based lift path.',
+    svg: frame({}),
+  },
+  {
+    title: 'Liftoff maps the annotation through DNA',
+    caption: 'Liftoff supplies the structural scaffold: gene, transcript, exon, CDS, and UTR context. It can also map additional copies while enforcing DNA identity and locus-overlap constraints.',
+    svg: frame({ liftoff: true }),
+  },
+  {
+    title: 'miniprot maps the reference protein',
+    caption: 'miniprot independently proposes splice-aware CDS models from protein evidence. These models can survive greater sequence divergence, but they contain coding sequence only and may be fragmented or map across nearby family members.',
+    svg: frame({ liftoff: true, miniprot: true }),
+  },
+  {
+    title: 'Reject ambiguous and read-through mappings',
+    caption: 'A miniprot transcript must overlap its Liftoff locus without crossing an unrelated Liftoff gene. If several miniprot mappings remain, LiftOn keeps the candidate with the highest reference-protein identity.',
+    svg: frame({ liftoff: true, miniprot: true, filter: true }),
+  },
+  {
+    title: 'Send the matched pair to protein maximization',
+    caption: 'Once a one-to-one correspondence is established, LiftOn compares both CDS models. If the Liftoff translation is already identical to the reference protein, the published algorithm has no coding error to repair.',
+    svg: frame({ liftoff: true, miniprot: true, paired: true }),
+  },
+];
+---
+
+<section
+  class="lvz lvz-pair"
+  role="group"
+  aria-label="Interactive: pairing Liftoff and miniprot annotations"
+  data-autoplay={autoPlay ? 'true' : undefined}
+  data-print-final-state="true"
+>
+  <div class="lvz-head">
+    <p class="lvz-title">Pair the two evidence tracks</p>
+    <span class="lvz-tag">Interactive · illustrative</span>
+  </div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0].caption}</p>
+
+  {steps.map((step, i) => (
+    <div
+      class="lvz-step"
+      data-wgi-step
+      data-print-final={i === steps.length - 1 ? 'true' : undefined}
+      data-caption={step.caption}
+      hidden={i !== 0}
+    >
+      <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{step.title}</p>
+      <div class="lvz-fig" set:html={step.svg} />
+    </div>
+  ))}
+
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Reset to first step">↺ Reset</button>
+    <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
+  </div>
+
+  <div class="lvz-legend">
+    <span><span class="lvz-sw" style={`background:${C.lift}`}></span>Liftoff (DNA)</span>
+    <span><span class="lvz-sw" style={`background:${C.mini}`}></span>miniprot (protein)</span>
+    <span><span class="lvz-sw" style={`background:${C.merge}`}></span>accepted pair</span>
+  </div>
+
+  <noscript><style>{`.lvz-pair .lvz-step[hidden]{display:block !important}.lvz-pair .lvz-controls,.lvz-pair .lvz-caption{display:none !important}`}</style></noscript>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.lvz-pair')) {
+      const steps = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      const captions = steps.map((step) => step.dataset.caption || '');
+      mountStepper(root, {
+        total: steps.length,
+        onShow: (i) => steps.forEach((step, k) => {
+          const current = k === i;
+          step.hidden = !current;
+          step.setAttribute('aria-current', current ? 'step' : 'false');
+        }),
+        caption: (i) => captions[i],
+        autoPlay: root.dataset.autoplay === 'true',
+      });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>

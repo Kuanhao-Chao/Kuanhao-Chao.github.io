@@ -26,7 +26,10 @@ references:
     doi: 'https://doi.org/10.1126/science.abj6987'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
-import figAlgorithm from '../../assets/posts/lifton/lifton-algorithm.png';
+import LiftOnPairing from '../../components/LiftOnPairing.astro';
+import LiftOnChaining from '../../components/LiftOnChaining.astro';
+import LiftOnORF from '../../components/LiftOnORF.astro';
+import LiftOnCopies from '../../components/LiftOnCopies.astro';
 import figVsBoth from '../../assets/posts/lifton/lifton-vs-both.png';
 import figExtraCopies from '../../assets/posts/lifton/lifton-extra-copies.png';
 import figFixes from '../../assets/posts/lifton/lifton-fixes.png';
@@ -48,22 +51,50 @@ But protein alignment has its own blind spots. It only sees coding sequence, so 
 
 The insight behind LiftOn is simple: **DNA alignment and protein alignment fail in different ways.** Where one is weak, the other is often strong. So instead of choosing one source, LiftOn pairs them at the same locus, lets each contribute the coding segments it supports best, and uses the reference protein as the scoring target. I built LiftOn on that idea in Steven Salzberg's and Mihaela Pertea's groups at Johns Hopkins — the same place Liftoff was born, with Liftoff's own author on the team.
 
-## What LiftOn is
+## How LiftOn combines the evidence
 
-LiftOn is a homology-based annotation lift-over algorithm, implemented as open-source software, that runs Liftoff and miniprot and then reconciles their two annotations with a two-step **protein-maximization (PM)** algorithm. For each protein-coding locus, it asks a concrete question: which combination of the available CDS evidence best reproduces the reference protein?
+LiftOn is a homology-based annotation lift-over algorithm, implemented as open-source software, that runs Liftoff and miniprot and reconciles their annotations around one explicit objective: preserve as much of the reference protein as possible without discarding the broader structure supplied by DNA alignment. The workflow is not a vote between two finished annotations. It pairs corresponding models, compares them in reference-protein coordinates, constructs a new CDS chain, checks alternative open reading frames, and then controls where additional copies may be placed.
 
-<ZoomFigure src={figAlgorithm} alt="LiftOn's protein-maximization algorithm: a chaining step (panels A–E) that combines Liftoff and miniprot annotations, and an open-reading-frame search (panels F–K) that repairs frameshifts, premature stops, and lost start codons." variant="wide">
-  <strong>Figure 1.</strong> The protein-maximization algorithm. <strong>(left, A–E)</strong> The <em>chaining</em> step: for a gene mapped by both Liftoff (green) and miniprot (orange), LiftOn aligns each version's protein back to the reference, maps CDS boundaries onto those alignments, and chains together the CDS groups with higher partial protein identity. <strong>(right, F–K)</strong> The <em>ORF search</em> step then adjusts the coding region when frameshifts, premature stops, stop-codon loss, or start-codon loss prevent the mapped transcript from preserving the reference protein.
-</ZoomFigure>
+### 1. Map and pair the two annotations
 
-The first step, **chaining**, starts after LiftOn pairs a Liftoff transcript with a miniprot transcript at the same locus. It aligns each translated candidate back to the full-length reference protein, maps each CDS boundary onto the protein alignment, and groups CDSs by how many reference amino acids they cover. Within each group, LiftOn keeps the Liftoff or miniprot segment with the higher partial protein identity, with ties favoring Liftoff so UTR structure is retained when the protein evidence is equivalent. The second step, the **ORF search**, is applied when the coding sequence still contains a damaging mutation pattern: LiftOn searches reading frames and CDS boundaries for the ORF that best preserves the reference protein. Along the way it also filters problematic multi-mappings, resolves overlapping loci, and looks for extra gene copies that exist in the target genome but are not captured by a strict one-to-one lift.
+Liftoff first maps the reference annotation hierarchy through DNA alignment, including genes, transcripts, exons, CDS features, and UTR context. miniprot independently maps each reference protein to the target genome and produces CDS-only transcript models. LiftOn pairs a miniprot transcript with a Liftoff transcript when their loci overlap and the protein mapping does not cross an unrelated Liftoff gene. Read-through mappings that span multiple loci are rejected; when several protein mappings remain for one transcript, LiftOn selects the one with the highest reference-protein identity.
+
+This pairing step is also an important boundary on what protein maximization does. It operates on matched **protein-coding transcripts**. Noncoding genes and other features have no reference protein to optimize, so they remain on the DNA-based transfer path. If the Liftoff translation is already identical to the reference protein, the published algorithm has no coding discrepancy to repair.
+
+<LiftOnPairing autoPlay />
+
+### 2. Synchronize and chain the CDS groups
+
+For a matched pair, LiftOn translates both candidate CDS models and globally aligns each protein to the full-length reference protein. It then projects every CDS boundary onto those protein alignments. Starting at the 5′ end, the algorithm walks both CDS lists until Liftoff and miniprot have consumed the same cumulative number of reference amino acids. Those shared endpoints delimit directly comparable chunks, even when one source uses one CDS and the other uses several to cover the same reference interval.
+
+Within each chunk, LiftOn calculates partial protein identity and keeps the higher-scoring source. An exact tie goes to Liftoff, preserving the DNA-derived structure when protein evidence offers no improvement. Concatenating the selected chunks creates a new CDS model assembled from the strongest local evidence rather than choosing either input wholesale.
+
+<LiftOnChaining mode="published" autoPlay />
+
+### 3. Search for a better open reading frame
+
+Chaining can still leave a frameshift, premature stop, lost stop codon, or lost start codon. For transcripts with these damaging patterns, LiftOn scans the spliced transcript in all three reading frames. It retains the longest valid ORF from each frame, translates those candidates, aligns each one to the reference protein, and selects the highest-identity candidate. The CDS boundaries are updated only when that ORF improves on the current annotation.
+
+This search changes the annotation, not the underlying genome. Depending on the mutation, the best supported CDS may stop earlier, begin at a downstream start, extend into the 3′ UTR to reach a new stop, or begin upstream in the 5′ UTR. The mutation selector below shows how the same search rule handles each case.
+
+<LiftOnORF autoPlay />
+
+### 4. Resolve overlaps and recover additional copies
+
+A one-to-one transfer is not enough when the target contains duplicated genes. LiftOn lets Liftoff search for DNA-supported copies first because DNA mapping can preserve UTRs and the full feature hierarchy. New loci must satisfy the requested sequence-identity threshold and may overlap existing genes only where that overlap exists in the reference or remains within the allowed 10%.
+
+LiftOn then considers protein mappings that Liftoff missed. These miniprot-only candidates face stricter safeguards: at most 10% overlap with accepted loci; a single CDS only when the reference transcript is also single-CDS; and a coding-length ratio between 0.9 and 1.5 relative to the reference gene's longest isoform. An accepted protein-only copy receives a reconstructed gene–mRNA–CDS hierarchy, but no UTRs, because protein alignment does not define them. Noncoding copies therefore depend on Liftoff.
+
+<LiftOnCopies autoPlay />
+
+Together, these stages explain what “combining DNA and protein evidence” means operationally. DNA supplies location and transcript structure; protein supplies a conserved scoring coordinate; LiftOn makes each replacement or addition under an explicit rule rather than blending the signals into an opaque consensus.
 
 ## What it showed
 
 **It improves where the two inputs disagree.** The first test was the human genome itself: lifting [RefSeq release 220 (O'Leary et al., 2016)](https://doi.org/10.1093/nar/gkv1189) from GRCh38 onto the complete telomere-to-telomere assembly, [T2T-CHM13 (Nurk et al., 2022)](https://doi.org/10.1126/science.abj6987). LiftOn mapped 37,828 of 37,986 genes, a 99.6% gene mapping rate, while the protein-coding transcript analysis showed the central reason for combining evidence: Liftoff and miniprot often made different errors, and LiftOn usually matched or improved on each input by reference-protein identity.
 
 <ZoomFigure src={figVsBoth} alt="Three scatter plots of per-transcript protein sequence identity for transcripts lifted from GRCh38 to T2T-CHM13: miniprot vs Liftoff, LiftOn vs Liftoff, and LiftOn vs miniprot." variant="wide">
-  <strong>Figure 2.</strong> LiftOn compared with its two evidence sources. Each dot is a protein-coding transcript lifted from GRCh38 to T2T-CHM13, plotted by gap-compressed protein sequence identity. <strong>(A)</strong> miniprot vs Liftoff — neither method dominates the other. <strong>(B, C)</strong> LiftOn vs Liftoff, and LiftOn vs miniprot — most points sit on or above the diagonal, meaning the protein-maximization algorithm usually matches or improves on each input.
+  <strong>Figure 1.</strong> LiftOn compared with its two evidence sources. Each dot is a protein-coding transcript lifted from GRCh38 to T2T-CHM13, plotted by gap-compressed protein sequence identity. <strong>(A)</strong> miniprot vs Liftoff — neither method dominates the other. <strong>(B, C)</strong> LiftOn vs Liftoff, and LiftOn vs miniprot — most points sit on or above the diagonal, meaning the protein-maximization algorithm usually matches or improves on each input.
 </ZoomFigure>
 
 That last point is the whole game. Panel A shows that Liftoff and miniprot genuinely disagree — for many transcripts, one preserves the protein better where the other does not. Panels B and C show what the algorithm gains from that disagreement: LiftOn improved 866 protein-coding transcripts over Liftoff, with 113 of those reaching 100% protein identity, and improved 30,266 over miniprot, with 22,746 reaching 100% identity. By combining the two annotations, LiftOn is not averaging them; it is selecting the better-supported CDS segments under a reference-protein objective.
@@ -71,13 +102,13 @@ That last point is the whole game. Panel A shows that Liftoff and miniprot genui
 **It finds gene copies that a one-to-one map would miss.** Because T2T-CHM13 is *complete* — it fills in the repetitive, duplicated regions that earlier assemblies left as gaps — it actually contains extra copies of some genes. A strict one-to-one lift-over can't represent those; LiftOn looks for them explicitly, and found extra copies of 86 protein-coding genes, adding 320 new gene loci.
 
 <ZoomFigure src={figExtraCopies} alt="A Circos plot in which ribbons connect each gene's original copy to an additional copy LiftOn placed on the complete T2T-CHM13 assembly, colored by chromosome." variant="landscape">
-  <strong>Figure 3.</strong> Extra gene copies LiftOn recovered in T2T-CHM13. Each ribbon connects an original gene copy to an additional copy LiftOn placed on the complete T2T-CHM13 assembly, colored by the chromosome of the original. In the paper, LiftOn identified 86 protein-coding genes with at least one extra copy, for 320 additional protein-coding gene loci.
+  <strong>Figure 2.</strong> Extra gene copies LiftOn recovered in T2T-CHM13. Each ribbon connects an original gene copy to an additional copy LiftOn placed on the complete T2T-CHM13 assembly, colored by the chromosome of the original. In the paper, LiftOn identified 86 protein-coding genes with at least one extra copy, for 320 additional protein-coding gene loci.
 </ZoomFigure>
 
 **It improves the published T2T-CHM13 annotation in specific cases.** Some of the most striking results are not comparisons against Liftoff or miniprot at all. They are comparisons with the current T2T-CHM13 annotation on chromosomes 1-22 and X, where LiftOn produced 665 protein-coding transcripts with higher protein identity to the corresponding GRCh38 proteins.
 
 <ZoomFigure src={figFixes} alt="Four genes — SIRPB1, OAZ3, EPHA2, and CYP4B1 — where LiftOn (blue) corrects the current T2T-CHM13 annotation (red), with DNA and protein identity rising sharply in each case." variant="landscape">
-  <strong>Figure 4.</strong> Four genes where LiftOn improves the current T2T-CHM13 annotation (red = existing annotation, blue = LiftOn). <strong>(A)</strong> <em>SIRPB1</em>: LiftOn recovers three coding exons the current annotation omits, raising DNA identity from 81% to 98%. <strong>(B)</strong> <em>OAZ3</em>: a truncated protein is repaired, from 5.42% to 100% protein identity. <strong>(C)</strong> <em>EPHA2</em>: a wrong start codon is replaced, from 2.4% to 98.7%. <strong>(D)</strong> <em>CYP4B1</em>: an 11-nucleotide donor-site shift fixes a frameshift, from 53% to 99%.
+  <strong>Figure 3.</strong> Four genes where LiftOn improves the current T2T-CHM13 annotation (red = existing annotation, blue = LiftOn). <strong>(A)</strong> <em>SIRPB1</em>: LiftOn recovers three coding exons the current annotation omits, raising DNA identity from 81% to 98%. <strong>(B)</strong> <em>OAZ3</em>: a truncated protein is repaired, from 5.42% to 100% protein identity. <strong>(C)</strong> <em>EPHA2</em>: a wrong start codon is replaced, from 2.4% to 98.7%. <strong>(D)</strong> <em>CYP4B1</em>: an 11-nucleotide donor-site shift fixes a frameshift, from 53% to 99%.
 </ZoomFigure>
 
 In each example, the existing annotation had a concrete protein-coding problem — missing exons, a truncated protein, the wrong start codon, or a frameshift — and LiftOn's protein-maximizing search produced a model with much higher fidelity to the GRCh38 reference protein. The broader comparison matters here: these four examples illustrate a larger set of 665 CHM13 protein-coding transcripts where LiftOn had higher protein identity than the published annotation under the paper's evaluation.
@@ -85,7 +116,7 @@ In each example, the existing annotation had a concrete protein-coding problem �
 **And it holds up across species.** The real motivation, though, was distance — annotating genomes that aren't just another assembly of the same species. So we pushed LiftOn outward: human to chimpanzee, fruit fly to a different fruit fly (*Drosophila melanogaster* to *D. erecta*), and mouse to rat. The mouse-to-rat jump is the hardest of these, with tens of millions of years between the two.
 
 <ZoomFigure src={figCrossSpecies} alt="LiftOn across three species pairs — human to chimpanzee, fly to fly, and mouse to rat — with gene-order dot plots, 3-D protein-identity comparisons, and identity histograms for Liftoff, miniprot, and LiftOn." variant="wide">
-  <strong>Figure 5.</strong> LiftOn across widening evolutionary distance: human→chimpanzee <strong>(A)</strong>, fly→fly <strong>(B)</strong>, and mouse→rat <strong>(C)</strong>. For each pair, the dot plot <strong>(a)</strong> shows the lifted genes preserve gene order and identity; the 3-D plot <strong>(b)</strong> compares per-transcript protein identity for Liftoff, miniprot, and LiftOn (points above the plane = LiftOn wins); and the histograms <strong>(c)</strong> show LiftOn's identity distribution shifted toward "identical" relative to either tool alone.
+  <strong>Figure 4.</strong> LiftOn across widening evolutionary distance: human→chimpanzee <strong>(A)</strong>, fly→fly <strong>(B)</strong>, and mouse→rat <strong>(C)</strong>. For each pair, the dot plot <strong>(a)</strong> shows the lifted genes preserve gene order and identity; the 3-D plot <strong>(b)</strong> compares per-transcript protein identity for Liftoff, miniprot, and LiftOn (points above the plane = LiftOn wins); and the histograms <strong>(c)</strong> show LiftOn's identity distribution shifted toward "identical" relative to either tool alone.
 </ZoomFigure>
 
 The pattern held, with the largest gains appearing in the more divergent examples tested in the paper. For mouse to rat, LiftOn improved 15,420 protein-coding transcripts over Liftoff and 30,574 over miniprot, mapped 94.3% of genes, and left far fewer protein-coding transcripts below the 40% identity threshold than either tool alone. In the closer human-to-chimpanzee experiment, LiftOn mapped 98.7% of genes; in the same-species lift-overs, honeybee reached 99.6%, rice reached 99.9%, and *Arabidopsis* reached 99.2% at the gene level.
