@@ -1,0 +1,236 @@
+---
+/** Published LiftOn method: search alternative ORFs after CDS chaining. */
+import '../styles/lvz.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+const W = 760, H = 300;
+const C = { current: '#4c78a8', candidate: '#f58518', chosen: '#54a24b', ref: '#2e6e5e', bad: '#d1495b' };
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+type Scenario = {
+  id: string;
+  label: string;
+  trigger: string;
+  result: string;
+  scores: [number, number, number];
+  selected: number;
+};
+
+const scenarios: Scenario[] = [
+  { id: 'frameshift', label: 'Frameshift', trigger: '1-nt indel creates an early stop', result: 'select the frame whose ORF best matches the reference', scores: [42, 96, 61], selected: 1 },
+  { id: 'stop-gain', label: 'Stop codon gain', trigger: 'a point mutation truncates translation', result: 'a downstream start can produce the better reference match', scores: [58, 91, 63], selected: 1 },
+  { id: 'stop-loss', label: 'Stop codon loss', trigger: 'the annotated stop is no longer present', result: 'extend into the 3′ UTR until a valid stop is found', scores: [98, 54, 47], selected: 0 },
+  { id: 'start-loss', label: 'Start codon loss', trigger: 'the annotated start is no longer present', result: 'compare upstream and downstream starts by protein identity', scores: [84, 97, 52], selected: 1 },
+];
+
+function exon(x: number, y: number, w: number, fill: string, h = 22, opacity = 0.82) {
+  return `<rect x="${x}" y="${y - h / 2}" width="${w}" height="${h}" rx="2" fill="${fill}" fill-opacity="${opacity}" stroke="${fill}" stroke-width="1.3"/>`;
+}
+
+function transcript(y: number, scenario: Scenario, corrected = false) {
+  const color = corrected ? C.chosen : C.current;
+  let s = `<line x1="165" y1="${y}" x2="715" y2="${y}" stroke="var(--color-muted)" stroke-width="1.2"/>`;
+  s += exon(175, y, 48, color, corrected && scenario.id === 'start-loss' ? 22 : 12, corrected ? 0.82 : 0.62);
+  s += exon(285, y, 54, color);
+  s += exon(430, y, corrected && scenario.id === 'stop-loss' ? 150 : 86, color);
+  s += exon(650, y, 48, color, corrected && scenario.id === 'stop-loss' ? 22 : 12, corrected ? 0.82 : 0.62);
+
+  const startX = corrected && scenario.id === 'start-loss' ? 186 : corrected && scenario.id === 'stop-gain' ? 295 : 288;
+  const stopX = corrected && scenario.id === 'stop-loss' ? 674 : 505;
+  s += `<text x="${startX}" y="${y + 5}" class="lvz-in" fill="var(--color-ink)">M</text>`;
+  s += `<text x="${stopX}" y="${y + 5}" class="lvz-in" fill="${corrected ? C.chosen : C.bad}">*</text>`;
+
+  if (!corrected) {
+    if (scenario.id === 'frameshift') {
+      s += `<rect x="455" y="${y - 13}" width="17" height="26" rx="2" fill="var(--color-bg)" stroke="${C.bad}" stroke-dasharray="3 2"/>`;
+      s += `<text x="463" y="${y + 4}" class="lvz-small" fill="${C.bad}">+1</text>`;
+    }
+    if (scenario.id === 'stop-gain') s += `<text x="448" y="${y - 18}" class="lvz-small" fill="${C.bad}">early stop</text>`;
+    if (scenario.id === 'stop-loss') s += `<path d="M496 ${y - 16} l16 16 M512 ${y - 16} l-16 16" stroke="${C.bad}" stroke-width="2.5"/>`;
+    if (scenario.id === 'start-loss') s += `<path d="M280 ${y - 16} l16 16 M296 ${y - 16} l-16 16" stroke="${C.bad}" stroke-width="2.5"/>`;
+  }
+  return s;
+}
+
+function candidate(frame: number, y: number, score: number, selected: boolean, scored: boolean) {
+  const lengths = [330, 410, 270];
+  const x = 205;
+  const color = selected ? C.chosen : C.candidate;
+  let s = `<text x="150" y="${y + 5}" class="lvz-tl">Frame ${frame}</text>`;
+  s += `<rect x="${x}" y="${y - 12}" width="${lengths[frame]}" height="24" rx="3" fill="${color}" fill-opacity="${selected ? 0.25 : 0.12}" stroke="${color}" stroke-width="${selected ? 2.5 : 1.2}"/>`;
+  s += `<text x="${x + 12}" y="${y + 5}" class="lvz-in" fill="var(--color-ink)">M</text>`;
+  s += `<text x="${x + lengths[frame] - 13}" y="${y + 5}" class="lvz-in" fill="${color}">*</text>`;
+  if (scored) s += `<text x="650" y="${y + 5}" class="lvz-nt ${selected ? 'on' : ''}" fill="${color}">${score}%${selected ? ' ✓' : ''}</text>`;
+  return s;
+}
+
+function frame(scenario: Scenario, step: number) {
+  let s = `<text x="18" y="28" class="lvz-tl" fill="${C.current}">Current chained CDS</text>`;
+  s += transcript(56, scenario, false);
+  s += `<text x="380" y="92" class="lvz-small" fill="${C.bad}">${esc(scenario.trigger)}</text>`;
+
+  if (step >= 1 && step < 4) {
+    s += `<text x="18" y="135" class="lvz-tl" fill="${C.candidate}">Candidate ORFs</text>`;
+    scenario.scores.forEach((score, i) => {
+      s += candidate(i, 145 + i * 45, score, step >= 3 && i === scenario.selected, step >= 3);
+    });
+  }
+  if (step === 2) s += `<text x="380" y="286" class="lvz-small">retain the longest valid ORF from each frame</text>`;
+  if (step === 3) s += `<text x="380" y="286" class="lvz-small">align each candidate to the full reference protein</text>`;
+
+  if (step >= 4) {
+    s += `<text x="18" y="153" class="lvz-tl" fill="${C.chosen}">Selected CDS boundaries</text>`;
+    s += transcript(182, scenario, true);
+    s += `<path d="M380 104 V142" stroke="${C.chosen}" stroke-width="2"/>`;
+    s += `<text x="380" y="242" class="lvz-nt on" fill="${C.chosen}">${esc(scenario.result)}</text>`;
+    s += `<text x="380" y="270" class="lvz-small">adopt only when reference-protein identity improves</text>`;
+  }
+  if (step === 0) {
+    const cards = [
+      { id: 'frameshift', label: 'frameshift' },
+      { id: 'stop-gain', label: 'stop gain' },
+      { id: 'stop-loss', label: 'stop loss' },
+      { id: 'start-loss', label: 'start loss' },
+    ];
+    cards.forEach((card, i) => {
+      const x = 170 + i * 142;
+      s += `<rect x="${x}" y="142" width="124" height="54" rx="5" fill="var(--color-bg)" stroke="${scenario.id === card.id ? C.bad : 'var(--color-rule)'}"/>`;
+      s += `<text x="${x + 62}" y="174" class="lvz-nt">${card.label}</text>`;
+    });
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" class="lvz-svg" role="img" aria-label="Open reading frame search for ${esc(scenario.label)}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+const stepText = [
+  ['Identify a damaging coding pattern', 'ORF search is triggered for coding disruptions such as frameshifts, stop-codon gain or loss, and start-codon loss. The nucleotide change is not erased; LiftOn asks whether different CDS boundaries preserve more of the reference protein.'],
+  ['Scan all three reading frames', 'LiftOn scans the spliced transcript in reading frames 0, 1, and 2, locating start codons and their corresponding stop codons.'],
+  ['Keep the longest ORF from each frame', 'Within each reading frame, the longest valid open reading frame becomes that frame’s candidate. At most three candidates proceed to protein comparison.'],
+  ['Score every candidate against the reference protein', 'Each candidate is translated and aligned to the full-length reference protein. The candidate with the highest protein sequence identity is selected.'],
+  ['Patch the CDS boundaries only when the model improves', 'If the selected ORF exceeds the original model’s reference-protein identity, LiftOn maps its start and stop back through the strand-aware exon coordinates and updates the CDS boundaries.'],
+] as const;
+---
+
+<section
+  class="lvz lvz-orf"
+  role="group"
+  aria-label="Interactive: LiftOn open reading frame search"
+  data-autoplay={autoPlay ? 'true' : undefined}
+  data-print-final-state="true"
+>
+  <div class="lvz-head">
+    <p class="lvz-title">Repair the open reading frame</p>
+    <label class="lvz-scenario">
+      <span>Mutation example</span>
+      <select data-orf-select>
+        {scenarios.map((scenario) => <option value={scenario.id}>{scenario.label}</option>)}
+      </select>
+    </label>
+  </div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{stepText[0][1]}</p>
+
+  {scenarios.map((scenario, scenarioIndex) => (
+    <div data-orf-scenario={scenario.id} hidden={scenarioIndex !== 0}>
+      <p class="lvz-print-scenario">{scenario.label}</p>
+      {stepText.map(([title, caption], i) => (
+        <div
+          class="lvz-step"
+          data-wgi-step
+          data-print-final={i === stepText.length - 1 ? 'true' : undefined}
+          data-caption={caption}
+          hidden={i !== 0}
+        >
+          <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{title}</p>
+          <div class="lvz-fig" set:html={frame(scenario, i)} />
+        </div>
+      ))}
+    </div>
+  ))}
+
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Reset to first step">↺ Reset</button>
+    <span class="lvz-pos" data-wgi-pos>1 / {stepText.length}</span>
+  </div>
+
+  <div class="lvz-legend">
+    <span><span class="lvz-sw" style={`background:${C.current}`}></span>current CDS</span>
+    <span><span class="lvz-sw" style={`background:${C.candidate}`}></span>candidate ORF</span>
+    <span><span class="lvz-sw" style={`background:${C.chosen}`}></span>selected ORF</span>
+    <span><span class="lvz-sw" style={`background:${C.bad}`}></span>damaging change</span>
+  </div>
+
+  <noscript><style>{`.lvz-orf [data-orf-scenario]:not(:first-of-type){display:none!important}.lvz-orf [data-wgi-step][hidden]{display:block!important}.lvz-orf .lvz-controls,.lvz-orf .lvz-caption{display:none!important}`}</style></noscript>
+</section>
+
+<style>
+  .lvz-scenario {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-muted);
+    font-size: var(--fs-meta);
+  }
+  .lvz-scenario select {
+    min-width: 9.5rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    padding: 0.35rem 1.8rem 0.35rem 0.55rem;
+    font: inherit;
+  }
+  .lvz-print-scenario { display: none; }
+  @media (max-width: 560px) {
+    .lvz-orf .lvz-head { align-items: stretch; flex-direction: column; }
+    .lvz-scenario { justify-content: space-between; }
+  }
+</style>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.lvz-orf')) {
+      if (root.dataset.orfReady === 'true') continue;
+      root.dataset.orfReady = 'true';
+      const groups = Array.from(root.querySelectorAll<HTMLElement>('[data-orf-scenario]'));
+      const select = root.querySelector<HTMLSelectElement>('[data-orf-select]');
+      let active = select?.value || groups[0]?.dataset.orfScenario || '';
+      let current = 0;
+
+      const activeSteps = () => {
+        const group = groups.find((item) => item.dataset.orfScenario === active);
+        return Array.from(group?.querySelectorAll<HTMLElement>('[data-wgi-step]') || []);
+      };
+      const show = (i: number) => {
+        current = i;
+        groups.forEach((group) => {
+          const on = group.dataset.orfScenario === active;
+          group.hidden = !on;
+          Array.from(group.querySelectorAll<HTMLElement>('[data-wgi-step]')).forEach((step, k) => {
+            const selected = on && k === i;
+            step.hidden = !selected;
+            step.setAttribute('aria-current', selected ? 'step' : 'false');
+          });
+        });
+      };
+
+      const api = mountStepper(root, {
+        total: activeSteps().length,
+        onShow: show,
+        caption: (i) => activeSteps()[i]?.dataset.caption || '',
+        autoPlay: root.dataset.autoplay === 'true',
+      });
+      select?.addEventListener('change', () => {
+        api?.stop();
+        active = select.value;
+        api?.show(current);
+      });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>

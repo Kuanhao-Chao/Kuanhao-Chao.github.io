@@ -8,6 +8,7 @@ export interface StepperOpts {
   onShow: (i: number) => void;
   caption?: (i: number) => string;
   interval?: number;
+  autoPlay?: boolean;
 }
 
 export interface StepperApi {
@@ -29,6 +30,9 @@ export function mountStepper(root: HTMLElement, opts: StepperOpts): StepperApi |
   let step = 0;
   let timer = 0;
   let total = Math.max(1, opts.total);
+  let observer: IntersectionObserver | null = null;
+  let autoStarted = false;
+  let resumeWhenVisible = false;
 
   const setPlay = (on: boolean) => btn('play')?.setAttribute('aria-pressed', on ? 'true' : 'false');
 
@@ -49,6 +53,7 @@ export function mountStepper(root: HTMLElement, opts: StepperOpts): StepperApi |
   function play() {
     if (reduce.matches) { show(total - 1); return; } // honor reduced motion: jump to the end
     stop();
+    if (step >= total - 1) show(0);
     setPlay(true);
     timer = window.setInterval(() => {
       if (step >= total - 1) { stop(); return; }
@@ -56,19 +61,26 @@ export function mountStepper(root: HTMLElement, opts: StepperOpts): StepperApi |
     }, opts.interval ?? 1600);
   }
 
-  btn('prev')?.addEventListener('click', () => { stop(); show(step - 1); });
-  btn('next')?.addEventListener('click', () => { stop(); show(step + 1); });
-  btn('reset')?.addEventListener('click', () => { stop(); show(0); });
-  btn('play')?.addEventListener('click', () => (timer ? stop() : play()));
+  const takeControl = () => {
+    autoStarted = true;
+    resumeWhenVisible = false;
+  };
 
-  root.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'ArrowRight') { stop(); show(step + 1); e.preventDefault(); }
-    else if (e.key === 'ArrowLeft') { stop(); show(step - 1); e.preventDefault(); }
-    else if (e.key === 'Home') { stop(); show(0); e.preventDefault(); }
-    else if (e.key === 'End') { stop(); show(total - 1); e.preventDefault(); }
+  btn('prev')?.addEventListener('click', () => { takeControl(); stop(); show(step - 1); });
+  btn('next')?.addEventListener('click', () => { takeControl(); stop(); show(step + 1); });
+  btn('reset')?.addEventListener('click', () => { takeControl(); stop(); show(0); });
+  btn('play')?.addEventListener('click', () => {
+    takeControl();
+    if (timer) stop();
+    else play();
   });
 
-  document.addEventListener('astro:before-swap', stop, { once: true });
+  root.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'ArrowRight') { takeControl(); stop(); show(step + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { takeControl(); stop(); show(step - 1); e.preventDefault(); }
+    else if (e.key === 'Home') { takeControl(); stop(); show(0); e.preventDefault(); }
+    else if (e.key === 'End') { takeControl(); stop(); show(total - 1); e.preventDefault(); }
+  });
 
   const api: StepperApi = {
     show, stop,
@@ -77,5 +89,40 @@ export function mountStepper(root: HTMLElement, opts: StepperOpts): StepperApi |
   };
   (root as any)._wgi = api;
   show(0);
+
+  if (opts.autoPlay && !reduce.matches) {
+    if (typeof IntersectionObserver === 'undefined') {
+      autoStarted = true;
+      play();
+    } else {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry?.isIntersecting) {
+            if (!autoStarted) {
+              autoStarted = true;
+              play();
+            } else if (resumeWhenVisible && step < total - 1) {
+              resumeWhenVisible = false;
+              play();
+            }
+          } else if (timer) {
+            stop();
+            resumeWhenVisible = true;
+          }
+        },
+        { threshold: 0.25 }
+      );
+      observer.observe(root);
+    }
+  }
+
+  document.addEventListener(
+    'astro:before-swap',
+    () => {
+      stop();
+      observer?.disconnect();
+    },
+    { once: true }
+  );
   return api;
 }
