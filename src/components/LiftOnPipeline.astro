@@ -1,0 +1,116 @@
+---
+/**
+ * LiftOnPipeline.astro — interactive walkthrough of the LiftOn pipeline
+ * (lifton/lifton.py::run_all_lifton_steps). A fixed node-graph of the stages;
+ * the stepper highlights one stage at a time (done = ✓, upcoming = faint).
+ * Server-renders every step; mountStepper toggles visibility. No-JS shows all.
+ */
+import '../styles/lvz.css';
+const W = 760, H = 500;
+const C = { lift: '#4c78a8', mini: '#f58518', merge: '#54a24b' };
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+type Node = { id: string; cx: number; cy: number; w: number; h: number; step: number; lines: string[]; color?: string };
+const N: Node[] = [
+  { id: 'inputs', cx: 380, cy: 34, w: 620, h: 40, step: 0, lines: ['Reference genome R + annotation R_A   ·   Target genome T'] },
+  { id: 'extract', cx: 380, cy: 104, w: 560, h: 46, step: 1, lines: ['Steps 1–3 · build reference DB, then extract', 'transcript + protein FASTA from the reference'] },
+  { id: 'liftoff', cx: 200, cy: 182, w: 300, h: 48, step: 2, color: C.lift, lines: ['Step 4 · Liftoff', 'DNA-level lift (minimap2) → CDS'] },
+  { id: 'miniprot', cx: 560, cy: 182, w: 300, h: 48, step: 2, color: C.mini, lines: ['Step 4 · miniprot', 'protein-level lift → CDS'] },
+  { id: 'align', cx: 380, cy: 262, w: 560, h: 46, step: 3, lines: ['Step 7 · parasail-align both candidate', 'CDS sets to the reference protein'] },
+  { id: 'chain', cx: 152, cy: 336, w: 190, h: 46, step: 4, lines: ['chaining merge', '(Fig 9)'] },
+  { id: 'orf', cx: 380, cy: 336, w: 160, h: 46, step: 5, lines: ['ORF', 'rescue'] },
+  { id: 'best', cx: 608, cy: 336, w: 200, h: 46, step: 6, lines: ['best-of-', 'outcome'] },
+  { id: 'rescue', cx: 380, cy: 410, w: 560, h: 46, step: 7, lines: ['Step 8 · miniprot-only rescue —', 'genes the DNA lift missed entirely'] },
+  { id: 'output', cx: 380, cy: 472, w: 600, h: 40, step: 8, color: C.merge, lines: ['Target annotation T_A   +   completeness / identity report'] },
+];
+const CONN = [
+  'M380,54 L380,81', 'M320,127 L212,158', 'M440,127 L548,158',
+  'M252,206 L332,239', 'M508,206 L428,239',
+  'M380,285 L380,300 L152,300 L152,313', 'M247,336 L300,336', 'M460,336 L508,336',
+  'M608,359 L608,374 L380,374 L380,387', 'M380,433 L380,452',
+];
+
+function node(n: Node, step: number) {
+  const state = n.step === step ? 'active' : n.step < step ? 'done' : 'future';
+  const accent = n.color || 'var(--color-accent)';
+  const x = n.cx - n.w / 2, y = n.cy - n.h / 2;
+  let fill: string, stroke: string, op: number, dash = '';
+  if (state === 'active') { fill = `color-mix(in srgb, ${accent} 15%, var(--color-surface))`; stroke = accent; op = 1; }
+  else if (state === 'done') { fill = 'var(--color-surface)'; stroke = 'var(--color-rule)'; op = 0.9; }
+  else { fill = 'var(--color-bg)'; stroke = 'var(--color-rule)'; op = 0.55; dash = ' stroke-dasharray="4 3"'; }
+  let s = `<rect x="${x}" y="${y}" width="${n.w}" height="${n.h}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="${state === 'active' ? 2 : 1}"${dash} opacity="${op}"/>`;
+  const lh = 15, y0 = n.cy - (n.lines.length - 1) * lh / 2 + 4;
+  n.lines.forEach((ln, i) => {
+    s += `<text x="${n.cx}" y="${y0 + i * lh}" class="lvz-nt ${state === 'active' ? 'on' : ''}" fill="${state === 'active' ? accent : 'var(--color-ink)'}" opacity="${state === 'future' ? 0.6 : 1}">${esc(ln)}</text>`;
+  });
+  if (state === 'done') s += `<text x="${x + n.w - 12}" y="${y + 15}" class="lvz-chk">✓</text>`;
+  return s;
+}
+function render(step: number) {
+  let s = '<defs><marker id="lvzarr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--color-muted)"/></marker></defs>';
+  for (const d of CONN) s += `<path d="${d}" fill="none" stroke="var(--color-muted)" stroke-width="1.3" opacity="0.55" marker-end="url(#lvzarr)"/>`;
+  for (const n of N) s += node(n, step);
+  return `<svg viewBox="0 0 ${W} ${H}" class="lvz-svg" role="img" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+type Step = { title: string; caption: string };
+const steps: Step[] = [
+  { title: 'Inputs', caption: 'LiftOn needs only three files: the reference genome R, its annotation R_A, and the target genome T. No precomputed alignment is required (unlike CAT or coordinate LiftOver).' },
+  { title: 'Steps 1–3 · reference preparation', caption: 'LiftOn builds a database of the reference annotation, auto-detects every gene-like parent type to lift (genes, pseudogenes, ncRNA genes…), and extracts each reference transcript + protein sequence.' },
+  { title: 'Step 4 · two evidence lifts, run concurrently', caption: 'The two engines run in parallel: Liftoff maps the gene at the DNA level (minimap2), and miniprot maps the protein at the protein level. These are the two evidence tracks LiftOn fuses — the heart of the method.' },
+  { title: 'Step 7 · align both candidates', caption: 'For each locus, both candidate CDS sets are aligned (parasail) to the reference protein, giving a per-block identity profile for each source.' },
+  { title: 'Step 7 · protein-maximization chaining', caption: 'The two CDS lists are synchronised by cumulative reference amino-acids and merged per chunk, keeping the higher-identity source each time. (Stepped through in Figure 9.)' },
+  { title: 'Step 7 · ORF rescue', caption: 'The merged transcript is scanned in all three reading frames; the CDS start/stop boundaries are patched to the best open reading frame, adopted only if it improves identity by more than 1%.' },
+  { title: 'Step 7 · best-of-outcome', caption: 'LiftOn emits whichever of {chained merge + ORF, Liftoff + ORF} scores higher protein identity for this transcript — a strict non-regression: fusing the protein evidence can only help.' },
+  { title: 'Step 8 · miniprot-only rescue', caption: 'A separate pass adds a miniprot-only model for any reference coding gene the DNA lift missed entirely — recovering recall on divergent genomes without disturbing the genes already lifted.' },
+  { title: 'Output', caption: 'The result is a target-genome annotation T_A plus a completeness / protein-identity report. Every fast-path (streaming, in-memory, threaded, native) produces byte-identical output.' },
+];
+---
+
+<section class="lvz lvz-pipe" role="group" aria-label="Interactive: the LiftOn pipeline">
+  <div class="lvz-head">
+    <p class="lvz-title">The LiftOn pipeline, step by step</p>
+    <span class="lvz-tag">Interactive</span>
+  </div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0].caption}</p>
+
+  {steps.map((s, i) => (
+    <div class="lvz-step" data-wgi-step data-caption={s.caption} hidden={i !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{s.title}</p>
+      <div class="lvz-fig" set:html={render(i)} />
+    </div>
+  ))}
+
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Reset to first step">↺ Reset</button>
+    <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
+  </div>
+
+  <div class="lvz-legend">
+    <span><span class="lvz-sw" style={`background:${C.lift}`}></span>Liftoff (DNA evidence)</span>
+    <span><span class="lvz-sw" style={`background:${C.mini}`}></span>miniprot (protein evidence)</span>
+    <span><span class="lvz-sw" style={`background:${C.merge}`}></span>LiftOn output</span>
+  </div>
+
+  <noscript><style>{`.lvz-pipe .lvz-step[hidden]{display:block !important}.lvz-pipe .lvz-controls,.lvz-pipe .lvz-caption{display:none !important}`}</style></noscript>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.lvz-pipe')) {
+      const steps = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      const caps = steps.map((s) => s.dataset.caption || '');
+      mountStepper(root, {
+        total: steps.length,
+        onShow: (i) => steps.forEach((el, k) => { const on = k === i; el.hidden = !on; el.setAttribute('aria-current', on ? 'step' : 'false'); }),
+        caption: (i) => caps[i],
+      });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>
