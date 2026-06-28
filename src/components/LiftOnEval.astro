@@ -1,0 +1,167 @@
+---
+/**
+ * LiftOnEval.astro — interactive walkthrough of the tool-neutral evaluation
+ * (benchmarks/compare/evaluator.py::evaluate_tool): id resolution → extract the
+ * lifted CDS from the target → translate → parasail-align to the reference protein
+ * → protein identity → aggregate (completeness + mean identity). Server-renders
+ * every step; mountStepper toggles visibility. No-JS shows all. ILLUSTRATIVE data.
+ */
+import '../styles/lvz.css';
+const W = 760, H = 210;
+const C = { lift: '#4c78a8', mini: '#f58518', merge: '#54a24b', ref: '#2e6e5e', bad: '#d1495b' };
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+const REFP = 'MLRPLLSSE';
+const LIFP = 'MLRQLLSSE';            // mismatch at index 3 (P vs Q) → 8/9
+const NL = REFP.length, CW = 42, CH = 30, GX = (W - CW * NL) / 2;
+
+function cell(i: number, ch: string, y: number, kind: string) {
+  const x = GX + i * CW;
+  let fill = 'var(--color-bg)', stroke = 'var(--color-rule)';
+  if (kind === 'ref') { fill = `color-mix(in srgb, ${C.ref} 13%, var(--color-surface))`; stroke = C.ref; }
+  else if (kind === 'match') { fill = `color-mix(in srgb, ${C.merge} 20%, var(--color-surface))`; stroke = C.merge; }
+  else if (kind === 'mismatch') { fill = `color-mix(in srgb, ${C.bad} 20%, var(--color-surface))`; stroke = C.bad; }
+  return `<rect x="${x + 2}" y="${y}" width="${CW - 4}" height="${CH}" rx="3" fill="${fill}" stroke="${stroke}"/><text x="${x + CW / 2}" y="${y + CH / 2 + 5}" class="lvz-mono">${ch}</text>`;
+}
+function row(seq: string, y: number, kind: (i: number) => string) {
+  let s = ''; for (let i = 0; i < NL; i++) s += cell(i, seq[i], y, kind(i)); return s;
+}
+function rowLabel(txt: string, y: number, color: string) {
+  return `<text x="${GX}" y="${y}" class="lvz-tl" fill="${color}" text-anchor="start">${esc(txt)}</text>`;
+}
+function gene(x0: number, y: number, color: string) {
+  let s = `<line x1="${x0}" y1="${y + 9}" x2="${x0 + 170}" y2="${y + 9}" stroke="${color}" stroke-width="1.5"/>`;
+  for (const [o, w] of [[0, 44], [64, 36], [114, 56]] as [number, number][])
+    s += `<rect x="${x0 + o}" y="${y}" width="${w}" height="18" rx="2" fill="${color}" fill-opacity="0.85"/>`;
+  return s;
+}
+function arrow(x: number, y: number, txt: string) {
+  return `<text x="${x}" y="${y - 6}" class="lvz-small">${esc(txt)}</text><path d="M${x - 26},${y} L${x + 26},${y}" stroke="var(--color-muted)" stroke-width="1.4" marker-end="url(#evarr)"/>`;
+}
+function defs() {
+  return '<defs><marker id="evarr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--color-muted)"/></marker></defs>';
+}
+function frame(inner: string) {
+  return `<svg viewBox="0 0 ${W} ${H}" class="lvz-svg" role="img" preserveAspectRatio="xMidYMid meet">${defs()}${inner}</svg>`;
+}
+function connectors(yTop: number, yBot: number) {
+  let s = '';
+  for (let i = 0; i < NL; i++) { const x = GX + i * CW + CW / 2; s += `<line x1="${x}" y1="${yTop}" x2="${x}" y2="${yBot}" stroke="var(--color-rule)" stroke-width="1"/>`; }
+  return s;
+}
+
+// per-step SVG
+function svgRefModel() {
+  let s = rowLabel('reference mRNA', 28, C.ref);
+  s += gene(GX, 40, C.ref);
+  s += arrow(GX + 230, 49, 'translate CDS');
+  s += rowLabel('reference protein', 96, C.ref);
+  s += row(REFP, 112, () => 'ref');
+  return frame(s);
+}
+function svgIdResolve() {
+  const bx = 150, by = 64, bw = 460, bh = 86;
+  let s = `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="6" fill="var(--color-surface)" stroke="var(--color-rule)"/>`;
+  s += `<text x="${bx + 24}" y="${by + 34}" class="lvz-mono" text-anchor="start" style="font-size:13px">lifted id: NM_001234.0.1</text>`;
+  s += arrow(bx + 300, by + 30, 'strip copy suffix');
+  s += `<text x="${bx + bw - 24}" y="${by + 34}" class="lvz-mono" text-anchor="end" style="font-size:13px" fill="${C.merge}">NM_001234 ✓</text>`;
+  s += `<text x="${bx + 24}" y="${by + 66}" class="lvz-small" text-anchor="start">miniprot models resolve instead via the Target= attribute.</text>`;
+  return frame(s);
+}
+function svgLiftModel() {
+  let s = rowLabel('lifted mRNA (on the target genome)', 28, C.lift);
+  s += gene(GX, 40, C.lift);
+  s += arrow(GX + 250, 49, 'extract CDS · translate');
+  s += rowLabel('lifted protein', 96, C.lift);
+  s += row(LIFP, 112, () => 'plain');
+  return frame(s);
+}
+function svgAlign(colored: boolean) {
+  let s = rowLabel('reference', 22, C.ref);
+  s += row(REFP, 32, () => 'ref');
+  s += connectors(62, 118);
+  s += rowLabel('lifted', 112, C.lift);
+  s += row(LIFP, 118, (i) => (colored ? (REFP[i] === LIFP[i] ? 'match' : 'mismatch') : 'plain'));
+  if (colored) {
+    s += `<text x="${W / 2}" y="${190}" class="lvz-mono" style="font-size:16px;font-weight:700">identity = 8 / 9 = 0.889</text>`;
+  } else {
+    s += `<text x="${W / 2}" y="${190}" class="lvz-small">global parasail alignment — compare column by column</text>`;
+  }
+  return frame(s);
+}
+function svgAggregate() {
+  const cards = [
+    ['completeness', 'recovered ÷ reference', 'coding transcripts'],
+    ['mean identity', 'average over recovered', 'coding transcripts'],
+    ['best copy', 'keep the highest-identity', 'model per reference gene'],
+  ];
+  let s = '';
+  const cw = 220, gap = 24, total = cw * 3 + gap * 2, x0 = (W - total) / 2;
+  cards.forEach((c, i) => {
+    const x = x0 + i * (cw + gap);
+    s += `<rect x="${x}" y="40" width="${cw}" height="120" rx="6" fill="var(--color-surface)" stroke="var(--color-rule)"/>`;
+    s += `<text x="${x + cw / 2}" y="78" class="lvz-nt on" fill="var(--color-accent)" style="font-size:14px">${esc(c[0])}</text>`;
+    s += `<text x="${x + cw / 2}" y="106" class="lvz-small">${esc(c[1])}</text>`;
+    s += `<text x="${x + cw / 2}" y="124" class="lvz-small">${esc(c[2])}</text>`;
+  });
+  return frame(s);
+}
+
+type Step = { title: string; caption: string; svg: string };
+const steps: Step[] = [
+  { title: 'Reference model → protein', caption: 'Every tool is scored against the same yardstick: each reference mRNA\'s CDS is translated to its protein sequence. (A 9-residue illustrative example.)', svg: svgRefModel() },
+  { title: 'Resolve the lifted model to its reference', caption: 'A lifted transcript is matched to its reference id (copy-number suffixes like ".0.1" are stripped); miniprot models map back through their Target= attribute. This makes the comparison tool-neutral.', svg: svgIdResolve() },
+  { title: 'Extract + translate the lifted protein', caption: 'The lifted CDS is read from the TARGET genome using the tool\'s own coordinates and translated — so the score reflects the actual emitted model, not the tool\'s self-report.', svg: svgLiftModel() },
+  { title: 'Global alignment to the reference protein', caption: 'The lifted protein is globally aligned to the reference protein with the same parasail kernel for every tool — no tool gets a scoring advantage.', svg: svgAlign(false) },
+  { title: 'Protein identity', caption: 'Protein identity = identical aligned columns ÷ aligned columns. Here 8 of 9 match (P→Q at position 4), so identity = 0.889. This is the per-transcript accuracy metric behind every results table.', svg: svgAlign(true) },
+  { title: 'Aggregate across the genome', caption: 'Completeness = recovered ÷ reference coding transcripts; mean identity averages over the recovered set; when a gene has multiple lifted copies, only the highest-identity one is scored. Together these give the precision-vs-recall picture used throughout §3.', svg: svgAggregate() },
+];
+---
+
+<section class="lvz lvz-eval" role="group" aria-label="Interactive: tool-neutral evaluation of a lifted annotation">
+  <div class="lvz-head">
+    <p class="lvz-title">How a lifted annotation is scored</p>
+    <span class="lvz-tag">Interactive · illustrative</span>
+  </div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0].caption}</p>
+
+  {steps.map((s, i) => (
+    <div class="lvz-step" data-wgi-step data-caption={s.caption} hidden={i !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{s.title}</p>
+      <div class="lvz-fig" set:html={s.svg} />
+    </div>
+  ))}
+
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play">▶ Play</button>
+    <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Reset to first step">↺ Reset</button>
+    <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
+  </div>
+
+  <div class="lvz-legend">
+    <span><span class="lvz-sw" style={`background:${C.merge}`}></span>matching column</span>
+    <span><span class="lvz-sw" style={`background:${C.bad}`}></span>mismatch</span>
+    <span><span class="lvz-sw" style={`background:${C.ref}`}></span>reference protein</span>
+  </div>
+
+  <noscript><style>{`.lvz-eval .lvz-step[hidden]{display:block !important}.lvz-eval .lvz-controls,.lvz-eval .lvz-caption{display:none !important}`}</style></noscript>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.lvz-eval')) {
+      const steps = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      const caps = steps.map((s) => s.dataset.caption || '');
+      mountStepper(root, {
+        total: steps.length,
+        onShow: (i) => steps.forEach((el, k) => { const on = k === i; el.hidden = !on; el.setAttribute('aria-current', on ? 'step' : 'false'); }),
+        caption: (i) => caps[i],
+      });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>

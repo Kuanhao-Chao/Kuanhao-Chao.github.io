@@ -82,6 +82,9 @@ import fullValidity from '../../assets/reports/lifton-v1.0.9-technical-report/rf
 import perfImprovement from '../../assets/reports/lifton-v1.0.9-technical-report/rfig_perf_improvement.png';
 import applesToApples from '../../assets/reports/lifton-v1.0.9-technical-report/rfig_full_apples_to_apples.png';
 import extcompare from '../../assets/reports/lifton-v1.0.9-technical-report/rfig_extcompare.png';
+import LiftOnPipeline from '../../components/LiftOnPipeline.astro';
+import LiftOnChaining from '../../components/LiftOnChaining.astro';
+import LiftOnEval from '../../components/LiftOnEval.astro';
 
 *Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Code: [github.com/Kuanhao-Chao/LiftOn](https://github.com/Kuanhao-Chao/LiftOn) · Documentation: [ccb.jhu.edu/lifton](https://ccb.jhu.edu/lifton/).*
 
@@ -147,6 +150,12 @@ LiftOn v1.0.9 executes a single, strictly sequential 11-step pipeline (`lifton/l
 
 The two largest external subtrees — the vendored Liftoff fork (the DNA lift-over engine, invoked as a library) and `gffbase` (a DuckDB-backed, drop-in successor to `gffutils`) — are treated as frozen dependencies.
 
+*Interactive — step through the whole pipeline below (Prev / Next / ▶ Play), from the three inputs to the final annotation.*
+
+<LiftOnPipeline />
+
+**Figure 8.** Interactive walkthrough of the LiftOn pipeline. The two evidence lifts of Step 4 — Liftoff (DNA-level) and miniprot (protein-level) — are run concurrently and then fused in Step 7 (chaining → ORF rescue → best-of-outcome), with a separate Step-8 pass rescuing genes the DNA lift missed entirely. LiftOn needs only the reference genome, its annotation, and the target genome.
+
 ### 2.2 Anchor-windowed alignment
 
 **The giant-gene problem.** LiftOn scores every candidate by globally aligning its translated protein (and, for non-coding features, its spliced transcript) to the reference with parasail's `nw_trace_scan_sat`. Full Needleman–Wunsch with traceback is
@@ -180,6 +189,12 @@ with ties resolved in favor of Liftoff (which preserves the DNA-derived splice s
 $$T_\text{chain} = O(n_L + n_M), \qquad M_\text{chain} = O\!\left(\max(n_L,n_M)\right).$$
 
 Degenerate inputs are handled explicitly: if either side has zero CDS children the Liftoff list is returned as-is; if either side has exactly one CDS block, the synchronization loop is bypassed and the whole alignment is compared as a single chunk.
+
+*Interactive — watch the chaining algorithm decide each chunk on a small worked example.*
+
+<LiftOnChaining />
+
+**Figure 9.** Interactive step-through of the protein-maximization CDS chaining. Liftoff (DNA) and miniprot (protein) CDS blocks are synchronized by cumulative reference amino-acids; at each chunk the higher-identity source is kept (ties → Liftoff), and the per-chunk winners are concatenated into the merged model. The example is illustrative (a 20-aa reference protein, three CDS blocks per source).
 
 ### 2.4 Best-of-outcome merge
 
@@ -263,6 +278,12 @@ Tool transcripts are matched to reference IDs copy-suffix-aware; miniprot via it
 | human→chicken | *H. sapiens* → *G. gallus* (mammal→bird) | very distant | 144,329 |
 | human→xenopus | *H. sapiens* → *X. tropicalis* (mammal→amphibian) | very distant | 144,329 |
 | drosophila→bee | *D. melanogaster* → *A. mellifera* | very distant | 30,799 |
+
+*Interactive — step through how a single lifted transcript is scored, the metric behind every results table below.*
+
+<LiftOnEval />
+
+**Figure 10.** Interactive walkthrough of the tool-neutral evaluation. A lifted transcript is resolved to its reference id, its CDS is extracted from the target genome and translated, then globally aligned (parasail) to the reference protein; protein identity is identical columns ÷ aligned columns. Aggregated over the genome, this gives the completeness and mean-identity figures used throughout §3. The same kernel scores every tool, so no tool gets a scoring advantage.
 
 ## 3. Results
 
