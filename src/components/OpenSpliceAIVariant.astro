@@ -68,76 +68,79 @@ const C = {
 
 const score = (n: number) => n.toFixed(3);
 
-function strandArrow(y: number) {
-  return `<path d="M55 ${y - 2} H685 V${y - 7} L699 ${y} L685 ${y + 7} V${y + 2} H55 Z" fill="var(--color-muted)" fill-opacity="0.42"/>`;
+function desktopTrackArrow(y: number) {
+  return `<path d="M148 ${y - 2} H796 V${y - 7} L810 ${y} L796 ${y + 7} V${y + 2} H148 Z" fill="var(--color-muted)" fill-opacity="0.4"/>`;
 }
 
 function desktopGeneContext(ex: Example, step: number) {
-  const focus = step === 0 || step === 4;
-  const opacity = focus ? 1 : 0.65;
-  const changedOpacity = step >= 4 ? 1 : 0.14;
-  let s = `<g opacity="${opacity}"><text x="18" y="62" class="lvz-small" style="text-anchor:start">reference gene</text>${strandArrow(66)}<rect x="120" y="52" width="48" height="28" fill="${C.exon}"/><rect x="445" y="52" width="62" height="28" fill="${C.exon}"/><rect x="590" y="52" width="72" height="28" fill="${C.exon}"/>`;
-  s += `<text x="18" y="112" class="lvz-small" style="text-anchor:start">alternate gene</text>${strandArrow(116)}<rect x="120" y="102" width="48" height="28" fill="${C.exon}"/><rect x="445" y="102" width="62" height="28" fill="${C.exon}"/><rect x="590" y="102" width="72" height="28" fill="${C.exon}"/></g>`;
+  const opacity = step === 0 || step === 4 ? 1 : step === 5 ? 0.82 : 0.62;
+  const changedOpacity = step >= 4 ? 1 : 0.12;
+  let s = `<g opacity="${opacity}"><rect x="20" y="44" width="820" height="142" rx="6" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="38" y="70" class="lvz-tl">Gene context</text><text x="38" y="110" class="lvz-small" style="text-anchor:start">REFERENCE</text>${desktopTrackArrow(106)}<rect x="210" y="92" width="52" height="28" fill="${C.exon}"/><rect x="520" y="92" width="64" height="28" fill="${C.exon}"/><rect x="704" y="92" width="72" height="28" fill="${C.exon}"/><text x="38" y="158" class="lvz-small" style="text-anchor:start">ALTERNATE</text>${desktopTrackArrow(154)}<rect x="210" y="140" width="52" height="28" fill="${C.exon}"/><rect x="520" y="140" width="64" height="28" fill="${C.exon}"/><rect x="704" y="140" width="72" height="28" fill="${C.exon}"/></g>`;
   if (ex.id === 'mybpc3') {
-    s += `<g opacity="${changedOpacity}"><rect x="397" y="102" width="48" height="28" fill="${C.effect}"/><circle cx="397" cy="116" r="5" fill="${C.variant}"/><path d="M390 93 H452" stroke="${C.output}" stroke-dasharray="5 4"/><text x="421" y="88" class="lvz-small">11-bp extension</text></g>`;
+    s += `<g opacity="${changedOpacity}"><rect x="472" y="140" width="48" height="28" fill="${C.effect}"/><circle cx="472" cy="154" r="5" fill="${C.variant}"/><path d="M464 132 H528" stroke="${C.output}" stroke-dasharray="5 4"/><text x="496" y="128" class="lvz-small">11-bp extension</text></g>`;
   } else {
-    s += `<g opacity="${changedOpacity}"><rect x="338" y="102" width="92" height="28" fill="${C.effect}"/><circle cx="430" cy="116" r="5" fill="${C.variant}"/><path d="M330 93 H438" stroke="${C.output}" stroke-dasharray="5 4"/><text x="384" y="88" class="lvz-small">54-bp cryptic exon</text></g>`;
+    s += `<g opacity="${changedOpacity}"><rect x="418" y="140" width="102" height="28" fill="${C.effect}"/><circle cx="520" cy="154" r="5" fill="${C.variant}"/><path d="M410 132 H528" stroke="${C.output}" stroke-dasharray="5 4"/><text x="469" y="128" class="lvz-small">54-bp cryptic exon</text></g>`;
   }
   return s;
 }
 
 function desktopSequence(ex: Example, step: number) {
-  const panelOpacity = step === 1 || step === 2 || step === 3 || step === 4 ? 1 : 0.65;
-  const refOpacity = step === 2 ? 1 : step === 3 ? 0.35 : 0.78;
-  const altOpacity = step === 3 || step === 4 ? 1 : step === 2 ? 0.35 : 0.78;
-  let s = `<g opacity="${panelOpacity}"><rect x="18" y="148" width="430" height="196" rx="6" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="34" y="170" class="lvz-tl">Matched sequence windows</text>`;
-  s += `<g opacity="${refOpacity}"><text x="38" y="208" class="lvz-small">REFERENCE</text><line x1="105" y1="218" x2="426" y2="218" stroke="var(--color-ink)" stroke-width="2"/><text x="266" y="207" class="osai-mono">${ex.referenceSequence}</text></g>`;
-  s += `<g opacity="${altOpacity}"><text x="38" y="279" class="lvz-small">ALTERNATE</text><line x1="105" y1="289" x2="426" y2="289" stroke="var(--color-ink)" stroke-width="2"/><text x="266" y="278" class="osai-mono">${ex.alternateSequence}</text></g>`;
-  const mutationOpacity = step === 1 ? 1 : 0.5;
-  s += `<g opacity="${mutationOpacity}"><rect x="152" y="307" width="162" height="26" rx="4" fill="${C.variant}" fill-opacity="0.08" stroke="${C.variant}"/><text x="233" y="325" class="lvz-small" fill="${C.variant}">one-base substitution · ${ex.variant.split(' ').at(-1)}</text></g></g>`;
-  return s;
+  const panelOpacity = step >= 1 && step <= 4 ? 1 : step === 5 ? 0.82 : 0.62;
+  const refOpacity = step === 2 ? 1 : step === 3 ? 0.38 : 0.82;
+  const altOpacity = step === 3 || step === 4 ? 1 : step === 2 ? 0.38 : 0.82;
+  const mutationOpacity = step === 1 ? 1 : 0.52;
+  return `<g opacity="${panelOpacity}"><rect x="20" y="204" width="820" height="162" rx="6" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="38" y="230" class="lvz-tl">Matched sequence windows</text><g opacity="${mutationOpacity}"><rect x="644" y="216" width="178" height="26" rx="4" fill="${C.variant}" fill-opacity="0.08" stroke="${C.variant}"/><text x="733" y="234" class="lvz-small" fill="${C.variant}">one-base substitution · ${ex.variant.split(' ').at(-1)}</text></g><g opacity="${refOpacity}"><text x="38" y="275" class="lvz-small" style="text-anchor:start">REFERENCE</text><line x1="142" y1="286" x2="814" y2="286" stroke="var(--color-ink)" stroke-width="2"/><text x="478" y="274" class="osai-mono">${ex.referenceSequence}</text></g><g opacity="${altOpacity}"><text x="38" y="332" class="lvz-small" style="text-anchor:start">ALTERNATE</text><line x1="142" y1="343" x2="814" y2="343" stroke="var(--color-ink)" stroke-width="2"/><text x="478" y="331" class="osai-mono">${ex.alternateSequence}</text></g></g>`;
 }
 
 function desktopScoreSite(site: Site, x: number, step: number) {
   const color = site.kind === 'acceptor' ? C.acceptor : C.donor;
-  const opacity = step === 2 || step === 3 ? 1 : 0.82;
-  const refOpacity = step === 2 ? 1 : step === 3 ? 0.45 : 0.92;
-  const altOpacity = step === 3 ? 1 : step === 2 ? 0.45 : 0.92;
-  return `<g opacity="${opacity}"><rect x="${x}" y="148" width="132" height="196" rx="6" fill="${color}" fill-opacity="0.035" stroke="${color}"/><text x="${x + 66}" y="171" class="lvz-small" fill="${color}">${site.label}</text><g opacity="${refOpacity}"><text x="${x + 12}" y="203" class="lvz-small" style="text-anchor:start">reference</text><text x="${x + 12}" y="225" class="lvz-small" fill="${C.open}" style="text-anchor:start">OpenSpliceAI ${score(site.refOpen)}</text><text x="${x + 12}" y="246" class="lvz-small" fill="${C.splice}" style="text-anchor:start">SpliceAI ${score(site.refSplice)}</text></g><line x1="${x + 10}" y1="260" x2="${x + 122}" y2="260" stroke="var(--color-rule)"/><g opacity="${altOpacity}"><text x="${x + 12}" y="282" class="lvz-small" style="text-anchor:start">alternate</text><text x="${x + 12}" y="304" class="lvz-small" fill="${C.open}" style="text-anchor:start">OpenSpliceAI ${score(site.altOpen)}</text><text x="${x + 12}" y="325" class="lvz-small" fill="${C.splice}" style="text-anchor:start">SpliceAI ${score(site.altSplice)}</text></g></g>`;
+  const opacity = step === 2 || step === 3 ? 1 : step === 5 ? 0.9 : 0.8;
+  const refOpacity = step === 2 ? 1 : step === 3 ? 0.42 : 0.92;
+  const altOpacity = step === 3 ? 1 : step === 2 ? 0.42 : 0.92;
+  return `<g opacity="${opacity}"><rect x="${x}" y="422" width="382" height="116" rx="6" fill="${color}" fill-opacity="0.035" stroke="${color}"/><text x="${x + 16}" y="446" class="lvz-tl" fill="${color}" style="text-anchor:start">${site.label}</text><text x="${x + 170}" y="446" class="lvz-small">REFERENCE</text><text x="${x + 305}" y="446" class="lvz-small">ALTERNATE</text><line x1="${x + 16}" y1="457" x2="${x + 366}" y2="457" stroke="var(--color-rule)"/><text x="${x + 16}" y="484" class="lvz-small" fill="${C.open}" style="text-anchor:start">OpenSpliceAI</text><text x="${x + 16}" y="515" class="lvz-small" fill="${C.splice}" style="text-anchor:start">SpliceAI</text><g opacity="${refOpacity}"><text x="${x + 170}" y="484" class="lvz-nt on" fill="${C.open}">${score(site.refOpen)}</text><text x="${x + 170}" y="515" class="lvz-nt on" fill="${C.splice}">${score(site.refSplice)}</text></g><g opacity="${altOpacity}"><text x="${x + 305}" y="484" class="lvz-nt on" fill="${C.open}">${score(site.altOpen)}</text><text x="${x + 305}" y="515" class="lvz-nt on" fill="${C.splice}">${score(site.altSplice)}</text></g></g>`;
 }
 
 function desktopFrame(ex: Example, step: number) {
-  let s = `<text x="18" y="24" class="lvz-tl">${ex.label} · ${ex.variant}</text><text x="600" y="24" class="lvz-small">${ex.phenotype}</text>`;
+  let s = `<text x="20" y="24" class="lvz-tl">${ex.label} · ${ex.variant}</text><text x="840" y="24" class="lvz-small" style="text-anchor:end">${ex.phenotype}</text>`;
   s += desktopGeneContext(ex, step) + desktopSequence(ex, step);
-  s += desktopScoreSite(ex.sites[0], 466, step) + desktopScoreSite(ex.sites[1], 610, step);
-  const outputOpacity = step === 5 ? 1 : step === 4 ? 0.72 : 0.34;
-  s += `<g opacity="${outputOpacity}"><rect x="18" y="362" width="724" height="56" rx="6" fill="${C.output}" fill-opacity="0.055" stroke="${C.output}" stroke-width="${step === 5 ? 2.4 : 1.2}"/><text x="200" y="385" class="lvz-nt on" fill="${C.output}">${ex.consequence}</text><text x="200" y="406" class="lvz-small">OpenSpliceAI variant effect</text><text x="555" y="385" class="lvz-nt on" fill="${C.open}">${ex.delta}</text><text x="555" y="406" class="lvz-small">written with DP positions to VCF INFO</text></g>`;
-  return `<svg viewBox="0 0 760 430" class="lvz-svg" role="img" aria-label="${ex.label} clinical variant-effect animation, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  s += `<g opacity="${step === 2 || step === 3 ? 1 : step === 5 ? 0.86 : 0.68}"><rect x="20" y="384" width="820" height="172" rx="6" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="38" y="410" class="lvz-tl">Reference and alternate splice-site scores</text></g>`;
+  s += desktopScoreSite(ex.sites[0], 38, step) + desktopScoreSite(ex.sites[1], 440, step);
+  const outputOpacity = step === 5 ? 1 : step === 4 ? 0.72 : 0.3;
+  s += `<g opacity="${outputOpacity}"><rect x="20" y="574" width="820" height="86" rx="6" fill="${C.output}" fill-opacity="0.055" stroke="${C.output}" stroke-width="${step === 5 ? 2.4 : 1.2}"/><text x="38" y="600" class="lvz-tl" fill="${C.output}" style="text-anchor:start">Predicted splice consequence</text><text x="236" y="630" class="lvz-nt on" fill="${C.output}">${ex.consequence}</text><text x="236" y="649" class="lvz-small">sequence-level interpretation</text><line x1="430" y1="590" x2="430" y2="644" stroke="var(--color-rule)"/><text x="635" y="620" class="lvz-nt on" fill="${C.open}">${ex.delta}</text><text x="635" y="644" class="lvz-small">DS values with DP positions → VCF INFO</text></g>`;
+  return `<svg viewBox="0 0 860 678" class="lvz-svg" role="img" aria-label="${ex.label} clinical variant-effect animation, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobileTrackArrow(y: number) {
+  return `<path d="M108 ${y - 1.5} H322 V${y - 5} L332 ${y} L322 ${y + 5} V${y + 1.5} H108 Z" fill="var(--color-muted)" fill-opacity="0.4"/>`;
 }
 
 function mobileGeneContext(ex: Example, step: number) {
-  const changedOpacity = step >= 4 ? 1 : 0.14;
-  const changedX = ex.id === 'mybpc3' ? 185 : 142;
-  const changedW = ex.id === 'mybpc3' ? 38 : 82;
-  return `<g opacity="${step === 0 || step === 4 ? 1 : 0.65}"><text x="14" y="46" class="lvz-small" style="text-anchor:start">REFERENCE</text><line x1="92" y1="43" x2="338" y2="43" stroke="var(--color-muted)"/><rect x="112" y="31" width="30" height="24" fill="${C.exon}"/><rect x="224" y="31" width="42" height="24" fill="${C.exon}"/><rect x="294" y="31" width="36" height="24" fill="${C.exon}"/><text x="14" y="94" class="lvz-small" style="text-anchor:start">ALTERNATE</text><line x1="92" y1="91" x2="338" y2="91" stroke="var(--color-muted)"/><rect x="112" y="79" width="30" height="24" fill="${C.exon}"/><rect x="224" y="79" width="42" height="24" fill="${C.exon}"/><rect x="294" y="79" width="36" height="24" fill="${C.exon}"/></g><g opacity="${changedOpacity}"><rect x="${changedX}" y="79" width="${changedW}" height="24" fill="${C.effect}"/><circle cx="${changedX}" cy="91" r="4" fill="${C.variant}"/><text x="180" y="124" class="lvz-small">${ex.consequence}</text></g>`;
+  const opacity = step === 0 || step === 4 ? 1 : step === 5 ? 0.82 : 0.62;
+  const changedOpacity = step >= 4 ? 1 : 0.12;
+  const changedX = ex.id === 'mybpc3' ? 208 : 170;
+  const changedW = ex.id === 'mybpc3' ? 36 : 74;
+  return `<g opacity="${opacity}"><rect x="12" y="40" width="336" height="168" rx="5" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="24" y="66" class="lvz-tl">Gene context</text><text x="24" y="104" class="lvz-small" style="text-anchor:start">REFERENCE</text>${mobileTrackArrow(100)}<rect x="126" y="88" width="28" height="24" fill="${C.exon}"/><rect x="244" y="88" width="38" height="24" fill="${C.exon}"/><rect x="304" y="88" width="26" height="24" fill="${C.exon}"/><text x="24" y="156" class="lvz-small" style="text-anchor:start">ALTERNATE</text>${mobileTrackArrow(152)}<rect x="126" y="140" width="28" height="24" fill="${C.exon}"/><rect x="244" y="140" width="38" height="24" fill="${C.exon}"/><rect x="304" y="140" width="26" height="24" fill="${C.exon}"/></g><g opacity="${changedOpacity}"><rect x="${changedX}" y="140" width="${changedW}" height="24" fill="${C.effect}"/><circle cx="${ex.id === 'mybpc3' ? changedX : changedX + changedW}" cy="152" r="4" fill="${C.variant}"/><text x="180" y="193" class="lvz-small">${ex.consequence}</text></g>`;
 }
 
 function mobileScoreSite(site: Site, y: number, step: number) {
   const color = site.kind === 'acceptor' ? C.acceptor : C.donor;
-  const opacity = step === 2 || step === 3 ? 1 : 0.82;
-  const refOpacity = step === 2 ? 1 : step === 3 ? 0.45 : 0.92;
-  const altOpacity = step === 3 ? 1 : step === 2 ? 0.45 : 0.92;
-  return `<g opacity="${opacity}"><rect x="12" y="${y}" width="336" height="92" rx="5" fill="${color}" fill-opacity="0.035" stroke="${color}"/><text x="26" y="${y + 22}" class="lvz-tl" fill="${color}">${site.label}</text><g opacity="${refOpacity}"><text x="26" y="${y + 49}" class="lvz-small">ref</text><text x="88" y="${y + 49}" class="lvz-small" fill="${C.open}">OSAI ${score(site.refOpen)}</text><text x="223" y="${y + 49}" class="lvz-small" fill="${C.splice}">SpliceAI ${score(site.refSplice)}</text></g><g opacity="${altOpacity}"><text x="26" y="${y + 75}" class="lvz-small">alt</text><text x="88" y="${y + 75}" class="lvz-small" fill="${C.open}">OSAI ${score(site.altOpen)}</text><text x="223" y="${y + 75}" class="lvz-small" fill="${C.splice}">SpliceAI ${score(site.altSplice)}</text></g></g>`;
+  const opacity = step === 2 || step === 3 ? 1 : step === 5 ? 0.9 : 0.8;
+  const refOpacity = step === 2 ? 1 : step === 3 ? 0.42 : 0.92;
+  const altOpacity = step === 3 ? 1 : step === 2 ? 0.42 : 0.92;
+  return `<g opacity="${opacity}"><rect x="22" y="${y}" width="316" height="112" rx="5" fill="${color}" fill-opacity="0.035" stroke="${color}"/><text x="34" y="${y + 23}" class="lvz-tl" fill="${color}" style="text-anchor:start">${site.label}</text><text x="198" y="${y + 23}" class="lvz-small">REF</text><text x="286" y="${y + 23}" class="lvz-small">ALT</text><line x1="34" y1="${y + 35}" x2="326" y2="${y + 35}" stroke="var(--color-rule)"/><text x="34" y="${y + 66}" class="lvz-small" fill="${C.open}" style="text-anchor:start">OpenSpliceAI</text><text x="34" y="${y + 94}" class="lvz-small" fill="${C.splice}" style="text-anchor:start">SpliceAI</text><g opacity="${refOpacity}"><text x="198" y="${y + 66}" class="lvz-nt on" fill="${C.open}">${score(site.refOpen)}</text><text x="198" y="${y + 94}" class="lvz-nt on" fill="${C.splice}">${score(site.refSplice)}</text></g><g opacity="${altOpacity}"><text x="286" y="${y + 66}" class="lvz-nt on" fill="${C.open}">${score(site.altOpen)}</text><text x="286" y="${y + 94}" class="lvz-nt on" fill="${C.splice}">${score(site.altSplice)}</text></g></g>`;
 }
 
 function mobileFrame(ex: Example, step: number) {
   let s = `<text x="12" y="20" class="lvz-tl">${ex.label} · ${ex.variant}</text>${mobileGeneContext(ex, step)}`;
-  const seqOpacity = step >= 1 && step <= 4 ? 1 : 0.65;
-  s += `<g opacity="${seqOpacity}"><rect x="12" y="140" width="336" height="138" rx="5" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="20" y="164" class="lvz-small" style="text-anchor:start">REFERENCE</text><text x="180" y="191" class="osai-mono">${ex.referenceSequence}</text><text x="20" y="220" class="lvz-small" style="text-anchor:start">ALTERNATE</text><text x="180" y="247" class="osai-mono">${ex.alternateSequence}</text><text x="180" y="267" class="lvz-small" fill="${C.variant}">${ex.variant.split(' ').at(-1)}</text></g>`;
-  s += mobileScoreSite(ex.sites[0], 294, step) + mobileScoreSite(ex.sites[1], 398, step);
-  const outputOpacity = step === 5 ? 1 : step === 4 ? 0.72 : 0.34;
-  s += `<g opacity="${outputOpacity}"><rect x="12" y="508" width="336" height="92" rx="5" fill="${C.output}" fill-opacity="0.055" stroke="${C.output}" stroke-width="${step === 5 ? 2.4 : 1.2}"/><text x="180" y="536" class="lvz-nt on" fill="${C.output}">${ex.consequence}</text><text x="180" y="564" class="lvz-nt on" fill="${C.open}">${ex.delta}</text><text x="180" y="586" class="lvz-small">DS + DP fields → OpenSpliceAI VCF INFO</text></g>`;
-  return `<svg viewBox="0 0 360 612" class="lvz-svg" role="img" aria-label="${ex.label} clinical variant-effect animation, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  const seqOpacity = step >= 1 && step <= 4 ? 1 : step === 5 ? 0.82 : 0.62;
+  const refOpacity = step === 2 ? 1 : step === 3 ? 0.38 : 0.82;
+  const altOpacity = step === 3 || step === 4 ? 1 : step === 2 ? 0.38 : 0.82;
+  s += `<g opacity="${seqOpacity}"><rect x="12" y="226" width="336" height="166" rx="5" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="24" y="252" class="lvz-tl">Matched sequence windows</text><g opacity="${refOpacity}"><text x="24" y="281" class="lvz-small" style="text-anchor:start">REFERENCE</text><text x="180" y="306" class="osai-mono">${ex.referenceSequence}</text></g><g opacity="${altOpacity}"><text x="24" y="334" class="lvz-small" style="text-anchor:start">ALTERNATE</text><text x="180" y="359" class="osai-mono">${ex.alternateSequence}</text></g><text x="180" y="381" class="lvz-small" fill="${C.variant}">one-base substitution · ${ex.variant.split(' ').at(-1)}</text></g>`;
+  s += `<g opacity="${step === 2 || step === 3 ? 1 : step === 5 ? 0.86 : 0.68}"><rect x="12" y="410" width="336" height="306" rx="5" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="24" y="436" class="lvz-tl">Splice-site scores</text></g>`;
+  s += mobileScoreSite(ex.sites[0], 452, step) + mobileScoreSite(ex.sites[1], 584, step);
+  const outputOpacity = step === 5 ? 1 : step === 4 ? 0.72 : 0.3;
+  s += `<g opacity="${outputOpacity}"><rect x="12" y="734" width="336" height="132" rx="5" fill="${C.output}" fill-opacity="0.055" stroke="${C.output}" stroke-width="${step === 5 ? 2.4 : 1.2}"/><text x="24" y="760" class="lvz-tl" fill="${C.output}" style="text-anchor:start">Predicted splice consequence</text><text x="180" y="794" class="lvz-nt on" fill="${C.output}">${ex.consequence}</text><line x1="32" y1="811" x2="328" y2="811" stroke="var(--color-rule)"/><text x="180" y="837" class="lvz-nt on" fill="${C.open}">${ex.delta}</text><text x="180" y="855" class="lvz-small">DS + DP fields → OpenSpliceAI VCF INFO</text></g>`;
+  return `<svg viewBox="0 0 360 880" class="lvz-svg" role="img" aria-label="${ex.label} clinical variant-effect animation, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 
 const steps = [
