@@ -1,0 +1,84 @@
+---
+import '../styles/lvz.css';
+import '../styles/shorkie.css';
+
+const modes = [
+  {
+    id: 'lm', label: 'LM reconstruction', color: '#6f62a8', steps: [
+      ['Cover the sequence with masks', 'Repeatedly mask 15% of positions until every base has been reconstructed.'],
+      ['Predict in both orientations', 'Run forward and reverse-complement sequence and average their nucleotide probabilities.'],
+      ['Build a probability matrix', 'Store P(A), P(C), P(G), and P(T) at each base in a position-probability matrix.'],
+      ['Convert certainty to information', 'Compute entropy H and information content 2 − H, which ranges from 0 to 2 bits per position.'],
+      ['Recover recurring sequence features', 'Render a DNA logo and cluster high-information patterns with TF-MoDISco to identify candidate motifs.'],
+    ],
+  },
+  {
+    id: 'ism', label: 'Promoter mutagenesis', color: '#b26b32', steps: [
+      ['Define a promoter window', 'For each gene, inspect 500 bp from 450 bp upstream to 50 bp downstream of the transcription start site.'],
+      ['Generate every single-base substitution', 'At 500 positions, replace the reference base with each of the three alternatives: 1,500 mutant sequences.'],
+      ['Predict reference and mutants', 'Run the fine-tuned model on every sequence and average forward and reverse-complement predictions.'],
+      ['Measure each expression change', 'Sum output bins and compute log2(sum alternative + 1) − log2(sum reference + 1) for each selected track.'],
+      ['Summarize regulatory motifs', 'Average selected T0 RNA-seq tracks, zero-center the four bases at each position, and cluster the signed logos with TF-MoDISco.'],
+    ],
+  },
+  {
+    id: 'variant', label: 'Variant effect', color: '#b04755', steps: [
+      ['Center the candidate variant', 'Place the SNP at the center of a 16,384 bp sequence window and verify that the stated reference allele matches the genome.'],
+      ['Construct the two alleles', 'Encode one reference and one alternate sequence that differ only at the candidate nucleotide.'],
+      ['Ensemble both strands', 'Predict each allele in forward and reverse-complement orientations and average the outputs.'],
+      ['Aggregate over the target gene', 'Sum predicted coverage in output bins that overlap the target gene’s annotated exons.'],
+      ['Report the signed effect', 'Compute log2(coverage alternative + 1) − log2(coverage reference + 1); positive scores predict increased expression.'],
+    ],
+  },
+] as const;
+
+function block(x: number, y: number, w: number, h: number, title: string, detail: string, color: string, focus: boolean) { return `<g opacity="${focus ? 1 : 0.28}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${color}" fill-opacity="0.1" stroke="${color}" stroke-width="${focus ? 2.8 : 1.2}"/><text x="${x + w / 2}" y="${y + h / 2 - 6}" class="shk-label" fill="${color}">${title}</text><text x="${x + w / 2}" y="${y + h / 2 + 16}" class="shk-detail">${detail}</text></g>`; }
+
+const compact = {
+  lm: [['iterative masks', '15% until all bases'], ['strand ensemble', 'forward + reverse'], ['A/C/G/T matrix', 'probability at each base'], ['information', '2 − entropy'], ['motifs', 'logo + TF-MoDISco']],
+  ism: [['promoter', '−450 to +50 bp'], ['1,500 mutants', '3 alternatives × 500'], ['model ensemble', 'reference + mutants'], ['log2 effect', 'alternative − reference'], ['signed motifs', 'center + cluster']],
+  variant: [['center SNP', '16,384 bp window'], ['two alleles', 'reference / alternate'], ['strand ensemble', 'forward + reverse'], ['gene summary', 'sum exon bins'], ['signed effect', 'log2 alternate − reference']],
+} as const;
+
+function desktop(mode: typeof modes[number], step: number) {
+  const data = compact[mode.id]; let s = `<text x="20" y="27" class="lvz-tl">Three complementary ways to interrogate Shorkie</text>`;
+  data.forEach(([title, detail], i) => { const x = 18 + i * 180; s += block(x, 72, 164, 96, title, detail, mode.color, i === step); if (i < 4) s += `<path d="M${x + 164} 120 H${x + 180}" class="shk-arrow"/><path d="M${x + 173} 114 l7 6-7 6" class="shk-arrow"/>`; });
+  s += `<rect x="100" y="205" width="720" height="116" rx="5" class="shk-card"/>`;
+  if (mode.id === 'lm') {
+    const heights = [18, 42, 65, 30, 75, 53, 24, 68, 37, 58, 80, 34]; heights.forEach((h, i) => { s += `<rect x="${145 + i * 51}" y="${290 - h}" width="10" height="${h}" fill="${['#3976a8','#b04755','#2f8069','#b07d00'][i % 4]}" opacity="0.8"/>`; });
+    s += `<text x="460" y="307" class="shk-detail">information carried by A/C/G/T probabilities across sequence</text>`;
+  } else if (mode.id === 'ism') {
+    const values = [-38, 20, 46, -18, 60, -52, 28, 44, -32, 15, 55, -25]; s += `<line x1="135" y1="260" x2="785" y2="260" class="shk-grid"/>`; values.forEach((v, i) => { s += `<rect x="${150 + i * 51}" y="${v > 0 ? 260 - v : 260}" width="20" height="${Math.abs(v)}" fill="${v > 0 ? '#2f8069' : '#b04755'}" opacity="0.82"/>`; }); s += `<text x="460" y="310" class="shk-detail">signed change in predicted expression after substitution</text>`;
+  } else {
+    s += `<rect x="220" y="245" width="180" height="28" fill="#3976a8" opacity="0.7"/><rect x="520" y="230" width="215" height="43" fill="${mode.color}" opacity="0.8"/><text x="310" y="295" class="shk-detail">reference coverage</text><text x="627" y="295" class="shk-detail">alternate coverage</text>`;
+  }
+  return `<svg viewBox="0 0 920 340" class="lvz-svg" role="img" aria-label="${mode.label} interpretation workflow, step ${step + 1}">${s}</svg>`;
+}
+
+function mobile(mode: typeof modes[number], step: number) {
+  let s = ''; compact[mode.id].forEach(([title, detail], i) => { s += block(18, 14 + i * 77, 324, 58, title, detail, mode.color, i === step); if (i < 4) s += `<path d="M180 ${72 + i * 77} V${91 + i * 77}" class="shk-arrow"/>`; }); return `<svg viewBox="0 0 360 395" class="lvz-svg" role="img" aria-label="${mode.label} interpretation workflow, step ${step + 1}">${s}</svg>`;
+}
+---
+
+<section class="lvz shk shk-interpretation" role="group" aria-label="Interactive: interpreting Shorkie predictions" data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Interrogate what Shorkie learned</p><label class="shk-selector"><span>Method</span><select data-shk-select>{modes.map((mode) => <option value={mode.id}>{mode.label}</option>)}</select></label></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{modes[0].steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Interpretation steps">{modes[0].steps.map(([title], i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${title}`}>{i + 1}</button>)}</nav>
+  {modes.map((mode, modeIndex) => <div data-shk-group={mode.id} hidden={modeIndex !== 0}>{mode.steps.map(([title, caption], i) => <div class="lvz-step" data-wgi-step data-print-final={i === 4 ? 'true' : undefined} data-caption={caption} hidden={i !== 0}><p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{title}</p><div class="lvz-fig lvz-visual--desktop" set:html={desktop(mode, i)} /><div class="lvz-fig lvz-visual--mobile" set:html={mobile(mode, i)} /></div>)}</div>)}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev>← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next>Next →</button><button type="button" class="lvz-btn" data-wgi-reset>↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / 5</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.shk-interpretation')) {
+      if (root.dataset.ready === 'true') continue; root.dataset.ready = 'true';
+      const groups = Array.from(root.querySelectorAll<HTMLElement>('[data-shk-group]')); const select = root.querySelector<HTMLSelectElement>('[data-shk-select]'); const jumps = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-wgi-jump]')); let active = select?.value || 'lm'; let current = 0;
+      const activeSteps = () => Array.from(groups.find((g) => g.dataset.shkGroup === active)?.querySelectorAll<HTMLElement>('[data-wgi-step]') || []);
+      const show = (i: number) => { current = i; groups.forEach((g) => { const on = g.dataset.shkGroup === active; g.hidden = !on; Array.from(g.querySelectorAll<HTMLElement>('[data-wgi-step]')).forEach((el, k) => el.hidden = !(on && k === i)); }); jumps.forEach((jump, k) => { const title = activeSteps()[k]?.querySelector('.lvz-steptitle')?.textContent?.trim() || `Step ${k + 1}`; jump.title = title; jump.setAttribute('aria-label', `Step ${k + 1}: ${title}`); }); };
+      const api = mountStepper(root, { total: 5, onShow: show, caption: (i) => activeSteps()[i]?.dataset.caption || '', interval: 7000 });
+      select?.addEventListener('change', () => { api?.stop(); active = select.value; api?.show(current); });
+    }
+  }
+  boot(); document.addEventListener('astro:page-load', boot);
+</script>

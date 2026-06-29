@@ -1,0 +1,92 @@
+---
+import '../styles/lvz.css';
+import '../styles/shorkie.css';
+
+const scopes = [
+  { id: 'r64', short: 'R64', genomes: '1 genome', size: '~12 Mb', color: '#3976a8' },
+  { id: 'strains', short: '80 strains', genomes: '80 genomes', size: '~1 Gb', color: '#b07d00' },
+  { id: 'order', short: 'Saccharomycetales', genomes: '165 genomes', size: '~2 Gb', color: '#2f8069' },
+  { id: 'fungi', short: 'Fungal kingdom', genomes: '1,341 genomes', size: '~42 Gb', color: '#6f62a8' },
+] as const;
+
+const steps = [
+  ['Choose an evolutionary scope', 'Four separately prepared corpora test the tradeoff between proximity to budding yeast and sequence diversity. They are alternatives, not nested training sets.'],
+  ['Mask repeats and tile each genome', 'Each genome is repeat-masked, then divided into 16,384 bp windows with a 4,096 bp stride.'],
+  ['Remove repeat-heavy windows', 'Windows with more than 7% repeat content are excluded; this removes roughly 20% of candidate windows.'],
+  ['Attach biological context', 'Each retained example carries DNA, mask, exon/repeat annotations, and a one-hot species identity used by the language model.'],
+  ['Protect the held-out evaluation set', 'Training windows matching held-out yeast sequence at at least 5% alignment coverage and 30% identity are removed.'],
+  ['Hold out complete yeast chromosomes', 'Chromosomes XI, XIII, and XV form validation data; XII, XIV, and XVI form the test set. The remaining sequence is used for training.'],
+] as const;
+
+function card(x: number, y: number, w: number, h: number, title: string, detail: string, color: string, focus = true) {
+  return `<g opacity="${focus ? 1 : 0.3}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${color}" fill-opacity="0.09" stroke="${color}" stroke-width="${focus ? 2.4 : 1.2}"/><text x="${x + w / 2}" y="${y + h / 2 - 5}" class="shk-label" fill="${color}">${title}</text><text x="${x + w / 2}" y="${y + h / 2 + 17}" class="shk-detail">${detail}</text></g>`;
+}
+
+function desktop(scope: typeof scopes[number], step: number) {
+  let s = `<text x="20" y="27" class="lvz-tl">From fungal genomes to leakage-controlled training windows</text>`;
+  scopes.forEach((item, i) => { s += card(20 + i * 215, 50, 190, 70, item.short, `${item.genomes} · ${item.size}`, item.color, step !== 0 || item.id === scope.id); });
+  s += `<path d="M450 126 V153" class="shk-arrow"/><path d="M444 145 l6 8 6-8" class="shk-arrow"/>`;
+  const blocks = [
+    ['repeat mask + tile', '16,384 bp · stride 4,096', '#3976a8'],
+    ['repeat filter', 'retain windows ≤ 7%', '#b04755'],
+    ['context channels', 'DNA · mask · annotation · species', '#6f62a8'],
+    ['homology filter', 'coverage ≥ 5% AND identity ≥ 30%', '#b07d00'],
+    ['chromosome split', 'train · validation · test', '#2f8069'],
+  ] as const;
+  blocks.forEach(([title, detail, color], i) => {
+    const x = 15 + i * 179;
+    const focused = step === i + 1;
+    s += card(x, 170, 160, 88, title, detail, color, focused);
+    if (i < blocks.length - 1) s += `<path d="M175 ${214} H${x + 177}" class="shk-arrow" opacity="0.5"/><path d="M${x + 169} 208 l8 6-8 6" class="shk-arrow" opacity="0.5"/>`;
+  });
+  const notes = [
+    `${scope.short}: ${scope.genomes}, ${scope.size}`, 'overlapping windows preserve local context', 'repeat-rich sequence does not dominate training',
+    'species identity makes evolutionary source explicit', 'similar sequence cannot leak into evaluation', 'validation: XI/XIII/XV · test: XII/XIV/XVI',
+  ];
+  s += `<rect x="110" y="286" width="700" height="62" rx="5" class="shk-card"/><text x="460" y="313" class="shk-label">Step ${step + 1}</text><text x="460" y="334" class="shk-detail">${notes[step]}</text>`;
+  return `<svg viewBox="0 0 920 365" class="lvz-svg" role="img" aria-label="Shorkie training-data preparation, step ${step + 1}, ${scope.short} selected">${s}</svg>`;
+}
+
+function mobile(scope: typeof scopes[number], step: number) {
+  const rows = [
+    [scope.short, `${scope.genomes} · ${scope.size}`, scope.color],
+    ['repeat mask + tile', '16,384 bp · stride 4,096', '#3976a8'],
+    ['repeat filter', 'retain windows ≤ 7%', '#b04755'],
+    ['context channels', 'DNA · mask · annotation · species', '#6f62a8'],
+    ['homology filter', 'coverage ≥ 5% AND identity ≥ 30%', '#b07d00'],
+    ['chromosome split', 'validation XI/XIII/XV · test XII/XIV/XVI', '#2f8069'],
+  ] as const;
+  let s = '';
+  rows.forEach(([title, detail, color], i) => {
+    s += card(18, 15 + i * 71, 324, 55, title, detail, color, i === step);
+    if (i < rows.length - 1) s += `<path d="M180 ${70 + i * 71} V${82 + i * 71}" class="shk-arrow"/>`;
+  });
+  return `<svg viewBox="0 0 360 445" class="lvz-svg" role="img" aria-label="Shorkie training-data preparation, step ${step + 1}, ${scope.short} selected">${s}</svg>`;
+}
+---
+
+<section class="lvz shk shk-data" role="group" aria-label="Interactive: preparing evolutionary training data for Shorkie" data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Prepare evolutionary training data</p><label class="shk-selector"><span>Corpus</span><select data-shk-select>{scopes.map((scope) => <option value={scope.id}>{scope.short}</option>)}</select></label></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Data-preparation steps">{steps.map(([title], i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${title}`} title={title}>{i + 1}</button>)}</nav>
+  {scopes.map((scope, scopeIndex) => <div data-shk-group={scope.id} hidden={scopeIndex !== 0}>{steps.map(([title, caption], i) => <div class="lvz-step" data-wgi-step data-print-final={i === 5 ? 'true' : undefined} data-caption={caption} hidden={i !== 0}><p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{title}</p><div class="lvz-fig lvz-visual--desktop" set:html={desktop(scope, i)} /><div class="lvz-fig lvz-visual--mobile" set:html={mobile(scope, i)} /></div>)}</div>)}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev>← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next>Next →</button><button type="button" class="lvz-btn" data-wgi-reset>↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.shk-data')) {
+      if (root.dataset.ready === 'true') continue;
+      root.dataset.ready = 'true';
+      const groups = Array.from(root.querySelectorAll<HTMLElement>('[data-shk-group]'));
+      const select = root.querySelector<HTMLSelectElement>('[data-shk-select]');
+      let active = select?.value || 'r64'; let current = 0;
+      const activeSteps = () => Array.from(groups.find((g) => g.dataset.shkGroup === active)?.querySelectorAll<HTMLElement>('[data-wgi-step]') || []);
+      const show = (i: number) => { current = i; groups.forEach((g) => { const on = g.dataset.shkGroup === active; g.hidden = !on; Array.from(g.querySelectorAll<HTMLElement>('[data-wgi-step]')).forEach((el, k) => el.hidden = !(on && k === i)); }); };
+      const api = mountStepper(root, { total: activeSteps().length, onShow: show, caption: (i) => activeSteps()[i]?.dataset.caption || '', interval: 7000 });
+      select?.addEventListener('change', () => { api?.stop(); active = select.value; api?.show(current); });
+    }
+  }
+  boot(); document.addEventListener('astro:page-load', boot);
+</script>
