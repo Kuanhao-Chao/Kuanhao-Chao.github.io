@@ -1,0 +1,49 @@
+/* OpenSpliceAI-specific additions layered on the shared algorithm visualizations. */
+.osai {
+  --lvz-mobile-min-width: 0px;
+  --osai-data: #4c78a8;
+  --osai-model: #2e6e5e;
+  --osai-train: #54a24b;
+  --osai-cal: #b07d00;
+  --osai-predict: #3b7f91;
+  --osai-variant: #d1495b;
+  --osai-acceptor: #7a6fbe;
+  --osai-donor: #158f83;
+  --osai-neither: #8a9491;
+}
+
+.osai-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-muted);
+  font-size: var(--fs-meta);
+}
+
+.osai-selector select {
+  min-width: 10rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  padding: 0.35rem 1.8rem 0.35rem 0.55rem;
+  font: inherit;
+}
+
+.osai .lvz-svg .osai-mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  text-anchor: middle;
+}
+
+.osai-print-example { display: none; }
+
+@media (max-width: 560px) {
+  .osai-selector { align-items: stretch; flex-direction: column; gap: 0.25rem; width: 100%; }
+  .osai-selector select { min-width: 0; width: 100%; }
+}
+
+@media print {
+  .osai[data-print-final-state='true'] .osai-selector { display: none !important; }
+  .osai[data-print-final-state='true'] .osai-print-example { display: block !important; }
+}

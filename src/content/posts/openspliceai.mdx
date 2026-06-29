@@ -5,6 +5,7 @@ authors: ['Kuan-Hao Chao']
 abstract: >-
   OpenSpliceAI makes SpliceAI easier to retrain, inspect, and deploy by rebuilding the model as an efficient modular PyTorch toolkit. It covers the motivation for a faithful reimplementation, the workflow choices that make species-specific training practical, and how the software supports splice prediction and variant-effect analysis.
 date: 2025-06-01
+updated: 2026-06-28
 category: summary
 tags: ['RNA splicing', 'Deep learning', 'Open source']
 linkLabel: 'OpenSpliceAI'
@@ -24,7 +25,10 @@ references:
     doi: 'https://doi.org/10.7554/eLife.107454.3'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
-import figFramework from '../../assets/posts/openspliceai/openspliceai-framework.png';
+import OpenSpliceAIData from '../../components/OpenSpliceAIData.astro';
+import OpenSpliceAIArchitecture from '../../components/OpenSpliceAIArchitecture.astro';
+import OpenSpliceAIWorkflow from '../../components/OpenSpliceAIWorkflow.astro';
+import OpenSpliceAIVariant from '../../components/OpenSpliceAIVariant.astro';
 import figBenchmark from '../../assets/posts/openspliceai/openspliceai-benchmark.png';
 import figVariant from '../../assets/posts/openspliceai/openspliceai-variant.png';
 
@@ -42,22 +46,46 @@ Second, and more fundamentally, SpliceAI was trained only on human. Splicing sig
 
 I'd already built a splice-site model of my own, [Splam (Chao et al., 2024)](https://doi.org/10.1186/s13059-024-03379-4), so I knew the problem space well. [OpenSpliceAI (Chao et al., 2025)](https://doi.org/10.7554/eLife.107454.3) was the natural next step. The goal was never a cleverer algorithm. It was to take the best splice-site model and make it open, modern, and retrainable by anyone — true to a motto I keep coming back to: build what you need, use what you build.
 
-## What OpenSpliceAI is
+## How OpenSpliceAI works
 
-OpenSpliceAI is a faithful, open-source reimplementation of SpliceAI in PyTorch, wrapped in a modular toolkit. It keeps SpliceAI's deep residual convolutional architecture — the network reads a window of DNA together with thousands of bases of flanking context and labels every position a splice **donor**, a splice **acceptor**, or **neither** — but rebuilds everything around it in a stack that plugs straight into today's machine-learning ecosystem.
+OpenSpliceAI is a faithful, open-source reimplementation of SpliceAI in PyTorch, wrapped in a modular toolkit. The model still asks the same dense prediction question: for every nucleotide in a sequence, is this position a splice **acceptor**, a splice **donor**, or **neither**? The difference is that the full path from a new genome to a trained model and variant scores is exposed and reusable.
 
-<ZoomFigure src={figFramework} alt="The OpenSpliceAI framework: six subcommands — create-data, train, calibrate, transfer, predict, and variant — with their inputs and outputs." variant="landscape">
-  <strong>Figure 1.</strong> The OpenSpliceAI toolkit. Six modular subcommands take you from a genome to splice predictions: <code>create-data</code> turns a genome assembly + annotation into training tensors; <code>train</code> trains a model from scratch; <code>calibrate</code> tunes its output probabilities; <code>transfer</code> adapts a trained model to a new species; <code>predict</code> scores every base of a sequence; and <code>variant</code> scores the splicing impact of mutations in a VCF.
-</ZoomFigure>
+### 1. Build labeled examples from a genome
 
-That structure is the whole point. You can start from a reference genome and its annotation, build a training set, train or transfer-learn a model, calibrate it so its scores mean what they say, and then turn it loose on a genome or a list of variants — all with one consistent, scriptable tool.
+Training starts with a genome FASTA and a GFF or GTF annotation. OpenSpliceAI extracts each gene in transcript orientation, reverse-complementing minus-strand genes, and labels every nucleotide as neither, acceptor, or donor. The sequence becomes four one-hot channels for A, C, G, and T; unknown bases and padding carry zeros. These examples are windowed and written as HDF5 tensors for training, validation, and held-out testing.
+
+<OpenSpliceAIData />
+
+### 2. Read local motifs and long-range context
+
+The network receives the central 5,000 positions together with a selectable amount of flanking sequence: 80, 400, 2,000, or 10,000 nucleotides. A convolutional stem feeds pre-activation residual units whose dilations grow with context size. The 1 × 1 convolutional skip connections collect features after the stem and every four residual units. After those signals are summed, the network crops away the flanking context and applies a three-channel softmax head to the central positions.
+
+The schedules are constructed so that the receptive-field context is exactly `CL = 2 × Σ AR_i(W_i - 1)`, where `W` is convolution width and `AR` is dilation rate. The selector below shows how larger context adds residual tiers and expands the region that can inform one splice-site decision.
+
+<OpenSpliceAIArchitecture />
+
+### 3. Keep the complete model lifecycle open
+
+The six commands form a branching workflow, not a mandatory linear pipeline. `create-data` prepares a new species. From there, `train` learns from scratch, while `transfer` adapts a pretrained checkpoint and can freeze earlier residual units. A checkpoint can be temperature-calibrated, and a directory of independently trained checkpoints becomes an ensemble by averaging their predictions. The resulting model can then follow either the genome-scale `predict` path or the VCF-oriented `variant` path.
+
+<OpenSpliceAIWorkflow />
+
+### 4. Measure how a variant changes the splice landscape
+
+For each variant and overlapping gene, OpenSpliceAI builds matched reference and alternate sequence windows, predicts acceptor and donor probabilities for both alleles, and compares the tracks position by position. Acceptor and donor gains use the maximum of alternate minus reference; losses reverse the subtraction. Each delta score is reported with the position where its maximum occurs, and an optional mask removes changes that contradict the existing annotation.
+
+The final step includes the published *MYBPC3* and *OPA1* examples so the general calculation can be connected directly to observed cryptic splice predictions.
+
+<OpenSpliceAIVariant />
+
+Together, these stages are what make OpenSpliceAI retrainable: the data representation, context size, model definition, checkpoint, and inference path remain explicit and mutually consistent.
 
 ## What it showed
 
 **It matches SpliceAI — but runs far lighter.** The first thing to check for any reimplementation is that it faithfully reproduces the original, and it does. Across a range of flanking-context sizes, OpenSpliceAI's donor and acceptor accuracy tracks the original SpliceAI almost exactly, and in-silico mutagenesis and calibration analyses confirm the two models rely on the same sequence features and produce similarly trustworthy probabilities. The difference is efficiency: because it's built on PyTorch, OpenSpliceAI runs substantially faster and on a fraction of the memory, so you can score whole chromosomes on a single GPU.
 
 <ZoomFigure src={figBenchmark} alt="OpenSpliceAI matches SpliceAI's donor and acceptor Top-1 accuracy across flanking sizes, while running much faster and using far less memory." variant="wide">
-  <strong>Figure 2.</strong> Faithful, but far more efficient. <strong>(C, D)</strong> Donor and acceptor Top-1 accuracy for OpenSpliceAI and the original SpliceAI implementation are nearly indistinguishable across flanking-context sizes. <strong>(E)</strong> At prediction time, the PyTorch implementation is dramatically faster and far lighter on memory as the input grows.
+  <strong>Figure 1.</strong> Faithful, but far more efficient. <strong>(C, D)</strong> Donor and acceptor Top-1 accuracy for OpenSpliceAI and the original SpliceAI implementation are nearly indistinguishable across flanking-context sizes. <strong>(E)</strong> At prediction time, the PyTorch implementation is dramatically faster and far lighter on memory as the input grows.
 </ZoomFigure>
 
 **It retrains across the tree of life.** This is the capability we most needed. With OpenSpliceAI you can train a model from scratch on a new genome or — faster — transfer-learn from the human model and let it adapt. When we did this for mouse, zebrafish, honeybee, and *Arabidopsis*, the species-specific models clearly outperformed the off-the-shelf human SpliceAI, and the gap widened the further the species sat from human: mouse, our closest relative here, gained the least; the plant and the insect gained the most. Transfer learning reached high accuracy in just a few epochs, which makes adapting the model to a new organism cheap.
@@ -65,10 +93,10 @@ That structure is the whole point. You can start from a reference genome and its
 **It catches cryptic, disease-causing splicing.** Because the `variant` module scores how a mutation shifts the splice landscape, OpenSpliceAI can flag the kind of cryptic splicing that underlies genetic disease — a single base change that silences a normal splice site or wakes up a dormant one.
 
 <ZoomFigure src={figVariant} alt="OpenSpliceAI and SpliceAI scores for two clinical variants — MYBPC3 and OPA1 — where a single base change creates a cryptic splice site." variant="square">
-  <strong>Figure 3.</strong> Reading the splicing impact of clinical variants. For a cardiomyopathy variant in <em>MYBPC3</em> and an optic-atrophy variant in <em>OPA1</em>, a single base change creates a cryptic acceptor or donor site. OpenSpliceAI's scores (green) shift sharply — for example, an acceptor score jumping from 0.00 to 0.998 in <em>MYBPC3</em> — and track the original SpliceAI's (red), pinpointing the splicing change the mutation causes.
+  <strong>Figure 2.</strong> Reading the splicing impact of clinical variants. For a cardiomyopathy variant in <em>MYBPC3</em> and an optic-atrophy variant in <em>OPA1</em>, a single base change creates a cryptic acceptor or donor site. OpenSpliceAI's scores (green) shift sharply — for example, an acceptor score jumping from 0.00 to 0.998 in <em>MYBPC3</em> — and track the original SpliceAI's (red), pinpointing the splicing change the mutation causes.
 </ZoomFigure>
 
-In both of these real disease examples, the model reads the reference sequence as unremarkable and then, after a one-base change, lights up a brand-new splice site — exactly the signal a researcher or clinician needs to connect a noncoding variant to a splicing defect.
+In both disease examples, comparing the reference and alternate alleles exposes large, site-specific probability shifts that identify the cryptic splicing change and its position.
 
 ## The bigger picture
 

@@ -1,0 +1,99 @@
+---
+/** Published OpenSpliceAI method: convert genome annotation into training tensors. */
+import '../styles/lvz.css';
+import '../styles/osai.css';
+
+const C = { data: '#4c78a8', model: '#2e6e5e', acceptor: '#7a6fbe', donor: '#158f83', neither: '#8a9491', warn: '#d1495b' };
+
+function geneTrack(y: number, color: string, reverse = false) {
+  const arrow = reverse ? `M690 ${y} l-12 -7 v5 H170 v4 h508 v5 z` : `M170 ${y} l12 -7 v5 H690 v4 H182 v5 z`;
+  return `<path d="${arrow}" fill="var(--color-muted)" fill-opacity="0.5"/><rect x="205" y="${y - 12}" width="72" height="24" rx="2" fill="${color}" fill-opacity="0.75"/><rect x="385" y="${y - 12}" width="58" height="24" rx="2" fill="${color}" fill-opacity="0.75"/><rect x="570" y="${y - 12}" width="78" height="24" rx="2" fill="${color}" fill-opacity="0.75"/>`;
+}
+
+function desktopFrame(step: number) {
+  let s = '';
+  if (step === 0) {
+    s += `<text x="20" y="40" class="lvz-tl">Genome assembly · FASTA</text><rect x="180" y="20" width="540" height="42" rx="5" fill="${C.data}" fill-opacity="0.08" stroke="${C.data}"/><text x="450" y="47" class="osai-mono">ACGTTGCA…GTAG…CCTAGGCA</text>`;
+    s += `<text x="20" y="130" class="lvz-tl">Genome annotation · GFF/GTF</text>${geneTrack(126, C.model)}`;
+    s += `<path d="M450 170 V218" stroke="${C.model}" stroke-width="2"/><path d="M444 211 l6 8 6-8" fill="none" stroke="${C.model}" stroke-width="2"/>`;
+    s += `<rect x="230" y="235" width="440" height="70" rx="6" fill="${C.model}" fill-opacity="0.05" stroke="${C.model}"/><text x="450" y="264" class="lvz-nt on">Match sequence and annotated gene structure</text><text x="450" y="289" class="lvz-small">each gene becomes one labeled example</text>`;
+  } else if (step === 1) {
+    s += `<text x="20" y="40" class="lvz-tl">Plus-strand gene</text>${geneTrack(72, C.data)}<text x="450" y="110" class="lvz-small">retain 5′ → 3′ orientation</text>`;
+    s += `<text x="20" y="164" class="lvz-tl">Minus-strand gene</text>${geneTrack(196, C.warn, true)}<path d="M450 228 V257" stroke="${C.model}" stroke-width="2"/><text x="450" y="280" class="lvz-nt on" fill="${C.model}">reverse complement</text>`;
+    s += `<rect x="175" y="298" width="550" height="32" rx="4" fill="${C.model}" fill-opacity="0.08" stroke="${C.model}"/><text x="450" y="319" class="lvz-small">both examples are stored in transcript 5′ → 3′ orientation</text>`;
+  } else if (step === 2) {
+    s += `<text x="20" y="38" class="lvz-tl">Transcript-oriented gene</text>${geneTrack(72, C.data)}`;
+    const sites = [[277, C.donor, 'donor · 2'], [385, C.acceptor, 'acceptor · 1'], [443, C.donor, 'donor · 2'], [570, C.acceptor, 'acceptor · 1']] as const;
+    sites.forEach(([x, color, label], i) => { s += `<line x1="${x}" y1="84" x2="${x}" y2="150" stroke="${color}" stroke-width="2"/><circle cx="${x}" cy="150" r="7" fill="${color}"/><text x="${x + (i % 2 ? 42 : -42)}" y="176" class="lvz-small" fill="${color}">${label}</text>`; });
+    s += `<rect x="180" y="220" width="540" height="76" rx="5" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="270" y="248" class="lvz-nt on" fill="${C.neither}">0 · neither</text><text x="450" y="248" class="lvz-nt on" fill="${C.acceptor}">1 · acceptor</text><text x="630" y="248" class="lvz-nt on" fill="${C.donor}">2 · donor</text><text x="450" y="278" class="lvz-small">one class label for every nucleotide position</text>`;
+  } else if (step === 3) {
+    const bases = ['A', 'C', 'G', 'T', 'N'];
+    const vectors = ['1 0 0 0', '0 1 0 0', '0 0 1 0', '0 0 0 1', '0 0 0 0'];
+    s += `<text x="20" y="38" class="lvz-tl">One-hot sequence channels</text>`;
+    bases.forEach((base, i) => {
+      const y = 62 + i * 48;
+      s += `<text x="120" y="${y + 21}" class="lvz-nt on">${base}</text><rect x="170" y="${y}" width="470" height="34" rx="4" fill="${i === 4 ? C.neither : C.data}" fill-opacity="${i === 4 ? 0.06 : 0.1}" stroke="${i === 4 ? C.neither : C.data}"/><text x="405" y="${y + 22}" class="osai-mono">[ ${vectors[i]} ]</text>`;
+    });
+    s += `<text x="405" y="324" class="lvz-small">N and sequence padding carry no nucleotide signal</text>`;
+  } else {
+    s += `<text x="20" y="34" class="lvz-tl">Stored maximum-context example</text><rect x="180" y="54" width="150" height="54" rx="4" fill="${C.data}" fill-opacity="0.08" stroke="${C.data}"/><rect x="330" y="54" width="240" height="54" fill="${C.model}" fill-opacity="0.17" stroke="${C.model}"/><rect x="570" y="54" width="150" height="54" rx="4" fill="${C.data}" fill-opacity="0.08" stroke="${C.data}"/><text x="255" y="85" class="lvz-small">5,000 context</text><text x="450" y="85" class="lvz-nt on">5,000 scored positions</text><text x="645" y="85" class="lvz-small">5,000 context</text>`;
+    s += `<text x="450" y="136" class="lvz-small">X: 4-channel sequence · Y: labels for the central positions</text>`;
+    const cards = [['Training shards', '90% of training partition', C.data], ['Validation shards', '10% of training partition', C.model], ['Test shards', 'held-out test partition', C.acceptor]] as const;
+    cards.forEach(([title, detail, color], i) => { const x = 175 + i * 188; s += `<rect x="${x}" y="184" width="170" height="112" rx="6" fill="${color}" fill-opacity="0.06" stroke="${color}"/><text x="${x + 85}" y="216" class="lvz-nt on" fill="${color}">${title}</text><text x="${x + 85}" y="248" class="lvz-small">HDF5 · X / Y chunks</text><text x="${x + 85}" y="275" class="lvz-small">${detail}</text>`; });
+  }
+  return `<svg viewBox="0 0 760 350" class="lvz-svg" role="img" aria-label="OpenSpliceAI training data construction, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobileFrame(step: number) {
+  const card = (y: number, title: string, detail: string, color: string) => `<rect x="12" y="${y}" width="336" height="72" rx="5" fill="${color}" fill-opacity="0.06" stroke="${color}"/><text x="28" y="${y + 27}" class="lvz-tl" fill="${color}">${title}</text><text x="180" y="${y + 53}" class="lvz-small">${detail}</text>`;
+  let s = '';
+  if (step === 0) s = card(15, 'Genome FASTA', 'primary DNA sequence', C.data) + card(105, 'GFF / GTF annotation', 'genes, exons, and strand', C.model) + `<path d="M180 188 V230" stroke="${C.model}" stroke-width="2"/><path d="M174 223 l6 8 6-8" fill="none" stroke="${C.model}" stroke-width="2"/>` + card(245, 'Per-gene examples', 'sequence matched to structure', C.model);
+  if (step === 1) s = card(15, 'Plus-strand gene', 'retain transcript orientation', C.data) + card(105, 'Minus-strand gene', 'reverse complement', C.warn) + `<path d="M180 188 V230" stroke="${C.model}" stroke-width="2"/><path d="M174 223 l6 8 6-8" fill="none" stroke="${C.model}" stroke-width="2"/>` + card(245, 'Normalized examples', 'all stored 5′ → 3′', C.model);
+  if (step === 2) s = card(15, '0 · neither', 'most nucleotide positions', C.neither) + card(105, '1 · acceptor', 'intron-to-exon boundary', C.acceptor) + card(195, '2 · donor', 'exon-to-intron boundary', C.donor) + card(285, 'Dense label track', 'one class at every position', C.model);
+  if (step === 3) s = card(15, 'A · [1 0 0 0]', 'adenine channel', C.data) + card(105, 'C · [0 1 0 0]', 'cytosine channel', C.data) + card(195, 'G / T', 'their corresponding channels', C.data) + card(285, 'N · [0 0 0 0]', 'unknown base or padding', C.neither);
+  if (step === 4) s = card(15, 'Maximum stored window', '5,000 + 10,000 context positions', C.data) + card(105, 'Training / validation', '90:10 within the training partition', C.model) + card(195, 'Held-out test set', 'human chromosome or random-length split', C.acceptor) + card(285, 'HDF5 tensor shards', 'chunked X and Y datasets', C.model);
+  return `<svg viewBox="0 0 360 375" class="lvz-svg" role="img" aria-label="OpenSpliceAI training data construction, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+const steps = [
+  { title: 'Combine genome sequence with gene annotation', caption: 'OpenSpliceAI begins with a genome FASTA and a GFF/GTF annotation that supplies gene structure and strand.' },
+  { title: 'Normalize every gene into transcript orientation', caption: 'Plus-strand genes are retained; minus-strand genes are reverse-complemented so every example runs 5′ to 3′.' },
+  { title: 'Assign one splice class to every position', caption: 'Each nucleotide is labeled neither (0), acceptor (1), or donor (2) from the annotation.' },
+  { title: 'Convert DNA into four one-hot channels', caption: 'A, C, G, and T occupy separate channels; N and padding are represented by all zeros.' },
+  { title: 'Window, partition, and write tensor shards', caption: 'Maximum-context X tensors and central-position Y labels are split into training, validation, and held-out test HDF5 shards.' },
+];
+---
+
+<section class="lvz osai osai-data" role="group" aria-label="Interactive: OpenSpliceAI training data construction" data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Build labeled splice-site examples</p><span class="lvz-tag">Published method</span></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0].caption}</p>
+  <nav class="lvz-progress" aria-label="Training-data steps">{steps.map((step, i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${step.title}`} title={step.title}>{i + 1}</button>)}</nav>
+  {steps.map((step, i) => (
+    <div class="lvz-step" data-wgi-step data-print-final={i === steps.length - 1 ? 'true' : undefined} data-caption={step.caption} hidden={i !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{step.title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktopFrame(i)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobileFrame(i)} />
+    </div>
+  ))}
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button>
+    <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button>
+    <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
+  </div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.data}`}></span>sequence</span><span><span class="lvz-sw" style={`background:${C.acceptor}`}></span>acceptor</span><span><span class="lvz-sw" style={`background:${C.donor}`}></span>donor</span><span><span class="lvz-sw" style={`background:${C.neither}`}></span>neither / padding</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.osai-data')) {
+      const steps = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      const captions = steps.map((step) => step.dataset.caption || '');
+      mountStepper(root, { total: steps.length, onShow: (i) => steps.forEach((step, k) => { const current = i === k; step.hidden = !current; step.setAttribute('aria-current', current ? 'step' : 'false'); }), caption: (i) => captions[i], interval: 6500 });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>
