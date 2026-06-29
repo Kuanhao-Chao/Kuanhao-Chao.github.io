@@ -6,8 +6,17 @@ import '../styles/osai.css';
 const C = { data: '#4c78a8', model: '#2e6e5e', acceptor: '#7a6fbe', donor: '#158f83', neither: '#8a9491', warn: '#d1495b' };
 
 function geneTrack(y: number, color: string, reverse = false) {
-  const arrow = reverse ? `M690 ${y} l-12 -7 v5 H170 v4 h508 v5 z` : `M170 ${y} l12 -7 v5 H690 v4 H182 v5 z`;
+  const arrow = reverse
+    ? `M690 ${y - 2} H182 V${y - 7} L170 ${y} L182 ${y + 7} V${y + 2} H690 Z`
+    : `M170 ${y - 2} H678 V${y - 7} L690 ${y} L678 ${y + 7} V${y + 2} H170 Z`;
   return `<path d="${arrow}" fill="var(--color-muted)" fill-opacity="0.5"/><rect x="205" y="${y - 12}" width="72" height="24" rx="2" fill="${color}" fill-opacity="0.75"/><rect x="385" y="${y - 12}" width="58" height="24" rx="2" fill="${color}" fill-opacity="0.75"/><rect x="570" y="${y - 12}" width="78" height="24" rx="2" fill="${color}" fill-opacity="0.75"/>`;
+}
+
+function mobileGeneCard(y: number, title: string, detail: string, color: string, reverse = false) {
+  const tip = reverse ? 30 : 330;
+  const tail = reverse ? 330 : 30;
+  const head = reverse ? `M30 ${y + 47} l10 -7 v5 H330 v4 H40 v5 z` : `M330 ${y + 47} l-10 -7 v5 H30 v4 H320 v5 z`;
+  return `<rect x="12" y="${y}" width="336" height="88" rx="5" fill="${color}" fill-opacity="0.06" stroke="${color}"/><text x="28" y="${y + 25}" class="lvz-tl" fill="${color}">${title}</text><path d="${head}" fill="var(--color-muted)" fill-opacity="0.55"/><rect x="${Math.min(tail, tip) + 72}" y="${y + 37}" width="38" height="20" fill="${color}" fill-opacity="0.75"/><rect x="${Math.min(tail, tip) + 170}" y="${y + 37}" width="32" height="20" fill="${color}" fill-opacity="0.75"/><text x="180" y="${y + 78}" class="lvz-small">${detail}</text>`;
 }
 
 function desktopFrame(step: number) {
@@ -48,7 +57,7 @@ function mobileFrame(step: number) {
   const card = (y: number, title: string, detail: string, color: string) => `<rect x="12" y="${y}" width="336" height="72" rx="5" fill="${color}" fill-opacity="0.06" stroke="${color}"/><text x="28" y="${y + 27}" class="lvz-tl" fill="${color}">${title}</text><text x="180" y="${y + 53}" class="lvz-small">${detail}</text>`;
   let s = '';
   if (step === 0) s = card(15, 'Genome FASTA', 'primary DNA sequence', C.data) + card(105, 'GFF / GTF annotation', 'genes, exons, and strand', C.model) + `<path d="M180 188 V230" stroke="${C.model}" stroke-width="2"/><path d="M174 223 l6 8 6-8" fill="none" stroke="${C.model}" stroke-width="2"/>` + card(245, 'Per-gene examples', 'sequence matched to structure', C.model);
-  if (step === 1) s = card(15, 'Plus-strand gene', 'retain transcript orientation', C.data) + card(105, 'Minus-strand gene', 'reverse complement', C.warn) + `<path d="M180 188 V230" stroke="${C.model}" stroke-width="2"/><path d="M174 223 l6 8 6-8" fill="none" stroke="${C.model}" stroke-width="2"/>` + card(245, 'Normalized examples', 'all stored 5′ → 3′', C.model);
+  if (step === 1) s = mobileGeneCard(8, 'Plus-strand gene', '5′ → 3′ · retain orientation', C.data) + mobileGeneCard(108, 'Minus-strand gene', '3′ ← 5′ · reverse complement', C.warn, true) + `<path d="M180 204 V240" stroke="${C.model}" stroke-width="2"/><path d="M174 233 l6 8 6-8" fill="none" stroke="${C.model}" stroke-width="2"/>` + card(252, 'Normalized examples', 'all stored in transcript 5′ → 3′ orientation', C.model);
   if (step === 2) s = card(15, '0 · neither', 'most nucleotide positions', C.neither) + card(105, '1 · acceptor', 'intron-to-exon boundary', C.acceptor) + card(195, '2 · donor', 'exon-to-intron boundary', C.donor) + card(285, 'Dense label track', 'one class at every position', C.model);
   if (step === 3) s = card(15, 'A · [1 0 0 0]', 'adenine channel', C.data) + card(105, 'C · [0 1 0 0]', 'cytosine channel', C.data) + card(195, 'G / T', 'their corresponding channels', C.data) + card(285, 'N · [0 0 0 0]', 'unknown base or padding', C.neither);
   if (step === 4) s = card(15, 'Maximum stored window', '5,000 + 10,000 context positions', C.data) + card(105, 'Training / validation', '90:10 within the training partition', C.model) + card(195, 'Held-out test set', 'human chromosome or random-length split', C.acceptor) + card(285, 'HDF5 tensor shards', 'chunked X and Y datasets', C.model);
