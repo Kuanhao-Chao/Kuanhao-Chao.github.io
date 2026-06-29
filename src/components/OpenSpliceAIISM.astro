@@ -1,0 +1,209 @@
+---
+/** Figure 6A: explain in-silico mutagenesis with the published importance logos. */
+import '../styles/lvz.css';
+import '../styles/osai.css';
+import dstOpen from '../assets/posts/openspliceai/openspliceai-ism-dst-openspliceai.png';
+import dstSplice from '../assets/posts/openspliceai/openspliceai-ism-dst-spliceai.png';
+import u2surpOpen from '../assets/posts/openspliceai/openspliceai-ism-u2surp-openspliceai.png';
+import u2surpSplice from '../assets/posts/openspliceai/openspliceai-ism-u2surp-spliceai.png';
+
+type Example = {
+  id: string;
+  label: string;
+  exon: string;
+  assembly: string;
+  coordinate: string;
+  spliceLogo: ImageMetadata;
+  openLogo: ImageMetadata;
+  focus: string;
+  mobileShift: string;
+};
+
+const examples: Example[] = [
+  {
+    id: 'u2surp',
+    label: 'U2SURP',
+    exon: 'exon 9',
+    assembly: 'hg19',
+    coordinate: 'chr3:142,740,192',
+    spliceLogo: u2surpSplice,
+    openLogo: u2surpOpen,
+    focus: '43.2%',
+    mobileShift: '-136px',
+  },
+  {
+    id: 'dst',
+    label: 'DST',
+    exon: 'exon 2',
+    assembly: 'GRCh38',
+    coordinate: 'chr6:56,735,289',
+    spliceLogo: dstSplice,
+    openLogo: dstOpen,
+    focus: '35%',
+    mobileShift: '-82px',
+  },
+];
+
+const steps = [
+  ['Center the experiment on an acceptor site', 'The published examples examine the acceptor of U2SURP exon 9 and DST exon 2 together with their surrounding intronic and exonic sequence.'],
+  ['Mutate each reference nucleotide three ways', 'At every position, the reference base is replaced in turn by each of the other three nucleotides while the rest of the sequence remains fixed.'],
+  ['Measure the average decrease in acceptor score', 'The importance score is the mean decrease from the reference acceptor probability across those three single-nucleotide substitutions.'],
+  ['Read the SpliceAI importance profile', 'Each reference letter is scaled by its importance score, revealing which positions most strongly support the predicted acceptor.'],
+  ['Read the OpenSpliceAI importance profile', 'The same experiment is repeated with the OpenSpliceAI 10k ensemble using the same sequence and acceptor position.'],
+  ['Compare the two published profiles', 'The paired logos expose the similar position-by-position sequence features used by SpliceAI and OpenSpliceAI in these examples.'],
+] as const;
+
+function logoOpacity(model: 'splice' | 'open', step: number) {
+  if (step < 2) return 0.18;
+  if (step === 2) return 0.45;
+  if (step === 3) return model === 'splice' ? 1 : 0.22;
+  if (step === 4) return model === 'open' ? 1 : 0.28;
+  return 1;
+}
+---
+
+<section id="ism-animation" class="lvz osai osai-ism" role="group" aria-label="Interactive: OpenSpliceAI in-silico mutagenesis importance logos" data-print-final-state="true">
+  <div class="lvz-head">
+    <p class="lvz-title">See which nucleotides drive an acceptor prediction</p>
+    <label class="osai-selector"><span>Published example</span><select data-osai-ism-select>{examples.map((example) => <option value={example.id}>{example.label}</option>)}</select></label>
+  </div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="In-silico mutagenesis steps">{steps.map(([title], i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${title}`} title={title}>{i + 1}</button>)}</nav>
+
+  {examples.map((example, exampleIndex) => (
+    <div data-osai-ism-group={example.id} hidden={exampleIndex !== 0} style={`--ism-focus:${example.focus};--ism-mobile-shift:${example.mobileShift}`}>
+      <p class="osai-print-example">{example.label} {example.exon}</p>
+      {steps.map(([title, caption], step) => (
+        <div class="lvz-step" data-wgi-step data-print-final={step === steps.length - 1 ? 'true' : undefined} data-caption={caption} hidden={step !== 0}>
+          <p class="lvz-steptitle"><span class="lvz-num">{step + 1}</span>{title}</p>
+          <div class="ism-stage">
+            <div class="ism-context" data-emphasis={step === 0 ? 'true' : undefined}>
+              <div class="ism-context-head"><strong>{example.label} {example.exon}</strong><span>{example.assembly} · {example.coordinate}</span></div>
+              <div class="ism-gene" aria-hidden="true"><span class="ism-intron"></span><span class="ism-acceptor"></span><span class="ism-exon"></span></div>
+              <div class="ism-gene-labels" aria-hidden="true"><span>upstream intron</span><span>acceptor</span><span>exon</span></div>
+            </div>
+
+            <div class="ism-method" aria-label="Importance-score calculation">
+              <div class="ism-method-part" data-active={step === 1 ? 'true' : undefined}>
+                <span class="ism-base ism-base--ref">G</span>
+                <small>reference base</small>
+              </div>
+              <span class="ism-method-arrow" aria-hidden="true">→</span>
+              <div class="ism-method-part" data-active={step === 1 ? 'true' : undefined}>
+                <span class="ism-substitutions"><span class="ism-base ism-base--a">A</span><span class="ism-base ism-base--c">C</span><span class="ism-base ism-base--t">T</span></span>
+                <small>three substitutions</small>
+              </div>
+              <span class="ism-method-arrow" aria-hidden="true">→</span>
+              <div class="ism-method-part ism-method-result" data-active={step === 2 ? 'true' : undefined}>
+                <span>mean(<i>p</i><sub>ref</sub> − <i>p</i><sub>mut</sub>)</span>
+                <small>importance score</small>
+              </div>
+            </div>
+
+            <div class="ism-logos">
+              <article class="ism-logo-card" style={`opacity:${logoOpacity('splice', step)}`} data-active={step === 3 || step === 5 ? 'true' : undefined}>
+                <header><strong>SpliceAI</strong><span>published importance profile</span></header>
+                <div class="ism-logo-viewport">
+                  <div class="ism-logo-strip">
+                    <img src={example.spliceLogo.src} width={example.spliceLogo.width} height={example.spliceLogo.height} alt={`SpliceAI importance logo around the acceptor of ${example.label} ${example.exon}`} loading="lazy" decoding="async" />
+                    <span class="ism-focus-line" aria-hidden="true"></span>
+                  </div>
+                </div>
+              </article>
+              <article class="ism-logo-card" style={`opacity:${logoOpacity('open', step)}`} data-active={step === 4 || step === 5 ? 'true' : undefined}>
+                <header><strong>OpenSpliceAI</strong><span>published importance profile</span></header>
+                <div class="ism-logo-viewport">
+                  <div class="ism-logo-strip">
+                    <img src={example.openLogo.src} width={example.openLogo.width} height={example.openLogo.height} alt={`OpenSpliceAI importance logo around the acceptor of ${example.label} ${example.exon}`} loading="lazy" decoding="async" />
+                    <span class="ism-focus-line" aria-hidden="true"></span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  ))}
+
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw ism-sw--a"></span>A</span><span><span class="lvz-sw ism-sw--c"></span>C</span><span><span class="lvz-sw ism-sw--g"></span>G</span><span><span class="lvz-sw ism-sw--t"></span>T</span><span><span class="lvz-sw ism-sw--acceptor"></span>acceptor position</span></div>
+</section>
+
+<style>
+  .ism-stage { display: grid; gap: 1rem; }
+  .ism-context { padding: 0.75rem 0.85rem 0.65rem; border-block: 1px solid var(--color-rule); transition: background var(--transition); }
+  .ism-context[data-emphasis='true'] { background: color-mix(in srgb, var(--osai-acceptor) 7%, transparent); }
+  .ism-context-head { display: flex; justify-content: space-between; gap: 1rem; font-size: var(--fs-small); }
+  .ism-context-head span { color: var(--color-muted); font-size: var(--fs-meta); }
+  .ism-gene { position: relative; height: 2.6rem; margin-top: 0.35rem; }
+  .ism-intron { position: absolute; left: 2%; right: 2%; top: 1.28rem; height: 1px; background: var(--color-muted); }
+  .ism-acceptor { position: absolute; left: var(--ism-focus); top: 0.98rem; width: 0; height: 0; border-left: 0.38rem solid transparent; border-right: 0.38rem solid transparent; border-top: 0.68rem solid var(--osai-acceptor); transform: translateX(-50%); }
+  .ism-exon { position: absolute; left: var(--ism-focus); right: 12%; top: 0.75rem; height: 1.08rem; background: var(--color-ink); }
+  .ism-gene-labels { position: relative; height: 1.2rem; color: var(--color-muted); font-size: var(--fs-meta); }
+  .ism-gene-labels span { position: absolute; white-space: nowrap; transform: translateX(-50%); }
+  .ism-gene-labels span:nth-child(1) { left: 0; transform: none; }
+  .ism-gene-labels span:nth-child(2) { left: var(--ism-focus); }
+  .ism-gene-labels span:nth-child(3) { left: calc((100% + var(--ism-focus)) / 2); }
+
+  .ism-method { display: grid; grid-template-columns: 1fr auto 1.3fr auto 1.8fr; align-items: center; gap: 0.75rem; min-height: 4.7rem; padding: 0.6rem 1rem; border-block: 1px solid var(--color-rule); }
+  .ism-method-part { display: grid; justify-items: center; gap: 0.35rem; opacity: 0.55; transition: opacity var(--transition); }
+  .ism-method-part[data-active='true'] { opacity: 1; }
+  .ism-method-part small { color: var(--color-muted); font-size: var(--fs-meta); }
+  .ism-method-arrow { color: var(--color-muted); }
+  .ism-substitutions { display: flex; gap: 0.3rem; }
+  .ism-base { display: inline-grid; width: 1.7rem; height: 1.7rem; place-items: center; border: 1px solid currentColor; border-radius: var(--radius); font-weight: var(--fw-semibold); }
+  .ism-base--a, .ism-sw--a { color: #14823b; background: #14823b; }
+  .ism-base--c, .ism-sw--c { color: #1745d1; background: #1745d1; }
+  .ism-base--ref, .ism-sw--g { color: #c47b00; background: #c47b00; }
+  .ism-base--t, .ism-sw--t { color: #d52222; background: #d52222; }
+  .ism-base { background: transparent; }
+  .ism-method-result span { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.92rem; }
+
+  .ism-logos { display: grid; gap: 0.85rem; }
+  .ism-logo-card { border: 1px solid var(--color-rule); border-radius: var(--radius); overflow: hidden; transition: opacity 180ms ease, border-color 180ms ease; }
+  .ism-logo-card[data-active='true'] { border-color: var(--osai-acceptor); }
+  .ism-logo-card header { display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0.65rem; background: var(--color-bg); font-size: var(--fs-small); }
+  .ism-logo-card header span { color: var(--color-muted); font-size: var(--fs-meta); }
+  .ism-logo-viewport { overflow: hidden; background: #fff; }
+  .ism-logo-strip { position: relative; width: 100%; }
+  .ism-logo-strip img { display: block; width: 100%; height: auto; }
+  .ism-focus-line { position: absolute; left: var(--ism-focus); top: 0; bottom: 0; width: 2px; background: color-mix(in srgb, var(--osai-acceptor) 68%, transparent); transform: translateX(-1px); }
+  .ism-sw--acceptor { background: var(--osai-acceptor); }
+
+  @media (max-width: 640px) {
+    .ism-stage { gap: 0.8rem; }
+    .ism-context-head { align-items: flex-start; flex-direction: column; gap: 0.1rem; }
+    .ism-method { grid-template-columns: 1fr; gap: 0.45rem; padding: 0.75rem 0.5rem; }
+    .ism-method-arrow { font-size: 0; }
+    .ism-method-arrow::after { content: '↓'; font-size: 1rem; }
+    .ism-logo-card header { align-items: flex-start; flex-direction: column; gap: 0.1rem; }
+    .ism-logo-viewport { height: 74px; }
+    .ism-logo-strip { width: 690px; transform: translateX(var(--ism-mobile-shift)); }
+  }
+
+  @media print {
+    .osai-ism[data-print-final-state='true'] [data-osai-ism-group] { display: block !important; margin-top: 0.8rem; break-inside: avoid-page; }
+    .ism-logo-card { opacity: 1 !important; }
+  }
+</style>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.osai-ism')) {
+      if (root.dataset.osaiReady === 'true') continue;
+      root.dataset.osaiReady = 'true';
+      const groups = Array.from(root.querySelectorAll<HTMLElement>('[data-osai-ism-group]'));
+      const select = root.querySelector<HTMLSelectElement>('[data-osai-ism-select]');
+      let active = select?.value || groups[0]?.dataset.osaiIsmGroup || '';
+      let current = 0;
+      const activeSteps = () => Array.from(groups.find((group) => group.dataset.osaiIsmGroup === active)?.querySelectorAll<HTMLElement>('[data-wgi-step]') || []);
+      const show = (i: number) => { current = i; groups.forEach((group) => { const on = group.dataset.osaiIsmGroup === active; group.hidden = !on; Array.from(group.querySelectorAll<HTMLElement>('[data-wgi-step]')).forEach((step, k) => { const selected = on && i === k; step.hidden = !selected; step.setAttribute('aria-current', selected ? 'step' : 'false'); }); }); };
+      const api = mountStepper(root, { total: activeSteps().length, onShow: show, caption: (i) => activeSteps()[i]?.dataset.caption || '', interval: 7000 });
+      select?.addEventListener('change', () => { api?.stop(); active = select.value; api?.show(current); });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>

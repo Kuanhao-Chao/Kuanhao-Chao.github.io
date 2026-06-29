@@ -5,7 +5,7 @@ authors: ['Kuan-Hao Chao']
 abstract: >-
   OpenSpliceAI makes SpliceAI easier to retrain, inspect, and deploy by rebuilding the model as an efficient modular PyTorch toolkit. It covers the motivation for a faithful reimplementation, the workflow choices that make species-specific training practical, and how the software supports splice prediction and variant-effect analysis.
 date: 2025-06-01
-updated: 2026-06-28
+updated: 2026-06-29
 category: summary
 tags: ['RNA splicing', 'Deep learning', 'Open source']
 linkLabel: 'OpenSpliceAI'
@@ -29,6 +29,7 @@ import OpenSpliceAIData from '../../components/OpenSpliceAIData.astro';
 import OpenSpliceAIArchitecture from '../../components/OpenSpliceAIArchitecture.astro';
 import OpenSpliceAIWorkflow from '../../components/OpenSpliceAIWorkflow.astro';
 import OpenSpliceAIVariant from '../../components/OpenSpliceAIVariant.astro';
+import OpenSpliceAIISM from '../../components/OpenSpliceAIISM.astro';
 import figBenchmark from '../../assets/posts/openspliceai/openspliceai-benchmark.png';
 
 Your genes are written in pieces. Before a gene becomes a protein, the cell has to cut out the introns and stitch the exons back together — a process called RNA splicing — and it has to find the boundaries exactly, down to the single base. When splicing goes wrong, the consequences are severe: the [SpliceAI paper (Jaganathan et al., 2019)](https://doi.org/10.1016/j.cell.2018.12.015) summarizes estimates that a substantial fraction of disease-causing mutations in humans act by disrupting splice sites. So a model that can read a stretch of DNA and tell you where splicing will happen — and how a mutation might change it — is enormously useful, both for basic biology and for making sense of the variants we find in patients.
@@ -81,11 +82,15 @@ Together, these stages are what make OpenSpliceAI retrainable: the data represen
 
 ## What it showed
 
-**It matches SpliceAI — but runs far lighter.** The first thing to check for any reimplementation is that it faithfully reproduces the original, and it does. Across a range of flanking-context sizes, OpenSpliceAI's donor and acceptor accuracy tracks the original SpliceAI almost exactly, and in-silico mutagenesis and calibration analyses confirm the two models rely on the same sequence features and produce similarly trustworthy probabilities. The difference is efficiency: because it's built on PyTorch, OpenSpliceAI runs substantially faster and on a fraction of the memory, so you can score whole chromosomes on a single GPU.
+**It matches SpliceAI — but runs far lighter.** The first thing to check for any reimplementation is whether it faithfully reproduces the original. Across a range of flanking-context sizes, OpenSpliceAI's donor and acceptor accuracy tracks SpliceAI closely. The difference is efficiency: because it is built on PyTorch, OpenSpliceAI runs substantially faster and on a fraction of the memory, so you can score whole chromosomes on a single GPU.
 
 <ZoomFigure src={figBenchmark} alt="OpenSpliceAI matches SpliceAI's donor and acceptor Top-1 accuracy across flanking sizes, while running much faster and using far less memory." variant="wide">
   <strong>Figure 1.</strong> Faithful, but far more efficient. <strong>(C, D)</strong> Donor and acceptor Top-1 accuracy for OpenSpliceAI and the original SpliceAI implementation are nearly indistinguishable across flanking-context sizes. <strong>(E)</strong> At prediction time, the PyTorch implementation is dramatically faster and far lighter on memory as the input grows.
 </ZoomFigure>
+
+**It learns similar sequence features.** Accuracy alone does not show whether two models reach their predictions in the same way. In [OpenSpliceAI (Chao et al., 2025)](https://doi.org/10.7554/eLife.107454.3), we therefore repeated an in-silico mutagenesis experiment around the acceptor sites of *U2SURP* exon 9 and *DST* exon 2. At each position, we replaced the reference nucleotide with each of the other three bases and measured the average decrease in the predicted acceptor probability. The height of the reference letter in the resulting DNA sequence logo is that position's importance score. The paired profiles below reproduce Figure 6A and make the similar patterns from SpliceAI and OpenSpliceAI easier to inspect step by step.
+
+<OpenSpliceAIISM />
 
 **It retrains across the tree of life.** This is the capability we most needed. With OpenSpliceAI you can train a model from scratch on a new genome or — faster — transfer-learn from the human model and let it adapt. When we did this for mouse, zebrafish, honeybee, and *Arabidopsis*, the species-specific models clearly outperformed the off-the-shelf human SpliceAI, and the gap widened the further the species sat from human: mouse, our closest relative here, gained the least; the plant and the insect gained the most. Transfer learning reached high accuracy in just a few epochs, which makes adapting the model to a new organism cheap.
 
