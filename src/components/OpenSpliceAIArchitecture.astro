@@ -1,0 +1,133 @@
+---
+/** Published OpenSpliceAI/SpliceAI residual dilated-CNN architecture. */
+import '../styles/lvz.css';
+import '../styles/osai.css';
+
+type Context = { id: string; cl: number; units: number; groups: number; input: number; windows: string; dilations: string };
+const contexts: Context[] = [
+  { id: '10000', cl: 10000, units: 16, groups: 4, input: 15000, windows: '11 × 8, 21 × 4, 41 × 4', dilations: '1 × 4, 4 × 4, 10 × 4, 25 × 4' },
+  { id: '2000', cl: 2000, units: 12, groups: 3, input: 7000, windows: '11 × 8, 21 × 4', dilations: '1 × 4, 4 × 4, 10 × 4' },
+  { id: '400', cl: 400, units: 8, groups: 2, input: 5400, windows: '11 × 8', dilations: '1 × 4, 4 × 4' },
+  { id: '80', cl: 80, units: 4, groups: 1, input: 5080, windows: '11 × 4', dilations: '1 × 4' },
+];
+
+const C = { input: '#4c78a8', model: '#2e6e5e', residual: '#54a24b', skip: '#b07d00', acceptor: '#7a6fbe', donor: '#158f83', neither: '#8a9491' };
+const fmt = (n: number) => n.toLocaleString('en-US');
+
+function box(x: number, y: number, w: number, h: number, color: string, title: string, detail = '') {
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${color}" fill-opacity="0.07" stroke="${color}" stroke-width="1.5"/><text x="${x + w / 2}" y="${y + h / 2 - (detail ? 5 : -4)}" class="lvz-nt on" fill="${color}">${title}</text>${detail ? `<text x="${x + w / 2}" y="${y + h / 2 + 18}" class="lvz-small">${detail}</text>` : ''}`;
+}
+
+function arrow(x1: number, y: number, x2: number, color = 'var(--color-muted)') {
+  return `<path d="M${x1} ${y} H${x2 - 8}" stroke="${color}" stroke-width="2"/><path d="M${x2 - 14} ${y - 6} l7 6-7 6" fill="none" stroke="${color}" stroke-width="2"/>`;
+}
+
+function desktopFrame(ctx: Context, step: number) {
+  let s = '';
+  if (step === 0) {
+    const selectedWidth = 210 + (ctx.cl / 10000) * 330;
+    s += `<text x="20" y="38" class="lvz-tl">Stored dataset window · 15,000 positions</text><rect x="170" y="55" width="550" height="62" rx="5" fill="${C.input}" fill-opacity="0.06" stroke="${C.input}"/><rect x="335" y="55" width="220" height="62" fill="${C.model}" fill-opacity="0.16"/><text x="445" y="91" class="lvz-nt on">central SL = 5,000</text>`;
+    s += `<path d="M445 132 V170" stroke="${C.model}" stroke-width="2"/><path d="M439 163 l6 8 6-8" fill="none" stroke="${C.model}" stroke-width="2"/>`;
+    s += `<text x="20" y="202" class="lvz-tl">Model input for CL = ${fmt(ctx.cl)}</text><rect x="${445 - selectedWidth / 2}" y="218" width="${selectedWidth}" height="62" rx="5" fill="${C.input}" fill-opacity="0.08" stroke="${C.input}"/><rect x="335" y="218" width="220" height="62" fill="${C.model}" fill-opacity="0.16"/><text x="445" y="254" class="lvz-nt on">4 × ${fmt(ctx.input)}</text>`;
+    s += `<text x="445" y="316" class="lvz-small">the loader clips unused outer context before the forward pass</text>`;
+  } else if (step === 1) {
+    s += box(35, 95, 190, 150, C.input, `one-hot DNA`, `N × 4 × ${fmt(ctx.input)}`) + arrow(230, 170, 295) + box(300, 105, 170, 130, C.model, 'Conv1d stem', '32 channels') + arrow(475, 170, 540) + box(545, 105, 180, 130, C.residual, 'feature map', 'length preserved');
+    ['A', 'C', 'G', 'T'].forEach((base, i) => { s += `<rect x="62" y="140" width="28" height="${18 + i * 2}" fill="${C.input}" fill-opacity="${0.25 + i * 0.12}"/><text x="110" y="${151 + i * 23}" class="lvz-small">${base} channel</text>`; });
+  } else if (step === 2) {
+    s += `<text x="20" y="32" class="lvz-tl">One ResidualUnit</text>`;
+    const nodes = [['BatchNorm', C.model], ['LeakyReLU', C.skip], ['Conv1d', C.residual], ['BatchNorm', C.model], ['LeakyReLU', C.skip], ['Conv1d', C.residual]] as const;
+    nodes.forEach(([label, color], i) => { const x = 32 + i * 116; s += box(x, 115, 96, 72, color, label, i === 1 || i === 4 ? 'slope 0.1' : i === 2 || i === 5 ? `W, AR` : ''); if (i < nodes.length - 1) s += arrow(x + 96, 151, x + 116); });
+    s += `<path d="M45 105 V72 H710 V105" fill="none" stroke="${C.input}" stroke-width="2"/><text x="380" y="58" class="lvz-small" fill="${C.input}">identity residual path</text><path d="M380 205 V250" stroke="${C.input}" stroke-width="2"/><circle cx="380" cy="272" r="20" fill="${C.input}" fill-opacity="0.08" stroke="${C.input}"/><text x="380" y="277" class="lvz-nt on">+</text><text x="380" y="316" class="lvz-small">add transformed signal to the unit input</text>`;
+  } else if (step === 3) {
+    s += `<text x="20" y="32" class="lvz-tl">${ctx.units} residual units · ${ctx.groups} dilation ${ctx.groups === 1 ? 'tier' : 'tiers'}</text>`;
+    const available = 650, gap = 16, groupW = (available - gap * (ctx.groups - 1)) / ctx.groups;
+    for (let i = 0; i < ctx.groups; i++) {
+      const x = 55 + i * (groupW + gap);
+      const ar = [1, 4, 10, 25][i];
+      const w = [11, 11, 21, 41][i];
+      s += box(x, 90, groupW, 120, C.residual, `ResidualUnit × 4`, `W=${w} · AR=${ar}`);
+      s += `<path d="M${x + groupW / 2} 90 V58" stroke="${C.skip}" stroke-width="2"/><rect x="${x + groupW / 2 - 34}" y="28" width="68" height="30" rx="3" fill="${C.skip}" fill-opacity="0.1" stroke="${C.skip}"/><text x="${x + groupW / 2}" y="48" class="lvz-small">Skip 1×1</text>`;
+      if (i < ctx.groups - 1) s += arrow(x + groupW, 150, x + groupW + gap);
+    }
+    s += `<text x="380" y="258" class="lvz-nt on" fill="${C.model}">CL = 2 Σ AR(W−1) = ${fmt(ctx.cl)} nt</text><text x="380" y="292" class="lvz-small">W schedule: ${ctx.windows}</text><text x="380" y="318" class="lvz-small">AR schedule: ${ctx.dilations}</text>`;
+  } else if (step === 4) {
+    const taps = ctx.groups + 1;
+    s += `<text x="20" y="32" class="lvz-tl">Stem tap + ${ctx.groups} residual-group ${ctx.groups === 1 ? 'tap' : 'taps'}</text>`;
+    for (let i = 0; i < taps; i++) {
+      const x = 75 + i * (610 / Math.max(1, taps - 1));
+      s += `<rect x="${x - 34}" y="62" width="68" height="38" rx="4" fill="${C.skip}" fill-opacity="0.1" stroke="${C.skip}"/><text x="${x}" y="86" class="lvz-small">1×1</text><path d="M${x} 100 V158 H380" fill="none" stroke="${C.skip}" stroke-width="1.5"/>`;
+    }
+    s += `<circle cx="380" cy="175" r="24" fill="${C.skip}" fill-opacity="0.1" stroke="${C.skip}"/><text x="380" y="180" class="lvz-nt on">Σ</text><path d="M380 199 V232" stroke="${C.model}" stroke-width="2"/>`;
+    s += `<rect x="195" y="242" width="370" height="66" rx="5" fill="${C.model}" fill-opacity="0.06" stroke="${C.model}"/><rect x="195" y="242" width="72" height="66" fill="${C.input}" fill-opacity="0.12"/><rect x="493" y="242" width="72" height="66" fill="${C.input}" fill-opacity="0.12"/><text x="380" y="270" class="lvz-nt on">Cropping1D</text><text x="380" y="294" class="lvz-small">trim ${fmt(ctx.cl / 2)} positions from each edge → 5,000 central positions</text>`;
+  } else {
+    s += box(35, 105, 190, 120, C.model, 'summed + cropped features', 'N × 32 × 5,000') + arrow(230, 165, 290) + box(295, 105, 160, 120, C.residual, '1×1 Conv1d', '32 → 3 channels') + arrow(460, 165, 520);
+    const classes = [['neither', C.neither], ['acceptor', C.acceptor], ['donor', C.donor]] as const;
+    classes.forEach(([label, color], i) => { const y = 80 + i * 86; s += `<rect x="530" y="${y}" width="190" height="58" rx="5" fill="${color}" fill-opacity="0.1" stroke="${color}"/><text x="625" y="${y + 25}" class="lvz-nt on" fill="${color}">${label}</text><text x="625" y="${y + 46}" class="lvz-small">probability at every position</text>`; });
+    s += `<text x="375" y="300" class="lvz-nt on" fill="${C.model}">softmax across the three classes</text><text x="375" y="326" class="lvz-small">output shape: N × 3 × 5,000</text>`;
+  }
+  return `<svg viewBox="0 0 760 350" class="lvz-svg" role="img" aria-label="OpenSpliceAI architecture at ${fmt(ctx.cl)} nucleotide context, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobileFrame(ctx: Context, step: number) {
+  const card = (y: number, title: string, detail: string, color: string) => `<rect x="12" y="${y}" width="336" height="72" rx="5" fill="${color}" fill-opacity="0.06" stroke="${color}"/><text x="28" y="${y + 27}" class="lvz-tl" fill="${color}">${title}</text><text x="180" y="${y + 53}" class="lvz-small">${detail}</text>`;
+  let cards: [string, string, string][] = [];
+  if (step === 0) cards = [['Stored X window', '4 × 15,000 maximum-context tensor', C.input], ['Context-specific input', `4 × ${fmt(ctx.input)} for CL ${fmt(ctx.cl)}`, C.model], ['Central target', '5,000 positions receive predictions', C.residual]];
+  if (step === 1) cards = [['One-hot DNA', `N × 4 × ${fmt(ctx.input)}`, C.input], ['Conv1d stem', 'project to 32 feature channels', C.model], ['Length preserved', 'symmetric convolution padding', C.residual]];
+  if (step === 2) cards = [['Pre-activation', 'BatchNorm → LeakyReLU → Conv1d', C.model], ['Repeat transform', 'BatchNorm → LeakyReLU → Conv1d', C.residual], ['Residual addition', 'transformed signal + original input', C.input]];
+  if (step === 3) cards = [['Residual depth', `${ctx.units} units in ${ctx.groups} ${ctx.groups === 1 ? 'tier' : 'tiers'}`, C.residual], ['Window schedule', ctx.windows, C.model], ['Dilation schedule', ctx.dilations, C.skip], ['Exact receptive field', `2Σ AR(W−1) = ${fmt(ctx.cl)} nt`, C.model]];
+  if (step === 4) cards = [['Skip taps', `stem + ${ctx.groups} residual ${ctx.groups === 1 ? 'group' : 'groups'}`, C.skip], ['Sum features', 'combine shallow and deep evidence', C.residual], ['Crop context', `${fmt(ctx.cl / 2)} positions from each side`, C.input], ['Central output width', '5,000 positions', C.model]];
+  if (step === 5) cards = [['1×1 output head', '32 → 3 channels', C.residual], ['Neither', 'class probability per position', C.neither], ['Acceptor', 'class probability per position', C.acceptor], ['Donor', 'class probability per position', C.donor]];
+  const s = cards.map(([title, detail, color], i) => card(12 + i * 84, title, detail, color)).join('');
+  return `<svg viewBox="0 0 360 ${cards.length * 84 + 12}" class="lvz-svg" role="img" aria-label="OpenSpliceAI architecture at ${fmt(ctx.cl)} nucleotide context, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+const steps = [
+  ['Select how much flanking sequence the model reads', 'The dataset stores maximum context; each model receives only 5,000 central positions plus its selected flanking context.'],
+  ['Project four DNA channels into learned features', 'A Conv1d stem converts one-hot DNA into 32 feature channels while preserving sequence length.'],
+  ['Transform features through pre-activation residual units', 'Each unit applies two BatchNorm–LeakyReLU–Conv1d sequences and adds the original input.'],
+  ['Expand the receptive field with dilated convolution', 'Context size selects a fixed residual depth, convolution-window schedule, and dilation schedule.'],
+  ['Sum skip features and remove flanking context', 'One-by-one skip taps combine feature depths before Cropping1D trims CL/2 positions from each edge.'],
+  ['Predict three classes at every central position', 'A one-by-one head and softmax produce neither, acceptor, and donor probabilities for 5,000 positions.'],
+] as const;
+---
+
+<section class="lvz osai osai-architecture" role="group" aria-label="Interactive: OpenSpliceAI residual dilated convolutional architecture" data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Read long-range sequence context</p><label class="osai-selector"><span>Flanking context</span><select data-osai-context>{contexts.map((ctx) => <option value={ctx.id}>{fmt(ctx.cl)} nt</option>)}</select></label></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Model architecture steps">{steps.map(([title], i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${title}`} title={title}>{i + 1}</button>)}</nav>
+  {contexts.map((ctx, contextIndex) => (
+    <div data-osai-context-group={ctx.id} hidden={contextIndex !== 0}>
+      {steps.map(([title, caption], i) => (
+        <div class="lvz-step" data-wgi-step data-print-final={i === steps.length - 1 ? 'true' : undefined} data-caption={caption} hidden={i !== 0}>
+          <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{title}</p>
+          <div class="lvz-fig lvz-visual--desktop" set:html={desktopFrame(ctx, i)} />
+          <div class="lvz-fig lvz-visual--mobile" set:html={mobileFrame(ctx, i)} />
+        </div>
+      ))}
+    </div>
+  ))}
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
+  </div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.input}`}></span>sequence / context</span><span><span class="lvz-sw" style={`background:${C.residual}`}></span>residual features</span><span><span class="lvz-sw" style={`background:${C.skip}`}></span>skip features</span><span><span class="lvz-sw" style={`background:${C.acceptor}`}></span>acceptor</span><span><span class="lvz-sw" style={`background:${C.donor}`}></span>donor</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.osai-architecture')) {
+      if (root.dataset.osaiReady === 'true') continue;
+      root.dataset.osaiReady = 'true';
+      const groups = Array.from(root.querySelectorAll<HTMLElement>('[data-osai-context-group]'));
+      const select = root.querySelector<HTMLSelectElement>('[data-osai-context]');
+      let active = select?.value || groups[0]?.dataset.osaiContextGroup || '';
+      let current = 0;
+      const activeSteps = () => Array.from(groups.find((group) => group.dataset.osaiContextGroup === active)?.querySelectorAll<HTMLElement>('[data-wgi-step]') || []);
+      const show = (i: number) => { current = i; groups.forEach((group) => { const on = group.dataset.osaiContextGroup === active; group.hidden = !on; Array.from(group.querySelectorAll<HTMLElement>('[data-wgi-step]')).forEach((step, k) => { const selected = on && i === k; step.hidden = !selected; step.setAttribute('aria-current', selected ? 'step' : 'false'); }); }); };
+      const api = mountStepper(root, { total: activeSteps().length, onShow: show, caption: (i) => activeSteps()[i]?.dataset.caption || '', interval: 6500 });
+      select?.addEventListener('change', () => { api?.stop(); active = select.value; api?.show(current); });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>

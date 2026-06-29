@@ -1,0 +1,86 @@
+---
+/** Published OpenSpliceAI six-command lifecycle, shown as a branching workflow. */
+import '../styles/lvz.css';
+import '../styles/osai.css';
+
+const C = { data: '#4c78a8', model: '#2e6e5e', train: '#54a24b', cal: '#b07d00', predict: '#3b7f91', variant: '#d1495b' };
+
+function node(x: number, y: number, w: number, title: string, detail: string, color: string, active = true) {
+  return `<rect x="${x}" y="${y}" width="${w}" height="62" rx="6" fill="${color}" fill-opacity="${active ? 0.08 : 0.03}" stroke="${color}" stroke-width="${active ? 2 : 1}" opacity="${active ? 1 : 0.35}"/><text x="${x + w / 2}" y="${y + 25}" class="lvz-nt on" fill="${color}">${title}</text><text x="${x + w / 2}" y="${y + 48}" class="lvz-small">${detail}</text>`;
+}
+
+function path(d: string, color = 'var(--color-muted)', active = true) {
+  return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2" opacity="${active ? 1 : 0.3}"/><path d="M0 0"/>`;
+}
+
+function desktopFrame(step: number) {
+  let s = `<rect x="208" y="12" width="344" height="38" rx="5" fill="${C.model}" fill-opacity="0.06" stroke="${C.model}"/><text x="380" y="36" class="lvz-nt on" fill="${C.model}">one SpliceAI class · context-keyed configuration</text>`;
+  s += node(20, 98, 145, 'FASTA + GFF', 'genome inputs', C.data, step >= 0) + path('M165 129 H198', C.data, step >= 0) + node(200, 98, 145, 'create-data', 'HDF5 X / Y tensors', C.data, step >= 1);
+  s += path('M345 129 H375 V91 H395', C.train, step >= 2) + path('M375 129 V167 H395', C.train, step >= 2);
+  s += node(395, 60, 145, 'train', 'from random weights', C.train, step >= 2) + node(395, 136, 145, 'transfer', 'from pretrained weights', C.train, step >= 2);
+  s += path('M540 91 H570 V129 H595', C.model, step >= 3) + path('M540 167 H570 V129', C.model, step >= 3) + node(595, 98, 145, 'checkpoint', 'plain state_dict', C.model, step >= 3);
+  if (step >= 3) {
+    s += path('M668 160 V200 H303 V222', C.cal) + node(230, 222, 145, 'calibrate', 'optional temperature τ', C.cal);
+    s += path('M668 200 H468 V222', C.model) + node(395, 222, 145, 'model directory', 'average seed predictions', C.model);
+  }
+  if (step >= 4) {
+    s += path('M303 284 V295 H380 V303', C.model) + path('M468 284 V295 H380', C.model);
+    s += path('M380 303 H180 V322', C.predict);
+    s += node(80, 322, 200, 'predict', 'tiled FASTA → BED tracks', C.predict);
+  }
+  if (step >= 5) {
+    s += path('M380 303 H580 V322', C.variant);
+    s += node(480, 322, 200, 'variant', 'VCF → DS + DP INFO', C.variant);
+  }
+  return `<svg viewBox="0 0 760 400" class="lvz-svg" role="img" aria-label="OpenSpliceAI command lifecycle, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobileFrame(step: number) {
+  const card = (y: number, title: string, detail: string, color: string, active = true) => `<rect x="12" y="${y}" width="336" height="66" rx="5" fill="${color}" fill-opacity="${active ? 0.07 : 0.02}" stroke="${color}" opacity="${active ? 1 : 0.35}"/><text x="28" y="${y + 26}" class="lvz-tl" fill="${color}">${title}</text><text x="180" y="${y + 50}" class="lvz-small">${detail}</text>`;
+  let s = card(12, 'Shared SpliceAI model class', 'one context setting across every command', C.model);
+  s += card(92, 'create-data', 'FASTA + GFF → HDF5 tensors', C.data, step >= 1);
+  s += card(172, 'train  |  transfer', 'from scratch or adapt pretrained weights', C.train, step >= 2);
+  s += card(252, 'checkpoint / ensemble', 'one state_dict or averaged seed directory', C.model, step >= 3);
+  s += card(332, 'calibrate · optional', 'fit one temperature on validation data', C.cal, step >= 3);
+  s += card(412, 'predict', 'overlap-tiled FASTA → donor/acceptor BED', C.predict, step >= 4);
+  s += card(492, 'variant', 'reference/alternate windows → annotated VCF', C.variant, step >= 5);
+  return `<svg viewBox="0 0 360 590" class="lvz-svg" role="img" aria-label="OpenSpliceAI command lifecycle, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+const steps = [
+  ['Keep one model definition across the toolkit', 'Every command builds the same context-keyed SpliceAI class, preventing silent dataset/checkpoint mismatches.'],
+  ['Create model-ready data from a new genome', 'The create-data command converts FASTA and annotation inputs into reusable HDF5 tensor shards.'],
+  ['Train from scratch or transfer from another species', 'Training starts with random weights; transfer loads a checkpoint and can freeze earlier residual units.'],
+  ['Save, ensemble, and optionally calibrate checkpoints', 'Plain state_dict checkpoints can be averaged as an ensemble or temperature-calibrated on validation data.'],
+  ['Predict splice sites across long genome sequences', 'The predict path uses overlapping tiles and emits separate donor and acceptor BED tracks.'],
+  ['Score variants as an alternative downstream path', 'The variant path compares reference and alternate predictions and writes delta scores and positions into VCF INFO.'],
+] as const;
+---
+
+<section class="lvz osai osai-workflow" role="group" aria-label="Interactive: OpenSpliceAI model lifecycle" data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Move from a genome to reusable predictions</p><span class="lvz-tag">Six-command toolkit</span></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Model lifecycle steps">{steps.map(([title], i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${title}`} title={title}>{i + 1}</button>)}</nav>
+  {steps.map(([title, caption], i) => (
+    <div class="lvz-step" data-wgi-step data-print-final={i === steps.length - 1 ? 'true' : undefined} data-caption={caption} hidden={i !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{i + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktopFrame(i)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobileFrame(i)} />
+    </div>
+  ))}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.data}`}></span>data</span><span><span class="lvz-sw" style={`background:${C.train}`}></span>training</span><span><span class="lvz-sw" style={`background:${C.cal}`}></span>calibration</span><span><span class="lvz-sw" style={`background:${C.predict}`}></span>genome prediction</span><span><span class="lvz-sw" style={`background:${C.variant}`}></span>variant scoring</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function boot() {
+    for (const root of document.querySelectorAll<HTMLElement>('.osai-workflow')) {
+      const steps = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      const captions = steps.map((step) => step.dataset.caption || '');
+      mountStepper(root, { total: steps.length, onShow: (i) => steps.forEach((step, k) => { const current = i === k; step.hidden = !current; step.setAttribute('aria-current', current ? 'step' : 'false'); }), caption: (i) => captions[i], interval: 6500 });
+    }
+  }
+  boot();
+  document.addEventListener('astro:page-load', boot);
+</script>
