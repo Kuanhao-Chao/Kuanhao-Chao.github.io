@@ -14,80 +14,103 @@ const contexts: Context[] = [
 const C = { input: '#4c78a8', model: '#2e6e5e', residual: '#54a24b', skip: '#b07d00', acceptor: '#7a6fbe', donor: '#158f83', neither: '#8a9491' };
 const fmt = (n: number) => n.toLocaleString('en-US');
 
-function box(x: number, y: number, w: number, h: number, color: string, title: string, detail = '') {
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${color}" fill-opacity="0.07" stroke="${color}" stroke-width="1.5"/><text x="${x + w / 2}" y="${y + h / 2 - (detail ? 5 : -4)}" class="lvz-nt on" fill="${color}">${title}</text>${detail ? `<text x="${x + w / 2}" y="${y + h / 2 + 18}" class="lvz-small">${detail}</text>` : ''}`;
+const groupSchedule = [
+  { w: 11, ar: 1 },
+  { w: 11, ar: 4 },
+  { w: 21, ar: 10 },
+  { w: 41, ar: 25 },
+] as const;
+
+function block(x: number, y: number, w: number, h: number, color: string, title: string, detail: string, focused: boolean, enabled = true) {
+  const opacity = enabled ? (focused ? 1 : 0.48) : 0.14;
+  return `<g opacity="${opacity}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${color}" fill-opacity="${focused ? 0.16 : 0.05}" stroke="${color}" stroke-width="${focused ? 2.8 : 1.2}" ${enabled ? '' : 'stroke-dasharray="4 4"'}/><text x="${x + w / 2}" y="${y + h / 2 - 7}" class="lvz-nt on" fill="${color}">${title}</text><text x="${x + w / 2}" y="${y + h / 2 + 15}" class="lvz-small">${detail}</text></g>`;
 }
 
-function arrow(x1: number, y: number, x2: number, color = 'var(--color-muted)') {
-  return `<path d="M${x1} ${y} H${x2 - 8}" stroke="${color}" stroke-width="2"/><path d="M${x2 - 14} ${y - 6} l7 6-7 6" fill="none" stroke="${color}" stroke-width="2"/>`;
+function connector(x1: number, y1: number, x2: number, y2: number) {
+  return `<path d="M${x1} ${y1} L${x2 - 8} ${y2}" stroke="var(--color-muted)" stroke-width="1.6" opacity="0.48"/><path d="M${x2 - 14} ${y2 - 5} l7 5-7 5" fill="none" stroke="var(--color-muted)" stroke-width="1.6" opacity="0.48"/>`;
+}
+
+function desktopDetail(ctx: Context, step: number) {
+  if (step === 0) return `<text x="450" y="291" class="lvz-nt on" fill="${C.input}">stored X: 4 × 15,000 · selected model input: 4 × ${fmt(ctx.input)}</text><text x="450" y="318" class="lvz-small">5,000 central positions + ${fmt(ctx.cl / 2)} nt of context on each side</text>`;
+  if (step === 1) return `<text x="450" y="291" class="lvz-nt on" fill="${C.model}">Conv1d stem · 4 input channels → 32 learned feature channels</text><text x="450" y="318" class="lvz-small">symmetric padding preserves the context-specific sequence length</text>`;
+  if (step === 2) {
+    const labels = ['BN', 'LeakyReLU', 'Conv1d', 'BN', 'LeakyReLU', 'Conv1d'];
+    let s = `<text x="75" y="274" class="lvz-tl" fill="${C.residual}">One ResidualUnit</text><path d="M155 326 V286 H745 V326" fill="none" stroke="${C.input}" stroke-width="1.5"/><text x="450" y="280" class="lvz-small" fill="${C.input}">identity path</text>`;
+    labels.forEach((label, i) => { const x = 160 + i * 96; s += `<rect x="${x}" y="302" width="78" height="42" rx="4" fill="${i === 1 || i === 4 ? C.skip : i === 2 || i === 5 ? C.residual : C.model}" fill-opacity="0.1" stroke="${i === 1 || i === 4 ? C.skip : i === 2 || i === 5 ? C.residual : C.model}"/><text x="${x + 39}" y="327" class="lvz-small">${label}</text>`; if (i < labels.length - 1) s += connector(x + 78, 323, x + 96, 323); });
+    return s;
+  }
+  if (step === 3) return `<text x="450" y="286" class="lvz-nt on" fill="${C.residual}">${ctx.units} residual units in ${ctx.groups} active ${ctx.groups === 1 ? 'group' : 'groups'} · CL = 2 Σ AR(W−1) = ${fmt(ctx.cl)} nt</text><text x="450" y="314" class="lvz-small">W: ${ctx.windows} · AR: ${ctx.dilations}</text>`;
+  if (step === 4) return `<text x="450" y="286" class="lvz-nt on" fill="${C.skip}">1×1 taps sum stem and residual-group features before Cropping1D</text><text x="450" y="314" class="lvz-small">trim ${fmt(ctx.cl / 2)} positions from each edge → 5,000 central positions</text>`;
+  return `<text x="450" y="286" class="lvz-nt on" fill="${C.model}">1×1 Conv1d + softmax · N × 32 × 5,000 → N × 3 × 5,000</text><text x="450" y="314" class="lvz-small">probability at every central position: neither · acceptor · donor</text>`;
 }
 
 function desktopFrame(ctx: Context, step: number) {
-  let s = '';
-  if (step === 0) {
-    const selectedWidth = 210 + (ctx.cl / 10000) * 330;
-    s += `<text x="20" y="38" class="lvz-tl">Stored dataset window · 15,000 positions</text><rect x="170" y="55" width="550" height="62" rx="5" fill="${C.input}" fill-opacity="0.06" stroke="${C.input}"/><rect x="335" y="55" width="220" height="62" fill="${C.model}" fill-opacity="0.16"/><text x="445" y="91" class="lvz-nt on">central SL = 5,000</text>`;
-    s += `<path d="M445 132 V170" stroke="${C.model}" stroke-width="2"/><path d="M439 163 l6 8 6-8" fill="none" stroke="${C.model}" stroke-width="2"/>`;
-    s += `<text x="20" y="202" class="lvz-tl">Model input for CL = ${fmt(ctx.cl)}</text><rect x="${445 - selectedWidth / 2}" y="218" width="${selectedWidth}" height="62" rx="5" fill="${C.input}" fill-opacity="0.08" stroke="${C.input}"/><rect x="335" y="218" width="220" height="62" fill="${C.model}" fill-opacity="0.16"/><text x="445" y="254" class="lvz-nt on">4 × ${fmt(ctx.input)}</text>`;
-    s += `<text x="445" y="316" class="lvz-small">the loader clips unused outer context before the forward pass</text>`;
-  } else if (step === 1) {
-    s += box(35, 95, 190, 150, C.input, `one-hot DNA`, `N × 4 × ${fmt(ctx.input)}`) + arrow(230, 170, 295) + box(300, 105, 170, 130, C.model, 'Conv1d stem', '32 channels') + arrow(475, 170, 540) + box(545, 105, 180, 130, C.residual, 'feature map', 'length preserved');
-    ['A', 'C', 'G', 'T'].forEach((base, i) => { s += `<rect x="62" y="140" width="28" height="${18 + i * 2}" fill="${C.input}" fill-opacity="${0.25 + i * 0.12}"/><text x="110" y="${151 + i * 23}" class="lvz-small">${base} channel</text>`; });
-  } else if (step === 2) {
-    s += `<text x="20" y="32" class="lvz-tl">One ResidualUnit</text>`;
-    const nodes = [['BatchNorm', C.model], ['LeakyReLU', C.skip], ['Conv1d', C.residual], ['BatchNorm', C.model], ['LeakyReLU', C.skip], ['Conv1d', C.residual]] as const;
-    nodes.forEach(([label, color], i) => { const x = 32 + i * 116; s += box(x, 115, 96, 72, color, label, i === 1 || i === 4 ? 'slope 0.1' : i === 2 || i === 5 ? `W, AR` : ''); if (i < nodes.length - 1) s += arrow(x + 96, 151, x + 116); });
-    s += `<path d="M45 105 V72 H710 V105" fill="none" stroke="${C.input}" stroke-width="2"/><text x="380" y="58" class="lvz-small" fill="${C.input}">identity residual path</text><path d="M380 205 V250" stroke="${C.input}" stroke-width="2"/><circle cx="380" cy="272" r="20" fill="${C.input}" fill-opacity="0.08" stroke="${C.input}"/><text x="380" y="277" class="lvz-nt on">+</text><text x="380" y="316" class="lvz-small">add transformed signal to the unit input</text>`;
-  } else if (step === 3) {
-    s += `<text x="20" y="32" class="lvz-tl">${ctx.units} residual units · ${ctx.groups} dilation ${ctx.groups === 1 ? 'tier' : 'tiers'}</text>`;
-    const available = 650, gap = 16, groupW = (available - gap * (ctx.groups - 1)) / ctx.groups;
-    for (let i = 0; i < ctx.groups; i++) {
-      const x = 55 + i * (groupW + gap);
-      const ar = [1, 4, 10, 25][i];
-      const w = [11, 11, 21, 41][i];
-      s += box(x, 90, groupW, 120, C.residual, `ResidualUnit × 4`, `W=${w} · AR=${ar}`);
-      s += `<path d="M${x + groupW / 2} 90 V58" stroke="${C.skip}" stroke-width="2"/><rect x="${x + groupW / 2 - 34}" y="28" width="68" height="30" rx="3" fill="${C.skip}" fill-opacity="0.1" stroke="${C.skip}"/><text x="${x + groupW / 2}" y="48" class="lvz-small">Skip 1×1</text>`;
-      if (i < ctx.groups - 1) s += arrow(x + groupW, 150, x + groupW + gap);
-    }
-    s += `<text x="380" y="258" class="lvz-nt on" fill="${C.model}">CL = 2 Σ AR(W−1) = ${fmt(ctx.cl)} nt</text><text x="380" y="292" class="lvz-small">W schedule: ${ctx.windows}</text><text x="380" y="318" class="lvz-small">AR schedule: ${ctx.dilations}</text>`;
-  } else if (step === 4) {
-    const taps = ctx.groups + 1;
-    s += `<text x="20" y="32" class="lvz-tl">Stem tap + ${ctx.groups} residual-group ${ctx.groups === 1 ? 'tap' : 'taps'}</text>`;
-    for (let i = 0; i < taps; i++) {
-      const x = 75 + i * (610 / Math.max(1, taps - 1));
-      s += `<rect x="${x - 34}" y="62" width="68" height="38" rx="4" fill="${C.skip}" fill-opacity="0.1" stroke="${C.skip}"/><text x="${x}" y="86" class="lvz-small">1×1</text><path d="M${x} 100 V158 H380" fill="none" stroke="${C.skip}" stroke-width="1.5"/>`;
-    }
-    s += `<circle cx="380" cy="175" r="24" fill="${C.skip}" fill-opacity="0.1" stroke="${C.skip}"/><text x="380" y="180" class="lvz-nt on">Σ</text><path d="M380 199 V232" stroke="${C.model}" stroke-width="2"/>`;
-    s += `<rect x="195" y="242" width="370" height="66" rx="5" fill="${C.model}" fill-opacity="0.06" stroke="${C.model}"/><rect x="195" y="242" width="72" height="66" fill="${C.input}" fill-opacity="0.12"/><rect x="493" y="242" width="72" height="66" fill="${C.input}" fill-opacity="0.12"/><text x="380" y="270" class="lvz-nt on">Cropping1D</text><text x="380" y="294" class="lvz-small">trim ${fmt(ctx.cl / 2)} positions from each edge → 5,000 central positions</text>`;
-  } else {
-    s += box(35, 105, 190, 120, C.model, 'summed + cropped features', 'N × 32 × 5,000') + arrow(230, 165, 290) + box(295, 105, 160, 120, C.residual, '1×1 Conv1d', '32 → 3 channels') + arrow(460, 165, 520);
-    const classes = [['neither', C.neither], ['acceptor', C.acceptor], ['donor', C.donor]] as const;
-    classes.forEach(([label, color], i) => { const y = 80 + i * 86; s += `<rect x="530" y="${y}" width="190" height="58" rx="5" fill="${color}" fill-opacity="0.1" stroke="${color}"/><text x="625" y="${y + 25}" class="lvz-nt on" fill="${color}">${label}</text><text x="625" y="${y + 46}" class="lvz-small">probability at every position</text>`; });
-    s += `<text x="375" y="300" class="lvz-nt on" fill="${C.model}">softmax across the three classes</text><text x="375" y="326" class="lvz-small">output shape: N × 3 × 5,000</text>`;
-  }
-  return `<svg viewBox="0 0 760 350" class="lvz-svg" role="img" aria-label="OpenSpliceAI architecture at ${fmt(ctx.cl)} nucleotide context, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  const inputFocus = step === 0;
+  const stemFocus = step === 1;
+  const residualFocus = step === 2 || step === 3;
+  const skipFocus = step === 4;
+  const outputFocus = step === 5;
+  let s = `<text x="20" y="25" class="lvz-tl">Complete SpliceAI residual dilated 1-D CNN</text>`;
+  s += block(15, 100, 110, 112, C.input, 'one-hot DNA', `4 × ${fmt(ctx.input)}`, inputFocus);
+  s += connector(125, 156, 150, 156) + block(150, 112, 82, 88, C.model, 'Conv1d', 'stem · L=32', stemFocus);
+  groupSchedule.forEach(({ w, ar }, i) => {
+    const x = 255 + i * 105;
+    const enabled = i < ctx.groups;
+    s += connector(i === 0 ? 232 : x - 15, 156, x, 156);
+    s += block(x, 96, 90, 120, C.residual, 'Residual ×4', `W=${w} · AR=${ar}`, residualFocus && enabled, enabled);
+  });
+  s += connector(660, 156, 690, 156) + block(690, 112, 82, 88, C.model, 'Crop', `−${fmt(ctx.cl / 2)} / edge`, skipFocus);
+  s += connector(772, 156, 798, 156) + block(798, 100, 107, 112, C.model, '1×1 + softmax', '· / A / D', outputFocus);
+
+  const taps = [191, 300, 405, 510, 615];
+  taps.forEach((x, i) => {
+    const enabled = i === 0 || i <= ctx.groups;
+    const opacity = enabled ? (skipFocus ? 1 : 0.4) : 0.12;
+    s += `<g opacity="${opacity}"><path d="M${x} ${i === 0 ? 112 : 96} V68" stroke="${C.skip}" stroke-width="${skipFocus ? 2.2 : 1.2}"/><rect x="${x - 30}" y="38" width="60" height="30" rx="3" fill="${C.skip}" fill-opacity="0.1" stroke="${C.skip}" ${enabled ? '' : 'stroke-dasharray="4 4"'}/><text x="${x}" y="58" class="lvz-small">skip 1×1</text></g>`;
+  });
+  s += `<path d="M191 38 H730 V108" fill="none" stroke="${C.skip}" stroke-width="${skipFocus ? 2.2 : 1.2}" opacity="${skipFocus ? 1 : 0.4}"/><circle cx="730" cy="94" r="11" fill="var(--color-bg)" stroke="${C.skip}" opacity="${skipFocus ? 1 : 0.55}"/><text x="730" y="98" class="lvz-small">Σ</text>`;
+  s += `<rect x="120" y="252" width="660" height="96" rx="6" fill="var(--color-bg)" stroke="var(--color-rule)"/>${desktopDetail(ctx, step)}`;
+  return `<svg viewBox="0 0 920 365" class="lvz-svg" role="img" aria-label="Complete OpenSpliceAI architecture at ${fmt(ctx.cl)} nucleotide context, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobileBlock(y: number, title: string, detail: string, color: string, focused: boolean, enabled = true) {
+  const opacity = enabled ? (focused ? 1 : 0.5) : 0.14;
+  return `<g opacity="${opacity}"><rect x="18" y="${y}" width="238" height="52" rx="5" fill="${color}" fill-opacity="${focused ? 0.16 : 0.05}" stroke="${color}" stroke-width="${focused ? 2.5 : 1.2}" ${enabled ? '' : 'stroke-dasharray="4 4"'}/><text x="34" y="${y + 22}" class="lvz-tl" fill="${color}">${title}</text><text x="137" y="${y + 42}" class="lvz-small">${detail}</text></g>`;
 }
 
 function mobileFrame(ctx: Context, step: number) {
-  const card = (y: number, title: string, detail: string, color: string) => `<rect x="12" y="${y}" width="336" height="72" rx="5" fill="${color}" fill-opacity="0.06" stroke="${color}"/><text x="28" y="${y + 27}" class="lvz-tl" fill="${color}">${title}</text><text x="180" y="${y + 53}" class="lvz-small">${detail}</text>`;
-  let cards: [string, string, string][] = [];
-  if (step === 0) cards = [['Stored X window', '4 × 15,000 maximum-context tensor', C.input], ['Context-specific input', `4 × ${fmt(ctx.input)} for CL ${fmt(ctx.cl)}`, C.model], ['Central target', '5,000 positions receive predictions', C.residual]];
-  if (step === 1) cards = [['One-hot DNA', `N × 4 × ${fmt(ctx.input)}`, C.input], ['Conv1d stem', 'project to 32 feature channels', C.model], ['Length preserved', 'symmetric convolution padding', C.residual]];
-  if (step === 2) cards = [['Pre-activation', 'BatchNorm → LeakyReLU → Conv1d', C.model], ['Repeat transform', 'BatchNorm → LeakyReLU → Conv1d', C.residual], ['Residual addition', 'transformed signal + original input', C.input]];
-  if (step === 3) cards = [['Residual depth', `${ctx.units} units in ${ctx.groups} ${ctx.groups === 1 ? 'tier' : 'tiers'}`, C.residual], ['Window schedule', ctx.windows, C.model], ['Dilation schedule', ctx.dilations, C.skip], ['Exact receptive field', `2Σ AR(W−1) = ${fmt(ctx.cl)} nt`, C.model]];
-  if (step === 4) cards = [['Skip taps', `stem + ${ctx.groups} residual ${ctx.groups === 1 ? 'group' : 'groups'}`, C.skip], ['Sum features', 'combine shallow and deep evidence', C.residual], ['Crop context', `${fmt(ctx.cl / 2)} positions from each side`, C.input], ['Central output width', '5,000 positions', C.model]];
-  if (step === 5) cards = [['1×1 output head', '32 → 3 channels', C.residual], ['Neither', 'class probability per position', C.neither], ['Acceptor', 'class probability per position', C.acceptor], ['Donor', 'class probability per position', C.donor]];
-  const s = cards.map(([title, detail, color], i) => card(12 + i * 84, title, detail, color)).join('');
-  return `<svg viewBox="0 0 360 ${cards.length * 84 + 12}" class="lvz-svg" role="img" aria-label="OpenSpliceAI architecture at ${fmt(ctx.cl)} nucleotide context, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  let s = mobileBlock(8, 'one-hot DNA', `4 × ${fmt(ctx.input)}`, C.input, step === 0);
+  s += `<path d="M137 60 V76" stroke="var(--color-muted)"/>` + mobileBlock(76, 'Conv1d stem', '4 → 32 channels', C.model, step === 1);
+  s += `<g opacity="${step === 4 ? 1 : 0.42}"><path d="M256 102 H278" stroke="${C.skip}"/><rect x="278" y="86" width="64" height="32" rx="3" fill="${C.skip}" fill-opacity="0.1" stroke="${C.skip}"/><text x="310" y="106" class="lvz-small">skip 1×1</text></g>`;
+  groupSchedule.forEach(({ w, ar }, i) => {
+    const y = 144 + i * 62;
+    const enabled = i < ctx.groups;
+    s += `<path d="M137 ${y - 16} V${y}" stroke="var(--color-muted)" opacity="${enabled ? 0.5 : 0.15}"/>` + mobileBlock(y, `ResidualUnit × 4 · group ${i + 1}`, `W=${w} · AR=${ar}`, C.residual, (step === 2 || step === 3) && enabled, enabled);
+    const tapOpacity = enabled ? (step === 4 ? 1 : 0.42) : 0.12;
+    s += `<g opacity="${tapOpacity}"><path d="M256 ${y + 26} H278" stroke="${C.skip}"/><rect x="278" y="${y + 10}" width="64" height="32" rx="3" fill="${C.skip}" fill-opacity="0.1" stroke="${C.skip}"/><text x="310" y="${y + 30}" class="lvz-small">skip 1×1</text></g>`;
+  });
+  s += `<path d="M137 366 V386" stroke="var(--color-muted)"/>` + mobileBlock(386, 'Cropping1D', `trim ${fmt(ctx.cl / 2)} / edge`, C.model, step === 4);
+  s += `<path d="M137 438 V458" stroke="var(--color-muted)"/>` + mobileBlock(458, '1×1 Conv1d + softmax', 'neither · acceptor · donor', C.model, step === 5);
+  s += `<path d="M310 102 V412 H256" fill="none" stroke="${C.skip}" stroke-width="${step === 4 ? 2 : 1.2}" opacity="${step === 4 ? 1 : 0.35}"/><circle cx="275" cy="412" r="10" fill="var(--color-bg)" stroke="${C.skip}"/><text x="275" y="416" class="lvz-small">Σ</text>`;
+  const details = [
+    `stored 15,000 · selected input ${fmt(ctx.input)} · central output 5,000`,
+    'stem preserves length while learning 32 sequence features',
+    'BN → LeakyReLU → Conv1d, repeated twice, plus identity',
+    `${ctx.units} units · W ${ctx.windows} · AR ${ctx.dilations}`,
+    `sum active taps · crop ${fmt(ctx.cl / 2)} positions from both edges`,
+    'output shape N × 3 × 5,000',
+  ];
+  s += `<rect x="12" y="532" width="336" height="76" rx="5" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="180" y="558" class="lvz-nt on">Step ${step + 1}</text><text x="180" y="585" class="lvz-small">${details[step]}</text>`;
+  return `<svg viewBox="0 0 360 620" class="lvz-svg" role="img" aria-label="Complete OpenSpliceAI architecture at ${fmt(ctx.cl)} nucleotide context, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 
 const steps = [
-  ['Select how much flanking sequence the model reads', 'The dataset stores maximum context; each model receives only 5,000 central positions plus its selected flanking context.'],
-  ['Project four DNA channels into learned features', 'A Conv1d stem converts one-hot DNA into 32 feature channels while preserving sequence length.'],
-  ['Transform features through pre-activation residual units', 'Each unit applies two BatchNorm–LeakyReLU–Conv1d sequences and adds the original input.'],
-  ['Expand the receptive field with dilated convolution', 'Context size selects a fixed residual depth, convolution-window schedule, and dilation schedule.'],
-  ['Sum skip features and remove flanking context', 'One-by-one skip taps combine feature depths before Cropping1D trims CL/2 positions from each edge.'],
-  ['Predict three classes at every central position', 'A one-by-one head and softmax produce neither, acceptor, and donor probabilities for 5,000 positions.'],
+  ['Select how much flanking sequence the model reads', 'The complete network stays visible while the selected context determines its input width and active residual groups.'],
+  ['Project four DNA channels into learned features', 'The highlighted Conv1d stem converts one-hot DNA into 32 feature channels while preserving sequence length.'],
+  ['Look inside one pre-activation residual unit', 'Each highlighted unit applies two BatchNorm–LeakyReLU–Conv1d sequences and adds the original input.'],
+  ['Expand the receptive field with dilated convolution', 'The active groups show the fixed window and dilation schedule for the selected context size.'],
+  ['Sum skip features and remove flanking context', 'Active 1×1 taps combine shallow and deep features before Cropping1D trims CL/2 positions from each edge.'],
+  ['Predict three classes at every central position', 'The highlighted 1×1 head and softmax produce neither, acceptor, and donor probabilities for 5,000 positions.'],
 ] as const;
 ---
 

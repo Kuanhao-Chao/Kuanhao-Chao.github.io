@@ -1,115 +1,159 @@
 ---
-/** Published OpenSpliceAI variant delta-score calculation and clinical examples. */
+/** Published clinical examples: animate Figure 2's variant-effect interpretation. */
 import '../styles/lvz.css';
 import '../styles/osai.css';
+
+type Site = {
+  label: string;
+  kind: 'acceptor' | 'donor';
+  refOpen: number;
+  refSplice: number;
+  altOpen: number;
+  altSplice: number;
+};
 
 type Example = {
   id: string;
   label: string;
   variant: string;
-  outcome: string;
-  accRef: [number, number];
-  accAlt: [number, number];
-  donorRef: number;
-  donorAlt: number;
-  ag: string;
-  al: string;
-  dg: string;
+  phenotype: string;
+  consequence: string;
+  delta: string;
+  referenceSequence: string;
+  alternateSequence: string;
+  sites: [Site, Site];
 };
 
 const examples: Example[] = [
-  { id: 'generic', label: 'Score calculation', variant: 'one-base substitution', outcome: 'four maxima + four argmax positions', accRef: [0.12, 0.82], accAlt: [0.91, 0.20], donorRef: 0.76, donorAlt: 0.18, ag: 'max(alt − ref)', al: 'max(ref − alt)', dg: 'max(alt − ref)' },
-  { id: 'mybpc3', label: 'MYBPC3', variant: 'chr11:47364709 G>A', outcome: 'reported 11-bp exon extension', accRef: [0.000, 0.968], accAlt: [0.998, 0.011], donorRef: 0, donorAlt: 0, ag: '0.998', al: '0.957', dg: '—' },
-  { id: 'opa1', label: 'OPA1', variant: 'chr3:193644727 A>G', outcome: 'reported 54-bp cryptic exon', accRef: [0.099, 0], accAlt: [0.989, 0], donorRef: 0.343, donorAlt: 0.985, ag: '0.890', al: '—', dg: '0.642' },
+  {
+    id: 'mybpc3',
+    label: 'MYBPC3',
+    variant: 'chr11:47364709 G>A',
+    phenotype: 'cardiomyopathy-associated variant',
+    consequence: 'reported 11-bp exon extension',
+    delta: 'DS_AG 0.998 · DS_AL 0.957',
+    referenceSequence: '… GCGGCCCCACCCAG | GTACATCTTTTG …',
+    alternateSequence: '… GCAGCCCCACCCAG | GTACATCTTTTG …',
+    sites: [
+      { label: 'cryptic acceptor', kind: 'acceptor', refOpen: 0, refSplice: 0, altOpen: 0.998, altSplice: 0.942 },
+      { label: 'annotated acceptor', kind: 'acceptor', refOpen: 0.968, refSplice: 0.998, altOpen: 0.011, altSplice: 0.079 },
+    ],
+  },
+  {
+    id: 'opa1',
+    label: 'OPA1',
+    variant: 'chr3:193644727 A>G',
+    phenotype: 'optic-atrophy-associated variant',
+    consequence: 'reported 54-bp cryptic exon',
+    delta: 'DS_AG 0.890 · DS_DG 0.642',
+    referenceSequence: '… AAGGGTAAG ··· AGTGAGGTAGAAAC …',
+    alternateSequence: '… AAGGGTAAG ··· AGTGAGGTAGA[G]AAC …',
+    sites: [
+      { label: 'cryptic acceptor', kind: 'acceptor', refOpen: 0.099, refSplice: 0.093, altOpen: 0.989, altSplice: 0.970 },
+      { label: 'cryptic donor', kind: 'donor', refOpen: 0.343, refSplice: 0.247, altOpen: 0.985, altSplice: 0.982 },
+    ],
+  },
 ];
 
-const C = { ref: '#4c78a8', alt: '#f58518', acceptor: '#7a6fbe', donor: '#158f83', gain: '#54a24b', loss: '#d1495b', model: '#2e6e5e', neutral: '#8a9491', variant: '#a34f65' };
+const C = {
+  open: '#237a3b',
+  splice: '#c51f4b',
+  variant: '#f58518',
+  exon: '#1d6f8a',
+  effect: '#8a9491',
+  acceptor: '#7a6fbe',
+  donor: '#158f83',
+  output: '#2e6e5e',
+};
 
-function curve(y: number, values: number[], color: string, width = 520) {
-  const points = values.map((v, i) => `${170 + (i * width) / (values.length - 1)},${y - v * 70}`).join(' ');
-  return `<line x1="170" y1="${y}" x2="${170 + width}" y2="${y}" stroke="var(--color-rule)"/><polyline points="${points}" fill="none" stroke="${color}" stroke-width="3"/>`;
+const score = (n: number) => n.toFixed(3);
+
+function strandArrow(y: number) {
+  return `<path d="M55 ${y - 2} H685 V${y - 7} L699 ${y} L685 ${y + 7} V${y + 2} H55 Z" fill="var(--color-muted)" fill-opacity="0.42"/>`;
 }
 
-function probabilityValues(ex: Example, kind: 'acc-ref' | 'acc-alt' | 'don-ref' | 'don-alt') {
-  const zeros = [0.03, 0.04, 0.06, 0.08, 0.1, 0.07, 0.04, 0.03, 0.02];
-  if (kind === 'acc-ref') return [0.03, ex.accRef[0], 0.08, 0.05, 0.04, 0.08, ex.accRef[1], 0.05, 0.02];
-  if (kind === 'acc-alt') return [0.03, ex.accAlt[0], 0.08, 0.05, 0.04, 0.08, ex.accAlt[1], 0.05, 0.02];
-  if (kind === 'don-ref') return [0.02, 0.04, 0.05, ex.donorRef, 0.08, 0.04, 0.03, 0.02, 0.01];
-  if (kind === 'don-alt') return [0.02, 0.04, 0.05, ex.donorAlt, 0.08, 0.04, 0.03, 0.02, 0.01];
-  return zeros;
+function desktopGeneContext(ex: Example, step: number) {
+  const focus = step === 0 || step === 4;
+  const opacity = focus ? 1 : 0.65;
+  const changedOpacity = step >= 4 ? 1 : 0.14;
+  let s = `<g opacity="${opacity}"><text x="18" y="62" class="lvz-small" style="text-anchor:start">reference gene</text>${strandArrow(66)}<rect x="120" y="52" width="48" height="28" fill="${C.exon}"/><rect x="445" y="52" width="62" height="28" fill="${C.exon}"/><rect x="590" y="52" width="72" height="28" fill="${C.exon}"/>`;
+  s += `<text x="18" y="112" class="lvz-small" style="text-anchor:start">alternate gene</text>${strandArrow(116)}<rect x="120" y="102" width="48" height="28" fill="${C.exon}"/><rect x="445" y="102" width="62" height="28" fill="${C.exon}"/><rect x="590" y="102" width="72" height="28" fill="${C.exon}"/></g>`;
+  if (ex.id === 'mybpc3') {
+    s += `<g opacity="${changedOpacity}"><rect x="397" y="102" width="48" height="28" fill="${C.effect}"/><circle cx="397" cy="116" r="5" fill="${C.variant}"/><path d="M390 93 H452" stroke="${C.output}" stroke-dasharray="5 4"/><text x="421" y="88" class="lvz-small">11-bp extension</text></g>`;
+  } else {
+    s += `<g opacity="${changedOpacity}"><rect x="338" y="102" width="92" height="28" fill="${C.effect}"/><circle cx="430" cy="116" r="5" fill="${C.variant}"/><path d="M330 93 H438" stroke="${C.output}" stroke-dasharray="5 4"/><text x="384" y="88" class="lvz-small">54-bp cryptic exon</text></g>`;
+  }
+  return s;
+}
+
+function desktopSequence(ex: Example, step: number) {
+  const panelOpacity = step === 1 || step === 2 || step === 3 || step === 4 ? 1 : 0.65;
+  const refOpacity = step === 2 ? 1 : step === 3 ? 0.35 : 0.78;
+  const altOpacity = step === 3 || step === 4 ? 1 : step === 2 ? 0.35 : 0.78;
+  let s = `<g opacity="${panelOpacity}"><rect x="18" y="148" width="430" height="196" rx="6" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="34" y="170" class="lvz-tl">Matched sequence windows</text>`;
+  s += `<g opacity="${refOpacity}"><text x="38" y="208" class="lvz-small">REFERENCE</text><line x1="105" y1="218" x2="426" y2="218" stroke="var(--color-ink)" stroke-width="2"/><text x="266" y="207" class="osai-mono">${ex.referenceSequence}</text></g>`;
+  s += `<g opacity="${altOpacity}"><text x="38" y="279" class="lvz-small">ALTERNATE</text><line x1="105" y1="289" x2="426" y2="289" stroke="var(--color-ink)" stroke-width="2"/><text x="266" y="278" class="osai-mono">${ex.alternateSequence}</text></g>`;
+  const mutationOpacity = step === 1 ? 1 : 0.5;
+  s += `<g opacity="${mutationOpacity}"><rect x="152" y="307" width="162" height="26" rx="4" fill="${C.variant}" fill-opacity="0.08" stroke="${C.variant}"/><text x="233" y="325" class="lvz-small" fill="${C.variant}">one-base substitution · ${ex.variant.split(' ').at(-1)}</text></g></g>`;
+  return s;
+}
+
+function desktopScoreSite(site: Site, x: number, step: number) {
+  const color = site.kind === 'acceptor' ? C.acceptor : C.donor;
+  const opacity = step === 2 || step === 3 ? 1 : 0.82;
+  const refOpacity = step === 2 ? 1 : step === 3 ? 0.45 : 0.92;
+  const altOpacity = step === 3 ? 1 : step === 2 ? 0.45 : 0.92;
+  return `<g opacity="${opacity}"><rect x="${x}" y="148" width="132" height="196" rx="6" fill="${color}" fill-opacity="0.035" stroke="${color}"/><text x="${x + 66}" y="171" class="lvz-small" fill="${color}">${site.label}</text><g opacity="${refOpacity}"><text x="${x + 12}" y="203" class="lvz-small" style="text-anchor:start">reference</text><text x="${x + 12}" y="225" class="lvz-small" fill="${C.open}" style="text-anchor:start">OpenSpliceAI ${score(site.refOpen)}</text><text x="${x + 12}" y="246" class="lvz-small" fill="${C.splice}" style="text-anchor:start">SpliceAI ${score(site.refSplice)}</text></g><line x1="${x + 10}" y1="260" x2="${x + 122}" y2="260" stroke="var(--color-rule)"/><g opacity="${altOpacity}"><text x="${x + 12}" y="282" class="lvz-small" style="text-anchor:start">alternate</text><text x="${x + 12}" y="304" class="lvz-small" fill="${C.open}" style="text-anchor:start">OpenSpliceAI ${score(site.altOpen)}</text><text x="${x + 12}" y="325" class="lvz-small" fill="${C.splice}" style="text-anchor:start">SpliceAI ${score(site.altSplice)}</text></g></g>`;
 }
 
 function desktopFrame(ex: Example, step: number) {
-  let s = '';
-  if (step === 0) {
-    s += `<text x="20" y="40" class="lvz-tl">Variant</text><rect x="170" y="18" width="550" height="52" rx="5" fill="${C.alt}" fill-opacity="0.06" stroke="${C.alt}"/><text x="445" y="49" class="lvz-nt on">${ex.variant}</text>`;
-    s += `<text x="20" y="130" class="lvz-tl">Overlapping gene</text><line x1="170" y1="126" x2="720" y2="126" stroke="var(--color-muted)"/><rect x="220" y="112" width="76" height="28" fill="${C.model}" fill-opacity="0.7"/><rect x="430" y="112" width="64" height="28" fill="${C.model}" fill-opacity="0.7"/><rect x="610" y="112" width="72" height="28" fill="${C.model}" fill-opacity="0.7"/><circle cx="370" cy="126" r="7" fill="${C.alt}"/><text x="370" y="101" class="lvz-small" fill="${C.alt}">alternate allele</text>`;
-    s += `<rect x="170" y="195" width="550" height="82" rx="5" fill="${C.model}" fill-opacity="0.05" stroke="${C.model}"/><text x="445" y="226" class="lvz-nt on">orient sequence by the gene strand</text><text x="445" y="253" class="lvz-small">reverse complement when the overlapping gene is on the minus strand</text>`;
-  } else if (step === 1) {
-    s += `<text x="20" y="56" class="lvz-tl">Reference window</text><rect x="170" y="30" width="550" height="52" rx="5" fill="${C.ref}" fill-opacity="0.08" stroke="${C.ref}"/><text x="445" y="61" class="osai-mono">… A C G T C C [ G ] A T G C A …</text>`;
-    s += `<text x="20" y="146" class="lvz-tl">Alternate window</text><rect x="170" y="120" width="550" height="52" rx="5" fill="${C.alt}" fill-opacity="0.08" stroke="${C.alt}"/><text x="445" y="151" class="osai-mono">… A C G T C C [ A ] A T G C A …</text>`;
-    s += `<rect x="170" y="215" width="550" height="76" rx="5" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="445" y="244" class="lvz-nt on">score 101 positions around the variant by default</text><text x="445" y="270" class="lvz-small">the model still receives the full selected flanking context</text>`;
-  } else if (step === 2) {
-    s += `<text x="20" y="64" class="lvz-tl" fill="${C.acceptor}">Acceptor probability</text>${curve(115, probabilityValues(ex, 'acc-ref'), C.ref)}${curve(115, probabilityValues(ex, 'acc-alt'), C.alt)}`;
-    s += `<text x="20" y="218" class="lvz-tl" fill="${C.donor}">Donor probability</text>${curve(270, probabilityValues(ex, 'don-ref'), C.ref)}${curve(270, probabilityValues(ex, 'don-alt'), C.alt)}`;
-    s += `<text x="250" y="328" class="lvz-small" fill="${C.ref}">reference</text><text x="510" y="328" class="lvz-small" fill="${C.alt}">alternate</text>`;
-  } else if (step === 3) {
-    const ag = ex.id === 'generic' ? 0.79 : Number(ex.ag) || 0;
-    const dg = ex.id === 'generic' ? 0.58 : Number(ex.dg) || 0;
-    s += `<text x="20" y="40" class="lvz-tl">Gain tracks · alternate minus reference</text>`;
-    s += `<rect x="180" y="70" width="500" height="58" rx="5" fill="${C.acceptor}" fill-opacity="0.06" stroke="${C.acceptor}"/><rect x="180" y="70" width="${Math.max(10, ag * 500)}" height="58" rx="5" fill="${C.gain}" fill-opacity="0.28"/><text x="430" y="104" class="lvz-nt on">DS_AG = ${ex.ag}</text>`;
-    s += `<rect x="180" y="166" width="500" height="58" rx="5" fill="${C.donor}" fill-opacity="0.06" stroke="${C.donor}"/><rect x="180" y="166" width="${Math.max(10, dg * 500)}" height="58" rx="5" fill="${C.gain}" fill-opacity="0.28"/><text x="430" y="200" class="lvz-nt on">DS_DG = ${ex.dg}</text>`;
-    s += `<text x="430" y="270" class="lvz-nt on" fill="${C.gain}">take the maximum positive change in each class</text><text x="430" y="300" class="lvz-small">DP_AG and DP_DG record where those maxima occur</text>`;
-  } else if (step === 4) {
-    const al = ex.id === 'generic' ? 0.62 : Number(ex.al) || 0;
-    s += `<text x="20" y="40" class="lvz-tl">Loss tracks · reference minus alternate</text>`;
-    s += `<rect x="180" y="70" width="500" height="58" rx="5" fill="${C.acceptor}" fill-opacity="0.06" stroke="${C.acceptor}"/><rect x="180" y="70" width="${Math.max(10, al * 500)}" height="58" rx="5" fill="${C.loss}" fill-opacity="0.24"/><text x="430" y="104" class="lvz-nt on">DS_AL = ${ex.al}</text>`;
-    s += `<rect x="180" y="166" width="500" height="58" rx="5" fill="${C.donor}" fill-opacity="0.06" stroke="${C.donor}"/><rect x="180" y="166" width="290" height="58" rx="5" fill="${C.loss}" fill-opacity="0.24"/><text x="430" y="200" class="lvz-nt on">DS_DL = max(ref − alt)</text>`;
-    s += `<text x="430" y="270" class="lvz-nt on" fill="${C.loss}">take the maximum probability decrease in each class</text><text x="430" y="300" class="lvz-small">DP_AL and DP_DL record where those maxima occur</text>`;
-  } else {
-    if (ex.id === 'generic') {
-      const fields = [['DS_AG', C.acceptor], ['DS_AL', C.acceptor], ['DS_DG', C.donor], ['DS_DL', C.donor]] as const;
-      fields.forEach(([field, color], i) => { const x = 90 + i * 165; s += `<rect x="${x}" y="42" width="140" height="70" rx="5" fill="${color}" fill-opacity="0.07" stroke="${color}"/><text x="${x + 70}" y="72" class="lvz-nt on">${field}</text><text x="${x + 70}" y="96" class="lvz-small">score + DP position</text>`; });
-      s += `<rect x="120" y="155" width="520" height="62" rx="5" fill="${C.model}" fill-opacity="0.05" stroke="${C.model}"/><text x="380" y="181" class="lvz-nt on">optional annotation mask</text><text x="380" y="204" class="lvz-small">zero gains at annotated sites and losses away from annotated sites</text>`;
-      s += `<path d="M380 217 V250" stroke="${C.model}" stroke-width="2"/><rect x="165" y="254" width="430" height="58" rx="5" fill="${C.variant}" fill-opacity="0.06" stroke="${C.variant}"/><text x="380" y="280" class="lvz-nt on">OpenSpliceAI VCF INFO field</text><text x="380" y="301" class="lvz-small">allele · symbol · four DS values · four DP positions</text>`;
-    } else {
-      s += `<text x="20" y="34" class="lvz-tl">${ex.label} · ${ex.variant}</text>`;
-      s += `<rect x="70" y="60" width="290" height="112" rx="6" fill="${C.acceptor}" fill-opacity="0.06" stroke="${C.acceptor}"/><text x="215" y="89" class="lvz-nt on">Acceptor changes</text><text x="215" y="119" class="lvz-small">site 1: ${ex.accRef[0].toFixed(3)} → ${ex.accAlt[0].toFixed(3)}</text><text x="215" y="146" class="lvz-small">site 2: ${ex.accRef[1].toFixed(3)} → ${ex.accAlt[1].toFixed(3)}</text>`;
-      s += `<rect x="400" y="60" width="290" height="112" rx="6" fill="${C.donor}" fill-opacity="0.06" stroke="${C.donor}"/><text x="545" y="89" class="lvz-nt on">Donor change</text><text x="545" y="126" class="lvz-small">${ex.donorRef.toFixed(3)} → ${ex.donorAlt.toFixed(3)}</text>`;
-      s += `<rect x="110" y="208" width="540" height="86" rx="6" fill="${C.gain}" fill-opacity="0.06" stroke="${C.gain}"/><text x="380" y="240" class="lvz-nt on" fill="${C.gain}">${ex.outcome}</text><text x="380" y="270" class="lvz-small">AG ${ex.ag} · AL ${ex.al} · DG ${ex.dg}</text>`;
-    }
-  }
-  return `<svg viewBox="0 0 760 350" class="lvz-svg" role="img" aria-label="OpenSpliceAI variant scoring for ${ex.label}, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  let s = `<text x="18" y="24" class="lvz-tl">${ex.label} · ${ex.variant}</text><text x="600" y="24" class="lvz-small">${ex.phenotype}</text>`;
+  s += desktopGeneContext(ex, step) + desktopSequence(ex, step);
+  s += desktopScoreSite(ex.sites[0], 466, step) + desktopScoreSite(ex.sites[1], 610, step);
+  const outputOpacity = step === 5 ? 1 : step === 4 ? 0.72 : 0.34;
+  s += `<g opacity="${outputOpacity}"><rect x="18" y="362" width="724" height="56" rx="6" fill="${C.output}" fill-opacity="0.055" stroke="${C.output}" stroke-width="${step === 5 ? 2.4 : 1.2}"/><text x="200" y="385" class="lvz-nt on" fill="${C.output}">${ex.consequence}</text><text x="200" y="406" class="lvz-small">OpenSpliceAI variant effect</text><text x="555" y="385" class="lvz-nt on" fill="${C.open}">${ex.delta}</text><text x="555" y="406" class="lvz-small">written with DP positions to VCF INFO</text></g>`;
+  return `<svg viewBox="0 0 760 430" class="lvz-svg" role="img" aria-label="${ex.label} clinical variant-effect animation, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobileGeneContext(ex: Example, step: number) {
+  const changedOpacity = step >= 4 ? 1 : 0.14;
+  const changedX = ex.id === 'mybpc3' ? 185 : 142;
+  const changedW = ex.id === 'mybpc3' ? 38 : 82;
+  return `<g opacity="${step === 0 || step === 4 ? 1 : 0.65}"><text x="14" y="46" class="lvz-small" style="text-anchor:start">REFERENCE</text><line x1="92" y1="43" x2="338" y2="43" stroke="var(--color-muted)"/><rect x="112" y="31" width="30" height="24" fill="${C.exon}"/><rect x="224" y="31" width="42" height="24" fill="${C.exon}"/><rect x="294" y="31" width="36" height="24" fill="${C.exon}"/><text x="14" y="94" class="lvz-small" style="text-anchor:start">ALTERNATE</text><line x1="92" y1="91" x2="338" y2="91" stroke="var(--color-muted)"/><rect x="112" y="79" width="30" height="24" fill="${C.exon}"/><rect x="224" y="79" width="42" height="24" fill="${C.exon}"/><rect x="294" y="79" width="36" height="24" fill="${C.exon}"/></g><g opacity="${changedOpacity}"><rect x="${changedX}" y="79" width="${changedW}" height="24" fill="${C.effect}"/><circle cx="${changedX}" cy="91" r="4" fill="${C.variant}"/><text x="180" y="124" class="lvz-small">${ex.consequence}</text></g>`;
+}
+
+function mobileScoreSite(site: Site, y: number, step: number) {
+  const color = site.kind === 'acceptor' ? C.acceptor : C.donor;
+  const opacity = step === 2 || step === 3 ? 1 : 0.82;
+  const refOpacity = step === 2 ? 1 : step === 3 ? 0.45 : 0.92;
+  const altOpacity = step === 3 ? 1 : step === 2 ? 0.45 : 0.92;
+  return `<g opacity="${opacity}"><rect x="12" y="${y}" width="336" height="92" rx="5" fill="${color}" fill-opacity="0.035" stroke="${color}"/><text x="26" y="${y + 22}" class="lvz-tl" fill="${color}">${site.label}</text><g opacity="${refOpacity}"><text x="26" y="${y + 49}" class="lvz-small">ref</text><text x="88" y="${y + 49}" class="lvz-small" fill="${C.open}">OSAI ${score(site.refOpen)}</text><text x="223" y="${y + 49}" class="lvz-small" fill="${C.splice}">SpliceAI ${score(site.refSplice)}</text></g><g opacity="${altOpacity}"><text x="26" y="${y + 75}" class="lvz-small">alt</text><text x="88" y="${y + 75}" class="lvz-small" fill="${C.open}">OSAI ${score(site.altOpen)}</text><text x="223" y="${y + 75}" class="lvz-small" fill="${C.splice}">SpliceAI ${score(site.altSplice)}</text></g></g>`;
 }
 
 function mobileFrame(ex: Example, step: number) {
-  const card = (y: number, title: string, detail: string, color: string) => `<rect x="12" y="${y}" width="336" height="72" rx="5" fill="${color}" fill-opacity="0.06" stroke="${color}"/><text x="28" y="${y + 27}" class="lvz-tl" fill="${color}">${title}</text><text x="180" y="${y + 53}" class="lvz-small">${detail}</text>`;
-  let cards: [string, string, string][] = [];
-  if (step === 0) cards = [['Variant', ex.variant, C.alt], ['Overlapping gene', 'orient by the gene strand', C.model], ['Sequence change', 'one reference base → alternate base', C.alt]];
-  if (step === 1) cards = [['Reference window', 'one-hot sequence around the locus', C.ref], ['Alternate window', 'same window with the changed allele', C.alt], ['Scored interval', '101 positions by default (D = 50)', C.model]];
-  if (step === 2) cards = [['Reference predictions', 'acceptor + donor probability tracks', C.ref], ['Alternate predictions', 'acceptor + donor probability tracks', C.alt], ['Aligned positions', 'compare the same coordinate in both tracks', C.model]];
-  if (step === 3) cards = [['Acceptor gain', `DS_AG = ${ex.ag}`, C.acceptor], ['Donor gain', `DS_DG = ${ex.dg}`, C.donor], ['Gain rule', 'maximum of alternate − reference', C.gain]];
-  if (step === 4) cards = [['Acceptor loss', `DS_AL = ${ex.al}`, C.acceptor], ['Donor loss', 'DS_DL = max(ref − alt)', C.donor], ['Loss rule', 'maximum of reference − alternate', C.loss]];
-  if (step === 5 && ex.id === 'generic') cards = [['Four delta scores', 'AG · AL · DG · DL', C.model], ['Four positions', 'DP at each corresponding maximum', C.model], ['Optional mask', 'apply annotation-consistency rules', C.loss], ['VCF output', 'OpenSpliceAI INFO annotation', C.variant]];
-  if (step === 5 && ex.id !== 'generic') cards = [[`${ex.label} variant`, ex.variant, C.alt], ['Acceptor changes', `${ex.accRef[0].toFixed(3)}→${ex.accAlt[0].toFixed(3)} · ${ex.accRef[1].toFixed(3)}→${ex.accAlt[1].toFixed(3)}`, C.acceptor], ['Donor change', `${ex.donorRef.toFixed(3)} → ${ex.donorAlt.toFixed(3)}`, C.donor], ['Predicted consequence', ex.outcome, C.gain]];
-  const s = cards.map(([title, detail, color], i) => card(12 + i * 84, title, detail, color)).join('');
-  return `<svg viewBox="0 0 360 ${cards.length * 84 + 12}" class="lvz-svg" role="img" aria-label="OpenSpliceAI variant scoring for ${ex.label}, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  let s = `<text x="12" y="20" class="lvz-tl">${ex.label} · ${ex.variant}</text>${mobileGeneContext(ex, step)}`;
+  const seqOpacity = step >= 1 && step <= 4 ? 1 : 0.65;
+  s += `<g opacity="${seqOpacity}"><rect x="12" y="140" width="336" height="138" rx="5" fill="var(--color-bg)" stroke="var(--color-rule)"/><text x="20" y="164" class="lvz-small" style="text-anchor:start">REFERENCE</text><text x="180" y="191" class="osai-mono">${ex.referenceSequence}</text><text x="20" y="220" class="lvz-small" style="text-anchor:start">ALTERNATE</text><text x="180" y="247" class="osai-mono">${ex.alternateSequence}</text><text x="180" y="267" class="lvz-small" fill="${C.variant}">${ex.variant.split(' ').at(-1)}</text></g>`;
+  s += mobileScoreSite(ex.sites[0], 294, step) + mobileScoreSite(ex.sites[1], 398, step);
+  const outputOpacity = step === 5 ? 1 : step === 4 ? 0.72 : 0.34;
+  s += `<g opacity="${outputOpacity}"><rect x="12" y="508" width="336" height="92" rx="5" fill="${C.output}" fill-opacity="0.055" stroke="${C.output}" stroke-width="${step === 5 ? 2.4 : 1.2}"/><text x="180" y="536" class="lvz-nt on" fill="${C.output}">${ex.consequence}</text><text x="180" y="564" class="lvz-nt on" fill="${C.open}">${ex.delta}</text><text x="180" y="586" class="lvz-small">DS + DP fields → OpenSpliceAI VCF INFO</text></g>`;
+  return `<svg viewBox="0 0 360 612" class="lvz-svg" role="img" aria-label="${ex.label} clinical variant-effect animation, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 
 const steps = [
-  ['Locate the variant in its gene context', 'OpenSpliceAI associates the allele with overlapping genes and orients each sequence by gene strand.'],
-  ['Build matched reference and alternate windows', 'The two one-hot windows differ at the variant while sharing coordinates and flanking context.'],
-  ['Predict acceptor and donor probabilities for both alleles', 'The same model or ensemble produces aligned probability tracks for the reference and alternate sequences.'],
-  ['Find acceptor and donor gains', 'Gain scores are the maximum positive alternate-minus-reference changes, with their argmax positions.'],
-  ['Find acceptor and donor losses', 'Loss scores reverse the subtraction: reference minus alternate, again recording each argmax position.'],
-  ['Write the four scores and positions to the VCF', 'Optional masking enforces annotation consistency before DS and DP values enter the OpenSpliceAI INFO field.'],
+  ['Locate the variant in its gene context', 'Reference and alternate gene tracks place the one-base substitution relative to nearby exons.'],
+  ['Build matched reference and alternate sequences', 'The two sequence windows share coordinates and context, differing only at the highlighted allele.'],
+  ['Read the reference splice-site probabilities', 'OpenSpliceAI and SpliceAI provide the baseline acceptor or donor probabilities at the affected sites.'],
+  ['Measure how the alternate allele changes the scores', 'The alternate sequence activates a cryptic site and, for MYBPC3, suppresses the original acceptor.'],
+  ['Translate the score changes into a splice consequence', 'The altered boundaries predict an 11-bp exon extension in MYBPC3 or a 54-bp cryptic exon in OPA1.'],
+  ['Write OpenSpliceAI delta scores and positions', 'The largest class-specific probability changes become DS values, with their DP positions written to VCF INFO.'],
 ] as const;
 ---
 
-<section class="lvz osai osai-variant" role="group" aria-label="Interactive: OpenSpliceAI variant delta-score calculation" data-print-final-state="true">
-  <div class="lvz-head"><p class="lvz-title">Compare reference and alternate splice predictions</p><label class="osai-selector"><span>Walkthrough</span><select data-osai-variant-select>{examples.map((example) => <option value={example.id}>{example.label}</option>)}</select></label></div>
+<section id="variant-effect-animation" class="lvz osai osai-variant" role="group" aria-label="Interactive: OpenSpliceAI clinical variant-effect prediction" data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Read how a variant rewires splicing</p><label class="osai-selector"><span>Clinical case</span><select data-osai-variant-select>{examples.map((example) => <option value={example.id}>{example.label}</option>)}</select></label></div>
   <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
-  <nav class="lvz-progress" aria-label="Variant-scoring steps">{steps.map(([title], i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${title}`} title={title}>{i + 1}</button>)}</nav>
+  <nav class="lvz-progress" aria-label="Variant-effect steps">{steps.map(([title], i) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${i + 1}: ${title}`} title={title}>{i + 1}</button>)}</nav>
   {examples.map((example, exampleIndex) => (
     <div data-osai-variant-group={example.id} hidden={exampleIndex !== 0}>
       <p class="osai-print-example">{example.label}</p>
@@ -123,7 +167,7 @@ const steps = [
     </div>
   ))}
   <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
-  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.ref}`}></span>reference</span><span><span class="lvz-sw" style={`background:${C.alt}`}></span>alternate</span><span><span class="lvz-sw" style={`background:${C.acceptor}`}></span>acceptor</span><span><span class="lvz-sw" style={`background:${C.donor}`}></span>donor</span><span><span class="lvz-sw" style={`background:${C.gain}`}></span>gain</span><span><span class="lvz-sw" style={`background:${C.loss}`}></span>loss</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.open}`}></span>OpenSpliceAI</span><span><span class="lvz-sw" style={`background:${C.splice}`}></span>SpliceAI</span><span><span class="lvz-sw" style={`background:${C.variant}`}></span>changed base</span><span><span class="lvz-sw" style={`background:${C.exon}`}></span>annotated exon</span><span><span class="lvz-sw" style={`background:${C.effect}`}></span>predicted exon change</span></div>
 </section>
 
 <style>
@@ -144,7 +188,7 @@ const steps = [
       let current = 0;
       const activeSteps = () => Array.from(groups.find((group) => group.dataset.osaiVariantGroup === active)?.querySelectorAll<HTMLElement>('[data-wgi-step]') || []);
       const show = (i: number) => { current = i; groups.forEach((group) => { const on = group.dataset.osaiVariantGroup === active; group.hidden = !on; Array.from(group.querySelectorAll<HTMLElement>('[data-wgi-step]')).forEach((step, k) => { const selected = on && i === k; step.hidden = !selected; step.setAttribute('aria-current', selected ? 'step' : 'false'); }); }); };
-      const api = mountStepper(root, { total: activeSteps().length, onShow: show, caption: (i) => activeSteps()[i]?.dataset.caption || '', interval: 6500 });
+      const api = mountStepper(root, { total: activeSteps().length, onShow: show, caption: (i) => activeSteps()[i]?.dataset.caption || '', interval: 7000 });
       select?.addEventListener('change', () => { api?.stop(); active = select.value; api?.show(current); });
     }
   }

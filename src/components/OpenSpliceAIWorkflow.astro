@@ -5,55 +5,67 @@ import '../styles/osai.css';
 
 const C = { data: '#4c78a8', model: '#2e6e5e', train: '#54a24b', cal: '#b07d00', predict: '#3b7f91', variant: '#d1495b' };
 
-function node(x: number, y: number, w: number, title: string, detail: string, color: string, active = true) {
-  return `<rect x="${x}" y="${y}" width="${w}" height="62" rx="6" fill="${color}" fill-opacity="${active ? 0.08 : 0.03}" stroke="${color}" stroke-width="${active ? 2 : 1}" opacity="${active ? 1 : 0.35}"/><text x="${x + w / 2}" y="${y + 25}" class="lvz-nt on" fill="${color}">${title}</text><text x="${x + w / 2}" y="${y + 48}" class="lvz-small">${detail}</text>`;
+function node(x: number, y: number, w: number, title: string, detail: string, color: string, focused = false, quiet = false) {
+  const opacity = quiet ? 0.62 : focused ? 1 : 0.42;
+  return `<g opacity="${opacity}"><rect x="${x}" y="${y}" width="${w}" height="58" rx="5" fill="${color}" fill-opacity="${focused ? 0.16 : 0.05}" stroke="${color}" stroke-width="${focused ? 2.6 : 1.2}"/><text x="${x + w / 2}" y="${y + 23}" class="lvz-nt on" fill="${color}">${title}</text><text x="${x + w / 2}" y="${y + 44}" class="lvz-small">${detail}</text></g>`;
 }
 
-function path(d: string, color = 'var(--color-muted)', active = true) {
-  return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2" opacity="${active ? 1 : 0.3}"/><path d="M0 0"/>`;
+function path(d: string, color = 'var(--color-muted)') {
+  return `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.6" opacity="0.48"/>`;
 }
 
 function desktopFrame(step: number) {
-  let s = `<rect x="208" y="12" width="344" height="38" rx="5" fill="${C.model}" fill-opacity="0.06" stroke="${C.model}"/><text x="380" y="36" class="lvz-nt on" fill="${C.model}">one SpliceAI class · context-keyed configuration</text>`;
-  s += node(20, 98, 145, 'FASTA + GFF', 'genome inputs', C.data, step >= 0) + path('M165 129 H198', C.data, step >= 0) + node(200, 98, 145, 'create-data', 'HDF5 X / Y tensors', C.data, step >= 1);
-  s += path('M345 129 H375 V91 H395', C.train, step >= 2) + path('M375 129 V167 H395', C.train, step >= 2);
-  s += node(395, 60, 145, 'train', 'from random weights', C.train, step >= 2) + node(395, 136, 145, 'transfer', 'from pretrained weights', C.train, step >= 2);
-  s += path('M540 91 H570 V129 H595', C.model, step >= 3) + path('M540 167 H570 V129', C.model, step >= 3) + node(595, 98, 145, 'checkpoint', 'plain state_dict', C.model, step >= 3);
-  if (step >= 3) {
-    s += path('M668 160 V200 H303 V222', C.cal) + node(230, 222, 145, 'calibrate', 'optional temperature τ', C.cal);
-    s += path('M668 200 H468 V222', C.model) + node(395, 222, 145, 'model directory', 'average seed predictions', C.model);
-  }
-  if (step >= 4) {
-    s += path('M303 284 V295 H380 V303', C.model) + path('M468 284 V295 H380', C.model);
-    s += path('M380 303 H180 V322', C.predict);
-    s += node(80, 322, 200, 'predict', 'tiled FASTA → BED tracks', C.predict);
-  }
-  if (step >= 5) {
-    s += path('M380 303 H580 V322', C.variant);
-    s += node(480, 322, 200, 'variant', 'VCF → DS + DP INFO', C.variant);
-  }
-  return `<svg viewBox="0 0 760 400" class="lvz-svg" role="img" aria-label="OpenSpliceAI command lifecycle, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  let s = `<rect x="8" y="8" width="744" height="116" rx="6" fill="${C.data}" fill-opacity="0.025" stroke="var(--color-rule)"/><text x="24" y="31" class="lvz-tl" fill="${C.data}">DATA</text>`;
+  s += `<rect x="8" y="134" width="744" height="156" rx="6" fill="${C.train}" fill-opacity="0.025" stroke="var(--color-rule)"/><text x="24" y="157" class="lvz-tl" fill="${C.train}">MODEL</text>`;
+  s += `<rect x="8" y="300" width="744" height="142" rx="6" fill="${C.predict}" fill-opacity="0.025" stroke="var(--color-rule)"/><text x="24" y="323" class="lvz-tl" fill="${C.predict}">APPLICATION</text>`;
+  s += `<rect x="500" y="16" width="232" height="28" rx="4" fill="${C.model}" fill-opacity="0.05" stroke="${C.model}" opacity="0.65"/><text x="616" y="35" class="lvz-small">one context-keyed SpliceAI class</text>`;
+
+  s += node(75, 50, 145, 'FASTA + GFF', 'genome inputs', C.data, false, true) + path('M220 79 H268', C.data);
+  s += node(270, 50, 145, 'create-data', 'build X / Y tensors', C.data, step === 0) + path('M415 79 H468', C.data);
+  s += node(470, 50, 145, 'HDF5 shards', 'train · validation · test', C.data, false, true);
+
+  s += node(75, 184, 130, 'HDF5', 'species dataset', C.data, false, true);
+  s += path('M205 213 H245 V181 H280', C.train) + path('M245 213 V251 H280', C.train);
+  s += node(280, 152, 145, 'train', 'random weights', C.train, step === 1);
+  s += node(280, 222, 145, 'transfer', 'pretrained weights', C.train, step === 2);
+  s += path('M425 181 H456 V213 H475', C.model) + path('M425 251 H456 V213', C.model);
+  s += node(475, 184, 125, 'checkpoint', 'plain state_dict', C.model, false, true) + path('M600 213 H625', C.cal);
+  s += node(625, 184, 105, 'calibrate', 'optional τ', C.cal, step === 3);
+
+  s += node(75, 342, 130, 'model source', 'checkpoint / directory', C.model, false, true);
+  s += path('M205 371 H248 V348 H275', C.predict) + path('M248 371 V408 H275', C.variant);
+  s += node(275, 319, 145, 'predict', 'tiled FASTA', C.predict, step === 4) + path('M420 348 H475', C.predict);
+  s += node(475, 319, 145, 'BED tracks', 'donor + acceptor', C.predict, false, true);
+  s += node(275, 379, 145, 'variant', 'VCF ref vs alt', C.variant, step === 5) + path('M420 408 H475', C.variant);
+  s += node(475, 379, 145, 'annotated VCF', 'DS + DP fields', C.variant, false, true);
+  return `<svg viewBox="0 0 760 450" class="lvz-svg" role="img" aria-label="OpenSpliceAI three-lane command lifecycle, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 
 function mobileFrame(step: number) {
-  const card = (y: number, title: string, detail: string, color: string, active = true) => `<rect x="12" y="${y}" width="336" height="66" rx="5" fill="${color}" fill-opacity="${active ? 0.07 : 0.02}" stroke="${color}" opacity="${active ? 1 : 0.35}"/><text x="28" y="${y + 26}" class="lvz-tl" fill="${color}">${title}</text><text x="180" y="${y + 50}" class="lvz-small">${detail}</text>`;
-  let s = card(12, 'Shared SpliceAI model class', 'one context setting across every command', C.model);
-  s += card(92, 'create-data', 'FASTA + GFF → HDF5 tensors', C.data, step >= 1);
-  s += card(172, 'train  |  transfer', 'from scratch or adapt pretrained weights', C.train, step >= 2);
-  s += card(252, 'checkpoint / ensemble', 'one state_dict or averaged seed directory', C.model, step >= 3);
-  s += card(332, 'calibrate · optional', 'fit one temperature on validation data', C.cal, step >= 3);
-  s += card(412, 'predict', 'overlap-tiled FASTA → donor/acceptor BED', C.predict, step >= 4);
-  s += card(492, 'variant', 'reference/alternate windows → annotated VCF', C.variant, step >= 5);
-  return `<svg viewBox="0 0 360 590" class="lvz-svg" role="img" aria-label="OpenSpliceAI command lifecycle, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  let s = `<rect x="8" y="8" width="344" height="176" rx="6" fill="${C.data}" fill-opacity="0.025" stroke="var(--color-rule)"/><text x="22" y="30" class="lvz-tl" fill="${C.data}">DATA</text>`;
+  s += node(22, 42, 132, 'FASTA + GFF', 'genome inputs', C.data, false, true) + path('M154 71 H184', C.data) + node(184, 42, 154, 'create-data', 'X / Y tensors', C.data, step === 0);
+  s += path('M261 100 V116', C.data) + node(103, 116, 154, 'HDF5 shards', 'train · validation · test', C.data, false, true);
+
+  s += `<rect x="8" y="196" width="344" height="252" rx="6" fill="${C.train}" fill-opacity="0.025" stroke="var(--color-rule)"/><text x="22" y="218" class="lvz-tl" fill="${C.train}">MODEL</text>`;
+  s += node(22, 232, 145, 'train', 'random weights', C.train, step === 1) + node(193, 232, 145, 'transfer', 'pretrained weights', C.train, step === 2);
+  s += path('M94 290 V312 H180', C.model) + path('M266 290 V312 H180', C.model);
+  s += node(103, 312, 154, 'checkpoint', 'plain state_dict', C.model, false, true) + path('M180 370 V386', C.cal);
+  s += node(103, 386, 154, 'calibrate', 'optional temperature τ', C.cal, step === 3);
+
+  s += `<rect x="8" y="460" width="344" height="224" rx="6" fill="${C.predict}" fill-opacity="0.025" stroke="var(--color-rule)"/><text x="22" y="482" class="lvz-tl" fill="${C.predict}">APPLICATION</text>`;
+  s += node(103, 496, 154, 'model source', 'checkpoint / directory', C.model, false, true);
+  s += path('M180 554 V572 H94', C.model) + path('M180 572 H266', C.model);
+  s += node(22, 572, 145, 'predict', 'FASTA → BED', C.predict, step === 4) + node(193, 572, 145, 'variant', 'VCF → DS / DP', C.variant, step === 5);
+  return `<svg viewBox="0 0 360 696" class="lvz-svg" role="img" aria-label="OpenSpliceAI three-lane command lifecycle, highlighting step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 
 const steps = [
-  ['Keep one model definition across the toolkit', 'Every command builds the same context-keyed SpliceAI class, preventing silent dataset/checkpoint mismatches.'],
-  ['Create model-ready data from a new genome', 'The create-data command converts FASTA and annotation inputs into reusable HDF5 tensor shards.'],
-  ['Train from scratch or transfer from another species', 'Training starts with random weights; transfer loads a checkpoint and can freeze earlier residual units.'],
-  ['Save, ensemble, and optionally calibrate checkpoints', 'Plain state_dict checkpoints can be averaged as an ensemble or temperature-calibrated on validation data.'],
-  ['Predict splice sites across long genome sequences', 'The predict path uses overlapping tiles and emits separate donor and acceptor BED tracks.'],
-  ['Score variants as an alternative downstream path', 'The variant path compares reference and alternate predictions and writes delta scores and positions into VCF INFO.'],
+  ['Create model-ready data from a genome', 'The create-data command combines FASTA and GFF/GTF inputs and writes reusable training, validation, and test HDF5 shards.'],
+  ['Train a model from random weights', 'The train path reads HDF5 shards and produces a plain PyTorch state_dict checkpoint.'],
+  ['Adapt a pretrained model to another species', 'Transfer is an alternative to training from scratch and can freeze earlier residual units while adapting later layers.'],
+  ['Calibrate checkpoint probabilities when needed', 'Calibration is optional post-hoc temperature scaling, not a required stage before prediction.'],
+  ['Predict splice sites across long sequences', 'The predict path accepts FASTA, uses overlapping tiles, and emits separate donor and acceptor BED tracks.'],
+  ['Score variants as a parallel downstream use', 'The variant path compares reference and alternate VCF alleles and writes delta scores and positions into VCF INFO.'],
 ] as const;
 ---
 

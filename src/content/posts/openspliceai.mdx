@@ -30,7 +30,6 @@ import OpenSpliceAIArchitecture from '../../components/OpenSpliceAIArchitecture.
 import OpenSpliceAIWorkflow from '../../components/OpenSpliceAIWorkflow.astro';
 import OpenSpliceAIVariant from '../../components/OpenSpliceAIVariant.astro';
 import figBenchmark from '../../assets/posts/openspliceai/openspliceai-benchmark.png';
-import figVariant from '../../assets/posts/openspliceai/openspliceai-variant.png';
 
 Your genes are written in pieces. Before a gene becomes a protein, the cell has to cut out the introns and stitch the exons back together — a process called RNA splicing — and it has to find the boundaries exactly, down to the single base. When splicing goes wrong, the consequences are severe: the [SpliceAI paper (Jaganathan et al., 2019)](https://doi.org/10.1016/j.cell.2018.12.015) summarizes estimates that a substantial fraction of disease-causing mutations in humans act by disrupting splice sites. So a model that can read a stretch of DNA and tell you where splicing will happen — and how a mutation might change it — is enormously useful, both for basic biology and for making sense of the variants we find in patients.
 
@@ -90,13 +89,7 @@ Together, these stages are what make OpenSpliceAI retrainable: the data represen
 
 **It retrains across the tree of life.** This is the capability we most needed. With OpenSpliceAI you can train a model from scratch on a new genome or — faster — transfer-learn from the human model and let it adapt. When we did this for mouse, zebrafish, honeybee, and *Arabidopsis*, the species-specific models clearly outperformed the off-the-shelf human SpliceAI, and the gap widened the further the species sat from human: mouse, our closest relative here, gained the least; the plant and the insect gained the most. Transfer learning reached high accuracy in just a few epochs, which makes adapting the model to a new organism cheap.
 
-**It catches cryptic, disease-causing splicing.** Because the `variant` module scores how a mutation shifts the splice landscape, OpenSpliceAI can flag the kind of cryptic splicing that underlies genetic disease — a single base change that silences a normal splice site or wakes up a dormant one.
-
-<ZoomFigure src={figVariant} alt="OpenSpliceAI and SpliceAI scores for two clinical variants — MYBPC3 and OPA1 — where a single base change creates a cryptic splice site." variant="square">
-  <strong>Figure 2.</strong> Reading the splicing impact of clinical variants. For a cardiomyopathy variant in <em>MYBPC3</em> and an optic-atrophy variant in <em>OPA1</em>, a single base change creates a cryptic acceptor or donor site. OpenSpliceAI's scores (green) shift sharply — for example, an acceptor score jumping from 0.00 to 0.998 in <em>MYBPC3</em> — and track the original SpliceAI's (red), pinpointing the splicing change the mutation causes.
-</ZoomFigure>
-
-In both disease examples, comparing the reference and alternate alleles exposes large, site-specific probability shifts that identify the cryptic splicing change and its position.
+**It catches cryptic, disease-causing splicing.** Because the `variant` module scores how a mutation shifts the splice landscape, OpenSpliceAI can flag the kind of cryptic splicing that underlies genetic disease — a single base change that silences a normal splice site or wakes up a dormant one. The [interactive clinical walkthrough above](#variant-effect-animation) connects those probability changes to the reported 11-bp exon extension in *MYBPC3* and 54-bp cryptic exon in *OPA1*, while showing how closely the OpenSpliceAI and SpliceAI scores track one another.
 
 ## The bigger picture
 
