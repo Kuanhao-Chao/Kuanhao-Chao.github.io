@@ -1,0 +1,162 @@
+---
+import '../styles/shorkie.css';
+---
+
+<section class="shk-interpret" aria-label="Two ways Shorkie connects sequence to regulatory interpretation">
+  <header class="shk-interpret-head">
+    <h3 class="shk-story-title">Read biological signals from the predictions</h3>
+    <button class="shk-replay" type="button" data-shorkie-replay aria-label="Replay the active interpretation" title="Replay interpretation">↻</button>
+  </header>
+
+  <div class="shk-interpret-body">
+    <div class="shk-tabs" role="tablist" aria-label="Shorkie interpretation">
+      <button
+        id="shk-tab-motifs"
+        class="shk-tab"
+        type="button"
+        role="tab"
+        aria-selected="true"
+        aria-controls="shk-panel-motifs"
+        data-shorkie-tab="motifs"
+      >Motifs</button>
+      <button
+        id="shk-tab-variants"
+        class="shk-tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="shk-panel-variants"
+        data-shorkie-tab="variants"
+        tabindex="-1"
+      >Variant effects</button>
+    </div>
+
+    <section
+      id="shk-panel-motifs"
+      class="shk-panel"
+      role="tabpanel"
+      aria-labelledby="shk-tab-motifs"
+      data-shorkie-panel="motifs"
+    >
+      <div class="shk-canvas">
+        <svg viewBox="0 0 760 420" role="img" aria-label="Language-model information and fine-tuned mutagenesis converge on known motifs at RPL26A">
+          <text x="380" y="28" class="shk-note">RPL26A: TWO COMPLEMENTARY VIEWS OF THE SAME SEQUENCE</text>
+
+          <g data-beat="1">
+            <text x="68" y="82" class="shk-label shk-left" style="fill:#6f62a8">LM information</text>
+            <text x="68" y="105" class="shk-note shk-left">Which bases are constrained by fungal sequence context?</text>
+            <line x1="68" y1="182" x2="700" y2="182" class="shk-rule" />
+            {[
+              [150, 30, 'A', '#3976a8'], [170, 50, 'C', '#b04755'], [190, 76, 'G', '#2f8069'], [210, 42, 'T', '#b07d00'],
+              [310, 40, 'A', '#3976a8'], [330, 68, 'C', '#b04755'], [350, 86, 'G', '#2f8069'], [370, 55, 'T', '#b07d00'],
+              [548, 36, 'A', '#3976a8'], [568, 60, 'C', '#b04755'], [588, 92, 'G', '#2f8069'], [608, 48, 'T', '#b07d00'],
+            ].map(([x, height, letter, color]) => (
+              <text x={x} y="178" text-anchor="middle" font-size={18 + Number(height) * 0.45} font-weight="700" style={`fill:${color}`} transform={`translate(0 ${-Number(height) * 0.32})`}>{letter}</text>
+            ))}
+          </g>
+
+          <g data-beat="2">
+            <text x="68" y="238" class="shk-label shk-left" style="fill:#b26b32">Fine-tuned ISM</text>
+            <text x="68" y="261" class="shk-note shk-left">Which substitutions change predicted regulatory output?</text>
+            <line x1="68" y1="305" x2="700" y2="305" class="shk-rule" />
+            {[
+              [150, -20], [166, 28], [182, -42], [198, 58], [214, -24],
+              [310, 34], [326, -31], [342, 65], [358, -48], [374, 29],
+              [548, -22], [564, 46], [580, -62], [596, 54], [612, -31],
+            ].map(([x, effect]) => (
+              <rect
+                x={Number(x) - 5}
+                y={Number(effect) > 0 ? 305 - Number(effect) * 0.45 : 305}
+                width="10"
+                height={Math.abs(Number(effect)) * 0.45}
+                fill={Number(effect) > 0 ? '#2f8069' : '#b04755'}
+                opacity=".78"
+              />
+            ))}
+          </g>
+
+          <g data-beat="3">
+            <line x1="68" y1="365" x2="700" y2="365" stroke="#182c67" stroke-width="2" />
+            <rect x="126" y="351" width="112" height="28" fill="#182c67" />
+            <line x1="238" y1="365" x2="532" y2="365" stroke="#182c67" stroke-width="2" />
+            <rect x="532" y="351" width="142" height="28" fill="#182c67" />
+            <text x="603" y="371" class="shk-note" style="fill:#fff">RPL26A</text>
+
+            <path d="M190 340 V326 M350 340 V326 M588 340 V326" stroke="var(--color-ink)" stroke-width="2" />
+            <text x="190" y="405" class="shk-label" style="fill:#3976a8">Fhl1</text>
+            <text x="350" y="405" class="shk-label" style="fill:#2f8069">Rap1</text>
+            <text x="588" y="405" class="shk-label" style="fill:#b04755">5′ splice donor</text>
+          </g>
+        </svg>
+      </div>
+      <p class="shk-panel-copy">At <em>RPL26A</em>, language-model information content and fine-tuned in-silico mutagenesis independently highlight the Fhl1 and Rap1 sites and the 5′ splice donor. Agreement between the two views strengthens the interpretation.</p>
+    </section>
+
+    <section
+      id="shk-panel-variants"
+      class="shk-panel"
+      role="tabpanel"
+      aria-labelledby="shk-tab-variants"
+      data-shorkie-panel="variants"
+      hidden
+    >
+      <div class="shk-canvas">
+        <svg viewBox="0 0 760 420" role="img" aria-label="Reference and alternate alleles produce coverage profiles that are summarized as a directional logSED score">
+          <text x="380" y="28" class="shk-note">YER080W EXAMPLE · CHRV:321901 G&gt;T</text>
+
+          <g data-beat="1">
+            <text x="74" y="82" class="shk-label shk-left" style="fill:#3976a8">Reference</text>
+            <text x="205" y="82" class="shk-dna">A C C T A <tspan style="fill:#3976a8;font-weight:700">G</tspan> G T A C G T</text>
+            <text x="74" y="132" class="shk-label shk-left" style="fill:#b04755">Alternate</text>
+            <text x="205" y="132" class="shk-dna">A C C T A <tspan style="fill:#b04755;font-weight:700">T</tspan> G T A C G T</text>
+            <path d="M420 93 V116" stroke="var(--color-rule)" stroke-width="2" marker-end="url(#shk-variant-arrow)" />
+          </g>
+
+          <g data-beat="2">
+            <text x="74" y="190" class="shk-note shk-left">PREDICTED COVERAGE OVER TARGET-GENE EXONS</text>
+            <polygon points="90,284 90,268 115,252 140,242 165,198 190,218 215,259 240,250 265,214 290,224 315,270 340,284" fill="#3976a8" opacity=".62" />
+            <polygon points="420,284 420,270 445,258 470,250 495,220 520,234 545,263 570,254 595,230 620,239 645,274 670,284" fill="#b04755" opacity=".62" />
+            <line x1="90" y1="284" x2="340" y2="284" class="shk-rule" />
+            <line x1="420" y1="284" x2="670" y2="284" class="shk-rule" />
+            <text x="215" y="309" class="shk-note">reference prediction</text>
+            <text x="545" y="309" class="shk-note">alternate prediction</text>
+
+            <g transform="translate(135 326)">
+              <rect width="58" height="16" fill="#182c67" />
+              <line x1="58" y1="8" x2="100" y2="8" stroke="#182c67" />
+              <rect x="100" width="88" height="16" fill="#182c67" />
+            </g>
+            <g transform="translate(465 326)">
+              <rect width="58" height="16" fill="#182c67" />
+              <line x1="58" y1="8" x2="100" y2="8" stroke="#182c67" />
+              <rect x="100" width="88" height="16" fill="#182c67" />
+            </g>
+          </g>
+
+          <g data-beat="3">
+            <path d="M355 260 H397" stroke="#2f8069" stroke-width="3" marker-end="url(#shk-variant-green)" />
+            <rect x="205" y="368" width="350" height="40" rx="4" fill="#2f8069" fill-opacity=".08" stroke="#2f8069" />
+            <text x="380" y="394" class="shk-label">logSED = log₂(CovALT + 1) − log₂(CovREF + 1)</text>
+          </g>
+
+          <defs>
+            <marker id="shk-variant-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8a9491" /></marker>
+            <marker id="shk-variant-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#2f8069" /></marker>
+          </defs>
+        </svg>
+      </div>
+      <p class="shk-panel-copy">For a candidate SNP, Shorkie predicts reference and alternate coverage in otherwise identical genomic contexts. Summing bins over the target gene and taking their log difference gives a signed effect score: direction and predicted magnitude in one value.</p>
+    </section>
+  </div>
+</section>
+
+<script>
+  import { mountShorkieTabs } from '../scripts/shorkieScrolly';
+
+  function bootShorkieInterpretation() {
+    document.querySelectorAll<HTMLElement>('.shk-interpret').forEach(mountShorkieTabs);
+  }
+
+  bootShorkieInterpretation();
+  document.addEventListener('astro:page-load', bootShorkieInterpretation);
+</script>
