@@ -8,9 +8,17 @@
   --lvz-mobile-min-width: 0px;
 }
 
+html[data-theme='dark'] .splam-viz {
+  --splam-donor: #6ca6d6;
+  --splam-acceptor: #58b49a;
+  --splam-model: #a292d7;
+  --splam-signal: #d5a73d;
+  --splam-bad: #df7180;
+  --splam-neutral: #a4adaa;
+}
+
 .splam-viz .splam-card {
   fill: var(--color-bg);
-  stroke: var(--color-rule);
 }
 
 .splam-viz .splam-arrow {
@@ -31,14 +39,33 @@
   text-anchor: middle;
 }
 
-.splam-viz .splam-left {
-  text-anchor: start;
-}
-
 .splam-viz .splam-mono {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
   text-anchor: middle;
+}
+
+.splam-viz .splam-mini {
+  font-size: 9px;
+  fill: var(--color-muted);
+  text-anchor: middle;
+}
+
+.splam-viz .splam-score {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.splam-viz .splam-summary {
+  font-size: 11px;
+  fill: var(--color-muted);
+  text-anchor: middle;
+}
+
+.splam-viz .splam-left {
+  text-anchor: start;
 }
 
 .splam-viz .splam-token {
@@ -47,25 +74,8 @@
   animation: splam-token-pulse 1.35s ease-in-out infinite;
 }
 
-.splam-viz .splam-selector {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--color-muted);
-  font-size: var(--fs-meta);
-}
-
-.splam-viz .splam-selector select {
-  border: 1px solid var(--color-rule);
-  border-radius: var(--radius);
-  padding: 0.35rem 1.8rem 0.35rem 0.55rem;
-  background: var(--color-bg);
-  color: var(--color-ink);
-  font: inherit;
-}
-
 .splam-viz .lvz-caption {
-  min-height: 4.4em;
+  min-height: 3.8em;
   max-width: 78ch;
 }
 
@@ -75,18 +85,21 @@
 }
 
 @media (max-width: 640px) {
-  .splam-viz .splam-selector {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .splam-viz .splam-selector select {
-    min-width: 0;
-    max-width: 64%;
-  }
-
   .splam-viz .lvz-caption {
-    min-height: 6.4em;
+    min-height: 5.8em;
+  }
+
+  .splam-viz .lvz-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .splam-viz .lvz-controls .lvz-btn {
+    width: 100%;
+  }
+
+  .splam-viz .lvz-pos {
+    grid-column: 1 / -1;
   }
 }
 
@@ -95,6 +108,5 @@
 }
 
 @media print {
-  .splam-viz .splam-selector { display: none !important; }
   .splam-viz .splam-token { animation: none !important; }
 }

@@ -34,9 +34,7 @@ references:
     doi: 'https://doi.org/10.1093/bioinformatics/bts635'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
-import SplamCandidate from '../../components/SplamCandidate.astro';
-import SplamArchitecture from '../../components/SplamArchitecture.astro';
-import SplamScoring from '../../components/SplamScoring.astro';
+import SplamRecognizer from '../../components/SplamRecognizer.astro';
 import SplamCleanup from '../../components/SplamCleanup.astro';
 import figArchitecture from '../../assets/posts/splam/splam-architecture.png';
 import figVsSpliceAI from '../../assets/posts/splam/splam-vs-spliceai.png';
@@ -62,21 +60,17 @@ That is why Splam is not an exhaustive chromosome-wide splice-site scanner. It i
 
 ## The algorithm
 
-Splam starts with a candidate intron: a proposed donor site and a proposed acceptor site, usually coming from an annotation or an RNA-seq alignment. It builds a fixed-length representation using exactly **800 nucleotides**: a 400 nt window centered on the donor and a 400 nt window centered on the acceptor. For short introns, those windows may overlap or use `N` padding; negative-strand candidates are reverse-complemented before the donor and acceptor contexts are concatenated.
+Splam starts with a candidate intron: a proposed donor site and a proposed acceptor site, usually coming from an annotation or an RNA-seq alignment. It builds a fixed-length representation using exactly **800 nucleotides**: a 400 nt window centered on the donor and a 400 nt window centered on the acceptor. For short introns, those windows may overlap or use `N` padding; negative-strand candidates are reverse-complemented before the donor and acceptor contexts are concatenated. The full candidate-to-score path is one connected workflow.
 
-<SplamCandidate />
+<SplamRecognizer />
 
 The resulting one-hot input has shape **4 × 800**. Splam projects it to 64 feature channels, then processes it with a deep residual convolutional network containing **20 residual units** in five groups of four. Every unit contains two grouped, dilated convolutions with batch normalization and Leaky ReLU, plus a shortcut connection. Across the five groups, kernel widths are 11, 11, 11, 21, and 21, while dilation rates increase through 1, 5, 10, 15, and 20. This widens the sequence context without pooling away nucleotide resolution. Group outputs are projected and added before a final three-channel softmax. The complete model has **651,715 parameters**.
-
-<SplamArchitecture />
 
 <ZoomFigure src={figArchitecture} alt="The Splam algorithm: a dilated residual convolutional network that reads 800 nucleotides — 200 bp on each side of the donor and acceptor — and labels every base donor, acceptor, or neither." variant="square">
   <strong>Figure 1.</strong> The Splam algorithm. <strong>(a)</strong> A deep stack of dilated residual units whose growing dilation widens the receptive field, ending in a per-base softmax over donor / acceptor / neither. <strong>(b)</strong> The residual unit — grouped dilated convolutions with batch norm and leaky ReLU. <strong>(c, d)</strong> Splam reads a donor and its acceptor together as one 800 nt input (200 bp flanking each site), scoring the junction as a pair.
 </ZoomFigure>
 
 The network returns a **3 × 800** array: donor, acceptor, and neither probabilities at every input position. Splam reads the donor probability at position 200 and the acceptor probability at position 600. The junction score is the smaller of those two values. That minimum is important: a confident donor paired with a weak acceptor remains a weak junction rather than being rescued by the stronger end.
-
-<SplamScoring />
 
 Two choices set the algorithm apart from SpliceAI. It uses a short, biologically motivated window because the design tests whether enough splice-recognition information is concentrated near the donor, acceptor, branch point, and nearby regulatory motifs. And it scores the donor and acceptor *together*, mirroring the paired nature of an intron. This design is meant for evaluating putative splice junctions from annotation or RNA-seq alignments; it is not an exhaustive chromosome-wide search over every possible donor-acceptor pair. We also trained the neural predictor on splice junctions drawn from multiple isoforms in annotated protein-coding genes, so alternative junctions were present during training rather than treated as mistakes.
 
