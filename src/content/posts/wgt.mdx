@@ -27,6 +27,8 @@ references:
     doi: 'https://doi.org/10.1007/978-3-540-78800-3_24'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
+import WGTWheelerOrder from '../../components/WGTWheelerOrder.astro';
+import WGTWheelie from '../../components/WGTWheelie.astro';
 import figOverview from '../../assets/posts/wgt/wgt-overview.png';
 import figExample from '../../assets/posts/wgt/wgt-example.png';
 import figHeuristic from '../../assets/posts/wgt/wgt-heuristic.png';
@@ -42,6 +44,10 @@ For a single linear genome we have a beautiful answer to this: the Burrows-Wheel
 ## What's a Wheeler graph — and why it was hard to use
 
 A Wheeler graph is a directed, edge-labeled graph whose nodes can be put in a special order — one that generalizes the sorting at the heart of the BWT. When such an ordering exists, all the fast FM-index query machinery carries over to the graph. In other words, a Wheeler graph is exactly a graph you can index and search like a BWT. That's why they form part of the basis for pangenome tools such as [vg (Garrison et al., 2018)](https://doi.org/10.1038/nbt.4227).
+
+More precisely, every zero-indegree node must appear before every other node. Then consider two edges, from `u` to `v` with label `a` and from `u′` to `v′` with label `a′`. If `a` comes before `a′`, then `v` must come before `v′`. If the labels are equal and `u` comes before `u′`, then `v` cannot come after `v′`. The animation below turns those conditions into a visible ordering rule.
+
+<WGTWheelerOrder />
 
 Here's the catch that motivated us. Given some graph you've built, *is* it a Wheeler graph — does a valid ordering exist? That recognition problem is NP-complete in general, and hard even to approximate ([Gibney and Thankachan, 2019](https://doi.org/10.4230/LIPIcs.ESA.2019.51)). A theoretical algorithm had been proposed, but there was no working implementation — no way to actually feed it a graph and get an answer. And beyond recognition, there were no practical tools to *visualize* a Wheeler graph, or to *generate* example graphs to test ideas on. The concept was foundational, and yet almost untouchable in practice.
 
@@ -71,11 +77,13 @@ To make that concrete, here is WGT applied to a real gene: take the human gene *
 
 The hard part is recognition, and the trick that makes it fast is a **renaming heuristic**. The intuition: in any valid Wheeler ordering, a node's position is strongly constrained by the labels on its incoming edges. So Wheelie groups the nodes by their incoming-edge label, then repeatedly sorts and relabels them, propagating those constraints until the labels stop changing.
 
+<WGTWheelie />
+
 <ZoomFigure src={figHeuristic} alt="The renaming heuristic: an eight-node graph with nodes grouped by incoming-edge label, and the iterative tables that sort and relabel each group until the ordering converges, then pass to a solver." variant="wide">
   <strong>Figure 3.</strong> The renaming heuristic. <strong>(A)</strong> The nodes are split into groups by their incoming-edge label (with a separate group for nodes that have no incoming edge). <strong>(B)</strong> The algorithm iteratively sorts and relabels the nodes in each group until everything converges — at which point it has either exposed a contradiction (the graph is not Wheeler) or narrowed each node down to a small range of possible positions, which it hands to a solver.
 </ZoomFigure>
 
-That convergence does one of two things. Often it settles the whole ordering, or proves no ordering can exist — an immediate answer. When ambiguity remains, Wheelie hands the much-reduced problem to one of two solvers: **Wheelie-Pr**, which exhaustively searches the remaining permutations, or **Wheelie-SMT**, which encodes the leftover constraints as a logic formula and lets a Satisfiability Modulo Theories solver such as [Z3 (de Moura and Bjørner, 2008)](https://doi.org/10.1007/978-3-540-78800-3_24) settle it. The heuristic is what makes either solver tractable: it shrinks an exponential search down to something small.
+That convergence does one of two things. Often it settles the whole ordering, or proves no ordering can exist — an immediate answer. When ambiguity remains, Wheelie hands the much-reduced problem to one of two solvers: **Wheelie-PR**, which tries permutations only among nodes that remain tied, or **Wheelie-SMT**, which assigns an integer order variable to each unresolved node and gives [Z3 (de Moura and Bjørner, 2008)](https://doi.org/10.1007/978-3-540-78800-3_24) the Wheeler constraints together with the heuristic's narrowed ranges. A satisfying assignment yields an ordering; an unsatisfiable formula proves that no Wheeler ordering exists. The heuristic is what makes either exact finish tractable.
 
 ## What it showed
 
