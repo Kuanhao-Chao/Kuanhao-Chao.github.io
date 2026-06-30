@@ -1,0 +1,100 @@
+---
+import '../styles/lvz.css';
+import '../styles/splam.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+const steps = [
+  ['Start from one candidate junction', 'Splam evaluates a proposed donor-acceptor pair from an annotation or spliced alignment; it does not search every possible genomic pair.'],
+  ['Build one paired sequence input', 'Splam orients the sequence to the transcript strand and joins a 400 nt donor window to a 400 nt acceptor window. Short introns use overlapping context or N padding.'],
+  ['Read both ends through one recognizer', 'A dilated residual convolutional network processes the paired 800 nt sequence together, preserving nucleotide-level resolution throughout the model.'],
+  ['Read evidence at the proposed sites', 'The output contains donor, acceptor, and neither probabilities at every position. Splam reads the donor score at 200 and the acceptor score at 600.'],
+  ['Make one junction-level decision', 'The junction score is min(donor, acceptor), so a weak signal at either end keeps the pair low confidence. The values shown here are illustrative.'],
+] as const;
+
+const C = {
+  candidate: 'var(--splam-signal)',
+  donor: 'var(--splam-donor)',
+  acceptor: 'var(--splam-acceptor)',
+  model: 'var(--splam-model)',
+  bad: 'var(--splam-bad)',
+};
+
+function arrow(x1: number, x2: number) {
+  return `<path d="M${x1} 139 H${x2 - 10}" class="splam-arrow"/><path d="M${x2 - 10} 133 L${x2} 139 L${x2 - 10} 145" class="splam-arrow"/>`;
+}
+
+function card(x: number, title: string, detail: string, color: string, active: boolean, visual: string) {
+  return `<g opacity="${active ? 1 : 0.5}"><rect x="${x}" y="58" width="160" height="162" rx="5" class="splam-card" stroke="${color}" stroke-width="${active ? 3 : 1.2}"/><text x="${x + 80}" y="85" class="splam-label" style="fill:${color}">${title}</text><text x="${x + 80}" y="105" class="splam-detail">${detail}</text>${visual}</g>`;
+}
+
+function desktop(step: number) {
+  const x = [18, 197, 376, 555, 734];
+  let s = `<text x="20" y="27" class="lvz-tl">One proposed intron moves through a single paired-junction recognizer</text>`;
+
+  s += card(x[0], 'Candidate pair', 'donor + acceptor', C.candidate, step === 0,
+    `<g transform="translate(${x[0] + 18} 132)"><rect width="37" height="24" rx="2" fill="${C.donor}" fill-opacity=".7"/><rect x="87" width="37" height="24" rx="2" fill="${C.acceptor}" fill-opacity=".7"/><path d="M37 12 C48 -20 76 -20 87 12" fill="none" stroke="${C.candidate}" stroke-width="2.5"/><text x="62" y="50" class="splam-mini">proposed intron</text></g>`);
+
+  s += card(x[1], 'Paired input', '400 nt + 400 nt', C.donor, step === 1,
+    `<g transform="translate(${x[1] + 16} 130)"><rect width="62" height="32" rx="3" fill="${C.donor}" fill-opacity=".16" stroke="${C.donor}"/><rect x="66" width="62" height="32" rx="3" fill="${C.acceptor}" fill-opacity=".16" stroke="${C.acceptor}"/><line x1="31" y1="-4" x2="31" y2="37" stroke="${C.donor}" stroke-width="2"/><line x1="97" y1="-4" x2="97" y2="37" stroke="${C.acceptor}" stroke-width="2"/><text x="31" y="53" class="splam-mini">site 200</text><text x="97" y="53" class="splam-mini">site 600</text></g>`);
+
+  s += card(x[2], 'Splam model', 'residual dilated CNN', C.model, step === 2,
+    `<g transform="translate(${x[2] + 25} 125)"><rect x="0" y="22" width="31" height="48" rx="3" fill="${C.model}" fill-opacity=".1" stroke="${C.model}"/><rect x="39" y="13" width="31" height="57" rx="3" fill="${C.model}" fill-opacity=".15" stroke="${C.model}"/><rect x="78" y="3" width="31" height="67" rx="3" fill="${C.model}" fill-opacity=".22" stroke="${C.model}"/><path d="M5 79 C30 60 78 60 104 79" fill="none" stroke="${C.bad}" stroke-width="1.8"/><text x="55" y="96" class="splam-mini">paired context stays aligned</text></g>`);
+
+  s += card(x[3], 'Site evidence', 'donor + acceptor', C.acceptor, step === 3,
+    `<g transform="translate(${x[3] + 22} 126)"><text x="0" y="14" class="splam-mini splam-left" style="fill:${C.donor}">D</text><rect x="18" width="104" height="17" fill="var(--color-rule)"/><rect x="18" width="98" height="17" fill="${C.donor}"/><text x="0" y="49" class="splam-mini splam-left" style="fill:${C.acceptor}">A</text><rect x="18" y="35" width="104" height="17" fill="var(--color-rule)"/><rect x="18" y="35" width="7" height="17" fill="${C.acceptor}"/><text x="70" y="76" class="splam-mini">illustrative probabilities</text></g>`);
+
+  s += card(x[4], 'Paired decision', 'min(D, A)', C.bad, step === 4,
+    `<g transform="translate(${x[4] + 21} 127)"><text x="59" y="15" class="splam-score">min(0.94, 0.06)</text><path d="M59 27 V43" class="splam-arrow"/><path d="M54 37 L59 44 L64 37" class="splam-arrow"/><rect x="4" y="49" width="110" height="35" rx="4" fill="${C.bad}" fill-opacity=".09" stroke="${C.bad}" stroke-width="2"/><text x="59" y="71" class="splam-label" style="fill:${C.bad}">0.06 · flag</text></g>`);
+
+  for (let i = 0; i < x.length - 1; i += 1) s += arrow(x[i] + 160, x[i + 1]);
+  s += `<circle cx="${x[step] + 80}" cy="243" r="8" fill="${[C.candidate, C.donor, C.model, C.acceptor, C.bad][step]}" class="splam-token"/><text x="460" y="289" class="splam-summary">The same donor-acceptor pair remains linked from sequence construction through the final score.</text>`;
+  return `<svg viewBox="0 0 920 312" class="lvz-svg" role="img" aria-label="Splam candidate-junction recognition workflow, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobile(step: number) {
+  const rows = [
+    ['Candidate pair', 'proposed donor + acceptor', C.candidate],
+    ['Paired 800 nt input', '400 nt around each proposed site', C.donor],
+    ['Splam recognizer', 'residual dilated CNN reads both ends', C.model],
+    ['Site probabilities', 'donor at 200 · acceptor at 600', C.acceptor],
+    ['Junction decision', 'min(donor, acceptor) → keep or flag', C.bad],
+  ] as const;
+  let s = '';
+  rows.forEach(([title, detail, color], index) => {
+    const y = 14 + index * 88;
+    s += `<g opacity="${index === step ? 1 : 0.58}"><rect x="12" y="${y}" width="336" height="66" rx="5" class="splam-card" stroke="${color}" stroke-width="${index === step ? 2.8 : 1.2}"/><text x="180" y="${y + 27}" class="splam-label" style="fill:${color}">${title}</text><text x="180" y="${y + 50}" class="splam-detail">${detail}</text></g>`;
+    if (index < rows.length - 1) s += `<path d="M180 ${y + 66} V${y + 82}" class="splam-arrow"/><path d="M175 ${y + 76} L180 ${y + 83} L185 ${y + 76}" class="splam-arrow"/>`;
+  });
+  s += `<circle cx="326" cy="${47 + step * 88}" r="7" fill="${rows[step][2]}" class="splam-token"/>`;
+  return `<svg viewBox="0 0 360 448" class="lvz-svg" role="img" aria-label="Splam candidate-junction recognition workflow, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+---
+
+<section class="lvz splam-viz splam-recognizer" role="group" aria-label="Interactive: following one candidate junction through Splam" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Follow one candidate through Splam</p><span class="lvz-tag">Junction recognizer</span></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Splam recognition steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktop(index)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
+    </div>
+  ))}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.donor}`}></span>donor</span><span><span class="lvz-sw" style={`background:${C.acceptor}`}></span>acceptor</span><span><span class="lvz-sw" style={`background:${C.model}`}></span>Splam recognizer</span><span><span class="lvz-sw" style={`background:${C.bad}`}></span>low confidence</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootSplamRecognizer() {
+    document.querySelectorAll<HTMLElement>('.splam-recognizer').forEach((root) => {
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, { total: scenes.length, onShow: (index) => scenes.forEach((scene, sceneIndex) => { const current = sceneIndex === index; scene.hidden = !current; scene.setAttribute('aria-current', current ? 'step' : 'false'); }), caption: (index) => scenes[index]?.dataset.caption || '', interval: 6500, autoPlay: root.dataset.autoplay === 'true' });
+    });
+  }
+  bootSplamRecognizer();
+  document.addEventListener('astro:page-load', bootSplamRecognizer);
+</script>

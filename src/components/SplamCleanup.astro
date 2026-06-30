@@ -6,88 +6,84 @@ interface Props { autoPlay?: boolean }
 const { autoPlay = false } = Astro.props;
 
 const steps = [
-  ['Collect the three required inputs', 'The cleanup workflow uses a sorted RNA-seq alignment file, its coordinate-matched reference genome, and the trained Splam model.'],
-  ['Extract candidate junctions from alignments', 'Splam walks the BAM, records distinct introns and their strands, and writes a six-column junction BED file.'],
-  ['Score every extracted junction', 'For each candidate, Splam builds the strand-oriented 800 nt input and appends donor and acceptor probabilities to junction_score.bed.'],
-  ['Mark low-confidence junctions', 'At the default cleanup threshold of 0.1, a junction is flagged when either its donor or acceptor score is below the cutoff.'],
-  ['Remove alignments containing a flagged junction', 'If any intron in an alignment is low confidence, that alignment is discarded. Paired-read flags and NH tags for multimapped reads are updated consistently.'],
-  ['Write clean inputs for transcript assembly', 'Splam emits a cleaned, sorted BAM and a separate BAM of discarded alignments. The cleaned BAM proceeds to assemblers such as StringTie.'],
+  ['Collect junctions from spliced alignments', 'Splam reads a sorted RNA-seq BAM and records the distinct introns proposed by its spliced alignments.'],
+  ['Score each unique junction once', 'Each donor-acceptor pair passes through the same paired-junction recognizer, producing donor and acceptor probabilities.'],
+  ['Filter alignments with weak junctions', 'An alignment is removed if any of its junctions falls below the threshold. Mate flags and NH tags are updated consistently.'],
+  ['Send cleaner evidence to transcript assembly', 'Splam writes a cleaned, sorted BAM for assemblers such as StringTie and a separate BAM containing discarded alignments.'],
 ] as const;
 
-const C = { bam: '#3976a8', bed: '#b07d00', model: '#6f62a8', good: '#2f8069', bad: '#b04755', output: '#2f8069', genome: '#8a9491' };
+const C = {
+  bam: 'var(--splam-donor)',
+  junction: 'var(--splam-signal)',
+  model: 'var(--splam-model)',
+  good: 'var(--splam-acceptor)',
+  bad: 'var(--splam-bad)',
+};
 
-function read(y: number, x: number, good: boolean, label: string) {
-  const color = good ? C.good : C.bad;
-  return `<g><path d="M${x} ${y} h68 l18 28 h68" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round"/><circle cx="${x + 77}" cy="${y + 13}" r="6" fill="${color}"/><text x="${x + 77}" y="${y + 50}" class="splam-detail" style="fill:${color}">${label}</text></g>`;
+function arrow(x1: number, x2: number) {
+  return `<path d="M${x1} 143 H${x2 - 11}" class="splam-arrow"/><path d="M${x2 - 11} 137 L${x2} 143 L${x2 - 11} 149" class="splam-arrow"/>`;
+}
+
+function card(x: number, title: string, detail: string, color: string, active: boolean, visual: string) {
+  return `<g opacity="${active ? 1 : 0.5}"><rect x="${x}" y="54" width="194" height="176" rx="5" class="splam-card" stroke="${color}" stroke-width="${active ? 3 : 1.2}"/><text x="${x + 97}" y="83" class="splam-label" style="fill:${color}">${title}</text><text x="${x + 97}" y="104" class="splam-detail">${detail}</text>${visual}</g>`;
+}
+
+function readPath(x: number, y: number, color: string) {
+  return `<path d="M${x} ${y} h38 l13 20 h38" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round"/>`;
 }
 
 function desktop(step: number) {
-  let s = `<text x="18" y="27" class="lvz-tl">Splam between spliced alignment and transcript assembly</text>`;
-  if (step === 0) {
-    const inputs = [[78, C.bam, 'RNA-seq BAM', 'sorted spliced alignments'], [303, C.genome, 'Reference FASTA', 'matching genome coordinates'], [528, C.model, 'Splam model', 'trained PyTorch weights']] as const;
-    inputs.forEach(([x, color, title, detail]) => s += `<rect x="${x}" y="90" width="154" height="116" rx="7" fill="${color}" fill-opacity=".08" stroke="${color}" stroke-width="2.5"/><text x="${Number(x) + 77}" y="127" class="splam-label" style="fill:${color}">${title}</text><text x="${Number(x) + 77}" y="153" class="splam-detail">${detail}</text><path d="M${Number(x) + 35} 177 H${Number(x) + 119}" stroke="${color}" stroke-width="9"/>`);
-    s += `<path d="M155 230 C240 285 520 285 605 230" fill="none" stroke="${C.model}" stroke-width="2.5"/><text x="380" y="305" class="splam-label" style="fill:${C.model}">three inputs share one coordinate system</text>`;
-  }
-  if (step === 1) {
-    s += `<text x="50" y="67" class="splam-label" style="fill:${C.bam}">alignment records</text>${read(102, 40, true, 'JUNC0001')}${read(178, 40, false, 'JUNC0002')}${read(254, 40, true, 'JUNC0001')}`;
-    s += `<path d="M235 190 H332" class="splam-arrow"/><path d="M322 184 L333 190 L322 196" class="splam-arrow"/><rect x="336" y="72" width="374" height="246" rx="6" fill="${C.bed}" fill-opacity=".05" stroke="${C.bed}" stroke-width="2"/><text x="523" y="101" class="splam-label" style="fill:${C.bed}">junction.bed · unique candidate introns</text>`;
-    const rows = [['chr9','4,849,549','4,860,125','JUNC0001','3','+'],['chr9','5,923,308','5,924,658','JUNC0002','6','−'],['chr9','5,924,844','5,929,044','JUNC0003','8','−']];
-    rows.forEach((row, index) => s += `<text x="523" y="${145 + index * 47}" class="splam-mono">${row.join('   ')}</text>`);
-    s += `<text x="523" y="292" class="splam-detail">CHROM · START · END · NAME · COUNT · STRAND</text>`;
-  }
-  if (step === 2) {
-    const rows = [[.99,.98,C.good],[.77,.54,C.good],[.96,.04,C.bad]] as const;
-    s += `<rect x="42" y="66" width="676" height="262" rx="7" fill="${C.model}" fill-opacity=".04" stroke="${C.model}"/><text x="380" y="95" class="splam-label" style="fill:${C.model}">junction_score.bed</text><text x="105" y="128" class="splam-detail">junction</text><text x="430" y="128" class="splam-detail">donor score</text><text x="585" y="128" class="splam-detail">acceptor score</text>`;
-    rows.forEach(([donor, acceptor, color], index) => { const y = 166 + index * 56; s += `<text x="105" y="${y}" class="splam-mono">JUNC000${index + 1}</text><rect x="337" y="${y - 17}" width="150" height="22" fill="var(--color-rule)"/><rect x="337" y="${y - 17}" width="${150 * donor}" height="22" fill="${C.bam}"/><text x="503" y="${y}" class="splam-detail splam-left">${donor.toFixed(2)}</text><rect x="530" y="${y - 17}" width="150" height="22" fill="var(--color-rule)"/><rect x="530" y="${y - 17}" width="${150 * acceptor}" height="22" fill="${C.good}"/><text x="696" y="${y}" class="splam-detail splam-left" style="fill:${color}">${acceptor.toFixed(2)}</text>`; });
-  }
-  if (step === 3) {
-    const rows = [['JUNC0001', .99, .98], ['JUNC0002', .77, .54], ['JUNC0003', .96, .04]] as const;
-    s += `<text x="380" y="75" class="splam-label">default BAM-cleanup threshold t = 0.1</text>`;
-    rows.forEach(([name, donor, acceptor], index) => { const y = 112 + index * 72; const good = donor >= .1 && acceptor >= .1; const color = good ? C.good : C.bad; s += `<rect x="92" y="${y}" width="576" height="54" rx="5" fill="${color}" fill-opacity=".05" stroke="${color}" stroke-width="${good ? 1.5 : 2.5}"/><text x="140" y="${y + 33}" class="splam-label splam-left">${name}</text><text x="380" y="${y + 33}" class="splam-mono">min(${donor.toFixed(2)}, ${acceptor.toFixed(2)}) = ${Math.min(donor, acceptor).toFixed(2)}</text><text x="620" y="${y + 33}" class="splam-label" style="fill:${color}">${good ? 'keep' : 'flag'}</text>`; });
-    s += `<text x="380" y="344" class="splam-detail">A weak donor or acceptor is enough to flag the paired junction.</text>`;
-  }
-  if (step === 4) {
-    s += `<text x="174" y="64" class="splam-label" style="fill:${C.bam}">original alignments</text><text x="588" y="64" class="splam-label" style="fill:${C.output}">decision</text>`;
-    s += read(105, 65, true, 'all junctions pass') + read(190, 65, false, 'contains JUNC0003') + read(275, 65, true, 'all junctions pass');
-    s += `<path d="M280 119 H480 M280 204 H480 M280 289 H480" class="splam-arrow"/>`;
-    s += `<rect x="500" y="85" width="175" height="67" rx="5" fill="${C.good}" fill-opacity=".08" stroke="${C.good}"/><text x="588" y="112" class="splam-label" style="fill:${C.good}">keep alignment</text><text x="588" y="134" class="splam-detail">all junctions pass</text><rect x="500" y="170" width="175" height="67" rx="5" fill="${C.bad}" fill-opacity=".08" stroke="${C.bad}" stroke-width="2.5"/><text x="588" y="197" class="splam-label" style="fill:${C.bad}">discard alignment</text><text x="588" y="219" class="splam-detail">any junction fails</text><rect x="500" y="255" width="175" height="67" rx="5" fill="${C.good}" fill-opacity=".08" stroke="${C.good}"/><text x="588" y="282" class="splam-label" style="fill:${C.good}">keep alignment</text><text x="588" y="304" class="splam-detail">update NH and mate flags</text>`;
-  }
-  if (step === 5) {
-    const file = (x: number, color: string, title: string, detail: string) => `<path d="M${x} 88 h130 l34 34 v146 h-164z" fill="${color}" fill-opacity=".07" stroke="${color}" stroke-width="2"/><path d="M${x + 130} 88 v34 h34" fill="none" stroke="${color}"/><text x="${x + 82}" y="166" class="splam-label" style="fill:${color}">${title}</text><text x="${x + 82}" y="191" class="splam-detail">${detail}</text>`;
-    s += file(62, C.bad, 'removed alignments', 'separate BAM for audit');
-    s += file(306, C.good, 'cleaned.bam', 'sorted alignments retained');
-    s += `<path d="M470 180 H604" class="splam-arrow"/><path d="M594 174 L605 180 L594 186" class="splam-arrow"/><rect x="606" y="119" width="114" height="122" rx="6" fill="${C.output}" fill-opacity=".08" stroke="${C.output}" stroke-width="2"/><text x="663" y="166" class="splam-label" style="fill:${C.output}">StringTie</text><text x="663" y="190" class="splam-detail">transcript</text><text x="663" y="208" class="splam-detail">assembly</text><text x="380" y="320" class="splam-detail">Only the cleaned BAM proceeds downstream; removed evidence remains available for audit.</text>`;
-  }
-  return `<svg viewBox="0 0 760 365" class="lvz-svg" role="img" aria-label="Splam BAM cleanup workflow, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  const x = [18, 254, 490, 726];
+  let s = `<text x="20" y="26" class="lvz-tl">Splam reuses one junction recognizer between alignment and transcript assembly</text>`;
+
+  s += card(x[0], 'Spliced BAM', 'candidate introns', C.bam, step === 0,
+    `<g transform="translate(${x[0] + 35} 132)">${readPath(0, 0, C.good)}${readPath(34, 40, C.bad)}${readPath(4, 80, C.good)}<text x="62" y="119" class="splam-mini">many alignments · shared junctions</text></g>`);
+
+  s += card(x[1], 'Score junctions', 'paired recognizer', C.model, step === 1,
+    `<g transform="translate(${x[1] + 31} 128)"><rect x="0" y="14" width="54" height="34" rx="3" fill="${C.junction}" fill-opacity=".12" stroke="${C.junction}"/><path d="M54 31 H76" class="splam-arrow"/><rect x="76" width="56" height="62" rx="4" fill="${C.model}" fill-opacity=".12" stroke="${C.model}" stroke-width="2"/><text x="104" y="36" class="splam-mini" style="fill:${C.model}">Splam</text><text x="66" y="88" class="splam-mini">score each unique pair once</text></g>`);
+
+  s += card(x[2], 'Filter alignments', 'any weak junction → remove', C.bad, step === 2,
+    `<g transform="translate(${x[2] + 36} 126)">${readPath(0, 4, C.good)}<text x="121" y="18" class="splam-mini" style="fill:${C.good}">keep</text>${readPath(0, 48, C.bad)}<path d="M106 45 l17 17 M123 45 l-17 17" stroke="${C.bad}" stroke-width="2.4"/><text x="61" y="101" class="splam-mini">decision returns to every alignment</text></g>`);
+
+  s += card(x[3], 'Write outputs', 'clean evidence downstream', C.good, step === 3,
+    `<g transform="translate(${x[3] + 20} 123)"><rect x="0" y="0" width="70" height="35" rx="3" fill="${C.good}" fill-opacity=".1" stroke="${C.good}"/><text x="35" y="22" class="splam-mini" style="fill:${C.good}">cleaned BAM</text><path d="M70 18 H91" class="splam-arrow"/><rect x="91" y="0" width="63" height="35" rx="3" fill="${C.good}" fill-opacity=".1" stroke="${C.good}"/><text x="122.5" y="22" class="splam-mini" style="fill:${C.good}">StringTie</text><rect x="0" y="55" width="70" height="35" rx="3" fill="${C.bad}" fill-opacity=".08" stroke="${C.bad}"/><text x="35" y="77" class="splam-mini" style="fill:${C.bad}">removed BAM</text><text x="119" y="77" class="splam-mini">audit trail</text></g>`);
+
+  for (let i = 0; i < x.length - 1; i += 1) s += arrow(x[i] + 194, x[i + 1]);
+  s += `<circle cx="${x[step] + 97}" cy="253" r="8" fill="${[C.bam, C.model, C.bad, C.good][step]}" class="splam-token"/><text x="460" y="298" class="splam-summary">Junctions are scored once; their decisions are then applied back to the alignments that contain them.</text>`;
+  return `<svg viewBox="0 0 940 320" class="lvz-svg" role="img" aria-label="Splam RNA-seq alignment cleanup workflow, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 
 function mobile(step: number) {
   const rows = [
-    ['BAM + FASTA + model', 'coordinate-matched inputs', C.bam],
-    ['extract junctions', 'distinct introns → junction.bed', C.bed],
-    ['score each pair', 'append donor + acceptor probabilities', C.model],
-    ['apply threshold', 'either score < 0.1 → flag', C.bad],
-    ['clean alignments', 'any flagged intron → discard read', C.bad],
-    ['write outputs', 'cleaned BAM → transcript assembly', C.output],
+    ['Spliced RNA-seq BAM', 'collect distinct candidate introns', C.bam],
+    ['Splam recognizer', 'score each unique donor-acceptor pair', C.model],
+    ['Alignment filter', 'any flagged junction → remove alignment', C.bad],
+    ['Two BAM outputs', 'cleaned → assembly · removed → audit', C.good],
   ] as const;
   let s = '';
-  rows.forEach(([title, detail, color], index) => { const y = 12 + index * 70; s += `<g opacity="${index === step ? 1 : .58}"><rect x="12" y="${y}" width="336" height="56" rx="5" class="splam-card" stroke="${color}" stroke-width="${index === step ? 2.5 : 1}"/><text x="180" y="${y + 23}" class="splam-label" style="fill:${color}">${title}</text><text x="180" y="${y + 43}" class="splam-detail">${detail}</text></g>`; if (index < rows.length - 1) s += `<path d="M180 ${y + 56} V${y + 66}" class="splam-arrow"/><path d="M175 ${y + 61} L180 ${y + 67} L185 ${y + 61}" class="splam-arrow"/>`; });
-  s += `<circle cx="326" cy="${40 + step * 70}" r="7" fill="${rows[step][2]}" class="splam-token"/>`;
-  return `<svg viewBox="0 0 360 430" class="lvz-svg" role="img" aria-label="Splam BAM cleanup workflow, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  rows.forEach(([title, detail, color], index) => {
+    const y = 16 + index * 102;
+    s += `<g opacity="${index === step ? 1 : 0.58}"><rect x="12" y="${y}" width="336" height="76" rx="5" class="splam-card" stroke="${color}" stroke-width="${index === step ? 2.8 : 1.2}"/><text x="180" y="${y + 31}" class="splam-label" style="fill:${color}">${title}</text><text x="180" y="${y + 56}" class="splam-detail">${detail}</text></g>`;
+    if (index < rows.length - 1) s += `<path d="M180 ${y + 76} V${y + 96}" class="splam-arrow"/><path d="M175 ${y + 90} L180 ${y + 97} L185 ${y + 90}" class="splam-arrow"/>`;
+  });
+  s += `<circle cx="326" cy="${54 + step * 102}" r="7" fill="${rows[step][2]}" class="splam-token"/>`;
+  return `<svg viewBox="0 0 360 408" class="lvz-svg" role="img" aria-label="Splam RNA-seq alignment cleanup workflow, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 ---
 
 <section class="lvz splam-viz splam-cleanup" role="group" aria-label="Interactive: cleaning RNA-seq alignments with Splam" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
-  <div class="lvz-head"><p class="lvz-title">Clean spliced alignments before assembly</p><span class="lvz-tag">BAM workflow</span></div>
+  <div class="lvz-head"><p class="lvz-title">Clean RNA-seq alignments with Splam</p><span class="lvz-tag">BAM workflow</span></div>
   <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
   <nav class="lvz-progress" aria-label="Alignment cleanup steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
   {steps.map(([title, caption], index) => (
     <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
-      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p><div class="lvz-fig lvz-visual--desktop" set:html={desktop(index)} /><div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktop(index)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
     </div>
   ))}
   <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
-  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.good}`}></span>retained</span><span><span class="lvz-sw" style={`background:${C.bad}`}></span>flagged or removed</span><span><span class="lvz-sw" style={`background:${C.model}`}></span>Splam score</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.bam}`}></span>alignment evidence</span><span><span class="lvz-sw" style={`background:${C.model}`}></span>Splam recognizer</span><span><span class="lvz-sw" style={`background:${C.good}`}></span>retained</span><span><span class="lvz-sw" style={`background:${C.bad}`}></span>flagged or removed</span></div>
 </section>
 
 <script>
