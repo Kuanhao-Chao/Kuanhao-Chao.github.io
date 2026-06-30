@@ -1,0 +1,80 @@
+---
+import '../styles/lvz.css';
+import '../styles/shorkie.css';
+
+const steps = [
+  ['Transfer the pretrained trunk', 'Fine-tuning restores the pretrained encoder, Transformer bottleneck, and retained decoder layers, then replaces the language-model output head for yeast regulatory prediction.'],
+  ['Decode the supported interior', 'Three upsampling stages produce 1,024 bins at 16 bp resolution. Cropping 64 bins from each edge leaves 896 bins across the central 14,336 bp.'],
+  ['Train on 5,215 regulatory tracks', 'The output combines 3,053 induction RNA-seq, 1,014 strain RNA-seq, 1,128 ChIP-exo, and 20 histone tracks. Poisson and multinomial losses fit signal amount and spatial distribution.'],
+  ['Ensemble a stable coverage profile', 'Eight folds provide held-out models. Inference combines forward and reverse-complement predictions at shifts 0 and 1; the matched random-init model isolates the benefit of pretraining.'],
+] as const;
+
+const colors = ['#6f62a8', '#3976a8', '#b26b32', '#2f8069'];
+
+function card(x: number, y: number, title: string, detail: string, color: string, active: boolean, visual: string) {
+  return `<g opacity="${active ? 1 : 0.48}"><rect x="${x}" y="${y}" width="194" height="138" rx="5" class="shk-card" stroke="${color}" stroke-width="${active ? 3 : 1.3}"/><text x="${x + 97}" y="${y + 29}" class="shk-label" style="fill:${color}">${title}</text><text x="${x + 97}" y="${y + 51}" class="shk-detail">${detail}</text>${visual}</g>`;
+}
+
+function arrow(x1: number, y: number, x2: number) {
+  return `<path d="M${x1} ${y} H${x2 - 9}" class="shk-arrow"/><path d="M${x2 - 9} ${y - 6} L${x2} ${y} L${x2 - 9} ${y + 6}" class="shk-arrow"/>`;
+}
+
+function desktop(step: number) {
+  const x = [18, 242, 466, 690];
+  let svg = `<text x="20" y="28" class="lvz-tl">Transfer fungal sequence learning into supervised yeast regulation</text>`;
+  svg += card(x[0], 62, 'Pretrained trunk', 'encoder · Transformer · decoder', colors[0], step === 0,
+    `<g transform="translate(${x[0] + 31} 130)"><rect width="38" height="58" rx="3" fill="#2f8069" fill-opacity=".18" stroke="#2f8069"/><rect x="47" y="9" width="38" height="49" rx="3" fill="#6f62a8" fill-opacity=".2" stroke="#6f62a8"/><rect x="94" y="18" width="38" height="40" rx="3" fill="#b26b32" fill-opacity=".18" stroke="#b26b32"/><text x="66" y="78" class="shk-mini">learned weights transfer</text></g>`);
+  svg += card(x[1], 62, 'Decode + crop', '1,024 → 896 bins', colors[1], step === 1,
+    `<g transform="translate(${x[1] + 25} 132)"><rect width="144" height="34" fill="#3976a8" fill-opacity=".12" stroke="#3976a8"/><rect width="18" height="34" fill="#b04755" fill-opacity=".45"/><rect x="126" width="18" height="34" fill="#b04755" fill-opacity=".45"/><path d="M26 49 H118" stroke="#3976a8" stroke-width="5"/><text x="72" y="72" class="shk-mini">14,336 bp · 16 bp bins</text></g>`);
+  svg += card(x[2], 62, 'Fit 5,215 tracks', 'RNA · binding · chromatin', colors[2], step === 2,
+    `<g transform="translate(${x[2] + 26} 130)"><path d="M0 10 H137" stroke="#3976a8" stroke-width="8"/><path d="M0 28 H93" stroke="#2f8069" stroke-width="8"/><path d="M0 46 H116" stroke="#6f62a8" stroke-width="8"/><path d="M0 64 H45" stroke="#b26b32" stroke-width="8"/><text x="70" y="86" class="shk-mini">Poisson + multinomial</text></g>`);
+  svg += card(x[3], 62, 'Ensemble output', 'folds · strands · shifts', colors[3], step === 3,
+    `<g transform="translate(${x[3] + 23} 127)"><polygon points="0,70 0,57 18,50 36,24 54,40 72,12 90,49 108,35 126,60 144,70" fill="#2f8069" opacity=".7"/><line x1="0" y1="70" x2="144" y2="70" stroke="#2f8069"/><rect x="17" y="79" width="43" height="8" fill="#182c67"/><line x1="60" y1="83" x2="87" y2="83" stroke="#182c67"/><rect x="87" y="79" width="43" height="8" fill="#182c67"/></g>`);
+  for (let i = 0; i < 3; i += 1) svg += arrow(x[i] + 194, 131, x[i + 1]);
+  svg += `<circle cx="${x[step] + 97}" cy="227" r="8" fill="${colors[step]}" class="shk-flow-token"/><text x="460" y="296" class="shk-summary">The supervised task changes the output head while preserving the pretrained sequence representation.</text>`;
+  return `<svg viewBox="0 0 920 320" class="lvz-svg" role="img" aria-label="Shorkie fine-tuning workflow, step ${step + 1}">${svg}</svg>`;
+}
+
+function mobile(step: number) {
+  const titles = ['Pretrained trunk', 'Decode + crop', 'Fit 5,215 tracks', 'Ensemble output'];
+  const details = ['transfer learned sequence features', '1,024 → 896 bins · 16 bp', 'RNA · binding · chromatin · joint loss', '8 folds · strands · shifts → coverage'];
+  let svg = '';
+  for (let i = 0; i < 4; i += 1) {
+    const y = 16 + i * 105;
+    svg += `<g opacity="${i === step ? 1 : 0.48}"><rect x="18" y="${y}" width="324" height="78" rx="5" class="shk-card" stroke="${colors[i]}" stroke-width="${i === step ? 3 : 1.3}"/><text x="180" y="${y + 31}" class="shk-label" style="fill:${colors[i]}">${titles[i]}</text><text x="180" y="${y + 56}" class="shk-detail">${details[i]}</text><circle cx="315" cy="${y + 39}" r="${i === step ? 7 : 4}" fill="${colors[i]}" class="${i === step ? 'shk-flow-token' : ''}"/></g>`;
+    if (i < 3) svg += `<path d="M180 ${y + 78} V${y + 99}" class="shk-arrow"/><path d="M174 ${y + 91} L180 ${y + 100} L186 ${y + 91}" class="shk-arrow"/>`;
+  }
+  return `<svg viewBox="0 0 360 435" class="lvz-svg" role="img" aria-label="Shorkie fine-tuning workflow, step ${step + 1}">${svg}</svg>`;
+}
+
+const desktopScenes = steps.map((_, index) => desktop(index));
+const mobileScenes = steps.map((_, index) => mobile(index));
+---
+
+<section class="lvz shk shk-finetuning" role="group" aria-label="Interactive: fine-tuning Shorkie on yeast regulatory assays" data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Fine-tune on yeast regulatory assays</p><span class="lvz-tag">5,215 tracks</span></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Fine-tuning steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktopScenes[index]} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobileScenes[index]} />
+    </div>
+  ))}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev>← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next>Next →</button><button type="button" class="lvz-btn" data-wgi-reset>↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootShorkieFineTuning() {
+    document.querySelectorAll<HTMLElement>('.shk-finetuning').forEach((root) => {
+      if (root.dataset.ready === 'true') return;
+      root.dataset.ready = 'true';
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, { total: scenes.length, onShow: (index) => scenes.forEach((scene, sceneIndex) => { scene.hidden = sceneIndex !== index; }), caption: (index) => scenes[index]?.dataset.caption || '', interval: 6000 });
+    });
+  }
+  bootShorkieFineTuning();
+  document.addEventListener('astro:page-load', bootShorkieFineTuning);
+</script>

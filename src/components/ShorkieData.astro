@@ -1,0 +1,97 @@
+---
+import '../styles/lvz.css';
+import '../styles/shorkie.css';
+
+const steps = [
+  ['Choose an evolutionary scope', 'Four alternative corpora test how evolutionary distance and sequence diversity affect transfer to budding yeast: R64, 80 strains, 165 Saccharomycetales, and 1,341 fungi.'],
+  ['Prepare overlapping genome windows', 'Genomes are repeat-masked and tiled into 16,384 bp windows with a 4,096 bp stride. Windows containing more than 7% repeat sequence are removed.'],
+  ['Protect the held-out evaluation set', 'Training windows homologous to held-out yeast sequence are filtered out. Complete chromosomes are reserved for validation and test evaluation.'],
+  ['Create model-ready examples', 'Each retained window provides DNA and mask channels plus species identity. Exon and repeat annotations are retained to weight the pretraining loss.'],
+] as const;
+
+const colors = ['#3976a8', '#b26b32', '#b04755', '#2f8069'];
+
+function card(x: number, y: number, w: number, h: number, title: string, detail: string, color: string, active: boolean, visual: string) {
+  return `<g opacity="${active ? 1 : 0.48}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" class="shk-card" stroke="${color}" stroke-width="${active ? 3 : 1.3}"/><text x="${x + w / 2}" y="${y + 29}" class="shk-label" style="fill:${color}">${title}</text><text x="${x + w / 2}" y="${y + 51}" class="shk-detail">${detail}</text>${visual}</g>`;
+}
+
+function arrow(x1: number, y: number, x2: number) {
+  return `<path d="M${x1} ${y} H${x2 - 9}" class="shk-arrow"/><path d="M${x2 - 9} ${y - 6} L${x2} ${y} L${x2 - 9} ${y + 6}" class="shk-arrow"/>`;
+}
+
+function desktop(step: number) {
+  const x = [18, 242, 466, 690];
+  let svg = `<text x="20" y="28" class="lvz-tl">From fungal genomes to leakage-controlled training examples</text>`;
+  svg += card(x[0], 62, 194, 138, 'Evolutionary scope', 'four alternative corpora', colors[0], step === 0,
+    `<g transform="translate(${x[0] + 24} 139)"><rect width="27" height="9" fill="#3976a8"/><rect x="36" width="27" height="9" fill="#b07d00"/><rect x="72" width="27" height="9" fill="#2f8069"/><rect x="108" width="27" height="9" fill="#6f62a8"/><text x="68" y="31" class="shk-mini">1 · 80 · 165 · 1,341</text></g>`);
+  svg += card(x[1], 62, 194, 138, 'Prepare windows', 'mask · tile · filter', colors[1], step === 1,
+    `<g transform="translate(${x[1] + 24} 135)"><line x1="0" y1="10" x2="146" y2="10" stroke="#3976a8" stroke-width="8"/><rect x="14" y="0" width="72" height="20" fill="#b26b32" fill-opacity=".2" stroke="#b26b32"/><rect x="54" y="0" width="72" height="20" fill="#b26b32" fill-opacity=".2" stroke="#b26b32"/><text x="73" y="35" class="shk-mini">16,384 bp · stride 4,096</text></g>`);
+  svg += card(x[2], 62, 194, 138, 'Prevent leakage', 'homology filter · split', colors[2], step === 2,
+    `<g transform="translate(${x[2] + 36} 132)"><path d="M18 0 l18 7 v16 c0 13-8 22-18 27C8 45 0 36 0 23V7z" fill="#b04755" fill-opacity=".17" stroke="#b04755" stroke-width="2"/><text x="80" y="13" class="shk-mini shk-left">validation XI · XIII · XV</text><text x="80" y="33" class="shk-mini shk-left">test XII · XIV · XVI</text></g>`);
+  svg += card(x[3], 62, 194, 138, 'Model examples', 'sequence · species · weights', colors[3], step === 3,
+    `<g transform="translate(${x[3] + 22} 132)"><text x="74" y="11" class="shk-dna">A C G ? T A C G</text><rect x="7" y="25" width="74" height="8" fill="#3976a8"/><rect x="86" y="25" width="57" height="8" fill="#2f8069"/><text x="74" y="51" class="shk-mini">input channels + annotations</text></g>`);
+  for (let i = 0; i < 3; i += 1) svg += arrow(x[i] + 194, 131, x[i + 1]);
+  svg += `<circle cx="${x[step] + 97}" cy="227" r="8" fill="${colors[step]}" class="shk-flow-token"/><text x="${x[step] + 97}" y="255" class="shk-detail">active stage</text>`;
+  svg += `<text x="460" y="296" class="shk-summary">Four corpora follow the same preparation workflow; only their evolutionary scope changes.</text>`;
+  return `<svg viewBox="0 0 920 320" class="lvz-svg" role="img" aria-label="Shorkie data-preparation workflow, step ${step + 1}">${svg}</svg>`;
+}
+
+function mobile(step: number) {
+  const titles = ['Evolutionary scope', 'Prepare windows', 'Prevent leakage', 'Model examples'];
+  const details = ['R64 · 80 strains · 165 order · 1,341 fungi', 'repeat mask · tile · filter', 'homology filter · chromosome split', 'DNA + mask + species · loss weights'];
+  let svg = '';
+  for (let i = 0; i < 4; i += 1) {
+    const y = 16 + i * 105;
+    svg += card(18, y, 324, 78, titles[i], details[i], colors[i], i === step,
+      `<circle cx="${i === step ? 315 : 325}" cy="${y + 39}" r="${i === step ? 7 : 4}" fill="${colors[i]}" class="${i === step ? 'shk-flow-token' : ''}"/>`);
+    if (i < 3) svg += `<path d="M180 ${y + 78} V${y + 99}" class="shk-arrow"/><path d="M174 ${y + 91} L180 ${y + 100} L186 ${y + 91}" class="shk-arrow"/>`;
+  }
+  return `<svg viewBox="0 0 360 435" class="lvz-svg" role="img" aria-label="Shorkie data-preparation workflow, step ${step + 1}">${svg}</svg>`;
+}
+
+const desktopScenes = steps.map((_, index) => desktop(index));
+const mobileScenes = steps.map((_, index) => mobile(index));
+---
+
+<section class="lvz shk shk-data" role="group" aria-label="Interactive: preparing evolutionary training data for Shorkie" data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Prepare evolutionary training data</p><span class="lvz-tag">4 stages</span></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Data-preparation steps">
+    {steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}
+  </nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktopScenes[index]} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobileScenes[index]} />
+    </div>
+  ))}
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev>← Prev</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button>
+    <button type="button" class="lvz-btn" data-wgi-next>Next →</button>
+    <button type="button" class="lvz-btn" data-wgi-reset>↺ Restart</button>
+    <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
+  </div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+
+  function bootShorkieData() {
+    document.querySelectorAll<HTMLElement>('.shk-data').forEach((root) => {
+      if (root.dataset.ready === 'true') return;
+      root.dataset.ready = 'true';
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, {
+        total: scenes.length,
+        onShow: (index) => scenes.forEach((scene, sceneIndex) => { scene.hidden = sceneIndex !== index; }),
+        caption: (index) => scenes[index]?.dataset.caption || '',
+        interval: 6000,
+      });
+    });
+  }
+
+  bootShorkieData();
+  document.addEventListener('astro:page-load', bootShorkieData);
+</script>

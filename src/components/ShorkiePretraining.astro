@@ -1,0 +1,80 @@
+---
+import '../styles/lvz.css';
+import '../styles/shorkie.css';
+
+const steps = [
+  ['Encode sequence and species', 'For the selected 165-genome model, each 16,384 bp example contains four DNA channels, one mask channel, and 165 one-hot species channels.'],
+  ['Create a reconstruction challenge', 'The objective selects 15% of positions. Of those bases, 80% are masked, 10% are replaced by a random nucleotide, and 10% remain unchanged; examples may also be reverse-complemented.'],
+  ['Reconstruct the selected bases', 'The language model predicts P(A), P(C), P(G), and P(T). Cross-entropy is evaluated only at selected positions, with exon and repeat positions down-weighted to 0.1.'],
+  ['Select the best evolutionary scope', 'Held-out yeast perplexity compares the four pretrained models. The 165-genome Saccharomycetales model reconstructs yeast sequence best and becomes the fine-tuning starting point.'],
+] as const;
+
+const colors = ['#3976a8', '#b04755', '#6f62a8', '#2f8069'];
+
+function card(x: number, y: number, title: string, detail: string, color: string, active: boolean, visual: string) {
+  return `<g opacity="${active ? 1 : 0.48}"><rect x="${x}" y="${y}" width="194" height="138" rx="5" class="shk-card" stroke="${color}" stroke-width="${active ? 3 : 1.3}"/><text x="${x + 97}" y="${y + 29}" class="shk-label" style="fill:${color}">${title}</text><text x="${x + 97}" y="${y + 51}" class="shk-detail">${detail}</text>${visual}</g>`;
+}
+
+function arrow(x1: number, y: number, x2: number) {
+  return `<path d="M${x1} ${y} H${x2 - 9}" class="shk-arrow"/><path d="M${x2 - 9} ${y - 6} L${x2} ${y} L${x2 - 9} ${y + 6}" class="shk-arrow"/>`;
+}
+
+function desktop(step: number) {
+  const x = [18, 242, 466, 690];
+  let svg = `<text x="20" y="28" class="lvz-tl">Masked-sequence reconstruction turns fungal genomes into transferable features</text>`;
+  svg += card(x[0], 62, 'Input channels', '16,384 × 170', colors[0], step === 0,
+    `<g transform="translate(${x[0] + 34} 132)"><rect width="126" height="9" fill="#3976a8"/><rect y="15" width="126" height="9" fill="#b04755"/><rect y="30" width="126" height="9" fill="#2f8069"/><text x="63" y="57" class="shk-mini">DNA · mask · species</text></g>`);
+  svg += card(x[1], 62, 'Corrupt sequence', '15% selected · 80/10/10', colors[1], step === 1,
+    `<g transform="translate(${x[1] + 24} 139)"><text x="73" y="0" class="shk-dna">A C <tspan style="fill:#b04755">?</tspan> G T A <tspan style="fill:#b04755">T</tspan> G</text><path d="M20 20 Q73 43 126 20" fill="none" stroke="#b04755" stroke-width="2"/><text x="73" y="49" class="shk-mini">forward or reverse complement</text></g>`);
+  svg += card(x[2], 62, 'Reconstruct bases', 'weighted masked loss', colors[2], step === 2,
+    `<g transform="translate(${x[2] + 38} 129)"><rect x="0" y="0" width="118" height="35" rx="4" fill="#6f62a8" fill-opacity=".14" stroke="#6f62a8"/><text x="59" y="23" class="shk-mini">sequence model</text><rect x="8" y="44" width="17" height="27" fill="#3976a8"/><rect x="36" y="35" width="17" height="36" fill="#b04755"/><rect x="64" y="17" width="17" height="54" fill="#2f8069"/><rect x="92" y="47" width="17" height="24" fill="#b07d00"/></g>`);
+  svg += card(x[3], 62, 'Compare scopes', 'held-out yeast perplexity', colors[3], step === 3,
+    `<g transform="translate(${x[3] + 29} 129)"><rect x="0" y="22" width="22" height="48" fill="#3976a8" opacity=".45"/><rect x="34" y="31" width="22" height="39" fill="#b07d00" opacity=".5"/><rect x="68" y="50" width="22" height="20" fill="#2f8069"/><rect x="102" y="39" width="22" height="31" fill="#6f62a8" opacity=".55"/><text x="79" y="91" class="shk-mini" style="fill:#2f8069">165 genomes: lowest</text></g>`);
+  for (let i = 0; i < 3; i += 1) svg += arrow(x[i] + 194, 131, x[i + 1]);
+  svg += `<circle cx="${x[step] + 97}" cy="227" r="8" fill="${colors[step]}" class="shk-flow-token"/><text x="460" y="296" class="shk-summary">Pretraining learns sequence context before Shorkie sees supervised yeast assays.</text>`;
+  return `<svg viewBox="0 0 920 320" class="lvz-svg" role="img" aria-label="Shorkie masked-language-model pretraining workflow, step ${step + 1}">${svg}</svg>`;
+}
+
+function mobile(step: number) {
+  const titles = ['Input channels', 'Corrupt sequence', 'Reconstruct bases', 'Compare scopes'];
+  const details = ['16,384 × 170', '15% selected · 80/10/10 · strand flip', 'P(A/C/G/T) · weighted masked loss', 'held-out perplexity · 165 genomes wins'];
+  let svg = '';
+  for (let i = 0; i < 4; i += 1) {
+    const y = 16 + i * 105;
+    svg += `<g opacity="${i === step ? 1 : 0.48}"><rect x="18" y="${y}" width="324" height="78" rx="5" class="shk-card" stroke="${colors[i]}" stroke-width="${i === step ? 3 : 1.3}"/><text x="180" y="${y + 31}" class="shk-label" style="fill:${colors[i]}">${titles[i]}</text><text x="180" y="${y + 56}" class="shk-detail">${details[i]}</text><circle cx="315" cy="${y + 39}" r="${i === step ? 7 : 4}" fill="${colors[i]}" class="${i === step ? 'shk-flow-token' : ''}"/></g>`;
+    if (i < 3) svg += `<path d="M180 ${y + 78} V${y + 99}" class="shk-arrow"/><path d="M174 ${y + 91} L180 ${y + 100} L186 ${y + 91}" class="shk-arrow"/>`;
+  }
+  return `<svg viewBox="0 0 360 435" class="lvz-svg" role="img" aria-label="Shorkie masked-language-model pretraining workflow, step ${step + 1}">${svg}</svg>`;
+}
+
+const desktopScenes = steps.map((_, index) => desktop(index));
+const mobileScenes = steps.map((_, index) => mobile(index));
+---
+
+<section class="lvz shk shk-pretraining" role="group" aria-label="Interactive: Shorkie masked-language-model pretraining" data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Learn fungal sequence context</p><span class="lvz-tag">165-genome model shown</span></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Pretraining steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktopScenes[index]} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobileScenes[index]} />
+    </div>
+  ))}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev>← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next>Next →</button><button type="button" class="lvz-btn" data-wgi-reset>↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootShorkiePretraining() {
+    document.querySelectorAll<HTMLElement>('.shk-pretraining').forEach((root) => {
+      if (root.dataset.ready === 'true') return;
+      root.dataset.ready = 'true';
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, { total: scenes.length, onShow: (index) => scenes.forEach((scene, sceneIndex) => { scene.hidden = sceneIndex !== index; }), caption: (index) => scenes[index]?.dataset.caption || '', interval: 6000 });
+    });
+  }
+  bootShorkiePretraining();
+  document.addEventListener('astro:page-load', bootShorkiePretraining);
+</script>
