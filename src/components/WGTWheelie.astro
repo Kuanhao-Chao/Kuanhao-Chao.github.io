@@ -1,0 +1,170 @@
+---
+import '../styles/lvz.css';
+import '../styles/wgt-animation.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+const steps = [
+  ['Check consistency and form label groups', 'Wheelie first finds zero-indegree nodes and groups destinations by their incoming-edge label. A node reached by distinct labels is an immediate conflict.'],
+  ['Initialize a rough position for every group', 'In the paper example, Na begins at 1; the A group initially shares 4, the C group shares 6, and the G group shares 8. These values bound each group’s rough position.'],
+  ['Sort nodes by their predecessor-order lists', 'Within each label group, Wheelie lists the distinct predecessor orders. For example, the A-group lists [1], [1,4], and [6,8] sort Nb before Nc before Nd.'],
+  ['Relabel and propagate until stable', 'The refined A labels constrain C, which constrains G. Wheelie repeats this process until no order range changes, often solving or rejecting the graph without a general solver.'],
+  ['Resolve only the ambiguity that remains', 'Unique ranges give an ordering immediately. Otherwise Wheelie-PR permutes tied nodes or Wheelie-SMT solves integer order constraints restricted by the heuristic ranges. Both return an exact verdict.'],
+] as const;
+
+const C = {
+  root: 'var(--wgt-root)',
+  a: 'var(--wgt-a)',
+  c: 'var(--wgt-c)',
+  g: 'var(--wgt-g)',
+  range: 'var(--wgt-range)',
+  solver: 'var(--wgt-solver)',
+  valid: 'var(--wgt-valid)',
+};
+
+const groups = [
+  { title: 'zero indegree', color: C.root, nodes: ['Na'] },
+  { title: 'incoming A', color: C.a, nodes: ['Nb', 'Nc', 'Nd'] },
+  { title: 'incoming C', color: C.c, nodes: ['Ne', 'Nf'] },
+  { title: 'incoming G', color: C.g, nodes: ['Ng', 'Nh'] },
+] as const;
+
+const initial: Record<string, string> = { Na: '1', Nb: '4', Nc: '4', Nd: '4', Ne: '6', Nf: '6', Ng: '8', Nh: '8' };
+const predecessorLists: Record<string, string> = { Na: '∅', Nb: '[1]', Nc: '[1, 4]', Nd: '[6, 8]', Ne: '[1, 4]', Nf: '[6, 8]', Ng: '[4, 6]', Nh: '[6, 8]' };
+
+function chip(x: number, y: number, name: string, color: string, value = '', width = 72) {
+  return `<rect x="${x}" y="${y}" width="${width}" height="34" rx="4" fill="${color}" fill-opacity=".08" stroke="${color}"/><text x="${x + width / 2}" y="${y + 21}" class="wgt-label" style="fill:${color}">${name}${value ? ` · ${value}` : ''}</text>`;
+}
+
+function groupColumns(values = false) {
+  const layout = [
+    { x: 26, w: 150, ...groups[0] },
+    { x: 194, w: 250, ...groups[1] },
+    { x: 462, w: 196, ...groups[2] },
+    { x: 676, w: 196, ...groups[3] },
+  ];
+  let s = '';
+  layout.forEach((group) => {
+    s += `<rect x="${group.x}" y="66" width="${group.w}" height="204" rx="5" fill="${group.color}" fill-opacity=".035" stroke="${group.color}"/><text x="${group.x + group.w / 2}" y="93" class="wgt-label" style="fill:${group.color}">${group.title}</text>`;
+    group.nodes.forEach((name, index) => {
+      const width = group.w - 32;
+      s += chip(group.x + 16, 112 + index * 48, name, group.color, values ? initial[name] : '', width);
+    });
+  });
+  return s;
+}
+
+function desktop(step: number) {
+  let s = `<text x="20" y="27" class="lvz-tl">Wheelie’s renaming heuristic · published eight-node example</text>`;
+  if (step === 0) {
+    s += groupColumns(false);
+    s += `<rect x="250" y="289" width="420" height="42" rx="4" fill="${C.valid}" fill-opacity=".07" stroke="${C.valid}"/><text x="460" y="314" class="wgt-label" style="fill:${C.valid}">input-consistent: each destination has one incoming-label class</text>`;
+  }
+  if (step === 1) {
+    s += groupColumns(true);
+    s += `<path d="M85 296 H835" stroke="var(--color-rule)" stroke-width="8"/><circle cx="85" cy="296" r="8" fill="${C.root}"/><circle cx="335" cy="296" r="8" fill="${C.a}"/><circle cx="560" cy="296" r="8" fill="${C.c}"/><circle cx="774" cy="296" r="8" fill="${C.g}"/><text x="460" y="327" class="wgt-detail">rough positions follow root first, then the lexicographic order A &lt; C &lt; G</text>`;
+  }
+  if (step === 2) {
+    const columns = [
+      { x: 30, w: 140, title: '∅', color: C.root, nodes: ['Na'] },
+      { x: 188, w: 262, title: 'A group · sort now', color: C.a, nodes: ['Nb', 'Nc', 'Nd'] },
+      { x: 468, w: 194, title: 'C group', color: C.c, nodes: ['Ne', 'Nf'] },
+      { x: 680, w: 194, title: 'G group', color: C.g, nodes: ['Ng', 'Nh'] },
+    ];
+    columns.forEach((column) => {
+      s += `<rect x="${column.x}" y="59" width="${column.w}" height="238" rx="5" fill="${column.color}" fill-opacity=".035" stroke="${column.color}" stroke-width="${column.title.includes('sort') ? 2.8 : 1.2}"/><text x="${column.x + column.w / 2}" y="86" class="wgt-label" style="fill:${column.color}">${column.title}</text>`;
+      column.nodes.forEach((name, index) => {
+        const y = 108 + index * 54;
+        s += `<text x="${column.x + 35}" y="${y + 21}" class="wgt-label" style="fill:${column.color}">${name}</text><rect x="${column.x + 66}" y="${y}" width="${column.w - 82}" height="34" rx="4" fill="${column.color}" fill-opacity=".07" stroke="${column.color}"/><text x="${column.x + 66 + (column.w - 82) / 2}" y="${y + 21}" class="wgt-mono">${predecessorLists[name]}</text>`;
+      });
+    });
+    s += `<text x="319" y="322" class="wgt-detail" style="fill:${C.a}">lexicographic predecessor lists: [1] &lt; [1,4] &lt; [6,8]</text>`;
+  }
+  if (step === 3) {
+    const updates = [
+      { x: 68, title: 'A update', detail: 'Nb 2 · Nc 3 · Nd 4', color: C.a },
+      { x: 337, title: 'C update', detail: 'Ne 5 · Nf 6', color: C.c },
+      { x: 606, title: 'G update', detail: 'Ng 7 · Nh 8', color: C.g },
+    ];
+    updates.forEach((update, index) => {
+      s += `<rect x="${update.x}" y="102" width="218" height="102" rx="5" fill="${update.color}" fill-opacity=".07" stroke="${update.color}" stroke-width="2"/><text x="${update.x + 109}" y="136" class="wgt-label" style="fill:${update.color}">${update.title}</text><text x="${update.x + 109}" y="169" class="wgt-mono">${update.detail}</text>`;
+      if (index < updates.length - 1) s += `<path d="M${update.x + 218} 153 H${update.x + 259}" class="wgt-arrow"/><path d="M${update.x + 249} 147 L${update.x + 260} 153 L${update.x + 249} 159" class="wgt-arrow"/>`;
+    });
+    s += `<path d="M715 221 C715 286 177 286 177 221" fill="none" stroke="${C.range}" stroke-width="2.2" stroke-dasharray="5 4"/><path d="M168 231 L177 220 L186 231" fill="none" stroke="${C.range}" stroke-width="2.2"/><text x="446" y="320" class="wgt-label" style="fill:${C.range}">repeat with the refined labels until every range is stable</text>`;
+    s += `<rect x="301" y="44" width="318" height="38" rx="4" fill="${C.range}" fill-opacity=".07" stroke="${C.range}"/><text x="460" y="68" class="wgt-detail">new predecessor orders propagate from A → C → G</text>`;
+  }
+  if (step === 4) {
+    s += `<rect x="35" y="120" width="186" height="88" rx="5" fill="${C.range}" fill-opacity=".07" stroke="${C.range}" stroke-width="2"/><text x="128" y="151" class="wgt-label" style="fill:${C.range}">stable ranges</text><text x="128" y="179" class="wgt-detail">heuristic output</text>`;
+    s += `<path d="M221 164 H274" class="wgt-arrow"/><path d="M264 158 L275 164 L264 170" class="wgt-arrow"/>`;
+    s += `<rect x="276" y="54" width="190" height="92" rx="5" fill="${C.valid}" fill-opacity=".07" stroke="${C.valid}" stroke-width="2"/><text x="371" y="84" class="wgt-label" style="fill:${C.valid}">all ranges unique</text><text x="371" y="111" class="wgt-detail">ordering solved directly</text>`;
+    s += `<rect x="276" y="182" width="190" height="104" rx="5" fill="${C.solver}" fill-opacity=".07" stroke="${C.solver}" stroke-width="2"/><text x="371" y="213" class="wgt-label" style="fill:${C.solver}">ties remain</text><text x="371" y="241" class="wgt-detail">solve only tied ranges</text>`;
+    s += `<path d="M221 164 C250 164 247 234 274 234" class="wgt-arrow"/><path d="M264 228 L275 234 L264 240" class="wgt-arrow"/>`;
+    s += `<path d="M466 234 H514" class="wgt-arrow"/><path d="M504 228 L515 234 L504 240" class="wgt-arrow"/>`;
+    s += `<rect x="516" y="174" width="142" height="58" rx="5" fill="${C.solver}" fill-opacity=".08" stroke="${C.solver}"/><text x="587" y="198" class="wgt-label" style="fill:${C.solver}">Wheelie-PR</text><text x="587" y="219" class="wgt-mini">permute tied nodes</text>`;
+    s += `<rect x="516" y="244" width="142" height="58" rx="5" fill="${C.range}" fill-opacity=".08" stroke="${C.range}"/><text x="587" y="268" class="wgt-label" style="fill:${C.range}">Wheelie-SMT</text><text x="587" y="289" class="wgt-mini">Z3 + range constraints</text>`;
+    s += `<path d="M466 100 H708 V152" class="wgt-arrow"/><path d="M658 203 H708 M658 273 H708 V152" class="wgt-arrow"/>`;
+    s += `<rect x="710" y="112" width="174" height="80" rx="5" fill="${C.valid}" fill-opacity=".08" stroke="${C.valid}" stroke-width="2.5"/><text x="797" y="141" class="wgt-label" style="fill:${C.valid}">exact verdict</text><text x="797" y="169" class="wgt-detail">ordering or non-Wheeler</text>`;
+    s += `<text x="460" y="330" class="wgt-detail">The heuristic prunes; the direct, permutation, and SMT finishes are exact.</text>`;
+  }
+  return `<svg viewBox="0 0 920 350" class="lvz-svg" role="img" aria-label="Wheelie recognition algorithm, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobile(step: number) {
+  let s = '';
+  if (step === 0 || step === 1) {
+    groups.forEach((group, index) => {
+      const y = 14 + index * 92;
+      const names = group.nodes.map((name) => `${name}${step === 1 ? `·${initial[name]}` : ''}`).join('   ');
+      s += `<rect x="12" y="${y}" width="336" height="68" rx="5" class="wgt-card" stroke="${group.color}" stroke-width="${step === 0 ? 1.8 : 2.2}"/><text x="180" y="${y + 26}" class="wgt-label" style="fill:${group.color}">${group.title}</text><text x="180" y="${y + 50}" class="wgt-mono">${names}</text>`;
+    });
+  }
+  if (step === 2) {
+    const rows = ['Nb  [1]', 'Nc  [1, 4]', 'Nd  [6, 8]', 'Ne  [1, 4]', 'Nf  [6, 8]', 'Ng  [4, 6]', 'Nh  [6, 8]'];
+    s += `<text x="180" y="28" class="wgt-label" style="fill:${C.a}">published predecessor-order lists</text>`;
+    rows.forEach((row, index) => { const y = 48 + index * 47; const color = index < 3 ? C.a : index < 5 ? C.c : C.g; s += `<rect x="34" y="${y}" width="292" height="35" rx="4" fill="${color}" fill-opacity=".06" stroke="${color}"/><text x="180" y="${y + 23}" class="wgt-mono">${row}</text>`; });
+  }
+  if (step === 3) {
+    const rows = [['A update', 'Nb 2 · Nc 3 · Nd 4', C.a], ['C update', 'Ne 5 · Nf 6', C.c], ['G update', 'Ng 7 · Nh 8', C.g], ['repeat', 'until no range changes', C.range]] as const;
+    rows.forEach(([title, detail, color], index) => { const y = 20 + index * 92; s += `<rect x="20" y="${y}" width="320" height="68" rx="5" class="wgt-card" stroke="${color}" stroke-width="${index === 3 ? 2.5 : 1.8}"/><text x="180" y="${y + 27}" class="wgt-label" style="fill:${color}">${title}</text><text x="180" y="${y + 51}" class="wgt-mono">${detail}</text>`; if (index < rows.length - 1) s += `<path d="M180 ${y + 68} V${y + 86}" class="wgt-arrow"/>`; });
+  }
+  if (step === 4) {
+    s += `<rect x="84" y="12" width="192" height="58" rx="5" class="wgt-card" stroke="${C.range}" stroke-width="2"/><text x="180" y="36" class="wgt-label" style="fill:${C.range}">stable ranges</text><text x="180" y="56" class="wgt-detail">heuristic output</text>`;
+    s += `<path d="M180 70 V96" class="wgt-arrow"/>`;
+    s += `<rect x="18" y="98" width="146" height="70" rx="5" class="wgt-card" stroke="${C.valid}"/><text x="91" y="126" class="wgt-label" style="fill:${C.valid}">unique</text><text x="91" y="150" class="wgt-detail">direct ordering</text>`;
+    s += `<rect x="196" y="98" width="146" height="70" rx="5" class="wgt-card" stroke="${C.solver}"/><text x="269" y="126" class="wgt-label" style="fill:${C.solver}">ties remain</text><text x="269" y="150" class="wgt-detail">exact solver</text>`;
+    s += `<rect x="18" y="205" width="146" height="70" rx="5" class="wgt-card" stroke="${C.solver}"/><text x="91" y="233" class="wgt-label" style="fill:${C.solver}">Wheelie-PR</text><text x="91" y="257" class="wgt-detail">tied permutations</text>`;
+    s += `<rect x="196" y="205" width="146" height="70" rx="5" class="wgt-card" stroke="${C.range}"/><text x="269" y="233" class="wgt-label" style="fill:${C.range}">Wheelie-SMT</text><text x="269" y="257" class="wgt-detail">Z3 + ranges</text>`;
+    s += `<path d="M91 275 V307 H180 M269 275 V307 H180" class="wgt-arrow"/>`;
+    s += `<rect x="76" y="309" width="208" height="72" rx="5" fill="${C.valid}" fill-opacity=".08" stroke="${C.valid}" stroke-width="2.5"/><text x="180" y="338" class="wgt-label" style="fill:${C.valid}">exact verdict</text><text x="180" y="363" class="wgt-detail">ordering or non-Wheeler</text>`;
+  }
+  return `<svg viewBox="0 0 360 400" class="lvz-svg" role="img" aria-label="Wheelie recognition algorithm, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+---
+
+<section class="lvz wgt-viz wgt-wheelie" role="group" aria-label="Interactive: Wheelie recognition algorithm" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Follow Wheelie from graph to exact verdict</p><span class="lvz-tag">Recognition algorithm</span></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Wheelie recognition steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktop(index)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
+    </div>
+  ))}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.root}`}></span>zero indegree</span><span><span class="lvz-sw" style={`background:${C.a}`}></span>A group</span><span><span class="lvz-sw" style={`background:${C.c}`}></span>C group</span><span><span class="lvz-sw" style={`background:${C.g}`}></span>G group</span><span><span class="lvz-sw" style={`background:${C.range}`}></span>range refinement</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootWGTWheelie() {
+    document.querySelectorAll<HTMLElement>('.wgt-wheelie').forEach((root) => {
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, { total: scenes.length, onShow: (index) => scenes.forEach((scene, sceneIndex) => { const current = sceneIndex === index; scene.hidden = !current; scene.setAttribute('aria-current', current ? 'step' : 'false'); }), caption: (index) => scenes[index]?.dataset.caption || '', interval: 6800, autoPlay: root.dataset.autoplay === 'true' });
+    });
+  }
+  bootWGTWheelie();
+  document.addEventListener('astro:page-load', bootWGTWheelie);
+</script>

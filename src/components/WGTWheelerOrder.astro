@@ -1,0 +1,157 @@
+---
+import '../styles/lvz.css';
+import '../styles/wgt-animation.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+const steps = [
+  ['Start with paths through one labeled graph', 'A graph can share repeated sequence among several paths. Wheeler indexing depends not only on these edges, but on whether the nodes admit a compatible total order.'],
+  ['Try a candidate node order', 'Duplicating the nodes into source and destination rows makes the candidate order visible. In an arbitrary order, equal-label edges can run backward and cross.'],
+  ['Place roots and incoming-label groups', 'Every zero-indegree node must come first. Destinations of A-labeled edges precede destinations of C-labeled edges because A comes before C.'],
+  ['Preserve source order within each label', 'For two equally labeled edges, an earlier source cannot point to a later destination while a later source points backward. Reordering within the groups removes same-label crossings.'],
+  ['Emit an index-ready Wheeler order', 'A valid order lets WGT report the ordered graph and its O, I, and L arrays, which are inputs to downstream BWT-style graph pattern matching.'],
+] as const;
+
+const C = {
+  root: 'var(--wgt-root)',
+  a: 'var(--wgt-a)',
+  c: 'var(--wgt-c)',
+  valid: 'var(--wgt-valid)',
+};
+
+const edges = [
+  ['r', 'p', 'A', C.a],
+  ['r', 'q', 'A', C.a],
+  ['p', 'q', 'A', C.a],
+  ['r', 'x', 'C', C.c],
+  ['p', 'x', 'C', C.c],
+  ['q', 'y', 'C', C.c],
+] as const;
+
+function defs() {
+  return `<defs><marker id="wgt-order-a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="${C.a}"/></marker><marker id="wgt-order-c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="${C.c}"/></marker></defs>`;
+}
+
+function node(x: number, y: number, name: string, color = C.root) {
+  return `<circle cx="${x}" cy="${y}" r="22" fill="var(--color-bg)" stroke="${color}" stroke-width="2.5"/><text x="${x}" y="${y + 5}" class="wgt-label" style="fill:${color}">${name}</text>`;
+}
+
+function conventionalGraph() {
+  const pos: Record<string, [number, number]> = { r: [105, 190], p: [280, 105], q: [470, 105], x: [350, 270], y: [620, 270] };
+  let s = defs();
+  s += `<text x="20" y="28" class="lvz-tl">Two strings can share nodes and edges instead of being stored independently</text>`;
+  s += `<rect x="78" y="50" width="265" height="36" rx="4" fill="${C.a}" fill-opacity=".07" stroke="${C.a}"/><text x="210" y="73" class="wgt-mono">path 1 · r —A→ p —A→ q —C→ y</text>`;
+  s += `<rect x="418" y="50" width="265" height="36" rx="4" fill="${C.c}" fill-opacity=".07" stroke="${C.c}"/><text x="550" y="73" class="wgt-mono">path 2 · r —A→ q —C→ y</text>`;
+  edges.forEach(([from, to, label, color], index) => {
+    const [x1, y1] = pos[from]; const [x2, y2] = pos[to];
+    const mid = (x1 + x2) / 2;
+    s += `<path d="M${x1 + 18} ${y1} Q${mid} ${Math.min(y1, y2) - 28 - index * 2} ${x2 - 20} ${y2}" fill="none" stroke="${color}" stroke-width="2.5" marker-end="url(#wgt-order-${label.toLowerCase()})"/><text x="${mid}" y="${(y1 + y2) / 2 - 12}" class="wgt-mini" style="fill:${color}">${label}</text>`;
+  });
+  Object.entries(pos).forEach(([name, [x, y]]) => s += node(x, y, name, name === 'r' ? C.root : C.a));
+  s += `<text x="380" y="333" class="wgt-detail">The recognition question is whether these five nodes can be totally ordered under the Wheeler rules.</text>`;
+  return s;
+}
+
+function orderedGraph(order: string[], grouped: boolean, valid: boolean) {
+  const xs = [85, 230, 375, 520, 665];
+  const lookup = Object.fromEntries(order.map((name, index) => [name, xs[index]]));
+  let s = defs();
+  s += `<text x="20" y="27" class="lvz-tl">One candidate order · duplicated into source and destination rows</text>`;
+  if (grouped) {
+    s += `<rect x="48" y="215" width="74" height="78" rx="4" fill="${C.root}" fill-opacity=".08"/><rect x="183" y="215" width="239" height="78" rx="4" fill="${C.a}" fill-opacity=".08"/><rect x="473" y="215" width="239" height="78" rx="4" fill="${C.c}" fill-opacity=".08"/>`;
+    s += `<text x="85" y="310" class="wgt-mini" style="fill:${C.root}">zero indegree</text><text x="303" y="310" class="wgt-mini" style="fill:${C.a}">incoming A</text><text x="593" y="310" class="wgt-mini" style="fill:${C.c}">incoming C</text>`;
+  }
+  s += `<text x="22" y="91" class="wgt-mini wgt-left">source copy</text><text x="22" y="255" class="wgt-mini wgt-left">destination copy</text>`;
+  edges.forEach(([from, to, label, color], index) => {
+    const x1 = lookup[from] + (index % 3 - 1) * 4;
+    const x2 = lookup[to] + (index % 3 - 1) * 4;
+    s += `<line x1="${x1}" y1="113" x2="${x2}" y2="229" stroke="${color}" stroke-width="2.5" stroke-opacity=".86" marker-end="url(#wgt-order-${label.toLowerCase()})"/>`;
+  });
+  order.forEach((name, index) => {
+    const color = name === 'r' ? C.root : ['p', 'q'].includes(name) ? C.a : C.c;
+    s += node(xs[index], 91, name, color) + node(xs[index], 255, name, color);
+    s += `<text x="${xs[index]}" y="43" class="wgt-mini">${index + 1}</text>`;
+  });
+  s += `<path d="M55 43 H695" stroke="var(--color-rule)"/><text x="725" y="47" class="wgt-mini">order</text>`;
+  if (valid) {
+    s += `<circle cx="715" cy="165" r="23" fill="${C.valid}" fill-opacity=".1" stroke="${C.valid}" stroke-width="2.5"/><text x="715" y="171" class="wgt-label" style="fill:${C.valid}">✓</text><text x="742" y="200" class="wgt-mini" style="fill:${C.valid};text-anchor:end">same-label order preserved</text>`;
+  } else {
+    s += `<path d="M700 148 l28 28 M728 148 l-28 28" stroke="${C.c}" stroke-width="3"/><text x="742" y="200" class="wgt-mini" style="fill:${C.c};text-anchor:end">${grouped ? 'same-label crossing remains' : 'labels and roots are mixed'}</text>`;
+  }
+  return s;
+}
+
+function indexOutput() {
+  let s = `<text x="20" y="27" class="lvz-tl">The Wheeler order becomes a compact graph-index representation</text>`;
+  const order = [['r', C.root], ['p', C.a], ['q', C.a], ['x', C.c], ['y', C.c]] as const;
+  order.forEach(([name, color], index) => {
+    const x = 85 + index * 105;
+    s += node(x, 105, name, color);
+    if (index < order.length - 1) s += `<path d="M109 ${105} H${141 + index * 105}" class="wgt-arrow"/><path d="M134 ${99} L143 ${105} L134 ${111}" class="wgt-arrow"/>`;
+  });
+  s += `<text x="295" y="151" class="wgt-detail">valid Wheeler order</text><path d="M529 105 H624" class="wgt-arrow"/><path d="M614 99 L625 105 L614 111" class="wgt-arrow"/>`;
+  const rows = [['O', 'unary outdegrees', C.a], ['I', 'unary indegrees', C.c], ['L', 'edge-label sequence', C.valid]] as const;
+  rows.forEach(([name, detail, color], index) => {
+    const y = 184 + index * 54;
+    s += `<rect x="150" y="${y}" width="460" height="38" rx="4" fill="${color}" fill-opacity=".07" stroke="${color}"/><text x="178" y="${y + 24}" class="wgt-label" style="fill:${color}">${name}</text><text x="360" y="${y + 24}" class="wgt-detail">${detail}</text><rect x="470" y="${y + 11}" width="118" height="16" fill="${color}" fill-opacity=".42"/>`;
+  });
+  s += `<rect x="626" y="66" width="112" height="78" rx="5" fill="${C.valid}" fill-opacity=".08" stroke="${C.valid}" stroke-width="2"/><text x="682" y="95" class="wgt-label" style="fill:${C.valid}">index-ready</text><text x="682" y="119" class="wgt-detail">downstream graph search</text>`;
+  return s;
+}
+
+function desktop(step: number) {
+  let body = '';
+  if (step === 0) body = conventionalGraph();
+  if (step === 1) body = orderedGraph(['q', 'r', 'y', 'p', 'x'], false, false);
+  if (step === 2) body = orderedGraph(['r', 'q', 'p', 'y', 'x'], true, false);
+  if (step === 3) body = orderedGraph(['r', 'p', 'q', 'x', 'y'], true, true);
+  if (step === 4) body = indexOutput();
+  return `<svg viewBox="0 0 760 350" class="lvz-svg" role="img" aria-label="Wheeler graph ordering explanation, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${body}</svg>`;
+}
+
+function mobile(step: number) {
+  const rows = [
+    ['Shared labeled graph', 'several strings reuse paths', C.root],
+    ['Candidate order', 'arbitrary order leaves crossings', C.c],
+    ['Root + label groups', '∅ first · then A · then C', C.a],
+    ['Order within groups', 'equal-label edges move forward together', C.valid],
+    ['Index-ready order', 'ordered graph → O / I / L', C.valid],
+  ] as const;
+  let s = '';
+  rows.forEach(([title, detail, color], index) => {
+    const y = 14 + index * 88;
+    s += `<g opacity="${index === step ? 1 : 0.58}"><rect x="12" y="${y}" width="336" height="66" rx="5" class="wgt-card" stroke="${color}" stroke-width="${index === step ? 2.8 : 1.2}"/><text x="180" y="${y + 27}" class="wgt-label" style="fill:${color}">${title}</text><text x="180" y="${y + 50}" class="wgt-detail">${detail}</text></g>`;
+    if (index < rows.length - 1) s += `<path d="M180 ${y + 66} V${y + 82}" class="wgt-arrow"/><path d="M175 ${y + 76} L180 ${y + 83} L185 ${y + 76}" class="wgt-arrow"/>`;
+  });
+  s += `<circle cx="326" cy="${47 + step * 88}" r="7" fill="${rows[step][2]}" class="wgt-token"/>`;
+  return `<svg viewBox="0 0 360 448" class="lvz-svg" role="img" aria-label="Wheeler graph ordering explanation, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+---
+
+<section class="lvz wgt-viz wgt-order" role="group" aria-label="Interactive: turning a labeled graph into a Wheeler order" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Turn a labeled graph into a Wheeler order</p><span class="lvz-tag">Why indexing works</span></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Wheeler ordering steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktop(index)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
+    </div>
+  ))}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.root}`}></span>zero indegree</span><span><span class="lvz-sw" style={`background:${C.a}`}></span>A-labeled edges</span><span><span class="lvz-sw" style={`background:${C.c}`}></span>C-labeled edges</span><span><span class="lvz-sw" style={`background:${C.valid}`}></span>valid order</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootWGTOrder() {
+    document.querySelectorAll<HTMLElement>('.wgt-order').forEach((root) => {
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, { total: scenes.length, onShow: (index) => scenes.forEach((scene, sceneIndex) => { const current = sceneIndex === index; scene.hidden = !current; scene.setAttribute('aria-current', current ? 'step' : 'false'); }), caption: (index) => scenes[index]?.dataset.caption || '', interval: 6500, autoPlay: root.dataset.autoplay === 'true' });
+    });
+  }
+  bootWGTOrder();
+  document.addEventListener('astro:page-load', bootWGTOrder);
+</script>

@@ -1,0 +1,101 @@
+.wgt-viz {
+  --wgt-root: #7d8784;
+  --wgt-a: #3976a8;
+  --wgt-c: #b04755;
+  --wgt-g: #2f8069;
+  --wgt-range: #6f62a8;
+  --wgt-solver: #b07d00;
+  --wgt-valid: #2f8069;
+  --lvz-mobile-min-width: 0px;
+}
+
+html[data-theme='dark'] .wgt-viz {
+  --wgt-root: #a4adaa;
+  --wgt-a: #6ca6d6;
+  --wgt-c: #df7180;
+  --wgt-g: #58b49a;
+  --wgt-range: #a292d7;
+  --wgt-solver: #d5a73d;
+  --wgt-valid: #58b49a;
+}
+
+.wgt-viz .wgt-card {
+  fill: var(--color-bg);
+}
+
+.wgt-viz .wgt-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.wgt-viz .wgt-detail {
+  font-size: 10px;
+  fill: var(--color-muted);
+  text-anchor: middle;
+}
+
+.wgt-viz .wgt-mini {
+  font-size: 9px;
+  fill: var(--color-muted);
+  text-anchor: middle;
+}
+
+.wgt-viz .wgt-mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+.wgt-viz .wgt-left {
+  text-anchor: start;
+}
+
+.wgt-viz .wgt-arrow {
+  fill: none;
+  stroke: var(--color-muted);
+  stroke-width: 1.8;
+}
+
+.wgt-viz .wgt-token {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wgt-token-pulse 1.4s ease-in-out infinite;
+}
+
+.wgt-viz .lvz-caption {
+  min-height: 3.8em;
+  max-width: 78ch;
+}
+
+@keyframes wgt-token-pulse {
+  0%, 100% { opacity: 0.62; transform: scale(0.82); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+@media (max-width: 640px) {
+  .wgt-viz .lvz-caption {
+    min-height: 5.8em;
+  }
+
+  .wgt-viz .lvz-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wgt-viz .lvz-controls .lvz-btn {
+    width: 100%;
+  }
+
+  .wgt-viz .lvz-pos {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wgt-viz .wgt-token { animation: none; }
+}
+
+@media print {
+  .wgt-viz .wgt-token { animation: none !important; }
+}
