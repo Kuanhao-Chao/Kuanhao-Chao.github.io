@@ -27,10 +27,8 @@ references:
     doi: 'https://doi.org/10.1038/nbt.2137'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
-import ShorkieData from '../../components/ShorkieData.astro';
-import ShorkiePretraining from '../../components/ShorkiePretraining.astro';
-import ShorkieArchitecture from '../../components/ShorkieArchitecture.astro';
-import ShorkieFineTuning from '../../components/ShorkieFineTuning.astro';
+import ShorkieEvolution from '../../components/ShorkieEvolution.astro';
+import ShorkieTransfer from '../../components/ShorkieTransfer.astro';
 import ShorkieInterpretation from '../../components/ShorkieInterpretation.astro';
 import figPhylogeny from '../../assets/posts/shorkie/shorkie-phylogeny.png';
 import figEvoPretraining from '../../assets/posts/shorkie/shorkie-evo-pretraining.png';
@@ -76,13 +74,9 @@ First comes **pretraining**. We trained the same masked DNA language model on fo
 
 This design turned the evolutionary-scope question into an experiment. If raw scale were all that mattered, the 1,341-genome kingdom model should win. If closeness to yeast were all that mattered, the single-genome or strain models should win. Neither was quite right.
 
-<ShorkieData />
+The workflow below follows that experiment from evolutionary scope through genome preparation and masked-base reconstruction. It also shows the held-out chromosome split that prevents homologous training sequence from leaking into evaluation.
 
-For each scope, the preparation pipeline repeat-masked the genomes, tiled them into overlapping 16,384 bp windows, removed repeat-heavy examples, and filtered training sequence homologous to held-out yeast chromosomes. That last step matters: without it, sequence shared between training and evaluation could make reconstruction performance look better than it really was.
-
-The self-supervised objective then hides 15% of the bases in each training window and asks the model to reconstruct them from their surrounding sequence and species context. The selected 165-genome model receives four DNA channels, one mask channel, and a one-hot identity for each of the 165 species.
-
-<ShorkiePretraining />
+<ShorkieEvolution />
 
 <ZoomFigure src={figEvoPretraining} alt="Two panels by pretraining scope: validation loss versus training batches, and region-specific (gene vs intergenic) perplexity, for R64, 80 strains, 165 Saccharomycetales, and 1,341 fungi — the 165-genome order lowest on both." variant="wide">
   <strong>Figure 2.</strong> The language model's own report card, by evolutionary scope. Trained on each of the four corpora and scored on held-out <em>S. cerevisiae</em>, the masked LM reconstructs yeast best when pretrained on the 165-genome <em>Saccharomycetales</em> order — lowest validation loss (left) and lowest perplexity (right), ahead of the 1,341-genome kingdom set and the narrower strain and single-genome corpora. The language model itself already prefers the sweet spot.
@@ -94,19 +88,15 @@ The kingdom model appears to fall behind because the corpus is too heterogeneous
 
 Second comes **fine-tuning**. At Calico, the team produced high-resolution RNA-seq time courses using miniaturized chemostats, or "ministats," to watch yeast genes respond minute by minute after transcription-factor induction. Shorkie fine-tunes the pretrained model on those measurements and other regulatory assays, unifying 5,215 experimental tracks: 3,053 induction RNA-seq timepoints, 1,014 strain RNA-seq profiles, 1,128 [ChIP-exo transcription-factor binding datasets (Rhee and Pugh, 2011)](https://doi.org/10.1016/j.cell.2011.05.042), and 20 histone-modification tracks.
 
-Fine-tuning retains the pretrained sequence encoder and Transformer, but changes the task and output resolution. Three upsampling stages produce 16 bp bins; cropping away the less-supported edges leaves 896 bins across the central 14,336 bp. A combined Poisson and multinomial objective trains the model to match both total signal and its distribution along the sequence.
+Architecturally, Shorkie is compact. The 13.7-million-parameter language model reads a 16,384 bp sequence window, compresses it through an initial convolution and seven residual downsampling stages to 128 positions with 384 channels, and uses eight [Transformer layers (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762) with four attention heads for long-range context. A [U-Net decoder (Ronneberger et al., 2015)](https://doi.org/10.1007/978-3-319-24574-4_28) reconnects local sequence detail. Pretraining decodes back to single-base A/C/G/T probabilities; fine-tuning retains the learned trunk but uses three upsampling stages to predict 5,215 regulatory tracks in 16 bp bins.
 
-<ShorkieFineTuning />
+<ShorkieTransfer />
 
 The evolutionary ranking carried into this downstream task. After identical fine-tuning, the models ranked **165-genome order > 1,341-genome kingdom > 80 strains > single genome > no pretraining**. The language model's own perplexity on held-out yeast sequence broadly tracked downstream fine-tuning performance, although not perfectly. That makes perplexity a useful screening signal before running the expensive supervised experiment.
 
 <ZoomFigure src={figEvoDownstream} alt="Two panels: validation Pearson's r learning curves for the four pretraining scopes plus random initialization, and best Pearson's r versus masked-LM perplexity, with the 165-genome Shorkie highest and lowest-perplexity." variant="wide">
   <strong>Figure 3.</strong> The pretraining choice carries through to expression prediction. After fine-tuning each pretrained model identically on the same yeast data, downstream expression accuracy (validation Pearson's r) lands in the same order — 165-genome order (0.63) &gt; 1,341 kingdom (0.62) &gt; 80 strains (0.57) &gt; single genome (0.55) &gt; no pretraining (0.52) (left). Lower held-out yeast perplexity broadly tracks better fine-tuning performance (right), making perplexity a useful but imperfect proxy for choosing pretraining data.
 </ZoomFigure>
-
-Architecturally, Shorkie is compact. The language model has 13.7 million parameters. It reads a 16,384 bp sequence window, compresses it through an initial convolution and seven residual downsampling stages to 128 positions with 384 channels, and uses eight [Transformer layers (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762) for long-range context. Each Transformer block uses four attention heads in the released Shorkie configuration. A [U-Net decoder (Ronneberger et al., 2015)](https://doi.org/10.1007/978-3-319-24574-4_28) then combines the bottleneck with high-resolution skip features. The language model decodes all the way back to single-base A/C/G/T probabilities; the fine-tuned model stops at 16 bp resolution and predicts 5,215 regulatory tracks. The point is not that the model is huge. The point is that the right pretraining data gives a modest model useful biological priors.
-
-<ShorkieArchitecture />
 
 ## What it showed
 
@@ -118,7 +108,7 @@ That distinction matters. High predictive accuracy alone is not enough, because 
 
 We also used two different lenses that answer different questions. The pretrained language model reports what looks conserved or predictable across fungal sequence. The fine-tuned model's *in-silico* mutagenesis reports what changes the expression prediction. Conservation and causal effect do not have to agree. A conserved site can be inactive in a condition; a causal site can be less deeply conserved. When both lenses highlight the same sequence, the evidence is stronger.
 
-These analyses require different calculations. Language-model reconstruction converts nucleotide probabilities into information content. Promoter mutagenesis predicts all three possible substitutions at every position and measures their effect on expression. Variant scoring compares a specified reference and alternate allele, then summarizes predicted coverage over the target gene. The explainer below separates those workflows step by step.
+These analyses require different calculations. The explainer below uses real examples from the study to separate language-model information content, promoter mutagenesis, and reference-versus-alternate variant scoring.
 
 <ShorkieInterpretation />
 
