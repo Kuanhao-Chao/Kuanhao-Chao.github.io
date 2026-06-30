@@ -1,0 +1,93 @@
+---
+import '../styles/lvz.css';
+import '../styles/splam.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+const steps = [
+  ['Read the three output tracks', 'For every position in the 800 nt input, softmax reports probabilities for neither, donor, and acceptor; the three probabilities at a position sum to one.'],
+  ['Select the two proposed splice sites', 'Splam reads the donor-channel probability at position 200 and the acceptor-channel probability at position 600. Other positions provide context but do not define this candidate pair.'],
+  ['Combine the two ends into one junction score', 'The junction score is the smaller of the donor and acceptor scores. A confident signal at only one end cannot rescue a weak partner.'],
+  ['Compare the pair with a threshold', 'A candidate is low confidence when either site falls below the selected threshold. The cleanup command defaults to 0.1; annotation evaluation can use a stricter threshold such as 0.8.'],
+] as const;
+
+const C = { donor: '#3976a8', acceptor: '#2f8069', neither: '#8a9491', good: '#2f8069', bad: '#b04755', signal: '#b07d00' };
+
+function track(y: number, color: string, peak: number, height: number, label: string, secondary = 0) {
+  const points = Array.from({ length: 41 }, (_, index) => {
+    const x = 105 + index * 14;
+    const primary = height * Math.exp(-(((index - peak) / 1.55) ** 2));
+    const extra = secondary ? height * .32 * Math.exp(-(((index - secondary) / 2.4) ** 2)) : 0;
+    return `${x},${(y - primary - extra).toFixed(1)}`;
+  }).join(' ');
+  return `<text x="30" y="${y - 13}" class="splam-label splam-left" style="fill:${color}">${label}</text><polyline points="${points}" fill="none" stroke="${color}" stroke-width="3"/><line x1="105" y1="${y}" x2="665" y2="${y}" stroke="var(--color-rule)"/>`;
+}
+
+function desktop(step: number) {
+  let s = `<text x="18" y="27" class="lvz-tl">Illustrative scores for one proposed donor-acceptor pair</text>`;
+  if (step === 0 || step === 1) {
+    s += track(118, C.neither, 18, 18, 'neither', 31);
+    s += track(216, C.donor, 10, 78, 'donor');
+    s += track(314, C.acceptor, 35, 72, 'acceptor');
+    s += `<line x1="245" y1="60" x2="245" y2="329" stroke="${C.donor}" stroke-width="${step === 1 ? 3 : 1.3}" stroke-dasharray="5 4"/><line x1="595" y1="60" x2="595" y2="329" stroke="${C.acceptor}" stroke-width="${step === 1 ? 3 : 1.3}" stroke-dasharray="5 4"/><text x="245" y="51" class="splam-label" style="fill:${C.donor}">200 · donor</text><text x="595" y="51" class="splam-label" style="fill:${C.acceptor}">600 · acceptor</text>`;
+    if (step === 1) s += `<circle cx="245" cy="138" r="9" fill="${C.donor}" class="splam-token"/><circle cx="595" cy="242" r="9" fill="${C.acceptor}" class="splam-token"/><text x="420" y="348" class="splam-detail">read only the candidate positions from their corresponding class channels</text>`;
+  }
+  if (step === 2) {
+    const example = (x: number, donor: number, acceptor: number, label: string, color: string) => `<g><rect x="${x}" y="68" width="300" height="216" rx="7" fill="${color}" fill-opacity=".05" stroke="${color}" stroke-width="2"/><text x="${x + 150}" y="98" class="splam-label" style="fill:${color}">${label}</text><text x="${x + 72}" y="145" class="splam-label" style="fill:${C.donor}">donor</text><text x="${x + 228}" y="145" class="splam-label" style="fill:${C.acceptor}">acceptor</text><circle cx="${x + 72}" cy="184" r="31" fill="none" stroke="${C.donor}" stroke-width="8" stroke-dasharray="${donor * 195} 195" transform="rotate(-90 ${x + 72} 184)"/><circle cx="${x + 228}" cy="184" r="31" fill="none" stroke="${C.acceptor}" stroke-width="8" stroke-dasharray="${acceptor * 195} 195" transform="rotate(-90 ${x + 228} 184)"/><text x="${x + 72}" y="190" class="splam-label">${donor.toFixed(2)}</text><text x="${x + 228}" y="190" class="splam-label">${acceptor.toFixed(2)}</text><text x="${x + 150}" y="250" class="splam-label">junction = min(${donor.toFixed(2)}, ${acceptor.toFixed(2)}) = <tspan style="fill:${color}">${Math.min(donor, acceptor).toFixed(2)}</tspan></text></g>`;
+    s += example(54, .97, .94, 'Both ends agree', C.good);
+    s += example(406, .96, .06, 'Weak acceptor limits the pair', C.bad);
+    s += `<text x="380" y="325" class="splam-detail">Illustrative probabilities; the decision rule is the published minimum of donor and acceptor scores.</text>`;
+  }
+  if (step === 3) {
+    const x0 = 90, x1 = 680, threshold = x0 + (x1 - x0) * .1;
+    s += `<text x="380" y="73" class="splam-label">cleanup threshold t = 0.1</text><line x1="${x0}" y1="145" x2="${x1}" y2="145" stroke="var(--color-rule)" stroke-width="14" stroke-linecap="round"/><line x1="${threshold}" y1="112" x2="${threshold}" y2="178" stroke="${C.signal}" stroke-width="3"/><text x="${threshold}" y="101" class="splam-label" style="fill:${C.signal}">t</text><text x="${x0}" y="180" class="splam-detail">0</text><text x="${x1}" y="180" class="splam-detail">1</text>`;
+    const points = [[.94, C.good, 'credible pair'], [.06, C.bad, 'low confidence']] as const;
+    points.forEach(([score, color, label], index) => { const x = x0 + (x1 - x0) * score; const y = 145 + index * 92; s += `<circle cx="${x}" cy="${y}" r="13" fill="${color}"/><path d="M${x} ${y + 14} V${y + 37}" stroke="${color}" stroke-width="2"/><text x="${x}" y="${y + 59}" class="splam-label" style="fill:${color}">${score.toFixed(2)} · ${label}</text>`; });
+    s += `<rect x="178" y="286" width="404" height="50" rx="5" fill="${C.bad}" fill-opacity=".05" stroke="${C.bad}"/><text x="380" y="308" class="splam-label">bad junction ⇔ min(donor, acceptor) &lt; t</text><text x="380" y="327" class="splam-detail">equivalently: either site score is below the threshold</text>`;
+  }
+  return `<svg viewBox="0 0 760 365" class="lvz-svg" role="img" aria-label="Splam junction scoring, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobile(step: number) {
+  const rows = [
+    ['3 × 800 softmax', 'neither · donor · acceptor', C.neither],
+    ['read candidate sites', 'donor at 200 · acceptor at 600', C.donor],
+    ['pair the scores', 'junction = min(donor, acceptor)', C.acceptor],
+    ['apply threshold', 'either score < t → low confidence', C.bad],
+  ] as const;
+  let s = '<text x="180" y="24" class="splam-detail">Candidate-junction recognition, not genome-wide scanning</text>';
+  rows.forEach(([title, detail, color], index) => {
+    const y = 48 + index * 88;
+    s += `<g opacity="${index === step ? 1 : .58}"><rect x="12" y="${y}" width="336" height="70" rx="5" class="splam-card" stroke="${color}" stroke-width="${index === step ? 2.5 : 1}"/><text x="180" y="${y + 28}" class="splam-label" style="fill:${color}">${title}</text><text x="180" y="${y + 52}" class="splam-detail">${detail}</text></g>`;
+    if (index < rows.length - 1) s += `<path d="M180 ${y + 70} V${y + 84}" class="splam-arrow"/><path d="M175 ${y + 78} L180 ${y + 85} L185 ${y + 78}" class="splam-arrow"/>`;
+  });
+  s += `<circle cx="326" cy="${83 + step * 88}" r="7" fill="${rows[step][2]}" class="splam-token"/>`;
+  return `<svg viewBox="0 0 360 420" class="lvz-svg" role="img" aria-label="Splam junction scoring, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+---
+
+<section class="lvz splam-viz splam-scoring" role="group" aria-label="Interactive: converting Splam model outputs into a junction score" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">Turn site probabilities into one junction decision</p><span class="lvz-tag">Paired score</span></div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Junction scoring steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p><div class="lvz-fig lvz-visual--desktop" set:html={desktop(index)} /><div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
+    </div>
+  ))}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.donor}`}></span>donor score</span><span><span class="lvz-sw" style={`background:${C.acceptor}`}></span>acceptor score</span><span><span class="lvz-sw" style={`background:${C.bad}`}></span>below threshold</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootSplamScoring() {
+    document.querySelectorAll<HTMLElement>('.splam-scoring').forEach((root) => {
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, { total: scenes.length, onShow: (index) => scenes.forEach((scene, sceneIndex) => { const current = sceneIndex === index; scene.hidden = !current; scene.setAttribute('aria-current', current ? 'step' : 'false'); }), caption: (index) => scenes[index]?.dataset.caption || '', interval: 6500, autoPlay: root.dataset.autoplay === 'true' });
+    });
+  }
+  bootSplamScoring();
+  document.addEventListener('astro:page-load', bootSplamScoring);
+</script>

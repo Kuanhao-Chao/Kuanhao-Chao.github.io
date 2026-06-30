@@ -1,0 +1,140 @@
+---
+import '../styles/lvz.css';
+import '../styles/splam.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+const modes = [
+  { id: 'standard', label: 'Intron ≥ 400 nt', note: 'The two 400 nt windows do not overlap.' },
+  { id: 'overlap', label: 'Intron 200–399 nt', note: 'Intronic sequence can appear in both windows.' },
+  { id: 'padded', label: 'Intron < 200 nt', note: 'The complete intron is retained and padded with N.' },
+] as const;
+
+const steps = [
+  ['Start from one proposed intron', 'Splam receives a candidate donor-acceptor pair from an annotation or spliced alignment; it does not scan every possible genomic pair.'],
+  ['Extract 400 nt around each site', 'Each site contributes 200 nt on either side. Short introns use overlapping sequence or N padding so both site-centered windows remain 400 nt.'],
+  ['Orient the sequence to the transcript strand', 'Positive-strand candidates are retained as written; negative-strand candidates are reverse-complemented before scoring.'],
+  ['Concatenate donor then acceptor context', 'The donor-centered window occupies positions 0–399 and the acceptor-centered window positions 400–799, placing the candidate sites at indices 200 and 600.'],
+  ['One-hot encode the 800 nt input', 'A, C, G, and T become four input channels; N is encoded as four zeros. The resulting model input has shape 4 × 800.'],
+] as const;
+
+const C = { donor: '#3976a8', acceptor: '#2f8069', intron: '#b07d00', pad: '#8a9491', model: '#6f62a8' };
+
+function locus(mode: typeof modes[number], step: number) {
+  const donor = mode.id === 'standard' ? 220 : mode.id === 'overlap' ? 300 : 348;
+  const acceptor = mode.id === 'standard' ? 540 : mode.id === 'overlap' ? 460 : 412;
+  let s = `<text x="18" y="25" class="lvz-tl">Candidate intron on the transcript strand</text>`;
+  s += `<line x1="70" y1="112" x2="690" y2="112" stroke="var(--color-muted)" stroke-width="2"/>`;
+  s += `<rect x="86" y="93" width="${donor - 86}" height="38" rx="3" fill="${C.donor}" fill-opacity=".17" stroke="${C.donor}"/><rect x="${acceptor}" y="93" width="${674 - acceptor}" height="38" rx="3" fill="${C.acceptor}" fill-opacity=".17" stroke="${C.acceptor}"/>`;
+  s += `<path d="M${donor} 108 C${donor + 45} 43 ${acceptor - 45} 43 ${acceptor} 108" fill="none" stroke="${C.intron}" stroke-width="3"/>`;
+  s += `<line x1="${donor}" y1="78" x2="${donor}" y2="143" stroke="${C.donor}" stroke-width="3"/><line x1="${acceptor}" y1="78" x2="${acceptor}" y2="143" stroke="${C.acceptor}" stroke-width="3"/>`;
+  s += `<text x="${donor}" y="163" class="splam-label" style="fill:${C.donor}">donor</text><text x="${acceptor}" y="163" class="splam-label" style="fill:${C.acceptor}">acceptor</text>`;
+  if (step >= 1) {
+    const overlap = mode.id === 'standard' ? 0 : mode.id === 'overlap' ? 78 : 118;
+    s += `<rect x="105" y="198" width="270" height="48" rx="4" fill="${C.donor}" fill-opacity=".1" stroke="${C.donor}" stroke-width="2"/><rect x="385" y="198" width="270" height="48" rx="4" fill="${C.acceptor}" fill-opacity=".1" stroke="${C.acceptor}" stroke-width="2"/>`;
+    s += `<text x="240" y="219" class="splam-label" style="fill:${C.donor}">400 nt donor window</text><text x="520" y="219" class="splam-label" style="fill:${C.acceptor}">400 nt acceptor window</text>`;
+    s += `<text x="240" y="238" class="splam-detail">200 | site | 200</text><text x="520" y="238" class="splam-detail">200 | site | 200</text>`;
+    if (overlap) s += `<rect x="${380 - overlap / 2}" y="190" width="${overlap}" height="64" fill="${mode.id === 'padded' ? C.pad : C.intron}" fill-opacity=".14" stroke="${mode.id === 'padded' ? C.pad : C.intron}" stroke-dasharray="4 3"/><text x="380" y="278" class="splam-detail">${mode.id === 'padded' ? 'N padding extends both intronic halves' : 'shared intronic sequence is allowed'}</text>`;
+  }
+  if (step >= 2) {
+    s += `<path d="M150 306 C250 270 510 270 610 306" fill="none" stroke="${C.model}" stroke-width="2"/><path d="M602 298 L612 306 L602 314" fill="none" stroke="${C.model}" stroke-width="2"/><text x="380" y="330" class="splam-label" style="fill:${C.model}">reverse-complement only when strand = −</text>`;
+  }
+  return s;
+}
+
+function desktop(mode: typeof modes[number], step: number) {
+  let s = '';
+  if (step <= 2) s += locus(mode, step);
+  if (step === 3) {
+    s += `<text x="18" y="28" class="lvz-tl">Two site-centered windows become one fixed-length candidate</text>`;
+    s += `<rect x="54" y="90" width="320" height="70" rx="5" fill="${C.donor}" fill-opacity=".12" stroke="${C.donor}" stroke-width="2"/><rect x="386" y="90" width="320" height="70" rx="5" fill="${C.acceptor}" fill-opacity=".12" stroke="${C.acceptor}" stroke-width="2"/>`;
+    s += `<text x="214" y="120" class="splam-label" style="fill:${C.donor}">donor context · positions 0–399</text><text x="546" y="120" class="splam-label" style="fill:${C.acceptor}">acceptor context · positions 400–799</text>`;
+    s += `<line x1="214" y1="137" x2="214" y2="184" stroke="${C.donor}" stroke-width="3"/><line x1="546" y1="137" x2="546" y2="184" stroke="${C.acceptor}" stroke-width="3"/>`;
+    s += `<text x="214" y="207" class="splam-label" style="fill:${C.donor}">candidate donor = 200</text><text x="546" y="207" class="splam-label" style="fill:${C.acceptor}">candidate acceptor = 600</text>`;
+    s += `<text x="380" y="280" class="splam-mono">A T C … T T G T … N … A G A T … A T G</text><path d="M98 302 H662" stroke="${C.model}" stroke-width="6"/><text x="380" y="332" class="splam-detail">always exactly 800 nucleotides</text>`;
+  }
+  if (step === 4) {
+    const bases = ['A', 'C', 'G', 'T'];
+    s += `<text x="18" y="28" class="lvz-tl">One-hot sequence matrix · 4 channels × 800 positions</text><text x="380" y="63" class="splam-mono">A  T  C  …  T  G  …  N  …  A  G  …  T</text>`;
+    bases.forEach((base, row) => {
+      const y = 100 + row * 48;
+      s += `<text x="76" y="${y + 24}" class="splam-label" style="fill:${[C.donor, C.acceptor, C.intron, C.model][row]}">${base}</text>`;
+      for (let col = 0; col < 14; col += 1) {
+        const active = (col * 3 + row) % 5 === 0 && col !== 7;
+        s += `<rect x="${100 + col * 42}" y="${y}" width="34" height="34" rx="2" fill="${active ? [C.donor, C.acceptor, C.intron, C.model][row] : 'var(--color-bg)'}" fill-opacity="${active ? .78 : 1}" stroke="var(--color-rule)"/><text x="${117 + col * 42}" y="${y + 23}" class="splam-detail" style="fill:${active ? '#fff' : 'var(--color-muted)'}">${active ? 1 : 0}</text>`;
+      }
+    });
+    s += `<path d="M394 91 V292" stroke="${C.pad}" stroke-width="2" stroke-dasharray="4 3"/><text x="394" y="320" class="splam-detail">N column = [0, 0, 0, 0]</text>`;
+  }
+  return `<svg viewBox="0 0 760 350" class="lvz-svg" role="img" aria-label="Splam candidate construction, ${mode.label}, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobile(mode: typeof modes[number], step: number) {
+  let s = `<text x="180" y="24" class="splam-detail">${mode.note}</text>`;
+  const card = (y: number, title: string, detail: string, color: string, active: boolean) => `<g opacity="${active ? 1 : .58}"><rect x="12" y="${y}" width="336" height="62" rx="5" class="splam-card" stroke="${color}" stroke-width="${active ? 2.5 : 1}"/><text x="180" y="${y + 25}" class="splam-label" style="fill:${color}">${title}</text><text x="180" y="${y + 47}" class="splam-detail">${detail}</text></g>`;
+  const rows = [
+    ['candidate intron', 'paired donor + acceptor', C.intron],
+    ['two 400 nt windows', mode.id === 'standard' ? 'separate context' : mode.id === 'overlap' ? 'overlapping intronic context' : 'complete intron + N padding', C.donor],
+    ['strand orientation', 'reverse complement when strand = −', C.model],
+    ['concatenate', 'donor 0–399 · acceptor 400–799', C.acceptor],
+    ['one-hot input', '4 channels × 800 positions', C.model],
+  ] as const;
+  rows.forEach(([title, detail, color], index) => {
+    const y = 40 + index * 76;
+    s += card(y, title, detail, color, index === step);
+    if (index < rows.length - 1) s += `<path d="M180 ${y + 62} V${y + 72}" class="splam-arrow"/><path d="M175 ${y + 67} L180 ${y + 73} L185 ${y + 67}" class="splam-arrow"/>`;
+  });
+  s += `<circle cx="326" cy="${71 + step * 76}" r="7" fill="${rows[step][2]}" class="splam-token"/>`;
+  return `<svg viewBox="0 0 360 430" class="lvz-svg" role="img" aria-label="Splam candidate construction, ${mode.label}, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+---
+
+<section class="lvz splam-viz splam-candidate" role="group" aria-label="Interactive: constructing a Splam candidate junction" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
+  <div class="lvz-head">
+    <p class="lvz-title">Build one candidate junction</p>
+    <label class="splam-selector"><span>Intron length</span><select data-splam-mode>{modes.map((mode) => <option value={mode.id}>{mode.label}</option>)}</select></label>
+  </div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Candidate construction steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
+  {modes.map((mode, modeIndex) => (
+    <div data-splam-group={mode.id} hidden={modeIndex !== 0}>
+      {steps.map(([title, caption], index) => (
+        <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+          <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+          <div class="lvz-fig lvz-visual--desktop" set:html={desktop(mode, index)} />
+          <div class="lvz-fig lvz-visual--mobile" set:html={mobile(mode, index)} />
+        </div>
+      ))}
+    </div>
+  ))}
+  <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.donor}`}></span>donor context</span><span><span class="lvz-sw" style={`background:${C.acceptor}`}></span>acceptor context</span><span><span class="lvz-sw" style={`background:${C.pad}`}></span>N padding</span></div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootSplamCandidate() {
+    document.querySelectorAll<HTMLElement>('.splam-candidate').forEach((root) => {
+      if (root.dataset.ready === 'true') return;
+      root.dataset.ready = 'true';
+      const groups = Array.from(root.querySelectorAll<HTMLElement>('[data-splam-group]'));
+      const select = root.querySelector<HTMLSelectElement>('[data-splam-mode]');
+      let active = select?.value || 'standard';
+      let current = 0;
+      const activeSteps = () => Array.from(groups.find((group) => group.dataset.splamGroup === active)?.querySelectorAll<HTMLElement>('[data-wgi-step]') || []);
+      const show = (index: number) => {
+        current = index;
+        groups.forEach((group) => {
+          const selected = group.dataset.splamGroup === active;
+          group.hidden = !selected;
+          Array.from(group.querySelectorAll<HTMLElement>('[data-wgi-step]')).forEach((step, stepIndex) => { step.hidden = !(selected && stepIndex === index); });
+        });
+      };
+      const api = mountStepper(root, { total: activeSteps().length, onShow: show, caption: (index) => activeSteps()[index]?.dataset.caption || '', interval: 6500, autoPlay: root.dataset.autoplay === 'true' });
+      select?.addEventListener('change', () => { api?.stop(); active = select.value; api?.show(current); });
+    });
+  }
+  bootSplamCandidate();
+  document.addEventListener('astro:page-load', bootSplamCandidate);
+</script>
