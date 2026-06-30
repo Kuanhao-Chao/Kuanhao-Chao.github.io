@@ -30,18 +30,69 @@
 .shk .shk-focus { stroke-width: 3; }
 .shk .shk-label { font-size: 12px; font-weight: 600; text-anchor: middle; }
 .shk .shk-detail { font-size: 10.5px; fill: var(--color-muted); text-anchor: middle; }
+.shk .shk-kicker { font-size: 11px; font-weight: 600; fill: var(--color-muted); text-anchor: middle; text-transform: uppercase; }
+.shk .shk-mini { font-size: 8.5px; fill: var(--color-muted); text-anchor: middle; }
+.shk .shk-equation { font-size: 18px; font-weight: 600; fill: var(--color-ink); text-anchor: middle; }
 .shk .shk-left { text-anchor: start; }
+.shk .shk-right { text-anchor: end; }
 .shk .shk-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
 .shk .shk-dna { letter-spacing: 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 11px; }
 .shk .shk-grid { stroke: var(--color-rule); stroke-width: 1; }
+.shk .shk-invert { fill: #fff !important; }
+.shk .lvz-step,
+.shk .lvz-fig,
+.shk .lvz-controls { background: var(--color-surface); }
+
+.shk-segments {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.shk-segments button {
+  min-height: 2rem;
+  padding: 0.34rem 0.58rem;
+  border: 0;
+  border-right: 1px solid var(--color-rule);
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--fs-meta);
+  cursor: pointer;
+}
+
+.shk-segments button:last-child { border-right: 0; }
+.shk-segments button:hover { color: var(--color-ink); }
+.shk-segments button[aria-pressed='true'] { background: var(--color-accent); color: var(--color-on-accent); }
+
+.shk .lvz-step:not([hidden]) .lvz-svg > * {
+  animation: shk-draw-in 320ms ease-out both;
+}
+
+@keyframes shk-draw-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 @media (max-width: 640px) {
   .shk-selector { width: 100%; justify-content: space-between; }
   .shk-selector select { min-width: 0; max-width: 60%; }
-  .shk .lvz-caption { min-height: 7em; }
+  .shk .lvz-caption { min-height: 5.8em; }
   .shk .lvz-visual--mobile .lvz-svg { min-width: 0; }
+  .shk .lvz-visual--mobile .shk-kicker { font-size: 8px; }
+  .shk .lvz-visual--mobile .shk-detail { font-size: 9px; }
+  .shk-segments { width: 100%; }
+  .shk-segments button { flex: 1; padding-inline: 0.3rem; }
+  .shk .shk-equation { font-size: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shk .lvz-step:not([hidden]) .lvz-svg > * { animation: none; }
 }
 
 @media print {
   .shk-selector { display: none !important; }
+  .shk-segments { display: none !important; }
 }
