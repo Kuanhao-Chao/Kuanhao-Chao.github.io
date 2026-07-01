@@ -74,7 +74,7 @@ const posts = allPosts
                 <span class="bg-period">{p.period}</span>
                 <span class="bg-role">{p.role}</span>
                 <span class="bg-org muted">
-                  {p.url ? <a href={p.url} target="_blank" rel="noopener">{p.org}</a> : p.org}
+                  {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.org}</a> : p.org}
                   {p.unit ? `, ${p.unit}` : ''}
                 </span>
               </li>
@@ -91,7 +91,7 @@ const posts = allPosts
                 <span class="bg-period">{p.period}</span>
                 <span class="bg-role">{p.role}</span>
                 <span class="bg-org muted">
-                  {p.url ? <a href={p.url} target="_blank" rel="noopener">{p.org}</a> : p.org}
+                  {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.org}</a> : p.org}
                 </span>
               </li>
             ))
@@ -133,7 +133,7 @@ const posts = allPosts
         mentoring research projects. Reach out anytime.
       </p>
       <div class="cta-actions">
-        <a class="btn btn--accent" href="https://calendly.com/kuanhao-chao/30min" target="_blank" rel="noopener">
+        <a class="btn btn--accent" href="https://calendly.com/kuanhao-chao/30min" target="_blank" rel="noopener noreferrer">
           <Icon name="coffee" size={18} /> Book a coffee chat
         </a>
         <a class="btn" href={`mailto:${site.email}`}>

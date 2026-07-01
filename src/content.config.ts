@@ -1,5 +1,6 @@
-import { defineCollection, reference, z } from 'astro:content';
+import { defineCollection, reference } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { z } from 'astro/zod';
 
 const publications = defineCollection({
   loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/publications' }),
@@ -11,15 +12,15 @@ const publications = defineCollection({
       date: z.coerce.date(),
       type: z.enum(['journal', 'conference', 'preprint', 'thesis']),
       status: z.enum(['published', 'preprint', 'accepted']).default('published'),
-      doi: z.string().url().optional(),
-      pdf: z.string().url().optional(),
-      code: z.string().url().optional(),
-      docs: z.string().url().optional(),
-      slides: z.string().url().optional(),
-      poster: z.string().url().optional(),
-      video: z.string().url().optional(),
-      news: z.string().url().optional(),
-      data: z.string().url().optional(),
+      doi: z.url().optional(),
+      pdf: z.url().optional(),
+      code: z.url().optional(),
+      docs: z.url().optional(),
+      slides: z.url().optional(),
+      poster: z.url().optional(),
+      video: z.url().optional(),
+      news: z.url().optional(),
+      data: z.url().optional(),
       bibtex: z.string().optional(),
       abstract: z.string().optional(),
       image: image().optional(),
@@ -41,10 +42,10 @@ const presentations = defineCollection({
       location: z.string().optional(),
       startDate: z.coerce.date(),
       endDate: z.coerce.date().optional(),
-      slides: z.string().url().optional(),
-      video: z.string().url().optional(),
-      link: z.string().url().optional(),
-      photo: z.string().url().optional(),
+      slides: z.url().optional(),
+      video: z.url().optional(),
+      link: z.url().optional(),
+      photo: z.url().optional(),
       image: image().optional(),
       featured: z.boolean().default(false),
     }),
@@ -62,10 +63,10 @@ const research = defineCollection({
       startDate: z.coerce.date().optional(),
       endDate: z.coerce.date().optional(),
       status: z.enum(['published', 'ongoing', 'preprint']).default('ongoing'),
-      paper: z.string().url().optional(),
-      code: z.string().url().optional(),
-      news: z.string().url().optional(),
-      talk: z.string().url().optional(),
+      paper: z.url().optional(),
+      code: z.url().optional(),
+      news: z.url().optional(),
+      talk: z.url().optional(),
       image: image().optional(),
       advisors: z.array(z.string()).default([]),
       order: z.number().default(0),
@@ -84,8 +85,8 @@ const research = defineCollection({
         .array(
           z.object({
             text: z.string(),
-            doi: z.string().url().optional(),
-            url: z.string().url().optional(),
+            doi: z.url().optional(),
+            url: z.url().optional(),
           })
         )
         .default([]),
@@ -103,7 +104,7 @@ const teaching = defineCollection({
       location: z.string().optional(),
       startDate: z.coerce.date(),
       endDate: z.coerce.date().optional(),
-      link: z.string().url().optional(),
+      link: z.url().optional(),
       image: image().optional(),
     }),
 });
@@ -117,7 +118,7 @@ const news = defineCollection({
       .enum(['publication', 'talk', 'award', 'release', 'join', 'misc'])
       .default('misc'),
     location: z.string().optional(),
-    link: z.string().url().optional(),
+    link: z.url().optional(),
     draft: z.boolean().default(false),
     featured: z.boolean().default(false),
   }),
@@ -146,8 +147,8 @@ const posts = defineCollection({
         .array(
           z.object({
             text: z.string(),
-            doi: z.string().url().optional(),
-            url: z.string().url().optional(),
+            doi: z.url().optional(),
+            url: z.url().optional(),
           })
         )
         .default([]),
@@ -184,8 +185,8 @@ const reports = defineCollection({
         .array(
           z.object({
             text: z.string(),
-            doi: z.string().url().optional(),
-            url: z.string().url().optional(),
+            doi: z.url().optional(),
+            url: z.url().optional(),
           })
         )
         .default([]),

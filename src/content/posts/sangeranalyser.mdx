@@ -5,6 +5,7 @@ authors: ['Kuan-Hao Chao']
 abstract: >-
   sangeranalyseR packages Sanger sequencing into a reproducible R workflow: grouping reads, trimming and inspecting chromatograms, assembling contigs, aligning results, generating quality-control views, and exporting FASTA files and interactive reports. The post traces the project from Robert Lanfear's ANU mentorship and the Bioconductor ecosystem to the object model that lets users automate analysis while still inspecting chromatogram-level evidence.
 date: 2021-03-01
+updated: 2026-07-01
 category: summary
 tags: ['Sanger sequencing', 'R / Bioconductor', 'Open source']
 image: ../../assets/posts/sangeranalyser/sanger-workflow.png
@@ -30,9 +31,9 @@ import figWorkflow from '../../assets/posts/sangeranalyser/sanger-workflow.png';
 import figExample from '../../assets/posts/sangeranalyser/sanger-example.png';
 import figShiny from '../../assets/posts/sangeranalyser/sanger-shiny.png';
 
-Sanger sequencing ([Sanger et al., 1977](https://doi.org/10.1073/pnas.74.12.5463)) was the first controllable method for reading nucleic acid sequence, and decades after its introduction it remains widely used for sequencing individual DNA fragments and validating results from next-generation sequencing projects. A Sanger run produces a *chromatogram* — the familiar four-colour trace of peaks — plus a called nucleotide sequence and quality information.
+Chain-termination sequencing ([Sanger et al., 1977](https://doi.org/10.1073/pnas.74.12.5463)) established a practical way to read DNA, and Sanger sequencing remains widely used for individual DNA fragments and for validating results from newer sequencing platforms. A Sanger run produces a *chromatogram* — the familiar four-colour trace of peaks — together with a called nucleotide sequence and per-base quality information.
 
-The software ecosystem did not age as cleanly as the chemistry. Many Sanger tools were capable but commercial, restrictive, or difficult to place inside a reproducible analysis pipeline. At the same time, newer sequencing platforms had grown up alongside free, scriptable, interoperable tools.
+The analysis ecosystem was less convenient. Many capable Sanger tools were commercial, restrictively licensed, or difficult to place inside a reproducible pipeline, while newer sequencing platforms increasingly had scriptable and interoperable tooling.
 
 **sangeranalyseR** ([Chao et al., 2021](https://doi.org/10.1093/gbe/evab028)) was our answer: a free, open-source R package that makes Sanger processing a reproducible workflow rather than a sequence of manual steps.
 
@@ -85,7 +86,7 @@ The important implementation detail is reproducibility. When users adjust parame
 
 There is also a real input-format boundary. ABIF files contain the raw trace information needed for base calling, chromatogram plotting, and trace-based trimming. FASTA input is useful for interoperability, including edited reads from other programs, but FASTA does not contain the raw chromatogram information, so those ABIF-dependent features are unavailable.
 
-**And it lives in R.** The final outputs are standard files for other tools and structured R objects for further analysis. The package is MIT-licensed, distributed through Bioconductor and GitHub, documented through ReadTheDocs, and tested as part of a maintainable R-package workflow, matching the paper's emphasis on a reproducible tool rather than a one-off script.
+**And it lives in R.** The final outputs are standard files for other tools and structured R objects for further analysis. The package is open source, distributed through Bioconductor and GitHub, documented through ReadTheDocs, and tested as an R package, matching the paper's emphasis on a reproducible tool rather than a one-off script.
 
 ## The bigger picture
 

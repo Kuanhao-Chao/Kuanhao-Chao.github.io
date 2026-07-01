@@ -40,13 +40,18 @@ const docs = [
           data-panel={doc.id}
           hidden={i !== 0}
         >
-          <a class="btn btn--accent cv-download" href={doc.url} target="_blank" rel="noopener">
+          <a class="btn btn--accent cv-download" href={doc.url} target="_blank" rel="noopener noreferrer">
             <Icon name="file" size={18} /> Download {doc.label} (PDF)
           </a>
           <div class="cv-frame">
-            <iframe src={doc.url} title={`${doc.label} (PDF)`} loading="lazy" />
+            <iframe
+              src={doc.url}
+              title={`${doc.label} (PDF)`}
+              loading="lazy"
+              referrerpolicy="no-referrer"
+            />
           </div>
-          <a class="cv-mobile" href={doc.url} target="_blank" rel="noopener">
+          <a class="cv-mobile" href={doc.url} target="_blank" rel="noopener noreferrer">
             <span class="cv-mobile-ic"><Icon name="file" size={26} /></span>
             <span class="cv-mobile-text">
               <strong>Open the {doc.label} full screen</strong>

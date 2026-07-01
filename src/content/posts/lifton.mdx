@@ -8,6 +8,7 @@ abstract: >-
   The post explains how LiftOn reconciles Liftoff and miniprot annotations with a two-step protein-maximization
   algorithm and what the paper showed across human, same-species, and cross-species annotation transfers.
 date: 2025-02-01
+updated: 2026-07-01
 category: summary
 tags: ['Genome annotation', 'Comparative genomics', 'Open source']
 image: ../../assets/posts/lifton/lifton-algorithm.png
@@ -35,7 +36,7 @@ import figExtraCopies from '../../assets/posts/lifton/lifton-extra-copies.png';
 import figFixes from '../../assets/posts/lifton/lifton-fixes.png';
 import figCrossSpecies from '../../assets/posts/lifton/lifton-cross-species.png';
 
-We can sequence a genome faster than we can make sense of it. Assembling the DNA of a new species — or a new, more complete version of one we already have — has become almost routine, and thousands of eukaryotic assemblies now sit in public databases. But a bare genome is just a very long string of A, C, G, and T. The part that tells you where the genes are, where each one starts and stops, and which stretches get translated into protein — the *annotation* — is much harder to produce, and it has fallen badly behind. For most newly assembled eukaryotes we have the sequence but not the map.
+Genome assembly has accelerated faster than genome annotation. Public databases now contain thousands of eukaryotic assemblies, but many lack a comparably complete map of their genes and other biological features. A bare assembly is a long string of A, C, G, and T; the *annotation* identifies where genes begin and end, how transcripts are structured, and which regions encode proteins.
 
 The pragmatic way to draw that map is to borrow one. If a closely related genome is already well annotated — say, the human reference — you can *lift* its genes over to the new assembly: line the two genomes up and carry each gene across to its matching location. Done well, annotation lift-over is fast, reproducible, and far cheaper than annotating from scratch. Done badly, it quietly fills your new genome with broken genes.
 
@@ -43,11 +44,11 @@ The pragmatic way to draw that map is to borrow one. If a closely related genome
 
 ## Why not just lift over the DNA?
 
-My lab already had a well-loved lift-over tool: [Liftoff (Shumate and Salzberg, 2021)](https://doi.org/10.1093/bioinformatics/btaa1016), written by Alaina Shumate and Steven Salzberg, which maps gene annotations between assemblies using **DNA** alignment. Within a species it is excellent — it can carry virtually every human gene from one assembly of the genome to another with near-perfect identity. But DNA alignment has a horizon. The further the target genome sits from the reference, the more the underlying DNA has changed, and the harder it becomes to line genes up correctly. Push Liftoff toward more distant species and it starts to stumble: a misplaced splice site here, a transcript with a broken open reading frame there.
+My lab already had a DNA-based lift-over tool: [Liftoff (Shumate and Salzberg, 2021)](https://doi.org/10.1093/bioinformatics/btaa1016), written by Alaina Shumate and Steven Salzberg. Liftoff maps annotation hierarchies between assemblies and performs especially well for closely related genomes. As evolutionary distance increases, however, nucleotide alignments become harder to interpret and can yield misplaced splice sites or disrupted open reading frames.
 
-Meanwhile, a different signal stays legible long after the DNA has blurred: the **protein**. Protein-coding sequence is conserved across far greater evolutionary distances than the DNA that encodes it, because many DNA changes are synonymous or tolerated while the amino-acid sequence is held under strong selection. Heng Li's [miniprot (Li, 2023)](https://doi.org/10.1093/bioinformatics/btad014) exploits exactly this — it aligns a reference protein directly to a target genome, and it can find genes across distances where DNA alignment gives up.
+Protein alignment provides complementary evidence. Orthologous protein sequences can remain conserved across distances where their nucleotide sequences have diverged, in part because synonymous substitutions do not change amino acids. Heng Li's [miniprot (Li, 2023)](https://doi.org/10.1093/bioinformatics/btad014) aligns a reference protein directly to a target genome and can recover coding models across relatively distant species.
 
-But protein alignment has its own blind spots. It only sees coding sequence, so it misses untranslated regions; it can skip very small exons; it gets fooled by pseudogenes; and it tends to merge members of tandem gene families that look identical at the protein level. Neither tool, on its own, is the whole answer.
+Protein alignment has its own limitations. It does not define untranslated regions; it can miss very small exons; it is susceptible to processed pseudogenes; and it can merge nearby members of tandem gene families. Neither evidence source solves the full annotation-transfer problem alone.
 
 The insight behind LiftOn is simple: **DNA alignment and protein alignment fail in different ways.** Where one is weak, the other is often strong. So instead of choosing one source, LiftOn pairs them at the same locus, lets each contribute the coding segments it supports best, and uses the reference protein as the scoring target. I built LiftOn on that idea in Steven Salzberg's and Mihaela Pertea's groups at Johns Hopkins — the same place Liftoff was born, with Liftoff's own author on the team.
 
@@ -99,7 +100,7 @@ Together, these stages explain what “combining DNA and protein evidence” mea
   <strong>Figure 1.</strong> LiftOn compared with its two evidence sources. Each dot is a protein-coding transcript lifted from GRCh38 to T2T-CHM13, plotted by gap-compressed protein sequence identity. <strong>(A)</strong> miniprot vs Liftoff — neither method dominates the other. <strong>(B, C)</strong> LiftOn vs Liftoff, and LiftOn vs miniprot — most points sit on or above the diagonal, meaning the protein-maximization algorithm usually matches or improves on each input.
 </ZoomFigure>
 
-That last point is the whole game. Panel A shows that Liftoff and miniprot genuinely disagree — for many transcripts, one preserves the protein better where the other does not. Panels B and C show what the algorithm gains from that disagreement: LiftOn improved 866 protein-coding transcripts over Liftoff, with 113 of those reaching 100% protein identity, and improved 30,266 over miniprot, with 22,746 reaching 100% identity. By combining the two annotations, LiftOn is not averaging them; it is selecting the better-supported CDS segments under a reference-protein objective.
+Panel A shows that Liftoff and miniprot disagree for many transcripts: one preserves the reference protein better where the other does not. Panels B and C quantify what LiftOn gains from that disagreement. It improved 866 protein-coding transcripts over Liftoff, with 113 reaching 100% protein identity, and improved 30,266 over miniprot, with 22,746 reaching 100% identity. LiftOn is not averaging the annotations; it selects better-supported CDS segments under a reference-protein objective.
 
 **It finds gene copies that a one-to-one map would miss.** Because T2T-CHM13 is *complete* — it fills in the repetitive, duplicated regions that earlier assemblies left as gaps — it actually contains extra copies of some genes. A strict one-to-one lift-over can't represent those; LiftOn looks for them explicitly, and found extra copies of 86 protein-coding genes, adding 320 new gene loci.
 
@@ -107,10 +108,10 @@ That last point is the whole game. Panel A shows that Liftoff and miniprot genui
   <strong>Figure 2.</strong> Extra gene copies LiftOn recovered in T2T-CHM13. Each ribbon connects an original gene copy to an additional copy LiftOn placed on the complete T2T-CHM13 assembly, colored by the chromosome of the original. In the paper, LiftOn identified 86 protein-coding genes with at least one extra copy, for 320 additional protein-coding gene loci.
 </ZoomFigure>
 
-**It improves the published T2T-CHM13 annotation in specific cases.** Some of the most striking results are not comparisons against Liftoff or miniprot at all. They are comparisons with the current T2T-CHM13 annotation on chromosomes 1-22 and X, where LiftOn produced 665 protein-coding transcripts with higher protein identity to the corresponding GRCh38 proteins.
+**It improves the evaluated T2T-CHM13 annotation in specific cases.** The paper also compared LiftOn with the RefSeq-derived T2T-CHM13 annotation used in the study. On chromosomes 1-22 and X, LiftOn produced 665 protein-coding transcripts with higher identity to the corresponding GRCh38 reference proteins.
 
-<ZoomFigure src={figFixes} alt="Four genes — SIRPB1, OAZ3, EPHA2, and CYP4B1 — where LiftOn (blue) corrects the current T2T-CHM13 annotation (red), with DNA and protein identity rising sharply in each case." variant="landscape">
-  <strong>Figure 3.</strong> Four genes where LiftOn improves the current T2T-CHM13 annotation (red = existing annotation, blue = LiftOn). <strong>(A)</strong> <em>SIRPB1</em>: LiftOn recovers three coding exons the current annotation omits, raising DNA identity from 81% to 98%. <strong>(B)</strong> <em>OAZ3</em>: a truncated protein is repaired, from 5.42% to 100% protein identity. <strong>(C)</strong> <em>EPHA2</em>: a wrong start codon is replaced, from 2.4% to 98.7%. <strong>(D)</strong> <em>CYP4B1</em>: an 11-nucleotide donor-site shift fixes a frameshift, from 53% to 99%.
+<ZoomFigure src={figFixes} alt="Four genes — SIRPB1, OAZ3, EPHA2, and CYP4B1 — where LiftOn (blue) produces higher DNA or protein identity than the T2T-CHM13 annotation evaluated in the paper (red)." variant="landscape">
+  <strong>Figure 3.</strong> Four genes where LiftOn produces a model with higher reference-sequence identity than the T2T-CHM13 annotation evaluated in the paper (red = evaluated annotation, blue = LiftOn). <strong>(A)</strong> <em>SIRPB1</em>: LiftOn recovers three coding exons, raising DNA identity from 81% to 98%. <strong>(B)</strong> <em>OAZ3</em>: the protein model rises from 5.42% to 100% identity. <strong>(C)</strong> <em>EPHA2</em>: selecting a different start raises protein identity from 2.4% to 98.7%. <strong>(D)</strong> <em>CYP4B1</em>: an 11-nucleotide donor-site shift resolves the predicted frameshift and raises protein identity from 53% to 99%.
 </ZoomFigure>
 
 In each example, the existing annotation had a concrete protein-coding problem — missing exons, a truncated protein, the wrong start codon, or a frameshift — and LiftOn's protein-maximizing search produced a model with much higher fidelity to the GRCh38 reference protein. The broader comparison matters here: these four examples illustrate a larger set of 665 CHM13 protein-coding transcripts where LiftOn had higher protein identity than the published annotation under the paper's evaluation.

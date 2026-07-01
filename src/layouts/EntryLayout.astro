@@ -78,7 +78,7 @@ const {
         (links.length > 0 || relatedPosts.length > 0) && (
           <div class="entry-links">
             {links.map((l) => (
-              <a class="btn" href={l.href} target="_blank" rel="noopener">
+              <a class="btn" href={l.href} target="_blank" rel="noopener noreferrer">
                 <Icon name={l.icon} size={16} />
                 {l.label}
               </a>

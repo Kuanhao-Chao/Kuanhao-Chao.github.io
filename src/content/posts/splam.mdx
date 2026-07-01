@@ -9,6 +9,7 @@ abstract: >-
   candidate intron as a paired donor-acceptor recognition problem, scores local junction sequence, and uses low-scoring
   junctions to remove weak spliced alignments before transcript assembly.
 date: 2024-08-15
+updated: 2026-07-01
 category: summary
 tags: ['RNA splicing', 'Deep learning', 'RNA-seq']
 linkLabel: 'Splam'
@@ -40,9 +41,9 @@ import figArchitecture from '../../assets/posts/splam/splam-architecture.png';
 import figVsSpliceAI from '../../assets/posts/splam/splam-vs-spliceai.png';
 import figCleanup from '../../assets/posts/splam/splam-cleanup.png';
 
-Almost every RNA-seq analysis begins the same way: you align millions of short reads back to the genome. Wherever a read jumps across an intron, the aligner records a *splice junction* — evidence of where the cell cut the pre-mRNA and joined the exons. The trouble is that alignment-derived junctions are not all equally trustworthy. Alignment errors, sequencing artifacts, and noisy transcription or splicing can produce low-confidence junctions that inflate false introns and distort transcript assembly. This was the practical setting behind [Splam (Chao et al., 2024)](https://doi.org/10.1186/s13059-024-03379-4).
+A common RNA-seq workflow aligns millions of short reads to a reference genome. Wherever a read spans an intron, the aligner records a *splice junction* — evidence for the boundary where pre-mRNA was spliced. Alignment-derived junctions are not all equally trustworthy: alignment errors, sequencing artifacts, and noisy transcription or splicing can produce low-confidence junctions that inflate false introns and distort transcript assembly. This was the practical setting behind [Splam (Chao et al., 2024)](https://doi.org/10.1186/s13059-024-03379-4).
 
-The [CHESS 3 project (Varabyou et al., 2023)](https://doi.org/10.1186/s13059-023-03088-4) made that problem impossible to ignore. In the Salzberg and Pertea labs, CHESS builds human gene catalogs from very large collections of RNA-seq data. At that scale, spurious spliced alignments are not just scattered mistakes. They create many false-positive junction signals, make the input to transcriptome assembly noisy, and can push assemblers toward transcript models that look supported by reads but are built on weak splice evidence.
+The [CHESS 3 project (Varabyou et al., 2023)](https://doi.org/10.1186/s13059-023-03088-4) made that problem concrete. CHESS builds human gene catalogs from large collections of RNA-seq data. At that scale, spurious spliced alignments create false-positive junction signals, make the input to transcriptome assembly noisy, and can push assemblers toward transcript models built on weak splice evidence.
 
 At the same time, [SpliceAI (Jaganathan et al., 2019)](https://doi.org/10.1016/j.cell.2018.12.015) had already shown something powerful: a deep neural network could recognize splice signals directly from sequence. It inspired the way I thought about the problem. But our use case was different from SpliceAI's original one. SpliceAI was trained and evaluated around one canonical protein-coding transcript per gene, while RNA-seq alignments contain junctions from many isoforms. For transcriptome cleanup, alternative junctions are not an edge case; they are part of the signal we want to preserve.
 
@@ -100,7 +101,7 @@ The payoff in the paper is concrete and bounded. In 20 human RNA-seq samples ali
 
 Splam is a focused algorithm with a clear job: evaluate candidate splice junctions and use those scores to improve RNA-seq alignments. It came from combining the inspiration of SpliceAI with a practical transcriptome assembly problem: too many spurious splice junctions make downstream assembly noisy, but overly aggressive filtering risks losing real isoform structure.
 
-The lessons I carried forward are the design choices that survived the benchmarks. Local sequence around splice sites can be enough for this candidate-junction problem. Modeling the biological unit — here, the donor-acceptor pair — can make the two ends of an intron behave more consistently. And training on multiple annotated isoforms matters when the algorithm will see alternative junctions in real RNA-seq data. Those same instincts shaped my later splicing work, including [OpenSpliceAI](/posts/openspliceai/), the open, retrainable reimplementation of SpliceAI.
+The lessons I carried forward are the design choices supported by these benchmarks. In the tested candidate-junction setting, local sequence around both splice sites was sufficient for strong recognition performance. Modeling the donor-acceptor pair made the two ends of an intron more consistent, and training on multiple annotated isoforms improved recovery of alternative junctions. Those same ideas shaped my later splicing work, including [OpenSpliceAI](/posts/openspliceai/), the open, retrainable reimplementation of SpliceAI.
 
 Splam is free and open source, with code and documentation online for applying the same junction-scoring and alignment-cleaning workflow.
 

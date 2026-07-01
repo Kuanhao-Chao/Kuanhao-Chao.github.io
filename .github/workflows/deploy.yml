@@ -34,11 +34,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Check site
+        run: npm run check
 
       - name: Build site
         run: npm run build
+
+      - name: Audit indexing
+        run: npm run audit:indexing
+
+      - name: Audit post interfaces
+        run: npm run audit:posts
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
