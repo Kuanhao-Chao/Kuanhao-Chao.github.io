@@ -1,138 +1,213 @@
 ---
 import '../styles/lvz.css';
 import '../styles/wgt-animation.css';
+import {
+  DNA_BASES,
+  WGT_BASE_COLOR,
+  WGT_BASE_SUMMARY,
+  WGT_DNA_EDGES,
+  WGT_DNA_ORDER,
+  WGT_GROUPS,
+  WGT_GRAPH_TRANSLATE,
+  WGT_INCOMING_BASE,
+  WGT_ROOT_COLOR,
+  WGT_VALID_COLOR,
+  monotoneSummary,
+  nodeInspectorText,
+  type DnaBase,
+  type WgtNodeId,
+} from '../lib/wgtDnaExample';
 
 interface Props { autoPlay?: boolean }
 const { autoPlay = false } = Astro.props;
 
 const steps = [
-  ['Start with paths through one labeled graph', 'A graph can share repeated sequence among several paths. Wheeler indexing depends not only on these edges, but on whether the nodes admit a compatible total order.'],
-  ['Try a candidate node order', 'Duplicating the nodes into source and destination rows makes the candidate order visible. In an arbitrary order, equal-label edges can run backward and cross.'],
-  ['Place roots and incoming-label groups', 'Every zero-indegree node must come first. Destinations of A-labeled edges precede destinations of C-labeled edges because A comes before C.'],
-  ['Preserve source order within each label', 'For two equally labeled edges, an earlier source cannot point to a later destination while a later source points backward. Reordering within the groups removes same-label crossings.'],
-  ['Emit an index-ready Wheeler order', 'A valid order lets WGT report the ordered graph and its O, I, and L arrays, which are inputs to downstream BWT-style graph pattern matching.'],
+  ['Read sequence paths through one DNA graph', 'The Figure 1 topology shares nodes and edges among many paths. Each directed edge contributes A, C, G, or T to the DNA sequence spelled along a path.'],
+  ['Put the zero-indegree node first', 'S2 is the only node with no incoming edge, so the first Wheeler condition fixes it at position 1 before any DNA-labeled destination.'],
+  ['Form destination blocks in DNA order', 'All A destinations precede all C destinations, followed by G and T. This gives five coarse blocks before nodes within a block are fully ordered.'],
+  ['Preserve source order within each base', 'For edges carrying the same base, increasing source positions must produce nondecreasing destination positions. This rule resolves the order inside each DNA block.'],
+  ['Read the final Wheeler order', 'The order S2, S4, S6, S7, S5, S3, S1, S8 satisfies the root, DNA-block, and same-base monotonicity conditions, making the graph Wheeler.'],
 ] as const;
 
-const C = {
-  root: 'var(--wgt-root)',
-  a: 'var(--wgt-a)',
-  c: 'var(--wgt-c)',
-  valid: 'var(--wgt-valid)',
+const graphDesktop = {
+  S1: [650, 60], S2: [820, 60], S3: [520, 160], S4: [830, 160],
+  S5: [520, 270], S6: [830, 270], S7: [650, 365], S8: [780, 365],
+} satisfies Record<WgtNodeId, [number, number]>;
+
+const graphMobile = {
+  S1: [95, 40], S2: [275, 40], S3: [62, 130], S4: [300, 130],
+  S5: [62, 230], S6: [300, 230], S7: [145, 330], S8: [250, 330],
+} satisfies Record<WgtNodeId, [number, number]>;
+
+const edgeDesktop: Record<string, { d: string; label: [number, number] }> = {
+  's1-s8': { d: 'M664 77 Q710 214 769 345', label: [708, 211] },
+  's2-s4': { d: 'M822 81 L828 138', label: [844, 110] },
+  's2-s6': { d: 'M806 75 Q758 164 813 253', label: [774, 166] },
+  's2-s7': { d: 'M802 73 Q700 170 656 343', label: [707, 188] },
+  's3-s1': { d: 'M535 143 Q570 86 630 67', label: [574, 96] },
+  's3-s5': { d: 'M520 182 L520 248', label: [538, 216] },
+  's4-s3': { d: 'M808 160 L542 160', label: [675, 148] },
+  's4-s6': { d: 'M830 182 L830 248', label: [848, 216] },
+  's5-s1': { d: 'M501 258 Q425 125 630 56', label: [462, 145] },
+  's5-s5': { d: 'M500 258 C448 244 448 296 500 282', label: [457, 273] },
+  's6-s7': { d: 'M811 281 Q740 330 670 356', label: [742, 328] },
+  's7-s3': { d: 'M633 349 Q558 271 530 181', label: [566, 270] },
+  's7-s8': { d: 'M672 365 L758 365', label: [715, 353] },
 };
 
-const edges = [
-  ['r', 'p', 'A', C.a],
-  ['r', 'q', 'A', C.a],
-  ['p', 'q', 'A', C.a],
-  ['r', 'x', 'C', C.c],
-  ['p', 'x', 'C', C.c],
-  ['q', 'y', 'C', C.c],
-] as const;
+const edgeMobile: Record<string, { d: string; label: [number, number] }> = {
+  's1-s8': { d: 'M108 56 Q170 185 240 314', label: [168, 181] },
+  's2-s4': { d: 'M281 58 L295 112', label: [300, 84] },
+  's2-s6': { d: 'M263 53 Q230 138 284 213', label: [250, 139] },
+  's2-s7': { d: 'M258 49 Q182 145 151 310', label: [195, 158] },
+  's3-s1': { d: 'M71 113 Q76 76 89 58', label: [66, 84] },
+  's3-s5': { d: 'M62 149 L62 211', label: [76, 182] },
+  's4-s3': { d: 'M281 130 L81 130', label: [181, 119] },
+  's4-s6': { d: 'M300 149 L300 211', label: [314, 182] },
+  's5-s1': { d: 'M45 218 Q5 115 78 43', label: [24, 132] },
+  's5-s5': { d: 'M44 219 C9 209 9 251 44 241', label: [18, 233] },
+  's6-s7': { d: 'M283 240 Q225 287 163 320', label: [226, 285] },
+  's7-s3': { d: 'M130 315 Q79 247 68 149', label: [96, 247] },
+  's7-s8': { d: 'M164 330 L230 330', label: [197, 319] },
+};
 
-function defs() {
-  return `<defs><marker id="wgt-order-a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="${C.a}"/></marker><marker id="wgt-order-c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="${C.c}"/></marker></defs>`;
+function markerDefs(prefix: string) {
+  return `<defs>${DNA_BASES.map((base) => `<marker id="${prefix}-${base}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="${WGT_BASE_COLOR[base]}"/></marker>`).join('')}</defs>`;
 }
 
-function node(x: number, y: number, name: string, color = C.root) {
-  return `<circle cx="${x}" cy="${y}" r="22" fill="var(--color-bg)" stroke="${color}" stroke-width="2.5"/><text x="${x}" y="${y + 5}" class="wgt-label" style="fill:${color}">${name}</text>`;
+function interactiveNode(x: number, y: number, node: WgtNodeId, radius = 21) {
+  const incoming = WGT_INCOMING_BASE[node];
+  const color = incoming ? WGT_BASE_COLOR[incoming] : WGT_ROOT_COLOR;
+  const detail = nodeInspectorText(node);
+  return `<g class="wgt-node" data-wgt-node="${node}" data-incoming-base="${incoming ?? 'root'}" data-detail="${detail}" role="button" tabindex="0" aria-label="${detail}" aria-pressed="false"><circle cx="${x}" cy="${y}" r="${radius}" fill="var(--color-bg)" stroke="${color}" stroke-width="2.5"/><text x="${x}" y="${y + 5}" class="wgt-label" style="fill:${color}">${node}</text><title>${detail}</title></g>`;
 }
 
-function conventionalGraph() {
-  const pos: Record<string, [number, number]> = { r: [105, 190], p: [280, 105], q: [470, 105], x: [350, 270], y: [620, 270] };
-  let s = defs();
-  s += `<text x="20" y="28" class="lvz-tl">Two strings can share nodes and edges instead of being stored independently</text>`;
-  s += `<rect x="78" y="50" width="265" height="36" rx="4" fill="${C.a}" fill-opacity=".07" stroke="${C.a}"/><text x="210" y="73" class="wgt-mono">path 1 · r —A→ p —A→ q —C→ y</text>`;
-  s += `<rect x="418" y="50" width="265" height="36" rx="4" fill="${C.c}" fill-opacity=".07" stroke="${C.c}"/><text x="550" y="73" class="wgt-mono">path 2 · r —A→ q —C→ y</text>`;
-  edges.forEach(([from, to, label, color], index) => {
-    const [x1, y1] = pos[from]; const [x2, y2] = pos[to];
-    const mid = (x1 + x2) / 2;
-    s += `<path d="M${x1 + 18} ${y1} Q${mid} ${Math.min(y1, y2) - 28 - index * 2} ${x2 - 20} ${y2}" fill="none" stroke="${color}" stroke-width="2.5" marker-end="url(#wgt-order-${label.toLowerCase()})"/><text x="${mid}" y="${(y1 + y2) / 2 - 12}" class="wgt-mini" style="fill:${color}">${label}</text>`;
-  });
-  Object.entries(pos).forEach(([name, [x, y]]) => s += node(x, y, name, name === 'r' ? C.root : C.a));
-  s += `<text x="380" y="333" class="wgt-detail">The recognition question is whether these five nodes can be totally ordered under the Wheeler rules.</text>`;
-  return s;
+function interactiveEdge(prefix: string, edge: (typeof WGT_DNA_EDGES)[number], geometry: { d: string; label: [number, number] }) {
+  const color = WGT_BASE_COLOR[edge.label];
+  return `<path d="${geometry.d}" class="wgt-edge" data-wgt-edge data-base="${edge.label}" data-from="${edge.from}" data-to="${edge.to}" fill="none" stroke="${color}" stroke-width="2.5" marker-end="url(#${prefix}-${edge.label})"/><text x="${geometry.label[0]}" y="${geometry.label[1]}" class="wgt-edge wgt-edge-label" data-wgt-edge data-base="${edge.label}" data-from="${edge.from}" data-to="${edge.to}" style="fill:${color}">${edge.label}</text>`;
 }
 
-function orderedGraph(order: string[], grouped: boolean, valid: boolean) {
-  const xs = [85, 230, 375, 520, 665];
-  const lookup = Object.fromEntries(order.map((name, index) => [name, xs[index]]));
-  let s = defs();
-  s += `<text x="20" y="27" class="lvz-tl">One candidate order · duplicated into source and destination rows</text>`;
-  if (grouped) {
-    s += `<rect x="48" y="215" width="74" height="78" rx="4" fill="${C.root}" fill-opacity=".08"/><rect x="183" y="215" width="239" height="78" rx="4" fill="${C.a}" fill-opacity=".08"/><rect x="473" y="215" width="239" height="78" rx="4" fill="${C.c}" fill-opacity=".08"/>`;
-    s += `<text x="85" y="310" class="wgt-mini" style="fill:${C.root}">zero indegree</text><text x="303" y="310" class="wgt-mini" style="fill:${C.a}">incoming A</text><text x="593" y="310" class="wgt-mini" style="fill:${C.c}">incoming C</text>`;
+function graphScene(prefix: string, mobile = false, rootCallout = false) {
+  const positions = mobile ? graphMobile : graphDesktop;
+  const geometries = mobile ? edgeMobile : edgeDesktop;
+  const width = mobile ? 360 : 920;
+  const height = mobile ? 410 : 430;
+  let body = markerDefs(prefix);
+  let graphBody = WGT_DNA_EDGES.map((edge) => interactiveEdge(prefix, edge, geometries[edge.id])).join('');
+  graphBody += WGT_DNA_ORDER.map((node) => interactiveNode(...positions[node], node, mobile ? 18 : 21)).join('');
+  if (rootCallout) {
+    graphBody += mobile
+      ? `<path d="M275 69 V91" class="wgt-callout-line"/><text x="275" y="104" class="wgt-detail" style="fill:${WGT_VALID_COLOR}">no incoming edge</text>`
+      : `<path d="M820 88 V112" class="wgt-callout-line"/><rect x="744" y="114" width="152" height="36" rx="4" fill="${WGT_VALID_COLOR}" fill-opacity=".08" stroke="${WGT_VALID_COLOR}"/><text x="820" y="137" class="wgt-label" style="fill:${WGT_VALID_COLOR}">S2 must be first</text>`;
   }
-  s += `<text x="22" y="91" class="wgt-mini wgt-left">source copy</text><text x="22" y="255" class="wgt-mini wgt-left">destination copy</text>`;
-  edges.forEach(([from, to, label, color], index) => {
-    const x1 = lookup[from] + (index % 3 - 1) * 4;
-    const x2 = lookup[to] + (index % 3 - 1) * 4;
-    s += `<line x1="${x1}" y1="113" x2="${x2}" y2="229" stroke="${color}" stroke-width="2.5" stroke-opacity=".86" marker-end="url(#wgt-order-${label.toLowerCase()})"/>`;
-  });
-  order.forEach((name, index) => {
-    const color = name === 'r' ? C.root : ['p', 'q'].includes(name) ? C.a : C.c;
-    s += node(xs[index], 91, name, color) + node(xs[index], 255, name, color);
-    s += `<text x="${xs[index]}" y="43" class="wgt-mini">${index + 1}</text>`;
-  });
-  s += `<path d="M55 43 H695" stroke="var(--color-rule)"/><text x="725" y="47" class="wgt-mini">order</text>`;
-  if (valid) {
-    s += `<circle cx="715" cy="165" r="23" fill="${C.valid}" fill-opacity=".1" stroke="${C.valid}" stroke-width="2.5"/><text x="715" y="171" class="wgt-label" style="fill:${C.valid}">✓</text><text x="742" y="200" class="wgt-mini" style="fill:${C.valid};text-anchor:end">same-label order preserved</text>`;
-  } else {
-    s += `<path d="M700 148 l28 28 M728 148 l-28 28" stroke="${C.c}" stroke-width="3"/><text x="742" y="200" class="wgt-mini" style="fill:${C.c};text-anchor:end">${grouped ? 'same-label crossing remains' : 'labels and roots are mixed'}</text>`;
-  }
-  return s;
+  body += `<g data-wgt-graph transform="translate(${mobile ? WGT_GRAPH_TRANSLATE.mobile : WGT_GRAPH_TRANSLATE.desktop} 0)">${graphBody}</g>`;
+  body += `<text x="${width / 2}" y="${mobile ? 398 : 414}" class="wgt-detail">Paths spell DNA while reusing the same graph structure.</text>`;
+  return `<svg viewBox="0 0 ${width} ${height}" class="lvz-svg" role="img" aria-label="DNA-labeled Figure 1 graph" preserveAspectRatio="xMidYMid meet">${body}</svg>`;
 }
 
-function indexOutput() {
-  let s = `<text x="20" y="27" class="lvz-tl">The Wheeler order becomes a compact graph-index representation</text>`;
-  const order = [['r', C.root], ['p', C.a], ['q', C.a], ['x', C.c], ['y', C.c]] as const;
-  order.forEach(([name, color], index) => {
-    const x = 85 + index * 105;
-    s += node(x, 105, name, color);
-    if (index < order.length - 1) s += `<path d="M109 ${105} H${141 + index * 105}" class="wgt-arrow"/><path d="M134 ${99} L143 ${105} L134 ${111}" class="wgt-arrow"/>`;
+function nodeChip(x: number, y: number, width: number, node: WgtNodeId, color: string, suffix = '') {
+  const detail = nodeInspectorText(node);
+  return `<g class="wgt-node" data-wgt-node="${node}" data-incoming-base="${WGT_INCOMING_BASE[node] ?? 'root'}" data-detail="${detail}" role="button" tabindex="0" aria-label="${detail}" aria-pressed="false"><rect x="${x}" y="${y}" width="${width}" height="38" rx="4" fill="${color}" fill-opacity=".08" stroke="${color}"/><text x="${x + width / 2}" y="${y + 24}" class="wgt-label" style="fill:${color}">${node}${suffix}</text><title>${detail}</title></g>`;
+}
+
+function groupScene(mobile = false) {
+  if (mobile) {
+    let body = '';
+    WGT_GROUPS.forEach((group, index) => {
+      const y = 10 + index * 76;
+      body += `<rect x="12" y="${y}" width="336" height="60" rx="5" fill="${group.color}" fill-opacity=".035" stroke="${group.color}"/><text x="26" y="${y + 24}" class="wgt-label wgt-left" style="fill:${group.color}">${group.label}</text><text x="334" y="${y + 24}" class="wgt-mini" style="text-anchor:end">range ${group.range[0]}${group.range[0] === group.range[1] ? '' : `–${group.range[1]}`}</text>`;
+      const chipWidth = group.nodes.length === 1 ? 86 : 70;
+      const totalWidth = group.nodes.length * chipWidth + (group.nodes.length - 1) * 10;
+      group.nodes.forEach((node, nodeIndex) => { body += nodeChip(180 - totalWidth / 2 + nodeIndex * (chipWidth + 10), y + 14, chipWidth, node, group.color); });
+    });
+    return `<svg viewBox="0 0 360 390" class="lvz-svg" role="img" aria-label="DNA destination groups in Wheeler order">${body}</svg>`;
+  }
+  const layout = [
+    { x: 48, w: 112 }, { x: 188, w: 160 }, { x: 376, w: 160 }, { x: 564, w: 160 }, { x: 752, w: 120 },
+  ];
+  let body = `<text x="460" y="27" class="lvz-tl">Coarse order follows ∅ &lt; A &lt; C &lt; G &lt; T</text>`;
+  WGT_GROUPS.forEach((group, index) => {
+    const { x, w } = layout[index];
+    body += `<rect x="${x}" y="58" width="${w}" height="214" rx="5" fill="${group.color}" fill-opacity=".035" stroke="${group.color}"/><text x="${x + w / 2}" y="89" class="wgt-label" style="fill:${group.color}">${group.label}</text><text x="${x + w / 2}" y="113" class="wgt-mini">range ${group.range[0]}${group.range[0] === group.range[1] ? '' : `–${group.range[1]}`}</text>`;
+    group.nodes.forEach((node, nodeIndex) => { body += nodeChip(x + 16, 137 + nodeIndex * 54, w - 32, node, group.color); });
+    if (index < WGT_GROUPS.length - 1) body += `<path d="M${x + w + 7} 165 H${layout[index + 1].x - 8}" class="wgt-arrow"/>`;
   });
-  s += `<text x="295" y="151" class="wgt-detail">valid Wheeler order</text><path d="M529 105 H624" class="wgt-arrow"/><path d="M614 99 L625 105 L614 111" class="wgt-arrow"/>`;
-  const rows = [['O', 'unary outdegrees', C.a], ['I', 'unary indegrees', C.c], ['L', 'edge-label sequence', C.valid]] as const;
-  rows.forEach(([name, detail, color], index) => {
-    const y = 184 + index * 54;
-    s += `<rect x="150" y="${y}" width="460" height="38" rx="4" fill="${color}" fill-opacity=".07" stroke="${color}"/><text x="178" y="${y + 24}" class="wgt-label" style="fill:${color}">${name}</text><text x="360" y="${y + 24}" class="wgt-detail">${detail}</text><rect x="470" y="${y + 11}" width="118" height="16" fill="${color}" fill-opacity=".42"/>`;
+  body += `<text x="460" y="312" class="wgt-detail">The base determines the block; predecessor order determines each position inside it.</text>`;
+  return `<svg viewBox="0 0 920 330" class="lvz-svg" role="img" aria-label="DNA destination groups in Wheeler order">${body}</svg>`;
+}
+
+function orderedRows(prefix: string, final = false) {
+  const xs = Object.fromEntries(WGT_DNA_ORDER.map((node, index) => [node, 58 + index * 115])) as Record<WgtNodeId, number>;
+  let body = markerDefs(prefix);
+  WGT_GROUPS.forEach((group) => {
+    const groupXs = group.nodes.map((node) => xs[node]);
+    const left = Math.min(...groupXs) - 42;
+    const right = Math.max(...groupXs) + 42;
+    body += `<rect x="${left}" y="211" width="${right - left}" height="75" rx="4" fill="${group.color}" fill-opacity=".05"/>`;
   });
-  s += `<rect x="626" y="66" width="112" height="78" rx="5" fill="${C.valid}" fill-opacity=".08" stroke="${C.valid}" stroke-width="2"/><text x="682" y="95" class="wgt-label" style="fill:${C.valid}">index-ready</text><text x="682" y="119" class="wgt-detail">downstream graph search</text>`;
-  return s;
+  WGT_DNA_EDGES.forEach((edge, index) => {
+    const offset = (index % 3 - 1) * 3;
+    const color = WGT_BASE_COLOR[edge.label];
+    body += `<line x1="${xs[edge.from] + offset}" y1="96" x2="${xs[edge.to] + offset}" y2="231" class="wgt-edge" data-wgt-edge data-base="${edge.label}" data-from="${edge.from}" data-to="${edge.to}" stroke="${color}" stroke-width="2.2" marker-end="url(#${prefix}-${edge.label})"/>`;
+  });
+  WGT_DNA_ORDER.forEach((node, index) => {
+    const color = WGT_INCOMING_BASE[node] ? WGT_BASE_COLOR[WGT_INCOMING_BASE[node] as DnaBase] : WGT_ROOT_COLOR;
+    body += interactiveNode(xs[node], 78, node, 19) + interactiveNode(xs[node], 248, node, 19);
+    body += `<text x="${xs[node]}" y="35" class="wgt-mini">${index + 1}</text><text x="${xs[node]}" y="306" class="wgt-mini" style="fill:${color}">${WGT_INCOMING_BASE[node] ?? '∅'}</text>`;
+  });
+  body += `<path d="M27 35 H893" stroke="var(--color-rule)"/><text x="893" y="27" class="wgt-mini" style="text-anchor:end">candidate order</text>`;
+  body += final
+    ? `<rect x="705" y="118" width="174" height="54" rx="5" fill="${WGT_VALID_COLOR}" fill-opacity=".09" stroke="${WGT_VALID_COLOR}" stroke-width="2"/><text x="792" y="142" class="wgt-label" style="fill:${WGT_VALID_COLOR}">valid Wheeler order</text><text x="792" y="161" class="wgt-mini">all three conditions hold</text>`
+    : `<text x="460" y="330" class="wgt-detail">Within one base, the lower row never moves backward as source positions increase.</text>`;
+  return `<svg viewBox="0 0 920 ${final ? 320 : 340}" class="lvz-svg" role="img" aria-label="Two-row DNA Wheeler ordering">${body}</svg>`;
+}
+
+function monotoneMobile() {
+  let body = `<text x="180" y="25" class="wgt-label">source positions → destination positions</text>`;
+  const pairs: Record<DnaBase, [string, string]> = {
+    A: ['1, 1, 2', '2, 3, 3'], C: ['1, 3, 5, 6', '4, 4, 5, 5'],
+    G: ['2, 4, 5, 6', '6, 6, 7, 7'], T: ['4, 7', '8, 8'],
+  };
+  DNA_BASES.forEach((base, index) => {
+    const y = 48 + index * 80;
+    body += `<g class="wgt-edge" data-wgt-edge data-base="${base}"><rect x="20" y="${y}" width="320" height="60" rx="5" fill="${WGT_BASE_COLOR[base]}" fill-opacity=".06" stroke="${WGT_BASE_COLOR[base]}"/><text x="48" y="${y + 36}" class="wgt-label" style="fill:${WGT_BASE_COLOR[base]}">${base}</text><text x="190" y="${y + 27}" class="wgt-mono">${pairs[base][0]}</text><text x="190" y="${y + 47}" class="wgt-mono">${pairs[base][1]}</text></g>`;
+  });
+  return `<svg viewBox="0 0 360 382" class="lvz-svg" role="img" aria-label="Same-base Wheeler monotonicity checks">${body}</svg>`;
+}
+
+function finalMobile() {
+  let body = `<path d="M180 30 V350" stroke="var(--color-rule)" stroke-width="3"/>`;
+  WGT_DNA_ORDER.forEach((node, index) => {
+    const y = 25 + index * 43;
+    const base = WGT_INCOMING_BASE[node];
+    const color = base ? WGT_BASE_COLOR[base] : WGT_ROOT_COLOR;
+    body += `<text x="85" y="${y + 20}" class="wgt-mini">${index + 1}</text>${nodeChip(132, y, 96, node, color, base ? ` · ${base}` : ' · ∅')}`;
+  });
+  body += `<rect x="236" y="155" width="108" height="62" rx="5" fill="${WGT_VALID_COLOR}" fill-opacity=".08" stroke="${WGT_VALID_COLOR}" stroke-width="2"/><text x="290" y="181" class="wgt-label" style="fill:${WGT_VALID_COLOR}">Wheeler</text><text x="290" y="202" class="wgt-mini">exact order</text>`;
+  return `<svg viewBox="0 0 360 382" class="lvz-svg" role="img" aria-label="Final DNA Wheeler order">${body}</svg>`;
 }
 
 function desktop(step: number) {
-  let body = '';
-  if (step === 0) body = conventionalGraph();
-  if (step === 1) body = orderedGraph(['q', 'r', 'y', 'p', 'x'], false, false);
-  if (step === 2) body = orderedGraph(['r', 'q', 'p', 'y', 'x'], true, false);
-  if (step === 3) body = orderedGraph(['r', 'p', 'q', 'x', 'y'], true, true);
-  if (step === 4) body = indexOutput();
-  return `<svg viewBox="0 0 760 350" class="lvz-svg" role="img" aria-label="Wheeler graph ordering explanation, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${body}</svg>`;
+  if (step === 0) return graphScene('wgt-order-d0');
+  if (step === 1) return graphScene('wgt-order-d1', false, true);
+  if (step === 2) return groupScene();
+  if (step === 3) return orderedRows('wgt-order-d3');
+  return orderedRows('wgt-order-d4', true);
 }
 
 function mobile(step: number) {
-  const rows = [
-    ['Shared labeled graph', 'several strings reuse paths', C.root],
-    ['Candidate order', 'arbitrary order leaves crossings', C.c],
-    ['Root + label groups', '∅ first · then A · then C', C.a],
-    ['Order within groups', 'equal-label edges move forward together', C.valid],
-    ['Index-ready order', 'ordered graph → O / I / L', C.valid],
-  ] as const;
-  let s = '';
-  rows.forEach(([title, detail, color], index) => {
-    const y = 14 + index * 88;
-    s += `<g opacity="${index === step ? 1 : 0.58}"><rect x="12" y="${y}" width="336" height="66" rx="5" class="wgt-card" stroke="${color}" stroke-width="${index === step ? 2.8 : 1.2}"/><text x="180" y="${y + 27}" class="wgt-label" style="fill:${color}">${title}</text><text x="180" y="${y + 50}" class="wgt-detail">${detail}</text></g>`;
-    if (index < rows.length - 1) s += `<path d="M180 ${y + 66} V${y + 82}" class="wgt-arrow"/><path d="M175 ${y + 76} L180 ${y + 83} L185 ${y + 76}" class="wgt-arrow"/>`;
-  });
-  s += `<circle cx="326" cy="${47 + step * 88}" r="7" fill="${rows[step][2]}" class="wgt-token"/>`;
-  return `<svg viewBox="0 0 360 448" class="lvz-svg" role="img" aria-label="Wheeler graph ordering explanation, step ${step + 1}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  if (step === 0) return graphScene('wgt-order-m0', true);
+  if (step === 1) return graphScene('wgt-order-m1', true, true);
+  if (step === 2) return groupScene(true);
+  if (step === 3) return monotoneMobile();
+  return finalMobile();
 }
 ---
 
-<section class="lvz wgt-viz wgt-order" role="group" aria-label="Interactive: turning a labeled graph into a Wheeler order" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
-  <div class="lvz-head"><p class="lvz-title">Turn a labeled graph into a Wheeler order</p><span class="lvz-tag">Why indexing works</span></div>
+<section class="lvz wgt-viz wgt-order" role="group" aria-label="Interactive: understanding a DNA Wheeler graph" data-autoplay={autoPlay ? 'true' : undefined} data-print-final-state="true">
+  <div class="lvz-head"><p class="lvz-title">See why this DNA graph is Wheeler</p><span class="lvz-tag">Figure 1, adapted</span></div>
   <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
-  <nav class="lvz-progress" aria-label="Wheeler ordering steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
+  <nav class="lvz-progress" aria-label="DNA Wheeler graph steps">{steps.map(([title], index) => <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>)}</nav>
   {steps.map(([title, caption], index) => (
     <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
       <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
@@ -140,16 +215,45 @@ function mobile(step: number) {
       <div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
     </div>
   ))}
+  <div class="wgt-explorer" aria-label="DNA graph focus">
+    <div class="wgt-base-filter" role="group" aria-label="DNA edge label">
+      <button type="button" class="wgt-base-btn" data-wgt-base="all" data-summary={WGT_BASE_SUMMARY.all} aria-pressed="true">All</button>
+      {DNA_BASES.map((base) => <button type="button" class="wgt-base-btn" data-wgt-base={base} data-summary={WGT_BASE_SUMMARY[base]} data-group-summary={WGT_BASE_SUMMARY[base]} data-order-summary={monotoneSummary(base)} aria-pressed="false"><span class="lvz-sw" style={`background:${WGT_BASE_COLOR[base]}`}></span>{base}</button>)}
+    </div>
+    <p class="wgt-inspector" data-wgt-detail aria-live="polite">{WGT_BASE_SUMMARY.all}</p>
+  </div>
   <div class="lvz-controls"><button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button><button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button><button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button><button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button><span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span></div>
-  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${C.root}`}></span>zero indegree</span><span><span class="lvz-sw" style={`background:${C.a}`}></span>A-labeled edges</span><span><span class="lvz-sw" style={`background:${C.c}`}></span>C-labeled edges</span><span><span class="lvz-sw" style={`background:${C.valid}`}></span>valid order</span></div>
+  <div class="lvz-legend"><span><span class="lvz-sw" style={`background:${WGT_ROOT_COLOR}`}></span>zero indegree</span><span><span class="lvz-sw" style={`background:${WGT_VALID_COLOR}`}></span>valid order</span></div>
 </section>
 
 <script>
   import { mountStepper } from '../scripts/wgiStepper';
+  import { mountWgtGraphExplorer } from '../scripts/wgtGraphExplorer';
+
   function bootWGTOrder() {
     document.querySelectorAll<HTMLElement>('.wgt-order').forEach((root) => {
       const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
-      mountStepper(root, { total: scenes.length, onShow: (index) => scenes.forEach((scene, sceneIndex) => { const current = sceneIndex === index; scene.hidden = !current; scene.setAttribute('aria-current', current ? 'step' : 'false'); }), caption: (index) => scenes[index]?.dataset.caption || '', interval: 6500, autoPlay: root.dataset.autoplay === 'true' });
+      const explorer = mountWgtGraphExplorer(root);
+      const defaults = [{ base: 'all' }, { node: 'S2' }, { base: 'all' }, { base: 'A' }, { base: 'all' }];
+      mountStepper(root, {
+        total: scenes.length,
+        onShow: (index) => {
+          scenes.forEach((scene, sceneIndex) => {
+            const current = sceneIndex === index;
+            scene.hidden = !current;
+            scene.setAttribute('aria-current', current ? 'step' : 'false');
+          });
+          root.querySelectorAll<HTMLButtonElement>('[data-wgt-base]').forEach((button) => {
+            const groupSummary = button.dataset.groupSummary;
+            const orderSummary = button.dataset.orderSummary;
+            if (button.dataset.wgtBase !== 'all') button.dataset.summary = index === 3 && orderSummary ? orderSummary : groupSummary ?? '';
+          });
+          explorer?.reset(defaults[index]);
+        },
+        caption: (index) => scenes[index]?.dataset.caption || '',
+        interval: 6800,
+        autoPlay: root.dataset.autoplay === 'true',
+      });
     });
   }
   bootWGTOrder();
