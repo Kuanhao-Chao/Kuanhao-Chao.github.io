@@ -46,6 +46,9 @@ jobs:
       - name: Audit indexing
         run: npm run audit:indexing
 
+      - name: Audit security
+        run: npm run audit:security
+
       - name: Audit post interfaces
         env:
           POST_UI_AUDIT_BROWSERS: chromium
