@@ -42,7 +42,7 @@ const teaching = (await getCollection('teaching')).sort(
           <li class="row row--stack">
             <p class="row-title">
               {m.url ? (
-                <a href={m.url} target="_blank" rel="noopener">{m.name}</a>
+                <a href={m.url} target="_blank" rel="noopener noreferrer">{m.name}</a>
               ) : (
                 m.name
               )}
@@ -51,7 +51,7 @@ const teaching = (await getCollection('teaching')).sort(
             {m.links && m.links.length > 0 && (
               <p class="row-links">
                 {m.links.map((l) => (
-                  <a href={l.url} target="_blank" rel="noopener">
+                  <a href={l.url} target="_blank" rel="noopener noreferrer">
                     {l.label}
                   </a>
                 ))}

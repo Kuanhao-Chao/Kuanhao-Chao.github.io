@@ -18,7 +18,11 @@ const isExternal = (href: string) => /^https?:\/\//.test(href);
   </div>
 
   <h3 class="project-title">
-    <a href={primary} target={isExternal(primary) ? '_blank' : undefined} rel={isExternal(primary) ? 'noopener' : undefined}>
+    <a
+      href={primary}
+      target={isExternal(primary) ? '_blank' : undefined}
+      rel={isExternal(primary) ? 'noopener noreferrer' : undefined}
+    >
       {compact ? project.shortTitle : project.title}
     </a>
   </h3>
@@ -32,7 +36,11 @@ const isExternal = (href: string) => /^https?:\/\//.test(href);
   <div class="project-links">
     {
       project.links.map((link) => (
-        <a href={link.href} target={isExternal(link.href) ? '_blank' : undefined} rel={isExternal(link.href) ? 'noopener' : undefined}>
+        <a
+          href={link.href}
+          target={isExternal(link.href) ? '_blank' : undefined}
+          rel={isExternal(link.href) ? 'noopener noreferrer' : undefined}
+        >
           <Icon name={link.icon} size={15} />
           {link.label}
         </a>

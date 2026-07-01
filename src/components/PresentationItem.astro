@@ -42,7 +42,7 @@ const searchText = `${heading} ${showVenueLine ?? ''} ${d.venue} ${d.location ??
       links.length > 0 && (
         <div class="talk-links">
           {links.map((l) => (
-            <a href={l.href} target="_blank" rel="noopener">
+            <a href={l.href} target="_blank" rel="noopener noreferrer">
               <Icon name={l.icon} size={15} />
               {l.label}
             </a>

@@ -76,5 +76,7 @@ const inner = isBrand ? `<path d="${brand[name]}"/>` : stroke[name] ?? '';
   role={title ? 'img' : undefined}
   aria-hidden={title ? undefined : 'true'}
   aria-label={title}
-  set:html={(title ? `<title>${title}</title>` : '') + inner}
-/>
+>
+  {title && <title>{title}</title>}
+  <Fragment set:html={inner} />
+</svg>

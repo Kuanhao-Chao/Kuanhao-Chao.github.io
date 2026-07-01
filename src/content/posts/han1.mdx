@@ -5,6 +5,7 @@ authors: ['Kuan-Hao Chao']
 abstract: >-
   Han1 follows a staged finished-genome workflow: long-read assembly, reference-guided chromosome scaffolding, layered gap closing, manual repeat repair, polishing, and two-pass annotation lift-over. The resulting assembly was a gap-free, reference-quality, fully annotated genome from a Southern Han Chinese individual, enabling gene-level comparison between two finished, annotated individual human genomes.
 date: 2023-03-01
+updated: 2026-07-01
 category: summary
 tags: ['Genome assembly', 'Human genome', 'Comparative genomics']
 image: ../../assets/posts/han1/han1-chromosomes.png
@@ -32,9 +33,9 @@ import figChromosomes from '../../assets/posts/han1/han1-chromosomes.png';
 import figSynteny from '../../assets/posts/han1/han1-synteny.png';
 import figInversion from '../../assets/posts/han1/han1-inversion.png';
 
-For more than twenty years, almost all of human genetics has rested on a single reference genome. That reference — currently GRCh38 — is extraordinarily useful, but it has two awkward properties. It is not anyone's actual genome: it is a mosaic assembled from many individuals. And for all its refinement, it still has hundreds of gaps, including the centromeres and the short arms of the acrocentric chromosomes. When you map data to it, you are comparing against a composite that is incomplete and historically skewed toward people of European ancestry.
+For more than twenty years, much of human genomics has relied on a single reference assembly. That reference — currently GRCh38 — is extraordinarily useful, but it has two important limitations. It is a mosaic assembled from multiple individuals rather than one person's genome, and it retains hundreds of gaps, including centromeric and acrocentric regions. Mapping data to it therefore means comparing each sample with a composite reference that is incomplete and draws most of its sequence from people of European ancestry.
 
-In 2022 that changed, at least in part. The Telomere-to-Telomere consortium published [T2T-CHM13 (Nurk et al., 2022)](https://doi.org/10.1126/science.abj6987), the first complete human genome — every centromere, every repeat array, end to end. It was a landmark. But CHM13 represented one northern European female sample, and the Y chromosome in the T2T reference came from a second individual, HG002. One complete genome is a beginning, not an end: humanity is not one genome.
+In 2022 that changed, at least in part. The Telomere-to-Telomere consortium published [T2T-CHM13 (Nurk et al., 2022)](https://doi.org/10.1126/science.abj6987), the first gapless sequence of a human genome, completing centromeres and other regions missing from GRCh38. It was a landmark. But CHM13 represented one northern European female sample, and the Y chromosome used alongside that assembly came from a second individual, HG002. One complete genome is a beginning, not an end: humanity is not one genome.
 
 That paper became the spark for my first Ph.D. project. Steven Salzberg's idea was direct: if a complete human genome could now be built, we should assemble and annotate another gapless, reference-quality individual genome from a different genetic background. I went through the available samples, kept coming back to HG00621, and stepped forward to take on the project.
 

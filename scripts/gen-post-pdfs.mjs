@@ -284,16 +284,19 @@ async function preparePageForPrint() {
 
   const imagePromises = [];
   for (const img of Array.from(document.images)) {
+    const timeout = new Promise((resolve) => setTimeout(resolve, 5000));
     if (img.complete && img.naturalWidth > 0) {
-      imagePromises.push(img.decode().catch(() => {}));
+      imagePromises.push(Promise.race([img.decode().catch(() => {}), timeout]));
     } else {
       imagePromises.push(
-        new Promise((resolve) => {
-          const done = () => resolve();
-          img.addEventListener('load', done, { once: true });
-          img.addEventListener('error', done, { once: true });
-          setTimeout(done, 15000);
-        })
+        Promise.race([
+          new Promise((resolve) => {
+            const done = () => resolve();
+            img.addEventListener('load', done, { once: true });
+            img.addEventListener('error', done, { once: true });
+          }),
+          timeout,
+        ])
       );
     }
   }

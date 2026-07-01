@@ -42,7 +42,7 @@ export const experience: Position[] = [
     org: 'National Taiwan University',
     unit: 'Centers of Genomic and Precision Medicine',
     period: 'Aug 2018 – Jul 2019',
-    url: 'http://www.cgm.ntu.edu.tw/',
+    url: 'https://www.cgm.ntu.edu.tw/',
   },
 ];
 

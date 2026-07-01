@@ -122,7 +122,6 @@ const defReadout = def.found
 
       const render = (i: number) => {
         const { lo, hi, final } = info(i);
-        const empty = lo >= hi;
         for (const el of rows) {
           const r = Number(el.dataset.row);
           const inB = r >= lo && r < hi;
