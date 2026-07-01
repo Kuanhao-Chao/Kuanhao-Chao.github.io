@@ -47,6 +47,8 @@ A Wheeler graph is a directed, edge-labeled graph whose nodes can be put in a sp
 
 More precisely, every zero-indegree node must appear before every other node. Then consider two edges, from `u` to `v` with label `a` and from `u′` to `v′` with label `a′`. If `a` comes before `a′`, then `v` must come before `v′`. If the labels are equal and `u` comes before `u′`, then `v` cannot come after `v′`. The animation below turns those conditions into a visible ordering rule.
 
+The walkthrough uses the eight-node graph shown later in Figure 1. It preserves all of that graph's nodes and edges, but adapts the labels to the full DNA alphabet: the two edges entering `S8` are shown as T, giving the ordered classes A, C, G, and T.
+
 <WGTWheelerOrder />
 
 Here's the catch that motivated us. Given some graph you've built, *is* it a Wheeler graph — does a valid ordering exist? That recognition problem is NP-complete in general, and hard even to approximate ([Gibney and Thankachan, 2019](https://doi.org/10.4230/LIPIcs.ESA.2019.51)). A theoretical algorithm had been proposed, but there was no working implementation — no way to actually feed it a graph and get an answer. And beyond recognition, there were no practical tools to *visualize* a Wheeler graph, or to *generate* example graphs to test ideas on. The concept was foundational, and yet almost untouchable in practice.
@@ -58,7 +60,7 @@ WGT began as the final project for **Ben Langmead's _Computational Genomics: Seq
 WGT is an open-source suite with three parts, shown end to end below.
 
 <ZoomFigure src={figOverview} alt="The WGT pipeline: a generator emits a graph definition, the Wheelie recognizer applies a label-maximum ordering and a renaming heuristic before handing off to a permutation or SMT solver, and a visualizer draws the ordered graph in two rows." variant="landscape">
-  <strong>Figure 1.</strong> The Wheeler Graph Toolkit, end to end. A <strong>generator</strong> produces a graph (Wheeler or not); the <strong>recognizer</strong>, Wheelie, decides whether the graph is a Wheeler graph and, if so, finds a valid node ordering — first applying a renaming heuristic, then handing the remaining work to a permutation solver or an SMT solver; and a <strong>visualizer</strong> draws the result.
+  <strong>Figure 1.</strong> The Wheeler Graph Toolkit, end to end. A <strong>generator</strong> produces a graph (Wheeler or not); the <strong>recognizer</strong>, Wheelie, decides whether the graph is a Wheeler graph and, if so, finds a valid node ordering — first applying a renaming heuristic, then handing the remaining work to a permutation solver or an SMT solver; and a <strong>visualizer</strong> draws the result. The interactive walkthroughs retain this graph's topology while adapting its three abstract label classes to A, C, G, and T.
 </ZoomFigure>
 
 The three parts are:
@@ -75,7 +77,7 @@ To make that concrete, here is WGT applied to a real gene: take the human gene *
 
 ## How Wheelie works
 
-The hard part is recognition, and the trick that makes it fast is a **renaming heuristic**. The intuition: in any valid Wheeler ordering, a node's position is strongly constrained by the labels on its incoming edges. So Wheelie groups the nodes by their incoming-edge label, then repeatedly sorts and relabels them, propagating those constraints until the labels stop changing.
+The hard part is recognition, and the trick that makes it fast is a **renaming heuristic**. The intuition: in any valid Wheeler ordering, a node's position is strongly constrained by the labels on its incoming edges. So Wheelie groups the nodes by their incoming-edge label, then repeatedly sorts and relabels them, propagating those constraints until the labels stop changing. The next walkthrough continues with the same DNA graph, so each heuristic state can be traced back to the edges above.
 
 <WGTWheelie />
 
