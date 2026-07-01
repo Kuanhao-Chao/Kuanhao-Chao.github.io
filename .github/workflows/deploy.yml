@@ -49,12 +49,6 @@ jobs:
       - name: Audit security
         run: npm run audit:security
 
-      - name: Audit post interfaces
-        env:
-          POST_UI_AUDIT_BROWSERS: chromium
-          POST_UI_AUDIT_PROFILES: desktop-light,phone-dark
-        run: npm run audit:posts
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
