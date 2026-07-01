@@ -51,6 +51,20 @@ function selectedBrowsers() {
   });
 }
 
+function selectedProfiles() {
+  const names = process.env.POST_UI_AUDIT_PROFILES
+    ?.split(',')
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean);
+  if (!names?.length) return profiles;
+
+  return names.map((name) => {
+    const profile = profiles.find((item) => item.name === name);
+    if (!profile) throw new Error(`Unsupported POST_UI_AUDIT_PROFILES entry: ${name}`);
+    return profile;
+  });
+}
+
 async function availablePort() {
   const server = createServer();
   await new Promise((resolve, reject) => {
@@ -78,27 +92,31 @@ async function waitForSite(url, child) {
 
 async function auditImages(page, scope) {
   const images = page.locator('main img:visible');
-  for (let index = 0; index < (await images.count()); index += 1) {
-    const image = images.nth(index);
-    await image.scrollIntoViewIfNeeded();
-    await image.evaluate(async (element, timeout) => {
-      if (!element.decode) return;
+  const count = await images.count();
+  for (let index = 0; index < count; index += 1) {
+    await images.nth(index).scrollIntoViewIfNeeded();
+  }
+  const results = await images.evaluateAll(async (elements, timeout) => Promise.all(elements.map(async (element) => {
+    if (element.decode) {
       await Promise.race([
         element.decode().catch(() => {}),
         new Promise((resolve) => setTimeout(resolve, timeout)),
       ]);
-    }, imageDecodeTimeout);
-    const result = await image.evaluate((element) => ({
+    }
+    return {
       alt: element.getAttribute('alt'),
       complete: element.complete,
       width: element.naturalWidth,
       height: element.naturalHeight,
-    }));
+    };
+  })), imageDecodeTimeout);
+
+  results.forEach((result, index) => {
     if (result.alt === null) fail(scope, `image ${index + 1} is missing an alt attribute`);
     if (!result.complete || result.width < 1 || result.height < 1) {
       fail(scope, `image ${index + 1} did not load`);
     }
-  }
+  });
 }
 
 async function auditZoomFigures(page, scope, expected) {
@@ -324,7 +342,7 @@ async function main() {
       progress(`${engineName}/start`);
       const browser = await browserType.launch({ headless: true });
       try {
-        for (const profile of profiles) {
+        for (const profile of selectedProfiles()) {
           const context = await browser.newContext({
             baseURL,
             viewport: { width: profile.width, height: profile.height },
@@ -377,8 +395,9 @@ async function main() {
   const animationCount = Object.values(inventory).reduce((sum, item) => sum + item.animations, 0);
   const figureCount = Object.values(inventory).reduce((sum, item) => sum + item.figures, 0);
   const browserLabel = selectedBrowsers().map(([name]) => name).join(' and ');
+  const profileLabel = selectedProfiles().map(({ name }) => name).join(', ');
   console.log(
-    `Post UI audit passed for ${Object.keys(inventory).length} live posts, ${animationCount} animations, and ${figureCount} zoom figures in ${browserLabel}.`
+    `Post UI audit passed for ${Object.keys(inventory).length} live posts, ${animationCount} animations, and ${figureCount} zoom figures in ${browserLabel} (${profileLabel}).`
   );
 }
 
