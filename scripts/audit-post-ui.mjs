@@ -3,6 +3,11 @@ import { createServer } from 'node:net';
 import process from 'node:process';
 import { chromium, webkit } from 'playwright';
 
+const browserTypes = { chromium, webkit };
+const actionTimeout = 10_000;
+const navigationTimeout = 30_000;
+const imageDecodeTimeout = 5_000;
+
 const inventory = {
   han1: { animations: 0, figures: 3 },
   lifton: { animations: 4, figures: 4 },
@@ -22,6 +27,29 @@ const profiles = [
 
 const failures = [];
 const fail = (scope, message) => failures.push(`${scope}: ${message}`);
+const progress = (scope) => console.log(`[post-ui] ${scope}`);
+
+async function captureFailure(scope, task) {
+  try {
+    await task();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    fail(scope, message);
+  }
+}
+
+function selectedBrowsers() {
+  const names = (process.env.POST_UI_AUDIT_BROWSERS ?? 'chromium,webkit')
+    .split(',')
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean);
+
+  return names.map((name) => {
+    const browserType = browserTypes[name];
+    if (!browserType) throw new Error(`Unsupported POST_UI_AUDIT_BROWSERS entry: ${name}`);
+    return [name, browserType];
+  });
+}
 
 async function availablePort() {
   const server = createServer();
@@ -53,7 +81,13 @@ async function auditImages(page, scope) {
   for (let index = 0; index < (await images.count()); index += 1) {
     const image = images.nth(index);
     await image.scrollIntoViewIfNeeded();
-    await image.evaluate((element) => element.decode?.().catch(() => {}));
+    await image.evaluate(async (element, timeout) => {
+      if (!element.decode) return;
+      await Promise.race([
+        element.decode().catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, timeout)),
+      ]);
+    }, imageDecodeTimeout);
     const result = await image.evaluate((element) => ({
       alt: element.getAttribute('alt'),
       complete: element.complete,
@@ -180,13 +214,14 @@ async function auditAnimation(root, scope, profile) {
 
 async function auditPage(page, engineName, profile, slug, expected) {
   const scope = `${engineName}/${profile.name}/${slug}`;
+  progress(scope);
   const runtimeErrors = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
   page.on('console', (message) => {
     if (message.type() === 'error') runtimeErrors.push(message.text());
   });
 
-  await page.goto(`/posts/${slug}/`, { waitUntil: 'networkidle' });
+  await page.goto(`/posts/${slug}/`, { waitUntil: 'networkidle', timeout: navigationTimeout });
   if ((await page.locator('html').getAttribute('data-theme')) !== profile.theme) {
     fail(scope, `theme did not resolve to ${profile.theme}`);
   }
@@ -216,20 +251,28 @@ async function auditReducedMotion(browser, baseURL) {
     reducedMotion: 'reduce',
   });
   for (const slug of Object.keys(inventory).filter((item) => inventory[item].animations > 0)) {
+    const scope = `chromium/reduced-motion/${slug}`;
+    progress(scope);
     const page = await context.newPage();
-    await page.goto(`/posts/${slug}/`, { waitUntil: 'networkidle' });
-    const animations = page.locator('.lvz');
-    for (let index = 0; index < (await animations.count()); index += 1) {
-      const root = animations.nth(index);
-      const total = await root.locator('[data-wgi-jump]').count();
-      await root.locator('[data-wgi-play]').click();
-      const position = (await root.locator('[data-wgi-pos]').textContent())?.trim();
-      const pressed = await root.locator('[data-wgi-play]').getAttribute('aria-pressed');
-      if (position !== `${total} / ${total}` || pressed !== 'false') {
-        fail(`chromium/reduced-motion/${slug}/animation-${index + 1}`, 'play did not jump to final state');
-      }
+    page.setDefaultTimeout(actionTimeout);
+    try {
+      await captureFailure(scope, async () => {
+        await page.goto(`/posts/${slug}/`, { waitUntil: 'networkidle', timeout: navigationTimeout });
+        const animations = page.locator('.lvz');
+        for (let index = 0; index < (await animations.count()); index += 1) {
+          const root = animations.nth(index);
+          const total = await root.locator('[data-wgi-jump]').count();
+          await root.locator('[data-wgi-play]').click();
+          const position = (await root.locator('[data-wgi-pos]').textContent())?.trim();
+          const pressed = await root.locator('[data-wgi-play]').getAttribute('aria-pressed');
+          if (position !== `${total} / ${total}` || pressed !== 'false') {
+            fail(`${scope}/animation-${index + 1}`, 'play did not jump to final state');
+          }
+        }
+      });
+    } finally {
+      await page.close();
     }
-    await page.close();
   }
   await context.close();
 }
@@ -237,20 +280,28 @@ async function auditReducedMotion(browser, baseURL) {
 async function auditPrint(browser, baseURL) {
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
   for (const slug of Object.keys(inventory).filter((item) => inventory[item].animations > 0)) {
+    const scope = `chromium/print/${slug}`;
+    progress(scope);
     const page = await context.newPage();
-    await page.goto(`/posts/${slug}/`, { waitUntil: 'networkidle' });
-    await page.emulateMedia({ media: 'print' });
-    const animations = page.locator('.lvz');
-    for (let index = 0; index < (await animations.count()); index += 1) {
-      const root = animations.nth(index);
-      if ((await root.locator('[data-print-final="true"]:visible').count()) < 1) {
-        fail(`chromium/print/${slug}/animation-${index + 1}`, 'no final state is visible');
-      }
-      if ((await root.locator('.lvz-controls').evaluate((element) => getComputedStyle(element).display)) !== 'none') {
-        fail(`chromium/print/${slug}/animation-${index + 1}`, 'controls remain visible');
-      }
+    page.setDefaultTimeout(actionTimeout);
+    try {
+      await captureFailure(scope, async () => {
+        await page.goto(`/posts/${slug}/`, { waitUntil: 'networkidle', timeout: navigationTimeout });
+        await page.emulateMedia({ media: 'print' });
+        const animations = page.locator('.lvz');
+        for (let index = 0; index < (await animations.count()); index += 1) {
+          const root = animations.nth(index);
+          if ((await root.locator('[data-print-final="true"]:visible').count()) < 1) {
+            fail(`${scope}/animation-${index + 1}`, 'no final state is visible');
+          }
+          if ((await root.locator('.lvz-controls').evaluate((element) => getComputedStyle(element).display)) !== 'none') {
+            fail(`${scope}/animation-${index + 1}`, 'controls remain visible');
+          }
+        }
+      });
+    } finally {
+      await page.close();
     }
-    await page.close();
   }
   await context.close();
 }
@@ -268,7 +319,9 @@ async function main() {
 
   try {
     await waitForSite(`${baseURL}/posts/`, preview);
-    for (const [engineName, browserType] of [['chromium', chromium], ['webkit', webkit]]) {
+    const browsers = selectedBrowsers();
+    for (const [engineName, browserType] of browsers) {
+      progress(`${engineName}/start`);
       const browser = await browserType.launch({ headless: true });
       try {
         for (const profile of profiles) {
@@ -281,8 +334,14 @@ async function main() {
           await context.addInitScript((theme) => localStorage.setItem('khc-theme', theme), profile.theme);
           for (const [slug, expected] of Object.entries(inventory)) {
             const page = await context.newPage();
-            await auditPage(page, engineName, profile, slug, expected);
-            await page.close();
+            page.setDefaultTimeout(actionTimeout);
+            try {
+              await captureFailure(`${engineName}/${profile.name}/${slug}`, () =>
+                auditPage(page, engineName, profile, slug, expected)
+              );
+            } finally {
+              await page.close();
+            }
           }
           await context.close();
         }
@@ -317,8 +376,9 @@ async function main() {
 
   const animationCount = Object.values(inventory).reduce((sum, item) => sum + item.animations, 0);
   const figureCount = Object.values(inventory).reduce((sum, item) => sum + item.figures, 0);
+  const browserLabel = selectedBrowsers().map(([name]) => name).join(' and ');
   console.log(
-    `Post UI audit passed for ${Object.keys(inventory).length} live posts, ${animationCount} animations, and ${figureCount} zoom figures in Chromium and WebKit.`
+    `Post UI audit passed for ${Object.keys(inventory).length} live posts, ${animationCount} animations, and ${figureCount} zoom figures in ${browserLabel}.`
   );
 }
 
