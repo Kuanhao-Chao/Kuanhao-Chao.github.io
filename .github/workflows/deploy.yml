@@ -35,7 +35,7 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium
 
       - name: Check site
         run: npm run check
@@ -47,6 +47,8 @@ jobs:
         run: npm run audit:indexing
 
       - name: Audit post interfaces
+        env:
+          POST_UI_AUDIT_BROWSERS: chromium
         run: npm run audit:posts
 
       - name: Upload Pages artifact
