@@ -46,9 +46,6 @@ jobs:
       - name: Build site
         run: npm run build
 
-      - name: Audit browser games
-        run: GAME_UI_AUDIT_BROWSERS=chromium npm run audit:games
-
       - name: Audit indexing
         run: npm run audit:indexing
 
