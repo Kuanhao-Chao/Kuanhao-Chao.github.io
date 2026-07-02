@@ -1,0 +1,15 @@
+# Build output and generated files
+dist/
+.astro/
+node_modules/
+package-lock.json
+
+# Generated — edit the generator, not the output
+src/legacy-redirects.mjs
+
+# Served verbatim (hand-authored event pages + raw assets)
+public/
+
+# Content prose is authored by hand; keep Prettier out of MDX/MD
+src/content/**/*.mdx
+src/content/**/*.md
