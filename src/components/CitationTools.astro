@@ -3,17 +3,34 @@ import Icon from './Icon.astro';
 
 interface Props {
   citation: string;
+  bibtex?: string;
+  ris?: string;
   compact?: boolean;
 }
 
-const { citation, compact = false } = Astro.props;
-const encodedCitation = encodeURIComponent(citation);
+const { citation, bibtex, ris, compact = false } = Astro.props;
 ---
 <div class:list={['citation-tools', { 'citation-tools--compact': compact }]}>
-  <button type="button" class="citation-copy" data-copy-text={encodedCitation}>
+  <button type="button" class="citation-copy" data-copy-text={encodeURIComponent(citation)}>
     <Icon name="copy" size={15} />
     <span data-copy-label>Copy citation</span>
   </button>
+  {
+    bibtex && (
+      <button type="button" class="citation-copy" data-copy-text={encodeURIComponent(bibtex)}>
+        <Icon name="code" size={15} />
+        <span data-copy-label>BibTeX</span>
+      </button>
+    )
+  }
+  {
+    ris && (
+      <button type="button" class="citation-copy" data-copy-text={encodeURIComponent(ris)}>
+        <Icon name="file" size={15} />
+        <span data-copy-label>RIS</span>
+      </button>
+    )
+  }
 </div>
 
 <style>

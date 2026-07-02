@@ -11,7 +11,7 @@ headlines, and generous whitespace.
 
 ## Develop
 
-Requires Node ≥ 18.20.8 (Node 22 LTS recommended — see `.nvmrc`).
+Requires Node ≥ 22.12.0 (Node 22 LTS — see `.nvmrc`).
 
 ```sh
 npm install

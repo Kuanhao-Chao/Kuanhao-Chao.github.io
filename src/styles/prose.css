@@ -35,6 +35,13 @@
   border: 1px solid var(--color-rule);
 }
 
+/* Dark mode: back figures with a light mat so white/transparent, dark-line-art
+   scientific images stay legible on the dark page (mirrors ZoomFigure). */
+[data-theme='dark'] .prose img {
+  background: var(--color-figure-mat);
+  padding: 0.75rem;
+}
+
 .prose figure {
   margin-block: 1.8em;
 }

@@ -6,7 +6,7 @@ import CitationTools from '../../components/CitationTools.astro';
 import { pubSlug } from '../../lib/slug';
 import { resolveRelatedPosts } from '../../lib/relatedPosts';
 import { fullDate } from '../../lib/format';
-import { publicationCitation } from '../../lib/citationText';
+import { publicationCitation, publicationRis } from '../../lib/citationText';
 import { site } from '../../data/site';
 
 export async function getStaticPaths() {
@@ -115,7 +115,7 @@ const breadcrumbLd = {
   </p>
 
   <div class="publication-citation">
-    <CitationTools citation={citation} />
+    <CitationTools citation={citation} bibtex={d.bibtex} ris={publicationRis(d)} />
   </div>
 
   {
