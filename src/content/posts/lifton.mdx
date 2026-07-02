@@ -11,6 +11,7 @@ date: 2025-02-01
 updated: 2026-07-01
 category: summary
 tags: ['Genome annotation', 'Comparative genomics', 'Open source']
+linkLabel: 'LiftOn'
 image: ../../assets/posts/lifton/lifton-algorithm.png
 logo: ../../assets/logos/software/lifton.png
 imageAlt: "LiftOn's protein-maximization algorithm: a chaining step that combines Liftoff (DNA) and miniprot (protein) annotations, followed by an open-reading-frame search that repairs start codons and frameshifts."
@@ -48,13 +49,13 @@ My lab already had a DNA-based lift-over tool: [Liftoff (Shumate and Salzberg, 2
 
 Protein alignment provides complementary evidence. Orthologous protein sequences can remain conserved across distances where their nucleotide sequences have diverged, in part because synonymous substitutions do not change amino acids. Heng Li's [miniprot (Li, 2023)](https://doi.org/10.1093/bioinformatics/btad014) aligns a reference protein directly to a target genome and can recover coding models across relatively distant species.
 
-Protein alignment has its own limitations. It does not define untranslated regions; it can miss very small exons; it is susceptible to processed pseudogenes; and it can merge nearby members of tandem gene families. Neither evidence source solves the full annotation-transfer problem alone.
+Protein alignment has its own limitations. It does not define untranslated regions; it can miss very small exons; it is susceptible to processed pseudogenes (intron-less, reverse-transcribed gene copies); and it can merge nearby members of tandem gene families. Neither evidence source solves the full annotation-transfer problem alone.
 
 The insight behind LiftOn is simple: **DNA alignment and protein alignment fail in different ways.** Where one is weak, the other is often strong. So instead of choosing one source, LiftOn pairs them at the same locus, lets each contribute the coding segments it supports best, and uses the reference protein as the scoring target. I built LiftOn on that idea in Steven Salzberg's and Mihaela Pertea's groups at Johns Hopkins — the same place Liftoff was born, with Liftoff's own author on the team.
 
 ## How LiftOn combines the evidence
 
-LiftOn is a homology-based annotation lift-over algorithm, implemented as open-source software, that runs Liftoff and miniprot and reconciles their annotations around one explicit objective: preserve as much of the reference protein as possible without discarding the broader structure supplied by DNA alignment. The workflow is not a vote between two finished annotations. It pairs corresponding models, compares them in reference-protein coordinates, constructs a new CDS chain, checks alternative open reading frames, and then controls where additional copies may be placed.
+LiftOn is a homology-based annotation lift-over algorithm, implemented as open-source software, that runs Liftoff and miniprot and reconciles their annotations around one explicit objective: preserve as much of the reference protein as possible without discarding the broader structure supplied by DNA alignment. The workflow is not a vote between two finished annotations. It pairs corresponding models, compares them in reference-protein coordinates, constructs a new CDS (coding sequence, the exon segments that translate into protein) chain, checks alternative open reading frames, and then controls where additional copies may be placed.
 
 ### 1. Map and pair the two annotations
 
@@ -76,7 +77,7 @@ The walkthrough follows the worked example in Figure 1 of the paper: the two pro
 
 ### 3. Search for a better open reading frame
 
-Chaining can still leave a frameshift, premature stop, lost stop codon, or lost start codon. For transcripts with these damaging patterns, LiftOn scans the spliced transcript in all three reading frames. It retains the longest valid ORF from each frame, translates those candidates, aligns each one to the reference protein, and selects the highest-identity candidate. The CDS boundaries are updated only when that ORF improves on the current annotation.
+Chaining can still leave a frameshift (an insertion or deletion that shifts the reading frame out of register), a premature stop (a stop codon that appears earlier than the true one, truncating the protein), a lost stop codon, or a lost start codon. For transcripts with these damaging patterns, LiftOn scans the spliced transcript in all three reading frames. It retains the longest valid ORF from each frame, translates those candidates, aligns each one to the reference protein, and selects the highest-identity candidate. The CDS boundaries are updated only when that ORF improves on the current annotation.
 
 This search changes the annotation, not the underlying genome. Figure 1 shows six possible outcomes: repairing a frameshift, stopping at an earlier valid stop, switching to a downstream start after stop gain, extending into the 3′ UTR after stop loss, and moving a lost start either downstream or upstream into the 5′ UTR. The selector below applies the same search rule to each case.
 

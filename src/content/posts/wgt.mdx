@@ -9,6 +9,7 @@ updated: 2026-07-01
 category: summary
 draft: false
 tags: ['Pangenomics', 'Algorithms', 'Open source']
+linkLabel: 'WGT'
 image: ../../assets/posts/wgt/wgt-overview.png
 logo: ../../assets/logos/software/wgt.png
 imageAlt: 'The Wheeler Graph Toolkit pipeline: a generator produces graphs, the Wheelie recognizer (renaming heuristic plus a permutation or SMT solver) decides whether a graph is a Wheeler graph and finds its node ordering, and a visualizer draws it.'
@@ -38,7 +39,7 @@ import figCactus from '../../assets/posts/wgt/wgt-cactus.png';
 
 Modern genomics is moving away from a single linear reference toward the **pangenome** — many genomes represented together, usually as a graph, so that all the variation between individuals is in the picture rather than flattened into one consensus. But a pangenome is only useful if you can *search* it: given a sequencing read, you need to find where it matches, and you need that to be fast even when the graph encodes thousands of genomes.
 
-For a single linear genome we have a beautiful answer to this: the Burrows-Wheeler Transform (Burrows and Wheeler, 1994) and the [FM-index (Ferragina and Manzini, 2005)](https://doi.org/10.1145/1082036.1082039), which let you index a genome once and then answer queries in time that scales with the query, not the genome. The natural question for pangenomes is whether the same trick works on a *graph*. Remarkably, for a special class of graphs, it does. Those are **Wheeler graphs** ([Gagie et al., 2017](https://doi.org/10.1016/j.tcs.2017.06.016)), and they're the elegant structure quietly underpinning graph-based pangenome indexes.
+For a single linear genome we have a beautiful answer to this: the Burrows-Wheeler Transform (BWT; Burrows and Wheeler, 1994) and the [FM-index (Ferragina and Manzini, 2005)](https://doi.org/10.1145/1082036.1082039), which let you index a genome once and then answer queries in time that scales with the query, not the genome. The natural question for pangenomes is whether the same trick works on a *graph*. Remarkably, for a special class of graphs, it does. Those are **Wheeler graphs** ([Gagie et al., 2017](https://doi.org/10.1016/j.tcs.2017.06.016)), and they're the elegant structure quietly underpinning graph-based pangenome indexes.
 
 **WGT**, the Wheeler Graph Toolkit ([Chao et al., 2023](https://doi.org/10.1016/j.isci.2023.107402)), is the software we built to make Wheeler graphs something you can actually work with.
 
@@ -46,7 +47,7 @@ For a single linear genome we have a beautiful answer to this: the Burrows-Wheel
 
 A Wheeler graph is a directed, edge-labeled graph whose nodes can be put in a special order — one that generalizes the sorting at the heart of the BWT. That order supports compact BWT-like indexes and efficient path queries on the graph. This connection is why Wheeler graphs form part of the theoretical basis for pangenome tools such as [vg (Garrison et al., 2018)](https://doi.org/10.1038/nbt.4227).
 
-More precisely, every zero-indegree node must appear before every other node. Then consider two edges, from `u` to `v` with label `a` and from `u′` to `v′` with label `a′`. If `a` comes before `a′`, then `v` must come before `v′`. If the labels are equal and `u` comes before `u′`, then `v` cannot come after `v′`. The animation below turns those conditions into a visible ordering rule.
+More precisely, every zero-indegree node (a node with no incoming edges) must appear before every other node. Then consider two edges, from `u` to `v` with label `a` and from `u′` to `v′` with label `a′`. If `a` comes before `a′`, then `v` must come before `v′`. If the labels are equal and `u` comes before `u′`, then `v` cannot come after `v′`. The animation below turns those conditions into a visible ordering rule.
 
 The walkthrough uses the eight-node graph shown later in Figure 1. It preserves all of that graph's nodes and edges, but adapts the labels to the full DNA alphabet: the two edges entering `S8` are shown as T, giving the ordered classes A, C, G, and T.
 
@@ -66,7 +67,7 @@ WGT is an open-source suite with three parts, shown end to end below.
 
 The three parts are:
 
-- **Generators** that produce graphs to work with — De Bruijn graphs and tries built from sequences, reverse-deterministic graphs built from multiple sequence alignments, and random graphs (including tunable "d-NFA" graphs) where you control the number of nodes, the edges, the alphabet size, and the branching. This gives you a steady supply of both Wheeler and non-Wheeler graphs to test on.
+- **Generators** that produce graphs to work with — De Bruijn graphs (which encode overlapping fixed-length subsequences) and tries built from sequences, reverse-deterministic graphs built from multiple sequence alignments, and random graphs (including tunable "d-NFA" graphs) where you control the number of nodes, the edges, the alphabet size, and the branching. This gives you a steady supply of both Wheeler and non-Wheeler graphs to test on.
 - **A recognizer**, the core of the toolkit, called **Wheelie**.
 - **A visualizer** that draws a graph in a "two replicas" bipartite layout — the ordered nodes appear in two rows, with edges leaving one row and arriving in the other — which makes the otherwise-abstract Wheeler ordering something you can actually look at.
 

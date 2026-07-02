@@ -8,6 +8,7 @@ date: 2021-03-01
 updated: 2026-07-01
 category: summary
 tags: ['Sanger sequencing', 'R / Bioconductor', 'Open source']
+linkLabel: 'sangeranalyseR'
 image: ../../assets/posts/sangeranalyser/sanger-workflow.png
 imageAlt: 'The five-step sangeranalyseR workflow: prepare input files, load and analyse data, optionally explore in a Shiny app, output aligned contigs, and generate an interactive report.'
 references:
@@ -53,7 +54,7 @@ sangeranalyseR's contribution is the workflow algorithm around Sanger data. It t
   <strong>Figure 1.</strong> The sangeranalyseR workflow. Five steps take you from input files to a finished report: prepare `.ab1`/FASTA inputs; load and analyse them through three nested objects (<code>SangerRead</code> → <code>SangerContig</code> → <code>SangerAlignment</code>); optionally explore the data in an interactive Shiny app; write out aligned consensus contigs as FASTA; and generate a self-contained interactive HTML report.
 </ZoomFigure>
 
-The object model is the key design. `SangerRead` stores one read, its chromatogram, and trimming information. `SangerContig` stores the reads that form one contig, the consensus sequence created with [DECIPHER (Wright, 2016)](https://doi.org/10.32614/RJ-2016-025), a dendrogram, and optional indel or stop-codon information. `SangerAlignment` stores the collection of contigs, the contig alignment, and a quality-control tree. For downstream phylogenetics, the alignment and tree should be treated as QC summaries rather than final analyses.
+The object model is the key design. `SangerRead` stores one read, its chromatogram, and trimming information. `SangerContig` stores the reads that form one contig, the consensus sequence created with [DECIPHER (Wright, 2016)](https://doi.org/10.32614/RJ-2016-025), a dendrogram (a tree grouping the reads by similarity), and optional indel (insertion/deletion) or stop-codon information. `SangerAlignment` stores the collection of contigs, the contig alignment, and a quality-control tree. For downstream phylogenetics, the alignment and tree should be treated as QC summaries rather than final analyses.
 
 The paper's small example is intentionally simple. A complete analysis of the example data can be driven in a few lines of R:
 
@@ -70,13 +71,13 @@ generateReport(aln)   # write a full, interactive HTML report
 
 ## What it does
 
-**A few lines, but explicit underneath.** That single `SangerAlignment` call does a sequence of concrete operations. It reads ABIF or FASTA inputs, groups reads into contigs by filename patterns or a CSV file, trims reads with either a modified Mott quality algorithm associated with Phred or a configurable sliding-window approach, assembles forward and reverse reads into consensus contigs, and aligns the contigs together. The paper demonstrates this on eight annelid (*Allolobophora chlorotica*) samples, with one forward and one reverse ABIF read per sample.
+**A few lines, but explicit underneath.** That single `SangerAlignment` call does a sequence of concrete operations. It reads ABIF or FASTA inputs, groups reads into contigs by filename patterns or a CSV file, trims reads with either a modified Mott quality algorithm associated with Phred (per-base sequencing quality scores) or a configurable sliding-window approach, assembles forward and reverse reads into consensus contigs, and aligns the contigs together. The paper demonstrates this on eight annelid (*Allolobophora chlorotica*) samples, with one forward and one reverse ABIF read per sample.
 
 <ZoomFigure src={figExample} alt="A worked example: four lines of R code, the input file structure, the Shiny overview screen, a multiple sequence alignment of eight consensus contigs, and a quality-control tree." variant="wide">
   <strong>Figure 2.</strong> A complete analysis of eight samples. <strong>(A)</strong> The few lines of R that drive it. <strong>(B)</strong> The ABIF input files, organized in folders and named so the package can infer contig groups and read direction. <strong>(C)</strong> The optional Shiny overview page. <strong>(D)</strong> The resulting multiple sequence alignment of the eight consensus contigs, and <strong>(E)</strong> a tree used as a quality-control view.
 </ZoomFigure>
 
-**Interactive when you need inspection.** The workflow is automated, but the paper is clear that users sometimes need to inspect reads and tune parameters. The Shiny applications expose that inspection layer inside R: users can view read alignments, Hamming-distance heatmaps between reads in a contig, trimmed primary and secondary sequences, per-base Phred quality scores ([Ewing and Green, 1998](https://doi.org/10.1101/gr.8.3.186)), secondary peaks, trimming positions, and chromatograms with the 5' and 3' trimmed regions highlighted. If an amino-acid reference is supplied, the app also reports indels and stop codons in individual reads.
+**Interactive when you need inspection.** The workflow is automated, but the paper is clear that users sometimes need to inspect reads and tune parameters. The Shiny applications expose that inspection layer inside R: users can view read alignments, Hamming-distance heatmaps (counting the positions at which two reads differ) between reads in a contig, trimmed primary and secondary sequences, per-base Phred quality scores ([Ewing and Green, 1998](https://doi.org/10.1101/gr.8.3.186)), secondary peaks, trimming positions, and chromatograms with the 5' and 3' trimmed regions highlighted. If an amino-acid reference is supplied, the app also reports indels and stop codons in individual reads.
 
 <ZoomFigure src={figShiny} alt="The interactive Shiny interface: a read alignment, a Hamming-distance heatmap, indel and stop-codon tables, per-base quality scores, a quality-trimming plot, and a chromatogram with trimmed regions highlighted." variant="wide">
   <strong>Figure 3.</strong> Inspecting the details in the Shiny GUI. The left column works at the contig level — the read alignment <strong>(A)</strong>, a Hamming-distance heatmap <strong>(B)</strong>, and reference-dependent indel <strong>(C)</strong> and stop-codon <strong>(D)</strong> tables. The right column drills into a single read — the trimmed primary and secondary sequences with quality scores <strong>(E)</strong>, an interactive trimming plot <strong>(F)</strong>, and the raw chromatogram with trimmed ends highlighted <strong>(G)</strong>.
