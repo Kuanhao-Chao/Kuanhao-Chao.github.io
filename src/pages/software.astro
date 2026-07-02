@@ -26,6 +26,10 @@ const toolLinks = (t: SoftwareTool) =>
 // Newest-first by release/publication date (ISO date strings sort chronologically).
 const tools = [...software].sort((a, b) => b.date.localeCompare(a.date));
 
+// Side-project links can be internal (a page on this site, navigated by the
+// ClientRouter) or external (a hosted build). Only external ones open a new tab.
+const isExternalUrl = (href: string) => /^https?:\/\//.test(href);
+
 // Structured data: one SoftwareSourceCode node per tool, linked to the Person node.
 const softwareLd = {
   '@context': 'https://schema.org',
@@ -105,7 +109,7 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
 
   <section class="block">
     <h2 class="block-title">Side projects</h2>
-    <p class="muted side-intro">A few games I built with Unity for fun.</p>
+    <p class="muted side-intro">A few games I built for fun — a browser Snake you can play right here, plus some older Unity WebGL games.</p>
     <ul class="tools">
       {
         sideProjects.map((p) => (
@@ -113,12 +117,21 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
             <div class="tool-main">
               <div class="tool-head">
                 <h3 class="tool-name">
-                  <a href={p.url} target="_blank" rel="noopener noreferrer">{p.name}</a>
+                  <a
+                    href={p.url}
+                    target={isExternalUrl(p.url) ? '_blank' : undefined}
+                    rel={isExternalUrl(p.url) ? 'noopener noreferrer' : undefined}
+                  >{p.name}</a>
                 </h3>
               </div>
               <p class="tool-blurb muted">{p.detail}</p>
               <p class="row-links">
-                <a href={p.url} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={p.url}
+                  target={isExternalUrl(p.url) ? '_blank' : undefined}
+                  rel={isExternalUrl(p.url) ? 'noopener noreferrer' : undefined}
+                  aria-label={`Play ${p.name}`}
+                >
                   <Icon name="play" size={15} />
                   Play
                 </a>

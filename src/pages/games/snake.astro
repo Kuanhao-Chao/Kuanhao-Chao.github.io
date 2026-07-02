@@ -1,0 +1,202 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+---
+<PageLayout
+  title="Snake"
+  eyebrow="Side project"
+  lead="A tiny browser game, built in the site's own style — play with the arrow keys, WASD, or a swipe. A small nod to the day job: the food is nucleotide bases (A · C · G · T), and the snake grows into a sequence."
+  description="Snake — a small, mobile-friendly browser game by Kuan-Hao Chao, with a genomic twist: the food is A/C/G/T bases and the snake grows into a sequence."
+  width="narrow"
+>
+  <section class="snake" aria-label="Snake game">
+    <div class="snake-hud">
+      <div class="snake-stats">
+        <span class="stat">
+          <span class="stat-label">Bases</span>
+          <span class="stat-value" data-snake-score>0</span>
+        </span>
+        <span class="stat">
+          <span class="stat-label">Best</span>
+          <span class="stat-value" data-snake-best>0</span>
+        </span>
+      </div>
+      <div class="snake-controls">
+        <button type="button" class="snake-btn" data-snake-pause disabled>Pause</button>
+        <button type="button" class="snake-btn" data-snake-restart>Restart</button>
+      </div>
+    </div>
+
+    <div class="snake-board">
+      <canvas
+        data-snake-canvas
+        role="img"
+        aria-label="Snake game board — use the arrow keys, WASD, or swipe to steer."
+      ></canvas>
+    </div>
+
+    <p class="snake-status" data-snake-status role="status" aria-live="polite">
+      Press an arrow, Space, or tap to start
+    </p>
+
+    <p class="snake-strand" aria-hidden="true">
+      <span class="snake-strand-label">sequence</span>
+      <span class="snake-strand-seq" data-snake-strand></span>
+    </p>
+
+    <p class="snake-hint muted">
+      Arrow keys / WASD on desktop, swipe on mobile · Space to start &amp; pause · each base you eat
+      grows the sequence.
+    </p>
+  </section>
+</PageLayout>
+
+<script>
+  import { initSnake, type SnakeController } from '../../scripts/snake';
+
+  let controller: SnakeController | null = null;
+
+  // Idempotent mount: initSnake also guards per-canvas, so double calls are safe.
+  function mount() {
+    if (controller) return;
+    controller = initSnake(document);
+  }
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  // Re-init on every view-transition arrival; tear down before leaving so the
+  // rAF loop and input listeners never leak a second copy.
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  // Also mount now: a bundled module can finish loading *after* astro:page-load
+  // has already fired on the first view-transition visit (the filter-island race).
+  mount();
+</script>
+
+<style>
+  .snake {
+    max-width: 32rem;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .snake-hud {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+  }
+  .snake-stats {
+    display: flex;
+    gap: 1.5rem;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: var(--fs-meta);
+    letter-spacing: var(--tracking-meta);
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: var(--fw-semibold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .snake-controls {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .snake-btn {
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    padding: 0.45em 1em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-ink);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .snake-btn:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  .snake-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .snake-board {
+    width: min(92vw, 30rem, 68svh);
+    aspect-ratio: 1 / 1;
+    margin-inline: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    overflow: hidden;
+    /* Fixed dark shadow so it never becomes a light halo in dark mode. */
+    box-shadow: 0 0.5rem 1.6rem rgba(0, 0, 0, 0.1);
+  }
+  .snake-board canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none; /* swipe steers the snake instead of scrolling the page */
+  }
+
+  .snake-status {
+    text-align: center;
+    font-size: var(--fs-small);
+    color: var(--color-ink);
+    min-height: 1.4em;
+  }
+  .snake-strand {
+    text-align: center;
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+    min-height: 1.4em;
+    letter-spacing: 0.02em;
+  }
+  .snake-strand-label {
+    font-size: var(--fs-meta);
+    letter-spacing: var(--tracking-meta);
+    text-transform: uppercase;
+    margin-right: 0.4rem;
+  }
+  .snake-strand-seq {
+    font-family: var(--font-body);
+    letter-spacing: 0.22em;
+    color: var(--color-accent);
+    font-weight: var(--fw-semibold);
+  }
+  .snake-hint {
+    text-align: center;
+    font-size: var(--fs-meta);
+    max-width: 30rem;
+    margin-inline: auto;
+  }
+
+  @media (pointer: coarse) {
+    .snake-btn {
+      padding-block: 0.6em;
+    }
+  }
+  @media (max-width: 620px) {
+    .stat-value {
+      font-size: 1.45rem;
+    }
+    .snake-hud {
+      align-items: center;
+    }
+  }
+</style>
