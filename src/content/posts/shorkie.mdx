@@ -8,6 +8,7 @@ date: 2025-09-19
 updated: 2026-07-01
 category: summary
 tags: ['DNA language models', 'Gene expression', 'Yeast']
+linkLabel: 'Shorkie'
 image: ../../assets/research/gene-expression-overview.jpg
 logo: ../../assets/logos/software/shorkie.png
 imageAlt: 'Overview of Shorkie: a multi-resolution network, the four-level fungal training hierarchy, the fungal phylogeny, and training curves.'
@@ -40,7 +41,7 @@ Every cell carries essentially the same DNA, but cells do not use that DNA in th
 
 If we could read that program directly from sequence, we could do more than predict whether a gene is active. We could test which bases influence a model's expression prediction, which variants may change it, and how regulation shifts when a cell enters a new state. That is the promise of sequence-to-function modeling. The hard part is separating learned regulatory biology from correlations and shortcuts in natural genomes.
 
-**Shorkie** ([Chao et al., 2025](https://doi.org/10.1101/2025.09.19.677475)) was built for that test. It is a fungal DNA language model, pretrained on related genomes and fine-tuned to predict how budding yeast genes change expression over time. The central question was empirical: if yeast-only supervised training was limited by the amount of sequence available, could related fungal genomes provide a useful starting point? Shorkie asks whether we can learn regulatory grammar from those relatives, then transfer it back to *Saccharomyces cerevisiae*.
+**Shorkie** ([Chao et al., 2025](https://doi.org/10.1101/2025.09.19.677475)) was built for that test. It is a fungal DNA language model that is first *pretrained* on related genomes to learn general sequence patterns, then *fine-tuned* — adapted with labeled yeast data — to predict how budding yeast genes change expression over time. The central question was empirical: if yeast-only supervised training was limited by the amount of sequence available, could related fungal genomes provide a useful starting point? Shorkie asks whether we can learn regulatory grammar from those relatives, then transfer it back to *Saccharomyces cerevisiae*.
 
 ## Why budding yeast?
 
@@ -107,9 +108,9 @@ The evolutionary ranking carried into this downstream task. After identical fine
 
 ## What it showed
 
-The first result is the cleanest: pretraining transfers. On held-out induction RNA-seq tracks, Shorkie improves median bin-level Pearson's R from 0.67 to 0.78 over `Shorkie_Random_Init`. After aggregating over genes, mean gene-level Pearson's R rises from 0.74 to 0.88, and the pretrained model wins on 87.8% of genes. That 0.74 to 0.88 gene-level jump is the central result in one number. The model did not merely benefit from better tuning; we swept learning rates and tested smaller from-scratch networks, and the gap remained.
+The first result is the cleanest: pretraining transfers. On held-out induction RNA-seq tracks, Shorkie improves median bin-level Pearson's R (a correlation coefficient from −1 to 1, where higher means the predictions track the measurements more closely) from 0.67 to 0.78 over `Shorkie_Random_Init`. After aggregating over genes, mean gene-level Pearson's R rises from 0.74 to 0.88, and the pretrained model wins on 87.8% of genes. That 0.74 to 0.88 gene-level jump is the central result in one number. The model did not merely benefit from better tuning; we swept learning rates and tested smaller from-scratch networks, and the gap remained.
 
-The second result is more important biologically: the models learned recognizable regulatory grammar. Using *in silico* mutagenesis and language-model sequence reconstruction, we can ask which bases the models treat as important. Without being given motif labels, Shorkie LM and the fine-tuned Shorkie model recover canonical transcription-factor motifs and regulatory sequence features: Reb1, Tye7, Cbf1, poly(dA:dT) tracts, TATA boxes, Rap1 sites in ribosomal-protein promoters, the PAC motif of ribosome biogenesis, Abf1 sites, 5′ splice donors, and branch-point signals.
+The second result is more important biologically: the models learned recognizable regulatory grammar. Using *in silico* mutagenesis (computationally substituting each base and measuring how much the prediction changes) and language-model sequence reconstruction, we can ask which bases the models treat as important. Without being given motif labels, Shorkie LM and the fine-tuned Shorkie model recover canonical transcription-factor motifs and regulatory sequence features: Reb1, Tye7, Cbf1, poly(dA:dT) tracts, TATA boxes, Rap1 sites in ribosomal-protein promoters, the PAC motif of ribosome biogenesis, Abf1 sites, 5′ splice donors, and branch-point signals.
 
 That distinction matters. High predictive accuracy alone is not enough, because a model trained on natural genomes can exploit correlations that are not causal. Recovering known motifs is useful biological validation that the model has learned recognizable sequence structure, but it is not by itself proof that those features cause expression changes.
 
@@ -123,11 +124,11 @@ That is what happens at *RPL26A*. The language model and fine-tuned model both h
 
 ## Variants, dynamics, and the hard caveat
 
-A useful regulatory model should say something about variants. We tested Shorkie on two association-based yeast *cis*-eQTL datasets and an [MPRA-validated benchmark of causal cis-regulatory variants (Renganaath et al., 2020)](https://doi.org/10.7554/eLife.62669). Across those three evaluations, Shorkie separated positive variants from matched controls better than the tested DREAM-challenge models, its randomly initialized counterpart, and the pretrained language model alone. The comparison shows that pretraining alone is not sufficient; fine-tuning on measured regulatory outputs adds task-specific signal.
+A useful regulatory model should say something about variants. We tested Shorkie on two association-based yeast *cis*-eQTL datasets (variants statistically linked to differences in nearby gene expression) and an [MPRA-validated benchmark of causal cis-regulatory variants (Renganaath et al., 2020)](https://doi.org/10.7554/eLife.62669). Across those three evaluations, Shorkie separated positive variants from matched controls better than the tested DREAM-challenge models, its randomly initialized counterpart, and the pretrained language model alone. The comparison shows that pretraining alone is not sufficient; fine-tuning on measured regulatory outputs adds task-specific signal.
 
 The comparison has an important caveat. DREAM models were trained on synthetic promoter variants measured by massively parallel reporter assays (MPRAs). On synthetic MPRA constructs, the MPRA-trained model beats Shorkie, even though Shorkie never saw MPRA data. That is not a contradiction. Each model is strongest in the domain it was trained on: Shorkie on native genomic sequence, DREAM on designed reporter constructs.
 
-This is part of a larger problem in regulatory genomics: natural genomes contain correlations that are not necessarily causal. MPRAs help break that structure by testing controlled sequence perturbations. In the Renganaath benchmark, Shorkie achieved the highest reported discrimination among the compared models (AUPRC 0.629 ± 0.013; AUROC 0.618 ± 0.006). That result provides a stronger causal test than the association-based eQTL sets, while remaining specific to the variants and assay design evaluated in the paper.
+This is part of a larger problem in regulatory genomics: natural genomes contain correlations that are not necessarily causal. MPRAs help break that structure by testing controlled sequence perturbations. In the Renganaath benchmark, Shorkie achieved the highest reported discrimination among the compared models (AUPRC 0.629 ± 0.013 and AUROC 0.618 ± 0.006 — standard precision-recall and ROC scores for how well true positives are separated from controls). That result provides a stronger causal test than the association-based eQTL sets, while remaining specific to the variants and assay design evaluated in the paper.
 
 The time-course data lets Shorkie address another piece of regulation: dynamics. Gene regulation is not static. During MSN2 and MSN4 induction, STRE motif signals sharpened over the first 90 minutes, matching the expected activation biology. Genome-wide, predicted and measured fold-changes after induction agreed with Pearson correlations of roughly 0.51-0.65 across 5-180 minutes, evaluating up to 218,806 gene-TF pairs per timepoint.
 

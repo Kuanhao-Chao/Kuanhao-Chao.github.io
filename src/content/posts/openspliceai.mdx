@@ -52,13 +52,13 @@ OpenSpliceAI is a faithful, open-source reimplementation of SpliceAI in PyTorch,
 
 ### 1. Build labeled examples from a genome
 
-Training starts with a genome FASTA and a GFF or GTF annotation. OpenSpliceAI extracts each gene in transcript orientation, reverse-complementing minus-strand genes, and labels every nucleotide as neither, acceptor, or donor. The sequence becomes four one-hot channels for A, C, G, and T; unknown bases and padding carry zeros. These examples are windowed and written as HDF5 tensors for training, validation, and held-out testing.
+Training starts with a genome FASTA and a GFF or GTF annotation (the standard sequence and gene-annotation file formats). OpenSpliceAI extracts each gene in transcript orientation, reverse-complementing minus-strand genes, and labels every nucleotide as neither, acceptor, or donor. The sequence becomes four one-hot channels for A, C, G, and T (each base marked by a single 1 across four on/off channels); unknown bases and padding carry zeros. These examples are windowed and written as HDF5 tensors for training, validation, and held-out testing.
 
 <OpenSpliceAIData />
 
 ### 2. Read local motifs and long-range context
 
-The network receives the central 5,000 positions together with a selectable amount of flanking sequence: 80, 400, 2,000, or 10,000 nucleotides. A convolutional stem feeds pre-activation residual units whose dilations grow with context size. The 1 × 1 convolutional skip connections collect features after the stem and every four residual units. After those signals are summed, the network crops away the flanking context and applies a three-channel softmax head to the central positions.
+The network receives the central 5,000 positions together with a selectable amount of flanking sequence (the surrounding DNA on each side that gives the model context): 80, 400, 2,000, or 10,000 nucleotides. A convolutional stem feeds pre-activation residual units whose dilations grow with context size. The 1 × 1 convolutional skip connections collect features after the stem and every four residual units. After those signals are summed, the network crops away the flanking context and applies a three-channel softmax head (turning the three raw outputs into probabilities that sum to one) to the central positions.
 
 The schedules are constructed so that the receptive-field context is exactly `CL = 2 × Σ AR_i(W_i - 1)`, where `W` is convolution width and `AR` is dilation rate. The selector below shows how larger context adds residual tiers and expands the region that can inform one splice-site decision.
 
@@ -66,13 +66,13 @@ The schedules are constructed so that the receptive-field context is exactly `CL
 
 ### 3. Keep the complete model lifecycle open
 
-The six commands form a branching workflow, not a mandatory linear pipeline. `create-data` prepares a new species. From there, `train` learns from scratch, while `transfer` adapts a pretrained checkpoint and can freeze earlier residual units. A checkpoint can be temperature-calibrated, and a directory of independently trained checkpoints becomes an ensemble by averaging their predictions. The resulting model can then follow either the genome-scale `predict` path or the VCF-oriented `variant` path.
+The six commands form a branching workflow, not a mandatory linear pipeline. `create-data` prepares a new species. From there, `train` learns from scratch, while `transfer` adapts a pretrained checkpoint and can freeze earlier residual units. A checkpoint can be temperature-calibrated (rescaling its outputs so the predicted probabilities match observed frequencies), and a directory of independently trained checkpoints becomes an ensemble by averaging their predictions. The resulting model can then follow either the genome-scale `predict` path or the VCF-oriented `variant` path (a VCF is the standard file listing genetic variants).
 
 <OpenSpliceAIWorkflow />
 
 ### 4. Measure how a variant changes the splice landscape
 
-For each variant and overlapping gene, OpenSpliceAI builds matched reference and alternate sequence windows, predicts acceptor and donor probabilities for both alleles, and compares the tracks position by position. Acceptor and donor gains use the maximum of alternate minus reference; losses reverse the subtraction. Each delta score is reported with the position where its maximum occurs, and an optional mask removes changes that contradict the existing annotation.
+For each variant and overlapping gene, OpenSpliceAI builds matched reference and alternate sequence windows, predicts acceptor and donor probabilities for both alleles, and compares the tracks position by position. Acceptor and donor gains use the maximum of alternate minus reference; losses reverse the subtraction. Each delta score (how much the variant shifts the predicted splice probability) is reported with the position where its maximum occurs, and an optional mask removes changes that contradict the existing annotation.
 
 The final step includes the published *MYBPC3* and *OPA1* examples so the general calculation can be connected directly to observed cryptic splice predictions.
 
@@ -82,7 +82,7 @@ Together, these stages are what make OpenSpliceAI retrainable: the data represen
 
 ## What it showed
 
-**It matches SpliceAI's accuracy with lower measured resource use.** Across the tested flanking-context sizes, OpenSpliceAI's donor and acceptor Top-1 accuracy closely tracks the original model. In the paper's prediction and variant benchmarks, the PyTorch implementation also used less runtime and memory, including chromosome-scale prediction on one GPU.
+**It matches SpliceAI's accuracy with lower measured resource use.** Across the tested flanking-context sizes, OpenSpliceAI's donor and acceptor Top-1 accuracy (how often the single highest-scored position is the true splice site) closely tracks the original model. In the paper's prediction and variant benchmarks, the PyTorch implementation also used less runtime and memory, including chromosome-scale prediction on one GPU.
 
 <ZoomFigure src={figBenchmark} alt="OpenSpliceAI matches SpliceAI's donor and acceptor Top-1 accuracy across flanking sizes, while running much faster and using far less memory." variant="wide">
   <strong>Figure 1.</strong> Accuracy and efficiency of the reimplementation. <strong>(C, D)</strong> Donor and acceptor Top-1 accuracy for OpenSpliceAI and the original SpliceAI implementation are closely matched across the tested flanking-context sizes. <strong>(E)</strong> In the paper's prediction benchmark, the PyTorch implementation requires less time and memory as input size grows.
