@@ -253,6 +253,12 @@ export type SideProject = { name: string; detail: string; url: string };
 
 export const sideProjects: SideProject[] = [
   {
+    name: 'Genome Jumper',
+    detail:
+      'Endless browser jumper — procedural platforms, nucleotide boosts, and mutation enemies',
+    url: '/games/genome-jumper/',
+  },
+  {
     name: 'Dino Run',
     detail: 'Browser runner - jump / duck / tap / swipe, with a genomic riff',
     url: '/games/dino-run/',

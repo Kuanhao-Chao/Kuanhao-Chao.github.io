@@ -35,13 +35,19 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Check site
         run: npm run check
 
+      - name: Test game engines
+        run: npm test
+
       - name: Build site
         run: npm run build
+
+      - name: Audit browser games
+        run: npm run audit:games
 
       - name: Audit indexing
         run: npm run audit:indexing
