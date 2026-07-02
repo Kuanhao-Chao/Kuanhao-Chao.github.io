@@ -253,6 +253,11 @@ export type SideProject = { name: string; detail: string; url: string };
 
 export const sideProjects: SideProject[] = [
   {
+    name: 'Dino Run',
+    detail: 'Browser runner - jump / duck / tap / swipe, with a genomic riff',
+    url: '/games/dino-run/',
+  },
+  {
     name: 'Snake',
     detail: 'Browser game — arrow keys / WASD / swipe, with a genomic twist',
     url: '/games/snake/',

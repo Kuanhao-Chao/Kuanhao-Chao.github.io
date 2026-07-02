@@ -1,0 +1,261 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+---
+
+<PageLayout
+  title="Dino Run"
+  eyebrow="Side project"
+  lead="A fast little browser runner built in this site's style: jump low variant blocks, duck splice arches, and keep the genome track moving."
+  description="Dino Run — a mobile-friendly browser runner by Kuan-Hao Chao, with a subtle genomics riff and responsive canvas gameplay."
+>
+  <section class="dino" aria-label="Dino Run game">
+    <div class="dino-hud">
+      <div class="dino-stats">
+        <span class="stat">
+          <span class="stat-label">Distance</span>
+          <span class="stat-value"
+            ><span data-dino-score>0</span><span class="stat-unit">bp</span></span
+          >
+        </span>
+        <span class="stat">
+          <span class="stat-label">Best</span>
+          <span class="stat-value"
+            ><span data-dino-best>0</span><span class="stat-unit">bp</span></span
+          >
+        </span>
+        <span class="stat">
+          <span class="stat-label">Speed</span>
+          <span class="stat-value"
+            ><span data-dino-speed>310</span><span class="stat-unit">u/s</span></span
+          >
+        </span>
+      </div>
+      <p class="dino-status" data-dino-status role="status" aria-live="polite">
+        Ready - tap, Space, or Jump to start
+      </p>
+    </div>
+
+    <div class="dino-board">
+      <canvas
+        data-dino-canvas
+        role="img"
+        aria-label="Dino Run game board. Jump over low blocks and duck under high arches."></canvas>
+    </div>
+
+    <div class="dino-controls" aria-label="Dino Run controls">
+      <button type="button" class="dino-btn dino-btn--primary" data-dino-jump>
+        <Icon name="arrow-up" size={16} />
+        <span>Jump</span>
+      </button>
+      <button type="button" class="dino-btn dino-btn--primary" data-dino-duck>
+        <Icon name="arrow-down" size={16} />
+        <span>Duck</span>
+      </button>
+      <button type="button" class="dino-btn" data-dino-pause disabled aria-label="Pause">
+        <Icon name="pause" size={16} />
+        <span data-button-label>Pause</span>
+      </button>
+      <button type="button" class="dino-btn" data-dino-restart>
+        <Icon name="rotate-ccw" size={16} />
+        <span>Restart</span>
+      </button>
+    </div>
+
+    <p class="dino-hint muted">
+      Desktop: Space or ↑ to jump, ↓ to duck. Mobile: tap or swipe up to jump, swipe down or hold
+      Duck.
+    </p>
+  </section>
+</PageLayout>
+
+<script>
+  import { initDinoRun, type DinoRunController } from '../../scripts/dino';
+
+  let controller: DinoRunController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initDinoRun(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
+
+<style>
+  .dino {
+    max-width: 56rem;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .dino-hud {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.9rem 1.25rem;
+    flex-wrap: wrap;
+  }
+  .dino-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.6rem;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: var(--fs-meta);
+    letter-spacing: var(--tracking-meta);
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .stat-value {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.28rem;
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: var(--fw-semibold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .stat-unit {
+    font-size: 0.72rem;
+    letter-spacing: 0;
+    color: var(--color-muted);
+  }
+  .dino-status {
+    min-height: 1.4em;
+    font-size: var(--fs-small);
+    color: var(--color-ink);
+    text-align: right;
+  }
+  .dino-board {
+    width: min(100%, 54rem, calc(70svh * 16 / 7));
+    aspect-ratio: 16 / 7;
+    margin-inline: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    overflow: hidden;
+    box-shadow: 0 0.55rem 1.5rem rgba(0, 0, 0, 0.11);
+  }
+  .dino-board canvas {
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+  .dino-controls {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+  .dino-btn {
+    min-height: 2.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.52em 0.95em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-ink);
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+    transition:
+      border-color var(--transition),
+      color var(--transition),
+      background-color var(--transition);
+  }
+  .dino-btn:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  .dino-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .dino-btn--primary {
+    border-color: color-mix(in srgb, var(--color-accent) 68%, var(--color-rule));
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    color: var(--color-accent-dark);
+  }
+  :global(html[data-theme='dark']) .dino-btn--primary {
+    color: var(--color-accent);
+  }
+  .dino-btn[data-active='true'] {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-accent);
+  }
+  .dino-hint {
+    max-width: 38rem;
+    margin-inline: auto;
+    text-align: center;
+    font-size: var(--fs-meta);
+  }
+
+  @media (pointer: coarse) {
+    .dino-btn {
+      min-height: 2.75rem;
+      padding-inline: 1.05em;
+    }
+  }
+  @media (max-width: 700px) {
+    .dino-hud {
+      align-items: flex-start;
+    }
+    .dino-status {
+      width: 100%;
+      text-align: left;
+    }
+    .stat-value {
+      font-size: 1.42rem;
+    }
+    .dino-board {
+      width: 100%;
+      aspect-ratio: 16 / 8;
+    }
+  }
+  @media (max-width: 430px) {
+    .dino-stats {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+    .stat-value {
+      font-size: 1.15rem;
+    }
+    .stat-unit {
+      font-size: 0.64rem;
+    }
+    .dino-controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .dino-btn {
+      width: 100%;
+      padding-inline: 0.7em;
+    }
+    .dino-hint {
+      font-size: 0.76rem;
+    }
+  }
+</style>
