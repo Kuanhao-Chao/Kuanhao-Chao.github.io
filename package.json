@@ -16,6 +16,7 @@
     "build:site": "astro build",
     "pdf:posts": "node scripts/gen-post-pdfs.mjs",
     "audit:indexing": "node scripts/audit-indexing.mjs",
+    "audit:games": "node scripts/audit-game-ui.mjs",
     "audit:posts": "node scripts/audit-post-ui.mjs",
     "audit:security": "node scripts/audit-security.mjs",
     "audit:security:live": "node scripts/audit-security.mjs --live",

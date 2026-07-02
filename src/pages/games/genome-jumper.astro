@@ -1,0 +1,362 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import { site } from '../../data/site';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'Genome Jumper',
+  description:
+    'An original genomics-themed endless jumping game with procedural platforms, nucleotide collectibles, power-ups, and mutation enemies.',
+  url: `${site.url}/games/genome-jumper/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Arcade', 'Endless platformer'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
+---
+
+<PageLayout
+  title="Genome Jumper"
+  eyebrow="Side project"
+  lead="Climb a living genome, collect A · C · G · T, and clear mutations along the way. An original endless jumper built for keyboard and touch, in the same quiet visual language as this site."
+  description="Genome Jumper — an original, mobile-friendly endless jumping web game by Kuan-Hao Chao, with procedural platforms, nucleotide collectibles, boosts, and mutation enemies."
+  width="narrow"
+>
+  <section class="jumper" aria-label="Genome Jumper game">
+    <div class="jumper-hud">
+      <div class="jumper-stats" aria-label="Current run">
+        <span class="stat">
+          <span class="stat-label">Height</span>
+          <span class="stat-value" data-jumper-height>0 m</span>
+        </span>
+        <span class="stat">
+          <span class="stat-label">Score</span>
+          <span class="stat-value" data-jumper-score>0</span>
+        </span>
+        <span class="stat">
+          <span class="stat-label">Best</span>
+          <span class="stat-value" data-jumper-best>0</span>
+        </span>
+      </div>
+
+      <div class="jumper-controls" aria-label="Game controls">
+        <button type="button" class="game-btn" data-jumper-pause disabled>Pause</button>
+        <button type="button" class="game-btn" data-jumper-restart>Restart</button>
+        <button
+          type="button"
+          class="game-btn"
+          data-jumper-sound
+          aria-label="Mute game sounds"
+          aria-pressed="true">Sound on</button
+        >
+      </div>
+    </div>
+
+    <div class="jumper-board">
+      <canvas
+        data-jumper-canvas
+        role="img"
+        aria-label="Genome Jumper playfield. Steer with Left and Right or A and D, fire with Space or F, and pause with P or Escape. On touch screens, press or drag on the board and use the Fire button."
+      ></canvas>
+      <span class="boost-status" data-jumper-boost aria-hidden="true"></span>
+    </div>
+
+    <div class="jumper-actions">
+      <button type="button" class="action-btn action-btn--fire" data-jumper-fire disabled>
+        <span aria-hidden="true">↑</span> Fire
+      </button>
+      <button type="button" class="action-btn" data-jumper-share disabled>Share result</button>
+    </div>
+
+    <p class="jumper-status" data-jumper-status role="status" aria-live="polite">
+      Tap the board or press Enter to start
+    </p>
+
+    <p class="jumper-sequence" aria-label="Collected nucleotide sequence">
+      <span class="sequence-label">Sequence</span>
+      <span class="sequence-value" data-jumper-sequence>—</span>
+    </p>
+
+    <details class="jumper-help">
+      <summary>How to play</summary>
+      <div class="help-grid muted">
+        <p>
+          <strong>Move</strong> with Left / Right or A / D. On mobile, press or drag on either side of
+          the board.
+        </p>
+        <p>
+          <strong>Fire</strong> with Space / F or the Fire button. Projectiles clear mutation enemies.
+        </p>
+        <p>
+          <strong>Climb</strong> by landing on platforms. Springs and jetpacks launch you higher; a jetpack
+          also protects you.
+        </p>
+        <p>
+          <strong>Watch</strong> for moving, breakable, and fading platforms. Falling or touching a mutation
+          ends the run.
+        </p>
+      </div>
+    </details>
+  </section>
+
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+</PageLayout>
+
+<script>
+  import { initGenomeJumper, type GenomeJumperController } from '../../scripts/genomeJumper';
+
+  let controller: GenomeJumperController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initGenomeJumper(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
+
+<style>
+  .jumper {
+    max-width: 36rem;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .jumper-hud {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.8rem 1.25rem;
+  }
+
+  .jumper-stats {
+    display: flex;
+    gap: clamp(1rem, 5vw, 1.8rem);
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    line-height: 1;
+  }
+
+  .stat-label,
+  .sequence-label {
+    font-size: var(--fs-meta);
+    letter-spacing: var(--tracking-meta);
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: 1.55rem;
+    font-weight: var(--fw-semibold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .jumper-controls,
+  .jumper-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .game-btn,
+  .action-btn {
+    min-height: 44px;
+    padding: 0.55em 1em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+    color: var(--color-ink);
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      border-color var(--transition),
+      color var(--transition),
+      background var(--transition),
+      transform var(--transition);
+  }
+
+  .game-btn:hover:not(:disabled),
+  .action-btn:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  .game-btn:active:not(:disabled),
+  .action-btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  .game-btn:disabled,
+  .action-btn:disabled {
+    opacity: 0.42;
+    cursor: default;
+  }
+
+  .jumper-board {
+    position: relative;
+    width: min(94vw, 30rem, 50.4svh);
+    aspect-ratio: 7 / 10;
+    margin-inline: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    overflow: hidden;
+    box-shadow: 0 0.65rem 2rem rgba(0, 0, 0, 0.11);
+  }
+
+  .jumper-board canvas {
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: ew-resize;
+    user-select: none;
+  }
+
+  .boost-status {
+    position: absolute;
+    top: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    min-height: 1.7rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-accent) 88%, transparent);
+    color: var(--color-on-accent);
+    font-size: var(--fs-meta);
+    font-weight: var(--fw-semibold);
+    line-height: 1.2;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .boost-status:empty {
+    display: none;
+  }
+
+  .jumper-actions {
+    justify-content: center;
+  }
+
+  .action-btn {
+    min-width: 8.5rem;
+  }
+
+  .action-btn--fire {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+
+  .action-btn--fire:hover:not(:disabled) {
+    border-color: var(--color-accent-dark);
+    background: var(--color-accent-dark);
+    color: var(--color-on-accent);
+  }
+
+  .jumper-status,
+  .jumper-sequence {
+    min-height: 1.4em;
+    text-align: center;
+    font-size: var(--fs-small);
+  }
+
+  .jumper-status {
+    color: var(--color-ink);
+  }
+
+  .jumper-sequence {
+    color: var(--color-muted);
+  }
+
+  .sequence-label {
+    margin-right: 0.5rem;
+  }
+
+  .sequence-value {
+    color: var(--color-accent);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.22em;
+    overflow-wrap: anywhere;
+  }
+
+  .jumper-help {
+    margin-top: var(--space-2);
+    border-top: 1px solid var(--color-rule);
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .jumper-help summary {
+    padding-block: 0.8rem;
+    color: var(--color-ink);
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+  }
+
+  .help-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem 1.5rem;
+    padding-bottom: var(--space-4);
+    font-size: var(--fs-meta);
+    line-height: 1.5;
+  }
+
+  .help-grid strong {
+    color: var(--color-ink);
+  }
+
+  @media (max-width: 620px) {
+    .jumper-hud {
+      align-items: center;
+    }
+
+    .stat-value {
+      font-size: 1.3rem;
+    }
+
+    .jumper-controls {
+      width: 100%;
+    }
+
+    .game-btn {
+      flex: 1;
+    }
+
+    .action-btn {
+      min-width: 7.8rem;
+    }
+
+    .help-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .game-btn,
+    .action-btn {
+      transition: none;
+    }
+  }
+</style>
