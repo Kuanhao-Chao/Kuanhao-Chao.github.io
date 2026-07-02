@@ -290,8 +290,21 @@ async function auditLiveSite() {
 
   try {
     const { response } = await fetchText(SITE, { method: 'GET' });
+    // GitHub Pages serves static files and cannot send custom response headers, so these
+    // are reported as informational warnings, never errors. `content-security-policy` and
+    // `referrer-policy` are instead delivered via <meta> tags in src/components/BaseHead.astro
+    // (the CSP keeps 'unsafe-inline' because inline theme scripts + ClientRouter + KaTeX
+    // require it, so it is defense-in-depth against external-resource injection, not full XSS
+    // mitigation). `x-frame-options` — and equally X-Content-Type-Options (nosniff), HSTS, and
+    // Permissions-Policy — are header-only with no <meta> equivalent, so they are structurally
+    // impossible on this host; per-iframe sandbox/referrerpolicy is the local defense instead.
     for (const header of ['content-security-policy', 'x-frame-options', 'referrer-policy']) {
-      if (!response.headers.get(header)) warnings.push(`live ${SITE}/: missing ${header} header.`);
+      if (!response.headers.get(header)) {
+        warnings.push(
+          `live ${SITE}/: no ${header} response header — GitHub Pages cannot set headers ` +
+            `(CSP + referrer-policy are delivered via <meta>; x-frame-options is header-only and not settable here).`
+        );
+      }
     }
   } catch {
     // Already covered by the path checks above.

@@ -68,6 +68,25 @@ const structuredData = {
 ---
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+{/*
+  Browser-enforced security policy. GitHub Pages cannot send HTTP response headers, so
+  these <meta> equivalents deliver what is possible: a referrer policy and a site-wide CSP.
+  Header-only protections — frame-ancestors / X-Frame-Options (clickjacking),
+  X-Content-Type-Options (nosniff), HSTS, and Permissions-Policy — cannot be set from a
+  static host and are documented as an accepted limitation in scripts/audit-security.mjs.
+  The CSP keeps 'unsafe-inline' on script/style because the pre-paint theme scripts,
+  ClientRouter's injected bootstrap, and Astro/KaTeX inline styles require it; it is
+  therefore defense-in-depth against external-resource injection (blocks foreign scripts,
+  images, iframes, form posts, <base> hijack, plugin objects), not a full XSS mitigation.
+  Gated to production so it never interferes with the dev server's HMR websocket.
+*/}
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+{import.meta.env.PROD && (
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src https://storage.googleapis.com; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+  />
+)}
 <title>{pageTitle}</title>
 <meta name="description" content={description} />
 <link rel="canonical" href={canonical} />
