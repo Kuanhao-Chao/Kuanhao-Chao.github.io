@@ -8,10 +8,9 @@ import { resolveRelatedPosts } from '../lib/relatedPosts';
 import { site } from '../data/site';
 
 // Resolve each tool's logo (src/assets/logos/software/<logo>.png) to an optimized asset.
-const logoFiles = import.meta.glob<{ default: ImageMetadata }>(
-  '../assets/logos/software/*.png',
-  { eager: true }
-);
+const logoFiles = import.meta.glob<{ default: ImageMetadata }>('../assets/logos/software/*.png', {
+  eager: true,
+});
 const logoFor = (t: SoftwareTool) =>
   t.logo ? logoFiles[`../assets/logos/software/${t.logo}.png`]?.default : undefined;
 
@@ -47,6 +46,7 @@ const softwareLd = {
 // Resolve each tool's related blog post(s) once, aligned to the `tools` order.
 const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts ?? [])));
 ---
+
 <PageLayout
   title="Software"
   eyebrow="Open source"
@@ -67,9 +67,16 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
               <div class="tool-main">
                 <div class="tool-head">
                   <h3 class="tool-name">
-                    <a href={primary} target="_blank" rel="noopener noreferrer">{t.name}</a>
+                    <a href={primary} target="_blank" rel="noopener noreferrer">
+                      {t.name}
+                    </a>
                   </h3>
-                  <a class="tool-license" href={t.license.url} target="_blank" rel="noopener noreferrer">
+                  <a
+                    class="tool-license"
+                    href={t.license.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     {t.license.name}
                   </a>
                 </div>
@@ -82,24 +89,18 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
                     </a>
                   ))}
                   {blogLinks.map((b) => (
-                    <a
-                      href={b.href}
-                      title={b.title}
-                      aria-label={`Read the blog post: ${b.title}`}
-                    >
+                    <a href={b.href} title={b.title} aria-label={`Read the blog post: ${b.title}`}>
                       <Icon name="pencil" size={15} />
                       {b.label}
                     </a>
                   ))}
                 </p>
               </div>
-              {
-                logo && (
-                  <span class="tool-logo-frame" data-logo={t.logo} aria-hidden="true">
-                    <Image class="tool-logo" src={logo} alt="" height={80} />
-                  </span>
-                )
-              }
+              {logo && (
+                <span class="tool-logo-frame" data-logo={t.logo} aria-hidden="true">
+                  <Image class="tool-logo" src={logo} alt="" height={80} />
+                </span>
+              )}
             </li>
           );
         })
@@ -109,7 +110,10 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
 
   <section class="block">
     <h2 class="block-title">Side projects</h2>
-    <p class="muted side-intro">A few games I built for fun — a browser Snake you can play right here, plus some older Unity WebGL games.</p>
+    <p class="muted side-intro">
+      A few games I built for fun — browser games you can play right here, plus some older Unity
+      WebGL games.
+    </p>
     <ul class="tools">
       {
         sideProjects.map((p) => (
@@ -121,7 +125,9 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
                     href={p.url}
                     target={isExternalUrl(p.url) ? '_blank' : undefined}
                     rel={isExternalUrl(p.url) ? 'noopener noreferrer' : undefined}
-                  >{p.name}</a>
+                  >
+                    {p.name}
+                  </a>
                 </h3>
               </div>
               <p class="tool-blurb muted">{p.detail}</p>
@@ -201,12 +207,7 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
     padding: 0.42rem 0.72rem;
     border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
     border-radius: var(--radius-lg);
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.96),
-        rgba(244, 241, 233, 0.92)
-      );
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 241, 233, 0.92));
     box-shadow:
       0 0.55rem 1.4rem rgba(0, 0, 0, 0.24),
       inset 0 1px 0 rgba(255, 255, 255, 0.72);
