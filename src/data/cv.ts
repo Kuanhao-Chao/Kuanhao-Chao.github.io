@@ -253,6 +253,11 @@ export type SideProject = { name: string; detail: string; url: string };
 
 export const sideProjects: SideProject[] = [
   {
+    name: 'Snake',
+    detail: 'Browser game — arrow keys / WASD / swipe, with a genomic twist',
+    url: '/games/snake/',
+  },
+  {
     name: 'Biobaby',
     detail: 'Unity WebGL game',
     url: 'https://storage.googleapis.com/storage.khchao.com/biobaby/index.html',
