@@ -21,6 +21,8 @@
     "audit:security:live": "node scripts/audit-security.mjs --live",
     "preview": "astro preview",
     "check": "astro check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "astro": "astro"
   },
   "dependencies": {
@@ -38,6 +40,8 @@
     "@fontsource-variable/hanken-grotesk": "^5.2.8",
     "@fontsource-variable/inter": "^5.2.8",
     "playwright": "^1.61.1",
+    "prettier": "^3.9.4",
+    "prettier-plugin-astro": "^0.14.1",
     "typescript": "^5.9.3"
   }
 }
