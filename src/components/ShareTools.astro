@@ -1,0 +1,128 @@
+---
+/**
+ * Share + subscribe bar for blog posts. Share links are plain intent URLs (no
+ * third-party scripts, CSP-friendly); "Copy link" uses the clipboard; "Subscribe"
+ * points at the section RSS feed.
+ */
+import Icon from './Icon.astro';
+
+interface Props {
+  url: string; // absolute canonical URL of the page
+  title: string;
+  feedHref: string; // RSS feed for this section (e.g. /posts/rss.xml)
+}
+const { url, title, feedHref } = Astro.props;
+const u = encodeURIComponent(url);
+const t = encodeURIComponent(title);
+const shares = [
+  { label: 'X', icon: 'twitter', href: `https://twitter.com/intent/tweet?url=${u}&text=${t}` },
+  { label: 'Bluesky', icon: 'bluesky', href: `https://bsky.app/intent/compose?text=${t}%20${u}` },
+  {
+    label: 'LinkedIn',
+    icon: 'linkedin',
+    href: `https://www.linkedin.com/sharing/share-offsite/?url=${u}`,
+  },
+];
+---
+<div class="share">
+  <span class="share-label">Share</span>
+  <div class="share-actions">
+    {
+      shares.map((s) => (
+        <a
+          class="share-btn"
+          href={s.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Share on ${s.label}`}
+        >
+          <Icon name={s.icon} size={15} />
+          {s.label}
+        </a>
+      ))
+    }
+    <button type="button" class="share-btn" data-share-copy={encodeURIComponent(url)}>
+      <Icon name="link" size={15} />
+      <span data-share-label>Copy link</span>
+    </button>
+    <a class="share-btn share-btn--rss" href={feedHref} aria-label="Subscribe via RSS">
+      <Icon name="rss" size={15} />
+      Subscribe
+    </a>
+  </div>
+</div>
+
+<style>
+  .share {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1rem;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-rule);
+  }
+  .share-label {
+    font-size: var(--fs-meta);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-meta);
+    color: var(--color-muted);
+  }
+  .share-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    cursor: pointer;
+    font-size: var(--fs-small);
+    padding: 0.35em 0.7em;
+    transition: border-color var(--transition), color var(--transition);
+  }
+  .share-btn:hover {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-rule));
+    text-decoration: none;
+  }
+  .share-btn--rss {
+    margin-left: auto;
+  }
+  @media (max-width: 560px) {
+    .share-btn--rss {
+      margin-left: 0;
+    }
+  }
+</style>
+
+<script>
+  function initShareTools() {
+    for (const button of document.querySelectorAll<HTMLButtonElement>('[data-share-copy]')) {
+      if (button.dataset.shareBound === 'true') continue;
+      button.dataset.shareBound = 'true';
+      button.addEventListener('click', async () => {
+        const text = decodeURIComponent(button.dataset.shareCopy ?? '');
+        const label = button.querySelector<HTMLElement>('[data-share-label]');
+        const original = label?.textContent ?? 'Copy link';
+        try {
+          if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+          await navigator.clipboard.writeText(text);
+          if (label) label.textContent = 'Copied';
+        } catch {
+          if (label) label.textContent = 'Copy unavailable';
+        }
+        window.setTimeout(() => {
+          if (label) label.textContent = original;
+        }, 1400);
+      });
+    }
+  }
+  document.addEventListener('astro:page-load', initShareTools);
+  initShareTools();
+</script>

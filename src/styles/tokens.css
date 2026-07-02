@@ -9,6 +9,7 @@
   /* Palette */
   --color-bg: #fafaf8;          /* warm off-white page */
   --color-surface: #ffffff;     /* cards / raised surfaces */
+  --color-figure-mat: transparent; /* light: figures need no mat; see dark override */
   --color-ink: #141414;         /* near-black text */
   --color-accent: #2e6e5e;      /* muted teal */
   --color-accent-dark: #245546; /* hover / pressed */
@@ -85,6 +86,7 @@
 
   --color-bg: #0f1413;
   --color-surface: #171d1b;
+  --color-figure-mat: #f5f5f0;  /* light card behind scientific figures so transparent/dark-line-art PNGs stay legible on the dark page */
   --color-ink: #f2f0ea;
   --color-accent: #75c7af;
   --color-accent-dark: #9de2ce;

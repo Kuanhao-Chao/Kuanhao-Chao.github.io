@@ -1,6 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import Icon from '../components/Icon.astro';
+import ShareTools from '../components/ShareTools.astro';
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 import type { RelatedPostLink } from '../lib/relatedPosts';
@@ -25,6 +26,7 @@ interface Props {
   logo?: ImageMetadata;
   noindex?: boolean;
   scholarMeta?: ScholarMeta;
+  share?: { url: string; title: string; feedHref: string };
 }
 const {
   title,
@@ -40,6 +42,7 @@ const {
   logo,
   noindex,
   scholarMeta,
+  share,
 } = Astro.props;
 ---
 <BaseLayout
@@ -101,6 +104,8 @@ const {
       <div class="entry-body">
         <slot />
       </div>
+
+      {share && <ShareTools url={share.url} title={share.title} feedHref={share.feedHref} />}
     </div>
   </article>
 </BaseLayout>

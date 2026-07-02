@@ -61,6 +61,15 @@ const { src, alt, variant = 'landscape' } = Astro.props;
     height: auto;
     display: block;
   }
+  /* Dark mode: scientific figures are white/transparent PNGs with dark line-art, which
+     glare or vanish on the dark surface. Back them with a light "mat" so they stay legible. */
+  :global([data-theme='dark']) .zfig-btn {
+    background: var(--color-figure-mat);
+  }
+  :global([data-theme='dark']) .zfig-dialog :global(img) {
+    background: var(--color-figure-mat);
+    padding: 0.5rem;
+  }
   .zfig-hint {
     position: absolute;
     right: 0.6rem;

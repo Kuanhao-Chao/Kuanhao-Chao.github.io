@@ -10,9 +10,24 @@ import QuoteBlock from '../components/QuoteBlock.astro';
 import Icon from '../components/Icon.astro';
 import SequenceTrack from '../components/SequenceTrack.astro';
 import PostItem from '../components/PostItem.astro';
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
 import { site } from '../data/site';
-import { experience, education } from '../data/cv';
+import { experience, education, software, type SoftwareTool } from '../data/cv';
 import { readingTime } from '../lib/format';
+
+// Flagship tools for the homepage strip: those with a logo, newest first, each
+// linked to its interactive explainer post. Logos resolve like software.astro.
+const logoFiles = import.meta.glob<{ default: ImageMetadata }>(
+  '../assets/logos/software/*.png',
+  { eager: true }
+);
+const featuredTools = [...software]
+  .filter((t) => t.logo && t.posts?.[0])
+  .sort((a, b) => b.date.localeCompare(a.date))
+  .slice(0, 4);
+const toolLogo = (t: SoftwareTool) =>
+  t.logo ? logoFiles[`../assets/logos/software/${t.logo}.png`]?.default : undefined;
 
 const research = (await getCollection('research'))
   .filter((r) => r.data.featured)
@@ -59,6 +74,32 @@ const posts = allPosts
       {pubs.map((pub) => <li><PublicationItem pub={pub} compact /></li>)}
     </ol>
   </section>
+
+  {featuredTools.length > 0 && (
+    <section class="section home-section container" data-reveal>
+      <SectionHeading eyebrow="Open source" title="Featured software" href="/software/" more="All software" />
+      <ul class="home-tools">
+        {featuredTools.map((t) => {
+          const logo = toolLogo(t);
+          return (
+            <li>
+              <a class="home-tool" href={`/posts/${t.posts![0]}/`}>
+                {logo && (
+                  <span class="home-tool-logo">
+                    <Image src={logo} alt={`${t.name} logo`} width={44} height={44} />
+                  </span>
+                )}
+                <span class="home-tool-text">
+                  <span class="home-tool-name">{t.name}</span>
+                  <span class="home-tool-blurb">{t.blurb}</span>
+                </span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  )}
 
   <QuoteBlock quote={site.philosophy} cite="my open-source philosophy" />
 
@@ -161,6 +202,62 @@ const posts = allPosts
   .home-posts {
     border-top: 1px solid var(--color-rule);
   }
+  .home-tools {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    border-block: 1px solid var(--color-rule);
+    background: var(--color-rule);
+  }
+  .home-tool {
+    display: flex;
+    gap: 0.8rem;
+    align-items: flex-start;
+    height: 100%;
+    padding: var(--space-5);
+    background: var(--color-bg);
+    color: inherit;
+    text-decoration: none;
+    transition: background var(--transition);
+  }
+  .home-tool:hover {
+    background: var(--color-surface);
+  }
+  .home-tool-logo {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    padding: 5px;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+  [data-theme='dark'] .home-tool-logo {
+    background: var(--color-figure-mat);
+  }
+  .home-tool-logo :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .home-tool-text {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .home-tool-name {
+    font-weight: var(--fw-semibold);
+    color: var(--color-accent);
+  }
+  .home-tool-blurb {
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+    line-height: var(--lh-snug);
+  }
   .home-bg {
     display: grid;
     grid-template-columns: 1.1fr 1fr;
@@ -247,13 +344,15 @@ const posts = allPosts
     }
   }
   @media (max-width: 860px) {
-    .home-news {
+    .home-news,
+    .home-tools {
       grid-template-columns: 1fr 1fr;
     }
   }
   @media (max-width: 639px) {
     .home-research,
     .home-news,
+    .home-tools,
     .home-bg {
       grid-template-columns: 1fr;
     }

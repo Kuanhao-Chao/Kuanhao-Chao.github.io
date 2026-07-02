@@ -64,15 +64,19 @@ export async function GET() {
         tags: entry.data.tags,
         search: compact(`${entry.data.title} ${entry.data.description} ${entry.data.tags.join(' ')} ${entry.body ?? ''}`),
       })),
-    ...reports.map((entry) => ({
-      type: 'Report',
-      title: entry.data.title,
-      description: entry.data.description,
-      href: `/reports/${entry.id}/`,
-      date: iso(entry.data.date),
-      tags: entry.data.tags,
-      search: compact(`${entry.data.title} ${entry.data.description} ${entry.data.tags.join(' ')} ${entry.body ?? ''}`),
-    })),
+    ...reports
+      // Unlisted (private-launch) reports are noindex, robots-disallowed, and out of the
+      // sitemap; keep them out of site search too. Public reports appear here automatically.
+      .filter((entry) => !entry.data.unlisted)
+      .map((entry) => ({
+        type: 'Report',
+        title: entry.data.title,
+        description: entry.data.description,
+        href: `/reports/${entry.id}/`,
+        date: iso(entry.data.date),
+        tags: entry.data.tags,
+        search: compact(`${entry.data.title} ${entry.data.description} ${entry.data.tags.join(' ')} ${entry.body ?? ''}`),
+      })),
     ...talks.map((entry) => ({
       type: 'Talk',
       title: entry.data.talkTitle ?? entry.data.title,

@@ -50,12 +50,12 @@ export type NavItem = { label: string; href: string; footerOnly?: boolean };
 
 export const nav: NavItem[] = [
   { label: 'Research', href: '/research/' },
-  { label: 'Projects', href: '/projects/', footerOnly: true },
+  { label: 'Projects', href: '/projects/' },
   { label: 'Publications', href: '/publications/' },
   { label: 'Software', href: '/software/' },
   { label: 'Talks', href: '/talks/' },
   { label: 'Teaching', href: '/teaching/' },
-  { label: 'CV', href: '/cv/', footerOnly: true },
+  { label: 'CV', href: '/cv/' },
   { label: 'Photos', href: '/photos/', footerOnly: true },
   { label: 'Posts', href: '/posts/' },
   { label: 'News', href: '/news/' },

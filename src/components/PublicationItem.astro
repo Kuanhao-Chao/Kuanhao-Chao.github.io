@@ -3,7 +3,7 @@ import Icon from './Icon.astro';
 import CitationTools from './CitationTools.astro';
 import { pubSlug } from '../lib/slug';
 import { resolveRelatedPosts } from '../lib/relatedPosts';
-import { publicationCitation } from '../lib/citationText';
+import { publicationCitation, publicationRis } from '../lib/citationText';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -92,7 +92,7 @@ const citation = publicationCitation(d);
         ))
       }
       {
-        !compact && <CitationTools citation={citation} compact />
+        !compact && <CitationTools citation={citation} bibtex={d.bibtex} ris={publicationRis(d)} compact />
       }
       {
         d.bibtex && !compact && (
