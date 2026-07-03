@@ -178,13 +178,136 @@ export function normalizeAngle(a: number): number {
   return r - Math.PI;
 }
 
+/** 4-connected flood fill of open cells (value 0) from (sx, sy); returns the reachable mask. */
+function reachableFrom(grid: number[][], sx: number, sy: number): boolean[][] {
+  const h = grid.length;
+  const w = grid[0].length;
+  const seen: boolean[][] = Array.from({ length: h }, () => Array.from({ length: w }, () => false));
+  if (grid[sy][sx] !== 0) return seen;
+  const stack: Array<[number, number]> = [[sx, sy]];
+  seen[sy][sx] = true;
+  const dirs: Array<[number, number]> = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
+  while (stack.length) {
+    const [x, y] = stack.pop() as [number, number];
+    for (const [dx, dy] of dirs) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx >= 0 && ny >= 0 && nx < w && ny < h && grid[ny][nx] === 0 && !seen[ny][nx]) {
+        seen[ny][nx] = true;
+        stack.push([nx, ny]);
+      }
+    }
+  }
+  return seen;
+}
+
 /**
- * Procedural maze-arena. A recursive-backtracker maze on the odd lattice, then ~22%
- * of interior walls separating two open cells are removed (loops and small rooms that
- * open up FPS sightlines), a 2×2 spawn room is force-carved at (1,1)–(2,2), the border
- * ring is forced solid, and every remaining wall gets a deterministic style 1–4.
+ * Carve 2–3 rectangular chambers into the maze so the space is not uniform corridors.
+ * Each room is linked back to the spawn by an interior L-corridor, so it is reachable by
+ * construction. Returns the room centres (used as guaranteed cover-post sites).
  */
-export function generateMap(rng: RNG, cols = 15, rows = 15): number[][] {
+function carveRooms(grid: number[][], rng: RNG, w: number, h: number): Array<[number, number]> {
+  const centers: Array<[number, number]> = [];
+  const count = 2 + Math.floor(rng() * 2); // 2–3
+  for (let i = 0; i < count; i++) {
+    const rw = 3 + Math.floor(rng() * 3); // 3–5
+    const rh = 3 + Math.floor(rng() * 3);
+    const rx = 1 + Math.floor(rng() * Math.max(1, w - 2 - rw));
+    const ry = 1 + Math.floor(rng() * Math.max(1, h - 2 - rh));
+    for (let y = ry; y < ry + rh && y < h - 1; y++) {
+      for (let x = rx; x < rx + rw && x < w - 1; x++) grid[y][x] = 0;
+    }
+    const cx = Math.min(w - 2, rx + (rw >> 1));
+    const cy = Math.min(h - 2, ry + (rh >> 1));
+    // L-path (interior only) from the room centre to the spawn corner.
+    for (let x = Math.min(cx, 1); x <= Math.max(cx, 1); x++) grid[cy][x] = 0;
+    for (let y = Math.min(cy, 1); y <= Math.max(cy, 1); y++) grid[y][1] = 0;
+    centers.push([cx, cy]);
+  }
+  return centers;
+}
+
+/**
+ * Drop a few single-cell cover posts into open areas (room centres first, then random),
+ * reverting any placement that would isolate part of the map.
+ */
+function addPillars(
+  grid: number[][],
+  rng: RNG,
+  w: number,
+  h: number,
+  centers: Array<[number, number]>
+): void {
+  const tryPlace = (x: number, y: number): boolean => {
+    if (x <= 2 && y <= 2) return false; // keep the spawn room clear
+    if (grid[y][x] !== 0) return false;
+    // Only where all four orthogonal neighbours are open (interior of a room/arena).
+    if (
+      grid[y - 1][x] !== 0 ||
+      grid[y + 1][x] !== 0 ||
+      grid[y][x - 1] !== 0 ||
+      grid[y][x + 1] !== 0
+    )
+      return false;
+    grid[y][x] = 1; // tentative post
+    const seen = reachableFrom(grid, 1, 1);
+    for (let yy = 1; yy < h - 1; yy++) {
+      for (let xx = 1; xx < w - 1; xx++) {
+        if (grid[yy][xx] === 0 && !seen[yy][xx]) {
+          grid[y][x] = 0; // would isolate a cell — revert
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+  const target = 2 + Math.floor(rng() * 3); // 2–4
+  let placed = 0;
+  for (const [cx, cy] of centers) {
+    if (placed >= target) break;
+    if (tryPlace(cx, cy)) placed++;
+  }
+  let attempts = 0;
+  while (placed < target && attempts < 200) {
+    attempts++;
+    const x = 2 + Math.floor(rng() * (w - 4));
+    const y = 2 + Math.floor(rng() * (h - 4));
+    if (tryPlace(x, y)) placed++;
+  }
+}
+
+/** Refill any open cell not reachable from the spawn, so no isolated pockets can exist. */
+function repairConnectivity(grid: number[][], w: number, h: number): void {
+  const seen = reachableFrom(grid, 1, 1);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      if (grid[y][x] === 0 && !seen[y][x]) grid[y][x] = 1;
+    }
+  }
+}
+
+/** Coherent, role-legible wall style (1–4): border membrane, cover post, or zoned interior. */
+function wallStyle(grid: number[][], x: number, y: number, w: number, h: number): number {
+  if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return 4; // outer membrane ring
+  const isPillar =
+    grid[y - 1][x] === 0 && grid[y + 1][x] === 0 && grid[y][x - 1] === 0 && grid[y][x + 1] === 0;
+  if (isPillar) return 3; // free-standing cover post
+  return y < h / 2 ? 1 : 2; // two coherent interior zones (top / bottom)
+}
+
+/**
+ * Procedural maze-arena. A recursive-backtracker maze on the odd lattice, then ~22% of
+ * interior walls between two open cells are removed for FPS sightlines, then a few rooms
+ * and cover pillars are added for layout variety. The 2×2 spawn room is force-carved,
+ * connectivity is guaranteed, the border ring is solid, and every wall gets a coherent
+ * style 1–4 (border / pillar / zoned interior).
+ */
+export function generateMap(rng: RNG, cols = 17, rows = 17): number[][] {
   const w = cols % 2 === 0 ? cols + 1 : cols;
   const h = rows % 2 === 0 ? rows + 1 : rows;
   const grid: number[][] = Array.from({ length: h }, () => Array.from({ length: w }, () => 1));
@@ -228,24 +351,32 @@ export function generateMap(rng: RNG, cols = 15, rows = 15): number[][] {
     }
   }
 
+  const roomCenters = carveRooms(grid, rng, w, h);
+  addPillars(grid, rng, w, h, roomCenters);
+
   // Force-carve the 2×2 spawn room so the player never starts boxed in.
   grid[1][1] = 0;
   grid[1][2] = 0;
   grid[2][1] = 0;
   grid[2][2] = 0;
 
-  // Solid border ring, then assign deterministic wall styles.
+  repairConnectivity(grid, w, h);
+
+  // Solid border ring, then assign coherent wall styles.
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const border = x === 0 || y === 0 || x === w - 1 || y === h - 1;
-      if (border) grid[y][x] = 1;
-      if (grid[y][x] !== 0) grid[y][x] = 1 + ((x * 7 + y * 13) % 4);
+      if (border) {
+        grid[y][x] = 4;
+      } else if (grid[y][x] !== 0) {
+        grid[y][x] = wallStyle(grid, x, y, w, h);
+      }
     }
   }
   return grid;
 }
 
-export function createGame(seed: number, cols = 15, rows = 15): GameState {
+export function createGame(seed: number, cols = 17, rows = 17): GameState {
   const rng = mulberry32(seed);
   const map = generateMap(rng, cols, rows);
   return {
