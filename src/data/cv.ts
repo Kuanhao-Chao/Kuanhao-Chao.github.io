@@ -192,7 +192,8 @@ export const software: SoftwareTool[] = [
     name: 'OpenSpliceAI',
     date: '2025-06-01',
     logo: 'openspliceai',
-    blurb: 'Efficient, modular splice-site prediction framework — easy to retrain on non-human species.',
+    blurb:
+      'Efficient, modular splice-site prediction framework — easy to retrain on non-human species.',
     license: LICENSE.gpl3,
     code: 'https://github.com/Kuanhao-Chao/openspliceai',
     docs: 'https://ccb.jhu.edu/openspliceai/',
@@ -267,6 +268,11 @@ export const sideProjects: SideProject[] = [
     name: 'Snake',
     detail: 'Browser game — arrow keys / WASD / swipe, with a genomic twist',
     url: '/games/snake/',
+  },
+  {
+    name: 'Tetris',
+    detail: 'Browser game — keyboard / touch, modern SRS with hold & ghost',
+    url: '/games/tetris/',
   },
   {
     name: 'Biobaby',

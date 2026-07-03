@@ -1,0 +1,260 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+---
+<PageLayout
+  title="Tetris"
+  eyebrow="Side project"
+  lead="A modern browser Tetris, built in the site's own style — SRS rotation with wall kicks, a 7-bag randomizer, hold, ghost piece, and level-based speed. Play with the arrow keys, WASD, on-screen buttons, or swipe."
+  description="Tetris — a modern, mobile-friendly browser game by Kuan-Hao Chao: SRS rotation, 7-bag, hold, ghost piece, in a minimalist on-brand palette."
+  width="narrow"
+>
+  <section class="tetris" aria-label="Tetris game">
+    <div class="tetris-stage">
+      <div class="tetris-board">
+        <canvas
+          data-tetris-canvas
+          role="img"
+          aria-label="Tetris playfield — arrow keys, WASD, the on-screen buttons, or swipe to play."
+        ></canvas>
+      </div>
+      <aside class="tetris-panel">
+        <div class="panel-box">
+          <span class="panel-label">Hold</span>
+          <canvas class="mini mini--hold" data-tetris-hold aria-hidden="true"></canvas>
+        </div>
+        <dl class="tetris-stats">
+          <div><dt>Score</dt><dd data-tetris-score>0</dd></div>
+          <div><dt>Lines</dt><dd data-tetris-lines>0</dd></div>
+          <div><dt>Level</dt><dd data-tetris-level>1</dd></div>
+          <div><dt>Best</dt><dd data-tetris-best>0</dd></div>
+        </dl>
+        <div class="panel-box">
+          <span class="panel-label">Next</span>
+          <canvas class="mini mini--next" data-tetris-next aria-hidden="true"></canvas>
+        </div>
+      </aside>
+    </div>
+
+    <div class="tetris-controls">
+      <button class="tctl" type="button" data-tetris-btn="left" aria-label="Move left">◀</button>
+      <button class="tctl" type="button" data-tetris-btn="cw" aria-label="Rotate">⟳</button>
+      <button class="tctl" type="button" data-tetris-btn="right" aria-label="Move right">▶</button>
+      <button class="tctl" type="button" data-tetris-btn="soft" aria-label="Soft drop">▼</button>
+      <button class="tctl" type="button" data-tetris-btn="hard" aria-label="Hard drop">⤓</button>
+      <button class="tctl" type="button" data-tetris-btn="hold" aria-label="Hold piece">⇄</button>
+    </div>
+
+    <p class="tetris-status" data-tetris-status role="status" aria-live="polite">
+      Press an arrow, Space, or tap to start
+    </p>
+
+    <div class="tetris-actions">
+      <button class="tetris-btn2" type="button" data-tetris-pause disabled>Pause</button>
+      <button class="tetris-btn2" type="button" data-tetris-restart>Restart</button>
+    </div>
+
+    <p class="tetris-hint muted">
+      Arrows / WASD move · ↑ or X rotate · Space hard-drop · Shift / C hold · P pause. On mobile: the
+      buttons above, or swipe to move, tap to rotate, flick down to drop.
+    </p>
+  </section>
+</PageLayout>
+
+<script>
+  import { initTetris, type TetrisController } from '../../scripts/tetris';
+
+  let controller: TetrisController | null = null;
+  function mount() {
+    if (controller) return;
+    controller = initTetris(document);
+  }
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount(); // also now: a module can load after astro:page-load on the first VT visit
+</script>
+
+<style>
+  .tetris {
+    max-width: 40rem;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+  }
+  .tetris-stage {
+    display: flex;
+    gap: clamp(0.6rem, 2vw, 1.1rem);
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+  }
+  .tetris-board {
+    flex: none;
+    height: min(70svh, 34rem);
+    aspect-ratio: 1 / 2;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-surface);
+    box-shadow: 0 0.5rem 1.6rem rgba(0, 0, 0, 0.1);
+  }
+  .tetris-board canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+  .tetris-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 6rem;
+  }
+  .panel-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.45rem 0.5rem 0.55rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+  .panel-label {
+    font-size: var(--fs-meta);
+    letter-spacing: var(--tracking-meta);
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .mini {
+    width: 100%;
+    display: block;
+  }
+  .mini--hold {
+    height: 3rem;
+  }
+  .mini--next {
+    height: 8.5rem;
+  }
+  .tetris-stats {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .tetris-stats > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+  .tetris-stats dt {
+    font-size: var(--fs-meta);
+    letter-spacing: var(--tracking-meta);
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .tetris-stats dd {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: var(--fw-semibold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* On-screen controls: touch devices only (desktop uses the keyboard). */
+  .tetris-controls {
+    display: none;
+  }
+  @media (pointer: coarse) {
+    .tetris-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      width: min(100%, 22rem);
+    }
+  }
+  .tctl {
+    min-height: 3rem;
+    font-size: 1.25rem;
+    line-height: 1;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+  }
+  .tctl:active {
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    border-color: var(--color-accent);
+  }
+
+  .tetris-status {
+    text-align: center;
+    font-size: var(--fs-small);
+    color: var(--color-ink);
+    min-height: 1.4em;
+  }
+  .tetris-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .tetris-btn2 {
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    padding: 0.45em 1em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-ink);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .tetris-btn2:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  .tetris-btn2:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .tetris-hint {
+    text-align: center;
+    font-size: var(--fs-meta);
+    max-width: 34rem;
+    margin-inline: auto;
+  }
+
+  /* Compact the whole game so the board + controls fit a phone viewport. */
+  @media (max-width: 640px) {
+    .tetris-board {
+      height: min(52svh, 22rem);
+    }
+    .tetris-panel {
+      min-width: 4.6rem;
+      gap: var(--space-2);
+    }
+    .panel-box {
+      padding: 0.35rem 0.4rem 0.45rem;
+    }
+    .mini--hold {
+      height: 2.4rem;
+    }
+    .mini--next {
+      height: 6rem;
+    }
+    .tetris-stats {
+      gap: 0.25rem;
+    }
+    .tetris-stats dd {
+      font-size: 0.95rem;
+    }
+  }
+</style>
