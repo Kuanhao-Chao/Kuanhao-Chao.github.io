@@ -1,5 +1,6 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
 import { site } from '../../data/site';
 
 const gameLd = {
@@ -29,23 +30,24 @@ const gameLd = {
     <div class="proof-hud">
       <div class="proof-stats" aria-label="Current run">
         <span class="stat">
-          <span class="stat-label">Integrity</span>
+          <span class="stat-label"><Icon name="shield" size={13} class="stat-icon" />Integrity</span
+          >
           <span class="stat-value" data-proof-health>100</span>
         </span>
         <span class="stat">
-          <span class="stat-label">Charges</span>
+          <span class="stat-label"><Icon name="bolt" size={13} class="stat-icon" />Charges</span>
           <span class="stat-value" data-proof-ammo>24 / 40</span>
         </span>
         <span class="stat">
-          <span class="stat-label">Wave</span>
+          <span class="stat-label"><Icon name="waves" size={13} class="stat-icon" />Wave</span>
           <span class="stat-value" data-proof-wave>0</span>
         </span>
         <span class="stat">
-          <span class="stat-label">Score</span>
+          <span class="stat-label"><Icon name="star" size={13} class="stat-icon" />Score</span>
           <span class="stat-value" data-proof-score>0</span>
         </span>
         <span class="stat">
-          <span class="stat-label">Best</span>
+          <span class="stat-label"><Icon name="trophy" size={13} class="stat-icon" />Best</span>
           <span class="stat-value" data-proof-best>0</span>
         </span>
       </div>
@@ -73,9 +75,11 @@ const gameLd = {
 
     <div class="proof-actions">
       <button type="button" class="action-btn action-btn--fire" data-proof-fire disabled>
-        <span aria-hidden="true">◎</span> Fire
+        <Icon name="target" size={18} /> Fire
       </button>
-      <button type="button" class="action-btn" data-proof-share disabled>Share result</button>
+      <button type="button" class="action-btn" data-proof-share disabled>
+        <Icon name="share" size={16} /> Share result
+      </button>
     </div>
 
     <p class="proof-status" data-proof-status role="status" aria-live="polite">
@@ -171,6 +175,17 @@ const gameLd = {
     color: var(--color-muted);
   }
 
+  .stat-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .stat-icon {
+    color: var(--color-accent);
+    flex: none;
+  }
+
   .stat-value {
     font-family: var(--font-display);
     font-size: 1.45rem;
@@ -188,6 +203,10 @@ const gameLd = {
 
   .game-btn,
   .action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
     min-height: 44px;
     padding: 0.55em 1em;
     border: 1px solid var(--color-rule);

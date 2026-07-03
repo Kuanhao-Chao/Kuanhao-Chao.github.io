@@ -59,12 +59,24 @@ interface Palette {
   rule: string;
   accent: string;
   accentDark: string;
+  onAccent: string;
   warm: string;
   warmBg: string;
   warmBorder: string;
 }
 
 type RGB = [number, number, number];
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  max: number;
+  color: string;
+  size: number;
+}
 
 const FIXED_STEP = 1 / 120;
 const FOG_LEVELS = 12;
@@ -108,6 +120,7 @@ function readPalette(): Palette {
     rule: cssVar('--color-rule', '#e5e4df'),
     accent: cssVar('--color-accent', '#2e6e5e'),
     accentDark: cssVar('--color-accent-dark', '#245546'),
+    onAccent: cssVar('--color-on-accent', '#ffffff'),
     warm: cssVar('--color-badge-warm-text', '#8a5a1a'),
     warmBg: cssVar('--color-badge-warm-bg', '#fbf3e4'),
     warmBorder: cssVar('--color-badge-warm-border', '#e3c79a'),
@@ -195,28 +208,50 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   let numCols = 1;
   let depth = new Float32Array(1);
   let bobPhase = 0;
+  let idlePhase = 0;
+  let recoilFor = 0; // seconds of weapon recoil left (renderer-only, set on fire)
   let hitMarkerUntil = -1;
   let hitMarkerKind: 'hit' | 'kill' = 'hit';
+  let enemyNearCenter = false; // set during renderSprites, read by the crosshair
   let joystick: { originX: number; originY: number; curX: number; curY: number } | null = null;
+  const particles: Particle[] = [];
 
   let shadeLUT: string[][][] = [];
-  let floorColor = '#000';
-  let ceilingColor = '#000';
+  let trimColor = '#000';
+  let horizonColor = 'rgba(0,0,0,0)';
+  let ceilingGrad: CanvasGradient | string = '#000';
+  let floorGrad: CanvasGradient | string = '#000';
+  let floorGridCanvas: HTMLCanvasElement | null = null;
+  let shadeStripCanvas: HTMLCanvasElement | null = null;
+  let wallStrips: Array<HTMLCanvasElement | null> = [];
   let radarCanvas: HTMLCanvasElement | null = null;
   let radarCell = 5;
+  let themedWave = -1; // last wave the visual caches were tinted for
 
   const resizeObserver = new ResizeObserver(resize);
 
+  // Per-wave zone tint — a subtle, token-derived drift as you push deeper. Capped so the
+  // muted palette is preserved (both themes recolor because inputs are tokens).
+  function zoneTint(): RGB {
+    const hues = [hexToRgb(palette.accent), hexToRgb(palette.warm), hexToRgb(palette.muted)];
+    return hues[(((state.wave % 3) + 3) % 3) as 0 | 1 | 2];
+  }
+  function zoneAmount(): number {
+    return Math.min(0.12, Math.max(0, (state.wave - 1) * 0.03));
+  }
+
   function buildColors() {
-    const bg = hexToRgb(palette.background);
+    const bg0 = hexToRgb(palette.background);
     const surf = hexToRgb(palette.surface);
     const ink = hexToRgb(palette.ink);
-    const rule = hexToRgb(palette.rule);
-    ceilingColor = rgbStr(mix(bg, ink, 0.05));
-    floorColor = rgbStr(mix(surf, rule, 0.5));
+    const accent = hexToRgb(palette.accent);
+    const amt = zoneAmount();
+    const tint = zoneTint();
+    const bg = mix(bg0, tint, amt); // fog target drifts toward the zone hue
+    // Wall styles 1–4 → materials: base-pair rungs / panel courses / data-stripe / membrane.
     const tints = [palette.accent, palette.warm, palette.muted, palette.accentDark].map(hexToRgb);
-    shadeLUT = tints.map((tint) => {
-      const base = mix(surf, tint, 0.3);
+    shadeLUT = tints.map((mtint) => {
+      const base = mix(mix(surf, mtint, 0.3), tint, amt * 0.5);
       return [0, 1].map((side) => {
         const sideBase = side === 1 ? mix(base, ink, 0.16) : base;
         const levels: string[] = [];
@@ -227,6 +262,125 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
         return levels;
       });
     });
+    trimColor = rgbStr(mix(accent, surf, 0.35));
+    horizonColor = hexToRgba(palette.accent, 0.14);
+  }
+
+  // A 1×64 vertical lighting overlay stretched over each wall slice: a bright top trim,
+  // a highlight fading down, and a shadow pooling at the base — top-vs-bottom depth for 1 op.
+  function buildShadeStrip() {
+    const c = document.createElement('canvas');
+    c.width = 1;
+    c.height = 64;
+    const cx = c.getContext('2d');
+    if (!cx) {
+      shadeStripCanvas = null;
+      return;
+    }
+    const g = cx.createLinearGradient(0, 0, 0, 64);
+    g.addColorStop(0, hexToRgba(palette.surface, 0.18));
+    g.addColorStop(0.18, 'rgba(0,0,0,0)');
+    g.addColorStop(0.72, 'rgba(0,0,0,0)');
+    g.addColorStop(1, hexToRgba(palette.ink, 0.28));
+    cx.fillStyle = g;
+    cx.fillRect(0, 0, 1, 64);
+    cx.fillStyle = hexToRgba(palette.surface, 0.5); // emissive top trim
+    cx.fillRect(0, 0, 1, 2);
+    shadeStripCanvas = c;
+  }
+
+  // A 1×64 material-detail strip per wall style, stretched over the (one-cell-tall) slice
+  // so ticks line up horizontally across every column of a wall.
+  function buildWallStrips() {
+    const dark = hexToRgba(palette.ink, 0.16);
+    const faint = hexToRgba(palette.ink, 0.1);
+    const light = hexToRgba(palette.surface, 0.14);
+    wallStrips = [0, 1, 2, 3].map((i) => {
+      const c = document.createElement('canvas');
+      c.width = 1;
+      c.height = 64;
+      const cx = c.getContext('2d');
+      if (!cx) return null;
+      if (i === 0) {
+        cx.fillStyle = dark; // base-pair rungs
+        for (let y = 6; y < 64; y += 9) cx.fillRect(0, y, 1, 1);
+      } else if (i === 1) {
+        for (let y = 12; y < 64; y += 20) {
+          cx.fillStyle = dark; // panel courses
+          cx.fillRect(0, y, 1, 2);
+          cx.fillStyle = light;
+          cx.fillRect(0, y + 2, 1, 1);
+        }
+      } else if (i === 2) {
+        cx.fillStyle = faint; // dense data ticks
+        for (let y = 3; y < 64; y += 4) cx.fillRect(0, y, 1, 1);
+      } else {
+        cx.fillStyle = light; // smooth membrane — one soft highlight
+        cx.fillRect(0, 30, 1, 2);
+      }
+      return c;
+    });
+  }
+
+  // Ceiling/floor gradients + a baked perspective depth grid over the lower half. The grid
+  // is view-locked (an instrument measurement field), so it never slides uncannily.
+  function buildBackdrops() {
+    const half = height / 2;
+    const bg = hexToRgb(palette.background);
+    const surf = hexToRgb(palette.surface);
+    const ink = hexToRgb(palette.ink);
+    const rule = hexToRgb(palette.rule);
+    const tint = zoneTint();
+    const amt = zoneAmount();
+    const cg = ctx.createLinearGradient(0, 0, 0, half);
+    cg.addColorStop(0, rgbStr(mix(mix(bg, ink, 0.08), tint, amt)));
+    cg.addColorStop(1, rgbStr(mix(mix(bg, ink, 0.01), tint, amt)));
+    ceilingGrad = cg;
+    const fg = ctx.createLinearGradient(0, half, 0, height);
+    fg.addColorStop(0, rgbStr(mix(mix(surf, rule, 0.45), tint, amt)));
+    fg.addColorStop(1, rgbStr(mix(mix(surf, ink, 0.14), tint, amt)));
+    floorGrad = fg;
+
+    const fc = document.createElement('canvas');
+    fc.width = Math.max(1, width);
+    fc.height = Math.max(1, Math.ceil(half) + 1);
+    const fx = fc.getContext('2d');
+    if (!fx) {
+      floorGridCanvas = null;
+      return;
+    }
+    fx.strokeStyle = hexToRgba(palette.rule, 0.55);
+    fx.lineWidth = 1;
+    // Depth bands where a wall foot at distance d projects (matches the wall base formula).
+    for (const d of [1, 1.5, 2, 3, 4, 6, 9]) {
+      const yy = (WALL_SCALE * focal * 0.5) / d;
+      if (yy < fc.height) {
+        fx.globalAlpha = Math.max(0.12, 1 - d / 10);
+        fx.beginPath();
+        fx.moveTo(0, yy);
+        fx.lineTo(width, yy);
+        fx.stroke();
+      }
+    }
+    // Vanishing verticals converging to the horizon centre.
+    fx.globalAlpha = 0.14;
+    for (let i = -4; i <= 4; i++) {
+      if (i === 0) continue;
+      fx.beginPath();
+      fx.moveTo(width / 2, 0);
+      fx.lineTo(width / 2 + i * (width / 8), fc.height);
+      fx.stroke();
+    }
+    floorGridCanvas = fc;
+  }
+
+  // Single rebuild entry point — everything derived from tokens + wave, so light/dark-safe.
+  function rebuildVisuals() {
+    buildColors();
+    buildShadeStrip();
+    buildWallStrips();
+    buildBackdrops();
+    themedWave = state.wave;
   }
 
   function buildRadar() {
@@ -265,6 +419,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     colStep = Math.max(2, Math.ceil(width / rayBudget));
     numCols = Math.ceil(width / colStep);
     depth = new Float32Array(numCols);
+    rebuildVisuals();
     render();
   }
 
@@ -285,6 +440,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     const px = state.player.x;
     const py = state.player.y;
     const angle = state.player.angle;
+    const full = !(coarsePointer || width < 520); // desktop gets the extra passes
     for (let ci = 0; ci < numCols; ci++) {
       const x = ci * colStep;
       const rayAngle = angle + Math.atan((x + colStep / 2 - width / 2) / focal);
@@ -297,9 +453,28 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
       const t = hit.wallType - 1;
       const level = Math.min(FOG_LEVELS - 1, Math.max(0, Math.floor(perp)));
       const seam = hit.u < 0.04 || hit.u > 0.96;
-      ctx.fillStyle =
-        shadeLUT[t][seam ? 1 : hit.side][seam ? Math.min(FOG_LEVELS - 1, level + 3) : level];
+      // Style 3 (data-stripe) gets vertical banding by nudging fog on alternating u-bands.
+      const stripe = t === 2 && (((hit.u * 6) | 0) & 1) === 1;
+      const bump = seam ? 3 : stripe ? 2 : 0;
+      ctx.fillStyle = shadeLUT[t][seam ? 1 : hit.side][Math.min(FOG_LEVELS - 1, level + bump)];
       ctx.fillRect(x, top, colStep + 1, sliceH);
+      const strip = wallStrips[t];
+      if (strip) ctx.drawImage(strip, x, top, colStep + 1, sliceH);
+      if (full) {
+        if (shadeStripCanvas) ctx.drawImage(shadeStripCanvas, x, top, colStep + 1, sliceH);
+        ctx.globalAlpha = Math.max(0.15, 1 - level / 9);
+        ctx.fillStyle = trimColor; // trim line at the wall foot
+        ctx.fillRect(x, top + sliceH - 1, colStep + 1, 1);
+        ctx.globalAlpha = 1;
+        if (hit.wallType === 4) {
+          const cellX = Math.floor(hit.hitX);
+          const cellY = Math.floor(hit.hitY);
+          if ((cellX * 3 + cellY) % 7 === 0) {
+            ctx.fillStyle = horizonColor; // occasional lit membrane panel
+            ctx.fillRect(x, top + sliceH * 0.4, colStep + 1, sliceH * 0.2);
+          }
+        }
+      }
     }
   }
 
@@ -313,6 +488,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
 
   function renderSprites() {
     const items: SpriteItem[] = [];
+    enemyNearCenter = false;
     const px = state.player.x;
     const py = state.player.y;
     const angle = state.player.angle;
@@ -330,7 +506,10 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     for (const enemy of state.enemies) {
       if (!enemy.alive) continue;
       const p = consider(enemy.x, enemy.y);
-      if (p) items.push({ kind: 'enemy', enemy, perp: p.perp, screenX: p.screenX });
+      if (p) {
+        items.push({ kind: 'enemy', enemy, perp: p.perp, screenX: p.screenX });
+        if (Math.abs(p.screenX - width / 2) < width * 0.06 && p.perp < 12) enemyNearCenter = true;
+      }
     }
     for (const pickup of state.pickups) {
       if (pickup.taken) continue;
@@ -345,6 +524,158 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     if (kind === 'substitution') return palette.accent;
     if (kind === 'insertion') return palette.warm;
     return palette.accentDark;
+  }
+
+  const ENEMY_MAX_HP: Record<EnemyKind, number> = {
+    substitution: 1,
+    insertion: 2,
+    deletion: 3,
+  };
+
+  function drawSpriteShadow(size: number) {
+    ctx.save();
+    ctx.globalAlpha *= 0.32;
+    ctx.fillStyle = palette.ink;
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.48, size * 0.34, size * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawEnemyEyes(r: number, ey = -r * 0.05) {
+    ctx.fillStyle = palette.surface;
+    const eye = Math.max(1.5, r * 0.15);
+    ctx.beginPath();
+    ctx.arc(-r * 0.3, ey, eye, 0, Math.PI * 2);
+    ctx.arc(r * 0.3, ey, eye, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = palette.ink;
+    const pupil = Math.max(0.8, r * 0.07);
+    ctx.beginPath();
+    ctx.arc(-r * 0.3, ey, pupil, 0, Math.PI * 2);
+    ctx.arc(r * 0.3, ey, pupil, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawEnemyCracks(r: number, count: number, seed: number) {
+    ctx.save();
+    ctx.strokeStyle = palette.ink;
+    ctx.globalAlpha *= 0.55;
+    ctx.lineWidth = Math.max(1, r * 0.06);
+    for (let i = 0; i < count; i++) {
+      const a = (seed * 1.7 + i * 2.3) % (Math.PI * 2);
+      const ox = Math.cos(a) * r * 0.2;
+      const oy = Math.sin(a) * r * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + Math.cos(a + 0.5) * r * 0.7, oy + Math.sin(a + 0.5) * r * 0.7);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEnemyTell(r: number, wob: number) {
+    ctx.save();
+    ctx.strokeStyle = palette.warm;
+    ctx.globalAlpha *= 0.6;
+    ctx.lineWidth = Math.max(1, r * 0.06);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * (1.28 + wob * 0.08), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawHitSpark(r: number, seed: number) {
+    ctx.save();
+    ctx.strokeStyle = palette.surface;
+    ctx.lineWidth = Math.max(1, r * 0.07);
+    for (let i = 0; i < 6; i++) {
+      const a = (seed + i) * 1.1;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.9);
+      ctx.lineTo(Math.cos(a) * r * 1.45, Math.sin(a) * r * 1.45);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Substitution — a base-swap: a diamond split into two tones with a divider.
+  function drawEnemySubstitution(r: number, wob: number, body: string, line: string) {
+    ctx.save();
+    ctx.rotate(wob * 0.12);
+    const d = r * 1.15;
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(0, -d);
+    ctx.lineTo(d, 0);
+    ctx.lineTo(0, d);
+    ctx.lineTo(-d, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.save(); // darken the right half to read as a swap
+    ctx.beginPath();
+    ctx.moveTo(0, -d);
+    ctx.lineTo(d, 0);
+    ctx.lineTo(0, d);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = rgbStr(mix(hexToRgb(body), hexToRgb(palette.ink), 0.32));
+    ctx.fillRect(-d, -d, 2 * d, 2 * d);
+    ctx.restore();
+    ctx.strokeStyle = line;
+    ctx.lineWidth = Math.max(1, r * 0.08);
+    ctx.beginPath();
+    ctx.moveTo(0, -d);
+    ctx.lineTo(d, 0);
+    ctx.lineTo(0, d);
+    ctx.lineTo(-d, 0);
+    ctx.closePath();
+    ctx.moveTo(0, -d);
+    ctx.lineTo(0, d);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Insertion — an extra pulsing segment plus a caret (insertion mark).
+  function drawEnemyInsertion(r: number, wob: number, body: string, line: string) {
+    ctx.save();
+    ctx.fillStyle = body;
+    ctx.strokeStyle = line;
+    ctx.lineWidth = Math.max(1, r * 0.08);
+    const w = r * 1.05;
+    const h = r * 1.55;
+    roundedRect(-w / 2, -h / 2, w, h, r * 0.5);
+    ctx.fill();
+    ctx.stroke();
+    const bulge = r * (0.42 + 0.08 * wob);
+    ctx.beginPath();
+    ctx.arc(w / 2, 0, bulge, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath(); // caret above
+    ctx.moveTo(-r * 0.35, -h / 2 - r * 0.12);
+    ctx.lineTo(0, -h / 2 - r * 0.52);
+    ctx.lineTo(r * 0.35, -h / 2 - r * 0.12);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Deletion — a thick ring with a missing wedge (the deletion gap).
+  function drawEnemyDeletion(r: number, wob: number, body: string, line: string) {
+    ctx.save();
+    ctx.fillStyle = body;
+    ctx.strokeStyle = line;
+    ctx.lineWidth = Math.max(1, r * 0.1);
+    const gap = 0.62;
+    const start = -Math.PI / 2 + gap / 2 + wob * 0.05;
+    const end = -Math.PI / 2 - gap / 2 + Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.15, start, end);
+    ctx.arc(0, 0, r * 0.55, end, start, true);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawSprite(item: SpriteItem) {
@@ -387,44 +718,46 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     if (item.kind === 'enemy' && item.enemy) {
       const enemy = item.enemy;
       const flash = enemy.hurtFor > 0;
-      ctx.fillStyle = flash ? palette.surface : enemyColor(enemy.kind);
-      ctx.strokeStyle = flash ? enemyColor(enemy.kind) : palette.ink;
-      ctx.lineWidth = Math.max(1, size * 0.03);
-      ctx.beginPath();
-      for (let i = 0; i < 16; i++) {
-        const a = (i / 16) * Math.PI * 2;
-        const rr = i % 2 === 0 ? r * 1.22 : r * 0.86;
-        const ex = Math.cos(a) * rr;
-        const ey = Math.sin(a) * rr;
-        if (i === 0) ctx.moveTo(ex, ey);
-        else ctx.lineTo(ex, ey);
+      const body = flash ? palette.surface : enemyColor(enemy.kind);
+      const line = flash ? enemyColor(enemy.kind) : palette.ink;
+      const wob = reducedMotion ? 0 : Math.sin(state.time * 3 + enemy.id * 0.7);
+      const dmg = ENEMY_MAX_HP[enemy.kind] - enemy.hp;
+      const ready = enemy.attackIn <= 0.15;
+      drawSpriteShadow(size);
+      if (enemy.kind === 'substitution') {
+        drawEnemySubstitution(r, wob, body, line);
+        drawEnemyEyes(r);
+      } else if (enemy.kind === 'insertion') {
+        drawEnemyInsertion(r, wob, body, line);
+        drawEnemyEyes(r);
+      } else {
+        drawEnemyDeletion(r, wob, body, line);
+        drawEnemyEyes(r, r * 0.82); // eyes on the lower ring (centre is a gap)
       }
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = palette.surface;
-      const eye = Math.max(1.5, r * 0.16);
-      ctx.beginPath();
-      ctx.arc(-r * 0.32, -r * 0.08, eye, 0, Math.PI * 2);
-      ctx.arc(r * 0.32, -r * 0.08, eye, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = palette.ink;
-      const pupil = Math.max(0.8, r * 0.07);
-      ctx.beginPath();
-      ctx.arc(-r * 0.32, -r * 0.08, pupil, 0, Math.PI * 2);
-      ctx.arc(r * 0.32, -r * 0.08, pupil, 0, Math.PI * 2);
-      ctx.fill();
+      if (dmg > 0) drawEnemyCracks(r, dmg, enemy.id);
+      if (ready) drawEnemyTell(r, wob);
+      if (enemy.hurtFor > 0.08) drawHitSpark(r, enemy.id);
     } else if (item.pickup) {
       const pickup = item.pickup;
-      ctx.fillStyle = palette.warmBg;
-      ctx.strokeStyle = palette.warmBorder;
-      ctx.lineWidth = Math.max(1, size * 0.03);
-      ctx.beginPath();
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = pickup.kind === 'health' ? palette.accent : palette.warm;
-      ctx.font = `600 ${Math.round(r * 1.05)}px ${cssVar('--font-display', 'system-ui')}`;
+      drawSpriteShadow(size);
+      ctx.lineWidth = Math.max(1, size * 0.035);
+      if (pickup.kind === 'health') {
+        ctx.fillStyle = palette.warmBg;
+        ctx.strokeStyle = palette.accent;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = palette.accent;
+      } else {
+        ctx.fillStyle = palette.warmBg;
+        ctx.strokeStyle = palette.warmBorder;
+        roundedRect(-r * 0.72, -r, r * 1.44, r * 2, r * 0.72); // nucleotide capsule
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = palette.warm;
+      }
+      ctx.font = `600 ${Math.round(r)}px ${cssVar('--font-display', 'system-ui')}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(pickup.base, 0, 1);
@@ -432,48 +765,104 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     ctx.restore();
   }
 
+  function drawChargeIndicator(w: number, h: number, frac: number, empty: boolean) {
+    const segs = 6;
+    const lit = Math.round(frac * segs);
+    const sw = (w * 0.5) / segs;
+    const y = -h * 0.06;
+    for (let i = 0; i < segs; i++) {
+      const x = -w * 0.25 + i * sw + 1;
+      ctx.fillStyle = i < lit ? (empty ? palette.warm : palette.accent) : palette.rule;
+      ctx.fillRect(x, y, sw - 2, h * 0.055);
+    }
+  }
+
+  // A procedural "polymerase proofreader" instrument: receiver + barrel + helix coil +
+  // emitter ring + charge indicator, with recoil kick, muzzle star, and correction pulse.
   function renderWeapon() {
-    const bob = reducedMotion ? 0 : Math.sin(bobPhase) * 5;
+    const recoil = reducedMotion ? 0 : recoilFor / 0.18; // 1 → 0
+    const move = moving();
+    const bx = reducedMotion ? 0 : move ? Math.sin(bobPhase) * 5 : Math.sin(idlePhase) * 2;
+    const by = reducedMotion ? 0 : move ? Math.abs(Math.sin(bobPhase * 2)) * 4 : 0;
     const cx = width * 0.5;
-    const w = Math.max(28, width * 0.085);
-    const h = Math.max(60, height * 0.4);
-    const baseY = height + 8 + Math.abs(bob) * 0.4;
+    const w = Math.max(30, width * 0.09);
+    const h = Math.max(64, height * 0.42);
+    const ammoFrac = state.player.ammo / TUNING.maxAmmo;
+    const empty = state.player.ammo === 0;
     ctx.save();
-    ctx.translate(cx + bob * 0.6, baseY);
+    ctx.translate(cx + bx, height + 10 + by + recoil * 12);
+    ctx.rotate(-recoil * 0.03);
+
+    // receiver body
     ctx.fillStyle = palette.ink;
-    ctx.strokeStyle = palette.accent;
+    ctx.strokeStyle = palette.rule;
     ctx.lineWidth = 2;
-    roundedRect(-w / 2, -h, w, h, 6);
+    roundedRect(-w * 0.34, -h * 0.28, w * 0.68, h * 0.5, 6);
     ctx.fill();
     ctx.stroke();
-    // Double-helix motif down the barrel — genomic without an asset.
+    // barrel
     ctx.strokeStyle = palette.accent;
-    ctx.globalAlpha = 0.85;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let i = 0; i <= 10; i++) {
-      const yy = -h + 8 + (i / 10) * (h - 16);
-      const off = Math.sin((i / 10) * Math.PI * 3) * (w * 0.22);
-      if (i === 0) ctx.moveTo(off, yy);
-      else ctx.lineTo(off, yy);
-    }
+    roundedRect(-w * 0.2, -h, w * 0.4, h * 0.78, 5);
+    ctx.fill();
     ctx.stroke();
-    ctx.beginPath();
-    for (let i = 0; i <= 10; i++) {
-      const yy = -h + 8 + (i / 10) * (h - 16);
-      const off = -Math.sin((i / 10) * Math.PI * 3) * (w * 0.22);
-      if (i === 0) ctx.moveTo(off, yy);
-      else ctx.lineTo(off, yy);
+    // twin helix coil down the barrel
+    ctx.globalAlpha = 0.9;
+    for (const dir of [1, -1]) {
+      ctx.beginPath();
+      for (let i = 0; i <= 12; i++) {
+        const yy = -h + 6 + (i / 12) * (h * 0.72);
+        const off = dir * Math.sin((i / 12) * Math.PI * 3) * (w * 0.15);
+        if (i === 0) ctx.moveTo(off, yy);
+        else ctx.lineTo(off, yy);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
     ctx.globalAlpha = 1;
+    // emitter ring
+    ctx.strokeStyle = empty ? palette.warm : palette.accent;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, -h, w * 0.16, 0, Math.PI * 2);
+    ctx.stroke();
+    // empty / recharge tell
+    if (empty) {
+      ctx.strokeStyle = palette.warm;
+      ctx.globalAlpha = reducedMotion ? 0.6 : 0.4 + 0.3 * Math.abs(Math.sin(idlePhase * 2));
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, -h, w * 0.3, 0.6, Math.PI - 0.6);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    drawChargeIndicator(w, h, ammoFrac, empty);
+
+    // muzzle flash (star) + expanding correction pulse
     if (state.muzzleFor > 0) {
-      ctx.globalAlpha = Math.min(1, state.muzzleFor / 0.09);
+      const f = Math.min(1, state.muzzleFor / 0.09);
+      ctx.globalAlpha = f;
       ctx.fillStyle = palette.accent;
       ctx.beginPath();
-      ctx.arc(0, -h, w * 0.6, 0, Math.PI * 2);
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const rr = i % 2 === 0 ? w * 0.55 : w * 0.22;
+        const ex = Math.cos(a) * rr;
+        const ey = -h + Math.sin(a) * rr;
+        if (i === 0) ctx.moveTo(ex, ey);
+        else ctx.lineTo(ex, ey);
+      }
+      ctx.closePath();
       ctx.fill();
       ctx.globalAlpha = 1;
+      if (!reducedMotion) {
+        const t = (0.09 - state.muzzleFor) / 0.09; // 0 → 1
+        ctx.strokeStyle = palette.accent;
+        ctx.globalAlpha = Math.max(0, 1 - t);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, -h, w * (0.3 + t * 1.4), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
     }
     ctx.restore();
   }
@@ -481,25 +870,38 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   function renderCrosshair() {
     const cx = width / 2;
     const cy = height / 2;
+    const spread = reducedMotion ? 0 : (recoilFor / 0.18) * 4;
+    const aimed = enemyNearCenter;
+    const col = aimed ? palette.warm : palette.accent;
+    const g = 3 + spread; // inner gap
+    const a = 9 + spread; // arm length
     ctx.save();
-    ctx.strokeStyle = palette.accent;
-    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = aimed ? 1 : 0.85;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(cx - 9, cy);
-    ctx.lineTo(cx - 3, cy);
-    ctx.moveTo(cx + 3, cy);
-    ctx.lineTo(cx + 9, cy);
-    ctx.moveTo(cx, cy - 9);
-    ctx.lineTo(cx, cy - 3);
-    ctx.moveTo(cx, cy + 3);
-    ctx.lineTo(cx, cy + 9);
+    ctx.moveTo(cx - a, cy);
+    ctx.lineTo(cx - g, cy);
+    ctx.moveTo(cx + g, cy);
+    ctx.lineTo(cx + a, cy);
+    ctx.moveTo(cx, cy - a);
+    ctx.lineTo(cx, cy - g);
+    ctx.moveTo(cx, cy + g);
+    ctx.lineTo(cx, cy + a);
     ctx.stroke();
     ctx.globalAlpha = 1;
-    ctx.fillStyle = palette.accent;
+    ctx.fillStyle = col;
     ctx.beginPath();
-    ctx.arc(cx, cy, 1.4, 0, Math.PI * 2);
+    ctx.arc(cx, cy, aimed ? 2 : 1.4, 0, Math.PI * 2);
     ctx.fill();
+    if (aimed) {
+      ctx.strokeStyle = palette.warm;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, a + 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
     if (state.time < hitMarkerUntil) {
       ctx.strokeStyle = hitMarkerKind === 'kill' ? palette.warm : palette.accent;
       ctx.lineWidth = 2;
@@ -596,9 +998,39 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   function renderOverlayPanel() {
     if (state.status === 'playing') return;
     ctx.save();
-    ctx.fillStyle = hexToRgba(palette.background, 0.82);
-    roundedRect(width * 0.1, height * 0.34, width * 0.8, height * 0.32, 8);
+    const px = width * 0.1;
+    const py = height * 0.3;
+    const pw = width * 0.8;
+    const ph = height * 0.4;
+    ctx.fillStyle = hexToRgba(palette.background, 0.86);
+    roundedRect(px, py, pw, ph, 10);
     ctx.fill();
+    ctx.strokeStyle = hexToRgba(palette.accent, 0.5);
+    ctx.lineWidth = 1;
+    roundedRect(px, py, pw, ph, 10);
+    ctx.stroke();
+    // Small target glyph above the title.
+    const gx = width / 2;
+    const gy = height * 0.4;
+    const gr = Math.max(9, width * 0.02);
+    ctx.strokeStyle = palette.accent;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(gx, gy, gr, 0, Math.PI * 2);
+    ctx.moveTo(gx - gr * 1.4, gy);
+    ctx.lineTo(gx - gr * 0.5, gy);
+    ctx.moveTo(gx + gr * 0.5, gy);
+    ctx.lineTo(gx + gr * 1.4, gy);
+    ctx.moveTo(gx, gy - gr * 1.4);
+    ctx.lineTo(gx, gy - gr * 0.5);
+    ctx.moveTo(gx, gy + gr * 0.5);
+    ctx.lineTo(gx, gy + gr * 1.4);
+    ctx.stroke();
+    ctx.fillStyle = palette.accent;
+    ctx.beginPath();
+    ctx.arc(gx, gy, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.fillStyle = palette.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -609,7 +1041,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
         : state.status === 'paused'
           ? 'Paused'
           : 'Genome overwhelmed';
-    ctx.fillText(title, width / 2, height * 0.44);
+    ctx.fillText(title, width / 2, height * 0.5);
     ctx.fillStyle = palette.muted;
     ctx.font = `500 ${Math.max(12, Math.round(width * 0.026))}px ${cssVar('--font-body', 'system-ui')}`;
     const hint =
@@ -620,17 +1052,29 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
         : state.status === 'paused'
           ? 'Press P or Pause to resume'
           : `Wave ${state.wave} · ${state.score.toLocaleString('en-US')} points · Enter to retry`;
-    ctx.fillText(hint, width / 2, height * 0.52);
+    ctx.fillText(hint, width / 2, height * 0.57);
     ctx.restore();
   }
 
   function render() {
-    ctx.fillStyle = ceilingColor;
+    // Backdrop fills the whole canvas first, so a screen-shake translate never bares an edge.
+    ctx.fillStyle = ceilingGrad;
     ctx.fillRect(0, 0, width, height / 2);
-    ctx.fillStyle = floorColor;
+    ctx.fillStyle = floorGrad;
     ctx.fillRect(0, height / 2, width, height - height / 2);
+    const shakeAmt = reducedMotion ? 0 : Math.min(1, state.damageFor / 0.4);
+    ctx.save();
+    if (shakeAmt) {
+      ctx.translate((Math.random() * 2 - 1) * shakeAmt * 6, (Math.random() * 2 - 1) * shakeAmt * 6);
+    }
+    if (floorGridCanvas) ctx.drawImage(floorGridCanvas, 0, height / 2);
     renderWalls();
+    ctx.fillStyle = horizonColor;
+    ctx.fillRect(0, height / 2 - 0.5, width, 1);
     renderSprites();
+    renderParticles();
+    ctx.restore();
+    // HUD layers stay stable (outside the shake) so sprite math is unaffected.
     renderVignette();
     renderWeapon();
     renderCrosshair();
@@ -722,9 +1166,11 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   // ---- lifecycle --------------------------------------------------------
   function begin() {
     shareMessage = '';
+    particles.length = 0;
     ensureAudio();
     setAimAssist(state, aimAssistOn);
     engineStart(state);
+    rebuildVisuals(); // wave is now set → correct zone tint before the first frame
     accumulator = 0;
     lastFrame = 0;
     updateHud();
@@ -751,9 +1197,11 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     const res = engineFire(state);
     if (res.fired || state.lastEvent === 'empty') {
       soundForEvent(state.lastEvent);
+      if (res.fired) recoilFor = 0.18;
       if (res.hitId !== null) {
         hitMarkerUntil = state.time + 0.12;
         hitMarkerKind = res.killed ? 'kill' : 'hit';
+        spawnBurst(res.killed ? 'kill' : 'hit');
       }
       updateHud();
       render();
@@ -780,6 +1228,64 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     updateHud();
   }
 
+  // ---- particles (bounded, reduced-motion-gated) -----------------------
+  function spawnBurst(event: GameState['lastEvent']) {
+    if (reducedMotion) return;
+    let n = 0;
+    let color = palette.accent;
+    if (event === 'kill') {
+      n = 12;
+      color = palette.warm;
+    } else if (event === 'hit') {
+      n = 6;
+      color = palette.accent;
+    } else if (event === 'hurt') {
+      n = 8;
+      color = palette.warm;
+    }
+    if (n === 0) return;
+    const cx = width / 2;
+    const cy = height / 2;
+    for (let i = 0; i < n; i++) {
+      if (particles.length >= 40) particles.shift();
+      const a = Math.random() * Math.PI * 2;
+      const sp = 40 + Math.random() * 130;
+      const life = 0.3 + Math.random() * 0.35;
+      particles.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 30,
+        life,
+        max: life,
+        color,
+        size: 1.5 + Math.random() * 1.8,
+      });
+    }
+  }
+
+  function updateParticles(dt: number) {
+    for (const p of particles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 220 * dt;
+      p.life -= dt;
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  function renderParticles() {
+    if (!particles.length) return;
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // ---- fixed-timestep loop ---------------------------------------------
   let animationFrame = 0;
   let lastFrame = 0;
@@ -787,13 +1293,17 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
 
   function simulationTick() {
     engineStep(state, FIXED_STEP, held);
+    if (state.wave !== themedWave) rebuildVisuals();
     const event = state.lastEvent;
     if (event !== 'none') soundForEvent(event);
+    if (event === 'fire' || event === 'hit' || event === 'kill') recoilFor = 0.18;
     if (event === 'hit' || event === 'kill') {
       hitMarkerUntil = state.time + 0.12;
       hitMarkerKind = event;
     }
+    if (event === 'hit' || event === 'kill' || event === 'hurt') spawnBurst(event);
     if (moving()) bobPhase += 9 * FIXED_STEP;
+    else idlePhase += 6 * FIXED_STEP;
     recordBest();
   }
 
@@ -809,6 +1319,8 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
         accumulator -= FIXED_STEP;
         simulationTick();
       }
+      recoilFor = Math.max(0, recoilFor - elapsed);
+      updateParticles(elapsed);
       render();
       updateHud();
     }
@@ -1053,12 +1565,15 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
 
   const onTheme = () => {
     palette = readPalette();
-    buildColors();
+    rebuildVisuals();
     buildRadar();
     render();
   };
   const onMotion = () => {
     reducedMotion = motionQuery.matches;
+    recoilFor = 0;
+    if (reducedMotion) particles.length = 0;
+    render();
   };
 
   function releaseControls() {
@@ -1112,10 +1627,9 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   soundBtn?.addEventListener('click', onSound);
   shareBtn?.addEventListener('click', onShare);
 
-  buildColors();
   buildRadar();
   resizeObserver.observe(canvas);
-  resize();
+  resize(); // computes dims + focal, then rebuildVisuals() + first render()
   updateHud();
   animationFrame = requestAnimationFrame(frame);
 

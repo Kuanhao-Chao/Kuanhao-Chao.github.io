@@ -145,6 +145,79 @@ describe('generateMap', () => {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (m[y][x] === 0) open++;
     expect(seen.size).toBe(open);
   });
+  it('generates a 17×17 board', () => {
+    const m = generateMap(mulberry32(1));
+    expect(m.length).toBe(17);
+    expect(m[0].length).toBe(17);
+  });
+  it('carves open rooms (2×2 open blocks beyond the spawn) and stays connected across seeds', () => {
+    for (const seed of [1, 7, 11, 42, 99]) {
+      const m = generateMap(mulberry32(seed));
+      const h = m.length;
+      const w = m[0].length;
+      // Every wall style is in range.
+      for (const row of m) for (const cell of row) expect(cell >= 0 && cell <= 4).toBe(true);
+      // Count 2×2 fully-open blocks — a maze alone yields few; rooms yield many.
+      let blocks = 0;
+      for (let y = 1; y < h - 2; y++) {
+        for (let x = 1; x < w - 2; x++) {
+          if (m[y][x] === 0 && m[y][x + 1] === 0 && m[y + 1][x] === 0 && m[y + 1][x + 1] === 0)
+            blocks++;
+        }
+      }
+      expect(blocks).toBeGreaterThanOrEqual(5);
+      // Full 4-connectivity from the spawn (rooms + pillars never orphan a cell).
+      const seen = new Set<string>(['1,1']);
+      const stack: Array<[number, number]> = [[1, 1]];
+      while (stack.length) {
+        const [x, y] = stack.pop() as [number, number];
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (
+            nx >= 0 &&
+            ny >= 0 &&
+            nx < w &&
+            ny < h &&
+            m[ny][nx] === 0 &&
+            !seen.has(`${nx},${ny}`)
+          ) {
+            seen.add(`${nx},${ny}`);
+            stack.push([nx, ny]);
+          }
+        }
+      }
+      let open = 0;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (m[y][x] === 0) open++;
+      expect(seen.size).toBe(open);
+    }
+  });
+  it('adds free-standing cover pillars (a wall cell with four open neighbours)', () => {
+    for (const seed of [1, 7, 11, 42, 99]) {
+      const m = generateMap(mulberry32(seed));
+      const h = m.length;
+      const w = m[0].length;
+      let pillars = 0;
+      for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          if (
+            m[y][x] > 0 &&
+            m[y - 1][x] === 0 &&
+            m[y + 1][x] === 0 &&
+            m[y][x - 1] === 0 &&
+            m[y][x + 1] === 0
+          )
+            pillars++;
+        }
+      }
+      expect(pillars).toBeGreaterThanOrEqual(1);
+    }
+  });
 });
 
 describe('castRay (DDA)', () => {
