@@ -61,6 +61,7 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/components/WGTWheelie.astro',
   'src/pages/logo-options.astro',
   'src/pages/games/genome-jumper.astro',
+  'src/pages/games/proofreader.astro',
   'src/pages/posts/[...slug].astro',
   'src/pages/projects.astro',
   'src/pages/publications/[...slug].astro',

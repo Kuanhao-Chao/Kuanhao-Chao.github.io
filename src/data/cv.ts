@@ -260,6 +260,12 @@ export const sideProjects: SideProject[] = [
     url: '/games/genome-jumper/',
   },
   {
+    name: 'Proofreader',
+    detail:
+      'First-person browser shooter — a Canvas-2D raycast maze, mutation enemies, and nucleotide pickups',
+    url: '/games/proofreader/',
+  },
+  {
     name: 'Dino Run',
     detail: 'Browser runner - jump / duck / tap / swipe, with a genomic riff',
     url: '/games/dino-run/',
