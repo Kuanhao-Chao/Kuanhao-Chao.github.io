@@ -281,6 +281,11 @@ export const sideProjects: SideProject[] = [
     url: '/games/tetris/',
   },
   {
+    name: 'Jetpack Joyride',
+    detail: 'Browser side-scroller — hold to fly, dodge mutagens, collect A/C/G/T bases',
+    url: '/games/jetpack-joyride/',
+  },
+  {
     name: 'Biobaby',
     detail: 'Unity WebGL game',
     url: 'https://storage.googleapis.com/storage.khchao.com/biobaby/index.html',

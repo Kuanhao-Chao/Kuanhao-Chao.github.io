@@ -1,0 +1,273 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { site } from '../../data/site';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'Jetpack Joyride',
+  description:
+    'An original genomics-themed side-scroller: hold to fly an enzyme on its jetpack, dodge mutagen zappers, lasers, and missiles, and collect A/C/G/T bases and shields.',
+  url: `${site.url}/games/jetpack-joyride/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Arcade', 'Endless runner'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
+---
+
+<PageLayout
+  title="Jetpack Joyride"
+  eyebrow="Side project"
+  lead="A modern browser side-scroller in this site's style: hold to fire your jetpack and lift off, release to fall, and thread an enzyme through mutagen zappers, telegraphed lasers, and incoming missiles while collecting A · C · G · T bases and shields. Hold Space, click, tap, or the Thrust button to fly."
+  description="Jetpack Joyride — a mobile-friendly browser side-scroller by Kuan-Hao Chao: hold-to-fly physics, mutagen hazards, nucleotide coins, and shields, in a minimalist genomics style."
+>
+  <section class="jet" aria-label="Jetpack Joyride game">
+    <div class="jet-hud">
+      <div class="jet-stats">
+        <span class="stat">
+          <span class="stat-label">Bases</span>
+          <span class="stat-value"><span data-jetpack-bases>0</span><span class="stat-unit">bp</span></span>
+        </span>
+        <span class="stat">
+          <span class="stat-label">Coins</span>
+          <span class="stat-value"><span data-jetpack-coins>0</span></span>
+        </span>
+        <span class="stat">
+          <span class="stat-label">Best</span>
+          <span class="stat-value"><span data-jetpack-best>0</span></span>
+        </span>
+      </div>
+      <p class="jet-status" data-jetpack-status role="status" aria-live="polite">
+        Hold Space, click, or tap to fly
+      </p>
+    </div>
+
+    <div class="jet-board">
+      <canvas
+        data-jetpack-canvas
+        role="img"
+        aria-label="Jetpack Joyride game board. Hold Space, click, tap, or the Thrust button to fly up; release to fall. Dodge hazards and collect bases."></canvas>
+    </div>
+
+    <div class="jet-controls" aria-label="Jetpack Joyride controls">
+      <button type="button" class="jet-btn jet-btn--primary" data-jetpack-thrust aria-label="Thrust — hold to fly">
+        <Icon name="arrow-up" size={16} />
+        <span>Thrust</span>
+      </button>
+      <button type="button" class="jet-btn" data-jetpack-pause disabled aria-label="Pause">
+        <Icon name="pause" size={16} />
+        <span data-button-label>Pause</span>
+      </button>
+      <button type="button" class="jet-btn" data-jetpack-restart>
+        <Icon name="rotate-ccw" size={16} />
+        <span>Restart</span>
+      </button>
+    </div>
+
+    <p class="jet-hint muted">
+      Desktop: hold Space / ↑ / W (or click the board) to fly, P to pause. Mobile: hold anywhere on
+      the board, or hold the Thrust button. Release to fall.
+    </p>
+  </section>
+</PageLayout>
+
+<script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
+<script>
+  import { initJetpackJoyride, type JetpackJoyrideController } from '../../scripts/jetpackJoyride';
+
+  let controller: JetpackJoyrideController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initJetpackJoyride(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
+
+<style>
+  .jet {
+    max-width: 58rem;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .jet-hud {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.9rem 1.25rem;
+    flex-wrap: wrap;
+  }
+  .jet-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.6rem;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: var(--fs-meta);
+    letter-spacing: var(--tracking-meta);
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .stat-value {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.28rem;
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: var(--fw-semibold);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .stat-unit {
+    font-size: 0.72rem;
+    letter-spacing: 0;
+    color: var(--color-muted);
+  }
+  .jet-status {
+    min-height: 1.4em;
+    font-size: var(--fs-small);
+    color: var(--color-ink);
+    text-align: right;
+  }
+  .jet-board {
+    width: min(100%, 56rem, calc(72svh * 16 / 9));
+    aspect-ratio: 16 / 9;
+    margin-inline: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    overflow: hidden;
+    box-shadow: 0 0.55rem 1.5rem rgba(0, 0, 0, 0.11);
+  }
+  .jet-board canvas {
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: pointer;
+  }
+  .jet-controls {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+  .jet-btn {
+    min-height: 2.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.55em 1.05em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-ink);
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    transition:
+      border-color var(--transition),
+      color var(--transition),
+      background-color var(--transition);
+  }
+  .jet-btn:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  .jet-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .jet-btn--primary {
+    min-width: 8rem;
+    border-color: color-mix(in srgb, var(--color-accent) 68%, var(--color-rule));
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    color: var(--color-accent-dark);
+  }
+  :global(html[data-theme='dark']) .jet-btn--primary {
+    color: var(--color-accent);
+  }
+  .jet-btn--primary:active {
+    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+    border-color: var(--color-accent);
+  }
+  .jet-btn[data-active='true'] {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-accent);
+  }
+  .jet-hint {
+    max-width: 40rem;
+    margin-inline: auto;
+    text-align: center;
+    font-size: var(--fs-meta);
+  }
+
+  @media (pointer: coarse) {
+    .jet-btn {
+      min-height: 3rem;
+      padding-inline: 1.15em;
+    }
+  }
+  @media (max-width: 700px) {
+    .jet-hud {
+      align-items: flex-start;
+    }
+    .jet-status {
+      width: 100%;
+      text-align: left;
+    }
+    .stat-value {
+      font-size: 1.42rem;
+    }
+    .jet-board {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+    }
+  }
+  @media (max-width: 430px) {
+    .jet-stats {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+    .stat-value {
+      font-size: 1.2rem;
+    }
+    .jet-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .jet-btn--primary {
+      grid-column: 1 / -1;
+    }
+    .jet-hint {
+      font-size: 0.76rem;
+    }
+  }
+</style>
