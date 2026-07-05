@@ -53,6 +53,17 @@ const games = [
       '[data-proof-fire], [data-proof-share], [data-proof-pause], [data-proof-restart], [data-proof-sound]',
     drive: driveProofreader,
   },
+  {
+    slug: 'jetpack-joyride',
+    title: 'Jetpack Joyride',
+    linkName: 'Jetpack Joyride',
+    query: '?seed=2026',
+    global: '__jetpackJoyride',
+    instances: '__jetpackJoyrideInstances',
+    canvas: '[data-jetpack-canvas]',
+    controls: '[data-jetpack-thrust], [data-jetpack-pause], [data-jetpack-restart]',
+    drive: driveJetpackJoyride,
+  },
 ];
 
 function selectedGames() {
@@ -386,6 +397,114 @@ async function driveProofreader(page, scope, profile) {
     scope,
     () => page.evaluate(() => Boolean(window.__gameAuditShared)),
     'Web Share fallback was not invoked'
+  );
+}
+
+async function driveJetpackJoyride(page, scope, profile) {
+  const canvas = page.locator('[data-jetpack-canvas]');
+
+  if (profile.touch) {
+    // Hold anywhere on the board to fire the jetpack.
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('Canvas has no bounding box');
+    const y0 = await page.evaluate(() => window.__jetpackJoyride?.state().flyer.y ?? 0);
+    await canvas.dispatchEvent('pointerdown', {
+      pointerId: 9,
+      pointerType: 'touch',
+      clientX: box.x + box.width * 0.4,
+      clientY: box.y + box.height * 0.5,
+      isPrimary: true,
+    });
+    await page.evaluate(() => window.__jetpackJoyride?.tick(12));
+    await canvas.dispatchEvent('pointerup', {
+      pointerId: 9,
+      pointerType: 'touch',
+      clientX: box.x + box.width * 0.4,
+      clientY: box.y + box.height * 0.5,
+      isPrimary: true,
+    });
+    await expect(
+      scope,
+      () => page.evaluate((y) => (window.__jetpackJoyride?.state().flyer.y ?? 1e9) < y, y0),
+      'touch hold did not lift the flyer'
+    );
+  } else {
+    const y0 = await page.evaluate(() => {
+      window.__jetpackJoyride?.start();
+      return window.__jetpackJoyride?.state().flyer.y ?? 0;
+    });
+    await page.evaluate(() => {
+      window.__jetpackJoyride?.setThrust(true);
+      window.__jetpackJoyride?.tick(12);
+      window.__jetpackJoyride?.setThrust(false);
+    });
+    await expect(
+      scope,
+      () => page.evaluate((y) => (window.__jetpackJoyride?.state().flyer.y ?? 1e9) < y, y0),
+      'thrust did not lift the flyer'
+    );
+  }
+
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__jetpackJoyride?.state().status === 'playing'),
+    'game did not enter playing state'
+  );
+
+  // A base coin on the flyer is collected.
+  await page.evaluate(() => {
+    window.__jetpackJoyride?.spawnCoin('A');
+    window.__jetpackJoyride?.tick(1);
+  });
+  await expect(
+    scope,
+    () => page.evaluate(() => (window.__jetpackJoyride?.coins() ?? 0) >= 1),
+    'coin pickup did not register'
+  );
+
+  // A shield absorbs one otherwise-fatal hazard.
+  await page.evaluate(() => {
+    window.__jetpackJoyride?.spawnShield();
+    window.__jetpackJoyride?.tick(1);
+    window.__jetpackJoyride?.spawnHazard('zapper');
+    window.__jetpackJoyride?.tick(1);
+  });
+  await expect(
+    scope,
+    () =>
+      page.evaluate(
+        () =>
+          window.__jetpackJoyride?.state().status === 'playing' &&
+          window.__jetpackJoyride?.state().flyer.shielded === false
+      ),
+    'shield did not absorb the hazard'
+  );
+
+  // Pause / resume via the control button.
+  await page.locator('[data-jetpack-pause]').click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__jetpackJoyride?.isRunning() === false),
+    'Pause control did not stop the loop'
+  );
+  await page.locator('[data-jetpack-pause]').click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__jetpackJoyride?.state().status === 'playing'),
+    'Pause control did not resume'
+  );
+
+  // Forced fatal hazard → game over + best persisted.
+  await page.evaluate(() => window.__jetpackJoyride?.endRun());
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__jetpackJoyride?.state().status === 'over'),
+    'forced run end did not reach game-over state'
+  );
+  await expect(
+    scope,
+    () => page.evaluate(() => Number(localStorage.getItem('khc-jetpack-joyride-best')) > 0),
+    'best score was not persisted'
   );
 }
 
