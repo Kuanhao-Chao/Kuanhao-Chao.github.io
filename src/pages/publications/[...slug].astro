@@ -32,7 +32,7 @@ const OWNER = 'Kuan-Hao Chao';
 const authorParts = d.authors.split(OWNER);
 
 const eyebrow = [typeLabel, d.venue].filter(Boolean).join(' · ');
-const statusLabel = { published: null, preprint: 'Preprint', accepted: 'Accepted' }[d.status];
+const statusLabel = { published: null, preprint: 'Preprint', accepted: 'In press' }[d.status];
 const meta = [
   fullDate(d.date),
   statusLabel,

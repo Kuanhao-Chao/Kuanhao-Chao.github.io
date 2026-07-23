@@ -23,6 +23,11 @@ const authorParts = d.authors.split(OWNER);
 
 const typeLabel = { journal: 'Journal', conference: 'Conference', preprint: 'Preprint', thesis: 'Thesis' }[d.type];
 
+// Accepted-but-not-yet-published papers surface an "In press" badge; the venue shows the journal.
+const inPress = d.status === 'accepted';
+const tagLabel = inPress ? 'In press' : typeLabel;
+const tagClass = inPress ? 'tag--accepted' : `tag--${d.type}`;
+
 const links = [
   { key: 'doi', label: 'DOI', icon: 'link', href: d.doi },
   { key: 'pdf', label: 'PDF', icon: 'file', href: d.pdf },
@@ -66,7 +71,7 @@ const citation = publicationCitation(d);
 
     <p class="pub-meta">
       <span class="pub-venue">{d.venue}</span>
-      <span class:list={['tag', `tag--${d.type}`]}>{typeLabel}</span>
+      <span class:list={['tag', tagClass]}>{tagLabel}</span>
     </p>
 
     <div class="pub-links">
@@ -175,6 +180,11 @@ const citation = publicationCitation(d);
     color: var(--color-badge-warm-text);
     border-color: var(--color-badge-warm-border);
     background: var(--color-badge-warm-bg);
+  }
+  .tag--accepted {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   }
   .pub-links {
     margin-top: 0.75rem;
