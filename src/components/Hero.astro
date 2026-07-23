@@ -18,6 +18,42 @@ import portrait from '../assets/profile/portrait.jpg';
       </p>
       <p class="hero-bio muted">{site.bio}</p>
 
+      <details class="hero-name">
+        <summary>
+          <span class="hero-name-head">
+            <span class="hero-name-caret" aria-hidden="true"></span>
+            About my name
+          </span>
+          <span class="hero-name-zh" lang="zh-Hant">{site.nameZh}</span>
+        </summary>
+        <div class="hero-name-body">
+          <p>
+            {site.nameZh} is my Chinese name. My first name consists of two words, Kuan (冠) and Hao (豪),
+            connected with a hyphen. Kuan (冠) means ‘crown’, and it can also be used as a verb describing
+            the action of ‘putting A on top of B’, which implies ‘being a champion’. Hao (豪) means ‘big’
+            and ‘grand’, signifying ‘having the characteristics of a hero’. When combined, Kuan-Hao (冠豪)
+            represents the love and expectations my parents have for me. My last name is Chao (趙), and an
+            interesting fact is that Chao was the surname of 18 emperors from the ancient and prosperous <a
+              href="https://en.wikipedia.org/wiki/Song_dynasty"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Song Dynasty</a> in China (A.D. 960 – A.D. 1279).
+          </p>
+          <p class="hero-name-say">
+            <span class="hero-name-tag">Pronunciation</span>
+            Kuan-Hao Chao — say it like <strong>“kwan-how chow”</strong> (Kuan rhymes with “swan”; Hao and
+            Chao both rhyme with “now”).
+          </p>
+          <div class="hero-name-audio">
+            <span class="hero-name-tag">Hear me say it</span>
+            <audio controls preload="none" aria-label="Kuan-Hao Chao pronouncing his name">
+              <source src="/audio/my_name.mp3" type="audio/mpeg" />
+              Your browser doesn’t support the audio element.
+            </audio>
+          </div>
+        </div>
+      </details>
+
       <div class="hero-actions">
         <a class="btn btn--accent" href="/research/">
           Explore the research
@@ -81,6 +117,91 @@ import portrait from '../assets/profile/portrait.jpg';
     max-width: var(--measure);
     font-size: var(--fs-body);
     margin-bottom: 2rem;
+  }
+  /* Collapsible "About my name" disclosure (identity content from the old site). */
+  .hero-name {
+    max-width: var(--measure);
+    margin-bottom: 2rem;
+    border-top: 1px solid var(--color-rule);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .hero-name summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 0.8rem;
+    color: var(--color-ink);
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+    list-style: none;
+    transition: color var(--transition);
+  }
+  .hero-name summary::-webkit-details-marker {
+    display: none;
+  }
+  .hero-name-head {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .hero-name-caret {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-right: 1.5px solid var(--color-muted);
+    border-bottom: 1.5px solid var(--color-muted);
+    transform: rotate(-45deg);
+    transition: transform var(--transition), border-color var(--transition);
+  }
+  .hero-name[open] .hero-name-caret {
+    transform: rotate(45deg);
+  }
+  .hero-name summary:hover {
+    color: var(--color-accent);
+  }
+  .hero-name summary:hover .hero-name-caret {
+    border-color: var(--color-accent);
+  }
+  .hero-name-zh {
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+    letter-spacing: 0.08em;
+  }
+  .hero-name-body {
+    padding-bottom: var(--space-5);
+    font-size: var(--fs-small);
+    line-height: 1.6;
+    color: var(--color-muted);
+  }
+  .hero-name-body p {
+    margin: 0 0 0.9rem;
+  }
+  .hero-name-body a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .hero-name-say strong {
+    color: var(--color-ink);
+    font-weight: var(--fw-semibold);
+  }
+  .hero-name-tag {
+    display: block;
+    font-size: var(--fs-meta);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-ink);
+    font-weight: var(--fw-medium);
+    margin-bottom: 0.25rem;
+  }
+  .hero-name-audio {
+    margin-top: 0.2rem;
+  }
+  .hero-name-audio audio {
+    width: 100%;
+    max-width: 20rem;
+    height: 2.4rem;
   }
   .hero-actions {
     display: flex;
@@ -173,6 +294,14 @@ import portrait from '../assets/profile/portrait.jpg';
       margin-top: 1rem;
       margin-bottom: 0;
       font-size: 1rem;
+    }
+    /* Keep the name disclosure directly below the (reordered) bio, left-aligned. */
+    .hero-name {
+      order: 6;
+      width: 100%;
+      text-align: left;
+      margin-top: 1.25rem;
+      margin-bottom: 0;
     }
     .hero-actions {
       order: 4;
