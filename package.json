@@ -43,9 +43,9 @@
     "@fontsource-variable/hanken-grotesk": "^5.2.8",
     "@fontsource-variable/inter": "^5.2.8",
     "playwright": "^1.61.1",
-    "prettier": "^3.9.4",
+    "prettier": "^3.9.6",
     "prettier-plugin-astro": "^0.14.1",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.9"
   }
 }
