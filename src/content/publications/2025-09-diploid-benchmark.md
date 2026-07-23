@@ -1,10 +1,10 @@
 ---
 title: 'A complete diploid human genome benchmark for personalized genomics'
 authors: 'Nancy F. Hansen, Nathan Dwarshuis, Hyun Joo Ji, …, Kuan-Hao Chao, …, Steven L. Salzberg, Adam M. Phillippy'
-venue: 'bioRxiv'
+venue: 'Cell'
 date: 2025-09-21
-type: preprint
-status: preprint
+type: journal
+status: accepted
 doi: 'https://doi.org/10.1101/2025.09.21.677443'
 code: 'https://github.com/marbl/HG002'
 bibtex: |
