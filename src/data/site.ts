@@ -43,6 +43,21 @@ export const identity = {
     'RNA splicing',
     'Genome assembly',
   ],
+  // Every spelling/order of the name (romanization spacing/hyphen/case + Chinese
+  // forms) so the Person JSON-LD ties each variant to this profile for search.
+  alternateNames: [
+    '趙冠豪',
+    '冠豪趙',
+    'Kuan Hao Chao',
+    'Kuanhao Chao',
+    'KuanHao Chao',
+    'kuanhao chao',
+    'kuan hao chao',
+    'Kuan hao Chao',
+    'Chao Kuan-Hao',
+    'Chao Kuanhao',
+    'khc',
+  ],
   twitter: '@KuanHaoChao',
 };
 
