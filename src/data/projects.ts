@@ -90,7 +90,7 @@ export const projects: Project[] = [
       { label: 'Research', icon: 'link', href: '/research/genome-annotation/' },
       { label: 'Publication', icon: 'file', href: '/publications/lifton/' },
       { label: 'Post', icon: 'pencil', href: '/posts/lifton/' },
-      { label: 'Docs', icon: 'book', href: 'https://ccb.jhu.edu/lifton/' },
+      { label: 'Docs', icon: 'book', href: 'https://khchao.com/LiftOn/' },
       { label: 'Code', icon: 'code', href: 'https://github.com/Kuanhao-Chao/LiftOn' },
       { label: 'Report', icon: 'file', href: '/reports/lifton-v1-0-10-technical-report/' },
     ],
