@@ -615,4 +615,64 @@ LiftOn is open-source (GitHub: [github.com/Kuanhao-Chao/LiftOn](https://github.c
 lifton -g reference.gff3 reference.fa target.fa -o lifton.gff3
 ```
 
-The benchmark harness, the four-way comparison, the tool-neutral re-scoring evaluator, and all source data and figures are archived under `benchmarks/compare/` (`evaluator.py`, `fourway_results.json`, `version_compare.results.json`, `MASTER_COMPARISON_REPORT.md`, and the figures reproduced here). The byte-identity regression suite, including the 24-cell matrix, ships under `tests/`. Comparisons in this report were run with a pinned conda environment, `PYTHONHASHSEED=0`, v1.0.8 at git tag `e503643d` (`lifton_stable` environment), and v1.0.10 at git tag `v1.0.10` (`lifton_devel` environment). The whole-genome results are deterministic under `-t1`: a from-scratch re-run reproduces the full-genome numbers bit-exact (the only documented source of run-to-run variation is Liftoff's `-copies` multi-copy alignment, disabled for the deterministic comparison), confirmed alongside the full **805**-test regression suite and the 24-cell byte-identity matrix — which guarantees every performance optimization is output-neutral and that the v1.0.10 version bump itself does not touch the emitted annotation bytes.
+The benchmark harness, the four-way comparison, the tool-neutral re-scoring evaluator, and all source data and figures are archived under `benchmarks/compare/` (`evaluator.py`, `fourway_results.json`, `version_compare.results.json`, `MASTER_COMPARISON_REPORT.md`, and the figures reproduced here). The byte-identity regression suite, including the 24-cell matrix, ships under `tests/`. Comparisons in this report were run with a pinned conda environment, `PYTHONHASHSEED=0`, v1.0.8 at git tag `e503643d` (`lifton_stable` environment), and the v1.0.10 engine at commit `3739dfc` (`lifton_devel` environment) — see the addendum in §7 for how the released build differs from the one measured here. The whole-genome results are deterministic under `-t1`: a from-scratch re-run reproduces the full-genome numbers bit-exact (the only documented source of run-to-run variation is Liftoff's `-copies` multi-copy alignment, disabled for the deterministic comparison), confirmed alongside the full regression suite (**805** tests at the measured commit; **1,708** in the released build) and the 24-cell byte-identity matrix — which guarantees every performance optimization is output-neutral and that the v1.0.10 version bump itself does not touch the emitted annotation bytes.
+
+## 7. Addendum: the released build
+
+*Added 2026-07-30, when v1.0.10 was published to PyPI.*
+
+The measurements in this report were produced from commit `3739dfc`. Between that
+commit and the released v1.0.10 (`6ba463f`), sixty-seven further commits landed —
+a batch of user-reported issue fixes, a full-repository correctness audit, and a CDS
+attribute-parity fix. This section states what changed, so the tables above can be read
+against the build people actually install.
+
+**The accuracy, completeness and validity results are unchanged, and this was verified
+rather than assumed.** On a full dog→cat lift, columns 1–8 are byte-identical across
+all 1,815,199 rows between the two builds. For a CDS those columns *are* its
+coordinates, strand and phase, so no lifted model moved and no translated protein can
+differ; `protein_identity` is unchanged across all 66,276 transcripts. Re-scoring both
+builds with the neutral evaluator produced an identical `transcripts.tsv`. Every
+number in §3.3, §3.5 and §3.7 therefore still describes the released build.
+
+**Five things about the released build this report does not otherwise state.**
+
+1. **`pip install lifton` was broken, and is fixed.** LiftOn depended on `cigar` 0.1.3 —
+   unmaintained since 2015, distributed as an sdist whose `setup.py` calls
+   `ez_setup.use_setuptools()` to download a setuptools egg from a URL that no longer
+   serves one. Any installation without a cached wheel failed with
+   `tarfile.ReadError: not a gzip file`. This affected every prior release, including
+   v1.0.9, and was invisible on developer machines because a cached wheel satisfies the
+   requirement. LiftOn used one call from that package; it is now parsed in-tree and the
+   dependency is gone.
+
+2. **Output files are 12–43% larger.** Rebuilt CDS rows used to lose the reference's
+   descriptive attributes (`Dbxref`, `product`, `protein_id`, `gene`, `locus_tag`, …):
+   on a full *Drosophila* lift, 7,127 of 7,142 pure-DNA-lift CDS rows carried them
+   while only 21 of 151,277 merged rows did, even though every merged mRNA row kept the
+   same attributes. They are now carried through the merge. `LIFTON_NO_CDS_ATTR_CARRY=1`
+   restores the previous bytes.
+
+3. **Three output-shape defaults changed** — the attributes above, a shared
+   `ID=cds-<transcript>` on every CDS (the spec's discontinuous-CDS form; previously
+   CDS rows carried no `ID` at all), and coding transcripts canonicalized to `mRNA`
+   rather than inheriting the reference's often-generic `transcript`. All three affect
+   columns 3 and 9 only; coordinates and the encoded protein are untouched. Each has an
+   environment-variable opt-out.
+
+4. **Further byte-neutral performance work** not measured in §3.2: GFF3 validation now
+   proceeds one contiguous top-level block at a time rather than materializing the whole
+   file, cutting a full dog→cat validation from 5.64 GB to 267 MB (21×) while running
+   1.9× faster; and Step 7 is ~21% faster on *Drosophila* at `-t 8`, with byte-identical
+   output.
+
+5. **Twelve reported issues were fixed**, including a DNA-lift SQL error that made the
+   same input succeed on one machine and fail on another (GH #35), a single unresolvable
+   alignment aborting an entire chromosome (GH #39), antisense merges emitting
+   mixed-strand rows (GH #33), and UTR indels being reported as frameshifts (GH #46).
+
+**What a benchmark refresh would change.** Only the resource panel of §3.2. Output grows
+12–43%, which moves write time and downstream file sizes; peak RSS rises about 2.5%
+(2.90 → 2.98 GB on dog→cat); and the Step-7 and validation gains above are not reflected
+in the tables. Accuracy, completeness and validity need no re-baseline, for the reason
+given at the top of this section.
