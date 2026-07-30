@@ -57,6 +57,10 @@ export default defineConfig({
     // experimental project). Keep the previously-shared URLs working.
     '/posts/lifton-v2': '/posts/lifton-v1-0-9',
     '/reports/lifton-v2-technical-report': '/reports/lifton-v1-0-9-technical-report',
+    // OpenSpliceAI docs moved off ccb.jhu.edu/openspliceai onto GitHub Pages, which serves
+    // them from the repo path /OpenSpliceAI/. Pages paths are case-sensitive, so catch the
+    // lowercase spelling the old CCB URL used.
+    '/openspliceai': '/OpenSpliceAI/',
     // Per-item pages from the previous site (auto-generated; see
     // scripts/gen-legacy-redirects.mjs). Originals live on archive.khchao.com.
     ...legacyRedirects,
