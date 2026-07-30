@@ -61,6 +61,9 @@ export default defineConfig({
     // them from the repo path /OpenSpliceAI/. Pages paths are case-sensitive, so catch the
     // lowercase spelling the old CCB URL used.
     '/openspliceai': '/OpenSpliceAI/',
+    // LiftOn docs likewise moved off ccb.jhu.edu/lifton; Pages serves them from the
+    // repo path /LiftOn/. Same case-sensitivity catch for the lowercase CCB spelling.
+    '/lifton': '/LiftOn/',
     // Per-item pages from the previous site (auto-generated; see
     // scripts/gen-legacy-redirects.mjs). Originals live on archive.khchao.com.
     ...legacyRedirects,
