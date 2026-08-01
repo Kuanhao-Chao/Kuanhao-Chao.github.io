@@ -64,6 +64,9 @@ export default defineConfig({
     // LiftOn docs likewise moved off ccb.jhu.edu/lifton; Pages serves them from the
     // repo path /LiftOn/. Same case-sensitivity catch for the lowercase CCB spelling.
     '/lifton': '/LiftOn/',
+    // The v1.0.10 report was superseded by v1.0.11 (a single-fix release whose
+    // numbers were re-measured); keep the previously-shared URL working.
+    '/reports/lifton-v1-0-10-technical-report': '/reports/lifton-v1-0-11-technical-report',
     // Per-item pages from the previous site (auto-generated; see
     // scripts/gen-legacy-redirects.mjs). Originals live on archive.khchao.com.
     ...legacyRedirects,

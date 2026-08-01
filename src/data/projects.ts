@@ -92,7 +92,7 @@ export const projects: Project[] = [
       { label: 'Post', icon: 'pencil', href: '/posts/lifton/' },
       { label: 'Docs', icon: 'book', href: 'https://khchao.com/LiftOn/' },
       { label: 'Code', icon: 'code', href: 'https://github.com/Kuanhao-Chao/LiftOn' },
-      { label: 'Report', icon: 'file', href: '/reports/lifton-v1-0-10-technical-report/' },
+      { label: 'Report', icon: 'file', href: '/reports/lifton-v1-0-11-technical-report/' },
     ],
   },
   {
