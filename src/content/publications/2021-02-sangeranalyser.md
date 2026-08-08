@@ -12,7 +12,7 @@ docs: 'https://sangeranalyser.readthedocs.io/en/latest/'
 poster: 'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Bioc2021/sangeranalyseR_poster.pdf'
 advisors: ['Robert Lanfear']
 featured: true
-selectedOrder: 8
+selectedOrder: 9
 bibtex: |
   @article{chao2021sangeranalyser,
     title   = {sangeranalyseR: simple and interactive processing of Sanger sequencing data in R},

@@ -8,7 +8,7 @@ status: published
 doi: 'https://doi.org/10.1093/bib/bbad229'
 advisors: ['Huai-Kuang Tsai', 'Jun-Yi Leu']
 featured: true
-selectedOrder: 7
+selectedOrder: 8
 bibtex: |
   @article{chen2023spiffed,
     title   = {A feature extraction free approach for protein interactome inference from co-elution data},

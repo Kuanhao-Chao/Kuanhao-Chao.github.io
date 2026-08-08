@@ -6,7 +6,7 @@ import CitationTools from '../../components/CitationTools.astro';
 import { pubSlug } from '../../lib/slug';
 import { resolveRelatedPosts } from '../../lib/relatedPosts';
 import { fullDate } from '../../lib/format';
-import { publicationCitation, publicationRis } from '../../lib/citationText';
+import { authorNames, publicationCitation, publicationRis } from '../../lib/citationText';
 import { site } from '../../data/site';
 
 export async function getStaticPaths() {
@@ -58,15 +58,19 @@ const citation = publicationCitation(d);
 
 // Structured data: ScholarlyArticle + breadcrumb (emitted in-body; valid for Google).
 const canonical = new URL(`/publications/${pubSlug(entry.id)}/`, site.url).href;
-const authorLd = d.authors
-  .split(',')
-  .map((a) => a.replace(/[*†]/g, '').trim())
-  .filter(Boolean)
-  .map((name) =>
-    name === OWNER
-      ? { '@type': 'Person', name, url: site.url }
-      : { '@type': 'Person', name }
-  );
+const authorLd = authorNames(d.authors).map((name) =>
+  name === OWNER ? { '@type': 'Person', name, url: site.url } : { '@type': 'Person', name }
+);
+
+// schema.org nests a journal article as Issue → Volume → Periodical. Entries with no
+// volume of record (preprints, the thesis) keep the bare Periodical.
+const periodicalLd = { '@type': 'Periodical', name: d.venue };
+const volumeLd = d.volume
+  ? { '@type': 'PublicationVolume', volumeNumber: d.volume, isPartOf: periodicalLd }
+  : periodicalLd;
+const isPartOfLd = d.issue
+  ? { '@type': 'PublicationIssue', issueNumber: d.issue, isPartOf: volumeLd }
+  : volumeLd;
 
 const articleLd = {
   '@context': 'https://schema.org',
@@ -75,7 +79,8 @@ const articleLd = {
   name: d.title,
   author: authorLd,
   datePublished: d.date.toISOString().slice(0, 10),
-  isPartOf: { '@type': 'Periodical', name: d.venue },
+  isPartOf: isPartOfLd,
+  ...(d.pages ? { pagination: d.pages } : {}),
   inLanguage: 'en',
   url: canonical,
   mainEntityOfPage: canonical,

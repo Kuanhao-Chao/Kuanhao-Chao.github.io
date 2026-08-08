@@ -9,7 +9,7 @@ doi: 'https://doi.org/10.1109/TCBB.2019.2956708'
 code: 'https://github.com/Kuanhao-Chao/RNASeqR'
 advisors: ['Eric Y. Chuang', 'Tzu-Pin Lu']
 featured: true
-selectedOrder: 9
+selectedOrder: 10
 bibtex: |
   @article{chao2019rnaseqr,
     title   = {RNASeqR: an R package for automated two-group RNA-Seq analysis workflow},

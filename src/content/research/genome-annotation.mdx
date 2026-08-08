@@ -11,7 +11,7 @@ relatedPosts: ['lifton', 'lifton-v1-0-10']
 relatedPublications:
   - publication: '2025-01-lifton'
     note: 'My central contribution: a new protein-centric annotation lift-over algorithm that combines DNA and protein alignments to construct more accurate coding models.'
-  - publication: '2025-09-diploid-benchmark'
+  - publication: '2026-08-diploid-benchmark'
     note: 'I contributed to the gene annotation, using LiftOn to help identify additional gene copies on the maternal and paternal HG002 haplotypes.'
   - publication: '2023-10-chess3'
     note: 'My contribution focused on lifting the CHESS 3 annotation from GRCh38 to the complete T2T-CHM13 assembly.'
@@ -33,8 +33,8 @@ references:
     doi: 'https://doi.org/10.1186/s13059-023-03088-4'
   - text: 'Chao, K.-H. et al. The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual. G3 (2023).'
     doi: 'https://doi.org/10.1093/g3journal/jkac321'
-  - text: 'Hansen, N. F. et al. A complete diploid human genome benchmark for personalized genomics. bioRxiv (2025).'
-    doi: 'https://doi.org/10.1101/2025.09.21.677443'
+  - text: 'Hansen, N. F. et al. A complete diploid human genome benchmark for personalized genomics. Cell (2026).'
+    doi: 'https://doi.org/10.1016/j.cell.2026.06.016'
 ---
 A genome assembly provides sequence; an annotation provides the biological map that makes the sequence useful. It identifies genes, transcripts, exons, coding regions, and their relationships. Resources such as [NCBI RefSeq (O’Leary et al., 2016)](https://doi.org/10.1093/nar/gkv1189) provide annotations for widely studied organisms, but assemblies are produced faster than annotations can be curated.
 
@@ -60,7 +60,7 @@ The central idea is not to average DNA and protein evidence. It preserves their 
 
 My annotation work on complete human genomes provides the path that led to and now applies LiftOn. For **CHESS 3** ([Varabyou et al., 2023](https://doi.org/10.1186/s13059-023-03088-4)), my contribution focused on lifting the CHESS 3 annotation from GRCh38 to T2T-CHM13. In the earlier **Han1** project ([Chao et al., 2023](https://doi.org/10.1093/g3journal/jkac321)), we used Liftoff in a two-stage workflow to transfer annotation to a gapless Southern Han Chinese genome, with separate handling for repetitive ribosomal DNA arrays. Han1 predates LiftOn, but it exposed the practical demands of annotating a newly completed genome.
 
-The **complete diploid HG002 benchmark** ([Hansen et al., 2025](https://doi.org/10.1101/2025.09.21.677443)) provided a later application. The project generated annotations for the maternal and paternal haplotypes and used LiftOn, together with miniprot, to help identify additional gene copies from translated MANE transcripts. My contribution was on this annotation effort. This is the setting LiftOn is designed for: carrying trusted gene knowledge onto a more complete genome while preserving differences that may represent real copy-number variation.
+The **complete diploid HG002 benchmark** ([Hansen et al., 2026](https://doi.org/10.1016/j.cell.2026.06.016)) provided a later application. The project generated annotations for the maternal and paternal haplotypes and used LiftOn, together with miniprot, to help identify additional gene copies from translated MANE transcripts. My contribution was on this annotation effort. This is the setting LiftOn is designed for: carrying trusted gene knowledge onto a more complete genome while preserving differences that may represent real copy-number variation.
 
 ## Future directions
 
