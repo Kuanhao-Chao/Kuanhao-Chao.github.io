@@ -9,6 +9,12 @@ const publications = defineCollection({
       title: z.string(),
       authors: z.string(), // plain text; "*" = corresponding, "†" = co-first
       venue: z.string(),
+      // Journal-of-record details, when the version of record has them. Strings rather
+      // than numbers: page fields run to forms like "4857–4875.e31", and article IDs
+      // like "eadn7527" or "RP107454" stand in for a page range.
+      volume: z.string().optional(),
+      issue: z.string().optional(),
+      pages: z.string().optional(),
       date: z.coerce.date(),
       type: z.enum(['journal', 'conference', 'preprint', 'thesis']),
       status: z.enum(['published', 'preprint', 'accepted']).default('published'),

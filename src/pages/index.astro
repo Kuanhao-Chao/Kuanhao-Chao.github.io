@@ -37,7 +37,7 @@ const allPublications = await getCollection('publications');
 const pubs = allPublications
   .filter((p) => p.data.featured)
   .sort((a, b) => (a.data.selectedOrder ?? 99) - (b.data.selectedOrder ?? 99))
-  .slice(0, 5);
+  .slice(0, 7);
 
 const latestNews = (await getCollection('news'))
   .filter((n) => !n.data.draft)
