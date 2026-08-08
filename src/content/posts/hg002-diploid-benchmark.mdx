@@ -1,0 +1,139 @@
+---
+title: 'A complete diploid human genome: the T2T-HG002 benchmark and its gene annotation'
+description: 'The T2T Consortium finished both haplotypes of HG002 and turned them into a benchmark. This is what the paper shows, and how the two haplotypes were annotated.'
+authors: ['Kuan-Hao Chao']
+abstract: >-
+  The Telomere-to-Telomere Consortium's Q100 project finished both parental copies of the HG002 genome and released
+  them as a benchmark that is free of detectable errors across 99.4% of 6.0 Gb, adding 701.4 Mb of autosomal sequence
+  and both sex chromosomes that no earlier benchmark covered. Alongside the sequence, the project produced a diploid
+  gene annotation: 39,144 protein-coding genes across the two haplotypes, with the differences between them preserved
+  rather than collapsed. This post summarizes the paper, explains why a genome benchmark is not a variant benchmark,
+  and describes in detail my contribution to the annotation — a protein-alignment pass that recovered gene copies the
+  DNA-based lift-over could not place.
+date: 2026-08-06
+updated: 2026-08-08
+category: summary
+tags: ['Human genome', 'Genome assembly', 'Genome annotation', 'Comparative genomics']
+linkLabel: 'HG002 benchmark'
+image: ../../assets/posts/hg002-diploid-benchmark/hg002-annotation-pipeline.png
+imageAlt: 'The two-lane annotation pipeline for T2T-HG002: a DNA lift-over lane that masks rDNA and VDJ arrays and lifts genes from T2T-CHM13v2.0 in two Liftoff passes, and a protein extra-copy lane that aligns MANE v1.4 proteins to the whole diploid assembly with miniprot and keeps only the hits landing in unannotated space.'
+references:
+  - text: 'Hansen, N. F. et al. A complete diploid human genome benchmark for personalized genomics. Cell (2026).'
+    doi: 'https://doi.org/10.1016/j.cell.2026.06.016'
+  - text: 'Nurk, S. et al. The complete sequence of a human genome. Science (2022).'
+    doi: 'https://doi.org/10.1126/science.abj6987'
+  - text: 'Zook, J. M. et al. An open resource for accurately benchmarking small variant and reference calls. Nature Biotechnology (2019).'
+    doi: 'https://doi.org/10.1038/s41587-019-0074-6'
+  - text: 'Rautiainen, M. et al. Telomere-to-telomere assembly of diploid chromosomes with Verkko. Nature Biotechnology (2023).'
+    doi: 'https://doi.org/10.1038/s41587-023-01662-6'
+  - text: 'Rhie, A., Walenz, B. P., Koren, S., and Phillippy, A. M. Merqury: reference-free quality, completeness, and phasing assessment for genome assemblies. Genome Biology (2020).'
+    doi: 'https://doi.org/10.1186/s13059-020-02134-9'
+  - text: 'Shumate, A. and Salzberg, S. L. Liftoff: accurate mapping of gene annotations. Bioinformatics (2021).'
+    doi: 'https://doi.org/10.1093/bioinformatics/btaa1016'
+  - text: 'Li, H. Protein-to-genome alignment with miniprot. Bioinformatics (2023).'
+    doi: 'https://doi.org/10.1093/bioinformatics/btad014'
+  - text: 'Chao, K.-H., Mao, A., Salzberg, S. L., and Pertea, M. Combining DNA and protein alignments to improve genome annotation with LiftOn. Genome Research (2025).'
+    doi: 'https://doi.org/10.1101/gr.279620.124'
+  - text: 'Morales, J. et al. A joint NCBI and EMBL-EBI transcript set for clinical genomics and research. Nature (2022).'
+    doi: 'https://doi.org/10.1038/s41586-022-04558-8'
+  - text: "O'Leary, N. A. et al. Reference sequence (RefSeq) database at NCBI: current status, taxonomic expansion, and functional annotation. Nucleic Acids Research (2016)."
+    doi: 'https://doi.org/10.1093/nar/gkv1189'
+  - text: 'Chao, K.-H., Zimin, A. V., Pertea, M., and Salzberg, S. L. The first gapless, reference-quality, fully annotated genome from a Southern Han Chinese individual. G3: Genes|Genomes|Genetics (2023).'
+    doi: 'https://doi.org/10.1093/g3journal/jkac321'
+---
+import ZoomFigure from '../../components/ZoomFigure.astro';
+import figPipeline from '../../assets/posts/hg002-diploid-benchmark/hg002-annotation-pipeline.png';
+
+You have two genomes, not one. One came from your mother, one from your father, and at almost every position they say something slightly different. Human genetics has known this since before we could sequence anything, and yet nearly every tool we use flattens the two back into one. We map reads to a single reference, call the places where they disagree with it, and hand the result to a clinician as a list of variants.
+
+That works, until it doesn't. The reference is a composite of several people; it is not anyone's genome. Reads that come from a duplicated or structurally polymorphic region often cannot be placed on it at all, so those regions produce no calls — not "no variants," but no information. And the benchmarks we use to grade variant callers were built with the same read-mapping methods, so they are blind in exactly the same places. A caller that fails inside a segmental duplication and a benchmark that cannot see inside a segmental duplication will agree with each other perfectly.
+
+The way out of that circle is to stop inferring variants and start inferring genomes. If you can reconstruct both of a person's chromosome sets end to end, you no longer need a reference to describe them against. You can compare a sequencing run, a variant call set, or a whole assembly directly to the thing it was trying to reconstruct, at every base rather than only at the positions someone already thought to call.
+
+**The complete diploid HG002 benchmark** ([Hansen et al., 2026](https://doi.org/10.1016/j.cell.2026.06.016)) is that genome. It is the Telomere-to-Telomere Consortium's Q100 project — 65 authors — and it delivers both haplotypes of a single well-studied person, finished, validated, and annotated. I was one of the authors, working on the gene annotation: the part that turns 6 billion finished bases into a map of where the genes are on each of the two copies. This post covers the paper, then goes into detail on that annotation work.
+
+## Why a genome benchmark and not another variant list
+
+The Genome in a Bottle consortium made HG002 the most carefully characterized sample in human genomics, and its variant benchmarks ([Zook et al., 2019](https://doi.org/10.1038/s41587-019-0074-6)) have been the yardstick for a decade. But those benchmarks come with a confidence mask, and the mask is the point. GIAB v4.2.1 excluded both sex chromosomes outright and about 12% of the autosomes. Inside the mask you can measure a caller precisely; outside it you cannot measure at all, and "outside" is disproportionately the medically interesting, structurally complex part of the genome.
+
+T2T-HG002 removes the mask. It is free of detectable errors across 99.4% of the complete diploid genome, and relative to the earlier benchmark it adds 701.4 Mb of autosomal sequence plus both sex chromosomes at 216.8 Mb — 15.3% of the genome that no previous benchmark assessed. Excluding ribosomal DNA arrays, 99.9% of the diploid genome is high-confidence, against 85.2% for GIAB v4.2.1.
+
+The conceptual shift matters as much as the coverage. Variant benchmarking scores you at sites; genome benchmarking scores you at bases. Variant benchmarking inherits whatever bias the reference imposes; genome benchmarking has no reference in the loop. The paper makes the practical consequence concrete: on one published HG002 assembly, comparing against the complete genome found 66,544 errors, and only 30,505 of them — 50.8% — fell inside the regions the variant benchmark could even look at. More than half of the real errors were invisible to the old approach.
+
+## How the genome was finished
+
+HG002 is a good choice for this partly for reasons that have nothing to do with sequencing. The cell line is available from Coriell as GM24385, NIST distributes it as Reference Material 8391, the donor consented through the Personal Genome Project to fully open data sharing, and both parents were sequenced too. You can build a benchmark on it and everyone can use it.
+
+The assembly draws on about 170× PacBio HiFi coverage and 209× Oxford Nanopore ultra-long reads, with Illumina reads from both parents for trio phasing and Strand-seq and Hi-C for scaffolding the ribosomal DNA arrays. Fluorescence in situ hybridization was used to check the rDNA reconstruction against physical reality. The assembler was [Verkko (Rautiainen et al., 2023)](https://doi.org/10.1038/s41587-023-01662-6), which builds a graph from HiFi and ONT reads together and resolves the two haplotypes with parental k-mers.
+
+**Finishing it was a public, iterative process rather than a single run.** T2T-HG002v0.7 appeared in November 2022 with all 46 chromosomes reconstructed; v0.9 followed in July 2023, v1.0.1 went to GenBank that December, and v1.1 was released in July 2024. Between those releases, curation was crowdsourced through a public issue tracker: anyone who found a suspicious region could report it, proposed corrections were validated by sampling, and a correction set was applied only if more than half its calls held up. Three polishing rounds produced 38,037 small corrections, including 5,420 single-base substitutions, 26,779 deletions of 50 bp or less, and 5,628 insertions, plus 210 larger consensus patches totalling 14,182,804 bp.
+
+**The remaining uncertainty is concentrated, not diffuse.** [Merqury (Rhie et al., 2020)](https://doi.org/10.1186/s13059-020-02134-9) quality rose from Q63.1 in v0.7 to Q68.9 in v1.1, roughly one error per 8 million bases. What is left is 3,172 low-confidence regions covering 38.8 Mb, and 86.3% of that is ribosomal DNA — the tandem arrays on the acrocentric chromosomes, where hundreds of near-identical 45 kb units make any reconstruction hard to prove. The project's name, Q100, is an aspiration the authors are candid about not having reached; validating a genome to fewer than one error per 10 Gb is harder than achieving it.
+
+## Annotating both haplotypes
+
+A finished sequence is not yet a usable reference. Somebody has to say where the genes are — and for a diploid genome, has to say it twice.
+
+### Two genomes means two annotations
+
+The naive view is that annotating a diploid genome is annotating a haploid genome twice, and the second time should be easy because the answer is nearly the same. That is exactly backwards. The places where the two haplotypes agree are the easy, uninteresting 99%. The value of a diploid annotation lives in the small fraction where they differ — where one parent contributed a gene the other deleted, or three copies where the other has one — and those differences sit overwhelmingly in segmental duplications and tandem arrays, which are the hardest regions to annotate at all.
+
+There is a second problem specific to complete genomes. Once you stop leaving repeats as gaps, the ribosomal DNA and immunoglobulin/T-cell-receptor arrays are actually present in the assembly, as long stretches of near-identical sequence. Any alignment-based annotation transfer will happily scatter spurious copies across them. I had run into precisely this while building [Han1](/posts/han1/) ([Chao et al., 2023](https://doi.org/10.1093/g3journal/jkac321)), where the fix was a two-pass lift-over that masked the rDNA arrays first and handled them separately afterward. The HG002 annotation uses the same shape.
+
+### The pipeline
+
+The reference is the T2T-CHM13v2.0 annotation ([Nurk et al., 2022](https://doi.org/10.1126/science.abj6987)), itself derived from [RefSeq (O'Leary et al., 2016)](https://doi.org/10.1093/nar/gkv1189). For each haplotype, the rDNA arrays are located by aligning a complete 45 kb rDNA unit against the assembly with nucmer and keeping hits above 96% identity and 1 kb, then masked along with the VDJ regions. A first Liftoff pass ([Shumate and Salzberg, 2021](https://doi.org/10.1093/bioinformatics/btaa1016)) lifts the genes onto the masked haplotype with copy search enabled at 95% sequence identity, partial mappings excluded, and polishing on; a second pass lifts the rDNA units by themselves; the two are merged. This pipeline was led by Hyun Joo Ji, who released it publicly, and it produced the DNA-based backbone of the annotation: 59,525 genes on the maternal haplotype and 57,882 on the paternal.
+
+<ZoomFigure src={figPipeline} alt="A two-lane schematic of the T2T-HG002 annotation pipeline. Lane A, DNA lift-over, masks rDNA and VDJ arrays with nucmer, lifts genes with Liftoff in one pass and rDNA units in a second, and merges them into 59,525 maternal and 57,882 paternal genes. Lane B, the protein extra-copy pass, aligns MANE v1.4 proteins to the whole diploid assembly with miniprot, keeps only hits landing in unannotated space, and rebuilds valid gene records, adding 32 maternal and 23 paternal copies. Both lanes feed the released v0.5 annotation." variant="wide">
+  <strong>Figure 1.</strong> The two evidence paths behind the T2T-HG002 gene annotation. <strong>(A)</strong> The DNA lift-over that carries the T2T-CHM13v2.0 annotation onto each haplotype, with the ribosomal DNA arrays masked out and lifted back in a separate pass. <strong>(B)</strong> The protein pass I contributed, which aligns every MANE representative protein to the whole diploid assembly and keeps only the alignments that land where the DNA lift placed nothing. The two are merged into the released diploid annotation.
+</ZoomFigure>
+
+### My part: the gene copies a DNA lift misses
+
+**DNA-based lift-over systematically undercounts gene copies, and a complete diploid genome is exactly where the missing copies are.** Liftoff maps a reference gene by aligning its sequence to the target and taking the best location; it will look for additional copies, but a copy that has diverged, or that sits inside a segmental duplication where the alignment is ambiguous, or that lives in a region the reference genome never contained, can be dropped. The genes most affected are the ones people care about for exactly this reason — the immune receptor clusters, the detoxification enzymes, the digestive proteases — because they vary in copy number between individuals, which is why they were hard in the first place.
+
+Protein alignment fails differently. An orthologous protein stays recognizable across far more sequence divergence than the DNA encoding it, because synonymous substitutions leave the amino acids alone. That is the premise behind [LiftOn](/posts/lifton/) ([Chao et al., 2025](https://doi.org/10.1101/gr.279620.124)), which I built to combine DNA and protein evidence into one annotation. For HG002 I used the part of it aimed squarely at this problem: LiftOn's extra-copy mode, which drives a protein-to-genome search and then decides which of its hits represent genuine additional gene copies.
+
+**The search is deliberately blunt; the filter is where the work is.** The protein set was MANE v1.4 ([Morales et al., 2022](https://doi.org/10.1038/s41586-022-04558-8)) — one representative transcript per protein-coding gene, agreed jointly by NCBI and EMBL-EBI, 19,338 genes and 19,354 proteins. Those were aligned to the entire 6 Gb diploid assembly in a single [miniprot (Li, 2023)](https://doi.org/10.1093/bioinformatics/btad014) run, both haplotypes at once, which produced 41,386 alignments from 19,351 of the 19,354 proteins. Almost all of those are the genes we already have. The question is which of them are somewhere new.
+
+An alignment is kept only if it lands in space the DNA lift left empty. Concretely, against the existing gene intervals on the same strand it must overlap less than 10% of its own length, must not span more than two annotated genes, and must not fully contain an annotated gene — the first condition finds unannotated space, and the second and third throw out read-through alignments that smear across a gene family instead of marking one member of it. Haplotype assignment comes free, from the contig suffix. Surviving hits then have to be turned into something usable: miniprot emits CDS features only, so each hit is rebuilt into a proper gene → mRNA → exon/CDS record, traced back through the annotation to the gene it came from, and stamped with its MANE provenance so anyone reading the GFF3 can see where the copy came from and on what evidence.
+
+**The result was 32 additional gene copies on the maternal haplotype and 23 on the paternal**, and they are good models rather than marginal alignments. Every one but a single 48 bp fragment exceeded 92% identity to its MANE reference protein; the median was above 99% on both haplotypes; and 18 of the 55 matched the reference protein exactly. Rerunning against MANE v1.4 instead of v1.2 was worth 8 maternal and 7 paternal copies on its own, which is a reminder that the reference protein set is a live dependency, not a fixed input. Thirty maternal and twenty-one paternal copies were carried into the consortium's public annotation release; the four dropped were coordinate-duplicate pairs, where two adjacent family members — *CTRB1* with *CTRB2*, and *KIR2DL5A* with *KIR2DL5B* — landed on the same locus and were collapsed into one.
+
+**What convinced me the filter was doing real biology is the list of genes it returned.** On the maternal side: *CFHR3* and *CFHR1*, *GSTT1*, *PRSS1* and *PRSS2*, *MUC6*, *KLRC2*, *KIR2DL5A* and *KIR2DL5B*, *LILRA3*, *PRAME*, *VPREB1*, several olfactory receptors. On the paternal side: *GSTM1*, *DMBT1*, *MUC12*, *UGT2B28*, *SULT1A1*, *DDTL*, and again the KIR and olfactory loci. That is not a random sample of the genome; it is close to a list of the canonical human copy-number-variable loci, which is what a method targeting collapsed duplications ought to recover.
+
+The independent check is better than that. The paper's own copy-number analysis, done separately on the merged annotation, reports that HG002 carries a single copy of *GSTT1* only on the maternal haplotype and a single copy of *GSTM1* only on the paternal, and that the paternal haplotype carries the common *CFHR1*/*CFHR3* co-deletion — a haplotype found on about 20% of chromosomes in a UK cohort and associated with protection against age-related macular degeneration. Those are exactly the loci where the protein pass placed maternal *GSTT1*, maternal *CFHR1* and *CFHR3*, and paternal *GSTM1*. The two analyses were not tuned to agree.
+
+**There was an earlier, larger attempt that did not ship, and it is the reason the small one worked.** In 2024, working from the v1.0.1 assembly, I ran a full LiftOn lift-over of the CHM13 annotation onto both haplotypes — the same rDNA-masked two-pass structure, but with LiftOn's protein-maximization algorithm reconciling the DNA and protein models at every locus. It mapped 54,763 genes on the maternal haplotype and 53,106 on the paternal, and the chaining algorithm changed the coding model for 16.2% and 16.9% of transcripts respectively relative to Liftoff alone. It was superseded when the assembly moved to v1.1 and the consortium settled on a single Liftoff-based backbone, which was the right call for a benchmark: one method, one provenance, one thing to audit. But it is where I learned which part of the problem the DNA lift genuinely could not solve, and that part — the missing copies — is what the shipped pass went after.
+
+## What the annotation shows
+
+**Both haplotypes carry a nearly complete gene complement, and the interesting numbers are the differences.** Across chromosomes 1–22 the annotation has 19,117 protein-coding genes on the maternal haplotype and 19,084 on the paternal, plus 838 on ChrX and 105 on ChrY: 39,144 protein-coding genes across the diploid genome. Counting everything, there are 59,380 genes on the maternal haplotype and 57,728 on the paternal, and 60,074 distinct genes across the two — 2,755 more than T2T-CHM13 carries, because two haplotypes contain things one cannot.
+
+Only 39 distinct genes present in CHM13 are absent from both HG002 haplotypes, and just three of those are protein-coding: *HLA-DRB5*, *CT45A8*, and *OPN1MW*, all genes known to vary in copy number between people. Fourteen autosomal genes appear only on the maternal haplotype and twelve only on the paternal; 56 genes sit at higher copy number on the maternal side and 38 on the paternal. The single clearest picture in the paper is an insertion in the maternal Chr16 pericentromere carrying a *DUSP22* copy that exists on neither the paternal haplotype nor GRCh38 — a gene that is simply invisible if you only ever look at one sequence.
+
+**Where the annotation breaks, it breaks in duplications.** Restricting to the MANE set and calling a gene "broken" if its mapped transcript has an invalid start or stop codon, a premature in-frame stop, or a protein less than 80% identical to the MANE reference, 129 protein-coding genes are broken on the maternal haplotype and 121 on the paternal. Those 250 are strongly enriched in segmental duplications: 28% of them intersect one, against 8% of the genes that map cleanly. *CHRFAM7A*, a human-specific fusion gene inside a duplicated region of Chr15 that acts as a dominant-negative regulator of a nicotinic acetylcholine receptor, is a representative case. Some of these are annotation artifacts and some are real; separating the two is the next problem, and it is a problem you can only pose once you have the complete sequence.
+
+The rDNA remains partly out of reach. Forty-nine individual rDNA copies are placed in the scaffolds and 100 distinct unit consensus sequences are provided as unplaced contigs, against an estimated ~600 copies genome-wide. The 5S arrays on Chr1 did resolve completely: 91 copies maternal, 63 paternal, against 99 in CHM13.
+
+## What the benchmark says about our methods
+
+Having the answer lets you grade the methods, and the paper does. The tooling for it is GQC, which pulls haplotype-specific k-mers out of the diploid benchmark and runs a two-state hidden Markov model over them to work out which haplotype each block of a test assembly came from — so a phasing error can be scored as a phasing error rather than mistaken for a pile of base errors.
+
+**Assemblies have improved by orders of magnitude, and not always where the old metrics said.** Across five HG002 assemblies spanning 2020 to 2024, substitution error rates fell by more than two orders of magnitude and indel rates by roughly ten-fold, with long homopolymers the stubborn remainder. The most recent, an ONT-based 2024 assembly, covers 99.94% of the genome at QV 51. Merqury, scored against the same benchmark, turns out to overstate HiFi-only assemblies by 7.9 to 11.7 QV and slightly understate ONT-based ones — because ONT recovers sequence that the short and HiFi reads underrepresent, so the k-mer database used to grade the assembly is itself missing those regions.
+
+**And assembling beats calling.** Reconstructing HG002 by applying HiFi variant calls back onto GRCh38 or CHM13 covers 92.9–97.8% of the real genome at QV 35–40. Assembling it de novo covers 99.94% at QV 51 — about one error per 100 kb, an order of magnitude better, over more of the genome. For sequencing platforms the picture is similarly specific: Element reads have roughly ten-fold lower homopolymer error than anything else, Illumina has about five-fold higher transversion error, and the long-read platforms carry indel error rates about two orders of magnitude above the short-read ones.
+
+## The bigger picture
+
+Annotation is where a benchmark stops being a sequence and becomes a person. Six billion bases of validated DNA is a remarkable technical object, but the reason anyone cares is that it can be read as a statement about someone's biology, and that reading requires knowing which stretches are genes and which copy of each gene each parent contributed. A diploid annotation keeps that distinction. A haploid one averages it away, and the averaging falls hardest on the segmental duplications and copy-number-variable loci that reference-based pipelines already handle worst — the immune receptors, the drug-metabolizing enzymes, the gene families where the number of copies is the phenotype.
+
+The honest limits are worth stating alongside the achievement, and the paper states them. HG002 is a cultured lymphoblastoid line, so some somatic variation is expected. The rDNA arrays are still 86% of what is left uncertain, and confirming them will likely need sequencing chemistry that does not yet exist. And there is a bootstrapping problem underneath all of it: a region no technology reads well is a region you cannot easily prove you got right, no matter how many technologies you throw at it. One complete diploid genome is also still one person. The framework generalizes; the genome does not.
+
+What the project changes is the target. For twenty years the goal of human resequencing has been a good list of differences from a reference. This says the goal should be the genome itself, and that we are close enough to reach it routinely. That is the same thread that runs through everything I have worked on: [Han1](/posts/han1/) asked whether a second individual could be finished to the same standard as the first, [LiftOn](/posts/lifton/) asked how to carry a trusted gene map onto a genome that is more complete than the one the map came from. This asks what happens when you do that for both halves of one person at once, and keep the differences instead of smoothing them out. The copies that only exist on one haplotype are not noise in the annotation. They are the point of it.
+
+The assembly, the annotation, and the benchmarking tools are all public, and the correction tracker is still open.
+
+---
+
+*Read the [paper in Cell](https://doi.org/10.1016/j.cell.2026.06.016), or get the assembly, annotation, and benchmarking tools from [GitHub](https://github.com/marbl/HG002). T2T-HG002 is the work of the Telomere-to-Telomere Consortium's Q100 project, with Nancy Hansen as first author and Justin Zook and Adam Phillippy as senior authors. The gene annotation was led by Hyun Joo Ji; my contribution was the protein-based extra-copy pass described above, built on LiftOn with Mihaela Pertea and Steven Salzberg at Johns Hopkins.*
