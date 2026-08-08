@@ -10,6 +10,7 @@ const imageDecodeTimeout = 5_000;
 
 const inventory = {
   han1: { animations: 0, figures: 3 },
+  'hg002-diploid-benchmark': { animations: 0, figures: 1 },
   lifton: { animations: 4, figures: 4 },
   openspliceai: { animations: 5, figures: 1 },
   sangeranalyser: { animations: 0, figures: 3 },

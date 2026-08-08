@@ -12,6 +12,7 @@ doi: 'https://doi.org/10.1016/j.cell.2026.06.016'
 code: 'https://github.com/marbl/HG002'
 featured: true
 selectedOrder: 7
+relatedPosts: ['hg002-diploid-benchmark']
 bibtex: |
   @article{hansen2026diploid,
     title   = {A complete diploid human genome benchmark for personalized genomics},
