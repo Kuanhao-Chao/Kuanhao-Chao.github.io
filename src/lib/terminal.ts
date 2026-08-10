@@ -303,6 +303,48 @@ const stamp = (now: Date) =>
  * ~76 columns, which a phone can only pan across — and a login banner the visitor has
  * to drag sideways to read is a bad first frame. The controller decides by viewport.
  */
+/**
+ * Hard-wrap prose to `width` columns. The screen is `white-space: pre` so the model
+ * can't be trusted to produce terminal-shaped lines — long paragraphs would run off
+ * the right edge instead of reflowing. Existing newlines are preserved; a word
+ * longer than the column budget is left intact rather than broken mid-token.
+ */
+export function wrapText(text: string, width = 76): string[] {
+  const out: string[] = [];
+  for (const paragraph of text.split('\n')) {
+    if (!paragraph.trim()) {
+      out.push('');
+      continue;
+    }
+    let line = '';
+    for (const word of paragraph.trim().split(/\s+/)) {
+      if (!line) line = word;
+      else if (line.length + 1 + word.length <= width) line += ` ${word}`;
+      else {
+        out.push(line);
+        line = word;
+      }
+    }
+    if (line) out.push(line);
+  }
+  return out;
+}
+
+/** Qwen3 emits a reasoning block unless suppressed; never show it to the visitor. */
+export function stripThinking(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/i, '')
+    .trim();
+}
+
+/** The retrieved passages sent to the model as CONTEXT. */
+export function buildContext(index: TermIndex, question: string, limit = 6): string {
+  return search(index, question, limit)
+    .map(({ chunk }) => `## ${chunk.title} (${chunk.path.replace(HOME, '~')})\n${chunk.text}`)
+    .join('\n\n');
+}
+
 // ------------------------------------------------------------- DNA helix ----
 
 /** Base pairs cycled down the helix, so the rungs read as real complements. */
