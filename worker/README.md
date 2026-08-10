@@ -8,8 +8,10 @@ Runs **Qwen3 30B A3B** (`@cf/qwen/qwen3-30b-a3b-fp8`) on Cloudflare Workers AI.
 
 There is **no API key**. Workers AI is an ambient `AI` binding, so there is no secret to keep out of
 version control — which is the only reason the earlier Claude-based design needed a separate repo.
-This directory is outside `scripts/audit-security.mjs`'s scan roots and outside the Pages artifact
-(only `dist/` is uploaded), so it ships nothing and is never deployed by the site's own workflow.
+This directory is outside the Pages artifact (only `dist/` is uploaded), so it ships nothing and is
+never deployed by the site's own workflow. It **is** inside `scripts/audit-security.mjs`'s
+`SCAN_ROOTS`, deliberately: "there is no key here" is a claim worth having a scanner enforce, and a
+planted `sk-…` in this directory fails the build.
 
 ## Cost
 
@@ -18,6 +20,22 @@ million input tokens and 30,475 per million output. A question sends ~6k input a
 tokens — about **40 Neurons, so roughly 250 questions a day at no charge**. Exceeding the allowance
 on the Free plan fails the request rather than billing you; the terminal then falls back to its
 offline answer, so the worst case is a slightly worse answer, never a surprise invoice.
+
+### What happens when the allowance runs out
+
+`src/scripts/terminal.ts` holds a **session-wide circuit breaker**. A `429` (rate limited) or `503`
+(what this Worker returns when `env.AI.run` fails, which is the shape a Neuron-exhausted account
+takes) latches `modelDown` immediately; any other failure gets one retry before latching. Every
+later `ask` in that browser session then skips the endpoint entirely and answers from the in-browser
+index with no network wait at all. The flag is module-scoped rather than per-mount, so it survives
+the remount each view transition performs.
+
+There are two deadlines rather than one: **6 s to the first body chunk** and 20 s for the whole
+stream. A quota-blocked visitor therefore waits a few seconds exactly once, and never again.
+
+When an endpoint is configured but the answer came from the index anyway, the shell prints a dim
+`— answered from the offline index —`. With no endpoint configured it stays quiet: the offline brain
+is simply how `ask` works, and there is no fault to report.
 
 ## Deploy
 

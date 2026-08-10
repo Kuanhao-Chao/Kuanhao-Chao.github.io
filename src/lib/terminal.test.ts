@@ -19,10 +19,13 @@ import {
   offlineAnswer,
   parseArgv,
   pickSentences,
+  pipelineStages,
+  progressBar,
   prompt,
   resolvePath,
   search,
   shortCwd,
+  stageLine,
   tokenize,
   type TermIndex,
 } from './terminal';
@@ -100,6 +103,8 @@ const fixture = (): TermIndex => ({
 const shell = () => createShell(fixture());
 const texts = (lines: { text: string }[]) => lines.map((l) => l.text);
 const joined = (lines: { text: string }[]) => texts(lines).join('\n');
+/** One command against a fresh shell, at a fixed clock. */
+const run = (line: string) => exec(shell(), line, new Date('2026-08-10T12:00:00Z'), false);
 
 describe('parseArgv', () => {
   it('splits on runs of whitespace', () => {
@@ -545,29 +550,115 @@ describe('the DNA helix', () => {
   });
 });
 
-describe('the boot log', () => {
-  it('reports the real counts from the index', () => {
-    const text = bootLines(fixture())
+describe('progressBar', () => {
+  it('is always exactly `width` cells, whatever the fraction', () => {
+    for (const f of [-1, 0, 0.01, 0.5, 0.99, 1, 2, NaN]) {
+      // Block glyphs are one UTF-16 unit each, so length is a fair cell count here.
+      expect(progressBar(f, 20)).toHaveLength(20);
+    }
+  });
+
+  it('fills monotonically from empty to full', () => {
+    const filled = (f: number) => [...progressBar(f, 20)].filter((c) => c === '█').length;
+    expect(filled(0)).toBe(0);
+    expect(filled(1)).toBe(20);
+    let previous = 0;
+    for (let f = 0; f <= 1; f += 0.05) {
+      const now = filled(f);
+      expect(now).toBeGreaterThanOrEqual(previous);
+      previous = now;
+    }
+  });
+});
+
+describe('the boot pipeline', () => {
+  it('walks assembly through annotation, ending on this site’s own tools', () => {
+    const keys = pipelineStages().map((s) => s.key);
+    expect(keys).toEqual([
+      'reads',
+      'kmers',
+      'assemble',
+      'scaffold',
+      'polish',
+      'mask',
+      'lift',
+      'splice',
+      'index',
+    ]);
+  });
+
+  it('starts every bar in the same column', () => {
+    const stages = pipelineStages();
+    const columns = stages.map((s, i) => stageLine(s, i, stages.length, 0, false).indexOf('░'));
+    expect(new Set(columns).size).toBe(1);
+  });
+
+  it('withholds a stage’s detail until it has finished', () => {
+    const [reads] = pipelineStages();
+    expect(stageLine(reads, 0, 9, 0.5, false)).not.toContain('N50');
+    expect(stageLine(reads, 0, 9, 1, false)).toContain('N50 18.6 kb');
+  });
+
+  it('is narrower on a phone, where there are ~20 fewer columns', () => {
+    const stages = pipelineStages();
+    const wide = stageLine(stages[0], 0, 9, 1, false);
+    const narrow = stageLine(stages[0], 0, 9, 1, true);
+    expect(narrow.length).toBeLessThan(wide.length);
+  });
+
+  it('reports no personal counts — the login screen describes work, not tallies', () => {
+    const text = bootLines()
       .map((l) => `${l.prefix ?? ''}${l.text}`)
       .join('\n');
-    expect(text).toContain('15 publications');
-    expect(text).toContain('22 talks');
     expect(text).toContain('khcOS 1.0.0');
+    expect(text).toContain('LiftOn');
+    // The old boot recited "15 publications · 22 talks" at every visitor.
+    expect(text).not.toMatch(/publications|talks/i);
+    expect(text).not.toContain('undefined');
   });
 
   it('marks each completed step with an OK prefix', () => {
-    expect(bootLines(fixture()).filter((l) => l.prefix === '[  OK  ]').length).toBeGreaterThan(3);
+    expect(bootLines().filter((l) => l.prefix === '[  OK  ]').length).toBeGreaterThan(2);
+  });
+
+  it('shows every bar full in its finished form', () => {
+    const rows = bootLines().filter((l) => l.text.includes('█') || l.text.includes('░'));
+    expect(rows).toHaveLength(pipelineStages().length);
+    for (const row of rows) expect(row.text).not.toContain('░');
   });
 });
 
 describe('motd', () => {
-  it('renders the banner with live counts and no empty placeholders', () => {
+  it('renders the banner without reciting a table of counts', () => {
     const text = joined(motd(fixture(), new Date('2026-08-10T12:00:00Z')));
     expect(text).toContain('Kuan-Hao Chao');
     expect(text).toContain('khcOS 1.0.0');
-    expect(text).toMatch(/Publications \.+ 15/);
+    // `neofetch` is where a stat block belongs; a login screen that lists someone's
+    // publication count at you reads as a CV in a costume.
+    expect(text).not.toMatch(/Publications \.+/);
+    expect(text).not.toMatch(/Peer review/);
     expect(text).not.toContain('undefined');
     expect(text).not.toContain('NaN');
+  });
+
+  it('still points at neofetch, where the counts moved to', () => {
+    const text = joined(motd(fixture(), new Date('2026-08-10T12:00:00Z')));
+    expect(text).toContain('neofetch');
+    expect(joined(run('neofetch').lines)).toContain('Papers:');
+  });
+});
+
+describe('the theme command', () => {
+  it('toggles with no argument and sets a named theme', () => {
+    expect(run('theme').effect).toEqual({ type: 'theme', mode: 'toggle' });
+    expect(run('theme dark').effect).toEqual({ type: 'theme', mode: 'dark' });
+    expect(run('theme LIGHT').effect).toEqual({ type: 'theme', mode: 'light' });
+  });
+
+  it('refuses a theme that does not exist rather than guessing', () => {
+    const { lines, effect } = run('theme solarized');
+    expect(effect).toBeUndefined();
+    expect(joined(lines)).toContain('no such theme');
   });
 });
 

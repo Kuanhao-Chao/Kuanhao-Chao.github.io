@@ -212,6 +212,10 @@ hr {
   font-weight: var(--fw-medium);
   line-height: 1;
   padding: 0.7em 1.1em;
+  /* A floor, so every button in a row is the same height. On its own this is not
+     enough: an 18px icon in a 15px line box still pushed the accent button to 41px
+     next to a 40px plain one, hence the svg rule below. */
+  min-height: 2.5rem;
   border: 1px solid var(--color-ink);
   border-radius: var(--radius);
   color: var(--color-ink);
@@ -225,6 +229,13 @@ hr {
   background-position: left center;
   background-size: 0% 100%;
   transition: background-size 300ms ease, color var(--transition), border-color var(--transition);
+}
+/* Icons ride the text line box instead of setting the button's height, so `min-height`
+   above is what actually decides it and an icon button matches a plain one exactly. */
+.btn > svg {
+  flex: none;
+  height: 1.1em;
+  width: auto;
 }
 .btn:hover {
   background-size: 100% 100%;

@@ -70,6 +70,7 @@ export type Effect =
   | { type: 'clear' }
   | { type: 'navigate'; href: string }
   | { type: 'ask'; question: string }
+  | { type: 'theme'; mode: 'light' | 'dark' | 'toggle' }
   | { type: 'exit' };
 
 export interface ExecResult {
@@ -359,8 +360,6 @@ const LOGO = [
   '  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝',
 ];
 
-const pad = (label: string, width = 20) => `${label} ${'.'.repeat(Math.max(1, width - label.length))}`;
-
 const stamp = (now: Date) =>
   now.toUTCString().replace('GMT', 'UTC');
 
@@ -492,24 +491,112 @@ export function dnaFrame(phase: number, rows = 6, width = 11): string[] {
   return out;
 }
 
-/** The boot log. Counts come from the index, so the log can't claim what isn't there. */
-export function bootLines(index: TermIndex): Line[] {
-  const s = index.stats;
+// ------------------------------------------------------------ boot pipeline --
+
+/**
+ * One step of the boot's assembly-then-annotation pipeline.
+ *
+ * The stages are a real workflow — reads → k-mers → contigs → scaffolds → polish,
+ * then mask → lift over → refine splice sites → index — and steps 7 and 8 run the
+ * tools this site is about. Deliberately *not* a census of publications and talks:
+ * the login screen describes the work rather than counting it. `neofetch` still
+ * prints the counts for anyone who asks for them.
+ *
+ * The figures are plausible for a human HiFi assembly and none of them is a claim
+ * about Kuan-Hao; they are set dressing for a fictional `khcOS` boot.
+ */
+export interface Stage {
+  key: string;
+  label: string;
+  detail: string;
+  /** Shorter detail for phones, where the row has ~20 fewer columns to play with. */
+  short: string;
+}
+
+const STAGES: readonly Stage[] = [
+  { key: 'reads', label: 'reads', detail: '1.4 M HiFi · N50 18.6 kb', short: '1.4 M HiFi' },
+  { key: 'kmers', label: 'k-mers', detail: 'Meryl · k=31', short: 'k=31' },
+  { key: 'assemble', label: 'assemble', detail: 'hifiasm · 412 contigs', short: 'hifiasm' },
+  { key: 'scaffold', label: 'scaffold', detail: 'Hi-C · YaHS · 24 chr', short: 'Hi-C · YaHS' },
+  { key: 'polish', label: 'polish', detail: 'Merqury · QV 52.4', short: 'QV 52.4' },
+  { key: 'mask', label: 'repeat-mask', detail: 'RepeatMasker · 54.1 %', short: '54.1 %' },
+  { key: 'lift', label: 'lift-over', detail: 'LiftOn · GRCh38 → CHM13', short: 'LiftOn' },
+  { key: 'splice', label: 'splice-refine', detail: 'Splam + OpenSpliceAI', short: 'Splam' },
+  { key: 'index', label: 'index', detail: 'knowledge base · ~/', short: '~/' },
+];
+
+export const pipelineStages = (): readonly Stage[] => STAGES;
+
+/** Widest label, so every bar starts in the same column. */
+const LABEL_W = Math.max(...STAGES.map((s) => s.label.length));
+
+/**
+ * A `width`-cell bar filled to `fraction`, always exactly `width` characters.
+ *
+ * `█` and `░` are both Block Elements and the KHC logo already proves this font
+ * stack renders that block at one cell, so the columns stay square.
+ */
+export function progressBar(fraction: number, width = 20): string {
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(fraction) ? fraction : 0));
+  const filled = Math.round(clamped * width);
+  return '█'.repeat(filled) + '░'.repeat(width - filled);
+}
+
+/** One pipeline row. The detail appears only once the stage has finished. */
+export function stageLine(
+  stage: Stage,
+  i: number,
+  total: number,
+  fraction: number,
+  narrow = false
+): string {
+  const bar = progressBar(fraction, narrow ? 10 : 20);
+  const detail = fraction >= 1 ? (narrow ? stage.short : stage.detail) : '';
+  const label = stage.label.padEnd(narrow ? stage.label.length : LABEL_W);
+  return `  [${i + 1}/${total}] ${label}  ${bar}${detail ? `  ${detail}` : ''}`;
+}
+
+/** Header, then one line per stage, then the completion report. */
+export function bootHeader(): Line[] {
   return [
     { text: 'khcOS 1.0.0 (GNU/Linux 6.6.0-genome-amd64)', tone: 'dim' },
-    { prefix: '[  OK  ]', text: ' mounted /home/khc' },
-    { prefix: '[  OK  ]', text: ' loaded reference GRCh38.p14 · T2T-CHM13v2.0' },
-    { prefix: '[  OK  ]', text: ' warmed splice models (3 resident)' },
-    { prefix: '[  OK  ]', text: ` annotated ${s.publications} publications · ${s.talks} talks` },
-    { prefix: '[  OK  ]', text: ' knowledge index ready' },
+    { text: 'genome assembly + annotation · GRCh38.p14 → T2T-CHM13v2.0', tone: 'dim' },
+    { text: '' },
+  ];
+}
+
+export function bootFooter(): Line[] {
+  return [
+    { text: '' },
+    { prefix: '[  OK  ]', text: ' assembly · 3.1 Gb in 24 scaffolds · QV 52.4' },
+    { prefix: '[  OK  ]', text: ' annotation · BUSCO 98.7 % · LiftOn + Splam' },
+    { prefix: '[  OK  ]', text: ' knowledge base mounted at /home/khc' },
     { text: 'starting ksh …', tone: 'dim' },
     { text: '' },
   ];
 }
 
+/**
+ * The whole boot log in its finished state — what reduced-motion visitors see, and
+ * what the tests assert against. The controller animates the same rows.
+ */
+export function bootLines(narrow = false): Line[] {
+  return [
+    ...bootHeader(),
+    ...STAGES.map((stage, i) => ({ text: stageLine(stage, i, STAGES.length, 1, narrow) })),
+    ...bootFooter(),
+  ];
+}
+
+/**
+ * The login banner: logo, who you have reached, and how to start.
+ *
+ * It deliberately does **not** tabulate publications, talks, software and review
+ * venues. A login screen that recites someone's counts at you reads as a CV in a
+ * costume; `neofetch` prints them on request, which is where a stat block belongs.
+ */
 export function motd(index: TermIndex, now: Date, narrow = false): Line[] {
   const id = index.identity;
-  const s = index.stats;
   const side = [
     `khchao.com  ·  ${id.name} (${id.nameZh})`,
     id.role,
@@ -517,16 +604,6 @@ export function motd(index: TermIndex, now: Date, narrow = false): Line[] {
     '',
     'khcOS 1.0.0 (GNU/Linux 6.6.0-genome-amd64)',
     'Reference: T2T-CHM13v2.0 · GRCh38.p14',
-  ];
-  const stats: [string, string | number][] = [
-    ['Publications', s.publications],
-    ['Talks', s.talks],
-    ['Software released', s.software],
-    ['Research areas', s.research],
-    ['Reference genome', 'loaded'],
-    ['Splice models', '3 resident'],
-    ['Annotation', 'OK'],
-    ['Peer review', `${s.reviewing} venues`],
   ];
 
   const lines: Line[] = [
@@ -544,22 +621,10 @@ export function motd(index: TermIndex, now: Date, narrow = false): Line[] {
     });
   }
 
-  lines.push({ text: '' }, { text: ` System information as of ${stamp(now)}`, tone: 'dim' }, { text: '' });
-
-  if (narrow) {
-    for (const [label, value] of stats) lines.push({ text: `   ${pad(label)} ${value}` });
-  } else {
-    for (let i = 0; i < 4; i++) {
-      const [aLabel, aValue] = stats[i];
-      const [bLabel, bValue] = stats[i + 4];
-      lines.push({ text: `   ${pad(aLabel)} ${String(aValue).padEnd(8)}${pad(bLabel)} ${bValue}` });
-    }
-  }
-
   lines.push(
     { text: '' },
     { text: ' Type `help` for the command list, `ask <question>` to talk to the bot,', tone: 'dim' },
-    { text: ' or `neofetch` if you just want to look at the logo again.', tone: 'dim' },
+    { text: ' `neofetch` for the system summary, or `theme` to change the lights.', tone: 'dim' },
     { text: '' }
   );
   return lines;
@@ -708,7 +773,7 @@ export const COMMANDS: Record<string, Cmd> = {
       const groups: [string, string[]][] = [
         ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'tree', 'find', 'grep']],
         ['about me', ['whoami', 'about', 'man', 'which', 'contact', 'cv', 'news']],
-        ['system', ['uname', 'uptime', 'date', 'neofetch', 'history', 'clear', 'echo']],
+        ['system', ['uname', 'uptime', 'date', 'neofetch', 'theme', 'history', 'clear', 'echo']],
         ['navigate', ['open', 'exit']],
         ['chatbot', ['ask', 'chat']],
         ['genomics', ['blastn', 'samtools', 'splice']],
@@ -972,6 +1037,26 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 
   date: { summary: 'print the current date', run: ({ now }) => [{ text: stamp(now) }] },
+
+  /**
+   * The shell's own way to reach the site's light/dark switch. `/terminal/` renders
+   * through `BaseLayout`'s `bare` mode, which drops the header and with it the theme
+   * toggle — so without this the full-screen shell would be the one page on the site
+   * you cannot change the lights from. Returning an effect keeps the engine pure; the
+   * controller is what touches `window.__khcTheme`.
+   */
+  theme: {
+    summary: 'switch between the light and dark theme',
+    usage: 'theme [light|dark]',
+    run: ({ args }) => {
+      const mode = (args[0] ?? '').toLowerCase();
+      if (!mode) return { lines: [], effect: { type: 'theme', mode: 'toggle' } };
+      if (mode === 'light' || mode === 'dark') {
+        return { lines: [], effect: { type: 'theme', mode } };
+      }
+      return [{ text: `theme: no such theme: ${args[0]} (try light or dark)`, tone: 'err' }];
+    },
+  },
 
   echo: { summary: 'write arguments to output', run: ({ args }) => [{ text: args.join(' ') }] },
 

@@ -66,6 +66,7 @@ const boot = {
   stats: { publications: publications.length, research: research.length, talks: talks.length },
 };
 ---
+<div class="term-shell">
 <section
   class="term term--inline"
   data-terminal
@@ -73,9 +74,25 @@ const boot = {
   data-terminal-demo={JSON.stringify(demo)}
   aria-label="Interactive terminal"
 >
-  <div class="term-bar">
-    <span class="term-dot term-dot--close" aria-hidden="true"></span>
-    <span class="term-dot term-dot--min" aria-hidden="true"></span>
+  {/*
+    Real window controls, mirroring /terminal/ with close and zoom swapped: here it
+    is *zoom* that is genuinely navigation (to the full-screen page), so it stays an
+    anchor, while close dismisses the card down to the reopen chip below.
+  */}
+  <div class="term-bar" data-terminal-bar>
+    <button
+      class="term-dot term-dot--close"
+      type="button"
+      data-terminal-close
+      aria-label="Close the terminal"
+      title="Close the terminal"></button>
+    <button
+      class="term-dot term-dot--min"
+      type="button"
+      data-terminal-min
+      aria-expanded="true"
+      aria-label="Minimise the terminal"
+      title="Minimise the terminal"></button>
     <a
       class="term-dot term-dot--zoom"
       href="/terminal/"
@@ -117,6 +134,15 @@ const boot = {
     <a class="term-foot-open" href="/terminal/">open full shell →</a>
   </div>
 </section>
+
+{/*
+  Closing hides the window, so the way back has to live outside it. Hiding content
+  with no way to bring it back would be a trap, not a window control.
+*/}
+<button class="term-reopen" type="button" data-terminal-reopen hidden>
+  <span aria-hidden="true">$</span> terminal — click to reopen
+</button>
+</div>
 
 <script>
   import { initTerminal, type TerminalController, type DemoStep } from '../scripts/terminal';
