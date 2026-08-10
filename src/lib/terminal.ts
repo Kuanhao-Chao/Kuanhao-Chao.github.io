@@ -218,6 +218,72 @@ export function tokenize(text: string): string[] {
     .filter((t) => t.length > 1 && !STOPWORDS.has(t));
 }
 
+/**
+ * Vocabulary bridges for the handful of questions people actually ask a personal
+ * site. "Who does he work for?" survives tokenizing as just `work`, which appears
+ * in no CV entry but in plenty of news blurbs — so the literal match is the wrong
+ * answer. Expansions are scored at half weight, so they steer without overpowering
+ * a genuine term match.
+ */
+const EXPANSIONS: Record<string, string[]> = {
+  work: ['illumina', 'scientist', 'experience'],
+  works: ['illumina', 'scientist', 'experience'],
+  working: ['illumina', 'scientist', 'experience'],
+  job: ['illumina', 'scientist', 'experience'],
+  employer: ['illumina', 'experience'],
+  company: ['illumina', 'experience'],
+  role: ['illumina', 'scientist', 'experience'],
+  career: ['experience', 'education'],
+  phd: ['hopkins', 'dissertation', 'education'],
+  doctorate: ['hopkins', 'dissertation', 'education'],
+  study: ['education', 'hopkins'],
+  studied: ['education', 'hopkins'],
+  school: ['education', 'hopkins'],
+  university: ['education', 'hopkins'],
+  advisor: ['salzberg', 'pertea', 'education'],
+  email: ['contact'],
+  reach: ['contact', 'email'],
+  hire: ['contact', 'experience'],
+  award: ['honors'],
+  awards: ['honors'],
+  prize: ['honors'],
+};
+
+/** Query terms with their expansions, each carrying a weight. */
+function expandQuery(query: string): Map<string, number> {
+  const weights = new Map<string, number>();
+  for (const term of tokenize(query)) {
+    weights.set(term, 1);
+    for (const extra of EXPANSIONS[term] ?? []) {
+      if (!weights.has(extra)) weights.set(extra, 0.5);
+    }
+  }
+  return weights;
+}
+
+/**
+ * Strip a passage down to prose worth quoting: markdown links become their label,
+ * bare URLs go, and `Code:`/`DOI:`-style metadata rows drop out entirely. Without
+ * this the answer to "what does LiftOn do?" is a pair of GitHub URLs, because those
+ * lines genuinely do contain the query term.
+ */
+export function cleanProse(text: string): string {
+  return text
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        .replace(/https?:\/\/\S+/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+    )
+    // Drop rows that were nothing but a URL — `Code: https://…` becomes a bare
+    // `Code:` label. Order matters: strip URLs first, then discard what's left, so
+    // a genuinely informative `Email: …` row survives.
+    .filter((line) => line && !/^[A-Za-z][A-Za-z ]{0,14}:$/.test(line))
+    .join('\n');
+}
+
 interface Stats {
   df: Map<string, number>;
   tokens: string[][];
@@ -254,8 +320,8 @@ const KIND_WEIGHT: Record<string, number> = { news: 0.55 };
 
 /** BM25 over the chunk corpus, with a title-match boost. Deterministic. */
 export function search(index: TermIndex, query: string, limit = 5): Hit[] {
-  const terms = tokenize(query);
-  if (!terms.length) return [];
+  const weights = expandQuery(query);
+  if (!weights.size) return [];
   const { df, tokens, avgLen } = corpusStats(index);
   const N = index.chunks.length;
   const k1 = 1.5;
@@ -266,12 +332,12 @@ export function search(index: TermIndex, query: string, limit = 5): Hit[] {
     const len = docTokens.length || 1;
     const titleTokens = new Set(tokenize(chunk.title));
     let score = 0;
-    for (const term of new Set(terms)) {
+    for (const [term, weight] of weights) {
       const tf = docTokens.reduce((n, t) => (t === term ? n + 1 : n), 0);
       if (!tf) continue;
       const idf = Math.log(1 + (N - (df.get(term) ?? 0) + 0.5) / ((df.get(term) ?? 0) + 0.5));
-      score += idf * ((tf * (k1 + 1)) / (tf + k1 * (1 - b + (b * len) / avgLen)));
-      if (titleTokens.has(term)) score += idf * 0.8;
+      score += weight * idf * ((tf * (k1 + 1)) / (tf + k1 * (1 - b + (b * len) / avgLen)));
+      if (titleTokens.has(term)) score += weight * idf * 0.8;
     }
     return { chunk, score: score * (KIND_WEIGHT[chunk.kind] ?? 1) };
   });
@@ -336,6 +402,39 @@ export function stripThinking(text: string): string {
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/<think>[\s\S]*$/i, '')
     .trim();
+}
+
+/**
+ * The sentences in `text` that actually address `query`, in their original order.
+ *
+ * This is what separates an answer from a lookup: the top passage is usually right
+ * but its first lines are rarely the part you asked about. Scoring is overlap with
+ * the query's terms, lightly normalised by length so a long sentence doesn't win on
+ * volume alone; ties keep document order so the result still reads as prose.
+ */
+export function pickSentences(text: string, query: string, n = 3): string[] {
+  const terms = new Set(expandQuery(query).keys());
+  if (!terms.size) return [];
+
+  const sentences = cleanProse(text)
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.replace(/\s+/g, ' ').trim())
+    // Three words is the floor for something that reads as a statement rather than
+    // a leftover label; anything shorter is a heading, not an answer.
+    .filter((s) => s.length > 12 && s.split(/\s+/).length >= 3);
+
+  const scored = sentences.map((sentence, order) => {
+    const words = tokenize(sentence);
+    const hits = words.filter((w) => terms.has(w)).length;
+    return { sentence, order, score: hits === 0 ? 0 : hits / Math.sqrt(words.length || 1) };
+  });
+
+  return scored
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score || a.order - b.order)
+    .slice(0, n)
+    .sort((a, b) => a.order - b.order)
+    .map((s) => s.sentence);
 }
 
 /** The retrieved passages sent to the model as CONTEXT. */
@@ -520,42 +619,86 @@ function hitLines(hits: Hit[]): Line[] {
  * like `apropos` — honest about being a lookup rather than pretending to converse.
  */
 export function offlineAnswer(index: TermIndex, question: string): Line[] {
-  const hits = search(index, question, 3);
-  if (!hits.length) {
-    return [
-      { text: "I don't have anything indexed for that.", tone: 'dim' },
-      { text: 'Try a topic like `ask splice sites`, or run `ls ~` to browse.', tone: 'dim' },
-    ];
+  const hits = search(index, question, 4);
+  if (!hits.length) return noAnswer(index, question);
+
+  const terms = new Set(tokenize(question));
+  const lines: Line[] = [];
+  const cited: Hit[] = [];
+  // A paper, its talk and its news item often share a title verbatim; quoting the
+  // same sentence three times reads as a bug, not as corroboration.
+  const said = new Set<string>();
+
+  // Draw from the top few passages rather than dumping one, so a question that
+  // spans a tool and its paper gets both halves of the answer.
+  for (const hit of hits.slice(0, 3)) {
+    // Only read the file when the chunk *is* that file: several chunks (news items)
+    // share one digest path, and printing the digest would answer a different question.
+    const node = hit.chunk.kind === 'file' ? index.fs[hit.chunk.path] : undefined;
+    const source = node?.body ?? hit.chunk.text;
+    const lead = cited.length === 0;
+    let picked = pickSentences(source, question, lead ? 3 : 1);
+
+    // Publications and talks are metadata cards, not prose — their only sentence is
+    // the title, which alone is a thin answer. Show the card instead.
+    if (lead && node && picked.length < 2) {
+      picked = cleanProse(node.body).split('\n').filter(Boolean).slice(0, 4);
+    }
+    picked = picked.filter((s) => {
+      const key = s.toLowerCase().replace(/\W+/g, ' ').trim();
+      if (said.has(key)) return false;
+      said.add(key);
+      return true;
+    });
+    if (!picked.length) continue;
+
+    cited.push(hit);
+    for (const sentence of wrapText(picked.join(lead && node ? '\n' : ' '))) {
+      lines.push({ text: sentence });
+    }
+    lines.push({ text: '' });
   }
 
-  const [best, ...rest] = hits;
-  // Only read the file when the chunk *is* that file. Several chunks (news items)
-  // share one digest path, and printing the digest would answer a different question.
-  const node = best.chunk.kind === 'file' ? index.fs[best.chunk.path] : undefined;
-  const excerpt = (node?.body ?? best.chunk.text)
-    .split('\n')
-    .filter((l) => l.trim())
-    .slice(0, 6)
-    .join('\n');
-
-  const lines: Line[] = [
-    { text: best.chunk.title, tone: 'accent' },
-    ...bodyLines(excerpt),
-  ];
-  if (best.chunk.href) {
-    lines.push({ text: '' }, { text: `→ ${best.chunk.href}`, tone: 'accent', href: best.chunk.href });
+  // Every passage scored but none produced a sentence worth quoting — fall back to
+  // the top passage's own text so the answer is never empty.
+  if (!lines.length) {
+    const fallback = hits[0];
+    cited.push(fallback);
+    for (const line of wrapText(fallback.chunk.text)) lines.push({ text: line });
+    lines.push({ text: '' });
   }
-  if (rest.length) {
-    lines.push(
-      { text: '' },
-      { text: 'Related:', tone: 'dim' },
-      ...rest.map((h) => ({
-        text: `  ${h.chunk.title}  (${h.chunk.path.replace(HOME, '~')})`,
-        tone: 'dim' as Tone,
-      }))
-    );
+
+  lines.push({ text: 'sources', tone: 'dim' });
+  for (const { chunk } of cited) {
+    // Titles run long; the path is the useful half, so clip the title to keep the
+    // whole row inside the terminal's 76-column budget.
+    const path = chunk.path.replace(HOME, '~');
+    const room = 74 - path.length - 5;
+    const title = chunk.title.length > room ? `${chunk.title.slice(0, room - 1)}…` : chunk.title;
+    lines.push({
+      text: `  ${title}  ·  ${path}`,
+      tone: 'dim',
+      ...(chunk.href ? { href: chunk.href } : {}),
+    });
+  }
+  if (terms.size) {
+    lines.push({ text: '', tone: 'dim' });
+    lines.push({ text: `  grep ${[...terms].slice(0, 2).join(' ')}   for every match`, tone: 'dim' });
   }
   return lines;
+}
+
+/** Nothing scored. Point at the nearest real topic rather than shrugging. */
+function noAnswer(index: TermIndex, question: string): Line[] {
+  const asked = new Set(tokenize(question));
+  const vocabulary = [...index.identity.knowsAbout, ...index.identity.alternateNames];
+  const near = vocabulary.find((topic) => tokenize(topic).some((t) => asked.has(t)));
+  return [
+    { text: "Nothing in the index matches that.", tone: 'dim' },
+    ...(near
+      ? [{ text: `Closest topic I do have: ${near} — try \`ask ${near.toLowerCase()}\`.`, tone: 'dim' as Tone }]
+      : [{ text: 'Try `ls ~` to see what is here, or `ask splice sites`.', tone: 'dim' as Tone }]),
+  ];
 }
 
 export const COMMANDS: Record<string, Cmd> = {

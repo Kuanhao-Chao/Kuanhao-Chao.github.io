@@ -46,9 +46,11 @@
   border-radius: 50%;
   flex: none;
 }
-/* The close dot is a real link home — with `exit`, the two ways out of the shell. */
+/* Colour on the base class, not the anchor: the close dot is a link home on the
+   full-screen page but a plain decorative span inline, and scoping the background
+   to `a.` left the inline one invisible. */
+.term-dot--close { background: #e5695b; }
 a.term-dot--close {
-  background: #e5695b;
   transition: transform var(--transition), box-shadow var(--transition);
 }
 a.term-dot--close:hover,
@@ -72,6 +74,71 @@ a.term-dot--close:focus-visible {
 }
 @media (max-width: 700px) {
   .term-bar-hint { display: none; }
+}
+
+/* ---------------------------------------------------------------- inline -- */
+
+/* The homepage mounting: the same shell as /terminal/, wearing a card. Everything
+   the full-bleed version deliberately drops — border, radius, shadow, a bounded
+   screen — comes back here, so both share one stylesheet and one controller. */
+.term--inline {
+  flex: none;
+  height: auto;
+  border: 1px solid var(--term-rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 0.9rem 2.4rem rgba(0, 0, 0, 0.2);
+  transition: border-color var(--transition);
+}
+.term--inline:focus-within {
+  border-color: color-mix(in srgb, var(--term-accent) 55%, var(--term-rule));
+}
+.term--inline .term-screen {
+  flex: none;
+  height: 15em;
+}
+
+.term-bar-open,
+.term-foot-open {
+  flex: none;
+  color: var(--term-accent);
+  font-size: 0.88em;
+  text-decoration: none;
+}
+.term-bar-open:hover,
+.term-foot-open:hover {
+  color: var(--term-head);
+  text-decoration: underline;
+}
+a.term-dot--zoom:hover,
+a.term-dot--zoom:focus-visible {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px rgba(108, 192, 108, 0.3);
+}
+
+.term-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex: none;
+  padding: 0.5rem 0.9rem;
+  border-top: 1px solid var(--term-rule);
+  background: #111917;
+  font-size: 0.9em;
+  color: var(--term-dim);
+}
+.term-foot-try code {
+  font-family: inherit;
+  color: var(--term-ink);
+  padding: 0.05em 0.35em;
+  border: 1px solid var(--term-rule);
+  border-radius: 3px;
+  margin-right: 0.1em;
+}
+@media (max-width: 560px) {
+  .term-bar-open { display: none; }
+  .term-foot-try code:nth-of-type(n + 4) { display: none; }
 }
 
 /* ---------------------------------------------------------------- screen -- */

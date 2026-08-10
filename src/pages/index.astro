@@ -9,7 +9,7 @@ import NewsEntry from '../components/NewsEntry.astro';
 import QuoteBlock from '../components/QuoteBlock.astro';
 import Icon from '../components/Icon.astro';
 import SequenceTrack from '../components/SequenceTrack.astro';
-import TerminalTeaser from '../components/TerminalTeaser.astro';
+import HomeTerminal from '../components/HomeTerminal.astro';
 import PostItem from '../components/PostItem.astro';
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
@@ -71,6 +71,10 @@ const posts = allPosts
     </div>
   </section>
 
+  <section class="section home-section container home-term" data-reveal>
+    <HomeTerminal />
+  </section>
+
   <section class="section home-section container" data-reveal>
     <SectionHeading
       eyebrow="Selected work"
@@ -108,23 +112,6 @@ const posts = allPosts
       </ul>
     </section>
   )}
-
-  <section class="section home-section container" data-reveal>
-    <SectionHeading
-      eyebrow="Explore"
-      title="Terminal"
-      href="/terminal/"
-      more="Open the shell"
-    />
-    <div class="home-term">
-      <TerminalTeaser />
-      <p class="home-term-note muted">
-        Everything on this site is also a filesystem. Browse it with <code>ls</code> and
-        <code>cat</code>, search it with <code>grep</code>, or type <code>ask</code> a question
-        and let the shell answer.
-      </p>
-    </div>
-  </section>
 
   <QuoteBlock quote={site.philosophy} cite="my open-source philosophy" />
 
@@ -331,31 +318,9 @@ const posts = allPosts
   .bg-org {
     font-size: var(--fs-small);
   }
+  /* The terminal stands alone — no heading, no blurb. It explains itself. */
   .home-term {
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    align-items: center;
-    gap: clamp(1.5rem, 4vw, 3rem);
-  }
-  .home-term-note {
-    font-size: var(--fs-body);
-    max-width: 32ch;
-  }
-  .home-term-note code {
-    font-family: var(--font-mono);
-    font-size: 0.88em;
-    padding: 0.1em 0.4em;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius);
-    color: var(--color-accent);
-  }
-  @media (max-width: 860px) {
-    .home-term {
-      grid-template-columns: 1fr;
-    }
-    .home-term-note {
-      max-width: var(--measure);
-    }
+    max-width: 58rem;
   }
 
   .home-news {

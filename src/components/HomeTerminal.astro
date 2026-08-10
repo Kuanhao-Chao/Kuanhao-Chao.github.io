@@ -1,0 +1,148 @@
+---
+import { getCollection } from 'astro:content';
+import { site, identity } from '../data/site';
+import { software } from '../data/cv';
+// The shell's whole appearance lives here. Without this import the homepage renders
+// a functioning terminal with no styling at all — every behaviour test still passes.
+import '../styles/terminal.css';
+
+/**
+ * The homepage shell — the *same* controller as /terminal/, mounted inline.
+ *
+ * It types a scripted demo until the visitor touches it, then becomes a real shell:
+ * every command works, and `ask` answers. The demo output is precomputed here from
+ * the same sources the full shell reads, so the homepage pays no index fetch until
+ * someone actually interacts.
+ *
+ * Navigation lives in three real links (the maximise dot, the title-bar label, the
+ * footer) rather than on the card itself — clicking the screen must focus the caret,
+ * or a stray click would throw away whatever the visitor had typed.
+ */
+const [publications, research, talks] = await Promise.all([
+  getCollection('publications'),
+  getCollection('research'),
+  getCollection('presentations'),
+]);
+
+const newest = [...publications].sort((a, b) => b.data.date.getTime() - a.data.date.getTime())[0];
+const tools = software
+  .slice()
+  .sort((a, b) => b.date.localeCompare(a.date))
+  .slice(0, 4)
+  .map((t) => t.name.toLowerCase().replace(/\s+/g, '-'));
+
+const demo = [
+  { cmd: 'whoami', out: [site.name, `${identity.jobTitle}, ${identity.worksFor.name}`] },
+  { cmd: 'ls ~/software', out: [tools.join('   ')] },
+  {
+    cmd: 'ask what do you work on?',
+    out: [
+      `${identity.knowsAbout.slice(0, 3).join(', ').toLowerCase()},`,
+      `across ${publications.length} papers, ${research.length} research areas`,
+      `and ${talks.length} talks.`,
+    ],
+  },
+  {
+    cmd: 'cat ~/publications/latest',
+    out: [
+      newest.data.title.length > 58 ? `${newest.data.title.slice(0, 58)}…` : newest.data.title,
+      `${newest.data.venue} · ${newest.data.date.getUTCFullYear()}`,
+    ],
+  },
+];
+
+const boot = {
+  identity: {
+    name: site.name,
+    nameZh: site.nameZh,
+    role: site.role,
+    jobTitle: identity.jobTitle,
+    worksFor: identity.worksFor.name,
+    alumniOf: identity.alumniOf.map((a) => a.name),
+    knowsAbout: identity.knowsAbout,
+    tagline: site.tagline,
+    bio: site.bio,
+  },
+  stats: { publications: publications.length, research: research.length, talks: talks.length },
+};
+---
+<section
+  class="term term--inline"
+  data-terminal
+  data-terminal-boot={JSON.stringify(boot)}
+  data-terminal-demo={JSON.stringify(demo)}
+  aria-label="Interactive terminal"
+>
+  <div class="term-bar">
+    <span class="term-dot term-dot--close" aria-hidden="true"></span>
+    <span class="term-dot term-dot--min" aria-hidden="true"></span>
+    <a
+      class="term-dot term-dot--zoom"
+      href="/terminal/"
+      aria-label="Open the full-screen terminal"
+      title="Open full screen"></a>
+    <span class="term-bar-title" aria-hidden="true">khc@genome — ksh</span>
+    <a class="term-bar-open" href="/terminal/">⤢ full screen</a>
+  </div>
+
+  <div
+    class="term-screen"
+    data-terminal-screen
+    role="log"
+    aria-live="polite"
+    aria-label="Terminal output"
+  ></div>
+
+  <div class="term-form">
+    <label class="visually-hidden" for="home-term-input">Terminal command</label>
+    <span class="term-prompt" data-terminal-prompt>khc@genome:~$</span>
+    <input
+      class="term-input"
+      id="home-term-input"
+      data-terminal-input
+      type="text"
+      autocomplete="off"
+      autocapitalize="off"
+      autocorrect="off"
+      spellcheck="false"
+      aria-describedby="home-term-help"
+    />
+    <span class="term-caret" aria-hidden="true"></span>
+  </div>
+
+  <div class="term-foot">
+    <span id="home-term-help" class="term-foot-try">
+      type <code>help</code> <code>ls</code> <code>grep</code> <code>ask</code>
+    </span>
+    <a class="term-foot-open" href="/terminal/">open full shell →</a>
+  </div>
+</section>
+
+<script>
+  import { initTerminal, type TerminalController, type DemoStep } from '../scripts/terminal';
+
+  let controller: TerminalController | null = null;
+
+  function mount() {
+    if (controller) return;
+    const host = document.querySelector<HTMLElement>('[data-terminal][data-terminal-demo]');
+    if (!host) return;
+    let demo: DemoStep[] = [];
+    try {
+      demo = JSON.parse(host.dataset.terminalDemo ?? '[]') as DemoStep[];
+    } catch {
+      demo = [];
+    }
+    controller = initTerminal(document, { boot: false, demo, exitHref: '/terminal/' });
+  }
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  // Also mount now: a bundled module can finish loading *after* astro:page-load has
+  // already fired on the first view-transition visit (the filter-island race).
+  mount();
+</script>
