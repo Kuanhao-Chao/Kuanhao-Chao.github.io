@@ -58,24 +58,33 @@ import portrait from '../assets/profile/portrait.jpg';
         </div>
       </details>
 
+      {/*
+        Two rows: labelled actions, then one uniform strip of icon tiles.
+
+        `$ terminal` belongs with the actions, not the icons — it is a labelled
+        destination, and as an icon-row sibling its 31px chip never lined up with the
+        38px tiles. Photos goes the other way, into the socials list itself, so all
+        seven tiles share one wrap context, one gap and one baseline.
+      */}
       <div class="hero-actions">
         <a class="btn btn--accent" href="/research/">
           Explore the research
           <Icon name="arrow-right" size={18} />
         </a>
         <a class="btn" href="/cv/">View CV</a>
-        <div class="hero-icons">
-          <Socials
-            class="hero-socials"
-            keys={['scholar', 'github', 'linkedin', 'twitter', 'bluesky', 'email']}
-          />
-          <a class="hero-photos" href="/photos/" aria-label="Photos" title="Photos">
-            <Icon name="image" size={20} />
-          </a>
-          <a class="hero-term" href="/terminal/" title="Open the shell">
-            <span aria-hidden="true">$</span> terminal
-          </a>
-        </div>
+        <a class="btn hero-term" href="/terminal/" title="Open the shell">
+          <span aria-hidden="true">$</span> terminal
+        </a>
+        <Socials
+          class="hero-socials"
+          keys={['scholar', 'github', 'linkedin', 'twitter', 'bluesky', 'email']}
+        >
+          <li>
+            <a class="hero-photos" href="/photos/" aria-label="Photos" title="Photos">
+              <Icon name="image" size={20} />
+            </a>
+          </li>
+        </Socials>
       </div>
     </div>
 
@@ -214,13 +223,15 @@ import portrait from '../assets/profile/portrait.jpg';
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem 1.25rem;
+    gap: 0.75rem;
   }
-  .hero-icons {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
+  /* The icon strip always starts its own row, so the buttons above it stay a clean
+     line rather than trailing icons off the end. */
+  .hero-actions :global(.hero-socials) {
+    flex-basis: 100%;
+    margin-top: 0.4rem;
   }
+  /* Sized and coloured to match a socials tile exactly — it is one now. */
   .hero-photos {
     display: inline-flex;
     align-items: center;
@@ -235,35 +246,27 @@ import portrait from '../assets/profile/portrait.jpg';
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 9%, transparent);
   }
-  /* Monospace chip: a quiet hint that the shell exists, for whoever notices it. */
+  /* Monospace chip: a quiet hint that the shell exists, for whoever notices it. Now
+     that it sits in a row of buttons, "quiet" has to stay clear of "disabled" — a
+     hairline `--color-rule` border next to `View CV`'s ink one read as greyed out —
+     and it keeps the standard hover wipe so it behaves like its neighbours. */
   .hero-term {
-    display: inline-flex;
-    align-items: center;
     gap: 0.35em;
-    margin-left: 0.15rem;
-    padding: 0.3em 0.7em;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius);
+    border-color: color-mix(in srgb, var(--color-ink) 32%, transparent);
     font-family: var(--font-mono);
     font-size: var(--fs-meta);
     color: var(--color-muted);
-    transition: color var(--transition), border-color var(--transition);
   }
   .hero-term span {
     color: var(--color-accent);
   }
   .hero-term:hover {
-    color: var(--color-accent);
-    border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-    text-decoration: none;
+    border-color: var(--color-ink);
   }
   @media (pointer: coarse) {
     .hero-photos {
       width: 2.75rem;
       height: 2.75rem;
-    }
-    .hero-term {
-      padding-block: 0.5em;
     }
   }
   .hero-portrait {
@@ -339,8 +342,38 @@ import portrait from '../assets/profile/portrait.jpg';
       order: 4;
       justify-content: center;
     }
-    .hero-actions .hero-icons {
+    .hero-actions :global(.hero-socials) {
+      justify-content: center;
+    }
+  }
+
+  /* Phone: a normal mobile CTA stack. The primary action takes the full width, the
+     two secondary ones share the row under it, and the icon strip centres below.
+     Previously the icons wrapped 4 + 2 around a hole with three different baselines. */
+  @media (max-width: 560px) {
+    .hero-actions .btn--accent {
       flex-basis: 100%;
+      justify-content: center;
+    }
+  }
+
+  /* Below ~385px the strip is within a few pixels of fitting — a 375px iPhone leaves
+     335px of container for 308px of tiles plus 34px of gaps. Close the gaps rather
+     than the tiles: 44px is the tap-target floor and is not negotiable, but the space
+     between them is. This keeps all seven on one line down to 360px. */
+  @media (max-width: 385px) {
+    .hero-actions :global(.hero-socials) {
+      gap: 0.125rem;
+    }
+  }
+
+  /* At 320px seven tap targets cannot fit however tight the gaps: 308px of tile into
+     280px of container. Wrap deliberately — four, then three centred beneath — rather
+     than six and an orphan. The subtracted 1.5px is the gap's share of each cell. */
+  @media (max-width: 330px) {
+    .hero-actions :global(.hero-socials > li) {
+      flex: 0 0 calc(25% - 0.09375rem);
+      display: flex;
       justify-content: center;
     }
   }

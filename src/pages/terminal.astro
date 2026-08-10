@@ -52,12 +52,40 @@ const boot = {
   <h1 class="visually-hidden">Terminal — a UNIX shell for khchao.com</h1>
 
   <section class="term" data-terminal data-terminal-boot={JSON.stringify(boot)}>
-    <div class="term-bar">
+    {/*
+      Real window controls. Close is genuinely navigation here — the page *is* the
+      window, so closing it means leaving — and so stays an anchor with no data
+      attribute; the controller wires only what carries one.
+    */}
+    <div class="term-bar" data-terminal-bar>
       <a class="term-dot term-dot--close" href="/" aria-label="Close the shell and return to khchao.com" title="Back to khchao.com"></a>
-      <span class="term-dot term-dot--min" aria-hidden="true"></span>
-      <span class="term-dot term-dot--zoom" aria-hidden="true"></span>
+      <button
+        class="term-dot term-dot--min"
+        type="button"
+        data-terminal-min
+        aria-expanded="true"
+        aria-label="Minimise the terminal"
+        title="Minimise the terminal"></button>
+      <button
+        class="term-dot term-dot--zoom"
+        type="button"
+        data-terminal-zoom
+        aria-label="Fill the screen"
+        title="Fill the screen"></button>
       <span class="term-bar-title" aria-hidden="true">khc@genome: ~ — ksh</span>
       <span class="term-bar-hint" aria-hidden="true">tab · ↑↓ · ctrl-l · `exit`</span>
+      {/*
+        This page renders through BaseLayout's `bare` mode, which drops the header
+        and with it the site theme toggle. Without this control (and the `theme`
+        command behind it) the full-screen shell would be the only page on the site
+        you cannot change the lights from.
+      */}
+      <button
+        class="term-theme"
+        type="button"
+        data-terminal-theme
+        aria-label="Switch theme"
+        title="Switch theme">☾</button>
     </div>
 
     <div

@@ -2,21 +2,36 @@
  * Feature-scoped palette and chrome for the /terminal/ shell, following the
  * `wgi.css` precedent of a sub-palette that lives with its feature.
  *
- * The terminal stays dark in both site themes on purpose: a light-mode shell reads
- * as a code block, not a login session. The colours are the site's own dark-mode
- * ink and teal accent, so it belongs to the design system rather than fighting it.
+ * The shell follows the site theme. `BaseLayout` stamps `data-theme` on <html> in a
+ * head script before first paint and it is always exactly `light` or `dark`, so the
+ * light palette can be the bare default with one dark override below — no
+ * `prefers-color-scheme` block is needed and there is nothing to flash.
+ *
+ * This file is imported as plain CSS, not scoped by Astro, so `html[data-theme=…] .term`
+ * matches normally here. (Inside a component's `<style>` Astro would scope *both*
+ * halves of that selector and it would silently never match.)
+ *
+ * Every colour goes through a token. A hardcoded value here reads fine in whichever
+ * theme it was written for and strands in the other one.
  */
 
 .term {
-  --term-bg: #0d1211;
-  --term-chrome: #161e1b;
-  --term-rule: #24322c;
-  --term-ink: #d9e7e0;
-  --term-dim: #7e9088;
-  --term-accent: #75c7af;
-  --term-head: #f2f0ea;
-  --term-err: #e8836f;
-  --term-ok: #8fd694;
+  /* Light: a real light terminal — macOS Terminal "Basic", not a bleached dark one.
+     The screen sits a shade cooler than the page so the shell reads as its own
+     surface rather than a hole in the layout. */
+  --term-bg: #f4f5f2;
+  --term-chrome: #e6e7e2;
+  --term-rule: #d5d7d0;
+  --term-ink: #24302b;
+  /* Dark enough to clear AA against the title-bar chrome too, not just the screen —
+     the hint text sits on `--term-chrome`, which is the tightest pair in the palette. */
+  --term-dim: #566159;
+  --term-accent: #2e6e5e;
+  --term-head: #101614;
+  --term-err: #a8341f;
+  --term-ok: #1f6b40;
+  --term-foot: #eceded;
+  --term-shadow: rgba(20, 20, 20, 0.1);
 
   /* Full-bleed: the page is the terminal, so no card, no radius, no shadow. */
   display: flex;
@@ -27,6 +42,20 @@
   font-family: var(--font-mono);
   font-size: clamp(0.66rem, 1.45vw, 0.84rem);
   line-height: 1.5;
+}
+
+html[data-theme='dark'] .term {
+  --term-bg: #0d1211;
+  --term-chrome: #161e1b;
+  --term-rule: #24322c;
+  --term-ink: #d9e7e0;
+  --term-dim: #7e9088;
+  --term-accent: #75c7af;
+  --term-head: #f2f0ea;
+  --term-err: #e8836f;
+  --term-ok: #8fd694;
+  --term-foot: #111917;
+  --term-shadow: rgba(0, 0, 0, 0.2);
 }
 
 /* ---------------------------------------------------------------- chrome -- */
@@ -40,26 +69,49 @@
   background: var(--term-chrome);
   border-bottom: 1px solid var(--term-rule);
 }
+/* The traffic lights keep their macOS colours in both themes — they are a
+   convention, not part of the palette. `button` needs the reset because these are
+   real controls now, not decorative spans. */
 .term-dot {
   width: 0.7em;
   height: 0.7em;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
   flex: none;
-}
-/* Colour on the base class, not the anchor: the close dot is a link home on the
-   full-screen page but a plain decorative span inline, and scoping the background
-   to `a.` left the inline one invisible. */
-.term-dot--close { background: #e5695b; }
-a.term-dot--close {
+  appearance: none;
+  cursor: pointer;
   transition: transform var(--transition), box-shadow var(--transition);
 }
-a.term-dot--close:hover,
-a.term-dot--close:focus-visible {
+.term-dot:disabled {
+  cursor: default;
+}
+button.term-dot:focus-visible,
+a.term-dot:focus-visible {
+  outline: 2px solid var(--term-accent);
+  outline-offset: 2px;
+}
+/* Colour on the base class, not the element type: each dot is an anchor on one
+   mounting and a button on the other, and scoping the background to `a.` once left
+   the inline close dot invisible. */
+.term-dot--close { background: #e5695b; }
+.term-dot--close:hover,
+.term-dot--close:focus-visible {
   transform: scale(1.25);
   box-shadow: 0 0 0 3px rgba(229, 105, 91, 0.28);
 }
 .term-dot--min { background: #e0b451; }
+.term-dot--min:hover,
+.term-dot--min:focus-visible {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px rgba(224, 180, 81, 0.3);
+}
 .term-dot--zoom { background: #6cc06c; }
+.term-dot--zoom:not(:disabled):hover,
+.term-dot--zoom:not(:disabled):focus-visible {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px rgba(108, 192, 108, 0.3);
+}
 .term-bar-title {
   flex: 1;
   text-align: center;
@@ -76,7 +128,86 @@ a.term-dot--close:focus-visible {
   .term-bar-hint { display: none; }
 }
 
+/* The theme switch, present only on /terminal/ — the homepage card sits under the
+   site header, which already carries one. */
+.term-theme {
+  flex: none;
+  margin-left: 0.75rem;
+  padding: 0 0.35em;
+  border: 0;
+  background: none;
+  appearance: none;
+  cursor: pointer;
+  color: var(--term-dim);
+  font: inherit;
+  line-height: 1;
+  transition: color var(--transition);
+}
+.term-theme:hover { color: var(--term-accent); }
+.term-theme:focus-visible {
+  outline: 2px solid var(--term-accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------- minimised / closed ----- */
+
+/* Minimised: the title bar survives and is itself the restore target, so a
+   collapsed window is never a dead end. */
+.term--min {
+  flex: none;
+}
+.term--min .term-screen,
+.term--min .term-form,
+.term--min .term-foot {
+  display: none;
+}
+.term--min .term-bar {
+  cursor: pointer;
+  border-bottom-color: transparent;
+}
+
+.term--closed {
+  display: none;
+}
+
+/* True browser fullscreen on /terminal/. The backdrop is the page behind the
+   element, so paint it or the letterboxing shows through as white. */
+.term--full {
+  background: var(--term-bg);
+}
+.term:fullscreen {
+  width: 100%;
+  height: 100%;
+}
+
+.term-reopen {
+  display: block;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--color-rule);
+  border-radius: var(--radius-lg);
+  background: none;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  text-align: center;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+.term-reopen span { color: var(--color-accent); }
+.term-reopen:hover {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+.term-reopen[hidden] { display: none; }
+
 /* ---------------------------------------------------------------- inline -- */
+
+/* Holds the inline window and its reopen chip. The chip has to be a sibling of the
+   window, since closing hides the window itself. */
+.term-shell {
+  display: block;
+}
 
 /* The homepage mounting: the same shell as /terminal/, wearing a card. Everything
    the full-bleed version deliberately drops — border, radius, shadow, a bounded
@@ -87,7 +218,7 @@ a.term-dot--close:focus-visible {
   border: 1px solid var(--term-rule);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 0.9rem 2.4rem rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0.9rem 2.4rem var(--term-shadow);
   transition: border-color var(--transition);
 }
 .term--inline:focus-within {
@@ -110,11 +241,6 @@ a.term-dot--close:focus-visible {
   color: var(--term-head);
   text-decoration: underline;
 }
-a.term-dot--zoom:hover,
-a.term-dot--zoom:focus-visible {
-  transform: scale(1.25);
-  box-shadow: 0 0 0 3px rgba(108, 192, 108, 0.3);
-}
 
 .term-foot {
   display: flex;
@@ -124,7 +250,7 @@ a.term-dot--zoom:focus-visible {
   flex: none;
   padding: 0.5rem 0.9rem;
   border-top: 1px solid var(--term-rule);
-  background: #111917;
+  background: var(--term-foot);
   font-size: 0.9em;
   color: var(--term-dim);
 }

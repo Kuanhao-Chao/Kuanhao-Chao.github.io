@@ -13,6 +13,8 @@
 import {
   COMMANDS,
   NEEDS_INDEX,
+  bootFooter,
+  bootHeader,
   bootLines,
   buildContext,
   complete,
@@ -23,7 +25,9 @@ import {
   motd,
   offlineAnswer,
   parseArgv,
+  pipelineStages,
   prompt,
+  stageLine,
   stripThinking,
   wrapText,
   type Line,
@@ -34,6 +38,51 @@ import { askEndpoint } from '../data/site';
 
 export interface TerminalController {
   destroy: () => void;
+}
+
+/** The slice of `BaseLayout`'s inline theme script that the shell calls into. */
+interface KhcTheme {
+  get: () => 'light' | 'dark';
+  set: (theme: 'light' | 'dark') => 'light' | 'dark';
+  toggle: () => 'light' | 'dark';
+}
+
+/**
+ * Session-wide latch on the free Workers AI endpoint.
+ *
+ * Once the Worker has said it is out of capacity, every later question would pay a
+ * doomed round-trip before falling back — so stop dialling for the rest of the
+ * session. Module scope rather than per-controller on purpose: the shell is torn
+ * down and re-mounted on every view transition, and the quota does not come back
+ * just because the visitor changed page.
+ */
+let modelDown = false;
+let modelFailures = 0;
+
+/**
+ * Deadlines: one to the first body chunk, one for the whole stream.
+ *
+ * 8s is a ceiling on a *legitimate* first token — Qwen3 30B usually starts in one to
+ * three seconds, and a cold start adds a little — not a guess at how long a visitor
+ * will sit still. Anything past it is a stall, and the old single 20s abort made a
+ * stalled endpoint feel like a hung page.
+ */
+const FIRST_BYTE_MS = 8_000;
+const STREAM_MS = 20_000;
+
+/**
+ * 429 (rate limited) and 503 (what a Neuron-exhausted Worker returns) both mean "come
+ * back much later", so they latch the breaker on the spot — that is the case this
+ * exists for.
+ *
+ * Everything else needs two strikes on purpose. A timeout is not proof the model is
+ * gone: a cold start or a slow phone connection can overrun the first-byte deadline
+ * on a perfectly healthy endpoint, and latching on one of those would silently
+ * downgrade a visitor for their whole session over a blip.
+ */
+function noteModelFailure(status?: number) {
+  if (status === 429 || status === 503) modelDown = true;
+  else if (++modelFailures >= 2) modelDown = true;
 }
 
 /** One scripted step of the homepage demo: a command and its precomputed output. */
@@ -174,10 +223,32 @@ export function initTerminal(
       case 'exit':
         window.setTimeout(() => window.location.assign(exitHref), reduced ? 0 : 420);
         break;
+      case 'theme':
+        applyTheme(effect.mode);
+        break;
       case 'ask':
         void answer(effect.question);
         break;
     }
+  }
+
+  /**
+   * The site's theme switch, reached from the shell.
+   *
+   * `window.__khcTheme` is installed by `BaseLayout`'s inline script, which runs on
+   * every page including `bare` ones — the *toggle button* is what `bare` drops with
+   * the header, not the API. Guarded anyway so the shell degrades to a message rather
+   * than a `TypeError` if that ever stops being true.
+   */
+  function applyTheme(mode: 'light' | 'dark' | 'toggle') {
+    const api = (window as unknown as { __khcTheme?: KhcTheme }).__khcTheme;
+    if (!api) {
+      write([{ text: 'theme: the theme switch is unavailable on this page.', tone: 'err' }]);
+      return;
+    }
+    const next = mode === 'toggle' ? api.toggle() : api.set(mode);
+    write([{ text: `theme → ${next}`, tone: 'ok' }]);
+    scrollToEnd();
   }
 
   /**
@@ -202,13 +273,19 @@ export function initTerminal(
     }
 
     let answered = false;
-    if (askEndpoint) {
+    if (askEndpoint && !modelDown) {
       status.textContent = 'thinking…';
       answered = await streamFromModel(question, index, status);
     }
     if (!answered) {
       status.remove();
       write(offlineAnswer(index, question));
+      // Only explain the fallback when a model was supposed to be answering. With no
+      // endpoint configured the offline index simply *is* how `ask` works, and
+      // apologising for it would invent a fault that does not exist.
+      if (askEndpoint) {
+        write([{ text: '' }, { text: '— answered from the offline index —', tone: 'dim' }]);
+      }
     }
 
     write([{ text: '' }]);
@@ -219,7 +296,17 @@ export function initTerminal(
   /** Returns true only if the model produced a usable answer. */
   async function streamFromModel(question: string, index: TermIndex, status: HTMLElement) {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 20_000);
+    const overall = window.setTimeout(() => controller.abort(), STREAM_MS);
+    // A separate, much shorter deadline to the first body chunk. Headers arriving is
+    // not enough: a Worker that accepts the request and then stalls should degrade in
+    // seconds, not in twenty.
+    let firstByte: number | undefined = window.setTimeout(() => controller.abort(), FIRST_BYTE_MS);
+    const gotFirstByte = () => {
+      if (firstByte !== undefined) {
+        window.clearTimeout(firstByte);
+        firstByte = undefined;
+      }
+    };
     try {
       const res = await fetch(askEndpoint, {
         method: 'POST',
@@ -227,7 +314,10 @@ export function initTerminal(
         body: JSON.stringify({ question, context: buildContext(index, question) }),
         signal: controller.signal,
       });
-      if (!res.ok || !res.body) return false;
+      if (!res.ok || !res.body) {
+        noteModelFailure(res.status);
+        return false;
+      }
 
       status.remove();
       const block = document.createElement('div');
@@ -251,6 +341,7 @@ export function initTerminal(
       for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
+        gotFirstByte();
         sse += decoder.decode(value, { stream: true });
         const events = sse.split('\n');
         sse = events.pop() ?? '';
@@ -272,14 +363,18 @@ export function initTerminal(
 
       if (!stripThinking(text).trim()) {
         block.remove();
+        noteModelFailure();
         return false;
       }
       paint();
+      modelFailures = 0;
       return true;
     } catch {
+      noteModelFailure();
       return false;
     } finally {
-      window.clearTimeout(timeout);
+      window.clearTimeout(overall);
+      gotFirstByte();
     }
   }
 
@@ -355,10 +450,108 @@ export function initTerminal(
 
   /** Clicking anywhere in the shell focuses the caret — unless text is selected. */
   function onShellClick(event: MouseEvent) {
-    if ((event.target as HTMLElement)?.closest('a')) return;
+    if ((event.target as HTMLElement)?.closest('a, button')) return;
     if (window.getSelection()?.toString()) return;
     input!.focus({ preventScroll: true });
   }
+
+  // ------------------------------------------------------ window controls ----
+
+  /*
+   * The three traffic lights, wired for real.
+   *
+   * Each mounting declares only the controls it owns: where a dot is genuinely
+   * navigation it stays an `<a>` and carries no data attribute (close on
+   * `/terminal/`, zoom on the homepage), so the controller never has to ask which
+   * page it is on. Everything below is a no-op when its element is absent.
+   */
+  const bar = shellEl.querySelector<HTMLElement>('[data-terminal-bar]');
+  const minBtn = shellEl.querySelector<HTMLButtonElement>('[data-terminal-min]');
+  const closeBtn = shellEl.querySelector<HTMLButtonElement>('[data-terminal-close]');
+  const zoomBtn = shellEl.querySelector<HTMLButtonElement>('[data-terminal-zoom]');
+  const themeBtn = shellEl.querySelector<HTMLButtonElement>('[data-terminal-theme]');
+  // The reopen chip is a *sibling* of the window: closing hides the window itself,
+  // so a control inside it would go with it.
+  const reopenBtn =
+    shellEl.parentElement?.querySelector<HTMLButtonElement>('[data-terminal-reopen]') ?? null;
+
+  function setMinimised(next: boolean) {
+    shellEl!.classList.toggle('term--min', next);
+    minBtn?.setAttribute('aria-expanded', String(!next));
+    minBtn?.setAttribute('title', next ? 'Restore the terminal' : 'Minimise the terminal');
+    if (next) minBtn?.focus({ preventScroll: true });
+    else input!.focus({ preventScroll: true });
+  }
+
+  function setClosed(next: boolean) {
+    shellEl!.classList.toggle('term--closed', next);
+    if (reopenBtn) reopenBtn.hidden = !next;
+    if (next) reopenBtn?.focus({ preventScroll: true });
+    else {
+      // Reopening a *minimised* window should give back a usable shell, not a bar.
+      setMinimised(false);
+      input!.focus({ preventScroll: true });
+    }
+  }
+
+  const fullscreenSupported = typeof shellEl.requestFullscreen === 'function';
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else void shellEl!.requestFullscreen().catch(() => {});
+  }
+
+  function syncFullscreen() {
+    const on = document.fullscreenElement === shellEl;
+    shellEl!.classList.toggle('term--full', on);
+    zoomBtn?.setAttribute('aria-label', on ? 'Leave full screen' : 'Fill the screen');
+    zoomBtn?.setAttribute('title', on ? 'Leave full screen' : 'Fill the screen');
+  }
+
+  function onBarClick(event: MouseEvent) {
+    // The dots handle their own clicks; the rest of the bar is a restore target, the
+    // way a collapsed title bar behaves in any window manager.
+    if ((event.target as HTMLElement)?.closest('a, button')) return;
+    if (shellEl!.classList.contains('term--min')) setMinimised(false);
+  }
+
+  const onMin = () => setMinimised(!shellEl!.classList.contains('term--min'));
+  const onClose = () => setClosed(true);
+  const onReopen = () => setClosed(false);
+
+  minBtn?.addEventListener('click', onMin);
+  closeBtn?.addEventListener('click', onClose);
+  reopenBtn?.addEventListener('click', onReopen);
+  bar?.addEventListener('click', onBarClick);
+
+  if (zoomBtn) {
+    if (fullscreenSupported) {
+      zoomBtn.addEventListener('click', toggleFullscreen);
+      document.addEventListener('fullscreenchange', syncFullscreen);
+    } else {
+      // iOS Safari has no Fullscreen API for non-video elements. A dot that silently
+      // does nothing is worse than a dot that is plainly decorative, and a *missing*
+      // dot looks like a broken window — so it stays, inert and out of the tab order.
+      zoomBtn.disabled = true;
+      zoomBtn.tabIndex = -1;
+      zoomBtn.setAttribute('aria-hidden', 'true');
+      zoomBtn.removeAttribute('title');
+    }
+  }
+
+  function syncThemeButton() {
+    if (!themeBtn) return;
+    const dark = document.documentElement.dataset.theme === 'dark';
+    themeBtn.textContent = dark ? '☀' : '☾';
+    const label = dark ? 'Switch to the light theme' : 'Switch to the dark theme';
+    themeBtn.setAttribute('aria-label', label);
+    themeBtn.setAttribute('title', label);
+  }
+
+  const onThemeClick = () => applyTheme('toggle');
+  themeBtn?.addEventListener('click', onThemeClick);
+  document.addEventListener('khc:theme-change', syncThemeButton);
+  syncThemeButton();
 
   // ----------------------------------------------------------------- boot ---
 
@@ -382,45 +575,86 @@ export function initTerminal(
     scrollToEnd();
   }
 
+  /** Wall-clock budget per pipeline stage, and per line of the closing report. */
+  const STAGE_MS = 150;
+  const REPORT_MS = 110;
+
   /**
-   * A short POST-style boot with the helix spinning beside it. Skippable by any
-   * key, click or tap, and skipped entirely under `prefers-reduced-motion` — the
-   * site kills all animation in that mode, so honour it rather than fight it.
+   * The genome assembly + annotation pipeline, with the helix spinning beside it.
    *
-   * No `visibilitychange` handling on purpose: rAF simply does not fire in a hidden
-   * tab, so the helix pauses for free while the log finishes on its timers.
+   * All nine stage rows are written at 0 % on the first frame and then *rewritten*
+   * as their bars fill, so the boot reads as a manifest working through itself
+   * rather than a list growing a line at a time.
+   *
+   * One clock drives everything: the same rAF that turns the helix also decides
+   * which stage is active and how many report lines have landed. That keeps the
+   * bars and the helix from drifting apart, and it means a hidden tab pauses the
+   * whole boot for free — rAF simply does not fire there, so no `visibilitychange`
+   * handling is needed.
+   *
+   * Skippable by any key, click or tap, and rendered instantly complete under
+   * `prefers-reduced-motion`.
    */
   function runBoot() {
-    const log = bootLines(bootIndex);
+    const narrow = isNarrow();
+    const stages = pipelineStages();
+    const report = bootFooter();
 
     if (reduced) {
       const wrap = buildBootShell();
       wrap.dna.textContent = dnaFrame(1.2).join('\n');
-      for (const line of log) wrap.log.appendChild(lineEl(line));
+      for (const line of bootLines(narrow)) wrap.log.appendChild(lineEl(line));
       printBanner();
       return;
     }
 
     const wrap = buildBootShell();
+    for (const line of bootHeader()) wrap.log.appendChild(lineEl(line));
+    const rows = stages.map((stage, i) => {
+      const el = lineEl({ text: stageLine(stage, i, stages.length, 0, narrow) });
+      wrap.log.appendChild(el);
+      return el;
+    });
+    scrollToEnd();
+
+    const barsMs = stages.length * STAGE_MS;
     let phase = 0;
     let last = 0;
+    let elapsed = 0;
+    /** Rows already frozen at 100 %, so finished bars are not rewritten each frame. */
+    let settled = 0;
+    let reported = 0;
+
+    const paintStages = () => {
+      const active = Math.floor(elapsed / STAGE_MS);
+      for (let i = settled; i < Math.min(active + 1, stages.length); i++) {
+        const fraction = i < active ? 1 : (elapsed % STAGE_MS) / STAGE_MS;
+        rows[i].textContent = stageLine(stages[i], i, stages.length, fraction, narrow);
+      }
+      settled = Math.min(active, stages.length);
+    };
+
+    const paintReport = () => {
+      const want = Math.min(report.length, Math.floor((elapsed - barsMs) / REPORT_MS) + 1);
+      while (reported < want) wrap.log.appendChild(lineEl(report[reported++]));
+    };
+
     const spin = (ts: number) => {
       if (!last) last = ts;
-      phase += (ts - last) / 340;
+      const dt = ts - last;
       last = ts;
+      phase += dt / 340;
+      elapsed += dt;
       wrap.dna.textContent = dnaFrame(phase).join('\n');
+
+      paintStages();
+      if (elapsed >= barsMs) paintReport();
+      scrollToEnd();
+
+      if (reported >= report.length) return finishBoot();
       bootRaf = requestAnimationFrame(spin);
     };
     bootRaf = requestAnimationFrame(spin);
-
-    let i = 0;
-    const emit = () => {
-      if (i >= log.length) return finishBoot();
-      wrap.log.appendChild(lineEl(log[i++]));
-      scrollToEnd();
-      bootTimer = window.setTimeout(emit, 105);
-    };
-    bootTimer = window.setTimeout(emit, 70);
 
     function finishBoot() {
       window.clearTimeout(bootTimer);
@@ -434,7 +668,10 @@ export function initTerminal(
 
     function onSkip() {
       if (!booting) return;
-      while (i < log.length) wrap.log.appendChild(lineEl(log[i++]));
+      stages.forEach((stage, i) => {
+        rows[i].textContent = stageLine(stage, i, stages.length, 1, narrow);
+      });
+      while (reported < report.length) wrap.log.appendChild(lineEl(report[reported++]));
       finishBoot();
     }
 
@@ -559,6 +796,9 @@ export function initTerminal(
     skipBoot: () => skipBoot?.(),
     demoing: () => demoRunning,
     takeOver: () => takeOver(),
+    minimised: () => shellEl.classList.contains('term--min'),
+    closed: () => shellEl.classList.contains('term--closed'),
+    modelDown: () => modelDown,
   };
 
   return {
@@ -571,6 +811,14 @@ export function initTerminal(
       if (bootRaf) cancelAnimationFrame(bootRaf);
       input.removeEventListener('keydown', onKeyDown);
       shellEl.removeEventListener('click', onShellClick);
+      minBtn?.removeEventListener('click', onMin);
+      closeBtn?.removeEventListener('click', onClose);
+      reopenBtn?.removeEventListener('click', onReopen);
+      bar?.removeEventListener('click', onBarClick);
+      zoomBtn?.removeEventListener('click', toggleFullscreen);
+      themeBtn?.removeEventListener('click', onThemeClick);
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+      document.removeEventListener('khc:theme-change', syncThemeButton);
       delete (window as unknown as Record<string, unknown>).__terminal;
       shellEl.dataset.terminalReady = '';
     },

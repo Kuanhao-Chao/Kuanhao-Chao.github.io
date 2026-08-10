@@ -36,6 +36,13 @@ const iconFor: Record<SocialKey, string> = {
       </li>
     ))
   }
+  {/*
+    Extra tiles (the hero passes its photos link) join *this* list rather than sitting
+    in a sibling container. A nested flex container is what made the hero row ragged:
+    the inner list wrapped inside itself while the outer siblings were shrunk, which
+    cost the photos icon 12px off a tap target explicitly sized for touch.
+  */}
+  <slot />
 </ul>
 
 <style>
@@ -48,7 +55,12 @@ const iconFor: Record<SocialKey, string> = {
     align-items: center;
     gap: 0.35rem;
   }
-  .socials a {
+  /* Tiles wrap; they never shrink. Letting them shrink is what squashed a 44px
+     touch target down to 32px. */
+  .socials > :global(li) {
+    flex: none;
+  }
+  .socials :global(a) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -58,14 +70,14 @@ const iconFor: Record<SocialKey, string> = {
     color: var(--color-muted);
     transition: color var(--transition), background var(--transition);
   }
-  .socials a:hover {
+  .socials :global(a:hover) {
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 9%, transparent);
   }
 
   /* Larger tap targets on touch devices (≥44px). */
   @media (pointer: coarse) {
-    .socials a {
+    .socials :global(a) {
       width: 2.75rem;
       height: 2.75rem;
     }
