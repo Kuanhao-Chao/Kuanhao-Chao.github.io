@@ -253,6 +253,36 @@ async function auditReportsIndex(reports, urls) {
   }
 }
 
+/**
+ * The /terminal/ shell serves its whole knowledge base as one public JSON file, so
+ * it is a second front door to the content — and it re-derives the draft/unlisted
+ * gates itself rather than inheriting them. The two collections use *different*
+ * fields (`posts.draft` vs `reports.unlisted`), so a single filter silently misses
+ * one; this asserts the outcome instead of trusting the filter.
+ */
+async function auditTerminalIndex(posts, reports) {
+  const indexPath = join(DIST, 'terminal.json');
+  if (!(await pathExists(indexPath))) {
+    errors.push('dist/terminal.json is missing; the /terminal/ shell has no knowledge index.');
+    return;
+  }
+  const raw = await readFile(indexPath, 'utf8');
+
+  for (const post of posts.filter((p) => p.data.draft === true)) {
+    if (raw.includes(`/posts/${post.slug}`) || raw.includes(`posts/${post.slug}.txt`)) {
+      errors.push(`Draft post leaked into terminal.json: ${post.slug}`);
+    }
+  }
+  for (const report of reports.filter((r) => r.data.unlisted !== false)) {
+    if (raw.includes(report.slug)) {
+      errors.push(`Unlisted report leaked into terminal.json: ${report.slug}`);
+    }
+  }
+  if (raw.includes('/reports/')) {
+    errors.push('terminal.json references the non-indexable /reports/ subtree.');
+  }
+}
+
 async function auditPublicPageBasics(urls) {
   for (const url of urls) {
     if (!url.startsWith(SITE)) continue;
@@ -367,6 +397,7 @@ async function main() {
   await auditRobots();
   await auditReportsIndex(reports, urls);
   await auditNoDraftReportPdfs();
+  await auditTerminalIndex(posts, reports);
   await auditPublicPageBasics(urls);
   await auditUtilityPages(urls);
 

@@ -1,0 +1,112 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+import { getCollection } from 'astro:content';
+import { site, identity } from '../data/site';
+import { software, honors, reviewing } from '../data/cv';
+import '../styles/terminal.css';
+
+// The banner's identity and counts are inlined into the page so it paints on the
+// first frame; the full knowledge index (`/terminal.json`) loads lazily behind it.
+const [publications, research, talks, posts, news] = await Promise.all([
+  getCollection('publications'),
+  getCollection('research'),
+  getCollection('presentations'),
+  getCollection('posts'),
+  getCollection('news'),
+]);
+
+const boot = {
+  identity: {
+    name: site.name,
+    nameZh: site.nameZh,
+    role: site.role,
+    jobTitle: identity.jobTitle,
+    worksFor: identity.worksFor.name,
+    alumniOf: identity.alumniOf.map((a) => a.name),
+    knowsAbout: identity.knowsAbout,
+    tagline: site.tagline,
+    bio: site.bio,
+  },
+  stats: {
+    publications: publications.length,
+    research: research.length,
+    talks: talks.length,
+    posts: posts.filter((p) => !p.data.draft).length,
+    news: news.filter((n) => !n.data.draft).length,
+    software: software.length,
+    honors: honors.length,
+    reviewing: reviewing.length,
+  },
+};
+---
+<PageLayout
+  title="Terminal"
+  eyebrow="Shell"
+  lead="A working UNIX shell over everything on this site — browse my publications, software, and talks with ls and cat, search with grep, or just type `ask` a question and let the bot answer."
+  description="An interactive UNIX terminal for khchao.com — browse Kuan-Hao Chao's publications, software, research, and talks from a command line, or ask the built-in bot a question."
+>
+  <section class="term" data-terminal data-terminal-boot={JSON.stringify(boot)}>
+    <div class="term-bar" aria-hidden="true">
+      <span class="term-dot term-dot--close"></span>
+      <span class="term-dot term-dot--min"></span>
+      <span class="term-dot term-dot--zoom"></span>
+      <span class="term-bar-title">khc@genome: ~ — ksh</span>
+    </div>
+
+    <div
+      class="term-screen"
+      data-terminal-screen
+      role="log"
+      aria-live="polite"
+      aria-label="Terminal output"
+      tabindex="0"
+    ></div>
+
+    <div class="term-form">
+      <label class="visually-hidden" for="term-input">Terminal command</label>
+      <span class="term-prompt" data-terminal-prompt>khc@genome:~$</span>
+      <input
+        class="term-input"
+        id="term-input"
+        data-terminal-input
+        type="text"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        placeholder="type `help` to begin"
+      />
+      <span class="term-caret" aria-hidden="true"></span>
+    </div>
+  </section>
+
+  <p class="term-hint">
+    Tab completes · <code>↑</code>/<code>↓</code> walks history · <code>Ctrl-L</code> clears.
+    Everything here is generated from the same content as the rest of the site, so it is never
+    out of date. Prefer a mouse? <a href="/search/">Search</a> does the same job in a box.
+  </p>
+</PageLayout>
+
+<script>
+  import { initTerminal, type TerminalController } from '../scripts/terminal';
+
+  let controller: TerminalController | null = null;
+
+  // Idempotent mount: initTerminal also guards per-element, so double calls are safe.
+  function mount() {
+    if (controller) return;
+    controller = initTerminal(document);
+  }
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  // Re-init on every view-transition arrival; tear down before leaving so the
+  // key handlers never leak a second copy.
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  // Also mount now: a bundled module can finish loading *after* astro:page-load
+  // has already fired on the first view-transition visit (the filter-island race).
+  mount();
+</script>

@@ -72,6 +72,9 @@ import portrait from '../assets/profile/portrait.jpg';
           <a class="hero-photos" href="/photos/" aria-label="Photos" title="Photos">
             <Icon name="image" size={20} />
           </a>
+          <a class="hero-term" href="/terminal/" title="Open the shell">
+            <span aria-hidden="true">$</span> terminal
+          </a>
         </div>
       </div>
     </div>
@@ -232,10 +235,35 @@ import portrait from '../assets/profile/portrait.jpg';
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 9%, transparent);
   }
+  /* Monospace chip: a quiet hint that the shell exists, for whoever notices it. */
+  .hero-term {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    margin-left: 0.15rem;
+    padding: 0.3em 0.7em;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: var(--fs-meta);
+    color: var(--color-muted);
+    transition: color var(--transition), border-color var(--transition);
+  }
+  .hero-term span {
+    color: var(--color-accent);
+  }
+  .hero-term:hover {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+    text-decoration: none;
+  }
   @media (pointer: coarse) {
     .hero-photos {
       width: 2.75rem;
       height: 2.75rem;
+    }
+    .hero-term {
+      padding-block: 0.5em;
     }
   }
   .hero-portrait {

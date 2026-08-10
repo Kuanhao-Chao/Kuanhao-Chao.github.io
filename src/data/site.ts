@@ -75,6 +75,7 @@ export const nav: NavItem[] = [
   { label: 'Posts', href: '/posts/' },
   { label: 'News', href: '/news/' },
   { label: 'Search', href: '/search/', footerOnly: true },
+  { label: 'Terminal', href: '/terminal/', footerOnly: true },
 ];
 
 export type SocialKey =

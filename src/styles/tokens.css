@@ -31,6 +31,8 @@
   /* Typography */
   --font-display: 'Hanken Grotesk Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-body: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* The stack already hardcoded across ~18 component and figure stylesheets. */
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --fs-hero: clamp(2.5rem, 5.5vw, 4rem);
   --fs-h1: clamp(2rem, 4vw, 2.75rem);
