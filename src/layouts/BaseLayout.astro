@@ -16,8 +16,17 @@ interface Props {
   type?: 'website' | 'article' | 'profile';
   noindex?: boolean;
   scholarMeta?: ScholarMeta;
+  /**
+   * Drop every piece of site chrome — header, footer, fixed overlays, skip link —
+   * and let `<main>` fill the viewport. For pages that *are* the interface rather
+   * than a document inside the site, currently just `/terminal/`.
+   *
+   * A prop rather than a sibling layout on purpose: the head guard and the
+   * `window.__khcTheme` installer below are ~100 lines that must not fork.
+   */
+  bare?: boolean;
 }
-const { title, description, image, type, noindex, scholarMeta } = Astro.props;
+const { title, description, image, type, noindex, scholarMeta, bare = false } = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
@@ -55,11 +64,11 @@ const { title, description, image, type, noindex, scholarMeta } = Astro.props;
         document.documentElement.classList.add('reveal-ready');
       }
     </script>
-    <SiteBackground />
-    <ReadingProgress />
-    <PageScan />
-    <a href="#main" class="skip-link">Skip to content</a>
-    <Header />
+    {!bare && <SiteBackground />}
+    {!bare && <ReadingProgress />}
+    {!bare && <PageScan />}
+    {!bare && <a href="#main" class="skip-link">Skip to content</a>}
+    {!bare && <Header />}
     <script is:inline>
       (() => {
         const key = 'khc-theme';
@@ -140,10 +149,10 @@ const { title, description, image, type, noindex, scholarMeta } = Astro.props;
         window.__khcTheme.sync();
       })();
     </script>
-    <main id="main">
+    <main id="main" class:list={[bare && 'main--bare']}>
       <slot />
     </main>
-    <Footer />
+    {!bare && <Footer />}
     <script>
       import { prefersReducedMotion, onVisible } from '../scripts/motion';
       // Scroll-reveal + section-divider pulses. Runs on the initial load and after

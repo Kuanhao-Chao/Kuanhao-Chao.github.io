@@ -13,7 +13,9 @@
 import {
   COMMANDS,
   NEEDS_INDEX,
+  bootLines,
   complete,
+  dnaFrame,
   createShell,
   exec,
   historyStep,
@@ -46,15 +48,23 @@ export function initTerminal(root: ParentNode = document): TerminalController | 
   const state: ShellState = createShell(null);
   let indexPromise: Promise<TermIndex | null> | null = null;
   let busy = false;
+  let skipBoot: (() => void) | null = null;
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   // A 76-column banner only pans on a phone, so the engine stacks it instead.
   const isNarrow = () => window.innerWidth < 700;
 
   // ------------------------------------------------------------- rendering --
 
-  function writeLine(line: Line): HTMLElement {
+  function lineEl(line: Line): HTMLElement {
     const el = document.createElement('div');
     el.className = line.tone ? `term-line term-${line.tone}` : 'term-line';
+    if (line.prefix) {
+      const badge = document.createElement('span');
+      badge.className = 'term-ok';
+      badge.textContent = line.prefix;
+      el.append(badge, document.createTextNode(line.text));
+      return el;
+    }
     if (line.href) {
       const a = document.createElement('a');
       a.className = 'term-link';
@@ -69,6 +79,11 @@ export function initTerminal(root: ParentNode = document): TerminalController | 
       // A zero-width space keeps blank lines from collapsing to zero height.
       el.textContent = line.text === '' ? '​' : line.text;
     }
+    return el;
+  }
+
+  function writeLine(line: Line): HTMLElement {
+    const el = lineEl(line);
     screen!.appendChild(el);
     return el;
   }
@@ -237,26 +252,106 @@ export function initTerminal(root: ParentNode = document): TerminalController | 
 
   // ----------------------------------------------------------------- boot ---
 
+  // Identity + counts are inlined into the page at build time, so the boot log and
+  // banner paint on the first frame and never wait on the index fetch.
+  const bootIndex = {
+    ...(JSON.parse(shellEl.dataset.terminalBoot ?? '{}') as TermIndex),
+    fs: {},
+    chunks: [],
+  } as TermIndex;
+
+  let bootRaf = 0;
+  let bootTimer = 0;
+  let booting = true;
+
+  function printBanner() {
+    write(motd(bootIndex, new Date(), isNarrow()));
+    refreshPrompt();
+    booting = false;
+    input!.focus({ preventScroll: true });
+    scrollToEnd();
+  }
+
+  /**
+   * A short POST-style boot with the helix spinning beside it. Skippable by any
+   * key, click or tap, and skipped entirely under `prefers-reduced-motion` — the
+   * site kills all animation in that mode, so honour it rather than fight it.
+   *
+   * No `visibilitychange` handling on purpose: rAF simply does not fire in a hidden
+   * tab, so the helix pauses for free while the log finishes on its timers.
+   */
+  function runBoot() {
+    const log = bootLines(bootIndex);
+
+    if (reduced) {
+      const wrap = buildBootShell();
+      wrap.dna.textContent = dnaFrame(1.2).join('\n');
+      for (const line of log) wrap.log.appendChild(lineEl(line));
+      printBanner();
+      return;
+    }
+
+    const wrap = buildBootShell();
+    let phase = 0;
+    let last = 0;
+    const spin = (ts: number) => {
+      if (!last) last = ts;
+      phase += (ts - last) / 340;
+      last = ts;
+      wrap.dna.textContent = dnaFrame(phase).join('\n');
+      bootRaf = requestAnimationFrame(spin);
+    };
+    bootRaf = requestAnimationFrame(spin);
+
+    let i = 0;
+    const emit = () => {
+      if (i >= log.length) return finishBoot();
+      wrap.log.appendChild(lineEl(log[i++]));
+      scrollToEnd();
+      bootTimer = window.setTimeout(emit, 105);
+    };
+    bootTimer = window.setTimeout(emit, 70);
+
+    function finishBoot() {
+      window.clearTimeout(bootTimer);
+      cancelAnimationFrame(bootRaf);
+      bootRaf = 0;
+      // Leave the last frame frozen — it reads as a logo above the banner.
+      document.removeEventListener('keydown', onSkip, true);
+      shellEl!.removeEventListener('pointerdown', onSkip, true);
+      printBanner();
+    }
+
+    function onSkip() {
+      if (!booting) return;
+      while (i < log.length) wrap.log.appendChild(lineEl(log[i++]));
+      finishBoot();
+    }
+
+    document.addEventListener('keydown', onSkip, true);
+    shellEl!.addEventListener('pointerdown', onSkip, true);
+    skipBoot = onSkip;
+  }
+
+  function buildBootShell() {
+    const wrap = document.createElement('div');
+    wrap.className = 'term-boot';
+    const dna = document.createElement('pre');
+    dna.className = 'term-boot-dna';
+    dna.setAttribute('aria-hidden', 'true');
+    const log = document.createElement('div');
+    log.className = 'term-boot-log';
+    wrap.append(dna, log);
+    screen!.appendChild(wrap);
+    return { dna, log };
+  }
+
   input.addEventListener('keydown', onKeyDown);
   shellEl.addEventListener('click', onShellClick);
 
-  write(
-    motd(
-      {
-        // The banner needs only identity + stats; both are inlined into the page at
-        // build time, so it paints instantly and never waits on the index fetch.
-        ...(JSON.parse(shellEl.dataset.terminalBoot ?? '{}') as TermIndex),
-        fs: {},
-        chunks: [],
-      } as TermIndex,
-      new Date(),
-      isNarrow()
-    )
-  );
-  refreshPrompt();
-  input.focus({ preventScroll: true });
+  runBoot();
 
-  // Warm the index in the background once the banner is on screen.
+  // Warm the index in the background while the boot plays.
   window.setTimeout(() => void loadIndex(), 120);
 
   // A Playwright hook, matching the games' `window.__<name>` convention.
@@ -264,10 +359,14 @@ export function initTerminal(root: ParentNode = document): TerminalController | 
     submit: (line: string) => submit(line),
     state,
     text: () => screen.textContent ?? '',
+    booting: () => booting,
+    skipBoot: () => skipBoot?.(),
   };
 
   return {
     destroy() {
+      window.clearTimeout(bootTimer);
+      if (bootRaf) cancelAnimationFrame(bootRaf);
       input.removeEventListener('keydown', onKeyDown);
       shellEl.removeEventListener('click', onShellClick);
       delete (window as unknown as Record<string, unknown>).__terminal;

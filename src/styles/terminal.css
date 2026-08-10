@@ -18,11 +18,12 @@
   --term-err: #e8836f;
   --term-ok: #8fd694;
 
-  border: 1px solid var(--term-rule);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  /* Full-bleed: the page is the terminal, so no card, no radius, no shadow. */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   background: var(--term-bg);
-  box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.28);
   font-family: var(--font-mono);
   font-size: clamp(0.66rem, 1.45vw, 0.84rem);
   line-height: 1.5;
@@ -34,7 +35,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.55rem 0.8rem;
+  flex: none;
+  padding: 0.55rem 0.9rem;
   background: var(--term-chrome);
   border-bottom: 1px solid var(--term-rule);
 }
@@ -44,7 +46,16 @@
   border-radius: 50%;
   flex: none;
 }
-.term-dot--close { background: #e5695b; }
+/* The close dot is a real link home — with `exit`, the two ways out of the shell. */
+a.term-dot--close {
+  background: #e5695b;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+a.term-dot--close:hover,
+a.term-dot--close:focus-visible {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px rgba(229, 105, 91, 0.28);
+}
 .term-dot--min { background: #e0b451; }
 .term-dot--zoom { background: #6cc06c; }
 .term-bar-title {
@@ -52,14 +63,22 @@
   text-align: center;
   color: var(--term-dim);
   font-size: 0.92em;
-  /* Keep the title centred against the dots by reserving the same width. */
-  padding-right: 3.4em;
+}
+.term-bar-hint {
+  flex: none;
+  color: var(--term-dim);
+  font-size: 0.82em;
+  opacity: 0.75;
+}
+@media (max-width: 700px) {
+  .term-bar-hint { display: none; }
 }
 
 /* ---------------------------------------------------------------- screen -- */
 
 .term-screen {
-  height: min(60svh, 34rem);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: auto;
   padding: 0.9rem 1rem 0.2rem;
@@ -76,6 +95,25 @@
   border-radius: 999px;
 }
 
+/* ------------------------------------------------------------------ boot -- */
+
+.term-boot {
+  display: flex;
+  gap: 2ch;
+  align-items: flex-start;
+  margin-bottom: 0.6rem;
+}
+.term-boot-dna {
+  flex: none;
+  margin: 0;
+  color: var(--term-accent);
+  font: inherit;
+  line-height: 1.5;
+  /* Reserve the column so the log never shifts as the helix rotates. */
+  width: 11ch;
+}
+.term-boot-log { min-width: 0; }
+
 .term-line { min-height: 1.5em; }
 /* Block-glyph art only forms solid letters when the rows touch. */
 .term-art {
@@ -90,6 +128,7 @@
 .term-ok { color: var(--term-ok); }
 .term-echo { color: var(--term-head); }
 .term-ps1 { color: var(--term-accent); }
+.term-ok { color: var(--term-ok); }
 
 .term-link {
   color: var(--term-accent);
@@ -144,18 +183,6 @@
   .term-caret { animation: none; }
 }
 
-/* ------------------------------------------------------------------ hint -- */
-
-.term-hint {
-  margin-top: var(--space-5);
-  font-size: var(--fs-small);
-  color: var(--color-muted);
-}
-.term-hint code {
-  font-family: var(--font-mono);
-  font-size: 0.92em;
-  padding: 0.1em 0.4em;
-  border: 1px solid var(--color-rule);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+.term-form {
+  flex: none;
 }

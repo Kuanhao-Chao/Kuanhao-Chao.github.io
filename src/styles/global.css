@@ -144,6 +144,17 @@ hr {
   padding-block: var(--section-y);
 }
 
+/* Bare pages (BaseLayout's `bare` prop) *are* the interface rather than a document
+   inside the site, so `main` grows to fill the flex-column body instead of hugging
+   its content. Without this it stays `flex: 0 1 auto` and a full-height child
+   collapses. */
+.main--bare {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .eyebrow {
   font-family: var(--font-body);
   font-size: var(--fs-meta);

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   COMMANDS,
   HOME,
+  bootLines,
+  dnaFrame,
   NEEDS_INDEX,
   complete,
   createShell,
@@ -435,6 +437,74 @@ describe('history navigation', () => {
 
   it('returns the draft untouched when there is no history', () => {
     expect(historyStep(shell(), -1, 'half-typed')).toBe('half-typed');
+  });
+});
+
+describe('the DNA helix', () => {
+  it('always returns exactly rows × width characters', () => {
+    for (const phase of [0, 0.3, 1.1, 2.7, 5.9, -1.4]) {
+      const frame = dnaFrame(phase, 6, 11);
+      expect(frame).toHaveLength(6);
+      for (const row of frame) expect(row).toHaveLength(11);
+    }
+  });
+
+  it('is deterministic — the same phase gives the same frame', () => {
+    expect(dnaFrame(1.23)).toEqual(dnaFrame(1.23));
+  });
+
+  it('actually rotates — neighbouring phases differ', () => {
+    expect(dnaFrame(0).join('\n')).not.toEqual(dnaFrame(0.7).join('\n'));
+  });
+
+  it('repeats after a full turn', () => {
+    expect(dnaFrame(0.4)).toEqual(dnaFrame(0.4 + Math.PI * 2));
+  });
+
+  it('draws complementary bases, near strand uppercase and far strand lowercase', () => {
+    const complement: Record<string, string> = { a: 't', t: 'a', g: 'c', c: 'g' };
+    for (const phase of [0, 0.5, 1.5, 3.0, 4.5]) {
+      for (const row of dnaFrame(phase, 8, 13)) {
+        const bases = [...row].filter((ch) => /[atgc]/i.test(ch));
+        if (bases.length !== 2) continue; // a crossing row has none
+        const [left, right] = bases;
+        expect(complement[left.toLowerCase()]).toBe(right.toLowerCase());
+        // Exactly one of the pair is near (uppercase).
+        expect([left, right].filter((ch) => ch === ch.toUpperCase())).toHaveLength(1);
+      }
+    }
+  });
+
+  it('collapses to a crossing glyph when the strands meet, never a broken rung', () => {
+    let sawCrossing = false;
+    for (let i = 0; i < 80; i++) {
+      for (const row of dnaFrame(i * 0.08, 8, 13)) {
+        if (row.includes('╳')) {
+          sawCrossing = true;
+          expect(row.trim()).toBe('╳');
+        }
+      }
+    }
+    expect(sawCrossing).toBe(true);
+  });
+
+  it('never leaks undefined into a frame', () => {
+    expect(dnaFrame(2.2, 9, 15).join('')).not.toContain('undefined');
+  });
+});
+
+describe('the boot log', () => {
+  it('reports the real counts from the index', () => {
+    const text = bootLines(fixture())
+      .map((l) => `${l.prefix ?? ''}${l.text}`)
+      .join('\n');
+    expect(text).toContain('15 publications');
+    expect(text).toContain('22 talks');
+    expect(text).toContain('khcOS 1.0.0');
+  });
+
+  it('marks each completed step with an OK prefix', () => {
+    expect(bootLines(fixture()).filter((l) => l.prefix === '[  OK  ]').length).toBeGreaterThan(3);
   });
 });
 
