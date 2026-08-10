@@ -36,6 +36,10 @@ const SCAN_ROOTS = [
   'scripts',
   'src',
   '.github',
+  // Not shipped by Pages (only dist/ is uploaded) and it needs no API key, since
+  // Workers AI is an ambient binding — but it is still deployable code in this
+  // repo, so the secret scanner should cover it rather than take that on trust.
+  'worker',
 ];
 
 const SAFE_SET_HTML_FILES = new Set([

@@ -1,0 +1,16 @@
+name = "khchao-ask"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# Workers AI runs the model inside the Worker. There is no API key anywhere —
+# the binding is ambient, which is why this directory can live in the site repo.
+[ai]
+binding = "AI"
+
+# Per-IP throttle so a scraper cannot burn the daily Neuron allowance in a minute.
+# `simple` is requests-per-period; period must be 10 or 60 seconds.
+[[unsafe.bindings]]
+name = "ASK_LIMIT"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 6, period = 60 }

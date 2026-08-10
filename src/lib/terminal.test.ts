@@ -3,7 +3,10 @@ import {
   COMMANDS,
   HOME,
   bootLines,
+  buildContext,
   dnaFrame,
+  stripThinking,
+  wrapText,
   NEEDS_INDEX,
   complete,
   createShell,
@@ -437,6 +440,53 @@ describe('history navigation', () => {
 
   it('returns the draft untouched when there is no history', () => {
     expect(historyStep(shell(), -1, 'half-typed')).toBe('half-typed');
+  });
+});
+
+describe('wrapText', () => {
+  it('never emits a line longer than the column budget', () => {
+    const prose = 'Kuan-Hao Chao works on sequence to function models, genome annotation, and DNA language models at the Illumina AI Lab.';
+    for (const line of wrapText(prose, 40)) expect(line.length).toBeLessThanOrEqual(40);
+  });
+
+  it('keeps every word — wrapping must not lose text', () => {
+    const prose = 'one two three four five six seven eight nine ten eleven twelve';
+    expect(wrapText(prose, 12).join(' ').split(/\s+/)).toEqual(prose.split(' '));
+  });
+
+  it('preserves paragraph breaks', () => {
+    expect(wrapText('first\n\nsecond', 40)).toEqual(['first', '', 'second']);
+  });
+
+  it('leaves a word longer than the budget intact rather than splitting a token', () => {
+    const long = 'supercalifragilisticexpialidocious';
+    expect(wrapText(long, 10)).toEqual([long]);
+  });
+});
+
+describe('stripThinking', () => {
+  it('removes a closed reasoning block', () => {
+    expect(stripThinking('<think>hmm, let me consider</think>The answer.')).toBe('The answer.');
+  });
+
+  it('removes an unterminated block, which is what a truncated stream leaves', () => {
+    expect(stripThinking('Answer so far.<think>still reason')).toBe('Answer so far.');
+  });
+
+  it('leaves ordinary text alone', () => {
+    expect(stripThinking('LiftOn lifts annotations over.')).toBe('LiftOn lifts annotations over.');
+  });
+});
+
+describe('buildContext', () => {
+  it('includes the matching passages and labels each with its path', () => {
+    const ctx = buildContext(fixture(), 'splice site predictor');
+    expect(ctx).toContain('## Splam');
+    expect(ctx).toContain('~/software/splam.txt');
+  });
+
+  it('is empty when nothing matches, so the model is told plainly it has no context', () => {
+    expect(buildContext(fixture(), 'quantum chromodynamics')).toBe('');
   });
 });
 

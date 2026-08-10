@@ -58,7 +58,7 @@ An interactive UNIX shell over the site's own content, following the same three-
 - **`src/pages/terminal.json.js` is a second public front door to the content.** It emits the virtual filesystem *and* the retrieval corpus in one payload, and it re-derives the privacy gates itself rather than inheriting them — `posts` filter on `draft`, `reports` on `unlisted` (different fields; a single filter silently misses one, so reports are excluded wholesale). `auditTerminalIndex` in `scripts/audit-indexing.mjs` asserts the outcome; **add any new collection to both.**
 - **Never write `innerHTML` in the terminal files** — the controller builds every line with `createElement` + `textContent`. A shell echoes visitor-typed text, and `audit-security.mjs` fails the build on the bare token anyway.
 
-Phase 2 (not built) adds an `ask` backed by Claude through an external Worker; that needs `connect-src` in `BaseHead.astro` widened and the key kept out of this repo entirely.
+- **`worker/` is the free chatbot** behind `ask` — Qwen3 30B A3B on Cloudflare Workers AI, which is an *ambient binding with no API key*, which is why it can live here. Not shipped (Pages uploads only `dist/`) but it **is** in `audit-security.mjs`'s scan roots. Turning it on is two edits: `askEndpoint` in `src/data/site.ts` and `connect-src` in `BaseHead.astro`. Leave `askEndpoint` empty and the shell just uses its offline brain — which is also the automatic fallback on any endpoint failure, so `ask` never dead-ends.
 
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.

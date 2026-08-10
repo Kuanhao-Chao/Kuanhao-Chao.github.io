@@ -14,6 +14,7 @@ import {
   COMMANDS,
   NEEDS_INDEX,
   bootLines,
+  buildContext,
   complete,
   dnaFrame,
   createShell,
@@ -23,10 +24,13 @@ import {
   offlineAnswer,
   parseArgv,
   prompt,
+  stripThinking,
+  wrapText,
   type Line,
   type ShellState,
   type TermIndex,
 } from '../lib/terminal';
+import { askEndpoint } from '../data/site';
 
 export interface TerminalController {
   destroy: () => void;
@@ -154,23 +158,106 @@ export function initTerminal(root: ParentNode = document): TerminalController | 
   }
 
   /**
-   * Phase 1: answer from the in-browser index. Phase 2 will try the Claude
-   * endpoint first and fall back to exactly this call when it is unreachable.
+   * Try the free Workers AI endpoint, fall back to the in-browser index.
+   *
+   * The fallback is unconditional — no endpoint configured, non-2xx, rate limited,
+   * out of daily Neurons, offline, or an empty answer all land in the same place.
+   * `ask` must never dead-end.
    */
   async function answer(question: string) {
     setBusy(true);
-    const thinking = writeLine({ text: 'searching…', tone: 'dim' });
+    const status = writeLine({ text: 'searching…', tone: 'dim' });
     scrollToEnd();
+
     const index = await loadIndex();
-    thinking.remove();
-    write(
-      index
-        ? offlineAnswer(index, question)
-        : [{ text: 'ask: knowledge index unavailable — try reloading.', tone: 'err' }]
-    );
+    if (!index) {
+      status.remove();
+      write([{ text: 'ask: knowledge index unavailable — try reloading.', tone: 'err' }, { text: '' }]);
+      setBusy(false);
+      scrollToEnd();
+      return;
+    }
+
+    let answered = false;
+    if (askEndpoint) {
+      status.textContent = 'thinking…';
+      answered = await streamFromModel(question, index, status);
+    }
+    if (!answered) {
+      status.remove();
+      write(offlineAnswer(index, question));
+    }
+
     write([{ text: '' }]);
     setBusy(false);
     scrollToEnd();
+  }
+
+  /** Returns true only if the model produced a usable answer. */
+  async function streamFromModel(question: string, index: TermIndex, status: HTMLElement) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
+    try {
+      const res = await fetch(askEndpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ question, context: buildContext(index, question) }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) return false;
+
+      status.remove();
+      const block = document.createElement('div');
+      screen!.appendChild(block);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sse = '';
+      let text = '';
+
+      const paint = () => {
+        const lines = wrapText(stripThinking(text));
+        while (block.childNodes.length > lines.length) block.lastChild!.remove();
+        lines.forEach((line, i) => {
+          const el = (block.childNodes[i] as HTMLElement) ?? block.appendChild(lineEl({ text: '' }));
+          el.textContent = line === '' ? '​' : line;
+        });
+        scrollToEnd();
+      };
+
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        sse += decoder.decode(value, { stream: true });
+        const events = sse.split('\n');
+        sse = events.pop() ?? '';
+        for (const line of events) {
+          if (!line.startsWith('data:')) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            const delta = JSON.parse(payload) as { response?: string };
+            if (delta.response) {
+              text += delta.response;
+              paint();
+            }
+          } catch {
+            /* a partial JSON frame; the next chunk completes it */
+          }
+        }
+      }
+
+      if (!stripThinking(text).trim()) {
+        block.remove();
+        return false;
+      }
+      paint();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   // ------------------------------------------------------------ submitting --

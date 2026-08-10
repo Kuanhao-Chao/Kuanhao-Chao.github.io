@@ -61,6 +61,17 @@ export const identity = {
   twitter: '@KuanHaoChao',
 };
 
+/**
+ * Cloudflare Worker backing `ask` in the /terminal/ shell (see `worker/`). Runs an
+ * open model on Workers AI at no cost.
+ *
+ * Empty string disables the LLM path entirely — the shell then answers from its own
+ * in-browser index, which is also the automatic fallback whenever the endpoint is
+ * unreachable. Setting this also requires adding the origin to `connect-src` in
+ * `src/components/BaseHead.astro`, or the browser's CSP will block the request.
+ */
+export const askEndpoint = '';
+
 export type NavItem = { label: string; href: string; footerOnly?: boolean };
 
 export const nav: NavItem[] = [
