@@ -4,6 +4,7 @@ import {
   HOME,
   bootLines,
   buildContext,
+  cleanProse,
   dnaFrame,
   stripThinking,
   wrapText,
@@ -17,6 +18,7 @@ import {
   motd,
   offlineAnswer,
   parseArgv,
+  pickSentences,
   prompt,
   resolvePath,
   search,
@@ -608,33 +610,156 @@ describe('news is findable but never preferred over the canonical page', () => {
   });
 });
 
+describe('cleanProse', () => {
+  it('unwraps a markdown link to its label', () => {
+    expect(cleanProse('published in [Cell](https://doi.org/10.1016/x).')).toBe('published in Cell.');
+  });
+
+  it('drops a row that was nothing but a URL', () => {
+    expect(cleanProse('Code: https://github.com/x/y')).toBe('');
+  });
+
+  it('keeps an email row — that is the answer to "how do I contact him"', () => {
+    expect(cleanProse('Email: kuanhao.chao@gmail.com')).toBe('Email: kuanhao.chao@gmail.com');
+  });
+
+  it('keeps ordinary prose untouched', () => {
+    expect(cleanProse('LiftOn combines DNA and protein alignments.')).toBe(
+      'LiftOn combines DNA and protein alignments.'
+    );
+  });
+});
+
+describe('query expansion', () => {
+  it('bridges "work" to the actual employer, which the word never appears in', () => {
+    const index = fixture();
+    index.chunks.push({
+      path: `${HOME}/cv/experience.txt`,
+      title: 'Experience',
+      href: '/cv/',
+      kind: 'file',
+      text: 'Sr. Deep Learning Scientist Illumina AI Lab Aug 2025 Present',
+    });
+    index.fs[`${HOME}/cv/experience.txt`] = {
+      title: 'Experience',
+      body: 'Aug 2025 – Present\n  Sr. Deep Learning Scientist\n  Illumina — AI Lab',
+      href: '/cv/',
+      kind: 'file',
+    };
+    expect(joined(offlineAnswer(index, 'who does he work for?'))).toContain('Illumina');
+  });
+
+  it('does not let an expansion outrank a direct term match', () => {
+    expect(search(fixture(), 'splice site predictor')[0].chunk.title).toBe('Splam');
+  });
+});
+
+describe('pickSentences', () => {
+  const passage =
+    'Kuan-Hao Chao is a computational biologist. LiftOn combines DNA and protein alignments ' +
+    'to transfer gene models. He also enjoys building browser games. ' +
+    'The lift-over algorithm resolves overlapping loci and finds extra gene copies.';
+
+  it('returns the sentences that address the query, not the first ones', () => {
+    const picked = pickSentences(passage, 'lift-over gene models', 2);
+    expect(picked.join(' ')).toContain('LiftOn combines DNA');
+    expect(picked.join(' ')).not.toContain('browser games');
+  });
+
+  it('keeps the picked sentences in document order so they still read as prose', () => {
+    const picked = pickSentences(passage, 'gene copies alignments', 2);
+    expect(picked.map((s) => passage.indexOf(s))).toEqual(
+      [...picked.map((s) => passage.indexOf(s))].sort((a, b) => a - b)
+    );
+  });
+
+  it('respects the requested count', () => {
+    expect(pickSentences(passage, 'gene alignments copies lift-over', 1)).toHaveLength(1);
+  });
+
+  it('returns nothing for a stopword-only query rather than guessing', () => {
+    expect(pickSentences(passage, 'what is the')).toEqual([]);
+  });
+
+  it('does not prefer a long sentence purely for being long', () => {
+    const short = 'LiftOn lifts annotations.';
+    const padded = `${short} ${'Filler words about nothing in particular. '.repeat(6)}`;
+    expect(pickSentences(`${padded}`, 'lifton annotations', 1)[0]).toBe(short);
+  });
+});
+
 describe('the offline brain', () => {
+  it('answers with the relevant sentence, not the top of the file', () => {
+    const index = fixture();
+    index.fs[`${HOME}/software/lifton.txt`].body =
+      'LiftOn — released 2025-02-01.\nBuilt at Johns Hopkins.\n' +
+      'It combines DNA and protein alignments to transfer gene models across assemblies.';
+    const text = joined(offlineAnswer(index, 'how does LiftOn transfer gene models?'));
+    expect(text).toContain('combines DNA and protein alignments');
+  });
+
+  it('draws on more than one source when several are relevant', () => {
+    const lines = offlineAnswer(fixture(), 'splice site predictor and annotation lift-over');
+    const sources = lines.slice(lines.findIndex((l) => l.text === 'sources'));
+    expect(sources.filter((l) => l.href).length).toBeGreaterThan(1);
+  });
+
+  it('always cites where the answer came from', () => {
+    const lines = offlineAnswer(fixture(), 'lifton');
+    expect(lines.some((l) => l.text === 'sources')).toBe(true);
+    expect(lines.some((l) => l.href)).toBe(true);
+  });
+
   it('quotes the winning chunk, not the digest that shares its path', () => {
-    const lines = offlineAnswer(fixture(), 'LiftOn v1.0.0 released');
-    const text = joined(lines);
-    // The digest body is the news file's own content; it must not be the answer.
-    if (lines[0].text === 'LiftOn v1.0.0 is released') {
-      expect(text).not.toContain('2026-08-06  Cell paper');
+    expect(joined(offlineAnswer(fixture(), 'LiftOn v1.0.0 released'))).not.toContain('Cell paper');
+  });
+
+  it('never says the same sentence twice, even when sources share a title', () => {
+    const index = fixture();
+    // A paper and its talk with identical titles — the real corpus is full of these.
+    index.chunks.push({
+      path: `${HOME}/talks/lifton-talk.txt`,
+      title: 'LiftOn',
+      href: '/talks/',
+      kind: 'file',
+      text: 'LiftOn genome annotation lift-over combining DNA and protein alignments',
+    });
+    index.fs[`${HOME}/talks/lifton-talk.txt`] = index.fs[`${HOME}/software/lifton.txt`];
+    const body = joined(offlineAnswer(index, 'lifton annotation')).split('sources')[0];
+    const sentences = body.split('\n').map((s) => s.trim()).filter(Boolean);
+    expect(new Set(sentences).size).toBe(sentences.length);
+  });
+
+  it('never emits a URL into the answer body', () => {
+    const body = joined(offlineAnswer(fixture(), 'lifton')).split('sources')[0];
+    expect(body).not.toContain('http');
+  });
+
+  it('never returns an empty answer for a query that matched something', () => {
+    for (const q of ['lifton', 'splam', 'genomics', 'illumina', 'chao']) {
+      const lines = offlineAnswer(fixture(), q);
+      expect(lines.length, `"${q}" produced nothing`).toBeGreaterThan(1);
+      expect(joined(lines).trim(), `"${q}" produced blank text`).not.toBe('');
     }
   });
 
-  it('leads with the best-matching entry and links it', () => {
-    const lines = offlineAnswer(fixture(), 'what does LiftOn do?');
-    expect(lines[0].text).toBe('LiftOn');
-    expect(lines.some((l) => l.href === '/publications/lifton/')).toBe(true);
-  });
-
-  it('lists the runners-up as related', () => {
-    expect(joined(offlineAnswer(fixture(), 'genomics annotation splice'))).toContain('Related:');
-  });
-
-  it('says so plainly when it has nothing, instead of inventing an answer', () => {
+  it('points at the nearest real topic when nothing matches', () => {
     const lines = offlineAnswer(fixture(), 'quantum chromodynamics');
-    expect(lines[0].text).toContain("don't have anything indexed");
+    expect(lines[0].text).toContain('Nothing in the index matches');
+  });
+
+  it('recognises a near-miss against what he actually works on', () => {
+    expect(joined(offlineAnswer(fixture(), 'tell me about deep learning'))).toBeTruthy();
   });
 
   it('handles a stopword-only question without throwing', () => {
     expect(() => offlineAnswer(fixture(), 'what is the')).not.toThrow();
+  });
+
+  it('never emits an over-wide line into a pre-formatted screen', () => {
+    for (const line of offlineAnswer(fixture(), 'what does LiftOn do for annotation')) {
+      expect(line.text.length).toBeLessThanOrEqual(80);
+    }
   });
 });
 

@@ -36,9 +36,32 @@ export interface TerminalController {
   destroy: () => void;
 }
 
+/** One scripted step of the homepage demo: a command and its precomputed output. */
+export interface DemoStep {
+  cmd: string;
+  out: string[];
+}
+
+export interface TerminalOptions {
+  /** The DNA boot sequence. Off for the inline homepage mounting. */
+  boot?: boolean;
+  /**
+   * Auto-typed demo, used until the visitor touches the shell. The output is
+   * precomputed at build time, so an inline mounting costs no index fetch until
+   * someone actually interacts with it.
+   */
+  demo?: DemoStep[];
+  /** Where `exit` goes. The homepage sends it to the full-screen shell. */
+  exitHref?: string;
+}
+
 const INDEX_URL = '/terminal.json';
 
-export function initTerminal(root: ParentNode = document): TerminalController | null {
+export function initTerminal(
+  root: ParentNode = document,
+  options: TerminalOptions = {}
+): TerminalController | null {
+  const { boot = true, demo = [], exitHref = '/' } = options;
   const shellEl = root.querySelector<HTMLElement>('[data-terminal]');
   if (!shellEl) return null;
   if (shellEl.dataset.terminalReady === 'true') return null;
@@ -149,7 +172,7 @@ export function initTerminal(root: ParentNode = document): TerminalController | 
         else window.setTimeout(() => window.location.assign(effect.href), reduced ? 0 : 260);
         break;
       case 'exit':
-        window.setTimeout(() => window.location.assign('/'), reduced ? 0 : 420);
+        window.setTimeout(() => window.location.assign(exitHref), reduced ? 0 : 420);
         break;
       case 'ask':
         void answer(effect.question);
@@ -433,13 +456,99 @@ export function initTerminal(root: ParentNode = document): TerminalController | 
     return { dna, log };
   }
 
+  // ----------------------------------------------------------------- demo ---
+
+  let demoTimer = 0;
+  let demoRunning = false;
+
+  /**
+   * Type a scripted demo into the real input, then hand the shell over the instant
+   * the visitor touches it.
+   *
+   * Takeover has to land *before* the keystroke it reacts to, or the demo's
+   * half-typed command and the visitor's first character interleave into gibberish.
+   * Hence a capture-phase listener that clears the field synchronously and then
+   * lets the event continue to the normal handler.
+   */
+  function runDemo() {
+    demoRunning = true;
+    let step = 0;
+    let char = 0;
+    let phase: 'typing' | 'output' = 'typing';
+
+    const tick = () => {
+      if (!demoRunning) return;
+      const current = demo[step % demo.length];
+      if (phase === 'typing') {
+        if (char < current.cmd.length) {
+          input!.value = current.cmd.slice(0, ++char);
+          demoTimer = window.setTimeout(tick, 55);
+          return;
+        }
+        phase = 'output';
+        demoTimer = window.setTimeout(tick, 300);
+        return;
+      }
+      echoCommand(current.cmd);
+      input!.value = '';
+      for (const line of current.out) writeLine({ text: line, tone: 'dim' });
+      writeLine({ text: '' });
+      scrollToEnd();
+      step += 1;
+      char = 0;
+      phase = 'typing';
+      // Wipe the transcript before looping so the card never grows unbounded.
+      if (step % demo.length === 0) {
+        demoTimer = window.setTimeout(() => {
+          if (!demoRunning) return;
+          while (screen!.firstChild) screen!.removeChild(screen!.firstChild);
+          tick();
+        }, 2200);
+        return;
+      }
+      demoTimer = window.setTimeout(tick, 1200);
+    };
+
+    demoTimer = window.setTimeout(tick, 400);
+  }
+
+  function takeOver() {
+    if (!demoRunning) return;
+    demoRunning = false;
+    window.clearTimeout(demoTimer);
+    input!.value = '';
+    document.removeEventListener('keydown', takeOver, true);
+    shellEl!.removeEventListener('pointerdown', takeOver, true);
+    writeLine({ text: '— ready. type `help`, or `ask` a question —', tone: 'ok' });
+    writeLine({ text: '' });
+    scrollToEnd();
+    // The visitor opted in, so it is now fair to pull the knowledge index.
+    void loadIndex();
+  }
+
   input.addEventListener('keydown', onKeyDown);
   shellEl.addEventListener('click', onShellClick);
 
-  runBoot();
-
-  // Warm the index in the background while the boot plays.
-  window.setTimeout(() => void loadIndex(), 120);
+  if (boot) {
+    runBoot();
+    // Warm the index in the background while the boot plays.
+    window.setTimeout(() => void loadIndex(), 120);
+  } else {
+    booting = false;
+    refreshPrompt();
+    if (demo.length && !reduced) {
+      document.addEventListener('keydown', takeOver, true);
+      shellEl.addEventListener('pointerdown', takeOver, true);
+      runDemo();
+    } else if (demo.length) {
+      // Reduced motion: show the finished demo rather than animating into it.
+      for (const stepDef of demo) {
+        echoCommand(stepDef.cmd);
+        for (const line of stepDef.out) writeLine({ text: line, tone: 'dim' });
+        writeLine({ text: '' });
+      }
+    }
+  }
 
   // A Playwright hook, matching the games' `window.__<name>` convention.
   (window as unknown as Record<string, unknown>).__terminal = {
@@ -448,11 +557,17 @@ export function initTerminal(root: ParentNode = document): TerminalController | 
     text: () => screen.textContent ?? '',
     booting: () => booting,
     skipBoot: () => skipBoot?.(),
+    demoing: () => demoRunning,
+    takeOver: () => takeOver(),
   };
 
   return {
     destroy() {
       window.clearTimeout(bootTimer);
+      window.clearTimeout(demoTimer);
+      demoRunning = false;
+      document.removeEventListener('keydown', takeOver, true);
+      shellEl.removeEventListener('pointerdown', takeOver, true);
       if (bootRaf) cancelAnimationFrame(bootRaf);
       input.removeEventListener('keydown', onKeyDown);
       shellEl.removeEventListener('click', onShellClick);
