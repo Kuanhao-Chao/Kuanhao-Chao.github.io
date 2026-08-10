@@ -1,5 +1,5 @@
 ---
-import PageLayout from '../layouts/PageLayout.astro';
+import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { site, identity } from '../data/site';
 import { software, honors, reviewing } from '../data/cv';
@@ -39,18 +39,25 @@ const boot = {
   },
 };
 ---
-<PageLayout
+<BaseLayout
+  bare
   title="Terminal"
-  eyebrow="Shell"
-  lead="A working UNIX shell over everything on this site — browse my publications, software, and talks with ls and cat, search with grep, or just type `ask` a question and let the bot answer."
   description="An interactive UNIX terminal for khchao.com — browse Kuan-Hao Chao's publications, software, research, and talks from a command line, or ask the built-in bot a question."
 >
+  {/*
+    The page *is* the terminal, so there is no site chrome and no visible heading.
+    The h1 stays for screen readers and for audit-indexing.mjs, which asserts every
+    sitemap page has one.
+  */}
+  <h1 class="visually-hidden">Terminal — a UNIX shell for khchao.com</h1>
+
   <section class="term" data-terminal data-terminal-boot={JSON.stringify(boot)}>
-    <div class="term-bar" aria-hidden="true">
-      <span class="term-dot term-dot--close"></span>
-      <span class="term-dot term-dot--min"></span>
-      <span class="term-dot term-dot--zoom"></span>
-      <span class="term-bar-title">khc@genome: ~ — ksh</span>
+    <div class="term-bar">
+      <a class="term-dot term-dot--close" href="/" aria-label="Close the shell and return to khchao.com" title="Back to khchao.com"></a>
+      <span class="term-dot term-dot--min" aria-hidden="true"></span>
+      <span class="term-dot term-dot--zoom" aria-hidden="true"></span>
+      <span class="term-bar-title" aria-hidden="true">khc@genome: ~ — ksh</span>
+      <span class="term-bar-hint" aria-hidden="true">tab · ↑↓ · ctrl-l · `exit`</span>
     </div>
 
     <div
@@ -79,13 +86,7 @@ const boot = {
       <span class="term-caret" aria-hidden="true"></span>
     </div>
   </section>
-
-  <p class="term-hint">
-    Tab completes · <code>↑</code>/<code>↓</code> walks history · <code>Ctrl-L</code> clears.
-    Everything here is generated from the same content as the rest of the site, so it is never
-    out of date. Prefer a mouse? <a href="/search/">Search</a> does the same job in a box.
-  </p>
-</PageLayout>
+</BaseLayout>
 
 <script>
   import { initTerminal, type TerminalController } from '../scripts/terminal';

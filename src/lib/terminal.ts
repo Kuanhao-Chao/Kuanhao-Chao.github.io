@@ -25,6 +25,8 @@ export interface Line {
   tone?: Tone;
   /** When set the line renders as a link. Internal paths route via ClientRouter. */
   href?: string;
+  /** Rendered before `text` in the success colour — the boot log's `[  OK  ]`. */
+  prefix?: string;
 }
 
 export interface FsNode {
@@ -301,6 +303,69 @@ const stamp = (now: Date) =>
  * ~76 columns, which a phone can only pan across — and a login banner the visitor has
  * to drag sideways to read is a bad first frame. The controller decides by viewport.
  */
+// ------------------------------------------------------------- DNA helix ----
+
+/** Base pairs cycled down the helix, so the rungs read as real complements. */
+const PAIRS: readonly (readonly [string, string])[] = [
+  ['A', 'T'],
+  ['G', 'C'],
+  ['T', 'A'],
+  ['C', 'G'],
+];
+
+/**
+ * One frame of a rotating DNA double helix, as `rows` lines of exactly `width`
+ * characters.
+ *
+ * The two strands are a sine and its antiphase, so they cross twice per turn; the
+ * sign of the cosine says which one is nearer the viewer, and the near strand takes
+ * the uppercase base while the far one takes lowercase. That single trick is what
+ * makes a flat monospace grid read as depth. Where the strands meet the rung
+ * collapses to a crossing glyph rather than drawing a zero-length bond.
+ *
+ * Pure and total: same phase in, same frame out, always `rows × width`.
+ */
+export function dnaFrame(phase: number, rows = 6, width = 11): string[] {
+  const cx = (width - 1) / 2;
+  const amp = cx - 1;
+  const out: string[] = [];
+  for (let r = 0; r < rows; r++) {
+    const t = r * 0.62 + phase;
+    const sin = Math.sin(t);
+    const x1 = Math.round(cx + amp * sin);
+    const x2 = Math.round(cx - amp * sin);
+    const [a, b] = PAIRS[r % PAIRS.length];
+    const nearIsFirst = Math.cos(t) >= 0;
+    const line = new Array<string>(width).fill(' ');
+    const lo = Math.min(x1, x2);
+    const hi = Math.max(x1, x2);
+    if (hi - lo <= 1) {
+      line[Math.round(cx)] = '╳';
+    } else {
+      for (let x = lo + 1; x < hi; x++) line[x] = '─';
+      line[x1] = nearIsFirst ? a : a.toLowerCase();
+      line[x2] = nearIsFirst ? b.toLowerCase() : b;
+    }
+    out.push(line.join(''));
+  }
+  return out;
+}
+
+/** The boot log. Counts come from the index, so the log can't claim what isn't there. */
+export function bootLines(index: TermIndex): Line[] {
+  const s = index.stats;
+  return [
+    { text: 'khcOS 1.0.0 (GNU/Linux 6.6.0-genome-amd64)', tone: 'dim' },
+    { prefix: '[  OK  ]', text: ' mounted /home/khc' },
+    { prefix: '[  OK  ]', text: ' loaded reference GRCh38.p14 · T2T-CHM13v2.0' },
+    { prefix: '[  OK  ]', text: ' warmed splice models (3 resident)' },
+    { prefix: '[  OK  ]', text: ` annotated ${s.publications} publications · ${s.talks} talks` },
+    { prefix: '[  OK  ]', text: ' knowledge index ready' },
+    { text: 'starting ksh …', tone: 'dim' },
+    { text: '' },
+  ];
+}
+
 export function motd(index: TermIndex, now: Date, narrow = false): Line[] {
   const id = index.identity;
   const s = index.stats;

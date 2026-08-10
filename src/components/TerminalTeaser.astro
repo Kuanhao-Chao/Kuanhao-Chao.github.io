@@ -1,0 +1,210 @@
+---
+import { getCollection } from 'astro:content';
+import { site, identity } from '../data/site';
+import { software } from '../data/cv';
+
+/**
+ * Homepage teaser for /terminal/. A read-only demo that types itself, wrapped in a
+ * link — the real shell is one click away, and keeping this non-interactive means
+ * the homepage never fetches the knowledge index.
+ *
+ * The script is built here from the same sources the shell reads, so the teaser can
+ * never demo output the real thing wouldn't produce.
+ */
+const [publications, research, talks] = await Promise.all([
+  getCollection('publications'),
+  getCollection('research'),
+  getCollection('presentations'),
+]);
+
+const newest = [...publications].sort((a, b) => b.data.date.getTime() - a.data.date.getTime())[0];
+const tools = software
+  .slice()
+  .sort((a, b) => b.date.localeCompare(a.date))
+  .slice(0, 4)
+  .map((t) => t.name.toLowerCase().replace(/\s+/g, '-'));
+
+const script = [
+  {
+    cmd: 'whoami',
+    out: [site.name, `${identity.jobTitle}, ${identity.worksFor.name}`],
+  },
+  {
+    cmd: 'ls ~/software',
+    out: [tools.join('   ')],
+  },
+  {
+    cmd: 'ask what do you work on?',
+    out: [
+      identity.knowsAbout.slice(0, 3).join(', ').toLowerCase() + ',',
+      `across ${publications.length} papers, ${research.length} research areas`,
+      `and ${talks.length} talks.`,
+    ],
+  },
+  {
+    cmd: 'cat ~/publications/latest',
+    out: [newest.data.title.length > 52 ? `${newest.data.title.slice(0, 52)}…` : newest.data.title, `${newest.data.venue} · ${newest.data.date.getUTCFullYear()}`],
+  },
+];
+---
+<a
+  class="teaser"
+  href="/terminal/"
+  data-teaser
+  data-teaser-script={JSON.stringify(script)}
+  aria-label="Open the interactive terminal"
+>
+  <span class="teaser-bar" aria-hidden="true">
+    <span class="teaser-dot teaser-dot--close"></span>
+    <span class="teaser-dot teaser-dot--min"></span>
+    <span class="teaser-dot teaser-dot--zoom"></span>
+    <span class="teaser-title">khc@genome — ksh</span>
+  </span>
+
+  <span class="teaser-screen" data-teaser-screen aria-hidden="true"></span>
+
+  <span class="teaser-foot">
+    <span class="teaser-try">
+      try <code>ls</code> <code>cat</code> <code>grep</code> <code>man</code> <code>ask</code>
+    </span>
+    <span class="teaser-cta">open shell →</span>
+  </span>
+</a>
+
+<style>
+  .teaser {
+    display: block;
+    border: 1px solid #24322c;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: #0d1211;
+    font-family: var(--font-mono);
+    font-size: clamp(0.7rem, 1.15vw, 0.82rem);
+    line-height: 1.55;
+    color: #d9e7e0;
+    text-decoration: none;
+    box-shadow: 0 0.8rem 2.2rem rgba(0, 0, 0, 0.22);
+    transition: border-color var(--transition), transform var(--transition);
+  }
+  .teaser:hover,
+  .teaser:focus-visible {
+    border-color: #75c7af;
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .teaser:hover,
+    .teaser:focus-visible {
+      transform: none;
+    }
+  }
+
+  .teaser-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.75rem;
+    background: #161e1b;
+    border-bottom: 1px solid #24322c;
+  }
+  .teaser-dot {
+    width: 0.62em;
+    height: 0.62em;
+    border-radius: 50%;
+    flex: none;
+  }
+  .teaser-dot--close { background: #e5695b; }
+  .teaser-dot--min { background: #e0b451; }
+  .teaser-dot--zoom { background: #6cc06c; }
+  .teaser-title {
+    flex: 1;
+    text-align: center;
+    color: #7e9088;
+    font-size: 0.9em;
+    padding-right: 3em;
+  }
+
+  .teaser-screen {
+    display: block;
+    /* Fixed height so the card never reflows as lines are typed and cleared. */
+    height: 11.5em;
+    overflow: hidden;
+    padding: 0.7rem 0.85rem 0.2rem;
+    white-space: pre;
+  }
+  .teaser-screen :global(.teaser-line) {
+    min-height: 1.55em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .teaser-screen :global(.teaser-ps1) { color: #75c7af; }
+  .teaser-screen :global(.teaser-cmd) { color: #f2f0ea; }
+  .teaser-screen :global(.teaser-out) { color: #9fb3a9; }
+  /* The caret rides the end of the most recent command line. */
+  .teaser-screen :global(.teaser-cmd:last-child)::after {
+    content: '';
+    display: inline-block;
+    width: 0.55em;
+    height: 1.05em;
+    margin-left: 0.1em;
+    vertical-align: text-bottom;
+    background: #75c7af;
+    animation: teaser-blink 1.1s steps(1) infinite;
+  }
+  @keyframes teaser-blink {
+    0%, 50% { opacity: 1; }
+    50.01%, 100% { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .teaser-screen :global(.teaser-cmd:last-child)::after { animation: none; }
+  }
+
+  .teaser-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0.85rem;
+    border-top: 1px solid #24322c;
+    background: #111917;
+    font-size: 0.9em;
+    color: #7e9088;
+  }
+  .teaser-try code {
+    font-family: inherit;
+    color: #d9e7e0;
+    padding: 0.05em 0.3em;
+    border: 1px solid #24322c;
+    border-radius: 3px;
+    margin-right: 0.15em;
+  }
+  .teaser-cta {
+    flex: none;
+    color: #75c7af;
+    font-weight: 600;
+  }
+  @media (max-width: 560px) {
+    .teaser-try code:nth-child(n + 4) { display: none; }
+  }
+</style>
+
+<script>
+  import { initTerminalTeaser, type TeaserController } from '../scripts/terminalTeaser';
+
+  let controller: TeaserController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initTerminalTeaser(document);
+  }
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  // Also mount now: a bundled module can finish loading *after* astro:page-load has
+  // already fired on the first view-transition visit (the filter-island race).
+  mount();
+</script>
