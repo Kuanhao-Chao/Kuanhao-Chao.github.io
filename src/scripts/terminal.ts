@@ -48,16 +48,22 @@ interface KhcTheme {
 }
 
 /**
- * Session-wide latch on the free Workers AI endpoint.
+ * How long to stop dialling the free Workers AI endpoint for.
  *
  * Once the Worker has said it is out of capacity, every later question would pay a
- * doomed round-trip before falling back — so stop dialling for the rest of the
- * session. Module scope rather than per-controller on purpose: the shell is torn
- * down and re-mounted on every view transition, and the quota does not come back
- * just because the visitor changed page.
+ * doomed round-trip before falling back. A deadline rather than a boolean because the
+ * two failures mean different things: being out of Neurons lasts until tomorrow, being
+ * throttled lasts a minute. Module scope rather than per-controller on purpose — the
+ * shell is torn down and re-mounted on every view transition, and neither condition
+ * clears just because the visitor changed page.
  */
-let modelDown = false;
+let modelDownUntil = 0;
 let modelFailures = 0;
+
+const modelDown = () => Date.now() < modelDownUntil;
+
+/** The limiter's own period, so the cooldown expires exactly when the throttle does. */
+const THROTTLE_COOLDOWN_MS = 60_000;
 
 /**
  * Deadlines: one to the first body chunk, one for the whole stream.
@@ -71,9 +77,12 @@ const FIRST_BYTE_MS = 8_000;
 const STREAM_MS = 20_000;
 
 /**
- * 429 (rate limited) and 503 (what a Neuron-exhausted Worker returns) both mean "come
- * back much later", so they latch the breaker on the spot — that is the case this
- * exists for.
+ * 503 is what a Neuron-exhausted Worker returns: the allowance is gone until tomorrow,
+ * so stop for the session — that is the case this exists for.
+ *
+ * 429 is the per-IP throttle, whose window is a minute. Latching the session on it
+ * would punish an enthusiastic visitor far past the point the model came back, so it
+ * only buys a cooldown.
  *
  * Everything else needs two strikes on purpose. A timeout is not proof the model is
  * gone: a cold start or a slow phone connection can overrun the first-byte deadline
@@ -81,8 +90,9 @@ const STREAM_MS = 20_000;
  * downgrade a visitor for their whole session over a blip.
  */
 function noteModelFailure(status?: number) {
-  if (status === 429 || status === 503) modelDown = true;
-  else if (++modelFailures >= 2) modelDown = true;
+  if (status === 503) modelDownUntil = Infinity;
+  else if (status === 429) modelDownUntil = Date.now() + THROTTLE_COOLDOWN_MS;
+  else if (++modelFailures >= 2) modelDownUntil = Infinity;
 }
 
 /** One scripted step of the homepage demo: a command and its precomputed output. */
@@ -273,7 +283,7 @@ export function initTerminal(
     }
 
     let answered = false;
-    if (askEndpoint && !modelDown) {
+    if (askEndpoint && !modelDown()) {
       status.textContent = 'thinking…';
       answered = await streamFromModel(question, index, status);
     }
@@ -329,7 +339,10 @@ export function initTerminal(
       let text = '';
 
       const paint = () => {
-        const lines = wrapText(stripThinking(text));
+        // The model reliably opens with "\n\n", which would render as two blank lines
+        // above every answer. Leading-only, so it stays idempotent as the stream grows
+        // and cannot eat a blank line that turns out to separate paragraphs.
+        const lines = wrapText(stripThinking(text).replace(/^\s+/, ''));
         while (block.childNodes.length > lines.length) block.lastChild!.remove();
         lines.forEach((line, i) => {
           const el = (block.childNodes[i] as HTMLElement) ?? block.appendChild(lineEl({ text: '' }));
@@ -350,9 +363,17 @@ export function initTerminal(
           const payload = line.slice(5).trim();
           if (!payload || payload === '[DONE]') continue;
           try {
-            const delta = JSON.parse(payload) as { response?: string };
-            if (delta.response) {
-              text += delta.response;
+            /*
+             * Workers AI frames are OpenAI chat-completion shaped — `choices[].delta`,
+             * a `usage` block, and an anti-buffering padding field — with the answer
+             * text *also* mirrored onto a top-level `response`. Reading `response` is
+             * both the simplest and the safest cut: Qwen3's reasoning arrives on its
+             * own `delta.reasoning` channel whose frames carry no `response` at all,
+             * so thinking is skipped here without any parsing of its own.
+             */
+            const frame = JSON.parse(payload) as { response?: string };
+            if (frame.response) {
+              text += frame.response;
               paint();
             }
           } catch {
@@ -798,7 +819,8 @@ export function initTerminal(
     takeOver: () => takeOver(),
     minimised: () => shellEl.classList.contains('term--min'),
     closed: () => shellEl.classList.contains('term--closed'),
-    modelDown: () => modelDown,
+    modelDown: () => modelDown(),
+    modelDownUntil: () => modelDownUntil,
   };
 
   return {

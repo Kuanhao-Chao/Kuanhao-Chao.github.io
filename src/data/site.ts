@@ -70,7 +70,7 @@ export const identity = {
  * unreachable. Setting this also requires adding the origin to `connect-src` in
  * `src/components/BaseHead.astro`, or the browser's CSP will block the request.
  */
-export const askEndpoint = '';
+export const askEndpoint = 'https://khchao-ask.khchao.workers.dev';
 
 export type NavItem = { label: string; href: string; footerOnly?: boolean };
 
