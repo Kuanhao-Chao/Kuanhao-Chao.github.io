@@ -9,7 +9,7 @@ doi: 'https://doi.org/10.1093/gbe/evab028'
 relatedPosts: ['sangeranalyser']
 code: 'https://github.com/roblanf/sangeranalyseR'
 docs: 'https://sangeranalyser.readthedocs.io/en/latest/'
-poster: 'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Bioc2021/sangeranalyseR_poster.pdf'
+poster: 'https://storage.googleapis.com/storage.khchao.com/poster/Bioc_sangeranalyseR.pdf'
 advisors: ['Robert Lanfear']
 featured: true
 selectedOrder: 9
