@@ -7,10 +7,24 @@ compatibility_date = "2026-08-01"
 [ai]
 binding = "AI"
 
-# Per-IP throttle so a scraper cannot burn the daily Neuron allowance in a minute.
-# `simple` is requests-per-period; period must be 10 or 60 seconds.
-[[unsafe.bindings]]
+# Per-IP throttle, so one scraper cannot burn the day's Neurons in a minute.
+#
+# This must be the first-class `[[ratelimits]]` block. Rate Limiting went GA in
+# September 2025; the older `[[unsafe.bindings]]` form deployed here bound as
+# "Unsafe Metadata" and did nothing at all — ten requests in a minute against a
+# limit of six all returned 200.
+#
+# `period` must be 10 or 60. `namespace_id` is a positive integer, as a string.
+[[ratelimits]]
 name = "ASK_LIMIT"
-type = "ratelimit"
 namespace_id = "1001"
-simple = { limit = 6, period = 60 }
+
+  # 12/min rather than 6: the throttle has never actually been in force, and this
+  # keys on IP — which Cloudflare's own docs discourage precisely because "many
+  # users may share a single IP", so a university NAT shares one budget. Abuse is
+  # bounded by the daily Neuron ceiling at any of these numbers (~7 neurons a
+  # question exhausts the day in a couple of hours regardless), so set the limit
+  # for real visitors rather than against attackers.
+  [ratelimits.simple]
+  limit = 12
+  period = 60
