@@ -50,25 +50,34 @@
 </style>
 
 <script>
-  const bar = document.querySelector<HTMLElement>('[data-readbar]');
-  if (bar) {
-    let ticking = false;
-    const update = () => {
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
-      bar.style.setProperty('--p', p.toFixed(4));
-      ticking = false;
-    };
-    const onScroll = () => {
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(update);
-      }
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
-    update();
-    // Recompute/reset after a client-side navigation (View Transitions).
-    document.addEventListener('astro:page-load', update);
-  }
+  /*
+   * The bar is re-acquired on every navigation rather than captured once.
+   * `transition:persist` usually keeps the node identical, but a page that does not
+   * render it at all — `/terminal/` is `bare` — destroys it, and the replacement is a
+   * different element. Holding the original would leave this writing `--p` to a
+   * detached node forever, which looks exactly like the bar being broken.
+   */
+  let bar: HTMLElement | null = null;
+  let ticking = false;
+
+  const update = () => {
+    ticking = false;
+    if (!bar?.isConnected) bar = document.querySelector<HTMLElement>('[data-readbar]');
+    if (!bar) return;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+    bar.style.setProperty('--p', p.toFixed(4));
+  };
+  const onScroll = () => {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+  };
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  update();
+  // Recompute/reset after a client-side navigation (View Transitions).
+  document.addEventListener('astro:page-load', update);
 </script>

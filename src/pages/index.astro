@@ -6,7 +6,6 @@ import SectionHeading from '../components/SectionHeading.astro';
 import ResearchCard from '../components/ResearchCard.astro';
 import PublicationItem from '../components/PublicationItem.astro';
 import NewsEntry from '../components/NewsEntry.astro';
-import QuoteBlock from '../components/QuoteBlock.astro';
 import Icon from '../components/Icon.astro';
 import SequenceTrack from '../components/SequenceTrack.astro';
 import HomeTerminal from '../components/HomeTerminal.astro';
@@ -71,7 +70,12 @@ const posts = allPosts
     </div>
   </section>
 
-  <section class="section home-section container home-term" data-reveal>
+  {/*
+    The terminal stands alone — no heading, no blurb. It explains itself, and it takes
+    the plain container so it spans the same width as research, publications and
+    software rather than sitting in a narrower column of its own.
+  */}
+  <section class="section home-section container" data-reveal>
     <HomeTerminal />
   </section>
 
@@ -112,8 +116,6 @@ const posts = allPosts
       </ul>
     </section>
   )}
-
-  <QuoteBlock quote={site.philosophy} cite="my open-source philosophy" />
 
   <section class="section home-section container" data-reveal>
     <SectionHeading eyebrow="Background" title="Experience & education" />
@@ -318,11 +320,6 @@ const posts = allPosts
   .bg-org {
     font-size: var(--fs-small);
   }
-  /* The terminal stands alone — no heading, no blurb. It explains itself. */
-  .home-term {
-    max-width: 58rem;
-  }
-
   .home-news {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

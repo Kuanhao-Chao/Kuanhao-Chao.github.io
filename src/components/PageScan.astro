@@ -54,14 +54,30 @@
 </style>
 
 <script>
-  const el = document.querySelector<HTMLElement>('[data-pagescan]');
-  if (el) {
-    document.addEventListener('astro:before-swap', () => {
-      el.classList.remove('is-scanning');
-      // Force a reflow so the sweep restarts on every navigation.
-      void el.offsetWidth;
-      el.classList.add('is-scanning');
-    });
+  /*
+   * Re-acquired per navigation, not captured once: `transition:persist` keeps this
+   * node stable only across pages that render it, and `/terminal/` (`bare`) renders
+   * none of the site chrome. The replacement element is a different node, so a
+   * one-time capture would leave the sweep animating something detached.
+   */
+  const scanEl = () => document.querySelector<HTMLElement>('[data-pagescan]');
+
+  function bind() {
+    const el = scanEl();
+    if (!el || el.dataset.scanBound === 'true') return;
+    el.dataset.scanBound = 'true';
     el.addEventListener('animationend', () => el.classList.remove('is-scanning'));
   }
+
+  document.addEventListener('astro:before-swap', () => {
+    const el = scanEl();
+    if (!el) return;
+    el.classList.remove('is-scanning');
+    // Force a reflow so the sweep restarts on every navigation.
+    void el.offsetWidth;
+    el.classList.add('is-scanning');
+  });
+
+  bind();
+  document.addEventListener('astro:page-load', bind);
 </script>

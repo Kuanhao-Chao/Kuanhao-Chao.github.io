@@ -65,16 +65,22 @@ import portrait from '../assets/profile/portrait.jpg';
         destination, and as an icon-row sibling its 31px chip never lined up with the
         38px tiles. Photos goes the other way, into the socials list itself, so all
         seven tiles share one wrap context, one gap and one baseline.
+
+        The two secondary actions are wrapped so they can be made exactly equal width
+        — 96px beside 106px read as a misalignment — and so they can split the row in
+        half on a phone. They differ from each other only in typeface.
       */}
       <div class="hero-actions">
         <a class="btn btn--accent" href="/research/">
           Explore the research
           <Icon name="arrow-right" size={18} />
         </a>
-        <a class="btn" href="/cv/">View CV</a>
-        <a class="btn hero-term" href="/terminal/" title="Open the shell">
-          <span aria-hidden="true">$</span> terminal
-        </a>
+        <span class="hero-pair">
+          <a class="btn" href="/cv/">View CV</a>
+          <a class="btn hero-term" href="/terminal/" title="Open the shell">
+            <span aria-hidden="true">$</span> terminal
+          </a>
+        </span>
         <Socials
           class="hero-socials"
           keys={['scholar', 'github', 'linkedin', 'twitter', 'bluesky', 'email']}
@@ -225,19 +231,33 @@ import portrait from '../assets/profile/portrait.jpg';
     align-items: center;
     gap: 0.75rem;
   }
-  /* The icon strip always starts its own row, so the buttons above it stay a clean
-     line rather than trailing icons off the end. */
+  /* The two secondary actions travel together and match each other exactly.
+     Grid, not flex: this wrapper is shrink-to-fit, so a flex container would size
+     itself to the sum of the children's max-content widths, leave zero free space,
+     and `flex-grow` would have nothing to distribute — the two came out 2px apart.
+     Two `1fr` grid tracks equalise even when the container is auto-sized, so the
+     wider label sets the width and the other matches it. */
+  .hero-pair {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  .hero-pair .btn {
+    justify-content: center;
+  }
+  /* The icon strip always starts its own row, flush with the buttons above it, so the
+     two rows read as one block rather than a row with icons trailing off the end. */
   .hero-actions :global(.hero-socials) {
     flex-basis: 100%;
-    margin-top: 0.4rem;
+    margin-top: 0.65rem;
   }
   /* Sized and coloured to match a socials tile exactly — it is one now. */
   .hero-photos {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.4rem;
-    height: 2.4rem;
+    width: 2.6rem;
+    height: 2.6rem;
     border-radius: var(--radius);
     color: var(--color-muted);
     transition: color var(--transition), background var(--transition);
@@ -246,22 +266,19 @@ import portrait from '../assets/profile/portrait.jpg';
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 9%, transparent);
   }
-  /* Monospace chip: a quiet hint that the shell exists, for whoever notices it. Now
-     that it sits in a row of buttons, "quiet" has to stay clear of "disabled" — a
-     hairline `--color-rule` border next to `View CV`'s ink one read as greyed out —
-     and it keeps the standard hover wipe so it behaves like its neighbours. */
+  /* Same button as `View CV` in every respect but the typeface, which is the one
+     difference asked for. It used to carry a 32%-opacity border and muted text, which
+     next to a solid-ink neighbour read as disabled rather than merely quiet.
+     `--fs-small` in mono sets smaller than in the body face, so it gets a nudge to
+     match the cap height of the label beside it. The teal `$` stays — it is the one
+     bit of personality in the row, and it survives the hover wipe legibly. */
   .hero-term {
-    gap: 0.35em;
-    border-color: color-mix(in srgb, var(--color-ink) 32%, transparent);
+    gap: 0.4em;
     font-family: var(--font-mono);
-    font-size: var(--fs-meta);
-    color: var(--color-muted);
+    font-size: calc(var(--fs-small) * 0.94);
   }
   .hero-term span {
     color: var(--color-accent);
-  }
-  .hero-term:hover {
-    border-color: var(--color-ink);
   }
   @media (pointer: coarse) {
     .hero-photos {
@@ -354,6 +371,10 @@ import portrait from '../assets/profile/portrait.jpg';
     .hero-actions .btn--accent {
       flex-basis: 100%;
       justify-content: center;
+    }
+    /* The pair spans the row; the two tracks then split it in exact halves. */
+    .hero-pair {
+      flex-basis: 100%;
     }
   }
 

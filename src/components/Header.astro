@@ -271,53 +271,79 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 </style>
 
 <script>
+  /*
+   * The header is `transition:persist`, so normally the same DOM node — and its
+   * listeners — survives a client-side navigation. That guarantee does **not** hold
+   * across a page that never renders it: `/terminal/` is `bare`, so the persisted
+   * header has nothing to persist into and is destroyed. Coming back builds a fresh
+   * header, and Astro will not re-execute a module script it has already loaded, so
+   * anything bound at module top level is simply gone.
+   *
+   * Hence: re-acquire the elements in `bind()` on every `astro:page-load`, guarded by
+   * a `dataset` flag so the ordinary case (the node really did persist) is a no-op.
+   * Document-level listeners are installed once and read `nav`, which `bind()` keeps
+   * pointing at whichever header is currently in the document.
+   */
   type ThemeApi = { toggle: () => void; sync: () => void };
   const themeApi = () => (window as Window & { __khcTheme?: ThemeApi }).__khcTheme;
 
-  const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
-  const menu = document.querySelector<HTMLElement>('#mobile-menu');
-  const header = document.querySelector<HTMLElement>('.site-header');
-  if (toggle && menu && header) {
-    const isOpen = () => toggle.getAttribute('aria-expanded') === 'true';
-    const setOpen = (open: boolean) => {
-      toggle.setAttribute('aria-expanded', String(open));
-      toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-      menu.hidden = !open;
-    };
+  interface Nav {
+    toggle: HTMLButtonElement;
+    menu: HTMLElement;
+    header: HTMLElement;
+  }
+  let nav: Nav | null = null;
 
-    toggle.addEventListener('click', () => setOpen(!isOpen()));
+  const isOpen = () => nav?.toggle.getAttribute('aria-expanded') === 'true';
+  const setOpen = (open: boolean) => {
+    if (!nav) return;
+    nav.toggle.setAttribute('aria-expanded', String(open));
+    nav.toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    nav.menu.hidden = !open;
+  };
 
-    // Close on Escape (return focus to the button).
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isOpen()) {
-        setOpen(false);
-        toggle.focus();
+  function bind() {
+    const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
+    const menu = document.querySelector<HTMLElement>('#mobile-menu');
+    const header = document.querySelector<HTMLElement>('.site-header');
+    if (toggle && menu && header) {
+      nav = { toggle, menu, header };
+      if (toggle.dataset.navBound !== 'true') {
+        toggle.dataset.navBound = 'true';
+        toggle.addEventListener('click', () => setOpen(!isOpen()));
       }
-    });
+    }
 
-    // Close when tapping anywhere outside the header.
-    document.addEventListener('click', (e) => {
-      if (isOpen() && !header.contains(e.target as Node)) setOpen(false);
-    });
-
-    // Reset closed once the desktop nav takes over.
-    window.matchMedia('(min-width: 900px)').addEventListener('change', (e) => {
-      if (e.matches) setOpen(false);
-    });
-
-    // Close the mobile menu when a client-side navigation begins.
-    document.addEventListener('astro:before-swap', () => setOpen(false));
+    for (const button of document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]')) {
+      if (button.dataset.themeBound === 'true') continue;
+      button.dataset.themeBound = 'true';
+      button.addEventListener('click', () => themeApi()?.toggle());
+    }
+    themeApi()?.sync();
   }
 
-  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]')) {
-    if (button.dataset.themeBound === 'true') continue;
-    button.dataset.themeBound = 'true';
-    button.addEventListener('click', () => themeApi()?.toggle());
-  }
-  themeApi()?.sync();
+  // Close on Escape (return focus to the button).
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isOpen()) {
+      setOpen(false);
+      nav?.toggle.focus();
+    }
+  });
 
-  // The header persists across view transitions, so refresh the active-nav
-  // indicator on each navigation.
+  // Close when tapping anywhere outside the header.
+  document.addEventListener('click', (e) => {
+    if (isOpen() && !nav?.header.contains(e.target as Node)) setOpen(false);
+  });
+
+  // Reset closed once the desktop nav takes over.
+  window.matchMedia('(min-width: 900px)').addEventListener('change', (e) => {
+    if (e.matches) setOpen(false);
+  });
+
+  // Close the mobile menu when a client-side navigation begins.
+  document.addEventListener('astro:before-swap', () => setOpen(false));
+
+  // Refresh the active-nav indicator on each navigation.
   function updateActiveNav() {
     const path = location.pathname;
     for (const a of document.querySelectorAll<HTMLAnchorElement>('.nav-desktop a, .mobile-menu a')) {
@@ -328,5 +354,11 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       else a.removeAttribute('aria-current');
     }
   }
-  document.addEventListener('astro:page-load', updateActiveNav);
+
+  bind();
+  updateActiveNav();
+  document.addEventListener('astro:page-load', () => {
+    bind();
+    updateActiveNav();
+  });
 </script>
