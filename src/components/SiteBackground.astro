@@ -25,8 +25,16 @@
 </style>
 
 <script>
-  const canvas = document.querySelector<HTMLCanvasElement>('[data-cell-canvas]');
-  const ctx = canvas?.getContext('2d');
+  /*
+   * `let`, not `const`: the canvas is `transition:persist`, which keeps the node
+   * identical across pages that render it — but `/terminal/` is `bare` and renders
+   * none of the site chrome, so the persisted canvas is destroyed there and replaced
+   * by a fresh one on the way back. `attach()` below moves the render loop onto the
+   * new element; without it this would keep painting into a detached canvas while the
+   * visible one sat at its default 300×150 with nothing drawn on it.
+   */
+  let canvas = document.querySelector<HTMLCanvasElement>('[data-cell-canvas]');
+  let ctx = canvas?.getContext('2d');
 
   if (canvas && ctx) {
     const TAU = Math.PI * 2;
@@ -278,6 +286,26 @@
       }
     });
     document.addEventListener('khc:theme-change', refreshPalette);
+
+    /**
+     * Move the loop onto whichever canvas is currently in the document.
+     *
+     * In the ordinary case the node really did persist and this is a single
+     * `querySelector` and an identity check. It only does work after a round trip
+     * through a page that dropped the canvas entirely.
+     */
+    function attach() {
+      const next = document.querySelector<HTMLCanvasElement>('[data-cell-canvas]');
+      if (!next || next === canvas) return;
+      stop();
+      canvas = next;
+      ctx = next.getContext('2d');
+      if (!ctx) return;
+      fit();
+      refreshPalette();
+      if (!reduce.matches) start();
+    }
+    document.addEventListener('astro:page-load', attach);
 
     fit();
     refreshPalette();
