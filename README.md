@@ -54,7 +54,7 @@ and validated in `src/content.config.ts`. Examples:
   optional `doi`, `code`, `docs`, `slides`, `poster`, `video`, `news`, `bibtex`, and
   `featured: true` to surface it on the homepage.
 - **Talk** — add to `src/content/presentations/` with `title`, `type`, `venue`,
-  `startDate`, and optional `slides` / `video` / `link`.
+  `startDate`, and optional `slides` / `poster` / `video` / `link`.
 - **News** — add to `src/content/news/` with `title`, `date`, `category`; put the rich
   text (with links) in the Markdown body. The newest 6 appear on the homepage and the
   feed at `/rss.xml`.

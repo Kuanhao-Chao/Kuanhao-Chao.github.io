@@ -211,8 +211,7 @@ export const software: SoftwareTool[] = [
     docs: 'https://khchao.com/splam/',
     posts: ['splam'],
     paper: 'https://doi.org/10.1186/s13059-024-03379-4',
-    poster:
-      'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/ISMB-ECCB2023/splam_poster_ismb.pdf',
+    poster: 'https://storage.googleapis.com/storage.khchao.com/poster/ISMB_splam.pdf',
   },
   {
     name: 'LiftOn',
@@ -223,6 +222,7 @@ export const software: SoftwareTool[] = [
     code: 'https://github.com/Kuanhao-Chao/LiftOn',
     docs: 'https://khchao.com/LiftOn/',
     paper: 'https://doi.org/10.1101/gr.279620.124',
+    poster: 'https://storage.googleapis.com/storage.khchao.com/poster/RECOMB_LiftOn.pdf',
     posts: ['lifton'],
   },
   {
@@ -234,8 +234,7 @@ export const software: SoftwareTool[] = [
     docs: 'https://sangeranalyser.readthedocs.io/en/latest/',
     posts: ['sangeranalyser'],
     paper: 'https://doi.org/10.1093/gbe/evab028',
-    poster:
-      'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/Bioc2021/sangeranalyseR_poster.pdf',
+    poster: 'https://storage.googleapis.com/storage.khchao.com/poster/Bioc_sangeranalyseR.pdf',
   },
   {
     name: 'Wheeler Graph Toolkit',
@@ -246,7 +245,7 @@ export const software: SoftwareTool[] = [
     code: 'https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit',
     paper: 'https://doi.org/10.1016/j.isci.2023.107402',
     posts: ['wgt'],
-    poster: 'https://storage.googleapis.com/storage.khchao.com/JHU%20PhD/RECOMB2023/WGT_poster.pdf',
+    poster: 'https://storage.googleapis.com/storage.khchao.com/poster/RECOMB_WGT.pdf',
   },
 ];
 

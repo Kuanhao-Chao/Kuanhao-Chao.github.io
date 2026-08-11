@@ -5,5 +5,6 @@ type: invited
 venue: 'Agricultural Biotechnology Research Center, Academia Sinica'
 location: 'Tainan, Taiwan'
 startDate: 2026-07-21
+slides: 'https://storage.googleapis.com/storage.khchao.com/slides/academia_sinica_0721_2026.pdf'
 link: 'https://www.as-bcst.sinica.edu.tw/view.php?aid=7970&wid=3'
 ---

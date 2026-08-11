@@ -6,6 +6,6 @@ venue: 'Intelligent Systems for Molecular Biology (ISMB 2024)'
 location: 'Montréal, Canada'
 startDate: 2024-07-12
 endDate: 2024-07-16
-slides: 'https://storage.googleapis.com/storage.khchao.com/slides/RECOMB-Seq_talk_2024.pdf'
+slides: 'https://storage.googleapis.com/storage.khchao.com/slides/ISMB_talk_2024.pdf'
 video: 'https://www.youtube.com/embed/1zSz67rxQtA?si=GfJ5AUBypWiWXOEM'
 ---

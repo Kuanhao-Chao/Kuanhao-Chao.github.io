@@ -49,6 +49,10 @@ const presentations = defineCollection({
       startDate: z.coerce.date(),
       endDate: z.coerce.date().optional(),
       slides: z.url().optional(),
+      // Separate from `slides` so a poster session links a "Poster", not "Slides".
+      // Every poster on the site used to be stuffed into `slides`, which meant an
+      // entry badged Poster offered a chip labelled Slides.
+      poster: z.url().optional(),
       video: z.url().optional(),
       link: z.url().optional(),
       photo: z.url().optional(),
