@@ -191,6 +191,9 @@ const reports = defineCollection({
       // section). Flip to false (and relax the astro.config sitemap filter) to make
       // the report public + Google-Scholar-indexable.
       unlisted: z.boolean().default(true),
+      // A report may remain available at its direct URL without appearing on the
+      // reports index. This is independent of the search-engine privacy switch.
+      listed: z.boolean().default(true),
       references: z
         .array(
           z.object({

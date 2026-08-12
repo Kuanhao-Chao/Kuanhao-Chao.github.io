@@ -4,6 +4,7 @@ import PageLayout from '../../layouts/PageLayout.astro';
 import ReportsList from '../../components/ReportsList.astro';
 
 const reports = (await getCollection('reports'))
+  .filter((report) => report.data.listed)
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 ---
 <PageLayout
