@@ -246,9 +246,14 @@ async function auditReportsIndex(reports, urls) {
     errors.push('/reports/ is missing noindex while reports are non-indexable.');
   }
 
-  for (const report of reports) {
+  for (const report of reports.filter((entry) => entry.data.listed !== false)) {
     if (report.data.title && !html.includes(report.data.title)) {
       errors.push(`Report is missing from /reports/ listing: ${report.slug}`);
+    }
+  }
+  for (const report of reports.filter((entry) => entry.data.listed === false)) {
+    if (html.includes(`/reports/${report.slug}/`) || (report.data.title && html.includes(report.data.title))) {
+      errors.push(`Hidden report appears in /reports/ listing: ${report.slug}`);
     }
   }
 }

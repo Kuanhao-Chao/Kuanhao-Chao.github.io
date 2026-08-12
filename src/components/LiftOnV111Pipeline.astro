@@ -1,0 +1,354 @@
+---
+/**
+ * Version-specific v1.0.11 pipeline overview. The v1.0.9 visualization is
+ * intentionally untouched. Every stage is server rendered; JavaScript only
+ * changes emphasis and the explanatory caption.
+ */
+import '../styles/lvz.css';
+
+const stages = [
+  {
+    title: 'Annotation-aware inputs',
+    caption: 'LiftOn reads the reference annotation and both genome assemblies, identifies gene-like top-level hierarchies—not only features literally typed gene—and extracts the reference transcript and protein evidence needed downstream.',
+  },
+  {
+    title: 'Concurrent DNA and protein evidence',
+    caption: 'Liftoff/minimap2 and miniprot are independent evidence producers. v1.0.11 can run them concurrently: the blue branch preserves DNA-anchored organization, while the orange branch supplies splice- and frame-aware protein evidence.',
+  },
+  {
+    title: 'Three candidate outcomes',
+    caption: 'At each coding locus the cumulative v1.0.8→v1.0.11 engine can retain a protein-maximized chain, the original DNA-anchored model, or a strand-consistent model derived directly from miniprot. More evidence creates alternatives; it does not force replacement.',
+  },
+  {
+    title: 'ORF rescue and conservative selection',
+    caption: 'Eligible outcomes receive open-reading-frame repair, are translated and scored against the reference protein, and enter a deterministic best-of-outcome comparison. The direct miniprot candidate must be strictly better; ties preserve the DNA-anchored choice.',
+  },
+  {
+    title: 'Adaptive missing-gene rescue',
+    caption: 'After DNA-anchored loci are settled, miniprot-only rescue considers coding genes that were genuinely missed. Its identity floor adapts to observed DNA-lift recall, while overlap and identifier guards suppress untracked duplicates.',
+  },
+  {
+    title: 'Gene-like hierarchy reconstruction',
+    caption: 'The output layer rebuilds genes, pseudogenes, non-coding RNA parents, transcripts, exons, and CDS rows with deterministic parent rewriting and stable discontinuous-feature identifiers.',
+  },
+  {
+    title: 'Transactional validation and publication',
+    caption: 'LiftOn stages the GFF3, runs mandatory baseline structural checks, writes a run manifest, and publishes atomically only after validation. Qualification adds deeper semantic and target-bound checks; those checks exposed the exact-tag cross-sequence parent defect.',
+  },
+];
+---
+
+<section
+  class="lvz lvz-v111"
+  role="group"
+  aria-labelledby="v111-pipeline-title"
+  data-print-final-state="true"
+  data-v111-captions={JSON.stringify(stages.map((stage) => stage.caption))}
+>
+  <div class="lvz-head">
+    <p class="lvz-title" id="v111-pipeline-title">LiftOn v1.0.11: evidence to validated annotation</p>
+    <span class="lvz-tag">Interactive method map</span>
+  </div>
+
+  <p class="lvz-caption" data-v111-caption aria-live="polite">{stages[0].caption}</p>
+
+  <figure class="v111-figure">
+    <div
+      class="v111-map"
+      role="img"
+      aria-label="LiftOn v1.0.11 pipeline from annotation-aware inputs through concurrent DNA and protein alignment, three candidate outcomes, ORF rescue, best-of-outcome selection, missing-gene rescue, hierarchy reconstruction, and transactional validation."
+      aria-describedby="v111-pipeline-description"
+    >
+      <div class="v111-node v111-input" data-v111-stage="0">
+        <span class="v111-kicker">Reference context</span>
+        <strong>Reference GFF3 + reference genome + target genome</strong>
+        <small>detect gene-like parents · extract transcripts and proteins</small>
+      </div>
+
+      <div class="v111-arrow" aria-hidden="true">↓</div>
+
+      <div class="v111-parallel" data-v111-stage="1">
+        <div class="v111-node v111-dna">
+          <span class="v111-kicker">DNA evidence</span>
+          <strong>Liftoff + minimap2</strong>
+          <small>synteny · coordinates · reference organization</small>
+        </div>
+        <div class="v111-concurrency" aria-hidden="true">
+          <span>concurrent</span>
+          <b>⇄</b>
+        </div>
+        <div class="v111-node v111-protein">
+          <span class="v111-kicker">Protein evidence</span>
+          <strong>miniprot</strong>
+          <small>splice aware · frame aware · divergence tolerant</small>
+        </div>
+      </div>
+
+      <div class="v111-arrow" aria-hidden="true">↓</div>
+
+      <div class="v111-candidates" data-v111-stage="2">
+        <div class="v111-node v111-merge">
+          <span class="v111-kicker">Outcome 1</span>
+          <strong>Protein-maximized chain</strong>
+          <small>chunk-wise DNA/protein fusion</small>
+        </div>
+        <div class="v111-node v111-dna">
+          <span class="v111-kicker">Outcome 2</span>
+          <strong>DNA-anchored model</strong>
+          <small>conservative Liftoff alternative</small>
+        </div>
+        <div class="v111-node v111-protein">
+          <span class="v111-kicker">Outcome 3</span>
+          <strong>Direct miniprot CDS</strong>
+          <small>strand-consistent candidate</small>
+        </div>
+      </div>
+
+      <div class="v111-arrow" aria-hidden="true">↓</div>
+
+      <div class="v111-selection" data-v111-stage="3">
+        <div class="v111-node v111-orf">
+          <span class="v111-kicker">Repair</span>
+          <strong>ORF rescue per eligible outcome</strong>
+        </div>
+        <div class="v111-plus" aria-hidden="true">+</div>
+        <div class="v111-node v111-best">
+          <span class="v111-kicker">Selection</span>
+          <strong>Deterministic best of outcomes</strong>
+          <small>strict improvement · DNA wins ties</small>
+        </div>
+      </div>
+
+      <div class="v111-arrow" aria-hidden="true">↓</div>
+
+      <div class="v111-node v111-rescue" data-v111-stage="4">
+        <span class="v111-kicker">Additive second pass</span>
+        <strong>Adaptive miniprot-only missing-gene rescue</strong>
+        <small>recall-aware identity floor · overlap and reference-ID guards</small>
+      </div>
+
+      <div class="v111-arrow" aria-hidden="true">↓</div>
+
+      <div class="v111-node v111-hierarchy" data-v111-stage="5">
+        <span class="v111-kicker">Annotation model</span>
+        <strong>Rebuild gene-like hierarchies and stable parentage</strong>
+        <small>genes · pseudogenes · ncRNA parents · transcripts · exons · CDS</small>
+      </div>
+
+      <div class="v111-arrow" aria-hidden="true">↓</div>
+
+      <div class="v111-node v111-output" data-v111-stage="6">
+        <span class="v111-kicker">Transaction boundary</span>
+        <strong>Stage → validate → manifest → atomic publish</strong>
+        <small>mandatory baseline gate; deeper checks in qualification</small>
+      </div>
+    </div>
+
+    <figcaption id="v111-pipeline-description">
+      The v1.0.11 execution model keeps DNA and protein evidence distinct until locus-level candidate
+      construction, chooses conservatively after ORF repair, rescues only genuinely missing coding genes,
+      reconstructs complete gene-like hierarchies, and validates a staged file before publication.
+    </figcaption>
+  </figure>
+
+  <div class="v111-stage-tabs" role="tablist" aria-label="Pipeline stages">
+    {stages.map((stage, index) => (
+      <button
+        type="button"
+        role="tab"
+        class="v111-stage-tab"
+        data-v111-tab={index}
+        aria-selected={index === 0 ? 'true' : 'false'}
+        tabindex={index === 0 ? '0' : '-1'}
+      >
+        <span>{index + 1}</span>{stage.title}
+      </button>
+    ))}
+  </div>
+
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-v111-prev aria-label="Previous pipeline stage">← Prev</button>
+    <button type="button" class="lvz-btn" data-v111-next aria-label="Next pipeline stage">Next →</button>
+    <span class="lvz-pos" data-v111-pos>1 / {stages.length}</span>
+  </div>
+
+  <div class="lvz-legend" aria-label="Method colors">
+    <span><span class="lvz-sw" style="background:#4c78a8"></span>Liftoff / DNA evidence</span>
+    <span><span class="lvz-sw" style="background:#f58518"></span>miniprot / protein evidence</span>
+    <span><span class="lvz-sw" style="background:#54a24b"></span>LiftOn selection and output</span>
+  </div>
+</section>
+
+<script>
+  function mountV111Pipeline() {
+    document.querySelectorAll('.lvz-v111').forEach((root) => {
+      if (!(root instanceof HTMLElement) || root.dataset.v111Mounted === 'true') return;
+      root.dataset.v111Mounted = 'true';
+      const tabs = Array.from(root.querySelectorAll<HTMLElement>('[data-v111-tab]'));
+      const stageNodes = Array.from(root.querySelectorAll<HTMLElement>('[data-v111-stage]'));
+      const caption = root.querySelector('[data-v111-caption]');
+      const position = root.querySelector('[data-v111-pos]');
+      const captions = JSON.parse(root.dataset.v111Captions || '[]');
+      let current = 0;
+
+      const show = (next: number, focus = false) => {
+        current = Math.max(0, Math.min(captions.length - 1, next));
+        stageNodes.forEach((node) => {
+          const stage = Number(node.getAttribute('data-v111-stage'));
+          node.classList.toggle('is-active', stage === current);
+          node.classList.toggle('is-done', stage < current);
+        });
+        tabs.forEach((tab, index) => {
+          tab.setAttribute('aria-selected', index === current ? 'true' : 'false');
+          tab.setAttribute('tabindex', index === current ? '0' : '-1');
+        });
+        if (caption) caption.textContent = captions[current];
+        if (position) position.textContent = `${current + 1} / ${captions.length}`;
+        const previous = root.querySelector('[data-v111-prev]');
+        const nextButton = root.querySelector('[data-v111-next]');
+        if (previous instanceof HTMLButtonElement) previous.disabled = current === 0;
+        if (nextButton instanceof HTMLButtonElement) nextButton.disabled = current === captions.length - 1;
+        if (focus && tabs[current] instanceof HTMLElement) tabs[current].focus();
+      };
+
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => show(index));
+        tab.addEventListener('keydown', (event) => {
+          if (!(event instanceof KeyboardEvent)) return;
+          if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            show((current + 1) % captions.length, true);
+          } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            show((current - 1 + captions.length) % captions.length, true);
+          } else if (event.key === 'Home') {
+            event.preventDefault();
+            show(0, true);
+          } else if (event.key === 'End') {
+            event.preventDefault();
+            show(captions.length - 1, true);
+          }
+        });
+      });
+      root.querySelector('[data-v111-prev]')?.addEventListener('click', () => show(current - 1));
+      root.querySelector('[data-v111-next]')?.addEventListener('click', () => show(current + 1));
+      show(0);
+
+      const report = root.closest<HTMLElement>('.prose');
+      if (report && report.dataset.v111TablesMounted !== 'true') {
+        report.dataset.v111TablesMounted = 'true';
+        const updateScrollableTables = () => {
+          report.querySelectorAll<HTMLTableElement>('table').forEach((table) => {
+            const scrollable = table.scrollWidth > table.clientWidth + 1;
+            if (scrollable) {
+              table.tabIndex = 0;
+              table.dataset.v111Scrollable = 'true';
+              if (!table.getAttribute('aria-label')) table.setAttribute('aria-label', 'Scrollable evidence table');
+            } else if (table.dataset.v111Scrollable === 'true') {
+              table.removeAttribute('tabindex');
+              table.removeAttribute('data-v111-scrollable');
+              if (table.getAttribute('aria-label') === 'Scrollable evidence table') table.removeAttribute('aria-label');
+            }
+          });
+        };
+        requestAnimationFrame(updateScrollableTables);
+        window.addEventListener('resize', updateScrollableTables, { passive: true });
+      }
+    });
+  }
+
+  mountV111Pipeline();
+  document.addEventListener('astro:page-load', mountV111Pipeline);
+</script>
+
+<style>
+  :global(.prose:has(.lvz-v111)) { min-width: 0; }
+  :global(.prose:has(.lvz-v111) table) {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+  :global(.prose:has(.lvz-v111) table[data-v111-scrollable='true']:focus-visible) {
+    outline: 3px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+    outline-offset: 3px;
+  }
+  :global(.prose:has(.lvz-v111) :not(pre) > code) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .lvz-v111 { --lvz-mobile-min-width: 0; }
+  .v111-figure { margin: 0; }
+  .v111-map { display: grid; gap: 0.45rem; }
+  .v111-node {
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-bg);
+    padding: 0.65rem 0.8rem;
+    text-align: center;
+    opacity: 0.48;
+    transition: opacity 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+  .v111-node strong, .v111-node small, .v111-node span { display: block; }
+  .v111-node strong { font-size: var(--fs-small); }
+  .v111-node small { color: var(--color-muted); margin-top: 0.15rem; }
+  .v111-kicker { color: var(--color-muted); font-size: var(--fs-meta); letter-spacing: var(--tracking-meta); text-transform: uppercase; }
+  [data-v111-stage].is-done, [data-v111-stage].is-done .v111-node { opacity: 0.82; }
+  [data-v111-stage].is-active, [data-v111-stage].is-active .v111-node { opacity: 1; }
+  [data-v111-stage].is-active { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 55%, transparent); }
+  .v111-dna { border-color: color-mix(in srgb, #4c78a8 70%, var(--color-rule)); }
+  .v111-protein { border-color: color-mix(in srgb, #f58518 70%, var(--color-rule)); }
+  .v111-merge, .v111-best, .v111-output { border-color: color-mix(in srgb, #54a24b 70%, var(--color-rule)); }
+  .v111-parallel { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.55rem; align-items: stretch; border-radius: var(--radius); }
+  .v111-concurrency { align-self: center; color: var(--color-muted); font-size: var(--fs-meta); text-align: center; }
+  .v111-concurrency b { display: block; font-size: 1.25rem; color: var(--color-accent); }
+  .v111-candidates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; border-radius: var(--radius); }
+  .v111-selection { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.55rem; align-items: center; border-radius: var(--radius); }
+  .v111-plus { color: var(--color-muted); font-size: 1.25rem; }
+  .v111-arrow { text-align: center; color: var(--color-muted); line-height: 1; }
+  .v111-figure figcaption { margin-top: 0.7rem; color: var(--color-muted); font-size: var(--fs-meta); line-height: var(--lh-snug); }
+  .v111-stage-tabs { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.35rem; margin-top: 0.9rem; }
+  .v111-stage-tab {
+    min-height: 3.6rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-bg);
+    color: var(--color-muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    padding: 0.35rem;
+  }
+  .v111-stage-tab span { display: block; font-weight: var(--fw-semibold); margin-bottom: 0.15rem; }
+  .v111-stage-tab[aria-selected='true'] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
+  .v111-stage-tab:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-accent) 45%, transparent); outline-offset: 2px; }
+
+  @media (max-width: 700px) {
+    .v111-parallel, .v111-candidates, .v111-selection { grid-template-columns: 1fr; }
+    .v111-concurrency b { transform: rotate(90deg); }
+    .v111-plus { text-align: center; }
+    .v111-stage-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .v111-stage-tab { min-height: 3rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .v111-node { transition: none; }
+  }
+
+  @media print {
+    :global(.prose:has(.lvz-v111) table) {
+      display: table;
+      width: 100%;
+      max-width: 100%;
+      overflow: visible;
+      font-size: 7pt;
+      table-layout: fixed;
+    }
+    :global(.prose:has(.lvz-v111) th), :global(.prose:has(.lvz-v111) td) { overflow-wrap: anywhere; }
+    .lvz-v111 .v111-node, .lvz-v111 [data-v111-stage] { opacity: 1 !important; box-shadow: none !important; }
+    .lvz-v111 .v111-stage-tabs, .lvz-v111 .lvz-controls, .lvz-v111 .lvz-tag, .lvz-v111 .lvz-caption { display: none !important; }
+  }
+</style>
