@@ -1,50 +1,22 @@
 ---
-title: 'LiftOn v1.0.11: scaling accurate dual-evidence genome-annotation lift-over to whole genomes'
-description: 'A technical report on the algorithmic and architectural advances in LiftOn v1.0.11, validated on seventeen whole-genome end-to-end lift-overs across a four-tier divergence ladder (same-species to very-distant cross-species) under a tool-neutral re-scoring protocol.'
+title: 'LiftOn v1.0.11: exact-release qualification and whole-genome performance'
+description: 'A provenance-audited diagnostic—not a release PASS—of the released LiftOn v1.0.11 tag against v1.0.8 across controlled subset, whole-genome, and end-to-end panels, with the earlier cross-tool study retained separately.'
 authors:
   - Kuan-Hao Chao
 abstract: >-
-  Genome assemblies are now produced faster than they can be annotated, making accurate annotation
-  lift-over — transferring an existing annotation onto a new assembly — a foundational step in modern
-  genomics. The two dominant signals are complementary but individually insufficient: DNA-based mapping
-  (Liftoff/minimap2) is fast but introduces frameshifts and premature stops as sequences diverge, while
-  protein-to-genome mapping (miniprot) is robust to divergence but fragmentary. LiftOn fuses both via a
-  protein-maximization chaining merge and an open-reading-frame rescue pass. Its first public release
-  (v1.0.8) was engineered for chromosome-scale inputs: it crashed on full RefSeq genomes, used unbounded
-  quadratic alignment memory on giant genes, ran single-threaded, and lifted only protein-coding genes.
-  LiftOn v1.0.11 is a substantial re-engineering of the execution engine plus a set of conservative
-  algorithmic upgrades, evaluated on the regime that matters in practice: seventeen whole-genome,
-  end-to-end lift-overs organized as a same-species baseline (Arabidopsis, honeybee, rice, maize, tomato) plus a
-  four-tier cross-species divergence ladder — congeneric cross-species (Drosophila→D. erecta), close (human→gorilla,
-  mouse→Mus caroli, tomato→potato), distant (dog→cat, human→macaque, human→marmoset), and very-distant
-  (Arabidopsis→rice eudicot→monocot, human→zebrafish/chicken/frog, Drosophila→honeybee) — each tool re-scored by one
-  tool-neutral parasail kernel.
-  The headline advance is whole-genome robustness and scale: a bounded-memory anchor-windowed aligner
-  removes the quadratic memory blow-up on giant genes (controlled engine comparison on identical cached inputs:
-  up to 25× less peak RAM and 1.8× faster, with peak memory as low as 0.42 GB on the most
-  memory-intensive subset where v1.0.8 needs 44.6 GB), and a set of crash-robustness fixes let v1.0.11
-  finish five of the seventeen full RefSeq genomes the previous release could not — two it aborts partway
-  (Arabidopsis 28% → 99.9% coding completeness, +34,589 transcripts; rice 77% → 99.9%, +9,594) and three plant
-  genomes where it produces no output at all (maize, two tomato pairs). A load-bearing 24-cell byte-identity
-  regression matrix guarantees that every performance optimization is output-neutral.
-  On accuracy, LiftOn v1.0.11 exceeds the DNA baseline (Liftoff) on every one of the seventeen genomes, the gap
-  widening as DNA synteny collapses (§3.3). A second, stricter comparison restricts scoring to only the transcripts
-  both LiftOn and the protein evidence (miniprot) recover — an "apples-to-apples" view that removes any advantage
-  from one tool simply recovering more transcripts than the other — and under it LiftOn's per-transcript identity
-  advantage over miniprot is genuine and peaks on the distant tier (+0.024 to +0.035), resting on a strict
-  per-transcript non-regression that keeps LiftOn at or above its own DNA-only candidate on every transcript. At very-distant
-  divergence, where DNA synteny is essentially gone, the picture changes to an explicit precision/recall trade-off:
-  LiftOn refines the DNA-anchored core at high precision (coding completeness 4.5–24.4%) while miniprot recovers far
-  more of the reference (66.7–85.8%) at comparable identity — so the remaining gap there is one of recall, not
-  accuracy, and a default-ON miniprot-only rescue closes it by adding the missing genes (net-positive, 0 lost / 0
-  redundant on all eight distant pairs; e.g. +555 coding genes on a nematode pair). v1.0.11 additionally lifts
-  pseudogenes and non-coding RNA genes by default (Arabidopsis +4,816 pseudogenes), and its output validates clean
-  (zero GFF3 errors) on 12 of the 17 whole genomes and emits fewer errors than the DNA-only Liftoff on every one. The
-  aggregate set-mean — where LiftOn leads the better of Liftoff and miniprot on all seventeen genomes (to +0.134 at
-  the mammal→bird extreme) — is reported throughout alongside the apples-to-apples and coverage-weighted views
-  above, because it averages over each tool's own recovered set and is therefore partly a denominator effect at
-  very-distant divergence rather than a clean per-transcript win (§3.3).
-date: 2026-06-20
+  LiftOn combines DNA-level annotation lift-over with protein-to-genome evidence. This report evaluates the
+  exact v1.0.11 release tag against v1.0.8 rather than assigning release labels to pre-release measurements.
+  The canonical matrix contains 34 controlled subset cases, 17 controlled whole-genome
+  cases, and five end-to-end cases, each repeated four times with alternating execution order.
+  It evaluates paired wall time and GNU-time reported command maximum RSS, annotation completeness and protein quality, coordinate-
+  independent structure, stable feature identifiers, GFF3 validity, and byte-level determinism. Controlled
+  subset and full-genome panels disable miniprot-only rescue to isolate post-alignment engine behavior;
+  the end-to-end panel retains v1.0.11's output-affecting defaults under the documented fast execution mode.
+  The selected immutable roots contain 196 of 224 planned paired executions across 49 observed benchmark cells (subset=34, full=12, e2e=3); 28 planned executions are unavailable. Candidate/reference geometric-mean ratios are subset 0.915× wall/0.170× RSS; full genome 0.744× wall/0.098× RSS; end to end 0.577× wall/0.292× RSS; values below 1 favor v1.0.11. Candidate outputs pass current validation in 48/49 cells, and output plus score evidence is deterministic in 49/49. The publication verdict is DIAGNOSTIC ONLY. The report separately retains the earlier 17-genome Liftoff/miniprot comparison
+  as historical context, identifies its measured functional SHA, and does not pool it with the exact-release
+  qualification. This separation makes every headline traceable to one protocol and one immutable result set.
+date: 2026-08-09
+updated: 2026-08-11
 venue: 'Technical Report'
 institution: 'Johns Hopkins University'
 tags:
@@ -52,8 +24,8 @@ tags:
   - Comparative genomics
   - Lift-over
   - Open source
-image: ../../assets/reports/lifton-v1.0.11-technical-report/rfig_full_accuracy.png
-imageAlt: 'Whole-genome mean protein identity for the three lift-over tools on all seventeen full-genome lift-overs; LiftOn v1.0.11 leads the DNA-only Liftoff on every whole genome, the lead growing with divergence.'
+image: ../../assets/reports/lifton-v1.0.11-technical-report/rfig_release_performance.png
+imageAlt: 'Exact-release LiftOn v1.0.11 qualification showing paired wall-clock and GNU-time maximum-RSS ratios with confidence intervals and the command-RSS slot-sum proxy.'
 scholar: true
 unlisted: true
 references:
@@ -65,321 +37,372 @@ references:
     doi: https://doi.org/10.1093/bioinformatics/btad014
   - text: "Li H. Minimap2: pairwise alignment for nucleotide sequences. Bioinformatics 34(18):3094–3100, 2018."
     doi: https://doi.org/10.1093/bioinformatics/bty191
-  - text: "Daily J. Parasail: SIMD C library for global, semi-global, and local pairwise sequence alignment. BMC Bioinformatics 17:81, 2016."
+  - text: "Daily J. Parasail: SIMD C library for global, semi-global, and local pairwise sequence alignments. BMC Bioinformatics 17:81, 2016."
     doi: https://doi.org/10.1186/s12859-016-0930-z
-  - text: "Henikoff S, Henikoff JG. Amino acid substitution matrices from protein blocks. PNAS 89(22):10915–10919, 1992."
-    doi: https://doi.org/10.1073/pnas.89.22.10915
-  - text: "Dale RK, Pedersen BS, Quinlan AR. gffutils: Python tools for handling GFF/GTF annotation files."
+  - text: "Dale R. gffutils: GFF and GTF file manipulation and interconversion."
     url: https://github.com/daler/gffutils
   - text: "O'Leary NA, et al. Reference sequence (RefSeq) database at NCBI: current status, taxonomic expansion, and functional annotation. Nucleic Acids Research 44(D1):D733–D745, 2016."
     doi: https://doi.org/10.1093/nar/gkv1189
   - text: "Martin FJ, et al. Ensembl 2023. Nucleic Acids Research 51(D1):D933–D941, 2023."
-    doi: https://doi.org/10.1093/nar/gkac1090
+    doi: https://doi.org/10.1093/nar/gkac958
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
-import fullAccuracy from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_full_accuracy.png';
-import fullCompleteness from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_full_completeness.png';
-import robustness from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_robustness.png';
-import fullValidity from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_full_validity.png';
-import perfImprovement from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_perf_improvement.png';
-import applesToApples from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_full_apples_to_apples.png';
-import extcompare from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_extcompare.png';
-import LiftOnPipeline from '../../components/LiftOnPipeline.astro';
-import LiftOnChaining from '../../components/LiftOnChaining.astro';
-import LiftOnEval from '../../components/LiftOnEval.astro';
+import releasePerformance from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_release_performance.png';
+import releaseCorrectness from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_release_correctness.png';
+import legacyAccuracy from '../../assets/reports/lifton-v1.0.11-technical-report/rfig_full_accuracy.png';
 
 *Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Code: [github.com/Kuanhao-Chao/LiftOn](https://github.com/Kuanhao-Chao/LiftOn) · Documentation: [khchao.com/LiftOn](https://khchao.com/LiftOn/).*
 
-## 1. Introduction
+## 1. What this report qualifies
 
-### 1.1 The annotation-transfer problem
+LiftOn transfers a reference annotation to a target assembly by combining two complementary signals. Liftoff and minimap2 provide a DNA-anchored model that preserves reference organization when synteny remains informative; miniprot supplies splice- and frame-aware protein evidence where nucleotide alignment is less reliable. LiftOn evaluates and merges those models against the reference protein, repairs open reading frames when a better boundary exists, and can add genes missed by the DNA lift.
 
-A genome assembly without an annotation is a sequence without a map. Knowing where genes, transcripts, and coding sequences (CDS) lie is the prerequisite for variant interpretation, differential expression, comparative genomics, and essentially every downstream genomic analysis. Yet de-novo curation does not scale: long-read sequencing and the telomere-to-telomere (T2T)/pangenome era produce finished assemblies far faster than experimental annotation pipelines can characterize them. The pragmatic alternative is **annotation lift-over** — projecting a well-curated reference annotation $R_A$ from a reference genome $R$ onto a newly assembled target genome $T$ to produce $T_A$.
+This report answers a narrower question than the original LiftOn paper: **does the exact v1.0.11 release behave correctly and remain practical across the maintained benchmark corpus?** It therefore separates two evidence layers that the previous report mixed:
 
-Two families of evidence dominate lift-over, and each fails in a characteristic way:
+1. **Exact-release qualification.** The released v1.0.11 tag (`c623f0bddc5b5051a3670a3b0064c52cc61bb719`) is paired directly with v1.0.8 (`e503643d8346c600fedabcd3a4dff5c0873a4a37`) over controlled subset, controlled full-genome, and end-to-end panels. These measurements determine the release verdict.
+2. **Legacy comparative study.** A frozen 17-genome study compares LiftOn with Liftoff and miniprot. Its measured LiftOn arm is functional SHA `7fc84192d85044c946eee5b90e0683eed722f9ea`; the changes between that SHA and the v1.0.11 tag are benchmark, documentation, citation, and version metadata rather than pipeline logic. Those results remain useful scientific context, but they are not relabeled as an exact-tag run and they do not determine the release verdict.
 
-- **DNA-level mapping** (Liftoff [2], driven by minimap2 [4]) aligns the reference gene loci, with their exon structure, directly to the target DNA. It is fast and exact when $R$ and $T$ are close, but as the sequences diverge it accumulates substitutions, small indels, and assembly-boundary artifacts that manifest as frameshifts, premature stop codons, and incorrect splice boundaries in the projected CDS.
-- **Protein-level mapping** (miniprot [3]) aligns the reference *proteins* to the target genome with a splice-aware, frame-aware model. Because protein sequence is conserved well past the point where DNA alignment degrades, miniprot survives divergence; but it produces fragmentary and sometimes mutually inconsistent gene models, and its identifiers do not correspond to reference transcript IDs.
+### 1.1 Findings at a glance
 
-Neither signal alone is trustworthy across the full divergence range encountered in practice.
+- **Publication status:** this is an unlisted, diagnostic qualification, not a public release PASS. Failed or unavailable v1.0.8 controls are never imputed, and the exact v1.0.11 tag has one reproducible structural-validity defect in a successful full-genome case.
+- **Accuracy accounting:** the original evaluator incorrectly treated coding GTF `transcript` rows and LiftOn's standards-compliant `mRNA` output as different containers. Three panel-scoped, hash-bound overlays rescored every accepted pair with the same corrected evaluator and both feature types in one transcript namespace; the report does not interpret the stale Ensembl zero-recovery value as biological loss.
+- **Performance accounting:** wall time and GNU-time reported command maximum RSS are paired within repetition, medianed within benchmark case, and summarized across cases. Aggregate improvements cannot override a failed worst-cell or confidence-bound gate.
+- **Release scope:** v1.0.11 itself repairs one duplicate-ID ingestion regression. The broader algorithmic, reliability, and performance changes are cumulative from v1.0.8 through v1.0.11 and are labeled accordingly.
+- **Post-tag work:** commit `c8daa44` repairs the observed cross-sequence parent-binding defect, but its measurements are a separate follow-up and are never substituted for exact-tag results.
 
-### 1.2 LiftOn and the dual-evidence approach
+### 1.2 What v1.0.11 changed
 
-LiftOn [1] resolves this by *combining* both signals. For each candidate gene it obtains a DNA-based model (from Liftoff) and a protein-based model (from miniprot), aligns each candidate's translated protein back to the reference protein, scores the alignments, and runs a **protein-maximization CDS chaining** algorithm that stitches the best-supported coding segments into a single coherent gene model, followed by an ORF-rescue pass that repairs CDS boundaries. The published method [1] demonstrated that this fusion recovers more complete, in-frame protein-coding annotations than either Liftoff or miniprot alone, with the advantage greatest where the target diverges from the reference.
+v1.0.11 itself is a **single-fix release**. v1.0.10 replaced gffutils' duplicate-ID fallback in a way that could collide with IDs already created by Liftoff's `-copies` convention. Two such collisions are enough to abort rice, and the same class affected two other benchmark inputs. v1.0.11 renames only repeated IDs whose generated `<id>_<n>` name already exists, using a `_dup<n>` namespace, and lets programming defects raised inside the fallback propagate instead of misreporting them as malformed input.
 
-### 1.3 What motivated v1.0.11
+The larger engine and algorithm changes discussed below are cumulative changes between v1.0.8 and v1.0.11. They include bounded alignment, concurrent external aligners, transactional output, mandatory structural validation, content-addressed annotation caches, gene-like feature lift, conservative best-of-outcome selection, a third miniprot-derived candidate, and miniprot-only rescue. Attributing all of them to the v1.0.11 patch release would be historically incorrect.
 
-The published LiftOn implementation (v1.0.8) was correct but was engineered for representative-chromosome-scale inputs. Applying it at whole-genome scale exposed four limitations that v1.0.11 addresses:
+## 2. Qualification protocol
 
-1. **Unbounded alignment memory.** The two parasail [5] base aligners call full Needleman–Wunsch with traceback (`nw_trace_scan_sat`), which is $O(L^2)$ in *both* time and memory. A single titin-scale alignment (transcript ≈ 106 kb) requires a traceback matrix of $\approx 1.1\times10^{10}$ cells — measured at ~48 GB peak resident memory and ~1264 s of wall time on a mammalian genome — and out-of-memory crashes on typical hardware.
-2. **Full-genome crashes.** On full RefSeq *Arabidopsis* and rice, v1.0.8 terminates with an unhandled `gffutils.FeatureNotFoundError` whose error handler itself raises `TypeError: __str__ returned non-string`, aborting the run with a partial annotation.
-3. **Single-threaded execution and disk round-trips.** v1.0.8 ran the per-locus merge loop serially, ran the two external aligners sequentially, and round-tripped large intermediate GFF3/FASTA files through disk and a re-ingested SQLite database.
-4. **Coding-only lift.** v1.0.8 lifted only the protein-coding `gene` hierarchy, silently dropping pseudogenes, non-coding RNA genes, and other structured features present in the reference.
+### 2.1 Immutable campaign
 
-### 1.4 Contributions
+The campaign is an immutable `canonical-v1` matrix. It contains 34 subset, 17 whole-genome, and five end-to-end cases. Each has four paired repetitions: **56 logical cases, 224 paired controller cells, and at most 448 planned LiftOn arm executions**. Odd repetitions run reference then candidate; even repetitions run candidate then reference. A failed first arm prevents the second arm from running, so realized arm attempts can be fewer than 448. This AB/BA order limits systematic bias from cache temperature, filesystem state, and background load.
 
-This report documents the algorithmic and architectural advances in LiftOn v1.0.11 and validates them on seventeen whole-genome, end-to-end lift-overs spanning a four-tier divergence ladder (§2.8). The advances address five practical dimensions of the same problem — **completeness** (does it finish the genome, and does it lift the whole annotation, not just protein-coding genes?), **accuracy** (is the lifted model correct?), **memory** (does it fit in commodity RAM, the change that makes whole-genome runs feasible at all?), **speed** (does it run in reasonable wall time?), and **ease of use** (does it require expert tuning to get a usable result?) — and the sections below report each honestly, including where the picture is a trade-off rather than a clean win. The principal contributions are:
+{/* BEGIN GENERATED: release-provenance */}
+| Evidence | Value |
+|---|---|
+| Candidate | LiftOn v1.0.11 `c623f0bddc5b5051a3670a3b0064c52cc61bb719` |
+| Reference | LiftOn v1.0.8 `e503643d8346c600fedabcd3a4dff5c0873a4a37` |
+| Profile | `canonical-v1` |
+| Profile digest | `825ed8084ee66ddb74bf6d052909282dee551fb09750ad596bfe6bd3ef9baa6f` |
+| Paired repetitions | 196 AB/BA pairs across 49 benchmark cells |
+| Matrix complete | no |
+| Publication mode | `diagnostic` |
+| Bootstrap | seed 20260717; 10,000 replicates |
+| Release verdict | **DIAGNOSTIC ONLY** |
+| Corrected evaluation | immutable overlay; 196 paired repetitions; evaluator `477ac640fba3b1a4…` |
+| Evaluation cutoff | `2026-08-12T02:17:26.006067Z` |
+| Finalization host *(not a historical run record)* | `salz11.idies.jhu.edu`; AMD EPYC 7702 64-Core Processor; 2 sockets; 128 logical CPUs; 1007.2 GiB; kernel `5.14.0-503.15.1.el9_5.x86_64` |
+| Frozen execution software | Python 3.11.15; minimap2 2.28-r1209; miniprot 0.13-r248; gffutils 0.14; parasail 1.3.4 |
+| Execution roots | 5 diagnostic controller roots |
+| Policy `lifton-v1.0.11-qualification-20260809-capability-negotiated-parallel-v3--01-subset` | active 4; full 2; worker threads 32; states `{'success': 136}` |
+| Policy `lifton-v1.0.11-qualification-20260809-capability-negotiated-parallel-v3--02-full` | active 4; full 2; worker threads 32; states `{'failed': 16, 'pending': 32, 'success': 20}` |
+| Policy `lifton-v1.0.11-qualification-20260810-parallel-full` | active 6; full 6; worker threads 48; states `{'failed': 4, 'success': 28}` |
+| Policy `current-e2e-neutral-v4` | active 16; full 4; worker threads 128; states `{'pending': 12, 'success': 8}` |
+| Policy `current-e2e-neutral-v4-pending-max8` | active 8; full 8; worker threads 64; states `{'failed': 8, 'success': 4}` |
+{/* END GENERATED: release-provenance */}
 
-- **Whole-genome robustness fixes** — including a gene-like child-lift fix, a widened malformed-feature write guard, and a write-time containment normalization that makes the emitted GFF3 validate clean — that let v1.0.11 complete full RefSeq genomes v1.0.8 abandoned (§2.7, §3.1, §3.7).
-- An **anchor-windowed alignment kernel** that reduces alignment memory from $O(L^2)$ to a bounded $O(b^2)$ and is exact (identical to full DP) wherever unique-$k$-mer anchors exist or a divergent region is below the giant boundary — the bounded memory that makes whole-genome runs feasible at all (§2.2).
-- A re-engineered execution engine (concurrent aligners, a fused per-locus thread pool, streaming extraction, in-process aligner I/O, query collapse) governed by a **24-cell byte-identity regression matrix** that guarantees these optimizations leave the output bytes unchanged (§2.7).
-- A **best-of-outcome protein-maximization merge** that adopts the merged dual-evidence model only when it scores strictly higher than the DNA-only model against the reference protein, converting the merge from a net-risky operation into a guaranteed per-transcript non-regression (§2.4).
-- A **miniprot-only rescue pass** (default-ON) that recovers reference coding genes the DNA lift misses entirely, run as a post-lift pass with a dedup guard so it only ever *adds* genes; it is frozen off (`--no-miniprot-rescue`) in the benchmark below for an apples-to-apples engine comparison, and reported as a separate arm (§4).
-- **Gene-like feature autodetection** that lifts every reference parent type bearing a transcript/exon hierarchy — pseudogenes, ncRNA/lnc_RNA genes, structured mobile elements — by default (§2.6).
-- A **third best-of-outcome merge candidate** (new in v1.0.11) that additionally evaluates miniprot's native CDS-only model, adopted only when it strictly improves the emitted protein and is strand-consistent — closing the last fractional accuracy gaps at extreme divergence (§2.4, §3.3).
-- A **divergence-adaptive rescue floor** (new in v1.0.11) that recovers more genuinely-missing genes at large evolutionary distance while remaining redundancy-free, and **coordinate-independent structural evaluation metrics** (intron-chain exactness, exon Sn·Sp, ORF validity) that verify structural correctness beyond protein identity (§2.8, §4).
-- **No added operational burden**: every advance above is a default-behavior change, not a new flag a user must discover and set. The invocation is unchanged from v1.0.8 (§2.1.1).
+Every input, executable, source tree, controller plan, result document, transcript-level score table, and output GFF3 is content-fingerprinted. A successful controller cell is accepted only when its durable success marker and recorded hashes still agree with the live artifacts. Finalization re-verifies those inputs before atomically writing `REPORT.md`, `metrics.json`, and `manifest.json`, then performs a second reconciliation over the publication set, overlays, figures, selected controller states, and report preview before deployment.
 
-## 2. Methods
+The detached orchestrators run in tmux. The preserved initial epoch admitted at most four cells and 32 benchmark worker threads. The full-genome continuation admits six full cells and 48 worker threads, and the watcher observed that full occupancy. While continuation cells were active, load-one reached 136.70 above the 112 admission threshold, available memory remained at or above 675.9 GiB against a 384 GiB floor, and transient uninterruptible-I/O-wait alerts were recorded. The controller guard pauses new admissions when a threshold is reached; it does not terminate already-running cells, so those alerts remain part of the shared-host performance context.
 
-### 2.1 Pipeline overview
+The neutral end-to-end controller records a 16-cell/128-thread ceiling but separately caps full jobs at four. After the full panel became terminal, a guarded handoff stopped new source-E2E launches and selected only the 12 never-started keys. Four already-running human cells continued in the source root, while the pending keys moved to a separate scheduler-isolation root with an eight-cell/64-thread limit. The two policies permitted at most 12 cells and 96 benchmark worker threads together, within the audited 16-cell/128-thread ceiling; the watcher observed a peak of 10 cells and 80 threads. While selected cells were active in the corrected continuation, load-one peaked at 75.74 and available memory remained at or above 827.1 GiB. Transient I/O-wait alerts also occurred in this epoch. These are therefore shared-host throughput measurements rather than isolated-machine timings.
 
-LiftOn v1.0.11 executes a single, strictly sequential 11-step pipeline (`lifton/lifton.py`, `run_all_lifton_steps`). Table 1 lists the steps in order.
+Each controller enforces its own launch, thread, load, and available-memory policy. The unified watcher audits the combined ceiling; it is monitoring evidence, not a cross-controller scheduler. Every continuation root records its own policy, so concurrency epochs remain visible rather than being presented as identical host conditions. Within each pair, subset endpoints are explicitly single-threaded; full-genome and end-to-end endpoints receive eight threads. The generated provenance table is authoritative for the roots actually selected in the final report.
 
-**Table 1.** The LiftOn v1.0.11 pipeline.
+### 2.2 Experimental matrix and execution environment
 
-| Step | Stage | Purpose |
+| Panel | Cases × repetitions | Evidence generation | Endpoint execution | Rescue policy | Primary question |
+|---|---:|---|---|---|---|
+| Controlled subset | 34 × 4 | Frozen Liftoff and miniprot outputs | 1 thread; serial endpoint | disabled in v1.0.11 | Does the post-alignment engine preserve quality while reducing time and memory on tractable slices? |
+| Controlled whole genome | 17 × 4 | Frozen Liftoff and miniprot outputs | 8 threads; v1.0.11 locus pipeline versus v1.0.8 legacy path | disabled in v1.0.11 | Do the endpoint improvements scale to complete genomes? |
+| End to end | 5 × 4 | Recomputed from registered genome and annotation inputs | 8 threads; fastest supported source-aware mode | candidate defaults retained | What does a deployable run cost when evidence generation is included? |
+
+The five end-to-end cases are arabidopsis, bee, human, mouse, and rice. All four repetitions of a case use the same content-hashed inputs. Odd repetitions execute v1.0.8 before v1.0.11; even repetitions reverse the order. This controls first-order cache and background-load effects, but it does not turn repetitions on one shared host into independent machines.
+
+Controller plans freeze the Python interpreter, annotation-related external-tool binaries and versions, dependency metadata, source roots, registries, and execution policy. The exact source SHAs—not the editable-install package metadata—define the two LiftOn arms. Native v1.0.11 run manifests independently record Python 3.11.15, minimap2 2.28-r1209, miniprot 0.13-r248, gffutils 0.14, and parasail 1.3.4; the generated provenance table checks the frozen controller records rather than trusting this prose. Profiling commands fix the executable path as `/usr/bin/time`, but the initial plans did not fingerprint that binary's version; a finalization-time query returns GNU Time 1.9 and is labeled as reconstructed environment information.
+
+The watcher identifies `salz11.idies.jhu.edu` as the execution host. Early controller plans did not freeze a hardware snapshot, so CPU model, logical-CPU count, RAM, and kernel shown in the generated table are explicitly labeled as a **finalization-time reconstruction**, not a historical per-run measurement. This distinction prevents a later hardware query from being misrepresented as contemporaneous benchmark provenance.
+
+### 2.3 Three panels, two questions
+
+The panels intentionally do not answer the same question:
+
+- **Subset and full panels isolate post-alignment behavior.** Both releases consume the same cached Liftoff and miniprot alignments. The candidate is run with `--no-miniprot-rescue`, because v1.0.8 has no equivalent rescue option. Subsets use one thread and neither endpoint uses the locus pipeline. Full genomes use eight threads; v1.0.11 uses its supported `--locus-pipeline`, while v1.0.8 uses its legacy execution path because that option did not yet exist. These panels therefore measure the practical endpoint engine improvement without giving v1.0.11 an extra additive gene-recovery pass.
+- **End-to-end measures deployable behavior.** Five representative datasets start from the registered genomes and annotation, run both evidence aligners, and evaluate the resulting annotation. The source-aware `fast` mode enables each documented execution option only when the exact release exposes it. v1.0.11 receives `--stream`, `--inmemory-liftoff`, `--locus-pipeline`, `--native`, `-copies`, and eight threads; v1.0.8 receives its supported `-copies` and eight-thread path. The candidate run manifest records gffbase-backed in-memory Liftoff and direct miniprot annotation databases, but the recorded environment does not set `LIFTON_NATIVE_LIFTOFF_ALIGN`; minimap2 and miniprot therefore remain the evidence aligners rather than being relabeled as native-binding runs. The mode does not disable v1.0.11's output-affecting rescue defaults. This is a fastest-supported, source-aware end-to-end comparison, not the bare three-positional-argument CLI default.
+
+The ordinary CLI order is target genome followed by reference genome:
+
+```console
+lifton -g reference.gff3 -o lifton.gff3 target.fa reference.fa
+```
+
+### 2.4 Metrics, statistics, and release gates
+
+Performance uses paired candidate/reference ratios. Ratios below 1 favor v1.0.11; the inverse is shown only when a speedup or memory-reduction factor is easier to read. GNU `/usr/bin/time -v` supplies elapsed wall time and the maximum resident set size reported for each profiled command. The [GNU time manual](https://www.gnu.org/software/time/manual/time.html) defines this as the process-lifetime maximum; on Linux, [`ru_maxrss` for waited-for children](https://man7.org/linux/man-pages/man2/getrusage.2.html) is the largest child's resident-set maximum rather than a simultaneous maximum for the process tree. The two arms use the same profiling boundary, so their ratios are comparable, but these values do not reconstruct host-wide memory occupancy. Repetition-level ratios are medianed within each benchmark case; benchmark cases—not the four repetitions—are the resampling units. Each panel reports the geometric mean of those case medians with a deterministic 10,000-replicate nonparametric bootstrap 95% interval, the ratio of summed per-case median wall times, and the worst observed case. The sum-of-medians ratio intentionally gives long-running cases more weight than the unweighted geometric mean.
+
+The command-RSS slot-sum proxy adds the largest observed candidate command maxima for as many cases as that panel's recorded admission policy permits. It can overstate memory when command peaks do not overlap and understate memory when concurrent descendants are not represented by the command-level maximum; it is therefore neither a host-RSS trace nor a guaranteed process-tree upper bound. It is retained as a fixed engineering admission metric, while controllers separately enforce available-host-memory guards. A panel with only one observed case receives a point estimate labeled “descriptive”; repeating the same single case cannot estimate between-case uncertainty.
+
+The outlier ledger is a diagnostic screen, not another verdict: it flags a case when its repetition-level wall or RSS geometric coefficient of variation exceeds 0.15, its case geometric mean ratio exceeds 1.10, or any repetition exceeds 1.25. Only the explicitly named gates in `metrics.json` determine qualification status.
+
+Passing requires the upper wall and RSS confidence bounds and the total wall ratio to remain at or below 1.10, every benchmark-cell median paired wall and RSS ratio to remain at or below 1.25, and the candidate command-RSS slot sum to remain at or below 192 GiB. Single-repetition extremes and within-cell variability remain visible in the outlier ledger but are not silently substituted for the prespecified cell-median gate. These are engineering qualification thresholds, not null-hypothesis significance tests; no multiple-testing claim is made.
+
+Correctness is evaluated from each emitted annotation, not from a tool's self-reported score. The final report uses three panel-scoped immutable post-run overlays that share one tooling digest and collectively cover every successful repetition exactly once. Their evaluator treats GFF3 `mRNA` and GTF-derived `transcript` rows as equivalent transcript containers, resolves reference transcript IDs for both arms, extracts and translates target CDS sequence, and scores it against the reference protein with the same LiftOn/parasail alignment implementation. The overlays never change an execution time, RSS measurement, output GFF3, validation result, or output fingerprint; they replace only score-derived summaries and transcript tables after verifying the sealed source hashes.
+
+The principal accuracy quantities have distinct denominators:
+
+- **Coding completeness** is the fraction of reference coding transcripts resolved in the output by reference-aware ID mapping.
+- **All-feature completeness** is declared-ID recovery across the evaluator's registered feature types, not a raw row-count ratio.
+- **Mean protein identity** averages only recovered coding transcripts with a score. **Coverage-weighted protein identity (CovPI)** instead sums those identities and divides by every reference coding transcript, so a missing transcript contributes zero.
+- **Identity-threshold recall** divides the number of reference coding transcripts recovered at PI ≥ 0.50, 0.75, 0.90, or 0.95 by the complete reference coding set.
+- **Intron-chain exact recall** compares strand-aware internal CDS boundaries independently of genomic coordinates and divides exact recovered chains by the reference coding set. **ORF-valid recall** uses the same denominator and requires a start methionine, terminal stop, and no internal stop.
+- **Common-set PI change** compares only reference coding IDs scored in both arms, limiting composition bias. **Stable-ID preservation** separately counts explicitly declared CDS and exon IDs, including copy-aware mappings.
+
+For each case, none of the nine paired completeness, protein-quality, threshold-recall, intron-chain, or ORF-valid metrics may regress by more than 0.010, and common-set mean protein identity may not regress by more than 0.005. Every panel-bootstrap lower bound must remain at or above −0.001. Both arms must retain positive coding recovery and finite protein scores; coding completeness, all-feature completeness, mean protein identity, and coverage-weighted identity may not fall more than 0.010 below their frozen absolute baselines. Where CDS or exon IDs are declared, the candidate must preserve at least as many as the reference arm. End-to-end biological summaries must be schema-valid and deterministic, with feature completeness and mean protein identity each at or above 0.50.
+
+Candidate outputs must all pass the current structural, semantic, and target-bound GFF3 checks and be byte- and quality-deterministic across repetitions. v1.0.8 validity is retained as a **reference diagnostic**, not a release gate, because the current validator detects duplicate-ID and header defects that the old release routinely emitted. Reference output and quality determinism remain blocking controls. The `canonical-v1` profile sets `truth_policy` to `none`: these checks measure reference-content retention, structural consistency, and sequence plausibility, not independent target-locus truth.
+
+## 3. Release-campaign results
+
+### 3.1 Performance
+
+Table 2 and Figure 1 are the authoritative paired release-campaign performance summary. They show panel-level confidence intervals, total work, worst cells, and the command-RSS slot-sum proxy together; no maximum speedup is presented without the slower or neutral cells. A panel or cell beyond a gate is a failed qualification check, even if the overall average favors v1.0.11. The generated provenance table records whether the observed cells complete the planned matrix.
+
+{/* BEGIN GENERATED: release-performance */}
+| Panel | Modes (candidate/reference) | Cells | Wall ratio GMR (95% CI when n≥2) | Total wall ratio | RSS ratio GMR (95% CI when n≥2) | Worst wall ratio | Worst RSS ratio | Candidate command-RSS slot-sum proxy |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| subset | subset/subset | 34 | 0.915× [0.835, 0.993] | 0.742× | 0.170× [0.102, 0.279] | 1.225× | 1.273× | 2.85 GiB (4 slots) |
+| full | full/full | 12 | 0.744× [0.596, 0.952] | 0.620× | 0.098× [0.069, 0.160] | 1.819× | 1.016× | 20.09 GiB (6 slots) |
+| e2e | fast/fast | 3 | 0.577× [0.545, 0.628] | 0.599× | 0.292× [0.168, 0.559] | 0.628× | 0.559× | 54.27 GiB (8 slots) |
+{/* END GENERATED: release-performance */}
+
+<ZoomFigure src={releasePerformance} alt="Three-panel paired release-campaign performance diagnostic. Wall-clock and GNU-time maximum-RSS candidate/reference ratios include 95% confidence intervals and 1.0 and 1.10 reference lines; the third panel shows the candidate command-RSS slot-sum proxy against the 192 GiB gate." variant="wide">
+  <strong>Figure 1.</strong> Paired release-campaign performance diagnostic. Ratios below 1 favor v1.0.11. The dashed red line is the 1.10 panel gate, not a visual estimate of significance. The memory panel sums the largest command-level maxima admitted by the recorded slot policy; it is an engineering proxy, not observed simultaneous host or process-tree RSS.
+</ZoomFigure>
+
+The paired AB/BA panel estimates are subset: wall 0.915× [95% CI 0.835, 0.993], RSS 0.170× [95% CI 0.102, 0.279], total wall 0.742×, worst wall 1.225×, and worst RSS 1.273×; full genome: wall 0.744× [95% CI 0.596, 0.952], RSS 0.098× [95% CI 0.069, 0.160], total wall 0.620×, worst wall 1.819×, and worst RSS 1.016×; end to end: wall 0.577× [95% CI 0.545, 0.628], RSS 0.292× [95% CI 0.168, 0.559], total wall 0.599×, worst wall 0.628×, and worst RSS 0.559×. Ratios below 1 favor v1.0.11. Named performance gates failing: `full.worst_wall_cell`, `subset.worst_rss_cell`. 15 observed cell(s) meet the variability or ratio screening criteria; a screening flag is not itself a release gate. Execution-policy epochs remain explicit, and isolated reruns are diagnostic rather than replacements for canonical measurements.
+
+Expressed inversely, the observed geometric-mean wall ratios correspond to reference/candidate speedup factors of 1.09×, 1.34×, and 1.73× for subset, full-genome, and end-to-end cells, respectively; ratios of summed cell-median wall times give 1.35×, 1.61×, and 1.67×. The corresponding reference/candidate factors for GNU-time command maximum RSS are 5.88×, 10.17×, and 3.43×. These are descriptive factors for the observed cells and execution epochs, not claims about unobserved failed controls or isolated hardware.
+
+Two full-genome cells exceed the 1.25 cell-median wall gate. `t4_drosophila_to_bee` is worst at 1.819×, but its four paired ratios are 3.226, 0.411, 5.751, and 0.399: the direction reverses with AB/BA order, and its geometric coefficient of variation is 1.794. This is evidence of strong order/host-state sensitivity rather than a stable dataset-wide slowdown. `arabidopsis_to_rice` has a 1.350× median and is also the structurally invalid candidate cell. The subset RSS failure is narrower but reproducible: `candida_albicans_to_dubliniensis` has a 1.273× median, with all four ratios between 1.239 and 1.295. No observed end-to-end performance gate fails, but that panel contains only bee, human, and mouse because both plant controls fail under v1.0.8.
+
+The per-cell table below includes every observed paired cell, so an aggregate cannot conceal dataset-specific regressions or missing planned cells.
+
+<details>
+<summary><strong>Per-cell paired medians and common-set quality</strong></summary>
+
+{/* BEGIN GENERATED: release-cells */}
+| Panel | Benchmark | Reps | Candidate wall (s) | Reference wall (s) | Wall factor (reference/candidate) | Candidate peak RSS | RSS factor (reference/candidate) | Δ common-set PI | Candidate valid |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| subset | arabidopsis | 4 | 219.19 | 223.67 | 1.02× | 0.56 GiB | 2.56× | +0.00011 | yes |
+| subset | arabidopsis_to_lyrata | 4 | 258.79 | 220.98 | 0.86× | 0.55 GiB | 2.46× | +0.00884 | yes |
+| subset | arabidopsis→rice | 4 | 75.00 | 71.34 | 0.96× | 0.44 GiB | 2.90× | +0.00147 | yes |
+| subset | bee | 4 | 93.16 | 128.16 | 1.34× | 0.47 GiB | 23.55× | +0.00087 | yes |
+| subset | candida_albicans_to_dubliniensis | 4 | 17.38 | 16.16 | 0.93× | 0.32 GiB | 0.79× | +0.00137 | yes |
+| subset | celegans_to_briggsae | 4 | 80.50 | 98.06 | 1.22× | 0.50 GiB | 17.13× | +0.00597 | yes |
+| subset | cerevisiae_to_pombe | 4 | 4.47 | 4.00 | 0.92× | 0.26 GiB | 1.13× | +0.00000 | yes |
+| subset | chicken_to_quail | 4 | 427.79 | 736.91 | 1.72× | 0.55 GiB | 18.89× | +0.00799 | yes |
+| subset | drosophila | 4 | 186.24 | 178.52 | 0.96× | 0.52 GiB | 4.81× | +0.00371 | yes |
+| subset | drosophila_to_anopheles | 4 | 49.80 | 45.72 | 0.93× | 0.43 GiB | 1.65× | +0.00185 | yes |
+| subset | fly_mel_to_pseudoobscura | 4 | 180.50 | 154.19 | 0.85× | 0.52 GiB | 4.89× | +0.01379 | yes |
+| subset | human_ensembl_gtf | 4 | 56.77 | 71.59 | 1.26× | 0.37 GiB | 25.43× | +0.00083 | yes |
+| subset | human_mane | 4 | 13.67 | 14.96 | 1.10× | 0.36 GiB | 4.30× | +0.00000 | yes |
+| subset | human_pseudogene_stress | 4 | 208.50 | 251.91 | 1.21× | 0.55 GiB | 15.46× | +0.00066 | yes |
+| subset | human_to_chimp | 4 | 564.97 | 727.44 | 1.28× | 0.62 GiB | 18.73× | +0.00088 | yes |
+| subset | human_to_mouse | 4 | 102.47 | 94.53 | 0.93× | 0.51 GiB | 13.79× | +0.01482 | yes |
+| subset | human→zebrafish | 4 | 30.70 | 27.30 | 0.89× | 0.39 GiB | 0.95× | +0.00000 | yes |
+| subset | mouse | 4 | 330.67 | 855.25 | 2.56× | 0.82 GiB | 58.32× | +0.00057 | yes |
+| subset | mouse_to_rat | 4 | 96.91 | 125.56 | 1.31× | 0.54 GiB | 21.64× | +0.00437 | yes |
+| subset | rice | 4 | 109.09 | 113.88 | 1.04× | 0.66 GiB | 2.22× | +0.00000 | yes |
+| subset | rice_to_sorghum | 4 | 101.75 | 82.97 | 0.82× | 0.44 GiB | 0.98× | +0.01068 | yes |
+| subset | maize | 4 | 194.56 | 189.96 | 0.97× | 0.64 GiB | 2.76× | +0.00399 | yes |
+| subset | tomato | 4 | 114.79 | 141.03 | 1.23× | 0.55 GiB | 3.76× | +0.00352 | yes |
+| subset | human→gorilla | 4 | 111.20 | 139.53 | 1.25× | 0.58 GiB | 72.51× | +0.00435 | yes |
+| subset | mouse→caroli | 4 | 383.36 | 860.29 | 2.24× | 0.73 GiB | 66.84× | +0.00415 | yes |
+| subset | tomato→potato | 4 | 35.59 | 31.87 | 0.89× | 0.45 GiB | 1.03× | +0.00295 | yes |
+| subset | dog→cat | 4 | 149.11 | 155.61 | 1.04× | 0.52 GiB | 6.51× | +0.01718 | yes |
+| subset | human→macaque | 4 | 116.07 | 139.93 | 1.21× | 0.48 GiB | 73.25× | +0.00370 | yes |
+| subset | human→marmoset | 4 | 118.28 | 141.70 | 1.19× | 0.50 GiB | 71.21× | +0.00882 | yes |
+| subset | drosophila→bee | 4 | 34.52 | 32.77 | 0.95× | 0.38 GiB | 1.85× | +0.00000 | yes |
+| subset | human→chicken | 4 | 49.11 | 40.87 | 0.83× | 0.41 GiB | 5.25× | +0.01413 | yes |
+| subset | human→xenopus | 4 | 29.86 | 26.76 | 0.89× | 0.34 GiB | 1.25× | +0.01422 | yes |
+| subset | yeast_cerevisiae_to_paradoxus | 4 | 10.69 | 9.56 | 0.89× | 0.26 GiB | 1.26× | +0.00000 | yes |
+| subset | zebrafish_to_medaka | 4 | 40.17 | 37.28 | 0.93× | 0.42 GiB | 0.98× | +0.00208 | yes |
+| full | arabidopsis→rice | 4 | 275.22 | 203.88 | 0.74× | 1.47 GiB | 0.98× | +0.00072 | no |
+| full | bee | 4 | 576.06 | 1351.43 | 2.34× | 1.94 GiB | 11.63× | +0.00027 | yes |
+| full | drosophila | 4 | 593.47 | 1013.70 | 1.72× | 1.92 GiB | 9.72× | +0.00109 | yes |
+| full | human→zebrafish | 4 | 1692.05 | 1929.15 | 1.10× | 2.66 GiB | 16.63× | +0.00331 | yes |
+| full | human→gorilla | 4 | 4821.50 | 8747.50 | 1.82× | 3.72 GiB | 12.31× | +0.00046 | yes |
+| full | mouse→caroli | 4 | 4403.00 | 9383.00 | 2.20× | 3.24 GiB | 25.68× | +0.00151 | yes |
+| full | dog→cat | 4 | 3146.85 | 3508.93 | 1.21× | 2.81 GiB | 15.70× | +0.00396 | yes |
+| full | human→macaque | 4 | 6861.50 | 12057.50 | 1.76× | 3.64 GiB | 12.37× | +0.00116 | yes |
+| full | human→marmoset | 4 | 6264.50 | 11294.00 | 1.75× | 3.62 GiB | 12.44× | +0.00171 | yes |
+| full | drosophila→bee | 4 | 341.85 | 306.97 | 0.55× | 1.14 GiB | 7.09× | +0.00000 | yes |
+| full | human→chicken | 4 | 3866.00 | 4891.50 | 1.26× | 3.05 GiB | 14.73× | +0.00551 | yes |
+| full | human→xenopus | 4 | 2636.62 | 2565.30 | 1.02× | 2.61 GiB | 8.30× | +0.00249 | yes |
+| e2e | bee | 4 | 1011.76 | 1850.57 | 1.84× | 3.81 GiB | 5.95× | +0.00027 | yes |
+| e2e | human | 4 | 11274.50 | 17973.00 | 1.59× | 27.38 GiB | 1.79× | +0.00015 | yes |
+| e2e | mouse | 4 | 5934.50 | 10585.00 | 1.78× | 23.08 GiB | 3.79× | -0.00005 | yes |
+{/* END GENERATED: release-cells */}
+
+</details>
+
+### 3.2 Correctness, validity, and determinism
+
+The correctness verdict combines biological quality with software evidence. Protein identity alone is insufficient: an annotation can encode a plausible protein while changing intron structure, losing declared feature IDs, emitting duplicate IDs, or varying from run to run. Table 3 therefore reports candidate and control validity/determinism beside the panel-level biological deltas.
+
+{/* BEGIN GENERATED: release-correctness */}
+| Check | Candidate | Reference/control |
+|---|---:|---:|
+| GFF3 valid | 48/49 | 0/49 *(diagnostic)* |
+| Byte deterministic | 49/49 | 49/49 |
+| Semantic deterministic | 49/49 | 49/49 |
+| Quality deterministic | 49/49 | 49/49 |
+| Common-set PI deterministic | 49/49 | same paired evidence |
+| E2E biological summary valid | 3/3 | 3/3 |
+| E2E biological summary deterministic | 3/3 | 3/3 |
+
+| Panel | Quality metric | Candidate − reference (95% bootstrap CI when n≥2) |
+|---|---|---:|
+| subset | `completeness_coding` | +0.00004 [-0.00019, +0.00038] |
+| subset | `completeness_feature_total` | +0.00004 [-0.00016, +0.00034] |
+| subset | `covpi` | +0.00333 [+0.00205, +0.00478] |
+| subset | `recall_at_0.5` | +0.00472 [+0.00280, +0.00690] |
+| subset | `recall_at_0.75` | +0.00452 [+0.00268, +0.00655] |
+| subset | `recall_at_0.9` | +0.00262 [+0.00156, +0.00384] |
+| subset | `recall_at_0.95` | +0.00115 [+0.00064, +0.00171] |
+| subset | `intron_chain_exact_recall` | +0.00082 [+0.00037, +0.00131] |
+| subset | `orf_valid_recall` | +0.00824 [+0.00493, +0.01210] |
+| full | `completeness_coding` | -0.00014 [-0.00027, -0.00004] |
+| full | `completeness_feature_total` | +0.01178 [+0.00435, +0.02021] |
+| full | `covpi` | +0.00087 [+0.00036, +0.00150] |
+| full | `recall_at_0.5` | +0.00126 [+0.00058, +0.00210] |
+| full | `recall_at_0.75` | +0.00122 [+0.00047, +0.00223] |
+| full | `recall_at_0.9` | +0.00077 [+0.00037, +0.00122] |
+| full | `recall_at_0.95` | +0.00047 [+0.00021, +0.00075] |
+| full | `intron_chain_exact_recall` | +0.00056 [+0.00017, +0.00097] |
+| full | `orf_valid_recall` | +0.00218 [+0.00097, +0.00361] |
+| e2e | `completeness_coding` | -0.00128 [-0.00268, +0.00004] |
+| e2e | `completeness_feature_total` | +0.02717 [+0.00077, +0.04911] |
+| e2e | `covpi` | -0.00077 [-0.00183, +0.00031] |
+| e2e | `recall_at_0.5` | -0.00051 [-0.00196, +0.00107] |
+| e2e | `recall_at_0.75` | -0.00051 [-0.00121, +0.00034] |
+| e2e | `recall_at_0.9` | -0.00053 [-0.00103, +0.00043] |
+| e2e | `recall_at_0.95` | -0.00058 [-0.00114, +0.00017] |
+| e2e | `intron_chain_exact_recall` | -0.00088 [-0.00142, -0.00047] |
+| e2e | `orf_valid_recall` | -0.00058 [-0.00187, +0.00047] |
+
+| Panel | Stable ID type | Applicable cells | Candidate preserved | Reference preserved | Rate delta |
+|---|---|---:|---:|---:|---:|
+| subset | `CDS` | 33 | 132,283/189,218 (0.69910) | 48,271/189,218 (0.25511) | +0.44400 |
+| subset | `exon` | 33 | 1,441,493/1,954,995 (0.73734) | 772,606/1,954,995 (0.39520) | +0.34214 |
+| full | `CDS` | 12 | 633,250/1,164,027 (0.54402) | 84,291/1,164,027 (0.07241) | +0.47160 |
+| full | `exon` | 12 | 9,562,068/17,360,209 (0.55080) | 3,475,331/17,360,209 (0.20019) | +0.35061 |
+| e2e | `CDS` | 3 | 249,119/265,562 (0.93808) | 189,359/265,562 (0.71305) | +0.22503 |
+| e2e | `exon` | 3 | 3,904,837/4,139,778 (0.94325) | 3,052,324/4,139,778 (0.73732) | +0.20593 |
+{/* END GENERATED: release-correctness */}
+
+<ZoomFigure src={releaseCorrectness} alt="Three-panel paired release-campaign correctness diagnostic showing biological quality deltas and confidence intervals, valid and deterministic cell counts, and stable CDS and exon identifier preservation." variant="wide">
+  <strong>Figure 2.</strong> Paired release-campaign correctness diagnostic. Panel A uses candidate minus reference, with zero denoting no change and −0.001 marking the aggregate quality floor. Reference GFF3 validity is explicitly diagnostic; reference determinism is still a blocking experimental control.
+</ZoomFigure>
+
+The controlled subset panel is quality-neutral or favorable at the prespecified panel level: coding and all-feature completeness change by +0.00004 each, while CovPI (+0.00333), every identity-threshold recall, exact intron-chain recall (+0.00082), and ORF-valid recall (+0.00824) increase. Every subset quality lower confidence bound remains above the −0.001 floor. The full-genome panel has a small coding-completeness decrease (−0.00014; 95% CI −0.00027 to −0.00004) but higher all-feature completeness (+0.01178), CovPI (+0.00087), every threshold recall, exact intron-chain recall (+0.00056), and ORF-valid recall (+0.00218); all full-panel quality floors pass. Those aggregate quality results do not override structural validity: the full summary includes the invalid `arabidopsis_to_rice` candidate cell, which remains independently blocking.
+
+Stable feature identifiers improve substantially in every observed panel. Candidate-minus-reference preservation-rate differences are +0.44400/+0.34214 for subset CDS/exon IDs, +0.47160/+0.35061 for full-genome CDS/exon IDs, and +0.22503/+0.20593 for end-to-end CDS/exon IDs. These rates measure continuity of declared reference identifiers, not independent evidence that a model occupies the correct biological target locus.
+
+The three observed end-to-end cases show a consistent tradeoff: v1.0.11 recovers more total registered features but slightly fewer coding transcripts in human and mouse. Table 4 reports absolute values rather than only panel averages; each entry is v1.0.11 / v1.0.8, and the coding denominator is the registered reference coding set.
+
+| End-to-end case | Recovered coding transcripts | All-feature completeness | Mean protein identity | Coverage-weighted PI |
+|---|---:|---:|---:|---:|
+| Bee | 23,365 / 23,364 of 23,471 | 0.94570 / 0.94493 | 0.99051 / 0.99024 | 0.986034 / 0.985728 |
+| Human | 129,408 / 129,795 of 144,329 | 0.40655 / 0.37493 | 0.99679 / 0.99592 | 0.893704 / 0.895538 |
+| Mouse | 95,430 / 95,546 of 96,192 | 0.87002 / 0.82091 | 0.99506 / 0.99463 | 0.986781 / 0.987551 |
+
+Bee is effectively neutral on coding recovery and slightly favorable on the other listed measures. Human and mouse gain +0.03162 and +0.04911 in all-feature completeness but lose −0.00268 and −0.00120 in coding completeness. Mean protein identity among recovered, scored coding transcripts rises slightly in all three cases, whereas CovPI falls for human and mouse because unrecovered coding transcripts contribute zero. Across the three-case panel, eight bootstrap lower-bound checks fail: coding completeness, CovPI, four identity-threshold recalls, exact intron-chain recall, and ORF-valid recall. No observed end-to-end case crosses the separate −0.010 per-cell regression cap, but the prespecified panel confidence-bound failures remain blocking.
+
+Among 49 observed cells, candidate outputs pass current validation in 48 and output plus score evidence is deterministic in all 49 (subset=34, full=12, e2e=3). Nine named correctness/control checks fail: candidate validity plus the eight end-to-end quality bounds. Missing controls are never converted into scores, and end-to-end summaries are accepted only when schema-valid and deterministic in both arms. Because `canonical-v1` contains no independent target-annotation truth set and the observed end-to-end panel has only three cases, these retention and plausibility measures support neither a general biological-superiority claim nor extrapolation to the two failed plant controls.
+
+### 3.3 Release verdict
+
+The exact-tag result is **DIAGNOSTIC ONLY**: 49 cells were observed and 28 planned paired executions are unavailable in the selected immutable roots (e2e=8, full=20). A release PASS is not emitted because the immutable campaign evidence is not a complete passing release publication. 11 additional blocking check(s) fail in the observed matrix. Independently of matrix completeness, the exact-tag `arabidopsis→rice` full-genome output violates the candidate structural-validity gate, so this report remains unlisted and cannot be promoted as a passing release qualification.
+
+### 3.4 Failure triage and follow-up
+
+The failed experiments are not one homogeneous failure class:
+
+- **Reference-control failures (28 selected pairs).** The controlled full panel loses all four repetitions of `arabidopsis`, `rice`, `t1_maize_b73_to_mo17`, `t1_tomato_microtom_to_heinz`, and `t2_tomato_to_potato` (20 pairs); the end-to-end panel independently loses all four Arabidopsis and all four rice repetitions (eight more). The exact v1.0.8 arm constructs a database that transforms a duplicate feature ID, later requests the unavailable original/transformed parent, raises `gffutils.exceptions.FeatureNotFoundError`, and then triggers a second `TypeError` while stringifying that exception. Repetition does not repair a deterministic historical-code failure. Candidate-first E2E repetitions may finish the v1.0.11 arm before the control fails, but without a successful paired control these cells supply neither timing ratios nor quality deltas.
+- **Superseded E2E setup/evaluator failures.** Early E2E continuations either froze tooling-local dataset paths that were absent from the snapshot or used the legacy `-E` evaluation path and produced no valid biological record. One discarded pending-only launch also reused the deliberately data-free post-run scoring snapshot: four Arabidopsis setup attempts stopped before either LiftOn arm executed. The corrected root uses a read-only persistent copy of the exact source execution snapshot, including its canonical data symlinks. Failed setup roots are retained as debugging evidence but excluded from the selected matrix; only the neutral, source-aware E2E roots can contribute reportable pairs.
+- **Corrected Ensembl scoring.** The original in-run evaluator recognized only the dominant transcript feature type. LiftOn v1.0.11 correctly harmonizes coding GTF transcripts to GFF3 `mRNA`, while retaining non-coding `transcript` rows; the old scorer therefore reported all 2,371 coding reference transcripts as lost. A hash-verified rescore of all four sealed repetitions instead recovers 2,359/2,371 coding transcripts (99.494%) in each arm; candidate/reference mean protein identity is 0.95152/0.95068. This is an evaluator-type artifact, not established biological loss. All successful repetitions are rescored with one `mRNA`/`transcript`-equivalent evaluator before any final accuracy table or quality verdict is accepted.
+- **Exact-tag structural failure.** In the successful full `arabidopsis_to_rice` executions, the validator reproducibly finds `rna-DA397_mgp31` on `NC_029264.1` bound to a gene on `NC_011033.1`, creating cross-sequence parentage and target-bound violations. Because the output belongs to SHA `c623f0b`, it is a candidate release failure even though the pipeline exits successfully and most quality metrics remain finite.
+- **Post-tag parent-binding repair.** Commit `c8daa44` fixes cross-seqid duplicate-parent/child binding in both disk and in-memory emitters. Its separate fixed-candidate lane uses another candidate SHA and is never pooled into the exact-tag tables. That lane's attempted full pairs still terminate in the same v1.0.8 control failures, so the repair is reported as follow-up engineering, not as a completed exact-release benchmark result.
+
+## 4. Cumulative engineering since v1.0.8
+
+The qualification compares release endpoints, so the following table distinguishes behavior that changes ordinary output from execution options that remain opt-in.
+
+| Capability | v1.0.11 behavior | Default status |
 |---|---|---|
-| 0 | Setup | Open target + reference FASTAs (`pyfaidx`); create output directories. |
-| — | Input validation | Validate the reference annotation (NCBI GFF3 spec); under `--strict-gff`, exit non-zero on any violation, else write findings to `stats/` and emit a summary. |
-| 1 | Reference DB | Build the reference annotation database (`gffutils` [7] SQLite by default; DuckDB-backed `gffbase` under `LIFTON_USE_GFFBASE=1`). |
-| 2 | Partition | Auto-detect gene-like parent types (unless `--gene-only`) and partition the reference into the features to lift (§2.6). |
-| 3 | Sequence extraction | Stream `transcripts.fa` + `proteins.fa` to disk, then re-open via `pyfaidx` for lazy access (§2.7). |
-| 4 | External aligners | Run vendored Liftoff (minimap2) and miniprot; concurrent by default, `--serial-aligners` to serialize; skippable via cached `-L`/`-M` (§2.7). |
-| 5 | Load + writers | Re-load the Liftoff and miniprot GFF3s as feature DBs; open output writers; emit the GFF3 directive prologue. |
-| 6 | Index | Build the reference-id ↔ miniprot-id map; seed per-chromosome interval trees for miniprot suppression. |
-| 7 | Per-locus merge | Walk each Liftoff gene → align with parasail → chain with miniprot (§2.3) → ORF-rescue (§2.5) → write. Parallel under `--threads N --locus-pipeline` (§2.7). The wall-clock hot spot. |
-| 8 | miniprot-only rescue | Emit miniprot-only mRNAs that pass the overlap/length filters and are not suppressed. |
-| 9 | Report | Emit completeness/coverage statistics. |
-| 10 | Output validation | Under `--validate-output`, re-validate the emitted GFF3 (hierarchy, CDS phase, containment). |
+| Concurrent Liftoff and miniprot | Runs independent evidence aligners concurrently | default; `--serial-aligners` opts out |
+| Bounded anchor-windowed alignment | Avoids unbounded traceback matrices on long sequences | default; full-DP reproduction options remain |
+| Best-of-outcome merge | Keeps the strongest emitted model rather than applying a merge unconditionally | default; `--legacy-merge` opts out |
+| Direct miniprot-derived CDS candidate | Adopted only when strand-consistent and strictly better | default; `--no-miniprot-candidate` opts out |
+| Miniprot-only rescue | Adds genuinely missing coding genes after the DNA-anchored pass | default; `--no-miniprot-rescue` opts out |
+| Gene-like parent detection | Lifts non-`gene` parents such as pseudogenes and ncRNA hierarchies | default; `--gene-only` opts out |
+| Baseline structural publication gate | Rejects syntax, ID, and ordered-parent defects before atomic publication | mandatory; deeper semantic and target-bound checks remain separate |
+| Streaming and in-memory evidence ingest | Avoids miniprot and Liftoff intermediate GFF3/database round trips | opt-in via `--stream` and `--inmemory-liftoff` |
+| Native compatibility hooks | Records native-capable backend selection; mappy Liftoff additionally requires `LIFTON_NATIVE_LIFTOFF_ALIGN=1` and was not active in this campaign | opt-in via `--native` |
+| Parallel locus pipeline | Evaluates independent loci with bounded workers and deterministic publication order | opt-in via threads and locus pipeline |
 
-The two largest external subtrees — the vendored Liftoff fork (the DNA lift-over engine, invoked as a library) and `gffbase` (a DuckDB-backed, drop-in successor to `gffutils`) — are treated as frozen dependencies.
+### 4.1 Dual evidence and candidate selection
 
-### 2.1.1 Invocation and defaults
+LiftOn first obtains a DNA-anchored annotation from Liftoff/minimap2 and an independent splice-aware protein alignment from miniprot. For each reference coding transcript, the cumulative v1.0.8→v1.0.11 engine can compare three outcomes: a chained DNA/protein merge followed by ORF rescue, the original Liftoff model followed by ORF rescue, and a clean CDS model derived directly from miniprot. The third candidate is eligible only when it is strand-consistent and its rescued protein identity is strictly greater than the two-way winner. This is conservative best-of-outcome selection: additional evidence is available, but it does not replace a stronger DNA-anchored model merely because it exists.
 
-A LiftOn invocation needs only three inputs — the reference genome, its annotation, and the target genome — and produces a single output GFF3:
+Miniprot-only rescue is a later, additive pass for coding genes absent from the DNA lift. Its identity floor can decrease from 0.50 toward 0.30 as DNA-lift recall falls, while overlap and reference-ID checks prevent a recovered gene from becoming an untracked duplicate. Because v1.0.8 has no equivalent pass, controlled subset and full panels disable it; end-to-end runs retain the candidate's default. This protocol separation is essential when interpreting completeness.
 
-```
-lifton -g reference.gff3 reference.fa target.fa -o lifton.gff3
-```
+### 4.2 Bounded execution and deterministic parallelism
 
-This command line is unchanged from v1.0.8. What changed is entirely in what the *default* run does: it now lifts every gene-like parent type in the reference, not just protein-coding genes (§2.6); keeps the better of the DNA-only and fused model per transcript rather than applying the merge unconditionally (§2.4); recovers reference genes the DNA lift misses entirely (§4); and bounds alignment memory automatically regardless of genome size (§2.2), all without any additional flags. Installation is a single `conda`/`bioconda` command (§6). Each of these defaults has an explicit opt-out for exact reproduction of the pre-v1.0.11 behavior (`--gene-only`, `--legacy-merge`, `--no-miniprot-rescue`, `--full-dp-align`), and an opt-in `--validate-output` pass re-validates the emitted GFF3 against the NCBI spec for users who want an explicit pass/fail signal — but none of this is required for a typical run.
+The pipeline is not strictly sequential. Liftoff and miniprot are independent evidence producers and can run concurrently. Long protein/DNA comparisons use bounded anchor-windowed alignment rather than allocating an unbounded traceback matrix, and the locus pipeline evaluates independent loci with bounded workers. Streaming miniprot ingest and in-memory Liftoff transfer reduce database and intermediate-file materialization when explicitly enabled. The separate `--native` flag exposes compatibility hooks; it does not, by itself, replace the minimap2/miniprot evidence paths.
 
-*Interactive — step through the whole pipeline below (Prev / Next / ▶ Play), from the three inputs to the final annotation.*
+Parallel work does not define publication order. Results are reassembled in a stable locus order, candidate tie-breaking is deterministic, and benchmark repetitions compare byte hashes, semantic multiset hashes, transcript-score tables, and biological summaries. This distinction matters: lower wall time is not accepted if it changes output nondeterministically.
 
-<LiftOnPipeline />
+### 4.3 Annotation scope and output integrity
 
-**Figure 8.** Interactive walkthrough of the LiftOn pipeline. The two evidence lifts of Step 4 — Liftoff (DNA-level) and miniprot (protein-level) — are run concurrently and then fused in Step 7 (chaining → ORF rescue → best-of-outcome), with a separate Step-8 pass rescuing genes the DNA lift missed entirely. LiftOn needs only the reference genome, its annotation, and the target genome.
+The description “v1.0.8 was coding-only” is too broad. Its default selected top-level `gene` parents, so it could retain lncRNA, tRNA, and other child types nested below those genes. What it omitted were **gene-like top-level parents whose type was not literally `gene`**, most visibly pseudogenes and some non-coding RNA hierarchies. v1.0.11 detects parent types with transcript/exon structure and lifts those hierarchies by default.
 
-### 2.2 Anchor-windowed alignment
+Output normalization is deliberately structure-aware. Coding transcripts are emitted as `mRNA`; non-coding transcript types remain unchanged. Rebuilt CDS rows retain descriptive reference attributes, receive stable discontinuous-CDS IDs, and rewrite `Parent` through one allocator. The v1.0.11 patch narrows duplicate-ID repair further: only repeated IDs whose gffutils-generated suffix would collide with an existing feature move into `_dup<n>`.
 
-**The giant-gene problem.** LiftOn scores every candidate by globally aligning its translated protein (and, for non-coding features, its spliced transcript) to the reference with parasail's `nw_trace_scan_sat`. Full Needleman–Wunsch with traceback is
+Each run stages its GFF3, streams an always-on baseline structural validation pass, records inputs, software, phases, resources, counts, and failures in `lifton_output/run_manifest.json`, and atomically publishes only after that mandatory gate succeeds. `--validate-output` adds deeper project-specific checks; release qualification additionally applies current semantic and target-bound validation. The baseline stream does not prove every parent resides on the same sequence or every coordinate fits the target assembly, which is why the exact-tag defect can pass ordinary publication yet fail qualification. Content-addressed annotation caches bind source bytes and parser settings, so stale or corrupt databases rebuild instead of silently contaminating a run.
 
-$$T_\text{full}(L) = O(L^2), \qquad M_\text{full}(L) = O(L^2),$$
+## 5. Legacy comparative context
 
-in time and memory respectively, where $L$ is the longer of the two sequences. The quadratic *memory* term is the binding constraint: the traceback matrix for a titin-scale transcript ($L \approx 1.06\times10^5$ nt) holds $\approx 1.1\times10^{10}$ cells, measured at ~48 GB peak and ~1264 s on a mammalian genome — almost all of it concentrated in a handful of giant genes — which out-of-memory-crashes any machine under ~48 GB.
+This appendix preserves the earlier four-way study because it answers a biological question the paired release campaign does not: how LiftOn's fused annotation compares with the DNA evidence (Liftoff) and the protein evidence (miniprot) over a 17-genome divergence ladder. The source is frozen `fourway_results.json`; the LiftOn candidate arm is functional SHA `7fc8419`, not an exact execution of the final tag. The intervening commits do not alter the pipeline, but that equivalence is stated rather than hidden.
 
-**The windowed kernel** (`lifton/windowed_align.py`). Above a length gate, alignment is routed to an anchor-windowed aligner that computes a near-diagonal global alignment in bounded memory:
+### 5.1 Full-genome recovery
 
-1. **Anchor seeding** ($O(L)$). Identify $k$-mers that occur exactly once in *each* of the query and reference sequences and are shared between the two — single-copy, shared $k$-mers are reliable diagonal anchors, since a repeated $k$-mer could align to more than one position. The protein alphabet (20 letters) makes $k_{\text{AA}}=8$ unique within any realistic protein; DNA (4 letters) requires a longer seed, $k_{\text{NT}}=15$ (since $4^{15}\approx10^9$ exceeds any transcript length). When a window is anchor-sparse, $k$ is shrunk toward a floor ($k_{\text{AA}}\!\geq\!4$, $k_{\text{NT}}\!\geq\!8$) to recover finer anchors.
-2. **Co-linear chaining** ($O(a\log a)$, $a\leq L$ anchors). Chain the shared anchors into one strictly co-linear, non-overlapping diagonal via a longest-increasing-subsequence (patience-sorting) pass.
-3. **Per-window DP and concatenation.** Align only the small inter-anchor windows with full parasail and concatenate; the anchors themselves contribute exact-match columns. Each window is capped at a band width $b$, so any single DP allocation is at most $b^2$ cells.
+The earlier study found five full-genome inputs where v1.0.8 did not produce a complete result. Two left partial annotations and three produced no scorable whole-genome output. The measured candidate completed all five.
 
-The result is a thin object that is drop-in compatible with the parasail result LiftOn consumes (it exposes `.traceback.{query,comp,ref}` and a `.cigar` following parasail's `=`/`X`/`I`/`D` convention), so no downstream consumer changes. The complexity becomes
-
-$$T_\text{win}(L) = O\!\left(L\,b\right), \qquad M_\text{win}(L) = O\!\left(b^2\right),$$
-
-i.e. memory is **independent of $L$**.
-
-**Gating ("band everything").** v1.0.11 makes windowing the *default for all sizes*, not just giants. The gate is low — $2500$ aa / $8000$ nt — with a fine band cap $b = 1500$, and the exact-DP fallback for anchor-less regions is raised to the giant boundary ($8000$ aa / $25000$ nt). The consequence is that windowing is *exact* (bitwise identical to full DP) wherever anchors exist (the common homologous case) or a divergent region is below the giant boundary; only true giant, anchor-less regions take the bounded approximate split. On real titin this reproduces full-DP identity to $\Delta = +0.00000$ at $82\times$ the speed. Tiny genes (below the gate) retain the exact full-DP path. The opt-out flag `--full-dp-align` (or `LIFTON_FULL_DP_ALIGN=1`) restores the exact giant-only path (full DP for every non-giant gene; giants still windowed so it cannot OOM); `LIFTON_ALIGN_WINDOW_{AA,NT}=∞` restores pure full DP for manuscript reproduction.
-
-### 2.3 Protein-maximization CDS chaining
-
-When both a Liftoff model and a miniprot model exist for a transcript, LiftOn chains them (`lifton/protein_maximization.py`, `chaining_algorithm`). Let the Liftoff and miniprot CDS-block lists be $\mathcal{C}_L = (c^L_1,\dots,c^L_{n_L})$ and $\mathcal{C}_M = (c^M_1,\dots,c^M_{n_M})$. The two lists are **synchronized by accumulated reference amino-acid count**: walking both lists, a sync point is a genomic boundary at which both sides have consumed the same cumulative number of reference residues. Between consecutive sync points the two sources cover the *same* reference protein interval, defining a "chunk" $j$. For each chunk the algorithm computes the partial protein identity of each source and keeps the higher:
-
-$$s_j = \operatorname*{arg\,max}_{s\in\{L,M\}} \;\mathrm{id}\!\left(\text{chunk}_j^{\,s}\right),$$
-
-with ties resolved in favor of Liftoff (which preserves the DNA-derived splice structure). The merged CDS list is the concatenation of the chosen chunks. The walk is a single linear pass over both lists with no auxiliary graph, so
-
-$$T_\text{chain} = O(n_L + n_M), \qquad M_\text{chain} = O\!\left(\max(n_L,n_M)\right).$$
-
-Degenerate inputs are handled explicitly: if either side has zero CDS children the Liftoff list is returned as-is; if either side has exactly one CDS block, the synchronization loop is bypassed and the whole alignment is compared as a single chunk.
-
-*Interactive — watch the chaining algorithm decide each chunk on a small worked example.*
-
-<LiftOnChaining />
-
-**Figure 9.** Interactive step-through of the protein-maximization CDS chaining. Liftoff (DNA) and miniprot (protein) CDS blocks are synchronized by cumulative reference amino-acids; at each chunk the higher-identity source is kept (ties → Liftoff), and the per-chunk winners are concatenated into the merged model. The example is illustrative (a 20-aa reference protein, three CDS blocks per source).
-
-### 2.4 Best-of-outcome merge
-
-A chained model that improves one chunk can still degrade the *emitted* transcript if the merge perturbs a downstream frame. v1.0.11 therefore adopts the merge **only when it is verified to be at least as good as the DNA-only model** (`lifton/run_liftoff.py`). For each transcript it evaluates two candidates *after* ORF rescue — the same protein the benchmark re-scores — and keeps the better:
-
-$$
-\text{emit} = \begin{cases}
-\text{(2) chained merge + ORF rescue}, & \text{if } \pi_\text{merge} \geq \pi_\text{liftoff} \\
-\text{(1) Liftoff + ORF rescue}, & \text{otherwise}
-\end{cases}
-$$
-
-where $\pi$ is the emitted protein identity against the reference and ties go to the merge. Because candidate (1) is exactly the result LiftOn would emit with miniprot disabled, enabling miniprot becomes a **strict per-transcript non-regression**: $\pi_\text{emit} = \max(\pi_\text{merge}, \pi_\text{liftoff}) \geq \pi_\text{liftoff}$. The merge candidate is evaluated first so the more expensive Liftoff+ORF candidate can be skipped whenever the merge already wins regardless of it (merge reaches a perfect protein, or the chained CDS is structurally identical to the Liftoff CDS). The opt-out flag `--legacy-merge` restores the pre-v1.0.9 *unconditional* merge (applying the chained CDS regardless of outcome), for exact reproduction of the published algorithm.
-
-**A third candidate (v1.0.11).** v1.0.11 adds a third best-of-outcome candidate: miniprot's *native* CDS-only model. Where the chained merge re-maps miniprot's coding segments onto Liftoff's exon scaffold, this candidate emits miniprot's own gene model directly — built on a fresh exon/CDS scaffold rather than routed through the coordinate-reconciliation path, which can corrupt a rebuilt model on divergent inputs. It is ORF-rescued like the others and adopted **only when its identity is *strictly* higher** than the two-way winner, and **only when every miniprot CDS child shares the transcript's strand** (an antisense best hit is never a valid replacement — the sole source of a handful of strand-consistency errors in a pre-guard prototype). The three-way maximum preserves the strict per-transcript non-regression; `--no-miniprot-candidate` (or `LIFTON_MINIPROT_CANDIDATE=0`) restores the two-way merge. This candidate is what lets v1.0.11 overtake v1.0.8 on the three most divergent genomes where the intermediate v1.0.9 had dipped (§3.3).
-
-### 2.5 ORF rescue and CDS boundary patching
-
-After chaining (or for DNA-only models), an ORF-rescue pass repairs CDS boundaries (`lifton/lifton_class.py`). The spliced transcript is scanned in all three reading frames; per frame the longest ORF is retained, and the resulting candidates (≤3) are each translated and globally aligned to the reference protein. The candidate of **highest identity** is selected, and it is adopted **only if it improves identity by more than 1%** over the current model:
-
-$$\text{adopt } o^\star \iff \mathrm{id}(o^\star) > \pi_\text{current} + 0.01, \qquad o^\star = \operatorname*{arg\,max}_{o}\, \mathrm{id}(o).$$
-
-When adopted, the ORF boundaries are mapped back through the (strand-aware) exon coordinates, adjusting or creating CDS features as needed. The 1% guard prevents cosmetic boundary churn that would not meaningfully improve the model.
-
-### 2.6 Gene-like feature autodetection and lift
-
-v1.0.8 lifted only the protein-coding `gene` hierarchy. v1.0.11 auto-detects and lifts **every** gene-like parent type by default (`lifton/lifton_utils.py`, `get_gene_like_feature_types`). A bounded scan (`sample_cap` = 5000 instances per type) classifies a feature type as gene-like iff at least one **top-level** instance (no `Parent`) carries a child feature — capturing pseudogenes, ncRNA/lnc_RNA genes, tRNA/rRNA/sno/snRNA, and structured mobile elements, while excluding childless meta/regulatory types (region, enhancer, match) and pure sub-feature types (exon, CDS). The detected set is injected into the lift configuration so that *both* LiftOn and the vendored Liftoff lift the same expanded set. Two safeguards preserve coding-gene behavior: (i) gene-like loci are kept *out* of the miniprot-suppression interval tree (seeded with `gene` only), so a pseudogene cannot displace a miniprot coding-gene rescue; and (ii) the output validator accepts exon/CDS nested under a pseudogene. The opt-out flag `--gene-only` restores the coding-only lift for exact reproduction of the published behavior.
-
-The detection predicate is *top-level only*, but the downstream enumeration must apply it per-instance. A gene-like type that also appears as a *child* of a gene (e.g. an `ncRNA` nested under a coding gene) must not be enumerated twice — once via its parent's recursion and once as a top-level locus — or its transcript is double-written, raising a `pyfaidx` duplicate-key error on the full *Arabidopsis* genome. v1.0.11 resolves this by skipping a child instance only when its parent's type is itself in the lift set (`extract_sequence.parent_is_listed_type`), which is byte-identical for any coding-only lift and for every top-level-only annotation (§3.1).
-
-### 2.7 Execution engine and the byte-identity contract
-
-The performance re-engineering is governed by a single discipline: **every optimization that is not intended to change the output must be provably byte-neutral.** The regression oracle is a **24-cell byte-identity matrix** (`tests/test_native_matrix.py`): every combination of `--stream × --inmemory-liftoff × --threads∈{1,2,4} × --native` ($2\cdot2\cdot3\cdot2 = 24$) must reproduce the default output GFF3 byte-for-byte. This decouples the engine from the algorithm — a refactor below the byte-identity line is free; a change above it requires a deliberate, documented output change. The byte-neutral optimizations are:
-
-- **Concurrent external aligners (Step 4).** miniprot (a subprocess that never touches the reference DB) runs on a background worker thread while Liftoff runs on the main thread (it reads the main-thread-bound SQLite reference DB and cannot move off it). Wall time becomes $\max(t_\text{Liftoff}, t_\text{miniprot})$ instead of the sum. Only miniprot's *timing* moves, so the output is unchanged. `--serial-aligners` restores the sequential path.
-- **Parallel, fused per-locus merge (Step 7).** Under `--threads N --locus-pipeline`, the per-locus loop is dispatched through a `ThreadPoolExecutor` (threads, not processes: parasail releases the GIL, and feature-DB connections are not picklable). To respect SQLite thread-affinity, each locus is materialized into proxy DBs that worker threads own privately. A *fused* pool has each worker materialize its own locus and then immediately process it, overlapping the SQLite-bound materialize with the GIL-released parasail and avoiding a full-payload barrier. Output is emitted in submission order, so any thread count is byte-identical to `--threads 1`.
-- **Streaming extraction and in-process aligner I/O.** `--stream` pipes miniprot's output into an in-memory feature DB and `--inmemory-liftoff` serializes the vendored Liftoff feature list in-process, each skipping a large GFF3 disk round-trip and SQLite re-ingest. `--native` drives minimap2/miniprot through in-process bindings.
-- **miniprot thread plumbing.** miniprot's own `-t` now scales with LiftOn's `-t` (gated on `>1` so the default is byte-identical to the prior fixed default).
-- **Query collapse (Step 3).** The per-feature extraction issues a single ordered child query plus an in-Python type partition instead of 2–3 separate queries; byte-neutral because the intervals are re-sorted before concatenation.
-- **Vendored-Liftoff hot-path backports (v1.0.11).** The reference-hierarchy build (`seperate_parents_and_children`) selects only the parent/child/feature id columns it needs instead of `SELECT *`, and the child-coordinate conversion computes each feature's relative coordinates once, hoists the loop invariants, and early-exits. Both are byte-neutral on a fresh Liftoff lift (`LIFTON_LEGACY_HIERARCHY=1` / `LIFTON_LEGACY_CONVERT=1` restore the prior paths); because this is inside the vendored Liftoff engine, byte-neutrality is verified by a fresh whole-genome lift `cmp`, not the cached-input 24-cell matrix.
-
-A counter-example is instructive: an attempt to build the two Step-5 feature databases concurrently was byte-identical but consistently *slower*, because `gffutils.create_db` is GIL-bound pure-Python parsing — two threads time-slice on one core rather than running in parallel. It was reverted. The general rule that emerged: thread-based concurrency helps only GIL-releasing work (subprocesses, parasail), never CPU-bound pure-Python.
-
-Four robustness fixes are *not* byte-neutral but are corrective, and each is byte-identical on every valid annotation (the 24-cell matrix stays green with no golden-file edit):
-
-1. **Crash handling.** v1.0.11 wraps the vendored Liftoff call with a recursion-limit guard and a full-traceback dump, and handles the `gffutils.FeatureNotFoundError` that crashed v1.0.8 mid-genome.
-2. **Gene-like child double-lift fix (§2.6).** Changes output only on annotations that previously crashed or double-lifted; byte-identical on every top-level-only annotation.
-3. **Malformed-feature write guard.** The GFF3 writer now catches the project's own `LiftOnError` base, so a single transcript with invalid (e.g. inverted `start > end`) coordinates — which the ORF-rescue path can produce on a pathological reference model — is dropped with a logged warning instead of aborting the whole-genome write phase. This lets v1.0.11 complete a full dog→cat lift (61,277 transcripts) that one malformed feature would otherwise have terminated at 11,048.
-4. **Write-time containment normalization.** This guarantees the emitted GFF3 is well-formed: on frameshift-corrected RefSeq models the ORF-boundary patching could leave a CDS extending a few base pairs past its exon (so the CDS/exon fell outside the mRNA span) or reuse a stale reference exon ID (duplicate exon IDs across the rebuilt structure) — invalid GFF3 the reference itself does not have. v1.0.11 widens each exon to cover its CDS, sorts the exons, and — only on a real ID collision — renumbers them 5′→3′, then sets the transcript/gene span to the child envelope; the gene-like-feature hierarchy (pseudogene / ncRNA / organellar children) is normalized recursively by the same pass. Because the **CDS coordinates are never touched, protein identity is provably unchanged**; it is a no-op on already-valid transcripts, and `LIFTON_NO_CONTAINMENT_NORMALIZE=1` reproduces the pre-normalization bytes. With it, the released v1.0.11 validates clean on most whole genomes (§3.7).
-
-### 2.8 Benchmark design and evaluation
-
-This report focuses on the regime that matters for real use: **whole-genome, end-to-end lift-overs**, where each tool runs from scratch on a complete target assembly. We evaluate **seventeen whole genomes** (Table 2), organized as a **same-species baseline** plus a **four-tier cross-species divergence ladder** that spans the full range a lift-over encounters in practice:
-
-- **Same-species baseline** (5 pairs) — independent assemblies or cultivars of *Arabidopsis*, honeybee, rice, maize, and tomato; a lift here has no cross-species divergence to overcome.
-- **Congeneric cross-species** (1 pair) — *D. melanogaster* → *D. erecta*.
-- **Close cross-species** (3 pairs) — human→gorilla, mouse→*Mus caroli*, tomato→potato.
-- **Distant cross-species** (3 pairs) — dog→cat, human→macaque, human→marmoset.
-- **Very-distant cross-species** (5 pairs), where genome-wide DNA synteny has essentially disappeared — *Arabidopsis*→rice (eudicot→monocot), human→zebrafish (mammal→fish), human→chicken (mammal→bird), human→frog (mammal→amphibian), *Drosophila*→honeybee.
-
-A second, companion suite of single-chromosome **subset** benchmarks serves a different, narrower purpose: a **controlled engine comparison** that holds the external aligners' output fixed (identical cached `-L`/`-M` inputs, single-threaded) so that speed and memory differences reflect *only* changes to LiftOn's own code, not to Liftoff or miniprot. This subset suite is not part of the whole-genome results below; it is used exclusively in §3.2 and §3.4, each flagged with an "Engine aside" note, and is archived in full in `MASTER_COMPARISON_REPORT.md`.
-
-**Tools.** Three homology lift-over tools are compared head-to-head: *Liftoff* (DNA lift-over via minimap2), *LiftOn v1.0.8* (the previous stable release; git tag `e503643d`, isolated environment), and *LiftOn v1.0.11* (the released build: development HEAD with the candidate-3 dual-evidence merge extension of §2.4, the write-time containment normalization, and the write-guard / gene-like-feature fixes of §2.7). *miniprot* (protein-to-genome) is **not a rival lift-over tool**: it is LiftOn's internal **protein evidence** — the `-M` input LiftOn fuses with the Liftoff DNA lift — and we show it alongside throughout for context (the apples-to-apples and coverage-weighted views), never as a competing baseline LiftOn must beat. The default-ON miniprot-only rescue is frozen off here via `--no-miniprot-rescue` for an apples-to-apples engine comparison; its recall contribution is reported as a separate arm (§4). The containment normalization changes only exon/mRNA/gene boundary and exon-ID lines and never CDS, so the accuracy and completeness numbers are independent of it; the §3.7 validity counts are measured on the released (normalization-ON) build with the current validator. Targets are independent assemblies, so a perfect lift is not guaranteed even within a species.
-
-**Tool-neutral scoring.** Every tool's output GFF3 is re-scored by the *same* parasail kernel (`benchmarks/compare/evaluator.py`), independent of each tool's self-reported numbers. A lifted transcript's CDS is translated and globally aligned to the reference protein with parasail [5] (BLOSUM62 [6]); the per-transcript protein identity is
-
-$$\mathrm{PI} = \frac{\#\{\text{identical aligned residues}\}}{\#\{\text{aligned columns}\}},$$
-
-and **mean protein identity** is the mean of $\mathrm{PI}$ over recovered coding transcripts. Coding completeness is
-
-$$\mathrm{completeness}_\text{coding} = \frac{N_\text{recovered coding}}{N_\text{reference coding}}.$$
-
-Tool transcripts are matched to reference IDs copy-suffix-aware; miniprot via its `Target` attribute. Output validity is the `gff3-validate` error count, applied with one consistent validator on all outputs.
-
-In addition to protein identity, v1.0.11 reports **coordinate-independent structural metrics** — per-transcript **intron-chain exactness**, **exon sensitivity/precision** (Sn·Sp), and **ORF validity** (starts with `M`, ends with a stop, no internal stop) — computed on the spliced 5′→3′ boundary *positions* (cumulative segment lengths) rather than absolute target coordinates, so a structurally identical model scores the same regardless of where it lands on the target. These catch structural regressions that mean protein identity can mask, and are reported common-set (transcripts a pair of builds share) versus added-set (newly-recovered genes) so a global mean is not diluted by the honestly-weaker models a rescue pass recovers.
-
-**v1.0.8 crashes on five of the seventeen.** All five fail with the same `FeatureNotFoundError → __str__ TypeError` defect (§1.3, §2.7) that aborts the Liftoff-gene serialization mid-run. On full RefSeq *Arabidopsis* and rice it leaves a *scorable* partial annotation (28% / 77% complete), so its mean identity there is computed over the fraction it completed and reported as the robustness result of §3.1. On maize and the two tomato pairs it aborts without a comparable whole-genome annotation (recorded as a crash with no v1.0.8 column). In the head-to-head accuracy of §3.3 we treat all five partial/absent runs as not directly comparable. v1.0.11 completes all seventeen.
-
-**Reproducibility.** Runs use a pinned conda environment and `PYTHONHASHSEED=0`. Source data and per-arm tables are archived under `benchmarks/compare/` (`fourway_results.json`, `version_compare.results.json`, `MASTER_COMPARISON_REPORT.md`).
-
-**Table 2.** The seventeen whole-genome lift-overs, by divergence tier (n coding = scored reference coding transcripts).
-
-| Whole genome | Reference → target | Divergence | n coding |
-|---|---|---|---:|
-| arabidopsis | *A. thaliana* (independent assemblies) | same-species | 48,265 |
-| bee | *A. mellifera* (independent assemblies) | same-species | 23,471 |
-| rice | *O. sativa* (independent assemblies) | same-species | 42,580 |
-| maize | *Z. mays* B73 → Mo17 | same-species | 57,345 |
-| tomato | *S. lycopersicum* Micro-Tom → Heinz 1706 | same-species | 44,391 |
-| drosophila | *D. melanogaster* → *D. erecta* | cross-species | 30,799 |
-| human→gorilla | *H. sapiens* → *G. gorilla* | close | 144,329 |
-| mouse→caroli | *M. musculus* → *M. caroli* | close | 96,192 |
-| tomato→potato | *S. lycopersicum* → *S. tuberosum* | close | 44,391 |
-| dog→cat | *C. l. familiaris* → *F. catus* | distant | 62,347 |
-| human→macaque | *H. sapiens* → *M. mulatta* | distant | 144,329 |
-| human→marmoset | *H. sapiens* → *C. jacchus* | distant | 144,329 |
-| arabidopsis→rice | *A. thaliana* → *O. sativa* (eudicot→monocot) | very distant | 48,265 |
-| human→zebrafish | *H. sapiens* → *D. rerio* (mammal→fish) | very distant | 144,329 |
-| human→chicken | *H. sapiens* → *G. gallus* (mammal→bird) | very distant | 144,329 |
-| human→xenopus | *H. sapiens* → *X. tropicalis* (mammal→amphibian) | very distant | 144,329 |
-| drosophila→bee | *D. melanogaster* → *A. mellifera* | very distant | 30,799 |
-
-*Interactive — step through how a single lifted transcript is scored, the metric behind every results table below.*
-
-<LiftOnEval />
-
-**Figure 10.** Interactive walkthrough of the tool-neutral evaluation. A lifted transcript is resolved to its reference id, its CDS is extracted from the target genome and translated, then globally aligned (parasail) to the reference protein; protein identity is identical columns ÷ aligned columns. Aggregated over the genome, this gives the completeness and mean-identity figures used throughout §3. The same kernel scores every tool, so no tool gets a scoring advantage.
-
-## 3. Results
-
-### 3.1 Full-genome robustness: finishing genomes v1.0.8 could not
-
-The single largest practical advance is robustness on whole genomes. On **five** of the seventeen, v1.0.8 aborts mid-run with the `FeatureNotFoundError → __str__ TypeError` defect (§2.7). On full RefSeq *Arabidopsis* and rice it leaves a scorable partial annotation; v1.0.11 completes both, recovering tens of thousands more coding transcripts (Table 3; Fig. 1): **+34,589** on *Arabidopsis* (13,618 → 48,207; coding completeness 28.21% → 99.88%) and **+9,594** on rice (32,933 → 42,527; 77.34% → 99.88%). On maize and the two tomato pairs v1.0.8 produces no scorable whole-genome annotation at all, while v1.0.11 completes each (maize 96.5%, tomato 99.5%, tomato→potato 93.0%).
-
-A second, distinct robustness fix lives in v1.0.11's own writer (§2.7). On the dog→cat lift the ORF-rescue path produced a single transcript with inverted (`start > end`) coordinates, which the GFF3 writer correctly rejected — but, because the writer's exception guard did not catch the project's own validation error, that one malformed feature propagated out of the parent-thread write phase and aborted the entire run at 11,048 of ~61,000 transcripts. The widened malformed-feature guard now drops that one transcript with a logged warning and completes the genome (61,277 transcripts; coding completeness 98.01%, leading the best single baseline by +0.034 mean identity). It is byte-identical on every valid annotation. This is the same class of "one bad feature must not abort a whole genome" hardening as the §2.6 gene-like fix.
-
-These crash and robustness fixes are the only places a whole-genome completeness gap reflects a tool failure rather than genuine biology: the five very-distant fulls, where both versions recover only a small fraction, are genuine low-recall-at-extreme-distance runs that both versions complete, and they belong with the accuracy discussion (§3.3, §3.5), not here.
-
-**Table 3.** Full-genome coding-transcript recovery on the genomes v1.0.8 crashes. "crash" = aborted with no scorable annotation.
-
-| Full genome | v1.0.8 recovered | v1.0.11 recovered | +v1.0.11 | v1.0.8 completeness | v1.0.11 completeness |
+{/* BEGIN GENERATED: legacy-recovery */}
+| Full genome | LiftOn v1.0.8 recovered | LiftOn candidate (7fc8419) recovered | gain | LiftOn v1.0.8 completeness | LiftOn candidate (7fc8419) completeness |
 |---|---:|---:|---:|---:|---:|
-| arabidopsis | 13,618 | 48,207 | +34,589 | 28.21% (partial crash) | 99.88% |
-| rice | 32,933 | 42,527 | +9,594 | 77.34% (partial crash) | 99.88% |
-| maize | crash | 55,353 | — | crash | 96.53% |
-| tomato | crash | 44,158 | — | crash | 99.48% |
-| tomato→potato | crash | 41,267 | — | crash | 92.96% |
+| arabidopsis | 13,618 | 48,207 | +34,589 | 28.21% (partial output) | 99.88% |
+| rice | 32,933 | 42,527 | +9,594 | 77.34% (partial output) | 99.88% |
+| maize | crash (no output) | 55,352 | — | crash (no output) | 96.53% |
+| tomato | crash (no output) | 44,160 | — | crash (no output) | 99.48% |
+| tomato→potato | crash (no output) | 41,265 | — | crash (no output) | 92.96% |
+{/* END GENERATED: legacy-recovery */}
 
-This was the headline product finding of the whole-genome validation, surfaced precisely *because* the benchmark exercised full RefSeq genomes across the divergence range. It also exposed (and fixed) two latent v1.0.11 defects — the gene-like child double-lift of §2.6 (without which v1.0.11 cannot complete full *Arabidopsis* at all) and the inverted-coordinate write crash above — both of which only manifest at full-genome scale, on features that live outside any single-chromosome subset.
+These rows establish historical crash recovery. They are not performance measurements: partial-run wall time and RSS are not comparable with a completed run.
 
-<ZoomFigure src={robustness} alt="Two panels. (A) Coding transcripts recovered on the five full RefSeq genomes v1.0.8 fails on — Arabidopsis and rice (v1.0.8 partial bars) and maize, tomato, tomato-to-potato (v1.0.8 zero, hatched) — with LiftOn v1.0.11 completing all five. (B) Gene-like feature recovery on full Arabidopsis, v1.0.8 versus v1.0.11." variant="wide">
-  <strong>Figure 1.</strong> LiftOn v1.0.11 finishes five full RefSeq genomes v1.0.8 cannot. <strong>(A)</strong> Coding transcripts recovered on the five full genomes v1.0.8 fails on: on *Arabidopsis* and rice v1.0.8 aborts partway (28% / 77% complete; hatched partial bars) while v1.0.11 completes both (~99.9%); on maize and the two tomato pairs v1.0.8 produces no scorable output at all (hatched zero) while v1.0.11 completes each (96.5% / 99.5% / 93.0%). <strong>(B)</strong> Gene-like feature recovery on full *Arabidopsis* — LiftOn v1.0.11 lifts pseudogenes, lnc_RNA genes, tRNAs and more that v1.0.8 drops by design (§3.6).
-</ZoomFigure>
+### 5.2 Protein identity and completeness
 
-### 3.2 Engine efficiency (controlled comparison)
+On the frozen full-genome set, the candidate's own-set mean protein identity exceeds Liftoff on all 17 genomes. The stricter common-recovered-set and coverage-weighted comparisons are also positive against Liftoff on all 17, so that conclusion does not depend only on which transcripts each tool recovers. The magnitude generally increases with divergence, but it is not described as monotonic and own-set averages are not called artifact-free.
 
-> *Engine aside.* The speed and memory numbers below are the **controlled comparison** on identical cached aligner inputs at `-t1` (a single-chromosome subset), isolating LiftOn's own execution from the external aligners. They are not whole-genome end-to-end wall times; the whole-genome resource picture is stated separately at the end of this section.
-
-Holding the aligner inputs fixed, v1.0.11 is lighter than v1.0.8 on every benchmark and faster on all of them (Table 4; Fig. 2). Both arms were re-measured on one idle host for this release, so the comparison is internally valid rather than assembled across machines. The memory win, driven by the windowed aligner (§2.2), is largest on the giant-gene genomes — honeybee 10.9 GB → 0.43 GB ($25.2\times$), mouse→rat 10.7 GB → 0.42 GB ($25.2\times$) — with wall time falling $1.7$–$1.8\times$ there; on genomes without giant genes the memory reduction is still $2.7$–$5.2\times$ and the speedup a more modest $1.1\times$, because the third merge candidate of §2.4 scores an extra model per transcript. Peak memory never exceeds **0.51 GB** on any of the five, against v1.0.8's 1.3–10.9 GB — the bound, not the average, is what makes whole-genome runs feasible on commodity hardware.
-
-**Table 4.** Controlled comparison (identical cached aligner inputs, `-t1`): wall time and peak resident memory.
-
-| Benchmark | wall v1.0.8 (s) | wall v1.0.11 (s) | speedup | RSS v1.0.8 (MB) | RSS v1.0.11 (MB) | RSS reduction |
-|---|---:|---:|---:|---:|---:|---:|
-| mouse_to_rat | 192.9 | 108.1 | 1.78× | 10,684 | 424 | 25.20× |
-| drosophila | 233.0 | 207.2 | 1.12× | 2,377 | 457 | 5.20× |
-| rice | 128.4 | 112.8 | 1.14× | 1,341 | 469 | 2.86× |
-| arabidopsis | 237.9 | 215.1 | 1.11× | 1,366 | 506 | 2.70× |
-| bee | 178.6 | 104.2 | 1.71× | 10,890 | 433 | 25.16× |
-
-<ZoomFigure src={perfImprovement} alt="Three-panel v1.0.8 to v1.0.11 improvement: wall-clock, peak memory, and gain factors on the controlled comparison" variant="wide">
-  <strong>Figure 2.</strong> On identical cached aligner inputs (`-t1`, controlled comparison), v1.0.11's bounded-memory engine cuts peak RAM by up to 25× and runs up to 1.8× faster than v1.0.8 (the speedup is narrower than the pure-engine v1.0.9's because the third merge candidate of §2.4 does extra per-transcript work). <strong>(A)</strong> wall-clock with speedup; <strong>(B)</strong> peak memory (log scale) with reduction factor; <strong>(C)</strong> the two gain factors side by side — memory reductions reach 25×.
-</ZoomFigure>
-
-**Whole-genome resources.** On a fresh whole-genome run the trade is different and worth stating plainly: v1.0.11 does *more computation* per genome than v1.0.8 — it scores both a DNA-only and a merged candidate for every transcript (§2.4) and lifts the full gene-like feature set beyond protein-coding genes (§3.6) — so although peak memory still falls sharply (bee·full 23.1 GB → 7.1 GB; full *Drosophila* 19.7 GB → 7.1 GB), end-to-end wall time can *rise* on the genomes both versions complete (bee·full and full *Drosophila* each ≈ 2× at these settings) and the complete expanded lift of a large genome is a multi-hour job (full rice ≈ 2.8 h at 8.2 GB peak). The decisive point is that the bounded memory is what makes these whole-genome runs *possible* on commodity hardware at all — v1.0.8 could not finish *Arabidopsis* or rice regardless of time (§3.1).
-
-### 3.3 Accuracy: ahead of the DNA baseline everywhere, with a divergence-dependent trade-off against the protein evidence
-
-Across the **seventeen whole-genome lift-overs**, LiftOn v1.0.11's accuracy is clearest in two comparisons that carry no denominator confound:
-
-1. **Against Liftoff (the DNA baseline LiftOn extends), scored on the same metric over the same tool family.** LiftOn is more accurate on **all seventeen genomes**, and the margin grows monotonically with divergence: Liftoff's mean identity collapses from ~0.99 on same-species data to **0.15–0.31** across the very-distant tier (0.31 eudicot→monocot, 0.16 mammal→fish, 0.15 mammal→bird) while LiftOn holds far higher, because the protein evidence survives where the DNA model frameshifts and the per-chunk maximization of §2.3 keeps whichever signal is locally better (Fig. 3B).
-2. **Against the protein evidence (miniprot), apples-to-apples on the transcripts both recover** — the only confound-free way to read LiftOn against the protein signal it fuses. LiftOn's per-transcript advantage is genuine and **peaks on the distant tier** (+0.024 to +0.035 mean protein identity: dog→cat, human→macaque, human→marmoset; Fig. 4A) — but, as comparison 3 below shows, this reverses at very-distant divergence, where the story is a trade-off rather than a further LiftOn lead.
-
-**3. The aggregate set-mean — and why it is not the whole story at very-distant divergence.** LiftOn over the *better* of the DNA baseline (Liftoff) and the protein evidence (miniprot) is positive on all seventeen genomes (Fig. 4A; from +0.00069 on same-species *Arabidopsis* to **+0.13424** at the mammal→bird extreme). This statistic averages over each tool's **own** recovered set, so it is partly a *denominator effect* at very-distant divergence, where LiftOn and the protein evidence recover very different fractions of the reference. The joint recall-vs-identity view of Fig. 4 deconstructs it: the apples-to-apples lead from comparison 2 is positive through the distant tier but **reverses on four of the five very-distant genomes** (common-set Δ vs the protein evidence: −0.092 zebrafish, −0.012 *Xenopus*, −0.005 chicken, −0.008 *Arabidopsis*→rice, +0.001 *Drosophila*→bee), and the coverage-weighted identity (recall × accuracy) favours the protein evidence there because it recovers far more of the reference — the recall side of the trade-off detailed in §3.5. At very-distant divergence, then, LiftOn delivers **high-precision refinement of the recoverable DNA-anchored core, not higher recall**; the **default-ON miniprot-only rescue** (§4), frozen off here for an apples-to-apples engine comparison, is what closes the recall gap.
-
-Against the previous stable release, v1.0.11 is **at or above v1.0.8 on every one of the twelve genomes both versions completed** — strictly higher on eleven and tied on *Drosophila*→bee (both 0.49673) — with **no fractional dip anywhere**. This closes the one blemish of the intermediate v1.0.9, which regressed marginally against v1.0.8 at the three most extreme distances; the candidate-3 merge extension and the correctness fixes of §2.4 turn all three positive: human→zebrafish +0.00133, human→chicken +0.00521, human→xenopus +0.00221 (each on a transcript set both versions recover at under 25%, §3.5 — both recover essentially the same small set, so the head-to-head is artifact-free). Representative gains on the completing pairs: drosophila +0.00111, human→gorilla +0.00132, mouse→caroli +0.00306, dog→cat +0.00511, human→macaque +0.00223, human→marmoset +0.00204, plus *Arabidopsis*→rice +0.00071. On *Arabidopsis*, rice, maize, and the two tomato pairs, v1.0.8 **crashed** and never produced a comparable whole-genome number (its *Arabidopsis*/rice values are partial-run artifacts over the 28% / 77% completed before aborting; maize and tomato left no scorable annotation); v1.0.11 completes all five (§3.1).
-
-**Table 5.** Whole-genome mean protein identity by tool (tool-neutral re-score), by divergence tier. The last column is LiftOn v1.0.11's lead over **Liftoff** — the DNA baseline it extends (matches Fig. 3B). *miniprot* is the **protein evidence** LiftOn fuses, shown for context, not a rival lift-over tool. *Italic* v1.0.8 entries are partial-run values from a crashed lift; "crash" = aborted with no scorable annotation (§3.1); both are not directly comparable.
-
-| Whole genome | Divergence | Liftoff | *miniprot (evidence)* | v1.0.8 | **v1.0.11** | v1.0.11 − Liftoff |
+{/* BEGIN GENERATED: legacy-accuracy */}
+| Whole genome | Divergence | Liftoff | *miniprot (evidence)* | LiftOn v1.0.8 | **LiftOn candidate (7fc8419)** | candidate − Liftoff |
 |---|---|---:|---:|---:|---:|---:|
 | arabidopsis | same | 0.99836 | 0.99619 | 0.99884 | **0.99905** | +0.00069 |
 | bee | same | 0.98071 | 0.98046 | 0.99024 | **0.99051** | +0.00980 |
@@ -398,42 +421,16 @@ Against the previous stable release, v1.0.11 is **at or above v1.0.8 on every on
 | human→chicken | very distant | 0.15219 | 0.64493 | 0.77396 | **0.77934** | +0.62715 |
 | human→xenopus | very distant | 0.15840 | 0.60055 | 0.71792 | **0.72018** | +0.56178 |
 | human→zebrafish | very distant | 0.16318 | 0.54472 | 0.56313 | **0.56440** | +0.40122 |
+{/* END GENERATED: legacy-accuracy */}
 
-Table 5 and Fig. 3 show the pattern directly: the DNA-only Liftoff is competitive on same-species data but **collapses with divergence**, while LiftOn — fusing the DNA lift with the protein evidence — holds far higher and pulls furthest ahead of Liftoff exactly where the DNA signal degrades most.
-
-<ZoomFigure src={fullAccuracy} alt="Two panels over the seventeen whole genomes. (A) Mean protein identity for the three lift-over tools (Liftoff, LiftOn v1.0.8, v1.0.11) per whole genome; LiftOn v1.0.11 (green) is at or above the DNA-only Liftoff everywhere while Liftoff collapses on the very-distant pairs. (B) LiftOn v1.0.11 minus Liftoff (the DNA baseline) per whole genome, positive on all seventeen and growing from negligible on same-species genomes to large at the very-distant extremes." variant="wide">
-  <strong>Figure 3.</strong> LiftOn v1.0.11 is more accurate than the DNA-only Liftoff on every whole genome, and its value over the pure-DNA model grows with divergence. <strong>(A)</strong> Mean protein identity for the three lift-over tools (each over its own recovered set) across the four-tier divergence ladder — LiftOn v1.0.11 leads the DNA-only Liftoff everywhere, which collapses from ~0.99 to 0.15–0.31 as synteny disappears. <strong>(B)</strong> LiftOn v1.0.11 − Liftoff per whole genome — an artifact-free, same-metric comparison against the DNA baseline LiftOn extends: positive on all seventeen (17/17), negligible on same-species genomes (the DNA model is already near-perfect) and large at the very-distant extremes (where DNA collapses and the protein evidence carries the model). The confound-free head-to-head against the protein evidence (miniprot) is Fig. 4.
+<ZoomFigure src={legacyAccuracy} alt="Frozen legacy whole-genome protein-identity comparison. The measured candidate is identified by functional SHA 7fc8419 rather than labeled as an exact v1.0.11 tag execution." variant="wide">
+  <strong>Figure 3.</strong> Historical cross-tool context from the frozen four-way study. LiftOn's candidate arm leads Liftoff on all 17 own-set means; common-set and coverage-weighted checks support the same direction. This figure is not part of the exact-release performance verdict.
 </ZoomFigure>
 
-<ZoomFigure src={applesToApples} alt="Two panels over the full genomes reading LiftOn against the protein evidence (miniprot) it fuses. (A) For each whole genome, the grey bar is LiftOn v1.0.11's set-mean lead over the better single signal and the coloured bar is its apples-to-apples lead over the protein evidence on the transcripts both recover; the coloured bar is green (positive) through the distant tier but turns red (negative) on four of the five very-distant genomes, exposing the set-mean lead there as a denominator artifact. (B) Coverage-weighted protein identity (recall times accuracy); the protein evidence leads on the very-distant genomes because it recovers far more transcripts." variant="wide">
-  <strong>Figure 4.</strong> The protein-evidence view: reading LiftOn v1.0.11 against the miniprot signal it fuses (evidence, not a rival lift-over tool). The genuine per-transcript accuracy win is on the distant tier; the very-distant set-mean lead is largely a denominator artifact. <strong>(A)</strong> For each whole genome, the set-mean lead over the better of Liftoff and the protein evidence (grey) vs the apples-to-apples lead over the protein evidence on the common recovered set (green = positive, red = negative; common-set size *n* annotated): the per-transcript advantage peaks on the distant tier and reverses on four of five very-distant genomes. <strong>(B)</strong> Coverage-weighted protein identity (recall × accuracy) — the protein evidence leads at very-distant because it recovers far more of the reference, the recall side of the trade-off (§3.5).
-</ZoomFigure>
+Miniprot answers a different question. It is unconstrained protein-to-genome evidence, not a reference-structured lift-over, so it can recover far more coding transcripts after DNA synteny collapses. Through the distant tier, LiftOn's common-set advantage over miniprot is positive on every measured pair except one close-tier case (`tomato→potato`, −0.00220). At the very-distant tier, four of five pairs favor miniprot on common-set identity, and all five favor it on recall. The honest interpretation is a precision/recall transition, not an unqualified LiftOn win at arbitrary evolutionary distance.
 
-### 3.4 Where the accuracy gain comes from — controlled-input comparison
-
-> *Engine aside.* This subsection isolates LiftOn's own algorithm on **identical cached aligner inputs** (a single-chromosome subset at `-t1`), not a whole-genome end-to-end run; it explains the source of the v1.0.11 whole-genome lead in §3.3.
-
-On identical inputs, the best-of-outcome merge (§2.4) improves many transcripts and regresses almost none (Table 6). On divergent pairs the effect is substantial — drosophila 117 improved / 1 regressed ($+0.00371$ mean PI), mouse→rat 89 improved / 0 regressed ($+0.00437$) — and on the near-identical same-species pairs it is smaller but still strictly one-sided (bee 25/0, *Arabidopsis* 9/0, rice unchanged). A one-sided paired sign test on these improved/regressed counts rejects no-effect overwhelmingly on the divergent pairs ($p < 10^{-24}$ for both drosophila 117/1 and mouse→rat 89/0) and is directional even on the small same-species lead ($p \approx 0.002$ for *Arabidopsis* 9/0) — so even the fractional same-species gain is consistent improvement, not noise. This is the empirical signature of the strict-non-regression design of §2.4: the merge replaces a Liftoff CDS only when the merged model scores strictly higher against the reference protein.
-
-**Table 6.** v1.0.11 vs. v1.0.8 on identical inputs (controlled arm).
-
-| Benchmark | n common | mean PI v1.0.8 | mean PI v1.0.11 | Δ | improved | regressed |
-|---|---:|---:|---:|---:|---:|---:|
-| arabidopsis | 12,632 | 0.99886 | 0.99897 | +0.00011 | 9 | 0 |
-| bee | 3,122 | 0.99094 | 0.99181 | +0.00087 | 25 | 0 |
-| drosophila | 7,125 | 0.92210 | 0.92581 | +0.00371 | 117 | 1 |
-| mouse_to_rat | 2,121 | 0.90521 | 0.90958 | +0.00437 | 89 | 0 |
-| rice | 5,850 | 0.99905 | 0.99905 | +0.00000 | 0 | 0 |
-
-An attribution analysis (running the v1.0.11 binary with v1.0.8's algorithm flags, `--legacy-merge --full-dp-align --gene-only`) confirms that the gain is dominated by the flag-gated algorithm promotions rather than incidental code changes: on drosophila the promotions contribute $+0.003732$ (119/1) against a near-zero non-flag residual ($-0.00002$, 8/5); on mouse→rat the promotions contribute $+0.005349$ (95/0) against a small non-flag residual ($-0.00098$, 0/10) from the v1.0.11 correctness fixes that the promotions more than overcome. (These improved/regressed counts are measured against the legacy-flags baseline, so they differ from Table 6's counts against v1.0.8 — e.g. mouse→rat's 95 here vs 89 there.)
-
-### 3.5 Completeness: a precision/recall trade-off at very-distant divergence
-
-On coding-transcript completeness the seventeen whole genomes split into two regimes (Table 7; Fig. 5). On the **same-species through distant** genomes every tool that completes recovers most or all of the coding set: the same-species and cross-species pairs sit at ≥ 96.5% for the completing tools, and the close and distant cross-species mammalian pairs at 88–100%. On the **very-distant** pairs an honest trade-off emerges: because LiftOn anchors each model on a Liftoff DNA lift, when genome-wide synteny is gone the anchor almost vanishes and LiftOn recovers only a small fraction (4.5–24.4%), whereas the protein evidence (miniprot), whose unconstrained protein search is not anchored to the DNA lift, recovers far more (66.7–85.8%) — but, as §3.3 shows, at substantially lower per-transcript identity. The relationship to Liftoff captures the design exactly: on the **very-distant** tier LiftOn's completeness *exceeds* Liftoff's (e.g. *Arabidopsis*→rice 14.8% vs 1.6%, *Drosophila*→bee 8.5% vs 0.6%), because the protein evidence rescues transcripts the DNA alignment alone could not place in-frame; on the **same-species** genomes the two match; and on the **close and distant mammalian** pairs LiftOn is marginally *below* Liftoff (by ≤ 0.8%), a small recall cost it pays for the per-transcript accuracy gain of §3.3 — it prioritizes consistent, in-frame transcript structure over placing every marginal model.
-
-**Table 7.** Whole-genome coding-transcript completeness by tool (% of reference), by divergence tier. *miniprot* is the **protein evidence** (context), not a rival lift-over tool — its high recall at very-distant divergence is the recall side of the trade-off (§3.3), recovered at much lower per-transcript identity. *Italic* = partial-run value from a crashed v1.0.8 lift; "crash" = aborted with no scorable annotation (§3.1).
-
-| Whole genome | Divergence | Liftoff | *miniprot (evidence)* | v1.0.8 | **v1.0.11** |
+{/* BEGIN GENERATED: legacy-completeness */}
+| Whole genome | Divergence | Liftoff | *miniprot (evidence)* | LiftOn v1.0.8 | **LiftOn candidate (7fc8419)** |
 |---|---|---:|---:|---:|---:|
 | arabidopsis | same | 99.90% | 99.92% | 28.21% | **99.88%** |
 | bee | same | 99.54% | 99.85% | 99.54% | **99.54%** |
@@ -452,209 +449,95 @@ On coding-transcript completeness the seventeen whole genomes split into two reg
 | human→chicken | very distant | 23.99% | 85.63% | 24.89% | **24.37%** |
 | human→xenopus | very distant | 7.13% | 85.78% | 8.99% | **8.82%** |
 | human→zebrafish | very distant | 2.82% | 82.18% | 4.61% | **4.51%** |
+{/* END GENERATED: legacy-completeness */}
 
-<ZoomFigure src={fullCompleteness} alt="Coding-transcript completeness for the three lift-over tools on the seventeen whole genomes (grouped bars), with the protein evidence (miniprot) shown as separate diamond markers; same-species through distant genomes are near-complete (with v1.0.8's crash bars marked), and on the very-distant pairs the protein evidence recovers far more transcripts than the DNA-anchored LiftOn but at lower identity." variant="wide">
-  <strong>Figure 5.</strong> Coding completeness for the three lift-over tools (bars); the protein evidence (miniprot) is shown as separate markers (◆), not a headline bar. Through the distant tier every completing tool recovers most or all of the coding set; at very-distant divergence the protein evidence recovers far more transcripts than the DNA-anchored LiftOn — the recall side of the trade-off whose accuracy side is Figs. 3–4. v1.0.8's marked bars are its mid-run crashes (*Arabidopsis* 28%, rice 77%, and three plant genomes that aborted with no scorable output).
-</ZoomFigure>
+The legacy default-rescue A/B study adds 12,131 coding transcripts across the 17 full genomes. Because those measurements use another protocol, they are not combined numerically with the controlled no-rescue panels. The exact campaign's end-to-end panel is the release-level evidence for behavior with output-affecting defaults retained.
 
-### 3.6 Feature breadth: lifting the rest of the genome
+### 5.3 Validator history and external tools
 
-A reference annotation is more than its protein-coding genes: pseudogenes and non-coding RNA genes are routinely used in regulatory and comparative-genomics analyses, and a lift-over tool that silently drops them hands the user a narrower genome map than the reference actually has, with no indication anything is missing. Because v1.0.11 lifts every gene-like parent type by default, it recovers large numbers of features v1.0.8 silently dropped (Table 8; Fig. 1B). v1.0.8 lifts **zero** gene-like features by design — it is coding-only — so this breadth gap is a capability difference, not a crash artifact. On full *Arabidopsis* it lifts 4,816 of 4,851 pseudogenes (v1.0.8: 0), grows lnc_RNA recovery from 1,197 to 3,878 (all of them), and substantially increases tRNA, rRNA, sno/snRNA, ncRNA, and antisense_RNA recovery; full rice, *Drosophila*, and honeybee show the same pattern (rice 1,593 pseudogenes, drosophila 120, bee 33, all from 0).
+The former report compared raw error counts from an older, capped validator. Many baseline rows stopped at exactly 50 errors, while the current validator reports the full duplicate-ID and header inventory. Those counts are not commensurate, so this revision removes the old raw-count leaderboard. Exact-release candidate pass/fail is primary; v1.0.8's current-validator outcome is shown separately as a non-blocking diagnostic.
 
-**Table 8.** Gene-like feature recovery where v1.0.11 differs from v1.0.8 (representative types).
+A small LiftOver/CAT study remains informative only as feasibility context. Coordinate LiftOver could be evaluated on two tractable subsets but does not repair coding frame. CAT and Cactus required alignments that were unavailable or exceeded hundreds of gigabytes on the divergent subsets. That limited study cannot support a general ranking and is therefore not a headline result.
 
-| Benchmark | Feature type | n reference | v1.0.8 | v1.0.11 | +v1.0.11 |
-|---|---|---:|---:|---:|---:|
-| arabidopsis·full | pseudogene | 4,851 | 0 | 4,816 | +4,816 |
-| arabidopsis·full | lnc_RNA | 3,878 | 1,197 | 3,878 | +2,681 |
-| arabidopsis·full | tRNA | 684 | 235 | 663 | +428 |
-| arabidopsis·full | ncRNA | 540 | 96 | 314 | +218 |
-| arabidopsis·full | snoRNA | 287 | 91 | 283 | +192 |
-| arabidopsis·full | primary_transcript | 326 | 93 | 325 | +232 |
-| rice·full | pseudogene | 1,605 | 0 | 1,593 | +1,593 |
-| rice·full | lnc_RNA | 6,277 | 4,487 | 6,271 | +1,784 |
-| rice·full | rRNA | 200 | 9 | 188 | +179 |
-| bee·full | pseudogene | 42 | 0 | 33 | +33 |
-| drosophila·full | pseudogene | 339 | 0 | 120 | +120 |
+## 6. Limitations and reproducibility
 
-*Honest caveat.* One nested type does **not** improve: mature `miRNA` recovery on full *Arabidopsis* remains low (1/428). This reflects a pre-existing transcript-centric handling of miRNA products nested under `primary_transcript` (whose parent `primary_transcript` *is* lifted, at 99.7%); it is unrelated to the gene-like lift and unchanged by it.
+1. **One non-exclusive shared host, several concurrency epochs.** Alternating order and paired repetitions reduce local host-state bias, but campaign orchestration, monitoring, verification work, and unrelated host activity can still contribute contention. The measurements describe throughput under those observed shared-host conditions; they do not estimate isolated-machine performance or variation across machines, storage systems, kernels, or schedulers. The cell-level bootstrap reflects heterogeneity across benchmark cases, not a population of independent computers.
+2. **Some host provenance was reconstructed.** Source, inputs, dependency metadata, annotation-tool versions, and controller policy were frozen before execution; a complete `/proc` hardware snapshot and the GNU Time version were not. Finalization-time CPU, RAM, kernel, and GNU Time 1.9 values are labeled accordingly and should not be used as exact historical telemetry.
+3. **RSS is a command-level statistic.** GNU-time maximum RSS is comparable across the paired wrappers but is not a sampled simultaneous process-tree peak. The slot sum can err in either direction relative to actual host demand, so the 192 GiB threshold is an engineering admission proxy rather than a hardware-capacity claim.
+4. **Protocol-specific performance.** Cached controlled panels isolate LiftOn after evidence alignment; end-to-end panels include evidence generation. Their timings are reported separately and are never pooled with the older fresh/full timing files or isolated diagnostic reruns.
+5. **The missing paired controls are informative, not random.** Five controlled complete-genome cases lack all four ratios because exact v1.0.8 crashes deterministically. The same defect removes all four end-to-end repetitions of Arabidopsis and rice, so the observed E2E panel describes bee, human, and mouse only. Neither observed panel should be generalized to its omitted inputs' performance distribution.
+6. **Corrected scoring is post-run.** The immutable overlay repairs evaluator feature-type handling while preserving every output and profile hash. It validates the accuracy calculation; it cannot repair an invalid GFF3 or convert a failed arm into a successful execution.
+7. **No independent target truth in `canonical-v1`.** The evaluator compares recovered reference content and sequence/structure plausibility. It cannot prove that an emitted model occupies the biologically correct target locus; synthetic and orthology-backed truth protocols belong to a separate campaign profile.
+8. **Reference diagnostics are not candidate gates.** v1.0.8 emits structures rejected by the current validator and can fail legacy duplicate-ID lookups after its fallback. The report exposes those defects and keeps reference determinism blocking, but candidate validity remains independently mandatory.
+9. **Very-distant transfer remains recall-limited.** A DNA-anchored lifter cannot recover every gene after synteny disappears. Miniprot-only rescue narrows that gap but does not turn LiftOn into a de novo annotation system.
+10. **Legacy external comparisons are sparse.** The LiftOver/CAT subset is constrained by prerequisite whole-genome alignments and should not be generalized beyond the measured cells.
 
-### 3.7 Output validity
+The generated publication set contains the machine-readable metrics, every gate and threshold, source SHAs, bootstrap seed, controller evidence, and SHA-256 fingerprints of the underlying cell results. Raw controller state remains under the ignored `_runs` tree because full GFF3s and transcript tables are too large for Git; the publication manifest binds those files by content hash.
 
-Re-validating every output with one consistent `gff3-validate` yardstick, v1.0.11 — with the default-ON containment normalization of §2.7 — **validates clean (0 errors) on 12 of the 17 whole genomes** (Table 9; Fig. 6), and **no genome exceeds 11 errors**. It is **markedly cleaner than v1.0.8 on every genome both produced** — drosophila 150 → 0, dog→cat 159 → 0, human→gorilla 128 → 0, bee 103 → 0, rice 174 → 1, *Arabidopsis*→rice 225 → 1 — because the normalization removes the duplicate-exon-ID and CDS-past-exon errors that LiftOn's chaining used to introduce (the reference itself has none of them). It is also **cleaner than the DNA-only Liftoff on every one of the 17 genomes** (e.g. drosophila 85 → 0, dog→cat 57 → 0, arabidopsis 89 → 11). The small residuals that remain are concentrated on the **plant genomes** (arabidopsis 11, maize 10, rice 1, tomato 1, *Arabidopsis*→rice 1) and are **reference-inherited, not LiftOn-introduced**: organellar (mitochondrial/plastid) genes annotated with CDS directly under `gene`, plus duplicate organellar IDs — structures the strict validator flags but that LiftOn faithfully carries from references that themselves fail the same checks far *more* (the *Arabidopsis* reference alone carries 159 such errors, against 11 in LiftOn's output).
+To reproduce an ordinary LiftOn run:
 
-**Table 9.** Whole-genome `gff3-validate` error counts (lower is better), released v1.0.11 with the current validator. *miniprot* is the protein evidence (context), not a rival lift-over tool. "—" = v1.0.8 crashed with no output. v1.0.11 validates clean (0) on 12 of 17 and is lower than Liftoff on all 17; the non-zero plant rows are reference-inherited organellar structures (§3.7).
-
-| Whole genome | Divergence | Liftoff | *miniprot (evidence)* | v1.0.8 | **v1.0.11** |
-|---|---|---:|---:|---:|---:|
-| arabidopsis | same | 89 | 50 | 149 | **11** |
-| bee | same | 50 | 50 | 103 | **0** |
-| maize | same | 112 | 50 | — | **10** |
-| rice | same | 93 | 50 | 174 | **1** |
-| tomato | same | 104 | 50 | — | **1** |
-| drosophila | cross | 85 | 50 | 150 | **0** |
-| human→gorilla | close | 50 | 50 | 128 | **0** |
-| mouse→caroli | close | 51 | 50 | 152 | **0** |
-| tomato→potato | close | 80 | 50 | — | **0** |
-| dog→cat | distant | 57 | 50 | 159 | **0** |
-| human→macaque | distant | 50 | 50 | 147 | **0** |
-| human→marmoset | distant | 50 | 50 | 150 | **0** |
-| arabidopsis→rice | very distant | 73 | 50 | 225 | **1** |
-| drosophila→bee | very distant | 50 | 50 | 125 | **0** |
-| human→chicken | very distant | 50 | 50 | 121 | **0** |
-| human→xenopus | very distant | 50 | 50 | 112 | **0** |
-| human→zebrafish | very distant | 42 | 50 | 107 | **0** |
-
-<ZoomFigure src={fullValidity} alt="Grouped bar chart of gff3-validate error counts on the seventeen whole genomes, LiftOn v1.0.8 versus the released v1.0.11; v1.0.11 is far lower on every genome both versions produced, reaching zero on nine, with the reduction annotated on each; the three v1.0.8-crash genomes show only the v1.0.11 bar." variant="wide">
-  <strong>Figure 6.</strong> v1.0.11's containment normalization makes the output validate clean — **0 `gff3-validate` errors on 12 of 17 whole genomes** — and far below v1.0.8 on every genome both produced (each reduction annotated). The non-zero plant rows are reference-inherited organellar structures (the references fail the same checks *more*; see text), and the three plant genomes where v1.0.8 crashed show only the v1.0.11 bar.
-</ZoomFigure>
-
-**Table 10** summarizes the algorithmic parameters and complexities introduced in §2.
-
-**Table 10.** Parameters and complexity summary.
-
-| Component | Key parameter | Time | Memory |
-|---|---|---|---|
-| Full-DP base aligner | — | $O(L^2)$ | $O(L^2)$ |
-| Windowed aligner (default) | gate 2500 aa / 8000 nt; band cap $b=1500$ | $O(L\,b)$ | $O(b^2)$ |
-| Protein-maximization chaining | sync by cumulative ref AA | $O(n_L+n_M)$ | $O(\max(n_L,n_M))$ |
-| Best-of-outcome merge | $\pi_\text{merge}\geq\pi_\text{liftoff}$ | $2\times$ candidate score | $O(1)$ |
-| ORF rescue | adopt iff $\Delta\mathrm{id}>0.01$ | $O(L)$ scan + ≤3 re-scores | $O(1)$ |
-| Gene-like detection | sample_cap = 5000/type | $O(T\,s)$ | $O(T)$ |
-
-### 3.8 Broader comparison: coordinate LiftOver and CAT
-
-The seventeen-genome study above compares the three **homology lift-over** tools that take only a
-reference genome, its annotation, and a target genome. Two widely-used tools sit *outside* that
-input class, and a representative sub-study places LiftOn against them on equal, tool-neutral
-footing: **coordinate LiftOver** (CrossMap projecting the reference annotation through a
-chain) and the **Comparative Annotation Toolkit (CAT)**. Both are alignment-based: they require a
-precomputed **whole-genome Cactus alignment** of the pair (LiftOver consumes a chain extracted
-from it; CAT consumes the HAL directly). We built that alignment ourselves per pair and re-scored
-every tool with the same parasail kernel used throughout. The sub-study was scoped to five
-representative pairs, one per divergence tier; **the result is as much about feasibility as about
-accuracy.**
-
-**Where the alignment-based tools can run, LiftOn leads and LiftOver is out-of-class.** The
-Cactus alignment converged only on the two least-divergent pairs — same-species maize B73→Mo17 and
-close human→gorilla. There, LiftOn v1.0.11 has the highest re-scored protein identity (Table 11), as
-in the main study, while coordinate LiftOver behaves exactly as its mechanism predicts: it lifts
-**most features** (99.4% of reference coding transcripts on human→gorilla, 85.5% on the
-structurally-variable maize pair) but its re-translated CDS scores **well below even the DNA-only
-Liftoff** (0.920 vs 0.963 on gorilla; 0.841 vs 0.917 on maize) because coordinate projection does
-**not correct frame**. Reported honestly as a *dual* metric — a high feature-lift rate and a low
-protein identity (Fig. 7C) — LiftOver is a complementary coordinate tool, not a rival annotation
-lift-over method: it answers "where does this interval land?", not "what is the correct gene model
-on the target?".
-
-**Where divergence is high — the regime that matters most — the alignment-based tools cannot run
-at all.** On the three divergent pairs (dog→cat, *Arabidopsis*→rice, human→chicken), building the
-required Cactus alignment was **intractable**. `cactus_consolidated` exhausts memory
-super-linearly with divergence: a clean dog→cat subset run was issued **279 GB** for the
-consolidation job and still aborted (`Cannot allocate memory`), and a final attempt at **700 GB
-of memory on a 1 TB machine OOMed again** — a ~700× blow-up for a 380 MB subset, driven by the
-divergent all-vs-all alignment graph (not by masking: the inputs are 46–49% soft-masked). dog→cat
-is the *smallest* of the three divergent subsets, so the larger, more divergent *Arabidopsis*→rice
-and human→chicken are at least as infeasible. CAT compounds this: even on the close human→gorilla
-HAL it completed only 18 of 21 of its luigi tasks before its internal toil sub-workflows
-(chaining, hint generation) failed, so CAT yields no scorable annotation here at all. The homology
-lift-over tools, by contrast, **already ran on all three divergent pairs** as whole genomes
-(Table 5: LiftOn v1.0.11 reaches 0.873 dog→cat, 0.551 *Arabidopsis*→rice, 0.779 human→chicken)
-because they need only `(reference, reference-annotation, target)` and no precomputed alignment.
-
-This is the sharpest statement of the input-class distinction that runs through the whole report.
-The alignment-based comparison class — CAT and chain-based LiftOver — is **gated by a
-whole-genome alignment that does not scale to divergence**, exactly the regime where annotation
-transfer is hardest and a dual-evidence method is most valuable. LiftOn occupies the other class:
-it builds its own DNA and protein evidence from the raw genomes, runs on every pair from
-same-species to mammal→bird, and leads on accuracy wherever a head-to-head is even possible.
-
-**Table 11.** Broader-comparison sub-study (chromosome-subset, tool-neutral re-score), on the two
-pairs where the required Cactus alignment was tractable. LiftOver is shown with its *dual* metric:
-re-scored protein identity (no frame correction) and feature-lift rate. *miniprot* is the protein
-evidence (context). The three divergent pairs admit no LiftOver/CAT column — the Cactus alignment
-both require could not be built.
-
-| Pair | Tier | Liftoff | v1.0.8 | **v1.0.11** | LiftOver (protein id) | LiftOver (feature-lift rate) | *miniprot* | Cactus |
-|---|---|---:|---:|---:|---:|---:|---:|:--|
-| maize B73→Mo17 | same-species | 0.917 | 0.946 | **0.950** | 0.841 | 0.855 | *0.938* | ✅ |
-| human→gorilla | close | 0.963 | 0.974 | **0.979** | 0.920 | 0.994 | *0.964* | ✅ |
-| dog→cat | distant | *(see Table 5)* | | | — | — | | ❌ cons > 700 GB |
-| *Arabidopsis*→rice | very-distant | *(see Table 5)* | | | — | — | | ❌ cons > 279 GB |
-| human→chicken | very-distant | *(see Table 5)* | | | — | — | | ❌ |
-
-<ZoomFigure src={extcompare} alt="Three panels on the two tractable subset pairs (maize same-species, human-gorilla close). (A) Mean protein identity: LiftOn v1.0.11 highest on both, LiftOver (grey, hatched) lowest. (B) Coding completeness: all high except LiftOver, miniprot evidence marked. (C) LiftOver dual metric: feature-lift rate (high) versus re-translated protein identity (low), showing it lifts most features but cannot preserve reading frame. The three divergent pairs are absent because their Cactus alignment was intractable (>700 GB)." variant="wide">
-  <strong>Figure 7.</strong> Broader comparison against out-of-class tools, on the two pairs where the Cactus alignment LiftOver and CAT require was tractable. <strong>(A)</strong> Mean protein identity — LiftOn v1.0.11 leads; coordinate LiftOver scores below even the DNA-only Liftoff. <strong>(B)</strong> Coding completeness, with the miniprot protein evidence as context. <strong>(C)</strong> LiftOver's honest dual metric — it lifts most reference features yet its re-translated CDS scores low, because coordinate projection does not correct frame. CAT yielded no scorable annotation even here (its toil sub-workflows fail), and on the three divergent pairs neither tool could run: <code>cactus_consolidated</code> needs &gt;700 GB for a 380 MB divergent subset. The homology lift-over tools ran on all of those pairs as whole genomes (Table 5).
-</ZoomFigure>
-
-## 4. Discussion
-
-**Whole-genome, T2T, and pangenome scale.** The single most consequential advance is that LiftOn now finishes whole genomes at all: the combination of the bounded-memory aligner (§2.2) and the robustness fixes (§2.7) changes what is *feasible*, not merely how fast it runs. v1.0.8 could not finish full RefSeq *Arabidopsis* or rice regardless of time; v1.0.11 finishes them — and three plant genomes v1.0.8 could not even start — at ~99.9% coding completeness on commodity memory (§3.1, §3.2). As reference catalogs move to T2T assemblies and pangenome graphs multiply the number of genomes to annotate, an annotation lifter that is both memory-bounded and crash-robust on full genomes is a prerequisite, not a convenience. The accurate recovery of pseudogenes and non-coding RNA genes (§3.6) further matters because these features are increasingly central to regulatory and disease genomics yet are exactly what coding-only lifters discard.
-
-**Why conservative dual-evidence fusion wins.** The central empirical accuracy result (§3.3, Fig. 3) is that LiftOn's advantage over the DNA baseline it extends grows with divergence; read apples-to-apples on the transcripts both recover (§3.3, Fig. 4), its per-transcript advantage over the protein evidence (miniprot) is real and **peaks on the distant tier**, while at very-distant divergence the higher aggregate reflects high-precision recovery of the DNA-anchored core rather than a per-transcript win. This is the expected behavior of a correct fusion: on near-identical genomes the DNA alignment is already essentially perfect and there is nothing to add, whereas on divergent genomes the DNA model frameshifts while the protein model survives, and the per-chunk maximization of §2.3 keeps whichever signal is locally better. The remaining gap at the most extreme distances is **recall, not per-transcript accuracy** — a miniprot-only rescue path for genes the DNA lift misses entirely. v1.0.11 ships this as a **default-ON** separate pass: after the main lift closes, it emits a miniprot model for each reference coding gene that overlaps no lifted locus, gated by a **divergence-adaptive** protein-identity floor — lowered from 0.50 toward 0.30 as the DNA lift's own gene recall falls, so more genuinely-missing genes are recovered at extreme distance (where recall is lowest and the deficit is real) while the floor stays conservative on same/close-species lifts (where recall is near-complete and there is little to rescue) — and de-duplicated against the lifted set, so it only ever *adds* genes — never displacing or duplicating one (off ⊆ on by construction). The head-to-head comparison above freezes it off (`--no-miniprot-rescue`) to isolate the merge engine; reported as a separate arm it is net-positive on all eight distant/very-distant A/B pairs with **0 lost and 0 redundant** models — recovering e.g. +555 coding genes on a nematode pair (*C. elegans*→*C. briggsae*), +201 *Drosophila*→*Anopheles*, +143 zebrafish→medaka, and +87 human→*Xenopus*, raising coding completeness by up to +0.074 (`benchmarks/compare/miniprot_rescue_ab`). The best-of-outcome guard of §2.4 is what makes this safe in practice: by adopting the merged model only when it verifiably improves the *emitted* protein, v1.0.11 turns a merge that could backfire on individual transcripts into a strict per-transcript non-regression — visible as the 115/1 and 83/0 improved/regressed counts of §3.4.
-
-**Implications for downstream analysis.** More accurate, in-frame CDS models reduce spurious frameshift and premature-stop calls that propagate into variant annotation and loss-of-function assessment; more complete non-coding annotation improves regulatory and small-RNA analyses; and consistent transcript structure across a clade improves ortholog assignment and comparative-genomic inference. The tool-neutral re-scoring protocol (§2.8) is itself a reusable contribution: by re-aligning every tool's output with one parasail kernel, it makes cross-tool accuracy claims independent of each tool's self-reported and incomparable identity definitions.
-
-**The byte-identity discipline as a software-engineering contribution.** A recurring failure mode in scientific software is that performance refactoring silently perturbs results. v1.0.11's 24-cell byte-identity matrix (§2.7) makes this impossible by construction for the entire class of intended-neutral optimizations: every combination of streaming, in-process I/O, thread count, and native bindings must reproduce the default output byte-for-byte, so a refactor either preserves the bytes or fails CI. This cleanly separates two kinds of change — output-neutral engineering (free, below the line) and deliberate algorithmic change (opt-out-flagged, above the line) — and is directly transferable to other deterministic bioinformatics pipelines. The reverted concurrent-DB-build experiment (§2.7) illustrates the complementary lesson: thread-based concurrency helps only GIL-releasing work, a distinction the matrix made cheap to test.
-
-## 5. Limitations
-
-The benchmark and the tool are presented with the following honest caveats:
-
-1. **Coding recall at extreme divergence.** Because LiftOn anchors each model on a Liftoff DNA lift, when genome-wide synteny is essentially gone the protein evidence (miniprot), whose search is not DNA-anchored, recovers far more coding transcripts than LiftOn across the whole very-distant tier (§3.5; LiftOn 4.5–24.4% vs the protein evidence 66.7–85.8%; e.g. *Arabidopsis*→rice 76.7% vs 14.8%, human→zebrafish 82.2% vs 4.5%). LiftOn prioritizes per-transcript accuracy and consistent transcript structure over raw recall. v1.0.11 ships a **default-ON** miniprot-only rescue (§4) that begins to close this gap by recovering a net-positive set of these missing genes (0 lost / 0 redundant on all eight distant/very-distant A/B pairs); the tables here freeze it off (`--no-miniprot-rescue`) for an apples-to-apples engine comparison, so they represent the recall floor.
-2. **A marginal recall cost on close/distant mammalian pairs.** On the close and distant cross-species mammalian genomes (human→gorilla/macaque/marmoset, mouse→caroli, dog→cat), LiftOn v1.0.11's coding completeness is fractionally below the DNA-only Liftoff (by ≤ 0.8%; §3.5) — the recall side of the precision/recall trade-off it makes for the per-transcript accuracy lead of §3.3.
-3. **Nested miRNA products.** Mature `miRNA` recovery remains low (1/428 on full *Arabidopsis*; §3.6), a pre-existing limitation of transcript-centric handling of products nested under `primary_transcript`, not addressed in this release.
-4. **Residual validity errors on organellar-gene-containing genomes.** v1.0.11's containment normalization eliminates the LiftOn-introduced validity errors, so the output validates clean (0 `gff3-validate` errors) on 12 of the 17 whole genomes (§3.7), with at most 11 errors on any genome. The small residuals on the plant genomes (arabidopsis 11, maize 10, rice 1, tomato 1) are **reference-inherited** organellar structures the strict validator flags — that LiftOn faithfully carries from references that themselves fail the same checks *more* (§3.7) — not LiftOn corruption.
-5. **Full-genome compute cost.** v1.0.11's bounded memory makes full-genome runs feasible, but completing the full gene-like feature set is more total work than v1.0.8's coding-only lift, so a fresh whole-genome run can take longer in wall time even as peak memory falls (§3.2).
-
-## 6. Availability and reproducibility
-
-LiftOn is open-source (GitHub: [github.com/Kuanhao-Chao/LiftOn](https://github.com/Kuanhao-Chao/LiftOn)) with documentation at [khchao.com/LiftOn](https://khchao.com/LiftOn/). It installs via conda/bioconda (`parasail`, `pysam`, `pyfaidx`, `gffutils`, `miniprot`, `minimap2`) and exposes the CLI `lifton` (plus a `gff3-validate` console script). A typical whole-genome invocation is:
-
-```
-lifton -g reference.gff3 reference.fa target.fa -o lifton.gff3
+```console
+lifton -g reference.gff3 -o lifton.gff3 target.fa reference.fa
 ```
 
-The benchmark harness, the four-way comparison, the tool-neutral re-scoring evaluator, and all source data and figures are archived under `benchmarks/compare/` (`evaluator.py`, `fourway_results.json`, `version_compare.results.json`, `MASTER_COMPARISON_REPORT.md`, and the figures reproduced here). The byte-identity regression suite, including the 24-cell matrix, ships under `tests/`. Every comparison in this report was re-measured for v1.0.11 in a single campaign on one otherwise-idle host (salz11, 128 cores, 1007 GiB), with v1.0.8 at git tag `e503643d` (`lifton_stable`) and v1.0.11 at `7fc8419` (`lifton_devel`), `PYTHONHASHSEED=0`. Each measurement records its own host, CPU count, memory and both worktree SHAs — the earlier campaign recorded none of this, which is why its wall-clock and memory figures could not be compared across hardware and both arms had to be re-run rather than just the changed one. **The run-to-run noise floor is measured, not assumed**: three benchmarks re-run a second time are bit-identical across all twelve tool-cells, so the scatter is 0.00000 and every difference reported here is real. Baseline reproduction is the correctness check — across the 34 subsets Liftoff reproduces its previous values 34/34 and miniprot 33/34. Confirmed alongside the full **1,714**-test regression suite and the 24-cell byte-identity matrix, which guarantees every performance optimization is output-neutral.
+The report publication is a separate, read-only reduction over sealed controller roots. In the commands below, each `--runs-root` must contribute a disjoint set of successful pair results; failed and pending cells remain visible in controller provenance but are not converted into pair documents.
 
-## 7. What re-measuring the release found
+The three panel rescoring commands below are independent and were launched concurrently from the same read-only tooling snapshot:
 
-*This section replaces an addendum that described, in prose, differences that had
-not been measured. They have now been measured, and one of them was a defect.*
+```console
+python -m benchmarks.compare.release_rescore \
+  --runs-root /path/to/subset-controller \
+  --output-dir /path/to/corrected-overlays/subset \
+  --threads 8 --allow-incomplete
 
-**A regression, found by benchmarking rather than by testing.** Re-running the
-corpus against v1.0.11 showed it could not ingest three of the thirty-four
-benchmark inputs — *Arabidopsis*, rice and maize — that v1.0.8 handles. `gffutils`
-disambiguates a repeated `cds-X` by renaming it to `cds-X_1`, which is exactly the
-suffix Liftoff's `-copies` mode gives extra gene copies; where that generated name
-already belonged to a real feature, the insert failed with
-`UNIQUE constraint failed: features.id` and the run aborted. Two ids in the rice
-input trigger it, and two is enough to lose a whole genome.
+python -m benchmarks.compare.release_rescore \
+  --runs-root /path/to/full-controller \
+  --runs-root /path/to/full-continuation \
+  --output-dir /path/to/corrected-overlays/full \
+  --threads 8 --allow-incomplete
 
-The cause was a fallback that had stopped falling back. v1.0.8 recovered by
-renaming repeats into a `_dup<n>` namespace that cannot collide; a v1.0.11 change
-reduced that transform to a no-op in order to stop rewriting logical `ID`s — a
-sound goal, since renaming the segments of one discontinuous CDS splits a single
-feature in two — but it left the second strategy identical to the first, which had
-just failed. **v1.0.11 renames only ids that are both repeated and whose
-`<id>_<n>` already exists**, so genuine collisions are resolved while legitimate
-discontinuous CDS are untouched: on the rice input that is 2 ids against 4,677 left
-alone. Ingest is back to 34 of 34. The whole test suite was green throughout —
-this was reachable only by running real data.
+python -m benchmarks.compare.release_rescore \
+  --runs-root /path/to/e2e-controller \
+  --runs-root /path/to/e2e-continuation \
+  --output-dir /path/to/corrected-overlays/e2e \
+  --threads 8 --allow-incomplete
 
-**What the numbers did.** Validity improved substantially against the previous
-campaign: clean output on 12 of 17 whole genomes rather than 9, with the worst
-residual falling from 101 errors to 11. Accuracy is at or above v1.0.8 on every
-genome both complete. Performance, now measured with both arms on one host, is
-$1.1$–$1.8\times$ faster at $2.7$–$25.2\times$ less peak memory.
+python -m benchmarks.compare.release_report \
+  --runs-root /path/to/subset-controller \
+  --runs-root /path/to/full-controller \
+  --runs-root /path/to/full-continuation \
+  --runs-root /path/to/e2e-controller \
+  --runs-root /path/to/e2e-continuation \
+  --evaluation-root /path/to/corrected-overlays/subset \
+  --evaluation-root /path/to/corrected-overlays/full \
+  --evaluation-root /path/to/corrected-overlays/e2e \
+  --output-dir /path/to/lifton-v1.0.11-final-diagnostic \
+  --candidate-sha c623f0bddc5b5051a3670a3b0064c52cc61bb719 \
+  --reference-sha e503643d8346c600fedabcd3a4dff5c0873a4a37 \
+  --campaign-profile canonical-v1 \
+  --diagnostic
+```
 
-**The shipped default, measured separately.** Tables 5–9 pin the miniprot-only
-rescue off so the engine stays comparable with v1.0.8, which has no such pass. Run
-as users actually get it, the rescue recovers **+12,131 coding transcripts** across
-the seventeen genomes, almost all at the very-distant tier — human→*Xenopus*
-+3,463, human→zebrafish +3,199, *Arabidopsis*→rice +2,309, human→chicken +2,110,
-*Drosophila*→bee +889. It is not a uniform accuracy-for-recall trade: mean identity
-*rises* on three of those five (zebrafish +0.020, *Drosophila*→bee +0.022,
-*Arabidopsis*→rice +0.009) and falls on two (*Xenopus* −0.013, chicken −0.005). At
-that distance the rescued genes are frequently better than the DNA-anchored models
-that survive, so recovering them improves the annotation on both axes at once.
+Each rescore command first rehashes the sealed pair JSON, inputs, and both output GFF3s; `--allow-incomplete` means “select successful pair documents from diagnostic roots,” not “accept a partial overlay.” The three completed overlays must collectively cover every pair selected by the report exactly once, and mixed-tooling overlays are rejected. The report command re-verifies controller success markers, applies the overlays in memory, computes cell-level statistics, and atomically writes `REPORT.md`, `metrics.json`, and `manifest.json`.
+
+To render the two exact-release figures and update/verify this MDX report:
+
+```console
+python -m benchmarks.compare.release_report_figures \
+  --metrics /path/to/lifton-v1.0.11-final-diagnostic/metrics.json \
+  --outdir /path/to/generated-figures
+
+python -m benchmarks.compare.report_tables \
+  --release-metrics /path/to/lifton-v1.0.11-final-diagnostic/metrics.json \
+  --update /path/to/Kuanhao-Chao.github.io/src/content/reports/lifton-v1-0-11-technical-report.mdx
+
+python -m benchmarks.compare.report_tables \
+  --release-metrics /path/to/lifton-v1.0.11-final-diagnostic/metrics.json \
+  --check /path/to/Kuanhao-Chao.github.io/src/content/reports/lifton-v1-0-11-technical-report.mdx
+```
+
+The report checker replaces no prose during `--check`; it reconstructs each marked table from its source JSON and exits nonzero on any drift. Figures are generated from the same final `metrics.json`, and the copies in the website repository are verified by SHA-256 before the site build.
+
+## 7. Conclusion
+
+The current evidence distinguishes exact-release behavior, historical comparisons, and contention-aware throughput. The exact-tag diagnostic is not a release PASS: it has incomplete controls, one reproducible exact-tag structural-validity failure, and full-panel timing outliers. The former `human_ensembl_gtf` zero-recovery result was an evaluator feature-type artifact and is not interpreted as biological loss. Final reported quality values are generated from the immutable corrected-evaluation overlay set, while missing or failed control cells remain explicit limitations.
