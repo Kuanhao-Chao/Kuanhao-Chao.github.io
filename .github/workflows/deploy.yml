@@ -47,6 +47,11 @@ jobs:
         run: npm run build
 
       - name: Audit terminal UI
+        # Chromium covers the hosted deployment gate; the full Chromium + WebKit
+        # matrix is run locally/release-side without making Pages depend on WebKit
+        # process stability on a shared runner.
+        env:
+          TERMINAL_UI_AUDIT_BROWSERS: chromium
         run: npm run audit:terminal
 
       - name: Audit indexing

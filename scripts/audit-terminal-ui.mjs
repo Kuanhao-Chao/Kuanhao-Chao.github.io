@@ -140,7 +140,10 @@ async function auditPage(page, scope, profile, route) {
   page.on('console', (message) => {
     if (message.type() === 'error') pageErrors.push(message.text());
   });
-  await page.goto(route.path, { waitUntil: 'networkidle' });
+  // The shell's controller is the readiness signal. Waiting for network-idle here
+  // makes the audit needlessly sensitive to a third-party font or an analytics
+  // request that keeps a connection open on hosted runners.
+  await page.goto(route.path, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(window.__terminal));
   await page.evaluate(() => {
     window.__terminal.skipBoot?.();
