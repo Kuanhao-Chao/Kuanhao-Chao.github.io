@@ -145,14 +145,25 @@ hr {
 }
 
 /* Bare pages (BaseLayout's `bare` prop) *are* the interface rather than a document
-   inside the site, so `main` grows to fill the flex-column body instead of hugging
-   its content. Without this it stays `flex: 0 1 auto` and a full-height child
-   collapses. */
+   inside the site. They own exactly one dynamic viewport, so their child can keep
+   its chrome and prompt fixed while the output pane supplies the scrollback. Without
+   the height cap, transcript content makes the whole document grow and leaves the
+   supposed scroll pane with no overflow range. */
 .main--bare {
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 0;
+  height: var(--terminal-viewport-height, 100vh);
+  max-height: var(--terminal-viewport-height, 100vh);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+@supports (height: 100dvh) {
+  .main--bare {
+    height: var(--terminal-viewport-height, 100dvh);
+    max-height: var(--terminal-viewport-height, 100dvh);
+  }
 }
 
 .eyebrow {

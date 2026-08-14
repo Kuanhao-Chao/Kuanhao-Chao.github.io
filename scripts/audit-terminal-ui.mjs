@@ -4,6 +4,7 @@ import process from 'node:process';
 import { chromium, webkit } from 'playwright';
 
 const browserTypes = { chromium, webkit };
+const smoke = process.argv.includes('--smoke') || process.env.TERMINAL_UI_AUDIT_MODE === 'smoke';
 const profiles = [
   { name: 'desktop-light', width: 1440, height: 1000, theme: 'light', mobile: false },
   { name: 'desktop-dark', width: 1440, height: 1000, theme: 'dark', mobile: false },
@@ -12,13 +13,14 @@ const profiles = [
   { name: 'phone-dark', width: 390, height: 844, theme: 'dark', mobile: true },
   { name: 'compact-phone', width: 320, height: 568, theme: 'light', mobile: true },
   { name: 'phone-landscape', width: 844, height: 390, theme: 'dark', mobile: true },
+  { name: 'short-desktop', width: 1440, height: 500, theme: 'dark', mobile: false },
 ];
 
 const routes = [
   { name: 'terminal', path: '/terminal/' },
   { name: 'home', path: '/' },
 ];
-const commands = [
+const commands = smoke ? ['help', 'cat ~/about.txt'] : [
   'help',
   'ls',
   'ls -l ~/publications',
@@ -35,7 +37,7 @@ const failures = [];
 const fail = (scope, message) => failures.push(`${scope}: ${message}`);
 
 function selectedBrowsers() {
-  const names = (process.env.TERMINAL_UI_AUDIT_BROWSERS ?? 'chromium,webkit')
+  const names = (process.env.TERMINAL_UI_AUDIT_BROWSERS ?? (smoke ? 'chromium' : 'chromium,webkit'))
     .split(',')
     .map((name) => name.trim().toLowerCase())
     .filter(Boolean);
@@ -51,7 +53,9 @@ function selectedProfiles() {
     ?.split(',')
     .map((name) => name.trim().toLowerCase())
     .filter(Boolean);
-  if (!names?.length) return profiles;
+  if (!names?.length) {
+    return smoke ? profiles.filter((profile) => ['desktop-light', 'phone-light'].includes(profile.name)) : profiles;
+  }
   return names.map((name) => {
     const profile = profiles.find((item) => item.name === name);
     if (!profile) throw new Error(`Unsupported TERMINAL_UI_AUDIT_PROFILES entry: ${name}`);
@@ -79,7 +83,7 @@ async function waitForSite(url, preview) {
     } catch {
       /* preview is still starting */
     }
-    if (preview?.exitCode !== null) break;
+    if (preview && preview.exitCode !== null) break;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`Preview did not become available at ${url}`);
@@ -92,6 +96,7 @@ async function assertLayout(page, scope, profile) {
     const screen = document.querySelector('.term-screen');
     const input = document.querySelector('.term-input');
     const keybar = document.querySelector('.term-keybar');
+    const latest = document.querySelector('.term-scroll-latest');
     const screenStyle = screen ? getComputedStyle(screen) : null;
     const targets = [...document.querySelectorAll('.term-bar a, .term-bar button, .term-keybar button')]
       .map((el) => {
@@ -101,13 +106,19 @@ async function assertLayout(page, scope, profile) {
       .filter((target) => target.width > 0 && target.height > 0);
     return {
       documentOverflow: root.scrollWidth - root.clientWidth,
+      documentVerticalOverflow: root.scrollHeight - root.clientHeight,
+      inline: shell?.classList.contains('term--inline') ?? false,
       shellOverflow: shell ? shell.scrollWidth - shell.clientWidth : -1,
       screenOverflow: screen ? screen.scrollWidth - screen.clientWidth : -1,
+      screenVerticalOverflow: screen ? screen.scrollHeight - screen.clientHeight : -1,
       scrollLeft: screen?.scrollLeft ?? -1,
       overflowX: screenStyle?.overflowX,
       whiteSpace: screenStyle?.whiteSpace,
       inputFontSize: input ? parseFloat(getComputedStyle(input).fontSize) : 0,
       keybarDisplay: keybar ? getComputedStyle(keybar).display : 'missing',
+      latestDisplay: latest ? getComputedStyle(latest).display : 'missing',
+      formBottom: document.querySelector('.term-form')?.getBoundingClientRect().bottom ?? 0,
+      viewportHeight: window.innerHeight,
       targetMin: targets.reduce(
         (minimum, target) => Math.min(minimum, target.width, target.height),
         Number.POSITIVE_INFINITY
@@ -115,11 +126,17 @@ async function assertLayout(page, scope, profile) {
     };
   });
   if (result.documentOverflow > 1) fail(scope, `document has ${result.documentOverflow}px horizontal overflow`);
+  if (!result.inline && result.documentVerticalOverflow > 1) {
+    fail(scope, `full terminal has ${result.documentVerticalOverflow}px vertical document overflow`);
+  }
   if (result.shellOverflow > 1) fail(scope, `terminal shell has ${result.shellOverflow}px horizontal overflow`);
   if (result.screenOverflow > 1) fail(scope, `terminal screen has ${result.screenOverflow}px horizontal overflow`);
   if (result.scrollLeft !== 0) fail(scope, `terminal screen retained scrollLeft=${result.scrollLeft}`);
   if (result.overflowX !== 'hidden') fail(scope, `screen overflow-x is ${result.overflowX}, expected hidden`);
   if (result.whiteSpace !== 'pre-wrap') fail(scope, `screen white-space is ${result.whiteSpace}, expected pre-wrap`);
+  if (!result.inline && result.formBottom > result.viewportHeight + 1) {
+    fail(scope, `command row ends at ${result.formBottom}px beyond the viewport`);
+  }
   if (profile.mobile && result.inputFontSize < 16) fail(scope, `phone input is ${result.inputFontSize}px, expected at least 16px`);
   if (profile.mobile && result.targetMin < 32) fail(scope, `phone terminal target is ${result.targetMin}px, expected at least 32px`);
   if (profile.mobile && result.keybarDisplay === 'none') fail(scope, 'phone shortcut bar is hidden');
@@ -132,6 +149,106 @@ async function runCommand(page, scope, command, profile) {
     await window.__terminal.submit(line);
   }, command);
   await assertLayout(page, `${scope}/${command}`, profile);
+}
+
+async function buildScrollback(page) {
+  const repeats = smoke ? 2 : 3;
+  await page.evaluate(async (count) => {
+    await window.__terminal.submit('clear');
+    for (let i = 0; i < count; i++) await window.__terminal.submit('help');
+    await window.__terminal.submit('cat ~/about.txt');
+  }, repeats);
+}
+
+async function readScrollState(page) {
+  return page.evaluate(() => {
+    const screen = document.querySelector('.term-screen');
+    const root = document.documentElement;
+    return {
+      inline: document.querySelector('.term--inline') !== null,
+      screenTop: screen?.scrollTop ?? 0,
+      screenMax: screen ? screen.scrollHeight - screen.clientHeight : 0,
+      latestHidden: document.querySelector('.term-scroll-latest')?.hasAttribute('hidden') ?? true,
+      pageY: window.scrollY,
+      pageMax: root.scrollHeight - root.clientHeight,
+    };
+  });
+}
+
+async function assertScrollBehavior(page, scope, profile, route) {
+  await buildScrollback(page);
+  await assertLayout(page, `${scope}/scrollback`, profile);
+  const initial = await readScrollState(page);
+  if (initial.screenMax < 40) fail(scope, `scrollback has only ${initial.screenMax}px of internal vertical range`);
+  if (!initial.inline && initial.pageMax > 1) fail(scope, `full terminal page has ${initial.pageMax}px vertical overflow`);
+
+  const screen = page.locator('.term-screen');
+  await screen.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  const atEnd = await readScrollState(page);
+  const wheelSupported = !(profile.mobile && scope.startsWith('webkit/'));
+  if (wheelSupported) {
+    await screen.hover({ position: { x: 20, y: 20 } });
+    await page.mouse.wheel(0, -Math.min(450, Math.max(120, atEnd.screenMax / 3)));
+    await page.waitForTimeout(80);
+  } else {
+    // Playwright's mobile WebKit context intentionally has no synthetic wheel
+    // device. The native scroll range and keyboard path are still verified here;
+    // Chromium covers the real wheel gesture on touch-sized viewports.
+    await screen.evaluate((element) => { element.scrollTop = Math.max(0, element.scrollTop - 450); });
+    await page.waitForTimeout(40);
+  }
+  const afterWheel = await readScrollState(page);
+  if (afterWheel.screenTop >= atEnd.screenMax - 2) fail(scope, 'wheel did not move terminal scrollback');
+  if (!afterWheel.latestHidden) {
+    await page.locator('[data-terminal-scroll-end]').click();
+    const restored = await readScrollState(page);
+    if (restored.screenTop < restored.screenMax - 2 || !restored.latestHidden) {
+      fail(scope, 'latest-output control did not restore the prompt');
+    }
+  } else {
+    fail(scope, 'latest-output control stayed hidden after scrolling up');
+  }
+
+  await page.locator('.term-input').focus();
+  await page.keyboard.press('Shift+PageUp');
+  const afterPageUp = await readScrollState(page);
+  if (afterPageUp.screenTop >= afterPageUp.screenMax - 2) fail(scope, 'Shift-PageUp did not move terminal history');
+
+  if (route.name !== 'home' || !wheelSupported) return;
+
+  // The inline shell should consume wheel movement while it has scrollback, then
+  // return the gesture to the surrounding document at either boundary.
+  await page.evaluate(() => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    const shell = document.querySelector('.term--inline');
+    const screen = document.querySelector('.term-screen');
+    if (!shell || !screen) return;
+    screen.scrollTop = screen.scrollHeight;
+    window.scrollTo(0, Math.max(0, shell.getBoundingClientRect().top + window.scrollY - 260));
+  });
+  await page.waitForTimeout(80);
+  await screen.hover({ position: { x: 20, y: 20 } });
+  const boundaryStart = await readScrollState(page);
+  await page.mouse.wheel(0, 140);
+  await page.waitForTimeout(50);
+  await page.mouse.wheel(0, 140);
+  await page.waitForTimeout(80);
+  const boundaryDown = await readScrollState(page);
+  if (boundaryDown.pageY <= boundaryStart.pageY) fail(scope, 'homepage did not resume page scrolling at transcript bottom');
+
+  await page.evaluate(() => {
+    const screen = document.querySelector('.term-screen');
+    if (screen) screen.scrollTop = 0;
+    window.scrollTo(0, Math.min(document.documentElement.scrollHeight, window.scrollY + 500));
+  });
+  await page.waitForTimeout(80);
+  const boundaryTopStart = await readScrollState(page);
+  await page.mouse.wheel(0, -140);
+  await page.waitForTimeout(50);
+  await page.mouse.wheel(0, -140);
+  await page.waitForTimeout(80);
+  const boundaryUp = await readScrollState(page);
+  if (boundaryUp.pageY >= boundaryTopStart.pageY) fail(scope, 'homepage did not resume page scrolling at transcript top');
 }
 
 async function auditPage(page, scope, profile, route) {
@@ -153,6 +270,7 @@ async function auditPage(page, scope, profile, route) {
   await assertLayout(page, scope, profile);
 
   for (const command of commands) await runCommand(page, scope, command, profile);
+  await assertScrollBehavior(page, scope, profile, route);
 
   // Keyboard behavior remains available on desktop and browsers with a hardware
   // keyboard, while the accessory row supplies the same actions on phones.
@@ -160,6 +278,16 @@ async function auditPage(page, scope, profile, route) {
   await page.keyboard.press('Tab');
   if (!(await page.locator('.term-input').inputValue()).startsWith('neofetch')) {
     fail(scope, 'Tab completion did not complete neofetch');
+  }
+  await page.locator('.term-input').fill('pwd');
+  await page.locator('.term-input').press('Enter');
+  if (!(await page.locator('.term-screen').textContent()).includes('pwd')) {
+    fail(scope, 'form Enter did not execute a command');
+  }
+  await page.locator('.term-input').fill('neof');
+  await page.locator('.term-input').press('Shift+Tab');
+  if (await page.locator('.term-input').evaluate((element) => document.activeElement === element)) {
+    fail(scope, 'Shift-Tab was intercepted by command completion');
   }
   await page.evaluate(() => window.__terminal.submit('pwd'));
   await page.locator('.term-input').press('ArrowUp');

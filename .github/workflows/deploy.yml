@@ -46,6 +46,10 @@ jobs:
       - name: Build site
         run: npm run build
 
+      - name: Audit terminal scroll smoke
+        timeout-minutes: 5
+        run: npm run audit:terminal:ci
+
       - name: Audit indexing
         run: npm run audit:indexing
 

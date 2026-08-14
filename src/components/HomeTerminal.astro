@@ -103,14 +103,25 @@ const boot = {
     <a class="term-bar-open" href="/terminal/">⤢ full screen</a>
   </div>
 
-  <div
-    class="term-screen"
-    data-terminal-screen
-    role="log"
-    aria-live="off"
-    aria-busy="false"
-    aria-label="Terminal output"
-  ></div>
+  <div class="term-screen-wrap">
+    <div
+      class="term-screen"
+      data-terminal-screen
+      role="log"
+      aria-live="off"
+      aria-busy="false"
+      aria-label="Terminal output"
+      aria-describedby="home-term-help"
+      tabindex="0"
+    ></div>
+    <button
+      class="term-scroll-latest"
+      type="button"
+      data-terminal-scroll-end
+      aria-label="Jump to the latest terminal output"
+      hidden
+    >↓ latest</button>
+  </div>
 
   <TerminalKeybar />
 
@@ -134,6 +145,9 @@ const boot = {
   <div class="term-foot">
     <span id="home-term-help" class="term-foot-try">
       type <code>help</code> <code>ls</code> <code>grep</code> <code>ask</code>
+      <span class="visually-hidden">
+        Scroll output with a mouse wheel, trackpad, or swipe. Press Shift-PageUp or Shift-PageDown to move through history. Tab completes commands; the arrow keys move through command history.
+      </span>
     </span>
     <a class="term-foot-open" href="/terminal/">open full shell →</a>
   </div>
