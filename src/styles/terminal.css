@@ -38,6 +38,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   background: var(--term-bg);
   font-family: var(--font-mono);
   font-size: clamp(0.8125rem, 1.45vw, 0.875rem);
@@ -153,7 +154,7 @@ a.term-dot:focus-visible {
   font-size: 0.82em;
   opacity: 0.75;
 }
-@media (max-width: 700px), (max-height: 600px) {
+@media (max-width: 700px), (max-height: 600px) and (pointer: coarse) {
   .term-bar-hint { display: none; }
 }
 
@@ -189,6 +190,7 @@ a.term-dot:focus-visible {
 .term--min {
   flex: none;
 }
+.term--min .term-screen-wrap,
 .term--min .term-screen,
 .term--min .term-form,
 .term--min .term-keybar,
@@ -258,7 +260,15 @@ a.term-dot:focus-visible {
 .term--inline:focus-within {
   border-color: color-mix(in srgb, var(--term-accent) 55%, var(--term-rule));
 }
-.term--inline .term-screen {
+
+.term-screen-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.term--inline .term-screen-wrap {
   flex: none;
   height: 15em;
 }
@@ -314,8 +324,10 @@ a.term-dot:focus-visible {
   /* A terminal wraps at its right edge. The old `pre` + horizontal scroller made
      long `cat`, `ls -l`, and search output unusable on phones. */
   overflow-wrap: anywhere;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
   touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   white-space: pre-wrap;
   word-break: break-word;
   scrollbar-width: thin;
@@ -325,6 +337,38 @@ a.term-dot:focus-visible {
 .term-screen::-webkit-scrollbar-thumb {
   background: var(--term-rule);
   border-radius: 999px;
+}
+.term-screen:focus-visible {
+  outline: 2px solid var(--term-accent);
+  outline-offset: -2px;
+}
+.term--inline .term-screen {
+  overscroll-behavior-y: auto;
+}
+
+.term-scroll-latest {
+  position: absolute;
+  right: max(0.9rem, env(safe-area-inset-right));
+  bottom: 0.8rem;
+  min-width: 5.5rem;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--term-rule);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--term-chrome) 94%, transparent);
+  box-shadow: 0 0.25rem 0.8rem var(--term-shadow);
+  color: var(--term-ink);
+  font: inherit;
+  font-size: 0.82em;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(0.35rem);
+  transition: color var(--transition), border-color var(--transition), background-color var(--transition);
+}
+.term-scroll-latest:hover,
+.term-scroll-latest:focus-visible {
+  border-color: var(--term-accent);
+  color: var(--term-accent);
 }
 
 /* ------------------------------------------------------------------ boot -- */
@@ -451,7 +495,7 @@ a.term-dot:focus-visible {
   opacity: 0.45;
 }
 
-@media (max-width: 700px), (max-height: 600px) {
+@media (max-width: 700px), (max-height: 600px) and (pointer: coarse) {
   .term {
     font-size: 0.8125rem;
   }
@@ -500,6 +544,11 @@ a.term-dot:focus-visible {
     gap: 0.25rem;
     padding-inline: max(0.55rem, env(safe-area-inset-left))
       max(0.55rem, env(safe-area-inset-right));
+  }
+  .term-scroll-latest {
+    right: max(0.7rem, env(safe-area-inset-right));
+    bottom: 0.65rem;
+    min-height: 2.25rem;
   }
   .term-foot {
     flex-wrap: wrap;

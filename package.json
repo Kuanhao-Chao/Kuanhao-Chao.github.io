@@ -19,6 +19,7 @@
     "audit:games": "node scripts/audit-game-ui.mjs",
     "audit:posts": "node scripts/audit-post-ui.mjs",
     "audit:terminal": "node scripts/audit-terminal-ui.mjs",
+    "audit:terminal:ci": "node scripts/audit-terminal-ui.mjs --smoke",
     "audit:security": "node scripts/audit-security.mjs",
     "audit:security:live": "node scripts/audit-security.mjs --live",
     "preview": "astro preview",

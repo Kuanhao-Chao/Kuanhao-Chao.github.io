@@ -131,6 +131,7 @@ export function initTerminal(
   const promptEl = shellEl.querySelector<HTMLElement>('[data-terminal-prompt]');
   const keybar = shellEl.querySelector<HTMLElement>('[data-terminal-keybar]');
   const form = shellEl.querySelector<HTMLFormElement>('[data-terminal-form]');
+  const latestBtn = shellEl.querySelector<HTMLButtonElement>('[data-terminal-scroll-end]');
   if (!screen || !input || !promptEl) return null;
 
   const state: ShellState = createShell(null);
@@ -141,6 +142,10 @@ export function initTerminal(
   const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
   let columns = 80;
   let resizeObserver: ResizeObserver | null = null;
+  const viewportHost = shellEl.closest<HTMLElement>('.main--bare');
+  const SCROLL_EPSILON = 24;
+  let followOutput = true;
+  let viewportRaf = 0;
 
   /** Measure the actual pane, not the browser viewport, in monospace columns. */
   function measureColumns() {
@@ -230,9 +235,25 @@ export function initTerminal(
     screen!.appendChild(el);
   }
 
-  function scrollToEnd() {
+  function atScrollEnd() {
+    return screen!.scrollHeight - screen!.scrollTop - screen!.clientHeight <= SCROLL_EPSILON;
+  }
+
+  function syncScrollAffordance() {
+    const atEnd = atScrollEnd();
+    if (atEnd) followOutput = true;
+    latestBtn?.toggleAttribute('hidden', atEnd || screen!.scrollHeight <= screen!.clientHeight);
+  }
+
+  function scrollToEnd(force = true) {
+    if (!force && !followOutput) {
+      syncScrollAffordance();
+      return;
+    }
     screen!.scrollTop = screen!.scrollHeight;
     screen!.scrollLeft = 0;
+    followOutput = true;
+    syncScrollAffordance();
   }
 
   function setBusy(next: boolean) {
@@ -327,7 +348,7 @@ export function initTerminal(
       status.remove();
       write([{ text: 'ask: knowledge index unavailable — try reloading.', tone: 'err' }, { text: '' }]);
       setBusy(false);
-      scrollToEnd();
+      scrollToEnd(false);
       return;
     }
 
@@ -349,7 +370,7 @@ export function initTerminal(
 
     write([{ text: '' }]);
     setBusy(false);
-    scrollToEnd();
+    scrollToEnd(false);
   }
 
   /** Returns true only if the model produced a usable answer. */
@@ -397,7 +418,7 @@ export function initTerminal(
           const el = (block.childNodes[i] as HTMLElement) ?? block.appendChild(lineEl({ text: '' }));
           el.textContent = line === '' ? '​' : line;
         });
-        scrollToEnd();
+        scrollToEnd(false);
       };
 
       for (;;) {
@@ -491,7 +512,32 @@ export function initTerminal(
   function clearScreen() {
     while (screen!.firstChild) screen!.removeChild(screen!.firstChild);
     screen!.scrollLeft = 0;
-    input!.focus({ preventScroll: true });
+    followOutput = true;
+    syncScrollAffordance();
+    if (!coarsePointer) input!.focus({ preventScroll: true });
+  }
+
+  function scrollHistoryBy(direction: -1 | 1) {
+    screen!.scrollBy({ top: direction * Math.max(1, screen!.clientHeight * 0.82), behavior: 'auto' });
+    followOutput = atScrollEnd();
+    syncScrollAffordance();
+  }
+
+  function onScreenScroll() {
+    followOutput = atScrollEnd();
+    syncScrollAffordance();
+  }
+
+  function onLatestClick() {
+    scrollToEnd();
+    latestBtn?.blur();
+  }
+
+  /** Wheel/touch scrolling is native; wheel only counts as interaction with boot/demo. */
+  function onShellWheel(event: WheelEvent) {
+    if (event.ctrlKey || event.metaKey) return;
+    if (booting) skipBoot?.();
+    if (demoRunning) takeOver();
   }
 
   function onFormSubmit(event: SubmitEvent) {
@@ -504,9 +550,14 @@ export function initTerminal(
       event.preventDefault();
       return;
     }
-    if (event.key === 'Tab') {
+    if (event.key === 'Tab' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       completeInput();
+      return;
+    }
+    if (event.shiftKey && (event.key === 'PageUp' || event.key === 'PageDown')) {
+      event.preventDefault();
+      scrollHistoryBy(event.key === 'PageUp' ? -1 : 1);
       return;
     }
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -555,7 +606,9 @@ export function initTerminal(
 
   /** Clicking anywhere in the shell focuses the caret — unless text is selected. */
   function onShellClick(event: MouseEvent) {
-    if ((event.target as HTMLElement)?.closest('a, button')) return;
+    const target = event.target as HTMLElement;
+    if (target?.closest('a, button, [data-terminal-bar]')) return;
+    if (coarsePointer) return;
     if (window.getSelection()?.toString()) return;
     input!.focus({ preventScroll: true });
   }
@@ -624,6 +677,20 @@ export function initTerminal(
   const onMin = () => setMinimised(!shellEl!.classList.contains('term--min'));
   const onClose = () => setClosed(true);
   const onReopen = () => setClosed(false);
+
+  function syncViewportHeight() {
+    if (!viewportHost) return;
+    const height = window.visualViewport?.height ?? window.innerHeight;
+    viewportHost.style.setProperty('--terminal-viewport-height', `${Math.max(1, Math.round(height))}px`);
+  }
+
+  function onViewportResize() {
+    syncViewportHeight();
+    if (followOutput) {
+      window.cancelAnimationFrame(viewportRaf);
+      viewportRaf = window.requestAnimationFrame(() => scrollToEnd(false));
+    }
+  }
 
   minBtn?.addEventListener('click', onMin);
   closeBtn?.addEventListener('click', onClose);
@@ -873,9 +940,21 @@ export function initTerminal(
   input.addEventListener('keydown', onKeyDown);
   keybar?.addEventListener('click', onKeybarClick);
   shellEl.addEventListener('click', onShellClick);
+  shellEl.addEventListener('wheel', onShellWheel, { capture: true, passive: true });
+  screen.addEventListener('scroll', onScreenScroll, { passive: true });
+  latestBtn?.addEventListener('click', onLatestClick);
+  window.addEventListener('resize', onViewportResize);
+  window.visualViewport?.addEventListener('resize', onViewportResize);
+  syncViewportHeight();
+  syncScrollAffordance();
   measureColumns();
   if (typeof ResizeObserver !== 'undefined') {
-    resizeObserver = new ResizeObserver(() => refreshPrompt());
+    resizeObserver = new ResizeObserver(() => {
+      const wasFollowing = followOutput;
+      refreshPrompt();
+      if (wasFollowing) scrollToEnd(false);
+      else syncScrollAffordance();
+    });
     resizeObserver.observe(screen);
   }
 
@@ -897,6 +976,7 @@ export function initTerminal(
         for (const line of stepDef.out) writeLine({ text: line, tone: 'dim' });
         writeLine({ text: '' });
       }
+      scrollToEnd();
     }
   }
 
@@ -923,12 +1003,19 @@ export function initTerminal(
       document.removeEventListener('keydown', takeOver, true);
       shellEl.removeEventListener('pointerdown', takeOver, true);
       if (bootRaf) cancelAnimationFrame(bootRaf);
+      window.cancelAnimationFrame(viewportRaf);
       resizeObserver?.disconnect();
       resizeObserver = null;
       form?.removeEventListener('submit', onFormSubmit);
       input.removeEventListener('keydown', onKeyDown);
       keybar?.removeEventListener('click', onKeybarClick);
       shellEl.removeEventListener('click', onShellClick);
+      shellEl.removeEventListener('wheel', onShellWheel, true);
+      screen.removeEventListener('scroll', onScreenScroll);
+      latestBtn?.removeEventListener('click', onLatestClick);
+      window.removeEventListener('resize', onViewportResize);
+      window.visualViewport?.removeEventListener('resize', onViewportResize);
+      viewportHost?.style.removeProperty('--terminal-viewport-height');
       minBtn?.removeEventListener('click', onMin);
       closeBtn?.removeEventListener('click', onClose);
       reopenBtn?.removeEventListener('click', onReopen);

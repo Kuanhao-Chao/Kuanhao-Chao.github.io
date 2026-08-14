@@ -89,15 +89,25 @@ const boot = {
         title="Switch theme">☾</button>
     </div>
 
-    <div
-      class="term-screen"
-      data-terminal-screen
-      role="log"
-      aria-live="off"
-      aria-busy="false"
-      aria-label="Terminal output"
-      tabindex="0"
-    ></div>
+    <div class="term-screen-wrap">
+      <div
+        class="term-screen"
+        data-terminal-screen
+        role="log"
+        aria-live="off"
+        aria-busy="false"
+        aria-label="Terminal output"
+        aria-describedby="term-help"
+        tabindex="0"
+      ></div>
+      <button
+        class="term-scroll-latest"
+        type="button"
+        data-terminal-scroll-end
+        aria-label="Jump to the latest terminal output"
+        hidden
+      >↓ latest</button>
+    </div>
 
     <TerminalKeybar />
 
@@ -118,7 +128,7 @@ const boot = {
         enterkeyhint="go"
       />
       <span id="term-help" class="visually-hidden">
-        Press Tab for completion, use the arrow keys for history, and press Control-L to clear the screen.
+        Scroll the output with a mouse wheel, trackpad, or swipe. Press Shift-PageUp or Shift-PageDown to move through history. Press Tab for completion, use the arrow keys for command history, and press Control-L to clear the screen.
       </span>
     </form>
   </section>
