@@ -348,6 +348,10 @@ async function main() {
     const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
     preview = spawn(npm, ['run', 'preview', '--', '--host', '127.0.0.1', '--port', String(port)], {
       stdio: ['ignore', 'pipe', 'pipe'],
+      // npm launches Astro as a child process. On POSIX runners, put the whole
+      // preview tree in its own process group so cleanup cannot leave Astro (and
+      // its stdout pipe) orphaned after the audit has passed.
+      detached: process.platform !== 'win32',
     });
     preview.stdout.on('data', (chunk) => { previewLog += chunk; });
     preview.stderr.on('data', (chunk) => { previewLog += chunk; });
@@ -391,7 +395,15 @@ async function main() {
     failures.push(error instanceof Error ? error.stack ?? error.message : String(error));
   } finally {
     if (preview) {
-      preview.kill('SIGTERM');
+      if (process.platform !== 'win32' && preview.pid) {
+        try {
+          process.kill(-preview.pid, 'SIGTERM');
+        } catch {
+          preview.kill('SIGTERM');
+        }
+      } else {
+        preview.kill('SIGTERM');
+      }
       await new Promise((resolve) => {
         if (preview.exitCode !== null) resolve();
         else {
