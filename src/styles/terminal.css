@@ -40,7 +40,7 @@
   min-height: 0;
   background: var(--term-bg);
   font-family: var(--font-mono);
-  font-size: clamp(0.66rem, 1.45vw, 0.84rem);
+  font-size: clamp(0.8125rem, 1.45vw, 0.875rem);
   line-height: 1.5;
 }
 
@@ -65,7 +65,9 @@ html[data-theme='dark'] .term {
   align-items: center;
   gap: 0.5rem;
   flex: none;
-  padding: 0.55rem 0.9rem;
+  min-width: 0;
+  padding: 0.3rem max(0.9rem, env(safe-area-inset-left)) 0.3rem
+    max(0.9rem, env(safe-area-inset-right));
   background: var(--term-chrome);
   border-bottom: 1px solid var(--term-rule);
 }
@@ -73,14 +75,25 @@ html[data-theme='dark'] .term {
    convention, not part of the palette. `button` needs the reset because these are
    real controls now, not decorative spans. */
 .term-dot {
-  width: 0.7em;
-  height: 0.7em;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
   border: 0;
   border-radius: 50%;
   flex: none;
   appearance: none;
   cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.term-dot::before {
+  width: 0.72rem;
+  height: 0.72rem;
+  content: '';
+  border-radius: 50%;
+  background: var(--term-dot-color);
   transition: transform var(--transition), box-shadow var(--transition);
 }
 .term-dot:disabled {
@@ -92,31 +105,47 @@ a.term-dot:focus-visible {
   outline-offset: 2px;
 }
 /* Colour on the base class, not the element type: each dot is an anchor on one
-   mounting and a button on the other, and scoping the background to `a.` once left
-   the inline close dot invisible. */
-.term-dot--close { background: #e5695b; }
+   mounting and a button on the other. The target is large enough for touch while
+   the pseudo-element keeps the familiar macOS-sized traffic light. */
+.term-dot--close { --term-dot-color: #e5695b; }
 .term-dot--close:hover,
 .term-dot--close:focus-visible {
-  transform: scale(1.25);
+  transform: none;
+}
+.term-dot--close:hover::before,
+.term-dot--close:focus-visible::before {
+  transform: scale(1.2);
   box-shadow: 0 0 0 3px rgba(229, 105, 91, 0.28);
 }
-.term-dot--min { background: #e0b451; }
+.term-dot--min { --term-dot-color: #e0b451; }
 .term-dot--min:hover,
 .term-dot--min:focus-visible {
-  transform: scale(1.25);
+  transform: none;
+}
+.term-dot--min:hover::before,
+.term-dot--min:focus-visible::before {
+  transform: scale(1.2);
   box-shadow: 0 0 0 3px rgba(224, 180, 81, 0.3);
 }
-.term-dot--zoom { background: #6cc06c; }
+.term-dot--zoom { --term-dot-color: #6cc06c; }
 .term-dot--zoom:not(:disabled):hover,
 .term-dot--zoom:not(:disabled):focus-visible {
-  transform: scale(1.25);
+  transform: none;
+}
+.term-dot--zoom:not(:disabled):hover::before,
+.term-dot--zoom:not(:disabled):focus-visible::before {
+  transform: scale(1.2);
   box-shadow: 0 0 0 3px rgba(108, 192, 108, 0.3);
 }
 .term-bar-title {
+  min-width: 0;
   flex: 1;
+  overflow: hidden;
   text-align: center;
   color: var(--term-dim);
   font-size: 0.92em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .term-bar-hint {
   flex: none;
@@ -124,16 +153,20 @@ a.term-dot:focus-visible {
   font-size: 0.82em;
   opacity: 0.75;
 }
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 600px) {
   .term-bar-hint { display: none; }
 }
 
 /* The theme switch, present only on /terminal/ — the homepage card sits under the
    site header, which already carries one. */
 .term-theme {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
   flex: none;
   margin-left: 0.75rem;
-  padding: 0 0.35em;
+  padding: 0;
   border: 0;
   background: none;
   appearance: none;
@@ -158,6 +191,7 @@ a.term-dot:focus-visible {
 }
 .term--min .term-screen,
 .term--min .term-form,
+.term--min .term-keybar,
 .term--min .term-foot {
   display: none;
 }
@@ -272,17 +306,22 @@ a.term-dot:focus-visible {
 .term-screen {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  overflow-x: auto;
   padding: 0.9rem 1rem 0.2rem;
   color: var(--term-ink);
-  /* `pre` keeps the banner's column alignment; narrow screens pan instead of
-     reflowing ASCII art into nonsense. */
-  white-space: pre;
+  /* A terminal wraps at its right edge. The old `pre` + horizontal scroller made
+     long `cat`, `ls -l`, and search output unusable on phones. */
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  white-space: pre-wrap;
+  word-break: break-word;
   scrollbar-width: thin;
   scrollbar-color: var(--term-rule) transparent;
 }
-.term-screen::-webkit-scrollbar { width: 9px; height: 9px; }
+.term-screen::-webkit-scrollbar { width: 9px; }
 .term-screen::-webkit-scrollbar-thumb {
   background: var(--term-rule);
   border-radius: 999px;
@@ -295,6 +334,7 @@ a.term-dot:focus-visible {
   gap: 2ch;
   align-items: flex-start;
   margin-bottom: 0.6rem;
+  min-width: 0;
 }
 .term-boot-dna {
   flex: none;
@@ -304,15 +344,25 @@ a.term-dot:focus-visible {
   line-height: 1.5;
   /* Reserve the column so the log never shifts as the helix rotates. */
   width: 11ch;
+  white-space: pre;
 }
-.term-boot-log { min-width: 0; }
+.term-boot-log {
+  min-width: 0;
+  max-width: 100%;
+}
 
-.term-line { min-height: 1.5em; }
+.term-line {
+  min-height: 1.5em;
+  max-width: 100%;
+}
 /* Block-glyph art only forms solid letters when the rows touch. */
 .term-art {
   line-height: 1;
   min-height: 1em;
+  max-width: 100%;
   color: var(--term-accent);
+  overflow: hidden;
+  white-space: pre;
 }
 .term-dim { color: var(--term-dim); }
 .term-accent { color: var(--term-accent); }
@@ -336,16 +386,21 @@ a.term-dot:focus-visible {
   display: flex;
   align-items: baseline;
   gap: 0.5ch;
+  min-width: 0;
   padding: 0.35rem 1rem 0.9rem;
 }
 .term-prompt {
+  min-width: 0;
+  max-width: 100%;
   color: var(--term-accent);
   flex: none;
+  overflow-wrap: anywhere;
   white-space: pre;
 }
 .term-input {
   flex: 1;
   min-width: 0;
+  width: 100%;
   border: 0;
   padding: 0;
   background: transparent;
@@ -357,25 +412,99 @@ a.term-dot:focus-visible {
 .term-input::placeholder { color: var(--term-dim); }
 .term-input:disabled { opacity: 0.6; }
 
-/* A block caret that rides after the text, drawn only while the field is idle. */
-.term-caret {
-  width: 0.6em;
-  height: 1.05em;
-  flex: none;
-  background: var(--term-accent);
-  animation: term-blink 1.1s steps(1) infinite;
-}
-.term:not(:focus-within) .term-caret { opacity: 0.35; animation: none; }
-.term.is-busy .term-caret { animation: none; opacity: 0.5; }
-
-@keyframes term-blink {
-  0%, 50% { opacity: 1; }
-  50.01%, 100% { opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .term-caret { animation: none; }
+.term:focus-within .term-form {
+  background: color-mix(in srgb, var(--term-accent) 3%, var(--term-bg));
 }
 
-.term-form {
+/* ---------------------------------------------------------- phone controls -- */
+
+.term-keybar {
+  display: none;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
   flex: none;
+  padding: 0.4rem max(0.7rem, env(safe-area-inset-left)) 0.25rem
+    max(0.7rem, env(safe-area-inset-right));
+  background: var(--term-bg);
+}
+.term-keybar button {
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.2rem;
+  border: 1px solid var(--term-rule);
+  border-radius: 0.3rem;
+  background: var(--term-chrome);
+  color: var(--term-ink);
+  font: inherit;
+  font-size: 0.82em;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background-color var(--transition);
+}
+.term-keybar button:hover,
+.term-keybar button:focus-visible {
+  border-color: var(--term-accent);
+  color: var(--term-accent);
+}
+.term-keybar button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+@media (max-width: 700px), (max-height: 600px) {
+  .term {
+    font-size: 0.8125rem;
+  }
+  .term-bar {
+    gap: 0.15rem;
+    padding-block: 0.15rem;
+  }
+  .term-dot,
+  .term-theme {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+  .term-bar-open {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+  }
+  .term-theme {
+    display: grid;
+    place-items: center;
+    margin-left: 0.1rem;
+    padding: 0;
+  }
+  .term-screen {
+    padding: 0.75rem max(0.7rem, env(safe-area-inset-left)) 0.3rem
+      max(0.7rem, env(safe-area-inset-right));
+  }
+  .term-boot {
+    display: block;
+  }
+  .term-boot-dna {
+    width: auto;
+    margin-bottom: 0.45rem;
+  }
+  .term-form {
+    gap: 0.35rem;
+    padding: 0.35rem max(0.7rem, env(safe-area-inset-left))
+      max(0.8rem, env(safe-area-inset-bottom)) max(0.7rem, env(safe-area-inset-right));
+  }
+  .term-input {
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+  .term-keybar {
+    display: grid;
+    gap: 0.25rem;
+    padding-inline: max(0.55rem, env(safe-area-inset-left))
+      max(0.55rem, env(safe-area-inset-right));
+  }
+  .term-foot {
+    flex-wrap: wrap;
+    gap: 0.4rem 0.75rem;
+    padding-inline: max(0.7rem, env(safe-area-inset-left))
+      max(0.7rem, env(safe-area-inset-right));
+  }
 }

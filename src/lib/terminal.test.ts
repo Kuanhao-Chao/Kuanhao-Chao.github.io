@@ -293,6 +293,25 @@ describe('exec — filesystem commands', () => {
     expect(out).not.toContain('about.txt');
   });
 
+  it('uses one entry per row for ls on narrow terminals', () => {
+    expect(texts(exec(shell(), 'ls', new Date('2026-08-10T12:00:00Z'), 40).lines)).toEqual([
+      'software/',
+      'about.txt',
+      'news.txt',
+    ]);
+  });
+
+  it('moves long ls titles onto their own rows on narrow terminals', () => {
+    const lines = exec(shell(), 'ls -l', new Date('2026-08-10T12:00:00Z'), 40).lines;
+    expect(lines.map((line) => line.text)).toEqual([
+      'd  khc  -  software/',
+      '-  khc      22  about.txt',
+      '    — About',
+      '-  khc      22  news.txt',
+      '    — Recent news',
+    ]);
+  });
+
   it('bare tree walks the working directory, not home', () => {
     const state = shell();
     exec(state, 'cd software');

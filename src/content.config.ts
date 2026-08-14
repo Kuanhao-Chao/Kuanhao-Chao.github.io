@@ -87,6 +87,10 @@ const research = defineCollection({
           z.object({
             publication: reference('publications'),
             note: z.string(),
+            // Optional label for a paper button in a research entry's resource bar.
+            // This lets a multi-paper direction opt into distinct, compact links
+            // without changing the header of every other research direction.
+            resourceLabel: z.string().optional(),
           })
         )
         .default([]),

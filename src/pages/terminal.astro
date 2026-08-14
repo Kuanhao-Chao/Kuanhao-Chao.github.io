@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { site, identity } from '../data/site';
 import { software, honors, reviewing } from '../data/cv';
+import TerminalKeybar from '../components/TerminalKeybar.astro';
 import '../styles/terminal.css';
 
 // The banner's identity and counts are inlined into the page so it paints on the
@@ -92,12 +93,15 @@ const boot = {
       class="term-screen"
       data-terminal-screen
       role="log"
-      aria-live="polite"
+      aria-live="off"
+      aria-busy="false"
       aria-label="Terminal output"
       tabindex="0"
     ></div>
 
-    <div class="term-form">
+    <TerminalKeybar />
+
+    <form class="term-form" data-terminal-form>
       <label class="visually-hidden" for="term-input">Terminal command</label>
       <span class="term-prompt" data-terminal-prompt>khc@genome:~$</span>
       <input
@@ -110,9 +114,13 @@ const boot = {
         autocorrect="off"
         spellcheck="false"
         placeholder="type `help` to begin"
+        aria-describedby="term-help"
+        enterkeyhint="go"
       />
-      <span class="term-caret" aria-hidden="true"></span>
-    </div>
+      <span id="term-help" class="visually-hidden">
+        Press Tab for completion, use the arrow keys for history, and press Control-L to clear the screen.
+      </span>
+    </form>
   </section>
 </BaseLayout>
 

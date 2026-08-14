@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import { site, identity } from '../data/site';
 import { software } from '../data/cv';
+import TerminalKeybar from './TerminalKeybar.astro';
 // The shell's whole appearance lives here. Without this import the homepage renders
 // a functioning terminal with no styling at all — every behaviour test still passes.
 import '../styles/terminal.css';
@@ -106,11 +107,14 @@ const boot = {
     class="term-screen"
     data-terminal-screen
     role="log"
-    aria-live="polite"
+    aria-live="off"
+    aria-busy="false"
     aria-label="Terminal output"
   ></div>
 
-  <div class="term-form">
+  <TerminalKeybar />
+
+  <form class="term-form" data-terminal-form>
     <label class="visually-hidden" for="home-term-input">Terminal command</label>
     <span class="term-prompt" data-terminal-prompt>khc@genome:~$</span>
     <input
@@ -123,9 +127,9 @@ const boot = {
       autocorrect="off"
       spellcheck="false"
       aria-describedby="home-term-help"
+      enterkeyhint="go"
     />
-    <span class="term-caret" aria-hidden="true"></span>
-  </div>
+  </form>
 
   <div class="term-foot">
     <span id="home-term-help" class="term-foot-try">

@@ -129,6 +129,8 @@ export function initTerminal(
   const screen = shellEl.querySelector<HTMLElement>('[data-terminal-screen]');
   const input = shellEl.querySelector<HTMLInputElement>('[data-terminal-input]');
   const promptEl = shellEl.querySelector<HTMLElement>('[data-terminal-prompt]');
+  const keybar = shellEl.querySelector<HTMLElement>('[data-terminal-keybar]');
+  const form = shellEl.querySelector<HTMLFormElement>('[data-terminal-form]');
   if (!screen || !input || !promptEl) return null;
 
   const state: ShellState = createShell(null);
@@ -136,8 +138,32 @@ export function initTerminal(
   let busy = false;
   let skipBoot: (() => void) | null = null;
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-  // A 76-column banner only pans on a phone, so the engine stacks it instead.
-  const isNarrow = () => window.innerWidth < 700;
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+  let columns = 80;
+  let resizeObserver: ResizeObserver | null = null;
+
+  /** Measure the actual pane, not the browser viewport, in monospace columns. */
+  function measureColumns() {
+    const style = getComputedStyle(screen!);
+    const horizontalPadding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const contentWidth = Math.max(1, screen!.clientWidth - horizontalPadding);
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (context) context.font = style.font;
+    const cell = context
+      ? context.measureText('0000000000').width / 10
+      : parseFloat(style.fontSize) * 0.6;
+    columns = Math.max(24, Math.floor(contentWidth / Math.max(1, cell)));
+    return columns;
+  }
+
+  const isNarrow = () => measureColumns() < 70;
+  const displayPrompt = () => {
+    const full = prompt(state);
+    // Keep the host in the accessible input label, but leave useful room for typing
+    // on a phone when the working directory is long.
+    return columns < 48 && !state.chatMode ? full.replace(/^khc@genome:/, 'khc:') : full;
+  };
 
   // ------------------------------------------------------------- rendering --
 
@@ -174,14 +200,30 @@ export function initTerminal(
     return el;
   }
 
-  const write = (lines: Line[]) => lines.forEach(writeLine);
+  function fitLines(lines: Line[]): Line[] {
+    const width = measureColumns();
+    return lines.flatMap((line) => {
+      // The logo and DNA frames are deliberately column-art; their narrow variants
+      // already fit the pane and must retain their spaces.
+      if (line.tone === 'art' || line.text.length <= width) return [line];
+      const wrapped = wrapText(line.text, width);
+      return wrapped.map((text, index) => ({
+        ...line,
+        text,
+        // A multi-line link remains a single link whose first row is clickable.
+        href: index === 0 ? line.href : undefined,
+      }));
+    });
+  }
+
+  const write = (lines: Line[]) => fitLines(lines).forEach(writeLine);
 
   function echoCommand(text: string) {
     const el = document.createElement('div');
     el.className = 'term-line term-echo';
     const ps1 = document.createElement('span');
     ps1.className = 'term-ps1';
-    ps1.textContent = `${prompt(state)} `;
+    ps1.textContent = `${displayPrompt()} `;
     const cmd = document.createElement('span');
     cmd.textContent = text;
     el.append(ps1, cmd);
@@ -190,17 +232,24 @@ export function initTerminal(
 
   function scrollToEnd() {
     screen!.scrollTop = screen!.scrollHeight;
+    screen!.scrollLeft = 0;
   }
 
   function setBusy(next: boolean) {
     busy = next;
     input!.disabled = next;
     shellEl!.classList.toggle('is-busy', next);
-    if (!next) input!.focus({ preventScroll: true });
+    screen!.setAttribute('aria-busy', String(next));
+    screen!.setAttribute('aria-live', next ? 'off' : 'polite');
+    keybar?.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+      button.disabled = next;
+    });
+    if (!next && !coarsePointer) input!.focus({ preventScroll: true });
   }
 
   const refreshPrompt = () => {
-    promptEl!.textContent = prompt(state);
+    measureColumns();
+    promptEl!.textContent = displayPrompt();
   };
 
   // ----------------------------------------------------------------- index --
@@ -342,7 +391,7 @@ export function initTerminal(
         // The model reliably opens with "\n\n", which would render as two blank lines
         // above every answer. Leading-only, so it stays idempotent as the stream grows
         // and cannot eat a blank line that turns out to separate paragraphs.
-        const lines = wrapText(stripThinking(text).replace(/^\s+/, ''));
+        const lines = wrapText(stripThinking(text).replace(/^\s+/, ''), measureColumns());
         while (block.childNodes.length > lines.length) block.lastChild!.remove();
         lines.forEach((line, i) => {
           const el = (block.childNodes[i] as HTMLElement) ?? block.appendChild(lineEl({ text: '' }));
@@ -413,7 +462,7 @@ export function initTerminal(
       setBusy(false);
     }
 
-    const { lines, effect } = exec(state, raw, new Date(), isNarrow());
+    const { lines, effect } = exec(state, raw, new Date(), measureColumns());
     write(lines);
     if (lines.length) write([{ text: '' }]);
     refreshPrompt();
@@ -423,32 +472,46 @@ export function initTerminal(
 
   // -------------------------------------------------------------- keyboard --
 
+  function completeInput() {
+    const { value, options } = complete(state, input!.value);
+    input!.value = value;
+    if (options.length) {
+      echoCommand(input!.value);
+      write([{ text: options.join('   '), tone: 'dim' }, { text: '' }]);
+      scrollToEnd();
+    }
+  }
+
+  function moveHistory(direction: -1 | 1) {
+    input!.value = historyStep(state, direction, input!.value);
+    input!.focus({ preventScroll: true });
+    window.requestAnimationFrame(() => input!.setSelectionRange(input!.value.length, input!.value.length));
+  }
+
+  function clearScreen() {
+    while (screen!.firstChild) screen!.removeChild(screen!.firstChild);
+    screen!.scrollLeft = 0;
+    input!.focus({ preventScroll: true });
+  }
+
+  function onFormSubmit(event: SubmitEvent) {
+    event.preventDefault();
+    if (!busy) void submit(input!.value);
+  }
+
   function onKeyDown(event: KeyboardEvent) {
     if (busy) {
       event.preventDefault();
       return;
     }
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      void submit(input!.value);
-      return;
-    }
     if (event.key === 'Tab') {
       event.preventDefault();
-      const { value, options } = complete(state, input!.value);
-      input!.value = value;
-      if (options.length) {
-        echoCommand(input!.value);
-        write([{ text: options.join('   '), tone: 'dim' }, { text: '' }]);
-        scrollToEnd();
-      }
+      completeInput();
       return;
     }
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
       event.preventDefault();
-      input!.value = historyStep(state, event.key === 'ArrowUp' ? -1 : 1, input!.value);
-      // Put the caret at the end so editing a recalled line feels native.
-      window.requestAnimationFrame(() => input!.setSelectionRange(input!.value.length, input!.value.length));
+      moveHistory(event.key === 'ArrowUp' ? -1 : 1);
       return;
     }
     if (event.ctrlKey && (event.key === 'c' || event.key === 'C')) {
@@ -460,12 +523,33 @@ export function initTerminal(
     }
     if (event.ctrlKey && (event.key === 'l' || event.key === 'L')) {
       event.preventDefault();
-      while (screen!.firstChild) screen!.removeChild(screen!.firstChild);
+      clearScreen();
       return;
     }
     if (event.ctrlKey && (event.key === 'u' || event.key === 'U')) {
       event.preventDefault();
       input!.value = '';
+    }
+  }
+
+  function onKeybarClick(event: MouseEvent) {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
+    const action = button?.dataset.terminalAction;
+    if (!button || !action || busy) return;
+    if (action === 'command') {
+      void submit(button.dataset.terminalCommand ?? '');
+    } else if (action === 'ask') {
+      input!.value = input!.value.startsWith('ask ') ? input!.value : 'ask ';
+      input!.focus({ preventScroll: true });
+    } else if (action === 'tab') {
+      completeInput();
+      input!.focus({ preventScroll: true });
+    } else if (action === 'history-up') {
+      moveHistory(-1);
+    } else if (action === 'history-down') {
+      moveHistory(1);
+    } else if (action === 'clear') {
+      clearScreen();
     }
   }
 
@@ -499,9 +583,10 @@ export function initTerminal(
   function setMinimised(next: boolean) {
     shellEl!.classList.toggle('term--min', next);
     minBtn?.setAttribute('aria-expanded', String(!next));
+    minBtn?.setAttribute('aria-label', next ? 'Restore the terminal' : 'Minimise the terminal');
     minBtn?.setAttribute('title', next ? 'Restore the terminal' : 'Minimise the terminal');
     if (next) minBtn?.focus({ preventScroll: true });
-    else input!.focus({ preventScroll: true });
+    else if (!coarsePointer) input!.focus({ preventScroll: true });
   }
 
   function setClosed(next: boolean) {
@@ -511,7 +596,7 @@ export function initTerminal(
     else {
       // Reopening a *minimised* window should give back a usable shell, not a bar.
       setMinimised(false);
-      input!.focus({ preventScroll: true });
+      if (!coarsePointer) input!.focus({ preventScroll: true });
     }
   }
 
@@ -589,10 +674,10 @@ export function initTerminal(
   let booting = true;
 
   function printBanner() {
-    write(motd(bootIndex, new Date(), isNarrow()));
+    write(motd(bootIndex, new Date(), measureColumns()));
     refreshPrompt();
     booting = false;
-    input!.focus({ preventScroll: true });
+    if (!coarsePointer) input!.focus({ preventScroll: true });
     scrollToEnd();
   }
 
@@ -784,8 +869,15 @@ export function initTerminal(
     void loadIndex();
   }
 
+  form?.addEventListener('submit', onFormSubmit);
   input.addEventListener('keydown', onKeyDown);
+  keybar?.addEventListener('click', onKeybarClick);
   shellEl.addEventListener('click', onShellClick);
+  measureColumns();
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => refreshPrompt());
+    resizeObserver.observe(screen);
+  }
 
   if (boot) {
     runBoot();
@@ -831,7 +923,11 @@ export function initTerminal(
       document.removeEventListener('keydown', takeOver, true);
       shellEl.removeEventListener('pointerdown', takeOver, true);
       if (bootRaf) cancelAnimationFrame(bootRaf);
+      resizeObserver?.disconnect();
+      resizeObserver = null;
+      form?.removeEventListener('submit', onFormSubmit);
       input.removeEventListener('keydown', onKeyDown);
+      keybar?.removeEventListener('click', onKeybarClick);
       shellEl.removeEventListener('click', onShellClick);
       minBtn?.removeEventListener('click', onMin);
       closeBtn?.removeEventListener('click', onClose);
