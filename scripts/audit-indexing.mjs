@@ -288,6 +288,29 @@ async function auditTerminalIndex(posts, reports) {
   }
 }
 
+async function auditResearchResources() {
+  const slug = 'splice-sites';
+  const htmlPath = join(DIST, 'research', slug, 'index.html');
+  if (!(await pathExists(htmlPath))) {
+    errors.push(`RNA-splicing research page is missing built HTML: ${slug}`);
+    return;
+  }
+  const html = await readFile(htmlPath, 'utf8');
+  const paperLinks = [
+    { label: 'Splam paper', href: 'https://doi.org/10.1186/s13059-024-03379-4' },
+    { label: 'OpenSpliceAI paper', href: 'https://doi.org/10.7554/eLife.107454.3' },
+  ];
+  const resourceBar =
+    [...html.matchAll(/<div class="entry-links"[^>]*>[\s\S]*?<\/div>/g)]
+      .map((match) => match[0])
+      .find((bar) => paperLinks.every(({ label, href }) => bar.includes(label) && bar.includes(href))) ?? '';
+  for (const { label, href } of paperLinks) {
+    if (!resourceBar.includes(label) || !resourceBar.includes(href)) {
+      errors.push(`RNA-splicing resource bar is missing ${label}.`);
+    }
+  }
+}
+
 async function auditPublicPageBasics(urls) {
   for (const url of urls) {
     if (!url.startsWith(SITE)) continue;
@@ -403,6 +426,7 @@ async function main() {
   await auditReportsIndex(reports, urls);
   await auditNoDraftReportPdfs();
   await auditTerminalIndex(posts, reports);
+  await auditResearchResources();
   await auditPublicPageBasics(urls);
   await auditUtilityPages(urls);
 

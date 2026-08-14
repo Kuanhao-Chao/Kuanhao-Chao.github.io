@@ -53,6 +53,11 @@ const year = new Date().getFullYear();
     grid-template-columns: 1.6fr 1fr 1fr;
     gap: clamp(2rem, 5vw, 4rem);
   }
+  /* Long social rows and contact links must be allowed to wrap inside the
+     responsive grid instead of expanding the page's scroll width. */
+  .footer-grid > * {
+    min-width: 0;
+  }
   .footer-name {
     font-family: var(--font-display);
     font-size: 1.3rem;
@@ -76,6 +81,7 @@ const year = new Date().getFullYear();
   .footer-connect a {
     color: var(--color-ink);
     font-size: var(--fs-small);
+    overflow-wrap: anywhere;
   }
   .footer-nav a:hover,
   .footer-connect a:hover {
@@ -91,6 +97,12 @@ const year = new Date().getFullYear();
     padding-top: var(--space-5);
     border-top: 1px solid var(--color-rule);
     font-size: var(--fs-small);
+  }
+  .footer-base > * {
+    min-width: 0;
+  }
+  .footer-colophon {
+    overflow-wrap: anywhere;
   }
 
   @media (max-width: 720px) {

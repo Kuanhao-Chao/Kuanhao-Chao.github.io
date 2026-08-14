@@ -595,7 +595,8 @@ export function bootLines(narrow = false): Line[] {
  * venues. A login screen that recites someone's counts at you reads as a CV in a
  * costume; `neofetch` prints them on request, which is where a stat block belongs.
  */
-export function motd(index: TermIndex, now: Date, narrow = false): Line[] {
+export function motd(index: TermIndex, now: Date, width: number | boolean = false): Line[] {
+  const narrow = typeof width === 'number' ? width < 70 : width;
   const id = index.identity;
   const side = [
     `khchao.com  ·  ${id.name} (${id.nameZh})`,
@@ -646,6 +647,8 @@ interface Ctx {
   args: string[];
   flags: Set<string>;
   now: Date;
+  /** Measured monospace columns available in the terminal pane. */
+  columns: number;
   /** Viewport is too narrow for two-column output; stack instead. */
   narrow: boolean;
 }
@@ -801,7 +804,7 @@ export const COMMANDS: Record<string, Cmd> = {
     summary: 'list directory contents',
     usage: 'ls [-l] [-a] [path]',
     needsIndex: true,
-    run: ({ index, state, args, flags }) => {
+    run: ({ index, state, args, flags, columns }) => {
       // `.`, not undefined: a bare `ls` lists the *working* directory, whereas
       // resolvePath treats a missing argument as "go home" (which is what `cd` wants).
       const path = resolvePath(state.cwd, args[0] ?? '.');
@@ -812,7 +815,16 @@ export const COMMANDS: Record<string, Cmd> = {
           : err(`ls: cannot access '${args[0] ?? path}': No such file or directory`);
       }
       if (!flags.has('l')) {
+        if (columns < 60) return entries.map((e) => ({ text: e.dir ? `${e.name}/` : e.name }));
         return [{ text: entries.map((e) => (e.dir ? `${e.name}/` : e.name)).join('   ') }];
+      }
+      if (columns < 72) {
+        return entries.flatMap((e) => [
+          {
+            text: `${e.dir ? 'd' : '-'}  ${USER}  ${e.dir ? '-' : String(index.fs[e.path].body.length).padStart(6)}  ${e.dir ? `${e.name}/` : e.name}`,
+          },
+          ...(e.title && !e.dir ? [{ text: `    — ${e.title}`, tone: 'dim' as Tone }] : []),
+        ]);
       }
       return entries.map((e) => ({
         text: `${e.dir ? 'drwxr-xr-x' : '-rw-r--r--'}  ${USER}  ${(e.dir ? '-' : String(index.fs[e.path].body.length)).padStart(6)}  ${e.dir ? `${e.name}/` : e.name}${e.title && !e.dir ? `  — ${e.title}` : ''}`,
@@ -1159,7 +1171,7 @@ export const COMMANDS: Record<string, Cmd> = {
     summary: 'align a query against the corpus',
     usage: 'blastn <query>',
     needsIndex: true,
-    run: ({ index, args }) => {
+    run: ({ index, args, columns }) => {
       const query = args.join(' ').trim();
       if (!query) return err('blastn: missing query');
       const hits = search(index, query, 6);
@@ -1174,17 +1186,28 @@ export const COMMANDS: Record<string, Cmd> = {
         lines.push({ text: '***** No hits found *****', tone: 'dim' });
         return lines;
       }
-      lines.push(
-        { text: '                                                        Score     E' },
-        { text: 'Sequences producing significant alignments:             (Bits)  Value' },
-        { text: '' }
-      );
+      if (columns >= 72) {
+        lines.push(
+          { text: '                                                        Score     E' },
+          { text: 'Sequences producing significant alignments:             (Bits)  Value' },
+          { text: '' }
+        );
+      } else {
+        lines.push({ text: 'Sequences producing significant alignments:', tone: 'dim' }, { text: '' });
+      }
       const top = hits[0].score || 1;
       for (const { chunk, score } of hits) {
         const bits = Math.round(60 + (score / top) * 380);
         const evalue = (1e-4 * Math.exp(-score)).toExponential(0).replace('e-', 'e-');
-        const label = `  ${chunk.path.replace(HOME, '~')}`.slice(0, 54).padEnd(54);
-        lines.push({ text: `${label}${String(bits).padStart(6)}  ${evalue}`, href: chunk.href });
+        if (columns < 72) {
+          lines.push(
+            { text: `  ${chunk.path.replace(HOME, '~')}`, tone: 'accent', href: chunk.href },
+            { text: `    Score ${bits} · E ${evalue}`, tone: 'dim' }
+          );
+        } else {
+          const label = `  ${chunk.path.replace(HOME, '~')}`.slice(0, 54).padEnd(54);
+          lines.push({ text: `${label}${String(bits).padStart(6)}  ${evalue}`, href: chunk.href });
+        }
       }
       return lines;
     },
@@ -1253,8 +1276,10 @@ export function exec(
   state: ShellState,
   input: string,
   now: Date = new Date(),
-  narrow = false
+  width: number | boolean = 80
 ): ExecResult {
+  const columns = typeof width === 'number' ? Math.max(24, Math.floor(width)) : width ? 48 : 80;
+  const narrow = columns < 70;
   const line = input.trim();
   if (line) {
     state.history.push(line);
@@ -1292,7 +1317,7 @@ export function exec(
     else args.push(token);
   }
 
-  const out = cmd.run({ state, index: state.index as TermIndex, argv, args, flags, now, narrow });
+  const out = cmd.run({ state, index: state.index as TermIndex, argv, args, flags, now, columns, narrow });
   return Array.isArray(out) ? { lines: out } : out;
 }
 

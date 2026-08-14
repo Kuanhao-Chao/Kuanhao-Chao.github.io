@@ -18,13 +18,23 @@ const d = entry.data;
 const { Content } = await render(entry);
 const relatedPosts = await resolveRelatedPosts(d.relatedPosts.map((r) => r.id));
 const publicationsById = new Map((await getCollection('publications')).map((item) => [item.id, item]));
-const contributions = d.relatedPublications.flatMap(({ publication, note }) => {
+const contributions = d.relatedPublications.flatMap(({ publication, note, resourceLabel }) => {
   const related = publicationsById.get(publication.id);
-  return related ? [{ entry: related, note }] : [];
+  return related ? [{ entry: related, note, resourceLabel }] : [];
+});
+// A resource label is an explicit opt-in for more than one paper button. Other
+// research directions keep their established primary-paper resource bar until
+// their content supplies similarly intentional labels.
+const paperContributions = contributions.some(({ resourceLabel }) => resourceLabel)
+  ? contributions.filter(({ resourceLabel }) => resourceLabel)
+  : contributions.slice(0, 1);
+const paperLinks = paperContributions.flatMap(({ entry, resourceLabel }) => {
+  const href = entry.data.doi ?? entry.data.pdf;
+  return href ? [{ label: resourceLabel ?? 'Paper', icon: 'link', href }] : [];
 });
 const primaryPublication = contributions[0]?.entry.data;
 const links = [
-  { label: 'Paper', icon: 'link', href: primaryPublication?.doi ?? primaryPublication?.pdf },
+  ...paperLinks,
   { label: 'Code', icon: 'code', href: primaryPublication?.code },
   { label: 'Data', icon: 'database', href: primaryPublication?.data },
   { label: 'News', icon: 'external', href: primaryPublication?.news },
