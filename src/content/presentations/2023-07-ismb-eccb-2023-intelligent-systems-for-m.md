@@ -7,4 +7,7 @@ location: 'Lyon, France'
 startDate: 2023-07-25
 endDate: 2023-07-25
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/ISMB_splam.pdf'
+relatedPublications:
+  - publication: 2024-08-splam
+    label: Splam
 ---

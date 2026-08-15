@@ -1,7 +1,7 @@
 ---
 title: 'I present fungal DNA language models at a JHU joint lab meeting'
 date: 2025-01-01
-category: join
+category: talk
 location: 'Baltimore, MD'
 link: 'https://youtu.be/MvpYQYQvZ0U'
 ---

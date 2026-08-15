@@ -7,4 +7,7 @@ location: 'Lyon, France'
 startDate: 2023-07-25
 endDate: 2023-07-25
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/ISMB_Han1.pdf'
+relatedPublications:
+  - publication: 2023-01-han1
+    label: Han1
 ---

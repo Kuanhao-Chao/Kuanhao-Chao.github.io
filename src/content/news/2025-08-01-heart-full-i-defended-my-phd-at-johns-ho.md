@@ -1,7 +1,7 @@
 ---
 title: 'I defend my Ph.D. at Johns Hopkins University'
 date: 2025-08-01
-category: misc
+category: join
 location: 'Baltimore, MD'
 link: 'https://storage.googleapis.com/storage.khchao.com/K-H_Chao_dissertation.pdf'
 ---

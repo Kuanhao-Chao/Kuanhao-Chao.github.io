@@ -1,7 +1,7 @@
 ---
 title: 'LiftOn is selected for a RECOMB-Seq 2024 talk'
 date: 2024-03-01
-category: publication
+category: talk
 location: 'Boston, US'
 link: 'https://khchao.com/LiftOn/'
 ---

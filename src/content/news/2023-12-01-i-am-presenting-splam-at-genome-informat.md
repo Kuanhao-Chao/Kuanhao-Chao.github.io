@@ -1,7 +1,7 @@
 ---
 title: 'I present Splam at Genome Informatics 2023'
 date: 2023-12-01
-category: release
+category: talk
 location: 'Baltimore, US'
 link: 'https://doi.org/10.1101/2023.07.27.550754'
 ---

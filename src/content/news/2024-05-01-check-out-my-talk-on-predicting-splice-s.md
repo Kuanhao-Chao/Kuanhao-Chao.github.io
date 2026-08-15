@@ -1,7 +1,7 @@
 ---
 title: 'Splice-site prediction talk materials are available'
 date: 2024-05-01
-category: release
+category: talk
 location: 'Baltimore, MD'
 link: 'https://www.youtube.com/watch?v=MyWwUzjIBVk&feature=youtu.be'
 ---

@@ -1,7 +1,7 @@
 ---
 title: 'Splam and Han1 posters are accepted at ISMB/ECCB 2023'
 date: 2023-05-01
-category: award
+category: talk
 location: 'Taipei, Taiwan'
 link: 'https://cosi.iscb.org/wiki/MLCSB:Home'
 ---

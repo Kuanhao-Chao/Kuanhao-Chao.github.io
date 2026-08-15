@@ -7,4 +7,7 @@ location: 'Boston, MA'
 startDate: 2024-04-29
 endDate: 2024-05-02
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/RECOMB_LiftOn.pdf'
+relatedPublications:
+  - publication: 2025-01-lifton
+    label: LiftOn
 ---

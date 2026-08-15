@@ -1,7 +1,7 @@
 ---
 title: 'LiftOn ISMB 2024 talk materials are available'
 date: 2024-07-01
-category: release
+category: talk
 location: 'Montréal, Canada'
 link: 'https://youtu.be/1zSz67rxQtA?si=3D_aNxR_OpYe3Fm9'
 ---

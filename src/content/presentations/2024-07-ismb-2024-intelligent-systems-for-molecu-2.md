@@ -7,4 +7,7 @@ location: 'Montréal, Canada'
 startDate: 2024-07-12
 endDate: 2024-07-16
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/RECOMB_LiftOn.pdf'
+relatedPublications:
+  - publication: 2025-01-lifton
+    label: LiftOn
 ---

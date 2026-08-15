@@ -7,4 +7,7 @@ location: 'Istanbul, Türkiye'
 startDate: 2023-04-16
 endDate: 2023-04-19
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/RECOMB_WGT.pdf'
+relatedPublications:
+  - publication: 2023-08-wgt
+    label: WGT
 ---

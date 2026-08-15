@@ -127,6 +127,12 @@ export const projects: Project[] = [
       { label: 'Research', icon: 'link', href: '/research/genome-assembly/' },
       { label: 'Publication', icon: 'file', href: '/publications/han1/' },
       { label: 'Post', icon: 'pencil', href: '/posts/han1/' },
+      { label: 'Code', icon: 'code', href: 'https://github.com/JHUCCB/ChineseHanSouthGenome' },
+      {
+        label: 'Data',
+        icon: 'database',
+        href: 'https://www.ncbi.nlm.nih.gov/datasets/genome/GCA_024586135.1/',
+      },
     ],
   },
   {
@@ -144,6 +150,7 @@ export const projects: Project[] = [
     links: [
       { label: 'Research', icon: 'link', href: '/research/pangenome-indexing/' },
       { label: 'Publication', icon: 'file', href: '/publications/wgt/' },
+      { label: 'Post', icon: 'pencil', href: '/posts/wgt/' },
       {
         label: 'Code',
         icon: 'code',
@@ -168,6 +175,27 @@ export const projects: Project[] = [
       { label: 'Post', icon: 'pencil', href: '/posts/sangeranalyser/' },
       { label: 'Docs', icon: 'book', href: 'https://sangeranalyser.readthedocs.io/en/latest/' },
       { label: 'Code', icon: 'code', href: 'https://github.com/roblanf/sangeranalyseR' },
+    ],
+  },
+  {
+    slug: 'rnaseqr',
+    publicationId: '2019-12-rnaseqr',
+    title: 'RNASeqR: automated two-group RNA-Seq analysis workflow',
+    shortTitle: 'RNASeqR',
+    area: 'RNA-seq analysis',
+    year: '2019',
+    status: 'Published',
+    tags: ['RNA-seq', 'R / Bioconductor', 'Differential expression'],
+    summary:
+      'An R package providing an end-to-end automated pipeline for two-group RNA-Seq analysis and visualization.',
+    links: [
+      { label: 'Publication', icon: 'file', href: '/publications/rnaseqr/' },
+      { label: 'Code', icon: 'code', href: 'https://github.com/Kuanhao-Chao/RNASeqR' },
+      {
+        label: 'Docs',
+        icon: 'book',
+        href: 'https://bioconductor.org/packages/release/bioc/html/RNASeqR.html',
+      },
     ],
   },
   {

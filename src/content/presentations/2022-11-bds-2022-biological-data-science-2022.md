@@ -8,4 +8,7 @@ startDate: 2022-11-09
 endDate: 2022-11-12
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/BDS_Han1.pdf'
 video: 'https://youtu.be/2m5wrqqsn4E'
+relatedPublications:
+  - publication: 2023-01-han1
+    label: Han1
 ---
