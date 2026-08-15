@@ -1,10 +1,10 @@
 ---
 title: 'Predicting dynamic expression patterns in budding yeast with a fungal DNA language model'
 authors: 'Kuan-Hao Chao*, Majed Mohamed Magzoub, Emily Stoops, Sean R. Hackett, Johannes Linder*, David R. Kelley*'
-venue: 'eLife'
+venue: 'bioRxiv'
 date: 2025-09-19
-type: journal
-status: accepted
+type: preprint
+status: preprint
 doi: 'https://doi.org/10.1101/2025.09.19.677475'
 relatedPosts: ['shorkie']
 code: 'https://github.com/calico/shorkie-paper'
