@@ -1,7 +1,7 @@
 ---
 title: 'Wheeler graph collaboration is highlighted by Johns Hopkins'
 date: 2024-01-01
-category: award
+category: misc
 location: 'Baltimore, US'
 link: 'https://engineering.jhu.edu/news/the-human-genome-is-biased-but-rearranging-it-can-help/'
 ---

@@ -1,7 +1,7 @@
 ---
 title: 'Johns Hopkins feature article is published on Splam'
 date: 2024-12-01
-category: publication
+category: misc
 location: 'Baltimore, MD'
 link: 'https://doi.org/10.1186/s13059-024-03379-4'
 ---

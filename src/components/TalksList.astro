@@ -36,6 +36,9 @@ const resourceGroupsFor = (entry: CollectionEntry<'presentations'>) =>
     if (pubData.code) add({ label: 'Code', icon: 'code', href: pubData.code });
     if (pubData.docs) add({ label: 'Docs', icon: 'book', href: pubData.docs });
     if (pubData.data) add({ label: 'Data', icon: 'database', href: pubData.data });
+    pubData.relatedPosts?.forEach((postRef) => {
+      add({ label: 'Post', icon: 'pencil', href: `/posts/${postRef.id}/` });
+    });
     const project = projectsByPublication.get(pub.id);
     project?.links.forEach(add);
     return [{ label, links }];

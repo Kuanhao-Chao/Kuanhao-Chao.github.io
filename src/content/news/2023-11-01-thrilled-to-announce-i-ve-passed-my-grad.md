@@ -1,7 +1,7 @@
 ---
 title: 'I complete the Graduate Board Oral exam'
 date: 2023-11-01
-category: misc
+category: join
 location: 'Baltimore, US'
 ---
 

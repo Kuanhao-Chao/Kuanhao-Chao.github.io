@@ -1,7 +1,7 @@
 ---
 title: 'Splam v1.0.2 is released for splice-site prediction'
 date: 2023-07-01
-category: publication
+category: release
 location: 'Taipei, Taiwan'
 link: 'https://github.com/Kuanhao-Chao/splam'
 ---

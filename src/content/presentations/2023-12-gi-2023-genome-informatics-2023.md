@@ -7,4 +7,7 @@ location: 'Cold Spring Harbor, New York'
 startDate: 2023-12-06
 endDate: 2023-12-09
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/GI_splam.pdf'
+relatedPublications:
+  - publication: 2024-08-splam
+    label: Splam
 ---

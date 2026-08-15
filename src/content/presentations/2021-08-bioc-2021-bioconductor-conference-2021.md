@@ -7,4 +7,7 @@ location: 'Virtual'
 startDate: 2021-08-04
 endDate: 2021-08-06
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/Bioc_sangeranalyseR.pdf'
+relatedPublications:
+  - publication: 2021-02-sangeranalyser
+    label: sangeranalyseR
 ---

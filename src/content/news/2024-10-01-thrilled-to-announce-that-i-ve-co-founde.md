@@ -1,7 +1,7 @@
 ---
 title: 'Deep Learning in Genomics Study Group launches at Hopkins'
 date: 2024-10-01
-category: talk
+category: misc
 location: 'Cold Spring Harbor, NY'
 link: 'https://scholar.google.com/citations?user=2B51EUIAAAAJ&hl=en'
 ---

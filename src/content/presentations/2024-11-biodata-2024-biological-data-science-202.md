@@ -7,4 +7,9 @@ location: 'Cold Spring Harbor, NY'
 startDate: 2024-11-13
 endDate: 2024-11-19
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/BDS_OpenSpliceAI.pdf'
+relatedPublications:
+  - publication: 2025-06-openspliceai
+    label: OpenSpliceAI
+  - publication: 2024-08-splam
+    label: Splam
 ---

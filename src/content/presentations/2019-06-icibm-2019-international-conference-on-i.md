@@ -7,4 +7,7 @@ location: 'Columbus, Ohio'
 startDate: 2019-06-09
 endDate: 2019-06-11
 slides: 'https://docs.google.com/presentation/d/e/2PACX-1vQI6h6raE-0W4WZ8ZYOsjq4saNgztpQvo69ZCLxOOErMPqcWMBucz0v5xfesaTDyIQkuBxugDXcfUVH/embed?start=false&loop=false&delayms=3000'
+relatedPublications:
+  - publication: 2019-12-rnaseqr
+    label: RNASeqR
 ---
