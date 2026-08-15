@@ -7,5 +7,5 @@ location: 'Cold Spring Harbor, New York'
 startDate: 2022-11-09
 endDate: 2022-11-12
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/BDS_Han1.pdf'
-video: 'https://www.youtube.com/embed/2m5wrqqsn4E'
+video: 'https://youtu.be/2m5wrqqsn4E'
 ---

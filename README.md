@@ -1,7 +1,7 @@
 # khchao.com
 
 Personal academic website for **Kuan-Hao Chao** — computational biologist and
-Senior Deep Learning Scientist at the Illumina AI Lab.
+Senior Deep Learning/AI Engineer at the Illumina AI Lab.
 
 Built with [Astro](https://astro.build) (content collections, zero client-side
 frameworks), self-hosted variable fonts, and a small CSS design-token system.
@@ -77,7 +77,7 @@ First-time setup on the new repository:
 
 1. Create the GitHub repo and push this project to `main`.
 2. **Settings → Pages → Source → GitHub Actions**.
-3. **Settings → Pages → Custom domain → `khchao.com`**, then enable *Enforce HTTPS*.
+3. **Settings → Pages → Custom domain → `khchao.com`**, then enable _Enforce HTTPS_.
 4. Because a custom domain can only be attached to one Pages site at a time, first
    verify this site on its `*.github.io` URL, then **remove the `khchao.com` custom
    domain from the old `Kuanhao-Chao.github.io` repo** before binding it here. DNS does

@@ -36,22 +36,40 @@ const fixture = (): TermIndex => ({
   identity: {
     name: 'Kuan-Hao Chao',
     nameZh: '趙冠豪',
-    role: 'Senior Deep Learning Scientist, Illumina AI Lab',
+    role: 'Senior Deep Learning/AI Engineer, Illumina AI Lab',
     email: 'kuanhao.chao@gmail.com',
     tagline: 'Building machine learning for genomics.',
     philosophy: 'Build what you need, use what you build.',
     bio: 'I build machine learning for genomics.',
-    jobTitle: 'Senior Deep Learning Scientist',
+    jobTitle: 'Senior Deep Learning/AI Engineer',
     worksFor: 'Illumina',
     alumniOf: ['Johns Hopkins University', 'National Taiwan University'],
     knowsAbout: ['Genomics', 'Deep learning'],
     alternateNames: ['趙冠豪', 'Kuanhao Chao'],
     socials: [{ key: 'github', label: 'GitHub', href: 'https://github.com/Kuanhao-Chao' }],
   },
-  stats: { publications: 15, talks: 22, software: 6, research: 5, posts: 8, news: 49, reviewing: 13 },
+  stats: {
+    publications: 15,
+    talks: 22,
+    software: 6,
+    research: 5,
+    posts: 8,
+    news: 49,
+    reviewing: 13,
+  },
   fs: {
-    [`${HOME}/about.txt`]: { title: 'About', body: 'About me.\nSecond line.', href: '/', kind: 'file' },
-    [`${HOME}/news.txt`]: { title: 'Recent news', body: '2026-08-06  Cell paper', href: '/news/', kind: 'file' },
+    [`${HOME}/about.txt`]: {
+      title: 'About',
+      body: 'About me.\nSecond line.',
+      href: '/',
+      kind: 'file',
+    },
+    [`${HOME}/news.txt`]: {
+      title: 'Recent news',
+      body: '2026-08-06  Cell paper',
+      href: '/news/',
+      kind: 'file',
+    },
     [`${HOME}/software/lifton.txt`]: {
       title: 'LiftOn',
       body: 'LiftOn — genome annotation lift-over combining DNA and protein alignments.',
@@ -471,7 +489,8 @@ describe('history navigation', () => {
 
 describe('wrapText', () => {
   it('never emits a line longer than the column budget', () => {
-    const prose = 'Kuan-Hao Chao works on sequence to function models, genome annotation, and DNA language models at the Illumina AI Lab.';
+    const prose =
+      'Kuan-Hao Chao works on sequence to function models, genome annotation, and DNA language models at the Illumina AI Lab.';
     for (const line of wrapText(prose, 40)) expect(line.length).toBeLessThanOrEqual(40);
   });
 
@@ -722,7 +741,9 @@ describe('news is findable but never preferred over the canonical page', () => {
 
 describe('cleanProse', () => {
   it('unwraps a markdown link to its label', () => {
-    expect(cleanProse('published in [Cell](https://doi.org/10.1016/x).')).toBe('published in Cell.');
+    expect(cleanProse('published in [Cell](https://doi.org/10.1016/x).')).toBe(
+      'published in Cell.'
+    );
   });
 
   it('drops a row that was nothing but a URL', () => {
@@ -748,11 +769,11 @@ describe('query expansion', () => {
       title: 'Experience',
       href: '/cv/',
       kind: 'file',
-      text: 'Sr. Deep Learning Scientist Illumina AI Lab Aug 2025 Present',
+      text: 'Senior Deep Learning/AI Engineer Illumina AI Lab Aug 2025 Present',
     });
     index.fs[`${HOME}/cv/experience.txt`] = {
       title: 'Experience',
-      body: 'Aug 2025 – Present\n  Sr. Deep Learning Scientist\n  Illumina — AI Lab',
+      body: 'Aug 2025 – Present\n  Senior Deep Learning/AI Engineer\n  Illumina — AI Lab',
       href: '/cv/',
       kind: 'file',
     };
@@ -836,7 +857,10 @@ describe('the offline brain', () => {
     });
     index.fs[`${HOME}/talks/lifton-talk.txt`] = index.fs[`${HOME}/software/lifton.txt`];
     const body = joined(offlineAnswer(index, 'lifton annotation')).split('sources')[0];
-    const sentences = body.split('\n').map((s) => s.trim()).filter(Boolean);
+    const sentences = body
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
     expect(new Set(sentences).size).toBe(sentences.length);
   });
 

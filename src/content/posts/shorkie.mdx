@@ -20,7 +20,7 @@ references:
   - text: 'Karollus, A. et al. Species-aware DNA language models capture regulatory elements and their evolution. Genome Biology (2024).'
     doi: 'https://doi.org/10.1186/s13059-024-03221-x'
   - text: 'Rhee, H. S. and Pugh, B. F. Comprehensive genome-wide protein-DNA interactions detected at single-nucleotide resolution. Cell (2011).'
-    doi: 'https://doi.org/10.1016/j.cell.2011.05.042'
+    doi: 'https://doi.org/10.1016/j.cell.2011.11.013'
   - text: 'Vaswani, A. et al. Attention is all you need. Advances in Neural Information Processing Systems (2017).'
     url: 'https://arxiv.org/abs/1706.03762'
   - text: 'Ronneberger, O., Fischer, P., and Brox, T. U-Net: convolutional networks for biomedical image segmentation. MICCAI (2015).'
@@ -92,7 +92,7 @@ The 165-genome *Saccharomycetales* model reconstructed held-out yeast sequence b
 
 The kingdom model's noisier training is consistent with greater corpus heterogeneity and a harder optimization problem, but the experiments do not isolate one cause. Across four tested model capacities, however, the 165-genome order remained the best pretraining scope, so the observed ranking was not reversed by increasing capacity alone.
 
-Second comes **fine-tuning**. At Calico, the team produced high-resolution RNA-seq time courses using miniaturized chemostats, or "ministats," to watch yeast genes respond minute by minute after transcription-factor induction. Shorkie fine-tunes the pretrained model on those measurements and other regulatory assays, unifying 5,215 experimental tracks: 3,053 induction RNA-seq timepoints, 1,014 strain RNA-seq profiles, 1,128 [ChIP-exo transcription-factor binding datasets (Rhee and Pugh, 2011)](https://doi.org/10.1016/j.cell.2011.05.042), and 20 histone-modification tracks.
+Second comes **fine-tuning**. At Calico, the team produced high-resolution RNA-seq time courses using miniaturized chemostats, or "ministats," to watch yeast genes respond minute by minute after transcription-factor induction. Shorkie fine-tunes the pretrained model on those measurements and other regulatory assays, unifying 5,215 experimental tracks: 3,053 induction RNA-seq timepoints, 1,014 strain RNA-seq profiles, 1,128 [ChIP-exo transcription-factor binding datasets (Rhee and Pugh, 2011)](https://doi.org/10.1016/j.cell.2011.11.013), and 20 histone-modification tracks.
 
 Fine-tuning retains the pretrained sequence trunk but changes the task and output resolution. Three upsampling stages produce 16 bp bins; cropping the less-supported edges leaves 896 bins across the central 14,336 bp. A combined Poisson and multinomial objective trains the model to match both total signal and its distribution along the sequence.
 
@@ -146,4 +146,4 @@ Shorkie is open source — the code and trained models are on GitHub.
 
 ---
 
-*Read the [preprint on bioRxiv](https://doi.org/10.1101/2025.09.19.677475), browse the [code](https://github.com/calico/shorkie-paper), or watch the [talk](https://youtu.be/MvpYQYQvZ0U). Shorkie was built with Majed Mohamed Magzoub, Emily Stoops, Sean R. Hackett, Johannes Linder, and David R. Kelley at Calico Life Sciences.*
+*Read the [preprint on bioRxiv](https://doi.org/10.1101/2025.09.19.677475), browse the [code](https://github.com/calico/shorkie-paper), read the [documentation](https://khchao.com/shorkie/), explore the [data catalogue](https://khchao.com/shorkie/content/data_resources.html), or watch the [talk](https://youtu.be/MvpYQYQvZ0U). [The latest slides](https://storage.googleapis.com/storage.khchao.com/slides/ProbGen2026_0325.pdf) are also available. Shorkie was built with Majed Mohamed Magzoub, Emily Stoops, Sean R. Hackett, Johannes Linder, and David R. Kelley at Calico Life Sciences.*

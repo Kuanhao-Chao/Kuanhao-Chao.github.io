@@ -1,6 +1,9 @@
 ---
 import PresentationItem from './PresentationItem.astro';
 import Icon from './Icon.astro';
+import { getCollection } from 'astro:content';
+import { pubSlug } from '../lib/slug';
+import { projects, type ProjectLink } from '../data/projects';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -8,6 +11,35 @@ interface Props {
 }
 
 const { talks } = Astro.props;
+const publications = await getCollection('publications');
+const publicationsById = new Map(publications.map((publication) => [publication.id, publication]));
+const projectsByPublication = new Map(
+  projects
+    .filter((project) => project.publicationId)
+    .map((project) => [project.publicationId, project])
+);
+
+const resourceGroupsFor = (entry: CollectionEntry<'presentations'>) =>
+  entry.data.relatedPublications.flatMap(({ publication, label }) => {
+    const pub = publicationsById.get(publication.id);
+    if (!pub) return [];
+    const pubData = pub.data;
+    const links: ProjectLink[] = [];
+    const add = (item: ProjectLink) => {
+      if (item.href && !links.some((link) => link.href === item.href)) links.push(item);
+    };
+    const paper = pubData.doi ?? pubData.pdf;
+    if (paper) add({ label: 'Paper', icon: 'link', href: paper });
+    add({ label: 'Publication', icon: 'file', href: `/publications/${pubSlug(pub.id)}/` });
+    if (pubData.pdf && pubData.pdf !== paper)
+      add({ label: 'PDF', icon: 'file', href: pubData.pdf });
+    if (pubData.code) add({ label: 'Code', icon: 'code', href: pubData.code });
+    if (pubData.docs) add({ label: 'Docs', icon: 'book', href: pubData.docs });
+    if (pubData.data) add({ label: 'Data', icon: 'database', href: pubData.data });
+    const project = projectsByPublication.get(pub.id);
+    project?.links.forEach(add);
+    return [{ label, links }];
+  });
 const types = [
   { value: 'all', label: 'All' },
   { value: 'invited', label: 'Invited' },
@@ -16,6 +48,7 @@ const types = [
   { value: 'exhibition', label: 'Exhibitions' },
 ];
 ---
+
 <div class="talk-tools" data-talk-tools>
   <div class="talk-filters" role="group" aria-label="Filter by presentation type">
     {
@@ -35,7 +68,12 @@ const types = [
   <div class="talk-controls">
     <label class="search">
       <Icon name="search" size={18} />
-      <input type="search" placeholder="Search talks..." data-search-input aria-label="Search talks and posters" />
+      <input
+        type="search"
+        placeholder="Search talks..."
+        data-search-input
+        aria-label="Search talks and posters"
+      />
     </label>
     <label class="sort">
       <span class="visually-hidden">Sort talks</span>
@@ -49,7 +87,13 @@ const types = [
 </div>
 
 <ol class="talk-list" data-talk-list>
-  {talks.map((entry) => <li><PresentationItem entry={entry} /></li>)}
+  {
+    talks.map((entry) => (
+      <li>
+        <PresentationItem entry={entry} relatedGroups={resourceGroupsFor(entry)} />
+      </li>
+    ))
+  }
 </ol>
 
 <p class="talk-empty" data-talk-empty hidden>No talks match your search.</p>

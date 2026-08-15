@@ -53,6 +53,9 @@ jobs:
       - name: Audit indexing
         run: npm run audit:indexing
 
+      - name: Audit built links
+        run: npm run audit:links
+
       - name: Audit security
         run: npm run audit:security
 

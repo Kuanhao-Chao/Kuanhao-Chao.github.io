@@ -7,5 +7,10 @@ location: 'Baltimore, MD'
 startDate: 2024-05-15
 endDate: 2024-05-15
 slides: 'https://storage.googleapis.com/storage.khchao.com/slides/JHU_joint_lab_meeting_2024.pdf'
-video: 'https://www.youtube.com/embed/MyWwUzjIBVk?si=P8PuqMILc_Z6YRx0'
+relatedPublications:
+  - publication: '2024-08-splam'
+    label: 'Splam'
+  - publication: '2025-06-openspliceai'
+    label: 'OpenSpliceAI'
+video: 'https://youtu.be/MyWwUzjIBVk'
 ---

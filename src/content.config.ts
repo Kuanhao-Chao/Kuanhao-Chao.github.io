@@ -55,8 +55,17 @@ const presentations = defineCollection({
       poster: z.url().optional(),
       video: z.url().optional(),
       link: z.url().optional(),
+      linkLabel: z.string().optional(),
       photo: z.url().optional(),
       image: image().optional(),
+      relatedPublications: z
+        .array(
+          z.object({
+            publication: reference('publications'),
+            label: z.string(),
+          })
+        )
+        .default([]),
       featured: z.boolean().default(false),
     }),
 });
@@ -128,9 +137,7 @@ const news = defineCollection({
   schema: z.object({
     title: z.string(),
     date: z.coerce.date(),
-    category: z
-      .enum(['publication', 'talk', 'award', 'release', 'join', 'misc'])
-      .default('misc'),
+    category: z.enum(['publication', 'talk', 'award', 'release', 'join', 'misc']).default('misc'),
     location: z.string().optional(),
     link: z.url().optional(),
     draft: z.boolean().default(false),
@@ -210,4 +217,12 @@ const reports = defineCollection({
     }),
 });
 
-export const collections = { publications, presentations, research, teaching, news, posts, reports };
+export const collections = {
+  publications,
+  presentations,
+  research,
+  teaching,
+  news,
+  posts,
+  reports,
+};

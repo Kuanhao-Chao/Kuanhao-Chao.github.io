@@ -10,7 +10,7 @@ export type Position = {
 
 export const experience: Position[] = [
   {
-    role: 'Sr. Deep Learning Scientist & Engineer',
+    role: 'Senior Deep Learning/AI Engineer',
     org: 'Illumina',
     unit: 'AI Lab',
     period: 'Aug 2025 – Present',
@@ -42,7 +42,7 @@ export const experience: Position[] = [
     org: 'National Taiwan University',
     unit: 'Centers of Genomic and Precision Medicine',
     period: 'Aug 2018 – Jul 2019',
-    url: 'https://www.cgm.ntu.edu.tw/',
+    url: 'https://www.ntu.edu.tw/english/',
   },
 ];
 
@@ -185,6 +185,7 @@ export const software: SoftwareTool[] = [
     blurb: 'Yeast RNA-Seq coverage predictor powered by a fungal DNA language model.',
     license: LICENSE.apache,
     code: 'https://github.com/calico/shorkie-paper',
+    docs: 'https://khchao.com/shorkie/',
     paper: 'https://doi.org/10.1101/2025.09.19.677475',
     posts: ['shorkie'],
   },

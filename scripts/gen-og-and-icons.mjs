@@ -61,7 +61,7 @@ const overlay = Buffer.from(`
   <g font-family="${FONT}">
     <text x="92" y="214" font-size="23" font-weight="600" letter-spacing="4" fill="${C.accent}">COMPUTATIONAL BIOLOGIST</text>
     <text x="90" y="308" font-size="76" font-weight="700" fill="${C.ink}">Kuan-Hao Chao</text>
-    <text x="92" y="362" font-size="29" font-weight="600" fill="${C.ink}">Senior Deep Learning Scientist, Illumina AI Lab</text>
+    <text x="92" y="362" font-size="29" font-weight="600" fill="${C.ink}">Senior Deep Learning/AI Engineer, Illumina AI Lab</text>
     <text x="92" y="424" font-size="23" font-weight="400" fill="${C.muted}">AI for genomics — sequence-to-function models,</text>
     <text x="92" y="458" font-size="23" font-weight="400" fill="${C.muted}">genome annotation &amp; DNA language models.</text>
     <text x="92" y="536" font-size="28" font-weight="700" fill="${C.accent}">khchao.com</text>
@@ -88,9 +88,14 @@ const iconSvg = (s) => {
   );
 };
 for (const s of [16, 32]) {
-  await sharp(iconSvg(s)).png().toFile(join(PUBLIC, `favicon-${s}.png`));
+  await sharp(iconSvg(s))
+    .png()
+    .toFile(join(PUBLIC, `favicon-${s}.png`));
 }
-await sharp(iconSvg(180)).flatten({ background: C.accent }).png().toFile(join(PUBLIC, 'apple-touch-icon.png'));
+await sharp(iconSvg(180))
+  .flatten({ background: C.accent })
+  .png()
+  .toFile(join(PUBLIC, 'apple-touch-icon.png'));
 
 // Maskable 512 (full-bleed teal so Android's safe-zone mask never clips the K).
 const mask512 = Buffer.from(
@@ -106,7 +111,7 @@ const manifest = {
   name: 'Kuan-Hao Chao',
   short_name: 'KH Chao',
   description:
-    'Kuan-Hao Chao — computational biologist and Senior Deep Learning Scientist at the Illumina AI Lab.',
+    'Kuan-Hao Chao — computational biologist and Senior Deep Learning/AI Engineer at the Illumina AI Lab.',
   start_url: '/',
   display: 'minimal-ui',
   background_color: C.bg,
@@ -119,4 +124,6 @@ const manifest = {
 };
 writeFileSync(join(PUBLIC, 'site.webmanifest'), JSON.stringify(manifest, null, 2) + '\n');
 
-console.log('Generated: og.jpg, headshot.jpg, favicon-16/32.png, apple-touch-icon.png, icon-512.png, site.webmanifest');
+console.log(
+  'Generated: og.jpg, headshot.jpg, favicon-16/32.png, apple-touch-icon.png, icon-512.png, site.webmanifest'
+);

@@ -9,6 +9,7 @@ doi: 'https://doi.org/10.7554/eLife.107454.3'
 relatedPosts: ['openspliceai']
 code: 'https://github.com/Kuanhao-Chao/openspliceai'
 docs: 'https://khchao.com/OpenSpliceAI/'
+slides: 'https://storage.googleapis.com/storage.khchao.com/slides/JHU_joint_lab_meeting_2024.pdf'
 poster: 'https://storage.googleapis.com/storage.khchao.com/poster/BDS_OpenSpliceAI.pdf'
 advisors: ['Steven L. Salzberg', 'Mihaela Pertea']
 featured: true
