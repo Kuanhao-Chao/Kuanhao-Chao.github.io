@@ -26,7 +26,7 @@ export const projects: Project[] = [
     shortTitle: 'Shorkie',
     area: 'DNA language models',
     year: '2025',
-    status: 'In press',
+    status: 'Preprint',
     featured: true,
     tags: ['Gene expression', 'DNA language models', 'Yeast'],
     summary:
