@@ -601,7 +601,12 @@ export function initTerminal(
     input!.focus({ preventScroll: true });
   };
   const onInputFocus = () => {
-    if (viewportHost && window.scrollY !== 0) {
+    if (viewportHost && (window.scrollY !== 0 || window.scrollX !== 0)) {
+      window.scrollTo(0, 0);
+    }
+  };
+  const onTouchStart = () => {
+    if (viewportHost && (window.scrollY !== 0 || window.scrollX !== 0)) {
       window.scrollTo(0, 0);
     }
   };
@@ -967,6 +972,7 @@ export function initTerminal(
   input.addEventListener('keydown', onKeyDown);
   input.addEventListener('input', onInput);
   input.addEventListener('focus', onInputFocus);
+  input.addEventListener('touchstart', onTouchStart, { passive: true });
   clearBtn?.addEventListener('click', onClearClick);
   keybar?.addEventListener('click', onKeybarClick);
   shellEl.addEventListener('click', onShellClick);
@@ -975,6 +981,7 @@ export function initTerminal(
   latestBtn?.addEventListener('click', onLatestClick);
   window.addEventListener('resize', onViewportResize);
   window.visualViewport?.addEventListener('resize', onViewportResize);
+  window.visualViewport?.addEventListener('scroll', onViewportResize, { passive: true });
   syncViewportHeight();
   syncScrollAffordance();
   syncClearButton();
@@ -1041,6 +1048,7 @@ export function initTerminal(
       input.removeEventListener('keydown', onKeyDown);
       input.removeEventListener('input', onInput);
       input.removeEventListener('focus', onInputFocus);
+      input.removeEventListener('touchstart', onTouchStart);
       clearBtn?.removeEventListener('click', onClearClick);
       keybar?.removeEventListener('click', onKeybarClick);
       shellEl.removeEventListener('click', onShellClick);
@@ -1049,6 +1057,7 @@ export function initTerminal(
       latestBtn?.removeEventListener('click', onLatestClick);
       window.removeEventListener('resize', onViewportResize);
       window.visualViewport?.removeEventListener('resize', onViewportResize);
+      window.visualViewport?.removeEventListener('scroll', onViewportResize);
       viewportHost?.style.removeProperty('--terminal-viewport-height');
       minBtn?.removeEventListener('click', onMin);
       closeBtn?.removeEventListener('click', onClose);

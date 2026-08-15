@@ -68,10 +68,18 @@ select {
   color: inherit;
 }
 
+input,
+textarea,
+select {
+  font-size: max(16px, 1rem);
+}
+
 a,
 button,
+input,
 summary {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* ── Typography ──────────────────────────────────────────────── */
