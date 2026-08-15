@@ -128,18 +128,35 @@ const boot = {
   <form class="term-form" data-terminal-form>
     <label class="visually-hidden" for="home-term-input">Terminal command</label>
     <span class="term-prompt" data-terminal-prompt>khc@genome:~$</span>
-    <input
-      class="term-input"
-      id="home-term-input"
-      data-terminal-input
-      type="text"
-      autocomplete="off"
-      autocapitalize="off"
-      autocorrect="off"
-      spellcheck="false"
-      aria-describedby="home-term-help"
-      enterkeyhint="go"
-    />
+    <div class="term-input-wrap">
+      <input
+        class="term-input"
+        id="home-term-input"
+        data-terminal-input
+        type="text"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        aria-describedby="home-term-help"
+        enterkeyhint="go"
+      />
+      <button
+        class="term-input-clear"
+        type="button"
+        data-terminal-input-clear
+        aria-label="Clear input text"
+        title="Clear input"
+        hidden
+      >✕</button>
+    </div>
+    <button
+      class="term-submit-btn"
+      type="submit"
+      data-terminal-submit
+      aria-label="Run command"
+      title="Run command"
+    >↵</button>
   </form>
 
   <div class="term-foot">

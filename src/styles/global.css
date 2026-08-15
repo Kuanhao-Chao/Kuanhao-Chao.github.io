@@ -149,8 +149,18 @@ hr {
    its chrome and prompt fixed while the output pane supplies the scrollback. Without
    the height cap, transcript content makes the whole document grow and leaves the
    supposed scroll pane with no overflow range. */
+html:has(.main--bare),
+body:has(.main--bare) {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+}
+
 .main--bare {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-height: 0;
   height: var(--terminal-viewport-height, 100vh);
   max-height: var(--terminal-viewport-height, 100vh);

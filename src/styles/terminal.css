@@ -428,7 +428,7 @@ a.term-dot:focus-visible {
 
 .term-form {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5ch;
   min-width: 0;
   padding: 0.35rem 1rem 0.9rem;
@@ -440,6 +440,13 @@ a.term-dot:focus-visible {
   flex: none;
   overflow-wrap: anywhere;
   white-space: pre;
+}
+.term-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
 }
 .term-input {
   flex: 1;
@@ -456,6 +463,36 @@ a.term-dot:focus-visible {
 .term-input::placeholder { color: var(--term-dim); }
 .term-input:disabled { opacity: 0.6; }
 
+.term-input-clear {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-inline-start: 0.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--term-dim);
+  font-size: 0.8em;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+  transition: color var(--transition), background-color var(--transition);
+}
+.term-input-clear:hover,
+.term-input-clear:focus-visible {
+  color: var(--term-head);
+  background: color-mix(in srgb, var(--term-dim) 15%, transparent);
+}
+.term-input-clear[hidden] {
+  display: none;
+}
+
+.term-submit-btn {
+  display: none;
+}
+
 .term:focus-within .term-form {
   background: color-mix(in srgb, var(--term-accent) 3%, var(--term-bg));
 }
@@ -464,35 +501,6 @@ a.term-dot:focus-visible {
 
 .term-keybar {
   display: none;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.35rem;
-  flex: none;
-  padding: 0.4rem max(0.7rem, env(safe-area-inset-left)) 0.25rem
-    max(0.7rem, env(safe-area-inset-right));
-  background: var(--term-bg);
-}
-.term-keybar button {
-  min-width: 0;
-  min-height: 2.25rem;
-  padding: 0.25rem 0.2rem;
-  border: 1px solid var(--term-rule);
-  border-radius: 0.3rem;
-  background: var(--term-chrome);
-  color: var(--term-ink);
-  font: inherit;
-  font-size: 0.82em;
-  line-height: 1;
-  cursor: pointer;
-  transition: color var(--transition), border-color var(--transition), background-color var(--transition);
-}
-.term-keybar button:hover,
-.term-keybar button:focus-visible {
-  border-color: var(--term-accent);
-  color: var(--term-accent);
-}
-.term-keybar button:disabled {
-  cursor: default;
-  opacity: 0.45;
 }
 
 @media (max-width: 700px), (max-height: 600px) and (pointer: coarse) {
@@ -532,18 +540,80 @@ a.term-dot:focus-visible {
   }
   .term-form {
     gap: 0.35rem;
+    align-items: center;
     padding: 0.35rem max(0.7rem, env(safe-area-inset-left))
       max(0.8rem, env(safe-area-inset-bottom)) max(0.7rem, env(safe-area-inset-right));
   }
   .term-input {
-    font-size: 1rem;
+    font-size: 16px;
     line-height: 1.4;
   }
+  .term-submit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--term-rule);
+    border-radius: var(--radius-sm, 4px);
+    background: var(--term-chrome);
+    color: var(--term-accent);
+    font: inherit;
+    font-size: 1.05em;
+    font-weight: 600;
+    cursor: pointer;
+    flex: none;
+    touch-action: manipulation;
+    transition: color var(--transition), border-color var(--transition), background-color var(--transition);
+  }
+  .term-submit-btn:hover,
+  .term-submit-btn:focus-visible {
+    border-color: var(--term-accent);
+    background: color-mix(in srgb, var(--term-accent) 12%, var(--term-chrome));
+    color: var(--term-head);
+  }
   .term-keybar {
-    display: grid;
-    gap: 0.25rem;
-    padding-inline: max(0.55rem, env(safe-area-inset-left))
-      max(0.55rem, env(safe-area-inset-right));
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0.35rem;
+    flex: none;
+    padding: 0.35rem max(0.65rem, env(safe-area-inset-left)) 0.25rem
+      max(0.65rem, env(safe-area-inset-right));
+    background: var(--term-bg);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+  .term-keybar::-webkit-scrollbar {
+    display: none;
+  }
+  .term-keybar button {
+    flex: 0 0 auto;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--term-rule);
+    border-radius: 999px;
+    background: var(--term-chrome);
+    color: var(--term-ink);
+    font: inherit;
+    font-size: 0.85em;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    touch-action: manipulation;
+    transition: color var(--transition), border-color var(--transition), background-color var(--transition);
+  }
+  .term-keybar button:hover,
+  .term-keybar button:focus-visible {
+    border-color: var(--term-accent);
+    color: var(--term-accent);
+  }
+  .term-keybar button:disabled {
+    cursor: default;
+    opacity: 0.45;
   }
   .term-scroll-latest {
     right: max(0.7rem, env(safe-area-inset-right));

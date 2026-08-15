@@ -132,6 +132,7 @@ export function initTerminal(
   const keybar = shellEl.querySelector<HTMLElement>('[data-terminal-keybar]');
   const form = shellEl.querySelector<HTMLFormElement>('[data-terminal-form]');
   const latestBtn = shellEl.querySelector<HTMLButtonElement>('[data-terminal-scroll-end]');
+  const clearBtn = shellEl.querySelector<HTMLButtonElement>('[data-terminal-input-clear]');
   if (!screen || !input || !promptEl) return null;
 
   const state: ShellState = createShell(null);
@@ -469,11 +470,16 @@ export function initTerminal(
     }
   }
 
+  function syncClearButton() {
+    if (clearBtn) clearBtn.hidden = !input!.value;
+  }
+
   // ------------------------------------------------------------ submitting --
 
   async function submit(raw: string) {
     echoCommand(raw);
     input!.value = '';
+    syncClearButton();
 
     const name = parseArgv(raw.trim())[0] ?? '';
     const needsIndex = state.chatMode || NEEDS_INDEX.has(name) || !COMMANDS[name];
@@ -496,6 +502,7 @@ export function initTerminal(
   function completeInput() {
     const { value, options } = complete(state, input!.value);
     input!.value = value;
+    syncClearButton();
     if (options.length) {
       echoCommand(input!.value);
       write([{ text: options.join('   '), tone: 'dim' }, { text: '' }]);
@@ -505,6 +512,7 @@ export function initTerminal(
 
   function moveHistory(direction: -1 | 1) {
     input!.value = historyStep(state, direction, input!.value);
+    syncClearButton();
     input!.focus({ preventScroll: true });
     window.requestAnimationFrame(() => input!.setSelectionRange(input!.value.length, input!.value.length));
   }
@@ -569,6 +577,7 @@ export function initTerminal(
       event.preventDefault();
       echoCommand(`${input!.value}^C`);
       input!.value = '';
+      syncClearButton();
       scrollToEnd();
       return;
     }
@@ -580,8 +589,22 @@ export function initTerminal(
     if (event.ctrlKey && (event.key === 'u' || event.key === 'U')) {
       event.preventDefault();
       input!.value = '';
+      syncClearButton();
     }
   }
+
+  const onInput = () => syncClearButton();
+  const onClearClick = (event: MouseEvent) => {
+    event.preventDefault();
+    input!.value = '';
+    syncClearButton();
+    input!.focus({ preventScroll: true });
+  };
+  const onInputFocus = () => {
+    if (viewportHost && window.scrollY !== 0) {
+      window.scrollTo(0, 0);
+    }
+  };
 
   function onKeybarClick(event: MouseEvent) {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
@@ -591,6 +614,7 @@ export function initTerminal(
       void submit(button.dataset.terminalCommand ?? '');
     } else if (action === 'ask') {
       input!.value = input!.value.startsWith('ask ') ? input!.value : 'ask ';
+      syncClearButton();
       input!.focus({ preventScroll: true });
     } else if (action === 'tab') {
       completeInput();
@@ -682,6 +706,9 @@ export function initTerminal(
     if (!viewportHost) return;
     const height = window.visualViewport?.height ?? window.innerHeight;
     viewportHost.style.setProperty('--terminal-viewport-height', `${Math.max(1, Math.round(height))}px`);
+    if (window.scrollY !== 0) {
+      window.scrollTo(0, 0);
+    }
   }
 
   function onViewportResize() {
@@ -938,6 +965,9 @@ export function initTerminal(
 
   form?.addEventListener('submit', onFormSubmit);
   input.addEventListener('keydown', onKeyDown);
+  input.addEventListener('input', onInput);
+  input.addEventListener('focus', onInputFocus);
+  clearBtn?.addEventListener('click', onClearClick);
   keybar?.addEventListener('click', onKeybarClick);
   shellEl.addEventListener('click', onShellClick);
   shellEl.addEventListener('wheel', onShellWheel, { capture: true, passive: true });
@@ -947,6 +977,7 @@ export function initTerminal(
   window.visualViewport?.addEventListener('resize', onViewportResize);
   syncViewportHeight();
   syncScrollAffordance();
+  syncClearButton();
   measureColumns();
   if (typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => {
@@ -1008,6 +1039,9 @@ export function initTerminal(
       resizeObserver = null;
       form?.removeEventListener('submit', onFormSubmit);
       input.removeEventListener('keydown', onKeyDown);
+      input.removeEventListener('input', onInput);
+      input.removeEventListener('focus', onInputFocus);
+      clearBtn?.removeEventListener('click', onClearClick);
       keybar?.removeEventListener('click', onKeybarClick);
       shellEl.removeEventListener('click', onShellClick);
       shellEl.removeEventListener('wheel', onShellWheel, true);
