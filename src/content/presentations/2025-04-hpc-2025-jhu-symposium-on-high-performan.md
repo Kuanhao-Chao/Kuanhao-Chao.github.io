@@ -7,4 +7,15 @@ location: 'Baltimore, MD'
 startDate: 2025-04-02
 endDate: 2025-04-02
 slides: 'https://storage.googleapis.com/storage.khchao.com/slides/HPC_symposium_2025.pdf'
+relatedPublications:
+  - publication: '2023-01-han1'
+    label: 'Han1'
+  - publication: '2025-01-lifton'
+    label: 'LiftOn'
+  - publication: '2024-08-splam'
+    label: 'Splam'
+  - publication: '2025-06-openspliceai'
+    label: 'OpenSpliceAI'
+  - publication: '2025-09-shorkie'
+    label: 'Shorkie'
 ---

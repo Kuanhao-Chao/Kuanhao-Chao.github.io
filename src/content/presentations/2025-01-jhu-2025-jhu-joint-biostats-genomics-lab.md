@@ -7,5 +7,8 @@ location: 'Baltimore, MD'
 startDate: 2025-01-22
 endDate: 2025-01-22
 slides: 'https://storage.googleapis.com/storage.khchao.com/slides/JHU_joint_lab_meeting_2025.pdf'
-video: 'https://www.youtube.com/embed/MvpYQYQvZ0U?si=fDoHKzuSFKuGwxAT'
+relatedPublications:
+  - publication: '2025-09-shorkie'
+    label: 'Shorkie'
+video: 'https://youtu.be/MvpYQYQvZ0U'
 ---

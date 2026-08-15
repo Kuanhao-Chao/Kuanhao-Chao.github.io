@@ -17,7 +17,9 @@ const { entry } = Astro.props;
 const d = entry.data;
 const { Content } = await render(entry);
 const relatedPosts = await resolveRelatedPosts(d.relatedPosts.map((r) => r.id));
-const publicationsById = new Map((await getCollection('publications')).map((item) => [item.id, item]));
+const publicationsById = new Map(
+  (await getCollection('publications')).map((item) => [item.id, item])
+);
 const contributions = d.relatedPublications.flatMap(({ publication, note, resourceLabel }) => {
   const related = publicationsById.get(publication.id);
   return related ? [{ entry: related, note, resourceLabel }] : [];
@@ -36,7 +38,9 @@ const primaryPublication = contributions[0]?.entry.data;
 const links = [
   ...paperLinks,
   { label: 'Code', icon: 'code', href: primaryPublication?.code },
+  { label: 'Docs', icon: 'book', href: primaryPublication?.docs },
   { label: 'Data', icon: 'database', href: primaryPublication?.data },
+  { label: 'Slides', icon: 'slides', href: primaryPublication?.slides },
   { label: 'News', icon: 'external', href: primaryPublication?.news },
   { label: 'Talk', icon: 'play', href: primaryPublication?.video },
 ].filter((link): link is { label: string; icon: string; href: string } => Boolean(link.href));
@@ -53,6 +57,7 @@ const breadcrumbLd = {
   ],
 };
 ---
+
 <EntryLayout
   title={d.title}
   eyebrow={d.area}
@@ -69,26 +74,28 @@ const breadcrumbLd = {
 
   <ResearchWorkList contributions={contributions} posts={relatedPosts} />
 
-  {d.references.length > 0 && (
-    <section class="research-references">
-      <h2>References</h2>
-      <ol>
-        {d.references.map((ref) => (
-          <li>
-            <span>{ref.text}</span>
-            {referenceUrl(ref) && (
-              <>
-                {' '}
-                <a href={referenceUrl(ref)} target="_blank" rel="noopener noreferrer">
-                  {referenceLabel(ref)}
-                </a>
-              </>
-            )}
-          </li>
-        ))}
-      </ol>
-    </section>
-  )}
+  {
+    d.references.length > 0 && (
+      <section class="research-references">
+        <h2>References</h2>
+        <ol>
+          {d.references.map((ref) => (
+            <li>
+              <span>{ref.text}</span>
+              {referenceUrl(ref) && (
+                <>
+                  {' '}
+                  <a href={referenceUrl(ref)} target="_blank" rel="noopener noreferrer">
+                    {referenceLabel(ref)}
+                  </a>
+                </>
+              )}
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
 
   <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
 </EntryLayout>

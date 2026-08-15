@@ -8,7 +8,9 @@ status: accepted
 doi: 'https://doi.org/10.1101/2025.09.19.677475'
 relatedPosts: ['shorkie']
 code: 'https://github.com/calico/shorkie-paper'
-slides: 'https://storage.googleapis.com/storage.khchao.com/slides/JHU_joint_lab_meeting_2025.pdf'
+docs: 'https://khchao.com/shorkie/'
+data: 'https://khchao.com/shorkie/content/data_resources.html'
+slides: 'https://storage.googleapis.com/storage.khchao.com/slides/ProbGen2026_0325.pdf'
 video: 'https://youtu.be/MvpYQYQvZ0U'
 advisors: ['David R. Kelley', 'Johannes Linder']
 featured: true

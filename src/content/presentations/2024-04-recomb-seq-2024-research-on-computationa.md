@@ -7,4 +7,7 @@ location: 'Cambridge, MA'
 startDate: 2024-04-26
 endDate: 2024-04-27
 slides: 'https://storage.googleapis.com/storage.khchao.com/slides/RECOMB-Seq_talk_2024.pdf'
+relatedPublications:
+  - publication: '2025-01-lifton'
+    label: 'LiftOn'
 ---

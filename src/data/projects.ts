@@ -6,6 +6,7 @@ export type ProjectLink = {
 
 export type Project = {
   slug: string;
+  publicationId?: string;
   title: string;
   shortTitle: string;
   area: string;
@@ -20,11 +21,12 @@ export type Project = {
 export const projects: Project[] = [
   {
     slug: 'shorkie',
+    publicationId: '2025-09-shorkie',
     title: 'Shorkie: reading yeast regulatory code with fungal DNA models',
     shortTitle: 'Shorkie',
     area: 'DNA language models',
     year: '2025',
-    status: 'Preprint',
+    status: 'In press',
     featured: true,
     tags: ['Gene expression', 'DNA language models', 'Yeast'],
     summary:
@@ -33,11 +35,23 @@ export const projects: Project[] = [
       { label: 'Research', icon: 'link', href: '/research/gene-expression/' },
       { label: 'Publication', icon: 'file', href: '/publications/shorkie/' },
       { label: 'Post', icon: 'pencil', href: '/posts/shorkie/' },
+      { label: 'Docs', icon: 'book', href: 'https://khchao.com/shorkie/' },
       { label: 'Code', icon: 'code', href: 'https://github.com/calico/shorkie-paper' },
+      {
+        label: 'Data',
+        icon: 'database',
+        href: 'https://khchao.com/shorkie/content/data_resources.html',
+      },
+      {
+        label: 'Latest slides',
+        icon: 'slides',
+        href: 'https://storage.googleapis.com/storage.khchao.com/slides/ProbGen2026_0325.pdf',
+      },
     ],
   },
   {
     slug: 'openspliceai',
+    publicationId: '2025-06-openspliceai',
     title: 'OpenSpliceAI: retrainable splice-site prediction in PyTorch',
     shortTitle: 'OpenSpliceAI',
     area: 'Splice prediction',
@@ -58,6 +72,7 @@ export const projects: Project[] = [
   },
   {
     slug: 'splam',
+    publicationId: '2024-08-splam',
     title: 'Splam: splice-junction recognition for cleaner RNA-seq alignments',
     shortTitle: 'Splam',
     area: 'RNA splicing',
@@ -77,6 +92,7 @@ export const projects: Project[] = [
   },
   {
     slug: 'lifton',
+    publicationId: '2025-01-lifton',
     title: 'LiftOn: combining DNA and protein evidence for genome annotation',
     shortTitle: 'LiftOn',
     area: 'Genome annotation',
@@ -97,6 +113,7 @@ export const projects: Project[] = [
   },
   {
     slug: 'han1',
+    publicationId: '2023-01-han1',
     title: 'Han1: a gapless Southern Han Chinese reference genome',
     shortTitle: 'Han1',
     area: 'Genome assembly',
@@ -114,6 +131,7 @@ export const projects: Project[] = [
   },
   {
     slug: 'wgt',
+    publicationId: '2023-08-wgt',
     title: 'Wheeler Graph Toolkit: algorithms for pangenome indexing',
     shortTitle: 'WGT',
     area: 'Pangenomics',
@@ -126,12 +144,17 @@ export const projects: Project[] = [
     links: [
       { label: 'Research', icon: 'link', href: '/research/pangenome-indexing/' },
       { label: 'Publication', icon: 'file', href: '/publications/wgt/' },
-      { label: 'Code', icon: 'code', href: 'https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit' },
+      {
+        label: 'Code',
+        icon: 'code',
+        href: 'https://github.com/Kuanhao-Chao/Wheeler_Graph_Toolkit',
+      },
       { label: 'Report', icon: 'file', href: '/reports/wgt-technical-report/' },
     ],
   },
   {
     slug: 'sangeranalyser',
+    publicationId: '2021-02-sangeranalyser',
     title: 'sangeranalyseR: reproducible Sanger sequencing workflows in R',
     shortTitle: 'sangeranalyseR',
     area: 'Sequencing software',
@@ -145,6 +168,24 @@ export const projects: Project[] = [
       { label: 'Post', icon: 'pencil', href: '/posts/sangeranalyser/' },
       { label: 'Docs', icon: 'book', href: 'https://sangeranalyser.readthedocs.io/en/latest/' },
       { label: 'Code', icon: 'code', href: 'https://github.com/roblanf/sangeranalyseR' },
+    ],
+  },
+  {
+    slug: 'hg002',
+    publicationId: '2026-08-diploid-benchmark',
+    title: 'HG002: a complete diploid human genome benchmark',
+    shortTitle: 'HG002 benchmark',
+    area: 'Diploid genomics',
+    year: '2026',
+    status: 'Published',
+    tags: ['Human genome', 'Diploid genomics', 'Genome annotation'],
+    summary:
+      'A complete diploid HG002 reference and benchmark with haplotype-resolved sequence and gene annotation.',
+    links: [
+      { label: 'Research', icon: 'link', href: '/research/genome-assembly/' },
+      { label: 'Publication', icon: 'file', href: '/publications/diploid-benchmark/' },
+      { label: 'Post', icon: 'pencil', href: '/posts/hg002-diploid-benchmark/' },
+      { label: 'Code', icon: 'code', href: 'https://github.com/marbl/HG002' },
     ],
   },
 ];
