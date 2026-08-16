@@ -915,7 +915,167 @@ describe('genomics commands', () => {
     expect(exec(shell(), 'splice hello').lines[0].tone).toBe('err');
   });
 
+  it('seqkit stats computes length and GC composition', () => {
+    const out = exec(shell(), 'seqkit stats ATGC');
+    expect(joined(out.lines)).toContain('4 bp');
+    expect(joined(out.lines)).toContain('50.00%');
+  });
+
+  it('seqkit rc computes correct reverse complement', () => {
+    const out = exec(shell(), 'seqkit rc ATGC');
+    expect(joined(out.lines)).toContain("5' GCAT 3' (reverse complement)");
+  });
+
+  it('seqkit translate translates DNA into amino acids', () => {
+    const out = exec(shell(), 'seqkit translate ATGAAATAG');
+    expect(joined(out.lines)).toContain('aa: MK*');
+  });
+
+  it('seqkit gc calculates exact GC percentage', () => {
+    const out = exec(shell(), 'seqkit gc GCGC');
+    expect(joined(out.lines)).toContain('100.00%');
+  });
+
+  it('gffbase runs info, query, and benchmark subcommands', () => {
+    const info = exec(shell(), 'gffbase info');
+    expect(joined(info.lines)).toContain('SIMD-accelerated Rust');
+
+    const query = exec(shell(), 'gffbase query chr17:43044295-43125483');
+    expect(joined(query.lines)).toContain('BRCA1 locus');
+
+    const bench = exec(shell(), 'gffbase benchmark');
+    expect(joined(bench.lines)).toContain('GENCODE GTF');
+  });
+
+  it('codon translates triplets and amino acid names', () => {
+    const atg = exec(shell(), 'codon ATG');
+    expect(joined(atg.lines)).toContain('Methionine');
+    expect(joined(atg.lines)).toContain('Start codon');
+
+    const trp = exec(shell(), 'codon W');
+    expect(joined(trp.lines)).toContain('Tryptophan');
+    expect(joined(trp.lines)).toContain('TGG');
+  });
+
+  it('bedtools performs interval intersection and merging', () => {
+    const out = exec(shell(), 'bedtools intersect -a chr1:100-300 -b chr1:200-400');
+    expect(joined(out.lines)).toContain('Overlap: chr1:200-300 (100 bp)');
+
+    const merge = exec(shell(), 'bedtools merge');
+    expect(joined(merge.lines)).toContain('merged 2 intervals');
+  });
+
   it('sudo refuses, as it should', () => {
     expect(exec(shell(), 'sudo rm -rf /').lines[0].text).toContain('not in the sudoers file');
   });
 });
+
+describe('unix utilities and content navigation commands', () => {
+  it('head outputs first N lines of a file', () => {
+    const out = exec(shell(), 'head -n 1 about.txt');
+    expect(out.lines.length).toBe(1);
+    expect(out.lines[0].text).toBe('About me.');
+  });
+
+  it('tail outputs last N lines of a file', () => {
+    const out = exec(shell(), 'tail -n 1 about.txt');
+    expect(out.lines.length).toBe(1);
+    expect(out.lines[0].text).toBe('Second line.');
+  });
+
+  it('wc counts lines, words, and bytes', () => {
+    const out = exec(shell(), 'wc -l about.txt');
+    expect(out.lines[0].text).toMatch(/2 about\.txt/);
+  });
+
+  it('top displays cluster monitor snapshot', () => {
+    const out = exec(shell(), 'top');
+    expect(joined(out.lines)).toContain('NVIDIA H100');
+    expect(joined(out.lines)).toContain('shorkie_train.py');
+  });
+
+  it('cowsay speaks message in ASCII bubble', () => {
+    const out = exec(shell(), 'cowsay Hello genomics');
+    expect(joined(out.lines)).toContain('Hello genomics');
+    expect(joined(out.lines)).toContain('^__^');
+  });
+
+  it('cowsay -d renders a dinosaur', () => {
+    const out = exec(shell(), 'cowsay -d Dino');
+    expect(joined(out.lines)).toContain('Dino');
+    expect(joined(out.lines)).toContain('DNA');
+  });
+
+  it('fortune prints scientific quote', () => {
+    const out = exec(shell(), 'fortune');
+    expect(out.lines[0].text).toMatch(/[“"']/);
+  });
+
+  it('matrix prints nucleotide stream', () => {
+    const out = exec(shell(), 'matrix');
+    expect(out.lines.length).toBeGreaterThan(5);
+  });
+
+  it('publications, software, talks, and posts list content', () => {
+    const pubOut = exec(shell(), 'publications');
+    expect(pubOut.lines[0].text).toBe('PUBLICATIONS');
+
+    const softOut = exec(shell(), 'software');
+    expect(softOut.lines[0].text).toBe('RESEARCH SOFTWARE');
+
+    const talkOut = exec(shell(), 'talks');
+    expect(talkOut.lines[0].text).toBe('TALKS & PRESENTATIONS');
+
+    const postOut = exec(shell(), 'posts');
+    expect(postOut.lines[0].text).toBe('BLOG POSTS & TECHNICAL DEEP DIVES');
+
+    const socialOut = exec(shell(), 'socials');
+    expect(socialOut.lines[0].text).toBe('SCHOLAR & SOCIAL PROFILES');
+  });
+
+  it('games, snake, and tetris trigger navigation effects', () => {
+    const snake = exec(shell(), 'snake');
+    expect(snake.effect).toEqual({ type: 'navigate', href: '/software/' });
+
+    const tetris = exec(shell(), 'tetris');
+    expect(tetris.effect).toEqual({ type: 'navigate', href: '/software/' });
+  });
+
+  it('aliases expand correctly', () => {
+    const ll = exec(shell(), 'll');
+    expect(joined(ll.lines)).toContain('about.txt');
+
+    const cls = exec(shell(), 'cls');
+    expect(cls.effect).toEqual({ type: 'clear' });
+
+    const q = exec(shell(), 'q');
+    expect(q.effect).toEqual({ type: 'exit' });
+
+    const help = exec(shell(), '?');
+    expect(joined(help.lines)).toContain('khcOS shell');
+
+    const pubs = exec(shell(), 'pubs');
+    expect(pubs.lines[0].text).toBe('PUBLICATIONS');
+  });
+
+  it('tab completion handles commands, aliases, subcommands, and flags', () => {
+    expect(complete(shell(), 'seq').value).toBe('seqkit ');
+    expect(complete(shell(), 'gff').value).toBe('gffbase ');
+    expect(complete(shell(), 'll').value).toBe('ll ');
+
+    const seqkitSub = complete(shell(), 'seqkit r');
+    expect(seqkitSub.value).toBe('seqkit rc ');
+
+    const gffSub = complete(shell(), 'gffbase q');
+    expect(gffSub.value).toBe('gffbase query ');
+
+    const themeSub = complete(shell(), 'theme li');
+    expect(themeSub.value).toBe('theme light ');
+
+    const ambig = complete(shell(), 't');
+    expect(ambig.options).toContain('top');
+    expect(ambig.options).toContain('tree');
+    expect(ambig.options).toContain('theme');
+  });
+});
+
