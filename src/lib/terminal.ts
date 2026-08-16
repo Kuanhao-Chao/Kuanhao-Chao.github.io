@@ -769,17 +769,117 @@ function noAnswer(index: TermIndex, question: string): Line[] {
   ];
 }
 
+interface CodonEntry {
+  one: string;
+  three: string;
+  name: string;
+  type: string;
+  prop: string;
+  mw: number;
+  start?: boolean;
+  stop?: boolean;
+}
+
+export const CODON_TABLE: Record<string, CodonEntry> = {
+  TTT: { one: 'F', three: 'Phe', name: 'Phenylalanine', type: 'Hydrophobic / Aromatic', prop: 'Non-polar', mw: 165.2 },
+  TTC: { one: 'F', three: 'Phe', name: 'Phenylalanine', type: 'Hydrophobic / Aromatic', prop: 'Non-polar', mw: 165.2 },
+  TTA: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
+  TTG: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
+  CTT: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
+  CTC: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
+  CTA: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
+  CTG: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
+  ATT: { one: 'I', three: 'Ile', name: 'Isoleucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
+  ATC: { one: 'I', three: 'Ile', name: 'Isoleucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
+  ATA: { one: 'I', three: 'Ile', name: 'Isoleucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
+  ATG: { one: 'M', three: 'Met', name: 'Methionine', type: 'Hydrophobic / Sulfur', prop: 'Non-polar', mw: 149.2, start: true },
+  GTT: { one: 'V', three: 'Val', name: 'Valine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 117.1 },
+  GTC: { one: 'V', three: 'Val', name: 'Valine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 117.1 },
+  GTA: { one: 'V', three: 'Val', name: 'Valine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 117.1 },
+  GTG: { one: 'V', three: 'Val', name: 'Valine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 117.1 },
+  TCT: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
+  TCC: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
+  TCA: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
+  TCG: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
+  CCT: { one: 'P', three: 'Pro', name: 'Proline', type: 'Cyclic imino', prop: 'Non-polar', mw: 115.1 },
+  CCC: { one: 'P', three: 'Pro', name: 'Proline', type: 'Cyclic imino', prop: 'Non-polar', mw: 115.1 },
+  CCA: { one: 'P', three: 'Pro', name: 'Proline', type: 'Cyclic imino', prop: 'Non-polar', mw: 115.1 },
+  CCG: { one: 'P', three: 'Pro', name: 'Proline', type: 'Cyclic imino', prop: 'Non-polar', mw: 115.1 },
+  ACT: { one: 'T', three: 'Thr', name: 'Threonine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 119.1 },
+  ACC: { one: 'T', three: 'Thr', name: 'Threonine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 119.1 },
+  ACA: { one: 'T', three: 'Thr', name: 'Threonine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 119.1 },
+  ACG: { one: 'T', three: 'Thr', name: 'Threonine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 119.1 },
+  GCT: { one: 'A', three: 'Ala', name: 'Alanine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 89.1 },
+  GCC: { one: 'A', three: 'Ala', name: 'Alanine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 89.1 },
+  GCA: { one: 'A', three: 'Ala', name: 'Alanine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 89.1 },
+  GCG: { one: 'A', three: 'Ala', name: 'Alanine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 89.1 },
+  TAT: { one: 'Y', three: 'Tyr', name: 'Tyrosine', type: 'Aromatic / Phenol', prop: 'Neutral polar', mw: 181.2 },
+  TAC: { one: 'Y', three: 'Tyr', name: 'Tyrosine', type: 'Aromatic / Phenol', prop: 'Neutral polar', mw: 181.2 },
+  TAA: { one: '*', three: 'Ochre', name: 'Stop Codon', type: 'Termination', prop: 'N/A', mw: 0, stop: true },
+  TAG: { one: '*', three: 'Amber', name: 'Stop Codon', type: 'Termination', prop: 'N/A', mw: 0, stop: true },
+  CAT: { one: 'H', three: 'His', name: 'Histidine', type: 'Basic / Imidazole', prop: 'Positive charge', mw: 155.2 },
+  CAC: { one: 'H', three: 'His', name: 'Histidine', type: 'Basic / Imidazole', prop: 'Positive charge', mw: 155.2 },
+  CAA: { one: 'Q', three: 'Gln', name: 'Glutamine', type: 'Polar / Amide', prop: 'Neutral polar', mw: 146.1 },
+  CAG: { one: 'Q', three: 'Gln', name: 'Glutamine', type: 'Polar / Amide', prop: 'Neutral polar', mw: 146.1 },
+  AAT: { one: 'N', three: 'Asn', name: 'Asparagine', type: 'Polar / Amide', prop: 'Neutral polar', mw: 132.1 },
+  AAC: { one: 'N', three: 'Asn', name: 'Asparagine', type: 'Polar / Amide', prop: 'Neutral polar', mw: 132.1 },
+  AAA: { one: 'K', three: 'Lys', name: 'Lysine', type: 'Basic / Amino', prop: 'Positive charge', mw: 146.2 },
+  AAG: { one: 'K', three: 'Lys', name: 'Lysine', type: 'Basic / Amino', prop: 'Positive charge', mw: 146.2 },
+  GAT: { one: 'D', three: 'Asp', name: 'Aspartic Acid', type: 'Acidic / Carboxyl', prop: 'Negative charge', mw: 133.1 },
+  GAC: { one: 'D', three: 'Asp', name: 'Aspartic Acid', type: 'Acidic / Carboxyl', prop: 'Negative charge', mw: 133.1 },
+  GAA: { one: 'E', three: 'Glu', name: 'Glutamic Acid', type: 'Acidic / Carboxyl', prop: 'Negative charge', mw: 147.1 },
+  GAG: { one: 'E', three: 'Glu', name: 'Glutamic Acid', type: 'Acidic / Carboxyl', prop: 'Negative charge', mw: 147.1 },
+  TGT: { one: 'C', three: 'Cys', name: 'Cysteine', type: 'Thiol / Disulfide', prop: 'Neutral polar', mw: 121.2 },
+  TGC: { one: 'C', three: 'Cys', name: 'Cysteine', type: 'Thiol / Disulfide', prop: 'Neutral polar', mw: 121.2 },
+  TGA: { one: '*', three: 'Opal', name: 'Stop Codon', type: 'Termination', prop: 'N/A', mw: 0, stop: true },
+  TGG: { one: 'W', three: 'Trp', name: 'Tryptophan', type: 'Aromatic / Indole', prop: 'Non-polar', mw: 204.2 },
+  CGT: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
+  CGC: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
+  CGA: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
+  CGG: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
+  AGT: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
+  AGC: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
+  AGA: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
+  AGG: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
+  GGT: { one: 'G', three: 'Gly', name: 'Glycine', type: 'Small / Flexible', prop: 'Non-polar', mw: 75.1 },
+  GGC: { one: 'G', three: 'Gly', name: 'Glycine', type: 'Small / Flexible', prop: 'Non-polar', mw: 75.1 },
+  GGA: { one: 'G', three: 'Gly', name: 'Glycine', type: 'Small / Flexible', prop: 'Non-polar', mw: 75.1 },
+  GGG: { one: 'G', three: 'Gly', name: 'Glycine', type: 'Small / Flexible', prop: 'Non-polar', mw: 75.1 },
+};
+
+function translateDna(dna: string): string {
+  const clean = dna.toUpperCase().replace(/U/g, 'T').replace(/[^ACGT]/g, '');
+  let aa = '';
+  for (let i = 0; i + 3 <= clean.length; i += 3) {
+    const codon = clean.slice(i, i + 3);
+    const entry = CODON_TABLE[codon];
+    aa += entry ? entry.one : 'X';
+  }
+  return aa;
+}
+
+function parseInterval(str: string): { chr: string; start: number; end: number } | null {
+  const match = str.trim().match(/^([^:]+):(\d+)-(\d+)$/);
+  if (!match) return null;
+  return {
+    chr: match[1],
+    start: parseInt(match[2], 10),
+    end: parseInt(match[3], 10),
+  };
+}
+
 export const COMMANDS: Record<string, Cmd> = {
   help: {
     summary: 'list available commands',
     run: () => {
       const groups: [string, string[]][] = [
-        ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'tree', 'find', 'grep']],
-        ['about me', ['whoami', 'about', 'man', 'which', 'contact', 'cv', 'news']],
-        ['system', ['uname', 'uptime', 'date', 'neofetch', 'theme', 'history', 'clear', 'echo']],
+        ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'head', 'tail', 'wc', 'tree', 'find', 'grep']],
+        ['genomics', ['seqkit', 'gffbase', 'codon', 'bedtools', 'blastn', 'samtools', 'splice']],
+        ['content', ['about', 'publications', 'software', 'talks', 'posts', 'research', 'projects', 'news', 'cv', 'contact', 'socials']],
+        ['system', ['uname', 'uptime', 'top', 'date', 'neofetch', 'theme', 'history', 'clear', 'echo']],
+        ['toys & games', ['cowsay', 'fortune', 'matrix', 'games', 'snake', 'tetris']],
         ['navigate', ['open', 'exit']],
         ['chatbot', ['ask', 'chat']],
-        ['genomics', ['blastn', 'samtools', 'splice']],
       ];
       const lines: Line[] = [
         { text: 'khcOS shell — a navigable CLI over everything on this site.', tone: 'head' },
@@ -788,13 +888,13 @@ export const COMMANDS: Record<string, Cmd> = {
       for (const [group, names] of groups) {
         lines.push({ text: `  ${group}`, tone: 'accent' });
         for (const name of names) {
-          lines.push({ text: `    ${name.padEnd(10)} ${COMMANDS[name]?.summary ?? ''}` });
+          lines.push({ text: `    ${name.padEnd(14)} ${COMMANDS[name]?.summary ?? ''}` });
         }
         lines.push({ text: '' });
       }
       lines.push(
-        { text: '  Tab completes, ↑/↓ walks history, Ctrl-L clears, Ctrl-C abandons a line.', tone: 'dim' },
-        { text: '  Try: `ask what does LiftOn do?`  ·  `cat ~/about.txt`  ·  `neofetch`', tone: 'dim' }
+        { text: '  Tab completes commands and files, ↑/↓ walks history, Ctrl-L clears, Ctrl-C aborts.', tone: 'dim' },
+        { text: '  Try: `seqkit rc ATGCGAT` · `gffbase query` · `ask what does LiftOn do?` · `top`', tone: 'dim' }
       );
       return lines;
     },
@@ -866,6 +966,106 @@ export const COMMANDS: Record<string, Cmd> = {
         if (node.href) {
           lines.push({ text: '' }, { text: `→ ${node.href}`, tone: 'accent', href: node.href });
         }
+      }
+      return lines;
+    },
+  },
+
+  head: {
+    summary: 'output the first part of files',
+    usage: 'head [-n lines] <file>',
+    needsIndex: true,
+    run: ({ index, state, argv }) => {
+      let n = 10;
+      const fileArgs: string[] = [];
+      const rest = argv.slice(1);
+      for (let i = 0; i < rest.length; i++) {
+        if (rest[i] === '-n' && rest[i + 1]) {
+          n = Math.max(1, parseInt(rest[i + 1], 10) || 10);
+          i++;
+        } else if (/^-n\d+$/.test(rest[i])) {
+          n = Math.max(1, parseInt(rest[i].slice(2), 10) || 10);
+        } else if (/^-\d+$/.test(rest[i])) {
+          n = Math.max(1, parseInt(rest[i].slice(1), 10) || 10);
+        } else {
+          fileArgs.push(rest[i]);
+        }
+      }
+      if (!fileArgs.length) return err('head: missing file operand');
+      const lines: Line[] = [];
+      for (const arg of fileArgs) {
+        const path = resolvePath(state.cwd, arg);
+        const node = index.fs[path];
+        if (!node) {
+          lines.push(...err(`head: cannot open '${arg}' for reading: No such file or directory`));
+          continue;
+        }
+        const rawLines = node.body.split('\n');
+        lines.push(...bodyLines(rawLines.slice(0, n).join('\n')));
+      }
+      return lines;
+    },
+  },
+
+  tail: {
+    summary: 'output the last part of files',
+    usage: 'tail [-n lines] <file>',
+    needsIndex: true,
+    run: ({ index, state, argv }) => {
+      let n = 10;
+      const fileArgs: string[] = [];
+      const rest = argv.slice(1);
+      for (let i = 0; i < rest.length; i++) {
+        if (rest[i] === '-n' && rest[i + 1]) {
+          n = Math.max(1, parseInt(rest[i + 1], 10) || 10);
+          i++;
+        } else if (/^-n\d+$/.test(rest[i])) {
+          n = Math.max(1, parseInt(rest[i].slice(2), 10) || 10);
+        } else if (/^-\d+$/.test(rest[i])) {
+          n = Math.max(1, parseInt(rest[i].slice(1), 10) || 10);
+        } else {
+          fileArgs.push(rest[i]);
+        }
+      }
+      if (!fileArgs.length) return err('tail: missing file operand');
+      const lines: Line[] = [];
+      for (const arg of fileArgs) {
+        const path = resolvePath(state.cwd, arg);
+        const node = index.fs[path];
+        if (!node) {
+          lines.push(...err(`tail: cannot open '${arg}' for reading: No such file or directory`));
+          continue;
+        }
+        const rawLines = node.body.split('\n');
+        lines.push(...bodyLines(rawLines.slice(-n).join('\n')));
+      }
+      return lines;
+    },
+  },
+
+  wc: {
+    summary: 'print newline, word, and byte counts',
+    usage: 'wc [-l|-w|-c] <file>',
+    needsIndex: true,
+    run: ({ index, state, args, flags }) => {
+      if (!args.length) return err('wc: missing file operand');
+      const lines: Line[] = [];
+      for (const arg of args) {
+        const path = resolvePath(state.cwd, arg);
+        const node = index.fs[path];
+        if (!node) {
+          lines.push(...err(`wc: ${arg}: No such file or directory`));
+          continue;
+        }
+        const l = node.body.split('\n').length;
+        const w = node.body.trim() ? node.body.trim().split(/\s+/).length : 0;
+        const c = new TextEncoder().encode(node.body).length;
+        const parts: string[] = [];
+        if (flags.has('l')) parts.push(String(l).padStart(7));
+        if (flags.has('w')) parts.push(String(w).padStart(7));
+        if (flags.has('c') || flags.has('m')) parts.push(String(c).padStart(7));
+        if (!parts.length) parts.push(String(l).padStart(7), String(w).padStart(7), String(c).padStart(7));
+        lines.push({ text: `${parts.join(' ')} ${arg}` });
       }
       return lines;
     },
@@ -952,6 +1152,112 @@ export const COMMANDS: Record<string, Cmd> = {
       { text: '' },
       { text: '→ /news/', tone: 'accent', href: '/news/' },
     ],
+  },
+
+  publications: {
+    summary: 'list publications with direct links',
+    needsIndex: true,
+    run: ({ index }) => {
+      const pubs = Object.entries(index.fs)
+        .filter(([p]) => p.startsWith(`${HOME}/publications/`))
+        .map(([, node]) => node);
+      const lines: Line[] = [{ text: 'PUBLICATIONS', tone: 'head' }, { text: '' }];
+      for (const pub of pubs) {
+        lines.push({ text: pub.title, tone: 'accent' }, ...bodyLines(pub.body, 'dim'));
+        if (pub.href) lines.push({ text: `→ ${pub.href}`, tone: 'accent', href: pub.href });
+        lines.push({ text: '' });
+      }
+      return lines;
+    },
+  },
+
+  software: {
+    summary: 'list open-source research software',
+    needsIndex: true,
+    run: ({ index }) => {
+      const tools = Object.entries(index.fs)
+        .filter(([p]) => p.startsWith(`${HOME}/software/`))
+        .map(([, node]) => node);
+      const lines: Line[] = [{ text: 'RESEARCH SOFTWARE', tone: 'head' }, { text: '' }];
+      for (const tool of tools) {
+        lines.push({ text: tool.title, tone: 'accent' }, ...bodyLines(tool.body, 'dim'));
+        if (tool.href) lines.push({ text: `→ ${tool.href}`, tone: 'accent', href: tool.href });
+        lines.push({ text: '' });
+      }
+      return lines;
+    },
+  },
+
+  talks: {
+    summary: 'list presentations and talks',
+    needsIndex: true,
+    run: ({ index }) => {
+      const talksList = Object.entries(index.fs)
+        .filter(([p]) => p.startsWith(`${HOME}/talks/`))
+        .map(([, node]) => node);
+      const lines: Line[] = [{ text: 'TALKS & PRESENTATIONS', tone: 'head' }, { text: '' }];
+      for (const talk of talksList.slice(0, 10)) {
+        lines.push({ text: talk.title, tone: 'accent' }, ...bodyLines(talk.body, 'dim'), { text: '' });
+      }
+      lines.push({ text: '→ /talks/ for all talks & slides', tone: 'accent', href: '/talks/' });
+      return lines;
+    },
+  },
+
+  posts: {
+    summary: 'list technical blog posts',
+    needsIndex: true,
+    run: ({ index }) => {
+      const postList = Object.entries(index.fs)
+        .filter(([p]) => p.startsWith(`${HOME}/posts/`))
+        .map(([, node]) => node);
+      const lines: Line[] = [{ text: 'BLOG POSTS & TECHNICAL DEEP DIVES', tone: 'head' }, { text: '' }];
+      for (const post of postList) {
+        lines.push({ text: post.title, tone: 'accent' });
+        if (post.href) lines.push({ text: `→ ${post.href}`, tone: 'accent', href: post.href });
+        lines.push({ text: '' });
+      }
+      return lines;
+    },
+  },
+
+  research: {
+    summary: 'list research focus areas',
+    needsIndex: true,
+    run: ({ index }) => {
+      const rList = Object.entries(index.fs)
+        .filter(([p]) => p.startsWith(`${HOME}/research/`))
+        .map(([, node]) => node);
+      const lines: Line[] = [{ text: 'RESEARCH THEMES', tone: 'head' }, { text: '' }];
+      for (const r of rList) {
+        lines.push({ text: r.title, tone: 'accent' });
+        if (r.href) lines.push({ text: `→ ${r.href}`, tone: 'accent', href: r.href });
+        lines.push({ text: '' });
+      }
+      return lines;
+    },
+  },
+
+  projects: {
+    summary: 'list research and software projects',
+    needsIndex: true,
+    run: ({ index }) => [
+      ...fileLines(index, `${HOME}/projects.txt`),
+      { text: '' },
+      { text: '→ /projects/', tone: 'accent', href: '/projects/' },
+    ],
+  },
+
+  socials: {
+    summary: 'links to social and scholarly profiles',
+    needsIndex: true,
+    run: ({ index }) => {
+      const lines: Line[] = [{ text: 'SCHOLAR & SOCIAL PROFILES', tone: 'head' }, { text: '' }];
+      for (const s of index.identity.socials) {
+        lines.push({ text: `  ${s.label.padEnd(16)} ${s.href}`, href: s.href });
+      }
+      return lines;
+    },
   },
 
   cv: {
@@ -1233,6 +1539,315 @@ export const COMMANDS: Record<string, Cmd> = {
     },
   },
 
+  top: {
+    summary: 'display cluster and node resource statistics',
+    run: ({ now }) => {
+      const time = now.toISOString().slice(11, 19);
+      return [
+        { text: `top - ${time} up 280 days, 1 user, load average: 4.12, 3.85, 3.40`, tone: 'head' },
+        { text: 'Tasks: 142 total, 4 running, 138 sleeping, 0 stopped, 0 zombie' },
+        { text: '%Cpu(s): 78.4 us,  6.2 sy,  0.0 ni, 14.8 id,  0.4 wa,  0.2 hi' },
+        { text: 'MiB Mem : 524288 total, 412800 used, 111488 free,  32768 buff/cache' },
+        { text: 'GPU 0..3: 4x NVIDIA H100 80GB SXM5 [Util: 94% · VRAM: 72GB/80GB · Temp: 58°C]', tone: 'ok' },
+        { text: '' },
+        { text: '  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND' },
+        { text: ' 1042 khc       20   0  142.4g  64.2g  12.4g R 380.0  12.2 412:18.04 shorkie_train.py' },
+        { text: ' 1088 khc       20   0   84.2g  32.1g   8.2g R 190.5   6.1 128:44.12 openspliceai_infer' },
+        { text: ' 1120 khc       20   0   48.0g  24.0g   4.1g R 100.0   4.5  82:12.30 lifton_eval.py' },
+        { text: ' 1144 khc       20   0   18.2g   8.4g   2.0g S  48.0   1.6  14:05.18 gffbase_ingest' },
+        { text: ' 1201 khc       20   0    2.4g   1.1g   0.4g S   2.0   0.2   0:14.22 duckdb_worker' },
+      ];
+    },
+  },
+
+  seqkit: {
+    summary: 'fast sequence manipulation & stats',
+    usage: 'seqkit <stats|rc|translate|gc> <sequence>',
+    run: ({ args }) => {
+      const sub = (args[0] ?? '').toLowerCase();
+      const rawSeq = args.slice(1).join('').toUpperCase().replace(/\s+/g, '');
+      if (!sub || sub === 'help') {
+        return [
+          { text: 'seqkit — ultra-fast sequence toolkit', tone: 'head' },
+          { text: '  seqkit stats <seq>      length, GC%, nucleotide composition' },
+          { text: '  seqkit rc <seq>         reverse complement' },
+          { text: '  seqkit translate <seq>  translate nucleotide to amino acid sequence' },
+          { text: '  seqkit gc <seq>         compute GC content percentage' },
+        ];
+      }
+      if (!rawSeq) return err(`seqkit: missing sequence for '${sub}'`);
+      if (sub === 'stats') {
+        const a = (rawSeq.match(/A/g) || []).length;
+        const c = (rawSeq.match(/C/g) || []).length;
+        const g = (rawSeq.match(/G/g) || []).length;
+        const t = (rawSeq.match(/[TU]/g) || []).length;
+        const other = rawSeq.length - (a + c + g + t);
+        const gc = rawSeq.length ? (((c + g) / rawSeq.length) * 100).toFixed(2) : '0.00';
+        return [
+          { text: 'format    DNA' },
+          { text: `length    ${rawSeq.length} bp` },
+          { text: `GC (%)    ${gc}%`, tone: 'ok' },
+          { text: `bases     A: ${a} (${((a / rawSeq.length) * 100).toFixed(1)}%)  C: ${c} (${((c / rawSeq.length) * 100).toFixed(1)}%)  G: ${g} (${((g / rawSeq.length) * 100).toFixed(1)}%)  T: ${t} (${((t / rawSeq.length) * 100).toFixed(1)}%)${other ? `  other: ${other}` : ''}` },
+        ];
+      }
+      if (sub === 'rc') {
+        const comp: Record<string, string> = {
+          A: 'T', T: 'A', U: 'A', C: 'G', G: 'C',
+          R: 'Y', Y: 'R', S: 'S', W: 'W', K: 'M', M: 'K',
+          B: 'V', V: 'B', D: 'H', H: 'D', N: 'N',
+        };
+        const rc = rawSeq.split('').reverse().map((b) => comp[b] ?? b).join('');
+        return [
+          { text: `5' ${rawSeq} 3' (original)`, tone: 'dim' },
+          { text: `5' ${rc} 3' (reverse complement)`, tone: 'ok' },
+        ];
+      }
+      if (sub === 'translate') {
+        const aa = translateDna(rawSeq);
+        return [
+          { text: `nt: ${rawSeq}`, tone: 'dim' },
+          { text: `aa: ${aa}`, tone: 'ok' },
+          { text: `length: ${aa.length} aa`, tone: 'dim' },
+        ];
+      }
+      if (sub === 'gc') {
+        const c = (rawSeq.match(/C/g) || []).length;
+        const g = (rawSeq.match(/G/g) || []).length;
+        const gc = rawSeq.length ? (((c + g) / rawSeq.length) * 100).toFixed(2) : '0.00';
+        return [{ text: `GC content: ${gc}% (${c + g}/${rawSeq.length} bp)`, tone: 'ok' }];
+      }
+      return err(`seqkit: unknown subcommand '${sub}'. Try stats, rc, translate, or gc.`);
+    },
+  },
+
+  gffbase: {
+    summary: 'SIMD Rust + DuckDB genomic database engine',
+    usage: 'gffbase <info|query|benchmark>',
+    run: ({ args }) => {
+      const sub = (args[0] ?? 'info').toLowerCase();
+      if (sub === 'info') {
+        return [
+          { text: 'GFFBase v0.2.0 — High-performance genomic-annotation engine', tone: 'head' },
+          { text: 'Architecture:', tone: 'accent' },
+          { text: '  Parser:   SIMD-accelerated Rust with zero-allocation line splits' },
+          { text: '  Storage:  DuckDB columnar engine with multi-interval R-tree & B-tree spatial indices' },
+          { text: '  Handoff:  PyArrow zero-copy RecordBatch interface for ML & feature extraction' },
+          { text: '  API:      Drop-in replacement for gffutils with 10-100x ingest speedups' },
+          { text: '' },
+          { text: 'Try: `gffbase query chr17:43044295-43125483`  ·  `gffbase benchmark`', tone: 'dim' },
+          { text: '→ https://khchao.com/gffbase/', tone: 'accent', href: 'https://khchao.com/gffbase/' },
+        ];
+      }
+      if (sub === 'query' || sub === 'region') {
+        const region = args[1] || 'chr17:43044295-43125483';
+        return [
+          { text: `[GFFBase Query] region: ${region}  (R-tree spatial index)`, tone: 'head' },
+          { text: 'Backend: DuckDB in-memory columnar slice · Zero-copy Arrow Table (0.12 ms)', tone: 'dim' },
+          { text: '' },
+          { text: 'feature_id       type        start       end         strand  parent_id' },
+          { text: '──────────────────────────────────────────────────────────────────────────' },
+          { text: 'ENSG00000012048  gene        43044295    43125483    -       .' },
+          { text: 'ENST00000357654  mRNA        43044295    43125483    -       ENSG00000012048' },
+          { text: 'ENSE00003527960  exon        43125271    43125483    -       ENST00000357654' },
+          { text: 'ENSE00003556503  exon        43063873    43063953    -       ENST00000357654' },
+          { text: 'ENSE00003598734  exon        43044295    43045802    -       ENST00000357654' },
+          { text: '' },
+          { text: 'Returned 5 features in 0.12 ms (BRCA1 locus).', tone: 'ok' },
+        ];
+      }
+      if (sub === 'benchmark' || sub === 'bench') {
+        return [
+          { text: 'GFFBase vs Legacy gffutils Ingest Benchmark (GENCODE v49 Human)', tone: 'head' },
+          { text: 'Corpus                  gffutils (SQLite)   GFFBase (DuckDB+SIMD)   Speedup' },
+          { text: '───────────────────────────────────────────────────────────────────────────' },
+          { text: 'GENCODE GTF (3.4M rows) 4m 12s              6.8s                    37.1×', tone: 'ok' },
+          { text: 'GENCODE GFF3 (3.4M)     2m 45s              4.2s                    39.3×', tone: 'ok' },
+          { text: 'RefSeq GFF3 (2.8M)      2m 10s              3.5s                    37.1×', tone: 'ok' },
+          { text: 'MANE Select (0.6M)      41.2s               1.1s                    37.5×', tone: 'ok' },
+          { text: 'Zero-copy Arrow fetch   N/A (Python objs)   18.4 ms (100k exons)    Instant', tone: 'accent' },
+        ];
+      }
+      return err(`gffbase: unknown subcommand '${sub}'. Try info, query, or benchmark.`);
+    },
+  },
+
+  codon: {
+    summary: 'genetic code and amino acid lookup',
+    usage: 'codon <codon|amino_acid>',
+    run: ({ args }) => {
+      if (!args.length) return err('codon: give me a codon (e.g. `codon ATG`) or amino acid (e.g. `codon Trp`)');
+      const query = args[0].toUpperCase().trim();
+      if (query.length === 3 && /^[ACGTU]{3}$/.test(query)) {
+        const standardCodon = query.replace(/U/g, 'T');
+        const info = CODON_TABLE[standardCodon];
+        if (info) {
+          return [
+            { text: `Codon:       ${query}`, tone: 'head' },
+            { text: `Amino acid:  ${info.name} (${info.one} / ${info.three})` },
+            { text: `Type:        ${info.type}` },
+            { text: `Properties:  ${info.prop}` },
+            { text: `Mass:        ${info.mw} Da` },
+            ...(info.start ? [{ text: 'Special:     Start codon (AUG/ATG)', tone: 'ok' as Tone }] : []),
+            ...(info.stop ? [{ text: 'Special:     Stop codon', tone: 'accent' as Tone }] : []),
+          ];
+        }
+      }
+      const aaInfo = Object.values(CODON_TABLE).find(
+        (c) => c.one === query || c.three.toUpperCase() === query || c.name.toUpperCase() === query
+      );
+      if (aaInfo) {
+        const codons = Object.entries(CODON_TABLE)
+          .filter(([, v]) => v.one === aaInfo.one)
+          .map(([k]) => k);
+        return [
+          { text: `Amino Acid:  ${aaInfo.name} (${aaInfo.one} / ${aaInfo.three})`, tone: 'head' },
+          { text: `Codons (${codons.length}): ${codons.join(', ')}`, tone: 'ok' },
+          { text: `Type:        ${aaInfo.type}` },
+          { text: `Properties:  ${aaInfo.prop}` },
+          { text: `Mass:        ${aaInfo.mw} Da` },
+        ];
+      }
+      return err(`codon: '${args[0]}' not recognized as a codon or amino acid.`);
+    },
+  },
+
+  bedtools: {
+    summary: 'genomic interval arithmetic utilities',
+    usage: 'bedtools <intersect|merge|jaccard> -a <chr:start-end> -b <chr:start-end>',
+    run: ({ argv }) => {
+      const rest = argv.slice(1);
+      const sub = (rest[0] ?? 'intersect').toLowerCase();
+      if (sub === 'intersect') {
+        let a = '';
+        let b = '';
+        for (let i = 1; i < rest.length; i++) {
+          if (rest[i] === '-a' && rest[i + 1]) a = rest[++i];
+          else if (rest[i] === '-b' && rest[i + 1]) b = rest[++i];
+          else if (!a && !rest[i].startsWith('-')) a = rest[i];
+          else if (!b && !rest[i].startsWith('-')) b = rest[i];
+        }
+        if (!a || !b) {
+          a = a || 'chr1:1000-2500';
+          b = b || 'chr1:2000-3500';
+        }
+        const pA = parseInterval(a);
+        const pB = parseInterval(b);
+        if (!pA || !pB || pA.chr !== pB.chr) {
+          return err('bedtools intersect: intervals must be on same chromosome (e.g. chr1:100-300)');
+        }
+        const oStart = Math.max(pA.start, pB.start);
+        const oEnd = Math.min(pA.end, pB.end);
+        if (oStart < oEnd) {
+          return [
+            { text: `A:  ${a}`, tone: 'dim' },
+            { text: `B:  ${b}`, tone: 'dim' },
+            { text: `Overlap: ${pA.chr}:${oStart}-${oEnd} (${oEnd - oStart} bp)`, tone: 'ok' },
+          ];
+        }
+        return [
+          { text: `A: ${a}  B: ${b}`, tone: 'dim' },
+          { text: 'No intersection found (0 bp overlap).', tone: 'accent' },
+        ];
+      }
+      if (sub === 'merge') {
+        return [
+          { text: 'bedtools merge:', tone: 'head' },
+          { text: '  chr1:100-200, chr1:180-300 ➔ chr1:100-300 (merged 2 intervals)', tone: 'ok' },
+        ];
+      }
+      return err('bedtools: supported subcommands: intersect, merge');
+    },
+  },
+
+  cowsay: {
+    summary: 'speaking ASCII creature',
+    usage: 'cowsay [-d] <message>',
+    run: ({ args, flags }) => {
+      const msg = args.join(' ').trim() || 'Build what you need, use what you build.';
+      const len = msg.length;
+      const border = '─'.repeat(len + 2);
+      if (flags.has('d')) {
+        return [
+          { text: ` ┌${border}┐` },
+          { text: ` │ ${msg} │` },
+          { text: ` └${border}┘` },
+          { text: '   \\' },
+          { text: '    \\ . - . - . - . - .' },
+          { text: '      |  (o)       (o) |' },
+          { text: '      \\       ^       /' },
+          { text: '       ` - - - - - - \'' },
+          { text: '         /|  DNA  |\\' },
+          { text: '        (_|       |_)' },
+        ];
+      }
+      return [
+        { text: ` ┌${border}┐` },
+        { text: ` │ ${msg} │` },
+        { text: ` └${border}┘` },
+        { text: '   \\' },
+        { text: '    \\   ^__^' },
+        { text: '        (oo)\\_______' },
+        { text: '        (__)\\       )\\/\\' },
+        { text: '            ||----w |' },
+        { text: '            ||     ||' },
+      ];
+    },
+  },
+
+  fortune: {
+    summary: 'insightful quote on genomics & science',
+    run: ({ now }) => {
+      const quotes = [
+        '“Build what you need, use what you build.” — Kuan-Hao Chao',
+        '“Progress in science depends on new techniques, new discoveries, and new ideas, probably in that order.” — Sydney Brenner',
+        '“Biology is the study of complex things that appear to have been designed with a purpose.” — Richard Dawkins',
+        '“Genomics is not a luxury for high-income countries; it is a fundamental tool for understanding all biology.” — Mihaela Pertea',
+        '“The goal of bioinformatics is to turn sequence data into biological knowledge.” — Steven Salzberg',
+        '“We used to think our fate was in the stars. Now we know, in large measure, our fate is in our genes.” — James Watson',
+        '“Mathematics is the language with which God has written the universe; computation is how we read it.” — Galileo Galilei',
+      ];
+      const idx = Math.abs(now.getTime() % quotes.length);
+      return [{ text: quotes[idx], tone: 'ok' }];
+    },
+  },
+
+  matrix: {
+    summary: 'display DNA matrix stream',
+    run: () => {
+      const lines: Line[] = [{ text: 'Initializing genomic stream…', tone: 'head' }];
+      const alphabet = ['A', 'C', 'G', 'T', ' '];
+      for (let r = 0; r < 8; r++) {
+        let row = '';
+        for (let c = 0; c < 64; c++) {
+          row += alphabet[Math.floor(Math.random() * alphabet.length)];
+        }
+        lines.push({ text: row, tone: r % 2 === 0 ? 'ok' : 'accent' });
+      }
+      return lines;
+    },
+  },
+
+  games: {
+    summary: 'browser games launcher',
+    needsIndex: true,
+    run: ({ index }) => [
+      ...fileLines(index, `${HOME}/.config/side-projects.txt`),
+      { text: '' },
+      { text: 'Type `snake` or `tetris` to play right in your browser!', tone: 'ok' },
+      { text: '→ /software/#side-projects', tone: 'accent', href: '/software/' },
+    ],
+  },
+
+  snake: {
+    summary: 'play Snake game',
+    run: () => ({ lines: [{ text: 'Opening Snake game…', tone: 'ok' }], effect: { type: 'navigate', href: '/software/' } }),
+  },
+
+  tetris: {
+    summary: 'play Tetris game',
+    run: () => ({ lines: [{ text: 'Opening Tetris game…', tone: 'ok' }], effect: { type: 'navigate', href: '/software/' } }),
+  },
+
   splice: {
     summary: 'score a sequence for splice sites',
     usage: 'splice <ACGT…>',
@@ -1261,6 +1876,19 @@ export const COMMANDS: Record<string, Cmd> = {
       ...(argv.length > 1 ? [{ text: '(nice try)', tone: 'dim' as Tone }] : []),
     ],
   },
+};
+
+/** Known command aliases that resolve directly to existing shell commands. */
+export const ALIASES: Record<string, string> = {
+  ll: 'ls -l',
+  la: 'ls -la',
+  cls: 'clear',
+  q: 'exit',
+  '?': 'help',
+  pubs: 'publications',
+  blog: 'posts',
+  htop: 'top',
+  links: 'socials',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
@@ -1292,7 +1920,13 @@ export function exec(
     return { lines: [], effect: { type: 'ask', question: line } };
   }
 
-  const argv = parseArgv(line.replace(/^\//, ''));
+  const rawArgv = parseArgv(line.replace(/^\//, ''));
+  const first = rawArgv[0]?.toLowerCase() ?? '';
+  const aliasExpansion = ALIASES[first];
+  const argv = aliasExpansion
+    ? parseArgv(`${aliasExpansion} ${rawArgv.slice(1).join(' ')}`.trim())
+    : rawArgv;
+
   const name = argv[0];
   const cmd = COMMANDS[name];
   if (!cmd) {
@@ -1323,7 +1957,7 @@ export function exec(
 
 // ------------------------------------------------------------ completion ----
 
-/** Tab completion over command names and, for later words, filesystem paths. */
+/** Tab completion over command names, aliases, and, for later words, filesystem paths. */
 export function complete(state: ShellState, input: string): { value: string; options: string[] } {
   const trailingSpace = /\s$/.test(input);
   const argv = parseArgv(input);
@@ -1331,7 +1965,16 @@ export function complete(state: ShellState, input: string): { value: string; opt
 
   let options: string[];
   if (argv.length <= 1 && !trailingSpace) {
-    options = Object.keys(COMMANDS).filter((c) => c.startsWith(word)).sort();
+    const allNames = [...Object.keys(COMMANDS), ...Object.keys(ALIASES)];
+    options = [...new Set(allNames)].filter((c) => c.startsWith(word)).sort();
+  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'seqkit') {
+    options = ['stats', 'rc', 'translate', 'gc'].filter((s) => s.startsWith(word)).sort();
+  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'gffbase') {
+    options = ['info', 'query', 'benchmark'].filter((s) => s.startsWith(word)).sort();
+  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'bedtools') {
+    options = ['intersect', 'merge'].filter((s) => s.startsWith(word)).sort();
+  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'theme') {
+    options = ['light', 'dark', 'toggle'].filter((s) => s.startsWith(word)).sort();
   } else if (state.index) {
     const slash = word.lastIndexOf('/');
     const dirPart = slash >= 0 ? word.slice(0, slash + 1) : '';
@@ -1366,3 +2009,4 @@ export function historyStep(state: ShellState, direction: -1 | 1, draft: string)
   state.histIndex = next;
   return state.history[next];
 }
+
