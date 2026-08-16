@@ -31,7 +31,7 @@ const REQUIRED_STRINGS = [
 // These paths are separate project sites or intentional legacy redirects on the
 // same custom domain. They must be checked live, but are not emitted by this
 // Astro build and therefore cannot be resolved inside dist/.
-const LIVE_SAME_ORIGIN_PREFIXES = ['/shorkie', '/splam', '/LiftOn', '/OpenSpliceAI'];
+const LIVE_SAME_ORIGIN_PREFIXES = ['/shorkie', '/splam', '/LiftOn', '/OpenSpliceAI', '/gffbase'];
 const LEGACY_SAME_ORIGIN_PATHS = ['/404/', '/posts/lifton-v1-0-9'];
 
 function relPath(path) {
