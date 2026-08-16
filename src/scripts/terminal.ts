@@ -292,6 +292,52 @@ export function initTerminal(
 
   // ------------------------------------------------------------- effects ----
 
+  let audioCtx: AudioContext | null = null;
+  let soundEnabled = false;
+
+  function playClick() {
+    if (!soundEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!audioCtx) audioCtx = new AudioCtx();
+      if (audioCtx.state === 'suspended') void audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(700 + Math.random() * 200, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.03);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.03);
+    } catch {
+      // Audio might be unavailable or restricted by browser
+    }
+  }
+
+  function playBell() {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!audioCtx) audioCtx = new AudioCtx();
+      if (audioCtx.state === 'suspended') void audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(750, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    } catch {
+      // Audio might be unavailable
+    }
+  }
+
   function runEffect(effect: NonNullable<ReturnType<typeof exec>['effect']>) {
     switch (effect.type) {
       case 'clear':
@@ -305,7 +351,36 @@ export function initTerminal(
         window.setTimeout(() => window.location.assign(exitHref), reduced ? 0 : 420);
         break;
       case 'theme':
-        applyTheme(effect.mode);
+        if (effect.mode === 'crt') {
+          const isCrt = shellEl?.classList.toggle('term--crt') ?? false;
+          write([{ text: `CRT phosphor scanlines: ${isCrt ? 'ON' : 'OFF'}`, tone: 'ok' }]);
+          scrollToEnd();
+        } else {
+          applyTheme(effect.mode);
+        }
+        break;
+      case 'sound':
+        if (effect.mode === 'bell') {
+          playBell();
+        } else if (effect.mode === 'on') {
+          soundEnabled = true;
+          playClick();
+        } else if (effect.mode === 'off') {
+          soundEnabled = false;
+        } else if (effect.mode === 'toggle') {
+          soundEnabled = !soundEnabled;
+          if (soundEnabled) playClick();
+        }
+        write([{ text: `sound → ${soundEnabled ? 'ON (click feedback)' : 'OFF'}`, tone: 'ok' }]);
+        scrollToEnd();
+        break;
+      case 'copy':
+        if (navigator.clipboard) {
+          const text = effect.text || screen!.innerText;
+          void navigator.clipboard.writeText(text);
+          write([{ text: 'Copied terminal output to clipboard.', tone: 'ok' }]);
+          scrollToEnd();
+        }
         break;
       case 'ask':
         void answer(effect.question);
@@ -591,9 +666,13 @@ export function initTerminal(
       input!.value = '';
       syncClearButton();
     }
+    playClick();
   }
 
-  const onInput = () => syncClearButton();
+  const onInput = () => {
+    syncClearButton();
+    playClick();
+  };
   const onClearClick = (event: MouseEvent) => {
     event.preventDefault();
     input!.value = '';

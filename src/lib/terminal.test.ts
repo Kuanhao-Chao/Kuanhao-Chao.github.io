@@ -1077,5 +1077,80 @@ describe('unix utilities and content navigation commands', () => {
     expect(ambig.options).toContain('tree');
     expect(ambig.options).toContain('theme');
   });
+
+  it('align command runs Needleman-Wunsch alignment', () => {
+    const out = exec(shell(), 'align ACGTAGCTA ACGTCGCTA');
+    expect(joined(out.lines)).toContain('Global Pairwise Alignment (Needleman-Wunsch)');
+    expect(joined(out.lines)).toContain('Score:');
+    expect(joined(out.lines)).toContain('Query:');
+    expect(joined(out.lines)).toContain('Target:');
+  });
+
+  it('fastqc command produces quality and GC distribution report', () => {
+    const out = exec(shell(), 'fastqc ACGTACGTACGT');
+    expect(joined(out.lines)).toContain('FastQC v0.12.1');
+    expect(joined(out.lines)).toContain('Per-Base Sequence Quality');
+    expect(joined(out.lines)).toContain('Per-Base Sequence Content');
+  });
+
+  it('cal command renders calendar for date', () => {
+    const out = exec(shell(), 'cal 8 2026', new Date(Date.UTC(2026, 7, 16)));
+    expect(joined(out.lines)).toContain('August 2026');
+    expect(joined(out.lines)).toContain('Su Mo Tu We Th Fr Sa');
+    expect(joined(out.lines)).toContain('[16]');
+  });
+
+  it('curl command fetches weather and simulated API endpoints', () => {
+    const weather = exec(shell(), 'curl wttr.in');
+    expect(joined(weather.lines)).toContain('Weather report: San Diego');
+    expect(joined(weather.lines)).toContain('Weather report: Baltimore');
+
+    const gh = exec(shell(), 'curl github.com/gffbase');
+    expect(joined(gh.lines)).toContain('Kuanhao-Chao');
+  });
+
+  it('env command outputs cluster environment variables', () => {
+    const out = exec(shell(), 'env');
+    expect(joined(out.lines)).toContain('USER=khc');
+    expect(joined(out.lines)).toContain('CUDA_VISIBLE_DEVICES=0,1,2,3');
+  });
+
+  it('sort, uniq, less, and more inspect files', () => {
+    const sortOut = exec(shell(), 'sort about.txt');
+    expect(sortOut.lines.length).toBeGreaterThan(0);
+
+    const uniqOut = exec(shell(), 'uniq about.txt');
+    expect(uniqOut.lines.length).toBeGreaterThan(0);
+
+    const lessOut = exec(shell(), 'less about.txt');
+    expect(joined(lessOut.lines)).toContain('About me');
+
+    const moreOut = exec(shell(), 'more about.txt');
+    expect(joined(moreOut.lines)).toContain('About me');
+  });
+
+  it('crt and sound commands emit appropriate effects', () => {
+    const crt = exec(shell(), 'crt');
+    expect(crt.effect).toEqual({ type: 'theme', mode: 'crt' });
+
+    const sound = exec(shell(), 'sound on');
+    expect(sound.effect).toEqual({ type: 'sound', mode: 'on' });
+  });
+
+  it('pipelines chain commands across filters', () => {
+    const state = shell();
+    const pipeGrep = exec(state, 'cat news.txt | grep 2026');
+    expect(joined(pipeGrep.lines)).toContain('2026');
+
+    const pipeHead = exec(state, 'top | head -n 3');
+    expect(pipeHead.lines.length).toBe(3);
+
+    const pipeWc = exec(state, 'software | wc -l');
+    expect(pipeWc.lines[0].text.trim()).toMatch(/^\d+$/);
+
+    const pipeSortUniq = exec(state, 'cat news.txt | sort | uniq');
+    expect(pipeSortUniq.lines.length).toBeGreaterThan(0);
+  });
 });
+
 

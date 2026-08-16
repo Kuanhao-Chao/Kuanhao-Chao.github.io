@@ -70,7 +70,9 @@ export type Effect =
   | { type: 'clear' }
   | { type: 'navigate'; href: string }
   | { type: 'ask'; question: string }
-  | { type: 'theme'; mode: 'light' | 'dark' | 'toggle' }
+  | { type: 'theme'; mode: 'light' | 'dark' | 'toggle' | 'crt' }
+  | { type: 'sound'; mode: 'on' | 'off' | 'toggle' | 'bell' }
+  | { type: 'copy'; text?: string }
   | { type: 'exit' };
 
 export interface ExecResult {
@@ -868,15 +870,97 @@ function parseInterval(str: string): { chr: string; start: number; end: number }
   };
 }
 
+export function alignNeedlemanWunsch(
+  seq1: string,
+  seq2: string,
+  match = 1,
+  mismatch = -1,
+  gap = -2
+): {
+  score: number;
+  aligned1: string;
+  aligned2: string;
+  matchLine: string;
+  identity: number;
+  length: number;
+} {
+  const s1 = seq1.toUpperCase();
+  const s2 = seq2.toUpperCase();
+  const m = s1.length;
+  const n = s2.length;
+
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i * gap;
+  for (let j = 0; j <= n; j++) dp[0][j] = j * gap;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const scoreDiag = dp[i - 1][j - 1] + (s1[i - 1] === s2[j - 1] ? match : mismatch);
+      const scoreUp = dp[i - 1][j] + gap;
+      const scoreLeft = dp[i][j - 1] + gap;
+      dp[i][j] = Math.max(scoreDiag, scoreUp, scoreLeft);
+    }
+  }
+
+  let aligned1 = '';
+  let aligned2 = '';
+  let i = m;
+  let j = n;
+
+  while (i > 0 || j > 0) {
+    if (
+      i > 0 &&
+      j > 0 &&
+      dp[i][j] === dp[i - 1][j - 1] + (s1[i - 1] === s2[j - 1] ? match : mismatch)
+    ) {
+      aligned1 = s1[i - 1] + aligned1;
+      aligned2 = s2[j - 1] + aligned2;
+      i--;
+      j--;
+    } else if (i > 0 && dp[i][j] === dp[i - 1][j] + gap) {
+      aligned1 = s1[i - 1] + aligned1;
+      aligned2 = '-' + aligned2;
+      i--;
+    } else {
+      aligned1 = '-' + aligned1;
+      aligned2 = s2[j - 1] + aligned2;
+      j--;
+    }
+  }
+
+  let matchLine = '';
+  let matches = 0;
+  for (let k = 0; k < aligned1.length; k++) {
+    if (aligned1[k] === aligned2[k]) {
+      matchLine += '|';
+      matches++;
+    } else if (aligned1[k] === '-' || aligned2[k] === '-') {
+      matchLine += ' ';
+    } else {
+      matchLine += '.';
+    }
+  }
+
+  const identity = aligned1.length > 0 ? (matches / aligned1.length) * 100 : 0;
+  return {
+    score: dp[m][n],
+    aligned1,
+    aligned2,
+    matchLine,
+    identity,
+    length: aligned1.length,
+  };
+}
+
 export const COMMANDS: Record<string, Cmd> = {
   help: {
     summary: 'list available commands',
     run: () => {
       const groups: [string, string[]][] = [
-        ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'head', 'tail', 'wc', 'tree', 'find', 'grep']],
-        ['genomics', ['seqkit', 'gffbase', 'codon', 'bedtools', 'blastn', 'samtools', 'splice']],
+        ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'head', 'tail', 'wc', 'sort', 'uniq', 'less', 'tree', 'find', 'grep']],
+        ['genomics', ['seqkit', 'gffbase', 'align', 'fastqc', 'codon', 'bedtools', 'blastn', 'samtools', 'splice']],
         ['content', ['about', 'publications', 'software', 'talks', 'posts', 'research', 'projects', 'news', 'cv', 'contact', 'socials']],
-        ['system', ['uname', 'uptime', 'top', 'date', 'neofetch', 'theme', 'history', 'clear', 'echo']],
+        ['system', ['uname', 'uptime', 'top', 'date', 'cal', 'curl', 'env', 'neofetch', 'theme', 'crt', 'sound', 'history', 'clear', 'echo']],
         ['toys & games', ['cowsay', 'fortune', 'matrix', 'games', 'snake', 'tetris']],
         ['navigate', ['open', 'exit']],
         ['chatbot', ['ask', 'chat']],
@@ -893,8 +977,8 @@ export const COMMANDS: Record<string, Cmd> = {
         lines.push({ text: '' });
       }
       lines.push(
-        { text: '  Tab completes commands and files, ↑/↓ walks history, Ctrl-L clears, Ctrl-C aborts.', tone: 'dim' },
-        { text: '  Try: `seqkit rc ATGCGAT` · `gffbase query` · `ask what does LiftOn do?` · `top`', tone: 'dim' }
+        { text: '  Tab completes, ↑/↓ history, pipes `|` chain filters (`grep`, `head`, `wc`, `sort`).', tone: 'dim' },
+        { text: '  Try: `align ACGTAGCTA ACGTCGCTA` · `cat ~/news.txt | grep 2025` · `curl wttr.in` · `cal`', tone: 'dim' }
       );
       return lines;
     },
@@ -1068,6 +1152,79 @@ export const COMMANDS: Record<string, Cmd> = {
         lines.push({ text: `${parts.join(' ')} ${arg}` });
       }
       return lines;
+    },
+  },
+
+  sort: {
+    summary: 'sort lines of text files',
+    usage: 'sort [-r] <file>',
+    needsIndex: true,
+    run: ({ index, state, argv }) => {
+      const rest = argv.slice(1);
+      const reverse = rest.includes('-r');
+      const files = rest.filter((f) => !f.startsWith('-'));
+      if (!files.length) return err('sort: missing file operand');
+      const lines: Line[] = [];
+      for (const arg of files) {
+        const path = resolvePath(state.cwd, arg);
+        const node = index.fs[path];
+        if (!node) {
+          lines.push(...err(`sort: cannot read '${arg}': No such file or directory`));
+          continue;
+        }
+        const raw = node.body.split('\n');
+        raw.sort((a, b) => a.localeCompare(b));
+        if (reverse) raw.reverse();
+        lines.push(...bodyLines(raw.join('\n')));
+      }
+      return lines;
+    },
+  },
+
+  uniq: {
+    summary: 'report or omit repeated lines',
+    usage: 'uniq <file>',
+    needsIndex: true,
+    run: ({ index, state, argv }) => {
+      const rest = argv.slice(1);
+      const files = rest.filter((f) => !f.startsWith('-'));
+      if (!files.length) return err('uniq: missing file operand');
+      const lines: Line[] = [];
+      for (const arg of files) {
+        const path = resolvePath(state.cwd, arg);
+        const node = index.fs[path];
+        if (!node) {
+          lines.push(...err(`uniq: cannot read '${arg}': No such file or directory`));
+          continue;
+        }
+        const raw = node.body.split('\n');
+        const unique: string[] = [];
+        for (let i = 0; i < raw.length; i++) {
+          if (i === 0 || raw[i] !== raw[i - 1]) unique.push(raw[i]);
+        }
+        lines.push(...bodyLines(unique.join('\n')));
+      }
+      return lines;
+    },
+  },
+
+  less: {
+    summary: 'view file contents with paging',
+    usage: 'less <file>',
+    needsIndex: true,
+    run: ({ index, state, args }) => {
+      if (!args.length) return err('less: missing file operand');
+      return COMMANDS.cat.run({ state, index, argv: ['cat', ...args], args, flags: new Set(), now: new Date(), columns: 80, narrow: false });
+    },
+  },
+
+  more: {
+    summary: 'view file contents with paging',
+    usage: 'more <file>',
+    needsIndex: true,
+    run: ({ index, state, args }) => {
+      if (!args.length) return err('more: missing file operand');
+      return COMMANDS.cat.run({ state, index, argv: ['cat', ...args], args, flags: new Set(), now: new Date(), columns: 80, narrow: false });
     },
   },
 
@@ -1848,6 +2005,178 @@ export const COMMANDS: Record<string, Cmd> = {
     run: () => ({ lines: [{ text: 'Opening Tetris game…', tone: 'ok' }], effect: { type: 'navigate', href: '/software/' } }),
   },
 
+  align: {
+    summary: 'Needleman-Wunsch pairwise sequence alignment',
+    usage: 'align <seq1> <seq2> [-m match] [-x mismatch] [-g gap]',
+    run: ({ argv }) => {
+      const rest = argv.slice(1);
+      let seq1 = '';
+      let seq2 = '';
+      let match = 1;
+      let mismatch = -1;
+      let gap = -2;
+      for (let i = 0; i < rest.length; i++) {
+        if (rest[i] === '-m' && rest[i + 1]) match = parseInt(rest[++i], 10) || 1;
+        else if (rest[i] === '-x' && rest[i + 1]) mismatch = parseInt(rest[++i], 10) || -1;
+        else if (rest[i] === '-g' && rest[i + 1]) gap = parseInt(rest[++i], 10) || -2;
+        else if (!seq1 && !rest[i].startsWith('-')) seq1 = rest[i].toUpperCase().replace(/[^ACGTU]/g, '');
+        else if (!seq2 && !rest[i].startsWith('-')) seq2 = rest[i].toUpperCase().replace(/[^ACGTU]/g, '');
+      }
+      if (!seq1 || !seq2) {
+        seq1 = seq1 || 'ACGTACGTAGCTA';
+        seq2 = seq2 || 'ACGTCGTAGCTA';
+      }
+      const res = alignNeedlemanWunsch(seq1, seq2, match, mismatch, gap);
+      return [
+        { text: 'Global Pairwise Alignment (Needleman-Wunsch)', tone: 'head' },
+        { text: `Score: ${res.score}  ·  Length: ${res.length} bp  ·  Identity: ${res.identity.toFixed(1)}%`, tone: 'ok' },
+        { text: '' },
+        { text: `Query:  1  ${res.aligned1.split('').join(' ')}  ${seq1.length}` },
+        { text: `           ${res.matchLine.split('').join(' ')}`, tone: 'accent' },
+        { text: `Target: 1  ${res.aligned2.split('').join(' ')}  ${seq2.length}` },
+      ];
+    },
+  },
+
+  fastqc: {
+    summary: 'per-base sequence quality and GC analysis',
+    usage: 'fastqc <sequence>',
+    run: ({ args }) => {
+      const rawSeq = args.join('').toUpperCase().replace(/[^ACGT]/g, '');
+      const seq = rawSeq || 'GATCGATCGATCGATCGATCAGGTAGGTATCGATCGATC';
+      const len = seq.length;
+      const gc = (((seq.match(/[CG]/g) || []).length / len) * 100).toFixed(1);
+      return [
+        { text: 'FastQC v0.12.1 — Comprehensive Quality Report', tone: 'head' },
+        { text: `Sequence length: ${len} bp  ·  %GC: ${gc}%  ·  Overall: PASS`, tone: 'ok' },
+        { text: '' },
+        { text: 'Per-Base Sequence Quality (Q30+ Phred Scores):', tone: 'accent' },
+        { text: '  Q40 ┌────────────────────────────────────────┐' },
+        { text: '  Q36 │ ██████████████████████████████████████ │ (Very good)' },
+        { text: '  Q30 ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤ (Benchmark threshold)' },
+        { text: '  Q20 │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │' },
+        { text: '      └┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴┘' },
+        { text: '       1  4  8  12 16 20 24 28 32 36 40' },
+        { text: '' },
+        { text: 'Per-Base Sequence Content:', tone: 'accent' },
+        {
+          text:
+            `  A: ${(((seq.match(/A/g) || []).length / len) * 100).toFixed(1)}%  ` +
+            `C: ${(((seq.match(/C/g) || []).length / len) * 100).toFixed(1)}%  ` +
+            `G: ${(((seq.match(/G/g) || []).length / len) * 100).toFixed(1)}%  ` +
+            `T: ${(((seq.match(/T/g) || []).length / len) * 100).toFixed(1)}%`,
+        },
+        { text: 'Adapter Contamination: 0.00% (None detected)', tone: 'ok' },
+      ];
+    },
+  },
+
+  cal: {
+    summary: 'display a calendar',
+    usage: 'cal [month] [year]',
+    run: ({ args, now }) => {
+      const year = parseInt(args[1] || args[0], 10) || now.getUTCFullYear();
+      const month = args.length === 2 ? parseInt(args[0], 10) - 1 : now.getUTCMonth();
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      const header = `${monthNames[month]} ${year}`;
+      const pad = Math.max(0, Math.floor((20 - header.length) / 2));
+      const lines: Line[] = [
+        { text: ' '.repeat(pad) + header, tone: 'head' },
+        { text: 'Su Mo Tu We Th Fr Sa', tone: 'accent' },
+      ];
+      const firstDay = new Date(Date.UTC(year, month, 1)).getUTCDay();
+      const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+      let row = '   '.repeat(firstDay);
+      for (let day = 1; day <= daysInMonth; day++) {
+        const isToday =
+          day === now.getUTCDate() &&
+          month === now.getUTCMonth() &&
+          year === now.getUTCFullYear();
+        const cell = String(day).padStart(2);
+        row += (isToday ? `[${cell}]` : ` ${cell}`);
+        if ((firstDay + day) % 7 === 0 || day === daysInMonth) {
+          lines.push({ text: row.trimEnd() });
+          row = '';
+        }
+      }
+      return lines;
+    },
+  },
+
+  curl: {
+    summary: 'transfer data from or to a server',
+    usage: 'curl <url>',
+    run: ({ args }) => {
+      const url = (args[0] ?? '').toLowerCase();
+      if (!url) return err('curl: try `curl wttr.in` or `curl khchao.com`');
+      if (url.includes('wttr.in') || url === 'weather') {
+        return [
+          { text: 'Weather report: San Diego, CA (Illumina AI Lab)', tone: 'head' },
+          { text: '   \\  /       Partly cloudy' },
+          { text: ' _ /""\\ _    72 °F (22 °C)' },
+          { text: '   \\__/       Wind: 8 mph WSW' },
+          { text: '   /  \\       Humidity: 62% · UV: 6' },
+          { text: '' },
+          { text: 'Weather report: Baltimore, MD (Johns Hopkins University)', tone: 'head' },
+          { text: '  \\  /        Sunny' },
+          { text: ' _ /""\\ _    78 °F (25 °C)' },
+          { text: '   \\__/       Wind: 5 mph NE' },
+        ];
+      }
+      if (url.includes('github') || url.includes('gffbase')) {
+        return [
+          { text: 'HTTP/2 200 OK', tone: 'dim' },
+          { text: 'server: GitHub.com' },
+          { text: 'content-type: application/json; charset=utf-8' },
+          { text: '' },
+          { text: '{\n  "owner": "Kuanhao-Chao",\n  "repo": "gffbase",\n  "stars": 128,\n  "language": "Rust / DuckDB"\n}', tone: 'ok' },
+        ];
+      }
+      return [
+        { text: `HTTP/2 200 OK (${url})`, tone: 'ok' },
+        { text: '<!DOCTYPE html><html><head><title>khchao.com</title></head>' },
+        { text: '<body>Kuan-Hao Chao — Senior Deep Learning/AI Engineer</body></html>' },
+      ];
+    },
+  },
+
+  env: {
+    summary: 'print environment variables',
+    run: () => [
+      { text: 'USER=khc' },
+      { text: 'HOST=genome' },
+      { text: 'SHELL=/bin/ksh' },
+      { text: 'HOME=/home/khc' },
+      { text: 'TERM=xterm-256color' },
+      { text: 'CUDA_VISIBLE_DEVICES=0,1,2,3' },
+      { text: 'NVIDIA_VISIBLE_DEVICES=all' },
+      { text: 'GENOME_REF=T2T-CHM13v2.0' },
+      { text: 'SLURM_JOB_ID=849201' },
+      { text: 'SLURM_NODELIST=illumina-ai-node-[01-04]' },
+      { text: 'PATH=/home/khc/software:/usr/local/bin:/usr/bin:/bin' },
+    ],
+  },
+
+  crt: {
+    summary: 'toggle vintage CRT scanline display',
+    run: () => ({ lines: [{ text: 'Toggling CRT phosphor mode…', tone: 'ok' }], effect: { type: 'theme', mode: 'crt' } }),
+  },
+
+  sound: {
+    summary: 'toggle mechanical keyboard audio clicks',
+    usage: 'sound [on|off|bell]',
+    run: ({ args }) => {
+      const mode = (args[0] ?? 'toggle').toLowerCase();
+      if (mode === 'on' || mode === 'off' || mode === 'toggle' || mode === 'bell') {
+        return { lines: [{ text: `Sound mode: ${mode}`, tone: 'ok' }], effect: { type: 'sound', mode } };
+      }
+      return [{ text: 'sound: use `sound on`, `sound off`, or `sound bell`', tone: 'err' }];
+    },
+  },
+
   splice: {
     summary: 'score a sequence for splice sites',
     usage: 'splice <ACGT…>',
@@ -1889,6 +2218,11 @@ export const ALIASES: Record<string, string> = {
   blog: 'posts',
   htop: 'top',
   links: 'socials',
+  printenv: 'env',
+  wget: 'curl',
+  weather: 'curl wttr.in',
+  nw: 'align',
+  scanlines: 'crt',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
@@ -1900,27 +2234,116 @@ export const NEEDS_INDEX = new Set(
 
 // --------------------------------------------------------------- dispatch ---
 
-export function exec(
+export function splitPipeline(input: string): string[] {
+  const stages: string[] = [];
+  let current = '';
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === "'" && !inDouble) inSingle = !inSingle;
+    else if (ch === '"' && !inSingle) inDouble = !inDouble;
+    else if (ch === '|' && !inSingle && !inDouble) {
+      if (current.trim()) stages.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim()) stages.push(current.trim());
+  return stages;
+}
+
+export function applyPipeFilter(
+  lines: Line[],
+  stageCmd: string,
+  _state: ShellState,
+  _index: TermIndex | null
+): Line[] {
+  const argv = parseArgv(stageCmd);
+  const name = argv[0]?.toLowerCase();
+  const rest = argv.slice(1);
+
+  if (name === 'grep') {
+    let ignoreCase = true;
+    let invert = false;
+    let pattern = '';
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '-i') ignoreCase = true;
+      else if (rest[i] === '-v') invert = true;
+      else if (!pattern && !rest[i].startsWith('-')) pattern = rest[i];
+    }
+    if (!pattern) return lines;
+    const pat = ignoreCase ? pattern.toLowerCase() : pattern;
+    return lines.filter((line) => {
+      const match = (ignoreCase ? line.text.toLowerCase() : line.text).includes(pat);
+      return invert ? !match : match;
+    });
+  }
+
+  if (name === 'head') {
+    let n = 10;
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '-n' && rest[i + 1]) n = Math.max(1, parseInt(rest[++i], 10) || 10);
+      else if (/^-n\d+$/.test(rest[i])) n = Math.max(1, parseInt(rest[i].slice(2), 10) || 10);
+      else if (/^-\d+$/.test(rest[i])) n = Math.max(1, parseInt(rest[i].slice(1), 10) || 10);
+    }
+    return lines.slice(0, n);
+  }
+
+  if (name === 'tail') {
+    let n = 10;
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '-n' && rest[i + 1]) n = Math.max(1, parseInt(rest[++i], 10) || 10);
+      else if (/^-n\d+$/.test(rest[i])) n = Math.max(1, parseInt(rest[i].slice(2), 10) || 10);
+      else if (/^-\d+$/.test(rest[i])) n = Math.max(1, parseInt(rest[i].slice(1), 10) || 10);
+    }
+    return lines.slice(-n);
+  }
+
+  if (name === 'wc') {
+    const l = lines.length;
+    const allText = lines.map((l) => l.text).join('\n');
+    const w = allText.trim() ? allText.trim().split(/\s+/).length : 0;
+    const c = new TextEncoder().encode(allText).length;
+    const isL = rest.includes('-l');
+    const isW = rest.includes('-w');
+    const isC = rest.includes('-c') || rest.includes('-m');
+    const parts: string[] = [];
+    if (isL) parts.push(String(l).padStart(7));
+    if (isW) parts.push(String(w).padStart(7));
+    if (isC) parts.push(String(c).padStart(7));
+    if (!parts.length) parts.push(String(l).padStart(7), String(w).padStart(7), String(c).padStart(7));
+    return [{ text: parts.join(' ') }];
+  }
+
+  if (name === 'sort') {
+    const reverse = rest.includes('-r');
+    const sorted = [...lines].sort((a, b) => a.text.localeCompare(b.text));
+    return reverse ? sorted.reverse() : sorted;
+  }
+
+  if (name === 'uniq') {
+    const filtered: Line[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (i === 0 || lines[i].text !== lines[i - 1].text) {
+        filtered.push(lines[i]);
+      }
+    }
+    return filtered;
+  }
+
+  return lines;
+}
+
+function execSingle(
   state: ShellState,
-  input: string,
-  now: Date = new Date(),
-  width: number | boolean = 80
+  cmdLine: string,
+  now: Date,
+  columns: number,
+  narrow: boolean
 ): ExecResult {
-  const columns = typeof width === 'number' ? Math.max(24, Math.floor(width)) : width ? 48 : 80;
-  const narrow = columns < 70;
-  const line = input.trim();
-  if (line) {
-    state.history.push(line);
-    state.histIndex = state.history.length;
-  }
-  if (!line) return { lines: [] };
-
-  // In chat mode every bare line is a question unless it is `exit`.
-  if (state.chatMode && line !== 'exit' && !line.startsWith('/')) {
-    return { lines: [], effect: { type: 'ask', question: line } };
-  }
-
-  const rawArgv = parseArgv(line.replace(/^\//, ''));
+  const rawArgv = parseArgv(cmdLine.replace(/^\//, ''));
   const first = rawArgv[0]?.toLowerCase() ?? '';
   const aliasExpansion = ALIASES[first];
   const argv = aliasExpansion
@@ -1955,6 +2378,39 @@ export function exec(
   return Array.isArray(out) ? { lines: out } : out;
 }
 
+export function exec(
+  state: ShellState,
+  input: string,
+  now: Date = new Date(),
+  width: number | boolean = 80
+): ExecResult {
+  const columns = typeof width === 'number' ? Math.max(24, Math.floor(width)) : width ? 48 : 80;
+  const narrow = columns < 70;
+  const line = input.trim();
+  if (line) {
+    state.history.push(line);
+    state.histIndex = state.history.length;
+  }
+  if (!line) return { lines: [] };
+
+  // In chat mode every bare line is a question unless it is `exit`.
+  if (state.chatMode && line !== 'exit' && !line.startsWith('/')) {
+    return { lines: [], effect: { type: 'ask', question: line } };
+  }
+
+  const pipeline = splitPipeline(line);
+  if (pipeline.length > 1) {
+    const firstResult = execSingle(state, pipeline[0], now, columns, narrow);
+    let currentLines = firstResult.lines;
+    for (let i = 1; i < pipeline.length; i++) {
+      currentLines = applyPipeFilter(currentLines, pipeline[i], state, state.index);
+    }
+    return { lines: currentLines, effect: firstResult.effect };
+  }
+
+  return execSingle(state, line, now, columns, narrow);
+}
+
 // ------------------------------------------------------------ completion ----
 
 /** Tab completion over command names, aliases, and, for later words, filesystem paths. */
@@ -1974,7 +2430,9 @@ export function complete(state: ShellState, input: string): { value: string; opt
   } else if (argv.length === 2 && !trailingSpace && argv[0] === 'bedtools') {
     options = ['intersect', 'merge'].filter((s) => s.startsWith(word)).sort();
   } else if (argv.length === 2 && !trailingSpace && argv[0] === 'theme') {
-    options = ['light', 'dark', 'toggle'].filter((s) => s.startsWith(word)).sort();
+    options = ['light', 'dark', 'toggle', 'crt'].filter((s) => s.startsWith(word)).sort();
+  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'sound') {
+    options = ['on', 'off', 'bell', 'toggle'].filter((s) => s.startsWith(word)).sort();
   } else if (state.index) {
     const slash = word.lastIndexOf('/');
     const dirPart = slash >= 0 ? word.slice(0, slash + 1) : '';
