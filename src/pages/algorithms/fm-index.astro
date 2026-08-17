@@ -1,0 +1,217 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/fm-index.css';
+---
+
+<PageLayout
+  title="FM-Index & BWT Backward Search"
+  eyebrow="Bowtie / BWA Indexing Engine"
+  lead="Interactive exploration of the Burrows-Wheeler Transform (BWT), LF-mapping, and Ferragina & Manzini (FM) backward search — the sub-linear indexing framework powering Bowtie and BWA."
+  description="Interactive visualizer for the FM-Index and Burrows-Wheeler Transform (BWT) Backward Search algorithm by Kuan-Hao Chao. Explore LF-mapping, Occ occurrences array, and Suffix Array range narrowing."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="fm-visualizer" data-fm-visualizer id="fm-index" aria-label="FM-Index and BWT Backward Search Visualizer">
+    <!-- Toolbar: Reference Text & Query Pattern Inputs -->
+    <div class="fm-toolbar">
+      <div class="fm-input-group">
+        <label class="fm-label" for="fm-ref-input">
+          <span>Reference String <span style="font-weight: 400; color: var(--color-muted);">(Text <i>T</i>)</span></span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Auto-appends '$'</span>
+        </label>
+        <div class="fm-input-wrapper">
+          <input
+            id="fm-ref-input"
+            class="fm-input"
+            type="text"
+            data-fm-ref-input
+            value="BANANA$"
+            placeholder="Enter reference string…"
+            spellcheck="false"
+            autocomplete="off"
+          />
+        </div>
+        <div class="fm-presets">
+          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
+          <button type="button" class="fm-preset-btn" data-fm-ref-preset="BANANA$">BANANA$</button>
+          <button type="button" class="fm-preset-btn" data-fm-ref-preset="GATTACA$">GATTACA$</button>
+          <button type="button" class="fm-preset-btn" data-fm-ref-preset="ACGTACGT$">ACGTACGT$</button>
+          <button type="button" class="fm-preset-btn" data-fm-ref-preset="MISSISSIPPI$">MISSISSIPPI$</button>
+          <button type="button" class="fm-preset-btn" data-fm-ref-preset="GCATCGT$">GCATCGT$</button>
+        </div>
+      </div>
+
+      <div class="fm-input-group">
+        <label class="fm-label" for="fm-query-input">
+          <span>Search Query <span style="font-weight: 400; color: var(--color-muted);">(Pattern <i>P</i>)</span></span>
+          <span style="font-size: 0.75rem; color: var(--color-accent); font-weight: 600;">Backward (Right-to-Left)</span>
+        </label>
+        <div class="fm-input-wrapper">
+          <input
+            id="fm-query-input"
+            class="fm-input"
+            type="text"
+            data-fm-query-input
+            value="ANA"
+            placeholder="Enter search pattern…"
+            spellcheck="false"
+            autocomplete="off"
+          />
+        </div>
+        <div class="fm-presets">
+          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
+          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="ANA">ANA</button>
+          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="BAN">BAN</button>
+          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="ATT">ATT</button>
+          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="TAC">TAC</button>
+          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="SSI">SSI</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transport Playback Controls -->
+    <div class="fm-transport-bar">
+      <div class="fm-btn-group">
+        <button type="button" class="fm-btn fm-btn--primary" data-fm-play title="Play backward search animation">
+          Play ▶
+        </button>
+        <button type="button" class="fm-btn" data-fm-prev title="Previous step">
+          ⇤ Step
+        </button>
+        <button type="button" class="fm-btn" data-fm-next title="Next step">
+          Step ⇥
+        </button>
+        <button type="button" class="fm-btn" data-fm-reset title="Reset search">
+          ↺ Reset
+        </button>
+      </div>
+
+      <div class="fm-step-indicator" data-fm-step-indicator>
+        Ready (0/3)
+      </div>
+
+      <div class="fm-speed-select">
+        <label for="fm-speed-val">Speed:</label>
+        <select id="fm-speed-val" data-fm-speed>
+          <option value="2000">Slow (2.0s)</option>
+          <option value="1200" selected>Normal (1.2s)</option>
+          <option value="600">Fast (0.6s)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Reference String Visualizer Banner -->
+    <div class="fm-ref-banner">
+      <div style="font-size: var(--fs-small); font-weight: 600; color: var(--color-muted); display: flex; justify-content: space-between;">
+        <span>Reference Sequence (0-indexed):</span>
+        <span style="font-size: 0.75rem;">Highlighted letters indicate resolved match positions</span>
+      </div>
+      <div class="fm-ref-seq" data-fm-ref-display></div>
+    </div>
+
+    <!-- Main Visualizer Grid -->
+    <div class="fm-grid">
+      <!-- Left Panel: BWT Matrix and Suffix Array -->
+      <div class="fm-card">
+        <div class="fm-card-header">
+          <span>BWT &amp; Suffix Array Table</span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Hover row in <i>L</i> for LF-mapping</span>
+        </div>
+        <div class="fm-card-body">
+          <table class="fm-table">
+            <thead>
+              <tr>
+                <th>Row <i>i</i></th>
+                <th><i>SA[i]</i></th>
+                <th><i>F</i></th>
+                <th><i>L (BWT)</i></th>
+                <th>Suffix String</th>
+              </tr>
+            </thead>
+            <tbody data-fm-bwt-tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right Panel: C Table, Occurrences Matrix, and Step Calculation -->
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <!-- Step Calculation Inspector -->
+        <div class="fm-calc-box" data-fm-calc-box></div>
+
+        <!-- C Table Card -->
+        <div class="fm-card">
+          <div class="fm-card-header">
+            <span>Count Table <i>C[c]</i></span>
+            <span style="font-size: 0.75rem; color: var(--color-muted);">Count of chars &lt; <i>c</i></span>
+          </div>
+          <div class="fm-card-body">
+            <div class="fm-c-table" data-fm-c-table></div>
+          </div>
+        </div>
+
+        <!-- Occ Matrix Card -->
+        <div class="fm-card">
+          <div class="fm-card-header">
+            <span>Occurrences Matrix <i>Occ(c, i)</i></span>
+            <span style="font-size: 0.75rem; color: var(--color-muted);">Occurrences in <i>L[0..i-1]</i></span>
+          </div>
+          <div class="fm-card-body">
+            <table class="fm-occ-table" data-fm-occ-table></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational Deep-Dives -->
+    <div class="fm-educational-grid">
+      <div class="fm-edu-card">
+        <h3>How Bowtie &amp; BWA Use the FM-Index</h3>
+        <p>
+          Instead of storing the multi-gigabase human genome in raw sequence form, modern aligners index it using the FM-Index.
+          Because each backward step uses simple array lookups in $C$ and $Occ$, query searching executes in <strong>$O(|P|)$ time</strong>, entirely independent of the genome's size.
+        </p>
+      </div>
+
+      <div class="fm-edu-card">
+        <h3>The LF-Mapping Property</h3>
+        <p>
+          The fundamental theorem of the BWT: the $i$-th occurrence of character $c$ in the Last column $L$ corresponds to the exact same occurrence of character $c$ in the First column $F$.
+          This enables exact backward traversal without reconstructing the original text.
+        </p>
+      </div>
+
+      <div class="fm-edu-card">
+        <h3>Sub-linear Memory &amp; Sampling</h3>
+        <p>
+          In production aligners (like Bowtie), $Occ$ values and the Suffix Array are sampled at regular intervals (e.g. every 32 or 64 positions).
+          This reduces the memory footprint of the 3-billion-base human genome to under <strong>2.5 GB of RAM</strong>.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initFmIndexVisualizer, type VisualizerController } from '../../scripts/fmIndexVisualizer';
+
+  let controller: VisualizerController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initFmIndexVisualizer(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>

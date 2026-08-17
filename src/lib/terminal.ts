@@ -2202,10 +2202,32 @@ export const COMMANDS: Record<string, Cmd> = {
     summary: 'interactive algorithm visualizers',
     run: () => ({
       lines: [
-        { text: 'Opening FM-Index & BWT Backward Search Visualizer…', tone: 'ok' },
+        { text: 'Opening Bioinformatics Algorithm Catalog…', tone: 'ok' },
         { text: '→ /algorithms/', tone: 'accent', href: '/algorithms/' },
       ],
       effect: { type: 'navigate', href: '/algorithms/' },
+    }),
+  },
+
+  minimap2: {
+    summary: 'launch Minimap2 minimizer chaining visualizer',
+    run: () => ({
+      lines: [
+        { text: 'Opening Minimap2 Minimizer Sampling & Chaining Visualizer…', tone: 'ok' },
+        { text: '→ /algorithms/minimap2/', tone: 'accent', href: '/algorithms/minimap2/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/minimap2/' },
+    }),
+  },
+
+  fmindex: {
+    summary: 'launch FM-Index & BWT backward search visualizer',
+    run: () => ({
+      lines: [
+        { text: 'Opening FM-Index & BWT Backward Search Visualizer…', tone: 'ok' },
+        { text: '→ /algorithms/fm-index/', tone: 'accent', href: '/algorithms/fm-index/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/fm-index/' },
     }),
   },
 
@@ -2234,8 +2256,9 @@ export const ALIASES: Record<string, string> = {
   weather: 'curl wttr.in',
   nw: 'align',
   scanlines: 'crt',
-  fmindex: 'algorithms',
-  bwt: 'algorithms',
+  minimizer: 'minimap2',
+  chaining: 'minimap2',
+  bwt: 'fmindex',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
