@@ -267,7 +267,6 @@ export function initIsmVisualizer(root: ParentNode = document): IsmVisualizerCon
     const preset = ISM_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
 
-    currentPresetId = preset.id;
     activeSequence = preset.sequence;
     activeType = preset.type;
     activeJunctionCoord = preset.junctionCoord;
