@@ -3,6 +3,11 @@
  */
 import { ALGORITHMS } from '../data/algorithms';
 import { startDnaRain } from './dnaRain';
+import { startCrisprMode } from './crisprMode';
+import { startZeroGravity } from './domPhysics';
+import { startCrtMode } from './retroCrt';
+import { openRibosomeGame } from './ribosomeGameVisualizer';
+import { startDnaSynth } from './dnaSynth';
 
 export interface CommandItem {
   id: string;
@@ -60,6 +65,61 @@ const STATIC_ACTIONS: CommandItem[] = [
       }
     },
     keywords: ['email', 'copy', 'contact', 'mail', 'reach out'],
+  },
+  {
+    id: 'act-crispr',
+    category: 'Actions',
+    title: '✂️ CRISPR-Cas9 Molecular Scissors',
+    subtitle: "Precision Cas9 PAM cleavage mode (or type 'crispr' anywhere)",
+    badge: 'Easter Egg',
+    action: () => {
+      startCrisprMode();
+    },
+    keywords: ['crispr', 'cas9', 'cut', 'scissors', 'cleave', 'pam', 'genome', 'easter egg'],
+  },
+  {
+    id: 'act-zerog',
+    category: 'Actions',
+    title: '🌌 Zero-Gravity DOM Physics',
+    subtitle: "Detaches page elements into a 2D physics sandbox (type 'gravity')",
+    badge: 'Easter Egg',
+    action: () => {
+      startZeroGravity();
+    },
+    keywords: ['gravity', 'zerog', 'physics', 'sandbox', 'float', 'black hole', 'easter egg'],
+  },
+  {
+    id: 'act-crt',
+    category: 'Actions',
+    title: '📺 1988 NIH Supercomputer CRT Mode',
+    subtitle: "Vintage amber/green phosphor terminal look (type 'crt')",
+    badge: 'Easter Egg',
+    action: () => {
+      startCrtMode('amber');
+    },
+    keywords: ['crt', 'retro', '1988', 'amber', 'green', 'phosphor', 'terminal', 'easter egg'],
+  },
+  {
+    id: 'act-ribosome',
+    category: 'Actions',
+    title: '🧬 Ribosome Translation Rush (Arcade)',
+    subtitle: "Playable mRNA codon translation & splicing game (type 'ribosome')",
+    badge: 'Game',
+    action: () => {
+      openRibosomeGame();
+    },
+    keywords: ['ribosome', 'translation', 'splice', 'game', 'arcade', 'mrna', 'trna', 'easter egg'],
+  },
+  {
+    id: 'act-synth',
+    category: 'Actions',
+    title: '🎹 DNA Polyphonic Synthesizer',
+    subtitle: "Play nucleotide harmonic frequencies with oscilloscope (type 'synth')",
+    badge: 'Audio',
+    action: () => {
+      startDnaSynth();
+    },
+    keywords: ['synth', 'piano', 'audio', 'music', 'dna', 'nucleotide', 'frequencies', 'easter egg'],
   },
   {
     id: 'act-dna-rain',

@@ -73,6 +73,7 @@ export type Effect =
   | { type: 'theme'; mode: 'light' | 'dark' | 'toggle' | 'crt' }
   | { type: 'sound'; mode: 'on' | 'off' | 'toggle' | 'bell' }
   | { type: 'copy'; text?: string }
+  | { type: 'custom'; eventName: string; detail?: Record<string, unknown> }
   | { type: 'exit' };
 
 export interface ExecResult {
@@ -2427,6 +2428,68 @@ export const COMMANDS: Record<string, Cmd> = {
     run: () => ({ lines: [{ text: 'Opening Tetris game…', tone: 'ok' }], effect: { type: 'navigate', href: '/software/' } }),
   },
 
+  crispr: {
+    summary: 'launch CRISPR-Cas9 molecular scissors mode',
+    run: () => ({
+      lines: [
+        { text: 'Activating Cas9-gRNA molecular targeting complex…', tone: 'head' },
+        { text: 'Hover over elements to target with PAM NGG and click to cleave.', tone: 'ok' },
+        { text: 'Press ESC or click "DNA Ligase Repair All" to mend cuts.', tone: 'dim' },
+      ],
+      effect: { type: 'custom', eventName: 'khc:start-crispr' },
+    }),
+  },
+
+  gravity: {
+    summary: 'launch zero-gravity DOM physics sandbox',
+    run: () => ({
+      lines: [
+        { text: 'Entering Zero-Gravity DOM Physics Simulation…', tone: 'head' },
+        { text: 'Drag and toss elements across the screen with momentum.', tone: 'ok' },
+        { text: 'Press ESC or click "Restore Gravity" to snap back to the CSS grid.', tone: 'dim' },
+      ],
+      effect: { type: 'custom', eventName: 'khc:start-zerog' },
+    }),
+  },
+
+  ribosome: {
+    summary: 'play Ribosome mRNA Translation Rush arcade game',
+    run: () => ({
+      lines: [
+        { text: 'Initializing Ribosome Translation Rush arcade engine…', tone: 'head' },
+        { text: 'Match tRNAs, splice introns with SPACE, and score peptide chains!', tone: 'ok' },
+      ],
+      effect: { type: 'custom', eventName: 'khc:start-ribosome' },
+    }),
+  },
+
+  synth: {
+    summary: 'launch DNA polyphonic synthesizer & oscilloscope',
+    run: () => ({
+      lines: [
+        { text: 'Opening DNA Polyphonic Synthesizer audio dock…', tone: 'head' },
+        { text: 'Keys: A (220Hz), T (330Hz), G (262Hz), C (392Hz), U (349Hz), P, S, N', tone: 'ok' },
+      ],
+      effect: { type: 'custom', eventName: 'khc:start-synth' },
+    }),
+  },
+
+  eggs: {
+    summary: 'list all website secrets and easter eggs',
+    run: () => [
+      { text: 'khcOS Secrets & Interactive Easter Eggs Catalog', tone: 'head' },
+      { text: '' },
+      { text: '  1. ✂️ CRISPR-Cas9 Scissors   `crispr` · Type "crispr" anywhere · Cleave elements + Ligase repair' },
+      { text: '  2. 🌌 Zero-Gravity Physics   `gravity` · Type "gravity" anywhere · 2D rigid-body momentum & toss' },
+      { text: '  3. 📺 1988 NIH CRT Monitor   `crt` · Type "crt" anywhere · Vintage amber/green phosphor scanlines' },
+      { text: '  4. 🧬 Ribosome Splice Rush   `ribosome` · Type "ribosome" anywhere · mRNA codon arcade mini-game' },
+      { text: '  5. 🎹 DNA Polyphonic Synth   `synth` · Type "synth" anywhere · Base chemistry harmonic keyboard' },
+      { text: '  6. 🌧️ Matrix DNA Rain        `matrix` · Konami Code ↑↑↓↓←→←→BA · Cascading nucleotide rain' },
+      { text: '' },
+      { text: 'All easter eggs can be triggered anywhere on the site by typing the secret word!', tone: 'accent' },
+    ],
+  },
+
   align: {
     summary: 'Needleman-Wunsch pairwise sequence alignment',
     usage: 'align <seq1> <seq2> [-m match] [-x mismatch] [-g gap]',
@@ -2876,6 +2939,15 @@ export const ALIASES: Record<string, string> = {
   dnarain: 'matrix',
   spliceai: 'ism',
   mutagenesis: 'ism',
+  cas9: 'crispr',
+  zerog: 'gravity',
+  physics: 'gravity',
+  retro: 'crt',
+  splicerush: 'ribosome',
+  piano: 'synth',
+  music: 'synth',
+  secrets: 'eggs',
+  eastereggs: 'eggs',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */

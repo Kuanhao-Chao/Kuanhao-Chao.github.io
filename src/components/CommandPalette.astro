@@ -54,22 +54,22 @@ import Icon from './Icon.astro';
 
 <script>
   import { initCommandPalette } from '../scripts/commandPalette';
-  import { initKonamiListener } from '../scripts/dnaRain';
+  import { initEasterEggs } from '../scripts/easterEggs';
 
   let cleanupPalette: (() => void) | undefined;
-  let cleanupKonami: (() => void) | undefined;
+  let cleanupEasterEggs: (() => void) | undefined;
 
   function setup() {
     cleanupPalette?.();
-    cleanupKonami?.();
+    cleanupEasterEggs?.();
     cleanupPalette = initCommandPalette();
-    cleanupKonami = initKonamiListener();
+    cleanupEasterEggs = initEasterEggs();
   }
 
   document.addEventListener('astro:page-load', setup);
   document.addEventListener('astro:before-swap', () => {
     cleanupPalette?.();
-    cleanupKonami?.();
+    cleanupEasterEggs?.();
   });
 </script>
 

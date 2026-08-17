@@ -1252,6 +1252,38 @@ describe('unix utilities and content navigation commands', () => {
     const spliceaiOut = exec(state, 'spliceai');
     expect(spliceaiOut.effect).toEqual({ type: 'navigate', href: '/algorithms/ism/' });
   });
+
+  it('handles easter egg commands and custom event effects', () => {
+    const state = shell();
+
+    // crispr & cas9 alias
+    const crisprOut = exec(state, 'crispr');
+    expect(crisprOut.effect).toEqual({ type: 'custom', eventName: 'khc:start-crispr' });
+    expect(exec(state, 'cas9').effect).toEqual({ type: 'custom', eventName: 'khc:start-crispr' });
+
+    // gravity & zerog alias
+    const gravityOut = exec(state, 'gravity');
+    expect(gravityOut.effect).toEqual({ type: 'custom', eventName: 'khc:start-zerog' });
+    expect(exec(state, 'zerog').effect).toEqual({ type: 'custom', eventName: 'khc:start-zerog' });
+
+    // ribosome & splicerush alias
+    const ribOut = exec(state, 'ribosome');
+    expect(ribOut.effect).toEqual({ type: 'custom', eventName: 'khc:start-ribosome' });
+    expect(exec(state, 'splicerush').effect).toEqual({ type: 'custom', eventName: 'khc:start-ribosome' });
+
+    // synth & piano alias
+    const synthOut = exec(state, 'synth');
+    expect(synthOut.effect).toEqual({ type: 'custom', eventName: 'khc:start-synth' });
+    expect(exec(state, 'piano').effect).toEqual({ type: 'custom', eventName: 'khc:start-synth' });
+
+    // eggs / secrets
+    const eggsOut = exec(state, 'eggs');
+    expect(joined(eggsOut.lines)).toContain('CRISPR-Cas9');
+    expect(joined(eggsOut.lines)).toContain('Zero-Gravity');
+    expect(joined(eggsOut.lines)).toContain('Ribosome');
+    expect(joined(eggsOut.lines)).toContain('Polyphonic');
+    expect(joined(exec(state, 'secrets').lines)).toContain('CRISPR-Cas9');
+  });
 });
 
 
