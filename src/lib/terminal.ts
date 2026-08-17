@@ -2661,21 +2661,6 @@ export const COMMANDS: Record<string, Cmd> = {
     },
   },
 
-  bg: {
-    summary: 'configure site background visual ambience',
-    usage: 'bg [pangenome|cells|neural|chromatin|off|next]',
-    run: ({ args }) => {
-      const mode = (args[0] ?? 'next').toLowerCase();
-      if (['pangenome', 'cells', 'neural', 'chromatin', 'off', 'next'].includes(mode)) {
-        return {
-          lines: [{ text: `Background Ambience: ${mode.toUpperCase()}`, tone: 'ok' }],
-          effect: { type: 'custom', eventName: 'khc:set-bg', detail: { mode } },
-        };
-      }
-      return [{ text: 'bg: usage `bg pangenome`, `bg cells`, `bg neural`, `bg chromatin`, `bg off`, or `bg next`', tone: 'err' }];
-    },
-  },
-
   sound: {
     summary: 'toggle mechanical keyboard audio clicks',
     usage: 'sound [on|off|bell]',
