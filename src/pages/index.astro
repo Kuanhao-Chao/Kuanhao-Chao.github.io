@@ -182,16 +182,9 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
         {featuredAlgos.map((a) => (
           <li>
             <a class="home-algo" href={a.href}>
-              <div class="home-algo-meta">
-                <span class="home-algo-tag">{a.tag}</span>
-                <span class="eyebrow">{a.area}</span>
-              </div>
-              <span class="home-algo-title">{a.title}</span>
-              <span class="home-algo-blurb">{a.summary}</span>
-              <span class="home-algo-cta">
-                <span>{a.actionText}</span>
-                <Icon name="arrow-right" size={14} />
-              </span>
+              <span class="home-algo-tag">{a.tag}</span>
+              <span class="home-algo-title">{a.shortTitle || a.title}</span>
+              <span class="home-algo-blurb">{a.blurb || a.summary}</span>
             </a>
           </li>
         ))}
@@ -276,12 +269,6 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
   .home-algo:hover {
     background: var(--color-surface);
   }
-  .home-algo-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
   .home-algo-tag {
     font-size: var(--fs-meta);
     font-weight: 600;
@@ -304,15 +291,6 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
     color: var(--color-muted);
     line-height: var(--lh-snug);
     flex: 1;
-  }
-  .home-algo-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: var(--fs-meta);
-    font-weight: 600;
-    color: var(--color-accent);
-    margin-top: 0.25rem;
   }
   /* The frame shrinks to each logo's real aspect rather than forcing a square: given
      a square, Astro center-crops the wide wordmarks down to a couple of letters. The

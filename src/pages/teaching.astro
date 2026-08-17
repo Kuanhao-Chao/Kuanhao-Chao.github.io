@@ -68,9 +68,9 @@ const featuredAlgorithms = ALGORITHMS.filter((a) => a.featured);
   </section>
 
   <section class="block">
-    <h2 class="block-title">Interactive algorithm visualizers &amp; pedagogical tools</h2>
+    <h2 class="block-title">Algorithm visualizers</h2>
     <p class="muted review-intro">
-      I build interactive, web-based visualizers for fundamental computational biology algorithms to help students, researchers, and engineers build spatial and mathematical intuition for sequence alignment, seed-and-extend indexing, genome assembly traversals, and probabilistic models.
+      Interactive pedagogical tools I've built to help students and researchers develop visual intuition for sequence alignment, genome assembly, seed indexing, and probabilistic models.
     </p>
 
     <ul class="rows">
@@ -83,21 +83,16 @@ const featuredAlgorithms = ALGORITHMS.filter((a) => a.featured);
               </span>
               <span class="algo-tag">{algo.tag}</span>
             </div>
-            <p class="row-meta muted">{algo.summary}</p>
-            <p class="row-links">
-              <a href={algo.href} style="display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600;">
-                {algo.actionText} <Icon name="arrow-right" size={13} />
-              </a>
-            </p>
+            <p class="row-meta muted">{algo.blurb || algo.summary}</p>
           </li>
         ))
       }
     </ul>
 
-    <div style="margin-top: var(--space-6);">
+    <div style="margin-top: var(--space-5);">
       <a href="/algorithms/" class="all-algos-link">
         <span>Explore all algorithm visualizers</span>
-        <Icon name="arrow-right" size={15} />
+        <Icon name="arrow-right" size={14} />
       </a>
     </div>
   </section>
