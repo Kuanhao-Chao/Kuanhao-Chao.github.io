@@ -73,6 +73,18 @@ const algorithms: AlgorithmEntry[] = [
     cliCommand: 'wfa ACGTAGCTA ACGTCGCTA',
   },
   {
+    id: 'debruijn',
+    title: 'De Bruijn Graph (Eulerian Path Genome Assembly)',
+    area: 'Genome Assembly & Graph Traversals',
+    tag: 'Hierholzer Traversal',
+    summary:
+      'Deconstruct sequencing reads into (k-1)-mer nodes and directed k-mer edges. Explore O(E) Eulerian path assembly, tip clipping, bubble popping, and unitig compaction.',
+    href: '/algorithms/debruijn/',
+    badge: 'Interactive Visualizer',
+    actionText: 'Launch interactive visualizer',
+    cliCommand: 'debruijn TAATGCCATGGGATGTT',
+  },
+  {
     id: 'splice-ai',
     title: 'Deep Learning Splice-Site Recognition (Splam / OpenSpliceAI)',
     area: 'Deep Learning & Genomics',
