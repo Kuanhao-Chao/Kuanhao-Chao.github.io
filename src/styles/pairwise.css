@@ -1,0 +1,469 @@
+/* ───────────────────────────────────────────────────────────────
+   Interactive Pairwise Alignment Sandbox Styles
+   Needleman-Wunsch, Smith-Waterman, and Affine Gap DP Grid
+   ─────────────────────────────────────────────────────────────── */
+
+.pw-visualizer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-block: var(--space-4) var(--space-8);
+  font-family: var(--font-body);
+  color: var(--color-ink);
+}
+
+/* ─────────────────────────────────────────────────── Toolbar & Inputs ── */
+
+.pw-toolbar {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 840px) {
+  .pw-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pw-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pw-label {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pw-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease;
+}
+
+.pw-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.pw-mode-selector {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+}
+
+.pw-mode-btn {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pw-mode-btn--active {
+  background: var(--color-surface);
+  color: var(--color-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.pw-scoring-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.pw-score-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.35rem 0.4rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+}
+
+.pw-score-box label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.pw-score-input {
+  width: 100%;
+  max-width: 3.5rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  padding: 0.15rem;
+}
+
+.pw-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: var(--space-2);
+}
+
+.pw-preset-btn {
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  background: var(--color-bg);
+  color: var(--color-muted);
+  border: 1px solid var(--color-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pw-preset-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+}
+
+/* ─────────────────────────────────────────────────── Transport Controls ── */
+
+.pw-transport-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+.pw-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-rule);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.pw-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+}
+
+.pw-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pw-btn--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.pw-btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-dark);
+  color: #ffffff;
+}
+
+.pw-step-indicator {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* ────────────────────────────────────────── Alignment Output Banner ── */
+
+.pw-alignment-card {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.pw-alignment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.pw-stats-row {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.pw-stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: var(--fs-small);
+}
+
+.pw-stat-item strong {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+.pw-alignment-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.15em;
+  line-height: 1.35;
+  overflow-x: auto;
+}
+
+.pw-seq-line {
+  white-space: pre;
+  font-weight: 700;
+}
+
+.pw-match-line {
+  white-space: pre;
+  color: var(--color-accent);
+}
+
+/* ──────────────────────────────────────────────────────── Main Grid ── */
+
+.pw-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.4fr) minmax(280px, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 900px) {
+  .pw-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pw-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.pw-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--color-ink) 3%, var(--color-surface));
+  border-bottom: 1px solid var(--color-rule);
+  font-weight: 600;
+  font-size: var(--fs-small);
+}
+
+.pw-card-body {
+  padding: var(--space-4);
+  overflow-x: auto;
+}
+
+/* ─────────────────────────────────────────────────── 2D DP Matrix Grid ── */
+
+.pw-matrix-table {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  margin-inline: auto;
+}
+
+.pw-matrix-table th,
+.pw-matrix-table td {
+  width: 2.35rem;
+  height: 2.35rem;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid var(--color-rule);
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.pw-matrix-table th {
+  background: color-mix(in srgb, var(--color-ink) 5%, var(--color-surface));
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.pw-cell {
+  cursor: pointer;
+  background: var(--color-surface);
+}
+
+.pw-cell:hover {
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-surface));
+  outline: 2px solid var(--color-accent);
+}
+
+.pw-cell--trace {
+  background: #bbf7d0 !important;
+  color: #14532d !important;
+  font-weight: 700;
+}
+
+html[data-theme='dark'] .pw-cell--trace {
+  background: #14532d !important;
+  color: #bbf7d0 !important;
+}
+
+.pw-cell--active {
+  outline: 2px solid #0284c7 !important;
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  font-weight: 800;
+  transform: scale(1.08);
+  z-index: 2;
+}
+
+html[data-theme='dark'] .pw-cell--active {
+  background: #0369a1 !important;
+  color: #e0f2fe !important;
+}
+
+.pw-cell-dir {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  font-size: 0.6rem;
+  color: var(--color-muted);
+  line-height: 1;
+}
+
+/* ──────────────────────────────────────── Step Calculation Inspector ── */
+
+.pw-calc-box {
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-rule));
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.pw-calc-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-family: var(--font-body);
+}
+
+.pw-calc-formula {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+}
+
+.pw-calc-summary {
+  font-family: var(--font-body);
+  font-size: var(--fs-small);
+  color: var(--color-ink);
+}
+
+/* ────────────────────────────────────────── Educational Cards ── */
+
+.pw-educational-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.pw-edu-card {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pw-edu-card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.pw-edu-card p {
+  font-size: var(--fs-small);
+  line-height: 1.55;
+  color: var(--color-muted);
+  margin: 0;
+}
