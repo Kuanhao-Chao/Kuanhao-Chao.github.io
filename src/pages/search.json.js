@@ -2,6 +2,7 @@ import { getCollection } from 'astro:content';
 import { pubSlug } from '../lib/slug.ts';
 import { software } from '../data/cv.ts';
 import { projects } from '../data/projects.ts';
+import { ALGORITHMS } from '../data/algorithms.ts';
 
 const compact = (value = '') => value.replace(/\s+/g, ' ').trim();
 const iso = (date) => date?.toISOString?.().slice(0, 10);
@@ -17,6 +18,15 @@ export async function GET() {
   ]);
 
   const items = [
+    ...ALGORITHMS.map((algo) => ({
+      type: 'Algorithm',
+      title: algo.title,
+      description: algo.summary,
+      href: algo.href,
+      date: '2025-01-01',
+      tags: [algo.area, algo.tag],
+      search: compact(`${algo.title} ${algo.shortTitle ?? ''} ${algo.area} ${algo.tag} ${algo.summary} ${algo.cliCommand ?? ''}`),
+    })),
     ...projects.map((project) => ({
       type: 'Project',
       title: project.title,
