@@ -1,6 +1,7 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
+import AlgorithmLogo from '../../components/AlgorithmLogo.astro';
 import { ALGORITHMS, ALGORITHM_CATEGORIES, type AlgorithmEntry } from '../../data/algorithms';
 
 const categories = ALGORITHM_CATEGORIES;
@@ -10,8 +11,8 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
 <PageLayout
   title="Algorithms"
   eyebrow="Interactive Visualizers & Concepts"
-  lead="Interactive explorations of fundamental computational biology algorithms — from long-read minimizer chaining and FM-index exact matching to Wheeler graph pangenomics and sequence alignment."
-  description="Interactive computational biology algorithm visualizers by Kuan-Hao Chao: Minimap2 minimizer chaining, FM-Index BWT backward search, Wheeler graphs, and sequence alignment."
+  lead="Interactive explorations of fundamental computational biology algorithms — from long-read minimizer chaining and FM-index exact matching to Wheeler graph pangenomics, sequence alignment, and neural in silico mutagenesis."
+  description="Interactive computational biology algorithm visualizers by Kuan-Hao Chao: Minimap2 minimizer chaining, FM-Index BWT backward search, Wheeler graphs, sequence alignment, and neural splice models."
 >
   <section class="algo-section" aria-label="Bioinformatics Algorithm Catalog">
     <div class="algo-tools" data-algo-tools>
@@ -35,7 +36,7 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
           <Icon name="search" size={18} />
           <input
             type="search"
-            placeholder="Search algorithms, tools, CLI…"
+            placeholder="Search algorithms, complexity, CLI…"
             data-search-input
             aria-label="Search algorithms"
           />
@@ -60,6 +61,10 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
             algo.area,
             algo.tag,
             algo.summary,
+            algo.timeComplexity ?? '',
+            algo.spaceComplexity ?? '',
+            algo.keyMechanism ?? '',
+            ...(algo.highlights ?? []),
             algo.cliCommand ?? '',
             algo.category,
           ]
@@ -75,15 +80,44 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
               data-area={algo.area.toLowerCase()}
               data-search={searchTokens}
             >
+              <div class="algo-card-leading">
+                <a href={algo.href} class="algo-logo-link" aria-label={`View ${algo.title}`}>
+                  <AlgorithmLogo id={algo.id} size={56} />
+                </a>
+              </div>
+
               <div class="algo-card-body">
                 <div class="algo-card-meta">
                   <span class="eyebrow">{algo.area}</span>
                   <span class="algo-tag">{algo.tag}</span>
+                  {algo.timeComplexity && (
+                    <span class="algo-metric-badge" title="Time Complexity">
+                      <span class="algo-metric-label">Time:</span>
+                      <code>{algo.timeComplexity}</code>
+                    </span>
+                  )}
+                  {algo.spaceComplexity && (
+                    <span class="algo-metric-badge" title="Space Complexity">
+                      <span class="algo-metric-label">Space:</span>
+                      <code>{algo.spaceComplexity}</code>
+                    </span>
+                  )}
                 </div>
+
                 <h3 class="algo-card-title">
                   <a href={algo.href}>{algo.title}</a>
                 </h3>
+
                 <p class="algo-card-summary muted">{algo.summary}</p>
+
+                {algo.highlights && algo.highlights.length > 0 && (
+                  <ul class="algo-card-highlights">
+                    {algo.highlights.map((item) => (
+                      <li>{item}</li>
+                    ))}
+                  </ul>
+                )}
+
                 {algo.cliCommand && (
                   <div class="algo-cli-hint">
                     <span>CLI Command:</span>
@@ -216,8 +250,8 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
 
   .algo-card {
     display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
+    grid-template-columns: 60px 1fr auto;
+    align-items: flex-start;
     gap: var(--space-5);
     padding-block: var(--space-6);
     border-top: 1px solid var(--color-rule);
@@ -230,6 +264,23 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
 
   .algo-card.is-hidden {
     display: none;
+  }
+
+  .algo-card-leading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 0.2rem;
+  }
+
+  .algo-logo-link {
+    display: inline-flex;
+    text-decoration: none;
+    transition: transform var(--transition);
+  }
+
+  .algo-card:hover .algo-logo-link {
+    transform: scale(1.06);
   }
 
   .algo-empty {
@@ -246,7 +297,18 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
     }
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 860px) {
+    .algo-card {
+      grid-template-columns: 50px 1fr;
+      gap: var(--space-4);
+    }
+    .algo-card-action {
+      grid-column: 1 / -1;
+      padding-top: var(--space-2);
+    }
+  }
+
+  @media (max-width: 640px) {
     .algo-tools {
       align-items: stretch;
     }
@@ -271,6 +333,9 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
       grid-template-columns: 1fr;
       gap: var(--space-3);
     }
+    .algo-card-leading {
+      justify-content: flex-start;
+    }
   }
 
   .algo-card-body {
@@ -282,7 +347,7 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
   .algo-card-meta {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.5rem;
     flex-wrap: wrap;
   }
 
@@ -293,6 +358,34 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
     background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
     color: var(--color-accent-dark);
     border-radius: var(--radius);
+  }
+
+  .algo-metric-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: var(--fs-meta);
+    padding: 0.12rem 0.45rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    color: var(--color-ink);
+  }
+
+  .algo-metric-label {
+    color: var(--color-muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  .algo-metric-badge code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-ink);
+    background: transparent;
+    padding: 0;
   }
 
   .algo-card-title {
@@ -316,7 +409,32 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
     font-size: var(--fs-small);
     line-height: 1.55;
     margin: 0;
-    max-width: 65ch;
+    max-width: 68ch;
+  }
+
+  .algo-card-highlights {
+    list-style: none;
+    margin: 0.35rem 0 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .algo-card-highlights li {
+    font-size: var(--fs-small);
+    color: var(--color-ink);
+    line-height: 1.45;
+    position: relative;
+    padding-left: 1.1rem;
+  }
+
+  .algo-card-highlights li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--color-accent);
+    font-weight: bold;
   }
 
   .algo-cli-hint {
@@ -325,14 +443,15 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
     gap: 0.5rem;
     font-size: var(--fs-meta);
     color: var(--color-muted);
-    margin-top: 0.25rem;
+    margin-top: 0.35rem;
   }
 
   .algo-cli-hint code {
     font-family: var(--font-mono);
-    padding: 0.15rem 0.4rem;
-    background: var(--color-bg);
+    font-size: var(--fs-meta);
+    background: var(--color-surface);
     border: 1px solid var(--color-rule);
+    padding: 0.15em 0.45em;
     border-radius: var(--radius);
     color: var(--color-ink);
   }
@@ -340,6 +459,7 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
   .algo-card-action {
     display: flex;
     align-items: center;
+    align-self: center;
   }
 
   .algo-link {
@@ -347,86 +467,94 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
     align-items: center;
     gap: 0.4rem;
     font-size: var(--fs-small);
-    font-weight: 600;
+    font-weight: var(--fw-medium);
     color: var(--color-accent);
     text-decoration: none;
-    padding: 0.4rem 0.75rem;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius);
-    background: var(--color-surface);
-    transition: all 0.15s ease;
     white-space: nowrap;
+    padding: 0.45em 0.85em;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+    transition: all var(--transition);
   }
 
   .algo-link:hover {
+    background: var(--color-accent);
     border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
-    color: var(--color-accent-dark);
+    color: var(--color-bg);
   }
 </style>
 
 <script>
-  function init() {
+  function setupAlgoCatalog() {
     const root = document.querySelector<HTMLElement>('[data-algo-tools]');
     const list = document.querySelector<HTMLElement>('[data-algo-list]');
     const empty = document.querySelector<HTMLElement>('[data-algo-empty]');
-    if (!root || !list) return;
-    if (root.dataset.filterReady) return;
-    root.dataset.filterReady = 'true';
+    if (!root || !list || !empty) return;
 
-    const cards = Array.from(list.querySelectorAll<HTMLElement>('.algo-card'));
-    const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+    const filterBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
     const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
     const sortSelect = root.querySelector<HTMLSelectElement>('[data-sort]');
+    const cards = Array.from(list.querySelectorAll<HTMLElement>('.algo-card'));
 
-    const order = new Map(cards.map((c, i) => [c, i]));
+    let activeFilter = 'all';
+    let searchQuery = '';
+    let sortMode = 'default';
 
-    let activeCategory = 'all';
-    let query = '';
+    function applyState() {
+      let visibleCount = 0;
 
-    const apply = () => {
-      let visible = 0;
-      for (const card of cards) {
-        const cat = card.dataset.category ?? '';
-        const search = card.dataset.search ?? '';
-        const ok =
-          (activeCategory === 'all' || cat === activeCategory) &&
-          (query === '' || search.includes(query));
-        card.classList.toggle('is-hidden', !ok);
-        if (ok) visible++;
-      }
-      if (empty) empty.hidden = visible !== 0;
+      cards.forEach((card) => {
+        const category = card.dataset.category || '';
+        const search = card.dataset.search || '';
 
-      const mode = sortSelect?.value ?? 'default';
-      const sorted = [...cards].sort((a, b) => {
-        const titleA = a.dataset.title ?? '';
-        const titleB = b.dataset.title ?? '';
-        const areaA = a.dataset.area ?? '';
-        const areaB = b.dataset.area ?? '';
-        if (mode === 'az') return titleA.localeCompare(titleB);
-        if (mode === 'area') return areaA.localeCompare(areaB) || titleA.localeCompare(titleB);
-        return order.get(a)! - order.get(b)!;
+        const matchesFilter = activeFilter === 'all' || category === activeFilter;
+        const matchesSearch = !searchQuery || search.includes(searchQuery);
+        const visible = matchesFilter && matchesSearch;
+
+        card.classList.toggle('is-hidden', !visible);
+        if (visible) visibleCount += 1;
       });
-      sorted.forEach((card) => list.appendChild(card));
-    };
 
-    pills.forEach((pill) => {
-      pill.addEventListener('click', () => {
-        activeCategory = pill.dataset.filter ?? 'all';
-        pills.forEach((p) => p.setAttribute('aria-pressed', String(p === pill)));
-        apply();
+      if (empty) {
+        empty.hidden = visibleCount > 0;
+      }
+
+      // Sorting
+      const sorted = [...cards].sort((a, b) => {
+        if (sortMode === 'az') {
+          return (a.dataset.title || '').localeCompare(b.dataset.title || '');
+        }
+        if (sortMode === 'area') {
+          return (a.dataset.area || '').localeCompare(b.dataset.area || '');
+        }
+        return 0; // Default curated order
+      });
+
+      if (list) {
+        sorted.forEach((c) => list.appendChild(c));
+      }
+    }
+
+    filterBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach((b) => b.setAttribute('aria-pressed', 'false'));
+        btn.setAttribute('aria-pressed', 'true');
+        activeFilter = btn.dataset.filter || 'all';
+        applyState();
       });
     });
 
     searchInput?.addEventListener('input', () => {
-      query = searchInput.value.trim().toLowerCase();
-      apply();
+      searchQuery = (searchInput.value || '').trim().toLowerCase();
+      applyState();
     });
 
-    sortSelect?.addEventListener('change', apply);
-    apply();
+    sortSelect?.addEventListener('change', () => {
+      sortMode = sortSelect.value;
+      applyState();
+    });
   }
 
-  document.addEventListener('astro:page-load', init);
-  init();
+  document.addEventListener('astro:page-load', setupAlgoCatalog);
 </script>

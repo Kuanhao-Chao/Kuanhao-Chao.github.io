@@ -16,6 +16,7 @@ import { site } from '../data/site';
 import { experience, education, software, type SoftwareTool } from '../data/cv';
 import { ALGORITHMS } from '../data/algorithms';
 import { readingTime } from '../lib/format';
+import AlgorithmLogo from '../components/AlgorithmLogo.astro';
 
 // Flagship tools for the homepage strip: those with a logo, newest first, each
 // linked to its interactive explainer post. Logos resolve like software.astro.
@@ -182,7 +183,10 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
         {featuredAlgos.map((a) => (
           <li>
             <a class="home-algo" href={a.href}>
-              <span class="home-algo-tag">{a.tag}</span>
+              <div class="home-algo-header">
+                <AlgorithmLogo id={a.id} size={40} compact />
+                <span class="home-algo-tag">{a.tag}</span>
+              </div>
               <span class="home-algo-title">{a.shortTitle || a.title}</span>
               <span class="home-algo-blurb">{a.blurb || a.summary}</span>
             </a>
@@ -268,6 +272,13 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
   .home-tool:hover,
   .home-algo:hover {
     background: var(--color-surface);
+  }
+  .home-algo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.5rem;
   }
   .home-algo-tag {
     font-size: var(--fs-meta);
