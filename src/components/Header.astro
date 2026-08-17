@@ -49,7 +49,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           aria-haspopup="menu"
           aria-expanded="false"
           aria-label="Appearance settings"
-          title="Switch theme or 1988 CRT mode"
+          title="Switch theme, background ambience, or 1988 CRT mode"
         >
           <span class="theme-icon-container">
             <span class="theme-toggle-icon theme-toggle-icon--sun" aria-hidden="true">
@@ -66,8 +66,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         </button>
 
         <div class="top-theme-popover" data-top-theme-popover role="menu" hidden>
+          <!-- Base Color Theme -->
           <div class="popover-section">
-            <span class="popover-heading">Theme</span>
+            <span class="popover-heading">Color Theme</span>
             <div class="popover-grid">
               <button type="button" class="popover-opt-btn" data-theme-choice="light" role="menuitem">
                 <span class="opt-icon-wrap" aria-hidden="true">
@@ -86,12 +87,42 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
           <div class="popover-divider"></div>
 
+          <!-- Background Ambience -->
+          <div class="popover-section">
+            <span class="popover-heading">Background Ambience</span>
+            <div class="popover-list">
+              <button type="button" class="popover-opt-btn" data-bg-choice="pangenome" role="menuitem">
+                <span class="opt-icon">🌌</span>
+                <span class="opt-text">Pangenome Highway</span>
+              </button>
+              <button type="button" class="popover-opt-btn" data-bg-choice="cells" role="menuitem">
+                <span class="opt-icon">🫧</span>
+                <span class="opt-text">Living Cells 2.0</span>
+              </button>
+              <button type="button" class="popover-opt-btn" data-bg-choice="neural" role="menuitem">
+                <span class="opt-icon">🌊</span>
+                <span class="opt-text">Neural Splice Waves</span>
+              </button>
+              <button type="button" class="popover-opt-btn" data-bg-choice="chromatin" role="menuitem">
+                <span class="opt-icon">🧬</span>
+                <span class="opt-text">3D Chromatin Loops</span>
+              </button>
+              <button type="button" class="popover-opt-btn" data-bg-choice="off" role="menuitem">
+                <span class="opt-icon">🖥️</span>
+                <span class="opt-text">Minimal Paper (Off)</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="popover-divider"></div>
+
+          <!-- 1988 CRT Display Mode -->
           <div class="popover-section">
             <span class="popover-heading">1988 CRT Monitor</span>
             <div class="popover-list">
               <button type="button" class="popover-opt-btn" data-crt-choice="off" role="menuitem">
                 <span class="opt-icon">🖥️</span>
-                <span class="opt-text">Modern (Off)</span>
+                <span class="opt-text">Modern Display (Off)</span>
               </button>
               <button type="button" class="popover-opt-btn popover-opt-btn--amber" data-crt-choice="amber" role="menuitem">
                 <span class="opt-icon">⚡</span>
@@ -140,6 +171,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       <p class="eyebrow mobile-drawer-heading">Appearance & Display</p>
 
       <div class="mobile-theme-group">
+        <!-- Base Theme -->
         <div class="mobile-theme-row" role="radiogroup" aria-label="Theme">
           <button type="button" class="mobile-theme-btn" data-theme-choice="light">
             <span class="mobile-theme-icon-wrap" aria-hidden="true">
@@ -155,6 +187,29 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           </button>
         </div>
 
+        <!-- Background Ambience -->
+        <p class="eyebrow mobile-drawer-heading" style="margin-top: 0.35rem;">Background Ambience</p>
+        <div class="mobile-theme-row mobile-theme-row--bg" role="radiogroup" aria-label="Background Ambience">
+          <button type="button" class="mobile-theme-btn" data-bg-choice="pangenome" title="Pangenome Highway">
+            <span>🌌</span>
+            <span>Pangenome</span>
+          </button>
+          <button type="button" class="mobile-theme-btn" data-bg-choice="cells" title="Living Cells">
+            <span>🫧</span>
+            <span>Cells</span>
+          </button>
+          <button type="button" class="mobile-theme-btn" data-bg-choice="neural" title="Neural Waves">
+            <span>🌊</span>
+            <span>Neural</span>
+          </button>
+          <button type="button" class="mobile-theme-btn" data-bg-choice="chromatin" title="3D Chromatin">
+            <span>🧬</span>
+            <span>3D Loops</span>
+          </button>
+        </div>
+
+        <!-- 1988 CRT Mode -->
+        <p class="eyebrow mobile-drawer-heading" style="margin-top: 0.35rem;">1988 CRT Monitor</p>
         <div class="mobile-theme-row mobile-theme-row--crt" role="radiogroup" aria-label="1988 CRT Mode">
           <button type="button" class="mobile-theme-btn" data-crt-choice="off">
             <span>🖥️</span>
@@ -162,11 +217,11 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           </button>
           <button type="button" class="mobile-theme-btn mobile-theme-btn--amber" data-crt-choice="amber">
             <span>⚡</span>
-            <span>Amber CRT</span>
+            <span>Amber</span>
           </button>
           <button type="button" class="mobile-theme-btn mobile-theme-btn--green" data-crt-choice="green">
             <span>🟢</span>
-            <span>Green CRT</span>
+            <span>Green</span>
           </button>
         </div>
       </div>
@@ -404,7 +459,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    width: 220px;
+    width: 230px;
+    max-height: 80vh;
+    overflow-y: auto;
     padding: 0.75rem;
     background: color-mix(in srgb, var(--color-surface) 95%, var(--color-ink) 5%);
     border: 1px solid var(--color-rule);
@@ -415,7 +472,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     z-index: 101;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.5rem;
     animation: popoverFadeIn 0.15s ease-out;
   }
 
@@ -437,7 +494,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   .popover-section {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.3rem;
   }
 
   .popover-heading {
@@ -555,7 +612,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     background: color-mix(in srgb, var(--color-surface) 60%, transparent);
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.65rem;
   }
 
   .mobile-drawer-heading {
@@ -565,28 +622,30 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   .mobile-theme-group {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.45rem;
   }
 
   .mobile-theme-row {
     display: flex;
-    gap: 0.4rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
   }
 
   .mobile-theme-btn {
     flex: 1;
+    min-width: 65px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
-    padding: 0.65rem 0.5rem;
-    min-height: 44px;
+    gap: 0.35rem;
+    padding: 0.55rem 0.4rem;
+    min-height: 42px;
     border: 1px solid var(--color-rule);
     border-radius: 8px;
     background: var(--color-surface);
     color: var(--color-muted);
     font-family: inherit;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -642,7 +701,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     }
     .top-theme-popover {
       right: -40px;
-      width: 200px;
+      width: 220px;
     }
   }
 </style>
@@ -660,9 +719,16 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     toggle: () => void;
     sync: () => void;
   }
+  interface BgApi {
+    get: () => string;
+    set: (m: string) => void;
+    next: () => void;
+    sync: () => void;
+  }
 
   const themeApi = () => (window as Window & { __khcTheme?: ThemeApi }).__khcTheme;
   const crtApi = () => (window as Window & { __khcCrt?: CrtApi }).__khcCrt;
+  const bgApi = () => (window as Window & { __khcBg?: BgApi }).__khcBg;
 
   interface Nav {
     toggle: HTMLButtonElement;
@@ -691,6 +757,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   function syncHeaderThemeIcons() {
     const currentTheme = themeApi()?.get() || document.documentElement.dataset.theme || 'light';
     const currentCrt = crtApi()?.get() || document.documentElement.dataset.crtMode || 'off';
+    const currentBg = bgApi()?.get() || (typeof localStorage !== 'undefined' ? localStorage.getItem('khc-bg-mode') : 'pangenome') || 'pangenome';
 
     const topBtn = document.querySelector<HTMLButtonElement>('[data-top-theme-btn]');
     const crtBadge = document.querySelector<HTMLElement>('[data-top-crt-badge]');
@@ -703,7 +770,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       }
     }
 
-    // Sync active classes across popover & mobile menu buttons
+    // Sync active classes across theme choices
     document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
       const choice = btn.dataset.themeChoice;
       const isActive = choice === currentTheme;
@@ -711,9 +778,18 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       btn.setAttribute('aria-checked', String(isActive));
     });
 
+    // Sync active classes across CRT choices
     document.querySelectorAll<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
       const choice = btn.dataset.crtChoice;
       const isActive = choice === currentCrt;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-checked', String(isActive));
+    });
+
+    // Sync active classes across Background choices
+    document.querySelectorAll<HTMLButtonElement>('[data-bg-choice]').forEach((btn) => {
+      const choice = btn.dataset.bgChoice;
+      const isActive = choice === currentBg;
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
     });
@@ -760,6 +836,17 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         const choice = btn.dataset.crtChoice;
         if (choice) {
           crtApi()?.set(choice);
+          setPopoverOpen(false);
+        }
+      };
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('[data-bg-choice]').forEach((btn) => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const choice = btn.dataset.bgChoice;
+        if (choice) {
+          bgApi()?.set(choice);
           setPopoverOpen(false);
         }
       };
@@ -818,6 +905,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
   document.addEventListener('khc:theme-change', syncHeaderThemeIcons);
   document.addEventListener('khc:crt-change', syncHeaderThemeIcons);
+  document.addEventListener('khc:bg-change', syncHeaderThemeIcons);
 
   bind();
   updateActiveNav();
