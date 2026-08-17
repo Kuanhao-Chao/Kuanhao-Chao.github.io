@@ -1,0 +1,268 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/wfa.css';
+---
+
+<PageLayout
+  title="Wavefront Alignment Algorithm (WFA)"
+  eyebrow="Exact O(s · d) Sequence Alignment"
+  lead="Interactive exploration of exact gap-affine sequence alignment running in O(s · d) time via diagonal wavefront frontier expansion and free Longest Common Prefix (LCP) extensions."
+  description="Interactive visualizer for the Wavefront Alignment Algorithm (WFA) by Kuan-Hao Chao. Explore O(s · d) diagonal wavefront expansion and free LCP matching steps."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="wfa-visualizer" data-wfa-visualizer aria-label="Wavefront Alignment Algorithm Visualizer">
+    <!-- Toolbar: Inputs, Penalties, Presets -->
+    <div class="wfa-toolbar">
+      <div class="wfa-input-group">
+        <label class="wfa-label" for="wfa-seq1">
+          <span>Sequence 1 (Target / Vertical)</span>
+        </label>
+        <input
+          id="wfa-seq1"
+          class="wfa-input"
+          type="text"
+          data-wfa-seq1
+          value="ACGTAGCTA"
+          spellcheck="false"
+          autocomplete="off"
+        />
+
+        <label class="wfa-label" for="wfa-seq2" style="margin-top: var(--space-2);">
+          <span>Sequence 2 (Query / Horizontal)</span>
+        </label>
+        <input
+          id="wfa-seq2"
+          class="wfa-input"
+          type="text"
+          data-wfa-seq2
+          value="ACGTCGCTA"
+          spellcheck="false"
+          autocomplete="off"
+        />
+
+        <div class="wfa-presets">
+          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
+          <button
+            type="button"
+            class="wfa-preset-btn"
+            data-wfa-preset
+            data-wfa-s1="ACGTACGT"
+            data-wfa-s2="ACGTACGT"
+          >
+            Identical (LCP Shoot-through)
+          </button>
+          <button
+            type="button"
+            class="wfa-preset-btn"
+            data-wfa-preset
+            data-wfa-s1="ACGTAGCTA"
+            data-wfa-s2="ACGTCGCTA"
+          >
+            Single SNP
+          </button>
+          <button
+            type="button"
+            class="wfa-preset-btn"
+            data-wfa-preset
+            data-wfa-s1="GATTACA"
+            data-wfa-s2="GACTTA"
+          >
+            Indel Gap
+          </button>
+          <button
+            type="button"
+            class="wfa-preset-btn"
+            data-wfa-preset
+            data-wfa-s1="ACGTACGTACGT"
+            data-wfa-s2="ACGTAACGT"
+          >
+            Long Homology + Indel
+          </button>
+          <button
+            type="button"
+            class="wfa-preset-btn"
+            data-wfa-preset
+            data-wfa-s1="ACGTACGT"
+            data-wfa-s2="ACTTTGGT"
+          >
+            Divergent Noise
+          </button>
+        </div>
+      </div>
+
+      <div class="wfa-input-group">
+        <span style="font-size: var(--fs-small); font-weight: 600; color: var(--color-ink);">
+          WFA Penalty Costs (Distance Minimization)
+        </span>
+        <p style="font-size: var(--fs-meta); color: var(--color-muted); margin: 0;">
+          WFA expands wavefronts in order of increasing penalty score <i>s</i> = 0, 1, 2, &hellip;
+        </p>
+
+        <div class="wfa-scoring-grid">
+          <div class="wfa-score-box">
+            <label for="wfa-mismatch-input">Mismatch (<i>x</i>)</label>
+            <input id="wfa-mismatch-input" type="number" class="wfa-score-input" value="2" data-wfa-mismatch />
+          </div>
+          <div class="wfa-score-box">
+            <label for="wfa-gap-open-input">Gap Open (<i>o</i>)</label>
+            <input id="wfa-gap-open-input" type="number" class="wfa-score-input" value="3" data-wfa-gap-open />
+          </div>
+          <div class="wfa-score-box">
+            <label for="wfa-gap-extend-input">Gap Ext (<i>e</i>)</label>
+            <input id="wfa-gap-extend-input" type="number" class="wfa-score-input" value="1" data-wfa-gap-extend />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transport Controls -->
+    <div class="wfa-transport-bar">
+      <div class="wfa-btn-group">
+        <button type="button" class="wfa-btn wfa-btn--primary" data-wfa-play title="Animate wavefront expansion">
+          Play ▶
+        </button>
+        <button type="button" class="wfa-btn" data-wfa-prev title="Previous wavefront step">
+          ⇤ Step
+        </button>
+        <button type="button" class="wfa-btn" data-wfa-next title="Next wavefront step">
+          Step ⇥
+        </button>
+        <button type="button" class="wfa-btn" data-wfa-reset title="Reset visualizer">
+          ↺ Reset
+        </button>
+      </div>
+
+      <div class="wfa-step-indicator" data-wfa-step-indicator>
+        Complete
+      </div>
+
+      <div class="fm-speed-select">
+        <label for="wfa-speed-val">Speed:</label>
+        <select id="wfa-speed-val" data-wfa-speed>
+          <option value="2000">Slow (2.0s)</option>
+          <option value="1200" selected>Normal (1.2s)</option>
+          <option value="600">Fast (0.6s)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Formatted Alignment Ribbon & Efficiency Stats -->
+    <div class="wfa-alignment-card">
+      <div class="wfa-alignment-header">
+        <span>Optimal WFA Alignment &amp; Efficiency:</span>
+        <div class="wfa-stats-row">
+          <div class="wfa-stat-item">
+            <span>Penalty Score:</span>
+            <strong data-wfa-score>0</strong>
+          </div>
+          <div class="wfa-stat-item">
+            <span>Identity:</span>
+            <strong data-wfa-identity>0%</strong>
+          </div>
+          <div class="wfa-stat-item">
+            <span>DP Cells Evaluated:</span>
+            <strong data-wfa-cells>0 / 0</strong>
+          </div>
+          <div class="wfa-stat-item">
+            <span>Matrix Pruned:</span>
+            <strong data-wfa-savings class="wfa-savings-highlight">0%</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="wfa-alignment-viewer">
+        <div class="wfa-seq-line" data-wfa-seq1-line></div>
+        <div class="wfa-match-line" data-wfa-match-line></div>
+        <div class="wfa-seq-line" data-wfa-seq2-line></div>
+      </div>
+    </div>
+
+    <!-- Main Grid: 2D Wavefront Canvas & Step Inspector -->
+    <div class="wfa-grid">
+      <!-- 2D Wavefront Canvas -->
+      <div class="wfa-card">
+        <div class="wfa-card-header">
+          <span>2D Diagonal Wavefront Frontier Plot</span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Hover node to inspect LCP</span>
+        </div>
+        <div class="wfa-card-body">
+          <div class="wfa-canvas-wrapper">
+            <svg class="wfa-svg" data-wfa-svg aria-label="2D WFA Canvas"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step Calculation Inspector -->
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div class="wfa-calc-box" data-wfa-calc-box></div>
+
+        <div class="wfa-card">
+          <div class="wfa-card-header">
+            <span>Wavefront Recurrence Formulation</span>
+          </div>
+          <div class="wfa-card-body" style="font-size: var(--fs-small); line-height: 1.6; color: var(--color-muted);">
+            <p style="margin: 0 0 0.5rem 0;">
+              Instead of filling a table of scores over coordinates (<i>i, j</i>), WFA tracks the <strong>furthest-reaching offset</strong> <i>M<sub>s</sub>[k]</i> along diagonal <i>k = j - i</i> for score <i>s</i>:
+            </p>
+            <div style="padding: 0.5rem 0.75rem; background: var(--color-bg); border: 1px solid var(--color-rule); border-radius: var(--radius); font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-ink); margin-bottom: 0.5rem;">
+              M_s[k] = max( M_&#123;s-x&#125;[k] + 1, I_s[k], D_s[k] ) + LCP
+            </div>
+            <p style="margin: 0;">
+              <strong>Free LCP:</strong> Matching characters extend along diagonal <i>k</i> with <strong>0 cost</strong>, causing similar sequences to reach the end in <i>O(s &middot; d)</i> time.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational Deep-Dives -->
+    <div class="wfa-educational-grid">
+      <div class="wfa-edu-card">
+        <h3>Why WFA Replaces Classical DP</h3>
+        <p>
+          In typical genomics alignments, error rates are low (&lt; 5%). Needleman-Wunsch wastes computation filling millions of unpromising cells in an <i>O(NM)</i> table. WFA computes only the narrow diagonal cone <i>O(s &middot; d)</i>, achieving <strong>20–100&times; speedups</strong>.
+        </p>
+      </div>
+
+      <div class="wfa-edu-card">
+        <h3>Longest Common Prefix (LCP) Acceleration</h3>
+        <p>
+          Because matches incur 0 penalty, any cell on diagonal <i>k</i> can slide diagonally forward until the first mismatch. In modern implementations (WFA2-lib), LCP is accelerated using 64-bit word comparisons and SIMD vector bitmasks.
+        </p>
+      </div>
+
+      <div class="wfa-edu-card">
+        <h3>Pangenomics &amp; Bi-directional WFA (BiWFA)</h3>
+        <p>
+          WFA is the core alignment engine behind pangenome graph builders (such as PGGB, Minigraph-Cactus, and Spoa). Bi-directional WFA (BiWFA) performs wavefront expansion from both ends simultaneously, reducing memory from <i>O(s<sup>2</sup>)</i> to <i>O(s)</i>.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initWfaVisualizer, type WfaVisualizerController } from '../../scripts/wfaVisualizer';
+
+  let controller: WfaVisualizerController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initWfaVisualizer(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
