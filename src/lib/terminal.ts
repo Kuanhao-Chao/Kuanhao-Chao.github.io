@@ -2253,6 +2253,17 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  debruijn: {
+    summary: 'launch De Bruijn Graph & Eulerian Path genome assembly sandbox',
+    run: () => ({
+      lines: [
+        { text: 'Opening De Bruijn Graph & Eulerian Path Assembly Sandbox…', tone: 'ok' },
+        { text: '→ /algorithms/debruijn/', tone: 'accent', href: '/algorithms/debruijn/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/debruijn/' },
+    }),
+  },
+
   sudo: {
     summary: 'execute a command as another user',
     run: ({ argv }) => [
@@ -2283,6 +2294,9 @@ export const ALIASES: Record<string, string> = {
   chaining: 'minimap2',
   bwt: 'fmindex',
   wavefront: 'wfa',
+  eulerian: 'debruijn',
+  assemble: 'debruijn',
+  dbg: 'debruijn',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */

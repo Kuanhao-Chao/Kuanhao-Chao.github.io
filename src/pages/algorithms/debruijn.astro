@@ -1,0 +1,260 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/debruijn.css';
+---
+
+<PageLayout
+  title="De Bruijn Graph & Eulerian Path Assembly"
+  eyebrow="Genome Assembly & Graph Traversals"
+  lead="Interactive exploration of De Bruijn graph construction, Hierholzer's Eulerian path reconstruction, tip clipping, bubble popping, and unitig compaction."
+  description="Interactive visualizer for De Bruijn Graph and Eulerian Path genome assembly by Kuan-Hao Chao. Explore k-mer edge traversal, tip clipping, bubble popping, and contig generation."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="dbg-visualizer" data-dbg-visualizer aria-label="De Bruijn Graph Visualizer">
+    <!-- Toolbar: Input Sequence/Reads, k-mer Slider, Presets, Cleaning Tools -->
+    <div class="dbg-toolbar">
+      <div class="dbg-input-group">
+        <label class="dbg-label" for="dbg-input">
+          <span>Input Genome Sequence / Short Reads (multi-line or comma-separated)</span>
+        </label>
+        <textarea
+          id="dbg-input"
+          class="dbg-textarea"
+          data-dbg-input
+          spellcheck="false"
+          autocomplete="off"
+        >TAATGCCATGGGATGTT</textarea>
+
+        <div class="dbg-presets">
+          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
+          <button
+            type="button"
+            class="dbg-preset-btn"
+            data-dbg-preset
+            data-dbg-seq="TAATGCCATGGGATGTT"
+            data-dbg-k="4"
+          >
+            Clean Assembly (k=4)
+          </button>
+          <button
+            type="button"
+            class="dbg-preset-btn"
+            data-dbg-preset
+            data-dbg-seq="ATGCTAGC, ATGCTAGC, ATGCAAGC"
+            data-dbg-k="4"
+          >
+            SNP Bubble
+          </button>
+          <button
+            type="button"
+            class="dbg-preset-btn"
+            data-dbg-preset
+            data-dbg-seq="ATGCGATCG, ATGCGATTT"
+            data-dbg-k="4"
+          >
+            Error Spur Tip
+          </button>
+          <button
+            type="button"
+            class="dbg-preset-btn"
+            data-dbg-preset
+            data-dbg-seq="ATGCAGTCAGAAA"
+            data-dbg-k="3"
+          >
+            Repeat Fork (k=3)
+          </button>
+        </div>
+      </div>
+
+      <div class="dbg-input-group">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label class="dbg-label" for="dbg-k-slider">
+            <span><i>k</i>-mer Length (Node overlap: <i>k</i>-1):</span>
+          </label>
+          <strong data-dbg-k-val style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--color-accent);">4</strong>
+        </div>
+
+        <input
+          id="dbg-k-slider"
+          type="range"
+          min="3"
+          max="7"
+          value="4"
+          data-dbg-k
+          style="width: 100%; accent-color: var(--color-accent);"
+        />
+
+        <div style="margin-top: var(--space-2);">
+          <span style="font-size: var(--fs-meta); font-weight: 600; color: var(--color-muted);">
+            Graph Cleaning Pipeline (SPAdes / Velvet / MEGAHIT):
+          </span>
+          <div class="dbg-cleaning-toolbar">
+            <button type="button" class="dbg-action-btn" data-dbg-tip-btn title="Clip dead-end error spurs">
+              🧹 Clip Tips
+            </button>
+            <button type="button" class="dbg-action-btn" data-dbg-bubble-btn title="Collapse heterozygous SNP bubbles">
+              🫧 Pop Bubbles
+            </button>
+            <button type="button" class="dbg-action-btn" data-dbg-filter-btn title="Filter low-coverage chimeric k-mers">
+              ✂️ Filter Low Cov
+            </button>
+            <button type="button" class="dbg-action-btn" data-dbg-reset-cleaning title="Reset cleaning changes">
+              ↺ Reset Cleaning
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transport Controls -->
+    <div class="dbg-transport-bar">
+      <div class="dbg-btn-group">
+        <button type="button" class="dbg-btn dbg-btn--primary" data-dbg-play title="Animate Eulerian traversal">
+          Play ▶
+        </button>
+        <button type="button" class="dbg-btn" data-dbg-prev title="Previous edge step">
+          ⇤ Step
+        </button>
+        <button type="button" class="dbg-btn" data-dbg-next title="Next edge step">
+          Step ⇥
+        </button>
+        <button type="button" class="dbg-btn" data-dbg-reset title="Reset traversal">
+          ↺ Reset
+        </button>
+      </div>
+
+      <div class="dbg-step-indicator" data-dbg-step-indicator>
+        Ready
+      </div>
+
+      <div class="fm-speed-select">
+        <label for="dbg-speed-val">Speed:</label>
+        <select id="dbg-speed-val" data-dbg-speed>
+          <option value="2000">Slow (2.0s)</option>
+          <option value="1200" selected>Normal (1.2s)</option>
+          <option value="600">Fast (0.6s)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Assembled Sequence Ribbon & Graph Stats -->
+    <div class="dbg-assembly-card">
+      <div class="dbg-assembly-header">
+        <span>Assembled Genome Contig / Traversal:</span>
+        <div class="dbg-stats-row">
+          <div class="dbg-stat-item">
+            <span>Nodes:</span>
+            <strong data-dbg-nodes>0</strong>
+          </div>
+          <div class="dbg-stat-item">
+            <span>Edges:</span>
+            <strong data-dbg-edges>0</strong>
+          </div>
+          <div class="dbg-stat-item">
+            <span>N50:</span>
+            <strong data-dbg-n50>0 bp</strong>
+          </div>
+          <div class="dbg-stat-item">
+            <span>Status:</span>
+            <strong data-dbg-status>Eulerian</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="dbg-contig-viewer">
+        <div class="dbg-seq-line" data-dbg-contig-line></div>
+      </div>
+    </div>
+
+    <!-- Main Grid: SVG Graph Viewport & Inspector -->
+    <div class="dbg-grid">
+      <!-- SVG Graph Viewport -->
+      <div class="dbg-card">
+        <div class="dbg-card-header">
+          <span>De Bruijn Graph Viewport</span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Hover node or edge to inspect</span>
+        </div>
+        <div class="dbg-card-body">
+          <div class="dbg-canvas-wrapper">
+            <svg class="dbg-svg" data-dbg-svg aria-label="De Bruijn Graph Canvas"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step Calculation Inspector -->
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div class="dbg-calc-box" data-dbg-calc-box></div>
+
+        <div class="dbg-card">
+          <div class="dbg-card-header">
+            <span>Eulerian Path Theorem</span>
+          </div>
+          <div class="dbg-card-body" style="font-size: var(--fs-small); line-height: 1.6; color: var(--color-muted);">
+            <p style="margin: 0 0 0.5rem 0;">
+              In a De Bruijn graph, an <strong>Eulerian Path</strong> (visiting every directed <i>k</i>-mer edge exactly once) exists if:
+            </p>
+            <ul style="padding-left: 1.25rem; margin: 0 0 0.5rem 0;">
+              <li>At most one start node has <code style="color: var(--color-ink);">out-deg - in-deg = 1</code></li>
+              <li>At most one end node has <code style="color: var(--color-ink);">in-deg - out-deg = 1</code></li>
+              <li>All other internal nodes are balanced: <code style="color: var(--color-ink);">in-deg = out-deg</code></li>
+            </ul>
+            <p style="margin: 0;">
+              <strong>Hierholzer's Algorithm</strong> traverses the graph in linear <i>O(E)</i> time, solving assembly polynomial-time.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational Deep-Dives -->
+    <div class="dbg-educational-grid">
+      <div class="dbg-edu-card">
+        <h3>Eulerian vs Hamiltonian Assembly</h3>
+        <p>
+          Overlap-Layout-Consensus (OLC) finds a Hamiltonian path (visiting each read node once), which is <strong>NP-hard</strong>.
+          By transforming reads into <i>(k-1)</i>-mer nodes and <i>k</i>-mer edges, De Bruijn graphs reduce assembly to finding an Eulerian walk in <strong>O(E) linear time</strong>.
+        </p>
+      </div>
+
+      <div class="dbg-edu-card">
+        <h3>Graph Cleaning Heuristics</h3>
+        <p>
+          Sequencing errors create spurs (tips) and SNP divergence creates parallel paths (bubbles). Modern assemblers (SPAdes, MEGAHIT) apply tip-clipping, bubble-popping, and coverage thresholding to restore Eulerian topology.
+        </p>
+      </div>
+
+      <div class="dbg-edu-card">
+        <h3>Unitigs &amp; Assembly N50</h3>
+        <p>
+          When biological repeats prevent unambiguous Eulerian traversal, assemblers output <strong>Unitigs</strong> (maximal non-branching contigs). The <strong>N50 metric</strong> represents the minimum contig length covering 50% of the assembled genome.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initDebruijnVisualizer, type DebruijnVisualizerController } from '../../scripts/debruijnVisualizer';
+
+  let controller: DebruijnVisualizerController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initDebruijnVisualizer(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
