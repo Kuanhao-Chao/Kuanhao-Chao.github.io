@@ -2,10 +2,11 @@
 import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
 
-interface AlgorithmEntry {
+export interface AlgorithmEntry {
   id: string;
   title: string;
   area: string;
+  category: 'alignment' | 'assembly' | 'indexing' | 'probabilistic' | 'deep-learning';
   tag: string;
   summary: string;
   href: string;
@@ -14,11 +15,21 @@ interface AlgorithmEntry {
   cliCommand?: string;
 }
 
+const categories = [
+  { slug: 'all', label: 'All' },
+  { slug: 'alignment', label: 'Sequence Alignment' },
+  { slug: 'assembly', label: 'Genome Assembly' },
+  { slug: 'indexing', label: 'Indexing & Matching' },
+  { slug: 'probabilistic', label: 'Probabilistic & Gene Finding' },
+  { slug: 'deep-learning', label: 'Deep Learning' },
+];
+
 const algorithms: AlgorithmEntry[] = [
   {
     id: 'minimap2',
     title: 'Minimizer Sampling & Collinear DP Chaining',
     area: 'Long-Read Alignment & Indexing',
+    category: 'indexing',
     tag: 'Minimap2 Core',
     summary:
       'High-throughput long-read alignment indexing using (w, k)-minimizers. Explore sliding hash windows, 2D anchor dot-plot matching, and dynamic programming collinear chaining.',
@@ -30,6 +41,7 @@ const algorithms: AlgorithmEntry[] = [
     id: 'fm-index',
     title: 'FM-Index & BWT Backward Search',
     area: 'Indexing & Exact Matching',
+    category: 'indexing',
     tag: 'Bowtie / BWA Core',
     summary:
       'Burrows-Wheeler Transform with Last-to-First (LF) mapping and occurrence counting for sub-linear query matching across gigabase reference genomes.',
@@ -41,6 +53,7 @@ const algorithms: AlgorithmEntry[] = [
     id: 'wgt',
     title: 'Wheeler Graph Ordering & Recognition (Wheelie)',
     area: 'Pangenomics & Graph Indexing',
+    category: 'indexing',
     tag: 'Graph Indexing',
     summary:
       'Algorithms for recognizing and sorting Wheeler graph topologies, generalizing BWT-style index search to pangenomic reference variation graphs.',
@@ -52,6 +65,7 @@ const algorithms: AlgorithmEntry[] = [
     id: 'pairwise',
     title: 'Needleman-Wunsch & Smith-Waterman Alignment',
     area: 'Sequence Alignment & Dynamic Programming',
+    category: 'alignment',
     tag: 'Global & Local DP',
     summary:
       'Exact 2D dynamic programming pairwise sequence alignment supporting global (Needleman-Wunsch), local (Smith-Waterman), and Gotoh affine gap penalties.',
@@ -64,6 +78,7 @@ const algorithms: AlgorithmEntry[] = [
     id: 'wfa',
     title: 'Wavefront Alignment Algorithm (WFA)',
     area: 'Ultra-Fast Sequence Alignment',
+    category: 'alignment',
     tag: 'O(s · d) Exact Alignment',
     summary:
       'Exact gap-affine pairwise alignment running in O(s · d) time. Explore diagonal wavefront frontier expansion, free Longest Common Prefix (LCP) extensions, and matrix pruning.',
@@ -76,6 +91,7 @@ const algorithms: AlgorithmEntry[] = [
     id: 'debruijn',
     title: 'De Bruijn Graph (Eulerian Path Genome Assembly)',
     area: 'Genome Assembly & Graph Traversals',
+    category: 'assembly',
     tag: 'Hierholzer Traversal',
     summary:
       'Deconstruct sequencing reads into (k-1)-mer nodes and directed k-mer edges. Explore O(E) Eulerian path assembly, tip clipping, bubble popping, and unitig compaction.',
@@ -88,6 +104,7 @@ const algorithms: AlgorithmEntry[] = [
     id: 'string-graph',
     title: 'String Graphs & Overlap-Layout-Consensus (OLC)',
     area: 'Long-Read Genome Assembly',
+    category: 'assembly',
     tag: 'Myers Transitive Reduction',
     summary:
       'Long-read exact prefix-suffix overlap graphs without k-mer chopping. Explore Myers’ O(V+E) transitive reduction, contained read pruning, and read tiling layout.',
@@ -100,6 +117,7 @@ const algorithms: AlgorithmEntry[] = [
     id: 'phmm',
     title: 'Profile Hidden Markov Models (pHMMs)',
     area: 'Probabilistic Models & Gene Finding',
+    category: 'probabilistic',
     tag: 'Plan 7 Architecture',
     summary:
       'Model conserved biological domains and sequence families with insertion/deletion tolerance. Explore Viterbi optimal decoding, Forward-Backward posteriors, and Plan 7 topology.',
@@ -112,6 +130,7 @@ const algorithms: AlgorithmEntry[] = [
     id: 'ghmm',
     title: 'Generalized Hidden Markov Models (GHMMs)',
     area: 'Ab Initio Gene Finding',
+    category: 'probabilistic',
     tag: 'Semi-Markov Gene Finding',
     summary:
       'Predict exon-intron structures, splice junctions, and protein-coding CDS using explicit duration distributions f(d) and semi-Markov dynamic programming (GENSCAN / AUGUSTUS).',
@@ -124,6 +143,7 @@ const algorithms: AlgorithmEntry[] = [
     id: 'splice-ai',
     title: 'Deep Learning Splice-Site Recognition (Splam / OpenSpliceAI)',
     area: 'Deep Learning & Genomics',
+    category: 'deep-learning',
     tag: 'Neural Sequence Modeling',
     summary:
       'Ultra-fast residual convolutional neural networks scoring donor (GT) and acceptor (AG) pre-mRNA junctions to filter spurious spliced transcript alignments.',
@@ -142,39 +162,97 @@ const algorithms: AlgorithmEntry[] = [
   description="Interactive computational biology algorithm visualizers by Kuan-Hao Chao: Minimap2 minimizer chaining, FM-Index BWT backward search, Wheeler graphs, and sequence alignment."
 >
   <section class="algo-section" aria-label="Bioinformatics Algorithm Catalog">
-    <h2 class="algo-list-title">Algorithm Visualizers &amp; Interactive Tools</h2>
+    <div class="algo-tools" data-algo-tools>
+      <div class="algo-filters" role="group" aria-label="Filter algorithms by category">
+        {
+          categories.map((c) => (
+            <button
+              type="button"
+              class="filter-pill"
+              data-filter={c.slug}
+              aria-pressed={c.slug === 'all' ? 'true' : 'false'}
+            >
+              {c.label}
+            </button>
+          ))
+        }
+      </div>
 
-    <div class="algo-index">
+      <div class="algo-controls">
+        <label class="search">
+          <Icon name="search" size={18} />
+          <input
+            type="search"
+            placeholder="Search algorithms, tools, CLI…"
+            data-search-input
+            aria-label="Search algorithms"
+          />
+        </label>
+        <label class="sort">
+          <span class="visually-hidden">Sort algorithms</span>
+          <select data-sort>
+            <option value="default">Curated order</option>
+            <option value="az">A–Z</option>
+            <option value="area">Category</option>
+          </select>
+          <Icon name="chevron-down" size={16} />
+        </label>
+      </div>
+    </div>
+
+    <div class="algo-index" data-algo-list>
       {
-        algorithms.map((algo) => (
-          <article class="algo-card" id={algo.id}>
-            <div class="algo-card-body">
-              <div class="algo-card-meta">
-                <span class="eyebrow">{algo.area}</span>
-                <span class="algo-tag">{algo.tag}</span>
-              </div>
-              <h3 class="algo-card-title">
-                <a href={algo.href}>{algo.title}</a>
-              </h3>
-              <p class="algo-card-summary muted">{algo.summary}</p>
-              {algo.cliCommand && (
-                <div class="algo-cli-hint">
-                  <span>CLI Command:</span>
-                  <code>{algo.cliCommand}</code>
-                </div>
-              )}
-            </div>
+        algorithms.map((algo) => {
+          const searchTokens = [
+            algo.title,
+            algo.area,
+            algo.tag,
+            algo.summary,
+            algo.cliCommand ?? '',
+            algo.category,
+          ]
+            .join(' ')
+            .toLowerCase();
 
-            <div class="algo-card-action">
-              <a href={algo.href} class="algo-link">
-                <span>{algo.actionText}</span>
-                <Icon name="arrow-right" size={15} />
-              </a>
-            </div>
-          </article>
-        ))
+          return (
+            <article
+              class="algo-card"
+              id={algo.id}
+              data-category={algo.category}
+              data-title={algo.title.toLowerCase()}
+              data-area={algo.area.toLowerCase()}
+              data-search={searchTokens}
+            >
+              <div class="algo-card-body">
+                <div class="algo-card-meta">
+                  <span class="eyebrow">{algo.area}</span>
+                  <span class="algo-tag">{algo.tag}</span>
+                </div>
+                <h3 class="algo-card-title">
+                  <a href={algo.href}>{algo.title}</a>
+                </h3>
+                <p class="algo-card-summary muted">{algo.summary}</p>
+                {algo.cliCommand && (
+                  <div class="algo-cli-hint">
+                    <span>CLI Command:</span>
+                    <code>{algo.cliCommand}</code>
+                  </div>
+                )}
+              </div>
+
+              <div class="algo-card-action">
+                <a href={algo.href} class="algo-link">
+                  <span>{algo.actionText}</span>
+                  <Icon name="arrow-right" size={15} />
+                </a>
+              </div>
+            </article>
+          );
+        })
       }
     </div>
+
+    <p class="algo-empty" data-algo-empty hidden>No algorithms match your filter or search query.</p>
   </section>
 </PageLayout>
 
@@ -185,18 +263,102 @@ const algorithms: AlgorithmEntry[] = [
     margin-bottom: var(--space-8);
   }
 
-  .algo-list-title {
-    font-size: var(--fs-h3);
-    font-weight: var(--fw-semibold);
-    letter-spacing: 0;
-    padding-bottom: var(--space-4);
-    margin-bottom: var(--space-4);
-    border-bottom: 1px solid var(--color-rule);
+  /* Toolbar: Category Pills & Search / Sort Controls */
+  .algo-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: var(--space-6);
+  }
+
+  .algo-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .filter-pill {
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    padding: 0.4em 0.9em;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+
+  .filter-pill:hover {
+    border-color: var(--color-ink);
+    color: var(--color-ink);
+  }
+
+  .filter-pill[aria-pressed='true'] {
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+    color: var(--color-bg);
+  }
+
+  .algo-controls {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .search {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45em 0.8em;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-muted);
+  }
+
+  .search:focus-within {
+    border-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+
+  .search input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: var(--fs-small);
+    width: min(16rem, 50vw);
+  }
+
+  .sort {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .sort select {
+    appearance: none;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    padding: 0.5em 2.2em 0.5em 0.8em;
+    font-size: var(--fs-small);
+    cursor: pointer;
+  }
+
+  .sort :global(svg) {
+    position: absolute;
+    right: 0.6em;
+    pointer-events: none;
+    color: var(--color-muted);
   }
 
   .algo-index {
     display: flex;
     flex-direction: column;
+    border-top: 1px solid var(--color-rule);
     border-bottom: 1px solid var(--color-rule);
   }
 
@@ -214,7 +376,45 @@ const algorithms: AlgorithmEntry[] = [
     border-top: 0;
   }
 
+  .algo-card.is-hidden {
+    display: none;
+  }
+
+  .algo-empty {
+    padding: var(--space-8) 0;
+    color: var(--color-muted);
+    font-size: var(--fs-body);
+  }
+
+  @media (pointer: coarse) {
+    .filter-pill,
+    .search,
+    .sort select {
+      padding-block: 0.6em;
+    }
+  }
+
   @media (max-width: 768px) {
+    .algo-tools {
+      align-items: stretch;
+    }
+    .algo-filters {
+      gap: 0.45rem;
+    }
+    .algo-controls {
+      width: 100%;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .search,
+    .sort,
+    .sort select {
+      width: 100%;
+    }
+    .search input {
+      width: 100%;
+      min-width: 0;
+    }
     .algo-card {
       grid-template-columns: 1fr;
       gap: var(--space-3);
@@ -312,3 +512,69 @@ const algorithms: AlgorithmEntry[] = [
     color: var(--color-accent-dark);
   }
 </style>
+
+<script>
+  function init() {
+    const root = document.querySelector<HTMLElement>('[data-algo-tools]');
+    const list = document.querySelector<HTMLElement>('[data-algo-list]');
+    const empty = document.querySelector<HTMLElement>('[data-algo-empty]');
+    if (!root || !list) return;
+    if (root.dataset.filterReady) return;
+    root.dataset.filterReady = 'true';
+
+    const cards = Array.from(list.querySelectorAll<HTMLElement>('.algo-card'));
+    const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+    const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
+    const sortSelect = root.querySelector<HTMLSelectElement>('[data-sort]');
+
+    const order = new Map(cards.map((c, i) => [c, i]));
+
+    let activeCategory = 'all';
+    let query = '';
+
+    const apply = () => {
+      let visible = 0;
+      for (const card of cards) {
+        const cat = card.dataset.category ?? '';
+        const search = card.dataset.search ?? '';
+        const ok =
+          (activeCategory === 'all' || cat === activeCategory) &&
+          (query === '' || search.includes(query));
+        card.classList.toggle('is-hidden', !ok);
+        if (ok) visible++;
+      }
+      if (empty) empty.hidden = visible !== 0;
+
+      const mode = sortSelect?.value ?? 'default';
+      const sorted = [...cards].sort((a, b) => {
+        const titleA = a.dataset.title ?? '';
+        const titleB = b.dataset.title ?? '';
+        const areaA = a.dataset.area ?? '';
+        const areaB = b.dataset.area ?? '';
+        if (mode === 'az') return titleA.localeCompare(titleB);
+        if (mode === 'area') return areaA.localeCompare(areaB) || titleA.localeCompare(titleB);
+        return order.get(a)! - order.get(b)!;
+      });
+      sorted.forEach((card) => list.appendChild(card));
+    };
+
+    pills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        activeCategory = pill.dataset.filter ?? 'all';
+        pills.forEach((p) => p.setAttribute('aria-pressed', String(p === pill)));
+        apply();
+      });
+    });
+
+    searchInput?.addEventListener('input', () => {
+      query = searchInput.value.trim().toLowerCase();
+      apply();
+    });
+
+    sortSelect?.addEventListener('change', apply);
+    apply();
+  }
+
+  document.addEventListener('astro:page-load', init);
+  init();
+</script>
