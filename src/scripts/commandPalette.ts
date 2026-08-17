@@ -5,7 +5,7 @@ import { ALGORITHMS } from '../data/algorithms';
 import { startDnaRain } from './dnaRain';
 import { startCrisprMode } from './crisprMode';
 import { startZeroGravity } from './domPhysics';
-import { startCrtMode } from './retroCrt';
+import { startCrtMode, stopCrtMode } from './retroCrt';
 import { openRibosomeGame } from './ribosomeGameVisualizer';
 import { startDnaSynth } from './dnaSynth';
 
@@ -23,17 +23,76 @@ export interface CommandItem {
 
 const STATIC_ACTIONS: CommandItem[] = [
   {
-    id: 'act-theme',
+    id: 'act-theme-toggle',
     category: 'Actions',
-    title: 'Toggle Theme',
-    subtitle: 'Switch between light and dark mode',
+    title: 'Toggle Base Theme (Light / Dark)',
+    subtitle: 'Switch between light and dark base theme',
     badge: 'Theme',
     action: () => {
       if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { toggle: () => void } }).__khcTheme) {
         (window as unknown as { __khcTheme: { toggle: () => void } }).__khcTheme.toggle();
       }
     },
-    keywords: ['dark', 'light', 'mode', 'theme', 'color', 'toggle'],
+    keywords: ['dark', 'light', 'mode', 'theme', 'color', 'toggle', 'base theme'],
+  },
+  {
+    id: 'act-theme-light',
+    category: 'Actions',
+    title: 'Set Theme: ☀️ Light Mode',
+    subtitle: 'Crisp Calico minimalist light theme',
+    badge: 'Theme',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('light');
+      }
+    },
+    keywords: ['light', 'day', 'paper', 'bright', 'white', 'theme'],
+  },
+  {
+    id: 'act-theme-dark',
+    category: 'Actions',
+    title: 'Set Theme: 🌙 Dark Mode',
+    subtitle: 'Deep slate and emerald dark theme',
+    badge: 'Theme',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('dark');
+      }
+    },
+    keywords: ['dark', 'night', 'black', 'slate', 'dim', 'theme'],
+  },
+  {
+    id: 'act-crt-amber',
+    category: 'Actions',
+    title: '📺 1988 CRT Monitor: ⚡ Amber Phosphor',
+    subtitle: 'Vintage NIH Alpha VAX Amber CRT display with scanlines',
+    badge: 'Display',
+    action: () => {
+      startCrtMode('amber');
+    },
+    keywords: ['crt', 'retro', '1988', 'amber', 'phosphor', 'terminal', 'scanlines', 'display'],
+  },
+  {
+    id: 'act-crt-green',
+    category: 'Actions',
+    title: '📺 1988 CRT Monitor: 🟢 Green Phosphor',
+    subtitle: 'Classic 1988 Supercomputer Green CRT display with scanlines',
+    badge: 'Display',
+    action: () => {
+      startCrtMode('green');
+    },
+    keywords: ['crt', 'retro', '1988', 'green', 'phosphor', 'terminal', 'scanlines', 'display'],
+  },
+  {
+    id: 'act-crt-off',
+    category: 'Actions',
+    title: '🖥️ Modern Display Mode (CRT Off)',
+    subtitle: 'Disable CRT scanlines and return to modern display',
+    badge: 'Display',
+    action: () => {
+      stopCrtMode();
+    },
+    keywords: ['crt off', 'modern', 'disable crt', 'normal display', 'turn off crt'],
   },
   {
     id: 'act-terminal',
@@ -87,17 +146,6 @@ const STATIC_ACTIONS: CommandItem[] = [
       startZeroGravity();
     },
     keywords: ['gravity', 'zerog', 'physics', 'sandbox', 'float', 'black hole', 'easter egg'],
-  },
-  {
-    id: 'act-crt',
-    category: 'Actions',
-    title: '📺 1988 NIH Supercomputer CRT Mode',
-    subtitle: "Vintage amber/green phosphor terminal look (type 'crt')",
-    badge: 'Easter Egg',
-    action: () => {
-      startCrtMode('amber');
-    },
-    keywords: ['crt', 'retro', '1988', 'amber', 'green', 'phosphor', 'terminal', 'easter egg'],
   },
   {
     id: 'act-ribosome',

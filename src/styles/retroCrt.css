@@ -1,25 +1,47 @@
 /**
  * 1988 NIH Supercomputer CRT Terminal Mode Styles.
+ *
+ * Full-site retro display transformation featuring authentic amber/green
+ * phosphor luminescence, raster scanlines, barrel vignette, and phosphor
+ * typography glow across both desktop and mobile viewports.
  */
 
 :root[data-crt-mode='amber'] {
   --crt-phosphor: #ffb000;
-  --crt-glow: rgba(255, 176, 0, 0.45);
-  --crt-bg: #140d00;
-  --crt-tint: rgba(255, 176, 0, 0.08);
+  --crt-glow: rgba(255, 176, 0, 0.4);
+  --crt-bg: #120b00;
+  --crt-surface: #1a1002;
+  --crt-accent: #ffcc33;
+  --crt-muted: #d49200;
+  --crt-rule: #3d2800;
+  --crt-hue: 35deg;
 }
 
 :root[data-crt-mode='green'] {
   --crt-phosphor: #33ff33;
-  --crt-glow: rgba(51, 255, 51, 0.45);
+  --crt-glow: rgba(51, 255, 51, 0.4);
   --crt-bg: #001200;
-  --crt-tint: rgba(51, 255, 51, 0.08);
+  --crt-surface: #001c00;
+  --crt-accent: #66ff66;
+  --crt-muted: #28c928;
+  --crt-rule: #003800;
+  --crt-hue: 95deg;
+}
+
+:root[data-crt-mode] {
+  --color-bg: var(--crt-bg) !important;
+  --color-surface: var(--crt-surface) !important;
+  --color-ink: var(--crt-phosphor) !important;
+  --color-accent: var(--crt-accent) !important;
+  --color-muted: var(--crt-muted) !important;
+  --color-rule: var(--crt-rule) !important;
+  --color-link: var(--crt-accent) !important;
 }
 
 :root[data-crt-mode] body {
   background-color: var(--crt-bg) !important;
   color: var(--crt-phosphor) !important;
-  text-shadow: 0 0 4px var(--crt-glow), 0 0 10px var(--crt-glow);
+  text-shadow: 0 0 3px var(--crt-glow), 0 0 8px var(--crt-glow);
   font-family: var(--font-mono, monospace) !important;
 }
 
@@ -30,13 +52,25 @@
 :root[data-crt-mode] h4,
 :root[data-crt-mode] span,
 :root[data-crt-mode] p,
-:root[data-crt-mode] button {
+:root[data-crt-mode] button,
+:root[data-crt-mode] li,
+:root[data-crt-mode] code,
+:root[data-crt-mode] pre {
   color: var(--crt-phosphor) !important;
-  border-color: var(--crt-phosphor) !important;
+}
+
+:root[data-crt-mode] hr,
+:root[data-crt-mode] .card,
+:root[data-crt-mode] .box,
+:root[data-crt-mode] [class*='card'],
+:root[data-crt-mode] table,
+:root[data-crt-mode] th,
+:root[data-crt-mode] td {
+  border-color: var(--crt-rule) !important;
 }
 
 :root[data-crt-mode] img {
-  filter: grayscale(100%) brightness(0.9) sepia(100%) hue-rotate(var(--crt-hue, 35deg)) contrast(1.3);
+  filter: grayscale(100%) brightness(0.9) sepia(100%) hue-rotate(var(--crt-hue, 35deg)) contrast(1.25);
 }
 
 #crt-screen-overlay {
@@ -45,10 +79,10 @@
   pointer-events: none;
   z-index: 999998;
   background:
-    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%),
-    linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
-  background-size: 100% 3px, 4px 100%;
-  box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.75), inset 0 0 40px rgba(0, 0, 0, 0.9);
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.32) 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+  background-size: 100% 3px, 3px 100%;
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.7), inset 0 0 30px rgba(0, 0, 0, 0.85);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -59,7 +93,7 @@
     background: linear-gradient(
       to bottom,
       transparent 0%,
-      rgba(255, 255, 255, 0.04) 50%,
+      rgba(255, 255, 255, 0.035) 50%,
       transparent 100%
     );
     height: 20%;

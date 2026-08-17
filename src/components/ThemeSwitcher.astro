@@ -1,0 +1,246 @@
+---
+/**
+ * Full-Site Dual-Layer Theme & CRT Switcher Component.
+ *
+ * Provides two independent controls:
+ * 1. Base System Theme: Light (☀️) / Dark (🌙)
+ * 2. 1988 NIH CRT Display Mode: Off (🖥️) / Amber (⚡) / Green (🟢)
+ */
+---
+
+<div class="theme-switcher-container" aria-label="Site appearance and display settings">
+  <!-- Base Theme Switcher -->
+  <div class="theme-segmented-group" role="radiogroup" aria-label="Base Color Theme">
+    <button
+      type="button"
+      class="theme-seg-btn"
+      data-theme-choice="light"
+      role="radio"
+      aria-checked="false"
+      title="Switch to Light Theme"
+      aria-label="Light Theme"
+    >
+      <span class="theme-icon" aria-hidden="true">☀️</span>
+      <span class="theme-label">Light</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn"
+      data-theme-choice="dark"
+      role="radio"
+      aria-checked="false"
+      title="Switch to Dark Theme"
+      aria-label="Dark Theme"
+    >
+      <span class="theme-icon" aria-hidden="true">🌙</span>
+      <span class="theme-label">Dark</span>
+    </button>
+  </div>
+
+  <div class="theme-switcher-divider" aria-hidden="true"></div>
+
+  <!-- 1988 CRT Display Mode Switcher -->
+  <div class="theme-segmented-group" role="radiogroup" aria-label="1988 CRT Display Mode">
+    <button
+      type="button"
+      class="theme-seg-btn"
+      data-crt-choice="off"
+      role="radio"
+      aria-checked="true"
+      title="Modern Display Mode (CRT Off)"
+      aria-label="Modern Display"
+    >
+      <span class="theme-icon" aria-hidden="true">🖥️</span>
+      <span class="theme-label">Modern</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn theme-seg-btn--amber"
+      data-crt-choice="amber"
+      role="radio"
+      aria-checked="false"
+      title="1988 NIH Supercomputer Amber CRT Mode"
+      aria-label="Amber CRT Mode"
+    >
+      <span class="theme-icon" aria-hidden="true">⚡</span>
+      <span class="theme-label">Amber CRT</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn theme-seg-btn--green"
+      data-crt-choice="green"
+      role="radio"
+      aria-checked="false"
+      title="1988 NIH Supercomputer Green Phosphor CRT Mode"
+      aria-label="Green CRT Mode"
+    >
+      <span class="theme-icon" aria-hidden="true">🟢</span>
+      <span class="theme-label">Green CRT</span>
+    </button>
+  </div>
+</div>
+
+<script>
+  function syncThemeSwitcher() {
+    const currentTheme = (window as unknown as { __khcTheme?: { get: () => string } }).__khcTheme?.get() || document.documentElement.dataset.theme || 'light';
+    const currentCrt = (window as unknown as { __khcCrt?: { get: () => string } }).__khcCrt?.get() || document.documentElement.dataset.crtMode || 'off';
+
+    document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
+      const choice = btn.dataset.themeChoice;
+      const isActive = choice === currentTheme;
+      btn.setAttribute('aria-checked', String(isActive));
+      btn.classList.toggle('is-active', isActive);
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
+      const choice = btn.dataset.crtChoice;
+      const isActive = choice === currentCrt;
+      btn.setAttribute('aria-checked', String(isActive));
+      btn.classList.toggle('is-active', isActive);
+    });
+  }
+
+  function bindThemeSwitcherEvents() {
+    document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
+      btn.onclick = () => {
+        const choice = btn.dataset.themeChoice;
+        if (choice && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+          (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set(choice);
+        }
+      };
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
+      btn.onclick = () => {
+        const choice = btn.dataset.crtChoice;
+        if (choice && (window as unknown as { __khcCrt?: { set: (m: string) => void } }).__khcCrt) {
+          (window as unknown as { __khcCrt: { set: (m: string) => void } }).__khcCrt.set(choice);
+        }
+      };
+    });
+
+    syncThemeSwitcher();
+  }
+
+  document.addEventListener('astro:page-load', bindThemeSwitcherEvents);
+  document.addEventListener('khc:theme-change', syncThemeSwitcher);
+  document.addEventListener('khc:crt-change', syncThemeSwitcher);
+  bindThemeSwitcherEvents();
+</script>
+
+<style>
+  .theme-switcher-container {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem;
+    background: color-mix(in srgb, var(--color-surface, #ffffff) 85%, var(--color-ink, #000) 5%);
+    border: 1px solid var(--color-rule, rgba(0, 0, 0, 0.12));
+    border-radius: 999px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  .theme-segmented-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .theme-switcher-divider {
+    width: 1px;
+    height: 1.25rem;
+    background: var(--color-rule, rgba(0, 0, 0, 0.12));
+    margin-inline: 0.15rem;
+  }
+
+  .theme-seg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-muted, #6b6b6b);
+    cursor: pointer;
+    transition: all 0.16s ease;
+    line-height: 1;
+    min-height: 2rem;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .theme-seg-btn:hover {
+    color: var(--color-ink, #141414);
+    background: color-mix(in srgb, var(--color-ink, #000) 4%, transparent);
+  }
+
+  .theme-seg-btn.is-active {
+    color: var(--color-ink, #141414);
+    background: var(--color-surface, #ffffff);
+    border-color: var(--color-rule, rgba(0, 0, 0, 0.15));
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  :global([data-theme='dark']) .theme-seg-btn.is-active {
+    background: #252e2b;
+    border-color: #3f4d48;
+    color: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Specific Phosphor Accent on CRT active buttons */
+  .theme-seg-btn--amber.is-active {
+    color: #ffb000 !important;
+    border-color: #ffb000 !important;
+    background: rgba(255, 176, 0, 0.12) !important;
+  }
+
+  .theme-seg-btn--green.is-active {
+    color: #33ff33 !important;
+    border-color: #33ff33 !important;
+    background: rgba(51, 255, 51, 0.12) !important;
+  }
+
+  .theme-icon {
+    font-size: 0.9rem;
+    line-height: 1;
+    display: inline-block;
+  }
+
+  .theme-label {
+    letter-spacing: -0.01em;
+  }
+
+  @media (max-width: 640px) {
+    .theme-switcher-container {
+      width: 100%;
+      justify-content: center;
+      border-radius: 12px;
+      padding: 0.4rem;
+    }
+
+    .theme-segmented-group {
+      width: 100%;
+      justify-content: space-around;
+    }
+
+    .theme-switcher-divider {
+      display: none;
+    }
+
+    .theme-seg-btn {
+      flex: 1;
+      justify-content: center;
+      padding: 0.45rem 0.5rem;
+      font-size: 0.78rem;
+    }
+  }
+</style>

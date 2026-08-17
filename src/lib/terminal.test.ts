@@ -1131,7 +1131,7 @@ describe('unix utilities and content navigation commands', () => {
 
   it('crt and sound commands emit appropriate effects', () => {
     const crt = exec(shell(), 'crt');
-    expect(crt.effect).toEqual({ type: 'theme', mode: 'crt' });
+    expect(crt.effect).toEqual({ type: 'custom', eventName: 'khc:start-crt', detail: { mode: 'amber' } });
 
     const sound = exec(shell(), 'sound on');
     expect(sound.effect).toEqual({ type: 'sound', mode: 'on' });
@@ -1275,6 +1275,14 @@ describe('unix utilities and content navigation commands', () => {
     const synthOut = exec(state, 'synth');
     expect(synthOut.effect).toEqual({ type: 'custom', eventName: 'khc:start-synth' });
     expect(exec(state, 'piano').effect).toEqual({ type: 'custom', eventName: 'khc:start-synth' });
+
+    // crt command options
+    const crtAmber = exec(state, 'crt amber');
+    expect(crtAmber.effect).toEqual({ type: 'custom', eventName: 'khc:start-crt', detail: { mode: 'amber' } });
+    const crtGreen = exec(state, 'crt green');
+    expect(crtGreen.effect).toEqual({ type: 'custom', eventName: 'khc:start-crt', detail: { mode: 'green' } });
+    const crtOff = exec(state, 'crt off');
+    expect(crtOff.effect).toEqual({ type: 'custom', eventName: 'khc:start-crt', detail: { mode: 'off' } });
 
     // eggs / secrets
     const eggsOut = exec(state, 'eggs');

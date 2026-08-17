@@ -157,12 +157,15 @@ export function startCrtMode(phosphor: 'amber' | 'green' = 'amber') {
 
   playCrtPowerSound(true);
 
-  document.documentElement.dataset.crtMode = currentPhosphor;
-
-  if (!overlayEl) {
-    overlayEl = document.createElement('div');
-    overlayEl.id = 'crt-screen-overlay';
-    document.body.appendChild(overlayEl);
+  if ((window as unknown as { __khcCrt?: { set: (m: string) => void } }).__khcCrt) {
+    (window as unknown as { __khcCrt: { set: (m: string) => void } }).__khcCrt.set(phosphor);
+  } else {
+    document.documentElement.dataset.crtMode = currentPhosphor;
+    if (!overlayEl) {
+      overlayEl = document.createElement('div');
+      overlayEl.id = 'crt-screen-overlay';
+      document.body.appendChild(overlayEl);
+    }
   }
 
   if (hudEl) {
@@ -187,11 +190,14 @@ export function stopCrtMode() {
 
   playCrtPowerSound(false);
 
-  delete document.documentElement.dataset.crtMode;
-
-  if (overlayEl) {
-    overlayEl.remove();
-    overlayEl = null;
+  if ((window as unknown as { __khcCrt?: { set: (m: string) => void } }).__khcCrt) {
+    (window as unknown as { __khcCrt: { set: (m: string) => void } }).__khcCrt.set('off');
+  } else {
+    delete document.documentElement.dataset.crtMode;
+    if (overlayEl) {
+      overlayEl.remove();
+      overlayEl = null;
+    }
   }
 
   if (hudEl) {

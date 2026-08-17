@@ -2646,8 +2646,19 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 
   crt: {
-    summary: 'toggle vintage CRT scanline display',
-    run: () => ({ lines: [{ text: 'Toggling CRT phosphor mode…', tone: 'ok' }], effect: { type: 'theme', mode: 'crt' } }),
+    summary: 'configure 1988 NIH Supercomputer CRT mode',
+    usage: 'crt [off|amber|green|toggle]',
+    run: ({ args }) => {
+      const mode = (args[0] ?? 'toggle').toLowerCase();
+      if (mode === 'amber' || mode === 'green' || mode === 'off' || mode === 'toggle') {
+        const targetMode = mode === 'toggle' ? 'amber' : mode;
+        return {
+          lines: [{ text: `1988 CRT Display Mode: ${mode.toUpperCase()}`, tone: 'ok' }],
+          effect: { type: 'custom', eventName: 'khc:start-crt', detail: { mode: targetMode } },
+        };
+      }
+      return [{ text: 'crt: usage `crt off`, `crt amber`, `crt green`, or `crt toggle`', tone: 'err' }];
+    },
   },
 
   sound: {

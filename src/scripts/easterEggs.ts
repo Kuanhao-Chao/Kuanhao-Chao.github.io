@@ -99,7 +99,13 @@ function onGlobalKeyDown(e: KeyboardEvent) {
 export function initEasterEggs(): () => void {
   const onCrispr = () => startCrisprMode();
   const onZeroG = () => startZeroGravity();
-  const onCrt = (e: CustomEvent<{ mode?: 'amber' | 'green' }>) => startCrtMode(e.detail?.mode || 'amber');
+  const onCrt = (e: CustomEvent<{ mode?: 'off' | 'amber' | 'green' }>) => {
+    if (e.detail?.mode === 'off') {
+      stopCrtMode();
+    } else {
+      startCrtMode(e.detail?.mode || 'amber');
+    }
+  };
   const onRibosome = () => openRibosomeGame();
   const onSynth = () => startDnaSynth();
   const onDnaRain = () => startDnaRain();
