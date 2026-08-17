@@ -65,12 +65,12 @@ const STATIC_ACTIONS: CommandItem[] = [
     id: 'act-dna-rain',
     category: 'Actions',
     title: 'Launch Matrix DNA Rain',
-    subtitle: 'Easter egg digital rain of cascading nucleotides',
+    subtitle: "Digital rain of cascading nucleotides (or type 'dna' anywhere)",
     badge: 'Easter Egg',
     action: () => {
       startDnaRain();
     },
-    keywords: ['matrix', 'rain', 'dna', 'konami', 'easter egg', 'animation'],
+    keywords: ['matrix', 'rain', 'dna', 'konami', 'easter egg', 'animation', 'nucleotide', 'helix', 'cascade'],
   },
 ];
 

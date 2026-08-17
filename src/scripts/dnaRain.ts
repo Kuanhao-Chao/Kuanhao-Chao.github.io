@@ -1,6 +1,12 @@
 /**
- * Konami Code Matrix DNA Rain Easter Egg.
- * Triggered by: ↑ ↑ ↓ ↓ ← → ← → B A
+ * Matrix DNA Rain Easter Egg.
+ *
+ * Easy and intuitive activation methods:
+ * 1. Type "dna", "matrix", "rain", or "helix" anywhere on the page!
+ * 2. Classic Konami Code: ↑ ↑ ↓ ↓ ← → ← → B A
+ * 3. Click the 🧬 button in the footer or command palette
+ * 4. Run `matrix`, `rain`, or `dna` in /terminal
+ * 5. Dispatch 'khc:start-dna-rain' custom event
  */
 
 const KONAMI_CODE = [
@@ -16,16 +22,20 @@ const KONAMI_CODE = [
   'a',
 ];
 
-const DNA_CHARS = ['A', 'C', 'G', 'T', 'U', '5\'', '3\'', '·', ':', 'AT', 'CG', 'GC', 'TA'];
+const KEYWORD_TRIGGERS = ['dna', 'matrix', 'rain', 'helix'];
+const DNA_CHARS = ['A', 'C', 'G', 'T', 'U', "5'", "3'", '·', ':', 'AT', 'CG', 'GC', 'TA'];
 
 let isRainActive = false;
 let animFrameId: number | null = null;
-let inputSequence: string[] = [];
+let konamiSequence: string[] = [];
+let charBuffer: string[] = [];
 let canvasEl: HTMLCanvasElement | null = null;
 
 function playRetroChime() {
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
     if (ctx.state === 'suspended') ctx.resume();
@@ -187,28 +197,70 @@ export function initKonamiListener() {
   if (typeof window === 'undefined') return;
 
   function onGlobalKeyDown(e: KeyboardEvent) {
-    // Ignore if typing in text inputs or textareas
+    // Ignore if typing in text inputs or textareas or dialogs
     const target = e.target as HTMLElement | null;
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+    if (
+      target &&
+      (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable ||
+        target.closest('dialog[open]'))
+    ) {
       return;
     }
 
+    // 1. Check quick keyword matching (e.g. typing "dna" or "matrix" or "rain")
+    if (e.key.length === 1 && /^[a-zA-Z]$/.test(e.key)) {
+      charBuffer.push(e.key.toLowerCase());
+      if (charBuffer.length > 20) charBuffer.shift();
+
+      const typed = charBuffer.join('');
+      for (const trigger of KEYWORD_TRIGGERS) {
+        if (typed.endsWith(trigger)) {
+          charBuffer = [];
+          konamiSequence = [];
+          startDnaRain();
+          return;
+        }
+      }
+    }
+
+    // 2. Check classic Konami code sequence
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    const expectedKey = KONAMI_CODE[inputSequence.length];
+    const expectedKey = KONAMI_CODE[konamiSequence.length];
 
     if (key === expectedKey || (expectedKey.length === 1 && key === expectedKey.toLowerCase())) {
-      inputSequence.push(expectedKey);
-      if (inputSequence.length === KONAMI_CODE.length) {
-        inputSequence = [];
+      konamiSequence.push(expectedKey);
+      if (konamiSequence.length === KONAMI_CODE.length) {
+        konamiSequence = [];
+        charBuffer = [];
         startDnaRain();
       }
     } else {
-      inputSequence = key === KONAMI_CODE[0] ? [KONAMI_CODE[0]] : [];
+      konamiSequence = key === KONAMI_CODE[0] ? [KONAMI_CODE[0]] : [];
     }
   }
 
+  // 3. Listen for clicks on any element with [data-trigger-dna-rain]
+  function onGlobalClick(e: MouseEvent) {
+    const trigger = (e.target as HTMLElement | null)?.closest('[data-trigger-dna-rain]');
+    if (trigger) {
+      startDnaRain();
+    }
+  }
+
+  // 4. Listen for custom event 'khc:start-dna-rain'
+  function onCustomEvent() {
+    startDnaRain();
+  }
+
   window.addEventListener('keydown', onGlobalKeyDown);
+  document.addEventListener('click', onGlobalClick);
+  window.addEventListener('khc:start-dna-rain', onCustomEvent);
+
   return () => {
     window.removeEventListener('keydown', onGlobalKeyDown);
+    document.removeEventListener('click', onGlobalClick);
+    window.removeEventListener('khc:start-dna-rain', onCustomEvent);
   };
 }
