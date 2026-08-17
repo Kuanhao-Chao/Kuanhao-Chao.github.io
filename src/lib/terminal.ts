@@ -2286,6 +2286,17 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  ghmm: {
+    summary: 'launch Generalized Hidden Markov Models (GHMMs) gene finding visualizer',
+    run: () => ({
+      lines: [
+        { text: 'Opening Generalized Hidden Markov Models (GHMMs) Gene Finder…', tone: 'ok' },
+        { text: '→ /algorithms/ghmm/', tone: 'accent', href: '/algorithms/ghmm/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/ghmm/' },
+    }),
+  },
+
   sudo: {
     summary: 'execute a command as another user',
     run: ({ argv }) => [
@@ -2326,6 +2337,10 @@ export const ALIASES: Record<string, string> = {
   hmmer: 'phmm',
   pfam: 'phmm',
   viterbi: 'phmm',
+  genscan: 'ghmm',
+  augustus: 'ghmm',
+  gene: 'ghmm',
+  genehunt: 'ghmm',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
