@@ -109,6 +109,22 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     cliCommand: 'wfa ACGTAGCTA ACGTCGCTA',
   },
   {
+    id: 'duel',
+    title: 'Algorithm Duel: Needleman-Wunsch DP vs Wavefront Alignment (WFA)',
+    shortTitle: 'Algorithm Duel (NW vs WFA)',
+    area: 'Comparative Benchmark & Stepper',
+    category: 'alignment',
+    tag: 'O(N²) DP vs O(s·d) WFA',
+    summary:
+      'Head-to-head performance duel and synchronized pseudocode debugger comparing classical O(N²) dynamic programming against diagonal Wavefront Alignment (WFA).',
+    blurb: 'Head-to-head performance race and pseudocode debugger comparing DP vs WFA.',
+    href: '/algorithms/duel/',
+    badge: 'Benchmark & Duel',
+    actionText: 'Enter benchmark arena',
+    cliCommand: 'duel',
+    featured: true,
+  },
+  {
     id: 'debruijn',
     title: 'De Bruijn Graph (Eulerian Path Genome Assembly)',
     shortTitle: 'De Bruijn Assembly',

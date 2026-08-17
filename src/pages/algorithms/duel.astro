@@ -1,0 +1,280 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/duel.css';
+import { DUEL_PRESETS } from '../../lib/algorithmDuel';
+---
+
+<PageLayout
+  title="Algorithm Duel: Needleman-Wunsch DP vs Wavefront Alignment (WFA)"
+  eyebrow="Pedagogical Benchmark Arena"
+  lead="Head-to-head performance duel and synchronized pseudocode debugger comparing classical O(N²) dynamic programming against diagonal Wavefront Alignment (WFA)."
+  description="Interactive benchmark race and pseudocode stepper comparing Needleman-Wunsch 2D dynamic programming against exact Wavefront Alignment (WFA) by Kuan-Hao Chao."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="duel-container" data-algorithm-duel aria-label="Algorithm Duel Benchmark Arena">
+    <!-- Toolbar: Inputs, Presets & Race Controls -->
+    <div class="duel-toolbar">
+      <div class="duel-inputs-row">
+        <div class="duel-input-group">
+          <label class="duel-label" for="duel-seq1">Sequence 1 (Target / Rows)</label>
+          <input
+            id="duel-seq1"
+            class="duel-input"
+            type="text"
+            data-duel-seq1
+            value="ACGTAGCTAGTCGATCGAT"
+            spellcheck="false"
+            autocomplete="off"
+          />
+        </div>
+        <div class="duel-input-group">
+          <label class="duel-label" for="duel-seq2">Sequence 2 (Query / Columns)</label>
+          <input
+            id="duel-seq2"
+            class="duel-input"
+            type="text"
+            data-duel-seq2
+            value="ACGTAGCTAGTCGATCGAT"
+            spellcheck="false"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+
+      <div class="duel-presets-row">
+        <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Scenarios:</span>
+        {
+          DUEL_PRESETS.map((p, idx) => (
+            <button
+              type="button"
+              class={`duel-preset-btn ${idx === 0 ? 'active' : ''}`}
+              data-duel-preset={p.id}
+            >
+              {p.name}
+            </button>
+          ))
+        }
+      </div>
+
+      <div class="duel-controls-bar">
+        <div class="duel-btn-group">
+          <button type="button" class="duel-btn duel-btn-primary" data-duel-play>
+            ▶ Run Race
+          </button>
+          <button type="button" class="duel-btn" data-duel-step>
+            Step ⏭
+          </button>
+          <button type="button" class="duel-btn" data-duel-reset>
+            Reset ↺
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <label for="duel-speed" style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Race Speed:</label>
+          <select id="duel-speed" class="duel-preset-btn" data-duel-speed>
+            <option value="300">Slow (0.3s/step)</option>
+            <option value="100" selected>Normal (0.1s)</option>
+            <option value="30">Fast (30ms)</option>
+            <option value="5">Turbo (5ms)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Winner & Speedup Banner -->
+    <div class="duel-winner-card">
+      <div class="duel-winner-icon">⚡</div>
+      <div class="duel-winner-text">
+        <h3 data-duel-winner-title>Wavefront Alignment (WFA) Wins!</h3>
+        <p data-duel-winner-desc>Comparing computational workload and frontier expansion in real time.</p>
+      </div>
+    </div>
+
+    <!-- Side-by-side Battle Arena -->
+    <div class="duel-arena">
+      <!-- Left Arena: Needleman-Wunsch DP -->
+      <div class="duel-card">
+        <div class="duel-card-header">
+          <div class="duel-card-title">
+            <span>Needleman-Wunsch</span>
+            <span class="duel-badge duel-badge-nw">Classical DP</span>
+          </div>
+          <span style="font-size: var(--fs-meta); font-family: var(--font-mono); color: var(--color-muted);">O(M · N) Asymptotic</span>
+        </div>
+
+        <div class="duel-card-body">
+          <div class="duel-telemetry-grid">
+            <div class="duel-metric">
+              <span class="duel-metric-label">Cells Evaluated</span>
+              <span class="duel-metric-val" data-nw-cells>0 / 0</span>
+            </div>
+            <div class="duel-metric">
+              <span class="duel-metric-label">Matrix Progress</span>
+              <span class="duel-metric-val" data-nw-progress>0%</span>
+            </div>
+            <div class="duel-metric">
+              <span class="duel-metric-label">Active Score</span>
+              <span class="duel-metric-val" data-nw-score>0</span>
+            </div>
+          </div>
+
+          <div class="duel-progress-track">
+            <div class="duel-progress-fill duel-fill-nw" data-nw-fill></div>
+          </div>
+
+          <!-- Synchronized Pseudocode Box -->
+          <div class="duel-code-box">
+            <div class="duel-code-line" data-nw-code-line="1">
+              <span class="duel-code-num">1</span><span>dp[0..m][0..n] ← init_gap_penalties()</span>
+            </div>
+            <div class="duel-code-line" data-nw-code-line="2">
+              <span class="duel-code-num">2</span><span>for i = 1 to m:</span>
+            </div>
+            <div class="duel-code-line" data-nw-code-line="3">
+              <span class="duel-code-num">3</span><span>  for j = 1 to n:</span>
+            </div>
+            <div class="duel-code-line" data-nw-code-line="4">
+              <span class="duel-code-num">4</span><span>    diag = dp[i-1][j-1] + score(S1[i], S2[j])</span>
+            </div>
+            <div class="duel-code-line" data-nw-code-line="5">
+              <span class="duel-code-num">5</span><span>    dp[i][j] = max(diag, dp[i-1][j]+g, dp[i][j-1]+g)</span>
+            </div>
+            <div class="duel-code-line" data-nw-code-line="6">
+              <span class="duel-code-num">6</span><span>return traceback(dp, m, n)</span>
+            </div>
+          </div>
+
+          <!-- Live Variable Inspector -->
+          <div class="duel-inspector">
+            <span class="duel-inspector-title">Live Variable Inspector</span>
+            <div class="duel-inspector-pill-group">
+              <span class="duel-pill">Row i: <strong data-nw-pill-i>0</strong></span>
+              <span class="duel-pill">Col j: <strong data-nw-pill-j>0</strong></span>
+            </div>
+            <span style="font-size: var(--fs-meta); font-family: var(--font-mono); color: var(--color-ink);" data-nw-pill-formula>
+              dp[0][0] = Base initialization
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Arena: Wavefront Alignment (WFA) -->
+      <div class="duel-card">
+        <div class="duel-card-header">
+          <div class="duel-card-title">
+            <span>Wavefront Alignment</span>
+            <span class="duel-badge duel-badge-wfa">Diagonal Frontiers</span>
+          </div>
+          <span style="font-size: var(--fs-meta); font-family: var(--font-mono); color: var(--color-muted);">O(s · d) Asymptotic</span>
+        </div>
+
+        <div class="duel-card-body">
+          <div class="duel-telemetry-grid">
+            <div class="duel-metric">
+              <span class="duel-metric-label">Frontier Work</span>
+              <span class="duel-metric-val" data-wfa-cells>0 cells</span>
+            </div>
+            <div class="duel-metric">
+              <span class="duel-metric-label">Work Reduction</span>
+              <span class="duel-metric-val" data-duel-speedup>1.0x</span>
+            </div>
+            <div class="duel-metric">
+              <span class="duel-metric-label">Score (s)</span>
+              <span class="duel-metric-val" data-wfa-score>0</span>
+            </div>
+          </div>
+
+          <div class="duel-progress-track">
+            <div class="duel-progress-fill duel-fill-wfa" data-wfa-fill></div>
+          </div>
+
+          <!-- Synchronized Pseudocode Box -->
+          <div class="duel-code-box">
+            <div class="duel-code-line" data-wfa-code-line="1">
+              <span class="duel-code-num">1</span><span>W[0][0] ← LCP(S1, S2)  // Free greedy extension</span>
+            </div>
+            <div class="duel-code-line" data-wfa-code-line="2">
+              <span class="duel-code-num">2</span><span>for score s = 1, 2, ... until target reached:</span>
+            </div>
+            <div class="duel-code-line" data-wfa-code-line="3">
+              <span class="duel-code-num">3</span><span>  for diagonal k in active_wavefront(s):</span>
+            </div>
+            <div class="duel-code-line" data-wfa-code-line="4">
+              <span class="duel-code-num">4</span><span>    h = max( W[s-x][k]+1, W[s-g][k-1], W[s-g][k+1]+1 )</span>
+            </div>
+            <div class="duel-code-line" data-wfa-code-line="5">
+              <span class="duel-code-num">5</span><span>    W[s][k] = h + LCP(S1[h..], S2[h-k..])</span>
+            </div>
+            <div class="duel-code-line" data-wfa-code-line="6">
+              <span class="duel-code-num">6</span><span>return traceback_wavefront(W, s_final)</span>
+            </div>
+          </div>
+
+          <!-- Live Variable Inspector -->
+          <div class="duel-inspector">
+            <span class="duel-inspector-title">Live Variable Inspector</span>
+            <div class="duel-inspector-pill-group">
+              <span class="duel-pill">Score s: <strong data-wfa-pill-s>0</strong></span>
+              <span class="duel-pill">Diag k: <strong data-wfa-pill-k>0</strong></span>
+              <span class="duel-pill">Offset: <strong data-wfa-pill-offset>0</strong></span>
+              <span class="duel-pill">Free LCP: <strong data-wfa-pill-lcp>0</strong></span>
+            </div>
+            <span style="font-size: var(--fs-meta); font-family: var(--font-mono); color: var(--color-ink);" data-wfa-pill-formula>
+              W[0][0] = LCP initial match
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational Deep-Dive -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-4); margin-top: var(--space-4);">
+      <div class="duel-card" style="padding: var(--space-4);">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: var(--fs-base); color: var(--color-ink);">Why WFA Dominates on Long Reads</h4>
+        <p style="margin: 0; font-size: var(--fs-small); color: var(--color-muted); line-height: 1.5;">
+          High-identity PacBio HiFi and Oxford Nanopore Q20+ reads have &gt;99% sequence accuracy. Because sequence divergence <i>d</i> is very small, WFA computes in near-linear <i>O(N + d²)</i> time, whereas DP fills all <i>N²</i> cells indiscriminately.
+        </p>
+      </div>
+
+      <div class="duel-card" style="padding: var(--space-4);">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: var(--fs-base); color: var(--color-ink);">Greedy Longest Common Prefix (LCP)</h4>
+        <p style="margin: 0; font-size: var(--fs-small); color: var(--color-muted); line-height: 1.5;">
+          Whenever a match occurs along a diagonal, WFA extends the frontier offset without increasing score <i>s</i> (free LCP). A single 100bp identical stretch is traversed in 1 CPU vector operation rather than 10,000 DP cell calculations.
+        </p>
+      </div>
+
+      <div class="duel-card" style="padding: var(--space-4);">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: var(--fs-base); color: var(--color-ink);">Adaptive Pruning & Memory</h4>
+        <p style="margin: 0; font-size: var(--fs-small); color: var(--color-muted); line-height: 1.5;">
+          WFA only stores the furthest-reaching diagonal pointers per score level rather than an entire 2D matrix, dramatically reducing memory bandwidth and cache evictions on modern multi-core processors.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initAlgorithmDuel, type DuelController } from '../../scripts/algorithmDuel';
+
+  let controller: DuelController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initAlgorithmDuel(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
