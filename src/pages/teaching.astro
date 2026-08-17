@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import PageLayout from '../layouts/PageLayout.astro';
 import Icon from '../components/Icon.astro';
+import AlgorithmLogo from '../components/AlgorithmLogo.astro';
 import { dateRange } from '../lib/format';
 import { mentorship, reviewing } from '../data/cv';
 import { ALGORITHMS } from '../data/algorithms';
@@ -76,14 +77,21 @@ const featuredAlgorithms = ALGORITHMS.filter((a) => a.featured);
     <ul class="rows">
       {
         featuredAlgorithms.map((algo) => (
-          <li class="row row--stack">
-            <div class="algo-row-header">
-              <span class="algo-row-title">
-                <a href={algo.href}>{algo.title}</a>
-              </span>
-              <span class="algo-tag">{algo.tag}</span>
+          <li class="row algo-teaching-row">
+            <div class="algo-teaching-leading">
+              <a href={algo.href} aria-label={`View ${algo.title}`}>
+                <AlgorithmLogo id={algo.id} size={42} compact />
+              </a>
             </div>
-            <p class="row-meta muted">{algo.blurb || algo.summary}</p>
+            <div class="algo-teaching-content">
+              <div class="algo-row-header">
+                <span class="algo-row-title">
+                  <a href={algo.href}>{algo.title}</a>
+                </span>
+                <span class="algo-tag">{algo.tag}</span>
+              </div>
+              <p class="row-meta muted">{algo.blurb || algo.summary}</p>
+            </div>
           </li>
         ))
       }
@@ -158,6 +166,31 @@ const featuredAlgorithms = ALGORITHMS.filter((a) => a.featured);
   }
   .row-links a:hover {
     text-decoration: underline;
+  }
+  .algo-teaching-row {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: var(--space-4);
+    align-items: flex-start;
+  }
+  .algo-teaching-leading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 0.15rem;
+  }
+  .algo-teaching-leading a {
+    display: inline-flex;
+    text-decoration: none;
+    transition: transform var(--transition);
+  }
+  .algo-teaching-row:hover .algo-teaching-leading a {
+    transform: scale(1.08);
+  }
+  .algo-teaching-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
   }
   .algo-row-header {
     display: flex;
