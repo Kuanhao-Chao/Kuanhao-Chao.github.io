@@ -33,7 +33,18 @@ const year = new Date().getFullYear();
 
   <div class="container footer-base">
     <p class="muted">© {year} {site.name}</p>
-    <p class="muted footer-colophon">Built with Astro · {site.philosophy}</p>
+    <p class="muted footer-colophon">
+      Built with Astro · {site.philosophy}
+      <button
+        type="button"
+        class="dna-rain-trigger-btn"
+        data-trigger-dna-rain
+        title="Launch DNA Matrix Rain (or type 'dna' anywhere)"
+        aria-label="Launch DNA Matrix Rain"
+      >
+        🧬
+      </button>
+    </p>
   </div>
 </footer>
 
@@ -103,6 +114,25 @@ const year = new Date().getFullYear();
   }
   .footer-colophon {
     overflow-wrap: anywhere;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .dna-rain-trigger-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.95rem;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: all var(--trans-fast);
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+  }
+  .dna-rain-trigger-btn:hover {
+    opacity: 1;
+    transform: scale(1.25) rotate(12deg);
   }
 
   @media (max-width: 720px) {

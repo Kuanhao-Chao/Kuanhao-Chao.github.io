@@ -2839,6 +2839,8 @@ export const ALIASES: Record<string, string> = {
   view: 'tview',
   race: 'duel',
   benchmark: 'duel',
+  rain: 'matrix',
+  dnarain: 'matrix',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
