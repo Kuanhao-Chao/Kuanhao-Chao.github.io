@@ -2264,6 +2264,17 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  stringgraph: {
+    summary: 'launch String Graphs & Overlap-Layout-Consensus (OLC) visualizer',
+    run: () => ({
+      lines: [
+        { text: 'Opening String Graphs & Overlap-Layout-Consensus (OLC) Visualizer…', tone: 'ok' },
+        { text: '→ /algorithms/string-graph/', tone: 'accent', href: '/algorithms/string-graph/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/string-graph/' },
+    }),
+  },
+
   sudo: {
     summary: 'execute a command as another user',
     run: ({ argv }) => [
@@ -2297,6 +2308,10 @@ export const ALIASES: Record<string, string> = {
   eulerian: 'debruijn',
   assemble: 'debruijn',
   dbg: 'debruijn',
+  olc: 'stringgraph',
+  hifiasm: 'stringgraph',
+  flye: 'stringgraph',
+  canu: 'stringgraph',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
