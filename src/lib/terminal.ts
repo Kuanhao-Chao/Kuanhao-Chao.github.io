@@ -2275,6 +2275,17 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  phmm: {
+    summary: 'launch Profile Hidden Markov Models (pHMMs) Plan 7 visualizer',
+    run: () => ({
+      lines: [
+        { text: 'Opening Profile Hidden Markov Models (pHMMs) Visualizer…', tone: 'ok' },
+        { text: '→ /algorithms/phmm/', tone: 'accent', href: '/algorithms/phmm/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/phmm/' },
+    }),
+  },
+
   sudo: {
     summary: 'execute a command as another user',
     run: ({ argv }) => [
@@ -2312,6 +2323,9 @@ export const ALIASES: Record<string, string> = {
   hifiasm: 'stringgraph',
   flye: 'stringgraph',
   canu: 'stringgraph',
+  hmmer: 'phmm',
+  pfam: 'phmm',
+  viterbi: 'phmm',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
