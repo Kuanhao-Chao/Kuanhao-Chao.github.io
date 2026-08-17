@@ -95,6 +95,58 @@ const STATIC_ACTIONS: CommandItem[] = [
     keywords: ['crt off', 'modern', 'disable crt', 'normal display', 'turn off crt'],
   },
   {
+    id: 'act-bg-classic',
+    category: 'Actions',
+    title: 'Background: 🌿 Classic Living Cells',
+    subtitle: 'Original calm ambient biological cell field',
+    badge: 'Ambience',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcBg?: { set: (m: string) => void } }).__khcBg) {
+        (window as unknown as { __khcBg: { set: (m: string) => void } }).__khcBg.set('classic');
+      }
+    },
+    keywords: ['background', 'bg', 'classic', 'cells', 'original', 'biology'],
+  },
+  {
+    id: 'act-bg-cells2',
+    category: 'Actions',
+    title: 'Background: 🫧 Bioluminescent Living Cells 2.0',
+    subtitle: 'Living cellular membranes with interactive mitosis and ATP fireflies',
+    badge: 'Ambience',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcBg?: { set: (m: string) => void } }).__khcBg) {
+        (window as unknown as { __khcBg: { set: (m: string) => void } }).__khcBg.set('cells2');
+      }
+    },
+    keywords: ['background', 'bg', 'cells2', 'living', 'mitosis', 'cytokinesis', 'biology'],
+  },
+  {
+    id: 'act-bg-synteny',
+    category: 'Actions',
+    title: 'Background: 🌌 Synteny Constellation & Graph',
+    subtitle: 'Conserved chromosomal loci with delicate synteny filaments and proximity webs',
+    badge: 'Ambience',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcBg?: { set: (m: string) => void } }).__khcBg) {
+        (window as unknown as { __khcBg: { set: (m: string) => void } }).__khcBg.set('synteny');
+      }
+    },
+    keywords: ['background', 'bg', 'synteny', 'graph', 'constellation', 'pangenome', 'homology'],
+  },
+  {
+    id: 'act-bg-off',
+    category: 'Actions',
+    title: 'Background: 🖥️ Minimal Paper (Canvas Off)',
+    subtitle: 'Clean zero-motion background for distraction-free reading',
+    badge: 'Ambience',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcBg?: { set: (m: string) => void } }).__khcBg) {
+        (window as unknown as { __khcBg: { set: (m: string) => void } }).__khcBg.set('off');
+      }
+    },
+    keywords: ['background off', 'minimal background', 'disable background', 'clean paper'],
+  },
+  {
     id: 'act-terminal',
     category: 'Actions',
     title: 'Open Web Terminal',
