@@ -1,0 +1,431 @@
+/* ───────────────────────────────────────────────────────────────
+   String Graphs & Overlap-Layout-Consensus (OLC) Styles
+   Exact Overlaps, Myers' Transitive Reduction & Read Tiling Tracks
+   ─────────────────────────────────────────────────────────────── */
+
+.sg-visualizer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-block: var(--space-4) var(--space-8);
+  font-family: var(--font-body);
+  color: var(--color-ink);
+}
+
+/* ─────────────────────────────────────────────────── Toolbar & Inputs ── */
+
+.sg-toolbar {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 840px) {
+  .sg-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sg-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sg-label {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sg-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  resize: vertical;
+  min-height: 5rem;
+  transition: border-color 0.15s ease;
+}
+
+.sg-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.sg-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: var(--space-2);
+}
+
+.sg-preset-btn {
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  background: var(--color-bg);
+  color: var(--color-muted);
+  border: 1px solid var(--color-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sg-preset-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+}
+
+.sg-mode-selector {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  margin-top: var(--space-2);
+}
+
+.sg-mode-btn {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sg-mode-btn--active {
+  background: var(--color-surface);
+  color: var(--color-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ─────────────────────────────────────────────────── Transport Controls ── */
+
+.sg-transport-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+.sg-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.sg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-rule);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.sg-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+}
+
+.sg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sg-btn--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.sg-btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-dark);
+  color: #ffffff;
+}
+
+.sg-step-indicator {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* ────────────────────────────────────────── Consensus Output Banner ── */
+
+.sg-assembly-card {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sg-assembly-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.sg-stats-row {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.sg-stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: var(--fs-small);
+}
+
+.sg-stat-item strong {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+.sg-stat-item strong.sg-highlight {
+  color: #16a34a;
+}
+
+.sg-contig-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  overflow-x: auto;
+}
+
+.sg-seq-line {
+  white-space: pre;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* ──────────────────────────────────────── Read Tiling Layout Track ── */
+
+.sg-tiling-card {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sg-tiling-track {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  min-height: 5rem;
+}
+
+.sg-tile-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 1.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.sg-tile-bar {
+  position: absolute;
+  height: 1.35rem;
+  display: flex;
+  align-items: center;
+  padding-inline: 0.4rem;
+  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface));
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius);
+  color: var(--color-ink);
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* ──────────────────────────────────────────────────────── Main Grid ── */
+
+.sg-grid {
+  display: grid;
+  grid-template-columns: minmax(400px, 1.5fr) minmax(280px, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 900px) {
+  .sg-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sg-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.sg-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--color-ink) 3%, var(--color-surface));
+  border-bottom: 1px solid var(--color-rule);
+  font-weight: 600;
+  font-size: var(--fs-small);
+}
+
+.sg-card-body {
+  padding: var(--space-4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.sg-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  aspect-ratio: 1.15 / 1;
+}
+
+.sg-svg {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+}
+
+/* ──────────────────────────────────────── Step Calculation Inspector ── */
+
+.sg-calc-box {
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-rule));
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.sg-calc-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-family: var(--font-body);
+}
+
+.sg-calc-formula {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+}
+
+.sg-calc-summary {
+  font-family: var(--font-body);
+  font-size: var(--fs-small);
+  color: var(--color-ink);
+}
+
+/* ────────────────────────────────────────── Educational Cards ── */
+
+.sg-educational-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.sg-edu-card {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sg-edu-card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.sg-edu-card p {
+  font-size: var(--fs-small);
+  line-height: 1.55;
+  color: var(--color-muted);
+  margin: 0;
+}

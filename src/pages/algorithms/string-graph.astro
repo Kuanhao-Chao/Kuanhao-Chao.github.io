@@ -1,0 +1,264 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/stringGraph.css';
+---
+
+<PageLayout
+  title="String Graphs & Overlap-Layout-Consensus (OLC)"
+  eyebrow="Long-Read Genome Assembly"
+  lead="Interactive exploration of exact all-vs-all read overlaps, Myers' O(V+E) transitive reduction, contained read pruning, and read tiling layout for PacBio HiFi and Nanopore reads."
+  description="Interactive visualizer for String Graphs & Overlap-Layout-Consensus (OLC) genome assembly by Kuan-Hao Chao. Explore Myers' transitive reduction, contained read filtering, and read tiling tracks."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="sg-visualizer" data-sg-visualizer aria-label="String Graph Visualizer">
+    <!-- Toolbar: Input Reads, Min Overlap Slider, Presets, View Mode Toggle -->
+    <div class="sg-toolbar">
+      <div class="sg-input-group">
+        <label class="sg-label" for="sg-input">
+          <span>Input Long Sequencing Reads (multi-line or comma-separated)</span>
+        </label>
+        <textarea
+          id="sg-input"
+          class="sg-textarea"
+          data-sg-input
+          spellcheck="false"
+          autocomplete="off"
+        >ACGTAGCTAG, GCTAGCGTAA, CGTAATTTTT, ACGTAGCTAGCGTAA</textarea>
+
+        <div class="sg-presets">
+          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
+          <button
+            type="button"
+            class="sg-preset-btn"
+            data-sg-preset
+            data-sg-seq="ACGTAGCTAG, GCTAGCGTAA, CGTAATTTTT, ACGTAGCTAGCGTAA"
+            data-sg-overlap="4"
+          >
+            Contained + Linear (ovlp=4)
+          </button>
+          <button
+            type="button"
+            class="sg-preset-btn"
+            data-sg-preset
+            data-sg-seq="AAAAAAAAAGGGGG, GGGGTTTTTTTT, TTTTCCCCCCCC, AAAAAAAAAGGGGGTTTTTTTT"
+            data-sg-overlap="4"
+          >
+            Transitive Redundancy
+          </button>
+          <button
+            type="button"
+            class="sg-preset-btn"
+            data-sg-preset
+            data-sg-seq="GATTACAGAT, TACAGATTAC, ACAGATTACG, GATTACGTAG"
+            data-sg-overlap="5"
+          >
+            HiFi Read Pool (ovlp=5)
+          </button>
+          <button
+            type="button"
+            class="sg-preset-btn"
+            data-sg-preset
+            data-sg-seq="TTTTTTAGCG, AGCGCCCGGG, CCCGGGTAAA, AGCGTTTAAA"
+            data-sg-overlap="4"
+          >
+            Repeat Fork
+          </button>
+        </div>
+      </div>
+
+      <div class="sg-input-group">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label class="sg-label" for="sg-overlap-slider">
+            <span>Minimum Suffix-Prefix Overlap (<i>L</i> bp):</span>
+          </label>
+          <strong data-sg-overlap-val style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--color-accent);">4</strong>
+        </div>
+
+        <input
+          id="sg-overlap-slider"
+          type="range"
+          min="3"
+          max="8"
+          value="4"
+          data-sg-overlap
+          style="width: 100%; accent-color: var(--color-accent);"
+        />
+
+        <div style="margin-top: var(--space-2);">
+          <span style="font-size: var(--fs-meta); font-weight: 600; color: var(--color-muted);">
+            Graph View Mode:
+          </span>
+          <div class="sg-mode-selector">
+            <button type="button" class="sg-mode-btn" data-sg-mode-raw title="Show all detected overlap edges (including transitive shortcuts)">
+              Dense Overlap Graph
+            </button>
+            <button type="button" class="sg-mode-btn sg-mode-btn--active" data-sg-mode-reduced title="Show Myers' transitively reduced String Graph">
+              String Graph (Reduced)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transport Controls -->
+    <div class="sg-transport-bar">
+      <div class="sg-btn-group">
+        <button type="button" class="sg-btn sg-btn--primary" data-sg-play title="Animate read layout tiling">
+          Play ▶
+        </button>
+        <button type="button" class="sg-btn" data-sg-prev title="Previous tile step">
+          ⇤ Step
+        </button>
+        <button type="button" class="sg-btn" data-sg-next title="Next tile step">
+          Step ⇥
+        </button>
+        <button type="button" class="sg-btn" data-sg-reset title="Reset playback">
+          ↺ Reset
+        </button>
+      </div>
+
+      <div class="sg-step-indicator" data-sg-step-indicator>
+        Ready
+      </div>
+
+      <div class="fm-speed-select">
+        <label for="sg-speed-val">Speed:</label>
+        <select id="sg-speed-val" data-sg-speed>
+          <option value="2000">Slow (2.0s)</option>
+          <option value="1200" selected>Normal (1.2s)</option>
+          <option value="600">Fast (0.6s)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Assembled Consensus Ribbon & Graph Stats -->
+    <div class="sg-assembly-card">
+      <div class="sg-assembly-header">
+        <span>Assembled Unitig Consensus Sequence:</span>
+        <div class="sg-stats-row">
+          <div class="sg-stat-item">
+            <span>Active Reads:</span>
+            <strong data-sg-reads>0</strong>
+          </div>
+          <div class="sg-stat-item">
+            <span>Raw Overlaps:</span>
+            <strong data-sg-raw-edges>0</strong>
+          </div>
+          <div class="sg-stat-item">
+            <span>Transitive Removed:</span>
+            <strong data-sg-transitive class="sg-highlight">0</strong>
+          </div>
+          <div class="sg-stat-item">
+            <span>String Graph Edges:</span>
+            <strong data-sg-reduced-edges>0</strong>
+          </div>
+          <div class="sg-stat-item">
+            <span>N50:</span>
+            <strong data-sg-n50>0 bp</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="sg-contig-viewer">
+        <div class="sg-seq-line" data-sg-contig-line></div>
+      </div>
+    </div>
+
+    <!-- Horizontal Read Tiling Track -->
+    <div class="sg-tiling-card">
+      <div class="sg-assembly-header">
+        <span>Read Tiling &amp; Overlap Layout Track:</span>
+        <span style="font-size: 0.75rem; color: var(--color-muted);">Coordinates aligned to contig</span>
+      </div>
+      <div class="sg-tiling-track" data-sg-tiling-track></div>
+    </div>
+
+    <!-- Main Grid: SVG Graph Viewport & Inspector -->
+    <div class="sg-grid">
+      <!-- SVG Graph Viewport -->
+      <div class="sg-card">
+        <div class="sg-card-header">
+          <span>String Graph 2D Viewport</span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Hover node or edge to inspect</span>
+        </div>
+        <div class="sg-card-body">
+          <div class="sg-canvas-wrapper">
+            <svg class="sg-svg" data-sg-svg aria-label="String Graph Canvas"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step Calculation Inspector -->
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div class="sg-calc-box" data-sg-calc-box></div>
+
+        <div class="sg-card">
+          <div class="sg-card-header">
+            <span>Myers' Transitive Reduction (2005)</span>
+          </div>
+          <div class="sg-card-body" style="font-size: var(--fs-small); line-height: 1.6; color: var(--color-muted);">
+            <p style="margin: 0 0 0.5rem 0;">
+              In raw overlap graphs, if read <strong>A</strong> overlaps <strong>B</strong> and <strong>B</strong> overlaps <strong>C</strong>, there is often a redundant shortcut edge <code style="color: var(--color-ink);">A → C</code>.
+            </p>
+            <p style="margin: 0 0 0.5rem 0;">
+              Myers proved that all such transitive shortcuts can be pruned in <strong>O(V + E)</strong> linear time without losing sequence information, transforming the dense overlap mesh into a clean <strong>String Graph</strong>.
+            </p>
+            <p style="margin: 0;">
+              Contained reads (reads fully covered by a longer read) are pruned beforehand.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational Deep-Dives -->
+    <div class="sg-educational-grid">
+      <div class="dbg-edu-card">
+        <h3>OLC vs De Bruijn Graphs</h3>
+        <p>
+          De Bruijn graphs chop reads into <i>k</i>-mers, losing long-range phasing. <strong>Overlap-Layout-Consensus (OLC)</strong> operates on full-length reads, making it the gold standard for long-read assemblers (PacBio HiFi, Oxford Nanopore).
+        </p>
+      </div>
+
+      <div class="dbg-edu-card">
+        <h3>Contained Reads &amp; Phase Preservation</h3>
+        <p>
+          Reads fully contained inside longer reads provide no additional boundary information and create dead-end cycles. Pruning them leaves only irreducible vertex nodes representing non-redundant long genomic fragments.
+        </p>
+      </div>
+
+      <div class="dbg-edu-card">
+        <h3>Modern OLC Assemblers</h3>
+        <p>
+          State-of-the-art long-read assemblers like <strong>Hifiasm</strong>, <strong>Flye</strong>, and <strong>Canu</strong> use homopolymer compression, all-vs-all minimizer alignment, and string graph transitive reduction to assemble complete telomere-to-telomere (T2T) chromosomes.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initStringGraphVisualizer, type StringGraphVisualizerController } from '../../scripts/stringGraphVisualizer';
+
+  let controller: StringGraphVisualizerController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initStringGraphVisualizer(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>

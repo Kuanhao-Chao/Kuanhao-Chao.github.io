@@ -85,6 +85,18 @@ const algorithms: AlgorithmEntry[] = [
     cliCommand: 'debruijn TAATGCCATGGGATGTT',
   },
   {
+    id: 'string-graph',
+    title: 'String Graphs & Overlap-Layout-Consensus (OLC)',
+    area: 'Long-Read Genome Assembly',
+    tag: 'Myers Transitive Reduction',
+    summary:
+      'Long-read exact prefix-suffix overlap graphs without k-mer chopping. Explore Myers’ O(V+E) transitive reduction, contained read pruning, and read tiling layout.',
+    href: '/algorithms/string-graph/',
+    badge: 'Interactive Visualizer',
+    actionText: 'Launch interactive visualizer',
+    cliCommand: 'stringgraph',
+  },
+  {
     id: 'splice-ai',
     title: 'Deep Learning Splice-Site Recognition (Splam / OpenSpliceAI)',
     area: 'Deep Learning & Genomics',
