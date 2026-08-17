@@ -1,284 +1,253 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
-import '../../styles/fm-index.css';
+import Icon from '../../components/Icon.astro';
 
-const algorithmsList = [
+interface AlgorithmEntry {
+  id: string;
+  title: string;
+  area: string;
+  tag: string;
+  summary: string;
+  href: string;
+  badge?: string;
+  actionText: string;
+  cliCommand?: string;
+}
+
+const algorithms: AlgorithmEntry[] = [
   {
-    name: 'FM-Index & BWT Backward Search',
-    tag: 'Indexing & Exact Matching',
-    desc: 'Burrows-Wheeler Transform with LF-mapping and occurrences counting for sub-linear query matching (used in Bowtie, BWA).',
-    active: true,
-    anchor: '#fm-index',
+    id: 'minimap2',
+    title: 'Minimizer Sampling & Collinear DP Chaining',
+    area: 'Long-Read Alignment & Indexing',
+    tag: 'Minimap2 Core',
+    summary:
+      'High-throughput long-read alignment indexing using (w, k)-minimizers. Explore sliding hash windows, 2D anchor dot-plot matching, and dynamic programming collinear chaining.',
+    href: '/algorithms/minimap2/',
+    badge: 'Interactive Visualizer',
+    actionText: 'Launch interactive visualizer',
   },
   {
-    name: 'Needleman-Wunsch Alignment',
-    tag: 'Dynamic Programming',
-    desc: 'Optimal global pairwise sequence alignment via 2D dynamic programming matrix and traceback.',
-    active: false,
-    terminalCmd: 'align ACGTAGCTA ACGTCGCTA',
+    id: 'fm-index',
+    title: 'FM-Index & BWT Backward Search',
+    area: 'Indexing & Exact Matching',
+    tag: 'Bowtie / BWA Core',
+    summary:
+      'Burrows-Wheeler Transform with Last-to-First (LF) mapping and occurrence counting for sub-linear query matching across gigabase reference genomes.',
+    href: '/algorithms/fm-index/',
+    badge: 'Interactive Visualizer',
+    actionText: 'Launch interactive visualizer',
   },
   {
-    name: 'Wheeler Graph Ordering (Wheelie)',
-    tag: 'Pangenomics & Graphs',
-    desc: 'Coarse-to-fine recognition and sorting of Wheeler graph topologies for compressed graph indexing.',
-    active: false,
+    id: 'wgt',
+    title: 'Wheeler Graph Ordering & Recognition (Wheelie)',
+    area: 'Pangenomics & Graph Indexing',
+    tag: 'Graph Indexing',
+    summary:
+      'Algorithms for recognizing and sorting Wheeler graph topologies, generalizing BWT-style index search to pangenomic reference variation graphs.',
     href: '/posts/wgt/',
+    badge: 'Deep Dive & Post',
+    actionText: 'Read deep dive & interactive demo',
   },
   {
-    name: 'Splice-Site Scoring (Splam/OpenSpliceAI)',
-    tag: 'Deep Learning',
-    desc: 'Residual convolutional network scoring of donor (GT) and acceptor (AG) dinucleotides across pre-mRNA.',
-    active: false,
+    id: 'needleman-wunsch',
+    title: 'Needleman-Wunsch Pairwise Sequence Alignment',
+    area: 'Sequence Alignment & Dynamic Programming',
+    tag: 'Global Alignment',
+    summary:
+      'Exact O(MN) global dynamic programming sequence alignment with match, mismatch, and affine gap scoring matrix traceback.',
+    href: '/terminal/',
+    badge: 'Terminal Builtin',
+    actionText: 'Open in khcOS terminal',
+    cliCommand: 'align ACGTAGCTA ACGTCGCTA',
+  },
+  {
+    id: 'splice-ai',
+    title: 'Deep Learning Splice-Site Recognition (Splam / OpenSpliceAI)',
+    area: 'Deep Learning & Genomics',
+    tag: 'Neural Sequence Modeling',
+    summary:
+      'Ultra-fast residual convolutional neural networks scoring donor (GT) and acceptor (AG) pre-mRNA junctions to filter spurious spliced transcript alignments.',
     href: '/software/',
+    badge: 'Research Software',
+    actionText: 'Explore open-source software',
   },
 ];
 ---
 
 <PageLayout
   title="Algorithms"
-  eyebrow="Interactive Visualizers"
-  lead="Interactive demonstrations of fundamental bioinformatics algorithms. Explore how the Burrows-Wheeler Transform (BWT), LF-mapping, and the FM-Index enable instant genome search across gigabase references."
-  description="Interactive visualizer for the FM-Index and Burrows-Wheeler Transform (BWT) Backward Search algorithm by Kuan-Hao Chao. Explore LF-mapping, Occ occurrences array, and Suffix Array range narrowing."
+  eyebrow="Interactive Visualizers & Concepts"
+  lead="Interactive explorations of fundamental computational biology algorithms — from long-read minimizer chaining and FM-index exact matching to Wheeler graph pangenomics and sequence alignment."
+  description="Interactive computational biology algorithm visualizers by Kuan-Hao Chao: Minimap2 minimizer chaining, FM-Index BWT backward search, Wheeler graphs, and sequence alignment."
 >
-  <section class="fm-visualizer" data-fm-visualizer id="fm-index" aria-label="FM-Index and BWT Backward Search Visualizer">
-    <!-- Toolbar: Reference Text & Query Pattern Inputs -->
-    <div class="fm-toolbar">
-      <div class="fm-input-group">
-        <label class="fm-label" for="fm-ref-input">
-          <span>Reference String <span style="font-weight: 400; color: var(--color-muted);">(Text <i>T</i>)</span></span>
-          <span style="font-size: 0.75rem; color: var(--color-muted);">Auto-appends '$'</span>
-        </label>
-        <div class="fm-input-wrapper">
-          <input
-            id="fm-ref-input"
-            class="fm-input"
-            type="text"
-            data-fm-ref-input
-            value="BANANA$"
-            placeholder="Enter reference string…"
-            spellcheck="false"
-            autocomplete="off"
-          />
-        </div>
-        <div class="fm-presets">
-          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
-          <button type="button" class="fm-preset-btn" data-fm-ref-preset="BANANA$">BANANA$</button>
-          <button type="button" class="fm-preset-btn" data-fm-ref-preset="GATTACA$">GATTACA$</button>
-          <button type="button" class="fm-preset-btn" data-fm-ref-preset="ACGTACGT$">ACGTACGT$</button>
-          <button type="button" class="fm-preset-btn" data-fm-ref-preset="MISSISSIPPI$">MISSISSIPPI$</button>
-          <button type="button" class="fm-preset-btn" data-fm-ref-preset="GCATCGT$">GCATCGT$</button>
-        </div>
-      </div>
+  <section class="algo-section" aria-label="Bioinformatics Algorithm Catalog">
+    <h2 class="algo-list-title">Algorithm Visualizers &amp; Interactive Tools</h2>
 
-      <div class="fm-input-group">
-        <label class="fm-label" for="fm-query-input">
-          <span>Search Query <span style="font-weight: 400; color: var(--color-muted);">(Pattern <i>P</i>)</span></span>
-          <span style="font-size: 0.75rem; color: var(--color-accent); font-weight: 600;">Backward (Right-to-Left)</span>
-        </label>
-        <div class="fm-input-wrapper">
-          <input
-            id="fm-query-input"
-            class="fm-input"
-            type="text"
-            data-fm-query-input
-            value="ANA"
-            placeholder="Enter search pattern…"
-            spellcheck="false"
-            autocomplete="off"
-          />
-        </div>
-        <div class="fm-presets">
-          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
-          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="ANA">ANA</button>
-          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="BAN">BAN</button>
-          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="ATT">ATT</button>
-          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="TAC">TAC</button>
-          <button type="button" class="fm-query-preset-btn fm-preset-btn" data-fm-query-preset="SSI">SSI</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Transport Playback Controls -->
-    <div class="fm-transport-bar">
-      <div class="fm-btn-group">
-        <button type="button" class="fm-btn fm-btn--primary" data-fm-play title="Play backward search animation">
-          Play ▶
-        </button>
-        <button type="button" class="fm-btn" data-fm-prev title="Previous step">
-          ⇤ Step
-        </button>
-        <button type="button" class="fm-btn" data-fm-next title="Next step">
-          Step ⇥
-        </button>
-        <button type="button" class="fm-btn" data-fm-reset title="Reset search">
-          ↺ Reset
-        </button>
-      </div>
-
-      <div class="fm-step-indicator" data-fm-step-indicator>
-        Ready (0/3)
-      </div>
-
-      <div class="fm-speed-select">
-        <label for="fm-speed-val">Speed:</label>
-        <select id="fm-speed-val" data-fm-speed>
-          <option value="2000">Slow (2.0s)</option>
-          <option value="1200" selected>Normal (1.2s)</option>
-          <option value="600">Fast (0.6s)</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Reference String Visualizer Banner -->
-    <div class="fm-ref-banner">
-      <div style="font-size: var(--fs-small); font-weight: 600; color: var(--color-muted); display: flex; justify-content: space-between;">
-        <span>Reference Sequence (0-indexed):</span>
-        <span style="font-size: 0.75rem;">Highlighted letters indicate resolved match positions</span>
-      </div>
-      <div class="fm-ref-seq" data-fm-ref-display>
-        <!-- Injected by Controller -->
-      </div>
-    </div>
-
-    <!-- Main Visualizer Grid -->
-    <div class="fm-grid">
-      <!-- Left Panel: BWT Matrix and Suffix Array -->
-      <div class="fm-card">
-        <div class="fm-card-header">
-          <span>BWT &amp; Suffix Array Table</span>
-          <span style="font-size: 0.75rem; color: var(--color-muted);">Hover row in <i>L</i> for LF-mapping</span>
-        </div>
-        <div class="fm-card-body">
-          <table class="fm-table">
-            <thead>
-              <tr>
-                <th>Row <i>i</i></th>
-                <th><i>SA[i]</i></th>
-                <th><i>F</i></th>
-                <th><i>L (BWT)</i></th>
-                <th>Suffix String</th>
-              </tr>
-            </thead>
-            <tbody data-fm-bwt-tbody>
-              <!-- Injected by Controller -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Right Panel: C Table, Occurrences Matrix, and Step Calculation -->
-      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
-        <!-- Step Calculation Inspector -->
-        <div class="fm-calc-box" data-fm-calc-box>
-          <!-- Injected by Controller -->
-        </div>
-
-        <!-- C Table Card -->
-        <div class="fm-card">
-          <div class="fm-card-header">
-            <span>Count Table <i>C[c]</i></span>
-            <span style="font-size: 0.75rem; color: var(--color-muted);">Count of chars &lt; <i>c</i></span>
-          </div>
-          <div class="fm-card-body">
-            <div class="fm-c-table" data-fm-c-table>
-              <!-- Injected by Controller -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Occ Matrix Card -->
-        <div class="fm-card">
-          <div class="fm-card-header">
-            <span>Occurrences Matrix <i>Occ(c, i)</i></span>
-            <span style="font-size: 0.75rem; color: var(--color-muted);">Occurrences in <i>L[0..i-1]</i></span>
-          </div>
-          <div class="fm-card-body">
-            <table class="fm-occ-table" data-fm-occ-table>
-              <!-- Injected by Controller -->
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Educational Deep-Dives -->
-    <div class="fm-educational-grid">
-      <div class="fm-edu-card">
-        <h3>How Bowtie &amp; BWA Use the FM-Index</h3>
-        <p>
-          Instead of storing the multi-gigabase human genome in raw sequence form, modern aligners index it using the FM-Index.
-          Because each backward step uses simple array lookups in $C$ and $Occ$, query searching executes in <strong>$O(|P|)$ time</strong>, entirely independent of the genome's size.
-        </p>
-      </div>
-
-      <div class="fm-edu-card">
-        <h3>The LF-Mapping Property</h3>
-        <p>
-          The fundamental theorem of the BWT: the $i$-th occurrence of character $c$ in the Last column $L$ corresponds to the exact same occurrence of character $c$ in the First column $F$.
-          This enables exact backward traversal without reconstructing the original text.
-        </p>
-      </div>
-
-      <div class="fm-edu-card">
-        <h3>Sub-linear Memory &amp; Sampling</h3>
-        <p>
-          In production aligners (like Bowtie), $Occ$ values and the Suffix Array are sampled at regular intervals (e.g. every 32 or 64 positions).
-          This reduces the memory footprint of the 3-billion-base human genome to under <strong>2.5 GB of RAM</strong>.
-        </p>
-      </div>
-    </div>
-
-    <!-- Algorithm Catalog Hub Cards -->
-    <div style="margin-top: var(--space-8);">
-      <h2 style="font-size: var(--fs-h2); font-weight: 600; margin-bottom: var(--space-4);">Bioinformatics Algorithm Hub</h2>
-      <div class="fm-educational-grid">
-        {
-          algorithmsList.map((algo) => (
-            <div class="fm-edu-card" style={algo.active ? 'border-color: var(--color-accent);' : ''}>
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
-                <h3 style="font-size: 1rem;">{algo.name}</h3>
-                <span style="font-size: var(--fs-meta); background: color-mix(in srgb, var(--color-accent) 15%, var(--color-surface)); color: var(--color-accent); padding: 0.15rem 0.4rem; border-radius: var(--radius); white-space: nowrap;">
-                  {algo.tag}
-                </span>
+    <div class="algo-index">
+      {
+        algorithms.map((algo) => (
+          <article class="algo-card" id={algo.id}>
+            <div class="algo-card-body">
+              <div class="algo-card-meta">
+                <span class="eyebrow">{algo.area}</span>
+                <span class="algo-tag">{algo.tag}</span>
               </div>
-              <p>{algo.desc}</p>
-              {algo.active ? (
-                <span style="font-size: var(--fs-small); color: var(--color-accent); font-weight: 600; margin-top: auto;">
-                  ● Active Visualizer Above
-                </span>
-              ) : algo.href ? (
-                <a href={algo.href} style="font-size: var(--fs-small); color: var(--color-accent); font-weight: 600; margin-top: auto;">
-                  Explore tool →
-                </a>
-              ) : algo.terminalCmd ? (
-                <span style="font-size: 0.8rem; font-family: var(--font-mono); color: var(--color-muted); margin-top: auto;">
-                  CLI: <code>{algo.terminalCmd}</code>
-                </span>
-              ) : null}
+              <h3 class="algo-card-title">
+                <a href={algo.href}>{algo.title}</a>
+              </h3>
+              <p class="algo-card-summary muted">{algo.summary}</p>
+              {algo.cliCommand && (
+                <div class="algo-cli-hint">
+                  <span>CLI Command:</span>
+                  <code>{algo.cliCommand}</code>
+                </div>
+              )}
             </div>
-          ))
-        }
-      </div>
+
+            <div class="algo-card-action">
+              <a href={algo.href} class="algo-link">
+                <span>{algo.actionText}</span>
+                <Icon name="arrow-right" size={15} />
+              </a>
+            </div>
+          </article>
+        ))
+      }
     </div>
   </section>
 </PageLayout>
 
-<script>
-  import { initFmIndexVisualizer, type VisualizerController } from '../../scripts/fmIndexVisualizer';
-
-  let controller: VisualizerController | null = null;
-
-  function mount() {
-    if (controller) return;
-    controller = initFmIndexVisualizer(document);
+<style>
+  .algo-section {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--space-8);
   }
 
-  function unmount() {
-    controller?.destroy();
-    controller = null;
+  .algo-list-title {
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0;
+    padding-bottom: var(--space-4);
+    margin-bottom: var(--space-4);
+    border-bottom: 1px solid var(--color-rule);
   }
 
-  document.addEventListener('astro:page-load', mount);
-  document.addEventListener('astro:before-swap', unmount);
-  mount();
-</script>
+  .algo-index {
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .algo-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--space-5);
+    padding-block: var(--space-6);
+    border-top: 1px solid var(--color-rule);
+    transition: background-color 0.15s ease;
+  }
+
+  .algo-card:first-child {
+    border-top: 0;
+  }
+
+  @media (max-width: 768px) {
+    .algo-card {
+      grid-template-columns: 1fr;
+      gap: var(--space-3);
+    }
+  }
+
+  .algo-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .algo-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+  }
+
+  .algo-tag {
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    color: var(--color-accent-dark);
+    border-radius: var(--radius);
+  }
+
+  .algo-card-title {
+    font-size: 1.15rem;
+    font-weight: var(--fw-semibold);
+    line-height: 1.3;
+    margin: 0;
+  }
+
+  .algo-card-title a {
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .algo-card-title a:hover {
+    color: var(--color-accent);
+    text-decoration: underline;
+  }
+
+  .algo-card-summary {
+    font-size: var(--fs-small);
+    line-height: 1.55;
+    margin: 0;
+    max-width: 65ch;
+  }
+
+  .algo-cli-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--fs-meta);
+    color: var(--color-muted);
+    margin-top: 0.25rem;
+  }
+
+  .algo-cli-hint code {
+    font-family: var(--font-mono);
+    padding: 0.15rem 0.4rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    color: var(--color-ink);
+  }
+
+  .algo-card-action {
+    display: flex;
+    align-items: center;
+  }
+
+  .algo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--fs-small);
+    font-weight: 600;
+    color: var(--color-accent);
+    text-decoration: none;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .algo-link:hover {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+    color: var(--color-accent-dark);
+  }
+</style>

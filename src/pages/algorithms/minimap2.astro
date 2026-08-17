@@ -1,0 +1,266 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/minimap2.css';
+---
+
+<PageLayout
+  title="Minimizer Sampling & Collinear Chaining"
+  eyebrow="Minimap2 Algorithm Visualizer"
+  lead="Interactive exploration of high-throughput sequence alignment indexing using (w, k)-minimizers and 2D dynamic programming collinear chaining — the algorithmic core powering Minimap2."
+  description="Interactive visualizer for (w, k)-minimizer sampling and collinear DP chaining (Minimap2-style) by Kuan-Hao Chao. Explore sliding hash windows, 2D dot-plots, and anchor chaining."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="mm-visualizer" data-mm-visualizer aria-label="Minimizer Sampling and Chaining Visualizer">
+    <!-- Toolbar: Sequences & Parameters -->
+    <div class="mm-toolbar">
+      <div class="mm-input-group">
+        <label class="mm-label" for="mm-target-input">
+          <span>Target Sequence (<i>T</i>)</span>
+        </label>
+        <input
+          id="mm-target-input"
+          class="mm-input"
+          type="text"
+          data-mm-target-input
+          value="ACGTACGTTTGACGTACGT"
+          spellcheck="false"
+          autocomplete="off"
+        />
+
+        <label class="mm-label" for="mm-query-input" style="margin-top: var(--space-2);">
+          <span>Query Sequence (<i>Q</i>)</span>
+        </label>
+        <input
+          id="mm-query-input"
+          class="mm-input"
+          type="text"
+          data-mm-query-input
+          value="ACGTACGTGACGTACGT"
+          spellcheck="false"
+          autocomplete="off"
+        />
+
+        <div class="mm-presets">
+          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
+          <button
+            type="button"
+            class="mm-preset-btn"
+            data-mm-preset
+            data-mm-target="ACGTACGTTTGACGTACGT"
+            data-mm-query="ACGTACGTGACGTACGT"
+          >
+            Indel (Gap)
+          </button>
+          <button
+            type="button"
+            class="mm-preset-btn"
+            data-mm-preset
+            data-mm-target="GATTACAGATTACAACGT"
+            data-mm-query="GATTACAACGT"
+          >
+            Tandem Repeat
+          </button>
+          <button
+            type="button"
+            class="mm-preset-btn"
+            data-mm-preset
+            data-mm-target="ACGTGCTAGCTAGCTAGCTGATCGATCGATC"
+            data-mm-query="ACGTGCTAGCTAGCTGATCGATCGATC"
+          >
+            Long Homology
+          </button>
+          <button
+            type="button"
+            class="mm-preset-btn"
+            data-mm-preset
+            data-mm-target="AAAAACCCCCGGGGGTTTTT"
+            data-mm-query="AAAAAGGGGGCCCCCTTTTT"
+          >
+            Inversion / Noise
+          </button>
+        </div>
+      </div>
+
+      <div class="mm-input-group">
+        <span style="font-size: var(--fs-small); font-weight: 600; color: var(--color-ink);">
+          Minimizer Parameters (<i>w, k</i>)
+        </span>
+        <div class="mm-param-row">
+          <div class="mm-param-box">
+            <div class="mm-param-header">
+              <span>Window Size (<i>w</i>)</span>
+              <span class="mm-param-val" data-mm-w-val>3</span>
+            </div>
+            <input
+              type="range"
+              class="mm-slider"
+              min="2"
+              max="6"
+              value="3"
+              step="1"
+              data-mm-w-slider
+            />
+          </div>
+
+          <div class="mm-param-box">
+            <div class="mm-param-header">
+              <span><i>k</i>-mer Length (<i>k</i>)</span>
+              <span class="mm-param-val" data-mm-k-val>3</span>
+            </div>
+            <input
+              type="range"
+              class="mm-slider"
+              min="2"
+              max="5"
+              value="3"
+              step="1"
+              data-mm-k-slider
+            />
+          </div>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--color-muted); line-height: 1.4; margin-top: 0.35rem;">
+          In each sliding window of <i>w</i> consecutive <i>k</i>-mers, the <i>k</i>-mer with the lowest hash value is chosen as the minimizer anchor.
+        </p>
+      </div>
+    </div>
+
+    <!-- Transport Controls -->
+    <div class="mm-transport-bar">
+      <div class="mm-btn-group">
+        <button type="button" class="mm-btn mm-btn--primary" data-mm-play title="Play DP chaining animation">
+          Play ▶
+        </button>
+        <button type="button" class="mm-btn" data-mm-prev title="Previous anchor step">
+          ⇤ Step
+        </button>
+        <button type="button" class="mm-btn" data-mm-next title="Next anchor step">
+          Step ⇥
+        </button>
+        <button type="button" class="mm-btn" data-mm-reset title="Reset visualizer">
+          ↺ Reset
+        </button>
+      </div>
+
+      <div class="mm-step-indicator" data-mm-step-indicator>
+        Ready (0/0)
+      </div>
+
+      <div class="fm-speed-select">
+        <label for="mm-speed-val">Speed:</label>
+        <select id="mm-speed-val" data-mm-speed>
+          <option value="2000">Slow (2.0s)</option>
+          <option value="1200" selected>Normal (1.2s)</option>
+          <option value="600">Fast (0.6s)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Sequence Ribbons Card -->
+    <div class="mm-ribbons-card">
+      <div class="mm-ribbon-group">
+        <div class="mm-ribbon-header">
+          <span>Target Minimizers:</span>
+          <span style="font-size: 0.75rem;">Teal = sampled minimizers, Green = collinear chain anchors</span>
+        </div>
+        <div class="mm-ribbon-track" data-mm-target-ribbon></div>
+      </div>
+
+      <div class="mm-ribbon-group">
+        <div class="mm-ribbon-header">
+          <span>Query Minimizers:</span>
+          <span style="font-size: 0.75rem;">Teal = sampled minimizers, Green = collinear chain anchors</span>
+        </div>
+        <div class="mm-ribbon-track" data-mm-query-ribbon></div>
+      </div>
+    </div>
+
+    <!-- Main Visualizer Grid -->
+    <div class="mm-grid">
+      <!-- 2D Dot-Plot Canvas & SVG Overlay -->
+      <div class="mm-card">
+        <div class="mm-card-header">
+          <span>2D Anchor Dot-Plot &amp; DP Chain Graph</span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Hover dot for anchor info</span>
+        </div>
+        <div class="mm-card-body" style="display: flex; justify-content: center; padding: 1.25rem;">
+          <div class="mm-dotplot-container">
+            <svg class="mm-dotplot-svg" viewBox="0 0 420 420" data-mm-dotplot-svg></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step Calculation Inspector -->
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div class="mm-calc-box" data-mm-calc-box></div>
+
+        <div class="mm-card">
+          <div class="mm-card-header">
+            <span>Minimap2 Chaining Formula</span>
+          </div>
+          <div class="mm-card-body" style="font-size: var(--fs-small); line-height: 1.6; color: var(--color-muted);">
+            <p style="margin: 0 0 0.5rem 0;">
+              For anchor <code style="color: var(--color-ink); font-weight: 600;">a_i = (x_i, y_i)</code>, the DP recurrence finds the predecessor anchor <code style="color: var(--color-ink);">a_j</code> maximizing:
+            </p>
+            <div style="padding: 0.5rem 0.75rem; background: var(--color-bg); border: 1px solid var(--color-rule); border-radius: var(--radius); font-family: var(--font-mono); font-size: 0.82rem; color: var(--color-ink); margin-bottom: 0.5rem;">
+              S[i] = k + max(0, max_j [ S[j] + min(&Delta;x, &Delta;y, k) - &alpha;(gap) ])
+            </div>
+            <p style="margin: 0;">
+              where <code style="color: var(--color-ink);">gap = |&Delta;x - &Delta;y|</code>, penalizing insertions/deletions while rewarding contiguous collinear diagonals.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational Deep-Dives -->
+    <div class="mm-educational-grid">
+      <div class="mm-edu-card">
+        <h3>Why Minimizers Matter for Long Reads</h3>
+        <p>
+          Instead of indexing every single <i>k</i>-mer, (<i>w</i>, <i>k</i>)-minimizers sample roughly &approx; 2 / (<i>w</i> + 1) fraction of positions.
+          This reduces memory and computation by <strong>10–30&times;</strong> while retaining robust coverage across error-prone long reads.
+        </p>
+      </div>
+
+      <div class="mm-edu-card">
+        <h3>Collinear DP Chaining</h3>
+        <p>
+          Unlike heuristic seed-and-extend approaches, 2D dynamic programming evaluates global spatial consistency across all anchor pairs $(x_i, y_i)$, finding the optimal alignment path in polynomial time.
+        </p>
+      </div>
+
+      <div class="mm-edu-card">
+        <h3>Base-Level Alignment Extension</h3>
+        <p>
+          Once the optimal chain of anchors is identified, Minimap2 performs piecewise Suzuki-Kasahara dynamic programming (SSE/AVX accelerated) only between adjacent anchors in the chain.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initMinimap2Visualizer, type Minimap2Controller } from '../../scripts/minimap2Visualizer';
+
+  let controller: Minimap2Controller | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initMinimap2Visualizer(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
