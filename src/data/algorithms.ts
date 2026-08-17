@@ -17,6 +17,10 @@ export interface AlgorithmEntry {
   tag: string;
   summary: string;
   blurb?: string;
+  timeComplexity?: string;
+  spaceComplexity?: string;
+  keyMechanism?: string;
+  highlights?: string[];
   href: string;
   badge?: string;
   actionText: string;
@@ -44,10 +48,19 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     summary:
       'High-throughput long-read alignment indexing using (w, k)-minimizers. Explore sliding hash windows, 2D anchor dot-plot matching, and dynamic programming collinear chaining.',
     blurb: '(w, k)-minimizer DP anchor chaining for long-read alignment.',
+    timeComplexity: 'O(N + M + K log K)',
+    spaceComplexity: 'O(N)',
+    keyMechanism: '(w, k)-Minimizer Sampling & Collinear DP',
+    highlights: [
+      'Sliding window minimizers reduce genomic index footprint by ~10–20×',
+      'Exact 2D anchor dot-plot matching with non-linear gap penalties',
+      'Collinear dynamic programming chains anchor seeds into high-confidence alignments',
+    ],
     href: '/algorithms/minimap2/',
     badge: 'Interactive Visualizer',
     actionText: 'Launch interactive visualizer',
-    featured: true,
+    cliCommand: 'minimap2',
+    featured: true, // 1/4 Featured Homepage Selection
   },
   {
     id: 'fm-index',
@@ -59,23 +72,19 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     summary:
       'Burrows-Wheeler Transform with Last-to-First (LF) mapping and occurrence counting for sub-linear query matching across gigabase reference genomes.',
     blurb: 'Burrows-Wheeler transform with LF-mapping for sublinear search.',
+    timeComplexity: 'O(P + occ)',
+    spaceComplexity: 'O(T · log Σ)',
+    keyMechanism: 'BWT & Last-to-First (LF) Mapping',
+    highlights: [
+      'Permutes text with BWT to compress repetitive genomic sequence',
+      'LF-mapping backward search resolves exact pattern queries without text scanning',
+      'Sampled occurrence rank tables achieve sub-linear O(P) query time',
+    ],
     href: '/algorithms/fm-index/',
     badge: 'Interactive Visualizer',
     actionText: 'Launch interactive visualizer',
-  },
-  {
-    id: 'wgt',
-    title: 'Wheeler Graph Ordering & Recognition (Wheelie)',
-    shortTitle: 'Wheeler Graphs',
-    area: 'Pangenomics & Graph Indexing',
-    category: 'indexing',
-    tag: 'Graph Indexing',
-    summary:
-      'Algorithms for recognizing and sorting Wheeler graph topologies, generalizing BWT-style index search to pangenomic reference variation graphs.',
-    blurb: 'Sorting and recognition algorithms for pangenome graph indexes.',
-    href: '/posts/wgt/',
-    badge: 'Deep Dive & Post',
-    actionText: 'Read deep dive & interactive demo',
+    cliCommand: 'fmindex AGCTA',
+    featured: true, // 2/4 Featured Homepage Selection
   },
   {
     id: 'pairwise',
@@ -87,11 +96,65 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     summary:
       'Exact 2D dynamic programming pairwise sequence alignment supporting global (Needleman-Wunsch), local (Smith-Waterman), and Gotoh affine gap penalties.',
     blurb: 'Global (NW) and local (SW) exact 2D dynamic programming with affine gap scoring.',
+    timeComplexity: 'O(MN)',
+    spaceComplexity: 'O(MN)',
+    keyMechanism: '2D Dynamic Programming & Traceback',
+    highlights: [
+      'Exact global (Needleman-Wunsch) and local (Smith-Waterman) alignment',
+      'Gotoh 3-state affine gap scoring (gap open + gap extend penalties)',
+      'Optimal back-pointer matrix traversal for unambiguous alignment reconstruction',
+    ],
     href: '/algorithms/pairwise/',
     badge: 'Interactive Visualizer',
     actionText: 'Launch interactive visualizer',
     cliCommand: 'align ACGTAGCTA ACGTCGCTA',
-    featured: true,
+    featured: true, // 3/4 Featured Homepage Selection
+  },
+  {
+    id: 'phmm',
+    title: 'Profile Hidden Markov Models (pHMMs)',
+    shortTitle: 'Profile HMMs',
+    area: 'Probabilistic Models & Gene Finding',
+    category: 'probabilistic',
+    tag: 'Plan 7 Architecture',
+    summary:
+      'Model conserved biological domains and sequence families with insertion/deletion tolerance. Explore Viterbi optimal decoding, Forward-Backward posteriors, and Plan 7 topology.',
+    blurb: 'Plan 7 domain modeling, Viterbi decoding & posterior state probabilities.',
+    timeComplexity: 'O(N · M)',
+    spaceComplexity: 'O(N · M)',
+    keyMechanism: 'Plan 7 Topology & Probabilistic Decoding',
+    highlights: [
+      'Match (M), Insert (I), and Delete (D) states model conserved protein & DNA motifs',
+      'Viterbi dynamic programming decoding recovers optimal hidden state paths',
+      'Forward-Backward algorithm computes exact residue-by-residue posterior probabilities',
+    ],
+    href: '/algorithms/phmm/',
+    badge: 'Interactive Visualizer',
+    actionText: 'Launch interactive visualizer',
+    cliCommand: 'phmm TATAAA',
+    featured: true, // 4/4 Featured Homepage Selection
+  },
+  {
+    id: 'wgt',
+    title: 'Wheeler Graph Ordering & Recognition (Wheelie)',
+    shortTitle: 'Wheeler Graphs',
+    area: 'Pangenomics & Graph Indexing',
+    category: 'indexing',
+    tag: 'Graph Indexing',
+    summary:
+      'Algorithms for recognizing and sorting Wheeler graph topologies, generalizing BWT-style index search to pangenomic reference variation graphs.',
+    blurb: 'Sorting and recognition algorithms for pangenome graph indexes.',
+    timeComplexity: 'O(|V| + |E|)',
+    spaceComplexity: 'O(|V| + |E|)',
+    keyMechanism: 'Co-Lexicographic Node Ordering',
+    highlights: [
+      'Total ordering of graph vertices enabling BWT-style indexed search on graphs',
+      'Polynomial-time Wheeler graph recognition and co-lexicographic sorting',
+      'Foundational data structure for indexing complex pangenome variation graphs',
+    ],
+    href: '/posts/wgt/',
+    badge: 'Deep Dive & Post',
+    actionText: 'Read deep dive & interactive demo',
   },
   {
     id: 'wfa',
@@ -103,6 +166,14 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     summary:
       'Exact gap-affine pairwise alignment running in O(s · d) time. Explore diagonal wavefront frontier expansion, free Longest Common Prefix (LCP) extensions, and matrix pruning.',
     blurb: 'Exact gap-affine alignment running in O(s · d) time via diagonal wavefronts.',
+    timeComplexity: 'O(s · d)',
+    spaceComplexity: 'O(s²)',
+    keyMechanism: 'Diagonal Wavefronts & Free LCP Extensions',
+    highlights: [
+      'Computes only reachable alignment wavefront diagonals instead of full O(MN) matrices',
+      'Free Longest Common Prefix (LCP) extensions skip identical nucleotide stretches',
+      'Achieves 10–100× speedups on high-identity long-read alignments',
+    ],
     href: '/algorithms/wfa/',
     badge: 'Interactive Visualizer',
     actionText: 'Launch interactive visualizer',
@@ -118,11 +189,18 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     summary:
       'Head-to-head performance duel and synchronized pseudocode debugger comparing classical O(N²) dynamic programming against diagonal Wavefront Alignment (WFA).',
     blurb: 'Head-to-head performance race and pseudocode debugger comparing DP vs WFA.',
+    timeComplexity: 'O(s · d) vs O(MN)',
+    spaceComplexity: 'O(s²) vs O(MN)',
+    keyMechanism: 'Synchronized Stepper & Telemetry Racing',
+    highlights: [
+      'Live cell computation counter tracking exact work reduction in real time',
+      'Synchronized side-by-side pseudocode line-by-line stepping',
+      'Inspect DP recurrence variables (i, j) vs WFA wavefronts (s, k, LCP)',
+    ],
     href: '/algorithms/duel/',
     badge: 'Benchmark & Duel',
     actionText: 'Enter benchmark arena',
     cliCommand: 'duel',
-    featured: true,
   },
   {
     id: 'debruijn',
@@ -134,11 +212,18 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     summary:
       'Deconstruct sequencing reads into (k-1)-mer nodes and directed k-mer edges. Explore O(E) Eulerian path assembly, tip clipping, bubble popping, and unitig compaction.',
     blurb: 'Eulerian path de novo genome assembly and graph cleaning heuristics.',
+    timeComplexity: 'O(E)',
+    spaceComplexity: 'O(N)',
+    keyMechanism: 'Hierholzer Eulerian Path & Graph Pruning',
+    highlights: [
+      'Deconstructs reads into (k-1)-mer nodes with directed k-mer overlap edges',
+      'Hierholzer algorithm finds Eulerian paths in linear O(E) time for de novo assembly',
+      'Automated heuristics: dead-end tip clipping, heterozygous bubble popping, and unitig compaction',
+    ],
     href: '/algorithms/debruijn/',
     badge: 'Interactive Visualizer',
     actionText: 'Launch interactive visualizer',
     cliCommand: 'debruijn TAATGCCATGGGATGTT',
-    featured: true,
   },
   {
     id: 'string-graph',
@@ -150,26 +235,18 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     summary:
       'Long-read exact prefix-suffix overlap graphs without k-mer chopping. Explore Myers’ O(V+E) transitive reduction, contained read pruning, and read tiling layout.',
     blurb: "Myers' O(V+E) transitive reduction and layout for long-read assembly.",
+    timeComplexity: 'O(V + E)',
+    spaceComplexity: 'O(V + E)',
+    keyMechanism: "Myers' Transitive Reduction & Layout",
+    highlights: [
+      'Prefix-suffix overlap graphs preserve full read context without k-mer chopping',
+      "Myers' O(V+E) algorithm strips all transitively redundant graph edges",
+      'Identifies unambiguous read tiling paths and prunes contained sequencing reads',
+    ],
     href: '/algorithms/string-graph/',
     badge: 'Interactive Visualizer',
     actionText: 'Launch interactive visualizer',
     cliCommand: 'stringgraph',
-  },
-  {
-    id: 'phmm',
-    title: 'Profile Hidden Markov Models (pHMMs)',
-    shortTitle: 'Profile HMMs',
-    area: 'Probabilistic Models & Gene Finding',
-    category: 'probabilistic',
-    tag: 'Plan 7 Architecture',
-    summary:
-      'Model conserved biological domains and sequence families with insertion/deletion tolerance. Explore Viterbi optimal decoding, Forward-Backward posteriors, and Plan 7 topology.',
-    blurb: 'Plan 7 domain modeling, Viterbi decoding & posterior state probabilities.',
-    href: '/algorithms/phmm/',
-    badge: 'Interactive Visualizer',
-    actionText: 'Launch interactive visualizer',
-    cliCommand: 'phmm TATAAA',
-    featured: true,
   },
   {
     id: 'ghmm',
@@ -181,6 +258,14 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     summary:
       'Predict exon-intron structures, splice junctions, and protein-coding CDS using explicit duration distributions f(d) and semi-Markov dynamic programming (GENSCAN / AUGUSTUS).',
     blurb: 'Semi-Markov dynamic programming with explicit biological length models f(d).',
+    timeComplexity: 'O(L · D · |S|)',
+    spaceComplexity: 'O(L · |S|)',
+    keyMechanism: 'Semi-Markov DP with Duration Curves f(d)',
+    highlights: [
+      'Explicit duration probability distributions f(d) model real biological exon and intron lengths',
+      "Integrated 5' donor, 3' acceptor, and Start/Stop codon signal sensors",
+      'Ab initio eukaryotic gene structure prediction (GENSCAN / AUGUSTUS core)',
+    ],
     href: '/algorithms/ghmm/',
     badge: 'Interactive Visualizer',
     actionText: 'Launch interactive visualizer',
@@ -196,10 +281,17 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     summary:
       'Interpret neural splice models (OpenSpliceAI / Splam) with 4×L in silico single-nucleotide mutation matrices, ΔScore predictions, and position-wise importance sequence logos.',
     blurb: 'Neural 4×L mutation heatmaps, ΔScore variant effects & importance logos.',
+    timeComplexity: 'O(4 · L · W)',
+    spaceComplexity: 'O(4 · L)',
+    keyMechanism: 'In Silico Mutagenesis & Neural ΔScore Evaluation',
+    highlights: [
+      'Systematic 4×L single-nucleotide substitutions calculate ΔScore = P_mut - P_ref',
+      'Dynamic importance sequence logo highlights critical spliceosome binding motifs',
+      'Interprets neural deep learning architectures (OpenSpliceAI & Splam)',
+    ],
     href: '/algorithms/ism/',
     badge: 'Interactive Visualizer',
     actionText: 'Launch interactive visualizer',
     cliCommand: 'ism',
-    featured: true,
   },
 ];
