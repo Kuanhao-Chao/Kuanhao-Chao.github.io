@@ -45,12 +45,23 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           class="top-theme-btn"
           type="button"
           data-top-theme-btn
+          data-theme-state="light"
           aria-haspopup="menu"
           aria-expanded="false"
           aria-label="Appearance settings"
           title="Switch theme or 1988 CRT mode"
         >
-          <span class="top-theme-active-icon" data-top-theme-icon aria-hidden="true">☀️</span>
+          <span class="theme-icon-container">
+            <span class="theme-toggle-icon theme-toggle-icon--sun" aria-hidden="true">
+              <Icon name="sun" size={19} />
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon--moon" aria-hidden="true">
+              <Icon name="moon" size={19} />
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon--crt" data-top-crt-badge aria-hidden="true">
+              ⚡
+            </span>
+          </span>
           <span class="top-theme-caret" aria-hidden="true">▾</span>
         </button>
 
@@ -59,11 +70,15 @@ const headerNav = nav.filter((item) => !item.footerOnly);
             <span class="popover-heading">Theme</span>
             <div class="popover-grid">
               <button type="button" class="popover-opt-btn" data-theme-choice="light" role="menuitem">
-                <span class="opt-icon">☀️</span>
+                <span class="opt-icon-wrap" aria-hidden="true">
+                  <Icon name="sun" size={15} />
+                </span>
                 <span class="opt-text">Light</span>
               </button>
               <button type="button" class="popover-opt-btn" data-theme-choice="dark" role="menuitem">
-                <span class="opt-icon">🌙</span>
+                <span class="opt-icon-wrap" aria-hidden="true">
+                  <Icon name="moon" size={15} />
+                </span>
                 <span class="opt-text">Dark</span>
               </button>
             </div>
@@ -127,11 +142,15 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       <div class="mobile-theme-group">
         <div class="mobile-theme-row" role="radiogroup" aria-label="Theme">
           <button type="button" class="mobile-theme-btn" data-theme-choice="light">
-            <span>☀️</span>
+            <span class="mobile-theme-icon-wrap" aria-hidden="true">
+              <Icon name="sun" size={17} />
+            </span>
             <span>Light</span>
           </button>
           <button type="button" class="mobile-theme-btn" data-theme-choice="dark">
-            <span>🌙</span>
+            <span class="mobile-theme-icon-wrap" aria-hidden="true">
+              <Icon name="moon" size={17} />
+            </span>
             <span>Dark</span>
           </button>
         </div>
@@ -315,10 +334,60 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
   }
 
-  .top-theme-active-icon {
+  .theme-icon-container {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+  }
+
+  .theme-toggle-icon {
+    grid-area: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      opacity var(--transition),
+      transform var(--transition);
+  }
+
+  .theme-toggle-icon--sun {
+    opacity: 1;
+    transform: none;
+  }
+
+  .theme-toggle-icon--moon {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.75);
+  }
+
+  .theme-toggle-icon--crt {
+    opacity: 0;
+    transform: scale(0.75);
     font-size: 1rem;
     line-height: 1;
-    display: inline-block;
+  }
+
+  .top-theme-btn[data-theme-state='dark'] .theme-toggle-icon--sun {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.75);
+  }
+
+  .top-theme-btn[data-theme-state='dark'] .theme-toggle-icon--moon {
+    opacity: 1;
+    transform: none;
+  }
+
+  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--sun,
+  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--moon {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--crt {
+    opacity: 1;
+    transform: none;
   }
 
   .top-theme-caret {
@@ -439,6 +508,14 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     background: rgba(51, 255, 51, 0.12) !important;
   }
 
+  .opt-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+    flex-shrink: 0;
+  }
+
   .opt-icon {
     font-size: 0.95rem;
     line-height: 1;
@@ -501,7 +578,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.35rem;
+    gap: 0.4rem;
     padding: 0.65rem 0.5rem;
     min-height: 44px;
     border: 1px solid var(--color-rule);
@@ -513,6 +590,13 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
+  }
+
+  .mobile-theme-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
   }
 
   .mobile-theme-btn:hover {
@@ -608,14 +692,14 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     const currentTheme = themeApi()?.get() || document.documentElement.dataset.theme || 'light';
     const currentCrt = crtApi()?.get() || document.documentElement.dataset.crtMode || 'off';
 
-    const iconEl = document.querySelector<HTMLElement>('[data-top-theme-icon]');
-    if (iconEl) {
-      if (currentCrt === 'amber') {
-        iconEl.textContent = '⚡';
-      } else if (currentCrt === 'green') {
-        iconEl.textContent = '🟢';
-      } else {
-        iconEl.textContent = currentTheme === 'dark' ? '🌙' : '☀️';
+    const topBtn = document.querySelector<HTMLButtonElement>('[data-top-theme-btn]');
+    const crtBadge = document.querySelector<HTMLElement>('[data-top-crt-badge]');
+    if (topBtn) {
+      topBtn.dataset.themeState = currentTheme;
+      const isCrt = currentCrt === 'amber' || currentCrt === 'green';
+      topBtn.dataset.crtActive = String(isCrt);
+      if (crtBadge) {
+        crtBadge.textContent = currentCrt === 'amber' ? '⚡' : currentCrt === 'green' ? '🟢' : '';
       }
     }
 
