@@ -74,24 +74,38 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
     {!bare && <Header />}
     <script is:inline>
       (() => {
-        const key = 'khc-theme';
+        const themeKey = 'khc-theme';
+        const crtKey = 'khc-crt-mode';
         const colors = { light: '#fafaf8', dark: '#0f1413' };
         const getRoot = () => document.documentElement;
         const media = window.matchMedia('(prefers-color-scheme: dark)');
 
-        const valid = (value) => value === 'light' || value === 'dark';
-        const stored = () => {
+        const validTheme = (value) => value === 'light' || value === 'dark';
+        const validCrt = (value) => value === 'off' || value === 'amber' || value === 'green';
+
+        const storedTheme = () => {
           try {
-            const value = localStorage.getItem(key);
-            return valid(value) ? value : null;
+            const value = localStorage.getItem(themeKey);
+            return validTheme(value) ? value : null;
           } catch {
             return null;
           }
         };
-        const system = () => (media.matches ? 'dark' : 'light');
-        const resolved = () => stored() || system();
 
-        const syncControls = (theme) => {
+        const storedCrt = () => {
+          try {
+            const value = localStorage.getItem(crtKey);
+            return validCrt(value) ? value : null;
+          } catch {
+            return null;
+          }
+        };
+
+        const systemTheme = () => (media.matches ? 'dark' : 'light');
+        const resolvedTheme = () => storedTheme() || systemTheme();
+        const resolvedCrt = () => storedCrt() || 'off';
+
+        const syncControls = (theme, crt) => {
           const nextLabel = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
           for (const button of document.querySelectorAll('[data-theme-toggle]')) {
             button.dataset.themeState = theme;
@@ -99,57 +113,126 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
             button.setAttribute('title', nextLabel);
             button.setAttribute('aria-pressed', String(theme === 'dark'));
           }
+
+          document.querySelectorAll('[data-theme-choice]').forEach((btn) => {
+            const choice = btn.dataset.themeChoice;
+            const isActive = choice === theme;
+            btn.setAttribute('aria-checked', String(isActive));
+            btn.classList.toggle('is-active', isActive);
+          });
+
+          document.querySelectorAll('[data-crt-choice]').forEach((btn) => {
+            const choice = btn.dataset.crtChoice;
+            const isActive = choice === crt;
+            btn.setAttribute('aria-checked', String(isActive));
+            btn.classList.toggle('is-active', isActive);
+          });
         };
 
         const syncMeta = (theme, doc = document) => {
           const meta = doc.querySelector('[data-theme-color]');
-          if (meta) meta.setAttribute('content', colors[theme]);
+          if (meta) meta.setAttribute('content', colors[theme] || colors.light);
         };
 
-        const apply = (theme, persist = false) => {
-          const next = valid(theme) ? theme : system();
+        const syncCrtOverlay = (crt) => {
+          let overlay = document.getElementById('crt-screen-overlay');
+          if (crt === 'amber' || crt === 'green') {
+            if (!overlay) {
+              overlay = document.createElement('div');
+              overlay.id = 'crt-screen-overlay';
+              document.body.appendChild(overlay);
+            }
+          } else {
+            if (overlay) {
+              overlay.remove();
+            }
+          }
+        };
+
+        const applyTheme = (theme, persist = false) => {
+          const next = validTheme(theme) ? theme : systemTheme();
           const root = getRoot();
           if (persist) {
             try {
-              localStorage.setItem(key, next);
+              localStorage.setItem(themeKey, next);
             } catch {}
           }
           root.dataset.theme = next;
           root.style.colorScheme = next;
           syncMeta(next);
-          syncControls(next);
+          syncControls(next, root.dataset.crtMode || resolvedCrt());
           document.dispatchEvent(new CustomEvent('khc:theme-change', { detail: { theme: next } }));
+          return next;
+        };
+
+        const applyCrt = (mode, persist = false) => {
+          const next = validCrt(mode) ? mode : 'off';
+          const root = getRoot();
+          if (persist) {
+            try {
+              localStorage.setItem(crtKey, next);
+            } catch {}
+          }
+          if (next === 'amber' || next === 'green') {
+            root.dataset.crtMode = next;
+          } else {
+            delete root.dataset.crtMode;
+          }
+          syncCrtOverlay(next);
+          syncControls(root.dataset.theme || resolvedTheme(), next);
+          document.dispatchEvent(new CustomEvent('khc:crt-change', { detail: { mode: next } }));
           return next;
         };
 
         if (!window.__khcTheme) {
           window.__khcTheme = {
-            get: () => getRoot().dataset.theme || resolved(),
-            apply: (theme) => apply(theme, false),
-            set: (theme) => apply(theme, true),
-            toggle: () => apply((getRoot().dataset.theme || resolved()) === 'dark' ? 'light' : 'dark', true),
-            sync: () => apply(resolved(), false),
+            get: () => getRoot().dataset.theme || resolvedTheme(),
+            apply: (theme) => applyTheme(theme, false),
+            set: (theme) => applyTheme(theme, true),
+            toggle: () => applyTheme((getRoot().dataset.theme || resolvedTheme()) === 'dark' ? 'light' : 'dark', true),
+            sync: () => applyTheme(resolvedTheme(), false),
+          };
+
+          window.__khcCrt = {
+            get: () => getRoot().dataset.crtMode || resolvedCrt(),
+            apply: (mode) => applyCrt(mode, false),
+            set: (mode) => applyCrt(mode, true),
+            toggle: () => applyCrt((getRoot().dataset.crtMode || resolvedCrt()) === 'off' ? 'amber' : 'off', true),
+            cycle: () => {
+              const current = getRoot().dataset.crtMode || resolvedCrt();
+              const next = current === 'off' ? 'amber' : current === 'amber' ? 'green' : 'off';
+              return applyCrt(next, true);
+            },
+            sync: () => applyCrt(resolvedCrt(), false),
           };
 
           media.addEventListener('change', () => {
-            if (!stored()) apply(system(), false);
+            if (!storedTheme()) applyTheme(systemTheme(), false);
           });
 
           document.addEventListener('astro:before-swap', (event) => {
-            const theme = getRoot().dataset.theme || resolved();
+            const theme = getRoot().dataset.theme || resolvedTheme();
+            const crt = getRoot().dataset.crtMode || resolvedCrt();
             const nextDocument = event.newDocument;
             if (!nextDocument) return;
             nextDocument.documentElement.dataset.theme = theme;
             nextDocument.documentElement.style.colorScheme = theme;
+            if (crt === 'amber' || crt === 'green') {
+              nextDocument.documentElement.dataset.crtMode = crt;
+            } else {
+              delete nextDocument.documentElement.dataset.crtMode;
+            }
             syncMeta(theme, nextDocument);
           });
 
           document.addEventListener('astro:page-load', () => {
             window.__khcTheme.sync();
+            window.__khcCrt.sync();
           });
         }
 
         window.__khcTheme.sync();
+        window.__khcCrt.sync();
       })();
     </script>
     <main id="main" class:list={[bare && 'main--bare']}>

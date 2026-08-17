@@ -1,6 +1,7 @@
 ---
 import Socials from './Socials.astro';
 import SequenceTrack from './SequenceTrack.astro';
+import ThemeSwitcher from './ThemeSwitcher.astro';
 import { site, nav } from '../data/site';
 const year = new Date().getFullYear();
 ---
@@ -32,19 +33,24 @@ const year = new Date().getFullYear();
   </div>
 
   <div class="container footer-base">
-    <p class="muted">© {year} {site.name}</p>
-    <p class="muted footer-colophon">
-      Built with Astro · {site.philosophy}
-      <button
-        type="button"
-        class="dna-rain-trigger-btn"
-        data-trigger-dna-rain
-        title="Launch DNA Matrix Rain (or type 'dna' anywhere)"
-        aria-label="Launch DNA Matrix Rain"
-      >
-        🧬
-      </button>
-    </p>
+    <div class="footer-base-left">
+      <p class="muted">© {year} {site.name}</p>
+      <p class="muted footer-colophon">
+        Built with Astro · {site.philosophy}
+        <button
+          type="button"
+          class="dna-rain-trigger-btn"
+          data-trigger-dna-rain
+          title="Launch DNA Matrix Rain (or type 'dna' anywhere)"
+          aria-label="Launch DNA Matrix Rain"
+        >
+          🧬
+        </button>
+      </p>
+    </div>
+    <div class="footer-base-right">
+      <ThemeSwitcher />
+    </div>
   </div>
 </footer>
 
@@ -102,14 +108,23 @@ const year = new Date().getFullYear();
   .footer-base {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: 1rem;
     margin-top: clamp(2rem, 4vw, 3rem);
     padding-top: var(--space-5);
     border-top: 1px solid var(--color-rule);
     font-size: var(--fs-small);
   }
-  .footer-base > * {
+  .footer-base-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+  .footer-base-right {
+    display: flex;
+    align-items: center;
     min-width: 0;
   }
   .footer-colophon {
@@ -135,12 +150,20 @@ const year = new Date().getFullYear();
     transform: scale(1.25) rotate(12deg);
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .footer-grid {
       grid-template-columns: 1fr 1fr;
     }
     .footer-brand {
       grid-column: 1 / -1;
+    }
+    .footer-base {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.25rem;
+    }
+    .footer-base-right {
+      width: 100%;
     }
   }
 </style>
