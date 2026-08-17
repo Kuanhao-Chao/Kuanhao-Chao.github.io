@@ -1229,6 +1229,10 @@ describe('unix utilities and content navigation commands', () => {
     const manDuel = exec(state, 'man duel');
     expect(joined(manDuel.lines)).toContain('DUEL(1)');
     expect(joined(manDuel.lines)).toContain('Wavefront Alignment');
+
+    const manIsm = exec(state, 'man ism');
+    expect(joined(manIsm.lines)).toContain('ISM(1)');
+    expect(joined(manIsm.lines)).toContain('In Silico Mutagenesis');
   });
 
   it('duel command navigates to the algorithm duel arena', () => {
@@ -1238,6 +1242,15 @@ describe('unix utilities and content navigation commands', () => {
 
     const raceOut = exec(state, 'race');
     expect(raceOut.effect).toEqual({ type: 'navigate', href: '/algorithms/duel/' });
+  });
+
+  it('ism command navigates to the ISM splice visualizer', () => {
+    const state = shell();
+    const ismOut = exec(state, 'ism');
+    expect(ismOut.effect).toEqual({ type: 'navigate', href: '/algorithms/ism/' });
+
+    const spliceaiOut = exec(state, 'spliceai');
+    expect(spliceaiOut.effect).toEqual({ type: 'navigate', href: '/algorithms/ism/' });
   });
 });
 

@@ -1,0 +1,311 @@
+/**
+ * In Silico Mutagenesis (ISM) & Splice Site Deep Learning Styling
+ */
+
+.ism-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+}
+
+.ism-toolbar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ism-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ism-label {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.ism-input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ism-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(45, 125, 210, 0.15);
+}
+
+.ism-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ism-preset-btn {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.65rem;
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: all var(--trans-fast);
+}
+
+.ism-preset-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(45, 125, 210, 0.06);
+}
+
+.ism-preset-btn.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+/* Overview Banner & Live Gauges */
+.ism-summary-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: var(--space-5);
+}
+
+@media (max-width: 860px) {
+  .ism-summary-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ism-gauge-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+.ism-gauge-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ism-gauge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.ism-gauge-bar {
+  height: 10px;
+  background: var(--color-border);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.ism-gauge-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.ism-fill-donor {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.ism-fill-acceptor {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+/* Variant Effect Classification Pill */
+.ism-impact-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  width: fit-content;
+}
+
+.ism-impact-neutral {
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+.ism-impact-disruption {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.ism-impact-gain {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* SVG Sequence Logo Track */
+.ism-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ism-card-header {
+  padding: var(--space-3) var(--space-4);
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: var(--fs-base);
+}
+
+.ism-card-body {
+  padding: var(--space-4);
+  overflow-x: auto;
+}
+
+.ism-logo-svg {
+  width: 100%;
+  min-width: 600px;
+  height: 140px;
+  display: block;
+}
+
+/* In Silico Mutagenesis Heatmap Matrix Table */
+.ism-matrix-table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  user-select: none;
+}
+
+.ism-matrix-table th,
+.ism-matrix-table td {
+  padding: 0.35rem 0.2rem;
+  text-align: center;
+  border: 1px solid var(--color-border);
+}
+
+.ism-matrix-table th {
+  background: rgba(0, 0, 0, 0.03);
+  font-weight: 600;
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+}
+
+.ism-matrix-table th.ref-col {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
+.ism-matrix-row-header {
+  background: rgba(0, 0, 0, 0.03);
+  font-weight: 700;
+  width: 2.25rem;
+}
+
+.ism-cell {
+  cursor: pointer;
+  transition: all var(--trans-fast);
+  position: relative;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+
+.ism-cell:hover {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -1px;
+  z-index: 10;
+}
+
+.ism-cell.is-ref {
+  box-shadow: inset 0 0 0 2px var(--color-ink);
+  font-weight: 800;
+}
+
+/* Color grading for delta scores */
+.ism-cell-neutral {
+  background: var(--color-bg);
+  color: var(--color-muted);
+}
+
+.ism-cell-disrupt-mild {
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
+}
+
+.ism-cell-disrupt-med {
+  background: rgba(239, 68, 68, 0.35);
+  color: #991b1b;
+}
+
+.ism-cell-disrupt-severe {
+  background: rgba(239, 68, 68, 0.65);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.ism-cell-gain-mild {
+  background: rgba(139, 92, 246, 0.15);
+  color: #6d28d9;
+}
+
+.ism-cell-gain-med {
+  background: rgba(139, 92, 246, 0.35);
+  color: #5b21b6;
+}
+
+.ism-cell-gain-severe {
+  background: rgba(139, 92, 246, 0.65);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Tooltip & Inspection Box */
+.ism-inspector-box {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--fs-small);
+}
