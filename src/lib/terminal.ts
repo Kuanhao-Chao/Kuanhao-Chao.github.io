@@ -2198,6 +2198,17 @@ export const COMMANDS: Record<string, Cmd> = {
     },
   },
 
+  algorithms: {
+    summary: 'interactive algorithm visualizers',
+    run: () => ({
+      lines: [
+        { text: 'Opening FM-Index & BWT Backward Search Visualizer…', tone: 'ok' },
+        { text: '→ /algorithms/', tone: 'accent', href: '/algorithms/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/' },
+    }),
+  },
+
   sudo: {
     summary: 'execute a command as another user',
     run: ({ argv }) => [
@@ -2223,6 +2234,8 @@ export const ALIASES: Record<string, string> = {
   weather: 'curl wttr.in',
   nw: 'align',
   scanlines: 'crt',
+  fmindex: 'algorithms',
+  bwt: 'algorithms',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
