@@ -1,0 +1,304 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/pairwise.css';
+---
+
+<PageLayout
+  title="Needleman-Wunsch & Smith-Waterman Alignment"
+  eyebrow="Pairwise DP Sandbox"
+  lead="Interactive exploration of global (Needleman-Wunsch), local (Smith-Waterman), and affine gap penalty dynamic programming pairwise sequence alignment."
+  description="Interactive visualizer for Needleman-Wunsch, Smith-Waterman, and Gotoh affine gap sequence alignment by Kuan-Hao Chao. Inspect 2D DP matrices and animated traceback paths."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="pw-visualizer" data-pw-visualizer aria-label="Pairwise Alignment Visualizer">
+    <!-- Toolbar: Inputs, Mode, Scoring, Presets -->
+    <div class="pw-toolbar">
+      <div class="pw-input-group">
+        <label class="pw-label" for="pw-seq1">
+          <span>Sequence 1 (Target / Rows)</span>
+        </label>
+        <input
+          id="pw-seq1"
+          class="pw-input"
+          type="text"
+          data-pw-seq1
+          value="ACGTAGCTA"
+          spellcheck="false"
+          autocomplete="off"
+        />
+
+        <label class="pw-label" for="pw-seq2" style="margin-top: var(--space-2);">
+          <span>Sequence 2 (Query / Columns)</span>
+        </label>
+        <input
+          id="pw-seq2"
+          class="pw-input"
+          type="text"
+          data-pw-seq2
+          value="ACGTCGCTA"
+          spellcheck="false"
+          autocomplete="off"
+        />
+
+        <div class="pw-presets">
+          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
+          <button
+            type="button"
+            class="pw-preset-btn"
+            data-pw-preset
+            data-pw-s1="ACGTAGCTA"
+            data-pw-s2="ACGTCGCTA"
+            data-pw-mode="global"
+            data-pw-gap-model="linear"
+          >
+            Mismatch (Global)
+          </button>
+          <button
+            type="button"
+            class="pw-preset-btn"
+            data-pw-preset
+            data-pw-s1="GATTACA"
+            data-pw-s2="GACTTA"
+            data-pw-mode="global"
+            data-pw-gap-model="linear"
+          >
+            Indel Gap
+          </button>
+          <button
+            type="button"
+            class="pw-preset-btn"
+            data-pw-preset
+            data-pw-s1="NNNAGCTAGCNNN"
+            data-pw-s2="XXAGCTAGCXX"
+            data-pw-mode="local"
+            data-pw-gap-model="linear"
+          >
+            Local Motif (SW)
+          </button>
+          <button
+            type="button"
+            class="pw-preset-btn"
+            data-pw-preset
+            data-pw-s1="ACCCCCCGT"
+            data-pw-s2="ACGT"
+            data-pw-mode="global"
+            data-pw-gap-model="affine"
+          >
+            Affine Gap (Gotoh)
+          </button>
+          <button
+            type="button"
+            class="pw-preset-btn"
+            data-pw-preset
+            data-pw-s1="ATGCGATCGATC"
+            data-pw-s2="ATGCGATC"
+            data-pw-mode="semiglobal"
+            data-pw-gap-model="linear"
+          >
+            Semi-Global Fitting
+          </button>
+        </div>
+      </div>
+
+      <div class="pw-input-group">
+        <span style="font-size: var(--fs-small); font-weight: 600; color: var(--color-ink);">
+          Alignment Mode &amp; Scoring Matrix
+        </span>
+
+        <div class="pw-mode-selector">
+          <button type="button" class="pw-mode-btn pw-mode-btn--active" data-pw-mode="global">
+            Global (NW)
+          </button>
+          <button type="button" class="pw-mode-btn" data-pw-mode="local">
+            Local (SW)
+          </button>
+          <button type="button" class="pw-mode-btn" data-pw-mode="semiglobal">
+            Semi-Global
+          </button>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-2);">
+          <span style="font-size: var(--fs-meta); font-weight: 600; color: var(--color-muted);">Gap Penalty Model:</span>
+          <select data-pw-gap-model style="font-family: var(--font-mono); font-size: 0.8rem; padding: 0.2rem 0.4rem; border-radius: var(--radius); border: 1px solid var(--color-rule); background: var(--color-bg); color: var(--color-ink);">
+            <option value="linear" selected>Linear (Constant Gap)</option>
+            <option value="affine">Affine Gotoh (Open + Extend)</option>
+          </select>
+        </div>
+
+        <div class="pw-scoring-grid">
+          <div class="pw-score-box">
+            <label for="pw-match-input">Match</label>
+            <input id="pw-match-input" type="number" class="pw-score-input" value="2" data-pw-match />
+          </div>
+          <div class="pw-score-box">
+            <label for="pw-mismatch-input">Mismatch</label>
+            <input id="pw-mismatch-input" type="number" class="pw-score-input" value="-1" data-pw-mismatch />
+          </div>
+          <div class="pw-score-box">
+            <label for="pw-gap-open-input">Gap Open</label>
+            <input id="pw-gap-open-input" type="number" class="pw-score-input" value="-3" data-pw-gap-open />
+          </div>
+          <div class="pw-score-box">
+            <label for="pw-gap-extend-input">Gap Ext</label>
+            <input id="pw-gap-extend-input" type="number" class="pw-score-input" value="-1" data-pw-gap-extend />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transport Controls -->
+    <div class="pw-transport-bar">
+      <div class="pw-btn-group">
+        <button type="button" class="pw-btn pw-btn--primary" data-pw-play title="Animate traceback path">
+          Play ▶
+        </button>
+        <button type="button" class="pw-btn" data-pw-prev title="Previous traceback step">
+          ⇤ Step
+        </button>
+        <button type="button" class="pw-btn" data-pw-next title="Next traceback step">
+          Step ⇥
+        </button>
+        <button type="button" class="pw-btn" data-pw-reset title="Reset visualizer">
+          ↺ Reset
+        </button>
+      </div>
+
+      <div class="pw-step-indicator" data-pw-step-indicator>
+        Complete
+      </div>
+
+      <div class="fm-speed-select">
+        <label for="pw-speed-val">Speed:</label>
+        <select id="pw-speed-val" data-pw-speed>
+          <option value="2000">Slow (2.0s)</option>
+          <option value="1200" selected>Normal (1.2s)</option>
+          <option value="600">Fast (0.6s)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Formatted Alignment Ribbon & Stats -->
+    <div class="pw-alignment-card">
+      <div class="pw-alignment-header">
+        <span>Optimal Pairwise Alignment:</span>
+        <div class="pw-stats-row">
+          <div class="pw-stat-item">
+            <span>Score:</span>
+            <strong data-pw-score>0</strong>
+          </div>
+          <div class="pw-stat-item">
+            <span>Identity:</span>
+            <strong data-pw-identity>0%</strong>
+          </div>
+          <div class="pw-stat-item">
+            <span>Length:</span>
+            <strong data-pw-length>0 bp</strong>
+          </div>
+          <div class="pw-stat-item">
+            <span>Gaps:</span>
+            <strong data-pw-gaps>0</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="pw-alignment-viewer">
+        <div class="pw-seq-line" data-pw-seq1-line></div>
+        <div class="pw-match-line" data-pw-match-line></div>
+        <div class="pw-seq-line" data-pw-seq2-line></div>
+      </div>
+    </div>
+
+    <!-- Main Grid: 2D Matrix Table & Formula Inspector -->
+    <div class="pw-grid">
+      <!-- 2D DP Matrix Table -->
+      <div class="pw-card">
+        <div class="pw-card-header">
+          <span>2D Dynamic Programming Score Matrix</span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Hover cell to inspect recurrence</span>
+        </div>
+        <div class="pw-card-body">
+          <table class="pw-matrix-table">
+            <thead data-pw-matrix-thead></thead>
+            <tbody data-pw-matrix-tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Step Calculation Inspector -->
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div class="pw-calc-box" data-pw-calc-box></div>
+
+        <div class="pw-card">
+          <div class="pw-card-header">
+            <span>Alignment Recurrence Formulation</span>
+          </div>
+          <div class="pw-card-body" style="font-size: var(--fs-small); line-height: 1.6; color: var(--color-muted);">
+            <p style="margin: 0 0 0.5rem 0;">
+              At each cell <code style="color: var(--color-ink); font-weight: 600;">(i, j)</code>, the optimal score is selected from three transitions:
+            </p>
+            <ul style="padding-left: 1.25rem; margin: 0 0 0.5rem 0;">
+              <li><strong>↖ Diagonal:</strong> Align base <code style="color: var(--color-ink);">S1[i]</code> to <code style="color: var(--color-ink);">S2[j]</code> (Match / Mismatch).</li>
+              <li><strong>↑ Up:</strong> Insert gap in <code style="color: var(--color-ink);">S2</code> (Deletion in target).</li>
+              <li><strong>← Left:</strong> Insert gap in <code style="color: var(--color-ink);">S1</code> (Insertion in target).</li>
+            </ul>
+            <p style="margin: 0;">
+              In <strong>Smith-Waterman (Local)</strong>, negative scores are reset to <strong>0</strong>, allowing isolated high-scoring local alignment islands to emerge.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational Deep-Dives -->
+    <div class="pw-educational-grid">
+      <div class="pw-edu-card">
+        <h3>Global vs Local Alignment</h3>
+        <p>
+          <strong>Needleman-Wunsch (1970)</strong> aligns sequences end-to-end (ideal for homologous genes of equal length).
+          <strong>Smith-Waterman (1981)</strong> identifies the highest-scoring local subsegment (essential for finding conserved domains embedded in noisy non-coding regions).
+        </p>
+      </div>
+
+      <div class="pw-edu-card">
+        <h3>Gotoh 3-Matrix Affine Gaps</h3>
+        <p>
+          Biological insertions/deletions often span multiple contiguous nucleotides.
+          Gotoh (1982) separated gap opening (<i>g</i><sub>open</sub>) and gap extension (<i>g</i><sub>ext</sub>) into three interleaved matrices (<i>M, I<sub>x</sub>, I<sub>y</sub></i>), achieving <i>O(MN)</i> time instead of naive <i>O(MN<sup>2</sup>)</i>.
+        </p>
+      </div>
+
+      <div class="pw-edu-card">
+        <h3>SIMD Vectorization in Modern Aligners</h3>
+        <p>
+          Modern aligners (Minimap2, BWA-MEM2, Parasail) vectorize DP matrix filling using SSE4.1, AVX2, and AVX-512 vector instructions (Suzuki-Kasahara 2-piece affine formulation), computing 16–32 cells per CPU cycle.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initPairwiseVisualizer, type PairwiseVisualizerController } from '../../scripts/pairwiseVisualizer';
+
+  let controller: PairwiseVisualizerController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initPairwiseVisualizer(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>

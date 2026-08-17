@@ -49,15 +49,15 @@ const algorithms: AlgorithmEntry[] = [
     actionText: 'Read deep dive & interactive demo',
   },
   {
-    id: 'needleman-wunsch',
-    title: 'Needleman-Wunsch Pairwise Sequence Alignment',
+    id: 'pairwise',
+    title: 'Needleman-Wunsch & Smith-Waterman Alignment',
     area: 'Sequence Alignment & Dynamic Programming',
-    tag: 'Global Alignment',
+    tag: 'Global & Local DP',
     summary:
-      'Exact O(MN) global dynamic programming sequence alignment with match, mismatch, and affine gap scoring matrix traceback.',
-    href: '/terminal/',
-    badge: 'Terminal Builtin',
-    actionText: 'Open in khcOS terminal',
+      'Exact 2D dynamic programming pairwise sequence alignment supporting global (Needleman-Wunsch), local (Smith-Waterman), and Gotoh affine gap penalties.',
+    href: '/algorithms/pairwise/',
+    badge: 'Interactive Visualizer',
+    actionText: 'Launch interactive visualizer',
     cliCommand: 'align ACGTAGCTA ACGTCGCTA',
   },
   {

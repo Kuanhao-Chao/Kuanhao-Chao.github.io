@@ -2231,6 +2231,17 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  pairwise: {
+    summary: 'launch Needleman-Wunsch & Smith-Waterman pairwise alignment sandbox',
+    run: () => ({
+      lines: [
+        { text: 'Opening Pairwise Alignment Dynamic Programming Sandbox…', tone: 'ok' },
+        { text: '→ /algorithms/pairwise/', tone: 'accent', href: '/algorithms/pairwise/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/pairwise/' },
+    }),
+  },
+
   sudo: {
     summary: 'execute a command as another user',
     run: ({ argv }) => [
@@ -2255,6 +2266,7 @@ export const ALIASES: Record<string, string> = {
   wget: 'curl',
   weather: 'curl wttr.in',
   nw: 'align',
+  sw: 'pairwise',
   scanlines: 'crt',
   minimizer: 'minimap2',
   chaining: 'minimap2',
