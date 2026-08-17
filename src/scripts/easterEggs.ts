@@ -109,6 +109,14 @@ export function initEasterEggs(): () => void {
   const onRibosome = () => openRibosomeGame();
   const onSynth = () => startDnaSynth();
   const onDnaRain = () => startDnaRain();
+  const onSetBg = (e: CustomEvent<{ mode?: string }>) => {
+    const mode = e.detail?.mode;
+    const bgApi = (window as unknown as { __khcBg?: { set: (m: string) => void; next: () => void } }).__khcBg;
+    if (bgApi) {
+      if (mode === 'next') bgApi.next();
+      else if (mode) bgApi.set(mode as any);
+    }
+  };
 
   window.addEventListener('keydown', onGlobalKeyDown);
   window.addEventListener('khc:start-crispr', onCrispr as EventListener);
@@ -117,6 +125,7 @@ export function initEasterEggs(): () => void {
   window.addEventListener('khc:start-ribosome', onRibosome as EventListener);
   window.addEventListener('khc:start-synth', onSynth as EventListener);
   window.addEventListener('khc:start-dna-rain', onDnaRain as EventListener);
+  window.addEventListener('khc:set-bg', onSetBg as EventListener);
 
   return () => {
     window.removeEventListener('keydown', onGlobalKeyDown);
@@ -126,6 +135,7 @@ export function initEasterEggs(): () => void {
     window.removeEventListener('khc:start-ribosome', onRibosome as EventListener);
     window.removeEventListener('khc:start-synth', onSynth as EventListener);
     window.removeEventListener('khc:start-dna-rain', onDnaRain as EventListener);
+    window.removeEventListener('khc:set-bg', onSetBg as EventListener);
 
     stopCrisprMode();
     stopZeroGravity();
