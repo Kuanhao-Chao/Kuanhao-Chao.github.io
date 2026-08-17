@@ -3,9 +3,10 @@
  * Full-Site Dual-Layer Theme & CRT Switcher Component.
  *
  * Provides two independent controls:
- * 1. Base System Theme: Light (☀️) / Dark (🌙)
- * 2. 1988 NIH CRT Display Mode: Off (🖥️) / Amber (⚡) / Green (🟢)
+ * 1. Base System Theme: Light (Sun icon) / Dark (Moon icon)
+ * 2. 1988 NIH CRT Display Mode: Modern / Amber CRT / Green CRT
  */
+import Icon from './Icon.astro';
 ---
 
 <div class="theme-switcher-container" aria-label="Site appearance and display settings">
@@ -20,7 +21,9 @@
       title="Switch to Light Theme"
       aria-label="Light Theme"
     >
-      <span class="theme-icon" aria-hidden="true">☀️</span>
+      <span class="theme-icon-wrap" aria-hidden="true">
+        <Icon name="sun" size={15} />
+      </span>
       <span class="theme-label">Light</span>
     </button>
 
@@ -33,7 +36,9 @@
       title="Switch to Dark Theme"
       aria-label="Dark Theme"
     >
-      <span class="theme-icon" aria-hidden="true">🌙</span>
+      <span class="theme-icon-wrap" aria-hidden="true">
+        <Icon name="moon" size={15} />
+      </span>
       <span class="theme-label">Dark</span>
     </button>
   </div>
@@ -207,6 +212,13 @@
     color: #33ff33 !important;
     border-color: #33ff33 !important;
     background: rgba(51, 255, 51, 0.12) !important;
+  }
+
+  .theme-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
   }
 
   .theme-icon {
