@@ -1225,6 +1225,19 @@ describe('unix utilities and content navigation commands', () => {
 
     const manGit = exec(state, 'man git');
     expect(joined(manGit.lines)).toContain('GIT(1)');
+
+    const manDuel = exec(state, 'man duel');
+    expect(joined(manDuel.lines)).toContain('DUEL(1)');
+    expect(joined(manDuel.lines)).toContain('Wavefront Alignment');
+  });
+
+  it('duel command navigates to the algorithm duel arena', () => {
+    const state = shell();
+    const duelOut = exec(state, 'duel');
+    expect(duelOut.effect).toEqual({ type: 'navigate', href: '/algorithms/duel/' });
+
+    const raceOut = exec(state, 'race');
+    expect(raceOut.effect).toEqual({ type: 'navigate', href: '/algorithms/duel/' });
   });
 });
 

@@ -1320,6 +1320,28 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
     ];
   }
 
+  if (t === 'duel' || t === 'race' || t === 'benchmark') {
+    return [
+      { text: 'DUEL(1)                     Genomics Benchmarks                     DUEL(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    duel — Algorithm Duel: Needleman-Wunsch DP vs Wavefront Alignment (WFA)' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    duel [seq1] [seq2]' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Interactive head-to-head performance duel and synchronized pseudocode debugger' },
+      { text: '    comparing classical O(N²) dynamic programming against diagonal WFA O(s·d).' },
+      { text: '' },
+      { text: 'INTERACTIVE ARENA', tone: 'accent' },
+      { text: '    → /algorithms/duel/', tone: 'accent', href: '/algorithms/duel/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    pairwise(1), wfa(1)' },
+    ];
+  }
+
   return null;
 }
 
@@ -1329,7 +1351,7 @@ export const COMMANDS: Record<string, Cmd> = {
     run: () => {
       const groups: [string, string[]][] = [
         ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'head', 'tail', 'wc', 'sort', 'uniq', 'less', 'tree', 'find', 'grep', 'git']],
-        ['genomics & algorithms', ['align', 'minimap2', 'fmindex', 'wfa', 'debruijn', 'stringgraph', 'phmm', 'ghmm', 'tview', 'samtools', 'seqkit', 'gffbase', 'fastqc', 'codon', 'bedtools', 'blastn', 'splice']],
+        ['genomics & algorithms', ['align', 'duel', 'minimap2', 'fmindex', 'wfa', 'debruijn', 'stringgraph', 'phmm', 'ghmm', 'tview', 'samtools', 'seqkit', 'gffbase', 'fastqc', 'codon', 'bedtools', 'blastn', 'splice']],
         ['content', ['about', 'publications', 'software', 'talks', 'posts', 'research', 'projects', 'news', 'cv', 'contact', 'socials']],
         ['system', ['man', 'uname', 'uptime', 'top', 'date', 'cal', 'curl', 'env', 'neofetch', 'theme', 'crt', 'sound', 'history', 'clear', 'echo']],
         ['toys & games', ['cowsay', 'fortune', 'matrix', 'games', 'snake', 'tetris']],
@@ -2675,6 +2697,17 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  duel: {
+    summary: 'launch Algorithm Duel: Needleman-Wunsch DP vs Wavefront Alignment (WFA)',
+    run: () => ({
+      lines: [
+        { text: 'Opening Algorithm Duel Benchmark Arena (NW vs WFA)…', tone: 'ok' },
+        { text: '→ /algorithms/duel/', tone: 'accent', href: '/algorithms/duel/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/duel/' },
+    }),
+  },
+
   git: {
     summary: 'academic git version control & career commit graph',
     usage: 'git [log|tree|status|branch|diff]',
@@ -2800,11 +2833,12 @@ export const ALIASES: Record<string, string> = {
   viterbi: 'phmm',
   genscan: 'ghmm',
   augustus: 'ghmm',
-  gene: 'ghmm',
   status: 'git status',
   log: 'git log',
   gittree: 'git tree',
   view: 'tview',
+  race: 'duel',
+  benchmark: 'duel',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
