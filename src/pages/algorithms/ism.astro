@@ -1,0 +1,195 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/ism.css';
+import { ISM_PRESETS } from '../../lib/ism';
+---
+
+<PageLayout
+  title="In Silico Mutagenesis (ISM) & Splice Site Deep Learning"
+  eyebrow="Genomic Deep Learning Sandbox"
+  lead="Interactive exploration of neural in silico mutagenesis, position importance profiles, and splice site disruption scoring from OpenSpliceAI and Splam."
+  description="Interactive visualizer for In Silico Mutagenesis (ISM) and deep learning splice site variant effect scoring by Kuan-Hao Chao. Explore 4xL mutation heatmaps and importance logos."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="ism-container" data-ism-visualizer aria-label="In Silico Mutagenesis Visualizer">
+    <!-- Toolbar: Inputs, Type, Presets -->
+    <div class="ism-toolbar">
+      <div style="display: grid; grid-template-columns: 2.5fr 1fr; gap: var(--space-4);">
+        <div class="ism-input-group">
+          <label class="ism-label" for="ism-seq">Splice Junction Sequence (5' → 3')</label>
+          <input
+            id="ism-seq"
+            class="ism-input"
+            type="text"
+            data-ism-seq
+            value="TTTTTTTTCTTTCAGGTGAAG"
+            spellcheck="false"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="ism-input-group">
+          <label class="ism-label" for="ism-type">Junction Model</label>
+          <select id="ism-type" class="ism-input" data-ism-type>
+            <option value="acceptor" selected>3' Acceptor Site (AG)</option>
+            <option value="donor">5' Donor Site (GT)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ism-presets-row">
+        <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Presets:</span>
+        {
+          ISM_PRESETS.map((p, idx) => (
+            <button
+              type="button"
+              class={`ism-preset-btn ${idx === 0 ? 'active' : ''}`}
+              data-ism-preset={p.id}
+            >
+              {p.name}
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <!-- Active Preset Context & Live Neural Gauges -->
+    <div class="ism-summary-card">
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <h3 style="margin: 0; font-size: var(--fs-base); color: var(--color-ink);" data-ism-preset-title>
+            {ISM_PRESETS[0].name} ({ISM_PRESETS[0].gene})
+          </h3>
+        </div>
+        <p style="margin: 0 0 var(--space-3) 0; font-size: var(--fs-small); color: var(--color-muted); line-height: 1.5;" data-ism-preset-desc>
+          {ISM_PRESETS[0].description} {ISM_PRESETS[0].clinicalNote}
+        </p>
+        <div data-ism-impact-badge class="ism-impact-badge ism-impact-gain">
+          Active Canonical Acceptor (P = 0.96)
+        </div>
+      </div>
+
+      <div class="ism-gauge-group">
+        <div class="ism-gauge-item">
+          <div class="ism-gauge-header">
+            <span>5' Splice Donor Probability P(Donor)</span>
+            <span style="font-family: var(--font-mono); color: #3b82f6;" data-ism-donor-score>0.010 (1.0%)</span>
+          </div>
+          <div class="ism-gauge-bar">
+            <div class="ism-gauge-fill ism-fill-donor" data-ism-donor-fill style="width: 1%;"></div>
+          </div>
+        </div>
+
+        <div class="ism-gauge-item">
+          <div class="ism-gauge-header">
+            <span>3' Splice Acceptor Probability P(Acceptor)</span>
+            <span style="font-family: var(--font-mono); color: #10b981;" data-ism-acceptor-score>0.960 (96.0%)</span>
+          </div>
+          <div class="ism-gauge-bar">
+            <div class="ism-gauge-fill ism-fill-acceptor" data-ism-acceptor-fill style="width: 96%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sequence Logo: Position Importance Profile -->
+    <div class="ism-card">
+      <div class="ism-card-header">
+        <span>Position Importance Profile (In Silico Mutagenesis Logo)</span>
+        <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 500;">
+          Height ∝ mean(<i>P</i><sub>ref</sub> − <i>P</i><sub>mut</sub>)
+        </span>
+      </div>
+      <div class="ism-card-body">
+        <svg class="ism-logo-svg" data-ism-logo-svg aria-label="Dynamic Sequence Logo"></svg>
+      </div>
+    </div>
+
+    <!-- 4xL Mutation Heatmap Grid -->
+    <div class="ism-card">
+      <div class="ism-card-header">
+        <span>In Silico Mutagenesis (ISM) ΔScore Matrix (4 × L)</span>
+        <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 500;">
+          Hover for live preview · Click cell to apply mutation
+        </span>
+      </div>
+      <div class="ism-card-body">
+        <table class="ism-matrix-table">
+          <thead data-ism-matrix-thead></thead>
+          <tbody data-ism-matrix-tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Live Inspector Bar -->
+    <div class="ism-inspector-box">
+      <span style="font-family: var(--font-mono); color: var(--color-ink);" data-ism-inspector-text>
+        Hover any cell in the heatmap matrix above to preview variant effect delta.
+      </span>
+      <div style="display: flex; gap: 0.75rem; font-size: var(--fs-meta); color: var(--color-muted);">
+        <span style="display: inline-flex; align-items: center; gap: 0.25rem;">
+          <span style="width: 10px; height: 10px; background: rgba(239, 68, 68, 0.65); border-radius: 2px;"></span>
+          Disruption (Δ &lt; -0.2)
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 0.25rem;">
+          <span style="width: 10px; height: 10px; background: rgba(139, 92, 246, 0.65); border-radius: 2px;"></span>
+          Gain / Cryptic (Δ &gt; +0.2)
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 0.25rem;">
+          <span style="width: 10px; height: 10px; border: 2px solid var(--color-ink); border-radius: 2px;"></span>
+          Reference Base (●)
+        </span>
+      </div>
+    </div>
+
+    <!-- Educational Deep-Dives -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-4);">
+      <div class="ism-card" style="padding: var(--space-4);">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: var(--fs-base); color: var(--color-ink);">What is In Silico Mutagenesis?</h4>
+        <p style="margin: 0; font-size: var(--fs-small); color: var(--color-muted); line-height: 1.5;">
+          ISM systematically substitutes every position in an input sequence with all 3 alternative nucleotides and records model prediction shifts. This enables black-box neural networks (such as OpenSpliceAI and SpliceAI) to be interpreted with nucleotide-level resolution.
+        </p>
+      </div>
+
+      <div class="ism-card" style="padding: var(--space-4);">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: var(--fs-base); color: var(--color-ink);">Loss vs Gain of Splicing</h4>
+        <p style="margin: 0; font-size: var(--fs-small); color: var(--color-muted); line-height: 1.5;">
+          Splice-altering variants cause ~10% of rare genetic diseases. <strong>Splice Loss</strong> (negative ΔScore) causes exon skipping or intron retention, while <strong>Splice Gain</strong> (positive ΔScore) creates de novo cryptic splice sites that introduce aberrant pseudoexons.
+        </p>
+      </div>
+
+      <div class="ism-card" style="padding: var(--space-4);">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: var(--fs-base); color: var(--color-ink);">OpenSpliceAI &amp; Splam</h4>
+        <p style="margin: 0; font-size: var(--fs-small); color: var(--color-muted); line-height: 1.5;">
+          <strong>OpenSpliceAI</strong> (Chao et al., <i>Genome Biology</i> 2025) provides open-source, ultra-fast 10k-context splice prediction, while <strong>Splam</strong> (Chao et al., <i>Bioinformatics</i> 2024) models paired donor-acceptor junctions with dilated residual CNNs to clean noisy spliced alignments.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initIsmVisualizer, type IsmVisualizerController } from '../../scripts/ismVisualizer';
+
+  let controller: IsmVisualizerController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initIsmVisualizer(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>

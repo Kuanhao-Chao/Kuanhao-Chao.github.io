@@ -1342,6 +1342,28 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
     ];
   }
 
+  if (t === 'ism' || t === 'mutagenesis' || t === 'splice') {
+    return [
+      { text: 'ISM(1)                   Genomic Deep Learning                   ISM(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    ism — In Silico Mutagenesis & Splice Deep Learning (OpenSpliceAI / Splam)' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    ism [sequence]' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Interactive 4×L single-nucleotide mutation matrix, ΔScore variant effect predictions,' },
+      { text: '    and position importance sequence logos for deep learning splice models.' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/ism/', tone: 'accent', href: '/algorithms/ism/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    openspliceai(1), splam(1)' },
+    ];
+  }
+
   return null;
 }
 
@@ -2708,6 +2730,17 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  ism: {
+    summary: 'launch In Silico Mutagenesis & Splice Deep Learning sandbox',
+    run: () => ({
+      lines: [
+        { text: 'Opening In Silico Mutagenesis (ISM) & Splice Deep Learning Sandbox…', tone: 'ok' },
+        { text: '→ /algorithms/ism/', tone: 'accent', href: '/algorithms/ism/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/ism/' },
+    }),
+  },
+
   git: {
     summary: 'academic git version control & career commit graph',
     usage: 'git [log|tree|status|branch|diff]',
@@ -2841,6 +2874,8 @@ export const ALIASES: Record<string, string> = {
   benchmark: 'duel',
   rain: 'matrix',
   dnarain: 'matrix',
+  spliceai: 'ism',
+  mutagenesis: 'ism',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
