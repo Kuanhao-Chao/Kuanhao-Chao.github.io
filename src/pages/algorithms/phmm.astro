@@ -1,0 +1,216 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/phmm.css';
+---
+
+<PageLayout
+  title="Profile Hidden Markov Models (pHMMs)"
+  eyebrow="Probabilistic Models & Gene Finding"
+  lead="Interactive exploration of the Plan 7 architecture, Viterbi optimal path alignment, Forward-Backward posterior decoding, and profile domain searches."
+  description="Interactive visualizer for Profile Hidden Markov Models (pHMMs) by Kuan-Hao Chao. Explore Plan 7 state topology, Viterbi dynamic programming, and Forward-Backward posterior decoding."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="phmm-visualizer" data-phmm-visualizer aria-label="Profile HMM Visualizer">
+    <!-- Toolbar: Input Query, Presets, View Mode Toggle -->
+    <div class="phmm-toolbar">
+      <div class="phmm-input-group">
+        <label class="phmm-label" for="phmm-query-input">
+          <span>Query Sequence (DNA or Amino Acids)</span>
+        </label>
+        <input
+          id="phmm-query-input"
+          type="text"
+          class="phmm-input"
+          data-phmm-query
+          value="TATAAA"
+          spellcheck="false"
+          autocomplete="off"
+        />
+
+        <div class="phmm-presets">
+          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Model Presets:</span>
+          <button
+            type="button"
+            class="phmm-preset-btn"
+            data-phmm-preset="tata"
+          >
+            TATA-box Promoter (DNA)
+          </button>
+          <button
+            type="button"
+            class="phmm-preset-btn"
+            data-phmm-preset="zinc"
+          >
+            Zinc Finger C2H2 (Protein)
+          </button>
+          <button
+            type="button"
+            class="phmm-preset-btn"
+            data-phmm-preset="kinase"
+          >
+            Kinase ATP-Binding (Protein)
+          </button>
+          <button
+            type="button"
+            class="phmm-preset-btn"
+            data-phmm-preset="indel"
+          >
+            Insertion Tolerant (DNA)
+          </button>
+        </div>
+      </div>
+
+      <div class="phmm-input-group">
+        <label class="phmm-label">
+          <span>Decoding Algorithm Mode:</span>
+        </label>
+        <div class="phmm-mode-selector">
+          <button type="button" class="phmm-mode-btn phmm-mode-btn--active" data-phmm-mode-viterbi title="Find highest-probability state path">
+            Viterbi (Optimal Path)
+          </button>
+          <button type="button" class="phmm-mode-btn" data-phmm-mode-fb title="Calculate posterior state probabilities">
+            Forward-Backward (Posterior)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transport Controls -->
+    <div class="phmm-transport-bar">
+      <div class="phmm-btn-group">
+        <button type="button" class="phmm-btn phmm-btn--primary" data-phmm-play title="Animate Viterbi traceback">
+          Play ▶
+        </button>
+        <button type="button" class="phmm-btn" data-phmm-prev title="Previous step">
+          ⇤ Step
+        </button>
+        <button type="button" class="phmm-btn" data-phmm-next title="Next step">
+          Step ⇥
+        </button>
+        <button type="button" class="phmm-btn" data-phmm-reset title="Reset playback">
+          ↺ Reset
+        </button>
+      </div>
+
+      <div class="phmm-step-indicator" data-phmm-step-indicator>
+        Ready
+      </div>
+
+      <div class="fm-speed-select">
+        <label for="phmm-speed-val">Speed:</label>
+        <select id="phmm-speed-val" data-phmm-speed>
+          <option value="2000">Slow (2.0s)</option>
+          <option value="1200" selected>Normal (1.2s)</option>
+          <option value="600">Fast (0.6s)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Alignment Output Banner -->
+    <div class="phmm-score-card">
+      <div class="phmm-score-header">
+        <span>Viterbi Hidden State Trajectory:</span>
+        <div class="phmm-stats-row">
+          <div class="phmm-stat-item">
+            <span>Profile Length (K):</span>
+            <strong data-phmm-k>0</strong>
+          </div>
+          <div class="phmm-stat-item">
+            <span>Query Length:</span>
+            <strong data-phmm-length>0</strong>
+          </div>
+          <div class="phmm-stat-item">
+            <span>Alignment Score:</span>
+            <strong data-phmm-score>0.00</strong>
+          </div>
+          <div class="phmm-stat-item">
+            <span>Mode:</span>
+            <strong data-phmm-mode-status>Viterbi</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="phmm-path-viewer" data-phmm-path-viewer></div>
+    </div>
+
+    <!-- Main Grid: Plan 7 State Canvas & DP Matrix Heatmap -->
+    <div class="phmm-grid">
+      <!-- Plan 7 SVG Architecture Viewport -->
+      <div class="phmm-card">
+        <div class="phmm-card-header">
+          <span>Plan 7 State Architecture (HMMER3 / Pfam)</span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Hover state node to inspect</span>
+        </div>
+        <div class="phmm-card-body">
+          <div class="phmm-canvas-wrapper">
+            <svg class="phmm-svg" data-phmm-svg aria-label="Plan 7 Profile HMM Canvas"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2D DP Matrix Heatmap Table -->
+      <div class="phmm-card">
+        <div class="phmm-card-header">
+          <span>2D Dynamic Programming Heatmap</span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Hover cell for math breakdown</span>
+        </div>
+        <div class="phmm-card-body" style="padding: 0;">
+          <div class="phmm-matrix-table-wrap" data-phmm-matrix-wrap></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step Calculation Inspector -->
+    <div class="phmm-calc-box" data-phmm-calc-box></div>
+
+    <!-- Educational Deep-Dives -->
+    <div class="phmm-educational-grid">
+      <div class="phmm-edu-card">
+        <h3>Plan 7 Architecture</h3>
+        <p>
+          Each column <i>k</i> comprises a <strong>Match</strong> state (<i>M<sub>k</sub></i>, consensus emission), an <strong>Insert</strong> state (<i>I<sub>k</sub></i>, background emission with self-loop), and a <strong>Delete</strong> state (<i>D<sub>k</sub></i>, non-emitting silent state), modeling insertions and deletions with affine-like penalties.
+        </p>
+      </div>
+
+      <div class="phmm-edu-card">
+        <h3>Viterbi vs Forward-Backward</h3>
+        <p>
+          <strong>Viterbi</strong> uses dynamic programming in <i>O(N · K)</i> time to find the single highest-probability hidden state path. <strong>Forward-Backward</strong> sums across all possible alignments, calculating exact posterior probabilities for each residue-state assignment.
+        </p>
+      </div>
+
+      <div class="phmm-edu-card">
+        <h3>Baum-Welch &amp; HMMER Searches</h3>
+        <p>
+          pHMMs form the computational backbone of <strong>Pfam</strong>, <strong>InterProScan</strong>, and <strong>HMMER3</strong>. Given unaligned sequence families, <strong>Baum-Welch (EM)</strong> iteratively re-estimates emission and transition distributions without manual labels.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initPhmmVisualizer, type PhmmVisualizerController } from '../../scripts/phmmVisualizer';
+
+  let controller: PhmmVisualizerController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initPhmmVisualizer(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>

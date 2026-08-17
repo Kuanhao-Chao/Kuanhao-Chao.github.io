@@ -1,0 +1,443 @@
+/* ───────────────────────────────────────────────────────────────
+   Profile Hidden Markov Models (pHMMs) Styles
+   Plan 7 Architecture, Viterbi Optimal Path & Posterior Decoding
+   ─────────────────────────────────────────────────────────────── */
+
+.phmm-visualizer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-block: var(--space-4) var(--space-8);
+  font-family: var(--font-body);
+  color: var(--color-ink);
+}
+
+/* ─────────────────────────────────────────────────── Toolbar & Inputs ── */
+
+.phmm-toolbar {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 840px) {
+  .phmm-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.phmm-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.phmm-label {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.phmm-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease;
+}
+
+.phmm-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.phmm-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: var(--space-2);
+}
+
+.phmm-preset-btn {
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  background: var(--color-bg);
+  color: var(--color-muted);
+  border: 1px solid var(--color-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.phmm-preset-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+}
+
+.phmm-mode-selector {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  margin-top: var(--space-2);
+}
+
+.phmm-mode-btn {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.phmm-mode-btn--active {
+  background: var(--color-surface);
+  color: var(--color-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ─────────────────────────────────────────────────── Transport Controls ── */
+
+.phmm-transport-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+.phmm-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.phmm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-rule);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.phmm-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+}
+
+.phmm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.phmm-btn--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.phmm-btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-dark);
+  color: #ffffff;
+}
+
+.phmm-step-indicator {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* ────────────────────────────────────────── Alignment Output Banner ── */
+
+.phmm-score-card {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.phmm-score-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.phmm-stats-row {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.phmm-stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: var(--fs-small);
+}
+
+.phmm-stat-item strong {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+.phmm-path-viewer {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  min-height: 3.5rem;
+  align-items: center;
+}
+
+.phmm-path-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid var(--color-rule);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  min-width: 2.2rem;
+  transition: all 0.15s ease;
+}
+
+.phmm-path-pill--active {
+  background: #bbf7d0;
+  border-color: #16a34a;
+  color: #14532d;
+  box-shadow: 0 0 8px rgba(22, 163, 74, 0.3);
+}
+
+.phmm-path-pill-char {
+  font-size: 1.05rem;
+}
+
+.phmm-path-pill-state {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+/* ──────────────────────────────────────────────────────── Main Grid ── */
+
+.phmm-grid {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.4fr) minmax(320px, 1.1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 960px) {
+  .phmm-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.phmm-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.phmm-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--color-ink) 3%, var(--color-surface));
+  border-bottom: 1px solid var(--color-rule);
+  font-weight: 600;
+  font-size: var(--fs-small);
+}
+
+.phmm-card-body {
+  padding: var(--space-4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.phmm-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  aspect-ratio: 1.25 / 1;
+}
+
+.phmm-svg {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+}
+
+/* ──────────────────────────────────────── 2D DP Heatmap Table ── */
+
+.phmm-matrix-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  max-height: 380px;
+}
+
+.phmm-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.phmm-matrix-table th,
+.phmm-matrix-table td {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-rule);
+  min-width: 2.8rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.1s ease;
+}
+
+.phmm-matrix-table th {
+  background: color-mix(in srgb, var(--color-ink) 5%, var(--color-surface));
+  font-weight: 700;
+}
+
+.phmm-matrix-table td:hover {
+  outline: 2px solid var(--color-accent);
+  z-index: 2;
+  position: relative;
+}
+
+.phmm-matrix-table td.phmm-cell-viterbi {
+  border: 2px solid #16a34a !important;
+  font-weight: 700;
+}
+
+/* ──────────────────────────────────────── Step Calculation Inspector ── */
+
+.phmm-calc-box {
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-rule));
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.phmm-calc-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-family: var(--font-body);
+}
+
+.phmm-calc-formula {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+}
+
+.phmm-calc-summary {
+  font-family: var(--font-body);
+  font-size: var(--fs-small);
+  color: var(--color-ink);
+}
+
+/* ────────────────────────────────────────── Educational Cards ── */
+
+.phmm-educational-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.phmm-edu-card {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.phmm-edu-card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.phmm-edu-card p {
+  font-size: var(--fs-small);
+  line-height: 1.55;
+  color: var(--color-muted);
+  margin: 0;
+}
