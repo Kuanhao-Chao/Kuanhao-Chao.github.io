@@ -1,0 +1,393 @@
+/* ───────────────────────────────────────────────────────────────
+   Wavefront Alignment Algorithm (WFA) Visualizer Styles
+   O(s · d) Diagonal Wavefront Frontiers & Free LCP Extensions
+   ─────────────────────────────────────────────────────────────── */
+
+.wfa-visualizer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-block: var(--space-4) var(--space-8);
+  font-family: var(--font-body);
+  color: var(--color-ink);
+}
+
+/* ─────────────────────────────────────────────────── Toolbar & Inputs ── */
+
+.wfa-toolbar {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 840px) {
+  .wfa-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wfa-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wfa-label {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wfa-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease;
+}
+
+.wfa-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.wfa-scoring-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.wfa-score-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.35rem 0.4rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+}
+
+.wfa-score-box label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.wfa-score-input {
+  width: 100%;
+  max-width: 3.5rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  padding: 0.15rem;
+}
+
+.wfa-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: var(--space-2);
+}
+
+.wfa-preset-btn {
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  background: var(--color-bg);
+  color: var(--color-muted);
+  border: 1px solid var(--color-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wfa-preset-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+}
+
+/* ─────────────────────────────────────────────────── Transport Controls ── */
+
+.wfa-transport-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+.wfa-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.wfa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-rule);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.wfa-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+}
+
+.wfa-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.wfa-btn--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.wfa-btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-dark);
+  color: #ffffff;
+}
+
+.wfa-step-indicator {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* ────────────────────────────────────────── Alignment Output Banner ── */
+
+.wfa-alignment-card {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.wfa-alignment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.wfa-stats-row {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.wfa-stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: var(--fs-small);
+}
+
+.wfa-stat-item strong {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+.wfa-stat-item strong.wfa-savings-highlight {
+  color: #16a34a;
+}
+
+.wfa-alignment-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.15em;
+  line-height: 1.35;
+  overflow-x: auto;
+}
+
+.wfa-seq-line {
+  white-space: pre;
+  font-weight: 700;
+}
+
+.wfa-match-line {
+  white-space: pre;
+  color: var(--color-accent);
+}
+
+/* ──────────────────────────────────────────────────────── Main Grid ── */
+
+.wfa-grid {
+  display: grid;
+  grid-template-columns: minmax(380px, 1.4fr) minmax(280px, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 900px) {
+  .wfa-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wfa-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.wfa-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--color-ink) 3%, var(--color-surface));
+  border-bottom: 1px solid var(--color-rule);
+  font-weight: 600;
+  font-size: var(--fs-small);
+}
+
+.wfa-card-body {
+  padding: var(--space-4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.wfa-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 1 / 1;
+}
+
+.wfa-svg {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+}
+
+/* ──────────────────────────────────────── Step Calculation Inspector ── */
+
+.wfa-calc-box {
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-rule));
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.wfa-calc-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-family: var(--font-body);
+}
+
+.wfa-calc-formula {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+}
+
+.wfa-calc-summary {
+  font-family: var(--font-body);
+  font-size: var(--fs-small);
+  color: var(--color-ink);
+}
+
+/* ────────────────────────────────────────── Educational Cards ── */
+
+.wfa-educational-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.wfa-edu-card {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wfa-edu-card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.wfa-edu-card p {
+  font-size: var(--fs-small);
+  line-height: 1.55;
+  color: var(--color-muted);
+  margin: 0;
+}

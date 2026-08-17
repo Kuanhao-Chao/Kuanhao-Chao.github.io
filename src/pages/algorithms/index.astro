@@ -61,6 +61,18 @@ const algorithms: AlgorithmEntry[] = [
     cliCommand: 'align ACGTAGCTA ACGTCGCTA',
   },
   {
+    id: 'wfa',
+    title: 'Wavefront Alignment Algorithm (WFA)',
+    area: 'Ultra-Fast Sequence Alignment',
+    tag: 'O(s · d) Exact Alignment',
+    summary:
+      'Exact gap-affine pairwise alignment running in O(s · d) time. Explore diagonal wavefront frontier expansion, free Longest Common Prefix (LCP) extensions, and matrix pruning.',
+    href: '/algorithms/wfa/',
+    badge: 'Interactive Visualizer',
+    actionText: 'Launch interactive visualizer',
+    cliCommand: 'wfa ACGTAGCTA ACGTCGCTA',
+  },
+  {
     id: 'splice-ai',
     title: 'Deep Learning Splice-Site Recognition (Splam / OpenSpliceAI)',
     area: 'Deep Learning & Genomics',
@@ -70,6 +82,7 @@ const algorithms: AlgorithmEntry[] = [
     href: '/software/',
     badge: 'Research Software',
     actionText: 'Explore open-source software',
+    cliCommand: 'splam -h',
   },
 ];
 ---

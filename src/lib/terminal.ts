@@ -2242,6 +2242,17 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  wfa: {
+    summary: 'launch Wavefront Alignment Algorithm (WFA) visualizer',
+    run: () => ({
+      lines: [
+        { text: 'Opening Wavefront Alignment Algorithm (WFA) Visualizer…', tone: 'ok' },
+        { text: '→ /algorithms/wfa/', tone: 'accent', href: '/algorithms/wfa/' },
+      ],
+      effect: { type: 'navigate', href: '/algorithms/wfa/' },
+    }),
+  },
+
   sudo: {
     summary: 'execute a command as another user',
     run: ({ argv }) => [
@@ -2271,6 +2282,7 @@ export const ALIASES: Record<string, string> = {
   minimizer: 'minimap2',
   chaining: 'minimap2',
   bwt: 'fmindex',
+  wavefront: 'wfa',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
