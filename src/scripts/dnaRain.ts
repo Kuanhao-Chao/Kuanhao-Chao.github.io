@@ -21,6 +21,7 @@ const DNA_CHARS = ['A', 'C', 'G', 'T', 'U', '5\'', '3\'', '·', ':', 'AT', 'CG',
 let isRainActive = false;
 let animFrameId: number | null = null;
 let inputSequence: string[] = [];
+let canvasEl: HTMLCanvasElement | null = null;
 
 function playRetroChime() {
   try {

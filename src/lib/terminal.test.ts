@@ -1151,6 +1151,81 @@ describe('unix utilities and content navigation commands', () => {
     const pipeSortUniq = exec(state, 'cat news.txt | sort | uniq');
     expect(pipeSortUniq.lines.length).toBeGreaterThan(0);
   });
+
+  it('git command renders academic commit log, status, branch, and diff', () => {
+    const state = shell();
+    const gitLog = exec(state, 'git log');
+    expect(joined(gitLog.lines)).toContain('LiftOn');
+    expect(joined(gitLog.lines)).toContain('Johns Hopkins University');
+
+    const gitTree = exec(state, 'git tree');
+    expect(joined(gitTree.lines)).toContain('commit');
+
+    const gitStatus = exec(state, 'git status');
+    expect(joined(gitStatus.lines)).toContain('On branch main');
+    expect(joined(gitStatus.lines)).toContain('Ph.D. Candidate');
+
+    const gitBranch = exec(state, 'git branch');
+    expect(joined(gitBranch.lines)).toContain('* main');
+
+    const gitDiff = exec(state, 'git diff');
+    expect(joined(gitDiff.lines)).toContain('ResidualCNN_Transformer');
+  });
+
+  it('tview and samtools tview render ASCII sequence alignment window', () => {
+    const state = shell();
+    const tviewDefault = exec(state, 'tview');
+    expect(joined(tviewDefault.lines)).toContain('samtools tview');
+    expect(joined(tviewDefault.lines)).toContain('TGAGTCAGCTAGTCGATCGA');
+
+    const tviewGene = exec(state, 'tview TP53');
+    expect(joined(tviewGene.lines)).toContain('TP53');
+
+    const samtoolsTview = exec(state, 'samtools tview chr1:1000000');
+    expect(joined(samtoolsTview.lines)).toContain('Mean Depth');
+  });
+
+  it('man command displays specific formatted manual pages for algorithms and tools', () => {
+    const state = shell();
+    const manMinimap2 = exec(state, 'man minimap2');
+    expect(joined(manMinimap2.lines)).toContain('MINIMAP2(1)');
+    expect(joined(manMinimap2.lines)).toContain('Collinear Chaining');
+
+    const manWfa = exec(state, 'man wfa');
+    expect(joined(manWfa.lines)).toContain('WFA(1)');
+    expect(joined(manWfa.lines)).toContain('Wavefront Alignment');
+
+    const manPairwise = exec(state, 'man pairwise');
+    expect(joined(manPairwise.lines)).toContain('PAIRWISE(1)');
+    expect(joined(manPairwise.lines)).toContain('Needleman-Wunsch');
+
+    const manDebruijn = exec(state, 'man debruijn');
+    expect(joined(manDebruijn.lines)).toContain('DEBRUIJN(1)');
+    expect(joined(manDebruijn.lines)).toContain('Hierholzer');
+
+    const manPhmm = exec(state, 'man phmm');
+    expect(joined(manPhmm.lines)).toContain('PHMM(1)');
+    expect(joined(manPhmm.lines)).toContain('Plan 7');
+
+    const manGhmm = exec(state, 'man ghmm');
+    expect(joined(manGhmm.lines)).toContain('GHMM(1)');
+    expect(joined(manGhmm.lines)).toContain('Semi-Markov');
+
+    const manFmindex = exec(state, 'man fmindex');
+    expect(joined(manFmindex.lines)).toContain('FMINDEX(1)');
+    expect(joined(manFmindex.lines)).toContain('LF-Mapping');
+
+    const manLifton = exec(state, 'man lifton');
+    expect(joined(manLifton.lines)).toContain('LIFTON(1)');
+    expect(joined(manLifton.lines)).toContain('Nature Methods');
+
+    const manSplam = exec(state, 'man splam');
+    expect(joined(manSplam.lines)).toContain('SPLAM(1)');
+    expect(joined(manSplam.lines)).toContain('Oxford Bioinformatics');
+
+    const manGit = exec(state, 'man git');
+    expect(joined(manGit.lines)).toContain('GIT(1)');
+  });
 });
 
 
