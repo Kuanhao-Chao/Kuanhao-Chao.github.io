@@ -952,15 +952,386 @@ export function alignNeedlemanWunsch(
   };
 }
 
+function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
+  const t = topic.trim().toLowerCase();
+
+  if (t === 'khc' || t === 'kuan-hao' || t === 'chao') {
+    const id = index.identity;
+    return [
+      { text: 'KHC(1)                      khcOS Manual                      KHC(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: `    ${id.name} — ${id.jobTitle}, ${id.worksFor}` },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: `    ${id.tagline}` },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      ...bodyLines(`    ${id.bio}`.replace(/(.{86}) /g, '$1\n    ')),
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: `    ${id.knowsAbout.join(', ')}` },
+    ];
+  }
+
+  if (t === 'minimap2' || t === 'minimap' || t === 'chaining' || t === 'minimizer') {
+    return [
+      { text: 'MINIMAP2(1)                Genomics Algorithms                MINIMAP2(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    minimap2 — pairwise aligner & minimizer anchor chaining for long reads' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    minimap2 -a -x map-ont <ref.fa> <reads.fq>' },
+      { text: '' },
+      { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
+      { text: '    1. Minimizer Indexing: For sliding window w and k-mer size k, selects the' },
+      { text: '       lexicographically smallest hash h(k-mer). Reduces indexing memory by ~w-fold.' },
+      { text: '    2. 2D Anchor Dot-Plot: Identifies matching (x, y) coordinates between query and target.' },
+      { text: '    3. Collinear Chaining: Connects anchors using dynamic programming:' },
+      { text: '       f(i) = max_j { f(j) + min(l_i, l_j) - gap_cost(d_x, d_y) }' },
+      { text: '       Accelerated to O(N log N) via range trees or fast heuristic pruning.' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/minimap2/', tone: 'accent', href: '/algorithms/minimap2/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    wfa(1), fmindex(1), samtools(1), lifton(1)' },
+    ];
+  }
+
+  if (t === 'pairwise' || t === 'needleman' || t === 'smith' || t === 'align' || t === 'gotoh') {
+    return [
+      { text: 'PAIRWISE(1)                Genomics Algorithms                PAIRWISE(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    pairwise — exact 2D dynamic programming sequence alignment (NW / SW / Gotoh)' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    align <sequence_1> <sequence_2>' },
+      { text: '' },
+      { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
+      { text: '    Computes optimal edit distance or similarity matrix in O(m · n) time and O(m · n) space:' },
+      { text: '    - Needleman-Wunsch (Global): dp[i][j] = max(dp[i-1][j-1]+S, dp[i-1][j]+g, dp[i][j-1]+g)' },
+      { text: '    - Smith-Waterman (Local): Includes 0 floor for local high-scoring segment pairs (HSPs).' },
+      { text: '    - Gotoh Affine Gaps: Employs 3 matrices (M, Ix, Iy) for gap open + gap extend penalties.' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/pairwise/', tone: 'accent', href: '/algorithms/pairwise/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    wfa(1), minimap2(1), blastn(1)' },
+    ];
+  }
+
+  if (t === 'wfa' || t === 'wavefront') {
+    return [
+      { text: 'WFA(1)                     Genomics Algorithms                     WFA(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    wfa — Wavefront Alignment Algorithm for exact gap-affine sequence alignment' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    wfa <sequence_1> <sequence_2>' },
+      { text: '' },
+      { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
+      { text: '    Computes diagonal wavefront frontiers W_{s,k} indexed by score s and diagonal k = j - i.' },
+      { text: '    - Extends matches greedily along diagonals using free Longest Common Prefix (LCP).' },
+      { text: '    - Expands score frontiers in O(s · d) exact time where d is the sequence divergence,' },
+      { text: '      drastically outperforming O(n²) dynamic programming for similar sequences.' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/wfa/', tone: 'accent', href: '/algorithms/wfa/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    pairwise(1), minimap2(1)' },
+    ];
+  }
+
+  if (t === 'debruijn' || t === 'dbg' || t === 'eulerian' || t === 'assembly') {
+    return [
+      { text: 'DEBRUIJN(1)                Genomics Algorithms                DEBRUIJN(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    debruijn — Eulerian path de novo genome assembly from short k-mers' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    debruijn <sequence_or_reads>' },
+      { text: '' },
+      { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
+      { text: '    1. K-mer Decomposition: Breaks reads into (k-1)-mer nodes and directed k-mer edges.' },
+      { text: '    2. Graph Compaction: Merges non-branching unambiguous linear paths into unitigs.' },
+      { text: '    3. Heuristic Cleaning: Clips dead-end tips and pops heterozygous/error bubbles.' },
+      { text: '    4. Hierholzer Traversal: Computes Eulerian tour visiting every edge exactly once in O(E).' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/debruijn/', tone: 'accent', href: '/algorithms/debruijn/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    stringgraph(1), minimap2(1), samtools(1)' },
+    ];
+  }
+
+  if (t === 'stringgraph' || t === 'olc' || t === 'myers') {
+    return [
+      { text: 'STRINGGRAPH(1)             Genomics Algorithms             STRINGGRAPH(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    stringgraph — Overlap-Layout-Consensus (OLC) long-read genome assembly' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    stringgraph' },
+      { text: '' },
+      { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
+      { text: '    1. Overlap Detection: Finds exact prefix-suffix matches without k-mer chopping.' },
+      { text: '    2. Contained Read Removal: Prunes reads completely subsumed by longer reads.' },
+      { text: '    3. Myers Transitive Reduction: Eliminates redundant chordal edges in O(V + E) time.' },
+      { text: '    4. Unitig Layout & Consensus: Assembles unbranched read paths into contigs.' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/string-graph/', tone: 'accent', href: '/algorithms/string-graph/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    debruijn(1), minimap2(1)' },
+    ];
+  }
+
+  if (t === 'phmm' || t === 'hmmer' || t === 'plan7') {
+    return [
+      { text: 'PHMM(1)                    Genomics Algorithms                    PHMM(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    phmm — Profile Hidden Markov Models for biological domain family modeling' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    phmm <sequence>' },
+      { text: '' },
+      { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
+      { text: '    1. Plan 7 Architecture: Core Match (M_k), Insert (I_k), and Delete (D_k) state topology.' },
+      { text: '    2. Viterbi Dynamic Programming: Computes optimal state path in O(L · M) time.' },
+      { text: '    3. Forward-Backward Algorithm: Computes total likelihood and posterior probabilities' },
+      { text: '       P(state | sequence) for confidence estimation.' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/phmm/', tone: 'accent', href: '/algorithms/phmm/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    ghmm(1), pairwise(1), blastn(1)' },
+    ];
+  }
+
+  if (t === 'ghmm' || t === 'genscan' || t === 'augustus' || t === 'gene') {
+    return [
+      { text: 'GHMM(1)                    Genomics Algorithms                    GHMM(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    ghmm — Generalized Hidden Markov Models for eukaryotic gene structural prediction' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    ghmm [sequence]' },
+      { text: '' },
+      { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
+      { text: '    1. Semi-Markov State Durations: Emits entire substrings of duration d drawn from' },
+      { text: '       explicit biological length models f(d), avoiding geometric decay limitations.' },
+      { text: '    2. Signal Sensor Scoring: Evaluates canonical GT/AG splice sites, start/stop codons,' },
+      { text: '       and branch points with weight matrices / neural predictors.' },
+      { text: '    3. Modified Viterbi DP: Optimal parsing of exons, introns, and intergenic regions.' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/ghmm/', tone: 'accent', href: '/algorithms/ghmm/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    phmm(1), splice(1), splam(1), openspliceai(1)' },
+    ];
+  }
+
+  if (t === 'fmindex' || t === 'bwt') {
+    return [
+      { text: 'FMINDEX(1)                 Genomics Algorithms                 FMINDEX(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    fmindex — Burrows-Wheeler Transform and Last-to-First backward search' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    fmindex [pattern]' },
+      { text: '' },
+      { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
+      { text: '    1. BWT Construction: Lexicographical sort of all circular string rotations.' },
+      { text: '    2. LF-Mapping: L[i] = C[c] + Occ(c, i) matches queries backwards in O(m) time,' },
+      { text: '       completely independent of reference genome length.' },
+      { text: '    3. Compressed Suffix Arrays: Locates coordinate occurrences with sampled SA pointers.' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/fm-index/', tone: 'accent', href: '/algorithms/fm-index/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    wgt(1), minimap2(1), samtools(1)' },
+    ];
+  }
+
+  if (t === 'wgt' || t === 'wheeler' || t === 'wheelie') {
+    return [
+      { text: 'WGT(1)                     Genomics Algorithms                     WGT(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    wgt — Wheeler graph recognition and pangenome variation graph indexing' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    wgt [graph.gfa]' },
+      { text: '' },
+      { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
+      { text: '    Generalizes BWT substring indexing to variation graphs. Establishes a total ordering' },
+      { text: '    of graph nodes where paths sharing prefixes form contiguous intervals.' },
+      { text: '' },
+      { text: 'DEEP DIVE POST', tone: 'accent' },
+      { text: '    → /posts/wgt/', tone: 'accent', href: '/posts/wgt/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    fmindex(1), debruijn(1)' },
+    ];
+  }
+
+  if (t === 'lifton') {
+    return [
+      { text: 'LIFTON(1)                  Genomics Software                  LIFTON(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    lifton — accurate and fast gene annotation lift-over across chromosome assemblies' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    lifton -g <ref.gff3> -o <out.gff3> <target.fa> <ref.fa>' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    LiftOn lifts gene annotations between reference and target assemblies with full' },
+      { text: '    ORF conservation, paralog resolution, and exon boundary splice-site correction.' },
+      { text: '    Published in Nature Methods (2024).' },
+      { text: '' },
+      { text: 'SOFTWARE & POST', tone: 'accent' },
+      { text: '    → /software/ and /posts/lifton/', tone: 'accent', href: '/posts/lifton/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    gffbase(1), splam(1), minimap2(1)' },
+    ];
+  }
+
+  if (t === 'splam') {
+    return [
+      { text: 'SPLAM(1)                   Genomics Software                   SPLAM(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    splam — deep learning splice junction recognition and alignment cleaner' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    splam extract <alignment.bam> && splam score && splam clean' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Ultra-fast residual convolutional neural network scoring donor (GT) and acceptor (AG)' },
+      { text: '    splice junctions. Filters spurious spliced alignments to improve downstream assembly.' },
+      { text: '    Published in Oxford Bioinformatics (2024).' },
+      { text: '' },
+      { text: 'SOFTWARE & POST', tone: 'accent' },
+      { text: '    → /software/ and /posts/splam/', tone: 'accent', href: '/posts/splam/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    openspliceai(1), lifton(1), ghmm(1)' },
+    ];
+  }
+
+  if (t === 'openspliceai') {
+    return [
+      { text: 'OPENSPLICEAI(1)            Genomics Software            OPENSPLICEAI(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    openspliceai — open-source, high-throughput deep learning splice variant predictor' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    openspliceai -I <input.vcf> -O <output.vcf> -R <genome.fa>' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    32-layer deep residual neural network analyzing 10kb pre-mRNA sequence context' },
+      { text: '    for splice donor/acceptor gain and loss. 24x faster than original implementations.' },
+      { text: '    Published in Genome Biology (2025).' },
+      { text: '' },
+      { text: 'SOFTWARE & POST', tone: 'accent' },
+      { text: '    → /software/ and /posts/openspliceai/', tone: 'accent', href: '/posts/openspliceai/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    splam(1), shorkie(1)' },
+    ];
+  }
+
+  if (t === 'shorkie') {
+    return [
+      { text: 'SHORKIE(1)                 Genomics Software                 SHORKIE(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    shorkie — whole-genome sequence-to-function language model' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    shorkie predict --seq <dna.fa>' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Hybrid convolutional transformer predicting epigenetic profiles, chromatin' },
+      { text: '    accessibility, and gene expression directly from raw DNA sequences.' },
+      { text: '' },
+      { text: 'SOFTWARE & POST', tone: 'accent' },
+      { text: '    → /software/ and /posts/shorkie/', tone: 'accent', href: '/posts/shorkie/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    openspliceai(1), splam(1)' },
+    ];
+  }
+
+  if (t === 'git') {
+    return [
+      { text: 'GIT(1)                     khcOS Manual                     GIT(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    git — academic version control & career commit graph' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    git [log | tree | status | branch | diff]' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Inspects the academic commit history, research milestones, software releases,' },
+      { text: '    and active branches across Kuan-Hao Chao’s research career.' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    cv(1), publications(1), software(1)' },
+    ];
+  }
+
+  if (t === 'tview' || t === 'samtools') {
+    return [
+      { text: 'TVIEW(1)                   Genomics Alignment                   TVIEW(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    tview — text alignment viewer for BAM sequence alignments (samtools tview)' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    tview [locus | gene]' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Displays reference genome sequence, consensus track, and aligned paired reads' },
+      { text: '    with highlighted SNPs, insertions (+), and deletions (-).' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    samtools(1), align(1)' },
+    ];
+  }
+
+  return null;
+}
+
 export const COMMANDS: Record<string, Cmd> = {
   help: {
     summary: 'list available commands',
     run: () => {
       const groups: [string, string[]][] = [
-        ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'head', 'tail', 'wc', 'sort', 'uniq', 'less', 'tree', 'find', 'grep']],
-        ['genomics', ['seqkit', 'gffbase', 'align', 'fastqc', 'codon', 'bedtools', 'blastn', 'samtools', 'splice']],
+        ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'head', 'tail', 'wc', 'sort', 'uniq', 'less', 'tree', 'find', 'grep', 'git']],
+        ['genomics & algorithms', ['align', 'minimap2', 'fmindex', 'wfa', 'debruijn', 'stringgraph', 'phmm', 'ghmm', 'tview', 'samtools', 'seqkit', 'gffbase', 'fastqc', 'codon', 'bedtools', 'blastn', 'splice']],
         ['content', ['about', 'publications', 'software', 'talks', 'posts', 'research', 'projects', 'news', 'cv', 'contact', 'socials']],
-        ['system', ['uname', 'uptime', 'top', 'date', 'cal', 'curl', 'env', 'neofetch', 'theme', 'crt', 'sound', 'history', 'clear', 'echo']],
+        ['system', ['man', 'uname', 'uptime', 'top', 'date', 'cal', 'curl', 'env', 'neofetch', 'theme', 'crt', 'sound', 'history', 'clear', 'echo']],
         ['toys & games', ['cowsay', 'fortune', 'matrix', 'games', 'snake', 'tetris']],
         ['navigate', ['open', 'exit']],
         ['chatbot', ['ask', 'chat']],
@@ -1433,30 +1804,16 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 
   man: {
-    summary: 'manual page for a topic',
-    usage: 'man <topic>',
+    summary: 'manual page for an algorithm, tool, or topic',
+    usage: 'man <topic|algorithm|tool>',
     needsIndex: true,
     run: ({ index, args }) => {
-      if (!args.length) return err('What manual page do you want? Try `man khc`.');
+      if (!args.length) return err('What manual page do you want? Try `man khc`, `man minimap2`, `man wfa`, `man lifton`, or `man debruijn`.');
       const topic = args.join(' ').toLowerCase();
-      if (topic === 'khc' || topic === 'kuan-hao' || topic === 'chao') {
-        const id = index.identity;
-        return [
-          { text: 'KHC(1)                      khcOS Manual                      KHC(1)', tone: 'dim' },
-          { text: '' },
-          { text: 'NAME', tone: 'accent' },
-          { text: `    ${id.name} — ${id.jobTitle}, ${id.worksFor}` },
-          { text: '' },
-          { text: 'SYNOPSIS', tone: 'accent' },
-          { text: `    ${id.tagline}` },
-          { text: '' },
-          { text: 'DESCRIPTION', tone: 'accent' },
-          ...bodyLines(`    ${id.bio}`.replace(/(.{86}) /g, '$1\n    ')),
-          { text: '' },
-          { text: 'SEE ALSO', tone: 'accent' },
-          { text: `    ${id.knowsAbout.join(', ')}` },
-        ];
-      }
+
+      const specificMan = getSpecificManPage(topic, index);
+      if (specificMan) return specificMan;
+
       const hits = search(index, topic, 1);
       if (!hits.length) return err(`No manual entry for ${topic}`);
       const node = index.fs[hits[0].chunk.path];
@@ -1677,11 +2034,32 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 
   samtools: {
-    summary: 'flagstat over the site corpus',
-    usage: 'samtools flagstat',
+    summary: 'alignment toolkit flagstat and ASCII viewer (samtools tview)',
+    usage: 'samtools [flagstat|tview]',
     needsIndex: true,
     run: ({ index, args }) => {
-      if (args[0] && args[0] !== 'flagstat') return err(`samtools: unrecognized command '${args[0]}'`);
+      const sub = args[0]?.toLowerCase() || 'flagstat';
+      if (sub === 'tview') {
+        const locus = args[1] || 'chr1:1000000-1000078';
+        return [
+          { text: `samtools tview khc_wgs_alignment.bam hg38.fa  [Locus: ${locus}]`, tone: 'head' },
+          { text: '1000000   1000010   1000020   1000030   1000040   1000050   1000060   1000070', tone: 'dim' },
+          { text: 'TGAGTCAGCTAGTCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC', tone: 'accent' },
+          { text: '...............................................................................', tone: 'dim' },
+          { text: 'TGAGTCAGCTAGTCGATCGA...........................................................' },
+          { text: '....TCAGCTAGTCGATCGATCGATCGAT..................................................' },
+          { text: '.......GCTAGTCGATCGATCGATCGATCGAACGATCGATCG....................................' },
+          { text: '..........AGTCGATCGATCGATCGATCGATCGATCGATCGATC+T+TCGATCG.......................', tone: 'ok' },
+          { text: '..............CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC................' },
+          { text: '..................CGATCGATCGA--GATCGATCGATCGATCGATCGATCGATCGATCGATCG...........', tone: 'err' },
+          { text: '......................GATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC.........' },
+          { text: '..........................CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG.......' },
+          { text: '' },
+          { text: 'Mean Depth: 34.2x | Mismatches: 1 (SNP A->G) | Indels: +TT, -- | MAPQ: 60', tone: 'dim' },
+          { text: 'Try: `tview TP53` · `tview BRCA1` · `tview chr1:1000000`', tone: 'dim' },
+        ];
+      }
+      if (sub !== 'flagstat') return err(`samtools: unrecognized command '${args[0]}'. Try 'samtools flagstat' or 'samtools tview'.`);
       const s = index.stats;
       const total = index.chunks.length;
       return [
@@ -2297,6 +2675,89 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  git: {
+    summary: 'academic git version control & career commit graph',
+    usage: 'git [log|tree|status|branch|diff]',
+    run: ({ args }) => {
+      const sub = args[0]?.toLowerCase() || 'log';
+      if (sub === 'log' || sub === 'tree' || sub === 'graph') {
+        return [
+          { text: '*   commit 7e9a2b (HEAD -> main, tag: v1.1.1) LiftOn Nature Methods publication & release', tone: 'head' },
+          { text: '|\\  Author: Kuan-Hao Chao <kuanhao.chao@gmail.com>', tone: 'dim' },
+          { text: '| * commit 3a1f8c OpenSpliceAI publication in Genome Biology', tone: 'accent' },
+          { text: '| | Author: Kuan-Hao Chao <kuanhao.chao@gmail.com>', tone: 'dim' },
+          { text: '* | commit 4b9d02 Splam publication in Oxford Bioinformatics', tone: 'ok' },
+          { text: '|/  Author: Kuan-Hao Chao <kuanhao.chao@gmail.com>', tone: 'dim' },
+          { text: '* commit 5d3e1a Shorkie: DNA language model for whole-genome variant effect prediction', tone: 'head' },
+          { text: '* commit 2c8f04 WGT: Wheeler Graph Tools & Index recognition algorithm', tone: 'accent' },
+          { text: '* commit 1a0b3e Joined Johns Hopkins University CS PhD program (advisor: Prof. Michael Schatz)', tone: 'ok' },
+          { text: '* commit 0f9e8a Graduated BS in Computer Science & Life Science at National Taiwan University', tone: 'dim' },
+          { text: '' },
+          { text: '  Try: `git status` · `git branch` · `git diff`', tone: 'dim' },
+        ];
+      }
+      if (sub === 'status') {
+        return [
+          { text: 'On branch main', tone: 'ok' },
+          { text: "Your branch is up to date with 'origin/main'." },
+          { text: '' },
+          { text: 'Academic Status:', tone: 'accent' },
+          { text: '  Role: Ph.D. Candidate in Computer Science @ Johns Hopkins University' },
+          { text: '  Lab: Schatz Lab (Computational Genomics & AI)' },
+          { text: '  Active Projects: LiftOn, OpenSpliceAI, Splam, Shorkie, WGT' },
+          { text: '' },
+          { text: 'nothing to commit, working tree clean (actively publishing)', tone: 'dim' },
+        ];
+      }
+      if (sub === 'branch') {
+        return [
+          { text: '* main', tone: 'ok' },
+          { text: '  deep-learning-splice-prediction' },
+          { text: '  pangenome-graph-indexing' },
+          { text: '  long-read-annotation' },
+        ];
+      }
+      if (sub === 'diff') {
+        return [
+          { text: 'diff --git a/genomics/annotation.py b/genomics/annotation.py', tone: 'head' },
+          { text: 'index 3a1f8c..7e9a2b 100644', tone: 'dim' },
+          { text: '--- a/genomics/annotation.py' },
+          { text: '+++ b/genomics/annotation.py' },
+          { text: '@@ -42,7 +42,7 @@ def predict_gene_structures(sequence):', tone: 'accent' },
+          { text: '-    model = StandardHMM(states=EXON_INTRON)', tone: 'err' },
+          { text: '+    model = ResidualCNN_Transformer(context_window=10000, heads=8)', tone: 'ok' },
+          { text: '     return model.annotate(sequence)' },
+        ];
+      }
+      return err(`git: '${sub}' is not a recognized git command. See 'git log', 'git status', 'git branch', 'git diff'.`);
+    },
+  },
+
+  tview: {
+    summary: 'interactive ASCII genome alignment viewer (samtools tview)',
+    usage: 'tview [locus/gene]',
+    run: ({ args }) => {
+      const locus = args[0] || 'chr1:1000000-1000078';
+      return [
+        { text: `samtools tview khc_wgs_alignment.bam hg38.fa  [Locus: ${locus}]`, tone: 'head' },
+        { text: '1000000   1000010   1000020   1000030   1000040   1000050   1000060   1000070', tone: 'dim' },
+        { text: 'TGAGTCAGCTAGTCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC', tone: 'accent' },
+        { text: '...............................................................................', tone: 'dim' },
+        { text: 'TGAGTCAGCTAGTCGATCGA...........................................................' },
+        { text: '....TCAGCTAGTCGATCGATCGATCGAT..................................................' },
+        { text: '.......GCTAGTCGATCGATCGATCGATCGAACGATCGATCG....................................' },
+        { text: '..........AGTCGATCGATCGATCGATCGATCGATCGATCGATC+T+TCGATCG.......................', tone: 'ok' },
+        { text: '..............CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC................' },
+        { text: '..................CGATCGATCGA--GATCGATCGATCGATCGATCGATCGATCGATCGATCG...........', tone: 'err' },
+        { text: '......................GATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC.........' },
+        { text: '..........................CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG.......' },
+        { text: '' },
+        { text: 'Mean Depth: 34.2x | Mismatches: 1 (SNP A->G) | Indels: +TT, -- | MAPQ: 60', tone: 'dim' },
+        { text: 'Try: `tview TP53` · `tview BRCA1` · `tview chr1:1000000`', tone: 'dim' },
+      ];
+    },
+  },
+
   sudo: {
     summary: 'execute a command as another user',
     run: ({ argv }) => [
@@ -2340,7 +2801,10 @@ export const ALIASES: Record<string, string> = {
   genscan: 'ghmm',
   augustus: 'ghmm',
   gene: 'ghmm',
-  genehunt: 'ghmm',
+  status: 'git status',
+  log: 'git log',
+  gittree: 'git tree',
+  view: 'tview',
 };
 
 /** Commands that cannot run before `/terminal.json` has loaded. */
