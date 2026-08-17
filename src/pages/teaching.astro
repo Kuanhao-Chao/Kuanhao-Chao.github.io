@@ -1,12 +1,16 @@
 ---
 import { getCollection } from 'astro:content';
 import PageLayout from '../layouts/PageLayout.astro';
+import Icon from '../components/Icon.astro';
 import { dateRange } from '../lib/format';
 import { mentorship, reviewing } from '../data/cv';
+import { ALGORITHMS } from '../data/algorithms';
 
 const teaching = (await getCollection('teaching')).sort(
   (a, b) => b.data.startDate.getTime() - a.data.startDate.getTime()
 );
+
+const featuredAlgorithms = ALGORITHMS.filter((a) => a.featured);
 ---
 <PageLayout
   title="Teaching & mentorship"
@@ -64,6 +68,41 @@ const teaching = (await getCollection('teaching')).sort(
   </section>
 
   <section class="block">
+    <h2 class="block-title">Interactive algorithm visualizers &amp; pedagogical tools</h2>
+    <p class="muted review-intro">
+      I build interactive, web-based visualizers for fundamental computational biology algorithms to help students, researchers, and engineers build spatial and mathematical intuition for sequence alignment, seed-and-extend indexing, genome assembly traversals, and probabilistic models.
+    </p>
+
+    <ul class="rows">
+      {
+        featuredAlgorithms.map((algo) => (
+          <li class="row row--stack">
+            <div class="algo-row-header">
+              <span class="algo-row-title">
+                <a href={algo.href}>{algo.title}</a>
+              </span>
+              <span class="algo-tag">{algo.tag}</span>
+            </div>
+            <p class="row-meta muted">{algo.summary}</p>
+            <p class="row-links">
+              <a href={algo.href} style="display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600;">
+                {algo.actionText} <Icon name="arrow-right" size={13} />
+              </a>
+            </p>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div style="margin-top: var(--space-6);">
+      <a href="/algorithms/" class="all-algos-link">
+        <span>Explore all algorithm visualizers</span>
+        <Icon name="arrow-right" size={15} />
+      </a>
+    </div>
+  </section>
+
+  <section class="block">
     <h2 class="block-title">Peer review</h2>
     <p class="muted review-intro">Reviewer and sub-reviewer for, among others:</p>
     <ul class="journals">
@@ -110,6 +149,7 @@ const teaching = (await getCollection('teaching')).sort(
   .row-meta {
     margin-top: 0.3rem;
     font-size: var(--fs-small);
+    line-height: 1.55;
   }
   .row-links {
     margin-top: 0.45rem;
@@ -124,8 +164,55 @@ const teaching = (await getCollection('teaching')).sort(
   .row-links a:hover {
     text-decoration: underline;
   }
+  .algo-row-header {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+  }
+  .algo-row-title {
+    font-weight: var(--fw-semibold);
+    font-size: 1.05rem;
+  }
+  .algo-row-title a {
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+  .algo-row-title a:hover {
+    color: var(--color-accent);
+    text-decoration: underline;
+  }
+  .algo-tag {
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    color: var(--color-accent-dark);
+    border-radius: var(--radius);
+  }
+  .all-algos-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: var(--fs-small);
+    font-weight: 600;
+    color: var(--color-accent);
+    text-decoration: none;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    transition: all 0.15s ease;
+  }
+  .all-algos-link:hover {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+    color: var(--color-accent-dark);
+  }
   .review-intro {
     margin-bottom: var(--space-4);
+    font-size: var(--fs-small);
+    line-height: 1.55;
   }
   .journals {
     list-style: none;
