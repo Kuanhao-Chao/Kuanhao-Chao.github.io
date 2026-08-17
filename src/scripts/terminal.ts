@@ -378,9 +378,12 @@ export function initTerminal(
         if (navigator.clipboard) {
           const text = effect.text || screen!.innerText;
           void navigator.clipboard.writeText(text);
-          write([{ text: 'Copied terminal output to clipboard.', tone: 'ok' }]);
+          write([{ text: 'Copied transcript to clipboard.', tone: 'ok' }]);
           scrollToEnd();
         }
+        break;
+      case 'custom':
+        window.dispatchEvent(new CustomEvent(effect.eventName, { detail: effect.detail }));
         break;
       case 'ask':
         void answer(effect.question);
