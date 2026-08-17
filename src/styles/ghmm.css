@@ -1,0 +1,449 @@
+/* ───────────────────────────────────────────────────────────────
+   Generalized Hidden Markov Models (GHMMs) Styles
+   Ab Initio Gene Finding, Explicit Durations & Genomic Tracks
+   ─────────────────────────────────────────────────────────────── */
+
+.ghmm-visualizer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-block: var(--space-4) var(--space-8);
+  font-family: var(--font-body);
+  color: var(--color-ink);
+}
+
+/* ─────────────────────────────────────────────────── Toolbar & Inputs ── */
+
+.ghmm-toolbar {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 840px) {
+  .ghmm-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ghmm-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ghmm-label {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ghmm-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  resize: vertical;
+  min-height: 4.5rem;
+  transition: border-color 0.15s ease;
+}
+
+.ghmm-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.ghmm-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: var(--space-2);
+}
+
+.ghmm-preset-btn {
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  background: var(--color-bg);
+  color: var(--color-muted);
+  border: 1px solid var(--color-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ghmm-preset-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+}
+
+/* ─────────────────────────────────────────────────── Transport Controls ── */
+
+.ghmm-transport-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+}
+
+.ghmm-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ghmm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-rule);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.ghmm-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+}
+
+.ghmm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ghmm-btn--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.ghmm-btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-dark);
+  color: #ffffff;
+}
+
+.ghmm-step-indicator {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* ────────────────────────────────────────── Predicted Gene Banner ── */
+
+.ghmm-gene-card {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ghmm-gene-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.ghmm-stats-row {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.ghmm-stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: var(--fs-small);
+}
+
+.ghmm-stat-item strong {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+.ghmm-protein-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  overflow-x: auto;
+}
+
+.ghmm-protein-line {
+  white-space: pre;
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: 0.15em;
+}
+
+/* ──────────────────────────────────────── Genomic Browser Track ── */
+
+.ghmm-track-card {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ghmm-track-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.ghmm-track-ruler {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  border-bottom: 1px solid var(--color-rule);
+  padding-bottom: 0.25rem;
+}
+
+.ghmm-track-body {
+  position: relative;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.ghmm-feature-box {
+  position: absolute;
+  height: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.ghmm-feature-box--exon-init {
+  background: #bbf7d0;
+  border: 1px solid #16a34a;
+  color: #14532d;
+}
+
+.ghmm-feature-box--exon-int {
+  background: #bfdbfe;
+  border: 1px solid #2563eb;
+  color: #1e3a8a;
+}
+
+.ghmm-feature-box--exon-term {
+  background: #e9d5ff;
+  border: 1px solid #9333ea;
+  color: #581c87;
+}
+
+.ghmm-feature-box--exon-sgl {
+  background: #fef08a;
+  border: 1px solid #ca8a04;
+  color: #713f12;
+}
+
+.ghmm-feature-box--intron {
+  background: transparent;
+  border-bottom: 2px dashed var(--color-muted);
+  color: var(--color-muted);
+  height: 0.8rem;
+}
+
+.ghmm-feature-box--intergenic {
+  background: color-mix(in srgb, var(--color-ink) 5%, var(--color-surface));
+  border: 1px solid var(--color-rule);
+  color: var(--color-muted);
+}
+
+.ghmm-feature-box--active {
+  outline: 2px solid var(--color-accent);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+  z-index: 2;
+}
+
+/* ──────────────────────────────────────────────────────── Main Grid ── */
+
+.ghmm-grid {
+  display: grid;
+  grid-template-columns: minmax(400px, 1.3fr) minmax(320px, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 960px) {
+  .ghmm-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ghmm-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.ghmm-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--color-ink) 3%, var(--color-surface));
+  border-bottom: 1px solid var(--color-rule);
+  font-weight: 600;
+  font-size: var(--fs-small);
+}
+
+.ghmm-card-body {
+  padding: var(--space-4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.ghmm-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  aspect-ratio: 1.35 / 1;
+}
+
+.ghmm-svg {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+}
+
+/* ──────────────────────────────────────── Step Calculation Inspector ── */
+
+.ghmm-calc-box {
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-rule));
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.ghmm-calc-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-family: var(--font-body);
+}
+
+.ghmm-calc-formula {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+}
+
+.ghmm-calc-summary {
+  font-family: var(--font-body);
+  font-size: var(--fs-small);
+  color: var(--color-ink);
+}
+
+/* ────────────────────────────────────────── Educational Cards ── */
+
+.ghmm-educational-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.ghmm-edu-card {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ghmm-edu-card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.ghmm-edu-card p {
+  font-size: var(--fs-small);
+  line-height: 1.55;
+  color: var(--color-muted);
+  margin: 0;
+}

@@ -1,0 +1,244 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/ghmm.css';
+---
+
+<PageLayout
+  title="Generalized Hidden Markov Models (GHMMs)"
+  eyebrow="Ab Initio Gene Finding & Structural Annotation"
+  lead="Interactive exploration of explicit biological duration distributions f(d), semi-Markov Viterbi dynamic programming, exon-intron state machines (GENSCAN / AUGUSTUS), and splice signal decoding."
+  description="Interactive visualizer for Generalized Hidden Markov Models (GHMMs) and Ab Initio Gene Finding by Kuan-Hao Chao. Explore explicit duration distributions, exon-intron state machines, and genomic coordinate browser tracks."
+>
+  <nav style="margin-bottom: var(--space-4);">
+    <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+  </nav>
+
+  <section class="ghmm-visualizer" data-ghmm-visualizer aria-label="GHMM Gene Finding Visualizer">
+    <!-- Toolbar: Input Genomic Sequence, Presets -->
+    <div class="ghmm-toolbar">
+      <div class="ghmm-input-group">
+        <label class="ghmm-label" for="ghmm-input">
+          <span>Input Genomic DNA Sequence</span>
+        </label>
+        <textarea
+          id="ghmm-input"
+          class="ghmm-textarea"
+          data-ghmm-input
+          spellcheck="false"
+          autocomplete="off"
+        >AAAAAATGGCCAAAGTGTAAGTCCTAAGAGGCAAAATAATTTTT</textarea>
+
+        <div class="ghmm-presets">
+          <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600;">Gene Presets:</span>
+          <button
+            type="button"
+            class="ghmm-preset-btn"
+            data-ghmm-preset
+            data-ghmm-seq="AAAAAATGGCCAAAGTGTAAGTCCTAAGAGGCAAAATAATTTTT"
+          >
+            2-Exon Eukaryotic Gene
+          </button>
+          <button
+            type="button"
+            class="ghmm-preset-btn"
+            data-ghmm-preset
+            data-ghmm-seq="GCTAAAGCTAATGGCCAAAGTGTAAGTCCTAAGAGGCATTTCGTCGTACGTTAGAGAGGCAAAATAACGTACC"
+          >
+            3-Exon Multi-Intron Gene
+          </button>
+          <button
+            type="button"
+            class="ghmm-preset-btn"
+            data-ghmm-preset
+            data-ghmm-seq="ATGGCCAAAGCGTAA"
+          >
+            Single-Exon Gene
+          </button>
+          <button
+            type="button"
+            class="ghmm-preset-btn"
+            data-ghmm-preset
+            data-ghmm-seq="AAAAAATGGCCAAAGAGTAAGTCCTAAGAGGCAAAATAATTTTT"
+          >
+            Splicing Mutation (GT→GA)
+          </button>
+        </div>
+      </div>
+
+      <div class="ghmm-input-group">
+        <label class="ghmm-label">
+          <span>Biological Signal Highlights:</span>
+        </label>
+        <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-muted); background: var(--color-bg); padding: 0.75rem; border-radius: var(--radius); border: 1px solid var(--color-rule);">
+          <div>🟢 <strong>Start Codon:</strong> <code style="color: var(--color-ink);">ATG</code> (Initiation)</div>
+          <div>✂️ <strong>Splice Donor:</strong> <code style="color: var(--color-ink);">GT</code> (5' Exon-Intron junction)</div>
+          <div>🔗 <strong>Splice Acceptor:</strong> <code style="color: var(--color-ink);">AG</code> (3' Intron-Exon junction)</div>
+          <div>🔴 <strong>Stop Codons:</strong> <code style="color: var(--color-ink);">TAA, TAG, TGA</code> (Termination)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transport Controls -->
+    <div class="ghmm-transport-bar">
+      <div class="ghmm-btn-group">
+        <button type="button" class="ghmm-btn ghmm-btn--primary" data-ghmm-play title="Animate feature traversal">
+          Play ▶
+        </button>
+        <button type="button" class="ghmm-btn" data-ghmm-prev title="Previous feature">
+          ⇤ Step
+        </button>
+        <button type="button" class="ghmm-btn" data-ghmm-next title="Next feature">
+          Step ⇥
+        </button>
+        <button type="button" class="ghmm-btn" data-ghmm-reset title="Reset playback">
+          ↺ Reset
+        </button>
+      </div>
+
+      <div class="ghmm-step-indicator" data-ghmm-step-indicator>
+        Ready
+      </div>
+
+      <div class="fm-speed-select">
+        <label for="ghmm-speed-val">Speed:</label>
+        <select id="ghmm-speed-val" data-ghmm-speed>
+          <option value="2000">Slow (2.0s)</option>
+          <option value="1200" selected>Normal (1.2s)</option>
+          <option value="600">Fast (0.6s)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Predicted Gene Banner & Protein Translation -->
+    <div class="ghmm-gene-card">
+      <div class="ghmm-gene-header">
+        <span>Predicted Coding Protein (CDS):</span>
+        <div class="ghmm-stats-row">
+          <div class="ghmm-stat-item">
+            <span>Exons:</span>
+            <strong data-ghmm-exons>0</strong>
+          </div>
+          <div class="ghmm-stat-item">
+            <span>Introns:</span>
+            <strong data-ghmm-introns>0</strong>
+          </div>
+          <div class="ghmm-stat-item">
+            <span>Coding:</span>
+            <strong data-ghmm-coding-len>0 bp</strong>
+          </div>
+          <div class="ghmm-stat-item">
+            <span>GC Content:</span>
+            <strong data-ghmm-gc>0%</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="ghmm-protein-viewer">
+        <div class="ghmm-protein-line" data-ghmm-protein-line></div>
+      </div>
+    </div>
+
+    <!-- Genomic Coordinate Browser Track -->
+    <div class="ghmm-track-card">
+      <div class="ghmm-gene-header">
+        <span>Genomic Coordinate Browser Track:</span>
+        <span style="font-size: 0.75rem; color: var(--color-muted);">Hover feature box to inspect coordinates</span>
+      </div>
+      <div class="ghmm-track-container">
+        <div class="ghmm-track-ruler">
+          <span data-ghmm-ruler-left>1 bp</span>
+          <span>Genomic Coordinates</span>
+          <span data-ghmm-ruler-right>100 bp</span>
+        </div>
+        <div class="ghmm-track-body" data-ghmm-track-body></div>
+      </div>
+    </div>
+
+    <!-- Main Grid: Duration Distribution Plot & Inspector -->
+    <div class="ghmm-grid">
+      <!-- Duration Curve SVG Plot -->
+      <div class="ghmm-card">
+        <div class="ghmm-card-header">
+          <span>Explicit Duration Distribution f(d) vs Standard HMM</span>
+          <span style="font-size: 0.75rem; color: var(--color-muted);">Overcomes geometric decay</span>
+        </div>
+        <div class="ghmm-card-body">
+          <div class="ghmm-canvas-wrapper">
+            <svg class="ghmm-svg" data-ghmm-duration-svg aria-label="Duration Distribution Canvas"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step Calculation Inspector -->
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div class="ghmm-calc-box" data-ghmm-calc-box></div>
+
+        <div class="ghmm-card">
+          <div class="ghmm-card-header">
+            <span>Semi-Markov Dynamic Programming</span>
+          </div>
+          <div class="ghmm-card-body" style="font-size: var(--fs-small); line-height: 1.6; color: var(--color-muted);">
+            <p style="margin: 0 0 0.5rem 0;">
+              Unlike standard HMMs that emit single bases, <strong>GHMMs (Semi-Markov HMMs)</strong> emit entire biological segments of length <i>d</i>.
+            </p>
+            <p style="margin: 0 0 0.5rem 0;">
+              The joint probability combines:
+            </p>
+            <ul style="padding-left: 1.25rem; margin: 0 0 0.5rem 0;">
+              <li><strong>Duration score</strong>: <code style="color: var(--color-ink);">log f_q(d)</code> from biological length models</li>
+              <li><strong>Signal score</strong>: Splice junctions (<code style="color: var(--color-ink);">GT / AG</code>), start (<code style="color: var(--color-ink);">ATG</code>), stop codons</li>
+              <li><strong>Coding score</strong>: 3-periodic in-frame Markov codon potential</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational Deep-Dives -->
+    <div class="ghmm-educational-grid">
+      <div class="ghmm-edu-card">
+        <h3>Geometric Memoryless Flaw</h3>
+        <p>
+          Standard HMMs enforce geometric state lengths <i>P(d) = p<sup>d-1</sup>(1-p)</i>, which unrealistically favors 1-bp exons. GHMMs allow explicit density curves <i>f(d)</i> peaked at true biological lengths (100–200 bp).
+        </p>
+      </div>
+
+      <div class="ghmm-edu-card">
+        <h3>Eukaryotic Splicing Signals</h3>
+        <p>
+          Spliceosomes recognize canonical consensus dinucleotides: <strong>GT</strong> at the 5' donor site and <strong>AG</strong> at the 3' acceptor site preceded by a polypyrimidine tract.
+        </p>
+      </div>
+
+      <div class="ghmm-edu-card">
+        <h3>Ab Initio Gene Finders</h3>
+        <p>
+          Canonical tools like <strong>GENSCAN</strong>, <strong>AUGUSTUS</strong>, and <strong>SNAP</strong> utilize GHMMs with isochore-specific GC models and phylogenetic conservation to predict protein-coding structures directly from raw DNA.
+        </p>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  import { initGhmmVisualizer, type GhmmVisualizerController } from '../../scripts/ghmmVisualizer';
+
+  let controller: GhmmVisualizerController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initGhmmVisualizer(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
