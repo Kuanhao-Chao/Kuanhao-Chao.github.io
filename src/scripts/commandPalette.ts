@@ -1,0 +1,379 @@
+/**
+ * Global Spotlight Command Palette (⌘K / Ctrl+K)
+ */
+import { ALGORITHMS } from '../data/algorithms';
+import { startDnaRain } from './dnaRain';
+
+export interface CommandItem {
+  id: string;
+  category: 'Actions' | 'Algorithms' | 'Navigation' | 'Publications' | 'Software' | 'Research' | 'Posts' | 'Talks' | 'News' | 'Games';
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  icon?: string;
+  href?: string;
+  action?: () => void;
+  keywords?: string[];
+}
+
+const STATIC_ACTIONS: CommandItem[] = [
+  {
+    id: 'act-theme',
+    category: 'Actions',
+    title: 'Toggle Theme',
+    subtitle: 'Switch between light and dark mode',
+    badge: 'Theme',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { toggle: () => void } }).__khcTheme) {
+        (window as unknown as { __khcTheme: { toggle: () => void } }).__khcTheme.toggle();
+      }
+    },
+    keywords: ['dark', 'light', 'mode', 'theme', 'color', 'toggle'],
+  },
+  {
+    id: 'act-terminal',
+    category: 'Actions',
+    title: 'Open Web Terminal',
+    subtitle: 'Interactive Unix shell with genomic CLI tools ($ terminal)',
+    badge: 'Shell',
+    href: '/terminal/',
+    keywords: ['terminal', 'shell', 'bash', 'zsh', 'cli', 'console'],
+  },
+  {
+    id: 'act-cv-download',
+    category: 'Actions',
+    title: 'Download CV (PDF)',
+    subtitle: 'Download complete academic curriculum vitae',
+    badge: 'PDF',
+    href: '/cv.pdf',
+    keywords: ['cv', 'resume', 'pdf', 'download', 'curriculum', 'vitae'],
+  },
+  {
+    id: 'act-copy-email',
+    category: 'Actions',
+    title: 'Copy Email Address',
+    subtitle: 'Copy kuanhao.chao@gmail.com to clipboard',
+    badge: 'Contact',
+    action: () => {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText('kuanhao.chao@gmail.com');
+      }
+    },
+    keywords: ['email', 'copy', 'contact', 'mail', 'reach out'],
+  },
+  {
+    id: 'act-dna-rain',
+    category: 'Actions',
+    title: 'Launch Matrix DNA Rain',
+    subtitle: 'Easter egg digital rain of cascading nucleotides',
+    badge: 'Easter Egg',
+    action: () => {
+      startDnaRain();
+    },
+    keywords: ['matrix', 'rain', 'dna', 'konami', 'easter egg', 'animation'],
+  },
+];
+
+const STATIC_NAV: CommandItem[] = [
+  { id: 'nav-home', category: 'Navigation', title: 'Home', subtitle: 'Overview, research focus, and updates', href: '/' },
+  { id: 'nav-research', category: 'Navigation', title: 'Research Areas', subtitle: 'Core themes in computational genomics and ML', href: '/research/' },
+  { id: 'nav-publications', category: 'Navigation', title: 'Publications', subtitle: 'Peer-reviewed papers, preprints, and citations', href: '/publications/' },
+  { id: 'nav-software', category: 'Navigation', title: 'Software & Open Source', subtitle: 'LiftOn, Splam, OpenSpliceAI, Shorkie, WGT', href: '/software/' },
+  { id: 'nav-algorithms', category: 'Navigation', title: 'Algorithms Hub', subtitle: 'Interactive visualizers for CS & genomic algorithms', href: '/algorithms/' },
+  { id: 'nav-teaching', category: 'Navigation', title: 'Teaching & Mentorship', subtitle: 'Courses, students mentored, pedagogical visualizers', href: '/teaching/' },
+  { id: 'nav-talks', category: 'Navigation', title: 'Talks & Presentations', subtitle: 'Invited talks, conference presentations, slides', href: '/talks/' },
+  { id: 'nav-news', category: 'Navigation', title: 'Recent News', subtitle: 'Academic updates, awards, and milestones', href: '/news/' },
+  { id: 'nav-posts', category: 'Navigation', title: 'Blog Posts & Explaners', subtitle: 'Deep dives and interactive articles', href: '/posts/' },
+  { id: 'nav-cv', category: 'Navigation', title: 'Curriculum Vitae', subtitle: 'Education, experience, honors, and service', href: '/cv/' },
+  { id: 'nav-photos', category: 'Navigation', title: 'Photos & Life', subtitle: 'Academic travels and conferences', href: '/photos/' },
+  { id: 'nav-games', category: 'Games', title: 'Genomic Mini-Games', subtitle: 'Tetris, Snake, Genome Jumper, Dino Run, Proofreader', href: '/games/tetris/' },
+];
+
+const ALGORITHM_ITEMS: CommandItem[] = ALGORITHMS.map((algo) => ({
+  id: `algo-${algo.id}`,
+  category: 'Algorithms',
+  title: algo.title,
+  subtitle: algo.blurb || algo.summary,
+  badge: algo.tag,
+  href: algo.href,
+  keywords: [algo.id, algo.area, algo.category, algo.tag, algo.cliCommand ?? ''].filter(Boolean),
+}));
+
+let searchIndexCache: CommandItem[] | null = null;
+let isFetchingIndex = false;
+
+async function fetchSearchIndex(): Promise<CommandItem[]> {
+  if (searchIndexCache) return searchIndexCache;
+  if (isFetchingIndex) return [];
+  isFetchingIndex = true;
+
+  try {
+    const res = await fetch('/search.json');
+    if (!res.ok) throw new Error('Search index load failed');
+    const data = await res.json();
+    const dynamicItems: CommandItem[] = (data.items || []).map((item: any, idx: number) => {
+      let category: CommandItem['category'] = 'Publications';
+      if (item.type === 'Publication') category = 'Publications';
+      else if (item.type === 'Software') category = 'Software';
+      else if (item.type === 'Research') category = 'Research';
+      else if (item.type === 'Post') category = 'Posts';
+      else if (item.type === 'Talk') category = 'Talks';
+      else if (item.type === 'News') category = 'News';
+
+      return {
+        id: `dyn-${item.type.toLowerCase()}-${idx}`,
+        category,
+        title: item.title,
+        subtitle: item.description,
+        badge: item.tags?.[0] || item.type,
+        href: item.href,
+        keywords: [item.search, ...(item.tags || [])],
+      };
+    });
+
+    searchIndexCache = dynamicItems;
+    isFetchingIndex = false;
+    return dynamicItems;
+  } catch (err) {
+    isFetchingIndex = false;
+    return [];
+  }
+}
+
+export function initCommandPalette() {
+  const dialog = document.getElementById('command-palette-dialog') as HTMLDialogElement | null;
+  const input = document.getElementById('command-palette-input') as HTMLInputElement | null;
+  const resultsContainer = document.getElementById('command-palette-results') as HTMLElement | null;
+  const emptyState = document.getElementById('command-palette-empty') as HTMLElement | null;
+  const backdrop = document.getElementById('command-palette-backdrop') as HTMLElement | null;
+  const closeBtn = document.getElementById('command-palette-close') as HTMLElement | null;
+
+  if (!dialog || !input || !resultsContainer) return;
+
+  let activeIndex = 0;
+  let currentFilteredItems: CommandItem[] = [];
+
+  // Pre-fetch search index in background
+  fetchSearchIndex();
+
+  function openPalette() {
+    if (!dialog) return;
+    input!.value = '';
+    dialog.showModal();
+    document.body.style.overflow = 'hidden';
+    renderResults('');
+    input!.focus();
+  }
+
+  function closePalette() {
+    if (!dialog) return;
+    dialog.close();
+    document.body.style.overflow = '';
+  }
+
+  function executeItem(item: CommandItem) {
+    closePalette();
+    if (item.action) {
+      item.action();
+    } else if (item.href) {
+      window.location.href = item.href;
+    }
+  }
+
+  function scoreItem(item: CommandItem, queryTokens: string[]): number {
+    if (queryTokens.length === 0) return 1;
+    const titleLower = item.title.toLowerCase();
+    const subtitleLower = (item.subtitle || '').toLowerCase();
+    const badgeLower = (item.badge || '').toLowerCase();
+    const keywordsLower = (item.keywords || []).join(' ').toLowerCase();
+
+    let score = 0;
+    for (const token of queryTokens) {
+      if (titleLower.startsWith(token)) score += 100;
+      else if (titleLower.includes(` ${token}`)) score += 60;
+      else if (titleLower.includes(token)) score += 40;
+      else if (badgeLower.includes(token)) score += 30;
+      else if (keywordsLower.includes(token)) score += 20;
+      else if (subtitleLower.includes(token)) score += 10;
+      else return 0; // all tokens must match somewhere
+    }
+    return score;
+  }
+
+  function renderResults(query: string) {
+    const tokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+
+    const allBaseItems = [...STATIC_ACTIONS, ...ALGORITHM_ITEMS, ...STATIC_NAV, ...(searchIndexCache || [])];
+
+    // Deduplicate by href/id
+    const seen = new Set<string>();
+    const uniqueItems: CommandItem[] = [];
+    for (const it of allBaseItems) {
+      const key = it.href || it.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueItems.push(it);
+      }
+    }
+
+    let scored = uniqueItems
+      .map((it) => ({ item: it, score: scoreItem(it, tokens) }))
+      .filter((entry) => entry.score > 0);
+
+    if (tokens.length > 0) {
+      scored.sort((a, b) => b.score - a.score);
+    }
+
+    currentFilteredItems = scored.map((s) => s.item).slice(0, 30);
+    activeIndex = 0;
+
+    resultsContainer!.replaceChildren();
+
+    if (currentFilteredItems.length === 0) {
+      if (emptyState) emptyState.hidden = false;
+      return;
+    }
+
+    if (emptyState) emptyState.hidden = true;
+
+    // Group items by category
+    const categories: Record<string, CommandItem[]> = {};
+    for (const it of currentFilteredItems) {
+      if (!categories[it.category]) categories[it.category] = [];
+      categories[it.category].push(it);
+    }
+
+    let globalItemIndex = 0;
+    for (const [catName, items] of Object.entries(categories)) {
+      const sectionHeader = document.createElement('div');
+      sectionHeader.className = 'palette-group-title';
+      sectionHeader.textContent = catName;
+      resultsContainer!.appendChild(sectionHeader);
+
+      for (const item of items) {
+        const itemIdx = globalItemIndex++;
+        const itemEl = document.createElement('div');
+        itemEl.className = `palette-item ${itemIdx === activeIndex ? 'is-selected' : ''}`;
+        itemEl.id = `palette-item-${itemIdx}`;
+        itemEl.role = 'option';
+        itemEl.setAttribute('aria-selected', String(itemIdx === activeIndex));
+
+        const contentWrap = document.createElement('div');
+        contentWrap.className = 'palette-item-main';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'palette-item-title';
+        titleEl.textContent = item.title;
+        contentWrap.appendChild(titleEl);
+
+        if (item.subtitle) {
+          const subEl = document.createElement('span');
+          subEl.className = 'palette-item-subtitle';
+          subEl.textContent = item.subtitle;
+          contentWrap.appendChild(subEl);
+        }
+
+        itemEl.appendChild(contentWrap);
+
+        if (item.badge) {
+          const badgeEl = document.createElement('span');
+          badgeEl.className = 'palette-item-badge';
+          badgeEl.textContent = item.badge;
+          itemEl.appendChild(badgeEl);
+        }
+
+        const arrowEl = document.createElement('span');
+        arrowEl.className = 'palette-item-arrow';
+        arrowEl.textContent = '↵';
+        itemEl.appendChild(arrowEl);
+
+        itemEl.addEventListener('mouseenter', () => {
+          updateActiveIndex(itemIdx);
+        });
+
+        itemEl.addEventListener('click', () => {
+          executeItem(item);
+        });
+
+        resultsContainer!.appendChild(itemEl);
+      }
+    }
+  }
+
+  function updateActiveIndex(nextIdx: number) {
+    if (currentFilteredItems.length === 0) return;
+    const count = currentFilteredItems.length;
+    activeIndex = (nextIdx + count) % count;
+
+    const allItemEls = resultsContainer!.querySelectorAll('.palette-item');
+    allItemEls.forEach((el, idx) => {
+      const isSelected = idx === activeIndex;
+      el.classList.toggle('is-selected', isSelected);
+      el.setAttribute('aria-selected', String(isSelected));
+      if (isSelected) {
+        (el as HTMLElement).scrollIntoView({ block: 'nearest' });
+      }
+    });
+  }
+
+  input.addEventListener('input', () => {
+    renderResults(input.value);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      updateActiveIndex(activeIndex + 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      updateActiveIndex(activeIndex - 1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentFilteredItems[activeIndex]) {
+        executeItem(currentFilteredItems[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closePalette();
+    }
+  });
+
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog || e.target === backdrop) {
+      closePalette();
+    }
+  });
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closePalette);
+  }
+
+  // Global key shortcuts: Cmd+K, Ctrl+K, or Slash (/) when not in text input
+  function onGlobalKeyDown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement | null;
+    const isTyping = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      if (dialog!.open) closePalette();
+      else openPalette();
+    } else if (e.key === '/' && !isTyping) {
+      e.preventDefault();
+      openPalette();
+    }
+  }
+
+  window.addEventListener('keydown', onGlobalKeyDown);
+
+  // Wire search buttons across the page
+  document.querySelectorAll('[data-open-command-palette]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openPalette();
+    });
+  });
+
+  return () => {
+    window.removeEventListener('keydown', onGlobalKeyDown);
+  };
+}
