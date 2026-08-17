@@ -1284,6 +1284,16 @@ describe('unix utilities and content navigation commands', () => {
     const crtOff = exec(state, 'crt off');
     expect(crtOff.effect).toEqual({ type: 'custom', eventName: 'khc:start-crt', detail: { mode: 'off' } });
 
+    // bg command options
+    const bgPan = exec(state, 'bg pangenome');
+    expect(bgPan.effect).toEqual({ type: 'custom', eventName: 'khc:set-bg', detail: { mode: 'pangenome' } });
+    const bgCells = exec(state, 'bg cells');
+    expect(bgCells.effect).toEqual({ type: 'custom', eventName: 'khc:set-bg', detail: { mode: 'cells' } });
+    const bgNeural = exec(state, 'bg neural');
+    expect(bgNeural.effect).toEqual({ type: 'custom', eventName: 'khc:set-bg', detail: { mode: 'neural' } });
+    const bgChromatin = exec(state, 'bg chromatin');
+    expect(bgChromatin.effect).toEqual({ type: 'custom', eventName: 'khc:set-bg', detail: { mode: 'chromatin' } });
+
     // eggs / secrets
     const eggsOut = exec(state, 'eggs');
     expect(joined(eggsOut.lines)).toContain('CRISPR-Cas9');

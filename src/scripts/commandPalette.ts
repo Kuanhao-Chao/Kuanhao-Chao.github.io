@@ -95,6 +95,71 @@ const STATIC_ACTIONS: CommandItem[] = [
     keywords: ['crt off', 'modern', 'disable crt', 'normal display', 'turn off crt'],
   },
   {
+    id: 'act-bg-pangenome',
+    category: 'Actions',
+    title: 'Background: 🌌 Pangenome Haplotype Highway',
+    subtitle: 'Braided ancestral genome variation paths and minimizers',
+    badge: 'Ambience',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcBg?: { set: (m: string) => void } }).__khcBg) {
+        (window as unknown as { __khcBg: { set: (m: string) => void } }).__khcBg.set('pangenome');
+      }
+    },
+    keywords: ['background', 'bg', 'pangenome', 'graph', 'highway', 'variation', 'stream'],
+  },
+  {
+    id: 'act-bg-cells',
+    category: 'Actions',
+    title: 'Background: 🫧 Bioluminescent Cell Colony 2.0',
+    subtitle: 'Living cellular membranes with interactive mitosis and ATP fireflies',
+    badge: 'Ambience',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcBg?: { set: (m: string) => void } }).__khcBg) {
+        (window as unknown as { __khcBg: { set: (m: string) => void } }).__khcBg.set('cells');
+      }
+    },
+    keywords: ['background', 'bg', 'cells', 'living', 'mitosis', 'cytokinesis', 'biology'],
+  },
+  {
+    id: 'act-bg-neural',
+    category: 'Actions',
+    title: 'Background: 🌊 Neural Splice Waves',
+    subtitle: 'Dilated residual convolution resonance and splice energy pulses',
+    badge: 'Ambience',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcBg?: { set: (m: string) => void } }).__khcBg) {
+        (window as unknown as { __khcBg: { set: (m: string) => void } }).__khcBg.set('neural');
+      }
+    },
+    keywords: ['background', 'bg', 'neural', 'splice', 'waves', 'openspliceai', 'deep learning'],
+  },
+  {
+    id: 'act-bg-chromatin',
+    category: 'Actions',
+    title: 'Background: 🧬 3D Chromatin Loop Conformation',
+    subtitle: '3D polymer chain extrusion with cohesin rings and CTCF boundary anchors',
+    badge: 'Ambience',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcBg?: { set: (m: string) => void } }).__khcBg) {
+        (window as unknown as { __khcBg: { set: (m: string) => void } }).__khcBg.set('chromatin');
+      }
+    },
+    keywords: ['background', 'bg', 'chromatin', 'loops', '3d', 'hic', 'epigenomics', 'ctcf'],
+  },
+  {
+    id: 'act-bg-off',
+    category: 'Actions',
+    title: 'Background: 🖥️ Minimal Paper (Canvas Off)',
+    subtitle: 'Clean zero-motion background for deep academic reading',
+    badge: 'Ambience',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcBg?: { set: (m: string) => void } }).__khcBg) {
+        (window as unknown as { __khcBg: { set: (m: string) => void } }).__khcBg.set('off');
+      }
+    },
+    keywords: ['background off', 'minimal background', 'disable background', 'clean paper'],
+  },
+  {
     id: 'act-terminal',
     category: 'Actions',
     title: 'Open Web Terminal',
