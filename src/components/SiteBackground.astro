@@ -1,16 +1,16 @@
 ---
 /**
- * Site-wide Multi-Mode Ambient Background Component.
+ * Site-wide Ambient Bioluminescent Living Cells 2.0 Background.
  *
- * Renders a high-performance, non-distracting generative background canvas
- * supporting 4 selectable visual experiences:
- * - 🌿 Classic Living Cells (Original background)
- * - 🫧 Bioluminescent Living Cells 2.0 (Organic membranes, lipid glow, ATP fireflies, mitosis)
- * - 🌌 Synteny Constellation & Graph (Chromosomal loci, synteny bezier filaments, proximity webs)
- * - 🖥️ Minimal Clean Paper (Off)
+ * Renders an authentic, non-distracting cellular biology simulation:
+ * - Growth phase (budding & nutrient uptake)
+ * - Mature homeostasis (multi-harmonic lipid membranes, fluorescent nuclei, organelles)
+ * - Mitosis (cleavage furrow cytokinesis with chromosome spindle separation)
+ * - Apoptosis (membrane blebbing, pyknosis, and nutrient micro-vesicle dispersal)
+ * - ATP nutrient fireflies drifting through the intercellular matrix
  *
- * Honors prefers-reduced-motion, pauses when tab is hidden, scales DPR <= 2,
- * and maintains 100% text readability.
+ * Honors prefers-reduced-motion, pauses when the tab is hidden, scales DPR <= 2,
+ * and guarantees 100% typography contrast and legibility.
  */
 ---
 <canvas data-site-bg-canvas aria-hidden="true" transition:persist="site-bg"></canvas>
@@ -27,12 +27,11 @@
 </style>
 
 <script>
-  import { initSiteBackground, getBackgroundManager } from '../lib/backgrounds/manager';
+  import { initLivingCellsBackground } from '../lib/livingCellsEngine';
 
-  initSiteBackground();
+  initLivingCellsBackground();
 
   document.addEventListener('astro:page-load', () => {
-    initSiteBackground();
-    getBackgroundManager().sync();
+    initLivingCellsBackground();
   });
 </script>

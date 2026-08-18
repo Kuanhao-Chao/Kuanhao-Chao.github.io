@@ -49,7 +49,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           aria-haspopup="menu"
           aria-expanded="false"
           aria-label="Appearance settings"
-          title="Switch theme, background ambience, or 1988 CRT mode"
+          title="Switch color theme or 1988 CRT monitor mode"
         >
           <span class="theme-icon-container">
             <span class="theme-toggle-icon theme-toggle-icon--sun" aria-hidden="true">
@@ -68,7 +68,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         <div class="top-theme-popover" data-top-theme-popover role="menu" hidden>
           <!-- Base Color Theme -->
           <div class="popover-section">
-            <span class="popover-heading">Theme</span>
+            <span class="popover-heading">Color Theme</span>
             <div class="popover-grid">
               <button type="button" class="popover-opt-btn" data-theme-choice="light" role="menuitem">
                 <span class="opt-icon-wrap" aria-hidden="true">
@@ -81,31 +81,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                   <Icon name="moon" size={15} />
                 </span>
                 <span class="opt-text">Dark</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="popover-divider"></div>
-
-          <!-- Background Ambience -->
-          <div class="popover-section">
-            <span class="popover-heading">Background Ambience</span>
-            <div class="popover-list">
-              <button type="button" class="popover-opt-btn" data-bg-choice="classic" role="menuitem">
-                <span class="opt-icon">🌿</span>
-                <span class="opt-text">Classic Cells</span>
-              </button>
-              <button type="button" class="popover-opt-btn" data-bg-choice="cells2" role="menuitem">
-                <span class="opt-icon">🫧</span>
-                <span class="opt-text">Living Cells 2.0</span>
-              </button>
-              <button type="button" class="popover-opt-btn" data-bg-choice="synteny" role="menuitem">
-                <span class="opt-icon">🌌</span>
-                <span class="opt-text">Synteny Graph</span>
-              </button>
-              <button type="button" class="popover-opt-btn" data-bg-choice="off" role="menuitem">
-                <span class="opt-icon">🖥️</span>
-                <span class="opt-text">Minimal Paper (Off)</span>
               </button>
             </div>
           </div>
@@ -180,27 +155,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
               <Icon name="moon" size={17} />
             </span>
             <span>Dark</span>
-          </button>
-        </div>
-
-        <!-- Background Ambience -->
-        <p class="eyebrow mobile-drawer-heading" style="margin-top: 0.35rem;">Background Ambience</p>
-        <div class="mobile-theme-row mobile-theme-row--bg" role="radiogroup" aria-label="Background Ambience">
-          <button type="button" class="mobile-theme-btn" data-bg-choice="classic" title="Classic Cells">
-            <span>🌿</span>
-            <span>Classic</span>
-          </button>
-          <button type="button" class="mobile-theme-btn" data-bg-choice="cells2" title="Living Cells 2.0">
-            <span>🫧</span>
-            <span>Cells 2.0</span>
-          </button>
-          <button type="button" class="mobile-theme-btn" data-bg-choice="synteny" title="Synteny Graph">
-            <span>🌌</span>
-            <span>Synteny</span>
-          </button>
-          <button type="button" class="mobile-theme-btn" data-bg-choice="off" title="Minimal Off">
-            <span>🖥️</span>
-            <span>Off</span>
           </button>
         </div>
 
@@ -455,7 +409,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    width: 220px;
+    width: 200px;
     max-height: 80vh;
     overflow-y: auto;
     padding: 0.75rem;
@@ -697,7 +651,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     }
     .top-theme-popover {
       right: -40px;
-      width: 220px;
+      width: 200px;
     }
   }
 </style>
@@ -715,16 +669,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     toggle: () => void;
     sync: () => void;
   }
-  interface BgApi {
-    get: () => string;
-    set: (m: string) => void;
-    next: () => void;
-    sync: () => void;
-  }
 
   const themeApi = () => (window as Window & { __khcTheme?: ThemeApi }).__khcTheme;
   const crtApi = () => (window as Window & { __khcCrt?: CrtApi }).__khcCrt;
-  const bgApi = () => (window as Window & { __khcBg?: BgApi }).__khcBg;
 
   interface Nav {
     toggle: HTMLButtonElement;
@@ -753,7 +700,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   function syncHeaderThemeIcons() {
     const currentTheme = themeApi()?.get() || document.documentElement.dataset.theme || 'light';
     const currentCrt = crtApi()?.get() || document.documentElement.dataset.crtMode || 'off';
-    const currentBg = bgApi()?.get() || (typeof localStorage !== 'undefined' ? localStorage.getItem('khc-bg-mode') : 'classic') || 'classic';
 
     const topBtn = document.querySelector<HTMLButtonElement>('[data-top-theme-btn]');
     const crtBadge = document.querySelector<HTMLElement>('[data-top-crt-badge]');
@@ -778,14 +724,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     document.querySelectorAll<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
       const choice = btn.dataset.crtChoice;
       const isActive = choice === currentCrt;
-      btn.classList.toggle('is-active', isActive);
-      btn.setAttribute('aria-checked', String(isActive));
-    });
-
-    // Sync active classes across Background choices
-    document.querySelectorAll<HTMLButtonElement>('[data-bg-choice]').forEach((btn) => {
-      const choice = btn.dataset.bgChoice;
-      const isActive = choice === currentBg;
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
     });
@@ -832,17 +770,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         const choice = btn.dataset.crtChoice;
         if (choice) {
           crtApi()?.set(choice);
-          setPopoverOpen(false);
-        }
-      };
-    });
-
-    document.querySelectorAll<HTMLButtonElement>('[data-bg-choice]').forEach((btn) => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const choice = btn.dataset.bgChoice;
-        if (choice) {
-          bgApi()?.set(choice);
           setPopoverOpen(false);
         }
       };
@@ -901,7 +828,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
   document.addEventListener('khc:theme-change', syncHeaderThemeIcons);
   document.addEventListener('khc:crt-change', syncHeaderThemeIcons);
-  document.addEventListener('khc:bg-change', syncHeaderThemeIcons);
 
   bind();
   updateActiveNav();
