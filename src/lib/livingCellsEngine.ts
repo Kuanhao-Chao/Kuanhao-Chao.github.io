@@ -109,8 +109,8 @@ export class LivingCellsEngine {
   private baseCount = 0;
   private maxCount = 0;
   private tick = 0;
-  private nextAutoMitosis = 360;
-  private nextAutoApoptosis = 650;
+  private nextAutoMitosis = 240;
+  private nextAutoApoptosis = 440;
 
   // Pointer & Drag State
   private pointer = { x: -1000, y: -1000, vx: 0, vy: 0, isActive: false, isDown: false };
@@ -190,8 +190,8 @@ export class LivingCellsEngine {
       })),
       state: cellState,
       life: asBud ? 0.2 : 1,
-      age: asBud ? 0 : rand(100, 800),
-      maxAge: rand(1800, 3600),
+      age: asBud ? 0 : rand(80, 550),
+      maxAge: rand(1250, 2500),
       isGrabbed: false,
       grabOffset: { x: 0, y: 0 },
       glowIntensity: asBud ? 2.0 : 1.0,
@@ -595,7 +595,7 @@ export class LivingCellsEngine {
 
       // A. Growth Phase
       if (cell.state === 'growing') {
-        cell.life = Math.min(1.0, cell.life + 0.014);
+        cell.life = Math.min(1.0, cell.life + 0.018);
         cell.radius = 4 + (cell.targetRadius - 4) * easeInOutCubic(cell.life);
 
         if (cell.life >= 1.0) {
@@ -611,7 +611,7 @@ export class LivingCellsEngine {
       }
       // C. Mitosis Cytokinesis Phase
       else if (cell.state === 'mitosis') {
-        cell.mitosisProgress = (cell.mitosisProgress || 0) + 0.01;
+        cell.mitosisProgress = (cell.mitosisProgress || 0) + 0.0125;
 
         if (cell.mitosisProgress >= 1.0) {
           const angle = cell.mitosisAngle || 0;
@@ -650,7 +650,7 @@ export class LivingCellsEngine {
       }
       // D. Apoptosis Zeiosis Phase
       else if (cell.state === 'apoptosis') {
-        cell.apoptosisProgress = (cell.apoptosisProgress || 0) + 0.008;
+        cell.apoptosisProgress = (cell.apoptosisProgress || 0) + 0.0105;
         cell.life = Math.max(0, 1.0 - cell.apoptosisProgress * 1.15);
 
         if (cell.blebs) {
@@ -675,24 +675,24 @@ export class LivingCellsEngine {
 
     const liveCount = this.cells.filter((c) => c.state !== 'apoptosis').length;
 
-    // Natural occasional Mitosis
+    // Natural occasional Mitosis (~40% more frequent)
     if (this.tick > this.nextAutoMitosis && liveCount < this.maxCount) {
       const candidates = this.cells.filter((c) => c.state === 'mature' && !c.isGrabbed);
       if (candidates.length) {
         const parent = candidates[(Math.random() * candidates.length) | 0];
         this.triggerMitosis(parent);
       }
-      this.nextAutoMitosis = this.tick + (rand(600, 1100) | 0);
+      this.nextAutoMitosis = this.tick + (rand(420, 780) | 0);
     }
 
-    // Natural population regulation
+    // Natural population regulation (~40% more frequent)
     if (this.tick > this.nextAutoApoptosis && liveCount > this.baseCount) {
       const candidates = this.cells.filter((c) => c.state === 'mature' && !c.isGrabbed);
       if (candidates.length) {
         const oldest = candidates.sort((a, b) => b.age - a.age)[0];
         if (oldest) this.triggerApoptosis(oldest);
       }
-      this.nextAutoApoptosis = this.tick + (rand(450, 900) | 0);
+      this.nextAutoApoptosis = this.tick + (rand(320, 640) | 0);
     }
   }
 
