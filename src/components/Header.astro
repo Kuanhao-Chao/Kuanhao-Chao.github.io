@@ -71,15 +71,15 @@ const headerNav = nav.filter((item) => !item.footerOnly);
             <span class="popover-heading">Modern Themes</span>
             <div class="popover-grid">
               <button type="button" class="popover-opt-btn" data-theme-choice="light" role="menuitem">
-                <span class="theme-swatch-dot theme-swatch-dot--light" aria-hidden="true"></span>
+                <span class="opt-icon-wrap" aria-hidden="true">
+                  <Icon name="sun" size={14} />
+                </span>
                 <span class="opt-text">Light</span>
               </button>
-              <button type="button" class="popover-opt-btn" data-theme-choice="parchment" role="menuitem">
-                <span class="theme-swatch-dot theme-swatch-dot--parchment" aria-hidden="true"></span>
-                <span class="opt-text">Parchment</span>
-              </button>
               <button type="button" class="popover-opt-btn" data-theme-choice="dark" role="menuitem">
-                <span class="theme-swatch-dot theme-swatch-dot--dark" aria-hidden="true"></span>
+                <span class="opt-icon-wrap" aria-hidden="true">
+                  <Icon name="moon" size={14} />
+                </span>
                 <span class="opt-text">Dark</span>
               </button>
               <button type="button" class="popover-opt-btn" data-theme-choice="nord" role="menuitem">
@@ -93,6 +93,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
               <button type="button" class="popover-opt-btn" data-theme-choice="cyberdeck" role="menuitem">
                 <span class="theme-swatch-dot theme-swatch-dot--cyberdeck" aria-hidden="true"></span>
                 <span class="opt-text">Cyberdeck</span>
+              </button>
+              <button type="button" class="popover-opt-btn" data-theme-choice="parchment" role="menuitem">
+                <span class="theme-swatch-dot theme-swatch-dot--parchment" aria-hidden="true"></span>
+                <span class="opt-text">Parchment</span>
               </button>
             </div>
           </div>
@@ -152,15 +156,15 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       <p class="eyebrow mobile-drawer-heading">Modern Themes</p>
       <div class="mobile-theme-grid" role="radiogroup" aria-label="Modern Themes">
         <button type="button" class="mobile-theme-btn" data-theme-choice="light">
-          <span class="theme-swatch-dot theme-swatch-dot--light" aria-hidden="true"></span>
+          <span class="opt-icon-wrap" aria-hidden="true">
+            <Icon name="sun" size={14} />
+          </span>
           <span>Light</span>
         </button>
-        <button type="button" class="mobile-theme-btn" data-theme-choice="parchment">
-          <span class="theme-swatch-dot theme-swatch-dot--parchment" aria-hidden="true"></span>
-          <span>Parchment</span>
-        </button>
         <button type="button" class="mobile-theme-btn" data-theme-choice="dark">
-          <span class="theme-swatch-dot theme-swatch-dot--dark" aria-hidden="true"></span>
+          <span class="opt-icon-wrap" aria-hidden="true">
+            <Icon name="moon" size={14} />
+          </span>
           <span>Dark</span>
         </button>
         <button type="button" class="mobile-theme-btn" data-theme-choice="nord">
@@ -174,6 +178,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         <button type="button" class="mobile-theme-btn" data-theme-choice="cyberdeck">
           <span class="theme-swatch-dot theme-swatch-dot--cyberdeck" aria-hidden="true"></span>
           <span>Cyberdeck</span>
+        </button>
+        <button type="button" class="mobile-theme-btn" data-theme-choice="parchment">
+          <span class="theme-swatch-dot theme-swatch-dot--parchment" aria-hidden="true"></span>
+          <span>Parchment</span>
         </button>
       </div>
 
@@ -391,12 +399,32 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     line-height: 1;
   }
 
-  .top-theme-btn[data-theme-state='dark'] .theme-toggle-icon--sun {
+  /* Light & Parchment show Sun icon */
+  .top-theme-btn[data-theme-state='light'] .theme-toggle-icon--sun,
+  .top-theme-btn[data-theme-state='parchment'] .theme-toggle-icon--sun {
+    opacity: 1;
+    transform: none;
+  }
+
+  .top-theme-btn[data-theme-state='light'] .theme-toggle-icon--moon,
+  .top-theme-btn[data-theme-state='parchment'] .theme-toggle-icon--moon {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.75);
+  }
+
+  /* Dark, Nord, Monokai, Cyberdeck show Moon icon */
+  .top-theme-btn[data-theme-state='dark'] .theme-toggle-icon--sun,
+  .top-theme-btn[data-theme-state='nord'] .theme-toggle-icon--sun,
+  .top-theme-btn[data-theme-state='monokai'] .theme-toggle-icon--sun,
+  .top-theme-btn[data-theme-state='cyberdeck'] .theme-toggle-icon--sun {
     opacity: 0;
     transform: rotate(90deg) scale(0.75);
   }
 
-  .top-theme-btn[data-theme-state='dark'] .theme-toggle-icon--moon {
+  .top-theme-btn[data-theme-state='dark'] .theme-toggle-icon--moon,
+  .top-theme-btn[data-theme-state='nord'] .theme-toggle-icon--moon,
+  .top-theme-btn[data-theme-state='monokai'] .theme-toggle-icon--moon,
+  .top-theme-btn[data-theme-state='cyberdeck'] .theme-toggle-icon--moon {
     opacity: 1;
     transform: none;
   }
