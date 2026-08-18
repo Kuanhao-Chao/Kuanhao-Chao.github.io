@@ -3,12 +3,13 @@
  *
  * An authentic, state-of-the-art computational biology and fluid physics simulation:
  * 1. 💧 Viscoelastic Cubic Spline Membranes: 16 dynamic spring vertices with cortical tension.
- * 2. 🧲 Optical Tweezer Dragging & Elastic Recoil: Drag & stretch cells with damped spring rebound.
- * 3. 🧪 Chemotaxis & Nutrient Feeding: Cursor emits ATP fireflies; cells sense & swim towards nutrients.
- * 4. 🧫 Intercellular Contact Inhibition: Cells softly deform and bounce off one another in a tissue layer.
- * 5. 🔬 Mitotic Microtubule Spindle Apparatus: Centrosome poles, spindle fibers, and cleavage furrow cytokinesis.
- * 6. 🫧 Apoptotic Zeiosis & Fragmentation: Dynamic membrane boiling, apoptotic blebs, and pyknosis.
- * 7. 🌊 Double-Click Nutrient Shockwave: Radial colony excitation pulse.
+ * 2. 🧲 Optical Tweezer Dragging & Elastic Recoil: Desktop mouse drag & stretch with damped spring rebound.
+ * 3. 📱 Mobile-Calibrated Touch Interaction: Non-intrusive, scroll-safe background with discrete tap actions.
+ * 4. 🧪 Chemotaxis & Nutrient Feeding: Desktop cursor emits ATP fireflies; cells sense & swim towards nutrients.
+ * 5. 🧫 Intercellular Contact Inhibition: Cells softly deform and bounce off one another in a tissue layer.
+ * 6. 🔬 Mitotic Microtubule Spindle Apparatus: Centrosome poles, spindle fibers, and cleavage furrow cytokinesis.
+ * 7. 🫧 Apoptotic Zeiosis & Fragmentation: Dynamic membrane boiling, apoptotic blebs, and pyknosis.
+ * 8. 🌊 Double-Click Colony Shockwave: Radial colony excitation pulse.
  *
  * 60fps delta-time smoothed, zero dependencies, automatic tab-visibility pausing, and
  * calibrated contrast ensuring 100% foreground typography legibility.
@@ -76,7 +77,7 @@ export interface LivingCell {
   age: number;
   maxAge: number;
 
-  // Interactivity & Optical Tweezers
+  // Interactivity & Optical Tweezers (Desktop only)
   isGrabbed: boolean;
   grabOffset: { x: number; y: number };
 
@@ -113,7 +114,15 @@ export class LivingCellsEngine {
   private nextAutoApoptosis = 440;
 
   // Pointer & Drag State
-  private pointer = { x: -1000, y: -1000, vx: 0, vy: 0, isActive: false, isDown: false };
+  private pointer = {
+    x: -1000,
+    y: -1000,
+    vx: 0,
+    vy: 0,
+    isActive: false,
+    isDown: false,
+    type: 'mouse' as string,
+  };
   private lastPointer = { x: 0, y: 0 };
   private grabbedCell: LivingCell | null = null;
   private pointerDownPos = { x: 0, y: 0, time: 0 };
@@ -156,7 +165,8 @@ export class LivingCellsEngine {
   }
 
   private createCell(x?: number, y?: number, asBud = false, targetR?: number): LivingCell {
-    const finalRadius = targetR ?? rand(34, 72);
+    const isCoarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    const finalRadius = targetR ?? (isCoarse ? rand(26, 52) : rand(34, 72));
     const cellState: CellState = asBud ? 'growing' : 'mature';
 
     const vertices: VertexSpring[] = Array.from({ length: VERTEX_COUNT }, (_, i) => ({
@@ -259,9 +269,9 @@ export class LivingCellsEngine {
     this.canvas.height = Math.round(this.height * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const target = Math.round((this.width * this.height) / (isCoarse ? 56000 : 48000));
-    this.baseCount = Math.max(isCoarse ? 4 : 5, Math.min(isCoarse ? 8 : 13, target));
-    this.maxCount = this.baseCount + 3;
+    const target = Math.round((this.width * this.height) / (isCoarse ? 58000 : 48000));
+    this.baseCount = Math.max(isCoarse ? 4 : 5, Math.min(isCoarse ? 6 : 13, target));
+    this.maxCount = this.baseCount + 2;
   };
 
   private bindEvents(): void {
@@ -270,7 +280,7 @@ export class LivingCellsEngine {
 
     window.addEventListener('resize', this.resize, { passive: true });
 
-    // Pointer Down (Grab / Optical Tweezer Start)
+    // Pointer Down
     window.addEventListener(
       'pointerdown',
       (e: PointerEvent) => {
@@ -281,28 +291,33 @@ export class LivingCellsEngine {
 
         const x = e.clientX;
         const y = e.clientY;
+        const isTouch = e.pointerType === 'touch';
+
         this.pointer.isDown = true;
+        this.pointer.type = e.pointerType || 'mouse';
         this.pointerDownPos = { x, y, time: performance.now() };
 
-        // Check for Double Click
-        const now = performance.now();
-        if (now - this.lastClickTime < 320) {
-          this.triggerShockwave(x, y);
-          this.lastClickTime = 0;
-          return;
-        }
-        this.lastClickTime = now;
+        // Double click / shockwave (desktop mouse only)
+        if (!isTouch) {
+          const now = performance.now();
+          if (now - this.lastClickTime < 320) {
+            this.triggerShockwave(x, y);
+            this.lastClickTime = 0;
+            return;
+          }
+          this.lastClickTime = now;
 
-        // Check if grabbing a mature/living cell
-        for (const cell of this.cells) {
-          if (cell.state === 'mature' || cell.state === 'growing') {
-            const dist = Math.hypot(cell.x - x, cell.y - y);
-            if (dist < cell.radius * 1.35) {
-              this.grabbedCell = cell;
-              cell.isGrabbed = true;
-              cell.grabOffset = { x: cell.x - x, y: cell.y - y };
-              cell.glowIntensity = 2.2;
-              return;
+          // Optical Tweezer grab on desktop mouse only
+          for (const cell of this.cells) {
+            if (cell.state === 'mature' || cell.state === 'growing') {
+              const dist = Math.hypot(cell.x - x, cell.y - y);
+              if (dist < cell.radius * 1.35) {
+                this.grabbedCell = cell;
+                cell.isGrabbed = true;
+                cell.grabOffset = { x: cell.x - x, y: cell.y - y };
+                cell.glowIntensity = 2.2;
+                return;
+              }
             }
           }
         }
@@ -310,12 +325,15 @@ export class LivingCellsEngine {
       { passive: true }
     );
 
-    // Pointer Move (Chemotaxis Trail & Optical Tweezer Pull)
+    // Pointer Move
     window.addEventListener(
       'pointermove',
       (e: PointerEvent) => {
         const x = e.clientX;
         const y = e.clientY;
+        const isTouch = e.pointerType === 'touch';
+
+        this.pointer.type = e.pointerType || 'mouse';
         this.pointer.vx = x - this.lastPointer.x;
         this.pointer.vy = y - this.lastPointer.y;
         this.lastPointer.x = x;
@@ -324,16 +342,18 @@ export class LivingCellsEngine {
         this.pointer.y = y;
         this.pointer.isActive = true;
 
-        // Emit Chemotaxis Nutrient Trail when moving swiftly
-        const speed = Math.hypot(this.pointer.vx, this.pointer.vy);
-        if (speed > 2.5 && Math.random() < 0.35 && this.particles.length < 50) {
-          this.particles.push(
-            this.createParticle(x + rand(-8, 8), y + rand(-8, 8), rand(-0.1, 0.1), rand(-0.1, 0.1), 1.2)
-          );
+        // Emit Chemotaxis Nutrient Trail on swift desktop mouse movements only
+        if (!isTouch) {
+          const speed = Math.hypot(this.pointer.vx, this.pointer.vy);
+          if (speed > 2.5 && Math.random() < 0.35 && this.particles.length < 50) {
+            this.particles.push(
+              this.createParticle(x + rand(-8, 8), y + rand(-8, 8), rand(-0.1, 0.1), rand(-0.1, 0.1), 1.2)
+            );
+          }
         }
 
-        // Optical Tweezer Pull Drag
-        if (this.grabbedCell) {
+        // Optical Tweezer Pull Drag (desktop mouse only)
+        if (this.grabbedCell && !isTouch) {
           const targetX = x + this.grabbedCell.grabOffset.x;
           const targetY = y + this.grabbedCell.grabOffset.y;
           const pullDx = targetX - this.grabbedCell.x;
@@ -342,7 +362,6 @@ export class LivingCellsEngine {
           this.grabbedCell.vx += pullDx * 0.12;
           this.grabbedCell.vy += pullDy * 0.12;
 
-          // Deform membrane vertices along pull direction
           const pullAngle = Math.atan2(pullDy, pullDx);
           const pullMag = Math.min(18, Math.hypot(pullDx, pullDy) * 0.3);
 
@@ -355,25 +374,28 @@ export class LivingCellsEngine {
       { passive: true }
     );
 
-    // Pointer Up (Release Optical Tweezers or Handle Click Tap)
+    // Pointer Up (Release Optical Tweezers or Handle Click/Tap)
     window.addEventListener('pointerup', (e: PointerEvent) => {
       this.pointer.isDown = false;
+      const isTouch = e.pointerType === 'touch';
       const x = e.clientX;
       const y = e.clientY;
 
       if (this.grabbedCell) {
-        // Damped viscoelastic spring release recoil
         this.grabbedCell.isGrabbed = false;
         for (const v of this.grabbedCell.vertices) {
           v.velocity += rand(-1.2, 1.2);
         }
         this.grabbedCell = null;
       } else {
-        // Click tap handling: Check drag distance to differentiate click from drag
         const moveDist = Math.hypot(x - this.pointerDownPos.x, y - this.pointerDownPos.y);
         const duration = performance.now() - this.pointerDownPos.time;
 
-        if (moveDist < 8 && duration < 350) {
+        // Strict stationary tap threshold for touch screens (<6px, <280ms)
+        const maxDist = isTouch ? 6 : 8;
+        const maxDuration = isTouch ? 280 : 350;
+
+        if (moveDist < maxDist && duration < maxDuration) {
           // Check if clicking a mature cell to trigger Mitosis
           for (const cell of this.cells) {
             if (cell.state === 'mature') {
@@ -387,12 +409,13 @@ export class LivingCellsEngine {
 
           // Otherwise sprout a new cell bud + nutrient fireflies
           if (this.cells.length < this.maxCount + 2) {
-            const newBud = this.createCell(x, y, true, rand(36, 56));
+            const isCoarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+            const newBud = this.createCell(x, y, true, isCoarse ? rand(28, 44) : rand(36, 56));
             this.cells.push(newBud);
 
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < (isTouch ? 5 : 8); i++) {
               const a = rand(0, TAU);
-              const speed = rand(0.5, 1.4);
+              const speed = rand(0.4, 1.2);
               this.particles.push(this.createParticle(x, y, Math.cos(a) * speed, Math.sin(a) * speed));
             }
           }
@@ -483,7 +506,7 @@ export class LivingCellsEngine {
           const d = Math.hypot(cell.x - p.x, cell.y - p.y);
           if (d < cell.radius * 0.95) {
             cell.glowIntensity = Math.min(2.2, cell.glowIntensity + 0.15);
-            cell.age = Math.max(0, cell.age - 25); // Extend lifespan
+            cell.age = Math.max(0, cell.age - 25);
             this.particles.splice(i, 1);
             break;
           }
@@ -516,7 +539,6 @@ export class LivingCellsEngine {
           c2.vx += nx * force;
           c2.vy += ny * force;
 
-          // Contact flattening on radial vertices
           const c1Angle = Math.atan2(dy, dx) - c1.angle;
           const c2Angle = Math.atan2(-dy, -dx) - c2.angle;
 
@@ -550,7 +572,6 @@ export class LivingCellsEngine {
       cell.wobblePhase += cell.wobbleSpeed;
       cell.glowIntensity = Math.max(1.0, cell.glowIntensity - 0.012);
 
-      // Rotate organelles
       for (const org of cell.organelles) {
         org.angle += org.spinSpeed;
       }
@@ -568,13 +589,12 @@ export class LivingCellsEngine {
       }
 
       // Update 16 Viscoelastic Radial Vertex Springs
-      const k = 0.08; // Spring constant
-      const damping = 0.88; // Viscous damping
+      const k = 0.08;
+      const damping = 0.88;
 
       for (let vi = 0; vi < cell.vertices.length; vi++) {
         const v = cell.vertices[vi];
         const theta = v.angle;
-        // Cortical harmonic equilibrium
         const h1 = cell.harmonics[0] * Math.sin(theta * 3 + cell.wobblePhase);
         const h2 = cell.harmonics[1] * Math.sin(theta * 5 - cell.wobblePhase * 0.8);
         const h3 = cell.harmonics[2] * Math.sin(theta * 7 + cell.wobblePhase * 1.3);
@@ -748,15 +768,18 @@ export class LivingCellsEngine {
 
     // Fluid deflection away from ungrabbed cursor
     if (this.pointer.isActive && !cell.isGrabbed) {
+      const isTouch = this.pointer.type === 'touch';
+      const R = isTouch ? 75 : 180;
+      const maxDisplacement = isTouch ? 4 : 26;
+
       const dx = cell.x - this.pointer.x;
       const dy = cell.y - this.pointer.y;
       const dist = Math.hypot(dx, dy) || 1;
-      const R = 180;
       if (dist < R) {
         const factor = 1 - dist / R;
-        px += (dx / dist) * factor * 26;
-        py += (dy / dist) * factor * 26;
-        brightness += factor * 0.85;
+        px += (dx / dist) * factor * maxDisplacement;
+        py += (dy / dist) * factor * maxDisplacement;
+        brightness += factor * (isTouch ? 0.2 : 0.85);
       }
     }
 
