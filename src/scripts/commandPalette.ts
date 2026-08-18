@@ -62,6 +62,19 @@ const STATIC_ACTIONS: CommandItem[] = [
     keywords: ['dark', 'night', 'black', 'slate', 'dim', 'theme'],
   },
   {
+    id: 'act-theme-parchment',
+    category: 'Actions',
+    title: 'Set Theme: 📜 Bell Labs 1970s Parchment',
+    subtitle: 'Warm aged paper with walnut sepia ink and burnt terracotta',
+    badge: 'Theme',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('parchment');
+      }
+    },
+    keywords: ['parchment', 'bell labs', 'sepia', 'paper', 'knuth', 'tex', 'smalltalk', 'theme'],
+  },
+  {
     id: 'act-theme-nord',
     category: 'Actions',
     title: 'Set Theme: 🌌 Arctic Nord Computational',
@@ -99,19 +112,6 @@ const STATIC_ACTIONS: CommandItem[] = [
       }
     },
     keywords: ['cyberdeck', 'cyan', 'vt220', 'dec', 'matrix', 'terminal', 'theme'],
-  },
-  {
-    id: 'act-theme-parchment',
-    category: 'Actions',
-    title: 'Set Theme: 📜 Bell Labs 1970s Parchment',
-    subtitle: 'Warm aged paper with walnut sepia ink and burnt terracotta',
-    badge: 'Theme',
-    action: () => {
-      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
-        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('parchment');
-      }
-    },
-    keywords: ['parchment', 'bell labs', 'sepia', 'paper', 'knuth', 'tex', 'smalltalk', 'theme'],
   },
   {
     id: 'act-crt-amber',
