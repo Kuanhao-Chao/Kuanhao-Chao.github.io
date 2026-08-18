@@ -788,46 +788,45 @@ export class LivingCellsEngine {
     if (r <= 1 || alpha <= 0.01) return;
 
     // -------------------------------------------------------------
-    // Case A: Mitosis Cytokinesis & Spindle Fibers Apparatus
+    // Case A: Mitosis Cytokinesis, Spindle Apparatus & Chromosomes
     // -------------------------------------------------------------
     if (cell.state === 'mitosis' && cell.mitosisProgress !== undefined) {
       const prog = cell.mitosisProgress;
       const angle = cell.mitosisAngle || 0;
-      const pinch = Math.sin(prog * Math.PI) * 0.48;
-      const stretch = 1.0 + prog * 0.45;
+
+      // Kinematics:
+      // Spindle poles separate along local X from d = 0.15r to d = 0.58r
+      const poleDist = r * (0.15 + 0.43 * prog);
+      const daughterLobeR = r * (0.82 - 0.04 * prog);
+      // Cleavage furrow waist at x = 0 along local Y pinches from waistR = r down to 0.12r
+      const waistR = Math.max(r * 0.12, r * (1.0 - 0.88 * Math.sin(prog * (Math.PI / 2))));
 
       this.ctx.save();
       this.ctx.translate(px, py);
       this.ctx.rotate(angle);
 
-      // Microtubule Spindle Fibers between Centrosomes
-      const poleDist = r * 0.42 * stretch;
-      this.ctx.lineWidth = 0.75;
-      for (let s = -2; s <= 2; s++) {
-        const curveOffset = s * (r * 0.22) * (1 - prog * 0.4);
-        this.ctx.beginPath();
-        this.ctx.moveTo(-poleDist, 0);
-        this.ctx.quadraticCurveTo(0, curveOffset, poleDist, 0);
-        this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.035 * brightness * alpha})`;
-        this.ctx.stroke();
-      }
-
-      // Cleavage furrow dumbbell envelope
+      // 1. Cleavage furrow dumbbell envelope (Elongated along X, pinched at Y waist)
+      const SEGMENTS = 40;
+      const rx = poleDist + daughterLobeR;
       this.ctx.beginPath();
-      const SEGMENTS = 36;
       for (let i = 0; i <= SEGMENTS; i++) {
         const theta = (i / SEGMENTS) * TAU;
-        const dumbbell = 1 - pinch * Math.cos(2 * theta);
-        const rad = r * dumbbell;
-        const lx = Math.cos(theta) * rad * stretch;
-        const ly = Math.sin(theta) * rad;
+        const cosT = Math.cos(theta);
+        const sinT = Math.sin(theta);
+
+        // At theta = 0, PI (poles along X): ry matches daughterLobeR.
+        // At theta = PI/2, 3PI/2 (waist along Y): ry matches waistR.
+        const ryFactor = waistR + (daughterLobeR - waistR) * Math.pow(Math.abs(cosT), 1.25);
+        const lx = rx * cosT;
+        const ly = ryFactor * sinT;
+
         if (i === 0) this.ctx.moveTo(lx, ly);
         else this.ctx.lineTo(lx, ly);
       }
       this.ctx.closePath();
 
       // Subsurface gradient
-      const fill = this.ctx.createRadialGradient(0, 0, 0, 0, 0, r * stretch);
+      const fill = this.ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
       fill.addColorStop(0, `rgba(${accentRgb}, ${0.048 * brightness * alpha})`);
       fill.addColorStop(0.7, `rgba(${glowRgb}, ${0.02 * brightness * alpha})`);
       fill.addColorStop(1, `rgba(${accentRgb}, 0)`);
@@ -839,19 +838,161 @@ export class LivingCellsEngine {
       this.ctx.strokeStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.075 * brightness * alpha})`;
       this.ctx.stroke();
 
-      // Twin daughter nuclei & chromatin granules
-      const nucR = r * 0.22 * (1 - prog * 0.12);
+      // 2. Centrosome Asters & Polar Ray Filaments
       for (const side of [-1, 1]) {
-        const nx = side * poleDist;
+        const cx = side * poleDist;
+        // Centriole pair core
         this.ctx.beginPath();
-        this.ctx.arc(nx, 0, nucR, 0, TAU);
-        this.ctx.fillStyle = `rgba(${accentRgb}, ${0.065 * brightness * alpha})`;
+        this.ctx.arc(cx, 0, 2.2, 0, TAU);
+        this.ctx.fillStyle = `rgba(${accentRgb}, ${0.15 * brightness * alpha})`;
         this.ctx.fill();
 
-        this.ctx.beginPath();
-        this.ctx.arc(nx, 0, nucR * 0.4, 0, TAU);
-        this.ctx.fillStyle = `rgba(${inkRgb}, ${0.055 * brightness * alpha})`;
-        this.ctx.fill();
+        // Astral Microtubules (Aster Rays)
+        this.ctx.lineWidth = 0.65;
+        for (let a = 0; a < 6; a++) {
+          const aAngle = (a / 6) * TAU;
+          const rayLen = 4.5 + Math.sin(a * 2 + prog * 4) * 1.5;
+          this.ctx.beginPath();
+          this.ctx.moveTo(cx, 0);
+          this.ctx.lineTo(cx + Math.cos(aAngle) * rayLen, Math.sin(aAngle) * rayLen);
+          this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.04 * brightness * alpha})`;
+          this.ctx.stroke();
+        }
+      }
+
+      // 3. Chromosome Pairs & Spindle Microtubules (4 distinct pairs)
+      const CHROMO_COUNT = 4;
+
+      for (let k = 0; k < CHROMO_COUNT; k++) {
+        const yBase = (k - (CHROMO_COUNT - 1) / 2) * (r * 0.26) * (1 - 0.25 * prog);
+
+        // Stage A: Prophase / Prometaphase (prog < 0.25)
+        if (prog < 0.25) {
+          const subProg = prog / 0.25;
+          const cx = Math.sin(k * 1.5) * r * 0.08 * (1 - subProg);
+          const cy = yBase;
+          const chromoSize = 3.5 + subProg * 1.5;
+
+          // Render condensing X-shaped chromosome pair
+          this.ctx.lineWidth = 1.1;
+          this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.12 * brightness * alpha})`;
+          this.ctx.beginPath();
+          this.ctx.moveTo(cx - chromoSize * 0.6, cy - chromoSize * 0.6);
+          this.ctx.lineTo(cx + chromoSize * 0.6, cy + chromoSize * 0.6);
+          this.ctx.moveTo(cx - chromoSize * 0.6, cy + chromoSize * 0.6);
+          this.ctx.lineTo(cx + chromoSize * 0.6, cy - chromoSize * 0.6);
+          this.ctx.stroke();
+
+          // Spindle fibers attaching
+          this.ctx.lineWidth = 0.65;
+          for (const side of [-1, 1]) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(side * poleDist, 0);
+            this.ctx.lineTo(cx, cy);
+            this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.025 * subProg * brightness * alpha})`;
+            this.ctx.stroke();
+          }
+        }
+        // Stage B: Metaphase (0.25 <= prog < 0.48)
+        else if (prog < 0.48) {
+          const cx = 0; // Aligned along Metaphase Plate
+          const cy = yBase;
+          const chromoSize = 5.0;
+
+          // Kinetochore Microtubule Spindle Fibers
+          this.ctx.lineWidth = 0.75;
+          for (const side of [-1, 1]) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(side * poleDist, 0);
+            this.ctx.lineTo(cx, cy);
+            this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.045 * brightness * alpha})`;
+            this.ctx.stroke();
+          }
+
+          // Aligned sister chromatid doublet along vertical plate
+          this.ctx.lineWidth = 1.35;
+          this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.16 * brightness * alpha})`;
+          this.ctx.beginPath();
+          this.ctx.moveTo(cx - 1.2, cy - chromoSize * 0.5);
+          this.ctx.lineTo(cx - 1.2, cy + chromoSize * 0.5);
+          this.ctx.moveTo(cx + 1.2, cy - chromoSize * 0.5);
+          this.ctx.lineTo(cx + 1.2, cy + chromoSize * 0.5);
+          this.ctx.stroke();
+
+          // Kinetochore center dot
+          this.ctx.beginPath();
+          this.ctx.arc(cx, cy, 1.3, 0, TAU);
+          this.ctx.fillStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.2 * brightness * alpha})`;
+          this.ctx.fill();
+        }
+        // Stage C: Anaphase (0.48 <= prog < 0.78)
+        else if (prog < 0.78) {
+          const anaProg = (prog - 0.48) / 0.30;
+          const pullDist = poleDist * Math.pow(anaProg, 0.85);
+
+          for (const side of [-1, 1]) {
+            const kx = side * pullDist;
+            const ky = yBase * (1 - 0.35 * anaProg);
+
+            // Spindle fiber from pole to kinetochore
+            this.ctx.lineWidth = 0.7;
+            this.ctx.beginPath();
+            this.ctx.moveTo(side * poleDist, 0);
+            this.ctx.lineTo(kx, ky);
+            this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.045 * brightness * alpha})`;
+            this.ctx.stroke();
+
+            // V-shaped trailing chromosome arms
+            const armDx = -side * 4.5;
+            this.ctx.lineWidth = 1.3;
+            this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.16 * brightness * alpha})`;
+            this.ctx.beginPath();
+            this.ctx.moveTo(kx + armDx, ky - 2.8);
+            this.ctx.lineTo(kx, ky);
+            this.ctx.lineTo(kx + armDx, ky + 2.8);
+            this.ctx.stroke();
+
+            // Kinetochore point
+            this.ctx.beginPath();
+            this.ctx.arc(kx, ky, 1.2, 0, TAU);
+            this.ctx.fillStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.22 * brightness * alpha})`;
+            this.ctx.fill();
+          }
+        }
+        // Stage D: Telophase & Cytokinesis (prog >= 0.78)
+        else {
+          const teloProg = (prog - 0.78) / 0.22;
+
+          // Chromatin cluster condensing inside reformed daughter nucleus
+          for (const side of [-1, 1]) {
+            const nx = side * poleDist;
+            const ny = yBase * 0.25 * (1 - teloProg);
+
+            this.ctx.beginPath();
+            this.ctx.arc(nx + (k - 1.5) * 2.2, ny, 1.5, 0, TAU);
+            this.ctx.fillStyle = `rgba(${accentRgb}, ${0.12 * brightness * alpha})`;
+            this.ctx.fill();
+          }
+        }
+      }
+
+      // 4. Reformed Daughter Nuclei envelopes in Telophase (prog >= 0.75)
+      if (prog >= 0.75) {
+        const teloProg = (prog - 0.75) / 0.25;
+        const nucR = r * 0.22 * (0.7 + 0.3 * teloProg);
+
+        for (const side of [-1, 1]) {
+          const nx = side * poleDist;
+          this.ctx.beginPath();
+          this.ctx.arc(nx, 0, nucR, 0, TAU);
+          this.ctx.fillStyle = `rgba(${accentRgb}, ${0.065 * teloProg * brightness * alpha})`;
+          this.ctx.fill();
+
+          this.ctx.beginPath();
+          this.ctx.arc(nx, 0, nucR * 0.42, 0, TAU);
+          this.ctx.fillStyle = `rgba(${inkRgb}, ${0.055 * teloProg * brightness * alpha})`;
+          this.ctx.fill();
+        }
       }
 
       this.ctx.restore();
