@@ -52,11 +52,23 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           title="Switch color theme or 1988 CRT monitor mode"
         >
           <span class="theme-icon-container">
-            <span class="theme-toggle-icon theme-toggle-icon--sun" aria-hidden="true">
+            <span class="theme-toggle-icon theme-toggle-icon--light" aria-hidden="true">
               <Icon name="sun" size={19} />
             </span>
-            <span class="theme-toggle-icon theme-toggle-icon--moon" aria-hidden="true">
+            <span class="theme-toggle-icon theme-toggle-icon--dark" aria-hidden="true">
               <Icon name="moon" size={19} />
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon--parchment" aria-hidden="true">
+              <Icon name="parchment" size={19} />
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon--nord" aria-hidden="true">
+              <Icon name="nord" size={19} />
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon--monokai" aria-hidden="true">
+              <Icon name="monokai" size={19} />
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon--cyberdeck" aria-hidden="true">
+              <Icon name="cyberdeck" size={19} />
             </span>
             <span class="theme-toggle-icon theme-toggle-icon--crt" data-top-crt-badge aria-hidden="true">
               ⚡
@@ -82,6 +94,12 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                 </span>
                 <span class="opt-text">Dark</span>
               </button>
+              <button type="button" class="popover-opt-btn" data-theme-choice="parchment" role="menuitem">
+                <span class="opt-icon-wrap" aria-hidden="true">
+                  <Icon name="parchment" size={14} />
+                </span>
+                <span class="opt-text">Parchment</span>
+              </button>
               <button type="button" class="popover-opt-btn" data-theme-choice="nord" role="menuitem">
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="nord" size={14} />
@@ -99,12 +117,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                   <Icon name="cyberdeck" size={14} />
                 </span>
                 <span class="opt-text">Cyberdeck</span>
-              </button>
-              <button type="button" class="popover-opt-btn" data-theme-choice="parchment" role="menuitem">
-                <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="parchment" size={14} />
-                </span>
-                <span class="opt-text">Parchment</span>
               </button>
             </div>
           </div>
@@ -175,6 +187,12 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           </span>
           <span>Dark</span>
         </button>
+        <button type="button" class="mobile-theme-btn" data-theme-choice="parchment">
+          <span class="opt-icon-wrap" aria-hidden="true">
+            <Icon name="parchment" size={14} />
+          </span>
+          <span>Parchment</span>
+        </button>
         <button type="button" class="mobile-theme-btn" data-theme-choice="nord">
           <span class="opt-icon-wrap" aria-hidden="true">
             <Icon name="nord" size={14} />
@@ -192,12 +210,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
             <Icon name="cyberdeck" size={14} />
           </span>
           <span>Cyberdeck</span>
-        </button>
-        <button type="button" class="mobile-theme-btn" data-theme-choice="parchment">
-          <span class="opt-icon-wrap" aria-hidden="true">
-            <Icon name="parchment" size={14} />
-          </span>
-          <span>Parchment</span>
         </button>
       </div>
 
@@ -393,60 +405,61 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    opacity: 0;
+    transform: scale(0.75);
     transition:
       opacity var(--transition),
       transform var(--transition);
   }
 
-  .theme-toggle-icon--sun {
-    opacity: 1;
-    transform: none;
-  }
-
-  .theme-toggle-icon--moon {
-    opacity: 0;
-    transform: rotate(-90deg) scale(0.75);
-  }
-
   .theme-toggle-icon--crt {
-    opacity: 0;
-    transform: scale(0.75);
     font-size: 1rem;
     line-height: 1;
   }
 
-  /* Light & Parchment show Sun icon */
-  .top-theme-btn[data-theme-state='light'] .theme-toggle-icon--sun,
-  .top-theme-btn[data-theme-state='parchment'] .theme-toggle-icon--sun {
+  /* Each theme displays its own dedicated bespoke icon */
+  .top-theme-btn[data-theme-state='light'] .theme-toggle-icon--light,
+  .top-theme-btn[data-theme-state='dark'] .theme-toggle-icon--dark,
+  .top-theme-btn[data-theme-state='parchment'] .theme-toggle-icon--parchment,
+  .top-theme-btn[data-theme-state='nord'] .theme-toggle-icon--nord,
+  .top-theme-btn[data-theme-state='monokai'] .theme-toggle-icon--monokai,
+  .top-theme-btn[data-theme-state='cyberdeck'] .theme-toggle-icon--cyberdeck {
     opacity: 1;
     transform: none;
   }
 
-  .top-theme-btn[data-theme-state='light'] .theme-toggle-icon--moon,
-  .top-theme-btn[data-theme-state='parchment'] .theme-toggle-icon--moon {
-    opacity: 0;
-    transform: rotate(-90deg) scale(0.75);
+  /* Individual active icon colors for each theme */
+  .theme-toggle-icon--light {
+    color: #f59e0b;
   }
 
-  /* Dark, Nord, Monokai, Cyberdeck show Moon icon */
-  .top-theme-btn[data-theme-state='dark'] .theme-toggle-icon--sun,
-  .top-theme-btn[data-theme-state='nord'] .theme-toggle-icon--sun,
-  .top-theme-btn[data-theme-state='monokai'] .theme-toggle-icon--sun,
-  .top-theme-btn[data-theme-state='cyberdeck'] .theme-toggle-icon--sun {
-    opacity: 0;
-    transform: rotate(90deg) scale(0.75);
+  .theme-toggle-icon--dark {
+    color: #75c7af;
   }
 
-  .top-theme-btn[data-theme-state='dark'] .theme-toggle-icon--moon,
-  .top-theme-btn[data-theme-state='nord'] .theme-toggle-icon--moon,
-  .top-theme-btn[data-theme-state='monokai'] .theme-toggle-icon--moon,
-  .top-theme-btn[data-theme-state='cyberdeck'] .theme-toggle-icon--moon {
-    opacity: 1;
-    transform: none;
+  .theme-toggle-icon--parchment {
+    color: #c2410c;
   }
 
-  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--sun,
-  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--moon {
+  .theme-toggle-icon--nord {
+    color: #88c0d0;
+  }
+
+  .theme-toggle-icon--monokai {
+    color: #ffd866;
+  }
+
+  .theme-toggle-icon--cyberdeck {
+    color: #22d3ee;
+  }
+
+  /* When 1988 CRT mode is active, suppress modern icons and show phosphor badge */
+  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--light,
+  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--dark,
+  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--parchment,
+  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--nord,
+  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--monokai,
+  .top-theme-btn[data-crt-active='true'] .theme-toggle-icon--cyberdeck {
     opacity: 0;
     transform: scale(0.5);
   }
@@ -557,6 +570,44 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     border-color: var(--color-rule);
     font-weight: 600;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .opt-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Popover & mobile drawer theme icon accent colors */
+  .popover-opt-btn[data-theme-choice='light'] .opt-icon-wrap,
+  .mobile-theme-btn[data-theme-choice='light'] .opt-icon-wrap {
+    color: #f59e0b;
+  }
+
+  .popover-opt-btn[data-theme-choice='dark'] .opt-icon-wrap,
+  .mobile-theme-btn[data-theme-choice='dark'] .opt-icon-wrap {
+    color: #75c7af;
+  }
+
+  .popover-opt-btn[data-theme-choice='parchment'] .opt-icon-wrap,
+  .mobile-theme-btn[data-theme-choice='parchment'] .opt-icon-wrap {
+    color: #c2410c;
+  }
+
+  .popover-opt-btn[data-theme-choice='nord'] .opt-icon-wrap,
+  .mobile-theme-btn[data-theme-choice='nord'] .opt-icon-wrap {
+    color: #88c0d0;
+  }
+
+  .popover-opt-btn[data-theme-choice='monokai'] .opt-icon-wrap,
+  .mobile-theme-btn[data-theme-choice='monokai'] .opt-icon-wrap {
+    color: #ffd866;
+  }
+
+  .popover-opt-btn[data-theme-choice='cyberdeck'] .opt-icon-wrap,
+  .mobile-theme-btn[data-theme-choice='cyberdeck'] .opt-icon-wrap {
+    color: #22d3ee;
   }
 
   .popover-crt-row {

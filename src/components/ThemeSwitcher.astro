@@ -45,6 +45,21 @@ import Icon from './Icon.astro';
     <button
       type="button"
       class="theme-seg-btn"
+      data-theme-choice="parchment"
+      role="radio"
+      aria-checked="false"
+      title="Switch to Bell Labs 1970s Sepia Parchment Theme"
+      aria-label="Parchment Theme"
+    >
+      <span class="theme-icon-wrap" aria-hidden="true">
+        <Icon name="parchment" size={14} />
+      </span>
+      <span class="theme-label">Parchment</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn"
       data-theme-choice="nord"
       role="radio"
       aria-checked="false"
@@ -85,21 +100,6 @@ import Icon from './Icon.astro';
         <Icon name="cyberdeck" size={14} />
       </span>
       <span class="theme-label">Cyberdeck</span>
-    </button>
-
-    <button
-      type="button"
-      class="theme-seg-btn"
-      data-theme-choice="parchment"
-      role="radio"
-      aria-checked="false"
-      title="Switch to Bell Labs 1970s Sepia Parchment Theme"
-      aria-label="Parchment Theme"
-    >
-      <span class="theme-icon-wrap" aria-hidden="true">
-        <Icon name="parchment" size={14} />
-      </span>
-      <span class="theme-label">Parchment</span>
     </button>
   </div>
 
@@ -254,8 +254,32 @@ import Icon from './Icon.astro';
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: currentColor;
     flex-shrink: 0;
+  }
+
+  /* Segmented buttons theme icon accent colors */
+  .theme-seg-btn[data-theme-choice='light'] .theme-icon-wrap {
+    color: #f59e0b;
+  }
+
+  .theme-seg-btn[data-theme-choice='dark'] .theme-icon-wrap {
+    color: #75c7af;
+  }
+
+  .theme-seg-btn[data-theme-choice='parchment'] .theme-icon-wrap {
+    color: #c2410c;
+  }
+
+  .theme-seg-btn[data-theme-choice='nord'] .theme-icon-wrap {
+    color: #88c0d0;
+  }
+
+  .theme-seg-btn[data-theme-choice='monokai'] .theme-icon-wrap {
+    color: #ffd866;
+  }
+
+  .theme-seg-btn[data-theme-choice='cyberdeck'] .theme-icon-wrap {
+    color: #22d3ee;
   }
 
   .theme-seg-btn:hover {
