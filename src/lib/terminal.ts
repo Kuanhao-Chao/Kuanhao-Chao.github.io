@@ -70,7 +70,7 @@ export type Effect =
   | { type: 'clear' }
   | { type: 'navigate'; href: string }
   | { type: 'ask'; question: string }
-  | { type: 'theme'; mode: 'light' | 'dark' | 'toggle' | 'crt' }
+  | { type: 'theme'; mode: 'light' | 'dark' | 'nord' | 'monokai' | 'cyberdeck' | 'parchment' | 'toggle' | 'crt' }
   | { type: 'sound'; mode: 'on' | 'off' | 'toggle' | 'bell' }
   | { type: 'copy'; text?: string }
   | { type: 'custom'; eventName: string; detail?: Record<string, unknown> }
@@ -1923,15 +1923,27 @@ export const COMMANDS: Record<string, Cmd> = {
    * controller is what touches `window.__khcTheme`.
    */
   theme: {
-    summary: 'switch between the light and dark theme',
-    usage: 'theme [light|dark]',
+    summary: 'switch between CS & system themes',
+    usage: 'theme [light|dark|nord|monokai|cyberdeck|parchment]',
     run: ({ args }) => {
       const mode = (args[0] ?? '').toLowerCase();
       if (!mode) return { lines: [], effect: { type: 'theme', mode: 'toggle' } };
-      if (mode === 'light' || mode === 'dark') {
+      if (
+        mode === 'light' ||
+        mode === 'dark' ||
+        mode === 'nord' ||
+        mode === 'monokai' ||
+        mode === 'cyberdeck' ||
+        mode === 'parchment'
+      ) {
         return { lines: [], effect: { type: 'theme', mode } };
       }
-      return [{ text: `theme: no such theme: ${args[0]} (try light or dark)`, tone: 'err' }];
+      return [
+        {
+          text: `theme: no such theme: ${args[0]} (try light, dark, nord, monokai, cyberdeck, parchment)`,
+          tone: 'err',
+        },
+      ];
     },
   },
 
@@ -2646,18 +2658,18 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 
   crt: {
-    summary: 'configure 1988 NIH Supercomputer CRT mode',
-    usage: 'crt [off|amber|green|toggle]',
+    summary: 'configure 1988 NIH / DEC Supercomputer CRT mode',
+    usage: 'crt [off|amber|green|cyan|toggle]',
     run: ({ args }) => {
       const mode = (args[0] ?? 'toggle').toLowerCase();
-      if (mode === 'amber' || mode === 'green' || mode === 'off' || mode === 'toggle') {
+      if (mode === 'amber' || mode === 'green' || mode === 'cyan' || mode === 'off' || mode === 'toggle') {
         const targetMode = mode === 'toggle' ? 'amber' : mode;
         return {
           lines: [{ text: `1988 CRT Display Mode: ${mode.toUpperCase()}`, tone: 'ok' }],
           effect: { type: 'custom', eventName: 'khc:start-crt', detail: { mode: targetMode } },
         };
       }
-      return [{ text: 'crt: usage `crt off`, `crt amber`, `crt green`, or `crt toggle`', tone: 'err' }];
+      return [{ text: 'crt: usage `crt off`, `crt amber`, `crt green`, `crt cyan`, or `crt toggle`', tone: 'err' }];
     },
   },
 
@@ -3166,7 +3178,9 @@ export function complete(state: ShellState, input: string): { value: string; opt
   } else if (argv.length === 2 && !trailingSpace && argv[0] === 'bedtools') {
     options = ['intersect', 'merge'].filter((s) => s.startsWith(word)).sort();
   } else if (argv.length === 2 && !trailingSpace && argv[0] === 'theme') {
-    options = ['light', 'dark', 'toggle', 'crt'].filter((s) => s.startsWith(word)).sort();
+    options = ['light', 'dark', 'nord', 'monokai', 'cyberdeck', 'parchment', 'toggle', 'crt'].filter((s) => s.startsWith(word)).sort();
+  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'crt') {
+    options = ['off', 'amber', 'green', 'cyan', 'toggle'].filter((s) => s.startsWith(word)).sort();
   } else if (argv.length === 2 && !trailingSpace && argv[0] === 'sound') {
     options = ['on', 'off', 'bell', 'toggle'].filter((s) => s.startsWith(word)).sort();
   } else if (state.index) {

@@ -68,19 +68,35 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         <div class="top-theme-popover" data-top-theme-popover role="menu" hidden>
           <!-- Base Color Theme -->
           <div class="popover-section">
-            <span class="popover-heading">Color Theme</span>
+            <span class="popover-heading">CS & System Themes</span>
             <div class="popover-grid">
               <button type="button" class="popover-opt-btn" data-theme-choice="light" role="menuitem">
                 <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="sun" size={15} />
+                  <Icon name="sun" size={14} />
                 </span>
                 <span class="opt-text">Light</span>
               </button>
               <button type="button" class="popover-opt-btn" data-theme-choice="dark" role="menuitem">
                 <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="moon" size={15} />
+                  <Icon name="moon" size={14} />
                 </span>
                 <span class="opt-text">Dark</span>
+              </button>
+              <button type="button" class="popover-opt-btn" data-theme-choice="nord" role="menuitem">
+                <span class="opt-icon" aria-hidden="true">🌌</span>
+                <span class="opt-text">Nord</span>
+              </button>
+              <button type="button" class="popover-opt-btn" data-theme-choice="monokai" role="menuitem">
+                <span class="opt-icon" aria-hidden="true">🕹️</span>
+                <span class="opt-text">Monokai</span>
+              </button>
+              <button type="button" class="popover-opt-btn popover-opt-btn--cyan" data-theme-choice="cyberdeck" role="menuitem">
+                <span class="opt-icon" aria-hidden="true">📟</span>
+                <span class="opt-text">Cyberdeck</span>
+              </button>
+              <button type="button" class="popover-opt-btn" data-theme-choice="parchment" role="menuitem">
+                <span class="opt-icon" aria-hidden="true">📜</span>
+                <span class="opt-text">Parchment</span>
               </button>
             </div>
           </div>
@@ -102,6 +118,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
               <button type="button" class="popover-opt-btn popover-opt-btn--green" data-crt-choice="green" role="menuitem">
                 <span class="opt-icon">🟢</span>
                 <span class="opt-text">Green Phosphor</span>
+              </button>
+              <button type="button" class="popover-opt-btn popover-opt-btn--cyan" data-crt-choice="cyan" role="menuitem">
+                <span class="opt-icon">🔷</span>
+                <span class="opt-text">Cyan Phosphor</span>
               </button>
             </div>
           </div>
@@ -139,31 +159,47 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
     <!-- Dedicated Mobile Appearance Section -->
     <div class="mobile-theme-drawer">
-      <p class="eyebrow mobile-drawer-heading">Appearance & Display</p>
+      <p class="eyebrow mobile-drawer-heading">CS & System Themes</p>
 
       <div class="mobile-theme-group">
-        <!-- Color Theme -->
-        <div class="mobile-theme-row" role="radiogroup" aria-label="Theme">
+        <!-- Color Themes Grid -->
+        <div class="mobile-theme-grid" role="radiogroup" aria-label="Theme">
           <button type="button" class="mobile-theme-btn" data-theme-choice="light">
             <span class="mobile-theme-icon-wrap" aria-hidden="true">
-              <Icon name="sun" size={17} />
+              <Icon name="sun" size={15} />
             </span>
             <span>Light</span>
           </button>
           <button type="button" class="mobile-theme-btn" data-theme-choice="dark">
             <span class="mobile-theme-icon-wrap" aria-hidden="true">
-              <Icon name="moon" size={17} />
+              <Icon name="moon" size={15} />
             </span>
             <span>Dark</span>
+          </button>
+          <button type="button" class="mobile-theme-btn" data-theme-choice="nord">
+            <span>🌌</span>
+            <span>Nord</span>
+          </button>
+          <button type="button" class="mobile-theme-btn" data-theme-choice="monokai">
+            <span>🕹️</span>
+            <span>Monokai</span>
+          </button>
+          <button type="button" class="mobile-theme-btn" data-theme-choice="cyberdeck">
+            <span>📟</span>
+            <span>Cyberdeck</span>
+          </button>
+          <button type="button" class="mobile-theme-btn" data-theme-choice="parchment">
+            <span>📜</span>
+            <span>Parchment</span>
           </button>
         </div>
 
         <!-- 1988 CRT Monitor -->
-        <p class="eyebrow mobile-drawer-heading" style="margin-top: 0.35rem;">1988 CRT Monitor</p>
+        <p class="eyebrow mobile-drawer-heading" style="margin-top: 0.5rem;">1988 CRT Monitor</p>
         <div class="mobile-theme-row mobile-theme-row--crt" role="radiogroup" aria-label="1988 CRT Mode">
           <button type="button" class="mobile-theme-btn" data-crt-choice="off">
             <span>🖥️</span>
-            <span>Modern</span>
+            <span>Off</span>
           </button>
           <button type="button" class="mobile-theme-btn mobile-theme-btn--amber" data-crt-choice="amber">
             <span>⚡</span>
@@ -172,6 +208,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           <button type="button" class="mobile-theme-btn mobile-theme-btn--green" data-crt-choice="green">
             <span>🟢</span>
             <span>Green</span>
+          </button>
+          <button type="button" class="mobile-theme-btn mobile-theme-btn--cyan" data-crt-choice="cyan">
+            <span>🔷</span>
+            <span>Cyan</span>
           </button>
         </div>
       </div>
@@ -409,7 +449,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    width: 200px;
+    width: 230px;
     max-height: 80vh;
     overflow-y: auto;
     padding: 0.75rem;
@@ -515,6 +555,12 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     background: rgba(51, 255, 51, 0.12) !important;
   }
 
+  .popover-opt-btn--cyan.is-active {
+    color: #38fdf8 !important;
+    border-color: #38fdf8 !important;
+    background: rgba(56, 253, 248, 0.12) !important;
+  }
+
   .opt-icon-wrap {
     display: inline-flex;
     align-items: center;
@@ -575,6 +621,12 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     gap: 0.45rem;
   }
 
+  .mobile-theme-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+  }
+
   .mobile-theme-row {
     display: flex;
     flex-wrap: wrap;
@@ -583,13 +635,13 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
   .mobile-theme-btn {
     flex: 1;
-    min-width: 65px;
+    min-width: 60px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
-    padding: 0.55rem 0.4rem;
-    min-height: 42px;
+    padding: 0.55rem 0.35rem;
+    min-height: 40px;
     border: 1px solid var(--color-rule);
     border-radius: 8px;
     background: var(--color-surface);
@@ -632,6 +684,12 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     background: rgba(51, 255, 51, 0.15) !important;
   }
 
+  .mobile-theme-btn--cyan.is-active {
+    color: #38fdf8 !important;
+    border-color: #38fdf8 !important;
+    background: rgba(56, 253, 248, 0.15) !important;
+  }
+
   @media (max-width: 960px) {
     .nav-desktop {
       display: none;
@@ -650,8 +708,8 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       height: 38px;
     }
     .top-theme-popover {
-      right: -40px;
-      width: 200px;
+      right: -20px;
+      width: 220px;
     }
   }
 </style>
@@ -705,10 +763,11 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     const crtBadge = document.querySelector<HTMLElement>('[data-top-crt-badge]');
     if (topBtn) {
       topBtn.dataset.themeState = currentTheme;
-      const isCrt = currentCrt === 'amber' || currentCrt === 'green';
+      const isCrt = currentCrt === 'amber' || currentCrt === 'green' || currentCrt === 'cyan';
       topBtn.dataset.crtActive = String(isCrt);
       if (crtBadge) {
-        crtBadge.textContent = currentCrt === 'amber' ? '⚡' : currentCrt === 'green' ? '🟢' : '';
+        crtBadge.textContent =
+          currentCrt === 'amber' ? '⚡' : currentCrt === 'green' ? '🟢' : currentCrt === 'cyan' ? '🔷' : '';
       }
     }
 

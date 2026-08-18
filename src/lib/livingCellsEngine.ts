@@ -720,13 +720,42 @@ export class LivingCellsEngine {
     if (!this.ctx || !this.canvas) return;
     this.ctx.clearRect(0, 0, this.width, this.height);
 
-    const isDark = document.documentElement.dataset.theme === 'dark';
-    const isCrt = document.documentElement.dataset.crtMode === 'amber' || document.documentElement.dataset.crtMode === 'green';
-    const crtColor = document.documentElement.dataset.crtMode === 'amber' ? '255, 176, 0' : '51, 255, 51';
+    const theme = document.documentElement.dataset.theme || 'light';
+    const crtMode = document.documentElement.dataset.crtMode || 'off';
+    const isDark = theme !== 'light' && theme !== 'parchment';
+    const isCrt = crtMode === 'amber' || crtMode === 'green' || crtMode === 'cyan';
 
-    const accentRgb = isCrt ? crtColor : isDark ? '80, 200, 180' : '46, 110, 94';
-    const inkRgb = isCrt ? crtColor : isDark ? '230, 230, 230' : '20, 20, 20';
-    const glowRgb = isCrt ? crtColor : isDark ? '120, 235, 215' : '60, 140, 120';
+    let accentRgb = '46, 110, 94';
+    let inkRgb = '20, 20, 20';
+    let glowRgb = '60, 140, 120';
+
+    if (isCrt) {
+      const crtColor =
+        crtMode === 'amber' ? '255, 176, 0' : crtMode === 'green' ? '51, 255, 51' : '56, 253, 248';
+      accentRgb = crtColor;
+      inkRgb = crtColor;
+      glowRgb = crtColor;
+    } else if (theme === 'nord') {
+      accentRgb = '136, 192, 208';
+      inkRgb = '236, 239, 244';
+      glowRgb = '143, 188, 187';
+    } else if (theme === 'monokai') {
+      accentRgb = '255, 216, 102';
+      inkRgb = '252, 252, 250';
+      glowRgb = '255, 97, 136';
+    } else if (theme === 'cyberdeck') {
+      accentRgb = '34, 211, 238';
+      inkRgb = '226, 246, 253';
+      glowRgb = '0, 229, 255';
+    } else if (theme === 'parchment') {
+      accentRgb = '194, 65, 12';
+      inkRgb = '46, 36, 30';
+      glowRgb = '234, 88, 12';
+    } else if (theme === 'dark') {
+      accentRgb = '117, 199, 175';
+      inkRgb = '242, 240, 234';
+      glowRgb = '120, 235, 215';
+    }
 
     // 1. Render Shockwaves
     for (const sw of this.shockwaves) {

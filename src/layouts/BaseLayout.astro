@@ -40,13 +40,13 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
         let theme = null;
         try {
           const saved = localStorage.getItem(key);
-          if (saved === 'light' || saved === 'dark') theme = saved;
+          if (['light', 'dark', 'nord', 'monokai', 'cyberdeck', 'parchment'].includes(saved)) theme = saved;
         } catch {}
         if (!theme) {
           theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         root.dataset.theme = theme;
-        root.style.colorScheme = theme;
+        root.style.colorScheme = (theme === 'parchment' || theme === 'light') ? 'light' : 'dark';
       })();
     </script>
     <BaseHead
@@ -76,12 +76,25 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
       (() => {
         const themeKey = 'khc-theme';
         const crtKey = 'khc-crt-mode';
-        const colors = { light: '#fafaf8', dark: '#0f1413' };
+        const colors = {
+          light: '#fafaf8',
+          dark: '#0f1413',
+          nord: '#242933',
+          monokai: '#1e1e24',
+          cyberdeck: '#070d14',
+          parchment: '#fbf5e6',
+        };
         const getRoot = () => document.documentElement;
         const media = window.matchMedia('(prefers-color-scheme: dark)');
 
-        const validTheme = (value) => value === 'light' || value === 'dark';
-        const validCrt = (value) => value === 'off' || value === 'amber' || value === 'green';
+        const validTheme = (value) =>
+          value === 'light' ||
+          value === 'dark' ||
+          value === 'nord' ||
+          value === 'monokai' ||
+          value === 'cyberdeck' ||
+          value === 'parchment';
+        const validCrt = (value) => value === 'off' || value === 'amber' || value === 'green' || value === 'cyan';
 
         const storedTheme = () => {
           try {
@@ -136,7 +149,7 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
 
         const syncCrtOverlay = (crt) => {
           let overlay = document.getElementById('crt-screen-overlay');
-          if (crt === 'amber' || crt === 'green') {
+          if (crt === 'amber' || crt === 'green' || crt === 'cyan') {
             if (!overlay) {
               overlay = document.createElement('div');
               overlay.id = 'crt-screen-overlay';
@@ -158,7 +171,7 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
             } catch {}
           }
           root.dataset.theme = next;
-          root.style.colorScheme = next;
+          root.style.colorScheme = (next === 'parchment' || next === 'light') ? 'light' : 'dark';
           syncMeta(next);
           syncControls(next, root.dataset.crtMode || resolvedCrt());
           document.dispatchEvent(new CustomEvent('khc:theme-change', { detail: { theme: next } }));
@@ -173,7 +186,7 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
               localStorage.setItem(crtKey, next);
             } catch {}
           }
-          if (next === 'amber' || next === 'green') {
+          if (next === 'amber' || next === 'green' || next === 'cyan') {
             root.dataset.crtMode = next;
           } else {
             delete root.dataset.crtMode;
@@ -200,7 +213,7 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
             toggle: () => applyCrt((getRoot().dataset.crtMode || resolvedCrt()) === 'off' ? 'amber' : 'off', true),
             cycle: () => {
               const current = getRoot().dataset.crtMode || resolvedCrt();
-              const next = current === 'off' ? 'amber' : current === 'amber' ? 'green' : 'off';
+              const next = current === 'off' ? 'amber' : current === 'amber' ? 'green' : current === 'green' ? 'cyan' : 'off';
               return applyCrt(next, true);
             },
             sync: () => applyCrt(resolvedCrt(), false),
@@ -216,8 +229,8 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
             const nextDocument = event.newDocument;
             if (!nextDocument) return;
             nextDocument.documentElement.dataset.theme = theme;
-            nextDocument.documentElement.style.colorScheme = theme;
-            if (crt === 'amber' || crt === 'green') {
+            nextDocument.documentElement.style.colorScheme = (theme === 'parchment' || theme === 'light') ? 'light' : 'dark';
+            if (crt === 'amber' || crt === 'green' || crt === 'cyan') {
               nextDocument.documentElement.dataset.crtMode = crt;
             } else {
               delete nextDocument.documentElement.dataset.crtMode;

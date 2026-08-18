@@ -3,15 +3,15 @@
  * Full-Site Dual-Layer Theme & CRT Switcher Component.
  *
  * Provides two independent controls:
- * 1. Base System Theme: Light (Sun icon) / Dark (Moon icon)
- * 2. 1988 NIH CRT Display Mode: Modern / Amber CRT / Green CRT
+ * 1. Base CS & System Theme: Light, Dark, Nord, Monokai, Cyberdeck, Parchment
+ * 2. 1988 NIH CRT Display Mode: Modern, Amber CRT, Green CRT, Cyan CRT
  */
 import Icon from './Icon.astro';
 ---
 
 <div class="theme-switcher-container" aria-label="Site appearance and display settings">
   <!-- Base Theme Switcher -->
-  <div class="theme-segmented-group" role="radiogroup" aria-label="Base Color Theme">
+  <div class="theme-segmented-group" role="radiogroup" aria-label="CS & System Themes">
     <button
       type="button"
       class="theme-seg-btn"
@@ -22,7 +22,7 @@ import Icon from './Icon.astro';
       aria-label="Light Theme"
     >
       <span class="theme-icon-wrap" aria-hidden="true">
-        <Icon name="sun" size={15} />
+        <Icon name="sun" size={14} />
       </span>
       <span class="theme-label">Light</span>
     </button>
@@ -37,9 +37,61 @@ import Icon from './Icon.astro';
       aria-label="Dark Theme"
     >
       <span class="theme-icon-wrap" aria-hidden="true">
-        <Icon name="moon" size={15} />
+        <Icon name="moon" size={14} />
       </span>
       <span class="theme-label">Dark</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn"
+      data-theme-choice="nord"
+      role="radio"
+      aria-checked="false"
+      title="Switch to Arctic Nord Computational Theme"
+      aria-label="Nord Theme"
+    >
+      <span class="theme-icon" aria-hidden="true">🌌</span>
+      <span class="theme-label">Nord</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn"
+      data-theme-choice="monokai"
+      role="radio"
+      aria-checked="false"
+      title="Switch to Monokai Pro Compiler Theme"
+      aria-label="Monokai Theme"
+    >
+      <span class="theme-icon" aria-hidden="true">🕹️</span>
+      <span class="theme-label">Monokai</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn"
+      data-theme-choice="cyberdeck"
+      role="radio"
+      aria-checked="false"
+      title="Switch to DEC VT220 / Cyberdeck Cyan Theme"
+      aria-label="Cyberdeck Theme"
+    >
+      <span class="theme-icon" aria-hidden="true">📟</span>
+      <span class="theme-label">Cyberdeck</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn"
+      data-theme-choice="parchment"
+      role="radio"
+      aria-checked="false"
+      title="Switch to Bell Labs 1970s Sepia Parchment Paper Theme"
+      aria-label="Parchment Theme"
+    >
+      <span class="theme-icon" aria-hidden="true">📜</span>
+      <span class="theme-label">Parchment</span>
     </button>
   </div>
 
@@ -70,7 +122,7 @@ import Icon from './Icon.astro';
       aria-label="Amber CRT Mode"
     >
       <span class="theme-icon" aria-hidden="true">⚡</span>
-      <span class="theme-label">Amber CRT</span>
+      <span class="theme-label">Amber</span>
     </button>
 
     <button
@@ -83,15 +135,34 @@ import Icon from './Icon.astro';
       aria-label="Green CRT Mode"
     >
       <span class="theme-icon" aria-hidden="true">🟢</span>
-      <span class="theme-label">Green CRT</span>
+      <span class="theme-label">Green</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn theme-seg-btn--cyan"
+      data-crt-choice="cyan"
+      role="radio"
+      aria-checked="false"
+      title="1988 DEC VT220 Cyan Phosphor CRT Mode"
+      aria-label="Cyan CRT Mode"
+    >
+      <span class="theme-icon" aria-hidden="true">🔷</span>
+      <span class="theme-label">Cyan</span>
     </button>
   </div>
 </div>
 
 <script>
   function syncThemeSwitcher() {
-    const currentTheme = (window as unknown as { __khcTheme?: { get: () => string } }).__khcTheme?.get() || document.documentElement.dataset.theme || 'light';
-    const currentCrt = (window as unknown as { __khcCrt?: { get: () => string } }).__khcCrt?.get() || document.documentElement.dataset.crtMode || 'off';
+    const currentTheme =
+      (window as unknown as { __khcTheme?: { get: () => string } }).__khcTheme?.get() ||
+      document.documentElement.dataset.theme ||
+      'light';
+    const currentCrt =
+      (window as unknown as { __khcCrt?: { get: () => string } }).__khcCrt?.get() ||
+      document.documentElement.dataset.crtMode ||
+      'off';
 
     document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
       const choice = btn.dataset.themeChoice;
@@ -141,17 +212,21 @@ import Icon from './Icon.astro';
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.4rem;
     background: color-mix(in srgb, var(--color-surface, #ffffff) 85%, var(--color-ink, #000) 5%);
     border: 1px solid var(--color-rule, rgba(0, 0, 0, 0.12));
     border-radius: 999px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    max-width: 100%;
   }
 
   .theme-segmented-group {
     display: inline-flex;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: center;
     gap: 0.15rem;
   }
 
@@ -159,25 +234,25 @@ import Icon from './Icon.astro';
     width: 1px;
     height: 1.25rem;
     background: var(--color-rule, rgba(0, 0, 0, 0.12));
-    margin-inline: 0.15rem;
+    margin-inline: 0.2rem;
   }
 
   .theme-seg-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    padding: 0.35rem 0.65rem;
+    padding: 0.32rem 0.55rem;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 999px;
     font-family: inherit;
-    font-size: 0.8125rem;
+    font-size: 0.78125rem;
     font-weight: 500;
     color: var(--color-muted, #6b6b6b);
     cursor: pointer;
-    transition: all 0.16s ease;
+    transition: all 0.15s ease;
     line-height: 1;
-    min-height: 2rem;
+    min-height: 1.85rem;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -194,10 +269,13 @@ import Icon from './Icon.astro';
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
 
-  :global([data-theme='dark']) .theme-seg-btn.is-active {
-    background: #252e2b;
-    border-color: #3f4d48;
-    color: #ffffff;
+  :global([data-theme='dark']) .theme-seg-btn.is-active,
+  :global([data-theme='nord']) .theme-seg-btn.is-active,
+  :global([data-theme='monokai']) .theme-seg-btn.is-active,
+  :global([data-theme='cyberdeck']) .theme-seg-btn.is-active {
+    background: var(--color-surface);
+    border-color: var(--color-rule);
+    color: var(--color-ink);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   }
 
@@ -214,6 +292,12 @@ import Icon from './Icon.astro';
     background: rgba(51, 255, 51, 0.12) !important;
   }
 
+  .theme-seg-btn--cyan.is-active {
+    color: #38fdf8 !important;
+    border-color: #38fdf8 !important;
+    background: rgba(56, 253, 248, 0.12) !important;
+  }
+
   .theme-icon-wrap {
     display: inline-flex;
     align-items: center;
@@ -222,7 +306,7 @@ import Icon from './Icon.astro';
   }
 
   .theme-icon {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     line-height: 1;
     display: inline-block;
   }
@@ -231,28 +315,28 @@ import Icon from './Icon.astro';
     letter-spacing: -0.01em;
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 768px) {
     .theme-switcher-container {
       width: 100%;
-      justify-content: center;
       border-radius: 12px;
-      padding: 0.4rem;
+      padding: 0.5rem 0.35rem;
+      gap: 0.5rem;
     }
 
     .theme-segmented-group {
       width: 100%;
-      justify-content: space-around;
+      justify-content: center;
     }
 
     .theme-switcher-divider {
-      display: none;
+      width: 100%;
+      height: 1px;
+      margin: 0.1rem 0;
     }
 
     .theme-seg-btn {
-      flex: 1;
-      justify-content: center;
-      padding: 0.45rem 0.5rem;
-      font-size: 0.78rem;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.75rem;
     }
   }
 </style>

@@ -691,10 +691,14 @@ describe('the theme command', () => {
     expect(run('theme').effect).toEqual({ type: 'theme', mode: 'toggle' });
     expect(run('theme dark').effect).toEqual({ type: 'theme', mode: 'dark' });
     expect(run('theme LIGHT').effect).toEqual({ type: 'theme', mode: 'light' });
+    expect(run('theme nord').effect).toEqual({ type: 'theme', mode: 'nord' });
+    expect(run('theme monokai').effect).toEqual({ type: 'theme', mode: 'monokai' });
+    expect(run('theme cyberdeck').effect).toEqual({ type: 'theme', mode: 'cyberdeck' });
+    expect(run('theme parchment').effect).toEqual({ type: 'theme', mode: 'parchment' });
   });
 
   it('refuses a theme that does not exist rather than guessing', () => {
-    const { lines, effect } = run('theme solarized');
+    const { lines, effect } = run('theme nonexistent');
     expect(effect).toBeUndefined();
     expect(joined(lines)).toContain('no such theme');
   });
