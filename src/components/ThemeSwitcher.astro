@@ -1,17 +1,16 @@
 ---
 /**
- * Full-Site Dual-Layer Theme & CRT Switcher Component.
+ * Full-Site Streamlined Theme & CRT Switcher Component.
  *
- * Provides two independent controls:
- * 1. Base CS & System Theme: Light, Dark, Nord, Monokai, Cyberdeck, Parchment
- * 2. 1988 NIH CRT Display Mode: Modern, Amber CRT, Green CRT, Cyan CRT
+ * Provides a unified single-active preset selector:
+ * 1. Modern Themes: Light, Parchment, Dark, Nord, Monokai, Cyberdeck
+ * 2. 1988 CRT Phosphors: Amber CRT, Green CRT, Cyan CRT
  */
-import Icon from './Icon.astro';
 ---
 
 <div class="theme-switcher-container" aria-label="Site appearance and display settings">
-  <!-- Base Theme Switcher -->
-  <div class="theme-segmented-group" role="radiogroup" aria-label="CS & System Themes">
+  <!-- Modern Themes -->
+  <div class="theme-segmented-group" role="radiogroup" aria-label="Modern Themes">
     <button
       type="button"
       class="theme-seg-btn"
@@ -21,10 +20,21 @@ import Icon from './Icon.astro';
       title="Switch to Light Theme"
       aria-label="Light Theme"
     >
-      <span class="theme-icon-wrap" aria-hidden="true">
-        <Icon name="sun" size={14} />
-      </span>
+      <span class="theme-swatch-dot theme-swatch-dot--light" aria-hidden="true"></span>
       <span class="theme-label">Light</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn"
+      data-theme-choice="parchment"
+      role="radio"
+      aria-checked="false"
+      title="Switch to Bell Labs 1970s Sepia Parchment Theme"
+      aria-label="Parchment Theme"
+    >
+      <span class="theme-swatch-dot theme-swatch-dot--parchment" aria-hidden="true"></span>
+      <span class="theme-label">Parchment</span>
     </button>
 
     <button
@@ -36,9 +46,7 @@ import Icon from './Icon.astro';
       title="Switch to Dark Theme"
       aria-label="Dark Theme"
     >
-      <span class="theme-icon-wrap" aria-hidden="true">
-        <Icon name="moon" size={14} />
-      </span>
+      <span class="theme-swatch-dot theme-swatch-dot--dark" aria-hidden="true"></span>
       <span class="theme-label">Dark</span>
     </button>
 
@@ -51,7 +59,7 @@ import Icon from './Icon.astro';
       title="Switch to Arctic Nord Computational Theme"
       aria-label="Nord Theme"
     >
-      <span class="theme-icon" aria-hidden="true">🌌</span>
+      <span class="theme-swatch-dot theme-swatch-dot--nord" aria-hidden="true"></span>
       <span class="theme-label">Nord</span>
     </button>
 
@@ -64,7 +72,7 @@ import Icon from './Icon.astro';
       title="Switch to Monokai Pro Compiler Theme"
       aria-label="Monokai Theme"
     >
-      <span class="theme-icon" aria-hidden="true">🕹️</span>
+      <span class="theme-swatch-dot theme-swatch-dot--monokai" aria-hidden="true"></span>
       <span class="theme-label">Monokai</span>
     </button>
 
@@ -77,41 +85,15 @@ import Icon from './Icon.astro';
       title="Switch to DEC VT220 / Cyberdeck Cyan Theme"
       aria-label="Cyberdeck Theme"
     >
-      <span class="theme-icon" aria-hidden="true">📟</span>
+      <span class="theme-swatch-dot theme-swatch-dot--cyberdeck" aria-hidden="true"></span>
       <span class="theme-label">Cyberdeck</span>
-    </button>
-
-    <button
-      type="button"
-      class="theme-seg-btn"
-      data-theme-choice="parchment"
-      role="radio"
-      aria-checked="false"
-      title="Switch to Bell Labs 1970s Sepia Parchment Paper Theme"
-      aria-label="Parchment Theme"
-    >
-      <span class="theme-icon" aria-hidden="true">📜</span>
-      <span class="theme-label">Parchment</span>
     </button>
   </div>
 
-  <div class="theme-switcher-divider" aria-hidden="true"></div>
+  <div class="theme-switcher-spacer" aria-hidden="true"></div>
 
-  <!-- 1988 CRT Display Mode Switcher -->
-  <div class="theme-segmented-group" role="radiogroup" aria-label="1988 CRT Display Mode">
-    <button
-      type="button"
-      class="theme-seg-btn"
-      data-crt-choice="off"
-      role="radio"
-      aria-checked="true"
-      title="Modern Display Mode (CRT Off)"
-      aria-label="Modern Display"
-    >
-      <span class="theme-icon" aria-hidden="true">🖥️</span>
-      <span class="theme-label">Modern</span>
-    </button>
-
+  <!-- 1988 CRT Phosphor Displays -->
+  <div class="theme-segmented-group theme-segmented-group--crt" role="radiogroup" aria-label="1988 CRT Displays">
     <button
       type="button"
       class="theme-seg-btn theme-seg-btn--amber"
@@ -121,8 +103,8 @@ import Icon from './Icon.astro';
       title="1988 NIH Supercomputer Amber CRT Mode"
       aria-label="Amber CRT Mode"
     >
-      <span class="theme-icon" aria-hidden="true">⚡</span>
-      <span class="theme-label">Amber</span>
+      <span aria-hidden="true">⚡</span>
+      <span class="theme-label">Amber CRT</span>
     </button>
 
     <button
@@ -134,8 +116,8 @@ import Icon from './Icon.astro';
       title="1988 NIH Supercomputer Green Phosphor CRT Mode"
       aria-label="Green CRT Mode"
     >
-      <span class="theme-icon" aria-hidden="true">🟢</span>
-      <span class="theme-label">Green</span>
+      <span aria-hidden="true">🟢</span>
+      <span class="theme-label">Green CRT</span>
     </button>
 
     <button
@@ -147,8 +129,8 @@ import Icon from './Icon.astro';
       title="1988 DEC VT220 Cyan Phosphor CRT Mode"
       aria-label="Cyan CRT Mode"
     >
-      <span class="theme-icon" aria-hidden="true">🔷</span>
-      <span class="theme-label">Cyan</span>
+      <span aria-hidden="true">🔷</span>
+      <span class="theme-label">Cyan CRT</span>
     </button>
   </div>
 </div>
@@ -163,17 +145,18 @@ import Icon from './Icon.astro';
       (window as unknown as { __khcCrt?: { get: () => string } }).__khcCrt?.get() ||
       document.documentElement.dataset.crtMode ||
       'off';
+    const isCrt = currentCrt === 'amber' || currentCrt === 'green' || currentCrt === 'cyan';
 
     document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
       const choice = btn.dataset.themeChoice;
-      const isActive = choice === currentTheme;
+      const isActive = !isCrt && choice === currentTheme;
       btn.setAttribute('aria-checked', String(isActive));
       btn.classList.toggle('is-active', isActive);
     });
 
     document.querySelectorAll<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
       const choice = btn.dataset.crtChoice;
-      const isActive = choice === currentCrt;
+      const isActive = isCrt && choice === currentCrt;
       btn.setAttribute('aria-checked', String(isActive));
       btn.classList.toggle('is-active', isActive);
     });
@@ -213,8 +196,8 @@ import Icon from './Icon.astro';
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.4rem;
+    gap: 0.35rem;
+    padding: 0.3rem 0.45rem;
     background: color-mix(in srgb, var(--color-surface, #ffffff) 85%, var(--color-ink, #000) 5%);
     border: 1px solid var(--color-rule, rgba(0, 0, 0, 0.12));
     border-radius: 999px;
@@ -230,11 +213,9 @@ import Icon from './Icon.astro';
     gap: 0.15rem;
   }
 
-  .theme-switcher-divider {
-    width: 1px;
-    height: 1.25rem;
-    background: var(--color-rule, rgba(0, 0, 0, 0.12));
-    margin-inline: 0.2rem;
+  .theme-switcher-spacer {
+    width: 6px;
+    height: 1px;
   }
 
   .theme-seg-btn {
@@ -279,6 +260,20 @@ import Icon from './Icon.astro';
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   }
 
+  .theme-swatch-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+  .theme-swatch-dot--light { background: #2e6e5e; border: 1px solid rgba(0,0,0,0.15); }
+  .theme-swatch-dot--parchment { background: #c2410c; border: 1px solid rgba(0,0,0,0.15); }
+  .theme-swatch-dot--dark { background: #75c7af; border: 1px solid rgba(255,255,255,0.25); }
+  .theme-swatch-dot--nord { background: #88c0d0; border: 1px solid rgba(255,255,255,0.25); }
+  .theme-swatch-dot--monokai { background: #ffd866; border: 1px solid rgba(255,255,255,0.25); }
+  .theme-swatch-dot--cyberdeck { background: #22d3ee; border: 1px solid rgba(255,255,255,0.25); }
+
   /* Specific Phosphor Accent on CRT active buttons */
   .theme-seg-btn--amber.is-active {
     color: #ffb000 !important;
@@ -298,19 +293,6 @@ import Icon from './Icon.astro';
     background: rgba(56, 253, 248, 0.12) !important;
   }
 
-  .theme-icon-wrap {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: currentColor;
-  }
-
-  .theme-icon {
-    font-size: 0.85rem;
-    line-height: 1;
-    display: inline-block;
-  }
-
   .theme-label {
     letter-spacing: -0.01em;
   }
@@ -320,7 +302,7 @@ import Icon from './Icon.astro';
       width: 100%;
       border-radius: 12px;
       padding: 0.5rem 0.35rem;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
 
     .theme-segmented-group {
@@ -328,10 +310,8 @@ import Icon from './Icon.astro';
       justify-content: center;
     }
 
-    .theme-switcher-divider {
-      width: 100%;
-      height: 1px;
-      margin: 0.1rem 0;
+    .theme-switcher-spacer {
+      display: none;
     }
 
     .theme-seg-btn {

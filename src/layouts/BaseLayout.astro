@@ -119,6 +119,7 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
         const resolvedCrt = () => storedCrt() || 'off';
 
         const syncControls = (theme, crt) => {
+          const isCrtActive = crt === 'amber' || crt === 'green' || crt === 'cyan';
           const nextLabel = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
           for (const button of document.querySelectorAll('[data-theme-toggle]')) {
             button.dataset.themeState = theme;
@@ -129,14 +130,14 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
 
           document.querySelectorAll('[data-theme-choice]').forEach((btn) => {
             const choice = btn.dataset.themeChoice;
-            const isActive = choice === theme;
+            const isActive = !isCrtActive && choice === theme;
             btn.setAttribute('aria-checked', String(isActive));
             btn.classList.toggle('is-active', isActive);
           });
 
           document.querySelectorAll('[data-crt-choice]').forEach((btn) => {
             const choice = btn.dataset.crtChoice;
-            const isActive = choice === crt;
+            const isActive = isCrtActive && choice === crt;
             btn.setAttribute('aria-checked', String(isActive));
             btn.classList.toggle('is-active', isActive);
           });
@@ -168,13 +169,17 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
           if (persist) {
             try {
               localStorage.setItem(themeKey, next);
+              localStorage.removeItem(crtKey);
             } catch {}
           }
           root.dataset.theme = next;
           root.style.colorScheme = (next === 'parchment' || next === 'light') ? 'light' : 'dark';
+          delete root.dataset.crtMode;
+          syncCrtOverlay('off');
           syncMeta(next);
-          syncControls(next, root.dataset.crtMode || resolvedCrt());
+          syncControls(next, 'off');
           document.dispatchEvent(new CustomEvent('khc:theme-change', { detail: { theme: next } }));
+          document.dispatchEvent(new CustomEvent('khc:crt-change', { detail: { mode: 'off' } }));
           return next;
         };
 
