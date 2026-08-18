@@ -66,62 +66,52 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         </button>
 
         <div class="top-theme-popover" data-top-theme-popover role="menu" hidden>
-          <!-- Base Color Theme -->
+          <!-- Modern Themes Section -->
           <div class="popover-section">
-            <span class="popover-heading">CS & System Themes</span>
+            <span class="popover-heading">Modern Themes</span>
             <div class="popover-grid">
               <button type="button" class="popover-opt-btn" data-theme-choice="light" role="menuitem">
-                <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="sun" size={14} />
-                </span>
+                <span class="theme-swatch-dot theme-swatch-dot--light" aria-hidden="true"></span>
                 <span class="opt-text">Light</span>
               </button>
+              <button type="button" class="popover-opt-btn" data-theme-choice="parchment" role="menuitem">
+                <span class="theme-swatch-dot theme-swatch-dot--parchment" aria-hidden="true"></span>
+                <span class="opt-text">Parchment</span>
+              </button>
               <button type="button" class="popover-opt-btn" data-theme-choice="dark" role="menuitem">
-                <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="moon" size={14} />
-                </span>
+                <span class="theme-swatch-dot theme-swatch-dot--dark" aria-hidden="true"></span>
                 <span class="opt-text">Dark</span>
               </button>
               <button type="button" class="popover-opt-btn" data-theme-choice="nord" role="menuitem">
-                <span class="opt-icon" aria-hidden="true">🌌</span>
+                <span class="theme-swatch-dot theme-swatch-dot--nord" aria-hidden="true"></span>
                 <span class="opt-text">Nord</span>
               </button>
               <button type="button" class="popover-opt-btn" data-theme-choice="monokai" role="menuitem">
-                <span class="opt-icon" aria-hidden="true">🕹️</span>
+                <span class="theme-swatch-dot theme-swatch-dot--monokai" aria-hidden="true"></span>
                 <span class="opt-text">Monokai</span>
               </button>
-              <button type="button" class="popover-opt-btn popover-opt-btn--cyan" data-theme-choice="cyberdeck" role="menuitem">
-                <span class="opt-icon" aria-hidden="true">📟</span>
+              <button type="button" class="popover-opt-btn" data-theme-choice="cyberdeck" role="menuitem">
+                <span class="theme-swatch-dot theme-swatch-dot--cyberdeck" aria-hidden="true"></span>
                 <span class="opt-text">Cyberdeck</span>
-              </button>
-              <button type="button" class="popover-opt-btn" data-theme-choice="parchment" role="menuitem">
-                <span class="opt-icon" aria-hidden="true">📜</span>
-                <span class="opt-text">Parchment</span>
               </button>
             </div>
           </div>
 
-          <div class="popover-divider"></div>
-
-          <!-- 1988 CRT Monitor -->
-          <div class="popover-section">
-            <span class="popover-heading">1988 CRT Monitor</span>
-            <div class="popover-list">
-              <button type="button" class="popover-opt-btn" data-crt-choice="off" role="menuitem">
-                <span class="opt-icon">🖥️</span>
-                <span class="opt-text">Modern (Off)</span>
+          <!-- 1988 Retro CRT Phosphor Section -->
+          <div class="popover-section" style="margin-top: 0.35rem;">
+            <span class="popover-heading">1988 Retro CRT</span>
+            <div class="popover-crt-row">
+              <button type="button" class="popover-crt-btn popover-crt-btn--amber" data-crt-choice="amber" role="menuitem">
+                <span aria-hidden="true">⚡</span>
+                <span>Amber</span>
               </button>
-              <button type="button" class="popover-opt-btn popover-opt-btn--amber" data-crt-choice="amber" role="menuitem">
-                <span class="opt-icon">⚡</span>
-                <span class="opt-text">Amber Phosphor</span>
+              <button type="button" class="popover-crt-btn popover-crt-btn--green" data-crt-choice="green" role="menuitem">
+                <span aria-hidden="true">🟢</span>
+                <span>Green</span>
               </button>
-              <button type="button" class="popover-opt-btn popover-opt-btn--green" data-crt-choice="green" role="menuitem">
-                <span class="opt-icon">🟢</span>
-                <span class="opt-text">Green Phosphor</span>
-              </button>
-              <button type="button" class="popover-opt-btn popover-opt-btn--cyan" data-crt-choice="cyan" role="menuitem">
-                <span class="opt-icon">🔷</span>
-                <span class="opt-text">Cyan Phosphor</span>
+              <button type="button" class="popover-crt-btn popover-crt-btn--cyan" data-crt-choice="cyan" role="menuitem">
+                <span aria-hidden="true">🔷</span>
+                <span>Cyan</span>
               </button>
             </div>
           </div>
@@ -159,61 +149,48 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
     <!-- Dedicated Mobile Appearance Section -->
     <div class="mobile-theme-drawer">
-      <p class="eyebrow mobile-drawer-heading">CS & System Themes</p>
+      <p class="eyebrow mobile-drawer-heading">Modern Themes</p>
+      <div class="mobile-theme-grid" role="radiogroup" aria-label="Modern Themes">
+        <button type="button" class="mobile-theme-btn" data-theme-choice="light">
+          <span class="theme-swatch-dot theme-swatch-dot--light" aria-hidden="true"></span>
+          <span>Light</span>
+        </button>
+        <button type="button" class="mobile-theme-btn" data-theme-choice="parchment">
+          <span class="theme-swatch-dot theme-swatch-dot--parchment" aria-hidden="true"></span>
+          <span>Parchment</span>
+        </button>
+        <button type="button" class="mobile-theme-btn" data-theme-choice="dark">
+          <span class="theme-swatch-dot theme-swatch-dot--dark" aria-hidden="true"></span>
+          <span>Dark</span>
+        </button>
+        <button type="button" class="mobile-theme-btn" data-theme-choice="nord">
+          <span class="theme-swatch-dot theme-swatch-dot--nord" aria-hidden="true"></span>
+          <span>Nord</span>
+        </button>
+        <button type="button" class="mobile-theme-btn" data-theme-choice="monokai">
+          <span class="theme-swatch-dot theme-swatch-dot--monokai" aria-hidden="true"></span>
+          <span>Monokai</span>
+        </button>
+        <button type="button" class="mobile-theme-btn" data-theme-choice="cyberdeck">
+          <span class="theme-swatch-dot theme-swatch-dot--cyberdeck" aria-hidden="true"></span>
+          <span>Cyberdeck</span>
+        </button>
+      </div>
 
-      <div class="mobile-theme-group">
-        <!-- Color Themes Grid -->
-        <div class="mobile-theme-grid" role="radiogroup" aria-label="Theme">
-          <button type="button" class="mobile-theme-btn" data-theme-choice="light">
-            <span class="mobile-theme-icon-wrap" aria-hidden="true">
-              <Icon name="sun" size={15} />
-            </span>
-            <span>Light</span>
-          </button>
-          <button type="button" class="mobile-theme-btn" data-theme-choice="dark">
-            <span class="mobile-theme-icon-wrap" aria-hidden="true">
-              <Icon name="moon" size={15} />
-            </span>
-            <span>Dark</span>
-          </button>
-          <button type="button" class="mobile-theme-btn" data-theme-choice="nord">
-            <span>🌌</span>
-            <span>Nord</span>
-          </button>
-          <button type="button" class="mobile-theme-btn" data-theme-choice="monokai">
-            <span>🕹️</span>
-            <span>Monokai</span>
-          </button>
-          <button type="button" class="mobile-theme-btn" data-theme-choice="cyberdeck">
-            <span>📟</span>
-            <span>Cyberdeck</span>
-          </button>
-          <button type="button" class="mobile-theme-btn" data-theme-choice="parchment">
-            <span>📜</span>
-            <span>Parchment</span>
-          </button>
-        </div>
-
-        <!-- 1988 CRT Monitor -->
-        <p class="eyebrow mobile-drawer-heading" style="margin-top: 0.5rem;">1988 CRT Monitor</p>
-        <div class="mobile-theme-row mobile-theme-row--crt" role="radiogroup" aria-label="1988 CRT Mode">
-          <button type="button" class="mobile-theme-btn" data-crt-choice="off">
-            <span>🖥️</span>
-            <span>Off</span>
-          </button>
-          <button type="button" class="mobile-theme-btn mobile-theme-btn--amber" data-crt-choice="amber">
-            <span>⚡</span>
-            <span>Amber</span>
-          </button>
-          <button type="button" class="mobile-theme-btn mobile-theme-btn--green" data-crt-choice="green">
-            <span>🟢</span>
-            <span>Green</span>
-          </button>
-          <button type="button" class="mobile-theme-btn mobile-theme-btn--cyan" data-crt-choice="cyan">
-            <span>🔷</span>
-            <span>Cyan</span>
-          </button>
-        </div>
+      <p class="eyebrow mobile-drawer-heading" style="margin-top: 0.5rem;">1988 Retro CRT</p>
+      <div class="mobile-theme-row mobile-theme-row--crt" role="radiogroup" aria-label="1988 CRT Mode">
+        <button type="button" class="mobile-theme-btn mobile-theme-btn--amber" data-crt-choice="amber">
+          <span>⚡</span>
+          <span>Amber</span>
+        </button>
+        <button type="button" class="mobile-theme-btn mobile-theme-btn--green" data-crt-choice="green">
+          <span>🟢</span>
+          <span>Green</span>
+        </button>
+        <button type="button" class="mobile-theme-btn mobile-theme-btn--cyan" data-crt-choice="cyan">
+          <span>🔷</span>
+          <span>Cyan</span>
+        </button>
       </div>
     </div>
   </div>
@@ -449,9 +426,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    width: 230px;
+    width: 244px;
     max-height: 80vh;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 0.75rem;
     background: color-mix(in srgb, var(--color-surface) 95%, var(--color-ink) 5%);
     border: 1px solid var(--color-rule);
@@ -462,7 +440,8 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     z-index: 101;
     display: flex;
     flex-direction: column;
-    gap: 0.45rem;
+    gap: 0.6rem;
+    box-sizing: border-box;
     animation: popoverFadeIn 0.15s ease-out;
   }
 
@@ -484,7 +463,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   .popover-section {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.35rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .popover-heading {
@@ -499,26 +480,16 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   .popover-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.3rem;
-  }
-
-  .popover-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .popover-divider {
-    height: 1px;
-    background: var(--color-rule);
-    margin-block: 0.15rem;
+    gap: 0.35rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .popover-opt-btn {
     display: flex;
     align-items: center;
     gap: 0.45rem;
-    padding: 0.4rem 0.55rem;
+    padding: 0.45rem 0.55rem;
     border: 1px solid transparent;
     border-radius: 6px;
     background: transparent;
@@ -529,6 +500,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     cursor: pointer;
     text-align: left;
     transition: all 0.12s ease;
+    box-sizing: border-box;
   }
 
   .popover-opt-btn:hover {
@@ -543,37 +515,71 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
 
-  .popover-opt-btn--amber.is-active {
-    color: #ffb000 !important;
-    border-color: #ffb000 !important;
-    background: rgba(255, 176, 0, 0.12) !important;
+  .popover-crt-row {
+    display: flex;
+    gap: 0.35rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  .popover-opt-btn--green.is-active {
-    color: #33ff33 !important;
-    border-color: #33ff33 !important;
-    background: rgba(51, 255, 51, 0.12) !important;
-  }
-
-  .popover-opt-btn--cyan.is-active {
-    color: #38fdf8 !important;
-    border-color: #38fdf8 !important;
-    background: rgba(56, 253, 248, 0.12) !important;
-  }
-
-  .opt-icon-wrap {
+  .popover-crt-btn {
+    flex: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: currentColor;
-    flex-shrink: 0;
+    gap: 0.35rem;
+    padding: 0.45rem 0.35rem;
+    border: 1px solid var(--color-rule);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: 0.78125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    box-sizing: border-box;
   }
 
-  .opt-icon {
-    font-size: 0.95rem;
-    line-height: 1;
-    flex-shrink: 0;
+  .popover-crt-btn:hover {
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   }
+
+  .popover-crt-btn--amber.is-active {
+    color: #ffb000 !important;
+    border-color: #ffb000 !important;
+    background: rgba(255, 176, 0, 0.12) !important;
+    font-weight: 600;
+  }
+
+  .popover-crt-btn--green.is-active {
+    color: #33ff33 !important;
+    border-color: #33ff33 !important;
+    background: rgba(51, 255, 51, 0.12) !important;
+    font-weight: 600;
+  }
+
+  .popover-crt-btn--cyan.is-active {
+    color: #38fdf8 !important;
+    border-color: #38fdf8 !important;
+    background: rgba(56, 253, 248, 0.12) !important;
+    font-weight: 600;
+  }
+
+  .theme-swatch-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+  .theme-swatch-dot--light { background: #2e6e5e; border: 1px solid rgba(0,0,0,0.15); }
+  .theme-swatch-dot--parchment { background: #c2410c; border: 1px solid rgba(0,0,0,0.15); }
+  .theme-swatch-dot--dark { background: #75c7af; border: 1px solid rgba(255,255,255,0.25); }
+  .theme-swatch-dot--nord { background: #88c0d0; border: 1px solid rgba(255,255,255,0.25); }
+  .theme-swatch-dot--monokai { background: #ffd866; border: 1px solid rgba(255,255,255,0.25); }
+  .theme-swatch-dot--cyberdeck { background: #22d3ee; border: 1px solid rgba(255,255,255,0.25); }
 
   .opt-text {
     flex: 1;
@@ -615,12 +621,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     margin: 0;
   }
 
-  .mobile-theme-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
   .mobile-theme-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -651,13 +651,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
-  }
-
-  .mobile-theme-icon-wrap {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: currentColor;
   }
 
   .mobile-theme-btn:hover {
@@ -709,7 +702,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     }
     .top-theme-popover {
       right: -20px;
-      width: 220px;
+      width: 230px;
     }
   }
 </style>
@@ -758,12 +751,12 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   function syncHeaderThemeIcons() {
     const currentTheme = themeApi()?.get() || document.documentElement.dataset.theme || 'light';
     const currentCrt = crtApi()?.get() || document.documentElement.dataset.crtMode || 'off';
+    const isCrt = currentCrt === 'amber' || currentCrt === 'green' || currentCrt === 'cyan';
 
     const topBtn = document.querySelector<HTMLButtonElement>('[data-top-theme-btn]');
     const crtBadge = document.querySelector<HTMLElement>('[data-top-crt-badge]');
     if (topBtn) {
       topBtn.dataset.themeState = currentTheme;
-      const isCrt = currentCrt === 'amber' || currentCrt === 'green' || currentCrt === 'cyan';
       topBtn.dataset.crtActive = String(isCrt);
       if (crtBadge) {
         crtBadge.textContent =
@@ -771,18 +764,18 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       }
     }
 
-    // Sync active classes across theme choices
+    // Sync active classes across theme choices (inactive if CRT is active)
     document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
       const choice = btn.dataset.themeChoice;
-      const isActive = choice === currentTheme;
+      const isActive = !isCrt && choice === currentTheme;
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
     });
 
-    // Sync active classes across CRT choices
+    // Sync active classes across CRT choices (active only if CRT matches)
     document.querySelectorAll<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
       const choice = btn.dataset.crtChoice;
-      const isActive = choice === currentCrt;
+      const isActive = isCrt && choice === currentCrt;
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
     });
