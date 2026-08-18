@@ -3,7 +3,7 @@
  */
 
 let isCrtActive = false;
-let currentPhosphor: 'amber' | 'green' = 'amber';
+let currentPhosphor: 'amber' | 'green' | 'cyan' = 'amber';
 let overlayEl: HTMLElement | null = null;
 let hudEl: HTMLElement | null = null;
 
@@ -46,27 +46,24 @@ function playCrtPowerSound(isOn: boolean) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
+    osc.type = 'sine';
     if (isOn) {
-      // CRT flyback transformer high-pitch whine (15.734 kHz subharmonic)
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(3500, now);
-      osc.frequency.exponentialRampToValueAtTime(8000, now + 0.15);
-      gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.06, now + 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+      osc.frequency.setValueAtTime(80, now);
+      osc.frequency.exponentialRampToValueAtTime(15734, now + 0.15);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.06, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
     } else {
-      // Power off collapse
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(6000, now);
-      osc.frequency.exponentialRampToValueAtTime(80, now + 0.25);
-      gain.gain.setValueAtTime(0.08, now);
+      osc.frequency.setValueAtTime(15734, now);
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.2);
+      gain.gain.setValueAtTime(0.06, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
     }
 
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.4);
+    osc.stop(now + 0.45);
   } catch {
     // Audio is non-blocking
   }
@@ -74,9 +71,9 @@ function playCrtPowerSound(isOn: boolean) {
 
 function createCrtHud(): HTMLElement {
   const hud = document.createElement('div');
-  hud.id = 'crt-hud';
+  hud.id = 'crt-screen-hud';
   hud.style.position = 'fixed';
-  hud.style.bottom = '24px';
+  hud.style.bottom = '16px';
   hud.style.left = '50%';
   hud.style.transform = 'translateX(-50%)';
   hud.style.zIndex = '999999';
@@ -85,17 +82,27 @@ function createCrtHud(): HTMLElement {
   hud.style.gap = '12px';
   hud.style.padding = '8px 18px';
   hud.style.background = 'rgba(0,0,0,0.85)';
-  hud.style.border = `1px solid ${currentPhosphor === 'amber' ? '#ffb000' : '#33ff33'}`;
+
+  const phosphorColor =
+    currentPhosphor === 'amber' ? '#ffb000' : currentPhosphor === 'green' ? '#33ff33' : '#38fdf8';
+  const glowColor =
+    currentPhosphor === 'amber'
+      ? 'rgba(255,176,0,0.4)'
+      : currentPhosphor === 'green'
+        ? 'rgba(51,255,51,0.4)'
+        : 'rgba(56,253,248,0.4)';
+
+  hud.style.border = `1px solid ${phosphorColor}`;
   hud.style.borderRadius = '999px';
-  hud.style.boxShadow = `0 0 20px ${currentPhosphor === 'amber' ? 'rgba(255,176,0,0.4)' : 'rgba(51,255,51,0.4)'}`;
+  hud.style.boxShadow = `0 0 20px ${glowColor}`;
   hud.style.fontFamily = 'monospace';
   hud.style.fontSize = '12px';
-  hud.style.color = currentPhosphor === 'amber' ? '#ffb000' : '#33ff33';
+  hud.style.color = phosphorColor;
 
   const label = document.createElement('span');
   label.id = 'crt-hud-label';
   label.style.fontWeight = 'bold';
-  label.textContent = `📺 1988 NIH Alpha VAX · ${currentPhosphor.toUpperCase()} PHOSPHOR`;
+  label.textContent = `📺 1988 ${currentPhosphor === 'cyan' ? 'DEC VT220' : 'NIH Alpha VAX'} · ${currentPhosphor.toUpperCase()} PHOSPHOR`;
   hud.appendChild(label);
 
   const toggleBtn = document.createElement('button');
@@ -149,7 +156,7 @@ function onGlobalKeyDown(e: KeyboardEvent) {
   playKeyClickSound();
 }
 
-export function startCrtMode(phosphor: 'amber' | 'green' = 'amber') {
+export function startCrtMode(phosphor: 'amber' | 'green' | 'cyan' = 'amber') {
   if (isCrtActive && currentPhosphor === phosphor) return;
 
   isCrtActive = true;
@@ -181,7 +188,8 @@ export function togglePhosphor() {
     startCrtMode('amber');
     return;
   }
-  startCrtMode(currentPhosphor === 'amber' ? 'green' : 'amber');
+  const next = currentPhosphor === 'amber' ? 'green' : currentPhosphor === 'green' ? 'cyan' : 'amber';
+  startCrtMode(next);
 }
 
 export function stopCrtMode() {

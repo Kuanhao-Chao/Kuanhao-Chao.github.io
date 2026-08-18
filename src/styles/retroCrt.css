@@ -28,6 +28,17 @@
   --crt-hue: 95deg;
 }
 
+:root[data-crt-mode='cyan'] {
+  --crt-phosphor: #38fdf8;
+  --crt-glow: rgba(56, 253, 248, 0.4);
+  --crt-bg: #031015;
+  --crt-surface: #061820;
+  --crt-accent: #67e8f9;
+  --crt-muted: #0891b2;
+  --crt-rule: #0e3748;
+  --crt-hue: 185deg;
+}
+
 :root[data-crt-mode] {
   --color-bg: var(--crt-bg) !important;
   --color-surface: var(--crt-surface) !important;

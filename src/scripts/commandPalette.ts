@@ -62,6 +62,58 @@ const STATIC_ACTIONS: CommandItem[] = [
     keywords: ['dark', 'night', 'black', 'slate', 'dim', 'theme'],
   },
   {
+    id: 'act-theme-nord',
+    category: 'Actions',
+    title: 'Set Theme: 🌌 Arctic Nord Computational',
+    subtitle: 'Polar night dark mode with arctic ice cyan accents',
+    badge: 'Theme',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('nord');
+      }
+    },
+    keywords: ['nord', 'arctic', 'developer', 'polar', 'ice', 'ide', 'theme'],
+  },
+  {
+    id: 'act-theme-monokai',
+    category: 'Actions',
+    title: 'Set Theme: 🕹️ Monokai Pro Compiler',
+    subtitle: 'Warm charcoal editor theme with compiler gold and syntax rose',
+    badge: 'Theme',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('monokai');
+      }
+    },
+    keywords: ['monokai', 'compiler', 'gold', 'code', 'editor', 'theme'],
+  },
+  {
+    id: 'act-theme-cyberdeck',
+    category: 'Actions',
+    title: 'Set Theme: 📟 DEC VT220 / Cyberdeck',
+    subtitle: 'Obsidian navy with electric ice cyan phosphor glow',
+    badge: 'Theme',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('cyberdeck');
+      }
+    },
+    keywords: ['cyberdeck', 'cyan', 'vt220', 'dec', 'matrix', 'terminal', 'theme'],
+  },
+  {
+    id: 'act-theme-parchment',
+    category: 'Actions',
+    title: 'Set Theme: 📜 Bell Labs 1970s Parchment',
+    subtitle: 'Warm aged paper with walnut sepia ink and burnt terracotta',
+    badge: 'Theme',
+    action: () => {
+      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('parchment');
+      }
+    },
+    keywords: ['parchment', 'bell labs', 'sepia', 'paper', 'knuth', 'tex', 'smalltalk', 'theme'],
+  },
+  {
     id: 'act-crt-amber',
     category: 'Actions',
     title: '📺 1988 CRT Monitor: ⚡ Amber Phosphor',
@@ -82,6 +134,17 @@ const STATIC_ACTIONS: CommandItem[] = [
       startCrtMode('green');
     },
     keywords: ['crt', 'retro', '1988', 'green', 'phosphor', 'terminal', 'scanlines', 'display'],
+  },
+  {
+    id: 'act-crt-cyan',
+    category: 'Actions',
+    title: '📺 1988 CRT Monitor: 🔷 Cyan Phosphor',
+    subtitle: 'Vintage DEC VT220 Vector Cyan CRT display with scanlines',
+    badge: 'Display',
+    action: () => {
+      startCrtMode('cyan');
+    },
+    keywords: ['crt', 'retro', '1988', 'cyan', 'vt220', 'phosphor', 'terminal', 'scanlines', 'display'],
   },
   {
     id: 'act-crt-off',

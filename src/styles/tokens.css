@@ -107,3 +107,115 @@
   --rgb-ink: 242, 240, 234;
   --rgb-accent: 117, 199, 175;
 }
+
+/* ───────────────────────────────────────────────────────────────
+   CS Theme 1: Nord Computational (Arctic Developer Dark)
+   ─────────────────────────────────────────────────────────────── */
+:root[data-theme='nord'] {
+  color-scheme: dark;
+
+  --color-bg: #242933;
+  --color-surface: #2e3440;
+  --color-figure-mat: #eceff4;
+  --color-ink: #eceff4;
+  --color-accent: #88c0d0;
+  --color-accent-dark: #81a1c1;
+  --color-muted: #94a3b8;
+  --color-rule: #3b4252;
+  --color-link: var(--color-accent);
+  --color-on-ink: #242933;
+  --color-on-accent: #242933;
+  --color-badge-warm-text: #ebcb8b;
+  --color-badge-warm-border: #d08770;
+  --color-badge-warm-bg: #2e3440;
+  --color-dialog-backdrop: rgba(15, 17, 23, 0.94);
+  --color-dialog-control-bg: rgba(255, 255, 255, 0.12);
+  --color-dialog-control-bg-hover: rgba(255, 255, 255, 0.25);
+  --color-dialog-control-ink: #ffffff;
+  --rgb-ink: 236, 239, 244;
+  --rgb-accent: 136, 192, 208;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   CS Theme 2: Monokai Pro (Compiler Gold & Syntax Rose)
+   ─────────────────────────────────────────────────────────────── */
+:root[data-theme='monokai'] {
+  color-scheme: dark;
+
+  --color-bg: #1e1e24;
+  --color-surface: #282830;
+  --color-figure-mat: #fcfcfa;
+  --color-ink: #fcfcfa;
+  --color-accent: #ffd866;
+  --color-accent-dark: #ff6188;
+  --color-muted: #939293;
+  --color-rule: #363537;
+  --color-link: var(--color-accent);
+  --color-on-ink: #1e1e24;
+  --color-on-accent: #19181a;
+  --color-badge-warm-text: #ffd866;
+  --color-badge-warm-border: #78dce8;
+  --color-badge-warm-bg: #2d2a2e;
+  --color-dialog-backdrop: rgba(10, 10, 12, 0.94);
+  --color-dialog-control-bg: rgba(255, 255, 255, 0.12);
+  --color-dialog-control-bg-hover: rgba(255, 255, 255, 0.25);
+  --color-dialog-control-ink: #ffffff;
+  --rgb-ink: 252, 252, 250;
+  --rgb-accent: 255, 216, 102;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   CS Theme 3: DEC VT220 / Cyberdeck (Ice Cyan Phosphor)
+   ─────────────────────────────────────────────────────────────── */
+:root[data-theme='cyberdeck'] {
+  color-scheme: dark;
+
+  --color-bg: #070d14;
+  --color-surface: #0e1824;
+  --color-figure-mat: #e2f6fd;
+  --color-ink: #e2f6fd;
+  --color-accent: #22d3ee;
+  --color-accent-dark: #00e5ff;
+  --color-muted: #64748b;
+  --color-rule: #1e293b;
+  --color-link: var(--color-accent);
+  --color-on-ink: #070d14;
+  --color-on-accent: #020617;
+  --color-badge-warm-text: #38bdf8;
+  --color-badge-warm-border: #0284c7;
+  --color-badge-warm-bg: #0f172a;
+  --color-dialog-backdrop: rgba(3, 7, 12, 0.95);
+  --color-dialog-control-bg: rgba(34, 211, 238, 0.15);
+  --color-dialog-control-bg-hover: rgba(34, 211, 238, 0.3);
+  --color-dialog-control-ink: #ffffff;
+  --rgb-ink: 226, 246, 253;
+  --rgb-accent: 34, 211, 238;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   CS Theme 4: Bell Labs 1970s / Smalltalk Parchment (Warm Sepia)
+   ─────────────────────────────────────────────────────────────── */
+:root[data-theme='parchment'] {
+  color-scheme: light;
+
+  --color-bg: #fbf5e6;
+  --color-surface: #f2ebda;
+  --color-figure-mat: transparent;
+  --color-ink: #2e241e;
+  --color-accent: #c2410c;
+  --color-accent-dark: #9a3412;
+  --color-muted: #786b59;
+  --color-rule: #e2d7c0;
+  --color-link: var(--color-accent);
+  --color-on-ink: #ffffff;
+  --color-on-accent: #ffffff;
+  --color-badge-warm-text: #9a3412;
+  --color-badge-warm-border: #fdba74;
+  --color-badge-warm-bg: #ffedd5;
+  --color-dialog-backdrop: rgba(20, 15, 10, 0.92);
+  --color-dialog-control-bg: rgba(0, 0, 0, 0.08);
+  --color-dialog-control-bg-hover: rgba(0, 0, 0, 0.18);
+  --color-dialog-control-ink: #2e241e;
+  --rgb-ink: 46, 36, 30;
+  --rgb-accent: 194, 65, 12;
+}

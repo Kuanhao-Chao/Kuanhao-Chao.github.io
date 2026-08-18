@@ -42,9 +42,9 @@ export interface TerminalController {
 
 /** The slice of `BaseLayout`'s inline theme script that the shell calls into. */
 interface KhcTheme {
-  get: () => 'light' | 'dark';
-  set: (theme: 'light' | 'dark') => 'light' | 'dark';
-  toggle: () => 'light' | 'dark';
+  get: () => string;
+  set: (theme: string) => string;
+  toggle: () => string;
 }
 
 /**
@@ -399,7 +399,7 @@ export function initTerminal(
    * the header, not the API. Guarded anyway so the shell degrades to a message rather
    * than a `TypeError` if that ever stops being true.
    */
-  function applyTheme(mode: 'light' | 'dark' | 'toggle') {
+  function applyTheme(mode: 'light' | 'dark' | 'nord' | 'monokai' | 'cyberdeck' | 'parchment' | 'toggle') {
     const api = (window as unknown as { __khcTheme?: KhcTheme }).__khcTheme;
     if (!api) {
       write([{ text: 'theme: the theme switch is unavailable on this page.', tone: 'err' }]);
