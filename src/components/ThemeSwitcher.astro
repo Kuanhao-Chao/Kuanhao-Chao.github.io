@@ -3,9 +3,10 @@
  * Full-Site Streamlined Theme & CRT Switcher Component.
  *
  * Provides a unified single-active preset selector:
- * 1. Modern Themes: Light, Parchment, Dark, Nord, Monokai, Cyberdeck
+ * 1. Modern Themes: Light, Dark, Nord, Monokai, Cyberdeck, Parchment
  * 2. 1988 CRT Phosphors: Amber CRT, Green CRT, Cyan CRT
  */
+import Icon from './Icon.astro';
 ---
 
 <div class="theme-switcher-container" aria-label="Site appearance and display settings">
@@ -20,21 +21,10 @@
       title="Switch to Light Theme"
       aria-label="Light Theme"
     >
-      <span class="theme-swatch-dot theme-swatch-dot--light" aria-hidden="true"></span>
+      <span class="theme-icon-wrap" aria-hidden="true">
+        <Icon name="sun" size={14} />
+      </span>
       <span class="theme-label">Light</span>
-    </button>
-
-    <button
-      type="button"
-      class="theme-seg-btn"
-      data-theme-choice="parchment"
-      role="radio"
-      aria-checked="false"
-      title="Switch to Bell Labs 1970s Sepia Parchment Theme"
-      aria-label="Parchment Theme"
-    >
-      <span class="theme-swatch-dot theme-swatch-dot--parchment" aria-hidden="true"></span>
-      <span class="theme-label">Parchment</span>
     </button>
 
     <button
@@ -46,7 +36,9 @@
       title="Switch to Dark Theme"
       aria-label="Dark Theme"
     >
-      <span class="theme-swatch-dot theme-swatch-dot--dark" aria-hidden="true"></span>
+      <span class="theme-icon-wrap" aria-hidden="true">
+        <Icon name="moon" size={14} />
+      </span>
       <span class="theme-label">Dark</span>
     </button>
 
@@ -87,6 +79,19 @@
     >
       <span class="theme-swatch-dot theme-swatch-dot--cyberdeck" aria-hidden="true"></span>
       <span class="theme-label">Cyberdeck</span>
+    </button>
+
+    <button
+      type="button"
+      class="theme-seg-btn"
+      data-theme-choice="parchment"
+      role="radio"
+      aria-checked="false"
+      title="Switch to Bell Labs 1970s Sepia Parchment Theme"
+      aria-label="Parchment Theme"
+    >
+      <span class="theme-swatch-dot theme-swatch-dot--parchment" aria-hidden="true"></span>
+      <span class="theme-label">Parchment</span>
     </button>
   </div>
 
@@ -235,6 +240,14 @@
     line-height: 1;
     min-height: 1.85rem;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .theme-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+    flex-shrink: 0;
   }
 
   .theme-seg-btn:hover {
