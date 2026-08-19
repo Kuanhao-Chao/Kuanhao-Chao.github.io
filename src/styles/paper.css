@@ -1,0 +1,568 @@
+/**
+ * Styles for Computational Genomics Paper Summaries Hub (/papers/)
+ * and in-depth paper explainers (/papers/[slug]/).
+ * Pure design-token implementation supporting all 6 themes and 1988 CRT modes.
+ * Note: All pages under /papers/ are unlisted and non-indexable.
+ */
+
+/* ==========================================================================
+   Hub & Catalog Styles (/papers/)
+   ========================================================================== */
+
+.paper-section {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-8);
+}
+
+.paper-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: var(--space-6);
+}
+
+.paper-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.paper-filters .filter-pill {
+  font-family: inherit;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.paper-filters .filter-pill:hover {
+  color: var(--color-ink);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+}
+
+.paper-filters .filter-pill[aria-pressed='true'] {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: var(--color-accent);
+  font-weight: 600;
+}
+
+.paper-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.paper-controls .search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  color: var(--color-muted);
+}
+
+.paper-controls .search input {
+  border: none;
+  background: transparent;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--fs-small);
+  outline: none;
+  width: 190px;
+}
+
+.paper-controls .search input::placeholder {
+  color: var(--color-muted);
+}
+
+.paper-controls .sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.55rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  color: var(--color-muted);
+  cursor: pointer;
+  position: relative;
+}
+
+.paper-controls .sort select {
+  border: none;
+  background: transparent;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--fs-small);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  padding-right: 1.25rem;
+}
+
+/* Paper Card Grid */
+.paper-index {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.paper-card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: all var(--transition);
+  position: relative;
+}
+
+.paper-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.paper-card-layout {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+@media (max-width: 640px) {
+  .paper-card-layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+}
+
+.paper-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.paper-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.paper-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  color: var(--color-ink);
+}
+
+.paper-venue-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+}
+
+.paper-time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.paper-card-title {
+  margin: 0 0 0.35rem 0;
+  font-size: 1.18rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--color-ink);
+}
+
+.paper-card-title a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.paper-card-title a:hover {
+  color: var(--color-accent);
+}
+
+.paper-card-authors {
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  margin-bottom: 0.5rem;
+}
+
+.paper-card-authors strong {
+  color: var(--color-ink);
+}
+
+.paper-card-summary {
+  margin: 0 0 0.75rem 0;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+.paper-card-highlights {
+  margin: 0 0 0.75rem 0;
+  padding-left: 1.2rem;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.paper-card-highlights li + li {
+  margin-top: 0.25rem;
+}
+
+.paper-equations {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.paper-eq-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  color: var(--color-ink);
+}
+
+.paper-card-action {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--color-rule);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.paper-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: all var(--transition);
+}
+
+.paper-link:hover {
+  gap: 0.55rem;
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   Article Page Styles (/papers/[slug]/)
+   ========================================================================== */
+
+.paper-article {
+  max-width: var(--measure, 72ch);
+  margin: 0 auto;
+  padding-bottom: var(--space-8);
+}
+
+.paper-header {
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.paper-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  margin-bottom: var(--space-2);
+}
+
+.paper-title {
+  margin: var(--space-2) 0 var(--space-3) 0;
+  font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+}
+
+.paper-authors-box {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  line-height: 1.5;
+  margin-top: var(--space-3);
+}
+
+.paper-authors-box strong {
+  color: var(--color-ink);
+}
+
+.paper-lead {
+  font-size: clamp(1.05rem, 1.5vw, 1.15rem);
+  line-height: 1.65;
+  color: var(--color-ink);
+  font-weight: 450;
+  margin-bottom: var(--space-6);
+}
+
+/* Table of Contents */
+.paper-toc {
+  margin: var(--space-6) 0;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 8px);
+}
+
+.paper-toc-title {
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-meta);
+  color: var(--color-muted);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.paper-toc-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 1.5rem;
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: var(--fs-small);
+}
+
+@media (max-width: 640px) {
+  .paper-toc-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.paper-toc-list a {
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.paper-toc-list a:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+/* Callout Boxes */
+.paper-callout {
+  margin: var(--space-5) 0;
+  padding: var(--space-4) var(--space-5);
+  border-left: 4px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+  border-radius: 0 var(--radius-md, 6px) var(--radius-md, 6px) 0;
+}
+
+.paper-callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: var(--fs-small);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+  color: var(--color-accent);
+}
+
+.paper-callout p {
+  margin: 0;
+  font-size: var(--fs-small);
+  line-height: 1.6;
+}
+
+.paper-callout.callout-math {
+  border-left-color: #8b5cf6;
+  background: color-mix(in srgb, #8b5cf6 6%, var(--color-surface));
+}
+.paper-callout.callout-math .paper-callout-title {
+  color: #8b5cf6;
+}
+
+.paper-callout.callout-warning {
+  border-left-color: #ef4444;
+  background: color-mix(in srgb, #ef4444 6%, var(--color-surface));
+}
+.paper-callout.callout-warning .paper-callout-title {
+  color: #ef4444;
+}
+
+.paper-callout.callout-biology {
+  border-left-color: #10b981;
+  background: color-mix(in srgb, #10b981 6%, var(--color-surface));
+}
+.paper-callout.callout-biology .paper-callout-title {
+  color: #10b981;
+}
+
+/* Figure Cards */
+.paper-fig-card {
+  margin: var(--space-6) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 8px);
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.paper-fig-header {
+  padding: 0.65rem 1rem;
+  background: color-mix(in srgb, var(--color-surface) 85%, var(--color-ink) 15%);
+  border-bottom: 1px solid var(--color-rule);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.paper-fig-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.paper-fig-title {
+  font-size: var(--fs-small);
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.paper-fig-body {
+  padding: var(--space-4);
+  font-size: var(--fs-small);
+  color: var(--color-ink);
+  line-height: 1.6;
+}
+
+.paper-fig-takeaways {
+  margin: var(--space-3) 0 0 0;
+  padding-left: 1.2rem;
+  color: var(--color-muted);
+}
+
+.paper-fig-takeaways li + li {
+  margin-top: 0.35rem;
+}
+
+/* Equation Cards */
+.paper-equation-card {
+  margin: var(--space-5) 0;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.paper-equation-header {
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-meta);
+  color: var(--color-muted);
+  margin-bottom: 0.4rem;
+}
+
+.paper-equation-body {
+  font-size: 1.15rem;
+  text-align: center;
+  padding: var(--space-2) 0;
+  overflow-x: auto;
+  color: var(--color-ink);
+}
+
+.paper-equation-legend {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--color-rule);
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+/* Comparison Tables */
+.paper-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: var(--space-6) 0;
+}
+
+.paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.paper-table th,
+.paper-table td {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-rule);
+  text-align: left;
+}
+
+.paper-table th {
+  background: color-mix(in srgb, var(--color-surface) 85%, var(--color-ink) 15%);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.paper-table td {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}

@@ -26,7 +26,7 @@ export default defineConfig({
       // (noindex). Keep the whole /reports/ subtree out of the sitemap so its
       // URLs are never advertised. Search is also noindex, so keep it out too.
       filter: (page) =>
-        !page.includes('/reports/') && !page.includes('/logo-options/') && !page.includes('/search/'),
+        !page.includes('/reports/') && !page.includes('/papers/') && !page.includes('/logo-options/') && !page.includes('/search/'),
       serialize(item) {
         // Nudge crawl priority: homepage highest, primary sections next.
         if (item.url === 'https://khchao.com/') {

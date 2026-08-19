@@ -1,0 +1,331 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Parameter-Efficient Fine-Tuning of a Supervised Regulatory Sequence Model";
+const description = "Technical summary and literature deconstruction of Yuan, Linder, Kelley (Calico Life Sciences, bioRxiv 2025): Parameter-Efficient Fine-Tuning (PEFT) and the Locon4 architecture for Borzoi.";
+const readingTime = "14 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Deep Learning & Transfer Learning</span>
+        <span class="paper-venue-badge">bioRxiv 2025.05.26.656171</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Han Yuan, Johannes Linder, and David R. Kelley*</div>
+        <div><strong>Affiliation:</strong> Calico Life Sciences LLC, South San Francisco, CA 94080, USA</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1101/2025.05.26.656171" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1101/2025.05.26.656171</a> · Corresponding Authors: Han Yuan (<code>yuanh@calicolabs.com</code>), David R. Kelley (<code>drk@calicolabs.com</code>)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      How can massive 524 kb sequence-to-function neural networks like <strong>Borzoi</strong> be adapted to custom biological datasets without requiring high-end 80 GB enterprise GPU clusters? Researchers from <strong>Calico Life Sciences</strong> demonstrate that <strong>Parameter-Efficient Fine-Tuning (PEFT)</strong>—specifically the <strong>`Locon4`</strong> configuration—slashes GPU memory to under 24 GB, trains 5&times; faster on a single consumer RTX 4090, and matches full fine-tuning accuracy across four diverse biological domains.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & Core Innovation</a></li>
+        <li><a href="#compute-barrier">2. The Compute Barrier in Genomic Deep Learning</a></li>
+        <li><a href="#architectures">3. The Genomic PEFT Architectural Suite</a></li>
+        <li><a href="#locon4">4. Adapter Placement & The Locon4 Breakthrough</a></li>
+        <li><a href="#zero-cost">5. Zero-Cost Inference Merging</a></li>
+        <li><a href="#results">6. Section-by-Section Results (Fig 1–5)</a></li>
+        <li><a href="#formulations">7. Mathematical Formulations</a></li>
+        <li><a href="#conclusions">8. Discussion & Ecosystem Context</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The Core Innovation</h2>
+      <p>
+        Deep neural sequence-to-function models like <strong>Borzoi</strong> predict strand-specific RNA-seq coverage, chromatin accessibility, and transcription factor binding directly from raw <Katex tex="524\text{ kb}" /> DNA sequences. However, <strong>adapting these massive models to new biological contexts (such as perturbational screens, longitudinal aging cohorts, or single-cell atlases) via full fine-tuning is computationally prohibitive</strong>—requiring high-end enterprise accelerators (e.g. 80 GB NVIDIA A100/H100 GPUs) to store the massive intermediate activation tensors during backpropagation.
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The Borzoi PEFT Breakthrough
+        </div>
+        <p>
+          By freezing the pre-trained Borzoi backbone and inserting lightweight learnable adapter modules, PEFT achieves competitive predictive performance while updating only <strong>~1–3% of parameters</strong>, running comfortably on a <strong>single 24 GB consumer GPU (NVIDIA RTX 4090)</strong>.
+        </p>
+      </div>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Full Model Fine-Tuning</th>
+              <th>Parameter-Efficient Fine-Tuning (Locon4)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Updates all ~180M parameters.</td>
+              <td>Updates only ~1–3% of parameters.</td>
+            </tr>
+            <tr>
+              <td>Requires enterprise accelerators with &ge;80 GB VRAM (A100/H100).</td>
+              <td>Runs on a single consumer GPU with 24 GB VRAM (RTX 4090).</td>
+            </tr>
+            <tr>
+              <td>Massive activation memory during backpropagation.</td>
+              <td>Low memory footprint; 5&times; faster training throughput.</td>
+            </tr>
+            <tr>
+              <td>Large model checkpoint storage per downstream task.</td>
+              <td>Zero inference overhead (adapters merge directly into base weights).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="compute-barrier">
+      <h2>2. The Compute Barrier in Genomic Deep Learning</h2>
+      <p>
+        <strong>Borzoi</strong> processes a <Katex tex="524,288\text{ bp}" /> one-hot DNA sequence through a 7-stage convolutional residual stem, integrates long-range topological interactions across <Katex tex="196.6\text{ kb}" /> via a 14-layer Multi-Head Self-Attention (MHSA) transformer trunk, and upsamples back to <Katex tex="32\text{ bp}" /> resolution using transposed convolutions and U-Net skip connections.
+      </p>
+
+      <div class="paper-callout callout-warning">
+        <div class="paper-callout-title">
+          <Icon name="alert-triangle" size={15} /> The Activation Memory Bottleneck
+        </div>
+        <p>
+          In deep convolutional genomic models, <strong>memory overhead from storing intermediate feature map activations during backpropagation—not parameter count—is the true GPU bottleneck</strong>. Storing high-resolution <Katex tex="524\text{ kb} \times C" /> feature maps across all layers demands <Katex tex="> 70\text{ GB}" /> VRAM during full fine-tuning.
+        </p>
+      </div>
+
+      <p>
+        Conversely, <strong>Linear Probing (Head-Only Fine-Tuning)</strong> freezes the entire backbone and trains only the final projection head. While lightweight, it severely underfits because it cannot adapt internal sequence representations to novel cell types or disease states.
+      </p>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="architectures">
+      <h2>3. The Genomic PEFT Architectural Suite</h2>
+      <p>
+        The authors systematically implemented and evaluated adapter strategies across convolutional and transformer layers:
+      </p>
+      <ul>
+        <li>
+          <strong>LoCon (Low-Rank Adaptation for Convolutions):</strong> Factorizes a 1D convolution filter of shape <Katex tex="K \times C_{\text{in}} \times C_{\text{out}}" /> into a depthwise convolution (<Katex tex="K \times C_{\text{in}} \times r" />) followed by a pointwise convolution (<Katex tex="1 \times r \times C_{\text{out}}" />):
+          <Katex tex="W = W_0 + \frac{\alpha}{r} (W_{\text{pw}} * W_{\text{dw}})" display={true} />
+        </li>
+        <li>
+          <strong>LoRA (Low-Rank Adaptation for Transformers):</strong> Injects rank decomposition matrices into Query, Key, Value, and Output projection matrices across all 14 transformer blocks:
+          <Katex tex="W = W_0 + \frac{\alpha}{r} B A, \quad A \in \mathbb{R}^{r \times d}, \; B \in \mathbb{R}^{d \times r}" display={true} />
+        </li>
+        <li>
+          <strong>IA³ (Infused Adapter by Inhibiting and Amplifying Inner Activations):</strong> Rescales key, value, and feedforward activations by learned element-wise vectors <Katex tex="l_v, l_k, l_{ff}" />.
+        </li>
+        <li>
+          <strong>Squeeze-and-Excitation (SE):</strong> Squeezes spatial dimensions via global average pooling and applies channel-wise gating.
+        </li>
+      </ul>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="locon4">
+      <h2>4. Adapter Placement & The `Locon4` Breakthrough</h2>
+      <p>
+        Where should adapters be placed inside a hybrid convolutional-transformer genomic model?
+      </p>
+      <ul>
+        <li>Placing adapters in early convolutional layers forces PyTorch to maintain large, high-resolution feature maps (<Katex tex="524\text{ kb} \times C" />) in VRAM for backpropagation, causing memory to explode.</li>
+        <li>Systematic depth benchmarks revealed that predictive performance plateaus after the <strong>final 4 convolutional layers</strong> preceding the transformer trunk.</li>
+      </ul>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="check-circle" size={15} /> The Optimal Locon4 Configuration
+        </div>
+        <p>
+          <strong>`Locon4`</strong> inserts LoRA into all 14 transformer blocks + LoCon into the final 4 convolutional layers. It achieves <strong>full fine-tuning accuracy while requiring only ~22 GB VRAM</strong>, fitting comfortably on a single consumer <strong>NVIDIA RTX 4090 GPU (24 GB)</strong>!
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="zero-cost">
+      <h2>5. Zero-Cost Inference Weight Merging</h2>
+      <p>
+        Because low-rank adapter updates are linear transformations, they can be merged directly into the base weights prior to deployment:
+      </p>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Zero-Overhead Inference Weight Merging</div>
+        <div class="paper-equation-body">
+          <Katex tex="W_{\text{merged}} = W_0 + \frac{\alpha}{r} B A" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          At inference time, the model executes as a standard Borzoi architecture with <strong>zero latency penalty, zero extra GPU memory, and zero custom kernel overhead</strong>.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="results">
+      <h2>6. Section-by-Section Results Breakdown (Figures 1–5)</h2>
+
+      <!-- Figure 1 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 1</span>
+          <span class="paper-fig-title">PEFT Architecture & Memory-Performance Tradeoffs</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Systematic benchmarking of adapter types and placement depths on Borzoi:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Memory Reduction:</strong> Full fine-tuning requires <Katex tex="> 70\text{ GB}" /> VRAM; <code>Locon4</code> operates in <strong><Katex tex="\sim 22\text{ GB}" /> VRAM</strong>.</li>
+            <li><strong>5&times; Training Speedup:</strong> Faster backpropagation gradient passes through frozen early layers.</li>
+            <li><strong>Accuracy Parity:</strong> <code>Locon4</code> matches full fine-tuning accuracy while updating only 1.8% of weights.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 2 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 2</span>
+          <span class="paper-fig-title">Tissue-Specific Variant Effects & Variant-FlowFISH MPRA</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating transfer learning on GTEx tissue eQTLs and experimental CRISPR-QTL/FlowFISH screens:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>GTEx eQTL Classification:</strong> <code>Locon4</code> achieved <strong>auROC = 0.748</strong>, matching full fine-tuning (0.751) and substantially outperforming linear probing (0.682).</li>
+            <li><strong>Variant-FlowFISH MPRA (<i>PPIF</i> Promoter):</strong>
+              <br/>&bull; THP-1 Monocytes: Spearman <Katex tex="R = 0.589" />
+              <br/>&bull; Jurkat T Cells: Spearman <Katex tex="R = 0.745" />
+              <br/>&bull; Cross-Cell Differential Effect: Spearman <Katex tex="R = 0.521" /> (outperforming scratch Borzoi and Enformer <Katex tex="R = 0.412" />).
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 3 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 3</span>
+          <span class="paper-fig-title">Epigenetic Landscape & Master Regulators of Replicative Senescence</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Longitudinal transfer to <strong>WI-38 human lung fibroblasts</strong> across replicative aging (PD20 proliferating to PD50 senescent):
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>PCA Separation:</strong> Head weights cleanly separated proliferating vs. senescent states (PC1 explained 95% variance).</li>
+            <li><strong>High Predictive Accuracy:</strong> Predicted senescence expression changes (<Katex tex="R = 0.655" />) and predicted unobserved ATAC cCRE peaks (<strong>auROC = 0.744</strong>).</li>
+            <li><strong>Master Regulators via NDSS:</strong>
+              <br/>&bull; <i>SASP Inducers:</i> <strong>NF-&kappa;B (p65/RELA)</strong>, <strong>AP-1 (JUN/FOS)</strong>, <strong>CEBPB</strong>.
+              <br/>&bull; <i>Cell-Cycle Repressors:</i> <strong>E2F family (E2F1, E2F4)</strong>, <strong>MYBL2</strong>.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 4 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 4</span>
+          <span class="paper-fig-title">Transcriptional Responses to TF Perturbations (ENCODE 28 TFKD Screens)</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating whether fine-tuned Borzoi can recover downstream regulatory networks following shRNA TF knockdown:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>89.3% Discovery Rate:</strong> In <strong>25 out of 28 experiments</strong>, NDSS scoring on down-regulated genes accurately identified the knocked-down TF as a top negative regulator.</li>
+            <li><strong>ChIP-seq Correlation:</strong> Saliency attributions correlated strongly with experimental ChIP-seq peaks (<strong>BACH1</strong>, <strong>ATF3</strong>, <strong>JUND</strong>).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 5 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 5</span>
+          <span class="paper-fig-title">Single-Cell PBMC Multiome Transfer & Onek1k Cell-Type eQTLs</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Transferring Borzoi to 10x multiome PBMC scRNA-seq pseudobulks across 9 immune cell lineages:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Cell-Type Specific TF Activity:</strong> Recapitulated lineage-defining TFs (TCF7 in T cells, SPI1 in monocytes) concordant with scATAC-based models (<code>scBasset</code>).</li>
+            <li><strong>Onek1k Cohort Validation:</strong> Predicted cell-type-specific eQTL effect sizes (<Katex tex="R = 0.26 - 0.40" />), matching models trained on matched bulk tissue.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="formulations">
+      <h2>7. Mathematical Formulations & Saliency Attribution</h2>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Differential Saliency Score (DSS) & Normalized DSS (NDSS)</div>
+        <div class="paper-equation-body">
+          <Katex tex="S_i(t) = \frac{\partial Y_t}{\partial X_i} \cdot X_i, \quad \text{DSS}_i(A, B) = S_i(A) - S_i(B)" display={true} />
+        </div>
+        <div class="paper-equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="\text{NDSS}_i = \frac{\text{DSS}_i - \mu_{\text{local}}}{\sigma_{\text{local}}}" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          <Katex tex="S_i(t)" /> = Gradient-based input saliency &emsp;|&emsp;
+          <Katex tex="\text{DSS}_i" /> = Contrastive differential saliency between conditions <Katex tex="A" /> and <Katex tex="B" /> &emsp;|&emsp;
+          <Katex tex="\text{NDSS}_i" /> = Locally standardized Z-score pinpointing driver regulatory motifs.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="conclusions">
+      <h2>8. Discussion, Ecosystem Context & Future Horizons</h2>
+      <p>
+        The <strong>Borzoi PEFT</strong> framework overcomes one of the biggest bottlenecks in modern biological AI: the compute barrier to fine-tuning foundation models.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="activity" size={15} /> Democratization of Biological AI
+        </div>
+        <p>
+          &bull; <strong>Hardware Accessibility:</strong> Reduces GPU memory requirements from enterprise A100/H100 clusters down to a single consumer RTX 4090 GPU (24 GB).
+          <br/>
+          &bull; <strong>Modular Transfer Learning:</strong> Lightweight adapter weights (~5 MB per task) enable scalable multi-task adaptation across single-cell atlases, clinical biobanks, and perturbational screens.
+          <br/>
+          &bull; <strong>Extensibility:</strong> The <code>Locon4</code> paradigm directly extends to other large-scale regulatory foundation models (e.g. Enformer, Nucleotide Transformer, HyenaDNA, Caduceus).
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

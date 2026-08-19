@@ -3,6 +3,7 @@
  */
 import { ALGORITHMS } from '../data/algorithms';
 import { DEEP_DIVES } from '../data/deepDives';
+import { PAPERS } from '../data/papers';
 import { startDnaRain } from './dnaRain';
 import { startCrisprMode } from './crisprMode';
 import { startZeroGravity } from './domPhysics';
@@ -253,6 +254,7 @@ const STATIC_NAV: CommandItem[] = [
   { id: 'nav-software', category: 'Navigation', title: 'Software & Open Source', subtitle: 'LiftOn, Splam, OpenSpliceAI, Shorkie, WGT', href: '/software/' },
   { id: 'nav-algorithms', category: 'Navigation', title: 'Algorithms Hub', subtitle: 'Interactive visualizers for CS & genomic algorithms', href: '/algorithms/' },
   { id: 'nav-deep-dives', category: 'Navigation', title: 'Deep Dives Hub', subtitle: 'Computational genomics foundations & concept posts', href: '/deep_dives/' },
+  { id: 'nav-papers', category: 'Navigation', title: 'Paper Summaries', subtitle: 'Detailed literature deconstructions & methodology summaries', href: '/papers/' },
   { id: 'nav-teaching', category: 'Navigation', title: 'Teaching & Mentorship', subtitle: 'Courses, students mentored, pedagogical visualizers', href: '/teaching/' },
   { id: 'nav-talks', category: 'Navigation', title: 'Talks & Presentations', subtitle: 'Invited talks, conference presentations, slides', href: '/talks/' },
   { id: 'nav-news', category: 'Navigation', title: 'Recent News', subtitle: 'Academic updates, awards, and milestones', href: '/news/' },
@@ -280,6 +282,16 @@ const DEEP_DIVE_ITEMS: CommandItem[] = DEEP_DIVES.filter((d) => d.status === 'pu
   badge: d.tag,
   href: d.href,
   keywords: [d.id, d.area, d.category, d.tag, ...(d.highlights || []), ...(d.equations || [])].filter(Boolean),
+}));
+
+const PAPER_ITEMS: CommandItem[] = PAPERS.filter((p) => p.status === 'published').map((p) => ({
+  id: `paper-${p.id}`,
+  category: 'Publications',
+  title: p.title,
+  subtitle: p.summary,
+  badge: p.venue,
+  href: p.href,
+  keywords: [p.id, p.area, p.category, p.tag, ...(p.authors || []), ...(p.highlights || []), ...(p.equations || [])].filter(Boolean),
 }));
 
 let searchIndexCache: CommandItem[] | null = null;
@@ -390,6 +402,7 @@ export function initCommandPalette() {
       ...STATIC_ACTIONS,
       ...ALGORITHM_ITEMS,
       ...DEEP_DIVE_ITEMS,
+      ...PAPER_ITEMS,
       ...STATIC_NAV,
       ...(searchIndexCache || []),
     ];

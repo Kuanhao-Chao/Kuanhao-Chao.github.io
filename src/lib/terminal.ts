@@ -1240,7 +1240,31 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies)', tone: 'accent', href: '/deep_dives/gwas/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
-      { text: '    gwas(1), minimap2(1), fmindex(1), wfa(1), wgt(1)' },
+      { text: '    gwas(1), paper(1), minimap2(1), fmindex(1), wfa(1), wgt(1)' },
+    ];
+  }
+
+  if (t === 'papers' || t === 'paper' || t === 'summaries') {
+    return [
+      { text: 'PAPERS(1)               Literature Deconstructions               PAPERS(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    papers — technical literature summaries, methodologies, and figure deconstructions' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    paper [borzoi-finemapped | borzoi-peft]' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Detailed, clear, and mathematically rigorous literature deconstructions of breakthrough' },
+      { text: '    computational genomics and regulatory deep learning papers.' },
+      { text: '' },
+      { text: 'CATALOG & SUMMARIES', tone: 'accent' },
+      { text: '    → /papers/', tone: 'accent', href: '/papers/' },
+      { text: '    → /papers/borzoi-finemapped/ (Borzoi Fine-Mapping / Sniff - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-finemapped/' },
+      { text: '    → /papers/borzoi-peft/ (Borzoi PEFT / Locon4 - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-peft/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    deepdive(1), gwas(1), ism(1), lifton(1), splam(1)' },
     ];
   }
 
@@ -2909,6 +2933,42 @@ export const COMMANDS: Record<string, Cmd> = {
         effect: { type: 'navigate', href },
       };
     },
+  },
+
+  paper: {
+    summary: 'read technical paper summaries and literature deconstructions',
+    usage: 'paper [borzoi-finemapped | borzoi-peft]',
+    run: ({ args }) => {
+      const topic = (args[0] || '').toLowerCase();
+      let href = '/papers/';
+      let title = 'Computational Genomics Paper Summaries Hub';
+      if (topic.includes('fine') || topic.includes('sniff')) {
+        href = '/papers/borzoi-finemapped/';
+        title = 'Borzoi Fine-Mapping (Sniff) Summary';
+      } else if (topic.includes('peft') || topic.includes('locon')) {
+        href = '/papers/borzoi-peft/';
+        title = 'Borzoi PEFT (Locon4) Summary';
+      }
+      return {
+        lines: [
+          { text: `Opening ${title}…`, tone: 'ok' },
+          { text: `→ ${href}`, tone: 'accent', href },
+        ],
+        effect: { type: 'navigate', href },
+      };
+    },
+  },
+
+  papers: {
+    summary: 'browse all computational genomics paper summaries',
+    usage: 'papers',
+    run: () => ({
+      lines: [
+        { text: 'Opening Computational Genomics Paper Summaries Hub…', tone: 'ok' },
+        { text: '→ /papers/', tone: 'accent', href: '/papers/' },
+      ],
+      effect: { type: 'navigate', href: '/papers/' },
+    }),
   },
 
   git: {

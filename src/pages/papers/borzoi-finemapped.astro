@@ -1,0 +1,349 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Borzoi-Informed Fine Mapping Improves Causal Variant Prioritization in Complex Trait GWAS";
+const description = "Technical summary and literature deconstruction of Srivastava et al. (Calico Life Sciences, bioRxiv 2025): Sequence-to-function neural network informed fine-mapping framework (Sniff).";
+const readingTime = "15 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Statistical Genetics & Deep Learning</span>
+        <span class="paper-venue-badge">bioRxiv 2025.07.09.663162</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Divyanshi Srivastava, Anya Korsakova, Qingbo Wang, Luong Ruiz, Han Yuan, and David R. Kelley*</div>
+        <div><strong>Affiliation:</strong> Calico Life Sciences LLC, South San Francisco, CA 94080, USA</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1101/2025.07.09.663162" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1101/2025.07.09.663162</a> · Corresponding Author: David R. Kelley (<code>drk@calicolabs.com</code>)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      How can deep learning sequence-to-function models resolve the causal ambiguity of genome-wide association studies? <strong>Sniff</strong> (<strong>S</strong>equence-to-function <strong>N</strong>eural network <strong>I</strong>nformed <strong>F</strong>ine-mapping <strong>F</strong>ramework) couples predictions from <strong>Borzoi</strong>—a deep neural network predicting 7,611 functional genomics tracks from raw DNA—with Stratified LD Score Regression (S-LDSC) and SuSiE fine-mapping to dramatically improve causal variant discovery across complex human traits.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & Paradigm Shift</a></li>
+        <li><a href="#failure-modes">2. The 4 Failure Modes of Annotation Overlap</a></li>
+        <li><a href="#methodology">3. The Sniff Methodological Framework</a></li>
+        <li><a href="#indel-stitch">4. Indel "Stitch" Strategy</a></li>
+        <li><a href="#borzoi-102">5. Multi-Category iPCA & Borzoi-102</a></li>
+        <li><a href="#results">6. Section-by-Section Results (Fig 1–6)</a></li>
+        <li><a href="#formulations">7. Mathematical Formulations</a></li>
+        <li><a href="#conclusions">8. Conclusions & Future Horizons</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The Core Paradigm Shift</h2>
+      <p>
+        Genome-wide association studies (GWAS) have mapped tens of thousands of loci associated with complex human diseases. However, high Linkage Disequilibrium (LD) causes dozens of co-inherited variants to share nearly identical statistical association signals, obscuring the true causal drivers.
+      </p>
+      <p>
+        Functionally informed fine-mapping methods (e.g. <strong>PolyFun</strong>) attempt to break this statistical tie by assigning higher prior probabilities to variants overlapping functional genomic annotations (the <code>baseline-LF</code> set: coding exons, promoters, enhancers, DNase peaks). However, <strong>binary or continuous annotation overlap is an imperfect, coarse proxy for biological causality</strong>.
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The Sniff Paradigm Shift
+        </div>
+        <p>
+          Instead of treating an entire 1 kb regulatory peak as uniformly functional, <strong>Sniff</strong> computes single-nucleotide variant effect predictions directly from DNA sequence using <strong>Borzoi</strong>. This models non-linear transcription factor grammar, distinguishes among multiple variants inside the same open peak, and predicts <i>de novo</i> motif creation in unannotated regions.
+        </p>
+      </div>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Traditional Annotation Overlap (PolyFun Baseline)</th>
+              <th>Borzoi-Informed Fine Mapping (Sniff)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Treats an entire 500–2,000 bp peak as uniformly functional.</td>
+              <td>Evaluates single-nucleotide motif disruption within regulatory elements.</td>
+            </tr>
+            <tr>
+              <td>Assigns identical priors to all variants in the same peak.</td>
+              <td>Quantitative effect magnitude scores isolate the single causal driver.</td>
+            </tr>
+            <tr>
+              <td>Ignores flanking sequence context modulating TF affinity.</td>
+              <td>Models context-dependent, non-linear transcription factor grammar.</td>
+            </tr>
+            <tr>
+              <td>Completely misses gain-of-function variants outside reference peaks.</td>
+              <td>Predicts <i>de novo</i> motif creation in unannotated genomic regions.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="failure-modes">
+      <h2>2. Limitations of Baseline Overlap: The Four Failure Modes</h2>
+      <p>
+        Standard Bayesian fine-mapping methods (such as <strong>SuSiE</strong> and <strong>FINEMAP</strong>) compute Posterior Inclusion Probabilities (PIPs) assuming a flat uniform prior:
+        <Katex tex="P(\gamma_j = 1) = \frac{1}{M}" display={true} />
+        PolyFun estimates variant-specific priors <Katex tex="p_j = P(\gamma_j = 1)" /> via Stratified LD Score Regression (S-LDSC) over 187 baseline annotations. However, the authors identify <strong>four fundamental failure modes</strong> inherent to all overlap-based approaches:
+      </p>
+      <ul>
+        <li>
+          <strong>1. Overlap is an Imperfect Proxy:</strong> Regulatory peaks span 500–2,000 bp, but only a tiny core sequence (6–12 bp TF binding motifs) directly dictates biochemical activity.
+        </li>
+        <li>
+          <strong>2. Intra-Peak Inability to Discriminate:</strong> When 3–5 LD-linked candidate SNPs reside within the same active enhancer, overlap assigns them identical high priors.
+        </li>
+        <li>
+          <strong>3. Context-Dependent Motif Grammar:</strong> The regulatory impact of a TF binding site depends on local helical spacing, co-factor syntax, and flanking nucleosome positioning that baseline overlap completely ignores.
+        </li>
+        <li>
+          <strong>4. Reference Blind Spot for Gain-of-Function Mutations:</strong> Variants creating <i>de novo</i> transcription factor binding sites in previously closed, unannotated chromatin receive a prior of zero.
+        </li>
+      </ul>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="methodology">
+      <h2>3. The Sniff Methodological Framework & Pipeline</h2>
+      <p>
+        <strong>Borzoi</strong> is a deep convolutional-transformer architecture that takes a <Katex tex="524,288\text{ bp}" /> (<Katex tex="524\text{ kb}" />) one-hot DNA sequence and predicts <strong>7,611 human functional genomics coverage tracks</strong> at <Katex tex="32\text{ bp}" /> resolution (spanning CAGE, DNase-seq, ATAC-seq, ChIP-seq for TFs/histones, and RNA-seq across ENCODE and GTEx tissues).
+      </p>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Bin-Level L2 Difference Score Formulation</div>
+        <div class="paper-equation-body">
+          <Katex tex="L_2(t) = \sqrt{\sum_{b=1}^{B} \left( \log(1 + \hat{Y}_{\text{alt}, b, t}) - \log(1 + \hat{Y}_{\text{ref}, b, t}) \right)^2}" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          <Katex tex="B = 6,144" /> bins (<Katex tex="196.6\text{ kb}" /> center cropped region) &emsp;|&emsp;
+          <Katex tex="T = 7,611" /> coverage tracks &emsp;|&emsp;
+          Evaluated across <Katex tex="19,534,182" /> common and low-frequency variants in the human genome.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="indel-stitch">
+      <h2>4. The Indel "Stitch" Strategy: Eliminating Shift Artifacts</h2>
+      <p>
+        Evaluating variant effect predictions for <strong>insertions and deletions (indels)</strong> using convolutional neural networks presents a critical technical hurdle:
+      </p>
+
+      <div class="paper-callout callout-warning">
+        <div class="paper-callout-title">
+          <Icon name="alert-triangle" size={15} /> The Convolutional Phase-Shift Discrepancy
+        </div>
+        <p>
+          An insertion or deletion shifts all downstream sequence coordinates relative to the reference. In a model with <Katex tex="32\text{ bp}" /> output bins, this phase shift causes downstream sequence to align to different convolutional receptive fields, producing <strong>artificially inflated <Katex tex="L_2" /> difference scores for indels</strong> compared to single nucleotide polymorphisms (SNPs).
+        </p>
+      </div>
+
+      <p>
+        The authors solved this by developing a <strong>"stitch" strategy</strong>: Borzoi computes the alternative prediction for a <Katex tex="131\text{ kb}" /> window centered on the indel, and "stitches" this local prediction back into the reference background alignment, completely neutralizing downstream coordinate shifts.
+      </p>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="borzoi-102">
+      <h2>5. Multi-Category Iterative PCA & The Borzoi-102 Annotation Set</h2>
+      <p>
+        Directly using all 7,611 raw Borzoi effect tracks in S-LDSC would cause severe collinearity and overfitting. The authors grouped the tracks into <strong>6 distinct assay categories</strong>:
+      </p>
+      <ul>
+        <li><strong>CAGE:</strong> 638 tracks (Cap Analysis of Gene Expression transcription start sites)</li>
+        <li><strong>DNase-seq:</strong> 674 tracks (Chromatin accessibility)</li>
+        <li><strong>ATAC-seq:</strong> 232 tracks (Open chromatin profiling)</li>
+        <li><strong>ChIP-seq:</strong> 3,886 tracks (Transcription factors and histone modifications)</li>
+        <li><strong>RNA-seq ENCODE:</strong> 868 tracks (Strand-specific total and nuclear RNA expression)</li>
+        <li><strong>RNA-seq GTEx:</strong> 87 tracks across 31 adult human tissues</li>
+      </ul>
+
+      <p>
+        By performing <strong>Iterative Incremental Principal Component Analysis (iPCA)</strong> on each category across all 19.53 million variants, retaining components explaining 95% of category variance (capped at 20 PCs per category), they generated the <strong>Borzoi-102 annotation set</strong>.
+      </p>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="results">
+      <h2>6. Section-by-Section Results Breakdown (Figures 1–6)</h2>
+
+      <!-- Figure 1 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 1</span>
+          <span class="paper-fig-title">Sniff Fine Mapping Overview & Architecture</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            End-to-end Sniff pipeline: Pre-trained Borzoi processes 19.53M common/low-frequency variants across 7,611 tracks using <Katex tex="L_2" /> scoring <Katex tex="\rightarrow" /> Category-specific iPCA yields nested annotation sets (<code>Sniff-30</code> through <code>Sniff-102</code>) <Katex tex="\rightarrow" /> Combined with 187 <code>baseline-LF</code> annotations in PolyFun <Katex tex="\rightarrow" /> Prior estimation via S-LDSC <Katex tex="\rightarrow" /> SuSiE fine-mapping.
+          </p>
+        </div>
+      </div>
+
+      <!-- Figure 2 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 2</span>
+          <span class="paper-fig-title">Evaluating Fine Mapping Performance Across 15 UK Biobank Traits</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Benchmarking Sniff-102 against PolyFun-Baseline and uniform SuSiE across 15 UK Biobank complex traits:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>+9.45% Yield Increase:</strong> Sniff-102 identified <strong>2,954 high-confidence variants at <Katex tex="\text{PIP} > 0.8" /></strong>—an increase of 255 variants over PolyFun-Baseline and 920 variants (+45.2%) over uniform SuSiE.</li>
+            <li><strong>Broad Trait Consistency:</strong> Significant performance gains observed in 13 out of 15 UK Biobank traits.</li>
+            <li><strong>Smaller 95% Credible Sets:</strong> Significantly reduced median credible set size (<Katex tex="P = 0.005" />, Wilcoxon signed-rank test).</li>
+            <li><strong>Lower Credible Set Entropy:</strong> Significantly reduced median credible set entropy (<Katex tex="P = 0.0043" />).</li>
+            <li><strong>Lung Function Case Study:</strong> Resolved <code>rs9504151</code> (<Katex tex="\text{PIP} = 0.51" />) for FEV1/FVC ratio, implicating <i>CDYL</i> by disrupting an <strong>ATF4 binding motif</strong> in lung fibroblasts.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 3 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 3</span>
+          <span class="paper-fig-title">Functional Validation via MPRA & Independent FinnGen Replication</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Validating Sniff-prioritized variants using experimental high-throughput assays and independent clinical cohorts:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Siraj et al. (2024) MPRA (304,278 variants / 5 cell types):</strong> Variants promoted by Sniff (<Katex tex="\Delta\text{PIP} > 0.25" />) showed significantly higher experimental effect sizes (<Katex tex="P = 3.32 \times 10^{-13}" />) and a <strong>2.4-fold enrichment in expression-modifying variants (emVars)</strong> (<Katex tex="P = 7.15 \times 10^{-10}" />).</li>
+            <li><strong>FinnGen R12 Replication:</strong> <strong>78.4% of Sniff-promoted variants replicated in FinnGen credible sets</strong> across 8 matching traits (<Katex tex="P = 0.0003" />).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 4 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 4</span>
+          <span class="paper-fig-title">Stratified LD Score Regression (S-LDSC) Heritability Enrichment</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Standardized effect sizes (<Katex tex="\tau^*" />) revealed striking biological concordance between Borzoi principal components and complex disease phenotypes:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Liver PC2:</strong> Enriched for total cholesterol and alanine aminotransferase (ALT) liver enzymes.</li>
+            <li><strong>Blood/Spleen PC4:</strong> Enriched for white blood cell, monocyte, and lymphocyte counts.</li>
+            <li><strong>Heart/Muscle PC3:</strong> Enriched for diastolic blood pressure and body mass index.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 5 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 5</span>
+          <span class="paper-fig-title">Augmenting Gene Prioritization & PoPS Validation</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Sniff-differential genes were evaluated using Gene Ontology pathway enrichment and the Polygenic Priority Score (PoPS):
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Pathway Relevance:</strong> Identified disease-specific pathways (*CD4+ T cell proliferation* for eczema; *bile acid secretion* for cholesterol).</li>
+            <li><strong>PoPS Ranking:</strong> Sniff-differential genes achieved significantly higher PoPS rankings (average median rank = <strong>2.9</strong>) compared to baseline-differential genes (rank = <strong>3.23</strong>).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 6 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 6</span>
+          <span class="paper-fig-title">Mechanistic Case Studies via In Silico Mutagenesis (ISM)</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            In silico mutagenesis (ISM) maps nucleotide importance around Sniff-discovered causal variants:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>1. Diastolic Blood Pressure (rs12041762, PIP: 0.01 &rarr; 0.64):</strong> C &rarr; T transition creates a <i>de novo</i> <strong>GATA2 motif</strong>, elevating H3K4me1 in embryonic heart tissue and implicating <i>PKN2</i>.</li>
+            <li><strong>2. Eczema (rs72755909, PIP: 0.00 &rarr; 0.44):</strong> G &rarr; A transition strengthens an adjacent <strong>IRF3 motif</strong>, upregulating <i>DEGS1</i> expression in whole blood and skin.</li>
+            <li><strong>3. Monocyte Count (rs2273979, PIP: 0.00 &rarr; 0.40):</strong> Discovers a new credible set. C &rarr; T creates a <strong>PU.1 motif</strong> 47 bp upstream of <i>LAPTM5</i>, increasing expression in bone marrow CML cells.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="formulations">
+      <h2>7. Mathematical Formulations & Statistical Methods</h2>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">In Silico Mutagenesis (ISM) Nucleotide Importance</div>
+        <div class="paper-equation-body">
+          <Katex tex="\text{ISM}_i(t) = \frac{1}{3} \sum_{k=1}^{3} \left| \sum_{j=1}^{B} \log(1 + \hat{Y}_{j, t}(X)) - \sum_{j=1}^{B} \log(1 + \hat{Y}_{j, t}(X_{\text{mut}, i, k})) \right|" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Measures the perturbation in predicted track <Katex tex="t" /> when nucleotide <Katex tex="i" /> is mutated to the 3 alternative alleles <Katex tex="X_{\text{mut}, i, k}" />.
+        </div>
+      </div>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Standardized Effect Size in Stratified LDSC</div>
+        <div class="paper-equation-body">
+          <Katex tex="\tau^*(c) = \frac{\tau_c \cdot \sigma_c}{h_g^2 / M}" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Quantifies the proportionate change in per-SNP heritability associated with a 1-standard-deviation increase in annotation <Katex tex="c" />.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="conclusions">
+      <h2>8. Conclusions, Limitations & Future Horizons</h2>
+      <p>
+        The <strong>Sniff</strong> framework demonstrates that sequence-to-function neural networks can replace static genomic annotation overlaps with dynamic, context-aware regulatory effect predictions. By capturing single-nucleotide motif disruptions, non-linear TF grammar, and <i>de novo</i> motif creation, Sniff delivers superior causal variant prioritization across complex human traits.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="activity" size={15} /> Key Takeaways for Computational Biology
+        </div>
+        <p>
+          &bull; <strong>High-Resolution Causality:</strong> Sequence models bridge the gap between statistical association and biochemical mechanism.
+          <br/>
+          &bull; <strong>Generalizable Strategy:</strong> The Indel stitch and multi-category iPCA pipeline can be applied to any regulatory foundation model (e.g. Enformer, Caduceus, HyenaDNA).
+          <br/>
+          &bull; <strong>Clinical Impact:</strong> Pinpointing true causal variants accelerates therapeutic target validation and functional drug screening.
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>
