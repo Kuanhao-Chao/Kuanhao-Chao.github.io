@@ -1,0 +1,443 @@
+/**
+ * GWAS (Genome-Wide Association Studies) Algorithm Visualizer Styles.
+ * Pure token-driven styling supporting all site themes and 1988 CRT modes.
+ */
+
+.gwas-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+}
+
+/* ---------------------------------------------------------------- Toolbar -- */
+
+.gwas-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 6px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.gwas-toolbar-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.gwas-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.gwas-preset-btn {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--color-rule);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gwas-preset-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.gwas-preset-btn.active {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: var(--color-accent);
+  font-weight: 600;
+}
+
+.gwas-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gwas-ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.gwas-ctrl-btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.gwas-ctrl-btn--primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: var(--color-accent);
+}
+
+.gwas-ctrl-btn--primary:hover {
+  background: var(--color-accent-dark);
+  color: var(--color-on-accent);
+  border-color: var(--color-accent-dark);
+}
+
+.gwas-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--color-ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.gwas-toggle-input {
+  appearance: none;
+  width: 36px;
+  height: 20px;
+  background: var(--color-rule);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--transition);
+}
+
+.gwas-toggle-input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform var(--transition);
+}
+
+.gwas-toggle-input:checked {
+  background: var(--color-accent);
+}
+
+.gwas-toggle-input:checked::after {
+  transform: translateX(16px);
+}
+
+/* ------------------------------------------------------- Summary Card -- */
+
+.gwas-summary-card {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 6px);
+}
+
+@media (max-width: 800px) {
+  .gwas-summary-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gwas-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-3);
+}
+
+.gwas-stat-box {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+}
+
+.gwas-stat-label {
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-meta);
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.gwas-stat-val {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+}
+
+.gwas-stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  margin-top: 0.25rem;
+}
+
+.gwas-stat-badge--ok {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.gwas-stat-badge--warn {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.gwas-stat-badge--inflated {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ------------------------------------------------------------- Tabs Nav -- */
+
+.gwas-tabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  border-bottom: 2px solid var(--color-rule);
+  padding-bottom: 0.25rem;
+}
+
+.gwas-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.85rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--color-muted);
+  font-family: inherit;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.gwas-tab-btn:hover {
+  color: var(--color-ink);
+}
+
+.gwas-tab-btn.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
+/* ------------------------------------------------------- Canvas Cards -- */
+
+.gwas-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 6px);
+  overflow: hidden;
+}
+
+.gwas-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  background: color-mix(in srgb, var(--color-surface) 85%, var(--color-ink) 15%);
+  border-bottom: 1px solid var(--color-rule);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.gwas-card-body {
+  padding: var(--space-4);
+  position: relative;
+}
+
+.gwas-canvas-wrap {
+  width: 100%;
+  height: 380px;
+  position: relative;
+  background: var(--color-bg);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--color-rule);
+}
+
+@media (max-width: 640px) {
+  .gwas-canvas-wrap {
+    height: 280px;
+  }
+}
+
+.gwas-manhattan-svg,
+.gwas-qq-svg,
+.gwas-locus-svg,
+.gwas-regr-svg,
+.gwas-pca-svg,
+.gwas-prs-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Tooltip */
+.gwas-tooltip {
+  position: absolute;
+  padding: 0.5rem 0.75rem;
+  background: rgba(15, 20, 25, 0.94);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transform: translate(-50%, -110%);
+  white-space: nowrap;
+  transition: opacity 0.1s ease;
+}
+
+/* ---------------------------------------------------- Two Column Grids -- */
+
+.gwas-dual-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-4);
+}
+
+@media (max-width: 900px) {
+  .gwas-dual-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gwas-split-equal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+@media (max-width: 800px) {
+  .gwas-split-equal {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------- Inspector Card -- */
+
+.gwas-inspector-card {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 6px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.gwas-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-rule);
+  padding-bottom: 0.5rem;
+}
+
+.gwas-snp-pill {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.gwas-inspector-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.gwas-inspector-table th,
+.gwas-inspector-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-rule) 50%, transparent);
+  text-align: left;
+}
+
+.gwas-inspector-table th {
+  color: var(--color-muted);
+  font-weight: 500;
+  width: 45%;
+}
+
+.gwas-inspector-table td {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------- Educational Grid -- */
+
+.gwas-educational-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.gwas-edu-card {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 6px);
+}
+
+.gwas-edu-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: var(--fs-h3);
+  color: var(--color-ink);
+}
+
+.gwas-edu-card p {
+  margin: 0;
+  font-size: var(--fs-small);
+  line-height: 1.6;
+  color: var(--color-muted);
+}
