@@ -1,0 +1,237 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Linkage Disequilibrium (LD), Haplotype Architecture, and LD Score Regression (LDSC)";
+const description = "A mathematical and population-genetics masterclass on Linkage Disequilibrium: D, D', r² formulas, PRDM9 recombination hotspots, and the complete mathematical proof of LD Score Regression (LDSC & S-LDSC).";
+const readingTime = "20 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dives/gwas/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to GWAS Master Guide
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">GWAS Foundations · Part 7</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Advanced & Mathematical</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      <strong>Linkage Disequilibrium (LD)</strong> is both the fundamental engine that empowers GWAS to discover trait associations without sequencing every base, and the primary obstacle that obscures which single nucleotide in a locus is the true causal driver. When biobanks grew to 500,000 individuals, standard inflation metrics failed. How does <strong>LD Score Regression (LDSC)</strong> exploit genome-wide LD correlation to untangle true omnigenic heritability from population confounding?
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#biology-ld">1. The Biological Origin of Linkage Disequilibrium</a></li>
+        <li><a href="#metrics">2. Mathematical Formulations of LD Metrics (<Katex tex="D, D', r^2" />)</a></li>
+        <li><a href="#decay">3. Meiotic Decay of LD Over Generations</a></li>
+        <li><a href="#hotspots">4. PRDM9 & Recombination Hotspots</a></li>
+        <li><a href="#polygenicity-dilemma">5. The Polygenicity vs. Confounding Biobank Dilemma</a></li>
+        <li><a href="#ldsc-proof">6. Full Mathematical Proof of LD Score Regression (LDSC)</a></li>
+        <li><a href="#bivariate-ldsc">7. Genetic Correlation (<Katex tex="r_g" />) via Bivariate LDSC</a></li>
+        <li><a href="#sldsc">8. Stratified LDSC (S-LDSC) & Functional Tissue Enrichment (<Katex tex="\tau^*" />)</a></li>
+        <li><a href="#summary">9. Summary & Next Steps in the GWAS Series</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="biology-ld">
+      <h2>1. The Biological Origin of Linkage Disequilibrium</h2>
+      <p>
+        During prophase I of meiosis, homologous maternal and paternal chromosomes pair and undergo reciprocal physical exchange of DNA segments (crossing over). Alleles that reside physically close together on the same chromosome are unlikely to experience a crossover between them and are inherited together as an intact <strong>haplotype</strong>.
+      </p>
+      <p>
+        The non-random statistical association of alleles at different loci across the population is called <strong>Linkage Disequilibrium (LD)</strong>.
+      </p>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="metrics">
+      <h2>2. Mathematical Formulations of LD Metrics (<Katex tex="D, D', r^2" />)</h2>
+      <p>
+        Consider two biallelic loci: Locus 1 with alleles <Katex tex="A" /> (freq <Katex tex="p_A" />) and <Katex tex="a" /> (freq <Katex tex="q_A = 1 - p_A" />), and Locus 2 with alleles <Katex tex="B" /> (freq <Katex tex="p_B" />) and <Katex tex="b" /> (freq <Katex tex="q_B = 1 - p_B" />).
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">1. Raw Coefficient of Linkage Disequilibrium (<Katex tex="D" />)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="D = p_{AB} - p_A \cdot p_B = p_{AB} p_{ab} - p_{Ab} p_{aB}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          Under linkage equilibrium (independent assortment), <Katex tex="p_{AB} = p_A p_B \implies D = 0" />.
+        </div>
+      </div>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">2. Lewontin's Normalized Metric (<Katex tex="D'" />)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="D' = \frac{D}{D_{\max}}, \qquad D_{\max} = \begin{cases} \min(p_A q_B, \; q_A p_B), & \text{if } D > 0 \\ \min(p_A p_B, \; q_A q_B), & \text{if } D < 0 \end{cases}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="|D'| = 1.0" /> (Complete LD) indicates that at least one of the 4 possible two-locus haplotypes is completely absent from the population (no historical recombination has occurred between them).
+        </div>
+      </div>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">3. Pearson Correlation Coefficient Squared (<Katex tex="r^2" />)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="r^2 = \frac{D^2}{p_A (1 - p_A) p_B (1 - p_B)}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="r^2" /> is the squared Pearson correlation between genotype dosages at the two loci.
+          <br/>
+          &bull; <Katex tex="r^2 = 1.0" /> (Perfect LD): The two variants carry identical information; one is a perfect proxy for the other.
+          <br/>
+          &bull; <Katex tex="r^2 \ge 0.8" />: Standard threshold for defining high-confidence tag SNPs in fine-mapping and imputation.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="decay">
+      <h2>3. Meiotic Decay of LD Over Generations</h2>
+      <p>
+        Let <Katex tex="\theta" /> be the recombination fraction between two loci. In each generation, a proportion <Katex tex="\theta" /> of gametes undergo crossing over, breaking down the ancestral association:
+        <br/>
+        <Katex tex="D_t = (1 - \theta) D_{t-1} = D_0 (1 - \theta)^t \approx D_0 \exp(-\theta t)" display={true} />
+        Over thousands of generations <Katex tex="t" />, LD decays exponentially as a function of genetic map distance.
+      </p>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="hotspots">
+      <h2>4. PRDM9 & Recombination Hotspots</h2>
+      <p>
+        Meiotic recombination is not uniformly distributed along chromosomes. Over 80% of all human recombination events occur within narrow <strong>1 to 2 kb recombination hotspots</strong> spaced roughly every 50 to 100 kb.
+      </p>
+      <p>
+        In humans, hotspots are positioned by the zinc-finger histone methyltransferase <strong>PRDM9</strong>, which recognizes a 13-mer sequence motif (<Katex tex="\text{CCNCCNTNNCCNC}" />) and trimethylates histone H3 at lysine 4 and lysine 36 (H3K4me3/H3K36me3), recruiting the SPO11 topoisomerase to initiate double-strand breaks.
+      </p>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="polygenicity-dilemma">
+      <h2>5. The Polygenicity vs. Confounding Biobank Dilemma</h2>
+      <p>
+        In biobank-scale GWAS cohorts with <Katex tex="N > 100{,}000" /> individuals (e.g. UK Biobank), the genomic inflation factor regularly reaches <Katex tex="\lambda_{GC} = 1.20 - 1.50" />.
+        <br/>
+        <strong>Does this elevated <Katex tex="\lambda_{GC}" /> mean the study is contaminated by uncorrected population stratification, or is it the natural consequence of polygenicity?</strong>
+      </p>
+      <p>
+        Under true polygenicity, thousands of causal variants each have a tiny non-zero effect. As sample size <Katex tex="N" /> grows, statistical power increases, shifting the entire test statistic distribution upward. Traditional <Katex tex="\lambda_{GC}" /> cannot distinguish between polygenicity and confounding!
+      </p>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="ldsc-proof">
+      <h2>6. Full Mathematical Proof of LD Score Regression (LDSC)</h2>
+      <p>
+        In 2015, Brendan Bulik-Sullivan, Hilary Finucane, and Alkes Price introduced <strong>LD Score Regression (LDSC)</strong>. The foundational insight is: <strong>if a trait is polygenic, variants tagged by many other variants (high LD Score) will capture more true polygenic signal by chance and exhibit higher <Katex tex="\chi^2" /> statistics; whereas confounding bias inflates all variants uniformly regardless of LD!</strong>
+      </p>
+
+      <h3>1. Definition of the LD Score (<Katex tex="\ell_j" />)</h3>
+      <p>
+        The LD Score of SNP <Katex tex="j" /> is the sum of its squared correlations to all other variants across the genome:
+        <br/>
+        <Katex tex="\ell_j = \sum_{k=1}^M r^2_{jk}" display={true} />
+      </p>
+
+      <h3>2. Mathematical Derivation of Expected Chi-Square</h3>
+      <p>
+        Let <Katex tex="z_j = \frac{\hat{\beta}_j}{\text{SE}(\hat{\beta}_j)}" /> be the GWAS z-score. The observed marginal effect <Katex tex="\hat{\beta}_j" /> tags true causal effects <Katex tex="\beta_k" /> across the LD neighborhood:
+        <br/>
+        <Katex tex="\mathbb{E}[\hat{\beta}_j \mid \boldsymbol{\beta}] = \sum_{k=1}^M r_{jk} \sqrt{\frac{\text{Var}(y)}{\text{Var}(x_k)}} \beta_k" display={true} />
+      </p>
+
+      <p>
+        Assuming the infinitesimal model where causal effects are independent random variables with variance <Katex tex="\text{Var}(\beta_k) = \frac{h^2_{\text{SNP}}}{M}" />, and adding an uncorrected confounding bias term <Katex tex="a" /> (where <Katex tex="a = 0" /> under perfect control):
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">The LD Score Regression Fundamental Equation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbb{E}\left[\chi^2_j \;\middle|\; \ell_j\right] = 1 + \frac{N h^2_{\text{SNP}}}{M} \cdot \ell_j + N a" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          Regressing observed GWAS <Katex tex="\chi^2_j" /> statistics against precomputed LD Scores <Katex tex="\ell_j" /> yields:
+          <br/>
+          &bull; <strong>Slope (<Katex tex="\frac{N h^2_{\text{SNP}}}{M}" />):</strong> Directly proportional to narrow-sense SNP heritability <Katex tex="h^2_{\text{SNP}}" />!
+          <br/>
+          &bull; <strong>Intercept (<Katex tex="1 + Na" />):</strong> Quantifies pure confounding / stratification bias (<Katex tex="\text{Intercept} \approx 1.00" /> proves zero confounding even if <Katex tex="\lambda_{GC} = 1.35" />).
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="bivariate-ldsc">
+      <h2>7. Genetic Correlation (<Katex tex="r_g" />) via Bivariate LDSC</h2>
+      <p>
+        Cross-trait LD Score regression estimates the genetic correlation <Katex tex="r_g = \frac{\rho_g}{\sqrt{h_1^2 h_2^2}}" /> between two traits using only summary statistics, completely robust to sample overlap between cohorts:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Cross-Trait Bivariate LDSC Equation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbb{E}\left[ z_{1j} z_{2j} \;\middle|\; \ell_j \right] = \frac{\sqrt{N_1 N_2} \rho_g}{M} \cdot \ell_j + \frac{\rho_{\text{env}} N_s}{\sqrt{N_1 N_2}}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="N_s" /> = Number of overlapping individuals between cohort 1 and cohort 2 &emsp;|&emsp;
+          <Katex tex="\rho_{\text{env}}" /> = Environmental correlation between shared samples.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="sldsc">
+      <h2>8. Stratified LDSC (S-LDSC) & Functional Tissue Enrichment (<Katex tex="\tau^*" />)</h2>
+      <p>
+        <strong>Stratified LDSC (Finucane et al. 2015)</strong> partitions heritability across functional genomic annotations (e.g. cell-type specific enhancers, promoters, conserved regions):
+        <br/>
+        <Katex tex="\mathbb{E}\left[\chi^2_j\right] = 1 + N \sum_{c=1}^C \tau_c \ell(j, c) + N a" display={true} />
+        A statistically significant positive coefficient <Katex tex="\tau_c > 0" /> proves that annotation category <Katex tex="c" /> (such as microglial enhancers in Alzheimer's disease) is enriched for causal disease heritability.
+      </p>
+    </section>
+
+    <!-- Chapter 9 -->
+    <section id="summary">
+      <h2>9. Summary & Next Steps in the GWAS Series</h2>
+      <p>
+        Linkage Disequilibrium is the double-edged sword of trait mapping. LD Score Regression provides the definitive mathematical tool to separate polygenic architecture from confounding and map heritability to functional tissues.
+      </p>
+
+      <div class="algo-promo-card">
+        <h3>Continue to Part 8: Post-GWAS Fine-Mapping & Functional Genomics</h3>
+        <p>
+          Discover how SuSiE 95% Credible Sets, Bayesian PIPs, and deep learning sequence models pinpoint the single causal nucleotide within an LD block.
+        </p>
+        <a href="/deep_dives/gwas-fine-mapping-functional-genomics/" class="algo-promo-btn">
+          <span>Read Part 8: Fine-Mapping & Functional Biology</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
+    </section>
+  </article>
+</BaseLayout>
