@@ -1253,7 +1253,7 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    papers — technical literature summaries, methodologies, and figure deconstructions' },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
-      { text: '    paper [gpnstar | borzoi-finemapped | borzoi-peft]' },
+      { text: '    paper [borzoi | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       { text: '    Detailed, clear, and mathematically rigorous literature deconstructions of breakthrough' },
@@ -1261,6 +1261,8 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'CATALOG & SUMMARIES', tone: 'accent' },
       { text: '    → /papers/', tone: 'accent', href: '/papers/' },
+      { text: '    → /papers/borzoi/ (Borzoi / Calico - Nature Genetics 2025)', tone: 'accent', href: '/papers/borzoi/' },
+      { text: '    → /papers/alphagenome/ (AlphaGenome / DeepMind - Nature 2026)', tone: 'accent', href: '/papers/alphagenome/' },
       { text: '    → /papers/gpnstar/ (GPN-Star / Song Lab - bioRxiv 2025)', tone: 'accent', href: '/papers/gpnstar/' },
       { text: '    → /papers/borzoi-finemapped/ (Borzoi Fine-Mapping / Sniff - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-finemapped/' },
       { text: '    → /papers/borzoi-peft/ (Borzoi PEFT / Locon4 - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-peft/' },
@@ -2946,20 +2948,26 @@ export const COMMANDS: Record<string, Cmd> = {
 
   paper: {
     summary: 'read technical paper summaries and literature deconstructions',
-    usage: 'paper [gpnstar | borzoi-finemapped | borzoi-peft]',
+    usage: 'paper [borzoi | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]',
     run: ({ args }) => {
       const topic = (args[0] || '').toLowerCase();
       let href = '/papers/';
       let title = 'Computational Genomics Paper Summaries Hub';
-      if (topic.includes('gpn') || topic.includes('star') || topic.includes('song')) {
-        href = '/papers/gpnstar/';
-        title = 'GPN-Star (Song Lab) Summary';
+      if (topic.includes('alpha') || topic.includes('genome') || topic.includes('deepmind')) {
+        href = '/papers/alphagenome/';
+        title = 'AlphaGenome (DeepMind) Summary';
       } else if (topic.includes('fine') || topic.includes('sniff')) {
         href = '/papers/borzoi-finemapped/';
         title = 'Borzoi Fine-Mapping (Sniff) Summary';
       } else if (topic.includes('peft') || topic.includes('locon')) {
         href = '/papers/borzoi-peft/';
         title = 'Borzoi PEFT (Locon4) Summary';
+      } else if (topic.includes('borzoi') || topic.includes('calico') || topic.includes('rna-seq')) {
+        href = '/papers/borzoi/';
+        title = 'Borzoi (Calico) Summary';
+      } else if (topic.includes('gpn') || topic.includes('star') || topic.includes('song')) {
+        href = '/papers/gpnstar/';
+        title = 'GPN-Star (Song Lab) Summary';
       }
       return {
         lines: [
