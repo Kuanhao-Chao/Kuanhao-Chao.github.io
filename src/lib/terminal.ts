@@ -1252,14 +1252,15 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    papers — technical literature summaries, methodologies, and figure deconstructions' },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
-      { text: '    paper [borzoi-finemapped | borzoi-peft]' },
+      { text: '    paper [gpnstar | borzoi-finemapped | borzoi-peft]' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       { text: '    Detailed, clear, and mathematically rigorous literature deconstructions of breakthrough' },
-      { text: '    computational genomics and regulatory deep learning papers.' },
+      { text: '    computational genomics, language models, and regulatory deep learning papers.' },
       { text: '' },
       { text: 'CATALOG & SUMMARIES', tone: 'accent' },
       { text: '    → /papers/', tone: 'accent', href: '/papers/' },
+      { text: '    → /papers/gpnstar/ (GPN-Star / Song Lab - bioRxiv 2025)', tone: 'accent', href: '/papers/gpnstar/' },
       { text: '    → /papers/borzoi-finemapped/ (Borzoi Fine-Mapping / Sniff - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-finemapped/' },
       { text: '    → /papers/borzoi-peft/ (Borzoi PEFT / Locon4 - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-peft/' },
       { text: '' },
@@ -2937,12 +2938,15 @@ export const COMMANDS: Record<string, Cmd> = {
 
   paper: {
     summary: 'read technical paper summaries and literature deconstructions',
-    usage: 'paper [borzoi-finemapped | borzoi-peft]',
+    usage: 'paper [gpnstar | borzoi-finemapped | borzoi-peft]',
     run: ({ args }) => {
       const topic = (args[0] || '').toLowerCase();
       let href = '/papers/';
       let title = 'Computational Genomics Paper Summaries Hub';
-      if (topic.includes('fine') || topic.includes('sniff')) {
+      if (topic.includes('gpn') || topic.includes('star') || topic.includes('song')) {
+        href = '/papers/gpnstar/';
+        title = 'GPN-Star (Song Lab) Summary';
+      } else if (topic.includes('fine') || topic.includes('sniff')) {
         href = '/papers/borzoi-finemapped/';
         title = 'Borzoi Fine-Mapping (Sniff) Summary';
       } else if (topic.includes('peft') || topic.includes('locon')) {

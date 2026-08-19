@@ -1,0 +1,391 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Predicting Functional Constraints Across Evolutionary Timescales with Phylogeny-Informed Genomic Language Models";
+const description = "Comprehensive technical summary and literature deconstruction of GPN-Star (Ye, Benegas, Song Lab, UC Berkeley, bioRxiv 2025): Phylogeny-aware genomic language models leveraging Whole-Genome Alignments and species trees.";
+const readingTime = "16 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Evolutionary Genomics & Language Models</span>
+        <span class="paper-venue-badge">bioRxiv 2025.09.21.677619</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Chengzhong Ye*, Gonzalo Benegas*, Carlos Albors, Jianan Canal Li, Sebastian Prillo, Peter D. Fields, Brian Clarke, and Yun S. Song*</div>
+        <div><strong>Affiliation:</strong> University of California, Berkeley (Departments of Statistics, EECS, IGI); The Jackson Laboratory; German Cancer Research Center (DKFZ)</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1101/2025.09.21.677619" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1101/2025.09.21.677619</a> · Corresponding Author: Yun S. Song (<code>yss@berkeley.edu</code>)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      Why do massive, multi-billion parameter genomic language models (gLMs) still struggle to outperform classical evolutionary conservation scores on variant effect prediction? Researchers from <strong>UC Berkeley (Song Lab)</strong> introduce <strong>GPN-Star</strong> (<strong>G</strong>enomic <strong>P</strong>retrained <strong>N</strong>etwork with <strong>S</strong>pecies <strong>T</strong>ree and <strong>A</strong>lignment <strong>R</strong>epresentation), a biologically grounded transformer architecture that explicitly integrates <strong>Whole-Genome Multi-Species Alignments (WGA)</strong> and <strong>phylogenetic species trees</strong> to set new state-of-the-art benchmarks across human genetics.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & Paradigm Shift</a></li>
+        <li><a href="#limits-glms">2. The Limits of Alignment-Free gLMs</a></li>
+        <li><a href="#architecture">3. The Phylogeny-Aware Transformer Core</a></li>
+        <li><a href="#fire-encoding">4. Evolutionary Distance Encoding via FIRE</a></li>
+        <li><a href="#timescales">5. Three Evolutionary Timescales</a></li>
+        <li><a href="#results">6. Section-by-Section Results (Fig 1–6)</a></li>
+        <li><a href="#formulations">7. Mathematical Formulations</a></li>
+        <li><a href="#conclusions">8. Discussion, Model Organisms & Future Horizons</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The Core Paradigm Shift</h2>
+      <p>
+        Natural selection preserves functional genomic sequences across evolutionary timescales. While classical site-independent phylogenetic tools (such as <strong>phyloP</strong> and <strong>phastCons</strong>) effectively measure cross-species conservation, they cannot capture context-dependent epistasis or higher-order sequence syntax.
+      </p>
+      <p>
+        Conversely, modern alignment-free genomic language models (e.g. <strong>HyenaDNA</strong>, <strong>Nucleotide Transformer</strong>, <strong>Evo</strong>, <strong>Evo-2</strong>) train on raw, unaligned DNA sequences across species. Despite scaling to billions of parameters, they lack explicit knowledge of phylogenetic branching and evolutionary distances, resulting in suboptimal single-nucleotide variant pathogenicity scoring.
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The GPN-Star Architectural Breakthrough
+        </div>
+        <p>
+          <strong>GPN-Star</strong> bridges the gap between deep language models and phylogenetic evolution. Operating directly on Whole-Genome Alignments, GPN-Star incorporates:
+          <br/>
+          &bull; <strong>Clade Attention Pooling:</strong> Dynamically condenses closely related species to eliminate phylogenetic redundancy.
+          <br/>
+          &bull; <strong>Phylogeny-Informed Cross-Attention:</strong> Injects pairwise evolutionary distance biases derived from species tree branch lengths via Functional Interpolation for Relative Positional Encoding (FIRE).
+          <br/>
+          &bull; <strong>Sequence-wise Self-Attention with RoPE:</strong> Anchors spatial coordinate queries on the primary target human genome (hg38).
+        </p>
+      </div>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Classical Phylogenetic Scores (phyloP / phastCons)</th>
+              <th>Alignment-Free gLMs (Evo / HyenaDNA / NT)</th>
+              <th>Phylogeny-Aware GPN-Star (Song Lab)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Site-independent (treats each nucleotide in isolation).</td>
+              <td>Models context, but ignores phylogenetic relationships and tree distances.</td>
+              <td>Combines spatial genomic context with explicit species tree branch lengths.</td>
+            </tr>
+            <tr>
+              <td>Cannot capture TF motif syntax or splice donor/acceptor epistasis.</td>
+              <td>Requires multi-billion parameter scales and massive compute clusters.</td>
+              <td>Compact, highly efficient transformer architecture with clade pooling.</td>
+            </tr>
+            <tr>
+              <td>Static conservation metrics without directional likelihoods.</td>
+              <td>Struggles on fine-mapped GWAS and distal enhancer variants.</td>
+              <td>State-of-the-art across ClinVar, S-LDSC heritability, and DeepRVAT rare variant tests.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="limits-glms">
+      <h2>2. The Limits of Alignment-Free Language Models</h2>
+      <p>
+        Why do alignment-free models struggle? When trained on unaligned sequences from diverse species, a standard transformer must simultaneously solve two distinct, entangled problems:
+      </p>
+      <ol>
+        <li><strong>Orthology Discovery:</strong> Identifying which regions across species correspond to the same ancestral locus.</li>
+        <li><strong>Constraint Inference:</strong> Decoupling neutral phylogenetic divergence from purifying selection.</li>
+      </ol>
+      <p>
+        By feeding <strong>Whole-Genome Multi-Species Alignments (WGA)</strong> directly into the model, GPN-Star relieves the neural network of the orthology alignment burden, enabling it to dedicate its capacity entirely to modeling non-linear functional constraints.
+      </p>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="architecture">
+      <h2>3. The Phylogeny-Aware Transformer Architecture</h2>
+      <p>
+        GPN-Star processes multi-species alignment blocks <Katex tex="\mathbf{X} \in \mathbb{R}^{N_S \times L}" />, where <Katex tex="N_S" /> is the number of species and <Katex tex="L" /> is the context length (<Katex tex="128\text{ bp}" /> to <Katex tex="256\text{ bp}" />).
+      </p>
+
+      <h3>Target Sequences vs. Source Sequences</h3>
+      <ul>
+        <li><strong>Target Sequences (<Katex tex="T" />):</strong> A subset of <Katex tex="N_T = 20" /> species sampled via stratified clade sampling. The primary species <Katex tex="t_0" /> (human hg38) provides the contiguous genomic coordinate frame.</li>
+        <li><strong>Source Sequences (<Katex tex="S" />):</strong> All species in the alignment block, providing the evolutionary context.</li>
+      </ul>
+
+      <h3>Clade-Level Attention Pooling</h3>
+      <p>
+        To prevent closely related species from dominating computation, GPN-Star partitions species into <Katex tex="N_C" /> clades based on a phylogenetic distance threshold <Katex tex="\phi_{\text{clade}}" />. For each clade <Katex tex="c" />, member species at alignment column <Katex tex="j" /> are condensed into a single representative embedding:
+      </p>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Clade Attention Pooling Formulation</div>
+        <div class="paper-equation-body">
+          <Katex tex="\text{Attn}_{\text{pool}}(x^{(s)}_j, s \in c) = \sum_{s \in c} \text{softmax}\left( x^{(s)}_j W_{\alpha} + b(\phi_{c,s}) \right) x^{(s)}_j W_v" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          <Katex tex="\phi_{c,s}" /> = Phylogenetic distance between species <Katex tex="s" /> and the Most Recent Common Ancestor (MRCA) of clade <Katex tex="c" /> &emsp;|&emsp;
+          <Katex tex="b(\cdot)" /> = Learned evolutionary distance encoding.
+        </div>
+      </div>
+
+      <h3>Sequence-wise Self-Attention with RoPE</h3>
+      <p>
+        Queries and keys are computed exclusively from the primary target human sequence (<Katex tex="t_0" />) with Rotary Positional Encoding (RoPE), and the attention weights are shared across all target species:
+      </p>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Sequence-Wise Self-Attention</div>
+        <div class="paper-equation-body">
+          <Katex tex="\text{Attn}_{\text{seq}}(E^{(t)}) = \text{softmax}\left( \frac{(E^{(t_0)} W_Q^{\text{seq}})(E^{(t_0)} W_K^{\text{seq}})^T}{\sqrt{D}} \right) E^{(t)} W_V^{\text{seq}}" display={true} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="fire-encoding">
+      <h2>4. Evolutionary Distance Encoding via FIRE</h2>
+      <p>
+        Unlike spatial sequence positions that lie along a linear 1D coordinate axis, phylogenetic distances between species follow branching tree topologies.
+      </p>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Phylogeny-Informed Cross-Attention with FIRE Distance Bias</div>
+        <div class="paper-equation-body">
+          <Katex tex="\text{Attn}_{\text{phy}}(E^{(T)}_j, E^{(C)}_j) = \text{softmax}\left( \frac{(E^{(T)}_j W_Q^{\text{phy}})(E^{(C)}_j W_K^{\text{phy}})^T}{\sqrt{D}} + b(\Phi) \right) E^{(C)}_j W_V^{\text{phy}}" display={true} />
+        </div>
+        <div class="paper-equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="b(\phi) = f_{\theta}\left( \frac{\log(c\phi + 1)}{\log(c\phi_{\max} + 1)} \right), \quad f_{\theta}(x) = v_2^T \text{SiLU}(v_1 x)" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Adapted from <strong>Functional Interpolation for Relative Positional Encoding (FIRE)</strong>. A 2-layer MLP maps continuous phylogenetic tree distance <Katex tex="\phi" /> into an attention bias term.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="timescales">
+      <h2>5. Three Evolutionary Timescales (Vertebrate, Mammalian, Primate)</h2>
+      <p>
+        The authors trained separate GPN-Star models across three distinct evolutionary depths to dissect how selection varies across evolutionary time:
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Model Timescale</th>
+              <th>Species Alignment Context</th>
+              <th>Optimal Domain & Strengths</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>GPN-Star (Vertebrate - V)</strong></td>
+              <td>240 vertebrate genomes (Zoonomia / Cactus 241-way).</td>
+              <td>Deep ancestral constraint, high-penetrance coding pathogenicity (ClinVar, COSMIC, ProteinGym).</td>
+            </tr>
+            <tr>
+              <td><strong>GPN-Star (Mammal - M)</strong></td>
+              <td>Mammalian alignment.</td>
+              <td>Balanced constraint across synonymous variants, conserved non-coding elements, and moderate polygenicity traits (e.g. LDL cholesterol).</td>
+            </tr>
+            <tr>
+              <td><strong>GPN-Star (Primate - P)</strong></td>
+              <td>233 primate genomes (PrimateAI).</td>
+              <td>Recent human/primate-specific purifying selection, distal enhancers (dELS), complex trait GWAS fine-mapping, and highly polygenic traits (e.g. Schizophrenia).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="results">
+      <h2>6. Section-by-Section Results Breakdown (Figures 1–6)</h2>
+
+      <!-- Figure 1 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 1</span>
+          <span class="paper-fig-title">GPN-Star Architecture & Timescale Performance Spectrum</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Overview of the GPN-Star framework:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Tree-Guided Attention:</strong> Clade pooling reduces input sequence dimensionality while FIRE relative distance encodings capture non-linear evolutionary decay.</li>
+            <li><strong>Timescale Tradeoffs:</strong> Deeper evolutionary models (Vertebrate) excel at severe Mendelian and protein-coding mutations, whereas shallower models (Primate) excel at non-coding regulatory elements and complex polygenic traits.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 2 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 2</span>
+          <span class="paper-fig-title">Genome-Wide Variant Effect Prediction & DeepRVAT Association Testing</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Benchmarking GPN-Star across comprehensive pathogenic, functional, and statistical genetics datasets:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Broad Superiority:</strong> Consistently outperforms classical scores (phyloP, phastCons, CADD) and modern deep learning models (AlphaMissense, ESM-1v, Nucleotide Transformer, HyenaDNA, Caduceus, Borzoi, Evo-2) across ClinVar, COSMIC, OMIM, HGMD, MPRA, and ProteinGym.</li>
+            <li><strong>DeepRVAT Rare Variant Association Power:</strong> Integrating GPN-Star predictions into DeepRVAT for whole-exome sequencing (WES) in 161,822 UK Biobank individuals boosted gene-level discoveries from <strong>383 to 402 significant genes</strong> (<Katex tex="\text{FWER} < 0.05" />) across 34 quantitative traits, with high replication in independent larger cohorts (353 vs 338 replicated).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 3 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 3</span>
+          <span class="paper-fig-title">Complex Trait Heritability (S-LDSC) & Trait Polygenicity Spectrum</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Stratified LD Score Regression (S-LDSC) meta-analyzed across 106 independent human complex traits:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Unprecedented Heritability Enrichment:</strong> GPN-Star (P) achieved the highest per-SNP heritability coefficient (<Katex tex="\tau^*" />) and enrichment over baseline, outperforming PhastCons(P) and Enformer.</li>
+            <li><strong>Distal Enhancers (dELS):</strong> Top-ranked common variants showed a <strong>2.4-fold enrichment in distal enhancer-like signatures</strong>, overcoming a major historical blind spot of sequence-to-function models.</li>
+            <li><strong>Polygenicity Correlation:</strong> Relative heritability enrichment between GPN-Star (P) and (M) correlated moderately (<Katex tex="r = 0.47" />) with trait polygenicity—highly polygenic traits (e.g. schizophrenia) benefit most from primate constraint, while lower polygenicity traits (e.g. LDL) benefit from mammalian constraint.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 4 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 4</span>
+          <span class="paper-fig-title">Model Interpretation, Genomic Syntax & In Silico Mutagenesis (ISM)</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Probing learned representations and spatial nucleotide dependencies:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Unsupervised Element Segregation:</strong> Embeddings naturally cluster coding sequences (CDS), enhancers, and promoters.</li>
+            <li><strong>Tyrosine Hydroxylase (TH) Promoter:</strong> ISM revealed strong epistasis between the CREB binding motif, the TATA box, and the first coding exon.</li>
+            <li><strong>Hemoglobin Subunit Alpha 1 (HBA1):</strong> Recapitulated strong cross-exon dependencies between splice donor and acceptor sites.</li>
+            <li><strong>LDLR Promoter:</strong> Accurately localized known transcription factor binding sites and predicted direct interactions between SREBP2 and SP1.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 5 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 5</span>
+          <span class="paper-fig-title">Evolutionary Constraints & Mutation Rate Calibration</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating selective constraint in human populations and decoupling background mutation rates:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Rare Variant Tail Enrichment:</strong> Singletons in gnomAD showed massive enrichment in the most constrained tails of GPN-Star distributions, far exceeding phyloP and CADD.</li>
+            <li><strong>Mutation Rate Calibration:</strong> Raw model scores showed moderate correlation with local mutation rate estimates from Roulette (<Katex tex="\rho = 0.31 - 0.34" />). A simple calibration procedure removed neutral mutation biases, lowering correlations to near zero and boosting benchmark performance.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 6 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 6</span>
+          <span class="paper-fig-title">Cross-Species Application to Non-Human Model Organisms</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Demonstrating generalizability beyond the human genome:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Five Diverse Model Organisms:</strong> Successfully trained GPN-Star models on mouse (<i>mm39</i>), chicken (<i>galGal6</i>), fruit fly (<i>dm6</i>), nematode roundworm (<i>ce11</i>), and the plant <i>Arabidopsis thaliana</i> (<i>tair10</i>).</li>
+            <li><strong>Superior Conservation Profiling:</strong> Outperformed species-matched phyloP and phastCons scores across every model organism tested.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="formulations">
+      <h2>7. Mathematical Formulations & Statistical Methods</h2>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Conservation-Weighted Masked Language Modeling Loss</div>
+        <div class="paper-equation-body">
+          <Katex tex="\mathcal{L}_{\text{MLM}} = - \frac{1}{|\mathcal{M}|} \sum_{(t, j) \in \mathcal{M}} w_j \log \hat{p}\left( \acute{x}^{(t)}_j \mid \{\tilde{x}^{(t)}\}_{t \in T}, \{\tilde{x}^{(s)}\}_{s \in S} \right)" display={true} />
+        </div>
+        <div class="paper-equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="w_j \propto (0.1 \cdot \mathbb{I}_{\text{repeat}} + \mathbb{I}_{\neg\text{repeat}}) \cdot \max(\text{phyloP}_j, 1) \cdot (\text{phastCons}_{M, j} + 0.1)" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Upweights conserved functional positions and downweights repetitive sequence to focus model capacity on biologically constrained loci.
+        </div>
+      </div>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Log-Likelihood Ratio (LLR) & Sequence Entropy Scoring</div>
+        <div class="paper-equation-body">
+          <Katex tex="\text{LLR}(v) = \log\frac{p(\text{alt})}{p(\text{ref})}, \quad H(p) = - \sum_{x \in \{A,C,G,T\}} p(x) \log p(x)" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          <Katex tex="\text{LLR}(v)" /> measures directional allelic deleteriousness &emsp;|&emsp;
+          <Katex tex="H(p)" /> measures site-level evolutionary constraint (found to be particularly informative in S-LDSC heritability enrichment).
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="conclusions">
+      <h2>8. Discussion, Ecosystem Context & Future Horizons</h2>
+      <p>
+        <strong>GPN-Star</strong> proves that integrating evolutionary domain knowledge—specifically Whole-Genome Multi-Species Alignments and phylogenetic species trees—enables compact genomic language models to decisively surpass massive unaligned foundation models.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="activity" size={15} /> Key Insights for Computational Genomics
+        </div>
+        <p>
+          &bull; <strong>Phylogenetic Inductive Bias:</strong> Tree-guided attention biases and clade pooling provide the ideal inductive bias for multi-species sequence modeling.
+          <br/>
+          &bull; <strong>Timescale-Aware Genetics:</strong> Primate evolution is essential for fine-mapping non-coding regulatory variation in human polygenic traits, while vertebrate evolution excels at severe Mendelian coding mutations.
+          <br/>
+          &bull; <strong>Pan-Species Utility:</strong> Ready applicability across agricultural crops, disease vectors, and non-human model organisms.
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>
