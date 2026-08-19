@@ -5,7 +5,7 @@
  */
 
 export interface PaperCategory {
-  slug: 'all' | 'fine-mapping' | 'peft' | 'gene-regulation' | 'evolutionary-models';
+  slug: 'all' | 'fine-mapping' | 'peft' | 'gene-regulation' | 'evolutionary-models' | 'deep-learning';
   label: string;
 }
 
@@ -20,7 +20,7 @@ export interface PaperEntry {
   doi: string;
   doiUrl: string;
   area: string;
-  category: 'fine-mapping' | 'peft' | 'gene-regulation' | 'evolutionary-models';
+  category: 'fine-mapping' | 'peft' | 'gene-regulation' | 'evolutionary-models' | 'deep-learning';
   tag: string;
   readingTime: string;
   summary: string;
@@ -35,13 +35,93 @@ export interface PaperEntry {
 
 export const PAPER_CATEGORIES: PaperCategory[] = [
   { slug: 'all', label: 'All Papers' },
+  { slug: 'deep-learning', label: 'Deep Learning & Foundation Models' },
+  { slug: 'gene-regulation', label: 'Regulatory Genomics' },
   { slug: 'evolutionary-models', label: 'Evolutionary & Language Models' },
   { slug: 'fine-mapping', label: 'Fine-Mapping & GWAS' },
-  { slug: 'peft', label: 'Deep Learning & PEFT' },
-  { slug: 'gene-regulation', label: 'Regulatory Genomics' },
+  { slug: 'peft', label: 'PEFT & Adaptation' },
 ];
 
 export const PAPERS: PaperEntry[] = [
+  {
+    id: 'borzoi',
+    title: 'Predicting RNA-seq Coverage from DNA Sequence as a Unifying Model of Gene Regulation',
+    shortTitle: 'Borzoi (Calico)',
+    authors: ['Johannes Linder', 'Divyanshi Srivastava', 'Han Yuan', 'Vikram Agarwal', 'David R. Kelley'],
+    affiliation: 'Calico Life Sciences LLC & Stanford University',
+    venue: 'Nature Genetics',
+    year: 2025,
+    doi: '10.1038/s41588-024-02053-6',
+    doiUrl: 'https://doi.org/10.1038/s41588-024-02053-6',
+    area: 'Regulatory Genomics & Deep Learning',
+    category: 'gene-regulation',
+    tag: 'Calico · Nature Genetics 2025',
+    readingTime: '18 min read',
+    summary:
+      'Borzoi predicts strand-specific RNA-seq coverage from 524 kb DNA sequences at 32 bp resolution across thousands of human and mouse tracks. Unifies transcription initiation, alternative splicing, and polyadenylation, setting new state-of-the-art accuracy across GTEx eQTLs, sQTLs, 3\' paQTLs, and CRISPR-QTL screens.',
+    highlights: [
+      'Predicts strand-specific RNA-seq coverage from raw 524 kb sequence at 32 bp resolution across 7,611 tracks',
+      'Unifies multiple regulatory layers: transcription initiation (TSS), alternative splicing, and polyadenylation (APA)',
+      'Accurately classifies GTEx eQTLs, sQTLs, and 3\' paQTLs, matching or outperforming specialized single-task tools',
+      'Captures long-range distal enhancer effects validated against CRISPRi-FlowFISH screens (MYC, GATA1)',
+      'Uncovers tissue-specific cis-regulatory syntax through in silico mutagenesis and gradient saliency',
+    ],
+    equations: [
+      '\\mathcal{L}_{\\text{Poisson}} = \\sum_{b, t} \\left( \\hat{y}_{b, t} - y_{b, t} \\log \\hat{y}_{b, t} \\right)',
+      '\\Delta \\text{Gene} = \\log\\left( \\sum_{b \\in \\text{exons}} \\hat{y}_{\\text{alt}, b} + 1 \\right) - \\log\\left( \\sum_{b \\in \\text{exons}} \\hat{y}_{\\text{ref}, b} + 1 \\right)',
+      '\\Delta \\text{APA} = \\log\\left( \\frac{\\hat{y}_{\\text{distal}}}{\\hat{y}_{\\text{proximal}}} \\right)_{\\text{alt}} - \\log\\left( \\frac{\\hat{y}_{\\text{distal}}}{\\hat{y}_{\\text{proximal}}} \\right)_{\\text{ref}}',
+    ],
+    href: '/papers/borzoi/',
+    actionText: 'Read full technical paper summary',
+    featured: true,
+    icon: 'ism',
+    status: 'published',
+  },
+  {
+    id: 'alphagenome',
+    title: 'Advancing Regulatory Variant Effect Prediction with AlphaGenome',
+    shortTitle: 'AlphaGenome (DeepMind)',
+    authors: [
+      'Žiga Avsec',
+      'Natasha Latysheva',
+      'Jun Cheng',
+      'Guido Novati',
+      'Kyle R. Taylor',
+      'Tom Ward',
+      'Clare Bycroft',
+      'Lauren Nicolaisen',
+      'Demis Hassabis',
+      'Pushmeet Kohli',
+    ],
+    affiliation: 'Google DeepMind',
+    venue: 'Nature',
+    year: 2026,
+    doi: '10.1038/s41586-025-10014-0',
+    doiUrl: 'https://doi.org/10.1038/s41586-025-10014-0',
+    area: 'Deep Learning & Foundation Models',
+    category: 'deep-learning',
+    tag: 'Google DeepMind · Nature 2026',
+    readingTime: '20 min read',
+    summary:
+      'AlphaGenome breaks the resolution-vs-length tradeoff in regulatory genomics by combining a 1 Megabase input window with 1 bp single-nucleotide output resolution across 8 modalities (RNA, CAGE, DNase/ATAC, ChIP, 3D Hi-C/Micro-C, and unannotated splice junction graphs), matching or exceeding SOTA across 25 of 26 benchmarks.',
+    highlights: [
+      '1 Megabase (1,048,576 bp) sequence context with single-nucleotide (1 bp) output resolution',
+      'Unified multi-modal prediction across 8 layers: RNA, CAGE, DNase/ATAC, ChIP histones/TFs, 3D contact maps, splice sites & graphs',
+      'Matches or exceeds state-of-the-art external models in 25 out of 26 variant effect evaluations',
+      'Recapitulates multi-modal oncogenic mechanisms at the TAL1 super-enhancer locus in T-ALL',
+      'Distillation from an ensemble of teachers into an efficient student model for rapid inference',
+    ],
+    equations: [
+      '\\mathcal{L}_{\\text{total}} = \\sum_{m=1}^8 \\lambda_m \\mathcal{L}_m(\\hat{\\mathbf{Y}}_m, \\mathbf{Y}_m)',
+      '\\Delta \\text{Expression} = \\log_2\\left( \\frac{\\sum_{b} \\hat{y}_{\\text{alt}, b} + \\epsilon}{\\sum_{b} \\hat{y}_{\\text{ref}, b} + \\epsilon} \\right)',
+      '\\Delta \\text{Splice} = \\max_{j} |\\hat{P}_{\\text{alt}}(j) - \\hat{P}_{\\text{ref}}(j)|',
+    ],
+    href: '/papers/alphagenome/',
+    actionText: 'Read full technical paper summary',
+    featured: true,
+    icon: 'phmm',
+    status: 'published',
+  },
   {
     id: 'gpnstar',
     title: 'Predicting Functional Constraints Across Evolutionary Timescales with Phylogeny-Informed Genomic Language Models',

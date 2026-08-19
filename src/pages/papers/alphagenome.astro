@@ -1,0 +1,363 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Advancing Regulatory Variant Effect Prediction with AlphaGenome";
+const description = "Comprehensive technical summary and literature deconstruction of AlphaGenome (Avsec et al., Google DeepMind, Nature 2026): A unified 1 Mb multi-modal regulatory sequence model predicting 8 modalities up to 1 bp resolution.";
+const readingTime = "20 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Deep Learning & Foundation Models</span>
+        <span class="paper-venue-badge">Nature · Vol 649 (2026)</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Žiga Avsec*, Natasha Latysheva*, Jun Cheng*, Guido Novati*, Kyle R. Taylor, Tom Ward, Clare Bycroft, Lauren Nicolaisen, Demis Hassabis, and Pushmeet Kohli*</div>
+        <div><strong>Affiliation:</strong> Google DeepMind, London, UK; Alphabet</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1038/s41586-025-10014-0" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1038/s41586-025-10014-0</a> · Corresponding Authors: Žiga Avsec (<code>avsec@google.com</code>), Pushmeet Kohli (<code>pushmeet@google.com</code>)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      Existing regulatory sequence models have long been forced to compromise between sequence context length and spatial prediction resolution. <strong>AlphaGenome</strong>, developed by <strong>Google DeepMind</strong>, shatters this tradeoff by processing <strong>1 Megabase (<Katex tex="1,048,576\text{ bp}" />)</strong> of raw DNA sequence while predicting thousands of functional genomic tracks up to <strong>single-base-pair (<Katex tex="1\text{ bp}" />) resolution</strong> across <strong>8 diverse regulatory modalities</strong>. Matching or exceeding external state-of-the-art models in <strong>25 of 26 benchmark evaluations</strong>, AlphaGenome sets a new frontier for computational biology.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & Paradigm Shift</a></li>
+        <li><a href="#tradeoff">2. Breaking the Length-vs-Resolution Tradeoff</a></li>
+        <li><a href="#modalities">3. The 8 Modalities of AlphaGenome</a></li>
+        <li><a href="#architecture">4. Multi-Resolution Architecture & Distillation</a></li>
+        <li><a href="#results">5. Section-by-Section Results (Fig 1–7)</a></li>
+        <li><a href="#tal1-case">6. Multi-Modal Case Study: The TAL1 Oncogene</a></li>
+        <li><a href="#formulations">7. Mathematical Formulations & Objectives</a></li>
+        <li><a href="#conclusions">8. Discussion & Future Horizons</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The Core Paradigm Shift</h2>
+      <p>
+        Non-coding genetic variants modulate gene regulation through a dizzying variety of mechanisms: disrupting transcription factor binding, altering histone modifications, opening or closing chromatin, redirecting 3D chromosomal looping, altering splice junctions, or perturbing mRNA abundance.
+      </p>
+      <p>
+        Historically, computational genomics relied on fragmented, siloed models:
+      </p>
+      <ul>
+        <li><strong>Enformer:</strong> 100 kb context at 128 bp resolution (too coarse for splice sites or base-level TF motifs).</li>
+        <li><strong>SpliceAI:</strong> 10 kb context at 1 bp resolution (blind to distal enhancers and 3D contact loops).</li>
+        <li><strong>ChromBPNet:</strong> 2 kb context at 1 bp resolution (strictly local accessibility).</li>
+        <li><strong>Akita / Orca:</strong> 3D genome contact prediction only.</li>
+      </ul>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The AlphaGenome Unification
+        </div>
+        <p>
+          <strong>AlphaGenome</strong> unifies all of these regulatory dimensions into a single sequence-to-function architecture operating across a massive <strong>1 Megabase window</strong> with <strong>multi-resolution heads spanning 1 bp, 32 bp, 128 bp, and 2D contact maps</strong>.
+        </p>
+      </div>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Evaluation Domain</th>
+              <th>Previous SOTA Baseline</th>
+              <th>AlphaGenome Performance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Splice Variant Effect (ClinVar / sQTL)</strong></td>
+              <td>SpliceAI / Pangolin</td>
+              <td><strong>Matches or Exceeds SpliceAI</strong> on both annotated and unannotated splice junctions.</td>
+            </tr>
+            <tr>
+              <td><strong>Gene Expression (GTEx eQTL / FlowFISH)</strong></td>
+              <td>Borzoi / Enformer</td>
+              <td><strong>Superior sign accuracy & causal variant prioritization</strong> across GTEx tissues.</td>
+            </tr>
+            <tr>
+              <td><strong>Chromatin Accessibility (caQTL)</strong></td>
+              <td>ChromBPNet / Enformer</td>
+              <td><strong>+8.0% gain</strong> in variant effect correlation across diverse cell types.</td>
+            </tr>
+            <tr>
+              <td><strong>3D Chromatin Conformation</strong></td>
+              <td>Akita / Orca</td>
+              <td>Simultaneously predicts Micro-C / Hi-C loops aligned with epigenetic tracks.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="tradeoff">
+      <h2>2. Breaking the Length-vs-Resolution Tradeoff</h2>
+      <p>
+        Why could earlier models not achieve single-base resolution over megabase sequences?
+      </p>
+      <div class="paper-callout callout-warning">
+        <div class="paper-callout-title">
+          <Icon name="alert-triangle" size={15} /> The Memory-Resolution Bottleneck
+        </div>
+        <p>
+          Maintaining high-resolution spatial feature maps (<Katex tex="1,000,000 \times C" />) throughout deep transformer architectures causes intermediate activation memory to explode beyond the limits of even high-end GPU/TPU accelerators.
+        </p>
+      </div>
+      <p>
+        AlphaGenome solves this through a <strong>hierarchical U-Net style architecture</strong>: an initial multi-scale convolutional tower progressively aggregates sequence into lower-resolution latent representations, transformer attention layers propagate long-range information across the full 1 Mb context, and specialized decoder heads upsample representations back to single-base resolution for tasks that require it (e.g. CAGE TSS and splice sites).
+      </p>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="modalities">
+      <h2>3. The 8 Modalities of AlphaGenome</h2>
+      <p>
+        AlphaGenome is trained jointly on thousands of functional genomics assays across human and mouse genomes:
+      </p>
+      <ol>
+        <li><strong>Gene Expression (RNA-seq):</strong> Strand-specific coverage across all exons.</li>
+        <li><strong>Transcription Initiation (CAGE):</strong> Base-resolution 5' cap transcription start sites.</li>
+        <li><strong>Chromatin Accessibility:</strong> DNase-seq and ATAC-seq open chromatin profiles.</li>
+        <li><strong>Histone Modifications:</strong> ChIP-seq for H3K4me3, H3K27ac, H3K4me1, H3K27me3, H3K36me3, etc.</li>
+        <li><strong>Transcription Factor Binding:</strong> ChIP-seq for hundreds of sequence-specific TFs (CTCF, EP300, MYB, etc.).</li>
+        <li><strong>3D Chromatin Conformation:</strong> High-resolution Micro-C and Hi-C contact probability maps.</li>
+        <li><strong>Splice Site Usage:</strong> 1 bp base-pair resolution donor (<Katex tex="5'" />) and acceptor (<Katex tex="3'" />) splice site probabilities.</li>
+        <li><strong>Splice Junction Graphs:</strong> Quantitative splice junction coordinates and strength.</li>
+      </ol>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="architecture">
+      <h2>4. Multi-Resolution Architecture & Teacher-Student Distillation</h2>
+      <p>
+        To combine high accuracy with fast inference, AlphaGenome employs <strong>Teacher-Student Knowledge Distillation</strong>:
+      </p>
+      <ul>
+        <li><strong>Teacher Ensemble:</strong> A 4-fold cross-validated ensemble of massive teacher models trained on whole-genome segments.</li>
+        <li><strong>Distilled Student Model:</strong> Trained on teacher-generated soft targets across the genome, condensing the ensemble's predictive power into a single lightweight student model with <strong>zero degradation in variant effect accuracy</strong> and dramatic inference speedups.</li>
+      </ul>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="results">
+      <h2>5. Section-by-Section Results Breakdown (Figures 1–7)</h2>
+
+      <!-- Figure 1 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 1</span>
+          <span class="paper-fig-title">AlphaGenome Architecture, Training Regimes & Modalities</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Overview of the 1 Mb multi-modal sequence model and benchmark summary across 26 variant effect tasks.
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>25 of 26 Benchmark Wins:</strong> AlphaGenome matches or surpasses the strongest available specialized models across splicing, expression, accessibility, and TF binding.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 2 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 2</span>
+          <span class="paper-fig-title">Multi-Modal Track Predictions in Human Cell Lines</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Coordinated predictions across HepG2, K562, and GM12878 cell lines:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>High-Fidelity Profiles:</strong> Accurately predicts 1 bp CAGE spikes, sharp splice junctions, histone domains, and 3D TAD loop anchors simultaneously from a single forward pass.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 3 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 3</span>
+          <span class="paper-fig-title">State-of-the-Art Splicing Variant Effect Prediction</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Benchmarking splice-altering mutations against SpliceAI and Pangolin:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Superior Splicing Accuracy:</strong> Matches or outperforms SpliceAI on ClinVar splice mutations and GTEx sQTLs, with superior performance on unannotated de novo splice sites.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 4 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 4</span>
+          <span class="paper-fig-title">Predicting Variant Effects on Gene Expression (eQTLs & FlowFISH)</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating quantitative gene expression perturbations:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Highest Sign Accuracy:</strong> Sets new state-of-the-art accuracy on GTEx eQTL directionality.</li>
+            <li><strong>CRISPR Enhancer-Gene Mapping:</strong> Outperforms Borzoi and Enformer in predicting experimental CRISPRi-FlowFISH guide perturbations.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 5 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 5</span>
+          <span class="paper-fig-title">Chromatin Accessibility, TF Binding & Histone Modification QTLs</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating molecular QTLs:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>caQTLs & bQTLs:</strong> Substantially outperforms ChromBPNet and Enformer across chromatin accessibility QTLs and transcription factor binding QTLs.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 6 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 6</span>
+          <span class="paper-fig-title">Interpreting Variant Effects Across Modalities: The TAL1 Oncogene</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Dissecting complex oncogenic non-coding mutations in T-ALL:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Multi-Modal Oncogenesis:</strong> AlphaGenome accurately models how a non-coding microdeletion creates a <i>de novo</i> <strong>MYB binding motif</strong>, recruits <strong>EP300</strong>, opens chromatin, creates a <strong>3D contact loop</strong>, and drives ectopic <i>TAL1</i> overexpression.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 7 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 7</span>
+          <span class="paper-fig-title">Ablation Studies: Sequence Length, Resolution & Distillation</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Systematic component ablations:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>1 Mb vs. 500 kb Context:</strong> 1 Mb sequence context is essential for distal enhancer regulation and 3D contact prediction.</li>
+            <li><strong>1 bp Resolution:</strong> Single-base resolution is indispensable for splice site and base-level TF binding accuracy.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="tal1-case">
+      <h2>6. Multi-Modal Case Study: The TAL1 Oncogene in T-ALL</h2>
+      <p>
+        In T-cell acute lymphoblastic leukemia (T-ALL), small non-coding indels and substitutions occur in an intergenic region <Katex tex="8\text{ kb}" /> upstream of the <strong>TAL1 oncogene</strong>.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="check-circle" size={15} /> The Complete Multi-Modal Cascade
+        </div>
+        <p>
+          AlphaGenome's unified multi-modal predictions simultaneously capture every step in the pathogenic cascade:
+          <br/>
+          &bull; <strong>1. Motif Creation:</strong> The mutation creates a high-affinity binding motif for the <strong>MYB</strong> transcription factor.
+          <br/>
+          &bull; <strong>2. Epigenetic Remodeling:</strong> Recruits <strong>EP300/CBP</strong>, depositing intense <strong>H3K27ac</strong> marks and opening local chromatin (DNase/ATAC).
+          <br/>
+          &bull; <strong>3. 3D Chromatin Looping:</strong> Establishes a new 3D chromatin loop connecting the de novo super-enhancer directly to the <i>TAL1</i> promoter.
+          <br/>
+          &bull; <strong>4. Transcriptional Activation:</strong> Drives massive upregulation of <i>TAL1</i> mRNA expression, triggering leukemogenesis.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="formulations">
+      <h2>7. Mathematical Formulations & Multi-Task Objectives</h2>
+      <p>
+        AlphaGenome optimizes a weighted composite loss function across all 8 modalities:
+      </p>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Composite Multi-Modal Loss Formulation</div>
+        <div class="paper-equation-body">
+          <Katex tex="\mathcal{L}_{\text{total}} = \sum_{m=1}^{8} \lambda_m \mathcal{L}_m(\hat{\mathbf{Y}}_m, \mathbf{Y}_m)" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Combines Poisson log-likelihood for continuous coverage tracks (RNA, CAGE, ChIP, DNase), binary cross-entropy for 1 bp splice sites, and matrix log-loss for 3D Micro-C contact maps.
+        </div>
+      </div>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Splice Perturbation Metric</div>
+        <div class="paper-equation-body">
+          <Katex tex="\Delta \text{Splice} = \max_{j} \left| \hat{P}_{\text{alt}}(j) - \hat{P}_{\text{ref}}(j) \right|" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Measures the maximum absolute change in donor/acceptor splice probability across all candidate splice coordinates.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="conclusions">
+      <h2>8. Discussion & Future Horizons</h2>
+      <p>
+        <strong>AlphaGenome</strong> demonstrates that unifying sequence length (1 Mb) and resolution (1 bp) across all regulatory modalities creates a foundation model that decisively outperforms specialized single-task tools.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="activity" size={15} /> Key Insights for Computational Biology
+        </div>
+        <p>
+          &bull; <strong>Holistic Variant Interpretation:</strong> Moving beyond isolated assays to evaluate the full multi-modal cascade of non-coding mutations.
+          <br/>
+          &bull; <strong>Distillation Scalability:</strong> Teacher-student distillation enables rapid, population-scale variant scoring across millions of biobank participants.
+          <br/>
+          &bull; <strong>Therapeutic Design:</strong> Accurately modeling promoter-enhancer syntax and 3D contact loops empowers synthetic promoter engineering and CRISPR-based gene therapy.
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

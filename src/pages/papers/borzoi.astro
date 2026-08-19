@@ -1,0 +1,358 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Predicting RNA-seq Coverage from DNA Sequence as a Unifying Model of Gene Regulation";
+const description = "Comprehensive technical summary and literature deconstruction of Borzoi (Linder et al., Calico Life Sciences, Nature Genetics 2025): Predicting strand-specific RNA-seq coverage from 524 kb DNA sequence at 32 bp resolution.";
+const readingTime = "18 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Regulatory Genomics & Deep Learning</span>
+        <span class="paper-venue-badge">Nature Genetics · Vol 57 (2025)</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Johannes Linder*, Divyanshi Srivastava, Han Yuan, Vikram Agarwal, and David R. Kelley*</div>
+        <div><strong>Affiliation:</strong> Calico Life Sciences LLC, South San Francisco, CA; Department of Biology, Stanford University</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1038/s41588-024-02053-6" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1038/s41588-024-02053-6</a> · Corresponding Authors: Johannes Linder (<code>johannes.linder@calicolabs.com</code>), David R. Kelley (<code>drk@calicolabs.com</code>)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      How can a single neural network predict the complex, multi-layered regulatory consequences of non-coding genetic variants across the entire human genome? <strong>Borzoi</strong> models strand-specific <strong>RNA-seq coverage profiles</strong> directly from <Katex tex="524,288\text{ bp}" /> (<Katex tex="524\text{ kb}" />) raw DNA sequences at <Katex tex="32\text{ bp}" /> resolution. By learning from RNA-seq alongside CAGE, DNase-seq, and ChIP-seq, Borzoi unifies <strong>transcription initiation, alternative splicing, and polyadenylation</strong> into a single end-to-end framework that rivals or outperforms specialized single-task predictors.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & Paradigm Shift</a></li>
+        <li><a href="#unifying-layers">2. Unifying Multi-Layer Gene Regulation</a></li>
+        <li><a href="#architecture">3. The Borzoi Neural Architecture</a></li>
+        <li><a href="#variant-stats">4. Variant Effect Scoring Statistics</a></li>
+        <li><a href="#results">5. Section-by-Section Results (Fig 1–7)</a></li>
+        <li><a href="#motif-syntax">6. Cis-Regulatory Syntax & Attribution</a></li>
+        <li><a href="#formulations">7. Mathematical Formulations & Loss</a></li>
+        <li><a href="#conclusions">8. Discussion & Ecosystem Impact</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The Core Paradigm Shift</h2>
+      <p>
+        Prior sequence-to-function models (e.g. <strong>Basenji</strong>, <strong>Enformer</strong>) focused almost exclusively on point-source chromatin assays—such as CAGE transcription start sites (TSS), DNase-seq/ATAC-seq open chromatin peaks, and ChIP-seq histone modifications. These assays produce localized, narrow read peaks that are straightforward to model with standard convolutional architectures.
+      </p>
+      <p>
+        However, point-source models are fundamentally blind to downstream post-transcriptional processing: <strong>alternative splicing</strong>, <strong>exon inclusion/skipping</strong>, <strong>intron retention</strong>, and <strong>alternative polyadenylation (APA)</strong>. Conversely, specialized models (e.g. <strong>SpliceAI</strong> for splicing, <strong>APARENT2</strong> for polyadenylation) operate only on localized, isolated sequence windows and lack tissue-specific chromatin context.
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The Borzoi Unifying Breakthrough
+        </div>
+        <p>
+          By predicting <strong>continuous, strand-specific RNA-seq coverage tracks</strong> across hundreds of cell types and tissues, <strong>Borzoi</strong> naturally learns the complete lifespan of an RNA transcript: promoter activation, transcription elongation across exons, splice site recognition, and 3' cleavage/polyadenylation.
+        </p>
+      </div>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Point-Source Models (Enformer / Basenji)</th>
+              <th>Specialized Splicing/APA Tools (SpliceAI / APARENT2)</th>
+              <th>Unified Borzoi Architecture (Calico)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Predicts only CAGE, DNase, and ChIP-seq read peaks.</td>
+              <td>Trained on narrow local windows; ignores distal enhancer chromatin context.</td>
+              <td>Integrates 524 kb context with strand-specific RNA-seq coverage.</td>
+            </tr>
+            <tr>
+              <td>Blind to splicing changes, exon skipping, and 3' UTR APA.</td>
+              <td>Single-modality prediction; cannot predict tissue-specific gene expression.</td>
+              <td>Simultaneously scores transcription, splicing, and APA from one model.</td>
+            </tr>
+            <tr>
+              <td>Lower resolution (128 bp bins).</td>
+              <td>Base-resolution on local splice motifs only.</td>
+              <td>High resolution (32 bp bins) spanning 7,611 human and mouse tracks.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="unifying-layers">
+      <h2>2. Unifying Multi-Layer Gene Regulation</h2>
+      <p>
+        Predicting raw RNA-seq coverage from DNA sequence was historically considered intractable due to three fundamental technical challenges:
+      </p>
+      <ol>
+        <li><strong>Broad Spatial Span:</strong> Unlike narrow 200 bp ChIP peaks, RNA-seq reads span tens to hundreds of kilobases across multiple disjoint exons.</li>
+        <li><strong>Extreme Dynamic Range:</strong> Gene expression levels vary over <Katex tex="> 10^5" /> orders of magnitude across cell types.</li>
+        <li><strong>Intron/Exon Sharp Discontinuities:</strong> The model must output near-zero read density in introns while maintaining precise, high coverage across sharp exonic boundaries.</li>
+      </ol>
+      <p>
+        Borzoi solves these challenges through a hybrid multi-scale architecture: a deep convolutional residual stem, a 14-layer transformer trunk capturing long-range enhancer-promoter looping, and high-resolution transposed convolution upsampling with U-Net skip connections.
+      </p>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="architecture">
+      <h2>3. The Borzoi Neural Architecture</h2>
+      <p>
+        Borzoi takes as input a one-hot encoded DNA sequence <Katex tex="\mathbf{X} \in \{0, 1\}^{524,288 \times 4}" /> (<Katex tex="524\text{ kb}" />) and outputs predicted coverage across <strong>7,611 functional genomics tracks</strong> (spanning human and mouse CAGE, DNase-seq, ATAC-seq, ChIP-seq, and strand-specific RNA-seq across ENCODE and GTEx):
+      </p>
+
+      <ul>
+        <li><strong>1. Convolutional Stem:</strong> 7 residual convolutional blocks with max-pooling, downsampling the <Katex tex="524\text{ kb}" /> sequence by a factor of 16,384 to a sequence of <Katex tex="32\text{ bp}" /> representations.</li>
+        <li><strong>2. Transformer Trunk:</strong> 14 Multi-Head Self-Attention (MHSA) transformer layers with relative positional embeddings, propagating regulatory information across the entire <Katex tex="196.6\text{ kb}" /> central receptive field.</li>
+        <li><strong>3. Transposed Convolution Upsampling & U-Net Skips:</strong> Upsamples latent representations back to <Katex tex="32\text{ bp}" /> bins, merging high-resolution spatial feature maps from early conv layers via skip connections.</li>
+        <li><strong>4. Multi-Track Output Head:</strong> Generates predicted read counts <Katex tex="\hat{\mathbf{Y}} \in \mathbb{R}^{6,144 \times 7,611}" /> across <Katex tex="B = 6,144" /> bins of size <Katex tex="32\text{ bp}" />.</li>
+      </ul>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="variant-stats">
+      <h2>4. Mathematical Variant Effect Scoring Statistics</h2>
+      <p>
+        To evaluate a genetic variant, Borzoi computes forward passes on the reference allele (<Katex tex="\mathbf{X}_{\text{ref}}" />) and alternative allele (<Katex tex="\mathbf{X}_{\text{alt}}" />), deriving specialized statistics across regulatory layers:
+      </p>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Gene Expression Effect Size (ΔGene / SUM)</div>
+        <div class="paper-equation-body">
+          <Katex tex="\Delta \text{Gene} = \log\left( \sum_{b \in \text{exons}} \hat{y}_{\text{alt}, b} + 1 \right) - \log\left( \sum_{b \in \text{exons}} \hat{y}_{\text{ref}, b} + 1 \right)" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Sums predicted strand-specific RNA-seq coverage across all annotated exons of the target gene.
+        </div>
+      </div>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Alternative Polyadenylation Effect Size (ΔAPA)</div>
+        <div class="paper-equation-body">
+          <Katex tex="\Delta \text{APA} = \log\left( \frac{\hat{y}_{\text{distal}}}{\hat{y}_{\text{proximal}}} \right)_{\text{alt}} - \log\left( \frac{\hat{y}_{\text{distal}}}{\hat{y}_{\text{proximal}}} \right)_{\text{ref}}" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Measures the shift in 3' isoform usage between proximal and distal polyadenylation cleavage sites.
+        </div>
+      </div>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Bin-Level L2 Difference Score</div>
+        <div class="paper-equation-body">
+          <Katex tex="L_2(t) = \sqrt{\sum_{b=1}^{B} \left( \log(1 + \hat{y}_{\text{alt}, b, t}) - \log(1 + \hat{y}_{\text{ref}, b, t}) \right)^2}" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Captures localized regulatory perturbations across tracks, forming the backbone for the <strong>Sniff</strong> fine-mapping framework.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="results">
+      <h2>5. Section-by-Section Results Breakdown (Figures 1–7)</h2>
+
+      <!-- Figure 1 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 1</span>
+          <span class="paper-fig-title">Borzoi Architecture & Genome-Wide Prediction Accuracy</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating Borzoi on held-out test chromosomes across thousands of functional genomics tracks:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>High Correlation:</strong> Achieved mean Pearson <Katex tex="R = 0.81" /> on CAGE, <Katex tex="R = 0.74" /> on DNase/ATAC, <Katex tex="R = 0.69" /> on ChIP-seq, and <Katex tex="R = 0.72" /> on RNA-seq coverage.</li>
+            <li><strong>Sharp Exon Boundaries:</strong> Successfully learned sharp splice junctions and zero-coverage intronic plateaus directly from sequence.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 2 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 2</span>
+          <span class="paper-fig-title">Predicting Tissue-Specific Patterns of RNA-seq Coverage</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Cross-tissue performance across 31 GTEx adult human tissues:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Lineage Separation:</strong> Unsupervised PCA on predicted tissue tracks cleanly clustered brain, liver, muscle, and blood tissues.</li>
+            <li><strong>Alternative Promoter Usage:</strong> Correctly predicted tissue-specific alternative transcription start sites (e.g. liver-specific vs. kidney-specific promoters).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 3 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 3</span>
+          <span class="paper-fig-title">Identifying Transcriptional Cis-Regulatory Motifs via Saliency Attribution</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Applying gradient attribution and in silico mutagenesis (ISM):
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>De Novo Motif Discovery:</strong> Accurately mapped known tissue-specific transcription factor binding motifs (HNF4A in liver, MYOD1 in muscle, SPI1/PU.1 in monocytes).</li>
+            <li><strong>Helical Syntax:</strong> Identified cooperative spacing constraints between homotypic and heterotypic TF motif pairs.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 4 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 4</span>
+          <span class="paper-fig-title">Distal Enhancers & Long-Range CRISPRi-FlowFISH Validation</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Benchmarking distal regulatory interactions against experimental CRISPR perturbation screens:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>CRISPRi-FlowFISH Accuracy:</strong> Matched or outperformed Enformer across tested loci (*MYC*, *GATA1*, *FADS1*), accurately capturing enhancer activity up to <Katex tex="100\text{ kb}" /> away from the target TSS.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 5 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 5</span>
+          <span class="paper-fig-title">GTEx eQTL Effect Sizes & Fine-Mapped Causal Variants</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Predicting expression quantitative trait loci (eQTL) effects:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Directional Sign Accuracy:</strong> Achieved <strong>> 75% sign accuracy</strong> on high-confidence GTEx eQTLs, substantially outperforming Enformer and Basenji.</li>
+            <li><strong>Fine-Mapped Causal Variants:</strong> Elevated predicted effect sizes at SuSiE/CaVEMaN fine-mapped variants compared to linked non-causal SNPs.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 6 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 6</span>
+          <span class="paper-fig-title">Alternative Polyadenylation (APA) & 3' paQTL Benchmarks</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating 3' cleavage and polyadenylation regulation:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>PolyASite & paQTL Benchmark:</strong> Borzoi's <Katex tex="\Delta\text{APA}" /> statistic accurately classified 3' polyadenylation QTLs, competing with specialized models (APARENT2, Saluki) while incorporating full gene context.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 7 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 7</span>
+          <span class="paper-fig-title">Classifying Splicing QTLs (sQTLs) & Intronic paQTLs</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating alternative splicing and transcript isoform variation:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>sQTL Prioritization:</strong> Classified GTEx splicing QTLs with high accuracy, rivaling SpliceAI on canonical splice sites and outperforming SpliceAI on deep intronic regulatory variants.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="motif-syntax">
+      <h2>6. Cis-Regulatory Syntax & Attribution</h2>
+      <p>
+        In silico mutagenesis (ISM) systematically mutates every nucleotide in an input sequence to all 3 alternate bases, computing the resulting change in predicted coverage:
+      </p>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Gradient Saliency Attribution</div>
+        <div class="paper-equation-body">
+          <Katex tex="S_i(t) = \frac{\partial \hat{Y}_t}{\partial X_i} \cdot X_i" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Identifies driver regulatory motifs with single-nucleotide precision across promoters, enhancers, splice junctions, and poly(A) signals.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="formulations">
+      <h2>7. Mathematical Formulations & Loss Functions</h2>
+      <p>
+        Borzoi is trained with a multi-task Poisson log-likelihood loss with multinomial cross-entropy over spatial bins:
+      </p>
+
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">Poisson Log Loss Formulation</div>
+        <div class="paper-equation-body">
+          <Katex tex="\mathcal{L}_{\text{Poisson}} = \sum_{b=1}^{B} \sum_{t=1}^{T} \left( \hat{y}_{b, t} - y_{b, t} \log \hat{y}_{b, t} \right)" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          <Katex tex="y_{b, t}" /> = Normalized sequencing coverage count in bin <Katex tex="b" /> for track <Katex tex="t" /> &emsp;|&emsp;
+          <Katex tex="\hat{y}_{b, t}" /> = Model prediction with softplus activation.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="conclusions">
+      <h2>8. Discussion, Limitations & Ecosystem Impact</h2>
+      <p>
+        <strong>Borzoi</strong> represents a major milestone in regulatory genomics, demonstrating that deep neural sequence models can unify transcriptional and post-transcriptional regulation under a single end-to-end framework.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="activity" size={15} /> Downstream Ecosystem Impact
+        </div>
+        <p>
+          &bull; <strong>Sniff Fine-Mapping:</strong> Borzoi's 7,611 coverage tracks serve as the foundational variant effect feature set for S-LDSC and SuSiE fine-mapping.
+          <br/>
+          &bull; <strong>Locon4 PEFT:</strong> Lightweight low-rank adaptation democratizes Borzoi fine-tuning to single 24 GB consumer GPUs.
+          <br/>
+          &bull; <strong>Therapeutic Target Discovery:</strong> Unifying transcription, splicing, and polyadenylation enables holistic variant interpretation in complex disease GWAS.
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>
