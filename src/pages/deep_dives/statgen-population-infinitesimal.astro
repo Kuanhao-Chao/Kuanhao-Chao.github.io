@@ -1,0 +1,272 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Population Genetics Foundations, Coalescent Theory & The Infinitesimal Model";
+const description = "A first-principles mathematical and biological exploration of Hardy-Weinberg equilibrium, Wright-Fisher genetic drift, Kingman's coalescent genealogy, Tajima's D neutrality test, Fisher's 1918 infinitesimal synthesis, and phenotypic variance partitioning.";
+const readingTime = "18 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article">
+    <!-- Back to Master Guide -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dives/statistical-genetics/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Statistical Genetics Master Guide
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">Statistical Genetics · Part 1</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Foundational to Advanced</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      How do discrete Mendelian alleles segregate across generations to create continuous phenotypic variation in natural populations? How can we mathematically reconstruct the genealogy of human mutations millions of years in the past? This deep dive explores the foundational probabilistic engines of statistical genetics: the <strong>Hardy-Weinberg Equilibrium</strong>, the stochastic mechanics of <strong>Wright-Fisher Genetic Drift</strong>, <strong>Kingman's Coalescent</strong>, <strong>Tajima's D Neutrality Metric</strong>, and <strong>Ronald A. Fisher's 1918 Infinitesimal Model</strong> that unified genetics with biometrical statistics.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#hwe">1. Hardy-Weinberg Equilibrium (HWE) & Testing</a></li>
+        <li><a href="#drift">2. Wright-Fisher Model & Stochastic Genetic Drift</a></li>
+        <li><a href="#coalescent">3. Kingman's Coalescent Theory & TMRCA</a></li>
+        <li><a href="#tajima">4. Tajima's D Statistic & Tests of Neutrality</a></li>
+        <li><a href="#fisher1918">5. The Fisher 1918 Synthesis & Infinitesimal Model</a></li>
+        <li><a href="#variance">6. Master Phenotypic Variance Partitioning</a></li>
+        <li><a href="#heritability">7. Narrow-Sense vs. Broad-Sense Heritability & The Breeder's Equation</a></li>
+        <li><a href="#summary">8. Summary & Next in the Statistical Genetics Series</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="hwe">
+      <h2>1. Hardy-Weinberg Equilibrium (HWE) & Testing</h2>
+      <p>
+        In an infinitely large, panmictic (random-mating) diploid population with non-overlapping generations, and in the absence of mutation, migration, and natural selection, allele and genotype frequencies remain constant from generation to generation.
+      </p>
+
+      <h3>Mathematical Derivation</h3>
+      <p>
+        Consider a single biallelic locus with alleles <Katex tex="A" /> and <Katex tex="a" /> having population frequencies <Katex tex="p = P(A)" /> and <Katex tex="q = P(a) = 1 - p" />.
+        Under random union of gametes, the probability of obtaining each diploid genotype is the product of their independent gametic probabilities:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Hardy-Weinberg Genotype Proportions</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="P(AA) = p^2, \quad P(Aa) = 2pq, \quad P(aa) = q^2 \implies p^2 + 2pq + q^2 = (p + q)^2 = 1" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          Degrees of Freedom: <Katex tex="\text{df} = 3 - 1 - 1 = 1" /> (3 genotype classes minus 1 for fixed total sample size minus 1 for estimated parameter <Katex tex="p" />).
+        </div>
+      </div>
+
+      <h3>Testing Departures from HWE</h3>
+      <p>
+        In empirical genomic datasets and GWAS quality control, departures from HWE are evaluated using Pearson's <Katex tex="\chi^2" /> goodness-of-fit test:
+      </p>
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Pearson's Chi-Square Test for HWE</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\chi^2 = \frac{(N_{AA} - N p^2)^2}{N p^2} + \frac{(N_{Aa} - 2Npq)^2}{2Npq} + \frac{(N_{aa} - N q^2)^2}{N q^2} \sim \chi^2_1" display={true} />
+        </div>
+      </div>
+      <div class="deep-dive-callout callout-warning">
+        <div class="deep-dive-callout-title">
+          <Icon name="alert-triangle" size={15} /> Biological vs. Technical HWE Violations
+        </div>
+        <p>
+          In disease association studies, extreme departures from HWE in control samples (<Katex tex="P < 10^{-6}" />) almost universally indicate <strong>genotyping artifacts</strong> (e.g. allele dropout, probe hybridization bias, non-specific binding).
+          In contrast, mild HWE departures in cases can be genuine signatures of recessive or dominant disease risk mechanisms.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="drift">
+      <h2>2. Wright-Fisher Model & Stochastic Genetic Drift</h2>
+      <p>
+        Natural populations are finite. In a population of <Katex tex="N" /> diploid individuals (containing <Katex tex="2N" /> gametes), sampling stochasticity causes allele frequencies to fluctuate randomly across generations—a process known as <strong>genetic drift</strong>.
+      </p>
+
+      <h3>Wright-Fisher Markov Chain</h3>
+      <p>
+        The Wright-Fisher model assumes non-overlapping generations where the next generation's <Katex tex="2N" /> alleles are formed by binomial sampling with replacement from the current parental generation:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Wright-Fisher Transition Probability & Heterozygosity Loss</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="P(X_{t+1} = k \mid X_t = j) = \binom{2N}{k} \left(\frac{j}{2N}\right)^k \left(1 - \frac{j}{2N}\right)^{2N - k}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="X_t = j" /> = Number of copies of allele <Katex tex="A" /> in generation <Katex tex="t" /> &emsp;|&emsp;
+          <Katex tex="X_{t+1} = k" /> = Number of copies in generation <Katex tex="t+1" />.
+        </div>
+      </div>
+
+      <p>
+        Because binomial sampling is variance-generating, genetic drift steadily erodes genetic diversity. Expected heterozygosity <Katex tex="H_t = 2p_t q_t" /> decays exponentially:
+      </p>
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Exponential Decay of Heterozygosity</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="H_t = H_0 \left(1 - \frac{1}{2N_e}\right)^t \approx H_0 \exp\left(-\frac{t}{2N_e}\right)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="N_e" /> = Effective population size (the size of an idealized Wright-Fisher population that experiences the same rate of genetic drift).
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="coalescent">
+      <h2>3. Kingman's Coalescent Theory & TMRCA</h2>
+      <p>
+        While the Wright-Fisher model runs forward in time, <strong>Kingman's Coalescent (1982)</strong> models the genealogy of <Katex tex="n" /> sampled lineages looking <em>backward in time</em>.
+      </p>
+
+      <h3>Coalescent Event Probabilities</h3>
+      <p>
+        Looking back one generation, the probability that two distinct lineages choose the same parental allele is <Katex tex="\frac{1}{2N_e}" />. For <Katex tex="k" /> lineages, there are <Katex tex="\binom{k}{2}" /> possible pairs.
+        The waiting time <Katex tex="T_k" /> during which there are exactly <Katex tex="k" /> distinct ancestral lineages is exponentially distributed:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Continuous Kingman Coalescent Rate & TMRCA</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbb{E}[T_k] = \frac{4N_e}{k(k-1)}, \qquad \mathbb{E}[T_{\text{MRCA}}] = \sum_{k=2}^{n} \mathbb{E}[T_k] = 4N_e \left(1 - \frac{1}{n}\right) \xrightarrow{n \to \infty} 4N_e \text{ generations}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="T_{\text{MRCA}}" /> = Time to Most Recent Common Ancestor. For modern humans (<Katex tex="N_e \approx 10,000" />, generation time 25 years), <Katex tex="\mathbb{E}[T_{\text{MRCA}}] \approx 40,000 \text{ generations} \approx 1 \text{ million years}" />.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="tajima">
+      <h2>4. Tajima's D Statistic & Tests of Neutrality</h2>
+      <p>
+        Under neutral mutation-drift equilibrium, the population mutation rate parameter <Katex tex="\theta = 4N_e \mu" /> can be estimated in two fundamentally distinct ways:
+      </p>
+      <ul>
+        <li><strong>Pairwise Nucleotide Diversity (<Katex tex="\hat{\theta}_\pi" />):</strong> The average number of nucleotide differences between all pairs of sequences in the sample.</li>
+        <li><strong>Watterson's Estimator (<Katex tex="\hat{\theta}_S" />):</strong> Based on the total number of segregating (polymorphic) sites <Katex tex="S" />, normalized by harmonic number <Katex tex="a_1 = \sum_{i=1}^{n-1} \frac{1}{i}" />: <Katex tex="\hat{\theta}_S = \frac{S}{a_1}" />.</li>
+      </ul>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Tajima's D Neutrality Statistic (1989)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="D = \frac{\hat{\theta}_\pi - \hat{\theta}_S}{\sqrt{\widehat{\text{Var}}(\hat{\theta}_\pi - \hat{\theta}_S)}}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <strong>Interpretation:</strong><br/>
+          &bull; <Katex tex="D \approx 0" />: Standard neutral evolution.<br/>
+          &bull; <Katex tex="D < 0" />: Excess of rare variants (recent selective sweep or demographic population expansion).<br/>
+          &bull; <Katex tex="D > 0" />: Excess of intermediate-frequency variants (balancing selection or population bottleneck/subdivision).
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="fisher1918">
+      <h2>5. The Fisher 1918 Synthesis & Infinitesimal Model</h2>
+      <p>
+        In 1918, <strong>Ronald A. Fisher</strong> published his epochal paper <em>"The Correlation Between Relatives on the Supposition of Mendelian Inheritance"</em>, resolving the fierce debate between Mendelians (who believed inheritance was discrete and particulate) and Biometricians (who measured continuous traits like height and weight).
+      </p>
+
+      <h3>The Central Limit Theorem Proof</h3>
+      <p>
+        Fisher proved that if a quantitative trait is governed by <Katex tex="M" /> independent Mendelian loci, each with small additive effect <Katex tex="\beta_j" />:
+      </p>
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Infinitesimal Model Formulation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="y_i = \mu + \sum_{j=1}^{M} \beta_j X_{ij} + \epsilon_i, \quad \beta_j \sim \mathcal{N}\left(0, \frac{\sigma_g^2}{M}\right)" display={true} />
+        </div>
+      </div>
+      <p>
+        As <Katex tex="M \to \infty" />, the sum of independent random variables converges by the <strong>Lindeberg-Lévy Central Limit Theorem</strong> to a continuous normal phenotypic distribution:
+        <Katex tex="y_i \sim \mathcal{N}(\mu, V_P)" />.
+      </p>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="variance">
+      <h2>6. Master Phenotypic Variance Partitioning</h2>
+      <p>
+        The total phenotypic variance <Katex tex="V_P = \text{Var}(y)" /> decomposes into discrete orthogonal genetic, environmental, and interaction components:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Complete Variance Component Decomposition</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="V_P = V_G + V_E + 2\text{Cov}(G, E) = V_A + V_D + V_I + V_{G \times E} + 2\text{Cov}(G, E) + V_E" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="V_A" /> = Additive genetic variance (linear allele substitution effects) &emsp;|&emsp;
+          <Katex tex="V_D" /> = Dominance variance (intra-locus non-linear interactions) &emsp;|&emsp;
+          <Katex tex="V_I = V_{AA} + V_{AD} + V_{DD}" /> = Epistatic interaction variance &emsp;|&emsp;
+          <Katex tex="V_{G \times E}" /> = Gene-environment interaction &emsp;|&emsp;
+          <Katex tex="V_E" /> = Non-shared environmental variance.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="heritability">
+      <h2>7. Narrow-Sense vs. Broad-Sense Heritability & The Breeder's Equation</h2>
+      <p>
+        The distinction between narrow-sense and broad-sense heritability is central to evolutionary genetics, plant/animal breeding, and human disease mapping:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Heritability Metrics & The Breeder's Equation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="h^2 = \frac{V_A}{V_P} \quad (\text{Narrow-sense}), \qquad H^2 = \frac{V_G}{V_P} = \frac{V_A + V_D + V_I}{V_P} \quad (\text{Broad-sense})" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <strong>The Breeder's Equation (Lush 1937):</strong>
+          <Katex tex="R = h^2 S" display={true} />
+          <Katex tex="R = \mu' - \mu" /> (Evolutionary response to selection) equals narrow-sense heritability <Katex tex="h^2" /> multiplied by the selection differential <Katex tex="S = \mu_s - \mu" />. Only additive genetic variance (<Katex tex="V_A" />) responds predictably to directional selection because meiosis breaks up non-additive dominance (<Katex tex="V_D" />) and epistatic combinations (<Katex tex="V_I" />).
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="summary">
+      <h2>8. Summary & Next in the Statistical Genetics Series</h2>
+      <p>
+        Population genetics provides the rigorous probabilistic bedrock upon which all modern genomic association models operate. In the next installment of this series, we explore how meiotic recombination and chromosome architecture create non-random allele correlations:
+      </p>
+      <div class="deep-dive-callout">
+        <div class="deep-dive-callout-title">
+          <Icon name="arrow-right" size={15} /> Continue to Part 2
+        </div>
+        <p>
+          <a href="/deep_dives/statgen-linkage-disequilibrium/" style="font-weight: 700; color: var(--color-accent);">
+            Part 2: Linkage Disequilibrium, Recombination Hotspots & Chromosomal Haplotype Architecture &rarr;
+          </a>
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

@@ -1,0 +1,215 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Single-Marker Association Testing & Linear Mixed Models (LMM)";
+const description = "A comprehensive mathematical and algorithmic guide to single-marker GWAS testing, the liability threshold model, and the computational evolution of Linear Mixed Models — from GEMMA and FaST-LMM to BOLT-LMM, fastGWA, and Regenie.";
+const readingTime = "21 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article">
+    <!-- Back to Master Guide -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dives/statistical-genetics/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Statistical Genetics Master Guide
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">Statistical Genetics · Part 5</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Advanced & Mathematical</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      Genome-Wide Association Studies test millions of genetic variants across hundreds of thousands of individuals. How do we distinguish genuine biological associations from subtle confounding caused by cryptic relatedness, family structure, and geographic ancestry? This deep dive explores the mathematical machinery of single-marker association tests, the <strong>Liability Threshold Model</strong> for binary diseases, and the computational revolution that enabled <strong>Linear Mixed Models (LMMs)</strong> to scale from cubic complexity (<Katex tex="O(N^3)" />) to multi-million-participant biobanks.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#single-marker">1. Single-Marker Linear Regression & Wald Tests</a></li>
+        <li><a href="#liability">2. Binary Case-Control Traits & The Liability Threshold Model</a></li>
+        <li><a href="#confounding">3. Population Confounding & Genomic Inflation (λ_GC)</a></li>
+        <li><a href="#lmm-math">4. The Linear Mixed Model (LMM) Framework</a></li>
+        <li><a href="#evolution">5. Computational Evolution of LMMs: GEMMA to Regenie</a></li>
+        <li><a href="#regenie">6. Regenie Deep Dive: Stacked Ridge & Firth Penalized Likelihood</a></li>
+        <li><a href="#summary">7. Summary & Next in the Statistical Genetics Series</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="single-marker">
+      <h2>1. Single-Marker Linear Regression & Wald Tests</h2>
+      <p>
+        For a quantitative trait <Katex tex="\mathbf{y} \in \mathbb{R}^N" />, single-marker ordinary least squares (OLS) models the phenotype as a function of covariates and genotype dosage <Katex tex="\mathbf{x}_j \in [0, 2]^N" /> at SNP <Katex tex="j" />:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Single-Variant Linear Model & Wald Test Statistic</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbf{y} = \mathbf{W}\boldsymbol{\alpha} + \beta_j \mathbf{x}_j + \boldsymbol{\epsilon}, \quad \hat{\beta}_j = \frac{\tilde{\mathbf{x}}_j^T \tilde{\mathbf{y}}}{\tilde{\mathbf{x}}_j^T \tilde{\mathbf{x}}_j}, \quad \text{SE}(\hat{\beta}_j) = \sqrt{\frac{\hat{\sigma}^2}{\tilde{\mathbf{x}}_j^T \tilde{\mathbf{x}}_j}}, \quad z_j = \frac{\hat{\beta}_j}{\text{SE}(\hat{\beta}_j)}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\mathbf{W}" /> = Fixed covariates (age, sex, top ancestry PCs) &emsp;|&emsp;
+          <Katex tex="\tilde{\mathbf{y}}, \tilde{\mathbf{x}}_j" /> = Residuals after projecting out <Katex tex="\mathbf{W}" /> &emsp;|&emsp;
+          <Katex tex="P = 2 \Phi(-|z_j|)" />.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="liability">
+      <h2>2. Binary Case-Control Traits & The Liability Threshold Model</h2>
+      <p>
+        For binary diseases (e.g. Type 2 diabetes, schizophrenia), standard OLS can yield out-of-bounds probabilities. While logistic regression models log-odds, quantitative genetics conceptualizes binary traits via the <strong>Liability Threshold Model (Falconer 1965)</strong>.
+      </p>
+      <p>
+        Under this model, disease liability <Katex tex="L \sim \mathcal{N}(0, 1)" /> is a continuous, normally distributed latent trait. An individual develops clinical disease if and only if their total genetic and environmental liability exceeds a critical threshold <Katex tex="T = \Phi^{-1}(1 - K)" />, where <Katex tex="K" /> is the population disease prevalence.
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Lee et al. (2011) Liability Scale Heritability Transformation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="h^2_{\text{liability}} = h^2_{\text{observed}} \frac{K(1 - K)}{z_K^2} \frac{K(1 - K)}{P(1 - P)}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="K" /> = Population disease prevalence &emsp;|&emsp;
+          <Katex tex="P" /> = Proportion of cases in the GWAS sample &emsp;|&emsp;
+          <Katex tex="z_K = \phi(\Phi^{-1}(1 - K))" /> = Height of the standard normal probability density curve at threshold <Katex tex="T" />.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="confounding">
+      <h2>3. Population Confounding & Genomic Inflation (λ_GC)</h2>
+      <p>
+        If individuals from different ancestral backgrounds have different baseline allele frequencies and different baseline trait distributions, standard linear regression will identify spurious associations (the classic <em>"chopsticks gene"</em> artifact).
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Genomic Inflation Factor (λ_GC)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\lambda_{\text{GC}} = \frac{\text{median}(\chi^2_1, \chi^2_2, \dots, \chi^2_M)}{0.454936}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="0.454936" /> is the theoretical median of a central 1-degree-of-freedom <Katex tex="\chi^2" /> distribution.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="lmm-math">
+      <h2>4. The Linear Mixed Model (LMM) Framework</h2>
+      <p>
+        Principal Component Analysis (PCA) corrects for broad continental stratification, but fails to capture <strong>cryptic relatedness</strong> (distant cousins, cryptic pedigrees) and family structure.
+        <strong>Linear Mixed Models (LMMs)</strong> resolve this by modeling polygenic background effects as a random effect parameterized by the Genomic Relatedness Matrix <Katex tex="\mathbf{A}" />:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Master Linear Mixed Model (LMM) Formulation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbf{y} = \mathbf{W}\boldsymbol{\alpha} + \beta_j \mathbf{x}_j + \mathbf{u} + \boldsymbol{\epsilon}, \quad \mathbf{u} \sim \mathcal{N}(0, \mathbf{A}\sigma_g^2), \quad \boldsymbol{\epsilon} \sim \mathcal{N}(0, \mathbf{I}\sigma_e^2)" display={true} />
+          <Katex tex="\mathbf{V} = \text{Var}(\mathbf{y}) = \mathbf{A}\sigma_g^2 + \mathbf{I}\sigma_e^2" display={true} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="evolution">
+      <h2>5. Computational Evolution of LMMs: GEMMA to Regenie</h2>
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Method / Tool</th>
+              <th>Algorithmic Breakthrough</th>
+              <th>Computational Complexity</th>
+              <th>Cohort Scalability</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>GEMMA / FaST-LMM (2012)</strong></td>
+              <td>Spectral eigen-decomposition of GRM <Katex tex="\mathbf{A} = \mathbf{U}\mathbf{S}\mathbf{U}^T" /> rotates data into independent dimensions.</td>
+              <td><Katex tex="O(N^3)" /> upfront + <Katex tex="O(MN)" /> testing.</td>
+              <td><Katex tex="N \le 20,000" /></td>
+            </tr>
+            <tr>
+              <td><strong>BOLT-LMM (Loh et al. 2015)</strong></td>
+              <td>Monte Carlo REML + Conjugate gradient iterations without explicitly forming or inverting <Katex tex="\mathbf{A}" />.</td>
+              <td><Katex tex="O(M_{\text{GRM}} N \times \text{iterations})" /></td>
+              <td><Katex tex="N \approx 500,000" /> (UK Biobank)</td>
+            </tr>
+            <tr>
+              <td><strong>fastGWA (Jiang et al. 2019)</strong></td>
+              <td>Sparse GRM (<Katex tex="A_{ik} < 0.05 \to 0" />) + Sparse Cholesky factorization.</td>
+              <td>Linear in non-zero entries of sparse matrix.</td>
+              <td><Katex tex="N \approx 1,000,000" /></td>
+            </tr>
+            <tr>
+              <td><strong>Regenie (Mbatchou et al. 2021)</strong></td>
+              <td>Two-step stacked ridge regression with cross-validation blocks + Firth penalized likelihood for case-control imbalance.</td>
+              <td>Split-block parallelization; <Katex tex="O(N)" /> memory footprint.</td>
+              <td><Katex tex="N > 1,000,000" /> (WES/WGS biobanks)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="regenie">
+      <h2>6. Regenie Deep Dive: Stacked Ridge & Firth Penalized Likelihood</h2>
+      <p>
+        <strong>Regenie (Mbatchou et al. Nature Genetics 2021)</strong> is currently the state-of-the-art engine for biobank-scale GWAS. It operates in two decoupled steps:
+      </p>
+      <ul>
+        <li><strong>Step 1: Whole-Genome Polygenic Prediction via Stacked Ridge Regression</strong><br/>
+          Genotypes are split into consecutive blocks of <Katex tex="\sim 1,000" /> SNPs. Within each block, ridge regression models are fit across a grid of shrinkage parameters <Katex tex="\lambda" />. Predictions across all blocks are combined using Level-1 meta-ridge regression to yield polygenic predictor <Katex tex="\hat{\mathbf{y}}_{-c}" /> using <strong>Leave-One-Chromosome-Out (LOCO)</strong> schemes to prevent proximal contamination.
+        </li>
+        <li><strong>Step 2: Single-Marker Score Testing with Firth's Penalized Likelihood</strong><br/>
+          In highly unbalanced case-control traits (e.g. 1,000 cases vs. 500,000 controls), standard score tests suffer from severe false-positive inflation. Regenie integrates <strong>Firth's penalized log-likelihood</strong>:
+          <Katex tex="\ln L_{\text{Firth}}(\boldsymbol{\theta}) = \ln L(\boldsymbol{\theta}) + \frac{1}{2}\ln|\mathbf{I}(\boldsymbol{\theta})|" display={true} />
+          where <Katex tex="\mathbf{I}(\boldsymbol{\theta})" /> is the Fisher information matrix, completely eliminating saddlepoint approximations and separation bias.
+        </li>
+      </ul>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="summary">
+      <h2>7. Summary & Next in the Statistical Genetics Series</h2>
+      <p>
+        Once LMMs identify genome-wide significant loci, the next critical task is causal mapping. In Part 6, we examine <strong>Bayesian Fine-Mapping and SuSiE</strong>:
+      </p>
+      <div class="deep-dive-callout">
+        <div class="deep-dive-callout-title">
+          <Icon name="arrow-right" size={15} /> Continue to Part 6
+        </div>
+        <p>
+          <a href="/deep_dives/statgen-bayesian-fine-mapping/" style="font-weight: 700; color: var(--color-accent);">
+            Part 6: Bayesian Fine-Mapping & Causal Variant Prioritization (ABF & SuSiE) &rarr;
+          </a>
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

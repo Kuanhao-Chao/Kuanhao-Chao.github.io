@@ -1,0 +1,231 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Summary-Statistics Heritability: LD Score Regression (LDSC & S-LDSC)";
+const description = "A complete mathematical derivation and first-principles proof of LD Score Regression (LDSC) — estimating SNP heritability, distinguishing polygenicity from population stratification, bivariate genetic correlation (r_g), and functional partitioning with Stratified LDSC (S-LDSC).";
+const readingTime = "20 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article">
+    <!-- Back to Master Guide -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dives/statistical-genetics/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Statistical Genetics Master Guide
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">Statistical Genetics · Part 4</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Advanced & Mathematical</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      Individual-level genotype matrices for millions of biobank participants require petabytes of storage and are restricted by strict privacy firewalls. How can we estimate genome-wide SNP heritability, diagnose uncorrected population stratification, and compute cross-trait genetic correlations using <strong>only publicly available summary statistics</strong>? <strong>LD Score Regression (LDSC, Bulik-Sullivan et al. 2015)</strong> provides one of the most elegant mathematical formulations in modern statistical genetics.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#ld-score">1. Defining the LD Score (ℓ_j)</a></li>
+        <li><a href="#theorem">2. The Fundamental LDSC Theorem</a></li>
+        <li><a href="#proof">3. Step-by-Step Mathematical Proof of LDSC</a></li>
+        <li><a href="#confounding">4. Separating Polygenicity from Confounding: The Intercept Test</a></li>
+        <li><a href="#bivariate">5. Cross-Trait Genetic Correlation (r_g)</a></li>
+        <li><a href="#sldsc">6. Stratified LDSC (S-LDSC) & Functional Enrichment</a></li>
+        <li><a href="#summary">7. Summary & Next in the Statistical Genetics Series</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="ld-score">
+      <h2>1. Defining the LD Score (ℓ_j)</h2>
+      <p>
+        The LD score of variant <Katex tex="j" /> measures the total amount of genetic variation in the genome that is tagged by SNP <Katex tex="j" />:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Single-Variant LD Score</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\ell_j = \sum_{k=1}^{M} r_{jk}^2" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="r_{jk}^2" /> = Squared correlation between SNP <Katex tex="j" /> and SNP <Katex tex="k" />. In practice, <Katex tex="\ell_j" /> is precomputed in 1 cM sliding windows using reference panels like 1000 Genomes European cohorts.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="theorem">
+      <h2>2. The Fundamental LDSC Theorem</h2>
+      <p>
+        Bulik-Sullivan et al. (2015) proved that under a polygenic model where true causal variants are randomly distributed across the genome, the expected GWAS <Katex tex="\chi^2" /> statistic of variant <Katex tex="j" /> is a linear function of its LD score <Katex tex="\ell_j" />:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Bulik-Sullivan et al. (2015) Master Expectation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbb{E}[\chi^2_j] = 1 + \frac{N h^2}{M} \ell_j + N a" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\chi^2_j = z_j^2" /> = GWAS chi-squared test statistic at SNP <Katex tex="j" /> &emsp;|&emsp;
+          <Katex tex="N" /> = GWAS sample size &emsp;|&emsp;
+          <Katex tex="M" /> = Number of common SNPs (<Katex tex="\approx 1\text{--}1.2\text{M}" /> HapMap3 SNPs) &emsp;|&emsp;
+          <Katex tex="h^2" /> = SNP heritability &emsp;|&emsp;
+          <Katex tex="a" /> = Variance contributed by uncorrected population stratification and cryptic relatedness.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="proof">
+      <h2>3. Step-by-Step Mathematical Proof of LDSC</h2>
+      <div class="deep-dive-callout callout-math">
+        <div class="deep-dive-callout-title">
+          <Icon name="check-circle" size={15} /> Full Derivation from First Principles
+        </div>
+        <p>
+          Let the true generative linear model for phenotype vector <Katex tex="\mathbf{y} \in \mathbb{R}^N" /> be:
+          <Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \boldsymbol{\epsilon}" display={true} />
+          where <Katex tex="\mathbf{X}" /> is the column-standardized genotype matrix (<Katex tex="\mathbb{E}[X_{ij}] = 0, \text{Var}(X_{ij}) = 1" />), <Katex tex="\boldsymbol{\epsilon} \sim \mathcal{N}(0, \sigma_e^2 \mathbf{I})" />, and true causal effects satisfy:
+          <Katex tex="\mathbb{E}[\beta_k] = 0, \quad \text{Var}(\beta_k) = \frac{h^2}{M}, \quad \text{Cov}(\beta_k, \beta_{k'}) = 0 \quad (k \neq k')" display={true} />
+          <br/>
+          <strong>Step 1: The Marginal OLS Effect Estimator</strong><br/>
+          The univariate marginal GWAS regression slope for SNP <Katex tex="j" /> is:
+          <Katex tex="\hat{\beta}_j = \frac{1}{N}\mathbf{x}_j^T \mathbf{y} = \frac{1}{N}\mathbf{x}_j^T (\mathbf{X}\boldsymbol{\beta} + \boldsymbol{\epsilon}) = \sum_{k=1}^{M} \left(\frac{1}{N}\mathbf{x}_j^T \mathbf{x}_k\right) \beta_k + \frac{1}{N}\mathbf{x}_j^T \boldsymbol{\epsilon} = \sum_{k=1}^{M} r_{jk} \beta_k + \epsilon'_j" display={true} />
+          where <Katex tex="\epsilon'_j \sim \mathcal{N}\left(0, \frac{1 - h^2}{N}\right) \approx \mathcal{N}\left(0, \frac{1}{N}\right)" />.
+          <br/><br/>
+          <strong>Step 2: The GWAS Z-score</strong><br/>
+          The marginal association $z$-score is <Katex tex="z_j = \sqrt{N} \hat{\beta}_j = \sqrt{N} \sum_{k=1}^{M} r_{jk} \beta_k + \eta_j" /> with <Katex tex="\eta_j \sim \mathcal{N}(0, 1)" />.
+          <br/><br/>
+          <strong>Step 3: Calculating Expected Chi-Square Statistic</strong><br/>
+          Taking the expectation of <Katex tex="\chi^2_j = z_j^2" /> conditional on the LD structure:
+          <Katex tex="\mathbb{E}[z_j^2 \mid \mathbf{r}_j] = \mathbb{E}\left[ \left(\sqrt{N}\sum_{k=1}^M r_{jk}\beta_k + \eta_j\right)^2 \right]" display={true} />
+          Because <Katex tex="\boldsymbol{\beta}" /> and <Katex tex="\boldsymbol{\eta}" /> are independent zero-mean variables:
+          <Katex tex="\mathbb{E}[z_j^2 \mid \mathbf{r}_j] = N \sum_{k=1}^M r_{jk}^2 \text{Var}(\beta_k) + \text{Var}(\eta_j) = N \left(\sum_{k=1}^M r_{jk}^2\right) \left(\frac{h^2}{M}\right) + 1 = 1 + \frac{N h^2}{M} \ell_j \quad \blacksquare" display={true} />
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="confounding">
+      <h2>4. Separating Polygenicity from Confounding: The Intercept Test</h2>
+      <p>
+        In massive GWAS cohorts (<Katex tex="N > 100,000" />), genomic inflation (<Katex tex="\lambda_{\text{GC}} > 1.2" />) is inevitable. Does this inflation reflect true polygenic architecture, or uncorrected population stratification?
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Biological / Technical Phenomenon</th>
+              <th>Impact on LDSC Slope (<Katex tex="\frac{Nh^2}{M}" />)</th>
+              <th>Impact on LDSC Intercept (<Katex tex="1 + Na" />)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>True Polygenicity</strong></td>
+              <td><strong>Elevated (&gt; 0)</strong> — SNPs tagging high LD capture more causal alleles.</td>
+              <td><strong>Baseline (= 1.0)</strong> — Zero LD SNPs have expected <Katex tex="\chi^2 = 1.0" />.</td>
+            </tr>
+            <tr>
+              <td><strong>Population Stratification / Cryptic Relatedness</strong></td>
+              <td><strong>Unaltered</strong> — Confounding affects all SNPs equally regardless of LD score.</td>
+              <td><strong>Elevated (&gt; 1.0)</strong> — Inflates intercept above 1 by amount <Katex tex="Na" />.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">LDSC Ratio Metric for Confounding</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{Ratio} = \frac{\text{Intercept} - 1}{\text{Mean}(\chi^2) - 1}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          A <Katex tex="\text{Ratio} < 0.10" /> confirms that <Katex tex="> 90\%" /> of the observed inflation in test statistics is genuine polygenic biology, not population bias.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="bivariate">
+      <h2>5. Cross-Trait Genetic Correlation (r_g)</h2>
+      <p>
+        By extending LDSC to pairs of GWAS summary statistics, <strong>Bivariate LDSC</strong> estimates genetic covariance (<Katex tex="\rho_g" />) and genetic correlation (<Katex tex="r_g" />) without requiring individual-level overlap:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Bivariate Cross-Trait LDSC Model</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbb{E}[z_{1j} z_{2j}] = \frac{\sqrt{N_1 N_2} \rho_g}{M} \ell_j + \frac{\rho_0 N_s}{\sqrt{N_1 N_2}}, \qquad r_g = \frac{\rho_g}{\sqrt{h_1^2 h_2^2}}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="z_{1j}, z_{2j}" /> = Marginal z-scores for traits 1 and 2 &emsp;|&emsp;
+          <Katex tex="N_s" /> = Number of overlapping individuals between cohorts &emsp;|&emsp;
+          <Katex tex="\rho_0" /> = Phenotypic correlation among overlapping participants.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="sldsc">
+      <h2>6. Stratified LDSC (S-LDSC) & Functional Enrichment</h2>
+      <p>
+        <strong>Stratified LDSC (Finucane et al. 2015)</strong> partitions the genome into <Katex tex="C" /> overlapping functional categories (e.g. cell-type-specific H3K27ac active enhancers, DNase I hypersensitive sites, conserved elements):
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Stratified LDSC Model & Enrichment Metric</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbb{E}[\chi^2_j] = 1 + N \sum_{c=1}^{C} \tau_c \ell(j, c) + N a, \qquad \text{Enrichment}(C) = \frac{h^2(C) / h^2}{|C| / M}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\ell(j, c) = \sum_{k \in C} r_{jk}^2" /> = Category-specific stratified LD score &emsp;|&emsp;
+          <Katex tex="\tau_c" /> = Net per-SNP heritability contribution of category <Katex tex="c" /> controlling for all other baseline annotations &emsp;|&emsp;
+          <Katex tex="|C| / M" /> = Proportion of total SNPs in category <Katex tex="C" />.
+        </div>
+      </div>
+      <p>
+        S-LDSC has pinpointed critical cell types across hundreds of complex diseases—e.g. demonstrating that schizophrenia heritability is enriched specifically in central nervous system neurons, while rheumatoid arthritis heritability is enriched in CD4+ T-cell regulatory enhancers.
+      </p>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="summary">
+      <h2>7. Summary & Next in the Statistical Genetics Series</h2>
+      <p>
+        LDSC bridges summary statistics to global genetic architecture. In Part 5, we transition to single-marker association testing and examine how <strong>Linear Mixed Models (LMMs)</strong> scale to biobank cohorts of millions:
+      </p>
+      <div class="deep-dive-callout">
+        <div class="deep-dive-callout-title">
+          <Icon name="arrow-right" size={15} /> Continue to Part 5
+        </div>
+        <p>
+          <a href="/deep_dives/statgen-association-linear-mixed-models/" style="font-weight: 700; color: var(--color-accent);">
+            Part 5: Single-Marker Association Testing & Linear Mixed Models (LMM) &rarr;
+          </a>
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

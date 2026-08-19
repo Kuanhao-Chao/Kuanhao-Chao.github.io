@@ -1,0 +1,247 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Linkage Disequilibrium, Recombination Hotspots & Chromosomal Haplotype Architecture";
+const description = "A first-principles mathematical and molecular exploration of Linkage Disequilibrium (D, D', r²), exponential decay over generations, PRDM9 zinc-finger motif binding, SPO11 double-strand breaks, and human haplotype block structure.";
+const readingTime = "17 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article">
+    <!-- Back to Master Guide -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dives/statistical-genetics/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Statistical Genetics Master Guide
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">Statistical Genetics · Part 2</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Advanced & Mathematical</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      In an idealized genome, alleles at different loci would segregate independently according to Mendel's Second Law. In real biological chromosomes, physical proximity, historical mutation events, and punctate meiotic recombination bind neighboring variants into non-random correlated units. This phenomenon—<strong>Linkage Disequilibrium (LD)</strong>—is the primary engine enabling genome-wide association studies and genotype imputation, while simultaneously presenting the supreme statistical challenge of causal fine-mapping.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#quantification">1. Mathematical Quantification of Linkage Disequilibrium</a></li>
+        <li><a href="#d-prime-r2">2. Lewontin's D' vs. Hill & Robertson's r²</a></li>
+        <li><a href="#decay">3. Recombination Mechanics & Exponential Decay of LD</a></li>
+        <li><a href="#prdm9">4. Molecular Biology of Recombination: PRDM9 & SPO11</a></li>
+        <li><a href="#haplotypes">5. Haplotype Block Structure & The Tag SNP Paradigm</a></li>
+        <li><a href="#ancestry">6. Population Divergence in LD: African vs. Non-African Genomes</a></li>
+        <li><a href="#summary">7. Summary & Next in the Statistical Genetics Series</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="quantification">
+      <h2>1. Mathematical Quantification of Linkage Disequilibrium</h2>
+      <p>
+        Consider two biallelic loci on the same chromosome: Locus 1 with alleles <Katex tex="A" /> (frequency <Katex tex="p_A" />) and <Katex tex="a" /> (frequency <Katex tex="p_a = 1 - p_A" />), and Locus 2 with alleles <Katex tex="B" /> (frequency <Katex tex="p_B" />) and <Katex tex="b" /> (frequency <Katex tex="p_b = 1 - p_B" />).
+      </p>
+      <p>
+        These two loci can form four distinct two-locus haplotypes with observed population frequencies:
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Gamete / Haplotype</th>
+              <th>Observed Frequency</th>
+              <th>Expected Frequency Under Linkage Equilibrium</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><Katex tex="AB" /></td>
+              <td><Katex tex="p_{AB}" /></td>
+              <td><Katex tex="p_A p_B" /></td>
+            </tr>
+            <tr>
+              <td><Katex tex="Ab" /></td>
+              <td><Katex tex="p_{Ab}" /></td>
+              <td><Katex tex="p_A p_b" /></td>
+            </tr>
+            <tr>
+              <td><Katex tex="aB" /></td>
+              <td><Katex tex="p_{aB}" /></td>
+              <td><Katex tex="p_a p_B" /></td>
+            </tr>
+            <tr>
+              <td><Katex tex="ab" /></td>
+              <td><Katex tex="p_{ab}" /></td>
+              <td><Katex tex="p_a p_b" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Coefficient of Linkage Disequilibrium (D)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="D = p_{AB} - p_A p_B = p_{AB} p_{ab} - p_{Ab} p_{aB}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          When <Katex tex="D = 0" />, the loci are in <strong>Linkage Equilibrium (LE)</strong>. When <Katex tex="D \neq 0" />, the alleles are in <strong>Linkage Disequilibrium (LD)</strong>.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="d-prime-r2">
+      <h2>2. Lewontin's D' vs. Hill & Robertson's r²</h2>
+      <p>
+        The raw coefficient <Katex tex="D" /> depends heavily on the underlying allele frequencies, making comparisons across variant pairs difficult. Two normalized statistics solve this:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Lewontin's Normalized D' (1964) & Squared Correlation r² (1968)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="D' = \frac{D}{D_{\max}}, \quad D_{\max} = \begin{cases} \min(p_A p_b, p_a p_B) & \text{if } D > 0 \\ \min(p_A p_B, p_a p_b) & \text{if } D < 0 \end{cases}, \qquad r^2 = \frac{D^2}{p_A (1 - p_A) p_B (1 - p_B)}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <strong>Key Differences in Practical Interpretation:</strong><br/>
+          &bull; <Katex tex="|D'| = 1" /> indicates <strong>complete historical linkage</strong> (one of the 4 gametes has never been observed, indicating no historical recombination has occurred between them since the mutation arose).<br/>
+          &bull; <Katex tex="r^2 \in [0, 1]" /> measures <strong>statistical correlation</strong> between genotype dosages. In GWAS, an experimental SNP tags a causal SNP with effective sample size <Katex tex="N_{\text{eff}} = N \cdot r^2" />.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="decay">
+      <h2>3. Recombination Mechanics & Exponential Decay of LD</h2>
+      <p>
+        During meiotic prophase I, homologous chromosomes cross over at recombination fraction <Katex tex="\theta \in [0, 0.5]" /> per generation. Each crossover reshuffles parental haplotypes into recombinant combinations.
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Generational Decay of LD</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="D_t = D_0 (1 - \theta)^t \approx D_0 \exp(-\theta t)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          For loci separated by genetic distance <Katex tex="d" /> centimorgans (<Katex tex="\theta \approx 0.01 d" />), LD decays with half-life <Katex tex="t_{1/2} = \frac{\ln 2}{\theta} \approx \frac{69.3}{\theta}" /> generations.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="prdm9">
+      <h2>4. Molecular Biology of Recombination: PRDM9 & SPO11</h2>
+      <p>
+        Meiotic crossovers are not distributed uniformly across the human genome. Instead, over 80% of all recombination events are concentrated into narrow 1–2 kb regions called <strong>recombination hotspots</strong>.
+      </p>
+
+      <div class="deep-dive-callout callout-biology">
+        <div class="deep-dive-callout-title">
+          <Icon name="activity" size={15} /> The PRDM9 Molecular Mechanism
+        </div>
+        <p>
+          1. <strong>Sequence Recognition:</strong> The zinc-finger array of <strong>PRDM9</strong> binds to a degenerate 13-mer sequence motif (<Katex tex="\text{CCNCCNTNNCCNC}" />).<br/>
+          2. <strong>Epigenetic Tagging:</strong> PRDM9's SET domain deposits dual activating histone marks: <strong>H3K4me3</strong> and <strong>H3K36me3</strong> on flanking nucleosomes.<br/>
+          3. <strong>Programmed DSBs:</strong> The topoisomerase-like transesterase <strong>SPO11</strong> is recruited to introduce programmed double-strand breaks.<br/>
+          4. <strong>Homology Repair:</strong> Repair via the homologous non-sister chromatid resolves either as non-crossover gene conversions or full reciprocal crossovers.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="haplotypes">
+      <h2>5. Haplotype Block Structure & The Tag SNP Paradigm</h2>
+      <p>
+        Because recombination is restricted to narrow hotspots spaced 10–100 kb apart, the human genome is segmented into distinct <strong>haplotype blocks</strong>—stretches of high internal LD (<Katex tex="r^2 > 0.8" />) containing very few ancestral haplotypes.
+      </p>
+      <p>
+        This discovery enabled the <strong>Tag SNP paradigm</strong> (International HapMap Project): by genotyping only 500,000 to 1,000,000 strategically chosen Tag SNPs, researchers can statistically capture over 90% of all 10 million common variants in the human genome via LD correlation.
+      </p>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="ancestry">
+      <h2>6. Population Divergence in LD: African vs. Non-African Genomes</h2>
+      <p>
+        Modern humans originated in Africa <Katex tex="> 200,000" /> years ago. Non-African populations experienced a severe demographic bottleneck (Out-of-Africa migration <Katex tex="\sim 60,000" /> years ago), reducing effective population size and increasing genetic drift.
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Genomic Feature</th>
+              <th>African Ancestry Cohorts</th>
+              <th>European / Non-African Ancestry Cohorts</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Generations of Meiosis</strong></td>
+              <td><Katex tex="> 8,000" /> continuous generations</td>
+              <td>Fewer post-bottleneck generations</td>
+            </tr>
+            <tr>
+              <td><strong>Average Haplotype Block Size</strong></td>
+              <td>Short (5–15 kb)</td>
+              <td>Long (20–100 kb)</td>
+            </tr>
+            <tr>
+              <td><strong>Rate of LD Decay</strong></td>
+              <td>Extremely rapid over physical distance</td>
+              <td>Slow and extensive</td>
+            </tr>
+            <tr>
+              <td><strong>Tag SNP Efficiency</strong></td>
+              <td>Requires denser arrays (<Katex tex="> 2\text{M SNPs}" />)</td>
+              <td>High efficiency with standard arrays (<Katex tex="\sim 500\text{k SNPs}" />)</td>
+            </tr>
+            <tr>
+              <td><strong>Fine-Mapping Resolution</strong></td>
+              <td>High (narrow causal credible sets)</td>
+              <td>Low (many candidate SNPs in perfect LD)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="summary">
+      <h2>7. Summary & Next in the Statistical Genetics Series</h2>
+      <p>
+        Linkage Disequilibrium connects individual genotype markers across chromosomes. Next, we examine how genome-wide genotype correlations allow us to estimate the total genetic architecture of traits:
+      </p>
+      <div class="deep-dive-callout">
+        <div class="deep-dive-callout-title">
+          <Icon name="arrow-right" size={15} /> Continue to Part 3
+        </div>
+        <p>
+          <a href="/deep_dives/statgen-heritability-greml/" style="font-weight: 700; color: var(--color-accent);">
+            Part 3: Heritability Estimation: From Classical Twin Models to Genomic REML (GREML) &rarr;
+          </a>
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

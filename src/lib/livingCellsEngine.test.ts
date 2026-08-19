@@ -52,6 +52,57 @@ describe('LivingCellsEngine', () => {
     expect(centrosome).toBeDefined();
   });
 
+  it('guarantees 100% organelle containment within plasma membrane across all cell sizes', () => {
+    const engine = new LivingCellsEngine();
+    const radiiToTest = [18, 25, 35, 50, 65, 80];
+
+    for (const r of radiiToTest) {
+      // Test 50 randomized cell instances per radius (300 cells total)
+      for (let sample = 0; sample < 50; sample++) {
+        const cell = (engine as any).createCell(200, 200, false, r) as LivingCell;
+
+        // 1. Check Nucleus & Nuclear Pores
+        const nucOffsetDist = Math.hypot(cell.nucleusOffset.x * r, cell.nucleusOffset.y * r);
+        const nucOuterRadius = r * 0.25;
+        const maxNucleusReach = nucOffsetDist + nucOuterRadius;
+        expect(maxNucleusReach).toBeLessThanOrEqual(r * 0.45); // Safe core placement
+
+        // 2. Check All Organelles
+        for (const org of cell.organelles) {
+          if (org.type === 'mitochondria') {
+            const centerDist = r * org.dist;
+            const halfLen = org.length * 0.5;
+            const maxTipReach = centerDist + halfLen;
+            // Outermost tip of mitochondrion must be safely inside membrane (<= 0.65r)
+            expect(maxTipReach).toBeLessThanOrEqual(r * 0.65);
+          } else if (org.type === 'golgi') {
+            const centerDist = r * org.dist;
+            // Outermost vesicle
+            for (const v of org.vesicles) {
+              const vesicleDist = r * (0.05 + v.dist) + v.size;
+              const maxVesicleReach = centerDist + vesicleDist;
+              expect(maxVesicleReach).toBeLessThanOrEqual(r * 0.65);
+            }
+            // Outermost layer
+            const maxLayerReach = centerDist + r * (0.04 + (org.layers - 1) * 0.03);
+            expect(maxLayerReach).toBeLessThanOrEqual(r * 0.65);
+          } else if (org.type === 'er') {
+            // ER centered on nucleus
+            const maxErR = nucOuterRadius * (1.12 + (org.layers - 1) * 0.15);
+            const maxRibosomeDist = nucOuterRadius * (1.12 + 0.18) + 1.0;
+            const maxErReach = nucOffsetDist + Math.max(maxErR, maxRibosomeDist);
+            expect(maxErReach).toBeLessThanOrEqual(r * 0.55);
+          } else if (org.type === 'centrosome') {
+            const centerDist = r * org.dist;
+            const barLen = Math.max(1.1, r * 0.035);
+            const maxCentrosomeReach = centerDist + barLen;
+            expect(maxCentrosomeReach).toBeLessThanOrEqual(r * 0.55);
+          }
+        }
+      }
+    }
+  });
+
   it('preserves chromosome containment invariants throughout all 4 phases of mitosis', () => {
     const testRadii = [15, 20, 25, 30, 40];
     const testProgresses = [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95];
