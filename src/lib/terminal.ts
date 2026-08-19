@@ -1229,7 +1229,7 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    deepdive — computational genomics foundations, statistical genetics & concept posts' },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
-      { text: '    deepdive [statistical-genetics | gwas | models | splicing | pangenomics]' },
+      { text: '    deepdive [statgen | gwas | cdcv | imputation | qc | regression | stratification | manhattan | ldsc | finemapping | prs]' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       { text: '    Rigorous, first-principles explorations of essential computational genomics concepts,' },
@@ -1238,7 +1238,16 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: 'CATALOG & BLOG POSTS', tone: 'accent' },
       { text: '    → /deep_dives/', tone: 'accent', href: '/deep_dives/' },
       { text: '    → /deep_dives/statistical-genetics/ (Statistical Genetics: Quantitative Traits & Heritability)', tone: 'accent', href: '/deep_dives/statistical-genetics/' },
-      { text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies)', tone: 'accent', href: '/deep_dives/gwas/' },
+      { text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies: The Mathematical Engine)', tone: 'accent', href: '/deep_dives/gwas/' },
+      { text: '    → /deep_dives/gwas-biological-variation-cdcv/ (Part 1: Biological Variation & CDCV)', tone: 'accent', href: '/deep_dives/gwas-biological-variation-cdcv/' },
+      { text: '    → /deep_dives/gwas-genotyping-imputation/ (Part 2: SNP Microarrays & HMM Imputation)', tone: 'accent', href: '/deep_dives/gwas-genotyping-imputation/' },
+      { text: '    → /deep_dives/gwas-quality-control/ (Part 3: Rigorous Sample & Variant QC)', tone: 'accent', href: '/deep_dives/gwas-quality-control/' },
+      { text: '    → /deep_dives/gwas-association-statistics/ (Part 4: OLS, Logistic, Wald & Power)', tone: 'accent', href: '/deep_dives/gwas-association-statistics/' },
+      { text: '    → /deep_dives/gwas-population-stratification/ (Part 5: Confounding, PCA & Mixed Models)', tone: 'accent', href: '/deep_dives/gwas-population-stratification/' },
+      { text: '    → /deep_dives/gwas-multiple-testing-manhattan/ (Part 6: Multiple Testing & Manhattan Plot)', tone: 'accent', href: '/deep_dives/gwas-multiple-testing-manhattan/' },
+      { text: '    → /deep_dives/gwas-linkage-disequilibrium-ldsc/ (Part 7: Linkage Disequilibrium & LDSC)', tone: 'accent', href: '/deep_dives/gwas-linkage-disequilibrium-ldsc/' },
+      { text: '    → /deep_dives/gwas-fine-mapping-functional-genomics/ (Part 8: Fine-Mapping, SuSiE & Epigenomics)', tone: 'accent', href: '/deep_dives/gwas-fine-mapping-functional-genomics/' },
+      { text: '    → /deep_dives/gwas-polygenic-risk-scores-prs/ (Part 9: Polygenic Risk Scores & Clinical Translation)', tone: 'accent', href: '/deep_dives/gwas-polygenic-risk-scores-prs/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    gwas(1), paper(1), minimap2(1), fmindex(1), wfa(1), wgt(1)' },
@@ -2927,17 +2936,44 @@ export const COMMANDS: Record<string, Cmd> = {
 
   deepdive: {
     summary: 'browse Computational Genomics Deep Dives hub & concept posts',
-    usage: 'deepdive [statistical-genetics | gwas]',
+    usage: 'deepdive [statgen | gwas | cdcv | imputation | qc | regression | stratification | manhattan | ldsc | finemapping | prs]',
     run: ({ args }) => {
       const topic = (args[0] || '').toLowerCase();
       let href = '/deep_dives/';
       let title = 'Computational Genomics Deep Dives Hub';
-      if (topic.includes('stat') || topic.includes('genetic') || topic.includes('herit')) {
+      if (topic.includes('stat') || topic.includes('herit')) {
         href = '/deep_dives/statistical-genetics/';
         title = 'Statistical Genetics Deep Dive Post';
+      } else if (topic.includes('cdcv') || topic.includes('variation') || topic.includes('mendel') || topic.includes('hwe')) {
+        href = '/deep_dives/gwas-biological-variation-cdcv/';
+        title = 'Biological Variation & CDCV Deep Dive Post';
+      } else if (topic.includes('imput') || topic.includes('array') || topic.includes('microarray') || topic.includes('hmm') || topic.includes('pbwt')) {
+        href = '/deep_dives/gwas-genotyping-imputation/';
+        title = 'Genotyping & Imputation Deep Dive Post';
+      } else if (topic.includes('qc') || topic.includes('quality') || topic.includes('heterozyg') || topic.includes('inbreeding')) {
+        href = '/deep_dives/gwas-quality-control/';
+        title = 'GWAS Quality Control Deep Dive Post';
+      } else if (topic.includes('regress') || topic.includes('ols') || topic.includes('logistic') || topic.includes('power') || topic.includes('wald')) {
+        href = '/deep_dives/gwas-association-statistics/';
+        title = 'Association Statistics & Power Deep Dive Post';
+      } else if (topic.includes('strat') || topic.includes('pca') || topic.includes('lmm') || topic.includes('chopstick') || topic.includes('bolt')) {
+        href = '/deep_dives/gwas-population-stratification/';
+        title = 'Population Stratification & LMMs Deep Dive Post';
+      } else if (topic.includes('manhattan') || topic.includes('multiple') || topic.includes('bonferroni') || topic.includes('fdr')) {
+        href = '/deep_dives/gwas-multiple-testing-manhattan/';
+        title = 'Multiple Testing & Manhattan Plot Deep Dive Post';
+      } else if (topic.includes('ldsc') || topic.includes('linkage') || topic.includes('disequilibrium') || topic.includes('recomb')) {
+        href = '/deep_dives/gwas-linkage-disequilibrium-ldsc/';
+        title = 'Linkage Disequilibrium & LDSC Deep Dive Post';
+      } else if (topic.includes('fine') || topic.includes('susie') || topic.includes('pip') || topic.includes('credible') || topic.includes('coloc')) {
+        href = '/deep_dives/gwas-fine-mapping-functional-genomics/';
+        title = 'Fine-Mapping & Functional Biology Deep Dive Post';
+      } else if (topic.includes('prs') || topic.includes('polygenic') || topic.includes('liability') || topic.includes('falconer')) {
+        href = '/deep_dives/gwas-polygenic-risk-scores-prs/';
+        title = 'Polygenic Risk Scores (PRS) Deep Dive Post';
       } else if (topic === 'gwas') {
         href = '/deep_dives/gwas/';
-        title = 'GWAS Deep Dive Post';
+        title = 'GWAS Master Guide';
       }
       return {
         lines: [

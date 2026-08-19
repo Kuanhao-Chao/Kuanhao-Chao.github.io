@@ -99,6 +99,17 @@ const readingTime = "24 min read";
       <p>
         However, when linkage analysis was applied to common complex diseases (e.g. Type 2 Diabetes, Schizophrenia, Coronary Artery Disease, Crohn's disease), it failed almost completely. Complex diseases are not caused by single catastrophic coding mutations; rather, they follow the <strong>Common Disease–Common Variant (CDCV) hypothesis</strong>, where hundreds or thousands of common variants with subtle individual effect sizes (<Katex tex="\text{Odds Ratio} \approx 1.05 - 1.30" />) combine additively to shape disease liability. Uncovering this omnigenic architecture required shifting from small family pedigrees to <strong>unbiased population-scale association studies</strong>.
       </p>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Dedicated Deep Dive: Biological Variation & The CDCV Paradigm</h3>
+        <p>
+          Explore the biophysics of mutation (transitions vs. transversions), Hardy-Weinberg derivation, LOD score mathematics, and the Pritchard Omnigenic Model in full detail.
+        </p>
+        <a href="/deep_dives/gwas-biological-variation-cdcv/" class="algo-promo-btn">
+          <span>Read Full Deep Dive on Biological Variation</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
     </section>
 
     <!-- Chapter 2 -->
@@ -123,6 +134,17 @@ const readingTime = "24 min read";
         <Katex tex="G_{ij} = 0 \cdot P(G=0) + 1 \cdot P(G=1) + 2 \cdot P(G=2)" display={true} />
         Only well-imputed variants meeting the quality threshold (e.g. <Katex tex="R^2_{\text{info}} \ge 0.8" />) are retained for downstream association testing.
       </p>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Dedicated Deep Dive: SNP Microarrays & Statistical Imputation</h3>
+        <p>
+          Master the Li & Stephens genealogical copying model, HMM transition and emission formulations, PBWT scaling, and imputation quality metrics (<Katex tex="R^2_{\text{info}}" />).
+        </p>
+        <a href="/deep_dives/gwas-genotyping-imputation/" class="algo-promo-btn">
+          <span>Read Full Deep Dive on Genotype Imputation</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
     </section>
 
     <!-- Chapter 3 -->
@@ -172,6 +194,17 @@ const readingTime = "24 min read";
             </li>
           </ul>
         </div>
+      </div>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Dedicated Deep Dive: Rigorous Quality Control Protocols</h3>
+        <p>
+          Detailed mathematical explanations of sex chromosome inbreeding metrics (<Katex tex="F_{\text{inbreeding}}" />), autosomal heterozygosity outliers, pairwise IBD kinship estimation, and differential missingness tests.
+        </p>
+        <a href="/deep_dives/gwas-quality-control/" class="algo-promo-btn">
+          <span>Read Full Deep Dive on Quality Control</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
       </div>
     </section>
 
@@ -286,6 +319,17 @@ const readingTime = "24 min read";
         <div class="equation-body" style="margin-top: 0.5rem;">
           <Katex tex="\text{Odds Ratio (OR)} = e^{\beta_j}, \quad 95\% \text{ CI} = \left[ e^{\hat{\beta}_j - 1.96 \cdot \text{SE}}, \; e^{\hat{\beta}_j + 1.96 \cdot \text{SE}} \right]" display={true} />
         </div>
+      </div>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Dedicated Deep Dive: The Mathematical Association Engine</h3>
+        <p>
+          Derive the complete Frisch-Waugh-Lovell projection, analytical standard error equations, IRLS Newton-Raphson logistic regression, and non-centrality power formulas.
+        </p>
+        <a href="/deep_dives/gwas-association-statistics/" class="algo-promo-btn">
+          <span>Read Full Deep Dive on Association Statistics</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
       </div>
     </section>
 
@@ -402,6 +446,17 @@ const readingTime = "24 min read";
           </div>
         </div>
       </div>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Dedicated Deep Dive: Population Stratification Confounding</h3>
+        <p>
+          Master the algebraic proof of ancestry bias, SVD matrix decomposition, and the inner mechanics of Linear Mixed Models (EMMAX, BOLT-LMM, Regenie).
+        </p>
+        <a href="/deep_dives/gwas-population-stratification/" class="algo-promo-btn">
+          <span>Read Full Deep Dive on Population Stratification</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
     </section>
 
     <!-- Chapter 6 -->
@@ -452,6 +507,17 @@ const readingTime = "24 min read";
           </div>
         </div>
       </div>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Dedicated Deep Dive: Multiple Hypothesis Testing & The Manhattan Plot</h3>
+        <p>
+          Full spectral decomposition derivation of $5 \times 10^{-8}$, LD matrix eigenvalues, multi-ancestry threshold shifts, and FDR Benjamini-Hochberg alternatives.
+        </p>
+        <a href="/deep_dives/gwas-multiple-testing-manhattan/" class="algo-promo-btn">
+          <span>Read Full Deep Dive on Multiple Testing</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
     </section>
 
     <!-- Chapter 7 -->
@@ -486,6 +552,17 @@ const readingTime = "24 min read";
           <Katex tex="\ell_j = \sum_k r^2_{jk}" /> is the LD score of SNP <Katex tex="j" />. The slope reveals true heritability <Katex tex="h^2_{\text{SNP}}" />, while the intercept <Katex tex="1 + Na" /> measures pure uncorrected confounding (<Katex tex="a = 0" /> under perfect control)!
         </div>
       </div>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Dedicated Deep Dive: Linkage Disequilibrium & LDSC</h3>
+        <p>
+          Explore the biological mechanics of PRDM9 hotspots, $D, D', r^2$ derivations, and the complete mathematical proof of LD Score Regression (LDSC and S-LDSC).
+        </p>
+        <a href="/deep_dives/gwas-linkage-disequilibrium-ldsc/" class="algo-promo-btn">
+          <span>Read Full Deep Dive on Linkage Disequilibrium & LDSC</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
     </section>
 
     <!-- Chapter 8 -->
@@ -518,6 +595,17 @@ const readingTime = "24 min read";
           <br/>
           &bull; <strong>Deep Learning Foundation Models:</strong> <strong>OpenSpliceAI</strong> and <strong>Splam</strong> to evaluate cryptic splice disruption and neural sequence-to-function mutations.
         </p>
+      </div>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Dedicated Deep Dive: Post-GWAS Fine-Mapping & Functional Genomics</h3>
+        <p>
+          Master Wakefield ABF formulas, SuSiE IBSS variational inference, PolyFun/Sniff functional priors, eQTL colocalization ($PP_4$), and neural foundation models.
+        </p>
+        <a href="/deep_dives/gwas-fine-mapping-functional-genomics/" class="algo-promo-btn">
+          <span>Read Full Deep Dive on Fine-Mapping</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
       </div>
     </section>
 
@@ -572,6 +660,17 @@ const readingTime = "24 min read";
       <p>
         Because over 75% of historical GWAS participants were of European descent, PRSs constructed using European discovery weights suffer a <strong>2- to 4-fold accuracy loss</strong> when applied to individuals of African, East Asian, or Hispanic ancestries due to differences in LD architecture and allele frequencies. Addressing this gap through multi-ancestry cohorts (such as the NIH <i>All of Us</i> Research Program and <i>BioBank Japan</i>) is one of the most critical frontiers in modern computational genomics.
       </p>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Dedicated Deep Dive: Polygenic Risk Scores & Clinical Translation</h3>
+        <p>
+          Explore Bayesian shrinkage priors (LDpred2, PRS-CS), Falconer's liability threshold model, monogenic risk equivalence, and multi-ancestry PRS-CSx methods.
+        </p>
+        <a href="/deep_dives/gwas-polygenic-risk-scores-prs/" class="algo-promo-btn">
+          <span>Read Full Deep Dive on Polygenic Risk Scores</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
     </section>
 
     <!-- Chapter 10: Summary & Hands-On Visualizer -->

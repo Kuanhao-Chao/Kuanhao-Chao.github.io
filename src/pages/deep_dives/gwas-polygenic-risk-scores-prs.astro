@@ -1,0 +1,326 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Polygenic Risk Scores (PRS): Methodology, Clinical Liability Thresholds, and Cross-Ancestry Portability";
+const description = "A clinical and mathematical masterclass on Polygenic Risk Scores (PRS): Bayesian shrinkage models (LDpred2, PRS-CS), Falconer's liability threshold model, monogenic risk equivalence, and multi-ancestry PRS-CSx.";
+const readingTime = "18 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dives/gwas/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to GWAS Master Guide
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">GWAS Foundations · Part 9</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Translational & Clinical</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      For polygenic diseases like coronary artery disease, breast cancer, and type 2 diabetes, risk is not dictated by a single catastrophic mutation. Instead, it is the cumulative burden of thousands of small-effect variants across the genome. How do we mathematically aggregate GWAS summary statistics into an individual's <strong>Polygenic Risk Score (PRS)</strong>? How does <strong>Falconer's Liability Threshold Model</strong> connect continuous genetic liability to binary disease diagnosis? And how do we overcome the <strong>cross-ancestry portability drop</strong> to ensure equitable clinical genetics?
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#fundamental-prs">1. Fundamental Formulation of Polygenic Risk Scores</a></li>
+        <li><a href="#clumping-thresholding">2. Clumping and Thresholding (<Katex tex="C+T" />)</a></li>
+        <li><a href="#bayesian-shrinkage">3. Advanced Bayesian Shrinkage Models (LDpred2, PRS-CS, SBayesR)</a></li>
+        <li><a href="#liability-model">4. Falconer's Liability Threshold Model & Heritability Conversion</a></li>
+        <li><a href="#clinical-monogenic">5. Clinical Risk Stratification & Monogenic Equivalence</a></li>
+        <li><a href="#portability-crisis">6. The Cross-Ancestry Portability Crisis & Multi-Ancestry PRS-CSx</a></li>
+        <li><a href="#future">7. The Future: Multi-Omic & Deep Learning Integration</a></li>
+        <li><a href="#summary">8. Summary of the Complete GWAS Deep Dive Series</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="fundamental-prs">
+      <h2>1. Fundamental Formulation of Polygenic Risk Scores</h2>
+      <p>
+        A Polygenic Risk Score (PRS) quantifies an individual's genetic predisposition to a complex trait or disease by summing the effect-allele dosages weighted by their marginal effect sizes estimated from a large discovery GWAS:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Polygenic Risk Score (PRS) Formulation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{PRS}_i = \sum_{j=1}^M \hat{w}_j \cdot G_{ij}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="G_{ij} \in [0, 2]" /> = Genotype dosage of individual <Katex tex="i" /> for variant <Katex tex="j" /> &emsp;|&emsp;
+          <Katex tex="\hat{w}_j" /> = Posterior effect weight for variant <Katex tex="j" />.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="clumping-thresholding">
+      <h2>2. Clumping and Thresholding (<Katex tex="C+T" />)</h2>
+      <p>
+        The simplest and most classical approach to constructing a PRS is <strong>Clumping and Thresholding (<Katex tex="C+T" />)</strong>:
+      </p>
+
+      <div class="deep-dive-callout callout-math">
+        <div class="deep-dive-callout-title">
+          <Icon name="sliders" size={15} /> The Two-Step <Katex tex="C+T" /> Algorithm
+        </div>
+        <p>
+          1. <strong>LD Clumping:</strong> Greedily iterates through GWAS variants from lowest to highest p-value, removing any variant in high linkage disequilibrium (<Katex tex="r^2 > 0.1" /> or <Katex tex="0.2" /> within a 250–500 kb window) with a more significant lead SNP.
+          <br/>
+          2. <strong>P-Value Thresholding:</strong> Evaluates a grid of p-value cutoffs (<Katex tex="p_T \in \{5\times 10^{-8}, 10^{-6}, 10^{-4}, 10^{-2}, 0.05, 0.1, 0.5, 1.0\}" />) in an independent tuning dataset to find the threshold that maximizes prediction <Katex tex="R^2" /> or AUROC.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="bayesian-shrinkage">
+      <h2>3. Advanced Bayesian Shrinkage Models (LDpred2, PRS-CS, SBayesR)</h2>
+      <p>
+        While <Katex tex="C+T" /> discards correlated variants, modern methods retain all genome-wide variants by modeling Linkage Disequilibrium directly and shrinking marginal GWAS summary statistics toward their joint conditional effect sizes:
+      </p>
+
+      <div class="summary-table-wrap">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Prior Distribution on Effect Sizes</th>
+              <th>Optimization / Sampling Algorithm</th>
+              <th>Key Strengths</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>LDpred2 (Privé et al. 2020)</strong></td>
+              <td>Point-Normal Spike-and-Slab: <Katex tex="\beta_j \sim (1 - p)\delta_0 + p \mathcal{N}\left(0, \frac{h^2}{M p}\right)" /></td>
+              <td>MCMC Gibbs Sampling with automatic hyperparameter tuning.</td>
+              <td>State-of-the-art accuracy; robust to model misspecification.</td>
+            </tr>
+            <tr>
+              <td><strong>PRS-CS (Ge et al. 2019)</strong></td>
+              <td>Continuous Horseshoe Shrinkage: <Katex tex="\beta_j \sim \mathcal{N}(0, \sigma^2 \phi \psi_j)" /></td>
+              <td>Coordinate Descent / Gibbs Sampling.</td>
+              <td>Extremely fast; adapts locally to strong and weak genetic signals.</td>
+            </tr>
+            <tr>
+              <td><strong>SBayesR (Lloyd-Jones 2019)</strong></td>
+              <td>4-Component Normal Mixture: <Katex tex="\beta_j \sim \sum_{k=1}^4 \pi_k \mathcal{N}(0, \gamma_k \sigma_g^2)" /></td>
+              <td>MCMC iteration over mixture components.</td>
+              <td>Simultaneously estimates heritability and genetic architecture.</td>
+            </tr>
+            <tr>
+              <td><strong>MegaPRS / LDAK (Speed 2020)</strong></td>
+              <td>Flexible Mixture-of-Priors with LD-dependent weights.</td>
+              <td>Fast penalized regression.</td>
+              <td>Incorporates non-uniform per-SNP heritability models.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="liability-model">
+      <h2>4. Falconer's Liability Threshold Model & Heritability Conversion</h2>
+      <p>
+        In 1965, Douglas Falconer introduced the <strong>Liability Threshold Model</strong> to reconcile Mendelian continuous polygenic inheritance with discrete binary disease diagnosis (e.g. diagnosed with Type 2 Diabetes vs. healthy):
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Falconer's Liability Threshold Model</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="L \sim \mathcal{N}(0, 1), \qquad \text{Disease Status } y = \begin{cases} 1 \text{ (Case)}, & \text{if } L \ge T \\ 0 \text{ (Control)}, & \text{if } L < T \end{cases}" display={true} />
+        </div>
+        <div class="deep-dive-equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="T = \Phi^{-1}(1 - K)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="L" /> = Unobserved continuous liability (genetic + environmental factors) &emsp;|&emsp;
+          <Katex tex="K" /> = Population disease prevalence &emsp;|&emsp;
+          <Katex tex="T" /> = Clinical diagnostic threshold.
+        </div>
+      </div>
+
+      <h3>Heritability Transformation (Lee et al. 2011)</h3>
+      <p>
+        Observed-scale heritability from a case-control study (<Katex tex="h^2_{\text{obs}}" /> with sample case proportion <Katex tex="P" />) must be transformed to the latent liability scale (<Katex tex="h^2_L" />) to compare against population heritability:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Liability-Scale Heritability Transformation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="h^2_L = h^2_{\text{obs}} \cdot \frac{K^2 (1 - K)^2}{z^2 P (1 - P)}, \qquad z = \phi(T) = \frac{1}{\sqrt{2\pi}} e^{-T^2 / 2}" display={true} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="clinical-monogenic">
+      <h2>5. Clinical Risk Stratification & Monogenic Equivalence</h2>
+      <p>
+        In 2018, Amit Khera et al. (<i>Nature Genetics</i>) demonstrated that individuals in the extreme tails of the polygenic risk distribution face disease susceptibility comparable to rare, high-penetrance monogenic mutations:
+      </p>
+
+      <div class="deep-dive-callout callout-clinical">
+        <div class="deep-dive-callout-title">
+          <Icon name="activity" size={15} /> Clinical Actionability in Coronary Artery Disease (CAD)
+        </div>
+        <p>
+          &bull; <strong>Top 5% PRS for CAD:</strong> Conveys a <strong>3- to 5-fold increased risk of myocardial infarction</strong>, identical to carrying a rare monogenic mutation in *LDLR* (familial hypercholesterolemia).
+          <br/>
+          &bull; <strong>Clinical Prevalence:</strong> Monogenic CAD mutations affect &lt; 0.4% of the population; high polygenic risk affects <strong>5.0% of the population (a 12-fold greater clinical burden)</strong>!
+          <br/>
+          &bull; <strong>Preventive Intervention:</strong> High-risk individuals benefit disproportionately from early statin therapy and lifestyle modifications, preventing heart attacks decades before standard biomarker elevation.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="portability-crisis">
+      <h2>6. The Cross-Ancestry Portability Crisis & Multi-Ancestry PRS-CSx</h2>
+      <p>
+        Because over 75% of historical GWAS discovery cohorts were of European ancestry, PRSs constructed using European summary statistics suffer an alarming <strong>2- to 4-fold prediction accuracy drop</strong> when applied to individuals of African, East Asian, Hispanic, or South Asian descent:
+      </p>
+
+      <div class="deep-dive-callout callout-warning">
+        <div class="deep-dive-callout-title">
+          <Icon name="alert-triangle" size={15} /> Biological Drivers of the Portability Drop
+        </div>
+        <p>
+          1. <strong>Linkage Disequilibrium Differences:</strong> European tag SNPs are not in LD with causal variants in African populations due to shorter ancestral LD blocks.
+          <br/>
+          2. <strong>Allele Frequency Divergence:</strong> Variants common in Europe may be rare in East Asia (and vice versa).
+          <br/>
+          3. <strong>Causal Effect Heterogeneity:</strong> Gene-environment and epistatic interactions across global environments.
+        </p>
+      </div>
+
+      <h3>Multi-Ancestry Solutions: PRS-CSx</h3>
+      <p>
+        <strong>PRS-CSx (Ruan et al. 2022)</strong> models discovery GWAS from multiple populations simultaneously, coupling continuous shrinkage priors across ancestries while integrating population-specific LD reference panels. This significantly narrows the equity gap in clinical genetic prediction.
+      </p>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="future">
+      <h2>7. The Future: Multi-Omic & Deep Learning Integration</h2>
+      <p>
+        The frontier of polygenic prediction combines standard additive PRS with:
+        <br/>
+        &bull; <strong>Transcriptomic & Proteomic Risk Scores:</strong> Incorporating predicted circulating protein levels from deep sequence-to-function models (Borzoi, AlphaGenome).
+        <br/>
+        &bull; <strong>Non-linear & Epistatic Neural Aggregators:</strong> Graph neural networks and transformer decoders that capture gene regulatory networks (DeepRVAT).
+      </p>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="summary">
+      <h2>8. Summary of the Complete GWAS Deep Dive Series</h2>
+      <p>
+        Congratulations! You have explored the complete 9-part mathematical and biological architecture of Genome-Wide Association Studies:
+      </p>
+
+      <div class="summary-table-wrap">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>Part</th>
+              <th>Topic</th>
+              <th>Key Mathematical Formulation</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Part 1</strong></td>
+              <td>Biological Variation & CDCV</td>
+              <td><Katex tex="p^2 + 2pq + q^2 = 1" />, LOD Score <Katex tex="Z(\theta)" /></td>
+              <td><a href="/deep_dives/gwas-biological-variation-cdcv/">Read Part 1</a></td>
+            </tr>
+            <tr>
+              <td><strong>Part 2</strong></td>
+              <td>Microarrays & Imputation</td>
+              <td>HMM <Katex tex="P(S_m \mid G)" />, <Katex tex="R^2_{\text{info}}" /></td>
+              <td><a href="/deep_dives/gwas-genotyping-imputation/">Read Part 2</a></td>
+            </tr>
+            <tr>
+              <td><strong>Part 3</strong></td>
+              <td>Quality Control Protocols</td>
+              <td><Katex tex="F_{\text{inbreeding}}" />, Kinship <Katex tex="\hat{\pi} > 0.20" /></td>
+              <td><a href="/deep_dives/gwas-quality-control/">Read Part 3</a></td>
+            </tr>
+            <tr>
+              <td><strong>Part 4</strong></td>
+              <td>Association Statistics</td>
+              <td><Katex tex="\text{SE}(\hat{\beta}) = \sigma / \sqrt{2Np(1-p)}" />, Power <Katex tex="\lambda" /></td>
+              <td><a href="/deep_dives/gwas-association-statistics/">Read Part 4</a></td>
+            </tr>
+            <tr>
+              <td><strong>Part 5</strong></td>
+              <td>Population Stratification</td>
+              <td>SVD <Katex tex="\mathbf{G}^* = \mathbf{U}\mathbf{\Sigma}\mathbf{V}^T" />, LMM <Katex tex="\mathbf{K}" />, <Katex tex="\lambda_{GC}" /></td>
+              <td><a href="/deep_dives/gwas-population-stratification/">Read Part 5</a></td>
+            </tr>
+            <tr>
+              <td><strong>Part 6</strong></td>
+              <td>Multiple Testing</td>
+              <td><Katex tex="\alpha = 0.05 / 10^6 = 5 \times 10^{-8}" />, <Katex tex="M_{\text{eff}}" /></td>
+              <td><a href="/deep_dives/gwas-multiple-testing-manhattan/">Read Part 6</a></td>
+            </tr>
+            <tr>
+              <td><strong>Part 7</strong></td>
+              <td>Linkage Disequilibrium</td>
+              <td><Katex tex="r^2 = D^2 / (p_A q_A p_B q_B)" />, LDSC <Katex tex="\mathbb{E}[\chi^2] = 1 + \frac{Nh^2}{M}\ell + Na" /></td>
+              <td><a href="/deep_dives/gwas-linkage-disequilibrium-ldsc/">Read Part 7</a></td>
+            </tr>
+            <tr>
+              <td><strong>Part 8</strong></td>
+              <td>Fine-Mapping & Functional Biology</td>
+              <td>Wakefield ABF, PIP, SuSiE <Katex tex="\text{CS}_{95\%}" /></td>
+              <td><a href="/deep_dives/gwas-fine-mapping-functional-genomics/">Read Part 8</a></td>
+            </tr>
+            <tr>
+              <td><strong>Part 9</strong></td>
+              <td>Polygenic Risk Scores</td>
+              <td><Katex tex="\text{PRS} = \sum \hat{w}_j G_j" />, Liability <Katex tex="h^2_L" /></td>
+              <td><a href="/deep_dives/gwas-polygenic-risk-scores-prs/">Read Part 9</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="algo-promo-card" style="margin-top: 1.5rem;">
+        <h3>🚀 Return to the GWAS Master Guide & Interactive Visualizers</h3>
+        <p>
+          Experience live interactive OLS regression sandboxes, multi-ancestry PCA simulations, and multi-chromosome Manhattan explorers.
+        </p>
+        <a href="/deep_dives/gwas/" class="algo-promo-btn">
+          <span>Return to GWAS Master Guide</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

@@ -1,0 +1,349 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "The Mathematical Association Engine: OLS, Logistic Regression, Wald Statistics, and Statistical Power";
+const description = "A rigorous mathematical derivation of single-variant association testing: additive dosage models, the Frisch-Waugh-Lovell theorem, analytical standard errors, logistic regression MLE via IRLS, and statistical power equations.";
+const readingTime = "22 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dives/gwas/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to GWAS Master Guide
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">GWAS Foundations · Part 4</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Advanced & Mathematical</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      At the computational core of every GWAS lies a statistical engine that fits millions of linear or logistic regression models across hundreds of thousands of individuals. How are non-genetic covariates orthogonalized? Why does standard error scale inversely with <Katex tex="\sqrt{N \cdot \text{MAF} \cdot (1 - \text{MAF})}" />? And how do we calculate the exact sample size needed to achieve 80% power at genome-wide significance? This deep dive provides the complete, first-principles mathematical derivations.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#encoding">1. Genotype Encoding Models (Additive, Dominant, Recessive)</a></li>
+        <li><a href="#ols-derivation">2. Quantitative Traits: Ordinary Least Squares (OLS) Derivation</a></li>
+        <li><a href="#fwl-theorem">3. Orthogonalizing Covariates: The Frisch-Waugh-Lovell Theorem</a></li>
+        <li><a href="#se-scaling">4. Analytical Standard Error & Variance Scaling Under HWE</a></li>
+        <li><a href="#logistic-mle">5. Binary Traits: Logistic Regression & Odds Ratios via IRLS</a></li>
+        <li><a href="#hypothesis-tests">6. Wald Test vs. Score Test vs. Likelihood Ratio Test</a></li>
+        <li><a href="#power-math">7. Analytical Power Scaling & Non-Centrality Parameters</a></li>
+        <li><a href="#winners-curse">8. The Winner's Curse & Effect Size Overestimation</a></li>
+        <li><a href="#summary">9. Summary & Next Steps in the GWAS Series</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="encoding">
+      <h2>1. Genotype Encoding Models (Additive, Dominant, Recessive)</h2>
+      <p>
+        For a biallelic variant with reference allele <Katex tex="A" /> and minor (effect) allele <Katex tex="B" />, we map discrete diploid genotypes into numerical values for regression:
+      </p>
+
+      <div class="summary-table-wrap">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>Genetic Model</th>
+              <th>Encoding <Katex tex="G \in \{AA, AB, BB\}" /></th>
+              <th>Biological Hypothesis</th>
+              <th>Degrees of Freedom</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Additive Model (Standard)</strong></td>
+              <td><Katex tex="G \in \{0, 1, 2\}" /></td>
+              <td>Each additional copy of allele <Katex tex="B" /> shifts phenotype linearly by <Katex tex="\beta" />.</td>
+              <td>1</td>
+            </tr>
+            <tr>
+              <td><strong>Dominant Model</strong></td>
+              <td><Katex tex="G \in \{0, 1, 1\}" /></td>
+              <td>One copy of allele <Katex tex="B" /> is sufficient to produce full phenotypic change.</td>
+              <td>1</td>
+            </tr>
+            <tr>
+              <td><strong>Recessive Model</strong></td>
+              <td><Katex tex="G \in \{0, 0, 1\}" /></td>
+              <td>Two copies of allele <Katex tex="B" /> are required to confer phenotypic change.</td>
+              <td>1</td>
+            </tr>
+            <tr>
+              <td><strong>Genotypic Model</strong></td>
+              <td>Two dummy variables <Katex tex="(D_1, D_2)" /></td>
+              <td>General unconstrained model allowing arbitrary dominance deviations.</td>
+              <td>2</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="deep-dive-callout callout-math">
+        <div class="deep-dive-callout-title">
+          <Icon name="check-circle" size={15} /> Why the Additive Model is Universally Preferred
+        </div>
+        <p>
+          Empirical and theoretical population genetics shows that the additive model captures >95% of total additive genetic variance even when true biological non-linearities exist. It preserves maximal statistical power with 1 degree of freedom without incurring penalties for multiple genetic model testing.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="ols-derivation">
+      <h2>2. Quantitative Traits: Ordinary Least Squares (OLS) Derivation</h2>
+      <p>
+        For a continuous trait vector <Katex tex="\mathbf{y} \in \mathbb{R}^N" /> (e.g. standing height, LDL cholesterol, systolic blood pressure), we formulate the single-variant linear model:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Single-Variant Linear Regression Formulation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbf{y} = \alpha \mathbf{1}_N + \mathbf{x}_j \beta_j + \mathbf{Z} \boldsymbol{\gamma} + \boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \sigma^2 \mathbf{I}_N)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\mathbf{x}_j \in \mathbb{R}^N" /> = Additive dosage vector for variant <Katex tex="j" /> &emsp;|&emsp;
+          <Katex tex="\beta_j" /> = Additive effect size &emsp;|&emsp;
+          <Katex tex="\mathbf{Z} \in \mathbb{R}^{N \times K}" /> = Covariate matrix (Age, Sex, Age², Ancestry PCs).
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="fwl-theorem">
+      <h2>3. Orthogonalizing Covariates: The Frisch-Waugh-Lovell Theorem</h2>
+      <p>
+        Fitting the full regression for every one of 30 million variants is computationally wasteful. The <strong>Frisch-Waugh-Lovell (FWL) theorem</strong> allows us to project out the covariates <Katex tex="\mathbf{Z}" /> once upfront for the entire dataset.
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">FWL Orthogonal Projection Operator</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbf{M}_{\mathbf{Z}} = \mathbf{I}_N - \mathbf{Z} (\mathbf{Z}^T \mathbf{Z})^{-1} \mathbf{Z}^T" display={true} />
+        </div>
+        <div class="deep-dive-equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="\mathbf{y}^* = \mathbf{M}_{\mathbf{Z}} \mathbf{y}, \qquad \mathbf{x}_j^* = \mathbf{M}_{\mathbf{Z}} \mathbf{x}_j" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\mathbf{M}_{\mathbf{Z}}" /> is a symmetric idempotent projection matrix (<Katex tex="\mathbf{M}_{\mathbf{Z}}^2 = \mathbf{M}_{\mathbf{Z}}" />) that projects vectors onto the orthogonal complement of the column space of <Katex tex="\mathbf{Z}" />.
+        </div>
+      </div>
+
+      <p>
+        The exact multiple-regression effect estimate <Katex tex="\hat{\beta}_j" /> is algebraically identical to univariate regression on the residualized vectors:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Closed-Form OLS Effect Estimator</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\hat{\beta}_j = (\mathbf{x}_j^{*T} \mathbf{x}_j^*)^{-1} \mathbf{x}_j^{*T} \mathbf{y}^* = \frac{\sum_{i=1}^N (x_{ij}^* - \bar{x}_j^*)(y_i^* - \bar{y}^*)}{\sum_{i=1}^N (x_{ij}^* - \bar{x}_j^*)^2} = \frac{\text{Cov}(x_j^*, y^*)}{\text{Var}(x_j^*)}" display={true} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="se-scaling">
+      <h2>4. Analytical Standard Error & Variance Scaling Under HWE</h2>
+      <p>
+        Under Hardy-Weinberg Equilibrium with minor allele frequency <Katex tex="p_j = \text{MAF}" />, the expected variance of the additive genotype is:
+        <br/>
+        <Katex tex="\text{Var}(X_j) = \mathbb{E}[X_j^2] - (\mathbb{E}[X_j])^2 = (0 \cdot p^2 + 1 \cdot 2pq + 4 \cdot q^2) - (2q)^2 = 2pq + 4q^2 - 4q^2 = 2p_j (1 - p_j)" display={true} />
+      </p>
+
+      <p>
+        The variance of the OLS estimator is:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Exact Analytical Standard Error Formulation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{Var}(\hat{\beta}_j) = \frac{\sigma^2}{\sum_{i=1}^N (X_{ij} - \bar{X}_j)^2} = \frac{\sigma^2}{N \cdot \text{Var}(X_j)} = \frac{\sigma^2}{2 N p_j (1 - p_j)}" display={true} />
+        </div>
+        <div class="deep-dive-equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="\text{SE}(\hat{\beta}_j) = \frac{\sigma}{\sqrt{2 N p_j (1 - p_j)}}" display={true} />
+        </div>
+      </div>
+
+      <div class="deep-dive-callout callout-math">
+        <div class="deep-dive-callout-title">
+          <Icon name="sparkles" size={15} /> Key Insights on Standard Error Scaling
+        </div>
+        <p>
+          &bull; <strong>Sample Size (<Katex tex="N" />):</strong> Doubling the sample size reduces the standard error by <Katex tex="\sqrt{2} \approx 1.414\times" />.
+          <br/>
+          &bull; <strong>Minor Allele Frequency (<Katex tex="p_j" />):</strong> As <Katex tex="p_j \to 0" /> (rare variants), <Katex tex="2p_j(1-p_j) \to 0" />, causing the standard error to explode! This explains why rare variants require dramatically larger sample sizes to reach statistical significance.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="logistic-mle">
+      <h2>5. Binary Traits: Logistic Regression & Odds Ratios via IRLS</h2>
+      <p>
+        For binary clinical phenotypes <Katex tex="y_i \in \{0, 1\}" /> (e.g. Type 2 Diabetes case vs. control), we model the probability <Katex tex="\pi_i = P(y_i = 1 \mid \mathbf{x}_i)" /> using the logistic sigmoid link:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Logistic Regression Formulation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{logit}(\pi_i) = \ln\left( \frac{\pi_i}{1 - \pi_i} \right) = \alpha + x_{ij} \beta_j + \mathbf{z}_i^T \boldsymbol{\gamma} \implies \pi_i = \frac{1}{1 + e^{-(\alpha + x_{ij}\beta_j + \mathbf{z}_i^T\boldsymbol{\gamma})}}" display={true} />
+        </div>
+      </div>
+
+      <h3>Iteratively Reweighted Least Squares (IRLS) / Newton-Raphson</h3>
+      <p>
+        The log-likelihood function across <Katex tex="N" /> independent observations is:
+        <br/>
+        <Katex tex="\ell(\boldsymbol{\theta}) = \sum_{i=1}^N \left[ y_i \ln \pi_i + (1 - y_i) \ln(1 - \pi_i) \right]" display={true} />
+        We maximize <Katex tex="\ell(\boldsymbol{\theta})" /> iteratively using the gradient (score vector) <Katex tex="\mathbf{U}(\boldsymbol{\theta})" /> and Hessian (Fisher Information matrix) <Katex tex="\mathbf{I}(\boldsymbol{\theta})" />:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Newton-Raphson Parameter Update</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbf{U}(\boldsymbol{\theta}) = \mathbf{X}^T (\mathbf{y} - \boldsymbol{\pi}), \qquad \mathbf{I}(\boldsymbol{\theta}) = \mathbf{X}^T \mathbf{W} \mathbf{X} \quad \left( W_{ii} = \pi_i (1 - \pi_i) \right)" display={true} />
+        </div>
+        <div class="deep-dive-equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="\boldsymbol{\theta}^{(t+1)} = \boldsymbol{\theta}^{(t)} + \left[ \mathbf{X}^T \mathbf{W}^{(t)} \mathbf{X} \right]^{-1} \mathbf{X}^T (\mathbf{y} - \boldsymbol{\pi}^{(t)})" display={true} />
+        </div>
+      </div>
+
+      <h3>Odds Ratio (OR) & 95% Confidence Interval</h3>
+      <p>
+        The regression coefficient <Katex tex="\beta_j" /> represents the log-odds ratio per additional minor allele:
+        <br/>
+        <Katex tex="\text{Odds Ratio (OR)} = \exp(\beta_j), \qquad 95\% \text{ CI} = \left[ \exp(\hat{\beta}_j - 1.96 \cdot \text{SE}), \; \exp(\hat{\beta}_j + 1.96 \cdot \text{SE}) \right]" display={true} />
+      </p>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="hypothesis-tests">
+      <h2>6. Wald Test vs. Score Test vs. Likelihood Ratio Test</h2>
+      <p>
+        To test the null hypothesis <Katex tex="H_0: \beta_j = 0" /> (no genetic association), three classical asymptotic tests can be used:
+      </p>
+
+      <div class="summary-table-wrap">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>Statistical Test</th>
+              <th>Test Statistic Formula</th>
+              <th>Computational Cost in GWAS</th>
+              <th>Preferred Tool Usage</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Wald Test</strong></td>
+              <td><Katex tex="W = \frac{\hat{\beta}_j^2}{\text{Var}(\hat{\beta}_j)} \sim \chi^2(df=1)" /></td>
+              <td>Requires fitting the full model (MLE) for every single variant.</td>
+              <td>Standard in OLS and converged logistic regression (PLINK).</td>
+            </tr>
+            <tr>
+              <td><strong>Score Test (Rao)</strong></td>
+              <td><Katex tex="S = \frac{\mathbf{U}_j(0)^2}{\mathbf{I}_{jj}(0)} \sim \chi^2(df=1)" /></td>
+              <td>Fits null model (covariates only) ONCE upfront. Extremely fast!</td>
+              <td>Ultra-fast biobank tools (Regenie Step 2, SAIGE).</td>
+            </tr>
+            <tr>
+              <td><strong>Likelihood Ratio Test (LRT)</strong></td>
+              <td><Katex tex="\Lambda = 2 \left[ \ell(\hat{\boldsymbol{\theta}}_{\text{full}}) - \ell(\hat{\boldsymbol{\theta}}_{\text{null}}) \right]" /></td>
+              <td>Requires fitting both null and alternative models per variant.</td>
+              <td>Gold-standard benchmark; rarely used at scale.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="power-math">
+      <h2>7. Analytical Power Scaling & Non-Centrality Parameters</h2>
+      <p>
+        Under the alternative hypothesis <Katex tex="H_1: \beta_j \neq 0" />, the Wald test statistic follows a <strong>non-central Chi-Square distribution</strong> <Katex tex="\chi^2(df = 1, \lambda)" /> with non-centrality parameter <Katex tex="\lambda" />:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Non-Centrality Parameter (NCP) & Power Equation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\lambda = N \cdot \frac{2 p_j (1 - p_j) \beta_j^2}{\sigma^2} = N \cdot \frac{q_j^2}{1 - q_j^2}" display={true} />
+        </div>
+        <div class="deep-dive-equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="\text{Power} = 1 - \Phi\left( z_{\alpha/2} - \sqrt{\lambda} \right) + \Phi\left( -z_{\alpha/2} - \sqrt{\lambda} \right)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="q_j^2 = \frac{2 p_j (1 - p_j) \beta_j^2}{\sigma^2}" /> is the proportion of total phenotypic variance explained by variant <Katex tex="j" /> &emsp;|&emsp;
+          <Katex tex="z_{\alpha/2} = \Phi^{-1}(1 - 2.5 \times 10^{-8}) \approx 5.451" /> for genome-wide significance.
+        </div>
+      </div>
+
+      <p>
+        To achieve <strong>80% statistical power</strong> (<Katex tex="\text{Power} = 0.80 \implies \sqrt{\lambda} \ge 5.451 + 0.842 = 6.293 \implies \lambda \ge 39.6" />) for a variant explaining <Katex tex="q^2 = 0.05\%" /> of trait variance:
+        <br/>
+        <Katex tex="N \ge \frac{39.6}{0.0005} \approx \mathbf{79{,}200\text{ individuals}}" display={true} />
+        This elegant formula explains why modern biobanks (such as the UK Biobank with 500,000 participants) were indispensable for uncovering the polygenic architecture of human complex traits!
+      </p>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="winners-curse">
+      <h2>8. The Winner's Curse & Effect Size Overestimation</h2>
+      <p>
+        Because a variant is only discovered if its test statistic clears the stringent threshold <Katex tex="p < 5 \times 10^{-8}" /> (<Katex tex="|t_j| > 5.45" />), newly discovered variants on the borderline of statistical power will inevitably have their effect sizes overestimated in the discovery cohort.
+      </p>
+
+      <div class="deep-dive-callout callout-warning">
+        <div class="deep-dive-callout-title">
+          <Icon name="alert-triangle" size={15} /> The Winner's Curse Mechanism
+        </div>
+        <p>
+          At low statistical power (e.g. 20%), a variant only clears the threshold if random noise aligned positively with the true effect (<Katex tex="\hat{\beta} = \beta_{\text{true}} + \epsilon_{\text{noise}}" />). Consequently, the observed <Katex tex="\hat{\beta}_{\text{discovery}}" /> is systematically biased upwards. In independent replication cohorts, the estimated effect size naturally attenuates toward its true mean.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 9 -->
+    <section id="summary">
+      <h2>9. Summary & Next Steps in the GWAS Series</h2>
+      <p>
+        The mathematical association engine bridges genetic dosages to phenotypes using orthogonalized linear and logistic regression models, governed by closed-form standard errors and power scaling.
+      </p>
+
+      <div class="algo-promo-card">
+        <h3>Continue to Part 5: Population Stratification & Confounding Conquered</h3>
+        <p>
+          Learn how to solve the infamous "chopsticks problem" using EIGENSTRAT Ancestry PCA and Linear Mixed Models (LMM: BOLT-LMM, Regenie).
+        </p>
+        <a href="/deep_dives/gwas-population-stratification/" class="algo-promo-btn">
+          <span>Read Part 5: Population Stratification</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
+    </section>
+  </article>
+</BaseLayout>
