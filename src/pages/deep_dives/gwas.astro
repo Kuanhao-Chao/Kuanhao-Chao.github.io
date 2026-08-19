@@ -6,8 +6,8 @@ import '../../styles/deepDive.css';
 import 'katex/dist/katex.min.css';
 
 const title = "Genome-Wide Association Studies (GWAS): The Mathematical Engine of Trait Mapping";
-const description = "A first-principles, rigorous exploration of Genome-Wide Association Studies (GWAS) — from genotype dosage matrices and OLS regression to population stratification PCA, Linkage Disequilibrium, and Polygenic Risk Scores.";
-const readingTime = "18 min read";
+const description = "A comprehensive, first-principles exploration of Genome-Wide Association Studies (GWAS) — from biological variation, genotyping arrays, and QC protocols to OLS/LMM regression, ancestry PCA confounding, fine-mapping, and clinical Polygenic Risk Scores.";
+const readingTime = "24 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">
@@ -36,8 +36,27 @@ const readingTime = "18 min read";
 
     <!-- Lead / Introduction -->
     <p class="deep-dive-lead">
-      How do 3 billion base pairs of human DNA translate into phenotypic diversity, disease predisposition, and complex human traits? <strong>Genome-Wide Association Studies (GWAS)</strong> provide the foundational statistical and algorithmic bridge connecting population-scale genotype matrices to quantitative traits and clinical risk.
+      How do 3.2 billion base pairs of human DNA translate into phenotypic diversity, disease predisposition, and complex human traits? <strong>Genome-Wide Association Studies (GWAS)</strong> provide the foundational statistical and algorithmic bridge connecting population-scale genotype matrices to quantitative traits, cellular phenotypes, and clinical disease risk.
     </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#ch1">1. Biological Variation & Paradigm Shift</a></li>
+        <li><a href="#ch2">2. Microarrays & Statistical Imputation</a></li>
+        <li><a href="#ch3">3. Step-by-Step Quality Control (QC)</a></li>
+        <li><a href="#ch4">4. Mathematical Association Engine (OLS)</a></li>
+        <li><a href="#ch5">5. Confounding & Population Stratification</a></li>
+        <li><a href="#ch6">6. Multiple Testing & Manhattan Plot</a></li>
+        <li><a href="#ch7">7. Linkage Disequilibrium & Fine-Mapping</a></li>
+        <li><a href="#ch8">8. Post-GWAS Functional Genomics</a></li>
+        <li><a href="#ch9">9. Polygenic Risk Scores (PRS)</a></li>
+        <li><a href="#summary">10. Summary Cheat-Sheet & Visualizer</a></li>
+      </ol>
+    </div>
 
     <!-- Callout: Executive Summary -->
     <div class="deep-dive-callout">
@@ -45,15 +64,127 @@ const readingTime = "18 min read";
         <Icon name="sparkles" size={15} /> Executive Summary & Core Mechanisms
       </div>
       <p>
-        GWAS tests millions of genetic variants across cohorts of tens to hundreds of thousands of individuals using <strong>additive linear/logistic regression</strong>. To discover genuine biological signals, a GWAS must rigorously solve two major statistical challenges: <strong>population stratification confounding</strong> (via Ancestry PCA or Linear Mixed Models) and <strong>massive multiple testing</strong> (via the genome-wide Bonferroni threshold <Katex tex="p < 5 \times 10^{-8}" />).
+        GWAS queries millions of genetic markers across hundreds of thousands of individuals using <strong>additive regression</strong>. To discover genuine biological signals, a GWAS must rigorously solve two major statistical challenges: <strong>population stratification confounding</strong> (via Ancestry PCA or Linear Mixed Models) and <strong>massive multiple testing</strong> (via the genome-wide Bonferroni threshold <Katex tex="p < 5 \times 10^{-8}" />).
       </p>
     </div>
 
     <!-- Chapter 1 -->
-    <section>
-      <h2>1. The Genotype Dosage Matrix & Single-Variant Testing</h2>
+    <section id="ch1">
+      <h2>1. Biological Variation & The Paradigm Shift to Association</h2>
       <p>
-        At the core of every GWAS is a high-dimensional cohort dataset containing <Katex tex="N" /> individuals assayed across <Katex tex="M" /> single nucleotide polymorphisms (SNPs). For an individual <Katex tex="i" /> and variant <Katex tex="j" />, genotype data is encoded as an <strong>additive dosage</strong>:
+        The human diploid genome contains approximately <Katex tex="3.2 \times 10^9" /> base pairs. While any two unrelated humans share over 99.9% of their DNA sequence, the remaining 0.1% consists of millions of genetic variants that drive phenotypic diversity and disease susceptibility.
+      </p>
+
+      <h3>The Spectrum of Genetic Variation</h3>
+      <ul>
+        <li>
+          <strong>Single Nucleotide Polymorphisms (SNPs):</strong> Single base substitutions. Transitions (purine-to-purine <Katex tex="A \leftrightarrow G" /> or pyrimidine-to-pyrimidine <Katex tex="C \leftrightarrow T" />) occur roughly twice as frequently as transversions (<Katex tex="A/G \leftrightarrow C/T" />) due to spontaneous deamination of methylated cytosines.
+        </li>
+        <li>
+          <strong>Minor Allele Frequency (MAF):</strong> The frequency of the less common allele in a population. Variants are categorized as <strong>common</strong> (<Katex tex="\text{MAF} \ge 5\%" />), <strong>low-frequency</strong> (<Katex tex="1\% \le \text{MAF} < 5\%" />), or <strong>rare</strong> (<Katex tex="\text{MAF} < 1\%" />).
+        </li>
+        <li>
+          <strong>Hardy-Weinberg Equilibrium (HWE):</strong> Under random mating and neutral drift, genotype frequencies at a biallelic locus with allele frequencies <Katex tex="p" /> (Ref) and <Katex tex="q = 1 - p" /> (Alt) follow the binomial expansion:
+          <div style="margin: 0.5rem 0; text-align: center;">
+            <Katex tex="p^2 + 2pq + q^2 = 1 \quad \implies \quad P(AA) = p^2, \; P(Aa) = 2pq, \; P(aa) = q^2" display={true} />
+          </div>
+          Significant deviations from HWE (<Katex tex="p_{\text{HWE}} < 10^{-6}" />) in control samples almost always indicate genotyping artifacts, batch hybridization failures, or severe non-random missingness.
+        </li>
+      </ul>
+
+      <h3>The Historical Shift: Family Linkage vs. Population Association</h3>
+      <p>
+        During the 1980s and 1990s, human genetics was dominated by <strong>family-based linkage analysis</strong>. By tracking how chromosomal segments co-segregated through multi-generational pedigrees, researchers calculated Logarithm of Odds (LOD) scores to pinpoint single, highly penetrant mutations causing rare monogenic Mendelian disorders (e.g. <i>Huntington's disease</i>, <i>Cystic Fibrosis</i>, <i>Sickle Cell Anemia</i>).
+      </p>
+      <p>
+        However, when linkage analysis was applied to common complex diseases (e.g. Type 2 Diabetes, Schizophrenia, Coronary Artery Disease, Crohn's disease), it failed almost completely. Complex diseases are not caused by single catastrophic coding mutations; rather, they follow the <strong>Common Disease–Common Variant (CDCV) hypothesis</strong>, where hundreds or thousands of common variants with subtle individual effect sizes (<Katex tex="\text{Odds Ratio} \approx 1.05 - 1.30" />) combine additively to shape disease liability. Uncovering this omnigenic architecture required shifting from small family pedigrees to <strong>unbiased population-scale association studies</strong>.
+      </p>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="ch2">
+      <h2>2. Genotyping Microarrays & Statistical Genotype Imputation</h2>
+      <p>
+        While whole-genome sequencing (WGS) of large cohorts was historically cost-prohibitive, <strong>SNP microarrays</strong> (such as Illumina Infinium and Affymetrix Axiom arrays) revolutionized human genetics by assaying 500,000 to 2,000,000 carefully chosen "tag SNPs" for under $50 per sample.
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Statistical Genotype Imputation via Hidden Markov Models (HMM)</div>
+        <div class="equation-body">
+          <Katex tex="P(\mathbf{G}_{\text{target}} \mid \mathbf{G}_{\text{chip}}, \mathbf{H}_{\text{ref}}) = \sum_{\text{paths}} P(\text{Transitions}) \cdot P(\text{Emissions})" display={true} />
+        </div>
+        <div class="equation-legend">
+          Tools like <strong>Beagle</strong>, <strong>Minimac4</strong>, and <strong>IMPUTE5</strong> treat target chip genotypes as noisy mosaic observations generated by meiotic copying from dense reference panels (such as the <strong>1000 Genomes Project</strong>, <strong>Haplotype Reference Consortium</strong>, and <strong>TOPMed</strong> with >100,000 sequenced genomes), boosting marker density from ~1 million to over <strong>15–30 million SNPs</strong>!
+        </div>
+      </div>
+
+      <p>
+        Imputation yields a continuous dosage value <Katex tex="G_{ij} \in [0.0, 2.0]" /> representing the expected count of the minor allele:
+        <Katex tex="G_{ij} = 0 \cdot P(G=0) + 1 \cdot P(G=1) + 2 \cdot P(G=2)" display={true} />
+        Only well-imputed variants meeting the quality threshold (e.g. <Katex tex="R^2_{\text{info}} \ge 0.8" />) are retained for downstream association testing.
+      </p>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="ch3">
+      <h2>3. Rigorous Step-by-Step Quality Control (QC) Protocols</h2>
+      <p>
+        A GWAS is only as good as its quality control. Without rigorous sample- and variant-level filtering, false-positive associations driven by technical batch artifacts will dominate the results.
+      </p>
+
+      <div class="qc-pipeline-grid">
+        <div class="qc-card">
+          <div class="qc-card-header">
+            <Icon name="user-check" size={16} /> 1. Sample-Level Quality Control
+          </div>
+          <ul class="qc-list">
+            <li>
+              <strong>Sample Call Rate:</strong> Exclude any individual with genotype missingness <Katex tex="> 2\%" /> (call rate <Katex tex="< 98\%" />), which flags degraded DNA or poor hybridization.
+            </li>
+            <li>
+              <strong>Sex Discrepancy Check:</strong> Compare reported clinical sex against X-chromosome heterozygosity <Katex tex="F_{\text{inbreeding}}" /> (<Katex tex="F \approx 0" /> in females; <Katex tex="F \approx 1" /> in males) to detect sample swaps or Klinefelter/Turner syndromes.
+            </li>
+            <li>
+              <strong>Heterozygosity Outliers:</strong> Remove individuals with <Katex tex="|\text{Fhet}| > 3\text{ SD}" /> from the cohort mean (excess heterozygosity flags sample cross-contamination; deficit flags inbreeding).
+            </li>
+            <li>
+              <strong>Cryptic Relatedness & Duplicates:</strong> Compute pairwise Identity-by-Descent (IBD). Remove one sample from every pair with kinship <Katex tex="\hat{\pi} = P(\text{IBD}=2) + 0.5 P(\text{IBD}=1) > 0.20" /> to maintain independent observations for OLS.
+            </li>
+          </ul>
+        </div>
+
+        <div class="qc-card">
+          <div class="qc-card-header">
+            <Icon name="sliders" size={16} /> 2. Variant-Level Quality Control
+          </div>
+          <ul class="qc-list">
+            <li>
+              <strong>Variant Missingness Rate:</strong> Exclude markers with missing call rates <Katex tex="> 2\%" /> across all retained individuals.
+            </li>
+            <li>
+              <strong>Minor Allele Frequency (MAF):</strong> Filter out rare variants (<Katex tex="\text{MAF} < 0.01" />) that lack statistical power and produce unstable standard errors in linear models.
+            </li>
+            <li>
+              <strong>Hardy-Weinberg Equilibrium:</strong> Remove variants failing HWE goodness-of-fit (<Katex tex="p_{\text{HWE}} < 10^{-6}" /> in controls), which reliably flags probe binding flaws or copy number variation.
+            </li>
+            <li>
+              <strong>Differential Missingness:</strong> Remove variants showing significant call rate discrepancies between cases and controls (<Katex tex="p_{\text{diff}} < 10^{-5}" />).
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="ch4">
+      <h2>4. The Mathematical Association Engine: OLS & Logistic Regression</h2>
+      <p>
+        Once the cleaned dosage matrix <Katex tex="\mathbf{G} \in \mathbb{R}^{N \times M}" /> is assembled, we evaluate the statistical association between each genetic variant <Katex tex="j" /> and the phenotype vector <Katex tex="\mathbf{y}" />.
+      </p>
+
+      <h3>Additive Genotype Dosage Encoding</h3>
+      <p>
+        The standard genetic formulation assumes an <strong>additive model</strong>, where each additional copy of the effect allele shifts the trait by <Katex tex="\beta_j" />:
       </p>
 
       <div class="equation-card">
@@ -69,7 +200,7 @@ const readingTime = "18 min read";
       </div>
 
       <p>
-        While the <strong>additive model</strong> is the standard assumption in human genetics due to parsimony and power, alternative genetic architectures can also be tested:
+        Alternative non-additive models can also be evaluated:
       </p>
       <ul>
         <li><strong>Additive Model:</strong> <Katex tex="G_{ij} \in \{0, 1, 2\}" /> (each minor allele linearly shifts phenotype by <Katex tex="\beta_j" />).</li>
@@ -110,22 +241,7 @@ const readingTime = "18 min read";
           <Katex tex="t_j = \frac{\hat{\beta}_j}{\text{SE}(\hat{\beta}_j)} \sim \text{Student's } t(df = N - K - 2) \quad \longrightarrow \quad p_j = 2 \cdot [1 - \Phi(|t_j|)]" display={true} />
         </div>
         <div class="equation-legend">
-          Under Hardy-Weinberg equilibrium with minor allele frequency <Katex tex="p_j = \text{MAF}" />, the genotype variance is <Katex tex="\text{Var}(X_j) = 2p_j(1 - p_j)" />. Notice that discovery power is directly proportional to <Katex tex="\sqrt{N \cdot p_j (1 - p_j) \cdot \beta_j^2}" />!
-        </div>
-      </div>
-
-      <h3>Case-Control Binary Traits: Logistic Regression & Odds Ratios</h3>
-      <p>
-        For binary clinical disease status <Katex tex="y_i \in \{0, 1\}" /> (e.g. Type 2 Diabetes case vs. control), we fit a Logistic Regression model via Maximum Likelihood Estimation (MLE):
-      </p>
-
-      <div class="equation-card">
-        <div class="equation-header">Logistic Regression & Odds Ratio (OR)</div>
-        <div class="equation-body">
-          <Katex tex="\ln\left(\frac{P(y_i = 1)}{1 - P(y_i = 1)}\right) = \alpha + \beta_j X_{ij} + \sum_{k=1}^K \gamma_k Z_{ik}" display={true} />
-        </div>
-        <div class="equation-body" style="margin-top: 0.5rem;">
-          <Katex tex="\text{Odds Ratio (OR)} = e^{\beta_j}, \quad 95\% \text{ CI} = \left[ e^{\hat{\beta}_j - 1.96 \cdot \text{SE}}, \; e^{\hat{\beta}_j + 1.96 \cdot \text{SE}} \right]" display={true} />
+          Under Hardy-Weinberg equilibrium with minor allele frequency <Katex tex="p_j = \text{MAF}" />, the genotype variance is <Katex tex="\text{Var}(X_j) = 2p_j(1 - p_j)" />. Notice that statistical discovery power is directly proportional to <Katex tex="\sqrt{N \cdot p_j (1 - p_j) \cdot \beta_j^2}" />!
         </div>
       </div>
 
@@ -156,11 +272,26 @@ const readingTime = "18 min read";
           </div>
         </div>
       </div>
+
+      <h3>Case-Control Binary Traits: Logistic Regression & Odds Ratios</h3>
+      <p>
+        For binary clinical disease status <Katex tex="y_i \in \{0, 1\}" /> (e.g. Type 2 Diabetes case vs. control), we fit a Logistic Regression model via Maximum Likelihood Estimation (MLE):
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Logistic Regression & Odds Ratio (OR)</div>
+        <div class="equation-body">
+          <Katex tex="\ln\left(\frac{P(y_i = 1)}{1 - P(y_i = 1)}\right) = \alpha + \beta_j X_{ij} + \sum_{k=1}^K \gamma_k Z_{ik}" display={true} />
+        </div>
+        <div class="equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="\text{Odds Ratio (OR)} = e^{\beta_j}, \quad 95\% \text{ CI} = \left[ e^{\hat{\beta}_j - 1.96 \cdot \text{SE}}, \; e^{\hat{\beta}_j + 1.96 \cdot \text{SE}} \right]" display={true} />
+        </div>
+      </div>
     </section>
 
-    <!-- Chapter 2 -->
-    <section>
-      <h2>2. The Population Stratification Conundrum ("The Chopsticks Gene")</h2>
+    <!-- Chapter 5 -->
+    <section id="ch5">
+      <h2>5. Population Stratification & Confounding Conquered</h2>
       <p>
         The most notorious pitfall in statistical genetics is <strong>population stratification</strong>. In 1994, Eric Lander and Nicholas Schork described a classic thought experiment: imagine running a GWAS for <i>chopstick dexterity</i> in a mixed cohort of European and East Asian individuals living in San Francisco.
       </p>
@@ -179,7 +310,7 @@ const readingTime = "18 min read";
       </p>
 
       <div class="equation-card">
-        <div class="equation-header">Mathematical Decomposition of Ancestry Confounding Bias</div>
+        <div class="equation-header">Mathematical Proof of Ancestry Confounding Bias</div>
         <div class="equation-body">
           <Katex tex="\mathbb{E}[\hat{\beta}_{\text{naive}}] = \beta_j + \frac{\text{Cov}(X_j, A)}{\text{Var}(X_j)} \cdot \gamma_{\text{Ancestry}}" display={true} />
         </div>
@@ -226,7 +357,7 @@ const readingTime = "18 min read";
         </div>
       </div>
 
-      <h3>Genomic Inflation Factor (&lambda;_GC) & Q-Q Plot Diagnostics</h3>
+      <h3>Genomic Inflation Factor (&lambda;_GC) & Q-Q Diagnostics</h3>
       <p>
         To audit whether a GWAS suffers from uncorrected confounding, we calculate the <strong>Genomic Inflation Factor (<Katex tex="\lambda_{GC}" />)</strong>:
       </p>
@@ -273,9 +404,9 @@ const readingTime = "18 min read";
       </div>
     </section>
 
-    <!-- Chapter 3 -->
-    <section>
-      <h2>3. Genome-Wide Multiple Testing & The Manhattan Plot</h2>
+    <!-- Chapter 6 -->
+    <section id="ch6">
+      <h2>6. Multiple Hypothesis Testing & The Manhattan Plot</h2>
       <p>
         A typical GWAS evaluates between <Katex tex="1{,}000{,}000" /> and <Katex tex="10{,}000{,}000" /> imputed genetic variants simultaneously. If a standard statistical threshold of <Katex tex="\alpha = 0.05" /> were used, testing <Katex tex="10^6" /> null variants would produce <strong>50,000 false-positive discoveries</strong> purely by chance.
       </p>
@@ -323,9 +454,9 @@ const readingTime = "18 min read";
       </div>
     </section>
 
-    <!-- Chapter 4 -->
-    <section>
-      <h2>4. Linkage Disequilibrium (LD), Recombination & Fine-Mapping</h2>
+    <!-- Chapter 7 -->
+    <section id="ch7">
+      <h2>7. Linkage Disequilibrium (LD), Recombination & Regional Architecture</h2>
       <p>
         A common misconception is that a GWAS skyscraper peak points to the exact single causal nucleotide. Because chromosomes are inherited in chunks during meiosis, alleles close to each other are transmitted together in <strong>Linkage Disequilibrium (LD)</strong> blocks.
       </p>
@@ -355,22 +486,44 @@ const readingTime = "18 min read";
           <Katex tex="\ell_j = \sum_k r^2_{jk}" /> is the LD score of SNP <Katex tex="j" />. The slope reveals true heritability <Katex tex="h^2_{\text{SNP}}" />, while the intercept <Katex tex="1 + Na" /> measures pure uncorrected confounding (<Katex tex="a = 0" /> under perfect control)!
         </div>
       </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="ch8">
+      <h2>8. Post-GWAS Fine-Mapping & Functional Biology</h2>
+      <p>
+        Over <strong>90% of significant GWAS variants reside in non-coding regions</strong> (introns, intergenic enhancers, promoters, and untranslated regions). Determining which variant inside an LD block is the true functional driver requires statistical fine-mapping and molecular epigenomics:
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Statistical Fine-Mapping: 95% Credible Sets (SuSiE)</div>
+        <div class="equation-body">
+          <Katex tex="\text{PIP}_j = P(\gamma_j = 1 \mid \text{Data}), \quad \sum_{j \in \text{CS}_{95\%}} \text{PIP}_j \ge 0.95" display={true} />
+        </div>
+        <div class="equation-legend">
+          <strong>SuSiE (Sum of Single Effects)</strong> calculates the Posterior Inclusion Probability (PIP) for each variant in an LD block, outputting a 95% Credible Set guaranteed to contain the causal variant with 95% certainty.
+        </div>
+      </div>
 
       <div class="deep-dive-callout callout-math">
         <div class="deep-dive-callout-title">
-          <Icon name="check-circle" size={15} /> Statistical Fine-Mapping & 95% Credible Sets
+          <Icon name="check-circle" size={15} /> Functional Epigenomics & Neural Predictors
         </div>
         <p>
-          Methods like <strong>SuSiE (Sum of Single Effects)</strong> and <strong>PAINTOR</strong> use Bayesian posterior modeling to construct a <strong>95% Credible Set</strong> — the minimal set of variants that contains the true causal mutation with 95% certainty:
-          <Katex tex="\sum_{j \in \text{CS}_{95\%}} \text{PIP}_j \ge 0.95" display={true} />
-          Integrating functional epigenomics (eQTLs, ChIP-seq, OpenSpliceAI deep learning splice models) pinpoints the causal molecular mechanism.
+          Credible set variants are integrated with:
+          <br/>
+          &bull; <strong>eQTLs & sQTLs:</strong> GTEx expression and splicing quantitative trait loci.
+          <br/>
+          &bull; <strong>Chromatin Accessibility:</strong> ATAC-seq and ChIP-seq histone marks (H3K27ac, H3K4me3) from ENCODE.
+          <br/>
+          &bull; <strong>Deep Learning Foundation Models:</strong> <strong>OpenSpliceAI</strong> and <strong>Splam</strong> to evaluate cryptic splice disruption and neural sequence-to-function mutations.
         </p>
       </div>
     </section>
 
-    <!-- Chapter 5 -->
-    <section>
-      <h2>5. Polygenic Risk Scores (PRS) & Clinical Translation</h2>
+    <!-- Chapter 9 -->
+    <section id="ch9">
+      <h2>9. Polygenic Risk Scores (PRS) & Clinical Translation</h2>
       <p>
         For complex polygenic conditions (e.g. coronary artery disease, breast cancer, type 2 diabetes), no single variant causes the disease. Instead, thousands of subtle variants across the genome contribute small additive increments to an individual's overall liability:
       </p>
@@ -414,11 +567,16 @@ const readingTime = "18 min read";
           Individuals falling in the top <strong>5% of the PRS distribution</strong> often face disease risks equivalent to rare, monogenic high-penetrance mutations (such as <i>LDLR</i> in familial hypercholesterolemia or <i>BRCA1</i> in breast cancer). PRS enables personalized early intervention, lifestyle modifications, and proactive clinical screening decades before clinical symptom onset.
         </p>
       </div>
+
+      <h3>Cross-Ancestry Portability & Health Equity</h3>
+      <p>
+        Because over 75% of historical GWAS participants were of European descent, PRSs constructed using European discovery weights suffer a <strong>2- to 4-fold accuracy loss</strong> when applied to individuals of African, East Asian, or Hispanic ancestries due to differences in LD architecture and allele frequencies. Addressing this gap through multi-ancestry cohorts (such as the NIH <i>All of Us</i> Research Program and <i>BioBank Japan</i>) is one of the most critical frontiers in modern computational genomics.
+      </p>
     </section>
 
-    <!-- Chapter 6: Summary & Hands-On Visualizer -->
-    <section>
-      <h2>6. Summary Cheat-Sheet & Key Invariants</h2>
+    <!-- Chapter 10: Summary & Hands-On Visualizer -->
+    <section id="summary">
+      <h2>10. Summary Cheat-Sheet & Key Invariants</h2>
 
       <div class="summary-table-wrap">
         <table class="summary-table">

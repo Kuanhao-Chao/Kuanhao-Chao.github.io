@@ -47,14 +47,16 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Polygenic Architecture & Trait Mapping',
     level: 'Foundational to Advanced',
-    readingTime: '18 min read',
+    readingTime: '24 min read',
     summary:
-      'A first-principles, rigorous journey through Genome-Wide Association Studies (GWAS) — from genotype dosage matrices and OLS regression to ancestry PCA confounding ("the chopsticks problem"), Linkage Disequilibrium (LD), Manhattan skyscraper plots, and Polygenic Risk Scores (PRS).',
+      'A comprehensive first-principles guide to Genome-Wide Association Studies (GWAS) — from biological variation, genotyping arrays, and step-by-step QC protocols to OLS/LMM regression, ancestry PCA confounding, Linkage Disequilibrium, and clinical Polygenic Risk Scores (PRS).',
     highlights: [
-      'Additive genotype dosage matrix G ∈ {0,1,2}^(N×M) and OLS/LMM Wald test derivations',
-      'The chopsticks problem: ancestry confounding, EIGENSTRAT PCA & λ_GC inflation factor',
-      'Linkage Disequilibrium blocks (r², D\'), recombination hotspots & statistical fine-mapping',
-      'Bonferroni threshold derivation (p < 5×10⁻⁸), Fisher’s infinitesimal vs Boyle-Li-Pritchard omnigenic models & PRS',
+      'Biological foundations: common disease–common variant (CDCV) hypothesis & HMM imputation',
+      'Rigorous QC protocols: sample call rate (>98%), sex checks, heterozygosity & IBD relatedness',
+      'Additive OLS & LMM regression derivations with Wald test statistics and power scaling',
+      'The chopsticks problem: ancestry confounding, EIGENSTRAT PCA, λ_GC inflation & LDSC',
+      'Linkage Disequilibrium blocks (r², D\'), SuSiE 95% credible sets & deep learning splicing',
+      'Bonferroni derivation (p < 5×10⁻⁸), omnigenic architecture & clinical PRS risk stratification',
     ],
     equations: [
       'y = \\alpha + x_j \\beta_j + Z\\gamma + \\epsilon',
