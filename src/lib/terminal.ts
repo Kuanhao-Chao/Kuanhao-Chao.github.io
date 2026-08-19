@@ -1229,7 +1229,7 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    deepdive — computational genomics foundations, statistical genetics & concept posts' },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
-      { text: '    deepdive [gwas | models | splicing | pangenomics]' },
+      { text: '    deepdive [statistical-genetics | gwas | models | splicing | pangenomics]' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       { text: '    Rigorous, first-principles explorations of essential computational genomics concepts,' },
@@ -1237,6 +1237,7 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'CATALOG & BLOG POSTS', tone: 'accent' },
       { text: '    → /deep_dives/', tone: 'accent', href: '/deep_dives/' },
+      { text: '    → /deep_dives/statistical-genetics/ (Statistical Genetics: Quantitative Traits & Heritability)', tone: 'accent', href: '/deep_dives/statistical-genetics/' },
       { text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies)', tone: 'accent', href: '/deep_dives/gwas/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
@@ -2921,11 +2922,18 @@ export const COMMANDS: Record<string, Cmd> = {
 
   deepdive: {
     summary: 'browse Computational Genomics Deep Dives hub & concept posts',
-    usage: 'deepdive [gwas]',
+    usage: 'deepdive [statistical-genetics | gwas]',
     run: ({ args }) => {
       const topic = (args[0] || '').toLowerCase();
-      const href = topic === 'gwas' ? '/deep_dives/gwas/' : '/deep_dives/';
-      const title = topic === 'gwas' ? 'GWAS Deep Dive Post' : 'Computational Genomics Deep Dives Hub';
+      let href = '/deep_dives/';
+      let title = 'Computational Genomics Deep Dives Hub';
+      if (topic.includes('stat') || topic.includes('genetic') || topic.includes('herit')) {
+        href = '/deep_dives/statistical-genetics/';
+        title = 'Statistical Genetics Deep Dive Post';
+      } else if (topic === 'gwas') {
+        href = '/deep_dives/gwas/';
+        title = 'GWAS Deep Dive Post';
+      }
       return {
         lines: [
           { text: `Opening ${title}…`, tone: 'ok' },

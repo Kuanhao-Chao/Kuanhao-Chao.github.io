@@ -40,6 +40,40 @@ export const DEEP_DIVE_CATEGORIES: DeepDiveCategory[] = [
 
 export const DEEP_DIVES: DeepDiveEntry[] = [
   {
+    id: 'statistical-genetics',
+    title: 'Statistical Genetics: The Mathematical Machinery of Quantitative Traits, Heritability & Causal Mapping',
+    shortTitle: 'Statistical Genetics',
+    area: 'Statistical & Population Genetics',
+    category: 'statistical-genetics',
+    tag: 'Quantitative Genetics & Mathematical Genomics',
+    level: 'Foundational to Advanced',
+    readingTime: '28 min read',
+    summary:
+      'A definitive, first-principles exploration of statistical genetics — bridging Fisher infinitesimal models, Linkage Disequilibrium, GREML/GCTA heritability, LD Score Regression (LDSC/S-LDSC), Linear Mixed Models (BOLT-LMM/fastGWA), Bayesian fine-mapping (SuSiE), rare-variant testing (SKAT/DeepRVAT), Mendelian Randomization (MR), and deep learning sequence models.',
+    highlights: [
+      'Infinitesimal model, variance decomposition (V_P = V_A + V_D + V_E), and narrow-sense heritability (h²)',
+      'Linkage Disequilibrium (D, D\', r²), recombination hotspots (PRDM9), and haplotype blocks',
+      'Genomic Relatedness Matrix (GRM) & GREML variance-component estimation (GCTA)',
+      'LD Score Regression (LDSC & S-LDSC) for heritability, confounding, and tissue enrichment',
+      'Linear Mixed Models (LMM): from EMMAX to BOLT-LMM, fastGWA, and Regenie',
+      'Bayesian fine-mapping: SuSiE 95% credible sets, PIPs, and functional priors (PolyFun, Sniff)',
+      'Rare variant tests: Burden, SKAT, SKAT-O, and DeepRVAT neural aggregation',
+      'Mendelian Randomization (IVW, MR-Egger) and causal inference in epidemiological genetics',
+    ],
+    equations: [
+      'V_P = V_A + V_D + V_I + V_E',
+      '\\mathbb{E}[\\chi^2_j] = 1 + \\frac{N h^2}{M} \\ell_j + N a',
+      'A_{ik} = \\frac{1}{M} \\sum \\frac{(X_{ij}-2p_j)(X_{kj}-2p_j)}{2p_j(1-p_j)}',
+      '\\hat{\\beta}_{\\text{MR}} = \\frac{\\sum w_j \\hat{\\beta}_{Xj} \\hat{\\beta}_{Yj}}{\\sum w_j \\hat{\\beta}_{Xj}^2}',
+    ],
+    href: '/deep_dives/statistical-genetics/',
+    badge: 'Deep Dive Post',
+    actionText: 'Read technical deep dive',
+    featured: true,
+    icon: 'gwas',
+    status: 'published',
+  },
+  {
     id: 'gwas',
     title: 'Genome-Wide Association Studies (GWAS): The Mathematical Engine of Trait Mapping',
     shortTitle: 'GWAS & Statistical Genetics',
