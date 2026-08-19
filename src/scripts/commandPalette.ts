@@ -2,6 +2,7 @@
  * Global Spotlight Command Palette (⌘K / Ctrl+K)
  */
 import { ALGORITHMS } from '../data/algorithms';
+import { DEEP_DIVES } from '../data/deepDives';
 import { startDnaRain } from './dnaRain';
 import { startCrisprMode } from './crisprMode';
 import { startZeroGravity } from './domPhysics';
@@ -251,6 +252,7 @@ const STATIC_NAV: CommandItem[] = [
   { id: 'nav-publications', category: 'Navigation', title: 'Publications', subtitle: 'Peer-reviewed papers, preprints, and citations', href: '/publications/' },
   { id: 'nav-software', category: 'Navigation', title: 'Software & Open Source', subtitle: 'LiftOn, Splam, OpenSpliceAI, Shorkie, WGT', href: '/software/' },
   { id: 'nav-algorithms', category: 'Navigation', title: 'Algorithms Hub', subtitle: 'Interactive visualizers for CS & genomic algorithms', href: '/algorithms/' },
+  { id: 'nav-deep-dives', category: 'Navigation', title: 'Deep Dives Hub', subtitle: 'Computational genomics foundations & concept posts', href: '/deep_dive/' },
   { id: 'nav-teaching', category: 'Navigation', title: 'Teaching & Mentorship', subtitle: 'Courses, students mentored, pedagogical visualizers', href: '/teaching/' },
   { id: 'nav-talks', category: 'Navigation', title: 'Talks & Presentations', subtitle: 'Invited talks, conference presentations, slides', href: '/talks/' },
   { id: 'nav-news', category: 'Navigation', title: 'Recent News', subtitle: 'Academic updates, awards, and milestones', href: '/news/' },
@@ -268,6 +270,16 @@ const ALGORITHM_ITEMS: CommandItem[] = ALGORITHMS.map((algo) => ({
   badge: algo.tag,
   href: algo.href,
   keywords: [algo.id, algo.area, algo.category, algo.tag, algo.cliCommand ?? ''].filter(Boolean),
+}));
+
+const DEEP_DIVE_ITEMS: CommandItem[] = DEEP_DIVES.filter((d) => d.status === 'published').map((d) => ({
+  id: `deep-dive-${d.id}`,
+  category: 'Posts',
+  title: d.title,
+  subtitle: d.summary,
+  badge: d.tag,
+  href: d.href,
+  keywords: [d.id, d.area, d.category, d.tag, ...(d.highlights || []), ...(d.equations || [])].filter(Boolean),
 }));
 
 let searchIndexCache: CommandItem[] | null = null;
@@ -374,7 +386,13 @@ export function initCommandPalette() {
   function renderResults(query: string) {
     const tokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
 
-    const allBaseItems = [...STATIC_ACTIONS, ...ALGORITHM_ITEMS, ...STATIC_NAV, ...(searchIndexCache || [])];
+    const allBaseItems = [
+      ...STATIC_ACTIONS,
+      ...ALGORITHM_ITEMS,
+      ...DEEP_DIVE_ITEMS,
+      ...STATIC_NAV,
+      ...(searchIndexCache || []),
+    ];
 
     // Deduplicate by href/id
     const seen = new Set<string>();

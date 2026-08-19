@@ -1,0 +1,438 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Genome-Wide Association Studies (GWAS): The Mathematical Engine of Trait Mapping";
+const description = "A first-principles, rigorous exploration of Genome-Wide Association Studies (GWAS) — from genotype dosage matrices and OLS regression to population stratification PCA, Linkage Disequilibrium, and Polygenic Risk Scores.";
+const readingTime = "18 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article" data-deep-dive-gwas>
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dive/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Computational Genomics Deep Dives
+      </a>
+    </nav>
+
+    <!-- Article Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">Statistical & Population Genetics</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Foundational to Advanced</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      How do 3 billion base pairs of human DNA translate into phenotypic diversity, disease predisposition, and complex human traits? <strong>Genome-Wide Association Studies (GWAS)</strong> provide the foundational statistical and algorithmic bridge connecting population-scale genotype matrices to quantitative traits and clinical risk.
+    </p>
+
+    <!-- Callout: Executive Summary -->
+    <div class="deep-dive-callout">
+      <div class="deep-dive-callout-title">
+        <Icon name="sparkles" size={15} /> Executive Summary & Core Mechanisms
+      </div>
+      <p>
+        GWAS tests millions of genetic variants across cohorts of tens to hundreds of thousands of individuals using <strong>additive linear/logistic regression</strong>. To discover genuine biological signals, a GWAS must rigorously solve two major statistical challenges: <strong>population stratification confounding</strong> (via Ancestry PCA or Linear Mixed Models) and <strong>massive multiple testing</strong> (via the genome-wide Bonferroni threshold <i>p &lt; 5 &times; 10⁻⁸</i>).
+      </p>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section>
+      <h2>1. The Genotype Dosage Matrix & Single-Variant Testing</h2>
+      <p>
+        At the core of every GWAS is a high-dimensional cohort dataset containing <i>N</i> individuals assayed across <i>M</i> single nucleotide polymorphisms (SNPs). For an individual <i>i</i> and variant <i>j</i>, genotype data is encoded as an <strong>additive dosage</strong>:
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Additive Genotype Dosage Encoding</div>
+        <div class="equation-body">
+          <code>G_{'{ij}'} &isin; &#123;0, 1, 2&#125;</code> &emsp;&rarr;&emsp; Count of Minor (Effect) Alleles
+        </div>
+        <div class="equation-legend">
+          <code>0 = Ref/Ref (Homozygous reference)</code> &emsp;|&emsp; 
+          <code>1 = Ref/Alt (Heterozygous)</code> &emsp;|&emsp; 
+          <code>2 = Alt/Alt (Homozygous alternative)</code>
+        </div>
+      </div>
+
+      <p>
+        For a continuous quantitative phenotype <code>y &isin; &reals;^N</code> (e.g. standing height, LDL cholesterol, or fasting glucose), we formulate a single-variant Ordinary Least Squares (OLS) regression model:
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Single-Variant Linear Regression Model</div>
+        <div class="equation-body">
+          <code>y_i = &alpha; + &beta;_j &middot; X_{'{ij}'} + &sum;_{'{k=1}'}^K &gamma;_k &middot; Z_{'{ik}'} + &epsilon;_i, &emsp; &epsilon;_i &sim; &Nscr;(0, &sigma;^2)</code>
+        </div>
+        <div class="equation-legend">
+          <code>X_{'{ij}'}</code> = Additive genotype dosage &emsp;|&emsp;
+          <code>&beta;_j</code> = Effect size per minor allele &emsp;|&emsp;
+          <code>Z_{'{ik}'}</code> = Covariates (Age, Sex, Ancestry PCs)
+        </div>
+      </div>
+
+      <p>
+        Using the Frisch-Waugh-Lovell theorem to project out covariates, the analytical Ordinary Least Squares estimate of the effect size <code>&beta;&#770;_j</code> and its standard error <code>SE(&beta;&#770;_j)</code> are given by:
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">OLS Estimator & Wald Test Statistic</div>
+        <div class="equation-body">
+          <code>&beta;&#770;_j = &sum;(X_i - X̄)(y_i - ȳ) / &sum;(X_i - X̄)^2, &emsp; SE(&beta;&#770;_j) = &radic;(&sigma;&#770;^2 / SS_{'{XX}'})</code>
+        </div>
+        <div class="equation-body" style="margin-top: 0.5rem;">
+          <code>t_j = &beta;&#770;_j / SE(&beta;&#770;_j) &sim; Student's t(df = N - K - 2) &emsp;&rarr;&emsp; p_j = 2 &middot; [1 - &Phi;(|t_j|)]</code>
+        </div>
+      </div>
+
+      <!-- Embedded Interactive Widget 1: Regression Sandbox -->
+      <div class="embedded-widget">
+        <div class="widget-header">
+          <span>Interactive Sandbox: Single-Variant OLS Regression</span>
+          <span style="font-size: var(--fs-meta); color: var(--color-muted);">Live Reactive Simulation</span>
+        </div>
+        <div class="widget-body">
+          <div class="widget-viewport">
+            <svg class="gwas-regr-svg" data-dd-regr-svg aria-label="Interactive Regression Plot"></svg>
+          </div>
+          <div class="widget-controls">
+            <div class="widget-slider-group">
+              <label for="dd-beta">Effect Size (&beta;):</label>
+              <input id="dd-beta" type="range" min="-0.6" max="0.6" step="0.05" value="0.35" data-dd-beta-slider />
+              <span class="widget-readout" data-dd-beta-val>+0.35</span>
+            </div>
+            <div class="widget-slider-group">
+              <label for="dd-maf">Minor Allele Freq (MAF):</label>
+              <input id="dd-maf" type="range" min="0.05" max="0.5" step="0.05" value="0.25" data-dd-maf-slider />
+              <span class="widget-readout" data-dd-maf-val>25%</span>
+            </div>
+          </div>
+          <div style="margin-top: 0.5rem; text-align: center; font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-ink);" data-dd-regr-stats>
+            Slope &beta;&#770; = 0.350 | SE = 0.042 | t = 8.33 | p = 1.20e-13
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section>
+      <h2>2. The Population Stratification Conundrum ("The Chopsticks Gene")</h2>
+      <p>
+        The most notorious pitfall in statistical genetics is <strong>population stratification</strong>. In 1994, Eric Lander and Nicholas Schork described a classic thought experiment: imagine running a GWAS for <i>chopstick dexterity</i> in a mixed cohort of European and East Asian individuals living in San Francisco.
+      </p>
+
+      <div class="deep-dive-callout callout-warning">
+        <div class="deep-dive-callout-title">
+          <Icon name="alert-triangle" size={15} /> The Chopsticks Problem & Spurious Association
+        </div>
+        <p>
+          Chopstick usage is a cultural trait strongly correlated with East Asian ancestry. Simultaneously, thousands of completely unrelated alleles across the genome have divergent frequencies between Europe and East Asia due to historical genetic drift. A naive regression will find <strong>hundreds of thousands of false-positive "chopstick genes"</strong> across every chromosome!
+        </p>
+      </div>
+
+      <p>
+        Mathematically, omitted ancestry <i>A</i> confounds the relationship because <code>Cov(X, A) &ne; 0</code> and <code>Cov(y, A) &ne; 0</code>.
+      </p>
+
+      <h3>Ancestry Principal Component Analysis (EIGENSTRAT)</h3>
+      <p>
+        To eliminate stratification, Price et al. (2006) introduced <strong>EIGENSTRAT</strong>. We construct the normalized genotype matrix <code>G*</code> where each entry is standardized by its allele frequency <code>p_j</code>:
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Genotype Standardization & SVD Decomposition</div>
+        <div class="equation-body">
+          <code>G^*_{'{ij}'} = (G_{'{ij}'} - 2p_j) / &radic;[2p_j(1 - p_j)]</code>
+        </div>
+        <div class="equation-body" style="margin-top: 0.5rem;">
+          <code>G^* = U &Sigma; V^T &emsp;&rarr;&emsp; PC_k = U_k &middot; &sigma;_k</code>
+        </div>
+        <div class="equation-legend">
+          Top eigenvectors <code>PC_1, PC_2, ..., PC_10</code> capture continental and sub-continental ancestry axes. Including them as covariates orthogonalizes the test.
+        </div>
+      </div>
+
+      <h3>Genomic Inflation Factor (&lambda;_GC) & Q-Q Plot Diagnostics</h3>
+      <p>
+        To audit whether a GWAS suffers from uncorrected confounding, we calculate the <strong>Genomic Inflation Factor (&lambda;_GC)</strong>:
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Genomic Inflation Factor Formula</div>
+        <div class="equation-body">
+          <code>&lambda;_{'{GC}'} = median(&chi;^2_{'{obs, 1}'}, ..., &chi;^2_{'{obs, M}'}) / 0.454936</code>
+        </div>
+        <div class="equation-legend">
+          <code>0.454936</code> is the theoretical median of a 1-degree-of-freedom Chi-Square distribution <code>&chi;^2(df = 1)</code> under the null hypothesis.
+        </div>
+      </div>
+
+      <!-- Embedded Interactive Widget 2: PCA Confounding Simulator -->
+      <div class="embedded-widget">
+        <div class="widget-header">
+          <span>Interactive Simulator: Population Stratification & Q-Q Inflation</span>
+          <span style="font-size: var(--fs-meta); color: var(--color-muted);">PCA Covariates Comparison</span>
+        </div>
+        <div class="widget-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <div style="font-size: var(--fs-meta); font-weight: 600; margin-bottom: 0.35rem; color: var(--color-ink);">1. Ancestry PCA (PC1 vs PC2)</div>
+              <div class="widget-viewport" style="height: 220px;">
+                <svg data-dd-pca-svg aria-label="Ancestry PCA Plot"></svg>
+              </div>
+            </div>
+            <div>
+              <div style="font-size: var(--fs-meta); font-weight: 600; margin-bottom: 0.35rem; color: var(--color-ink);">2. Q-Q Quantile Plot</div>
+              <div class="widget-viewport" style="height: 220px;">
+                <svg data-dd-qq-svg aria-label="Q-Q Plot"></svg>
+              </div>
+            </div>
+          </div>
+          <div class="widget-controls" style="margin-top: 0.75rem;">
+            <label class="gwas-toggle-wrap">
+              <input type="checkbox" class="gwas-toggle-input" data-dd-pca-toggle checked />
+              <span>Include Ancestry PC Covariates</span>
+            </label>
+            <span class="widget-readout" data-dd-lambda-readout style="font-size: 0.85rem;">&lambda;_GC = 1.01 (Controlled Null)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section>
+      <h2>3. Genome-Wide Multiple Testing & The Manhattan Plot</h2>
+      <p>
+        A typical GWAS evaluates between <code>1,000,000</code> and <code>10,000,000</code> imputed genetic variants simultaneously. If a standard statistical threshold of <code>&alpha; = 0.05</code> were used, testing <code>10^6</code> null variants would produce <strong>50,000 false-positive discoveries</strong> purely by chance.
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Derivation of the Genome-Wide Significance Threshold</div>
+        <div class="equation-body">
+          <code>&alpha;_{'{GWAS}'} = &alpha;_{'{FWER}'} / M_{'{eff}'} = 0.05 / 1,000,000 = 5 &times; 10^{-8}</code>
+        </div>
+        <div class="equation-body" style="margin-top: 0.4rem;">
+          <code>-log_{'{10}'}(5 &times; 10^{-8}) &approx; 7.301</code>
+        </div>
+        <div class="equation-legend">
+          <code>M_{'{eff}'} &approx; 10^6</code> represents the effective number of independent correlation blocks across the human genome due to Linkage Disequilibrium (LD).
+        </div>
+      </div>
+
+      <p>
+        To visualize all 22 autosomes simultaneously, GWAS results are plotted as a <strong>Manhattan Plot</strong>: genomic coordinates are aligned along the horizontal x-axis from Chromosome 1 to 22, while the vertical y-axis displays <code>-log_{10}(p)</code>. Strong association signals rise above the background noise like skyscrapers on the Manhattan skyline.
+      </p>
+
+      <!-- Embedded Interactive Widget 3: Manhattan Explorer -->
+      <div class="embedded-widget">
+        <div class="widget-header">
+          <span>Interactive Explorer: Multi-Chromosome Manhattan Plot</span>
+          <span style="font-size: var(--fs-meta); color: var(--color-muted);">Select Biological Trait Presets</span>
+        </div>
+        <div class="widget-body">
+          <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem;">
+            <button type="button" class="gwas-preset-btn active" data-dd-preset="t2d">Type 2 Diabetes (TCF7L2)</button>
+            <button type="button" class="gwas-preset-btn" data-dd-preset="ldl">LDL Cholesterol (PCSK9)</button>
+            <button type="button" class="gwas-preset-btn" data-dd-preset="ad">Alzheimer's (APOE)</button>
+            <button type="button" class="gwas-preset-btn" data-dd-preset="height">Height (Polygenic)</button>
+          </div>
+          <div class="widget-viewport" style="height: 240px;">
+            <svg data-dd-manhattan-svg aria-label="Interactive Manhattan Plot"></svg>
+          </div>
+          <div style="margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 6px;" data-dd-lead-card>
+            <strong>Lead Hit: rs7903146 (TCF7L2) — chr10:114,758,349</strong>
+            <div style="font-size: 0.78rem; color: var(--color-muted); margin-top: 0.2rem;">
+              p = 1.20e-19 (-log₁₀ P = 18.92) | β = +0.340 | MAF = 30.0% | intron variant (enhancer)
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section>
+      <h2>4. Linkage Disequilibrium (LD) & Fine-Mapping</h2>
+      <p>
+        A common misconception is that a GWAS skyscraper peak points to the exact single causal nucleotide. Because chromosomes are inherited in chunks during meiosis, alleles close to each other are transmitted together in <strong>Linkage Disequilibrium (LD)</strong> blocks.
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Linkage Disequilibrium Metrics (D, r², D')</div>
+        <div class="equation-body">
+          <code>D = p_{'{AB}'} - p_A &middot; p_B, &emsp; r^2 = D^2 / [p_A (1 - p_A) p_B (1 - p_B)]</code>
+        </div>
+        <div class="equation-legend">
+          <code>r^2 = 1.0</code> represents complete correlation (perfect proxy SNPs). 
+          <code>r^2 &ge; 0.8</code> defines high-confidence LD candidate tags.
+        </div>
+      </div>
+
+      <p>
+        In tools like <strong>LocusZoom</strong>, variants in the flanking &plusmn;250 kb window are color-coded by their LD <code>r^2</code> correlation with the lead index variant (fiery red <code>r^2 &ge; 0.8</code>, orange, green, cyan, and navy).
+      </p>
+
+      <div class="deep-dive-callout callout-math">
+        <div class="deep-dive-callout-title">
+          <Icon name="check-circle" size={15} /> Statistical Fine-Mapping & Credible Sets
+        </div>
+        <p>
+          Methods like <strong>SuSiE (Sum of Single Effects)</strong> and <strong>PAINTOR</strong> use Bayesian posterior modeling to construct a <strong>95% Credible Set</strong> — the minimal set of variants that contains the true causal mutation with 95% certainty. Integrating functional epigenomics (eQTLs, ChIP-seq, OpenSpliceAI deep learning splice models) pinpoints the molecular mechanism.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section>
+      <h2>5. Polygenic Risk Scores (PRS) & Clinical Translation</h2>
+      <p>
+        For complex polygenic conditions (e.g. coronary artery disease, breast cancer, type 2 diabetes), no single variant causes the disease. Instead, thousands of subtle variants across the genome contribute small additive increments to an individual's overall liability:
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Polygenic Risk Score (PRS) Formulation</div>
+        <div class="equation-body">
+          <code>PRS_i = &sum;_{'{j=1}'}^M &beta;&#770;_j &middot; G_{'{ij}'}</code>
+        </div>
+        <div class="equation-legend">
+          <code>&beta;&#770;_j</code> = Marginal effect weight from discovery GWAS &emsp;|&emsp;
+          <code>G_{'{ij}'}</code> = Individual's dosage for variant <i>j</i>
+        </div>
+      </div>
+
+      <!-- Embedded Interactive Widget 4: PRS Liability Calculator -->
+      <div class="embedded-widget">
+        <div class="widget-header">
+          <span>Interactive Calculator: Individual Polygenic Risk Distribution</span>
+          <span style="font-size: var(--fs-meta); color: var(--color-muted);">Clinical Liability Stratification</span>
+        </div>
+        <div class="widget-body">
+          <div class="widget-viewport" style="height: 220px;">
+            <svg data-dd-prs-svg aria-label="PRS Bell Curve"></svg>
+          </div>
+          <div class="widget-controls">
+            <div class="widget-slider-group">
+              <label for="dd-prs">Individual PRS Percentile:</label>
+              <input id="dd-prs" type="range" min="1" max="99" step="1" value="85" data-dd-prs-slider />
+            </div>
+            <span class="widget-readout" data-dd-prs-readout>85th Percentile &rarr; Odds Ratio OR = 1.95&times;</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="deep-dive-callout callout-clinical">
+        <div class="deep-dive-callout-title">
+          <Icon name="activity" size={15} /> Clinical Utility of Polygenic Risk Scores
+        </div>
+        <p>
+          Individuals falling in the top <strong>5% of the PRS distribution</strong> often face disease risks equivalent to rare, monogenic high-penetrance mutations (such as <i>LDLR</i> in familial hypercholesterolemia or <i>BRCA1</i> in breast cancer). PRS enables personalized early intervention, lifestyle modifications, and proactive clinical screening decades before clinical symptom onset.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 6: Summary & Hands-On Visualizer -->
+    <section>
+      <h2>6. Summary Cheat-Sheet & Key Invariants</h2>
+
+      <div class="summary-table-wrap">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>GWAS Component</th>
+              <th>Mathematical Formulation</th>
+              <th>Intuition & Purpose</th>
+              <th>Diagnostic Benchmark</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Additive Dosage</strong></td>
+              <td><code>G_ij &isin; &#123;0, 1, 2&#125;</code></td>
+              <td>Count of minor effect alleles</td>
+              <td>MAF &ge; 1%, HWE p &gt; 10⁻⁶</td>
+            </tr>
+            <tr>
+              <td><strong>Association Test</strong></td>
+              <td><code>t_j = &beta;&#770;_j / SE(&beta;&#770;_j)</code></td>
+              <td>Evaluates H₀: &beta;_j = 0</td>
+              <td>OLS for quantitative, Logistic for binary</td>
+            </tr>
+            <tr>
+              <td><strong>Ancestry PCA</strong></td>
+              <td><code>G^* = U &Sigma; V^T</code></td>
+              <td>Decomposes continental ancestry</td>
+              <td>Top 10–20 PCs as covariates</td>
+            </tr>
+            <tr>
+              <td><strong>Genomic Inflation</strong></td>
+              <td><code>&lambda;_GC = median(&chi;^2) / 0.456</code></td>
+              <td>Measures confounding bias</td>
+              <td>Controlled: <code>&lambda;_GC &le; 1.05</code></td>
+            </tr>
+            <tr>
+              <td><strong>Multiple Testing</strong></td>
+              <td><code>&alpha; = 0.05 / 10^6</code></td>
+              <td>Bonferroni correction for 10⁶ LD blocks</td>
+              <td>Threshold: <code>p &lt; 5 &times; 10⁻⁸</code></td>
+            </tr>
+            <tr>
+              <td><strong>Linkage Disequilibrium</strong></td>
+              <td><code>r^2 = D^2 / (p_A q_A p_B q_B)</code></td>
+              <td>Measures allele co-inheritance</td>
+              <td>Fine-mapping tag: <code>r^2 &ge; 0.8</code></td>
+            </tr>
+            <tr>
+              <td><strong>Polygenic Score</strong></td>
+              <td><code>PRS = &sum; &beta;&#770;_j &middot; G_j</code></td>
+              <td>Aggregates genome-wide polygenic risk</td>
+              <td>Clinical high risk: Top 5% quintile</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Promotion Box: Full Interactive Visualizer -->
+      <div class="algo-promo-card">
+        <h3>🚀 Explore the Live GWAS Algorithm Sandbox</h3>
+        <p>
+          Want to run live multi-chromosome scans, step through LocusZoom regional fine-mapping, and interact with live single-SNP boxplots in full screen?
+        </p>
+        <a href="/algorithms/gwas/" class="algo-promo-btn">
+          <span>Launch Full Interactive GWAS Visualizer</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
+    </section>
+  </article>
+</BaseLayout>
+
+<script>
+  import { initDeepDiveGwas, type DeepDiveGwasController } from '../../scripts/deepDiveGwas';
+
+  let controller: DeepDiveGwasController | null = null;
+
+  function mount() {
+    if (controller) return;
+    controller = initDeepDiveGwas(document);
+  }
+
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>

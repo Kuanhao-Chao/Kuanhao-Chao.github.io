@@ -1212,11 +1212,35 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    4. Diagnostics: Genomic inflation factor λ_GC = median(χ²_obs) / 0.456 and Q-Q plots.' },
       { text: '    5. Fine-Mapping: Linkage Disequilibrium (r²) correlation clouds and Polygenic Risk Scores (PRS).' },
       { text: '' },
-      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
-      { text: '    → /algorithms/gwas/', tone: 'accent', href: '/algorithms/gwas/' },
+      { text: 'INTERACTIVE VISUALIZER & DEEP DIVE', tone: 'accent' },
+      { text: '    → /algorithms/gwas/ (Visualizer)', tone: 'accent', href: '/algorithms/gwas/' },
+      { text: '    → /deep_dive/gwas/ (Technical Post)', tone: 'accent', href: '/deep_dive/gwas/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
-      { text: '    phmm(1), ghmm(1), ism(1), plink(1)' },
+      { text: '    deepdive(1), phmm(1), ghmm(1), ism(1), plink(1)' },
+    ];
+  }
+
+  if (t === 'deepdive' || t === 'deep_dive' || t === 'concepts' || t === 'foundations') {
+    return [
+      { text: 'DEEPDIVE(1)             Computational Genomics             DEEPDIVE(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    deepdive — computational genomics foundations, statistical genetics & concept posts' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    deepdive [gwas | models | splicing | pangenomics]' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Rigorous, first-principles explorations of essential computational genomics concepts,' },
+      { text: '    mathematical models, DNA foundation models, and statistical genetics.' },
+      { text: '' },
+      { text: 'CATALOG & BLOG POSTS', tone: 'accent' },
+      { text: '    → /deep_dive/', tone: 'accent', href: '/deep_dive/' },
+      { text: '    → /deep_dive/gwas/ (Genome-Wide Association Studies)', tone: 'accent', href: '/deep_dive/gwas/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    gwas(1), minimap2(1), fmindex(1), wfa(1), wgt(1)' },
     ];
   }
 
@@ -2870,6 +2894,23 @@ export const COMMANDS: Record<string, Cmd> = {
     },
   },
 
+  deepdive: {
+    summary: 'browse Computational Genomics Deep Dives hub & concept posts',
+    usage: 'deepdive [gwas]',
+    run: ({ args }) => {
+      const topic = (args[0] || '').toLowerCase();
+      const href = topic === 'gwas' ? '/deep_dive/gwas/' : '/deep_dive/';
+      const title = topic === 'gwas' ? 'GWAS Deep Dive Post' : 'Computational Genomics Deep Dives Hub';
+      return {
+        lines: [
+          { text: `Opening ${title}…`, tone: 'ok' },
+          { text: `→ ${href}`, tone: 'accent', href },
+        ],
+        effect: { type: 'navigate', href },
+      };
+    },
+  },
+
   git: {
     summary: 'academic git version control & career commit graph',
     usage: 'git [log|tree|status|branch|diff]',
@@ -3008,6 +3049,8 @@ export const ALIASES: Record<string, string> = {
   manhattan: 'gwas',
   prs: 'gwas',
   association: 'gwas',
+  deep_dive: 'deepdive',
+  concepts: 'deepdive',
   cas9: 'crispr',
   zerog: 'gravity',
   physics: 'gravity',

@@ -1,0 +1,609 @@
+/**
+ * Styles for Computational Genomics Deep Dives Hub (/deep_dive/)
+ * and in-depth blog post explainers (/deep_dive/[slug]/).
+ * Pure design-token implementation supporting all 6 themes and 1988 CRT modes.
+ */
+
+/* ==========================================================================
+   Hub & Catalog Styles (/deep_dive/)
+   ========================================================================== */
+
+.deep-dive-section {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-8);
+}
+
+.deep-dive-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: var(--space-6);
+}
+
+.deep-dive-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.deep-dive-filters .filter-pill {
+  font-family: inherit;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.deep-dive-filters .filter-pill:hover {
+  color: var(--color-ink);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+}
+
+.deep-dive-filters .filter-pill[aria-pressed='true'] {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: var(--color-accent);
+  font-weight: 600;
+}
+
+.deep-dive-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.deep-dive-controls .search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  color: var(--color-muted);
+}
+
+.deep-dive-controls .search input {
+  border: none;
+  background: transparent;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--fs-small);
+  outline: none;
+  width: 180px;
+}
+
+.deep-dive-controls .search input::placeholder {
+  color: var(--color-muted);
+}
+
+.deep-dive-controls .sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.55rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  color: var(--color-muted);
+  cursor: pointer;
+  position: relative;
+}
+
+.deep-dive-controls .sort select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  padding-right: 0.25rem;
+}
+
+/* Catalog Cards */
+.deep-dive-index {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.deep-dive-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 8px);
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+
+.deep-dive-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.deep-dive-card.is-hidden {
+  display: none;
+}
+
+.deep-dive-card-leading {
+  flex-shrink: 0;
+}
+
+.deep-dive-logo-link {
+  display: block;
+  text-decoration: none;
+}
+
+.deep-dive-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.deep-dive-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-meta);
+}
+
+.deep-dive-tag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.deep-dive-level-badge,
+.deep-dive-time-badge {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.deep-dive-card-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.deep-dive-card-title a {
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.deep-dive-card-title a:hover {
+  color: var(--color-accent);
+}
+
+.deep-dive-card-summary {
+  margin: 0;
+  font-size: var(--fs-small);
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+
+.deep-dive-card-highlights {
+  margin: 0.35rem 0 0 0;
+  padding-left: 1.25rem;
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.deep-dive-card-highlights li + li {
+  margin-top: 0.2rem;
+}
+
+.deep-dive-equations {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.deep-dive-eq-chip {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: color-mix(in srgb, var(--color-surface) 70%, var(--color-rule) 30%);
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-rule);
+  color: var(--color-ink);
+}
+
+.deep-dive-card-action {
+  flex-shrink: 0;
+  margin-left: var(--space-2);
+}
+
+.deep-dive-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.deep-dive-link:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: var(--color-accent);
+}
+
+.deep-dive-link.disabled {
+  color: var(--color-muted);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.deep-dive-empty {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-muted);
+  font-size: var(--fs-body);
+}
+
+@media (max-width: 768px) {
+  .deep-dive-card {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .deep-dive-card-action {
+    margin-left: 0;
+    margin-top: var(--space-2);
+  }
+}
+
+/* ==========================================================================
+   Article & Blog Post Styles (/deep_dive/[slug]/)
+   ========================================================================== */
+
+.deep-dive-article {
+  max-width: var(--measure, 72ch);
+  margin: 0 auto var(--space-10) auto;
+  color: var(--color-ink);
+  line-height: var(--lh-normal, 1.7);
+}
+
+.deep-dive-header {
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-rule);
+  padding-bottom: var(--space-5);
+}
+
+.deep-dive-title {
+  font-size: var(--fs-h1, 2.25rem);
+  font-weight: 800;
+  line-height: 1.25;
+  margin: var(--space-2) 0 var(--space-3) 0;
+  color: var(--color-ink);
+  letter-spacing: -0.02em;
+}
+
+.deep-dive-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+}
+
+.deep-dive-lead {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--color-ink);
+  font-weight: 400;
+  margin: var(--space-4) 0 var(--space-6) 0;
+}
+
+/* Section Headings */
+.deep-dive-article h2 {
+  font-size: 1.55rem;
+  font-weight: 700;
+  margin-top: var(--space-8);
+  margin-bottom: var(--space-3);
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+  border-top: 1px solid var(--color-rule);
+  padding-top: var(--space-6);
+}
+
+.deep-dive-article h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-2);
+  color: var(--color-ink);
+}
+
+.deep-dive-article p {
+  margin: 0 0 1.25em 0;
+}
+
+.deep-dive-article ul,
+.deep-dive-article ol {
+  margin: 0 0 1.25em 0;
+  padding-left: 1.5rem;
+}
+
+.deep-dive-article li + li {
+  margin-top: 0.35em;
+}
+
+/* Callout Boxes */
+.deep-dive-callout {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg, 8px);
+  margin: var(--space-5) 0;
+  border-left: 4px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+}
+
+.deep-dive-callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: var(--fs-small);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+  color: var(--color-accent);
+}
+
+.deep-dive-callout p {
+  margin: 0;
+  font-size: var(--fs-small);
+  line-height: 1.6;
+}
+
+.deep-dive-callout.callout-math {
+  border-left-color: #8b5cf6;
+  background: color-mix(in srgb, #8b5cf6 6%, var(--color-surface));
+}
+.deep-dive-callout.callout-math .deep-dive-callout-title {
+  color: #8b5cf6;
+}
+
+.deep-dive-callout.callout-warning {
+  border-left-color: #ef4444;
+  background: color-mix(in srgb, #ef4444 6%, var(--color-surface));
+}
+.deep-dive-callout.callout-warning .deep-dive-callout-title {
+  color: #ef4444;
+}
+
+.deep-dive-callout.callout-clinical {
+  border-left-color: #10b981;
+  background: color-mix(in srgb, #10b981 6%, var(--color-surface));
+}
+.deep-dive-callout.callout-clinical .deep-dive-callout-title {
+  color: #10b981;
+}
+
+/* Equation Cards */
+.equation-card {
+  margin: var(--space-5) 0;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.equation-header {
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-meta);
+  color: var(--color-muted);
+  margin-bottom: 0.4rem;
+}
+
+.equation-body {
+  font-size: 1.15rem;
+  text-align: center;
+  padding: var(--space-2) 0;
+  overflow-x: auto;
+  color: var(--color-ink);
+}
+
+.equation-legend {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--color-rule);
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+/* Embedded Interactive Widgets */
+.embedded-widget {
+  margin: var(--space-6) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 8px);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.widget-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  background: color-mix(in srgb, var(--color-surface) 85%, var(--color-ink) 15%);
+  border-bottom: 1px solid var(--color-rule);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.widget-body {
+  padding: var(--space-4);
+}
+
+.widget-viewport {
+  width: 100%;
+  height: 280px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.widget-controls {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: var(--fs-small);
+}
+
+.widget-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.widget-slider-group label {
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+.widget-slider-group input[type='range'] {
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.widget-readout {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* Summary Table */
+.summary-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: var(--space-6) 0;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.summary-table th,
+.summary-table td {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-rule);
+  text-align: left;
+}
+
+.summary-table th {
+  background: color-mix(in srgb, var(--color-surface) 85%, var(--color-ink) 15%);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.summary-table td {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.summary-table code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  padding: 0.15em 0.35em;
+  border-radius: 3px;
+}
+
+/* Algorithm Visualizer Promotion Card */
+.algo-promo-card {
+  margin: var(--space-8) 0;
+  padding: var(--space-5) var(--space-6);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-lg, 8px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.algo-promo-card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--color-ink);
+}
+
+.algo-promo-card p {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+.algo-promo-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-radius: 6px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--transition);
+}
+
+.algo-promo-btn:hover {
+  background: var(--color-accent-dark, var(--color-accent));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
