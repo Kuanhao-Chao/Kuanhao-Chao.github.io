@@ -11,10 +11,9 @@ describe('LivingCellsEngine', () => {
 
   it('triggers mitosis on a mature cell and sets proper initial state', () => {
     const engine = new LivingCellsEngine();
-    // Use private methods via casting for unit test verification
     const cell = (engine as any).createCell(100, 100, false, 25) as LivingCell;
     expect(cell.state).toBe('mature');
-    expect(cell.radius).toBe(25);
+    expect(cell.baseRadius).toBe(25);
 
     engine.triggerMitosis(cell);
     expect(cell.state).toBe('mitosis');
@@ -23,9 +22,37 @@ describe('LivingCellsEngine', () => {
     expect(cell.glowIntensity).toBe(2.5);
   });
 
+  it('creates authentic eukaryotic organelle ensemble with mitochondria, Golgi, ER, and centrosome', () => {
+    const engine = new LivingCellsEngine();
+    const cell = (engine as any).createCell(100, 100, false, 50) as LivingCell;
+
+    expect(cell.organelles.length).toBeGreaterThanOrEqual(4);
+
+    const mito = cell.organelles.find((o) => o.type === 'mitochondria');
+    expect(mito).toBeDefined();
+    if (mito && mito.type === 'mitochondria') {
+      expect(mito.cristaeCount).toBeGreaterThanOrEqual(3);
+      expect(mito.length).toBeGreaterThan(mito.width);
+    }
+
+    const golgi = cell.organelles.find((o) => o.type === 'golgi');
+    expect(golgi).toBeDefined();
+    if (golgi && golgi.type === 'golgi') {
+      expect(golgi.layers).toBeGreaterThanOrEqual(2);
+      expect(golgi.vesicles.length).toBeGreaterThanOrEqual(2);
+    }
+
+    const er = cell.organelles.find((o) => o.type === 'er');
+    expect(er).toBeDefined();
+    if (er && er.type === 'er') {
+      expect(er.ribosomes.length).toBeGreaterThanOrEqual(5);
+    }
+
+    const centrosome = cell.organelles.find((o) => o.type === 'centrosome');
+    expect(centrosome).toBeDefined();
+  });
+
   it('preserves chromosome containment invariants throughout all 4 phases of mitosis', () => {
-    // Mathematical assertion that for any cell radius r from 15 to 40 px,
-    // and for all progress values P in [0, 1], all chromosome elements remain safely inside the cell envelope.
     const testRadii = [15, 20, 25, 30, 40];
     const testProgresses = [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95];
 
@@ -71,7 +98,6 @@ describe('LivingCellsEngine', () => {
           const p3 = (prog - 0.48) / 0.28;
           const pullProgress = Math.pow(p3, 0.85);
           const pullDist = poleDist * (0.12 + 0.78 * pullProgress);
-          // Chromosome position along X is near or inside the daughter lobe
           expect(pullDist).toBeGreaterThan(0);
           expect(pullDist).toBeLessThan(poleDist + daughterLobeR * 0.5);
         }
@@ -88,5 +114,25 @@ describe('LivingCellsEngine', () => {
     expect(cell.apoptosisProgress).toBe(0);
     expect(cell.blebs).toBeDefined();
     expect(cell.blebs!.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('verifies optical tweezer drag clamps velocity and lerps position smoothly', () => {
+    const engine = new LivingCellsEngine();
+    const cell = (engine as any).createCell(100, 100, false, 30) as LivingCell;
+    (engine as any).cells = [cell];
+
+    cell.isGrabbed = true;
+    cell.targetDragPos = { x: 500, y: 500 }; // Large sudden displacement
+
+    // Run one update step
+    (engine as any).update();
+
+    // Position moves smoothly toward target
+    expect(cell.x).toBeGreaterThan(100);
+    expect(cell.x).toBeLessThan(500);
+
+    // Velocity is strictly clamped to max 2.2 px/frame (never exploding)
+    expect(Math.abs(cell.vx)).toBeLessThanOrEqual(2.21);
+    expect(Math.abs(cell.vy)).toBeLessThanOrEqual(2.21);
   });
 });

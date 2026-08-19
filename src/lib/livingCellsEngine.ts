@@ -3,11 +3,11 @@
  *
  * An authentic, state-of-the-art computational biology and fluid physics simulation:
  * 1. 💧 Viscoelastic Cubic Spline Membranes: 16 dynamic spring vertices with cortical tension.
- * 2. 🧲 Optical Tweezer Dragging & Elastic Recoil: Desktop mouse drag & stretch with damped spring rebound.
- * 3. 📱 Mobile-Calibrated Touch Interaction: Non-intrusive, scroll-safe background with discrete tap actions.
- * 4. 🧪 Chemotaxis & Nutrient Feeding: Desktop cursor emits ATP fireflies; cells sense & swim towards nutrients.
- * 5. 🧫 Intercellular Contact Inhibition: Cells softly deform and bounce off one another in a tissue layer.
- * 6. 🔬 Mitotic Microtubule Spindle Apparatus: Centrosome poles, spindle fibers, and cleavage furrow cytokinesis.
+ * 2. 🧲 Optical Tweezer Dragging & Elastic Recoil: Smooth, critically damped desktop mouse drag with velocity clamping.
+ * 3. 📱 Mobile-Calibrated Touch Isolation: Zero scroll hijacking on touch screens; discrete stationary taps only.
+ * 4. 🫁 Dynamic Respiration & Amoeboid Morphing: Gentle sinusoidal breathing cycle (r ± 4.5%) and harmonic fluid morphing.
+ * 5. 🔬 Realistic Eukaryotic Organelles: Mitochondria with cristae, ER with ribosomes, Golgi with vesicles, and nuclear pores.
+ * 6. 🧬 4-Phase Mitosis & Cytokinesis: Prophase, Metaphase, Anaphase, and Telophase with complete chromosome containment.
  * 7. 🫧 Apoptotic Zeiosis & Fragmentation: Dynamic membrane boiling, apoptotic blebs, and pyknosis.
  * 8. 🌊 Double-Click Colony Shockwave: Radial colony excitation pulse.
  *
@@ -54,11 +54,50 @@ export interface VertexSpring {
 
 export type CellState = 'growing' | 'mature' | 'mitosis' | 'apoptosis';
 
+export interface Mitochondrion {
+  type: 'mitochondria';
+  angle: number;
+  dist: number;
+  length: number;
+  width: number;
+  cristaeCount: number;
+  rotAngle: number;
+  spinSpeed: number;
+}
+
+export interface GolgiApparatus {
+  type: 'golgi';
+  angle: number;
+  dist: number;
+  arcSpan: number;
+  layers: number;
+  spinSpeed: number;
+  vesicles: { angle: number; dist: number; size: number }[];
+}
+
+export interface EndoplasmicReticulum {
+  type: 'er';
+  arcStart: number;
+  arcEnd: number;
+  layers: number;
+  ribosomes: { angle: number; rOffset: number }[];
+}
+
+export interface Centrosome {
+  type: 'centrosome';
+  angle: number;
+  dist: number;
+  spinSpeed: number;
+}
+
+export type Organelle = Mitochondrion | GolgiApparatus | EndoplasmicReticulum | Centrosome;
+
 export interface LivingCell {
   x: number;
   y: number;
   vx: number;
   vy: number;
+  baseRadius: number;
   radius: number;
   targetRadius: number;
   angle: number;
@@ -68,9 +107,16 @@ export interface LivingCell {
   harmonics: [number, number, number, number];
   vertices: VertexSpring[];
 
+  // Dynamic Respiration & Morphing
+  breathPhase: number;
+  breathSpeed: number;
+  morphPhase: number;
+  morphSpeed: number;
+
+  // Cytology & Organelles
   nucleusOffset: { x: number; y: number };
   nucleusAngle: number;
-  organelles: { angle: number; dist: number; size: number; isAccent: boolean; spinSpeed: number }[];
+  organelles: Organelle[];
 
   state: CellState;
   life: number; // 0..1 vitality
@@ -80,6 +126,7 @@ export interface LivingCell {
   // Interactivity & Optical Tweezers (Desktop only)
   isGrabbed: boolean;
   grabOffset: { x: number; y: number };
+  targetDragPos?: { x: number; y: number };
 
   // Mitosis Properties
   mitosisProgress?: number;
@@ -166,7 +213,7 @@ export class LivingCellsEngine {
 
   private createCell(x?: number, y?: number, asBud = false, targetR?: number): LivingCell {
     const isCoarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
-    const finalRadius = targetR ?? (isCoarse ? rand(26, 52) : rand(34, 72));
+    const finalRadius = targetR ?? (isCoarse ? rand(28, 54) : rand(36, 74));
     const cellState: CellState = asBud ? 'growing' : 'mature';
 
     const vertices: VertexSpring[] = Array.from({ length: VERTEX_COUNT }, (_, i) => ({
@@ -176,32 +223,87 @@ export class LivingCellsEngine {
       equilibriumOffset: 0,
     }));
 
+    // Generate authentic eukaryotic organelle ensemble
+    const organelles: Organelle[] = [];
+
+    // 1. Mitochondria (1 to 2 distinct elongated powerhouses with cristae)
+    const mitoCount = finalRadius > 45 ? 2 : 1;
+    for (let m = 0; m < mitoCount; m++) {
+      organelles.push({
+        type: 'mitochondria',
+        angle: rand(0, TAU),
+        dist: rand(0.42, 0.70),
+        length: Math.max(5.5, finalRadius * 0.22),
+        width: Math.max(2.8, finalRadius * 0.10),
+        cristaeCount: Math.round(rand(3, 5)),
+        rotAngle: rand(0, TAU),
+        spinSpeed: rand(-0.003, 0.003),
+      });
+    }
+
+    // 2. Golgi Apparatus (Stacked curved cisternae + secretory vesicles)
+    organelles.push({
+      type: 'golgi',
+      angle: rand(0, TAU),
+      dist: rand(0.48, 0.72),
+      arcSpan: rand(0.6, 0.9),
+      layers: finalRadius > 50 ? 3 : 2,
+      spinSpeed: rand(-0.002, 0.002),
+      vesicles: Array.from({ length: Math.round(rand(2, 4)) }, () => ({
+        angle: rand(-0.4, 0.4),
+        dist: rand(1.15, 1.45),
+        size: rand(1.0, 1.8),
+      })),
+    });
+
+    // 3. Endoplasmic Reticulum (Concentric canalicular ribbons hugging nucleus)
+    organelles.push({
+      type: 'er',
+      arcStart: rand(0, TAU),
+      arcEnd: rand(1.4, 2.4),
+      layers: 2,
+      ribosomes: Array.from({ length: Math.round(rand(5, 9)) }, () => ({
+        angle: rand(0, 1),
+        rOffset: rand(0, 1),
+      })),
+    });
+
+    // 4. Centrosome (Centriole pair with astral rays)
+    organelles.push({
+      type: 'centrosome',
+      angle: rand(0, TAU),
+      dist: rand(0.35, 0.55),
+      spinSpeed: rand(-0.001, 0.001),
+    });
+
     return {
       x: x ?? rand(0, this.width || 800),
       y: y ?? rand(0, this.height || 600),
       vx: rand(-0.14, 0.14),
       vy: rand(-0.14, 0.14),
+      baseRadius: asBud ? 4 : finalRadius,
       radius: asBud ? 4 : finalRadius,
       targetRadius: finalRadius,
       angle: rand(0, TAU),
       vAngle: rand(-0.0014, 0.0014),
       wobblePhase: rand(0, TAU),
       wobbleSpeed: rand(0.004, 0.008),
-      harmonics: [rand(0.06, 0.12), rand(0.03, 0.07), rand(0.02, 0.04), rand(0.01, 0.025)],
+      harmonics: [rand(0.05, 0.10), rand(0.03, 0.06), rand(0.02, 0.035), rand(0.01, 0.02)],
       vertices,
-      nucleusOffset: { x: rand(-0.16, 0.16), y: rand(-0.16, 0.16) },
+
+      // Respiration & Morphing
+      breathPhase: rand(0, TAU),
+      breathSpeed: rand(0.006, 0.012),
+      morphPhase: rand(0, TAU),
+      morphSpeed: rand(0.003, 0.007),
+
+      nucleusOffset: { x: rand(-0.14, 0.14), y: rand(-0.14, 0.14) },
       nucleusAngle: rand(0, TAU),
-      organelles: Array.from({ length: Math.random() < 0.6 ? 3 : 2 }, () => ({
-        angle: rand(0, TAU),
-        dist: rand(0.3, 0.65),
-        size: rand(1.8, 3.4),
-        isAccent: Math.random() < 0.55,
-        spinSpeed: rand(-0.006, 0.006),
-      })),
+      organelles,
       state: cellState,
       life: asBud ? 0.2 : 1,
       age: asBud ? 0 : rand(80, 550),
-      maxAge: rand(1250, 2500),
+      maxAge: rand(1400, 2800),
       isGrabbed: false,
       grabOffset: { x: 0, y: 0 },
       glowIntensity: asBud ? 2.0 : 1.0,
@@ -280,7 +382,7 @@ export class LivingCellsEngine {
 
     window.addEventListener('resize', this.resize, { passive: true });
 
-    // Pointer Down
+    // Pointer Down (Desktop Drag Initiation & Click Detection)
     window.addEventListener(
       'pointerdown',
       (e: PointerEvent) => {
@@ -297,7 +399,7 @@ export class LivingCellsEngine {
         this.pointer.type = e.pointerType || 'mouse';
         this.pointerDownPos = { x, y, time: performance.now() };
 
-        // Double click / shockwave (desktop mouse only)
+        // Desktop mouse only: double-click shockwave & optical tweezer grab
         if (!isTouch) {
           const now = performance.now();
           if (now - this.lastClickTime < 320) {
@@ -315,6 +417,7 @@ export class LivingCellsEngine {
                 this.grabbedCell = cell;
                 cell.isGrabbed = true;
                 cell.grabOffset = { x: cell.x - x, y: cell.y - y };
+                cell.targetDragPos = { x, y };
                 cell.glowIntensity = 2.2;
                 return;
               }
@@ -350,24 +453,13 @@ export class LivingCellsEngine {
               this.createParticle(x + rand(-8, 8), y + rand(-8, 8), rand(-0.1, 0.1), rand(-0.1, 0.1), 1.2)
             );
           }
-        }
 
-        // Optical Tweezer Pull Drag (desktop mouse only)
-        if (this.grabbedCell && !isTouch) {
-          const targetX = x + this.grabbedCell.grabOffset.x;
-          const targetY = y + this.grabbedCell.grabOffset.y;
-          const pullDx = targetX - this.grabbedCell.x;
-          const pullDy = targetY - this.grabbedCell.y;
-
-          this.grabbedCell.vx += pullDx * 0.12;
-          this.grabbedCell.vy += pullDy * 0.12;
-
-          const pullAngle = Math.atan2(pullDy, pullDx);
-          const pullMag = Math.min(18, Math.hypot(pullDx, pullDy) * 0.3);
-
-          for (const v of this.grabbedCell.vertices) {
-            const angleDiff = Math.cos(v.angle + this.grabbedCell.angle - pullAngle);
-            v.displacement += angleDiff * pullMag * 0.2;
+          // Optical Tweezer Pull Target (Desktop mouse only)
+          if (this.grabbedCell) {
+            this.grabbedCell.targetDragPos = {
+              x: x + this.grabbedCell.grabOffset.x,
+              y: y + this.grabbedCell.grabOffset.y,
+            };
           }
         }
       },
@@ -383,8 +475,9 @@ export class LivingCellsEngine {
 
       if (this.grabbedCell) {
         this.grabbedCell.isGrabbed = false;
+        this.grabbedCell.targetDragPos = undefined;
         for (const v of this.grabbedCell.vertices) {
-          v.velocity += rand(-1.2, 1.2);
+          v.velocity += rand(-0.8, 0.8);
         }
         this.grabbedCell = null;
       } else {
@@ -432,6 +525,7 @@ export class LivingCellsEngine {
         this.pointer.y = -1000;
         if (this.grabbedCell) {
           this.grabbedCell.isGrabbed = false;
+          this.grabbedCell.targetDragPos = undefined;
           this.grabbedCell = null;
         }
       },
@@ -534,10 +628,14 @@ export class LivingCellsEngine {
           const ny = dy / dist;
           const force = overlap * 0.04;
 
-          c1.vx -= nx * force;
-          c1.vy -= ny * force;
-          c2.vx += nx * force;
-          c2.vy += ny * force;
+          if (!c1.isGrabbed) {
+            c1.vx -= nx * force;
+            c1.vy -= ny * force;
+          }
+          if (!c2.isGrabbed) {
+            c2.vx += nx * force;
+            c2.vy += ny * force;
+          }
 
           const c1Angle = Math.atan2(dy, dx) - c1.angle;
           const c2Angle = Math.atan2(-dy, -dx) - c2.angle;
@@ -561,19 +659,51 @@ export class LivingCellsEngine {
       const cell = this.cells[i];
       cell.age++;
 
-      // Damped movement
-      cell.x += cell.vx;
-      cell.y += cell.vy;
-      cell.vx *= 0.985;
-      cell.vy *= 0.985;
+      // Optical Tweezer Soft Lerp Dragging (Desktop only)
+      if (cell.isGrabbed && cell.targetDragPos) {
+        const pullDx = cell.targetDragPos.x - cell.x;
+        const pullDy = cell.targetDragPos.y - cell.y;
+        const easeRate = 0.16;
+
+        const moveX = pullDx * easeRate;
+        const moveY = pullDy * easeRate;
+        cell.x += moveX;
+        cell.y += moveY;
+
+        // Clamp instantaneous velocity to gentle fluid speed (max 2.2 px/frame)
+        cell.vx = Math.max(-2.2, Math.min(2.2, moveX));
+        cell.vy = Math.max(-2.2, Math.min(2.2, moveY));
+
+        // Elastic membrane deformation toward cursor
+        const pullAngle = Math.atan2(pullDy, pullDx);
+        const pullMag = Math.min(14, Math.hypot(pullDx, pullDy) * 0.25);
+        for (const v of cell.vertices) {
+          const angleDiff = Math.cos(v.angle + cell.angle - pullAngle);
+          v.displacement += angleDiff * pullMag * 0.18;
+        }
+      } else {
+        // Natural viscous fluid motion
+        cell.x += cell.vx;
+        cell.y += cell.vy;
+        cell.vx *= 0.985;
+        cell.vy *= 0.985;
+      }
+
+      // Dynamic Metabolic Respiration (Breathing r ± 4.5%)
+      cell.breathPhase += cell.breathSpeed;
+      cell.morphPhase += cell.morphSpeed;
+      const breathScale = 1.0 + 0.045 * Math.sin(cell.breathPhase);
 
       cell.angle += cell.vAngle;
       cell.nucleusAngle += cell.vAngle * 0.7;
       cell.wobblePhase += cell.wobbleSpeed;
       cell.glowIntensity = Math.max(1.0, cell.glowIntensity - 0.012);
 
+      // Rotate and gently drift organelles
       for (const org of cell.organelles) {
-        org.angle += org.spinSpeed;
+        if ('spinSpeed' in org) {
+          org.angle += org.spinSpeed;
+        }
       }
 
       // Chemotaxis: sense nearby ATP nutrients
@@ -588,43 +718,57 @@ export class LivingCellsEngine {
         }
       }
 
-      // Update 16 Viscoelastic Radial Vertex Springs
+      // Update 16 Viscoelastic Radial Vertex Springs with Low-Frequency Amoeboid Morphing
       const k = 0.08;
       const damping = 0.88;
 
       for (let vi = 0; vi < cell.vertices.length; vi++) {
         const v = cell.vertices[vi];
         const theta = v.angle;
+
+        // High frequency membrane ripples
         const h1 = cell.harmonics[0] * Math.sin(theta * 3 + cell.wobblePhase);
         const h2 = cell.harmonics[1] * Math.sin(theta * 5 - cell.wobblePhase * 0.8);
         const h3 = cell.harmonics[2] * Math.sin(theta * 7 + cell.wobblePhase * 1.3);
         const h4 = cell.harmonics[3] * Math.sin(theta * 9 - cell.wobblePhase * 0.5);
-        v.equilibriumOffset = (h1 + h2 + h3 + h4) * cell.radius;
+
+        // Low frequency amoeboid fluid morphing modes (m=2 oval, m=3 tri-lobe)
+        const m2 = 0.045 * Math.sin(2 * theta + cell.morphPhase);
+        const m3 = 0.025 * Math.sin(3 * theta - cell.morphPhase * 0.7);
+
+        v.equilibriumOffset = (h1 + h2 + h3 + h4 + m2 + m3) * cell.radius;
 
         const force = -k * (v.displacement - v.equilibriumOffset);
         v.velocity = (v.velocity + force) * damping;
         v.displacement += v.velocity;
       }
 
-      // Boundary wrapping
-      const margin = cell.radius * 1.6;
-      if (cell.x < -margin) cell.x = this.width + margin;
-      else if (cell.x > this.width + margin) cell.x = -margin;
-      if (cell.y < -margin) cell.y = this.height + margin;
-      else if (cell.y > this.height + margin) cell.y = -margin;
+      // Boundary wrapping (only when not grabbed and screen dimensions initialized)
+      if (!cell.isGrabbed && this.width > 0 && this.height > 0) {
+        const margin = cell.radius * 1.6;
+        if (cell.x < -margin) cell.x = this.width + margin;
+        else if (cell.x > this.width + margin) cell.x = -margin;
+        if (cell.y < -margin) cell.y = this.height + margin;
+        else if (cell.y > this.height + margin) cell.y = -margin;
+      }
 
       // A. Growth Phase
       if (cell.state === 'growing') {
         cell.life = Math.min(1.0, cell.life + 0.018);
-        cell.radius = 4 + (cell.targetRadius - 4) * easeInOutCubic(cell.life);
+        cell.baseRadius = 4 + (cell.targetRadius - 4) * easeInOutCubic(cell.life);
+        cell.radius = cell.baseRadius * breathScale;
 
         if (cell.life >= 1.0) {
           cell.state = 'mature';
-          cell.radius = cell.targetRadius;
+          cell.baseRadius = cell.targetRadius;
+          cell.radius = cell.baseRadius * breathScale;
         }
       }
       // B. Mature Homeostasis Phase
       else if (cell.state === 'mature') {
+        cell.baseRadius = cell.targetRadius;
+        cell.radius = cell.baseRadius * breathScale;
+
         if (cell.age > cell.maxAge && !cell.isGrabbed) {
           this.triggerApoptosis(cell);
         }
@@ -635,8 +779,8 @@ export class LivingCellsEngine {
 
         if (cell.mitosisProgress >= 1.0) {
           const angle = cell.mitosisAngle || 0;
-          const separation = cell.radius * 0.63;
-          const daughterR = cell.radius * 0.78;
+          const separation = cell.targetRadius * 0.63;
+          const daughterR = cell.targetRadius * 0.78;
 
           const daughter1 = this.createCell(
             cell.x + Math.cos(angle) * separation,
@@ -835,7 +979,7 @@ export class LivingCellsEngine {
       let rx: number;
 
       if (prog < 0.28) {
-        // Prophase: cell prepares, centrosomes begin migrating, membrane remains wide
+        // Prophase: cell prepares, centrosomes migrate, membrane remains wide
         const p1 = prog / 0.28;
         poleDist = r * (0.12 + 0.20 * p1);
         daughterLobeR = r * (1.0 - 0.08 * p1);
@@ -849,7 +993,7 @@ export class LivingCellsEngine {
         waistR = r * (0.95 - 0.07 * p2);
         rx = r * (1.15 + 0.10 * p2);
       } else if (prog < 0.76) {
-        // Anaphase: chromatids separate to poles; cleavage furrow smoothly ingresses only NOW
+        // Anaphase: chromatids separate to poles; cleavage furrow ingresses smoothly
         const p3 = (prog - 0.48) / 0.28;
         poleDist = r * (0.38 + 0.20 * p3);
         daughterLobeR = r * (0.86 - 0.08 * p3);
@@ -886,7 +1030,6 @@ export class LivingCellsEngine {
           ry = Math.sqrt(Math.max(0, daughterLobeR * daughterLobeR - capDist * capDist));
         } else {
           const u = absX / Math.max(0.1, poleDist);
-          // Smooth Hermite blend between waistR (at u=0) and daughterLobeR (at u=1)
           const smoothU = u * u * (3 - 2 * u);
           ry = waistR + (daughterLobeR - waistR) * smoothU;
         }
@@ -1223,31 +1366,173 @@ export class LivingCellsEngine {
     this.ctx.strokeStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${(cell.isGrabbed ? 0.12 : 0.065) * brightness * alpha})`;
     this.ctx.stroke();
 
-    // Fluorescent Nucleus + Nucleolus
+    // =============================================================
+    // Realistic Cytology: Nucleus, Organelles, Mitochondria & ER
+    // =============================================================
     const ncx = px + cell.nucleusOffset.x * r;
     const ncy = py + cell.nucleusOffset.y * r;
     const nucRadius = r * 0.28;
 
+    // 1. Double Nuclear Envelope with Nuclear Pores
     this.ctx.beginPath();
     this.ctx.arc(ncx, ncy, nucRadius, 0, TAU);
     this.ctx.fillStyle = `rgba(${accentRgb}, ${0.058 * brightness * alpha})`;
     this.ctx.fill();
 
+    // Outer and Inner Nuclear Membranes
+    this.ctx.lineWidth = 0.8;
+    this.ctx.strokeStyle = `rgba(${inkRgb}, ${0.055 * brightness * alpha})`;
+    this.ctx.stroke();
+
     this.ctx.beginPath();
-    this.ctx.arc(ncx, ncy, nucRadius * 0.42, 0, TAU);
-    this.ctx.fillStyle = `rgba(${inkRgb}, ${0.05 * brightness * alpha})`;
+    this.ctx.arc(ncx, ncy, nucRadius * 0.86, 0, TAU);
+    this.ctx.lineWidth = 0.6;
+    this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.045 * brightness * alpha})`;
+    this.ctx.stroke();
+
+    // Dense Nucleolus
+    this.ctx.beginPath();
+    this.ctx.arc(ncx, ncy, nucRadius * 0.38, 0, TAU);
+    this.ctx.fillStyle = `rgba(${inkRgb}, ${0.075 * brightness * alpha})`;
     this.ctx.fill();
 
-    // Rotating Organelles (Mitochondria & Ribosomes)
-    for (const org of cell.organelles) {
-      const ox = px + Math.cos(org.angle + cell.angle) * r * org.dist;
-      const oy = py + Math.sin(org.angle + cell.angle) * r * org.dist;
+    // Nuclear Pores (subtle outer perimeter dots)
+    const PORE_COUNT = 6;
+    for (let p = 0; p < PORE_COUNT; p++) {
+      const pAngle = (p / PORE_COUNT) * TAU + cell.nucleusAngle;
+      const pox = ncx + Math.cos(pAngle) * nucRadius;
+      const poy = ncy + Math.sin(pAngle) * nucRadius;
       this.ctx.beginPath();
-      this.ctx.arc(ox, oy, org.size, 0, TAU);
-      this.ctx.fillStyle = org.isAccent
-        ? `rgba(${accentRgb}, ${0.048 * alpha})`
-        : `rgba(${inkRgb}, ${0.04 * alpha})`;
+      this.ctx.arc(pox, poy, 0.75, 0, TAU);
+      this.ctx.fillStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.12 * brightness * alpha})`;
       this.ctx.fill();
+    }
+
+    // 2. Render Specialized Organelles
+    for (const org of cell.organelles) {
+      // Organelle A: Mitochondria (Elongated capsule with transverse cristae folds)
+      if (org.type === 'mitochondria') {
+        const mx = px + Math.cos(org.angle + cell.angle) * r * org.dist;
+        const my = py + Math.sin(org.angle + cell.angle) * r * org.dist;
+        const mRot = org.rotAngle + cell.angle;
+
+        this.ctx.save();
+        this.ctx.translate(mx, my);
+        this.ctx.rotate(mRot);
+
+        const halfLen = org.length * 0.5;
+        const halfW = org.width * 0.5;
+
+        // Outer mitochondrial membrane capsule
+        this.ctx.beginPath();
+        this.ctx.ellipse(0, 0, halfLen, halfW, 0, 0, TAU);
+        this.ctx.fillStyle = `rgba(${accentRgb}, ${0.065 * alpha})`;
+        this.ctx.fill();
+        this.ctx.lineWidth = 0.75;
+        this.ctx.strokeStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.08 * alpha})`;
+        this.ctx.stroke();
+
+        // Inner folding cristae ridges
+        this.ctx.lineWidth = 0.65;
+        this.ctx.strokeStyle = `rgba(${inkRgb}, ${0.07 * alpha})`;
+        for (let c = 1; c <= org.cristaeCount; c++) {
+          const cx = -halfLen + (c / (org.cristaeCount + 1)) * org.length;
+          const cristaeHeight = halfW * 0.65;
+          const yDir = c % 2 === 0 ? 1 : -1;
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(cx, -cristaeHeight * yDir);
+          this.ctx.lineTo(cx, cristaeHeight * yDir);
+          this.ctx.stroke();
+        }
+
+        this.ctx.restore();
+      }
+
+      // Organelle B: Golgi Apparatus (Stacked parallel curved cisternae + budding vesicles)
+      else if (org.type === 'golgi') {
+        const gx = px + Math.cos(org.angle + cell.angle) * r * org.dist;
+        const gy = py + Math.sin(org.angle + cell.angle) * r * org.dist;
+        const gRot = org.angle + cell.angle;
+
+        this.ctx.save();
+        this.ctx.translate(gx, gy);
+        this.ctx.rotate(gRot);
+
+        this.ctx.lineWidth = 0.8;
+        this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.075 * alpha})`;
+
+        for (let l = 0; l < org.layers; l++) {
+          const radiusLayer = 5 + l * 2.2;
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, radiusLayer, -org.arcSpan * 0.5, org.arcSpan * 0.5);
+          this.ctx.stroke();
+        }
+
+        // Secretory budding transport vesicles
+        for (const v of org.vesicles) {
+          const vx = Math.cos(v.angle) * (8 + v.dist * 3);
+          const vy = Math.sin(v.angle) * (8 + v.dist * 3);
+          this.ctx.beginPath();
+          this.ctx.arc(vx, vy, v.size, 0, TAU);
+          this.ctx.fillStyle = `rgba(${glowRgb}, ${0.06 * alpha})`;
+          this.ctx.fill();
+        }
+
+        this.ctx.restore();
+      }
+
+      // Organelle C: Endoplasmic Reticulum (Concentric canaliculi with ribosome dots)
+      else if (org.type === 'er') {
+        this.ctx.save();
+        this.ctx.translate(ncx, ncy);
+        this.ctx.lineWidth = 0.75;
+        this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.045 * alpha})`;
+
+        for (let l = 0; l < org.layers; l++) {
+          const erR = nucRadius * (1.18 + l * 0.18);
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, erR, org.arcStart, org.arcStart + org.arcEnd);
+          this.ctx.stroke();
+        }
+
+        // Ribosome nanoparticles along Rough ER
+        for (const ribo of org.ribosomes) {
+          const riboAngle = org.arcStart + ribo.angle * org.arcEnd;
+          const riboDist = nucRadius * (1.18 + ribo.rOffset * 0.22);
+          const rx = Math.cos(riboAngle) * riboDist;
+          const ry = Math.sin(riboAngle) * riboDist;
+
+          this.ctx.beginPath();
+          this.ctx.arc(rx, ry, 0.7, 0, TAU);
+          this.ctx.fillStyle = `rgba(${inkRgb}, ${0.07 * alpha})`;
+          this.ctx.fill();
+        }
+
+        this.ctx.restore();
+      }
+
+      // Organelle D: Centrosome (Centriole orthogonal pair)
+      else if (org.type === 'centrosome') {
+        const cx = px + Math.cos(org.angle + cell.angle) * r * org.dist;
+        const cy = py + Math.sin(org.angle + cell.angle) * r * org.dist;
+
+        this.ctx.save();
+        this.ctx.translate(cx, cy);
+
+        // Centriole pair
+        this.ctx.lineWidth = 1.0;
+        this.ctx.strokeStyle = `rgba(${inkRgb}, ${0.08 * alpha})`;
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(-1.5, 0);
+        this.ctx.lineTo(1.5, 0);
+        this.ctx.moveTo(0, -1.5);
+        this.ctx.lineTo(0, 1.5);
+        this.ctx.stroke();
+
+        this.ctx.restore();
+      }
     }
   }
 }
