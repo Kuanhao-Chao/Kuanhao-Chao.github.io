@@ -45,6 +45,7 @@ const SCAN_ROOTS = [
 const SAFE_SET_HTML_FILES = new Set([
   'src/components/BaseHead.astro',
   'src/components/Icon.astro',
+  'src/components/Katex.astro',
   'src/components/LiftOnChaining.astro',
   'src/components/LiftOnCopies.astro',
   'src/components/LiftOnEval.astro',

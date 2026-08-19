@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
 import '../../styles/deepDive.css';
 import 'katex/dist/katex.min.css';
 
@@ -13,7 +14,7 @@ const readingTime = "18 min read";
   <article class="deep-dive-article" data-deep-dive-gwas>
     <!-- Back to Catalog -->
     <nav style="margin-bottom: var(--space-4);">
-      <a href="/deep_dive/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+      <a href="/deep_dives/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
         <Icon name="arrow-left" size={14} /> Back to Computational Genomics Deep Dives
       </a>
     </nav>
@@ -44,7 +45,7 @@ const readingTime = "18 min read";
         <Icon name="sparkles" size={15} /> Executive Summary & Core Mechanisms
       </div>
       <p>
-        GWAS tests millions of genetic variants across cohorts of tens to hundreds of thousands of individuals using <strong>additive linear/logistic regression</strong>. To discover genuine biological signals, a GWAS must rigorously solve two major statistical challenges: <strong>population stratification confounding</strong> (via Ancestry PCA or Linear Mixed Models) and <strong>massive multiple testing</strong> (via the genome-wide Bonferroni threshold <i>p &lt; 5 &times; 10⁻⁸</i>).
+        GWAS tests millions of genetic variants across cohorts of tens to hundreds of thousands of individuals using <strong>additive linear/logistic regression</strong>. To discover genuine biological signals, a GWAS must rigorously solve two major statistical challenges: <strong>population stratification confounding</strong> (via Ancestry PCA or Linear Mixed Models) and <strong>massive multiple testing</strong> (via the genome-wide Bonferroni threshold <Katex tex="p < 5 \times 10^{-8}" />).
       </p>
     </div>
 
@@ -52,48 +53,79 @@ const readingTime = "18 min read";
     <section>
       <h2>1. The Genotype Dosage Matrix & Single-Variant Testing</h2>
       <p>
-        At the core of every GWAS is a high-dimensional cohort dataset containing <i>N</i> individuals assayed across <i>M</i> single nucleotide polymorphisms (SNPs). For an individual <i>i</i> and variant <i>j</i>, genotype data is encoded as an <strong>additive dosage</strong>:
+        At the core of every GWAS is a high-dimensional cohort dataset containing <Katex tex="N" /> individuals assayed across <Katex tex="M" /> single nucleotide polymorphisms (SNPs). For an individual <Katex tex="i" /> and variant <Katex tex="j" />, genotype data is encoded as an <strong>additive dosage</strong>:
       </p>
 
       <div class="equation-card">
         <div class="equation-header">Additive Genotype Dosage Encoding</div>
         <div class="equation-body">
-          <code>G_{'{ij}'} &isin; &#123;0, 1, 2&#125;</code> &emsp;&rarr;&emsp; Count of Minor (Effect) Alleles
+          <Katex tex="G_{ij} \in \{0, 1, 2\} \quad \longrightarrow \quad \text{Count of Minor (Effect) Alleles}" display={true} />
         </div>
         <div class="equation-legend">
-          <code>0 = Ref/Ref (Homozygous reference)</code> &emsp;|&emsp; 
-          <code>1 = Ref/Alt (Heterozygous)</code> &emsp;|&emsp; 
-          <code>2 = Alt/Alt (Homozygous alternative)</code>
+          <Katex tex="0 = \text{Ref/Ref (Homozygous reference)}" /> &emsp;|&emsp; 
+          <Katex tex="1 = \text{Ref/Alt (Heterozygous)}" /> &emsp;|&emsp; 
+          <Katex tex="2 = \text{Alt/Alt (Homozygous alternative)}" />
         </div>
       </div>
 
       <p>
-        For a continuous quantitative phenotype <code>y &isin; &reals;^N</code> (e.g. standing height, LDL cholesterol, or fasting glucose), we formulate a single-variant Ordinary Least Squares (OLS) regression model:
+        While the <strong>additive model</strong> is the standard assumption in human genetics due to parsimony and power, alternative genetic architectures can also be tested:
+      </p>
+      <ul>
+        <li><strong>Additive Model:</strong> <Katex tex="G_{ij} \in \{0, 1, 2\}" /> (each minor allele linearly shifts phenotype by <Katex tex="\beta_j" />).</li>
+        <li><strong>Dominant Model:</strong> <Katex tex="G_{ij} \in \{0, 1, 1\}" /> (one copy is sufficient to confer full phenotypic effect).</li>
+        <li><strong>Recessive Model:</strong> <Katex tex="G_{ij} \in \{0, 0, 1\}" /> (requires two copies of the minor allele).</li>
+      </ul>
+
+      <h3>Quantitative Traits: Ordinary Least Squares (OLS) Regression</h3>
+      <p>
+        For a continuous quantitative phenotype <Katex tex="\mathbf{y} \in \mathbb{R}^N" /> (e.g. standing height, LDL cholesterol, or fasting glucose), we formulate a single-variant Ordinary Least Squares (OLS) regression model:
       </p>
 
       <div class="equation-card">
         <div class="equation-header">Single-Variant Linear Regression Model</div>
         <div class="equation-body">
-          <code>y_i = &alpha; + &beta;_j &middot; X_{'{ij}'} + &sum;_{'{k=1}'}^K &gamma;_k &middot; Z_{'{ik}'} + &epsilon;_i, &emsp; &epsilon;_i &sim; &Nscr;(0, &sigma;^2)</code>
+          <Katex tex="y_i = \alpha + \beta_j X_{ij} + \sum_{k=1}^K \gamma_k Z_{ik} + \epsilon_i, \quad \epsilon_i \sim \mathcal{N}(0, \sigma^2)" display={true} />
         </div>
         <div class="equation-legend">
-          <code>X_{'{ij}'}</code> = Additive genotype dosage &emsp;|&emsp;
-          <code>&beta;_j</code> = Effect size per minor allele &emsp;|&emsp;
-          <code>Z_{'{ik}'}</code> = Covariates (Age, Sex, Ancestry PCs)
+          <Katex tex="X_{ij}" /> = Additive genotype dosage &emsp;|&emsp;
+          <Katex tex="\beta_j" /> = Effect size per minor allele &emsp;|&emsp;
+          <Katex tex="Z_{ik}" /> = Covariates (Age, Sex, Ancestry PCs)
         </div>
       </div>
 
       <p>
-        Using the Frisch-Waugh-Lovell theorem to project out covariates, the analytical Ordinary Least Squares estimate of the effect size <code>&beta;&#770;_j</code> and its standard error <code>SE(&beta;&#770;_j)</code> are given by:
+        Using the Frisch-Waugh-Lovell theorem to project out the covariate matrix <Katex tex="\mathbf{Z}" />, the analytical Ordinary Least Squares estimate of the effect size <Katex tex="\hat{\beta}_j" /> and its variance are given by:
       </p>
 
       <div class="equation-card">
-        <div class="equation-header">OLS Estimator & Wald Test Statistic</div>
+        <div class="equation-header">OLS Estimator, Standard Error & Statistical Power</div>
         <div class="equation-body">
-          <code>&beta;&#770;_j = &sum;(X_i - X̄)(y_i - ȳ) / &sum;(X_i - X̄)^2, &emsp; SE(&beta;&#770;_j) = &radic;(&sigma;&#770;^2 / SS_{'{XX}'})</code>
+          <Katex tex="\hat{\beta}_j = \frac{\sum_{i=1}^N (X_{ij} - \bar{X}_j)(y_i - \bar{y})}{\sum_{i=1}^N (X_{ij} - \bar{X}_j)^2} = \frac{\text{Cov}(X_j, y)}{\text{Var}(X_j)}" display={true} />
         </div>
         <div class="equation-body" style="margin-top: 0.5rem;">
-          <code>t_j = &beta;&#770;_j / SE(&beta;&#770;_j) &sim; Student's t(df = N - K - 2) &emsp;&rarr;&emsp; p_j = 2 &middot; [1 - &Phi;(|t_j|)]</code>
+          <Katex tex="\text{Var}(\hat{\beta}_j) = \frac{\sigma^2}{2 N p_j (1 - p_j)} \implies \text{SE}(\hat{\beta}_j) = \frac{\sigma}{\sqrt{2 N p_j (1 - p_j)}}" display={true} />
+        </div>
+        <div class="equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="t_j = \frac{\hat{\beta}_j}{\text{SE}(\hat{\beta}_j)} \sim \text{Student's } t(df = N - K - 2) \quad \longrightarrow \quad p_j = 2 \cdot [1 - \Phi(|t_j|)]" display={true} />
+        </div>
+        <div class="equation-legend">
+          Under Hardy-Weinberg equilibrium with minor allele frequency <Katex tex="p_j = \text{MAF}" />, the genotype variance is <Katex tex="\text{Var}(X_j) = 2p_j(1 - p_j)" />. Notice that discovery power is directly proportional to <Katex tex="\sqrt{N \cdot p_j (1 - p_j) \cdot \beta_j^2}" />!
+        </div>
+      </div>
+
+      <h3>Case-Control Binary Traits: Logistic Regression & Odds Ratios</h3>
+      <p>
+        For binary clinical disease status <Katex tex="y_i \in \{0, 1\}" /> (e.g. Type 2 Diabetes case vs. control), we fit a Logistic Regression model via Maximum Likelihood Estimation (MLE):
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Logistic Regression & Odds Ratio (OR)</div>
+        <div class="equation-body">
+          <Katex tex="\ln\left(\frac{P(y_i = 1)}{1 - P(y_i = 1)}\right) = \alpha + \beta_j X_{ij} + \sum_{k=1}^K \gamma_k Z_{ik}" display={true} />
+        </div>
+        <div class="equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="\text{Odds Ratio (OR)} = e^{\beta_j}, \quad 95\% \text{ CI} = \left[ e^{\hat{\beta}_j - 1.96 \cdot \text{SE}}, \; e^{\hat{\beta}_j + 1.96 \cdot \text{SE}} \right]" display={true} />
         </div>
       </div>
 
@@ -120,7 +152,7 @@ const readingTime = "18 min read";
             </div>
           </div>
           <div style="margin-top: 0.5rem; text-align: center; font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-ink);" data-dd-regr-stats>
-            Slope &beta;&#770; = 0.350 | SE = 0.042 | t = 8.33 | p = 1.20e-13
+            Slope β̂ = 0.350 | SE = 0.042 | t = 8.33 | p = 1.20e-13
           </div>
         </div>
       </div>
@@ -143,39 +175,69 @@ const readingTime = "18 min read";
       </div>
 
       <p>
-        Mathematically, omitted ancestry <i>A</i> confounds the relationship because <code>Cov(X, A) &ne; 0</code> and <code>Cov(y, A) &ne; 0</code>.
+        Mathematically, omitted ancestry <Katex tex="A" /> confounds the relationship because <Katex tex="\text{Cov}(X, A) \neq 0" /> and <Katex tex="\text{Cov}(y, A) \neq 0" />:
       </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Mathematical Decomposition of Ancestry Confounding Bias</div>
+        <div class="equation-body">
+          <Katex tex="\mathbb{E}[\hat{\beta}_{\text{naive}}] = \beta_j + \frac{\text{Cov}(X_j, A)}{\text{Var}(X_j)} \cdot \gamma_{\text{Ancestry}}" display={true} />
+        </div>
+        <div class="equation-legend">
+          When ancestry effect <Katex tex="\gamma_{\text{Ancestry}} \neq 0" />, the naive estimator is heavily biased away from 0 even if the true genetic effect <Katex tex="\beta_j = 0" />!
+        </div>
+      </div>
 
       <h3>Ancestry Principal Component Analysis (EIGENSTRAT)</h3>
       <p>
-        To eliminate stratification, Price et al. (2006) introduced <strong>EIGENSTRAT</strong>. We construct the normalized genotype matrix <code>G*</code> where each entry is standardized by its allele frequency <code>p_j</code>:
+        To eliminate stratification, Price et al. (2006) introduced <strong>EIGENSTRAT</strong>. We construct the normalized genotype matrix <Katex tex="\mathbf{G}^*" /> where each entry is standardized by its allele frequency <Katex tex="p_j" />:
       </p>
 
       <div class="equation-card">
         <div class="equation-header">Genotype Standardization & SVD Decomposition</div>
         <div class="equation-body">
-          <code>G^*_{'{ij}'} = (G_{'{ij}'} - 2p_j) / &radic;[2p_j(1 - p_j)]</code>
+          <Katex tex="G^*_{ij} = \frac{G_{ij} - 2p_j}{\sqrt{2p_j(1 - p_j)}} \quad \implies \quad \mathbf{G}^* = \mathbf{U} \mathbf{\Sigma} \mathbf{V}^T" display={true} />
         </div>
         <div class="equation-body" style="margin-top: 0.5rem;">
-          <code>G^* = U &Sigma; V^T &emsp;&rarr;&emsp; PC_k = U_k &middot; &sigma;_k</code>
+          <Katex tex="\mathbf{PC}_k = \mathbf{U}_k \cdot \sigma_k \quad (k = 1, \dots, 10)" display={true} />
         </div>
         <div class="equation-legend">
-          Top eigenvectors <code>PC_1, PC_2, ..., PC_10</code> capture continental and sub-continental ancestry axes. Including them as covariates orthogonalizes the test.
+          Top eigenvectors <Katex tex="\mathbf{PC}_1, \dots, \mathbf{PC}_{10}" /> capture continental and sub-continental ancestry axes. Including them as covariates in regression orthogonalizes the association test.
+        </div>
+      </div>
+
+      <h3>Linear Mixed Models (LMM: EMMAX / BOLT-LMM)</h3>
+      <p>
+        When cohorts contain cryptic relatedness, family structures, or complex population structure, <strong>Linear Mixed Models (LMM)</strong> replace fixed PC covariates with a random polygenic background effect:
+      </p>
+
+      <div class="equation-card">
+        <div class="equation-header">Linear Mixed Model Formulation</div>
+        <div class="equation-body">
+          <Katex tex="\mathbf{y} = \mathbf{X}\beta + \mathbf{g}_j \gamma_j + \mathbf{u} + \mathbf{\epsilon}, \quad \mathbf{u} \sim \mathcal{N}(0, \sigma_g^2 \mathbf{K}), \quad \mathbf{\epsilon} \sim \mathcal{N}(0, \sigma_e^2 \mathbf{I})" display={true} />
+        </div>
+        <div class="equation-body" style="margin-top: 0.5rem;">
+          <Katex tex="\mathbf{K} = \frac{1}{M} \mathbf{G}^* (\mathbf{G}^*)^T \quad \text{(Empirical Genetic Relationship Matrix)}" display={true} />
+        </div>
+        <div class="equation-legend">
+          <Katex tex="\sigma_g^2" /> = Genetic variance component &emsp;|&emsp;
+          <Katex tex="\sigma_e^2" /> = Environmental variance &emsp;|&emsp;
+          <Katex tex="h^2_{\text{SNP}} = \frac{\sigma_g^2}{\sigma_g^2 + \sigma_e^2}" /> (Narrow-sense SNP Heritability)
         </div>
       </div>
 
       <h3>Genomic Inflation Factor (&lambda;_GC) & Q-Q Plot Diagnostics</h3>
       <p>
-        To audit whether a GWAS suffers from uncorrected confounding, we calculate the <strong>Genomic Inflation Factor (&lambda;_GC)</strong>:
+        To audit whether a GWAS suffers from uncorrected confounding, we calculate the <strong>Genomic Inflation Factor (<Katex tex="\lambda_{GC}" />)</strong>:
       </p>
 
       <div class="equation-card">
         <div class="equation-header">Genomic Inflation Factor Formula</div>
         <div class="equation-body">
-          <code>&lambda;_{'{GC}'} = median(&chi;^2_{'{obs, 1}'}, ..., &chi;^2_{'{obs, M}'}) / 0.454936</code>
+          <Katex tex="\lambda_{GC} = \frac{\text{median}(\chi^2_{\text{obs}, 1}, \dots, \chi^2_{\text{obs}, M})}{0.454936}" display={true} />
         </div>
         <div class="equation-legend">
-          <code>0.454936</code> is the theoretical median of a 1-degree-of-freedom Chi-Square distribution <code>&chi;^2(df = 1)</code> under the null hypothesis.
+          <Katex tex="0.454936" /> is the theoretical median of a 1-degree-of-freedom Chi-Square distribution <Katex tex="\chi^2(df = 1)" /> under the null hypothesis. A pristine study yields <Katex tex="\lambda_{GC} \le 1.05" />.
         </div>
       </div>
 
@@ -205,7 +267,7 @@ const readingTime = "18 min read";
               <input type="checkbox" class="gwas-toggle-input" data-dd-pca-toggle checked />
               <span>Include Ancestry PC Covariates</span>
             </label>
-            <span class="widget-readout" data-dd-lambda-readout style="font-size: 0.85rem;">&lambda;_GC = 1.01 (Controlled Null)</span>
+            <span class="widget-readout" data-dd-lambda-readout style="font-size: 0.85rem;">λ_GC = 1.01 (Controlled Null)</span>
           </div>
         </div>
       </div>
@@ -215,24 +277,24 @@ const readingTime = "18 min read";
     <section>
       <h2>3. Genome-Wide Multiple Testing & The Manhattan Plot</h2>
       <p>
-        A typical GWAS evaluates between <code>1,000,000</code> and <code>10,000,000</code> imputed genetic variants simultaneously. If a standard statistical threshold of <code>&alpha; = 0.05</code> were used, testing <code>10^6</code> null variants would produce <strong>50,000 false-positive discoveries</strong> purely by chance.
+        A typical GWAS evaluates between <Katex tex="1{,}000{,}000" /> and <Katex tex="10{,}000{,}000" /> imputed genetic variants simultaneously. If a standard statistical threshold of <Katex tex="\alpha = 0.05" /> were used, testing <Katex tex="10^6" /> null variants would produce <strong>50,000 false-positive discoveries</strong> purely by chance.
       </p>
 
       <div class="equation-card">
         <div class="equation-header">Derivation of the Genome-Wide Significance Threshold</div>
         <div class="equation-body">
-          <code>&alpha;_{'{GWAS}'} = &alpha;_{'{FWER}'} / M_{'{eff}'} = 0.05 / 1,000,000 = 5 &times; 10^{-8}</code>
+          <Katex tex="\alpha_{\text{GWAS}} = \frac{\alpha_{\text{FWER}}}{M_{\text{eff}}} = \frac{0.05}{1{,}000{,}000} = 5 \times 10^{-8}" display={true} />
         </div>
         <div class="equation-body" style="margin-top: 0.4rem;">
-          <code>-log_{'{10}'}(5 &times; 10^{-8}) &approx; 7.301</code>
+          <Katex tex="-\log_{10}(5 \times 10^{-8}) \approx 7.301" display={true} />
         </div>
         <div class="equation-legend">
-          <code>M_{'{eff}'} &approx; 10^6</code> represents the effective number of independent correlation blocks across the human genome due to Linkage Disequilibrium (LD).
+          <Katex tex="M_{\text{eff}} \approx 10^6" /> represents the effective number of independent correlation blocks across the human genome due to Linkage Disequilibrium (LD).
         </div>
       </div>
 
       <p>
-        To visualize all 22 autosomes simultaneously, GWAS results are plotted as a <strong>Manhattan Plot</strong>: genomic coordinates are aligned along the horizontal x-axis from Chromosome 1 to 22, while the vertical y-axis displays <code>-log_{10}(p)</code>. Strong association signals rise above the background noise like skyscrapers on the Manhattan skyline.
+        To visualize all 22 autosomes simultaneously, GWAS results are plotted as a <strong>Manhattan Plot</strong>: genomic coordinates are aligned along the horizontal x-axis from Chromosome 1 to 22, while the vertical y-axis displays <Katex tex="-\log_{10}(P)" />. Strong association signals rise above the background noise like skyscrapers on the Manhattan skyline.
       </p>
 
       <!-- Embedded Interactive Widget 3: Manhattan Explorer -->
@@ -263,7 +325,7 @@ const readingTime = "18 min read";
 
     <!-- Chapter 4 -->
     <section>
-      <h2>4. Linkage Disequilibrium (LD) & Fine-Mapping</h2>
+      <h2>4. Linkage Disequilibrium (LD), Recombination & Fine-Mapping</h2>
       <p>
         A common misconception is that a GWAS skyscraper peak points to the exact single causal nucleotide. Because chromosomes are inherited in chunks during meiosis, alleles close to each other are transmitted together in <strong>Linkage Disequilibrium (LD)</strong> blocks.
       </p>
@@ -271,24 +333,37 @@ const readingTime = "18 min read";
       <div class="equation-card">
         <div class="equation-header">Linkage Disequilibrium Metrics (D, r², D')</div>
         <div class="equation-body">
-          <code>D = p_{'{AB}'} - p_A &middot; p_B, &emsp; r^2 = D^2 / [p_A (1 - p_A) p_B (1 - p_B)]</code>
+          <Katex tex="D = p_{AB} - p_A \cdot p_B, \quad r^2 = \frac{D^2}{p_A (1 - p_A) p_B (1 - p_B)}, \quad D' = \frac{D}{D_{\max}}" display={true} />
         </div>
         <div class="equation-legend">
-          <code>r^2 = 1.0</code> represents complete correlation (perfect proxy SNPs). 
-          <code>r^2 &ge; 0.8</code> defines high-confidence LD candidate tags.
+          <Katex tex="r^2 = 1.0" /> represents complete correlation (perfect proxy SNPs). 
+          <Katex tex="r^2 \ge 0.8" /> defines high-confidence LD candidate tags.
         </div>
       </div>
 
+      <h3>LD Score Regression (LDSC): Polygenicity vs. Confounding</h3>
       <p>
-        In tools like <strong>LocusZoom</strong>, variants in the flanking &plusmn;250 kb window are color-coded by their LD <code>r^2</code> correlation with the lead index variant (fiery red <code>r^2 &ge; 0.8</code>, orange, green, cyan, and navy).
+        How do we distinguish whether a slightly elevated <Katex tex="\lambda_{GC} = 1.15" /> is caused by genuine polygenicity (thousands of real small-effect variants) or residual confounding? <strong>LD Score Regression (Bulik-Sullivan et al., 2015)</strong> exploits the fact that variants in high-LD regions tag more genetic variance:
       </p>
+
+      <div class="equation-card">
+        <div class="equation-header">LD Score Regression Equation</div>
+        <div class="equation-body">
+          <Katex tex="\mathbb{E}[\chi^2_j] = 1 + \frac{N h^2_{\text{SNP}}}{M} \cdot \ell_j + N a" display={true} />
+        </div>
+        <div class="equation-legend">
+          <Katex tex="\ell_j = \sum_k r^2_{jk}" /> is the LD score of SNP <Katex tex="j" />. The slope reveals true heritability <Katex tex="h^2_{\text{SNP}}" />, while the intercept <Katex tex="1 + Na" /> measures pure uncorrected confounding (<Katex tex="a = 0" /> under perfect control)!
+        </div>
+      </div>
 
       <div class="deep-dive-callout callout-math">
         <div class="deep-dive-callout-title">
-          <Icon name="check-circle" size={15} /> Statistical Fine-Mapping & Credible Sets
+          <Icon name="check-circle" size={15} /> Statistical Fine-Mapping & 95% Credible Sets
         </div>
         <p>
-          Methods like <strong>SuSiE (Sum of Single Effects)</strong> and <strong>PAINTOR</strong> use Bayesian posterior modeling to construct a <strong>95% Credible Set</strong> — the minimal set of variants that contains the true causal mutation with 95% certainty. Integrating functional epigenomics (eQTLs, ChIP-seq, OpenSpliceAI deep learning splice models) pinpoints the molecular mechanism.
+          Methods like <strong>SuSiE (Sum of Single Effects)</strong> and <strong>PAINTOR</strong> use Bayesian posterior modeling to construct a <strong>95% Credible Set</strong> — the minimal set of variants that contains the true causal mutation with 95% certainty:
+          <Katex tex="\sum_{j \in \text{CS}_{95\%}} \text{PIP}_j \ge 0.95" display={true} />
+          Integrating functional epigenomics (eQTLs, ChIP-seq, OpenSpliceAI deep learning splice models) pinpoints the causal molecular mechanism.
         </p>
       </div>
     </section>
@@ -303,11 +378,11 @@ const readingTime = "18 min read";
       <div class="equation-card">
         <div class="equation-header">Polygenic Risk Score (PRS) Formulation</div>
         <div class="equation-body">
-          <code>PRS_i = &sum;_{'{j=1}'}^M &beta;&#770;_j &middot; G_{'{ij}'}</code>
+          <Katex tex="\text{PRS}_i = \sum_{j=1}^M \hat{\beta}_j \cdot G_{ij}" display={true} />
         </div>
         <div class="equation-legend">
-          <code>&beta;&#770;_j</code> = Marginal effect weight from discovery GWAS &emsp;|&emsp;
-          <code>G_{'{ij}'}</code> = Individual's dosage for variant <i>j</i>
+          <Katex tex="\hat{\beta}_j" /> = Marginal effect weight from discovery GWAS &emsp;|&emsp;
+          <Katex tex="G_{ij}" /> = Individual's dosage for variant <Katex tex="j" />
         </div>
       </div>
 
@@ -358,43 +433,49 @@ const readingTime = "18 min read";
           <tbody>
             <tr>
               <td><strong>Additive Dosage</strong></td>
-              <td><code>G_ij &isin; &#123;0, 1, 2&#125;</code></td>
+              <td><Katex tex="G_{ij} \in \{0, 1, 2\}" /></td>
               <td>Count of minor effect alleles</td>
               <td>MAF &ge; 1%, HWE p &gt; 10⁻⁶</td>
             </tr>
             <tr>
               <td><strong>Association Test</strong></td>
-              <td><code>t_j = &beta;&#770;_j / SE(&beta;&#770;_j)</code></td>
-              <td>Evaluates H₀: &beta;_j = 0</td>
+              <td><Katex tex="t_j = \hat{\beta}_j / \text{SE}(\hat{\beta}_j)" /></td>
+              <td>Evaluates <Katex tex="H_0: \beta_j = 0" /></td>
               <td>OLS for quantitative, Logistic for binary</td>
             </tr>
             <tr>
               <td><strong>Ancestry PCA</strong></td>
-              <td><code>G^* = U &Sigma; V^T</code></td>
+              <td><Katex tex="\mathbf{G}^* = \mathbf{U} \mathbf{\Sigma} \mathbf{V}^T" /></td>
               <td>Decomposes continental ancestry</td>
               <td>Top 10–20 PCs as covariates</td>
             </tr>
             <tr>
+              <td><strong>Linear Mixed Model</strong></td>
+              <td><Katex tex="\mathbf{y} = \mathbf{X}\beta + \mathbf{u} + \mathbf{\epsilon}" /></td>
+              <td>Random polygenic effect with GRM <Katex tex="\mathbf{K}" /></td>
+              <td>Estimates SNP heritability <Katex tex="h^2_{\text{SNP}}" /></td>
+            </tr>
+            <tr>
               <td><strong>Genomic Inflation</strong></td>
-              <td><code>&lambda;_GC = median(&chi;^2) / 0.456</code></td>
+              <td><Katex tex="\lambda_{GC} = \frac{\text{median}(\chi^2)}{0.455}" /></td>
               <td>Measures confounding bias</td>
-              <td>Controlled: <code>&lambda;_GC &le; 1.05</code></td>
+              <td>Controlled: <Katex tex="\lambda_{GC} \le 1.05" /></td>
             </tr>
             <tr>
               <td><strong>Multiple Testing</strong></td>
-              <td><code>&alpha; = 0.05 / 10^6</code></td>
+              <td><Katex tex="\alpha = \frac{0.05}{10^6} = 5 \times 10^{-8}" /></td>
               <td>Bonferroni correction for 10⁶ LD blocks</td>
-              <td>Threshold: <code>p &lt; 5 &times; 10⁻⁸</code></td>
+              <td>Threshold: <Katex tex="p < 5 \times 10^{-8}" /></td>
             </tr>
             <tr>
               <td><strong>Linkage Disequilibrium</strong></td>
-              <td><code>r^2 = D^2 / (p_A q_A p_B q_B)</code></td>
+              <td><Katex tex="r^2 = \frac{D^2}{p_A q_A p_B q_B}" /></td>
               <td>Measures allele co-inheritance</td>
-              <td>Fine-mapping tag: <code>r^2 &ge; 0.8</code></td>
+              <td>Fine-mapping tag: <Katex tex="r^2 \ge 0.8" /></td>
             </tr>
             <tr>
               <td><strong>Polygenic Score</strong></td>
-              <td><code>PRS = &sum; &beta;&#770;_j &middot; G_j</code></td>
+              <td><Katex tex="\text{PRS} = \sum \hat{\beta}_j \cdot G_j" /></td>
               <td>Aggregates genome-wide polygenic risk</td>
               <td>Clinical high risk: Top 5% quintile</td>
             </tr>

@@ -88,6 +88,29 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     featured: true, // 2/4 Featured Homepage Selection
   },
   {
+    id: 'gwas',
+    title: 'Genome-Wide Association Studies & Statistical Genetics (GWAS)',
+    shortTitle: 'GWAS & Statistical Genetics',
+    area: 'Statistical & Population Genetics',
+    category: 'statistical-genetics',
+    tag: 'PLINK / BOLT-LMM Core',
+    summary:
+      'Identify genotype-phenotype associations across millions of genetic variants. Explore single-variant OLS regression, population stratification PCA correction, Manhattan & Q-Q plots, Linkage Disequilibrium (LD) fine-mapping, and Polygenic Risk Scores (PRS).',
+    blurb: 'Genome-wide association scans, OLS regression, PCA confounding & LD fine-mapping.',
+    timeComplexity: 'O(N · M)',
+    spaceComplexity: 'O(N + M)',
+    keyMechanism: 'Single-Variant OLS/LMM Regression & LD Fine-Mapping',
+    highlights: [
+      'Additive dosage OLS regression y = α + x·β + Z·γ with Wald test statistics',
+      'Population stratification correction using Ancestry PCA covariates or Linear Mixed Models (LMM)',
+      'Interactive Manhattan plot (p < 5 × 10⁻⁸ threshold), Q-Q plot (λ_GC), and LocusZoom LD r² fine-mapping',
+    ],
+    href: '/algorithms/gwas/',
+    badge: 'Interactive Visualizer',
+    actionText: 'Launch interactive visualizer',
+    cliCommand: 'gwas t2d',
+  },
+  {
     id: 'pairwise',
     title: 'Needleman-Wunsch & Smith-Waterman Alignment',
     shortTitle: 'Pairwise Alignment',
@@ -294,28 +317,5 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     badge: 'Interactive Visualizer',
     actionText: 'Launch interactive visualizer',
     cliCommand: 'ism',
-  },
-  {
-    id: 'gwas',
-    title: 'Genome-Wide Association Studies & Statistical Genetics (GWAS)',
-    shortTitle: 'GWAS & Statistical Genetics',
-    area: 'Statistical & Population Genetics',
-    category: 'statistical-genetics',
-    tag: 'PLINK / BOLT-LMM Core',
-    summary:
-      'Identify genotype-phenotype associations across millions of genetic variants. Explore single-variant OLS regression, population stratification PCA correction, Manhattan & Q-Q plots, Linkage Disequilibrium (LD) fine-mapping, and Polygenic Risk Scores (PRS).',
-    blurb: 'Genome-wide association scans, OLS regression, PCA confounding & LD fine-mapping.',
-    timeComplexity: 'O(N · M)',
-    spaceComplexity: 'O(N + M)',
-    keyMechanism: 'Single-Variant OLS/LMM Regression & LD Fine-Mapping',
-    highlights: [
-      'Additive dosage OLS regression y = α + x·β + Z·γ with Wald test statistics',
-      'Population stratification correction using Ancestry PCA covariates or Linear Mixed Models (LMM)',
-      'Interactive Manhattan plot (p < 5 × 10⁻⁸ threshold), Q-Q plot (λ_GC), and LocusZoom LD r² fine-mapping',
-    ],
-    href: '/algorithms/gwas/',
-    badge: 'Interactive Visualizer',
-    actionText: 'Launch interactive visualizer',
-    cliCommand: 'gwas t2d',
   },
 ];

@@ -1,7 +1,9 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
 import '../../styles/gwas.css';
+import 'katex/dist/katex.min.css';
 import { GWAS_PRESETS } from '../../lib/gwas';
 ---
 
@@ -11,9 +13,12 @@ import { GWAS_PRESETS } from '../../lib/gwas';
   lead="Interactive exploration of genome-wide association scans, single-variant OLS regression, population stratification PCA correction, Linkage Disequilibrium (LD) fine-mapping, and Polygenic Risk Scores (PRS)."
   description="Interactive computational biology visualizer for Genome-Wide Association Studies (GWAS) by Kuan-Hao Chao. Explore Manhattan plots, Q-Q plots, LD fine-mapping, PCA confounding, and PRS distributions."
 >
-  <nav style="margin-bottom: var(--space-4);">
+  <nav style="margin-bottom: var(--space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
     <a href="/algorithms/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
       <Icon name="arrow-left" size={14} /> Back to Algorithm Catalog
+    </a>
+    <a href="/deep_dives/gwas/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600; padding: 0.25rem 0.65rem; border: 1px solid var(--color-accent); border-radius: 6px;">
+      <Icon name="book-open" size={14} /> Read Comprehensive Deep Dive Post →
     </a>
   </nav>
 
@@ -98,38 +103,43 @@ import { GWAS_PRESETS } from '../../lib/gwas';
         <Icon name="search" size={15} /> LocusZoom Fine-Mapping (LD)
       </button>
       <button type="button" class="gwas-tab-btn" data-gwas-tab="regression" role="tab">
-        <Icon name="sliders" size={15} /> Single-Variant Regression Sandbox
+        <Icon name="activity" size={15} /> OLS Single-Variant Regression
       </button>
       <button type="button" class="gwas-tab-btn" data-gwas-tab="pca" role="tab">
-        <Icon name="globe" size={15} /> Population Stratification (PCA)
+        <Icon name="layers" size={15} /> Population Stratification (PCA)
       </button>
       <button type="button" class="gwas-tab-btn" data-gwas-tab="prs" role="tab">
-        <Icon name="activity" size={15} /> Polygenic Risk Score (PRS)
+        <Icon name="sparkles" size={15} /> Polygenic Risk Score (PRS)
       </button>
     </div>
 
-    <!-- Panel 1: Manhattan & Q-Q Plot -->
-    <div class="gwas-dual-grid" data-gwas-panel="manhattan">
-      <div class="gwas-card">
-        <div class="gwas-card-header">
-          <span>Genome-Wide Manhattan Scan (22 Autosomes)</span>
-          <span style="font-size: var(--fs-meta); color: var(--color-muted);">Hover SNP for stats · Click to inspect</span>
-        </div>
-        <div class="gwas-card-body">
-          <div class="gwas-canvas-wrap">
-            <svg class="gwas-manhattan-svg" data-gwas-manhattan-svg aria-label="Interactive Manhattan Plot"></svg>
+    <!-- Panel 1: Manhattan Plot & Q-Q Plot -->
+    <div class="gwas-panel-active" data-gwas-panel="manhattan">
+      <div class="gwas-grid">
+        <div class="gwas-card">
+          <div class="gwas-card-header">
+            <span>Genome-Wide Association Scan (Manhattan Plot)</span>
+            <div class="gwas-legend">
+              <span class="gwas-legend-item"><span class="gwas-dot gwas-dot--sig"></span> Genome-Wide Sig (p &lt; 5×10⁻⁸)</span>
+              <span class="gwas-legend-item"><span class="gwas-dot gwas-dot--sug"></span> Suggestive (p &lt; 1×10⁻⁵)</span>
+            </div>
+          </div>
+          <div class="gwas-card-body">
+            <div class="gwas-canvas-wrap">
+              <svg class="gwas-manhattan-svg" data-gwas-manhattan-svg aria-label="Manhattan Plot across Chromosomes 1 to 22"></svg>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="gwas-card">
-        <div class="gwas-card-header">
-          <span>Quantile-Quantile (Q-Q) Plot</span>
-          <span style="font-size: var(--fs-meta); color: var(--color-muted);">Observed vs Null</span>
-        </div>
-        <div class="gwas-card-body">
-          <div class="gwas-canvas-wrap" style="height: 380px;">
-            <svg class="gwas-qq-svg" data-gwas-qq-svg aria-label="Quantile-Quantile Plot"></svg>
+        <div class="gwas-card">
+          <div class="gwas-card-header">
+            <span>Quantile-Quantile (Q-Q) Plot</span>
+            <span style="font-size: var(--fs-meta); color: var(--color-muted);">Observed vs Null Expected</span>
+          </div>
+          <div class="gwas-card-body">
+            <div class="gwas-canvas-wrap">
+              <svg class="gwas-qq-svg" data-gwas-qq-svg aria-label="Quantile-Quantile Plot"></svg>
+            </div>
           </div>
         </div>
       </div>
@@ -139,12 +149,12 @@ import { GWAS_PRESETS } from '../../lib/gwas';
     <div class="gwas-dual-grid" data-gwas-panel="locuszoom" hidden>
       <div class="gwas-card">
         <div class="gwas-card-header">
-          <span>LocusZoom Regional Architecture (±250 kb Flanking Window)</span>
-          <span style="font-size: var(--fs-meta); color: var(--color-muted);">Color = LD r² with Lead SNP (◆)</span>
+          <span>Regional Association & Linkage Disequilibrium (LocusZoom)</span>
+          <span style="font-size: var(--fs-meta); color: var(--color-muted);">±250 kb Flanking Region</span>
         </div>
         <div class="gwas-card-body">
           <div class="gwas-canvas-wrap">
-            <svg class="gwas-locus-svg" data-gwas-locus-svg aria-label="LocusZoom Regional Plot"></svg>
+            <svg class="gwas-locuszoom-svg" data-gwas-locuszoom-svg aria-label="LocusZoom Regional Plot"></svg>
           </div>
           <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 0.75rem; font-size: var(--fs-meta); color: var(--color-muted);">
             <span style="display: inline-flex; align-items: center; gap: 0.25rem;"><span style="width: 10px; height: 10px; background: #ef4444; border-radius: 50%;"></span> r² ≥ 0.8</span>
@@ -200,14 +210,14 @@ import { GWAS_PRESETS } from '../../lib/gwas';
           <p style="margin: 0 0 0.5rem 0;">
             For quantitative traits, single-SNP association solves the additive linear model:
           </p>
-          <div style="background: var(--color-bg); padding: 0.5rem; border-radius: 4px; border: 1px solid var(--color-rule); font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-ink); margin-bottom: 0.5rem;">
-            y = α + x_j · β_j + Z · γ + ε
+          <div style="background: var(--color-bg); padding: 0.65rem; border-radius: 6px; border: 1px solid var(--color-rule); margin-bottom: 0.65rem; text-align: center;">
+            <Katex tex="y_i = \alpha + \beta_j X_{ij} + \sum_{k=1}^K \gamma_k Z_{ik} + \epsilon_i, \quad \epsilon_i \sim \mathcal{N}(0, \sigma^2)" display={true} />
           </div>
           <p style="margin: 0 0 0.5rem 0;">
-            The Wald test statistic and two-tailed p-value evaluate the null hypothesis H₀: β_j = 0:
+            The Wald test statistic and two-tailed p-value evaluate the null hypothesis <Katex tex="H_0: \beta_j = 0" />:
           </p>
-          <div style="background: var(--color-bg); padding: 0.5rem; border-radius: 4px; border: 1px solid var(--color-rule); font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-ink);">
-            t_j = β̂_j / SE(β̂_j) ~ Student's t(df = N - k - 1)
+          <div style="background: var(--color-bg); padding: 0.65rem; border-radius: 6px; border: 1px solid var(--color-rule); text-align: center;">
+            <Katex tex="t_j = \frac{\hat{\beta}_j}{\text{SE}(\hat{\beta}_j)} \sim \text{Student's } t(df = N - K - 2)" display={true} />
           </div>
         </div>
       </div>
@@ -239,10 +249,13 @@ import { GWAS_PRESETS } from '../../lib/gwas';
         </div>
         <div class="gwas-card-body" style="font-size: var(--fs-small); line-height: 1.6; color: var(--color-muted);">
           <p style="margin: 0 0 0.5rem 0;">
-            Without correcting for continental ancestry or cryptic relatedness, systematic allele frequency divergence creates massive genome-wide false-positive associations (<strong>λ_GC &gt; 1.30</strong>).
+            Without correcting for continental ancestry or cryptic relatedness, systematic allele frequency divergence creates massive genome-wide false-positive associations (<Katex tex="\lambda_{GC} > 1.30" />).
           </p>
+          <div style="background: var(--color-bg); padding: 0.65rem; border-radius: 6px; border: 1px solid var(--color-rule); margin-bottom: 0.65rem; text-align: center;">
+            <Katex tex="\lambda_{GC} = \frac{\text{median}(\chi^2_{\text{obs}})}{0.454936}" display={true} />
+          </div>
           <p style="margin: 0;">
-            Including the top 10–20 Principal Components (<strong>PC₁...PC₂₀</strong>) or using Linear Mixed Models (<strong>BOLT-LMM</strong>) projects out ancestry confounding, recovering a pristine null distribution (<strong>λ_GC ≈ 1.01</strong>).
+            Including the top 10–20 Principal Components (<Katex tex="\mathbf{PC}_1 \dots \mathbf{PC}_{20}" />) or using Linear Mixed Models (<Katex tex="\mathbf{y} = \mathbf{X}\beta + \mathbf{u} + \mathbf{\epsilon}" />) projects out ancestry confounding, recovering a pristine null distribution (<Katex tex="\lambda_{GC} \approx 1.01" />).
           </p>
         </div>
       </div>
@@ -252,7 +265,7 @@ import { GWAS_PRESETS } from '../../lib/gwas';
     <div class="gwas-dual-grid" data-gwas-panel="prs" hidden>
       <div class="gwas-card">
         <div class="gwas-card-header">
-          <span>Polygenic Liability Distribution (PRS = Σ β̂_j · G_ij)</span>
+          <span>Polygenic Liability Distribution (<Katex tex="\text{PRS}_i = \sum \hat{\beta}_j \cdot G_{ij}" />)</span>
           <span style="font-size: var(--fs-meta); color: var(--color-muted);">General Population (Blue) vs Disease Cases (Red)</span>
         </div>
         <div class="gwas-card-body">
@@ -270,11 +283,11 @@ import { GWAS_PRESETS } from '../../lib/gwas';
           <p style="margin: 0 0 0.5rem 0;">
             Individual Polygenic Risk Scores (PRS) sum the effect sizes of genome-wide risk variants:
           </p>
-          <div style="background: var(--color-bg); padding: 0.5rem; border-radius: 4px; border: 1px solid var(--color-rule); font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-ink); margin-bottom: 0.5rem;">
-            PRS_i = &Sigma;<sub>j=1...M</sub> (&beta;&#770;_j &middot; G_ij)
+          <div style="background: var(--color-bg); padding: 0.65rem; border-radius: 6px; border: 1px solid var(--color-rule); margin-bottom: 0.65rem; text-align: center;">
+            <Katex tex="\text{PRS}_i = \sum_{j=1}^M \hat{\beta}_j \cdot G_{ij}" display={true} />
           </div>
           <p style="margin: 0;">
-            Individuals in the top 5% risk percentile exhibit 3–5× higher lifetime disease probability, comparable to monogenic mutations (e.g. <i>LDLR</i> or <i>BRCA1</i>).
+            Individuals in the top 5% risk percentile exhibit 3–5× higher lifetime disease probability, comparable to rare high-penetrance monogenic mutations (e.g. <i>LDLR</i> or <i>BRCA1</i>).
           </p>
         </div>
       </div>
@@ -288,21 +301,21 @@ import { GWAS_PRESETS } from '../../lib/gwas';
       <div class="gwas-edu-card">
         <h3>1. The Bonferroni Multiple Testing Threshold</h3>
         <p>
-          Testing ~1,000,000 independent Linkage Disequilibrium (LD) blocks across the human genome at family-wise error rate α = 0.05 yields the canonical genome-wide significance threshold: <strong>p &lt; 5 × 10⁻⁸</strong> (-log₁₀ P = 7.301).
+          Testing ~1,000,000 independent Linkage Disequilibrium (LD) blocks across the human genome at family-wise error rate <Katex tex="\alpha = 0.05" /> yields the canonical genome-wide significance threshold: <strong><Katex tex="p < 5 \times 10^{-8}" /></strong> (<Katex tex="-\log_{10}(P) = 7.301" />).
         </p>
       </div>
 
       <div class="gwas-edu-card">
-        <h3>2. Genomic Inflation & Confounding (λ_GC)</h3>
+        <h3>2. Genomic Inflation & Confounding (<Katex tex="\lambda_{GC}" />)</h3>
         <p>
-          The Genomic Inflation Factor <i>λ_GC = median(χ²_obs) / 0.456</i> measures systematic test statistic deviation. Elevated λ_GC indicates uncorrected population stratification, batch artifacts, or extreme polygenicity (analyzed via LD Score Regression).
+          The Genomic Inflation Factor <Katex tex="\lambda_{GC} = \text{median}(\chi^2_{\text{obs}}) / 0.456" /> measures systematic test statistic deviation. Elevated <Katex tex="\lambda_{GC}" /> indicates uncorrected population stratification, batch artifacts, or extreme polygenicity (analyzed via LD Score Regression).
         </p>
       </div>
 
       <div class="gwas-edu-card">
         <h3>3. Linkage Disequilibrium (LD) & Fine-Mapping</h3>
         <p>
-          Because adjacent variants are co-inherited in LD blocks (<i>r² &gt; 0.8</i>), GWAS identifies genomic loci rather than causal variants. Statistical fine-mapping (e.g. SuSiE, PAINTOR) and functional epigenomics (ChIP-seq, eQTLs) pinpoint true causal mechanisms.
+          Because adjacent variants are co-inherited in LD blocks (<Katex tex="r^2 > 0.8" />), GWAS identifies genomic loci rather than causal variants. Statistical fine-mapping (e.g. SuSiE, PAINTOR) and functional epigenomics (ChIP-seq, eQTLs, OpenSpliceAI) pinpoint true causal mechanisms.
         </p>
       </div>
     </div>

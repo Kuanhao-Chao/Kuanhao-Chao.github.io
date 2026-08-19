@@ -1214,7 +1214,7 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER & DEEP DIVE', tone: 'accent' },
       { text: '    → /algorithms/gwas/ (Visualizer)', tone: 'accent', href: '/algorithms/gwas/' },
-      { text: '    → /deep_dive/gwas/ (Technical Post)', tone: 'accent', href: '/deep_dive/gwas/' },
+      { text: '    → /deep_dives/gwas/ (Technical Post)', tone: 'accent', href: '/deep_dives/gwas/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    deepdive(1), phmm(1), ghmm(1), ism(1), plink(1)' },
@@ -1236,8 +1236,8 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    mathematical models, DNA foundation models, and statistical genetics.' },
       { text: '' },
       { text: 'CATALOG & BLOG POSTS', tone: 'accent' },
-      { text: '    → /deep_dive/', tone: 'accent', href: '/deep_dive/' },
-      { text: '    → /deep_dive/gwas/ (Genome-Wide Association Studies)', tone: 'accent', href: '/deep_dive/gwas/' },
+      { text: '    → /deep_dives/', tone: 'accent', href: '/deep_dives/' },
+      { text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies)', tone: 'accent', href: '/deep_dives/gwas/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    gwas(1), minimap2(1), fmindex(1), wfa(1), wgt(1)' },
@@ -2899,7 +2899,7 @@ export const COMMANDS: Record<string, Cmd> = {
     usage: 'deepdive [gwas]',
     run: ({ args }) => {
       const topic = (args[0] || '').toLowerCase();
-      const href = topic === 'gwas' ? '/deep_dive/gwas/' : '/deep_dive/';
+      const href = topic === 'gwas' ? '/deep_dives/gwas/' : '/deep_dives/';
       const title = topic === 'gwas' ? 'GWAS Deep Dive Post' : 'Computational Genomics Deep Dives Hub';
       return {
         lines: [

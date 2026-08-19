@@ -252,7 +252,7 @@ const STATIC_NAV: CommandItem[] = [
   { id: 'nav-publications', category: 'Navigation', title: 'Publications', subtitle: 'Peer-reviewed papers, preprints, and citations', href: '/publications/' },
   { id: 'nav-software', category: 'Navigation', title: 'Software & Open Source', subtitle: 'LiftOn, Splam, OpenSpliceAI, Shorkie, WGT', href: '/software/' },
   { id: 'nav-algorithms', category: 'Navigation', title: 'Algorithms Hub', subtitle: 'Interactive visualizers for CS & genomic algorithms', href: '/algorithms/' },
-  { id: 'nav-deep-dives', category: 'Navigation', title: 'Deep Dives Hub', subtitle: 'Computational genomics foundations & concept posts', href: '/deep_dive/' },
+  { id: 'nav-deep-dives', category: 'Navigation', title: 'Deep Dives Hub', subtitle: 'Computational genomics foundations & concept posts', href: '/deep_dives/' },
   { id: 'nav-teaching', category: 'Navigation', title: 'Teaching & Mentorship', subtitle: 'Courses, students mentored, pedagogical visualizers', href: '/teaching/' },
   { id: 'nav-talks', category: 'Navigation', title: 'Talks & Presentations', subtitle: 'Invited talks, conference presentations, slides', href: '/talks/' },
   { id: 'nav-news', category: 'Navigation', title: 'Recent News', subtitle: 'Academic updates, awards, and milestones', href: '/news/' },

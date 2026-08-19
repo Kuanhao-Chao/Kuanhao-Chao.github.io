@@ -1,6 +1,6 @@
 /**
  * Centralized Computational Genomics Deep Dives Catalog & Taxonomy Data Module.
- * Single source of truth for /deep_dive/ hub and related cross-links.
+ * Single source of truth for /deep_dives/ hub and related cross-links.
  */
 
 export interface DeepDiveCategory {
@@ -57,12 +57,12 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       'Bonferroni threshold derivation (p < 5×10⁻⁸), Fisher’s infinitesimal vs Boyle-Li-Pritchard omnigenic models & PRS',
     ],
     equations: [
-      'y = α + x_j · β_j + Z · γ + ε',
-      't_j = β̂_j / SE(β̂_j)',
-      'λ_GC = median(χ²_obs) / 0.456',
-      'PRS_i = Σ β̂_j · G_ij',
+      'y = \\alpha + x_j \\beta_j + Z\\gamma + \\epsilon',
+      't_j = \\hat{\\beta}_j / \\text{SE}(\\hat{\\beta}_j)',
+      '\\lambda_{GC} = \\text{median}(\\chi^2_{\\text{obs}}) / 0.456',
+      '\\text{PRS}_i = \\sum \\hat{\\beta}_j G_{ij}',
     ],
-    href: '/deep_dive/gwas/',
+    href: '/deep_dives/gwas/',
     badge: 'Deep Dive Post',
     actionText: 'Read technical deep dive',
     featured: true,
@@ -86,10 +86,10 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       'Comparing Enformer, Nucleotide Transformer, HyenaDNA, and Caduceus',
     ],
     equations: [
-      'Attention(Q, K, V) = softmax(QKᵀ / √d_k) V',
-      'LLR(v) = log P(alt | context) - log P(ref | context)',
+      '\\text{Attention}(Q, K, V) = \\text{softmax}(QK^T / \\sqrt{d_k}) V',
+      '\\text{LLR}(v) = \\log P(\\text{alt} \\mid c) - \\log P(\\text{ref} \\mid c)',
     ],
-    href: '/deep_dive/dna-foundation-models/',
+    href: '/deep_dives/dna-foundation-models/',
     badge: 'Coming Soon',
     actionText: 'Preview outline & roadmap',
     featured: false,
@@ -113,10 +113,10 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       'Evaluating non-coding cryptic splice activation and exon skipping mutations',
     ],
     equations: [
-      'ΔScore = P_mut(Splice) - P_ref(Splice)',
-      'ISM(p, b) = P(Mut_{p→b}) - P(WT)',
+      '\\Delta\\text{Score} = P_{\\text{mut}}(\\text{Splice}) - P_{\\text{ref}}(\\text{Splice})',
+      '\\text{ISM}(p, b) = P(\\text{Mut}_{p \\to b}) - P(\\text{WT})',
     ],
-    href: '/deep_dive/splice-neural-mechanisms/',
+    href: '/deep_dives/splice-neural-mechanisms/',
     badge: 'Coming Soon',
     actionText: 'Preview outline & roadmap',
     featured: false,
@@ -140,10 +140,10 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       'GBZ, r-index, and PanVC pangenome index querying complexity',
     ],
     equations: [
-      'u < v ∧ label(u, u\') < label(v, v\') ⇒ u\' < v\'',
-      'Query Time: O(P · log Σ)',
+      'u < v \\implies u\' < v\'',
+      '\\text{Query Time: } \\mathcal{O}(P \\cdot \\log \\Sigma)',
     ],
-    href: '/deep_dive/wheeler-pangenome-graphs/',
+    href: '/deep_dives/wheeler-pangenome-graphs/',
     badge: 'Coming Soon',
     actionText: 'Preview outline & roadmap',
     featured: false,

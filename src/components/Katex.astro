@@ -1,0 +1,19 @@
+---
+import katex from 'katex';
+
+interface Props {
+  tex: string;
+  display?: boolean;
+  class?: string;
+}
+
+const { tex, display = false, class: className = '' } = Astro.props;
+
+const html = katex.renderToString(tex, {
+  displayMode: display,
+  throwOnError: false,
+  strict: false,
+});
+---
+
+<span class={`katex-wrap ${className}`} set:html={html} />
