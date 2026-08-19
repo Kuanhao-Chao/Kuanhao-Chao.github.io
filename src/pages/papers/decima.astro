@@ -1,0 +1,357 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Decoding Sequence Determinants of Gene Expression in Diverse Cellular and Disease States";
+const description = "Comprehensive technical summary and deep literature deconstruction of Decima (Lal, Karollus et al., Genentech & TUM, bioRxiv 2024): Predicting cell-type and disease-condition gene expression from sequence across 22.8 million single cells.";
+const readingTime = "20 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Single-Cell Genomics & Disease Biology</span>
+        <span class="paper-venue-badge">bioRxiv 2024.10.09.617507</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Avantika Lal*, Alexander Karollus*, Laura Gunsalus, David Garfield, Surag Nair, Alex M. Tseng, M. Grace Gordon, Jenna L. Collier, Nathaniel Diamant, Tommaso Biancalani, Hector Corrada Bravo, Gabriele Scalia, Gokcen Eraslan*</div>
+        <div><strong>Affiliation:</strong> Biology Research | AI Development, gRED Computational Sciences, Genentech, South San Francisco, CA; Technical University of Munich (TUM)</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1101/2024.10.09.617507" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1101/2024.10.09.617507</a> · Corresponding Authors: Avantika Lal (<code>lal.avantika@gene.com</code>), Gokcen Eraslan (<code>eraslan.gokcen@gene.com</code>)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      Existing sequence-to-expression models (such as Enformer and Borzoi) have been trained predominantly on bulk tissue profiles or immortalized cell lines, overlooking the complex cellular heterogeneity and disease-associated transcriptional reprogramming captured in single-cell transcriptomics. <strong>Decima</strong>, developed by <strong>Genentech</strong> and the <strong>Technical University of Munich</strong>, bridges this gap by training on single-cell and single-nucleus RNA-seq datasets spanning over <strong>22.8 million cells</strong> across <strong>2,668 cell type <Katex tex="\times" /> disease condition tracks</strong>. Decima accurately predicts cell type- and disease-specific expression from DNA sequence alone, prioritizes non-coding causal variants at single-cell resolution, and enables the <strong>de novo engineering of disease-activated synthetic promoters</strong>.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & The 22.8M Single-Cell Scale</a></li>
+        <li><a href="#dataset">2. Dataset Architecture: 2,668 Pseudobulk Cell-State Tracks</a></li>
+        <li><a href="#architecture">3. Model Architecture: Sequence-to-Scalar Regression Core</a></li>
+        <li><a href="#results">4. Section-by-Section Results Breakdown (Figures 1–7)</a></li>
+        <li><a href="#eqtl">5. Single-Cell eQTL Variant Effect Prediction (OneK1K Benchmarks)</a></li>
+        <li><a href="#disease-states">6. Dissecting Disease-State Gene Expression</a></li>
+        <li><a href="#synthetic-design">7. Synthetic Regulatory Element Design via Directed Evolution</a></li>
+        <li><a href="#formulations">8. Mathematical Formulations & Ecosystem Impact</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The 22.8M Single-Cell Scale</h2>
+      <p>
+        Genetic variation primarily impacts human disease through regulatory alterations that manifest in specific cell types and pathological conditions (e.g. inflammatory activation in ulcerative colitis fibroblasts, or *APOE*/*TREM2* microglial responses in Alzheimer's disease). Bulk tissue assays blur these cellular responses into an average signal.
+      </p>
+      <p>
+        <strong>Decima</strong> overcomes this limitation by learning regulatory sequence syntax directly from massive single-cell atlases. Given <Katex tex="100\text{ kb}" /> of genomic DNA sequence surrounding a gene's Transcription Start Site (TSS), Decima simultaneously predicts the scalar expression level of that gene across thousands of distinct cell types and disease states.
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> Core Innovations of Decima
+        </div>
+        <p>
+          &bull; <strong>Massive Single-Cell Corpus:</strong> Aggregates 372 single-cell and single-nucleus RNA-seq studies spanning 1,446 donors and 137 tissues into 8,856 pseudobulk samples (2,668 unique cell type <Katex tex="\times" /> disease condition combinations).
+          <br/>
+          &bull; <strong>Held-Out Generalization:</strong> Accurately predicts cell type-specific expression of unseen genes on held-out test chromosomes (chr8, chr9) based purely on sequence.
+          <br/>
+          &bull; <strong>Variant Pathogenicity at Single-Cell Resolution:</strong> Scores sc-eQTLs in PBMCs (OneK1K) with 87% directional sign accuracy (<Katex tex="r = 0.58" />), pinpointing master myeloid transcription factor disruptions (e.g. C/EBP motifs).
+          <br/>
+          &bull; <strong>In Silico Directed Evolution:</strong> Generates cell type- and disease-responsive synthetic promoters optimized for targeted gene therapy.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="dataset">
+      <h2>2. Dataset Architecture: 2,668 Pseudobulk Cell-State Tracks</h2>
+      <p>
+        Single-cell RNA sequencing data suffers from extreme technical sparsity (dropouts and low sequencing depth per cell). To create high-quality training targets, the authors constructed a massive standardized pseudobulk matrix:
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Dataset Dimension</th>
+              <th>Scale / Quantity</th>
+              <th>Biological Coverage</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Total Single Cells</strong></td>
+              <td>22,836,368 cells</td>
+              <td>Human single-cell (scRNA-seq) and single-nucleus (snRNA-seq).</td>
+            </tr>
+            <tr>
+              <td><strong>Studies & Donors</strong></td>
+              <td>372 studies, 1,446 donors</td>
+              <td>Public single-cell repositories across 137 tissues and organs.</td>
+            </tr>
+            <tr>
+              <td><strong>Pseudobulk Tracks</strong></td>
+              <td>8,856 total pseudobulks</td>
+              <td>2,668 unique cell type <Katex tex="\times" /> disease condition combinations.</td>
+            </tr>
+            <tr>
+              <td><strong>Genes Modeled</strong></td>
+              <td>18,111 protein-coding & lncRNA genes</td>
+              <td>1,811 held-out test genes on chromosomes 8 and 9.</td>
+            </tr>
+            <tr>
+              <td><strong>Disease Conditions</strong></td>
+              <td>Dozens of clinical phenotypes</td>
+              <td>Ulcerative colitis, Crohn's, Idiopathic Pulmonary Fibrosis (IPF), Alzheimer's, COVID-19, SLE.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="architecture">
+      <h2>3. Model Architecture: Sequence-to-Scalar Regression Core</h2>
+      <p>
+        Decima takes as input a <Katex tex="100\text{ kb}" /> to <Katex tex="196.6\text{ kb}" /> one-hot encoded DNA sequence centered on the primary TSS of a gene (<Katex tex="\mathbf{X} \in \{0, 1\}^{L \times 4}" />).
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="cpu" size={15} /> Layer-by-Layer Architectural Pipeline
+        </div>
+        <p>
+          &bull; <strong>1. Convolutional-Transformer Sequence Trunk:</strong> Processes genomic sequence through dilated residual convolutional layers and self-attention blocks to extract spatial cis-regulatory syntax (promoters, proximal elements, and distal enhancers).
+          <br/>
+          &bull; <strong>2. Multi-Resolution Spatial Pooling:</strong> Aggregates sequence feature embeddings around the TSS with exponentially decaying spatial weighting.
+          <br/>
+          &bull; <strong>3. Multi-Task Pseudobulk Head:</strong> Linear and non-linear projection layers output a <Katex tex="2,668" />-dimensional prediction vector corresponding to log-transformed normalized gene expression (<Katex tex="\log(\text{CPM} + 1)" />).
+          <br/>
+          &bull; <strong>4. Poisson / Mean Squared Error Loss:</strong> Trained using multi-task regression loss regularized across related cell types.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="results">
+      <h2>4. Section-by-Section Results Breakdown (Figures 1–7)</h2>
+
+      <!-- Figure 1 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 1</span>
+          <span class="paper-fig-title">Decima Architecture & Genome-Wide Prediction on Held-Out Genes</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating model predictions on 1,811 unseen test genes on chromosomes 8 and 9:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Pseudobulk Correlation:</strong> High Pearson correlation between measured and predicted expression across all 8,856 pseudobulk tracks.</li>
+            <li><strong>Cross-Gene Accuracy:</strong> Successfully predicted absolute expression levels and dynamic range across diverse lineages based purely on promoter sequence.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 2 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 2</span>
+          <span class="paper-fig-title">Identification of Cell Type-Specific Genes & Tissue Lineages</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Classifying lineage marker genes across single-cell cell types:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>High AUROC:</strong> Accurately discriminated cell type-specific genes from ubiquitously expressed housekeeping genes across all major human tissues.</li>
+            <li><strong>Exemplar Loci:</strong> Correctly predicted enterocyte vs hepatocyte expression of *FABP1* (fatty acid binding protein 1) and ciliated cell-specific expression of *DNAH6*.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 3 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 3</span>
+          <span class="paper-fig-title">Sequence Attributions Across Promoters & Distant cis-Regulatory Elements</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Feature attribution analysis (Input <Katex tex="\times" /> Gradient):
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Functional Enrichment:</strong> Gradient saliency was heavily enriched at annotated promoters and ENCODE candidate cis-regulatory elements (cCREs).</li>
+            <li><strong>Distance Decay:</strong> Captured distal enhancer contributions up to <Katex tex="50\text{ kb}" /> away from the TSS matching pseudobulk scATAC-seq open chromatin peaks.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 4 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 4</span>
+          <span class="paper-fig-title">Discovering Cell-Type Specific Driver Transcription Factors (TF-MoDISco)</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Extracting regulatory motifs from cell-specific attributions:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Lung Epithelial Motifs:</strong> Identified lineage master TFs in lung epithelial cells, including *FOXJ1* (ciliated), *NKX2-1* (alveolar type 2), and *TP63* (basal cells).</li>
+            <li><strong>Brain Cell Subtypes:</strong> Cleanly separated neuronal vs glial regulatory grammar (e.g. *NEUROD2* vs *SOX9*).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 5 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 5</span>
+          <span class="paper-fig-title">Single-Cell eQTL Variant Effect Prediction in OneK1K PBMCs</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Benchmarking fine-mapped single-cell eQTLs (<Katex tex="\text{PIP} > 0.9" />) across 21 immune cell types:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Directional Sign Accuracy:</strong> Correctly predicted the direction of variant effect in <strong>87% of sc-eQTLs</strong> (<Katex tex="r = 0.58" /> for variants with predicted <Katex tex="|\Delta| > 0.01" />).</li>
+            <li><strong>C/EBP Motif Disruption:</strong> Uncovered a causal monocyte eQTL that specifically disrupts a C/EBP binding motif in a myeloid lineage enhancer.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 6 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 6</span>
+          <span class="paper-fig-title">Dissecting Disease-State Gene Expression & Inflammatory Reprogramming</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Predicting transcriptional changes between matched healthy and disease tissues:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Inflammatory Activation:</strong> Accurately predicted log-fold changes between healthy and inflamed colon tissue in ulcerative colitis (UC) across fibroblasts and epithelial cells.</li>
+            <li><strong>Neuroinflammation:</strong> Modeled disease-associated microglia (DAM) activation states in Alzheimer's disease (*APOE* / *TREM2* regulatory logic).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 7 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 7</span>
+          <span class="paper-fig-title">De Novo Design of Disease-Specific Synthetic Promoters via Directed Evolution</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Engineering therapeutic synthetic promoters using in silico directed evolution:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Colitis-Activated Fibroblast Promoter:</strong> Designed a synthetic promoter that drives robust gene expression exclusively in inflamed ulcerative colitis fibroblasts while remaining completely silent in healthy fibroblasts and other organs.</li>
+            <li><strong>Motif Assembly:</strong> Evolution naturally assembled synergistic combinations of AP-1, NF-kB, and TEAD transcription factor motifs.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="eqtl">
+      <h2>5. Single-Cell eQTL Variant Effect Prediction (OneK1K Benchmarks)</h2>
+      <p>
+        Most non-coding GWAS variants act in specific immune subsets. To evaluate variant effect prediction, the authors curated fine-mapped sc-eQTLs from the **OneK1K study** (Yazar et al. 2022) across 21 PBMC cell types (CD4+ T cells, CD8+ T cells, B cells, NK cells, Monocytes, Dendritic cells).
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Single-Cell eQTL Effect Statistic</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\Delta \text{eQTL}(v, g, c) = \log_2\left( \frac{\hat{y}_{g, c}(\text{alt}) + 1}{\hat{y}_{g, c}(\text{ref}) + 1} \right)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\hat{y}_{g, c}" /> = Decima predicted expression of gene <Katex tex="g" /> in cell type <Katex tex="c" /> for alternate vs reference alleles.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="disease-states">
+      <h2>6. Dissecting Disease-State Gene Expression</h2>
+      <p>
+        By computing the attribution difference between disease and healthy pseudobulks for the same cell type, Decima isolates the exact cis-regulatory sequence motifs driving pathological gene induction:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Cell-Type Specificity Attribution Metric</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="S(i, c) = A(i, c) - \frac{1}{|C| - 1} \sum_{k \neq c} A(i, k)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="A(i, c)" /> = Input <Katex tex="\times" /> Gradient attribution at nucleotide <Katex tex="i" /> for cell type / condition <Katex tex="c" /> &emsp;|&emsp;
+          <Katex tex="S(i, c)" /> = Specificity score highlighting motifs unique to condition <Katex tex="c" />.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="synthetic-design">
+      <h2>7. Synthetic Regulatory Element Design via Directed Evolution</h2>
+      <p>
+        Decima can be paired with genetic algorithms (in silico directed evolution) to synthesize entirely new regulatory DNA elements engineered for targeted gene therapy:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Directed Evolution Multi-Objective Fitness</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{Fitness}(S) = \hat{y}_{S, \text{target}} - \lambda \sum_{k \neq \text{target}} \hat{y}_{S, k} - \gamma \cdot \text{Repetitiveness}(S)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          Maximizes expression in the diseased target cell type while penalizing off-target activity in healthy tissues.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="formulations">
+      <h2>8. Mathematical Formulations & Ecosystem Impact</h2>
+      <p>
+        <strong>Decima</strong> proves that sequence-to-expression models can scale to millions of single cells, providing a direct sequence-level window into human disease biology and unlocking precision synthetic promoter engineering.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="activity" size={15} /> Key Ecosystem Takeaways
+        </div>
+        <p>
+          &bull; <strong>Atlas-Scale Learning:</strong> Demonstrates that aggregating 22.8M cells into standardized pseudobulks provides a rich supervised signal for deep neural networks.
+          <br/>
+          &bull; <strong>Disease State Resolution:</strong> Moves beyond steady-state healthy tissues to capture inflammatory and degenerative cellular activation.
+          <br/>
+          &bull; <strong>Therapeutic CRE Generation:</strong> Enables generative design of cell type-specific promoters for precision gene and cell therapies.
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

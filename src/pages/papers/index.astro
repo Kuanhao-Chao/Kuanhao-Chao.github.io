@@ -83,57 +83,49 @@ const papers: PaperEntry[] = PAPERS;
               data-year={entry.year}
               data-search-tokens={searchTokens}
             >
-              <div class="paper-card-layout">
-                <div class="paper-card-icon">
-                  <Icon name="file-text" size={24} />
-                </div>
+              <div class="paper-card-header">
+                <span class="paper-tag">{entry.tag}</span>
+                <span class="paper-venue-badge">{entry.venue} {entry.year}</span>
+                <span class="paper-time-badge">
+                  <Icon name="clock" size={14} />
+                  {entry.readingTime}
+                </span>
+              </div>
 
-                <div>
-                  <div class="paper-card-header">
-                    <span class="paper-tag">{entry.tag}</span>
-                    <span class="paper-venue-badge">{entry.venue} {entry.year}</span>
-                    <span class="paper-time-badge">
-                      <Icon name="clock" size={14} />
-                      {entry.readingTime}
+              <h3 class="paper-card-title">
+                <a href={entry.href}>{entry.title}</a>
+              </h3>
+
+              <div class="paper-card-authors">
+                {entry.authors.join(', ')} · <strong>{entry.affiliation}</strong>
+              </div>
+
+              <p class="paper-card-summary">{entry.summary}</p>
+
+              {entry.highlights && entry.highlights.length > 0 && (
+                <ul class="paper-card-highlights">
+                  {entry.highlights.map((item) => (
+                    <li>{item}</li>
+                  ))}
+                </ul>
+              )}
+
+              {entry.equations && entry.equations.length > 0 && (
+                <div class="paper-equations">
+                  <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600; margin-right: 0.25rem;">Key Formulations:</span>
+                  {entry.equations.map((eq) => (
+                    <span class="paper-eq-chip">
+                      <Katex tex={eq} />
                     </span>
-                  </div>
-
-                  <h3 class="paper-card-title">
-                    <a href={entry.href}>{entry.title}</a>
-                  </h3>
-
-                  <div class="paper-card-authors">
-                    {entry.authors.join(', ')} · <strong>{entry.affiliation}</strong>
-                  </div>
-
-                  <p class="paper-card-summary">{entry.summary}</p>
-
-                  {entry.highlights && entry.highlights.length > 0 && (
-                    <ul class="paper-card-highlights">
-                      {entry.highlights.map((item) => (
-                        <li>{item}</li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {entry.equations && entry.equations.length > 0 && (
-                    <div class="paper-equations">
-                      <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600; margin-right: 0.25rem;">Key Formulations:</span>
-                      {entry.equations.map((eq) => (
-                        <span class="paper-eq-chip">
-                          <Katex tex={eq} />
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div class="paper-card-action">
-                    <a href={entry.href} class="paper-link">
-                      <span>{entry.actionText}</span>
-                      <Icon name="arrow-right" size={15} />
-                    </a>
-                  </div>
+                  ))}
                 </div>
+              )}
+
+              <div class="paper-card-action">
+                <a href={entry.href} class="paper-link">
+                  <span>{entry.actionText}</span>
+                  <Icon name="arrow-right" size={15} />
+                </a>
               </div>
             </article>
           );

@@ -1,0 +1,297 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "scooby: modeling multimodal genomic profiles from DNA sequence at single-cell resolution";
+const description = "Comprehensive technical summary and deep literature deconstruction of Scooby (Hingerl, Martens et al., Nature Methods 2025): Modeling multimodal single-cell RNA-seq and scATAC-seq profiles from DNA sequence by equipping Borzoi with a cell-specific decoder.";
+const readingTime = "18 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Single-Cell Multimodal Genomics</span>
+        <span class="paper-venue-badge">Nature Methods 2025</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Johannes C. Hingerl*, Laura D. Martens*, Alexander Karollus, Trevor Manz, Jason D. Buenrostro, Fabian J. Theis, and Julien Gagneur*</div>
+        <div><strong>Affiliation:</strong> Technical University of Munich (TUM); Helmholtz Munich; Harvard University (Department of Stem Cell and Regenerative Biology); Broad Institute of MIT and Harvard</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1038/s41592-025-02854-5" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1038/s41592-025-02854-5</a> · Corresponding Author: Julien Gagneur (<code>gagneur@in.tum.de</code>)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      Sequence-to-function neural networks developed for bulk multi-omics cannot capture the cellular heterogeneity and dynamic regulatory transitions revealed by single-cell assays. Published in <strong>Nature Methods (2025)</strong>, <strong>scooby</strong> introduces an elegant transfer-learning framework that equips the pretrained <strong>Borzoi sequence-to-profile model</strong> with an efficient <strong>cell-specific decoder head</strong>. Scooby simultaneously models <strong>scRNA-seq coverage profiles</strong> and <strong>scATAC-seq Tn5 insertion profiles</strong> from DNA sequence at single-cell resolution, resolves cell-type specific eQTLs in PBMCs and brain motor cortex, and cleanly decouples <strong>chromatin accessibility from transcription initiation</strong> for fine-mapped GWAS risk variants.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & Multimodal Single-Cell Modeling</a></li>
+        <li><a href="#architecture">2. Architecture: Pretrained Borzoi Trunk + Single-Cell Decoder</a></li>
+        <li><a href="#multimodal">3. Joint Modeling of scRNA-seq Coverage & scATAC-seq Insertions</a></li>
+        <li><a href="#results">4. Section-by-Section Results Breakdown (Figures 1–5)</a></li>
+        <li><a href="#eqtl">5. Resolving Cell-Type Specific eQTLs in PBMCs & Brain Cortex</a></li>
+        <li><a href="#decoupling">6. Decoupling Chromatin Accessibility from Transcription (caQTL vs eQTL)</a></li>
+        <li><a href="#motif-mutation">7. In Silico Motif Mutation & Lineage Regulator Mapping</a></li>
+        <li><a href="#formulations">8. Mathematical Formulations & Ecosystem Impact</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & Multimodal Single-Cell Modeling</h2>
+      <p>
+        While single-cell multi-omics technologies (e.g. 10x Multiome, scRNA-seq, scATAC-seq) allow measuring multiple molecular layers within individual cells, training deep sequence models from scratch on sparse single-cell matrices is computationally prohibitive and prone to overfitting.
+      </p>
+      <p>
+        <strong>scooby</strong> solves this challenge through a parameter-efficient transfer learning strategy:
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> Key Architectural Principles of scooby
+        </div>
+        <p>
+          &bull; <strong>Pretrained Sequence Representations:</strong> Leverages the rich regulatory representations of Borzoi (<Katex tex="524\text{ kb}" /> receptive field, <Katex tex="32\text{ bp}" /> spatial resolution).
+          <br/>
+          &bull; <strong>Cell-State Decoder:</strong> Combines spatial sequence embeddings with low-dimensional cell embeddings to generate continuous single-cell profiles.
+          <br/>
+          &bull; <strong>Joint Multimodal Outputs:</strong> Predicts 1D continuous scRNA-seq coverage profiles and scATAC-seq Tn5 transposition counts simultaneously.
+          <br/>
+          &bull; <strong>caQTL vs eQTL Dissection:</strong> Distinguishes whether a disease variant disrupts local chromatin opening, enhancer-promoter communication, or basal transcription.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="architecture">
+      <h2>2. Architecture: Pretrained Borzoi Trunk + Single-Cell Decoder</h2>
+      <p>
+        Scooby takes a <Katex tex="524,288\text{ bp}" /> genomic DNA sequence <Katex tex="\mathbf{X}" /> and a target single-cell state vector <Katex tex="\mathbf{e}_{\text{cell}} \in \mathbb{R}^D" /> (derived from scRNA-seq PCA or scATAC-seq LSI):
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="cpu" size={15} /> Layer-by-Layer Architectural Pipeline
+        </div>
+        <p>
+          &bull; <strong>1. Sequence Feature Extraction:</strong> Pretrained Borzoi convolutional-transformer trunk extracts a sequence feature tensor <Katex tex="\mathbf{Z}_{\text{seq}} \in \mathbb{R}^{B \times 6144 \times C}" /> at <Katex tex="32\text{ bp}" /> resolution.
+          <br/>
+          &bull; <strong>2. Parameter-Efficient Adapter Tuning:</strong> Lightweight adapter layers adapt the sequence embeddings to the specific single-cell dataset.
+          <br/>
+          &bull; <strong>3. Cell-State Cross-Conditioning:</strong> Cell embedding vectors <Katex tex="\mathbf{e}_{\text{cell}}" /> are projected and combined with sequence features via modulated linear layers.
+          <br/>
+          &bull; <strong>4. Multimodal Output Heads:</strong> Outputs two continuous 1D profiles over 6,144 spatial bins (<Katex tex="196.6\text{ kb}" />): scRNA-seq read coverage and scATAC-seq Tn5 insertion counts.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="multimodal">
+      <h2>3. Joint Modeling of scRNA-seq Coverage & scATAC-seq Insertions</h2>
+      <p>
+        By predicting both chromatin accessibility (scATAC) and transcriptional output (scRNA) from the identical sequence input, scooby captures the multi-step cascade of gene regulation within individual cells:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Multimodal Single-Cell Profile Prediction</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\hat{\mathbf{Y}}_{i, \text{RNA}}(b) = g_{\text{RNA}}\left( \mathbf{Z}_{\text{seq}}(b), \mathbf{e}_{\text{cell}}(i) \right), \qquad \hat{\mathbf{Y}}_{i, \text{ATAC}}(b) = g_{\text{ATAC}}\left( \mathbf{Z}_{\text{seq}}(b), \mathbf{e}_{\text{cell}}(i) \right)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="b \in \{1, \dots, 6144\}" /> = Spatial bin at 32 bp resolution &emsp;|&emsp;
+          <Katex tex="i" /> = Individual single cell index &emsp;|&emsp;
+          <Katex tex="\mathbf{e}_{\text{cell}}(i)" /> = Single-cell state embedding.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="results">
+      <h2>4. Section-by-Section Results Breakdown (Figures 1–5)</h2>
+
+      <!-- Figure 1 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 1</span>
+          <span class="paper-fig-title">scooby Model Architecture & Single-Cell Profile Prediction</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Overview of the Borzoi-to-single-cell transfer architecture:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Single-Cell Resolution:</strong> Accurately predicts cell-specific scRNA-seq coverage and scATAC-seq insertion profiles without blurring into broad pseudobulks.</li>
+            <li><strong>Generalization to Unseen Genes:</strong> Outperforms baseline sequence models on held-out test chromosomes across both modalities.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 2 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 2</span>
+          <span class="paper-fig-title">Modeling Cell-Type Specific Expression Counts & Generalization to Unseen Cell States</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Aggregating predicted profiles over annotated exons:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Marker Gene Expression:</strong> Reconstituted full single-cell gene expression count matrices matching observed 10x single-cell expression.</li>
+            <li><strong>Continuous Cell Trajectories:</strong> Generalizes smoothly across continuous differentiation trajectories in hematopoiesis.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 3 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 3</span>
+          <span class="paper-fig-title">In Silico Motif Mutation Uncovers Lineage-Specific Regulators</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Systematic in silico motif mutagenesis:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Outperforming chromVAR:</strong> scooby TF motif effect scores correlate significantly higher with TF gene expression than classical chromVAR deviations.</li>
+            <li><strong>Master Regulators:</strong> Pinpointed *GATA1* in erythroid lineage, *SPI1* (PU.1) in myeloid cells, and *PAX6* in neural progenitors.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 4 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 4</span>
+          <span class="paper-fig-title">Concordance with Single-Cell and Bulk eQTL Benchmarks</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Benchmarking variant effect predictions in OneK1K PBMCs (982 donors) and GTEx:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Significant Outperformance:</strong> Scooby significantly outperformed track-matched Borzoi (<Katex tex="p = 0.001" />) and seq2cells (<Katex tex="p = 5 \times 10^{-4}" />) across OneK1K immune cell types.</li>
+            <li><strong>Cell-Type Specificity:</strong> Successfully captured cell-restricted eQTL effects across CD4+ T, CD8+ T, B cells, NK cells, and Monocytes.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 5 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 5</span>
+          <span class="paper-fig-title">Cell-Type Specific Delineation & Mechanistic Dissection of Bulk eQTLs</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Resolving the cellular origin of bulk GTEx eQTLs and matching with GWAS Catalog traits:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Decoupling caQTL vs eQTL:</strong> Dissected whether fine-mapped variants alter chromatin accessibility alone, gene expression alone, or both simultaneously.</li>
+            <li><strong>GWAS Disease Relevance:</strong> Linked autoimmune GWAS risk loci to cell-restricted regulatory changes in memory T cells and monocytes.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="eqtl">
+      <h2>5. Resolving Cell-Type Specific eQTLs in PBMCs & Brain Cortex</h2>
+      <p>
+        To evaluate single-cell variant effect prediction, scooby computes the predicted log fold change across all cells belonging to a specific cell cluster:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Single-Cell Variant Effect Score</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\Delta \text{Score}(v, g, c) = \log\left( \frac{\sum_{i \in c} \sum_{b \in \text{exons}(g)} \hat{Y}_{i, \text{RNA}}(\text{alt}, b) + 1}{\sum_{i \in c} \sum_{b \in \text{exons}(g)} \hat{Y}_{i, \text{RNA}}(\text{ref}, b) + 1} \right)" display={true} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="decoupling">
+      <h2>6. Decoupling Chromatin Accessibility from Transcription (caQTL vs eQTL)</h2>
+      <p>
+        A central mystery in human genetics is why many chromatin accessibility QTLs (caQTLs) fail to produce measurable changes in steady-state mRNA expression, and vice versa.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="check-circle" size={15} /> Mechanistic Dissection of Regulatory Variants
+        </div>
+        <p>
+          Because scooby models both layers simultaneously from primary sequence, it can categorize non-coding variants into three distinct mechanistic classes:
+          <br/>
+          &bull; <strong>Concordant Variants:</strong> Alter local chromatin accessibility and directly drive downstream transcriptional change.
+          <br/>
+          &bull; <strong>Buffering / Silent caQTLs:</strong> Alter local transcription factor binding and open chromatin without impacting promoter activity due to redundant enhancer buffering.
+          <br/>
+          &bull; <strong>Direct Promoter eQTLs:</strong> Alter basal transcription initiation at the core promoter without altering chromatin accessibility.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="motif-mutation">
+      <h2>7. In Silico Motif Mutation & Lineage Regulator Mapping</h2>
+      <p>
+        By systematically mutating canonical transcription factor binding motifs in silico, scooby calculates the cell-wide impact of motif disruption:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">In Silico Motif Mutation Effect</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{Effect}_{\text{motif}}(\text{TF}, c) = \frac{1}{|I_c|} \sum_{i \in I_c} \left( \hat{Y}_i(\mathbf{X}_{\text{WT}}) - \hat{Y}_i(\mathbf{X}_{\text{mut}(\text{TF})}) \right)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          Quantifies the regulatory dependency of cell state <Katex tex="c" /> on specific transcription factor motifs.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="formulations">
+      <h2>8. Mathematical Formulations & Ecosystem Impact</h2>
+      <p>
+        <strong>scooby</strong> demonstrates that transfer learning from large-scale bulk sequence models to multimodal single-cell data is both computationally efficient and biologically powerful, enabling deep variant interpretation at single-cell resolution.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="activity" size={15} /> Key Ecosystem Takeaways
+        </div>
+        <p>
+          &bull; <strong>Efficient Foundation Model Transfer:</strong> Adapting a pretrained 524 kb model is vastly more sample-efficient than training single-cell models from scratch.
+          <br/>
+          &bull; <strong>Multimodal Synergy:</strong> Jointly modeling scRNA and scATAC provides deeper mechanistic explanations for disease GWAS loci.
+          <br/>
+          &bull; <strong>Lineage Trajectory Mapping:</strong> Predicts regulatory dynamics along continuous differentiation paths in development and disease.
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>
