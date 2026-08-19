@@ -1,0 +1,225 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Polygenic Risk Scores (PRS): Bayesian Priors & Cross-Ancestry Portability";
+const description = "A mathematical and clinical guide to Polygenic Risk Scores (PRS) — comparing Clumping+Thresholding, LDpred2, PRS-CS, and Lassosum, dissecting the trans-ethnic portability crisis, and analyzing clinical utility.";
+const readingTime = "20 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article">
+    <!-- Back to Master Guide -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dives/statistical-genetics/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Statistical Genetics Master Guide
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">Statistical Genetics · Part 8</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Clinical & Methodological</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      While single genetic variants confer modest odds ratios (typically <Katex tex="\text{OR} < 1.15" />), the cumulative effect of hundreds of thousands of alleles across the genome can place individuals at several-fold higher risk for common chronic diseases. <strong>Polygenic Risk Scores (PRS)</strong> synthesize genome-wide association discoveries into personalized, quantifiable clinical risk profiles. This deep dive explores the mathematical priors of PRS algorithms, evaluates the <strong>trans-ethnic portability crisis</strong>, and examines the clinical translation of genetic risk stratification.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#linear-model">1. The Additive Polygenic Risk Score Model</a></li>
+        <li><a href="#methods">2. Methodological Comparison: C+T to Continuous Shrinkage</a></li>
+        <li><a href="#ldpred2">3. LDpred2: Bayesian Spike-and-Slab with Gibbs Sampling</a></li>
+        <li><a href="#prscs">4. PRS-CS: Continuous Horseshoe Shrinkage</a></li>
+        <li><a href="#portability">5. The Trans-Ethnic Portability Crisis</a></li>
+        <li><a href="#multi-ancestry">6. Multi-Ancestry Solutions: PRS-CSx</a></li>
+        <li><a href="#summary">7. Summary & Next in the Statistical Genetics Series</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="linear-model">
+      <h2>1. The Additive Polygenic Risk Score Model</h2>
+      <p>
+        An individual's polygenic score is computed as the weighted sum of their genotype dosages across <Katex tex="M" /> variants:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Additive Linear Polygenic Risk Score (PRS)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{PRS}_i = \sum_{j=1}^{M} \hat{\beta}_j X_{ij}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="X_{ij} \in [0, 2]" /> = Imputed genotype dosage of individual <Katex tex="i" /> at SNP <Katex tex="j" /> &emsp;|&emsp;
+          <Katex tex="\hat{\beta}_j" /> = Reweighted additive allelic effect size (e.g. log-odds ratio from GWAS, adjusted for LD and shrinkage).
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="methods">
+      <h2>2. Methodological Comparison: C+T to Continuous Shrinkage</h2>
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Algorithmic Framework & Prior</th>
+              <th>Key Strengths & Limitations</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Clumping + Thresholding (C+T)</strong></td>
+              <td>Heuristic LD pruning (<Katex tex="r^2 < 0.1" />) followed by a 2D grid search over p-value thresholds (<Katex tex="P < P_T" />).</td>
+              <td>Fast and simple, but discards correlated causal variants within LD blocks.</td>
+            </tr>
+            <tr>
+              <td><strong>LDpred2 (Privé et al. 2020)</strong></td>
+              <td>Bayesian Spike-and-Slab prior: <Katex tex="\beta_j \sim p \mathcal{N}(0, \frac{h^2}{M p}) + (1 - p)\delta_0" /> with MCMC Gibbs sampling.</td>
+              <td>Directly models LD correlation matrix <Katex tex="\mathbf{R}" />; top performer in single-ancestry cohorts.</td>
+            </tr>
+            <tr>
+              <td><strong>PRS-CS (Ge et al. 2019)</strong></td>
+              <td>Continuous shrinkage prior (Horseshoe / Strawderman-Berger) modeling local and global sparsity.</td>
+              <td>Robust adaptive shrinkage; does not require tuning parameters; highly scalable.</td>
+            </tr>
+            <tr>
+              <td><strong>Lassosum (Mak et al. 2017)</strong></td>
+              <td><Katex tex="L_1" />-penalized LASSO directly on summary statistics via coordinate descent.</td>
+              <td>Convex optimization; efficient and deterministic.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="ldpred2">
+      <h2>3. LDpred2: Bayesian Spike-and-Slab with Gibbs Sampling</h2>
+      <p>
+        <strong>LDpred2</strong> models the joint distribution of marginal GWAS summary statistics <Katex tex="\hat{\boldsymbol{\beta}}" /> and true effects <Katex tex="\boldsymbol{\beta}" /> conditional on the LD correlation matrix <Katex tex="\mathbf{R}" />:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">LDpred2 Joint Generative Model</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\hat{\boldsymbol{\beta}} \mid \boldsymbol{\beta} \sim \mathcal{N}\left(\mathbf{R} \boldsymbol{\beta}, \frac{1}{N} \mathbf{R}\right), \qquad \beta_j \sim p \mathcal{N}\left(0, \frac{h^2}{M p}\right) + (1 - p)\delta_0" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="p" /> = Fraction of causal variants in the genome (polygenicity parameter) &emsp;|&emsp;
+          <Katex tex="h^2" /> = SNP heritability &emsp;|&emsp;
+          <Katex tex="\delta_0" /> = Dirac delta mass at zero.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="prscs">
+      <h2>4. PRS-CS: Continuous Horseshoe Shrinkage</h2>
+      <p>
+        Instead of discrete spike-and-slab indicators, <strong>PRS-CS (Ge et al. 2019)</strong> places continuous scale mixtures of normals on effect sizes:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">PRS-CS Continuous Shrinkage Hierarchy</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\beta_j \sim \mathcal{N}(0, \frac{\sigma^2}{N} \phi \psi_j), \quad \psi_j \sim \text{Gamma}(a, 1), \quad \delta_j \sim \text{Gamma}(b, 1)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\phi" /> = Global shrinkage parameter shared across all SNPs &emsp;|&emsp;
+          <Katex tex="\psi_j" /> = Local shrinkage parameter for variant <Katex tex="j" />. This allows massive shrinkage of null passenger variants while preserving large effects at true causal loci without over-shrinkage.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="portability">
+      <h2>5. The Trans-Ethnic Portability Crisis</h2>
+      <p>
+        Over 75% of all historical GWAS participants are of European ancestry. When a PRS derived from European cohorts is tested in non-European populations, its predictive accuracy (<Katex tex="R^2" />) plummets dramatically:
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Target Population</th>
+              <th>Relative Prediction Accuracy (% of European Performance)</th>
+              <th>Primary Driver of Accuracy Decay</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>East Asian (EAS)</strong></td>
+              <td><Katex tex="\approx 50\%\text{--}60\%" /></td>
+              <td>Allele frequency shifts + Moderate LD divergence</td>
+            </tr>
+            <tr>
+              <td><strong>South Asian (SAS)</strong></td>
+              <td><Katex tex="\approx 55\%\text{--}65\%" /></td>
+              <td>Substructure & Variable LD patterns</td>
+            </tr>
+            <tr>
+              <td><strong>Hispanic / Latino (AMR)</strong></td>
+              <td><Katex tex="\approx 45\%\text{--}55\%" /></td>
+              <td>Complex 3-way multi-ancestry admixture</td>
+            </tr>
+            <tr>
+              <td><strong>African Ancestry (AFR)</strong></td>
+              <td><strong><Katex tex="\approx 20\%\text{--}30\%" /></strong></td>
+              <td>Shorter LD blocks, high genetic diversity, altered causal tagging</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="multi-ancestry">
+      <h2>6. Multi-Ancestry Solutions: PRS-CSx</h2>
+      <p>
+        <strong>PRS-CSx (Ruan et al. 2022)</strong> solves the portability crisis by jointly modeling summary statistics and LD reference panels across multiple ancestral cohorts simultaneously.
+      </p>
+      <p>
+        By sharing a common global shrinkage prior <Katex tex="\phi" /> while allowing ancestry-specific local continuous shrinkage <Katex tex="\psi_{jk}" />, PRS-CSx learns the shared biological signal while accounting for distinct LD structures, closing the cross-ancestry accuracy gap by up to +40%.
+      </p>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="summary">
+      <h2>7. Summary & Next in the Statistical Genetics Series</h2>
+      <p>
+        PRS measures observational genetic correlation. But correlation does not prove biological causation. In Part 9, we explore how genetic variants act as randomized instrumental variables in <strong>Mendelian Randomization (MR)</strong>:
+      </p>
+      <div class="deep-dive-callout">
+        <div class="deep-dive-callout-title">
+          <Icon name="arrow-right" size={15} /> Continue to Part 9
+        </div>
+        <p>
+          <a href="/deep_dives/statgen-mendelian-randomization/" style="font-weight: 700; color: var(--color-accent);">
+            Part 9: Causal Inference in Human Genetics: Mendelian Randomization (MR) &rarr;
+          </a>
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

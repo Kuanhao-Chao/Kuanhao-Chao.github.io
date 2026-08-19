@@ -1,0 +1,215 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Heritability Estimation: From Classical Twin Models to Genomic REML (GREML)";
+const description = "A rigorous mathematical exploration of heritability estimation — from Falconer's twin correlation formulas and the missing heritability crisis to Yang et al. (2010) GCTA Genomic Relatedness Matrices (GRM) and Genomic Restricted Maximum Likelihood (GREML).";
+const readingTime = "19 min read";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <article class="deep-dive-article">
+    <!-- Back to Master Guide -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/deep_dives/statistical-genetics/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Statistical Genetics Master Guide
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">Statistical Genetics · Part 3</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Foundational to Advanced</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+      <h1 class="deep-dive-title">{title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>Kuan-Hao Chao</strong></span>
+        <span>·</span>
+        <span>Published August 2026</span>
+      </p>
+    </header>
+
+    <!-- Lead / Introduction -->
+    <p class="deep-dive-lead">
+      What fraction of human phenotypic variation is attributable to inherited DNA differences rather than environmental exposures? For decades, quantitative geneticists relied on twin and pedigree studies to estimate heritability. However, the dawn of GWAS created the famous <strong>"Missing Heritability"</strong> crisis: genome-wide significant hits explained only a sliver of twin-estimated heritability. In 2010, Yang et al. introduced <strong>Genomic REML (GREML / GCTA)</strong>, fundamentally transforming how geneticists quantify the total polygenic architecture of complex human traits.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="deep-dive-toc">
+      <div class="deep-dive-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="deep-dive-toc-list">
+        <li><a href="#twins">1. Classical Twin Models: Falconer's Formula & ACE Decomposition</a></li>
+        <li><a href="#missing">2. The "Missing Heritability" Dilemma</a></li>
+        <li><a href="#grm">3. The Genomic Relatedness Matrix (GRM) Derivation</a></li>
+        <li><a href="#greml">4. Genomic Restricted Maximum Likelihood (GREML)</a></li>
+        <li><a href="#reml-algorithm">5. REML Optimization: The AI-REML Algorithm</a></li>
+        <li><a href="#partitioning">6. Partitioning Heritability by Chromosome & Function</a></li>
+        <li><a href="#summary">7. Summary & Next in the Statistical Genetics Series</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="twins">
+      <h2>1. Classical Twin Models: Falconer's Formula & ACE Decomposition</h2>
+      <p>
+        Classic pedigree genetics contrasts Monozygotic (MZ) twins (who share 100% of their segregating genome, <Katex tex="\pi_{\text{MZ}} = 1.0" />) with Dizygotic (DZ) twins (who share on average 50% of segregating alleles, <Katex tex="\pi_{\text{DZ}} = 0.5" />).
+      </p>
+
+      <h3>The ACE Model</h3>
+      <p>
+        The ACE model decomposes phenotypic variance into three components: Additive genetics (<Katex tex="A" />), Common/shared environment (<Katex tex="C" />), and Unique/non-shared environment (<Katex tex="E" />):
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Falconer's Heritability Formula (1960)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="r_{\text{MZ}} = h^2 + c^2, \quad r_{\text{DZ}} = \frac{1}{2}h^2 + c^2 \implies h^2 = 2(r_{\text{MZ}} - r_{\text{DZ}})" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="r_{\text{MZ}}, r_{\text{DZ}}" /> = Intraclass phenotypic correlations between twin pairs &emsp;|&emsp;
+          <Katex tex="c^2 = 2r_{\text{DZ}} - r_{\text{MZ}}" /> = Variance explained by shared home environment &emsp;|&emsp;
+          <Katex tex="e^2 = 1 - r_{\text{MZ}}" /> = Non-shared environmental variance + measurement error.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="missing">
+      <h2>2. The "Missing Heritability" Dilemma</h2>
+      <p>
+        When the first wave of large-scale GWAS was published (2007–2010), a striking discrepancy emerged:
+      </p>
+      <ul>
+        <li>For human height, twin and family studies reported <Katex tex="h^2 \approx 80\%" />.</li>
+        <li>However, the first 40 genome-wide significant GWAS loci (<Katex tex="P < 5 \times 10^{-8}" />) explained only <strong><Katex tex="\approx 5\%" /></strong> of the variance!</li>
+      </ul>
+      <p>
+        Where was the remaining 75% of heritability hiding? Was twin heritability inflated by epistatic interactions and shared environmental biases, or were common variant effect sizes simply too subtle to clear conservative genome-wide significance thresholds?
+      </p>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="grm">
+      <h2>3. The Genomic Relatedness Matrix (GRM) Derivation</h2>
+      <p>
+        In a landmark 2010 paper, <strong>Jian Yang, Peter Visscher, and colleagues (GCTA)</strong> solved the missing heritability puzzle by showing that heritability is not absent—it is distributed across hundreds of thousands of common SNPs across the entire genome.
+      </p>
+      <p>
+        Instead of selecting only genome-wide significant SNPs, GCTA uses all <Katex tex="M" /> genotyped SNPs simultaneously to construct an empirical <strong>Genomic Relatedness Matrix (GRM)</strong> <Katex tex="\mathbf{A} \in \mathbb{R}^{N \times N}" /> across unrelated individuals:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Yang et al. (2010) GRM Estimator</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="A_{ik} = \frac{1}{M} \sum_{j=1}^{M} \frac{(X_{ij} - 2p_j)(X_{kj} - 2p_j)}{2p_j (1 - p_j)}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="X_{ij} \in \{0, 1, 2\}" /> = Genotype dosage of individual <Katex tex="i" /> at SNP <Katex tex="j" /> &emsp;|&emsp;
+          <Katex tex="p_j" /> = Sample minor allele frequency at SNP <Katex tex="j" /> &emsp;|&emsp;
+          <Katex tex="2p_j(1 - p_j)" /> = Expected binomial variance under Hardy-Weinberg equilibrium.
+        </div>
+      </div>
+
+      <p>
+        The diagonal entries <Katex tex="A_{ii} \approx 1 + F_i" /> measure individual inbreeding coefficients, while off-diagonal entries <Katex tex="A_{ik}" /> capture distant genealogical relatedness between seemingly unrelated individuals in the population.
+      </p>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="greml">
+      <h2>4. Genomic Restricted Maximum Likelihood (GREML)</h2>
+      <p>
+        GCTA specifies a linear mixed model where all SNP effects are treated as random variables:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">GREML Linear Mixed Model & Phenotypic Covariance</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{g} + \mathbf{e}, \quad \mathbf{g} \sim \mathcal{N}(0, \mathbf{A}\sigma_g^2), \quad \mathbf{e} \sim \mathcal{N}(0, \mathbf{I}\sigma_e^2)" display={true} />
+          <Katex tex="\mathbf{V} = \text{Var}(\mathbf{y}) = \mathbf{A}\sigma_g^2 + \mathbf{I}\sigma_e^2" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\mathbf{X}\boldsymbol{\beta}" /> = Fixed covariate effects (sex, age, ancestry principal components) &emsp;|&emsp;
+          <Katex tex="\sigma_g^2" /> = Additive genetic variance tagged by all common SNPs &emsp;|&emsp;
+          <Katex tex="\sigma_e^2" /> = Residual environmental variance.
+        </div>
+      </div>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">SNP Heritability (h²_SNP)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="h^2_{\text{SNP}} = \frac{\sigma_g^2}{\sigma_g^2 + \sigma_e^2}" display={true} />
+        </div>
+      </div>
+      <p>
+        Applying GREML to human height revealed that common SNPs explain <strong><Katex tex="h^2_{\text{SNP}} \approx 45\text{--}50\%" /></strong> of phenotypic variance—recovering the vast majority of previously "missing" heritability!
+      </p>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="reml-algorithm">
+      <h2>5. REML Optimization: The AI-REML Algorithm</h2>
+      <p>
+        Standard Maximum Likelihood (ML) produces downward-biased variance component estimates because it ignores the degrees of freedom consumed by estimating fixed effects <Katex tex="\boldsymbol{\beta}" />.
+        <strong>Restricted Maximum Likelihood (REML)</strong> solves this by maximizing the likelihood of linear contrasts <Katex tex="\mathbf{K}\mathbf{y}" /> orthogonal to the fixed-effects design matrix (<Katex tex="\mathbf{K}\mathbf{X} = 0" />):
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">REML Log-Likelihood Function</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\ln L_{\text{REML}} = -\frac{1}{2} \left[ \ln|\mathbf{V}| + \ln|\mathbf{X}^T \mathbf{V}^{-1} \mathbf{X}| + \mathbf{y}^T \mathbf{P} \mathbf{y} \right]" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\mathbf{P} = \mathbf{V}^{-1} - \mathbf{V}^{-1} \mathbf{X} (\mathbf{X}^T \mathbf{V}^{-1} \mathbf{X})^{-1} \mathbf{X}^T \mathbf{V}^{-1}" /> is the projection matrix.
+        </div>
+      </div>
+
+      <p>
+        GCTA optimizes this likelihood using the <strong>Average Information (AI-REML)</strong> algorithm, which computes the Hessian matrix using exact algebraic shortcuts that avoid calculating second derivatives directly:
+      </p>
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Average Information (AI) Matrix</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{AI}(\sigma_i^2, \sigma_j^2) = \frac{1}{2} \mathbf{y}^T \mathbf{P} \frac{\partial \mathbf{V}}{\partial \sigma_i^2} \mathbf{P} \frac{\partial \mathbf{V}}{\partial \sigma_j^2} \mathbf{P} \mathbf{y}" display={true} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="partitioning">
+      <h2>6. Partitioning Heritability by Chromosome & Function</h2>
+      <p>
+        GREML easily extends to multiple genetic variance components:
+        <Katex tex="\mathbf{V} = \sum_{c=1}^{C} \mathbf{A}_c \sigma_{gc}^2 + \mathbf{I}\sigma_e^2" />.
+      </p>
+      <p>
+        By building separate GRMs for each of the 22 autosomes, Yang et al. demonstrated a profound polygenic signature: <strong>the heritability explained by each chromosome is strictly proportional to its physical length in base pairs (<Katex tex="R^2 > 0.95" />)</strong>, proving that causal variants are uniformly distributed across the entire genome.
+      </p>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="summary">
+      <h2>7. Summary & Next in the Statistical Genetics Series</h2>
+      <p>
+        While GREML is the gold standard for individual-level data, it requires <Katex tex="O(N^2)" /> memory and cannot scale to modern millions-of-participant biobanks. In Part 4, we examine how <strong>LD Score Regression</strong> calculates heritability directly from summary statistics:
+      </p>
+      <div class="deep-dive-callout">
+        <div class="deep-dive-callout-title">
+          <Icon name="arrow-right" size={15} /> Continue to Part 4
+        </div>
+        <p>
+          <a href="/deep_dives/statgen-ldsc-sldsc/" style="font-weight: 700; color: var(--color-accent);">
+            Part 4: Summary-Statistics Heritability: LD Score Regression (LDSC & S-LDSC) &rarr;
+          </a>
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

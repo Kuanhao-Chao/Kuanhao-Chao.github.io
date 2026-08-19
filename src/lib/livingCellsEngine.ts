@@ -223,7 +223,7 @@ export class LivingCellsEngine {
       equilibriumOffset: 0,
     }));
 
-    // Generate authentic eukaryotic organelle ensemble
+    // Generate authentic eukaryotic organelle ensemble with strict containment
     const organelles: Organelle[] = [];
 
     // 1. Mitochondria (1 to 2 distinct elongated powerhouses with cristae)
@@ -232,9 +232,9 @@ export class LivingCellsEngine {
       organelles.push({
         type: 'mitochondria',
         angle: rand(0, TAU),
-        dist: rand(0.42, 0.70),
-        length: Math.max(5.5, finalRadius * 0.22),
-        width: Math.max(2.8, finalRadius * 0.10),
+        dist: rand(0.32, 0.48),
+        length: Math.max(4.0, finalRadius * 0.18),
+        width: Math.max(2.2, finalRadius * 0.08),
         cristaeCount: Math.round(rand(3, 5)),
         rotAngle: rand(0, TAU),
         spinSpeed: rand(-0.003, 0.003),
@@ -245,14 +245,14 @@ export class LivingCellsEngine {
     organelles.push({
       type: 'golgi',
       angle: rand(0, TAU),
-      dist: rand(0.48, 0.72),
-      arcSpan: rand(0.6, 0.9),
+      dist: rand(0.32, 0.44),
+      arcSpan: rand(0.5, 0.75),
       layers: finalRadius > 50 ? 3 : 2,
       spinSpeed: rand(-0.002, 0.002),
       vesicles: Array.from({ length: Math.round(rand(2, 4)) }, () => ({
-        angle: rand(-0.4, 0.4),
-        dist: rand(1.15, 1.45),
-        size: rand(1.0, 1.8),
+        angle: rand(-0.35, 0.35),
+        dist: rand(0.04, 0.08),
+        size: Math.max(0.65, finalRadius * 0.022),
       })),
     });
 
@@ -260,9 +260,9 @@ export class LivingCellsEngine {
     organelles.push({
       type: 'er',
       arcStart: rand(0, TAU),
-      arcEnd: rand(1.4, 2.4),
+      arcEnd: rand(1.4, 2.2),
       layers: 2,
-      ribosomes: Array.from({ length: Math.round(rand(5, 9)) }, () => ({
+      ribosomes: Array.from({ length: Math.round(rand(5, 8)) }, () => ({
         angle: rand(0, 1),
         rOffset: rand(0, 1),
       })),
@@ -272,7 +272,7 @@ export class LivingCellsEngine {
     organelles.push({
       type: 'centrosome',
       angle: rand(0, TAU),
-      dist: rand(0.35, 0.55),
+      dist: rand(0.28, 0.44),
       spinSpeed: rand(-0.001, 0.001),
     });
 
@@ -297,7 +297,7 @@ export class LivingCellsEngine {
       morphPhase: rand(0, TAU),
       morphSpeed: rand(0.003, 0.007),
 
-      nucleusOffset: { x: rand(-0.14, 0.14), y: rand(-0.14, 0.14) },
+      nucleusOffset: { x: rand(-0.10, 0.10), y: rand(-0.10, 0.10) },
       nucleusAngle: rand(0, TAU),
       organelles,
       state: cellState,
@@ -1353,7 +1353,8 @@ export class LivingCellsEngine {
     }
     this.ctx.closePath();
 
-    // Subsurface Scattering Interior Glow
+    // Subsurface Scattering Interior Glow & Membrane Lipid Refractive Halo Border
+    this.ctx.save();
     const fill = this.ctx.createRadialGradient(px, py, 0, px, py, r || 1);
     fill.addColorStop(0, `rgba(${accentRgb}, ${0.042 * brightness * alpha})`);
     fill.addColorStop(0.68, `rgba(${glowRgb}, ${0.018 * brightness * alpha})`);
@@ -1361,17 +1362,19 @@ export class LivingCellsEngine {
     this.ctx.fillStyle = fill;
     this.ctx.fill();
 
-    // Outer Membrane Lipid Refractive Halo Border
     this.ctx.lineWidth = cell.isGrabbed ? 1.5 : 1.15;
     this.ctx.strokeStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${(cell.isGrabbed ? 0.12 : 0.065) * brightness * alpha})`;
     this.ctx.stroke();
 
     // =============================================================
-    // Realistic Cytology: Nucleus, Organelles, Mitochondria & ER
+    // 🛡️ Cytoplasmic Clipping Guard: 100% Organelle Containment
+    // All internal structures are clipped to the exact membrane path
     // =============================================================
+    this.ctx.clip();
+
     const ncx = px + cell.nucleusOffset.x * r;
     const ncy = py + cell.nucleusOffset.y * r;
-    const nucRadius = r * 0.28;
+    const nucRadius = r * 0.25;
 
     // 1. Double Nuclear Envelope with Nuclear Pores
     this.ctx.beginPath();
@@ -1463,16 +1466,17 @@ export class LivingCellsEngine {
         this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.075 * alpha})`;
 
         for (let l = 0; l < org.layers; l++) {
-          const radiusLayer = 5 + l * 2.2;
+          const radiusLayer = r * (0.04 + l * 0.03);
           this.ctx.beginPath();
           this.ctx.arc(0, 0, radiusLayer, -org.arcSpan * 0.5, org.arcSpan * 0.5);
           this.ctx.stroke();
         }
 
-        // Secretory budding transport vesicles
+        // Secretory budding transport vesicles (relative radius offsets)
         for (const v of org.vesicles) {
-          const vx = Math.cos(v.angle) * (8 + v.dist * 3);
-          const vy = Math.sin(v.angle) * (8 + v.dist * 3);
+          const vDist = r * (0.05 + v.dist);
+          const vx = Math.cos(v.angle) * vDist;
+          const vy = Math.sin(v.angle) * vDist;
           this.ctx.beginPath();
           this.ctx.arc(vx, vy, v.size, 0, TAU);
           this.ctx.fillStyle = `rgba(${glowRgb}, ${0.06 * alpha})`;
@@ -1490,7 +1494,7 @@ export class LivingCellsEngine {
         this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.045 * alpha})`;
 
         for (let l = 0; l < org.layers; l++) {
-          const erR = nucRadius * (1.18 + l * 0.18);
+          const erR = nucRadius * (1.12 + l * 0.15);
           this.ctx.beginPath();
           this.ctx.arc(0, 0, erR, org.arcStart, org.arcStart + org.arcEnd);
           this.ctx.stroke();
@@ -1499,7 +1503,7 @@ export class LivingCellsEngine {
         // Ribosome nanoparticles along Rough ER
         for (const ribo of org.ribosomes) {
           const riboAngle = org.arcStart + ribo.angle * org.arcEnd;
-          const riboDist = nucRadius * (1.18 + ribo.rOffset * 0.22);
+          const riboDist = nucRadius * (1.12 + ribo.rOffset * 0.18);
           const rx = Math.cos(riboAngle) * riboDist;
           const ry = Math.sin(riboAngle) * riboDist;
 
@@ -1516,6 +1520,7 @@ export class LivingCellsEngine {
       else if (org.type === 'centrosome') {
         const cx = px + Math.cos(org.angle + cell.angle) * r * org.dist;
         const cy = py + Math.sin(org.angle + cell.angle) * r * org.dist;
+        const barLen = Math.max(1.1, r * 0.035);
 
         this.ctx.save();
         this.ctx.translate(cx, cy);
@@ -1525,15 +1530,17 @@ export class LivingCellsEngine {
         this.ctx.strokeStyle = `rgba(${inkRgb}, ${0.08 * alpha})`;
 
         this.ctx.beginPath();
-        this.ctx.moveTo(-1.5, 0);
-        this.ctx.lineTo(1.5, 0);
-        this.ctx.moveTo(0, -1.5);
-        this.ctx.lineTo(0, 1.5);
+        this.ctx.moveTo(-barLen, 0);
+        this.ctx.lineTo(barLen, 0);
+        this.ctx.moveTo(0, -barLen);
+        this.ctx.lineTo(0, barLen);
         this.ctx.stroke();
 
         this.ctx.restore();
       }
     }
+
+    this.ctx.restore();
   }
 }
 

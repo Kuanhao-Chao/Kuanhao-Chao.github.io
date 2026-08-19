@@ -1238,16 +1238,26 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: 'CATALOG & BLOG POSTS', tone: 'accent' },
       { text: '    → /deep_dives/', tone: 'accent', href: '/deep_dives/' },
       { text: '    → /deep_dives/statistical-genetics/ (Statistical Genetics: Quantitative Traits & Heritability)', tone: 'accent', href: '/deep_dives/statistical-genetics/' },
+      { text: '      · /deep_dives/statgen-population-infinitesimal/ (Part 1: Population Genetics & Infinitesimal Model)', tone: 'accent', href: '/deep_dives/statgen-population-infinitesimal/' },
+      { text: '      · /deep_dives/statgen-linkage-disequilibrium/ (Part 2: Linkage Disequilibrium & PRDM9)', tone: 'accent', href: '/deep_dives/statgen-linkage-disequilibrium/' },
+      { text: '      · /deep_dives/statgen-heritability-greml/ (Part 3: Heritability & GREML/GCTA)', tone: 'accent', href: '/deep_dives/statgen-heritability-greml/' },
+      { text: '      · /deep_dives/statgen-ldsc-sldsc/ (Part 4: LD Score Regression & S-LDSC)', tone: 'accent', href: '/deep_dives/statgen-ldsc-sldsc/' },
+      { text: '      · /deep_dives/statgen-association-linear-mixed-models/ (Part 5: Association Testing & LMMs)', tone: 'accent', href: '/deep_dives/statgen-association-linear-mixed-models/' },
+      { text: '      · /deep_dives/statgen-bayesian-fine-mapping/ (Part 6: Bayesian Fine-Mapping & SuSiE)', tone: 'accent', href: '/deep_dives/statgen-bayesian-fine-mapping/' },
+      { text: '      · /deep_dives/statgen-rare-variant-association/ (Part 7: Rare Variant Association & SKAT)', tone: 'accent', href: '/deep_dives/statgen-rare-variant-association/' },
+      { text: '      · /deep_dives/statgen-polygenic-risk-scores/ (Part 8: Polygenic Risk Scores & Portability)', tone: 'accent', href: '/deep_dives/statgen-polygenic-risk-scores/' },
+      { text: '      · /deep_dives/statgen-mendelian-randomization/ (Part 9: Mendelian Randomization & Causal IVs)', tone: 'accent', href: '/deep_dives/statgen-mendelian-randomization/' },
+      { text: '      · /deep_dives/statgen-deep-learning-synthesis/ (Part 10: The Modern Synthesis & AI Genomics)', tone: 'accent', href: '/deep_dives/statgen-deep-learning-synthesis/' },
       { text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies: The Mathematical Engine)', tone: 'accent', href: '/deep_dives/gwas/' },
-      { text: '    → /deep_dives/gwas-biological-variation-cdcv/ (Part 1: Biological Variation & CDCV)', tone: 'accent', href: '/deep_dives/gwas-biological-variation-cdcv/' },
-      { text: '    → /deep_dives/gwas-genotyping-imputation/ (Part 2: SNP Microarrays & HMM Imputation)', tone: 'accent', href: '/deep_dives/gwas-genotyping-imputation/' },
-      { text: '    → /deep_dives/gwas-quality-control/ (Part 3: Rigorous Sample & Variant QC)', tone: 'accent', href: '/deep_dives/gwas-quality-control/' },
-      { text: '    → /deep_dives/gwas-association-statistics/ (Part 4: OLS, Logistic, Wald & Power)', tone: 'accent', href: '/deep_dives/gwas-association-statistics/' },
-      { text: '    → /deep_dives/gwas-population-stratification/ (Part 5: Confounding, PCA & Mixed Models)', tone: 'accent', href: '/deep_dives/gwas-population-stratification/' },
-      { text: '    → /deep_dives/gwas-multiple-testing-manhattan/ (Part 6: Multiple Testing & Manhattan Plot)', tone: 'accent', href: '/deep_dives/gwas-multiple-testing-manhattan/' },
-      { text: '    → /deep_dives/gwas-linkage-disequilibrium-ldsc/ (Part 7: Linkage Disequilibrium & LDSC)', tone: 'accent', href: '/deep_dives/gwas-linkage-disequilibrium-ldsc/' },
-      { text: '    → /deep_dives/gwas-fine-mapping-functional-genomics/ (Part 8: Fine-Mapping, SuSiE & Epigenomics)', tone: 'accent', href: '/deep_dives/gwas-fine-mapping-functional-genomics/' },
-      { text: '    → /deep_dives/gwas-polygenic-risk-scores-prs/ (Part 9: Polygenic Risk Scores & Clinical Translation)', tone: 'accent', href: '/deep_dives/gwas-polygenic-risk-scores-prs/' },
+      { text: '      · /deep_dives/gwas-biological-variation-cdcv/ (Part 1: Biological Variation & CDCV)', tone: 'accent', href: '/deep_dives/gwas-biological-variation-cdcv/' },
+      { text: '      · /deep_dives/gwas-genotyping-imputation/ (Part 2: SNP Microarrays & HMM Imputation)', tone: 'accent', href: '/deep_dives/gwas-genotyping-imputation/' },
+      { text: '      · /deep_dives/gwas-quality-control/ (Part 3: Rigorous Sample & Variant QC)', tone: 'accent', href: '/deep_dives/gwas-quality-control/' },
+      { text: '      · /deep_dives/gwas-association-statistics/ (Part 4: OLS, Logistic, Wald & Power)', tone: 'accent', href: '/deep_dives/gwas-association-statistics/' },
+      { text: '      · /deep_dives/gwas-population-stratification/ (Part 5: Confounding, PCA & Mixed Models)', tone: 'accent', href: '/deep_dives/gwas-population-stratification/' },
+      { text: '      · /deep_dives/gwas-multiple-testing-manhattan/ (Part 6: Multiple Testing & Manhattan Plot)', tone: 'accent', href: '/deep_dives/gwas-multiple-testing-manhattan/' },
+      { text: '      · /deep_dives/gwas-linkage-disequilibrium-ldsc/ (Part 7: Linkage Disequilibrium & LDSC)', tone: 'accent', href: '/deep_dives/gwas-linkage-disequilibrium-ldsc/' },
+      { text: '      · /deep_dives/gwas-fine-mapping-functional-genomics/ (Part 8: Fine-Mapping, SuSiE & Epigenomics)', tone: 'accent', href: '/deep_dives/gwas-fine-mapping-functional-genomics/' },
+      { text: '      · /deep_dives/gwas-polygenic-risk-scores-prs/ (Part 9: Polygenic Risk Scores & Clinical Translation)', tone: 'accent', href: '/deep_dives/gwas-polygenic-risk-scores-prs/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    gwas(1), paper(1), minimap2(1), fmindex(1), wfa(1), wgt(1)' },
@@ -2941,9 +2951,39 @@ export const COMMANDS: Record<string, Cmd> = {
       const topic = (args[0] || '').toLowerCase();
       let href = '/deep_dives/';
       let title = 'Computational Genomics Deep Dives Hub';
-      if (topic.includes('stat') || topic.includes('herit')) {
+      if (topic.includes('pop') || topic.includes('coalescent') || topic.includes('tajima') || topic.includes('infinitesimal')) {
+        href = '/deep_dives/statgen-population-infinitesimal/';
+        title = 'Population Genetics & Infinitesimal Model Deep Dive Post';
+      } else if (topic.includes('prdm9') || (topic.includes('ld') && topic.includes('recomb')) || topic.includes('haplotype')) {
+        href = '/deep_dives/statgen-linkage-disequilibrium/';
+        title = 'Linkage Disequilibrium & PRDM9 Deep Dive Post';
+      } else if (topic.includes('greml') || topic.includes('gcta') || topic.includes('grm') || (topic.includes('herit') && !topic.includes('ldsc'))) {
+        href = '/deep_dives/statgen-heritability-greml/';
+        title = 'Heritability Estimation & GREML Deep Dive Post';
+      } else if (topic.includes('sldsc') || (topic.includes('ldsc') && topic.includes('strat'))) {
+        href = '/deep_dives/statgen-ldsc-sldsc/';
+        title = 'LD Score Regression (LDSC & S-LDSC) Deep Dive Post';
+      } else if (topic.includes('lmm') || topic.includes('regenie') || topic.includes('fastgwa') || topic.includes('gemma')) {
+        href = '/deep_dives/statgen-association-linear-mixed-models/';
+        title = 'Association Testing & LMMs Deep Dive Post';
+      } else if (topic.includes('abf') || (topic.includes('susie') && topic.includes('prior')) || (topic.includes('fine') && topic.includes('prior'))) {
+        href = '/deep_dives/statgen-bayesian-fine-mapping/';
+        title = 'Bayesian Fine-Mapping (SuSiE) Deep Dive Post';
+      } else if (topic.includes('skat') || topic.includes('rvat') || topic.includes('burden') || topic.includes('deeprvat') || topic.includes('rare')) {
+        href = '/deep_dives/statgen-rare-variant-association/';
+        title = 'Rare Variant Association Testing (SKAT) Deep Dive Post';
+      } else if (topic.includes('prscs') || topic.includes('ldpred') || (topic.includes('prs') && topic.includes('ethnic'))) {
+        href = '/deep_dives/statgen-polygenic-risk-scores/';
+        title = 'Polygenic Risk Scores (PRS) Deep Dive Post';
+      } else if (topic.includes('mr') || topic.includes('mendelian') || topic.includes('instrumental') || topic.includes('ivw') || topic.includes('egger')) {
+        href = '/deep_dives/statgen-mendelian-randomization/';
+        title = 'Mendelian Randomization (MR) Deep Dive Post';
+      } else if (topic.includes('synth') || (topic.includes('stat') && topic.includes('deep')) || topic.includes('foundation')) {
+        href = '/deep_dives/statgen-deep-learning-synthesis/';
+        title = 'AI Genomic Synthesis Deep Dive Post';
+      } else if (topic.includes('stat')) {
         href = '/deep_dives/statistical-genetics/';
-        title = 'Statistical Genetics Deep Dive Post';
+        title = 'Statistical Genetics Master Guide';
       } else if (topic.includes('cdcv') || topic.includes('variation') || topic.includes('mendel') || topic.includes('hwe')) {
         href = '/deep_dives/gwas-biological-variation-cdcv/';
         title = 'Biological Variation & CDCV Deep Dive Post';
@@ -2956,7 +2996,7 @@ export const COMMANDS: Record<string, Cmd> = {
       } else if (topic.includes('regress') || topic.includes('ols') || topic.includes('logistic') || topic.includes('power') || topic.includes('wald')) {
         href = '/deep_dives/gwas-association-statistics/';
         title = 'Association Statistics & Power Deep Dive Post';
-      } else if (topic.includes('strat') || topic.includes('pca') || topic.includes('lmm') || topic.includes('chopstick') || topic.includes('bolt')) {
+      } else if (topic.includes('strat') || topic.includes('pca') || topic.includes('chopstick') || topic.includes('bolt')) {
         href = '/deep_dives/gwas-population-stratification/';
         title = 'Population Stratification & LMMs Deep Dive Post';
       } else if (topic.includes('manhattan') || topic.includes('multiple') || topic.includes('bonferroni') || topic.includes('fdr')) {
