@@ -130,38 +130,13 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   transition: all var(--transition);
   position: relative;
+  gap: var(--space-2);
 }
 
 .paper-card:hover {
   border-color: var(--color-accent);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
-}
-
-.paper-card-layout {
-  display: grid;
-  grid-template-columns: 48px 1fr;
-  gap: var(--space-4);
-  align-items: flex-start;
-}
-
-@media (max-width: 640px) {
-  .paper-card-layout {
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
-  }
-}
-
-.paper-card-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-  color: var(--color-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 .paper-card-header {

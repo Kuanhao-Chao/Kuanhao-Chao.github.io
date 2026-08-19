@@ -1253,7 +1253,7 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    papers — technical literature summaries, methodologies, and figure deconstructions' },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
-      { text: '    paper [borzoi | borzoi-prime | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]' },
+      { text: '    paper [borzoi | borzoi-prime | decima | scooby | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       { text: '    Detailed, clear, and mathematically rigorous literature deconstructions of breakthrough' },
@@ -1263,6 +1263,8 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    → /papers/', tone: 'accent', href: '/papers/' },
       { text: '    → /papers/borzoi/ (Borzoi / Calico - Nature Genetics 2025)', tone: 'accent', href: '/papers/borzoi/' },
       { text: '    → /papers/borzoi-prime/ (Borzoi Prime / Calico - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-prime/' },
+      { text: '    → /papers/decima/ (Decima / Genentech - bioRxiv 2024)', tone: 'accent', href: '/papers/decima/' },
+      { text: '    → /papers/scooby/ (scooby / TUM & Broad - Nature Methods 2025)', tone: 'accent', href: '/papers/scooby/' },
       { text: '    → /papers/alphagenome/ (AlphaGenome / DeepMind - Nature 2026)', tone: 'accent', href: '/papers/alphagenome/' },
       { text: '    → /papers/gpnstar/ (GPN-Star / Song Lab - bioRxiv 2025)', tone: 'accent', href: '/papers/gpnstar/' },
       { text: '    → /papers/borzoi-finemapped/ (Borzoi Fine-Mapping / Sniff - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-finemapped/' },
@@ -2949,7 +2951,7 @@ export const COMMANDS: Record<string, Cmd> = {
 
   paper: {
     summary: 'read technical paper summaries and literature deconstructions',
-    usage: 'paper [borzoi | borzoi-prime | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]',
+    usage: 'paper [borzoi | borzoi-prime | decima | scooby | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]',
     run: ({ args }) => {
       const topic = (args[0] || '').toLowerCase();
       let href = '/papers/';
@@ -2963,6 +2965,12 @@ export const COMMANDS: Record<string, Cmd> = {
       } else if (topic.includes('peft') || topic.includes('locon')) {
         href = '/papers/borzoi-peft/';
         title = 'Borzoi PEFT (Locon4) Summary';
+      } else if (topic.includes('decima') || topic.includes('genentech') || topic.includes('disease-state')) {
+        href = '/papers/decima/';
+        title = 'Decima (Genentech) Summary';
+      } else if (topic.includes('scooby') || topic.includes('multimodal') || topic.includes('gagneur')) {
+        href = '/papers/scooby/';
+        title = 'scooby (TUM & Broad) Summary';
       } else if (topic.includes('prime') || topic.includes('single-cell') || topic.includes('3-seq') || topic.includes('3\'-seq')) {
         href = '/papers/borzoi-prime/';
         title = 'Borzoi Prime (Calico) Summary';
