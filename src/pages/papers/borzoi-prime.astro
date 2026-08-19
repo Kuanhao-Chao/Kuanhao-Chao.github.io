@@ -1,0 +1,330 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Predicting Cell Type-Specific Coverage Profiles from DNA Sequence";
+const description = "Comprehensive technical summary and deep literature deconstruction of Borzoi Prime (Linder, Yuan, Kelley, Calico Life Sciences, bioRxiv 2025): Extending sequence-to-expression models to 851 single-cell 3'-seq clusters at 16 bp resolution.";
+const readingTime = "18 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Single-Cell Genomics & Deep Learning</span>
+        <span class="paper-venue-badge">bioRxiv 2025.06.10.658961</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Johannes Linder*, Han Yuan, and David R. Kelley*</div>
+        <div><strong>Affiliation:</strong> Calico Life Sciences LLC, South San Francisco, CA</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1101/2025.06.10.658961" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1101/2025.06.10.658961</a> · Corresponding Authors: Johannes Linder (<code>jlinder@calicolabs.com</code>), David R. Kelley (<code>drk@calicolabs.com</code>)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      While bulk RNA-seq models like <strong>Borzoi</strong> accurately capture tissue-level gene regulation, they remain blind to cell type-specific regulatory heterogeneity. <strong>Borzoi Prime</strong>, developed by <strong>Calico Life Sciences</strong>, extends the Borzoi deep learning architecture by training directly on single-cell 3'-seq expression profiles from the <strong>Tabula Sapiens</strong>, <strong>Tabula Muris</strong>, and <strong>Adult Brain Atlas</strong> across <strong>851 distinct cell types</strong> (1,702 stranded pseudo-bulk coverage tracks) at an enhanced <strong><Katex tex="16\text{ bp}" /> spatial resolution</strong>. Borzoi Prime enables accurate cell-resolved variant effect prediction and uncovers fundamental sequence mechanisms governing <strong>cell type-specific alternative polyadenylation (APA)</strong>.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & The Single-Cell Paradigm Shift</a></li>
+        <li><a href="#dataset">2. The Single-Cell 3'-Seq Training Corpus</a></li>
+        <li><a href="#architecture">3. Architecture Upgrades: 16 bp Resolution & Refined Squashing</a></li>
+        <li><a href="#noise-grad">4. Noise-Injected Integrated Gradients</a></li>
+        <li><a href="#results">5. Section-by-Section Results Breakdown (Figures 1–4)</a></li>
+        <li><a href="#variant-prediction">6. Cell Type-Specific Variant Effect Prediction</a></li>
+        <li><a href="#apa-mechanisms">7. Splicing-Polyadenylation Coupling in APA</a></li>
+        <li><a href="#formulations">8. Mathematical Formulations & Scoring Metrics</a></li>
+        <li><a href="#conclusions">9. Discussion & Ecosystem Impact</a></li>
+      </ol>
+    </div>
+
+    <!-- Chapter 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The Single-Cell Paradigm Shift</h2>
+      <p>
+        Most non-coding disease risk variants act in highly specific cellular contexts (e.g. microglia in Alzheimer's disease, cardiomyocyte subtypes in cardiomyopathy, or CD4+ T cell subsets in autoimmune disorders). Bulk tissue RNA-seq averages gene expression across complex cellular mixtures, masking the true cell type-specific drivers of disease.
+      </p>
+      <p>
+        While transfer-learning frameworks like <strong>scooby</strong> and <strong>CREsted</strong> adapt pre-trained models to single-cell data, <strong>Borzoi Prime</strong> is trained directly from scratch on pseudo-bulk single-cell 3'-seq profiles alongside CAGE, bulk RNA-seq, and single-cell ATAC-seq.
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The Borzoi Prime Breakthrough
+        </div>
+        <p>
+          By combining <strong>851 single-cell 3'-seq clusters</strong> with enhanced <strong><Katex tex="16\text{ bp}" /> spatial resolution</strong> and <strong>noise-injected Integrated Gradients</strong>, Borzoi Prime accurately predicts cell type-specific promoter and enhancer activity, scores cell-resolved eQTLs, and reveals that <strong>3'-most splice acceptor strength</strong> dictates cell type-specific alternative polyadenylation.
+        </p>
+      </div>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Evaluation Dimension</th>
+              <th>Original Borzoi (2025)</th>
+              <th>Borzoi Prime (Calico 2025)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Primary Expression Assay</strong></td>
+              <td>Bulk RNA-seq across 49 GTEx tissues + ENCODE cell lines.</td>
+              <td><strong>851 single-cell 3'-seq clusters</strong> (1,702 stranded tracks) + GTEx bulk RNA-seq.</td>
+            </tr>
+            <tr>
+              <td><strong>Spatial Resolution</strong></td>
+              <td>32 bp bins (6,144 output bins over 196.6 kb).</td>
+              <td><strong>16 bp bins</strong> (12,288 output bins) via an additional U-Net upsampler.</td>
+            </tr>
+            <tr>
+              <td><strong>Data Transformation</strong></td>
+              <td>Standard root squashing: <Katex tex="y^{3/4}" /> with clipping.</td>
+              <td><strong>Refined offset squashing:</strong> <Katex tex="-1 + (y + 1)^{3/4}" /> + soft-clipping (<Katex tex="c = 64" />).</td>
+            </tr>
+            <tr>
+              <td><strong>Gradient Attribution</strong></td>
+              <td>Standard input-gated gradients (subject to saturation).</td>
+              <td><strong>Noise-injected Integrated Gradients</strong> (<Katex tex="\sigma \in [0.00, 0.05]" />) breaking saturation.</td>
+            </tr>
+            <tr>
+              <td><strong>Variant Effect Resolution</strong></td>
+              <td>Tissue-level eQTLs, sQTLs, and bulk paQTLs.</td>
+              <td><strong>Cell type-specific eQTLs</strong> (microglia, neurons, PBMCs) and cell-resolved APA.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Chapter 2 -->
+    <section id="dataset">
+      <h2>2. The Single-Cell 3'-Seq Training Corpus</h2>
+      <p>
+        Borzoi Prime aggregates single-cell 3'-seq alignments by cell type to generate high-depth pseudo-bulk coverage tracks across three landmark single-cell transcriptomic atlases:
+      </p>
+      <ul>
+        <li><strong>Tabula Sapiens (Human):</strong> Multiple-organ single-cell transcriptomic atlas spanning blood, liver, lung, muscle, skin, and immune compartments.</li>
+        <li><strong>Tabula Muris (Mouse):</strong> Organ-scale single-cell transcriptomics spanning 20 mouse organs across young and aging cohorts.</li>
+        <li><strong>Adult Brain Atlas (Human, Siletti et al. 2023):</strong> Comprehensive transcriptomic diversity across cortical and subcortical human brain regions (astrocytes, microglia, oligodendrocytes, GABAergic, and glutamatergic neurons).</li>
+      </ul>
+      <p>
+        In total, Borzoi Prime trains on <strong>1,702 stranded scRNA-seq coverage tracks</strong> representing <strong>851 distinct cell clusters</strong>, alongside FANTOM5 CAGE, GTEx bulk RNA-seq, ENCODE DNase-seq, CATlas single-cell ATAC-seq, and PolyASite 2.0 polyadenylation tracks.
+      </p>
+    </section>
+
+    <!-- Chapter 3 -->
+    <section id="architecture">
+      <h2>3. Architecture Upgrades: 16 bp Resolution & Refined Squashing</h2>
+      <p>
+        Borzoi Prime maintains the core convolutional-transformer backbone of Borzoi (<Katex tex="524\text{ kb}" /> input sequence, 7 residual conv blocks, 14-layer transformer trunk), but introduces key architectural and data preprocessing enhancements:
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="cpu" size={15} /> 16 bp Resolution U-Net Upsampling
+        </div>
+        <p>
+          To capture narrow single-cell 3' polyadenylation peaks and fine promoter features, Borzoi Prime adds an additional transposed convolution upsampling layer to the U-Net decoder, outputting predictions at <strong><Katex tex="16\text{ bp}" /> resolution</strong> across <Katex tex="12,288" /> central bins.
+        </p>
+      </div>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Refined Offset Squashing & Soft-Clipping</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="y_{\text{squashed}} = -1 + (y + 1)^{3/4}, \qquad y_{\text{clipped}} = \begin{cases} y_{\text{squashed}} & \text{if } y_{\text{squashed}} \le c \\ c - 1 + \sqrt{y_{\text{squashed}} - c + 1} & \text{otherwise} \end{cases}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          Adding <Katex tex="+1" /> before the exponential <Katex tex="3/4" /> root prevents artificial inflation of sub-unit read counts (<Katex tex="y < 1" />) &emsp;|&emsp;
+          Threshold <Katex tex="c = 64" /> for RNA-seq and scRNA-seq tracks.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 4 -->
+    <section id="noise-grad">
+      <h2>4. Noise-Injected Integrated Gradients</h2>
+      <p>
+        In deep regulatory sequence models, hyper-expressed genes often cause gradient saturation: the predicted output plateaus at high values, causing standard input-gated gradients (<Katex tex="\frac{\partial \hat{Y}}{\partial X} \cdot X" />) to shrink toward zero despite strong biological activity.
+      </p>
+      <p>
+        Borzoi Prime solves this via an approximate <strong>Noise-Injected Integrated Gradients</strong> technique:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Noise-Injected Integrated Gradients Formulation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\hat{s}^{(k)}_{t, i, j} = \frac{\partial u(\hat{\mathbf{x}}^{(k)}_t)}{\partial \hat{x}^{(k)}_{t, i, j}} - \frac{1}{4} \sum_{v=1}^{4} \frac{\partial u(\hat{\mathbf{x}}^{(k)}_t)}{\partial \hat{x}^{(k)}_{t, i, v}}, \qquad s_{i, j} = \frac{1}{T K} \sum_{t=1}^{T} \sum_{k=1}^{K} \hat{s}^{(k)}_{t, i, j}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\hat{\mathbf{x}}^{(k)}_t" /> = Mutated sequence where a fraction <Katex tex="\sigma_t \in [0.00, 0.05]" /> of non-exon nucleotides are randomly mutated to break gradient saturation &emsp;|&emsp;
+          <Katex tex="s_{i, j}" /> = Well-calibrated, unweighted mean saliency score across <Katex tex="K" /> noise samples and <Katex tex="T" /> noise levels.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="results">
+      <h2>5. Section-by-Section Results Breakdown (Figures 1–4)</h2>
+
+      <!-- Figure 1 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 1</span>
+          <span class="paper-fig-title">Borzoi Prime Architecture & Single-Cell Pseudo-Bulk Accuracy</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating Borzoi Prime across 851 single-cell 3'-seq clusters on held-out test chromosomes:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Pseudo-Bulk Correlation:</strong> Achieved coverage fold-change Spearman <Katex tex="R = 0.65\text{--}0.74" /> across well-characterized cell types (erythrocytes, microglia, neurons, hepatocytes).</li>
+            <li><strong>Single-Cell Specificity:</strong> Accurately captured narrow 3' cleavage peaks aligned with annotated polyadenylation signals.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 2 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 2</span>
+          <span class="paper-fig-title">Cell Type-Specific Promoter & Enhancer Attribution</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Interpreting cell-resolved regulatory grammar:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Cell Marker Attribution:</strong> Correctly identified driver cell-type specific promoters (e.g. *NGFR* in neural crest, *MBP* in oligodendrocytes, *SLC17A7* in glutamatergic neurons).</li>
+            <li><strong>TF-MoDISco Validation:</strong> Cell type-specific motif saliency differences correlated strongly with TF gene expression (HOCOMOCO v11).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 3 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 3</span>
+          <span class="paper-fig-title">Cell Type-Specific Prediction of Genetic Variant Effects</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating cell-resolved eQTLs from the eQTL Catalogue:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Microglia eQTL Example:</strong> Correctly predicted that variant <Katex tex="\text{rs12821379}" /> increases *ADGRD1* expression in microglia by creating an ETS-like motif adjacent to a MEF2D binding site.</li>
+            <li><strong>PBMC Immune Subsets:</strong> High correlation (<Katex tex="R = 0.35\text{--}0.57" />) across CD4+ T, CD8+ TEM, NK cells, Naive B cells, and Monocytes (Yazar et al. 2022), matching or outperforming scooby.</li>
+            <li><strong>Bulk GTEx Transfer:</strong> Borzoi Prime slightly improved bulk GTEx eQTL effect prediction (mean Spearman <Katex tex="R = 0.4178" /> vs <Katex tex="0.4086" />) and sQTL classification (AUPRC <Katex tex="0.7737" /> vs <Katex tex="0.7644" />).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Figure 4 -->
+      <div class="paper-fig-card">
+        <div class="paper-fig-header">
+          <span class="paper-fig-badge">Figure 4</span>
+          <span class="paper-fig-title">Predicting Cell Type-Specific Alternative Polyadenylation</span>
+        </div>
+        <div class="paper-fig-body">
+          <p>
+            Evaluating alternative polyadenylation (APA) regulation across cell types:
+          </p>
+          <ul class="paper-fig-takeaways">
+            <li><strong>Neuronal 3' Lengthening:</strong> Discovered consistent 3' UTR lengthening in neurons and shortening in blood/erythrocytes (*GTF2H5*).</li>
+            <li><strong>Splice Acceptor Coupling:</strong> Fine-mapped paQTL <Katex tex="\text{rs1019152}" /> in *C17orf75* strengthens the 3'-most splice acceptor polypyrimidine tract, increasing proximal 3' cleavage.</li>
+            <li><strong>Tissue-Specific paQTLs:</strong> Significantly outperformed original Borzoi in distinguishing brain-specific from blood-specific paQTLs.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 6 -->
+    <section id="variant-prediction">
+      <h2>6. Cell Type-Specific Variant Effect Prediction</h2>
+      <p>
+        To compute variant effect scores in specific cell types without bias from lowly expressed genes, Borzoi Prime adds a <strong>track-specific pseudocount</strong> (<Katex tex="c_{\text{pseudo}}" />, defined as the 20th percentile of predicted expression across all genes for that cell track):
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Cell-Type logSED Variant Score</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{logSED} = \log\left( \frac{\sum_{b \in \text{exons}} \hat{y}_{\text{alt}, b} + c_{\text{pseudo}}}{\sum_{b \in \text{exons}} \hat{y}_{\text{ref}, b} + c_{\text{pseudo}}} \right)" display={true} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="apa-mechanisms">
+      <h2>7. Splicing-Polyadenylation Coupling in APA</h2>
+      <p>
+        By performing in silico saturation mutagenesis across 3' UTRs, the authors uncovered a critical biological principle:
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="check-circle" size={15} /> Splice Acceptor Efficiency Governs Proximal Cleavage
+        </div>
+        <p>
+          The <strong>3'-most splice acceptor</strong> and its neighboring polypyrimidine tract are often the most salient sequence determinants of APA. A strong terminal splice acceptor situated close to the proximal PAS enhances proximal cleavage, causing 3' UTR shortening in rapidly dividing cells. Conversely, weaker splice acceptors permit transcription elongation to distal poly(A) sites, causing 3' UTR lengthening in neurons.
+        </p>
+      </div>
+    </section>
+
+    <!-- Chapter 8 -->
+    <section id="formulations">
+      <h2>8. Mathematical Formulations & Scoring Metrics</h2>
+      <p>
+        To evaluate alternative polyadenylation, Borzoi Prime computes the <strong>Distal-to-Proximal Ratio (DPR)</strong>:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Distal-to-Proximal Ratio Fold Change (ΔDPR)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{DPR} = \frac{\sum_{b \in \text{PAS}_{\text{distal}}} \hat{y}_b}{\sum_{b \in \text{PAS}_{\text{proximal}}} \hat{y}_b}, \qquad \Delta\text{DPR} = \log(\text{DPR}_{\text{alt}}) - \log(\text{DPR}_{\text{ref}})" display={true} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 9 -->
+    <section id="conclusions">
+      <h2>9. Discussion & Ecosystem Impact</h2>
+      <p>
+        <strong>Borzoi Prime</strong> establishes that incorporating single-cell 3'-seq atlases directly into sequence-to-expression deep learning architectures produces superior cell-resolved variant interpretations while improving bulk-tissue predictions.
+      </p>
+
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="activity" size={15} /> Key Ecosystem Takeaways
+        </div>
+        <p>
+          &bull; <strong>Single-Cell Resolution:</strong> Bridges the gap between bulk functional genomics and cell type-specific disease genetics.
+          <br/>
+          &bull; <strong>Splicing-APA Interplay:</strong> Demonstrates that neural sequence models naturally learn complex co-transcriptional coupling between splicing and 3' polyadenylation.
+          <br/>
+          &bull; <strong>Downstream Synergies:</strong> High-resolution 16 bp tracks provide rich features for cell type-resolved fine-mapping and gene regulatory network inference.
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

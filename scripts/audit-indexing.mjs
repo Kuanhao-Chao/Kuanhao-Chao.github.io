@@ -241,6 +241,7 @@ async function auditPapersIndex(urls) {
   const paperPaths = [
     { slug: '', path: join(DIST, 'papers', 'index.html'), url: `${SITE}/papers/` },
     { slug: 'borzoi', path: join(DIST, 'papers', 'borzoi', 'index.html'), url: `${SITE}/papers/borzoi/` },
+    { slug: 'borzoi-prime', path: join(DIST, 'papers', 'borzoi-prime', 'index.html'), url: `${SITE}/papers/borzoi-prime/` },
     { slug: 'alphagenome', path: join(DIST, 'papers', 'alphagenome', 'index.html'), url: `${SITE}/papers/alphagenome/` },
     { slug: 'gpnstar', path: join(DIST, 'papers', 'gpnstar', 'index.html'), url: `${SITE}/papers/gpnstar/` },
     { slug: 'borzoi-finemapped', path: join(DIST, 'papers', 'borzoi-finemapped', 'index.html'), url: `${SITE}/papers/borzoi-finemapped/` },
