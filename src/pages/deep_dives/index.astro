@@ -2,8 +2,10 @@
 import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
 import AlgorithmLogo from '../../components/AlgorithmLogo.astro';
+import Katex from '../../components/Katex.astro';
 import { DEEP_DIVES, DEEP_DIVE_CATEGORIES, type DeepDiveEntry } from '../../data/deepDives';
 import '../../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
 
 const categories = DEEP_DIVE_CATEGORIES;
 const deepDives: DeepDiveEntry[] = DEEP_DIVES;
@@ -125,7 +127,9 @@ const deepDives: DeepDiveEntry[] = DEEP_DIVES;
                   <div class="deep-dive-equations">
                     <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600; margin-right: 0.25rem;">Key Formulations:</span>
                     {entry.equations.map((eq) => (
-                      <code class="deep-dive-eq-chip">{eq}</code>
+                      <span class="deep-dive-eq-chip">
+                        <Katex tex={eq} />
+                      </span>
                     ))}
                   </div>
                 )}

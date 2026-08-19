@@ -56,9 +56,12 @@ export default defineConfig({
     // release of the published tool; "v2.0.0" is reserved for a separate
     // experimental project). Keep the previously-shared URLs working.
     '/posts/lifton-v2': '/posts/lifton-v1-0-9',
-    '/reports/lifton-v2-technical-report': '/reports/lifton-v1-0-9-technical-report',
-    '/deep-dive': '/deep_dive/',
-    '/deep-dive/gwas': '/deep_dive/gwas/',
+    '/deep_dive': '/deep_dives/',
+    '/deep-dive': '/deep_dives/',
+    '/deep-dives': '/deep_dives/',
+    '/deep_dive/gwas': '/deep_dives/gwas/',
+    '/deep-dive/gwas': '/deep_dives/gwas/',
+    '/deep-dives/gwas': '/deep_dives/gwas/',
     // OpenSpliceAI docs moved off ccb.jhu.edu/openspliceai onto GitHub Pages, which serves
     // them from the repo path /OpenSpliceAI/. Pages paths are case-sensitive, so catch the
     // lowercase spelling the old CCB URL used.
