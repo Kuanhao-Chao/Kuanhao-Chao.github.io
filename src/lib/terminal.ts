@@ -1192,6 +1192,34 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
     ];
   }
 
+  if (t === 'gwas' || t === 'association' || t === 'manhattan' || t === 'prs' || t === 'plink') {
+    return [
+      { text: 'GWAS(1)                    Statistical Genetics                    GWAS(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    gwas — Genome-Wide Association Studies, PCA correction, and LD fine-mapping' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    gwas [t2d | ldl | ad | height | stratified]' },
+      { text: '' },
+      { text: 'ALGORITHM & STATISTICAL MODEL', tone: 'accent' },
+      { text: '    1. Single-Variant Association Test: Fits additive dosage OLS regression' },
+      { text: '       y = α + x_j · β_j + Z · γ + ε across M genetic variants.' },
+      { text: '    2. Population Stratification: Corrects confounding using Ancestry PCA covariates' },
+      { text: '       or Linear Mixed Models (LMM: BOLT-LMM / EMMAX).' },
+      { text: '    3. Multiple Testing Threshold: Canonical Bonferroni threshold p < 5 × 10⁻⁸' },
+      { text: '       correcting for ~10⁶ independent LD blocks.' },
+      { text: '    4. Diagnostics: Genomic inflation factor λ_GC = median(χ²_obs) / 0.456 and Q-Q plots.' },
+      { text: '    5. Fine-Mapping: Linkage Disequilibrium (r²) correlation clouds and Polygenic Risk Scores (PRS).' },
+      { text: '' },
+      { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
+      { text: '    → /algorithms/gwas/', tone: 'accent', href: '/algorithms/gwas/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    phmm(1), ghmm(1), ism(1), plink(1)' },
+    ];
+  }
+
   if (t === 'lifton') {
     return [
       { text: 'LIFTON(1)                  Genomics Software                  LIFTON(1)', tone: 'dim' },
@@ -1374,7 +1402,7 @@ export const COMMANDS: Record<string, Cmd> = {
     run: () => {
       const groups: [string, string[]][] = [
         ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'head', 'tail', 'wc', 'sort', 'uniq', 'less', 'tree', 'find', 'grep', 'git']],
-        ['genomics & algorithms', ['align', 'duel', 'minimap2', 'fmindex', 'wfa', 'debruijn', 'stringgraph', 'phmm', 'ghmm', 'tview', 'samtools', 'seqkit', 'gffbase', 'fastqc', 'codon', 'bedtools', 'blastn', 'splice']],
+        ['genomics & algorithms', ['gwas', 'align', 'duel', 'minimap2', 'fmindex', 'wfa', 'debruijn', 'stringgraph', 'phmm', 'ghmm', 'ism', 'tview', 'samtools', 'seqkit', 'gffbase', 'fastqc', 'codon', 'bedtools', 'blastn', 'splice']],
         ['content', ['about', 'publications', 'software', 'talks', 'posts', 'research', 'projects', 'news', 'cv', 'contact', 'socials']],
         ['system', ['man', 'uname', 'uptime', 'top', 'date', 'cal', 'curl', 'env', 'neofetch', 'theme', 'crt', 'sound', 'history', 'clear', 'echo']],
         ['toys & games', ['cowsay', 'fortune', 'matrix', 'games', 'snake', 'tetris']],
@@ -2827,6 +2855,21 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  gwas: {
+    summary: 'launch Genome-Wide Association Studies (GWAS) & Statistical Genetics visualizer',
+    usage: 'gwas [t2d|ldl|ad|height|stratified]',
+    run: ({ args }) => {
+      const trait = (args[0] || 't2d').toLowerCase();
+      return {
+        lines: [
+          { text: `Opening GWAS & Statistical Genetics Visualizer for '${trait}'…`, tone: 'ok' },
+          { text: '→ /algorithms/gwas/', tone: 'accent', href: '/algorithms/gwas/' },
+        ],
+        effect: { type: 'navigate', href: '/algorithms/gwas/' },
+      };
+    },
+  },
+
   git: {
     summary: 'academic git version control & career commit graph',
     usage: 'git [log|tree|status|branch|diff]',
@@ -2962,6 +3005,9 @@ export const ALIASES: Record<string, string> = {
   dnarain: 'matrix',
   spliceai: 'ism',
   mutagenesis: 'ism',
+  manhattan: 'gwas',
+  prs: 'gwas',
+  association: 'gwas',
   cas9: 'crispr',
   zerog: 'gravity',
   physics: 'gravity',
