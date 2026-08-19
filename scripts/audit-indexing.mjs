@@ -232,6 +232,29 @@ async function auditRobots() {
   if (!/^Disallow:\s*\/reports\/\s*$/im.test(robots)) {
     errors.push('robots.txt does not disallow /reports/ while reports are non-indexable.');
   }
+  if (!/^Disallow:\s*\/papers\/\s*$/im.test(robots)) {
+    errors.push('robots.txt does not disallow /papers/ while papers are non-indexable.');
+  }
+}
+
+async function auditPapersIndex(urls) {
+  const paperPaths = [
+    { slug: '', path: join(DIST, 'papers', 'index.html'), url: `${SITE}/papers/` },
+    { slug: 'borzoi-finemapped', path: join(DIST, 'papers', 'borzoi-finemapped', 'index.html'), url: `${SITE}/papers/borzoi-finemapped/` },
+    { slug: 'borzoi-peft', path: join(DIST, 'papers', 'borzoi-peft', 'index.html'), url: `${SITE}/papers/borzoi-peft/` },
+  ];
+
+  for (const item of paperPaths) {
+    if (urls.has(item.url)) {
+      errors.push(`${item.url} appears in sitemap while /papers/ is non-indexable.`);
+    }
+    if (await pathExists(item.path)) {
+      const html = await readFile(item.path, 'utf8');
+      if (!metaContents(html, 'robots').includes('noindex, nofollow')) {
+        errors.push(`${item.url} is missing noindex meta while /papers/ is non-indexable.`);
+      }
+    }
+  }
 }
 
 async function auditReportsIndex(reports, urls) {
@@ -424,6 +447,7 @@ async function main() {
 
   await auditRobots();
   await auditReportsIndex(reports, urls);
+  await auditPapersIndex(urls);
   await auditNoDraftReportPdfs();
   await auditTerminalIndex(posts, reports);
   await auditResearchResources();

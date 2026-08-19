@@ -1,0 +1,212 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import { PAPERS, PAPER_CATEGORIES, type PaperEntry } from '../../data/papers';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const categories = PAPER_CATEGORIES;
+const papers: PaperEntry[] = PAPERS;
+---
+
+<PageLayout
+  title="Papers"
+  eyebrow="Paper Summaries & Literature Deconstructions"
+  lead="Detailed, clear, and mathematically rigorous summaries of breakthrough computational genomics, deep learning sequence-to-function architectures, and statistical genetics papers."
+  description="In-depth paper summaries and literature deconstructions by Kuan-Hao Chao: Borzoi-informed fine-mapping (Sniff), parameter-efficient fine-tuning (PEFT), and genomic deep learning."
+  noindex={true}
+>
+  <section class="paper-section" aria-label="Paper Summaries Catalog">
+    <div class="paper-tools" data-paper-tools>
+      <div class="paper-filters" role="group" aria-label="Filter papers by category">
+        {
+          categories.map((c) => (
+            <button
+              type="button"
+              class="filter-pill"
+              data-filter={c.slug}
+              aria-pressed={c.slug === 'all' ? 'true' : 'false'}
+            >
+              {c.label}
+            </button>
+          ))
+        }
+      </div>
+
+      <div class="paper-controls">
+        <label class="search">
+          <Icon name="search" size={18} />
+          <input
+            type="search"
+            placeholder="Search papers, authors, methods…"
+            data-search-input
+            aria-label="Search paper summaries"
+          />
+        </label>
+        <label class="sort">
+          <span class="visually-hidden">Sort papers</span>
+          <select data-sort>
+            <option value="default">Curated order</option>
+            <option value="az">A–Z</option>
+            <option value="year">Year (Newest)</option>
+          </select>
+          <Icon name="chevron-down" size={16} />
+        </label>
+      </div>
+    </div>
+
+    <div class="paper-index" data-paper-list>
+      {
+        papers.map((entry) => {
+          const searchTokens = [
+            entry.id,
+            entry.title,
+            entry.shortTitle || '',
+            entry.area,
+            entry.category,
+            entry.tag,
+            entry.summary,
+            entry.affiliation,
+            ...(entry.authors || []),
+            ...(entry.highlights || []),
+          ]
+            .join(' ')
+            .toLowerCase();
+
+          return (
+            <article
+              class="paper-card"
+              data-paper-card
+              data-category={entry.category}
+              data-title={entry.title.toLowerCase()}
+              data-year={entry.year}
+              data-search-tokens={searchTokens}
+            >
+              <div class="paper-card-layout">
+                <div class="paper-card-icon">
+                  <Icon name="file-text" size={24} />
+                </div>
+
+                <div>
+                  <div class="paper-card-header">
+                    <span class="paper-tag">{entry.tag}</span>
+                    <span class="paper-venue-badge">{entry.venue} {entry.year}</span>
+                    <span class="paper-time-badge">
+                      <Icon name="clock" size={14} />
+                      {entry.readingTime}
+                    </span>
+                  </div>
+
+                  <h3 class="paper-card-title">
+                    <a href={entry.href}>{entry.title}</a>
+                  </h3>
+
+                  <div class="paper-card-authors">
+                    {entry.authors.join(', ')} · <strong>{entry.affiliation}</strong>
+                  </div>
+
+                  <p class="paper-card-summary">{entry.summary}</p>
+
+                  {entry.highlights && entry.highlights.length > 0 && (
+                    <ul class="paper-card-highlights">
+                      {entry.highlights.map((item) => (
+                        <li>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {entry.equations && entry.equations.length > 0 && (
+                    <div class="paper-equations">
+                      <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600; margin-right: 0.25rem;">Key Formulations:</span>
+                      {entry.equations.map((eq) => (
+                        <span class="paper-eq-chip">
+                          <Katex tex={eq} />
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div class="paper-card-action">
+                    <a href={entry.href} class="paper-link">
+                      <span>{entry.actionText}</span>
+                      <Icon name="arrow-right" size={15} />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </article>
+          );
+        })
+      }
+    </div>
+  </section>
+</PageLayout>
+
+<script>
+  function initPaperHub() {
+    const root = document.querySelector('[data-paper-tools]');
+    if (!root) return;
+
+    const filterBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+    const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
+    const sortSelect = root.querySelector<HTMLSelectElement>('[data-sort]');
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-paper-card]'));
+
+    let activeFilter = 'all';
+    let query = '';
+
+    function applyFilterAndSort() {
+      const q = query.trim().toLowerCase();
+
+      cards.forEach((card) => {
+        const cat = card.dataset.category || '';
+        const tokens = card.dataset.searchTokens || '';
+        const matchFilter = activeFilter === 'all' || cat === activeFilter;
+        const matchQuery = !q || tokens.includes(q);
+
+        if (matchFilter && matchQuery) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      const sortMode = sortSelect?.value || 'default';
+      const container = document.querySelector('[data-paper-list]');
+      if (!container) return;
+
+      const sortedCards = [...cards];
+      if (sortMode === 'az') {
+        sortedCards.sort((a, b) => (a.dataset.title || '').localeCompare(b.dataset.title || ''));
+      } else if (sortMode === 'year') {
+        sortedCards.sort((a, b) => Number(b.dataset.year || 0) - Number(a.dataset.year || 0));
+      }
+
+      sortedCards.forEach((c) => container.appendChild(c));
+    }
+
+    filterBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach((b) => {
+          b.setAttribute('aria-pressed', 'false');
+        });
+        btn.setAttribute('aria-pressed', 'true');
+        activeFilter = btn.dataset.filter || 'all';
+        applyFilterAndSort();
+      });
+    });
+
+    searchInput?.addEventListener('input', (e) => {
+      query = (e.target as HTMLInputElement).value;
+      applyFilterAndSort();
+    });
+
+    sortSelect?.addEventListener('change', () => {
+      applyFilterAndSort();
+    });
+  }
+
+  document.addEventListener('astro:page-load', initPaperHub);
+  initPaperHub();
+</script>
