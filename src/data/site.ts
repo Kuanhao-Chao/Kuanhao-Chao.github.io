@@ -87,6 +87,7 @@ export const nav: NavItem[] = [
   { label: 'News', href: '/news/' },
   { label: 'Search', href: '/search/', footerOnly: true },
   { label: 'Algorithms', href: '/algorithms/', footerOnly: true },
+  { label: 'Deep Dives', href: '/deep_dive/', footerOnly: true },
   { label: 'Terminal', href: '/terminal/', footerOnly: true },
 ];
 

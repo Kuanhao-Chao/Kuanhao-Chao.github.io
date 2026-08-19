@@ -1,0 +1,228 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Icon from '../../components/Icon.astro';
+import AlgorithmLogo from '../../components/AlgorithmLogo.astro';
+import { DEEP_DIVES, DEEP_DIVE_CATEGORIES, type DeepDiveEntry } from '../../data/deepDives';
+import '../../styles/deepDive.css';
+
+const categories = DEEP_DIVE_CATEGORIES;
+const deepDives: DeepDiveEntry[] = DEEP_DIVES;
+---
+
+<PageLayout
+  title="Deep Dives"
+  eyebrow="Computational Genomics Foundations"
+  lead="Rigorous, first-principles, and interactive explorations of essential computational genomics concepts, statistical genetics, DNA sequence foundation models, and biological algorithms."
+  description="In-depth computational genomics concept explainers by Kuan-Hao Chao: Genome-Wide Association Studies (GWAS), DNA language models, neural splicing codes, and pangenomics."
+>
+  <section class="deep-dive-section" aria-label="Computational Genomics Deep Dive Catalog">
+    <div class="deep-dive-tools" data-dd-tools>
+      <div class="deep-dive-filters" role="group" aria-label="Filter deep dives by category">
+        {
+          categories.map((c) => (
+            <button
+              type="button"
+              class="filter-pill"
+              data-filter={c.slug}
+              aria-pressed={c.slug === 'all' ? 'true' : 'false'}
+            >
+              {c.label}
+            </button>
+          ))
+        }
+      </div>
+
+      <div class="deep-dive-controls">
+        <label class="search">
+          <Icon name="search" size={18} />
+          <input
+            type="search"
+            placeholder="Search concepts, equations, tags…"
+            data-search-input
+            aria-label="Search deep dive concepts"
+          />
+        </label>
+        <label class="sort">
+          <span class="visually-hidden">Sort deep dives</span>
+          <select data-sort>
+            <option value="default">Curated order</option>
+            <option value="az">A–Z</option>
+            <option value="area">Category</option>
+          </select>
+          <Icon name="chevron-down" size={16} />
+        </label>
+      </div>
+    </div>
+
+    <div class="deep-dive-index" data-dd-list>
+      {
+        deepDives.map((entry) => {
+          const searchTokens = [
+            entry.title,
+            entry.area,
+            entry.tag,
+            entry.summary,
+            entry.level,
+            ...(entry.highlights ?? []),
+            ...(entry.equations ?? []),
+            entry.category,
+          ]
+            .join(' ')
+            .toLowerCase();
+
+          const isPublished = entry.status === 'published';
+
+          return (
+            <article
+              class="deep-dive-card"
+              id={entry.id}
+              data-category={entry.category}
+              data-title={entry.title.toLowerCase()}
+              data-area={entry.area.toLowerCase()}
+              data-search={searchTokens}
+            >
+              <div class="deep-dive-card-leading">
+                {entry.icon && (
+                  <a href={isPublished ? entry.href : '#'} class="deep-dive-logo-link" aria-label={`View ${entry.title}`}>
+                    <AlgorithmLogo id={entry.icon} size={56} />
+                  </a>
+                )}
+              </div>
+
+              <div class="deep-dive-card-body">
+                <div class="deep-dive-card-meta">
+                  <span class="eyebrow">{entry.area}</span>
+                  <span class="deep-dive-tag">{entry.tag}</span>
+                  <span class="deep-dive-level-badge">
+                    <Icon name="book-open" size={14} />
+                    {entry.level}
+                  </span>
+                  <span class="deep-dive-time-badge">
+                    <Icon name="clock" size={14} />
+                    {entry.readingTime}
+                  </span>
+                </div>
+
+                <h3 class="deep-dive-card-title">
+                  {isPublished ? (
+                    <a href={entry.href}>{entry.title}</a>
+                  ) : (
+                    <span>{entry.title}</span>
+                  )}
+                </h3>
+
+                <p class="deep-dive-card-summary">{entry.summary}</p>
+
+                {entry.highlights && entry.highlights.length > 0 && (
+                  <ul class="deep-dive-card-highlights">
+                    {entry.highlights.map((item) => (
+                      <li>{item}</li>
+                    ))}
+                  </ul>
+                )}
+
+                {entry.equations && entry.equations.length > 0 && (
+                  <div class="deep-dive-equations">
+                    <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600; margin-right: 0.25rem;">Key Formulations:</span>
+                    {entry.equations.map((eq) => (
+                      <code class="deep-dive-eq-chip">{eq}</code>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div class="deep-dive-card-action">
+                {isPublished ? (
+                  <a href={entry.href} class="deep-dive-link">
+                    <span>{entry.actionText}</span>
+                    <Icon name="arrow-right" size={15} />
+                  </a>
+                ) : (
+                  <span class="deep-dive-link disabled">
+                    <span>{entry.badge || 'Coming Soon'}</span>
+                  </span>
+                )}
+              </div>
+            </article>
+          );
+        })
+      }
+    </div>
+
+    <p class="deep-dive-empty" data-dd-empty hidden>No computational genomics deep dives match your filter or search query.</p>
+  </section>
+</PageLayout>
+
+<script>
+  function setupDeepDiveCatalog() {
+    const section = document.querySelector('[data-dd-tools]');
+    if (!section) return;
+
+    const filterBtns = section.querySelectorAll<HTMLButtonElement>('.filter-pill');
+    const searchInput = section.querySelector<HTMLInputElement>('[data-search-input]');
+    const sortSelect = section.querySelector<HTMLSelectElement>('[data-sort]');
+    const list = document.querySelector('[data-dd-list]');
+    const cards = document.querySelectorAll<HTMLElement>('.deep-dive-card');
+    const empty = document.querySelector<HTMLElement>('[data-dd-empty]');
+
+    let activeFilter = 'all';
+    let searchQuery = '';
+    let sortMode = 'default';
+
+    function applyState() {
+      let visibleCount = 0;
+
+      cards.forEach((card) => {
+        const category = card.dataset.category || '';
+        const search = card.dataset.search || '';
+
+        const matchesFilter = activeFilter === 'all' || category === activeFilter;
+        const matchesSearch = !searchQuery || search.includes(searchQuery);
+        const visible = matchesFilter && matchesSearch;
+
+        card.classList.toggle('is-hidden', !visible);
+        if (visible) visibleCount += 1;
+      });
+
+      if (empty) {
+        empty.hidden = visibleCount > 0;
+      }
+
+      // Sorting
+      const sorted = [...cards].sort((a, b) => {
+        if (sortMode === 'az') {
+          return (a.dataset.title || '').localeCompare(b.dataset.title || '');
+        }
+        if (sortMode === 'area') {
+          return (a.dataset.area || '').localeCompare(b.dataset.area || '');
+        }
+        return 0; // Default curated order
+      });
+
+      if (list) {
+        sorted.forEach((c) => list.appendChild(c));
+      }
+    }
+
+    filterBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach((b) => b.setAttribute('aria-pressed', 'false'));
+        btn.setAttribute('aria-pressed', 'true');
+        activeFilter = btn.dataset.filter || 'all';
+        applyState();
+      });
+    });
+
+    searchInput?.addEventListener('input', () => {
+      searchQuery = (searchInput.value || '').trim().toLowerCase();
+      applyState();
+    });
+
+    sortSelect?.addEventListener('change', () => {
+      sortMode = sortSelect.value;
+      applyState();
+    });
+  }
+
+  document.addEventListener('astro:page-load', setupDeepDiveCatalog);
+</script>
