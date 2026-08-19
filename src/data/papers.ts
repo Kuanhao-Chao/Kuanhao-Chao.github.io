@@ -56,7 +56,7 @@ export const PAPERS: PaperEntry[] = [
     area: 'Regulatory Genomics & Deep Learning',
     category: 'gene-regulation',
     tag: 'Calico · Nature Genetics 2025',
-    readingTime: '18 min read',
+    readingTime: '22 min read',
     summary:
       'Borzoi predicts strand-specific RNA-seq coverage from 524 kb DNA sequences at 32 bp resolution across thousands of human and mouse tracks. Unifies transcription initiation, alternative splicing, and polyadenylation, setting new state-of-the-art accuracy across GTEx eQTLs, sQTLs, 3\' paQTLs, and CRISPR-QTL screens.',
     highlights: [
@@ -101,7 +101,7 @@ export const PAPERS: PaperEntry[] = [
     area: 'Deep Learning & Foundation Models',
     category: 'deep-learning',
     tag: 'Google DeepMind · Nature 2026',
-    readingTime: '20 min read',
+    readingTime: '24 min read',
     summary:
       'AlphaGenome breaks the resolution-vs-length tradeoff in regulatory genomics by combining a 1 Megabase input window with 1 bp single-nucleotide output resolution across 8 modalities (RNA, CAGE, DNase/ATAC, ChIP, 3D Hi-C/Micro-C, and unannotated splice junction graphs), matching or exceeding SOTA across 25 of 26 benchmarks.',
     highlights: [
