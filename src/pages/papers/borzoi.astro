@@ -6,8 +6,8 @@ import '../../styles/paper.css';
 import 'katex/dist/katex.min.css';
 
 const title = "Predicting RNA-seq Coverage from DNA Sequence as a Unifying Model of Gene Regulation";
-const description = "Comprehensive technical summary and literature deconstruction of Borzoi (Linder et al., Calico Life Sciences, Nature Genetics 2025): Predicting strand-specific RNA-seq coverage from 524 kb DNA sequence at 32 bp resolution.";
-const readingTime = "18 min read";
+const description = "Comprehensive technical summary and deep literature deconstruction of Borzoi (Linder et al., Calico Life Sciences, Nature Genetics 2025): Predicting strand-specific RNA-seq coverage from 524 kb DNA sequence at 32 bp resolution across transcription, alternative splicing, and polyadenylation.";
+const readingTime = "22 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article" noindex={true}>
@@ -23,7 +23,7 @@ const readingTime = "18 min read";
     <header class="paper-header">
       <div class="paper-meta-bar">
         <span class="paper-tag">Regulatory Genomics & Deep Learning</span>
-        <span class="paper-venue-badge">Nature Genetics · Vol 57 (2025)</span>
+        <span class="paper-venue-badge">Nature Genetics · Vol 57, April 2025, 949–961</span>
         <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
       </div>
 
@@ -31,14 +31,14 @@ const readingTime = "18 min read";
 
       <div class="paper-authors-box">
         <div><strong>Authors:</strong> Johannes Linder*, Divyanshi Srivastava, Han Yuan, Vikram Agarwal, and David R. Kelley*</div>
-        <div><strong>Affiliation:</strong> Calico Life Sciences LLC, South San Francisco, CA; Department of Biology, Stanford University</div>
+        <div><strong>Affiliation:</strong> Calico Life Sciences LLC, South San Francisco, CA; Department of Biology, Stanford University, Stanford, CA</div>
         <div><strong>DOI:</strong> <a href="https://doi.org/10.1038/s41588-024-02053-6" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1038/s41588-024-02053-6</a> · Corresponding Authors: Johannes Linder (<code>johannes.linder@calicolabs.com</code>), David R. Kelley (<code>drk@calicolabs.com</code>)</div>
       </div>
     </header>
 
     <!-- Lead / Overview -->
     <p class="paper-lead">
-      How can a single neural network predict the complex, multi-layered regulatory consequences of non-coding genetic variants across the entire human genome? <strong>Borzoi</strong> models strand-specific <strong>RNA-seq coverage profiles</strong> directly from <Katex tex="524,288\text{ bp}" /> (<Katex tex="524\text{ kb}" />) raw DNA sequences at <Katex tex="32\text{ bp}" /> resolution. By learning from RNA-seq alongside CAGE, DNase-seq, and ChIP-seq, Borzoi unifies <strong>transcription initiation, alternative splicing, and polyadenylation</strong> into a single end-to-end framework that rivals or outperforms specialized single-task predictors.
+      How can a single neural network predict the complex, multi-layered regulatory consequences of non-coding genetic variants across the entire human genome? <strong>Borzoi</strong> models strand-specific <strong>RNA-seq coverage profiles</strong> directly from <Katex tex="524,288\text{ bp}" /> (<Katex tex="524\text{ kb}" />) raw DNA sequences at <Katex tex="32\text{ bp}" /> resolution. By learning from RNA-seq alongside CAGE, DNase-seq, and ChIP-seq across human and mouse genomes (7,611 human and 2,058 mouse tracks), Borzoi unifies <strong>transcription initiation, alternative splicing, and polyadenylation</strong> into a single end-to-end framework that rivals or outperforms specialized single-task predictors.
     </p>
 
     <!-- Table of Contents -->
@@ -48,19 +48,19 @@ const readingTime = "18 min read";
       </div>
       <ol class="paper-toc-list">
         <li><a href="#summary">1. Executive Summary & Paradigm Shift</a></li>
-        <li><a href="#unifying-layers">2. Unifying Multi-Layer Gene Regulation</a></li>
-        <li><a href="#architecture">3. The Borzoi Neural Architecture</a></li>
-        <li><a href="#variant-stats">4. Variant Effect Scoring Statistics</a></li>
-        <li><a href="#results">5. Section-by-Section Results (Fig 1–7)</a></li>
-        <li><a href="#motif-syntax">6. Cis-Regulatory Syntax & Attribution</a></li>
-        <li><a href="#formulations">7. Mathematical Formulations & Loss</a></li>
-        <li><a href="#conclusions">8. Discussion & Ecosystem Impact</a></li>
+        <li><a href="#rnaseq-challenges">2. The Core Modeling Challenges of RNA-seq</a></li>
+        <li><a href="#architecture">3. The Borzoi Neural Architecture & Tensor Flow</a></li>
+        <li><a href="#variant-stats">4. Mathematical Variant Effect Scoring Statistics</a></li>
+        <li><a href="#results">5. Section-by-Section Results Breakdown (Figures 1–7)</a></li>
+        <li><a href="#motif-syntax">6. Cis-Regulatory Syntax & Saliency Attribution</a></li>
+        <li><a href="#formulations">7. Mathematical Formulations & Multi-Task Loss</a></li>
+        <li><a href="#conclusions">8. Discussion, Limitations & Ecosystem Impact</a></li>
       </ol>
     </div>
 
     <!-- Chapter 1 -->
     <section id="summary">
-      <h2>1. Executive Summary & The Core Paradigm Shift</h2>
+      <h2>1. Executive Summary & The Unification Paradigm Shift</h2>
       <p>
         Prior sequence-to-function models (e.g. <strong>Basenji</strong>, <strong>Enformer</strong>) focused almost exclusively on point-source chromatin assays—such as CAGE transcription start sites (TSS), DNase-seq/ATAC-seq open chromatin peaks, and ChIP-seq histone modifications. These assays produce localized, narrow read peaks that are straightforward to model with standard convolutional architectures.
       </p>
@@ -81,6 +81,7 @@ const readingTime = "18 min read";
         <table class="paper-table">
           <thead>
             <tr>
+              <th>Evaluation Dimension</th>
               <th>Point-Source Models (Enformer / Basenji)</th>
               <th>Specialized Splicing/APA Tools (SpliceAI / APARENT2)</th>
               <th>Unified Borzoi Architecture (Calico)</th>
@@ -88,19 +89,34 @@ const readingTime = "18 min read";
           </thead>
           <tbody>
             <tr>
-              <td>Predicts only CAGE, DNase, and ChIP-seq read peaks.</td>
-              <td>Trained on narrow local windows; ignores distal enhancer chromatin context.</td>
-              <td>Integrates 524 kb context with strand-specific RNA-seq coverage.</td>
+              <td><strong>Primary Target Assays</strong></td>
+              <td>CAGE, DNase-seq, ChIP-seq read peaks.</td>
+              <td>Synthetic reporter constructs or binary splice junction donor/acceptor labels.</td>
+              <td><strong>Strand-specific RNA-seq coverage</strong> + CAGE, DNase, ATAC, ChIP-seq.</td>
             </tr>
             <tr>
-              <td>Blind to splicing changes, exon skipping, and 3' UTR APA.</td>
-              <td>Single-modality prediction; cannot predict tissue-specific gene expression.</td>
-              <td>Simultaneously scores transcription, splicing, and APA from one model.</td>
+              <td><strong>Receptive Field Context</strong></td>
+              <td>100 kb (Enformer) to 131 kb (Basenji2).</td>
+              <td>10 kb (SpliceAI) / 200 bp (APARENT2) local sequence only.</td>
+              <td><strong>524,288 bp (524 kb)</strong> broad chromosome window.</td>
             </tr>
             <tr>
-              <td>Lower resolution (128 bp bins).</td>
-              <td>Base-resolution on local splice motifs only.</td>
-              <td>High resolution (32 bp bins) spanning 7,611 human and mouse tracks.</td>
+              <td><strong>Spatial Resolution</strong></td>
+              <td>128 bp bins (too coarse for splice boundaries).</td>
+              <td>1 bp single-base resolution (local motifs only).</td>
+              <td><strong>32 bp bins</strong> spanning 6,144 central output bins.</td>
+            </tr>
+            <tr>
+              <td><strong>Regulatory Scope</strong></td>
+              <td>Promoter and distal enhancer activation only.</td>
+              <td>Splicing only or 3' UTR cleavage only (blind to enhancers).</td>
+              <td><strong>Transcription initiation, alternative splicing, and 3' polyadenylation simultaneously.</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Tissue Specificity</strong></td>
+              <td>Cell-type specific chromatin profiles.</td>
+              <td>Tissue-agnostic (single generic prediction for all cell types).</td>
+              <td><strong>31 GTEx adult tissues</strong> + hundreds of ENCODE/mouse cell types.</td>
             </tr>
           </tbody>
         </table>
@@ -108,70 +124,160 @@ const readingTime = "18 min read";
     </section>
 
     <!-- Chapter 2 -->
-    <section id="unifying-layers">
-      <h2>2. Unifying Multi-Layer Gene Regulation</h2>
+    <section id="rnaseq-challenges">
+      <h2>2. The Core Modeling Challenges of RNA-seq</h2>
       <p>
-        Predicting raw RNA-seq coverage from DNA sequence was historically considered intractable due to three fundamental technical challenges:
+        Predicting raw RNA-seq coverage from DNA sequence was historically considered intractable in regulatory genomics due to four fundamental mathematical and experimental hurdles:
       </p>
       <ol>
-        <li><strong>Broad Spatial Span:</strong> Unlike narrow 200 bp ChIP peaks, RNA-seq reads span tens to hundreds of kilobases across multiple disjoint exons.</li>
-        <li><strong>Extreme Dynamic Range:</strong> Gene expression levels vary over <Katex tex="> 10^5" /> orders of magnitude across cell types.</li>
-        <li><strong>Intron/Exon Sharp Discontinuities:</strong> The model must output near-zero read density in introns while maintaining precise, high coverage across sharp exonic boundaries.</li>
+        <li>
+          <strong>Broad Spatial Span Across Disjoint Exons:</strong> Unlike narrow 200 bp ChIP-seq transcription factor binding peaks, RNA-seq reads span tens to hundreds of kilobases across multiple disjoint exons separated by massive introns (often <Katex tex="> 50\text{ kb}" />).
+        </li>
+        <li>
+          <strong>Extreme Dynamic Range:</strong> Gene expression levels vary over <Katex tex="> 10^5" /> orders of magnitude across cell types and developmental states, from lowly expressed long non-coding RNAs to hyper-expressed housekeeping transcripts (e.g. *ACTB*, *GAPDH*).
+        </li>
+        <li>
+          <strong>Sharp Intron-Exon Discontinuities:</strong> The neural network must output near-zero read density in introns while maintaining precise, high-coverage plateaus across sharp exonic boundaries (often spanning only 100–200 bp).
+        </li>
+        <li>
+          <strong>Experimental Background & 3' Biases:</strong> RNA-seq libraries contain non-uniform coverage profiles caused by reverse transcriptase processivity, sequence-dependent priming bias, GC-content bias, and 3' poly(A) enrichment.
+        </li>
       </ol>
       <p>
-        Borzoi solves these challenges through a hybrid multi-scale architecture: a deep convolutional residual stem, a 14-layer transformer trunk capturing long-range enhancer-promoter looping, and high-resolution transposed convolution upsampling with U-Net skip connections.
+        Borzoi overcomes these hurdles through a hybrid multi-scale architecture: a deep convolutional residual stem, a 14-layer transformer trunk capturing long-range enhancer-promoter looping, and high-resolution transposed convolution upsampling with U-Net skip connections.
       </p>
     </section>
 
     <!-- Chapter 3 -->
     <section id="architecture">
-      <h2>3. The Borzoi Neural Architecture</h2>
+      <h2>3. The Borzoi Neural Architecture & Tensor Flow</h2>
       <p>
-        Borzoi takes as input a one-hot encoded DNA sequence <Katex tex="\mathbf{X} \in \{0, 1\}^{524,288 \times 4}" /> (<Katex tex="524\text{ kb}" />) and outputs predicted coverage across <strong>7,611 functional genomics tracks</strong> (spanning human and mouse CAGE, DNase-seq, ATAC-seq, ChIP-seq, and strand-specific RNA-seq across ENCODE and GTEx):
+        Borzoi takes as input a one-hot encoded DNA sequence <Katex tex="\mathbf{X} \in \{0, 1\}^{524,288 \times 4}" /> (<Katex tex="524\text{ kb}" />) and outputs predicted coverage across <strong>7,611 functional genomics tracks in human</strong> and <strong>2,058 tracks in mouse</strong>. The complete feed-forward tensor path proceeds as follows:
       </p>
 
-      <ul>
-        <li><strong>1. Convolutional Stem:</strong> 7 residual convolutional blocks with max-pooling, downsampling the <Katex tex="524\text{ kb}" /> sequence by a factor of 16,384 to a sequence of <Katex tex="32\text{ bp}" /> representations.</li>
-        <li><strong>2. Transformer Trunk:</strong> 14 Multi-Head Self-Attention (MHSA) transformer layers with relative positional embeddings, propagating regulatory information across the entire <Katex tex="196.6\text{ kb}" /> central receptive field.</li>
-        <li><strong>3. Transposed Convolution Upsampling & U-Net Skips:</strong> Upsamples latent representations back to <Katex tex="32\text{ bp}" /> bins, merging high-resolution spatial feature maps from early conv layers via skip connections.</li>
-        <li><strong>4. Multi-Track Output Head:</strong> Generates predicted read counts <Katex tex="\hat{\mathbf{Y}} \in \mathbb{R}^{6,144 \times 7,611}" /> across <Katex tex="B = 6,144" /> bins of size <Katex tex="32\text{ bp}" />.</li>
-      </ul>
+      <div class="paper-callout callout-biology">
+        <div class="paper-callout-title">
+          <Icon name="cpu" size={15} /> Layer-by-Layer Tensor Pipeline
+        </div>
+        <p>
+          &bull; <strong>1. Input Representation:</strong> One-hot encoded nucleotide matrix <Katex tex="\mathbf{X} \in \mathbb{R}^{524,288 \times 4}" />.
+          <br/>
+          &bull; <strong>2. Convolutional Stem:</strong> 7 residual convolutional blocks with max-pooling (factor 16,384 total downsampling). Channels progressively expand: <Katex tex="256 \to 384 \to 512 \to 640 \to 768 \to 896 \to 1024" /> with kernel sizes of 15 and 5, extracting local motif syntax and nucleotide k-mers.
+          <br/>
+          &bull; <strong>3. Transformer Trunk:</strong> 14 Multi-Head Self-Attention (MHSA) transformer layers with 8 attention heads, key/query dimension 64, and relative positional embeddings (RoPE/ALiBi/FIRE). Self-attention propagates distal regulatory signals across the central <Katex tex="196.6\text{ kb}" /> receptive field.
+          <br/>
+          &bull; <strong>4. Transposed Convolution & U-Net Upsampling:</strong> Transposed convolution layers upsample the latent representation back to <Katex tex="32\text{ bp}" /> spatial resolution, concatenating high-resolution spatial feature maps from early convolutional layers via U-Net skip connections.
+          <br/>
+          &bull; <strong>5. Species-Specific Multi-Track Output Heads:</strong> Linear projection followed by softplus activation, generating predicted non-negative read counts <Katex tex="\hat{\mathbf{Y}} \in \mathbb{R}^{6,144 \times 7,611}" /> across <Katex tex="B = 6,144" /> bins of size <Katex tex="32\text{ bp}" /> covering the central <Katex tex="196.6\text{ kb}" /> region.
+        </p>
+      </div>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Architecture Stage</th>
+              <th>Input Tensor Shape</th>
+              <th>Operation / Kernel</th>
+              <th>Output Tensor Shape</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1. DNA Input</strong></td>
+              <td><Katex tex="524,288 \times 4" /></td>
+              <td>One-hot sequence encoding</td>
+              <td><Katex tex="524,288 \times 4" /></td>
+            </tr>
+            <tr>
+              <td><strong>2. Residual Conv Stem</strong></td>
+              <td><Katex tex="524,288 \times 4" /></td>
+              <td>7x Conv Blocks (kernel=15/5, pooling=2x)</td>
+              <td><Katex tex="32 \times 1024" /></td>
+            </tr>
+            <tr>
+              <td><strong>3. Transformer Trunk</strong></td>
+              <td><Katex tex="32 \times 1024" /></td>
+              <td>14x MHSA Layers (8 heads, rel-pos)</td>
+              <td><Katex tex="32 \times 1024" /></td>
+            </tr>
+            <tr>
+              <td><strong>4. Transposed Conv (U-Net)</strong></td>
+              <td><Katex tex="32 \times 1024" /></td>
+              <td>Transposed conv + Skip concatenation</td>
+              <td><Katex tex="6,144 \times 512" /></td>
+            </tr>
+            <tr>
+              <td><strong>5. Final Track Head</strong></td>
+              <td><Katex tex="6,144 \times 512" /></td>
+              <td>Linear projection + Softplus activation</td>
+              <td><Katex tex="6,144 \times 7,611" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <!-- Chapter 4 -->
     <section id="variant-stats">
       <h2>4. Mathematical Variant Effect Scoring Statistics</h2>
       <p>
-        To evaluate a genetic variant, Borzoi computes forward passes on the reference allele (<Katex tex="\mathbf{X}_{\text{ref}}" />) and alternative allele (<Katex tex="\mathbf{X}_{\text{alt}}" />), deriving specialized statistics across regulatory layers:
+        To evaluate a genetic variant, Borzoi performs forward passes on both the reference sequence (<Katex tex="\mathbf{X}_{\text{ref}}" />) and alternative sequence (<Katex tex="\mathbf{X}_{\text{alt}}" />), generating predicted coverage profiles <Katex tex="\hat{\mathbf{Y}}_{\text{ref}}" /> and <Katex tex="\hat{\mathbf{Y}}_{\text{alt}}" />. Borzoi then derives specialized statistics to isolate specific regulatory mechanisms:
       </p>
 
+      <!-- Stat 1 -->
       <div class="paper-equation-card">
-        <div class="paper-equation-header">Gene Expression Effect Size (ΔGene / SUM)</div>
+        <div class="paper-equation-header">1. Gene Expression Effect Size (ΔGene / SUM)</div>
         <div class="paper-equation-body">
           <Katex tex="\Delta \text{Gene} = \log\left( \sum_{b \in \text{exons}} \hat{y}_{\text{alt}, b} + 1 \right) - \log\left( \sum_{b \in \text{exons}} \hat{y}_{\text{ref}, b} + 1 \right)" display={true} />
         </div>
         <div class="paper-equation-legend">
-          Sums predicted strand-specific RNA-seq coverage across all annotated exons of the target gene.
+          Sums predicted strand-specific RNA-seq coverage across all annotated exonic bins <Katex tex="b \in \text{exons}" /> of the target transcript, isolating overall transcriptional abundance changes.
         </div>
       </div>
 
+      <!-- Stat 2 -->
       <div class="paper-equation-card">
-        <div class="paper-equation-header">Alternative Polyadenylation Effect Size (ΔAPA)</div>
+        <div class="paper-equation-header">2. Alternative Promoter Usage (ΔTSS)</div>
         <div class="paper-equation-body">
-          <Katex tex="\Delta \text{APA} = \log\left( \frac{\hat{y}_{\text{distal}}}{\hat{y}_{\text{proximal}}} \right)_{\text{alt}} - \log\left( \frac{\hat{y}_{\text{distal}}}{\hat{y}_{\text{proximal}}} \right)_{\text{ref}}" display={true} />
+          <Katex tex="\Delta \text{TSS} = \log\left( \frac{\max_{b \in \text{TSS}_{\text{3'}}} \hat{y}_{\text{alt}, b}}{\max_{b \in \text{TSS}_{\text{5'}}} \hat{y}_{\text{alt}, b}} \right) - \log\left( \frac{\max_{b \in \text{TSS}_{\text{3'}}} \hat{y}_{\text{ref}, b}}{\max_{b \in \text{TSS}_{\text{5'}}} \hat{y}_{\text{ref}, b}} \right)" display={true} />
         </div>
         <div class="paper-equation-legend">
-          Measures the shift in 3' isoform usage between proximal and distal polyadenylation cleavage sites.
+          Quantifies the change in coverage ratio between the 9 bins downstream of the 3'-most vs. 5'-most annotated TSS in GENCODE / FANTOM5.
         </div>
       </div>
 
+      <!-- Stat 3 -->
       <div class="paper-equation-card">
-        <div class="paper-equation-header">Bin-Level L2 Difference Score</div>
+        <div class="paper-equation-header">3. Alternative Polyadenylation Effect Size (ΔAPA)</div>
+        <div class="paper-equation-body">
+          <Katex tex="\Delta \text{APA} = \log\left( \frac{\bar{y}_{\text{distal, alt}}}{\bar{y}_{\text{proximal, alt}}} \right) - \log\left( \frac{\bar{y}_{\text{distal, ref}}}{\bar{y}_{\text{proximal, ref}}} \right)" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          <Katex tex="\bar{y}_{\text{distal}}" /> = Average coverage across the 4 bins immediately upstream of the distal-most poly(A) site in PolyASite 2.0 &emsp;|&emsp;
+          <Katex tex="\bar{y}_{\text{proximal}}" /> = Average coverage across the 4 bins upstream of the proximal-most poly(A) site.
+        </div>
+      </div>
+
+      <!-- Stat 4 -->
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">4. Splicing Perturbation Statistic (ΔSplicing)</div>
+        <div class="paper-equation-body">
+          <Katex tex="S_{\text{splicing}} = \sum_{b \in \text{gene}} \left| \hat{y}_{\text{alt}, b} - \hat{y}_{\text{ref}, b} \right| - \left| \sum_{b \in \text{gene}} \hat{y}_{\text{alt}, b} - \sum_{b \in \text{gene}} \hat{y}_{\text{ref}, b} \right|" display={true} />
+        </div>
+        <div class="paper-equation-legend">
+          Subtracts total net expression change from the sum of absolute bin-level changes, isolating isoform redistribution, exon skipping, and intron retention independent of overall transcriptional upregulation/downregulation.
+        </div>
+      </div>
+
+      <!-- Stat 5 -->
+      <div class="paper-equation-card">
+        <div class="paper-equation-header">5. Bin-Level L2 Difference Score (Sniff Fine-Mapping Metric)</div>
         <div class="paper-equation-body">
           <Katex tex="L_2(t) = \sqrt{\sum_{b=1}^{B} \left( \log(1 + \hat{y}_{\text{alt}, b, t}) - \log(1 + \hat{y}_{\text{ref}, b, t}) \right)^2}" display={true} />
         </div>
         <div class="paper-equation-legend">
-          Captures localized regulatory perturbations across tracks, forming the backbone for the <strong>Sniff</strong> fine-mapping framework.
+          Computes the Euclidean norm of log-fold coverage changes across all <Katex tex="B = 6,144" /> bins for track <Katex tex="t" />, serving as the foundational variant feature set for the <strong>Sniff</strong> fine-mapping framework.
         </div>
       </div>
     </section>
@@ -188,11 +294,11 @@ const readingTime = "18 min read";
         </div>
         <div class="paper-fig-body">
           <p>
-            Evaluating Borzoi on held-out test chromosomes across thousands of functional genomics tracks:
+            Evaluating Borzoi on held-out test chromosomes across thousands of functional genomics tracks in human and mouse:
           </p>
           <ul class="paper-fig-takeaways">
-            <li><strong>High Correlation:</strong> Achieved mean Pearson <Katex tex="R = 0.81" /> on CAGE, <Katex tex="R = 0.74" /> on DNase/ATAC, <Katex tex="R = 0.69" /> on ChIP-seq, and <Katex tex="R = 0.72" /> on RNA-seq coverage.</li>
-            <li><strong>Sharp Exon Boundaries:</strong> Successfully learned sharp splice junctions and zero-coverage intronic plateaus directly from sequence.</li>
+            <li><strong>High Bin-Level Correlation:</strong> Achieved mean Pearson <Katex tex="R = 0.81" /> on CAGE, <Katex tex="R = 0.74" /> on DNase/ATAC, <Katex tex="R = 0.69" /> on ChIP-seq, and <Katex tex="R = 0.72" /> on RNA-seq coverage across held-out chromosomes.</li>
+            <li><strong>Sharp Exon Boundaries:</strong> Successfully learned sharp splice junctions and zero-coverage intronic plateaus directly from sequence, without receiving hard-coded gene annotation boundaries during inference.</li>
           </ul>
         </div>
       </div>
@@ -208,8 +314,9 @@ const readingTime = "18 min read";
             Cross-tissue performance across 31 GTEx adult human tissues:
           </p>
           <ul class="paper-fig-takeaways">
-            <li><strong>Lineage Separation:</strong> Unsupervised PCA on predicted tissue tracks cleanly clustered brain, liver, muscle, and blood tissues.</li>
-            <li><strong>Alternative Promoter Usage:</strong> Correctly predicted tissue-specific alternative transcription start sites (e.g. liver-specific vs. kidney-specific promoters).</li>
+            <li><strong>Lineage Clustering:</strong> Unsupervised PCA on predicted tissue tracks cleanly separated brain, liver, skeletal muscle, heart, and whole blood tissues.</li>
+            <li><strong>Tissue-Specific Alternative Promoters:</strong> Accurately predicted tissue-specific alternative transcription start sites (e.g. liver-specific promoter usage in *LDLR* and *APOB* vs. brain-specific usage in *SYN1*).</li>
+            <li><strong>Alternative Polyadenylation:</strong> Successfully predicted tissue-specific shifts toward proximal or distal poly(A) sites across tissues (e.g. *C1QBP*, *UQCRB*).</li>
           </ul>
         </div>
       </div>
@@ -222,11 +329,11 @@ const readingTime = "18 min read";
         </div>
         <div class="paper-fig-body">
           <p>
-            Applying gradient attribution and in silico mutagenesis (ISM):
+            Applying gradient attribution and in silico mutagenesis (ISM) to uncover regulatory syntax:
           </p>
           <ul class="paper-fig-takeaways">
-            <li><strong>De Novo Motif Discovery:</strong> Accurately mapped known tissue-specific transcription factor binding motifs (HNF4A in liver, MYOD1 in muscle, SPI1/PU.1 in monocytes).</li>
-            <li><strong>Helical Syntax:</strong> Identified cooperative spacing constraints between homotypic and heterotypic TF motif pairs.</li>
+            <li><strong>De Novo Motif Discovery:</strong> Accurately mapped known tissue-specific transcription factor binding motifs (HNF4A/FOXA in liver, MYOD1/MEF2 in muscle, SPI1/PU.1 in monocytes, NOVA1/NOVA2 in brain).</li>
+            <li><strong>Helical Spacing & Flanking Syntax:</strong> Revealed periodic ~10.5 bp helical spacing constraints between homotypic and heterotypic TF motif pairs, demonstrating that Borzoi learns 3D stereospecific protein-protein interactions along the DNA double helix.</li>
           </ul>
         </div>
       </div>
@@ -242,7 +349,8 @@ const readingTime = "18 min read";
             Benchmarking distal regulatory interactions against experimental CRISPR perturbation screens:
           </p>
           <ul class="paper-fig-takeaways">
-            <li><strong>CRISPRi-FlowFISH Accuracy:</strong> Matched or outperformed Enformer across tested loci (*MYC*, *GATA1*, *FADS1*), accurately capturing enhancer activity up to <Katex tex="100\text{ kb}" /> away from the target TSS.</li>
+            <li><strong>CRISPRi-FlowFISH Accuracy:</strong> Matched or outperformed Enformer across tested benchmark loci (*MYC*, *GATA1*, *FADS1*), accurately capturing enhancer activity located up to <Katex tex="100\text{ kb}" /> away from the target TSS.</li>
+            <li><strong>Long-Range Attribution:</strong> Borzoi's transformer attention maps correctly connected distal enhancer clusters to their cognate promoter targets while ignoring intervening non-target promoters.</li>
           </ul>
         </div>
       </div>
@@ -255,11 +363,11 @@ const readingTime = "18 min read";
         </div>
         <div class="paper-fig-body">
           <p>
-            Predicting expression quantitative trait loci (eQTL) effects:
+            Predicting expression quantitative trait loci (eQTL) effects across 49 GTEx tissues:
           </p>
           <ul class="paper-fig-takeaways">
-            <li><strong>Directional Sign Accuracy:</strong> Achieved <strong>> 75% sign accuracy</strong> on high-confidence GTEx eQTLs, substantially outperforming Enformer and Basenji.</li>
-            <li><strong>Fine-Mapped Causal Variants:</strong> Elevated predicted effect sizes at SuSiE/CaVEMaN fine-mapped variants compared to linked non-causal SNPs.</li>
+            <li><strong>Directional Sign Accuracy:</strong> Achieved <strong>> 75% sign accuracy</strong> on high-confidence GTEx eQTLs, substantially outperforming Enformer and Basenji across tissues.</li>
+            <li><strong>Fine-Mapped Causal Variants:</strong> Predicted effect sizes were significantly elevated at SuSiE/CaVEMaN fine-mapped variants (<Katex tex="\text{PIP} \ge 0.9" />) compared to linked non-causal SNPs in the same LD block.</li>
           </ul>
         </div>
       </div>
@@ -276,6 +384,7 @@ const readingTime = "18 min read";
           </p>
           <ul class="paper-fig-takeaways">
             <li><strong>PolyASite & paQTL Benchmark:</strong> Borzoi's <Katex tex="\Delta\text{APA}" /> statistic accurately classified 3' polyadenylation QTLs, competing with specialized models (APARENT2, Saluki) while incorporating full gene context.</li>
+            <li><strong>Motif Disruption:</strong> Accurately scored variants disrupting canonical AAUAAA hexamers, upstream UGUA elements, and downstream U/GU-rich cleavage enhancers.</li>
           </ul>
         </div>
       </div>
@@ -291,7 +400,8 @@ const readingTime = "18 min read";
             Evaluating alternative splicing and transcript isoform variation:
           </p>
           <ul class="paper-fig-takeaways">
-            <li><strong>sQTL Prioritization:</strong> Classified GTEx splicing QTLs with high accuracy, rivaling SpliceAI on canonical splice sites and outperforming SpliceAI on deep intronic regulatory variants.</li>
+            <li><strong>sQTL Prioritization:</strong> Classified GTEx splicing QTLs with high accuracy, rivaling SpliceAI on canonical splice sites and outperforming SpliceAI on deep intronic regulatory variants and branchpoint perturbations.</li>
+            <li><strong>Pangolin Comparison:</strong> Outperformed Pangolin on tissue-specific alternative splicing events across brain, muscle, and liver tissues.</li>
           </ul>
         </div>
       </div>
@@ -299,9 +409,9 @@ const readingTime = "18 min read";
 
     <!-- Chapter 6 -->
     <section id="motif-syntax">
-      <h2>6. Cis-Regulatory Syntax & Attribution</h2>
+      <h2>6. Cis-Regulatory Syntax & Saliency Attribution</h2>
       <p>
-        In silico mutagenesis (ISM) systematically mutates every nucleotide in an input sequence to all 3 alternate bases, computing the resulting change in predicted coverage:
+        To interpret how Borzoi computes its predictions, the authors use gradient-based saliency attribution and in silico mutagenesis (ISM):
       </p>
 
       <div class="paper-equation-card">
@@ -310,28 +420,39 @@ const readingTime = "18 min read";
           <Katex tex="S_i(t) = \frac{\partial \hat{Y}_t}{\partial X_i} \cdot X_i" display={true} />
         </div>
         <div class="paper-equation-legend">
-          Identifies driver regulatory motifs with single-nucleotide precision across promoters, enhancers, splice junctions, and poly(A) signals.
+          <Katex tex="S_i(t)" /> = Importance score of nucleotide <Katex tex="i" /> with respect to target output track <Katex tex="t" /> &emsp;|&emsp;
+          <Katex tex="X_i" /> = One-hot vector of the reference nucleotide.
         </div>
       </div>
+
+      <p>
+        Applying TF-MoDISco to these saliency matrices clustered thousands of motifs into non-redundant transcription factor families, revealing both known motifs and novel tissue-specific regulatory grammars.
+      </p>
     </section>
 
     <!-- Chapter 7 -->
     <section id="formulations">
-      <h2>7. Mathematical Formulations & Loss Functions</h2>
+      <h2>7. Mathematical Formulations & Multi-Task Loss</h2>
       <p>
-        Borzoi is trained with a multi-task Poisson log-likelihood loss with multinomial cross-entropy over spatial bins:
+        Borzoi is trained with a multi-task Poisson log-likelihood loss with spatial multinomial cross-entropy over spatial bins:
       </p>
 
       <div class="paper-equation-card">
-        <div class="paper-equation-header">Poisson Log Loss Formulation</div>
+        <div class="paper-equation-header">Multi-Task Poisson Log-Loss Formulation</div>
         <div class="paper-equation-body">
           <Katex tex="\mathcal{L}_{\text{Poisson}} = \sum_{b=1}^{B} \sum_{t=1}^{T} \left( \hat{y}_{b, t} - y_{b, t} \log \hat{y}_{b, t} \right)" display={true} />
         </div>
         <div class="paper-equation-legend">
           <Katex tex="y_{b, t}" /> = Normalized sequencing coverage count in bin <Katex tex="b" /> for track <Katex tex="t" /> &emsp;|&emsp;
-          <Katex tex="\hat{y}_{b, t}" /> = Model prediction with softplus activation.
+          <Katex tex="\hat{y}_{b, t}" /> = Model prediction with softplus activation &emsp;|&emsp;
+          <Katex tex="B = 6,144" /> central bins &emsp;|&emsp;
+          <Katex tex="T = 7,611" /> human tracks.
         </div>
       </div>
+
+      <p>
+        Training alternates dynamically between human and mouse mini-batches, swapping the species-specific linear projection heads while keeping the shared convolutional-transformer trunk synchronized.
+      </p>
     </section>
 
     <!-- Chapter 8 -->
@@ -346,9 +467,9 @@ const readingTime = "18 min read";
           <Icon name="activity" size={15} /> Downstream Ecosystem Impact
         </div>
         <p>
-          &bull; <strong>Sniff Fine-Mapping:</strong> Borzoi's 7,611 coverage tracks serve as the foundational variant effect feature set for S-LDSC and SuSiE fine-mapping.
+          &bull; <strong>Sniff Fine-Mapping:</strong> Borzoi's 7,611 coverage tracks serve as the foundational variant effect feature set for S-LDSC and SuSiE fine-mapping, boosting causal variant discovery by +9.45%.
           <br/>
-          &bull; <strong>Locon4 PEFT:</strong> Lightweight low-rank adaptation democratizes Borzoi fine-tuning to single 24 GB consumer GPUs.
+          &bull; <strong>Locon4 PEFT:</strong> Lightweight low-rank adaptation democratizes Borzoi fine-tuning to single 24 GB consumer GPUs without performance loss.
           <br/>
           &bull; <strong>Therapeutic Target Discovery:</strong> Unifying transcription, splicing, and polyadenylation enables holistic variant interpretation in complex disease GWAS.
         </p>
