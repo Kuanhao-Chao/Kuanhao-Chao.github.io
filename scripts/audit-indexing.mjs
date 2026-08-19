@@ -240,6 +240,7 @@ async function auditRobots() {
 async function auditPapersIndex(urls) {
   const paperPaths = [
     { slug: '', path: join(DIST, 'papers', 'index.html'), url: `${SITE}/papers/` },
+    { slug: 'gpnstar', path: join(DIST, 'papers', 'gpnstar', 'index.html'), url: `${SITE}/papers/gpnstar/` },
     { slug: 'borzoi-finemapped', path: join(DIST, 'papers', 'borzoi-finemapped', 'index.html'), url: `${SITE}/papers/borzoi-finemapped/` },
     { slug: 'borzoi-peft', path: join(DIST, 'papers', 'borzoi-peft', 'index.html'), url: `${SITE}/papers/borzoi-peft/` },
   ];

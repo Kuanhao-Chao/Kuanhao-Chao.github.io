@@ -5,7 +5,7 @@
  */
 
 export interface PaperCategory {
-  slug: 'all' | 'fine-mapping' | 'peft' | 'gene-regulation';
+  slug: 'all' | 'fine-mapping' | 'peft' | 'gene-regulation' | 'evolutionary-models';
   label: string;
 }
 
@@ -20,7 +20,7 @@ export interface PaperEntry {
   doi: string;
   doiUrl: string;
   area: string;
-  category: 'fine-mapping' | 'peft' | 'gene-regulation';
+  category: 'fine-mapping' | 'peft' | 'gene-regulation' | 'evolutionary-models';
   tag: string;
   readingTime: string;
   summary: string;
@@ -35,12 +35,48 @@ export interface PaperEntry {
 
 export const PAPER_CATEGORIES: PaperCategory[] = [
   { slug: 'all', label: 'All Papers' },
+  { slug: 'evolutionary-models', label: 'Evolutionary & Language Models' },
   { slug: 'fine-mapping', label: 'Fine-Mapping & GWAS' },
   { slug: 'peft', label: 'Deep Learning & PEFT' },
   { slug: 'gene-regulation', label: 'Regulatory Genomics' },
 ];
 
 export const PAPERS: PaperEntry[] = [
+  {
+    id: 'gpnstar',
+    title: 'Predicting Functional Constraints Across Evolutionary Timescales with Phylogeny-Informed Genomic Language Models',
+    shortTitle: 'GPN-Star (Song Lab)',
+    authors: ['Chengzhong Ye', 'Gonzalo Benegas', 'Carlos Albors', 'Jianan Canal Li', 'Sebastian Prillo', 'Peter D. Fields', 'Brian Clarke', 'Yun S. Song'],
+    affiliation: 'University of California, Berkeley',
+    venue: 'bioRxiv',
+    year: 2025,
+    doi: '10.1101/2025.09.21.677619',
+    doiUrl: 'https://doi.org/10.1101/2025.09.21.677619',
+    area: 'Evolutionary Genomics & Language Models',
+    category: 'evolutionary-models',
+    tag: 'UC Berkeley · GPN-Star',
+    readingTime: '16 min read',
+    summary:
+      'GPN-Star integrates Whole-Genome Alignments and phylogenetic species trees into genomic language models via clade attention pooling and FIRE evolutionary distance biases. Outperforms classical conservation scores (phyloP, phastCons, CADD) and billion-parameter unaligned gLMs across coding and non-coding variant effect prediction, complex trait heritability (S-LDSC), and rare variant association testing (DeepRVAT).',
+    highlights: [
+      'Phylogeny-aware transformer architecture incorporates whole-genome alignments and species trees',
+      'Clade-level attention pooling and FIRE relative evolutionary distance encoding',
+      'Trained across three timescales: Vertebrate (240 species), Mammalian, and Primate (233 species)',
+      'Unprecedented complex trait heritability enrichment (S-LDSC across 106 UK Biobank traits)',
+      'DeepRVAT integration boosts whole-exome rare variant association gene discovery from 383 to 402 genes',
+      'In silico mutagenesis (ISM) maps spatial nucleotide syntax in TH, HBA1, and LDLR promoters',
+    ],
+    equations: [
+      'b(\\phi) = f_{\\theta}\\left(\\frac{\\log(c\\phi + 1)}{\\log(c\\phi_{\\max} + 1)}\\right)',
+      '\\text{Attn}_{\\text{phy}} = \\text{softmax}\\left(\\frac{Q K^T}{\\sqrt{D}} + b(\\Phi)\\right) V',
+      '\\text{LLR}(v) = \\log P(\\text{alt}) - \\log P(\\text{ref})',
+    ],
+    href: '/papers/gpnstar/',
+    actionText: 'Read full technical paper summary',
+    featured: true,
+    icon: 'phmm',
+    status: 'published',
+  },
   {
     id: 'borzoi-finemapped',
     title: 'Borzoi-Informed Fine Mapping Improves Causal Variant Prioritization in Complex Trait GWAS',
