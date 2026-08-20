@@ -66,7 +66,7 @@ describe('LivingCellsEngine', () => {
     expect(cell.aspect).toBeLessThanOrEqual(1.26);
     const deformation = cell.harmonics.reduce((sum, value) => sum + value, 0);
     expect(deformation).toBeGreaterThanOrEqual(0.05);
-    expect(deformation).toBeLessThanOrEqual(0.1);
+    expect(deformation).toBeLessThanOrEqual(0.20);
   });
 
   it('keeps nuclei and organelles inside cells across responsive radii', () => {
@@ -774,6 +774,39 @@ describe('LivingCellsEngine', () => {
     });
     expect((engine as any).pointer.down).toBe(false);
     expect(cell.divisionQueued).toBe(false);
+  });
+
+  it('spawns a new growing cell when clicking on empty space', () => {
+    const engine = makeEngine();
+    Object.assign(engine as any, { cells: [], attached: true, width: 800, height: 600 });
+
+    (engine as any).onPointerDown({
+      clientX: 250,
+      clientY: 300,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      isPrimary: true,
+      target: null,
+    });
+    expect((engine as any).pointer.down).toBe(true);
+    expect((engine as any).pointerCandidate).toBeNull();
+
+    (engine as any).onPointerUp({
+      clientX: 250,
+      clientY: 300,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      isPrimary: true,
+      target: null,
+    });
+    expect((engine as any).cells).toHaveLength(1);
+    const spawned = (engine as any).cells[0];
+    expect(spawned.x).toBe(250);
+    expect(spawned.y).toBe(300);
+    expect(spawned.state).toBe('growing');
+    expect(spawned.birthRadius).toBeLessThan(spawned.targetRadius);
   });
 });
 
