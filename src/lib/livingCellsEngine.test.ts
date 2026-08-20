@@ -167,6 +167,104 @@ describe('LivingCellsEngine', () => {
     expect(cell.blebs!.length).toBeGreaterThanOrEqual(6);
   });
 
+  it('enforces growth checkpoint: small growing cells cannot divide naturally, but adult mature cells can', () => {
+    const engine = new LivingCellsEngine();
+    // Growing cell initialized at 50% target size
+    const growingCell = (engine as any).createCell(100, 100, false, 50, 25) as LivingCell;
+    expect(growingCell.state).toBe('growing');
+    expect(growingCell.baseRadius).toBe(25);
+    expect(growingCell.targetRadius).toBe(50);
+
+    // Natural auto-mitosis attempt (isExplicitClick = false) MUST be blocked
+    engine.triggerMitosis(growingCell, false);
+    expect(growingCell.state).toBe('growing'); // Checkpoint holds!
+
+    // Mature adult cell that passed size threshold
+    const matureCell = (engine as any).createCell(100, 100, false, 50, 50) as LivingCell;
+    expect(matureCell.state).toBe('mature');
+    expect(matureCell.baseRadius).toBe(50);
+
+    // Natural auto-mitosis succeeds
+    engine.triggerMitosis(matureCell, false);
+    expect(matureCell.state).toBe('mitosis');
+  });
+
+  it('allows explicit user click exemption to trigger mitosis on growing or mature cells', () => {
+    const engine = new LivingCellsEngine();
+    // Small growing cell
+    const smallCell = (engine as any).createCell(100, 100, false, 60, 20) as LivingCell;
+    expect(smallCell.state).toBe('growing');
+
+    // Explicit user click exemption (isExplicitClick = true)
+    engine.triggerMitosis(smallCell, true);
+    expect(smallCell.state).toBe('mitosis');
+    expect(smallCell.mitosisProgress).toBe(0);
+  });
+
+  it('advances growing cells through G1/S/G2 interphase to reach mature adult size', () => {
+    const engine = new LivingCellsEngine();
+    const cell = (engine as any).createCell(100, 100, false, 50, 20) as LivingCell;
+    (engine as any).cells = [cell];
+
+    expect(cell.state).toBe('growing');
+    const startRadius = cell.baseRadius;
+
+    // Simulate 180 update frames (growth rate 0.0035/frame transitions 0.4 -> 1.0)
+    for (let frame = 0; frame < 180; frame++) {
+      (engine as any).update();
+    }
+
+    // Cell grew significantly and transitioned to mature
+    expect(cell.baseRadius).toBeGreaterThan(startRadius);
+    expect(cell.baseRadius).toBeCloseTo(50, 0);
+    expect(cell.state).toBe('mature');
+  });
+
+  it('spawns two G1 daughter cells in growing state upon completing cytokinesis', () => {
+    const engine = new LivingCellsEngine();
+    const parentCell = (engine as any).createCell(200, 200, false, 50) as LivingCell;
+    (engine as any).cells = [parentCell];
+
+    engine.triggerMitosis(parentCell, true);
+    expect(parentCell.state).toBe('mitosis');
+
+    // Progress mitosis to completion
+    parentCell.mitosisProgress = 0.999;
+    (engine as any).update();
+
+    // Parent cell divided into 2 daughter cells
+    const cells = (engine as any).cells as LivingCell[];
+    expect(cells.length).toBe(2);
+
+    for (const daughter of cells) {
+      expect(daughter.state).toBe('growing');
+      expect(daughter.targetRadius).toBe(50);
+      expect(daughter.baseRadius).toBeLessThan(50); // Born smaller in G1
+      expect(daughter.baseRadius).toBeGreaterThanOrEqual(25);
+    }
+  });
+
+  it('maintains dynamic population homeostasis across multiple simulation cycles', () => {
+    const engine = new LivingCellsEngine();
+    (engine as any).width = 1200;
+    (engine as any).height = 800;
+    (engine as any).baseCount = 8;
+    (engine as any).seed();
+
+    const initialCount = (engine as any).cells.length;
+    expect(initialCount).toBe(8);
+
+    // Simulate 1200 update ticks
+    for (let t = 0; t < 1200; t++) {
+      (engine as any).update();
+    }
+
+    const currentLiveCells = (engine as any).cells.filter((c: LivingCell) => c.state !== 'apoptosis');
+    // Population remains stable around baseCount (never exploding or going extinct)
+    expect(currentLiveCells.length).toBeGreaterThanOrEqual(4);
+    expect(currentLiveCells.length).toBeLessThanOrEqual(14);
+  });
+
   it('verifies optical tweezer drag clamps velocity and lerps position smoothly', () => {
     const engine = new LivingCellsEngine();
     const cell = (engine as any).createCell(100, 100, false, 30) as LivingCell;
