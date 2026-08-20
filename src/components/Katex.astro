@@ -16,4 +16,10 @@ const html = katex.renderToString(tex, {
 });
 ---
 
-<span class={`katex-wrap ${className}`} set:html={html} />
+{
+  display ? (
+    <div class={`katex-wrap katex-wrap--display ${className}`} set:html={html} />
+  ) : (
+    <span class={`katex-wrap katex-wrap--inline ${className}`} set:html={html} />
+  )
+}

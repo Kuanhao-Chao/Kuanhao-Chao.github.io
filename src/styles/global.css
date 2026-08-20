@@ -319,3 +319,23 @@ body:has(.main--bare) {
     opacity: 0;
   }
 }
+
+/* ── KaTeX display math safety & responsiveness ──────────────── */
+.katex-wrap--display,
+.katex-display {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  text-align: center !important;
+  padding: 0.35rem 0 !important;
+  margin: 0.75rem 0 !important;
+  scrollbar-width: thin;
+}
+
+.katex-display > .katex {
+  font-size: clamp(0.92rem, 3.2vw, 1.18rem) !important;
+  white-space: nowrap !important;
+}
