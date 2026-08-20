@@ -327,11 +327,11 @@ export class LivingCellsEngine {
     cell.state = 'mitosis';
     cell.mitosisProgress = 0;
     cell.mitosisAngle = rand(0, Math.PI);
-    cell.glowIntensity = 2.5;
+    cell.glowIntensity = 1.35; // Gentle metabolic activation glow
 
     // Disperse vertices along division vector
     for (const v of cell.vertices) {
-      v.velocity = Math.sin(v.angle * 2) * 1.5;
+      v.velocity = Math.sin(v.angle * 2) * 1.2;
     }
   }
 
@@ -805,6 +805,7 @@ export class LivingCellsEngine {
           const daughterTargetR = cell.targetRadius;
           const daughterBirthR = cell.targetRadius * 0.56; // Born slightly bigger than half parent size (0.56r)
 
+          const pushSpeed = 0.65; // Organic separation bounce impulse
           const daughter1 = this.createCell(
             cell.x + Math.cos(angle) * separation,
             cell.y + Math.sin(angle) * separation,
@@ -812,13 +813,18 @@ export class LivingCellsEngine {
             daughterTargetR,
             daughterBirthR
           );
-          daughter1.vx = cell.vx + Math.cos(angle) * 0.18;
-          daughter1.vy = cell.vy + Math.sin(angle) * 0.18;
+          daughter1.vx = cell.vx + Math.cos(angle) * pushSpeed;
+          daughter1.vy = cell.vy + Math.sin(angle) * pushSpeed;
           daughter1.state = 'growing';
           daughter1.growthProgress = 0.0;
           daughter1.life = 1.0; // 100% full opacity, immediately and clearly visible!
-          daughter1.glowIntensity = 1.8;
+          daughter1.glowIntensity = 1.25;
           daughter1.age = 0;
+
+          // Elastic radial vertex recoil for daughter 1
+          for (const v of daughter1.vertices) {
+            v.velocity = Math.cos(v.angle - angle) * 1.8;
+          }
 
           const daughter2 = this.createCell(
             cell.x - Math.cos(angle) * separation,
@@ -827,13 +833,18 @@ export class LivingCellsEngine {
             daughterTargetR,
             daughterBirthR
           );
-          daughter2.vx = cell.vx - Math.cos(angle) * 0.18;
-          daughter2.vy = cell.vy - Math.sin(angle) * 0.18;
+          daughter2.vx = cell.vx - Math.cos(angle) * pushSpeed;
+          daughter2.vy = cell.vy - Math.sin(angle) * pushSpeed;
           daughter2.state = 'growing';
           daughter2.growthProgress = 0.0;
           daughter2.life = 1.0; // 100% full opacity, immediately and clearly visible!
-          daughter2.glowIntensity = 1.8;
+          daughter2.glowIntensity = 1.25;
           daughter2.age = 0;
+
+          // Elastic radial vertex recoil for daughter 2
+          for (const v of daughter2.vertices) {
+            v.velocity = -Math.cos(v.angle - angle) * 1.8;
+          }
 
           // Mitotic nutrient release
           for (let k = 0; k < 6; k++) {
@@ -1062,6 +1073,9 @@ export class LivingCellsEngine {
         rx = poleDist + daughterLobeR;
       }
 
+      // Smooth metabolic glow interpolation during mitosis (peaks gently at metaphase/anaphase, eases smoothly to daughter baseline)
+      const effBrightness = (1.0 + 0.28 * Math.sin(prog * Math.PI)) * Math.min(1.25, brightness);
+
       this.ctx.save();
       this.ctx.translate(px, py);
       this.ctx.rotate(angle);
@@ -1094,17 +1108,17 @@ export class LivingCellsEngine {
       }
       this.ctx.closePath();
 
-      // Subsurface gradient
+      // Subsurface gradient matching normal cell baseline
       const fill = this.ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-      fill.addColorStop(0, `rgba(${accentRgb}, ${0.05 * brightness * alpha})`);
-      fill.addColorStop(0.65, `rgba(${glowRgb}, ${0.022 * brightness * alpha})`);
+      fill.addColorStop(0, `rgba(${accentRgb}, ${0.042 * effBrightness * alpha})`);
+      fill.addColorStop(0.68, `rgba(${glowRgb}, ${0.018 * effBrightness * alpha})`);
       fill.addColorStop(1, `rgba(${accentRgb}, 0)`);
       this.ctx.fillStyle = fill;
       this.ctx.fill();
 
-      // Outer boundary halo
-      this.ctx.lineWidth = 1.25;
-      this.ctx.strokeStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.08 * brightness * alpha})`;
+      // Outer boundary halo matching normal cell baseline
+      this.ctx.lineWidth = 1.15;
+      this.ctx.strokeStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.065 * effBrightness * alpha})`;
       this.ctx.stroke();
 
       // Contractile Ring / Midbody accent at cleavage furrow (prog >= 0.65)
@@ -1112,8 +1126,8 @@ export class LivingCellsEngine {
         const ringAlpha = Math.min(1, (prog - 0.65) / 0.2);
         this.ctx.beginPath();
         this.ctx.ellipse(0, 0, Math.max(1.5, r * 0.04), waistR, 0, 0, TAU);
-        this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.12 * ringAlpha * brightness * alpha})`;
-        this.ctx.lineWidth = 1.1;
+        this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.10 * ringAlpha * effBrightness * alpha})`;
+        this.ctx.lineWidth = 1.0;
         this.ctx.stroke();
       }
 
@@ -1123,7 +1137,7 @@ export class LivingCellsEngine {
         // Centriole pair core
         this.ctx.beginPath();
         this.ctx.arc(cx, 0, Math.max(1.5, r * 0.05), 0, TAU);
-        this.ctx.fillStyle = `rgba(${accentRgb}, ${0.18 * brightness * alpha})`;
+        this.ctx.fillStyle = `rgba(${accentRgb}, ${0.15 * effBrightness * alpha})`;
         this.ctx.fill();
 
         // Astral Microtubules (Aster Rays)
@@ -1134,7 +1148,7 @@ export class LivingCellsEngine {
           this.ctx.beginPath();
           this.ctx.moveTo(cx, 0);
           this.ctx.lineTo(cx + Math.cos(aAngle) * rayLen, Math.sin(aAngle) * rayLen);
-          this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.045 * brightness * alpha})`;
+          this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.035 * effBrightness * alpha})`;
           this.ctx.stroke();
         }
       }
@@ -1142,13 +1156,13 @@ export class LivingCellsEngine {
       // 3. Prophase Parent Nucleus Envelope Breakdown (prog < 0.28)
       if (prog < 0.28) {
         const p1 = prog / 0.28;
-        const nucAlpha = (1.0 - p1) * 0.08;
+        const nucAlpha = (1.0 - p1) * 0.06;
         this.ctx.beginPath();
         this.ctx.arc(0, 0, r * 0.32 * (1.0 - p1 * 0.2), 0, TAU);
-        this.ctx.fillStyle = `rgba(${accentRgb}, ${nucAlpha * brightness * alpha})`;
+        this.ctx.fillStyle = `rgba(${accentRgb}, ${nucAlpha * effBrightness * alpha})`;
         this.ctx.fill();
         this.ctx.lineWidth = 0.8;
-        this.ctx.strokeStyle = `rgba(${inkRgb}, ${nucAlpha * 0.8 * brightness * alpha})`;
+        this.ctx.strokeStyle = `rgba(${inkRgb}, ${nucAlpha * 0.8 * effBrightness * alpha})`;
         this.ctx.stroke();
       }
 
@@ -1171,7 +1185,7 @@ export class LivingCellsEngine {
 
           // Condensing X-shaped chromosome
           this.ctx.lineWidth = chromoWidth;
-          this.ctx.strokeStyle = `rgba(${accentRgb}, ${(0.08 + 0.08 * p1) * brightness * alpha})`;
+          this.ctx.strokeStyle = `rgba(${accentRgb}, ${(0.07 + 0.07 * p1) * effBrightness * alpha})`;
           this.ctx.beginPath();
           this.ctx.moveTo(cx - curLen * 0.45, cy - curLen * 0.5);
           this.ctx.lineTo(cx + curLen * 0.45, cy + curLen * 0.5);
@@ -1187,7 +1201,7 @@ export class LivingCellsEngine {
               this.ctx.beginPath();
               this.ctx.moveTo(side * poleDist, 0);
               this.ctx.lineTo(cx, cy);
-              this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.03 * attachAlpha * brightness * alpha})`;
+              this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.025 * attachAlpha * effBrightness * alpha})`;
               this.ctx.stroke();
             }
           }
@@ -1203,13 +1217,13 @@ export class LivingCellsEngine {
             this.ctx.beginPath();
             this.ctx.moveTo(side * poleDist, 0);
             this.ctx.lineTo(cx + side * (chromoWidth * 1.2), cy);
-            this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.05 * brightness * alpha})`;
+            this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.04 * effBrightness * alpha})`;
             this.ctx.stroke();
           }
 
           // Aligned sister chromatid doublet along vertical plate
           this.ctx.lineWidth = chromoWidth;
-          this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.18 * brightness * alpha})`;
+          this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.15 * effBrightness * alpha})`;
           const halfLen = chromoLen * 0.5;
           const separation = chromoWidth * 1.1;
 
@@ -1224,7 +1238,7 @@ export class LivingCellsEngine {
           this.ctx.beginPath();
           this.ctx.arc(cx - separation, cy, chromoWidth * 0.8, 0, TAU);
           this.ctx.arc(cx + separation, cy, chromoWidth * 0.8, 0, TAU);
-          this.ctx.fillStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.25 * brightness * alpha})`;
+          this.ctx.fillStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.20 * effBrightness * alpha})`;
           this.ctx.fill();
         }
         // Phase 3: Anaphase (0.48 <= prog < 0.74)
@@ -1242,7 +1256,7 @@ export class LivingCellsEngine {
             this.ctx.beginPath();
             this.ctx.moveTo(side * poleDist, 0);
             this.ctx.lineTo(kx, ky);
-            this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.05 * brightness * alpha})`;
+            this.ctx.strokeStyle = `rgba(${glowRgb}, ${0.04 * effBrightness * alpha})`;
             this.ctx.stroke();
 
             // Hydrodynamic V-shaped daughter chromosome trailing behind toward equator
@@ -1250,7 +1264,7 @@ export class LivingCellsEngine {
             const armDy = chromoLen * 0.45;
 
             this.ctx.lineWidth = chromoWidth * 1.1;
-            this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.18 * brightness * alpha})`;
+            this.ctx.strokeStyle = `rgba(${accentRgb}, ${0.15 * effBrightness * alpha})`;
             this.ctx.beginPath();
             this.ctx.moveTo(kx + armDx, ky - armDy);
             this.ctx.lineTo(kx, ky);
@@ -1260,7 +1274,7 @@ export class LivingCellsEngine {
             // Leading Kinetochore dot
             this.ctx.beginPath();
             this.ctx.arc(kx, ky, chromoWidth * 0.85, 0, TAU);
-            this.ctx.fillStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.24 * brightness * alpha})`;
+            this.ctx.fillStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.20 * effBrightness * alpha})`;
             this.ctx.fill();
           }
         }
@@ -1275,7 +1289,7 @@ export class LivingCellsEngine {
 
             this.ctx.beginPath();
             this.ctx.arc(clusterX, ny, chromoWidth * 1.2, 0, TAU);
-            this.ctx.fillStyle = `rgba(${accentRgb}, ${0.14 * (1 - p4 * 0.4) * brightness * alpha})`;
+            this.ctx.fillStyle = `rgba(${accentRgb}, ${0.12 * (1 - p4 * 0.4) * effBrightness * alpha})`;
             this.ctx.fill();
           }
         }
@@ -1290,16 +1304,16 @@ export class LivingCellsEngine {
           const nx = side * poleDist;
           this.ctx.beginPath();
           this.ctx.arc(nx, 0, nucR, 0, TAU);
-          this.ctx.fillStyle = `rgba(${accentRgb}, ${0.07 * p4 * brightness * alpha})`;
+          this.ctx.fillStyle = `rgba(${accentRgb}, ${0.058 * p4 * effBrightness * alpha})`;
           this.ctx.fill();
-          this.ctx.lineWidth = 0.85;
-          this.ctx.strokeStyle = `rgba(${inkRgb}, ${0.06 * p4 * brightness * alpha})`;
+          this.ctx.lineWidth = 0.8;
+          this.ctx.strokeStyle = `rgba(${inkRgb}, ${0.055 * p4 * effBrightness * alpha})`;
           this.ctx.stroke();
 
           // Nucleolus
           this.ctx.beginPath();
-          this.ctx.arc(nx, 0, nucR * 0.42, 0, TAU);
-          this.ctx.fillStyle = `rgba(${inkRgb}, ${0.06 * p4 * brightness * alpha})`;
+          this.ctx.arc(nx, 0, nucR * 0.38, 0, TAU);
+          this.ctx.fillStyle = `rgba(${inkRgb}, ${0.055 * p4 * effBrightness * alpha})`;
           this.ctx.fill();
         }
       }
