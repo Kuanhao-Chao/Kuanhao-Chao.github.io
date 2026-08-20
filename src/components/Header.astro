@@ -35,7 +35,13 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
     <div class="header-actions">
       <!-- Spotlight Search / Command Palette shortcut -->
-      <a class="search-shortcut" href="/search/" aria-label="Search or commands (⌘K)" title="Search or commands (⌘K)" data-open-command-palette>
+      <a
+        class="search-shortcut"
+        href="/search/"
+        aria-label="Search or commands (⌘K)"
+        title="Search or commands (⌘K)"
+        data-open-command-palette
+      >
         <Icon name="search" size={19} />
       </a>
 
@@ -49,7 +55,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           aria-haspopup="menu"
           aria-expanded="false"
           aria-label="Appearance settings"
-          title="Switch color theme or 1988 CRT monitor mode"
+          title="Adjust color theme, ambient cells, or 1988 CRT mode"
         >
           <span class="theme-icon-container">
             <span class="theme-toggle-icon theme-toggle-icon--light" aria-hidden="true">
@@ -70,7 +76,11 @@ const headerNav = nav.filter((item) => !item.footerOnly);
             <span class="theme-toggle-icon theme-toggle-icon--cyberdeck" aria-hidden="true">
               <Icon name="cyberdeck" size={19} />
             </span>
-            <span class="theme-toggle-icon theme-toggle-icon--crt" data-top-crt-badge aria-hidden="true">
+            <span
+              class="theme-toggle-icon theme-toggle-icon--crt"
+              data-top-crt-badge
+              aria-hidden="true"
+            >
               ⚡
             </span>
           </span>
@@ -82,37 +92,67 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           <div class="popover-section">
             <span class="popover-heading">Modern Themes</span>
             <div class="popover-grid">
-              <button type="button" class="popover-opt-btn" data-theme-choice="light" role="menuitem">
+              <button
+                type="button"
+                class="popover-opt-btn"
+                data-theme-choice="light"
+                role="menuitem"
+              >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="sun" size={14} />
                 </span>
                 <span class="opt-text">Light</span>
               </button>
-              <button type="button" class="popover-opt-btn" data-theme-choice="dark" role="menuitem">
+              <button
+                type="button"
+                class="popover-opt-btn"
+                data-theme-choice="dark"
+                role="menuitem"
+              >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="moon" size={14} />
                 </span>
                 <span class="opt-text">Dark</span>
               </button>
-              <button type="button" class="popover-opt-btn" data-theme-choice="parchment" role="menuitem">
+              <button
+                type="button"
+                class="popover-opt-btn"
+                data-theme-choice="parchment"
+                role="menuitem"
+              >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="parchment" size={14} />
                 </span>
                 <span class="opt-text">Parchment</span>
               </button>
-              <button type="button" class="popover-opt-btn" data-theme-choice="nord" role="menuitem">
+              <button
+                type="button"
+                class="popover-opt-btn"
+                data-theme-choice="nord"
+                role="menuitem"
+              >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="nord" size={14} />
                 </span>
                 <span class="opt-text">Nord</span>
               </button>
-              <button type="button" class="popover-opt-btn" data-theme-choice="monokai" role="menuitem">
+              <button
+                type="button"
+                class="popover-opt-btn"
+                data-theme-choice="monokai"
+                role="menuitem"
+              >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="monokai" size={14} />
                 </span>
                 <span class="opt-text">Monokai</span>
               </button>
-              <button type="button" class="popover-opt-btn" data-theme-choice="cyberdeck" role="menuitem">
+              <button
+                type="button"
+                class="popover-opt-btn"
+                data-theme-choice="cyberdeck"
+                role="menuitem"
+              >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="cyberdeck" size={14} />
                 </span>
@@ -125,18 +165,104 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           <div class="popover-section" style="margin-top: 0.35rem;">
             <span class="popover-heading">1988 Retro CRT</span>
             <div class="popover-crt-row">
-              <button type="button" class="popover-crt-btn popover-crt-btn--amber" data-crt-choice="amber" role="menuitem">
+              <button
+                type="button"
+                class="popover-crt-btn popover-crt-btn--amber"
+                data-crt-choice="amber"
+                role="menuitem"
+              >
                 <span aria-hidden="true">⚡</span>
                 <span>Amber</span>
               </button>
-              <button type="button" class="popover-crt-btn popover-crt-btn--green" data-crt-choice="green" role="menuitem">
+              <button
+                type="button"
+                class="popover-crt-btn popover-crt-btn--green"
+                data-crt-choice="green"
+                role="menuitem"
+              >
                 <span aria-hidden="true">🟢</span>
                 <span>Green</span>
               </button>
-              <button type="button" class="popover-crt-btn popover-crt-btn--cyan" data-crt-choice="cyan" role="menuitem">
+              <button
+                type="button"
+                class="popover-crt-btn popover-crt-btn--cyan"
+                data-crt-choice="cyan"
+                role="menuitem"
+              >
                 <span aria-hidden="true">🔷</span>
                 <span>Cyan</span>
               </button>
+            </div>
+          </div>
+
+          <div class="popover-section popover-section--cells">
+            <span class="popover-heading" id="desktop-cell-mode-heading">Ambient cells</span>
+            <div class="cell-mode-grid" role="group" aria-labelledby="desktop-cell-mode-heading">
+              <button
+                type="button"
+                class="cell-control-btn"
+                data-cell-mode="calm"
+                role="menuitemradio"
+                aria-checked="true"
+                title="Keep a subtle, balanced background"
+              >
+                Calm
+              </button>
+              <button
+                type="button"
+                class="cell-control-btn"
+                data-cell-mode="lab"
+                role="menuitemradio"
+                aria-checked="false"
+                title="Choose what happens when you select a cell"
+              >
+                Lab
+              </button>
+              <button
+                type="button"
+                class="cell-control-btn"
+                data-cell-mode="off"
+                role="menuitemradio"
+                aria-checked="false"
+                title="Hide the ambient cell background"
+              >
+                Off
+              </button>
+            </div>
+            <span class="cell-control-hint" data-cell-mode-hint>
+              Calm keeps the background subtle and balanced.
+            </span>
+
+            <div class="cell-lab-actions" data-cell-lab-actions hidden>
+              <span class="popover-heading" id="desktop-cell-action-heading">Lab action</span>
+              <div
+                class="cell-action-row"
+                role="group"
+                aria-labelledby="desktop-cell-action-heading"
+              >
+                <button
+                  type="button"
+                  class="cell-control-btn"
+                  data-cell-action="divide"
+                  role="menuitemradio"
+                  aria-checked="true"
+                >
+                  Divide
+                </button>
+                <button
+                  type="button"
+                  class="cell-control-btn"
+                  data-cell-action="apoptosis"
+                  role="menuitemradio"
+                  aria-checked="false"
+                >
+                  Apoptosis
+                </button>
+              </div>
+              <span class="cell-control-hint">Select a cell in the page to apply this action.</span>
+              <span class="cell-reduced-motion-note">
+                Reduced motion is on: cells stay still, so canvas actions are unavailable.
+              </span>
             </div>
           </div>
         </div>
@@ -214,19 +340,103 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       </div>
 
       <p class="eyebrow mobile-drawer-heading" style="margin-top: 0.5rem;">1988 Retro CRT</p>
-      <div class="mobile-theme-row mobile-theme-row--crt" role="radiogroup" aria-label="1988 CRT Mode">
-        <button type="button" class="mobile-theme-btn mobile-theme-btn--amber" data-crt-choice="amber">
+      <div
+        class="mobile-theme-row mobile-theme-row--crt"
+        role="radiogroup"
+        aria-label="1988 CRT Mode"
+      >
+        <button
+          type="button"
+          class="mobile-theme-btn mobile-theme-btn--amber"
+          data-crt-choice="amber"
+        >
           <span>⚡</span>
           <span>Amber</span>
         </button>
-        <button type="button" class="mobile-theme-btn mobile-theme-btn--green" data-crt-choice="green">
+        <button
+          type="button"
+          class="mobile-theme-btn mobile-theme-btn--green"
+          data-crt-choice="green"
+        >
           <span>🟢</span>
           <span>Green</span>
         </button>
-        <button type="button" class="mobile-theme-btn mobile-theme-btn--cyan" data-crt-choice="cyan">
+        <button
+          type="button"
+          class="mobile-theme-btn mobile-theme-btn--cyan"
+          data-crt-choice="cyan"
+        >
           <span>🔷</span>
           <span>Cyan</span>
         </button>
+      </div>
+
+      <div class="mobile-cell-controls">
+        <p class="eyebrow mobile-drawer-heading" id="mobile-cell-mode-heading">Ambient cells</p>
+        <div class="cell-mode-grid" role="radiogroup" aria-labelledby="mobile-cell-mode-heading">
+          <button
+            type="button"
+            class="cell-control-btn"
+            data-cell-mode="calm"
+            role="radio"
+            aria-checked="true"
+          >
+            Calm
+          </button>
+          <button
+            type="button"
+            class="cell-control-btn"
+            data-cell-mode="lab"
+            role="radio"
+            aria-checked="false"
+          >
+            Lab
+          </button>
+          <button
+            type="button"
+            class="cell-control-btn"
+            data-cell-mode="off"
+            role="radio"
+            aria-checked="false"
+          >
+            Off
+          </button>
+        </div>
+        <span class="cell-control-hint" data-cell-mode-hint>
+          Calm keeps the background subtle and balanced.
+        </span>
+
+        <div class="cell-lab-actions" data-cell-lab-actions hidden>
+          <p class="eyebrow mobile-drawer-heading" id="mobile-cell-action-heading">Lab action</p>
+          <div
+            class="cell-action-row"
+            role="radiogroup"
+            aria-labelledby="mobile-cell-action-heading"
+          >
+            <button
+              type="button"
+              class="cell-control-btn"
+              data-cell-action="divide"
+              role="radio"
+              aria-checked="true"
+            >
+              Divide
+            </button>
+            <button
+              type="button"
+              class="cell-control-btn"
+              data-cell-action="apoptosis"
+              role="radio"
+              aria-checked="false"
+            >
+              Apoptosis
+            </button>
+          </div>
+          <span class="cell-control-hint">Tap a cell behind the page to apply this action.</span>
+          <span class="cell-reduced-motion-note">
+            Reduced motion is on: cells stay still, so canvas actions are unavailable.
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -525,6 +735,12 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     box-sizing: border-box;
   }
 
+  .popover-section--cells {
+    margin-top: 0.15rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--color-rule);
+  }
+
   .popover-heading {
     font-size: 0.6875rem;
     font-weight: 700;
@@ -662,6 +878,87 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     font-weight: 600;
   }
 
+  .cell-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  .cell-action-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  .cell-control-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 36px;
+    padding: 0.45rem 0.4rem;
+    border: 1px solid var(--color-rule);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--color-muted);
+    font-family: inherit;
+    font-size: 0.78125rem;
+    font-weight: 500;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+      color 0.12s ease,
+      border-color 0.12s ease,
+      background-color 0.12s ease,
+      box-shadow 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .cell-control-btn:hover {
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+
+  .cell-control-btn:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .cell-control-btn.is-active {
+    color: var(--color-ink);
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    font-weight: 650;
+  }
+
+  .cell-lab-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: 0.2rem;
+    padding-top: 0.55rem;
+    border-top: 1px dashed var(--color-rule);
+  }
+
+  .cell-lab-actions[hidden] {
+    display: none;
+  }
+
+  .cell-control-hint,
+  .cell-reduced-motion-note {
+    color: var(--color-muted);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    padding-inline: 0.35rem;
+  }
+
+  .cell-reduced-motion-note {
+    display: none;
+    color: var(--color-ink);
+    margin-top: 0.15rem;
+  }
+
   .theme-swatch-dot {
     width: 9px;
     height: 9px;
@@ -669,12 +966,30 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     flex-shrink: 0;
     display: inline-block;
   }
-  .theme-swatch-dot--light { background: #2e6e5e; border: 1px solid rgba(0,0,0,0.15); }
-  .theme-swatch-dot--parchment { background: #c2410c; border: 1px solid rgba(0,0,0,0.15); }
-  .theme-swatch-dot--dark { background: #75c7af; border: 1px solid rgba(255,255,255,0.25); }
-  .theme-swatch-dot--nord { background: #88c0d0; border: 1px solid rgba(255,255,255,0.25); }
-  .theme-swatch-dot--monokai { background: #ffd866; border: 1px solid rgba(255,255,255,0.25); }
-  .theme-swatch-dot--cyberdeck { background: #22d3ee; border: 1px solid rgba(255,255,255,0.25); }
+  .theme-swatch-dot--light {
+    background: #2e6e5e;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+  }
+  .theme-swatch-dot--parchment {
+    background: #c2410c;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+  }
+  .theme-swatch-dot--dark {
+    background: #75c7af;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+  .theme-swatch-dot--nord {
+    background: #88c0d0;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+  .theme-swatch-dot--monokai {
+    background: #ffd866;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+  .theme-swatch-dot--cyberdeck {
+    background: #22d3ee;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
 
   .opt-text {
     flex: 1;
@@ -684,6 +999,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   .mobile-menu {
     border-top: 1px solid var(--color-rule);
     background: var(--color-bg);
+    max-height: calc(100dvh - 4.25rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .mobile-menu ul {
     list-style: none;
@@ -778,6 +1097,31 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     background: rgba(56, 253, 248, 0.15) !important;
   }
 
+  .mobile-cell-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .mobile-cell-controls .cell-control-btn {
+    min-height: 44px;
+    background: var(--color-surface);
+    font-size: 0.8125rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cell-control-btn {
+      transition: none;
+    }
+
+    .cell-reduced-motion-note {
+      display: block;
+    }
+  }
+
   @media (max-width: 960px) {
     .nav-desktop {
       display: none;
@@ -820,6 +1164,8 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 </style>
 
 <script>
+  import { getLivingCellsEngine, type CellAction, type CellMode } from '../lib/livingCellsEngine';
+
   interface ThemeApi {
     get: () => string;
     set: (t: string) => void;
@@ -844,6 +1190,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   let nav: Nav | null = null;
   let popoverEl: HTMLElement | null = null;
   let topBtnEl: HTMLButtonElement | null = null;
+  const headerWindow = window as Window & {
+    __khcHeaderEventsBound?: boolean;
+    __khcCellControlEventsBound?: boolean;
+  };
 
   const isMenuOpen = () => nav?.toggle.getAttribute('aria-expanded') === 'true';
   const setMenuOpen = (open: boolean) => {
@@ -872,7 +1222,13 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       topBtn.dataset.crtActive = String(isCrt);
       if (crtBadge) {
         crtBadge.textContent =
-          currentCrt === 'amber' ? '⚡' : currentCrt === 'green' ? '🟢' : currentCrt === 'cyan' ? '🔷' : '';
+          currentCrt === 'amber'
+            ? '⚡'
+            : currentCrt === 'green'
+              ? '🟢'
+              : currentCrt === 'cyan'
+                ? '🔷'
+                : '';
       }
     }
 
@@ -891,6 +1247,71 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
     });
+  }
+
+  const cellModeCopy: Record<CellMode, string> = {
+    calm: 'Calm keeps the background subtle and balanced.',
+    lab: 'Lab lets you choose what happens when you select a cell.',
+    off: 'Ambient cells are hidden.',
+  };
+
+  function syncCellControls() {
+    const engine = getLivingCellsEngine();
+    const mode = engine.getMode();
+    const action = engine.getLabAction();
+    document.documentElement.dataset.cellMode = mode;
+    document.documentElement.dataset.cellAction = action;
+
+    document.querySelectorAll<HTMLButtonElement>('[data-cell-mode]').forEach((btn) => {
+      const isActive = btn.dataset.cellMode === mode;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-checked', String(isActive));
+      btn.tabIndex = isActive ? 0 : -1;
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('[data-cell-action]').forEach((btn) => {
+      const isActive = btn.dataset.cellAction === action;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-checked', String(isActive));
+      btn.tabIndex = isActive ? 0 : -1;
+    });
+
+    document.querySelectorAll<HTMLElement>('[data-cell-lab-actions]').forEach((group) => {
+      group.hidden = mode !== 'lab';
+    });
+    document.querySelectorAll<HTMLElement>('[data-cell-mode-hint]').forEach((hint) => {
+      hint.textContent = cellModeCopy[mode];
+    });
+  }
+
+  function handleCellControlKeydown(event: KeyboardEvent, button: HTMLButtonElement) {
+    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    const selector = button.hasAttribute('data-cell-mode')
+      ? '[data-cell-mode]'
+      : '[data-cell-action]';
+    const choices = Array.from(
+      button.parentElement?.querySelectorAll<HTMLButtonElement>(selector) ?? []
+    );
+    if (!choices.length) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const current = Math.max(0, choices.indexOf(button));
+    const backwards = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+    const nextIndex =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? choices.length - 1
+          : (current + (backwards ? -1 : 1) + choices.length) % choices.length;
+    const next = choices[nextIndex];
+    next.focus();
+    const mode = next.dataset.cellMode as CellMode | undefined;
+    const action = next.dataset.cellAction as CellAction | undefined;
+    if (mode) getLivingCellsEngine().setMode(mode);
+    if (action) getLivingCellsEngine().setLabAction(action);
+    syncCellControls();
   }
 
   function bind() {
@@ -939,11 +1360,35 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       };
     });
 
+    document.querySelectorAll<HTMLButtonElement>('[data-cell-mode]').forEach((btn) => {
+      btn.onclick = (event) => {
+        event.stopPropagation();
+        const mode = btn.dataset.cellMode as CellMode | undefined;
+        if (!mode) return;
+        getLivingCellsEngine().setMode(mode);
+        syncCellControls();
+      };
+      btn.onkeydown = (event) => handleCellControlKeydown(event, btn);
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('[data-cell-action]').forEach((btn) => {
+      btn.onclick = (event) => {
+        event.stopPropagation();
+        const action = btn.dataset.cellAction as CellAction | undefined;
+        if (!action) return;
+        getLivingCellsEngine().setLabAction(action);
+        syncCellControls();
+        if (btn.closest('[data-top-theme-popover]')) setPopoverOpen(false);
+        if (btn.closest('#mobile-menu')) setMenuOpen(false);
+      };
+      btn.onkeydown = (event) => handleCellControlKeydown(event, btn);
+    });
+
     syncHeaderThemeIcons();
+    syncCellControls();
   }
 
-  // Close popover and mobile menu on Escape
-  document.addEventListener('keydown', (e) => {
+  function handleHeaderKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       if (isPopoverOpen()) {
         setPopoverOpen(false);
@@ -954,10 +1399,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         nav?.toggle.focus();
       }
     }
-  });
+  }
 
-  // Close popover when clicking anywhere outside
-  document.addEventListener('click', (e) => {
+  function handleOutsideClick(e: MouseEvent) {
     const target = e.target as Node;
     if (isPopoverOpen() && !popoverEl?.contains(target) && !topBtnEl?.contains(target)) {
       setPopoverOpen(false);
@@ -965,38 +1409,54 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     if (isMenuOpen() && !nav?.header.contains(target)) {
       setMenuOpen(false);
     }
-  });
+  }
 
-  // Reset closed once desktop nav takes over
-  window.matchMedia('(min-width: 960px)').addEventListener('change', (e) => {
+  function handleDesktopLayout(e: MediaQueryListEvent) {
     if (e.matches) setMenuOpen(false);
-  });
+  }
 
-  // Close menus when client-side navigation begins
-  document.addEventListener('astro:before-swap', () => {
+  function closeHeaderMenus() {
     setMenuOpen(false);
     setPopoverOpen(false);
-  });
+  }
 
   // Refresh active navigation indicators
   function updateActiveNav() {
     const currentPath = location.pathname;
-    for (const a of document.querySelectorAll<HTMLAnchorElement>('.nav-desktop a, .mobile-menu a')) {
+    for (const a of document.querySelectorAll<HTMLAnchorElement>(
+      '.nav-desktop a, .mobile-menu a'
+    )) {
       const href = a.getAttribute('href') || '';
       if (!href.startsWith('/')) continue;
-      const active = href === '/' ? currentPath === '/' : currentPath.startsWith(href.replace(/\/$/, ''));
+      const active =
+        href === '/' ? currentPath === '/' : currentPath.startsWith(href.replace(/\/$/, ''));
       if (active) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     }
   }
 
-  document.addEventListener('khc:theme-change', syncHeaderThemeIcons);
-  document.addEventListener('khc:crt-change', syncHeaderThemeIcons);
+  function handleHeaderPageLoad() {
+    bind();
+    updateActiveNav();
+  }
+
+  // Header markup persists through ordinary Astro navigation. Keep the
+  // document/window listeners singular even after a bare route removes and a
+  // later page recreates the component; each handler queries the live markup.
+  if (!headerWindow.__khcHeaderEventsBound) {
+    headerWindow.__khcHeaderEventsBound = true;
+    headerWindow.__khcCellControlEventsBound = true;
+    document.addEventListener('keydown', handleHeaderKeydown);
+    document.addEventListener('click', handleOutsideClick);
+    window.matchMedia('(min-width: 960px)').addEventListener('change', handleDesktopLayout);
+    document.addEventListener('astro:before-swap', closeHeaderMenus);
+    document.addEventListener('khc:theme-change', syncHeaderThemeIcons);
+    document.addEventListener('khc:crt-change', syncHeaderThemeIcons);
+    window.addEventListener('khc:cell-mode-change', syncCellControls);
+    window.addEventListener('khc:cell-action-change', syncCellControls);
+    document.addEventListener('astro:page-load', handleHeaderPageLoad);
+  }
 
   bind();
   updateActiveNav();
-  document.addEventListener('astro:page-load', () => {
-    bind();
-    updateActiveNav();
-  });
 </script>

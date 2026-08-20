@@ -11,9 +11,11 @@
  * Honors prefers-reduced-motion, pauses when the tab is hidden, scales DPR <= 2,
  * and keeps the background low contrast behind foreground content.
  */
+import CellStatusChip from './CellStatusChip.astro';
 ---
 
 <canvas data-site-bg-canvas aria-hidden="true" transition:persist="site-bg"></canvas>
+<CellStatusChip />
 
 <style>
   canvas {
@@ -31,23 +33,30 @@
 
   const lifecycleWindow = window as Window & {
     __khcLivingCellsLifecycleBound?: boolean;
+    __khcLivingCellsCanvas?: HTMLCanvasElement | null;
+  };
+
+  const attachBackground = () => {
+    const canvas = document.querySelector<HTMLCanvasElement>('[data-site-bg-canvas]');
+    if (!canvas || lifecycleWindow.__khcLivingCellsCanvas === canvas) return;
+    initLivingCellsBackground();
+    lifecycleWindow.__khcLivingCellsCanvas = canvas;
   };
 
   // Module scripts run on the first document before Astro emits its navigation
   // lifecycle events. Attach now as well as after subsequent page transitions.
-  initLivingCellsBackground();
+  attachBackground();
 
   if (!lifecycleWindow.__khcLivingCellsLifecycleBound) {
     lifecycleWindow.__khcLivingCellsLifecycleBound = true;
 
     document.addEventListener('astro:page-load', () => {
-      if (document.querySelector('[data-site-bg-canvas]')) {
-        initLivingCellsBackground();
-      }
+      attachBackground();
     });
 
     document.addEventListener('astro:before-swap', () => {
       getLivingCellsEngine().detach();
+      lifecycleWindow.__khcLivingCellsCanvas = null;
     });
   }
 </script>

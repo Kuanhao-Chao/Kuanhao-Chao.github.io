@@ -17,7 +17,31 @@ const browserTypes = { chromium, webkit };
 const smoke = process.argv.includes('--smoke') || process.env.CELL_UI_AUDIT_MODE === 'smoke';
 const actionTimeout = 12_000;
 const navigationTimeout = 30_000;
-const auditQuery = '?cell-audit=1';
+const auditQuery = '?cell-audit=1&cell-seed=20260820&cell-freeze=1';
+const protectedTargetSelector =
+  'a, button, input, textarea, select, summary, label, dialog, h1, h2, h3, h4, h5, h6, p, li, dt, dd, blockquote, pre, code, figure, figcaption, picture, img, video, audio, canvas, iframe, svg, table, thead, tbody, tr, th, td, details, header, footer, [contenteditable="true"], [role="button"], [role="menuitem"], [role="dialog"], [role="log"], [data-cell-interaction="off"], [data-cell-protected], [data-game-root], [data-terminal]';
+const touchRetargetSelector =
+  'a, button, input, textarea, select, summary, label, [contenteditable="true"], [role="button"], [role="menuitem"], [role="radio"]';
+
+const expectedPhases = {
+  mitosis: [
+    ['rounding', 0.06],
+    ['prometaphase', 0.18],
+    ['metaphase', 0.36],
+    ['anaphase', 0.53],
+    ['telophase', 0.69],
+    ['cytokinesis', 0.82],
+    ['abscission', 0.96],
+  ],
+  postmitotic: [['recovery', 0.35]],
+  apoptosis: [
+    ['condensation', 0.08],
+    ['blebbing', 0.27],
+    ['fragmentation', 0.5],
+    ['apoptotic-bodies', 0.72],
+    ['clearance', 0.92],
+  ],
+};
 
 const profiles = [
   {
@@ -171,7 +195,8 @@ async function waitForDebug(page) {
       Boolean(
         window.__khcCellsDebug &&
         typeof window.__khcCellsDebug.snapshot === 'function' &&
-        typeof window.__khcCellsDebug.setCellState === 'function'
+        typeof window.__khcCellsDebug.setCellState === 'function' &&
+        typeof window.__khcCellsDebug.setControllerFrozen === 'function'
       ),
     undefined,
     { timeout: actionTimeout }
@@ -180,6 +205,26 @@ async function waitForDebug(page) {
 
 async function snapshot(page) {
   return page.evaluate(() => window.__khcCellsDebug.snapshot());
+}
+
+async function waitForHeroDebug(page) {
+  await page.waitForFunction(
+    () => Boolean(window.__khcHeroDebug && typeof window.__khcHeroDebug.snapshot === 'function'),
+    undefined,
+    { timeout: actionTimeout }
+  );
+}
+
+async function heroSnapshot(page) {
+  return page.evaluate(() => window.__khcHeroDebug.snapshot());
+}
+
+function normalizePhase(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replaceAll('_', '-')
+    .replaceAll(' ', '-');
 }
 
 function lifecycleCount(value) {
@@ -263,7 +308,7 @@ function assertCanvas(scope, state, profile) {
     'canvas does not span viewport height'
   );
   check(scope, state.width > 0 && state.height > 0, 'canvas backing store has zero size');
-  const dprCap = profile.touch ? 1.5 : 2;
+  const dprCap = profile.touch ? 1.25 : 1.5;
   check(
     scope,
     state.ratioX > 0 && state.ratioX <= dprCap + 0.02,
@@ -276,7 +321,7 @@ function assertCanvas(scope, state, profile) {
   );
 }
 
-function assertSnapshot(scope, state) {
+function assertSnapshot(scope, state, profile) {
   check(scope, state.attached === true, 'engine is not attached');
   check(scope, state.running === true, 'engine is not running');
   check(scope, Number.isFinite(state.updateCount), 'updateCount is not finite');
@@ -297,7 +342,21 @@ function assertSnapshot(scope, state) {
     `projected count ${state.projectedCount} exceeds target ${state.targetCount} + 2`
   );
   check(scope, Array.isArray(state.cells) && state.cells.length > 0, 'debug snapshot has no cells');
-  check(scope, lifecycleCount(state.activeLifecycle) <= 1, 'too many concurrent lifecycle events');
+  check(scope, ['calm', 'lab', 'off'].includes(state.mode), `invalid cell mode ${state.mode}`);
+  check(
+    scope,
+    ['divide', 'apoptosis'].includes(state.labAction),
+    `invalid lab action ${state.labAction}`
+  );
+  check(scope, state.controllerFrozen === true, 'seeded audit did not freeze homeostasis');
+  check(scope, typeof state.detailLevel === 'string', 'detailLevel is not exposed');
+  check(scope, Number.isFinite(state.bodyCount) && state.bodyCount >= 0, 'bodyCount is invalid');
+  check(scope, state.timings && typeof state.timings === 'object', 'timing telemetry is missing');
+
+  const aspects = [];
+  const organelleKinds = new Set();
+  const aspectMin = profile.touch ? 0.84 : 0.78;
+  const aspectMax = profile.touch ? 1.2 : 1.26;
 
   for (const cell of state.cells ?? []) {
     const r = cellRadius(cell);
@@ -308,59 +367,202 @@ function assertSnapshot(scope, state) {
       `cell ${cell.id} has invalid coordinates`
     );
     check(scope, Number.isFinite(r) && r > 0, `cell ${cell.id} has invalid radius`);
+    check(
+      scope,
+      Number.isFinite(cell.targetRadius) && cell.targetRadius > 0,
+      `cell ${cell.id} has invalid target radius`
+    );
     check(scope, typeof cell.state === 'string', `cell ${cell.id} has no state`);
+    check(scope, typeof cell.phase === 'string', `cell ${cell.id} has no biological phase`);
+    check(
+      scope,
+      Number.isFinite(cell.aspect) &&
+        cell.aspect >= aspectMin - 0.000_001 &&
+        cell.aspect <= aspectMax + 0.000_001,
+      `cell ${cell.id} aspect ${cell.aspect} is outside the ${profile.touch ? 'coarse' : 'fine'} ${aspectMin}–${aspectMax} design range`
+    );
+    check(
+      scope,
+      Number.isFinite(cell.contourArea) && cell.contourArea > 0,
+      `cell ${cell.id} has invalid contour area`
+    );
+    check(
+      scope,
+      Number.isFinite(cell.targetArea) && cell.targetArea > 0,
+      `cell ${cell.id} has invalid target area`
+    );
+    if (Number.isFinite(cell.contourArea) && Number.isFinite(cell.targetArea)) {
+      const areaRatio = cell.contourArea / cell.targetArea;
+      check(
+        scope,
+        areaRatio >= 0.2 && areaRatio <= 1.6,
+        `cell ${cell.id} contour/target area ratio ${areaRatio.toFixed(2)} is implausible`
+      );
+    }
+    check(
+      scope,
+      Number.isInteger(cell.organelleCount) && cell.organelleCount >= 3,
+      `cell ${cell.id} has too few modeled organelles`
+    );
+    check(
+      scope,
+      Array.isArray(cell.organelleTypes) && cell.organelleTypes.length > 0,
+      `cell ${cell.id} has no organelle type summary`
+    );
+    check(
+      scope,
+      Number.isFinite(cell.contactCount) && cell.contactCount >= 0,
+      `cell ${cell.id} has invalid contact count`
+    );
+    check(
+      scope,
+      Number.isFinite(cell.apoptoticBodyCount) && cell.apoptoticBodyCount >= 0,
+      `cell ${cell.id} has invalid apoptotic body count`
+    );
+    if (Number.isFinite(cell.aspect)) aspects.push(cell.aspect);
+    for (const kind of cell.organelleTypes ?? []) organelleKinds.add(kind);
+  }
+
+  const aspectSpread = aspects.length ? Math.max(...aspects) - Math.min(...aspects) : 0;
+  check(scope, aspectSpread >= 0.035, `cell aspect diversity is only ${aspectSpread.toFixed(3)}`);
+  for (const required of ['mitochondria', 'golgi', 'er', 'centrosome']) {
+    check(scope, organelleKinds.has(required), `population is missing ${required}`);
   }
 }
 
-async function findCellPoint(page, excludedIds = []) {
-  return page.evaluate((excluded) => {
-    const blocked =
-      'a, button, input, select, textarea, summary, label, [role="button"], [role="menuitem"], [contenteditable="true"]';
-    const state = window.__khcCellsDebug.snapshot();
-    for (const cell of state.cells) {
-      if (excluded.includes(String(cell.id))) continue;
-      if (cell.state !== 'growing' && cell.state !== 'mature') continue;
-      const radius = Number(cell.radius ?? cell.baseRadius ?? 0);
-      if (!Number.isFinite(radius) || radius < 4) continue;
-      const offsets = [
-        [0, 0],
-        [0.2, 0],
-        [-0.2, 0],
-        [0, 0.2],
-        [0, -0.2],
-      ];
-      for (const [ox, oy] of offsets) {
-        const x = cell.x + radius * ox;
-        const y = cell.y + radius * oy;
-        if (x < 2 || y < 2 || x > innerWidth - 2 || y > innerHeight - 2) continue;
-        const target = document.elementFromPoint(x, y);
-        if (target && !target.closest(blocked)) return { id: cell.id, x, y, radius };
+async function findCellPoint(page, excludedIds = [], touch = false) {
+  return page.evaluate(
+    ({ excluded, blocked, retargetable, coarse }) => {
+      const state = window.__khcCellsDebug.snapshot();
+      const interactiveRects = coarse
+        ? [...document.querySelectorAll(retargetable)]
+            .map((element) => element.getBoundingClientRect())
+            .filter((rect) => rect.width > 0 && rect.height > 0)
+        : [];
+      const hasTouchRetargetRisk = (x, y) =>
+        interactiveRects.some(
+          (rect) =>
+            x >= rect.left - 24 &&
+            x <= rect.right + 24 &&
+            y >= rect.top - 24 &&
+            y <= rect.bottom + 24
+        );
+      const orderedCells = [...state.cells].sort((a, b) => {
+        const aHasSwipeRoom = a.y >= 150 && a.y <= innerHeight - 40 ? 1 : 0;
+        const bHasSwipeRoom = b.y >= 150 && b.y <= innerHeight - 40 ? 1 : 0;
+        return bHasSwipeRoom - aHasSwipeRoom;
+      });
+      for (const cell of orderedCells) {
+        if (excluded.includes(String(cell.id))) continue;
+        if (cell.state !== 'growing' && cell.state !== 'mature') continue;
+        const radius = Number(cell.radius ?? cell.baseRadius ?? 0);
+        if (!Number.isFinite(radius) || radius < 4) continue;
+        const offsets = [
+          [0, 0],
+          [0.2, 0],
+          [-0.2, 0],
+          [0, 0.2],
+          [0, -0.2],
+          [0.38, 0],
+          [-0.38, 0],
+          [0, 0.38],
+          [0, -0.38],
+          [0.27, 0.27],
+          [-0.27, 0.27],
+          [0.27, -0.27],
+          [-0.27, -0.27],
+          [0.56, 0],
+          [-0.56, 0],
+          [0, 0.56],
+          [0, -0.56],
+          [0.4, 0.4],
+          [-0.4, 0.4],
+          [0.4, -0.4],
+          [-0.4, -0.4],
+        ];
+        for (const [ox, oy] of offsets) {
+          const x = cell.x + radius * ox;
+          const y = cell.y + radius * oy;
+          if (x < 2 || y < 2 || x > innerWidth - 2 || y > innerHeight - 2) continue;
+          const target = document.elementFromPoint(x, y);
+          const touchCard = coarse && target?.closest('article, .project-links');
+          if (target && !target.closest(blocked) && !touchCard && !hasTouchRetargetRisk(x, y))
+            return { id: cell.id, x, y, radius };
+        }
       }
+      return null;
+    },
+    {
+      excluded: excludedIds.map(String),
+      blocked: protectedTargetSelector,
+      retargetable: touchRetargetSelector,
+      coarse: touch,
     }
-    return null;
-  }, excludedIds.map(String));
+  );
 }
 
-async function findEmptyPoint(page) {
-  return page.evaluate(() => {
-    const blocked =
-      'a, button, input, select, textarea, summary, label, [role="button"], [role="menuitem"], [contenteditable="true"]';
-    const cells = window.__khcCellsDebug.snapshot().cells;
-    for (let gy = 1; gy <= 7; gy += 1) {
-      for (let gx = 1; gx <= 9; gx += 1) {
-        const x = (innerWidth * gx) / 10;
-        const y = (innerHeight * gy) / 8;
-        const target = document.elementFromPoint(x, y);
-        if (!target || target.closest(blocked)) continue;
-        const clear = cells.every((cell) => {
-          const radius = Number(cell.radius ?? cell.baseRadius ?? 0);
-          return Math.hypot(cell.x - x, cell.y - y) > radius * 1.7 + 10;
-        });
-        if (clear) return { x, y };
+async function findCellPointAcrossScroll(page, profile, excludedIds = []) {
+  const initial = await findCellPoint(page, excludedIds, profile.touch);
+  if (initial || !profile.touch) return initial;
+  const metrics = await page.evaluate(() => ({
+    top: scrollY,
+    max: Math.max(0, document.documentElement.scrollHeight - innerHeight),
+  }));
+  for (const fraction of [0, 0.16, 0.33, 0.5, 0.67, 0.84, 1]) {
+    await page.evaluate((top) => scrollTo({ top, behavior: 'instant' }), metrics.max * fraction);
+    await page.waitForTimeout(45);
+    const point = await findCellPoint(page, excludedIds, true);
+    if (point) return point;
+  }
+  await page.evaluate((top) => scrollTo({ top, behavior: 'instant' }), metrics.top);
+  return null;
+}
+
+async function findEmptyPoint(page, touch = false) {
+  return page.evaluate(
+    ({ blocked, retargetable, coarse }) => {
+      const cells = window.__khcCellsDebug.snapshot().cells;
+      const interactiveRects = coarse
+        ? [...document.querySelectorAll(retargetable)]
+            .map((element) => element.getBoundingClientRect())
+            .filter((rect) => rect.width > 0 && rect.height > 0)
+        : [];
+      for (let gy = 1; gy <= 7; gy += 1) {
+        for (let gx = 1; gx <= 9; gx += 1) {
+          const x = (innerWidth * gx) / 10;
+          const y = (innerHeight * gy) / 8;
+          const target = document.elementFromPoint(x, y);
+          if (
+            !target ||
+            target.closest(blocked) ||
+            (coarse && target.closest('article, .project-links'))
+          )
+            continue;
+          if (
+            interactiveRects.some(
+              (rect) =>
+                x >= rect.left - 24 &&
+                x <= rect.right + 24 &&
+                y >= rect.top - 24 &&
+                y <= rect.bottom + 24
+            )
+          )
+            continue;
+          const clear = cells.every((cell) => {
+            const radius = Number(cell.radius ?? cell.baseRadius ?? 0);
+            return Math.hypot(cell.x - x, cell.y - y) > radius * 1.7 + 10;
+          });
+          if (clear) return { x, y };
+        }
       }
+      return null;
+    },
+    {
+      blocked: protectedTargetSelector,
+      retargetable: touchRetargetSelector,
+      coarse: touch,
     }
-    return null;
-  });
+  );
 }
 
 async function setCellState(page, id, state, progressValue) {
@@ -397,108 +599,565 @@ async function normalizeCells(page) {
   });
 }
 
+async function findEmptyPointAcrossScroll(page, profile) {
+  const initial = await findEmptyPoint(page, profile.touch);
+  if (initial || !profile.touch) return initial;
+  const metrics = await page.evaluate(() => ({
+    top: scrollY,
+    max: Math.max(0, document.documentElement.scrollHeight - innerHeight),
+  }));
+  for (const fraction of [0, 0.16, 0.33, 0.5, 0.67, 0.84, 1]) {
+    await page.evaluate((top) => scrollTo({ top, behavior: 'instant' }), metrics.max * fraction);
+    await page.waitForTimeout(45);
+    const point = await findEmptyPoint(page, true);
+    if (point) return point;
+  }
+  await page.evaluate((top) => scrollTo({ top, behavior: 'instant' }), metrics.top);
+  return null;
+}
+
+function deterministicFingerprint(state) {
+  return JSON.stringify({
+    targetCount: state.targetCount,
+    cells: (state.cells ?? [])
+      .map((cell) => ({
+        targetRadius: Number(cell.targetRadius).toFixed(4),
+        aspect: Number(cell.aspect).toFixed(4),
+        organelleCount: cell.organelleCount,
+        organelleTypes: [...(cell.organelleTypes ?? [])].sort(),
+      }))
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+  });
+}
+
+async function auditDeterministicSeed(page, scope) {
+  const first = deterministicFingerprint(await snapshot(page));
+  await page.reload({ waitUntil: 'networkidle', timeout: navigationTimeout });
+  await waitForDebug(page);
+  const second = deterministicFingerprint(await snapshot(page));
+  check(scope, second === first, 'cell-seed did not reproduce stable cell traits after reload');
+}
+
 async function auditLifecycleFrames(page, scope) {
   const point = await findCellPoint(page);
   if (!point) throw new Error('could not find a visible cell for lifecycle phase checks');
-  const phases = [
-    ['mitosis', 0.05],
-    ['mitosis', 0.28],
-    ['mitosis', 0.48],
-    ['mitosis', 0.74],
-    ['mitosis', 0.95],
-    ['apoptosis', 0.05],
-    ['apoptosis', 0.35],
-    ['apoptosis', 0.65],
-    ['apoptosis', 0.8],
-  ];
+  const phases = Object.entries(expectedPhases).flatMap(([state, entries]) =>
+    entries.map(([phase, phaseProgress]) => [state, phase, phaseProgress])
+  );
 
   let previousState = '';
-  for (const [state, phase] of phases) {
+  for (const [state, expectedPhase, phaseProgress] of phases) {
     if (previousState && previousState !== state) {
       await setCellState(page, point.id, 'mature');
     }
     const before = await snapshot(page);
-    await setCellState(page, point.id, state, phase);
+    await setCellState(page, point.id, state, phaseProgress);
     await page.waitForTimeout(80);
     const after = await snapshot(page);
     const cell = after.cells.find((item) => String(item.id) === String(point.id));
-    check(scope, Boolean(cell), `cell ${point.id} disappeared at ${state} ${phase}`);
-    check(scope, cell?.state === state, `cell ${point.id} did not enter ${state} at ${phase}`);
+    check(scope, Boolean(cell), `cell ${point.id} disappeared at ${state} ${phaseProgress}`);
+    check(
+      scope,
+      cell?.state === state,
+      `cell ${point.id} did not enter ${state} at ${phaseProgress}`
+    );
+    check(
+      scope,
+      normalizePhase(cell?.phase) === expectedPhase,
+      `${state} ${phaseProgress} reported phase ${cell?.phase}, expected ${expectedPhase}`
+    );
     check(
       scope,
       after.renderCount > before.renderCount,
-      `${state} ${phase} did not render a new frame`
+      `${state} ${phaseProgress} did not render a new frame`
     );
+    if (state === 'apoptosis' && expectedPhase === 'apoptotic-bodies') {
+      check(
+        scope,
+        after.bodyCount > 0 && (cell?.apoptoticBodyCount ?? 0) > 0,
+        'apoptotic-body phase did not expose any membrane-bound bodies'
+      );
+    }
     previousState = state;
   }
 
   await setCellState(page, point.id, 'mature');
 }
 
-async function auditPointerInteractions(page, scope, profile) {
-  let point = null;
-  let stationaryTapPassed = false;
-  for (let attempt = 0; attempt < 2 && !stationaryTapPassed; attempt += 1) {
-    await normalizeCells(page);
+async function auditMitosisTiming(page, scope) {
+  await normalizeCells(page);
+  const point = await findCellPoint(page);
+  if (!point) throw new Error('could not find a visible cell for mitosis timing');
+  const before = await snapshot(page);
+  const beforeIds = before.cells.map((cell) => String(cell.id));
+  const parent = before.cells.find((cell) => String(cell.id) === String(point.id));
+  const started = Date.now();
+  await setCellState(page, point.id, 'mitosis', 0);
+  await page.waitForFunction(
+    (parentId) =>
+      !window.__khcCellsDebug.snapshot().cells.some((cell) => String(cell.id) === String(parentId)),
+    String(point.id),
+    { timeout: 5_500 }
+  );
+  const dividedAt = Date.now();
+  const divided = await snapshot(page);
+  const daughters = divided.cells.filter((cell) => !beforeIds.includes(String(cell.id)));
+  const mitosisMs = dividedAt - started;
+  check(scope, mitosisMs >= 3_550, `mitosis completed too quickly (${mitosisMs}ms)`);
+  check(scope, mitosisMs <= 4_650, `mitosis exceeded the 4s budget (${mitosisMs}ms)`);
+  check(scope, daughters.length === 2, `mitosis produced ${daughters.length} daughters`);
+  check(
+    scope,
+    daughters.every((cell) => cell.state === 'postmitotic'),
+    'daughters skipped the postmitotic recovery state'
+  );
+  check(
+    scope,
+    daughters.every((cell) => normalizePhase(cell.phase) === 'recovery'),
+    'new daughters did not begin in the recovery phase'
+  );
+  if (parent && daughters.length === 2) {
+    const volumeRatio =
+      daughters.reduce((sum, cell) => sum + cellRadius(cell) ** 3, 0) /
+      Math.max(1, cellRadius(parent) ** 3);
+    check(
+      scope,
+      Math.abs(volumeRatio - 1) <= 0.05,
+      `daughter/parent volume ratio is ${volumeRatio.toFixed(3)}`
+    );
+    check(
+      scope,
+      String(daughters[0].siblingId) === String(daughters[1].id) &&
+        String(daughters[1].siblingId) === String(daughters[0].id),
+      'daughter sibling identities are not reciprocal'
+    );
+  }
+
+  const daughterIds = daughters.map((cell) => String(cell.id));
+  if (daughterIds.length) {
+    await page.waitForFunction(
+      (ids) => {
+        const cells = window.__khcCellsDebug.snapshot().cells;
+        return ids.every((id) => {
+          const cell = cells.find((item) => String(item.id) === id);
+          return cell && cell.state !== 'postmitotic';
+        });
+      },
+      daughterIds,
+      { timeout: 2_800 }
+    );
+    const recoveryMs = Date.now() - dividedAt;
+    check(scope, recoveryMs >= 1_150, `daughter recovery was abrupt (${recoveryMs}ms)`);
+    check(scope, recoveryMs <= 2_350, `daughter recovery was too slow (${recoveryMs}ms)`);
+    for (const id of daughterIds) await setCellState(page, id, 'mature');
+  }
+  progress(`${scope}/timing mitosis=${mitosisMs}ms recovery=${Date.now() - dividedAt}ms`);
+}
+
+async function visibleControl(page, selector) {
+  const usesMobileDrawer = await page.evaluate(() => matchMedia('(max-width: 960px)').matches);
+
+  if (usesMobileDrawer) {
+    const menuButton = page.locator('.nav-toggle').filter({ visible: true }).first();
+    await menuButton.waitFor({ state: 'visible', timeout: actionTimeout });
+    if ((await menuButton.getAttribute('aria-expanded')) !== 'true') await menuButton.click();
+    const control = page.locator(`#mobile-menu ${selector}`).first();
+    await control.waitFor({ state: 'attached', timeout: actionTimeout });
+    await control.scrollIntoViewIfNeeded();
+    await control.waitFor({ state: 'visible', timeout: actionTimeout });
+    return control;
+  }
+
+  let control = page
+    .locator(`[data-top-theme-popover] ${selector}`)
+    .filter({ visible: true })
+    .first();
+  if ((await control.count()) > 0) return control;
+
+  const popoverButton = page.locator('[data-top-theme-btn]').filter({ visible: true }).first();
+  if ((await popoverButton.count()) > 0) {
+    if ((await popoverButton.getAttribute('aria-expanded')) !== 'true') await popoverButton.click();
+    control = page.locator(selector).filter({ visible: true }).first();
+    await control.waitFor({ state: 'visible', timeout: actionTimeout });
+    return control;
+  }
+
+  throw new Error(`no visible control surface is available for ${selector}`);
+}
+
+async function clickCellControl(page, selector) {
+  const control = await visibleControl(page, selector);
+  await control.click();
+}
+
+async function tapCellPoint(page, profile, point) {
+  const describe = () =>
+    page.evaluate(
+      ({ x, y, blocked }) => {
+        const target = document.elementFromPoint(x, y);
+        const link = target instanceof Element ? target.closest('a') : null;
+        const label = (element) => {
+          if (!(element instanceof Element)) return null;
+          const id = element.id ? `#${element.id}` : '';
+          const classes = [...element.classList]
+            .slice(0, 3)
+            .map((value) => `.${value}`)
+            .join('');
+          return `${element.tagName.toLowerCase()}${id}${classes}`;
+        };
+        return {
+          url: location.href,
+          scrollY,
+          target: label(target),
+          closestLink: link instanceof HTMLAnchorElement ? link.href : null,
+          protected: target instanceof Element ? Boolean(target.closest(blocked)) : true,
+          debug: Boolean(window.__khcCellsDebug),
+        };
+      },
+      { ...point, blocked: protectedTargetSelector }
+    );
+  const before = await describe();
+  if (profile.touch) await page.touchscreen.tap(point.x, point.y);
+  else await page.mouse.click(point.x, point.y);
+  await page.waitForTimeout(profile.touch ? 160 : 30);
+  let after;
+  try {
+    after = await describe();
+  } catch {
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    after = {
+      url: page.url(),
+      scrollY: null,
+      target: null,
+      closestLink: null,
+      protected: true,
+      debug: await page.evaluate(() => Boolean(window.__khcCellsDebug)).catch(() => false),
+    };
+  }
+  if (after.url !== before.url) {
+    throw new Error(
+      `cell tap navigated from ${before.url} to ${after.url}; before target=${before.target}, link=${before.closestLink ?? 'none'}, protected=${before.protected}, scrollY=${before.scrollY}; after target=${after.target}, link=${after.closestLink ?? 'none'}, debug=${after.debug}, scrollY=${after.scrollY}`
+    );
+  }
+}
+
+async function mountAuditSurface(page, kind) {
+  await page.evaluate((surfaceKind) => {
+    document.querySelector('[data-cell-audit-surface]')?.remove();
+    const surface = document.createElement('div');
+    surface.dataset.cellAuditSurface = surfaceKind;
+    surface.setAttribute('aria-hidden', 'true');
+    if (surfaceKind === 'protected') surface.dataset.cellProtected = '';
+    Object.assign(surface.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '2147483646',
+      background: 'transparent',
+      pointerEvents: 'auto',
+      touchAction: 'manipulation',
+    });
+    document.body.append(surface);
+  }, kind);
+}
+
+async function removeAuditSurface(page) {
+  await page.evaluate(() => document.querySelector('[data-cell-audit-surface]')?.remove());
+}
+
+async function auditCellControls(page, scope, profile) {
+  const contract = await page.evaluate(() => ({
+    modes: [...document.querySelectorAll('[data-cell-mode]')].map((element) =>
+      element.getAttribute('data-cell-mode')
+    ),
+    actions: [...document.querySelectorAll('[data-cell-action]')].map((element) =>
+      element.getAttribute('data-cell-action')
+    ),
+    hasActionsRoot: Boolean(document.querySelector('[data-cell-lab-actions]')),
+    hasStatus: Boolean(document.querySelector('[data-cell-status]')),
+    hasStatusText: Boolean(document.querySelector('[data-cell-status-text]')),
+  }));
+  check(
+    scope,
+    ['calm', 'lab', 'off'].every((mode) => contract.modes.includes(mode)),
+    `mode controls are incomplete: ${contract.modes.join(', ')}`
+  );
+  check(
+    scope,
+    ['divide', 'apoptosis'].every((action) => contract.actions.includes(action)),
+    `lab action controls are incomplete: ${contract.actions.join(', ')}`
+  );
+  check(scope, contract.hasActionsRoot, 'lab action group is missing');
+  check(scope, contract.hasStatus && contract.hasStatusText, 'cell status chip is incomplete');
+
+  const beforeControls = await snapshot(page);
+  await clickCellControl(page, '[data-cell-mode="lab"]');
+  await page.waitForFunction(
+    () =>
+      document.documentElement.dataset.cellMode === 'lab' &&
+      window.__khcCellsDebug.snapshot().mode === 'lab'
+  );
+  const lab = await snapshot(page);
+  check(
+    scope,
+    lab.counters.clickRequests === beforeControls.counters.clickRequests,
+    'opening Lab mode triggered a cell division'
+  );
+  const labUi = await page.evaluate(() => {
+    const visible = (element) => {
+      if (!(element instanceof HTMLElement) || element.hidden) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0;
+    };
+    const group = [...document.querySelectorAll('[data-cell-lab-actions]')].find(visible);
+    const labButton = [...document.querySelectorAll('[data-cell-mode="lab"]')].find(visible);
+    return {
+      visible: Boolean(group),
+      checked: labButton?.getAttribute('aria-checked'),
+      active: labButton?.classList.contains('is-active'),
+    };
+  });
+  check(scope, labUi.visible, 'Lab actions stayed hidden in Lab mode');
+  check(scope, labUi.checked === 'true' && labUi.active, 'Lab mode control is not selected');
+
+  await clickCellControl(page, '[data-cell-action="apoptosis"]');
+  await page.waitForFunction(() => window.__khcCellsDebug.snapshot().labAction === 'apoptosis');
+  check(
+    scope,
+    await page.evaluate(() => sessionStorage.getItem('khc-cell-action') === 'apoptosis'),
+    'Lab apoptosis action was not persisted for the session'
+  );
+
+  await mountAuditSurface(page, 'exposed-background');
+  let point;
+  try {
     point = await findCellPoint(page);
-    if (!point) throw new Error('could not find a visible noninteractive cell hit point');
-    const beforeTap = await snapshot(page);
-    if (profile.touch) await page.touchscreen.tap(point.x, point.y);
-    else await page.mouse.click(point.x, point.y);
+    if (!point) throw new Error('could not find a visible cell for Lab action/status checks');
+    await tapCellPoint(page, profile, point);
+  } finally {
+    await removeAuditSurface(page);
+  }
+  await page.waitForFunction((cellId) => {
+    const state = window.__khcCellsDebug.snapshot();
+    const cell = state.cells.find((item) => String(item.id) === String(cellId));
+    const chip = document.querySelector('[data-cell-status]');
+    return cell?.state === 'apoptosis' && chip && !chip.hasAttribute('hidden');
+  }, String(point.id));
+  const status = await page.evaluate(() => ({
+    text: document.querySelector('[data-cell-status-text]')?.textContent?.trim() ?? '',
+    hidden: document.querySelector('[data-cell-status]')?.hasAttribute('hidden') ?? true,
+    selectedCellId: window.__khcCellsDebug.snapshot().selectedCellId,
+  }));
+  check(scope, !status.hidden && status.text.length > 0, 'Lab lifecycle status is not legible');
+  check(
+    scope,
+    String(status.selectedCellId) === String(point.id),
+    'Lab status did not follow the clicked cell'
+  );
+  await setCellState(page, point.id, 'mature');
+
+  await clickCellControl(page, '[data-cell-action="divide"]');
+  await page.waitForFunction(() => window.__khcCellsDebug.snapshot().labAction === 'divide');
+  await clickCellControl(page, '[data-cell-mode="off"]');
+  await page.waitForFunction(
+    () =>
+      document.documentElement.dataset.cellMode === 'off' &&
+      window.__khcCellsDebug.snapshot().mode === 'off'
+  );
+  const offUi = await page.evaluate(() => {
+    const group = document.querySelector('[data-cell-lab-actions]');
+    const statusChip = document.querySelector('[data-cell-status]');
+    return {
+      actionsHidden: Boolean(
+        !group || group.hasAttribute('hidden') || getComputedStyle(group).display === 'none'
+      ),
+      statusHidden: Boolean(!statusChip || statusChip.hasAttribute('hidden')),
+    };
+  });
+  check(scope, offUi.actionsHidden, 'Lab actions remained visible in Off mode');
+  check(scope, offUi.statusHidden, 'lifecycle status remained visible in Off mode');
+
+  await clickCellControl(page, '[data-cell-mode="calm"]');
+  await page.waitForFunction(
+    () =>
+      document.documentElement.dataset.cellMode === 'calm' &&
+      window.__khcCellsDebug.snapshot().mode === 'calm'
+  );
+  const calm = await snapshot(page);
+  check(scope, calm.running === true, 'Calm mode did not resume the animation');
+  check(
+    scope,
+    await page.evaluate(() => localStorage.getItem('khc-cell-mode') === 'calm'),
+    'Calm mode was not persisted'
+  );
+  await page.keyboard.press('Escape');
+}
+
+async function auditConcurrentExplicitClicks(page, scope, profile) {
+  await normalizeCells(page);
+  await mountAuditSurface(page, 'exposed-background');
+  let first;
+  let second;
+  let before;
+  try {
+    // The transparent audit surface represents unobstructed page whitespace.
+    // It isolates concurrent-lifecycle behavior from small viewports whose
+    // prose happens to cover every cell center for a particular seeded frame.
+    first = await findCellPoint(page);
+    if (!first) throw new Error('could not find a first cell for concurrent clicks');
+    before = await snapshot(page);
+    await tapCellPoint(page, profile, first);
+    second = await findCellPoint(page, [first.id]);
+    if (!second) {
+      await setCellState(page, first.id, 'mature');
+      throw new Error('population does not expose a second cell for concurrent clicks');
+    }
+    await tapCellPoint(page, profile, second);
+  } finally {
+    await removeAuditSurface(page);
+  }
+  await page.waitForFunction(
+    ({ firstId, secondId, clickRequests }) => {
+      const state = window.__khcCellsDebug.snapshot();
+      const active = [firstId, secondId].every((id) => {
+        const cell = state.cells.find((item) => String(item.id) === String(id));
+        return cell?.state === 'mitosis' || cell?.state === 'postmitotic';
+      });
+      return active && state.counters.clickRequests >= clickRequests + 2;
+    },
+    {
+      firstId: String(first.id),
+      secondId: String(second.id),
+      clickRequests: before.counters.clickRequests,
+    },
+    { timeout: 1_800 }
+  );
+  const active = await snapshot(page);
+  check(
+    scope,
+    lifecycleCount(active.activeLifecycle) >= 2,
+    'explicit clicks were serialized instead of beginning concurrently'
+  );
+  await setCellState(page, first.id, 'mature');
+  await setCellState(page, second.id, 'mature');
+}
+
+async function wheelOrKeyboardScroll(page, delta) {
+  try {
+    await page.mouse.wheel(0, delta);
+    return 'wheel';
+  } catch {
+    // Playwright deliberately disables mouse.wheel in mobile WebKit. A real
+    // PageUp/PageDown input still exercises native scrolling there.
+    await page.keyboard.press(delta < 0 ? 'PageUp' : 'PageDown');
+    return 'keyboard';
+  }
+}
+
+async function performTrustedScroll(page, profile, { point, distance = 260 } = {}) {
+  const metrics = await page.evaluate(() => ({
+    top: scrollY,
+    max: Math.max(0, document.documentElement.scrollHeight - innerHeight),
+    width: innerWidth,
+    height: innerHeight,
+  }));
+  if (metrics.max <= 1) return { before: metrics.top, after: metrics.top, method: 'none' };
+
+  let method = 'wheel';
+  if (profile.touch) {
+    let session = null;
     try {
-      await page.waitForFunction(
-        ({ cellId, clickRequests }) => {
-          const state = window.__khcCellsDebug.snapshot();
-          const cell = state.cells.find((item) => String(item.id) === String(cellId));
-          return state.counters.clickRequests > clickRequests && cell?.state === 'mitosis';
-        },
-        { cellId: point.id, clickRequests: beforeTap.counters.clickRequests },
-        { timeout: 1_500 }
-      );
-      stationaryTapPassed = true;
+      // Chromium's protocol is the only cross-process Playwright path that
+      // produces a trusted multi-step touch gesture. WebKit falls through to
+      // another trusted browser input rather than pretending that an
+      // untrusted dispatchEvent() caused native scrolling.
+      session = await page.context().newCDPSession(page);
+      const x = Math.max(24, Math.min(metrics.width - 24, point?.x ?? metrics.width * 0.5));
+      const preferredY = point?.y ?? metrics.height * 0.74;
+      const startY = Math.max(96, Math.min(metrics.height - 36, preferredY));
+      const travel = Math.min(distance, Math.max(72, startY - 32));
+      const endY = startY - travel;
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ x, y: startY }],
+      });
+      for (let step = 1; step <= 7; step += 1) {
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [{ x, y: startY + ((endY - startY) * step) / 7 }],
+        });
+        await page.waitForTimeout(16);
+      }
+      await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      method = 'touch';
     } catch {
-      await page.waitForTimeout(60);
+      method = 'wheel';
+    } finally {
+      await session?.detach().catch(() => {});
     }
   }
-  if (!stationaryTapPassed || !point)
-    throw new Error('stationary cell tap did not request and begin mitosis after two attempts');
+
+  await page.waitForTimeout(80);
+  let after = await page.evaluate(() => scrollY);
+  if (method === 'wheel' || Math.abs(after - metrics.top) < 1) {
+    const direction = metrics.top >= metrics.max - 1 ? -1 : 1;
+    const fallback = await wheelOrKeyboardScroll(
+      page,
+      direction * Math.min(distance, Math.max(80, metrics.max - metrics.top))
+    );
+    method = method === 'touch' ? `touch+${fallback}-fallback` : fallback;
+  }
+  await page
+    .waitForFunction((before) => Math.abs(scrollY - before) >= 1, metrics.top, { timeout: 1_500 })
+    .catch(() => {});
+  after = await page.evaluate(() => scrollY);
+  return { before: metrics.top, after, method };
+}
+
+async function auditPointerInteractions(page, scope, profile) {
+  await normalizeCells(page);
+  await mountAuditSurface(page, 'exposed-background');
+  let point;
+  try {
+    point = await findCellPoint(page);
+    if (!point) throw new Error('could not find a visible cell hit point');
+    const beforeTap = await snapshot(page);
+    await tapCellPoint(page, profile, point);
+    await page.waitForFunction(
+      ({ cellId, clickRequests }) => {
+        const state = window.__khcCellsDebug.snapshot();
+        const cell = state.cells.find((item) => String(item.id) === String(cellId));
+        return state.counters.clickRequests > clickRequests && cell?.state === 'mitosis';
+      },
+      { cellId: point.id, clickRequests: beforeTap.counters.clickRequests },
+      { timeout: 1_500 }
+    );
+  } finally {
+    await removeAuditSurface(page);
+  }
 
   await setCellState(page, point.id, 'mature');
   await page.waitForTimeout(40);
-  point = (await findCellPoint(page)) ?? point;
+  point = (await findCellPointAcrossScroll(page, profile)) ?? point;
   const beforeDrag = await snapshot(page);
   const beforeCell = beforeDrag.cells.find((cell) => String(cell.id) === String(point.id));
 
   if (profile.touch) {
-    await page.evaluate(({ x, y }) => {
-      const target = document.elementFromPoint(x, y) ?? document.body;
-      const emit = (type, nextY) =>
-        target.dispatchEvent(
-          new PointerEvent(type, {
-            bubbles: true,
-            cancelable: true,
-            pointerId: 31,
-            pointerType: 'touch',
-            isPrimary: true,
-            clientX: x,
-            clientY: nextY,
-          })
-        );
-      emit('pointerdown', y);
-      emit('pointermove', y - 40);
-      emit('pointermove', y - 100);
-      emit('pointerup', y - 130);
-      window.scrollBy(0, Math.min(320, document.documentElement.scrollHeight - innerHeight));
-    }, point);
+    const scroll = await performTrustedScroll(page, profile, { point, distance: 180 });
     await page.waitForTimeout(80);
     const afterScroll = await snapshot(page);
     const afterCell = afterScroll.cells.find((cell) => String(cell.id) === String(point.id));
     check(
       scope,
-      windowOrZero(await page.evaluate(() => scrollY)) > 0,
-      'touch scroll probe did not move the page'
+      Math.abs(scroll.after - scroll.before) >= 1,
+      `${scroll.method} mobile scroll gesture did not move the page`
     );
     check(scope, afterCell?.state !== 'mitosis', 'touch scroll gesture triggered mitosis');
+    check(
+      scope,
+      afterScroll.counters.clickRequests === beforeDrag.counters.clickRequests,
+      'touch scroll gesture registered as a cell click'
+    );
     check(
       scope,
       afterScroll.cells.length === beforeDrag.cells.length,
@@ -524,8 +1183,12 @@ async function auditPointerInteractions(page, scope, profile) {
       check(scope, afterCell.isGrabbed === false, 'cell stayed grabbed after pointerup');
   }
 
-  const empty = await findEmptyPoint(page);
-  if (!empty) throw new Error('could not find an empty noninteractive background point');
+  const empty = await findEmptyPointAcrossScroll(page, profile);
+  if (!empty) {
+    if (!profile.touch) throw new Error('could not find an empty noninteractive background point');
+    progress(`${scope}/empty-space skipped: no touch-safe exposed background point`);
+    return;
+  }
   const beforeEmpty = await snapshot(page);
   if (profile.touch) await page.touchscreen.tap(empty.x, empty.y);
   else await page.mouse.click(empty.x, empty.y);
@@ -541,10 +1204,6 @@ async function auditPointerInteractions(page, scope, profile) {
     afterEmpty.projectedCount === beforeEmpty.projectedCount,
     'empty-space click changed projected population'
   );
-}
-
-function windowOrZero(value) {
-  return Number.isFinite(value) ? value : 0;
 }
 
 async function auditResize(page, scope, profile) {
@@ -595,8 +1254,12 @@ async function auditTheme(page, scope) {
   const oldTheme = await page.evaluate(() => document.documentElement.dataset.theme);
   const before = await snapshot(page);
   await toggleTheme(page);
-  await page.waitForFunction((theme) => document.documentElement.dataset.theme !== theme, oldTheme);
-  await page.waitForTimeout(60);
+  await page.waitForFunction(
+    ({ theme, renderCount }) =>
+      document.documentElement.dataset.theme !== theme &&
+      window.__khcCellsDebug.snapshot().renderCount > renderCount,
+    { theme: oldTheme, renderCount: before.renderCount }
+  );
   const after = await snapshot(page);
   check(
     scope,
@@ -604,6 +1267,126 @@ async function auditTheme(page, scope) {
     'theme change did not render the background'
   );
   check(scope, await canvasHasInk(page), 'canvas is blank after theme change');
+}
+
+async function auditProtectedControl(page, scope, profile) {
+  const control = page.locator('[data-top-theme-btn]').first();
+  await control.waitFor({ state: 'attached', timeout: actionTimeout });
+  const before = await snapshot(page);
+  await control.click({ force: true });
+  await page.waitForTimeout(80);
+  const after = await snapshot(page);
+  check(
+    scope,
+    after.counters.clickRequests === before.counters.clickRequests,
+    'clicking a foreground control triggered a background-cell action'
+  );
+  check(
+    scope,
+    after.cells.length === before.cells.length,
+    'clicking a foreground control changed the cell population'
+  );
+
+  const protectedCell = after.cells.find(
+    (cell) =>
+      (cell.state === 'growing' || cell.state === 'mature') &&
+      cell.x >= 2 &&
+      cell.x <= profile.width - 2 &&
+      cell.y >= 2 &&
+      cell.y <= profile.height - 2
+  );
+  if (!protectedCell) throw new Error('could not place the deterministic protected overlay');
+  const protectedBefore = await snapshot(page);
+  await mountAuditSurface(page, 'protected');
+  try {
+    const targetIsProtected = await page.evaluate(
+      ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('[data-cell-protected]')),
+      protectedCell
+    );
+    check(scope, targetIsProtected, 'protected audit overlay did not cover the target cell');
+    await tapCellPoint(page, profile, protectedCell);
+  } finally {
+    await removeAuditSurface(page);
+  }
+  const protectedAfter = await snapshot(page);
+  const protectedResult = protectedAfter.cells.find(
+    (cell) => String(cell.id) === String(protectedCell.id)
+  );
+  check(
+    scope,
+    protectedAfter.counters.clickRequests === protectedBefore.counters.clickRequests,
+    'clicking a protected overlay registered a cell action'
+  );
+  check(
+    scope,
+    protectedAfter.cells.length === protectedBefore.cells.length,
+    'clicking a protected overlay changed the cell population'
+  );
+  check(
+    scope,
+    protectedResult?.state === protectedCell.state,
+    'clicking a protected overlay changed the covered cell lifecycle'
+  );
+  await page.keyboard.press('Escape');
+}
+
+async function sampleRafBaseline(page, duration = 1_000) {
+  return page.evaluate(async (sampleMs) => {
+    // Warm the new document before sampling so browser-startup work does not
+    // masquerade as the context's native animation clock.
+    for (let frame = 0; frame < 4; frame += 1) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    const intervals = [];
+    const started = performance.now();
+    let previous = started;
+    await new Promise((resolve) => {
+      const frame = (time) => {
+        intervals.push(time - previous);
+        previous = time;
+        if (time - started >= sampleMs) resolve();
+        else requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+    const sorted = intervals.slice().sort((a, b) => a - b);
+    const quantile = (q) =>
+      sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))] ?? Infinity;
+    const seconds = Math.max(0.001, (previous - started) / 1000);
+    return {
+      rate: intervals.length / seconds,
+      p50: quantile(0.5),
+      p95: quantile(0.95),
+      worst: sorted.at(-1) ?? Infinity,
+      samples: intervals.length,
+      intervals,
+    };
+  }, duration);
+}
+
+function expectedGatedRate(baseline, intervalMs) {
+  // Replay the engine's timestamp-reset scheduler over the measured native
+  // callback sequence. This captures quantized boundaries exactly: a 67ms
+  // scroll gate may need either two or three 33/34ms WebKit callbacks, while a
+  // 50ms homepage gate needs six or seven alternating 8.3/8.4ms Chromium
+  // callbacks. A p50-derived divisor cannot model those mixed sequences.
+  const intervals = baseline.intervals.filter(
+    (interval) => Number.isFinite(interval) && interval > 0
+  );
+  if (!intervals.length) return 0;
+  let elapsedSinceRender = 0;
+  let elapsedTotal = 0;
+  let renders = 0;
+  for (let cycle = 0; cycle < 12; cycle += 1) {
+    for (const interval of intervals) {
+      elapsedSinceRender += interval;
+      elapsedTotal += interval;
+      if (elapsedSinceRender < intervalMs) continue;
+      renders += 1;
+      elapsedSinceRender = 0;
+    }
+  }
+  return renders / Math.max(0.001, elapsedTotal / 1000);
 }
 
 async function sampleCadence(page, duration) {
@@ -644,6 +1427,7 @@ async function sampleCadence(page, duration) {
       seconds,
       updateRate: (after.updateCount - before.updateCount) / seconds,
       renderRate: (after.renderCount - before.renderCount) / seconds,
+      rafRate: intervals.length / seconds,
       rafP95: quantile(0.95),
       rafWorst: sorted.at(-1) ?? Infinity,
       longFrameWorst: longFrames.length ? Math.max(...longFrames) : 0,
@@ -651,26 +1435,44 @@ async function sampleCadence(page, duration) {
   }, duration);
 }
 
-function assertCadence(scope, result, profile) {
-  const minRenderRate = profile.touch ? 12 : 18;
-  const maxRenderRate = profile.touch ? 42 : 78;
-  check(scope, result.updateRate >= 18, `update rate ${result.updateRate.toFixed(1)}/s is too low`);
+function assertCadence(scope, result, profile, baseline, kind = 'ordinary') {
+  const home = kind === 'home';
+  const renderInterval = home ? 50 : profile.touch ? 32 : 15;
+  const expectedRenderRate = expectedGatedRate(baseline, renderInterval);
+  const minRenderRate = expectedRenderRate * (home ? 0.8 : 0.75);
+  const maxRenderRate = expectedRenderRate * 1.2;
+  check(scope, result.updateRate >= 45, `update rate ${result.updateRate.toFixed(1)}/s is too low`);
   check(
     scope,
-    result.updateRate <= 130,
+    result.updateRate <= 75,
     `update rate ${result.updateRate.toFixed(1)}/s is unbounded`
   );
   check(
     scope,
     result.renderRate >= minRenderRate,
-    `render rate ${result.renderRate.toFixed(1)}/s is too low`
+    `render rate ${result.renderRate.toFixed(1)}/s is below the ${expectedRenderRate.toFixed(1)}/s clock-adjusted target`
   );
   check(
     scope,
     result.renderRate <= maxRenderRate,
-    `render rate ${result.renderRate.toFixed(1)}/s exceeds profile budget`
+    `render rate ${result.renderRate.toFixed(1)}/s exceeds the ${expectedRenderRate.toFixed(1)}/s clock-adjusted target`
   );
-  check(scope, result.rafP95 <= 60, `page rAF p95 is ${result.rafP95.toFixed(1)}ms`);
+  check(
+    scope,
+    result.rafRate >= baseline.rate * 0.88,
+    `page rAF utilized only ${((result.rafRate / baseline.rate) * 100).toFixed(1)}% of its ${baseline.rate.toFixed(1)}Hz native clock`
+  );
+  check(
+    scope,
+    result.rafRate <= baseline.rate * 1.12,
+    `page rAF rate ${result.rafRate.toFixed(1)}/s is inconsistent with its ${baseline.rate.toFixed(1)}Hz native clock`
+  );
+  const rafP95Budget = baseline.p95 + 2;
+  check(
+    scope,
+    result.rafP95 <= rafP95Budget,
+    `page rAF p95 is ${result.rafP95.toFixed(1)}ms (native ${baseline.p95.toFixed(1)}ms + 2ms)`
+  );
   check(scope, result.rafWorst <= 180, `page rAF worst frame is ${result.rafWorst.toFixed(1)}ms`);
   check(
     scope,
@@ -678,8 +1480,125 @@ function assertCadence(scope, result, profile) {
     `long animation frame reached ${result.longFrameWorst.toFixed(1)}ms`
   );
   progress(
-    `${scope}/cadence updates=${result.updateRate.toFixed(1)}/s renders=${result.renderRate.toFixed(1)}/s p95=${result.rafP95.toFixed(1)}ms`
+    `${scope}/cadence clock=${baseline.rate.toFixed(1)}Hz raf=${result.rafRate.toFixed(1)}/s updates=${result.updateRate.toFixed(1)}/s renders=${result.renderRate.toFixed(1)}/s target=${expectedRenderRate.toFixed(1)}/s p95=${result.rafP95.toFixed(1)}ms`
   );
+}
+
+function assertEngineTimings(scope, state) {
+  const timings = state.timings ?? {};
+  for (const key of [
+    'updateP50',
+    'updateP95',
+    'updateMax',
+    'renderP50',
+    'renderP95',
+    'renderMax',
+  ]) {
+    check(
+      scope,
+      Number.isFinite(timings[key]) && timings[key] >= 0,
+      `engine timing ${key} is invalid`
+    );
+  }
+  if (Number.isFinite(timings.updateP95))
+    check(scope, timings.updateP95 <= 4, `update p95 reached ${timings.updateP95.toFixed(2)}ms`);
+  if (Number.isFinite(timings.renderP95))
+    check(scope, timings.renderP95 <= 6, `render p95 reached ${timings.renderP95.toFixed(2)}ms`);
+  if (Number.isFinite(timings.updateMax))
+    check(scope, timings.updateMax <= 80, `update max reached ${timings.updateMax.toFixed(2)}ms`);
+  if (Number.isFinite(timings.renderMax))
+    check(scope, timings.renderMax <= 100, `render max reached ${timings.renderMax.toFixed(2)}ms`);
+}
+
+function assertHeroTimings(scope, state) {
+  const timings = state.timings ?? {};
+  for (const key of ['renderP50', 'renderP95', 'renderMax']) {
+    check(
+      scope,
+      Number.isFinite(timings[key]) && timings[key] >= 0,
+      `hero timing ${key} is invalid`
+    );
+  }
+  if (Number.isFinite(timings.renderP95))
+    check(
+      scope,
+      timings.renderP95 <= 8,
+      `hero render p95 reached ${timings.renderP95.toFixed(2)}ms`
+    );
+}
+
+async function auditActiveScrollCadence(page, scope, profile, baseline) {
+  const layout = await page.evaluate(() => ({
+    max: Math.max(0, document.documentElement.scrollHeight - innerHeight),
+  }));
+  if (layout.max < 120) throw new Error('route is too short for an active-scroll cadence probe');
+
+  await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+  // Let the previous scroll throttle expire so the counters below measure a
+  // fresh, continuously active interval rather than a mixed steady-state one.
+  await page.waitForTimeout(720);
+  const before = await snapshot(page);
+  const started = Date.now();
+  const details = [];
+  let direction = 1;
+  for (let sample = 0; sample < 10; sample += 1) {
+    const position = await page.evaluate(() => ({
+      top: scrollY,
+      max: Math.max(0, document.documentElement.scrollHeight - innerHeight),
+    }));
+    if (position.top >= position.max - 8) direction = -1;
+    else if (position.top <= 8) direction = 1;
+    await wheelOrKeyboardScroll(page, direction * 84);
+    await page.waitForTimeout(72);
+    details.push((await snapshot(page)).detailLevel);
+  }
+  const after = await snapshot(page);
+  const seconds = Math.max(0.001, (Date.now() - started) / 1000);
+  const updateRate = (after.updateCount - before.updateCount) / seconds;
+  const renderRate = (after.renderCount - before.renderCount) / seconds;
+  const expectedRenderRate = expectedGatedRate(baseline, profile.touch ? 67 : 42);
+  const minRenderRate = expectedRenderRate * 0.7;
+  const maxRenderRate = expectedRenderRate * 1.3;
+  const allowedDetails = profile.touch ? ['minimal'] : ['reduced', 'minimal'];
+
+  check(
+    scope,
+    updateRate >= 45 && updateRate <= 75,
+    `active-scroll update rate ${updateRate.toFixed(1)}/s is outside 45–75/s`
+  );
+  check(
+    scope,
+    renderRate >= minRenderRate && renderRate <= maxRenderRate,
+    `active-scroll render rate ${renderRate.toFixed(1)}/s misses its ${expectedRenderRate.toFixed(1)}/s clock-adjusted target`
+  );
+  check(
+    scope,
+    details.length > 0 && details.every((detail) => allowedDetails.includes(detail)),
+    `active scrolling exposed unexpected detail levels: ${[...new Set(details)].join(', ')}`
+  );
+  check(
+    scope,
+    after.counters.clickRequests === before.counters.clickRequests,
+    'active scrolling registered a cell click'
+  );
+  check(scope, after.cells.length === before.cells.length, 'active scrolling changed cell count');
+  progress(
+    `${scope}/active-scroll updates=${updateRate.toFixed(1)}/s renders=${renderRate.toFixed(1)}/s target=${expectedRenderRate.toFixed(1)}/s detail=${[...new Set(details)].join(',')}`
+  );
+}
+
+async function sampleHeroCadence(page, duration) {
+  const before = await heroSnapshot(page);
+  const started = Date.now();
+  await page.waitForTimeout(duration);
+  const after = await heroSnapshot(page);
+  const seconds = Math.max(0.001, (Date.now() - started) / 1000);
+  return {
+    before,
+    after,
+    updateRate: (after.updateCount - before.updateCount) / seconds,
+    renderRate: (after.renderCount - before.renderCount) / seconds,
+  };
 }
 
 async function navigateWithAudit(page, path, expectedSelector) {
@@ -687,72 +1606,199 @@ async function navigateWithAudit(page, path, expectedSelector) {
     timeout: navigationTimeout,
   });
   await page.evaluate((targetPath) => {
-    const basePath = targetPath.split('?')[0];
-    let link = document.querySelector(`a[href="${basePath}"]`);
-    if (!(link instanceof HTMLAnchorElement)) {
-      link = document.createElement('a');
-      link.hidden = true;
-      document.body.append(link);
-    }
+    document.querySelector('[data-cell-audit-navigation]')?.remove();
+    const link = document.createElement('a');
+    link.dataset.cellAuditNavigation = '';
     link.href = targetPath;
-    link.click();
+    link.textContent = 'Audit navigation';
+    Object.assign(link.style, {
+      position: 'fixed',
+      inset: '0 auto auto 0',
+      width: '8px',
+      height: '8px',
+      overflow: 'hidden',
+      opacity: '0.01',
+      zIndex: '2147483647',
+    });
+    document.body.append(link);
   }, path);
+  // A browser-generated click is required to exercise ClientRouter. Calling
+  // element.click() can bypass Astro's trusted navigation path and silently
+  // turn the lifecycle check into a full reload.
+  await page.locator('[data-cell-audit-navigation]').click({ force: true });
   await urlReady;
   await page.locator(expectedSelector).waitFor({ state: 'attached', timeout: navigationTimeout });
   await page.waitForTimeout(80);
+}
+
+async function navigateExistingWithAudit(page, href, path, expectedSelector) {
+  const link = page.locator(`a[href="${href}"]`).filter({ visible: true }).first();
+  await link.waitFor({ state: 'visible', timeout: actionTimeout });
+  await link.evaluate((element, targetPath) => {
+    element.href = targetPath;
+    element.dataset.cellAuditExistingNavigation = '';
+  }, path);
+  const activeLink = page.locator('[data-cell-audit-existing-navigation]');
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === path.split('?')[0], {
+      timeout: navigationTimeout,
+    }),
+    activeLink.click(),
+  ]);
+  await page.locator(expectedSelector).waitFor({ state: 'attached', timeout: navigationTimeout });
+  await page.waitForTimeout(80);
+}
+
+async function auditContentRoutes(page, scope, profile, baseline) {
+  await navigateWithAudit(page, `/posts/shorkie/${auditQuery}`, 'main');
+  await waitForDebug(page);
+  const proseStart = await snapshot(page);
+  const proseLayout = await page.evaluate(() => ({
+    scrollHeight: document.documentElement.scrollHeight,
+    viewportHeight: innerHeight,
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  }));
+  check(
+    scope,
+    proseLayout.scrollHeight >= proseLayout.viewportHeight * 2,
+    'long-form route is not long enough to exercise scrolling'
+  );
+  check(scope, proseLayout.overflow <= 1, `long-form route has ${proseLayout.overflow}px overflow`);
+  const proseScroll = await performTrustedScroll(page, profile, { distance: 520 });
+  await page.waitForTimeout(100);
+  const proseEnd = await snapshot(page);
+  check(
+    scope,
+    Math.abs(proseScroll.after - proseScroll.before) >= 1,
+    `${proseScroll.method} long-form gesture did not scroll`
+  );
+  check(
+    scope,
+    proseEnd.counters.clickRequests === proseStart.counters.clickRequests,
+    'long-form scroll triggered a cell action'
+  );
+  check(scope, proseEnd.cells.length === proseStart.cells.length, 'long-form scroll changed cells');
+  await auditActiveScrollCadence(page, `${scope}/long-form`, profile, baseline);
+
+  await navigateWithAudit(page, `/games/snake/${auditQuery}`, '[data-snake-canvas]');
+  await waitForDebug(page);
+  const gameStart = await snapshot(page);
+  const gameCanvas = page.locator('[data-snake-canvas]');
+  const box = await gameCanvas.boundingBox();
+  if (!box) throw new Error('snake canvas has no interactive bounds');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  if (profile.touch) await page.touchscreen.tap(x, y);
+  else await page.mouse.click(x, y);
+  await page.locator('[data-snake-restart]').click({ force: true });
+  await page.waitForTimeout(100);
+  const gameEnd = await snapshot(page);
+  check(
+    scope,
+    gameEnd.counters.clickRequests === gameStart.counters.clickRequests,
+    'interacting with the game triggered a background-cell action'
+  );
+  check(
+    scope,
+    gameEnd.cells.length === gameStart.cells.length,
+    'interacting with the game changed the cell population'
+  );
+  check(scope, await canvasHasInk(page), 'living-cell canvas went blank on the game route');
+
+  await navigateWithAudit(page, `/projects/${auditQuery}`, 'main');
+  await waitForDebug(page);
 }
 
 async function auditSpaLifecycle(page, scope) {
   const navigationToken = `cells-${Date.now()}-${Math.random()}`;
   await page.evaluate((token) => {
     window.__khcCellsAuditNavigationToken = token;
+    window.__khcCellsAuditEngine = window.__khcCellsDebug;
   }, navigationToken);
-  await navigateWithAudit(page, `/terminal/${auditQuery}`, '[data-terminal]');
-  await waitForDebug(page);
-  check(
-    scope,
-    await page.evaluate(
-      (token) => window.__khcCellsAuditNavigationToken === token,
-      navigationToken
-    ),
-    'terminal navigation performed a full reload instead of an SPA swap'
+  await navigateExistingWithAudit(page, '/terminal/', `/terminal/${auditQuery}`, '[data-terminal]');
+  const terminalRealm = await page.evaluate(
+    (token) => ({
+      preserved: window.__khcCellsAuditNavigationToken === token,
+      hasSavedEngine: Boolean(window.__khcCellsAuditEngine),
+      hasDebugAlias: Boolean(window.__khcCellsDebug),
+    }),
+    navigationToken
   );
-  const terminalStart = await snapshot(page);
-  check(scope, terminalStart.attached === false, 'engine remained attached on bare terminal route');
-  check(scope, terminalStart.running === false, 'engine kept running on bare terminal route');
+  if (terminalRealm.preserved)
+    check(
+      scope,
+      terminalRealm.hasSavedEngine,
+      'SPA terminal navigation lost the preserved engine surface'
+    );
+  else
+    check(
+      scope,
+      !terminalRealm.hasDebugAlias,
+      'full terminal navigation unexpectedly installed the living-cell debug alias'
+    );
+  const terminalStart = await page.evaluate(
+    () => window.__khcCellsAuditEngine?.snapshot() ?? window.__khcCellsDebug?.snapshot() ?? null
+  );
+  if (terminalRealm.preserved) {
+    check(scope, Boolean(terminalStart), 'detached terminal engine snapshot is unavailable');
+    check(
+      scope,
+      terminalStart?.attached === false,
+      'engine remained attached on bare terminal route'
+    );
+    check(scope, terminalStart?.running === false, 'engine kept running on bare terminal route');
+  }
   check(
     scope,
     (await canvasState(page)) === null,
     'background canvas remained on bare terminal route'
   );
+  check(
+    scope,
+    await page.evaluate(() => window.__khcHeroDebug === undefined),
+    'homepage hero debug/loop leaked onto the terminal route'
+  );
   await page.waitForTimeout(320);
-  const terminalEnd = await snapshot(page);
-  check(
-    scope,
-    terminalEnd.updateCount === terminalStart.updateCount,
-    'detached engine continued updating'
+  const terminalEnd = await page.evaluate(
+    () => window.__khcCellsAuditEngine?.snapshot() ?? window.__khcCellsDebug?.snapshot() ?? null
   );
-  check(
-    scope,
-    terminalEnd.renderCount === terminalStart.renderCount,
-    'detached engine continued rendering'
-  );
+  if (terminalStart && terminalEnd) {
+    check(
+      scope,
+      terminalEnd.updateCount === terminalStart.updateCount,
+      'detached engine continued updating'
+    );
+    check(
+      scope,
+      terminalEnd.renderCount === terminalStart.renderCount,
+      'detached engine continued rendering'
+    );
+  }
 
-  await navigateWithAudit(page, `/${auditQuery}`, '[data-hero-canvas]');
+  const returnToken = `cells-return-${Date.now()}-${Math.random()}`;
+  await page.evaluate((token) => {
+    window.__khcCellsAuditReturnToken = token;
+  }, returnToken);
+  await navigateExistingWithAudit(page, '/', `/${auditQuery}`, '[data-hero-canvas]');
   await waitForDebug(page);
-  check(
-    scope,
-    await page.evaluate(
-      (token) => window.__khcCellsAuditNavigationToken === token,
-      navigationToken
-    ),
-    'homepage return performed a full reload instead of an SPA swap'
+  await waitForHeroDebug(page);
+  const returnPreserved = await page.evaluate(
+    (token) => window.__khcCellsAuditReturnToken === token,
+    returnToken
+  );
+  progress(
+    `${scope}/navigation terminal=${terminalRealm.preserved ? 'spa' : 'reload'} home=${returnPreserved ? 'spa' : 'reload'}`
   );
   await page.waitForFunction(() => {
     const state = window.__khcCellsDebug.snapshot();
     return state.attached === true && state.running === true;
   });
   const returned = await snapshot(page);
+  check(
+    scope,
+    returned.counters.eventBindings === 1,
+    `homepage engine has ${returned.counters.eventBindings} event-binding passes`
+  );
   await page.waitForTimeout(220);
   const advanced = await snapshot(page);
   check(
@@ -767,10 +1813,13 @@ async function auditSpaLifecycle(page, scope) {
   );
 }
 
-async function auditHomeComposite(page, scope, profile) {
-  // Let HeroBackground finish its first mount frames before measuring steady cadence.
-  await page.waitForTimeout(300);
+async function auditHomeComposite(page, scope, profile, baseline) {
+  // Let both canvases finish their first mount frames and fill their timing
+  // windows before measuring the shared homepage frame budget.
+  await page.waitForTimeout(900);
+  await waitForHeroDebug(page);
   const state = await snapshot(page);
+  const hero = await heroSnapshot(page);
   const expectedDprCap = profile.touch ? 1 : 1.5;
   const expectedCellCap = profile.touch ? 4 : 7;
   check(
@@ -793,7 +1842,16 @@ async function auditHomeComposite(page, scope, profile) {
     await canvasHasInk(page, '[data-hero-canvas]'),
     'homepage hero animation canvas is blank'
   );
+
+  check(scope, hero.maxFps === 24, `hero reports an unexpected ${hero.maxFps}fps cap`);
+  check(scope, hero.width > 0 && hero.height > 0, 'hero canvas has invalid dimensions');
+  check(scope, hero.dpr <= 1.5 + 0.02, 'hero DPR exceeds its 1.5 cap');
   if (profile.touch) {
+    const heroCadence = await sampleHeroCadence(page, 420);
+    check(scope, hero.coarse === true, 'touch homepage did not select the coarse hero profile');
+    check(scope, heroCadence.after.running === false, 'touch hero rAF loop is running');
+    check(scope, heroCadence.updateRate === 0, 'touch hero continued updating');
+    check(scope, heroCadence.renderRate === 0, 'touch hero continued rendering');
     const heroIsStatic = await page.evaluate(async () => {
       const canvas = document.querySelector('[data-hero-canvas]');
       if (!(canvas instanceof HTMLCanvasElement)) return false;
@@ -802,19 +1860,116 @@ async function auditHomeComposite(page, scope, profile) {
       return before === canvas.toDataURL();
     });
     check(scope, heroIsStatic, 'touch homepage ran a second full-canvas animation');
+  } else {
+    const heroCadence = await sampleHeroCadence(page, 1_800);
+    const expectedHeroRate = Math.min(heroCadence.after.maxFps, baseline.rate);
+    check(scope, heroCadence.after.running === true, 'visible desktop hero is not running');
+    check(
+      scope,
+      heroCadence.updateRate >= expectedHeroRate * 0.82 &&
+        heroCadence.updateRate <= expectedHeroRate * 1.07,
+      `hero update rate ${heroCadence.updateRate.toFixed(1)}/s misses its ${expectedHeroRate.toFixed(1)}/s clock-adjusted target`
+    );
+    check(
+      scope,
+      heroCadence.renderRate >= expectedHeroRate * 0.82 &&
+        heroCadence.renderRate <= expectedHeroRate * 1.07,
+      `hero render rate ${heroCadence.renderRate.toFixed(1)}/s misses its ${expectedHeroRate.toFixed(1)}/s clock-adjusted target`
+    );
+    assertHeroTimings(`${scope}/hero`, heroCadence.after);
+
+    const offscreenY = await page.evaluate(() => {
+      const canvas = document.querySelector('[data-hero-canvas]');
+      const host = canvas?.parentElement;
+      if (!host) return 0;
+      const bottom = host.getBoundingClientRect().bottom + scrollY;
+      return Math.min(
+        Math.max(0, document.documentElement.scrollHeight - innerHeight),
+        Math.ceil(bottom + 24)
+      );
+    });
+    if (offscreenY > 0) {
+      await page.evaluate((top) => scrollTo({ top, behavior: 'instant' }), offscreenY);
+      await page.waitForFunction(() => window.__khcHeroDebug.snapshot().visible === false);
+      const scrolledCells = await snapshot(page);
+      check(
+        scope,
+        scrolledCells.detailLevel === 'minimal',
+        `homepage scroll kept ${scrolledCells.detailLevel} cell anatomy instead of minimal`
+      );
+      const paused = await sampleHeroCadence(page, 260);
+      check(scope, paused.after.running === false, 'off-screen hero kept its rAF loop running');
+      check(scope, paused.updateRate === 0, 'off-screen hero continued updating');
+      await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+      await page.waitForFunction(() => {
+        const state = window.__khcHeroDebug.snapshot();
+        return state.visible === true && state.running === true;
+      });
+    }
   }
-  const cadence = await sampleCadence(page, 900);
-  assertCadence(`${scope}/home`, cadence, profile);
-  check(
-    scope,
-    cadence.renderRate <= (profile.touch ? 26 : 50),
-    `homepage cell render rate ${cadence.renderRate.toFixed(1)}/s exceeds its calm profile`
-  );
+
+  // The off-screen probe above scrolls the page and temporarily enables the
+  // cells' active-scroll throttle. Sample only after that throttle has cleared
+  // so this remains a steady-state composite measurement.
+  await page.waitForTimeout(800);
+  const cadence = await sampleCadence(page, 1_800);
+  assertCadence(`${scope}/home`, cadence, profile, baseline, 'home');
+  assertEngineTimings(`${scope}/home`, await snapshot(page));
+
+  // Exercise the real, below-the-fold transcript only after measuring the
+  // initial homepage composite; clicking it intentionally stops the terminal
+  // demo and should never leak through to an ambient cell.
+  const terminalStart = await snapshot(page);
+  const terminalScreen = page.locator('[data-terminal-screen]').filter({ visible: true }).first();
+  await terminalScreen.scrollIntoViewIfNeeded();
+  const terminalBox = await terminalScreen.boundingBox();
+  check(scope, Boolean(terminalBox), 'homepage terminal screen has no interactive bounds');
+  if (terminalBox) {
+    const terminalX = terminalBox.x + terminalBox.width / 2;
+    const terminalY = terminalBox.y + Math.min(terminalBox.height / 2, 72);
+    if (profile.touch) await page.touchscreen.tap(terminalX, terminalY);
+    else await page.mouse.click(terminalX, terminalY);
+    await page.waitForTimeout(100);
+    const terminalEnd = await snapshot(page);
+    check(
+      scope,
+      terminalEnd.counters.clickRequests === terminalStart.counters.clickRequests,
+      'interacting with the homepage terminal triggered a background-cell action'
+    );
+    check(
+      scope,
+      terminalEnd.cells.length === terminalStart.cells.length,
+      'interacting with the homepage terminal changed the cell population'
+    );
+  }
 }
 
 async function auditPage(page, scope, profile) {
   const browserErrors = [];
   trackBrowserErrors(page, browserErrors);
+
+  const rafBaseline = await sampleRafBaseline(page);
+  check(
+    `${scope}/clock`,
+    Number.isFinite(rafBaseline.rate) && rafBaseline.rate >= 20 && rafBaseline.rate <= 165,
+    `native rAF rate ${rafBaseline.rate.toFixed(1)}Hz is invalid`
+  );
+  check(
+    `${scope}/clock`,
+    Number.isFinite(rafBaseline.p50) &&
+      Number.isFinite(rafBaseline.p95) &&
+      rafBaseline.p50 > 0 &&
+      rafBaseline.p95 <= 55,
+    `native rAF timing p50=${rafBaseline.p50.toFixed(1)}ms p95=${rafBaseline.p95.toFixed(1)}ms is invalid`
+  );
+  check(
+    `${scope}/clock`,
+    rafBaseline.samples >= 20,
+    `native rAF baseline has only ${rafBaseline.samples} samples`
+  );
+  progress(
+    `${scope}/clock native=${rafBaseline.rate.toFixed(1)}Hz p50=${rafBaseline.p50.toFixed(1)}ms p95=${rafBaseline.p95.toFixed(1)}ms`
+  );
 
   await page.goto(`/projects/${auditQuery}`, {
     waitUntil: 'networkidle',
@@ -826,18 +1981,39 @@ async function auditPage(page, scope, profile) {
   );
   check(scope, overflow <= 1, `page has ${overflow}px horizontal overflow`);
   assertCanvas(scope, await canvasState(page), profile);
-  assertSnapshot(scope, await snapshot(page));
+  const initial = await snapshot(page);
+  assertSnapshot(scope, initial, profile);
+  check(scope, lifecycleCount(initial.activeLifecycle) === 0, 'frozen seed started mid-lifecycle');
   check(scope, await canvasHasInk(page), 'background canvas is blank');
 
+  await capture(`${scope}/determinism`, () => auditDeterministicSeed(page, scope));
+  assertSnapshot(`${scope}/reload`, await snapshot(page), profile);
   await capture(`${scope}/resize`, () => auditResize(page, scope, profile));
   await capture(`${scope}/lifecycle`, () => auditLifecycleFrames(page, scope));
+  await capture(`${scope}/controls`, () => auditCellControls(page, scope, profile));
   await capture(`${scope}/pointer`, () => auditPointerInteractions(page, scope, profile));
+  await capture(`${scope}/protected`, () => auditProtectedControl(page, scope, profile));
+  await capture(`${scope}/concurrent-clicks`, () =>
+    auditConcurrentExplicitClicks(page, scope, profile)
+  );
+  if (profile.name === 'desktop-light') {
+    await capture(`${scope}/timing`, () => auditMitosisTiming(page, scope));
+  }
   await capture(`${scope}/theme`, () => auditTheme(page, scope));
 
-  const cadence = await sampleCadence(page, smoke ? 550 : 1_200);
-  assertCadence(scope, cadence, profile);
+  // Pointer-scroll and safe-hit discovery intentionally activate the engine's
+  // short scroll throttle. Measure the ordinary profile only after it clears.
+  await page.waitForTimeout(720);
+  const cadence = await sampleCadence(page, smoke ? 900 : 1_200);
+  assertCadence(scope, cadence, profile, rafBaseline);
+  assertEngineTimings(scope, await snapshot(page));
+  if (profile.name === 'desktop-light' || profile.name === 'phone-light') {
+    await capture(`${scope}/content-routes`, () =>
+      auditContentRoutes(page, scope, profile, rafBaseline)
+    );
+  }
   await capture(`${scope}/spa`, () => auditSpaLifecycle(page, scope));
-  await capture(`${scope}/home`, () => auditHomeComposite(page, scope, profile));
+  await capture(`${scope}/home`, () => auditHomeComposite(page, scope, profile, rafBaseline));
 
   if (browserErrors.length) fail(scope, `browser errors: ${browserErrors.join(' | ')}`);
 }
@@ -854,7 +2030,11 @@ async function auditReducedMotion(browser, baseURL, browserName, profile) {
     deviceScaleFactor: profile.deviceScaleFactor,
     reducedMotion: 'reduce',
   });
-  await context.addInitScript((theme) => localStorage.setItem('khc-theme', theme), profile.theme);
+  await context.addInitScript((theme) => {
+    localStorage.setItem('khc-theme', theme);
+    localStorage.setItem('khc-cell-mode', 'calm');
+    sessionStorage.setItem('khc-cell-action', 'divide');
+  }, profile.theme);
   const page = await context.newPage();
   page.setDefaultTimeout(actionTimeout);
   const browserErrors = [];
@@ -989,10 +2169,11 @@ async function main() {
             isMobile: profile.touch,
             deviceScaleFactor: profile.deviceScaleFactor,
           });
-          await context.addInitScript(
-            (theme) => localStorage.setItem('khc-theme', theme),
-            profile.theme
-          );
+          await context.addInitScript((theme) => {
+            localStorage.setItem('khc-theme', theme);
+            localStorage.setItem('khc-cell-mode', 'calm');
+            sessionStorage.setItem('khc-cell-action', 'divide');
+          }, profile.theme);
           const page = await context.newPage();
           page.setDefaultTimeout(actionTimeout);
           try {
