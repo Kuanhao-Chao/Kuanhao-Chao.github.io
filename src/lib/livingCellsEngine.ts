@@ -314,9 +314,9 @@ export class LivingCellsEngine {
   }
 
   public triggerMitosis(cell: LivingCell, isExplicitClick = false): void {
-    // If not explicit user click, cell must be in mature state and passed size checkpoint
+    // If not explicit user click, cell must be in mature state and passed size checkpoint (>= 98% target radius)
     if (!isExplicitClick) {
-      if (cell.state !== 'mature' || cell.baseRadius < cell.targetRadius * 0.95) return;
+      if (cell.state !== 'mature' || cell.baseRadius < cell.targetRadius * 0.98) return;
     } else {
       // User click exemption: allowed for any cell not currently dividing or dying
       if (cell.state === 'mitosis' || cell.state === 'apoptosis') return;
@@ -879,7 +879,7 @@ export class LivingCellsEngine {
     if (this.tick > this.nextAutoMitosis) {
       if (liveCount <= targetPop) {
         const candidates = this.cells.filter(
-          (c) => c.state === 'mature' && c.baseRadius >= c.targetRadius * 0.95 && c.age >= 250 && !c.isGrabbed
+          (c) => c.state === 'mature' && c.baseRadius >= c.targetRadius * 0.98 && c.age >= 300 && !c.isGrabbed
         );
         if (candidates.length) {
           const parent = candidates[(Math.random() * candidates.length) | 0];
@@ -890,11 +890,11 @@ export class LivingCellsEngine {
       this.nextAutoMitosis = this.tick + Math.round(rand(480, 840) * popFactor);
     }
 
-    // 2. Dynamic Auto-Apoptosis Regulation (Clears oldest senescent cells)
+    // 2. Dynamic Auto-Apoptosis Regulation (Clears oldest senescent mature cells)
     if (this.tick > this.nextAutoApoptosis) {
       if (liveCount >= targetPop) {
         const candidates = this.cells.filter(
-          (c) => c.state === 'mature' && !c.isGrabbed && c.age > 500
+          (c) => c.state === 'mature' && c.baseRadius >= c.targetRadius * 0.98 && !c.isGrabbed && c.age > 450
         );
         if (candidates.length) {
           const oldest = candidates.sort((a, b) => b.age - a.age)[0];
