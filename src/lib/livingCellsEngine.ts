@@ -120,6 +120,7 @@ export interface LivingCell {
 
   state: CellState;
   growthProgress?: number; // 0..1 biomass interphase progression
+  metabolicReserve?: number; // Buffered nutrient reserve for steady, non-abrupt growth
   life: number; // 0..1 vitality / opacity (1.0 for live cells, fades only during apoptosis)
   age: number;
   maxAge: number;
@@ -144,7 +145,12 @@ const TAU = Math.PI * 2;
 const VERTEX_COUNT = 16;
 const ALPHA_SCALE = 0.80; // 20% lighter cell alpha for crystal-clear typography legibility
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
-const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+// Quintic smootherstep easing with zero 1st and 2nd derivatives at endpoints for organic, smooth expansion
+const smootherstep = (t: number) => {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * x * (x * (x * 6 - 15) + 10);
+};
 
 export class LivingCellsEngine {
   private canvas: HTMLCanvasElement | null = null;
@@ -306,6 +312,7 @@ export class LivingCellsEngine {
       organelles,
       state: cellState,
       growthProgress: isGrowing ? Math.max(0.0, (startRadius - 4) / Math.max(1, finalRadius - 4)) : 1.0,
+      metabolicReserve: 0.0,
       life: 1.0, // Always 1.0 vitality and 100% visible for live and growing cells
       age: isGrowing ? 0 : rand(120, 600),
       maxAge: rand(1800, 3400),
@@ -611,10 +618,11 @@ export class LivingCellsEngine {
         if (cell.state === 'growing' || cell.state === 'mature') {
           const d = Math.hypot(cell.x - p.x, cell.y - p.y);
           if (d < cell.radius * 0.95) {
-            cell.glowIntensity = Math.min(2.2, cell.glowIntensity + 0.15);
+            cell.glowIntensity = Math.min(2.0, cell.glowIntensity + 0.15);
             cell.age = Math.max(0, cell.age - 25);
             if (cell.state === 'growing') {
-              cell.growthProgress = Math.min(1.0, (cell.growthProgress || 0) + 0.08); // Nutrient intake accelerates growth!
+              // Buffer nutrient into metabolic reserve for smooth, steady growth acceleration
+              cell.metabolicReserve = Math.min(0.35, (cell.metabolicReserve || 0) + 0.04);
             }
             this.particles.splice(i, 1);
             break;
@@ -712,7 +720,7 @@ export class LivingCellsEngine {
       cell.angle += cell.vAngle;
       cell.nucleusAngle += cell.vAngle * 0.7;
       cell.wobblePhase += cell.wobbleSpeed;
-      cell.glowIntensity = Math.max(1.0, cell.glowIntensity - 0.012);
+      cell.glowIntensity = Math.max(1.0, cell.glowIntensity - 0.010);
 
       // Rotate and gently drift organelles
       for (const org of cell.organelles) {
@@ -769,10 +777,18 @@ export class LivingCellsEngine {
 
       // A. Growth Phase (G1 / S / G2 Interphase Biomass Accumulation)
       if (cell.state === 'growing') {
-        cell.growthProgress = Math.min(1.0, (cell.growthProgress || 0) + 0.0022);
+        // Continuous, smooth nutrient metabolism
+        const nutrientRate = Math.min(0.0005, cell.metabolicReserve || 0);
+        if (cell.metabolicReserve && cell.metabolicReserve > 0) {
+          cell.metabolicReserve = Math.max(0, cell.metabolicReserve - nutrientRate);
+        }
+
+        // Serene interphase growth progression (~22s full cycle at 60fps)
+        cell.growthProgress = Math.min(1.0, (cell.growthProgress || 0) + 0.00075 + nutrientRate);
         cell.life = 1.0; // 100% full opacity and vitality for newborn daughter cells
-        // Expand smoothly from initial size (~0.56 targetRadius) to adult target radius
-        const growthFraction = easeInOutCubic(cell.growthProgress);
+
+        // Expand smoothly from initial size (~0.56 targetRadius) to adult target radius with quintic smootherstep
+        const growthFraction = smootherstep(cell.growthProgress);
         cell.baseRadius = cell.targetRadius * (0.56 + 0.44 * growthFraction);
         cell.radius = cell.baseRadius * breathScale;
 
@@ -797,7 +813,7 @@ export class LivingCellsEngine {
       }
       // C. Mitosis Cytokinesis Phase
       else if (cell.state === 'mitosis') {
-        cell.mitosisProgress = (cell.mitosisProgress || 0) + 0.0115;
+        cell.mitosisProgress = (cell.mitosisProgress || 0) + 0.0035; // Cinematic 4-phase biological mitosis (~4.75s)
 
         if (cell.mitosisProgress >= 1.0) {
           const angle = cell.mitosisAngle || 0;
@@ -805,7 +821,7 @@ export class LivingCellsEngine {
           const daughterTargetR = cell.targetRadius;
           const daughterBirthR = cell.targetRadius * 0.56; // Born slightly bigger than half parent size (0.56r)
 
-          const pushSpeed = 0.65; // Organic separation bounce impulse
+          const pushSpeed = 0.60; // Organic separation bounce impulse
           const daughter1 = this.createCell(
             cell.x + Math.cos(angle) * separation,
             cell.y + Math.sin(angle) * separation,
@@ -817,6 +833,7 @@ export class LivingCellsEngine {
           daughter1.vy = cell.vy + Math.sin(angle) * pushSpeed;
           daughter1.state = 'growing';
           daughter1.growthProgress = 0.0;
+          daughter1.metabolicReserve = 0.0;
           daughter1.life = 1.0; // 100% full opacity, immediately and clearly visible!
           daughter1.glowIntensity = 1.25;
           daughter1.age = 0;
@@ -837,6 +854,7 @@ export class LivingCellsEngine {
           daughter2.vy = cell.vy - Math.sin(angle) * pushSpeed;
           daughter2.state = 'growing';
           daughter2.growthProgress = 0.0;
+          daughter2.metabolicReserve = 0.0;
           daughter2.life = 1.0; // 100% full opacity, immediately and clearly visible!
           daughter2.glowIntensity = 1.25;
           daughter2.age = 0;
