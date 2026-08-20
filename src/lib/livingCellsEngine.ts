@@ -417,10 +417,144 @@ export class LivingCellsEngine {
     return this.mode;
   }
 
+  private persistCells(): void {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return;
+    try {
+      if (!this.cells.length) return;
+      const data = this.cells.map((c) => ({
+        id: c.id,
+        x: c.x,
+        y: c.y,
+        vx: c.vx,
+        vy: c.vy,
+        baseRadius: c.baseRadius,
+        radius: c.radius,
+        targetRadius: c.targetRadius,
+        birthRadius: c.birthRadius,
+        state: c.state,
+        stateElapsed: c.stateElapsed,
+        age: c.age,
+        matureElapsed: c.matureElapsed,
+        aspect: c.aspect,
+        angle: c.angle,
+        vAngle: c.vAngle,
+        nucleusRatio: c.nucleusRatio,
+        nucleusOffset: c.nucleusOffset,
+        nucleusAngle: c.nucleusAngle,
+        harmonics: c.harmonics,
+        harmonicPhases: c.harmonicPhases,
+        harmonicSpeeds: c.harmonicSpeeds,
+        organelles: c.organelles,
+        lifecycleSource: c.lifecycleSource,
+      }));
+      sessionStorage.setItem('khc-cells-persist', JSON.stringify({ cells: data, nextId: this.nextId }));
+    } catch {}
+  }
+
+  private restorePersistedCells(): boolean {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return false;
+    try {
+      const raw = sessionStorage.getItem('khc-cells-persist');
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.cells) || !parsed.cells.length) return false;
+      this.cells = parsed.cells.map((item: any) => {
+        const birthRadius = Number(item.birthRadius) || 20;
+        const harmonics: LivingCell['harmonics'] = Array.isArray(item.harmonics) && item.harmonics.length === 4
+          ? (item.harmonics as [number, number, number, number])
+          : [0.05, 0.035, 0.025, 0.015];
+        const harmonicPhases: LivingCell['harmonicPhases'] = Array.isArray(item.harmonicPhases) && item.harmonicPhases.length === 4
+          ? (item.harmonicPhases as [number, number, number, number])
+          : [0, 0, 0, 0];
+        const harmonicSpeeds: LivingCell['harmonicSpeeds'] = Array.isArray(item.harmonicSpeeds) && item.harmonicSpeeds.length === 4
+          ? (item.harmonicSpeeds as [number, number, number, number])
+          : [0.05, -0.04, 0.03, -0.02];
+        const vertices = Array.from({ length: VERTEX_COUNT }, (_, index) => {
+          const theta = (index / VERTEX_COUNT) * TAU;
+          const equilibriumOffset = this.morphologyOffset(
+            theta,
+            birthRadius,
+            harmonics,
+            harmonicPhases
+          );
+          return {
+            angle: theta,
+            displacement: equilibriumOffset,
+            velocity: 0,
+            equilibriumOffset,
+          };
+        });
+        const cell: LivingCell = {
+          id: String(item.id || this.nextId++),
+          x: Number(item.x) || (this.width > 0 ? this.width * 0.5 : 400),
+          y: Number(item.y) || (this.height > 0 ? this.height * 0.5 : 300),
+          previousX: Number(item.x) || (this.width > 0 ? this.width * 0.5 : 400),
+          previousY: Number(item.y) || (this.height > 0 ? this.height * 0.5 : 300),
+          vx: Number(item.vx) || 0,
+          vy: Number(item.vy) || 0,
+          baseRadius: Number(item.baseRadius) || 30,
+          radius: Number(item.radius) || 30,
+          previousRadius: Number(item.radius) || 30,
+          targetRadius: Number(item.targetRadius) || 30,
+          birthRadius,
+          angle: Number(item.angle) || 0,
+          vAngle: Number(item.vAngle) || 0,
+          wobblePhase: 0,
+          wobbleSpeed: 0.8,
+          harmonics,
+          harmonicPhases,
+          harmonicSpeeds,
+          aspect: Number(item.aspect) || 1,
+          vertices,
+          breathPhase: 0,
+          breathSpeed: 0.6,
+          morphPhase: 0,
+          morphSpeed: 0.5,
+          nucleusOffset: item.nucleusOffset || { x: 0, y: 0 },
+          nucleusRatio: Number(item.nucleusRatio) || 0.34,
+          nucleusAngle: Number(item.nucleusAngle) || 0,
+          organelles: Array.isArray(item.organelles) ? item.organelles.map(cloneOrganelle) : [],
+          state: item.state === 'mitosis' || item.state === 'apoptosis' ? 'mature' : (item.state || 'mature'),
+          stateElapsed: Number(item.stateElapsed) || 0,
+          growthProgress: 1,
+          growthDuration: 10,
+          matureElapsed: Number(item.matureElapsed) || 0,
+          life: 1,
+          age: Number(item.age) || 0,
+          isGrabbed: false,
+          grabOffset: { x: 0, y: 0 },
+          divisionQueued: false,
+          glowIntensity: 1,
+          contactCount: 0,
+          lifecycleSource: item.lifecycleSource || 'automatic',
+        };
+        const margin = cell.radius * 1.1;
+        if (this.width > 0 && this.height > 0) {
+          cell.x = clamp(cell.x, margin, Math.max(margin, this.width - margin));
+          cell.y = clamp(cell.y, margin, Math.max(margin, this.height - margin));
+          cell.previousX = cell.x;
+          cell.previousY = cell.y;
+        }
+        return cell;
+      });
+      if (parsed.nextId && Number.isFinite(parsed.nextId)) {
+        this.nextId = Math.max(this.nextId, parsed.nextId);
+      }
+      this.seeded = true;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   public setMode(mode: CellMode): void {
     const normalizedMode = mode === 'calm' ? 'ambient' : mode;
     if (!['ambient', 'calm', 'lab', 'off'].includes(mode)) return;
+    this.persistCells();
     this.mode = normalizedMode;
+    if (normalizedMode === 'ambient') {
+      this.simParams.targetPopulation = 0;
+    }
     if (typeof document !== 'undefined') document.documentElement.dataset.cellMode = normalizedMode;
     try {
       localStorage.setItem('khc-cell-mode', normalizedMode);
@@ -616,11 +750,15 @@ export class LivingCellsEngine {
     this.clearHover();
     this.attached = false;
     this.canvas = null;
-    this.ctx = null;
+    this.persistCells();
     this.counters.detaches++;
   }
 
   private seed(): void {
+    if (this.restorePersistedCells()) {
+      this.turnoverRemaining = this.turnoverDelay();
+      return;
+    }
     const count = this.targetCount || this.baseCount || 6;
     this.cells = [];
     for (let index = 0; index < count; index++) {
@@ -1666,7 +1804,13 @@ export class LivingCellsEngine {
       }
       return false;
     }
-    cell.apoptosisProgress = clamp(cell.stateElapsed / APOPTOSIS_SECONDS, 0, 1);
+    const isAmbient = this.mode === 'ambient' || this.mode === 'calm';
+    const projected = this.projectedCount();
+    const target = this.targetCount || this.baseCount || 6;
+    const excess = isAmbient ? Math.max(0, projected - target) : 0;
+    const clearanceSpeedup = excess > 1 ? 1 + Math.min(2.2, excess * 0.28) : 1;
+    const effectiveDuration = APOPTOSIS_SECONDS / (this.simParams.apoptosisMultiplier * clearanceSpeedup);
+    cell.apoptosisProgress = clamp(cell.stateElapsed / effectiveDuration, 0, 1);
     const progress = cell.apoptosisProgress;
     const startRadius = cell.apoptosisStartRadius ?? cell.baseRadius;
     cell.baseRadius = startRadius * (1 - 0.28 * windowed(progress, 0.02, 0.68));
@@ -2240,16 +2384,23 @@ export class LivingCellsEngine {
       this.simParams.targetPopulation > 0
         ? this.simParams.targetPopulation
         : this.targetCount || this.baseCount || 6;
+    const excess = Math.max(0, projected - target);
     if (projected > target) {
+      const isAmbient = this.mode === 'ambient' || this.mode === 'calm';
       const automaticDeaths = this.cells.filter(
         (cell) => cell.state === 'apoptosis' && cell.lifecycleSource === 'automatic'
       ).length;
-      const maximumDeaths = this.coarse ? 1 : 2;
+      const maximumDeaths = isAmbient && excess > 1
+        ? Math.min(5, Math.max(2, Math.ceil(excess / 3)))
+        : this.coarse ? 1 : 2;
       if (this.rebalanceCooldown <= 0 && automaticDeaths < maximumDeaths) {
         const candidate = this.apoptosisCandidate(true);
         if (candidate) {
           this.triggerApoptosis(candidate, 'automatic');
-          this.rebalanceCooldown = this.rebalanceDelay();
+          const delayBase = this.rebalanceDelay();
+          this.rebalanceCooldown = isAmbient && excess > 1
+            ? Math.max(0.35, delayBase / (1 + excess * 0.5))
+            : delayBase;
         }
       }
       return;
@@ -2365,6 +2516,7 @@ export class LivingCellsEngine {
   }
 
   private effectiveDetailLevel(): DetailLevel {
+    if (this.mode === 'lab') return 'full';
     const rank: Record<DetailLevel, number> = { full: 0, reduced: 1, minimal: 2 };
     const fromRank = (value: number): DetailLevel =>
       value >= 2 ? 'minimal' : value >= 1 ? 'reduced' : 'full';
@@ -2467,8 +2619,9 @@ export class LivingCellsEngine {
     showNucleus = true,
     recovery = 1
   ): void {
-    if (!this.ctx) return;
+    if (!this.ctx || radius < 10) return;
     const detailLevel = this.effectiveDetailLevel();
+    const isLab = this.mode === 'lab';
     const { accent, ink, glow, dark } = this.palette;
     const alpha = this.effectiveAlpha(opacity);
     const scale = radius / Math.max(1, cell.targetRadius);
@@ -2488,10 +2641,10 @@ export class LivingCellsEngine {
       // Outer nuclear envelope with soft translucent nucleoplasm
       this.ctx.beginPath();
       this.ctx.ellipse(nx, ny, nucleusA, nucleusB, cell.nucleusAngle, 0, TAU);
-      this.ctx.fillStyle = `rgba(${accent}, ${0.078 * alpha * nucleusRecovery})`;
+      this.ctx.fillStyle = `rgba(${accent}, ${(isLab ? 0.11 : 0.078) * alpha * nucleusRecovery})`;
       this.ctx.fill();
-      this.ctx.lineWidth = 0.95;
-      this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.078 * alpha * nucleusRecovery})`;
+      this.ctx.lineWidth = isLab ? 1.15 : 0.95;
+      this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${(isLab ? 0.13 : 0.078) * alpha * nucleusRecovery})`;
       this.ctx.stroke();
 
       // Inner dense nucleolus
@@ -2503,18 +2656,15 @@ export class LivingCellsEngine {
         0,
         TAU
       );
-      this.ctx.fillStyle = `rgba(${ink}, ${0.098 * alpha * nucleusRecovery})`;
+      this.ctx.fillStyle = `rgba(${ink}, ${(isLab ? 0.15 : 0.098) * alpha * nucleusRecovery})`;
       this.ctx.fill();
     }
-    // Subcellular decoration
-    if (
-      detailLevel === 'minimal' ||
-      (this.isHomepage && this.coarse) ||
-      (this.coarse && radius < 34)
-    )
-      return;
 
+    // Subcellular decoration
     for (const org of cell.organelles) {
+      if (detailLevel === 'minimal' && org.type !== 'mitochondria' && org.type !== 'centrosome') {
+        continue;
+      }
       const recoveryOpacity =
         org.type === 'mitochondria'
           ? lerp(0.36, 1, recovery)
@@ -2534,14 +2684,14 @@ export class LivingCellsEngine {
         this.ctx.rotate(org.rotAngle + cell.angle);
         this.ctx.beginPath();
         this.ctx.ellipse(0, 0, (org.length * scale) / 2, (org.width * scale) / 2, 0, 0, TAU);
-        this.ctx.fillStyle = `rgba(${accent}, ${0.075 * alpha})`;
+        this.ctx.fillStyle = `rgba(${accent}, ${(isLab ? 0.10 : 0.075) * alpha})`;
         this.ctx.fill();
-        this.ctx.lineWidth = 0.85;
-        this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.088 * alpha})`;
+        this.ctx.lineWidth = isLab ? 1.05 : 0.85;
+        this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${(isLab ? 0.13 : 0.088) * alpha})`;
         this.ctx.stroke();
         if (detailLevel === 'full') {
-          this.ctx.lineWidth = 0.65;
-          this.ctx.strokeStyle = `rgba(${ink}, ${0.068 * alpha})`;
+          this.ctx.lineWidth = isLab ? 0.8 : 0.65;
+          this.ctx.strokeStyle = `rgba(${ink}, ${(isLab ? 0.095 : 0.068) * alpha})`;
           for (let crista = 1; crista <= org.cristaeCount; crista++) {
             const cx =
               -org.length * scale * 0.32 +
@@ -2564,8 +2714,8 @@ export class LivingCellsEngine {
         this.ctx.save();
         this.ctx.translate(ox, oy);
         this.ctx.rotate(org.angle + cell.angle);
-        this.ctx.lineWidth = 0.95;
-        this.ctx.strokeStyle = `rgba(${accent}, ${0.085 * alpha})`;
+        this.ctx.lineWidth = isLab ? 1.15 : 0.95;
+        this.ctx.strokeStyle = `rgba(${accent}, ${(isLab ? 0.12 : 0.085) * alpha})`;
         for (let layer = 0; layer < org.layers; layer++) {
           this.ctx.beginPath();
           this.ctx.arc(0, 0, radius * (0.045 + layer * 0.028), -org.arcSpan / 2, org.arcSpan / 2);
@@ -2583,10 +2733,10 @@ export class LivingCellsEngine {
               0,
               TAU
             );
-            this.ctx.fillStyle = `rgba(${accent}, ${0.068 * alpha})`;
+            this.ctx.fillStyle = `rgba(${accent}, ${(isLab ? 0.095 : 0.068) * alpha})`;
             this.ctx.fill();
             this.ctx.lineWidth = 0.55;
-            this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.078 * alpha})`;
+            this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${(isLab ? 0.11 : 0.078) * alpha})`;
             this.ctx.stroke();
           }
         }
@@ -2594,15 +2744,15 @@ export class LivingCellsEngine {
       } else if (org.type === 'er') {
         this.ctx.save();
         this.ctx.translate(nx, ny);
-        this.ctx.lineWidth = 0.85;
-        this.ctx.strokeStyle = `rgba(${accent}, ${0.058 * alpha})`;
+        this.ctx.lineWidth = isLab ? 1.05 : 0.85;
+        this.ctx.strokeStyle = `rgba(${accent}, ${(isLab ? 0.095 : 0.058) * alpha})`;
         for (let layer = 0; layer < org.layers; layer++) {
           this.ctx.beginPath();
           this.ctx.arc(0, 0, nr * (1.14 + layer * 0.15), org.arcStart, org.arcStart + org.arcEnd);
           this.ctx.stroke();
         }
         if (detailLevel === 'full') {
-          this.ctx.fillStyle = `rgba(${ink}, ${0.075 * alpha})`;
+          this.ctx.fillStyle = `rgba(${ink}, ${(isLab ? 0.11 : 0.075) * alpha})`;
           for (const ribosome of org.ribosomes) {
             const angle = org.arcStart + ribosome.angle * org.arcEnd;
             const rr = nr * (1.13 + ribosome.rOffset * 0.32);
@@ -2621,8 +2771,8 @@ export class LivingCellsEngine {
         this.ctx.lineTo(ox + length, oy);
         this.ctx.moveTo(ox, oy - length);
         this.ctx.lineTo(ox, oy + length);
-        this.ctx.lineWidth = 0.95;
-        this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.088 * alpha})`;
+        this.ctx.lineWidth = isLab ? 1.25 : 0.95;
+        this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${(isLab ? 0.14 : 0.088) * alpha})`;
         this.ctx.stroke();
       }
       this.ctx.restore();
@@ -3017,11 +3167,13 @@ export class LivingCellsEngine {
     const level = clamp(brightness, 0.8, 1.25);
     const isLab = this.mode === 'lab';
     const alpha = this.effectiveAlpha(opacity);
-    const fillBase = isLab || this.simParams.darkContrast ? 0.065 : 0.045;
+    const fillBase = isLab ? 0.095 : this.simParams.darkContrast ? 0.065 : 0.045;
     this.ctx.fillStyle = `rgba(${accent}, ${fillBase * level * alpha})`;
     this.ctx.fill();
-    this.ctx.lineWidth = grabbed ? 1.6 : hovered ? 1.35 : isLab ? 1.28 : 1.15;
-    const strokeBase = isLab || this.simParams.darkContrast
+    this.ctx.lineWidth = grabbed ? 1.6 : hovered ? 1.35 : isLab ? 1.45 : 1.15;
+    const strokeBase = isLab
+      ? (grabbed ? 0.22 : hovered ? 0.18 : 0.15)
+      : this.simParams.darkContrast
       ? (grabbed ? 0.16 : hovered ? 0.13 : 0.105)
       : (grabbed ? 0.12 : hovered ? 0.092 : 0.082);
     this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${strokeBase * level * alpha})`;
@@ -3211,6 +3363,14 @@ export function getLivingCellsEngine(): LivingCellsEngine {
 
 export function initLivingCellsBackground(): void {
   const canvas = document.querySelector<HTMLCanvasElement>('[data-site-bg-canvas]');
-  if (canvas) getLivingCellsEngine().attach(canvas);
-  else getLivingCellsEngine().detach();
+  if (canvas) {
+    const engine = getLivingCellsEngine();
+    if (typeof window !== 'undefined' && window.location.pathname !== '/lab' && engine.getMode() === 'lab') {
+      const stored = localStorage.getItem('khc-cell-mode');
+      engine.setMode(stored === 'off' ? 'off' : 'ambient');
+    }
+    engine.attach(canvas);
+  } else {
+    getLivingCellsEngine().detach();
+  }
 }

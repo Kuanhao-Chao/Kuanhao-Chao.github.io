@@ -862,6 +862,56 @@ describe('LivingCellsEngine', () => {
     });
     expect((engine as any).cells).toHaveLength(0);
   });
+
+  it('locks to full detail and 1.0 alpha in lab mode while ambient uses 0.8 alpha', () => {
+    const engine = makeEngine();
+    Object.assign(engine as any, { cells: Array.from({ length: 25 }, () => createCell(engine, 40, 40)) });
+
+    engine.setMode('lab');
+    expect((engine as any).effectiveDetailLevel()).toBe('full');
+    expect((engine as any).effectiveAlpha()).toBe(1.0);
+
+    engine.setMode('ambient');
+    expect((engine as any).effectiveAlpha()).toBe(0.8);
+    // On ambient with 25 cells (population > limit + 10), detail level gracefully degrades to minimal
+    expect((engine as any).effectiveDetailLevel()).toBe('minimal');
+  });
+
+  it('accelerates apoptosis clearance when ambient mode is overcrowded', () => {
+    const engine = makeEngine(12);
+    const cells = Array.from({ length: 20 }, (_, i) => {
+      const cell = createCell(engine, 50, 30);
+      Object.assign(cell, { age: 30 + i });
+      return cell;
+    });
+    Object.assign(engine as any, {
+      cells,
+      targetCount: 6,
+      baseCount: 6,
+      mode: 'ambient',
+      inputQuietRemaining: 0,
+      rebalanceCooldown: 0,
+    });
+
+    (engine as any).updateHomeostasis();
+    const apoptotic = cells.filter((c) => c.state === 'apoptosis');
+    expect(apoptotic.length).toBeGreaterThanOrEqual(1);
+    expect((engine as any).rebalanceCooldown).toBeLessThan(1.5);
+  });
+
+  it('persists and restores cell state across mode transitions', () => {
+    const engine = makeEngine(99);
+    Object.assign(engine as any, { width: 800, height: 600 });
+    (engine as any).seed();
+    const initialCellCount = (engine as any).cells.length;
+    expect(initialCellCount).toBeGreaterThan(0);
+
+    engine.setMode('lab');
+    expect((engine as any).cells.length).toBe(initialCellCount);
+
+    engine.setMode('ambient');
+    expect((engine as any).cells.length).toBe(initialCellCount);
+  });
 });
 
 function assertOrganelleContained(org: Organelle, radius: number): void {
