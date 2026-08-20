@@ -807,9 +807,9 @@ describe('LivingCellsEngine', () => {
     expect(cell.divisionQueued).toBe(false);
   });
 
-  it('spawns a new growing cell when clicking on empty space', () => {
+  it('spawns a new growing cell when clicking on empty space in lab mode', () => {
     const engine = makeEngine();
-    Object.assign(engine as any, { cells: [], attached: true, width: 800, height: 600 });
+    Object.assign(engine as any, { cells: [], attached: true, width: 800, height: 600, mode: 'lab' });
 
     (engine as any).onPointerDown({
       clientX: 250,
@@ -838,6 +838,29 @@ describe('LivingCellsEngine', () => {
     expect(spawned.y).toBe(300);
     expect(spawned.state).toBe('growing');
     expect(spawned.birthRadius).toBeLessThan(spawned.targetRadius);
+
+    // In ambient mode, empty clicks do not spawn cells
+    (engine as any).mode = 'ambient';
+    (engine as any).cells = [];
+    (engine as any).onPointerDown({
+      clientX: 400,
+      clientY: 400,
+      pointerId: 2,
+      pointerType: 'mouse',
+      button: 0,
+      isPrimary: true,
+      target: null,
+    });
+    (engine as any).onPointerUp({
+      clientX: 400,
+      clientY: 400,
+      pointerId: 2,
+      pointerType: 'mouse',
+      button: 0,
+      isPrimary: true,
+      target: null,
+    });
+    expect((engine as any).cells).toHaveLength(0);
   });
 });
 

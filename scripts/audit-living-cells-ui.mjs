@@ -342,7 +342,7 @@ function assertSnapshot(scope, state, profile) {
     `projected count ${state.projectedCount} exceeds target ${state.targetCount} + 2`
   );
   check(scope, Array.isArray(state.cells) && state.cells.length > 0, 'debug snapshot has no cells');
-  check(scope, ['calm', 'lab', 'off'].includes(state.mode), `invalid cell mode ${state.mode}`);
+  check(scope, ['ambient', 'calm', 'lab', 'off'].includes(state.mode), `invalid cell mode ${state.mode}`);
   check(
     scope,
     ['divide', 'apoptosis'].includes(state.labAction),
@@ -864,133 +864,77 @@ async function removeAuditSurface(page) {
   await page.evaluate(() => document.querySelector('[data-cell-audit-surface]')?.remove());
 }
 
-async function auditCellControls(page, scope, profile) {
+async function auditCellControls(page, scope, _profile) {
   const contract = await page.evaluate(() => ({
     modes: [...document.querySelectorAll('[data-cell-mode]')].map((element) =>
       element.getAttribute('data-cell-mode')
     ),
-    actions: [...document.querySelectorAll('[data-cell-action]')].map((element) =>
-      element.getAttribute('data-cell-action')
-    ),
-    hasActionsRoot: Boolean(document.querySelector('[data-cell-lab-actions]')),
+    hasLabLink: Boolean(document.querySelector('a[href="/lab"], .cell-lab-link-btn')),
     hasStatus: Boolean(document.querySelector('[data-cell-status]')),
     hasStatusText: Boolean(document.querySelector('[data-cell-status-text]')),
   }));
   check(
     scope,
-    ['calm', 'lab', 'off'].every((mode) => contract.modes.includes(mode)),
+    ['ambient', 'off'].every((mode) => contract.modes.includes(mode) || (mode === 'ambient' && contract.modes.includes('calm'))),
     `mode controls are incomplete: ${contract.modes.join(', ')}`
   );
-  check(
-    scope,
-    ['divide', 'apoptosis'].every((action) => contract.actions.includes(action)),
-    `lab action controls are incomplete: ${contract.actions.join(', ')}`
-  );
-  check(scope, contract.hasActionsRoot, 'lab action group is missing');
+  check(scope, contract.hasLabLink, 'Lab playground link is missing');
   check(scope, contract.hasStatus && contract.hasStatusText, 'cell status chip is incomplete');
 
-  const beforeControls = await snapshot(page);
-  await clickCellControl(page, '[data-cell-mode="lab"]');
-  await page.waitForFunction(
-    () =>
-      document.documentElement.dataset.cellMode === 'lab' &&
-      window.__khcCellsDebug.snapshot().mode === 'lab'
-  );
-  const lab = await snapshot(page);
-  check(
-    scope,
-    lab.counters.clickRequests === beforeControls.counters.clickRequests,
-    'opening Lab mode triggered a cell division'
-  );
-  const labUi = await page.evaluate(() => {
-    const visible = (element) => {
-      if (!(element instanceof HTMLElement) || element.hidden) return false;
-      const style = getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0;
-    };
-    const group = [...document.querySelectorAll('[data-cell-lab-actions]')].find(visible);
-    const labButton = [...document.querySelectorAll('[data-cell-mode="lab"]')].find(visible);
-    return {
-      visible: Boolean(group),
-      checked: labButton?.getAttribute('aria-checked'),
-      active: labButton?.classList.contains('is-active'),
-    };
-  });
-  check(scope, labUi.visible, 'Lab actions stayed hidden in Lab mode');
-  check(scope, labUi.checked === 'true' && labUi.active, 'Lab mode control is not selected');
-
-  await clickCellControl(page, '[data-cell-action="apoptosis"]');
-  await page.waitForFunction(() => window.__khcCellsDebug.snapshot().labAction === 'apoptosis');
-  check(
-    scope,
-    await page.evaluate(() => sessionStorage.getItem('khc-cell-action') === 'apoptosis'),
-    'Lab apoptosis action was not persisted for the session'
-  );
-
-  await mountAuditSurface(page, 'exposed-background');
-  let point;
-  try {
-    point = await findCellPoint(page);
-    if (!point) throw new Error('could not find a visible cell for Lab action/status checks');
-    await tapCellPoint(page, profile, point);
-  } finally {
-    await removeAuditSurface(page);
-  }
-  await page.waitForFunction((cellId) => {
-    const state = window.__khcCellsDebug.snapshot();
-    const cell = state.cells.find((item) => String(item.id) === String(cellId));
-    const chip = document.querySelector('[data-cell-status]');
-    return cell?.state === 'apoptosis' && chip && !chip.hasAttribute('hidden');
-  }, String(point.id));
-  const status = await page.evaluate(() => ({
-    text: document.querySelector('[data-cell-status-text]')?.textContent?.trim() ?? '',
-    hidden: document.querySelector('[data-cell-status]')?.hasAttribute('hidden') ?? true,
-    selectedCellId: window.__khcCellsDebug.snapshot().selectedCellId,
-  }));
-  check(scope, !status.hidden && status.text.length > 0, 'Lab lifecycle status is not legible');
-  check(
-    scope,
-    String(status.selectedCellId) === String(point.id),
-    'Lab status did not follow the clicked cell'
-  );
-  await setCellState(page, point.id, 'mature');
-
-  await clickCellControl(page, '[data-cell-action="divide"]');
-  await page.waitForFunction(() => window.__khcCellsDebug.snapshot().labAction === 'divide');
+  // Test Off mode
   await clickCellControl(page, '[data-cell-mode="off"]');
   await page.waitForFunction(
     () =>
       document.documentElement.dataset.cellMode === 'off' &&
       window.__khcCellsDebug.snapshot().mode === 'off'
   );
-  const offUi = await page.evaluate(() => {
-    const group = document.querySelector('[data-cell-lab-actions]');
-    const statusChip = document.querySelector('[data-cell-status]');
-    return {
-      actionsHidden: Boolean(
-        !group || group.hasAttribute('hidden') || getComputedStyle(group).display === 'none'
-      ),
-      statusHidden: Boolean(!statusChip || statusChip.hasAttribute('hidden')),
-    };
-  });
-  check(scope, offUi.actionsHidden, 'Lab actions remained visible in Off mode');
-  check(scope, offUi.statusHidden, 'lifecycle status remained visible in Off mode');
-
-  await clickCellControl(page, '[data-cell-mode="calm"]');
-  await page.waitForFunction(
-    () =>
-      document.documentElement.dataset.cellMode === 'calm' &&
-      window.__khcCellsDebug.snapshot().mode === 'calm'
-  );
-  const calm = await snapshot(page);
-  check(scope, calm.running === true, 'Calm mode did not resume the animation');
+  const off = await snapshot(page);
+  check(scope, off.running === false, 'Off mode did not pause the animation');
   check(
     scope,
-    await page.evaluate(() => localStorage.getItem('khc-cell-mode') === 'calm'),
-    'Calm mode was not persisted'
+    await page.evaluate(() => localStorage.getItem('khc-cell-mode') === 'off'),
+    'Off mode was not persisted'
+  );
+
+  // Test Ambient mode restoration
+  await clickCellControl(page, '[data-cell-mode="ambient"], [data-cell-mode="calm"]');
+  await page.waitForFunction(
+    () =>
+      (document.documentElement.dataset.cellMode === 'ambient' || document.documentElement.dataset.cellMode === 'calm') &&
+      (window.__khcCellsDebug.snapshot().mode === 'ambient' || window.__khcCellsDebug.snapshot().mode === 'calm')
+  );
+  const ambient = await snapshot(page);
+  check(scope, ambient.running === true, 'Ambient mode did not resume the animation');
+  check(
+    scope,
+    await page.evaluate(() => {
+      const val = localStorage.getItem('khc-cell-mode');
+      return val === 'ambient' || val === 'calm';
+    }),
+    'Ambient mode was not persisted'
   );
   await page.keyboard.press('Escape');
+
+  // Verify dedicated /lab playground route
+  await page.goto(`/lab${auditQuery}`, { waitUntil: 'networkidle', timeout: navigationTimeout });
+  await waitForDebug(page);
+  const labState = await snapshot(page);
+  check(scope, labState.mode === 'lab', 'Lab route did not initialize in lab mode');
+  check(scope, labState.running === true, 'Lab route engine is not running');
+  const hud = await page.evaluate(() => ({
+    hasCanvas: Boolean(document.querySelector('#lab-canvas')),
+    hasHud: Boolean(document.querySelector('#lab-hud')),
+    hasTelemetry: Boolean(document.querySelector('.lab-telemetry-strip')),
+    hasSliders: document.querySelectorAll('.slider-item').length >= 5,
+    hasPresets: document.querySelectorAll('.preset-btn').length >= 4,
+    hasActions: document.querySelectorAll('.action-btn').length >= 4,
+  }));
+  check(scope, hud.hasCanvas && hud.hasHud && hud.hasTelemetry, 'Lab page structure is incomplete');
+  check(scope, hud.hasSliders && hud.hasPresets && hud.hasActions, 'Lab HUD controls are missing');
+
+  // Return back to projects page with audit query
+  await page.goto(`/projects/${auditQuery}`, { waitUntil: 'networkidle', timeout: navigationTimeout });
+  await waitForDebug(page);
 }
 
 async function auditConcurrentExplicitClicks(page, scope, profile) {

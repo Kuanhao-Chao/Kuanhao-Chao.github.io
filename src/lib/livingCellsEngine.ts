@@ -1262,7 +1262,13 @@ export class LivingCellsEngine {
       this.releaseGrabbed({ x: vx * scale, y: vy * scale });
     } else if (candidate && distance <= threshold && duration <= durationLimit) {
       this.queueDivision(candidate);
-    } else if (!candidate && !this.grabbedCell && distance <= threshold && duration <= durationLimit) {
+    } else if (
+      this.mode === 'lab' &&
+      !candidate &&
+      !this.grabbedCell &&
+      distance <= threshold &&
+      duration <= durationLimit
+    ) {
       this.spawnCellAt(event.clientX, event.clientY);
     }
     this.pointer.down = false;
