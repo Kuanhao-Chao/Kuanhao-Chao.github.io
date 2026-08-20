@@ -9,11 +9,12 @@
  * and pauses when off-screen. Mobile keeps the site-wide cells as its single
  * ambient animation instead of running two full-canvas loops at once.
  *
- * View-Transitions safe: (re)initialises on astro:page-load and tears the loop
- * + observers + listeners down on astro:before-swap, so navigating away and back
- * to the homepage never stacks rAF loops or leaves a blank canvas.
+ * View-Transitions safe: initialises immediately, rechecks on astro:page-load,
+ * and tears the loop + observers + listeners down on astro:before-swap, so
+ * navigating away and back never stacks rAF loops or leaves a blank canvas.
  */
 ---
+
 <canvas data-hero-canvas aria-hidden="true"></canvas>
 
 <style>
@@ -28,7 +29,31 @@
 </style>
 
 <script>
-  let instance: { teardown: () => void } | null = null;
+  interface HeroDebugSnapshot {
+    running: boolean;
+    visible: boolean;
+    reduced: boolean;
+    coarse: boolean;
+    width: number;
+    height: number;
+    dpr: number;
+    updateCount: number;
+    renderCount: number;
+    maxFps: number;
+    timings: {
+      renderP50: number;
+      renderP95: number;
+      renderMax: number;
+    };
+  }
+
+  declare global {
+    interface Window {
+      __khcHeroDebug?: { snapshot: () => HeroDebugSnapshot };
+    }
+  }
+
+  let instance: { teardown: () => void; snapshot: () => HeroDebugSnapshot } | null = null;
 
   function setup() {
     if (instance) return;
@@ -49,6 +74,7 @@
     function refreshPalette() {
       INK = cssRgb('--rgb-ink', [20, 20, 20]);
       TEAL = cssRgb('--rgb-accent', [46, 110, 94]);
+      rebuildGlyphAtlas();
       if (spine.length) draw(false);
     }
 
@@ -60,20 +86,29 @@
     const AMP = coarse.matches ? 10 : 14; // px — helix radius (calmer on touch)
     const WANDER = coarse.matches ? 0.22 : 0.3; // autonomous-drift excursion
     const TWIST_STEP = 0.45; // rad of twist per spine point
-    const TWIST_SPEED = coarse.matches ? 0.009 : 0.012; // rad/frame — bases travel along the ribbon (slow)
+    const TWIST_SPEED = coarse.matches ? 0.009 : 0.012; // rad/60 Hz step — bases travel along the ribbon (slow)
     const EASE = 0.085; // how quickly the head chases the cursor (snappy)
     const EASE_IDLE = 0.02; // gentler chase while drifting alone (slower acceleration)
     const NODE_R = 2.2; // base node radius (scaled by depth)
 
-    const TRAIL = 0.18; // comet trail — fraction of the old frame erased each tick
+    const TRAIL = 0.18; // comet trail — fraction of the old frame erased per 60 Hz step
     const GLOW = 4; // px — max bloom radius at the head / pulse
-    const PULSE_SPEED = coarse.matches ? 0.16 : 0.22; // node-indices/frame — speed of the travelling pulse
+    const PULSE_SPEED = coarse.matches ? 0.16 : 0.22; // node-indices/60 Hz step
     const PULSE_WIDTH = 6; // nodes — half-width of the pulse window
     const DIM = 0.6; // master opacity multiplier — keeps the cursor helix subtle
     const TEXT_PAD = 26; // px — clearance kept around the hero copy
     const TEXT_FEATHER = 30; // px — soft fade band so the helix tucks under the text
     const TEXT_KEEP = 0.35; // helix opacity retained under the copy (0 = hidden, 1 = unchanged)
-    const TEXT_ERASE = 1 - Math.sqrt(TEXT_KEEP); // dest-out alpha; interior keep ≈ TEXT_KEEP
+    const TEXT_ERASE = 1 - TEXT_KEEP; // single-pass dest-out alpha; interior keep = TEXT_KEEP
+    const MAX_FPS = 24;
+    const FRAME_INTERVAL = 1000 / MAX_FPS;
+    const RENDER_SAMPLE_LIMIT = 180;
+    const GLYPH_CELL = 18;
+    const GLYPH_SCALE = 2;
+    const GLYPH_SIZE_MIN = 8;
+    const GLYPH_SIZE_COUNT = 5;
+    const GLYPH_COLOR_STEPS = 5;
+    const GLYPH_ATLAS_COLS = 10;
 
     const BASES = ['A', 'T', 'C', 'G'];
     const COMP: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C' };
@@ -83,14 +118,32 @@
     const textEl = host.querySelector<HTMLElement>('.hero-text');
 
     type Pt = { x: number; y: number };
+    type ClearanceMask = {
+      canvas: HTMLCanvasElement;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+    type GlyphSlot = { sx: number; sy: number };
     let spine: Pt[] = [];
     let bases: { a: string; b: string }[] = [];
     let protect: { x: number; y: number; w: number; h: number } | null = null;
+    let clearanceMask: ClearanceMask | null = null;
     let w = 0;
     let h = 0;
     let tick = 0;
     let raf = 0;
     let running = false;
+    let visible = true;
+    let lastFrameTime = 0;
+    let currentDpr = 1;
+    let updateCount = 0;
+    let renderCount = 0;
+    const renderSamples: number[] = [];
+    let renderSampleIndex = 0;
+    const glyphAtlas = document.createElement('canvas');
+    const glyphSlots = new Map<string, GlyphSlot>();
 
     // Blend ink → teal by m (0..1) into an "r, g, b" string.
     function mix(m: number) {
@@ -98,6 +151,39 @@
       const g = Math.round(INK[1] + (TEAL[1] - INK[1]) * m);
       const b = Math.round(INK[2] + (TEAL[2] - INK[2]) * m);
       return `${r}, ${g}, ${b}`;
+    }
+
+    function glyphKey(letter: string, size: number, colorStep: number) {
+      return `${letter}:${size}:${colorStep}`;
+    }
+
+    function rebuildGlyphAtlas() {
+      const glyphCount = BASES.length * GLYPH_SIZE_COUNT * GLYPH_COLOR_STEPS;
+      const rows = Math.ceil(glyphCount / GLYPH_ATLAS_COLS);
+      glyphAtlas.width = GLYPH_ATLAS_COLS * GLYPH_CELL * GLYPH_SCALE;
+      glyphAtlas.height = rows * GLYPH_CELL * GLYPH_SCALE;
+      const atlasCtx = glyphAtlas.getContext('2d');
+      if (!atlasCtx) return;
+      atlasCtx.setTransform(GLYPH_SCALE, 0, 0, GLYPH_SCALE, 0, 0);
+      atlasCtx.textAlign = 'center';
+      atlasCtx.textBaseline = 'middle';
+      glyphSlots.clear();
+
+      let index = 0;
+      for (const letter of BASES) {
+        for (let sizeOffset = 0; sizeOffset < GLYPH_SIZE_COUNT; sizeOffset++) {
+          const size = GLYPH_SIZE_MIN + sizeOffset;
+          atlasCtx.font = `600 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+          for (let colorStep = 0; colorStep < GLYPH_COLOR_STEPS; colorStep++) {
+            const sx = (index % GLYPH_ATLAS_COLS) * GLYPH_CELL;
+            const sy = Math.floor(index / GLYPH_ATLAS_COLS) * GLYPH_CELL;
+            atlasCtx.fillStyle = `rgb(${mix(colorStep / (GLYPH_COLOR_STEPS - 1))})`;
+            atlasCtx.fillText(letter, sx + GLYPH_CELL / 2, sy + GLYPH_CELL / 2);
+            glyphSlots.set(glyphKey(letter, size, colorStep), { sx, sy });
+            index++;
+          }
+        }
+      }
     }
 
     function seed() {
@@ -126,10 +212,10 @@
       const rect = host!.getBoundingClientRect();
       w = rect.width;
       h = rect.height;
-      const dpr = Math.min(window.devicePixelRatio || 1, coarse.matches ? 1.5 : 2);
-      canvas!.width = Math.round(w * dpr);
-      canvas!.height = Math.round(h * dpr);
-      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      currentDpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas!.width = Math.round(w * currentDpr);
+      canvas!.height = Math.round(h * currentDpr);
+      ctx!.setTransform(currentDpr, 0, 0, currentDpr, 0, 0);
 
       // Region to keep clear of the helix (the hero copy), host-relative px.
       if (textEl) {
@@ -143,6 +229,7 @@
       } else {
         protect = null;
       }
+      clearanceMask = createTextClearanceMask();
 
       if (spine.length === 0) seed();
       if (reduce.matches || coarse.matches) layoutStatic();
@@ -150,14 +237,41 @@
     }
 
     // One backbone marker: a base letter where it's bright enough, else a dot.
-    function mark(x: number, y: number, depth: number, col: string, baseA: number, letter: string) {
+    function mark(
+      x: number,
+      y: number,
+      depth: number,
+      col: string,
+      baseA: number,
+      letter: string,
+      showLetter: boolean,
+      teal: number
+    ) {
       const t = (depth + 1) / 2; // 0 (back) .. 1 (front)
       const a = baseA * (0.45 + 0.55 * t);
-      if (a > 0.085) {
-        const size = 8 + 4 * t;
-        ctx!.font = `600 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
-        ctx!.fillStyle = `rgba(${col}, ${a})`;
-        ctx!.fillText(letter, x, y);
+      if (showLetter && a > 0.085) {
+        const size = Math.round(GLYPH_SIZE_MIN + 4 * t);
+        const colorStep = Math.round(teal * (GLYPH_COLOR_STEPS - 1));
+        const slot = glyphSlots.get(glyphKey(letter, size, colorStep));
+        if (slot) {
+          ctx!.globalAlpha = a;
+          ctx!.drawImage(
+            glyphAtlas,
+            slot.sx * GLYPH_SCALE,
+            slot.sy * GLYPH_SCALE,
+            GLYPH_CELL * GLYPH_SCALE,
+            GLYPH_CELL * GLYPH_SCALE,
+            x - GLYPH_CELL / 2,
+            y - GLYPH_CELL / 2,
+            GLYPH_CELL,
+            GLYPH_CELL
+          );
+          ctx!.globalAlpha = 1;
+        } else {
+          ctx!.font = `600 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+          ctx!.fillStyle = `rgba(${col}, ${a})`;
+          ctx!.fillText(letter, x, y);
+        }
       } else {
         ctx!.fillStyle = `rgba(${col}, ${a})`;
         ctx!.beginPath();
@@ -166,12 +280,122 @@
       }
     }
 
-    function draw(trail: boolean) {
+    function recordRenderTiming(duration: number) {
+      if (renderSamples.length < RENDER_SAMPLE_LIMIT) {
+        renderSamples.push(duration);
+      } else {
+        renderSamples[renderSampleIndex] = duration;
+      }
+      renderSampleIndex = (renderSampleIndex + 1) % RENDER_SAMPLE_LIMIT;
+    }
+
+    function renderTimingSummary() {
+      if (renderSamples.length === 0) return { p50: 0, p95: 0, max: 0 };
+      const sorted = [...renderSamples].sort((a, b) => a - b);
+      const percentile = (value: number) =>
+        sorted[Math.min(sorted.length - 1, Math.floor(value * sorted.length))];
+      return {
+        p50: percentile(0.5),
+        p95: percentile(0.95),
+        max: sorted[sorted.length - 1],
+      };
+    }
+
+    function appendRoundedRect(
+      target: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      radius: number
+    ) {
+      const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+      target.moveTo(x + r, y);
+      target.arcTo(x + width, y, x + width, y + height, r);
+      target.arcTo(x + width, y + height, x, y + height, r);
+      target.arcTo(x, y + height, x, y, r);
+      target.arcTo(x, y, x + width, y, r);
+      target.closePath();
+    }
+
+    function createTextClearanceMask(): ClearanceMask | null {
+      if (!protect) return null;
+      const { x, y, w: pw, h: ph } = protect;
+      const radius = Math.min(14, pw / 2, ph / 2);
+      const featherSteps = 6;
+      const width = pw + TEXT_FEATHER * 2;
+      const height = ph + TEXT_FEATHER * 2;
+      const mask = document.createElement('canvas');
+      mask.width = Math.ceil(width * currentDpr);
+      mask.height = Math.ceil(height * currentDpr);
+      const maskCtx = mask.getContext('2d');
+      if (!maskCtx) return null;
+      maskCtx.setTransform(currentDpr, 0, 0, currentDpr, 0, 0);
+
+      // Cache the non-overlapping rounded feather rings. Their geometry only
+      // changes on resize, so each animation frame needs one compositing blit.
+      for (let band = 0; band < featherSteps; band++) {
+        const inner = (band / featherSteps) * TEXT_FEATHER;
+        const outer = ((band + 1) / featherSteps) * TEXT_FEATHER;
+        const fade = 1 - (band + 0.5) / featherSteps;
+        maskCtx.fillStyle = `rgba(0, 0, 0, ${TEXT_ERASE * fade * fade})`;
+        maskCtx.beginPath();
+        appendRoundedRect(
+          maskCtx,
+          TEXT_FEATHER - outer,
+          TEXT_FEATHER - outer,
+          pw + outer * 2,
+          ph + outer * 2,
+          radius + outer
+        );
+        appendRoundedRect(
+          maskCtx,
+          TEXT_FEATHER - inner,
+          TEXT_FEATHER - inner,
+          pw + inner * 2,
+          ph + inner * 2,
+          radius + inner
+        );
+        maskCtx.fill('evenodd');
+      }
+
+      maskCtx.fillStyle = `rgba(0, 0, 0, ${TEXT_ERASE})`;
+      maskCtx.beginPath();
+      appendRoundedRect(maskCtx, TEXT_FEATHER, TEXT_FEATHER, pw, ph, radius);
+      maskCtx.fill();
+      return {
+        canvas: mask,
+        x: x - TEXT_FEATHER,
+        y: y - TEXT_FEATHER,
+        width,
+        height,
+      };
+    }
+
+    function drawTextClearanceMask() {
+      if (!clearanceMask) return;
+      ctx!.save();
+      ctx!.shadowBlur = 0;
+      ctx!.globalCompositeOperation = 'destination-out';
+      ctx!.drawImage(
+        clearanceMask.canvas,
+        clearanceMask.x,
+        clearanceMask.y,
+        clearanceMask.width,
+        clearanceMask.height
+      );
+      ctx!.restore();
+    }
+
+    function draw(trail: boolean, frameScale = 1) {
+      const renderStartedAt = performance.now();
+      renderCount++;
       if (trail) {
         // Erode the previous frame (keeps canvas transparent → comet trail).
         ctx!.shadowBlur = 0;
         ctx!.globalCompositeOperation = 'destination-out';
-        ctx!.fillStyle = `rgba(0, 0, 0, ${TRAIL})`;
+        const trailAlpha = 1 - Math.pow(1 - TRAIL, frameScale);
+        ctx!.fillStyle = `rgba(0, 0, 0, ${trailAlpha})`;
         ctx!.fillRect(0, 0, w, h);
         ctx!.globalCompositeOperation = 'source-over';
       } else {
@@ -213,7 +437,8 @@
         const teal = Math.max(Math.max(0, (hf - 0.55) / 0.45), pulse);
         const fade = 0.4 + 0.6 * hf; // tail fades to faint
         const col = mix(teal);
-        const g = Math.max(hf, pulse); // glow driver
+        const tip = Math.max(0, 1 - i / 8);
+        const g = Math.max(tip, pulse); // glow only at the leading tip / pulse
         const alphaScale = (1 + 0.5 * pulse) * boost * DIM;
 
         // Base-pair rung (crisp, no glow).
@@ -226,7 +451,7 @@
         ctx!.stroke();
 
         // Bloom only at the head / pulse (elsewhere flat & cheap).
-        if (g > 0.4) {
+        if (g > 0.2) {
           ctx!.shadowBlur = GLOW * g;
           ctx!.shadowColor = `rgba(${col}, ${0.45 * alphaScale})`;
         } else {
@@ -235,12 +460,13 @@
 
         // Backbone markers, drawn back-to-front for the 3D twist.
         const baseA = 0.26 * fade * alphaScale;
+        const showLetter = i % 2 === 0 || tip > 0 || pulse > 0;
         if (depthA <= depthB) {
-          mark(ax, ay, depthA, col, baseA, bases[i].a);
-          mark(bx, by, depthB, col, baseA, bases[i].b);
+          mark(ax, ay, depthA, col, baseA, bases[i].a, showLetter, teal);
+          mark(bx, by, depthB, col, baseA, bases[i].b, showLetter, teal);
         } else {
-          mark(bx, by, depthB, col, baseA, bases[i].b);
-          mark(ax, ay, depthA, col, baseA, bases[i].a);
+          mark(bx, by, depthB, col, baseA, bases[i].b, showLetter, teal);
+          mark(ax, ay, depthA, col, baseA, bases[i].a, showLetter, teal);
         }
       }
 
@@ -260,28 +486,14 @@
       // Dim (not erase) the helix under the hero copy so it stays a faint texture
       // behind the text instead of competing with it. Feathered back to full
       // strength outside. Measured from the live element, so it tracks breakpoints.
-      if (protect) {
-        const { x, y, w: pw, h: ph } = protect;
-        const r = Math.min(14, pw / 2, ph / 2);
-        ctx!.save();
-        ctx!.globalCompositeOperation = 'destination-out';
-        ctx!.shadowColor = `rgba(0, 0, 0, ${TEXT_ERASE})`;
-        ctx!.shadowBlur = TEXT_FEATHER;
-        ctx!.fillStyle = `rgba(0, 0, 0, ${TEXT_ERASE})`;
-        ctx!.beginPath();
-        ctx!.moveTo(x + r, y);
-        ctx!.arcTo(x + pw, y, x + pw, y + ph, r);
-        ctx!.arcTo(x + pw, y + ph, x, y + ph, r);
-        ctx!.arcTo(x, y + ph, x, y, r);
-        ctx!.arcTo(x, y, x + pw, y, r);
-        ctx!.closePath();
-        ctx!.fill();
-        ctx!.restore();
-      }
+      drawTextClearanceMask();
+
+      recordRenderTiming(performance.now() - renderStartedAt);
     }
 
-    function step() {
-      tick++;
+    function step(frameScale: number) {
+      tick += frameScale;
+      updateCount++;
 
       // Target: the cursor while it's over the hero, else a slow wander.
       let tgx: number;
@@ -296,7 +508,8 @@
 
       // Ease the head toward the target, then drag the body behind it.
       // Gentler easing while idle so the self-drift accelerates slowly.
-      const ease = pointer.active ? EASE : EASE_IDLE;
+      const baseEase = pointer.active ? EASE : EASE_IDLE;
+      const ease = 1 - Math.pow(1 - baseEase, frameScale);
       const head = spine[0];
       head.x += (tgx - head.x) * ease;
       head.y += (tgy - head.y) * ease;
@@ -310,18 +523,32 @@
         b.y = a.y + (dy / d) * SEG;
       }
 
-      draw(true);
-      raf = requestAnimationFrame(step);
+      draw(true, frameScale);
+    }
+
+    function frame(time: number) {
+      if (!running) return;
+      raf = requestAnimationFrame(frame);
+      if (lastFrameTime === 0) lastFrameTime = time - FRAME_INTERVAL;
+      const elapsed = time - lastFrameTime;
+      // Do not add an early-frame tolerance here: with modulo carry it can
+      // admit a second rAF callback before a full interval has elapsed.
+      if (elapsed < FRAME_INTERVAL) return;
+      lastFrameTime = time - (elapsed % FRAME_INTERVAL);
+      step(Math.min(4, elapsed / (1000 / 60)));
     }
 
     function start() {
-      if (running || reduce.matches || coarse.matches) return;
+      if (running || reduce.matches || coarse.matches || !visible || document.hidden) return;
       running = true;
-      raf = requestAnimationFrame(step);
+      lastFrameTime = 0;
+      raf = requestAnimationFrame(frame);
     }
     function stop() {
       running = false;
       cancelAnimationFrame(raf);
+      raf = 0;
+      lastFrameTime = 0;
     }
 
     const onPointerMove = (e: PointerEvent) => {
@@ -366,7 +593,8 @@
     const io = new IntersectionObserver(
       (entries) => {
         for (const en of entries) {
-          if (en.isIntersecting) start();
+          visible = en.isIntersecting;
+          if (visible) start();
           else stop();
         }
       },
@@ -379,7 +607,29 @@
     resize();
     if (!reduce.matches && !coarse.matches) start();
 
+    const snapshot = (): HeroDebugSnapshot => {
+      const timings = renderTimingSummary();
+      return {
+        running,
+        visible,
+        reduced: reduce.matches,
+        coarse: coarse.matches,
+        width: w,
+        height: h,
+        dpr: currentDpr,
+        updateCount,
+        renderCount,
+        maxFps: MAX_FPS,
+        timings: {
+          renderP50: timings.p50,
+          renderP95: timings.p95,
+          renderMax: timings.max,
+        },
+      };
+    };
+
     instance = {
+      snapshot,
       teardown() {
         stop();
         ro.disconnect();
@@ -393,13 +643,20 @@
         reduce.removeEventListener('change', onReduceChange);
       },
     };
+
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+    if (local && new URLSearchParams(window.location.search).get('cell-audit') === '1') {
+      window.__khcHeroDebug = { snapshot };
+    }
   }
 
   function cleanup() {
     instance?.teardown();
     instance = null;
+    delete window.__khcHeroDebug;
   }
 
+  setup();
   document.addEventListener('astro:page-load', setup);
   document.addEventListener('astro:before-swap', cleanup);
 </script>

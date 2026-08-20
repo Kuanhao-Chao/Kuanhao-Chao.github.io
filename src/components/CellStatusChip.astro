@@ -1,0 +1,152 @@
+<div
+  class="cell-status-chip"
+  data-cell-status
+  role="status"
+  aria-live="polite"
+  aria-atomic="true"
+  aria-relevant="text"
+  transition:persist="cell-status"
+  hidden
+>
+  <span class="cell-status-chip__marker" aria-hidden="true"></span>
+  <span data-cell-status-text></span>
+</div>
+
+<style>
+  .cell-status-chip {
+    position: fixed;
+    z-index: 90;
+    left: 50%;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: min(24rem, calc(100vw - 2rem));
+    padding: 0.42rem 0.7rem;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 34%, var(--color-rule));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+    color: var(--color-ink);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.12);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .cell-status-chip[hidden] {
+    display: none;
+  }
+
+  .cell-status-chip__marker {
+    flex: none;
+    width: 0.46rem;
+    height: 0.46rem;
+    border-radius: 50%;
+    background: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 16%, transparent);
+  }
+
+  @media (max-width: 480px) {
+    .cell-status-chip {
+      bottom: calc(0.6rem + env(safe-area-inset-bottom));
+      max-width: calc(100vw - 1.25rem);
+      padding: 0.4rem 0.62rem;
+      font-size: 0.71875rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cell-status-chip {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  type CellLifecycle = 'mitosis' | 'postmitotic' | 'apoptosis' | 'idle';
+  type CellStatusPhase =
+    | 'rounding'
+    | 'prometaphase'
+    | 'metaphase'
+    | 'anaphase'
+    | 'telophase'
+    | 'cytokinesis'
+    | 'abscission'
+    | 'recovery'
+    | 'condensation'
+    | 'blebbing'
+    | 'fragmentation'
+    | 'apoptotic-bodies'
+    | 'clearance'
+    | 'complete';
+
+  interface CellStatusDetail {
+    visible: boolean;
+    cellId: string;
+    lifecycle: CellLifecycle;
+    phase: CellStatusPhase;
+    source: 'user' | 'automatic';
+  }
+
+  const phaseCopy: Record<Exclude<CellStatusPhase, 'complete'>, string> = {
+    rounding: 'Mitosis — cell rounding',
+    prometaphase: 'Mitosis — prometaphase',
+    metaphase: 'Mitosis — metaphase',
+    anaphase: 'Mitosis — anaphase',
+    telophase: 'Mitosis — telophase',
+    cytokinesis: 'Mitosis — cleavage furrow',
+    abscission: 'Mitosis — abscission',
+    recovery: 'Mitosis — daughter recovery',
+    condensation: 'Apoptosis — chromatin condensation',
+    blebbing: 'Apoptosis — membrane blebbing',
+    fragmentation: 'Apoptosis — nuclear fragmentation',
+    'apoptotic-bodies': 'Apoptosis — apoptotic bodies',
+    clearance: 'Apoptosis — clearance',
+  };
+
+  const statusWindow = window as Window & { __khcCellStatusEventsBound?: boolean };
+
+  function hideCellStatus() {
+    document.querySelectorAll<HTMLElement>('[data-cell-status]').forEach((chip) => {
+      chip.hidden = true;
+    });
+  }
+
+  function handleCellStatus(event: Event) {
+    const detail = (event as CustomEvent<CellStatusDetail>).detail;
+    const inLab = document.documentElement.dataset.cellMode === 'lab';
+    if (!detail?.visible || !inLab || detail.source !== 'user' || detail.phase === 'complete') {
+      hideCellStatus();
+      return;
+    }
+
+    const copy = phaseCopy[detail.phase];
+    if (!copy) {
+      hideCellStatus();
+      return;
+    }
+    document.querySelectorAll<HTMLElement>('[data-cell-status]').forEach((chip) => {
+      const text = chip.querySelector<HTMLElement>('[data-cell-status-text]');
+      if (text) text.textContent = copy;
+      chip.hidden = false;
+    });
+  }
+
+  function hideCellStatusOutsideLab() {
+    if (document.documentElement.dataset.cellMode !== 'lab') hideCellStatus();
+  }
+
+  if (!statusWindow.__khcCellStatusEventsBound) {
+    statusWindow.__khcCellStatusEventsBound = true;
+    window.addEventListener('khc:cell-status', handleCellStatus);
+    window.addEventListener('khc:cell-mode-change', hideCellStatusOutsideLab);
+    document.addEventListener('astro:page-load', hideCellStatusOutsideLab);
+  }
+
+  hideCellStatusOutsideLab();
+</script>
