@@ -259,7 +259,7 @@ const APOPTOSIS_SECONDS = 7;
 const SIZE_CHECKPOINT = 0.97;
 const MATURE_DWELL = 8;
 const DAUGHTER_RATIO = Math.cbrt(0.5);
-const BASE_ALPHA = 0.8;
+const BASE_ALPHA = 1.0;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -510,12 +510,12 @@ export class LivingCellsEngine {
     const birthRadius = initialR ?? (asBud ? Math.max(8, targetRadius * 0.45) : targetRadius);
     const growing = asBud || birthRadius < targetRadius * SIZE_CHECKPOINT;
     const aspect = this.rand(this.coarse ? 0.84 : 0.78, this.coarse ? 1.2 : 1.26);
-    const deformationScale = this.coarse ? 0.7 : 1;
+    const deformationScale = this.coarse ? 0.75 : 1;
     const harmonics: LivingCell['harmonics'] = [
-      this.rand(0.018, 0.035) * deformationScale,
-      this.rand(0.015, 0.028) * deformationScale,
-      this.rand(0.01, 0.022) * deformationScale,
-      this.rand(0.007, 0.015) * deformationScale,
+      this.rand(0.032, 0.068) * deformationScale,
+      this.rand(0.024, 0.048) * deformationScale,
+      this.rand(0.016, 0.034) * deformationScale,
+      this.rand(0.010, 0.022) * deformationScale,
     ];
     const harmonicPhases: LivingCell['harmonicPhases'] = [
       this.rand(0, TAU),
@@ -524,10 +524,10 @@ export class LivingCellsEngine {
       this.rand(0, TAU),
     ];
     const harmonicSpeeds: LivingCell['harmonicSpeeds'] = [
-      this.rand(-0.13, 0.13),
-      this.rand(-0.1, 0.1),
-      this.rand(-0.08, 0.08),
-      this.rand(-0.06, 0.06),
+      this.rand(-0.15, 0.15),
+      this.rand(-0.12, 0.12),
+      this.rand(-0.09, 0.09),
+      this.rand(-0.07, 0.07),
     ];
     const vertices = Array.from({ length: VERTEX_COUNT }, (_, index) => {
       const theta = (index / VERTEX_COUNT) * TAU;
@@ -549,15 +549,15 @@ export class LivingCellsEngine {
       ? targetRadius > 38
         ? 2
         : 1
-      : clamp(Math.round(targetRadius / 19), 2, 4);
+      : clamp(Math.round(targetRadius / 18), 2, 5);
     for (let i = 0; i < mitochondriaCount; i++) {
       organelles.push({
         type: 'mitochondria',
         angle: this.rand(0, TAU),
         dist: this.rand(0.31, 0.47),
-        length: Math.max(4, targetRadius * 0.18),
-        width: Math.max(2.2, targetRadius * 0.08),
-        cristaeCount: Math.round(this.rand(3, 6)),
+        length: Math.max(4.5, targetRadius * 0.20),
+        width: Math.max(2.4, targetRadius * 0.09),
+        cristaeCount: Math.round(this.rand(4, 7)),
         rotAngle: this.rand(0, TAU),
         spinSpeed: this.rand(-0.07, 0.07),
       });
@@ -566,21 +566,21 @@ export class LivingCellsEngine {
       type: 'golgi',
       angle: this.rand(0, TAU),
       dist: this.rand(0.31, 0.43),
-      arcSpan: this.rand(0.5, 0.72),
+      arcSpan: this.rand(0.52, 0.78),
       layers: targetRadius > 48 ? 4 : 3,
       spinSpeed: this.rand(-0.04, 0.04),
-      vesicles: Array.from({ length: Math.round(this.rand(2, 4)) }, () => ({
-        angle: this.rand(-0.35, 0.35),
-        dist: this.rand(0.04, 0.08),
-        size: Math.max(0.65, targetRadius * 0.022),
+      vesicles: Array.from({ length: Math.round(this.rand(3, 5)) }, () => ({
+        angle: this.rand(-0.4, 0.4),
+        dist: this.rand(0.04, 0.09),
+        size: Math.max(0.7, targetRadius * 0.024),
       })),
     });
     organelles.push({
       type: 'er',
       arcStart: this.rand(0, TAU),
-      arcEnd: this.rand(1.35, 2.1),
-      layers: targetRadius > 46 ? 3 : 2,
-      ribosomes: Array.from({ length: Math.round(this.rand(4, 7)) }, () => ({
+      arcEnd: this.rand(1.4, 2.2),
+      layers: targetRadius > 46 ? 4 : 3,
+      ribosomes: Array.from({ length: Math.round(this.rand(5, 9)) }, () => ({
         angle: this.rand(0, 1),
         rOffset: this.rand(0, 1),
       })),
@@ -624,7 +624,7 @@ export class LivingCellsEngine {
         const theta = this.rand(0, TAU);
         return { x: Math.cos(theta) * distance, y: Math.sin(theta) * distance };
       })(),
-      nucleusRatio: this.rand(0.21, 0.28),
+      nucleusRatio: this.rand(0.22, 0.29),
       nucleusAngle: this.rand(0, TAU),
       organelles,
       state: growing ? 'growing' : 'mature',
@@ -637,7 +637,7 @@ export class LivingCellsEngine {
       isGrabbed: false,
       grabOffset: { x: 0, y: 0 },
       divisionQueued: false,
-      glowIntensity: growing ? 1.08 : 1,
+      glowIntensity: growing ? 1.12 : 1,
       contactCount: 0,
     };
   }
@@ -646,14 +646,16 @@ export class LivingCellsEngine {
     theta: number,
     radius: number,
     amplitudes: LivingCell['harmonics'],
-    phases: LivingCell['harmonicPhases']
+    phases: LivingCell['harmonicPhases'],
+    morphPhase = 0
   ): number {
-    return (
-      radius *
-      amplitudes.reduce((sum, amplitude, index) => {
-        return sum + amplitude * Math.cos((index + 2) * theta + phases[index]);
-      }, 0)
-    );
+    const harmonicSum = amplitudes.reduce((sum, amplitude, index) => {
+      return sum + amplitude * Math.cos((index + 2) * theta + phases[index]);
+    }, 0);
+    const pseudopod =
+      0.038 * Math.sin(2 * theta + morphPhase) +
+      0.024 * Math.sin(3 * theta - morphPhase * 0.7);
+    return radius * (harmonicSum + pseudopod);
   }
 
   public triggerMitosis(
@@ -838,10 +840,10 @@ export class LivingCellsEngine {
         x: clamp(parent.nucleusOffset.x + side * 0.015, -0.08, 0.08),
         y: parent.nucleusOffset.y * 0.75,
       };
-      daughter.glowIntensity = 1.06;
+      daughter.glowIntensity = 1.25;
       daughter.siblingAxis = axis;
       daughter.siblingSide = side;
-      const recoil = clamp(radius * 0.32, 12, 22);
+      const recoil = clamp(radius * 0.55, 18, 34);
       daughter.recoveryRecoil = recoil;
       daughter.siblingRestDistance = daughterRadius * 2 + recoil * POSTMITOTIC_SECONDS;
       daughter.recoveryOffset = 0;
@@ -1036,7 +1038,6 @@ export class LivingCellsEngine {
       return;
     if (event.isPrimary === false || (event.pointerType === 'mouse' && event.button !== 0)) return;
     const cell = this.hitCell(event.clientX, event.clientY);
-    if (!cell) return;
     this.pointer = {
       x: event.clientX,
       y: event.clientY,
@@ -1114,13 +1115,33 @@ export class LivingCellsEngine {
       const speed = Math.hypot(vx, vy);
       const scale = speed > 12 ? 12 / speed : 1;
       this.releaseGrabbed({ x: vx * scale, y: vy * scale });
-    } else if (candidate && distance <= threshold && duration <= durationLimit)
+    } else if (candidate && distance <= threshold && duration <= durationLimit) {
       this.queueDivision(candidate);
+    } else if (!candidate && !this.grabbedCell && distance <= threshold && duration <= durationLimit) {
+      this.spawnCellAt(event.clientX, event.clientY);
+    }
     this.pointer.down = false;
     this.pointer.id = -1;
     this.pointerCandidate = null;
     this.pointerSamples = [];
   };
+
+  private spawnCellAt(clientX: number, clientY: number): void {
+    if (this.mode === 'off' || this.reducedMotion) return;
+    const targetRadius = this.coarse ? this.rand(28, 48) : this.rand(36, 56);
+    const birthRadius = Math.max(10, targetRadius * 0.48);
+    const newCell = this.createCell(clientX, clientY, true, targetRadius, birthRadius);
+    newCell.vx = this.rand(-16, 16);
+    newCell.vy = this.rand(-16, 16);
+    newCell.glowIntensity = 1.35;
+    for (const v of newCell.vertices) {
+      v.displacement = Math.sin(v.angle * 3) * 2.5;
+      v.velocity = Math.cos(v.angle * 3) * 6;
+    }
+    this.cells.push(newCell);
+    this.quietRemaining = Math.max(4, this.quietRemaining);
+    this.counters.divisions++;
+  }
 
   private onPointerCancel = (event: PointerEvent): void => {
     if (this.pointer.id >= 0 && event.pointerId !== this.pointer.id) return;
@@ -1516,7 +1537,7 @@ export class LivingCellsEngine {
       );
     const axis = plan.axis;
     const [first, second] = plan.daughters;
-    const recoil = clamp(plan.radius * 0.32, 12, 22);
+    const recoil = clamp(plan.radius * 0.55, 18, 34);
     for (const daughter of plan.daughters) {
       const side = daughter.siblingSide ?? 1;
       daughter.x = parent.x + Math.cos(axis) * side * plan.daughterRadius;
@@ -1526,6 +1547,12 @@ export class LivingCellsEngine {
       daughter.recoveryBaseVelocity = { x: parent.vx, y: parent.vy };
       daughter.vx = parent.vx + Math.cos(axis) * side * recoil;
       daughter.vy = parent.vy + Math.sin(axis) * side * recoil;
+      daughter.glowIntensity = 1.35;
+      for (const v of daughter.vertices) {
+        const facingFactor = Math.cos(v.angle - axis) * side;
+        v.displacement = -facingFactor * 3.5;
+        v.velocity = facingFactor * 2.8;
+      }
     }
     this.cells.splice(index, 1, first, second);
     this.quietRemaining = Math.max(4, this.quietRemaining);
@@ -1553,7 +1580,7 @@ export class LivingCellsEngine {
       const ay = Math.sin(axis);
       const centerX = (first.x + second.x) / 2;
       const centerY = (first.y + second.y) / 2;
-      const recoil = first.recoveryRecoil ?? second.recoveryRecoil ?? 12;
+      const recoil = first.recoveryRecoil ?? second.recoveryRecoil ?? 18;
       const maximumOffset = (recoil * POSTMITOTIC_SECONDS) / 2;
       const normalizedOffset = 2 * progress - progress * progress;
       const halfDistance =
@@ -1593,7 +1620,7 @@ export class LivingCellsEngine {
       let baseVy = (first.vy + second.vy) / 2;
       if ((correctionX > 0 && baseVx < 0) || (correctionX < 0 && baseVx > 0)) baseVx *= -0.08;
       if ((correctionY > 0 && baseVy < 0) || (correctionY < 0 && baseVy > 0)) baseVy *= -0.08;
-      const separationSpeed = recoil * (1 - progress);
+      const separationSpeed = recoil * (1 - progress) * (1 + 0.25 * Math.sin(progress * Math.PI));
       first.vx = baseVx + ax * firstSide * separationSpeed;
       first.vy = baseVy + ay * firstSide * separationSpeed;
       second.vx = baseVx - ax * firstSide * separationSpeed;
@@ -1843,7 +1870,8 @@ export class LivingCellsEngine {
         theta,
         cell.radius,
         cell.harmonics,
-        cell.harmonicPhases
+        cell.harmonicPhases,
+        cell.morphPhase
       );
       const previous =
         previousDisplacements[(index - 1 + cell.vertices.length) % cell.vertices.length];
@@ -2283,27 +2311,29 @@ export class LivingCellsEngine {
       );
       const nucleusA = nr * Math.sqrt(nucleusAspect);
       const nucleusB = nr / Math.sqrt(nucleusAspect);
+
+      // Outer nuclear envelope with soft translucent nucleoplasm
       this.ctx.beginPath();
       this.ctx.ellipse(nx, ny, nucleusA, nucleusB, cell.nucleusAngle, 0, TAU);
-      this.ctx.fillStyle = `rgba(${accent}, ${0.055 * alpha * nucleusRecovery})`;
+      this.ctx.fillStyle = `rgba(${accent}, ${0.078 * alpha * nucleusRecovery})`;
       this.ctx.fill();
-      this.ctx.lineWidth = 0.75;
-      this.ctx.strokeStyle = `rgba(${ink}, ${0.052 * alpha * nucleusRecovery})`;
+      this.ctx.lineWidth = 0.95;
+      this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.078 * alpha * nucleusRecovery})`;
       this.ctx.stroke();
+
+      // Inner dense nucleolus
       this.ctx.beginPath();
       this.ctx.arc(
-        nx + Math.cos(cell.nucleusAngle) * nr * 0.12,
-        ny + Math.sin(cell.nucleusAngle) * nr * 0.12,
-        nr * 0.34,
+        nx + Math.cos(cell.nucleusAngle) * nr * 0.14,
+        ny + Math.sin(cell.nucleusAngle) * nr * 0.14,
+        nr * 0.36,
         0,
         TAU
       );
-      this.ctx.fillStyle = `rgba(${ink}, ${0.065 * alpha * nucleusRecovery})`;
+      this.ctx.fillStyle = `rgba(${ink}, ${0.098 * alpha * nucleusRecovery})`;
       this.ctx.fill();
     }
-    // The homepage already has a foreground DNA canvas. On coarse pointers,
-    // retain the cell/nucleus silhouette but omit subcellular decoration so the
-    // two ambient layers do not compete for attention or mobile paint time.
+    // Subcellular decoration
     if (
       detailLevel === 'minimal' ||
       (this.isHomepage && this.coarse) ||
@@ -2331,24 +2361,25 @@ export class LivingCellsEngine {
         this.ctx.rotate(org.rotAngle + cell.angle);
         this.ctx.beginPath();
         this.ctx.ellipse(0, 0, (org.length * scale) / 2, (org.width * scale) / 2, 0, 0, TAU);
-        this.ctx.fillStyle = `rgba(${accent}, ${0.052 * alpha})`;
+        this.ctx.fillStyle = `rgba(${accent}, ${0.075 * alpha})`;
         this.ctx.fill();
-        this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.062 * alpha})`;
+        this.ctx.lineWidth = 0.85;
+        this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.088 * alpha})`;
         this.ctx.stroke();
         if (detailLevel === 'full') {
-          this.ctx.lineWidth = 0.45;
-          this.ctx.strokeStyle = `rgba(${ink}, ${0.045 * alpha})`;
+          this.ctx.lineWidth = 0.65;
+          this.ctx.strokeStyle = `rgba(${ink}, ${0.068 * alpha})`;
           for (let crista = 1; crista <= org.cristaeCount; crista++) {
             const cx =
               -org.length * scale * 0.32 +
               (crista / (org.cristaeCount + 1)) * org.length * scale * 0.64;
             this.ctx.beginPath();
-            this.ctx.moveTo(cx, -org.width * scale * 0.22);
+            this.ctx.moveTo(cx, -org.width * scale * 0.26);
             this.ctx.quadraticCurveTo(
-              cx + org.width * scale * 0.1,
+              cx + org.width * scale * 0.12,
               0,
               cx,
-              org.width * scale * 0.22
+              org.width * scale * 0.26
             );
             this.ctx.stroke();
           }
@@ -2360,17 +2391,17 @@ export class LivingCellsEngine {
         this.ctx.save();
         this.ctx.translate(ox, oy);
         this.ctx.rotate(org.angle + cell.angle);
-        this.ctx.lineWidth = 0.7;
-        this.ctx.strokeStyle = `rgba(${accent}, ${0.06 * alpha})`;
+        this.ctx.lineWidth = 0.95;
+        this.ctx.strokeStyle = `rgba(${accent}, ${0.085 * alpha})`;
         for (let layer = 0; layer < org.layers; layer++) {
           this.ctx.beginPath();
-          this.ctx.arc(0, 0, radius * (0.04 + layer * 0.025), -org.arcSpan / 2, org.arcSpan / 2);
+          this.ctx.arc(0, 0, radius * (0.045 + layer * 0.028), -org.arcSpan / 2, org.arcSpan / 2);
           this.ctx.stroke();
         }
         if (detailLevel === 'full') {
           for (const vesicle of org.vesicles) {
             const angle = vesicle.angle;
-            const distance = radius * (0.09 + vesicle.dist);
+            const distance = radius * (0.095 + vesicle.dist);
             this.ctx.beginPath();
             this.ctx.arc(
               Math.cos(angle) * distance,
@@ -2379,6 +2410,10 @@ export class LivingCellsEngine {
               0,
               TAU
             );
+            this.ctx.fillStyle = `rgba(${accent}, ${0.068 * alpha})`;
+            this.ctx.fill();
+            this.ctx.lineWidth = 0.55;
+            this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.078 * alpha})`;
             this.ctx.stroke();
           }
         }
@@ -2386,20 +2421,20 @@ export class LivingCellsEngine {
       } else if (org.type === 'er') {
         this.ctx.save();
         this.ctx.translate(nx, ny);
-        this.ctx.lineWidth = 0.65;
-        this.ctx.strokeStyle = `rgba(${accent}, ${0.038 * alpha})`;
+        this.ctx.lineWidth = 0.85;
+        this.ctx.strokeStyle = `rgba(${accent}, ${0.058 * alpha})`;
         for (let layer = 0; layer < org.layers; layer++) {
           this.ctx.beginPath();
-          this.ctx.arc(0, 0, nr * (1.13 + layer * 0.14), org.arcStart, org.arcStart + org.arcEnd);
+          this.ctx.arc(0, 0, nr * (1.14 + layer * 0.15), org.arcStart, org.arcStart + org.arcEnd);
           this.ctx.stroke();
         }
         if (detailLevel === 'full') {
-          this.ctx.fillStyle = `rgba(${ink}, ${0.045 * alpha})`;
+          this.ctx.fillStyle = `rgba(${ink}, ${0.075 * alpha})`;
           for (const ribosome of org.ribosomes) {
             const angle = org.arcStart + ribosome.angle * org.arcEnd;
-            const rr = nr * (1.12 + ribosome.rOffset * 0.3);
+            const rr = nr * (1.13 + ribosome.rOffset * 0.32);
             this.ctx.beginPath();
-            this.ctx.arc(Math.cos(angle) * rr, Math.sin(angle) * rr, 0.55, 0, TAU);
+            this.ctx.arc(Math.cos(angle) * rr, Math.sin(angle) * rr, 0.7, 0, TAU);
             this.ctx.fill();
           }
         }
@@ -2407,13 +2442,14 @@ export class LivingCellsEngine {
       } else {
         const ox = Math.cos(org.angle + cell.angle) * radius * org.dist;
         const oy = Math.sin(org.angle + cell.angle) * radius * org.dist;
-        const length = Math.max(1.1, radius * 0.032);
+        const length = Math.max(1.4, radius * 0.038);
         this.ctx.beginPath();
         this.ctx.moveTo(ox - length, oy);
         this.ctx.lineTo(ox + length, oy);
         this.ctx.moveTo(ox, oy - length);
         this.ctx.lineTo(ox, oy + length);
-        this.ctx.strokeStyle = `rgba(${ink}, ${0.065 * alpha})`;
+        this.ctx.lineWidth = 0.95;
+        this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.088 * alpha})`;
         this.ctx.stroke();
       }
       this.ctx.restore();
@@ -2794,12 +2830,12 @@ export class LivingCellsEngine {
   private fillStroke(brightness: number, opacity: number, grabbed = false, hovered = false): void {
     if (!this.ctx) return;
     const { accent, ink, glow, dark } = this.palette;
-    const level = clamp(brightness, 0.8, 1.2);
+    const level = clamp(brightness, 0.8, 1.25);
     const alpha = BASE_ALPHA * this.visualScale * opacity;
-    this.ctx.fillStyle = `rgba(${accent}, ${0.028 * level * alpha})`;
+    this.ctx.fillStyle = `rgba(${accent}, ${0.045 * level * alpha})`;
     this.ctx.fill();
-    this.ctx.lineWidth = grabbed ? 1.4 : hovered ? 1.18 : 1.1;
-    const strokeAlpha = grabbed ? 0.09 : hovered ? 0.066 : 0.06;
+    this.ctx.lineWidth = grabbed ? 1.5 : hovered ? 1.28 : 1.15;
+    const strokeAlpha = grabbed ? 0.12 : hovered ? 0.092 : 0.082;
     this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${strokeAlpha * level * alpha})`;
     this.ctx.stroke();
   }

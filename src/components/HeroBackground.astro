@@ -87,8 +87,8 @@
     const WANDER = coarse.matches ? 0.22 : 0.3; // autonomous-drift excursion
     const TWIST_STEP = 0.45; // rad of twist per spine point
     const TWIST_SPEED = coarse.matches ? 0.009 : 0.012; // rad/60 Hz step — bases travel along the ribbon (slow)
-    const EASE = 0.085; // how quickly the head chases the cursor (snappy)
-    const EASE_IDLE = 0.02; // gentler chase while drifting alone (slower acceleration)
+    const EASE = 0.12; // how quickly the head chases the cursor (smooth and responsive)
+    const EASE_IDLE = 0.025; // gentler chase while drifting alone (slower acceleration)
     const NODE_R = 2.2; // base node radius (scaled by depth)
 
     const TRAIL = 0.18; // comet trail — fraction of the old frame erased per 60 Hz step
@@ -100,7 +100,7 @@
     const TEXT_FEATHER = 30; // px — soft fade band so the helix tucks under the text
     const TEXT_KEEP = 0.35; // helix opacity retained under the copy (0 = hidden, 1 = unchanged)
     const TEXT_ERASE = 1 - TEXT_KEEP; // single-pass dest-out alpha; interior keep = TEXT_KEEP
-    const MAX_FPS = 24;
+    const MAX_FPS = 60;
     const FRAME_INTERVAL = 1000 / MAX_FPS;
     const RENDER_SAMPLE_LIMIT = 180;
     const GLYPH_CELL = 18;
@@ -130,6 +130,9 @@
     let bases: { a: string; b: string }[] = [];
     let protect: { x: number; y: number; w: number; h: number } | null = null;
     let clearanceMask: ClearanceMask | null = null;
+    let rollAngle = 0;
+    let rollVelocity = 0;
+    let lastPointerPos = { x: 0, y: 0 };
     let w = 0;
     let h = 0;
     let tick = 0;
@@ -420,7 +423,7 @@
         const nx = -ty; // unit normal to the spine
         const ny = tx;
 
-        const phase = i * TWIST_STEP + tick * TWIST_SPEED;
+        const phase = i * TWIST_STEP + tick * TWIST_SPEED + rollAngle;
         const off = Math.sin(phase) * AMP;
         const ax = p.x + nx * off;
         const ay = p.y + ny * off;
@@ -501,10 +504,23 @@
       if (pointer.active) {
         tgx = pointer.x;
         tgy = pointer.y;
+        if (lastPointerPos.x !== 0 || lastPointerPos.y !== 0) {
+          const dx = pointer.x - lastPointerPos.x;
+          const dy = pointer.y - lastPointerPos.y;
+          rollVelocity += (dx * 0.0035 + dy * 0.002) * frameScale;
+        }
+        lastPointerPos.x = pointer.x;
+        lastPointerPos.y = pointer.y;
       } else {
         tgx = w * 0.5 + Math.cos(tick * 0.002) * w * WANDER + Math.cos(tick * 0.0032) * w * 0.06;
         tgy = h * 0.5 + Math.sin(tick * 0.0028) * h * WANDER + Math.sin(tick * 0.0042) * h * 0.05;
+        lastPointerPos.x = 0;
+        lastPointerPos.y = 0;
       }
+
+      // Smooth decay for dynamic mouse roll
+      rollVelocity *= Math.pow(0.92, frameScale);
+      rollAngle += rollVelocity;
 
       // Ease the head toward the target, then drag the body behind it.
       // Gentler easing while idle so the self-drift accelerates slowly.
