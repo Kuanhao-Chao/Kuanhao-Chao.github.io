@@ -119,7 +119,8 @@ export interface LivingCell {
   organelles: Organelle[];
 
   state: CellState;
-  life: number; // 0..1 vitality
+  growthProgress?: number; // 0..1 biomass interphase progression
+  life: number; // 0..1 vitality / opacity (1.0 for live cells, fades only during apoptosis)
   age: number;
   maxAge: number;
 
@@ -304,7 +305,8 @@ export class LivingCellsEngine {
       nucleusAngle: rand(0, TAU),
       organelles,
       state: cellState,
-      life: isGrowing ? Math.max(0.15, startRadius / finalRadius) : 1,
+      growthProgress: isGrowing ? Math.max(0.0, (startRadius - 4) / Math.max(1, finalRadius - 4)) : 1.0,
+      life: 1.0, // Always 1.0 vitality and 100% visible for live and growing cells
       age: isGrowing ? 0 : rand(120, 600),
       maxAge: rand(1800, 3400),
       isGrabbed: false,
@@ -612,7 +614,7 @@ export class LivingCellsEngine {
             cell.glowIntensity = Math.min(2.2, cell.glowIntensity + 0.15);
             cell.age = Math.max(0, cell.age - 25);
             if (cell.state === 'growing') {
-              cell.life = Math.min(1.0, cell.life + 0.06); // Nutrient intake accelerates growth!
+              cell.growthProgress = Math.min(1.0, (cell.growthProgress || 0) + 0.08); // Nutrient intake accelerates growth!
             }
             this.particles.splice(i, 1);
             break;
@@ -767,18 +769,19 @@ export class LivingCellsEngine {
 
       // A. Growth Phase (G1 / S / G2 Interphase Biomass Accumulation)
       if (cell.state === 'growing') {
-        cell.life = Math.min(1.0, cell.life + 0.0022);
+        cell.growthProgress = Math.min(1.0, (cell.growthProgress || 0) + 0.0022);
+        cell.life = 1.0; // 100% full opacity and vitality for newborn daughter cells
         // Expand smoothly from initial size (~0.56 targetRadius) to adult target radius
-        const growthFraction = easeInOutCubic(cell.life);
+        const growthFraction = easeInOutCubic(cell.growthProgress);
         cell.baseRadius = cell.targetRadius * (0.56 + 0.44 * growthFraction);
         cell.radius = cell.baseRadius * breathScale;
 
         // Pass G2/M size checkpoint to become mature adult
-        if (cell.life >= 1.0 || cell.baseRadius >= cell.targetRadius * 0.98) {
+        if (cell.growthProgress >= 1.0 || cell.baseRadius >= cell.targetRadius * 0.98) {
           cell.state = 'mature';
           cell.baseRadius = cell.targetRadius;
           cell.radius = cell.baseRadius * breathScale;
-          cell.life = 1.0;
+          cell.growthProgress = 1.0;
         }
       }
       // B. Mature Homeostasis Phase
@@ -809,10 +812,12 @@ export class LivingCellsEngine {
             daughterTargetR,
             daughterBirthR
           );
-          daughter1.vx = cell.vx + Math.cos(angle) * 0.12;
-          daughter1.vy = cell.vy + Math.sin(angle) * 0.12;
+          daughter1.vx = cell.vx + Math.cos(angle) * 0.18;
+          daughter1.vy = cell.vy + Math.sin(angle) * 0.18;
           daughter1.state = 'growing';
-          daughter1.life = 0.0;
+          daughter1.growthProgress = 0.0;
+          daughter1.life = 1.0; // 100% full opacity, immediately and clearly visible!
+          daughter1.glowIntensity = 1.8;
           daughter1.age = 0;
 
           const daughter2 = this.createCell(
@@ -822,10 +827,12 @@ export class LivingCellsEngine {
             daughterTargetR,
             daughterBirthR
           );
-          daughter2.vx = cell.vx - Math.cos(angle) * 0.12;
-          daughter2.vy = cell.vy - Math.sin(angle) * 0.12;
+          daughter2.vx = cell.vx - Math.cos(angle) * 0.18;
+          daughter2.vy = cell.vy - Math.sin(angle) * 0.18;
           daughter2.state = 'growing';
-          daughter2.life = 0.0;
+          daughter2.growthProgress = 0.0;
+          daughter2.life = 1.0; // 100% full opacity, immediately and clearly visible!
+          daughter2.glowIntensity = 1.8;
           daughter2.age = 0;
 
           // Mitotic nutrient release
