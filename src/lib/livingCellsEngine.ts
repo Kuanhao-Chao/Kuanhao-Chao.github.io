@@ -611,6 +611,9 @@ export class LivingCellsEngine {
           if (d < cell.radius * 0.95) {
             cell.glowIntensity = Math.min(2.2, cell.glowIntensity + 0.15);
             cell.age = Math.max(0, cell.age - 25);
+            if (cell.state === 'growing') {
+              cell.life = Math.min(1.0, cell.life + 0.06); // Nutrient intake accelerates growth!
+            }
             this.particles.splice(i, 1);
             break;
           }
@@ -764,14 +767,14 @@ export class LivingCellsEngine {
 
       // A. Growth Phase (G1 / S / G2 Interphase Biomass Accumulation)
       if (cell.state === 'growing') {
-        cell.life = Math.min(1.0, cell.life + 0.0035);
-        // Expand smoothly from initial size to adult target radius
+        cell.life = Math.min(1.0, cell.life + 0.0022);
+        // Expand smoothly from initial size (~0.56 targetRadius) to adult target radius
         const growthFraction = easeInOutCubic(cell.life);
-        cell.baseRadius = cell.targetRadius * (0.58 + 0.42 * growthFraction);
+        cell.baseRadius = cell.targetRadius * (0.56 + 0.44 * growthFraction);
         cell.radius = cell.baseRadius * breathScale;
 
         // Pass G2/M size checkpoint to become mature adult
-        if (cell.life >= 1.0 || cell.baseRadius >= cell.targetRadius * 0.96) {
+        if (cell.life >= 1.0 || cell.baseRadius >= cell.targetRadius * 0.98) {
           cell.state = 'mature';
           cell.baseRadius = cell.targetRadius;
           cell.radius = cell.baseRadius * breathScale;
@@ -797,7 +800,7 @@ export class LivingCellsEngine {
           const angle = cell.mitosisAngle || 0;
           const separation = cell.targetRadius * 0.63;
           const daughterTargetR = cell.targetRadius;
-          const daughterBirthR = cell.targetRadius * 0.62; // Born in G1 growth phase
+          const daughterBirthR = cell.targetRadius * 0.56; // Born slightly bigger than half parent size (0.56r)
 
           const daughter1 = this.createCell(
             cell.x + Math.cos(angle) * separation,
@@ -809,7 +812,7 @@ export class LivingCellsEngine {
           daughter1.vx = cell.vx + Math.cos(angle) * 0.12;
           daughter1.vy = cell.vy + Math.sin(angle) * 0.12;
           daughter1.state = 'growing';
-          daughter1.life = daughterBirthR / daughterTargetR;
+          daughter1.life = 0.0;
           daughter1.age = 0;
 
           const daughter2 = this.createCell(
@@ -822,7 +825,7 @@ export class LivingCellsEngine {
           daughter2.vx = cell.vx - Math.cos(angle) * 0.12;
           daughter2.vy = cell.vy - Math.sin(angle) * 0.12;
           daughter2.state = 'growing';
-          daughter2.life = daughterBirthR / daughterTargetR;
+          daughter2.life = 0.0;
           daughter2.age = 0;
 
           // Mitotic nutrient release
@@ -1033,22 +1036,22 @@ export class LivingCellsEngine {
         // Metaphase: spindle is taut, equatorial alignment, waist is broad (>0.88r)
         const p2 = (prog - 0.28) / 0.20;
         poleDist = r * (0.32 + 0.06 * p2);
-        daughterLobeR = r * (0.92 - 0.06 * p2);
-        waistR = r * (0.95 - 0.07 * p2);
+        daughterLobeR = r * (0.92 - 0.12 * p2);
+        waistR = r * (0.95 - 0.10 * p2);
         rx = r * (1.15 + 0.10 * p2);
       } else if (prog < 0.74) {
         // Anaphase: cohesin split, chromatids pulled poleward, furrow ingresses smoothly
         const p3 = (prog - 0.48) / 0.26;
         poleDist = r * (0.38 + 0.20 * p3);
-        daughterLobeR = r * (0.86 - 0.08 * p3);
-        waistR = r * (0.88 - 0.58 * Math.sin(p3 * (Math.PI / 2)));
+        daughterLobeR = r * (0.80 - 0.24 * p3);
+        waistR = r * (0.85 - 0.60 * Math.sin(p3 * (Math.PI / 2)));
         rx = poleDist + daughterLobeR;
       } else {
         // Telophase: daughter nuclei assemble, furrow pinches down to midbody bridge
         const p4 = (prog - 0.74) / 0.26;
         poleDist = r * (0.58 + 0.05 * p4);
-        daughterLobeR = r * 0.78;
-        waistR = Math.max(r * 0.05, r * (0.30 - 0.25 * p4));
+        daughterLobeR = r * 0.56; // Slightly bigger than half of the original cell (0.56r)
+        waistR = Math.max(r * 0.04, r * (0.25 - 0.21 * p4));
         rx = poleDist + daughterLobeR;
       }
 

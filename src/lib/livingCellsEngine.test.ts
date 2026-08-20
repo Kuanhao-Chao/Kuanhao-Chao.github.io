@@ -125,18 +125,18 @@ describe('LivingCellsEngine', () => {
         } else if (prog < 0.48) {
           const p2 = (prog - 0.28) / 0.20;
           poleDist = r * (0.32 + 0.06 * p2);
-          daughterLobeR = r * (0.92 - 0.06 * p2);
-          waistR = r * (0.95 - 0.07 * p2);
-        } else if (prog < 0.76) {
-          const p3 = (prog - 0.48) / 0.28;
+          daughterLobeR = r * (0.92 - 0.12 * p2);
+          waistR = r * (0.95 - 0.10 * p2);
+        } else if (prog < 0.74) {
+          const p3 = (prog - 0.48) / 0.26;
           poleDist = r * (0.38 + 0.20 * p3);
-          daughterLobeR = r * (0.86 - 0.08 * p3);
-          waistR = r * (0.88 - 0.58 * Math.sin(p3 * (Math.PI / 2)));
+          daughterLobeR = r * (0.80 - 0.24 * p3);
+          waistR = r * (0.85 - 0.60 * Math.sin(p3 * (Math.PI / 2)));
         } else {
-          const p4 = (prog - 0.76) / 0.24;
+          const p4 = (prog - 0.74) / 0.26;
           poleDist = r * (0.58 + 0.05 * p4);
-          daughterLobeR = r * 0.78;
-          waistR = Math.max(r * 0.05, r * (0.30 - 0.25 * p4));
+          daughterLobeR = r * 0.56;
+          waistR = Math.max(r * 0.04, r * (0.25 - 0.21 * p4));
         }
 
         // In Metaphase (prog ~ 0.35), metaphase plate chromosomes at x=0 MUST be strictly inside waistR
@@ -145,8 +145,8 @@ describe('LivingCellsEngine', () => {
         }
 
         // In Anaphase (prog ~ 0.60), separating chromatids MUST be located inside the wide daughter lobes
-        if (prog >= 0.48 && prog < 0.76) {
-          const p3 = (prog - 0.48) / 0.28;
+        if (prog >= 0.48 && prog < 0.74) {
+          const p3 = (prog - 0.48) / 0.26;
           const pullProgress = Math.pow(p3, 0.85);
           const pullDist = poleDist * (0.12 + 0.78 * pullProgress);
           expect(pullDist).toBeGreaterThan(0);
@@ -203,14 +203,18 @@ describe('LivingCellsEngine', () => {
 
   it('advances growing cells through G1/S/G2 interphase to reach mature adult size', () => {
     const engine = new LivingCellsEngine();
-    const cell = (engine as any).createCell(100, 100, false, 50, 20) as LivingCell;
+    const cell = (engine as any).createCell(100, 100, false, 50, 28) as LivingCell;
     (engine as any).cells = [cell];
 
     expect(cell.state).toBe('growing');
     const startRadius = cell.baseRadius;
 
-    // Simulate 180 update frames (growth rate 0.0035/frame transitions 0.4 -> 1.0)
-    for (let frame = 0; frame < 180; frame++) {
+    // Simulate 200 update frames with nutrient absorption (or growth rate)
+    for (let frame = 0; frame < 200; frame++) {
+      // Simulate nutrient particles
+      if (frame % 25 === 0) {
+        (engine as any).particles.push((engine as any).createParticle(cell.x, cell.y));
+      }
       (engine as any).update();
     }
 
@@ -220,7 +224,7 @@ describe('LivingCellsEngine', () => {
     expect(cell.state).toBe('mature');
   });
 
-  it('spawns two G1 daughter cells in growing state upon completing cytokinesis', () => {
+  it('spawns two G1 daughter cells sized slightly bigger than half of parent cell upon completing cytokinesis', () => {
     const engine = new LivingCellsEngine();
     const parentCell = (engine as any).createCell(200, 200, false, 50) as LivingCell;
     (engine as any).cells = [parentCell];
@@ -239,7 +243,9 @@ describe('LivingCellsEngine', () => {
     for (const daughter of cells) {
       expect(daughter.state).toBe('growing');
       expect(daughter.targetRadius).toBe(50);
-      expect(daughter.baseRadius).toBeLessThan(50); // Born smaller in G1
+      // Born slightly bigger than half parent size (0.56 * 50 = 28)
+      expect(daughter.baseRadius).toBeCloseTo(28, 1);
+      expect(daughter.baseRadius).toBeLessThan(50);
       expect(daughter.baseRadius).toBeGreaterThanOrEqual(25);
     }
   });
