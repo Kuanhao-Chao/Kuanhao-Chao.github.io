@@ -203,23 +203,32 @@ describe('LivingCellsEngine', () => {
 
   it('advances growing cells through G1/S/G2 interphase to reach mature adult size', () => {
     const engine = new LivingCellsEngine();
+    (engine as any).nextAutoMitosis = 999999;
     const cell = (engine as any).createCell(100, 100, false, 50, 28) as LivingCell;
     (engine as any).cells = [cell];
 
     expect(cell.state).toBe('growing');
     const startRadius = cell.baseRadius;
 
-    // Simulate 200 update frames with nutrient absorption (or growth rate)
-    for (let frame = 0; frame < 200; frame++) {
-      // Simulate nutrient particles
-      if (frame % 25 === 0) {
+    // Simulate 300 update frames with buffered nutrient absorption
+    for (let frame = 0; frame < 300; frame++) {
+      if (frame % 20 === 0) {
         (engine as any).particles.push((engine as any).createParticle(cell.x, cell.y));
       }
       (engine as any).update();
     }
 
-    // Cell grew significantly and transitioned to mature
+    // Cell grew significantly and smoothly
     expect(cell.baseRadius).toBeGreaterThan(startRadius);
+
+    // Complete interphase to adult maturity
+    for (let frame = 0; frame < 600; frame++) {
+      if (frame % 15 === 0) {
+        (engine as any).particles.push((engine as any).createParticle(cell.x, cell.y));
+      }
+      (engine as any).update();
+    }
+
     expect(cell.baseRadius).toBeCloseTo(50, 0);
     expect(cell.state).toBe('mature');
   });
