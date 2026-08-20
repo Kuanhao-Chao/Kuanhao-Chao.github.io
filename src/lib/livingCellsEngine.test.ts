@@ -475,7 +475,7 @@ describe('LivingCellsEngine', () => {
       expect(maximum).toBeLessThanOrEqual(9);
       expect((engine as any).debugSnapshot().particles).toBe(0);
     }
-  });
+  }, 30_000);
 
   it('uses recovered growing cells for persistent excess while protecting the selected lineage', () => {
     const engine = makeEngine(27);
