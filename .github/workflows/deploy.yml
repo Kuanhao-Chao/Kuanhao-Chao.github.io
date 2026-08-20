@@ -50,6 +50,10 @@ jobs:
         timeout-minutes: 5
         run: npm run audit:terminal:ci
 
+      - name: Audit living cell background smoke
+        timeout-minutes: 5
+        run: npm run audit:cells:ci
+
       - name: Audit indexing
         run: npm run audit:indexing
 

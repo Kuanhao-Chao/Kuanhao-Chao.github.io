@@ -5,7 +5,9 @@
  * (follow-the-leader chain). A/T/C/G bases ride the rungs near the leading
  * tip, nodes glow softly, a teal "signal" pulse sweeps along the strand, and
  * the ribbon leaves a short comet trail as it moves. Pure canvas, no deps.
- * Honors prefers-reduced-motion (static frame) and pauses when off-screen.
+ * Honors prefers-reduced-motion, uses a static composition on touch devices,
+ * and pauses when off-screen. Mobile keeps the site-wide cells as its single
+ * ambient animation instead of running two full-canvas loops at once.
  *
  * View-Transitions safe: (re)initialises on astro:page-load and tears the loop
  * + observers + listeners down on astro:before-swap, so navigating away and back
@@ -143,7 +145,7 @@
       }
 
       if (spine.length === 0) seed();
-      if (reduce.matches) layoutStatic();
+      if (reduce.matches || coarse.matches) layoutStatic();
       draw(false); // hard-cleared frame (covers reduced-motion + resize)
     }
 
@@ -313,7 +315,7 @@
     }
 
     function start() {
-      if (running || reduce.matches) return;
+      if (running || reduce.matches || coarse.matches) return;
       running = true;
       raf = requestAnimationFrame(step);
     }
@@ -340,7 +342,7 @@
       else start();
     };
     const onReduceChange = () => {
-      if (reduce.matches) {
+      if (reduce.matches || coarse.matches) {
         stop();
         layoutStatic();
         draw(false);
@@ -375,7 +377,7 @@
 
     refreshPalette();
     resize();
-    if (!reduce.matches) start();
+    if (!reduce.matches && !coarse.matches) start();
 
     instance = {
       teardown() {

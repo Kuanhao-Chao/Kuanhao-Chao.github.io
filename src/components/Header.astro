@@ -800,6 +800,23 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       width: 230px;
     }
   }
+
+  @media (max-width: 360px) {
+    .header-inner {
+      gap: 0.35rem;
+    }
+    .header-actions {
+      gap: 0.2rem;
+    }
+    .top-theme-btn {
+      width: 42px;
+      padding-inline: 0;
+      justify-content: center;
+    }
+    .top-theme-caret {
+      display: none;
+    }
+  }
 </style>
 
 <script>

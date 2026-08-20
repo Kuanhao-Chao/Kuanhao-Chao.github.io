@@ -75,7 +75,9 @@ const structuredData = {
   X-Content-Type-Options (nosniff), HSTS, and Permissions-Policy — cannot be set from a
   static host and are documented as an accepted limitation in scripts/audit-security.mjs.
   The CSP keeps 'unsafe-inline' on script/style because the pre-paint theme scripts,
-  ClientRouter's injected bootstrap, and Astro/KaTeX inline styles require it; it is
+  ClientRouter's bootstrap, and Astro/KaTeX inline styles require it. Astro also uses an
+  empty data: module to preserve module execution order during view transitions, so
+  script-src permits data: alongside same-origin scripts. The policy is
   therefore defense-in-depth against external-resource injection (blocks foreign scripts,
   images, iframes, form posts, <base> hijack, plugin objects), not a full XSS mitigation.
   Gated to production so it never interferes with the dev server's HMR websocket.
@@ -84,7 +86,7 @@ const structuredData = {
 {import.meta.env.PROD && (
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src https://storage.googleapis.com; connect-src 'self' https://khchao-ask.khchao.workers.dev; base-uri 'self'; form-action 'self'; object-src 'none'"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' data:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src https://storage.googleapis.com; connect-src 'self' https://khchao-ask.khchao.workers.dev; base-uri 'self'; form-action 'self'; object-src 'none'"
   />
 )}
 <title>{pageTitle}</title>

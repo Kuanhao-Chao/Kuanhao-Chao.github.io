@@ -1,18 +1,18 @@
 ---
 /**
- * Site-wide Ambient Bioluminescent Living Cells 2.0 Background.
+ * Site-wide ambient schematic animal-cell background.
  *
- * Renders an authentic, non-distracting cellular biology simulation:
- * - Growth phase (budding & nutrient uptake)
- * - Mature homeostasis (multi-harmonic lipid membranes, fluorescent nuclei, organelles)
- * - Mitosis (cleavage furrow cytokinesis with chromosome spindle separation)
- * - Apoptosis (membrane blebbing, pyknosis, and nutrient micro-vesicle dispersal)
- * - ATP nutrient fireflies drifting through the intercellular matrix
+ * Renders a biologically grounded, non-distracting animal-cell lifecycle:
+ * - Interphase growth with a size checkpoint before natural division
+ * - Mature homeostasis with gently moving membranes, nuclei, and organelles
+ * - Open mitosis followed by animal-cell cleavage-furrow cytokinesis
+ * - Apoptotic shrinkage, pyknosis, blebbing, fragmentation, and quiet clearance
  *
  * Honors prefers-reduced-motion, pauses when the tab is hidden, scales DPR <= 2,
- * and guarantees 100% typography contrast and legibility.
+ * and keeps the background low contrast behind foreground content.
  */
 ---
+
 <canvas data-site-bg-canvas aria-hidden="true" transition:persist="site-bg"></canvas>
 
 <style>
@@ -27,11 +27,27 @@
 </style>
 
 <script>
-  import { initLivingCellsBackground } from '../lib/livingCellsEngine';
+  import { getLivingCellsEngine, initLivingCellsBackground } from '../lib/livingCellsEngine';
 
+  const lifecycleWindow = window as Window & {
+    __khcLivingCellsLifecycleBound?: boolean;
+  };
+
+  // Module scripts run on the first document before Astro emits its navigation
+  // lifecycle events. Attach now as well as after subsequent page transitions.
   initLivingCellsBackground();
 
-  document.addEventListener('astro:page-load', () => {
-    initLivingCellsBackground();
-  });
+  if (!lifecycleWindow.__khcLivingCellsLifecycleBound) {
+    lifecycleWindow.__khcLivingCellsLifecycleBound = true;
+
+    document.addEventListener('astro:page-load', () => {
+      if (document.querySelector('[data-site-bg-canvas]')) {
+        initLivingCellsBackground();
+      }
+    });
+
+    document.addEventListener('astro:before-swap', () => {
+      getLivingCellsEngine().detach();
+    });
+  }
 </script>
