@@ -1,0 +1,818 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Cell Lab — Interactive Cellular Automata & Biology Playground"
+  description="A full-screen interactive biological simulation playground. Control cellular homeostasis, proliferation rates, apoptosis, growth speed, and mechanical deformation in real time."
+  bare={true}
+>
+  <main class="lab-viewport" id="lab-root">
+    <!-- Full-screen simulation canvas -->
+    <canvas id="lab-canvas" class="lab-canvas" role="img" aria-label="Cell Lab biological simulation canvas"></canvas>
+
+    <!-- Top floating navigation bar -->
+    <header class="lab-topbar">
+      <div class="lab-brand">
+        <span class="lab-pulse" aria-hidden="true"></span>
+        <h1 class="lab-title">CELL LAB 🔬</h1>
+        <span class="lab-badge">In Silico Microcosm</span>
+      </div>
+
+      <!-- Quick telemetry strip -->
+      <div class="lab-telemetry-strip" aria-label="Live cell telemetry" role="status">
+        <span class="t-pill" title="Total active cells">Total: <strong data-t-total>--</strong></span>
+        <span class="t-pill" title="Cells in growth / mature interphase">Interphase: <strong data-t-interphase>--</strong></span>
+        <span class="t-pill t-pill--mitosis" title="Active bipolar divisions">Mitosis: <strong data-t-mitosis>--</strong></span>
+        <span class="t-pill t-pill--apoptosis" title="Apoptotic clearances">Apoptosis: <strong data-t-apoptosis>--</strong></span>
+        <span class="t-pill t-pill--fps" title="Render frame rate"><strong data-t-fps>60</strong> FPS</span>
+      </div>
+
+      <div class="lab-top-actions">
+        <a href="/" class="lab-exit-btn" title="Return to main site">
+          <span aria-hidden="true">←</span>
+          <span>Exit to Site</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Floating Glassmorphic Control Panel -->
+    <aside class="lab-hud" id="lab-hud" aria-label="Simulation Control Panel">
+      <div class="hud-header">
+        <div class="hud-title-group">
+          <span class="hud-icon" aria-hidden="true">⚙️</span>
+          <h2 class="hud-title">HYPERPARAMETERS</h2>
+        </div>
+        <button type="button" class="hud-toggle" id="hud-collapse-btn" aria-expanded="true" aria-controls="hud-body" title="Collapse / Expand Controls">
+          <span class="hud-chevron" aria-hidden="true">▼</span>
+        </button>
+      </div>
+
+      <div class="hud-body" id="hud-body">
+        <!-- Playback & Speed Bar -->
+        <section class="hud-section hud-section--playback">
+          <div class="hud-playback-row">
+            <button type="button" class="hud-btn hud-btn--accent" id="btn-pause" title="Pause or Resume Simulation">
+              <span id="pause-icon" aria-hidden="true">⏸</span>
+              <span id="pause-label">Pause</span>
+            </button>
+            <button type="button" class="hud-btn" id="btn-step" title="Step exactly 1 simulation frame">
+              <span aria-hidden="true">⏭</span>
+              <span>Step</span>
+            </button>
+            <button type="button" class="hud-btn hud-btn--danger" id="btn-reset" title="Reset cell population to initial dish state">
+              <span aria-hidden="true">🔄</span>
+              <span>Reset</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Presets -->
+        <section class="hud-section">
+          <span class="hud-label">Biological Presets</span>
+          <div class="hud-preset-grid">
+            <button type="button" class="preset-btn is-active" data-preset="homeostasis">Homeostasis</button>
+            <button type="button" class="preset-btn" data-preset="proliferation">Proliferation</button>
+            <button type="button" class="preset-btn" data-preset="turnover">Turnover</button>
+            <button type="button" class="preset-btn" data-preset="senescence">Senescence</button>
+          </div>
+        </section>
+
+        <!-- Sliders -->
+        <section class="hud-section hud-section--sliders">
+          <span class="hud-label">Equilibrium Parameters</span>
+
+          <div class="slider-item">
+            <div class="slider-meta">
+              <label for="slider-pop">Target Population</label>
+              <span class="slider-val" id="val-pop">16</span>
+            </div>
+            <input type="range" id="slider-pop" min="4" max="48" step="1" value="16" />
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-meta">
+              <label for="slider-growth">Growth Rate</label>
+              <span class="slider-val" id="val-growth">1.0×</span>
+            </div>
+            <input type="range" id="slider-growth" min="0.2" max="4.0" step="0.1" value="1.0" />
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-meta">
+              <label for="slider-mitosis">Mitosis Rate</label>
+              <span class="slider-val" id="val-mitosis">1.0×</span>
+            </div>
+            <input type="range" id="slider-mitosis" min="0.2" max="4.0" step="0.1" value="1.0" />
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-meta">
+              <label for="slider-apoptosis">Apoptosis Rate</label>
+              <span class="slider-val" id="val-apoptosis">1.0×</span>
+            </div>
+            <input type="range" id="slider-apoptosis" min="0.0" max="4.0" step="0.1" value="1.0" />
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-meta">
+              <label for="slider-speed">Simulation Speed</label>
+              <span class="slider-val" id="val-speed">1.0×</span>
+            </div>
+            <input type="range" id="slider-speed" min="0.2" max="3.0" step="0.1" value="1.0" />
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-meta">
+              <label for="slider-contrast">Membrane Contrast</label>
+              <span class="slider-val" id="val-contrast">1.0</span>
+            </div>
+            <input type="range" id="slider-contrast" min="0.4" max="1.0" step="0.05" value="1.0" />
+          </div>
+        </section>
+
+        <!-- Direct Actions -->
+        <section class="hud-section">
+          <span class="hud-label">Direct Interventions</span>
+          <div class="hud-actions-grid">
+            <button type="button" class="action-btn" id="act-spawn" title="Spawn a new viable cell">
+              <span>➕</span> Spawn Cell
+            </button>
+            <button type="button" class="action-btn" id="act-mitosis" title="Force division on a mature cell">
+              <span>✂️</span> Force Mitosis
+            </button>
+            <button type="button" class="action-btn" id="act-apoptosis" title="Trigger apoptosis on a cell">
+              <span>💀</span> Force Death
+            </button>
+            <button type="button" class="action-btn" id="act-clear" title="Clear dish completely">
+              <span>🧹</span> Clear Dish
+            </button>
+          </div>
+        </section>
+
+        <!-- Micro-Guide Footer -->
+        <footer class="hud-footer">
+          <p>🖱️ <strong>Click cell</strong>: trigger event · <strong>Click empty</strong>: spawn cell · <strong>Drag</strong>: momentum fling</p>
+        </footer>
+      </div>
+    </aside>
+  </main>
+</BaseLayout>
+
+<style>
+  :global(body) {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    background: var(--color-bg, #0f172a);
+    color: var(--color-text, #f1f5f9);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .lab-viewport {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .lab-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* Top Navigation Bar */
+  .lab-topbar {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    z-index: 20;
+    pointer-events: none;
+  }
+
+  .lab-topbar > * {
+    pointer-events: auto;
+  }
+
+  .lab-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 0.45rem 0.9rem;
+    border-radius: 9999px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  .lab-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 10px #10b981;
+    animation: pulseGlow 2s infinite;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.6; }
+  }
+
+  .lab-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    color: var(--color-text, #f1f5f9);
+  }
+
+  .lab-badge {
+    font-size: 0.72rem;
+    color: var(--color-text-muted, #94a3b8);
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    padding-left: 0.65rem;
+  }
+
+  .lab-telemetry-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  .t-pill {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #94a3b8);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0 0.35rem;
+  }
+
+  .t-pill strong {
+    color: var(--color-text, #f1f5f9);
+    font-weight: 600;
+  }
+
+  .t-pill--mitosis strong {
+    color: #38bdf8;
+  }
+
+  .t-pill--apoptosis strong {
+    color: #f43f5e;
+  }
+
+  .t-pill--fps strong {
+    color: #10b981;
+  }
+
+  .lab-exit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--color-text, #f1f5f9);
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.45rem 0.95rem;
+    border-radius: 9999px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    transition: all 0.18s ease;
+  }
+
+  .lab-exit-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  /* Floating HUD Control Panel */
+  .lab-hud {
+    position: absolute;
+    bottom: 1.25rem;
+    right: 1.25rem;
+    width: 320px;
+    max-width: calc(100vw - 2.5rem);
+    background: rgba(15, 23, 42, 0.82);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: max-height 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .hud-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .hud-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .hud-title {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--color-text, #f1f5f9);
+  }
+
+  .hud-toggle {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted, #94a3b8);
+    cursor: pointer;
+    padding: 0.2rem;
+    font-size: 0.75rem;
+    transition: transform 0.2s ease, color 0.15s ease;
+  }
+
+  .hud-toggle:hover {
+    color: var(--color-text, #f1f5f9);
+  }
+
+  .lab-hud.is-collapsed .hud-chevron {
+    transform: rotate(-90deg);
+  }
+
+  .lab-hud.is-collapsed .hud-body {
+    display: none;
+  }
+
+  .hud-body {
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .hud-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .hud-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  /* Playback & Action Buttons */
+  .hud-playback-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 0.4rem;
+  }
+
+  .hud-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--color-text, #f1f5f9);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.45rem 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    transition: all 0.15s ease;
+  }
+
+  .hud-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .hud-btn--accent {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #34d399;
+  }
+
+  .hud-btn--accent:hover {
+    background: rgba(16, 185, 129, 0.3);
+  }
+
+  .hud-btn--danger {
+    background: rgba(244, 63, 94, 0.14);
+    border-color: rgba(244, 63, 94, 0.3);
+    color: #fb7185;
+  }
+
+  .hud-btn--danger:hover {
+    background: rgba(244, 63, 94, 0.25);
+  }
+
+  /* Presets */
+  .hud-preset-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.35rem;
+  }
+
+  .preset-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: var(--color-text-muted, #94a3b8);
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.35rem 0.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .preset-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text, #f1f5f9);
+  }
+
+  .preset-btn.is-active {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: rgba(56, 189, 248, 0.5);
+    color: #38bdf8;
+    font-weight: 600;
+  }
+
+  /* Sliders */
+  .slider-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .slider-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .slider-val {
+    font-weight: 600;
+    color: var(--color-text, #f1f5f9);
+  }
+
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #38bdf8;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.5);
+    transition: transform 0.1s ease;
+  }
+
+  input[type='range']::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+  }
+
+  /* Action Buttons Grid */
+  .hud-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.35rem;
+  }
+
+  .action-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--color-text, #f1f5f9);
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.4rem 0.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: all 0.15s ease;
+  }
+
+  .action-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .hud-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 0.5rem;
+  }
+
+  .hud-footer p {
+    margin: 0;
+    font-size: 0.65rem;
+    color: var(--color-text-muted, #94a3b8);
+    line-height: 1.35;
+  }
+
+  @media (max-width: 768px) {
+    .lab-topbar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+    .lab-telemetry-strip {
+      order: 3;
+      justify-content: space-around;
+    }
+    .lab-hud {
+      bottom: 0.75rem;
+      right: 0.75rem;
+      left: 0.75rem;
+      width: auto;
+    }
+  }
+</style>
+
+<script>
+  import { getLivingCellsEngine, type CellSimParams } from '../lib/livingCellsEngine';
+
+  function initLabPage() {
+    const canvas = document.getElementById('lab-canvas') as HTMLCanvasElement | null;
+    if (!canvas) return;
+
+    const engine = getLivingCellsEngine();
+    engine.setMode('lab');
+    engine.attach(canvas);
+
+    // Initial simulation parameters for lab mode: active, vivid, fast cycling
+    const initialParams: CellSimParams = {
+      targetPopulation: 18,
+      growthMultiplier: 1.5,
+      mitosisMultiplier: 1.5,
+      apoptosisMultiplier: 1.2,
+      timeScale: 1.0,
+      isPaused: false,
+      visualAlpha: 1.0,
+      darkContrast: true,
+    };
+    engine.setParams(initialParams);
+
+    // Wire HUD Elements
+    const hud = document.getElementById('lab-hud');
+    const collapseBtn = document.getElementById('hud-collapse-btn');
+    if (collapseBtn && hud) {
+      collapseBtn.onclick = () => {
+        const isCollapsed = hud.classList.toggle('is-collapsed');
+        collapseBtn.setAttribute('aria-expanded', String(!isCollapsed));
+      };
+    }
+
+    // Playback Controls
+    const btnPause = document.getElementById('btn-pause');
+    const pauseIcon = document.getElementById('pause-icon');
+    const pauseLabel = document.getElementById('pause-label');
+    const btnStep = document.getElementById('btn-step');
+    const btnReset = document.getElementById('btn-reset');
+
+    if (btnPause && pauseIcon && pauseLabel) {
+      btnPause.onclick = () => {
+        const current = engine.getParams();
+        const nextPaused = !current.isPaused;
+        engine.setParams({ isPaused: nextPaused });
+        pauseIcon.textContent = nextPaused ? '▶' : '⏸';
+        pauseLabel.textContent = nextPaused ? 'Resume' : 'Pause';
+        btnPause.classList.toggle('hud-btn--accent', !nextPaused);
+      };
+    }
+
+    if (btnStep) {
+      btnStep.onclick = () => {
+        engine.stepSingleFrame();
+      };
+    }
+
+    if (btnReset) {
+      btnReset.onclick = () => {
+        const p = engine.getParams();
+        engine.resetPopulation(p.targetPopulation || 18);
+      };
+    }
+
+    // Sliders
+    const sliderPop = document.getElementById('slider-pop') as HTMLInputElement | null;
+    const valPop = document.getElementById('val-pop');
+    const sliderGrowth = document.getElementById('slider-growth') as HTMLInputElement | null;
+    const valGrowth = document.getElementById('val-growth');
+    const sliderMitosis = document.getElementById('slider-mitosis') as HTMLInputElement | null;
+    const valMitosis = document.getElementById('val-mitosis');
+    const sliderApoptosis = document.getElementById('slider-apoptosis') as HTMLInputElement | null;
+    const valApoptosis = document.getElementById('val-apoptosis');
+    const sliderSpeed = document.getElementById('slider-speed') as HTMLInputElement | null;
+    const valSpeed = document.getElementById('val-speed');
+    const sliderContrast = document.getElementById('slider-contrast') as HTMLInputElement | null;
+    const valContrast = document.getElementById('val-contrast');
+
+    function syncSlidersFromParams(params: CellSimParams) {
+      if (sliderPop && valPop) {
+        sliderPop.value = String(params.targetPopulation || 18);
+        valPop.textContent = String(params.targetPopulation || 18);
+      }
+      if (sliderGrowth && valGrowth) {
+        sliderGrowth.value = String(params.growthMultiplier);
+        valGrowth.textContent = `${params.growthMultiplier.toFixed(1)}×`;
+      }
+      if (sliderMitosis && valMitosis) {
+        sliderMitosis.value = String(params.mitosisMultiplier);
+        valMitosis.textContent = `${params.mitosisMultiplier.toFixed(1)}×`;
+      }
+      if (sliderApoptosis && valApoptosis) {
+        sliderApoptosis.value = String(params.apoptosisMultiplier);
+        valApoptosis.textContent = `${params.apoptosisMultiplier.toFixed(1)}×`;
+      }
+      if (sliderSpeed && valSpeed) {
+        sliderSpeed.value = String(params.timeScale);
+        valSpeed.textContent = `${params.timeScale.toFixed(1)}×`;
+      }
+      if (sliderContrast && valContrast) {
+        sliderContrast.value = String(params.visualAlpha);
+        valContrast.textContent = params.visualAlpha.toFixed(2);
+      }
+    }
+
+    syncSlidersFromParams(initialParams);
+
+    if (sliderPop && valPop) {
+      sliderPop.oninput = () => {
+        const val = parseInt(sliderPop.value, 10);
+        valPop.textContent = String(val);
+        engine.setParams({ targetPopulation: val });
+      };
+    }
+    if (sliderGrowth && valGrowth) {
+      sliderGrowth.oninput = () => {
+        const val = parseFloat(sliderGrowth.value);
+        valGrowth.textContent = `${val.toFixed(1)}×`;
+        engine.setParams({ growthMultiplier: val });
+      };
+    }
+    if (sliderMitosis && valMitosis) {
+      sliderMitosis.oninput = () => {
+        const val = parseFloat(sliderMitosis.value);
+        valMitosis.textContent = `${val.toFixed(1)}×`;
+        engine.setParams({ mitosisMultiplier: val });
+      };
+    }
+    if (sliderApoptosis && valApoptosis) {
+      sliderApoptosis.oninput = () => {
+        const val = parseFloat(sliderApoptosis.value);
+        valApoptosis.textContent = `${val.toFixed(1)}×`;
+        engine.setParams({ apoptosisMultiplier: val });
+      };
+    }
+    if (sliderSpeed && valSpeed) {
+      sliderSpeed.oninput = () => {
+        const val = parseFloat(sliderSpeed.value);
+        valSpeed.textContent = `${val.toFixed(1)}×`;
+        engine.setParams({ timeScale: val });
+      };
+    }
+    if (sliderContrast && valContrast) {
+      sliderContrast.oninput = () => {
+        const val = parseFloat(sliderContrast.value);
+        valContrast.textContent = val.toFixed(2);
+        engine.setParams({ visualAlpha: val });
+      };
+    }
+
+    // Preset Configurations
+    const presets: Record<string, Partial<CellSimParams>> = {
+      homeostasis: {
+        targetPopulation: 18,
+        growthMultiplier: 1.2,
+        mitosisMultiplier: 1.0,
+        apoptosisMultiplier: 1.0,
+        timeScale: 1.0,
+      },
+      proliferation: {
+        targetPopulation: 32,
+        growthMultiplier: 2.5,
+        mitosisMultiplier: 2.8,
+        apoptosisMultiplier: 0.3,
+        timeScale: 1.2,
+      },
+      turnover: {
+        targetPopulation: 20,
+        growthMultiplier: 2.2,
+        mitosisMultiplier: 2.0,
+        apoptosisMultiplier: 2.5,
+        timeScale: 1.4,
+      },
+      senescence: {
+        targetPopulation: 12,
+        growthMultiplier: 0.4,
+        mitosisMultiplier: 0.3,
+        apoptosisMultiplier: 0.1,
+        timeScale: 0.6,
+      },
+    };
+
+    document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((btn) => {
+      btn.onclick = () => {
+        const key = btn.dataset.preset;
+        if (!key || !presets[key]) return;
+        document.querySelectorAll('[data-preset]').forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        const next = { ...presets[key], isPaused: false, visualAlpha: 1.0, darkContrast: true };
+        engine.setParams(next as Partial<CellSimParams>);
+        syncSlidersFromParams(engine.getParams());
+      };
+    });
+
+    // Action Triggers
+    const actSpawn = document.getElementById('act-spawn');
+    const actMitosis = document.getElementById('act-mitosis');
+    const actApoptosis = document.getElementById('act-apoptosis');
+    const actClear = document.getElementById('act-clear');
+
+    if (actSpawn) actSpawn.onclick = () => engine.spawnRandomCell();
+    if (actMitosis) actMitosis.onclick = () => engine.triggerRandomMitosis();
+    if (actApoptosis) actApoptosis.onclick = () => engine.triggerRandomApoptosis();
+    if (actClear) actClear.onclick = () => engine.clearAllCells();
+
+    // Live Telemetry Sync
+    const tTotal = document.querySelector('[data-t-total]');
+    const tInterphase = document.querySelector('[data-t-interphase]');
+    const tMitosis = document.querySelector('[data-t-mitosis]');
+    const tApoptosis = document.querySelector('[data-t-apoptosis]');
+    const tFps = document.querySelector('[data-t-fps]');
+
+    const telemetryTimer = setInterval(() => {
+      const t = engine.getTelemetry();
+      if (tTotal) tTotal.textContent = String(t.total);
+      if (tInterphase) tInterphase.textContent = String(t.interphase);
+      if (tMitosis) tMitosis.textContent = String(t.mitosis + t.postmitotic);
+      if (tApoptosis) tApoptosis.textContent = String(t.apoptosis);
+      if (tFps) tFps.textContent = String(t.fps);
+    }, 120);
+
+    // Cleanup on navigation away
+    window.addEventListener(
+      'pagehide',
+      () => {
+        clearInterval(telemetryTimer);
+      },
+      { once: true }
+    );
+  }
+
+  // Bind on Astro page loads
+  document.addEventListener('astro:page-load', initLabPage);
+  if (document.readyState !== 'loading') initLabPage();
+  else document.addEventListener('DOMContentLoaded', initLabPage);
+</script>

@@ -42,11 +42,33 @@ export interface VertexSpring {
   equilibriumOffset: number;
 }
 
-export type CellMode = 'calm' | 'lab' | 'off';
+export type CellMode = 'ambient' | 'calm' | 'lab' | 'off';
 export type CellAction = 'divide' | 'apoptosis';
 export type CellState = 'growing' | 'mature' | 'mitosis' | 'postmitotic' | 'apoptosis';
 type LifecycleSource = 'user' | 'automatic';
 type DetailLevel = 'full' | 'reduced' | 'minimal';
+
+export interface CellSimParams {
+  targetPopulation: number;
+  growthMultiplier: number;
+  mitosisMultiplier: number;
+  apoptosisMultiplier: number;
+  timeScale: number;
+  isPaused: boolean;
+  visualAlpha: number;
+  darkContrast: boolean;
+}
+
+export interface CellTelemetry {
+  total: number;
+  interphase: number;
+  mitosis: number;
+  postmitotic: number;
+  apoptosis: number;
+  births: number;
+  deaths: number;
+  fps: number;
+}
 
 export interface Mitochondrion {
   type: 'mitochondria';
@@ -157,7 +179,7 @@ export interface LivingCell {
   apoptosisProgress?: number;
   apoptosisStartRadius?: number;
   apoptosisEntryContour?: Point[];
-  apoptosisFragmentAngles?: [number, number, number];
+  apoptosisFragmentAngles?: number[];
   blebs?: ApoptoticBleb[];
   glowIntensity: number;
   contactCount: number;
@@ -255,7 +277,7 @@ const STEP = 1 / 60;
 const MAX_STEPS = 4;
 const MITOSIS_SECONDS = 4;
 const POSTMITOTIC_SECONDS = 1.6;
-const APOPTOSIS_SECONDS = 7;
+const APOPTOSIS_SECONDS = 5.4;
 const SIZE_CHECKPOINT = 0.97;
 const MATURE_DWELL = 8;
 const DAUGHTER_RATIO = Math.cbrt(0.5);
@@ -362,7 +384,7 @@ export class LivingCellsEngine {
     dark: false,
   };
   private visualScale = 1;
-  private mode: CellMode = 'calm';
+  private mode: CellMode = 'ambient';
   private labAction: CellAction = 'divide';
   private selectedCellId: string | null = null;
   private selectedStatusPhase: string | null = null;
@@ -372,6 +394,16 @@ export class LivingCellsEngine {
   private renderTimings: number[] = [];
   private adaptiveElapsed = 0;
   private random: () => number;
+  private simParams: CellSimParams = {
+    targetPopulation: 0,
+    growthMultiplier: 1.0,
+    mitosisMultiplier: 1.0,
+    apoptosisMultiplier: 1.0,
+    timeScale: 1.0,
+    isPaused: false,
+    visualAlpha: 1.0,
+    darkContrast: false,
+  };
 
   public constructor(random: () => number = Math.random) {
     this.random = random;
@@ -386,13 +418,14 @@ export class LivingCellsEngine {
   }
 
   public setMode(mode: CellMode): void {
-    if (!['calm', 'lab', 'off'].includes(mode) || mode === this.mode) return;
-    this.mode = mode;
-    if (typeof document !== 'undefined') document.documentElement.dataset.cellMode = mode;
+    const normalizedMode = mode === 'calm' ? 'ambient' : mode;
+    if (!['ambient', 'calm', 'lab', 'off'].includes(mode)) return;
+    this.mode = normalizedMode;
+    if (typeof document !== 'undefined') document.documentElement.dataset.cellMode = normalizedMode;
     try {
-      localStorage.setItem('khc-cell-mode', mode);
+      localStorage.setItem('khc-cell-mode', normalizedMode);
     } catch {}
-    if (mode === 'off') {
+    if (normalizedMode === 'off') {
       this.stop();
       this.cancelPointer(false);
       this.clearHover();
@@ -402,7 +435,119 @@ export class LivingCellsEngine {
       if (this.reducedMotion) this.render(0, true);
       else this.start();
     }
-    this.dispatch('khc:cell-mode-change', { mode });
+    this.dispatch('khc:cell-mode-change', { mode: normalizedMode });
+  }
+
+  public getParams(): CellSimParams {
+    return { ...this.simParams };
+  }
+
+  public setParams(partial: Partial<CellSimParams>): void {
+    this.simParams = { ...this.simParams, ...partial };
+    if (partial.targetPopulation !== undefined && partial.targetPopulation > 0) {
+      this.targetCount = partial.targetPopulation;
+      this.baseCount = partial.targetPopulation;
+    }
+    this.dispatch('khc:cell-params-change', { params: this.getParams() });
+  }
+
+  public resetParams(): void {
+    this.simParams = {
+      targetPopulation: 0,
+      growthMultiplier: 1.0,
+      mitosisMultiplier: 1.0,
+      apoptosisMultiplier: 1.0,
+      timeScale: 1.0,
+      isPaused: false,
+      visualAlpha: 1.0,
+      darkContrast: false,
+    };
+    this.dispatch('khc:cell-params-change', { params: this.getParams() });
+  }
+
+  public stepSingleFrame(): void {
+    this.update(STEP);
+    this.render(0, true);
+  }
+
+  public spawnRandomCell(x?: number, y?: number): LivingCell {
+    const spawnX = x ?? this.rand(60, Math.max(120, this.width - 60));
+    const spawnY = y ?? this.rand(60, Math.max(120, this.height - 60));
+    const newCell = this.createCell(spawnX, spawnY, false);
+    newCell.x = spawnX;
+    newCell.y = spawnY;
+    newCell.previousX = spawnX;
+    newCell.previousY = spawnY;
+    newCell.glowIntensity = 1.6;
+    this.cells.push(newCell);
+    this.counters.divisions++;
+    this.dispatch('khc:cell-telemetry-update', { telemetry: this.getTelemetry() });
+    return newCell;
+  }
+
+  public triggerRandomMitosis(): boolean {
+    const candidates = this.cells.filter(
+      (c) => c.state === 'mature' || (c.state === 'growing' && c.radius >= c.birthRadius * 1.05)
+    );
+    if (!candidates.length) return false;
+    const chosen = candidates[Math.floor(this.random() * candidates.length)];
+    this.triggerMitosis(chosen, true, 'user');
+    return true;
+  }
+
+  public triggerRandomApoptosis(): boolean {
+    const candidates = this.cells.filter((c) => c.state === 'mature' || c.state === 'growing');
+    if (!candidates.length) return false;
+    const chosen = candidates[Math.floor(this.random() * candidates.length)];
+    this.triggerApoptosis(chosen, 'user');
+    return true;
+  }
+
+  public resetPopulation(count?: number): void {
+    this.cells = [];
+    this.apoptoticBodies = [];
+    this.divisionQueue = [];
+    this.seeded = false;
+    if (count && count > 0) {
+      this.simParams.targetPopulation = count;
+      this.targetCount = count;
+      this.baseCount = count;
+    }
+    this.seed();
+  }
+
+  public clearAllCells(): void {
+    this.cells = [];
+    this.apoptoticBodies = [];
+    this.divisionQueue = [];
+  }
+
+  public getTelemetry(): CellTelemetry {
+    let interphase = 0;
+    let mitosis = 0;
+    let postmitotic = 0;
+    let apoptosis = 0;
+    for (const c of this.cells) {
+      if (c.state === 'growing' || c.state === 'mature') interphase++;
+      else if (c.state === 'mitosis') mitosis++;
+      else if (c.state === 'postmitotic') postmitotic++;
+      else if (c.state === 'apoptosis') apoptosis++;
+    }
+    const avgRender =
+      this.renderTimings.length > 0
+        ? this.renderTimings.reduce((a, b) => a + b, 0) / this.renderTimings.length
+        : 16.6;
+    const fps = Math.round(1000 / Math.max(1, avgRender));
+    return {
+      total: this.cells.length,
+      interphase,
+      mitosis,
+      postmitotic,
+      apoptosis,
+      births: this.counters.divisions,
+      deaths: this.counters.deaths,
+      fps: clamp(fps, 1, 60),
+    };
   }
 
   public getLabAction(): CellAction {
@@ -703,9 +848,9 @@ export class LivingCellsEngine {
     const radius = Math.max(4, cell.baseRadius);
     cell.apoptosisEntryContour = this.sampleNormalContour(cell);
     const fragmentBase = this.rand(0, TAU);
-    cell.apoptosisFragmentAngles = [0, 1, 2].map(
-      (index) => fragmentBase + (index / 3) * TAU + this.rand(-0.16, 0.16)
-    ) as [number, number, number];
+    cell.apoptosisFragmentAngles = [0, 1, 2, 3].map(
+      (index) => fragmentBase + (index / 4) * TAU + this.rand(-0.14, 0.14)
+    );
     cell.state = 'apoptosis';
     cell.stateElapsed = 0;
     cell.apoptosisProgress = 0;
@@ -717,40 +862,40 @@ export class LivingCellsEngine {
     cell.isGrabbed = false;
     cell.targetDragPos = undefined;
     this.divisionQueue = this.divisionQueue.filter((id) => id !== cell.id);
-    const count = 3 + Math.floor(this.random() * 3);
+    const count = 4 + Math.floor(this.random() * 3);
     const releaseCount = Math.max(2, count - 1);
     cell.blebs = Array.from({ length: count }, (_, i) => {
       const onset = clamp(
-        0.18 + (i / Math.max(1, count - 1)) * 0.25 + this.rand(-0.025, 0.025),
+        0.16 + (i / Math.max(1, count - 1)) * 0.26 + this.rand(-0.02, 0.02),
         0.16,
-        0.46
+        0.44
       );
       const releases = i < releaseCount;
       const detachAt = releases
         ? clamp(
-            0.54 + (i / Math.max(1, releaseCount - 1)) * 0.33 + this.rand(-0.012, 0.012),
+            0.52 + (i / Math.max(1, releaseCount - 1)) * 0.30 + this.rand(-0.015, 0.015),
             0.52,
-            0.88
+            0.85
           )
-        : clamp(onset + this.rand(0.24, 0.34), 0.44, 0.72);
-      const peakAt = Math.min(detachAt - 0.1, onset + this.rand(0.1, 0.16));
+        : clamp(onset + this.rand(0.20, 0.30), 0.40, 0.70);
+      const peakAt = Math.min(detachAt - 0.08, onset + this.rand(0.08, 0.14));
       return {
         ownerId: cell.id,
-        angle: (i / count) * TAU + this.rand(-0.22, 0.22),
+        angle: (i / count) * TAU + this.rand(-0.20, 0.20),
         dist: 0.86,
         radius: 0,
-        maxRadius: radius * this.rand(0.08, 0.15),
-        growthSpeed: this.rand(0.8, 1.1),
+        maxRadius: radius * this.rand(0.09, 0.16),
+        growthSpeed: this.rand(0.9, 1.25),
         detached: false,
         alpha: 1,
         onset,
         detachAt,
         peakAt,
-        retractAt: releases ? detachAt : clamp(peakAt + this.rand(0.14, 0.22), peakAt + 0.1, 0.76),
+        retractAt: releases ? detachAt : clamp(peakAt + this.rand(0.12, 0.20), peakAt + 0.08, 0.74),
         releases,
         neck: 0,
-        carriesFragment: releases && this.random() < 0.55,
-        drift: this.rand(0.12, 0.26),
+        carriesFragment: releases && this.random() < 0.6,
+        drift: this.rand(0.14, 0.28),
         x: cell.x,
         y: cell.y,
         previousX: cell.x,
@@ -759,7 +904,7 @@ export class LivingCellsEngine {
         vy: cell.vy,
         independent: false,
         age: 0,
-        lifetime: this.rand(2.2, 3.2),
+        lifetime: this.rand(2.0, 3.0),
       };
     });
     cell.lifecycleSource = source;
@@ -1271,15 +1416,18 @@ export class LivingCellsEngine {
       this.render(0);
       return;
     }
-    this.accumulator += Math.min(0.1, Math.max(0, (time - this.lastTime) / 1000));
+    const delta = Math.min(0.1, Math.max(0, (time - this.lastTime) / 1000));
     this.lastTime = time;
-    let steps = 0;
-    while (this.accumulator >= STEP && steps < MAX_STEPS) {
-      this.update(STEP);
-      this.accumulator -= STEP;
-      steps++;
+    if (!this.simParams.isPaused) {
+      this.accumulator += delta * this.simParams.timeScale;
+      let steps = 0;
+      while (this.accumulator >= STEP && steps < MAX_STEPS) {
+        this.update(STEP);
+        this.accumulator -= STEP;
+        steps++;
+      }
+      if (steps === MAX_STEPS && this.accumulator >= STEP) this.accumulator = 0;
     }
-    if (steps === MAX_STEPS && this.accumulator >= STEP) this.accumulator = 0;
     const renderInterval = this.currentRenderInterval();
     if (this.lastRenderTime === 0 || time - this.lastRenderTime >= renderInterval) {
       this.lastRenderTime = time;
@@ -1288,9 +1436,7 @@ export class LivingCellsEngine {
   };
 
   private currentRenderInterval(): number {
-    // The homepage already runs the DNA hero canvas, so its cells use a calm
-    // 20 fps ceiling.  Scrolling may only lower cadence; it must never make a
-    // deliberately slower homepage profile render more often.
+    if (this.mode === 'lab') return 15;
     const baseInterval = this.isHomepage ? 50 : this.coarse ? 32 : 15;
     if (this.scrollActivityRemaining > 0) return Math.max(baseInterval, this.coarse ? 67 : 42);
     return baseInterval;
@@ -1335,7 +1481,7 @@ export class LivingCellsEngine {
     this.rebalanceCooldown = Math.max(0, this.rebalanceCooldown - dt);
     this.inputQuietRemaining = Math.max(0, this.inputQuietRemaining - dt);
     this.scrollActivityRemaining = Math.max(0, this.scrollActivityRemaining - dt);
-    this.turnoverRemaining -= dt;
+    this.turnoverRemaining -= dt * this.simParams.apoptosisMultiplier;
     this.controllerElapsed += dt;
     this.adaptiveElapsed += dt;
     for (const cell of this.cells) cell.contactCount = 0;
@@ -1439,8 +1585,13 @@ export class LivingCellsEngine {
 
   private updateLifecycle(cell: LivingCell, index: number, dt: number): boolean {
     const breathing = 1 + 0.015 * Math.sin(cell.breathPhase);
+    const growthSpeed = this.simParams.growthMultiplier;
     if (cell.state === 'growing') {
-      cell.growthProgress = clamp(cell.growthProgress + dt / cell.growthDuration, 0, 1);
+      cell.growthProgress = clamp(
+        cell.growthProgress + (dt * growthSpeed) / cell.growthDuration,
+        0,
+        1
+      );
       const progress = smootherstep(cell.growthProgress);
       cell.baseRadius = Math.cbrt(lerp(cell.birthRadius ** 3, cell.targetRadius ** 3, progress));
       cell.radius = cell.baseRadius * breathing;
@@ -1512,9 +1663,9 @@ export class LivingCellsEngine {
     cell.apoptosisProgress = clamp(cell.stateElapsed / APOPTOSIS_SECONDS, 0, 1);
     const progress = cell.apoptosisProgress;
     const startRadius = cell.apoptosisStartRadius ?? cell.baseRadius;
-    cell.baseRadius = startRadius * (1 - 0.24 * windowed(progress, 0.02, 0.72));
+    cell.baseRadius = startRadius * (1 - 0.28 * windowed(progress, 0.02, 0.68));
     cell.radius = cell.baseRadius;
-    cell.life = 1 - windowed(progress, 0.86, 1);
+    cell.life = 1 - windowed(progress, 0.84, 1);
     this.updateBlebs(cell, progress, dt);
     this.updateSelectedStatus(cell);
     if (progress >= 1) {
@@ -1580,11 +1731,13 @@ export class LivingCellsEngine {
       const ay = Math.sin(axis);
       const centerX = (first.x + second.x) / 2;
       const centerY = (first.y + second.y) / 2;
-      const recoil = first.recoveryRecoil ?? second.recoveryRecoil ?? 18;
+      const recoil = first.recoveryRecoil ?? second.recoveryRecoil ?? 20;
+      const omega = Math.PI * 2.0;
+      const gamma = 2.4;
+      const bounce = 1 - Math.exp(-gamma * progress) * Math.cos(omega * progress);
       const maximumOffset = (recoil * POSTMITOTIC_SECONDS) / 2;
-      const normalizedOffset = 2 * progress - progress * progress;
       const halfDistance =
-        (first.birthRadius + second.birthRadius) / 2 + maximumOffset * normalizedOffset;
+        (first.birthRadius + second.birthRadius) / 2 + maximumOffset * bounce;
       const firstSide = first.siblingSide ?? 1;
       first.x = centerX + ax * firstSide * halfDistance;
       first.y = centerY + ay * firstSide * halfDistance;
@@ -1620,7 +1773,10 @@ export class LivingCellsEngine {
       let baseVy = (first.vy + second.vy) / 2;
       if ((correctionX > 0 && baseVx < 0) || (correctionX < 0 && baseVx > 0)) baseVx *= -0.08;
       if ((correctionY > 0 && baseVy < 0) || (correctionY < 0 && baseVy > 0)) baseVy *= -0.08;
-      const separationSpeed = recoil * (1 - progress) * (1 + 0.25 * Math.sin(progress * Math.PI));
+      const separationSpeed =
+        recoil *
+        Math.exp(-gamma * progress) *
+        (Math.cos(omega * progress) + 0.35 * Math.sin(omega * progress));
       first.vx = baseVx + ax * firstSide * separationSpeed;
       first.vy = baseVy + ay * firstSide * separationSpeed;
       second.vx = baseVx - ax * firstSide * separationSpeed;
@@ -1720,7 +1876,7 @@ export class LivingCellsEngine {
   private updateBlebs(cell: LivingCell, progress: number, _dt: number): void {
     const attached: ApoptoticBleb[] = [];
     const coreRadius = cell.apoptosisStartRadius
-      ? cell.apoptosisStartRadius * (1 - 0.24 * windowed(progress, 0.02, 0.72))
+      ? cell.apoptosisStartRadius * (1 - 0.28 * windowed(progress, 0.02, 0.68))
       : cell.radius;
     for (const bleb of cell.blebs ?? []) {
       const growth = windowed(progress, bleb.onset, bleb.peakAt);
@@ -1730,9 +1886,9 @@ export class LivingCellsEngine {
       bleb.neck = bleb.releases ? windowed(progress, bleb.detachAt - 0.14, bleb.detachAt) : 0;
       bleb.dist =
         0.86 +
-        growth * 0.14 -
+        growth * 0.16 -
         retraction * 0.06 +
-        (bleb.releases ? bleb.neck * 0.1 + windowed(progress, bleb.detachAt, 1) * bleb.drift : 0);
+        (bleb.releases ? bleb.neck * 0.12 + windowed(progress, bleb.detachAt, 1) * bleb.drift : 0);
       bleb.alpha = 1;
       const distance = coreRadius * bleb.dist;
       bleb.previousX = bleb.x;
@@ -1741,7 +1897,7 @@ export class LivingCellsEngine {
       bleb.y = cell.y + Math.sin(bleb.angle) * distance;
       if (bleb.detached && !bleb.independent) {
         bleb.independent = true;
-        const outwardSpeed = 2 + bleb.drift * 12;
+        const outwardSpeed = 3.5 + bleb.drift * 14;
         bleb.vx = cell.vx + Math.cos(bleb.angle) * outwardSpeed;
         bleb.vy = cell.vy + Math.sin(bleb.angle) * outwardSpeed;
         bleb.alpha = 1;
@@ -2074,7 +2230,10 @@ export class LivingCellsEngine {
     this.pruneQueue();
     if (this.inputQuietRemaining > 0) return;
     const projected = this.projectedCount();
-    const target = this.targetCount || this.baseCount || 6;
+    const target =
+      this.simParams.targetPopulation > 0
+        ? this.simParams.targetPopulation
+        : this.targetCount || this.baseCount || 6;
     if (projected > target) {
       const automaticDeaths = this.cells.filter(
         (cell) => cell.state === 'apoptosis' && cell.lifecycleSource === 'automatic'
@@ -2287,17 +2446,25 @@ export class LivingCellsEngine {
     this.ctx.restore();
   }
 
+  private effectiveAlpha(opacity = 1): number {
+    const modeAlpha =
+      this.mode === 'ambient' || this.mode === 'calm'
+        ? 0.8
+        : (this.simParams.visualAlpha ?? 1.0);
+    return BASE_ALPHA * modeAlpha * this.visualScale * opacity;
+  }
+
   private renderInterior(
     cell: LivingCell,
     radius: number,
-    opacity: number,
+    opacity = 1,
     showNucleus = true,
     recovery = 1
   ): void {
     if (!this.ctx) return;
     const detailLevel = this.effectiveDetailLevel();
     const { accent, ink, glow, dark } = this.palette;
-    const alpha = BASE_ALPHA * this.visualScale * opacity;
+    const alpha = this.effectiveAlpha(opacity);
     const scale = radius / Math.max(1, cell.targetRadius);
     const nx = cell.nucleusOffset.x * radius;
     const ny = cell.nucleusOffset.y * radius;
@@ -2463,21 +2630,21 @@ export class LivingCellsEngine {
     const axis = cell.mitosisAngle ?? 0;
     const daughterRadius = radius * DAUGHTER_RATIO;
     const geometry = this.mitosisGeometry(progress, radius);
-    const { separation: pole, waist } = geometry;
+    const { waist } = geometry;
     const analytic = geometry.points;
     const entry = cell.mitosisEntryContour ?? this.circlePoints(radius);
-    const blend = windowed(progress, 0, 0.16);
-    const points = analytic.map((point, index) => mixPoint(entry[index] ?? point, point, blend));
-    const daughterBlend = windowed(progress, 0.88, 0.985);
-    const compoundAlpha = 1 - daughterBlend;
-    const alpha = BASE_ALPHA * this.visualScale * cell.life * compoundAlpha;
+    const roundingProgress = smootherstep(clamp(progress / 0.28, 0, 1));
+    const points = analytic.map((point, index) =>
+      mixPoint(entry[index] ?? point, point, roundingProgress)
+    );
+    const alpha = this.effectiveAlpha(cell.life);
     const { accent, ink, glow, dark } = this.palette;
 
     this.ctx.save();
     this.ctx.translate(x, y);
     this.ctx.rotate(axis);
     this.path(points);
-    this.fillStroke(1 + 0.12 * Math.sin(progress * Math.PI), cell.life * compoundAlpha);
+    this.fillStroke(1 + 0.12 * Math.sin(progress * Math.PI), cell.life);
     this.ctx.clip();
 
     const oldInterior = 1 - windowed(progress, 0.06, 0.3);
@@ -2507,31 +2674,31 @@ export class LivingCellsEngine {
       }
     }
 
-    const count = 4;
-    const spacing = clamp(radius * 0.12, 1.8, 5);
-    const length = clamp(radius * 0.14, 2.4, 6.2);
-    const width = clamp(radius * 0.035, 0.8, 1.5);
+    const count = 6;
+    const spacing = clamp(radius * 0.088, 1.6, 4.2);
+    const length = clamp(radius * 0.13, 2.2, 5.8);
+    const width = clamp(radius * 0.034, 0.8, 1.5);
     const prophase = windowed(progress, 0.02, 0.12) * (1 - windowed(progress, 0.31, 0.38));
     const metaphase = windowed(progress, 0.22, 0.32) * (1 - windowed(progress, 0.46, 0.51));
     const anaphase = windowed(progress, 0.44, 0.5) * (1 - windowed(progress, 0.68, 0.76));
     const separation = radius * 0.48 * windowed(progress, 0.46, 0.64);
     for (let index = 0; index < count; index++) {
-      const cy = (index - 1.5) * spacing;
+      const cy = (index - 2.5) * spacing;
       if (prophase > 0.002) {
-        const cx = Math.sin(index * 1.9) * radius * 0.06 * (1 - windowed(progress, 0.08, 0.3));
+        const cx = Math.sin(index * 1.9 + 0.4) * radius * 0.06 * (1 - windowed(progress, 0.08, 0.3));
         this.chromosomeX(cx, cy, length, width, prophase * alpha);
       }
       if (metaphase > 0.002) {
         const gap = width * 1.1;
         this.ctx.lineWidth = width;
-        this.ctx.strokeStyle = `rgba(${accent}, ${0.14 * metaphase * alpha})`;
+        this.ctx.strokeStyle = `rgba(${accent}, ${0.18 * metaphase * alpha})`;
         this.ctx.beginPath();
         this.ctx.moveTo(-gap, cy - length / 2);
         this.ctx.lineTo(-gap, cy + length / 2);
         this.ctx.moveTo(gap, cy - length / 2);
         this.ctx.lineTo(gap, cy + length / 2);
         this.ctx.stroke();
-        this.ctx.strokeStyle = `rgba(${glow}, ${0.035 * metaphase * alpha})`;
+        this.ctx.strokeStyle = `rgba(${glow}, ${0.045 * metaphase * alpha})`;
         for (const side of [-1, 1]) {
           this.ctx.beginPath();
           this.ctx.moveTo(side * spindlePole, 0);
@@ -2543,7 +2710,7 @@ export class LivingCellsEngine {
         for (const side of [-1, 1]) {
           const cx = side * separation;
           this.ctx.lineWidth = width;
-          this.ctx.strokeStyle = `rgba(${accent}, ${0.14 * anaphase * alpha})`;
+          this.ctx.strokeStyle = `rgba(${accent}, ${0.18 * anaphase * alpha})`;
           this.ctx.beginPath();
           this.ctx.moveTo(cx - side * length * 0.62, cy - length * 0.4);
           this.ctx.lineTo(cx, cy);
@@ -2596,40 +2763,15 @@ export class LivingCellsEngine {
         this.ctx.stroke();
       }
     }
-    this.ctx.restore();
-    if (daughterBlend > 0.002)
-      this.renderPlannedDaughters(cell, x, y, axis, pole, daughterRadius, daughterBlend);
-  }
-
-  private renderPlannedDaughters(
-    parent: LivingCell,
-    x: number,
-    y: number,
-    axis: number,
-    separation: number,
-    daughterRadius: number,
-    opacity: number
-  ): void {
-    if (!this.ctx || !parent.mitosisPlan) return;
-    this.ctx.save();
-    this.ctx.translate(x, y);
-    this.ctx.rotate(axis);
-    for (const daughter of parent.mitosisPlan.daughters) {
-      const side = daughter.siblingSide ?? 1;
-      this.ctx.save();
-      this.ctx.translate(side * separation, 0);
-      this.path(this.sampleNormalContour(daughter, axis, daughterRadius));
-      this.fillStroke(daughter.glowIntensity, opacity);
-      this.ctx.clip();
-      this.ctx.rotate(-axis);
-      this.renderInterior(
-        daughter,
-        daughterRadius,
-        opacity,
-        true,
-        this.recoveryMorphology(daughter)
-      );
-      this.ctx.restore();
+    if (progress >= 0.94) {
+      const sparkAlpha = Math.sin(((progress - 0.94) / 0.06) * Math.PI);
+      this.ctx.beginPath();
+      this.ctx.arc(0, 0, Math.max(1.8, radius * 0.05), 0, TAU);
+      this.ctx.fillStyle = `rgba(${glow}, ${0.45 * sparkAlpha * alpha})`;
+      this.ctx.fill();
+      this.ctx.strokeStyle = `rgba(${accent}, ${0.65 * sparkAlpha * alpha})`;
+      this.ctx.lineWidth = 0.8;
+      this.ctx.stroke();
     }
     this.ctx.restore();
   }
@@ -2637,7 +2779,7 @@ export class LivingCellsEngine {
   private chromosomeX(x: number, y: number, length: number, width: number, alpha: number): void {
     if (!this.ctx) return;
     this.ctx.lineWidth = width;
-    this.ctx.strokeStyle = `rgba(${this.palette.accent}, ${0.13 * alpha})`;
+    this.ctx.strokeStyle = `rgba(${this.palette.accent}, ${0.18 * alpha})`;
     this.ctx.beginPath();
     this.ctx.moveTo(x - length * 0.38, y - length * 0.5);
     this.ctx.lineTo(x + length * 0.38, y + length * 0.5);
@@ -2650,19 +2792,29 @@ export class LivingCellsEngine {
     if (!this.ctx) return;
     const progress = cell.apoptosisProgress ?? 0;
     const startRadius = cell.apoptosisStartRadius ?? cell.baseRadius;
-    const coreRadius = startRadius * (1 - 0.24 * windowed(progress, 0.02, 0.72));
+    const coreRadius = startRadius * (1 - 0.28 * windowed(progress, 0.02, 0.68));
     const entry = cell.apoptosisEntryContour ?? this.circlePoints(startRadius);
-    const circle = this.circlePoints(coreRadius);
-    const blend = windowed(progress, 0, 0.18);
-    const points = circle.map((point, index) => mixPoint(entry[index] ?? point, point, blend));
-    const alpha = BASE_ALPHA * this.visualScale * cell.life;
+    const blend = windowed(progress, 0, 0.16);
+
+    // Dynamic zeiosis surface ripples during active blebbing (0.14 to 0.70)
+    const zeiosis = windowed(progress, 0.14, 0.3) * (1 - windowed(progress, 0.65, 0.82));
+    const points = Array.from({ length: CONTOUR_SEGMENTS }, (_, index) => {
+      const phi = (index / CONTOUR_SEGMENTS) * TAU;
+      const ripple = zeiosis * 0.042 * Math.sin(phi * 5 + progress * 28);
+      const r = coreRadius * (1 + ripple);
+      const base = { x: Math.cos(phi) * r, y: Math.sin(phi) * r };
+      return mixPoint(entry[index] ?? base, base, blend);
+    });
+
+    const alpha = this.effectiveAlpha(cell.life);
     const { accent, ink, glow, dark } = this.palette;
     this.ctx.save();
     this.ctx.translate(x, y);
     this.path(points);
-    this.fillStroke(1.02, cell.life);
+    this.fillStroke(1.02 + 0.08 * zeiosis, cell.life);
 
-    const oldInterior = 1 - windowed(progress, 0.16, 0.54);
+    // Organelle/cytoplasmic clearance
+    const oldInterior = 1 - windowed(progress, 0.12, 0.48);
     if (oldInterior > 0.002) {
       this.ctx.save();
       this.ctx.clip();
@@ -2670,29 +2822,37 @@ export class LivingCellsEngine {
       this.ctx.restore();
     }
 
-    const pyknosis = windowed(progress, 0.02, 0.18);
-    const fragmentation = windowed(progress, 0.42, 0.7);
-    if (fragmentation < 0.98) {
+    // Pyknosis (0.02 to 0.35): nuclear chromatin condenses into a hyper-dense, dark core
+    const pyknosis = windowed(progress, 0.02, 0.22);
+    const fragmentFade = windowed(progress, 0.38, 0.62);
+    if (fragmentFade < 0.99) {
       this.ctx.beginPath();
-      this.ctx.arc(0, 0, startRadius * lerp(0.24, 0.12, pyknosis), 0, TAU);
-      this.ctx.fillStyle = `rgba(${ink}, ${0.07 * (1 - fragmentation) * alpha})`;
-      this.ctx.fill();
-    }
-    for (let index = 0; index < 3; index++) {
-      const angle = cell.apoptosisFragmentAngles?.[index] ?? (index / 3) * TAU + 0.3;
-      const distance = startRadius * 0.24 * fragmentation;
-      this.ctx.beginPath();
-      this.ctx.arc(
-        Math.cos(angle) * distance,
-        Math.sin(angle) * distance,
-        startRadius * 0.075 * fragmentation,
-        0,
-        TAU
-      );
-      this.ctx.fillStyle = `rgba(${ink}, ${0.055 * fragmentation * alpha})`;
+      this.ctx.arc(0, 0, startRadius * lerp(0.24, 0.11, pyknosis), 0, TAU);
+      this.ctx.fillStyle = `rgba(${ink}, ${(0.08 + 0.06 * pyknosis) * (1 - fragmentFade) * alpha})`;
       this.ctx.fill();
     }
 
+    // Karyorrhexis (0.38 to 0.75): dense chromatin splits into distinct fragments migrating into blebs
+    const fragmentation = windowed(progress, 0.38, 0.68);
+    if (fragmentation > 0.01 && fragmentFade > 0.05) {
+      const fragCount = cell.apoptosisFragmentAngles?.length ?? 4;
+      for (let index = 0; index < fragCount; index++) {
+        const angle = cell.apoptosisFragmentAngles?.[index] ?? (index / fragCount) * TAU;
+        const distance = startRadius * 0.28 * fragmentation;
+        this.ctx.beginPath();
+        this.ctx.arc(
+          Math.cos(angle) * distance,
+          Math.sin(angle) * distance,
+          startRadius * 0.065 * fragmentation * (1 - windowed(progress, 0.75, 0.92)),
+          0,
+          TAU
+        );
+        this.ctx.fillStyle = `rgba(${ink}, ${0.075 * fragmentation * alpha})`;
+        this.ctx.fill();
+      }
+    }
+
+    // Dynamic blebs with narrowing necks and vesicular chromatin cargo
     for (const bleb of cell.blebs ?? []) {
       if (bleb.radius <= 0.1 || bleb.alpha <= 0.002) continue;
       const distance = coreRadius * bleb.dist;
@@ -2708,43 +2868,61 @@ export class LivingCellsEngine {
         this.ctx.moveTo(ux * cortex, uy * cortex);
         this.ctx.lineTo(ux * neckEnd, uy * neckEnd);
         this.ctx.lineCap = 'round';
-        this.ctx.lineWidth = Math.max(0.45, bleb.radius * lerp(0.58, 0.09, bleb.neck));
-        this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.05 * ba})`;
+        this.ctx.lineWidth = Math.max(0.45, bleb.radius * lerp(0.58, 0.08, bleb.neck));
+        this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.065 * ba})`;
         this.ctx.stroke();
       }
       this.ctx.beginPath();
       this.ctx.arc(bx, by, bleb.radius, 0, TAU);
-      this.ctx.fillStyle = `rgba(${accent}, ${0.04 * ba})`;
+      this.ctx.fillStyle = `rgba(${accent}, ${0.048 * ba})`;
       this.ctx.fill();
-      this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.055 * ba})`;
+      this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.068 * ba})`;
       this.ctx.stroke();
       if (bleb.detached && bleb.carriesFragment) {
         this.ctx.beginPath();
-        this.ctx.arc(bx, by, Math.max(0.7, bleb.radius * 0.26), 0, TAU);
-        this.ctx.fillStyle = `rgba(${ink}, ${0.05 * ba})`;
+        this.ctx.arc(bx, by, Math.max(0.7, bleb.radius * 0.28), 0, TAU);
+        this.ctx.fillStyle = `rgba(${ink}, ${0.065 * ba})`;
         this.ctx.fill();
       }
     }
     this.ctx.restore();
   }
 
+  private daughterSeveredRadius(phi: number, radius: number, side: number): number {
+    const innerFactor = Math.max(0, -Math.cos(phi) * side);
+    return radius * (1 - 0.26 * innerFactor * innerFactor);
+  }
+
   private sampleNormalContour(cell: LivingCell, localAxis = 0, radiusOverride?: number): Point[] {
     const radius = radiusOverride ?? cell.radius;
-    const recovery = this.recoveryMorphology(cell);
-    const aspect = lerp(1, cell.aspect, recovery);
+    const isPostmitotic = cell.state === 'postmitotic';
+    const recovery = isPostmitotic ? smootherstep(cell.postmitoticProgress ?? 0) : 1;
+    const aspect = isPostmitotic ? lerp(1, cell.aspect, recovery) : cell.aspect;
     const a = radius * Math.sqrt(aspect);
     const b = radius / Math.sqrt(aspect);
     const displacementScale = radius / Math.max(1, cell.radius);
+    const side = cell.siblingSide ?? 1;
+    const siblingAxis = cell.siblingAxis ?? cell.angle;
+
     const raw = Array.from({ length: CONTOUR_SEGMENTS }, (_, index) => {
-      const position = (index / CONTOUR_SEGMENTS) * VERTEX_COUNT;
-      const theta = (index / CONTOUR_SEGMENTS) * TAU;
+      const phi = (index / CONTOUR_SEGMENTS) * TAU;
+      let theta = (phi + localAxis - cell.angle) % TAU;
+      if (theta < 0) theta += TAU;
+      const position = (theta / TAU) * VERTEX_COUNT;
       const ellipseRadius =
         (a * b) / Math.sqrt((b * Math.cos(theta)) ** 2 + (a * Math.sin(theta)) ** 2);
       const displacement =
-        this.splineDisplacement(cell.vertices, position) * displacementScale * recovery;
-      const r = Math.max(4, ellipseRadius + displacement);
-      const worldTheta = theta + cell.angle - localAxis;
-      return { x: Math.cos(worldTheta) * r, y: Math.sin(worldTheta) * r };
+        this.splineDisplacement(cell.vertices, position) * displacementScale;
+      let targetR = Math.max(4, ellipseRadius + displacement * recovery);
+
+      if (isPostmitotic && recovery < 0.999) {
+        let severancePhi = (phi + localAxis - siblingAxis) % TAU;
+        if (severancePhi < 0) severancePhi += TAU;
+        const severedR = this.daughterSeveredRadius(severancePhi, radius, side);
+        targetR = lerp(severedR, targetR, recovery);
+      }
+
+      return { x: Math.cos(phi) * targetR, y: Math.sin(phi) * targetR };
     });
     const area = polygonArea(raw);
     const areaScale = area > 0 ? Math.sqrt((Math.PI * radius * radius) / area) : 1;
@@ -2789,7 +2967,7 @@ export class LivingCellsEngine {
     waist: number;
   } {
     const daughterRadius = radius * DAUGHTER_RATIO;
-    const separation = daughterRadius * windowed(progress, 0.14, 0.94);
+    const separation = daughterRadius * windowed(progress, 0.14, 0.98);
     const lobe = lerp(radius, daughterRadius, windowed(progress, 0.12, 0.8));
     const waist = lobe * (1 - windowed(progress, 0.5, 0.985));
     return {
@@ -2831,12 +3009,16 @@ export class LivingCellsEngine {
     if (!this.ctx) return;
     const { accent, ink, glow, dark } = this.palette;
     const level = clamp(brightness, 0.8, 1.25);
-    const alpha = BASE_ALPHA * this.visualScale * opacity;
-    this.ctx.fillStyle = `rgba(${accent}, ${0.045 * level * alpha})`;
+    const isLab = this.mode === 'lab';
+    const alpha = this.effectiveAlpha(opacity);
+    const fillBase = isLab || this.simParams.darkContrast ? 0.065 : 0.045;
+    this.ctx.fillStyle = `rgba(${accent}, ${fillBase * level * alpha})`;
     this.ctx.fill();
-    this.ctx.lineWidth = grabbed ? 1.5 : hovered ? 1.28 : 1.15;
-    const strokeAlpha = grabbed ? 0.12 : hovered ? 0.092 : 0.082;
-    this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${strokeAlpha * level * alpha})`;
+    this.ctx.lineWidth = grabbed ? 1.6 : hovered ? 1.35 : isLab ? 1.28 : 1.15;
+    const strokeBase = isLab || this.simParams.darkContrast
+      ? (grabbed ? 0.16 : hovered ? 0.13 : 0.105)
+      : (grabbed ? 0.12 : hovered ? 0.092 : 0.082);
+    this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${strokeBase * level * alpha})`;
     this.ctx.stroke();
   }
 

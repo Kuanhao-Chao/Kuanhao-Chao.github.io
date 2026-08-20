@@ -197,26 +197,16 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
           <div class="popover-section popover-section--cells">
             <span class="popover-heading" id="desktop-cell-mode-heading">Ambient cells</span>
-            <div class="cell-mode-grid" role="group" aria-labelledby="desktop-cell-mode-heading">
+            <div class="cell-mode-grid cell-mode-grid--two" role="group" aria-labelledby="desktop-cell-mode-heading">
               <button
                 type="button"
                 class="cell-control-btn"
-                data-cell-mode="calm"
+                data-cell-mode="ambient"
                 role="menuitemradio"
                 aria-checked="true"
-                title="Keep a subtle, balanced background"
+                title="Subtle, relaxing cell background (0.8 alpha)"
               >
-                Calm
-              </button>
-              <button
-                type="button"
-                class="cell-control-btn"
-                data-cell-mode="lab"
-                role="menuitemradio"
-                aria-checked="false"
-                title="Choose what happens when you select a cell"
-              >
-                Lab
+                Ambient
               </button>
               <button
                 type="button"
@@ -224,46 +214,19 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                 data-cell-mode="off"
                 role="menuitemradio"
                 aria-checked="false"
-                title="Hide the ambient cell background"
+                title="Hide background cells"
               >
                 Off
               </button>
             </div>
             <span class="cell-control-hint" data-cell-mode-hint>
-              Calm keeps the background subtle and balanced.
+              Ambient keeps a subtle 0.8 alpha background with page content.
             </span>
 
-            <div class="cell-lab-actions" data-cell-lab-actions hidden>
-              <span class="popover-heading" id="desktop-cell-action-heading">Lab action</span>
-              <div
-                class="cell-action-row"
-                role="group"
-                aria-labelledby="desktop-cell-action-heading"
-              >
-                <button
-                  type="button"
-                  class="cell-control-btn"
-                  data-cell-action="divide"
-                  role="menuitemradio"
-                  aria-checked="true"
-                >
-                  Divide
-                </button>
-                <button
-                  type="button"
-                  class="cell-control-btn"
-                  data-cell-action="apoptosis"
-                  role="menuitemradio"
-                  aria-checked="false"
-                >
-                  Apoptosis
-                </button>
-              </div>
-              <span class="cell-control-hint">Select a cell in the page to apply this action.</span>
-              <span class="cell-reduced-motion-note">
-                Reduced motion is on: cells stay still, so canvas actions are unavailable.
-              </span>
-            </div>
+            <a href="/lab" class="cell-lab-link-btn" title="Open full-screen interactive Cell Lab playground">
+              <span aria-hidden="true">🔬</span>
+              <span>Cell Lab Playground →</span>
+            </a>
           </div>
         </div>
       </div>
@@ -373,24 +336,15 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
       <div class="mobile-cell-controls">
         <p class="eyebrow mobile-drawer-heading" id="mobile-cell-mode-heading">Ambient cells</p>
-        <div class="cell-mode-grid" role="radiogroup" aria-labelledby="mobile-cell-mode-heading">
+        <div class="cell-mode-grid cell-mode-grid--two" role="radiogroup" aria-labelledby="mobile-cell-mode-heading">
           <button
             type="button"
             class="cell-control-btn"
-            data-cell-mode="calm"
+            data-cell-mode="ambient"
             role="radio"
             aria-checked="true"
           >
-            Calm
-          </button>
-          <button
-            type="button"
-            class="cell-control-btn"
-            data-cell-mode="lab"
-            role="radio"
-            aria-checked="false"
-          >
-            Lab
+            Ambient
           </button>
           <button
             type="button"
@@ -403,40 +357,13 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           </button>
         </div>
         <span class="cell-control-hint" data-cell-mode-hint>
-          Calm keeps the background subtle and balanced.
+          Ambient keeps a subtle 0.8 alpha background with page content.
         </span>
 
-        <div class="cell-lab-actions" data-cell-lab-actions hidden>
-          <p class="eyebrow mobile-drawer-heading" id="mobile-cell-action-heading">Lab action</p>
-          <div
-            class="cell-action-row"
-            role="radiogroup"
-            aria-labelledby="mobile-cell-action-heading"
-          >
-            <button
-              type="button"
-              class="cell-control-btn"
-              data-cell-action="divide"
-              role="radio"
-              aria-checked="true"
-            >
-              Divide
-            </button>
-            <button
-              type="button"
-              class="cell-control-btn"
-              data-cell-action="apoptosis"
-              role="radio"
-              aria-checked="false"
-            >
-              Apoptosis
-            </button>
-          </div>
-          <span class="cell-control-hint">Tap a cell behind the page to apply this action.</span>
-          <span class="cell-reduced-motion-note">
-            Reduced motion is on: cells stay still, so canvas actions are unavailable.
-          </span>
-        </div>
+        <a href="/lab" class="cell-lab-link-btn" title="Open full-screen interactive Cell Lab playground">
+          <span aria-hidden="true">🔬</span>
+          <span>Cell Lab Playground →</span>
+        </a>
       </div>
     </div>
   </div>
@@ -884,6 +811,33 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     gap: 0.35rem;
   }
 
+  .cell-mode-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cell-lab-link-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    margin-top: 0.65rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+    color: var(--color-ink);
+    font-size: 0.78125rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+
+  .cell-lab-link-btn:hover {
+    background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface));
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+
   .cell-action-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1250,8 +1204,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   }
 
   const cellModeCopy: Record<CellMode, string> = {
-    calm: 'Calm keeps the background subtle and balanced.',
-    lab: 'Lab lets you choose what happens when you select a cell.',
+    ambient: 'Ambient keeps a subtle 0.8 alpha background with page content.',
+    calm: 'Ambient keeps a subtle 0.8 alpha background with page content.',
+    lab: 'Cell Lab is active.',
     off: 'Ambient cells are hidden.',
   };
 
