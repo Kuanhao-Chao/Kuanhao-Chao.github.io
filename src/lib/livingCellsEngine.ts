@@ -420,8 +420,9 @@ export class LivingCellsEngine {
   private persistCells(): void {
     if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return;
     try {
-      if (!this.cells.length) return;
-      const data = this.cells.map((c) => ({
+      const activeCells = this.cells.filter((c) => c.state !== 'apoptosis' || c.life > 0.05);
+      if (!activeCells.length) return;
+      const data = activeCells.map((c) => ({
         id: c.id,
         x: c.x,
         y: c.y,
@@ -458,7 +459,11 @@ export class LivingCellsEngine {
       if (!raw) return false;
       const parsed = JSON.parse(raw);
       if (!parsed || !Array.isArray(parsed.cells) || !parsed.cells.length) return false;
-      this.cells = parsed.cells.map((item: any) => {
+      const activeItems = parsed.cells.filter(
+        (item: any) => item && (item.state !== 'apoptosis' || (Number(item.life) || 1) > 0.05)
+      );
+      if (!activeItems.length) return false;
+      this.cells = activeItems.map((item: any) => {
         const birthRadius = Number(item.birthRadius) || 20;
         const harmonics: LivingCell['harmonics'] = Array.isArray(item.harmonics) && item.harmonics.length === 4
           ? (item.harmonics as [number, number, number, number])
@@ -514,7 +519,7 @@ export class LivingCellsEngine {
           nucleusRatio: Number(item.nucleusRatio) || 0.34,
           nucleusAngle: Number(item.nucleusAngle) || 0,
           organelles: Array.isArray(item.organelles) ? item.organelles.map(cloneOrganelle) : [],
-          state: item.state === 'mitosis' || item.state === 'apoptosis' ? 'mature' : (item.state || 'mature'),
+          state: item.state === 'mitosis' ? 'mature' : (item.state || 'mature'),
           stateElapsed: Number(item.stateElapsed) || 0,
           growthProgress: 1,
           growthDuration: 10,
@@ -554,6 +559,8 @@ export class LivingCellsEngine {
     this.mode = normalizedMode;
     if (normalizedMode === 'ambient') {
       this.simParams.targetPopulation = 0;
+      this.targetCount = this.coarse ? 4 : this.isHomepage ? 6 : 8;
+      this.baseCount = this.targetCount;
     }
     if (typeof document !== 'undefined') document.documentElement.dataset.cellMode = normalizedMode;
     try {
@@ -755,6 +762,11 @@ export class LivingCellsEngine {
   }
 
   private seed(): void {
+    if (this.cells.length > 0) {
+      this.seeded = true;
+      this.turnoverRemaining = this.turnoverDelay();
+      return;
+    }
     if (this.restorePersistedCells()) {
       this.turnoverRemaining = this.turnoverDelay();
       return;
@@ -1359,7 +1371,30 @@ export class LivingCellsEngine {
       event.clientY - this.pointerDown.y
     );
     if (this.pointer.type !== 'mouse') {
-      if (distance > 10) this.pointerCandidate = null;
+      if (this.mode === 'lab') {
+        if (!this.grabbedCell && this.pointerCandidate && distance > 10) {
+          this.grabbedCell = this.pointerCandidate;
+          this.preGrabVelocity = { x: this.grabbedCell.vx, y: this.grabbedCell.vy };
+          this.grabbedCell.isGrabbed = true;
+          this.grabbedCell.grabOffset = {
+            x: this.grabbedCell.x - event.clientX,
+            y: this.grabbedCell.y - event.clientY,
+          };
+          this.grabbedCell.targetDragPos = {
+            x: event.clientX + this.grabbedCell.grabOffset.x,
+            y: event.clientY + this.grabbedCell.grabOffset.y,
+          };
+          this.pointerCandidate = null;
+          this.counters.drags++;
+        } else if (this.grabbedCell) {
+          this.grabbedCell.targetDragPos = {
+            x: event.clientX + this.grabbedCell.grabOffset.x,
+            y: event.clientY + this.grabbedCell.grabOffset.y,
+          };
+        }
+      } else {
+        if (distance > 10) this.pointerCandidate = null;
+      }
       return;
     }
     if (!this.grabbedCell && this.pointerCandidate && distance > 6) {
@@ -1817,8 +1852,10 @@ export class LivingCellsEngine {
     const projected = this.projectedCount();
     const target = this.targetCount || this.baseCount || 6;
     const excess = isAmbient ? Math.max(0, projected - target) : 0;
-    const clearanceSpeedup = excess > 1 ? 1 + Math.min(2.2, excess * 0.28) : 1;
-    const effectiveDuration = APOPTOSIS_SECONDS / (this.simParams.apoptosisMultiplier * clearanceSpeedup);
+    const clearanceSpeedup = excess > 0 ? 1 + Math.min(4.5, excess * 0.5) : 1;
+    const effectiveDuration = isAmbient
+      ? APOPTOSIS_SECONDS / (this.simParams.apoptosisMultiplier * clearanceSpeedup)
+      : APOPTOSIS_SECONDS / this.simParams.apoptosisMultiplier;
     cell.apoptosisProgress = clamp(cell.stateElapsed / effectiveDuration, 0, 1);
     const progress = cell.apoptosisProgress;
     const startRadius = cell.apoptosisStartRadius ?? cell.baseRadius;
@@ -2399,16 +2436,16 @@ export class LivingCellsEngine {
       const automaticDeaths = this.cells.filter(
         (cell) => cell.state === 'apoptosis' && cell.lifecycleSource === 'automatic'
       ).length;
-      const maximumDeaths = isAmbient && excess > 1
-        ? Math.min(5, Math.max(2, Math.ceil(excess / 3)))
+      const maximumDeaths = isAmbient && excess > 0
+        ? Math.min(6, Math.max(2, Math.ceil(excess / 2)))
         : this.coarse ? 1 : 2;
       if (this.rebalanceCooldown <= 0 && automaticDeaths < maximumDeaths) {
         const candidate = this.apoptosisCandidate(true);
         if (candidate) {
           this.triggerApoptosis(candidate, 'automatic');
           const delayBase = this.rebalanceDelay();
-          this.rebalanceCooldown = isAmbient && excess > 1
-            ? Math.max(0.35, delayBase / (1 + excess * 0.5))
+          this.rebalanceCooldown = isAmbient && excess > 0
+            ? Math.max(0.08, delayBase / (1 + excess * 1.5))
             : delayBase;
         }
       }

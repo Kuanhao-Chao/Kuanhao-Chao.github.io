@@ -939,7 +939,7 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).rebalanceCooldown).toBeLessThan(1.5);
   });
 
-  it('persists and restores cell state across mode transitions', () => {
+  it('persists and restores cell state across mode transitions without count inflation', () => {
     const engine = makeEngine(99);
     Object.assign(engine as any, { width: 800, height: 600 });
     (engine as any).seed();
@@ -949,8 +949,78 @@ describe('LivingCellsEngine', () => {
     engine.setMode('lab');
     expect((engine as any).cells.length).toBe(initialCellCount);
 
+    // Simulate 2 cells dying during ambient idle
     engine.setMode('ambient');
-    expect((engine as any).cells.length).toBe(initialCellCount);
+    (engine as any).cells.splice(0, 2);
+    const reducedCount = (engine as any).cells.length;
+    expect(reducedCount).toBe(initialCellCount - 2);
+
+    // Transition back to lab: must retain the exact reduced count
+    engine.setMode('lab');
+    expect((engine as any).cells.length).toBe(reducedCount);
+  });
+
+  it('supports touch tap-to-divide in ambient mode while touch drag is supported in lab mode', () => {
+    const engine = makeEngine();
+    const canvas = {
+      tagName: 'CANVAS',
+      id: 'lab-canvas',
+      hasAttribute: (attr: string) => attr === 'id' || attr === 'data-site-bg-canvas',
+      closest: () => null,
+    } as unknown as HTMLCanvasElement;
+
+    // Ambient mode touch tap
+    engine.setMode('ambient');
+    const cell1 = createCell(engine, 100, 100);
+    Object.assign(cell1, { state: 'mature', x: 100, y: 100, radius: 40 });
+    Object.assign(engine as any, { cells: [cell1], attached: true, canvas });
+
+    (engine as any).onPointerDown({
+      clientX: 100,
+      clientY: 100,
+      pointerId: 5,
+      pointerType: 'touch',
+      button: 0,
+      isPrimary: true,
+      target: canvas,
+    });
+    expect((engine as any).pointerCandidate).toBe(cell1);
+
+    (engine as any).onPointerUp({
+      clientX: 100,
+      clientY: 100,
+      pointerId: 5,
+      pointerType: 'touch',
+      button: 0,
+      isPrimary: true,
+      target: canvas,
+    });
+    expect(cell1.state).toBe('mitosis');
+
+    // Lab mode touch drag
+    engine.setMode('lab');
+    const cell2 = createCell(engine, 200, 200);
+    Object.assign(cell2, { state: 'mature', x: 200, y: 200, radius: 40 });
+    Object.assign(engine as any, { cells: [cell2], attached: true, canvas });
+
+    (engine as any).onPointerDown({
+      clientX: 200,
+      clientY: 200,
+      pointerId: 6,
+      pointerType: 'touch',
+      button: 0,
+      isPrimary: true,
+      target: canvas,
+    });
+    (engine as any).onPointerMove({
+      clientX: 250,
+      clientY: 250,
+      pointerId: 6,
+      pointerType: 'touch',
+      isPrimary: true,
+      target: canvas,
+    });
+    expect((engine as any).grabbedCell).toBe(cell2);
   });
 });
 
