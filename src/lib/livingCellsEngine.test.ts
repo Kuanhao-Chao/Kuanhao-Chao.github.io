@@ -242,6 +242,8 @@ describe('LivingCellsEngine', () => {
 
     for (const daughter of cells) {
       expect(daughter.state).toBe('growing');
+      expect(daughter.life).toBe(1.0); // 100% fully visible and vibrant!
+      expect(daughter.growthProgress).toBe(0.0);
       expect(daughter.targetRadius).toBe(50);
       // Born slightly bigger than half parent size (0.56 * 50 = 28)
       expect(daughter.baseRadius).toBeCloseTo(28, 1);
