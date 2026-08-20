@@ -802,13 +802,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     }, 120);
 
     // Cleanup on navigation away
-    window.addEventListener(
-      'pagehide',
-      () => {
-        clearInterval(telemetryTimer);
-      },
-      { once: true }
-    );
+    const cleanup = () => {
+      clearInterval(telemetryTimer);
+    };
+    window.addEventListener('pagehide', cleanup, { once: true });
+    document.addEventListener('astro:before-swap', cleanup, { once: true });
   }
 
   // Bind on Astro page loads
