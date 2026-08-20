@@ -141,6 +141,7 @@ export interface LivingCell {
 
 const TAU = Math.PI * 2;
 const VERTEX_COUNT = 16;
+const ALPHA_SCALE = 0.80; // 20% lighter cell alpha for crystal-clear typography legibility
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
@@ -157,8 +158,8 @@ export class LivingCellsEngine {
   private baseCount = 0;
   private maxCount = 0;
   private tick = 0;
-  private nextAutoMitosis = 240;
-  private nextAutoApoptosis = 440;
+  private nextAutoMitosis = 280;
+  private nextAutoApoptosis = 520;
 
   // Pointer & Drag State
   private pointer = {
@@ -211,10 +212,12 @@ export class LivingCellsEngine {
     };
   }
 
-  private createCell(x?: number, y?: number, asBud = false, targetR?: number): LivingCell {
+  private createCell(x?: number, y?: number, asBud = false, targetR?: number, initialR?: number): LivingCell {
     const isCoarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
     const finalRadius = targetR ?? (isCoarse ? rand(28, 54) : rand(36, 74));
-    const cellState: CellState = asBud ? 'growing' : 'mature';
+    const startRadius = initialR ?? (asBud ? 4 : finalRadius);
+    const isGrowing = asBud || (initialR !== undefined && initialR < finalRadius * 0.95);
+    const cellState: CellState = isGrowing ? 'growing' : 'mature';
 
     const vertices: VertexSpring[] = Array.from({ length: VERTEX_COUNT }, (_, i) => ({
       angle: (i / VERTEX_COUNT) * TAU,
@@ -281,8 +284,8 @@ export class LivingCellsEngine {
       y: y ?? rand(0, this.height || 600),
       vx: rand(-0.14, 0.14),
       vy: rand(-0.14, 0.14),
-      baseRadius: asBud ? 4 : finalRadius,
-      radius: asBud ? 4 : finalRadius,
+      baseRadius: startRadius,
+      radius: startRadius,
       targetRadius: finalRadius,
       angle: rand(0, TAU),
       vAngle: rand(-0.0014, 0.0014),
@@ -301,17 +304,24 @@ export class LivingCellsEngine {
       nucleusAngle: rand(0, TAU),
       organelles,
       state: cellState,
-      life: asBud ? 0.2 : 1,
-      age: asBud ? 0 : rand(80, 550),
-      maxAge: rand(1400, 2800),
+      life: isGrowing ? Math.max(0.15, startRadius / finalRadius) : 1,
+      age: isGrowing ? 0 : rand(120, 600),
+      maxAge: rand(1800, 3400),
       isGrabbed: false,
       grabOffset: { x: 0, y: 0 },
-      glowIntensity: asBud ? 2.0 : 1.0,
+      glowIntensity: isGrowing ? 1.8 : 1.0,
     };
   }
 
-  public triggerMitosis(cell: LivingCell): void {
-    if (cell.state !== 'mature') return;
+  public triggerMitosis(cell: LivingCell, isExplicitClick = false): void {
+    // If not explicit user click, cell must be in mature state and passed size checkpoint
+    if (!isExplicitClick) {
+      if (cell.state !== 'mature' || cell.baseRadius < cell.targetRadius * 0.95) return;
+    } else {
+      // User click exemption: allowed for any cell not currently dividing or dying
+      if (cell.state === 'mitosis' || cell.state === 'apoptosis') return;
+    }
+
     cell.state = 'mitosis';
     cell.mitosisProgress = 0;
     cell.mitosisAngle = rand(0, Math.PI);
@@ -324,7 +334,7 @@ export class LivingCellsEngine {
   }
 
   public triggerApoptosis(cell: LivingCell): void {
-    if (cell.state !== 'mature') return;
+    if (cell.state === 'mitosis' || cell.state === 'apoptosis') return;
     cell.state = 'apoptosis';
     cell.apoptosisProgress = 0;
     cell.glowIntensity = 1.8;
@@ -489,12 +499,12 @@ export class LivingCellsEngine {
         const maxDuration = isTouch ? 280 : 350;
 
         if (moveDist < maxDist && duration < maxDuration) {
-          // Check if clicking a mature cell to trigger Mitosis
+          // Check if clicking any existing cell to trigger Mitosis (User Click Exemption!)
           for (const cell of this.cells) {
-            if (cell.state === 'mature') {
+            if (cell.state === 'mature' || cell.state === 'growing') {
               const d = Math.hypot(cell.x - x, cell.y - y);
               if (d < cell.radius * 1.35) {
-                this.triggerMitosis(cell);
+                this.triggerMitosis(cell, true); // User Click Exemption
                 return;
               }
             }
@@ -752,16 +762,20 @@ export class LivingCellsEngine {
         else if (cell.y > this.height + margin) cell.y = -margin;
       }
 
-      // A. Growth Phase
+      // A. Growth Phase (G1 / S / G2 Interphase Biomass Accumulation)
       if (cell.state === 'growing') {
-        cell.life = Math.min(1.0, cell.life + 0.018);
-        cell.baseRadius = 4 + (cell.targetRadius - 4) * easeInOutCubic(cell.life);
+        cell.life = Math.min(1.0, cell.life + 0.0035);
+        // Expand smoothly from initial size to adult target radius
+        const growthFraction = easeInOutCubic(cell.life);
+        cell.baseRadius = cell.targetRadius * (0.58 + 0.42 * growthFraction);
         cell.radius = cell.baseRadius * breathScale;
 
-        if (cell.life >= 1.0) {
+        // Pass G2/M size checkpoint to become mature adult
+        if (cell.life >= 1.0 || cell.baseRadius >= cell.targetRadius * 0.96) {
           cell.state = 'mature';
           cell.baseRadius = cell.targetRadius;
           cell.radius = cell.baseRadius * breathScale;
+          cell.life = 1.0;
         }
       }
       // B. Mature Homeostasis Phase
@@ -769,37 +783,49 @@ export class LivingCellsEngine {
         cell.baseRadius = cell.targetRadius;
         cell.radius = cell.baseRadius * breathScale;
 
-        if (cell.age > cell.maxAge && !cell.isGrabbed) {
+        // Senescence check only occurs if population is at or above carrying capacity
+        const liveCount = this.cells.filter((c) => c.state !== 'apoptosis').length;
+        if (cell.age > cell.maxAge && !cell.isGrabbed && liveCount >= this.baseCount) {
           this.triggerApoptosis(cell);
         }
       }
       // C. Mitosis Cytokinesis Phase
       else if (cell.state === 'mitosis') {
-        cell.mitosisProgress = (cell.mitosisProgress || 0) + 0.0125;
+        cell.mitosisProgress = (cell.mitosisProgress || 0) + 0.0115;
 
         if (cell.mitosisProgress >= 1.0) {
           const angle = cell.mitosisAngle || 0;
           const separation = cell.targetRadius * 0.63;
-          const daughterR = cell.targetRadius * 0.78;
+          const daughterTargetR = cell.targetRadius;
+          const daughterBirthR = cell.targetRadius * 0.62; // Born in G1 growth phase
 
           const daughter1 = this.createCell(
             cell.x + Math.cos(angle) * separation,
             cell.y + Math.sin(angle) * separation,
             false,
-            daughterR
+            daughterTargetR,
+            daughterBirthR
           );
           daughter1.vx = cell.vx + Math.cos(angle) * 0.12;
           daughter1.vy = cell.vy + Math.sin(angle) * 0.12;
+          daughter1.state = 'growing';
+          daughter1.life = daughterBirthR / daughterTargetR;
+          daughter1.age = 0;
 
           const daughter2 = this.createCell(
             cell.x - Math.cos(angle) * separation,
             cell.y - Math.sin(angle) * separation,
             false,
-            daughterR
+            daughterTargetR,
+            daughterBirthR
           );
           daughter2.vx = cell.vx - Math.cos(angle) * 0.12;
           daughter2.vy = cell.vy - Math.sin(angle) * 0.12;
+          daughter2.state = 'growing';
+          daughter2.life = daughterBirthR / daughterTargetR;
+          daughter2.age = 0;
 
+          // Mitotic nutrient release
           for (let k = 0; k < 6; k++) {
             const pAngle = rand(0, TAU);
             const pSpeed = rand(0.4, 1.2);
@@ -826,6 +852,7 @@ export class LivingCellsEngine {
         }
 
         if (cell.apoptosisProgress >= 1.0 || cell.life <= 0) {
+          // Phagocytic nutrient recycling
           for (let k = 0; k < 8; k++) {
             const a = rand(0, TAU);
             const speed = rand(0.25, 0.75);
@@ -837,26 +864,42 @@ export class LivingCellsEngine {
       }
     }
 
-    const liveCount = this.cells.filter((c) => c.state !== 'apoptosis').length;
+    // -------------------------------------------------------------
+    // Dynamic Homeostatic Equilibrium Controller
+    // Balances Mitosis and Apoptosis around carrying capacity (baseCount)
+    // -------------------------------------------------------------
+    const liveCells = this.cells.filter((c) => c.state !== 'apoptosis');
+    const liveCount = liveCells.length;
+    const targetPop = this.baseCount || 8;
 
-    // Natural occasional Mitosis (~40% more frequent)
-    if (this.tick > this.nextAutoMitosis && liveCount < this.maxCount) {
-      const candidates = this.cells.filter((c) => c.state === 'mature' && !c.isGrabbed);
-      if (candidates.length) {
-        const parent = candidates[(Math.random() * candidates.length) | 0];
-        this.triggerMitosis(parent);
+    // 1. Dynamic Auto-Mitosis Regulation (Only fully mature adult cells eligible)
+    if (this.tick > this.nextAutoMitosis) {
+      if (liveCount <= targetPop) {
+        const candidates = this.cells.filter(
+          (c) => c.state === 'mature' && c.baseRadius >= c.targetRadius * 0.95 && c.age >= 250 && !c.isGrabbed
+        );
+        if (candidates.length) {
+          const parent = candidates[(Math.random() * candidates.length) | 0];
+          this.triggerMitosis(parent, false); // Natural Mitosis Checkpoint
+        }
       }
-      this.nextAutoMitosis = this.tick + (rand(420, 780) | 0);
+      const popFactor = Math.max(0.6, liveCount / Math.max(1, targetPop));
+      this.nextAutoMitosis = this.tick + Math.round(rand(480, 840) * popFactor);
     }
 
-    // Natural population regulation (~40% more frequent)
-    if (this.tick > this.nextAutoApoptosis && liveCount > this.baseCount) {
-      const candidates = this.cells.filter((c) => c.state === 'mature' && !c.isGrabbed);
-      if (candidates.length) {
-        const oldest = candidates.sort((a, b) => b.age - a.age)[0];
-        if (oldest) this.triggerApoptosis(oldest);
+    // 2. Dynamic Auto-Apoptosis Regulation (Clears oldest senescent cells)
+    if (this.tick > this.nextAutoApoptosis) {
+      if (liveCount >= targetPop) {
+        const candidates = this.cells.filter(
+          (c) => c.state === 'mature' && !c.isGrabbed && c.age > 500
+        );
+        if (candidates.length) {
+          const oldest = candidates.sort((a, b) => b.age - a.age)[0];
+          if (oldest) this.triggerApoptosis(oldest);
+        }
       }
-      this.nextAutoApoptosis = this.tick + (rand(320, 640) | 0);
+      const popFactor = Math.max(0.6, targetPop / Math.max(1, liveCount));
+      this.nextAutoApoptosis = this.tick + Math.round(rand(480, 840) * popFactor);
     }
   }
 
@@ -901,19 +944,19 @@ export class LivingCellsEngine {
       glowRgb = '120, 235, 215';
     }
 
-    // 1. Render Shockwaves
+    // 1. Render Shockwaves (20% Lighter Alpha)
     for (const sw of this.shockwaves) {
       this.ctx.beginPath();
       this.ctx.arc(sw.x, sw.y, sw.radius, 0, TAU);
       this.ctx.lineWidth = 1.2;
-      this.ctx.strokeStyle = `rgba(${glowRgb}, ${sw.alpha * (isDark ? 0.18 : 0.1)})`;
+      this.ctx.strokeStyle = `rgba(${glowRgb}, ${sw.alpha * (isDark ? 0.18 : 0.1) * ALPHA_SCALE})`;
       this.ctx.stroke();
     }
 
-    // 2. Render ATP Nutrient Fireflies
+    // 2. Render ATP Nutrient Fireflies (20% Lighter Alpha)
     for (const p of this.particles) {
       const pulseAlpha = p.alpha * (0.6 + 0.4 * Math.sin(p.pulsePhase));
-      const finalAlpha = isDark ? pulseAlpha * 0.48 : pulseAlpha * 0.28;
+      const finalAlpha = (isDark ? pulseAlpha * 0.48 : pulseAlpha * 0.28) * ALPHA_SCALE;
 
       this.ctx.beginPath();
       this.ctx.arc(p.x, p.y, p.size, 0, TAU);
@@ -921,7 +964,7 @@ export class LivingCellsEngine {
       this.ctx.fill();
     }
 
-    // 3. Render Cells
+    // 3. Render Cells (20% Lighter Alpha)
     for (const cell of this.cells) {
       this.renderCell(cell, accentRgb, inkRgb, glowRgb, isDark);
     }
@@ -956,9 +999,10 @@ export class LivingCellsEngine {
       }
     }
 
-    const alpha = cell.life;
+    // 20% Lighter Global Alpha Calibration
+    const alpha = cell.life * ALPHA_SCALE;
     const r = cell.radius;
-    if (r <= 1 || alpha <= 0.01) return;
+    if (r <= 1 || alpha <= 0.005) return;
 
     // -------------------------------------------------------------
     // Case A: Biologically Authentic 4-Phase Mitosis & Cytokinesis
@@ -970,8 +1014,8 @@ export class LivingCellsEngine {
       // Kinematics & Timing Phases:
       // Phase 1: Prophase / Prometaphase (0.00 <= prog < 0.28)
       // Phase 2: Metaphase (0.28 <= prog < 0.48)
-      // Phase 3: Anaphase (0.48 <= prog < 0.76)
-      // Phase 4: Telophase & Cytokinesis (0.76 <= prog <= 1.00)
+      // Phase 3: Anaphase (0.48 <= prog < 0.74)
+      // Phase 4: Telophase & Cytokinesis (0.74 <= prog <= 1.00)
 
       let poleDist: number;
       let daughterLobeR: number;
@@ -979,30 +1023,29 @@ export class LivingCellsEngine {
       let rx: number;
 
       if (prog < 0.28) {
-        // Prophase: cell prepares, centrosomes migrate, membrane remains wide
+        // Prophase: centrosomes separate, chromatin condenses, envelope intact
         const p1 = prog / 0.28;
         poleDist = r * (0.12 + 0.20 * p1);
         daughterLobeR = r * (1.0 - 0.08 * p1);
         waistR = r * (1.0 - 0.05 * p1);
         rx = r * (1.0 + 0.15 * p1);
       } else if (prog < 0.48) {
-        // Metaphase: spindle is taut, chromosomes aligned at equator, waist remains broad (>0.88r)
+        // Metaphase: spindle is taut, equatorial alignment, waist is broad (>0.88r)
         const p2 = (prog - 0.28) / 0.20;
         poleDist = r * (0.32 + 0.06 * p2);
         daughterLobeR = r * (0.92 - 0.06 * p2);
         waistR = r * (0.95 - 0.07 * p2);
         rx = r * (1.15 + 0.10 * p2);
-      } else if (prog < 0.76) {
-        // Anaphase: chromatids separate to poles; cleavage furrow ingresses smoothly
-        const p3 = (prog - 0.48) / 0.28;
+      } else if (prog < 0.74) {
+        // Anaphase: cohesin split, chromatids pulled poleward, furrow ingresses smoothly
+        const p3 = (prog - 0.48) / 0.26;
         poleDist = r * (0.38 + 0.20 * p3);
         daughterLobeR = r * (0.86 - 0.08 * p3);
-        // Furrow ingresses smoothly from 0.88r down to 0.30r
         waistR = r * (0.88 - 0.58 * Math.sin(p3 * (Math.PI / 2)));
         rx = poleDist + daughterLobeR;
       } else {
-        // Telophase: daughter nuclei reform, furrow pinches down to midbody bridge
-        const p4 = (prog - 0.76) / 0.24;
+        // Telophase: daughter nuclei assemble, furrow pinches down to midbody bridge
+        const p4 = (prog - 0.74) / 0.26;
         poleDist = r * (0.58 + 0.05 * p4);
         daughterLobeR = r * 0.78;
         waistR = Math.max(r * 0.05, r * (0.30 - 0.25 * p4));
@@ -1023,7 +1066,6 @@ export class LivingCellsEngine {
         const lx = rx * cosT;
         const absX = Math.abs(lx);
 
-        // Smooth continuous profile: spherical daughter lobes joined by cubic Hermite waist
         let ry: number;
         if (absX >= poleDist) {
           const capDist = Math.min(daughterLobeR, absX - poleDist);
@@ -1034,7 +1076,6 @@ export class LivingCellsEngine {
           ry = waistR + (daughterLobeR - waistR) * smoothU;
         }
 
-        // Add subtle harmonic membrane fluid ripples
         const ripple = 1.0 + 0.02 * Math.sin(theta * 3 + cell.wobblePhase);
         const ly = Math.max(1, ry * ripple) * (sinT >= 0 ? 1 : -1);
 
@@ -1108,13 +1149,12 @@ export class LivingCellsEngine {
       const dyBase = Math.min(5.0, Math.max(1.8, r * 0.13));
 
       for (let k = 0; k < CHROMO_COUNT; k++) {
-        const yIndex = k - (CHROMO_COUNT - 1) / 2; // -1.5, -0.5, 0.5, 1.5
+        const yIndex = k - (CHROMO_COUNT - 1) / 2;
         const yPlate = yIndex * dyBase;
 
         // Phase 1: Prophase / Prometaphase (prog < 0.28)
         if (prog < 0.28) {
           const p1 = prog / 0.28;
-          // Chromatin condensing from loose threads into X-chromosomes in the nuclear zone
           const cx = Math.sin(k * 2.1 + prog * 3) * r * 0.06 * (1 - p1);
           const cy = yPlate * (0.7 + 0.3 * p1);
           const curLen = chromoLen * (0.6 + 0.4 * p1);
@@ -1144,7 +1184,7 @@ export class LivingCellsEngine {
         }
         // Phase 2: Metaphase (0.28 <= prog < 0.48)
         else if (prog < 0.48) {
-          const cx = 0; // Vertically aligned along Metaphase Plate
+          const cx = 0;
           const cy = yPlate;
 
           // Taut Kinetochore Microtubule Spindle Fibers from both poles
@@ -1164,10 +1204,8 @@ export class LivingCellsEngine {
           const separation = chromoWidth * 1.1;
 
           this.ctx.beginPath();
-          // Left sister chromatid
           this.ctx.moveTo(cx - separation, cy - halfLen);
           this.ctx.lineTo(cx - separation, cy + halfLen);
-          // Right sister chromatid
           this.ctx.moveTo(cx + separation, cy - halfLen);
           this.ctx.lineTo(cx + separation, cy + halfLen);
           this.ctx.stroke();
@@ -1179,10 +1217,9 @@ export class LivingCellsEngine {
           this.ctx.fillStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.25 * brightness * alpha})`;
           this.ctx.fill();
         }
-        // Phase 3: Anaphase (0.48 <= prog < 0.76)
-        else if (prog < 0.76) {
-          const p3 = (prog - 0.48) / 0.28;
-          // Sister chromatids pulled toward opposite poles
+        // Phase 3: Anaphase (0.48 <= prog < 0.74)
+        else if (prog < 0.74) {
+          const p3 = (prog - 0.48) / 0.26;
           const pullProgress = Math.pow(p3, 0.85);
           const pullDist = poleDist * (0.12 + 0.78 * pullProgress);
 
@@ -1217,11 +1254,10 @@ export class LivingCellsEngine {
             this.ctx.fill();
           }
         }
-        // Phase 4: Telophase & Cytokinesis (prog >= 0.76)
+        // Phase 4: Telophase & Cytokinesis (prog >= 0.74)
         else {
-          const p4 = (prog - 0.76) / 0.24;
+          const p4 = (prog - 0.74) / 0.26;
 
-          // Daughter chromosomes cluster and decondense inside reformed daughter nuclei
           for (const side of [-1, 1]) {
             const nx = side * poleDist;
             const ny = yPlate * 0.25 * (1 - p4);
@@ -1235,14 +1271,13 @@ export class LivingCellsEngine {
         }
       }
 
-      // 5. Reformed Daughter Nuclei envelopes in Telophase (prog >= 0.76)
-      if (prog >= 0.76) {
-        const p4 = (prog - 0.76) / 0.24;
+      // 5. Reformed Daughter Nuclei envelopes in Telophase (prog >= 0.74)
+      if (prog >= 0.74) {
+        const p4 = (prog - 0.74) / 0.26;
         const nucR = r * 0.24 * (0.65 + 0.35 * p4);
 
         for (const side of [-1, 1]) {
           const nx = side * poleDist;
-          // Daughter nuclear membrane
           this.ctx.beginPath();
           this.ctx.arc(nx, 0, nucR, 0, TAU);
           this.ctx.fillStyle = `rgba(${accentRgb}, ${0.07 * p4 * brightness * alpha})`;
@@ -1264,12 +1299,12 @@ export class LivingCellsEngine {
     }
 
     // -------------------------------------------------------------
-    // Case B: Apoptotic Zeiosis (Cellular Boiling & Blebbing)
+    // Case B: Apoptotic Zeiosis (Cellular Shrinkage, Boiling & Blebbing)
     // -------------------------------------------------------------
     if (cell.state === 'apoptosis' && cell.blebs) {
       const prog = cell.apoptosisProgress || 0;
 
-      // Dynamic boiling central envelope
+      // Phase 1 & 2: Dynamic boiling central envelope
       this.ctx.beginPath();
       const SEGMENTS = 24;
       for (let i = 0; i <= SEGMENTS; i++) {
@@ -1290,7 +1325,7 @@ export class LivingCellsEngine {
       this.ctx.strokeStyle = `rgba(${isDark ? glowRgb : inkRgb}, ${0.05 * alpha})`;
       this.ctx.stroke();
 
-      // Pyknosis chromatin fragmentation
+      // Pyknosis / Karyorrhexis chromatin fragmentation
       const fragDist = r * 0.35 * prog;
       for (let k = 0; k < 3; k++) {
         const fAngle = (k / 3) * TAU + prog * 2.2;
@@ -1308,7 +1343,7 @@ export class LivingCellsEngine {
         const by = py + Math.sin(bleb.angle) * r * bleb.dist;
         const bAlpha = bleb.alpha * alpha;
 
-        if (bAlpha > 0.01) {
+        if (bAlpha > 0.005) {
           this.ctx.beginPath();
           this.ctx.arc(bx, by, bleb.radius, 0, TAU);
           this.ctx.fillStyle = `rgba(${accentRgb}, ${0.038 * bAlpha})`;
