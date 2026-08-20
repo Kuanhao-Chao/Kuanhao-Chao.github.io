@@ -261,9 +261,11 @@ describe('LivingCellsEngine', () => {
 
       // Has separation bounce push velocity and vertex spring impulses
       const speed = Math.hypot(daughter.vx, daughter.vy);
-      expect(speed).toBeGreaterThan(0.5);
+      expect(speed).toBeGreaterThan(0.4);
       const hasVertexVelocity = daughter.vertices.some((v) => Math.abs(v.velocity) > 0.5);
       expect(hasVertexVelocity).toBe(true);
+      const hasVertexDisplacement = daughter.vertices.some((v) => Math.abs(v.displacement) > 0.5);
+      expect(hasVertexDisplacement).toBe(true);
     }
   });
 

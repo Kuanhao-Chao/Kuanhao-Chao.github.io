@@ -813,7 +813,7 @@ export class LivingCellsEngine {
       }
       // C. Mitosis Cytokinesis Phase
       else if (cell.state === 'mitosis') {
-        cell.mitosisProgress = (cell.mitosisProgress || 0) + 0.0035; // Cinematic 4-phase biological mitosis (~4.75s)
+        cell.mitosisProgress = (cell.mitosisProgress || 0) + 0.00525; // 1.5x faster cinematic biological mitosis (~3.15s)
 
         if (cell.mitosisProgress >= 1.0) {
           const angle = cell.mitosisAngle || 0;
@@ -821,7 +821,7 @@ export class LivingCellsEngine {
           const daughterTargetR = cell.targetRadius;
           const daughterBirthR = cell.targetRadius * 0.56; // Born slightly bigger than half parent size (0.56r)
 
-          const pushSpeed = 0.60; // Organic separation bounce impulse
+          const pushSpeed = 0.52; // Organic separation bounce impulse
           const daughter1 = this.createCell(
             cell.x + Math.cos(angle) * separation,
             cell.y + Math.sin(angle) * separation,
@@ -838,9 +838,11 @@ export class LivingCellsEngine {
           daughter1.glowIntensity = 1.25;
           daughter1.age = 0;
 
-          // Elastic radial vertex recoil for daughter 1
+          // Initial inward cleavage displacement & recoil velocity for daughter 1
           for (const v of daughter1.vertices) {
-            v.velocity = Math.cos(v.angle - angle) * 1.8;
+            const facingFactor = Math.cos(v.angle - angle);
+            v.displacement = -facingFactor * 2.2;
+            v.velocity = facingFactor * 1.5;
           }
 
           const daughter2 = this.createCell(
@@ -859,9 +861,11 @@ export class LivingCellsEngine {
           daughter2.glowIntensity = 1.25;
           daughter2.age = 0;
 
-          // Elastic radial vertex recoil for daughter 2
+          // Initial inward cleavage displacement & recoil velocity for daughter 2
           for (const v of daughter2.vertices) {
-            v.velocity = -Math.cos(v.angle - angle) * 1.8;
+            const facingFactor = -Math.cos(v.angle - angle);
+            v.displacement = -facingFactor * 2.2;
+            v.velocity = facingFactor * 1.5;
           }
 
           // Mitotic nutrient release
@@ -1098,33 +1102,53 @@ export class LivingCellsEngine {
       this.ctx.translate(px, py);
       this.ctx.rotate(angle);
 
-      // 1. Smooth Organic Dual-Lobe Cytokinesis Envelope
-      const SEGMENTS = 48;
-      this.ctx.beginPath();
-      for (let i = 0; i <= SEGMENTS; i++) {
-        const theta = (i / SEGMENTS) * TAU;
-        const cosT = Math.cos(theta);
-        const sinT = Math.sin(theta);
-        const lx = rx * cosT;
-        const absX = Math.abs(lx);
-
-        let ry: number;
-        if (absX >= poleDist) {
-          const capDist = Math.min(daughterLobeR, absX - poleDist);
-          ry = Math.sqrt(Math.max(0, daughterLobeR * daughterLobeR - capDist * capDist));
-        } else {
-          const u = absX / Math.max(0.1, poleDist);
-          const smoothU = u * u * (3 - 2 * u);
-          ry = waistR + (daughterLobeR - waistR) * smoothU;
+      // 1. Smooth Organic Dual-Lobe Cytokinesis Envelope (Tangent-Continuous C1 Geometry)
+      if (prog < 0.28) {
+        // Prophase: smooth viscoelastic elongated oval
+        this.ctx.beginPath();
+        const SEGMENTS = 36;
+        for (let i = 0; i <= SEGMENTS; i++) {
+          const theta = (i / SEGMENTS) * TAU;
+          const ripple = 1.0 + 0.02 * Math.sin(theta * 3 + cell.wobblePhase);
+          const lx = rx * Math.cos(theta) * ripple;
+          const ly = r * Math.sin(theta) * ripple;
+          if (i === 0) this.ctx.moveTo(lx, ly);
+          else this.ctx.lineTo(lx, ly);
         }
+        this.ctx.closePath();
+      } else {
+        // Metaphase, Anaphase, Telophase & Cytokinesis: Tangent-Continuous Dual-Lobe Profile
+        this.ctx.beginPath();
+        const deltaR = Math.max(0.01, daughterLobeR - waistR);
+        const capAngle = Math.min(Math.PI * 0.42, Math.asin(Math.max(0.05, Math.min(0.95, deltaR / Math.max(1, poleDist)))));
+        const cpDist = poleDist * 0.52;
 
-        const ripple = 1.0 + 0.02 * Math.sin(theta * 3 + cell.wobblePhase);
-        const ly = Math.max(1, ry * ripple) * (sinT >= 0 ? 1 : -1);
+        // 1. Right Daughter Cap Arc from -capAngle to +capAngle
+        this.ctx.arc(poleDist, 0, daughterLobeR, -capAngle, capAngle, false);
 
-        if (i === 0) this.ctx.moveTo(lx, ly);
-        else this.ctx.lineTo(lx, ly);
+        // 2. Bottom Cleavage Furrow: smooth Bézier curve down to (0, -waistR) and across to Left Cap
+        const rBotX = poleDist - daughterLobeR * Math.sin(capAngle);
+        const rBotY = -daughterLobeR * Math.cos(capAngle);
+        const lBotX = -poleDist + daughterLobeR * Math.sin(capAngle);
+        const lBotY = -daughterLobeR * Math.cos(capAngle);
+
+        this.ctx.bezierCurveTo(rBotX - cpDist * 0.5, rBotY, cpDist, -waistR, 0, -waistR);
+        this.ctx.bezierCurveTo(-cpDist, -waistR, lBotX + cpDist * 0.5, lBotY, lBotX, lBotY);
+
+        // 3. Left Daughter Cap Arc from PI - capAngle to PI + capAngle
+        this.ctx.arc(-poleDist, 0, daughterLobeR, Math.PI - capAngle, Math.PI + capAngle, false);
+
+        // 4. Top Cleavage Furrow: smooth Bézier curve up to (0, waistR) and across to Right Cap
+        const lTopX = -poleDist + daughterLobeR * Math.sin(capAngle);
+        const lTopY = daughterLobeR * Math.cos(capAngle);
+        const rTopX = poleDist - daughterLobeR * Math.sin(capAngle);
+        const rTopY = daughterLobeR * Math.cos(capAngle);
+
+        this.ctx.bezierCurveTo(lTopX + cpDist * 0.5, lTopY, -cpDist, waistR, 0, waistR);
+        this.ctx.bezierCurveTo(cpDist, waistR, rTopX - cpDist * 0.5, rTopY, rTopX, rTopY);
+
+        this.ctx.closePath();
       }
-      this.ctx.closePath();
 
       // Subsurface gradient matching normal cell baseline
       const fill = this.ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
