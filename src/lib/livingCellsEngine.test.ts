@@ -19,7 +19,7 @@ describe('LivingCellsEngine', () => {
     expect(cell.state).toBe('mitosis');
     expect(cell.mitosisProgress).toBe(0);
     expect(typeof cell.mitosisAngle).toBe('number');
-    expect(cell.glowIntensity).toBe(2.5);
+    expect(cell.glowIntensity).toBe(1.35);
   });
 
   it('creates authentic eukaryotic organelle ensemble with mitochondria, Golgi, ER, and centrosome', () => {
@@ -249,6 +249,12 @@ describe('LivingCellsEngine', () => {
       expect(daughter.baseRadius).toBeCloseTo(28, 1);
       expect(daughter.baseRadius).toBeLessThan(50);
       expect(daughter.baseRadius).toBeGreaterThanOrEqual(25);
+
+      // Has separation bounce push velocity and vertex spring impulses
+      const speed = Math.hypot(daughter.vx, daughter.vy);
+      expect(speed).toBeGreaterThan(0.5);
+      const hasVertexVelocity = daughter.vertices.some((v) => Math.abs(v.velocity) > 0.5);
+      expect(hasVertexVelocity).toBe(true);
     }
   });
 
