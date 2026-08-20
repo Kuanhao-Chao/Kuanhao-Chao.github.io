@@ -19,6 +19,8 @@
     "audit:links": "node scripts/audit-links.mjs",
     "audit:links:live": "node scripts/audit-links.mjs --live",
     "audit:games": "node scripts/audit-game-ui.mjs",
+    "audit:cells": "node scripts/audit-living-cells-ui.mjs",
+    "audit:cells:ci": "node scripts/audit-living-cells-ui.mjs --smoke",
     "audit:posts": "node scripts/audit-post-ui.mjs",
     "audit:terminal": "node scripts/audit-terminal-ui.mjs",
     "audit:terminal:ci": "node scripts/audit-terminal-ui.mjs --smoke",

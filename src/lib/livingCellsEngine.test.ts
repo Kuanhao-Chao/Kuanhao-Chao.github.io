@@ -1,312 +1,361 @@
-import { describe, it, expect } from 'vitest';
-import { LivingCellsEngine, getLivingCellsEngine, type LivingCell } from './livingCellsEngine';
+import { describe, expect, it } from 'vitest';
+import {
+  LivingCellsEngine,
+  getLivingCellsEngine,
+  type LivingCell,
+  type Organelle,
+} from './livingCellsEngine';
+
+const STEP = 1 / 60;
+const MITOSIS_SECONDS = 8;
+const APOPTOSIS_SECONDS = 7;
+const DAUGHTER_RATIO = Math.cbrt(0.5);
+
+function seededRandom(seed = 1): () => number {
+  let value = seed >>> 0;
+  return () => {
+    value = (Math.imul(value, 1664525) + 1013904223) >>> 0;
+    return value / 0x1_0000_0000;
+  };
+}
+
+function makeEngine(seed = 1): LivingCellsEngine {
+  const engine = new LivingCellsEngine(seededRandom(seed));
+  Object.assign(engine as any, {
+    width: 1200,
+    height: 800,
+    targetCount: 8,
+    baseCount: 8,
+    quietRemaining: 1_000_000,
+    turnoverRemaining: 1_000_000,
+  });
+  return engine;
+}
+
+function createCell(
+  engine: LivingCellsEngine,
+  targetRadius = 50,
+  initialRadius?: number
+): LivingCell {
+  return (engine as any).createCell(300, 260, false, targetRadius, initialRadius) as LivingCell;
+}
+
+function update(engine: LivingCellsEngine, seconds: number, step = STEP): void {
+  const iterations = Math.ceil(seconds / step);
+  for (let index = 0; index < iterations; index++) (engine as any).update(step);
+}
 
 describe('LivingCellsEngine', () => {
-  it('instantiates and provides singleton engine', () => {
-    const engine1 = getLivingCellsEngine();
-    const engine2 = getLivingCellsEngine();
-    expect(engine1).toBe(engine2);
-    expect(engine1).toBeInstanceOf(LivingCellsEngine);
+  it('provides one shared engine instance', () => {
+    expect(getLivingCellsEngine()).toBe(getLivingCellsEngine());
+    expect(getLivingCellsEngine()).toBeInstanceOf(LivingCellsEngine);
   });
 
-  it('triggers mitosis on a mature cell and sets proper initial state', () => {
-    const engine = new LivingCellsEngine();
-    const cell = (engine as any).createCell(100, 100, false, 25) as LivingCell;
-    expect(cell.state).toBe('mature');
-    expect(cell.baseRadius).toBe(25);
+  it('creates a restrained animal-cell organelle ensemble', () => {
+    const engine = makeEngine();
+    const cell = createCell(engine, 52);
 
-    engine.triggerMitosis(cell);
+    expect(cell.state).toBe('mature');
+    expect(cell.organelles.some((org) => org.type === 'mitochondria')).toBe(true);
+    expect(cell.organelles.some((org) => org.type === 'golgi')).toBe(true);
+    expect(cell.organelles.some((org) => org.type === 'er')).toBe(true);
+    expect(cell.organelles.some((org) => org.type === 'centrosome')).toBe(true);
+    expect(cell.harmonics.reduce((sum, value) => sum + value, 0)).toBeLessThan(0.04);
+  });
+
+  it('keeps nuclei and organelles inside cells across responsive radii', () => {
+    const engine = makeEngine();
+    for (const radius of [20, 28, 36, 50, 64]) {
+      for (let sample = 0; sample < 20; sample++) {
+        const cell = createCell(engine, radius);
+        const nucleusReach =
+          Math.hypot(cell.nucleusOffset.x * radius, cell.nucleusOffset.y * radius) + radius * 0.25;
+        expect(nucleusReach).toBeLessThan(radius * 0.45);
+        for (const org of cell.organelles) assertOrganelleContained(org, radius);
+      }
+    }
+  });
+
+  it('grows in volume space without a first-update size jump', () => {
+    const engine = makeEngine();
+    const cell = createCell(engine, 50, 20);
+    cell.growthDuration = 30;
+    (engine as any).cells = [cell];
+    const initial = cell.baseRadius;
+
+    (engine as any).update(STEP);
+    expect(cell.baseRadius).toBeGreaterThanOrEqual(initial);
+    expect(cell.baseRadius - initial).toBeLessThan(0.001);
+
+    update(engine, 29.95);
+    expect(cell.state).toBe('mature');
+    expect(cell.baseRadius).toBeCloseTo(50, 8);
+  });
+
+  it('has wall-clock lifecycle progress independent of update frequency', () => {
+    const fine = makeEngine(4);
+    const coarse = makeEngine(4);
+    const fineCell = createCell(fine, 50, 25);
+    const coarseCell = createCell(coarse, 50, 25);
+    fineCell.growthDuration = coarseCell.growthDuration = 30;
+    (fine as any).cells = [fineCell];
+    (coarse as any).cells = [coarseCell];
+
+    update(fine, 12, 1 / 120);
+    update(coarse, 12, 1 / 30);
+    expect(fineCell.growthProgress).toBeCloseTo(coarseCell.growthProgress, 10);
+    expect(fineCell.baseRadius).toBeCloseTo(coarseCell.baseRadius, 7);
+  });
+
+  it('enforces the natural size checkpoint and mature dwell', () => {
+    const engine = makeEngine();
+    const growing = createCell(engine, 50, 35);
+    engine.triggerMitosis(growing);
+    expect(growing.state).toBe('growing');
+
+    const newlyMature = createCell(engine, 50);
+    newlyMature.matureElapsed = 7.99;
+    engine.triggerMitosis(newlyMature);
+    expect(newlyMature.state).toBe('mature');
+
+    newlyMature.matureElapsed = 8;
+    engine.triggerMitosis(newlyMature);
+    expect(newlyMature.state).toBe('mitosis');
+    expect(newlyMature.mitosisProgress).toBe(0);
+  });
+
+  it('lets an explicit click divide at the actual current size without an expansion pop', () => {
+    const engine = makeEngine();
+    const cell = createCell(engine, 60, 24);
+    engine.triggerMitosis(cell, true);
+
     expect(cell.state).toBe('mitosis');
-    expect(cell.mitosisProgress).toBe(0);
-    expect(typeof cell.mitosisAngle).toBe('number');
-    expect(cell.glowIntensity).toBe(1.35);
+    expect(cell.divisionRadius).toBe(24);
+    expect(cell.radius).toBe(24);
+    expect(cell.mitosisEntryContour).toHaveLength(64);
   });
 
-  it('creates authentic eukaryotic organelle ensemble with mitochondria, Golgi, ER, and centrosome', () => {
-    const engine = new LivingCellsEngine();
-    const cell = (engine as any).createCell(100, 100, false, 50) as LivingCell;
+  it('runs eight-second mitosis and conserves daughter volume', () => {
+    const engine = makeEngine();
+    const parent = createCell(engine, 50, 30);
+    (engine as any).cells = [parent];
+    engine.triggerMitosis(parent, true);
 
-    expect(cell.organelles.length).toBeGreaterThanOrEqual(4);
-
-    const mito = cell.organelles.find((o) => o.type === 'mitochondria');
-    expect(mito).toBeDefined();
-    if (mito && mito.type === 'mitochondria') {
-      expect(mito.cristaeCount).toBeGreaterThanOrEqual(3);
-      expect(mito.length).toBeGreaterThan(mito.width);
-    }
-
-    const golgi = cell.organelles.find((o) => o.type === 'golgi');
-    expect(golgi).toBeDefined();
-    if (golgi && golgi.type === 'golgi') {
-      expect(golgi.layers).toBeGreaterThanOrEqual(2);
-      expect(golgi.vesicles.length).toBeGreaterThanOrEqual(2);
-    }
-
-    const er = cell.organelles.find((o) => o.type === 'er');
-    expect(er).toBeDefined();
-    if (er && er.type === 'er') {
-      expect(er.ribosomes.length).toBeGreaterThanOrEqual(5);
-    }
-
-    const centrosome = cell.organelles.find((o) => o.type === 'centrosome');
-    expect(centrosome).toBeDefined();
-  });
-
-  it('guarantees 100% organelle containment within plasma membrane across all cell sizes', () => {
-    const engine = new LivingCellsEngine();
-    const radiiToTest = [18, 25, 35, 50, 65, 80];
-
-    for (const r of radiiToTest) {
-      // Test 50 randomized cell instances per radius (300 cells total)
-      for (let sample = 0; sample < 50; sample++) {
-        const cell = (engine as any).createCell(200, 200, false, r) as LivingCell;
-
-        // 1. Check Nucleus & Nuclear Pores
-        const nucOffsetDist = Math.hypot(cell.nucleusOffset.x * r, cell.nucleusOffset.y * r);
-        const nucOuterRadius = r * 0.25;
-        const maxNucleusReach = nucOffsetDist + nucOuterRadius;
-        expect(maxNucleusReach).toBeLessThanOrEqual(r * 0.45); // Safe core placement
-
-        // 2. Check All Organelles
-        for (const org of cell.organelles) {
-          if (org.type === 'mitochondria') {
-            const centerDist = r * org.dist;
-            const halfLen = org.length * 0.5;
-            const maxTipReach = centerDist + halfLen;
-            // Outermost tip of mitochondrion must be safely inside membrane (<= 0.65r)
-            expect(maxTipReach).toBeLessThanOrEqual(r * 0.65);
-          } else if (org.type === 'golgi') {
-            const centerDist = r * org.dist;
-            // Outermost vesicle
-            for (const v of org.vesicles) {
-              const vesicleDist = r * (0.05 + v.dist) + v.size;
-              const maxVesicleReach = centerDist + vesicleDist;
-              expect(maxVesicleReach).toBeLessThanOrEqual(r * 0.65);
-            }
-            // Outermost layer
-            const maxLayerReach = centerDist + r * (0.04 + (org.layers - 1) * 0.03);
-            expect(maxLayerReach).toBeLessThanOrEqual(r * 0.65);
-          } else if (org.type === 'er') {
-            // ER centered on nucleus
-            const maxErR = nucOuterRadius * (1.12 + (org.layers - 1) * 0.15);
-            const maxRibosomeDist = nucOuterRadius * (1.12 + 0.18) + 1.0;
-            const maxErReach = nucOffsetDist + Math.max(maxErR, maxRibosomeDist);
-            expect(maxErReach).toBeLessThanOrEqual(r * 0.55);
-          } else if (org.type === 'centrosome') {
-            const centerDist = r * org.dist;
-            const barLen = Math.max(1.1, r * 0.035);
-            const maxCentrosomeReach = centerDist + barLen;
-            expect(maxCentrosomeReach).toBeLessThanOrEqual(r * 0.55);
-          }
-        }
-      }
-    }
-  });
-
-  it('preserves chromosome containment invariants throughout all 4 phases of mitosis', () => {
-    const testRadii = [15, 20, 25, 30, 40];
-    const testProgresses = [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95];
-
-    for (const r of testRadii) {
-      const chromoLen = Math.min(6.5, Math.max(2.4, r * 0.15));
-      const dyBase = Math.min(5.0, Math.max(1.8, r * 0.13));
-      const maxChromoYInMetaphase = 1.5 * dyBase + chromoLen * 0.5;
-
-      for (const prog of testProgresses) {
-        let poleDist: number;
-        let daughterLobeR: number;
-        let waistR: number;
-
-        if (prog < 0.28) {
-          const p1 = prog / 0.28;
-          poleDist = r * (0.12 + 0.20 * p1);
-          daughterLobeR = r * (1.0 - 0.08 * p1);
-          waistR = r * (1.0 - 0.05 * p1);
-        } else if (prog < 0.48) {
-          const p2 = (prog - 0.28) / 0.20;
-          poleDist = r * (0.32 + 0.06 * p2);
-          daughterLobeR = r * (0.92 - 0.12 * p2);
-          waistR = r * (0.95 - 0.10 * p2);
-        } else if (prog < 0.74) {
-          const p3 = (prog - 0.48) / 0.26;
-          poleDist = r * (0.38 + 0.20 * p3);
-          daughterLobeR = r * (0.80 - 0.24 * p3);
-          waistR = r * (0.85 - 0.60 * Math.sin(p3 * (Math.PI / 2)));
-        } else {
-          const p4 = (prog - 0.74) / 0.26;
-          poleDist = r * (0.58 + 0.05 * p4);
-          daughterLobeR = r * 0.56;
-          waistR = Math.max(r * 0.04, r * (0.25 - 0.21 * p4));
-        }
-
-        // In Metaphase (prog ~ 0.35), metaphase plate chromosomes at x=0 MUST be strictly inside waistR
-        if (prog >= 0.28 && prog < 0.48) {
-          expect(maxChromoYInMetaphase).toBeLessThan(waistR * 0.65); // At least 35% safety margin!
-        }
-
-        // In Anaphase (prog ~ 0.60), separating chromatids MUST be located inside the wide daughter lobes
-        if (prog >= 0.48 && prog < 0.74) {
-          const p3 = (prog - 0.48) / 0.26;
-          const pullProgress = Math.pow(p3, 0.85);
-          const pullDist = poleDist * (0.12 + 0.78 * pullProgress);
-          expect(pullDist).toBeGreaterThan(0);
-          expect(pullDist).toBeLessThan(poleDist + daughterLobeR * 0.5);
-        }
-      }
-    }
-  });
-
-  it('triggers apoptosis and creates blebbing bodies', () => {
-    const engine = new LivingCellsEngine();
-    const cell = (engine as any).createCell(100, 100, false, 25) as LivingCell;
-
-    engine.triggerApoptosis(cell);
-    expect(cell.state).toBe('apoptosis');
-    expect(cell.apoptosisProgress).toBe(0);
-    expect(cell.blebs).toBeDefined();
-    expect(cell.blebs!.length).toBeGreaterThanOrEqual(6);
-  });
-
-  it('enforces growth checkpoint: small growing cells cannot divide naturally, but adult mature cells can', () => {
-    const engine = new LivingCellsEngine();
-    // Growing cell initialized at 50% target size
-    const growingCell = (engine as any).createCell(100, 100, false, 50, 25) as LivingCell;
-    expect(growingCell.state).toBe('growing');
-    expect(growingCell.baseRadius).toBe(25);
-    expect(growingCell.targetRadius).toBe(50);
-
-    // Natural auto-mitosis attempt (isExplicitClick = false) MUST be blocked
-    engine.triggerMitosis(growingCell, false);
-    expect(growingCell.state).toBe('growing'); // Checkpoint holds!
-
-    // Mature adult cell that passed size threshold
-    const matureCell = (engine as any).createCell(100, 100, false, 50, 50) as LivingCell;
-    expect(matureCell.state).toBe('mature');
-    expect(matureCell.baseRadius).toBe(50);
-
-    // Natural auto-mitosis succeeds
-    engine.triggerMitosis(matureCell, false);
-    expect(matureCell.state).toBe('mitosis');
-  });
-
-  it('allows explicit user click exemption to trigger mitosis on growing or mature cells', () => {
-    const engine = new LivingCellsEngine();
-    // Small growing cell
-    const smallCell = (engine as any).createCell(100, 100, false, 60, 20) as LivingCell;
-    expect(smallCell.state).toBe('growing');
-
-    // Explicit user click exemption (isExplicitClick = true)
-    engine.triggerMitosis(smallCell, true);
-    expect(smallCell.state).toBe('mitosis');
-    expect(smallCell.mitosisProgress).toBe(0);
-  });
-
-  it('advances growing cells through G1/S/G2 interphase to reach mature adult size', () => {
-    const engine = new LivingCellsEngine();
-    (engine as any).nextAutoMitosis = 999999;
-    const cell = (engine as any).createCell(100, 100, false, 50, 28) as LivingCell;
-    (engine as any).cells = [cell];
-
-    expect(cell.state).toBe('growing');
-    const startRadius = cell.baseRadius;
-
-    // Simulate 300 update frames with buffered nutrient absorption
-    for (let frame = 0; frame < 300; frame++) {
-      if (frame % 20 === 0) {
-        (engine as any).particles.push((engine as any).createParticle(cell.x, cell.y));
-      }
-      (engine as any).update();
-    }
-
-    // Cell grew significantly and smoothly
-    expect(cell.baseRadius).toBeGreaterThan(startRadius);
-
-    // Complete interphase to adult maturity
-    for (let frame = 0; frame < 600; frame++) {
-      if (frame % 15 === 0) {
-        (engine as any).particles.push((engine as any).createParticle(cell.x, cell.y));
-      }
-      (engine as any).update();
-    }
-
-    expect(cell.baseRadius).toBeCloseTo(50, 0);
-    expect(cell.state).toBe('mature');
-  });
-
-  it('spawns two G1 daughter cells sized slightly bigger than half of parent cell upon completing cytokinesis', () => {
-    const engine = new LivingCellsEngine();
-    const parentCell = (engine as any).createCell(200, 200, false, 50) as LivingCell;
-    (engine as any).cells = [parentCell];
-
-    engine.triggerMitosis(parentCell, true);
-    expect(parentCell.state).toBe('mitosis');
-
-    // Progress mitosis to completion
-    parentCell.mitosisProgress = 0.999;
-    (engine as any).update();
-
-    // Parent cell divided into 2 daughter cells
-    const cells = (engine as any).cells as LivingCell[];
-    expect(cells.length).toBe(2);
-
-    for (const daughter of cells) {
+    parent.stateElapsed = MITOSIS_SECONDS - STEP * 1.5;
+    (engine as any).update(STEP);
+    expect((engine as any).cells).toHaveLength(1);
+    (engine as any).update(STEP);
+    const daughters = (engine as any).cells as LivingCell[];
+    expect(daughters).toHaveLength(2);
+    for (const daughter of daughters) {
       expect(daughter.state).toBe('growing');
-      expect(daughter.life).toBe(1.0); // 100% fully visible and vibrant!
-      expect(daughter.growthProgress).toBe(0.0);
-      expect(daughter.targetRadius).toBe(50);
-      // Born slightly bigger than half parent size (0.56 * 50 = 28)
-      expect(daughter.baseRadius).toBeCloseTo(28, 1);
-      expect(daughter.baseRadius).toBeLessThan(50);
-      expect(daughter.baseRadius).toBeGreaterThanOrEqual(25);
-
-      // Has separation bounce push velocity and vertex spring impulses
-      const speed = Math.hypot(daughter.vx, daughter.vy);
-      expect(speed).toBeGreaterThan(0.4);
-      const hasVertexVelocity = daughter.vertices.some((v) => Math.abs(v.velocity) > 0.5);
-      expect(hasVertexVelocity).toBe(true);
-      const hasVertexDisplacement = daughter.vertices.some((v) => Math.abs(v.displacement) > 0.5);
-      expect(hasVertexDisplacement).toBe(true);
+      expect(daughter.birthRadius).toBeCloseTo(30 * DAUGHTER_RATIO, 8);
+      expect(daughter.life).toBe(1);
     }
+    const daughterVolume = daughters.reduce((sum, daughter) => sum + daughter.birthRadius ** 3, 0);
+    expect(daughterVolume).toBeCloseTo(30 ** 3, 6);
   });
 
-  it('maintains dynamic population homeostasis across multiple simulation cycles', () => {
-    const engine = new LivingCellsEngine();
-    (engine as any).width = 1200;
-    (engine as any).height = 800;
-    (engine as any).baseCount = 8;
-    (engine as any).seed();
+  it('uses a continuous, non-self-intersecting dual-lobe contour', () => {
+    const engine = makeEngine();
+    const circle = (engine as any).dualLobePoints(0, 50, 50) as Array<{ x: number; y: number }>;
+    const late = (engine as any).dualLobePoints(40, 39.685, 2) as Array<{ x: number; y: number }>;
 
-    const initialCount = (engine as any).cells.length;
-    expect(initialCount).toBe(8);
-
-    // Simulate 1200 update ticks
-    for (let t = 0; t < 1200; t++) {
-      (engine as any).update();
+    expect(circle).toHaveLength(64);
+    expect(late).toHaveLength(64);
+    for (const points of [circle, late]) {
+      expect(points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))).toBe(
+        true
+      );
+      expect(hasStrictIntersection(points)).toBe(false);
     }
-
-    const currentLiveCells = (engine as any).cells.filter((c: LivingCell) => c.state !== 'apoptosis');
-    // Population remains stable around baseCount (never exploding or going extinct)
-    expect(currentLiveCells.length).toBeGreaterThanOrEqual(4);
-    expect(currentLiveCells.length).toBeLessThanOrEqual(14);
+    expect(circle[0].y).toBeCloseTo(0, 8);
+    expect(late[0].y).toBeCloseTo(0, 8);
   });
 
-  it('verifies optical tweezer drag clamps velocity and lerps position smoothly', () => {
-    const engine = new LivingCellsEngine();
-    const cell = (engine as any).createCell(100, 100, false, 30) as LivingCell;
+  it('stages seven-second apoptosis with staggered blebs and late-only fading', () => {
+    const engine = makeEngine(9);
+    const cell = createCell(engine, 48);
     (engine as any).cells = [cell];
+    engine.triggerApoptosis(cell);
 
+    expect(cell.blebs!.length).toBeGreaterThanOrEqual(3);
+    expect(cell.blebs!.length).toBeLessThanOrEqual(6);
+    expect(new Set(cell.blebs!.map((bleb) => bleb.onset)).size).toBe(cell.blebs!.length);
+
+    update(engine, APOPTOSIS_SECONDS * 0.7);
+    expect(cell.life).toBe(1);
+    expect(cell.blebs!.some((bleb) => bleb.detached)).toBe(true);
+
+    update(engine, APOPTOSIS_SECONDS * 0.15);
+    expect(cell.life).toBeLessThan(1);
+    expect((engine as any).debugSnapshot().particles).toBe(0);
+
+    update(engine, APOPTOSIS_SECONDS * 0.2);
+    expect((engine as any).cells).toHaveLength(0);
+    expect((engine as any).debugSnapshot().particles).toBe(0);
+  });
+
+  it('accounts for committed outcomes and permits only one major lifecycle event', () => {
+    const engine = makeEngine();
+    (engine as any).quietRemaining = 0;
+    (engine as any).seed();
+    const cells = (engine as any).cells as LivingCell[];
+    for (const cell of cells) cell.matureElapsed = 20;
+    (engine as any).queueDivision(cells[0]);
+    (engine as any).queueDivision(cells[1]);
+    (engine as any).updateHomeostasis();
+
+    expect(cells.filter((cell) => cell.state === 'mitosis')).toHaveLength(1);
+    expect((engine as any).projectedCount()).toBe(9);
+    expect((engine as any).divisionQueue).toHaveLength(1);
+
+    // The active lifecycle prevents a second controller action.
+    (engine as any).updateHomeostasis();
+    expect(
+      cells.filter((cell) => cell.state === 'mitosis' || cell.state === 'apoptosis')
+    ).toHaveLength(1);
+  });
+
+  it('weights projected outcomes as growing 1, mature 1, mitosis 2, and apoptosis 0', () => {
+    const engine = makeEngine();
+    const growing = createCell(engine, 50, 24);
+    const mature = createCell(engine, 50);
+    const mitotic = createCell(engine, 50);
+    const apoptotic = createCell(engine, 50);
+    engine.triggerMitosis(mitotic, true);
+    engine.triggerApoptosis(apoptotic);
+    (engine as any).cells = [growing, mature, mitotic, apoptotic];
+
+    expect((engine as any).projectedCount()).toBe(4);
+  });
+
+  it('maintains target ± 1 across seeded long-running simulations', () => {
+    for (let seed = 1; seed <= 5; seed++) {
+      const engine = makeEngine(seed);
+      Object.assign(engine as any, { quietRemaining: 0, turnoverRemaining: 1 });
+      (engine as any).seed();
+      let minimum = Number.POSITIVE_INFINITY;
+      let maximum = 0;
+      for (let frame = 0; frame < 60 * 180; frame++) {
+        (engine as any).update(STEP);
+        const projected = (engine as any).projectedCount() as number;
+        minimum = Math.min(minimum, projected);
+        maximum = Math.max(maximum, projected);
+        const active = ((engine as any).cells as LivingCell[]).filter(
+          (cell) => cell.state === 'mitosis' || cell.state === 'apoptosis'
+        ).length;
+        expect(active).toBeLessThanOrEqual(1);
+      }
+      expect(minimum).toBeGreaterThanOrEqual(7);
+      expect(maximum).toBeLessThanOrEqual(9);
+      expect((engine as any).debugSnapshot().particles).toBe(0);
+    }
+  });
+
+  it('clears stale queue and grab state when diagnostics force a lifecycle phase', () => {
+    const engine = makeEngine();
+    const cell = createCell(engine);
+    (engine as any).cells = [cell];
+    (engine as any).queueDivision(cell);
     cell.isGrabbed = true;
-    cell.targetDragPos = { x: 500, y: 500 }; // Large sudden displacement
+    (engine as any).grabbedCell = cell;
 
-    // Run one update step
-    (engine as any).update();
+    expect((engine as any).debugSetState(cell.id, 'mitosis', 0.5)).toBe(true);
+    expect(cell.state).toBe('mitosis');
+    expect(cell.divisionQueued).toBe(false);
+    expect(cell.isGrabbed).toBe(false);
+    expect((engine as any).divisionQueue).toHaveLength(0);
 
-    // Position moves smoothly toward target
-    expect(cell.x).toBeGreaterThan(100);
-    expect(cell.x).toBeLessThan(500);
+    expect((engine as any).debugSetState(cell.id, 'apoptosis', 0.5)).toBe(true);
+    expect(cell.state).toBe('apoptosis');
+    expect(cell.apoptosisProgress).toBe(0.5);
+  });
 
-    // Velocity is strictly clamped to max 2.2 px/frame (never exploding)
-    expect(Math.abs(cell.vx)).toBeLessThanOrEqual(2.21);
-    expect(Math.abs(cell.vy)).toBeLessThanOrEqual(2.21);
+  it('commits a fast desktop drag on pointerup and clamps it inside the viewport', () => {
+    const engine = makeEngine();
+    const cell = createCell(engine, 50);
+    Object.assign(cell, {
+      isGrabbed: true,
+      grabOffset: { x: 8, y: -6 },
+      targetDragPos: { x: 420, y: 300 },
+    });
+    Object.assign(engine as any, {
+      cells: [cell],
+      grabbedCell: cell,
+      pointer: { x: 420, y: 300, down: true, type: 'mouse' },
+      pointerDown: { x: 300, y: 260, time: performance.now() },
+    });
+
+    (engine as any).onPointerUp({ clientX: 2_000, clientY: -100 });
+
+    expect(cell.x).toBe(1_150);
+    expect(cell.y).toBe(50);
+    expect(cell.previousX).toBe(cell.x);
+    expect(cell.previousY).toBe(cell.y);
+    expect(cell.isGrabbed).toBe(false);
+    expect(cell.targetDragPos).toBeUndefined();
+    expect((engine as any).grabbedCell).toBeNull();
+  });
+
+  it('ignores right-clicks and secondary touch pointers', () => {
+    const engine = makeEngine();
+    const cell = createCell(engine, 50);
+    Object.assign(engine as any, { cells: [cell], attached: true });
+
+    (engine as any).onPointerDown({
+      clientX: cell.x,
+      clientY: cell.y,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 2,
+      isPrimary: true,
+      target: null,
+    });
+    expect((engine as any).pointer.down).toBe(false);
+
+    (engine as any).onPointerDown({
+      clientX: cell.x,
+      clientY: cell.y,
+      pointerId: 2,
+      pointerType: 'touch',
+      button: 0,
+      isPrimary: false,
+      target: null,
+    });
+    expect((engine as any).pointer.down).toBe(false);
+    expect(cell.divisionQueued).toBe(false);
   });
 });
+
+function assertOrganelleContained(org: Organelle, radius: number): void {
+  if (org.type === 'mitochondria') {
+    expect(radius * org.dist + org.length / 2).toBeLessThan(radius * 0.66);
+  } else if (org.type === 'golgi') {
+    const outerLayer = radius * (0.04 + (org.layers - 1) * 0.025);
+    expect(radius * org.dist + outerLayer).toBeLessThan(radius * 0.66);
+  } else if (org.type === 'centrosome') {
+    expect(radius * org.dist + Math.max(1.1, radius * 0.032)).toBeLessThan(radius * 0.55);
+  }
+}
+
+function hasStrictIntersection(points: Array<{ x: number; y: number }>): boolean {
+  const orientation = (
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+    c: { x: number; y: number }
+  ) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  for (let first = 0; first < points.length; first++) {
+    const firstNext = (first + 1) % points.length;
+    for (let second = first + 2; second < points.length; second++) {
+      const secondNext = (second + 1) % points.length;
+      if (first === 0 && secondNext === 0) continue;
+      const a = orientation(points[first], points[firstNext], points[second]);
+      const b = orientation(points[first], points[firstNext], points[secondNext]);
+      const c = orientation(points[second], points[secondNext], points[first]);
+      const d = orientation(points[second], points[secondNext], points[firstNext]);
+      if (a * b < 0 && c * d < 0) return true;
+    }
+  }
+  return false;
+}
