@@ -863,7 +863,7 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).cells).toHaveLength(0);
   });
 
-  it('locks to full detail and 1.0 alpha in lab mode while ambient uses 0.8 alpha', () => {
+  it('locks to full detail and 1.0 alpha in lab mode while ambient uses 0.6 alpha', () => {
     const engine = makeEngine();
     Object.assign(engine as any, { cells: Array.from({ length: 25 }, () => createCell(engine, 40, 40)) });
 
@@ -872,9 +872,49 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).effectiveAlpha()).toBe(1.0);
 
     engine.setMode('ambient');
-    expect((engine as any).effectiveAlpha()).toBe(0.8);
+    expect((engine as any).effectiveAlpha()).toBe(0.6);
     // On ambient with 25 cells (population > limit + 10), detail level gracefully degrades to minimal
     expect((engine as any).effectiveDetailLevel()).toBe('minimal');
+  });
+
+  it('allows direct canvas pointer interaction and click mitosis in lab mode', () => {
+    const engine = makeEngine();
+    const canvas = {
+      tagName: 'CANVAS',
+      id: 'lab-canvas',
+      hasAttribute: (attr: string) => attr === 'id' || attr === 'data-site-bg-canvas',
+      closest: () => null,
+    } as unknown as HTMLCanvasElement;
+    expect((engine as any).interactiveTarget(canvas)).toBe(false);
+
+    engine.setMode('lab');
+    const cell = createCell(engine, 100, 100);
+    Object.assign(cell, { state: 'mature', x: 100, y: 100, radius: 40 });
+    Object.assign(engine as any, { cells: [cell], attached: true, canvas });
+
+    // Pointer down on cell
+    (engine as any).onPointerDown({
+      clientX: 100,
+      clientY: 100,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      isPrimary: true,
+      target: canvas,
+    });
+    expect((engine as any).pointerCandidate).toBe(cell);
+
+    // Pointer up without moving -> queues division (mitosis)
+    (engine as any).onPointerUp({
+      clientX: 100,
+      clientY: 100,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      isPrimary: true,
+      target: canvas,
+    });
+    expect(cell.state).toBe('mitosis');
   });
 
   it('accelerates apoptosis clearance when ambient mode is overcrowded', () => {
