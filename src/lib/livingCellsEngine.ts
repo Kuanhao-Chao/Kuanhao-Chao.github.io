@@ -1102,53 +1102,34 @@ export class LivingCellsEngine {
       this.ctx.translate(px, py);
       this.ctx.rotate(angle);
 
-      // 1. Smooth Organic Dual-Lobe Cytokinesis Envelope (Tangent-Continuous C1 Geometry)
-      if (prog < 0.28) {
-        // Prophase: smooth viscoelastic elongated oval
-        this.ctx.beginPath();
-        const SEGMENTS = 36;
-        for (let i = 0; i <= SEGMENTS; i++) {
-          const theta = (i / SEGMENTS) * TAU;
-          const ripple = 1.0 + 0.02 * Math.sin(theta * 3 + cell.wobblePhase);
-          const lx = rx * Math.cos(theta) * ripple;
-          const ly = r * Math.sin(theta) * ripple;
-          if (i === 0) this.ctx.moveTo(lx, ly);
-          else this.ctx.lineTo(lx, ly);
+      // 1. Smooth Organic Dual-Lobe Cytokinesis Envelope (Guaranteed Non-Self-Intersecting C1 Hermite Geometry)
+      const SEGMENTS = 64;
+      this.ctx.beginPath();
+      for (let i = 0; i <= SEGMENTS; i++) {
+        const theta = (i / SEGMENTS) * TAU;
+        const cosT = Math.cos(theta);
+        const sinT = Math.sin(theta);
+        const lx = rx * cosT;
+        const absX = Math.abs(lx);
+
+        let ry: number;
+        if (absX >= poleDist) {
+          const capDist = Math.min(daughterLobeR, absX - poleDist);
+          ry = Math.sqrt(Math.max(0, daughterLobeR * daughterLobeR - capDist * capDist));
+        } else {
+          const u = absX / Math.max(0.1, poleDist);
+          const smoothU = u * u * (3 - 2 * u);
+          ry = waistR + (daughterLobeR - waistR) * smoothU;
         }
-        this.ctx.closePath();
-      } else {
-        // Metaphase, Anaphase, Telophase & Cytokinesis: Tangent-Continuous Dual-Lobe Profile
-        this.ctx.beginPath();
-        const deltaR = Math.max(0.01, daughterLobeR - waistR);
-        const capAngle = Math.min(Math.PI * 0.42, Math.asin(Math.max(0.05, Math.min(0.95, deltaR / Math.max(1, poleDist)))));
-        const cpDist = poleDist * 0.52;
 
-        // 1. Right Daughter Cap Arc from -capAngle to +capAngle
-        this.ctx.arc(poleDist, 0, daughterLobeR, -capAngle, capAngle, false);
+        const rippleAmp = 0.015 * Math.min(1.0, waistR / (daughterLobeR || 1));
+        const ripple = 1.0 + rippleAmp * Math.sin(theta * 3 + cell.wobblePhase);
+        const ly = Math.max(0.5, ry * ripple) * (sinT >= 0 ? 1 : -1);
 
-        // 2. Bottom Cleavage Furrow: smooth Bézier curve down to (0, -waistR) and across to Left Cap
-        const rBotX = poleDist - daughterLobeR * Math.sin(capAngle);
-        const rBotY = -daughterLobeR * Math.cos(capAngle);
-        const lBotX = -poleDist + daughterLobeR * Math.sin(capAngle);
-        const lBotY = -daughterLobeR * Math.cos(capAngle);
-
-        this.ctx.bezierCurveTo(rBotX - cpDist * 0.5, rBotY, cpDist, -waistR, 0, -waistR);
-        this.ctx.bezierCurveTo(-cpDist, -waistR, lBotX + cpDist * 0.5, lBotY, lBotX, lBotY);
-
-        // 3. Left Daughter Cap Arc from PI - capAngle to PI + capAngle
-        this.ctx.arc(-poleDist, 0, daughterLobeR, Math.PI - capAngle, Math.PI + capAngle, false);
-
-        // 4. Top Cleavage Furrow: smooth Bézier curve up to (0, waistR) and across to Right Cap
-        const lTopX = -poleDist + daughterLobeR * Math.sin(capAngle);
-        const lTopY = daughterLobeR * Math.cos(capAngle);
-        const rTopX = poleDist - daughterLobeR * Math.sin(capAngle);
-        const rTopY = daughterLobeR * Math.cos(capAngle);
-
-        this.ctx.bezierCurveTo(lTopX + cpDist * 0.5, lTopY, -cpDist, waistR, 0, waistR);
-        this.ctx.bezierCurveTo(cpDist, waistR, rTopX - cpDist * 0.5, rTopY, rTopX, rTopY);
-
-        this.ctx.closePath();
+        if (i === 0) this.ctx.moveTo(lx, ly);
+        else this.ctx.lineTo(lx, ly);
       }
+      this.ctx.closePath();
 
       // Subsurface gradient matching normal cell baseline
       const fill = this.ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
