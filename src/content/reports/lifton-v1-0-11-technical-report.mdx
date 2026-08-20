@@ -1,21 +1,30 @@
 ---
-title: 'LiftOn v1.0.11: exact-release qualification and whole-genome performance'
-description: 'A biology-first, provenance-audited diagnostic—not a release PASS—of exact LiftOn v1.0.11 against v1.0.8 across controlled subset, whole-genome, and end-to-end panels, with historical cross-tool evidence kept separate.'
+title: 'LiftOn v1.0.11: biology-first evaluation across seven genome transfers'
+description: 'A provenance-audited comparison of exact LiftOn v1.0.11 and v1.0.8 on seven complete genome-to-genome annotation transfers, evaluated against assembly-matched released target annotations.'
 authors:
   - Kuan-Hao Chao
 abstract: >-
-  LiftOn combines DNA-level annotation lift-over with protein-to-genome evidence to transfer genes and their
-  internal structures between genome assemblies. This report evaluates the exact v1.0.11 release tag against
-  v1.0.8, rather than assigning a release label to pre-release measurements. The canonical design contains 34
-  controlled subset cases, 17 controlled whole-genome cases, and five end-to-end cases, each repeated four times
-  with alternating execution order. It measures annotation comprehensiveness, reference-protein retention,
-  coordinate-independent structure, stable feature identifiers, GFF3 validity, determinism, wall time, and
-  GNU-time command maximum RSS. The selected immutable roots contain 196 of 224 planned paired executions across 49 observed benchmark cells (subset=34, full=12, e2e=3); 28 planned executions are unavailable. Candidate/reference geometric-mean ratios are subset 0.915× wall/0.170× RSS; full genome 0.744× wall/0.098× RSS; end to end 0.577× wall/0.292× RSS; values below 1 favor v1.0.11. Candidate outputs pass current validation in 48/49 cells, and output plus score evidence is deterministic in 49/49. The publication verdict is DIAGNOSTIC ONLY. Exact-release evidence remains primary throughout.
-  A frozen 17-genome Liftoff/miniprot comparison is retained only as a historical appendix and is labeled with
-  its measured functional SHA. Accuracy in this report means retention of reference content plus sequence and
-  structure plausibility; it is not independent confirmation of the biologically correct target locus.
-date: 2026-08-09
-updated: 2026-08-12
+  LiftOn combines DNA alignment and protein-to-genome evidence to transfer structured annotations between genome
+  assemblies. We compare the exact v1.0.11 tag with exact v1.0.8 in seven prespecified, complete genome-to-genome
+  transfers spanning assembly revision, close comparative genomics, and moderate mammalian divergence. Each
+  transfer is run in four paired AB/BA repetitions with eight threads. Lifted annotations are evaluated both for
+  retention of source content and for concordance with a well-annotated release on the exact target assembly:
+  RefSeq for six targets and the published Sun et al. honey-bee annotation for one. Primary target comparisons use
+  uniform protein reciprocal-best-hit groups; NCBI Gene relationships provide a separately labeled sensitivity
+  analysis where available. We quantify coding and all-feature recovery, protein and structural quality, target
+  locus and transcript concordance, identifier preservation, validity, determinism, elapsed time, and sampled
+  process-group memory. These measurements do not independently establish target-locus truth. All seven transfers
+  completed in four paired repetitions each. Forty of fifty prespecified gates pass and ten fail, so the cohort
+  verdict is FAIL: eight are source-retention lower-bound tests on a seven-cluster design, including small measured
+  coding-completeness and intron-chain differences; one arises under a comparator with one transcript per gene; and
+  one is a resource ceiling the measurements refuted. The same evidence shows every v1.0.11 output structurally
+  valid where no v1.0.8 output is, CDS identifier preservation rising from as little as 0.052 to at least 0.866,
+  equal-transfer geometric means of 0.703x elapsed time and 0.895x process-group memory, and closer agreement with
+  the released target annotations on all seven transfers for exact protein agreement, protein identity and ORF
+  validity, with gene placement statistically indistinguishable. The release as a whole remains diagnostic. A frozen
+  17-genome cross-tool experiment is retained only as historical context and is never pooled with exact-tag evidence.
+date: 2026-08-13
+updated: 2026-08-20
 venue: 'Technical Report'
 institution: 'Johns Hopkins University'
 tags:
@@ -24,7 +33,7 @@ tags:
   - Lift-over
   - Open source
 image: ../../assets/reports/lifton-v1.0.11-technical-report/rfig_release_study_design.png
-imageAlt: 'Study-design summary for the exact LiftOn v1.0.11 diagnostic, showing planned and observed cases, paired repetitions, missing v1.0.8 controls, validity, and determinism.'
+imageAlt: 'Biology-first study design for seven complete genome annotation transfers, showing the evolutionary range, four paired AB/BA repetitions, validity, determinism, and the cohort verdict.'
 scholar: true
 unlisted: true
 listed: false
@@ -43,8 +52,8 @@ references:
     doi: https://doi.org/10.1201/9780429246593
   - text: "O'Leary NA, et al. Reference sequence (RefSeq) database at NCBI: current status, taxonomic expansion, and functional annotation. Nucleic Acids Research 44(D1):D733–D745, 2016."
     doi: https://doi.org/10.1093/nar/gkv1189
-  - text: "Martin FJ, et al. Ensembl 2023. Nucleic Acids Research 51(D1):D933–D941, 2023."
-    doi: https://doi.org/10.1093/nar/gkac958
+  - text: "Sun C, et al. A high-quality chromosome-level genome assembly of a high royal jelly-producing honeybee. Scientific Data 8:297, 2021."
+    doi: https://doi.org/10.1038/s41597-021-01091-7
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
 import LiftOnV111Pipeline from '../../components/LiftOnV111Pipeline.astro';
@@ -59,670 +68,648 @@ import historicalCrossTool from '../../assets/reports/lifton-v1.0.11-technical-r
 
 ## 1. Biological motivation and evidence tradeoffs
 
-Genome annotation lift-over asks a deceptively difficult question: given a structured annotation on a reference assembly, what is the most defensible representation of that annotation on a target assembly? The input is not merely a list of intervals. A protein-coding gene contains a hierarchy of parent and child features, one or more transcript models, ordered exons, phased coding segments, untranslated regions, attributes, and identifiers that downstream software may treat as stable keys. A useful transfer must therefore recover content, place it coherently on the target sequence, retain plausible exon and coding structure, and emit a valid graph of GFF3 relationships. Recovering many gene names while corrupting parentage or reading frame is not success; producing an elegant protein match while discarding non-coding hierarchy is not a complete annotation transfer.
+Genome annotation transfer asks more than whether a sequence can be aligned. A eukaryotic annotation is a graph of genes, transcripts, exons, coding segments, untranslated regions, non-coding features, attributes, and stable identifiers. Each feature must be placed on a target assembly while preserving strand, phase, parentage, ordering, and the intended biological relationship among rows. A program can recover a familiar gene name yet break its coding frame, attach a transcript to a parent on another sequence, or discard the non-coding hierarchy. Conversely, it can find a plausible protein elsewhere in the genome while missing the orthologous locus. A useful evaluation therefore has to separate recovery, molecular plausibility, agreement with an external target annotation, file integrity, and computational cost.
 
-Two evidence types expose different parts of this problem. DNA-to-DNA alignment is strong when local sequence identity and synteny are preserved. It can carry untranslated sequence, introns, non-coding features, and reference organization through the transfer. Its weakness is that nucleotide divergence, assembly rearrangement, large indels, and repeated sequence can fragment or misplace the path. Protein-to-genome alignment discards synonymous variation and is naturally aware of splice junctions and reading frame. It can remain informative after nucleotide evidence becomes weak, but it does not by itself preserve the full reference hierarchy and may find paralogous or otherwise biologically inappropriate loci. Neither source is a universal oracle.
+DNA and protein evidence illuminate different failure modes. DNA-to-DNA alignment is strongest when local identity, order, and synteny are conserved. It can carry introns, untranslated regions, non-coding RNAs, regulatory-style features present in the source annotation, and the relationships among them. Its sensitivity falls when nucleotide divergence, rearrangement, large indels, repeats, or assembly differences fragment the path. Protein-to-genome alignment ignores synonymous change and can detect splice-aware coding structure after nucleotide evidence weakens. It is correspondingly less informative for non-coding content and more vulnerable to selecting a paralog with a convincing amino-acid match.
 
-LiftOn was designed around that complementarity. Liftoff, backed by minimap2, supplies a DNA-anchored annotation model. Miniprot supplies an independent splice-aware protein model. LiftOn aligns the implied translations to the reference protein, combines compatible segments, repairs open reading frames when doing so improves the protein, and selects among candidate outcomes conservatively. A later rescue pass can add coding genes that the DNA lift missed. The biological premise is not that protein evidence should overwrite DNA evidence. It is that disagreement between two imperfect signals can be resolved locus by locus, with explicit safeguards and a reference protein as a common scoring coordinate.
+LiftOn is built around the complementarity of these signals. Liftoff, using minimap2, supplies a DNA-anchored model. Miniprot supplies protein-to-genome evidence. LiftOn compares the implied translations with the reference protein, can combine compatible portions of the two structures, attempts open-reading-frame repair, and conservatively selects among candidate outcomes. A later rescue stage can recover coding genes absent from the DNA-anchored pass. The central biological proposition is not that protein evidence should overwrite DNA evidence. It is that two imperfect signals can be reconciled locus by locus while retaining the source hierarchy and using the reference protein as a common scoring coordinate.
 
-This report evaluates that implementation premise at a release boundary. It does not repeat the original paper's broader method-development study, and it does not ask whether every transferred locus is independently known to be correct in the target. Instead, it asks four operational scientific questions.
+This report tests that proposition at an exact software-release boundary. It asks five questions:
 
-1. **Comprehensiveness:** how much of the reference annotation is retained, including coding transcripts, all counted feature types, and stable exon/CDS identifiers?
-2. **Accuracy and structural plausibility:** how well do recovered coding models retain the reference protein and internal coding structure, and do those comparisons remain favorable on a common recovered set?
-3. **Practicality:** what wall time and command-level maximum RSS are required for controlled endpoint work and for complete end-to-end runs?
-4. **Integrity:** are outputs valid and deterministic, and does the exact released tag satisfy every prespecified qualification gate?
+1. **Comprehensiveness:** how much source annotation is retained, for coding transcripts and for the broader feature hierarchy, and are exon and CDS identifiers preserved?
+2. **Source-relative accuracy:** how well do recovered coding models retain the source protein, intron pattern, and open reading frame when absence remains a penalty?
+3. **Released-target concordance:** among explicitly matched ortholog groups, how closely do the lifted gene loci, transcript loci, splice structures, CDS structures, and proteins agree with a high-quality annotation released for the exact target assembly?
+4. **Practicality:** what elapsed time and sampled process-group memory are required to generate both DNA and protein evidence and publish the annotation?
+5. **Integrity:** do all outputs pass structural and target-bound checks, reproduce across four paired repetitions, and satisfy every prespecified cohort gate?
 
-Those questions require different measurements. Coding completeness and all-feature completeness measure recovery, not accuracy. Mean protein identity among recovered transcripts measures sequence agreement but can improve merely because difficult transcripts were omitted. Coverage-weighted protein identity (CovPI) assigns an implicit zero to unrecovered reference coding transcripts and therefore couples quality to recovery. Exact intron-chain and ORF-valid recall add structural constraints. Common-set protein identity holds the compared transcript set fixed between versions. Structural validation and byte-level determinism address still different failure modes. No single bar can stand in for all of them.
+These questions require multiple denominators. Mean protein identity among recovered transcripts can rise when difficult models disappear. Coverage-weighted protein identity (CovPI) addresses that selection effect by assigning no contribution to an unrecovered source coding transcript. Exact intron-chain recall and ORF-valid recall add structural requirements. Common-recovered-set comparisons hold the transcript set fixed between releases. Target-annotation scores introduce a second biological perspective, but only inside a frozen ortholog scope. Stable-ID preservation, GFF3 validity, determinism, wall time, and memory each describe a different operational property. No single score is allowed to stand in for all of them.
 
-The interpretation is correspondingly narrow. “Accuracy” below means **reference-content retention and sequence/structure plausibility**. The `canonical-v1` campaign has no truth annotation for target loci, no experimentally verified orthology labels, and no independent evidence that a selected locus is the biological counterpart rather than a plausible paralog. A high protein score is necessary evidence for many coding transfers, but it is not proof of target-locus truth. A future truth-aware campaign can test that question; no such sealed result is available for v1.0.11, so none is implied here.
+“Accuracy” in this report consequently has a bounded meaning: **retention of source content and concordance with an assembly-matched released target annotation**. The target annotation is substantially more informative than source retention alone because its coordinates and structures were generated on the target assembly. It is still not an independent experimental oracle. RefSeq and source annotations can share protein, homology, RNA, or database evidence; a published annotation can contain omissions or errors; alternative isoforms may be represented differently; and even a reciprocal best hit can obscure paralogy or lineage-specific duplication. Agreement is evidence consistent with correctness and completeness, not proof of the uniquely correct biological locus.
 
-### 1.1 Evidence layers and headline conclusion
+### 1.1 Evidence layers and reporting boundary
 
-The report maintains a strict boundary between two evidence layers.
+Two evidence layers are kept visibly separate.
 
-- **Exact-release diagnostic:** v1.0.11 commit `c623f0bddc5b5051a3670a3b0064c52cc61bb719` is compared directly with v1.0.8 commit `e503643d8346c600fedabcd3a4dff5c0873a4a37`. These controlled subset, controlled whole-genome, and end-to-end results determine the qualification verdict.
-- **Historical cross-tool context:** a frozen 17-genome comparison includes Liftoff, miniprot, v1.0.8, and a functionally measured LiftOn arm at `7fc84192d85044c946eee5b90e0683eed722f9ea`. It answers a useful comparative biology question, but it is not relabeled as an exact v1.0.11 execution and is never pooled with release statistics.
+- **Exact-release cohort.** LiftOn v1.0.11 commit `c623f0bddc5b5051a3670a3b0064c52cc61bb719` is compared directly with LiftOn v1.0.8 commit `e503643d8346c600fedabcd3a4dff5c0873a4a37`. Seven transfers are fixed before execution. A transfer enters aggregate biological and performance statistics only after both versions complete all four paired repetitions. A failed planned transfer remains an explicit incomplete outcome and prevents a cohort PASS; it is never silently removed.
+- **Historical cross-tool context.** A frozen 17-genome experiment compares Liftoff, miniprot, v1.0.8, and a functionally measured LiftOn arm at `7fc84192d85044c946eee5b90e0683eed722f9ea`. That experiment supplies useful context across a wider divergence range, but it is neither an execution of the exact v1.0.11 tag nor part of the new confidence intervals or gates.
 
-The exact-release result is diagnostic, not a PASS. Aggregate wall time, memory, completeness, and protein-retention results are often favorable, but 28 controls are absent because v1.0.8 fails deterministically on seven cases; the observed end-to-end panel violates several lower-confidence-bound quality gates; two worst-cell performance caps fail; and one successful exact-tag whole-genome output has a reproducible cross-sequence parent defect. Favorable averages cannot cancel a missing control or a structural validity failure. The report therefore remains unlisted and `noindex`, available for direct technical review without being promoted as a passing release claim.
+The seven-transfer verdict is conjunctive. Completion, validity, determinism, source-retention non-regression, target-annotation concordance, elapsed-time behavior, and memory behavior must all satisfy their prespecified thresholds. A favorable average cannot cancel a failed transfer, invalid hierarchy, target-concordance regression, or extreme performance outlier. Even a cohort PASS would not retroactively qualify every genome pair supported by the release. Earlier exact-tag evidence exposed missing historical controls and a cross-sequence parent defect; it remains diagnostic evidence and is not pooled with this study. The report is therefore unlisted and `noindex`, available by direct URL for technical review without a blanket release claim.
 
 ## 2. Exact v1.0.11 patch and cumulative engineering since v1.0.8
 
-Version numbers matter scientifically because a patch release and a cumulative endpoint comparison answer different historical questions. The exact v1.0.11 patch is small. The v1.0.8→v1.0.11 comparison is much larger. This section separates them before discussing algorithms or measurements.
+Version attribution matters. The patch that created v1.0.11 is small; the endpoint difference between v1.0.8 and v1.0.11 is much larger. The experiment measures the endpoint difference, so this section separates the two before interpreting results.
 
-### 2.1 What v1.0.11 itself changed
+### 2.1 The v1.0.11 duplicate-ID ingestion fix
 
-v1.0.11 is a **single-fix release** for duplicate-ID ingestion. GFF3 permits real-world files that contain repeated feature identifiers even though those identifiers complicate database construction. Gffutils can transform a duplicate ID by appending a numeric suffix. LiftOn v1.0.10 replaced the default fallback to make this transformation deterministic, but the generated `<id>_<n>` name could itself collide with a feature already created through Liftoff's copy convention. Rice supplies a compact example of the collision class; two additional registered inputs expose the same mechanism.
+v1.0.11 is a focused fix for duplicate-ID ingestion. Real GFF3 files sometimes repeat feature identifiers despite the complications this creates for database construction. Gffutils can transform a repeated identifier by appending a numeric suffix. LiftOn v1.0.10 replaced the default fallback to make that transformation deterministic, but the generated `<id>_<n>` name could itself collide with an identifier already produced by Liftoff's copy convention. The collision was observed in rice and in additional registered annotations.
 
-The v1.0.11 fix narrows the repair. Only a repeated ID whose generated suffix is already occupied moves into a `_dup<n>` namespace. The code distinguishes malformed input handled by the fallback from programming defects raised inside the fallback, allowing internal exceptions to propagate instead of being reclassified as annotation errors. That is the patch-release claim. Concurrent aligners, the third candidate outcome, adaptive rescue, gene-like hierarchy detection, transactional output, and most performance work did not originate in this patch and must not be attributed to it.
+The v1.0.11 repair is deliberately narrow. When a repeated identifier's ordinary generated suffix is already occupied, the feature moves into a `_dup<n>` namespace. The fallback also distinguishes malformed input from an exception raised by the callback implementation, so an internal programming error is not incorrectly presented as an annotation problem. That behavior is the patch-release claim. Concurrency, outcome selection, ORF repair, rescue, generalized hierarchy handling, transactional publication, and most performance work predate the patch and must not be described as additions unique to v1.0.11.
 
 ### 2.2 Cumulative endpoint differences
 
-The qualification nevertheless compares exact v1.0.11 with v1.0.8, so it observes all intervening engineering. The cumulative changes fall into algorithmic behavior, reliability, and optional execution paths.
+The exact comparison against v1.0.8 observes all intervening engineering:
 
-| Capability | v1.0.11 endpoint behavior | Default or qualification status |
+| Capability | v1.0.11 endpoint behavior | Interpretation in this study |
 |---|---|---|
-| Concurrent external evidence | Liftoff/minimap2 and miniprot can execute concurrently | default; `--serial-aligners` opts out |
-| Bounded protein alignment | Anchor-windowed alignment avoids unbounded traceback matrices | default; legacy reproduction remains available |
-| Conservative outcome selection | Compares chained, DNA-anchored, and eligible direct-miniprot models | default; compatibility flags can narrow candidates |
-| ORF rescue | Repairs candidate coding boundaries only when the score improves | default |
-| Adaptive miniprot-only rescue | Adds genuinely missing coding genes after the anchored pass | default; disabled in controlled panels |
-| Gene-like hierarchy handling | Detects pseudogene and ncRNA-like top-level parents as well as `gene` | default; `--gene-only` narrows scope |
-| Deterministic locus parallelism | Bounded workers with stable reassembly and publication order | thread-dependent execution path |
-| Streaming/in-memory ingestion | Reduces evidence-file and database materialization | opt-in execution paths |
-| Content-addressed annotation cache | Rebuilds stale or corrupt parser databases from bound inputs | default |
-| Transactional output | Stages, validates, records a run manifest, then atomically publishes | mandatory baseline gate |
+| Concurrent external evidence | Liftoff/minimap2 and miniprot can run concurrently | Reduces elapsed evidence-generation time when host policy permits |
+| Bounded protein alignment | Anchor-windowed work avoids unbounded traceback matrices | Targets pathological memory growth while retaining scored regions |
+| Conservative outcome selection | Compares chained, DNA-anchored, and eligible direct-miniprot models | May change structure and protein agreement at a locus |
+| ORF rescue | Adjusts coding boundaries only when the protein score improves | May improve coding plausibility without changing the chosen locus |
+| Adaptive missing-gene rescue | Adds eligible coding genes missed by the anchored path | Can improve recovery but can also admit paralogous models |
+| Gene-like hierarchy recognition | Handles pseudogene and ncRNA-like parents as well as literal `gene` | Expands non-coding and noncanonical feature retention |
+| Deterministic locus parallelism | Uses bounded workers with stable result reassembly | Affects speed while preserving publication order |
+| Streaming and in-memory paths | Reduce selected intermediate materialization | Capability is probed; unsupported flags are never sent to older code |
+| Content-addressed annotation cache | Rebuilds stale parser databases from bound inputs | Prevents an old database from masquerading as current evidence |
+| Transactional output | Stages, validates, records a manifest, then publishes atomically | Prevents a partial file from appearing as a successful result |
 
-The controlled subset and whole-genome panels deliberately disable miniprot-only rescue in v1.0.11 because v1.0.8 has no equivalent pass. Those panels isolate the shared post-alignment problem. End-to-end runs retain output-affecting candidate defaults and therefore measure deployable behavior, including rescue. The distinction prevents a recovery feature from being mistaken for a pure engine speedup or for a like-for-like completeness comparison.
+The present study runs the deployable pipeline from a source annotation and two genome assemblies. v1.0.11 retains the output-affecting behavior its exact tag supports, including adaptive rescue. v1.0.8 receives only options its CLI actually advertises. This is therefore an endpoint comparison, not a factorial ablation. If v1.0.11 recovers more features, runs faster, or uses less memory, the result supports the cumulative endpoint but does not identify a single causal commit. Likewise, a regression cannot automatically be assigned to rescue or concurrency without a dedicated ablation.
 
-Some execution features are explicitly outside the primary claim. `--stream`, `--inmemory-liftoff`, and native compatibility hooks can reduce intermediate materialization, but the campaign does not present them as the universal default path. Native capability metadata records what was available; it does not imply that minimap2 or miniprot was silently replaced. This report describes the paths actually frozen in controller plans.
+Before that comparison, a separate exact-v1.0.11 canary runs representative insect and primate transfers through the fastest supported path and a conservative path. Semantic feature content, score summaries, target concordance, validation results, and biological summaries must agree; byte hashes are retained diagnostically. The canary protects the scientific comparison from treating an unvalidated execution shortcut as equivalent merely because both commands exit successfully.
 
-### 2.3 Post-tag work is not exact-release evidence
+### 2.3 Post-tag work is outside the measurement
 
-Commit `c8daa44` follows the v1.0.11 tag and repairs cross-sequence duplicate-parent/child binding in disk and in-memory emitters. It is directly relevant to the structural defect found by qualification, but it is a different candidate SHA. Its attempted follow-up lane is not substituted for, averaged with, or presented as the exact v1.0.11 result. The same v1.0.8 control failures terminate the relevant missing pairs, so that lane also does not create a completed replacement campaign. The scientific record is clearer when the exact released artifact remains visible and the repair is described as subsequent engineering.
+Commit `c8daa44` follows the v1.0.11 tag and repairs cross-sequence duplicate-parent/child binding in disk and in-memory emitters. It is scientifically relevant because earlier qualification found that defect, but it is not exact v1.0.11. Neither the source worktree used for the candidate nor any report reducer substitutes this commit for the tag. Describing the repair is useful; counting its behavior as v1.0.11 evidence would be incorrect.
+
+This boundary also applies to report tooling. Reducers and validators may be developed after the tag to measure frozen outputs, provided they bind and hash their inputs and never mutate or relabel the candidate. The LiftOn executable and imported package for each arm come from clean detached worktrees at the two stated SHAs. The working development tree, including post-tag changes, is not on either arm's import path.
 
 ## 3. Algorithmic and execution methods
 
 ### 3.1 Version-specific pipeline
 
-The method map below is specific to the cumulative v1.0.8→v1.0.11 endpoint. It leaves the v1.0.9 report's visualization unchanged. Each step is server-rendered for no-JavaScript and print use; the controls only change visual emphasis.
+The diagram below describes the cumulative v1.0.11 endpoint. It is separate from the visualization in the v1.0.9 report, which remains unchanged. Keyboard controls alter emphasis only; the complete method is present in the server-rendered markup and printable caption.
 
 <LiftOnV111Pipeline />
 
-Reference preparation begins by indexing the annotation and discovering top-level gene-like structures. A literal `gene` filter is insufficient for production RefSeq and Ensembl-derived files: pseudogenes, non-coding RNA genes, and other parent types may own transcripts or exons without using that exact feature type. LiftOn recognizes parents by their hierarchical role, extracts transcript and protein sequences, and retains the source attributes required to reconstruct the target annotation.
+Reference preparation indexes the annotation, identifies parents by hierarchical role, extracts transcript/protein sequences, and retains reconstruction attributes. This permits pseudogene and non-coding parents to own children without requiring the literal type `gene`.
 
-Liftoff and miniprot then produce complementary evidence. Their external computations do not depend on each other, so concurrent execution reduces elapsed time when host policy permits. Concurrency does not merge their semantics. Liftoff's result remains the DNA-anchored model; miniprot's result remains protein-to-genome evidence. The locus stage brings them together only after both are normalized into comparable transcript structures.
+Liftoff supplies DNA-anchored structures; miniprot independently aligns source proteins to the target genome. They can run concurrently, but remain distinct until the locus stage normalizes them for comparison. Concurrency changes scheduling rather than evidence semantics.
 
 ### 3.2 Protein-maximization chaining
 
-Two models can encode different exon boundaries yet translate over overlapping reference-protein intervals. LiftOn aligns each implied translation to the full reference protein and projects coding-segment endpoints into cumulative reference-amino-acid coordinates. Points at which both candidate paths have consumed the same reference interval delimit comparable groups. Within each group, LiftOn retains the source with higher partial protein identity; exact ties select Liftoff, preserving the DNA-anchored structure. Concatenating selected groups creates a hybrid model that can correct a local error without replacing a stronger region elsewhere.
+Two candidate models can disagree in exon boundaries while translating over overlapping intervals of the same reference protein. LiftOn aligns each implied translation to the complete reference protein and projects coding-segment endpoints into cumulative reference-amino-acid coordinates. Points at which both paths have consumed the same reference interval delimit comparable groups. Within each group, the source with higher partial protein identity is retained; an exact tie favors Liftoff, preserving the DNA-anchored structure. Concatenating selected groups yields a hybrid model that can repair a local region without replacing stronger evidence elsewhere.
 
 <LiftOnChaining mode="published" />
 
-The visualization is illustrative rather than measured benchmark data. It reproduces the published algorithmic logic: align full translations, project boundaries, form equal-endpoint groups, score partial proteins, select each group, and concatenate. This local comparison is why a protein-derived splice can repair one segment while the remainder of a reference-organized DNA lift is retained.
+The visualization is algorithmic, not a measured locus. A common protein coordinate permits local comparison despite intron and assembly differences. Deterministic grouping remains source-protein dependent and cannot establish locus orthology.
 
 ### 3.3 Three outcomes, ORF rescue, and conservative selection
 
-The current endpoint evaluates up to three outcomes for a coding transcript. The first is the protein-maximized DNA/protein chain. The second is the original Liftoff structure. The third is a clean CDS model derived directly from miniprot. The third model is eligible only when its strand agrees and it satisfies structural prerequisites; it must strictly improve the rescued protein score to displace the two-way winner. That condition protects against adopting a protein alignment merely because it exists.
+The endpoint evaluates up to three outcomes for a coding transcript. The first is the protein-maximized chain. The second is the unmodified DNA-anchored Liftoff model. The third is a clean CDS model derived directly from miniprot. The third outcome is eligible only when strand and structural prerequisites are satisfied, and it must strictly improve the rescued protein score to displace the two DNA-anchored alternatives. This rule avoids adopting a protein alignment simply because it exists.
 
-ORF rescue examines candidate coding boundaries and reading frames for a better open reading frame. A repaired model must improve the reference-protein comparison beyond the configured threshold. The selection unit is an outcome after eligible rescue, not a raw source alignment. The best-of-outcome rule therefore prevents an attempted merge or repair from becoming mandatory. When evidence is equal, deterministic tie-breaking favors the conservative DNA-anchored path.
-
-This design offers a bounded claim of non-regression under its scoring function: introducing another candidate does not require emitting it when a stronger existing candidate is available. It does not guarantee target-locus truth, because all candidates may point to the wrong locus or share an upstream evidence error. It also does not guarantee every structural metric improves, because protein identity is not identical to intron-chain agreement. That distinction motivates separate qualification gates.
+ORF rescue tests eligible boundary and frame adjustments and retains one only after sufficient protein-score improvement. Selection occurs afterward, with ties favoring the DNA-anchored model. This protects the selection score but cannot guarantee better structure or locus placement: all outcomes can share an upstream locus error or disagree with the target release's isoform.
 
 ### 3.4 Adaptive missing-gene rescue
 
-The anchored locus pass cannot evaluate a reference gene that Liftoff missed entirely. A later miniprot-only pass considers those coding genes. Its acceptance floor adapts from 0.50 toward 0.30 as DNA-lift recall declines, reflecting the fact that a more divergent transfer supplies fewer anchored candidates. Reference-ID guards prevent a gene already represented by another outcome from re-entering as an untracked copy, and overlap checks suppress incompatible duplications.
+The anchored locus pass cannot evaluate a source gene that Liftoff misses completely. A later miniprot-only pass considers absent coding genes. Its acceptance floor adapts from 0.50 toward 0.30 as DNA-lift recall falls, reflecting reduced anchored sensitivity at greater divergence. Reference-ID guards prevent a gene already represented through another outcome from re-entering as an untracked copy, and overlap checks suppress incompatible duplications.
 
-Rescue is additive and protocol sensitive. It can increase coding recovery, but it also changes the set of scored transcripts and the amount of work. For this reason it is disabled only in the controlled endpoint panels and retained in the end-to-end panel. Historical default-rescue experiments appear solely in the appendix protocol that produced them. No release statistic pools rescue-disabled and rescue-enabled cells.
+Rescue can change recovery, protein agreement, runtime, and paralogy risk. It remains enabled as deployable endpoint behavior, but the study provides no causal rescue-only estimate.
 
-### 3.5 Hierarchy reconstruction and transactional publication
+### 3.5 Hierarchy reconstruction and transactional validation
 
-Output construction must preserve graph semantics as well as coordinates. Coding transcripts are normalized to `mRNA`; non-coding transcript types retain their appropriate type. Rebuilt CDS segments carry deterministic IDs across discontinuous rows. Parent attributes are rewritten through a single allocation path so that copies, duplicate inputs, and rescued models refer to the target hierarchy rather than stale reference objects. Gene-like parents allow pseudogene and non-coding hierarchies to survive even when their type is not literally `gene`.
+Output construction preserves graph semantics as well as intervals. Coding transcripts normalize to `mRNA`; non-coding types remain appropriate; discontinuous CDS rows receive deterministic identifiers; and one parent-allocation path keeps copies, duplicate source identifiers, and rescued models in the published hierarchy.
 
-LiftOn writes to a staged output, performs an always-on baseline structural pass, records phase, input, version, resource, and failure information in `lifton_output/run_manifest.json`, and publishes atomically only when the gate succeeds. Qualification adds semantic and target-bound validators that are more demanding than ordinary publication. The baseline gate checks syntax, identifiers, ordering, and essential relationships; it is not claimed to prove every parent and child share a sequence or every target coordinate is valid. That precise gap is important because the exact-tag defect passed ordinary execution but failed qualification.
+LiftOn stages output, performs an always-on structural pass, records provenance and failures in `lifton_output/run_manifest.json`, and publishes atomically after the baseline gate. Qualification adds semantic, hierarchy, target-bound, and determinism checks. These establish machine integrity, not orthology or expression.
 
-### 3.6 Parallelism and determinism
+### 3.6 Parallelism, resource sampling, and determinism
 
-Independent loci can be evaluated with bounded workers. Completion order is nondeterministic, but emission order need not be. Results carry their submission index, completed work waits in a bounded structure, and only a contiguous prefix is flushed. Stable tie-breaking, identifier allocation, and publication order then make a threaded run comparable with serial execution. The campaign verifies bytes, semantic feature multisets, transcript score tables, and end-to-end biological summaries rather than accepting this design argument on trust.
+Independent loci can be processed by bounded workers. Completion order is nondeterministic, but emission order need not be. Each result carries a submission index, completed work waits in a bounded structure, and only a contiguous prefix is flushed. Stable tie-breaking, identifier allocation, and final ordering make a threaded result reproducible in principle. The experiment verifies that premise by comparing bytes, semantic feature multisets, transcript score tables, target-annotation summaries, validation results, and biological summaries across four repetitions.
 
-Bounded protein alignment attacks a different scaling problem. Unrestricted dynamic-programming traceback can grow with the product of long sequence lengths. Anchor-windowed alignment constrains the work while retaining local regions necessary for candidate scoring. Streaming miniprot ingest and in-memory Liftoff transfer can further reduce temporary files and databases. These mechanisms explain why runtime and RSS require separate measurement: a method can use less memory without running faster on every cell, and shared-host I/O can obscure endpoint improvements.
+Bounded protein alignment addresses a different scaling risk: unrestricted dynamic-programming traceback can grow with the product of long sequence lengths. Anchor-windowed alignment limits this work while retaining the local regions needed for scoring. Streaming miniprot ingestion and in-memory Liftoff paths can further reduce temporary materialization when the exact source supports them. These mechanisms motivate separate elapsed-time and memory measurements. A path may lower memory without accelerating every dataset; concurrency may lower elapsed time while increasing simultaneous residency.
 
-## 4. Biology-driven benchmark design and statistical protocol
+Memory is sampled for the complete spawned process group once per second and reported as the sum of resident-set size across observed processes. This captures children that a wrapper-command maximum can miss. It can double-count shared pages and can miss a peak shorter than the sampling interval, so it is explicitly a process-group proxy rather than unique physical memory. Four paired repetitions and a two-transfer concurrency proxy make the measurement useful for comparative engineering without presenting it as an exact host-capacity requirement.
 
-### 4.1 Sealed campaign and coverage
+## 4. Biology-driven experimental design
 
-The final publication boundary is the immutable `canonical-v1` campaign. It plans 56 logical cases and four paired repetitions per case: 34 controlled subsets, 17 controlled complete genomes, and five end-to-end genomes. Odd repetitions execute v1.0.8 then v1.0.11; even repetitions reverse that order. Alternating AB/BA order reduces systematic bias from warm caches, filesystem state, and background load. A first-arm failure prevents the second arm from running, so arm-attempt counts can be smaller than twice the paired matrix.
+### 4.1 Why these seven transfers
 
-{/* BEGIN GENERATED: release-coverage */}
-| Panel | Endpoint modes | Plan thread budget | Planned cases | Observed cases | Planned AB/BA pairs | Observed pairs | Missing v1.0.8 controls |
-|---|---|---:|---:|---:|---:|---:|---:|
-| subset | fast/fast | 8 | 34 | 34 | 136 | 136 | 0 |
-| full | fast/fast | 8 | 17 | 12 | 68 | 48 | 20 |
-| e2e | fast/fast | 8 | 5 | 3 | 20 | 12 | 8 |
-| **Total** | — | — | **56** | **49** | **224** | **196** | **28** |
+The study was redesigned around successful, complete genome annotation mapping rather than around small slices or a heterogeneous collection of execution modes. Seven source–target pairs were fixed before the release comparison. Together they span three biologically useful regimes while remaining close enough for a structured annotation transfer to be a defensible task.
 
-| Evidence-integrity status | Result |
-|---|---:|
-| Candidate GFF3 validation | 48/49 cells |
-| Candidate output + score determinism | 49/49 cells |
-| Deterministic historical-reference failures | 28 pairs across 7 cases |
-| Candidate-first outputs retained but excluded from pairing | 14 |
-{/* END GENERATED: release-coverage */}
+**Honey bee assembly transfer.** Amel_HAv3.1 is mapped to ASM1932182v1, a chromosome-level assembly of another *Apis mellifera* line. Holding species constant makes coordinate conversion, chromosome naming, copy handling, and hierarchy preservation prominent. The comparator is the annotation published with the target assembly; its chromosome labels are mapped to verified INSDC accessions in the target FASTA.
 
-The generated table is the coverage authority. The 28 unavailable pairs are not missing at random: they are all four repetitions of five complete-genome controlled cases and all four repetitions of two end-to-end plant cases. The failure audit binds each missing key to a selected root and a deterministic v1.0.8 exception signature. Fourteen even-order cells completed v1.0.11 before the control failed; their candidate outputs are retained for forensic evidence but excluded from ratios and paired deltas.
+**Fruit-fly species transfer.** *Drosophila melanogaster* to *D. erecta* DereRS2 is compact enough to expose transcript differences clearly while introducing intron turnover, protein divergence, and lineage-specific content. NCBI Annotation Release 101 provides an assembly-matched comparator without mammalian annotation scale obscuring the result.
 
-<ZoomFigure src={studyDesign} alt="Three-panel exact-release study design. Controlled subsets have 34 of 34 observed cases and 136 paired repetitions; controlled whole genomes have 12 of 17 cases and 48 of 68 pairs; end-to-end has three of five cases and 12 of 20 pairs. The figure also reports 48 of 49 valid candidate cells, 49 of 49 deterministic cells, and 14 candidate-first outputs retained from failed pairs." variant="wide">
-  <strong>Figure 1.</strong> Exact-release experimental design and evidence status. Brown segments are missing v1.0.8 controls, not imputed candidate results. The candidate-first count documents preserved evidence without treating an unpaired output as a comparison.
+**Human to western lowland gorilla.** This close-primate comparison preserves broad synteny while retaining assembly gaps, duplications, and isoform differences. NHGRI_mGorGor1-v2.1_pri and its RefSeq release test rich hierarchy retention, stable identifiers, and the distinction between protein agreement and transcript agreement.
+
+**House mouse to *Mus caroli*.** CAROLI_EIJ_v1.1 with RefSeq Release 101 provides a non-primate mammalian comparison. Rapidly evolving rodent loci and a source annotation richer than the target expose recovery and concordance under asymmetric curation.
+
+**Dog to domestic cat.** F.catus_Fca126_mat1.0 with RefSeq Release 105 adds moderate carnivore divergence and veterinary relevance. Gene-family expansion, segmental duplication, and alternate transcript representation make explicit ortholog scoping important.
+
+**Human to rhesus macaque and common marmoset.** Mmul_10/RefSeq Release 103 and calJac240_pri form a catarrhine-to-platyrrhine divergence ladder from one human source. Holding the source constant helps separate increasing divergence from source-annotation effects while each target release supplies destination-coordinate evidence.
+
+The inference target is these seven transfers, not all eukaryotes or arbitrary cross-phylum mapping. A missing exact-release arm or repetition makes the planned cohort incomplete; successful cases cannot silently replace it.
+
+{/* BEGIN GENERATED: biology-cohort */}
+| Biological transfer | Rationale | Released target annotation | Reported genes | Protein-RBH gene / transcript groups |
+|---|---|---|---:|---:|
+| Honey bee: Amel_HAv3.1 to ASM1932182v1 | same-species assembly transfer | MAKER; `GCA_019321825.1`; Sun et al. 2021 published assembly annotation (evidence date 2021-05-30) | 12,288 | 8,556 / 8,556 |
+| Fruit fly: D. melanogaster to D. erecta DereRS2 | close comparative transfer | NCBI RefSeq; `GCF_003286155.1`; NCBI Annotation Release 101 (evidence date 2018-11-01) | 14,681 | 13,041 / 18,464 |
+| Human to western lowland gorilla | close comparative transfer | NCBI RefSeq; `GCF_029281585.2`; GCF_029281585.2-RS_2025_04 (evidence date 2025-04-02) | 41,169 | 18,544 / 50,383 |
+| House mouse to Mus caroli | close comparative transfer | NCBI RefSeq; `GCF_900094665.2`; NCBI Annotation Release 101 (evidence date 2019-06-10) | 32,457 | 19,002 / 36,810 |
+| Dog to domestic cat | moderate-divergence veterinary transfer | NCBI RefSeq; `GCF_018350175.1`; NCBI Annotation Release 105 (evidence date 2021-10-27) | 39,307 | 17,299 / 31,847 |
+| Human to rhesus macaque | moderate-divergence biomedical transfer | NCBI RefSeq; `GCF_003339765.1`; NCBI Annotation Release 103 (evidence date 2019-03-24) | 40,304 | 18,022 / 41,981 |
+| Human to common marmoset | moderate-divergence biomedical transfer | NCBI RefSeq; `GCF_049354715.1`; GCF_049354715.1-RS_2025_12 (evidence date 2025-12-15) | 44,333 | 17,757 / 45,959 |
+{/* END GENERATED: biology-cohort */}
+
+### 4.2 Selecting assembly-matched target annotations
+
+Target comparators are chosen by coordinate compatibility before recency. Using a newer annotation on another assembly would require another mapping algorithm and confound the evaluation. The acquisition lock binds NCBI assembly and annotation releases, artifacts, sizes, and hashes; for bee it additionally binds the MAKER/Figshare artifact, license, chromosome transform, and expected lengths.
+
+Six targets use the best identified RefSeq release on the exact assembly, including GeneIDs for a provider-defined sensitivity analysis. Bee uses the annotation released with ASM1932182v1 because no suitable RefSeq release exists on that build. “Best” therefore means well annotated, released, traceable, and coordinate compatible—not merely newest or largest.
+
+Acquisition is fail-closed. Downloaded artifacts are placed in a content-addressed object store. Archives are expanded deterministically, annotations are normalized only where the study manifest declares a transformation, sequence identifiers are checked against the target FASTA, and every derived view records its inputs. The annotation lock cannot be regenerated silently after execution. This protects against remote-file replacement and against the common error of evaluating a lift on one assembly with truth coordinates from another.
+
+### 4.3 Uniform protein reciprocal-best-hit scope
+
+Directly comparing every source gene with every target annotation row would mix orthologs, lineage-specific genes, paralogs, and incompatible isoform inventories. The primary target comparison instead constructs a uniform protein reciprocal-best-hit (RBH) scope for every transfer. Protein sequences are extracted from source and target annotations with the same phase- and strand-aware procedure. MMseqs2 searches in both directions with frozen identity, coverage, and E-value constraints. A source–target protein pair is retained only when each is the other's best supported hit under deterministic tie-breaking.
+
+Transcript matches are then grouped to gene-level relationships through the annotation hierarchies. The preflight requires at least 100 gene groups and 100 transcript groups per transfer, preventing a superficially precise score from resting on a tiny matched set. RBH is applied uniformly even for same-species honey bee, so the primary score has a comparable construction across the cohort. The method emphasizes one-to-one, protein-supported content and deliberately leaves ambiguous families outside the primary denominator.
+
+This scope improves comparability but creates matched-set bias. Genes with conserved proteins are more likely to enter than non-coding genes, rapidly evolving proteins, recent duplicates, or target-specific content. Consequently, the report presents two kinds of comprehensiveness: retention of the complete source hierarchy, which does not depend on RBH, and target-annotation recall/F1 within the frozen RBH scope. The first asks how much was carried forward; the second asks whether ortholog-supported structures agree. Neither alone is a complete biological assessment.
+
+NCBI Gene's `gene_orthologs.gz` table supplies a separately labeled sensitivity analysis for cross-species targets where at least 100 unambiguous relationships map into both annotations. Only one-to-one relationships after source- and target-index filtering are retained. Same-taxon honey bee is marked not applicable. The provider-defined scope is never substituted for the protein-RBH primary result, and unavailable or low-coverage relationships remain explicit rather than being inferred.
+
+### 4.4 Exact releases, canary, and paired execution
+
+Both arms execute from clean, detached Git worktrees. The candidate SHA is the exact v1.0.11 tag; the reference SHA is the exact v1.0.8 tag. Before planning, the controller verifies `HEAD`, rejects tracked changes and unversioned import-affecting files, probes the imported `lifton` package from an isolated working directory, records supported CLI flags, and hashes all scientific inputs. `PYTHONPATH` is set separately for each arm, so the dirty development tree and post-tag modules cannot be imported accidentally.
+
+The exact-v1.0.11 canary uses honey bee and human-to-gorilla because they span small and large annotations, insect and mammal biology, and same-species versus cross-species transfer. One run uses the fastest supported execution path and one uses the conservative path. Fast execution is admitted to the release comparison only if semantic feature multisets, score summaries, released-target comparisons, validators, and biological summaries agree for both canaries. Byte hashes are recorded to expose serialization differences but are not the semantic-equivalence criterion.
+
+Each of the seven transfers then runs four paired repetitions with eight LiftOn threads. Odd repetitions execute v1.0.8 before v1.0.11; even repetitions reverse the order. This AB/BA balance reduces systematic effects from page cache, filesystem state, and changing shared-host load. The two arms of a repetition run sequentially so their wall and memory measurements do not directly contend with one another. At most two transfer cells are active concurrently, giving a planned maximum of 32 scheduler-accounted worker threads because each eight-thread CLI receives a conservative cost of 16.
+
+The controller records admission policy, load and available-memory thresholds, command lines, environments, start and end times, exit status, watchdog state, manifests, output hashes, score artifacts, and process-group memory traces. A cell has a generous completion timeout and a separate no-progress timeout suitable for large mammalian alignments. It does not retry automatically. A scientific failure remains a failure until explicitly diagnosed; a successful candidate arm is not paired with a reference result from another repetition.
+
+### 4.5 Metrics and denominators
+
+**Source comprehensiveness.** Coding completeness is recovered source coding transcripts divided by the source coding denominator. All-feature completeness is identifier-based recovery across the counted source gene, transcript, ncRNA, pseudogene, and related hierarchy types; exon and CDS subfeatures are excluded from that aggregate. It does not use the published target annotation as its denominator. Stable-ID preservation is reported separately for exon and CDS feature types, including discontinuous CDS identifiers under a copy-aware namespace policy.
+
+**Source-relative sequence and structure.** Recovered-set mean protein identity describes only transcripts for which a model exists. CovPI sums recovered protein identity over the complete source coding denominator, making omission costly. Recall at PI thresholds 0.50, 0.75, 0.90, and 0.95 shows whether a change is confined to weak models or reaches high-confidence proteins. Exact intron-chain recall compares strand-aware internal coding boundaries without requiring absolute source and target coordinates to match. ORF-valid recall requires a plausible start, terminal stop, and absence of internal stops. Common-set mean PI restricts both releases to transcripts recovered by both.
+
+**Released-target coordinate concordance.** A predicted gene or transcript matches a scoped target feature when each interval covers at least the prespecified fraction of the other on the same sequence and strand. Primary reciprocal overlap is 0.50; 0.25 and 0.80 are sensitivity thresholds. Precision, recall, and F1 are reported for genes and transcripts. Exon, CDS, and intron-chain comparisons add structure beneath the matched transcript. These scores use target coordinates and therefore catch plausible source retention at the wrong or structurally incompatible locus.
+
+**Released-target sequence concordance.** For the first repetition, phase-aware proteins are reconstructed from both predicted and released target CDS models. Exact-protein rate, mean protein identity, reciprocal length coverage, and ORF agreement provide coordinate-complementary evidence. Sequence scoring is limited to one repetition because deterministic outputs make repeated translation redundant; the other repetitions remain necessary for resource and determinism estimates.
+
+**Validity and determinism.** Every arm is checked for parseability, identifier uniqueness, parent/child coherence, ordering, target sequence membership, coordinate bounds, and required local relationships. Candidate determinism requires output bytes, semantic content, source-score summaries, target-coordinate summaries, and first-repetition sequence evidence to agree wherever comparable. A valid result can still be biologically wrong, and a deterministic result can repeat the same mistake; both gates are necessary but not sufficient.
+
+**Performance.** Elapsed time covers the complete annotation command, including DNA and protein evidence generation, locus processing, validation, and publication. The primary memory measure is the peak one-second sampled sum of RSS over the command's process group. Candidate/reference ratios are calculated within paired repetitions and summarized within transfer by the median. Values below one favor v1.0.11.
+
+### 4.6 Statistical protocol and qualification gates
+
+The transfer, not an individual repetition, is the unit of biological generalization. Repetitions measure order and execution variation within a transfer. Aggregate candidate-minus-reference quality differences and candidate/reference resource ratios use an equal-transfer cluster bootstrap: transfers are resampled with replacement, and their four within-transfer paired observations move together. Ten thousand replicates and seed `20260813` are fixed in the study manifest. Confidence intervals are percentile intervals and reflect heterogeneity among the seven chosen transfers, not uncertainty across arbitrary species or computers.
+
+The cohort gate requires all seven transfers and all 28 pairs. Every candidate repetition must be valid; each transfer must be deterministic. The lower 95% confidence bound for every aggregate source-quality delta must be at least −0.001, and no transfer's worst source-quality delta may fall below −0.01. Candidate gene and transcript locus F1 against the released annotation must each be at least 0.50, and no transfer's worst target-concordance delta may be below −0.01.
+
+For performance, the upper 95% confidence bound of both the wall-time and process-group-RSS geometric-mean ratio must not exceed 1.10. Each transfer's median wall and memory ratio must not exceed 1.25. A conservative two-concurrent-transfer candidate memory proxy—the sum of the two largest observed candidate process-group peaks—must not exceed 192 GiB. These gates deliberately combine an aggregate requirement with an outlier cap. A very fast majority cannot hide one operationally severe regression.
+
+<ZoomFigure src={studyDesign} alt="Study design for seven genome-to-genome annotation transfers. The figure lists their biological range, shows four paired AB/BA repetitions for every transfer, and summarizes completion, v1.0.11 validity, determinism, and the cohort qualification result." variant="wide">
+  <strong>Figure 1.</strong> Biology-first design and evidence status. Each square is a paired exact-release repetition; AB and BA denote alternating execution order. The right-hand status cards describe this prespecified cohort only.
 </ZoomFigure>
 
-### 4.2 Provenance and execution environment
-
-{/* BEGIN GENERATED: release-provenance */}
-| Evidence | Value |
+{/* BEGIN GENERATED: biology-provenance */}
+| Evidence object | SHA-256 / fingerprint |
 |---|---|
-| Candidate | LiftOn v1.0.11 `c623f0bddc5b5051a3670a3b0064c52cc61bb719` |
-| Reference | LiftOn v1.0.8 `e503643d8346c600fedabcd3a4dff5c0873a4a37` |
-| Profile | `canonical-v1` |
-| Profile digest | `825ed8084ee66ddb74bf6d052909282dee551fb09750ad596bfe6bd3ef9baa6f` |
-| Paired repetitions | 196 AB/BA pairs across 49 benchmark cells |
-| Matrix complete | no |
-| Publication mode | `diagnostic` |
-| Bootstrap | seed 20260717; 10,000 replicates |
-| Release verdict | **DIAGNOSTIC ONLY** |
-| Corrected evaluation | immutable overlay; 196 paired repetitions; evaluator `477ac640fba3b1a4…` |
-| Evaluation cutoff | `2026-08-12T02:17:26.006067Z` |
-| Finalization host *(not a historical run record)* | `salz11.idies.jhu.edu`; AMD EPYC 7702 64-Core Processor; 2 sockets; 128 logical CPUs; 1007.2 GiB; kernel `5.14.0-503.15.1.el9_5.x86_64` |
-| Frozen execution software | Python 3.11.15; minimap2 2.28-r1209; miniprot 0.13-r248; gffutils 0.14; parasail 1.3.4 |
-| Execution roots | 5 diagnostic controller roots |
-| Policy `lifton-v1.0.11-qualification-20260809-capability-negotiated-parallel-v3--01-subset` | active 4; full 2; worker threads 32; states `{'success': 136}` |
-| Policy `lifton-v1.0.11-qualification-20260809-capability-negotiated-parallel-v3--02-full` | active 4; full 2; worker threads 32; states `{'failed': 16, 'pending': 32, 'success': 20}` |
-| Policy `lifton-v1.0.11-qualification-20260810-parallel-full` | active 6; full 6; worker threads 48; states `{'failed': 4, 'success': 28}` |
-| Policy `current-e2e-neutral-v4` | active 16; full 4; worker threads 128; states `{'pending': 12, 'success': 8}` |
-| Policy `current-e2e-neutral-v4-pending-max8` | active 8; full 8; worker threads 64; states `{'failed': 8, 'success': 4}` |
-{/* END GENERATED: release-provenance */}
-
-Every selected controller plan freezes source roots, exact candidate and reference SHAs, executable paths, registered inputs, external annotation-tool versions, Python dependency metadata, repetitions, modes, thread policy, and admission limits. Pair documents bind outputs and score tables by SHA-256. Corrected evaluation overlays bind the evaluator implementation and rehash the pair JSON, source annotation, target genome, and both GFF3 outputs before rescoring. Finalization revalidates the selected roots, overlays, and publication inventory before atomically writing `metrics.json`, `manifest.json`, and `REPORT.md`.
-
-The finalization host record is reconstructed at report finalization, not a claim about every historical instant. The controller plans provide stronger provenance for the software and policy used during execution than the final host snapshot does for transient hardware state. GNU Time 1.9 was queried after execution; the initial plans fixed `/usr/bin/time` but did not hash its version string. This limitation is disclosed rather than silently promoting reconstructed metadata to run telemetry.
-
-The shared host ran several audited concurrency epochs. The initial controller admitted up to four active cells, at most two full cells, and 32 benchmark worker threads. A complete-genome continuation admitted six full cells and 48 worker threads. The neutral end-to-end source root and guarded pending-key continuation jointly remained under the audited 16-cell/128-thread ceiling; the observed peak was 10 cells and 80 worker threads. Admission paused when load or available-memory thresholds were crossed, but already-running jobs were not killed. Transient I/O-wait alerts and non-exclusive host activity therefore remain part of the performance context.
-
-### 4.3 Three panels answer different questions
-
-The controlled subset panel uses cached Liftoff and miniprot evidence and a single-threaded endpoint to expose post-alignment behavior on tractable slices. It includes same-species, cross-species, stress, format, and divergence cases. Because aligners are outside the timed endpoint and rescue is disabled, this panel is appropriate for regression localization but not for estimating an ordinary whole run.
-
-The controlled complete-genome panel also reuses frozen evidence, disables candidate-only rescue, and executes the v1.0.11 locus path and v1.0.8 legacy path with eight endpoint threads. It tests whether scaling changes survive complete annotation graphs, long genes, and genome-wide identifier pressure. Five planned cases have no successful v1.0.8 control, leaving 12 observed case summaries.
-
-The end-to-end panel rebuilds DNA and protein evidence from registered genome and annotation inputs. Both arms use the fastest supported source-aware mode with eight threads, while v1.0.11 retains its output-affecting defaults. Bee, human, and mouse produce four successful pairs each. Arabidopsis and rice lose all control repetitions to the historical duplicate-ID lookup defect. End-to-end results therefore describe the three observed animal cases and cannot be generalized to the two omitted plant inputs.
-
-### 4.4 Accuracy and comprehensiveness metrics
-
-Coding completeness is the number of recovered reference coding transcripts divided by the reference coding denominator. All-feature completeness aggregates the registered feature census after excluding types that the evaluator designates non-transfer targets. It is sensitive to hierarchy scope: recovering pseudogenes or non-coding RNA parents can improve it even if coding completeness is unchanged.
-
-Mean protein identity is calculated among recovered coding transcripts with a valid comparison. It describes the average recovered model but does not penalize omission. CovPI divides the sum of recovered protein identities by the full reference coding denominator, assigning zero contribution to unrecovered transcripts. Identity-threshold recall similarly counts reference coding transcripts recovered at or above PI thresholds 0.50, 0.75, 0.90, and 0.95.
-
-Exact intron-chain recall compares strand-aware internal CDS boundaries after removing dependence on absolute target coordinates. A recovered model succeeds only when the chain matches the reference structural pattern. ORF-valid recall requires a start methionine, terminal stop, and no internal stop. Both use the reference coding denominator, so absence remains a failure. Common-set mean PI restricts both versions to coding transcripts recovered by both and reports the candidate-minus-reference average, reducing selection bias from unequal recovery.
-
-Stable-ID preservation is evaluated separately for CDS and exon identifiers. For discontinuous CDS rows, the evaluator recognizes the reference identifier namespace rather than treating every segment as an independent biological transcript. Preservation is not the same as biological correctness, but it matters operationally for downstream joins, database updates, and reproducible comparisons.
-
-### 4.5 Performance statistics and gates
-
-Wall and maximum-RSS ratios are paired within repetition as v1.0.11/v1.0.8. Repetition ratios are medianed within a benchmark case. Panel summaries use the geometric mean across cases, with a deterministic, seeded, 10,000-replicate bootstrap over case-level units. Confidence intervals therefore reflect heterogeneity across datasets, not variation across independent computers. A panel with fewer than two cases would be descriptive only.
-
-Total-work wall ratio divides the sum of candidate cell medians by the sum of reference cell medians. It weights long cells more heavily than the geometric mean and is reported beside, not substituted for, the case-balanced statistic. Worst-cell ratios enforce a separate practical cap. GNU-time maximum RSS is a command statistic, not a synchronized sample of a process tree. The command-RSS slot-sum proxy adds the largest candidate command measurements that could occupy the recorded concurrency limit and compares that engineering proxy with a 192 GiB admission gate.
-
-Prespecified performance gates require wall and RSS geometric-mean upper bounds and total-work ratios at or below 1.10, worst-cell wall and RSS ratios at or below 1.25, and the concurrency proxy at or below 192 GiB. Quality lower confidence bounds must remain above −0.001 for panel-level metrics. Common-set and per-cell caps provide additional protection. All candidate outputs must pass current validation and remain deterministic. The complete immutable campaign check is itself blocking for a release-mode PASS.
-
-### 4.6 Corrected evaluation overlay
-
-The initial evaluator treated coding GTF `transcript` rows and standards-compliant GFF3 `mRNA` rows as different container classes. On the Ensembl-format case, LiftOn legitimately harmonized coding transcripts to `mRNA` while retaining non-coding `transcript` rows, but the old scorer interpreted the type change as zero coding recovery. That was an evaluator artifact, not evidence that all 2,371 coding transcripts disappeared.
-
-Three immutable, panel-scoped overlays rescore every accepted pair with `mRNA` and coding `transcript` in one transcript namespace. The overlays do not alter output, controller state, timing, or validation. They rehash their inputs, use one evaluator implementation, cover each selected pair exactly once, and reject mixed tooling. Final quality tables use this corrected evidence. The stale zero-recovery value is never presented as a biological result.
+| Exact study manifest | `f7ee397ebdf7792264f750592bb671af14d798834997d7a4763f1ac233402e69` |
+| Annotation preflight | `c1796e62fed4ec5d87aaea85927384eb19fddf615dcba1c718d0d8437d221b2f` |
+| Fast/safe canary | `fcc4b12ae4be8085a1623cf52ce680197b268c162fc5c829a44ff18194a87d29` |
+| Reduced study metrics | `923b82bd6ad35c5635d928ab54db4f877910eaed48800b4b968c62efea0a1ec3` |
+| NCBI Gene relationship lock | `e6c642727079265e683227ad7e86876bee8e8e4072e5e94d15eccd0e6347ff77` |
+| Released-annotation sensitivity | `1750c28feb01a0503b9e9485ef642ad30a1c222aab90d738dc632a24dc1b67dd` |
+| Paired recovery difference | `b6735f8d6fc60d5412f46937db03f9822d935d0dc029c3d6d6720f57759c92f3` |
+{/* END GENERATED: biology-provenance */}
 
 ## 5. Comprehensiveness results
 
-### 5.1 Panel-level recovery
+{/* BEGIN GENERATED: biology-headline */}
+All 7 prespecified transfers completed all 28 paired repetitions. LiftOn v1.0.11 produced 28/28 valid outputs and was deterministic for 7/7 transfers. Its equal-transfer geometric-mean wall ratio was 0.703× (95% CI 0.632–0.773) and its process-group RSS ratio was 0.895× (95% CI 0.883–0.909); values below one favor v1.0.11. The summed median-duration ratio was 0.727×, and the two-concurrent-transfer candidate memory proxy was 342.4 GiB. The prespecified cohort verdict is **FAIL**, with 10 failed gates. This verdict is restricted to the seven transfers and is diagnostic for the release as a whole.
+{/* END GENERATED: biology-headline */}
 
-{/* BEGIN GENERATED: release-comprehensiveness */}
-| Panel | Cells | Δ coding completeness (95% CI) | Δ all-feature completeness (95% CI) | Candidate/reference CDS IDs | Candidate/reference exon IDs |
-|---|---:|---:|---:|---:|---:|
-| subset | 34 | +0.00004 [-0.00019, +0.00038] | +0.00004 [-0.00016, +0.00034] | 132,283/189,218 (0.69910) / 48,271/189,218 (0.25511) | 1,441,493/1,954,995 (0.73734) / 772,606/1,954,995 (0.39520) |
-| full | 12 | -0.00014 [-0.00027, -0.00004] | +0.01178 [+0.00435, +0.02021] | 633,250/1,164,027 (0.54402) / 84,291/1,164,027 (0.07241) | 9,562,068/17,360,209 (0.55080) / 3,475,331/17,360,209 (0.20019) |
-| e2e | 3 | -0.00128 [-0.00268, +0.00004] | +0.02717 [+0.00077, +0.04911] | 249,119/265,562 (0.93808) / 189,359/265,562 (0.71305) | 3,904,837/4,139,778 (0.94325) / 3,052,324/4,139,778 (0.73732) |
-{/* END GENERATED: release-comprehensiveness */}
+### 5.1 Reading recovery from a biological perspective
 
-The controlled subset panel is effectively neutral in coding and all-feature completeness: both point estimates are close to zero and their confidence intervals cross zero while remaining above the −0.001 floor. This is the expected behavior for a panel designed to isolate engine changes with candidate-only rescue disabled. The absence of a large positive recovery delta is not a failure; it confirms that speed and memory changes were not purchased by systematically dropping reference content.
+Comprehensiveness is evaluated before asking whether a recovered model is accurate. The distinction matters most in asymmetric annotations: a richly annotated human or mouse source can contain more isoforms and non-coding hierarchy than the target release, while a same-species assembly transfer should retain nearly all source content unless assembly or representation differences intervene. Coding completeness tests whether protein-coding transcript models survive. All-feature completeness tests whether LiftOn carries the broader annotation graph, including gene-like parents and non-coding features that a protein-only method cannot reconstruct by itself.
 
-The controlled complete-genome panel has a small coding-completeness decrease but a larger positive all-feature completeness delta. The coding interval remains inside the prespecified non-regression floor. The all-feature gain reflects broader hierarchy retention, particularly gene-like parents and their children that a literal `gene` top-level filter misses. It should not be described as thousands of independently validated new genes: it is reference-feature retention under the evaluator's registered census.
+The two measures move in opposite directions here, and that divergence is the central comprehensiveness result. Across the seven transfers the equal-transfer paired delta in all-feature completeness is **+0.0180 (95% CI +0.0088 to +0.0269)**, while the coding-completeness delta is **−0.0035 (95% CI −0.0055 to −0.0016)**. Both prespecified bootstrap intervals exclude zero, although the 50-gate design is not a multiplicity-adjusted hypothesis suite. v1.0.11 carries more of the counted hierarchy and slightly fewer coding transcript models; §5.3 characterizes those models.
 
-The observed end-to-end panel also gains all-feature completeness while its coding-completeness confidence bound crosses the release floor. Defaults differ here by design: v1.0.11 includes adaptive missing-gene rescue and broader hierarchy handling. Nevertheless, candidate coding recovery is lower for human and mouse, and the panel contains only three animal genomes after both plant controls fail. The correct conclusion is mixed: broader annotation recovery accompanies a small coding-recovery regression on two measured cells.
+{/* BEGIN GENERATED: biology-comprehensiveness */}
+| Transfer | Coding completeness v1.0.11 / v1.0.8 | All-feature completeness | Target gene recall | Target transcript recall | CDS ID preservation | Exon ID preservation |
+|---|---:|---:|---:|---:|---:|---:|
+| Honey bee | 0.9955 / 0.9954 | 0.9457 / 0.9449 | 0.7783 / 0.7782 | 0.8100 / 0.8098 | 0.9948 / 0.7001 | 0.9899 / 0.7081 |
+| Fruit fly | 0.9736 / 0.9740 | 0.8221 / 0.8201 | 0.9361 / 0.9353 | 0.8457 / 0.8454 | 0.9660 / 0.0518 | 0.9600 / 0.4342 |
+| Human → gorilla | 0.8926 / 0.8966 | 0.4012 / 0.3724 | 0.8709 / 0.8720 | 0.7792 / 0.7811 | 0.8880 / 0.1662 | 0.8952 / 0.3562 |
+| Mouse → M. caroli | 0.9691 / 0.9727 | 0.8295 / 0.7928 | 0.9295 / 0.9306 | 0.8913 / 0.8927 | 0.9569 / 0.1385 | 0.9621 / 0.3875 |
+| Dog → cat | 0.9804 / 0.9827 | 0.8659 / 0.8508 | 0.8790 / 0.8786 | 0.6146 / 0.6146 | 0.9593 / 0.0753 | 0.9253 / 0.3262 |
+| Human → macaque | 0.8844 / 0.8913 | 0.3881 / 0.3654 | 0.8635 / 0.8641 | 0.7899 / 0.7935 | 0.8739 / 0.0853 | 0.8762 / 0.3077 |
+| Human → marmoset | 0.8828 / 0.8901 | 0.3793 / 0.3597 | 0.8500 / 0.8535 | 0.6522 / 0.6568 | 0.8657 / 0.0662 | 0.8556 / 0.2890 |
+{/* END GENERATED: biology-comprehensiveness */}
 
-### 5.2 Absolute end-to-end outcomes
-
-{/* BEGIN GENERATED: release-e2e-outcomes */}
-| E2E genome | Coding recovered candidate/reference (denominator) | Coding completeness | All-feature completeness | Mean PI | CovPI | Exact intron chain | ORF valid |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| bee | 23,365 / 23,364 (23,471) | 0.99548 / 0.99544 | 0.94570 / 0.94493 | 0.99051 / 0.99024 | 0.986034 / 0.985728 | 0.92284 / 0.92331 | 0.98138 / 0.98091 |
-| Human | 129,408 / 129,795 (144,329) | 0.89662 / 0.89930 | 0.40655 / 0.37493 | 0.99679 / 0.99592 | 0.893704 / 0.895538 | 0.88561 / 0.88703 | 0.89058 / 0.89245 |
-| Mouse | 95,430 / 95,546 (96,192) | 0.99208 / 0.99328 | 0.87002 / 0.82091 | 0.99506 / 0.99463 | 0.986781 / 0.987551 | 0.96341 / 0.96417 | 0.98256 / 0.98289 |
-{/* END GENERATED: release-e2e-outcomes */}
-
-Values in each metric cell are candidate/reference. Bee is nearly neutral in coding recovery and slightly favorable in all-feature completeness, mean PI, and CovPI. Human recovers fewer coding transcripts under v1.0.11 but raises all-feature completeness substantially and slightly raises mean PI among recovered models. Mouse shows the same qualitative tradeoff. CovPI falls for human and mouse because the full reference denominator exposes the missing coding transcripts that the recovered-set mean excludes.
-
-These absolute values prevent a small delta from hiding the scale of the underlying annotation. A −0.00268 coding-completeness change on human corresponds to hundreds of reference coding models; a +0.03162 all-feature change covers a much broader feature census. Neither should be summarized without the denominator and metric definition. The generated table keeps the recovered counts and both absolute arms adjacent.
-
-### 5.3 Stable exon and CDS identifiers
-
-Stable-ID preservation increases strongly in every panel summary for both CDS and exon identifiers. Some of the difference reflects output normalization and deterministic allocation rather than a biological change. v1.0.8 often rewrote or omitted identifiers that the current evaluator can trace to reference records; v1.0.11 retains more of that namespace while rebuilding target structures. This is valuable for downstream databases because a coordinate change does not automatically sever the feature key.
-
-Preservation is still bounded by applicability. One subset lacks an applicable stable-ID census, so the subset aggregate uses 33 cells. A preserved ID does not prove the target interval is correct, and a deliberately changed ID may be appropriate for a new copy. The result supports operational continuity, not independent biological validation.
-
-<ZoomFigure src={comprehensiveness} alt="Comprehensiveness figure with panel-level coding and all-feature deltas and bootstrap intervals, candidate versus reference CDS and exon identifier preservation, and absolute coding and all-feature recovery for bee, human, and mouse end-to-end runs." variant="wide">
-  <strong>Figure 2.</strong> Comprehensiveness and stable identifiers. Panel deltas use case-level bootstrap intervals; absolute end-to-end bars show the three observed genomes only. Green denotes exact v1.0.11 and brown denotes v1.0.8.
+<ZoomFigure src={comprehensiveness} alt="Four views of annotation comprehensiveness for seven completed transfers: source coding-transcript recovery, all-feature recovery, released target-annotation gene recall within protein reciprocal-best-hit groups, and CDS/exon stable-identifier preservation. LiftOn v1.0.8 is brown and v1.0.11 is green." variant="wide">
+  <strong>Figure 2.</strong> Comprehensiveness of each completed transfer. Source-retention and released-target metrics use different denominators and are intentionally adjacent rather than pooled. Stable identifiers are operational continuity measures, not independent evidence of locus correctness.
 </ZoomFigure>
+
+### 5.2 Coding recovery and hierarchy breadth
+
+Coding recovery is essentially unchanged where the source and target are closely related and declines slightly as divergence increases. On the honey-bee assembly transfer v1.0.11 recovers marginally more (0.99548 against 0.99544); on the fruit-fly transfer marginally fewer (0.97357 against 0.97403). The five mammalian transfers show consistent, small reductions: −0.0040 for human→gorilla, −0.0036 for mouse→*M. caroli*, −0.0024 for dog→cat, −0.0070 for human→macaque, and −0.0073 for human→marmoset. No individual transfer approaches the −0.01 per-transfer floor, and every per-transfer source-quality gate passes.
+
+All-feature completeness moves the other way and by a larger margin. The gain is negligible where the counted source hierarchy is dominated by coding content (honey bee +0.0008, fruit fly +0.0020) and substantial for the richer mammalian annotations: +0.0289 for human→gorilla, +0.0367 for mouse→*M. caroli*, +0.0151 for dog→cat, +0.0228 for human→macaque, and +0.0196 for human→marmoset. This pattern is consistent with the cumulative endpoint's broader handling of gene-like hierarchies, but the comparison is not an ablation and cannot assign the gain to one mechanism.
+
+The absolute all-feature values also show why these measures must not be pooled. Human-sourced transfers recover under 0.41 of counted source features against under 0.38 for v1.0.8. Those levels use the complete counted source hierarchy, whereas coding completeness uses coding transcripts and target concordance uses frozen ortholog groups. Each denominator answers a different question; the paired all-feature difference is more interpretable than comparing its absolute level with another metric family.
+
+### 5.3 What the coding-recovery difference consists of
+
+A paired completeness difference says nothing on its own about the models behind it, so the coding-recovery gap was characterised directly. For each transfer, the neutral evaluator's per-transcript tables were partitioned into the coding transcripts only v1.0.8 recovered and those only v1.0.11 recovered, and the identity distribution of each set was measured.
+
+{/* BEGIN GENERATED: biology-recovery-difference */}
+| Transfer | v1.0.11 only | v1.0.8 only | Net v1.0.11 − v1.0.8 | v1.0.8-only mean PI | v1.0.8-only PI < 0.50 | v1.0.8-only ORF valid |
+|---|---:|---:|---:|---:|---:|---:|
+| Honey bee | 1 | 0 | +1 | — | — | — |
+| Fruit fly | 22 | 36 | -14 | 0.8080 | 0.1111 | 0.9167 |
+| Human → gorilla | 197 | 769 | -572 | 0.8089 | 0.1756 | 0.7841 |
+| Mouse → M. caroli | 23 | 372 | -349 | 0.4466 | 0.5887 | 0.5833 |
+| Dog → cat | 15 | 164 | -149 | 0.4195 | 0.6646 | 0.7012 |
+| Human → macaque | 226 | 1,230 | -1,004 | 0.7675 | 0.2114 | 0.7756 |
+| Human → marmoset | 290 | 1,339 | -1,049 | 0.6522 | 0.3249 | 0.6535 |
+{/* END GENERATED: biology-recovery-difference */}
+
+The models unique to v1.0.8 are weaker on average than the complete recovered corpus. Their mean reference-protein identity ranges from **0.42 to 0.81** where the set is non-empty, against corpus means of 0.90 to 0.99, and **11% to 67%** fall below identity 0.5. The generated table retains the transfer-level counts and quality fractions so this statement is not based on manually copied values.
+
+The set is not uniformly poor: a majority of the v1.0.8-only transcripts exceed identity 0.5, and many carry a plausible open reading frame. Some potentially useful models are therefore not emitted. The defensible endpoint statement is that the transcripts absent from v1.0.11 are enriched for weaker protein matches, while the largest net difference remains about 0.7% of the coding denominator. The study did not prespecify an ablation that could identify which selection or rescue decision produced that difference.
+
+### 5.4 Released-target recall and stable identifiers
+
+Target gene recall asks how many RBH-scoped released genes have a lifted locus meeting the reciprocal-overlap rule. Target transcript recall is stricter because alternative isoforms and exon structures must be represented in a compatible interval. Both are close between the releases, and both track the source-side pattern: the small coding-recovery difference on the mammalian transfers appears as a correspondingly small transcript-recall difference, and no transfer breaches the per-transfer target-delta floor.
+
+CDS and exon identifier preservation is the largest single difference measured anywhere in this study. Downstream databases and comparative pipelines routinely join annotations by stable IDs, and preserving a feature's coordinates while changing its identifier silently breaks those joins. v1.0.11 preserves **0.866 to 0.995** of CDS identifiers and 0.856 to 0.990 of exon identifiers across the seven transfers. v1.0.8 preserves **0.052 to 0.700** and 0.289 to 0.708 respectively, with the worst case on the fruit-fly transfer, where only 5.2 % of CDS identifiers survive. The measure is copy-aware and type-aware, so a discontinuous CDS does not create an artificial penalty.
+
+This large endpoint difference must not be attributed to the narrow v1.0.11 patch. All seven study annotations ingest under both releases; the patch resolves a collision between a generated duplicate-name suffix and an existing identifier. The preservation result instead measures cumulative identifier-allocation behavior between v1.0.8 and v1.0.11. It is an operational continuity property, not evidence of locus correctness, so validity and target concordance remain separate.
 
 ## 6. Accuracy and structural-quality results
 
-### 6.1 Panel deltas
+### 6.1 Two complementary definitions of agreement
 
-The controlled subset panel improves CovPI, all four threshold recalls, exact intron-chain recall, and ORF-valid recall at the point estimate; every lower interval bound remains above the non-regression floor. ORF-valid recall has the largest average increase, consistent with the cumulative bounded-alignment, candidate-selection, and repair changes. The result does not mean every cell improves. Dataset-level common-set PI values show neutral cases and variable positive gains, and the detailed appendix retains each benchmark.
+The source-relative view asks whether LiftOn retained the annotated protein and internal coding organization it was asked to transfer. The target-relative view asks whether that result agrees with a released annotation generated on the destination assembly. These views can disagree for legitimate reasons. A source transcript may represent an isoform not present in the target release, a genuine target-specific change may reduce source identity, or the released target annotation may omit a conserved structure. Conversely, excellent source protein retention at a paralogous locus can look strong until coordinate concordance is examined.
 
-The controlled complete-genome panel shows a smaller but consistently favorable pattern across the same protein and structure metrics. CovPI and all threshold recalls rise, and both exact intron-chain and ORF-valid recall improve. Because rescue is disabled, these changes arise from the shared set of anchored loci, candidate construction, repair, and hierarchy evaluation rather than from adding a candidate-only rescue population.
+The primary target comparison is deliberately ortholog-scoped and reports both precision and recall through F1. It does not compare total gene counts as though every source and target gene had a one-to-one biological relation. Target protein identity is reconstructed from the exact target sequence, so it tests whether corresponding coding models imply similar proteins even when exon boundaries differ. Intron-chain and CDS structure add stricter constraints that protein identity alone can miss.
 
-The observed end-to-end panel is different. Point estimates are negative for coding completeness, CovPI, the four threshold recalls, exact intron-chain recall, and ORF-valid recall. Their lower bootstrap bounds breach the −0.001 gate. All-feature completeness is positive. No individual observed end-to-end cell crosses the separate −0.010 quality cap, but the prespecified panel confidence-bound failures remain blocking. The small sample and omitted plant controls broaden the interpretive uncertainty; they do not erase the gate outcome.
+{/* BEGIN GENERATED: biology-accuracy */}
+| Transfer | Source CovPI v1.0.11 / v1.0.8 | Exact intron recall | ORF-valid recall | Target gene F1 | Target transcript F1 | Target intron-chain F1 | Target protein identity |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Honey bee | 0.9860 / 0.9857 | 0.9228 / 0.9233 | 0.9814 / 0.9809 | 0.7767 / 0.7767 | 0.4603 / 0.4602 | 0.2433 / 0.2432 | 0.9706 / 0.9705 |
+| Fruit fly | 0.8969 / 0.8963 | 0.6009 / 0.5998 | 0.8768 / 0.8745 | 0.9401 / 0.9395 | 0.7405 / 0.7400 | 0.4767 / 0.4762 | 0.9823 / 0.9820 |
+| Human → gorilla | 0.8717 / 0.8745 | 0.7975 / 0.7991 | 0.8517 / 0.8540 | 0.8889 / 0.8896 | 0.5738 / 0.5742 | 0.2476 / 0.2476 | 0.9419 / 0.9416 |
+| Mouse → M. caroli | 0.9195 / 0.9206 | 0.7461 / 0.7471 | 0.8935 / 0.8946 | 0.9309 / 0.9317 | 0.5597 / 0.5602 | 0.3130 / 0.3133 | 0.9596 / 0.9591 |
+| Dog → cat | 0.8529 / 0.8500 | 0.5147 / 0.5145 | 0.7865 / 0.7809 | 0.8783 / 0.8778 | 0.6526 / 0.6525 | 0.2215 / 0.2211 | 0.9267 / 0.9234 |
+| Human → macaque | 0.8300 / 0.8347 | 0.6712 / 0.6748 | 0.7870 / 0.7894 | 0.8805 / 0.8807 | 0.5313 / 0.5317 | 0.2197 / 0.2198 | 0.9333 / 0.9323 |
+| Human → marmoset | 0.7917 / 0.7972 | 0.5516 / 0.5556 | 0.7370 / 0.7386 | 0.8653 / 0.8681 | 0.5866 / 0.5891 | 0.1684 / 0.1689 | 0.9045 / 0.9032 |
 
-<ZoomFigure src={accuracy} alt="Accuracy figure showing candidate-minus-reference CovPI, four protein-identity threshold recalls, exact intron-chain recall, and ORF-valid recall with panel bootstrap intervals; an end-to-end accuracy versus coding-recovery plot for bee, human, and mouse; and common-recovered-set protein identity deltas by dataset." variant="wide">
-  <strong>Figure 3.</strong> Reference-retention and structural-plausibility measures. The vertical dashed line is the −0.001 panel floor. The E2E arrows connect v1.0.8 squares to v1.0.11 circles; they reveal that higher mean PI among recovered models can coexist with lower coding recovery.
+| Equal-transfer paired delta (v1.0.11 − v1.0.8) | Estimate (95% CI) |
+|---|---:|
+| Source coding completeness | -0.00352 (-0.00554–-0.00159) |
+| Source all-feature completeness | +0.01797 (+0.00882–+0.02694) |
+| Source CovPI | -0.00147 (-0.00354–+0.00059) |
+| Source exact-intron recall | -0.00132 (-0.00265–-0.00007) |
+| Source ORF-valid recall | +0.00014 (-0.00166–+0.00232) |
+| Source recall at PI ≥ 0.50 | -0.00097 (-0.00340–+0.00156) |
+| Source recall at PI ≥ 0.75 | -0.00061 (-0.00286–+0.00196) |
+| Source recall at PI ≥ 0.90 | -0.00064 (-0.00203–+0.00069) |
+| Source recall at PI ≥ 0.95 | -0.00053 (-0.00149–+0.00039) |
+| Released-target gene-locus F1 | -0.00050 (-0.00141–+0.00021) |
+| Released-target transcript-locus F1 | -0.00045 (-0.00120–+0.00009) |
+{/* END GENERATED: biology-accuracy */}
+
+<ZoomFigure src={accuracy} alt="Sequence and structural quality for seven completed genome annotation transfers. Panels compare source CovPI, source exact-intron and ORF-valid recall, released-target gene and transcript F1, and v1.0.11 target intron-chain, CDS, and protein concordance. Brown denotes v1.0.8 and green denotes v1.0.11." variant="wide">
+  <strong>Figure 3.</strong> Source retention and released-target concordance. The target panels are restricted to frozen ortholog groups and should be interpreted as agreement with a high-quality released annotation, not as independent experimental truth.
 </ZoomFigure>
 
-### 6.2 Recovered-set identity versus CovPI
+### 6.2 Protein retention, threshold recall, and common sets
 
-Mean protein identity among recovered coding models rises slightly for all three observed end-to-end genomes. That is useful but incomplete. Human v1.0.11 recovers 387 fewer coding transcripts than v1.0.8, and mouse recovers 116 fewer. When those omissions contribute zero through CovPI, the direction reverses. This is precisely why the report rejects an “accuracy improved” claim based solely on recovered-set means.
+CovPI is the principal source-protein metric because it couples identity to recovery: a candidate that drops difficult transcripts cannot improve it merely by reporting an excellent mean among survivors. Its equal-transfer paired delta is **−0.0015 (95% CI −0.0035 to +0.0006)**, an interval that contains zero. Threshold recall behaves the same way at every cut examined: −0.0010 at identity 0.50, −0.0006 at 0.75, −0.0006 at 0.90 and −0.0005 at 0.95, each with a confidence interval spanning zero.
 
-The common-recovered-set comparison supplies another control. It holds transcript membership fixed and asks whether v1.0.11's model is better for transcripts both versions recover. Bee and human are slightly positive, mouse is nearly neutral and slightly negative. Across controlled panels, most values are non-negative, with the largest gains concentrated in subsets where protein evidence can repair local structure. Common-set PI cannot evaluate a transcript recovered by only one arm, so it complements rather than replaces CovPI and completeness.
+The interpretation is that coupling identity to recovery very nearly cancels the two effects described in §5. v1.0.11 recovers slightly fewer coding models, and the models it does recover score slightly higher, with the result that no aggregate protein-retention measure is distinguishable from parity. This is a more informative outcome than a nominal win would have been: it locates the difference between these releases somewhere other than in per-transcript protein retention.
 
-### 6.3 Intron-chain and ORF plausibility
+### 6.3 Intron chains and open reading frames
 
-Protein identity can be high despite a shifted splice boundary, especially when the change is short or preserves amino acids. Exact intron-chain recall therefore asks whether the internal CDS-boundary pattern agrees after removing absolute coordinate dependence. ORF-valid recall asks whether the recovered coding sequence begins with methionine, terminates with a stop, and contains no internal stop. These tests are closer to structural biology than a raw identity average, but they still compare with the reference model. Target-specific alternative splicing or genuine gene disruption could make the reference structure inappropriate.
+Exact intron-chain recall is a stringent structural measure. It ignores absolute genomic position but requires the ordered internal CDS-boundary pattern to match the source model, so a protein can remain nearly identical after a shifted splice boundary and still fail it. Its paired delta is **−0.0013 (95% CI −0.0027 to −0.00007)**, an interval that just excludes zero. ORF-valid recall, evaluated over the complete source denominator, is **+0.0001 (95% CI −0.0017 to +0.0023)** and is indistinguishable from parity.
 
-The controlled panels improve both measures. End-to-end exact intron-chain recall falls in all three aggregate contributions enough for the lower confidence bound to fail; ORF-valid recall also breaches the panel floor. Bee's candidate ORF-valid value is slightly higher while its exact chain is slightly lower. Human and mouse lose on both absolute recall measures. The mixed pattern argues for retaining separate structure endpoints rather than treating ORF repair as proof of splice correctness.
+Per transfer, structural recall improves on the fruit fly and dog→cat transfers and declines slightly on the human-sourced primate transfers. The aggregate combines differential recovery with small, mixed changes among transcripts recovered by both releases. Because no decomposition was prespecified, the data do not support assigning the delta exclusively to either source.
 
-### 6.4 Validity and deterministic evidence summary
+### 6.4 Concordance with the released target annotations
 
-{/* BEGIN GENERATED: release-correctness */}
-| Check | Candidate | Reference/control |
-|---|---:|---:|
-| GFF3 valid | 48/49 | 0/49 *(diagnostic)* |
-| Byte deterministic | 49/49 | 49/49 |
-| Semantic deterministic | 49/49 | 49/49 |
-| Quality deterministic | 49/49 | 49/49 |
-| Common-set PI deterministic | 49/49 | same paired evidence |
-| E2E biological summary valid | 3/3 | 3/3 |
-| E2E biological summary deterministic | 3/3 | 3/3 |
+The target-relative sequence view moves consistently. Within each arm's frozen ortholog-linked comparison, v1.0.11 has a higher exact translated-protein agreement rate, mean target protein identity, and predicted-ORF-valid rate on all seven transfers. Exact agreement rises by 0.00019 to 0.00205, mean identity by 0.00014 to 0.00325, and ORF validity by 0.00054 to 0.00651. Coverage-weighted identity and reciprocal length coverage move the same way. These measures are complementary but correlated; ORF validity adds structural information, whereas the identity-derived measures should not be counted as independent confirmations. The result is a consistent endpoint pattern, not a mechanistic attribution.
 
-| Panel | Quality metric | Candidate − reference (95% bootstrap CI when n≥2) |
-|---|---|---:|
-| subset | `completeness_coding` | +0.00004 [-0.00019, +0.00038] |
-| subset | `completeness_feature_total` | +0.00004 [-0.00016, +0.00034] |
-| subset | `covpi` | +0.00333 [+0.00205, +0.00478] |
-| subset | `recall_at_0.5` | +0.00472 [+0.00280, +0.00690] |
-| subset | `recall_at_0.75` | +0.00452 [+0.00268, +0.00655] |
-| subset | `recall_at_0.9` | +0.00262 [+0.00156, +0.00384] |
-| subset | `recall_at_0.95` | +0.00115 [+0.00064, +0.00171] |
-| subset | `intron_chain_exact_recall` | +0.00082 [+0.00037, +0.00131] |
-| subset | `orf_valid_recall` | +0.00824 [+0.00493, +0.01210] |
-| full | `completeness_coding` | -0.00014 [-0.00027, -0.00004] |
-| full | `completeness_feature_total` | +0.01178 [+0.00435, +0.02021] |
-| full | `covpi` | +0.00087 [+0.00036, +0.00150] |
-| full | `recall_at_0.5` | +0.00126 [+0.00058, +0.00210] |
-| full | `recall_at_0.75` | +0.00122 [+0.00047, +0.00223] |
-| full | `recall_at_0.9` | +0.00077 [+0.00037, +0.00122] |
-| full | `recall_at_0.95` | +0.00047 [+0.00021, +0.00075] |
-| full | `intron_chain_exact_recall` | +0.00056 [+0.00017, +0.00097] |
-| full | `orf_valid_recall` | +0.00218 [+0.00097, +0.00361] |
-| e2e | `completeness_coding` | -0.00128 [-0.00268, +0.00004] |
-| e2e | `completeness_feature_total` | +0.02717 [+0.00077, +0.04911] |
-| e2e | `covpi` | -0.00077 [-0.00183, +0.00031] |
-| e2e | `recall_at_0.5` | -0.00051 [-0.00196, +0.00107] |
-| e2e | `recall_at_0.75` | -0.00051 [-0.00121, +0.00034] |
-| e2e | `recall_at_0.9` | -0.00053 [-0.00103, +0.00043] |
-| e2e | `recall_at_0.95` | -0.00058 [-0.00114, +0.00017] |
-| e2e | `intron_chain_exact_recall` | -0.00088 [-0.00142, -0.00047] |
-| e2e | `orf_valid_recall` | -0.00058 [-0.00187, +0.00047] |
+Locus placement, by contrast, is a tie. The equal-transfer paired delta in target gene-locus F1 is **−0.0005 (95% CI −0.0014 to +0.0002)** and in transcript-locus F1 **−0.0004 (95% CI −0.0012 to +0.0001)**; both intervals contain zero, and no per-transfer gene F1 differs by more than 0.003. Structural agreement within matched transcript groups — intron chain, exon and CDS F1 — is likewise indistinguishable between the releases.
 
-| Panel | Stable ID type | Applicable cells | Candidate preserved | Reference preserved | Rate delta |
-|---|---|---:|---:|---:|---:|
-| subset | `CDS` | 33 | 132,283/189,218 (0.69910) | 48,271/189,218 (0.25511) | +0.44400 |
-| subset | `exon` | 33 | 1,441,493/1,954,995 (0.73734) | 772,606/1,954,995 (0.39520) | +0.34214 |
-| full | `CDS` | 12 | 633,250/1,164,027 (0.54402) | 84,291/1,164,027 (0.07241) | +0.47160 |
-| full | `exon` | 12 | 9,562,068/17,360,209 (0.55080) | 3,475,331/17,360,209 (0.20019) | +0.35061 |
-| e2e | `CDS` | 3 | 249,119/265,562 (0.93808) | 189,359/265,562 (0.71305) | +0.22503 |
-| e2e | `exon` | 3 | 3,904,837/4,139,778 (0.94325) | 3,052,324/4,139,778 (0.73732) | +0.20593 |
-{/* END GENERATED: release-correctness */}
+Taken together with §5 and §6.2, this supports a narrower statement: **gene-locus F1 has no statistically distinguishable release difference, while v1.0.11 has modestly higher target-sequence concordance within each arm's frozen ortholog-linked comparison.**
 
-The reference validity column is diagnostic. Current validators identify duplicate IDs, header issues, and other structures that v1.0.8 historically emitted. Those findings do not become candidate gates, although reference output and score determinism remain necessary controls. Candidate validity is mandatory because a release cannot be qualified by outperforming an invalid historical baseline while itself producing an invalid graph.
+The absolute transcript-locus statistics require one denominator caveat. The published honey-bee comparator contains exactly 12,288 genes and 12,288 mRNAs, whereas LiftOn transfers source isoforms. Within the fixed 8,556-gene/8,556-transcript RBH preflight scope, extra predicted isoforms lower precision even when the comparator simply does not represent them.
 
-The table's quality deltas are generated from the corrected overlay, not from manually copied report prose. Stable-ID rows report numerator, denominator, and rate. E2E biological-summary checks verify schema and repetition determinism; they do not introduce target truth.
+The honey-bee transcript-locus recall is 0.810 and gene-locus F1 is 0.777, but transcript-locus F1 is 0.460 because precision is low under that asymmetric isoform inventory. This is a plausible interpretation of the comparator behavior, not a causal correction. The prespecified score and failed floor remain unchanged.
+
+### 6.5 Ortholog and reciprocal-overlap sensitivity
+
+The primary 0.50 reciprocal-overlap rule balances tolerance of boundary differences with protection from incidental overlap. A 0.25 threshold asks whether conclusions survive a permissive locus definition; 0.80 requires close coordinate agreement. The candidate's gene F1 at all three thresholds is shown so that a favorable result cannot depend on a single boundary choice. The reference value at 0.50 anchors the exact-release comparison.
+
+NCBI Gene relationships supply a second definition of biological correspondence where coverage is sufficient. Because those relationships are curated and provider-derived rather than computed from the same extracted proteins, agreement between RBH and NCBI Gene analyses reduces dependence on the scope-building algorithm. Coverage is uneven by design and is reported rather than imputed: the provider scope is available for the fruit fly and the three human-sourced primate transfers, and is marked unavailable for the honey bee, where the transfer is within one species, and for mouse→*M. caroli* and dog→cat, where fewer than 100 one-to-one relationships could be joined. Disagreement between the two scopes is not automatically an error — provider coverage can lag a current assembly, gene models can map ambiguously, and the one-to-one filter excludes many valid families.
+
+{/* BEGIN GENERATED: biology-sensitivity */}
+| Transfer | Protein-RBH gene F1 at overlap 0.25 / 0.50 / 0.80 (v1.0.11) | v1.0.8 at 0.50 | NCBI Gene groups | Provider-defined gene F1 v1.0.11 / v1.0.8 |
+|---|---:|---:|---:|---:|
+| Honey bee | 0.8878 / 0.7767 / 0.5536 | 0.7767 | 0 | — |
+| Fruit fly | 0.9713 / 0.9401 / 0.8300 | 0.9395 | 12,917 | 0.9444 / 0.9436 |
+| Human → gorilla | 0.9323 / 0.8889 / 0.7803 | 0.8896 | 16,497 | 0.9286 / 0.9288 |
+| Mouse → M. caroli | 0.9638 / 0.9309 / 0.8463 | 0.9317 | 6 | — |
+| Dog → cat | 0.9438 / 0.8783 / 0.7274 | 0.8778 | 2 | — |
+| Human → macaque | 0.9293 / 0.8805 / 0.7596 | 0.8807 | 16,225 | 0.9165 / 0.9172 |
+| Human → marmoset | 0.9216 / 0.8653 / 0.7430 | 0.8681 | 16,101 | 0.9032 / 0.9063 |
+{/* END GENERATED: biology-sensitivity */}
+
+### 6.6 What the accuracy results can and cannot establish
+
+This evaluation is stronger than checking source protein identity alone because it uses a destination-coordinate annotation selected independently of LiftOn output. It can detect wrong-locus placement, broad interval mismatch, missing target orthologs, incompatible splice structures, coding differences, and invalid ORFs. It also provides precision as well as recall, so indiscriminate extra predictions are not rewarded.
+
+It cannot establish expression, tissue specificity, functional equivalence, or the uniquely correct isoform. Both annotations can inherit shared public evidence; target releases are themselves computational products; and RBH favors conserved one-to-one proteins. A target-specific loss can make perfect source retention wrong, while an unannotated but real target isoform can make LiftOn appear falsely discordant. Claims in this report are therefore phrased as source retention, target concordance, and structural plausibility. "Biologically validated" would require independent curated loci, transcriptomic/proteomic evidence not used by either annotation, or synthetic mappings with known truth.
 
 ## 7. Runtime and memory results
 
-### 7.1 Aggregate performance
+### 7.1 Complete-command elapsed time
 
-{/* BEGIN GENERATED: release-performance */}
-| Panel | Modes (candidate/reference) | Cells | Wall ratio GMR (95% CI when n≥2) | Total wall ratio | RSS ratio GMR (95% CI when n≥2) | Worst wall ratio | Worst RSS ratio | Candidate command-RSS slot-sum proxy |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| subset | subset/subset | 34 | 0.915× [0.835, 0.993] | 0.742× | 0.170× [0.102, 0.279] | 1.225× | 1.273× | 2.85 GiB (4 slots) |
-| full | full/full | 12 | 0.744× [0.596, 0.952] | 0.620× | 0.098× [0.069, 0.160] | 1.819× | 1.016× | 20.09 GiB (6 slots) |
-| e2e | fast/fast | 3 | 0.577× [0.545, 0.628] | 0.599× | 0.292× [0.168, 0.559] | 0.628× | 0.559× | 54.27 GiB (8 slots) |
-{/* END GENERATED: release-performance */}
+Elapsed time begins before external evidence generation and ends after validation and atomic publication. It therefore answers the operational question a user faces when invoking LiftOn on two assemblies, not merely the cost of the Python locus stage. Each transfer's primary statistic is the median candidate/reference ratio across four AB/BA repetitions.
 
-Ratios below one favor v1.0.11. The case-balanced wall geometric means are favorable in all three panels, and the total-work wall ratios are also below one. Controlled subsets show the smallest geometric-mean wall improvement because many cases are short and several run slightly slower, although a few historically memory-intensive cases become much faster. Complete genomes and end-to-end runs show larger aggregate wall reductions.
+v1.0.11 is faster on every transfer. Per-transfer median ratios run from **0.547** on the honey-bee transfer to **0.852** on dog→cat, with the equal-transfer geometric mean at **0.703 (95% CI 0.632 to 0.773)**. The confidence interval lies entirely below parity, and the worst individual transfer is far inside the 1.25 per-transfer cap. Weighting by observed duration rather than giving each transfer one vote gives a total-work ratio of **0.727**: 13.31 hours of candidate wall time against 18.30 hours for the reference across the cohort.
 
-Command-level maximum RSS falls sharply at the geometric mean for controlled subsets and complete genomes. The end-to-end RSS ratio is also favorable but less dramatic because aligner evidence generation contributes substantially to the process envelope. Candidate slot-sum proxies remain far below 192 GiB in every panel, even under the recorded concurrency limits. These values describe the measured command wrappers; they are not synchronized whole-host peaks.
+In absolute terms the saving is largest where runs are longest. The human-sourced primate transfers fall from 4.03, 4.09 and 4.39 hours to 2.84, 3.24 and 3.14 hours; mouse→*M. caroli* falls from 3.01 to 1.90 hours. The insect transfers, at well under an hour either way, contribute the most favourable ratios but the least operational benefit — which is precisely why the equal-transfer mean and the duration-weighted ratio are both reported.
 
-<ZoomFigure src={performance} alt="Four-panel exact-release performance figure showing per-cell wall and command-RSS ratios with panel geometric means and confidence intervals, aggregate versus total-work wall ratios, screened shared-host outliers, worst-cell and aggregate gate lines, and concurrency memory proxies." variant="wide">
-  <strong>Figure 4.</strong> Performance under the audited shared-host epochs. Black diamonds and intervals are panel geometric means; individual datasets remain visible. Red outlines identify variability or ratio screening flags, not automatically failed gates. Dashed and dotted red lines distinguish aggregate and worst-cell thresholds.
+### 7.2 Process-group memory
+
+Command-level `ru_maxrss` observes only the profiled process and can miss memory held by aligner children, so this study also samples the whole process group once per second and sums resident memory across observed processes. The process-group figure is the primary memory statistic; the command-level maximum is supplemental, and the two differ substantially — on the honey-bee transfer the candidate's command-level peak is 3.8 GiB while its process-group peak is 22.0 GiB.
+
+On the process-group measure v1.0.11 uses less memory on every transfer, by a consistent but modest margin. Per-transfer median ratios span **0.871 to 0.932**, and the equal-transfer geometric mean is **0.895 (95% CI 0.883 to 0.909)**. Absolute medians rise steeply with genome and annotation size: 22.0 GiB for the honey bee, 24.7 GiB for the fruit fly, 81.8 GiB for dog→cat, 110.6 GiB for mouse→*M. caroli*, and 157 to 176 GiB for the three human-sourced primate transfers, against 24.7 to 188.3 GiB for the reference.
+
+Summed RSS is deliberately labelled a proxy. Shared pages may be counted in more than one process, the sampler can miss sub-second spikes, and overlapping external programs can shift the peak; these limitations apply to both arms but need not cancel exactly, because process topology differs. The two-concurrent-transfer figure adds the two largest candidate peaks, matching the scheduler's maximum concurrent cells, and reaches **342.4 GiB**. It is conservative for admission planning and is not a synchronised measurement that those two peaks coincided — but it is large enough to matter operationally, and §8.4 records that it exceeds the ceiling this study declared in advance.
+
+{/* BEGIN GENERATED: biology-performance */}
+| Transfer | Median wall h v1.0.11 / v1.0.8 | Wall ratio | Median process-group RSS GiB | RSS ratio | Valid v1.0.11 reps | Deterministic v1.0.11 |
+|---|---:|---:|---:|---:|---:|---:|
+| Honey bee | 0.25 / 0.46 | 0.547× | 22.02 / 24.75 | 0.891× | 4/4 | yes |
+| Fruit fly | 0.31 / 0.41 | 0.765× | 24.65 / 28.22 | 0.874× | 4/4 | yes |
+| Human → gorilla | 2.84 / 4.03 | 0.705× | 157.18 / 180.40 | 0.871× | 4/4 | yes |
+| Mouse → M. caroli | 1.90 / 3.01 | 0.620× | 110.59 / 122.68 | 0.901× | 4/4 | yes |
+| Dog → cat | 1.63 / 1.91 | 0.852× | 81.83 / 91.40 | 0.896× | 4/4 | yes |
+| Human → macaque | 3.24 / 4.09 | 0.751× | 165.43 / 183.62 | 0.901× | 4/4 | yes |
+| Human → marmoset | 3.14 / 4.39 | 0.728× | 175.48 / 188.30 | 0.932× | 4/4 | yes |
+
+| Cohort performance summary | Observed |
+|---|---:|
+| Equal-transfer wall ratio (95% CI) | 0.703× (0.632–0.773) |
+| Summed median-duration ratio | 0.727× |
+| Equal-transfer process-group RSS ratio (95% CI) | 0.895× (0.883–0.909) |
+| Two-concurrent-transfer v1.0.11 memory proxy | 342.4 GiB |
+{/* END GENERATED: biology-performance */}
+
+<ZoomFigure src={performance} alt="Performance across seven completed genome annotation transfers. The top panels show per-transfer v1.0.11-to-v1.0.8 wall-time and process-group-memory ratios with repetition ranges, parity lines, and 1.25 gate lines. The lower panels show absolute median hours and GiB for both releases." variant="wide">
+  <strong>Figure 4.</strong> Elapsed time and sampled process-group memory. Values below one in the ratio panels favor v1.0.11. Memory is summed RSS and may count shared pages more than once.
 </ZoomFigure>
 
-### 7.2 Wall-time heterogeneity and failed worst-cell gate
+### 7.3 Configuration asymmetry and causal interpretation
 
-The full-genome aggregate does not describe every complete genome. `arabidopsis_to_rice` has a median wall ratio above one and a high repetition-level coefficient of variation. `t4_drosophila_to_bee` reaches the panel's worst median ratio, 1.819, failing the 1.25 worst-cell cap even though its repetition geomean and individual timings are strongly affected by host variability. Several other full cells are screened because their wall ratio CV exceeds the reporting threshold. The report preserves these observations instead of replacing them with isolated reruns.
+One design decision conditions every number in this section and is stated here rather than deferred to the limitations. Each release was run in the fastest configuration its own command-line interface supports, determined by capability negotiation rather than assumed. v1.0.11 therefore ran with streaming input, in-memory Liftoff hand-off, locus-level parallelism and the native binding enabled; v1.0.8 ran with only the thread count and copy handling it accepts. The comparison is between two releases as a user would actually invoke them, not between two builds of the same engine under identical flags, and the performance results should be read as an endpoint comparison in that sense.
 
-Subset wall ratios cluster closer to one. Some are slower, some faster, and the overall total work improves because long-running cases contribute more seconds. This difference between a case-balanced geometric mean and a work-weighted total is informative. A user running one small dataset should not expect the total-work speedup; a service processing a mix resembling the measured corpus may care about it.
+Within that framing the difference cannot be attributed to any single mechanism. The endpoint spans concurrent evidence generation, bounded protein alignment, locus parallelism, cache behaviour, hierarchy handling, rescue and validation, and the dominant phase varies with genome size, annotation complexity, divergence and the number of loci entering rescue. A faster result supports the practical claim about the release endpoint; it does not establish that any one optimisation is responsible.
 
-AB/BA repetition controls reduce a fixed order effect but cannot remove shared-host contention. The controller watcher recorded load and transient uninterruptible-I/O states during active epochs. Candidate and reference run close together inside each pair, yet a burst can still affect one arm disproportionately. The bootstrap summarizes datasets, not host episodes. Performance numbers should therefore be read as contention-aware throughput evidence on one machine, not as an isolated hardware benchmark.
-
-### 7.3 RSS, concurrency, and proxies
-
-The v1.0.11 endpoint's largest controlled command measurements are far below the enormous legacy peaks seen in problematic genes. Bounded alignment and reduced materialization explain the direction. A few subsets have RSS ratios near or above one because the v1.0.8 absolute baseline is already small. `candida_albicans_to_dubliniensis` supplies the subset worst RSS ratio, 1.273, narrowly failing the 1.25 cap. That local failure is retained even though the subset RSS geometric mean is strongly favorable.
-
-GNU Time reports the maximum resident set of the wrapped command according to operating-system accounting. Child-process treatment, short peaks, and overlapping commands make it unsuitable as a literal host-demand trace. The slot-sum proxy deliberately errs toward a simple admission calculation: take the largest candidate command RSS contributors up to the concurrency limit and sum them. It can overstate demand when peaks do not coincide and understate it when process-tree accounting misses children. It is an engineering guard, not a physical-memory measurement.
-
-### 7.4 Performance interpretation
-
-The paired AB/BA panel estimates are subset: wall 0.915× [95% CI 0.835, 0.993], RSS 0.170× [95% CI 0.102, 0.279], total wall 0.742×, worst wall 1.225×, and worst RSS 1.273×; full genome: wall 0.744× [95% CI 0.596, 0.952], RSS 0.098× [95% CI 0.069, 0.160], total wall 0.620×, worst wall 1.819×, and worst RSS 1.016×; end to end: wall 0.577× [95% CI 0.545, 0.628], RSS 0.292× [95% CI 0.168, 0.559], total wall 0.599×, worst wall 0.628×, and worst RSS 0.559×. Ratios below 1 favor v1.0.11. Named performance gates failing: `full.worst_wall_cell`, `subset.worst_rss_cell`. 15 observed cell(s) meet the variability or ratio screening criteria; a screening flag is not itself a release gate. Execution-policy epochs remain explicit, and isolated reruns are diagnostic rather than replacements for canonical measurements.
-
-The statement “v1.0.11 is faster and uses less memory” is defensible only as an aggregate description of the observed paired cells. It is not a guarantee for every genome. The missing five complete-genome and two end-to-end cases have no ratio because the reference does not complete; assigning them an infinite speedup would reward a control crash and corrupt inference. Historical crash recovery is reported separately as comprehensiveness and robustness evidence.
+The host was shared rather than dedicated. AB/BA ordering, pairwise ratios, admission thresholds and four repetitions reduce but do not eliminate noise from filesystem traffic, competing processes, NUMA placement and page cache. Two of the twenty-eight repetitions were re-executed after a scheduling defect in the benchmark harness admitted more concurrent whole-genome cells than its own limit allowed, and those two were measured at lower concurrency than their siblings; their outputs are byte-identical to the other three repetitions of the same transfers, so the biological results are unaffected, but their absolute timings were taken under lighter load. Confidence intervals quantify heterogeneity across the chosen transfers, not reproducibility on other hardware.
 
 ## 8. Validity, determinism, and qualification verdict
 
-### 8.1 Exact-tag structural defect
+### 8.1 Completion is a scientific gate
 
-Candidate outputs pass current validation in 48 of 49 observed logical cells. The exception is the successful complete-genome `arabidopsis_to_rice` cell. Its output binds `rna-DA397_mgp31` on target sequence `NC_029264.1` to a parent gene on `NC_011033.1`. That creates both cross-sequence parentage and a target-bound consistency violation. The defect reproduces across the sealed repetitions and belongs to exact candidate SHA `c623f0b`.
+The planned cohort completed: 28 of 28 paired results and four repetitions for every transfer. The reducer requires all exact-release pair documents and never averages survivors after a failure, which would bias biological and performance summaries.
 
-The ordinary run can exit successfully because baseline streaming validation does not perform every deep target-bound relationship check. Qualification does. This is not evidence that baseline validation is useless; it is evidence that its documented boundary matters. A transactional write gate prevents many malformed files from publication, while a release audit can still discover a semantic relationship outside that gate. The post-tag `c8daa44` repair is described in Section 2.3 but is not allowed to rewrite this exact-tag outcome.
+Six cells initially failed, all through the v1.0.8 arm. Four dog→cat lifts completed but could not be scored because one reference mRNA had inverted coordinates; two primate repetitions hit allocation errors after scheduler over-admission. The first group was re-scored after the evaluator could record and quarantine the row, and the latter two were re-executed at reduced concurrency. Section 11 audits both repairs.
 
-### 8.2 Determinism
+### 8.2 Validity and determinism
 
-All 49 observed candidate cells are byte-deterministic, semantic-multiset deterministic, quality-table deterministic, and common-set-score deterministic across four repetitions. End-to-end biological summaries are also deterministic. The result covers different execution orders and threaded complete-genome paths. It supports the claim that bounded parallel completion is reassembled stably.
+**All 28 candidate outputs are valid, with zero errors**, under complete semantic, streaming structural, and target-FASTA bounds checks. Every reference transfer records validation errors: 76,070 per bee output; 572,461 for fruit fly; 1,239,592 for gorilla; 914,253 for *M. caroli*; 619,612 for cat; 1,324,361 for macaque; and 1,331,997 for marmoset. Most are duplicate identifiers, the defect class reflected by §5.4's preservation measure.
 
-Determinism is necessary but not sufficient. A reproducible cross-sequence parent defect is still a defect, and a deterministic quality regression still fails its gate. Likewise, two versions can be individually deterministic while differing in biologically meaningful ways. The campaign keeps byte, semantic, score, validity, and quality outcomes separate so that one form of reproducibility cannot mask another.
+Determinism holds for all seven transfers: each release's four outputs are byte-identical within a transfer and derived summaries agree. The two later, lower-concurrency re-executions also reproduce their siblings bit for bit.
 
-### 8.3 Deterministic v1.0.8 control failures
+Neither property establishes correctness: a deterministic locus can be wrong and a valid graph can select a paralog. They instead show that downstream tools can parse the measured files and that release differences are not scheduling variation.
 
-{/* BEGIN GENERATED: release-failure-audit */}
-| Panel | Missing case | Failed control repetitions | Candidate-first outputs retained | Control elapsed range (s) | Classification |
-|---|---|---:|---:|---:|---|
-| full | arabidopsis | 4 | 2 | 772.9–1368.2 | v1.0.8 `FeatureNotFoundError` + exception-string `TypeError` |
-| full | rice | 4 | 2 | 659.5–1175.9 | v1.0.8 `FeatureNotFoundError` + exception-string `TypeError` |
-| full | maize | 4 | 2 | 777.7–1809.4 | v1.0.8 `FeatureNotFoundError` + exception-string `TypeError` |
-| full | tomato | 4 | 2 | 273.9–1175.3 | v1.0.8 `FeatureNotFoundError` + exception-string `TypeError` |
-| full | tomato→potato | 4 | 2 | 1123.5–2624.2 | v1.0.8 `FeatureNotFoundError` + exception-string `TypeError` |
-| e2e | arabidopsis | 4 | 2 | 786.0–2782.8 | v1.0.8 `FeatureNotFoundError` + exception-string `TypeError` |
-| e2e | rice | 4 | 2 | 1353.0–2784.1 | v1.0.8 `FeatureNotFoundError` + exception-string `TypeError` |
-| **Total** | **7 cases** | **28** | **14** | — | deterministic historical-reference failure; excluded from 196 observed pairs |
-{/* END GENERATED: release-failure-audit */}
+### 8.3 Structural integrity of the compared annotations
 
-The seven cases share one classification. v1.0.8 builds an annotation database in which duplicate-ID fallback changes a feature identifier, later requests an unavailable original or transformed parent, raises `gffutils.exceptions.FeatureNotFoundError`, and then triggers a second `TypeError` while stringifying the exception. Every selected attempt exits with return code 1, no watchdog reason, the expected missing-feature evidence, and the exception-string error. Repeating the unchanged historical code does not make this deterministic failure stochastic.
+The evaluator records and skips structurally unusable target rows rather than silently losing an annotation. **v1.0.11 produced none.** v1.0.8 produced one in every dog→cat repetition: an mRNA at record 333,910 spanning 62,472,244 to 62,461,173, with start greater than end. Its exclusion is explicit in the evidence.
 
-Candidate-first outputs arise in even AB/BA repetitions. They are preserved because they show that v1.0.11 could complete before the control failed and may help diagnose absolute behavior. They cannot provide a paired ratio or delta, and they are excluded from the 196 observed pair documents. This rule prevents a successful candidate arm from becoming an implicit imputed control.
+One unparseable feature among 1,808,290 GFF3 records can stop a strict reader; here it initially prevented four completed pairs from being scored. Quarantine preserves the remaining evidence while recording the exclusion.
 
-Early end-to-end setup and evaluator failures belong to different classes and are not selected. Some roots froze tooling-local dataset paths absent from a snapshot; another used a legacy evaluation path that produced no acceptable biological record; a deliberately data-free scoring snapshot could not launch source E2E work. The final source-aware roots supersede those attempts. The audit lists only deterministic v1.0.8 execution failures that correspond exactly to final `missing_keys`.
+### 8.4 Prespecified gates and cohort verdict
 
-### 8.4 Failed qualification gates
+{/* BEGIN GENERATED: biology-qualification */}
+**Gate summary:** 40/50 prespecified checks passed. The failed checks are listed below.
 
-{/* BEGIN GENERATED: release-failed-gates */}
-| Failed gate | Observed | Required | Interpretation |
-|---|---:|---:|---|
-| `complete_immutable_release_campaign` | `diagnostic` | `release mode with complete controller-backed evidence` | Incomplete controller-backed release matrix |
-| `all_candidate_outputs_valid` | 48 | 49 | Exact-tag structural validity defect |
-| `e2e.completeness_coding.lower` | -0.00268 | -0.001 | Bootstrap lower confidence bound below floor |
-| `e2e.covpi.lower` | -0.00183403 | -0.001 | Bootstrap lower confidence bound below floor |
-| `e2e.recall_at_0.5.lower` | -0.0019608 | -0.001 | Bootstrap lower confidence bound below floor |
-| `e2e.recall_at_0.75.lower` | -0.00120558 | -0.001 | Bootstrap lower confidence bound below floor |
-| `e2e.recall_at_0.9.lower` | -0.00103236 | -0.001 | Bootstrap lower confidence bound below floor |
-| `e2e.recall_at_0.95.lower` | -0.00113629 | -0.001 | Bootstrap lower confidence bound below floor |
-| `e2e.intron_chain_exact_recall.lower` | -0.00142037 | -0.001 | Bootstrap lower confidence bound below floor |
-| `e2e.orf_valid_recall.lower` | -0.00187073 | -0.001 | Bootstrap lower confidence bound below floor |
-| `full.worst_wall_cell` | 1.81862 | 1.25 | Worst-cell performance cap exceeded |
-| `subset.worst_rss_cell` | 1.27296 | 1.25 | Worst-cell performance cap exceeded |
-{/* END GENERATED: release-failed-gates */}
+| Failed prespecified cohort gate | Result | Observed | Required |
+|---|---:|---:|---:|
+| Aggregate coding-completeness lower confidence bound | **FAIL** | -0.005539 | -0.001000 |
+| Aggregate CovPI lower confidence bound | **FAIL** | -0.003538 | -0.001000 |
+| Aggregate recall at PI ≥ 0.50 lower confidence bound | **FAIL** | -0.003399 | -0.001000 |
+| Aggregate recall at PI ≥ 0.75 lower confidence bound | **FAIL** | -0.002861 | -0.001000 |
+| Aggregate recall at PI ≥ 0.90 lower confidence bound | **FAIL** | -0.002028 | -0.001000 |
+| Aggregate recall at PI ≥ 0.95 lower confidence bound | **FAIL** | -0.001488 | -0.001000 |
+| Aggregate exact-intron-recall lower confidence bound | **FAIL** | -0.002653 | -0.001000 |
+| Aggregate ORF-valid-recall lower confidence bound | **FAIL** | -0.001657 | -0.001000 |
+| Honey-bee minimum released-target locus F1 | **FAIL** | 0.460251 | 0.500000 |
+| Two-concurrent-transfer v1.0.11 memory proxy (GiB) | **FAIL** | 342.439262 | 192 |
+{/* END GENERATED: biology-qualification */}
 
-Twelve checks fail. Campaign completeness and candidate validity are independently blocking. Eight end-to-end quality lower bounds breach the −0.001 floor. The full panel fails a worst-wall-cell gate and the subset panel fails a worst-RSS-cell gate. All aggregate performance upper bounds, total-work ratios, memory proxies, controlled-panel quality bounds, and determinism gates pass, but qualification is conjunctive. A favorable pass count is not a vote that can override one failed mandatory condition.
+Qualification is conjunctive rather than a majority vote. Of the 50 prespecified gates, **40 pass and 10 fail, so the cohort verdict is FAIL.** The failures fall into three groups, and the distinction between them matters.
 
-### 8.5 Verdict
+**Eight aggregate source-retention bounds.** These gates require each lower confidence limit to be at least −0.001. The observed lower bounds are −0.0055 for coding completeness, −0.0035 for CovPI, −0.0034, −0.0029, −0.0020 and −0.0015 for recall at the four identity thresholds, −0.0027 for exact intron-chain recall and −0.0017 for ORF-valid recall. Coding completeness and intron-chain recall have intervals excluding zero; the other six point estimates are statistically compatible with parity but their lower limits still breach the prespecified gate. The recovery analysis establishes a small net loss of coding models. The intron result additionally contains small within-common-set changes and is not assigned to recovery alone. Every per-transfer source-quality non-regression gate passes.
 
-The exact-tag result is **DIAGNOSTIC ONLY**: 49 cells were observed and 28 planned paired executions are unavailable in the selected immutable roots (e2e=8, full=20). A release PASS is not emitted because the immutable campaign evidence is not a complete passing release publication. 11 additional blocking check(s) fail in the observed matrix.
+**One absolute target-locus floor.** The honey-bee transcript-locus F1 is **0.4603** against 0.5; gene-locus F1 is 0.7767. The separately released comparator has one mRNA per gene, while LiftOn transfers source isoforms, making transcript precision sensitive to annotation-policy asymmetry. That observation does not prove the cause or correct the score. The prespecified floor remains failed and was not redefined after inspection.
 
-The publication label is intentionally **DIAGNOSTIC ONLY**. It must not be paraphrased as “v1.0.11 passed with caveats.” It also should not be paraphrased as a general biological failure: most controlled quality metrics improve, aggregate performance is favorable, and the exact defect is localized. The proper scientific conclusion is that the sealed evidence is informative but does not satisfy the release-PASS contract.
+**One resource ceiling.** The two-concurrent-transfer candidate memory proxy is **342.4 GiB** against a declared ceiling of 192 GiB. The two largest candidate process-group peaks in this cohort are 175.5 and 165.4 GiB, so two concurrent human-sourced primate transfers cannot fit inside the ceiling the study declared in advance. This is a planning assumption that the measurements refuted rather than a regression: v1.0.11 uses less memory than v1.0.8 on every transfer, and both aggregate performance bounds pass. It is also the condition that produced the two allocation failures described in §8.1, so the gate is flagging a real operational constraint.
 
-## 9. Discussion, limitations, reproducibility, and historical appendix
+Everything else passes: completion, candidate validity across all 28 outputs, determinism across all seven transfers, aggregate all-feature completeness, both aggregate performance upper bounds, every per-transfer wall-time and memory gate, and every per-transfer non-regression delta gate. The honey-bee absolute transcript floor is the stated per-transfer biological exception.
+
+The status applies only to the seven prespecified transfers under the recorded protocol. The whole-release label remains **DIAGNOSTIC ONLY**, because cohort membership was conditioned on transfers that had previously completed. A cohort PASS would only have meant that this assembly-matched study satisfied its contract. The observed FAIL identifies the blocking measurements and their documented interpretation; it does not justify a universal causal explanation.
+
+## 9. Discussion
 
 ### 9.1 What the results support
 
-The endpoint comparison supports three engineering conclusions. First, the cumulative v1.0.8→v1.0.11 path dramatically reduces command RSS on many difficult loci and complete genomes while improving aggregate wall time. Second, broader gene-like hierarchy handling raises all-feature completeness and stable-ID retention without a controlled-panel coding-recovery collapse. Third, protein-aware selection and ORF repair improve CovPI, threshold recall, common-set identity, and structural recall in the controlled panels.
+The failed conjunctive contract supports a narrow endpoint claim while refusing a broader release qualification.
 
-The end-to-end result qualifies all three. On bee, the candidate is almost neutral in coding recovery and slightly favorable across several quality measures. On human and mouse, broader feature retention and recovered-set mean identity improve while coding recovery, CovPI, and structural recalls decline. Because the observed E2E sample is three cases, and because two plant controls fail, these cells cannot establish a general default-rescue superiority claim. They are a lower-bound warning that endpoint gains do not automatically transfer to every full pipeline outcome.
+What is supported is an endpoint difference with several independent operational dimensions. Every candidate output passes structural validation where every v1.0.8 output records errors; identifier preservation improves from as little as 0.052 to 0.866 or better; every transfer is faster and uses less sampled process-group memory; and the target-sequence metrics are modestly higher on all seven transfers. Gene-locus F1 is statistically tied. Determinism holds across repetitions and scheduling conditions.
 
-The validity result is similarly instructive. Transactional baseline validation and deterministic publication remove broad classes of partial or order-dependent output. They did not detect one cross-sequence relationship checked by qualification. The appropriate response is layered validation and explicit validator scope, not a claim that successful exit is equivalent to a biologically coherent annotation.
+v1.0.11 does not recover more coding content: it recovers slightly less while carrying more of the broader source hierarchy, and the missing models are enriched for weak protein matches. Whether that exchange is acceptable depends on whether a consumer prioritizes conservative coding models or maximal candidate recovery.
 
-### 9.2 Limitations
+The separately released target annotations add evidence unavailable from source retention alone: they ask whether retained content overlaps another annotation project on the destination coordinates and implies similar proteins. They remain computational comparators, can share upstream evidence with RefSeq sources, and do not establish independent biological truth. Their value is complementary measurement, not conversion of concordance into validation.
 
-1. **One non-exclusive host.** The campaign uses paired order reversal and bounded admission but not dedicated hardware. Background computation, filesystem contention, cache state, and I/O stalls can affect ratios. The measurements estimate throughput in the observed environment, not a portable hardware constant.
-2. **Several concurrency epochs.** Subset, full, and end-to-end continuations use different recorded ceilings. Each panel's selected roots remain visible in provenance. Panel results are not pooled across protocol types, but within-panel host conditions can still vary.
-3. **Reconstructed host metadata.** Source, plans, inputs, external annotation tools, and Python dependencies were frozen before execution. The final CPU, RAM, kernel, and GNU Time descriptions were reconstructed at finalization and should not be treated as continuous telemetry.
-4. **Command-level RSS.** GNU-time maximum RSS and the slot-sum proxy are reproducible wrapper statistics, not synchronized host-memory measurements. They support relative engineering decisions, not precise capacity planning.
-5. **Deterministically missing controls.** Five controlled complete genomes and two end-to-end plants have no v1.0.8 pair. The missingness is mechanistically informative and distinctly non-random. Observed ratios should not be extrapolated to those cases.
-6. **Corrected scoring is post-run.** The evaluator overlay repairs transcript-type equivalence and rehashes inputs. It cannot repair output, change timing, or turn a failed arm into a pair. It validates reduction, not execution.
-7. **Reference content is not target truth.** Completeness, PI, CovPI, intron-chain, ORF, and stable-ID metrics all depend on the reference annotation. Genuine target-specific loss, gain, alternative splicing, or rearrangement can make perfect retention biologically wrong.
-8. **Current validation is still layered.** The qualification validator catches the exact-tag cross-sequence parent defect that baseline publication misses. Neither validator establishes orthology or experimental expression.
-9. **Rescue changes the candidate population.** Controlled panels disable v1.0.11-only rescue; E2E enables it. Results answer different questions and cannot be numerically pooled.
-10. **Very-distant transfer remains recall-limited.** DNA anchoring loses sensitivity when synteny collapses. Protein-only rescue narrows but does not erase that gap, and permissive protein evidence increases paralogy risk.
-11. **Historical external comparisons are protocol-limited.** Liftoff and miniprot are measured broadly in the frozen appendix. LiftOver and CAT feasibility observations were sparse and prerequisite-dependent, so they are not promoted into a ranking.
-12. **No sealed `canonical-v2` truth results exist.** Truth-aware synthetic, orthology-backed, or curated-locus experiments are future work only. This report does not preview, infer, or simulate their outcome.
+### 9.2 Tradeoffs that should remain visible
 
-### 9.3 Reproducibility boundary
+Recovery and concordance pull in different directions. The v1.0.11 endpoint has slightly lower coding recovery, higher all-feature recovery, valid and more identifier-stable files, and modestly higher target-sequence concordance. The experiment was not factorial, so these changes cannot be causally assigned to conservative selection, hierarchy handling, rescue, or another individual mechanism. Keeping the measurements separate prevents one favorable endpoint from concealing another unfavorable one.
 
-An ordinary LiftOn run uses target then reference positional FASTA arguments:
+Performance and biology are gated independently so speed cannot purchase a pass by dropping difficult content. The endpoint is faster and uses less memory per transfer, yet the measured large-transfer peaks refute the planned two-transfer memory ceiling. The design cannot isolate the contributions of concurrency, bounded alignment, rescue, or validation.
+
+Dataset-level tables are therefore essential. Aggregate estimates describe the typical selected transfer; rows expose lineage, annotation-policy, and assembly differences. All per-transfer non-regression deltas pass, while eight aggregate lower bounds and the honey-bee absolute transcript floor do not.
+
+### 9.3 Implications for annotation practice
+
+For users, the largest practical differences are parseable output, stable identifiers, deterministic files, roughly seven-tenths the wall time, and nine-tenths the sampled process-group memory. These properties determine whether a lift-over integrates safely into a pipeline.
+
+The result also argues for scoring lift-overs against a separately released annotation on the destination assembly wherever one exists, with explicit assembly, provider, scope, and isoform-policy caveats. Source-relative identity alone reports near parity; the target comparison, validation, and identifier measures reveal other endpoint differences.
+
+The memory result is also a capacity warning: human-sourced primate transfers peak near 170 GiB of summed RSS, so two should not be admitted under a 192-GiB ceiling.
+
+### 9.4 Release interpretation
+
+v1.0.11 is a single-fix release on top of v1.0.10, and the measured endpoint difference against v1.0.8 is cumulative rather than attributable to that fix. The patch itself addresses an ingestion failure in which a generated duplicate-identifier name collided with a name already present, aborting the run; that failure mode does not appear in this cohort because every input here ingests under both releases.
+
+The cohort verdict is FAIL and the release-level label remains diagnostic. This is not an across-the-board regression finding: the coding-completeness tradeoff is small but real, the intron-chain interval also excludes zero without a prespecified decomposition, six other source bounds fail on their lower limits, the bee floor is conditioned by comparator asymmetry, and the memory ceiling is genuinely exceeded. Conversely, the endpoint is better on validity, identifier stability, target-sequence concordance, elapsed time, and sampled process-group memory across the selected transfers.
+
+## 10. Limitations
+
+1. **Inference boundary.** Seven selected transfers cover one same-species insect assembly comparison, one insect species comparison, and five mammalian comparisons. They do not establish behavior for plants, fungi, polyploids, fragmented assemblies, very distant species, or every supported input dialect.
+
+2. **Comparison annotations are not truth.** RefSeq and the published bee annotation provide exact target coordinates but remain computational releases that can omit isoforms, contain errors, or share evidence with source annotations. No independent RNA-seq, long-read, proteomic, functional, or curated-locus evidence was used.
+
+3. **Matched-set and annotation-policy bias.** Protein RBH enriches for conserved one-to-one coding genes and underrepresents duplicates, non-coding genes, rapidly evolving genes, and lineage-specific content. Provider relationships are incomplete. Differences in curation and isoform multiplicity, especially the one-transcript-per-gene bee comparator, affect precision and recall.
+
+4. **Endpoint rather than ablation.** The releases differ in several algorithmic and execution capabilities. The study measures their deployable endpoints and cannot assign recovery, concordance, identifier, time, or memory changes to a single mechanism.
+
+5. **Shared-host performance.** AB/BA order and paired ratios reduce systematic bias but cannot eliminate cache state, NUMA effects, filesystem contention, or unrelated load. One-second summed process-group RSS can double-count shared pages or miss brief peaks; the concurrency proxy adds observed maxima rather than measuring simultaneous physical use.
+
+6. **Repetition and statistical scope.** Four repetitions expose order and gross variability, not long-term hardware variation. Bootstrap intervals resample seven transfers as clusters and do not describe a universal genome population. The 50 conjunctive engineering gates are qualification rules, not a multiple-testing-adjusted hypothesis suite; their confidence limits are estimation and decision bounds.
+
+7. **Threshold and scoring scope.** Coordinate results depend on the 0.50 reciprocal-overlap rule, with 0.25 and 0.80 used only for sensitivity. Target-sequence reconstruction is performed once per arm after output determinism is established. Structural validation is necessary but cannot prove orthology, expression, function, or the uniquely correct isoform.
+
+8. **Audited repairs.** The original execution produced paired artifacts for 26 of 28 planned cells, but only 22 were initially scoreable. Four dog→cat artifacts were scored after a single inverted-coordinate v1.0.8 row could be quarantined; one macaque and one marmoset repetition were re-executed after scheduler over-admission caused v1.0.8 allocation failures. Re-scoring preserved metrics, and re-executed outputs are byte-identical to their sibling repetitions, although their resource samples reflect lighter host load.
+
+9. **Prespecified bee floor.** The absolute transcript-locus floor assumes comparable isoform inventories. That assumption is poor for the bee comparator, but the observed failure is retained without post-hoc substitution.
+
+10. **Historical and future evidence.** The appendix uses functional SHA `7fc8419` under a different protocol and cannot alter the exact-tag verdict. No sealed `canonical-v2` truth-aware result exists; curated loci, synthetic mappings, scaling, and additional dialects remain future work.
+
+## 11. Reproducibility and evidence audit
+
+### 11.1 Ordinary use
+
+The positional FASTA order for an ordinary LiftOn invocation is target first, reference second:
 
 ```console
 lifton -g reference.gff3 -o lifton.gff3 target.fa reference.fa
 ```
 
-That order is important. Older prose sometimes placed the reference FASTA first; the ordinary v1.0.11 CLI and repository guidance use `target.fa reference.fa`.
+That order is intentional. The reference GFF3 describes `reference.fa`; annotations are generated on `target.fa`. Real runs also require minimap2 and miniprot on `PATH`.
 
-Report production is a separate read-only reduction. The selected controller roots are disjoint sources of successful pair documents; failed and pending cells remain in provenance but never become synthetic results. Panel rescoring can run concurrently because each overlay has a separate output root:
+### 11.2 Frozen study preparation
 
-```console
-python -m benchmarks.compare.release_rescore \
-  --runs-root /sealed/subset-controller \
-  --output-dir /sealed/publication/rescore/subset \
-  --threads 8 --allow-incomplete
-
-python -m benchmarks.compare.release_rescore \
-  --runs-root /sealed/full-controller \
-  --runs-root /sealed/full-continuation \
-  --output-dir /sealed/publication/rescore/full \
-  --threads 8 --allow-incomplete
-
-python -m benchmarks.compare.release_rescore \
-  --runs-root /sealed/e2e-source-controller \
-  --runs-root /sealed/e2e-pending-continuation \
-  --output-dir /sealed/publication/rescore/e2e \
-  --threads 8 --allow-incomplete
-```
-
-Here `--allow-incomplete` means “select successful pair documents from diagnostic roots.” It does not permit an incomplete overlay over the selected 196 pairs. The three overlays must cover each selected pair exactly once, use the same evaluator implementation, and agree with source and output hashes.
-
-The final diagnostic reduction is conceptually:
+Study preparation uses a declarative manifest that records the two exact SHAs, seven biological pairs, execution policy, statistics, gates, target annotation releases, and the honey-bee sequence-name mapping. Acquisition and preparation are separate so network state cannot change after a campaign begins. Representative commands are:
 
 ```console
-python -m benchmarks.compare.release_report \
-  --runs-root /sealed/subset-controller \
-  --runs-root /sealed/full-controller \
-  --runs-root /sealed/full-continuation \
-  --runs-root /sealed/e2e-source-controller \
-  --runs-root /sealed/e2e-pending-continuation \
-  --evaluation-root /sealed/publication/rescore/subset \
-  --evaluation-root /sealed/publication/rescore/full \
-  --evaluation-root /sealed/publication/rescore/e2e \
-  --output-dir /sealed/publication/lifton-v1.0.11-final-diagnostic \
-  --candidate-sha c623f0bddc5b5051a3670a3b0064c52cc61bb719 \
-  --reference-sha e503643d8346c600fedabcd3a4dff5c0873a4a37 \
-  --campaign-profile canonical-v1 \
-  --diagnostic
+python -m benchmarks.compare.whole_genome_study \
+  --cache-root /sealed/lifton-v1.0.11-biology-study acquire
+
+python -m benchmarks.compare.whole_genome_study \
+  --cache-root /sealed/lifton-v1.0.11-biology-study verify
+
+python -m benchmarks.compare.whole_genome_study \
+  --cache-root /sealed/lifton-v1.0.11-biology-study prepare \
+  --gffread /path/to/gffread --mmseqs /path/to/mmseqs \
+  --threads 8 --max-active 1
+
+python -m benchmarks.compare.provider_orthologs \
+  --cache-root /sealed/lifton-v1.0.11-biology-study \
+  --table /downloaded/gene_orthologs.gz
 ```
 
-Figures and tables consume the frozen publication bundle and failure audit. The historical figure additionally consumes the frozen four-way result document, but writes a separately labeled appendix asset:
+Long jobs run in detached tmux sessions, while controller state, logs, artifacts, heartbeats, and immutable plans—not session presence—define progress and completion.
+
+### 11.3 Canary and exact-release campaign
+
+The paired controller first compares fast and conservative exact-v1.0.11 execution on bee and human→gorilla and writes fingerprinted `fast-safe-canary.json`. Profile `biology-v1` then binds the seven IDs, four repetitions, eight threads, capability negotiation, released-target scoring, and balanced order.
+
+Before execution, the plan binds both worktree SHAs, executable, datasets, preflight, resources, timeouts, and admission policy. Each arm imports from its own clean worktree; SHA, input, capability, or cell-directory drift is fatal.
+
+### 11.4 Evidence repairs and how they were audited
+
+Two repairs were needed before the cohort was complete, and both are auditable rather than asserted.
+
+The **structural-record quarantine** records and skips an unusable target-annotation row instead of discarding the annotation. Because it changed scoring after 22 cells, `score-pair` rebuilt every result from its arm's release manifest, rehashed the published GFF3, and called the original scoring function. All 22 reproduced exactly except for the new integrity block, its artifact hash, and evaluator runtime; no metric, validation result, fingerprint, or lift profile changed. The four previously unscored dog→cat cells then used the same path.
+
+The **scheduler admission fix** made launched-but-not-yet-listable workers count against capacity. Two lost repetitions were re-executed in a continuation bound to the parent plan and host; both arms are byte-identical to their three sibling repetitions.
+
+For provider sensitivity only, NCBI Gene relationships outside the scored source scope are counted and dropped. The primary RBH scope remains fail-closed on unknown identifiers.
+
+### 11.5 Reduction, figures, and generated tables
+
+After all 28 pair documents are final, released-annotation sensitivity and the strict study reducer run without changing LiftOn outputs:
+
+```console
+python -m benchmarks.compare.released_annotation_sensitivity \
+  --preflight /sealed/lifton-v1.0.11-biology-study/study-preflight.json \
+  --provider-lock /sealed/lifton-v1.0.11-biology-study/provider-ortholog-lock.json \
+  --campaign-root /sealed/lifton-v1.0.11-biology-campaign \
+  --output /sealed/publication/released-annotation-sensitivity.json
+
+python -m benchmarks.compare.whole_genome_report \
+  --preflight /sealed/lifton-v1.0.11-biology-study/study-preflight.json \
+  --campaign-root /sealed/lifton-v1.0.11-biology-campaign \
+  --canary /sealed/lifton-v1.0.11-biology-study/fast-safe-canary.json \
+  --provider-lock /sealed/lifton-v1.0.11-biology-study/provider-ortholog-lock.json \
+  --output /sealed/publication/whole-genome-metrics.json
+```
+
+The reducer rehashes the study, preflight, canary, provider lock, every pair result, every score artifact, and every process-group trace. It requires the exact two release SHAs, exact pair inventory, four balanced repetitions, frozen modes and thread counts, one first-repetition target-sequence analysis, and complete target-coordinate evidence. It emits no cohort PASS for incomplete evidence.
+
+The characterisation of the coding-recovery difference reported in §5.3 is a separate read-only reduction over the same evidence. It partitions each transfer's coding transcripts into the sets only one release recovered and reports the identity distribution of each; it reads evaluation output only and runs no lift and no re-scoring:
+
+```console
+python -m benchmarks.compare.recovery_difference \
+  --campaign-root /sealed/lifton-v1.0.11-biology-campaign \
+  --output /sealed/publication/recovery-difference.json
+```
+
+Figures and tables are deterministic products of the reduced JSON:
 
 ```console
 python -m benchmarks.compare.release_report_figures \
-  --metrics /sealed/publication/lifton-v1.0.11-final-diagnostic/metrics.json \
-  --manifest /sealed/publication/lifton-v1.0.11-final-diagnostic/manifest.json \
-  --failure-audit /sealed/publication/selected-failure-audit.json \
-  --legacy-results benchmarks/compare/fourway_results.json \
-  --outdir /path/to/site/src/assets/reports/lifton-v1.0.11-technical-report
+  --whole-genome-metrics /sealed/publication/whole-genome-metrics.json \
+  --outdir src/assets/reports/lifton-v1.0.11-technical-report
 
 python -m benchmarks.compare.report_tables \
-  --release-metrics /sealed/publication/lifton-v1.0.11-final-diagnostic/metrics.json \
-  --release-manifest /sealed/publication/lifton-v1.0.11-final-diagnostic/manifest.json \
-  --failure-audit /sealed/publication/selected-failure-audit.json \
-  --update /path/to/site/src/content/reports/lifton-v1-0-11-technical-report.mdx
+  --whole-genome-metrics /sealed/publication/whole-genome-metrics.json \
+  --annotation-sensitivity /sealed/publication/released-annotation-sensitivity.json \
+  --recovery-difference /sealed/publication/recovery-difference.json \
+  --update src/content/reports/lifton-v1-0-11-technical-report.mdx
 
 python -m benchmarks.compare.report_tables \
-  --release-metrics /sealed/publication/lifton-v1.0.11-final-diagnostic/metrics.json \
-  --release-manifest /sealed/publication/lifton-v1.0.11-final-diagnostic/manifest.json \
-  --failure-audit /sealed/publication/selected-failure-audit.json \
-  --check /path/to/site/src/content/reports/lifton-v1-0-11-technical-report.mdx
+  --whole-genome-metrics /sealed/publication/whole-genome-metrics.json \
+  --annotation-sensitivity /sealed/publication/released-annotation-sensitivity.json \
+  --recovery-difference /sealed/publication/recovery-difference.json \
+  --check src/content/reports/lifton-v1-0-11-technical-report.mdx
 ```
 
-The reducer rejects a malformed audit, any audit key not equal to `metrics.json` `missing_keys`, a non-deterministic failure signature, a candidate-first count other than the sealed 14, candidate/reference SHA drift, manifest pair-inventory drift, duplicate generated regions, and table text that differs from source evidence. Existing legacy-only table commands remain available when failure-audit blocks are not requested.
+The `--check` operation reconstructs all nine generated regions and fails on textual drift. It validates the recovery document's schema, transfer inventory, count arithmetic, campaign binding, correspondence with coding-completeness deltas, and source-file hash. Figure generation validates the metrics fingerprint and expected inventory before writing assets. The historical figure is regenerated from its frozen four-way result document into a separately named file. No exact-release table reads historical values, and no historical statistic reads the seven-transfer metrics.
 
-### 9.4 Dataset-level exact-release appendix
+The website build then runs Astro content checks, unit tests, production build, indexing audit, and security audit. The indexing audit requires the direct report route to exist while the report remains absent from public report listings and the sitemap and retains `noindex`. This is a deliberate publication state, not an accidental hidden page.
 
-The following generated table is intentionally detailed. It prevents aggregate statements about accuracy, runtime, or memory from hiding an adverse dataset. Wall and RSS factors are shown as reference/candidate for readability, so values above one favor v1.0.11; the panel tables and figures use candidate/reference ratios, where values below one favor v1.0.11.
+## 12. Historical 17-genome cross-tool appendix
 
-{/* BEGIN GENERATED: release-cells */}
-| Panel | Benchmark | Reps | Candidate wall (s) | Reference wall (s) | Wall factor (reference/candidate) | Candidate peak RSS | RSS factor (reference/candidate) | Δ coding | Δ all-feature | Δ CovPI | Δ exact intron | Δ ORF valid | Δ common-set PI | Candidate valid |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| subset | arabidopsis | 4 | 219.19 | 223.67 | 1.02× | 0.56 GiB | 2.56× | +0.00000 | +0.00000 | +0.00011 | +0.00008 | +0.00040 | +0.00011 | yes |
-| subset | arabidopsis_to_lyrata | 4 | 258.79 | 220.98 | 0.86× | 0.55 GiB | 2.46× | -0.00008 | -0.00008 | +0.00826 | +0.00482 | +0.02324 | +0.00884 | yes |
-| subset | arabidopsis→rice | 4 | 75.00 | 71.34 | 0.96× | 0.44 GiB | 2.90× | +0.00000 | +0.00000 | +0.00025 | +0.00000 | +0.00024 | +0.00147 | yes |
-| subset | bee | 4 | 93.16 | 128.16 | 1.34× | 0.47 GiB | 23.55× | +0.00000 | +0.00000 | +0.00087 | +0.00064 | +0.00319 | +0.00087 | yes |
-| subset | candida_albicans_to_dubliniensis | 4 | 17.38 | 16.16 | 0.93× | 0.32 GiB | 0.79× | +0.00000 | +0.00000 | +0.00133 | +0.00074 | +0.00591 | +0.00137 | yes |
-| subset | celegans_to_briggsae | 4 | 80.50 | 98.06 | 1.22× | 0.50 GiB | 17.13× | +0.00451 | +0.00387 | +0.00380 | +0.00265 | +0.00742 | +0.00597 | yes |
-| subset | cerevisiae_to_pombe | 4 | 4.47 | 4.00 | 0.92× | 0.26 GiB | 1.13× | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | yes |
-| subset | chicken_to_quail | 4 | 427.79 | 736.91 | 1.72× | 0.55 GiB | 18.89× | +0.00000 | +0.00000 | +0.00772 | +0.00055 | +0.02040 | +0.00799 | yes |
-| subset | drosophila | 4 | 186.24 | 178.52 | 0.96× | 0.52 GiB | 4.81× | +0.00000 | +0.00000 | +0.00365 | +0.00221 | +0.00759 | +0.00371 | yes |
-| subset | drosophila_to_anopheles | 4 | 49.80 | 45.72 | 0.93× | 0.43 GiB | 1.65× | -0.00083 | -0.00083 | -0.00027 | +0.00014 | +0.00055 | +0.00185 | yes |
-| subset | fly_mel_to_pseudoobscura | 4 | 180.50 | 154.19 | 0.85× | 0.52 GiB | 4.89× | -0.00124 | -0.00137 | +0.01017 | +0.00165 | +0.03213 | +0.01379 | yes |
-| subset | human_ensembl_gtf | 4 | 56.77 | 71.59 | 1.26× | 0.37 GiB | 25.43× | +0.00000 | +0.00000 | +0.00083 | -0.00169 | +0.00464 | +0.00083 | yes |
-| subset | human_mane | 4 | 13.67 | 14.96 | 1.10× | 0.36 GiB | 4.30× | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | yes |
-| subset | human_pseudogene_stress | 4 | 208.50 | 251.91 | 1.21× | 0.55 GiB | 15.46× | +0.00000 | +0.00000 | +0.00066 | +0.00093 | +0.00186 | +0.00066 | yes |
-| subset | human_to_chimp | 4 | 564.97 | 727.44 | 1.28× | 0.62 GiB | 18.73× | +0.00000 | +0.00000 | +0.00087 | +0.00257 | +0.00070 | +0.00088 | yes |
-| subset | human_to_mouse | 4 | 102.47 | 94.53 | 0.93× | 0.51 GiB | 13.79× | -0.00032 | -0.00007 | +0.01229 | +0.00486 | +0.04601 | +0.01482 | yes |
-| subset | human→zebrafish | 4 | 30.70 | 27.30 | 0.89× | 0.39 GiB | 0.95× | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | yes |
-| subset | mouse | 4 | 330.67 | 855.25 | 2.56× | 0.82 GiB | 58.32× | +0.00000 | +0.00000 | +0.00054 | +0.00061 | +0.00171 | +0.00057 | yes |
-| subset | mouse_to_rat | 4 | 96.91 | 125.56 | 1.31× | 0.54 GiB | 21.64× | +0.00000 | +0.00000 | +0.00396 | -0.00043 | +0.01665 | +0.00437 | yes |
-| subset | rice | 4 | 109.09 | 113.88 | 1.04× | 0.66 GiB | 2.22× | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | yes |
-| subset | rice_to_sorghum | 4 | 101.75 | 82.97 | 0.82× | 0.44 GiB | 0.98× | -0.00051 | -0.00051 | +0.00778 | +0.00137 | +0.02256 | +0.01068 | yes |
-| subset | maize | 4 | 194.56 | 189.96 | 0.97× | 0.64 GiB | 2.76× | -0.00012 | -0.00021 | +0.00378 | +0.00129 | +0.00668 | +0.00399 | yes |
-| subset | tomato | 4 | 114.79 | 141.03 | 1.23× | 0.55 GiB | 3.76× | +0.00000 | +0.00000 | +0.00350 | +0.00000 | +0.00510 | +0.00352 | yes |
-| subset | human→gorilla | 4 | 111.20 | 139.53 | 1.25× | 0.58 GiB | 72.51× | +0.00000 | +0.00000 | +0.00435 | +0.00065 | +0.00616 | +0.00435 | yes |
-| subset | mouse→caroli | 4 | 383.36 | 860.29 | 2.24× | 0.73 GiB | 66.84× | +0.00000 | +0.00000 | +0.00405 | +0.00110 | +0.00698 | +0.00415 | yes |
-| subset | tomato→potato | 4 | 35.59 | 31.87 | 0.89× | 0.45 GiB | 1.03× | +0.00000 | +0.00000 | +0.00033 | +0.00000 | +0.00123 | +0.00295 | yes |
-| subset | dog→cat | 4 | 149.11 | 155.61 | 1.04× | 0.52 GiB | 6.51× | +0.00000 | +0.00000 | +0.01675 | +0.00202 | +0.02455 | +0.01718 | yes |
-| subset | human→macaque | 4 | 116.07 | 139.93 | 1.21× | 0.48 GiB | 73.25× | +0.00000 | +0.00000 | +0.00369 | +0.00162 | +0.00940 | +0.00370 | yes |
-| subset | human→marmoset | 4 | 118.28 | 141.70 | 1.19× | 0.50 GiB | 71.21× | +0.00000 | +0.00000 | +0.00873 | -0.00130 | +0.01426 | +0.00882 | yes |
-| subset | drosophila→bee | 4 | 34.52 | 32.77 | 0.95× | 0.38 GiB | 1.85× | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | +0.00000 | yes |
-| subset | human→chicken | 4 | 49.11 | 40.87 | 0.83× | 0.41 GiB | 5.25× | -0.00097 | -0.00036 | +0.00271 | -0.00065 | +0.00518 | +0.01413 | yes |
-| subset | human→xenopus | 4 | 29.86 | 26.76 | 0.89× | 0.34 GiB | 1.25× | -0.00033 | -0.00015 | +0.00094 | +0.00000 | +0.00194 | +0.01422 | yes |
-| subset | yeast_cerevisiae_to_paradoxus | 4 | 10.69 | 9.56 | 0.89× | 0.26 GiB | 1.26× | +0.00131 | +0.00118 | +0.00127 | +0.00130 | +0.00130 | +0.00000 | yes |
-| subset | zebrafish_to_medaka | 4 | 40.17 | 37.28 | 0.93× | 0.42 GiB | 0.98× | +0.00000 | +0.00000 | +0.00035 | +0.00000 | +0.00202 | +0.00208 | yes |
-| full | arabidopsis→rice | 4 | 275.22 | 203.88 | 0.74× | 1.47 GiB | 0.98× | -0.00008 | +0.00099 | +0.00006 | -0.00006 | +0.00017 | +0.00072 | no |
-| full | bee | 4 | 576.06 | 1351.43 | 2.34× | 1.94 GiB | 11.63× | +0.00000 | +0.00077 | +0.00026 | -0.00047 | +0.00047 | +0.00027 | yes |
-| full | drosophila | 4 | 593.47 | 1013.70 | 1.72× | 1.92 GiB | 9.72× | -0.00003 | +0.00228 | +0.00104 | +0.00136 | +0.00305 | +0.00109 | yes |
-| full | human→zebrafish | 4 | 1692.05 | 1929.15 | 1.10× | 2.66 GiB | 16.63× | -0.00039 | +0.00036 | -0.00013 | +0.00000 | +0.00026 | +0.00331 | yes |
-| full | human→gorilla | 4 | 4821.50 | 8747.50 | 1.82× | 3.72 GiB | 12.31× | -0.00001 | +0.03065 | +0.00041 | +0.00054 | +0.00107 | +0.00046 | yes |
-| full | mouse→caroli | 4 | 4403.00 | 9383.00 | 2.20× | 3.24 GiB | 25.68× | -0.00019 | +0.03969 | +0.00143 | +0.00111 | +0.00235 | +0.00151 | yes |
-| full | dog→cat | 4 | 3146.85 | 3508.93 | 1.21× | 2.81 GiB | 15.70× | -0.00003 | +0.01759 | +0.00384 | +0.00164 | +0.00792 | +0.00396 | yes |
-| full | human→macaque | 4 | 6861.50 | 12057.50 | 1.76× | 3.64 GiB | 12.37× | -0.00002 | +0.02541 | +0.00102 | +0.00100 | +0.00364 | +0.00116 | yes |
-| full | human→marmoset | 4 | 6264.50 | 11294.00 | 1.75× | 3.62 GiB | 12.44× | -0.00002 | +0.02230 | +0.00148 | +0.00168 | +0.00519 | +0.00171 | yes |
-| full | drosophila→bee | 4 | 341.85 | 306.97 | 0.55× | 1.14 GiB | 7.09× | -0.00006 | +0.00036 | -0.00003 | +0.00000 | +0.00000 | +0.00000 | yes |
-| full | human→chicken | 4 | 3866.00 | 4891.50 | 1.26× | 3.05 GiB | 14.73× | -0.00073 | +0.00043 | +0.00084 | -0.00005 | +0.00159 | +0.00551 | yes |
-| full | human→xenopus | 4 | 2636.62 | 2565.30 | 1.02× | 2.61 GiB | 8.30× | -0.00010 | +0.00050 | +0.00017 | +0.00000 | +0.00042 | +0.00249 | yes |
-| e2e | bee | 4 | 1011.76 | 1850.57 | 1.84× | 3.81 GiB | 5.95× | +0.00004 | +0.00077 | +0.00031 | -0.00047 | +0.00047 | +0.00027 | yes |
-| e2e | human | 4 | 11274.50 | 17973.00 | 1.59× | 27.38 GiB | 1.79× | -0.00268 | +0.03162 | -0.00183 | -0.00142 | -0.00187 | +0.00015 | yes |
-| e2e | mouse | 4 | 5934.50 | 10585.00 | 1.78× | 23.08 GiB | 3.79× | -0.00120 | +0.04911 | -0.00077 | -0.00076 | -0.00033 | -0.00005 | yes |
-{/* END GENERATED: release-cells */}
+The earlier cross-tool experiment answers a broader but different question: how a fused DNA/protein annotation compares with Liftoff and miniprot across same-species, close, distant, and very-distant transfers. Its LiftOn candidate is functional SHA `7fc84192d85044c946eee5b90e0683eed722f9ea`, not the exact v1.0.11 tag. The study used a different execution protocol and did not compare every generated annotation with an assembly-matched released target annotation. It is retained because it shows the recovery–protein-agreement tradeoff across a divergence range that the seven-transfer cohort intentionally does not claim.
 
-The table contains only successful pairs. The seven missing logical cases appear in the failure-audit table, not as zeroes, infinities, or candidate-only rows. `arabidopsis_to_rice` remains present because both arms complete; its candidate-valid column is “no,” keeping the exact structural failure adjacent to otherwise finite performance and quality values.
-
-### 9.5 Historical 17-genome cross-tool appendix
-
-The earlier four-way study answers a question the exact-release campaign does not: how a fused annotation compares with its DNA and protein evidence sources across a divergence ladder. The full-genome set spans same-species, close, distant, and very-distant transfers. Its measured LiftOn candidate is functional SHA `7fc8419`, not an exact execution of the final tag. Intervening commits are not used to relabel the measurement. Historical values do not enter exact-release confidence intervals, gates, or verdicts.
-
-Five historical full-genome inputs illustrate robustness where v1.0.8 produced only a partial annotation or no scorable output:
-
-{/* BEGIN GENERATED: legacy-recovery */}
-| Full genome | LiftOn v1.0.8 recovered | LiftOn candidate (7fc8419) recovered | gain | LiftOn v1.0.8 completeness | LiftOn candidate (7fc8419) completeness |
-|---|---:|---:|---:|---:|---:|
-| arabidopsis | 13,618 | 48,207 | +34,589 | 28.21% (partial output) | 99.88% |
-| rice | 32,933 | 42,527 | +9,594 | 77.34% (partial output) | 99.88% |
-| maize | crash (no output) | 55,352 | — | crash (no output) | 96.53% |
-| tomato | crash (no output) | 44,160 | — | crash (no output) | 99.48% |
-| tomato→potato | crash (no output) | 41,265 | — | crash (no output) | 92.96% |
-{/* END GENERATED: legacy-recovery */}
-
-The recovery table is not a speed table. Comparing a crashed or partial run's elapsed time with a complete candidate run would reward incomplete work. It establishes only that the measured functional candidate completed and recovered reference coding models on those inputs.
-
-Across all 17 genomes, the candidate's recovered-set mean PI exceeds Liftoff. Common-recovered-set and coverage-weighted comparisons support the same direction against Liftoff. The size of the advantage generally increases with divergence, but the relationship is not claimed to be monotonic.
-
-{/* BEGIN GENERATED: legacy-accuracy */}
-| Whole genome | Divergence | Liftoff | *miniprot (evidence)* | LiftOn v1.0.8 | **LiftOn candidate (7fc8419)** | candidate − Liftoff |
-|---|---|---:|---:|---:|---:|---:|
-| arabidopsis | same | 0.99836 | 0.99619 | 0.99884 | **0.99905** | +0.00069 |
-| bee | same | 0.98071 | 0.98046 | 0.99024 | **0.99051** | +0.00980 |
-| maize | same | 0.91517 | 0.94732 | — | **0.95527** | +0.04010 |
-| rice | same | 0.99643 | 0.99352 | 0.99848 | **0.99831** | +0.00188 |
-| tomato | same | 0.96080 | 0.96498 | — | **0.97753** | +0.01673 |
-| drosophila | cross | 0.88695 | 0.91315 | 0.92106 | **0.92218** | +0.03523 |
-| human→gorilla | close | 0.95703 | 0.96009 | 0.97577 | **0.97710** | +0.02007 |
-| mouse→caroli | close | 0.90796 | 0.92541 | 0.94946 | **0.95252** | +0.04456 |
-| tomato→potato | close | 0.76163 | 0.84034 | — | **0.85923** | +0.09760 |
-| dog→cat | distant | 0.69504 | 0.83942 | 0.86795 | **0.87307** | +0.17803 |
-| human→macaque | distant | 0.89019 | 0.90994 | 0.93869 | **0.94092** | +0.05073 |
-| human→marmoset | distant | 0.80941 | 0.86379 | 0.89979 | **0.90182** | +0.09241 |
-| arabidopsis→rice | very distant | 0.30904 | 0.50982 | 0.54997 | **0.55066** | +0.24162 |
-| drosophila→bee | very distant | 0.22727 | 0.42797 | 0.49673 | **0.49674** | +0.26947 |
-| human→chicken | very distant | 0.15219 | 0.64493 | 0.77396 | **0.77934** | +0.62715 |
-| human→xenopus | very distant | 0.15840 | 0.60055 | 0.71792 | **0.72018** | +0.56178 |
-| human→zebrafish | very distant | 0.16318 | 0.54472 | 0.56313 | **0.56440** | +0.40122 |
-{/* END GENERATED: legacy-accuracy */}
-
-<ZoomFigure src={historicalCrossTool} alt="Historical 17-genome cross-tool figure comparing Liftoff in blue, miniprot in orange, LiftOn v1.0.8 in brown, and the measured LiftOn functional SHA 7fc8419 in green for recovered-set mean protein identity and coding completeness. The figure explicitly states that it is not exact-tag v1.0.11 evidence." variant="wide">
-  <strong>Figure 5.</strong> Historical cross-tool context. The measured green arm is functional SHA `7fc8419`. The panel is visually and statistically separate from Figures 1–4 and does not determine the exact-release verdict.
+<ZoomFigure src={historicalCrossTool} alt="Historical 17-genome cross-tool comparison. Liftoff is blue, miniprot is orange, LiftOn v1.0.8 is brown, and the measured LiftOn functional SHA 7fc8419 is green. Panels show recovered-set mean protein identity and source coding completeness and explicitly state that the green arm is not exact-tag v1.0.11 evidence." variant="wide">
+  <strong>Figure 5.</strong> Historical cross-tool context, kept statistically separate from Figures 1–4. The green arm is functional SHA `7fc8419`; none of these values enter the exact-release cohort gates.
 </ZoomFigure>
 
-Miniprot is unconstrained protein evidence rather than a reference-structured annotation lift. It recovers much more coding content after DNA synteny collapses. Through the distant tier, LiftOn often combines stronger organization with favorable common-set identity. At the very-distant tier, miniprot typically has much higher recall, and four of five common-set comparisons favor its protein model. The transition is an accuracy–recovery tradeoff, not evidence that one tool dominates across arbitrary evolutionary distance.
+The historical pattern illustrates why protein identity and recovery must be reported together. Liftoff preserves reference organization well when nucleotide synteny remains informative, but recovery falls at very large evolutionary distances. Miniprot often retains far more coding evidence there, yet it is not a hierarchy-preserving annotation lift and can select paralogous protein matches. The measured LiftOn candidate generally improves recovered-set protein identity over Liftoff while preserving a source-structured annotation, but at the most distant transfers its recovery remains far below unconstrained miniprot evidence. That is an accuracy–recovery tradeoff, not evidence that one tool dominates every evolutionary regime.
 
-{/* BEGIN GENERATED: legacy-completeness */}
-| Whole genome | Divergence | Liftoff | *miniprot (evidence)* | LiftOn v1.0.8 | **LiftOn candidate (7fc8419)** |
-|---|---|---:|---:|---:|---:|
-| arabidopsis | same | 99.90% | 99.92% | 28.21% | **99.88%** |
-| bee | same | 99.54% | 99.85% | 99.54% | **99.54%** |
-| maize | same | 96.91% | 99.88% | crash | **96.53%** |
-| rice | same | 99.90% | 99.96% | 77.34% | **99.88%** |
-| tomato | same | 99.52% | 99.97% | crash | **99.48%** |
-| drosophila | cross | 97.08% | 99.11% | 97.40% | **97.32%** |
-| human→gorilla | close | 89.65% | 99.97% | 89.66% | **89.25%** |
-| mouse→caroli | close | 97.27% | 99.79% | 97.27% | **96.90%** |
-| tomato→potato | close | 92.51% | 99.22% | crash | **92.96%** |
-| dog→cat | distant | 98.22% | 98.89% | 98.27% | **98.01%** |
-| human→macaque | distant | 89.12% | 99.78% | 89.14% | **88.41%** |
-| human→marmoset | distant | 88.99% | 99.63% | 89.01% | **88.27%** |
-| arabidopsis→rice | very distant | 1.55% | 76.67% | 14.82% | **14.82%** |
-| drosophila→bee | very distant | 0.59% | 66.73% | 8.46% | **8.46%** |
-| human→chicken | very distant | 23.99% | 85.63% | 24.89% | **24.37%** |
-| human→xenopus | very distant | 7.13% | 85.78% | 8.99% | **8.82%** |
-| human→zebrafish | very distant | 2.82% | 82.18% | 4.61% | **4.51%** |
-{/* END GENERATED: legacy-completeness */}
+Some historical v1.0.8 runs produced partial output or crashed, and later functional code recovered substantially more source coding content. Those observations are useful robustness history but cannot be converted into paired speed advantages: a partial or failed run has not completed the same work. Historical validator counts also use older reporting limits and are not presented as a commensurate leaderboard.
 
-The historical default-rescue A/B work adds 12,131 coding transcripts across these full genomes, but it uses a different protocol and functional candidate. It is not pooled with the rescue-disabled controlled panels or the exact-tag E2E results. Older validator counts are also omitted as a leaderboard because one validator capped errors at 50 while the current validator reports complete inventories; the raw counts are not commensurate.
+The appendix supports two forward-looking conclusions. First, complete genome transfer should be evaluated on biologically defensible pairs with target-coordinate evidence wherever possible, which motivates the present redesign. Second, very distant mapping needs a different truth-aware design that can distinguish lost synteny, correct protein-only rescue, paralogy, and true lineage-specific gain or loss. Such experiments belong to future `canonical-v2` work. No sealed `canonical-v2` measurements exist, so this report does not preview their result.
 
-### 9.6 Future truth-aware evaluation and conclusion
+## 13. Conclusion
 
-A stronger biological evaluation would bind transferred models to independently supported target loci. Synthetic rearrangements could provide exact source-to-target truth; curated ortholog sets could test paralog discrimination; high-confidence target annotations could measure locus, transcript, splice, and copy precision/recall. Such a campaign also needs explicit handling of true lineage-specific loss and gain so that reference retention is not automatically called correct.
+This study replaced a mixed execution inventory with one prespecified biological question: how exact LiftOn v1.0.11 and exact v1.0.8 behave when each transfers a complete source annotation to seven complete target genomes, and the result is compared with a released annotation on the same target assembly. The design bound raw inputs, annotations, ortholog scopes, exact code, paired order, resources, statistics and report generation, and it reported recovery, source-relative sequence and structure, target-coordinate and target-sequence concordance, identifier continuity, validity, determinism, time and memory without collapsing them into one score.
 
-Those experiments are reserved for a truth-aware `canonical-v2` profile. They are future work because no sealed `canonical-v2` result exists. This report neither forecasts a PASS nor borrows target-truth language for `canonical-v1` plausibility metrics.
+All seven transfers completed in four paired repetitions each, and the cohort **did not pass** its conjunctive contract: forty of fifty prespecified gates passed and ten failed. The memory ceiling is genuinely exceeded; the honey-bee floor is sensitive to a one-transcript-per-gene comparator; coding completeness is slightly lower; intron-chain recall is also lower without a prespecified causal decomposition; and six further source bounds fail on their lower confidence limits. No gate was redefined after its result was seen.
 
-The current evidence distinguishes exact-release behavior, historical comparisons, and contention-aware throughput. All reported values are generated from the immutable result documents, with missing or failed control cells retained as explicit limitations. The diagnostic conclusion is deliberately conservative: cumulative v1.0.11 engineering improves aggregate efficiency, broad annotation retention, stable identifiers, and most controlled protein/structure metrics, but the exact release is not qualified as a PASS. Incomplete deterministic controls, end-to-end lower-bound failures, shared-host performance outliers, and the exact-tag structural defect remain visible. That evidence boundary is more useful than a simpler success narrative because it tells users which gains are measured, which limitations are mechanistic, and which biological questions remain unanswered.
+The same evidence supports a narrower endpoint claim. Every one of the twenty-eight v1.0.11 outputs passes structural validation where every v1.0.8 output records errors; CDS identifier preservation rises from as little as 0.052 to at least 0.866; every selected transfer is faster and uses less sampled process-group memory, with equal-transfer geometric-mean ratios of 0.703× and 0.895×; and target-sequence concordance is modestly higher on all seven transfers within each arm's frozen comparison. The gene-locus F1 difference is not statistically distinguishable from zero. These results support file validity, identifier continuity, computational efficiency, and sequence/structure plausibility—not categorical identity of loci or independently proven biological correctness.
+
+The verdict exposes rather than averages away a genuine tradeoff: stronger file integrity and modestly higher target-sequence concordance accompany slightly lower coding recovery. Its acceptability depends on whether a consumer prioritizes conservative, joinable models or maximal candidate recovery.
+
+Finally, comparison with a separately released target annotation strengthens, but does not transform, the biological claim. It tests agreement with another representation on the destination coordinates; it does not prove expression, functional orthology, or unique locus truth. The report therefore ends with a diagnostic verdict and an explicit evidence boundary rather than a release-wide PASS.
