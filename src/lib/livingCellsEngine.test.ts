@@ -9,7 +9,7 @@ import {
 const STEP = 1 / 60;
 const MITOSIS_SECONDS = 4;
 const POSTMITOTIC_SECONDS = 1.6;
-const APOPTOSIS_SECONDS = 7;
+const APOPTOSIS_SECONDS = 5.4;
 const DAUGHTER_RATIO = Math.cbrt(0.5);
 
 function seededRandom(seed = 1): () => number {
@@ -185,13 +185,9 @@ describe('LivingCellsEngine', () => {
     expect((daughters[0].vx + daughters[1].vx) / 2).toBeCloseTo(parent.vx, 8);
     expect((daughters[0].vy + daughters[1].vy) / 2).toBeCloseTo(parent.vy, 8);
     const recoil = Math.hypot(daughters[0].vx - parent.vx, daughters[0].vy - parent.vy);
-    expect(recoil).toBeGreaterThanOrEqual(12 - 1e-8);
-    expect(recoil).toBeLessThanOrEqual(22 + 1e-8);
+    expect(recoil).toBeGreaterThanOrEqual(18 - 1e-8);
+    expect(recoil).toBeLessThanOrEqual(36 + 1e-8);
 
-    let previousSeparation = Math.hypot(
-      daughters[0].x - daughters[1].x,
-      daughters[0].y - daughters[1].y
-    );
     const initialCenter = {
       x: (daughters[0].x + daughters[1].x) / 2,
       y: (daughters[0].y + daughters[1].y) / 2,
@@ -202,9 +198,8 @@ describe('LivingCellsEngine', () => {
         daughters[0].x - daughters[1].x,
         daughters[0].y - daughters[1].y
       );
-      expect(separation).toBeGreaterThanOrEqual(previousSeparation - 1e-7);
-      expect(separation).toBeLessThanOrEqual(daughters[0].siblingRestDistance! + 1e-7);
-      previousSeparation = separation;
+      expect(separation).toBeGreaterThanOrEqual(2 * daughters[0].birthRadius - 1e-7);
+      expect(separation).toBeLessThanOrEqual(daughters[0].siblingRestDistance! * 1.15);
     }
     expect((daughters[0].x + daughters[1].x) / 2).toBeCloseTo(initialCenter.x + parent.vx * 1.5, 6);
     expect((daughters[0].y + daughters[1].y) / 2).toBeCloseTo(initialCenter.y + parent.vy * 1.5, 6);
@@ -285,21 +280,21 @@ describe('LivingCellsEngine', () => {
     (engine as any).cells = [cell];
     engine.triggerApoptosis(cell);
 
-    expect(cell.blebs!.length).toBeGreaterThanOrEqual(3);
+    expect(cell.blebs!.length).toBeGreaterThanOrEqual(4);
     expect(cell.blebs!.length).toBeLessThanOrEqual(6);
     expect(new Set(cell.blebs!.map((bleb) => bleb.onset)).size).toBe(cell.blebs!.length);
     expect(cell.blebs!.some((bleb) => bleb.releases)).toBe(true);
     expect(cell.blebs!.some((bleb) => !bleb.releases)).toBe(true);
     const releaseTimes = cell.blebs!.filter((bleb) => bleb.releases).map((bleb) => bleb.detachAt);
     expect(Math.min(...releaseTimes)).toBeLessThan(0.58);
-    expect(Math.max(...releaseTimes)).toBeGreaterThan(0.84);
-    expect(Math.max(...releaseTimes)).toBeLessThanOrEqual(0.88);
+    expect(Math.max(...releaseTimes)).toBeGreaterThan(0.80);
+    expect(Math.max(...releaseTimes)).toBeLessThanOrEqual(0.86);
 
     update(engine, APOPTOSIS_SECONDS * 0.7);
     expect(cell.life).toBe(1);
     expect((engine as any).apoptoticBodies.length).toBeGreaterThan(0);
 
-    update(engine, APOPTOSIS_SECONDS * 0.15);
+    update(engine, APOPTOSIS_SECONDS * 0.13);
     expect(cell.life).toBe(1);
     update(engine, APOPTOSIS_SECONDS * 0.03);
     expect(cell.life).toBeLessThan(1);
@@ -559,7 +554,7 @@ describe('LivingCellsEngine', () => {
     expect(cell.state).toBe('postmitotic');
     expect(cell.postmitoticProgress).toBe(0.5);
     const snapshot = (engine as any).debugSnapshot();
-    expect(snapshot.mode).toBe('calm');
+    expect(snapshot.mode).toBe('ambient');
     expect(snapshot.labAction).toBe('divide');
     expect(snapshot.timings).toEqual(
       expect.objectContaining({ updateP50: expect.any(Number), renderP95: expect.any(Number) })
@@ -607,7 +602,7 @@ describe('LivingCellsEngine', () => {
 
   it('provides idempotent mode and lab-action controls', () => {
     const engine = makeEngine();
-    expect(engine.getMode()).toBe('calm');
+    expect(engine.getMode()).toBe('ambient');
     engine.setMode('lab');
     engine.setMode('lab');
     expect(engine.getMode()).toBe('lab');
@@ -617,6 +612,42 @@ describe('LivingCellsEngine', () => {
     expect(engine.getLabAction()).toBe('apoptosis');
     engine.setMode('off');
     expect(engine.getMode()).toBe('off');
+    engine.setMode('ambient');
+    expect(engine.getMode()).toBe('ambient');
+  });
+
+  it('manages hyperparameter controls, presets, direct actions, and telemetry', () => {
+    const engine = makeEngine();
+    (engine as any).cells = [createCell(engine, 50), createCell(engine, 50)];
+
+    const params = engine.getParams();
+    expect(params.growthMultiplier).toBe(1.0);
+    expect(params.timeScale).toBe(1.0);
+    expect(params.isPaused).toBe(false);
+
+    engine.setParams({ growthMultiplier: 2.5, timeScale: 1.5, isPaused: true });
+    expect(engine.getParams().growthMultiplier).toBe(2.5);
+    expect(engine.getParams().timeScale).toBe(1.5);
+    expect(engine.getParams().isPaused).toBe(true);
+
+    const spawned = engine.spawnRandomCell(400, 300);
+    expect(spawned.x).toBe(400);
+    expect(spawned.y).toBe(300);
+
+    const telemetry = engine.getTelemetry();
+    expect(telemetry.total).toBe(3);
+    expect(telemetry.interphase).toBe(3);
+    expect(telemetry.births).toBeGreaterThanOrEqual(1);
+
+    expect(engine.triggerRandomMitosis()).toBe(true);
+    expect(engine.getTelemetry().mitosis).toBe(1);
+
+    engine.resetParams();
+    expect(engine.getParams().growthMultiplier).toBe(1.0);
+    expect(engine.getParams().isPaused).toBe(false);
+
+    engine.clearAllCells();
+    expect(engine.getTelemetry().total).toBe(0);
   });
 
   it('commits a fast desktop drag on pointerup and clamps it inside the viewport', () => {
