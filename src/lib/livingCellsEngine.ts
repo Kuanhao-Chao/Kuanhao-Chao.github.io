@@ -1213,9 +1213,18 @@ export class LivingCellsEngine {
   }
 
   private interactiveTarget(target: EventTarget | null): boolean {
+    if (!target || target === this.canvas) return false;
+    const el = target as HTMLElement | null;
+    if (!el) return false;
+    if (
+      el.tagName === 'CANVAS' &&
+      (el === this.canvas || el.id === 'lab-canvas' || el.hasAttribute('data-site-bg-canvas'))
+    ) {
+      return false;
+    }
     return Boolean(
-      (target as HTMLElement | null)?.closest(
-        'a, button, input, textarea, select, summary, label, dialog, h1, h2, h3, h4, h5, h6, p, li, dt, dd, blockquote, pre, code, figure, figcaption, picture, img, video, audio, canvas, iframe, svg, table, thead, tbody, tr, th, td, details, header, footer, [contenteditable="true"], [role="button"], [role="menuitem"], [role="dialog"], [role="log"], [data-cell-interaction="off"], [data-cell-protected], [data-game-root], [data-terminal]'
+      el.closest(
+        'a, button, input, textarea, select, summary, label, dialog, h1, h2, h3, h4, h5, h6, p, li, dt, dd, blockquote, pre, code, figure, figcaption, picture, img, video, audio, iframe, svg, table, thead, tbody, tr, th, td, details, header, footer, [contenteditable="true"], [role="button"], [role="menuitem"], [role="dialog"], [role="log"], [data-cell-interaction="off"], [data-cell-protected], [data-game-root], [data-terminal]'
       )
     );
   }
@@ -1505,7 +1514,7 @@ export class LivingCellsEngine {
     this.pointerSamples = [];
   }
 
-  private refreshEnvironment(): void {
+  public refreshEnvironment(): void {
     if (typeof window === 'undefined') return;
     this.coarse = window.matchMedia('(pointer: coarse)').matches;
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2607,7 +2616,7 @@ export class LivingCellsEngine {
   private effectiveAlpha(opacity = 1): number {
     const modeAlpha =
       this.mode === 'ambient' || this.mode === 'calm'
-        ? 0.8
+        ? 0.6
         : (this.simParams.visualAlpha ?? 1.0);
     return BASE_ALPHA * modeAlpha * this.visualScale * opacity;
   }
@@ -3167,12 +3176,12 @@ export class LivingCellsEngine {
     const level = clamp(brightness, 0.8, 1.25);
     const isLab = this.mode === 'lab';
     const alpha = this.effectiveAlpha(opacity);
-    const fillBase = isLab ? 0.095 : this.simParams.darkContrast ? 0.065 : 0.045;
+    const fillBase = isLab ? 0.105 : this.simParams.darkContrast ? 0.065 : 0.045;
     this.ctx.fillStyle = `rgba(${accent}, ${fillBase * level * alpha})`;
     this.ctx.fill();
-    this.ctx.lineWidth = grabbed ? 1.6 : hovered ? 1.35 : isLab ? 1.45 : 1.15;
+    this.ctx.lineWidth = grabbed ? 1.65 : hovered ? 1.4 : isLab ? 1.45 : 1.15;
     const strokeBase = isLab
-      ? (grabbed ? 0.22 : hovered ? 0.18 : 0.15)
+      ? (grabbed ? 0.24 : hovered ? 0.20 : 0.165)
       : this.simParams.darkContrast
       ? (grabbed ? 0.16 : hovered ? 0.13 : 0.105)
       : (grabbed ? 0.12 : hovered ? 0.092 : 0.082);
