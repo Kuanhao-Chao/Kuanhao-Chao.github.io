@@ -313,7 +313,7 @@
 .paper-article {
   max-width: var(--measure, 72ch);
   margin: 0 auto;
-  padding: 0 0.5rem var(--space-12, 3rem) 0.5rem;
+  padding: 0 var(--gutter, 1.25rem) var(--space-12, 3rem) var(--gutter, 1.25rem);
   color: var(--color-ink);
   line-height: var(--lh-normal, 1.75);
 }
@@ -769,36 +769,105 @@
 
 @media (max-width: 640px) {
   .paper-article {
-    padding-left: 0.25rem;
-    padding-right: 0.25rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-bottom: var(--space-10, 2.5rem);
+  }
+
+  .paper-article p {
+    font-size: 1.03rem;
+    line-height: 1.7;
+    margin-bottom: 1.15em;
+  }
+
+  .paper-article h2 {
+    margin-top: 2.25rem;
+    padding-top: 1.25rem;
+    font-size: clamp(1.35rem, 5vw, 1.65rem);
+  }
+
+  .paper-article h3 {
+    margin-top: 1.35rem;
+    margin-bottom: 0.5rem;
+    font-size: clamp(1.1rem, 4vw, 1.25rem);
+  }
+
+  .paper-article ul,
+  .paper-article ol {
+    padding-left: 1.25rem;
+    margin-bottom: 1.15em;
+  }
+
+  .paper-lead {
+    margin: 1.25rem 0 1.5rem 0;
+    padding-left: 0.85rem;
+    font-size: 1.0625rem;
+    line-height: 1.68;
+    border-left-width: 3.5px;
+  }
+
+  .paper-toc {
+    padding: 0.9rem 1.1rem;
+    margin: 1.35rem 0;
   }
 
   .paper-toc-list {
     grid-template-columns: 1fr;
-    gap: 0.35rem;
+    gap: 0.4rem;
+    padding-left: 1.25rem;
   }
 
   .paper-card {
-    padding: var(--space-4, 1rem);
+    padding: 1.1rem 1.15rem;
+    gap: 0.55rem;
+  }
+
+  .paper-authors-box {
+    padding: 0.85rem 1rem;
+    margin-top: 0.75rem;
+    gap: 0.4rem;
   }
 
   .paper-callout {
-    padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+    padding: 0.85rem 1rem;
+    margin: 1.25rem 0;
     border-left-width: 3.5px;
   }
 
   .paper-equation-card {
-    padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+    padding: 0.85rem 1rem;
+    margin: 1.25rem 0;
+  }
+
+  .paper-equation-body {
+    padding: 0.35rem 0;
+    font-size: clamp(0.92rem, 3.4vw, 1.15rem);
+  }
+
+  .paper-equation-legend {
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    font-size: 0.875rem;
+  }
+
+  .paper-fig-card {
+    margin: 1.35rem 0;
+  }
+
+  .paper-fig-header {
+    padding: 0.65rem 0.85rem;
   }
 
   .paper-fig-body {
-    padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+    padding: 0.85rem 1rem;
+    line-height: 1.65;
   }
 
   .paper-table th,
   .paper-table td {
-    padding: 0.5rem 0.65rem;
+    padding: 0.6rem 0.75rem;
     font-size: 0.84rem;
   }
 }
+
 
