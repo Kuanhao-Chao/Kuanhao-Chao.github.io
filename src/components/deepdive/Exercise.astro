@@ -1,0 +1,33 @@
+---
+import Icon from '../Icon.astro';
+
+/**
+ * A question with the answer folded away.
+ *
+ * `<details>` rather than JavaScript: it works before hydration, it works with
+ * JavaScript off, and it prints open in the PDF, so the printed lesson keeps its
+ * solutions instead of losing them to a collapsed widget.
+ */
+interface Props {
+  n?: number;
+  title?: string;
+  difficulty?: 'warm-up' | 'core' | 'stretch';
+}
+
+const { n, title, difficulty = 'core' } = Astro.props;
+---
+
+<section class="dd-exercise">
+  <header class="dd-exercise__head">
+    <Icon name="sliders" size={14} />
+    <span>Exercise{n !== undefined ? ` ${n}` : ''}{title ? ` — ${title}` : ''}</span>
+    <span class={`dd-exercise__tag dd-exercise__tag--${difficulty}`}>{difficulty}</span>
+  </header>
+
+  <div class="dd-exercise__prompt"><slot /></div>
+
+  <details class="dd-exercise__solution">
+    <summary>Show solution</summary>
+    <div class="dd-exercise__solution-body"><slot name="solution" /></div>
+  </details>
+</section>

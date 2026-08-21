@@ -1,0 +1,30 @@
+---
+/**
+ * A numbered figure wrapping inline SVG.
+ *
+ * The child is a slot rather than an HTML string, so no raw-HTML sink is involved
+ * and the figure stays outside audit-security's allowlist entirely.
+ *
+ * The SVG inside must draw with `currentColor` and the `--color-*` tokens rather
+ * than literal hex: a diagram authored in light mode and never checked in dark is
+ * the standard way these go wrong, and it is invisible to everything except a human
+ * looking at it.
+ */
+interface Props {
+  id?: string;
+  caption: string;
+  /** Text alternative. Required — a figure that cannot be described is decoration. */
+  alt: string;
+  /** Set false for a figure that only repeats the adjacent prose. */
+  wide?: boolean;
+}
+
+const { id, caption, alt, wide = false } = Astro.props;
+---
+
+<figure class={`dd-figure${wide ? ' dd-figure--wide' : ''}`} id={id}>
+  <div class="dd-figure__frame" role="img" aria-label={alt}>
+    <slot />
+  </div>
+  <figcaption class="dd-figure__caption">{caption}</figcaption>
+</figure>

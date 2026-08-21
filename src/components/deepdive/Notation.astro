@@ -1,0 +1,52 @@
+---
+import Katex from '../Katex.astro';
+
+/**
+ * The symbol table. Every derivation in the series opens with one, because the
+ * single most common way a reader loses a derivation is meeting a symbol whose
+ * dimensions they have to reverse-engineer from context.
+ *
+ * `dims` is the column that makes this more than a glossary: stating that
+ * `\mathbf{A}` is N x N and `\mathbf{W}` is N x M turns a matrix identity into
+ * something the reader can check by shape before reading a word of it.
+ */
+interface Row {
+  /** LaTeX, without delimiters — e.g. `\\mathbf{A}`. */
+  symbol: string;
+  meaning: string;
+  /** Dimensions or units — "N x N", "scalar in [0,1]", "per generation". */
+  dims?: string;
+}
+
+interface Props {
+  rows: Row[];
+  title?: string;
+}
+
+const { rows, title = 'Notation' } = Astro.props;
+const showDims = rows.some((r) => r.dims);
+---
+
+<div class="dd-notation">
+  <div class="dd-notation__title">{title}</div>
+  <div class="dd-notation__scroll">
+    <table class="dd-notation__table">
+      <thead>
+        <tr>
+          <th scope="col">Symbol</th>
+          <th scope="col">Meaning</th>
+          {showDims && <th scope="col">Dimensions</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr>
+            <td class="dd-notation__sym"><Katex tex={r.symbol} /></td>
+            <td>{r.meaning}</td>
+            {showDims && <td class="dd-notation__dims">{r.dims ?? ''}</td>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>

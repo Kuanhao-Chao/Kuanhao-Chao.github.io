@@ -1,0 +1,33 @@
+---
+import { getEntry } from 'astro:content';
+
+/**
+ * An inline citation, resolved from the shared bibliography at build time.
+ *
+ * Author-year rather than a superscript number: numbering would require knowing
+ * each citation's position in the document, which components cannot see, and a
+ * wrong number is worse than no number. Author-year also survives being read aloud
+ * and being printed.
+ *
+ * An unknown key throws at build rather than rendering an empty marker — the same
+ * failure mode as the twelve missing icons, which rendered as empty <svg> for
+ * months precisely because they failed quietly.
+ */
+interface Props {
+  id: string;
+}
+
+const { id } = Astro.props;
+const entry = await getEntry('deepDiveReferences', id);
+if (!entry) {
+  throw new Error(
+    `<Citation id="${id}"> has no entry in src/content/deepDiveReferences/references.yaml`
+  );
+}
+
+const { authors, year } = entry.data;
+const lead = authors[0].split(/\s+/).slice(-1)[0];
+const label = authors.length > 1 ? `${lead} et al. ${year}` : `${lead} ${year}`;
+---
+
+<a class="dd-cite" href={`#ref-${id}`} title={entry.data.title}>{label}</a>

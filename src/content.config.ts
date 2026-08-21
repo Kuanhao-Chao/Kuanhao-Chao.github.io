@@ -1,5 +1,5 @@
 import { defineCollection, reference } from 'astro:content';
-import { glob } from 'astro/loaders';
+import { file, glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
 const publications = defineCollection({
@@ -217,6 +217,87 @@ const reports = defineCollection({
     }),
 });
 
+// ── Deep dives ───────────────────────────────────────────────────────────────
+// The curriculum behind /deep_dives/. These were 21 hand-authored .astro pages
+// that each repeated the same chrome — back-link, badges, byline, a hand-numbered
+// table of contents — and hard-coded their own metadata, with a second copy of
+// title/level/reading-time living in `src/data/deepDives.ts`. Two copies of a fact
+// is a drift mechanism, and it drifted: every lesson claimed roughly 2.5x its
+// actual reading time.
+//
+// Migration is one lesson at a time. `getStaticPaths` emits only the slugs present
+// here, so an unmigrated `foo.astro` and this collection coexist; the .astro is
+// deleted in the same commit its .mdx lands (a test in src/lib/deepDives.test.ts
+// fails if both exist, because then two routes would claim one URL).
+
+/** One bibliography entry, cited by key from any number of lessons. */
+const deepDiveReferences = defineCollection({
+  loader: file('./src/content/deepDiveReferences/references.yaml'),
+  schema: z.object({
+    authors: z.array(z.string()).min(1),
+    year: z.number().int(),
+    title: z.string(),
+    venue: z.string(),
+    doi: z.string().optional(),
+    url: z.url().optional(),
+    pmid: z.string().optional(),
+    // When the link was last confirmed to resolve to the work it claims. A citation
+    // is only as good as its last check, and an unchecked one is a claim, not a source.
+    verified: z.coerce.date(),
+  }),
+});
+
+const deepDives = defineCollection({
+  loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/deepDives' }),
+  schema: ({ image }) =>
+    z.object({
+      title: z.string(),
+      /** Short form for cards, breadcrumbs and prev/next, where the full title will not fit. */
+      shortTitle: z.string().optional(),
+      description: z.string(),
+      abstract: z.string(),
+      date: z.coerce.date(),
+      updated: z.coerce.date().optional(),
+      authors: z.array(z.string()).default(['Kuan-Hao Chao']),
+
+      // Curriculum position. `theory` lessons own definitions, assumptions and
+      // derivations; `workflow` lessons own data handling, commands and diagnostics
+      // and link back to the theory. That split is what resolves the overlap between
+      // the statgen-* and gwas-* series, which currently both cover HWE, LD, mixed
+      // models, fine-mapping and PRS with no declared relationship.
+      track: z.enum(['theory', 'workflow', 'elective']),
+      hub: z.enum(['statistical-genetics', 'gwas']).default('statistical-genetics'),
+      moduleId: z.string(),
+      moduleLabel: z.string(),
+      order: z.number().int(),
+      level: z.enum(['foundational', 'intermediate', 'advanced']),
+      category: z.enum([
+        'statistical-genetics',
+        'sequence-analysis',
+        'gene-regulation',
+        'epigenomics',
+        'pangenomics',
+        'deep-learning',
+      ]).default('statistical-genetics'),
+
+      // The educational contract. A lesson states what a reader will be able to do
+      // and what they need first; both are rendered, so an empty promise is visible.
+      objectives: z.array(z.string()).min(1),
+      prerequisites: z.array(reference('deepDives')).default([]),
+      relatedLessons: z.array(reference('deepDives')).default([]),
+      referenceIds: z.array(reference('deepDiveReferences')).default([]),
+
+      // NOTE: there is deliberately no `readingTime` field. It is computed from the
+      // body by `lessonReadingTime`, and a test rejects frontmatter that sets one.
+
+      tags: z.array(z.string()).default([]),
+      image: image().optional(),
+      imageAlt: z.string().optional(),
+      draft: z.boolean().default(false),
+      featured: z.boolean().default(false),
+    }),
+});
+
 export const collections = {
   publications,
   presentations,
@@ -225,4 +306,6 @@ export const collections = {
   news,
   posts,
   reports,
+  deepDives,
+  deepDiveReferences,
 };
