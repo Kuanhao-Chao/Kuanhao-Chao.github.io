@@ -6,7 +6,7 @@ import '../../styles/deepDive.css';
 import 'katex/dist/katex.min.css';
 
 const title = "The Modern Synthesis: Statistical Genetics Meets Deep Learning & Foundation Models";
-const description = "A visionary synthesis of statistical genetics and AI genomics — integrating sequence models (Borzoi, AlphaGenome) and genomic language models (GPN-Star) with fine-mapping, Stratified LDSC, and rare variant testing.";
+const description = "A first-principles exploration of how regulatory sequence models (Borzoi, Enformer, AlphaGenome) and genomic language models (GPN-Star) integrate with statistical genetics for functional fine-mapping, rare-variant scoring, and experimental causal validation.";
 const readingTime = "22 min read";
 ---
 
@@ -23,7 +23,7 @@ const readingTime = "22 min read";
     <header class="deep-dive-header">
       <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
         <span class="deep-dive-tag">Statistical Genetics · Part 10</span>
-        <span class="deep-dive-level-badge"><Icon name="sparkles" size={14} /> Synthesis & Frontier</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Frontier Synthesis</span>
         <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
       </div>
       <h1 class="deep-dive-title">{title}</h1>
@@ -36,7 +36,7 @@ const readingTime = "22 min read";
 
     <!-- Lead / Introduction -->
     <p class="deep-dive-lead">
-      For over a century, statistical genetics operated as an observational discipline—correlating phenotypic variance with population allele frequencies. Today, a profound revolution is underway: <strong>sequence-to-function deep neural networks</strong> (such as Borzoi and AlphaGenome) and <strong>phylogeny-aware genomic language models</strong> (such as GPN-Star) are merging directly into the mathematical machinery of statistical genetics. This final chapter explores how AI foundation models inform fine-mapping priors, enrich partitioned heritability models, empower rare-variant testing, and complete the modern synthesis of computational genomics.
+      For over a century, quantitative genetics modeled phenotypes as linear additive sums of discrete genotypes. However, the human genome is fundamentally non-linear, sequence-dependent, and 98% non-coding. Today, statistical genetics is experiencing a revolutionary convergence with <strong>deep learning regulatory foundation models</strong> (e.g. <strong>Borzoi</strong>, <strong>Enformer</strong>, <strong>AlphaGenome</strong>) and <strong>phylogeny-informed genomic language models</strong> (e.g. <strong>GPN-Star</strong>). This deep dive explores how neural sequence models perform <strong>in silico mutagenesis (ISM)</strong>, how their representations empower <strong>Bayesian fine-mapping (PolyFun)</strong> and <strong>rare variant tests (DeepRVAT)</strong>, and why <strong>experimental functional assays (MPRA, CRISPR editing)</strong> remain the indispensable gold standard for biological causality.
     </p>
 
     <!-- Table of Contents -->
@@ -45,66 +45,71 @@ const readingTime = "22 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="deep-dive-toc-list">
-        <li><a href="#frontier">1. From Observational Correlations to Mechanistic Sequence Models</a></li>
-        <li><a href="#models">2. The Deep Genomic Foundation Architecture</a></li>
-        <li><a href="#fine-mapping">3. Functionally Informed Bayesian Fine-Mapping (Sniff & PolyFun)</a></li>
-        <li><a href="#learned-sldsc">4. Stratified LDSC with Learned Neural Embeddings</a></li>
-        <li><a href="#deep-rvat">5. Neural Rare Variant Testing (DeepRVAT)</a></li>
-        <li><a href="#master-table">6. Master Comparative Synthesis: All 10 Pillars of Statistical Genetics</a></li>
-        <li><a href="#conclusion">7. The Future of Computational Statistical Genetics</a></li>
+        <li><a href="#limitations">1. The Non-Coding Challenge & Limitations of Linear Models</a></li>
+        <li><a href="#architectures">2. Regulatory Sequence Foundation Models: Enformer, Borzoi & AlphaGenome</a></li>
+        <li><a href="#ism">3. In Silico Mutagenesis (ISM) & Molecular Phenotyping</a></li>
+        <li><a href="#symbiosis">4. The Symbiosis: Integrating Neural Features into Statistical Genetics</a></li>
+        <li><a href="#attribution">5. Feature Attribution & Mechanistic Interpretability</a></li>
+        <li><a href="#pitfalls">6. Methodological Pitfalls & The Experimental Causal Imperative</a></li>
+        <li><a href="#master-comparison">7. Master Statistical Genetics Comparison Matrix</a></li>
       </ol>
     </div>
 
     <!-- Chapter 1 -->
-    <section id="frontier">
-      <h2>1. From Observational Correlations to Mechanistic Sequence Models</h2>
+    <section id="limitations">
+      <h2>1. The Non-Coding Challenge & Limitations of Linear Models</h2>
       <p>
-        Classical statistical genetics treats DNA variants as abstract index variables (<Katex tex="X_{ij} \in \{0, 1, 2\}" />), ignoring the physical sequence of surrounding nucleotides.
-        However, human biology is dictated by the precise chemical grammar of promoters, enhancers, splicing branchpoints, and transcription factor binding motifs.
+        Over 90% of GWAS significant loci map to the <strong>non-coding genome</strong> (enhancers, promoters, silencers, and non-coding RNAs). Classical linear statistical genetics treats each SNP as an independent categorical variable, ignoring the surrounding DNA sequence grammar (transcription factor binding motifs, helical spacing, chromatin loop anchors).
       </p>
       <p>
-        By feeding raw 1-megabase DNA windows into deep neural networks trained across thousands of functional genomics experiments (CAGE, RNA-seq, ChIP-seq, ATAC-seq), models learn to predict the exact biochemical consequence of any arbitrary mutation:
+        Deep learning regulatory sequence models bridge this gap by learning the direct mapping from raw 1D nucleotide sequence strings to high-dimensional continuous chromatin and expression profiles.
       </p>
-
-      <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Deep Regulatory Prediction Function</div>
-        <div class="deep-dive-equation-body">
-          <Katex tex="\hat{\mathbf{Y}} = f_\theta(\text{DNA Sequence}), \qquad \Delta \hat{\mathbf{Y}} = f_\theta(\text{Sequence}_{\text{alt}}) - f_\theta(\text{Sequence}_{\text{ref}})" display={true} />
-        </div>
-      </div>
     </section>
 
     <!-- Chapter 2 -->
-    <section id="models">
-      <h2>2. The Deep Genomic Foundation Architecture</h2>
+    <section id="architectures">
+      <h2>2. Regulatory Sequence Foundation Models: Enformer, Borzoi & AlphaGenome</h2>
+
       <div class="paper-table-wrap">
         <table class="paper-table">
           <thead>
             <tr>
-              <th>Model / Architecture</th>
-              <th>Sequence Receptive Field</th>
-              <th>Target Profiling Tracks</th>
-              <th>Primary Role in Statistical Genetics</th>
+              <th>Model</th>
+              <th>Receptive Field</th>
+              <th>Neural Architecture</th>
+              <th>Output Prediction Targets</th>
             </tr>
           </thead>
           <tbody>
             <tr>
+              <td><strong>SpliceAI / OpenSpliceAI</strong></td>
+              <td>10,000 bp</td>
+              <td>Dilated residual 1D CNNs</td>
+              <td>Splice donor and acceptor probabilities across pre-mRNA.</td>
+            </tr>
+            <tr>
+              <td><strong>Enformer (Avsec et al. 2021)</strong></td>
+              <td>196,608 bp (~200 kb)</td>
+              <td>Convolutional stem + Transformer self-attention</td>
+              <td>5,313 human CAGE-seq, ChIP-seq, and DNase-seq tracks at 128 bp resolution.</td>
+            </tr>
+            <tr>
               <td><strong>Borzoi (Linder et al. 2025)</strong></td>
-              <td>524 kb (dilated convolutions + U-Net)</td>
-              <td>7,611 tracks (calibrated strand-specific RNA-seq, CAGE, ChIP-seq)</td>
-              <td>Direct eQTL, sQTL, and non-coding regulatory variant effect prediction.</td>
+              <td>524,288 bp (~524 kb)</td>
+              <td>U-Net dilated convolutions + Attention</td>
+              <td>7,611 coverage tracks, including stranded RNA-seq expression across human and mouse tissues at 32 bp resolution.</td>
             </tr>
             <tr>
-              <td><strong>AlphaGenome (2026)</strong></td>
-              <td>1 Megabase (<Katex tex="10^6\text{ bp}" />)</td>
-              <td>Whole-genome epigenomic and transcriptomic tracks across 54 GTEx tissues</td>
-              <td>Tissue-specific enhancer-promoter rewiring and fine-mapping prior generation.</td>
+              <td><strong>AlphaGenome (2026 Nature)</strong></td>
+              <td>1,000,000 bp (1 Mb)</td>
+              <td>Multi-scale Hierarchical Genomic Transformer</td>
+              <td>Genome-wide chromatin 3D contact loops (Micro-C), epigenetic histone marks, and single-cell RNA transcript counts.</td>
             </tr>
             <tr>
-              <td><strong>GPN-Star (2025)</strong></td>
-              <td>Phylogeny-guided genomic language model (100 vertebrate genomes)</td>
-              <td>Cross-species evolutionary conservation and fitness scores</td>
-              <td>Pathogenicity classification and rare-variant deleteriousness scoring in DeepRVAT.</td>
+              <td><strong>GPN-Star (2025 bioRxiv)</strong></td>
+              <td>Phylogenetic context</td>
+              <td>Masked language model over multi-species alignments</td>
+              <td>Evolutionary conservation and cross-species zero-shot variant fitness scores.</td>
             </tr>
           </tbody>
         </table>
@@ -112,145 +117,170 @@ const readingTime = "22 min read";
     </section>
 
     <!-- Chapter 3 -->
-    <section id="fine-mapping">
-      <h2>3. Functionally Informed Bayesian Fine-Mapping (Sniff & PolyFun)</h2>
+    <section id="ism">
+      <h2>3. In Silico Mutagenesis (ISM) & Molecular Phenotyping</h2>
       <p>
-        In Part 6, we saw that SuSiE computes single-effect posterior inclusion probabilities (<Katex tex="\alpha_{lj}" />) weighted by prior probabilities <Katex tex="\boldsymbol{\pi}" />:
+        <strong>In Silico Mutagenesis (ISM)</strong> computationally evaluates the impact of any single nucleotide variant (SNV) or insertion/deletion by performing two forward passes through a trained regulatory sequence model:
       </p>
+
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Deep Neural Prior in SuSiE</div>
+        <div class="deep-dive-equation-header">In Silico Mutagenesis Delta Score</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\pi_j = \frac{\exp(\mathbf{z}_j^T \boldsymbol{\theta})}{\sum_{k=1}^M \exp(\mathbf{z}_k^T \boldsymbol{\theta})}" display={true} />
+          <Katex tex="\Delta \hat{\mathbf{y}}_j = f_\theta\left(\mathbf{s}_{\text{alt}, j}\right) - f_\theta\left(\mathbf{s}_{\text{ref}, j}\right)" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="\mathbf{z}_j" /> = Continuous prediction vector from Borzoi / AlphaGenome across cell-type-specific chromatin tracks.
+          <Katex tex="\mathbf{s}_{\text{ref}, j}" /> = 524 kb genomic DNA sequence centered at SNP <Katex tex="j" /> carrying the reference allele &emsp;|&emsp;
+          <Katex tex="\mathbf{s}_{\text{alt}, j}" /> = Identical sequence carrying the alternative allele &emsp;|&emsp;
+          <Katex tex="f_\theta" /> = Trained neural network.
         </div>
       </div>
+
       <p>
-        In benchmark studies on UK Biobank molecular traits, replacing uniform priors with deep learning regulatory priors boosted fine-mapping yield by <strong>+9.45%</strong> and reduced average 95% credible set sizes from 18.4 variants down to 4.2 variants per locus.
+        By computing <Katex tex="\Delta \hat{\mathbf{y}}_j" /> across specific tracks (e.g. liver-specific CAGE transcription, immune-cell H3K27ac), deep learning models predict the exact tissue-specific molecular consequence of uncharacterized non-coding variants.
       </p>
     </section>
 
     <!-- Chapter 4 -->
-    <section id="learned-sldsc">
-      <h2>4. Stratified LDSC with Learned Neural Embeddings</h2>
+    <section id="symbiosis">
+      <h2>4. The Symbiosis: Integrating Neural Features into Statistical Genetics</h2>
+
+      <h3>1. Functionally Informed Fine-Mapping (PolyFun + Sequence Embeddings)</h3>
       <p>
-        Instead of using discrete binary annotations (e.g. "is exon" / "is enhancer"), <strong>Embedding-Annotated S-LDSC</strong> uses continuous latent representations extracted from the penultimate layers of genomic foundation models:
+        Instead of treating all SNPs in an LD block as equally likely candidates, fine-mapping tools (SuSiE) incorporate empirical prior probabilities derived from deep sequence models:
+      </p>
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-body">
+          <Katex tex="\pi_j \propto \exp\left(\boldsymbol{\tau}^T \Delta \hat{\mathbf{y}}_j\right)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          Variants predicted to disrupt crucial transcription factor motifs receive higher prior inclusion probabilities, prioritizing true causal variants within dense credible sets.
+        </div>
+      </div>
+
+      <h3>2. Neural Weighting in Rare Variant Testing (DeepRVAT)</h3>
+      <p>
+        DeepRVAT replaces arbitrary minor allele frequency cutoffs with continuous functional embeddings extracted from AlphaMissense, SpliceAI, and AbSplice, achieving a <strong>+21.4% gain</strong> in exome-wide gene discovery power in 470,000 UK Biobank participants (Karczewski et al. 2024).
+      </p>
+
+      <h3>3. Stratified Heritability Partitioning with S-LDSC</h3>
+      <p>
+        Annotating the genome with continuous regulatory foundation model predictions allows S-LDSC to quantify the exact proportion of complex trait heritability concentrated in predicted functional elements (<Katex tex="\tau^*" />).
+      </p>
+    </section>
+
+    <!-- Chapter 5 -->
+    <section id="attribution">
+      <h2>5. Feature Attribution & Mechanistic Interpretability</h2>
+      <p>
+        How does a neural network determine that a specific base is critical? <strong>Gradient-based attribution methods</strong> compute the sensitivity of predicted molecular readouts with respect to individual input nucleotides:
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Continuous Embedding S-LDSC</div>
+        <div class="deep-dive-equation-header">Integrated Gradients Attribution (Sundararajan et al. 2017)</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\mathbb{E}[\chi^2_j] = 1 + N \sum_{k=1}^{D} \tau_k^* \ell_k(j) + N a" display={true} />
+          <Katex tex="\text{IG}_i(x) = (x_i - x_i') \times \int_{0}^{1} \frac{\partial f_\theta\left(x' + \alpha (x - x')\right)}{\partial x_i} d\alpha" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="\ell_k(j) = \sum_{m} r_{jm}^2 \mathbf{E}_{mk}" /> is the LD score with respect to the <Katex tex="k" />-th neural latent embedding dimension <Katex tex="\mathbf{E}" />.
+          <Katex tex="x_i" /> = Input one-hot encoded base at position <Katex tex="i" /> &emsp;|&emsp;
+          <Katex tex="x'" /> = Neutral baseline sequence &emsp;|&emsp;
+          Integrated Gradients prevents gradient saturation, identifying exact transcription factor binding motifs (e.g. CTCF, FOXA1, NF-κB) recognized by the network.
         </div>
       </div>
     </section>
 
-    <!-- Chapter 5 -->
-    <section id="deep-rvat">
-      <h2>5. Neural Rare Variant Testing (DeepRVAT)</h2>
+    <!-- Chapter 6 -->
+    <section id="pitfalls">
+      <h2>6. Methodological Pitfalls & The Experimental Causal Imperative</h2>
+
+      <div class="deep-dive-callout callout-warning">
+        <div class="deep-dive-callout-title">
+          <Icon name="alert-triangle" size={15} /> Sequence Co-Occurrence vs. Biochemical Causality
+        </div>
+        <p>
+          1. <strong>Attribution Artifacts:</strong> Deep neural models learn statistical sequence co-occurrences across the training genome. In genomic regions with strong evolutionary Linkage Disequilibrium, models can misattribute causal importance to passenger sequence motifs.
+          <br/>
+          2. <strong>Out-of-Distribution Generalization:</strong> Regulatory models trained on human reference genomes can struggle with complex structural variants (large inversions, duplications, transposable elements).
+          <br/>
+          3. <strong>Prediction is Not Proof:</strong> An in silico <Katex tex="\Delta \text{score}" /> constitutes a high-priority <strong>mechanistic hypothesis</strong>, not experimental proof of causality!
+        </p>
+      </div>
+
+      <h3>The High-Throughput Experimental Validation Pipeline</h3>
       <p>
-        By feeding Whole-Exome rare variants into <strong>GPN-Star</strong> and structural models (AlphaFold), DeepRVAT learns optimal gene-level neural aggregation weights, recovering massive disease associations previously missed by classical Burden and SKAT tests in 450,000 sequenced UK Biobank participants.
+        To establish definitive biological causality, predictions must undergo high-throughput functional validation:
+        <br/>
+        &bull; <strong>Massively Parallel Reporter Assays (MPRA):</strong> Synthesizes tens of thousands of reference and alternative oligonucleotides to measure autonomous transcriptional enhancer activity in vitro.
+        <br/>
+        &bull; <strong>CRISPR Base & Prime Editing:</strong> Introduces precise single nucleotide edits directly into endogenous native chromatin loci.
+        <br/>
+        &bull; <strong>Single-Cell Perturb-seq:</strong> Measures genome-wide single-cell transcriptomic perturbations following pooled CRISPR knockouts.
       </p>
     </section>
 
-    <!-- Chapter 6 -->
-    <section id="master-table">
-      <h2>6. Master Comparative Synthesis: All 10 Pillars of Statistical Genetics</h2>
+    <!-- Chapter 7 -->
+    <section id="master-comparison">
+      <h2>7. Master Statistical Genetics Comparison Matrix</h2>
       <div class="paper-table-wrap">
         <table class="paper-table">
           <thead>
             <tr>
-              <th>Domain</th>
-              <th>Flagship Tool / Framework</th>
+              <th>Method / Domain</th>
+              <th>Flagship Tool</th>
               <th>Primary Mathematical Target</th>
               <th>Core Input Data Required</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>1. Population Genetics</strong></td>
-              <td>Wright-Fisher / Kingman Coalescent</td>
-              <td><Katex tex="\mathbb{E}[T_{\text{MRCA}}] = 4N_e, \; D = \frac{\hat{\theta}_\pi - \hat{\theta}_S}{\text{SE}}" /></td>
-              <td>Allele frequency spectra / Haplotypes</td>
+              <td><strong>Population Structure</strong></td>
+              <td>EIGENSTRAT (Price 2006)</td>
+              <td>Top eigenvectors of sample covariance</td>
+              <td>Genotype dosage matrix</td>
             </tr>
             <tr>
-              <td><strong>2. Linkage Disequilibrium</strong></td>
-              <td>PRDM9 / HapMap Block Models</td>
-              <td><Katex tex="r^2 = \frac{D^2}{p_A q_A p_B q_B}, \; D_t = D_0 e^{-\theta t}" /></td>
-              <td>Genotype phasing panels</td>
+              <td><strong>Individual Heritability</strong></td>
+              <td>GCTA-GREML (Yang 2010)</td>
+              <td><Katex tex="\mathbf{V} = \sigma_g^2 \mathbf{A} + \sigma_e^2 \mathbf{I}" /></td>
+              <td>Individual genotypes + Phenotypes</td>
             </tr>
             <tr>
-              <td><strong>3. GREML Heritability</strong></td>
-              <td>GCTA (Yang et al. 2010)</td>
-              <td><Katex tex="\mathbf{V} = \mathbf{A}\sigma_g^2 + \mathbf{I}\sigma_e^2" /></td>
-              <td>Individual-level genotypes + Phenotypes</td>
+              <td><strong>Summary Heritability</strong></td>
+              <td>LDSC (Bulik-Sullivan 2015)</td>
+              <td><Katex tex="\mathbb{E}[\chi^2] = 1 + Na + \frac{Nh^2}{M}\ell" /></td>
+              <td>GWAS summary stats + LD panel</td>
             </tr>
             <tr>
-              <td><strong>4. Summary Heritability</strong></td>
-              <td>LDSC & S-LDSC (Bulik-Sullivan 2015)</td>
-              <td><Katex tex="\mathbb{E}[\chi^2_j] = 1 + \frac{Nh^2}{M}\ell_j + Na" /></td>
-              <td>GWAS summary statistics + LD panel</td>
+              <td><strong>Mixed Model Association</strong></td>
+              <td>REGENIE / BOLT-LMM</td>
+              <td><Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{g} + \boldsymbol{\epsilon}" /></td>
+              <td>Biobank cohort genotypes + Phenotypes</td>
             </tr>
             <tr>
-              <td><strong>5. Linear Mixed Models</strong></td>
-              <td>Regenie / BOLT-LMM / fastGWA</td>
-              <td><Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{u} + \boldsymbol{\epsilon}" /></td>
-              <td>Biobank cohorts (<Katex tex="N > 500\text{k}" />)</td>
-            </tr>
-            <tr>
-              <td><strong>6. Bayesian Fine-Mapping</strong></td>
-              <td>SuSiE (Wang & Stephens 2020)</td>
-              <td>PIPs & 95% Credible Sets (<Katex tex="\text{CS}_l" />)</td>
+              <td><strong>Bayesian Fine-Mapping</strong></td>
+              <td>SuSiE (Wang 2020)</td>
+              <td>Posterior Inclusion Probabilities (PIP) & 95% CS</td>
               <td>Z-scores + In-sample LD matrix <Katex tex="\mathbf{R}" /></td>
             </tr>
             <tr>
-              <td><strong>7. Rare Variant Testing</strong></td>
+              <td><strong>Rare Variant Association</strong></td>
               <td>SKAT-O / DeepRVAT</td>
               <td><Katex tex="\mathcal{Q}_\rho = \rho \mathcal{Q}_{\text{Burden}} + (1-\rho)\mathcal{Q}_{\text{SKAT}}" /></td>
               <td>WES / WGS variant matrices</td>
             </tr>
             <tr>
-              <td><strong>8. Polygenic Risk Scores</strong></td>
-              <td>LDpred2 / PRS-CS / PRS-CSx</td>
-              <td><Katex tex="\text{PRS}_i = \sum \hat{\beta}_j X_{ij}" /></td>
-              <td>Multi-ancestry summary stats + Genotypes</td>
+              <td><strong>Causal Inference</strong></td>
+              <td>IVW / MR-Egger / Sibling MR</td>
+              <td><Katex tex="\hat{\beta}_{\text{MR}} = \hat{\Gamma} / \hat{\gamma}" /></td>
+              <td>Bivariate GWAS summary statistics</td>
             </tr>
             <tr>
-              <td><strong>9. Causal Inference</strong></td>
-              <td>IVW / MR-Egger / Weighted Median</td>
-              <td><Katex tex="\hat{\beta}_{\text{IVW}} = \frac{\sum w_j \hat{\beta}_{Xj} \hat{\beta}_{Yj}}{\sum w_j \hat{\beta}_{Xj}^2}" /></td>
-              <td>Bivariate exposure-outcome GWAS stats</td>
-            </tr>
-            <tr>
-              <td><strong>10. AI Foundation Models</strong></td>
-              <td>Borzoi / AlphaGenome / GPN-Star</td>
-              <td><Katex tex="\hat{\mathbf{Y}} = f_\theta(\text{DNA Sequence})" /></td>
-              <td>Reference FASTA + Epigenomic tracks</td>
+              <td><strong>Regulatory Sequence AI</strong></td>
+              <td>Borzoi / AlphaGenome</td>
+              <td><Katex tex="\Delta \hat{\mathbf{y}} = f_\theta(\mathbf{s}_{\text{alt}}) - f_\theta(\mathbf{s}_{\text{ref}})" /></td>
+              <td>Reference FASTA sequence</td>
             </tr>
           </tbody>
         </table>
-      </div>
-    </section>
-
-    <!-- Chapter 7 -->
-    <section id="conclusion">
-      <h2>7. The Future of Computational Statistical Genetics</h2>
-      <p>
-        From Fisher's 1918 infinitesimal paper to modern billion-parameter genomic transformer models, statistical genetics remains the fundamental mathematical language that translates millions of discrete DNA base pairs into biological understanding, disease prevention, and therapeutic discovery.
-      </p>
-      <div class="deep-dive-callout">
-        <div class="deep-dive-callout-title">
-          <Icon name="book-open" size={15} /> Return to Master Guide
-        </div>
-        <p>
-          <a href="/deep_dives/statistical-genetics/" style="font-weight: 700; color: var(--color-accent);">
-            &larr; Return to Statistical Genetics Master Guide Overview
-          </a>
-        </p>
       </div>
     </section>
   </article>
