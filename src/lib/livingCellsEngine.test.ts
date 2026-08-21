@@ -742,11 +742,11 @@ describe('LivingCellsEngine', () => {
       scrollActivityRemaining: 0.5,
     });
     expect((engine as any).currentRenderInterval()).toBe(42);
-    expect((engine as any).effectiveDetailLevel()).toBe('reduced');
+    expect((engine as any).effectiveDetailLevel()).toBe('full');
 
     (engine as any).coarse = true;
     expect((engine as any).currentRenderInterval()).toBe(67);
-    expect((engine as any).effectiveDetailLevel()).toBe('minimal');
+    expect((engine as any).effectiveDetailLevel()).toBe('reduced');
 
     Object.assign(engine as any, {
       coarse: false,
@@ -767,7 +767,7 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).currentRenderInterval()).toBe(50);
     (engine as any).scrollActivityRemaining = 0.5;
     expect((engine as any).currentRenderInterval()).toBe(50);
-    expect((engine as any).effectiveDetailLevel()).toBe('minimal');
+    expect((engine as any).effectiveDetailLevel()).toBe('full');
 
     Object.assign(engine as any, {
       coarse: true,
@@ -1045,18 +1045,19 @@ describe('LivingCellsEngine', () => {
     expect((homepageMobile as any).targetCount).toBe(4);
   });
 
-  it('supports scaling cell population up to 300 in lab mode with multi-tier LOD', () => {
+  it('supports scaling cell population up to 300 in lab mode with always-full detail', () => {
     const engine = makeEngine();
     engine.setMode('lab');
     engine.setParams({ targetPopulation: 300 });
     expect(engine.getParams().targetPopulation).toBe(300);
     expect((engine as any).targetCount).toBe(300);
 
+    // Lab mode always renders full organelle detail regardless of population
     (engine as any).cells = Array.from({ length: 250 }, () => createCell(engine, 30));
-    expect((engine as any).effectiveDetailLevel()).toBe('minimal');
+    expect((engine as any).effectiveDetailLevel()).toBe('full');
 
     (engine as any).cells = Array.from({ length: 80 }, () => createCell(engine, 30));
-    expect((engine as any).effectiveDetailLevel()).toBe('reduced');
+    expect((engine as any).effectiveDetailLevel()).toBe('full');
 
     (engine as any).cells = Array.from({ length: 20 }, () => createCell(engine, 30));
     expect((engine as any).effectiveDetailLevel()).toBe('full');

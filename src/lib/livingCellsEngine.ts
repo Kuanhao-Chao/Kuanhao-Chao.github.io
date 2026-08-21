@@ -1936,7 +1936,7 @@ export class LivingCellsEngine {
       this.detailLevel =
         renderP95 > 5
           ? 'minimal'
-          : renderP95 > 3 || this.coarse || this.isHomepage
+          : renderP95 > 3
             ? 'reduced'
             : 'full';
     }
@@ -2891,18 +2891,15 @@ export class LivingCellsEngine {
     const rank: Record<DetailLevel, number> = { full: 0, reduced: 1, minimal: 2 };
     const fromRank = (value: number): DetailLevel =>
       value >= 2 ? 'minimal' : value >= 1 ? 'reduced' : 'full';
+    // Lab mode always renders full organelle detail
+    if (this.mode === 'lab') return 'full';
     let effectiveRank = rank[this.detailLevel];
     if (this.scrollActivityRemaining > 0)
-      effectiveRank = Math.max(effectiveRank, this.coarse || this.isHomepage ? 2 : 1);
+      effectiveRank = Math.max(effectiveRank, this.coarse ? 1 : 0);
     const profileLimit = this.coarse ? 6 : this.isHomepage ? 6 : 8;
     const paintedPopulation = this.cells.length + Math.ceil(this.apoptoticBodies.length * 0.5);
-    if (this.mode === 'lab') {
-      if (paintedPopulation > 120) effectiveRank = 2;
-      else if (paintedPopulation > 40) effectiveRank = Math.max(effectiveRank, 1);
-    } else {
-      if (paintedPopulation > profileLimit) effectiveRank = Math.max(effectiveRank, 1);
-      if (paintedPopulation > profileLimit + (this.coarse ? 4 : 4)) effectiveRank = 2;
-    }
+    if (paintedPopulation > profileLimit) effectiveRank = Math.max(effectiveRank, 1);
+    if (paintedPopulation > profileLimit + (this.coarse ? 4 : 4)) effectiveRank = 2;
     return fromRank(effectiveRank);
   }
 
@@ -3365,11 +3362,11 @@ export class LivingCellsEngine {
       }
     }
 
-    // Doubled chromosome karyotype (12 distinct chromosome pairs)
-    const count = 12;
-    const spacing = clamp(radius * 0.052, 0.9, 2.4);
-    const length = clamp(radius * 0.095, 1.5, 3.8);
-    const width = clamp(radius * 0.024, 0.55, 1.1);
+    // 1.5× chromosome karyotype (9 distinct chromosome pairs)
+    const count = 9;
+    const spacing = clamp(radius * 0.072, 1.2, 3.2);
+    const length = clamp(radius * 0.14, 2.4, 5.6);
+    const width = clamp(radius * 0.034, 0.8, 1.5);
     const prophase = windowed(progress, 0.02, 0.12) * (1 - windowed(progress, 0.31, 0.38));
     const metaphase = windowed(progress, 0.22, 0.32) * (1 - windowed(progress, 0.46, 0.51));
     const anaphase = windowed(progress, 0.44, 0.5) * (1 - windowed(progress, 0.68, 0.76));
