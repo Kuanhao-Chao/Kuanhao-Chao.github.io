@@ -141,3 +141,136 @@ describe('statgen-linkage-disequilibrium', () => {
     });
   });
 });
+
+describe('statgen-heritability-greml', () => {
+  const mdx = lesson('statgen-heritability-greml');
+
+  /** Falconer's ACE decomposition from the two twin correlations. */
+  const falconer = (rMZ: number, rDZ: number) => ({
+    h2: 2 * (rMZ - rDZ),
+    c2: 2 * rDZ - rMZ,
+    e2: 1 - rMZ,
+  });
+
+  describe("worked example — Falconer's estimator", () => {
+    const x = falconer(0.85, 0.5);
+
+    it('gives h² = 0.70, c² = 0.15, e² = 0.15', () => {
+      expect(x.h2).toBeCloseTo(0.7, 12);
+      expect(x.c2).toBeCloseTo(0.15, 12);
+      expect(x.e2).toBeCloseTo(0.15, 12);
+      expect(mdx).toContain('2(0.85 - 0.50) = 0.70');
+      expect(mdx).toContain('2(0.50) - 0.85 = 0.15');
+      expect(mdx).toContain('1 - 0.85 = 0.15');
+    });
+
+    it('has components that exhaust the variance', () => {
+      expect(x.h2 + x.c2 + x.e2).toBeCloseTo(1, 12);
+      expect(mdx).toContain('0.70 + 0.15 + 0.15 = 1.00');
+    });
+  });
+
+  describe('worked example — observed scale to liability scale', () => {
+    // Standard normal quantile and density, implemented here rather than imported so the
+    // test cannot agree with the lesson merely by sharing a bug with it.
+    const pdf = (z: number) => Math.exp(-(z * z) / 2) / Math.sqrt(2 * Math.PI);
+    /** Acklam's inverse normal CDF; accurate to ~1e-9, far beyond the 6 dp quoted. */
+    function invCdf(p: number): number {
+      const a = [-3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.38357751867269e2, -3.066479806614716e1, 2.506628277459239];
+      const b = [-5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1, -1.328068155288572e1];
+      const c = [-7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+      const d = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
+      const pl = 0.02425;
+      let q: number, r: number;
+      if (p < pl) {
+        q = Math.sqrt(-2 * Math.log(p));
+        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+      }
+      if (p <= 1 - pl) {
+        q = p - 0.5; r = q * q;
+        return ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+      }
+      q = Math.sqrt(-2 * Math.log(1 - p));
+      return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    }
+
+    const K = 0.01, P = 0.5, h2o = 0.2;
+    const T = invCdf(1 - K);
+    const zK = pdf(T);
+    const factor = (K * K * (1 - K) * (1 - K)) / (zK * zK * P * (1 - P));
+
+    it('locates the liability threshold at 2.326348', () => {
+      expect(T).toBeCloseTo(2.326348, 5);
+      expect(mdx).toContain('\\Phi^{-1}(0.99) = 2.326348');
+    });
+
+    it('gives a density height of 0.026652 there', () => {
+      expect(zK).toBeCloseTo(0.026652, 6);
+      expect(mdx).toContain('= 0.026652');
+    });
+
+    it('gives a conversion factor of 0.5519 and h²_l = 0.1104', () => {
+      expect(K * K * (1 - K) * (1 - K)).toBeCloseTo(0.00009801, 10);
+      // the lesson quotes this to 9 dp; asserting more precision than it prints
+      // tests the rounding, not the mathematics
+      expect(zK * zK * P * (1 - P)).toBeCloseTo(0.000177584, 9);
+      expect(factor).toBeCloseTo(0.5519, 4);
+      expect(h2o * factor).toBeCloseTo(0.1104, 4);
+      expect(mdx).toContain('= 0.00009801');
+      expect(mdx).toContain('= 0.000177584');
+      expect(mdx).toContain('= 0.5519');
+      expect(mdx).toContain('0.20 \\times 0.5519 = 0.1104');
+    });
+
+    it('overstates by more than 80% if left unconverted, as the lesson claims', () => {
+      expect(h2o / (h2o * factor) - 1).toBeGreaterThan(0.8);
+      expect(mdx).toContain('by more than 80%');
+    });
+  });
+
+  describe('exercise 1 — Falconer by hand', () => {
+    it('matches the published solution', () => {
+      const x = falconer(0.6, 0.4);
+      expect([x.h2, x.c2, x.e2]).toEqual([0.4, 0.2, 0.4].map((v) => expect.closeTo(v, 12)));
+      expect(x.h2 + x.c2 + x.e2).toBeCloseTo(1, 12);
+      expect(mdx).toContain('2(0.60 - 0.40) = 0.40');
+    });
+  });
+
+  describe('exercise 2 — when the model breaks', () => {
+    it('produces an out-of-range h² and a negative c², as claimed', () => {
+      const x = falconer(0.9, 0.3);
+      expect(x.h2).toBeCloseTo(1.2, 12);
+      expect(x.c2).toBeCloseTo(-0.3, 12);
+      expect(x.h2).toBeGreaterThan(1);
+      expect(x.c2).toBeLessThan(0);
+      expect(mdx).toContain('2(0.90 - 0.30) = 1.20');
+      expect(mdx).toContain('2(0.30) - 0.90 = -0.30');
+    });
+  });
+
+  describe('exercise 3 — GREML sample size', () => {
+    const nFor = (halfWidth: number) => 316 / (halfWidth / 1.96);
+
+    it('needs about 12,400 for a half-width of 0.05', () => {
+      expect(0.05 / 1.96).toBeCloseTo(0.02551, 5);
+      expect(Math.round(nFor(0.05) / 100) * 100).toBe(12400);
+      expect(mdx).toContain('\\frac{0.05}{1.96} = 0.02551');
+      expect(mdx).toContain('12{,}400');
+    });
+
+    it('needs about 31,000 for a half-width of 0.02', () => {
+      expect(Math.round(nFor(0.02) / 1000) * 1000).toBe(31000);
+      expect(mdx).toContain('31{,}000');
+    });
+  });
+
+  describe('figure 2 — the heritability gap', () => {
+    it('draws the four published estimates for height', () => {
+      for (const pct of ['10%', '45%', '68%', '80%']) expect(mdx).toContain('>' + pct + '<');
+      // and the caption's arithmetic: 80 − 10 = 70 points missing in 2010
+      expect(80 - 10).toBe(70);
+      expect(mdx).toContain('the &quot;missing&quot; 70 points');
+    });
+  });
+});
