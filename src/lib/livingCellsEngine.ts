@@ -405,8 +405,11 @@ export class LivingCellsEngine {
     darkContrast: false,
   };
 
-  public constructor(random: () => number = Math.random) {
-    this.random = random;
+  public constructor(randomFn?: () => number) {
+    this.random = randomFn ?? Math.random;
+    this.targetCount = this.coarse ? 4 : 6;
+    this.baseCount = this.targetCount;
+    this.refreshPalette();
   }
 
   private rand(min: number, max: number): number {
@@ -434,11 +437,19 @@ export class LivingCellsEngine {
         birthRadius: c.birthRadius,
         state: c.state,
         stateElapsed: c.stateElapsed,
+        growthProgress: c.growthProgress ?? 1,
+        growthDuration: c.growthDuration ?? 10,
+        life: c.life ?? 1,
+        mitosisProgress: c.mitosisProgress,
+        apoptosisProgress: c.apoptosisProgress,
         age: c.age,
         matureElapsed: c.matureElapsed,
         aspect: c.aspect,
         angle: c.angle,
         vAngle: c.vAngle,
+        wobblePhase: c.wobblePhase ?? 0,
+        breathPhase: c.breathPhase ?? 0,
+        morphPhase: c.morphPhase ?? 0,
         nucleusRatio: c.nucleusRatio,
         nucleusOffset: c.nucleusOffset,
         nucleusAngle: c.nucleusAngle,
@@ -504,16 +515,16 @@ export class LivingCellsEngine {
           birthRadius,
           angle: Number(item.angle) || 0,
           vAngle: Number(item.vAngle) || 0,
-          wobblePhase: 0,
+          wobblePhase: Number(item.wobblePhase) || 0,
           wobbleSpeed: 0.8,
           harmonics,
           harmonicPhases,
           harmonicSpeeds,
           aspect: Number(item.aspect) || 1,
           vertices,
-          breathPhase: 0,
+          breathPhase: Number(item.breathPhase) || 0,
           breathSpeed: 0.6,
-          morphPhase: 0,
+          morphPhase: Number(item.morphPhase) || 0,
           morphSpeed: 0.5,
           nucleusOffset: item.nucleusOffset || { x: 0, y: 0 },
           nucleusRatio: Number(item.nucleusRatio) || 0.34,
@@ -521,10 +532,12 @@ export class LivingCellsEngine {
           organelles: Array.isArray(item.organelles) ? item.organelles.map(cloneOrganelle) : [],
           state: item.state === 'mitosis' ? 'mature' : (item.state || 'mature'),
           stateElapsed: Number(item.stateElapsed) || 0,
-          growthProgress: 1,
-          growthDuration: 10,
+          growthProgress: typeof item.growthProgress === 'number' ? item.growthProgress : 1,
+          growthDuration: typeof item.growthDuration === 'number' ? item.growthDuration : 10,
           matureElapsed: Number(item.matureElapsed) || 0,
-          life: 1,
+          life: typeof item.life === 'number' ? item.life : 1,
+          mitosisProgress: item.mitosisProgress,
+          apoptosisProgress: item.apoptosisProgress,
           age: Number(item.age) || 0,
           isGrabbed: false,
           grabOffset: { x: 0, y: 0 },
@@ -558,9 +571,26 @@ export class LivingCellsEngine {
     this.persistCells();
     this.mode = normalizedMode;
     if (normalizedMode === 'ambient') {
-      this.simParams.targetPopulation = 0;
-      this.targetCount = this.coarse ? 4 : this.isHomepage ? 6 : 8;
+      this.simParams = {
+        targetPopulation: 0,
+        growthMultiplier: 1.0,
+        mitosisMultiplier: 1.0,
+        apoptosisMultiplier: 1.0,
+        timeScale: 1.0,
+        isPaused: false,
+        visualAlpha: 0.6,
+        darkContrast: false,
+      };
+      this.targetCount = this.coarse ? 4 : 6;
       this.baseCount = this.targetCount;
+    } else if (normalizedMode === 'lab') {
+      this.simParams.visualAlpha = 1.0;
+      this.simParams.darkContrast = true;
+      if (this.simParams.targetPopulation <= 0) {
+        this.simParams.targetPopulation = this.cells.length || (this.coarse ? 4 : 6);
+      }
+      this.targetCount = this.simParams.targetPopulation;
+      this.baseCount = this.simParams.targetPopulation;
     }
     if (typeof document !== 'undefined') document.documentElement.dataset.cellMode = normalizedMode;
     try {
@@ -577,6 +607,7 @@ export class LivingCellsEngine {
       else this.start();
     }
     this.dispatch('khc:cell-mode-change', { mode: normalizedMode });
+    this.dispatch('khc:cell-params-change', { params: this.getParams() });
   }
 
   public getParams(): CellSimParams {
@@ -1175,10 +1206,11 @@ export class LivingCellsEngine {
     this.canvas.width = Math.round(this.width * this.dpr);
     this.canvas.height = Math.round(this.height * this.dpr);
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.targetCount = this.coarse
-      ? clamp(Math.round((this.width * this.height) / 80000), 3, 5)
-      : clamp(Math.round((this.width * this.height) / 120000), 5, 9);
-    if (this.isHomepage) this.targetCount = Math.min(this.targetCount, this.coarse ? 4 : 7);
+    if (this.mode === 'lab' && this.simParams.targetPopulation > 0) {
+      this.targetCount = this.simParams.targetPopulation;
+    } else {
+      this.targetCount = this.coarse ? 4 : 6;
+    }
     this.baseCount = this.targetCount;
 
     if (oldWidth > 0 && oldHeight > 0 && (oldWidth !== this.width || oldHeight !== this.height)) {
@@ -1191,7 +1223,7 @@ export class LivingCellsEngine {
         cell.previousY = cell.y;
       }
     }
-    this.visualScale = (this.coarse ? 0.8 : 1) * (this.isHomepage ? 0.75 : 1);
+    this.visualScale = this.coarse ? 0.8 : 0.85;
     this.counters.resizeEvents++;
     if (!this.isRunning) this.render(0, this.reducedMotion);
   };
@@ -1553,8 +1585,7 @@ export class LivingCellsEngine {
     if (typeof window === 'undefined') return;
     this.coarse = window.matchMedia('(pointer: coarse)').matches;
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    this.isHomepage = window.location.pathname === '/';
-    this.visualScale = (this.coarse ? 0.8 : 1) * (this.isHomepage ? 0.75 : 1);
+    this.visualScale = this.coarse ? 0.8 : 0.85;
     this.refreshPalette();
   }
 
@@ -2569,7 +2600,7 @@ export class LivingCellsEngine {
     let effectiveRank = rank[this.detailLevel];
     if (this.scrollActivityRemaining > 0)
       effectiveRank = Math.max(effectiveRank, this.coarse || this.isHomepage ? 2 : 1);
-    const profileLimit = this.coarse ? 5 : this.isHomepage ? 7 : 9;
+    const profileLimit = this.coarse ? 5 : this.isHomepage ? 7 : 8;
     const paintedPopulation = this.cells.length + Math.ceil(this.apoptoticBodies.length * 0.5);
     if (paintedPopulation > profileLimit) effectiveRank = Math.max(effectiveRank, 1);
     if (paintedPopulation > profileLimit + (this.coarse ? 2 : 3)) effectiveRank = 2;
