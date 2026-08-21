@@ -1,0 +1,224 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import BaseLayout from './BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { site } from '../data/site';
+import { fullDate } from '../lib/format';
+import {
+  buildToc,
+  formatReadingTime,
+  lessonReadingTime,
+  neighbours,
+  orderLessons,
+  type Heading,
+  type TocNode,
+} from '../lib/deepDives';
+import '../styles/deepDive.css';
+import 'katex/dist/katex.min.css';
+
+/**
+ * Every piece of chrome the 21 hand-authored lesson pages each rewrote: the
+ * back-link, the badge row, the byline, the table of contents, the bibliography and
+ * the pager. Written once here, they cannot disagree between lessons — and the TOC
+ * is generated from the headings that are actually on the page, so it cannot
+ * describe a structure the lesson no longer has.
+ */
+interface Props {
+  entry: CollectionEntry<'deepDives'>;
+  headings: Heading[];
+}
+
+const { entry, headings } = Astro.props;
+const d = entry.data;
+
+const minutes = lessonReadingTime(entry.body ?? '');
+const toc = buildToc(headings);
+const hasNesting = toc.some((n) => n.children.length > 0);
+
+// Curriculum position. Draft lessons are excluded so an unfinished lesson cannot
+// appear as somebody else's "next".
+const siblings = orderLessons(
+  (await getCollection('deepDives', ({ data }) => !data.draft)).filter((e) => e.data.hub === d.hub)
+);
+const { prev, next } = neighbours(siblings, entry.id);
+
+const prereqs = await Promise.all(
+  d.prerequisites.map(async (ref) => (await getCollection('deepDives', (e) => e.id === ref.id))[0])
+);
+const refs = (await getCollection('deepDiveReferences'))
+  .filter((r) => d.referenceIds.some((ref) => ref.id === r.id))
+  .sort((a, b) => {
+    const an = a.data.authors[0].split(/\s+/).slice(-1)[0];
+    const bn = b.data.authors[0].split(/\s+/).slice(-1)[0];
+    return an === bn ? a.data.year - b.data.year : an < bn ? -1 : 1;
+  });
+
+const HUBS = {
+  'statistical-genetics': { href: '/deep_dives/statistical-genetics/', label: 'Statistical Genetics' },
+  gwas: { href: '/deep_dives/gwas/', label: 'GWAS' },
+} as const;
+const hub = HUBS[d.hub];
+
+const LEVELS = {
+  foundational: 'Foundational',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced & Mathematical',
+} as const;
+
+const canonical = new URL(`/deep_dives/${entry.id}/`, site.url).href;
+
+const lessonLd = {
+  '@context': 'https://schema.org',
+  // Both types: it is an article, and it is a unit of a course. `teaches` is what
+  // makes the learning objectives machine-readable rather than decorative.
+  '@type': ['TechArticle', 'LearningResource'],
+  headline: d.title,
+  description: d.description,
+  abstract: d.abstract,
+  author: d.authors.map((name) =>
+    name === site.name ? { '@type': 'Person', name, url: site.url } : { '@type': 'Person', name }
+  ),
+  publisher: { '@id': `${site.url}/#person` },
+  datePublished: d.date.toISOString().slice(0, 10),
+  ...(d.updated ? { dateModified: d.updated.toISOString().slice(0, 10) } : {}),
+  learningResourceType: 'Lesson',
+  educationalLevel: LEVELS[d.level],
+  teaches: d.objectives,
+  timeRequired: `PT${minutes}M`,
+  isPartOf: { '@type': 'Course', name: `${hub.label} Deep Dive`, url: new URL(hub.href, site.url).href },
+  ...(d.tags.length ? { keywords: d.tags.join(', ') } : {}),
+  ...(refs.length
+    ? {
+        citation: refs.map((r) => ({
+          '@type': 'CreativeWork',
+          name: r.data.title,
+          author: r.data.authors.map((name) => ({ '@type': 'Person', name })),
+          datePublished: String(r.data.year),
+          ...(r.data.doi ? { sameAs: r.data.doi } : {}),
+        })),
+      }
+    : {}),
+  inLanguage: 'en',
+  url: canonical,
+  mainEntityOfPage: canonical,
+};
+
+const breadcrumbLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Deep Dives', item: new URL('/deep_dives/', site.url).href },
+    { '@type': 'ListItem', position: 2, name: hub.label, item: new URL(hub.href, site.url).href },
+    { '@type': 'ListItem', position: 3, name: d.shortTitle ?? d.title, item: canonical },
+  ],
+};
+---
+
+<BaseLayout title={d.title} description={d.description} type="article" noindex={d.draft}>
+  <article class="deep-dive-article">
+    <nav class="dd-backlink">
+      <a href={hub.href}>
+        <Icon name="arrow-left" size={14} /> Back to the {hub.label} curriculum
+      </a>
+    </nav>
+
+    <header class="deep-dive-header">
+      <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
+        <span class="deep-dive-tag">{d.moduleLabel}</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> {LEVELS[d.level]}</span>
+        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {formatReadingTime(minutes)}</span>
+      </div>
+      <h1 class="deep-dive-title">{d.title}</h1>
+      <p class="deep-dive-meta-bar">
+        <span>By <strong>{d.authors.join(', ')}</strong></span>
+        <span>·</span>
+        <span>{fullDate(d.date)}</span>
+        {d.updated && (<><span>·</span><span>Updated {fullDate(d.updated)}</span></>)}
+      </p>
+    </header>
+
+    <p class="deep-dive-lead">{d.abstract}</p>
+
+    <div class="dd-contract">
+      <section class="dd-contract__col">
+        <h2 class="dd-contract__title"><Icon name="target" size={14} /> What you will be able to do</h2>
+        <ul class="dd-contract__list">
+          {d.objectives.map((o) => <li>{o}</li>)}
+        </ul>
+      </section>
+
+      {prereqs.length > 0 && (
+        <section class="dd-contract__col">
+          <h2 class="dd-contract__title"><Icon name="layers" size={14} /> Read first</h2>
+          <ul class="dd-contract__list">
+            {prereqs.map((p) => (
+              <li><a href={`/deep_dives/${p.id}/`}>{p.data.shortTitle ?? p.data.title}</a></li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+
+    {toc.length > 0 && (
+      <nav class="deep-dive-toc" aria-label="Table of contents">
+        <div class="deep-dive-toc-title"><Icon name="list" size={14} /> Contents</div>
+        {/* Its own classes, not `.deep-dive-toc-list`: that one is a two-column grid
+            built for the flat hand-written lists, and a nested sub-list inside it
+            strands the child in the wrong column. A flat outline may still use two
+            columns on a wide screen; a nested one stays single-column so the
+            indentation actually reads as hierarchy. */}
+        <ol class={`dd-toc__list${hasNesting ? '' : ' dd-toc__list--flat'}`}>
+          {toc.map((node: TocNode) => (
+            <li>
+              <a href={`#${node.slug}`}>{node.text}</a>
+              {node.children.length > 0 && (
+                <ol class="dd-toc__sub">
+                  {node.children.map((child) => (
+                    <li><a href={`#${child.slug}`}>{child.text}</a></li>
+                  ))}
+                </ol>
+              )}
+            </li>
+          ))}
+        </ol>
+      </nav>
+    )}
+
+    <div class="dd-body"><slot /></div>
+
+    {refs.length > 0 && (
+      <section class="dd-references" id="references">
+        <h2>References</h2>
+        <ol class="dd-references__list">
+          {refs.map((r) => (
+            <li id={`ref-${r.id}`}>
+              <span>{r.data.authors.join(', ')} ({r.data.year}). {r.data.title}. <em>{r.data.venue}</em>.</span>
+              {r.data.doi && <> <a href={r.data.doi}>DOI</a></>}
+              {!r.data.doi && r.data.url && <> <a href={r.data.url}>Link</a></>}
+            </li>
+          ))}
+        </ol>
+      </section>
+    )}
+
+    {(prev || next) && (
+      <nav class="dd-pager" aria-label="Curriculum">
+        {prev ? (
+          <a class="dd-pager__link dd-pager__link--prev" href={`/deep_dives/${prev.id}/`}>
+            <span class="dd-pager__dir"><Icon name="arrow-left" size={13} /> Previous</span>
+            <span class="dd-pager__title">{prev.data.shortTitle ?? prev.data.title}</span>
+          </a>
+        ) : <span />}
+        {next && (
+          <a class="dd-pager__link dd-pager__link--next" href={`/deep_dives/${next.id}/`}>
+            <span class="dd-pager__dir">Next <Icon name="arrow-right" size={13} /></span>
+            <span class="dd-pager__title">{next.data.shortTitle ?? next.data.title}</span>
+          </a>
+        )}
+      </nav>
+    )}
+  </article>
+
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(lessonLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+</BaseLayout>

@@ -1,0 +1,47 @@
+---
+import Icon from '../Icon.astro';
+
+/**
+ * A numeric example carried all the way to an answer.
+ *
+ * `given` is separated from the working so the reader can see the inputs at a
+ * glance and redo the arithmetic themselves — which is the point. Every example in
+ * this series is also recomputed in a Vitest file next to the lesson, so a number
+ * in the prose that disagrees with its own arithmetic fails the suite rather than
+ * teaching the wrong value.
+ */
+interface Props {
+  title: string;
+  given?: { label: string; value: string }[];
+  /** Name of the test that recomputes this example, shown as provenance. */
+  verifiedBy?: string;
+}
+
+const { title, given = [], verifiedBy } = Astro.props;
+---
+
+<section class="dd-worked">
+  <header class="dd-worked__head">
+    <Icon name="activity" size={15} />
+    <span>Worked example — {title}</span>
+  </header>
+
+  {given.length > 0 && (
+    <dl class="dd-worked__given">
+      {given.map((g) => (
+        <div class="dd-worked__given-row">
+          <dt>{g.label}</dt>
+          <dd>{g.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )}
+
+  <div class="dd-worked__body"><slot /></div>
+
+  {verifiedBy && (
+    <p class="dd-worked__provenance">
+      <Icon name="check-circle" size={13} /> Arithmetic verified by <code>{verifiedBy}</code>
+    </p>
+  )}
+</section>

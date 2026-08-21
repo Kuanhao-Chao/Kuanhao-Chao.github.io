@@ -1,0 +1,37 @@
+---
+import Icon from '../Icon.astro';
+
+/**
+ * A boxed aside. `variant` chooses the accent and the default icon, so a lesson
+ * says what kind of aside it means rather than picking a colour.
+ *
+ * `intuition` is the one that matters pedagogically: it marks the plain-language
+ * reading of a result, and every derivation in this curriculum is required to have
+ * one before the algebra starts.
+ */
+interface Props {
+  variant?: 'intuition' | 'key' | 'warning' | 'note' | 'assumption';
+  title?: string;
+  icon?: string;
+}
+
+const { variant = 'note', title, icon } = Astro.props;
+
+const PRESETS = {
+  intuition: { icon: 'sparkles', label: 'Intuition' },
+  key: { icon: 'check-circle', label: 'Key result' },
+  warning: { icon: 'alert-triangle', label: 'Common pitfall' },
+  note: { icon: 'book-open', label: 'Note' },
+  assumption: { icon: 'list', label: 'Assumptions' },
+} as const;
+
+const preset = PRESETS[variant] ?? PRESETS.note;
+---
+
+<aside class={`dd-callout dd-callout--${variant}`}>
+  <div class="dd-callout__title">
+    <Icon name={icon ?? preset.icon} size={15} />
+    <span>{title ?? preset.label}</span>
+  </div>
+  <div class="dd-callout__body"><slot /></div>
+</aside>

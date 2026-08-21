@@ -1,0 +1,21 @@
+# Bibliography for the deep-dive curriculum, cited by key with <Citation id="..." />.
+#
+# One entry per work, shared across lessons — so a citation is verified once rather
+# than re-typed (and re-mistyped) in each lesson that needs it. `verified` records
+# when the DOI/URL was last confirmed to resolve to the work described here.
+
+yang2010common:
+  authors: ['Jian Yang', 'Beben Benyamin', 'Brian P. McEvoy', 'et al.']
+  year: 2010
+  title: Common SNPs explain a large proportion of the heritability for human height
+  venue: Nature Genetics 42(7):565–569
+  doi: https://doi.org/10.1038/ng.608
+  verified: 2026-08-21
+
+lee2011estimating:
+  authors: ['Sang Hong Lee', 'Naomi R. Wray', 'Michael E. Goddard', 'Peter M. Visscher']
+  year: 2011
+  title: Estimating missing heritability for disease from genome-wide association studies
+  venue: American Journal of Human Genetics 88(3):294–305
+  doi: https://doi.org/10.1016/j.ajhg.2011.02.002
+  verified: 2026-08-21

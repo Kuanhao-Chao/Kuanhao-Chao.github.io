@@ -70,6 +70,47 @@ An interactive UNIX shell over the site's own content, following the same three-
 
   Two things about this Worker are easy to get wrong and were both wrong once. **The rate limiter must use the GA `[[ratelimits]]` block**; the pre-GA `[[unsafe.bindings]]` form deploys as `Unsafe Metadata` and silently does nothing — check the `wrangler deploy` binding line reads `(12 requests/60s) — Rate Limit`. And **the system prompt's scope rule has to lead and name its own refusal sentence**: as the last of four bullets the model ignored it and cheerfully answered "what is the capital of France?".
 
+### The deep-dive curriculum is mid-migration
+
+`/deep_dives/` is being moved from 21 hand-authored `.astro` pages onto a content
+collection. **Both renderers are live at once**, deliberately:
+
+- `src/pages/deep_dives/<slug>.astro` — the unmigrated lessons, each repeating its own
+  back-link, badge row, byline and hand-numbered table of contents.
+- `src/content/deepDives/<slug>.mdx` + `src/pages/deep_dives/[...slug].astro` +
+  `src/layouts/DeepDiveLesson.astro` — the migrated ones. `getStaticPaths` emits only
+  slugs present in the collection, so the two coexist without colliding.
+
+**A lesson's `.astro` must be deleted in the same commit its `.mdx` lands**, or two
+routes claim one URL. `src/lib/deepDives.test.ts` fails on that overlap, and on
+frontmatter that sets `readingTime` — which is derived by `lessonReadingTime` from the
+body, not stored. (Storing it is what let every lesson claim ~2.5x its real length.)
+
+Things specific to this subsystem:
+
+- **`lessonReadingTime` is not `words / 200`.** These lessons are ~40 % mathematics, and
+  the naive count fails both ways at once: it prices a rendered formula at zero while
+  counting `\frac{V_A}{V_P}` as three words. Prose, display math, inline math and code
+  lines are counted and priced separately in `src/lib/deepDives.ts`.
+- **Deleting or renaming a collection entry needs the content cache cleared** —
+  `rm node_modules/.astro/data-store.json`. Not `.astro/`, which is the generated types.
+  Astro keeps rendering the removed entry until that file goes, and the failure is an
+  opaque `UnknownContentCollectionError` naming a file that no longer exists.
+- **The `dd-*` styles live in `src/styles/deepDive.css`, not in component `<style>`
+  blocks.** Astro scopes a component's styles to its own elements and slotted children
+  carry the *parent's* scope, so `.dd-callout__body p` written inside `Callout.astro`
+  would silently never match the paragraphs an MDX file slots into it.
+- **`.deep-dive-article h2` is more specific than a single class** (0,1,1 vs 0,1,0) and
+  carries a section rule plus 2.5rem of space. Any `<h2>` the layout emits inside the
+  article — the objectives heading, References — has to out-specify it or it grows a
+  stray divider.
+- **`.deep-dive-toc-list` is a two-column grid** built for the flat hand-written lists.
+  The generated TOC uses `.dd-toc__list` instead, because a nested list inside a
+  two-column grid puts the child in the next column rather than under its parent.
+- **`Citation` throws on an unknown key** rather than rendering an empty marker. That is
+  deliberate: twelve icon names rendered as empty `<svg>` for months precisely because
+  `Icon.astro` failed quietly, and `src/lib/icons.test.ts` now guards that class of bug.
+
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.
 - **Cross-links between sections** use `relatedPosts` references in frontmatter, resolved by `src/lib/relatedPosts.ts` into "Blog" chips on publication/research entries.
