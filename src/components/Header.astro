@@ -162,34 +162,58 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           </div>
 
           <!-- 1988 Retro CRT Phosphor Section -->
-          <div class="popover-section" style="margin-top: 0.35rem;">
-            <span class="popover-heading">1988 Retro CRT</span>
-            <div class="popover-crt-row">
+          <div class="popover-section popover-section--crt">
+            {/*
+              CRT gets an explicit switch. Before this there were three phosphor
+              buttons and no way back: once you picked one, nothing in the menu
+              turned it off again. The colours are radios that only apply while the
+              switch is on, and are disabled when it is off so the control says what
+              it does. The emoji (⚡🟢🔷) are gone — the rest of the menu uses one
+              inline-SVG icon set, and swatches read as colour choices anyway.
+            */}
+            <div class="popover-heading-row">
+              <span class="popover-heading" id="crt-heading">1988 CRT</span>
+              <button
+                type="button"
+                class="crt-switch"
+                data-crt-switch
+                role="switch"
+                aria-checked="false"
+                aria-labelledby="crt-heading"
+              >
+                <span class="crt-switch-track" aria-hidden="true"><span class="crt-switch-thumb"></span></span>
+                <span class="crt-switch-text" data-crt-switch-text>Off</span>
+              </button>
+            </div>
+            <div class="popover-crt-row" role="radiogroup" aria-labelledby="crt-heading" data-crt-colors>
               <button
                 type="button"
                 class="popover-crt-btn popover-crt-btn--amber"
                 data-crt-choice="amber"
-                role="menuitem"
+                role="radio"
+                aria-checked="false"
               >
-                <span aria-hidden="true">⚡</span>
+                <span class="crt-swatch" aria-hidden="true"></span>
                 <span>Amber</span>
               </button>
               <button
                 type="button"
                 class="popover-crt-btn popover-crt-btn--green"
                 data-crt-choice="green"
-                role="menuitem"
+                role="radio"
+                aria-checked="false"
               >
-                <span aria-hidden="true">🟢</span>
+                <span class="crt-swatch" aria-hidden="true"></span>
                 <span>Green</span>
               </button>
               <button
                 type="button"
                 class="popover-crt-btn popover-crt-btn--cyan"
                 data-crt-choice="cyan"
-                role="menuitem"
+                role="radio"
+                aria-checked="false"
               >
-                <span aria-hidden="true">🔷</span>
+                <span class="crt-swatch" aria-hidden="true"></span>
                 <span>Cyan</span>
               </button>
             </div>
@@ -197,24 +221,34 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
           <div class="popover-section popover-section--cells">
             <span class="popover-heading" id="desktop-cell-mode-heading">Ambient cells</span>
-            <div class="cell-mode-grid cell-mode-grid--two" role="group" aria-labelledby="desktop-cell-mode-heading">
+            <div class="cell-mode-grid cell-mode-grid--three" role="radiogroup" aria-labelledby="desktop-cell-mode-heading">
               <button
                 type="button"
                 class="cell-control-btn"
                 data-cell-mode="ambient"
-                role="menuitemradio"
+                role="radio"
                 aria-checked="true"
-                title="Subtle, relaxing cell background (0.8 alpha)"
+                title="Living cells drifting quietly behind the page"
               >
                 Ambient
               </button>
               <button
                 type="button"
                 class="cell-control-btn"
-                data-cell-mode="off"
-                role="menuitemradio"
+                data-cell-mode="calm"
+                role="radio"
                 aria-checked="false"
-                title="Hide background cells"
+                title="Dimmer and heavily damped, with no division or death while you read"
+              >
+                Calm
+              </button>
+              <button
+                type="button"
+                class="cell-control-btn"
+                data-cell-mode="off"
+                role="radio"
+                aria-checked="false"
+                title="Hide the background cells entirely"
               >
                 Off
               </button>
@@ -260,112 +294,12 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       </ul>
     </nav>
 
-    <!-- Dedicated Mobile Appearance Section -->
-    <div class="mobile-theme-drawer">
-      <p class="eyebrow mobile-drawer-heading">Modern Themes</p>
-      <div class="mobile-theme-grid" role="radiogroup" aria-label="Modern Themes">
-        <button type="button" class="mobile-theme-btn" data-theme-choice="light">
-          <span class="opt-icon-wrap" aria-hidden="true">
-            <Icon name="sun" size={14} />
-          </span>
-          <span>Light</span>
-        </button>
-        <button type="button" class="mobile-theme-btn" data-theme-choice="dark">
-          <span class="opt-icon-wrap" aria-hidden="true">
-            <Icon name="moon" size={14} />
-          </span>
-          <span>Dark</span>
-        </button>
-        <button type="button" class="mobile-theme-btn" data-theme-choice="parchment">
-          <span class="opt-icon-wrap" aria-hidden="true">
-            <Icon name="parchment" size={14} />
-          </span>
-          <span>Parchment</span>
-        </button>
-        <button type="button" class="mobile-theme-btn" data-theme-choice="nord">
-          <span class="opt-icon-wrap" aria-hidden="true">
-            <Icon name="nord" size={14} />
-          </span>
-          <span>Nord</span>
-        </button>
-        <button type="button" class="mobile-theme-btn" data-theme-choice="monokai">
-          <span class="opt-icon-wrap" aria-hidden="true">
-            <Icon name="monokai" size={14} />
-          </span>
-          <span>Monokai</span>
-        </button>
-        <button type="button" class="mobile-theme-btn" data-theme-choice="cyberdeck">
-          <span class="opt-icon-wrap" aria-hidden="true">
-            <Icon name="cyberdeck" size={14} />
-          </span>
-          <span>Cyberdeck</span>
-        </button>
-      </div>
-
-      <p class="eyebrow mobile-drawer-heading" style="margin-top: 0.5rem;">1988 Retro CRT</p>
-      <div
-        class="mobile-theme-row mobile-theme-row--crt"
-        role="radiogroup"
-        aria-label="1988 CRT Mode"
-      >
-        <button
-          type="button"
-          class="mobile-theme-btn mobile-theme-btn--amber"
-          data-crt-choice="amber"
-        >
-          <span>⚡</span>
-          <span>Amber</span>
-        </button>
-        <button
-          type="button"
-          class="mobile-theme-btn mobile-theme-btn--green"
-          data-crt-choice="green"
-        >
-          <span>🟢</span>
-          <span>Green</span>
-        </button>
-        <button
-          type="button"
-          class="mobile-theme-btn mobile-theme-btn--cyan"
-          data-crt-choice="cyan"
-        >
-          <span>🔷</span>
-          <span>Cyan</span>
-        </button>
-      </div>
-
-      <div class="mobile-cell-controls">
-        <p class="eyebrow mobile-drawer-heading" id="mobile-cell-mode-heading">Ambient cells</p>
-        <div class="cell-mode-grid cell-mode-grid--two" role="radiogroup" aria-labelledby="mobile-cell-mode-heading">
-          <button
-            type="button"
-            class="cell-control-btn"
-            data-cell-mode="ambient"
-            role="radio"
-            aria-checked="true"
-          >
-            Ambient
-          </button>
-          <button
-            type="button"
-            class="cell-control-btn"
-            data-cell-mode="off"
-            role="radio"
-            aria-checked="false"
-          >
-            Off
-          </button>
-        </div>
-        <span class="cell-control-hint" data-cell-mode-hint>
-          Ambient keeps a subtle 0.8 alpha background with page content.
-        </span>
-
-        <a href="/lab" class="cell-lab-link-btn" title="Open full-screen interactive Cell Lab playground">
-          <span aria-hidden="true">🔬</span>
-          <span>Cell Lab Playground →</span>
-        </a>
-      </div>
-    </div>
+    {/*
+      The appearance controls used to be duplicated here *and* in the header pill's
+      popover, so a phone offered the same six themes, three phosphors and cell modes
+      in two places — and the duplicate pushed the Cell Lab link below a long scroll.
+      The popover is now the single home for them on every screen size.
+    */}
   </div>
 </header>
 
@@ -844,6 +778,84 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     gap: 0.35rem;
   }
 
+  .popover-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  /* An explicit on/off for CRT. Before this the menu offered three phosphors and no
+     way back out of them. */
+  .crt-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.25rem;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    color: var(--color-muted);
+    font-size: var(--fs-meta);
+    font-family: inherit;
+  }
+  .crt-switch-track {
+    width: 1.85rem;
+    height: 1rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-ink) 18%, transparent);
+    padding: 2px;
+    display: inline-flex;
+    transition: background var(--transition);
+  }
+  .crt-switch-thumb {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: var(--color-surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform var(--transition);
+  }
+  .crt-switch.is-on {
+    color: var(--color-ink);
+  }
+  .crt-switch.is-on .crt-switch-track {
+    background: var(--color-accent);
+  }
+  .crt-switch.is-on .crt-switch-thumb {
+    transform: translateX(0.85rem);
+  }
+  .crt-switch:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+
+  /* Swatches rather than emoji, so the whole menu uses one visual language. */
+  .crt-swatch {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    flex: none;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+  }
+  .popover-crt-btn--amber .crt-swatch { background: #ffb000; }
+  .popover-crt-btn--green .crt-swatch { background: #33ff66; }
+  .popover-crt-btn--cyan .crt-swatch { background: #38d9ff; }
+
+  .popover-crt-row.is-disabled {
+    opacity: 0.42;
+  }
+  .popover-crt-btn:disabled {
+    cursor: not-allowed;
+  }
+
+  .cell-mode-grid--three {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.3rem;
+  }
+
   .cell-control-btn {
     display: inline-flex;
     align-items: center;
@@ -1200,14 +1212,28 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       const isActive = isCrt && choice === currentCrt;
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
+      // A phosphor colour means nothing while the tube is off, so say so rather than
+      // offering a control that silently turns CRT back on.
+      btn.disabled = !isCrt;
+    });
+    document.querySelectorAll<HTMLButtonElement>('[data-crt-switch]').forEach((btn) => {
+      btn.setAttribute('aria-checked', String(isCrt));
+      btn.classList.toggle('is-on', isCrt);
+      const label = btn.querySelector('[data-crt-switch-text]');
+      if (label) label.textContent = isCrt ? 'On' : 'Off';
+    });
+    document.querySelectorAll<HTMLElement>('[data-crt-colors]').forEach((row) => {
+      row.classList.toggle('is-disabled', !isCrt);
     });
   }
 
+  // These used to claim "0.8 alpha" while setMode applied 0.6, and calm repeated the
+  // ambient string verbatim because calm was only an alias for it. Both are now true.
   const cellModeCopy: Record<CellMode, string> = {
-    ambient: 'Ambient keeps a subtle 0.8 alpha background with page content.',
-    calm: 'Ambient keeps a subtle 0.8 alpha background with page content.',
-    lab: 'Cell Lab is active.',
-    off: 'Ambient cells are hidden.',
+    ambient: 'Twelve cells drifting quietly behind the page, dividing and dying slowly.',
+    calm: 'Dimmer and heavily damped, and nothing divides or dies while you read.',
+    lab: 'Cell Lab is running the dish full-screen.',
+    off: 'Background cells are hidden.',
   };
 
   function syncCellControls() {
@@ -1310,8 +1336,18 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         const choice = btn.dataset.crtChoice;
         if (choice) {
           crtApi()?.set(choice);
+          syncHeaderThemeIcons();
           setPopoverOpen(false);
         }
+      };
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('[data-crt-switch]').forEach((btn) => {
+      btn.onclick = (event) => {
+        event.stopPropagation();
+        // Turning it on restores the last phosphor rather than forcing amber.
+        crtApi()?.toggle();
+        syncHeaderThemeIcons();
       };
     });
 
