@@ -55,7 +55,8 @@ export type LabTool =
   | 'vortex'
   | 'spawn'
   | 'mitosis'
-  | 'apoptosis';
+  | 'apoptosis'
+  | 'inspect';
 export type StainingMode = 'phase' | 'gfp' | 'dapi' | 'mcherry' | 'lineage';
 /**
  * Perturbations applied to the whole medium, the way a drug actually is.
@@ -123,6 +124,40 @@ export interface CellSimParams {
   temperature?: number;
   stainingMode?: StainingMode;
   perturbation?: Perturbation;
+}
+
+/**
+ * One entry per cell that has ever existed, kept after the cell dies.
+ *
+ * `lineageId` on a live cell is a pointer to its parent, which is enough to walk
+ * ancestry — but only while the parent is alive, and parents are spliced out the
+ * moment they divide. The ledger is what makes a clonal tree drawable at all.
+ */
+export interface LineageRecord {
+  id: string;
+  parentId?: string;
+  founderId: string;
+  generation: number;
+  bornAt: number;
+  diedAt?: number;
+  fate?: 'divided' | 'apoptosis';
+}
+
+export interface CellInspection {
+  id: string;
+  generation: number;
+  founderId: string;
+  state: CellState;
+  phase: string;
+  ageSeconds: number;
+  radius: number;
+  targetRadius: number;
+  diameterMicrons: number;
+  nucleusCount: number;
+  organelles: Record<string, number>;
+  contacts: number;
+  nutrition: number;
+  livingRelatives: number;
 }
 
 export interface CellTelemetry {
@@ -256,6 +291,10 @@ export interface LivingCell {
   contactCount: number;
   /** >1 after a cytokinesis failure: nuclear division succeeded, the cell did not split. */
   nucleusCount?: number;
+  /** Divisions between this cell and its founder. */
+  generation: number;
+  /** The seeded ancestor this cell descends from, so a whole clone can be grouped. */
+  founderId: string;
   lifecycleSource?: LifecycleSource;
 }
 
@@ -355,6 +394,10 @@ const APOPTOSIS_SECONDS = 5.4;
 const SIZE_CHECKPOINT = 0.97;
 /** Where a nocodazole-arrested cell parks: chromosomes aligned, spindle absent. */
 const MITOSIS_ARREST = 0.34;
+/** How many lineage records to retain; bounds memory on a long-running dish. */
+const LINEAGE_LEDGER_LIMIT = 600;
+/** A cultured animal cell is ~20 µm across; this anchors the scale bar. */
+const CELL_DIAMETER_MICRONS = 20;
 /** Contacts above which an automatic division is contact-inhibited. */
 const CONFLUENCE_CONTACTS = 5;
 const MATURE_DWELL = 8;
@@ -438,6 +481,8 @@ export class LivingCellsEngine {
   private cullQueue: { id: string; at: number; duration: number }[] = [];
   private cullClock = 0;
   private staurosporineClock = 0;
+  private lineage: LineageRecord[] = [];
+  private objective = 20;
   private nutrientDroplets: NutrientDroplet[] = [];
   private mutagenPulses: MutagenPulse[] = [];
   private laser: LaserBeam = { active: false, x: -1000, y: -1000, radius: 140, power: 200 };
@@ -603,6 +648,8 @@ export class LivingCellsEngine {
         // to pair with, and a division in flight loses the axis it was dividing on.
         siblingId: c.siblingId,
         lineageId: c.lineageId,
+        generation: c.generation,
+        founderId: c.founderId,
         mitosisAngle: c.mitosisAngle,
         divisionRadius: c.divisionRadius,
         postmitoticProgress: c.postmitoticProgress,
@@ -699,6 +746,8 @@ export class LivingCellsEngine {
           glowIntensity: 1,
           contactCount: 0,
           lifecycleSource: item.lifecycleSource || 'automatic',
+          generation: Number(item.generation) || 0,
+          founderId: typeof item.founderId === 'string' ? item.founderId : String(item.id || ''),
           siblingId: typeof item.siblingId === 'string' ? item.siblingId : undefined,
           lineageId: typeof item.lineageId === 'string' ? item.lineageId : undefined,
           mitosisAngle: typeof item.mitosisAngle === 'number' ? item.mitosisAngle : undefined,
@@ -1240,7 +1289,9 @@ export class LivingCellsEngine {
     targetR?: number,
     initialR?: number
   ): LivingCell {
-    const targetRadius = targetR ?? (this.coarse ? this.rand(27, 47) : this.rand(34, 64));
+    const magnification = this.objective / 20;
+    const targetRadius =
+      targetR ?? (this.coarse ? this.rand(27, 47) : this.rand(34, 64)) * magnification;
     const birthRadius = initialR ?? (asBud ? Math.max(8, targetRadius * 0.45) : targetRadius);
     const growing = asBud || birthRadius < targetRadius * SIZE_CHECKPOINT;
     const aspect = this.rand(this.coarse ? 0.84 : 0.78, this.coarse ? 1.2 : 1.26);
@@ -1328,7 +1379,7 @@ export class LivingCellsEngine {
     const px = x ?? this.rand(targetRadius, Math.max(targetRadius, this.width - targetRadius));
     const py = y ?? this.rand(targetRadius, Math.max(targetRadius, this.height - targetRadius));
     const colorHue = (((px * 17.3 + py * 31.7) % 360) + 360) % 360;
-    return {
+    const cell: LivingCell = {
       id: `cell-${this.nextId++}`,
       x: px,
       y: py,
@@ -1376,7 +1427,142 @@ export class LivingCellsEngine {
       divisionQueued: false,
       glowIntensity: growing ? 1.12 : 1,
       contactCount: 0,
+      generation: 0,
+      founderId: '',
     };
+    // A seeded or spawned cell founds its own clone; daughters inherit the founder.
+    cell.founderId = cell.id;
+    this.recordLineage(cell);
+    return cell;
+  }
+
+  /**
+   * The lineage ledger, kept beyond a cell's lifetime.
+   *
+   * `lineageId` points at the parent, which is only useful while the parent exists —
+   * and parents are spliced out the instant they divide. Without a ledger there is
+   * nothing left to draw a clonal tree from.
+   */
+  private recordLineage(cell: LivingCell): void {
+    this.lineage.push({
+      id: cell.id,
+      parentId: cell.lineageId,
+      founderId: cell.founderId,
+      generation: cell.generation,
+      bornAt: this.controllerElapsed,
+    });
+    if (this.lineage.length > LINEAGE_LEDGER_LIMIT) {
+      this.lineage.splice(0, this.lineage.length - LINEAGE_LEDGER_LIMIT);
+    }
+  }
+
+  /** A daughter joins its parent's clone one generation down, ledger included. */
+  private adoptLineage(daughter: LivingCell, parent: LivingCell): void {
+    daughter.generation = parent.generation + 1;
+    daughter.founderId = parent.founderId || parent.id;
+    for (let index = this.lineage.length - 1; index >= 0; index--) {
+      if (this.lineage[index].id !== daughter.id) continue;
+      this.lineage[index].parentId = parent.id;
+      this.lineage[index].founderId = daughter.founderId;
+      this.lineage[index].generation = daughter.generation;
+      return;
+    }
+  }
+
+  private closeLineage(cell: LivingCell, fate: 'divided' | 'apoptosis'): void {
+    for (let index = this.lineage.length - 1; index >= 0; index--) {
+      if (this.lineage[index].id !== cell.id) continue;
+      this.lineage[index].diedAt = this.controllerElapsed;
+      this.lineage[index].fate = fate;
+      return;
+    }
+  }
+
+  /** Select (or clear) the cell the inspector follows. */
+  public selectForInspection(cellId: string | null): void {
+    this.selectedCellId = cellId;
+    if (!cellId) this.hideStatus();
+    this.dispatch('khc:cell-inspect', { cellId });
+  }
+
+  public getSelectedCellId(): string | null {
+    return this.selectedCellId;
+  }
+
+  /** A live read-out of the selected cell, or null once it divides or dies. */
+  public getInspection(): CellInspection | null {
+    if (!this.selectedCellId) return null;
+    const cell = this.cells.find((candidate) => candidate.id === this.selectedCellId);
+    if (!cell) return null;
+    const organelles: Record<string, number> = {};
+    for (const org of cell.organelles) organelles[org.type] = (organelles[org.type] ?? 0) + 1;
+    return {
+      id: cell.id,
+      generation: cell.generation,
+      founderId: cell.founderId,
+      state: cell.state,
+      phase: this.biologicalPhase(cell),
+      ageSeconds: cell.age,
+      radius: cell.radius,
+      targetRadius: cell.targetRadius,
+      diameterMicrons: cell.radius * 2 * this.micronsPerPixel(),
+      nucleusCount: cell.nucleusCount ?? 1,
+      organelles,
+      contacts: cell.contactCount,
+      nutrition: cell.nutritionEnergy,
+      livingRelatives: this.cells.filter((other) => other.founderId === cell.founderId).length,
+    };
+  }
+
+  /**
+   * Scale. A cultured animal cell is roughly 20 µm across, so the median cell on
+   * screen fixes the conversion — which means the scale bar stays honest when the
+   * objective changes rather than being a decorative ruler.
+   */
+  private micronsPerPixel(): number {
+    const radii = this.cells.map((cell) => cell.targetRadius).sort((a, b) => a - b);
+    const median = radii.length ? radii[Math.floor(radii.length / 2)] : 40;
+    return CELL_DIAMETER_MICRONS / Math.max(2, median * 2);
+  }
+
+  /** A bar of a round micron length that lands between 60 and 170 device pixels. */
+  public getScaleBar(): { microns: number; pixels: number } {
+    const perPixel = this.micronsPerPixel();
+    for (const microns of [5, 10, 20, 25, 50, 100, 200, 500]) {
+      const pixels = microns / perPixel;
+      if (pixels >= 60 && pixels <= 170) return { microns, pixels };
+    }
+    const microns = 20;
+    return { microns, pixels: microns / perPixel };
+  }
+
+  public getObjective(): number {
+    return this.objective;
+  }
+
+  /**
+   * Change objective. Higher magnification means fewer, larger cells in the field —
+   * so it scales the target radii and lets the existing growth machinery carry the
+   * cells there, rather than snapping every radius in one frame.
+   */
+  public setObjective(objective: number): void {
+    if (![10, 20, 40].includes(objective) || objective === this.objective) return;
+    const ratio = objective / this.objective;
+    this.objective = objective;
+    for (const cell of this.cells) {
+      cell.targetRadius = clamp(cell.targetRadius * ratio, 8, 220);
+      if (cell.state === 'mature') cell.state = 'growing';
+      if (cell.state === 'growing') {
+        cell.birthRadius = cell.baseRadius;
+        cell.growthProgress = 0;
+        cell.stateElapsed = 0;
+      }
+    }
+    this.dispatch('khc:cell-objective-change', { objective, scale: this.getScaleBar() });
+  }
+
+  public getLineage(): LineageRecord[] {
+    return this.lineage.map((entry) => ({ ...entry }));
   }
 
   private morphologyOffset(
@@ -1592,6 +1778,7 @@ export class LivingCellsEngine {
       daughter.recoveryOffset = 0;
       daughter.recoveryBaseVelocity = { x: parent.vx, y: parent.vy };
       daughter.lineageId = parent.id;
+      this.adoptLineage(daughter, parent);
       daughter.lifecycleSource = source;
       return daughter;
     }) as [LivingCell, LivingCell];
@@ -1918,6 +2105,10 @@ export class LivingCellsEngine {
       } else if (this.labTool === 'apoptosis' && distance <= threshold && duration <= durationLimit) {
         if (candidate) this.triggerApoptosis(candidate, 'user');
         else this.triggerRandomApoptosis();
+      } else if (this.labTool === 'inspect' && distance <= threshold && duration <= durationLimit) {
+        // Inspection needs its own tool: the pointer already divides on click, and a
+        // gesture cannot mean two things.
+        this.selectForInspection(candidate ? candidate.id : null);
       }
     }
 
@@ -2472,6 +2663,7 @@ export class LivingCellsEngine {
     this.updateBlebs(cell, progress, dt);
     this.updateSelectedStatus(cell);
     if (progress >= 1) {
+      this.closeLineage(cell, 'apoptosis');
       this.cells.splice(index, 1);
       this.quietRemaining = Math.max(4, this.quietRemaining);
       if (cell.id === this.selectedCellId) this.hideStatus();
@@ -2527,6 +2719,7 @@ export class LivingCellsEngine {
         v.velocity = facingFactor * 2.8;
       }
     }
+    this.closeLineage(parent, 'divided');
     this.cells.splice(index, 1, first, second);
     this.quietRemaining = Math.max(4, this.quietRemaining);
     if (parent.id === this.selectedCellId)
