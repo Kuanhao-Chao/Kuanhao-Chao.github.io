@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # local paper materials (large PDFs/docx — kept out of git)
 paper/
+
+# Python bytecode from the figure generators
+__pycache__/
