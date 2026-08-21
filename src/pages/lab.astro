@@ -74,6 +74,21 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     </header>
 
     <!-- Floating Bottom Biological Tool Dock -->
+    <!-- Microscope scale. Anchored to biology: a cultured animal cell is ~20 µm, so
+         the median cell on screen fixes microns per pixel and the bar stays honest
+         when the objective changes. -->
+    <div class="lab-scale" aria-label="Microscope scale and objective">
+      <div class="lab-objective" role="radiogroup" aria-label="Objective">
+        <button type="button" class="obj-btn" data-objective="10" role="radio" aria-checked="false">10×</button>
+        <button type="button" class="obj-btn is-active" data-objective="20" role="radio" aria-checked="true">20×</button>
+        <button type="button" class="obj-btn" data-objective="40" role="radio" aria-checked="false">40×</button>
+      </div>
+      <div class="lab-scale-bar">
+        <span class="lab-scale-rule" data-scale-rule></span>
+        <span class="lab-scale-text" data-scale-text>20 µm</span>
+      </div>
+    </div>
+
     <nav class="lab-dock" id="lab-dock" aria-label="Interactive Biological Tools">
       <div class="dock-tools">
         <button type="button" class="dock-btn is-active" data-tool="pointer" title="Pointer & Fling: Drag cells with momentum or click to trigger division">
@@ -107,6 +122,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <button type="button" class="dock-btn" data-tool="apoptosis" title="Force Apoptosis: Click any cell to trigger programmed death & blebbing">
           <span class="dock-icon">💀</span>
           <span class="dock-label">Apoptosis</span>
+        </button>
+        <button type="button" class="dock-btn" data-tool="inspect" title="Inspect: Click any cell to follow it — generation, phase, size in microns, organelles and clone-mates">
+          <span class="dock-icon">🔍</span>
+          <span class="dock-label">Inspect</span>
         </button>
       </div>
     </nav>
@@ -165,6 +184,16 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <button type="button" class="stain-btn drug-btn" data-drug="staurosporine" title="Staurosporine: a classic apoptosis inducer — programmed death spreads steadily through the dish">☠️ Staurosporine</button>
           </div>
           <p class="hud-drug-note" data-drug-note>Add a drug to the medium to stop the cycle at one specific step.</p>
+        </section>
+
+        <!-- Inspector -->
+        <section class="hud-section">
+          <span class="hud-label">Cell Inspector</span>
+          <div class="hud-inspect" data-inspect-body>
+            <p class="hud-inspect-empty">Pick the 🔍 Inspect tool, then click a cell to follow it.</p>
+          </div>
+          <canvas class="hud-tree" id="lineage-tree" width="520" height="150" role="img"
+            aria-label="Clonal tree of the selected cell's lineage"></canvas>
         </section>
 
         <!-- Population dynamics -->
@@ -673,6 +702,117 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 0.35rem;
+  }
+
+  /* Scale + objective, sitting over the dish at bottom-left where a microscope
+     overlay belongs, and out of the tool dock's way. */
+  .lab-scale {
+    position: absolute;
+    left: 1.25rem;
+    /* Above the tool dock, not beside it: the dock is centred in the space left of
+       the control panel and its left edge lands right on top of this. */
+    bottom: 5.5rem;
+    z-index: 24;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    pointer-events: auto;
+  }
+  .lab-objective {
+    display: flex;
+    gap: 0.2rem;
+  }
+  .obj-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+    color: #94a3b8;
+    font-size: 0.66rem;
+    font-weight: 700;
+    padding: 0.2rem 0.4rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .obj-btn.is-active {
+    color: #f1f5f9;
+    border-color: rgba(96, 165, 250, 0.7);
+    background: rgba(96, 165, 250, 0.16);
+  }
+  .lab-scale-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .lab-scale-rule {
+    display: block;
+    height: 3px;
+    background: #e2e8f0;
+    border-left: 2px solid #e2e8f0;
+    border-right: 2px solid #e2e8f0;
+    box-sizing: content-box;
+  }
+  .lab-scale-text {
+    font-size: 0.64rem;
+    color: #cbd5e1;
+    letter-spacing: 0.02em;
+  }
+
+  .hud-inspect {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .hud-inspect-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-size: 0.7rem;
+    padding: 0.12rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .hud-inspect-row span {
+    color: #94a3b8;
+  }
+  .hud-inspect-row strong {
+    color: #e2e8f0;
+    font-weight: 600;
+    text-align: right;
+  }
+  .hud-inspect-empty {
+    margin: 0;
+    font-size: 0.7rem;
+    line-height: 1.45;
+    opacity: 0.7;
+  }
+  .hud-tree {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin-top: 0.4rem;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.45);
+  }
+
+  @media (max-width: 768px) {
+    /* The bottom of a phone belongs to the sheet and the dock, and the sheet's height
+       changes with its snap point — so the scale sits under the topbar instead, where
+       nothing moves, and lies flat to save vertical space. */
+    .lab-scale {
+      left: 0.5rem;
+      top: 6.2rem;
+      bottom: auto;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.3rem 0.45rem;
+    }
   }
 
   .hud-chart {
@@ -1187,6 +1327,131 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       };
     });
 
+    // Microscope scale + objective
+    const scaleRule = document.querySelector<HTMLElement>('[data-scale-rule]');
+    const scaleText = document.querySelector<HTMLElement>('[data-scale-text]');
+    const objButtons = document.querySelectorAll<HTMLButtonElement>('[data-objective]');
+    const syncScale = () => {
+      const bar = engine.getScaleBar();
+      if (scaleRule) scaleRule.style.width = `${Math.round(bar.pixels)}px`;
+      if (scaleText) scaleText.textContent = `${bar.microns} µm`;
+      objButtons.forEach((btn) => {
+        const on = Number(btn.dataset.objective) === engine.getObjective();
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-checked', String(on));
+      });
+    };
+    objButtons.forEach((btn) => {
+      btn.onclick = () => {
+        engine.setObjective(Number(btn.dataset.objective));
+        syncScale();
+      };
+    });
+    syncScale();
+
+    // Inspector + clonal tree.
+    //
+    // The read-out follows one cell and empties when that cell divides or dies rather
+    // than freezing on a corpse. The tree is drawn from the lineage ledger, which
+    // outlives the cells in it — a parent is spliced out of the simulation the instant
+    // it divides, so live cells alone cannot describe their own ancestry.
+    const inspectBody = document.querySelector<HTMLElement>('[data-inspect-body]');
+    const treeCanvas = document.getElementById('lineage-tree') as HTMLCanvasElement | null;
+
+    const drawTree = (founderId: string | null) => {
+      if (!treeCanvas) return;
+      const ctx = treeCanvas.getContext('2d');
+      if (!ctx) return;
+      const w = treeCanvas.width;
+      const h = treeCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+      if (!founderId) return;
+      const clone = engine.getLineage().filter((entry) => entry.founderId === founderId);
+      if (!clone.length) return;
+      const maxGen = Math.max(...clone.map((entry) => entry.generation));
+      const byGen = new Map<number, typeof clone>();
+      for (const entry of clone) {
+        const list = byGen.get(entry.generation) ?? [];
+        list.push(entry);
+        byGen.set(entry.generation, list);
+      }
+      const pos = new Map<string, { x: number; y: number; alive: boolean }>();
+      const rowH = h / (maxGen + 1);
+      byGen.forEach((list, gen) => {
+        list.forEach((entry, index) => {
+          pos.set(entry.id, {
+            x: ((index + 0.5) / list.length) * w,
+            y: rowH * (gen + 0.5),
+            alive: entry.diedAt === undefined,
+          });
+        });
+      });
+      ctx.strokeStyle = 'rgba(148,163,184,0.4)';
+      ctx.lineWidth = 1;
+      for (const entry of clone) {
+        if (!entry.parentId) continue;
+        const a = pos.get(entry.parentId);
+        const c = pos.get(entry.id);
+        if (!a || !c) continue;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(c.x, c.y);
+        ctx.stroke();
+      }
+      const selected = engine.getSelectedCellId();
+      pos.forEach((point, id) => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, id === selected ? 5 : 3.2, 0, Math.PI * 2);
+        ctx.fillStyle =
+          id === selected ? '#f8fafc' : point.alive ? 'rgba(96,165,250,0.95)' : 'rgba(248,113,113,0.5)';
+        ctx.fill();
+      });
+    };
+
+    const syncInspector = () => {
+      if (!inspectBody) return;
+      const view = engine.getInspection();
+      inspectBody.textContent = '';
+      if (!view) {
+        const empty = document.createElement('p');
+        empty.className = 'hud-inspect-empty';
+        empty.textContent = engine.getSelectedCellId()
+          ? 'That cell has divided or died.'
+          : 'Pick the Inspect tool, then click a cell to follow it.';
+        inspectBody.appendChild(empty);
+        drawTree(null);
+        return;
+      }
+      const organelles = Object.entries(view.organelles)
+        .map(([type, count]) => `${count}× ${type}`)
+        .join(', ');
+      const rows: [string, string][] = [
+        ['Phase', view.phase],
+        ['Generation', String(view.generation)],
+        ['Age', `${view.ageSeconds.toFixed(0)} s`],
+        ['Diameter', `${view.diameterMicrons.toFixed(1)} µm`],
+        ['Nuclei', String(view.nucleusCount)],
+        ['Contacts', String(view.contacts)],
+        ['Clone-mates', String(view.livingRelatives)],
+        ['Organelles', organelles || '—'],
+      ];
+      for (const [label, value] of rows) {
+        const row = document.createElement('div');
+        row.className = 'hud-inspect-row';
+        const key = document.createElement('span');
+        key.textContent = label;
+        const val = document.createElement('strong');
+        val.textContent = value;
+        row.append(key, val);
+        inspectBody.appendChild(row);
+      }
+      drawTree(view.founderId);
+    };
+
+    const inspectTimer = window.setInterval(syncInspector, 400);
+    document.addEventListener('khc:cell-inspect', syncInspector as EventListener);
+    syncInspector();
+
     // Perturbation Wiring
     const drugButtons = document.querySelectorAll<HTMLButtonElement>('.drug-btn');
     const drugNote = document.querySelector<HTMLElement>('[data-drug-note]');
@@ -1603,6 +1868,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const cleanup = () => {
       clearInterval(telemetryTimer);
       if (chartTimer) clearInterval(chartTimer);
+      clearInterval(inspectTimer);
+      document.removeEventListener('khc:cell-inspect', syncInspector as EventListener);
     };
     window.addEventListener('pagehide', cleanup, { once: true });
     document.addEventListener('astro:before-swap', cleanup, { once: true });
