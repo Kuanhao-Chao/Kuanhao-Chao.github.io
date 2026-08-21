@@ -1023,7 +1023,7 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).grabbedCell).toBe(cell2);
   });
 
-  it('initializes ambient mode with 12 cells equilibrium on desktop and 8-10 on coarse mobile', () => {
+  it('initializes ambient mode with 12 cells equilibrium on desktop and 8 on coarse mobile', () => {
     const desktopEngine = new LivingCellsEngine();
     Object.assign(desktopEngine as any, { coarse: false, isHomepage: false });
     desktopEngine.setMode('ambient');
@@ -1032,12 +1032,17 @@ describe('LivingCellsEngine', () => {
     const mobileEngine = new LivingCellsEngine();
     Object.assign(mobileEngine as any, { coarse: true, isHomepage: false });
     mobileEngine.setMode('ambient');
-    expect((mobileEngine as any).targetCount).toBe(10);
+    expect((mobileEngine as any).targetCount).toBe(8);
+
+    const desktopHomepage = new LivingCellsEngine();
+    Object.assign(desktopHomepage as any, { coarse: false, isHomepage: true });
+    desktopHomepage.setMode('ambient');
+    expect((desktopHomepage as any).targetCount).toBe(6);
 
     const homepageMobile = new LivingCellsEngine();
     Object.assign(homepageMobile as any, { coarse: true, isHomepage: true });
     homepageMobile.setMode('ambient');
-    expect((homepageMobile as any).targetCount).toBe(8);
+    expect((homepageMobile as any).targetCount).toBe(4);
   });
 
   it('supports scaling cell population up to 300 in lab mode with multi-tier LOD', () => {
