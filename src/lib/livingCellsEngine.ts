@@ -2548,6 +2548,10 @@ export class LivingCellsEngine {
   private biologicalPhase(cell: LivingCell): string {
     if (cell.state === 'mitosis') {
       const progress = cell.mitosisProgress ?? 0;
+      // The opening window is `prophase`, which is also what the renderer calls it.
+      // It used to report `rounding` — not a mitotic phase, and it disagreed with
+      // what was being drawn. Mitotic rounding *is* prophase, so the two are one
+      // label rather than a sliver of `rounding` too thin to sample reliably.
       return progress >= 0.95
         ? 'abscission'
         : progress >= 0.82
@@ -2560,7 +2564,7 @@ export class LivingCellsEngine {
                 ? 'metaphase'
                 : progress >= 0.12
                   ? 'prometaphase'
-                  : 'rounding';
+                  : 'prophase';
     }
     if (cell.state === 'postmitotic') return 'recovery';
     if (cell.state === 'apoptosis') {
@@ -3574,12 +3578,30 @@ export class LivingCellsEngine {
     this.fillStroke(1 + 0.12 * Math.sin(progress * Math.PI), cell.life, false, false, cell);
     this.ctx.clip();
 
-    const oldInterior = 1 - windowed(progress, 0.06, 0.3);
-    if (oldInterior > 0.002) {
+    // Organelles are partitioned, not deleted. The old code faded the whole interior
+    // to nothing by progress 0.3 and never brought it back, so a dividing cell was an
+    // empty bag with chromosomes in it. Real mitosis fragments the Golgi and ER and
+    // segregates mitochondria between the poles — so the organised ensemble dissolves
+    // and two dispersed halves take its place, travelling out with the daughter
+    // nuclei so the hand-off at abscission is continuous rather than sudden.
+    const organized = 1 - windowed(progress, 0.04, 0.26);
+    if (organized > 0.002) {
       this.ctx.save();
       this.ctx.rotate(-axis);
-      this.renderInterior(cell, radius, oldInterior, false);
+      this.renderInterior(cell, radius, organized, false);
       this.ctx.restore();
+    }
+    const dispersed = windowed(progress, 0.12, 0.34);
+    if (dispersed > 0.002) {
+      const partitionPull = radius * lerp(0.06, 0.8, windowed(progress, 0.3, 0.94));
+      for (const side of [-1, 1]) {
+        this.ctx.save();
+        this.ctx.translate(side * partitionPull, 0);
+        this.ctx.rotate(-axis);
+        this.ctx.scale(DAUGHTER_RATIO, DAUGHTER_RATIO);
+        this.renderInterior(cell, radius, dispersed * 0.62, false);
+        this.ctx.restore();
+      }
     }
 
     const spindleAlpha = windowed(progress, 0.14, 0.28) * (1 - windowed(progress, 0.7, 0.92));
@@ -3596,20 +3618,31 @@ export class LivingCellsEngine {
         ? `hsla(${glow}, ${0.08 * spindleAlpha * alpha})`
         : `rgba(${glow}, ${0.034 * spindleAlpha * alpha})`;
       this.ctx.lineWidth = 0.6;
-      for (let ray = 0; ray < 6; ray++) {
-        const angle = (ray / 6) * TAU;
+      // Astral microtubules run from the centrosome out to the cortex — they are what
+      // positions the spindle and, with it, the division plane. At radius * 0.11 they
+      // were stubs that read as a smudge around the pole.
+      for (let ray = 0; ray < 9; ray++) {
+        const angle = (ray / 9) * TAU + side * 0.2;
+        const reach = radius * (0.2 + 0.16 * Math.abs(Math.cos(angle)));
         this.ctx.beginPath();
         this.ctx.moveTo(px, 0);
-        this.ctx.lineTo(px + Math.cos(angle) * radius * 0.11, Math.sin(angle) * radius * 0.11);
+        this.ctx.lineTo(px + Math.cos(angle) * reach, Math.sin(angle) * reach);
         this.ctx.stroke();
       }
     }
 
-    // 1.5× chromosome karyotype (9 distinct chromosome pairs)
-    const count = 9;
-    const spacing = clamp(radius * 0.072, 1.2, 3.2);
-    const length = clamp(radius * 0.14, 2.4, 5.6);
-    const width = clamp(radius * 0.034, 0.8, 1.5);
+    // Six chromosomes, drawn large enough to read as chromosomes.
+    //
+    // The geometry was already right — an X at prophase (a replicated chromosome
+    // really is two chromatids joined at a centromere), paired bars on the metaphase
+    // plate, V-shaped chromatids trailing poleward at anaphase. The problem was
+    // scale: nine of them at ~5px stacked into 26px of an 80px cell and read as a
+    // zigzag scribble. Fewer and bigger is both clearer and no less honest, since
+    // the count is schematic either way.
+    const count = 6;
+    const spacing = clamp(radius * 0.125, 2.2, 5.4);
+    const length = clamp(radius * 0.21, 3.8, 8.4);
+    const width = clamp(radius * 0.046, 1.0, 2.1);
     const prophase = windowed(progress, 0.02, 0.12) * (1 - windowed(progress, 0.31, 0.38));
     const metaphase = windowed(progress, 0.22, 0.32) * (1 - windowed(progress, 0.46, 0.51));
     const anaphase = windowed(progress, 0.44, 0.5) * (1 - windowed(progress, 0.68, 0.76));
@@ -3632,6 +3665,14 @@ export class LivingCellsEngine {
         this.ctx.moveTo(gap, cy - length / 2);
         this.ctx.lineTo(gap, cy + length / 2);
         this.ctx.stroke();
+        // The centromere: sister chromatids are still one chromosome until anaphase,
+        // and without the constriction the plate reads as loose parallel dashes.
+        this.ctx.lineWidth = Math.max(0.6, width * 0.7);
+        this.ctx.beginPath();
+        this.ctx.moveTo(-gap, cy);
+        this.ctx.lineTo(gap, cy);
+        this.ctx.stroke();
+        this.ctx.lineWidth = width;
         this.ctx.strokeStyle = isHsl
           ? `hsla(${glow}, ${0.08 * metaphase * alpha})`
           : `rgba(${glow}, ${0.045 * metaphase * alpha})`;
@@ -3658,33 +3699,61 @@ export class LivingCellsEngine {
       }
     }
 
-    const oldNucleus = 1 - windowed(progress, 0.12, 0.3);
+    // Nuclear envelope breakdown. The envelope does not simply dim: at prometaphase it
+    // fragments into vesicles that disperse into the cytoplasm, which is what lets the
+    // spindle reach the chromosomes at all. Drawing it as arcs that shorten and drift
+    // outward shows that, where a fading circle only showed something disappearing.
+    const oldNucleus = 1 - windowed(progress, 0.12, 0.34);
     if (oldNucleus > 0.002) {
+      const nucleusR = radius * lerp(0.25, 0.2, windowed(progress, 0, 0.16));
+      const breakdown = windowed(progress, 0.1, 0.34);
       this.ctx.beginPath();
-      this.ctx.arc(0, 0, radius * lerp(0.25, 0.2, windowed(progress, 0, 0.16)), 0, TAU);
+      this.ctx.arc(0, 0, nucleusR, 0, TAU);
       this.ctx.fillStyle = isHsl
-        ? `hsla(${accent}, ${0.08 * oldNucleus * alpha})`
-        : `rgba(${accent}, ${0.05 * oldNucleus * alpha})`;
+        ? `hsla(${accent}, ${0.08 * oldNucleus * (1 - breakdown) * alpha})`
+        : `rgba(${accent}, ${0.05 * oldNucleus * (1 - breakdown) * alpha})`;
       this.ctx.fill();
       this.ctx.strokeStyle = isHsl
         ? `hsla(${glow}, ${0.08 * oldNucleus * alpha})`
         : `rgba(${ink}, ${0.048 * oldNucleus * alpha})`;
-      this.ctx.stroke();
+      this.ctx.lineWidth = 0.9;
+      const segments = 8;
+      const drift = nucleusR * (1 + breakdown * 0.55);
+      for (let index = 0; index < segments; index++) {
+        const start = (index / segments) * TAU + breakdown * 0.3;
+        const span = (TAU / segments) * lerp(0.99, 0.36, breakdown);
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, drift, start, start + span);
+        this.ctx.stroke();
+      }
     }
-    const newNuclei = windowed(progress, 0.64, 0.84);
+    // Telophase: the envelope reassembles around each chromatid set from the same
+    // vesicles, so the arcs run in reverse — short and scattered, then closing.
+    const newNuclei = windowed(progress, 0.62, 0.84);
     if (newNuclei > 0.002) {
       const distance = radius * lerp(0.45, 0.82, windowed(progress, 0.64, 0.94));
+      const reform = windowed(progress, 0.62, 0.92);
+      const nucleusR = daughterRadius * 0.24;
       for (const side of [-1, 1]) {
         this.ctx.beginPath();
-        this.ctx.arc(side * distance, 0, daughterRadius * 0.24, 0, TAU);
+        this.ctx.arc(side * distance, 0, nucleusR, 0, TAU);
         this.ctx.fillStyle = isHsl
-          ? `hsla(${accent}, ${0.08 * newNuclei * alpha})`
-          : `rgba(${accent}, ${0.052 * newNuclei * alpha})`;
+          ? `hsla(${accent}, ${0.08 * newNuclei * reform * alpha})`
+          : `rgba(${accent}, ${0.052 * newNuclei * reform * alpha})`;
         this.ctx.fill();
         this.ctx.strokeStyle = isHsl
           ? `hsla(${glow}, ${0.08 * newNuclei * alpha})`
           : `rgba(${ink}, ${0.05 * newNuclei * alpha})`;
-        this.ctx.stroke();
+        this.ctx.lineWidth = 0.9;
+        const segments = 8;
+        const gather = nucleusR * lerp(1.5, 1, reform);
+        for (let index = 0; index < segments; index++) {
+          const start = (index / segments) * TAU - (1 - reform) * 0.3;
+          const span = (TAU / segments) * lerp(0.34, 0.99, reform);
+          this.ctx.beginPath();
+          this.ctx.arc(side * distance, 0, gather, start, start + span);
+          this.ctx.stroke();
+        }
       }
     }
     const ring = windowed(progress, 0.5, 0.6) * (1 - windowed(progress, 0.94, 1));
@@ -3707,6 +3776,25 @@ export class LivingCellsEngine {
         );
         this.ctx.stroke();
       }
+    }
+    // The midbody: when the contractile ring has closed, the two cells stay joined by
+    // a dense bundle of overlapping microtubules until abscission actually severs
+    // them. Without it the furrow simply pinched shut and the pair sprang apart.
+    const midbody = windowed(progress, 0.8, 0.88) * (1 - windowed(progress, 0.96, 1));
+    if (midbody > 0.002) {
+      const halfHeight = Math.max(1.2, waist * 0.75);
+      const halfWidth = Math.max(0.9, radius * 0.035);
+      this.ctx.beginPath();
+      this.ctx.ellipse(0, 0, halfWidth, halfHeight, 0, 0, TAU);
+      this.ctx.fillStyle = isHsl
+        ? `hsla(${accent}, ${0.3 * midbody * alpha})`
+        : `rgba(${accent}, ${0.2 * midbody * alpha})`;
+      this.ctx.fill();
+      this.ctx.strokeStyle = isHsl
+        ? `hsla(${glow}, ${0.18 * midbody * alpha})`
+        : `rgba(${glow}, ${0.1 * midbody * alpha})`;
+      this.ctx.lineWidth = 0.7;
+      this.ctx.stroke();
     }
     if (progress >= 0.94) {
       const sparkAlpha = Math.sin(((progress - 0.94) / 0.06) * Math.PI);
@@ -3745,6 +3833,11 @@ export class LivingCellsEngine {
     this.ctx.moveTo(x - length * 0.38, y + length * 0.5);
     this.ctx.lineTo(x + length * 0.38, y - length * 0.5);
     this.ctx.stroke();
+    // The waist where the two chromatids are held together.
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, Math.max(0.5, width * 0.62), 0, TAU);
+    this.ctx.fillStyle = isHsl ? `hsla(${color}, ${0.3 * alpha})` : `rgba(${color}, ${0.2 * alpha})`;
+    this.ctx.fill();
   }
 
   private renderApoptosis(cell: LivingCell, x: number, y: number): void {
@@ -3784,8 +3877,26 @@ export class LivingCellsEngine {
     const pyknosis = windowed(progress, 0.02, 0.22);
     const fragmentFade = windowed(progress, 0.38, 0.62);
     if (fragmentFade < 0.99) {
+      const nucleusR = startRadius * lerp(0.24, 0.11, pyknosis);
+      // Chromatin margination is the first thing a dying nucleus does: the chromatin
+      // condenses against the inside of the nuclear envelope in dense crescents
+      // before the whole nucleus shrinks into a pyknotic ball. Going straight to the
+      // ball skipped the one stage that makes apoptosis recognisable under a scope.
+      const margination = windowed(progress, 0.01, 0.16) * (1 - windowed(progress, 0.2, 0.34));
+      if (margination > 0.01) {
+        const shell = startRadius * lerp(0.24, 0.16, pyknosis);
+        this.ctx.lineWidth = Math.max(1, startRadius * 0.045);
+        this.ctx.strokeStyle = isHsl
+          ? `hsla(${glow}, ${0.22 * margination * alpha})`
+          : `rgba(${ink}, ${0.14 * margination * alpha})`;
+        for (const side of [0, Math.PI]) {
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, shell, side + 0.5, side + Math.PI - 0.5);
+          this.ctx.stroke();
+        }
+      }
       this.ctx.beginPath();
-      this.ctx.arc(0, 0, startRadius * lerp(0.24, 0.11, pyknosis), 0, TAU);
+      this.ctx.arc(0, 0, nucleusR, 0, TAU);
       this.ctx.fillStyle = isHsl
         ? `hsla(${glow}, ${(0.14 + 0.08 * pyknosis) * (1 - fragmentFade) * alpha})`
         : `rgba(${ink}, ${(0.08 + 0.06 * pyknosis) * (1 - fragmentFade) * alpha})`;

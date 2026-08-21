@@ -25,7 +25,8 @@ const touchRetargetSelector =
 
 const expectedPhases = {
   mitosis: [
-    ['rounding', 0.06],
+    // Mitotic rounding is prophase; there is no separate `rounding` phase.
+    ['prophase', 0.06],
     ['prometaphase', 0.18],
     ['metaphase', 0.36],
     ['anaphase', 0.53],
