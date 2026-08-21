@@ -577,7 +577,10 @@ describe('LivingCellsEngine', () => {
     const cell = createCell(engine);
     (engine as any).cells = [cell];
     const mitosis = [
-      [0.05, 'rounding'],
+      // Mitotic rounding is prophase; the label used to report a separate `rounding`
+      // that the renderer never drew and that no sane sampling window could hit.
+      [0.02, 'prophase'],
+      [0.05, 'prophase'],
       [0.12, 'prometaphase'],
       [0.28, 'metaphase'],
       [0.48, 'anaphase'],
