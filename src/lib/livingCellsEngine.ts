@@ -236,6 +236,8 @@ export interface LivingCell {
   lineageId?: string;
   apoptosisProgress?: number;
   apoptosisStartRadius?: number;
+  /** Set by `cullToBaseline` so a whole clearance wave lands inside its time budget. */
+  apoptosisDuration?: number;
   apoptosisEntryContour?: Point[];
   apoptosisFragmentAngles?: number[];
   blebs?: ApoptoticBleb[];
@@ -340,6 +342,9 @@ const SIZE_CHECKPOINT = 0.97;
 const MATURE_DWELL = 8;
 const DAUGHTER_RATIO = Math.cbrt(0.5);
 const BASE_ALPHA = 1.0;
+/** Bump when the persisted cell shape changes, so stale payloads reseed instead of
+ *  restoring half a cell. */
+const PERSIST_VERSION = 2;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -374,6 +379,32 @@ const percentile = (values: number[], q: number): number => {
   return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * q))];
 };
 
+/** True for `/lab` and `/lab/` alike; the old check compared the raw pathname. */
+export function isLabPath(pathname: string): boolean {
+  return pathname.replace(/\/+$/, '') === '/lab';
+}
+
+/**
+ * Decide which mode a page should actually run in.
+ *
+ * `lab` is a property of one route, not of the visitor, so a stored `lab` resolves
+ * back to `ambient` anywhere else. Restoring it verbatim is what put the homepage
+ * into lab mode — full detail, lab alpha and four times the ambient population —
+ * after a single visit to /lab/.
+ */
+export function resolveCellMode(
+  stored: string | null,
+  isLabRoute: boolean,
+  current: CellMode
+): CellMode {
+  const requested: CellMode | null =
+    stored === 'ambient' || stored === 'calm' || stored === 'lab' || stored === 'off'
+      ? stored
+      : null;
+  if (requested === 'lab' && !isLabRoute) return 'ambient';
+  return requested ?? current;
+}
+
 function cloneOrganelle(org: Organelle): Organelle {
   if (org.type === 'golgi') return { ...org, vesicles: org.vesicles.map((v) => ({ ...v })) };
   if (org.type === 'er') return { ...org, ribosomes: org.ribosomes.map((r) => ({ ...r })) };
@@ -386,6 +417,8 @@ export class LivingCellsEngine {
   private attached = false;
   private cells: LivingCell[] = [];
   private apoptoticBodies: ApoptoticBleb[] = [];
+  private cullQueue: { id: string; at: number; duration: number }[] = [];
+  private cullClock = 0;
   private nutrientDroplets: NutrientDroplet[] = [];
   private mutagenPulses: MutagenPulse[] = [];
   private laser: LaserBeam = { active: false, x: -1000, y: -1000, radius: 140, power: 200 };
@@ -474,13 +507,33 @@ export class LivingCellsEngine {
 
   public constructor(randomFn?: () => number) {
     this.random = randomFn ?? Math.random;
-    this.targetCount = this.coarse ? (this.isHomepage ? 4 : 8) : (this.isHomepage ? 6 : 12);
+    this.targetCount = this.ambientTarget();
     this.baseCount = this.targetCount;
     this.refreshPalette();
   }
 
   private rand(min: number, max: number): number {
     return min + this.random() * (max - min);
+  }
+
+  /**
+   * The ambient population baseline.
+   *
+   * One number for the whole site. This used to be computed in three places as
+   * `coarse ? (isHomepage ? 4 : 8) : (isHomepage ? 6 : 12)`, so the homepage held 6
+   * cells and every other page 12 — the count visibly jumped on every navigation,
+   * and the three copies could drift apart.
+   */
+  private ambientTarget(): number {
+    return this.coarse ? 8 : 12;
+  }
+
+  /**
+   * `calm` is a real mode, not an alias for `ambient`, so every ambient-ish branch
+   * has to go through here or it will silently exclude calm.
+   */
+  private isAmbientLike(mode: CellMode = this.mode): boolean {
+    return mode === 'ambient' || mode === 'calm';
   }
 
   public getMode(): CellMode {
@@ -527,8 +580,18 @@ export class LivingCellsEngine {
         harmonicSpeeds: c.harmonicSpeeds,
         organelles: c.organelles,
         lifecycleSource: c.lifecycleSource,
+        // Lifecycle links. Without these a restored postmitotic cell has no sibling
+        // to pair with, and a division in flight loses the axis it was dividing on.
+        siblingId: c.siblingId,
+        lineageId: c.lineageId,
+        mitosisAngle: c.mitosisAngle,
+        divisionRadius: c.divisionRadius,
+        postmitoticProgress: c.postmitoticProgress,
       }));
-      sessionStorage.setItem('khc-cells-persist', JSON.stringify({ cells: data, nextId: this.nextId }));
+      sessionStorage.setItem(
+        'khc-cells-persist',
+        JSON.stringify({ version: PERSIST_VERSION, cells: data, nextId: this.nextId })
+      );
     } catch {}
   }
 
@@ -539,6 +602,7 @@ export class LivingCellsEngine {
       if (!raw) return false;
       const parsed = JSON.parse(raw);
       if (!parsed || !Array.isArray(parsed.cells) || !parsed.cells.length) return false;
+      if (parsed.version !== PERSIST_VERSION) return false;
       const activeItems = parsed.cells.filter(
         (item: any) => item && (item.state !== 'apoptosis' || (Number(item.life) || 1) > 0.05)
       );
@@ -599,7 +663,7 @@ export class LivingCellsEngine {
           nucleusRatio: Number(item.nucleusRatio) || 0.34,
           nucleusAngle: Number(item.nucleusAngle) || 0,
           organelles: Array.isArray(item.organelles) ? item.organelles.map(cloneOrganelle) : [],
-          state: item.state === 'mitosis' ? 'mature' : (item.state || 'mature'),
+          state: (item.state as CellState) || 'mature',
           stateElapsed: Number(item.stateElapsed) || 0,
           growthProgress: typeof item.growthProgress === 'number' ? item.growthProgress : 1,
           growthDuration: typeof item.growthDuration === 'number' ? item.growthDuration : 10,
@@ -616,6 +680,12 @@ export class LivingCellsEngine {
           glowIntensity: 1,
           contactCount: 0,
           lifecycleSource: item.lifecycleSource || 'automatic',
+          siblingId: typeof item.siblingId === 'string' ? item.siblingId : undefined,
+          lineageId: typeof item.lineageId === 'string' ? item.lineageId : undefined,
+          mitosisAngle: typeof item.mitosisAngle === 'number' ? item.mitosisAngle : undefined,
+          divisionRadius: typeof item.divisionRadius === 'number' ? item.divisionRadius : undefined,
+          postmitoticProgress:
+            typeof item.postmitoticProgress === 'number' ? item.postmitoticProgress : undefined,
         };
         const margin = cell.radius * 1.1;
         if (this.width > 0 && this.height > 0) {
@@ -626,6 +696,23 @@ export class LivingCellsEngine {
         }
         return cell;
       });
+      // A division in flight resumes: `completeMitosis` rebuilds its plan from the
+      // persisted axis and radius. A postmitotic cell whose sibling did not survive
+      // has nothing for `updatePostmitoticPairs` to pair it with, so it is demoted to
+      // growing rather than left waiting on a cell that no longer exists.
+      const ids = new Set(this.cells.map((cell) => cell.id));
+      for (const cell of this.cells) {
+        if (cell.state === 'mitosis' && cell.divisionRadius === undefined) {
+          cell.divisionRadius = cell.baseRadius;
+        }
+        if (cell.state === 'postmitotic' && (!cell.siblingId || !ids.has(cell.siblingId))) {
+          cell.state = cell.baseRadius < cell.targetRadius * 0.9995 ? 'growing' : 'mature';
+          cell.stateElapsed = 0;
+          cell.matureElapsed = 0;
+          cell.postmitoticProgress = undefined;
+          cell.siblingId = undefined;
+        }
+      }
       if (parsed.nextId && Number.isFinite(parsed.nextId)) {
         this.nextId = Math.max(this.nextId, parsed.nextId);
       }
@@ -636,28 +723,57 @@ export class LivingCellsEngine {
     }
   }
 
-  public setMode(mode: CellMode): void {
-    const normalizedMode = mode === 'calm' ? 'ambient' : mode;
-    if (!['ambient', 'calm', 'lab', 'off'].includes(mode)) return;
-    this.persistCells();
-    this.mode = normalizedMode;
-    if (normalizedMode === 'ambient') {
+  /**
+   * The only way the engine's mode may change.
+   *
+   * `calm` is no longer collapsed into `ambient`: it is a genuinely quieter third
+   * mode — dimmer, slower, and without the spontaneous turnover churn — for people
+   * who want the background to stop moving while they read.
+   */
+  private isLabRoute(): boolean {
+    if (typeof window === 'undefined') return false;
+    return isLabPath(window.location.pathname);
+  }
+
+  /**
+   * Apply a mode's configuration without touching the run loop.
+   *
+   * Split out of `setMode` so hydration can settle the mode *before* the canvas is
+   * sized and seeded. `hydrateControls` used to assign `this.mode` directly, which
+   * skipped all of this and left params, target and dataset describing a different
+   * mode than the one the engine was actually in.
+   */
+  private applyMode(mode: CellMode): void {
+    const previousMode = this.mode;
+    this.mode = mode;
+    if (mode !== previousMode) this.cancelCull();
+    if (this.isAmbientLike(mode)) {
+      const calm = mode === 'calm';
       this.simParams = {
         targetPopulation: 0,
-        growthMultiplier: 1.0,
-        mitosisMultiplier: 1.0,
+        growthMultiplier: calm ? 0.7 : 1.0,
+        mitosisMultiplier: calm ? 0.6 : 1.0,
         apoptosisMultiplier: 1.0,
+        // Calm damps motion through viscosity and temperature, never through
+        // `timeScale`. Slowing the clock halves the fixed-step update rate, which is
+        // a health signal (the audit floors it at 45/s) rather than a style knob —
+        // and a legacy stored `calm` would have quietly failed it.
         timeScale: 1.0,
         isPaused: false,
-        visualAlpha: 0.6,
+        visualAlpha: calm ? 0.38 : 0.6,
         darkContrast: false,
-        viscosity: 1.0,
-        temperature: 1.0,
+        viscosity: calm ? 1.9 : 1.0,
+        temperature: calm ? 0.4 : 1.0,
         stainingMode: 'phase',
       };
-      this.targetCount = this.coarse ? (this.isHomepage ? 4 : 8) : (this.isHomepage ? 6 : 12);
+      this.targetCount = this.ambientTarget();
       this.baseCount = this.targetCount;
-    } else if (normalizedMode === 'lab') {
+      // Returning from a 300-cell lab used to leave homeostasis trickling the surplus
+      // away for many minutes. Drain it as one visible wave instead.
+      if (previousMode === 'lab' && this.cells.length > this.targetCount + 1) {
+        this.cullToBaseline(this.targetCount);
+      }
+    } else if (mode === 'lab') {
       this.simParams.visualAlpha = 1.0;
       this.simParams.darkContrast = true;
       if (this.simParams.targetPopulation <= 0) {
@@ -666,11 +782,17 @@ export class LivingCellsEngine {
       this.targetCount = this.simParams.targetPopulation;
       this.baseCount = this.simParams.targetPopulation;
     }
-    if (typeof document !== 'undefined') document.documentElement.dataset.cellMode = normalizedMode;
+    if (typeof document !== 'undefined') document.documentElement.dataset.cellMode = mode;
     try {
-      localStorage.setItem('khc-cell-mode', normalizedMode);
+      localStorage.setItem('khc-cell-mode', mode);
     } catch {}
-    if (normalizedMode === 'off') {
+  }
+
+  public setMode(mode: CellMode): void {
+    if (!['ambient', 'calm', 'lab', 'off'].includes(mode)) return;
+    this.persistCells();
+    this.applyMode(mode);
+    if (mode === 'off') {
       this.stop();
       this.cancelPointer(false);
       this.clearHover();
@@ -680,7 +802,7 @@ export class LivingCellsEngine {
       if (this.reducedMotion) this.render(0, true);
       else this.start();
     }
-    this.dispatch('khc:cell-mode-change', { mode: normalizedMode });
+    this.dispatch('khc:cell-mode-change', { mode });
     this.dispatch('khc:cell-params-change', { params: this.getParams() });
   }
 
@@ -820,6 +942,7 @@ export class LivingCellsEngine {
   }
 
   public resetPopulation(count?: number): void {
+    this.cullQueue = [];
     this.cells = [];
     this.apoptoticBodies = [];
     this.nutrientDroplets = [];
@@ -834,7 +957,101 @@ export class LivingCellsEngine {
     this.seed();
   }
 
+  /**
+   * Thin the dish down to `target` as a visible apoptosis wave, inside `seconds`.
+   *
+   * Not a reset: `clearAllCells()` empties the dish on the spot and `resetPopulation`
+   * reseeds it, both of which read as a glitch. Here the surplus actually dies —
+   * staggered so it sweeps rather than popping in unison, with each death shortened
+   * so the last one still finishes inside the budget whether the dish holds 24 cells
+   * or 300.
+   *
+   * Victims are taken from the most crowded regions first, so what is left is spread
+   * across the dish instead of clumped. A cell that is mid-division, grabbed, or part
+   * of the selected lineage is never chosen.
+   *
+   * Idempotent: calling it again retargets the wave instead of stacking a second one.
+   */
+  public cullToBaseline(target = this.ambientTarget(), seconds = 7): number {
+    const budget = clamp(seconds, 3, 12);
+    const protectedCell = (cell: LivingCell) =>
+      cell.id === this.selectedCellId ||
+      Boolean(this.selectedCellId && cell.lineageId === this.selectedCellId);
+
+    const candidates = this.cells.filter(
+      (cell) =>
+        cell.state !== 'apoptosis' &&
+        cell.state !== 'mitosis' &&
+        cell.state !== 'postmitotic' &&
+        !cell.isGrabbed &&
+        !protectedCell(cell)
+    );
+    const dying = this.cells.filter((cell) => cell.state === 'apoptosis').length;
+    const excess = Math.max(0, this.cells.length - dying - Math.max(0, target));
+    const victims = Math.min(excess, candidates.length);
+    this.cullQueue = [];
+
+    // The controller has to agree with the wave, or homeostasis simply divides the
+    // population straight back up while the surplus is still dying.
+    const settled = Math.max(0, target);
+    this.targetCount = settled;
+    this.baseCount = settled;
+    if (this.simParams.targetPopulation > 0) {
+      this.simParams.targetPopulation = settled;
+      this.dispatch('khc:cell-params-change', { params: this.getParams() });
+    }
+
+    if (victims <= 0) return 0;
+
+    // Crowding first, then age. Removing from dense patches is what leaves the
+    // survivors evenly spread rather than huddled in one corner.
+    const neighbours = (cell: LivingCell) => {
+      const reach = this.collisionRadius(cell) * 2.6;
+      let count = 0;
+      for (const other of this.cells) {
+        if (other === cell) continue;
+        if (Math.hypot(other.x - cell.x, other.y - cell.y) <= reach) count++;
+      }
+      return count;
+    };
+    const ranked = candidates
+      .map((cell) => ({ cell, crowd: neighbours(cell) }))
+      .sort((a, b) => b.crowd - a.crowd || b.cell.age - a.cell.age)
+      .slice(0, victims);
+
+    const spread = budget * 0.55;
+    const perCell = Math.max(1.2, budget - spread);
+    ranked.forEach((entry, index) => {
+      const at = victims === 1 ? 0 : (index / (victims - 1)) * spread;
+      this.cullQueue.push({ id: entry.cell.id, at, duration: perCell });
+    });
+    this.cullClock = 0;
+    return victims;
+  }
+
+  /** Drains `cullQueue` on the simulation clock so the wave is frame-rate independent. */
+  private updateCull(dt: number): void {
+    if (!this.cullQueue.length) return;
+    this.cullClock += dt;
+    const due = this.cullQueue.filter((entry) => entry.at <= this.cullClock);
+    if (!due.length) return;
+    this.cullQueue = this.cullQueue.filter((entry) => entry.at > this.cullClock);
+    for (const entry of due) {
+      const cell = this.cells.find((candidate) => candidate.id === entry.id);
+      if (!cell || cell.state === 'apoptosis' || cell.state === 'mitosis' || cell.isGrabbed) continue;
+      cell.apoptosisDuration = entry.duration;
+      this.triggerApoptosis(cell, 'automatic');
+    }
+  }
+
+  /** Abandons a clearance wave that has not finished dispatching. */
+  public cancelCull(): void {
+    this.cullQueue = [];
+    this.cullClock = 0;
+  }
+
   public clearAllCells(): void {
+    this.cullQueue = [];
     this.cells = [];
     this.apoptoticBodies = [];
     this.nutrientDroplets = [];
@@ -914,8 +1131,7 @@ export class LivingCellsEngine {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
     try {
       const storedMode = localStorage.getItem('khc-cell-mode');
-      if (storedMode === 'calm' || storedMode === 'lab' || storedMode === 'off')
-        this.mode = storedMode;
+      this.applyMode(resolveCellMode(storedMode, this.isLabRoute(), this.mode));
       const storedAction = sessionStorage.getItem('khc-cell-action');
       if (storedAction === 'divide' || storedAction === 'apoptosis') this.labAction = storedAction;
     } catch {}
@@ -1197,7 +1413,7 @@ export class LivingCellsEngine {
     this.divisionQueue = this.divisionQueue.filter((id) => id !== cell.id);
     const count = 4 + Math.floor(this.random() * 3);
     const releaseCount = Math.max(2, count - 1);
-    const isAmbient = this.mode === 'ambient' || this.mode === 'calm';
+    const isAmbient = this.isAmbientLike();
     const excess = isAmbient ? Math.max(0, this.projectedCount() - (this.targetCount || 12)) : 0;
     const lifetimeSpeedup = excess > 0 ? 1.8 : 1.0;
     cell.blebs = Array.from({ length: count }, (_, i) => {
@@ -1368,7 +1584,7 @@ export class LivingCellsEngine {
     if (this.mode === 'lab' && this.simParams.targetPopulation > 0) {
       this.targetCount = this.simParams.targetPopulation;
     } else {
-      this.targetCount = this.coarse ? (this.isHomepage ? 4 : 8) : (this.isHomepage ? 6 : 12);
+      this.targetCount = this.ambientTarget();
     }
     this.baseCount = this.targetCount;
 
@@ -1865,6 +2081,11 @@ export class LivingCellsEngine {
 
   private currentRenderInterval(): number {
     if (this.mode === 'lab') return 15;
+    // The homepage keeps a slower render budget on purpose: it is the only page that
+    // runs a second canvas (the hero animation) on the same frame. Unifying this to
+    // 15ms tripled homepage rendering and starved the update loop — measured at
+    // 33/s against a 45/s floor in webkit — so the population is unified but the
+    // cadence is not.
     const baseInterval = this.isHomepage ? 50 : this.coarse ? 32 : 15;
     if (this.scrollActivityRemaining > 0) return Math.max(baseInterval, this.coarse ? 67 : 42);
     return baseInterval;
@@ -1915,6 +2136,7 @@ export class LivingCellsEngine {
 
     this.updateNutrients(dt);
     this.updateMutagenPulses(dt);
+    this.updateCull(dt);
 
     for (const cell of this.cells) cell.contactCount = 0;
     this.resolveCollisions(dt);
@@ -2180,14 +2402,16 @@ export class LivingCellsEngine {
       }
       return false;
     }
-    const isAmbient = this.mode === 'ambient' || this.mode === 'calm';
+    const isAmbient = this.isAmbientLike();
     const projected = this.projectedCount();
     const target = this.targetCount || this.baseCount || 12;
     const excess = isAmbient ? Math.max(0, projected - target) : 0;
     const clearanceSpeedup = excess > 0 ? 1 + Math.min(5.0, excess * 0.08) : 1;
-    const effectiveDuration = isAmbient
-      ? APOPTOSIS_SECONDS / (this.simParams.apoptosisMultiplier * clearanceSpeedup)
-      : APOPTOSIS_SECONDS / this.simParams.apoptosisMultiplier;
+    const effectiveDuration =
+      cell.apoptosisDuration ??
+      (isAmbient
+        ? APOPTOSIS_SECONDS / (this.simParams.apoptosisMultiplier * clearanceSpeedup)
+        : APOPTOSIS_SECONDS / this.simParams.apoptosisMultiplier);
     cell.apoptosisProgress = clamp(cell.stateElapsed / effectiveDuration, 0, 1);
     const progress = cell.apoptosisProgress;
     const startRadius = cell.apoptosisStartRadius ?? cell.baseRadius;
@@ -2761,7 +2985,7 @@ export class LivingCellsEngine {
         : this.targetCount || this.baseCount || 12;
     const excess = Math.max(0, projected - target);
     if (projected > target) {
-      const isAmbient = this.mode === 'ambient' || this.mode === 'calm';
+      const isAmbient = this.isAmbientLike();
       const automaticDeaths = this.cells.filter(
         (cell) => cell.state === 'apoptosis' && cell.lifecycleSource === 'automatic'
       ).length;
@@ -2781,17 +3005,27 @@ export class LivingCellsEngine {
       return;
     }
     if (projected < target) {
-      const automaticDivisionActive = this.cells.some(
+      const deficit = target - projected;
+      const activeAutomatic = this.cells.filter(
         (cell) =>
           (cell.state === 'mitosis' || cell.state === 'postmitotic') &&
           cell.lifecycleSource === 'automatic'
-      );
-      if (automaticDivisionActive) return;
+      ).length;
+      // Ambient keeps automatic division strictly one at a time, so the background
+      // never bursts while you are reading. The lab is a simulator, and there a
+      // 300-cell preset that adds one cell every ~9s never arrives — so concurrency
+      // and pacing there scale with how far below target the dish is, mirroring what
+      // the excess branch already does for clearance.
+      const maxConcurrent = this.mode === 'lab' ? clamp(Math.ceil(deficit * 0.25), 1, 12) : 1;
+      if (activeAutomatic >= maxConcurrent) return;
       if (this.rebalanceCooldown <= 0) {
         const candidate = this.divisionCandidate();
         if (candidate) {
           this.triggerMitosis(candidate, false, 'automatic');
-          this.rebalanceCooldown = this.rebalanceDelay();
+          this.rebalanceCooldown =
+            this.mode === 'lab'
+              ? Math.max(0.06, this.rebalanceDelay() / (1 + deficit * 0.4))
+              : this.rebalanceDelay();
         }
       }
       return;
@@ -2801,6 +3035,9 @@ export class LivingCellsEngine {
         cell.state === 'mitosis' || cell.state === 'postmitotic' || cell.state === 'apoptosis'
     );
     if (this.quietRemaining > 0 || activeLifecycle) return;
+    // Calm holds the population but stops the spontaneous kill-and-replace churn, so
+    // the background is still alive but nothing starts moving while you are reading.
+    if (this.mode === 'calm') return;
     if (this.replacementOwed) {
       this.replacementOwed = false;
       this.turnoverRemaining = this.turnoverDelay();
@@ -2837,12 +3074,18 @@ export class LivingCellsEngine {
   }
 
   private divisionCandidate(): LivingCell | null {
+    // The size checkpoint is never relaxed — a cell may only divide once it has grown
+    // to roughly its target volume. The *dwell* after reaching that size is a pacing
+    // knob, and in the lab a large deficit shortens it so presets converge.
+    const deficit = Math.max(0, (this.targetCount || 0) - this.projectedCount());
+    const dwell =
+      this.mode === 'lab' ? MATURE_DWELL / clamp(1 + deficit * 0.12, 1, 6) : MATURE_DWELL;
     const candidates = this.peripheral(
       this.cells.filter(
         (cell) =>
           cell.state === 'mature' &&
           cell.baseRadius >= cell.targetRadius * SIZE_CHECKPOINT &&
-          cell.matureElapsed >= MATURE_DWELL &&
+          cell.matureElapsed >= dwell &&
           !cell.isGrabbed &&
           !cell.divisionQueued
       )
@@ -3069,7 +3312,7 @@ export class LivingCellsEngine {
 
   private effectiveAlpha(opacity = 1): number {
     const modeAlpha =
-      this.mode === 'ambient' || this.mode === 'calm'
+      this.isAmbientLike()
         ? 0.6
         : (this.simParams.visualAlpha ?? 1.0);
     return BASE_ALPHA * modeAlpha * this.visualScale * opacity;
@@ -3944,12 +4187,12 @@ export function getLivingCellsEngine(): LivingCellsEngine {
 export function initLivingCellsBackground(): void {
   const canvas = document.querySelector<HTMLCanvasElement>('[data-site-bg-canvas]');
   if (canvas) {
-    const engine = getLivingCellsEngine();
-    if (typeof window !== 'undefined' && window.location.pathname !== '/lab' && engine.getMode() === 'lab') {
-      const stored = localStorage.getItem('khc-cell-mode');
-      engine.setMode(stored === 'off' ? 'off' : 'ambient');
-    }
-    engine.attach(canvas);
+    // No route guard here any more: `attach()` -> `hydrateControls()` resolves the
+    // mode for the current route before the canvas is sized, which covers both a cold
+    // load and a client-side navigation. The old guard ran *before* hydration and
+    // compared `pathname !== '/lab'`, so it never saw the stored value and never
+    // matched `/lab/`.
+    getLivingCellsEngine().attach(canvas);
   } else {
     getLivingCellsEngine().detach();
   }

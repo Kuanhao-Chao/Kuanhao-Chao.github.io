@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   LivingCellsEngine,
   getLivingCellsEngine,
+  isLabPath,
+  resolveCellMode,
   type LivingCell,
   type Organelle,
 } from './livingCellsEngine';
@@ -757,6 +759,8 @@ describe('LivingCellsEngine', () => {
     (engine as any).cells.push(createCell(engine), createCell(engine), createCell(engine));
     expect((engine as any).effectiveDetailLevel()).toBe('minimal');
 
+    // The homepage keeps its slower budget: it is the only page running a second
+    // canvas on the same frame, and raising it starved the update loop in webkit.
     Object.assign(engine as any, {
       coarse: false,
       isHomepage: true,
@@ -1023,26 +1027,163 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).grabbedCell).toBe(cell2);
   });
 
-  it('initializes ambient mode with 12 cells equilibrium on desktop and 8 on coarse mobile', () => {
-    const desktopEngine = new LivingCellsEngine();
-    Object.assign(desktopEngine as any, { coarse: false, isHomepage: false });
-    desktopEngine.setMode('ambient');
-    expect((desktopEngine as any).targetCount).toBe(12);
+  describe('cullToBaseline', () => {
+    const stock = (engine: LivingCellsEngine, count: number) => {
+      const cells: LivingCell[] = [];
+      for (let index = 0; index < count; index++) {
+        const cell = createCell(engine, 26);
+        cell.x = 60 + (index % 20) * 55;
+        cell.y = 60 + Math.floor(index / 20) * 55;
+        cell.previousX = cell.x;
+        cell.previousY = cell.y;
+        cell.state = 'mature';
+        cell.matureElapsed = 20;
+        cell.age = index;
+        cells.push(cell);
+      }
+      Object.assign(engine as any, {
+        cells,
+        targetCount: 12,
+        baseCount: 12,
+        inputQuietRemaining: 1_000_000, // suppress homeostasis; isolate the wave
+      });
+      return cells;
+    };
 
-    const mobileEngine = new LivingCellsEngine();
-    Object.assign(mobileEngine as any, { coarse: true, isHomepage: false });
-    mobileEngine.setMode('ambient');
-    expect((mobileEngine as any).targetCount).toBe(8);
+    it('drains any dish down to the baseline inside its time budget', () => {
+      for (const start of [24, 120, 300]) {
+        const engine = makeEngine();
+        stock(engine, start);
+        const scheduled = engine.cullToBaseline(12, 7);
+        expect(scheduled).toBe(start - 12);
 
-    const desktopHomepage = new LivingCellsEngine();
-    Object.assign(desktopHomepage as any, { coarse: false, isHomepage: true });
-    desktopHomepage.setMode('ambient');
-    expect((desktopHomepage as any).targetCount).toBe(6);
+        // Nothing may have died on the spot — this is a wave, not a reset.
+        expect((engine as any).cells.length).toBe(start);
 
-    const homepageMobile = new LivingCellsEngine();
-    Object.assign(homepageMobile as any, { coarse: true, isHomepage: true });
-    homepageMobile.setMode('ambient');
-    expect((homepageMobile as any).targetCount).toBe(4);
+        update(engine, 7.5);
+        const total = (engine as any).cells.length;
+        expect(Math.abs(total - 12)).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('sweeps rather than popping in unison', () => {
+      const engine = makeEngine();
+      stock(engine, 60);
+      engine.cullToBaseline(12, 7);
+      update(engine, 0.6);
+      const early = (engine as any).cells.filter((c: LivingCell) => c.state === 'apoptosis').length;
+      // Staggered across ~55% of the budget, so only a fraction has started this early.
+      expect(early).toBeGreaterThan(0);
+      expect(early).toBeLessThan(48);
+    });
+
+    it('spares dividing, grabbed and selected cells', () => {
+      const engine = makeEngine();
+      const cells = stock(engine, 40);
+      cells[0].state = 'mitosis';
+      cells[0].mitosisProgress = 0.5;
+      cells[1].isGrabbed = true;
+      cells[2].lineageId = 'lineage-x';
+      (engine as any).selectedCellId = 'lineage-x';
+      cells[3].id = 'lineage-x';
+
+      engine.cullToBaseline(12, 7);
+      const queued = new Set(((engine as any).cullQueue as { id: string }[]).map((e) => e.id));
+      expect(queued.has(cells[0].id)).toBe(false);
+      expect(queued.has(cells[1].id)).toBe(false);
+      expect(queued.has(cells[2].id)).toBe(false);
+      expect(queued.has(cells[3].id)).toBe(false);
+    });
+
+    it('retargets instead of stacking when called again', () => {
+      const engine = makeEngine();
+      stock(engine, 60);
+      engine.cullToBaseline(12, 7);
+      const first = ((engine as any).cullQueue as unknown[]).length;
+      engine.cullToBaseline(30, 7);
+      const second = ((engine as any).cullQueue as unknown[]).length;
+      expect(first).toBe(48);
+      expect(second).toBe(30);
+    });
+
+    it('does nothing when the dish is already at or under the baseline', () => {
+      const engine = makeEngine();
+      stock(engine, 10);
+      expect(engine.cullToBaseline(12, 7)).toBe(0);
+      update(engine, 3);
+      expect((engine as any).cells.length).toBe(10);
+    });
+  });
+
+  it('never restores lab mode onto a page that is not the lab', () => {
+    // The regression this locks down: visiting /lab/ stored `lab`, and hydration
+    // assigned it verbatim on the next page, so the homepage ran at lab alpha with
+    // full organelle detail and four times the ambient population.
+    expect(resolveCellMode('lab', false, 'ambient')).toBe('ambient');
+    expect(resolveCellMode('lab', true, 'ambient')).toBe('lab');
+
+    // Everything the visitor actually chose survives the round trip.
+    expect(resolveCellMode('off', false, 'ambient')).toBe('off');
+    expect(resolveCellMode('calm', false, 'ambient')).toBe('calm');
+    expect(resolveCellMode('ambient', false, 'calm')).toBe('ambient');
+
+    // Nothing stored, or junk stored, leaves the current mode alone.
+    expect(resolveCellMode(null, false, 'calm')).toBe('calm');
+    expect(resolveCellMode('nonsense', false, 'ambient')).toBe('ambient');
+  });
+
+  it('treats /lab and /lab/ as the same route', () => {
+    expect(isLabPath('/lab')).toBe(true);
+    expect(isLabPath('/lab/')).toBe(true);
+    expect(isLabPath('/')).toBe(false);
+    expect(isLabPath('/labs/')).toBe(false);
+    expect(isLabPath('/research/')).toBe(false);
+  });
+
+  it('keeps mode, params and target in agreement however the mode is set', () => {
+    // applyMode and setMode share one body, so a mode can no longer be assigned
+    // without its params and target coming with it.
+    const engine = makeEngine();
+    Object.assign(engine as any, { coarse: false });
+    for (const mode of ['ambient', 'calm', 'lab', 'ambient', 'off', 'calm'] as const) {
+      engine.setMode(mode);
+      expect(engine.getMode()).toBe(mode);
+      if (mode === 'ambient' || mode === 'calm') {
+        expect((engine as any).targetCount).toBe(12);
+        expect(engine.getParams().darkContrast).toBe(false);
+      }
+      if (mode === 'lab') expect(engine.getParams().visualAlpha).toBe(1);
+    }
+  });
+
+  it('uses one ambient baseline on every route: 12 desktop, 8 coarse', () => {
+    // The homepage used to target 6 (4 coarse) while every other page targeted 12,
+    // so the population visibly jumped on navigation. `ambientTarget()` is now the
+    // single source of that number.
+    for (const isHomepage of [false, true]) {
+      const desktop = new LivingCellsEngine();
+      Object.assign(desktop as any, { coarse: false, isHomepage });
+      desktop.setMode('ambient');
+      expect((desktop as any).targetCount).toBe(12);
+
+      const mobile = new LivingCellsEngine();
+      Object.assign(mobile as any, { coarse: true, isHomepage });
+      mobile.setMode('ambient');
+      expect((mobile as any).targetCount).toBe(8);
+    }
+
+    // Calm holds the same population as ambient; it only changes how loud it is.
+    const calm = new LivingCellsEngine();
+    Object.assign(calm as any, { coarse: false, isHomepage: true });
+    calm.setMode('calm');
+    expect((calm as any).targetCount).toBe(12);
+    expect(calm.getMode()).toBe('calm');
+    expect(calm.getParams().visualAlpha).toBeLessThan(0.6);
+    // Calm damps motion, it does not slow the simulation clock: `timeScale` drives
+    // the fixed-step update rate and halving it looks like a stalled engine.
+    expect(calm.getParams().timeScale).toBe(1);
+    expect(calm.getParams().viscosity).toBeGreaterThan(1);
+    expect(calm.getParams().temperature).toBeLessThan(1);
   });
 
   it('supports scaling cell population up to 300 in lab mode with always-full detail', () => {
