@@ -1,0 +1,453 @@
+---
+title: "Polygenic Risk Scores (PRS): Bayesian Shrinkage & The Portability Crisis"
+shortTitle: Polygenic Risk Scores
+description: "Why marginal GWAS effect sizes are the wrong weights for a genetic predictor, how clumping and Bayesian shrinkage fix them, what sample size the accuracy ceiling actually demands, and why a score trained in one ancestry loses most of its power in another."
+abstract: "A polygenic score is a weighted sum of allele counts, and every hard question about it is a question about the weights. Marginal GWAS estimates cannot be used directly — linkage disequilibrium makes them count the same signal many times over — and the two families of fix, clumping and Bayesian shrinkage, correspond to two different beliefs about how many variants matter. This lesson derives the shrinkage factor, uses it to compute the sample size the accuracy ceiling really demands, and explains why the resulting scores transfer so poorly across ancestries."
+date: 2026-08-21
+track: theory
+hub: statistical-genetics
+moduleId: m5-prediction
+moduleLabel: Statistical Genetics · Part 8
+order: 8
+level: advanced
+objectives:
+  - "Write down a polygenic score and explain why the marginal GWAS beta is the wrong weight for it."
+  - "Describe clumping and thresholding, and say what it throws away and why that is a real cost."
+  - "Derive the infinitesimal shrinkage factor 1/(1 + M/(Nh²)) and interpret both limits."
+  - "Use the Daetwyler relation to compute the discovery sample size a target accuracy requires."
+  - "State the accuracy ceiling on any additive score, and why AUC is bounded even at that ceiling."
+  - "Explain the mechanisms behind cross-ancestry attenuation and why more of the same data cannot fix it."
+prerequisites:
+  - statgen-heritability-greml
+relatedLessons:
+  - statgen-linkage-disequilibrium
+referenceIds:
+  - daetwyler2008
+  - isc2009
+  - wray2013
+  - vilhjalmsson2015
+  - khera2018
+  - ge2019
+  - martin2019
+  - duncan2019
+  - choi2020
+  - prive2020
+  - ruan2022
+tags: [polygenic risk scores, PRS, shrinkage, LDpred, PRS-CS, portability, prediction]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+A polygenic score is arithmetic a spreadsheet could do:
+
+$$
+\mathrm{PRS}_i = \sum_{j=1}^{M} w_j\,G_{ij}
+$$
+
+Count each person's risk alleles, weight them, add up. Every genuinely hard question about
+polygenic scores is a question about $w_j$ — and the obvious answer, "use the effect sizes
+GWAS already reported", is wrong in a way that matters enormously.
+
+<Callout variant="intuition">
+GWAS tests one variant at a time. A variant that is merely *correlated* with a causal one
+still shows an association, so the reported effect is not that variant's own contribution
+— it is the causal signal, seen through whatever window of linkage disequilibrium that
+variant provides.
+
+Add up a hundred correlated markers around one causal site and you have not added a
+hundred pieces of evidence. You have added the same piece of evidence a hundred times.
+
+Everything below is a way of undoing that: either by deleting the redundant markers
+(clumping) or by shrinking every weight toward zero in proportion to how much of it is
+likely to be noise and duplication (Bayesian shrinkage).
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'G_{ij}', meaning: 'Allele dosage for individual i at variant j', dims: 'in {0,1,2}' },
+    { symbol: 'w_j', meaning: 'Weight assigned to variant j in the score', dims: 'trait units per allele' },
+    { symbol: '\\beta_j', meaning: 'True causal effect of variant j', dims: 'trait units per allele' },
+    { symbol: '\\hat{\\beta}_j', meaning: 'Marginal effect GWAS reports for variant j', dims: 'trait units per allele' },
+    { symbol: '\\mathbf{R}', meaning: 'LD correlation matrix between variants', dims: 'M × M' },
+    { symbol: 'N', meaning: 'Discovery GWAS sample size', dims: 'count' },
+    { symbol: 'M', meaning: 'Number of (effectively independent) variants', dims: 'count' },
+    { symbol: 'h^2', meaning: 'SNP heritability — the ceiling on any additive score', dims: 'in [0,1]' },
+    { symbol: '\\pi', meaning: 'Polygenicity: the fraction of variants that are causal', dims: 'in (0,1]' },
+    { symbol: '\\phi,\;\\psi_j', meaning: 'Global and per-variant shrinkage parameters in PRS-CS', dims: '> 0' },
+  ]}
+/>
+
+## Why the marginal estimate is the wrong weight
+
+Write the true model with causal effects $\boldsymbol{\beta}$ and standardised genotypes.
+The quantity GWAS reports for variant $j$ is not $\beta_j$ but its LD-weighted sum with
+every other variant's effect:
+
+$$
+\hat{\boldsymbol{\beta}} \;\approx\; \mathbf{R}\boldsymbol{\beta} \;+\; \text{noise},
+\qquad\text{i.e.}\qquad
+\hat{\beta}_j \approx \sum_k r_{jk}\,\beta_k
+$$
+
+Reading this equation is the whole lesson. If variant $j$ is the only causal one in its
+region, $\hat{\beta}_j = \beta_j$ and all is well. If four neighbours each have
+$r_{jk} \approx 1$ with it, all five report $\hat\beta \approx \beta_j$ — and summing all
+five into a score contributes $5\beta_j$ where the truth is $\beta_j$.
+
+<Figure
+  caption="Figure 1. One causal variant seen five times. Because GWAS tests each variant marginally, the causal effect is reported once for the causal site and once again for every marker in LD with it. Summing the reported effects overcounts by the size of the LD block; clumping keeps one index variant per block and recovers the right magnitude at the cost of discarding real signal elsewhere."
+  alt="A diagram showing one causal variant connected by dashed lines to four tag SNPs. Below, five equal bars each labelled 0.10 represent the marginal effect each variant reports. A naive sum bar reaches 0.50, five times the true effect; a clumped bar returns to 0.10."
+>
+  <svg viewBox="0 0 640 270" width="640" height="270" font-family="inherit"><text x="320" y="26" text-anchor="middle" font-size="11.5" fill="currentColor" opacity=".8">One causal variant, four markers in near-perfect LD with it</text><line x1="133.0" y1="74.0" x2="197.0" y2="74.0" stroke="currentColor" stroke-width="1" opacity=".28" stroke-dasharray="3 3"/><line x1="133.0" y1="74.0" x2="267.0" y2="74.0" stroke="currentColor" stroke-width="1" opacity=".28" stroke-dasharray="3 3"/><line x1="133.0" y1="74.0" x2="337.0" y2="74.0" stroke="currentColor" stroke-width="1" opacity=".28" stroke-dasharray="3 3"/><line x1="133.0" y1="74.0" x2="407.0" y2="74.0" stroke="currentColor" stroke-width="1" opacity=".28" stroke-dasharray="3 3"/><circle cx="120.0" cy="74.0" r="13.0" fill="var(--color-accent,#2e6e5e)"/><text x="120.0" y="78.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--color-on-accent,#fff)">C</text><text x="120.0" y="104.0" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".8">causal</text><circle cx="210.0" cy="74.0" r="13.0" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="210.0" y="78.0" text-anchor="middle" font-size="10.5" fill="currentColor">t1</text><circle cx="280.0" cy="74.0" r="13.0" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="280.0" y="78.0" text-anchor="middle" font-size="10.5" fill="currentColor">t2</text><circle cx="350.0" cy="74.0" r="13.0" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="350.0" y="78.0" text-anchor="middle" font-size="10.5" fill="currentColor">t3</text><circle cx="420.0" cy="74.0" r="13.0" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="420.0" y="78.0" text-anchor="middle" font-size="10.5" fill="currentColor">t4</text><text x="315.0" y="104.0" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".8">four tag SNPs, each r² ≈ 1 with the causal variant</text><text x="108.0" y="153.0" text-anchor="end" font-size="11" fill="currentColor" opacity=".8">each reported effect</text><rect x="120.0" y="140.0" width="56" height="18.0" fill="currentColor" opacity="0.75" rx="2"/><text x="148.0" y="153.0" text-anchor="middle" font-size="10" fill="var(--color-bg,#fff)">0.10</text><rect x="186.0" y="140.0" width="56" height="18.0" fill="currentColor" opacity="0.35" rx="2"/><text x="214.0" y="153.0" text-anchor="middle" font-size="10" fill="currentColor">0.10</text><rect x="252.0" y="140.0" width="56" height="18.0" fill="currentColor" opacity="0.35" rx="2"/><text x="280.0" y="153.0" text-anchor="middle" font-size="10" fill="currentColor">0.10</text><rect x="318.0" y="140.0" width="56" height="18.0" fill="currentColor" opacity="0.35" rx="2"/><text x="346.0" y="153.0" text-anchor="middle" font-size="10" fill="currentColor">0.10</text><rect x="384.0" y="140.0" width="56" height="18.0" fill="currentColor" opacity="0.35" rx="2"/><text x="412.0" y="153.0" text-anchor="middle" font-size="10" fill="currentColor">0.10</text><text x="120.0" y="178.0" font-size="10.5" fill="currentColor" opacity=".7">GWAS reports the same effect five times — it is one signal seen through five windows.</text><text x="108.0" y="216.0" text-anchor="end" font-size="11" fill="currentColor" opacity=".8">naive sum</text><rect x="120.0" y="203.0" width="280" height="18.0" fill="currentColor" opacity=".7" rx="2"/><text x="410.0" y="216.0" font-size="11" font-weight="600" fill="currentColor">0.50 — five times the true effect</text><text x="108.0" y="246.0" text-anchor="end" font-size="11" fill="currentColor" opacity=".8">after clumping</text><rect x="120.0" y="233.0" width="56" height="18.0" fill="var(--color-accent,#2e6e5e)" rx="2"/><text x="186.0" y="246.0" font-size="11" font-weight="600" fill="var(--color-accent,#2e6e5e)">0.10 — one index SNP kept per LD block</text></svg>
+</Figure>
+
+The correct weights solve $\mathbf{R}\mathbf{w} = \hat{\boldsymbol{\beta}}$ — a joint
+rather than marginal fit. That system is $M \times M$ with $M$ in the millions, is
+ill-conditioned, and is estimated from a reference panel rather than known. The methods
+below are all ways of approximating its solution.
+
+## Clumping and thresholding
+
+The oldest approach, and still a reasonable baseline <Citation id="isc2009" />, refuses to
+model LD and deletes it instead. Two steps:
+
+1. **Clump.** Walk the variants in order of significance. Keep the most significant one,
+   discard everything within 250 kb that exceeds an $r^2$ threshold (commonly $0.1$), and
+   repeat. What survives is a set of approximately independent index variants.
+2. **Threshold.** Keep those with $P_j < P_T$ and use the marginal estimate as the weight:
+
+$$
+w_j = \hat{\beta}_j \cdot \mathbb{I}(P_j < P_T) \cdot \mathbb{I}(j \text{ survives clumping})
+$$
+
+$P_T$ is chosen by cross-validation in an independent tuning cohort — typically sweeping
+from $5\times10^{-8}$ up to $1.0$, and the best value is usually far looser than
+genome-wide significance, which is itself informative: most of the predictive signal sits
+below the detection threshold <Citation id="choi2020" />.
+
+<Callout variant="warning" title="Clumping solves the right problem the wrong way">
+Deleting correlated markers does remove the double-counting. But an LD block usually
+contains real signal at more than one site, and clumping keeps exactly one variant per
+block regardless. It also makes a hard $0/1$ decision about every variant, when the
+evidence is continuous — a variant at $P = 0.051$ contributes nothing while its neighbour
+at $P = 0.049$ contributes its full unshrunk estimate.
+
+That discontinuity is what the Bayesian methods remove.
+</Callout>
+
+## Shrinkage, and where its factor comes from
+
+Instead of deciding which variants are real, put a prior on all of them and let the
+posterior mean be the weight. Under the infinitesimal model — every variant causal, effects
+normal — the derivation is the standard normal–normal conjugate update.
+
+**Step 1 — the prior.** If $M$ variants share heritability $h^2$ equally, each carries
+
+$$
+\beta_j \sim \mathcal{N}\!\left(0,\; \frac{h^2}{M}\right)
+$$
+
+**Step 2 — the likelihood.** With standardised genotypes and phenotype, the sampling
+variance of a marginal estimate from $N$ individuals is approximately $1/N$:
+
+$$
+\hat\beta_j \mid \beta_j \;\sim\; \mathcal{N}\!\left(\beta_j,\; \tfrac{1}{N}\right)
+$$
+
+**Step 3 — combine.** For a normal prior and normal likelihood the posterior mean is the
+observation scaled by the ratio of prior variance to total variance:
+
+$$
+\mathbb{E}[\beta_j \mid \hat\beta_j]
+= \hat\beta_j \cdot \frac{h^2/M}{h^2/M + 1/N}
+= \hat\beta_j \cdot \frac{1}{1 + \dfrac{M}{N h^2}}
+$$
+
+<Callout variant="key" title="One ratio governs everything">
+The shrinkage factor depends on the data only through $M/(Nh^2)$ — variants per unit of
+heritable information.
+
+- **$M/(Nh^2) \gg 1$** (small study, many variants, low heritability): the factor goes to
+  zero. Nearly all of every estimate is noise, and the correct weight is nearly nothing.
+- **$M/(Nh^2) \ll 1$** (large study): the factor goes to one, and the marginal estimate is
+  used almost unshrunk.
+
+This is why polygenic scores were nearly useless in 2009 and are clinically discussed
+today without any change in method: $N$ grew by three orders of magnitude.
+</Callout>
+
+Real methods generalise this in two directions. **LDpred** <Citation id="vilhjalmsson2015" />
+and **LDpred2** <Citation id="prive2020" /> replace the infinitesimal prior with a
+spike-and-slab, $\beta_j \sim \pi\,\mathcal{N}(0, h^2/(M\pi)) + (1-\pi)\delta_0$, letting a
+fraction $1-\pi$ of variants be exactly zero, and they condition on $\mathbf{R}$ by Gibbs
+sampling rather than treating variants as independent. **PRS-CS**
+<Citation id="ge2019" /> instead keeps every variant non-zero but gives each its own
+variance:
+
+$$
+\beta_j \sim \mathcal{N}\!\left(0, \tfrac{\sigma^2}{N}\phi\psi_j\right),
+\qquad \psi_j \sim \mathcal{G}(a, \delta_j), \qquad \delta_j \sim \mathcal{G}(b, 1)
+$$
+
+a continuous-shrinkage hierarchy that shrinks small effects hard while letting genuinely
+large ones escape — and, unlike the spike-and-slab, has a smooth unimodal posterior that
+Gibbs sampling explores reliably. **PRS-CS-auto** puts a half-Cauchy prior on $\sqrt{\phi}$
+and learns the global shrinkage from the summary statistics themselves, removing the need
+for a tuning cohort; **PRS-CSx** <Citation id="ruan2022" /> extends the hierarchy across
+several ancestries at once, coupling the effect sizes while keeping each population's own
+LD structure.
+
+<WorkedExample
+  title="How hard is a marginal estimate shrunk?"
+  given={[
+    { label: 'SNP heritability h²', value: '0.50' },
+    { label: 'Effective variants M', value: '1,000,000' },
+    { label: 'Discovery N', value: '100,000' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — form the governing ratio.**
+
+$$
+\frac{M}{N h^2} = \frac{1{,}000{,}000}{100{,}000 \times 0.50} = \frac{1{,}000{,}000}{50{,}000} = 20
+$$
+
+**Step 2 — the shrinkage factor.**
+
+$$
+\frac{1}{1 + M/(Nh^2)} = \frac{1}{1 + 20} = \frac{1}{21} = 0.047619
+$$
+
+A marginal estimate of $\hat\beta = 0.10$ enters the score with weight $0.0048$. The
+posterior keeps **4.8%** of what GWAS reported and discards the rest as noise — and it is
+right to, because with 20 variants per unit of heritable information, that is what the
+evidence supports.
+
+**Step 3 — see the dependence on N.** Nothing about the trait changed; only the study did:
+
+| $N$ | $M/(Nh^2)$ | shrinkage factor |
+|---|---|---|
+| 10,000 | 200 | 0.004975 |
+| 100,000 | 20 | 0.047619 |
+| 1,000,000 | 2 | 0.333333 |
+
+Two orders of magnitude in sample size buy nearly two orders of magnitude in how much of
+each estimate survives.
+
+</WorkedExample>
+
+## The accuracy ceiling, and what it costs to approach it
+
+The same ratio governs how well the finished score can possibly perform. Under the
+infinitesimal model the expected squared correlation between score and phenotype is
+<Citation id="daetwyler2008" />
+
+$$
+R^2_{\mathrm{PRS}} \;=\; \frac{h^2}{1 + \dfrac{M}{N h^2}}
+$$
+
+Two features of this are worth stating plainly. As $N \to \infty$ the accuracy approaches
+$h^2$ and stops — **an additive score cannot explain more variance than the additive
+variance exists to explain**. And the approach is hyperbolic, so each additional increment
+of accuracy costs disproportionately more data.
+
+<Figure
+  caption="Figure 2. Expected accuracy against discovery sample size, for a SNP heritability of 0.50 and one million effectively independent variants. The curve approaches the heritability ceiling but never reaches it: two million samples buy half of it, and eight million — four times as many — buy eighty percent."
+  alt="A curve of expected R squared rising with discovery sample size on a logarithmic axis, flattening toward a dashed ceiling at 0.50. Two marked points show two million samples reaching 0.25 and eight million reaching 0.40."
+>
+  <svg viewBox="0 0 640 300" width="640" height="300" font-family="inherit"><line x1="70.0" y1="30.0" x2="70.0" y2="240.0" stroke="currentColor" stroke-width="1.25"/><line x1="70.0" y1="240.0" x2="606.0" y2="240.0" stroke="currentColor" stroke-width="1.25"/><line x1="70.0" y1="30.0" x2="606.0" y2="30.0" stroke="var(--color-accent,#2e6e5e)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="78.0" y="24.0" font-size="11" fill="var(--color-accent,#2e6e5e)" font-weight="600">ceiling: R² = h²<tspan font-size="8.5" dy="3">SNP</tspan><tspan dy="-3"></tspan> = 0.50</text><path d="M70.0,239.0 L73.3,238.9 L76.7,238.8 L80.0,238.8 L83.4,238.7 L86.8,238.7 L90.1,238.6 L93.5,238.5 L96.8,238.4 L100.2,238.4 L103.5,238.3 L106.8,238.2 L110.2,238.1 L113.5,238.0 L116.9,237.9 L120.2,237.8 L123.6,237.7 L127.0,237.6 L130.3,237.4 L133.7,237.3 L137.0,237.2 L140.3,237.0 L143.7,236.9 L147.0,236.7 L150.4,236.5 L153.8,236.4 L157.1,236.2 L160.5,236.0 L163.8,235.8 L167.2,235.6 L170.5,235.3 L173.8,235.1 L177.2,234.9 L180.5,234.6 L183.9,234.3 L187.2,234.1 L190.6,233.8 L194.0,233.4 L197.3,233.1 L200.7,232.8 L204.0,232.4 L207.3,232.0 L210.7,231.6 L214.0,231.2 L217.4,230.8 L220.8,230.3 L224.1,229.9 L227.5,229.4 L230.8,228.8 L234.2,228.3 L237.5,227.7 L240.8,227.1 L244.2,226.5 L247.5,225.9 L250.9,225.2 L254.2,224.5 L257.6,223.7 L261.0,223.0 L264.3,222.2 L267.7,221.3 L271.0,220.4 L274.3,219.5 L277.7,218.6 L281.0,217.6 L284.4,216.6 L287.8,215.5 L291.1,214.4 L294.5,213.2 L297.8,212.0 L301.2,210.8 L304.5,209.5 L307.8,208.2 L311.2,206.8 L314.5,205.3 L317.9,203.9 L321.2,202.3 L324.6,200.8 L328.0,199.1 L331.3,197.4 L334.7,195.7 L338.0,193.9 L341.3,192.1 L344.7,190.2 L348.0,188.2 L351.4,186.3 L354.8,184.2 L358.1,182.1 L361.5,180.0 L364.8,177.8 L368.2,175.6 L371.5,173.3 L374.8,171.0 L378.2,168.7 L381.5,166.3 L384.9,163.8 L388.2,161.4 L391.6,158.9 L395.0,156.4 L398.3,153.8 L401.7,151.2 L405.0,148.6 L408.3,146.0 L411.7,143.4 L415.0,140.8 L418.4,138.1 L421.8,135.5 L425.1,132.9 L428.5,130.2 L431.8,127.6 L435.2,125.0 L438.5,122.3 L441.8,119.7 L445.2,117.2 L448.5,114.6 L451.9,112.1 L455.2,109.6 L458.6,107.1 L462.0,104.7 L465.3,102.3 L468.7,99.9 L472.0,97.6 L475.3,95.3 L478.7,93.0 L482.0,90.8 L485.4,88.7 L488.8,86.6 L492.1,84.5 L495.5,82.5 L498.8,80.5 L502.2,78.6 L505.5,76.8 L508.8,75.0 L512.2,73.2 L515.5,71.5 L518.9,69.9 L522.2,68.3 L525.6,66.7 L529.0,65.2 L532.3,63.8 L535.7,62.4 L539.0,61.0 L542.3,59.7 L545.7,58.4 L549.0,57.2 L552.4,56.0 L555.8,54.9 L559.1,53.8 L562.5,52.8 L565.8,51.8 L569.2,50.8 L572.5,49.9 L575.8,49.0 L579.2,48.2 L582.5,47.3 L585.9,46.6 L589.2,45.8 L592.6,45.1 L596.0,44.4 L599.3,43.7 L602.7,43.1 L606.0,42.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="422.4" cy="135.0" r="4" fill="var(--color-accent,#2e6e5e)"/><text x="414.4" y="139.0" font-size="10.5" fill="var(--color-accent,#2e6e5e)" font-weight="600" text-anchor="end">2M → half the ceiling</text><circle cx="514.6" cy="72.0" r="4" fill="var(--color-accent,#2e6e5e)"/><text x="506.6" y="76.0" font-size="10.5" fill="var(--color-accent,#2e6e5e)" font-weight="600" text-anchor="end">8M → 80% of it</text><line x1="70.0" y1="240.0" x2="70.0" y2="245.0" stroke="currentColor" stroke-width="1"/><text x="70.0" y="258.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">10k</text><line x1="223.1" y1="240.0" x2="223.1" y2="245.0" stroke="currentColor" stroke-width="1"/><text x="223.1" y="258.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">100k</text><line x1="376.3" y1="240.0" x2="376.3" y2="245.0" stroke="currentColor" stroke-width="1"/><text x="376.3" y="258.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">1M</text><line x1="529.4" y1="240.0" x2="529.4" y2="245.0" stroke="currentColor" stroke-width="1"/><text x="529.4" y="258.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">10M</text><line x1="70.0" y1="240.0" x2="606.0" y2="240.0" stroke="currentColor" stroke-width="1" opacity=".1"/><text x="62.0" y="244.0" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">0</text><line x1="70.0" y1="187.5" x2="606.0" y2="187.5" stroke="currentColor" stroke-width="1" opacity=".1"/><text x="62.0" y="191.5" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">0.125</text><line x1="70.0" y1="135.0" x2="606.0" y2="135.0" stroke="currentColor" stroke-width="1" opacity=".1"/><text x="62.0" y="139.0" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">0.25</text><line x1="70.0" y1="82.5" x2="606.0" y2="82.5" stroke="currentColor" stroke-width="1" opacity=".1"/><text x="62.0" y="86.5" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">0.375</text><line x1="70.0" y1="30.0" x2="606.0" y2="30.0" stroke="currentColor" stroke-width="1" opacity=".1"/><text x="62.0" y="34.0" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">0.5</text><text x="338" y="280" text-anchor="middle" font-size="12" fill="currentColor">Discovery GWAS sample size N (log scale)</text><text x="18" y="135" font-size="12" fill="currentColor" transform="rotate(-90 18 135)" text-anchor="middle">expected R<tspan font-size="8.5" dy="3">PRS</tspan><tspan dy="-3">²</tspan></text></svg>
+</Figure>
+
+<WorkedExample
+  title="What sample size does a target accuracy demand?"
+  given={[
+    { label: 'SNP heritability h²', value: '0.50' },
+    { label: 'Effective variants M', value: '1,000,000' },
+    { label: 'Target R²', value: '0.25, then 0.40' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — invert the relation.** Starting from $R^2 = h^2/(1 + M/(Nh^2))$,
+
+$$
+1 + \frac{M}{Nh^2} = \frac{h^2}{R^2}
+\quad\Longrightarrow\quad
+N = \frac{M}{h^2\left(\dfrac{h^2}{R^2} - 1\right)}
+$$
+
+**Step 2 — half the ceiling, $R^2 = 0.25$.** Here $h^2/R^2 = 2$, so
+
+$$
+N = \frac{1{,}000{,}000}{0.50 \times (2 - 1)} = 2{,}000{,}000
+$$
+
+**Step 3 — eighty percent of it, $R^2 = 0.40$.** Now $h^2/R^2 = 1.25$, so
+
+$$
+N = \frac{1{,}000{,}000}{0.50 \times (1.25 - 1)} = \frac{1{,}000{,}000}{0.125} = 8{,}000{,}000
+$$
+
+**Step 4 — read the ratio.** Going from half the ceiling to four-fifths of it costs
+
+$$
+\frac{8{,}000{,}000}{2{,}000{,}000} = 4\times
+$$
+
+the sample size. This is the structural reason GWAS consortia keep growing, and the reason
+the last increments of polygenic prediction are so expensive. It is also why reporting a
+score's $R^2$ without its $h^2$ is uninformative: a score at $R^2 = 0.05$ is poor for a
+trait with $h^2 = 0.5$ and close to optimal for one with $h^2 = 0.06$.
+
+</WorkedExample>
+
+## Evaluating a score honestly
+
+- **Incremental $R^2$**, $\Delta R^2 = R^2_{\text{covariates}+\text{PRS}} - R^2_{\text{covariates}}$.
+  Reporting the full-model $R^2$ credits the score with age and sex, which is not a genetic
+  finding.
+- **Odds ratio per standard deviation**, $\exp(\beta_{\mathrm{PRS}})$ from a logistic fit on
+  the standardised score. Comparable across studies in a way that a top-decile odds ratio
+  is not, because a decile contrast depends on the shape of the tail as well as the
+  score's quality <Citation id="khera2018" />.
+- **Calibration**, not just discrimination. The Brier score
+  $\mathrm{BS} = \frac{1}{N}\sum_i(y_i - \hat p_i)^2$ penalises predicted probabilities that
+  are systematically wrong even when the ranking is right — and a score whose ranking is
+  fine but whose absolute risks are inflated is dangerous in exactly the clinical setting
+  where it would be used <Citation id="wray2013" />.
+
+## The portability problem
+
+A score trained in one ancestry loses most of its accuracy in another. In European-trained
+scores the relative accuracy falls to roughly one half in East and South Asian samples and
+to roughly a quarter in African-ancestry samples <Citation id="martin2019" />
+<Citation id="duncan2019" />. Since something like three quarters of GWAS participants are
+of European ancestry, this is not a corner case; it is the default outcome.
+
+<Callout variant="warning" title="Four mechanisms, only one of which more data can fix">
+1. **LD differs.** A weight assigned to a tag SNP is only valid where that tag has the same
+   $r^2$ with the causal variant. African populations have shorter LD blocks, so European
+   tags carry less of the causal signal there.
+2. **Allele frequencies differ.** A variant common in one population and rare in another
+   contributes almost nothing to variance in the second, whatever its weight.
+3. **Effect sizes can genuinely differ**, through gene–environment interaction or epistasis
+   with a different genetic background.
+4. **Confounding differs.** Residual population stratification in the discovery cohort
+   produces weights that partly encode ancestry, and those transfer worst of all.
+
+Only the first is fully addressable by better methods — PRS-CSx and its relatives exist to
+borrow strength across ancestries while respecting each one's LD. The rest requires
+recruiting the populations themselves. Deploying a European-trained score clinically
+without this caveat would widen health disparities rather than narrow them, which is the
+argument Martin and colleagues make directly.
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Compute a score by hand" difficulty="warm-up">
+
+An individual carries dosages $G = (2, 1, 0, 2)$ at four variants with weights
+$w = (0.05,\, -0.02,\, 0.10,\, 0.03)$. What is their polygenic score, and what does the
+number mean on its own?
+
+<div slot="solution">
+
+$$
+\mathrm{PRS} = (0.05)(2) + (-0.02)(1) + (0.10)(0) + (0.03)(2)
+= 0.10 - 0.02 + 0 + 0.06 = 0.14
+$$
+
+On its own it means nothing. A raw polygenic score has no natural scale: it depends on how
+many variants were included, how they were weighted, and which allele was designated the
+effect allele. Scores are interpreted only after standardising against a reference
+distribution — as a percentile or a $z$-score — and that reference must come from the same
+ancestry, or the percentile is meaningless.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Shrinkage across three studies" difficulty="core">
+
+For a trait with $h^2 = 0.50$ and $M = 1{,}000{,}000$, compute the infinitesimal shrinkage
+factor at $N = 10{,}000$, $100{,}000$ and $1{,}000{,}000$. By what factor does a weight
+grow between the smallest and largest study, and why is that not a hundredfold?
+
+<div slot="solution">
+
+$$
+\frac{M}{Nh^2} = 200,\; 20,\; 2
+\qquad\Longrightarrow\qquad
+\frac{1}{1+M/(Nh^2)} = 0.004975,\; 0.047619,\; 0.333333
+$$
+
+The weight grows by $0.333333 / 0.004975 \approx 67$ times, not $100$.
+
+The reason is that the factor is $1/(1 + M/(Nh^2))$, not $N/M \cdot h^2$. At small $N$ the
+$1$ in the denominator is negligible and the factor is very nearly proportional to $N$; as
+$N$ grows the $1$ starts to dominate and the factor saturates at one. The hundredfold
+increase in data is spent partly on escaping proportionality — which is the same
+diminishing return the accuracy curve shows.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="The cost of the last increment" difficulty="stretch">
+
+For $h^2 = 0.50$ and $M = 1{,}000{,}000$, how many samples are needed for
+$R^2 = 0.45$ — ninety percent of the ceiling? Compare with the eight million needed for
+$R^2 = 0.40$, and state the general behaviour as $R^2 \to h^2$.
+
+<div slot="solution">
+
+Using $N = M / \left(h^2(h^2/R^2 - 1)\right)$ with $h^2/R^2 = 0.50/0.45 = 1.1\overline{1}$:
+
+$$
+N = \frac{1{,}000{,}000}{0.50 \times 0.1\overline{1}} = 18{,}000{,}000
+$$
+
+So $0.40 \to 0.45$ costs another ten million samples, having already spent eight to reach
+$0.40$.
+
+In general, write $R^2 = (1-\varepsilon)h^2$ for a small shortfall $\varepsilon$. Then
+$h^2/R^2 - 1 = \varepsilon/(1-\varepsilon)$ and
+
+$$
+N = \frac{M}{h^2}\cdot\frac{1-\varepsilon}{\varepsilon} \;\sim\; \frac{M}{h^2\,\varepsilon}
+$$
+
+The required sample size diverges as $1/\varepsilon$. Closing the last tenth of the gap to
+the ceiling costs as much as everything before it, and closing the last hundredth costs ten
+times that again. The ceiling is approached but never reached, and the practical limit is
+set by budget rather than by biology.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A polygenic score is $\sum_j w_j G_{ij}$**, and every difficulty is in $w_j$. Marginal
+  GWAS estimates are not causal effects but LD-weighted sums, $\hat{\boldsymbol\beta}
+  \approx \mathbf{R}\boldsymbol\beta$, so adding them up counts one signal once per marker
+  that tags it.
+- **Clumping and thresholding** removes the redundancy by deletion — effective, but it
+  keeps one variant per block and makes a hard call at an arbitrary $P$ threshold.
+- **Bayesian shrinkage** keeps every variant and scales it by $1/(1 + M/(Nh^2))$ under the
+  infinitesimal model. LDpred2 generalises the prior to spike-and-slab; PRS-CS uses a
+  continuous-shrinkage hierarchy with a smoother posterior; PRS-CSx couples several
+  ancestries.
+- **The ceiling is $h^2$**, approached as $R^2 = h^2/(1 + M/(Nh^2))$. Half of it costs two
+  million samples for a trait with $h^2 = 0.5$; four-fifths costs eight million; the
+  requirement diverges as $1/\varepsilon$ in the remaining shortfall.
+- **Report $\Delta R^2$, an odds ratio per SD, and calibration** — and always alongside
+  $h^2$, since accuracy is only interpretable against its own ceiling.
+- **Portability is a data problem, not only a method problem.** LD, allele frequency,
+  effect heterogeneity and confounding all differ across ancestries, and only the first is
+  substantially fixable without recruiting the populations concerned.

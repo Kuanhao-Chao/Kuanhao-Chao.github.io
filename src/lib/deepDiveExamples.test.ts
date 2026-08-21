@@ -274,3 +274,120 @@ describe('statgen-heritability-greml', () => {
     });
   });
 });
+
+describe('statgen-polygenic-risk-scores', () => {
+  const mdx = lesson('statgen-polygenic-risk-scores');
+
+  const H2 = 0.5;
+  const M = 1_000_000;
+  /** Infinitesimal shrinkage: the posterior mean is the marginal estimate times this. */
+  const shrink = (N: number) => 1 / (1 + M / (N * H2));
+  /** Daetwyler: expected squared correlation between score and phenotype. */
+  const r2 = (N: number) => H2 / (1 + M / (N * H2));
+  /** The same relation inverted for the sample size a target accuracy demands. */
+  const nFor = (target: number) => M / (H2 * (H2 / target - 1));
+
+  describe('worked example — how hard is a marginal estimate shrunk', () => {
+    it('forms the governing ratio M/(Nh²) = 20 at N = 100,000', () => {
+      expect(M / (100_000 * H2)).toBe(20);
+      expect(mdx).toContain('\\frac{1{,}000{,}000}{50{,}000} = 20');
+    });
+
+    it('gives a shrinkage factor of 1/21 = 0.047619', () => {
+      expect(shrink(100_000)).toBeCloseTo(0.047619, 6);
+      expect(shrink(100_000)).toBeCloseTo(1 / 21, 12);
+      expect(mdx).toContain('\\frac{1}{21} = 0.047619');
+    });
+
+    it('turns a reported 0.10 into a weight of 0.0048', () => {
+      expect(0.1 * shrink(100_000)).toBeCloseTo(0.0048, 4);
+      expect(mdx).toContain('0.0048');
+      expect(mdx).toContain('4.8%');
+    });
+
+    it('matches every row of the table of N against shrinkage', () => {
+      const rows: [number, number, number][] = [
+        [10_000, 200, 0.004975],
+        [100_000, 20, 0.047619],
+        [1_000_000, 2, 0.333333],
+      ];
+      for (const [N, ratio, factor] of rows) {
+        expect(M / (N * H2)).toBeCloseTo(ratio, 9);
+        expect(shrink(N)).toBeCloseTo(factor, 6);
+        expect(mdx).toContain(String(factor));
+      }
+    });
+  });
+
+  describe('worked example — what sample size a target accuracy demands', () => {
+    it('needs 2,000,000 for half the ceiling', () => {
+      expect(nFor(0.25)).toBe(2_000_000);
+      expect(r2(2_000_000)).toBeCloseTo(0.25, 12);
+      expect(mdx).toContain('0.50 \\times (2 - 1)} = 2{,}000{,}000');
+    });
+
+    it('needs 8,000,000 for four fifths of it', () => {
+      expect(nFor(0.4)).toBeCloseTo(8_000_000, 6);
+      expect(r2(8_000_000)).toBeCloseTo(0.4, 12);
+      expect(H2 / 0.4).toBeCloseTo(1.25, 12);
+      expect(mdx).toContain('\\frac{1{,}000{,}000}{0.125} = 8{,}000{,}000');
+    });
+
+    it('makes the last stretch cost exactly four times the first', () => {
+      expect(nFor(0.4) / nFor(0.25)).toBeCloseTo(4, 9);
+      expect(mdx).toContain('} = 4\\times');
+    });
+  });
+
+  describe('exercise 1 — compute a score by hand', () => {
+    it('sums the weighted dosages to 0.14', () => {
+      const w = [0.05, -0.02, 0.1, 0.03];
+      const g = [2, 1, 0, 2];
+      const prs = w.reduce((acc, wj, j) => acc + wj * g[j], 0);
+      expect(prs).toBeCloseTo(0.14, 12);
+      expect(mdx).toContain('= 0.10 - 0.02 + 0 + 0.06 = 0.14');
+    });
+  });
+
+  describe('exercise 2 — shrinkage across three studies', () => {
+    it('grows the weight 67-fold, not 100-fold, across a 100x sample increase', () => {
+      const ratio = shrink(1_000_000) / shrink(10_000);
+      expect(ratio).toBeCloseTo(67, 9);
+      // it is exactly 201/3 — the +1 in the denominator is what breaks proportionality
+      expect(ratio).toBeCloseTo(201 / 3, 12);
+      expect(ratio).toBeLessThan(100);
+      expect(mdx).toContain('0.333333 / 0.004975 \\approx 67');
+    });
+  });
+
+  describe('exercise 3 — the cost of the last increment', () => {
+    it('needs 18,000,000 for ninety percent of the ceiling', () => {
+      expect(nFor(0.45)).toBeCloseTo(18_000_000, 6);
+      expect(mdx).toContain('0.50 \\times 0.1\\overline{1}} = 18{,}000{,}000');
+    });
+
+    it('diverges as 1/epsilon in the shortfall, as the solution claims', () => {
+      // N(eps) = (M/h2)(1-eps)/eps  — check against the direct formula
+      const nEps = (eps: number) => (M / H2) * ((1 - eps) / eps);
+      for (const eps of [0.5, 0.2, 0.1, 0.01]) {
+        // relative, not absolute: these are ~10^8, where toBeCloseTo's absolute
+        // tolerance would be asserting more precision than a double carries
+        expect(nEps(eps) / nFor((1 - eps) * H2)).toBeCloseTo(1, 9);
+      }
+      // and a tenfold smaller shortfall costs roughly tenfold more
+      expect(nEps(0.01) / nEps(0.1)).toBeGreaterThan(9);
+      expect(mdx).toContain('\\frac{M}{h^2\\,\\varepsilon}');
+    });
+  });
+
+  describe('figure 2 — the accuracy curve', () => {
+    it('draws the ceiling and the two marked sample sizes', () => {
+      // the SNP subscript is a real <tspan>, so assert the parts either side of it
+      expect(mdx).toContain('ceiling: R² = h²<tspan');
+      expect(mdx).toContain('>SNP</tspan>');
+      expect(mdx).toContain(' = 0.50</text>');
+      expect(mdx).toContain('2M → half the ceiling');
+      expect(mdx).toContain('8M → 80% of it');
+    });
+  });
+});
