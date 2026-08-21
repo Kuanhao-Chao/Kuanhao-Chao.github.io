@@ -756,19 +756,9 @@ async function auditMitosisTiming(page, scope) {
 }
 
 async function visibleControl(page, selector) {
-  const usesMobileDrawer = await page.evaluate(() => matchMedia('(max-width: 960px)').matches);
-
-  if (usesMobileDrawer) {
-    const menuButton = page.locator('.nav-toggle').filter({ visible: true }).first();
-    await menuButton.waitFor({ state: 'visible', timeout: actionTimeout });
-    if ((await menuButton.getAttribute('aria-expanded')) !== 'true') await menuButton.click();
-    const control = page.locator(`#mobile-menu ${selector}`).first();
-    await control.waitFor({ state: 'attached', timeout: actionTimeout });
-    await control.scrollIntoViewIfNeeded();
-    await control.waitFor({ state: 'visible', timeout: actionTimeout });
-    return control;
-  }
-
+  // The appearance popover is the single home for theme, CRT and cell controls at
+  // every width now. There used to be a second copy inside the mobile drawer, which
+  // is what this helper reached for below 960px; that duplicate is gone.
   let control = page
     .locator(`[data-top-theme-popover] ${selector}`)
     .filter({ visible: true })
