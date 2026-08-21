@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import {
+  expectedR2, falconerACE, ldHalfLife, ldMeasures, liabilityScale,
+  normalPdf, normalQuantile, sampleSizeForR2, shrinkageFactor,
+} from './deepDiveMath.ts';
 
 /**
  * Every worked example and exercise solution in the deep-dive curriculum, recomputed
@@ -13,18 +17,13 @@ import { readFileSync } from 'node:fs';
 
 const lesson = (id: string) => readFileSync(`src/content/deepDives/${id}.mdx`, 'utf8');
 
-/** Every LD measure from the four haplotype frequencies. */
-function ld(pAB: number, pAb: number, paB: number, pab: number) {
-  const total = pAB + pAb + paB + pab;
-  expect(total, 'haplotype frequencies must sum to 1').toBeCloseTo(1, 12);
-  const pA = pAB + pAb;
-  const pB = pAB + paB;
-  const pa = 1 - pA;
-  const pb = 1 - pB;
-  const D = pAB - pA * pB;
-  const Dmax = D > 0 ? Math.min(pA * pb, pa * pB) : Math.min(pA * pB, pa * pb);
-  return { pA, pB, pa, pb, D, Dprime: D / Dmax, r2: (D * D) / (pA * pa * pB * pb) };
-}
+/**
+ * The lesson numbers are computed with `deepDiveMath.ts` — the same module the interactive
+ * widgets call — so a widget cannot drift from the prose it sits beside. That module is
+ * proved correct independently, against closed forms and round-trip identities, in
+ * `deepDiveMath.test.ts`; this file's job is to tie its output to the published text.
+ */
+const ld = ldMeasures;
 
 describe('statgen-linkage-disequilibrium', () => {
   const mdx = lesson('statgen-linkage-disequilibrium');
@@ -64,10 +63,9 @@ describe('statgen-linkage-disequilibrium', () => {
   });
 
   describe('worked example — dating a haplotype from its LD', () => {
-    const halfLife = (theta: number) => Math.log(0.5) / Math.log(1 - theta);
 
     it('gives an exact half-life of 692.8 generations at θ = 0.001', () => {
-      expect(halfLife(0.001)).toBeCloseTo(692.8, 1);
+      expect(ldHalfLife(0.001)).toBeCloseTo(692.8, 1);
       expect(mdx).toContain('692.8');
     });
 
@@ -75,26 +73,26 @@ describe('statgen-linkage-disequilibrium', () => {
       // 0.693/θ against the exact value, at both ends of the useful range.
       expect(0.693 / 0.001).toBeCloseTo(693.0, 1);
       expect(mdx).toContain('693.0');
-      const errSmall = (0.693 / 0.001 - halfLife(0.001)) / halfLife(0.001);
+      const errSmall = (0.693 / 0.001 - ldHalfLife(0.001)) / ldHalfLife(0.001);
       expect(errSmall * 100).toBeCloseTo(0.03, 2); // the lesson claims 0.03%
       expect(mdx).toContain('0.03\\%');
-      expect(halfLife(0.1)).toBeCloseTo(6.58, 2);
-      const errLarge = (0.693 / 0.1 - halfLife(0.1)) / halfLife(0.1);
+      expect(ldHalfLife(0.1)).toBeCloseTo(6.58, 2);
+      const errLarge = (0.693 / 0.1 - ldHalfLife(0.1)) / ldHalfLife(0.1);
       expect(errLarge * 100).toBeCloseTo(5.3, 1);
       expect(mdx).toContain('5.3\\%');
       expect(mdx).toContain('6.58');
     });
 
     it('converts to roughly 20,000 years at 29 years per generation', () => {
-      expect(halfLife(0.001) * 29).toBeCloseTo(20091, 0);
-      expect(Math.round((halfLife(0.001) * 29) / 1000) * 1000).toBe(20000);
+      expect(ldHalfLife(0.001) * 29).toBeCloseTo(20091, 0);
+      expect(Math.round((ldHalfLife(0.001) * 29) / 1000) * 1000).toBe(20000);
       expect(mdx).toContain('20{,}000');
     });
   });
 
   describe('figure 1 — the marked half-lives', () => {
     it('matches the values drawn on the curve', () => {
-      const t = (th: number) => Math.log(0.5) / Math.log(1 - th);
+      const t = ldHalfLife;
       expect(t(0.1)).toBeCloseTo(6.6, 1);
       expect(t(0.01)).toBeCloseTo(69.0, 1);
       expect(t(0.001)).toBeCloseTo(692.8, 1);
@@ -145,12 +143,7 @@ describe('statgen-linkage-disequilibrium', () => {
 describe('statgen-heritability-greml', () => {
   const mdx = lesson('statgen-heritability-greml');
 
-  /** Falconer's ACE decomposition from the two twin correlations. */
-  const falconer = (rMZ: number, rDZ: number) => ({
-    h2: 2 * (rMZ - rDZ),
-    c2: 2 * rDZ - rMZ,
-    e2: 1 - rMZ,
-  });
+  const falconer = falconerACE;
 
   describe("worked example — Falconer's estimator", () => {
     const x = falconer(0.85, 0.5);
@@ -171,33 +164,14 @@ describe('statgen-heritability-greml', () => {
   });
 
   describe('worked example — observed scale to liability scale', () => {
-    // Standard normal quantile and density, implemented here rather than imported so the
-    // test cannot agree with the lesson merely by sharing a bug with it.
-    const pdf = (z: number) => Math.exp(-(z * z) / 2) / Math.sqrt(2 * Math.PI);
-    /** Acklam's inverse normal CDF; accurate to ~1e-9, far beyond the 6 dp quoted. */
-    function invCdf(p: number): number {
-      const a = [-3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.38357751867269e2, -3.066479806614716e1, 2.506628277459239];
-      const b = [-5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1, -1.328068155288572e1];
-      const c = [-7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
-      const d = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
-      const pl = 0.02425;
-      let q: number, r: number;
-      if (p < pl) {
-        q = Math.sqrt(-2 * Math.log(p));
-        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
-      }
-      if (p <= 1 - pl) {
-        q = p - 0.5; r = q * q;
-        return ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
-      }
-      q = Math.sqrt(-2 * Math.log(1 - p));
-      return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
-    }
+    const pdf = normalPdf;
+    const invCdf = normalQuantile;
 
     const K = 0.01, P = 0.5, h2o = 0.2;
     const T = invCdf(1 - K);
     const zK = pdf(T);
-    const factor = (K * K * (1 - K) * (1 - K)) / (zK * zK * P * (1 - P));
+    // the shared implementation, which the widgets also call
+    const factor = liabilityScale(1, K, P);
 
     it('locates the liability threshold at 2.326348', () => {
       expect(T).toBeCloseTo(2.326348, 5);
@@ -280,12 +254,9 @@ describe('statgen-polygenic-risk-scores', () => {
 
   const H2 = 0.5;
   const M = 1_000_000;
-  /** Infinitesimal shrinkage: the posterior mean is the marginal estimate times this. */
-  const shrink = (N: number) => 1 / (1 + M / (N * H2));
-  /** Daetwyler: expected squared correlation between score and phenotype. */
-  const r2 = (N: number) => H2 / (1 + M / (N * H2));
-  /** The same relation inverted for the sample size a target accuracy demands. */
-  const nFor = (target: number) => M / (H2 * (H2 / target - 1));
+  const shrink = (N: number) => shrinkageFactor(N, M, H2);
+  const r2 = (N: number) => expectedR2(N, M, H2);
+  const nFor = (target: number) => sampleSizeForR2(target, M, H2);
 
   describe('worked example — how hard is a marginal estimate shrunk', () => {
     it('forms the governing ratio M/(Nh²) = 20 at N = 100,000', () => {
