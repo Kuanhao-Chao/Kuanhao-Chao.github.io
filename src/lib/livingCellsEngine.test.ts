@@ -1030,6 +1030,85 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).grabbedCell).toBe(cell2);
   });
 
+  describe('lineage, inspection and scale', () => {
+    it('records a clonal tree that outlives the cells in it', () => {
+      const engine = makeEngine();
+      const founder = createCell(engine, 50);
+      founder.matureElapsed = 20;
+      (engine as any).cells = [founder];
+      const founderId = founder.id;
+
+      (engine as any).triggerMitosis(founder, true, 'user');
+      update(engine, MITOSIS_SECONDS + 0.3);
+      const daughters = (engine as any).cells as LivingCell[];
+      expect(daughters.length).toBe(2);
+      for (const daughter of daughters) {
+        expect(daughter.generation).toBe(1);
+        expect(daughter.founderId).toBe(founderId);
+        expect(daughter.lineageId).toBe(founderId);
+      }
+
+      // The parent is gone from `cells`, but the ledger still knows it existed and
+      // how it left — which is the whole reason a tree is drawable.
+      const ledger = engine.getLineage();
+      const parentRecord = ledger.find((entry) => entry.id === founderId);
+      expect(parentRecord).toBeDefined();
+      expect(parentRecord?.fate).toBe('divided');
+      expect(ledger.filter((e) => e.parentId === founderId).length).toBe(2);
+    });
+
+    it('marks apoptotic ends in the ledger', () => {
+      const engine = makeEngine();
+      const cell = createCell(engine, 40);
+      (engine as any).cells = [cell];
+      (engine as any).triggerApoptosis(cell, 'user');
+      update(engine, APOPTOSIS_SECONDS + 0.5);
+      expect((engine as any).cells.length).toBe(0);
+      expect(engine.getLineage().find((e) => e.id === cell.id)?.fate).toBe('apoptosis');
+    });
+
+    it('inspects the selected cell and stops when it is gone', () => {
+      const engine = makeEngine();
+      const cell = createCell(engine, 50);
+      (engine as any).cells = [cell];
+      engine.selectForInspection(cell.id);
+
+      const view = engine.getInspection();
+      expect(view?.id).toBe(cell.id);
+      expect(view?.generation).toBe(0);
+      expect(view?.nucleusCount).toBe(1);
+      expect(view?.diameterMicrons).toBeGreaterThan(0);
+      expect(Object.values(view?.organelles ?? {}).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
+
+      (engine as any).cells = [];
+      expect(engine.getInspection()).toBeNull();
+      engine.selectForInspection(null);
+      expect(engine.getSelectedCellId()).toBeNull();
+    });
+
+    it('keeps the scale bar honest when the objective changes', () => {
+      const engine = makeEngine();
+      const cells = Array.from({ length: 5 }, () => createCell(engine, 40));
+      (engine as any).cells = cells;
+
+      const at20 = engine.getScaleBar();
+      expect(at20.pixels).toBeGreaterThan(40);
+      expect([5, 10, 20, 25, 50, 100, 200, 500]).toContain(at20.microns);
+
+      engine.setObjective(40);
+      expect(engine.getObjective()).toBe(40);
+      // Twice the magnification: cells grow toward twice the radius, so the same
+      // number of microns must now cover about twice as many pixels.
+      for (const cell of cells) expect(cell.targetRadius).toBeCloseTo(80, 0);
+      update(engine, 14);
+      const at40 = engine.getScaleBar();
+      expect(at40.microns / at40.pixels).toBeLessThan(at20.microns / at20.pixels);
+
+      engine.setObjective(999 as unknown as number);
+      expect(engine.getObjective()).toBe(40);
+    });
+  });
+
   describe('perturbations', () => {
     it('nocodazole arrests mitosis at the metaphase plate, and washout resumes it', () => {
       const engine = makeEngine();
