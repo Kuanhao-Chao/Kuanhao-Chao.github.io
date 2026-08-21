@@ -256,7 +256,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <button type="button" class="action-btn" id="act-mitosis" title="Force division on mature cells">
               <span>✂️</span> Divide Cell
             </button>
-            <button type="button" class="action-btn" id="act-clear" title="Clear dish completely">
+            <button type="button" class="action-btn" id="act-clear" title="Thin the dish back to the 12-cell baseline as a staggered apoptosis wave (~7s) rather than deleting every cell at once">
               <span>🧹</span> Clear Dish
             </button>
           </div>
@@ -1303,7 +1303,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       };
     }
     if (actMitosis) actMitosis.onclick = () => engine.triggerRandomMitosis();
-    if (actClear) actClear.onclick = () => engine.clearAllCells();
+    // Not `clearAllCells()`: emptying the dish on the spot reads as a glitch. The
+    // surplus actually undergoes apoptosis, staggered so it sweeps, and the method
+    // resets the population target so homeostasis does not immediately regrow it.
+    if (actClear) actClear.onclick = () => engine.cullToBaseline(12, 7);
 
     // Live Telemetry Sync
     const tTotal = document.querySelector('[data-t-total]');

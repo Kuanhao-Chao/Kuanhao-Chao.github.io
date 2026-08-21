@@ -1765,7 +1765,10 @@ async function auditHomeComposite(page, scope, profile, baseline) {
   const state = await snapshot(page);
   const hero = await heroSnapshot(page);
   const expectedDprCap = profile.touch ? 1 : 1.5;
-  const expectedCellCap = profile.touch ? 4 : 7;
+  // One ambient baseline for every route (12 fine-pointer, 8 coarse). The homepage
+  // used to be capped lower than the rest of the site, so the population visibly
+  // jumped on navigation; `ambientTarget()` is now the single source of that number.
+  const expectedCellCap = profile.touch ? 8 : 12;
   check(
     scope,
     state.dpr <= expectedDprCap + 0.02,
