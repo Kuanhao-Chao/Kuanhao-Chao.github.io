@@ -40,15 +40,27 @@ export interface LessonLike {
  * count rather than being allowed to pollute it.
  */
 export function lessonReadingTime(body: string): number {
-  const { prose, display, inline, codeLines } = analyseBody(body);
-  const seconds = (prose / 200) * 60 + display * DISPLAY_EQUATION_SECONDS + inline * INLINE_EQUATION_SECONDS + codeLines * CODE_LINE_SECONDS;
+  const { prose, display, inlineWords, codeLines } = analyseBody(body);
+  const seconds =
+    ((prose + inlineWords) / 200) * 60 + display * DISPLAY_EQUATION_SECONDS + codeLines * CODE_LINE_SECONDS;
   return Math.max(1, Math.round(seconds / 60));
+}
+
+/**
+ * Word-equivalents for one inline formula, from the length of its LaTeX source.
+ *
+ * A flat per-formula charge is wrong in both directions on the same page: these
+ * lessons carry ~175 inline spans each, most of them a single letter like `$D$`,
+ * which reads at the speed of a word — while a few run to half a line. Charging
+ * every one of them three seconds added five minutes of imaginary reading to this
+ * lesson alone.
+ */
+export function inlineMathWords(tex: string): number {
+  return Math.max(1, Math.ceil(tex.length / 6));
 }
 
 /** Seconds to parse one `$$…$$` block — long enough to read, not to re-derive. */
 const DISPLAY_EQUATION_SECONDS = 15;
-/** An inline `$…$` reads at roughly the pace of a short phrase. */
-const INLINE_EQUATION_SECONDS = 3;
 /** Code is skimmed rather than read. */
 const CODE_LINE_SECONDS = 2;
 
@@ -56,7 +68,10 @@ export interface BodyAnalysis {
   /** Words of actual prose, with math, code and markup removed. */
   prose: number;
   display: number;
+  /** Count of inline `$…$` spans. */
   inline: number;
+  /** Those spans expressed as word-equivalents, via `inlineMathWords`. */
+  inlineWords: number;
   codeLines: number;
 }
 
@@ -86,8 +101,10 @@ export function analyseBody(body: string): BodyAnalysis {
   });
 
   let inline = 0;
-  rest = rest.replace(/\$[^$\n]+\$/g, () => {
+  let inlineWords = 0;
+  rest = rest.replace(/\$([^$\n]+)\$/g, (_m, tex: string) => {
     inline += 1;
+    inlineWords += inlineMathWords(tex);
     return ' ';
   });
 
@@ -106,7 +123,7 @@ export function analyseBody(body: string): BodyAnalysis {
     .split(/\s+/)
     .filter((w) => /[A-Za-z0-9]/.test(w)).length;
 
-  return { prose, display, inline, codeLines };
+  return { prose, display, inline, inlineWords, codeLines };
 }
 
 /** "9 min read" — the string the badge shows. */

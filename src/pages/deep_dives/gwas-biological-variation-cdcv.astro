@@ -7,11 +7,11 @@ import 'katex/dist/katex.min.css';
 
 const title = "The Spectrum of Genetic Variation: From Mendelian Linkage to the Common Disease–Common Variant (CDCV) Paradigm";
 const description = "An in-depth, first-principles exploration of human genetic variation, the biophysics of mutation, Hardy-Weinberg Equilibrium derivations, and the historical paradigm shift from pedigree linkage to population-scale association.";
-/* Derived from this page's own content, not guessed: prose at 200 wpm, plus 15 s per
-   display equation and 3 s per inline one. These constants had drifted to ~2.5x the
-   truth (this page: 1215 prose words, 7 display and 50 inline equations). Part 2 moves
-   the series into a content collection where this is computed, not written down. */
-const readingTime = "10 min read";
+/* Derived from this page's own content: prose at 200 wpm, inline math priced by
+   source length, and 15 s per display equation — the same model `lessonReadingTime`
+   applies to the migrated lessons, so both renderers agree. Part 2 of the migration
+   deletes this constant along with the page. */
+const readingTime = "8 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">

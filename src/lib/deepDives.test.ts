@@ -61,7 +61,14 @@ describe('analyseBody', () => {
   });
 
   it('handles an empty body without throwing', () => {
-    expect(analyseBody('')).toEqual({ prose: 0, display: 0, inline: 0, codeLines: 0 });
+    expect(analyseBody('')).toEqual({ prose: 0, display: 0, inline: 0, inlineWords: 0, codeLines: 0 });
+  });
+
+  it('prices inline math by length, so a lone symbol is not a phrase', () => {
+    expect(analyseBody('$D$').inlineWords).toBe(1);
+    expect(analyseBody('$p_{AB}$').inlineWords).toBe(1);
+    // a half-line formula is worth several words
+    expect(analyseBody('$t_{1/2} = \\ln 0.5 / \\ln(1-\\theta)$').inlineWords).toBeGreaterThan(4);
   });
 });
 
@@ -73,6 +80,12 @@ describe('lessonReadingTime', () => {
 
   it('prices prose at 200 words per minute', () => {
     expect(lessonReadingTime(Array(600).fill('word').join(' '))).toBe(3);
+  });
+
+  it('does not let a page of single-symbol math invent five minutes', () => {
+    // 175 spans of `$D$` — the shape of a real lesson. A flat 3 s each would add 8.75 min.
+    const body = Array(175).fill('$D$').join(' ');
+    expect(lessonReadingTime(body)).toBe(1);
   });
 
   it('charges for equations that carry no words', () => {
@@ -91,7 +104,8 @@ describe('lessonReadingTime', () => {
       Array(9).fill('$$x$$').join('\n\n'),
       Array(50).fill('$y$').join(' '),
     ].join('\n\n');
-    expect(lessonReadingTime(body)).toBe(9);
+    // 846 prose + 50 word-equivalents at 200 wpm, plus 9 x 15 s of display math.
+    expect(lessonReadingTime(body)).toBe(7);
   });
 
   it('formats as a badge string', () => {
