@@ -7,7 +7,7 @@ import 'katex/dist/katex.min.css';
 
 const title = "Statistical Genetics: The Mathematical Machinery of Quantitative Traits, Heritability & Causal Mapping";
 const description = "A definitive, first-principles exploration of statistical genetics — bridging population genetics, Fisher's infinitesimal model, Linkage Disequilibrium, GREML heritability, LDSC, Linear Mixed Models, Bayesian fine-mapping, rare variant tests, Mendelian Randomization, and deep learning.";
-const readingTime = "34 min read";
+const readingTime = "38 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">
@@ -23,7 +23,7 @@ const readingTime = "34 min read";
     <header class="deep-dive-header">
       <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
         <span class="deep-dive-tag">Statistical & Population Genetics</span>
-        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Foundational to Advanced</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Comprehensive Curriculum Hub</span>
         <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
       </div>
       <h1 class="deep-dive-title">{title}</h1>
@@ -42,41 +42,193 @@ const readingTime = "34 min read";
     <!-- Table of Contents -->
     <div class="deep-dive-toc">
       <div class="deep-dive-toc-title">
-        <Icon name="list" size={14} /> Table of Contents
+        <Icon name="list" size={14} /> Curriculum Architecture & Master Table of Contents
       </div>
       <ol class="deep-dive-toc-list">
+        <li><a href="#curriculum-map">Curriculum Navigation Matrix & Subpage Index</a></li>
         <li><a href="#ch1">1. Foundations of Population Genetics & The Infinitesimal Model</a></li>
         <li><a href="#ch2">2. Linkage Disequilibrium (LD) & Chromosomal Architecture</a></li>
         <li><a href="#ch3">3. Heritability Estimation: From Twins to Genomic REML (GREML)</a></li>
         <li><a href="#ch4">4. Summary-Statistics Heritability: LD Score Regression (LDSC & S-LDSC)</a></li>
-        <li><a href="#ch5">5. Association Testing & Linear Mixed Models (LMM)</a></li>
+        <li><a href="#ch5">5. Association Testing, Confounding & Linear Mixed Models (LMM)</a></li>
         <li><a href="#ch6">6. Bayesian Fine-Mapping & Causal Variant Prioritization</a></li>
         <li><a href="#ch7">7. Rare Variant Association Testing (RVAT)</a></li>
         <li><a href="#ch8">8. Polygenic Risk Scores (PRS) & Disease Prediction</a></li>
         <li><a href="#ch9">9. Causal Inference: Mendelian Randomization (MR)</a></li>
         <li><a href="#ch10">10. The Modern Synthesis: Statistical Genetics Meets Deep Learning</a></li>
+        <li><a href="#historical-timeline">11. Historical Milestone Timeline & Master Comparison</a></li>
       </ol>
     </div>
 
     <!-- Callout: Executive Summary -->
     <div class="deep-dive-callout">
       <div class="deep-dive-callout-title">
-        <Icon name="sparkles" size={15} /> Executive Summary & Core Mechanisms
+        <Icon name="sparkles" size={15} /> Executive Summary & Foundational Principles
       </div>
       <p>
-        Statistical genetics formulates phenotype as a mathematical function of genotypes, environmental variance, and unobserved ancestry structures:
+        Statistical genetics formulates phenotypes as probabilistic mathematical functions of discrete genotypes, unobserved environmental exposures, evolutionary dynamics, and ancestry structures:
         <br/>
-        &bull; <strong>Population Foundations:</strong> Hardy-Weinberg Equilibrium ($p^2 + 2pq + q^2 = 1$), Wright-Fisher genetic drift, and Kingman's coalescent model explain allele frequency dynamics.
+        &bull; <strong>Population Foundations:</strong> Hardy-Weinberg Equilibrium (<Katex tex="p^2 + 2pq + q^2 = 1" />), Wright-Fisher genetic drift (<Katex tex="H_t = H_0(1 - 1/(2N_e))^t" />), and Kingman's coalescent genealogy (<Katex tex="\mathbb{E}[T_{\text{MRCA}}] = 4N_e(1 - 1/n)" />) govern allele frequency dynamics across generations.
         <br/>
-        &bull; <strong>Variance Decomposition:</strong> Total phenotypic variance partitions into additive genetic, dominance, epistatic interaction, gene-environment, and environmental noise (<Katex tex="V_P = V_A + V_D + V_I + V_{G \times E} + V_E" />).
+        &bull; <strong>Variance Decomposition:</strong> Total phenotypic variance partitions into genetic and environmental components (<Katex tex="V_P = V_G + V_E + 2\operatorname{Cov}(G, E)" />), where <Katex tex="V_G" /> decomposes into additive (<Katex tex="V_A" />), dominance (<Katex tex="V_D" />), and epistatic (<Katex tex="V_I" />) variance under orthogonal parameterizations.
         <br/>
-        &bull; <strong>Linkage Disequilibrium:</strong> Non-random allele co-inheritance (<Katex tex="r^2, D'" />) creates correlated summary statistics, necessitating fine-mapping and LDSC.
+        &bull; <strong>Linkage Disequilibrium:</strong> Non-random gametic association (<Katex tex="D, D', r^2" />) decays exponentially under meiotic recombination (<Katex tex="D_t = D_0(1 - \theta)^t" />), structured by PRDM9-directed double-strand break hotspots into discrete haplotype blocks.
         <br/>
-        &bull; <strong>Heritability & Mixed Models:</strong> Genomic Relatedness Matrices (<Katex tex="\mathbf{A}" />) and Linear Mixed Models (<Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{u} + \boldsymbol{\epsilon}" />) eliminate confounding while capturing polygenic architecture.
+        &bull; <strong>Heritability & Mixed Models:</strong> Genomic Relatedness Matrices (<Katex tex="\mathbf{A} = \mathbf{W}\mathbf{W}^T/M" />) and Linear Mixed Models (<Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{g} + \boldsymbol{\epsilon}" />) eliminate population stratification while capturing polygenic architecture.
         <br/>
-        &bull; <strong>Causality & Prediction:</strong> Instrumental variable techniques (Mendelian Randomization) test causal hypotheses, while PRS and neural sequence models (Borzoi, AlphaGenome, GPN-Star) bridge statistical association to molecular function.
+        &bull; <strong>Causality & Prediction:</strong> Instrumental variable techniques (Mendelian Randomization) evaluate causal hypotheses under structural assumptions, while Bayesian shrinkage (PRS-CS) and regulatory sequence models (Borzoi, AlphaGenome) bridge statistical associations to predictive biology.
       </p>
     </div>
+
+    <!-- Curriculum Navigation Matrix -->
+    <section id="curriculum-map" style="margin-top: var(--space-8);">
+      <h2>Curriculum Navigation Matrix & Subpage Index</h2>
+      <p>
+        This comprehensive curriculum is organized into four thematic modules spanning 10 standalone, first-principles technical deep dives:
+      </p>
+
+      <div class="deep-dive-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin: 1.5rem 0;">
+        <!-- Card 1 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 1 · Part 1</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-population-infinitesimal/">Population Genetics & Infinitesimal Model</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              Hardy-Weinberg equilibrium, Wright-Fisher drift, Kingman coalescent, Tajima's D, Fisher's 1918 synthesis, and variance decomposition.
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-population-infinitesimal/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 1</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 1 · Part 2</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-linkage-disequilibrium/">Linkage Disequilibrium & Haplotypes</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              Mathematical metrics (<Katex tex="D, D', r^2" />), exact half-life decay (<Katex tex="t_{1/2}" />), PRDM9 zinc-finger hotspots, and haplotype blocks.
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-linkage-disequilibrium/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 2</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 2 · Part 3</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-heritability-greml/">Heritability & GREML (GCTA)</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              Twin ACE models, missing heritability paradox, GRM matrix construction (<Katex tex="\mathbf{A}" />), AI-REML, and Lee et al. liability transformation.
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-heritability-greml/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 3</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 2 · Part 4</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-ldsc-sldsc/">LD Score Regression (LDSC & S-LDSC)</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              Proof of <Katex tex="\mathbb{E}[\chi^2] = 1 + Na + \frac{Nh^2}{M}\ell" />, confounding separation, cross-trait <Katex tex="r_g" />, and functional partitioning (<Katex tex="\tau^*" />).
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-ldsc-sldsc/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 4</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+
+        <!-- Card 5 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 2 · Part 5</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-association-linear-mixed-models/">Association Testing & Linear Mixed Models</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              OLS, Logistic, Score tests, statistical power, PCA stratification, BOLT-LMM, fastGWA, REGENIE, and meta-analysis.
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-association-linear-mixed-models/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 5</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+
+        <!-- Card 6 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 3 · Part 6</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-bayesian-fine-mapping/">Bayesian Fine-Mapping & Colocalization</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              Wakefield ABF with null normalization, SuSiE IBSS variational inference, 95% credible sets, PolyFun priors, and coloc <Katex tex="H_0\text{--}H_4" />.
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-bayesian-fine-mapping/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 6</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+
+        <!-- Card 7 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 3 · Part 7</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-rare-variant-association/">Rare Variant Association (SKAT & DeepRVAT)</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              Single-variant power cliffs, collapsing burden cancellation, SKAT score tests, unified SKAT-O, and DeepRVAT neural scoring.
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-rare-variant-association/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 7</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+
+        <!-- Card 8 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 3 · Part 8</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-polygenic-risk-scores/">Polygenic Risk Scores & Portability</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              P+T, LDpred2, PRS-CS hierarchical continuous shrinkage, calibration curves, Brier score, and multi-ancestry PRS-CSx.
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-polygenic-risk-scores/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 8</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+
+        <!-- Card 9 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 3 · Part 9</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-mendelian-randomization/">Mendelian Randomization & Causality</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              Core IV assumptions, IVW regression, MR-Egger InSIDE test for directional pleiotropy, weighted median, MVMR, and within-family MR.
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-mendelian-randomization/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 9</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+
+        <!-- Card 10 -->
+        <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <span class="deep-dive-tag" style="font-size: var(--fs-nano);">Module 4 · Part 10</span>
+            <h3 style="font-size: var(--fs-base); margin: 0.5rem 0;"><a href="/deep_dives/statgen-deep-learning-synthesis/">Deep Learning & Regulatory Synthesis</a></h3>
+            <p style="font-size: var(--fs-small); color: var(--color-muted);">
+              Enformer, Borzoi, AlphaGenome, GPN-Star, in silico mutagenesis (ISM), functional priors, and experimental validation (MPRA/CRISPR).
+            </p>
+          </div>
+          <a href="/deep_dives/statgen-deep-learning-synthesis/" class="deep-dive-link" style="font-size: var(--fs-small); font-weight: 600; margin-top: 0.75rem;">
+            <span>Read Part 10</span> <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+      </div>
+    </section>
 
     <!-- Chapter 1 -->
     <section id="ch1">
@@ -87,7 +239,7 @@ const readingTime = "34 min read";
         In an infinitely large, panmictic (random-mating) diploid population with non-overlapping generations and in the absence of mutation, migration, and natural selection, allele and genotype frequencies remain constant over generations.
       </p>
       <p>
-        For a biallelic locus with alleles <Katex tex="A" /> and <Katex tex="a" /> having frequencies <Katex tex="p = P(A)" /> and <Katex tex="q = P(a) = 1 - p" />, random fusion of gametes yields the genotype probabilities:
+        For a biallelic locus with alleles <Katex tex="A" /> and <Katex tex="a" /> having frequencies <Katex tex="p = P(A)" /> and <Katex tex="q = P(a) = 1 - p" />, random fusion of independent gametes yields the exact diploid genotype probabilities:
       </p>
 
       <div class="deep-dive-equation-card">
@@ -131,9 +283,9 @@ const readingTime = "34 min read";
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Expected Time to Most Recent Common Ancestor (TMRCA)</div>
+        <div class="deep-dive-equation-header">Expected Time to Most Recent Common Ancestor (TMRCA) & Total Tree Length</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\mathbb{E}[T_{\text{MRCA}}] = \sum_{k=2}^{n} \mathbb{E}[T_k] = \sum_{k=2}^{n} \frac{4N_e}{k(k-1)} = 4N_e \left(1 - \frac{1}{n}\right) \approx 4N_e \text{ generations}" display={true} />
+          <Katex tex="\mathbb{E}[T_{\text{MRCA}}] = \sum_{k=2}^{n} \frac{4N_e}{k(k-1)} = 4N_e \left(1 - \frac{1}{n}\right), \qquad \mathbb{E}[L_{\text{tot}}] = \sum_{k=2}^{n} k \mathbb{E}[T_k] = 4N_e \sum_{i=1}^{n-1} \frac{1}{i}" display={true} />
         </div>
       </div>
 
@@ -144,18 +296,18 @@ const readingTime = "34 min read";
       <div class="deep-dive-equation-card">
         <div class="deep-dive-equation-header">Tajima's D Neutrality Test</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="D = \frac{\hat{\theta}_\pi - \hat{\theta}_S}{\sqrt{\widehat{\text{Var}}(\hat{\theta}_\pi - \hat{\theta}_S)}}" display={true} />
+          <Katex tex="D = \frac{\hat{\theta}_\pi - \hat{\theta}_S}{\sqrt{\widehat{\operatorname{Var}}(\hat{\theta}_\pi - \hat{\theta}_S)}}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
           <Katex tex="D \approx 0" />: Neutral evolution &emsp;|&emsp;
-          <Katex tex="D < 0" />: Excess of rare alleles (positive selective sweep or population expansion) &emsp;|&emsp;
+          <Katex tex="D < 0" />: Excess of rare alleles (selective sweep or population expansion) &emsp;|&emsp;
           <Katex tex="D > 0" />: Excess of intermediate-frequency alleles (balancing selection or population bottleneck).
         </div>
       </div>
 
       <h3>The Fisher 1918 Synthesis & The Infinitesimal Model</h3>
       <p>
-        In a landmark paper, <strong>Ronald A. Fisher (1918)</strong> reconciled Mendelian particulate genetics with Galtonian biometry. Fisher proved that if a trait is governed by an infinite number of Mendelian loci (<Katex tex="M \to \infty" />), each with an infinitesimally small additive effect <Katex tex="\beta_j \sim \mathcal{N}(0, \sigma^2/M)" />, the sum of these independent alleles converges—by the <strong>Central Limit Theorem</strong>—to a continuous Gaussian phenotypic distribution in the population:
+        In a landmark paper, <strong>Ronald A. Fisher (1918)</strong> reconciled Mendelian particulate genetics with Galtonian continuous biometrical traits. Fisher demonstrated that if a trait is governed by an infinite number of Mendelian loci (<Katex tex="M \to \infty" />), each with an infinitesimally small additive effect <Katex tex="\beta_j \sim \mathcal{N}(0, \sigma^2/M)" />, the sum of these independent alleles converges—by the <strong>Central Limit Theorem</strong>—to a continuous Gaussian phenotypic distribution:
       </p>
 
       <div class="deep-dive-equation-card">
@@ -172,19 +324,20 @@ const readingTime = "34 min read";
 
       <h3>Complete Phenotypic Variance Partitioning</h3>
       <p>
-        Total phenotypic variance <Katex tex="V_P = \text{Var}(y)" /> decomposes into genetic, interaction, and environmental components:
+        Starting from the fundamental decomposition of individual phenotype <Katex tex="P = G + E" />, the total phenotypic variance <Katex tex="V_P = \operatorname{Var}(P)" /> expands as:
       </p>
 
       <div class="deep-dive-equation-card">
         <div class="deep-dive-equation-header">Master Variance Decomposition</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="V_P = V_G + V_E + 2\text{Cov}(G, E) = V_A + V_D + V_I + V_{G \times E} + 2\text{Cov}(G, E) + V_E" display={true} />
+          <Katex tex="V_P = V_G + V_E + 2\operatorname{Cov}(G, E) = V_A + V_D + V_I + V_{G \times E} + 2\operatorname{Cov}(G, E) + V_E" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="V_A" /> = Additive genetic variance (linear sum of allele substitution effects) &emsp;|&emsp;
-          <Katex tex="V_D" /> = Dominance variance (intra-locus allelic interactions) &emsp;|&emsp;
-          <Katex tex="V_I = V_{AA} + V_{AD} + V_{DD}" /> = Epistatic variance (inter-locus interactions) &emsp;|&emsp;
-          <Katex tex="V_{G \times E}" /> = Gene-by-environment interaction variance.
+          <Katex tex="V_A" /> = Additive genetic variance (variance of breeding values) &emsp;|&emsp;
+          <Katex tex="V_D" /> = Dominance variance (intra-locus interactions under HWE) &emsp;|&emsp;
+          <Katex tex="V_I = V_{AA} + V_{AD} + V_{DD}" /> = Epistatic variance &emsp;|&emsp;
+          <Katex tex="V_{G \times E}" /> = Gene-by-environment interaction variance &emsp;|&emsp;
+          <Katex tex="\operatorname{Cov}(G, E)" /> = Genotype-environment covariance (e.g. passive/active genetic nurture).
         </div>
       </div>
 
@@ -236,20 +389,23 @@ const readingTime = "34 min read";
           <Katex tex="D' = \frac{D}{D_{\max}}, \quad D_{\max} = \begin{cases} \min(p_A p_b, p_a p_B) & \text{if } D > 0 \\ \min(p_A p_B, p_a p_b) & \text{if } D < 0 \end{cases}, \qquad r^2 = \frac{D^2}{p_A (1 - p_A) p_B (1 - p_B)}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="|D'| = 1" /> indicates complete linkage (absence of one of the 4 possible haplotypes, meaning no historical recombination has separated the loci) &emsp;|&emsp;
+          <Katex tex="|D'| = 1" /> indicates complete linkage (absence of at least one of the 4 gametes, meaning no historical recombination has separated the loci) &emsp;|&emsp;
           <Katex tex="r^2 \in [0, 1]" /> measures statistical correlation, determining tag SNP imputation accuracy and GWAS statistical power.
         </div>
       </div>
 
-      <h3>Recombination Mechanics & Exponential Decay of LD</h3>
+      <h3>Recombination Mechanics & Exact Half-Life Decay of LD</h3>
       <p>
-        Under meiotic recombination occurring at rate <Katex tex="\theta" /> per generation, LD decays exponentially over time:
+        Under meiotic recombination occurring at dimensionless rate <Katex tex="\theta \in [0, 0.5]" /> per generation, LD decays exponentially across generations:
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Decay of Linkage Disequilibrium Over Generations</div>
+        <div class="deep-dive-equation-header">Generational Decay & Exact Half-Life of Linkage Disequilibrium</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="D_t = D_0 (1 - \theta)^t \approx D_0 e^{-\theta t}" display={true} />
+          <Katex tex="D_t = D_0 (1 - \theta)^t \approx D_0 e^{-\theta t}, \qquad t_{1/2} = \frac{\ln(0.5)}{\ln(1 - \theta)} \approx \frac{0.693}{\theta} \quad (\theta \text{ as a fraction}) \approx \frac{69.3}{d} \quad (d \text{ in cM})" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <strong>P0 Exact Scaling:</strong> When recombination is given in centiMorgans (<Katex tex="d \text{ cM}" />, where <Katex tex="1 \text{ cM} \approx \theta = 0.01" />), the half-life is <Katex tex="t_{1/2} \approx 69.3 / d" /> generations.
         </div>
       </div>
 
@@ -258,7 +414,7 @@ const readingTime = "34 min read";
           <Icon name="activity" size={15} /> Biological Drivers of Recombination: PRDM9 & Hotspots
         </div>
         <p>
-          In humans and mice, meiotic recombination does not occur uniformly. Over 80% of crossovers are concentrated in narrow 1–2 kb <strong>recombination hotspots</strong> positioned by <strong>PRDM9</strong>, a zinc-finger histone methyltransferase that binds specific 13-mer sequence motifs (<Katex tex="\text{CCNCCNTNNCCNC}" />), depositing H3K4me3 and H3K36me3 to recruit SPO11 for programmed double-strand breaks (DSBs).
+          In humans and mice, meiotic recombination is non-uniform. Over 80% of crossovers are concentrated in narrow 1–2 kb <strong>recombination hotspots</strong> positioned by <strong>PRDM9</strong>, a zinc-finger histone methyltransferase that binds specific 13-mer sequence motifs (<Katex tex="\text{CCNCCNTNNCCNC}" />), depositing H3K4me3 and H3K36me3 to recruit SPO11 for programmed double-strand breaks (DSBs).
           <br/>
           This punctate recombination landscape creates discrete <strong>haplotype blocks</strong> (regions of high internal <Katex tex="r^2 > 0.8" /> spanning 10–100 kb) separated by recombination hotspots.
         </p>
@@ -267,7 +423,7 @@ const readingTime = "34 min read";
       <div class="algo-promo-card" style="margin-top: 1.25rem;">
         <h3>📖 Dedicated Deep Dive: Linkage Disequilibrium, Recombination & PRDM9</h3>
         <p>
-          Master the mathematical quantification of LD (D, D', r²), exponential decay dynamics over generations, PRDM9 zinc-finger sequence motifs, SPO11 double-strand breaks, and human haplotype block structure.
+          Master the mathematical quantification of LD (D, D', r²), exact half-life decay dynamics over generations, PRDM9 zinc-finger sequence motifs, SPO11 double-strand breaks, and human haplotype block structure.
         </p>
         <a href="/deep_dives/statgen-linkage-disequilibrium/" class="algo-promo-btn">
           <span>Read Full Deep Dive on Linkage Disequilibrium</span>
@@ -288,7 +444,7 @@ const readingTime = "34 min read";
       <div class="deep-dive-equation-card">
         <div class="deep-dive-equation-header">Falconer's Heritability Formula (1960)</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="r_{\text{MZ}} = h^2 + c^2, \quad r_{\text{DZ}} = \frac{1}{2}h^2 + c^2 \implies h^2 = 2(r_{\text{MZ}} - r_{\text{DZ}})" display={true} />
+          <Katex tex="r_{\text{MZ}} = h^2 + c^2, \quad r_{\text{DZ}} = \frac{1}{2}h^2 + c^2 \implies h^2 = 2(r_{\text{MZ}} - r_{\text{DZ}}), \quad c^2 = 2r_{\text{DZ}} - r_{\text{MZ}}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
           <Katex tex="c^2" /> = Variance contributed by shared environmental factors between twins.
@@ -309,28 +465,32 @@ const readingTime = "34 min read";
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Yang et al. (2010) Genomic Relatedness Estimator</div>
+        <div class="deep-dive-equation-header">Yang et al. (2010) / VanRaden (2008) Genomic Relatedness Estimator</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="A_{ik} = \frac{1}{M} \sum_{j=1}^{M} \frac{(X_{ij} - 2p_j)(X_{kj} - 2p_j)}{2p_j (1 - p_j)}" display={true} />
+          <Katex tex="A_{ik} = \frac{1}{M} \sum_{j=1}^{M} \frac{(X_{ij} - 2p_j)(X_{kj} - 2p_j)}{2p_j (1 - p_j)} \implies \mathbf{A} = \frac{\mathbf{W}\mathbf{W}^T}{M}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
           <Katex tex="X_{ij} \in \{0, 1, 2\}" /> = Genotype dosage of individual <Katex tex="i" /> at SNP <Katex tex="j" /> &emsp;|&emsp;
-          <Katex tex="p_j" /> = Sample minor allele frequency at SNP <Katex tex="j" />.
+          <Katex tex="p_j" /> = Sample minor allele frequency at SNP <Katex tex="j" /> &emsp;|&emsp;
+          <Katex tex="W_{ij} = \frac{X_{ij} - 2p_j}{\sqrt{2p_j(1 - p_j)}}" />.
         </div>
       </div>
 
-      <h3>Genomic-REML (GREML) Variance Component Estimation</h3>
+      <h3>Genomic-REML (GREML) & Liability-Scale Transformation</h3>
       <p>
-        GCTA fits a linear mixed model with random polygenic effects:
+        GCTA fits a linear mixed model with random polygenic effects via Restricted Maximum Likelihood (REML):
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">GREML Linear Mixed Model & Variance Structure</div>
+        <div class="deep-dive-equation-header">GREML Linear Mixed Model & Lee et al. (2011) Liability Scale Conversion</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{g} + \mathbf{e}, \quad \mathbf{g} \sim \mathcal{N}(0, \mathbf{A}\sigma_g^2), \quad \mathbf{e} \sim \mathcal{N}(0, \mathbf{I}\sigma_e^2) \implies \mathbf{V} = \mathbf{A}\sigma_g^2 + \mathbf{I}\sigma_e^2" display={true} />
+          <Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{g} + \boldsymbol{\epsilon}, \quad \mathbf{g} \sim \mathcal{N}(\mathbf{0}, \sigma_g^2 \mathbf{A}), \quad \mathbf{V} = \sigma_g^2 \mathbf{A} + \sigma_e^2 \mathbf{I}, \qquad h^2_l = h^2_o \frac{K^2(1 - K)^2}{z_K^2 P(1 - P)}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="h^2_{\text{SNP}} = \frac{\sigma_g^2}{\sigma_g^2 + \sigma_e^2}" /> captures the total phenotypic variance tagged by all common SNPs simultaneously (<Katex tex="\approx 45\text{--}50\%" /> for height).
+          <Katex tex="h^2_o = \frac{\sigma_g^2}{\sigma_g^2 + \sigma_e^2}" /> = Observed scale heritability in case-control study &emsp;|&emsp;
+          <Katex tex="K" /> = Population disease prevalence &emsp;|&emsp;
+          <Katex tex="P" /> = Sample proportion of cases &emsp;|&emsp;
+          <Katex tex="z_K = \phi(\Phi^{-1}(1 - K))" /> = Standard normal height at disease threshold.
         </div>
       </div>
 
@@ -350,7 +510,7 @@ const readingTime = "34 min read";
     <section id="ch4">
       <h2>4. Summary-Statistics Heritability: LD Score Regression (LDSC & S-LDSC)</h2>
       <p>
-        GREML requires individual-level genotype matrices (<Katex tex="O(N^2)" /> memory), making it computationally intractable and ethically restricted for millions of biobank participants. <strong>LD Score Regression (LDSC, Bulik-Sullivan et al. 2015)</strong> estimates <Katex tex="h^2" /> directly from public GWAS summary statistics.
+        GREML requires individual-level genotype matrices (<Katex tex="\mathcal{O}(N^2)" /> memory), making it computationally intractable and ethically restricted for millions of biobank participants. <strong>LD Score Regression (LDSC, Bulik-Sullivan et al. 2015)</strong> estimates <Katex tex="h^2" /> directly from public GWAS summary statistics.
       </p>
 
       <h3>Defining the LD Score</h3>
@@ -368,7 +528,7 @@ const readingTime = "34 min read";
       <div class="deep-dive-equation-card">
         <div class="deep-dive-equation-header">Bulik-Sullivan et al. (2015) Fundamental LDSC Expectation</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\mathbb{E}[\chi^2_j] = 1 + \frac{N h^2}{M} \ell_j + N a" display={true} />
+          <Katex tex="\mathbb{E}[\chi^2_j] = 1 + N a + \frac{N h^2}{M} \ell_j" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
           <Katex tex="\chi^2_j = z_j^2" /> = GWAS chi-squared association statistic &emsp;|&emsp;
@@ -377,33 +537,15 @@ const readingTime = "34 min read";
         </div>
       </div>
 
-      <div class="deep-dive-callout">
-        <div class="deep-dive-callout-title">
-          <Icon name="check-circle" size={15} /> Mathematical Proof of the LDSC Theorem
-        </div>
-        <p>
-          Let the true polygenic model be <Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \boldsymbol{\epsilon}" /> with standardized genotypes <Katex tex="\mathbb{E}[X_{ij}] = 0, \text{Var}(X_{ij}) = 1" />, where true effects satisfy <Katex tex="\mathbb{E}[\beta_k] = 0, \text{Var}(\beta_k) = \frac{h^2}{M}" />.
-          <br/><br/>
-          The marginal OLS estimator for SNP <Katex tex="j" /> is <Katex tex="\hat{\beta}_j = \frac{1}{N}\mathbf{x}_j^T \mathbf{y} = \sum_{k=1}^M r_{jk} \beta_k + \frac{1}{N}\mathbf{x}_j^T \boldsymbol{\epsilon}" />.
-          <br/>
-          The GWAS z-score is <Katex tex="z_j = \sqrt{N} \hat{\beta}_j = \sqrt{N} \sum_{k=1}^M r_{jk} \beta_k + \epsilon'_j" /> with <Katex tex="\epsilon'_j \sim \mathcal{N}(0, 1)" />.
-          <br/><br/>
-          Taking the expectation of <Katex tex="\chi^2_j = z_j^2" /> conditional on the LD structure:
-          <br/>
-          <Katex tex="\mathbb{E}[z_j^2 \mid \ell_j] = N \sum_{k=1}^M r_{jk}^2 \text{Var}(\beta_k) + \text{Var}(\epsilon'_j) = N \left(\sum_{k=1}^M r_{jk}^2\right) \frac{h^2}{M} + 1 = 1 + \frac{N h^2}{M} \ell_j" display={true} />
-          In the presence of uncorrected population stratification confounding contributing variance <Katex tex="a" />, this generalizes to <Katex tex="\mathbb{E}[\chi^2_j] = 1 + \frac{N h^2}{M}\ell_j + Na" />.
-        </p>
-      </div>
-
       <h3>Cross-Trait Genetic Correlation (r_g)</h3>
       <div class="deep-dive-equation-card">
         <div class="deep-dive-equation-header">Bivariate Cross-Trait LD Score Regression</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\mathbb{E}[z_{1j} z_{2j}] = \frac{\sqrt{N_1 N_2} \rho_g}{M} \ell_j + \frac{\rho_0 N_s}{\sqrt{N_1 N_2}}, \qquad r_g = \frac{\rho_g}{\sqrt{h_1^2 h_2^2}}" display={true} />
+          <Katex tex="\mathbb{E}[z_{1j} z_{2j}] = \frac{\rho_0 N_s}{\sqrt{N_1 N_2}} + \frac{\sqrt{N_1 N_2} \rho_g}{M} \ell_j, \qquad r_g = \frac{\rho_g}{\sqrt{h_1^2 h_2^2}}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
           <Katex tex="z_{1j}, z_{2j}" /> = Z-scores for trait 1 and trait 2 &emsp;|&emsp;
-          <Katex tex="\rho_g" /> = Genetic covariance &emsp;|&emsp;
+          <Katex tex="ho_g" /> = Genetic covariance &emsp;|&emsp;
           <Katex tex="N_s" /> = Sample overlap count &emsp;|&emsp;
           <Katex tex="\rho_0" /> = Phenotypic correlation among shared samples.
         </div>
@@ -415,13 +557,14 @@ const readingTime = "34 min read";
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Stratified LDSC Model & Enrichment Statistic</div>
+        <div class="deep-dive-equation-header">Stratified LDSC Model, Enrichment & Standardized Effect (τ*)</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\mathbb{E}[\chi^2_j] = 1 + N \sum_{c=1}^{C} \tau_c \ell(j, c) + N a, \qquad \text{Enrichment}(C) = \frac{h^2(C) / h^2}{|C| / M}" display={true} />
+          <Katex tex="\mathbb{E}[\chi^2_j] = 1 + N a + N \sum_{c=1}^{C} \tau_c \ell(j, c), \qquad \text{Enrichment}(c) = \frac{h^2(c) / h^2_{\text{total}}}{|c| / M}, \qquad \tau_c^* = \frac{M \tau_c \operatorname{sd}(c)}{h^2_{\text{total}}}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="\ell(j, c) = \sum_{k \in C} r_{jk}^2" /> = Stratified LD score with respect to category <Katex tex="C" /> &emsp;|&emsp;
-          <Katex tex="\tau_c" /> = Specific per-SNP heritability contribution of category <Katex tex="c" />.
+          <Katex tex="\ell(j, c) = \sum_{k \in c} r_{jk}^2" /> = Stratified LD score with respect to category <Katex tex="c" /> &emsp;|&emsp;
+          <Katex tex="\tau_c" /> = Raw per-SNP heritability contribution &emsp;|&emsp;
+          <Katex tex="\tau_c^*" /> = Standardized conditional effect size per standard deviation of annotation (Gazal et al. 2017).
         </div>
       </div>
 
@@ -439,34 +582,20 @@ const readingTime = "34 min read";
 
     <!-- Chapter 5 -->
     <section id="ch5">
-      <h2>5. Association Testing & Linear Mixed Models (LMM)</h2>
+      <h2>5. Association Testing, Confounding & Linear Mixed Models (LMM)</h2>
 
-      <h3>Marginal Testing & Wald Test Statistic</h3>
+      <h3>Marginal Testing & Statistical Power</h3>
       <p>
-        For quantitative traits, single-marker regression tests <Katex tex="H_0: \beta_j = 0" />:
+        For quantitative traits, single-marker Ordinary Least Squares (OLS) tests <Katex tex="H_0: \beta_j = 0" />:
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">OLS Marginal Regression & Wald Z-Score</div>
+        <div class="deep-dive-equation-header">OLS Marginal Regression & Non-Central Chi-Square Power</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\hat{\beta}_j = \frac{\mathbf{x}_j^T \mathbf{y}}{\mathbf{x}_j^T \mathbf{x}_j}, \quad \text{SE}(\hat{\beta}_j) = \sqrt{\frac{\hat{\sigma}^2}{\mathbf{x}_j^T \mathbf{x}_j}}, \quad z_j = \frac{\hat{\beta}_j}{\text{SE}(\hat{\beta}_j)}, \quad P = 2 \Phi(-|z_j|)" display={true} />
-        </div>
-      </div>
-
-      <h3>Logistic Regression & The Liability Threshold Model</h3>
-      <p>
-        For binary case-control traits, logistic regression models disease probability <Katex tex="\pi_i = P(y_i = 1 \mid \mathbf{x}_i)" />:
-      </p>
-
-      <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Logistic Regression Link & Liability Threshold Heritability Conversion</div>
-        <div class="deep-dive-equation-body">
-          <Katex tex="\log\left(\frac{\pi_i}{1 - \pi_i}\right) = \mathbf{w}_i^T \boldsymbol{\alpha} + \beta_j X_{ij}, \qquad h^2_{\text{liability}} = h^2_{\text{observed}} \frac{K(1 - K)}{z_K^2} \frac{K(1 - K)}{P(1 - P)}" display={true} />
+          <Katex tex="\hat{\beta}_j = \frac{\mathbf{x}_j^T \mathbf{y}}{\mathbf{x}_j^T \mathbf{x}_j}, \quad z_j = \frac{\hat{\beta}_j}{\text{SE}(\hat{\beta}_j)}, \qquad \lambda = \frac{2N p(1 - p)\beta^2}{\sigma^2} \implies \chi^2_1 \sim \chi^2_1(\lambda)" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <strong>Lee et al. (2011) Conversion:</strong> <Katex tex="K" /> = Population disease prevalence &emsp;|&emsp;
-          <Katex tex="P" /> = Sample proportion of cases &emsp;|&emsp;
-          <Katex tex="z_K" /> = Standard normal density height at threshold <Katex tex="\Phi^{-1}(1 - K)" />.
+          <Katex tex="\lambda" /> = Noncentrality parameter (NCP). At genome-wide significance <Katex tex="\alpha = 5 \times 10^{-8}" /> (<Katex tex="z_{\alpha/2} \approx 5.451" />), achieving 80% statistical power requires <Katex tex="\lambda \ge (5.451 + 0.842)^2 \approx 39.6" />.
         </div>
       </div>
 
@@ -477,7 +606,7 @@ const readingTime = "34 min read";
           <Katex tex="\lambda_{\text{GC}} = \frac{\text{median}(\chi^2_1, \chi^2_2, \dots, \chi^2_M)}{0.454936}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="0.454936" /> is the median of a central <Katex tex="\chi^2_1" /> distribution. In large cohorts (<Katex tex="N > 100,000" />), polygenicity naturally inflates <Katex tex="\lambda_{\text{GC}} > 1.2" />, making LDSC intercept the gold standard for separating confounding from true biology.
+          <Katex tex="0.454936" /> is the theoretical median of a central <Katex tex="\chi^2_1" /> distribution. In massive biobanks (<Katex tex="N > 100,000" />), true polygenicity inflates <Katex tex="\lambda_{\text{GC}} > 1.2" />, making LDSC intercept the definitive test for residual confounding.
         </div>
       </div>
 
@@ -496,25 +625,25 @@ const readingTime = "34 min read";
             <tr>
               <td><strong>GEMMA / FaST-LMM (2012)</strong></td>
               <td>Spectral eigen-decomposition of GRM <Katex tex="\mathbf{A} = \mathbf{U}\mathbf{S}\mathbf{U}^T" />.</td>
-              <td><Katex tex="O(N^3)" /> upfront + <Katex tex="O(MN)" /> testing.</td>
+              <td><Katex tex="\mathcal{O}(N^3)" /> upfront + <Katex tex="\mathcal{O}(MN)" /> testing.</td>
               <td><Katex tex="N \le 20,000" /></td>
             </tr>
             <tr>
               <td><strong>BOLT-LMM (Loh et al. 2015)</strong></td>
-              <td>Monte Carlo REML + Conjugate gradient solving without explicitly storing <Katex tex="\mathbf{A}" />.</td>
-              <td><Katex tex="O(M_{\text{GRM}} N \times \text{iterations})" /></td>
+              <td>Mixture-of-Gaussians spike-and-slab prior + Conjugate gradient solver without inverting <Katex tex="\mathbf{A}" />.</td>
+              <td><Katex tex="\mathcal{O}(M_{\text{GRM}} N \times \text{iterations})" /></td>
               <td><Katex tex="N \approx 500,000" /> (UK Biobank scale)</td>
             </tr>
             <tr>
               <td><strong>fastGWA (Jiang et al. 2019)</strong></td>
-              <td>Sparse GRM (<Katex tex="A_{ik} < 0.05 \to 0" />) with Cholesky factorization.</td>
+              <td>Sparse GRM thresholding (<Katex tex="A_{ik} < 0.05 \to 0" />) with Cholesky factorization.</td>
               <td>Linear in non-zero entries of sparse matrix.</td>
               <td><Katex tex="N \approx 1,000,000" /></td>
             </tr>
             <tr>
-              <td><strong>Regenie (Mbatchou et al. 2021)</strong></td>
-              <td>Stacked ridge regression with cross-validation blocks + Firth's penalized likelihood for binary case-control imbalance.</td>
-              <td>Split-block parallelization; <Katex tex="O(N)" /> memory.</td>
+              <td><strong>REGENIE (Mbatchou et al. 2021)</strong></td>
+              <td>Step 1 stacked ridge regression cross-validation; Step 2 linear regression (quantitative) or logistic score test with thresholded Firth/SPA fallback (binary).</td>
+              <td>Split-block parallelization; <Katex tex="\mathcal{O}(N)" /> memory.</td>
               <td><Katex tex="N > 1,000,000" /> (Exome/WGS biobanks)</td>
             </tr>
           </tbody>
@@ -524,7 +653,7 @@ const readingTime = "34 min read";
       <div class="algo-promo-card" style="margin-top: 1.25rem;">
         <h3>📖 Dedicated Deep Dive: Association Testing & Linear Mixed Models (LMM)</h3>
         <p>
-          Explore the liability threshold model for binary traits, confounding diagnostics, and the computational evolution of mixed models from GEMMA (O(N³)) to BOLT-LMM, fastGWA, and Regenie stacked ridge regression.
+          Explore the liability threshold model for binary traits, confounding diagnostics, and the computational evolution of mixed models from GEMMA to BOLT-LMM, fastGWA, and REGENIE stacked ridge regression.
         </p>
         <a href="/deep_dives/statgen-association-linear-mixed-models/" class="algo-promo-btn">
           <span>Read Full Deep Dive on Linear Mixed Models</span>
@@ -549,46 +678,38 @@ const readingTime = "34 min read";
         </div>
       </div>
 
-      <h3>Wakefield's Approximate Bayes Factor (ABF, 2009)</h3>
+      <h3>Wakefield's Approximate Bayes Factor (ABF, 2009) & Null Normalization</h3>
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Wakefield ABF Formulation</div>
+        <div class="deep-dive-equation-header">Wakefield ABF Formulation & Null-Inclusive PIP</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\text{ABF}_j = \sqrt{\frac{V_j}{V_j + W}} \exp\left( \frac{z_j^2}{2} \frac{W}{V_j + W} \right)" display={true} />
+          <Katex tex="\text{ABF}_j = \sqrt{\frac{V_j + W}{V_j}} \exp\left(-\frac{z_j^2}{2} \frac{W}{V_j + W}\right), \qquad \text{PIP}_j = P(\gamma_j = 1 \mid \mathcal{D}) = \frac{\pi_j / \text{ABF}_j}{\pi_0 + \sum_{k=1}^M \pi_k / \text{ABF}_k}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
           <Katex tex="V_j = \text{SE}(\hat{\beta}_j)^2" /> = Measurement error variance &emsp;|&emsp;
-          <Katex tex="W = \sigma_0^2" /> = Prior variance of true effect sizes.
+          <Katex tex="W" /> = Prior variance of true effect sizes &emsp;|&emsp;
+          <Katex tex="\pi_0" /> = Prior probability that no variant in the locus is causal.
         </div>
       </div>
 
-      <h3>Sum of Single Effects (SuSiE, Wang & Stephens 2020)</h3>
+      <h3>Sum of Single Effects (SuSiE, Wang et al. 2020)</h3>
       <p>
-        SuSiE decomposes a polygenic locus with up to <Katex tex="L" /> distinct causal signals into a sum of single-effect vectors:
+        SuSiE formulates fine-mapping as a sum of <Katex tex="L" /> single-effect linear regressions:
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">SuSiE Generative Model</div>
+        <div class="deep-dive-equation-header">SuSiE Generative Model & Credible Sets</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\mathbf{y} = \sum_{l=1}^{L} \mathbf{X} \boldsymbol{\gamma}_l b_l + \boldsymbol{\epsilon}, \quad \boldsymbol{\gamma}_l \sim \text{Multinomial}(1, \boldsymbol{\pi}), \quad b_l \sim \mathcal{N}(0, \sigma_l^2), \quad \boldsymbol{\epsilon} \sim \mathcal{N}(0, \sigma^2 \mathbf{I})" display={true} />
+          <Katex tex="\mathbf{y} = \sum_{l=1}^{L} \mathbf{X} \boldsymbol{\gamma}_l b_l + \boldsymbol{\epsilon}, \quad \boldsymbol{\gamma}_l \sim \text{Multinomial}(1, \boldsymbol{\pi}), \quad b_l \sim \mathcal{N}(0, \sigma_l^2), \quad \text{Purity}(\text{CS}_l) = \min_{j, k \in \text{CS}_l} |r_{jk}| \ge 0.5" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="\boldsymbol{\gamma}_l \in \{0, 1\}^M" /> = Indicator vector with exactly one non-zero entry designating the causal variant for signal <Katex tex="l" /> &emsp;|&emsp;
-          <Katex tex="\boldsymbol{\pi}" /> = Prior causal probabilities (uniform or informed by PolyFun/Sniff).
+          SuSiE fits this model via <strong>Iterative Bayesian Stepwise Selection (IBSS)</strong>, a coordinate ascent variational inference algorithm that optimizes the Evidence Lower Bound (ELBO) to produce calibrated 95% Credible Sets (CS).
         </div>
       </div>
-
-      <p>
-        SuSiE fits this model via <strong>Iterative Bayesian Stepwise Selection (IBSS)</strong>, an exact coordinate ascent variational inference (CAVI) algorithm that outputs:
-      </p>
-      <ul>
-        <li><strong>Posterior Inclusion Probability (PIP):</strong> <Katex tex="\text{PIP}_j = 1 - \prod_{l=1}^{L} (1 - \alpha_{lj})" />, representing the probability that variant <Katex tex="j" /> is causal.</li>
-        <li><strong>95% Credible Sets (CS):</strong> The minimal set of variants that contains the causal variant with <Katex tex="\ge 95\%" /> posterior certainty.</li>
-      </ul>
 
       <div class="algo-promo-card" style="margin-top: 1.25rem;">
         <h3>📖 Dedicated Deep Dive: Bayesian Fine-Mapping & Causal Prioritization (SuSiE)</h3>
         <p>
-          Master the LD confounding matrix equation, Wakefield's Approximate Bayes Factor (ABF), the Sum of Single Effects (SuSiE) model, coordinate ascent variational inference (IBSS), and deep learning empirical priors (PolyFun & Sniff).
+          Master the LD confounding matrix equation, Wakefield's Approximate Bayes Factor (ABF), the Sum of Single Effects (SuSiE) model, coordinate ascent variational inference (IBSS), and empirical priors from PolyFun.
         </p>
         <a href="/deep_dives/statgen-bayesian-fine-mapping/" class="algo-promo-btn">
           <span>Read Full Deep Dive on Bayesian Fine-Mapping</span>
@@ -603,7 +724,7 @@ const readingTime = "34 min read";
 
       <h3>The Single-Variant Power Cliff</h3>
       <p>
-        For rare variants (<Katex tex="\text{MAF} < 0.1\%" />), statistical power in single-marker tests drops precipitously because the count of minor allele carriers is insufficient to detect modest effect sizes.
+        For rare variants (<Katex tex="\text{MAF} < 0.1\%" />), statistical power in single-marker tests collapses. Under a standardized phenotype with <Katex tex="N = 100,000" /> and <Katex tex="\text{MAF} = 10^{-4}" />, achieving 80% power at <Katex tex="\alpha = 5 \times 10^{-8}" /> requires an effect magnitude <Katex tex="|\beta| \approx 1.41\text{ SD}" />, necessitating gene-level collapsing tests.
       </p>
 
       <h3>Gene-Level Aggregation Tests</h3>
@@ -619,12 +740,12 @@ const readingTime = "34 min read";
           <tbody>
             <tr>
               <td><strong>Burden Tests (CAST / CMC)</strong></td>
-              <td><Katex tex="T_{\text{Burden}} = \sum_{j=1}^m w_j G_{ij}" /></td>
-              <td>Assumes <strong>all rare variants in the gene act in the same direction</strong> with similar effect magnitudes.</td>
+              <td><Katex tex="T_{\text{Burden}} = \left(\sum_{j=1}^m w_j \mathbf{G}_j^T (\mathbf{y} - \bar{y})\right)^2" /></td>
+              <td>Assumes <strong>all rare variants act in the same direction</strong>; suffers devastating power loss if protective and risk alleles cancel out.</td>
             </tr>
             <tr>
               <td><strong>SKAT (Wu et al. 2011)</strong></td>
-              <td><Katex tex="\mathcal{Q}_{\text{SKAT}} = (\mathbf{y} - \hat{\boldsymbol{\mu}})^T \mathbf{K} (\mathbf{y} - \hat{\boldsymbol{\mu}})" /> with <Katex tex="\mathbf{K} = \mathbf{G}\mathbf{W}\mathbf{G}^T" /></td>
+              <td><Katex tex="\mathcal{Q}_{\text{SKAT}} = (\mathbf{y} - \hat{\boldsymbol{\mu}})^T \mathbf{K} (\mathbf{y} - \hat{\boldsymbol{\mu}}) = \sum_{j=1}^m w_j^2 S_j^2" /></td>
               <td>Variance-component score test; robust when variants have <strong>mixed directional effects or non-causal noise</strong>.</td>
             </tr>
             <tr>
@@ -633,9 +754,9 @@ const readingTime = "34 min read";
               <td>Data-adaptive optimal convex combination searching over <Katex tex="\rho \in [0, 1]" />.</td>
             </tr>
             <tr>
-              <td><strong>DeepRVAT (2024)</strong></td>
-              <td>Neural aggregation using deep sequence models (GPN-Star, AlphaGenome).</td>
-              <td>Replaces heuristic MAF weights with calibrated functional deleteriousness embeddings.</td>
+              <td><strong>DeepRVAT (Karczewski et al. 2024)</strong></td>
+              <td>Neural aggregation using AlphaMissense, CADD, SpliceAI, and AbSplice embeddings.</td>
+              <td>Replaces heuristic MAF weights with calibrated functional deleteriousness embeddings in UK Biobank (161k quantitative / 469k binary).</td>
             </tr>
           </tbody>
         </table>
@@ -660,64 +781,49 @@ const readingTime = "34 min read";
       <div class="deep-dive-equation-card">
         <div class="deep-dive-equation-header">Linear Polygenic Risk Score</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\text{PRS}_i = \sum_{j=1}^{M} \hat{\beta}_j X_{ij}" display={true} />
+          <Katex tex="\text{PRS}_i = \sum_{j=1}^{M} w_j G_{ij}" display={true} />
         </div>
       </div>
 
-      <h3>Methodological Comparison for Deriving β̂</h3>
+      <h3>Methodological Comparison for Deriving Weights</h3>
       <div class="paper-table-wrap">
         <table class="paper-table">
           <thead>
             <tr>
               <th>Method</th>
               <th>Algorithm / Prior</th>
-              <th>Key Strengths & Weaknesses</th>
+              <th>Key Strengths & Properties</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td><strong>Clumping & Thresholding (C+T)</strong></td>
               <td>Heuristic LD pruning (<Katex tex="r^2 < 0.1" />) + P-value cutoff grid search (<Katex tex="P < P_T" />).</td>
-              <td>Fast and simple, but discards correlated causal variants in LD.</td>
+              <td>Fast and simple; discards correlated causal variants in LD.</td>
             </tr>
             <tr>
               <td><strong>LDpred2 (Privé et al. 2020)</strong></td>
               <td>Bayesian Spike-and-Slab prior: <Katex tex="\beta_j \sim \pi \mathcal{N}(0, \frac{h^2}{M\pi}) + (1-\pi)\delta_0" />.</td>
-              <td>Models LD correlation matrix directly via Gibbs sampling; highly accurate across European cohorts.</td>
+              <td>Models LD correlation matrix directly via Gibbs sampling across European cohorts.</td>
             </tr>
             <tr>
               <td><strong>PRS-CS (Ge et al. 2019)</strong></td>
-              <td>Continuous shrinkage Horseshoe / Strawderman-Berger prior.</td>
-              <td>Robust adaptive shrinkage; does not require tuning parameters; highly scalable.</td>
+              <td>Continuous shrinkage: <Katex tex="\beta_j \sim \mathcal{N}(0, \frac{\sigma^2}{N}\phi \psi_j), \psi_j \sim \mathcal{G}(a, \delta_j), \delta_j \sim \mathcal{G}(b, 1)" />.</td>
+              <td>Robust adaptive shrinkage; PRS-CS-auto learns global parameter <Katex tex="\phi" /> using Half-Cauchy hyperprior.</td>
             </tr>
             <tr>
-              <td><strong>Lassosum (Mak et al. 2017)</strong></td>
-              <td><Katex tex="L_1" />-penalized LASSO directly on summary statistics.</td>
-              <td>Convex optimization; efficient coordinate descent.</td>
+              <td><strong>PRS-CSx (Ruan et al. 2022)</strong></td>
+              <td>Multi-ancestry continuous shrinkage with population-specific LD panels.</td>
+              <td>Significantly improves cross-ancestry prediction in non-European target populations.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div class="deep-dive-callout callout-warning">
-        <div class="deep-dive-callout-title">
-          <Icon name="alert-triangle" size={15} /> The Trans-Ethnic Portability Crisis
-        </div>
-        <p>
-          PRS trained on individuals of European ancestry lose up to <strong>50–70% predictive accuracy</strong> when evaluated in African, Hispanic, and East Asian populations. This drop is driven by:
-          <br/>
-          &bull; <strong>Divergent LD Patterns:</strong> Shorter LD blocks in African populations break tagging relationships.
-          <br/>
-          &bull; <strong>Allele Frequency Shifts:</strong> Causal variants can have wildly different frequencies or be monomorphic.
-          <br/>
-          &bull; <strong>Gene-by-Environment (GxE) Interactions:</strong> Differing background environmental risk exposures.
-        </p>
-      </div>
-
       <div class="algo-promo-card" style="margin-top: 1.25rem;">
         <h3>📖 Dedicated Deep Dive: Polygenic Risk Scores (PRS) & Portability</h3>
         <p>
-          Compare Clumping+Thresholding, LDpred2 spike-and-slab Gibbs sampling, and PRS-CS continuous horseshoe shrinkage, analyze the trans-ethnic portability crisis, and explore multi-ancestry PRS-CSx.
+          Compare Clumping+Thresholding, LDpred2 spike-and-slab Gibbs sampling, and PRS-CS continuous horseshoe shrinkage, analyze the cross-population portability crisis, and explore multi-ancestry PRS-CSx.
         </p>
         <a href="/deep_dives/statgen-polygenic-risk-scores/" class="algo-promo-btn">
           <span>Read Full Deep Dive on Polygenic Risk Scores</span>
@@ -730,34 +836,25 @@ const readingTime = "34 min read";
     <section id="ch9">
       <h2>9. Causal Inference: Mendelian Randomization (MR)</h2>
       <p>
-        <strong>Mendelian Randomization (MR)</strong> uses genetic variants as <strong>Instrumental Variables (IVs)</strong> to test whether an observational exposure <Katex tex="X" /> causally influences a health outcome <Katex tex="Y" />.
+        <strong>Mendelian Randomization (MR)</strong> uses genetic variants as <strong>Instrumental Variables (IVs)</strong> to evaluate whether an observational exposure <Katex tex="X" /> causally influences a health outcome <Katex tex="Y" /> under explicit structural assumptions.
       </p>
-
-      <div class="deep-dive-callout callout-biology">
-        <div class="deep-dive-callout-title">
-          <Icon name="check-circle" size={15} /> Nature's Randomized Controlled Trial (RCT)
-        </div>
-        <p>
-          Because alleles are randomly segregated and assortment occurs at meiosis (Mendel's Law), genetic variants are fixed at conception and precede disease onset, naturally protecting against <strong>reverse causation</strong> and <strong>unmeasured environmental confounding</strong>.
-        </p>
-      </div>
 
       <h3>The Three Core Instrumental Variable (IV) Assumptions</h3>
       <ol>
-        <li><strong>1. Relevance Assumption:</strong> The genetic variant <Katex tex="Z" /> must be strongly associated with the exposure <Katex tex="X" /> (first-stage <Katex tex="F\text{-statistic} > 10" />).</li>
-        <li><strong>2. Independence / Exchangeability Assumption:</strong> The variant <Katex tex="Z" /> must be independent of all unmeasured confounders <Katex tex="U" /> between exposure and outcome.</li>
-        <li><strong>3. Exclusion Restriction:</strong> The variant <Katex tex="Z" /> affects the outcome <Katex tex="Y" /> <strong>strictly through exposure <Katex tex="X" /></strong> (no direct horizontal pleiotropy).</li>
+        <li><strong>1. Relevance Assumption:</strong> The genetic variant <Katex tex="Z" /> must be robustly associated with the exposure <Katex tex="X" /> (first-stage <Katex tex="F\text{-statistic} = \hat{\gamma}^2 / \text{SE}(\hat{\gamma})^2 > 10" />).</li>
+        <li><strong>2. Independence Assumption:</strong> The variant <Katex tex="Z" /> is independent of all unmeasured confounders <Katex tex="U" /> between exposure and outcome (<Katex tex="Z \perp U" />).</li>
+        <li><strong>3. Exclusion Restriction:</strong> The variant <Katex tex="Z" /> affects outcome <Katex tex="Y" /> <strong>strictly through exposure <Katex tex="X" /></strong> (no direct horizontal pleiotropic path <Katex tex="Z \to Y" />).</li>
       </ol>
 
       <h3>The Inverse-Variance Weighted (IVW) Estimator</h3>
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">IVW Fixed-Effects Causal Estimator</div>
+        <div class="deep-dive-equation-header">Single-Instrument Wald Ratio & Multi-Instrument IVW Estimator</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\hat{\beta}_{\text{MR}} = \frac{\sum_{j=1}^{K} w_j \hat{\beta}_{Xj} \hat{\beta}_{Yj}}{\sum_{j=1}^{K} w_j \hat{\beta}_{Xj}^2}, \quad w_j = \frac{1}{\text{Var}(\hat{\beta}_{Yj})}" display={true} />
+          <Katex tex="\hat{\beta}_{\text{Wald}, j} = \frac{\hat{\Gamma}_j}{\hat{\gamma}_j}, \qquad \hat{\beta}_{\text{IVW}} = \frac{\sum_{j=1}^{K} w_j \hat{\beta}_{\text{Wald}, j}}{\sum_{j=1}^{K} w_j}, \quad w_j \approx \frac{\hat{\gamma}_j^2}{\operatorname{Var}(\hat{\Gamma}_j)}" display={true} />
         </div>
       </div>
 
-      <h3>Robust Pleiotropy Methods</h3>
+      <h3>Robust Sensitivity Methods for Pleiotropy</h3>
       <div class="paper-table-wrap">
         <table class="paper-table">
           <thead>
@@ -770,18 +867,18 @@ const readingTime = "34 min read";
           <tbody>
             <tr>
               <td><strong>MR-Egger Regression (Bowden 2015)</strong></td>
-              <td><Katex tex="\hat{\beta}_{Yj} = \beta_0 + \beta_{\text{MR}} \hat{\beta}_{Xj} + \epsilon_j" /></td>
+              <td><Katex tex="\hat{\Gamma}_j = \beta_0 + \beta_{\text{Egger}} \hat{\gamma}_j + \epsilon_j" /></td>
               <td>Intercept <Katex tex="\beta_0 \neq 0" /> tests for directional horizontal pleiotropy under the InSIDE assumption.</td>
             </tr>
             <tr>
               <td><strong>Weighted Median (Bowden 2016)</strong></td>
-              <td>Median of sorted ratio estimates <Katex tex="\hat{\beta}_{Yj} / \hat{\beta}_{Xj}" /> with normalized weights.</td>
+              <td>Median of sorted ratio estimates <Katex tex="\hat{\beta}_{\text{Wald}, j}" /> with normalized weights.</td>
               <td>Consistent even if up to <strong>50% of the genetic weight comes from invalid instruments</strong>.</td>
             </tr>
             <tr>
-              <td><strong>MR-PRESSO (Verbanck 2018)</strong></td>
-              <td>Residual sum of squares outlier detection test.</td>
-              <td>Identifies and removes individual pleiotropic outlier variants before recalculating IVW.</td>
+              <td><strong>Within-Family / Sibling MR</strong></td>
+              <td>Conditioning on parental genotypes or sibling difference models.</td>
+              <td>Completely eliminates population stratification, assortative mating, and dynastic parental nurture.</td>
             </tr>
           </tbody>
         </table>
@@ -790,7 +887,7 @@ const readingTime = "34 min read";
       <div class="algo-promo-card" style="margin-top: 1.25rem;">
         <h3>📖 Dedicated Deep Dive: Causal Inference & Mendelian Randomization (MR)</h3>
         <p>
-          Evaluate the 3 core instrumental variable assumptions, the Inverse-Variance Weighted (IVW) estimator, MR-Egger directional pleiotropy tests, the Weighted Median estimator, and MR-PRESSO outlier corrections.
+          Evaluate the 3 core instrumental variable assumptions, the Inverse-Variance Weighted (IVW) estimator, MR-Egger directional pleiotropy tests, the Weighted Median estimator, and within-family sibling MR.
         </p>
         <a href="/deep_dives/statgen-mendelian-randomization/" class="algo-promo-btn">
           <span>Read Full Deep Dive on Mendelian Randomization</span>
@@ -803,77 +900,14 @@ const readingTime = "34 min read";
     <section id="ch10">
       <h2>10. The Modern Synthesis: Statistical Genetics Meets Deep Learning</h2>
       <p>
-        Today, the frontier of statistical genetics is merging with sequence-to-function deep learning (e.g. <strong>Borzoi</strong>, <strong>AlphaGenome</strong>) and phylogeny-informed genomic language models (e.g. <strong>GPN-Star</strong>):
+        Today, the frontier of statistical genetics is merging with regulatory sequence models (e.g. <strong>Enformer</strong>, <strong>Borzoi</strong>, <strong>AlphaGenome</strong>) and genomic language models (e.g. <strong>GPN-Star</strong>):
       </p>
       <ul>
-        <li><strong>Functionally Informed Fine-Mapping (Sniff / PolyFun):</strong> Deep learning predictions across 7,611 coverage tracks provide empirical priors (<Katex tex="\boldsymbol{\pi}" />) for SuSiE, boosting fine-mapping yield by +9.45%.</li>
-        <li><strong>Deep Rare Variant Association Testing (DeepRVAT):</strong> Genomic language model representations replace crude frequency cutoffs, boosting WES power in UK Biobank.</li>
-        <li><strong>Stratified LDSC with Learned Embeddings:</strong> Annotating genomes with continuous foundation model embeddings reveals novel tissue-specific trait heritability enrichments (<Katex tex="\tau^*" />).</li>
+        <li><strong>Functionally Informed Fine-Mapping (PolyFun):</strong> Deep learning predictions across thousands of epigenetic tracks provide empirical priors (<Katex tex="\boldsymbol{\pi}" />) for SuSiE, prioritizing high-confidence causal candidates.</li>
+        <li><strong>Deep Rare Variant Association Testing (DeepRVAT):</strong> Genomic functional embeddings weight rare missense and regulatory variants, boosting discovery power in large biobank cohorts.</li>
+        <li><strong>Stratified LDSC with Learned Sequence Annotations:</strong> Annotating genomes with continuous foundation model embeddings quantifies tissue-specific partitioned heritability enrichments (<Katex tex="\tau^*" />).</li>
+        <li><strong>Causal Validation Imperative:</strong> In silico mutagenesis (ISM) generates mechanistic hypotheses; high-throughput experimental perturbation (MPRA, CRISPR base editing, prime editing) provides the definitive gold standard.</li>
       </ul>
-
-      <h3>Master Statistical Genetics Comparison Cheat-Sheet</h3>
-      <div class="paper-table-wrap">
-        <table class="paper-table">
-          <thead>
-            <tr>
-              <th>Domain</th>
-              <th>Flagship Method / Model</th>
-              <th>Primary Mathematical Target</th>
-              <th>Core Input Data Required</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Population Structure</strong></td>
-              <td>PCA / Price et al. (2006)</td>
-              <td>Eigenvectors of genotype covariance</td>
-              <td>Individual genotype matrix</td>
-            </tr>
-            <tr>
-              <td><strong>SNP Heritability (Individual)</strong></td>
-              <td>GCTA-GREML (Yang 2010)</td>
-              <td><Katex tex="\mathbf{V} = \mathbf{A}\sigma_g^2 + \mathbf{I}\sigma_e^2" /></td>
-              <td>Individual genotypes + Phenotypes</td>
-            </tr>
-            <tr>
-              <td><strong>SNP Heritability (Summary)</strong></td>
-              <td>LDSC (Bulik-Sullivan 2015)</td>
-              <td><Katex tex="\mathbb{E}[\chi^2_j] = 1 + \frac{Nh^2}{M}\ell_j + Na" /></td>
-              <td>GWAS summary stats + LD panel</td>
-            </tr>
-            <tr>
-              <td><strong>Mixed Model Association</strong></td>
-              <td>Regenie / BOLT-LMM</td>
-              <td><Katex tex="\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{u} + \boldsymbol{\epsilon}" /></td>
-              <td>Biobank genotypes + Phenotypes</td>
-            </tr>
-            <tr>
-              <td><strong>Bayesian Fine-Mapping</strong></td>
-              <td>SuSiE (Wang & Stephens 2020)</td>
-              <td>Posterior Inclusion Probabilities (PIP)</td>
-              <td>Z-scores + In-sample LD matrix <Katex tex="\mathbf{R}" /></td>
-            </tr>
-            <tr>
-              <td><strong>Rare Variant Association</strong></td>
-              <td>SKAT-O / DeepRVAT</td>
-              <td><Katex tex="\mathcal{Q}_\rho = \rho \mathcal{Q}_{\text{Burden}} + (1-\rho)\mathcal{Q}_{\text{SKAT}}" /></td>
-              <td>WES / WGS variant matrices</td>
-            </tr>
-            <tr>
-              <td><strong>Causal Inference</strong></td>
-              <td>IVW / MR-Egger / Weighted Median</td>
-              <td><Katex tex="\hat{\beta}_{\text{MR}} = \frac{\sum w_j \hat{\beta}_{Xj} \hat{\beta}_{Yj}}{\sum w_j \hat{\beta}_{Xj}^2}" /></td>
-              <td>Bivariate GWAS summary statistics</td>
-            </tr>
-            <tr>
-              <td><strong>Sequence-to-Function AI</strong></td>
-              <td>Borzoi / AlphaGenome / GPN-Star</td>
-              <td><Katex tex="\hat{\mathbf{Y}} = f_\theta(\text{DNA Sequence})" /></td>
-              <td>Reference FASTA + Functional tracks</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
 
       <div class="algo-promo-card" style="margin-top: 1.25rem;">
         <h3>📖 Dedicated Deep Dive: The Modern Synthesis (Statistical Genetics Meets Deep Learning)</h3>
@@ -884,6 +918,79 @@ const readingTime = "34 min read";
           <span>Read Full Deep Dive on AI Genomic Synthesis</span>
           <Icon name="arrow-right" size={15} />
         </a>
+      </div>
+    </section>
+
+    <!-- Chapter 11 -->
+    <section id="historical-timeline">
+      <h2>11. Historical Milestone Timeline & Master Comparison</h2>
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Milestone Discovery</th>
+              <th>Key Innovators</th>
+              <th>Foundational Impact on Statistical Genetics</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1918</strong></td>
+              <td>Infinitesimal Model & Variance Partitioning</td>
+              <td>Ronald A. Fisher</td>
+              <td>Reconciled Mendelian discrete genetics with continuous biometric traits via the Central Limit Theorem.</td>
+            </tr>
+            <tr>
+              <td><strong>1931</strong></td>
+              <td>Wright-Fisher Model & Genetic Drift</td>
+              <td>Sewall Wright & R. A. Fisher</td>
+              <td>Stochastic modeling of allele frequencies, fixation probabilities, and effective population size (<Katex tex="N_e" />).</td>
+            </tr>
+            <tr>
+              <td><strong>1982</strong></td>
+              <td>Coalescent Theory</td>
+              <td>John Kingman</td>
+              <td>Genealogical backward-time stochastic process modeling TMRCA and ancestral mutation trees.</td>
+            </tr>
+            <tr>
+              <td><strong>1989</strong></td>
+              <td>Tajima's D Neutrality Metric</td>
+              <td>Fumio Tajima</td>
+              <td>Contrasts pairwise nucleotide diversity with segregating sites to detect positive selection and demographic expansions.</td>
+            </tr>
+            <tr>
+              <td><strong>2008</strong></td>
+              <td>Genomic Relatedness Matrix (GRM)</td>
+              <td>Paul VanRaden</td>
+              <td>Realized relationship matrix from SNP markers (<Katex tex="\mathbf{A} = \mathbf{W}\mathbf{W}^T/M" />) enabling GBLUP and genomic selection.</td>
+            </tr>
+            <tr>
+              <td><strong>2010</strong></td>
+              <td>GREML & Missing Heritability Resolution</td>
+              <td>Jian Yang, Peter Visscher et al. (GCTA)</td>
+              <td>Demonstrated that common SNP heritability explains the bulk of complex trait variance when modeled simultaneously.</td>
+            </tr>
+            <tr>
+              <td><strong>2015</strong></td>
+              <td>LD Score Regression (LDSC & S-LDSC)</td>
+              <td>Brendan Bulik-Sullivan, Hilary Finucane et al.</td>
+              <td>Separates polygenicity from confounding and partitions tissue-specific heritability using summary statistics alone.</td>
+            </tr>
+            <tr>
+              <td><strong>2020</strong></td>
+              <td>Sum of Single Effects (SuSiE)</td>
+              <td>Gao Wang, Matthew Stephens et al.</td>
+              <td>Coordinate-ascent variational fine-mapping producing exact 95% Credible Sets under high Linkage Disequilibrium.</td>
+            </tr>
+            <tr>
+              <td><strong>2021–2026</strong></td>
+              <td>Regulatory Foundation Models & DeepRVAT</td>
+              <td>Avsec (Enformer), Linder (Borzoi), DeepRVAT, AlphaGenome</td>
+              <td>Sequence-to-expression deep learning and language models powering functional fine-mapping, rare-variant scoring, and causal prediction.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </article>

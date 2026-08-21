@@ -5,8 +5,8 @@ import Katex from '../../components/Katex.astro';
 import '../../styles/deepDive.css';
 import 'katex/dist/katex.min.css';
 
-const title = "Bayesian Fine-Mapping & Causal Variant Prioritization (ABF & SuSiE)";
-const description = "A mathematical and algorithmic deep dive into Bayesian fine-mapping — from Wakefield's Approximate Bayes Factor (ABF) to the Sum of Single Effects (SuSiE) model, coordinate ascent variational inference (IBSS), 95% credible sets, and deep learning functional priors (PolyFun & Sniff).";
+const title = "Bayesian Fine-Mapping, SuSiE & Statistical Colocalization";
+const description = "A first-principles mathematical derivation of the LD confounding equation, Wakefield's Approximate Bayes Factor (ABF) with null normalization, the Sum of Single Effects (SuSiE) variational framework, 95% Credible Sets, and statistical colocalization.";
 const readingTime = "22 min read";
 ---
 
@@ -36,7 +36,7 @@ const readingTime = "22 min read";
 
     <!-- Lead / Introduction -->
     <p class="deep-dive-lead">
-      Genome-wide association studies routinely identify genomic regions harboring dozens or hundreds of statistically significant variants. However, because of Linkage Disequilibrium, the lead SNP with the smallest p-value is frequently <em>not</em> the true biological causal mutation. How do we mathematically isolate the true causal drivers from correlated tag passengers? This deep dive explores the probabilistic framework of <strong>Bayesian Fine-Mapping</strong>: from <strong>Wakefield's Approximate Bayes Factor (ABF)</strong> to the <strong>Sum of Single Effects (SuSiE)</strong> model and deep learning empirical priors.
+      When GWAS identifies a significant genomic locus, it typically contains hundreds of highly correlated SNPs spanning tens of kilobases. Which specific single nucleotide change is the true causal driver, and which are merely non-causal passenger variants hitchhiking on shared haplotypes? This deep dive explores the mathematical machinery of <strong>statistical fine-mapping</strong>: the <strong>LD confounding matrix equation</strong>, <strong>Wakefield's Approximate Bayes Factor (ABF)</strong> with null-model normalization, the <strong>Sum of Single Effects (SuSiE)</strong> variational framework, <strong>95% Credible Sets</strong>, functional priors via <strong>PolyFun</strong>, and <strong>colocalization (coloc)</strong> between GWAS and molecular QTLs.
     </p>
 
     <!-- Table of Contents -->
@@ -45,175 +45,245 @@ const readingTime = "22 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="deep-dive-toc-list">
-        <li><a href="#ld-equation">1. The Fundamental LD Confounding Equation</a></li>
-        <li><a href="#abf">2. Single-Causal Variant Mapping & Wakefield's ABF (2009)</a></li>
-        <li><a href="#susie-generative">3. Multiple Causal Signals: The SuSiE Generative Model</a></li>
-        <li><a href="#ibss-algorithm">4. The Iterative Bayesian Stepwise Selection (IBSS) Algorithm</a></li>
-        <li><a href="#credible-sets">5. Posterior Inclusion Probabilities (PIP) & 95% Credible Sets</a></li>
-        <li><a href="#functional-priors">6. Functionally Informed Fine-Mapping: PolyFun & Deep Learning Priors</a></li>
-        <li><a href="#summary">7. Summary & Next in the Statistical Genetics Series</a></li>
+        <li><a href="#confounding-eq">1. The Fundamental LD Confounding Matrix Equation</a></li>
+        <li><a href="#wakefield">2. Wakefield's Approximate Bayes Factor (ABF) & Null Model Normalization</a></li>
+        <li><a href="#susie">3. Sum of Single Effects (SuSiE, Wang et al. 2020)</a></li>
+        <li><a href="#ibss">4. The IBSS Coordinate Ascent Variational Algorithm</a></li>
+        <li><a href="#credible-sets">5. Calibrated 95% Credible Sets & Purity Diagnostics</a></li>
+        <li><a href="#functional-priors">6. Informed Functional Priors: PolyFun</a></li>
+        <li><a href="#coloc">7. Statistical Colocalization (coloc H0–H4) & TWAS Caveats</a></li>
+        <li><a href="#summary">8. Summary & Next in the Statistical Genetics Series</a></li>
       </ol>
     </div>
 
     <!-- Chapter 1 -->
-    <section id="ld-equation">
-      <h2>1. The Fundamental LD Confounding Equation</h2>
+    <section id="confounding-eq">
+      <h2>1. The Fundamental LD Confounding Matrix Equation</h2>
       <p>
-        In any GWAS locus containing <Katex tex="M" /> variants in Linkage Disequilibrium characterized by correlation matrix <Katex tex="\mathbf{R} \in \mathbb{R}^{M \times M}" />, the expected marginal GWAS effect estimates <Katex tex="\hat{\boldsymbol{\beta}}" /> are linear combinations of the true causal effect vector <Katex tex="\boldsymbol{\beta}_{\text{true}}" />:
+        In a fine-mapping locus containing <Katex tex="M" /> variants, let <Katex tex="\boldsymbol{\beta}_{\text{true}} \in \mathbb{R}^M" /> be the true causal effect vector (which is sparse, having non-zero entries only at causal variants).
+      </p>
+      <p>
+        Because of Linkage Disequilibrium, the marginal Ordinary Least Squares (OLS) GWAS effect estimates <Katex tex="\hat{\boldsymbol{\beta}} \in \mathbb{R}^M" /> are corrupted by the <Katex tex="M \times M" /> LD correlation matrix <Katex tex="\mathbf{R}" />:
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">The Fundamental LD Confounding Equation</div>
+        <div class="deep-dive-equation-header">LD Confounding Matrix Equation</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\mathbb{E}[\hat{\boldsymbol{\beta}}] = \mathbf{R} \boldsymbol{\beta}_{\text{true}}" display={true} />
+          <Katex tex="\mathbb{E}[\hat{\boldsymbol{\beta}}] = \mathbf{R} \boldsymbol{\beta}_{\text{true}}, \qquad \hat{\boldsymbol{\beta}} \sim \mathcal{N}\left(\mathbf{R} \boldsymbol{\beta}_{\text{true}}, \frac{\sigma^2}{N} \mathbf{R}\right)" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          Even if only a single variant is truly causal (<Katex tex="\beta_{\text{true}} = [0, \dots, \beta_c, \dots, 0]^T" />), every other SNP in the locus will display an apparent association proportional to its correlation with the causal allele: <Katex tex="\mathbb{E}[\hat{\beta}_j] = r_{jc} \beta_c" />.
+          <Katex tex="\mathbf{R}_{jk} = r_{jk}" /> is the pairwise LD correlation between SNP <Katex tex="j" /> and SNP <Katex tex="k" />. Even if only one variant is causal (<Katex tex="\beta_1 \ne 0" />), all neighboring variants in LD (<Katex tex="r_{1k} \ne 0" />) will show statistically significant marginal associations!
         </div>
       </div>
     </section>
 
     <!-- Chapter 2 -->
-    <section id="abf">
-      <h2>2. Single-Causal Variant Mapping & Wakefield's ABF (2009)</h2>
+    <section id="wakefield">
+      <h2>2. Wakefield's Approximate Bayes Factor (ABF) & Null Model Normalization</h2>
       <p>
-        Under the assumption of at most one causal variant in the locus, <strong>Jon Wakefield (2009)</strong> derived an analytical closed-form approximation for the Bayes Factor comparing the model where SNP <Katex tex="j" /> is causal (<Katex tex="M_j" />) against the null model of no association (<Katex tex="M_0" />):
+        Jon Wakefield (2009) derived an asymptotic approximation for the Bayes Factor of a single variant without requiring raw individual genotypes:
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Wakefield's Approximate Bayes Factor (ABF)</div>
+        <div class="deep-dive-equation-header">Wakefield Approximate Bayes Factor (ABF)</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\text{ABF}_j = \frac{P(\text{Data} \mid M_j)}{P(\text{Data} \mid M_0)} = \sqrt{\frac{V_j}{V_j + W}} \exp\left( \frac{z_j^2}{2} \frac{W}{V_j + W} \right)" display={true} />
+          <Katex tex="\text{ABF}_j = \text{BF}_{01, j} = \sqrt{\frac{V_j + W}{V_j}} \exp\left(-\frac{z_j^2}{2} \frac{W}{V_j + W}\right), \qquad \text{BF}_{10, j} = \frac{1}{\text{ABF}_j}" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="V_j = \text{SE}(\hat{\beta}_j)^2" /> = Estimated variance of the marginal effect estimator &emsp;|&emsp;
-          <Katex tex="W = \sigma_0^2" /> = Prior variance of true effect sizes under <Katex tex="M_j" /> (typically set to <Katex tex="0.04" /> for quantitative traits, corresponding to 95% of causal effects falling in <Katex tex="[-0.4, 0.4]" />) &emsp;|&emsp;
-          <Katex tex="z_j = \hat{\beta}_j / \text{SE}(\hat{\beta}_j)" />.
+          <Katex tex="z_j = \hat{\beta}_j / \text{SE}(\hat{\beta}_j)" /> = Marginal GWAS Z-score &emsp;|&emsp;
+          <Katex tex="V_j = \text{SE}(\hat{\beta}_j)^2" /> = Measurement error variance &emsp;|&emsp;
+          <Katex tex="W = \sigma_0^2" /> = Prior variance on the true effect size (typically <Katex tex="W = 0.04" /> for quantitative traits or <Katex tex="0.2^2" /> for log-odds).
         </div>
       </div>
 
+      <h3>Null-Inclusive Posterior Inclusion Probability (PIP)</h3>
+      <p>
+        Under the assumption of <strong>at most one causal variant</strong> in the locus, the Posterior Inclusion Probability (<Katex tex="\text{PIP}_j" />) that variant <Katex tex="j" /> is causal must normalize over the null model (<Katex tex="\mathcal{M}_0" />):
+      </p>
+
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Single-Variant Posterior Inclusion Probability (PIP)</div>
+        <div class="deep-dive-equation-header">Null-Normalized Posterior Inclusion Probability (P0 Formulation)</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\text{PIP}_j = P(\text{SNP } j \text{ is causal} \mid \text{Data}) = \frac{\text{ABF}_j \cdot \pi_j}{\sum_{k=1}^{M} \text{ABF}_k \cdot \pi_k}" display={true} />
+          <Katex tex="\text{PIP}_j = P(\gamma_j = 1 \mid \mathcal{D}) = \frac{\pi_j \text{BF}_{10, j}}{\pi_0 + \sum_{k=1}^{M} \pi_k \text{BF}_{10, k}} = \frac{\pi_j / \text{ABF}_j}{\pi_0 + \sum_{k=1}^{M} \pi_k / \text{ABF}_k}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\pi_j" /> = Prior probability that SNP <Katex tex="j" /> is causal &emsp;|&emsp;
+          <Katex tex="\pi_0 = 1 - \sum \pi_k" /> = Prior probability that no variant in the locus is causal.
         </div>
       </div>
     </section>
 
     <!-- Chapter 3 -->
-    <section id="susie-generative">
-      <h2>3. Multiple Causal Signals: The SuSiE Generative Model</h2>
+    <section id="susie">
+      <h2>3. Sum of Single Effects (SuSiE, Wang et al. 2020)</h2>
       <p>
-        In complex loci (e.g. HLA locus, FTO, APOE), multiple distinct causal variants often reside within the same LD block. Earlier variable selection methods (such as CAVIAR or FINEMAP) evaluated all <Katex tex="2^M" /> possible combinations, becoming computationally intractable or unstable in dense LD.
-      </p>
-      <p>
-        <strong>Wang, Stephens, and colleagues (2020)</strong> formulated <strong>SuSiE (Sum of Single Effects)</strong>, rewriting multivariate regression as a sum of <Katex tex="L" /> distinct single-effect vectors:
+        In complex loci harboring <strong>multiple distinct causal variants</strong>, single-variant ABF fails. <strong>SuSiE (Sum of Single Effects, Wang, Sarkar, Carbonetto & Stephens 2020)</strong> decomposes the multivariate regression model into a sum of <Katex tex="L" /> single-effect components:
       </p>
 
       <div class="deep-dive-equation-card">
         <div class="deep-dive-equation-header">SuSiE Generative Model</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\mathbf{y} = \sum_{l=1}^{L} \mathbf{X} \mathbf{b}_l + \boldsymbol{\epsilon}, \quad \mathbf{b}_l = \boldsymbol{\gamma}_l \beta_l, \quad \boldsymbol{\gamma}_l \sim \text{Multinomial}(1, \boldsymbol{\pi}), \quad \beta_l \sim \mathcal{N}(0, \sigma_l^2)" display={true} />
+          <Katex tex="\mathbf{y} = \sum_{l=1}^{L} \mathbf{X} \boldsymbol{\gamma}_l b_l + \boldsymbol{\epsilon}, \quad \boldsymbol{\gamma}_l \sim \operatorname{Multinomial}(1, \boldsymbol{\pi}), \quad b_l \sim \mathcal{N}(0, \sigma_l^2), \quad \boldsymbol{\epsilon} \sim \mathcal{N}(0, \sigma^2 \mathbf{I})" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <Katex tex="\mathbf{b}_l \in \mathbb{R}^M" /> is a "single effect" vector with exactly one non-zero entry at position <Katex tex="j" /> (where <Katex tex="\gamma_{lj} = 1" />) with effect size <Katex tex="\beta_l" /> &emsp;|&emsp;
-          <Katex tex="L" /> = Upper bound on the number of causal signals in the locus (typically <Katex tex="L = 10" />).
+          <Katex tex="\boldsymbol{\gamma}_l \in \{0, 1\}^M" /> is a selection vector with exactly one non-zero entry designating the causal variant for effect <Katex tex="l" /> &emsp;|&emsp;
+          <Katex tex="b_l \in \mathbb{R}" /> is its effect magnitude.
         </div>
       </div>
     </section>
 
     <!-- Chapter 4 -->
-    <section id="ibss-algorithm">
-      <h2>4. The Iterative Bayesian Stepwise Selection (IBSS) Algorithm</h2>
+    <section id="ibss">
+      <h2>4. The IBSS Coordinate Ascent Variational Algorithm</h2>
       <p>
-        SuSiE fits this model via <strong>Iterative Bayesian Stepwise Selection (IBSS)</strong>, an exact Coordinate Ascent Variational Inference (CAVI) algorithm:
+        SuSiE fits the posterior distribution via <strong>Iterative Bayesian Stepwise Selection (IBSS)</strong>, an exact Coordinate Ascent Variational Inference (CAVI) algorithm that maximizes the Evidence Lower Bound (ELBO):
       </p>
 
-      <div class="deep-dive-callout callout-math">
-        <div class="deep-dive-callout-title">
-          <Icon name="activity" size={15} /> IBSS Iteration Step
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">IBSS Residual Update & Single-Effect Posterior</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\mathbf{r}_{-l} = \mathbf{y} - \sum_{l' \ne l} \mathbf{X} \hat{\mathbf{b}}_{l'}, \qquad \alpha_{lj} = P(\gamma_{lj} = 1 \mid \mathbf{r}_{-l}) = \frac{\pi_j \text{BF}(\mathbf{r}_{-l}, \mathbf{x}_j)}{\sum_{k=1}^M \pi_k \text{BF}(\mathbf{r}_{-l}, \mathbf{x}_k)}" display={true} />
         </div>
-        <p>
-          For each single-effect component <Katex tex="l = 1, 2, \dots, L" />:
-          <br/>
-          1. Compute the expected partial residual vector excluding component <Katex tex="l" />:
-          <Katex tex="\mathbf{r}_l = \mathbf{y} - \sum_{k \neq l} \mathbf{X} \mathbb{E}[\mathbf{b}_k]" display={true} />
-          2. Fit a single-effect regression model (SER) of <Katex tex="\mathbf{r}_l" /> on <Katex tex="\mathbf{X}" /> to update the posterior inclusion probabilities <Katex tex="\boldsymbol{\alpha}_l" /> and effect moments <Katex tex="\mathbb{E}[\mathbf{b}_l]" />:
-          <Katex tex="\alpha_{lj} = \frac{\pi_j \text{BF}_j(\mathbf{r}_l)}{\sum_k \pi_k \text{BF}_k(\mathbf{r}_l)}" display={true} />
-          3. Repeat until Evidence Lower Bound (ELBO) convergence.
-        </p>
+        <div class="deep-dive-equation-legend">
+          IBSS iteratively computes the partial residual <Katex tex="\mathbf{r}_{-l}" /> subtracting all other <Katex tex="L - 1" /> effects, fits a single-effect regression, and updates posterior weights <Katex tex="\boldsymbol{\alpha}_l" /> until convergence.
+        </div>
+      </div>
+
+      <p>
+        The overall marginal Posterior Inclusion Probability for SNP <Katex tex="j" /> is:
+      </p>
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-body">
+          <Katex tex="\text{PIP}_j = 1 - \prod_{l=1}^{L} (1 - \alpha_{lj})" display={true} />
+        </div>
       </div>
     </section>
 
     <!-- Chapter 5 -->
     <section id="credible-sets">
-      <h2>5. Posterior Inclusion Probabilities (PIP) & 95% Credible Sets</h2>
+      <h2>5. Calibrated 95% Credible Sets & Purity Diagnostics</h2>
+      <p>
+        For each single-effect component <Katex tex="l \in \{1, \dots, L\}" />, SuSiE constructs a <strong><Katex tex="\rho" />-Credible Set (<Katex tex="\text{CS}_l" />)</strong> by ranking variants in descending order of posterior probability <Katex tex="\alpha_{lj}" /> and including the minimum number of SNPs necessary to satisfy:
+      </p>
+
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">Marginal PIP & Credible Set Construction</div>
+        <div class="deep-dive-equation-header">Credible Set Condition & Purity Threshold</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\text{PIP}_j = 1 - \prod_{l=1}^{L} (1 - \alpha_{lj})" display={true} />
+          <Katex tex="\sum_{j \in \text{CS}_l} \alpha_{lj} \ge 0.95, \qquad \operatorname{Purity}(\text{CS}_l) = \min_{j, k \in \text{CS}_l} |r_{jk}| \ge 0.50" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          A <strong>95% Credible Set (<Katex tex="\text{CS}_l" />)</strong> is defined by sorting variants in descending order of <Katex tex="\alpha_{lj}" /> and taking the minimal subset <Katex tex="\mathcal{S}_l" /> such that <Katex tex="\sum_{j \in \mathcal{S}_l} \alpha_{lj} \ge 0.95" />.
+          <strong>Purity Diagnostic:</strong> Ensures that all variants within the credible set are in strong mutual Linkage Disequilibrium (<Katex tex="|r| \ge 0.5" />). If purity is low, the set may represent an unresolvable mixture of discordant signals.
         </div>
       </div>
-      <p>
-        If all variants in <Katex tex="\text{CS}_l" /> have pairwise correlation <Katex tex="r^2 > 0.8" />, the credible set is certified as a "pure" causal signal. If <Katex tex="|\text{CS}_l| = 1" />, the locus is resolved to single-nucleotide base resolution.
-      </p>
     </section>
 
     <!-- Chapter 6 -->
     <section id="functional-priors">
-      <h2>6. Functionally Informed Fine-Mapping: PolyFun & Deep Learning Priors</h2>
+      <h2>6. Informed Functional Priors: PolyFun</h2>
       <p>
-        Standard SuSiE assumes a uniform prior (<Katex tex="\pi_j = 1/M" />). However, non-coding causal variants overwhelmingly fall within cell-type-specific active chromatin enhancers, transcription factor motifs, and splice junctions.
+        Standard fine-mapping assumes a uniform prior (<Katex tex="\pi_j = 1 / M" />). However, non-coding causal variants are overwhelmingly concentrated in functional elements (e.g. active enhancers, promoters, conserved sequences).
+      </p>
+      <p>
+        <strong>PolyFun (Weissbrod et al. 2020 Nature Genetics)</strong> uses Stratified LD Score Regression (S-LDSC) coefficients (<Katex tex="\tau_c" />) across functional annotations to compute variant-specific prior causal probabilities:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">PolyFun Empirical Prior Formulation</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\pi_j \propto \exp\left(\sum_{c=1}^{C} \tau_c a_{jc}\right)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="a_{jc} \in \{0, 1\}" /> indicates whether SNP <Katex tex="j" /> carries functional annotation <Katex tex="c" />. PolyFun increases fine-mapping resolution by over 30% while maintaining well-calibrated false discovery rates.
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 7 -->
+    <section id="coloc">
+      <h2>7. Statistical Colocalization (coloc H0–H4) & TWAS Caveats</h2>
+      <p>
+        When a GWAS association locus overlaps an expression Quantitative Trait Locus (eQTL), <strong>colocalization (coloc, Giambartolomei et al. 2014)</strong> evaluates five mutually exclusive posterior hypotheses:
       </p>
 
       <div class="paper-table-wrap">
         <table class="paper-table">
           <thead>
             <tr>
-              <th>Method</th>
-              <th>Prior Source</th>
-              <th>Impact on 95% Credible Set Size</th>
+              <th>Hypothesis</th>
+              <th>Biological Configuration</th>
+              <th>Posterior Threshold</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>Standard SuSiE</strong></td>
-              <td>Uniform (<Katex tex="\pi_j = 1/M" />)</td>
-              <td>Baseline credible set size (mean 18.4 variants/CS)</td>
+              <td><strong><Katex tex="H_0" /></strong></td>
+              <td>No association with either GWAS trait 1 or eQTL trait 2.</td>
+              <td><Katex tex="P(H_0 \mid \mathcal{D})" /></td>
             </tr>
             <tr>
-              <td><strong>PolyFun (Weissbrod 2020)</strong></td>
-              <td>S-LDSC per-SNP heritability estimates across 187 functional annotations</td>
-              <td><strong>+28% more single-variant credible sets</strong></td>
+              <td><strong><Katex tex="H_1" /></strong></td>
+              <td>Association with GWAS trait 1 only; no eQTL effect.</td>
+              <td><Katex tex="P(H_1 \mid \mathcal{D})" /></td>
             </tr>
             <tr>
-              <td><strong>Sniff / Deep Learning</strong></td>
-              <td>Continuous regulatory predictions from deep sequence models (Borzoi, AlphaGenome)</td>
-              <td><strong>+9.45% fine-mapping yield</strong> over baseline PolyFun</td>
+              <td><strong><Katex tex="H_2" /></strong></td>
+              <td>Association with eQTL trait 2 only; no GWAS disease effect.</td>
+              <td><Katex tex="P(H_2 \mid \mathcal{D})" /></td>
+            </tr>
+            <tr>
+              <td><strong><Katex tex="H_3" /></strong></td>
+              <td>Both traits associated, but driven by <strong>two distinct causal variants</strong> in LD (<Katex tex="r^2 \ne 1" />).</td>
+              <td><Katex tex="P(H_3 \mid \mathcal{D})" /></td>
+            </tr>
+            <tr>
+              <td><strong><Katex tex="H_4" /></strong></td>
+              <td>Both traits share a <strong>single common causal variant</strong>.</td>
+              <td><strong><Katex tex="P(H_4 \mid \mathcal{D}) > 0.80" /></strong></td>
             </tr>
           </tbody>
         </table>
       </div>
-    </section>
 
-    <!-- Chapter 7 -->
-    <section id="summary">
-      <h2>7. Summary & Next in the Statistical Genetics Series</h2>
-      <p>
-        Fine-mapping prioritizes common causal variants. But what about rare variants (<Katex tex="\text{MAF} < 0.1\%" />) where single-marker association tests fail? In Part 7, we explore <strong>Rare Variant Association Testing (Burden, SKAT, and DeepRVAT)</strong>:
-      </p>
-      <div class="deep-dive-callout">
+      <div class="deep-dive-callout callout-warning">
         <div class="deep-dive-callout-title">
-          <Icon name="arrow-right" size={15} /> Continue to Part 7
+          <Icon name="alert-triangle" size={15} /> TWAS & Colocalization: Prioritization vs. Causality
         </div>
         <p>
-          <a href="/deep_dives/statgen-rare-variant-association/" style="font-weight: 700; color: var(--color-accent);">
-            Part 7: Rare Variant Association Testing: Burden Tests, SKAT & Neural Aggregation &rarr;
-          </a>
+          Transcriptome-Wide Association Studies (TWAS, e.g. PrediXcan, FUSION) impute gene expression from genotypes into GWAS cohorts.
+          <br/>
+          <strong>Critical Methodological Caveat:</strong> A significant TWAS hit or <Katex tex="P(H_4) > 0.8" /> colocalization prioritizes a candidate gene, but <strong>does not prove that the gene causally mediates the disease</strong>!
+          Co-regulation of adjacent genes in high LD and pleiotropic transcription factor binding can generate false-positive TWAS associations (Wainberg et al. 2019). Definitive proof requires functional perturbation (e.g. CRISPRi/CRISPRa assays).
         </p>
+      </div>
+    </section>
+
+    <!-- Summary -->
+    <section id="summary">
+      <h2>8. Summary & Next in the Statistical Genetics Series</h2>
+      <div class="deep-dive-callout">
+        <div class="deep-dive-callout-title">
+          <Icon name="check-circle" size={15} /> Key Mathematical Takeaways
+        </div>
+        <p>
+          &bull; <strong>LD Confounding:</strong> <Katex tex="\mathbb{E}[\hat{\boldsymbol{\beta}}] = \mathbf{R}\boldsymbol{\beta}_{\text{true}}" /> distorts marginal effect sizes across correlated variants.
+          <br/>
+          &bull; <strong>Wakefield ABF:</strong> Computes single-variant Bayes factors; requires null normalization <Katex tex="\pi_0" /> for valid PIPs.
+          <br/>
+          &bull; <strong>SuSiE & IBSS:</strong> Decomposes complex multi-causal loci via variational optimization, outputting pure 95% Credible Sets.
+          <br/>
+          &bull; <strong>Colocalization:</strong> Tests shared causality (<Katex tex="H_4" />) vs LD hitchhiking (<Katex tex="H_3" />) between GWAS and eQTLs.
+        </p>
+      </div>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Next Deep Dive: Rare Variant Association Testing (SKAT & DeepRVAT)</h3>
+        <p>
+          Continue to Part 7 to discover how to overcome the single-variant power cliff using collapsing burden tests, Sequence Kernel Association Tests (SKAT/SKAT-O), and deep neural aggregation with DeepRVAT.
+        </p>
+        <a href="/deep_dives/statgen-rare-variant-association/" class="algo-promo-btn">
+          <span>Continue to Part 7: Rare Variant Association</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
       </div>
     </section>
   </article>

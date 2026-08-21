@@ -5,9 +5,9 @@ import Katex from '../../components/Katex.astro';
 import '../../styles/deepDive.css';
 import 'katex/dist/katex.min.css';
 
-const title = "Causal Inference in Human Genetics: Mendelian Randomization (MR)";
-const description = "A mathematical and epidemiological guide to Mendelian Randomization (MR) — evaluating the 3 core instrumental variable assumptions, the Inverse-Variance Weighted (IVW) estimator, MR-Egger regression, Weighted Median, and MR-PRESSO pleiotropy corrections.";
-const readingTime = "19 min read";
+const title = "Causal Inference in Statistical Genetics: Mendelian Randomization (MR)";
+const description = "A first-principles mathematical and epidemiological exploration of Mendelian Randomization (MR): the three core instrumental variable assumptions, IVW regression, MR-Egger pleiotropy tests, the weighted median estimator, MVMR, and within-family sibling models.";
+const readingTime = "22 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">
@@ -23,7 +23,7 @@ const readingTime = "19 min read";
     <header class="deep-dive-header">
       <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
         <span class="deep-dive-tag">Statistical Genetics · Part 9</span>
-        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Advanced & Causal</span>
+        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> Advanced & Causal Inference</span>
         <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
       </div>
       <h1 class="deep-dive-title">{title}</h1>
@@ -36,7 +36,7 @@ const readingTime = "19 min read";
 
     <!-- Lead / Introduction -->
     <p class="deep-dive-lead">
-      In observational epidemiology, correlation rarely implies causation: lifestyle factors, socioeconomic status, and environmental variables create severe confounding, while prodromal disease states introduce reverse causation. <strong>Mendelian Randomization (MR)</strong> uses inherited genetic variants as <strong>Instrumental Variables (IVs)</strong> to test whether an exposure (e.g. LDL cholesterol, circulating biomarkers) causally drives a clinical outcome (e.g. coronary artery disease). This deep dive explores the mathematical machinery, core assumptions, and pleiotropy-robust estimators of modern MR.
+      Observational epidemiological associations between clinical exposures (e.g. circulating biomarkers, lifestyle factors) and disease outcomes are notoriously plagued by <strong>unmeasured confounding</strong> and <strong>reverse causation</strong>. Can we use the random assortment of genetic alleles at conception as a natural randomized controlled trial to establish true causal relationships? <strong>Mendelian Randomization (MR)</strong> provides the mathematical framework for causal inference in genetics. This deep dive explores the <strong>three core Instrumental Variable (IV) assumptions</strong>, the <strong>Wald Ratio and Inverse-Variance Weighted (IVW) estimators</strong>, sensitivity diagnostics for <strong>horizontal pleiotropy (MR-Egger, Weighted Median, MR-PRESSO)</strong>, <strong>Multivariable MR (MVMR)</strong>, and <strong>within-family sibling MR</strong>.
     </p>
 
     <!-- Table of Contents -->
@@ -45,153 +45,246 @@ const readingTime = "19 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="deep-dive-toc-list">
-        <li><a href="#rct">1. Nature's Randomized Controlled Trial</a></li>
-        <li><a href="#assumptions">2. The Three Core Instrumental Variable (IV) Assumptions</a></li>
-        <li><a href="#ivw">3. The Inverse-Variance Weighted (IVW) Estimator</a></li>
-        <li><a href="#horizontal-pleiotropy">4. The Threat of Horizontal Pleiotropy</a></li>
-        <li><a href="#mr-egger">5. MR-Egger Regression: Testing Directional Pleiotropy</a></li>
-        <li><a href="#weighted-median">6. The Weighted Median & MR-PRESSO Estimators</a></li>
-        <li><a href="#summary">7. Summary & Next in the Statistical Genetics Series</a></li>
+        <li><a href="#core-assumptions">1. The Three Core Instrumental Variable (IV) Assumptions</a></li>
+        <li><a href="#estimators">2. Single-Instrument Wald Ratio & Multi-Instrument IVW Estimators</a></li>
+        <li><a href="#weak-iv">3. Weak Instrument Bias & First-Stage F-Statistic</a></li>
+        <li><a href="#pleiotropy">4. Horizontal Pleiotropy & MR-Egger Regression (Bowden et al. 2015)</a></li>
+        <li><a href="#robust">5. Non-Parametric Robust Estimators: Weighted Median & MR-PRESSO</a></li>
+        <li><a href="#mvmr">6. Multivariable MR (MVMR) & Disentangling Correlated Exposures</a></li>
+        <li><a href="#within-family">7. Within-Family & Sibling MR: Eliminating Genetic Nurture</a></li>
+        <li><a href="#summary">8. Summary & Next in the Statistical Genetics Series</a></li>
       </ol>
     </div>
 
     <!-- Chapter 1 -->
-    <section id="rct">
-      <h2>1. Nature's Randomized Controlled Trial</h2>
+    <section id="core-assumptions">
+      <h2>1. The Three Core Instrumental Variable (IV) Assumptions</h2>
       <p>
-        During meiosis, parental alleles are randomly segregated and independently assorted into gametes (Mendel's Laws). Because an individual's genotype is fixed at conception:
+        Let <Katex tex="Z" /> be an inherited genetic variant (instrument), <Katex tex="X" /> be a modifiable phenotypic exposure (e.g. LDL cholesterol), <Katex tex="Y" /> be a health outcome (e.g. coronary artery disease), and <Katex tex="U" /> represent all unmeasured environmental and socioeconomic confounders.
       </p>
-      <ul>
-        <li><strong>No Reverse Causation:</strong> Developing a disease later in life cannot alter the germline DNA sequence inherited at fertilization.</li>
-        <li><strong>Confounder Protection:</strong> Because gametic segregation is random, genetic alleles are generally independent of external environmental confounders (e.g. diet, exercise, socioeconomic status).</li>
-      </ul>
-      <p>
-        Thus, Mendelian Randomization acts as an observational analogue to a lifelong <strong>Randomized Controlled Trial (RCT)</strong>.
-      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Assumption</th>
+              <th>Mathematical / Structural Definition</th>
+              <th>Potential Violation & Diagnostic</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1. Relevance</strong></td>
+              <td><Katex tex="\operatorname{Cov}(Z, X) \ne 0" />: The variant is robustly associated with exposure <Katex tex="X" />.</td>
+              <td><strong>Weak instrument bias:</strong> Diagnosed via first-stage <Katex tex="F\text{-statistic} > 10" />.</td>
+            </tr>
+            <tr>
+              <td><strong>2. Independence</strong></td>
+              <td><Katex tex="Z \perp U" />: The variant is independent of all confounders of the <Katex tex="X \to Y" /> relationship.</td>
+              <td><strong>Population stratification / Assortative mating:</strong> Controlled via PCA, LMMs, and within-family designs.</td>
+            </tr>
+            <tr>
+              <td><strong>3. Exclusion Restriction</strong></td>
+              <td><Katex tex="Z" /> influences outcome <Katex tex="Y" /> <strong>solely and strictly through exposure <Katex tex="X" /></strong>.</td>
+              <td><strong>Horizontal pleiotropy:</strong> Diagnosed via MR-Egger intercept, Weighted Median, and MR-PRESSO.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="deep-dive-callout callout-warning">
+        <div class="deep-dive-callout-title">
+          <Icon name="alert-triangle" size={15} /> Structural Formulation of Exclusion Restriction
+        </div>
+        <p>
+          The Exclusion Restriction cannot be verified empirically through observed correlations alone. It is a <strong>structural assumption</strong> asserting that the direct path from <Katex tex="Z \to Y" /> is exactly zero when holding exposure <Katex tex="X" /> constant.
+        </p>
+      </div>
     </section>
 
     <!-- Chapter 2 -->
-    <section id="assumptions">
-      <h2>2. The Three Core Instrumental Variable (IV) Assumptions</h2>
+    <section id="estimators">
+      <h2>2. Single-Instrument Wald Ratio & Multi-Instrument IVW Estimators</h2>
+
+      <h3>1. The Wald Ratio Estimator</h3>
       <p>
-        For a genetic variant <Katex tex="Z" /> to serve as a valid instrumental variable for exposure <Katex tex="X" /> on outcome <Katex tex="Y" />, three strict mathematical conditions must hold:
+        For a single genetic instrument <Katex tex="Z_j" />, let <Katex tex="\hat{\gamma}_j" /> be the estimated effect of <Katex tex="Z_j" /> on exposure <Katex tex="X" />, and <Katex tex="\hat{\Gamma}_j" /> be the estimated effect of <Katex tex="Z_j" /> on outcome <Katex tex="Y" />:
       </p>
 
-      <div class="deep-dive-callout callout-math">
-        <div class="deep-dive-callout-title">
-          <Icon name="check-circle" size={15} /> The Triad of Instrumental Variable Invariants
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Single-Instrument Wald Ratio (Wald 1940)</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\hat{\beta}_{\text{Wald}, j} = \frac{\hat{\Gamma}_j}{\hat{\gamma}_j}, \qquad \operatorname{SE}(\hat{\beta}_{\text{Wald}, j}) \approx \sqrt{\frac{\sigma_Y^2}{\hat{\gamma}_j^2} + \frac{\hat{\Gamma}_j^2 \sigma_X^2}{\hat{\gamma}_j^4}} \approx \frac{\text{SE}(\hat{\Gamma}_j)}{|\hat{\gamma}_j|}" display={true} />
         </div>
-        <ol>
-          <li><strong>1. The Relevance Assumption:</strong> The variant <Katex tex="Z" /> must be robustly associated with the exposure <Katex tex="X" />. To guard against weak-instrument bias, the first-stage regression <Katex tex="F" />-statistic must satisfy:
-            <Katex tex="F = \frac{R^2 (N - 1 - K)}{(1 - R^2) K} > 10" display={true} />
-          </li>
-          <li><strong>2. The Independence / Exchangeability Assumption:</strong> The instrument <Katex tex="Z" /> must be independent of all unmeasured confounders <Katex tex="U" /> that bias the exposure-outcome relationship: <Katex tex="Z \perp U" />.
-          </li>
-          <li><strong>3. The Exclusion Restriction:</strong> The instrument <Katex tex="Z" /> must affect the outcome <Katex tex="Y" /> <strong>strictly through its effect on exposure <Katex tex="X" /></strong>, with zero direct pathways (no horizontal pleiotropy): <Katex tex="Y \perp Z \mid X, U" />.
-          </li>
-        </ol>
+        <div class="deep-dive-equation-legend">
+          Derived using the <strong>Delta Method</strong> first-order Taylor series approximation.
+        </div>
+      </div>
+
+      <h3>2. Inverse-Variance Weighted (IVW) Meta-Regression</h3>
+      <p>
+        When combining <Katex tex="K" /> independent instruments, the standard fixed-effects IVW causal estimator is:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Multi-Instrument IVW Estimator</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\hat{\beta}_{\text{IVW}} = \frac{\sum_{j=1}^{K} w_j \hat{\beta}_{\text{Wald}, j}}{\sum_{j=1}^{K} w_j} = \frac{\sum_{j=1}^{K} \hat{\gamma}_j \hat{\Gamma}_j \operatorname{Var}(\hat{\Gamma}_j)^{-1}}{\sum_{j=1}^{K} \hat{\gamma}_j^2 \operatorname{Var}(\hat{\Gamma}_j)^{-1}}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="w_j = \operatorname{Var}(\hat{\beta}_{\text{Wald}, j})^{-1} \approx \frac{\hat{\gamma}_j^2}{\operatorname{Var}(\hat{\Gamma}_j)}" />.
+          <br/>
+          IVW provides the maximum likelihood estimate of causal effect <Katex tex="\beta" /> when all <Katex tex="K" /> instruments are completely valid and exhibit zero horizontal pleiotropy.
+        </div>
       </div>
     </section>
 
     <!-- Chapter 3 -->
-    <section id="ivw">
-      <h2>3. The Inverse-Variance Weighted (IVW) Estimator</h2>
+    <section id="weak-iv">
+      <h2>3. Weak Instrument Bias & First-Stage F-Statistic</h2>
       <p>
-        For a single genetic instrument <Katex tex="j" />, the Wald ratio estimator computes the ratio of the variant-outcome association to the variant-exposure association:
-        <Katex tex="\hat{\beta}_{\text{Wald}, j} = \frac{\hat{\beta}_{Yj}}{\hat{\beta}_{Xj}}" />.
-      </p>
-      <p>
-        When combining <Katex tex="K" /> independent genetic instruments, the <strong>Inverse-Variance Weighted (IVW)</strong> estimator calculates a meta-analytic weighted average:
+        If genetic instruments are weakly correlated with the exposure, the denominator <Katex tex="\hat{\gamma}_j" /> in the Wald ratio approaches zero, inducing severe finite-sample bias:
       </p>
 
       <div class="deep-dive-equation-card">
-        <div class="deep-dive-equation-header">IVW Master Causal Estimator</div>
+        <div class="deep-dive-equation-header">First-Stage F-Statistic & Stock-Yogo Rule</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\hat{\beta}_{\text{IVW}} = \frac{\sum_{j=1}^{K} w_j \hat{\beta}_{Xj} \hat{\beta}_{Yj}}{\sum_{j=1}^{K} w_j \hat{\beta}_{Xj}^2}, \qquad w_j = \frac{1}{\text{Var}(\hat{\beta}_{Yj}) \approx \text{SE}(\hat{\beta}_{Yj})^2}" display={true} />
+          <Katex tex="F = \frac{\hat{\gamma}_j^2}{\operatorname{Var}(\hat{\gamma}_j)} = \frac{R^2 (N - 1 - K)}{K (1 - R^2)} \approx \frac{N R^2}{K}" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <strong>Stock-Yogo Guideline:</strong> <Katex tex="F > 10" /> ensures that the relative bias of the IV estimator compared to ordinary observational OLS is less than 10%. In modern two-sample MR, stringent instrument selection thresholds (<Katex tex="P < 5 \times 10^{-8} \implies F > 30" />) prevent weak instrument attenuation.
         </div>
       </div>
     </section>
 
     <!-- Chapter 4 -->
-    <section id="horizontal-pleiotropy">
-      <h2>4. The Threat of Horizontal Pleiotropy</h2>
+    <section id="pleiotropy">
+      <h2>4. Horizontal Pleiotropy & MR-Egger Regression (Bowden et al. 2015)</h2>
       <p>
-        In complex human traits, many genetic variants are <strong>pleiotropic</strong>: a variant might alter exposure <Katex tex="X" /> (e.g. HDL cholesterol) but also directly alter an alternative biological pathway that influences outcome <Katex tex="Y" /> (e.g. vascular inflammation).
+        <strong>Horizontal Pleiotropy</strong> occurs when a genetic variant affects the outcome <Katex tex="Y" /> through an alternative biological pathway independent of exposure <Katex tex="X" />:
       </p>
-      <p>
-        If horizontal pleiotropy is directional (nonzero on average), the standard IVW estimator becomes severely biased and will produce false-positive causal inferences.
-      </p>
-    </section>
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-body">
+          <Katex tex="\hat{\Gamma}_j = \beta \hat{\gamma}_j + \alpha_j + \epsilon_j" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\alpha_j" /> is the direct pleiotropic effect of SNP <Katex tex="j" /> on <Katex tex="Y" />. If <Katex tex="\mathbb{E}[\alpha_j] \ne 0" /> (directional pleiotropy), standard IVW estimates are severely biased.
+        </div>
+      </div>
 
-    <!-- Chapter 5 -->
-    <section id="mr-egger">
-      <h2>5. MR-Egger Regression: Testing Directional Pleiotropy</h2>
+      <h3>The InSIDE Assumption & MR-Egger Slope/Intercept</h3>
       <p>
-        <strong>Bowden et al. (2015)</strong> adapted Egger's meta-analysis regression to Mendelian Randomization by allowing for an unconstrained intercept <Katex tex="\beta_0" />:
+        <strong>Jack Bowden, George Davey Smith, and Stephen Burgess (2015)</strong> adapted Egger's meta-regression test to MR under the <strong>InSIDE assumption</strong> (Instrument Strength Independent of Direct Effect, meaning <Katex tex="\operatorname{Cov}(\hat{\gamma}_j, \alpha_j) = 0" />):
       </p>
 
       <div class="deep-dive-equation-card">
         <div class="deep-dive-equation-header">MR-Egger Regression Model</div>
         <div class="deep-dive-equation-body">
-          <Katex tex="\hat{\beta}_{Yj} = \beta_0 + \beta_{\text{Egger}} \hat{\beta}_{Xj} + \epsilon_j" display={true} />
+          <Katex tex="\hat{\Gamma}_j = \beta_0 + \beta_{\text{Egger}} \hat{\gamma}_j + \epsilon_j" display={true} />
         </div>
         <div class="deep-dive-equation-legend">
-          <strong>Key Invariants:</strong><br/>
-          &bull; <strong>The InSIDE Assumption:</strong> Instrument Strength Independent of Direct Effect (pleiotropic effects are uncorrelated with exposure effect sizes).<br/>
-          &bull; <strong>Egger Intercept Test:</strong> If <Katex tex="\beta_0 \neq 0" /> (<Katex tex="P < 0.05" />), directional horizontal pleiotropy is present.<br/>
-          &bull; <strong>Egger Slope (<Katex tex="\beta_{\text{Egger}}" />):</strong> Provides a consistent, pleiotropy-corrected causal effect estimate even when directional pleiotropy is present.
+          &bull; <strong>Egger Intercept (<Katex tex="\beta_0" />):</strong> Testing <Katex tex="H_0: \beta_0 = 0" /> provides a formal statistical test for directional horizontal pleiotropy.
+          <br/>
+          &bull; <strong>Egger Slope (<Katex tex="\beta_{\text{Egger}}" />):</strong> Provides a consistent, unbiased estimate of the causal effect <Katex tex="\beta" /> even when directional pleiotropy is present!
         </div>
       </div>
     </section>
 
+    <!-- Chapter 5 -->
+    <section id="robust">
+      <h2>5. Non-Parametric Robust Estimators: Weighted Median & MR-PRESSO</h2>
+
+      <h3>1. Weighted Median Estimator (Bowden et al. 2016)</h3>
+      <p>
+        Sorts the single-SNP Wald ratio estimates <Katex tex="\hat{\beta}_{(1)} \le \hat{\beta}_{(2)} \le \dots \le \hat{\beta}_{(K)}" /> with normalized weights <Katex tex="\tilde{w}_j = w_j / \sum w_k" />. The weighted median is the estimate at the 50th percentile of the cumulative weight distribution:
+      </p>
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Weighted Median Estimator Robustness</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\hat{\beta}_{\text{WM}} = \text{median}\left(\hat{\beta}_{\text{Wald}, j}, \tilde{w}_j\right)" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <strong>50% Breakdown Point:</strong> The Weighted Median estimator remains asymptotically consistent even if <strong>up to 50% of the genetic instrument weight comes from invalid / pleiotropic variants</strong>!
+        </div>
+      </div>
+
+      <h3>2. MR-PRESSO (Verbanck et al. 2018)</h3>
+      <p>
+        <strong>MR-Pleiotropy RESidual Sum and Outlier (MR-PRESSO)</strong> performs a global test of residual heterogeneity, identifies individual horizontal pleiotropic outlier variants via leave-one-out residual sums of squares, and recalculates outlier-corrected IVW causal estimates.
+      </p>
+    </section>
+
     <!-- Chapter 6 -->
-    <section id="weighted-median">
-      <h2>6. The Weighted Median & MR-PRESSO Estimators</h2>
-      <div class="paper-table-wrap">
-        <table class="paper-table">
-          <thead>
-            <tr>
-              <th>Method</th>
-              <th>Algorithmic Mechanism</th>
-              <th>Breakdown Point / Robustness Guarantee</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Weighted Median (Bowden 2016)</strong></td>
-              <td>Sorts individual Wald ratio estimates <Katex tex="\hat{\beta}_{Yj}/\hat{\beta}_{Xj}" /> and takes the median weighted by <Katex tex="w_j" />.</td>
-              <td>Consistent as long as <strong><Katex tex="\ge 50\%" /> of the total genetic weight comes from valid instruments</strong>.</td>
-            </tr>
-            <tr>
-              <td><strong>MR-PRESSO (Verbanck 2018)</strong></td>
-              <td>Global residual sum-of-squares test identifies specific outlier instruments causing excessive heterogeneity; removes outliers and recalibrates IVW.</td>
-              <td>Robust to discrete outlier pleiotropy; reports a formal outlier-corrected causal p-value.</td>
-            </tr>
-            <tr>
-              <td><strong>Multivariable MR (MVMR)</strong></td>
-              <td>Jointly models multiple correlated exposures (e.g. LDL-C, HDL-C, and Triglycerides) in a single multivariable regression.</td>
-              <td>Isolates the direct causal effect of each exposure conditioned on all others.</td>
-            </tr>
-          </tbody>
-        </table>
+    <section id="mvmr">
+      <h2>6. Multivariable MR (MVMR) & Disentangling Correlated Exposures</h2>
+      <p>
+        When multiple risk factors share common genetic determinants (e.g. High-Density Lipoprotein [HDL], Low-Density Lipoprotein [LDL], and Triglycerides), standard univariable MR cannot distinguish which biomarker is genuinely causal.
+      </p>
+      <p>
+        <strong>Multivariable MR (MVMR, Sanderson et al. 2019)</strong> fits a joint multivariable regression of genetic variant effects across <Katex tex="D" /> exposures simultaneously:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Multivariable MR Causal Regression</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="\hat{\Gamma}_j = \sum_{d=1}^{D} \beta_d \hat{\gamma}_{jd} + \epsilon_j" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          <Katex tex="\beta_d" /> estimates the <strong>direct causal effect</strong> of exposure <Katex tex="d" /> on outcome <Katex tex="Y" /> holding all other <Katex tex="D - 1" /> exposures constant.
+          <br/>
+          <em>Seminal Clinical Example:</em> MVMR proved that LDL-C and Apolipoprotein B (ApoB) are directly causal for cardiovascular disease, whereas HDL-C is non-causal (Voight et al. 2012).
+        </div>
       </div>
     </section>
 
     <!-- Chapter 7 -->
-    <section id="summary">
-      <h2>7. Summary & Next in the Statistical Genetics Series</h2>
+    <section id="within-family">
+      <h2>7. Within-Family & Sibling MR: Eliminating Genetic Nurture</h2>
       <p>
-        Mendelian Randomization establishes causal directions in epidemiological associations. In the final chapter of our series, we examine the grand synthesis: how <strong>deep sequence models and genomic language models</strong> are revolutionizing modern statistical genetics:
+        Standard population-based GWAS and MR can be confounded by <strong>assortative mating</strong>, <strong>population stratification</strong>, and <strong>dynastic parental effects</strong> (where parental genotypes shape the child's environment, termed "genetic nurture").
       </p>
+      <p>
+        <strong>Within-Family / Sibling MR (Brumpton et al. 2020 Nature Genetics)</strong> analyzes phenotypic and genetic differences between full biological siblings:
+      </p>
+
+      <div class="deep-dive-equation-card">
+        <div class="deep-dive-equation-header">Sibling Difference Model</div>
+        <div class="deep-dive-equation-body">
+          <Katex tex="(y_{i1} - y_{i2}) = \beta (x_{i1} - x_{i2}) + (\epsilon_{i1} - \epsilon_{i2})" display={true} />
+        </div>
+        <div class="deep-dive-equation-legend">
+          Because meiotic segregation between siblings is strictly randomized conditional on parental genotypes, within-family MR provides the cleanest causal estimates in human genetics, completely invariant to population stratification and parental confounding.
+        </div>
+      </div>
+    </section>
+
+    <!-- Summary -->
+    <section id="summary">
+      <h2>8. Summary & Next in the Statistical Genetics Series</h2>
       <div class="deep-dive-callout">
         <div class="deep-dive-callout-title">
-          <Icon name="arrow-right" size={15} /> Continue to Part 10
+          <Icon name="check-circle" size={15} /> Key Mathematical Takeaways
         </div>
         <p>
-          <a href="/deep_dives/statgen-deep-learning-synthesis/" style="font-weight: 700; color: var(--color-accent);">
-            Part 10: The Modern Synthesis: Statistical Genetics Meets Deep Learning & Foundation Models &rarr;
-          </a>
+          &bull; <strong>Core IV Assumptions:</strong> Relevance (<Katex tex="F > 10" />), Independence (<Katex tex="Z \perp U" />), and Exclusion Restriction (<Katex tex="Z \to Y" /> strictly through <Katex tex="X" />).
+          <br/>
+          &bull; <strong>IVW Regression:</strong> Combines independent Wald ratios (<Katex tex="\hat{\Gamma}_j / \hat{\gamma}_j" />) weighted by precision.
+          <br/>
+          &bull; <strong>Pleiotropy Sensitivity:</strong> MR-Egger intercepts test directional pleiotropy; Weighted Median tolerates 50% invalid instruments.
+          <br/>
+          &bull; <strong>MVMR & Sibling MR:</strong> Disentangles correlated exposures and eliminates dynastic genetic nurture.
         </p>
+      </div>
+
+      <div class="algo-promo-card" style="margin-top: 1.25rem;">
+        <h3>📖 Next Deep Dive: The Modern Synthesis (Statistical Genetics Meets Deep Learning)</h3>
+        <p>
+          Continue to Part 10 to explore how regulatory sequence foundation models (Borzoi, AlphaGenome) and language models (GPN-Star) are bridging statistical associations to physical molecular mechanisms.
+        </p>
+        <a href="/deep_dives/statgen-deep-learning-synthesis/" class="algo-promo-btn">
+          <span>Continue to Part 10: Deep Learning Synthesis</span>
+          <Icon name="arrow-right" size={15} />
+        </a>
       </div>
     </section>
   </article>
