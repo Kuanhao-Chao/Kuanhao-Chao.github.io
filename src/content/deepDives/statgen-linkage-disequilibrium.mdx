@@ -1,0 +1,562 @@
+---
+title: "Linkage Disequilibrium, Recombination Hotspots & Chromosomal Haplotype Architecture"
+shortTitle: Linkage Disequilibrium
+description: "A first-principles derivation of linkage disequilibrium — D, D' and r² — its exponential decay under recombination, the Haldane and Kosambi mapping functions, PRDM9-directed hotspots, and the haplotype-block architecture that makes GWAS possible."
+abstract: "Two variants near each other on a chromosome are inherited together far more often than chance allows, and that redundancy is what lets a genotyping array of a million markers stand in for three billion bases. This lesson builds linkage disequilibrium from the two-locus haplotype table, derives the three standard measures and shows why D' and r² disagree, obtains the exponential decay law and its half-life, and connects the resulting block structure to PRDM9-directed recombination hotspots."
+date: 2026-08-21
+track: theory
+hub: statistical-genetics
+moduleId: m1-foundations
+moduleLabel: Statistical Genetics · Part 2
+order: 2
+level: intermediate
+objectives:
+  - "Compute D, D' and r² from a two-locus haplotype table, and say which one answers which question."
+  - "Explain why D' = 1 and r² ≈ 0 can hold simultaneously, and what that means for tagging a rare variant."
+  - "Derive the decay law D_t = D_0(1 − θ)^t and its half-life, and use it to date a haplotype."
+  - "Convert between recombination fraction and genetic distance using the Haldane and Kosambi mapping functions."
+  - "Explain how PRDM9-directed hotspots produce haplotype blocks, and why that makes imputation work."
+referenceIds:
+  - robbins1918
+  - haldane1919
+  - kosambi1943
+  - lewontin1964
+  - hill1968
+  - pritchard2001
+  - gabriel2002
+  - hapmap2005
+  - slatkin2008
+  - baudat2010
+  - myers2010
+  - tgp2015
+  - das2016
+  - browning2018
+tags: [linkage disequilibrium, recombination, haplotypes, population genetics, GWAS]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+A genotyping array measures roughly a million positions. The genome has about three
+billion. GWAS nonetheless finds causal signals it never directly measured — routinely,
+and reliably. That only works because the unmeasured positions are not independent of
+the measured ones.
+
+**Linkage disequilibrium** is the name for that dependence, and the whole of this lesson
+is an attempt to make one quantity precise: *how much does knowing one variant tell you
+about its neighbour?*
+
+<Callout variant="intuition">
+Picture a chromosome as a long sentence copied by hand each generation. Recombination is
+a scissors cut that swaps the remainder of the sentence with the other copy. Two letters
+sitting next to each other are almost never separated by a cut, so they travel together
+for thousands of generations. Two letters at opposite ends are separated almost every
+time, and after a few generations knowing one tells you nothing about the other.
+
+Linkage disequilibrium measures how far that "travelling together" has survived. It is
+a property of a *population's history*, not of any individual — and it decays, which is
+what makes it a clock.
+</Callout>
+
+## Setting up: two loci, four haplotypes
+
+Take two biallelic loci on the same chromosome. Locus 1 carries alleles $A$ and $a$;
+locus 2 carries $B$ and $b$. A **haplotype** is the pair of alleles that sit on the *same
+physical chromosome copy* — so there are four, $AB$, $Ab$, $aB$ and $ab$, and their
+population frequencies are the four numbers everything below is built from.
+
+<Notation
+  rows={[
+    { symbol: 'p_A,\; p_a', meaning: 'Frequencies of the two alleles at locus 1; p_a = 1 − p_A', dims: 'in (0,1)' },
+    { symbol: 'p_B,\; p_b', meaning: 'Frequencies of the two alleles at locus 2', dims: 'in (0,1)' },
+    { symbol: 'p_{AB}', meaning: 'Frequency of the AB haplotype — both alleles on one chromosome', dims: 'in (0,1)' },
+    { symbol: 'D', meaning: 'Gametic disequilibrium: the excess of AB over independence', dims: 'in [−0.25, 0.25]' },
+    { symbol: "D'", meaning: 'D scaled by the largest value the allele frequencies permit', dims: 'in [−1, 1]' },
+    { symbol: 'r^2', meaning: 'Squared correlation between the two loci, scored as 0/1', dims: 'in [0, 1]' },
+    { symbol: '\\theta', meaning: 'Recombination fraction: chance of a crossover between the loci per meiosis', dims: 'in [0, 0.5]' },
+    { symbol: 'd', meaning: 'Genetic map distance', dims: 'Morgans (1 M = 100 cM)' },
+    { symbol: 't', meaning: 'Generations elapsed', dims: 'count' },
+  ]}
+/>
+
+The four haplotype frequencies and the four allele frequencies are related by summing
+across the table:
+
+| | $B$ | $b$ | row total |
+|---|---|---|---|
+| $A$ | $p_{AB}$ | $p_{Ab}$ | $p_A$ |
+| $a$ | $p_{aB}$ | $p_{ab}$ | $p_a$ |
+| **column total** | $p_B$ | $p_b$ | $1$ |
+
+<Callout variant="assumption" title="What is assumed, and what is being estimated">
+Everything below describes **one randomly mating population** at **one point in time**,
+with the two loci on the **same chromosome**, and treats the four haplotype frequencies
+as known exactly. The estimand is a property of that population, not of a sample.
+
+Three consequences are worth stating now, because they are the usual sources of
+confusion later:
+
+- LD is **not** the same as physical linkage. Loci on different chromosomes can be in LD
+  (through population structure or recent admixture), and tightly linked loci can be in
+  equilibrium if enough generations have passed.
+- Everything is **frequency-dependent**. Two of the three measures below cannot reach
+  their maximum unless the two loci have similar allele frequencies.
+- In real data the haplotype frequencies are *estimated*, usually from unphased genotypes
+  by EM or by statistical phasing, and that estimation error propagates into every number
+  computed here.
+</Callout>
+
+## Three measures, and why they disagree
+
+### D — the raw departure from independence
+
+If the two loci were inherited independently, the frequency of the $AB$ haplotype would
+be the product of the marginals. The **gametic disequilibrium** <Citation id="robbins1918" />
+is exactly the gap between what is observed and that product:
+
+$$
+D \;=\; p_{AB} - p_A\,p_B \;=\; p_{AB}\,p_{ab} - p_{Ab}\,p_{aB}
+$$
+
+The second form is the determinant of the 2×2 table, and it is the more useful one: it
+shows immediately that $D = 0$ precisely when the table has rank one, i.e. when the rows
+are proportional and the loci are independent.
+
+$D$ has the right sign structure — positive when $A$ and $B$ co-occur more than chance,
+negative when they repel — but it is almost useless as a *magnitude*, because its range
+depends on the allele frequencies. If $p_A = 0.01$, then $p_{AB} \le 0.01$, so $D$ cannot
+exceed $0.01$ no matter how tightly the loci are linked. A value of $D = 0.01$ therefore
+means something completely different at $p_A = 0.01$ than at $p_A = 0.5$.
+
+The two standard fixes both divide $D$ by something. They divide by *different* things,
+and that is the entire reason they disagree.
+
+### D′ — normalised by what the frequencies allow
+
+Lewontin <Citation id="lewontin1964" /> divides by the largest $|D|$ that the marginal
+frequencies could possibly produce. Since all four haplotype frequencies must be
+non-negative, $D$ is bounded, and the bound depends on its sign:
+
+$$
+D' = \frac{D}{D_{\max}}, \qquad
+D_{\max} = \begin{cases}
+\min(p_A p_b,\; p_a p_B) & D > 0 \\[4pt]
+\min(p_A p_B,\; p_a p_b) & D < 0
+\end{cases}
+$$
+
+$|D'| = 1$ has a sharp interpretation: it means **at least one of the four haplotypes is
+absent from the population**. And a haplotype can only be missing if no recombination has
+ever separated the two alleles since the younger of them arose. So $D'$ measures
+*historical recombination* — it answers "has this pair ever been split?"
+
+### r² — the correlation, and the one that predicts power
+
+Hill and Robertson <Citation id="hill1968" /> instead score each locus $0/1$ by allele
+count and take the squared Pearson correlation between them. Because a Bernoulli
+variable with frequency $p$ has variance $p(1-p)$, and the covariance of the two
+indicators is exactly $D$:
+
+$$
+r^2 \;=\; \frac{\operatorname{Cov}^2}{\operatorname{Var}_1 \operatorname{Var}_2}
+      \;=\; \frac{D^2}{p_A\,p_a\,p_B\,p_b}
+$$
+
+This is the one that matters for study design, because it is a statement about
+*information*. If a causal variant is not on the array but a genotyped tag SNP correlates
+with it at $r^2$, then testing the tag instead of the cause costs power exactly as if the
+sample had shrunk: you need $N/r^2$ samples to recover what $N$ samples would have given
+by testing the cause directly <Citation id="pritchard2001" />.
+
+<Callout variant="warning" title="D′ = 1 does not mean the variant is tagged">
+These two measures answer different questions and routinely give opposite impressions of
+the same pair of SNPs.
+
+$D'$ asks a question about *history*: has recombination ever separated these alleles?
+$r^2$ asks a question about *information*: does knowing one tell me the other?
+
+A rare variant sitting inside a common haplotype has never been separated from it — so
+$D' = 1$ — while telling you almost nothing about it, because the common allele is
+present on many chromosomes the rare one is not. The worked example below is exactly this
+case, and the stretch exercise shows the ceiling is not a curiosity but a hard bound.
+</Callout>
+
+<WorkedExample
+  title="Complete LD with almost no tagging"
+  given={[
+    { label: 'AB haplotypes', value: '100' },
+    { label: 'Ab haplotypes', value: '0' },
+    { label: 'aB haplotypes', value: '400' },
+    { label: 'ab haplotypes', value: '500' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+A sample of 1,000 phased chromosomes. Note that the $Ab$ haplotype never occurs — $A$ is
+found only alongside $B$.
+
+**Step 1 — haplotype and allele frequencies.** Divide through by 1,000, then sum:
+
+$$
+p_{AB} = 0.10,\quad p_{Ab} = 0.00,\quad p_{aB} = 0.40,\quad p_{ab} = 0.50
+$$
+
+$$
+p_A = 0.10 + 0.00 = 0.10, \qquad p_B = 0.10 + 0.40 = 0.50
+$$
+
+so $p_a = 0.90$ and $p_b = 0.50$. Allele $A$ is rare; allele $B$ is common.
+
+**Step 2 — D.** Using the definition and then the determinant form as a check:
+
+$$
+D = p_{AB} - p_A p_B = 0.10 - (0.10)(0.50) = 0.05
+$$
+
+$$
+D = p_{AB}p_{ab} - p_{Ab}p_{aB} = (0.10)(0.50) - (0.00)(0.40) = 0.05 \;\checkmark
+$$
+
+**Step 3 — D′.** $D > 0$, so take the positive branch:
+
+$$
+D_{\max} = \min(p_A p_b,\; p_a p_B) = \min(0.10 \times 0.50,\; 0.90 \times 0.50) = \min(0.05,\, 0.45) = 0.05
+$$
+
+$$
+D' = \frac{0.05}{0.05} = 1.000
+$$
+
+Complete LD — as it must be, since a haplotype is missing.
+
+**Step 4 — r².** Same $D$, different denominator:
+
+$$
+r^2 = \frac{D^2}{p_A p_a p_B p_b} = \frac{0.05^2}{0.10 \times 0.90 \times 0.50 \times 0.50}
+    = \frac{0.0025}{0.0225} = 0.1111
+$$
+
+**Step 5 — what it costs.** The two measures could hardly disagree more: $D' = 1.000$ and
+$r^2 = 0.1111$. Recombination has *never* separated these alleles, and the tag still
+carries only 11% of the information. To detect the causal variant through this tag you
+would need
+
+$$
+\frac{N}{r^2} = \frac{N}{0.1111} = 9N
+$$
+
+— nine times the sample size. The frequency mismatch, not the recombination history, is
+what destroyed the power.
+
+</WorkedExample>
+
+## How LD decays
+
+LD is not a fixed property of a pair of loci; it is the residue of history, and
+recombination erodes it at a rate we can derive exactly.
+
+**Step 1 — where next generation's haplotypes come from.** Consider a gamete produced in
+generation $t+1$. With probability $1-\theta$ no crossover fell between the two loci, and
+the gamete carries an intact parental haplotype — drawn from the parental frequencies, so
+it is $AB$ with probability $p_{AB}^{(t)}$. With probability $\theta$ a crossover did
+fall between them, and the two alleles are drawn from *different* parental chromosomes,
+independently: $AB$ with probability $p_A p_B$. Hence
+
+$$
+p_{AB}^{(t+1)} \;=\; (1-\theta)\,p_{AB}^{(t)} \;+\; \theta\, p_A p_B
+$$
+
+**Step 2 — subtract independence from both sides.** Allele frequencies do not change under
+recombination alone (it reshuffles alleles, it does not create or destroy them), so $p_A$
+and $p_B$ carry no generation index. Subtracting $p_A p_B$:
+
+$$
+p_{AB}^{(t+1)} - p_A p_B \;=\; (1-\theta)\,p_{AB}^{(t)} + \theta p_A p_B - p_A p_B
+= (1-\theta)\left(p_{AB}^{(t)} - p_A p_B\right)
+$$
+
+which is exactly
+
+$$
+D_{t+1} = (1-\theta)\,D_t
+$$
+
+**Step 3 — iterate.** A constant multiplier applied $t$ times is a geometric decay, and
+for small $\theta$ it is very nearly exponential:
+
+$$
+D_t = D_0\,(1-\theta)^t \;\approx\; D_0\,e^{-\theta t}
+$$
+
+<Callout variant="key" title="LD decays geometrically, and never recovers">
+$D$ shrinks by a constant *fraction* every generation. Nothing in this derivation can
+increase it: recombination only ever moves the population toward independence. LD is
+therefore created by other forces — mutation putting a new allele on one specific
+background, drift, selection, admixture, population bottlenecks — and then ground down by
+recombination at a rate set entirely by $\theta$.
+</Callout>
+
+### Half-life
+
+Set $D_t/D_0 = 1/2$ and solve for $t$:
+
+$$
+(1-\theta)^{t_{1/2}} = \tfrac{1}{2}
+\;\Longrightarrow\;
+t_{1/2} = \frac{\ln 0.5}{\ln(1-\theta)} \;\approx\; \frac{0.693}{\theta}
+$$
+
+The approximation uses $\ln(1-\theta) \approx -\theta$, which is good for the small
+$\theta$ that matters in practice and noticeably loose above a few percent.
+
+<Figure
+  caption="Figure 1. Geometric decay of D for three recombination fractions. Each curve is D_t/D_0 = (1 − θ)^t; the dashed line is one half, and the marked points are the exact half-lives — 6.6, 69.0 and 692.8 generations. Because the horizontal axis is logarithmic and t½ scales as 1/θ, a tenfold drop in θ shifts the whole curve one decade to the right without changing its shape."
+  alt="Three decay curves on a logarithmic generation axis. The theta = 0.1 curve falls to one half after about 7 generations, theta = 0.01 after 69, and theta = 0.001 after 693, each curve the same shape shifted one decade right."
+>
+  <svg viewBox="0 0 640 300" width="640" height="300" font-family="inherit"><line x1="66.0" y1="24.0" x2="66.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="66.0" y1="250.0" x2="612.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="66.0" y1="250.0" x2="612.0" y2="250.0" stroke="currentColor" stroke-width="1" opacity="0.12"/><text x="58.0" y="254.0" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">0</text><line x1="66.0" y1="193.5" x2="612.0" y2="193.5" stroke="currentColor" stroke-width="1" opacity="0.12"/><text x="58.0" y="197.5" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">0.25</text><line x1="66.0" y1="137.0" x2="612.0" y2="137.0" stroke="currentColor" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/><text x="58.0" y="141.0" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">0.5</text><line x1="66.0" y1="80.5" x2="612.0" y2="80.5" stroke="currentColor" stroke-width="1" opacity="0.12"/><text x="58.0" y="84.5" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">0.75</text><line x1="66.0" y1="24.0" x2="612.0" y2="24.0" stroke="currentColor" stroke-width="1" opacity="0.12"/><text x="58.0" y="28.0" text-anchor="end" font-size="11" fill="currentColor" opacity=".75">1</text><line x1="66.0" y1="250.0" x2="66.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="66.0" y="268.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">1</text><line x1="202.5" y1="250.0" x2="202.5" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="202.5" y="268.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">10</text><line x1="339.0" y1="250.0" x2="339.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="339.0" y="268.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">100</text><line x1="475.5" y1="250.0" x2="475.5" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="475.5" y="268.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">1,000</text><line x1="612.0" y1="250.0" x2="612.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="612.0" y="268.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">10,000</text><path d="M66.0,46.6 L71.5,48.7 L76.9,50.9 L82.4,53.3 L87.8,55.9 L93.3,58.8 L98.8,61.8 L104.2,65.1 L109.7,68.7 L115.1,72.5 L120.6,76.6 L126.1,80.9 L131.5,85.6 L137.0,90.6 L142.4,95.8 L147.9,101.4 L153.4,107.3 L158.8,113.5 L164.3,120.0 L169.7,126.7 L175.2,133.7 L180.7,141.0 L186.1,148.4 L191.6,155.9 L197.0,163.5 L202.5,171.2 L208.0,178.8 L213.4,186.3 L218.9,193.6 L224.3,200.7 L229.8,207.4 L235.3,213.8 L240.7,219.6 L246.2,225.0 L251.6,229.8 L257.1,234.0 L262.6,237.6 L268.0,240.6 L273.5,243.1 L278.9,245.1 L284.4,246.6 L289.9,247.7 L295.3,248.5 L300.8,249.1 L306.2,249.5 L311.7,249.7 L317.2,249.8 L322.6,249.9 L328.1,250.0 L333.5,250.0 L339.0,250.0 L344.5,250.0 L349.9,250.0 L355.4,250.0 L360.8,250.0 L366.3,250.0 L371.8,250.0 L377.2,250.0 L382.7,250.0 L388.1,250.0 L393.6,250.0 L399.1,250.0 L404.5,250.0 L410.0,250.0 L415.4,250.0 L420.9,250.0 L426.4,250.0 L431.8,250.0 L437.3,250.0 L442.7,250.0 L448.2,250.0 L453.7,250.0 L459.1,250.0 L464.6,250.0 L470.0,250.0 L475.5,250.0 L481.0,250.0 L486.4,250.0 L491.9,250.0 L497.3,250.0 L502.8,250.0 L508.3,250.0 L513.7,250.0 L519.2,250.0 L524.6,250.0 L530.1,250.0 L535.6,250.0 L541.0,250.0 L546.5,250.0 L551.9,250.0 L557.4,250.0 L562.9,250.0 L568.3,250.0 L573.8,250.0 L579.2,250.0 L584.7,250.0 L590.2,250.0 L595.6,250.0 L601.1,250.0 L606.5,250.0 L612.0,250.0" fill="none" stroke="currentColor" stroke-width="2"/><path d="M66.0,26.3 L71.5,26.5 L76.9,26.7 L82.4,27.0 L87.8,27.3 L93.3,27.6 L98.8,27.9 L104.2,28.3 L109.7,28.7 L115.1,29.1 L120.6,29.6 L126.1,30.2 L131.5,30.8 L137.0,31.4 L142.4,32.1 L147.9,32.9 L153.4,33.7 L158.8,34.6 L164.3,35.6 L169.7,36.7 L175.2,37.9 L180.7,39.2 L186.1,40.6 L191.6,42.1 L197.0,43.8 L202.5,45.6 L208.0,47.6 L213.4,49.7 L218.9,52.0 L224.3,54.6 L229.8,57.3 L235.3,60.2 L240.7,63.4 L246.2,66.8 L251.6,70.5 L257.1,74.4 L262.6,78.6 L268.0,83.2 L273.5,88.0 L278.9,93.1 L284.4,98.5 L289.9,104.3 L295.3,110.3 L300.8,116.6 L306.2,123.3 L311.7,130.1 L317.2,137.2 L322.6,144.6 L328.1,152.0 L333.5,159.6 L339.0,167.3 L344.5,174.9 L349.9,182.5 L355.4,189.9 L360.8,197.1 L366.3,204.0 L371.8,210.6 L377.2,216.7 L382.7,222.3 L388.1,227.4 L393.6,231.9 L399.1,235.8 L404.5,239.1 L410.0,241.9 L415.4,244.1 L420.9,245.9 L426.4,247.2 L431.8,248.2 L437.3,248.8 L442.7,249.3 L448.2,249.6 L453.7,249.8 L459.1,249.9 L464.6,249.9 L470.0,250.0 L475.5,250.0 L481.0,250.0 L486.4,250.0 L491.9,250.0 L497.3,250.0 L502.8,250.0 L508.3,250.0 L513.7,250.0 L519.2,250.0 L524.6,250.0 L530.1,250.0 L535.6,250.0 L541.0,250.0 L546.5,250.0 L551.9,250.0 L557.4,250.0 L562.9,250.0 L568.3,250.0 L573.8,250.0 L579.2,250.0 L584.7,250.0 L590.2,250.0 L595.6,250.0 L601.1,250.0 L606.5,250.0 L612.0,250.0" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="7 4"/><path d="M66.0,24.2 L71.5,24.2 L76.9,24.3 L82.4,24.3 L87.8,24.3 L93.3,24.4 L98.8,24.4 L104.2,24.4 L109.7,24.5 L115.1,24.5 L120.6,24.6 L126.1,24.6 L131.5,24.7 L137.0,24.7 L142.4,24.8 L147.9,24.9 L153.4,25.0 L158.8,25.1 L164.3,25.2 L169.7,25.3 L175.2,25.4 L180.7,25.6 L186.1,25.7 L191.6,25.9 L197.0,26.1 L202.5,26.2 L208.0,26.5 L213.4,26.7 L218.9,27.0 L224.3,27.2 L229.8,27.6 L235.3,27.9 L240.7,28.3 L246.2,28.7 L251.6,29.1 L257.1,29.6 L262.6,30.1 L268.0,30.7 L273.5,31.4 L278.9,32.1 L284.4,32.8 L289.9,33.7 L295.3,34.6 L300.8,35.6 L306.2,36.6 L311.7,37.8 L317.2,39.1 L322.6,40.5 L328.1,42.0 L333.5,43.7 L339.0,45.5 L344.5,47.5 L349.9,49.6 L355.4,51.9 L360.8,54.4 L366.3,57.1 L371.8,60.1 L377.2,63.2 L382.7,66.6 L388.1,70.3 L393.6,74.2 L399.1,78.4 L404.5,82.9 L410.0,87.7 L415.4,92.8 L420.9,98.3 L426.4,104.0 L431.8,110.0 L437.3,116.3 L442.7,122.9 L448.2,129.8 L453.7,136.9 L459.1,144.2 L464.6,151.7 L470.0,159.3 L475.5,166.9 L481.0,174.5 L486.4,182.1 L491.9,189.6 L497.3,196.8 L502.8,203.7 L508.3,210.3 L513.7,216.4 L519.2,222.1 L524.6,227.2 L530.1,231.7 L535.6,235.6 L541.0,239.0 L546.5,241.8 L551.9,244.0 L557.4,245.8 L562.9,247.1 L568.3,248.1 L573.8,248.8 L579.2,249.3 L584.7,249.6 L590.2,249.8 L595.6,249.9 L601.1,249.9 L606.5,250.0 L612.0,250.0" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 3"/><circle cx="177.7" cy="137.0" r="4" fill="var(--color-accent, #2e6e5e)"/><text x="177.7" y="127.0" text-anchor="middle" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">7</text><circle cx="317.0" cy="137.0" r="4" fill="var(--color-accent, #2e6e5e)"/><text x="317.0" y="127.0" text-anchor="middle" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">69</text><circle cx="453.7" cy="137.0" r="4" fill="var(--color-accent, #2e6e5e)"/><text x="453.7" y="127.0" text-anchor="middle" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">693</text><text x="141.1" y="78.2" font-size="11.5" fill="currentColor">θ = 0.1</text><text x="277.6" y="75.8" font-size="11.5" fill="currentColor">θ = 0.01</text><text x="414.1" y="75.6" font-size="11.5" fill="currentColor">θ = 0.001</text><text x="339" y="288" text-anchor="middle" font-size="12" fill="currentColor">Generations since the ancestral haplotype (log scale)</text><text x="18" y="137" font-size="12" fill="currentColor" transform="rotate(-90 18 137)" text-anchor="middle">D<tspan font-size="9" dy="3">t</tspan><tspan dy="-3"> / D</tspan><tspan font-size="9" dy="3">0</tspan></text></svg>
+</Figure>
+
+<WorkedExample
+  title="Dating a haplotype from its LD"
+  given={[
+    { label: 'Recombination fraction θ', value: '0.001 (≈0.1 cM)' },
+    { label: 'Observed D_t / D_0', value: '0.5' },
+    { label: 'Human generation time', value: '29 years' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+Two markers 0.1 cM apart still show half the disequilibrium they started with. How long
+ago was the ancestral haplotype intact?
+
+**Step 1 — exact half-life.**
+
+$$
+t_{1/2} = \frac{\ln 0.5}{\ln(1 - 0.001)} = \frac{-0.693147}{-0.001000\,50} = 692.8 \text{ generations}
+$$
+
+**Step 2 — compare with the approximation.** $0.693/\theta = 0.693/0.001 = 693.0$
+generations, which is high by $0.2$ generations, or $0.03\%$. At $\theta = 0.1$ the same
+approximation gives $6.93$ against an exact $6.58$ — high by $5.3\%$. The approximation
+is excellent where it is used and poor where it is not.
+
+**Step 3 — convert to years.** At 29 years per human generation,
+
+$$
+692.8 \times 29 \approx 20{,}000 \text{ years}
+$$
+
+So the LD around a 0.1 cM interval carries information on roughly the last twenty
+millennia — which is why LD-based methods can speak to post-glacial demography, and why
+they say very little about events much older than that.
+
+</WorkedExample>
+
+## From recombination fraction to map distance
+
+$\theta$ is not additive. Over a long interval, two crossovers can occur and cancel,
+returning a non-recombinant gamete; $\theta$ therefore saturates at $0.5$ (free
+assortment) however far apart the loci are. **Genetic distance** $d$, measured in Morgans
+— one Morgan being one expected crossover per meiosis — *is* additive, and a **mapping
+function** converts between them.
+
+Haldane <Citation id="haldane1919" /> assumed crossovers fall as a Poisson process with
+no interference. A gamete is recombinant when an odd number of crossovers occurred, and
+summing the odd terms of a Poisson with mean $2d$ gives
+
+$$
+\theta = \tfrac{1}{2}\left(1 - e^{-2d}\right)
+\qquad\Longleftrightarrow\qquad
+d = -\tfrac{1}{2}\ln(1 - 2\theta)
+$$
+
+Real chromosomes show **crossover interference**: one chiasma suppresses another nearby.
+Kosambi <Citation id="kosambi1943" /> built that in empirically:
+
+$$
+\theta = \tfrac{1}{2}\tanh(2d)
+\qquad\Longleftrightarrow\qquad
+d = \tfrac{1}{4}\ln\!\left(\frac{1+2\theta}{1-2\theta}\right)
+$$
+
+Both reduce to $\theta \approx d$ for small $d$, which is why "1 cM ≈ 1% recombination"
+is a safe shorthand at the scale of a haplotype block and a bad one across a whole
+chromosome arm.
+
+## Why recombination is not uniform
+
+The derivation above treats $\theta$ as a property of an interval, which quietly implies
+crossovers are spread evenly along the chromosome. In mammals they are emphatically not.
+More than 80% of human crossovers fall in narrow 1–2 kb **hotspots** occupying a few
+percent of the sequence, and their placement is directed by a single rapidly evolving
+zinc-finger protein, PRDM9 <Citation id="baudat2010" /><Citation id="myers2010" />.
+
+<Callout variant="note" title="The hotspot cascade">
+1. **Sequence recognition.** PRDM9's C2H2 zinc-finger array binds a degenerate 13-bp
+   motif. The array is one of the fastest-evolving coding sequences in the genome, so
+   hotspot *locations* differ between human populations and are almost entirely
+   non-overlapping between human and chimpanzee.
+2. **Epigenetic marking.** Its SET domain trimethylates flanking nucleosomes — H3K4me3
+   together with H3K36me3, a combination that distinguishes hotspots from promoters.
+3. **Programmed breakage.** SPO11, a topoisomerase-like transesterase, is recruited and
+   cuts both DNA strands.
+4. **Repair.** RAD51 and DMC1 drive homologous strand invasion. The break resolves either
+   as a **crossover** — reciprocal exchange, which is what breaks LD — or as a
+   **non-crossover gene conversion**, a short patch copied across with no exchange of
+   flanking sequence.
+
+The last point matters for the mathematics: only crossovers contribute to $\theta$ as
+used above, and they are the *minority* outcome of a double-strand break.
+</Callout>
+
+<Figure
+  caption="Figure 2. Punctate recombination produces block structure. Crossovers concentrate in narrow hotspots (arrows), so the intervening segments are inherited intact: within a block a handful of haplotypes account for nearly all chromosomes, and one or two tag SNPs recover the rest. LD is high inside blocks and collapses across a hotspot."
+  alt="A chromosome segment divided into three haplotype blocks separated by two narrow recombination hotspots. Within each block, four sampled chromosomes share long identical stretches; across a hotspot the pattern is scrambled. Below, a triangular LD heat map shows high r-squared inside blocks and near zero between them."
+>
+  <svg viewBox="0 0 640 405" width="640" height="405" font-family="inherit"><path d="M225.0 30 L225.0 46 M225.0 46 L220.5 39 M225.0 46 L229.5 39" stroke="var(--color-accent, #2e6e5e)" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M421.0 30 L421.0 46 M421.0 46 L416.5 39 M421.0 46 L425.5 39" stroke="var(--color-accent, #2e6e5e)" stroke-width="2" fill="none" stroke-linecap="round"/><text x="323.0" y="24" text-anchor="middle" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="600">recombination hotspots</text><rect x="46.0" y="62.0" width="172.0" height="13.0" rx="2" fill="currentColor" opacity="0.18"/><rect x="232.0" y="62.0" width="182.0" height="13.0" rx="2" fill="currentColor" opacity="0.40"/><rect x="428.0" y="62.0" width="178.0" height="13.0" rx="2" fill="currentColor" opacity="0.18"/><text x="12.0" y="72.5" font-size="10.5" fill="currentColor" opacity=".7">chr 1</text><rect x="46.0" y="80.0" width="172.0" height="13.0" rx="2" fill="currentColor" opacity="0.18"/><rect x="232.0" y="80.0" width="182.0" height="13.0" rx="2" fill="currentColor" opacity="0.66"/><rect x="428.0" y="80.0" width="178.0" height="13.0" rx="2" fill="currentColor" opacity="0.40"/><text x="12.0" y="90.5" font-size="10.5" fill="currentColor" opacity=".7">chr 2</text><rect x="46.0" y="98.0" width="172.0" height="13.0" rx="2" fill="currentColor" opacity="0.40"/><rect x="232.0" y="98.0" width="182.0" height="13.0" rx="2" fill="currentColor" opacity="0.40"/><rect x="428.0" y="98.0" width="178.0" height="13.0" rx="2" fill="currentColor" opacity="0.66"/><text x="12.0" y="108.5" font-size="10.5" fill="currentColor" opacity=".7">chr 3</text><rect x="46.0" y="116.0" width="172.0" height="13.0" rx="2" fill="currentColor" opacity="0.66"/><rect x="232.0" y="116.0" width="182.0" height="13.0" rx="2" fill="currentColor" opacity="0.18"/><rect x="428.0" y="116.0" width="178.0" height="13.0" rx="2" fill="currentColor" opacity="0.18"/><text x="12.0" y="126.5" font-size="10.5" fill="currentColor" opacity=".7">chr 4</text><text x="132.0" y="146.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">block 1</text><text x="323.0" y="146.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">block 2</text><text x="517.0" y="146.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">block 3</text><polygon points="108.2,186.0 139.3,205.3 108.2,224.6 77.1,205.3" fill="currentColor" opacity="0.75" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="139.3,205.3 170.4,224.6 139.3,243.9 108.2,224.6" fill="currentColor" opacity="0.66" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="170.4,224.6 201.6,243.9 170.4,263.2 139.3,243.9" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="201.6,243.9 232.7,263.2 201.6,282.4 170.4,263.2" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="232.7,263.2 263.8,282.4 232.7,301.7 201.6,282.4" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="263.8,282.4 294.9,301.7 263.8,321.0 232.7,301.7" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="294.9,301.7 326.0,321.0 294.9,340.3 263.8,321.0" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="326.0,321.0 357.1,340.3 326.0,359.6 294.9,340.3" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="170.4,186.0 201.6,205.3 170.4,224.6 139.3,205.3" fill="currentColor" opacity="0.75" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="201.6,205.3 232.7,224.6 201.6,243.9 170.4,224.6" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="232.7,224.6 263.8,243.9 232.7,263.2 201.6,243.9" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="263.8,243.9 294.9,263.2 263.8,282.4 232.7,263.2" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="294.9,263.2 326.0,282.4 294.9,301.7 263.8,282.4" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="326.0,282.4 357.1,301.7 326.0,321.0 294.9,301.7" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="357.1,301.7 388.2,321.0 357.1,340.3 326.0,321.0" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="232.7,186.0 263.8,205.3 232.7,224.6 201.6,205.3" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="263.8,205.3 294.9,224.6 263.8,243.9 232.7,224.6" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="294.9,224.6 326.0,243.9 294.9,263.2 263.8,243.9" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="326.0,243.9 357.1,263.2 326.0,282.4 294.9,263.2" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="357.1,263.2 388.2,282.4 357.1,301.7 326.0,282.4" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="388.2,282.4 419.3,301.7 388.2,321.0 357.1,301.7" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="294.9,186.0 326.0,205.3 294.9,224.6 263.8,205.3" fill="currentColor" opacity="0.75" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="326.0,205.3 357.1,224.6 326.0,243.9 294.9,224.6" fill="currentColor" opacity="0.66" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="357.1,224.6 388.2,243.9 357.1,263.2 326.0,243.9" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="388.2,243.9 419.3,263.2 388.2,282.4 357.1,263.2" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="419.3,263.2 450.4,282.4 419.3,301.7 388.2,282.4" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="357.1,186.0 388.2,205.3 357.1,224.6 326.0,205.3" fill="currentColor" opacity="0.75" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="388.2,205.3 419.3,224.6 388.2,243.9 357.1,224.6" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="419.3,224.6 450.4,243.9 419.3,263.2 388.2,243.9" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="450.4,243.9 481.6,263.2 450.4,282.4 419.3,263.2" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="419.3,186.0 450.4,205.3 419.3,224.6 388.2,205.3" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="450.4,205.3 481.6,224.6 450.4,243.9 419.3,224.6" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="481.6,224.6 512.7,243.9 481.6,263.2 450.4,243.9" fill="currentColor" opacity="0.09" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="481.6,186.0 512.7,205.3 481.6,224.6 450.4,205.3" fill="currentColor" opacity="0.75" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="512.7,205.3 543.8,224.6 512.7,243.9 481.6,224.6" fill="currentColor" opacity="0.66" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><polygon points="543.8,186.0 574.9,205.3 543.8,224.6 512.7,205.3" fill="currentColor" opacity="0.75" stroke="var(--color-bg, #fff)" stroke-width="0.5"/><line x1="77.1" y1="173.0" x2="77.1" y2="181.0" stroke="currentColor" stroke-width="1" opacity=".55"/><line x1="139.3" y1="173.0" x2="139.3" y2="181.0" stroke="currentColor" stroke-width="1" opacity=".55"/><line x1="201.6" y1="173.0" x2="201.6" y2="181.0" stroke="currentColor" stroke-width="1" opacity=".55"/><line x1="263.8" y1="173.0" x2="263.8" y2="181.0" stroke="currentColor" stroke-width="1" opacity=".55"/><line x1="326.0" y1="173.0" x2="326.0" y2="181.0" stroke="currentColor" stroke-width="1" opacity=".55"/><line x1="388.2" y1="173.0" x2="388.2" y2="181.0" stroke="currentColor" stroke-width="1" opacity=".55"/><line x1="450.4" y1="173.0" x2="450.4" y2="181.0" stroke="currentColor" stroke-width="1" opacity=".55"/><line x1="512.7" y1="173.0" x2="512.7" y2="181.0" stroke="currentColor" stroke-width="1" opacity=".55"/><line x1="574.9" y1="173.0" x2="574.9" y2="181.0" stroke="currentColor" stroke-width="1" opacity=".55"/><text x="326.0" y="165.0" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">nine markers, spanning all three blocks</text><text x="46.0" y="379.6" font-size="11" fill="currentColor" opacity=".75">pairwise r²:</text><rect x="122.0" y="370.6" width="24" height="11" fill="currentColor" opacity="0.08"/><text x="122.0" y="393.6" font-size="10.5" fill="currentColor" opacity=".7" text-anchor="start">low</text><rect x="148.0" y="370.6" width="24" height="11" fill="currentColor" opacity="0.35"/><rect x="174.0" y="370.6" width="24" height="11" fill="currentColor" opacity="0.61"/><rect x="200.0" y="370.6" width="24" height="11" fill="currentColor" opacity="0.88"/><text x="224.0" y="393.6" font-size="10.5" fill="currentColor" opacity=".7" text-anchor="end">high</text></svg>
+</Figure>
+
+## Haplotype blocks, tag SNPs and imputation
+
+Punctate recombination has a direct structural consequence: the genome is partitioned
+into segments of 10–100 kb within which recombination is rare, separated by hotspots
+where it is concentrated. Gabriel and colleagues <Citation id="gabriel2002" /> made this
+operational using confidence bounds on $D'$ — a marker pair is in strong LD when the
+upper 95% bound on $D'$ is at least $0.98$ and the lower bound at least $0.70$, and a
+block is a run in which at least 95% of informative pairs meet that criterion. The HapMap
+Project <Citation id="hapmap2005" /> then mapped these blocks genome-wide, and the 1000
+Genomes Project <Citation id="tgp2015" /> extended the reference to the full frequency
+spectrum.
+
+Within a block of 50 SNPs there are typically only three to five common haplotypes rather
+than the $2^{50}$ that free assortment would allow. Genotyping a few **tag SNPs** is
+therefore enough to identify which haplotype a chromosome carries, and the rest can be
+filled in statistically. That is precisely what **imputation** does: a hidden Markov model
+treats the target chromosome as a mosaic of reference haplotypes and infers the unobserved
+genotypes <Citation id="das2016" /><Citation id="browning2018" />. A million measured
+markers become tens of millions of tested ones, and the entire procedure rests on the
+block structure that PRDM9 and recombination together produce.
+
+It also explains the characteristic shape of a GWAS result. An association signal is
+never a single point; it is a *block* of correlated markers rising and falling together,
+because they are all tagging the same underlying haplotype. Separating the causal variant
+from its correlated neighbours is a distinct statistical problem — fine-mapping — and one
+that LD makes unavoidable <Citation id="slatkin2008" />.
+
+## Exercises
+
+<Exercise n={1} title="Compute all three measures" difficulty="warm-up">
+
+A sample of 200 phased chromosomes gives $AB = 90$, $Ab = 10$, $aB = 30$, $ab = 70$.
+Compute $p_A$, $p_B$, $D$, $D'$ and $r^2$.
+
+<div slot="solution">
+
+Frequencies: $p_{AB} = 0.45$, $p_{Ab} = 0.05$, $p_{aB} = 0.15$, $p_{ab} = 0.35$.
+
+Marginals: $p_A = 0.45 + 0.05 = 0.50$ and $p_B = 0.45 + 0.15 = 0.60$, so $p_a = 0.50$,
+$p_b = 0.40$.
+
+$$
+D = 0.45 - (0.50)(0.60) = 0.15
+$$
+
+$D > 0$, so $D_{\max} = \min(p_A p_b,\, p_a p_B) = \min(0.20,\, 0.30) = 0.20$ and
+$D' = 0.15/0.20 = 0.75$.
+
+$$
+r^2 = \frac{0.15^2}{(0.50)(0.50)(0.60)(0.40)} = \frac{0.0225}{0.06} = 0.375
+$$
+
+Here the two measures broadly agree, because the allele frequencies are similar. That
+agreement is the special case, not the rule.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="A missing haplotype forces |D′| = 1" difficulty="core">
+
+Show that if any one of the four haplotypes has frequency zero, then $|D'| = 1$. Take
+$p_{Ab} = 0$ and work through the positive branch.
+
+<div slot="solution">
+
+With $p_{Ab} = 0$ the marginals collapse: $p_A = p_{AB}$ and $p_b = p_{ab}$, while
+$p_a = p_{aB} + p_{ab}$ and $p_B = p_{AB} + p_{aB}$.
+
+The determinant form gives $D = p_{AB}p_{ab} - 0 = p_{AB}p_{ab} > 0$, so
+$D_{\max} = \min(p_A p_b,\, p_a p_B)$.
+
+The first candidate is $p_A p_b = p_{AB}\,p_{ab} = D$. For the second, expand:
+
+$$
+p_a p_B = (p_{aB} + p_{ab})(p_{AB} + p_{aB}) = p_{AB}p_{ab} + p_{aB}p_{AB} + p_{aB}^2 + p_{aB}p_{ab}
+$$
+
+Every added term is non-negative, so $p_a p_B \ge p_A p_b$. The minimum is therefore
+$p_A p_b = D$, giving $D' = D/D = 1$.
+
+The interpretation is the point: a haplotype can be missing only if no recombination has
+ever put those two alleles together, so $|D'| = 1$ is a statement about history rather
+than about how well one marker predicts the other.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="The ceiling on tagging a rare variant" difficulty="stretch">
+
+A causal variant has $p_A = 0.05$. The best available tag SNP has $p_B = 0.50$ and is in
+complete LD with it ($D' = 1$, $D > 0$). What is $r^2$, and what does it imply for a study
+powered at $N = 10{,}000$ for direct testing?
+
+<div slot="solution">
+
+$D' = 1$ with $D > 0$ means $D = D_{\max} = \min(p_A p_b,\, p_a p_B)$:
+
+$$
+D = \min(0.05 \times 0.50,\; 0.95 \times 0.50) = \min(0.025,\, 0.475) = 0.025
+$$
+
+$$
+r^2 = \frac{0.025^2}{(0.05)(0.95)(0.50)(0.50)} = \frac{0.000625}{0.011875} = 0.0526
+$$
+
+So $r^2 \le 0.0526$ — and since $D' = 1$ is the *best possible* case, no tag SNP at
+frequency $0.50$ can do better. Reaching the power of direct testing needs
+$N/r^2 = 10{,}000/0.0526 = 190{,}000$ samples, a nineteen-fold increase.
+
+In general, when $D' = 1$ and $p_A < p_B$, the algebra above reduces to
+
+$$
+r^2 = \frac{p_A(1 - p_B)}{(1 - p_A)\,p_B}
+$$
+
+which goes to zero as the frequencies diverge. This is the structural reason arrays are
+poor at rare variants no matter how dense they are, and why rare-variant work moved to
+sequencing rather than to better tagging.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **$D = p_{AB} - p_A p_B$** is the raw departure from independence, and is not
+  interpretable on its own because its range depends on the allele frequencies.
+- **$D'$ normalises by the maximum the frequencies permit.** $|D'| = 1$ means a haplotype
+  is absent, hence no historical recombination — a statement about the past.
+- **$r^2$ normalises by the variances.** It is the squared correlation, and it converts
+  directly into study cost: tagging at $r^2$ multiplies the required sample size by
+  $1/r^2$. The two measures diverge whenever allele frequencies differ, which is why
+  $D' = 1$ and $r^2 = 0.11$ can describe the same pair of SNPs.
+- **LD decays geometrically**, $D_t = D_0(1-\theta)^t$, with half-life
+  $t_{1/2} = \ln 0.5/\ln(1-\theta) \approx 0.693/\theta$. Recombination only ever destroys
+  LD; other forces create it.
+- **Recombination is punctate**, directed by PRDM9 to narrow hotspots, which partitions
+  the genome into haplotype blocks — the structure that makes tag SNPs, imputation and
+  therefore GWAS itself possible, and that makes fine-mapping necessary.

@@ -19,3 +19,115 @@ lee2011estimating:
   venue: American Journal of Human Genetics 88(3):294–305
   doi: https://doi.org/10.1016/j.ajhg.2011.02.002
   verified: 2026-08-21
+
+robbins1918:
+  authors: ['Rainard B Robbins']
+  year: 1918
+  title: "Some Applications of Mathematics to Breeding Problems III"
+  venue: "Genetics 3:375-389"
+  doi: https://doi.org/10.1093/genetics/3.4.375
+  verified: 2026-08-21
+
+haldane1919:
+  authors: ['J. B. S. Haldane']
+  year: 1919
+  title: "The combination of linkage values, and the calculation of distances between the loci of linked factors"
+  venue: "Journal of Genetics 8:299-309"
+  # No DOI: the only registered one is a 2022 Routledge reprint, not the original.
+  verified: 2026-08-21
+
+kosambi1943:
+  authors: ['D. D. Kosambi']
+  year: 1943
+  title: "The Estimation of Map Distances from Recombination Values"
+  venue: "Annals of Eugenics 12:172-175"
+  doi: https://doi.org/10.1111/j.1469-1809.1943.tb02321.x
+  verified: 2026-08-21
+
+lewontin1964:
+  authors: ['R. C. Lewontin']
+  year: 1964
+  title: "The Interaction of Selection and Linkage. I. General Considerations; Heterotic Models"
+  venue: "Genetics 49:49-67"
+  doi: https://doi.org/10.1093/genetics/49.1.49
+  verified: 2026-08-21
+
+hill1968:
+  authors: ['W. G. Hill', 'Alan Robertson']
+  year: 1968
+  title: "Linkage disequilibrium in finite populations"
+  venue: "Theoretical and Applied Genetics 38:226-231"
+  doi: https://doi.org/10.1007/BF01245622
+  verified: 2026-08-21
+
+pritchard2001:
+  authors: ['Jonathan K. Pritchard', 'Molly Przeworski']
+  year: 2001
+  title: "Linkage Disequilibrium in Humans: Models and Data"
+  venue: "The American Journal of Human Genetics 69:1-14"
+  doi: https://doi.org/10.1086/321275
+  verified: 2026-08-21
+
+gabriel2002:
+  authors: ['Stacey B. Gabriel', 'Stephen F. Schaffner', 'Huy Nguyen', 'et al.']
+  year: 2002
+  title: "The Structure of Haplotype Blocks in the Human Genome"
+  venue: "Science 296:2225-2229"
+  doi: https://doi.org/10.1126/science.1069424
+  verified: 2026-08-21
+
+hapmap2005:
+  authors: ['The International HapMap Consortium']
+  year: 2005
+  title: "A haplotype map of the human genome"
+  venue: "Nature 437:1299-1320"
+  doi: https://doi.org/10.1038/nature04226
+  verified: 2026-08-21
+
+slatkin2008:
+  authors: ['Montgomery Slatkin']
+  year: 2008
+  title: "Linkage disequilibrium — understanding the evolutionary past and mapping the medical future"
+  venue: "Nature Reviews Genetics 9:477-485"
+  doi: https://doi.org/10.1038/nrg2361
+  verified: 2026-08-21
+
+baudat2010:
+  authors: ['F. Baudat', 'J. Buard', 'C. Grey', 'et al.']
+  year: 2010
+  title: "PRDM9 Is a Major Determinant of Meiotic Recombination Hotspots in Humans and Mice"
+  venue: "Science 327:836-840"
+  doi: https://doi.org/10.1126/science.1183439
+  verified: 2026-08-21
+
+myers2010:
+  authors: ['Simon Myers', 'Rory Bowden', 'Afidalina Tumian', 'et al.']
+  year: 2010
+  title: "Drive Against Hotspot Motifs in Primates Implicates the PRDM9 Gene in Meiotic Recombination"
+  venue: "Science 327:876-879"
+  doi: https://doi.org/10.1126/science.1182363
+  verified: 2026-08-21
+
+tgp2015:
+  authors: ['The 1000 Genomes Project Consortium']
+  year: 2015
+  title: "A global reference for human genetic variation"
+  venue: "Nature 526:68-74"
+  doi: https://doi.org/10.1038/nature15393
+  verified: 2026-08-21
+
+das2016:
+  authors: ['Sayantan Das', 'Lukas Forer', 'Sebastian Schönherr', 'et al.']
+  year: 2016
+  title: "Next-generation genotype imputation service and methods"
+  venue: "Nature Genetics 48:1284-1287"
+  doi: https://doi.org/10.1038/ng.3656
+  verified: 2026-08-21
+
+browning2018:
+  authors: ['Brian L. Browning', 'Ying Zhou', 'Sharon R. Browning']
+  year: 2018
+  title: "A One-Penny Imputed Genome from Next-Generation Reference Panels"
+  venue: "The American Journal of Human Genetics 103:338-348"
+  doi: https://doi.org/10.1016/j.ajhg.2018.07.015
+  verified: 2026-08-21

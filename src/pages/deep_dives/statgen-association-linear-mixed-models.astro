@@ -7,11 +7,11 @@ import 'katex/dist/katex.min.css';
 
 const title = "Association Testing, Confounding & Linear Mixed Models (LMM)";
 const description = "A first-principles mathematical and algorithmic exploration of GWAS association statistics (OLS, Logistic, Score tests), power calculations, population stratification, and the computational evolution of mixed models from GEMMA to BOLT-LMM, fastGWA, and REGENIE.";
-/* Derived from this page's own content, not guessed: prose at 200 wpm, plus 15 s per
-   display equation and 3 s per inline one. These constants had drifted to ~2.5x the
-   truth (this page: 727 prose words, 9 display and 41 inline equations). Part 2 moves
-   the series into a content collection where this is computed, not written down. */
-const readingTime = "8 min read";
+/* Derived from this page's own content: prose at 200 wpm, inline math priced by
+   source length, and 15 s per display equation — the same model `lessonReadingTime`
+   applies to the migrated lessons, so both renderers agree. Part 2 of the migration
+   deletes this constant along with the page. */
+const readingTime = "7 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">

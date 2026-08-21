@@ -7,11 +7,11 @@ import 'katex/dist/katex.min.css';
 
 const title = "Post-GWAS Fine-Mapping: 95% Credible Sets, Bayesian Priors, and Epigenomic Annotations";
 const description = "An advanced guide to statistical fine-mapping: Wakefield Approximate Bayes Factors, Posterior Inclusion Probabilities (PIPs), SuSiE Sum of Single Effects, PolyFun/Sniff functional priors, and eQTL colocalization.";
-/* Derived from this page's own content, not guessed: prose at 200 wpm, plus 15 s per
-   display equation and 3 s per inline one. These constants had drifted to ~2.5x the
-   truth (this page: 761 prose words, 4 display and 28 inline equations). Part 2 moves
-   the series into a content collection where this is computed, not written down. */
-const readingTime = "6 min read";
+/* Derived from this page's own content: prose at 200 wpm, inline math priced by
+   source length, and 15 s per display equation — the same model `lessonReadingTime`
+   applies to the migrated lessons, so both renderers agree. Part 2 of the migration
+   deletes this constant along with the page. */
+const readingTime = "5 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">

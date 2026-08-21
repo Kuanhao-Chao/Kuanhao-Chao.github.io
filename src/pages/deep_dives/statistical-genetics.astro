@@ -7,11 +7,11 @@ import 'katex/dist/katex.min.css';
 
 const title = "Statistical Genetics: The Mathematical Machinery of Quantitative Traits, Heritability & Causal Mapping";
 const description = "A definitive, first-principles exploration of statistical genetics — bridging population genetics, Fisher's infinitesimal model, Linkage Disequilibrium, GREML heritability, LDSC, Linear Mixed Models, Bayesian fine-mapping, rare variant tests, Mendelian Randomization, and deep learning.";
-/* Derived from this page's own content, not guessed: prose at 200 wpm, plus 15 s per
-   display equation and 3 s per inline one. These constants had drifted to ~2.5x the
-   truth (this page: 2883 prose words, 24 display and 173 inline equations). Part 2 moves
-   the series into a content collection where this is computed, not written down. */
-const readingTime = "29 min read";
+/* Derived from this page's own content: prose at 200 wpm, inline math priced by
+   source length, and 15 s per display equation — the same model `lessonReadingTime`
+   applies to the migrated lessons, so both renderers agree. Part 2 of the migration
+   deletes this constant along with the page. */
+const readingTime = "23 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">
