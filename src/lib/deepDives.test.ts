@@ -235,6 +235,44 @@ describe('deep-dive collection', () => {
     expect(offenders, 'frontmatter must not carry readingTime; lessonReadingTime computes it').toEqual([]);
   });
 
+  /** Pull the few frontmatter fields the ordering invariant needs, without a YAML dep. */
+  const frontmatter = (id: string) => {
+    const file = readdirSync(CONTENT_DIR).find((f) => f.startsWith(`${id}.`))!;
+    const front = readFileSync(join(CONTENT_DIR, file), 'utf8').split(/^---$/m)[1] ?? '';
+    const field = (name: string) => front.match(new RegExp(`^${name}:\\s*(.+)$`, 'm'))?.[1].trim();
+    return {
+      id,
+      data: {
+        hub: field('hub') ?? 'statistical-genetics',
+        moduleId: field('moduleId') ?? '',
+        order: Number(field('order')),
+      },
+    };
+  };
+
+  it('numbers every module id so it sorts correctly as a string', () => {
+    // `orderLessons` compares moduleId with `<`, so an unpadded `m10-` would sort before
+    // `m2-`. Demonstrated: ['m1-a','m2-b','m10-c'].sort() -> [m1-a, m10-c, m2-b].
+    const bad = collectionIds()
+      .map(frontmatter)
+      .filter((e) => !/^[a-z]\d{2}-/.test(e.data.moduleId))
+      .map((e) => `${e.id} (${e.data.moduleId})`);
+    expect(bad, 'module ids must be zero-padded, e.g. m05-ld').toEqual([]);
+  });
+
+  it('keeps each hub in a strictly increasing reading order', () => {
+    // `orderLessons` sorts moduleId first, then order. If a module spans a
+    // non-contiguous order range — say module 4 holds 6, 7, 9 while module 5 holds 8 —
+    // the pager silently walks 6, 7, 9, 8 and "next" goes backwards.
+    const entries = collectionIds().map(frontmatter);
+    for (const hub of new Set(entries.map((e) => e.data.hub))) {
+      const seq = orderLessons(entries.filter((e) => e.data.hub === hub)).map((e) => e.data.order);
+      const sorted = [...seq].sort((a, b) => a - b);
+      expect(seq, `hub "${hub}" reading order is not monotonic`).toEqual(sorted);
+      expect(new Set(seq).size, `hub "${hub}" has duplicate order values`).toBe(seq.length);
+    }
+  });
+
   it('does not collide with a static page of the same slug', () => {
     // `[...slug].astro` emits one route per collection entry. A leftover
     // `foo.astro` next to a migrated `foo.mdx` means two routes claim /deep_dives/foo/,

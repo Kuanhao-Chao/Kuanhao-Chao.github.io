@@ -18,6 +18,8 @@
     "audit:indexing": "node scripts/audit-indexing.mjs",
     "audit:links": "node scripts/audit-links.mjs",
     "audit:links:live": "node scripts/audit-links.mjs --live",
+    "audit:refs": "node scripts/verify-references.mjs",
+    "audit:refs:offline": "node scripts/verify-references.mjs --offline",
     "audit:games": "node scripts/audit-game-ui.mjs",
     "audit:cells": "node scripts/audit-living-cells-ui.mjs",
     "audit:cells:ci": "node scripts/audit-living-cells-ui.mjs --smoke",

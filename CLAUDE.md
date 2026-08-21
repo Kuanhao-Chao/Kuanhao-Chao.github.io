@@ -107,6 +107,32 @@ Things specific to this subsystem:
 - **`.deep-dive-toc-list` is a two-column grid** built for the flat hand-written lists.
   The generated TOC uses `.dd-toc__list` instead, because a nested list inside a
   two-column grid puts the child in the next column rather than under its parent.
+- **`src/lib/deepDiveMath.ts` is the only place the curriculum's mathematics is written.**
+  Three consumers share it — the worked-example tests, the interactive widgets, and the
+  figure captions via those tests — so a slider cannot contradict the prose beside it.
+  `deepDiveMath.test.ts` proves the module against closed forms and round-trip identities;
+  `deepDiveExamples.test.ts` then ties its output to the published text. Both layers are
+  needed: a test that only compared module to prose would prove they agree, not that either
+  is right.
+- **Figure generation stays in Python** (`scripts/figures/figlib.py`) because no TypeScript
+  script runner is installed. The two languages are kept honest by one rule: **every numeric
+  value a figure draws as a label must also be asserted in that lesson's test file.** The
+  Python generator writes the label into the MDX; the TypeScript test recomputes it and
+  asserts the MDX contains it.
+- **Three conventions the series must not disagree with itself about**, each of which it
+  did before:
+  - **Wakefield's ABF is written `BF₀₁`** (null over alternative) with explicit `π₀`
+    normalisation in the PIP. The `BF₁₀` form is its exact reciprocal; using both without
+    saying so is how two lessons ended up appearing to contradict each other.
+  - **Power is parameterised by `q²`, the variance explained.** `N ≥ 39.60/q²` and
+    `N ≥ 19.80/(p(1−p)β²)` are the *same* result — verified identical — but one notation
+    per curriculum.
+  - **Ancestry PCs: state the number and the reason.** The series has quoted 10, "10–20"
+    and 20 in three places.
+- **`npm run audit:refs`** re-checks every DOI against Crossref — that it resolves, and
+  that its year and first author match what the bibliography claims. A 429 is throttling,
+  not a bad DOI, and is reported as a warning. Not part of `build`; it needs the network.
+
 - **`Citation` throws on an unknown key** rather than rendering an empty marker. That is
   deliberate: twelve icon names rendered as empty `<svg>` for months precisely because
   `Icon.astro` failed quietly, and `src/lib/icons.test.ts` now guards that class of bug.

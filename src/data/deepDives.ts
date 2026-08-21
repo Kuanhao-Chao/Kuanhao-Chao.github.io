@@ -113,7 +113,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     shortTitle: 'Linkage Disequilibrium & PRDM9',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
-    tag: 'Statistical Genetics · Part 2',
+    tag: 'Statistical Genetics · Part 5',
     level: 'Advanced & Mathematical',
     readingTime: '20 min read',
     summary:
@@ -144,9 +144,9 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     shortTitle: 'Heritability Estimation & GREML',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
-    tag: 'Statistical Genetics · Part 3',
+    tag: 'Statistical Genetics · Part 6',
     level: 'Advanced & Mathematical',
-    readingTime: '7 min read',
+    readingTime: '18 min read',
     summary:
       'A rigorous exploration of heritability estimation — from Falconer\'s twin correlation formulas and the missing heritability crisis to Yang et al. (2010) GCTA Genomic Relatedness Matrices (GRM), AI-REML variance components, and Lee et al. liability scale conversion.',
     highlights: [
@@ -302,9 +302,9 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     shortTitle: 'Polygenic Risk Scores (PRS)',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
-    tag: 'Statistical Genetics · Part 8',
+    tag: 'Statistical Genetics · Part 14',
     level: 'Advanced & Methodological',
-    readingTime: '7 min read',
+    readingTime: '15 min read',
     summary:
       'A mathematical and clinical guide to Polygenic Risk Scores (PRS) — comparing Clumping+Thresholding, LDpred2 spike-and-slab MCMC, PRS-CS continuous shrinkage hierarchy, clinical calibration metrics, and multi-ancestry PRS-CSx.',
     highlights: [
