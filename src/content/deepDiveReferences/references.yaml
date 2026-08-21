@@ -211,3 +211,91 @@ wainschtein2022:
   venue: "Nature Genetics 54:263-273"
   doi: https://doi.org/10.1038/s41588-021-00997-7
   verified: 2026-08-21
+
+isc2009:
+  authors: ['The International Schizophrenia Consortium']
+  year: 2009
+  title: "Common polygenic variation contributes to risk of schizophrenia and bipolar disorder"
+  venue: "Nature 460:748-752"
+  doi: https://doi.org/10.1038/nature08185
+  verified: 2026-08-21
+
+daetwyler2008:
+  authors: ['Hans D. Daetwyler', 'Beatriz Villanueva', 'John A. Woolliams']
+  year: 2008
+  title: "Accuracy of Predicting the Genetic Risk of Disease Using a Genome-Wide Approach"
+  venue: "PLoS ONE 3:e3395"
+  doi: https://doi.org/10.1371/journal.pone.0003395
+  verified: 2026-08-21
+
+wray2013:
+  authors: ['Naomi R. Wray', 'Jian Yang', 'Ben J. Hayes', 'et al.']
+  year: 2013
+  title: "Pitfalls of predicting complex traits from SNPs"
+  venue: "Nature Reviews Genetics 14:507-515"
+  doi: https://doi.org/10.1038/nrg3457
+  verified: 2026-08-21
+
+vilhjalmsson2015:
+  authors: ['Bjarni J. Vilhjálmsson', 'Jian Yang', 'Hilary K. Finucane', 'et al.']
+  year: 2015
+  title: "Modeling Linkage Disequilibrium Increases Accuracy of Polygenic Risk Scores"
+  venue: "The American Journal of Human Genetics 97:576-592"
+  doi: https://doi.org/10.1016/j.ajhg.2015.09.001
+  verified: 2026-08-21
+
+khera2018:
+  authors: ['Amit V. Khera', 'Mark Chaffin', 'Krishna G. Aragam', 'et al.']
+  year: 2018
+  title: "Genome-wide polygenic scores for common diseases identify individuals with risk equivalent to monogenic mutations"
+  venue: "Nature Genetics 50:1219-1224"
+  doi: https://doi.org/10.1038/s41588-018-0183-z
+  verified: 2026-08-21
+
+ge2019:
+  authors: ['Tian Ge', 'Chia-Yen Chen', 'Yang Ni', 'et al.']
+  year: 2019
+  title: "Polygenic prediction via Bayesian regression and continuous shrinkage priors"
+  venue: "Nature Communications 10"
+  doi: https://doi.org/10.1038/s41467-019-09718-5
+  verified: 2026-08-21
+
+martin2019:
+  authors: ['Alicia R. Martin', 'Masahiro Kanai', 'Yoichiro Kamatani', 'et al.']
+  year: 2019
+  title: "Clinical use of current polygenic risk scores may exacerbate health disparities"
+  venue: "Nature Genetics 51:584-591"
+  doi: https://doi.org/10.1038/s41588-019-0379-x
+  verified: 2026-08-21
+
+duncan2019:
+  authors: ['L. Duncan', 'H. Shen', 'B. Gelaye', 'et al.']
+  year: 2019
+  title: "Analysis of polygenic risk score usage and performance in diverse human populations"
+  venue: "Nature Communications 10"
+  doi: https://doi.org/10.1038/s41467-019-11112-0
+  verified: 2026-08-21
+
+choi2020:
+  authors: ['Shing Wan Choi', 'Timothy Shin-Heng Mak', 'Paul F. O’Reilly']
+  year: 2020
+  title: "Tutorial: a guide to performing polygenic risk score analyses"
+  venue: "Nature Protocols 15:2759-2772"
+  doi: https://doi.org/10.1038/s41596-020-0353-1
+  verified: 2026-08-21
+
+prive2020:
+  authors: ['Florian Privé', 'Julyan Arbel', 'Bjarni J Vilhjálmsson']
+  year: 2020
+  title: "LDpred2: better, faster, stronger"
+  venue: "Bioinformatics 36:5424-5431"
+  doi: https://doi.org/10.1093/bioinformatics/btaa1029
+  verified: 2026-08-21
+
+ruan2022:
+  authors: ['Yunfeng Ruan', 'Yen-Feng Lin', 'Yen-Chen Anne Feng', 'et al.']
+  year: 2022
+  title: "Improving polygenic prediction in ancestrally diverse populations"
+  venue: "Nature Genetics 54:573-580"
+  doi: https://doi.org/10.1038/s41588-022-01054-7
+  verified: 2026-08-21
