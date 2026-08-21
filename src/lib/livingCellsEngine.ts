@@ -474,7 +474,7 @@ export class LivingCellsEngine {
 
   public constructor(randomFn?: () => number) {
     this.random = randomFn ?? Math.random;
-    this.targetCount = this.coarse ? (this.isHomepage ? 8 : 10) : 12;
+    this.targetCount = this.coarse ? (this.isHomepage ? 4 : 8) : (this.isHomepage ? 6 : 12);
     this.baseCount = this.targetCount;
     this.refreshPalette();
   }
@@ -655,7 +655,7 @@ export class LivingCellsEngine {
         temperature: 1.0,
         stainingMode: 'phase',
       };
-      this.targetCount = this.coarse ? (this.isHomepage ? 8 : 10) : 12;
+      this.targetCount = this.coarse ? (this.isHomepage ? 4 : 8) : (this.isHomepage ? 6 : 12);
       this.baseCount = this.targetCount;
     } else if (normalizedMode === 'lab') {
       this.simParams.visualAlpha = 1.0;
@@ -1368,7 +1368,7 @@ export class LivingCellsEngine {
     if (this.mode === 'lab' && this.simParams.targetPopulation > 0) {
       this.targetCount = this.simParams.targetPopulation;
     } else {
-      this.targetCount = this.coarse ? (this.isHomepage ? 8 : 10) : 12;
+      this.targetCount = this.coarse ? (this.isHomepage ? 4 : 8) : (this.isHomepage ? 6 : 12);
     }
     this.baseCount = this.targetCount;
 
