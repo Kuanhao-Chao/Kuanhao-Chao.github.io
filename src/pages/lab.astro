@@ -4,7 +4,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
 <BaseLayout
   title="Cell Lab — Interactive Cellular Automata & Biology Playground"
-  description="A full-screen interactive biological simulation playground. Control cellular homeostasis, proliferation rates, apoptosis, growth speed, and mechanical deformation in real time."
+  description="A full-screen interactive biological simulation playground. Control cellular homeostasis, proliferation rates, apoptosis, growth speed, chemotaxis, laser tweezers, and epifluorescent staining in real time."
   bare={true}
 >
   <main class="lab-viewport" id="lab-root">
@@ -25,6 +25,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <span class="t-pill" title="Cells in growth / mature interphase">Interphase: <strong data-t-interphase>--</strong></span>
         <span class="t-pill t-pill--mitosis" title="Active bipolar divisions">Mitosis: <strong data-t-mitosis>--</strong></span>
         <span class="t-pill t-pill--apoptosis" title="Apoptotic clearances">Apoptosis: <strong data-t-apoptosis>--</strong></span>
+        <span class="t-pill t-pill--nutrient" title="Nutrient droplets in dish">Nutrients: <strong data-t-nutrients>0</strong></span>
         <span class="t-pill t-pill--fps" title="Render frame rate"><strong data-t-fps>60</strong> FPS</span>
       </div>
 
@@ -72,6 +73,44 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       </div>
     </header>
 
+    <!-- Floating Bottom Biological Tool Dock -->
+    <nav class="lab-dock" id="lab-dock" aria-label="Interactive Biological Tools">
+      <div class="dock-tools">
+        <button type="button" class="dock-btn is-active" data-tool="pointer" title="Pointer & Fling: Drag cells with momentum or click to trigger division">
+          <span class="dock-icon">👆</span>
+          <span class="dock-label">Grab/Fling</span>
+        </button>
+        <button type="button" class="dock-btn" data-tool="feed" title="Nutrient Dropper: Click/drag to drop nutrient droplets (cells swim toward food via chemotaxis)">
+          <span class="dock-icon">🧪</span>
+          <span class="dock-label">Feed</span>
+        </button>
+        <button type="button" class="dock-btn" data-tool="laser" title="Optical Tweezers: Hold/drag laser beam to push and herd cells">
+          <span class="dock-icon">⚡</span>
+          <span class="dock-label">Laser Repel</span>
+        </button>
+        <button type="button" class="dock-btn" data-tool="mutagen" title="Mutagen Pulse: Click to send radiation shockwave triggering mitosis">
+          <span class="dock-icon">🧬</span>
+          <span class="dock-label">Mutagen</span>
+        </button>
+        <button type="button" class="dock-btn" data-tool="vortex" title="Microfluidic Vortex: Click/drag to swirl fluid with hydrodynamic momentum">
+          <span class="dock-icon">🌊</span>
+          <span class="dock-label">Vortex</span>
+        </button>
+        <button type="button" class="dock-btn" data-tool="spawn" title="Spawn: Click anywhere to create a new viable budding cell">
+          <span class="dock-icon">➕</span>
+          <span class="dock-label">Spawn</span>
+        </button>
+        <button type="button" class="dock-btn" data-tool="mitosis" title="Force Mitosis: Click any cell to initiate 12-chromosome bipolar division">
+          <span class="dock-icon">✂️</span>
+          <span class="dock-label">Mitosis</span>
+        </button>
+        <button type="button" class="dock-btn" data-tool="apoptosis" title="Force Apoptosis: Click any cell to trigger programmed death & blebbing">
+          <span class="dock-icon">💀</span>
+          <span class="dock-label">Apoptosis</span>
+        </button>
+      </div>
+    </nav>
+
     <!-- Floating Glassmorphic Control Panel -->
     <aside class="lab-hud" id="lab-hud" aria-label="Simulation Control Panel">
       <div class="hud-header">
@@ -103,27 +142,48 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           </div>
         </section>
 
+        <!-- Epifluorescence Staining Channels -->
+        <section class="hud-section">
+          <span class="hud-label">Epifluorescence Staining</span>
+          <div class="hud-staining-grid">
+            <button type="button" class="stain-btn is-active" data-stain="phase" title="Phase contrast microscopy">🔬 Phase</button>
+            <button type="button" class="stain-btn" data-stain="gfp" title="Green Fluorescent Protein (GFP)">🟢 GFP</button>
+            <button type="button" class="stain-btn" data-stain="dapi" title="DAPI Blue DNA Staining">🔵 DAPI</button>
+            <button type="button" class="stain-btn" data-stain="mcherry" title="mCherry Fluorescent Protein">🔴 mCherry</button>
+            <button type="button" class="stain-btn" data-stain="lineage" title="Clonal Lineage Rainbow Tracking">🌈 Lineage</button>
+          </div>
+        </section>
+
         <!-- Presets -->
         <section class="hud-section">
           <span class="hud-label">Biological Presets</span>
           <div class="hud-preset-grid">
-            <button type="button" class="preset-btn is-active" data-preset="homeostasis">Homeostasis</button>
-            <button type="button" class="preset-btn" data-preset="proliferation">Proliferation</button>
-            <button type="button" class="preset-btn" data-preset="turnover">Turnover</button>
-            <button type="button" class="preset-btn" data-preset="senescence">Senescence</button>
+            <button type="button" class="preset-btn is-active" data-preset="homeostasis">Homeostasis (24)</button>
+            <button type="button" class="preset-btn" data-preset="proliferation">Proliferation (120)</button>
+            <button type="button" class="preset-btn" data-preset="superbloom">Superbloom (300)</button>
+            <button type="button" class="preset-btn" data-preset="turnover">Turnover (48)</button>
+            <button type="button" class="preset-btn" data-preset="quiescence">Quiescence (12)</button>
           </div>
         </section>
 
         <!-- Sliders -->
         <section class="hud-section hud-section--sliders">
-          <span class="hud-label">Equilibrium Parameters</span>
+          <span class="hud-label">Population & Kinetic Parameters</span>
 
           <div class="slider-item">
             <div class="slider-meta">
-              <label for="slider-pop">Target Population</label>
-              <span class="slider-val" id="val-pop">16</span>
+              <label for="slider-pop">Target Population (Up to 300)</label>
+              <span class="slider-val" id="val-pop">24</span>
             </div>
-            <input type="range" id="slider-pop" min="4" max="48" step="1" value="16" />
+            <input type="range" id="slider-pop" min="4" max="300" step="1" value="24" />
+            <div class="quick-chips">
+              <button type="button" class="chip-btn" data-pop="12">12</button>
+              <button type="button" class="chip-btn" data-pop="24">24</button>
+              <button type="button" class="chip-btn" data-pop="48">48</button>
+              <button type="button" class="chip-btn" data-pop="120">120</button>
+              <button type="button" class="chip-btn" data-pop="200">200</button>
+              <button type="button" class="chip-btn" data-pop="300">300</button>
+            </div>
           </div>
 
           <div class="slider-item">
@@ -131,7 +191,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               <label for="slider-growth">Growth Rate</label>
               <span class="slider-val" id="val-growth">1.0×</span>
             </div>
-            <input type="range" id="slider-growth" min="0.2" max="4.0" step="0.1" value="1.0" />
+            <input type="range" id="slider-growth" min="0.2" max="5.0" step="0.1" value="1.0" />
           </div>
 
           <div class="slider-item">
@@ -139,7 +199,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               <label for="slider-mitosis">Mitosis Rate</label>
               <span class="slider-val" id="val-mitosis">1.0×</span>
             </div>
-            <input type="range" id="slider-mitosis" min="0.2" max="4.0" step="0.1" value="1.0" />
+            <input type="range" id="slider-mitosis" min="0.2" max="5.0" step="0.1" value="1.0" />
           </div>
 
           <div class="slider-item">
@@ -147,7 +207,23 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               <label for="slider-apoptosis">Apoptosis Rate</label>
               <span class="slider-val" id="val-apoptosis">1.0×</span>
             </div>
-            <input type="range" id="slider-apoptosis" min="0.0" max="4.0" step="0.1" value="1.0" />
+            <input type="range" id="slider-apoptosis" min="0.0" max="5.0" step="0.1" value="1.0" />
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-meta">
+              <label for="slider-viscosity">Medium Viscosity</label>
+              <span class="slider-val" id="val-viscosity">1.0×</span>
+            </div>
+            <input type="range" id="slider-viscosity" min="0.2" max="3.0" step="0.1" value="1.0" />
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-meta">
+              <label for="slider-temperature">Temperature / Kinetics</label>
+              <span class="slider-val" id="val-temperature">1.0×</span>
+            </div>
+            <input type="range" id="slider-temperature" min="0.2" max="3.0" step="0.1" value="1.0" />
           </div>
 
           <div class="slider-item">
@@ -169,16 +245,16 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
         <!-- Direct Actions -->
         <section class="hud-section">
-          <span class="hud-label">Direct Interventions</span>
+          <span class="hud-label">Mass Interventions</span>
           <div class="hud-actions-grid">
-            <button type="button" class="action-btn" id="act-spawn" title="Spawn a new viable cell">
-              <span>➕</span> Spawn Cell
+            <button type="button" class="action-btn" id="act-spawn-10" title="Spawn 10 viable cells">
+              <span>➕10</span> Spawn ×10
             </button>
-            <button type="button" class="action-btn" id="act-mitosis" title="Force division on a mature cell">
-              <span>✂️</span> Force Mitosis
+            <button type="button" class="action-btn" id="act-mutagen-all" title="Emit mutagen pulse">
+              <span>🧬</span> Mutagen Wave
             </button>
-            <button type="button" class="action-btn" id="act-apoptosis" title="Trigger apoptosis on a cell">
-              <span>💀</span> Force Death
+            <button type="button" class="action-btn" id="act-mitosis" title="Force division on mature cells">
+              <span>✂️</span> Divide Cell
             </button>
             <button type="button" class="action-btn" id="act-clear" title="Clear dish completely">
               <span>🧹</span> Clear Dish
@@ -188,7 +264,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
         <!-- Micro-Guide Footer -->
         <footer class="hud-footer">
-          <p>🖱️ <strong>Click cell</strong>: trigger event · <strong>Click empty</strong>: spawn cell · <strong>Drag</strong>: momentum fling</p>
+          <p>🧪 <strong>Select tools from bottom dock</strong>: feed nutrients, herd with laser, pulse mutagen, or fling cells.</p>
         </footer>
       </div>
     </aside>
@@ -272,6 +348,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     font-size: 0.85rem;
     letter-spacing: 0.08em;
     color: var(--color-text, #f1f5f9);
+    margin: 0;
   }
 
   .lab-badge {
@@ -316,6 +393,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     color: #f43f5e;
   }
 
+  .t-pill--nutrient strong {
+    color: #fbbf24;
+  }
+
   .t-pill--fps strong {
     color: #10b981;
   }
@@ -344,14 +425,68 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     border-color: rgba(255, 255, 255, 0.25);
   }
 
+  /* Floating Bottom Biological Tool Dock */
+  .lab-dock {
+    position: absolute;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 25;
+    background: rgba(15, 23, 42, 0.84);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 9999px;
+    padding: 0.35rem 0.5rem;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  }
+
+  .dock-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .dock-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-text-muted, #94a3b8);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.4rem 0.65rem;
+    border-radius: 9999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .dock-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--color-text, #f1f5f9);
+  }
+
+  .dock-btn.is-active {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: rgba(56, 189, 248, 0.5);
+    color: #38bdf8;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  }
+
+  .dock-icon {
+    font-size: 0.9rem;
+  }
+
   /* Floating HUD Control Panel */
   .lab-hud {
     position: absolute;
     bottom: 1.25rem;
     right: 1.25rem;
-    width: 320px;
+    width: 330px;
     max-width: calc(100vw - 2.5rem);
-    background: rgba(15, 23, 42, 0.82);
+    background: rgba(15, 23, 42, 0.84);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.14);
@@ -480,6 +615,38 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     background: rgba(244, 63, 94, 0.25);
   }
 
+  /* Staining Channels */
+  .hud-staining-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+  }
+
+  .stain-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: var(--color-text-muted, #94a3b8);
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.35rem 0.4rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+  }
+
+  .stain-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text, #f1f5f9);
+  }
+
+  .stain-btn.is-active {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: rgba(56, 189, 248, 0.5);
+    color: #38bdf8;
+    font-weight: 600;
+  }
+
   /* Presets */
   .hud-preset-grid {
     display: grid;
@@ -511,7 +678,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     font-weight: 600;
   }
 
-  /* Sliders */
+  /* Sliders & Chips */
   .slider-item {
     display: flex;
     flex-direction: column;
@@ -527,6 +694,29 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   .slider-val {
     font-weight: 600;
+    color: var(--color-text, #f1f5f9);
+  }
+
+  .quick-chips {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.15rem;
+  }
+
+  .chip-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--color-text-muted, #94a3b8);
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+
+  .chip-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
     color: var(--color-text, #f1f5f9);
   }
 
@@ -713,17 +903,35 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       width: 100%;
       justify-content: space-around;
       padding: 0.3rem 0.5rem;
+      overflow-x: auto;
     }
     .t-pill {
       font-size: 0.68rem;
       padding: 0 0.15rem;
+      white-space: nowrap;
+    }
+    .lab-dock {
+      bottom: 0.5rem;
+      width: calc(100vw - 1rem);
+      max-width: calc(100vw - 1rem);
+      padding: 0.3rem 0.4rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 12px;
+    }
+    .dock-tools {
+      gap: 0.25rem;
+    }
+    .dock-btn {
+      padding: 0.35rem 0.5rem;
+      font-size: 0.7rem;
     }
     .lab-hud {
-      bottom: 0.5rem;
+      bottom: 4.2rem;
       right: 0.5rem;
       left: 0.5rem;
       width: auto;
-      max-height: 52vh;
+      max-height: 48vh;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
@@ -749,7 +957,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 </style>
 
 <script>
-  import { getLivingCellsEngine, type CellSimParams } from '../lib/livingCellsEngine';
+  import { getLivingCellsEngine, type CellSimParams, type LabTool, type StainingMode } from '../lib/livingCellsEngine';
 
   function initLabPage() {
     const canvas = document.getElementById('lab-canvas') as HTMLCanvasElement | null;
@@ -759,8 +967,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     engine.setMode('lab');
     engine.attach(canvas);
 
-    // Initial simulation parameters for lab mode: match current live dish population
-    const currentPopulation = engine.getTelemetry().total || 6;
+    // Initial simulation parameters for lab mode: start at 24 cells for lively playground
+    const currentPopulation = engine.getTelemetry().total || 24;
     const initialParams: CellSimParams = {
       targetPopulation: currentPopulation,
       growthMultiplier: 1.0,
@@ -770,6 +978,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       isPaused: false,
       visualAlpha: 1.0,
       darkContrast: true,
+      viscosity: 1.0,
+      temperature: 1.0,
+      stainingMode: 'phase',
     };
     engine.setParams(initialParams);
 
@@ -825,6 +1036,30 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       document.addEventListener('click', closeThemeMenu);
     }
 
+    // Tool Dock Wiring
+    const dockButtons = document.querySelectorAll<HTMLButtonElement>('.dock-btn');
+    dockButtons.forEach((btn) => {
+      btn.onclick = () => {
+        const tool = btn.getAttribute('data-tool') as LabTool | null;
+        if (!tool) return;
+        dockButtons.forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        engine.setLabTool(tool);
+      };
+    });
+
+    // Staining Channels Wiring
+    const stainButtons = document.querySelectorAll<HTMLButtonElement>('.stain-btn');
+    stainButtons.forEach((btn) => {
+      btn.onclick = () => {
+        const stain = btn.getAttribute('data-stain') as StainingMode | null;
+        if (!stain) return;
+        stainButtons.forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        engine.setStainingMode(stain);
+      };
+    });
+
     // Wire HUD Elements
     const hud = document.getElementById('lab-hud');
     const collapseBtn = document.getElementById('hud-collapse-btn');
@@ -862,11 +1097,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     if (btnReset) {
       btnReset.onclick = () => {
         const p = engine.getParams();
-        engine.resetPopulation(p.targetPopulation || 18);
+        engine.resetPopulation(p.targetPopulation || 24);
       };
     }
 
-    // Sliders
+    // Sliders & Chips
     const sliderPop = document.getElementById('slider-pop') as HTMLInputElement | null;
     const valPop = document.getElementById('val-pop');
     const sliderGrowth = document.getElementById('slider-growth') as HTMLInputElement | null;
@@ -875,6 +1110,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const valMitosis = document.getElementById('val-mitosis');
     const sliderApoptosis = document.getElementById('slider-apoptosis') as HTMLInputElement | null;
     const valApoptosis = document.getElementById('val-apoptosis');
+    const sliderViscosity = document.getElementById('slider-viscosity') as HTMLInputElement | null;
+    const valViscosity = document.getElementById('val-viscosity');
+    const sliderTemperature = document.getElementById('slider-temperature') as HTMLInputElement | null;
+    const valTemperature = document.getElementById('val-temperature');
     const sliderSpeed = document.getElementById('slider-speed') as HTMLInputElement | null;
     const valSpeed = document.getElementById('val-speed');
     const sliderContrast = document.getElementById('slider-contrast') as HTMLInputElement | null;
@@ -882,8 +1121,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     function syncSlidersFromParams(params: CellSimParams) {
       if (sliderPop && valPop) {
-        sliderPop.value = String(params.targetPopulation || 18);
-        valPop.textContent = String(params.targetPopulation || 18);
+        sliderPop.value = String(params.targetPopulation || 24);
+        valPop.textContent = String(params.targetPopulation || 24);
       }
       if (sliderGrowth && valGrowth) {
         sliderGrowth.value = String(params.growthMultiplier);
@@ -896,6 +1135,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       if (sliderApoptosis && valApoptosis) {
         sliderApoptosis.value = String(params.apoptosisMultiplier);
         valApoptosis.textContent = `${params.apoptosisMultiplier.toFixed(1)}×`;
+      }
+      if (sliderViscosity && valViscosity) {
+        sliderViscosity.value = String(params.viscosity ?? 1.0);
+        valViscosity.textContent = `${(params.viscosity ?? 1.0).toFixed(1)}×`;
+      }
+      if (sliderTemperature && valTemperature) {
+        sliderTemperature.value = String(params.temperature ?? 1.0);
+        valTemperature.textContent = `${(params.temperature ?? 1.0).toFixed(1)}×`;
       }
       if (sliderSpeed && valSpeed) {
         sliderSpeed.value = String(params.timeScale);
@@ -916,6 +1163,18 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         engine.setParams({ targetPopulation: val });
       };
     }
+
+    document.querySelectorAll<HTMLButtonElement>('.chip-btn').forEach((chip) => {
+      chip.onclick = () => {
+        const pop = parseInt(chip.getAttribute('data-pop') || '24', 10);
+        if (sliderPop && valPop) {
+          sliderPop.value = String(pop);
+          valPop.textContent = String(pop);
+        }
+        engine.setParams({ targetPopulation: pop });
+      };
+    });
+
     if (sliderGrowth && valGrowth) {
       sliderGrowth.oninput = () => {
         const val = parseFloat(sliderGrowth.value);
@@ -937,6 +1196,20 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         engine.setParams({ apoptosisMultiplier: val });
       };
     }
+    if (sliderViscosity && valViscosity) {
+      sliderViscosity.oninput = () => {
+        const val = parseFloat(sliderViscosity.value);
+        valViscosity.textContent = `${val.toFixed(1)}×`;
+        engine.setParams({ viscosity: val });
+      };
+    }
+    if (sliderTemperature && valTemperature) {
+      sliderTemperature.oninput = () => {
+        const val = parseFloat(sliderTemperature.value);
+        valTemperature.textContent = `${val.toFixed(1)}×`;
+        engine.setParams({ temperature: val });
+      };
+    }
     if (sliderSpeed && valSpeed) {
       sliderSpeed.oninput = () => {
         const val = parseFloat(sliderSpeed.value);
@@ -955,32 +1228,49 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     // Preset Configurations
     const presets: Record<string, Partial<CellSimParams>> = {
       homeostasis: {
-        targetPopulation: 18,
+        targetPopulation: 24,
         growthMultiplier: 1.2,
         mitosisMultiplier: 1.0,
         apoptosisMultiplier: 1.0,
+        viscosity: 1.0,
+        temperature: 1.0,
         timeScale: 1.0,
       },
       proliferation: {
-        targetPopulation: 32,
-        growthMultiplier: 2.5,
-        mitosisMultiplier: 2.8,
-        apoptosisMultiplier: 0.3,
+        targetPopulation: 120,
+        growthMultiplier: 2.8,
+        mitosisMultiplier: 3.2,
+        apoptosisMultiplier: 0.2,
+        viscosity: 0.9,
+        temperature: 1.2,
         timeScale: 1.2,
       },
-      turnover: {
-        targetPopulation: 20,
-        growthMultiplier: 2.2,
-        mitosisMultiplier: 2.0,
-        apoptosisMultiplier: 2.5,
+      superbloom: {
+        targetPopulation: 300,
+        growthMultiplier: 3.5,
+        mitosisMultiplier: 4.0,
+        apoptosisMultiplier: 0.1,
+        viscosity: 0.8,
+        temperature: 1.4,
         timeScale: 1.4,
       },
-      senescence: {
+      turnover: {
+        targetPopulation: 48,
+        growthMultiplier: 2.4,
+        mitosisMultiplier: 2.5,
+        apoptosisMultiplier: 2.8,
+        viscosity: 1.0,
+        temperature: 1.1,
+        timeScale: 1.3,
+      },
+      quiescence: {
         targetPopulation: 12,
         growthMultiplier: 0.4,
         mitosisMultiplier: 0.3,
         apoptosisMultiplier: 0.1,
-        timeScale: 0.6,
+        viscosity: 1.4,
+        temperature: 0.6,
+        timeScale: 0.7,
       },
     };
 
@@ -996,15 +1286,23 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       };
     });
 
-    // Action Triggers
-    const actSpawn = document.getElementById('act-spawn');
+    // Mass Actions
+    const actSpawn10 = document.getElementById('act-spawn-10');
+    const actMutagenAll = document.getElementById('act-mutagen-all');
     const actMitosis = document.getElementById('act-mitosis');
-    const actApoptosis = document.getElementById('act-apoptosis');
     const actClear = document.getElementById('act-clear');
 
-    if (actSpawn) actSpawn.onclick = () => engine.spawnRandomCell();
+    if (actSpawn10) {
+      actSpawn10.onclick = () => {
+        for (let i = 0; i < 10; i++) engine.spawnRandomCell();
+      };
+    }
+    if (actMutagenAll) {
+      actMutagenAll.onclick = () => {
+        engine.triggerMutagenPulse(window.innerWidth * 0.5, window.innerHeight * 0.5);
+      };
+    }
     if (actMitosis) actMitosis.onclick = () => engine.triggerRandomMitosis();
-    if (actApoptosis) actApoptosis.onclick = () => engine.triggerRandomApoptosis();
     if (actClear) actClear.onclick = () => engine.clearAllCells();
 
     // Live Telemetry Sync
@@ -1012,6 +1310,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const tInterphase = document.querySelector('[data-t-interphase]');
     const tMitosis = document.querySelector('[data-t-mitosis]');
     const tApoptosis = document.querySelector('[data-t-apoptosis]');
+    const tNutrients = document.querySelector('[data-t-nutrients]');
     const tFps = document.querySelector('[data-t-fps]');
 
     const telemetryTimer = setInterval(() => {
@@ -1020,6 +1319,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       if (tInterphase) tInterphase.textContent = String(t.interphase);
       if (tMitosis) tMitosis.textContent = String(t.mitosis + t.postmitotic);
       if (tApoptosis) tApoptosis.textContent = String(t.apoptosis);
+      if (tNutrients) tNutrients.textContent = String(t.nutrients);
       if (tFps) tFps.textContent = String(t.fps);
     }, 120);
 

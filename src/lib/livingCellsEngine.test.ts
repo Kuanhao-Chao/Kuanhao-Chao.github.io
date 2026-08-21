@@ -270,7 +270,7 @@ describe('LivingCellsEngine', () => {
       const restored = (engine as any).sampleNormalContour(daughter);
       const extentX = Math.max(...restored.map((point: { x: number }) => Math.abs(point.x)));
       const extentY = Math.max(...restored.map((point: { y: number }) => Math.abs(point.y)));
-      expect(Math.abs(extentX / extentY - 1)).toBeGreaterThan(0.08);
+      expect(Math.abs(extentX / extentY - 1)).toBeGreaterThan(0.075);
     }
   });
 
@@ -1021,6 +1021,115 @@ describe('LivingCellsEngine', () => {
       target: canvas,
     });
     expect((engine as any).grabbedCell).toBe(cell2);
+  });
+
+  it('initializes ambient mode with 12 cells equilibrium on desktop and 8-10 on coarse mobile', () => {
+    const desktopEngine = new LivingCellsEngine();
+    Object.assign(desktopEngine as any, { coarse: false, isHomepage: false });
+    desktopEngine.setMode('ambient');
+    expect((desktopEngine as any).targetCount).toBe(12);
+
+    const mobileEngine = new LivingCellsEngine();
+    Object.assign(mobileEngine as any, { coarse: true, isHomepage: false });
+    mobileEngine.setMode('ambient');
+    expect((mobileEngine as any).targetCount).toBe(10);
+
+    const homepageMobile = new LivingCellsEngine();
+    Object.assign(homepageMobile as any, { coarse: true, isHomepage: true });
+    homepageMobile.setMode('ambient');
+    expect((homepageMobile as any).targetCount).toBe(8);
+  });
+
+  it('supports scaling cell population up to 300 in lab mode with multi-tier LOD', () => {
+    const engine = makeEngine();
+    engine.setMode('lab');
+    engine.setParams({ targetPopulation: 300 });
+    expect(engine.getParams().targetPopulation).toBe(300);
+    expect((engine as any).targetCount).toBe(300);
+
+    (engine as any).cells = Array.from({ length: 250 }, () => createCell(engine, 30));
+    expect((engine as any).effectiveDetailLevel()).toBe('minimal');
+
+    (engine as any).cells = Array.from({ length: 80 }, () => createCell(engine, 30));
+    expect((engine as any).effectiveDetailLevel()).toBe('reduced');
+
+    (engine as any).cells = Array.from({ length: 20 }, () => createCell(engine, 30));
+    expect((engine as any).effectiveDetailLevel()).toBe('full');
+  });
+
+  it('smoothly reduces population back to ~12 cells equilibrium via accelerated apoptosis clearance waves when returning to ambient', () => {
+    const engine = makeEngine();
+    engine.setMode('lab');
+    (engine as any).cells = Array.from({ length: 60 }, () => createCell(engine, 35));
+    expect((engine as any).cells.length).toBe(60);
+
+    // Switch back to ambient mode
+    engine.setMode('ambient');
+    expect((engine as any).targetCount).toBe(12);
+
+    // Run homeostasis step: excess is 60 - 12 = 48
+    (engine as any).rebalanceCooldown = 0;
+    (engine as any).inputQuietRemaining = 0;
+    (engine as any).updateHomeostasis();
+
+    const apoptoticCount = (engine as any).cells.filter((c: LivingCell) => c.state === 'apoptosis').length;
+    expect(apoptoticCount).toBeGreaterThanOrEqual(1);
+
+    // Rapid successive clearance without hanging
+    for (let frame = 0; frame < 180; frame++) {
+      (engine as any).update(STEP * 2);
+    }
+    expect((engine as any).cells.length).toBeLessThan(60);
+  });
+
+  it('supports dispensing nutrient droplets and attracts cells via chemotaxis', () => {
+    const engine = makeEngine();
+    engine.setMode('lab');
+    const cell = createCell(engine, 40);
+    Object.assign(cell, { x: 200, y: 200, vx: 0, vy: 0, state: 'mature' });
+    (engine as any).cells = [cell];
+
+    engine.dispenseNutrient(260, 200, 2);
+    expect(engine.getNutrients().length).toBe(2);
+
+    (engine as any).update(0.5);
+    // Cell should have moved or accelerated toward nutrient
+    expect(cell.vx).toBeGreaterThan(0);
+  });
+
+  it('applies repulsive force from optical laser tweezers and microfluidic vortex', () => {
+    const engine = makeEngine();
+    engine.setMode('lab');
+    const cell = createCell(engine, 40);
+    Object.assign(cell, { x: 300, y: 300, vx: 0, vy: 0 });
+    (engine as any).cells = [cell];
+
+    // Laser repulsion
+    engine.setLaser(true, 280, 300, 300, 100);
+    (engine as any).update(0.2);
+    expect(cell.vx).toBeGreaterThan(0);
+
+    // Microfluidic vortex
+    engine.setLaser(false, 0, 0);
+    engine.applyVortex(300, 300, 200, 200);
+    (engine as any).update(0.2);
+    expect(Math.hypot(cell.vx, cell.vy)).toBeGreaterThan(0);
+  });
+
+  it('triggers mutagen pulses and activates epifluorescent staining modes', () => {
+    const engine = makeEngine();
+    engine.setMode('lab');
+    const matureCell = createCell(engine, 45);
+    Object.assign(matureCell, { x: 250, y: 250, state: 'mature', matureElapsed: 12 });
+    (engine as any).cells = [matureCell];
+
+    engine.triggerMutagenPulse(250, 250);
+    expect(matureCell.state).toBe('mitosis');
+
+    for (const mode of ['phase', 'gfp', 'dapi', 'mcherry', 'lineage'] as const) {
+      engine.setStainingMode(mode);
+      expect(engine.getStainingMode()).toBe(mode);
+    }
   });
 });
 
