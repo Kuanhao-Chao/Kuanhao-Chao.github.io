@@ -761,7 +761,7 @@ describe('LivingCellsEngine', () => {
       coarse: false,
       isHomepage: true,
       scrollActivityRemaining: 0,
-      cells: Array.from({ length: 7 }, () => createCell(engine)),
+      cells: Array.from({ length: 6 }, () => createCell(engine)),
     });
     expect((engine as any).effectiveDetailLevel()).toBe('full');
     expect((engine as any).currentRenderInterval()).toBe(50);
