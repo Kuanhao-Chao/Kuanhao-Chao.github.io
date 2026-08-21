@@ -4,22 +4,6 @@
 # than re-typed (and re-mistyped) in each lesson that needs it. `verified` records
 # when the DOI/URL was last confirmed to resolve to the work described here.
 
-yang2010common:
-  authors: ['Jian Yang', 'Beben Benyamin', 'Brian P. McEvoy', 'et al.']
-  year: 2010
-  title: Common SNPs explain a large proportion of the heritability for human height
-  venue: Nature Genetics 42(7):565–569
-  doi: https://doi.org/10.1038/ng.608
-  verified: 2026-08-21
-
-lee2011estimating:
-  authors: ['Sang Hong Lee', 'Naomi R. Wray', 'Michael E. Goddard', 'Peter M. Visscher']
-  year: 2011
-  title: Estimating missing heritability for disease from genome-wide association studies
-  venue: American Journal of Human Genetics 88(3):294–305
-  doi: https://doi.org/10.1016/j.ajhg.2011.02.002
-  verified: 2026-08-21
-
 robbins1918:
   authors: ['Rainard B Robbins']
   year: 1918
@@ -130,4 +114,100 @@ browning2018:
   title: "A One-Penny Imputed Genome from Next-Generation Reference Panels"
   venue: "The American Journal of Human Genetics 103:338-348"
   doi: https://doi.org/10.1016/j.ajhg.2018.07.015
+  verified: 2026-08-21
+
+falconer1965:
+  authors: ['D. S. Falconer']
+  year: 1965
+  title: "The inheritance of liability to certain diseases, estimated from the incidence among relatives"
+  venue: "Annals of Human Genetics 29:51-76"
+  doi: https://doi.org/10.1111/j.1469-1809.1965.tb00500.x
+  verified: 2026-08-21
+
+patterson1971:
+  authors: ['H. D. Patterson', 'R. Thompson']
+  year: 1971
+  title: "Recovery of inter-block information when block sizes are unequal"
+  venue: "Biometrika 58:545-554"
+  doi: https://doi.org/10.1093/biomet/58.3.545
+  verified: 2026-08-21
+
+gilmour1995:
+  authors: ['Arthur R. Gilmour', 'Robin Thompson', 'Brian R. Cullis']
+  year: 1995
+  title: "Average Information REML: An Efficient Algorithm for Variance Parameter Estimation in Linear Mixed Models"
+  venue: "Biometrics 51:1440"
+  doi: https://doi.org/10.2307/2533274
+  verified: 2026-08-21
+
+vanraden2008:
+  authors: ['P.m. VanRaden']
+  year: 2008
+  title: "Efficient Methods to Compute Genomic Predictions"
+  venue: "Journal of Dairy Science 91:4414-4423"
+  doi: https://doi.org/10.3168/jds.2007-0980
+  verified: 2026-08-21
+
+visscher2008:
+  authors: ['Peter M. Visscher', 'William G. Hill', 'Naomi R. Wray']
+  year: 2008
+  title: "Heritability in the genomics era — concepts and misconceptions"
+  venue: "Nature Reviews Genetics 9:255-266"
+  doi: https://doi.org/10.1038/nrg2322
+  verified: 2026-08-21
+
+manolio2009:
+  authors: ['Teri A. Manolio', 'Francis S. Collins', 'Nancy J. Cox', 'et al.']
+  year: 2009
+  title: "Finding the missing heritability of complex diseases"
+  venue: "Nature 461:747-753"
+  doi: https://doi.org/10.1038/nature08494
+  verified: 2026-08-21
+
+yang2010common:
+  authors: ['Jian Yang', 'Beben Benyamin', 'Brian P McEvoy', 'et al.']
+  year: 2010
+  title: "Common SNPs explain a large proportion of the heritability for human height"
+  venue: "Nature Genetics 42:565-569"
+  doi: https://doi.org/10.1038/ng.608
+  verified: 2026-08-21
+
+langoallen2010:
+  authors: ['Hana Lango Allen', 'Karol Estrada', 'Guillaume Lettre', 'et al.']
+  year: 2010
+  title: "Hundreds of variants clustered in genomic loci and biological pathways affect human height"
+  venue: "Nature 467:832-838"
+  doi: https://doi.org/10.1038/nature09410
+  verified: 2026-08-21
+
+yang2011gcta:
+  authors: ['Jian Yang', 'S. Hong Lee', 'Michael E. Goddard', 'Peter M. Visscher']
+  year: 2011
+  title: "GCTA: A Tool for Genome-wide Complex Trait Analysis"
+  venue: "The American Journal of Human Genetics 88:76-82"
+  doi: https://doi.org/10.1016/j.ajhg.2010.11.011
+  verified: 2026-08-21
+
+lee2011estimating:
+  authors: ['Sang Hong Lee', 'Naomi R. Wray', 'Michael E. Goddard', 'Peter M. Visscher']
+  year: 2011
+  title: "Estimating Missing Heritability for Disease from Genome-wide Association Studies"
+  venue: "The American Journal of Human Genetics 88:294-305"
+  doi: https://doi.org/10.1016/j.ajhg.2011.02.002
+  verified: 2026-08-21
+
+polderman2015:
+  authors: ['Tinca J C Polderman', 'Beben Benyamin', 'Christiaan A de Leeuw', 'et al.']
+  year: 2015
+  title: "Meta-analysis of the heritability of human traits based on fifty years of twin studies"
+  venue: "Nature Genetics 47:702-709"
+  doi: https://doi.org/10.1038/ng.3285
+  verified: 2026-08-21
+
+wainschtein2022:
+  authors: ['Pierrick Wainschtein', 'Deepti Jain', 'Zhili Zheng', 'et al.']
+  year: 2022
+  title: "Assessing the contribution of rare variants to complex trait heritability from whole-genome sequence data"
+  venue: "Nature Genetics 54:263-273"
+  doi: https://doi.org/10.1038/s41588-021-00997-7
   verified: 2026-08-21

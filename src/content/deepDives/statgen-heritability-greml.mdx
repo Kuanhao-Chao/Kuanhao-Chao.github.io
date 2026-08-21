@@ -1,0 +1,514 @@
+---
+title: "Heritability Estimation: From Twin Models to Genomic REML (GREML / GCTA)"
+shortTitle: Heritability & GREML
+description: "A step-by-step derivation of broad- and narrow-sense heritability, Falconer's twin estimator and its assumptions, the genomic relatedness matrix, GREML variance-component estimation by AI-REML, and the Lee liability-scale transformation for ascertained case-control studies."
+abstract: "Twin studies said height was 80% heritable; the first GWAS could account for 5%. The gap was not a measurement error but a consequence of testing one variant at a time, and closing it required estimating the variance tagged by every common SNP at once. This lesson derives what heritability is a ratio of, why the twin estimator needs assumptions people forget it has, how the genomic relatedness matrix turns distant relatedness into a variance component, and how REML fits it."
+date: 2026-08-21
+track: theory
+hub: statistical-genetics
+moduleId: m2-heritability
+moduleLabel: Statistical Genetics · Part 3
+order: 3
+level: advanced
+objectives:
+  - "State what H² and h² are ratios of, and say which one predicts parent–offspring resemblance and why."
+  - "Derive Falconer's twin estimator from the MZ and DZ correlations, and name the assumption it rests on."
+  - "Explain the missing-heritability paradox and how GREML resolved it without finding new loci."
+  - "Construct the genomic relatedness matrix from standardised genotypes and say what its entries mean."
+  - "Fit heritability as a variance component: the mixed model, why REML rather than ML, and what AI-REML buys."
+  - "Convert an observed-scale case-control estimate to the liability scale, and say why it must be done."
+prerequisites:
+  - statgen-linkage-disequilibrium
+referenceIds:
+  - falconer1965
+  - patterson1971
+  - gilmour1995
+  - vanraden2008
+  - visscher2008
+  - manolio2009
+  - yang2010common
+  - langoallen2010
+  - yang2011gcta
+  - lee2011estimating
+  - polderman2015
+  - wainschtein2022
+tags: [heritability, GREML, GCTA, twin studies, variance components, REML]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Twin studies put the heritability of human height at about 80%. By 2010, every variant
+that had cleared genome-wide significance together accounted for roughly 10% of the
+variance <Citation id="langoallen2010" />. That gap — christened the **missing
+heritability** <Citation id="manolio2009" /> — was large enough that people seriously
+proposed the twin estimates were simply wrong.
+
+They were not. The variance was there; the method of looking for it was the problem.
+This lesson builds the machinery that found it.
+
+<Callout variant="intuition">
+Heritability is a ratio, and almost every misuse of the word comes from forgetting what
+is in the denominator.
+
+It answers: *of all the variation in this trait, in this population, right now, what
+fraction tracks genetic differences between people?* It does not say what fraction of
+**your** height is genetic — that question has no answer, in the way that asking which
+half of a rectangle's area comes from its length has no answer. And because the
+denominator is the variation actually present, heritability rises when you standardise
+the environment and falls when you diversify it, without a single allele changing.
+
+The reason it is still worth measuring: a high $h^2$ means relatives resemble each other
+for genetic reasons, so genotypes carry predictive information — which is the entire
+premise of polygenic scores.
+</Callout>
+
+## What heritability is a ratio of
+
+Write each individual's phenotype as a genetic part plus an environmental part, and take
+variances. If the two are uncorrelated, the variance decomposes:
+
+$$
+V_P \;=\; V_G + V_E \;=\; \underbrace{V_A + V_D + V_I}_{V_G} \;+\; V_E
+$$
+
+<Notation
+  rows={[
+    { symbol: 'V_P', meaning: 'Total phenotypic variance in the population', dims: 'trait units²' },
+    { symbol: 'V_A', meaning: 'Additive: the part predictable from allele counts', dims: 'trait units²' },
+    { symbol: 'V_D', meaning: 'Dominance: within-locus interaction between the two alleles', dims: 'trait units²' },
+    { symbol: 'V_I', meaning: 'Epistatic: interaction between loci', dims: 'trait units²' },
+    { symbol: 'V_E', meaning: 'Environmental, including measurement error', dims: 'trait units²' },
+    { symbol: 'H^2', meaning: 'Broad-sense heritability, V_G / V_P', dims: 'in [0,1]' },
+    { symbol: 'h^2', meaning: 'Narrow-sense heritability, V_A / V_P', dims: 'in [0,1]' },
+    { symbol: '\\mathbf{A}', meaning: 'Genomic relatedness matrix over N individuals', dims: 'N × N' },
+    { symbol: '\\mathbf{W}', meaning: 'Standardised genotypes, N individuals × M SNPs', dims: 'N × M' },
+    { symbol: '\\sigma_g^2,\; \\sigma_e^2', meaning: 'Genetic and residual variance components', dims: 'trait units²' },
+    { symbol: 'K', meaning: 'Disease prevalence in the population', dims: 'in (0,1)' },
+    { symbol: 'P', meaning: 'Fraction of the study sample that are cases', dims: 'in (0,1)' },
+  ]}
+/>
+
+The two heritabilities take different numerators:
+
+$$
+H^2 = \frac{V_G}{V_P} = \frac{V_A + V_D + V_I}{V_P},
+\qquad
+h^2 = \frac{V_A}{V_P}
+$$
+
+<Figure
+  caption="Figure 1. The two heritabilities are ratios with the same denominator and different numerators. Broad-sense H² takes all genetic variance; narrow-sense h² takes only the additive part. The proportions shown are illustrative, not measured."
+  alt="A horizontal bar representing total phenotypic variance, divided into additive 45 percent, dominance 10 percent, epistatic 5 percent and environmental 40 percent. A bracket above spans the first three segments and is labelled broad-sense H squared; a bracket below spans only the additive segment and is labelled narrow-sense h squared."
+>
+  <svg viewBox="0 0 640 200" width="640" height="200" font-family="inherit"><rect x="46.0" y="92.0" width="252.0" height="46.0" fill="currentColor" opacity="0.88" stroke="var(--color-bg,#fff)" stroke-width="1"/><text x="172.0" y="113.0" text-anchor="middle" font-size="12" font-weight="600" fill="var(--color-bg, #fff)">V<tspan font-size="8.5" dy="3">A</tspan><tspan dy="-3"></tspan></text><text x="172.0" y="127.0" text-anchor="middle" font-size="9.5" fill="var(--color-bg, #fff)" opacity=".9">45%</text><rect x="298.0" y="92.0" width="56.0" height="46.0" fill="currentColor" opacity="0.60" stroke="var(--color-bg,#fff)" stroke-width="1"/><text x="326.0" y="113.0" text-anchor="middle" font-size="12" font-weight="600" fill="var(--color-bg, #fff)">V<tspan font-size="8.5" dy="3">D</tspan><tspan dy="-3"></tspan></text><text x="326.0" y="127.0" text-anchor="middle" font-size="9.5" fill="var(--color-bg, #fff)" opacity=".9">10%</text><rect x="354.0" y="92.0" width="28.0" height="46.0" fill="currentColor" opacity="0.40" stroke="var(--color-bg,#fff)" stroke-width="1"/><text x="368.0" y="113.0" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">V<tspan font-size="8.5" dy="3">I</tspan><tspan dy="-3"></tspan></text><text x="368.0" y="127.0" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".9">5%</text><rect x="382.0" y="92.0" width="224.0" height="46.0" fill="currentColor" opacity="0.14" stroke="var(--color-bg,#fff)" stroke-width="1"/><text x="494.0" y="113.0" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">V<tspan font-size="8.5" dy="3">E</tspan><tspan dy="-3"></tspan></text><text x="494.0" y="127.0" text-anchor="middle" font-size="9.5" fill="currentColor" opacity=".9">40%</text><path d="M46.0 88.0 L46.0 80.0 L382.0 80.0 L382.0 88.0" fill="none" stroke="var(--color-accent,#2e6e5e)" stroke-width="1.5"/><text x="214.0" y="72.0" text-anchor="middle" font-size="12" font-weight="600" fill="var(--color-accent,#2e6e5e)">H² — broad-sense</text><path d="M46.0 142.0 L46.0 150.0 L298.0 150.0 L298.0 142.0" fill="none" stroke="var(--color-accent,#2e6e5e)" stroke-width="1.5"/><text x="172.0" y="162.0" text-anchor="middle" font-size="12" font-weight="600" fill="var(--color-accent,#2e6e5e)">h² — narrow-sense</text><text x="326.0" y="200.0" text-anchor="middle" font-size="11.5" fill="currentColor" opacity=".8">total phenotypic variance V<tspan font-size="8.5" dy="3">P</tspan><tspan dy="-3"></tspan></text><text x="326.0" y="26" text-anchor="middle" font-size="11.5" fill="currentColor" opacity=".8">Only the additive part is transmitted linearly parent to offspring — which is why h², not H², predicts resemblance.</text></svg>
+</Figure>
+
+<Callout variant="key" title="Why h², not H², is the one that matters">
+Parents pass on **alleles**, not genotypes. A parent heterozygous at a locus transmits one
+allele; whichever dominance interaction that allele had with its former partner does not
+travel with it, because it will meet a new partner in the offspring. The same argument
+applies to epistasis across loci, which meiosis breaks up.
+
+So $V_D$ and $V_I$ contribute to how much genetic variation exists, but not to how much
+of it is *transmitted linearly*. $h^2$ is the slope of the offspring-on-midparent
+regression; $H^2$ is not the slope of anything useful.
+</Callout>
+
+<Callout variant="assumption" title="What is assumed">
+The decomposition above needs $\operatorname{Cov}(G, E) = 0$ and no gene–environment
+interaction folded into $V_G$. Both fail in realistic settings — parents supply both
+genes and environment, which correlates them — and when they fail the surplus is absorbed
+into whichever component the model does allow. Every estimate below is therefore
+population- and time-specific, and comparing an $h^2$ across populations compares two
+different denominators as much as two different biologies <Citation id="visscher2008" />.
+</Callout>
+
+## The twin estimator, and the assumption it rests on
+
+Monozygotic twins are genetically identical; dizygotic twins share half their segregating
+alleles on average. If both kinds of twin pair share their rearing environment to the same
+degree, the difference between their phenotypic correlations isolates the genetic part.
+
+**Step 1 — model each correlation.** Under an ACE model, phenotype is additive genetic
+($a^2$), common environment ($c^2$) and unique environment ($e^2$) as fractions of $V_P$,
+with $a^2 + c^2 + e^2 = 1$. Two individuals correlate only through the components they
+share. MZ twins share all additive variance and all common environment; DZ twins share
+half the additive variance and all common environment:
+
+$$
+r_{\mathrm{MZ}} = a^2 + c^2, \qquad r_{\mathrm{DZ}} = \tfrac{1}{2}a^2 + c^2
+$$
+
+**Step 2 — subtract.** The $c^2$ terms cancel, which is the whole trick:
+
+$$
+r_{\mathrm{MZ}} - r_{\mathrm{DZ}} = \tfrac{1}{2}a^2
+\qquad\Longrightarrow\qquad
+h^2 = a^2 = 2\left(r_{\mathrm{MZ}} - r_{\mathrm{DZ}}\right)
+$$
+
+**Step 3 — recover the rest.** Substituting back gives the other two components:
+
+$$
+c^2 = 2r_{\mathrm{DZ}} - r_{\mathrm{MZ}}, \qquad e^2 = 1 - r_{\mathrm{MZ}}
+$$
+
+<Callout variant="warning" title="The equal-environments assumption">
+Step 2 cancels $c^2$ only if it is *the same number* for MZ and DZ pairs. If identical
+twins are treated more alike than fraternal twins — dressed alike, kept in the same class,
+sharing more friends — then $c^2_{\mathrm{MZ}} > c^2_{\mathrm{DZ}}$, the cancellation
+leaves a positive residue, and it is counted as genetic.
+
+This is not a hypothetical: it is the standard criticism of twin heritability, and it
+biases $h^2$ **upward**. A meta-analysis of essentially every twin study ever published
+puts the average across 17,800 traits at $h^2 \approx 0.49$ <Citation id="polderman2015" />,
+and that average inherits the assumption.
+</Callout>
+
+<WorkedExample
+  title="Falconer's estimator on a twin cohort"
+  given={[
+    { label: 'MZ correlation r_MZ', value: '0.85' },
+    { label: 'DZ correlation r_DZ', value: '0.50' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — heritability.**
+
+$$
+h^2 = 2(r_{\mathrm{MZ}} - r_{\mathrm{DZ}}) = 2(0.85 - 0.50) = 0.70
+$$
+
+**Step 2 — shared environment.**
+
+$$
+c^2 = 2r_{\mathrm{DZ}} - r_{\mathrm{MZ}} = 2(0.50) - 0.85 = 0.15
+$$
+
+**Step 3 — unique environment.**
+
+$$
+e^2 = 1 - r_{\mathrm{MZ}} = 1 - 0.85 = 0.15
+$$
+
+**Step 4 — check the constraint.** The three fractions must exhaust the variance:
+
+$$
+0.70 + 0.15 + 0.15 = 1.00 \;\checkmark
+$$
+
+That check is worth doing every time, because it is not automatic — it is guaranteed by
+construction only when the ACE model actually fits. When it does not, the arithmetic
+returns components outside $[0,1]$, and that is diagnostic rather than a rounding problem.
+Exercise 2 works through such a case.
+
+</WorkedExample>
+
+## Missing heritability
+
+By 2010 the arithmetic was stark. Twin studies said 80% for height; the 180 loci that had
+reached $P < 5\times10^{-8}$ explained about 10% <Citation id="langoallen2010" />. The
+candidate explanations were all substantive — rare variants of large effect, structural
+variation, epistasis, or simply inflated twin estimates — and all of them assumed the
+missing variance was somewhere the studies had not looked.
+
+Yang and colleagues <Citation id="yang2010common" /> proposed something duller and
+correct: the variance was in the *same common SNPs already on the array*, distributed
+across thousands of effects each far too small to clear a threshold designed to control
+one million simultaneous tests. Testing variants one at a time cannot see it. Estimating
+the variance they collectively tag can.
+
+<Figure
+  caption="Figure 2. The gap closed from both ends. Genome-wide significant hits capture only what individually clears a stringent threshold; GREML captures everything the common SNPs tag; whole-genome sequencing adds the rare variation those SNPs cannot tag. The remainder against twin estimates is where the equal-environments assumption and non-additive variance live."
+  alt="Four horizontal bars showing estimated heritability of human height: genome-wide significant hits in 2010 at 10 percent, all common SNPs by GREML at 45 percent, whole-genome sequence including rare variants at 68 percent, and twin and pedigree studies at 80 percent."
+>
+  <svg viewBox="0 0 640 212" width="640" height="212" font-family="inherit"><text x="326.0" y="30" text-anchor="middle" font-size="11.5" fill="currentColor" opacity=".8">Estimated heritability of human height</text><rect x="250.0" y="54.0" width="35.6" height="20.0" fill="currentColor" opacity="0.22" rx="2"/><text x="240.0" y="68.0" text-anchor="end" font-size="11.5" fill="currentColor">Genome-wide significant hits (2010)</text><text x="293.6" y="68.0" font-size="11.5" font-weight="600" fill="currentColor">10%</text><text x="240.0" y="80.0" text-anchor="end" font-size="9.5" fill="currentColor" opacity=".6">Lango Allen et al.</text><rect x="250.0" y="90.0" width="160.2" height="20.0" fill="currentColor" opacity="0.42" rx="2"/><text x="240.0" y="104.0" text-anchor="end" font-size="11.5" fill="currentColor">All common SNPs, GREML (2010)</text><text x="418.2" y="104.0" font-size="11.5" font-weight="600" fill="currentColor">45%</text><text x="240.0" y="116.0" text-anchor="end" font-size="9.5" fill="currentColor" opacity=".6">Yang et al.</text><rect x="250.0" y="126.0" width="242.1" height="20.0" fill="currentColor" opacity="0.62" rx="2"/><text x="240.0" y="140.0" text-anchor="end" font-size="11.5" fill="currentColor">Whole-genome sequence, incl. rare (2022)</text><text x="500.1" y="140.0" font-size="11.5" font-weight="600" fill="currentColor">68%</text><text x="240.0" y="152.0" text-anchor="end" font-size="9.5" fill="currentColor" opacity=".6">Wainschtein et al.</text><rect x="250.0" y="162.0" width="284.8" height="20.0" fill="currentColor" opacity="0.82" rx="2"/><text x="240.0" y="176.0" text-anchor="end" font-size="11.5" fill="currentColor">Twin and pedigree studies</text><text x="542.8" y="176.0" font-size="11.5" font-weight="600" fill="currentColor">80%</text><text x="240.0" y="188.0" text-anchor="end" font-size="9.5" fill="currentColor" opacity=".6">classical estimate</text><line x1="285.6" y1="64.0" x2="285.6" y2="172.0" stroke="var(--color-accent,#2e6e5e)" stroke-width="1.25" stroke-dasharray="4 4"/><text x="293.6" y="194.0" font-size="11" fill="var(--color-accent,#2e6e5e)" font-weight="600">the &quot;missing&quot; 70 points</text></svg>
+</Figure>
+
+Whole-genome sequencing later closed most of what remained: including rare variants that
+common SNPs cannot tag brings height to about 68% <Citation id="wainschtein2022" />. The
+missing heritability was never missing. It was unresolvable by single-marker testing, and
+partly untagged by arrays.
+
+## The genomic relatedness matrix
+
+The idea that makes GREML work is to stop treating "related" as a pedigree category and
+start treating it as a continuous measurement. Two nominally unrelated people still share
+a little more or a little less of the genome than average, and if the trait is heritable,
+the pairs who share more should resemble each other more.
+
+**Step 1 — standardise each genotype.** Let $X_{ij} \in \{0,1,2\}$ count reference alleles
+for individual $i$ at SNP $j$, with allele frequency $p_j$. Under Hardy–Weinberg the
+count has mean $2p_j$ and variance $2p_j(1-p_j)$, so
+
+$$
+W_{ij} = \frac{X_{ij} - 2p_j}{\sqrt{2p_j(1-p_j)}}
+$$
+
+has mean zero and unit variance. The standardisation is not cosmetic: it is what makes
+every SNP contribute equally to the sum below, rather than letting common SNPs dominate
+by virtue of having more variance to contribute.
+
+**Step 2 — average the products.** The relatedness of individuals $i$ and $k$ is the
+average standardised product across all $M$ SNPs <Citation id="vanraden2008" />:
+
+$$
+A_{ik} = \frac{1}{M}\sum_{j=1}^{M} \frac{(X_{ij}-2p_j)(X_{kj}-2p_j)}{2p_j(1-p_j)}
+\qquad\Longleftrightarrow\qquad
+\mathbf{A} = \frac{1}{M}\mathbf{W}\mathbf{W}^{\mathsf{T}}
+$$
+
+The matrix form makes two things obvious that the sum does not: $\mathbf{A}$ is $N\times N$
+regardless of how many SNPs went into it, and it is positive semi-definite, so it is a
+legitimate covariance structure.
+
+Off-diagonal entries estimate twice the kinship coefficient — about $0.5$ for full
+siblings, and scattered around zero with a small variance for unrelated people. Diagonal
+entries are $A_{ii} \approx 1 + F_i$, where $F_i$ is the inbreeding coefficient.
+
+<Callout variant="warning" title="GREML estimates h²_SNP, not h²">
+$\mathbf{A}$ is built from the SNPs you genotyped. It therefore captures causal variance
+only to the extent that causal variants are in LD with those SNPs — which is exactly the
+$r^2$ from the previous lesson, and exactly why a rare causal variant contributes almost
+nothing.
+
+The quantity estimated is $h^2_{\mathrm{SNP}}$, a *lower bound* on $h^2$ whose tightness
+depends on array density and on the frequency spectrum of the causal variants. Reporting
+it as "the heritability" is the single most common misreading of a GCTA result. GREML
+studies also routinely drop one of each pair with $A_{ik} > 0.025$, because close
+relatives share environment as well as genome and would reintroduce exactly the
+confounding the method is designed to avoid.
+</Callout>
+
+## Heritability as a variance component
+
+**Step 1 — the model.** Treat the aggregate genetic value as a random effect whose
+covariance is the relatedness matrix:
+
+$$
+\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{g} + \boldsymbol{\varepsilon},
+\qquad
+\mathbf{g} \sim \mathcal{N}(\mathbf{0}, \sigma_g^2\mathbf{A}),
+\qquad
+\boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0}, \sigma_e^2\mathbf{I})
+$$
+
+$\mathbf{X}\boldsymbol{\beta}$ holds fixed effects — age, sex, ancestry principal
+components. The individual SNP effects are never estimated; only the variance they
+generate is.
+
+**Step 2 — the implied phenotypic covariance.** Since $\mathbf{g}$ and
+$\boldsymbol{\varepsilon}$ are independent,
+
+$$
+\mathbf{V} = \operatorname{Var}(\mathbf{y}) = \sigma_g^2\mathbf{A} + \sigma_e^2\mathbf{I},
+\qquad
+h^2_{\mathrm{SNP}} = \frac{\sigma_g^2}{\sigma_g^2 + \sigma_e^2}
+$$
+
+Read as an estimator, this says: regress the phenotypic similarity of every pair on their
+genomic similarity, and the slope is $\sigma_g^2$. The signal comes entirely from the
+*variance* of the off-diagonal entries — which is why GREML needs tens of thousands of
+individuals, and why its precision depends on sample size so brutally (Exercise 3).
+
+**Step 3 — fit by REML, not ML.** Maximum likelihood estimates of variance components are
+biased downward, because they do not pay for the degrees of freedom spent estimating
+$\boldsymbol{\beta}$ — the same reason the sample variance divides by $n-1$. Restricted
+maximum likelihood <Citation id="patterson1971" /> maximises the likelihood of contrasts
+orthogonal to the fixed effects. The projection is
+
+$$
+\mathbf{P} = \mathbf{V}^{-1} - \mathbf{V}^{-1}\mathbf{X}\left(\mathbf{X}^{\mathsf{T}}\mathbf{V}^{-1}\mathbf{X}\right)^{-1}\mathbf{X}^{\mathsf{T}}\mathbf{V}^{-1}
+$$
+
+$$
+\ln L_R = -\tfrac{1}{2}\left[\ln|\mathbf{V}| + \ln\left|\mathbf{X}^{\mathsf{T}}\mathbf{V}^{-1}\mathbf{X}\right| + \mathbf{y}^{\mathsf{T}}\mathbf{P}\mathbf{y}\right]
+$$
+
+**Step 4 — climb it with AI-REML.** Newton–Raphson needs the Hessian, whose entries
+involve traces like $\operatorname{tr}(\mathbf{PAPA})$ — $\mathcal{O}(N^3)$, and
+prohibitive at biobank scale. Averaging the observed and expected information matrices
+makes those traces cancel <Citation id="gilmour1995" />, leaving quadratic forms:
+
+$$
+\mathrm{AI}_{ij} = \tfrac{1}{2}\,\mathbf{y}^{\mathsf{T}}\mathbf{P}\frac{\partial\mathbf{V}}{\partial\sigma_i^2}\mathbf{P}\frac{\partial\mathbf{V}}{\partial\sigma_j^2}\mathbf{P}\mathbf{y}
+$$
+
+Each is a handful of matrix–vector products. This is the step that made GREML practical,
+and it is what GCTA implements <Citation id="yang2011gcta" />.
+
+## Case-control studies need a scale change
+
+For a binary disease the model above is fitted to a 0/1 phenotype, which gives an
+**observed-scale** heritability. That number is not comparable across studies, because it
+depends on how many cases were recruited — and case-control studies deliberately
+oversample cases, often to 50% against a population prevalence of 1%.
+
+The fix is to assume the familiar liability-threshold model <Citation id="falconer1965" />:
+an unobserved normally distributed liability, with disease above a threshold $T$ set by
+prevalence $K$. Lee and colleagues <Citation id="lee2011estimating" /> derived the exact
+conversion:
+
+$$
+h^2_l = h^2_o \,\frac{K^2(1-K)^2}{z_K^2\,P(1-P)},
+\qquad
+z_K = \varphi\!\left(\Phi^{-1}(1-K)\right)
+$$
+
+where $\varphi$ and $\Phi$ are the standard normal density and CDF, so $z_K$ is the height
+of the density at the disease threshold.
+
+<WorkedExample
+  title="Observed scale to liability scale"
+  given={[
+    { label: 'Observed-scale h²_o', value: '0.20' },
+    { label: 'Population prevalence K', value: '0.01' },
+    { label: 'Case fraction P', value: '0.50' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — locate the threshold.** Disease is the top 1% of liability, so
+
+$$
+T = \Phi^{-1}(1 - K) = \Phi^{-1}(0.99) = 2.326348
+$$
+
+**Step 2 — density height there.**
+
+$$
+z_K = \varphi(2.326348) = \frac{1}{\sqrt{2\pi}}e^{-2.326348^2/2} = 0.026652
+$$
+
+**Step 3 — the conversion factor.** Numerator and denominator separately:
+
+$$
+K^2(1-K)^2 = (0.01 \times 0.99)^2 = 0.00009801
+$$
+
+$$
+z_K^2\,P(1-P) = 0.026652^2 \times 0.25 = 0.000177584
+$$
+
+$$
+\frac{K^2(1-K)^2}{z_K^2 P(1-P)} = \frac{0.00009801}{0.000177584} = 0.5519
+$$
+
+**Step 4 — apply it.**
+
+$$
+h^2_l = 0.20 \times 0.5519 = 0.1104
+$$
+
+**Step 5 — read the direction.** The correction almost halves the estimate. Recruiting
+50% cases for a disease that afflicts 1% makes the sample far more informative per person
+than the population is, and the observed-scale figure inherits that. Reporting $0.20$
+without the conversion would overstate the population heritability by more than 80%.
+
+</WorkedExample>
+
+## Exercises
+
+<Exercise n={1} title="Falconer by hand" difficulty="warm-up">
+
+A twin study reports $r_{\mathrm{MZ}} = 0.60$ and $r_{\mathrm{DZ}} = 0.40$. Find $h^2$,
+$c^2$ and $e^2$, and check they sum to one.
+
+<div slot="solution">
+
+$$
+h^2 = 2(0.60 - 0.40) = 0.40, \qquad
+c^2 = 2(0.40) - 0.60 = 0.20, \qquad
+e^2 = 1 - 0.60 = 0.40
+$$
+
+and $0.40 + 0.20 + 0.40 = 1.00$. Compared with the worked example, this trait has a
+larger shared-environment component and correspondingly less additive genetic variance.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="When the model breaks" difficulty="core">
+
+A study reports $r_{\mathrm{MZ}} = 0.90$ and $r_{\mathrm{DZ}} = 0.30$. Apply Falconer's
+formulas. What goes wrong, and what does it tell you?
+
+<div slot="solution">
+
+$$
+h^2 = 2(0.90 - 0.30) = 1.20, \qquad c^2 = 2(0.30) - 0.90 = -0.30
+$$
+
+Both are impossible: a variance fraction cannot exceed one, and cannot be negative.
+
+The failure is diagnostic. The ACE model assumes DZ twins share exactly half the
+trait-relevant genetic variance, which holds only if that variance is purely additive.
+When **dominance** contributes, DZ twins share only a quarter of $V_D$ against the MZ
+pairs' whole of it, so $r_{\mathrm{DZ}}$ falls further below $r_{\mathrm{MZ}}$ than the
+additive model can accommodate — and the surplus is pushed into a negative $c^2$.
+
+The standard response is to fit an ADE model instead, with a dominance component in place
+of shared environment. Note that ACE and ADE cannot both be identified from MZ and DZ
+correlations alone: two equations cannot determine three unknowns, so which model is
+fitted is a choice, not a finding.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="How large a sample does GREML need?" difficulty="stretch">
+
+For unrelated individuals the standard error of a GREML estimate is approximately
+$\mathrm{SE}(\hat{h}^2) \approx 316/N$. How many individuals are needed for a 95%
+confidence interval of half-width $0.05$? Why is the requirement so severe?
+
+<div slot="solution">
+
+A 95% interval has half-width $1.96\,\mathrm{SE}$, so the target is
+
+$$
+\mathrm{SE} = \frac{0.05}{1.96} = 0.02551
+\qquad\Longrightarrow\qquad
+N = \frac{316}{0.02551} \approx 12{,}400
+$$
+
+For the more demanding half-width of $0.02$ the same formula gives $N \approx 31{,}000$.
+
+The severity has a clear source. All the information about $\sigma_g^2$ lives in the
+*variance of the off-diagonal entries* of $\mathbf{A}$, and among unrelated people that
+variance is tiny — relatedness is scattered narrowly around zero. The estimator is
+regressing phenotypic similarity on a predictor with almost no spread, which is
+statistically expensive. Pedigree studies get away with far smaller samples precisely
+because a sibling pair at $A_{ik} \approx 0.5$ supplies enormously more leverage than a
+thousand pairs near zero — at the cost of the shared environment that GREML was built to
+escape.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Heritability is a ratio**, and its denominator is the variance actually present in a
+  particular population at a particular time. It says nothing about any individual, and
+  nothing about whether an environmental intervention would work.
+- **$H^2$ counts all genetic variance; $h^2$ counts only the additive part.** Only the
+  additive part is transmitted linearly, so $h^2$ is what predicts resemblance between
+  relatives and what polygenic scores can hope to capture.
+- **Falconer's estimator**, $h^2 = 2(r_{\mathrm{MZ}} - r_{\mathrm{DZ}})$, cancels shared
+  environment only under the equal-environments assumption, which biases it upward when it
+  fails, and returns out-of-range components when non-additive variance is present.
+- **GREML replaces pedigree categories with a measured relatedness matrix**,
+  $\mathbf{A} = \mathbf{W}\mathbf{W}^{\mathsf{T}}/M$, and estimates the variance component
+  $\sigma_g^2$ by REML — recovering height's heritability from 10% to 45% without
+  identifying a single new locus.
+- **What GREML estimates is $h^2_{\mathrm{SNP}}$**, a lower bound set by what the
+  genotyped SNPs tag. Sequencing rare variation closes most of the remaining gap.
+- **Binary traits need the liability-scale conversion**, or an ascertained case fraction
+  silently inflates the estimate — by more than 80% in the worked example above.
