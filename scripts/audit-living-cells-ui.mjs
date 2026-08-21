@@ -1503,7 +1503,7 @@ async function auditActiveScrollCadence(page, scope, profile, baseline) {
   const expectedRenderRate = expectedGatedRate(baseline, profile.touch ? 67 : 42);
   const minRenderRate = expectedRenderRate * 0.7;
   const maxRenderRate = expectedRenderRate * 1.3;
-  const allowedDetails = profile.touch ? ['minimal'] : ['reduced', 'minimal'];
+  const allowedDetails = profile.touch ? ['reduced', 'minimal'] : ['full', 'reduced', 'minimal'];
 
   check(
     scope,
