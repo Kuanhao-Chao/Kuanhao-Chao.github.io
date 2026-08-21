@@ -7,7 +7,11 @@ import 'katex/dist/katex.min.css';
 
 const title = "The Mathematical Association Engine: OLS, Logistic Regression, Wald Statistics, and Statistical Power";
 const description = "A rigorous mathematical derivation of single-variant association testing: additive dosage models, the Frisch-Waugh-Lovell theorem, analytical standard errors, logistic regression MLE via IRLS, and statistical power equations.";
-const readingTime = "22 min read";
+/* Derived from this page's own content, not guessed: prose at 200 wpm, plus 15 s per
+   display equation and 3 s per inline one. These constants had drifted to ~2.5x the
+   truth (this page: 794 prose words, 15 display and 51 inline equations). Part 2 moves
+   the series into a content collection where this is computed, not written down. */
+const readingTime = "10 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">

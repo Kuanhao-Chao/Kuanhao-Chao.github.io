@@ -7,7 +7,11 @@ import 'katex/dist/katex.min.css';
 
 const title = "Statistical Genetics: The Mathematical Machinery of Quantitative Traits, Heritability & Causal Mapping";
 const description = "A definitive, first-principles exploration of statistical genetics — bridging population genetics, Fisher's infinitesimal model, Linkage Disequilibrium, GREML heritability, LDSC, Linear Mixed Models, Bayesian fine-mapping, rare variant tests, Mendelian Randomization, and deep learning.";
-const readingTime = "38 min read";
+/* Derived from this page's own content, not guessed: prose at 200 wpm, plus 15 s per
+   display equation and 3 s per inline one. These constants had drifted to ~2.5x the
+   truth (this page: 2883 prose words, 24 display and 173 inline equations). Part 2 moves
+   the series into a content collection where this is computed, not written down. */
+const readingTime = "29 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">
@@ -87,7 +91,7 @@ const readingTime = "38 min read";
         This comprehensive curriculum is organized into four thematic modules spanning 10 standalone, first-principles technical deep dives:
       </p>
 
-      <div class="deep-dive-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin: 1.5rem 0;">
+      <div class="deep-dive-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 1.25rem; margin: 1.5rem 0;">
         <!-- Card 1 -->
         <div class="deep-dive-card-nested" style="background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
           <div>
@@ -545,7 +549,8 @@ const readingTime = "38 min read";
         </div>
         <div class="deep-dive-equation-legend">
           <Katex tex="z_{1j}, z_{2j}" /> = Z-scores for trait 1 and trait 2 &emsp;|&emsp;
-          <Katex tex="ho_g" /> = Genetic covariance &emsp;|&emsp;
+          <Katex tex="
+ho_g" /> = Genetic covariance &emsp;|&emsp;
           <Katex tex="N_s" /> = Sample overlap count &emsp;|&emsp;
           <Katex tex="\rho_0" /> = Phenotypic correlation among shared samples.
         </div>

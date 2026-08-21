@@ -15,6 +15,28 @@ const { name, size = 20, class: className, title } = Astro.props;
 // Stroked, line-style UI icons (24x24 viewBox).
 const stroke: Record<string, string> = {
   'arrow-right': '<path d="M5 12h14"/><path d="M13 6l6 6-6 6"/>',
+  // Ten glyphs the deep-dive series referenced but that were never defined here.
+  // `stroke[name] ?? ''` renders an unknown name as an empty <svg>, so 112 icon
+  // instances across those pages — every back-link, level badge and contents
+  // heading — were drawing nothing at all.
+  'arrow-left': '<path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/>',
+  'book-open':
+    '<path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/>',
+  list: '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3.5 6h.01"/><path d="M3.5 12h.01"/><path d="M3.5 18h.01"/>',
+  'alert-triangle':
+    '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  'check-circle': '<path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.02l-3-3"/>',
+  sparkles:
+    '<path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 14.5l.75 1.75 1.75.75-1.75.75L19 19.5l-.75-1.75L16.5 17l1.75-.75z"/>',
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  // Found by the repo-wide scan below, outside the deep-dive series.
+  'bar-chart-3': '<path d="M3 3v18h18"/><path d="M7.5 16v-5"/><path d="M12 16V8"/><path d="M16.5 16v-3"/>',
+  layers: '<path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
+  sliders:
+    '<path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/>',
+  cpu: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/>',
+  'user-check':
+    '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>',
   'arrow-up': '<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>',
   'arrow-down': '<path d="M12 5v14"/><path d="M18 13l-6 6-6-6"/>',
   'arrow-up-right': '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',

@@ -188,7 +188,10 @@ const breadcrumbLd = {
   }
   .post-references a {
     font-weight: var(--fw-medium);
-    white-space: nowrap;
+    /* `nowrap` here made a bare reference URL one unbreakable 755px token, which is
+       what pushed this route 456px past a 390px viewport. The posts route — otherwise
+       the same file — already had `overflow-wrap: anywhere`; this had diverged. */
+    overflow-wrap: anywhere;
   }
   .post-tags {
     list-style: none;

@@ -320,7 +320,64 @@ body:has(.main--bare) {
   }
 }
 
-/* ── KaTeX display math safety & responsiveness ──────────────── */
+/* ── Wide content must scroll or wrap, never widen the page ──── */
+/*
+ * Two things were pushing the document wider than the viewport on phones — 84px on
+ * /deep_dives/statistical-genetics/ and 456px on the technical reports:
+ *
+ *   1. Tables with more columns than fit. A `<table>` is shrink-to-fit but has no
+ *      minimum, so it simply grows past its container; `display: block` is what lets
+ *      `overflow-x` apply to it at all.
+ *   2. Long inline `<code>` — an identifier or a pipe-delimited header inside a
+ *      paragraph — which has no break opportunities and so cannot wrap.
+ *
+ * `<pre>` blocks were already fine; their own `overflow-x: auto` was doing the job.
+ */
+main table,
+article table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+main :not(pre) > code,
+article :not(pre) > code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* A bare URL in prose is one long unbreakable token — a 755px reference link was
+   what remained of the technical reports' overflow after the tables were fixed. */
+main a,
+article a {
+  overflow-wrap: anywhere;
+}
+
+/* ── KaTeX math safety & responsiveness ──────────────────────── */
+/*
+ * Inline math needs constraining too, not just display math.
+ *
+ * A long formula set inline is one atomic, unbreakable box: it cannot wrap, so it
+ * pushes straight through its container and widens the document. That is what put
+ * 84px of horizontal overflow on /deep_dives/statistical-genetics/ at 390px.
+ * `max-width` does nothing on a non-replaced inline element, hence `inline-block`.
+ *
+ * These rules lived only in `paper.css`, which the deep-dive pages do not load —
+ * they take `global.css`, where only the display rules existed. Consolidated here
+ * because `BaseLayout` loads this on every page.
+ */
+.katex-wrap {
+  max-width: 100%;
+}
+
+.katex-wrap--inline {
+  display: inline-block;
+  vertical-align: middle;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .katex-wrap--display,
 .katex-display {
   display: block !important;

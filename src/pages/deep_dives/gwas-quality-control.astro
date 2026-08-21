@@ -7,7 +7,11 @@ import 'katex/dist/katex.min.css';
 
 const title = "Rigorous Quality Control (QC) Protocols in GWAS: Sample- and Variant-Level Filtering Pipelines";
 const description = "A step-by-step mathematical guide to quality control in genome-wide association studies: call rate thresholds, sex chromosome inbreeding metrics, heterozygosity outlier tests, cryptic relatedness via IBD, and differential missingness.";
-const readingTime = "16 min read";
+/* Derived from this page's own content, not guessed: prose at 200 wpm, plus 15 s per
+   display equation and 3 s per inline one. These constants had drifted to ~2.5x the
+   truth (this page: 733 prose words, 4 display and 24 inline equations). Part 2 moves
+   the series into a content collection where this is computed, not written down. */
+const readingTime = "6 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">
