@@ -1030,6 +1030,78 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).grabbedCell).toBe(cell2);
   });
 
+  describe('perturbations', () => {
+    it('nocodazole arrests mitosis at the metaphase plate, and washout resumes it', () => {
+      const engine = makeEngine();
+      const cell = createCell(engine, 50);
+      cell.matureElapsed = 20;
+      (engine as any).cells = [cell];
+      engine.setPerturbation('nocodazole');
+      (engine as any).triggerMitosis(cell, true, 'user');
+
+      update(engine, 3.5);
+      expect(cell.state).toBe('mitosis');
+      expect(cell.mitosisProgress).toBeCloseTo(0.34, 2);
+      expect((engine as any).biologicalPhase(cell)).toBe('metaphase');
+
+      // Held, not merely clamped: washing out resumes rather than jumping to done.
+      engine.setPerturbation('none');
+      update(engine, 0.5);
+      expect(cell.mitosisProgress).toBeGreaterThan(0.34);
+      expect(cell.mitosisProgress).toBeLessThan(0.7);
+    });
+
+    it('cytochalasin divides the nucleus but not the cell', () => {
+      const engine = makeEngine();
+      const cell = createCell(engine, 50);
+      cell.matureElapsed = 20;
+      (engine as any).cells = [cell];
+      engine.setPerturbation('cytochalasin');
+      (engine as any).triggerMitosis(cell, true, 'user');
+      update(engine, MITOSIS_SECONDS + 0.4);
+
+      expect((engine as any).cells.length).toBe(1);
+      expect((engine as any).cells[0].nucleusCount).toBe(2);
+      expect((engine as any).cells[0].state).toBe('mature');
+    });
+
+    it('staurosporine induces apoptosis across the dish', () => {
+      const engine = makeEngine();
+      const cells = Array.from({ length: 8 }, (_, index) => {
+        const cell = createCell(engine, 26);
+        cell.x = 100 + index * 60;
+        cell.y = 300;
+        cell.state = 'mature';
+        return cell;
+      });
+      Object.assign(engine as any, { cells, inputQuietRemaining: 1_000_000 });
+      engine.setPerturbation('staurosporine');
+      update(engine, 4);
+      const dying = (engine as any).cells.filter(
+        (c: LivingCell) => c.state === 'apoptosis'
+      ).length;
+      expect(dying).toBeGreaterThan(0);
+    });
+
+    it('contact inhibition stops automatic division but never an explicit one', () => {
+      const engine = makeEngine();
+      const cell = createCell(engine, 50);
+      cell.matureElapsed = 20;
+      cell.contactCount = 6; // hemmed in
+      Object.assign(engine as any, { cells: [cell], targetCount: 8, rebalanceCooldown: 0 });
+
+      expect((engine as any).divisionCandidate()).toBeNull();
+
+      cell.contactCount = 1;
+      expect((engine as any).divisionCandidate()).toBe(cell);
+
+      // An explicit click still divides a confluent cell.
+      cell.contactCount = 6;
+      (engine as any).queueDivision(cell);
+      expect(cell.state).toBe('mitosis');
+    });
+  });
+
   describe('cullToBaseline', () => {
     const stock = (engine: LivingCellsEngine, count: number) => {
       const cells: LivingCell[] = [];

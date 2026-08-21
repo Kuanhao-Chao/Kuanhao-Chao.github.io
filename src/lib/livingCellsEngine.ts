@@ -57,6 +57,16 @@ export type LabTool =
   | 'mitosis'
   | 'apoptosis';
 export type StainingMode = 'phase' | 'gfp' | 'dapi' | 'mcherry' | 'lineage';
+/**
+ * Perturbations applied to the whole medium, the way a drug actually is.
+ *
+ * Each one breaks a different step of the cycle, which is the point: the lifecycle
+ * is easiest to read when you can stop it somewhere specific.
+ *  - `nocodazole`   depolymerises microtubules -> no spindle -> arrest at metaphase
+ *  - `cytochalasin` blocks actin -> the contractile ring never closes -> binucleate
+ *  - `staurosporine` a classic apoptosis inducer -> steady programmed death
+ */
+export type Perturbation = 'none' | 'nocodazole' | 'cytochalasin' | 'staurosporine';
 export type CellState = 'growing' | 'mature' | 'mitosis' | 'postmitotic' | 'apoptosis';
 type LifecycleSource = 'user' | 'automatic';
 type DetailLevel = 'full' | 'reduced' | 'minimal';
@@ -112,6 +122,7 @@ export interface CellSimParams {
   viscosity?: number;
   temperature?: number;
   stainingMode?: StainingMode;
+  perturbation?: Perturbation;
 }
 
 export interface CellTelemetry {
@@ -243,6 +254,8 @@ export interface LivingCell {
   blebs?: ApoptoticBleb[];
   glowIntensity: number;
   contactCount: number;
+  /** >1 after a cytokinesis failure: nuclear division succeeded, the cell did not split. */
+  nucleusCount?: number;
   lifecycleSource?: LifecycleSource;
 }
 
@@ -306,6 +319,7 @@ interface DebugSnapshot {
     progress: number;
     isGrabbed: boolean;
     divisionQueued: boolean;
+    nucleusCount: number;
     phase: string;
     aspect: number;
     contourArea: number;
@@ -339,6 +353,10 @@ const MITOSIS_SECONDS = 4;
 const POSTMITOTIC_SECONDS = 1.6;
 const APOPTOSIS_SECONDS = 5.4;
 const SIZE_CHECKPOINT = 0.97;
+/** Where a nocodazole-arrested cell parks: chromosomes aligned, spindle absent. */
+const MITOSIS_ARREST = 0.34;
+/** Contacts above which an automatic division is contact-inhibited. */
+const CONFLUENCE_CONTACTS = 5;
 const MATURE_DWELL = 8;
 const DAUGHTER_RATIO = Math.cbrt(0.5);
 const BASE_ALPHA = 1.0;
@@ -419,6 +437,7 @@ export class LivingCellsEngine {
   private apoptoticBodies: ApoptoticBleb[] = [];
   private cullQueue: { id: string; at: number; duration: number }[] = [];
   private cullClock = 0;
+  private staurosporineClock = 0;
   private nutrientDroplets: NutrientDroplet[] = [];
   private mutagenPulses: MutagenPulse[] = [];
   private laser: LaserBeam = { active: false, x: -1000, y: -1000, radius: 140, power: 200 };
@@ -854,6 +873,17 @@ export class LivingCellsEngine {
     this.dispatch('khc:cell-params-change', { params: this.getParams() });
   }
 
+  public setPerturbation(drug: Perturbation): void {
+    if (!['none', 'nocodazole', 'cytochalasin', 'staurosporine'].includes(drug)) return;
+    this.simParams.perturbation = drug;
+    this.staurosporineClock = 0;
+    this.dispatch('khc:cell-params-change', { params: this.getParams() });
+  }
+
+  public getPerturbation(): Perturbation {
+    return this.simParams.perturbation ?? 'none';
+  }
+
   public getStainingMode(): StainingMode {
     return this.simParams.stainingMode ?? 'phase';
   }
@@ -1042,6 +1072,19 @@ export class LivingCellsEngine {
       cell.apoptosisDuration = entry.duration;
       this.triggerApoptosis(cell, 'automatic');
     }
+  }
+
+  /** Staurosporine induces apoptosis steadily across the dish rather than at once. */
+  private updatePerturbation(dt: number): void {
+    if (this.getPerturbation() !== 'staurosporine') return;
+    this.staurosporineClock += dt;
+    if (this.staurosporineClock < 1.1) return;
+    this.staurosporineClock = 0;
+    const candidates = this.cells.filter(
+      (cell) => cell.state !== 'apoptosis' && !cell.isGrabbed
+    );
+    if (!candidates.length) return;
+    this.triggerApoptosis(candidates[Math.floor(this.random() * candidates.length)], 'automatic');
   }
 
   /** Abandons a clearance wave that has not finished dispatching. */
@@ -2137,6 +2180,7 @@ export class LivingCellsEngine {
     this.updateNutrients(dt);
     this.updateMutagenPulses(dt);
     this.updateCull(dt);
+    this.updatePerturbation(dt);
 
     for (const cell of this.cells) cell.contactCount = 0;
     this.resolveCollisions(dt);
@@ -2356,6 +2400,13 @@ export class LivingCellsEngine {
       return false;
     }
     if (cell.state === 'mitosis') {
+      // Nocodazole depolymerises microtubules, so no spindle forms and the cell
+      // arrests with its chromosomes at the plate. The clock is *held* rather than
+      // the progress merely clamped, so washing the drug out resumes the division
+      // from where it stopped instead of jumping to wherever elapsed time had run.
+      if (this.getPerturbation() === 'nocodazole') {
+        cell.stateElapsed = Math.min(cell.stateElapsed, MITOSIS_ARREST * MITOSIS_SECONDS);
+      }
       cell.mitosisProgress = clamp(cell.stateElapsed / MITOSIS_SECONDS, 0, 1);
       this.updateSelectedStatus(cell);
       cell.baseRadius = cell.divisionRadius ?? cell.baseRadius;
@@ -2430,6 +2481,25 @@ export class LivingCellsEngine {
   }
 
   private completeMitosis(parent: LivingCell, index: number): void {
+    // Cytochalasin blocks actin polymerisation, so the contractile ring never closes.
+    // The nucleus divides and the cell does not — the classic binucleate phenotype,
+    // and the clearest way to show that cytokinesis is a separate step from mitosis.
+    if (this.getPerturbation() === 'cytochalasin') {
+      parent.state = 'mature';
+      parent.stateElapsed = 0;
+      parent.matureElapsed = 0;
+      parent.mitosisProgress = undefined;
+      parent.mitosisPlan = undefined;
+      parent.mitosisEntryContour = undefined;
+      parent.divisionRadius = undefined;
+      parent.divisionQueued = false;
+      parent.nucleusCount = Math.min(4, (parent.nucleusCount ?? 1) + 1);
+      parent.baseRadius = parent.targetRadius;
+      parent.radius = parent.targetRadius;
+      this.quietRemaining = Math.max(2, this.quietRemaining);
+      if (parent.id === this.selectedCellId) this.hideStatus();
+      return;
+    }
     const plan =
       parent.mitosisPlan ??
       this.buildMitosisPlan(
@@ -3090,6 +3160,10 @@ export class LivingCellsEngine {
           cell.state === 'mature' &&
           cell.baseRadius >= cell.targetRadius * SIZE_CHECKPOINT &&
           cell.matureElapsed >= dwell &&
+          // Contact inhibition: a cell hemmed in on all sides stops dividing. Only
+          // automatic division is gated — an explicit click still divides, the same
+          // exception the size checkpoint already makes.
+          cell.contactCount < CONFLUENCE_CONTACTS &&
           !cell.isGrabbed &&
           !cell.divisionQueued
       )
@@ -3360,6 +3434,42 @@ export class LivingCellsEngine {
     return this.palette;
   }
 
+  /** One nucleus: envelope, then nucleolus. Factored out so a binucleate cell can
+   *  draw more than one without duplicating the paint code. */
+  private renderNucleusLobe(
+    x: number,
+    y: number,
+    a: number,
+    b: number,
+    r: number,
+    angle: number,
+    alpha: number,
+    isLab: boolean,
+    isHsl: boolean,
+    palette: Palette
+  ): void {
+    if (!this.ctx) return;
+    const { accent, ink, glow, dark } = palette;
+    this.ctx.beginPath();
+    this.ctx.ellipse(x, y, a, b, angle, 0, TAU);
+    this.ctx.fillStyle = isHsl
+      ? `hsla(${accent}, ${(isLab ? 0.16 : 0.11) * alpha})`
+      : `rgba(${accent}, ${(isLab ? 0.11 : 0.078) * alpha})`;
+    this.ctx.fill();
+    this.ctx.lineWidth = isLab ? 1.15 : 0.95;
+    this.ctx.strokeStyle = isHsl
+      ? `hsla(${glow}, ${(isLab ? 0.22 : 0.14) * alpha})`
+      : `rgba(${dark ? glow : ink}, ${(isLab ? 0.13 : 0.078) * alpha})`;
+    this.ctx.stroke();
+
+    this.ctx.beginPath();
+    this.ctx.arc(x + Math.cos(angle) * r * 0.14, y + Math.sin(angle) * r * 0.14, r * 0.36, 0, TAU);
+    this.ctx.fillStyle = isHsl
+      ? `hsla(${glow}, ${(isLab ? 0.25 : 0.16) * alpha})`
+      : `rgba(${ink}, ${(isLab ? 0.15 : 0.098) * alpha})`;
+    this.ctx.fill();
+  }
+
   private renderInterior(
     cell: LivingCell,
     radius: number,
@@ -3385,33 +3495,31 @@ export class LivingCellsEngine {
         clamp(1 + (cell.aspect - 1) * 0.22, 0.94, 1.06),
         lerp(0.45, 1, recovery)
       );
-      const nucleusA = nr * Math.sqrt(nucleusAspect);
-      const nucleusB = nr / Math.sqrt(nucleusAspect);
+      // A cytokinesis failure leaves more than one nucleus in one cell, so they share
+      // the space: each is drawn smaller and pushed off-centre rather than stacked.
+      const nucleusCount = clamp(cell.nucleusCount ?? 1, 1, 4);
+      const shrink = nucleusCount > 1 ? Math.pow(nucleusCount, -0.36) : 1;
+      const spread = nucleusCount > 1 ? nr * 0.78 : 0;
+      const nucleusA = nr * shrink * Math.sqrt(nucleusAspect);
+      const nucleusB = (nr * shrink) / Math.sqrt(nucleusAspect);
 
-      this.ctx.beginPath();
-      this.ctx.ellipse(nx, ny, nucleusA, nucleusB, cell.nucleusAngle, 0, TAU);
-      this.ctx.fillStyle = isHsl
-        ? `hsla(${accent}, ${(isLab ? 0.16 : 0.11) * alpha * nucleusRecovery})`
-        : `rgba(${accent}, ${(isLab ? 0.11 : 0.078) * alpha * nucleusRecovery})`;
-      this.ctx.fill();
-      this.ctx.lineWidth = isLab ? 1.15 : 0.95;
-      this.ctx.strokeStyle = isHsl
-        ? `hsla(${glow}, ${(isLab ? 0.22 : 0.14) * alpha * nucleusRecovery})`
-        : `rgba(${dark ? glow : ink}, ${(isLab ? 0.13 : 0.078) * alpha * nucleusRecovery})`;
-      this.ctx.stroke();
-
-      this.ctx.beginPath();
-      this.ctx.arc(
-        nx + Math.cos(cell.nucleusAngle) * nr * 0.14,
-        ny + Math.sin(cell.nucleusAngle) * nr * 0.14,
-        nr * 0.36,
-        0,
-        TAU
-      );
-      this.ctx.fillStyle = isHsl
-        ? `hsla(${glow}, ${(isLab ? 0.25 : 0.16) * alpha * nucleusRecovery})`
-        : `rgba(${ink}, ${(isLab ? 0.15 : 0.098) * alpha * nucleusRecovery})`;
-      this.ctx.fill();
+      for (let lobe = 0; lobe < nucleusCount; lobe++) {
+        const theta = cell.nucleusAngle + (lobe / nucleusCount) * TAU;
+        const ox = nx + (nucleusCount > 1 ? Math.cos(theta) * spread : 0);
+        const oy = ny + (nucleusCount > 1 ? Math.sin(theta) * spread : 0);
+        this.renderNucleusLobe(
+          ox,
+          oy,
+          nucleusA,
+          nucleusB,
+          nr * shrink,
+          cell.nucleusAngle,
+          alpha * nucleusRecovery,
+          isLab,
+          isHsl,
+          effectivePalette
+        );
+      }
     }
 
     if (detailLevel === 'minimal') return;
@@ -4185,6 +4293,7 @@ export class LivingCellsEngine {
                     : 1,
           isGrabbed: cell.isGrabbed,
           divisionQueued: cell.divisionQueued,
+          nucleusCount: cell.nucleusCount ?? 1,
           phase: this.biologicalPhase(cell),
           aspect: cell.aspect,
           contourArea: polygonArea(contour),

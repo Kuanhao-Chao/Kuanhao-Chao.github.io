@@ -154,6 +154,30 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           </div>
         </section>
 
+        <!-- Pharmacology -->
+        <section class="hud-section">
+          <span class="hud-label">Perturbations</span>
+          <div class="hud-staining-grid">
+            <button type="button" class="stain-btn drug-btn is-active" data-drug="none" title="No drug in the medium">💧 None</button>
+            <button type="button" class="stain-btn drug-btn" data-drug="nocodazole" title="Nocodazole: depolymerises microtubules, so no spindle forms and dividing cells arrest with their chromosomes at the metaphase plate">🧷 Nocodazole</button>
+            <button type="button" class="stain-btn drug-btn" data-drug="cytochalasin" title="Cytochalasin: blocks actin, so the contractile ring never closes — the nucleus divides but the cell does not, leaving binucleate cells">🔗 Cytochalasin</button>
+            <button type="button" class="stain-btn drug-btn" data-drug="staurosporine" title="Staurosporine: a classic apoptosis inducer — programmed death spreads steadily through the dish">☠️ Staurosporine</button>
+          </div>
+          <p class="hud-drug-note" data-drug-note>Add a drug to the medium to stop the cycle at one specific step.</p>
+        </section>
+
+        <!-- Population dynamics -->
+        <section class="hud-section">
+          <span class="hud-label">Population Dynamics</span>
+          <canvas class="hud-chart" id="pop-chart" width="520" height="132" role="img"
+            aria-label="Live chart of total cell count, births and deaths over the last two minutes"></canvas>
+          <div class="hud-chart-legend">
+            <span class="chart-key chart-key--total">Total</span>
+            <span class="chart-key chart-key--births">Births/min</span>
+            <span class="chart-key chart-key--deaths">Deaths/min</span>
+          </div>
+        </section>
+
         <!-- Presets -->
         <section class="hud-section">
           <span class="hud-label">Biological Presets</span>
@@ -622,6 +646,41 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     gap: 0.35rem;
   }
 
+  .hud-chart {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.45);
+  }
+  .hud-chart-legend {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.35rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+  }
+  .chart-key::before {
+    content: '';
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.18rem;
+    border-radius: 2px;
+    margin-right: 0.3rem;
+    vertical-align: middle;
+  }
+  .chart-key--total { color: #93c5fd; }
+  .chart-key--total::before { background: #60a5fa; }
+  .chart-key--births { color: #6ee7b7; }
+  .chart-key--births::before { background: #34d399; }
+  .chart-key--deaths { color: #fca5a5; }
+  .chart-key--deaths::before { background: #f87171; }
+  .hud-drug-note {
+    margin: 0.4rem 0 0;
+    font-size: 0.7rem;
+    line-height: 1.45;
+    opacity: 0.72;
+  }
   .stain-btn {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.09);
@@ -1060,6 +1119,88 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       };
     });
 
+    // Perturbation Wiring
+    const drugButtons = document.querySelectorAll<HTMLButtonElement>('.drug-btn');
+    const drugNote = document.querySelector<HTMLElement>('[data-drug-note]');
+    const drugNotes: Record<string, string> = {
+      none: 'Add a drug to the medium to stop the cycle at one specific step.',
+      nocodazole: 'No spindle: dividing cells arrest with chromosomes at the plate. Wash out to resume.',
+      cytochalasin: 'The ring cannot close: nuclei divide, cells do not — watch binucleate cells appear.',
+      staurosporine: 'Programmed death spreads through the dish. Wash out to stop inducing it.',
+    };
+    drugButtons.forEach((btn) => {
+      btn.onclick = () => {
+        const drug = btn.getAttribute('data-drug');
+        if (!drug) return;
+        drugButtons.forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        engine.setPerturbation(drug as Parameters<typeof engine.setPerturbation>[0]);
+        if (drugNote) drugNote.textContent = drugNotes[drug] ?? drugNotes.none;
+      };
+    });
+
+    // Population chart. Samples once a second and keeps two minutes of history, so
+    // equilibrium is something you can see holding rather than have to take on trust.
+    const chart = document.getElementById('pop-chart') as HTMLCanvasElement | null;
+    const history: { total: number; births: number; deaths: number }[] = [];
+    let lastBirths = 0;
+    let lastDeaths = 0;
+    let chartTimer = 0;
+    const HISTORY = 120;
+    const drawChart = () => {
+      if (!chart) return;
+      const ctx = chart.getContext('2d');
+      if (!ctx || !history.length) return;
+      const w = chart.width;
+      const h = chart.height;
+      ctx.clearRect(0, 0, w, h);
+      const maxTotal = Math.max(8, ...history.map((p) => p.total));
+      const maxRate = Math.max(4, ...history.map((p) => Math.max(p.births, p.deaths)));
+      // Newest sample pinned to the right edge, so the trace scrolls in like a real
+      // chart recorder instead of filling the panel left-to-right over two minutes.
+      const x = (i: number) => w - ((history.length - 1 - i) / Math.max(1, HISTORY - 1)) * w;
+      const line = (key: 'total' | 'births' | 'deaths', color: string, scale: number) => {
+        ctx.beginPath();
+        history.forEach((point, i) => {
+          const y = h - (point[key] / scale) * (h - 8) - 4;
+          if (i === 0) ctx.moveTo(x(i), y);
+          else ctx.lineTo(x(i), y);
+        });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = key === 'total' ? 2 : 1.25;
+        ctx.stroke();
+      };
+      ctx.strokeStyle = 'rgba(148,163,184,0.18)';
+      ctx.lineWidth = 1;
+      for (let g = 1; g < 4; g++) {
+        ctx.beginPath();
+        ctx.moveTo(0, (h / 4) * g);
+        ctx.lineTo(w, (h / 4) * g);
+        ctx.stroke();
+      }
+      line('births', 'rgba(52,211,153,0.85)', maxRate);
+      line('deaths', 'rgba(248,113,113,0.85)', maxRate);
+      line('total', 'rgba(96,165,250,0.95)', maxTotal);
+    };
+    const sampleChart = () => {
+      const t = engine.getTelemetry();
+      history.push({
+        total: t.total,
+        births: Math.max(0, t.births - lastBirths) * 60,
+        deaths: Math.max(0, t.deaths - lastDeaths) * 60,
+      });
+      lastBirths = t.births;
+      lastDeaths = t.deaths;
+      if (history.length > HISTORY) history.shift();
+      drawChart();
+    };
+    if (chart) {
+      const t0 = engine.getTelemetry();
+      lastBirths = t0.births;
+      lastDeaths = t0.deaths;
+      chartTimer = window.setInterval(sampleChart, 1000);
+    }
+
     // Wire HUD Elements
     const hud = document.getElementById('lab-hud');
     const collapseBtn = document.getElementById('hud-collapse-btn');
@@ -1329,6 +1470,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     // Cleanup on navigation away
     const cleanup = () => {
       clearInterval(telemetryTimer);
+      if (chartTimer) clearInterval(chartTimer);
     };
     window.addEventListener('pagehide', cleanup, { once: true });
     document.addEventListener('astro:before-swap', cleanup, { once: true });
