@@ -563,18 +563,9 @@
   color: #10b981;
 }
 
-/* KaTeX Formula Display & Containers */
-.katex-wrap {
-  max-width: 100%;
-}
-
-.katex-wrap--inline {
-  display: inline-block;
-  vertical-align: middle;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
+/* KaTeX Formula Display & Containers.
+   `.katex-wrap` and `.katex-wrap--inline` now live in `global.css`, which every page
+   loads, so they are not repeated here. */
 .katex-wrap--display,
 .katex-display {
   display: block !important;

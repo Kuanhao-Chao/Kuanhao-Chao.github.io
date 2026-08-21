@@ -47,7 +47,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Quantitative Genetics & Mathematical Genomics',
     level: 'Comprehensive Curriculum Hub',
-    readingTime: '38 min read',
+    readingTime: '29 min read',
     summary:
       'A definitive, first-principles exploration of statistical genetics — bridging population genetics (HWE, Wright-Fisher drift, coalescent), Fisher infinitesimal models, Linkage Disequilibrium, GREML/GCTA heritability, LD Score Regression (LDSC/S-LDSC), Linear Mixed Models (BOLT-LMM/Regenie), Bayesian fine-mapping (SuSiE), rare-variant testing (SKAT/DeepRVAT), Mendelian Randomization (MR), and deep learning sequence models.',
     highlights: [
@@ -83,7 +83,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 1',
     level: 'Foundational to Advanced',
-    readingTime: '22 min read',
+    readingTime: '16 min read',
     summary:
       'First-principles exploration of Hardy-Weinberg equilibrium, Wright-Fisher genetic drift, Kingman\'s coalescent TMRCA genealogy, Tajima\'s D neutrality metric, Fisher\'s 1918 infinitesimal synthesis, and complete phenotypic variance decomposition.',
     highlights: [
@@ -115,7 +115,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 2',
     level: 'Advanced & Mathematical',
-    readingTime: '20 min read',
+    readingTime: '10 min read',
     summary:
       'Mathematical quantification of Linkage Disequilibrium (D, D\', r²), exact exponential half-life decay under recombination, PRDM9 zinc-finger sequence motifs, SPO11 double-strand breaks, and human haplotype block structure.',
     highlights: [
@@ -146,7 +146,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 3',
     level: 'Advanced & Mathematical',
-    readingTime: '22 min read',
+    readingTime: '9 min read',
     summary:
       'A rigorous exploration of heritability estimation — from Falconer\'s twin correlation formulas and the missing heritability crisis to Yang et al. (2010) GCTA Genomic Relatedness Matrices (GRM), AI-REML variance components, and Lee et al. liability scale conversion.',
     highlights: [
@@ -178,7 +178,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 4',
     level: 'Advanced & Mathematical',
-    readingTime: '22 min read',
+    readingTime: '11 min read',
     summary:
       'Complete mathematical derivation and first-principles proof of LD Score Regression (LDSC) — estimating SNP heritability, separating polygenicity from stratification, cross-trait genetic correlation (r_g), and functional partitioning with Stratified LDSC (S-LDSC).',
     highlights: [
@@ -209,7 +209,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 5',
     level: 'Advanced & Computational',
-    readingTime: '22 min read',
+    readingTime: '8 min read',
     summary:
       'A comprehensive guide to single-marker GWAS testing (OLS, Logistic, Score tests), statistical power NCP scaling, confounding diagnostics (λ_GC), and the computational evolution of Linear Mixed Models from GEMMA to BOLT-LMM, fastGWA, and REGENIE.',
     highlights: [
@@ -241,7 +241,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 6',
     level: 'Advanced & Mathematical',
-    readingTime: '22 min read',
+    readingTime: '9 min read',
     summary:
       'A mathematical and algorithmic guide to Bayesian fine-mapping — from Wakefield\'s Approximate Bayes Factor (ABF) with null normalization to the Sum of Single Effects (SuSiE) model, coordinate ascent variational inference (IBSS), 95% credible sets, and statistical colocalization (coloc).',
     highlights: [
@@ -273,7 +273,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 7',
     level: 'Advanced & Methodological',
-    readingTime: '20 min read',
+    readingTime: '8 min read',
     summary:
       'First-principles guide to rare variant association testing in whole-exome and whole-genome sequencing — from collapsing burden tests and the Sequence Kernel Association Test (SKAT/SKAT-O) to deep neural aggregation with DeepRVAT.',
     highlights: [
@@ -304,7 +304,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 8',
     level: 'Advanced & Methodological',
-    readingTime: '22 min read',
+    readingTime: '8 min read',
     summary:
       'A mathematical and clinical guide to Polygenic Risk Scores (PRS) — comparing Clumping+Thresholding, LDpred2 spike-and-slab MCMC, PRS-CS continuous shrinkage hierarchy, clinical calibration metrics, and multi-ancestry PRS-CSx.',
     highlights: [
@@ -336,7 +336,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 9',
     level: 'Advanced & Causal Inference',
-    readingTime: '22 min read',
+    readingTime: '9 min read',
     summary:
       'A mathematical and epidemiological guide to Mendelian Randomization (MR) — evaluating the 3 core instrumental variable assumptions, the Inverse-Variance Weighted (IVW) estimator, MR-Egger directional pleiotropy tests, Weighted Median, MVMR, and within-family sibling models.',
     highlights: [
@@ -368,7 +368,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Statistical Genetics · Part 10',
     level: 'Frontier Synthesis',
-    readingTime: '22 min read',
+    readingTime: '6 min read',
     summary:
       'A visionary synthesis of statistical genetics and AI genomics — integrating sequence models (Borzoi, AlphaGenome) and genomic language models (GPN-Star) with fine-mapping priors, Stratified LDSC, neural rare variant testing, and experimental validation (MPRA/CRISPR).',
     highlights: [
@@ -399,7 +399,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'Polygenic Architecture & Trait Mapping',
     level: 'Foundational to Advanced',
-    readingTime: '24 min read',
+    readingTime: '21 min read',
     summary:
       'A comprehensive first-principles guide to Genome-Wide Association Studies (GWAS) — from biological variation, genotyping arrays, and step-by-step QC protocols to OLS/LMM regression, ancestry PCA confounding, Linkage Disequilibrium, and clinical Polygenic Risk Scores (PRS).',
     highlights: [
@@ -431,7 +431,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'GWAS Foundations · Part 1',
     level: 'Foundational to Advanced',
-    readingTime: '16 min read',
+    readingTime: '10 min read',
     summary:
       'First-principles exploration of human genetic variation, the biophysics of mutation (transitions vs. transversions), Hardy-Weinberg Equilibrium derivations, and the historical paradigm shift from pedigree linkage to population-scale association.',
     highlights: [
@@ -461,7 +461,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'GWAS Foundations · Part 2',
     level: 'Advanced & Mathematical',
-    readingTime: '18 min read',
+    readingTime: '8 min read',
     summary:
       'A technological and mathematical deep dive into genotyping microarrays, the tag SNP paradigm, Li & Stephens genealogical copying models, PBWT scaling, and HMM imputation across 30 million variants.',
     highlights: [
@@ -491,7 +491,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'GWAS Foundations · Part 3',
     level: 'Practical & Methodological',
-    readingTime: '16 min read',
+    readingTime: '6 min read',
     summary:
       'A step-by-step mathematical guide to quality control in genome-wide association studies: call rate thresholds, sex chromosome inbreeding metrics, heterozygosity outlier tests, cryptic relatedness via IBD, and differential missingness.',
     highlights: [
@@ -521,7 +521,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'GWAS Foundations · Part 4',
     level: 'Advanced & Mathematical',
-    readingTime: '22 min read',
+    readingTime: '10 min read',
     summary:
       'A rigorous mathematical derivation of single-variant association testing: additive dosage models, the Frisch-Waugh-Lovell theorem, analytical standard errors, logistic regression MLE via IRLS, and statistical power equations.',
     highlights: [
@@ -551,7 +551,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'GWAS Foundations · Part 5',
     level: 'Advanced & Mathematical',
-    readingTime: '20 min read',
+    readingTime: '8 min read',
     summary:
       'A mathematical masterclass on population stratification in GWAS: the Lander-Schork chopsticks paradox, algebraic derivation of omitted variable bias, EIGENSTRAT PCA SVD, and Linear Mixed Models (EMMAX, BOLT-LMM, Regenie).',
     highlights: [
@@ -581,7 +581,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'GWAS Foundations · Part 6',
     level: 'Advanced & Mathematical',
-    readingTime: '16 min read',
+    readingTime: '8 min read',
     summary:
       'A mathematical derivation of the universal genome-wide significance threshold (p < 5e-8): spectral decomposition of LD correlation matrices, effective test counts (M_eff), Bonferroni bounds, and Manhattan plot geometry.',
     highlights: [
@@ -611,7 +611,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'GWAS Foundations · Part 7',
     level: 'Advanced & Mathematical',
-    readingTime: '20 min read',
+    readingTime: '9 min read',
     summary:
       'A mathematical and population-genetics masterclass on Linkage Disequilibrium: D, D\', r² formulas, PRDM9 recombination hotspots, and the complete mathematical proof of LD Score Regression (LDSC & S-LDSC).',
     highlights: [
@@ -641,7 +641,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'GWAS Foundations · Part 8',
     level: 'Advanced & Mathematical',
-    readingTime: '20 min read',
+    readingTime: '6 min read',
     summary:
       'An advanced guide to statistical fine-mapping: Wakefield Approximate Bayes Factors, Posterior Inclusion Probabilities (PIPs), SuSiE Sum of Single Effects, PolyFun/Sniff functional priors, and eQTL colocalization.',
     highlights: [
@@ -671,7 +671,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     category: 'statistical-genetics',
     tag: 'GWAS Foundations · Part 9',
     level: 'Translational & Clinical',
-    readingTime: '18 min read',
+    readingTime: '7 min read',
     summary:
       'A clinical and mathematical masterclass on Polygenic Risk Scores (PRS): Bayesian shrinkage models (LDpred2, PRS-CS), Falconer\'s liability threshold model, monogenic risk equivalence, and multi-ancestry PRS-CSx.',
     highlights: [

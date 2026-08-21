@@ -7,7 +7,11 @@ import 'katex/dist/katex.min.css';
 
 const title = "Genome-Wide Association Studies (GWAS): The Mathematical Engine of Trait Mapping";
 const description = "A comprehensive, first-principles exploration of Genome-Wide Association Studies (GWAS) — from biological variation, genotyping arrays, and QC protocols to OLS/LMM regression, ancestry PCA confounding, fine-mapping, and clinical Polygenic Risk Scores.";
-const readingTime = "24 min read";
+/* Derived from this page's own content, not guessed: prose at 200 wpm, plus 15 s per
+   display equation and 3 s per inline one. These constants had drifted to ~2.5x the
+   truth (this page: 2230 prose words, 22 display and 94 inline equations). Part 2 moves
+   the series into a content collection where this is computed, not written down. */
+const readingTime = "21 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article">
