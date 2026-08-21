@@ -113,7 +113,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     <!-- Floating Glassmorphic Control Panel -->
     <aside class="lab-hud" id="lab-hud" aria-label="Simulation Control Panel">
-      <div class="hud-header">
+      <div class="hud-header" data-hud-header>
+        <span class="hud-grab" aria-hidden="true"></span>
         <div class="hud-title-group">
           <span class="hud-icon" aria-hidden="true">⚙️</span>
           <h2 class="hud-title">HYPERPARAMETERS</h2>
@@ -471,6 +472,25 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     gap: 0.35rem;
   }
 
+  /* The dock was centred on the viewport while the control panel is anchored right,
+     so at 1440px the dock ran 38px underneath it and clipped its last tool. Centre it
+     in the space actually available instead. */
+  @media (min-width: 769px) {
+    .lab-dock {
+      left: 1.25rem;
+      right: calc(330px + 2.5rem);
+      transform: none;
+      margin-inline: auto;
+      width: max-content;
+      max-width: 100%;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .lab-dock::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
   .dock-btn {
     background: transparent;
     border: 1px solid transparent;
@@ -521,6 +541,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     flex-direction: column;
     overflow: hidden;
     transition: max-height 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .hud-grab {
+    display: none;
+    width: 2.25rem;
+    height: 0.25rem;
+    margin: 0 auto 0.35rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.28);
   }
 
   .hud-header {
@@ -985,14 +1014,53 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       padding: 0.35rem 0.5rem;
       font-size: 0.7rem;
     }
+    /* A bottom sheet with three heights. A fixed 48vh slab left only 34% of a 390px
+       screen showing the dish — the thing you came to look at. Peek is the default so
+       arriving shows the dish; half and full are deliberate choices. */
     .lab-hud {
       bottom: 4.2rem;
       right: 0.5rem;
       left: 0.5rem;
       width: auto;
-      max-height: 48vh;
-      overflow-y: auto;
+      max-height: var(--sheet-max, 36vh);
+      overflow: hidden;
       -webkit-overflow-scrolling: touch;
+      transition: max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .lab-hud[data-snap='peek'] {
+      --sheet-max: 3.4rem;
+    }
+    .lab-hud[data-snap='half'] {
+      /* 36vh, not 38: measured, this is what keeps the dish at 46% of a 390px screen
+         rather than 44%, which was the point of the exercise. */
+      --sheet-max: 36vh;
+    }
+    .lab-hud[data-snap='full'] {
+      --sheet-max: 76vh;
+    }
+    .lab-hud .hud-body {
+      max-height: none;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    .hud-grab {
+      display: block;
+    }
+    .lab-hud .hud-header {
+      cursor: grab;
+      touch-action: none;
+      flex-wrap: wrap;
+      padding: 0.35rem 1rem 0.55rem;
+    }
+    .lab-hud .hud-grab {
+      flex-basis: 100%;
+    }
+    /* The tool strip scrolls on a narrow screen; without an edge fade there is nothing
+       to say so, and four of the eight tools looked like all of them. */
+    .lab-dock {
+      mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
     }
     .hud-playback-row {
       gap: 0.35rem;
@@ -1199,6 +1267,70 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       lastBirths = t0.births;
       lastDeaths = t0.deaths;
       chartTimer = window.setInterval(sampleChart, 1000);
+    }
+
+    // Bottom-sheet snap points (narrow screens only).
+    //
+    // A fixed slab left barely a third of a 390px screen showing the dish, so the
+    // sheet now has three heights and opens at `peek`. Dragging the handle picks the
+    // neighbouring snap; tapping the header cycles, which keeps it reachable by
+    // keyboard and for anyone who cannot drag precisely.
+    const sheet = document.getElementById('lab-hud');
+    const sheetHeader = document.querySelector<HTMLElement>('[data-hud-header]');
+    const SNAPS = ['peek', 'half', 'full'] as const;
+    const narrow = window.matchMedia('(max-width: 768px)');
+    let snapIndex = 0;
+    const applySnap = () => {
+      if (!sheet) return;
+      if (narrow.matches) {
+        sheet.dataset.snap = SNAPS[snapIndex];
+        sheet.setAttribute('aria-expanded', String(snapIndex > 0));
+      } else {
+        delete sheet.dataset.snap;
+        sheet.removeAttribute('aria-expanded');
+      }
+    };
+    const setSnap = (next: number) => {
+      snapIndex = Math.max(0, Math.min(SNAPS.length - 1, next));
+      applySnap();
+    };
+    applySnap();
+    narrow.addEventListener('change', applySnap);
+
+    if (sheetHeader) {
+      let dragFrom: number | null = null;
+      let dragged = false;
+      sheetHeader.addEventListener('pointerdown', (event) => {
+        if (!narrow.matches) return;
+        if ((event.target as HTMLElement).closest('button')) return;
+        dragFrom = event.clientY;
+        dragged = false;
+        sheetHeader.setPointerCapture(event.pointerId);
+      });
+      sheetHeader.addEventListener('pointermove', (event) => {
+        if (dragFrom === null) return;
+        const delta = dragFrom - event.clientY;
+        if (Math.abs(delta) < 46) return;
+        setSnap(snapIndex + (delta > 0 ? 1 : -1));
+        dragFrom = event.clientY;
+        dragged = true;
+      });
+      const endDrag = (event: PointerEvent) => {
+        if (dragFrom === null) return;
+        const wasDrag = dragged;
+        dragFrom = null;
+        dragged = false;
+        if (sheetHeader.hasPointerCapture(event.pointerId)) {
+          sheetHeader.releasePointerCapture(event.pointerId);
+        }
+        // A tap that never became a drag cycles instead, so the sheet is usable
+        // without a precise gesture.
+        if (!wasDrag && !(event.target as HTMLElement).closest('button')) {
+          setSnap((snapIndex + 1) % SNAPS.length);
+        }
+      };
+      sheetHeader.addEventListener('pointerup', endDrag);
+      sheetHeader.addEventListener('pointercancel', endDrag);
     }
 
     // Wire HUD Elements
