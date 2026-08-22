@@ -2750,3 +2750,77 @@ dudbridge2008threshold:
   venue: "Genetic Epidemiology 32:227-234"
   doi: https://doi.org/10.1002/gepi.20297
   verified: 2026-08-21
+
+# ── Module 2 · Populations & inheritance ──────────────────────────────────────
+
+hardy1908:
+  authors: ['G. H. Hardy']
+  year: 1908
+  title: "Mendelian Proportions in a Mixed Population"
+  venue: "Science 28:49-50"
+  doi: https://doi.org/10.1126/science.28.706.49
+  verified: 2026-08-21
+
+wright1931drift:
+  authors: ['Sewall Wright']
+  year: 1931
+  title: "EVOLUTION IN MENDELIAN POPULATIONS"
+  venue: "Genetics 16:97-159"
+  doi: https://doi.org/10.1093/genetics/16.2.97
+  verified: 2026-08-21
+
+fisher1918infinitesimal:
+  authors: ['R. A. Fisher']
+  year: 1918
+  title: "XV.—The Correlation between Relatives on the Supposition of Mendelian Inheritance."
+  venue: "Transactions of the Royal Society of Edinburgh 52:399-433"
+  doi: https://doi.org/10.1017/S0080456800012163
+  verified: 2026-08-21
+
+kingman1982coalescent:
+  authors: ['J. F. C. Kingman']
+  year: 1982
+  title: "The coalescent"
+  venue: "Stochastic Processes and their Applications 13:235-248"
+  doi: https://doi.org/10.1016/0304-4149(82)90011-4
+  verified: 2026-08-21
+
+watterson1975:
+  authors: ['G. A. Watterson']
+  year: 1975
+  title: "On the number of segregating sites in genetical models without recombination"
+  venue: "Theoretical Population Biology 7:256-276"
+  doi: https://doi.org/10.1016/0040-5809(75)90020-9
+  verified: 2026-08-21
+
+tajima1989:
+  authors: ['F. Tajima']
+  year: 1989
+  title: "Statistical method for testing the neutral mutation hypothesis by DNA polymorphism."
+  venue: "Genetics 123:585-595"
+  doi: https://doi.org/10.1093/genetics/123.3.585
+  verified: 2026-08-21
+
+wigginton2005hwe:
+  authors: ['Janis E. Wigginton', 'David J. Cutler', 'Gonçalo R. Abecasis']
+  year: 2005
+  title: "A Note on Exact Tests of Hardy-Weinberg Equilibrium"
+  venue: "The American Journal of Human Genetics 76:887-893"
+  doi: https://doi.org/10.1086/429864
+  verified: 2026-08-21
+
+kimura1969fixation:
+  authors: ['Motoo Kimura', 'Tomoko Ohta']
+  year: 1969
+  title: "THE AVERAGE NUMBER OF GENERATIONS UNTIL FIXATION OF A MUTANT GENE IN A FINITE POPULATION"
+  venue: "Genetics 61:763-771"
+  doi: https://doi.org/10.1093/genetics/61.3.763
+  verified: 2026-08-21
+
+barton2017infinitesimal:
+  authors: ['N. H. Barton', 'A. M. Etheridge', 'A. Véber']
+  year: 2017
+  title: "The infinitesimal model: Definition, derivation, and implications"
+  venue: "Theoretical Population Biology 118:50-73"
+  doi: https://doi.org/10.1016/j.tpb.2017.06.001
+  verified: 2026-08-21

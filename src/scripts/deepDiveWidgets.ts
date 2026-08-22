@@ -551,10 +551,19 @@ const drift: Renderer = (canvas, controlHost, readoutHost) => {
       })
     );
     g.appendChild(
-      label(PAD.left + 8, y(p0) - 8, 'E[p] = p₀, with its ±1 SD band', {
+      // Top-left rather than on the line itself: at t = 0 every trajectory is still at
+      // p₀, so the line's own neighbourhood is the busiest part of the plot.
+      label(PAD.left + 8, PAD.top + 14, 'E[p] = p₀, with its ±1 SD band', {
         fill: ACCENT,
         'font-size': 11,
         'font-weight': 600,
+        // Eight trajectories cross this label, so it needs to be lifted off them. A stroke
+        // in the page background painted underneath the glyphs is the only halo that stays
+        // correct in both themes — a literal colour would be right in one and wrong in the
+        // other. It has to go through `style`: var() does not resolve inside an SVG
+        // presentation attribute, only inside a CSS declaration.
+        style:
+          'paint-order:stroke;stroke:var(--color-bg,#fff);stroke-width:3.5px;stroke-linejoin:round',
       })
     );
 

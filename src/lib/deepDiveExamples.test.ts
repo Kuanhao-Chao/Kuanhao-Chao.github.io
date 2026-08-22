@@ -13,6 +13,8 @@ import {
   fisherExactP, foldEnrichment,
   ivwMeta, winnersCurseExpectation, zThreshold, normalCdf,
   chi2Quantile, regularizedGammaP, solveLinear, matMul, transpose, contingencyTests,
+  hweExpected, hweChiSquare, hweExactP, alleleFrequency, heterozygosityDecay, driftVariance,
+  wattersonTheta, tajimaConstants, tajimasD,
 } from './deepDiveMath.ts';
 
 /**
@@ -303,6 +305,276 @@ describe('statgen-mathematical-foundations', () => {
     it('errs conservatively — the naive p-value is the larger one', () => {
       expect(chi2Tail(LAMBDA)).toBeGreaterThan(0.5 * chi2Tail(LAMBDA));
       expect(mdx).toContain('is *larger* than the correct one');
+    });
+  });
+});
+
+describe('statgen-population-infinitesimal', () => {
+  const mdx = lesson('statgen-population-infinitesimal');
+  const chi2Tail = (x: number) => 1 - regularizedGammaP(0.5, x / 2);
+  const COMMON = { AA: 298, Aa: 489, aa: 213 };
+  const RARE = { AA: 940, Aa: 56, aa: 4 };
+
+  describe('worked example — the same test on a common and a rare variant', () => {
+    it('has the allele frequencies the lesson states', () => {
+      expect(alleleFrequency(COMMON)).toBeCloseTo(0.4575, 6);
+      expect(alleleFrequency(RARE)).toBeCloseTo(0.032, 6);
+      expect(mdx).toContain('(2 \\times 213 + 489)/2000 = 0.4575');
+      expect(mdx).toContain('(2 \\times 4 + 56)/2000 = 0.0320');
+    });
+
+    it('expects the counts the lesson tabulates', () => {
+      const a = hweExpected(COMMON);
+      expect(a.AA).toBeCloseTo(294.306, 3);
+      expect(a.Aa).toBeCloseTo(496.388, 3);
+      expect(a.aa).toBeCloseTo(209.306, 3);
+      const b = hweExpected(RARE);
+      expect(b.AA).toBeCloseTo(937.024, 3);
+      expect(b.Aa).toBeCloseTo(61.952, 3);
+      expect(b.aa).toBeCloseTo(1.024, 3);
+      expect(mdx).toContain('(294.306,\\; 496.388,\\; 209.306)');
+      expect(mdx).toContain('(937.024,\\; 61.952,\\; 1.024)');
+    });
+
+    it('agrees between the two tests for the common variant', () => {
+      const x = hweChiSquare(COMMON);
+      expect(x).toBeCloseTo(0.2215, 4);
+      expect(chi2Tail(x)).toBeCloseTo(0.6379, 4);
+      expect(hweExactP(COMMON)).toBeCloseTo(0.6557, 4);
+      expect(mdx).toContain('= 0.2215');
+      expect(mdx).toContain('p = 0.6379');
+      expect(mdx).toContain('p = 0.6557');
+    });
+
+    it('disagrees 6.6-fold for the rare one, with chi-square the smaller', () => {
+      const x = hweChiSquare(RARE);
+      expect(x).toBeCloseTo(9.2303, 4);
+      const chiP = chi2Tail(x);
+      const exactP = hweExactP(RARE);
+      expect(chiP).toBeCloseTo(2.38e-3, 5);
+      expect(exactP).toBeCloseTo(1.568e-2, 5);
+      expect(exactP / chiP).toBeCloseTo(6.6, 1);
+      expect(chiP).toBeLessThan(exactP);          // the anti-conservative direction
+      expect(mdx).toContain('= 9.2303');
+      expect(mdx).toContain('p = 2.380\\times10^{-3}');
+      expect(mdx).toContain('p = 1.568\\times10^{-2}');
+      expect(mdx).toContain('6.6 times larger');
+    });
+
+    it('blames the discrepancy on the minor-homozygote cell', () => {
+      const e = hweExpected(RARE);
+      const third = (RARE.aa - e.aa) ** 2 / e.aa;
+      expect(third).toBeCloseTo(8.65, 2);
+      expect(third / hweChiSquare(RARE)).toBeGreaterThan(0.93);
+      expect(mdx).toContain('(4-1.024)^2/1.024 = 8.65');
+    });
+  });
+
+  describe('figure 1 — Hardy–Weinberg proportions', () => {
+    it('marks the worked example at q = 0.032 with 1.02 expected minor homozygotes', () => {
+      expect(0.032 ** 2).toBeCloseTo(0.001024, 9);
+      expect(1000 * 0.032 ** 2).toBeCloseTo(1.024, 6);
+      expect(mdx).toContain('q² = 0.001024');
+      expect(mdx).toContain('1.02 minor homozygotes');
+    });
+
+    it('marks the heterozygote maximum at 0.5', () => {
+      // 2q(1-q) is maximised at q = 1/2, where it equals 1/2
+      for (const q of [0.1, 0.25, 0.4, 0.49]) expect(2 * q * (1 - q)).toBeLessThan(0.5);
+      expect(2 * 0.5 * 0.5).toBeCloseTo(0.5, 12);
+      expect(mdx).toContain('heterozygosity peaks');
+    });
+  });
+
+  describe('worked example — how fast does a population forget?', () => {
+    const NE = 10000;
+
+    it('retains 95.1% of heterozygosity after 1,000 generations', () => {
+      expect(heterozygosityDecay(0.5, NE, 1000) / 0.5).toBeCloseTo(0.951228, 6);
+      expect(mdx).toContain('= 0.951228');
+      expect(mdx).toContain('**95.1%**');
+    });
+
+    it('has a half-life of 13,862.6 generations, matching 2·Nₑ·log 2', () => {
+      const halfLife = Math.log(0.5) / Math.log(1 - 1 / (2 * NE));
+      expect(halfLife).toBeCloseTo(13862.6, 1);
+      expect(2 * NE * Math.LN2).toBeCloseTo(13862.9, 1);
+      expect(mdx).toContain('13{,}862.6 \\text{ generations}');
+      expect(mdx).toContain('2N_e \\log 2 = 13{,}862.9');
+    });
+
+    it('spreads the frequency by 0.11042', () => {
+      expect(Math.sqrt(driftVariance(0.5, NE, 1000))).toBeCloseTo(0.11042, 5);
+      expect(mdx).toContain('= 0.11042');
+    });
+  });
+
+  describe('figure 2 — coalescent waiting times', () => {
+    const NE = 10000;
+    const N = 20;
+    const times = Array.from({ length: N - 1 }, (_, i) => {
+      const k = N - i;
+      return (4 * NE) / (k * (k - 1));
+    });
+    const total = times.reduce((a, b) => a + b, 0);
+
+    it('waits 20,000 generations for the last join', () => {
+      expect((4 * NE) / (2 * 1)).toBe(20000);
+      expect(mdx).toContain('20,000 generations');
+    });
+
+    it('spends 53% of the tree depth on that one join', () => {
+      expect((20000 / total) * 100).toBeCloseTo(52.63, 2);
+      expect(Math.round((20000 / total) * 100)).toBe(53);
+      expect(mdx).toContain('53 percent of the whole tree depth');
+      expect(mdx).toContain('53% of the depth');
+    });
+
+    it('totals 4Nₑ(1 − 1/n) = 38,000 generations', () => {
+      expect(total).toBeCloseTo(38000, 6);
+      expect(4 * NE * (1 - 1 / N)).toBeCloseTo(38000, 6);
+      expect(mdx).toContain('38,000 generations');
+      expect(mdx).toContain('4Nₑ = 40,000');
+    });
+
+    it('gains almost nothing in depth from a thousand-fold larger sample', () => {
+      expect(1 - 1 / 20).toBeCloseTo(0.95, 10);
+      expect(1 - 1 / 20000).toBeCloseTo(0.99995, 10);
+      expect(mdx).toContain('0.95 \\times 4N_e');
+      expect(mdx).toContain('0.99995 \\times 4N_e');
+    });
+  });
+
+  describe("worked example — Tajima's D for a sequenced locus", () => {
+    const n = 50;
+    const S = 120;
+    const PI = 15.5;
+
+    it('has the harmonic number and Watterson estimate the lesson prints', () => {
+      const a1 = Array.from({ length: n - 1 }, (_, i) => 1 / (i + 1)).reduce((a, b) => a + b, 0);
+      expect(a1).toBeCloseTo(4.479205, 6);
+      expect(tajimaConstants(n).a1).toBeCloseTo(a1, 12);
+      expect(wattersonTheta(S, n)).toBeCloseTo(26.790466, 6);
+      expect(mdx).toContain('= 4.479205');
+      expect(mdx).toContain('\\frac{120}{4.479205} = 26.790466');
+    });
+
+    it('has the difference and the two variance constants', () => {
+      expect(PI - wattersonTheta(S, n)).toBeCloseTo(-11.290466, 6);
+      const c = tajimaConstants(n);
+      expect(c.e1).toBeCloseTo(0.027613, 6);
+      expect(c.e2).toBeCloseTo(0.003705, 6);
+      expect(mdx).toContain('15.5 - 26.790466 = -11.290466');
+      expect(mdx).toContain('e_1 = 0.027613');
+      expect(mdx).toContain('e_2 = 0.003705');
+    });
+
+    it('gives D = -1.505723, a clear excess of rare variants', () => {
+      expect(tajimasD(S, PI, n)).toBeCloseTo(-1.505723, 6);
+      expect(tajimasD(S, PI, n)).toBeLessThan(0);
+      expect(mdx).toContain('= -1.505723');
+    });
+
+    it('is zero when the two estimators agree', () => {
+      expect(tajimasD(S, wattersonTheta(S, n), n)).toBeCloseTo(0, 12);
+    });
+  });
+
+  describe('exercise 1 — a variant that fails quality control', () => {
+    const G = { AA: 1470, Aa: 24, aa: 6 };
+
+    it('expects the counts and gives the chi-square the solution states', () => {
+      expect(alleleFrequency(G)).toBeCloseTo(0.012, 6);
+      const e = hweExpected(G);
+      expect(e.AA).toBeCloseTo(1464.216, 3);
+      expect(e.Aa).toBeCloseTo(35.568, 3);
+      expect(e.aa).toBeCloseTo(0.216, 3);
+      expect(hweChiSquare(G)).toBeCloseTo(158.6678, 4);
+      expect(hweExactP(G)).toBeCloseTo(1.668e-8, 11);
+      expect(mdx).toContain('(2 \\times 6 + 24)/3000 = 0.0120');
+      expect(mdx).toContain('(1464.216,\\; 35.568,\\; 0.216)');
+      expect(mdx).toContain('= 158.6678');
+      expect(mdx).toContain('p = 1.668\\times10^{-8}');
+    });
+
+    it('has the excess and deficit the solution quotes', () => {
+      const e = hweExpected(G);
+      expect(G.aa / e.aa).toBeCloseTo(27.78, 2);
+      expect(Math.round(G.aa / e.aa)).toBe(28);
+      expect(((e.Aa - G.Aa) / e.Aa) * 100).toBeCloseTo(32.52, 2);
+      expect(Math.round(((e.Aa - G.Aa) / e.Aa) * 100)).toBe(33);
+      expect(mdx).toContain('28 times more minor');
+      expect(mdx).toContain('33% too few heterozygotes');
+    });
+
+    it('is dominated by the third term, worth 154.9 of 158.7', () => {
+      const e = hweExpected(G);
+      const third = (G.aa - e.aa) ** 2 / e.aa;
+      expect(third).toBeCloseTo(154.9, 1);
+      expect(mdx).toContain('worth 154.9 on');
+    });
+  });
+
+  describe('exercise 2 — how long does variation last?', () => {
+    const halfLife = (ne: number) => Math.log(0.5) / Math.log(1 - 1 / (2 * ne));
+    const lose10 = (ne: number) => Math.log(0.9) / Math.log(1 - 1 / (2 * ne));
+
+    it('tabulates both half-lives against the 2·Nₑ·log 2 approximation', () => {
+      expect(halfLife(500)).toBeCloseTo(692.8, 1);
+      expect(2 * 500 * Math.LN2).toBeCloseTo(693.1, 1);
+      expect(halfLife(10000)).toBeCloseTo(13862.6, 1);
+      expect(2 * 10000 * Math.LN2).toBeCloseTo(13862.9, 1);
+      for (const v of ['| 500 | 692.8 | 693.1 |', '| 10,000 | 13,862.6 | 13,862.9 |']) {
+        expect(mdx).toContain(v);
+      }
+    });
+
+    it('loses the first 10% in 105.3 and 2,107.2 generations', () => {
+      expect(lose10(500)).toBeCloseTo(105.3, 1);
+      expect(lose10(10000)).toBeCloseTo(2107.2, 1);
+      expect(mdx).toContain('105.3 generations');
+      expect(mdx).toContain('2,107.2 generations');
+    });
+
+    it('notes that the first 10% costs 15% of the half-life, not 10%', () => {
+      expect((lose10(500) / halfLife(500)) * 100).toBeCloseTo(15.2, 1);
+      expect(mdx).toContain('15% of the half-life');
+    });
+
+    it('inverts 100 generations of 10% loss to Nₑ ≈ 475', () => {
+      const ne = 1 / (2 * (1 - Math.exp(Math.log(0.9) / 100)));
+      expect(ne).toBeCloseTo(474.8, 1);
+      expect(Math.round(ne)).toBe(475);
+      expect(mdx).toContain('N_e \\approx 475');
+    });
+  });
+
+  describe('exercise 3 — reading two loci with the same S', () => {
+    const n = 20;
+    const S = 45;
+
+    it('shares a harmonic number and Watterson estimate between the loci', () => {
+      expect(tajimaConstants(n).a1).toBeCloseTo(3.54774, 5);
+      expect(wattersonTheta(S, n)).toBeCloseTo(12.684133, 6);
+      expect(mdx).toContain('= 3.547740');
+      expect(mdx).toContain('\\frac{45}{3.547740} = 12.684133');
+    });
+
+    it('shares the denominator, which the solution gives as 3.1661', () => {
+      const c = tajimaConstants(n);
+      expect(c.e1).toBeCloseTo(0.024396, 6);
+      expect(c.e2).toBeCloseTo(0.004508, 6);
+      const denom = (8.2 - wattersonTheta(S, n)) / tajimasD(S, 8.2, n);
+      expect(denom).toBeCloseTo(3.1661, 3);
+      expect(mdx).toContain('= 3.1661$ for both loci');
+    });
+
+    it('separates a neutral locus from one with an excess of rare variants', () => {
+      expect(tajimasD(S, 12.4, n)).toBeCloseTo(-0.089741, 6);
+      expect(tajimasD(S, 8.2, n)).toBeCloseTo(-1.416281, 6);
+      expect(Math.abs(tajimasD(S, 12.4, n))).toBeLessThan(0.1);
+      expect(mdx).toContain('= -0.089741');
+      expect(mdx).toContain('= -1.416281');
     });
   });
 });
