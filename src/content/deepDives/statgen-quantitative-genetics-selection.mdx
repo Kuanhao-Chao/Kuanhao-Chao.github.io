@@ -1,0 +1,487 @@
+---
+title: "Quantitative Genetics: Average Effects, Variance Components & Response to Selection"
+shortTitle: Quantitative Genetics
+description: "Why parents transmit alleles rather than genotypes, how that makes the average effect a regression slope, where additive and dominance variance come from, and what the breeder's equation can and cannot promise."
+abstract: "A genotype has a value; an allele has an effect. The two are different objects, and the whole of quantitative genetics follows from taking the difference seriously — because a parent transmits alleles, not genotypes, so only the part of the genotypic value that travels with single alleles can be inherited. Fisher's construction makes this exact: regress genotypic value on allele count, and the slope is the average effect, the fitted values are breeding values, and the residuals are dominance deviations. This lesson works one locus through that decomposition by hand, shows that the resulting variance components are properties of the population rather than of the locus, derives the breeder's equation in both its forms, and ends with why observed selection response always falls short of what the equation promises."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m03-quantitative
+moduleLabel: Module 3 · Quantitative Genetics
+order: 5
+level: intermediate
+objectives:
+  - "Write genotypic values in the a, d parameterisation and compute the population mean from allele frequencies."
+  - "Derive the average effect as the slope of genotypic value regressed on allele count."
+  - "Decompose a genotypic value into a breeding value and a dominance deviation, and verify both average to zero."
+  - "Compute additive and dominance variance from allele frequencies, and explain why both depend on the population."
+  - "Apply the breeder's equation in both the h²S and i·h·σ_A forms and show they agree."
+  - "Explain why realised selection response falls short of the predicted response over successive generations."
+prerequisites:
+  - statgen-population-infinitesimal
+relatedLessons:
+  - statgen-heritability-greml
+  - statgen-pedigrees-linkage-qtl
+keyEquations:
+  - '\alpha = a + d(q - p)'
+  - 'V_A = 2pq\,\alpha^2, \qquad V_D = (2pq\,d)^2'
+  - 'R = h^2 S = i\,h\,\sigma_A'
+referenceIds:
+  - fisher1918infinitesimal
+  - robertson1960limits
+  - bulmer1971selection
+  - lande1983selection
+  - hill2008additive
+  - visscher2008
+  - hill2010quantitative
+tags: [quantitative genetics, average effect, breeding value, additive variance, dominance, breeder's equation, selection intensity]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+A genotype has a **value**. An allele has an **effect**. These sound like the same statement
+in two vocabularies, and almost every confusion in this subject comes from treating them as
+if they were.
+
+The reason they cannot be the same is mechanical: **a parent transmits alleles, not
+genotypes**. Whatever part of an individual's superiority comes from the particular
+*combination* of alleles it happens to carry is destroyed at meiosis and reassembled at
+random in its offspring. Only the part that travels with single alleles is transmitted.
+
+Everything below is the machinery for separating those two parts. It was built by
+<Citation id="fisher1918infinitesimal" />, in the same paper that reconciled Mendelian
+inheritance with continuous traits, and the separation it produces is what makes
+heritability, breeding programmes, and polygenic scores possible.
+
+<Notation
+  rows={[
+    { symbol: 'a', meaning: 'Half the difference between the two homozygotes, measured from their midpoint', dims: 'trait units' },
+    { symbol: 'd', meaning: "The heterozygote's deviation from the homozygote midpoint; zero is purely additive", dims: 'trait units' },
+    { symbol: 'p,\\;q', meaning: 'Frequencies of alleles A and a, with p + q = 1', dims: 'in [0,1]' },
+    { symbol: 'M', meaning: 'Population mean genotypic value, measured from the homozygote midpoint', dims: 'trait units' },
+    { symbol: '\\alpha', meaning: 'Average effect of allele substitution — the regression slope', dims: 'trait units per allele' },
+    { symbol: 'A_i', meaning: 'Breeding value of genotype i: the part transmitted to offspring', dims: 'trait units' },
+    { symbol: 'V_A,\\;V_D', meaning: 'Additive and dominance components of genetic variance', dims: 'trait units²' },
+    { symbol: 'S', meaning: 'Selection differential: mean of the selected parents minus population mean', dims: 'trait units' },
+    { symbol: 'i', meaning: 'Selection intensity: S expressed in phenotypic standard deviations', dims: 'dimensionless' },
+    { symbol: 'R', meaning: "Response: the offspring generation's mean minus the parental generation's", dims: 'trait units' },
+  ]}
+/>
+
+## One locus, three values
+
+Set the origin midway between the two homozygotes and measure everything from there. Then
+the three genotypes have values
+
+$$
+G_{AA} = +a, \qquad G_{Aa} = d, \qquad G_{aa} = -a
+$$
+
+The parameter $d$ carries all the dominance: $d = 0$ is purely additive, $d = a$ is complete
+dominance of $A$, and $d > a$ is overdominance. With Hardy–Weinberg genotype frequencies the
+population mean is
+
+$$
+M = p^2(a) + 2pq(d) + q^2(-a) = a(p - q) + 2pq\,d
+$$
+
+<Callout variant="intuition" title="Why the effect of an allele is a regression slope">
+
+Ask what an allele is *worth*. It has no value of its own — its contribution depends on
+which allele it lands beside. An $A$ allele that meets another $A$ produces a genotype worth
+$+a$; the same $A$ meeting an $a$ produces one worth $d$.
+
+So the honest question is not "what is this allele worth" but "**by how much does the
+expected value change per extra copy of it**", averaged over the partners it will actually
+meet — which, under random mating, means averaged with weights $p$ and $q$.
+
+That is precisely a regression slope: regress genotypic value on the number of copies of
+$A$, weighting each genotype by how often it occurs. The slope is the average effect
+$\alpha$, and it depends on the allele frequencies because the partners do.
+
+Once you see it as a regression, the rest of the decomposition is automatic. The fitted
+values are what the allele count predicts, which is exactly the part that gets transmitted —
+the **breeding value**. The residuals are what the allele count cannot predict, which is
+exactly the part destroyed at meiosis — the **dominance deviation**.
+
+</Callout>
+
+Carrying out that regression gives
+
+$$
+\alpha = a + d(q - p)
+$$
+
+and the three breeding values, measured as deviations from $M$:
+
+$$
+A_{AA} = 2q\alpha, \qquad A_{Aa} = (q-p)\alpha, \qquad A_{aa} = -2p\alpha
+$$
+
+<Figure
+  caption="Figure 1. Fisher's decomposition on one locus, for a = 10, d = 4 and p = 0.6. The three filled points are the genotypic values; the line is their least-squares fit against allele count, weighted by genotype frequency. Its slope is the average effect, α = 9.20. The small points on the line are the fitted values, whose deviations from the population mean are the breeding values; the dashed segments are the residuals, which are the dominance deviations. Both sets average to zero over the population — the decomposition is a partition, not an approximation."
+  alt="A plot of genotypic value against the number of copies of allele A. Three filled points sit at zero copies with value minus ten, one copy with value plus four, and two copies with value plus ten. A straight line of slope 9.20 passes near them. Dashed vertical segments connect each point to the line, labelled as dominance deviations of minus 2.88, plus 1.92 and minus 1.28. A dashed horizontal line marks the population mean of 3.92."
+  wide
+>
+<svg viewBox="0 0 640 336" width="640" height="336" font-family="inherit"><line x1="96.0" y1="46.0" x2="96.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="244.0" x2="430.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="218.3" x2="430.0" y2="218.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="222.3" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-10</text><line x1="96.0" y1="181.7" x2="430.0" y2="181.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="185.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-5</text><line x1="96.0" y1="145.0" x2="430.0" y2="145.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="149.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="108.3" x2="430.0" y2="108.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="112.3" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">5</text><line x1="96.0" y1="71.7" x2="430.0" y2="71.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="75.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">10</text><line x1="139.3" y1="244.0" x2="139.3" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="139.3" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0  (aa)</text><line x1="263.0" y1="244.0" x2="263.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="263.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1  (Aa)</text><line x1="386.7" y1="244.0" x2="386.7" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="386.7" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2  (AA)</text><line x1="102.2" y1="217.5" x2="423.8" y2="42.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><line x1="96.0" y1="116.3" x2="430.0" y2="116.3" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="3 3"/><text x="100.9" y="109.3" font-size="10" fill="currentColor" opacity=".75">population mean M = 3.92</text><line x1="139.3" y1="218.3" x2="139.3" y2="197.2" stroke="currentColor" stroke-width="1.6" opacity=".8" stroke-dasharray="4 3"/><circle cx="139.3" cy="197.2" r="4.0" fill="var(--color-accent, #2e6e5e)" opacity=".55"/><circle cx="139.3" cy="218.3" r="5.5" fill="currentColor"/><text x="149.3" y="211.8" font-size="10" fill="currentColor" opacity=".85">d = -2.88</text><line x1="263.0" y1="115.7" x2="263.0" y2="129.7" stroke="currentColor" stroke-width="1.6" opacity=".8" stroke-dasharray="4 3"/><circle cx="263.0" cy="129.7" r="4.0" fill="var(--color-accent, #2e6e5e)" opacity=".55"/><circle cx="263.0" cy="115.7" r="5.5" fill="currentColor"/><text x="273.0" y="126.7" font-size="10" fill="currentColor" opacity=".85">d = +1.92</text><line x1="386.7" y1="71.7" x2="386.7" y2="62.3" stroke="currentColor" stroke-width="1.6" opacity=".8" stroke-dasharray="4 3"/><circle cx="386.7" cy="62.3" r="4.0" fill="var(--color-accent, #2e6e5e)" opacity=".55"/><circle cx="386.7" cy="71.7" r="5.5" fill="currentColor"/><text x="396.7" y="71.0" font-size="10" fill="currentColor" opacity=".85">d = -1.28</text><text x="444.0" y="74.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">slope = α = 9.20</text><text x="444.0" y="92.0" font-size="11" fill="currentColor" font-weight="700">genotypic value G</text><text x="444.0" y="108.0" font-size="10" fill="currentColor" opacity=".8">AA  +10</text><text x="444.0" y="122.0" font-size="10" fill="currentColor" opacity=".8">Aa    +4</text><text x="444.0" y="136.0" font-size="10" fill="currentColor" opacity=".8">aa   −10</text><text x="444.0" y="168.0" font-size="11" fill="currentColor" font-weight="700">breeding value</text><text x="444.0" y="184.0" font-size="10" fill="currentColor" opacity=".8">= fitted value − M</text><text x="444.0" y="198.0" font-size="10" fill="currentColor" opacity=".8">AA  +7.36</text><text x="444.0" y="212.0" font-size="10" fill="currentColor" opacity=".8">Aa   −1.84</text><text x="444.0" y="226.0" font-size="10" fill="currentColor" opacity=".8">aa  −11.04</text><text x="444.0" y="250.0" font-size="11" fill="currentColor" font-weight="700">dominance deviation</text><text x="444.0" y="266.0" font-size="10" fill="currentColor" opacity=".8">= residual from the line</text><text x="444.0" y="280.0" font-size="10" fill="currentColor" opacity=".8">AA  −1.28</text><text x="444.0" y="294.0" font-size="10" fill="currentColor" opacity=".8">Aa   +1.92</text><text x="444.0" y="308.0" font-size="10" fill="currentColor" opacity=".8">aa   −2.88</text><text x="263.0" y="288.0" font-size="12" fill="currentColor" text-anchor="middle">Copies of allele A</text><text x="20.0" y="145.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 145)">Genotypic value</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">The average effect is a regression slope, and dominance is what it leaves behind</text></svg>
+</Figure>
+
+<WorkedExample
+  title="Decomposing one locus by hand"
+  given={[
+    { label: 'Homozygote effect a', value: '10' },
+    { label: 'Dominance d', value: '4' },
+    { label: 'Frequency p(A)', value: '0.6' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the population mean.** With $q = 0.4$:
+
+$$
+M = 10(0.6 - 0.4) + 2(0.6)(0.4)(4) = 2 + 1.92 = 3.92
+$$
+
+**Step 2 — the average effect.**
+
+$$
+\alpha = a + d(q-p) = 10 + 4(0.4 - 0.6) = 10 - 0.8 = 9.20
+$$
+
+Note that $\alpha \ne a$. The substitution effect is smaller than the homozygote effect here
+because $A$ is the commoner allele, so an extra copy of it more often lands beside another
+$A$ — where the dominance bonus has already been collected.
+
+**Step 3 — breeding values.**
+
+$$
+A_{AA} = 2(0.4)(9.2) = 7.36, \quad
+A_{Aa} = (0.4-0.6)(9.2) = -1.84, \quad
+A_{aa} = -2(0.6)(9.2) = -11.04
+$$
+
+These average to zero over the population, as they must:
+$0.36(7.36) + 0.48(-1.84) + 0.16(-11.04) = 0$.
+
+**Step 4 — dominance deviations.** Each is the genotypic value minus what the breeding value
+predicts, $G_i - (M + A_i)$:
+
+$$
+D_{AA} = 10 - 11.28 = -1.28, \quad
+D_{Aa} = 4 - 2.08 = +1.92, \quad
+D_{aa} = -10 - (-7.12) = -2.88
+$$
+
+**Step 5 — the two variances.**
+
+$$
+V_A = 2pq\,\alpha^2 = 2(0.6)(0.4)(9.2)^2 = 0.48 \times 84.64 = 40.6272
+$$
+
+$$
+V_D = (2pq\,d)^2 = (0.48 \times 4)^2 = 1.92^2 = 3.6864
+$$
+
+As a check, computing $V_D$ the long way as the frequency-weighted mean squared deviation
+gives $0.36(1.28)^2 + 0.48(1.92)^2 + 0.16(2.88)^2 = 3.6864$. The decomposition is exact, and
+the two components are uncorrelated by construction — that is what makes them *components*.
+
+</WorkedExample>
+
+## The variances belong to the population, not to the locus
+
+Nothing about the locus changes as allele frequencies drift, yet the variance it contributes
+changes enormously. $V_A = 2pq\alpha^2$ is zero when either allele is fixed, for the obvious
+reason that a monomorphic locus produces no variation at all.
+
+<Figure
+  caption="Figure 2. The same locus at every allele frequency. Additive variance vanishes at both fixation points and peaks at p = 0.341 rather than at 0.5, because dominance makes the curve asymmetric. Dominance variance is smaller everywhere and peaks at p = 0.5. The vertical marker is the worked example at p = 0.6, where V_A = 40.6272 and V_D = 3.6864. The practical consequence is that 'the additive variance of a locus' is not a thing — only the additive variance of a locus in a particular population is."
+  alt="A plot of variance against the frequency of allele A from 0 to 1. A solid curve for additive variance rises from zero, peaks near 57 at p equals 0.34, and falls back to zero at p equals 1. A dashed curve for dominance variance is much lower, peaking near 4 at p equals 0.5. A vertical marker at p equals 0.6 shows values of 40.6272 and 3.6864."
+  wide
+>
+<svg viewBox="0 0 640 302" width="640" height="302" font-family="inherit"><line x1="96.0" y1="46.0" x2="96.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="244.0" x2="452.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="244.0" x2="452.0" y2="244.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="248.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="194.5" x2="452.0" y2="194.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="198.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">15</text><line x1="96.0" y1="145.0" x2="452.0" y2="145.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="149.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">30</text><line x1="96.0" y1="95.5" x2="452.0" y2="95.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="99.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">45</text><line x1="96.0" y1="46.0" x2="452.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="50.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">60</text><line x1="96.0" y1="244.0" x2="96.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="96.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="167.2" y1="244.0" x2="167.2" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="167.2" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="238.4" y1="244.0" x2="238.4" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="238.4" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="309.6" y1="244.0" x2="309.6" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="309.6" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.6</text><line x1="380.8" y1="244.0" x2="380.8" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="380.8" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.8</text><line x1="452.0" y1="244.0" x2="452.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="452.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.0</text><path d="M96.0,244.0 L97.5,238.7 L99.0,233.4 L100.5,228.3 L101.9,223.2 L103.4,218.2 L104.9,213.4 L106.4,208.6 L107.9,203.9 L109.3,199.3 L110.8,194.8 L112.3,190.4 L113.8,186.0 L115.3,181.8 L116.8,177.6 L118.2,173.5 L119.7,169.5 L121.2,165.6 L122.7,161.8 L124.2,158.0 L125.7,154.4 L127.2,150.8 L128.6,147.3 L130.1,143.9 L131.6,140.5 L133.1,137.2 L134.6,134.0 L136.1,130.9 L137.5,127.9 L139.0,124.9 L140.5,122.0 L142.0,119.2 L143.5,116.4 L144.9,113.7 L146.4,111.1 L147.9,108.6 L149.4,106.1 L150.9,103.7 L152.4,101.4 L153.8,99.1 L155.3,96.9 L156.8,94.8 L158.3,92.7 L159.8,90.7 L161.3,88.8 L162.8,86.9 L164.2,85.1 L165.7,83.3 L167.2,81.6 L168.7,80.0 L170.2,78.4 L171.6,76.9 L173.1,75.4 L174.6,74.0 L176.1,72.7 L177.6,71.4 L179.1,70.2 L180.6,69.0 L182.0,67.9 L183.5,66.8 L185.0,65.8 L186.5,64.8 L188.0,63.9 L189.4,63.1 L190.9,62.3 L192.4,61.5 L193.9,60.8 L195.4,60.1 L196.9,59.5 L198.3,58.9 L199.8,58.4 L201.3,57.9 L202.8,57.5 L204.3,57.1 L205.8,56.8 L207.2,56.5 L208.7,56.2 L210.2,56.0 L211.7,55.8 L213.2,55.7 L214.7,55.6 L216.2,55.6 L217.6,55.6 L219.1,55.6 L220.6,55.7 L222.1,55.8 L223.6,55.9 L225.0,56.1 L226.5,56.3 L228.0,56.5 L229.5,56.8 L231.0,57.1 L232.5,57.5 L234.0,57.9 L235.4,58.3 L236.9,58.8 L238.4,59.2 L239.9,59.8 L241.4,60.3 L242.8,60.9 L244.3,61.5 L245.8,62.1 L247.3,62.8 L248.8,63.5 L250.3,64.2 L251.8,64.9 L253.2,65.7 L254.7,66.5 L256.2,67.3 L257.7,68.2 L259.2,69.0 L260.6,69.9 L262.1,70.9 L263.6,71.8 L265.1,72.8 L266.6,73.8 L268.1,74.8 L269.5,75.8 L271.0,76.8 L272.5,77.9 L274.0,79.0 L275.5,80.1 L277.0,81.2 L278.4,82.4 L279.9,83.5 L281.4,84.7 L282.9,85.9 L284.4,87.1 L285.9,88.4 L287.4,89.6 L288.8,90.9 L290.3,92.2 L291.8,93.5 L293.3,94.8 L294.8,96.1 L296.2,97.4 L297.7,98.8 L299.2,100.1 L300.7,101.5 L302.2,102.9 L303.7,104.3 L305.1,105.7 L306.6,107.1 L308.1,108.5 L309.6,109.9 L311.1,111.4 L312.6,112.8 L314.1,114.3 L315.5,115.7 L317.0,117.2 L318.5,118.7 L320.0,120.2 L321.5,121.7 L322.9,123.2 L324.4,124.7 L325.9,126.2 L327.4,127.7 L328.9,129.2 L330.4,130.8 L331.9,132.3 L333.3,133.8 L334.8,135.4 L336.3,136.9 L337.8,138.5 L339.3,140.0 L340.8,141.6 L342.2,143.1 L343.7,144.7 L345.2,146.2 L346.7,147.8 L348.2,149.3 L349.6,150.9 L351.1,152.4 L352.6,154.0 L354.1,155.5 L355.6,157.1 L357.1,158.6 L358.6,160.2 L360.0,161.7 L361.5,163.3 L363.0,164.8 L364.5,166.3 L366.0,167.9 L367.4,169.4 L368.9,170.9 L370.4,172.5 L371.9,174.0 L373.4,175.5 L374.9,177.0 L376.3,178.5 L377.8,180.0 L379.3,181.5 L380.8,183.0 L382.3,184.5 L383.8,186.0 L385.2,187.4 L386.7,188.9 L388.2,190.4 L389.7,191.8 L391.2,193.3 L392.7,194.7 L394.2,196.1 L395.6,197.6 L397.1,199.0 L398.6,200.4 L400.1,201.8 L401.6,203.2 L403.1,204.5 L404.5,205.9 L406.0,207.3 L407.5,208.6 L409.0,210.0 L410.5,211.3 L411.9,212.6 L413.4,213.9 L414.9,215.2 L416.4,216.5 L417.9,217.8 L419.4,219.1 L420.8,220.3 L422.3,221.6 L423.8,222.8 L425.3,224.1 L426.8,225.3 L428.3,226.5 L429.8,227.7 L431.2,228.8 L432.7,230.0 L434.2,231.2 L435.7,232.3 L437.2,233.4 L438.7,234.5 L440.1,235.6 L441.6,236.7 L443.1,237.8 L444.6,238.9 L446.1,239.9 L447.6,241.0 L449.0,242.0 L450.5,243.0 L452.0,244.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><path d="M96.0,244.0 L97.5,244.0 L99.0,244.0 L100.5,244.0 L101.9,243.9 L103.4,243.9 L104.9,243.9 L106.4,243.8 L107.9,243.8 L109.3,243.7 L110.8,243.7 L112.3,243.6 L113.8,243.5 L115.3,243.4 L116.8,243.4 L118.2,243.3 L119.7,243.2 L121.2,243.1 L122.7,243.0 L124.2,242.9 L125.7,242.8 L127.2,242.7 L128.6,242.5 L130.1,242.4 L131.6,242.3 L133.1,242.2 L134.6,242.0 L136.1,241.9 L137.5,241.8 L139.0,241.6 L140.5,241.5 L142.0,241.3 L143.5,241.2 L144.9,241.0 L146.4,240.9 L147.9,240.7 L149.4,240.6 L150.9,240.4 L152.4,240.2 L153.8,240.1 L155.3,239.9 L156.8,239.8 L158.3,239.6 L159.8,239.4 L161.3,239.3 L162.8,239.1 L164.2,238.9 L165.7,238.8 L167.2,238.6 L168.7,238.4 L170.2,238.3 L171.6,238.1 L173.1,237.9 L174.6,237.7 L176.1,237.6 L177.6,237.4 L179.1,237.2 L180.6,237.1 L182.0,236.9 L183.5,236.7 L185.0,236.6 L186.5,236.4 L188.0,236.2 L189.4,236.1 L190.9,235.9 L192.4,235.8 L193.9,235.6 L195.4,235.4 L196.9,235.3 L198.3,235.1 L199.8,235.0 L201.3,234.8 L202.8,234.7 L204.3,234.5 L205.8,234.4 L207.2,234.3 L208.7,234.1 L210.2,234.0 L211.7,233.8 L213.2,233.7 L214.7,233.6 L216.2,233.4 L217.6,233.3 L219.1,233.2 L220.6,233.1 L222.1,233.0 L223.6,232.8 L225.0,232.7 L226.5,232.6 L228.0,232.5 L229.5,232.4 L231.0,232.3 L232.5,232.2 L234.0,232.1 L235.4,232.0 L236.9,231.9 L238.4,231.8 L239.9,231.8 L241.4,231.7 L242.8,231.6 L244.3,231.5 L245.8,231.5 L247.3,231.4 L248.8,231.3 L250.3,231.3 L251.8,231.2 L253.2,231.2 L254.7,231.1 L256.2,231.1 L257.7,231.0 L259.2,231.0 L260.6,230.9 L262.1,230.9 L263.6,230.9 L265.1,230.9 L266.6,230.8 L268.1,230.8 L269.5,230.8 L271.0,230.8 L272.5,230.8 L274.0,230.8 L275.5,230.8 L277.0,230.8 L278.4,230.8 L279.9,230.8 L281.4,230.8 L282.9,230.9 L284.4,230.9 L285.9,230.9 L287.4,230.9 L288.8,231.0 L290.3,231.0 L291.8,231.1 L293.3,231.1 L294.8,231.2 L296.2,231.2 L297.7,231.3 L299.2,231.3 L300.7,231.4 L302.2,231.5 L303.7,231.5 L305.1,231.6 L306.6,231.7 L308.1,231.8 L309.6,231.8 L311.1,231.9 L312.6,232.0 L314.1,232.1 L315.5,232.2 L317.0,232.3 L318.5,232.4 L320.0,232.5 L321.5,232.6 L322.9,232.7 L324.4,232.8 L325.9,233.0 L327.4,233.1 L328.9,233.2 L330.4,233.3 L331.9,233.4 L333.3,233.6 L334.8,233.7 L336.3,233.8 L337.8,234.0 L339.3,234.1 L340.8,234.3 L342.2,234.4 L343.7,234.5 L345.2,234.7 L346.7,234.8 L348.2,235.0 L349.6,235.1 L351.1,235.3 L352.6,235.4 L354.1,235.6 L355.6,235.8 L357.1,235.9 L358.6,236.1 L360.0,236.2 L361.5,236.4 L363.0,236.6 L364.5,236.7 L366.0,236.9 L367.4,237.1 L368.9,237.2 L370.4,237.4 L371.9,237.6 L373.4,237.7 L374.9,237.9 L376.3,238.1 L377.8,238.3 L379.3,238.4 L380.8,238.6 L382.3,238.8 L383.8,238.9 L385.2,239.1 L386.7,239.3 L388.2,239.4 L389.7,239.6 L391.2,239.8 L392.7,239.9 L394.2,240.1 L395.6,240.2 L397.1,240.4 L398.6,240.6 L400.1,240.7 L401.6,240.9 L403.1,241.0 L404.5,241.2 L406.0,241.3 L407.5,241.5 L409.0,241.6 L410.5,241.8 L411.9,241.9 L413.4,242.0 L414.9,242.2 L416.4,242.3 L417.9,242.4 L419.4,242.5 L420.8,242.7 L422.3,242.8 L423.8,242.9 L425.3,243.0 L426.8,243.1 L428.3,243.2 L429.8,243.3 L431.2,243.4 L432.7,243.4 L434.2,243.5 L435.7,243.6 L437.2,243.7 L438.7,243.7 L440.1,243.8 L441.6,243.8 L443.1,243.9 L444.6,243.9 L446.1,243.9 L447.6,244.0 L449.0,244.0 L450.5,244.0 L452.0,244.0" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="5 3"/><line x1="309.6" y1="244.0" x2="309.6" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="3 3"/><circle cx="309.6" cy="109.9" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="309.6" cy="231.8" r="4.0" fill="currentColor"/><text x="466.0" y="84.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">V<tspan font-size="8.5" dy="3">A</tspan><tspan dy="-3"></tspan></text><text x="466.0" y="100.0" font-size="10" fill="currentColor" opacity=".8">vanishes at both</text><text x="466.0" y="113.0" font-size="10" fill="currentColor" opacity=".8">fixation points</text><text x="466.0" y="144.0" font-size="11" fill="currentColor" font-weight="700">V<tspan font-size="8.5" dy="3">D</tspan><tspan dy="-3"></tspan></text><text x="466.0" y="160.0" font-size="10" fill="currentColor" opacity=".8">peaks at p = 0.5 and</text><text x="466.0" y="173.0" font-size="10" fill="currentColor" opacity=".8">is small throughout</text><text x="466.0" y="204.0" font-size="11" fill="currentColor" font-weight="700">at p = 0.6:</text><text x="466.0" y="220.0" font-size="10" fill="currentColor" opacity=".8">V<tspan font-size="8.5" dy="3">A</tspan><tspan dy="-3"></tspan> = 40.6272</text><text x="466.0" y="233.0" font-size="10" fill="currentColor" opacity=".8">V<tspan font-size="8.5" dy="3">D</tspan><tspan dy="-3"></tspan> = 3.6864</text><text x="274.0" y="288.0" font-size="12" fill="currentColor" text-anchor="middle">Frequency of allele A</text><text x="20.0" y="145.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 145)">Variance contributed by the locus</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">One locus, unchanged: the variance it contributes depends on the population</text></svg>
+</Figure>
+
+This has a consequence that reaches all the way to genome-wide association studies. A
+variant contributes to $V_A$ in proportion to $2pq\alpha^2$, so a rare variant with a large
+effect and a common variant with a small one can contribute equally — and the additive
+variance a study can *detect* depends on the allele frequencies in the population it
+sampled, not on biology alone.
+
+<Callout variant="key" title="Why additivity dominates in practice, even when biology does not">
+
+Real gene action is full of dominance and epistasis, and yet empirical variance
+decompositions consistently find that most genetic variance is additive.
+<Citation id="hill2008additive" /> explains why, and it is not that biology is additive.
+
+Take the overdominant locus in Exercise 3, or any strongly non-additive one. Its
+*contribution to $V_A$* is $2pq\alpha^2$, and $\alpha$ is a frequency-weighted regression
+slope. At most allele frequencies, a non-additive locus still has a non-zero slope — the
+regression picks up whatever linear trend exists, and there almost always is one. Only at
+isolated frequencies does $\alpha$ vanish.
+
+So the statement "most genetic variance is additive" is a claim about **variance**, not
+about **mechanism**. A locus can act by pure overdominance and still deliver most of its
+variance to $V_A$. Reading additive variance as evidence of additive biology is the standard
+misreading, and it is why <Citation id="hill2010quantitative" /> insists on keeping the two
+questions separate.
+
+</Callout>
+
+## Heritability and the breeder's equation
+
+Narrow-sense heritability is the fraction of phenotypic variance that is additive:
+
+$$
+h^2 = \frac{V_A}{V_P}
+$$
+
+and it is the regression of offspring on mid-parent — which is the same statement, because
+what parents transmit is breeding value. That gives the **breeder's equation**:
+
+$$
+R = h^2 S
+$$
+
+Select parents whose mean exceeds the population mean by $S$; their offspring exceed it by
+$h^2 S$. The shortfall $\left(1 - h^2\right)S$ is everything about the selected parents that
+was not transmissible — environment, dominance, and the particular allele combinations they
+happened to carry.
+
+It is often more useful to express the selection differential in standard deviations. If the
+top fraction $\pi$ is selected and the trait is normal, the **selection intensity** is
+
+$$
+i = \frac{\varphi(z_\pi)}{\pi}
+$$
+
+where $z_\pi$ is the truncation point. Then $S = i\,\sigma_P$ and
+
+$$
+R = i\,h^2 \sigma_P = i\,h\,\sigma_A
+$$
+
+The second form is worth remembering: response is intensity times the *square root* of
+heritability times the additive standard deviation.
+
+<WorkedExample
+  title="One generation of truncation selection"
+  given={[
+    { label: 'Phenotypic SD σ_P', value: '10' },
+    { label: 'Heritability h²', value: '0.40' },
+    { label: 'Selected fraction', value: 'top 10%' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — selection intensity.** For the top 10% of a normal distribution,
+
+$$
+i = 1.754983
+$$
+
+**Step 2 — the selection differential.**
+
+$$
+S = i\,\sigma_P = 1.754983 \times 10 = 17.549833
+$$
+
+The selected parents average 17.55 units above the population — more than 1.75 standard
+deviations, which is what truncating at the top decile buys.
+
+**Step 3 — the response.**
+
+$$
+R = h^2 S = 0.40 \times 17.549833 = 7.019933
+$$
+
+**Step 4 — the same answer the other way.** With $h = \sqrt{0.40} = 0.632456$ and
+$\sigma_A = h\,\sigma_P = 6.324555$:
+
+$$
+R = i\,h\,\sigma_A = 1.754983 \times 0.632456 \times 6.324555 = 7.019933
+$$
+
+**Step 5 — read the intensity table.** The returns to selecting harder diminish quickly:
+
+| selected | $i$ | $R$ |
+| --- | --- | --- |
+| top 50% | 0.797885 | 3.1915 |
+| top 20% | 1.399810 | 5.5992 |
+| top 10% | 1.754983 | 7.0199 |
+| top 5% | 2.062713 | 8.2509 |
+| top 1% | 2.665214 | 10.6609 |
+
+Going from the top half to the top tenth roughly doubles the response; going from the top
+tenth to the top hundredth adds only half as much again, while cutting the number of parents
+tenfold — which in a real programme means a collapse in effective population size and the
+inbreeding that follows.
+
+</WorkedExample>
+
+## Why the equation over-promises
+
+Multiply $R$ by the number of generations and you get a prediction that no breeding
+programme has ever met. Three mechanisms account for the shortfall, and they act on
+different timescales.
+
+**The Bulmer effect, immediately.** Truncation selection does not only shift the mean; it
+truncates the distribution, which reduces its variance. <Citation id="bulmer1971selection" />
+showed that selection generates negative linkage disequilibrium between loci with
+same-direction effects, reducing $V_A$ below the value the allele frequencies imply. The
+reduction appears within one or two generations and then stabilises, so the *second*
+generation's response is already smaller than the first's, with no allele frequency change
+at all. Relaxing selection restores it, which is how you can tell it apart from the next
+mechanism.
+
+**Allele frequency change, over tens of generations.** Selection moves favourable alleles
+toward fixation, and $V_A = 2pq\alpha^2$ falls as $p$ approaches 1. This is permanent.
+
+**The selection limit, eventually.** <Citation id="robertson1960limits" /> gave the theory:
+the total response achievable is bounded, and the bound depends on $N_e$ through the
+competition between selection pushing an allele up and drift losing it. The striking
+prediction is that a *smaller* selected fraction gives faster early response but a *lower*
+final limit, because it reduces $N_e$ and so loses more favourable alleles to drift. Long-term
+selection experiments confirm it.
+
+None of this makes $h^2$ wrong. It makes it a **local** quantity — a statement about one
+population, one environment, and one generation, which <Citation id="visscher2008" />
+emphasises precisely because the term is so often read as a permanent property of a trait.
+For several traits at once the equation generalises to $\Delta\bar{z} = \mathbf{G}\mathbf{P}^{-1}s$
+from <Citation id="lande1983selection" />, which is taken up in the multivariate lesson.
+
+## Exercises
+
+<Exercise n={1} title="A purely additive locus" difficulty="warm-up">
+
+A locus has $a = 5$, $d = 0$ and $p = 0.3$. Compute $M$, $\alpha$, the three breeding
+values, $V_A$ and $V_D$. What is special about the relationship between $\alpha$ and $a$?
+
+<div slot="solution">
+
+With $d = 0$ and $q = 0.7$:
+
+$$
+M = 5(0.3 - 0.7) + 0 = -2, \qquad \alpha = a + 0 = 5
+$$
+
+$$
+A_{AA} = 2(0.7)(5) = 7, \quad A_{Aa} = (0.7-0.3)(5) = 2, \quad A_{aa} = -2(0.3)(5) = -3
+$$
+
+$$
+V_A = 2(0.3)(0.7)(25) = 10.5, \qquad V_D = 0
+$$
+
+**What is special:** with no dominance, $\alpha = a$ exactly, and it no longer depends on
+allele frequency. That is the only case in which "the effect of the allele" is a
+well-defined property of the locus alone. Note also that the breeding values are now exactly
+$2q a$, $(q-p)a$, $-2p a$ — evenly spaced, one $\alpha$ apart — so the three genotypic values
+lie exactly on the regression line and every residual is zero. Additivity means the fit is
+perfect, not that dominance happens to be small.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Three generations of selection" difficulty="core">
+
+Using $\sigma_P = 10$ and $h^2 = 0.40$, a breeder selects the top 10% each generation.
+(a) What does the breeder's equation predict after three generations? (b) Give two reasons
+the realised gain will be smaller, and say which appears first. (c) The breeder proposes
+tightening to the top 1% to go faster. Evaluate.
+
+<div slot="solution">
+
+**(a)** Each generation gives $R = 7.019933$, so three generations predict
+
+$$
+3 \times 7.019933 = 21.059800
+$$
+
+**(b)** First, the **Bulmer effect**: truncation induces negative disequilibrium among
+same-direction loci, cutting $V_A$ and therefore $h^2$ within one or two generations. It
+appears immediately and then plateaus. Second, **allele frequency change**: as favourable
+alleles rise toward fixation, $2pq$ falls and with it $V_A$. This is slower and permanent.
+The Bulmer effect appears first, which is why the second generation already underperforms.
+
+**(c)** Tightening to the top 1% raises $i$ from 1.754983 to 2.665214, so the per-generation
+prediction rises from 7.0199 to 10.6609 — about 52% faster. But it also cuts the number of
+parents tenfold, which reduces $N_e$ and, by Robertson's argument, *lowers the eventual
+limit*: more favourable alleles are lost to drift before selection can fix them. Faster
+early, less in total.
+
+The right answer depends on the horizon. For a two-generation project, tighten. For a
+long-term programme, the top 10% with attention to effective population size will end up
+further ahead — and this is exactly the trade-off that made effective population size a
+managed quantity in animal breeding rather than an incidental one.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A large-effect locus with no additive variance" difficulty="stretch">
+
+Consider an overdominant locus with $a = 4$ and $d = 10$: the heterozygote exceeds both
+homozygotes. (a) Find the allele frequency at which $\alpha = 0$. (b) Compute $V_A$ and
+$V_D$ there. (c) What would a standard additive association test see at this locus, and what
+does that imply?
+
+<div slot="solution">
+
+**(a)** $\alpha = a + d(q - p) = 4 + 10(1 - 2p)$, which is zero at
+
+$$
+p = \frac{1}{2}\left(1 + \frac{a}{d}\right) = \frac{1}{2}(1 + 0.4) = 0.70
+$$
+
+**(b)** At $p = 0.7$, $q = 0.3$:
+
+$$
+V_A = 2pq\,\alpha^2 = 0, \qquad V_D = (2pq\,d)^2 = (0.42 \times 10)^2 = 4.2^2 = 17.64
+$$
+
+The locus contributes **no additive variance at all**, while contributing 17.64 units of
+dominance variance. Its genotypic values span 20 units — this is not a small-effect locus.
+
+**(c)** An additive test regresses phenotype on allele dosage. Its slope *is* $\alpha$, which
+is exactly zero here, so the test sees nothing — no association, no matter how large the
+sample. The variant would be absent from every GWAS catalogue, absent from every polygenic
+score, and would contribute nothing to SNP heritability.
+
+Two implications follow. First, "no additive variance" is not "no effect", and the two are
+routinely conflated. Second, the situation is not a curiosity: overdominance is exactly the
+gene action that maintains polymorphism, and $p = 0.7$ here is the equilibrium frequency
+balancing selection would produce — so a locus under this kind of selection sits precisely
+where the additive test is blind. Detecting it requires a genotypic test with two degrees of
+freedom, which most association pipelines do not run because it costs power everywhere else.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A parent transmits alleles, not genotypes**, so only the part of a genotypic value that
+  travels with single alleles is inherited. Separating that part is what quantitative
+  genetics is for.
+- **The average effect is a regression slope**: regress genotypic value on allele count,
+  weighted by genotype frequency, and $\alpha = a + d(q-p)$ falls out. Fitted values are
+  breeding values; residuals are dominance deviations; both average to zero.
+- **$V_A = 2pq\alpha^2$ and $V_D = (2pq d)^2$ are properties of a population**, not of a
+  locus. The same locus contributes 40.6272 of additive variance at $p = 0.6$ and none at
+  all at fixation.
+- **Most genetic variance is additive even when the biology is not.** A regression through
+  non-additive gene action still has a slope at almost every allele frequency, so $V_A$
+  captures most of the variance. This is a fact about variance, not about mechanism.
+- **The breeder's equation is $R = h^2 S = i\,h\,\sigma_A$.** Selecting the top 10% of a
+  trait with $\sigma_P = 10$ and $h^2 = 0.4$ returns 7.0199 units per generation, and
+  selecting harder yields diminishing returns.
+- **Realised response always falls short.** The Bulmer effect cuts $V_A$ within a generation
+  or two and reverses if selection is relaxed; allele frequency change cuts it permanently;
+  and Robertson's limit means a tighter selected fraction buys speed at the cost of the
+  eventual total.

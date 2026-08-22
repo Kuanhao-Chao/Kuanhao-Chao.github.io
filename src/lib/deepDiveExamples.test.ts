@@ -17,6 +17,8 @@ import {
   wattersonTheta, tajimaConstants, tajimasD,
   kinshipMatrix, additiveRelationshipMatrix, inbreedingCoefficients,
   lodScore, maxLod, lodToChi2, chi2ToLod, tdtStatistic,
+  genotypicMean, averageEffect, breedingValues, additiveVariance, dominanceVariance,
+  selectionIntensity, breedersResponse, breedersResponseFromIntensity,
 } from './deepDiveMath.ts';
 
 /**
@@ -819,6 +821,246 @@ describe('statgen-pedigrees-linkage-qtl', () => {
     it('counts 165 genotypes for 55 trios, as the lesson says twice', () => {
       expect(55 * 3).toBe(165);
       expect(mdx).toContain('165 genotypes');
+    });
+  });
+});
+
+describe('statgen-quantitative-genetics-selection', () => {
+  const mdx = lesson('statgen-quantitative-genetics-selection');
+  const LOCUS = { p: 0.6, a: 10, d: 4 };
+  const Q = 1 - LOCUS.p;
+  const FREQ = { AA: LOCUS.p ** 2, Aa: 2 * LOCUS.p * Q, aa: Q ** 2 };
+  const GVAL = { AA: LOCUS.a, Aa: LOCUS.d, aa: -LOCUS.a };
+  const KEYS = ['AA', 'Aa', 'aa'] as const;
+
+  describe('worked example — decomposing one locus by hand', () => {
+    it('has the population mean the lesson states', () => {
+      expect(genotypicMean(LOCUS)).toBeCloseTo(3.92, 12);
+      expect(10 * (0.6 - 0.4) + 2 * 0.6 * 0.4 * 4).toBeCloseTo(3.92, 12);
+      expect(mdx).toContain('2 + 1.92 = 3.92');
+    });
+
+    it('has an average effect smaller than a, because A is the commoner allele', () => {
+      expect(averageEffect(LOCUS)).toBeCloseTo(9.2, 12);
+      expect(averageEffect(LOCUS)).toBeLessThan(LOCUS.a);
+      expect(mdx).toContain('10 - 0.8 = 9.20');
+    });
+
+    it('is the slope of genotypic value regressed on allele count', () => {
+      // computed here from the definition, not from the module
+      const x = { AA: 2, Aa: 1, aa: 0 };
+      const meanX = 2 * LOCUS.p;
+      const meanG = genotypicMean(LOCUS);
+      const cov = KEYS.reduce((s2, k) => s2 + FREQ[k] * (x[k] - meanX) * (GVAL[k] - meanG), 0);
+      const varX = 2 * LOCUS.p * Q;
+      expect(cov / varX).toBeCloseTo(averageEffect(LOCUS), 10);
+      expect(cov / varX).toBeCloseTo(9.2, 10);
+    });
+
+    it('has the three breeding values, which average to zero', () => {
+      const bv = breedingValues(LOCUS);
+      expect(bv.AA).toBeCloseTo(7.36, 10);
+      expect(bv.Aa).toBeCloseTo(-1.84, 10);
+      expect(bv.aa).toBeCloseTo(-11.04, 10);
+      expect(KEYS.reduce((s2, k) => s2 + FREQ[k] * bv[k], 0)).toBeCloseTo(0, 12);
+      expect(mdx).toContain('2(0.4)(9.2) = 7.36');
+      expect(mdx).toContain('(0.4-0.6)(9.2) = -1.84');
+      expect(mdx).toContain('-2(0.6)(9.2) = -11.04');
+      expect(mdx).toContain('0.36(7.36) + 0.48(-1.84) + 0.16(-11.04) = 0');
+    });
+
+    it('has dominance deviations that also average to zero', () => {
+      const bv = breedingValues(LOCUS);
+      const M = genotypicMean(LOCUS);
+      const dev = Object.fromEntries(KEYS.map((k) => [k, GVAL[k] - (M + bv[k])])) as Record<
+        (typeof KEYS)[number],
+        number
+      >;
+      expect(dev.AA).toBeCloseTo(-1.28, 10);
+      expect(dev.Aa).toBeCloseTo(1.92, 10);
+      expect(dev.aa).toBeCloseTo(-2.88, 10);
+      expect(KEYS.reduce((s2, k) => s2 + FREQ[k] * dev[k], 0)).toBeCloseTo(0, 12);
+      expect(mdx).toContain('10 - 11.28 = -1.28');
+      expect(mdx).toContain('4 - 2.08 = +1.92');
+      expect(mdx).toContain('-10 - (-7.12) = -2.88');
+    });
+
+    it('has both variances, and V_D agrees computed the long way', () => {
+      expect(additiveVariance(LOCUS)).toBeCloseTo(40.6272, 10);
+      expect(dominanceVariance(LOCUS)).toBeCloseTo(3.6864, 10);
+      expect(0.48 * 84.64).toBeCloseTo(40.6272, 10);
+      expect(1.92 ** 2).toBeCloseTo(3.6864, 10);
+      // the frequency-weighted mean squared dominance deviation
+      const bv = breedingValues(LOCUS);
+      const M = genotypicMean(LOCUS);
+      const long = KEYS.reduce(
+        (s2, k) => s2 + FREQ[k] * (GVAL[k] - (M + bv[k])) ** 2,
+        0
+      );
+      expect(long).toBeCloseTo(dominanceVariance(LOCUS), 10);
+      expect(mdx).toContain('0.48 \\times 84.64 = 40.6272');
+      expect(mdx).toContain('1.92^2 = 3.6864');
+      expect(mdx).toContain('0.16(2.88)^2 = 3.6864');
+    });
+  });
+
+  describe('figure 2 — the variances belong to the population', () => {
+    const va = (p2: number) => additiveVariance({ p: p2, a: 10, d: 4 });
+    const vd = (p2: number) => dominanceVariance({ p: p2, a: 10, d: 4 });
+
+    it('vanishes at both fixation points', () => {
+      expect(va(0)).toBeCloseTo(0, 12);
+      expect(va(1)).toBeCloseTo(0, 12);
+    });
+
+    it('peaks away from 0.5 because dominance makes it asymmetric', () => {
+      let best = 0;
+      let bestP = 0;
+      for (let k = 0; k <= 1000; k++) {
+        const v = va(k / 1000);
+        if (v > best) {
+          best = v;
+          bestP = k / 1000;
+        }
+      }
+      expect(bestP).toBeCloseTo(0.341, 3);
+      expect(bestP).not.toBeCloseTo(0.5, 2);
+      expect(mdx).toContain('peaks at p = 0.341');
+    });
+
+    it('puts dominance variance at its maximum at p = 0.5', () => {
+      for (const p2 of [0.2, 0.35, 0.65, 0.8]) expect(vd(p2)).toBeLessThan(vd(0.5));
+    });
+
+    it('marks the worked example at p = 0.6', () => {
+      expect(va(0.6)).toBeCloseTo(40.6272, 10);
+      expect(vd(0.6)).toBeCloseTo(3.6864, 10);
+      expect(mdx).toContain('V_A = 40.6272 and V_D = 3.6864');
+    });
+  });
+
+  describe('worked example — one generation of truncation selection', () => {
+    const SD = 10;
+    const H2 = 0.4;
+    const i = selectionIntensity(0.1);
+
+    it('has the selection intensity for the top decile', () => {
+      expect(i).toBeCloseTo(1.754983, 6);
+      expect(mdx).toContain('i = 1.754983');
+    });
+
+    it('has the selection differential', () => {
+      expect(i * SD).toBeCloseTo(17.549833, 6);
+      expect(mdx).toContain('1.754983 \\times 10 = 17.549833');
+    });
+
+    it('gives the same response from both forms of the equation', () => {
+      const viaH2 = breedersResponse(H2, i * SD);
+      const viaIntensity = breedersResponseFromIntensity(H2, i, SD);
+      expect(viaH2).toBeCloseTo(7.019933, 6);
+      expect(viaIntensity).toBeCloseTo(viaH2, 12);
+      const h = Math.sqrt(H2);
+      expect(i * h * (h * SD)).toBeCloseTo(viaH2, 10);
+      expect(h).toBeCloseTo(0.632456, 6);
+      expect(h * SD).toBeCloseTo(6.324555, 6);
+      expect(mdx).toContain('0.40 \\times 17.549833 = 7.019933');
+      expect(mdx).toContain('1.754983 \\times 0.632456 \\times 6.324555 = 7.019933');
+    });
+
+    it('has the intensity table the lesson prints', () => {
+      for (const [frac, iv, r] of [
+        [0.5, 0.797885, 3.1915],
+        [0.2, 1.39981, 5.5992],
+        [0.1, 1.754983, 7.0199],
+        [0.05, 2.062713, 8.2509],
+        [0.01, 2.665214, 10.6609],
+      ] as const) {
+        expect(selectionIntensity(frac)).toBeCloseTo(iv, 5);
+        expect(breedersResponseFromIntensity(H2, selectionIntensity(frac), SD)).toBeCloseTo(r, 3);
+      }
+      for (const row of [
+        '| top 50% | 0.797885 | 3.1915 |',
+        '| top 20% | 1.399810 | 5.5992 |',
+        '| top 10% | 1.754983 | 7.0199 |',
+        '| top 5% | 2.062713 | 8.2509 |',
+        '| top 1% | 2.665214 | 10.6609 |',
+      ]) {
+        expect(mdx).toContain(row);
+      }
+    });
+  });
+
+  describe('exercise 1 — a purely additive locus', () => {
+    const L = { p: 0.3, a: 5, d: 0 };
+
+    it('makes alpha equal a exactly', () => {
+      expect(averageEffect(L)).toBeCloseTo(5, 12);
+      expect(averageEffect(L)).toBeCloseTo(L.a, 12);
+      expect(genotypicMean(L)).toBeCloseTo(-2, 12);
+      expect(mdx).toContain('\\alpha = a + 0 = 5');
+    });
+
+    it('has evenly spaced breeding values and no dominance variance', () => {
+      const bv = breedingValues(L);
+      expect(bv.AA).toBeCloseTo(7, 12);
+      expect(bv.Aa).toBeCloseTo(2, 12);
+      expect(bv.aa).toBeCloseTo(-3, 12);
+      // one alpha apart, which is what "the fit is perfect" means
+      expect(bv.AA - bv.Aa).toBeCloseTo(averageEffect(L), 12);
+      expect(bv.Aa - bv.aa).toBeCloseTo(averageEffect(L), 12);
+      expect(additiveVariance(L)).toBeCloseTo(10.5, 12);
+      expect(dominanceVariance(L)).toBeCloseTo(0, 12);
+      expect(mdx).toContain('2(0.7)(5) = 7');
+      expect(mdx).toContain('-2(0.3)(5) = -3');
+      expect(mdx).toContain('2(0.3)(0.7)(25) = 10.5');
+    });
+  });
+
+  describe('exercise 2 — three generations of selection', () => {
+    it('predicts 21.0598 over three generations', () => {
+      const r = breedersResponseFromIntensity(0.4, selectionIntensity(0.1), 10);
+      expect(3 * r).toBeCloseTo(21.0598, 4);
+      expect(mdx).toContain('3 \\times 7.019933 = 21.059800');
+    });
+
+    it('makes the top 1% about 52% faster per generation', () => {
+      const r10 = breedersResponseFromIntensity(0.4, selectionIntensity(0.1), 10);
+      const r1 = breedersResponseFromIntensity(0.4, selectionIntensity(0.01), 10);
+      expect(r1).toBeCloseTo(10.6609, 4);
+      expect((r1 / r10 - 1) * 100).toBeCloseTo(51.9, 1);
+      expect(mdx).toContain('7.0199 to 10.6609');
+      expect(mdx).toContain('about 52% faster');
+    });
+  });
+
+  describe('exercise 3 — a large-effect locus with no additive variance', () => {
+    const L = { p: 0.7, a: 4, d: 10 };
+
+    it('has alpha exactly zero at p = 0.7', () => {
+      expect(averageEffect(L)).toBeCloseTo(0, 12);
+      expect(0.5 * (1 + 4 / 10)).toBeCloseTo(0.7, 12);
+      expect(mdx).toContain('\\frac{1}{2}(1 + 0.4) = 0.70');
+    });
+
+    it('has no additive variance but substantial dominance variance', () => {
+      expect(additiveVariance(L)).toBeCloseTo(0, 12);
+      expect(dominanceVariance(L)).toBeCloseTo(17.64, 10);
+      expect(4.2 ** 2).toBeCloseTo(17.64, 10);
+      expect(mdx).toContain('4.2^2 = 17.64');
+    });
+
+    it('still spans twenty trait units, so it is not a small effect', () => {
+      expect(L.a - -L.a).toBe(8);
+      expect(L.d - -L.a).toBe(14);
+      // heterozygote to lower homozygote plus upper homozygote to heterozygote
+      expect(Math.max(L.a, L.d) - -L.a).toBe(14);
+      expect(mdx).toContain('this is not a small-effect locus');
+    });
+
+    it('is invisible to an additive test, whose slope is alpha', () => {
+      expect(averageEffect(L)).toBeCloseTo(0, 12);
+      // a regex, not toContain: the phrase wraps across a line in the prose
+      expect(mdx).toMatch(/slope \*is\* \$.alpha\$, which\s+is exactly zero here/);
     });
   });
 });
