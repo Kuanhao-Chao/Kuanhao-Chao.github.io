@@ -1,0 +1,320 @@
+---
+title: "Clinical Curation: What Other People Concluded, and What It Is Worth"
+shortTitle: Germline Clinical
+description: "ClinVar, ClinGen, OMIM, HGMD, DECIPHER and PharmGKB — what each curates, how the ACMG/AMP framework combines evidence into a five-tier call, why a ClinVar record is an assertion rather than an answer, and what its review status actually tells you."
+abstract: "This layer records conclusions rather than measurements, which makes it the most useful and the most misread part of the landscape. ClinVar holds four and a half million variation records; about one classified variant in 192 has been reviewed by an expert panel. This page covers what each resource curates, works the ACMG point system through to a posterior probability and a five-tier call, and shows what happens when someone else's conclusion is counted as your own evidence."
+date: 2026-08-22
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d05-curation
+moduleLabel: Layer 5 · Clinical Curation
+order: 6
+level: intermediate
+objectives:
+  - "Say what each clinical resource curates, and which question it can and cannot answer."
+  - "Combine ACMG/AMP criteria by the point system and read off a posterior probability."
+  - "Explain what a ClinVar review status means and why it changes how a record should be used."
+  - "Recognise circular evidence and quantify what double-counting a conclusion costs."
+  - "Explain why the point thresholds encode a prior, and when that prior is wrong."
+prerequisites:
+  - data-mave-assays
+referenceIds:
+  - richards2015
+  - rehm2015clingen
+  - tavtigian2018
+  - firth2009decipher
+  - amberger2019omim
+  - riggs2020dosage
+  - stenson2020hgmd
+  - whirlcarrillo2021pharmgkb
+  - landrum2024clinvar
+  - tavtigian2020
+tags: [ClinVar, ClinGen, OMIM, ACMG, variant classification, curation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+Every layer so far produced a measurement. This one produces a **conclusion** — somebody
+looked at the evidence and wrote down what they thought.
+
+That makes it the most immediately useful layer and the easiest to misuse, because a
+conclusion looks like a fact and is not one. It is a fact about what a submitter concluded,
+on the evidence they had, under the framework they applied.
+
+<Callout variant="intuition">
+The distinction that matters here is between a *measurement* and an *assertion*.
+
+gnomAD reports what was observed. A multiplexed assay reports what happened in cells.
+ClinVar reports what a laboratory decided — and two laboratories looking at the same variant
+can decide differently, which is why ClinVar records conflicts rather than resolving them.
+
+So the question to ask of any record in this layer is not "what does it say" but **"who said
+it, on what evidence, and did anyone check?"** ClinVar answers that last part with a review
+status, and the distribution of review statuses is the single most useful thing to know about
+the resource: of 4.3 million classified variants, about 22,000 have been through an expert
+panel. That is roughly one in 192.
+</Callout>
+
+<DatasetTable layer="germline-clinical" caption="Clinical curation resources" />
+
+<Notation
+  rows={[
+    { symbol: '\\text{PS}, \\text{PM}, \\text{PP}', meaning: 'Pathogenic criteria: strong, moderate, supporting', dims: '4, 2, 1 points' },
+    { symbol: '\\text{BS}, \\text{BP}', meaning: 'Benign criteria: strong, supporting', dims: '−4, −1 points' },
+    { symbol: '\\text{OddsPath}', meaning: 'Odds of pathogenicity the accumulated evidence carries', dims: '350^(points/8)' },
+    { symbol: '\\pi_0', meaning: 'Prior probability of pathogenicity before any evidence', dims: '0.1 by convention' },
+    { symbol: '\\text{VCV}', meaning: 'ClinVar variation record — one per variant', dims: 'count' },
+    { symbol: '\\text{SCV}', meaning: 'ClinVar submitted record — one per submitter per variant', dims: 'count' },
+  ]}
+/>
+
+## Six resources, six different questions
+
+**<Dataset id="clinvar" />** archives submitted assertions <Citation id="landrum2024clinvar" />.
+It is deliberately *not* a curator: it accepts conflicting submissions and displays them side
+by side, and its review status records how much scrutiny each record received rather than how
+correct it is.
+
+**<Dataset id="clingen" />** does the curation ClinVar does not
+<Citation id="rehm2015clingen" />. Three outputs matter. **Gene–disease validity** asks whether
+a gene causes a disease at all, on a scale from Definitive to Refuted — a question that has to
+be settled before any variant in that gene can be called pathogenic *for* it. **Dosage
+sensitivity** scores whether losing or gaining a copy causes disease, which is what makes a
+CNV interpretable <Citation id="riggs2020dosage" />. And **gene-specific rule specifications**
+turn the general ACMG criteria into concrete thresholds for a particular gene.
+
+**<Dataset id="omim" />** is the phenotype catalogue <Citation id="amberger2019omim" />: what
+disorders exist, what genes cause them, and the narrative of how that was established. It
+answers "what is this disease" rather than "is this variant causal".
+
+**<Dataset id="hgmd" />** curates published disease-associated variants from the literature
+<Citation id="stenson2020hgmd" />. Its inclusion criterion is *published association*, not
+verified causality, and the professional release sits behind a subscription while the public
+one lags by years. Both facts matter more than its reputation suggests.
+
+**<Dataset id="decipher" />** shares consented patient-level data — structural variants and
+sequence variants with phenotype attached <Citation id="firth2009decipher" />, which is what
+makes it useful for the CNV cases the other resources handle poorly.
+
+**<Dataset id="pharmgkb" />** answers a different question entirely
+<Citation id="whirlcarrillo2021pharmgkb" />: not whether a variant causes disease but whether
+it changes how a drug should be dosed. Its evidence levels are its own scale and do not
+translate into ACMG tiers.
+
+<Figure
+  caption="Figure 1. ClinVar's review status, by record count on a log scale. Of 4,553,176 variation records, 4,302,878 carry a classification, 22,402 have been reviewed by an expert panel and 663 have practice-guideline status. That is one classified variant in 192 with expert review and one in 6,490 with a guideline behind it. Counts read from the NCBI statistics page on 16 August 2026."
+  alt="Four horizontal bars on a logarithmic axis showing ClinVar record counts: all variation records 4,553,176; carrying a classification 4,302,878; reviewed by an expert panel 22,402; practice guideline 663. Brackets mark the drop of one in 192 from classified to expert-reviewed and one in 6,490 to guideline status."
+>
+  <svg viewBox="0 0 640 274" width="640" height="274" font-family="inherit"><text x="320.0" y="20.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">How much of ClinVar has been reviewed by anyone in particular</text><rect x="236.0" y="44.0" width="342.9" height="26.0" rx="3" fill="currentColor" opacity=".22"/><text x="224.0" y="61.0" font-size="11" fill="currentColor" text-anchor="end">All variation records</text><text x="586.9" y="61.0" font-size="11" fill="currentColor" font-weight="600">4,553,176</text><rect x="236.0" y="90.0" width="341.0" height="26.0" rx="3" fill="currentColor" opacity=".34"/><text x="224.0" y="107.0" font-size="11" fill="currentColor" text-anchor="end">Carrying a classification</text><text x="585.0" y="107.0" font-size="11" fill="currentColor" font-weight="600">4,302,878</text><rect x="236.0" y="136.0" width="173.0" height="26.0" rx="3" fill="currentColor" opacity=".62"/><text x="224.0" y="153.0" font-size="11" fill="currentColor" text-anchor="end">Reviewed by an expert panel</text><text x="417.0" y="153.0" font-size="11" fill="currentColor" font-weight="600">22,402</text><rect x="236.0" y="182.0" width="60.5" height="26.0" rx="3" fill="currentColor" opacity=".88"/><text x="224.0" y="199.0" font-size="11" fill="currentColor" text-anchor="end">Practice guideline</text><text x="304.5" y="199.0" font-size="11" fill="currentColor" font-weight="600">663</text><line x1="262.0" y1="119.0" x2="262.0" y2="133.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25" opacity=".7"/><text x="270.0" y="130.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">1 classified variant in 192</text><line x1="262.0" y1="165.0" x2="262.0" y2="179.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25" opacity=".7"/><text x="270.0" y="176.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">1 in 6,490</text><line x1="236.0" y1="222.0" x2="604.0" y2="222.0" stroke="currentColor" stroke-width="1.25"/><line x1="236.0" y1="222.0" x2="236.0" y2="227.0" stroke="currentColor" stroke-width="1"/><text x="236.0" y="240.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="309.6" y1="222.0" x2="309.6" y2="227.0" stroke="currentColor" stroke-width="1"/><text x="309.6" y="240.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1k</text><line x1="383.2" y1="222.0" x2="383.2" y2="227.0" stroke="currentColor" stroke-width="1"/><text x="383.2" y="240.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10k</text><line x1="456.8" y1="222.0" x2="456.8" y2="227.0" stroke="currentColor" stroke-width="1"/><text x="456.8" y="240.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100k</text><line x1="530.4" y1="222.0" x2="530.4" y2="227.0" stroke="currentColor" stroke-width="1"/><text x="530.4" y="240.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1M</text><line x1="604.0" y1="222.0" x2="604.0" y2="227.0" stroke="currentColor" stroke-width="1"/><text x="604.0" y="240.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10M</text><text x="420.0" y="260.0" font-size="12" fill="currentColor" text-anchor="middle">Number of records (log scale)</text></svg>
+</Figure>
+
+<Callout variant="warning" title="A ClinVar label is not evidence you may add to your own">
+The framework has a criterion, PP5, for "reputable source reports pathogenic". Using it means
+counting somebody else's conclusion as a piece of your evidence — and their conclusion was
+itself built from evidence you are probably also counting.
+
+That is circular, and it inflates. The 2015 guidelines included PP5 and BP6; subsequent work
+recommended against using them precisely because the evidence behind a submitted classification
+is usually the same evidence the reader has already tallied <Citation id="tavtigian2020" />.
+Exercise 3 prices the error.
+
+The right use of a ClinVar record is as a **pointer to evidence**: open the submission, read
+what it cites, and count *that* — once.
+</Callout>
+
+## Combining evidence into a call
+
+The ACMG/AMP framework <Citation id="richards2015" /> assigns each criterion a strength, and
+the Bayesian reading <Citation id="tavtigian2018" /> makes those strengths points on one scale:
+supporting 1, moderate 2, strong 4, very strong 8, with benign criteria the same magnitudes
+negative. The accumulated points give an odds, and the odds updates a prior:
+
+$$
+\text{OddsPath} = 350^{\text{points}/8},
+\qquad
+\text{posterior} = \frac{\text{OddsPath}\cdot\pi_0}{(\text{OddsPath}-1)\,\pi_0 + 1}
+$$
+
+<WorkedExample
+  title="A BRCA1 missense variant, criterion by criterion"
+  given={[
+    { label: 'PS3 — functional assay abnormal', value: 'strong, +4' },
+    { label: 'PM1 — critical functional domain', value: 'moderate, +2' },
+    { label: 'PM2_Supporting — absent from gnomAD', value: 'supporting, +1' },
+    { label: 'PP3 — computational evidence', value: 'supporting, +1' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+The variant is BRCA1 c.181T>G, p.Cys61Gly — the one this track has been following. Cys61
+coordinates zinc in the RING domain, saturation genome editing scores it non-functional, and
+it is absent from population reference data.
+
+**Step 1 — total the points.**
+
+$$
+4 + 2 + 1 + 1 = 8 \text{ points}
+$$
+
+**Step 2 — convert to odds.** Eight points is one very strong criterion's worth of evidence,
+by construction:
+
+$$
+\text{OddsPath} = 350^{8/8} = 350
+$$
+
+**Step 3 — update the prior.**
+
+$$
+\text{posterior} = \frac{350 \times 0.1}{(350 - 1)\times 0.1 + 1} = \frac{35}{35.9} = 0.9749
+$$
+
+**Step 4 — read the tier.** The thresholds are 0.99 for Pathogenic and 0.90 for Likely
+pathogenic, which correspond to 10 and 6 points. At 8 points and a posterior of 0.9749 the
+call is **Likely pathogenic** — not Pathogenic.
+
+**Step 5 — see what the last two points would take.** Reaching 10 needs another moderate
+criterion or two supporting ones: segregation data, a second independent functional assay, or
+case–control enrichment. What it does *not* legitimately include is the observation that
+somebody else already called it pathogenic.
+
+</WorkedExample>
+
+<Callout variant="key" title="The point thresholds encode a prior of 0.1">
+Six points is "likely pathogenic" only because $\pi_0 = 0.1$. The threshold is a posterior of
+0.90, and the points needed to reach it depend entirely on where you started.
+
+Hold the evidence at 8 points and vary the prior:
+
+$$
+\pi_0 = 0.1 \Rightarrow 0.9749, \qquad
+\pi_0 = 0.03 \Rightarrow 0.9154, \qquad
+\pi_0 = 0.01 \Rightarrow 0.7795
+$$
+
+The same eight points is Likely pathogenic in the first two cases and **Uncertain** in the
+third. A prior of 0.1 is reasonable for a variant already filtered to a disease-relevant gene
+in an affected patient; it is much too high for a variant pulled at random from a sequencing
+run, and gene-specific specifications exist partly to adjust for this.
+
+The lesson is that the point tally is not the answer. It is the answer *given a starting
+point*, and the starting point is an assumption you are making whether or not you notice.
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="One strong criterion is not enough" difficulty="warm-up">
+
+A variant has exactly one strong criterion in its favour and nothing else — 4 points. What is
+the posterior, and what is the call?
+
+<div slot="solution">
+
+$$
+\text{OddsPath} = 350^{4/8} = 18.7083,
+\qquad
+\text{posterior} = \frac{18.7083 \times 0.1}{17.7083 \times 0.1 + 1} = 0.6752
+$$
+
+Four points is below the six needed for Likely pathogenic, so the call is **Uncertain
+significance** — a VUS.
+
+This surprises people, and it should not. A single strong criterion moves the odds by a
+factor of about nineteen, which takes a one-in-ten prior to roughly two-in-three. Two thirds
+is not a basis for clinical action, and the framework is right to say so. Most variants that
+feel "probably pathogenic" on one good piece of evidence are exactly here.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Evidence pointing both ways" difficulty="core">
+
+A functional assay says the variant behaves normally — BS3, strong benign, −4 points — but the
+computational predictors call it damaging, PP3, +1. What is the call?
+
+<div slot="solution">
+
+$$
+\text{points} = -4 + 1 = -3
+\quad\Longrightarrow\quad
+\text{OddsPath} = 350^{-3/8} = 0.1112
+$$
+
+$$
+\text{posterior} = \frac{0.1112 \times 0.1}{(0.1112 - 1) \times 0.1 + 1} = 0.0122
+$$
+
+**Likely benign.** Benign and pathogenic evidence combine on one scale, so they genuinely
+cancel — and here the strong functional result outweighs the supporting computational one by
+four points to one.
+
+Two cautions. First, this is only correct if the assay actually interrogates a function
+relevant to the disease; the previous layer's warning applies, and a normal result in an assay
+that cannot see the relevant mechanism is not BS3 at all. Second, a large positive tally and a
+large negative tally that happen to sum near zero should be reported as *conflicting*, not
+quietly averaged into a VUS — the arithmetic cannot tell the difference and a curator must.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="The cost of counting a conclusion" difficulty="stretch">
+
+A variant has been tallied at 9 points — Likely pathogenic. The curator then notes that a
+ClinVar submitter has already classified it pathogenic, and adds PP5 for +1. What changes?
+
+<div slot="solution">
+
+$$
+9 \text{ points} \Rightarrow \text{posterior } 0.9878, \qquad
+10 \text{ points} \Rightarrow \text{posterior } 0.9941
+$$
+
+The threshold for Pathogenic is 10 points, so the variant crosses from **Likely pathogenic to
+Pathogenic** on the strength of one supporting criterion.
+
+Why that is not legitimate: the submitter's classification was built from evidence — very
+likely the same population data, the same functional assay and the same computational
+predictions the curator has already counted. Adding PP5 counts that evidence a second time and
+calls the repetition corroboration.
+
+The consequence is not academic. Pathogenic and Likely pathogenic are reported differently and
+can be actioned differently, so a tier flip driven by circular evidence changes what happens to
+a patient. This is why PP5 and its benign counterpart BP6 were recommended against
+<Citation id="tavtigian2020" />, and why the useful move is to open the submission and count
+what it cites rather than counting that it exists.
+
+Note the asymmetry with Exercise 2: real conflicting evidence *reduces* certainty, while
+circular agreement inflates it. Only one of those failure modes announces itself.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **This layer records conclusions, not measurements.** The question to ask is who concluded
+  it, on what evidence, and whether anyone checked.
+- **ClinVar archives assertions and displays conflicts** rather than resolving them. Of
+  4,302,878 classified variation records, 22,402 have expert-panel review — about one in 192 —
+  and 663 have a practice guideline behind them.
+- **ClinGen does the curation ClinVar does not**: whether the gene causes the disease at all,
+  whether dosage matters, and what the ACMG criteria mean for that specific gene.
+- **The other four answer other questions.** OMIM catalogues phenotypes; HGMD curates published
+  associations rather than verified causality and is subscription-gated; DECIPHER shares
+  patient-level data with phenotype; PharmGKB is about dosing, on its own evidence scale.
+- **Points combine into a posterior**, $350^{\text{points}/8}$ applied to a prior. BRCA1
+  c.181T>G at 4 + 2 + 1 + 1 = 8 points gives 0.9749 — Likely pathogenic, and not Pathogenic.
+- **The thresholds encode $\pi_0 = 0.1$.** The same 8 points is 0.9154 at a prior of 0.03 and
+  0.7795 — Uncertain — at 0.01. The starting point is an assumption whether or not you notice
+  it.
+- **Do not count someone else's conclusion as your evidence.** Adding PP5 to a 9-point tally
+  flips Likely pathogenic to Pathogenic on evidence already counted once.

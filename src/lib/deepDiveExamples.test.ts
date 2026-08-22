@@ -1093,3 +1093,116 @@ describe('data-mave-assays', () => {
     });
   });
 });
+
+describe('data-germline-clinical', () => {
+  const mdx = lesson('data-germline-clinical');
+
+  describe('worked example — a BRCA1 missense variant, criterion by criterion', () => {
+    it('totals the four criteria to 8 points', () => {
+      expect(4 + 2 + 1 + 1).toBe(8);
+      expect(mdx).toContain('4 + 2 + 1 + 1 = 8');
+    });
+
+    it('makes 8 points exactly one very strong criterion, by construction', () => {
+      expect(350 ** (8 / 8)).toBeCloseTo(350, 12);
+      expect(oddsPathPoints(350)).toBeCloseTo(8, 12);
+      expect(mdx).toContain('350^{8/8} = 350');
+    });
+
+    it('gives a posterior of 0.9749 and the Likely pathogenic tier', () => {
+      expect(acmgPosterior(8)).toBeCloseTo(0.9749, 4);
+      expect(acmgClassify(8)).toBe('likely-pathogenic');
+      // the arithmetic the derivation shows
+      expect(350 * 0.1).toBeCloseTo(35, 12);
+      expect((350 - 1) * 0.1 + 1).toBeCloseTo(35.9, 12);
+      expect(mdx).toContain('\\frac{35}{35.9} = 0.9749');
+    });
+
+    it('falls short of Pathogenic, which needs 10 points', () => {
+      expect(acmgClassify(9)).toBe('likely-pathogenic');
+      expect(acmgClassify(10)).toBe('pathogenic');
+      expect(acmgPosterior(10)).toBeGreaterThan(0.99);
+      expect(acmgPosterior(6)).toBeCloseTo(0.9, 3); // the other stated threshold
+    });
+  });
+
+  describe('the prior the thresholds encode', () => {
+    it('turns the same 8 points into three different answers', () => {
+      expect(acmgPosterior(8, 0.1)).toBeCloseTo(0.9749, 4);
+      expect(acmgPosterior(8, 0.03)).toBeCloseTo(0.9154, 4);
+      expect(acmgPosterior(8, 0.01)).toBeCloseTo(0.7795, 4);
+      expect(mdx).toContain('\\Rightarrow 0.9749');
+      expect(mdx).toContain('\\Rightarrow 0.9154');
+      expect(mdx).toContain('\\Rightarrow 0.7795');
+    });
+
+    it('drops below the 0.90 Likely pathogenic threshold at a prior of 0.01', () => {
+      expect(acmgPosterior(8, 0.1)).toBeGreaterThan(0.9);
+      expect(acmgPosterior(8, 0.03)).toBeGreaterThan(0.9);
+      expect(acmgPosterior(8, 0.01)).toBeLessThan(0.9);
+    });
+  });
+
+  describe('figure 1 — ClinVar review status', () => {
+    // Counts read from the NCBI statistics page on 2026-08-16.
+    const ALL = 4_553_176, CLASSIFIED = 4_302_878, EXPERT = 22_402, GUIDELINE = 663;
+
+    it('draws the four counts the caption states', () => {
+      for (const n of [ALL, CLASSIFIED, EXPERT, GUIDELINE]) {
+        expect(mdx).toContain(n.toLocaleString('en-US'));
+      }
+    });
+
+    it('gives the two ratios the brackets label', () => {
+      expect(CLASSIFIED / EXPERT).toBeCloseTo(192.1, 1);
+      expect(CLASSIFIED / GUIDELINE).toBeCloseTo(6490, 0);
+      expect(mdx).toContain('1 classified variant in 192');
+      expect(mdx).toContain('1 in 6,490');
+    });
+
+    it('keeps the counts in the order the bars assume', () => {
+      expect(ALL).toBeGreaterThan(CLASSIFIED);
+      expect(CLASSIFIED).toBeGreaterThan(EXPERT);
+      expect(EXPERT).toBeGreaterThan(GUIDELINE);
+    });
+  });
+
+  describe('exercise 1 — one strong criterion is not enough', () => {
+    it('is a VUS at 0.6752', () => {
+      expect(350 ** (4 / 8)).toBeCloseTo(18.7083, 4);
+      expect(acmgPosterior(4)).toBeCloseTo(0.6752, 4);
+      expect(acmgClassify(4)).toBe('uncertain');
+      expect(mdx).toContain('350^{4/8} = 18.7083');
+      expect(mdx).toContain('= 0.6752');
+    });
+  });
+
+  describe('exercise 2 — evidence pointing both ways', () => {
+    it('nets to −3 points and Likely benign', () => {
+      expect(-4 + 1).toBe(-3);
+      expect(350 ** (-3 / 8)).toBeCloseTo(0.1112, 4);
+      expect(acmgPosterior(-3)).toBeCloseTo(0.0122, 4);
+      expect(acmgClassify(-3)).toBe('likely-benign');
+      expect(mdx).toContain('350^{-3/8} = 0.1112');
+      expect(mdx).toContain('= 0.0122');
+    });
+  });
+
+  describe('exercise 3 — the cost of counting a conclusion', () => {
+    it('flips Likely pathogenic to Pathogenic on one circular point', () => {
+      expect(acmgPosterior(9)).toBeCloseTo(0.9878, 4);
+      expect(acmgPosterior(10)).toBeCloseTo(0.9941, 4);
+      expect(acmgClassify(9)).toBe('likely-pathogenic');
+      expect(acmgClassify(10)).toBe('pathogenic');
+      expect(mdx).toContain('\\text{posterior } 0.9878');
+      expect(mdx).toContain('\\text{posterior } 0.9941');
+    });
+
+    it('is asymmetric with genuine conflict: agreement inflates, conflict deflates', () => {
+      // adding a supporting pathogenic criterion always raises the posterior...
+      expect(acmgPosterior(10)).toBeGreaterThan(acmgPosterior(9));
+      // ...while real benign evidence lowers it
+      expect(acmgPosterior(9 - 4)).toBeLessThan(acmgPosterior(9));
+    });
+  });
+});
