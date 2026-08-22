@@ -2890,3 +2890,48 @@ spielman1993tdt:
   venue: 'American Journal of Human Genetics 52:506-516'
   pmid: '8447318'
   verified: '2026-08-22'
+
+# ── Module 3 · Quantitative genetics ──────────────────────────────────────────
+
+robertson1960limits:
+  authors: ['A. Robertson']
+  year: 1960
+  title: "A theory of limits in artificial selection"
+  venue: "Proceedings of the Royal Society of London. Series B. Biological Sciences 153:234-249"
+  doi: https://doi.org/10.1098/rspb.1960.0099
+  verified: 2026-08-21
+
+bulmer1971selection:
+  authors: ['M. G. Bulmer']
+  year: 1971
+  title: "The Effect of Selection on Genetic Variability"
+  venue: "The American Naturalist 105:201-211"
+  doi: https://doi.org/10.1086/282718
+  verified: 2026-08-21
+
+hill2010quantitative:
+  authors: ['William G. Hill']
+  year: 2010
+  title: "Understanding and using quantitative genetic variation"
+  venue: "Philosophical Transactions of the Royal Society B: Biological Sciences 365:73-85"
+  doi: https://doi.org/10.1098/rstb.2009.0203
+  verified: 2026-08-21
+
+hill2008additive:
+  authors: ['William G. Hill', 'Michael E. Goddard', 'Peter M. Visscher']
+  year: 2008
+  title: "Data and Theory Point to Mainly Additive Genetic Variance for Complex Traits"
+  venue: "PLoS Genetics 4:e1000008"
+  doi: https://doi.org/10.1371/journal.pgen.1000008
+  verified: 2026-08-21
+
+
+# ── Module 3 · Quantitative genetics ──────────────────────────────────────────
+
+lande1983selection:
+  authors: ['Russell Lande', 'Stevan J. Arnold']
+  year: 1983
+  title: "THE MEASUREMENT OF SELECTION ON CORRELATED CHARACTERS"
+  venue: "Evolution 37:1210-1226"
+  doi: https://doi.org/10.1111/j.1558-5646.1983.tb00236.x
+  verified: 2026-08-21
