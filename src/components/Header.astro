@@ -1243,14 +1243,14 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     document.documentElement.dataset.cellMode = mode;
     document.documentElement.dataset.cellAction = action;
 
-    document.querySelectorAll<HTMLButtonElement>('[data-cell-mode]').forEach((btn) => {
+    document.querySelectorAll<HTMLButtonElement>('button[data-cell-mode]').forEach((btn) => {
       const isActive = btn.dataset.cellMode === mode;
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
       btn.tabIndex = isActive ? 0 : -1;
     });
 
-    document.querySelectorAll<HTMLButtonElement>('[data-cell-action]').forEach((btn) => {
+    document.querySelectorAll<HTMLButtonElement>('button[data-cell-action]').forEach((btn) => {
       const isActive = btn.dataset.cellAction === action;
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
@@ -1269,8 +1269,8 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
     if (!keys.includes(event.key)) return;
     const selector = button.hasAttribute('data-cell-mode')
-      ? '[data-cell-mode]'
-      : '[data-cell-action]';
+      ? 'button[data-cell-mode]'
+      : 'button[data-cell-action]';
     const choices = Array.from(
       button.parentElement?.querySelectorAll<HTMLButtonElement>(selector) ?? []
     );
@@ -1351,7 +1351,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       };
     });
 
-    document.querySelectorAll<HTMLButtonElement>('[data-cell-mode]').forEach((btn) => {
+    document.querySelectorAll<HTMLButtonElement>('button[data-cell-mode]').forEach((btn) => {
       btn.onclick = (event) => {
         event.stopPropagation();
         const mode = btn.dataset.cellMode as CellMode | undefined;
@@ -1362,7 +1362,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       btn.onkeydown = (event) => handleCellControlKeydown(event, btn);
     });
 
-    document.querySelectorAll<HTMLButtonElement>('[data-cell-action]').forEach((btn) => {
+    document.querySelectorAll<HTMLButtonElement>('button[data-cell-action]').forEach((btn) => {
       btn.onclick = (event) => {
         event.stopPropagation();
         const action = btn.dataset.cellAction as CellAction | undefined;

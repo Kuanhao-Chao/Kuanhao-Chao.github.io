@@ -1,0 +1,347 @@
+---
+title: Graph Learning & Time-Series Forecasting
+shortTitle: Graphs & Time Series
+description: Message passing, invariance, graph attention, oversmoothing, stationarity, temporal leakage, multihorizon and probabilistic forecasting.
+abstract: An elective joining two structured-data specialties through their assumptions, evaluation designs, information boundaries and characteristic leakage and scaling failures.
+date: 2026-08-22
+track: elective
+hub: ml-dl-interview
+lessonType: technical
+category: machine-learning
+moduleId: m13-electives
+moduleLabel: Electives
+order: 22
+level: advanced
+objectives:
+  - Derive message-passing and normalized graph-convolution layers and their permutation properties.
+  - Compare inductive sampling, graph attention and depth-related graph failures.
+  - Design leakage-safe temporal and graph validation aligned with deployment.
+  - Compare point, quantile, distributional and multihorizon forecasts with proper evaluation.
+prerequisites: [ml-interview-unsupervised-representation-learning, ml-interview-neural-network-foundations]
+relatedLessons: []
+referenceIds:
+  - gilmer2017mpnn
+  - kipf2017gcn
+  - hamilton2017graphsage
+  - velickovic2018gat
+  - hyndman2006forecastaccuracy
+  - salinas2020deepar
+  - oreshkin2020nbeats
+  - lim2021tft
+keyEquations:
+  - 'h_v^{(\ell+1)}=\psi_\ell\!\left(h_v^{(\ell)},\operatorname*{AGG}_{u\in\mathcal N(v)}\phi_\ell\!\left(h_u^{(\ell)},h_v^{(\ell)},e_{uv}\right)\right)'
+  - 'H^{(\ell+1)}=\sigma\!\left(\widetilde D^{-1/2}\widetilde A\widetilde D^{-1/2}H^{(\ell)}W^{(\ell)}\right)'
+  - '\rho_q(y,\widehat y)=\max\!\left\{q(y-\widehat y),(q-1)(y-\widehat y)\right\}'
+tags: [GNN, time series, forecasting]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The shared idea: structure limits legal information flow
+
+Graphs and time series look different, yet interview failures have the same root: treating
+structured observations as exchangeable rows. In a graph, edges determine who can exchange
+information and entity relationships determine the split. In time, availability determines which
+features can cross a forecast origin and chronology determines the split.
+
+<Callout variant="intuition" title="A powerful model cannot repair an invalid neighborhood">
+A graph neural network can aggregate a test label hidden in a neighbor feature. A forecaster can
+average a future value hidden in a centered rolling window. Both will look excellent. Before asking
+how expressive the network is, define what information exists at prediction time and rebuild every
+derived feature inside that boundary.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'G=(V,E)', meaning: 'Graph with node set V and edge set E', dims: '|V|=n, |E|=m' },
+    { symbol: 'h_v', meaning: 'Feature vector at node v', dims: 'd' },
+    { symbol: 'e_{uv}', meaning: 'Optional feature on edge u to v', dims: 'd_e' },
+    { symbol: 'A, D', meaning: 'Adjacency and degree matrices', dims: 'n × n' },
+    { symbol: 'N(v)', meaning: 'Neighbors whose messages reach v', dims: 'set' },
+    { symbol: 'y_t', meaning: 'Observed target at time t', dims: 'scalar or vector' },
+    { symbol: 'h', meaning: 'Forecast horizon', dims: 'positive integer' },
+    { symbol: 'q', meaning: 'Target quantile level', dims: '(0,1)' },
+  ]}
+/>
+
+<Figure
+  id="structured-information-boundaries"
+  caption="Figure 1. Legal information flow for two structured domains. A two-layer graph model reaches a two-hop neighborhood, while rolling-origin forecasting trains only to the left of each origin and evaluates future horizons to the right. The red-accent paths are allowed; crossing the dashed boundary would leak."
+  alt="Two theme-safe panels. The graph panel shows a central node, one-hop and two-hop neighbors with message arrows. The time-series panel shows a jagged line, three forecast origins, training regions to their left and forecast windows to their right separated by dashed vertical lines."
+  wide
+>
+  <svg viewBox="0 0 780 240" width="780" height="240" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.3">
+      <rect x="10" y="22" width="367" height="174" rx="10" opacity=".35" />
+      <rect x="403" y="22" width="367" height="174" rx="10" opacity=".35" />
+      <circle cx="190" cy="108" r="17" stroke="var(--color-accent)" stroke-width="2.7" />
+      <circle cx="116" cy="70" r="13" /><circle cx="117" cy="149" r="13" />
+      <circle cx="265" cy="68" r="13" /><circle cx="267" cy="148" r="13" />
+      <circle cx="54" cy="47" r="10" /><circle cx="54" cy="169" r="10" />
+      <circle cx="327" cy="48" r="10" /><circle cx="329" cy="170" r="10" />
+      <path d="M128 76L174 100M129 142L174 116M253 76L206 100M254 141L206 116" stroke="var(--color-accent)" stroke-width="2.1" />
+      <path d="M64 50L103 65M64 164L104 151M317 52L277 66M319 165L280 150" opacity=".65" />
+      <path d="M428 142L452 116L476 126L500 82L524 104L548 67L572 91L596 61L620 81L644 52L668 75L692 47L716 70L744 41" stroke="var(--color-accent)" stroke-width="2.3" />
+      <path d="M548 40V169M644 40V169" stroke-dasharray="5 5" opacity=".65" />
+      <path d="M548 156H620M644 156H744" stroke="currentColor" opacity=".55" />
+      <path d="M612 151L621 156L612 161M736 151L745 156L736 161" />
+    </g>
+    <g fill="currentColor" font-size="12" text-anchor="middle">
+      <text x="190" y="221">two layers → two-hop receptive set</text>
+      <text x="586" y="221">rolling origins preserve chronology</text>
+      <text x="532" y="185">origin 1</text><text x="628" y="185">origin 2</text>
+    </g>
+  </svg>
+</Figure>
+
+## Graphs: learn over sets of neighbors
+
+<InterviewQuestion id="q-structured-message-passing">
+A message-passing layer can be written
+
+$$
+m_{uv}=\phi(h_u,h_v,e_{uv}),\quad
+a_v=\operatorname{AGG}_{u\in\mathcal N(v)}m_{uv},\quad
+h'_v=\psi(h_v,a_v).
+$$
+
+Gilmer and colleagues unified many graph architectures in this form
+<Citation id="gilmer2017mpnn" />. `AGG` must ignore storage order: sum preserves neighbor
+multiplicity, mean normalizes degree, and max preserves only coordinate-wise extremes. The update
+can include residual state, edge direction, type and normalization.
+
+With node features $n\times d$ and an edge list of $m$ pairs, gather source rows, compute $m$
+messages, then scatter-reduce into $n$ destinations. Memory can be $O(md_m+nd)$ if messages are
+materialized. Dense $n\times n$ adjacency is usually the wrong implementation for a sparse graph.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-structured-graph-invariance">
+Let a permutation matrix $P$ relabel nodes. A node model should satisfy
+$f(PX,PAP^T)=Pf(X,A)$—**equivariance**. A graph-level model with symmetric readout should satisfy
+$g(PX,PAP^T)=g(X,A)$—**invariance**. Shared message functions and symmetric aggregation provide
+these properties by construction.
+
+Concatenating neighbors in database order or using raw node IDs breaks the contract. Structural or
+positional features can intentionally distinguish symmetric nodes, but they too must transform
+consistently or be defined independently of arbitrary labels. Standard message passing also has
+limited ability to distinguish certain non-isomorphic graphs; greater depth does not automatically
+remove that expressivity ceiling.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-structured-gcn-normalization">
+Add self-loops $\tilde A=A+I$, compute $\tilde D_{ii}=\sum_j\tilde A_{ij}$, then apply
+
+$$
+H'=\sigma(\tilde D^{-1/2}\tilde A\tilde D^{-1/2}HW).
+$$
+
+The self-loop retains a transformed node contribution. Symmetric degree normalization scales an
+edge $u\leftrightarrow v$ by $1/\sqrt{d_ud_v}$ so high-degree nodes do not dominate as they would
+under a raw sum. Kipf and Welling derived this scalable layer as a localized first-order spectral
+approximation <Citation id="kipf2017gcn" />.
+
+This update assumes connected nodes should exchange smoothed information. Heterophilous edges,
+direction, relation type or temporal edges may demand signed, typed or asymmetric messages. Always
+state whether $A$ is directed, whether duplicate edges are coalesced, and which degree the
+normalization uses.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Normalize one node in a three-node path"
+  given={[
+    { label: 'Graph', value: '1 — 2 — 3, with self-loops added' },
+    { label: 'Scalar features', value: 'h = [1, 2, 4]' },
+    { label: 'Layer', value: 'One linear GCN step with W = 1 and no activation' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+Self-loop degrees are $\tilde d=[2,3,2]$. Node 2 receives all three features:
+
+$$
+h'_2=\frac{1}{\sqrt{3\cdot2}}(1)
++\frac{1}{\sqrt{3\cdot3}}(2)
++\frac{1}{\sqrt{3\cdot2}}(4)
+=\frac{5}{\sqrt6}+\frac23\approx2.708.
+$$
+
+A plain mean would be $7/3\approx2.333$; symmetric GCN normalization is not simply “average the
+neighbors.” Node 2's own feature remains because of its self-loop.
+</WorkedExample>
+
+<InterviewQuestion id="q-structured-graphsage-induction">
+Transductive embedding tables optimize one vector per known node. GraphSAGE instead learns shared
+functions that sample and aggregate feature neighborhoods, allowing a compatible unseen node or
+new graph to be embedded <Citation id="hamilton2017graphsage" />. Induction still assumes the new
+graph uses comparable features, edge semantics and label mechanism.
+
+With $K$ layers and fanouts $s_1,\ldots,s_K$, a seed can expand toward
+$\prod_ks_k$ sampled nodes. Sampling bounds computation but adds estimator variance and may miss
+rare influential neighbors. Cache sampling seeds for reproducibility, compare fanout ablations,
+and use layer-wise or cluster batching if repeated neighborhood expansion dominates training.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-structured-graph-attention">
+Graph attention computes an edge score, for example
+$e_{uv}=a^T[Wh_u\Vert Wh_v]$, applies a nonlinearity and normalizes
+$\alpha_{uv}=\operatorname{softmax}_{u\in\mathcal N(v)}e_{uv}$. The update is a weighted neighbor
+sum. GAT introduced this masked self-attention construction for graph neighborhoods
+<Citation id="velickovic2018gat" />.
+
+It can adapt weights to node content, but every edge requires scoring and high-degree softmax can be
+expensive or diffuse. Edge types or trusted physical weights may be more informative than learned
+compatibility. Attention weights are model coefficients under one parameterization, not causal
+importance. Perturb edges and features, compare simpler aggregators, and measure whether attention
+improves shifted performance enough to justify its cost.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-structured-oversmoothing">
+Repeated normalized aggregation acts like smoothing: node representations can converge toward a
+low-frequency subspace and become hard to distinguish—**oversmoothing**. **Oversquashing** is
+different: exponentially many distant signals are compressed through fixed-width states and narrow
+graph cuts, so relevant long-range information cannot pass effectively.
+
+Track pairwise representation distances, class separation, gradient influence by graph distance and
+performance versus depth. Residual or jumping connections help preserve earlier features;
+normalization and decoupled propagation alter smoothing; wider messages or graph rewiring may relieve
+bottlenecks. Adding depth increases theoretical reach but can worsen both failures. Diagnose the
+mechanism before selecting a remedy.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-structured-graph-leakage">
+The legal split depends on deployment. In transductive node classification, test-node features and
+the complete adjacency may be intentionally visible while labels are hidden. In inductive
+deployment, new nodes or graphs and their future edges are unavailable. State which setting applies.
+
+Leakage sources include reverse copies of held-out links, same entities across partitions, future
+interactions, labels encoded in node features, and graph statistics computed on the complete graph.
+Split by edge time, connected component, entity or whole graph as the use case requires; rebuild
+degrees, neighborhoods, negative samples and preprocessing only from allowed information. A random
+edge split is particularly optimistic when the other edges almost reveal the missing one.
+</InterviewQuestion>
+
+## Time series: forecasting from an availability boundary
+
+<InterviewQuestion id="q-structured-stationarity">
+A weakly stationary process has constant mean, finite constant variance and autocovariance that
+depends on lag rather than calendar time. This assumption lets a pattern estimated in one interval
+describe another. Differencing $\Delta y_t=y_t-y_{t-1}$ can remove stochastic trend; seasonal
+differencing $y_t-y_{t-s}$ can remove a repeating level component.
+
+Do not difference by reflex. It can amplify measurement noise, erase a meaningful long-run relation
+or complicate inversion. A model with explicit trend, covariates or local levels may handle
+nonstationarity directly. Inspect training-window residuals, regime changes and forecast stability;
+no single stationarity test proves future invariance.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-structured-temporal-leakage">
+A row timestamp is not enough. Each feature needs an **event time** and an **availability time**.
+Centered rolling windows, backfilled missing values, revised economic records, future-aware target
+encoding, globally fit scalers and random folds all leak. A weather forecast issued yesterday can
+be legal; tomorrow's observed weather is not, even if both share the same event date.
+
+Materialize features “as of” the prediction cutoff, fit every transform inside each training
+window, and reproduce production delays. Unit-test a cutoff by removing all later records and
+asserting earlier features are unchanged. This temporal invariant catches more failures than merely
+sorting a final table.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-structured-forecast-baselines">
+Start with last-value, seasonal-naive and drift baselines, then a simple linear or statistical
+model. Use rolling-origin evaluation: train through origin $t_i$, predict the next defined horizons,
+advance the origin and repeat. Match production retraining frequency and feature availability.
+
+Report performance by horizon, series scale and subgroup. Percentage errors can be undefined or
+unstable near zero; Hyndman and Koehler proposed scaled errors such as MASE to compare series while
+avoiding several percentage-metric defects <Citation id="hyndman2006forecastaccuracy" />. Neural
+baselines such as N-BEATS demonstrate that strong generic residual stacks can be useful, but must
+still beat seasonal baselines under the same backtest <Citation id="oreshkin2020nbeats" />.
+
+One historical holdout gives one regime. Multiple origins expose instability and produce an error
+distribution for model comparison.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-structured-probabilistic-forecast">
+Squared loss targets the conditional mean; absolute loss targets a conditional median. Pinball loss
+for quantile $q$ is
+
+$$
+\rho_q(y-\hat y)=\max(q(y-\hat y),(q-1)(y-\hat y)).
+$$
+
+It penalizes underprediction by $q$ and overprediction by $1-q$, eliciting the conditional
+$q$-quantile. Distributional models output parameters or samples and should be judged by proper
+scores such as log score or CRPS, plus empirical interval coverage and width.
+
+DeepAR is an example of sharing an autoregressive recurrent distribution model across related
+series <Citation id="salinas2020deepar" />. Check quantile crossing, calibration by horizon and
+subgroup, and tail behavior. A 90% interval with 90% coverage can still be uselessly wide.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-structured-multihorizon-design">
+**Recursive** forecasting trains one-step dynamics and feeds predictions back; it shares a model
+but accumulates error and creates a train-inference mismatch. **Direct** forecasting fits a model per
+horizon; it avoids feedback but multiplies models and can ignore consistency. **Multi-output**
+forecasting predicts the whole horizon jointly, sharing structure but requiring horizon-aware loss
+and masks.
+
+Separate static covariates, observed-past variables and genuinely known-future inputs. The Temporal
+Fusion Transformer is one architecture explicitly designed around those input types and quantile
+multihorizon outputs <Citation id="lim2021tft" />. Architecture does not validate availability:
+holiday calendars may be known, future realized prices usually are not. Evaluate every horizon,
+aggregate only with declared operational weights, and test forecast coherence where totals or
+hierarchies impose constraints.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="A permutation test" difficulty="warm-up">
+A graph classifier concatenates the first five neighbors returned by a database. What property is
+at risk, and what implementation replaces it?
+
+<div slot="solution">
+Database order is an arbitrary node labeling, so concatenation can break permutation equivariance
+and graph-level invariance. Apply a shared message function to neighbors and use a symmetric sum,
+mean, max or attention normalization over the neighbor set. Then permute node and edge indices in a
+unit test and verify that node outputs permute correspondingly while the graph prediction stays fixed.
+</div>
+</Exercise>
+
+<Exercise n={2} title="Pinball asymmetry" difficulty="core">
+For a target $y=10$ and prediction $\hat y=8$, compute pinball loss at $q=0.9$. What if the
+prediction is 12 instead?
+
+<div slot="solution">
+For 8, residual $u=y-\hat y=2$, so loss is $qu=0.9\cdot2=1.8$. For 12, $u=-2$, so loss is
+$(q-1)u=(-0.1)(-2)=0.2$. The high quantile penalizes underprediction more, pushing the optimum
+toward the 90th conditional percentile.
+</div>
+</Exercise>
+
+<Exercise n={3} title="A backtest with revised data" difficulty="stretch">
+A monthly economic feature is revised two months after first publication. A team backtests using
+the latest downloaded values for every historical month. Explain the bias and specify the fix.
+
+<div slot="solution">
+The latest vintage contains revisions that were unavailable at each historical forecast origin, so
+the backtest gives the model cleaner future-informed inputs. Store vintages with availability times
+and reconstruct each feature from the version published by its origin. If vintage data do not
+exist, exclude the feature, simulate an uncertainty envelope, or label the evaluation limitation;
+sorting latest values by event month does not fix it.
+</div>
+</Exercise>
+
+## Summary
+
+- Message passing learns shared edge-wise transformations and permutation-safe neighbor aggregation.
+- Graph convolution is normalized smoothing with assumptions about which edges carry useful similarity.
+- Inductive sampling and graph attention trade coverage and adaptability against variance and per-edge cost.
+- Oversmoothing, oversquashing and leakage are distinct graph failure modes.
+- Forecast features need availability times; rolling-origin evaluation recreates the decision boundary.
+- Point, quantile and distributional forecasts answer different questions and need corresponding proper scores.
+- Complex graph or forecasting models earn their place only by beating structure-aware baselines under valid splits.

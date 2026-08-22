@@ -1,0 +1,194 @@
+lesson: ml-interview-sequences-attention-transformers
+questions:
+  - id: q-seq-rnn-recurrence
+    question: 'Write the recurrence and tensor shapes of a basic recurrent neural network.'
+    conciseAnswer: >-
+      With input X of shape B by T by d_x and hidden width d_h, one step is h_t=phi(x_t W_x+h_(t-1) W_h+b), producing B by d_h states and, if retained, B by T by d_h outputs. Parameters are d_x d_h+d_h squared+d_h before an output head; parameters are shared across time, but computation and the dependency path remain sequential.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [rnn, recurrence, tensor-shapes]
+    aliases: [vanilla recurrent network, RNN dimensions]
+  - id: q-seq-bptt-gradients
+    question: 'Why do recurrent networks suffer from vanishing and exploding gradients?'
+    conciseAnswer: >-
+      Backpropagation through time multiplies a chain of recurrent Jacobians. Singular values repeatedly below one shrink distant influence exponentially, while values above one amplify it; saturating activations worsen shrinkage. Inspect gradients by time lag and layer, use gated cells, suitable initialization, normalization or shorter paths, and clip explosions—but clipping limits an update and does not restore vanished information.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [bptt, vanishing-gradients, exploding-gradients]
+    aliases: [recurrent gradient problem, long dependencies]
+  - id: q-seq-lstm-gates
+    question: 'How does an LSTM preserve information, and what does each gate do?'
+    conciseAnswer: >-
+      An LSTM updates c_t=f_t times c_(t-1)+i_t times g_t and exposes h_t=o_t times tanh(c_t). The forget gate controls retention, input gate controls writing, candidate proposes content, and output gate controls reading. The additive cell path can preserve gradients when f_t is near one, but it does not guarantee unlimited memory and still costs four affine transforms per step.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [lstm, gating, memory]
+    aliases: [LSTM equations, forget gate]
+  - id: q-seq-seq2seq-teacher-forcing
+    question: 'What are teacher forcing and exposure bias in sequence-to-sequence training?'
+    conciseAnswer: >-
+      Teacher forcing conditions each training prediction on the true previous token, enabling parallel loss computation and stable supervision. At inference the model consumes its own samples, so an early mistake changes later inputs; this train-inference mismatch is called exposure bias. Scheduled sampling changes the objective and is not a universal cure; stronger data, decoding, sequence-level evaluation, and robustness tests are needed.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [seq2seq, teacher-forcing, exposure-bias]
+    aliases: [autoregressive training mismatch, scheduled sampling]
+  - id: q-seq-attention-derivation
+    question: 'Derive scaled dot-product attention with explicit tensor dimensions.'
+    conciseAnswer: >-
+      For Q of n_q by d_k, K of n_k by d_k, and V of n_k by d_v, scores QK-transpose have shape n_q by n_k. Add an allowed-position mask, divide by square root d_k, apply row-wise softmax, then multiply by V to obtain n_q by d_v. Each output is a content-dependent convex combination of value rows, while projections that create Q, K, and V are learned.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [attention, tensor-shapes, softmax]
+    aliases: [scaled dot product attention, Q K V]
+  - id: q-seq-attention-scaling
+    question: 'Why divide attention logits by the square root of the key dimension?'
+    conciseAnswer: >-
+      If query and key coordinates are independent with unit variance, their dot product has variance d_k. Without scaling, its magnitude grows with width, softmax saturates, and most gradients become small. Dividing by square root d_k keeps logit variance roughly constant under that initialization argument; normalization and learned projections change the exact distribution but not the practical conditioning rationale.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [attention, scaling, softmax]
+    aliases: [sqrt d attention, attention temperature]
+  - id: q-seq-multihead-attention
+    question: 'What does multi-head attention add beyond one wider attention head?'
+    conciseAnswer: >-
+      Each head has separate projections and therefore its own similarity geometry and value subspace; concatenating heads lets a layer combine several relation patterns at one position. With total model width fixed, standard multi-head attention has a similar leading projection cost to one wide head, but head dimension affects scaling and memory. Heads are not guaranteed to become interpretable linguistic modules and some may be redundant.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist, genai]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [multi-head-attention, representation, transformers]
+    aliases: [attention heads, MHA]
+  - id: q-seq-attention-masks
+    question: 'Distinguish padding, causal, and cross-attention masks, including common implementation bugs.'
+    conciseAnswer: >-
+      A padding mask prevents real queries from attending to padded keys; a causal mask blocks future key positions; cross-attention applies query and key padding rules across two sequences. Before softmax, forbidden logits receive negative infinity or a safe dtype-compatible minimum. Reversed boolean conventions, masking rows with no valid key, incorrect broadcasting, and masking queries but not the loss are common sources of NaNs or leakage.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist, genai]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [attention-mask, padding, causality]
+    aliases: [causal mask, key padding mask]
+  - id: q-seq-position-information
+    question: 'Why does self-attention need positional information, and what are the main design choices?'
+    conciseAnswer: >-
+      Without positions, self-attention is permutation equivariant: reordering token rows reorders outputs but does not express order itself. Absolute learned or sinusoidal vectors attach a location to each token; relative position terms encode pairwise offsets; rotary methods transform queries and keys so their dot products depend on relative displacement. Extrapolation depends on the method, training lengths, and task—not the label alone.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist, genai]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [positional-encoding, relative-position, sequence-order]
+    aliases: [transformer word order, position embeddings]
+  - id: q-seq-transformer-block
+    question: 'Walk through a Transformer block and compare pre-normalization with post-normalization.'
+    conciseAnswer: >-
+      A block combines multi-head attention and a position-wise feed-forward network, each with residual addition, normalization, and usually dropout. Post-norm normalizes after each residual sum as in the original Transformer; pre-norm normalizes the branch input and leaves a direct identity residual route, which often improves gradient flow in deep stacks. Exact residual, scaling, and bias conventions matter when reproducing a model.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist, genai]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [transformer-block, layer-normalization, residual]
+    aliases: [pre norm versus post norm, transformer architecture]
+  - id: q-seq-attention-complexity
+    question: 'Analyze the compute and memory complexity of self-attention versus recurrence.'
+    conciseAnswer: >-
+      Dense self-attention forms an n by n score matrix, costing order n squared d compute and n squared activation memory, plus order n d squared projections. Recurrence costs order n d squared for a dense cell and has constant-length state at inference, but its n steps are sequential during training. The practical crossover depends on width, kernels, checkpointing, sparsity, hardware utilization, and whether all activations are retained.
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, research-scientist, dl-specialist, genai, ml-platform]
+    kind: mathematics
+    round: system-design
+    stability: evergreen
+    tags: [complexity, attention, rnn]
+    aliases: [quadratic attention, transformer memory]
+  - id: q-seq-kv-cache
+    question: 'What does a key-value cache save during autoregressive Transformer decoding?'
+    conciseAnswer: >-
+      At each generated token, past layer keys and values do not change, so caching them avoids recomputing their projections and earlier hidden prefixes. The new query still attends over every cached position, leaving per-token attention proportional to current context length and cache memory proportional to layers times sequence length times key-value width. Batching, beam reordering, grouped-query designs, and cache precision change real serving cost.
+    priority: common
+    difficulty: advanced
+    roles: [dl-specialist, genai, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [kv-cache, autoregressive-decoding, inference]
+    aliases: [Transformer decoding cache, past keys values]
+  - id: q-seq-decoding-strategies
+    question: 'Compare greedy, beam, sampling, top-k, and nucleus decoding.'
+    conciseAnswer: >-
+      Greedy decoding chooses the best next token locally; beam search tracks several high-probability prefixes; temperature sampling changes distribution sharpness; top-k limits choices by count; nucleus sampling keeps the smallest set above a cumulative-probability threshold. The best method depends on whether the task rewards one constrained sequence, calibrated diversity, or utility under a verifier; decoding cannot repair a misspecified model distribution.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [decoding, beam-search, sampling]
+    aliases: [top p decoding, generation strategies]
+  - id: q-seq-padding-batching
+    question: 'How do you batch variable-length sequences efficiently and correctly?'
+    conciseAnswer: >-
+      Pad within length buckets, carry valid-token masks through attention and pooling, and exclude padding from the loss denominator. Packed recurrence can skip padded steps, while Transformers still spend work on padded tokens unless kernels exploit ragged structure. Report tokens rather than sequences per batch, watch truncation policy, and test that adding extra right padding leaves every real-token output unchanged.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist, ml-platform]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [padding, batching, variable-length]
+    aliases: [sequence bucketing, attention padding]
+  - id: q-seq-long-context-design
+    question: 'How would you choose an architecture for a long-sequence task?'
+    conciseAnswer: >-
+      Begin with the dependency length actually required, input and output structure, latency, memory, and whether streaming is mandatory. Compare recurrence or state-space summaries, local or sparse attention, chunking with retrieval, and full attention on an accuracy-throughput frontier. Use synthetic dependency probes plus real ablations, check boundary and truncation failures, and include preprocessing and cache cost in end-to-end measurement.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist, genai, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [long-context, architecture-choice, scaling]
+    aliases: [long sequence modeling, efficient attention]
+  - id: q-seq-causal-leakage-debug
+    question: 'A causal sequence model has suspiciously low validation loss. How do you test for future leakage?'
+    conciseAnswer: >-
+      Verify the target shift, causal mask orientation, feature timestamps, normalization windows, train-validation chronology, and caching path. Perturb or erase future tokens and assert earlier logits do not change; compare parallel teacher-forced logits with stepwise cached decoding; test a tiny hand-constructed sequence; and inspect whether padding, bidirectional preprocessing, or a full-series feature silently exposes the answer.
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, dl-specialist, genai]
+    kind: debugging
+    round: coding
+    stability: evergreen
+    tags: [causal-leakage, debugging, validation]
+    aliases: [look ahead bias, transformer mask bug]

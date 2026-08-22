@@ -1,0 +1,194 @@
+lesson: ml-interview-optimization-training
+questions:
+  - id: q-opt-gd-sgd-minibatch
+    question: 'Compare batch gradient descent, stochastic gradient descent, and mini-batch SGD.'
+    conciseAnswer: >-
+      Full-batch gradient descent computes an exact dataset gradient but makes expensive, infrequent updates; one-example SGD is cheap and noisy; mini-batches vectorize efficiently while retaining useful gradient noise. In deep learning, mini-batch SGD is the practical default because it balances hardware throughput, memory, update frequency, and generalization.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [gradient-descent, sgd, minibatch]
+    aliases: [batch versus stochastic gradient descent, mini batch]
+  - id: q-opt-learning-rate
+    question: 'Why is the learning rate usually the most important training hyperparameter?'
+    conciseAnswer: >-
+      The learning rate converts a gradient into a parameter displacement: too large causes oscillation or divergence, while too small wastes compute and can stall in poorly conditioned directions. Its useful scale depends on curvature, batch size, normalization and optimizer, so diagnose it from loss and update-to-weight behavior rather than from a universal constant.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [learning-rate, convergence, curvature]
+    aliases: [step size, learning rate tuning]
+  - id: q-opt-momentum
+    question: 'How do momentum and Nesterov momentum accelerate optimization?'
+    conciseAnswer: >-
+      Momentum exponentially averages past gradients, damping oscillation in steep directions and accumulating speed in persistent directions. Nesterov evaluates the gradient after a look-ahead step, which provides an earlier correction; exact library conventions differ, so reason from the implemented recurrence before comparing hyperparameters.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [momentum, nesterov, optimization]
+    aliases: [heavy ball, NAG]
+  - id: q-opt-adam
+    question: 'How does Adam work, and when might SGD still be preferable?'
+    conciseAnswer: >-
+      Adam keeps bias-corrected exponential averages of the gradient and squared gradient, producing coordinate-wise adaptive steps. It often trains quickly and tolerates sparse or uneven gradients, while tuned momentum SGD can generalize better on some vision tasks and uses less optimizer state; Adam is not automatically a substitute for learning-rate schedules or validation.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [adam, adaptive-optimization, sgd]
+    aliases: [Adam optimizer, Adam versus SGD]
+  - id: q-opt-adamw
+    question: 'Why is AdamW different from adding an L2 penalty when using Adam?'
+    conciseAnswer: >-
+      With plain SGD, an L2 gradient and multiplicative weight decay are equivalent after rescaling, but Adam preconditions the L2 gradient coordinate by coordinate. AdamW decouples shrinkage from that preconditioner, applying a direct parameter contraction, which makes the regularization strength easier to interpret and tune independently of adaptive moments.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [adamw, weight-decay, l2-regularization]
+    aliases: [decoupled weight decay, L2 versus weight decay]
+  - id: q-opt-initialization
+    question: 'How do Xavier and He initialization preserve signal through a network?'
+    conciseAnswer: >-
+      They choose weight variance so activations and gradients neither grow nor vanish layer by layer under simplifying independence assumptions. Xavier uses roughly 2/(fan-in+fan-out) for symmetric activations, while He uses 2/fan-in for ReLU because about half the preactivations are removed; residuals, attention and normalization can require architecture-specific scaling.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [initialization, xavier, he-initialization]
+    aliases: [Glorot initialization, Kaiming initialization]
+  - id: q-opt-vanishing-exploding
+    question: 'What causes vanishing and exploding gradients, and how do you diagnose them?'
+    conciseAnswer: >-
+      Backpropagation multiplies Jacobians, so singular values repeatedly below or above one shrink or amplify gradients exponentially with depth or sequence length. Log per-layer gradient and activation norms, check finite values and saturation, then address the mechanism with suitable initialization, residual paths, normalization, gated recurrence, shorter paths, or clipping for explosions.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: debugging
+    round: knowledge
+    stability: evergreen
+    tags: [gradients, vanishing-gradients, exploding-gradients]
+    aliases: [gradient flow, unstable gradients]
+  - id: q-opt-gradient-clipping
+    question: 'What does gradient clipping do, and what does it not fix?'
+    conciseAnswer: >-
+      Global-norm clipping rescales the complete gradient vector when its norm exceeds a threshold, preserving direction while limiting one update; value clipping changes direction by clipping coordinates. It contains rare explosions but does not repair a bad loss, persistent numerical overflow, too-high learning rate, or chronically unstable architecture.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [gradient-clipping, stability, debugging]
+    aliases: [clip grad norm, exploding gradient fix]
+  - id: q-opt-batch-size
+    question: 'How does batch size affect throughput, optimization, and generalization?'
+    conciseAnswer: >-
+      Larger batches reduce gradient variance and improve device utilization until memory or bandwidth saturates, but they make fewer updates per epoch and can require learning-rate scaling and warmup. Beyond the gradient-noise scale they buy little statistical efficiency, so optimize examples or tokens per second and validation quality, not batch size in isolation.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist, ml-platform]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [batch-size, throughput, generalization]
+    aliases: [large batch training, minibatch size]
+  - id: q-opt-schedules
+    question: 'Why use learning-rate warmup and decay schedules?'
+    conciseAnswer: >-
+      Warmup prevents large early parameter moves while moments, normalization statistics, and representations are uninformative; decay converts later updates into fine adjustments. Step, cosine and plateau schedules encode different assumptions, and schedule progress should usually follow optimizer steps or tokens rather than wall time.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [learning-rate-schedule, warmup, cosine-decay]
+    aliases: [LR decay, scheduler]
+  - id: q-opt-mixed-precision
+    question: 'How does mixed-precision training speed up models without corrupting optimization?'
+    conciseAnswer: >-
+      Mixed precision runs eligible operations in a low-precision dtype for faster tensor cores and lower memory while retaining sensitive reductions and optimizer state at higher precision. Loss scaling protects small FP16 gradients from underflow, but BF16 usually needs no scaling because it retains FP32's exponent range; always unscale before clipping and check for nonfinite gradients.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, dl-specialist, ml-platform]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [mixed-precision, fp16, bf16, loss-scaling]
+    aliases: [automatic mixed precision, AMP]
+  - id: q-opt-loss-plateau
+    question: 'A training loss plateaus early. What do you check, in what order?'
+    conciseAnswer: >-
+      First prove the pipeline can overfit one tiny batch, then verify labels, masks, units, train mode, parameter registration and actual parameter updates. Inspect learning rate, gradient and activation norms, loss scale and class balance before increasing capacity; a scheduler cannot fix detached tensors or wrong targets.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: debugging
+    round: project-defense
+    stability: evergreen
+    tags: [debugging, loss-plateau, sanity-checks]
+    aliases: [model not learning, flat loss]
+  - id: q-opt-landscape
+    question: 'Are local minima the main optimization problem in deep neural networks?'
+    conciseAnswer: >-
+      Usually not in the simple low-dimensional sense: overparameterized networks contain many equivalent solutions and broad connected low-loss regions, while saddles, plateaus, ill conditioning, noisy gradients and scale symmetries often dominate training behavior. Loss value alone also does not determine generalization, so sharpness claims must account for parameterization.
+    priority: specialist
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, applied-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [loss-landscape, saddle-points, generalization]
+    aliases: [local minima, sharp minima]
+  - id: q-opt-tuning
+    question: 'How would you tune a deep-learning training recipe efficiently?'
+    conciseAnswer: >-
+      Establish a reproducible baseline and valid metric, run cheap range or multi-fidelity searches over log-scaled learning rate, regularization and capacity, and inspect learning curves before scaling. Change one subsystem at a time, preserve seeds and configs, promote robust regions rather than lucky points, and retest finalists on untouched data.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: system-design
+    round: experimentation
+    stability: evergreen
+    tags: [hyperparameters, tuning, reproducibility]
+    aliases: [hyperparameter optimization, training recipe]
+  - id: q-opt-early-stopping
+    question: 'Is early stopping an optimization technique or a regularizer?'
+    conciseAnswer: >-
+      It is both an optimization control and an implicit regularizer: stopping before full empirical-risk minimization limits how far parameters fit weak or noisy directions. Monitor a prespecified validation metric with sensible evaluation cadence and patience, save the best checkpoint, and avoid repeatedly using the test set to choose the stopping time.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [early-stopping, regularization, validation]
+    aliases: [patience, best checkpoint]
+  - id: q-opt-accumulation-distributed
+    question: 'Are gradient accumulation and distributed data parallelism equivalent to one large batch?'
+    conciseAnswer: >-
+      They can produce the same averaged gradient only when they cover the same examples with the same parameters and stochastic behavior, the loss is scaled correctly, and no update occurs between microbatches. Batch-normalization statistics, dropout masks, gradient clipping, optimizer-step schedules, communication precision and variable-length token counts create practical differences.
+    priority: common
+    difficulty: advanced
+    roles: [general-mle, dl-specialist, ml-platform]
+    kind: implementation
+    round: system-design
+    stability: evergreen
+    tags: [gradient-accumulation, distributed-training, effective-batch]
+    aliases: [DDP batch equivalence, microbatching]

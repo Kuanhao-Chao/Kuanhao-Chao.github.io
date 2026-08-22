@@ -39,6 +39,14 @@ import {
   wakefieldAbf,
   type Matrix,
 } from '../lib/deepDiveMath';
+import {
+  biasVarianceToy,
+  binaryMetricsAtThreshold,
+  quadraticDescent,
+  softmaxWithTemperature,
+  type BinaryScore,
+} from '../lib/mlInterviewMath';
+import type { DeepDiveWidgetKind } from '../lib/deepDiveWidgetKinds';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -73,14 +81,28 @@ interface Scale {
   format: (v: number) => string;
 }
 
-function linear(d0: number, d1: number, r0: number, r1: number, ticks: number[], format = fmt): Scale {
+function linear(
+  d0: number,
+  d1: number,
+  r0: number,
+  r1: number,
+  ticks: number[],
+  format = fmt
+): Scale {
   const f = ((v: number) => r0 + ((v - d0) / (d1 - d0)) * (r1 - r0)) as Scale;
   f.ticks = ticks;
   f.format = format;
   return f;
 }
 
-function logarithmic(d0: number, d1: number, r0: number, r1: number, ticks: number[], format = fmt): Scale {
+function logarithmic(
+  d0: number,
+  d1: number,
+  r0: number,
+  r1: number,
+  ticks: number[],
+  format = fmt
+): Scale {
   const l0 = Math.log10(d0);
   const l1 = Math.log10(d1);
   const f = ((v: number) => r0 + ((Math.log10(v) - l0) / (l1 - l0)) * (r1 - r0)) as Scale;
@@ -115,58 +137,116 @@ const sci = (v: number, digits = 2): string => {
 
 function superscript(n: number): string {
   const map: Record<string, string> = {
-    '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴',
-    5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹',
+    '-': '⁻',
+    0: '⁰',
+    1: '¹',
+    2: '²',
+    3: '³',
+    4: '⁴',
+    5: '⁵',
+    6: '⁶',
+    7: '⁷',
+    8: '⁸',
+    9: '⁹',
   };
-  return String(n).split('').map((c) => map[c] ?? c).join('');
+  return String(n)
+    .split('')
+    .map((c) => map[c] ?? c)
+    .join('');
 }
 
 /** The frame: axes, gridlines, ticks and both axis titles. Returns the empty plot group. */
-function frame(x: Scale, y: Scale, xTitle: string, yTitle: string, root: SVGSVGElement): SVGGElement {
+function frame(
+  x: Scale,
+  y: Scale,
+  xTitle: string,
+  yTitle: string,
+  root: SVGSVGElement
+): SVGGElement {
   const g = el('g');
 
   for (const t of y.ticks) {
     const py = y(t);
-    g.appendChild(el('line', {
-      x1: PAD.left, y1: py, x2: PAD.left + PLOT.w, y2: py,
-      stroke: 'currentColor', 'stroke-width': 1, opacity: 0.12,
-    }));
-    g.appendChild(label(PAD.left - 8, py + 4, y.format(t), { 'text-anchor': 'end', opacity: 0.75 }));
+    g.appendChild(
+      el('line', {
+        x1: PAD.left,
+        y1: py,
+        x2: PAD.left + PLOT.w,
+        y2: py,
+        stroke: 'currentColor',
+        'stroke-width': 1,
+        opacity: 0.12,
+      })
+    );
+    g.appendChild(
+      label(PAD.left - 8, py + 4, y.format(t), { 'text-anchor': 'end', opacity: 0.75 })
+    );
   }
   for (const t of x.ticks) {
     const px = x(t);
-    g.appendChild(el('line', {
-      x1: px, y1: PAD.top + PLOT.h, x2: px, y2: PAD.top + PLOT.h + 5, stroke: 'currentColor',
-    }));
-    g.appendChild(label(px, PAD.top + PLOT.h + 19, x.format(t), { 'text-anchor': 'middle', opacity: 0.75 }));
+    g.appendChild(
+      el('line', {
+        x1: px,
+        y1: PAD.top + PLOT.h,
+        x2: px,
+        y2: PAD.top + PLOT.h + 5,
+        stroke: 'currentColor',
+      })
+    );
+    g.appendChild(
+      label(px, PAD.top + PLOT.h + 19, x.format(t), { 'text-anchor': 'middle', opacity: 0.75 })
+    );
   }
 
-  g.appendChild(el('line', {
-    x1: PAD.left, y1: PAD.top, x2: PAD.left, y2: PAD.top + PLOT.h,
-    stroke: 'currentColor', 'stroke-width': 1.25,
-  }));
-  g.appendChild(el('line', {
-    x1: PAD.left, y1: PAD.top + PLOT.h, x2: PAD.left + PLOT.w, y2: PAD.top + PLOT.h,
-    stroke: 'currentColor', 'stroke-width': 1.25,
-  }));
+  g.appendChild(
+    el('line', {
+      x1: PAD.left,
+      y1: PAD.top,
+      x2: PAD.left,
+      y2: PAD.top + PLOT.h,
+      stroke: 'currentColor',
+      'stroke-width': 1.25,
+    })
+  );
+  g.appendChild(
+    el('line', {
+      x1: PAD.left,
+      y1: PAD.top + PLOT.h,
+      x2: PAD.left + PLOT.w,
+      y2: PAD.top + PLOT.h,
+      stroke: 'currentColor',
+      'stroke-width': 1.25,
+    })
+  );
 
-  g.appendChild(label(PAD.left + PLOT.w / 2, H - 8, xTitle, { 'text-anchor': 'middle', 'font-size': 12 }));
-  g.appendChild(label(16, PAD.top + PLOT.h / 2, yTitle, {
-    'text-anchor': 'middle', 'font-size': 12, transform: `rotate(-90 16 ${PAD.top + PLOT.h / 2})`,
-  }));
+  g.appendChild(
+    label(PAD.left + PLOT.w / 2, H - 8, xTitle, { 'text-anchor': 'middle', 'font-size': 12 })
+  );
+  g.appendChild(
+    label(16, PAD.top + PLOT.h / 2, yTitle, {
+      'text-anchor': 'middle',
+      'font-size': 12,
+      transform: `rotate(-90 16 ${PAD.top + PLOT.h / 2})`,
+    })
+  );
 
   root.appendChild(g);
   return g;
 }
 
 function curve(points: [number, number][], attrs: Record<string, string | number> = {}) {
-  const d = points.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join(' ');
+  const d = points
+    .map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`)
+    .join(' ');
   return el('path', { d, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, ...attrs });
 }
 
 function newSvg(): SVGSVGElement {
   const svg = el('svg', {
-    viewBox: `0 0 ${W} ${H}`, width: W, height: H, 'font-family': 'inherit',
+    viewBox: `0 0 ${W} ${H}`,
+    width: W,
+    height: H,
+    'font-family': 'inherit',
     role: 'presentation',
   });
   return svg;
@@ -315,8 +395,14 @@ const ldDecay: Renderer = (canvas, controlHost, readoutHost) => {
     const theta = c.get('theta');
     const t = c.get('t');
 
-    const x = linear(0, 3000, PAD.left, PAD.left + PLOT.w,
-      [0, 500, 1000, 1500, 2000, 2500, 3000], (v) => v.toLocaleString('en-US'));
+    const x = linear(
+      0,
+      3000,
+      PAD.left,
+      PAD.left + PLOT.w,
+      [0, 500, 1000, 1500, 2000, 2500, 3000],
+      (v) => v.toLocaleString('en-US')
+    );
     const y = linear(0, 1, PAD.top + PLOT.h, PAD.top, [0, 0.25, 0.5, 0.75, 1], (v) => v.toFixed(2));
     const svg = newSvg();
     const g = frame(x, y, 'Generations since the haplotype arose', 'Dₜ / D₀', svg);
@@ -327,17 +413,35 @@ const ldDecay: Renderer = (canvas, controlHost, readoutHost) => {
 
     const half = ldHalfLife(theta);
     if (half <= 3000) {
-      g.appendChild(el('line', {
-        x1: x(half), y1: y(0.5), x2: x(half), y2: PAD.top + PLOT.h,
-        stroke: ACCENT, 'stroke-width': 1.25, 'stroke-dasharray': '5 4',
-      }));
-      g.appendChild(el('line', {
-        x1: PAD.left, y1: y(0.5), x2: x(half), y2: y(0.5),
-        stroke: ACCENT, 'stroke-width': 1.25, 'stroke-dasharray': '5 4',
-      }));
-      g.appendChild(label(x(half) + 6, y(0.5) - 8, `half-life ${half.toFixed(0)} gen`, {
-        fill: ACCENT, 'font-size': 11, 'font-weight': 600,
-      }));
+      g.appendChild(
+        el('line', {
+          x1: x(half),
+          y1: y(0.5),
+          x2: x(half),
+          y2: PAD.top + PLOT.h,
+          stroke: ACCENT,
+          'stroke-width': 1.25,
+          'stroke-dasharray': '5 4',
+        })
+      );
+      g.appendChild(
+        el('line', {
+          x1: PAD.left,
+          y1: y(0.5),
+          x2: x(half),
+          y2: y(0.5),
+          stroke: ACCENT,
+          'stroke-width': 1.25,
+          'stroke-dasharray': '5 4',
+        })
+      );
+      g.appendChild(
+        label(x(half) + 6, y(0.5) - 8, `half-life ${half.toFixed(0)} gen`, {
+          fill: ACCENT,
+          'font-size': 11,
+          'font-weight': 600,
+        })
+      );
     }
 
     const remaining = (1 - theta) ** t;
@@ -348,18 +452,39 @@ const ldDecay: Renderer = (canvas, controlHost, readoutHost) => {
       ['θ', sci(theta, 2)],
       ['map distance', `${(haldaneMorgans(theta) * 100).toFixed(3)} cM`],
       ['half-life', `${Number(half.toFixed(0)).toLocaleString('en-US')} generations`],
-      [`D remaining after ${t.toLocaleString('en-US')} generations`, `${(remaining * 100).toFixed(1)}%`],
+      [
+        `D remaining after ${t.toLocaleString('en-US')} generations`,
+        `${(remaining * 100).toFixed(1)}%`,
+      ],
       ['which is roughly', `${(Math.round((t * 29) / 100) * 100).toLocaleString('en-US')} years`],
     ]);
   };
 
-  const c = buildControls(controlHost, [
-    {
-      key: 'theta', label: 'Recombination fraction θ', min: -5, max: -0.7, step: 0.02, value: -3,
-      scale: (v) => 10 ** v, format: (v) => sci(v, 2),
-    },
-    { key: 't', label: 'Generations', min: 0, max: 3000, step: 10, value: 700, format: (v) => v.toLocaleString('en-US') },
-  ], draw);
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'theta',
+        label: 'Recombination fraction θ',
+        min: -5,
+        max: -0.7,
+        step: 0.02,
+        value: -3,
+        scale: (v) => 10 ** v,
+        format: (v) => sci(v, 2),
+      },
+      {
+        key: 't',
+        label: 'Generations',
+        min: 0,
+        max: 3000,
+        step: 10,
+        value: 700,
+        format: (v) => v.toLocaleString('en-US'),
+      },
+    ],
+    draw
+  );
   draw();
 };
 
@@ -370,8 +495,14 @@ const drift: Renderer = (canvas, controlHost, readoutHost) => {
     const gens = Math.round(c.get('gens'));
     const p0 = c.get('p0');
 
-    const x = linear(0, gens, PAD.left, PAD.left + PLOT.w,
-      [0, gens / 4, gens / 2, (3 * gens) / 4, gens].map((v) => Math.round(v)), whole);
+    const x = linear(
+      0,
+      gens,
+      PAD.left,
+      PAD.left + PLOT.w,
+      [0, gens / 4, gens / 2, (3 * gens) / 4, gens].map((v) => Math.round(v)),
+      whole
+    );
     const y = linear(0, 1, PAD.top + PLOT.h, PAD.top, [0, 0.25, 0.5, 0.75, 1], (v) => v.toFixed(2));
     const svg = newSvg();
     const g = frame(x, y, 'Generations', 'Allele frequency', svg);
@@ -408,13 +539,24 @@ const drift: Renderer = (canvas, controlHost, readoutHost) => {
     for (const band of [upper, lower]) {
       g.appendChild(curve(band, { stroke: ACCENT, 'stroke-width': 2, 'stroke-dasharray': '7 4' }));
     }
-    g.appendChild(el('line', {
-      x1: PAD.left, y1: y(p0), x2: PAD.left + PLOT.w, y2: y(p0),
-      stroke: ACCENT, 'stroke-width': 1.25, opacity: 0.55,
-    }));
-    g.appendChild(label(PAD.left + 8, y(p0) - 8, 'E[p] = p₀, with its ±1 SD band', {
-      fill: ACCENT, 'font-size': 11, 'font-weight': 600,
-    }));
+    g.appendChild(
+      el('line', {
+        x1: PAD.left,
+        y1: y(p0),
+        x2: PAD.left + PLOT.w,
+        y2: y(p0),
+        stroke: ACCENT,
+        'stroke-width': 1.25,
+        opacity: 0.55,
+      })
+    );
+    g.appendChild(
+      label(PAD.left + 8, y(p0) - 8, 'E[p] = p₀, with its ±1 SD band', {
+        fill: ACCENT,
+        'font-size': 11,
+        'font-weight': 600,
+      })
+    );
 
     canvas.replaceChildren(svg);
     const h0 = 2 * p0 * (1 - p0);
@@ -424,19 +566,48 @@ const drift: Renderer = (canvas, controlHost, readoutHost) => {
       ['heterozygosity retained', `${((hEnd / h0) * 100).toFixed(1)}%`],
       ['half-life', `${whole(Math.log(0.5) / Math.log(1 - 1 / (2 * ne)))} generations`],
       ['SD of p by then', Math.sqrt(driftVariance(p0, ne, gens)).toFixed(3)],
-      ['expected TMRCA', `${Math.round(expectedTmrca(1e9, ne)).toLocaleString('en-US')} generations`],
+      [
+        'expected TMRCA',
+        `${Math.round(expectedTmrca(1e9, ne)).toLocaleString('en-US')} generations`,
+      ],
       ['of 8 runs', `${fixed} fixed, ${lost} lost`],
     ]);
   };
 
-  const c = buildControls(controlHost, [
-    {
-      key: 'ne', label: 'Effective population size Nₑ', min: 1, max: 3.7, step: 0.05, value: 2,
-      scale: (v) => 10 ** v, format: (v) => Math.round(v).toLocaleString('en-US'),
-    },
-    { key: 'gens', label: 'Generations', min: 20, max: 600, step: 10, value: 200, format: (v) => String(v) },
-    { key: 'p0', label: 'Starting frequency', min: 0.02, max: 0.98, step: 0.02, value: 0.5, format: (v) => v.toFixed(2) },
-  ], draw);
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'ne',
+        label: 'Effective population size Nₑ',
+        min: 1,
+        max: 3.7,
+        step: 0.05,
+        value: 2,
+        scale: (v) => 10 ** v,
+        format: (v) => Math.round(v).toLocaleString('en-US'),
+      },
+      {
+        key: 'gens',
+        label: 'Generations',
+        min: 20,
+        max: 600,
+        step: 10,
+        value: 200,
+        format: (v) => String(v),
+      },
+      {
+        key: 'p0',
+        label: 'Starting frequency',
+        min: 0.02,
+        max: 0.98,
+        step: 0.02,
+        value: 0.5,
+        format: (v) => v.toFixed(2),
+      },
+    ],
+    draw
+  );
   draw();
 };
 
@@ -448,16 +619,35 @@ const power: Renderer = (canvas, controlHost, readoutHost) => {
     const n = c.get('n');
     const q2 = varianceExplained(maf, beta);
 
-    const x = logarithmic(1e3, 1e7, PAD.left, PAD.left + PLOT.w, [1e3, 1e4, 1e5, 1e6, 1e7], power10);
-    const y = linear(0, 1, PAD.top + PLOT.h, PAD.top, [0, 0.2, 0.4, 0.6, 0.8, 1], (v) => v.toFixed(1));
+    const x = logarithmic(
+      1e3,
+      1e7,
+      PAD.left,
+      PAD.left + PLOT.w,
+      [1e3, 1e4, 1e5, 1e6, 1e7],
+      power10
+    );
+    const y = linear(0, 1, PAD.top + PLOT.h, PAD.top, [0, 0.2, 0.4, 0.6, 0.8, 1], (v) =>
+      v.toFixed(1)
+    );
     const svg = newSvg();
     const g = frame(x, y, 'Discovery sample size N (log scale)', 'Power at 5×10⁻⁸', svg);
 
-    g.appendChild(el('line', {
-      x1: PAD.left, y1: y(0.8), x2: PAD.left + PLOT.w, y2: y(0.8),
-      stroke: 'currentColor', 'stroke-width': 1, opacity: 0.35, 'stroke-dasharray': '4 4',
-    }));
-    g.appendChild(label(PAD.left + PLOT.w - 4, y(0.8) - 6, '80%', { 'text-anchor': 'end', opacity: 0.7 }));
+    g.appendChild(
+      el('line', {
+        x1: PAD.left,
+        y1: y(0.8),
+        x2: PAD.left + PLOT.w,
+        y2: y(0.8),
+        stroke: 'currentColor',
+        'stroke-width': 1,
+        opacity: 0.35,
+        'stroke-dasharray': '4 4',
+      })
+    );
+    g.appendChild(
+      label(PAD.left + PLOT.w - 4, y(0.8) - 6, '80%', { 'text-anchor': 'end', opacity: 0.7 })
+    );
 
     const pts: [number, number][] = [];
     for (let l = 3; l <= 7; l += 0.02) {
@@ -471,13 +661,24 @@ const power: Renderer = (canvas, controlHost, readoutHost) => {
 
     const need = sampleSizeForPower(q2, 0.8);
     if (need >= 1e3 && need <= 1e7) {
-      g.appendChild(el('line', {
-        x1: x(need), y1: y(0.8), x2: x(need), y2: PAD.top + PLOT.h,
-        stroke: ACCENT, 'stroke-width': 1.25, 'stroke-dasharray': '5 4',
-      }));
-      g.appendChild(label(x(need) + 6, PAD.top + PLOT.h - 8, `${sci(need, 2)} for 80%`, {
-        fill: ACCENT, 'font-size': 11, 'font-weight': 600,
-      }));
+      g.appendChild(
+        el('line', {
+          x1: x(need),
+          y1: y(0.8),
+          x2: x(need),
+          y2: PAD.top + PLOT.h,
+          stroke: ACCENT,
+          'stroke-width': 1.25,
+          'stroke-dasharray': '5 4',
+        })
+      );
+      g.appendChild(
+        label(x(need) + 6, PAD.top + PLOT.h - 8, `${sci(need, 2)} for 80%`, {
+          fill: ACCENT,
+          'font-size': 11,
+          'font-weight': 600,
+        })
+      );
     }
 
     canvas.replaceChildren(svg);
@@ -489,14 +690,40 @@ const power: Renderer = (canvas, controlHost, readoutHost) => {
     ]);
   };
 
-  const c = buildControls(controlHost, [
-    { key: 'maf', label: 'Minor allele frequency', min: 0.005, max: 0.5, step: 0.005, value: 0.25, format: (v) => v.toFixed(3) },
-    { key: 'beta', label: 'Effect β (phenotype SD per allele)', min: 0.005, max: 0.4, step: 0.005, value: 0.03, format: (v) => v.toFixed(3) },
-    {
-      key: 'n', label: 'Sample size N', min: 3, max: 7, step: 0.02, value: 5,
-      scale: (v) => 10 ** v, format: (v) => sci(v, 2),
-    },
-  ], draw);
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'maf',
+        label: 'Minor allele frequency',
+        min: 0.005,
+        max: 0.5,
+        step: 0.005,
+        value: 0.25,
+        format: (v) => v.toFixed(3),
+      },
+      {
+        key: 'beta',
+        label: 'Effect β (phenotype SD per allele)',
+        min: 0.005,
+        max: 0.4,
+        step: 0.005,
+        value: 0.03,
+        format: (v) => v.toFixed(3),
+      },
+      {
+        key: 'n',
+        label: 'Sample size N',
+        min: 3,
+        max: 7,
+        step: 0.02,
+        value: 5,
+        scale: (v) => 10 ** v,
+        format: (v) => sci(v, 2),
+      },
+    ],
+    draw
+  );
   draw();
 };
 
@@ -530,23 +757,39 @@ const selection: Renderer = (canvas, controlHost, readoutHost) => {
 
     // Who breeds: the tail above the truncation point.
     const tail: string[] = [`M${x(cut).toFixed(1)},${(PAD.top + PLOT.h).toFixed(1)}`];
-    for (let v = cut; v <= 4.5001; v += 0.02) tail.push(`L${x(v).toFixed(1)},${y(normalPdf(v)).toFixed(1)}`);
+    for (let v = cut; v <= 4.5001; v += 0.02)
+      tail.push(`L${x(v).toFixed(1)},${y(normalPdf(v)).toFixed(1)}`);
     tail.push(`L${x(4.5).toFixed(1)},${(PAD.top + PLOT.h).toFixed(1)}Z`);
     g.appendChild(el('path', { d: tail.join(' '), fill: ACCENT, opacity: 0.22, stroke: 'none' }));
 
     g.appendChild(curve(density(0), { 'stroke-width': 2 }));
-    g.appendChild(curve(density(shift), { stroke: ACCENT, 'stroke-width': 2, 'stroke-dasharray': '7 4' }));
+    g.appendChild(
+      curve(density(shift), { stroke: ACCENT, 'stroke-width': 2, 'stroke-dasharray': '7 4' })
+    );
 
     // Label heights are chosen to miss the two curves: the outer rules get their text
     // near the top where the densities are already low, the inner ones near the axis.
     const rule = (v: number, text: string, colour: string, dy: number, anchor = 'start') => {
-      g.appendChild(el('line', {
-        x1: x(v), y1: PAD.top + 6, x2: x(v), y2: PAD.top + PLOT.h,
-        stroke: colour, 'stroke-width': 1.25, 'stroke-dasharray': '3 3', opacity: 0.8,
-      }));
-      g.appendChild(label(x(v) + (anchor === 'end' ? -5 : 5), PAD.top + dy, text, {
-        fill: colour, 'font-size': 11, 'font-weight': 600, 'text-anchor': anchor,
-      }));
+      g.appendChild(
+        el('line', {
+          x1: x(v),
+          y1: PAD.top + 6,
+          x2: x(v),
+          y2: PAD.top + PLOT.h,
+          stroke: colour,
+          'stroke-width': 1.25,
+          'stroke-dasharray': '3 3',
+          opacity: 0.8,
+        })
+      );
+      g.appendChild(
+        label(x(v) + (anchor === 'end' ? -5 : 5), PAD.top + dy, text, {
+          fill: colour,
+          'font-size': 11,
+          'font-weight': 600,
+          'text-anchor': anchor,
+        })
+      );
     };
     rule(0, 'population mean', 'currentColor', PLOT.h - 10, 'end');
     rule(cut, `truncation, top ${(prop * 100).toFixed(0)}%`, 'currentColor', PLOT.h - 26);
@@ -566,10 +809,30 @@ const selection: Renderer = (canvas, controlHost, readoutHost) => {
     ]);
   };
 
-  const c = buildControls(controlHost, [
-    { key: 'h2', label: 'Narrow-sense heritability h²', min: 0.02, max: 0.95, step: 0.01, value: 0.4, format: (v) => v.toFixed(2) },
-    { key: 'prop', label: 'Fraction selected', min: 0.01, max: 0.9, step: 0.01, value: 0.05, format: (v) => `${(v * 100).toFixed(0)}%` },
-  ], draw);
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'h2',
+        label: 'Narrow-sense heritability h²',
+        min: 0.02,
+        max: 0.95,
+        step: 0.01,
+        value: 0.4,
+        format: (v) => v.toFixed(2),
+      },
+      {
+        key: 'prop',
+        label: 'Fraction selected',
+        min: 0.01,
+        max: 0.9,
+        step: 0.01,
+        value: 0.05,
+        format: (v) => `${(v * 100).toFixed(0)}%`,
+      },
+    ],
+    draw
+  );
   draw();
 };
 
@@ -605,19 +868,34 @@ const finemap: Renderer = (canvas, controlHost, readoutHost) => {
     const barW = PLOT.w / M - 4;
     pips.forEach((p, j) => {
       const height = Math.max(0, PAD.top + PLOT.h - y(p));
-      g.appendChild(el('rect', {
-        x: x(j) - barW / 2, y: y(p), width: barW, height,
-        fill: inSet.has(j) ? ACCENT : 'currentColor',
-        opacity: inSet.has(j) ? 0.9 : 0.28,
-      }));
+      g.appendChild(
+        el('rect', {
+          x: x(j) - barW / 2,
+          y: y(p),
+          width: barW,
+          height,
+          fill: inSet.has(j) ? ACCENT : 'currentColor',
+          opacity: inSet.has(j) ? 0.9 : 0.28,
+        })
+      );
     });
 
     // Mark the truth, which the reader knows and the method does not.
-    g.appendChild(el('line', {
-      x1: x(causal), y1: PAD.top, x2: x(causal), y2: PAD.top + PLOT.h,
-      stroke: 'currentColor', 'stroke-width': 1, opacity: 0.4, 'stroke-dasharray': '3 3',
-    }));
-    g.appendChild(label(x(causal), PAD.top - 6, 'causal', { 'text-anchor': 'middle', opacity: 0.7 }));
+    g.appendChild(
+      el('line', {
+        x1: x(causal),
+        y1: PAD.top,
+        x2: x(causal),
+        y2: PAD.top + PLOT.h,
+        stroke: 'currentColor',
+        'stroke-width': 1,
+        opacity: 0.4,
+        'stroke-dasharray': '3 3',
+      })
+    );
+    g.appendChild(
+      label(x(causal), PAD.top - 6, 'causal', { 'text-anchor': 'middle', opacity: 0.7 })
+    );
 
     canvas.replaceChildren(svg);
     readout(readoutHost, [
@@ -629,12 +907,48 @@ const finemap: Renderer = (canvas, controlHost, readoutHost) => {
     ]);
   };
 
-  const c = buildControls(controlHost, [
-    { key: 'causal', label: 'Causal variant', min: 0, max: M - 1, step: 1, value: 10, format: (v) => `#${v}` },
-    { key: 'rho', label: 'LD decay per variant', min: 0.5, max: 0.995, step: 0.005, value: 0.95, format: (v) => v.toFixed(3) },
-    { key: 'z', label: 'z at the causal variant', min: 0, max: 12, step: 0.1, value: 6, format: (v) => v.toFixed(1) },
-    { key: 'pi0', label: 'Null prior π₀', min: 0, max: 5, step: 0.1, value: 1, format: (v) => v.toFixed(1) },
-  ], draw);
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'causal',
+        label: 'Causal variant',
+        min: 0,
+        max: M - 1,
+        step: 1,
+        value: 10,
+        format: (v) => `#${v}`,
+      },
+      {
+        key: 'rho',
+        label: 'LD decay per variant',
+        min: 0.5,
+        max: 0.995,
+        step: 0.005,
+        value: 0.95,
+        format: (v) => v.toFixed(3),
+      },
+      {
+        key: 'z',
+        label: 'z at the causal variant',
+        min: 0,
+        max: 12,
+        step: 0.1,
+        value: 6,
+        format: (v) => v.toFixed(1),
+      },
+      {
+        key: 'pi0',
+        label: 'Null prior π₀',
+        min: 0,
+        max: 5,
+        step: 0.1,
+        value: 1,
+        format: (v) => v.toFixed(1),
+      },
+    ],
+    draw
+  );
   draw();
 };
 
@@ -645,19 +959,37 @@ const prs: Renderer = (canvas, controlHost, readoutHost) => {
     const m = c.get('m');
     const n = c.get('n');
 
-    const x = logarithmic(1e4, 1e8, PAD.left, PAD.left + PLOT.w, [1e4, 1e5, 1e6, 1e7, 1e8], power10);
-    const y = linear(0, h2, PAD.top + PLOT.h, PAD.top,
-      [0, h2 / 4, h2 / 2, (3 * h2) / 4, h2], (v) => v.toFixed(2));
+    const x = logarithmic(
+      1e4,
+      1e8,
+      PAD.left,
+      PAD.left + PLOT.w,
+      [1e4, 1e5, 1e6, 1e7, 1e8],
+      power10
+    );
+    const y = linear(0, h2, PAD.top + PLOT.h, PAD.top, [0, h2 / 4, h2 / 2, (3 * h2) / 4, h2], (v) =>
+      v.toFixed(2)
+    );
     const svg = newSvg();
     const g = frame(x, y, 'Discovery sample size N (log scale)', 'Expected R² of the score', svg);
 
-    g.appendChild(el('line', {
-      x1: PAD.left, y1: y(h2), x2: PAD.left + PLOT.w, y2: y(h2),
-      stroke: 'currentColor', 'stroke-width': 1, opacity: 0.35, 'stroke-dasharray': '4 4',
-    }));
+    g.appendChild(
+      el('line', {
+        x1: PAD.left,
+        y1: y(h2),
+        x2: PAD.left + PLOT.w,
+        y2: y(h2),
+        stroke: 'currentColor',
+        'stroke-width': 1,
+        opacity: 0.35,
+        'stroke-dasharray': '4 4',
+      })
+    );
     // Left-anchored: the curve asymptotes to this line on the right, so a right-anchored
     // label sits on top of it exactly where the reader is looking.
-    g.appendChild(label(PAD.left + 8, y(h2) + 15, `ceiling h² = ${h2.toFixed(2)}`, { opacity: 0.75 }));
+    g.appendChild(
+      label(PAD.left + 8, y(h2) + 15, `ceiling h² = ${h2.toFixed(2)}`, { opacity: 0.75 })
+    );
 
     const pts: [number, number][] = [];
     for (let l = 4; l <= 8; l += 0.02) pts.push([x(10 ** l), y(expectedR2(10 ** l, m, h2))]);
@@ -677,27 +1009,376 @@ const prs: Renderer = (canvas, controlHost, readoutHost) => {
     ]);
   };
 
-  const c = buildControls(controlHost, [
-    { key: 'h2', label: 'SNP heritability h²', min: 0.05, max: 0.8, step: 0.01, value: 0.5, format: (v) => v.toFixed(2) },
-    {
-      key: 'm', label: 'Effective markers M', min: 4, max: 6.3, step: 0.02, value: 6,
-      scale: (v) => 10 ** v, format: (v) => sci(v, 2),
-    },
-    {
-      key: 'n', label: 'Discovery N', min: 4, max: 8, step: 0.02, value: 6,
-      scale: (v) => 10 ** v, format: (v) => sci(v, 2),
-    },
-  ], draw);
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'h2',
+        label: 'SNP heritability h²',
+        min: 0.05,
+        max: 0.8,
+        step: 0.01,
+        value: 0.5,
+        format: (v) => v.toFixed(2),
+      },
+      {
+        key: 'm',
+        label: 'Effective markers M',
+        min: 4,
+        max: 6.3,
+        step: 0.02,
+        value: 6,
+        scale: (v) => 10 ** v,
+        format: (v) => sci(v, 2),
+      },
+      {
+        key: 'n',
+        label: 'Discovery N',
+        min: 4,
+        max: 8,
+        step: 0.02,
+        value: 6,
+        scale: (v) => 10 ** v,
+        format: (v) => sci(v, 2),
+      },
+    ],
+    draw
+  );
   draw();
 };
 
-const RENDERERS: Record<string, Renderer> = {
+/** Bias–variance: one explicit toy decomposition, not a universal empirical curve. */
+const biasVariance: Renderer = (canvas, controlHost, readoutHost) => {
+  const draw = () => {
+    const complexity = c.get('complexity');
+    const sampleSize = c.get('sampleSize');
+    const points = Array.from({ length: 91 }, (_, index) => {
+      const current = 1 + index / 10;
+      return biasVarianceToy(current, sampleSize);
+    });
+    const ymax = Math.max(0.6, ...points.map((point) => point.expectedTestError)) * 1.05;
+    const x = linear(1, 10, PAD.left, PAD.left + PLOT.w, [1, 2, 4, 6, 8, 10], whole);
+    const y = linear(
+      0,
+      ymax,
+      PAD.top + PLOT.h,
+      PAD.top,
+      [0, ymax / 4, ymax / 2, (3 * ymax) / 4, ymax],
+      (value) => value.toFixed(2)
+    );
+    const svg = newSvg();
+    const g = frame(x, y, 'Illustrative model complexity', 'Expected squared error', svg);
+    g.appendChild(
+      curve(
+        points.map((point) => [x(point.complexity), y(point.biasSquared)]),
+        { opacity: 0.48, 'stroke-dasharray': '7 4' }
+      )
+    );
+    g.appendChild(
+      curve(
+        points.map((point) => [x(point.complexity), y(point.variance)]),
+        { opacity: 0.7, 'stroke-dasharray': '2 4' }
+      )
+    );
+    g.appendChild(
+      curve(
+        points.map((point) => [x(point.complexity), y(point.expectedTestError)]),
+        { stroke: ACCENT, 'stroke-width': 2.6 }
+      )
+    );
+    const selected = biasVarianceToy(complexity, sampleSize);
+    g.appendChild(
+      el('circle', {
+        cx: x(complexity),
+        cy: y(selected.expectedTestError),
+        r: 5,
+        fill: ACCENT,
+      })
+    );
+    g.appendChild(label(PAD.left + 8, PAD.top + 15, 'dashed: bias²', { opacity: 0.65 }));
+    g.appendChild(label(PAD.left + 8, PAD.top + 31, 'dotted: variance', { opacity: 0.65 }));
+    g.appendChild(label(PAD.left + 8, PAD.top + 47, 'accent: total + noise', { fill: ACCENT }));
+
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['bias²', selected.biasSquared.toFixed(3)],
+      ['variance', selected.variance.toFixed(3)],
+      ['irreducible noise', selected.noise.toFixed(3)],
+      ['expected test error', selected.expectedTestError.toFixed(3)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'complexity',
+        label: 'Illustrative complexity',
+        min: 1,
+        max: 10,
+        step: 0.1,
+        value: 4,
+        format: (value) => value.toFixed(1),
+      },
+      {
+        key: 'sampleSize',
+        label: 'Training sample size',
+        min: 20,
+        max: 400,
+        step: 10,
+        value: 100,
+        format: whole,
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
+const THRESHOLD_EXAMPLE: BinaryScore[] = [
+  { score: 0.96, label: 1 },
+  { score: 0.91, label: 1 },
+  { score: 0.86, label: 0 },
+  { score: 0.82, label: 1 },
+  { score: 0.77, label: 0 },
+  { score: 0.72, label: 1 },
+  { score: 0.66, label: 0 },
+  { score: 0.61, label: 1 },
+  { score: 0.57, label: 0 },
+  { score: 0.52, label: 0 },
+  { score: 0.47, label: 1 },
+  { score: 0.42, label: 0 },
+  { score: 0.36, label: 0 },
+  { score: 0.31, label: 1 },
+  { score: 0.27, label: 0 },
+  { score: 0.22, label: 0 },
+  { score: 0.17, label: 0 },
+  { score: 0.11, label: 1 },
+  { score: 0.08, label: 0 },
+  { score: 0.04, label: 0 },
+];
+
+/** Decision threshold: the same ranking can imply many operational confusion matrices. */
+const decisionThreshold: Renderer = (canvas, controlHost, readoutHost) => {
+  const draw = () => {
+    const threshold = c.get('threshold');
+    const metrics = binaryMetricsAtThreshold(THRESHOLD_EXAMPLE, threshold);
+    const x = linear(0, 1, PAD.left, PAD.left + PLOT.w, [0, 0.25, 0.5, 0.75, 1], (v) =>
+      v.toFixed(2)
+    );
+    const y = linear(0, 1, PAD.top + PLOT.h, PAD.top, [0, 1], (v) => (v ? 'positive' : 'negative'));
+    const svg = newSvg();
+    const g = frame(x, y, 'Model score', 'True class', svg);
+    for (const [index, observation] of THRESHOLD_EXAMPLE.entries()) {
+      const predicted = observation.score >= threshold;
+      g.appendChild(
+        el('circle', {
+          cx: x(observation.score),
+          cy: y(observation.label) + ((index % 3) - 1) * 7,
+          r: 6,
+          fill: predicted ? ACCENT : 'none',
+          stroke: predicted ? ACCENT : 'currentColor',
+          'stroke-width': 1.7,
+          opacity: 0.85,
+        })
+      );
+    }
+    g.appendChild(
+      el('line', {
+        x1: x(threshold),
+        y1: PAD.top,
+        x2: x(threshold),
+        y2: PAD.top + PLOT.h,
+        stroke: 'currentColor',
+        'stroke-width': 2,
+        'stroke-dasharray': '5 4',
+      })
+    );
+    g.appendChild(
+      label(x(threshold), PAD.top - 6, `t=${threshold.toFixed(2)}`, { 'text-anchor': 'middle' })
+    );
+    g.appendChild(
+      label(PAD.left + PLOT.w - 4, PAD.top + 18, 'filled = predicted positive', {
+        'text-anchor': 'end',
+        opacity: 0.68,
+      })
+    );
+
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['TP / FP / TN / FN', `${metrics.tp} / ${metrics.fp} / ${metrics.tn} / ${metrics.fn}`],
+      ['precision', metrics.precision.toFixed(3)],
+      ['recall', metrics.recall.toFixed(3)],
+      ['specificity', metrics.specificity.toFixed(3)],
+      ['F1', metrics.f1.toFixed(3)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'threshold',
+        label: 'Decision threshold',
+        min: 0,
+        max: 1,
+        step: 0.01,
+        value: 0.5,
+        format: (v) => v.toFixed(2),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
+/** Gradient descent on a quadratic: eta times curvature determines convergence. */
+const gradientDescent: Renderer = (canvas, controlHost, readoutHost) => {
+  const draw = () => {
+    const learningRate = c.get('learningRate');
+    const steps = Math.round(c.get('steps'));
+    const history = quadraticDescent({ initial: 2.5, learningRate, curvature: 1, steps });
+    const domain = Math.max(3.2, ...history.map((point) => Math.abs(point.parameter))) * 1.08;
+    const topLoss = Math.max(5.2, ...history.map((point) => point.loss)) * 1.08;
+    const x = linear(
+      -domain,
+      domain,
+      PAD.left,
+      PAD.left + PLOT.w,
+      [-domain, -domain / 2, 0, domain / 2, domain],
+      (v) => v.toFixed(1)
+    );
+    const y = linear(0, topLoss, PAD.top + PLOT.h, PAD.top, [0, topLoss / 2, topLoss], (v) =>
+      v.toFixed(1)
+    );
+    const svg = newSvg();
+    const g = frame(x, y, 'Parameter θ', 'Quadratic loss L(θ)', svg);
+    const parabola: [number, number][] = [];
+    for (let index = 0; index <= 120; index += 1) {
+      const theta = -domain + (2 * domain * index) / 120;
+      parabola.push([x(theta), y(0.5 * theta * theta)]);
+    }
+    g.appendChild(curve(parabola, { opacity: 0.45 }));
+    g.appendChild(
+      curve(
+        history.map((point) => [x(point.parameter), y(point.loss)]),
+        { stroke: ACCENT, 'stroke-width': 2.4 }
+      )
+    );
+    history.forEach((point, index) => {
+      g.appendChild(
+        el('circle', {
+          cx: x(point.parameter),
+          cy: y(point.loss),
+          r: index === history.length - 1 ? 5 : 3,
+          fill: ACCENT,
+          opacity: 0.35 + (0.65 * index) / Math.max(1, history.length - 1),
+        })
+      );
+    });
+
+    const contraction = Math.abs(1 - learningRate);
+    const last = history.at(-1)!;
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['|1 − ηλ|', contraction.toFixed(3)],
+      ['regime', contraction < 1 ? 'convergent' : contraction === 1 ? 'boundary' : 'divergent'],
+      ['final θ', last.parameter.toFixed(4)],
+      ['final loss', last.loss.toFixed(4)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'learningRate',
+        label: 'Learning rate η',
+        min: 0.02,
+        max: 2.2,
+        step: 0.02,
+        value: 0.45,
+        format: (v) => v.toFixed(2),
+      },
+      { key: 'steps', label: 'Update steps', min: 2, max: 14, step: 1, value: 8, format: whole },
+    ],
+    draw
+  );
+  draw();
+};
+
+/** Attention temperature: the logits stay fixed while the normalized allocation changes. */
+const attentionTemperature: Renderer = (canvas, controlHost, readoutHost) => {
+  const logits = [3, 1.4, 0.6, -0.4];
+  const tokens = ['signal', 'context', 'modifier', 'distractor'];
+  const draw = () => {
+    const temperature = c.get('temperature');
+    const weights = softmaxWithTemperature(logits, temperature);
+    const x = linear(
+      -0.5,
+      3.5,
+      PAD.left,
+      PAD.left + PLOT.w,
+      [0, 1, 2, 3],
+      (value) => tokens[Math.round(value)]
+    );
+    const y = linear(0, 1, PAD.top + PLOT.h, PAD.top, [0, 0.25, 0.5, 0.75, 1], (value) =>
+      value.toFixed(2)
+    );
+    const svg = newSvg();
+    const g = frame(x, y, 'Key token', 'Attention weight', svg);
+    const barWidth = PLOT.w / 5;
+    weights.forEach((weight, index) => {
+      g.appendChild(
+        el('rect', {
+          x: x(index) - barWidth / 2,
+          y: y(weight),
+          width: barWidth,
+          height: PAD.top + PLOT.h - y(weight),
+          fill: index === 0 ? ACCENT : 'currentColor',
+          opacity: index === 0 ? 0.9 : 0.3,
+        })
+      );
+      g.appendChild(label(x(index), y(weight) - 7, weight.toFixed(3), { 'text-anchor': 'middle' }));
+    });
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['temperature', temperature.toFixed(2)],
+      ['largest weight', Math.max(...weights).toFixed(3)],
+      ['weights sum', weights.reduce((sum, weight) => sum + weight, 0).toFixed(6)],
+      ['argmax token', tokens[weights.indexOf(Math.max(...weights))]],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'temperature',
+        label: 'Softmax temperature',
+        min: 0.2,
+        max: 3,
+        step: 0.05,
+        value: 1,
+        format: (v) => v.toFixed(2),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
+const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'ld-decay': ldDecay,
   drift,
   power,
   selection,
   finemap,
   prs,
+  'bias-variance': biasVariance,
+  'decision-threshold': decisionThreshold,
+  'gradient-descent': gradientDescent,
+  'attention-temperature': attentionTemperature,
 };
 
 /**
@@ -711,8 +1392,8 @@ export function mountDeepDiveWidgets(root: ParentNode = document): number {
   let mounted = 0;
   for (const node of Array.from(root.querySelectorAll<HTMLElement>('[data-dd-widget]'))) {
     if (node.dataset.ddReady === 'true') continue;
-    const kind = node.dataset.ddWidget ?? '';
-    const render = RENDERERS[kind];
+    const kind = node.dataset.ddWidget as DeepDiveWidgetKind | undefined;
+    const render = kind ? RENDERERS[kind] : undefined;
     const canvas = node.querySelector<HTMLElement>('[data-dd-canvas]');
     const controls = node.querySelector<HTMLElement>('[data-dd-controls]');
     const out = node.querySelector<HTMLElement>('[data-dd-readout]');

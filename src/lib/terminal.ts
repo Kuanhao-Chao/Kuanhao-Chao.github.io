@@ -64,13 +64,25 @@ export interface TermIndex {
   stats: Record<string, string | number>;
   fs: Record<string, FsNode>;
   chunks: Chunk[];
+  deepDives?: {
+    slug: string;
+    title: string;
+    href: string;
+    hub: string;
+    moduleId: string;
+    order: number;
+    aliases: string[];
+  }[];
 }
 
 export type Effect =
   | { type: 'clear' }
   | { type: 'navigate'; href: string }
   | { type: 'ask'; question: string }
-  | { type: 'theme'; mode: 'light' | 'dark' | 'nord' | 'monokai' | 'cyberdeck' | 'parchment' | 'toggle' | 'crt' }
+  | {
+      type: 'theme';
+      mode: 'light' | 'dark' | 'nord' | 'monokai' | 'cyberdeck' | 'parchment' | 'toggle' | 'crt';
+    }
   | { type: 'sound'; mode: 'on' | 'off' | 'toggle' | 'bell' }
   | { type: 'copy'; text?: string }
   | { type: 'custom'; eventName: string; detail?: Record<string, unknown> }
@@ -207,9 +219,11 @@ export function listDir(index: TermIndex, path: string, showHidden = false): Ent
 // ------------------------------------------------------------- retrieval ----
 
 const STOPWORDS = new Set(
-  ('a an and are as at be but by do does for from has have how i in is it its of on or so ' +
+  (
+    'a an and are as at be but by do does for from has have how i in is it its of on or so ' +
     'that the their there these this to was what when where which who whom why will with you your ' +
-    'tell me can could would should did his him he she they them')
+    'tell me can could would should did his him he she they them'
+  )
     .split(/\s+/)
     .filter(Boolean)
 );
@@ -272,20 +286,22 @@ function expandQuery(query: string): Map<string, number> {
  * lines genuinely do contain the query term.
  */
 export function cleanProse(text: string): string {
-  return text
-    .split('\n')
-    .map((line) =>
-      line
-        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-        .replace(/https?:\/\/\S+/g, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim()
-    )
-    // Drop rows that were nothing but a URL — `Code: https://…` becomes a bare
-    // `Code:` label. Order matters: strip URLs first, then discard what's left, so
-    // a genuinely informative `Email: …` row survives.
-    .filter((line) => line && !/^[A-Za-z][A-Za-z ]{0,14}:$/.test(line))
-    .join('\n');
+  return (
+    text
+      .split('\n')
+      .map((line) =>
+        line
+          .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+          .replace(/https?:\/\/\S+/g, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim()
+      )
+      // Drop rows that were nothing but a URL — `Code: https://…` becomes a bare
+      // `Code:` label. Order matters: strip URLs first, then discard what's left, so
+      // a genuinely informative `Email: …` row survives.
+      .filter((line) => line && !/^[A-Za-z][A-Za-z ]{0,14}:$/.test(line))
+      .join('\n')
+  );
 }
 
 interface Stats {
@@ -363,8 +379,7 @@ const LOGO = [
   '  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝',
 ];
 
-const stamp = (now: Date) =>
-  now.toUTCString().replace('GMT', 'UTC');
+const stamp = (now: Date) => now.toUTCString().replace('GMT', 'UTC');
 
 /**
  * `narrow` stacks the banner instead of setting it beside the logo. The wide form is
@@ -627,7 +642,10 @@ export function motd(index: TermIndex, now: Date, width: number | boolean = fals
 
   lines.push(
     { text: '' },
-    { text: ' Type `help` for the command list, `ask <question>` to talk to the bot,', tone: 'dim' },
+    {
+      text: ' Type `help` for the command list, `ask <question>` to talk to the bot,',
+      tone: 'dim',
+    },
     { text: ' `neofetch` for the system summary, or `theme` to change the lights.', tone: 'dim' },
     { text: '' }
   );
@@ -754,7 +772,10 @@ export function offlineAnswer(index: TermIndex, question: string): Line[] {
   }
   if (terms.size) {
     lines.push({ text: '', tone: 'dim' });
-    lines.push({ text: `  grep ${[...terms].slice(0, 2).join(' ')}   for every match`, tone: 'dim' });
+    lines.push({
+      text: `  grep ${[...terms].slice(0, 2).join(' ')}   for every match`,
+      tone: 'dim',
+    });
   }
   return lines;
 }
@@ -765,9 +786,14 @@ function noAnswer(index: TermIndex, question: string): Line[] {
   const vocabulary = [...index.identity.knowsAbout, ...index.identity.alternateNames];
   const near = vocabulary.find((topic) => tokenize(topic).some((t) => asked.has(t)));
   return [
-    { text: "Nothing in the index matches that.", tone: 'dim' },
+    { text: 'Nothing in the index matches that.', tone: 'dim' },
     ...(near
-      ? [{ text: `Closest topic I do have: ${near} — try \`ask ${near.toLowerCase()}\`.`, tone: 'dim' as Tone }]
+      ? [
+          {
+            text: `Closest topic I do have: ${near} — try \`ask ${near.toLowerCase()}\`.`,
+            tone: 'dim' as Tone,
+          },
+        ]
       : [{ text: 'Try `ls ~` to see what is here, or `ask splice sites`.', tone: 'dim' as Tone }]),
   ];
 }
@@ -784,74 +810,529 @@ interface CodonEntry {
 }
 
 export const CODON_TABLE: Record<string, CodonEntry> = {
-  TTT: { one: 'F', three: 'Phe', name: 'Phenylalanine', type: 'Hydrophobic / Aromatic', prop: 'Non-polar', mw: 165.2 },
-  TTC: { one: 'F', three: 'Phe', name: 'Phenylalanine', type: 'Hydrophobic / Aromatic', prop: 'Non-polar', mw: 165.2 },
-  TTA: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
-  TTG: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
-  CTT: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
-  CTC: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
-  CTA: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
-  CTG: { one: 'L', three: 'Leu', name: 'Leucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
-  ATT: { one: 'I', three: 'Ile', name: 'Isoleucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
-  ATC: { one: 'I', three: 'Ile', name: 'Isoleucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
-  ATA: { one: 'I', three: 'Ile', name: 'Isoleucine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 131.2 },
-  ATG: { one: 'M', three: 'Met', name: 'Methionine', type: 'Hydrophobic / Sulfur', prop: 'Non-polar', mw: 149.2, start: true },
-  GTT: { one: 'V', three: 'Val', name: 'Valine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 117.1 },
-  GTC: { one: 'V', three: 'Val', name: 'Valine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 117.1 },
-  GTA: { one: 'V', three: 'Val', name: 'Valine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 117.1 },
-  GTG: { one: 'V', three: 'Val', name: 'Valine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 117.1 },
-  TCT: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
-  TCC: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
-  TCA: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
-  TCG: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
-  CCT: { one: 'P', three: 'Pro', name: 'Proline', type: 'Cyclic imino', prop: 'Non-polar', mw: 115.1 },
-  CCC: { one: 'P', three: 'Pro', name: 'Proline', type: 'Cyclic imino', prop: 'Non-polar', mw: 115.1 },
-  CCA: { one: 'P', three: 'Pro', name: 'Proline', type: 'Cyclic imino', prop: 'Non-polar', mw: 115.1 },
-  CCG: { one: 'P', three: 'Pro', name: 'Proline', type: 'Cyclic imino', prop: 'Non-polar', mw: 115.1 },
-  ACT: { one: 'T', three: 'Thr', name: 'Threonine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 119.1 },
-  ACC: { one: 'T', three: 'Thr', name: 'Threonine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 119.1 },
-  ACA: { one: 'T', three: 'Thr', name: 'Threonine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 119.1 },
-  ACG: { one: 'T', three: 'Thr', name: 'Threonine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 119.1 },
-  GCT: { one: 'A', three: 'Ala', name: 'Alanine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 89.1 },
-  GCC: { one: 'A', three: 'Ala', name: 'Alanine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 89.1 },
-  GCA: { one: 'A', three: 'Ala', name: 'Alanine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 89.1 },
-  GCG: { one: 'A', three: 'Ala', name: 'Alanine', type: 'Hydrophobic / Aliphatic', prop: 'Non-polar', mw: 89.1 },
-  TAT: { one: 'Y', three: 'Tyr', name: 'Tyrosine', type: 'Aromatic / Phenol', prop: 'Neutral polar', mw: 181.2 },
-  TAC: { one: 'Y', three: 'Tyr', name: 'Tyrosine', type: 'Aromatic / Phenol', prop: 'Neutral polar', mw: 181.2 },
-  TAA: { one: '*', three: 'Ochre', name: 'Stop Codon', type: 'Termination', prop: 'N/A', mw: 0, stop: true },
-  TAG: { one: '*', three: 'Amber', name: 'Stop Codon', type: 'Termination', prop: 'N/A', mw: 0, stop: true },
-  CAT: { one: 'H', three: 'His', name: 'Histidine', type: 'Basic / Imidazole', prop: 'Positive charge', mw: 155.2 },
-  CAC: { one: 'H', three: 'His', name: 'Histidine', type: 'Basic / Imidazole', prop: 'Positive charge', mw: 155.2 },
-  CAA: { one: 'Q', three: 'Gln', name: 'Glutamine', type: 'Polar / Amide', prop: 'Neutral polar', mw: 146.1 },
-  CAG: { one: 'Q', three: 'Gln', name: 'Glutamine', type: 'Polar / Amide', prop: 'Neutral polar', mw: 146.1 },
-  AAT: { one: 'N', three: 'Asn', name: 'Asparagine', type: 'Polar / Amide', prop: 'Neutral polar', mw: 132.1 },
-  AAC: { one: 'N', three: 'Asn', name: 'Asparagine', type: 'Polar / Amide', prop: 'Neutral polar', mw: 132.1 },
-  AAA: { one: 'K', three: 'Lys', name: 'Lysine', type: 'Basic / Amino', prop: 'Positive charge', mw: 146.2 },
-  AAG: { one: 'K', three: 'Lys', name: 'Lysine', type: 'Basic / Amino', prop: 'Positive charge', mw: 146.2 },
-  GAT: { one: 'D', three: 'Asp', name: 'Aspartic Acid', type: 'Acidic / Carboxyl', prop: 'Negative charge', mw: 133.1 },
-  GAC: { one: 'D', three: 'Asp', name: 'Aspartic Acid', type: 'Acidic / Carboxyl', prop: 'Negative charge', mw: 133.1 },
-  GAA: { one: 'E', three: 'Glu', name: 'Glutamic Acid', type: 'Acidic / Carboxyl', prop: 'Negative charge', mw: 147.1 },
-  GAG: { one: 'E', three: 'Glu', name: 'Glutamic Acid', type: 'Acidic / Carboxyl', prop: 'Negative charge', mw: 147.1 },
-  TGT: { one: 'C', three: 'Cys', name: 'Cysteine', type: 'Thiol / Disulfide', prop: 'Neutral polar', mw: 121.2 },
-  TGC: { one: 'C', three: 'Cys', name: 'Cysteine', type: 'Thiol / Disulfide', prop: 'Neutral polar', mw: 121.2 },
-  TGA: { one: '*', three: 'Opal', name: 'Stop Codon', type: 'Termination', prop: 'N/A', mw: 0, stop: true },
-  TGG: { one: 'W', three: 'Trp', name: 'Tryptophan', type: 'Aromatic / Indole', prop: 'Non-polar', mw: 204.2 },
-  CGT: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
-  CGC: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
-  CGA: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
-  CGG: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
-  AGT: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
-  AGC: { one: 'S', three: 'Ser', name: 'Serine', type: 'Polar / Hydroxyl', prop: 'Neutral polar', mw: 105.1 },
-  AGA: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
-  AGG: { one: 'R', three: 'Arg', name: 'Arginine', type: 'Basic / Guanidinium', prop: 'Positive charge', mw: 174.2 },
-  GGT: { one: 'G', three: 'Gly', name: 'Glycine', type: 'Small / Flexible', prop: 'Non-polar', mw: 75.1 },
-  GGC: { one: 'G', three: 'Gly', name: 'Glycine', type: 'Small / Flexible', prop: 'Non-polar', mw: 75.1 },
-  GGA: { one: 'G', three: 'Gly', name: 'Glycine', type: 'Small / Flexible', prop: 'Non-polar', mw: 75.1 },
-  GGG: { one: 'G', three: 'Gly', name: 'Glycine', type: 'Small / Flexible', prop: 'Non-polar', mw: 75.1 },
+  TTT: {
+    one: 'F',
+    three: 'Phe',
+    name: 'Phenylalanine',
+    type: 'Hydrophobic / Aromatic',
+    prop: 'Non-polar',
+    mw: 165.2,
+  },
+  TTC: {
+    one: 'F',
+    three: 'Phe',
+    name: 'Phenylalanine',
+    type: 'Hydrophobic / Aromatic',
+    prop: 'Non-polar',
+    mw: 165.2,
+  },
+  TTA: {
+    one: 'L',
+    three: 'Leu',
+    name: 'Leucine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 131.2,
+  },
+  TTG: {
+    one: 'L',
+    three: 'Leu',
+    name: 'Leucine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 131.2,
+  },
+  CTT: {
+    one: 'L',
+    three: 'Leu',
+    name: 'Leucine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 131.2,
+  },
+  CTC: {
+    one: 'L',
+    three: 'Leu',
+    name: 'Leucine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 131.2,
+  },
+  CTA: {
+    one: 'L',
+    three: 'Leu',
+    name: 'Leucine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 131.2,
+  },
+  CTG: {
+    one: 'L',
+    three: 'Leu',
+    name: 'Leucine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 131.2,
+  },
+  ATT: {
+    one: 'I',
+    three: 'Ile',
+    name: 'Isoleucine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 131.2,
+  },
+  ATC: {
+    one: 'I',
+    three: 'Ile',
+    name: 'Isoleucine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 131.2,
+  },
+  ATA: {
+    one: 'I',
+    three: 'Ile',
+    name: 'Isoleucine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 131.2,
+  },
+  ATG: {
+    one: 'M',
+    three: 'Met',
+    name: 'Methionine',
+    type: 'Hydrophobic / Sulfur',
+    prop: 'Non-polar',
+    mw: 149.2,
+    start: true,
+  },
+  GTT: {
+    one: 'V',
+    three: 'Val',
+    name: 'Valine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 117.1,
+  },
+  GTC: {
+    one: 'V',
+    three: 'Val',
+    name: 'Valine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 117.1,
+  },
+  GTA: {
+    one: 'V',
+    three: 'Val',
+    name: 'Valine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 117.1,
+  },
+  GTG: {
+    one: 'V',
+    three: 'Val',
+    name: 'Valine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 117.1,
+  },
+  TCT: {
+    one: 'S',
+    three: 'Ser',
+    name: 'Serine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 105.1,
+  },
+  TCC: {
+    one: 'S',
+    three: 'Ser',
+    name: 'Serine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 105.1,
+  },
+  TCA: {
+    one: 'S',
+    three: 'Ser',
+    name: 'Serine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 105.1,
+  },
+  TCG: {
+    one: 'S',
+    three: 'Ser',
+    name: 'Serine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 105.1,
+  },
+  CCT: {
+    one: 'P',
+    three: 'Pro',
+    name: 'Proline',
+    type: 'Cyclic imino',
+    prop: 'Non-polar',
+    mw: 115.1,
+  },
+  CCC: {
+    one: 'P',
+    three: 'Pro',
+    name: 'Proline',
+    type: 'Cyclic imino',
+    prop: 'Non-polar',
+    mw: 115.1,
+  },
+  CCA: {
+    one: 'P',
+    three: 'Pro',
+    name: 'Proline',
+    type: 'Cyclic imino',
+    prop: 'Non-polar',
+    mw: 115.1,
+  },
+  CCG: {
+    one: 'P',
+    three: 'Pro',
+    name: 'Proline',
+    type: 'Cyclic imino',
+    prop: 'Non-polar',
+    mw: 115.1,
+  },
+  ACT: {
+    one: 'T',
+    three: 'Thr',
+    name: 'Threonine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 119.1,
+  },
+  ACC: {
+    one: 'T',
+    three: 'Thr',
+    name: 'Threonine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 119.1,
+  },
+  ACA: {
+    one: 'T',
+    three: 'Thr',
+    name: 'Threonine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 119.1,
+  },
+  ACG: {
+    one: 'T',
+    three: 'Thr',
+    name: 'Threonine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 119.1,
+  },
+  GCT: {
+    one: 'A',
+    three: 'Ala',
+    name: 'Alanine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 89.1,
+  },
+  GCC: {
+    one: 'A',
+    three: 'Ala',
+    name: 'Alanine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 89.1,
+  },
+  GCA: {
+    one: 'A',
+    three: 'Ala',
+    name: 'Alanine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 89.1,
+  },
+  GCG: {
+    one: 'A',
+    three: 'Ala',
+    name: 'Alanine',
+    type: 'Hydrophobic / Aliphatic',
+    prop: 'Non-polar',
+    mw: 89.1,
+  },
+  TAT: {
+    one: 'Y',
+    three: 'Tyr',
+    name: 'Tyrosine',
+    type: 'Aromatic / Phenol',
+    prop: 'Neutral polar',
+    mw: 181.2,
+  },
+  TAC: {
+    one: 'Y',
+    three: 'Tyr',
+    name: 'Tyrosine',
+    type: 'Aromatic / Phenol',
+    prop: 'Neutral polar',
+    mw: 181.2,
+  },
+  TAA: {
+    one: '*',
+    three: 'Ochre',
+    name: 'Stop Codon',
+    type: 'Termination',
+    prop: 'N/A',
+    mw: 0,
+    stop: true,
+  },
+  TAG: {
+    one: '*',
+    three: 'Amber',
+    name: 'Stop Codon',
+    type: 'Termination',
+    prop: 'N/A',
+    mw: 0,
+    stop: true,
+  },
+  CAT: {
+    one: 'H',
+    three: 'His',
+    name: 'Histidine',
+    type: 'Basic / Imidazole',
+    prop: 'Positive charge',
+    mw: 155.2,
+  },
+  CAC: {
+    one: 'H',
+    three: 'His',
+    name: 'Histidine',
+    type: 'Basic / Imidazole',
+    prop: 'Positive charge',
+    mw: 155.2,
+  },
+  CAA: {
+    one: 'Q',
+    three: 'Gln',
+    name: 'Glutamine',
+    type: 'Polar / Amide',
+    prop: 'Neutral polar',
+    mw: 146.1,
+  },
+  CAG: {
+    one: 'Q',
+    three: 'Gln',
+    name: 'Glutamine',
+    type: 'Polar / Amide',
+    prop: 'Neutral polar',
+    mw: 146.1,
+  },
+  AAT: {
+    one: 'N',
+    three: 'Asn',
+    name: 'Asparagine',
+    type: 'Polar / Amide',
+    prop: 'Neutral polar',
+    mw: 132.1,
+  },
+  AAC: {
+    one: 'N',
+    three: 'Asn',
+    name: 'Asparagine',
+    type: 'Polar / Amide',
+    prop: 'Neutral polar',
+    mw: 132.1,
+  },
+  AAA: {
+    one: 'K',
+    three: 'Lys',
+    name: 'Lysine',
+    type: 'Basic / Amino',
+    prop: 'Positive charge',
+    mw: 146.2,
+  },
+  AAG: {
+    one: 'K',
+    three: 'Lys',
+    name: 'Lysine',
+    type: 'Basic / Amino',
+    prop: 'Positive charge',
+    mw: 146.2,
+  },
+  GAT: {
+    one: 'D',
+    three: 'Asp',
+    name: 'Aspartic Acid',
+    type: 'Acidic / Carboxyl',
+    prop: 'Negative charge',
+    mw: 133.1,
+  },
+  GAC: {
+    one: 'D',
+    three: 'Asp',
+    name: 'Aspartic Acid',
+    type: 'Acidic / Carboxyl',
+    prop: 'Negative charge',
+    mw: 133.1,
+  },
+  GAA: {
+    one: 'E',
+    three: 'Glu',
+    name: 'Glutamic Acid',
+    type: 'Acidic / Carboxyl',
+    prop: 'Negative charge',
+    mw: 147.1,
+  },
+  GAG: {
+    one: 'E',
+    three: 'Glu',
+    name: 'Glutamic Acid',
+    type: 'Acidic / Carboxyl',
+    prop: 'Negative charge',
+    mw: 147.1,
+  },
+  TGT: {
+    one: 'C',
+    three: 'Cys',
+    name: 'Cysteine',
+    type: 'Thiol / Disulfide',
+    prop: 'Neutral polar',
+    mw: 121.2,
+  },
+  TGC: {
+    one: 'C',
+    three: 'Cys',
+    name: 'Cysteine',
+    type: 'Thiol / Disulfide',
+    prop: 'Neutral polar',
+    mw: 121.2,
+  },
+  TGA: {
+    one: '*',
+    three: 'Opal',
+    name: 'Stop Codon',
+    type: 'Termination',
+    prop: 'N/A',
+    mw: 0,
+    stop: true,
+  },
+  TGG: {
+    one: 'W',
+    three: 'Trp',
+    name: 'Tryptophan',
+    type: 'Aromatic / Indole',
+    prop: 'Non-polar',
+    mw: 204.2,
+  },
+  CGT: {
+    one: 'R',
+    three: 'Arg',
+    name: 'Arginine',
+    type: 'Basic / Guanidinium',
+    prop: 'Positive charge',
+    mw: 174.2,
+  },
+  CGC: {
+    one: 'R',
+    three: 'Arg',
+    name: 'Arginine',
+    type: 'Basic / Guanidinium',
+    prop: 'Positive charge',
+    mw: 174.2,
+  },
+  CGA: {
+    one: 'R',
+    three: 'Arg',
+    name: 'Arginine',
+    type: 'Basic / Guanidinium',
+    prop: 'Positive charge',
+    mw: 174.2,
+  },
+  CGG: {
+    one: 'R',
+    three: 'Arg',
+    name: 'Arginine',
+    type: 'Basic / Guanidinium',
+    prop: 'Positive charge',
+    mw: 174.2,
+  },
+  AGT: {
+    one: 'S',
+    three: 'Ser',
+    name: 'Serine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 105.1,
+  },
+  AGC: {
+    one: 'S',
+    three: 'Ser',
+    name: 'Serine',
+    type: 'Polar / Hydroxyl',
+    prop: 'Neutral polar',
+    mw: 105.1,
+  },
+  AGA: {
+    one: 'R',
+    three: 'Arg',
+    name: 'Arginine',
+    type: 'Basic / Guanidinium',
+    prop: 'Positive charge',
+    mw: 174.2,
+  },
+  AGG: {
+    one: 'R',
+    three: 'Arg',
+    name: 'Arginine',
+    type: 'Basic / Guanidinium',
+    prop: 'Positive charge',
+    mw: 174.2,
+  },
+  GGT: {
+    one: 'G',
+    three: 'Gly',
+    name: 'Glycine',
+    type: 'Small / Flexible',
+    prop: 'Non-polar',
+    mw: 75.1,
+  },
+  GGC: {
+    one: 'G',
+    three: 'Gly',
+    name: 'Glycine',
+    type: 'Small / Flexible',
+    prop: 'Non-polar',
+    mw: 75.1,
+  },
+  GGA: {
+    one: 'G',
+    three: 'Gly',
+    name: 'Glycine',
+    type: 'Small / Flexible',
+    prop: 'Non-polar',
+    mw: 75.1,
+  },
+  GGG: {
+    one: 'G',
+    three: 'Gly',
+    name: 'Glycine',
+    type: 'Small / Flexible',
+    prop: 'Non-polar',
+    mw: 75.1,
+  },
 };
 
 function translateDna(dna: string): string {
-  const clean = dna.toUpperCase().replace(/U/g, 'T').replace(/[^ACGT]/g, '');
+  const clean = dna
+    .toUpperCase()
+    .replace(/U/g, 'T')
+    .replace(/[^ACGT]/g, '');
   let aa = '';
   for (let i = 0; i + 3 <= clean.length; i += 3) {
     const codon = clean.slice(i, i + 3);
@@ -977,7 +1458,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'minimap2' || t === 'minimap' || t === 'chaining' || t === 'minimizer') {
     return [
-      { text: 'MINIMAP2(1)                Genomics Algorithms                MINIMAP2(1)', tone: 'dim' },
+      {
+        text: 'MINIMAP2(1)                Genomics Algorithms                MINIMAP2(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    minimap2 — pairwise aligner & minimizer anchor chaining for long reads' },
@@ -987,8 +1471,12 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
       { text: '    1. Minimizer Indexing: For sliding window w and k-mer size k, selects the' },
-      { text: '       lexicographically smallest hash h(k-mer). Reduces indexing memory by ~w-fold.' },
-      { text: '    2. 2D Anchor Dot-Plot: Identifies matching (x, y) coordinates between query and target.' },
+      {
+        text: '       lexicographically smallest hash h(k-mer). Reduces indexing memory by ~w-fold.',
+      },
+      {
+        text: '    2. 2D Anchor Dot-Plot: Identifies matching (x, y) coordinates between query and target.',
+      },
       { text: '    3. Collinear Chaining: Connects anchors using dynamic programming:' },
       { text: '       f(i) = max_j { f(j) + min(l_i, l_j) - gap_cost(d_x, d_y) }' },
       { text: '       Accelerated to O(N log N) via range trees or fast heuristic pruning.' },
@@ -1003,7 +1491,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'pairwise' || t === 'needleman' || t === 'smith' || t === 'align' || t === 'gotoh') {
     return [
-      { text: 'PAIRWISE(1)                Genomics Algorithms                PAIRWISE(1)', tone: 'dim' },
+      {
+        text: 'PAIRWISE(1)                Genomics Algorithms                PAIRWISE(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    pairwise — exact 2D dynamic programming sequence alignment (NW / SW / Gotoh)' },
@@ -1012,10 +1503,18 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    align <sequence_1> <sequence_2>' },
       { text: '' },
       { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
-      { text: '    Computes optimal edit distance or similarity matrix in O(m · n) time and O(m · n) space:' },
-      { text: '    - Needleman-Wunsch (Global): dp[i][j] = max(dp[i-1][j-1]+S, dp[i-1][j]+g, dp[i][j-1]+g)' },
-      { text: '    - Smith-Waterman (Local): Includes 0 floor for local high-scoring segment pairs (HSPs).' },
-      { text: '    - Gotoh Affine Gaps: Employs 3 matrices (M, Ix, Iy) for gap open + gap extend penalties.' },
+      {
+        text: '    Computes optimal edit distance or similarity matrix in O(m · n) time and O(m · n) space:',
+      },
+      {
+        text: '    - Needleman-Wunsch (Global): dp[i][j] = max(dp[i-1][j-1]+S, dp[i-1][j]+g, dp[i][j-1]+g)',
+      },
+      {
+        text: '    - Smith-Waterman (Local): Includes 0 floor for local high-scoring segment pairs (HSPs).',
+      },
+      {
+        text: '    - Gotoh Affine Gaps: Employs 3 matrices (M, Ix, Iy) for gap open + gap extend penalties.',
+      },
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
       { text: '    → /algorithms/pairwise/', tone: 'accent', href: '/algorithms/pairwise/' },
@@ -1027,7 +1526,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'wfa' || t === 'wavefront') {
     return [
-      { text: 'WFA(1)                     Genomics Algorithms                     WFA(1)', tone: 'dim' },
+      {
+        text: 'WFA(1)                     Genomics Algorithms                     WFA(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    wfa — Wavefront Alignment Algorithm for exact gap-affine sequence alignment' },
@@ -1036,9 +1538,15 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    wfa <sequence_1> <sequence_2>' },
       { text: '' },
       { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
-      { text: '    Computes diagonal wavefront frontiers W_{s,k} indexed by score s and diagonal k = j - i.' },
-      { text: '    - Extends matches greedily along diagonals using free Longest Common Prefix (LCP).' },
-      { text: '    - Expands score frontiers in O(s · d) exact time where d is the sequence divergence,' },
+      {
+        text: '    Computes diagonal wavefront frontiers W_{s,k} indexed by score s and diagonal k = j - i.',
+      },
+      {
+        text: '    - Extends matches greedily along diagonals using free Longest Common Prefix (LCP).',
+      },
+      {
+        text: '    - Expands score frontiers in O(s · d) exact time where d is the sequence divergence,',
+      },
       { text: '      drastically outperforming O(n²) dynamic programming for similar sequences.' },
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
@@ -1051,7 +1559,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'debruijn' || t === 'dbg' || t === 'eulerian' || t === 'assembly') {
     return [
-      { text: 'DEBRUIJN(1)                Genomics Algorithms                DEBRUIJN(1)', tone: 'dim' },
+      {
+        text: 'DEBRUIJN(1)                Genomics Algorithms                DEBRUIJN(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    debruijn — Eulerian path de novo genome assembly from short k-mers' },
@@ -1060,10 +1571,18 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    debruijn <sequence_or_reads>' },
       { text: '' },
       { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
-      { text: '    1. K-mer Decomposition: Breaks reads into (k-1)-mer nodes and directed k-mer edges.' },
-      { text: '    2. Graph Compaction: Merges non-branching unambiguous linear paths into unitigs.' },
-      { text: '    3. Heuristic Cleaning: Clips dead-end tips and pops heterozygous/error bubbles.' },
-      { text: '    4. Hierholzer Traversal: Computes Eulerian tour visiting every edge exactly once in O(E).' },
+      {
+        text: '    1. K-mer Decomposition: Breaks reads into (k-1)-mer nodes and directed k-mer edges.',
+      },
+      {
+        text: '    2. Graph Compaction: Merges non-branching unambiguous linear paths into unitigs.',
+      },
+      {
+        text: '    3. Heuristic Cleaning: Clips dead-end tips and pops heterozygous/error bubbles.',
+      },
+      {
+        text: '    4. Hierholzer Traversal: Computes Eulerian tour visiting every edge exactly once in O(E).',
+      },
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
       { text: '    → /algorithms/debruijn/', tone: 'accent', href: '/algorithms/debruijn/' },
@@ -1075,7 +1594,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'stringgraph' || t === 'olc' || t === 'myers') {
     return [
-      { text: 'STRINGGRAPH(1)             Genomics Algorithms             STRINGGRAPH(1)', tone: 'dim' },
+      {
+        text: 'STRINGGRAPH(1)             Genomics Algorithms             STRINGGRAPH(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    stringgraph — Overlap-Layout-Consensus (OLC) long-read genome assembly' },
@@ -1084,13 +1606,21 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    stringgraph' },
       { text: '' },
       { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
-      { text: '    1. Overlap Detection: Finds exact prefix-suffix matches without k-mer chopping.' },
+      {
+        text: '    1. Overlap Detection: Finds exact prefix-suffix matches without k-mer chopping.',
+      },
       { text: '    2. Contained Read Removal: Prunes reads completely subsumed by longer reads.' },
-      { text: '    3. Myers Transitive Reduction: Eliminates redundant chordal edges in O(V + E) time.' },
+      {
+        text: '    3. Myers Transitive Reduction: Eliminates redundant chordal edges in O(V + E) time.',
+      },
       { text: '    4. Unitig Layout & Consensus: Assembles unbranched read paths into contigs.' },
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
-      { text: '    → /algorithms/string-graph/', tone: 'accent', href: '/algorithms/string-graph/' },
+      {
+        text: '    → /algorithms/string-graph/',
+        tone: 'accent',
+        href: '/algorithms/string-graph/',
+      },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    debruijn(1), minimap2(1)' },
@@ -1099,7 +1629,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'phmm' || t === 'hmmer' || t === 'plan7') {
     return [
-      { text: 'PHMM(1)                    Genomics Algorithms                    PHMM(1)', tone: 'dim' },
+      {
+        text: 'PHMM(1)                    Genomics Algorithms                    PHMM(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    phmm — Profile Hidden Markov Models for biological domain family modeling' },
@@ -1108,9 +1641,13 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    phmm <sequence>' },
       { text: '' },
       { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
-      { text: '    1. Plan 7 Architecture: Core Match (M_k), Insert (I_k), and Delete (D_k) state topology.' },
+      {
+        text: '    1. Plan 7 Architecture: Core Match (M_k), Insert (I_k), and Delete (D_k) state topology.',
+      },
       { text: '    2. Viterbi Dynamic Programming: Computes optimal state path in O(L · M) time.' },
-      { text: '    3. Forward-Backward Algorithm: Computes total likelihood and posterior probabilities' },
+      {
+        text: '    3. Forward-Backward Algorithm: Computes total likelihood and posterior probabilities',
+      },
       { text: '       P(state | sequence) for confidence estimation.' },
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
@@ -1123,20 +1660,33 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'ghmm' || t === 'genscan' || t === 'augustus' || t === 'gene') {
     return [
-      { text: 'GHMM(1)                    Genomics Algorithms                    GHMM(1)', tone: 'dim' },
+      {
+        text: 'GHMM(1)                    Genomics Algorithms                    GHMM(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
-      { text: '    ghmm — Generalized Hidden Markov Models for eukaryotic gene structural prediction' },
+      {
+        text: '    ghmm — Generalized Hidden Markov Models for eukaryotic gene structural prediction',
+      },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
       { text: '    ghmm [sequence]' },
       { text: '' },
       { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
-      { text: '    1. Semi-Markov State Durations: Emits entire substrings of duration d drawn from' },
-      { text: '       explicit biological length models f(d), avoiding geometric decay limitations.' },
-      { text: '    2. Signal Sensor Scoring: Evaluates canonical GT/AG splice sites, start/stop codons,' },
+      {
+        text: '    1. Semi-Markov State Durations: Emits entire substrings of duration d drawn from',
+      },
+      {
+        text: '       explicit biological length models f(d), avoiding geometric decay limitations.',
+      },
+      {
+        text: '    2. Signal Sensor Scoring: Evaluates canonical GT/AG splice sites, start/stop codons,',
+      },
       { text: '       and branch points with weight matrices / neural predictors.' },
-      { text: '    3. Modified Viterbi DP: Optimal parsing of exons, introns, and intergenic regions.' },
+      {
+        text: '    3. Modified Viterbi DP: Optimal parsing of exons, introns, and intergenic regions.',
+      },
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
       { text: '    → /algorithms/ghmm/', tone: 'accent', href: '/algorithms/ghmm/' },
@@ -1148,7 +1698,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'fmindex' || t === 'bwt') {
     return [
-      { text: 'FMINDEX(1)                 Genomics Algorithms                 FMINDEX(1)', tone: 'dim' },
+      {
+        text: 'FMINDEX(1)                 Genomics Algorithms                 FMINDEX(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    fmindex — Burrows-Wheeler Transform and Last-to-First backward search' },
@@ -1158,9 +1711,13 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
       { text: '    1. BWT Construction: Lexicographical sort of all circular string rotations.' },
-      { text: '    2. LF-Mapping: L[i] = C[c] + Occ(c, i) matches queries backwards in O(m) time,' },
+      {
+        text: '    2. LF-Mapping: L[i] = C[c] + Occ(c, i) matches queries backwards in O(m) time,',
+      },
       { text: '       completely independent of reference genome length.' },
-      { text: '    3. Compressed Suffix Arrays: Locates coordinate occurrences with sampled SA pointers.' },
+      {
+        text: '    3. Compressed Suffix Arrays: Locates coordinate occurrences with sampled SA pointers.',
+      },
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
       { text: '    → /algorithms/fm-index/', tone: 'accent', href: '/algorithms/fm-index/' },
@@ -1172,7 +1729,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'wgt' || t === 'wheeler' || t === 'wheelie') {
     return [
-      { text: 'WGT(1)                     Genomics Algorithms                     WGT(1)', tone: 'dim' },
+      {
+        text: 'WGT(1)                     Genomics Algorithms                     WGT(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    wgt — Wheeler graph recognition and pangenome variation graph indexing' },
@@ -1181,7 +1741,9 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    wgt [graph.gfa]' },
       { text: '' },
       { text: 'ALGORITHM & TIME COMPLEXITY', tone: 'accent' },
-      { text: '    Generalizes BWT substring indexing to variation graphs. Establishes a total ordering' },
+      {
+        text: '    Generalizes BWT substring indexing to variation graphs. Establishes a total ordering',
+      },
       { text: '    of graph nodes where paths sharing prefixes form contiguous intervals.' },
       { text: '' },
       { text: 'DEEP DIVE POST', tone: 'accent' },
@@ -1194,7 +1756,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'gwas' || t === 'association' || t === 'manhattan' || t === 'prs' || t === 'plink') {
     return [
-      { text: 'GWAS(1)                    Statistical Genetics                    GWAS(1)', tone: 'dim' },
+      {
+        text: 'GWAS(1)                    Statistical Genetics                    GWAS(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    gwas — Genome-Wide Association Studies, PCA correction, and LD fine-mapping' },
@@ -1205,16 +1770,26 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: 'ALGORITHM & STATISTICAL MODEL', tone: 'accent' },
       { text: '    1. Single-Variant Association Test: Fits additive dosage OLS regression' },
       { text: '       y = α + x_j · β_j + Z · γ + ε across M genetic variants.' },
-      { text: '    2. Population Stratification: Corrects confounding using Ancestry PCA covariates' },
+      {
+        text: '    2. Population Stratification: Corrects confounding using Ancestry PCA covariates',
+      },
       { text: '       or Linear Mixed Models (LMM: BOLT-LMM / EMMAX).' },
       { text: '    3. Multiple Testing Threshold: Canonical Bonferroni threshold p < 5 × 10⁻⁸' },
       { text: '       correcting for ~10⁶ independent LD blocks.' },
-      { text: '    4. Diagnostics: Genomic inflation factor λ_GC = median(χ²_obs) / 0.456 and Q-Q plots.' },
-      { text: '    5. Fine-Mapping: Linkage Disequilibrium (r²) correlation clouds and Polygenic Risk Scores (PRS).' },
+      {
+        text: '    4. Diagnostics: Genomic inflation factor λ_GC = median(χ²_obs) / 0.456 and Q-Q plots.',
+      },
+      {
+        text: '    5. Fine-Mapping: Linkage Disequilibrium (r²) correlation clouds and Polygenic Risk Scores (PRS).',
+      },
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER & DEEP DIVE', tone: 'accent' },
       { text: '    → /algorithms/gwas/ (Visualizer)', tone: 'accent', href: '/algorithms/gwas/' },
-      { text: '    → /deep_dives/gwas/ (Technical Post)', tone: 'accent', href: '/deep_dives/gwas/' },
+      {
+        text: '    → /deep_dives/gwas/ (Technical Post)',
+        tone: 'accent',
+        href: '/deep_dives/gwas/',
+      },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    deepdive(1), phmm(1), ghmm(1), ism(1), plink(1)' },
@@ -1223,41 +1798,137 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'deepdive' || t === 'deep_dive' || t === 'concepts' || t === 'foundations') {
     return [
-      { text: 'DEEPDIVE(1)             Computational Genomics             DEEPDIVE(1)', tone: 'dim' },
+      {
+        text: 'DEEPDIVE(1)          Technical Learning Curricula          DEEPDIVE(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
-      { text: '    deepdive — computational genomics foundations, statistical genetics & concept posts' },
+      {
+        text: '    deepdive — machine learning, deep learning and computational-genomics curricula',
+      },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
-      { text: '    deepdive [statgen | gwas | cdcv | imputation | qc | regression | stratification | manhattan | ldsc | finemapping | prs]' },
+      { text: '    deepdive [topic or exact lesson slug]' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
-      { text: '    Rigorous, first-principles explorations of essential computational genomics concepts,' },
-      { text: '    mathematical models, DNA foundation models, and statistical genetics.' },
+      {
+        text: '    Source-driven lessons with derivations, examples, interview questions and study tools.',
+      },
+      { text: '    Ambiguous topics print choices; an exact collection slug always wins.' },
       { text: '' },
       { text: 'CATALOG & BLOG POSTS', tone: 'accent' },
       { text: '    → /deep_dives/', tone: 'accent', href: '/deep_dives/' },
-      { text: '    → /deep_dives/statistical-genetics/ (Statistical Genetics: Quantitative Traits & Heritability)', tone: 'accent', href: '/deep_dives/statistical-genetics/' },
-      { text: '      · /deep_dives/statgen-population-infinitesimal/ (Part 1: Population Genetics & Infinitesimal Model)', tone: 'accent', href: '/deep_dives/statgen-population-infinitesimal/' },
-      { text: '      · /deep_dives/statgen-linkage-disequilibrium/ (Part 2: Linkage Disequilibrium & PRDM9)', tone: 'accent', href: '/deep_dives/statgen-linkage-disequilibrium/' },
-      { text: '      · /deep_dives/statgen-heritability-greml/ (Part 3: Heritability & GREML/GCTA)', tone: 'accent', href: '/deep_dives/statgen-heritability-greml/' },
-      { text: '      · /deep_dives/statgen-ldsc-sldsc/ (Part 4: LD Score Regression & S-LDSC)', tone: 'accent', href: '/deep_dives/statgen-ldsc-sldsc/' },
-      { text: '      · /deep_dives/statgen-association-linear-mixed-models/ (Part 5: Association Testing & LMMs)', tone: 'accent', href: '/deep_dives/statgen-association-linear-mixed-models/' },
-      { text: '      · /deep_dives/statgen-bayesian-fine-mapping/ (Part 6: Bayesian Fine-Mapping & SuSiE)', tone: 'accent', href: '/deep_dives/statgen-bayesian-fine-mapping/' },
-      { text: '      · /deep_dives/statgen-rare-variant-association/ (Part 7: Rare Variant Association & SKAT)', tone: 'accent', href: '/deep_dives/statgen-rare-variant-association/' },
-      { text: '      · /deep_dives/statgen-polygenic-risk-scores/ (Part 8: Polygenic Risk Scores & Portability)', tone: 'accent', href: '/deep_dives/statgen-polygenic-risk-scores/' },
-      { text: '      · /deep_dives/statgen-mendelian-randomization/ (Part 9: Mendelian Randomization & Causal IVs)', tone: 'accent', href: '/deep_dives/statgen-mendelian-randomization/' },
-      { text: '      · /deep_dives/statgen-deep-learning-synthesis/ (Part 10: The Modern Synthesis & AI Genomics)', tone: 'accent', href: '/deep_dives/statgen-deep-learning-synthesis/' },
-      { text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies: The Mathematical Engine)', tone: 'accent', href: '/deep_dives/gwas/' },
-      { text: '      · /deep_dives/gwas-biological-variation-cdcv/ (Part 1: Biological Variation & CDCV)', tone: 'accent', href: '/deep_dives/gwas-biological-variation-cdcv/' },
-      { text: '      · /deep_dives/gwas-genotyping-imputation/ (Part 2: SNP Microarrays & HMM Imputation)', tone: 'accent', href: '/deep_dives/gwas-genotyping-imputation/' },
-      { text: '      · /deep_dives/gwas-quality-control/ (Part 3: Rigorous Sample & Variant QC)', tone: 'accent', href: '/deep_dives/gwas-quality-control/' },
-      { text: '      · /deep_dives/gwas-association-statistics/ (Part 4: OLS, Logistic, Wald & Power)', tone: 'accent', href: '/deep_dives/gwas-association-statistics/' },
-      { text: '      · /deep_dives/gwas-population-stratification/ (Part 5: Confounding, PCA & Mixed Models)', tone: 'accent', href: '/deep_dives/gwas-population-stratification/' },
-      { text: '      · /deep_dives/gwas-multiple-testing-manhattan/ (Part 6: Multiple Testing & Manhattan Plot)', tone: 'accent', href: '/deep_dives/gwas-multiple-testing-manhattan/' },
-      { text: '      · /deep_dives/gwas-linkage-disequilibrium-ldsc/ (Part 7: Linkage Disequilibrium & LDSC)', tone: 'accent', href: '/deep_dives/gwas-linkage-disequilibrium-ldsc/' },
-      { text: '      · /deep_dives/gwas-fine-mapping-functional-genomics/ (Part 8: Fine-Mapping, SuSiE & Epigenomics)', tone: 'accent', href: '/deep_dives/gwas-fine-mapping-functional-genomics/' },
-      { text: '      · /deep_dives/gwas-polygenic-risk-scores-prs/ (Part 9: Polygenic Risk Scores & Clinical Translation)', tone: 'accent', href: '/deep_dives/gwas-polygenic-risk-scores-prs/' },
+      {
+        text: '    → /deep_dives/ml-dl-interview/ (Machine Learning & Deep Learning Interview Guide)',
+        tone: 'accent',
+        href: '/deep_dives/ml-dl-interview/',
+      },
+      {
+        text: '    → /deep_dives/statistical-genetics/ (Statistical Genetics: Quantitative Traits & Heritability)',
+        tone: 'accent',
+        href: '/deep_dives/statistical-genetics/',
+      },
+      {
+        text: '      · /deep_dives/statgen-population-infinitesimal/ (Part 1: Population Genetics & Infinitesimal Model)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-population-infinitesimal/',
+      },
+      {
+        text: '      · /deep_dives/statgen-linkage-disequilibrium/ (Part 2: Linkage Disequilibrium & PRDM9)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-linkage-disequilibrium/',
+      },
+      {
+        text: '      · /deep_dives/statgen-heritability-greml/ (Part 3: Heritability & GREML/GCTA)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-heritability-greml/',
+      },
+      {
+        text: '      · /deep_dives/statgen-ldsc-sldsc/ (Part 4: LD Score Regression & S-LDSC)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-ldsc-sldsc/',
+      },
+      {
+        text: '      · /deep_dives/statgen-association-linear-mixed-models/ (Part 5: Association Testing & LMMs)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-association-linear-mixed-models/',
+      },
+      {
+        text: '      · /deep_dives/statgen-bayesian-fine-mapping/ (Part 6: Bayesian Fine-Mapping & SuSiE)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-bayesian-fine-mapping/',
+      },
+      {
+        text: '      · /deep_dives/statgen-rare-variant-association/ (Part 7: Rare Variant Association & SKAT)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-rare-variant-association/',
+      },
+      {
+        text: '      · /deep_dives/statgen-polygenic-risk-scores/ (Part 8: Polygenic Risk Scores & Portability)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-polygenic-risk-scores/',
+      },
+      {
+        text: '      · /deep_dives/statgen-mendelian-randomization/ (Part 9: Mendelian Randomization & Causal IVs)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-mendelian-randomization/',
+      },
+      {
+        text: '      · /deep_dives/statgen-deep-learning-synthesis/ (Part 10: The Modern Synthesis & AI Genomics)',
+        tone: 'accent',
+        href: '/deep_dives/statgen-deep-learning-synthesis/',
+      },
+      {
+        text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies: The Mathematical Engine)',
+        tone: 'accent',
+        href: '/deep_dives/gwas/',
+      },
+      {
+        text: '      · /deep_dives/gwas-biological-variation-cdcv/ (Part 1: Biological Variation & CDCV)',
+        tone: 'accent',
+        href: '/deep_dives/gwas-biological-variation-cdcv/',
+      },
+      {
+        text: '      · /deep_dives/gwas-genotyping-imputation/ (Part 2: SNP Microarrays & HMM Imputation)',
+        tone: 'accent',
+        href: '/deep_dives/gwas-genotyping-imputation/',
+      },
+      {
+        text: '      · /deep_dives/gwas-quality-control/ (Part 3: Rigorous Sample & Variant QC)',
+        tone: 'accent',
+        href: '/deep_dives/gwas-quality-control/',
+      },
+      {
+        text: '      · /deep_dives/gwas-association-statistics/ (Part 4: OLS, Logistic, Wald & Power)',
+        tone: 'accent',
+        href: '/deep_dives/gwas-association-statistics/',
+      },
+      {
+        text: '      · /deep_dives/gwas-population-stratification/ (Part 5: Confounding, PCA & Mixed Models)',
+        tone: 'accent',
+        href: '/deep_dives/gwas-population-stratification/',
+      },
+      {
+        text: '      · /deep_dives/gwas-multiple-testing-manhattan/ (Part 6: Multiple Testing & Manhattan Plot)',
+        tone: 'accent',
+        href: '/deep_dives/gwas-multiple-testing-manhattan/',
+      },
+      {
+        text: '      · /deep_dives/gwas-linkage-disequilibrium-ldsc/ (Part 7: Linkage Disequilibrium & LDSC)',
+        tone: 'accent',
+        href: '/deep_dives/gwas-linkage-disequilibrium-ldsc/',
+      },
+      {
+        text: '      · /deep_dives/gwas-fine-mapping-functional-genomics/ (Part 8: Fine-Mapping, SuSiE & Epigenomics)',
+        tone: 'accent',
+        href: '/deep_dives/gwas-fine-mapping-functional-genomics/',
+      },
+      {
+        text: '      · /deep_dives/gwas-polygenic-risk-scores-prs/ (Part 9: Polygenic Risk Scores & Clinical Translation)',
+        tone: 'accent',
+        href: '/deep_dives/gwas-polygenic-risk-scores-prs/',
+      },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    gwas(1), paper(1), minimap2(1), fmindex(1), wfa(1), wgt(1)' },
@@ -1266,28 +1937,69 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'papers' || t === 'paper' || t === 'summaries') {
     return [
-      { text: 'PAPERS(1)               Literature Deconstructions               PAPERS(1)', tone: 'dim' },
+      {
+        text: 'PAPERS(1)               Literature Deconstructions               PAPERS(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
-      { text: '    papers — technical literature summaries, methodologies, and figure deconstructions' },
+      {
+        text: '    papers — technical literature summaries, methodologies, and figure deconstructions',
+      },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
-      { text: '    paper [borzoi | borzoi-prime | decima | scooby | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]' },
+      {
+        text: '    paper [borzoi | borzoi-prime | decima | scooby | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]',
+      },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
-      { text: '    Detailed, clear, and mathematically rigorous literature deconstructions of breakthrough' },
+      {
+        text: '    Detailed, clear, and mathematically rigorous literature deconstructions of breakthrough',
+      },
       { text: '    computational genomics, language models, and regulatory deep learning papers.' },
       { text: '' },
       { text: 'CATALOG & SUMMARIES', tone: 'accent' },
       { text: '    → /papers/', tone: 'accent', href: '/papers/' },
-      { text: '    → /papers/borzoi/ (Borzoi / Calico - Nature Genetics 2025)', tone: 'accent', href: '/papers/borzoi/' },
-      { text: '    → /papers/borzoi-prime/ (Borzoi Prime / Calico - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-prime/' },
-      { text: '    → /papers/decima/ (Decima / Genentech - bioRxiv 2024)', tone: 'accent', href: '/papers/decima/' },
-      { text: '    → /papers/scooby/ (scooby / TUM & Broad - Nature Methods 2025)', tone: 'accent', href: '/papers/scooby/' },
-      { text: '    → /papers/alphagenome/ (AlphaGenome / DeepMind - Nature 2026)', tone: 'accent', href: '/papers/alphagenome/' },
-      { text: '    → /papers/gpnstar/ (GPN-Star / Song Lab - bioRxiv 2025)', tone: 'accent', href: '/papers/gpnstar/' },
-      { text: '    → /papers/borzoi-finemapped/ (Borzoi Fine-Mapping / Sniff - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-finemapped/' },
-      { text: '    → /papers/borzoi-peft/ (Borzoi PEFT / Locon4 - bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-peft/' },
+      {
+        text: '    → /papers/borzoi/ (Borzoi / Calico - Nature Genetics 2025)',
+        tone: 'accent',
+        href: '/papers/borzoi/',
+      },
+      {
+        text: '    → /papers/borzoi-prime/ (Borzoi Prime / Calico - bioRxiv 2025)',
+        tone: 'accent',
+        href: '/papers/borzoi-prime/',
+      },
+      {
+        text: '    → /papers/decima/ (Decima / Genentech - bioRxiv 2024)',
+        tone: 'accent',
+        href: '/papers/decima/',
+      },
+      {
+        text: '    → /papers/scooby/ (scooby / TUM & Broad - Nature Methods 2025)',
+        tone: 'accent',
+        href: '/papers/scooby/',
+      },
+      {
+        text: '    → /papers/alphagenome/ (AlphaGenome / DeepMind - Nature 2026)',
+        tone: 'accent',
+        href: '/papers/alphagenome/',
+      },
+      {
+        text: '    → /papers/gpnstar/ (GPN-Star / Song Lab - bioRxiv 2025)',
+        tone: 'accent',
+        href: '/papers/gpnstar/',
+      },
+      {
+        text: '    → /papers/borzoi-finemapped/ (Borzoi Fine-Mapping / Sniff - bioRxiv 2025)',
+        tone: 'accent',
+        href: '/papers/borzoi-finemapped/',
+      },
+      {
+        text: '    → /papers/borzoi-peft/ (Borzoi PEFT / Locon4 - bioRxiv 2025)',
+        tone: 'accent',
+        href: '/papers/borzoi-peft/',
+      },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    deepdive(1), gwas(1), ism(1), lifton(1), splam(1)' },
@@ -1296,17 +2008,26 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'lifton') {
     return [
-      { text: 'LIFTON(1)                  Genomics Software                  LIFTON(1)', tone: 'dim' },
+      {
+        text: 'LIFTON(1)                  Genomics Software                  LIFTON(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
-      { text: '    lifton — accurate and fast gene annotation lift-over across chromosome assemblies' },
+      {
+        text: '    lifton — accurate and fast gene annotation lift-over across chromosome assemblies',
+      },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
       { text: '    lifton -g <ref.gff3> -o <out.gff3> <target.fa> <ref.fa>' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
-      { text: '    LiftOn lifts gene annotations between reference and target assemblies with full' },
-      { text: '    ORF conservation, paralog resolution, and exon boundary splice-site correction.' },
+      {
+        text: '    LiftOn lifts gene annotations between reference and target assemblies with full',
+      },
+      {
+        text: '    ORF conservation, paralog resolution, and exon boundary splice-site correction.',
+      },
       { text: '    Published in Nature Methods (2024).' },
       { text: '' },
       { text: 'SOFTWARE & POST', tone: 'accent' },
@@ -1319,7 +2040,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'splam') {
     return [
-      { text: 'SPLAM(1)                   Genomics Software                   SPLAM(1)', tone: 'dim' },
+      {
+        text: 'SPLAM(1)                   Genomics Software                   SPLAM(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    splam — deep learning splice junction recognition and alignment cleaner' },
@@ -1328,8 +2052,12 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    splam extract <alignment.bam> && splam score && splam clean' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
-      { text: '    Ultra-fast residual convolutional neural network scoring donor (GT) and acceptor (AG)' },
-      { text: '    splice junctions. Filters spurious spliced alignments to improve downstream assembly.' },
+      {
+        text: '    Ultra-fast residual convolutional neural network scoring donor (GT) and acceptor (AG)',
+      },
+      {
+        text: '    splice junctions. Filters spurious spliced alignments to improve downstream assembly.',
+      },
       { text: '    Published in Oxford Bioinformatics (2024).' },
       { text: '' },
       { text: 'SOFTWARE & POST', tone: 'accent' },
@@ -1342,21 +2070,34 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'openspliceai') {
     return [
-      { text: 'OPENSPLICEAI(1)            Genomics Software            OPENSPLICEAI(1)', tone: 'dim' },
+      {
+        text: 'OPENSPLICEAI(1)            Genomics Software            OPENSPLICEAI(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
-      { text: '    openspliceai — open-source, high-throughput deep learning splice variant predictor' },
+      {
+        text: '    openspliceai — open-source, high-throughput deep learning splice variant predictor',
+      },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
       { text: '    openspliceai -I <input.vcf> -O <output.vcf> -R <genome.fa>' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
-      { text: '    32-layer deep residual neural network analyzing 10kb pre-mRNA sequence context' },
-      { text: '    for splice donor/acceptor gain and loss. 24x faster than original implementations.' },
+      {
+        text: '    32-layer deep residual neural network analyzing 10kb pre-mRNA sequence context',
+      },
+      {
+        text: '    for splice donor/acceptor gain and loss. 24x faster than original implementations.',
+      },
       { text: '    Published in Genome Biology (2025).' },
       { text: '' },
       { text: 'SOFTWARE & POST', tone: 'accent' },
-      { text: '    → /software/ and /posts/openspliceai/', tone: 'accent', href: '/posts/openspliceai/' },
+      {
+        text: '    → /software/ and /posts/openspliceai/',
+        tone: 'accent',
+        href: '/posts/openspliceai/',
+      },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    splam(1), shorkie(1)' },
@@ -1365,7 +2106,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'shorkie') {
     return [
-      { text: 'SHORKIE(1)                 Genomics Software                 SHORKIE(1)', tone: 'dim' },
+      {
+        text: 'SHORKIE(1)                 Genomics Software                 SHORKIE(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    shorkie — whole-genome sequence-to-function language model' },
@@ -1406,7 +2150,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'tview' || t === 'samtools') {
     return [
-      { text: 'TVIEW(1)                   Genomics Alignment                   TVIEW(1)', tone: 'dim' },
+      {
+        text: 'TVIEW(1)                   Genomics Alignment                   TVIEW(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    tview — text alignment viewer for BAM sequence alignments (samtools tview)' },
@@ -1425,7 +2172,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'duel' || t === 'race' || t === 'benchmark') {
     return [
-      { text: 'DUEL(1)                     Genomics Benchmarks                     DUEL(1)', tone: 'dim' },
+      {
+        text: 'DUEL(1)                     Genomics Benchmarks                     DUEL(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    duel — Algorithm Duel: Needleman-Wunsch DP vs Wavefront Alignment (WFA)' },
@@ -1434,7 +2184,9 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    duel [seq1] [seq2]' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
-      { text: '    Interactive head-to-head performance duel and synchronized pseudocode debugger' },
+      {
+        text: '    Interactive head-to-head performance duel and synchronized pseudocode debugger',
+      },
       { text: '    comparing classical O(N²) dynamic programming against diagonal WFA O(s·d).' },
       { text: '' },
       { text: 'INTERACTIVE ARENA', tone: 'accent' },
@@ -1447,7 +2199,10 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
   if (t === 'ism' || t === 'mutagenesis' || t === 'splice') {
     return [
-      { text: 'ISM(1)                   Genomic Deep Learning                   ISM(1)', tone: 'dim' },
+      {
+        text: 'ISM(1)                   Genomic Deep Learning                   ISM(1)',
+        tone: 'dim',
+      },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       { text: '    ism — In Silico Mutagenesis & Splice Deep Learning (OpenSpliceAI / Splam)' },
@@ -1456,7 +2211,9 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '    ism [sequence]' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
-      { text: '    Interactive 4×L single-nucleotide mutation matrix, ΔScore variant effect predictions,' },
+      {
+        text: '    Interactive 4×L single-nucleotide mutation matrix, ΔScore variant effect predictions,',
+      },
       { text: '    and position importance sequence logos for deep learning splice models.' },
       { text: '' },
       { text: 'INTERACTIVE VISUALIZER', tone: 'accent' },
@@ -1475,10 +2232,86 @@ export const COMMANDS: Record<string, Cmd> = {
     summary: 'list available commands',
     run: () => {
       const groups: [string, string[]][] = [
-        ['filesystem', ['ls', 'cd', 'pwd', 'cat', 'head', 'tail', 'wc', 'sort', 'uniq', 'less', 'tree', 'find', 'grep', 'git']],
-        ['genomics & algorithms', ['gwas', 'align', 'duel', 'minimap2', 'fmindex', 'wfa', 'debruijn', 'stringgraph', 'phmm', 'ghmm', 'ism', 'tview', 'samtools', 'seqkit', 'gffbase', 'fastqc', 'codon', 'bedtools', 'blastn', 'splice']],
-        ['content', ['about', 'publications', 'software', 'talks', 'posts', 'research', 'projects', 'news', 'cv', 'contact', 'socials']],
-        ['system', ['man', 'uname', 'uptime', 'top', 'date', 'cal', 'curl', 'env', 'neofetch', 'theme', 'crt', 'sound', 'history', 'clear', 'echo']],
+        [
+          'filesystem',
+          [
+            'ls',
+            'cd',
+            'pwd',
+            'cat',
+            'head',
+            'tail',
+            'wc',
+            'sort',
+            'uniq',
+            'less',
+            'tree',
+            'find',
+            'grep',
+            'git',
+          ],
+        ],
+        [
+          'genomics & algorithms',
+          [
+            'gwas',
+            'align',
+            'duel',
+            'minimap2',
+            'fmindex',
+            'wfa',
+            'debruijn',
+            'stringgraph',
+            'phmm',
+            'ghmm',
+            'ism',
+            'tview',
+            'samtools',
+            'seqkit',
+            'gffbase',
+            'fastqc',
+            'codon',
+            'bedtools',
+            'blastn',
+            'splice',
+          ],
+        ],
+        [
+          'content',
+          [
+            'about',
+            'publications',
+            'software',
+            'talks',
+            'posts',
+            'research',
+            'projects',
+            'news',
+            'cv',
+            'contact',
+            'socials',
+          ],
+        ],
+        [
+          'system',
+          [
+            'man',
+            'uname',
+            'uptime',
+            'top',
+            'date',
+            'cal',
+            'curl',
+            'env',
+            'neofetch',
+            'theme',
+            'crt',
+            'sound',
+            'history',
+            'clear',
+            'echo',
+          ],
+        ],
         ['toys & games', ['cowsay', 'fortune', 'matrix', 'games', 'snake', 'tetris']],
         ['navigate', ['open', 'exit']],
         ['chatbot', ['ask', 'chat']],
@@ -1495,8 +2328,14 @@ export const COMMANDS: Record<string, Cmd> = {
         lines.push({ text: '' });
       }
       lines.push(
-        { text: '  Tab completes, ↑/↓ history, pipes `|` chain filters (`grep`, `head`, `wc`, `sort`).', tone: 'dim' },
-        { text: '  Try: `align ACGTAGCTA ACGTCGCTA` · `cat ~/news.txt | grep 2025` · `curl wttr.in` · `cal`', tone: 'dim' }
+        {
+          text: '  Tab completes, ↑/↓ history, pipes `|` chain filters (`grep`, `head`, `wc`, `sort`).',
+          tone: 'dim',
+        },
+        {
+          text: '  Try: `align ACGTAGCTA ACGTCGCTA` · `cat ~/news.txt | grep 2025` · `curl wttr.in` · `cal`',
+          tone: 'dim',
+        }
       );
       return lines;
     },
@@ -1666,7 +2505,8 @@ export const COMMANDS: Record<string, Cmd> = {
         if (flags.has('l')) parts.push(String(l).padStart(7));
         if (flags.has('w')) parts.push(String(w).padStart(7));
         if (flags.has('c') || flags.has('m')) parts.push(String(c).padStart(7));
-        if (!parts.length) parts.push(String(l).padStart(7), String(w).padStart(7), String(c).padStart(7));
+        if (!parts.length)
+          parts.push(String(l).padStart(7), String(w).padStart(7), String(c).padStart(7));
         lines.push({ text: `${parts.join(' ')} ${arg}` });
       }
       return lines;
@@ -1732,7 +2572,16 @@ export const COMMANDS: Record<string, Cmd> = {
     needsIndex: true,
     run: ({ index, state, args }) => {
       if (!args.length) return err('less: missing file operand');
-      return COMMANDS.cat.run({ state, index, argv: ['cat', ...args], args, flags: new Set(), now: new Date(), columns: 80, narrow: false });
+      return COMMANDS.cat.run({
+        state,
+        index,
+        argv: ['cat', ...args],
+        args,
+        flags: new Set(),
+        now: new Date(),
+        columns: 80,
+        narrow: false,
+      });
     },
   },
 
@@ -1742,7 +2591,16 @@ export const COMMANDS: Record<string, Cmd> = {
     needsIndex: true,
     run: ({ index, state, args }) => {
       if (!args.length) return err('more: missing file operand');
-      return COMMANDS.cat.run({ state, index, argv: ['cat', ...args], args, flags: new Set(), now: new Date(), columns: 80, narrow: false });
+      return COMMANDS.cat.run({
+        state,
+        index,
+        argv: ['cat', ...args],
+        args,
+        flags: new Set(),
+        now: new Date(),
+        columns: 80,
+        narrow: false,
+      });
     },
   },
 
@@ -1759,7 +2617,9 @@ export const COMMANDS: Record<string, Cmd> = {
         const entries = listDir(index, dir) ?? [];
         entries.forEach((e, i) => {
           const last = i === entries.length - 1;
-          lines.push({ text: `${prefix}${last ? '└── ' : '├── '}${e.dir ? `${e.name}/` : e.name}` });
+          lines.push({
+            text: `${prefix}${last ? '└── ' : '├── '}${e.dir ? `${e.name}/` : e.name}`,
+          });
           if (e.dir) {
             dirs++;
             walk(e.path, `${prefix}${last ? '    ' : '│   '}`);
@@ -1803,7 +2663,10 @@ export const COMMANDS: Record<string, Cmd> = {
     needsIndex: true,
     run: ({ index }) => [
       { text: USER },
-      { text: `${index.identity.name} (${index.identity.nameZh}) — ${index.identity.role}`, tone: 'dim' },
+      {
+        text: `${index.identity.name} (${index.identity.nameZh}) — ${index.identity.role}`,
+        tone: 'dim',
+      },
     ],
   },
 
@@ -1872,7 +2735,9 @@ export const COMMANDS: Record<string, Cmd> = {
         .map(([, node]) => node);
       const lines: Line[] = [{ text: 'TALKS & PRESENTATIONS', tone: 'head' }, { text: '' }];
       for (const talk of talksList.slice(0, 10)) {
-        lines.push({ text: talk.title, tone: 'accent' }, ...bodyLines(talk.body, 'dim'), { text: '' });
+        lines.push({ text: talk.title, tone: 'accent' }, ...bodyLines(talk.body, 'dim'), {
+          text: '',
+        });
       }
       lines.push({ text: '→ /talks/ for all talks & slides', tone: 'accent', href: '/talks/' });
       return lines;
@@ -1886,7 +2751,10 @@ export const COMMANDS: Record<string, Cmd> = {
       const postList = Object.entries(index.fs)
         .filter(([p]) => p.startsWith(`${HOME}/posts/`))
         .map(([, node]) => node);
-      const lines: Line[] = [{ text: 'BLOG POSTS & TECHNICAL DEEP DIVES', tone: 'head' }, { text: '' }];
+      const lines: Line[] = [
+        { text: 'BLOG POSTS & TECHNICAL DEEP DIVES', tone: 'head' },
+        { text: '' },
+      ];
       for (const post of postList) {
         lines.push({ text: post.title, tone: 'accent' });
         if (post.href) lines.push({ text: `→ ${post.href}`, tone: 'accent', href: post.href });
@@ -1943,7 +2811,9 @@ export const COMMANDS: Record<string, Cmd> = {
       for (const name of ['experience', 'education', 'honors']) {
         const node = index.fs[`${HOME}/cv/${name}.txt`];
         if (!node) continue;
-        lines.push({ text: node.title.toUpperCase(), tone: 'accent' }, ...bodyLines(node.body), { text: '' });
+        lines.push({ text: node.title.toUpperCase(), tone: 'accent' }, ...bodyLines(node.body), {
+          text: '',
+        });
       }
       lines.push({ text: '→ /cv/ for the full PDF', tone: 'accent', href: '/cv/' });
       return lines;
@@ -1955,7 +2825,10 @@ export const COMMANDS: Record<string, Cmd> = {
     usage: 'man <topic|algorithm|tool>',
     needsIndex: true,
     run: ({ index, args }) => {
-      if (!args.length) return err('What manual page do you want? Try `man khc`, `man minimap2`, `man wfa`, `man lifton`, or `man debruijn`.');
+      if (!args.length)
+        return err(
+          'What manual page do you want? Try `man khc`, `man minimap2`, `man wfa`, `man lifton`, or `man debruijn`.'
+        );
       const topic = args.join(' ').toLowerCase();
 
       const specificMan = getSpecificManPage(topic, index);
@@ -2109,7 +2982,10 @@ export const COMMANDS: Record<string, Cmd> = {
       const node = index.fs[resolvePath(state.cwd, arg)];
       const href = node?.href ?? (arg.startsWith('/') ? arg : null);
       if (!href) return err(`open: ${arg}: nothing to open`);
-      return { lines: [{ text: `Opening ${href} …`, tone: 'dim' }], effect: { type: 'navigate', href } };
+      return {
+        lines: [{ text: `Opening ${href} …`, tone: 'dim' }],
+        effect: { type: 'navigate', href },
+      };
     },
   },
 
@@ -2172,7 +3048,10 @@ export const COMMANDS: Record<string, Cmd> = {
           { text: '' }
         );
       } else {
-        lines.push({ text: 'Sequences producing significant alignments:', tone: 'dim' }, { text: '' });
+        lines.push(
+          { text: 'Sequences producing significant alignments:', tone: 'dim' },
+          { text: '' }
+        );
       }
       const top = hits[0].score || 1;
       for (const { chunk, score } of hits) {
@@ -2202,23 +3081,56 @@ export const COMMANDS: Record<string, Cmd> = {
         const locus = args[1] || 'chr1:1000000-1000078';
         return [
           { text: `samtools tview khc_wgs_alignment.bam hg38.fa  [Locus: ${locus}]`, tone: 'head' },
-          { text: '1000000   1000010   1000020   1000030   1000040   1000050   1000060   1000070', tone: 'dim' },
-          { text: 'TGAGTCAGCTAGTCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC', tone: 'accent' },
-          { text: '...............................................................................', tone: 'dim' },
-          { text: 'TGAGTCAGCTAGTCGATCGA...........................................................' },
-          { text: '....TCAGCTAGTCGATCGATCGATCGAT..................................................' },
-          { text: '.......GCTAGTCGATCGATCGATCGATCGAACGATCGATCG....................................' },
-          { text: '..........AGTCGATCGATCGATCGATCGATCGATCGATCGATC+T+TCGATCG.......................', tone: 'ok' },
-          { text: '..............CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC................' },
-          { text: '..................CGATCGATCGA--GATCGATCGATCGATCGATCGATCGATCGATCGATCG...........', tone: 'err' },
-          { text: '......................GATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC.........' },
-          { text: '..........................CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG.......' },
+          {
+            text: '1000000   1000010   1000020   1000030   1000040   1000050   1000060   1000070',
+            tone: 'dim',
+          },
+          {
+            text: 'TGAGTCAGCTAGTCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC',
+            tone: 'accent',
+          },
+          {
+            text: '...............................................................................',
+            tone: 'dim',
+          },
+          {
+            text: 'TGAGTCAGCTAGTCGATCGA...........................................................',
+          },
+          {
+            text: '....TCAGCTAGTCGATCGATCGATCGAT..................................................',
+          },
+          {
+            text: '.......GCTAGTCGATCGATCGATCGATCGAACGATCGATCG....................................',
+          },
+          {
+            text: '..........AGTCGATCGATCGATCGATCGATCGATCGATCGATC+T+TCGATCG.......................',
+            tone: 'ok',
+          },
+          {
+            text: '..............CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC................',
+          },
+          {
+            text: '..................CGATCGATCGA--GATCGATCGATCGATCGATCGATCGATCGATCGATCG...........',
+            tone: 'err',
+          },
+          {
+            text: '......................GATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC.........',
+          },
+          {
+            text: '..........................CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG.......',
+          },
           { text: '' },
-          { text: 'Mean Depth: 34.2x | Mismatches: 1 (SNP A->G) | Indels: +TT, -- | MAPQ: 60', tone: 'dim' },
+          {
+            text: 'Mean Depth: 34.2x | Mismatches: 1 (SNP A->G) | Indels: +TT, -- | MAPQ: 60',
+            tone: 'dim',
+          },
           { text: 'Try: `tview TP53` · `tview BRCA1` · `tview chr1:1000000`', tone: 'dim' },
         ];
       }
-      if (sub !== 'flagstat') return err(`samtools: unrecognized command '${args[0]}'. Try 'samtools flagstat' or 'samtools tview'.`);
+      if (sub !== 'flagstat')
+        return err(
+          `samtools: unrecognized command '${args[0]}'. Try 'samtools flagstat' or 'samtools tview'.`
+        );
       const s = index.stats;
       const total = index.chunks.length;
       return [
@@ -2242,14 +3154,27 @@ export const COMMANDS: Record<string, Cmd> = {
         { text: 'Tasks: 142 total, 4 running, 138 sleeping, 0 stopped, 0 zombie' },
         { text: '%Cpu(s): 78.4 us,  6.2 sy,  0.0 ni, 14.8 id,  0.4 wa,  0.2 hi' },
         { text: 'MiB Mem : 524288 total, 412800 used, 111488 free,  32768 buff/cache' },
-        { text: 'GPU 0..3: 4x NVIDIA H100 80GB SXM5 [Util: 94% · VRAM: 72GB/80GB · Temp: 58°C]', tone: 'ok' },
+        {
+          text: 'GPU 0..3: 4x NVIDIA H100 80GB SXM5 [Util: 94% · VRAM: 72GB/80GB · Temp: 58°C]',
+          tone: 'ok',
+        },
         { text: '' },
         { text: '  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND' },
-        { text: ' 1042 khc       20   0  142.4g  64.2g  12.4g R 380.0  12.2 412:18.04 shorkie_train.py' },
-        { text: ' 1088 khc       20   0   84.2g  32.1g   8.2g R 190.5   6.1 128:44.12 openspliceai_infer' },
-        { text: ' 1120 khc       20   0   48.0g  24.0g   4.1g R 100.0   4.5  82:12.30 lifton_eval.py' },
-        { text: ' 1144 khc       20   0   18.2g   8.4g   2.0g S  48.0   1.6  14:05.18 gffbase_ingest' },
-        { text: ' 1201 khc       20   0    2.4g   1.1g   0.4g S   2.0   0.2   0:14.22 duckdb_worker' },
+        {
+          text: ' 1042 khc       20   0  142.4g  64.2g  12.4g R 380.0  12.2 412:18.04 shorkie_train.py',
+        },
+        {
+          text: ' 1088 khc       20   0   84.2g  32.1g   8.2g R 190.5   6.1 128:44.12 openspliceai_infer',
+        },
+        {
+          text: ' 1120 khc       20   0   48.0g  24.0g   4.1g R 100.0   4.5  82:12.30 lifton_eval.py',
+        },
+        {
+          text: ' 1144 khc       20   0   18.2g   8.4g   2.0g S  48.0   1.6  14:05.18 gffbase_ingest',
+        },
+        {
+          text: ' 1201 khc       20   0    2.4g   1.1g   0.4g S   2.0   0.2   0:14.22 duckdb_worker',
+        },
       ];
     },
   },
@@ -2281,16 +3206,35 @@ export const COMMANDS: Record<string, Cmd> = {
           { text: 'format    DNA' },
           { text: `length    ${rawSeq.length} bp` },
           { text: `GC (%)    ${gc}%`, tone: 'ok' },
-          { text: `bases     A: ${a} (${((a / rawSeq.length) * 100).toFixed(1)}%)  C: ${c} (${((c / rawSeq.length) * 100).toFixed(1)}%)  G: ${g} (${((g / rawSeq.length) * 100).toFixed(1)}%)  T: ${t} (${((t / rawSeq.length) * 100).toFixed(1)}%)${other ? `  other: ${other}` : ''}` },
+          {
+            text: `bases     A: ${a} (${((a / rawSeq.length) * 100).toFixed(1)}%)  C: ${c} (${((c / rawSeq.length) * 100).toFixed(1)}%)  G: ${g} (${((g / rawSeq.length) * 100).toFixed(1)}%)  T: ${t} (${((t / rawSeq.length) * 100).toFixed(1)}%)${other ? `  other: ${other}` : ''}`,
+          },
         ];
       }
       if (sub === 'rc') {
         const comp: Record<string, string> = {
-          A: 'T', T: 'A', U: 'A', C: 'G', G: 'C',
-          R: 'Y', Y: 'R', S: 'S', W: 'W', K: 'M', M: 'K',
-          B: 'V', V: 'B', D: 'H', H: 'D', N: 'N',
+          A: 'T',
+          T: 'A',
+          U: 'A',
+          C: 'G',
+          G: 'C',
+          R: 'Y',
+          Y: 'R',
+          S: 'S',
+          W: 'W',
+          K: 'M',
+          M: 'K',
+          B: 'V',
+          V: 'B',
+          D: 'H',
+          H: 'D',
+          N: 'N',
         };
-        const rc = rawSeq.split('').reverse().map((b) => comp[b] ?? b).join('');
+        const rc = rawSeq
+          .split('')
+          .reverse()
+          .map((b) => comp[b] ?? b)
+          .join('');
         return [
           { text: `5' ${rawSeq} 3' (original)`, tone: 'dim' },
           { text: `5' ${rc} 3' (reverse complement)`, tone: 'ok' },
@@ -2324,19 +3268,33 @@ export const COMMANDS: Record<string, Cmd> = {
           { text: 'GFFBase v0.2.0 — High-performance genomic-annotation engine', tone: 'head' },
           { text: 'Architecture:', tone: 'accent' },
           { text: '  Parser:   SIMD-accelerated Rust with zero-allocation line splits' },
-          { text: '  Storage:  DuckDB columnar engine with multi-interval R-tree & B-tree spatial indices' },
-          { text: '  Handoff:  PyArrow zero-copy RecordBatch interface for ML & feature extraction' },
+          {
+            text: '  Storage:  DuckDB columnar engine with multi-interval R-tree & B-tree spatial indices',
+          },
+          {
+            text: '  Handoff:  PyArrow zero-copy RecordBatch interface for ML & feature extraction',
+          },
           { text: '  API:      Drop-in replacement for gffutils with 10-100x ingest speedups' },
           { text: '' },
-          { text: 'Try: `gffbase query chr17:43044295-43125483`  ·  `gffbase benchmark`', tone: 'dim' },
-          { text: '→ https://khchao.com/gffbase/', tone: 'accent', href: 'https://khchao.com/gffbase/' },
+          {
+            text: 'Try: `gffbase query chr17:43044295-43125483`  ·  `gffbase benchmark`',
+            tone: 'dim',
+          },
+          {
+            text: '→ https://khchao.com/gffbase/',
+            tone: 'accent',
+            href: 'https://khchao.com/gffbase/',
+          },
         ];
       }
       if (sub === 'query' || sub === 'region') {
         const region = args[1] || 'chr17:43044295-43125483';
         return [
           { text: `[GFFBase Query] region: ${region}  (R-tree spatial index)`, tone: 'head' },
-          { text: 'Backend: DuckDB in-memory columnar slice · Zero-copy Arrow Table (0.12 ms)', tone: 'dim' },
+          {
+            text: 'Backend: DuckDB in-memory columnar slice · Zero-copy Arrow Table (0.12 ms)',
+            tone: 'dim',
+          },
           { text: '' },
           { text: 'feature_id       type        start       end         strand  parent_id' },
           { text: '──────────────────────────────────────────────────────────────────────────' },
@@ -2354,11 +3312,26 @@ export const COMMANDS: Record<string, Cmd> = {
           { text: 'GFFBase vs Legacy gffutils Ingest Benchmark (GENCODE v49 Human)', tone: 'head' },
           { text: 'Corpus                  gffutils (SQLite)   GFFBase (DuckDB+SIMD)   Speedup' },
           { text: '───────────────────────────────────────────────────────────────────────────' },
-          { text: 'GENCODE GTF (3.4M rows) 4m 12s              6.8s                    37.1×', tone: 'ok' },
-          { text: 'GENCODE GFF3 (3.4M)     2m 45s              4.2s                    39.3×', tone: 'ok' },
-          { text: 'RefSeq GFF3 (2.8M)      2m 10s              3.5s                    37.1×', tone: 'ok' },
-          { text: 'MANE Select (0.6M)      41.2s               1.1s                    37.5×', tone: 'ok' },
-          { text: 'Zero-copy Arrow fetch   N/A (Python objs)   18.4 ms (100k exons)    Instant', tone: 'accent' },
+          {
+            text: 'GENCODE GTF (3.4M rows) 4m 12s              6.8s                    37.1×',
+            tone: 'ok',
+          },
+          {
+            text: 'GENCODE GFF3 (3.4M)     2m 45s              4.2s                    39.3×',
+            tone: 'ok',
+          },
+          {
+            text: 'RefSeq GFF3 (2.8M)      2m 10s              3.5s                    37.1×',
+            tone: 'ok',
+          },
+          {
+            text: 'MANE Select (0.6M)      41.2s               1.1s                    37.5×',
+            tone: 'ok',
+          },
+          {
+            text: 'Zero-copy Arrow fetch   N/A (Python objs)   18.4 ms (100k exons)    Instant',
+            tone: 'accent',
+          },
         ];
       }
       return err(`gffbase: unknown subcommand '${sub}'. Try info, query, or benchmark.`);
@@ -2369,7 +3342,8 @@ export const COMMANDS: Record<string, Cmd> = {
     summary: 'genetic code and amino acid lookup',
     usage: 'codon <codon|amino_acid>',
     run: ({ args }) => {
-      if (!args.length) return err('codon: give me a codon (e.g. `codon ATG`) or amino acid (e.g. `codon Trp`)');
+      if (!args.length)
+        return err('codon: give me a codon (e.g. `codon ATG`) or amino acid (e.g. `codon Trp`)');
       const query = args[0].toUpperCase().trim();
       if (query.length === 3 && /^[ACGTU]{3}$/.test(query)) {
         const standardCodon = query.replace(/U/g, 'T');
@@ -2381,7 +3355,9 @@ export const COMMANDS: Record<string, Cmd> = {
             { text: `Type:        ${info.type}` },
             { text: `Properties:  ${info.prop}` },
             { text: `Mass:        ${info.mw} Da` },
-            ...(info.start ? [{ text: 'Special:     Start codon (AUG/ATG)', tone: 'ok' as Tone }] : []),
+            ...(info.start
+              ? [{ text: 'Special:     Start codon (AUG/ATG)', tone: 'ok' as Tone }]
+              : []),
             ...(info.stop ? [{ text: 'Special:     Stop codon', tone: 'accent' as Tone }] : []),
           ];
         }
@@ -2427,7 +3403,9 @@ export const COMMANDS: Record<string, Cmd> = {
         const pA = parseInterval(a);
         const pB = parseInterval(b);
         if (!pA || !pB || pA.chr !== pB.chr) {
-          return err('bedtools intersect: intervals must be on same chromosome (e.g. chr1:100-300)');
+          return err(
+            'bedtools intersect: intervals must be on same chromosome (e.g. chr1:100-300)'
+          );
         }
         const oStart = Math.max(pA.start, pB.start);
         const oEnd = Math.min(pA.end, pB.end);
@@ -2469,7 +3447,7 @@ export const COMMANDS: Record<string, Cmd> = {
           { text: '    \\ . - . - . - . - .' },
           { text: '      |  (o)       (o) |' },
           { text: '      \\       ^       /' },
-          { text: '       ` - - - - - - \'' },
+          { text: "       ` - - - - - - '" },
           { text: '         /|  DNA  |\\' },
           { text: '        (_|       |_)' },
         ];
@@ -2534,12 +3512,18 @@ export const COMMANDS: Record<string, Cmd> = {
 
   snake: {
     summary: 'play Snake game',
-    run: () => ({ lines: [{ text: 'Opening Snake game…', tone: 'ok' }], effect: { type: 'navigate', href: '/software/' } }),
+    run: () => ({
+      lines: [{ text: 'Opening Snake game…', tone: 'ok' }],
+      effect: { type: 'navigate', href: '/software/' },
+    }),
   },
 
   tetris: {
     summary: 'play Tetris game',
-    run: () => ({ lines: [{ text: 'Opening Tetris game…', tone: 'ok' }], effect: { type: 'navigate', href: '/software/' } }),
+    run: () => ({
+      lines: [{ text: 'Opening Tetris game…', tone: 'ok' }],
+      effect: { type: 'navigate', href: '/software/' },
+    }),
   },
 
   crispr: {
@@ -2582,7 +3566,10 @@ export const COMMANDS: Record<string, Cmd> = {
     run: () => ({
       lines: [
         { text: 'Opening DNA Polyphonic Synthesizer audio dock…', tone: 'head' },
-        { text: 'Keys: A (220Hz), T (330Hz), G (262Hz), C (392Hz), U (349Hz), P, S, N', tone: 'ok' },
+        {
+          text: 'Keys: A (220Hz), T (330Hz), G (262Hz), C (392Hz), U (349Hz), P, S, N',
+          tone: 'ok',
+        },
       ],
       effect: { type: 'custom', eventName: 'khc:start-synth' },
     }),
@@ -2593,14 +3580,29 @@ export const COMMANDS: Record<string, Cmd> = {
     run: () => [
       { text: 'khcOS Secrets & Interactive Easter Eggs Catalog', tone: 'head' },
       { text: '' },
-      { text: '  1. ✂️ CRISPR-Cas9 Scissors   `crispr` · Type "crispr" anywhere · Cleave elements + Ligase repair' },
-      { text: '  2. 🌌 Zero-Gravity Physics   `gravity` · Type "gravity" anywhere · 2D rigid-body momentum & toss' },
-      { text: '  3. 📺 1988 NIH CRT Monitor   `crt` · Type "crt" anywhere · Vintage amber/green phosphor scanlines' },
-      { text: '  4. 🧬 Ribosome Splice Rush   `ribosome` · Type "ribosome" anywhere · mRNA codon arcade mini-game' },
-      { text: '  5. 🎹 DNA Polyphonic Synth   `synth` · Type "synth" anywhere · Base chemistry harmonic keyboard' },
-      { text: '  6. 🌧️ Matrix DNA Rain        `matrix` · Konami Code ↑↑↓↓←→←→BA · Cascading nucleotide rain' },
+      {
+        text: '  1. ✂️ CRISPR-Cas9 Scissors   `crispr` · Type "crispr" anywhere · Cleave elements + Ligase repair',
+      },
+      {
+        text: '  2. 🌌 Zero-Gravity Physics   `gravity` · Type "gravity" anywhere · 2D rigid-body momentum & toss',
+      },
+      {
+        text: '  3. 📺 1988 NIH CRT Monitor   `crt` · Type "crt" anywhere · Vintage amber/green phosphor scanlines',
+      },
+      {
+        text: '  4. 🧬 Ribosome Splice Rush   `ribosome` · Type "ribosome" anywhere · mRNA codon arcade mini-game',
+      },
+      {
+        text: '  5. 🎹 DNA Polyphonic Synth   `synth` · Type "synth" anywhere · Base chemistry harmonic keyboard',
+      },
+      {
+        text: '  6. 🌧️ Matrix DNA Rain        `matrix` · Konami Code ↑↑↓↓←→←→BA · Cascading nucleotide rain',
+      },
       { text: '' },
-      { text: 'All easter eggs can be triggered anywhere on the site by typing the secret word!', tone: 'accent' },
+      {
+        text: 'All easter eggs can be triggered anywhere on the site by typing the secret word!',
+        tone: 'accent',
+      },
     ],
   },
 
@@ -2618,8 +3620,10 @@ export const COMMANDS: Record<string, Cmd> = {
         if (rest[i] === '-m' && rest[i + 1]) match = parseInt(rest[++i], 10) || 1;
         else if (rest[i] === '-x' && rest[i + 1]) mismatch = parseInt(rest[++i], 10) || -1;
         else if (rest[i] === '-g' && rest[i + 1]) gap = parseInt(rest[++i], 10) || -2;
-        else if (!seq1 && !rest[i].startsWith('-')) seq1 = rest[i].toUpperCase().replace(/[^ACGTU]/g, '');
-        else if (!seq2 && !rest[i].startsWith('-')) seq2 = rest[i].toUpperCase().replace(/[^ACGTU]/g, '');
+        else if (!seq1 && !rest[i].startsWith('-'))
+          seq1 = rest[i].toUpperCase().replace(/[^ACGTU]/g, '');
+        else if (!seq2 && !rest[i].startsWith('-'))
+          seq2 = rest[i].toUpperCase().replace(/[^ACGTU]/g, '');
       }
       if (!seq1 || !seq2) {
         seq1 = seq1 || 'ACGTACGTAGCTA';
@@ -2628,7 +3632,10 @@ export const COMMANDS: Record<string, Cmd> = {
       const res = alignNeedlemanWunsch(seq1, seq2, match, mismatch, gap);
       return [
         { text: 'Global Pairwise Alignment (Needleman-Wunsch)', tone: 'head' },
-        { text: `Score: ${res.score}  ·  Length: ${res.length} bp  ·  Identity: ${res.identity.toFixed(1)}%`, tone: 'ok' },
+        {
+          text: `Score: ${res.score}  ·  Length: ${res.length} bp  ·  Identity: ${res.identity.toFixed(1)}%`,
+          tone: 'ok',
+        },
         { text: '' },
         { text: `Query:  1  ${res.aligned1.split('').join(' ')}  ${seq1.length}` },
         { text: `           ${res.matchLine.split('').join(' ')}`, tone: 'accent' },
@@ -2641,7 +3648,10 @@ export const COMMANDS: Record<string, Cmd> = {
     summary: 'per-base sequence quality and GC analysis',
     usage: 'fastqc <sequence>',
     run: ({ args }) => {
-      const rawSeq = args.join('').toUpperCase().replace(/[^ACGT]/g, '');
+      const rawSeq = args
+        .join('')
+        .toUpperCase()
+        .replace(/[^ACGT]/g, '');
       const seq = rawSeq || 'GATCGATCGATCGATCGATCAGGTAGGTATCGATCGATC';
       const len = seq.length;
       const gc = (((seq.match(/[CG]/g) || []).length / len) * 100).toFixed(1);
@@ -2677,8 +3687,18 @@ export const COMMANDS: Record<string, Cmd> = {
       const year = parseInt(args[1] || args[0], 10) || now.getUTCFullYear();
       const month = args.length === 2 ? parseInt(args[0], 10) - 1 : now.getUTCMonth();
       const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
       ];
       const header = `${monthNames[month]} ${year}`;
       const pad = Math.max(0, Math.floor((20 - header.length) / 2));
@@ -2691,11 +3711,9 @@ export const COMMANDS: Record<string, Cmd> = {
       let row = '   '.repeat(firstDay);
       for (let day = 1; day <= daysInMonth; day++) {
         const isToday =
-          day === now.getUTCDate() &&
-          month === now.getUTCMonth() &&
-          year === now.getUTCFullYear();
+          day === now.getUTCDate() && month === now.getUTCMonth() && year === now.getUTCFullYear();
         const cell = String(day).padStart(2);
-        row += (isToday ? `[${cell}]` : ` ${cell}`);
+        row += isToday ? `[${cell}]` : ` ${cell}`;
         if ((firstDay + day) % 7 === 0 || day === daysInMonth) {
           lines.push({ text: row.trimEnd() });
           row = '';
@@ -2731,7 +3749,10 @@ export const COMMANDS: Record<string, Cmd> = {
           { text: 'server: GitHub.com' },
           { text: 'content-type: application/json; charset=utf-8' },
           { text: '' },
-          { text: '{\n  "owner": "Kuanhao-Chao",\n  "repo": "gffbase",\n  "stars": 128,\n  "language": "Rust / DuckDB"\n}', tone: 'ok' },
+          {
+            text: '{\n  "owner": "Kuanhao-Chao",\n  "repo": "gffbase",\n  "stars": 128,\n  "language": "Rust / DuckDB"\n}',
+            tone: 'ok',
+          },
         ];
       }
       return [
@@ -2764,14 +3785,25 @@ export const COMMANDS: Record<string, Cmd> = {
     usage: 'crt [off|amber|green|cyan|toggle]',
     run: ({ args }) => {
       const mode = (args[0] ?? 'toggle').toLowerCase();
-      if (mode === 'amber' || mode === 'green' || mode === 'cyan' || mode === 'off' || mode === 'toggle') {
+      if (
+        mode === 'amber' ||
+        mode === 'green' ||
+        mode === 'cyan' ||
+        mode === 'off' ||
+        mode === 'toggle'
+      ) {
         const targetMode = mode === 'toggle' ? 'amber' : mode;
         return {
           lines: [{ text: `1988 CRT Display Mode: ${mode.toUpperCase()}`, tone: 'ok' }],
           effect: { type: 'custom', eventName: 'khc:start-crt', detail: { mode: targetMode } },
         };
       }
-      return [{ text: 'crt: usage `crt off`, `crt amber`, `crt green`, `crt cyan`, or `crt toggle`', tone: 'err' }];
+      return [
+        {
+          text: 'crt: usage `crt off`, `crt amber`, `crt green`, `crt cyan`, or `crt toggle`',
+          tone: 'err',
+        },
+      ];
     },
   },
 
@@ -2781,7 +3813,10 @@ export const COMMANDS: Record<string, Cmd> = {
     run: ({ args }) => {
       const mode = (args[0] ?? 'toggle').toLowerCase();
       if (mode === 'on' || mode === 'off' || mode === 'toggle' || mode === 'bell') {
-        return { lines: [{ text: `Sound mode: ${mode}`, tone: 'ok' }], effect: { type: 'sound', mode } };
+        return {
+          lines: [{ text: `Sound mode: ${mode}`, tone: 'ok' }],
+          effect: { type: 'sound', mode },
+        };
       }
       return [{ text: 'sound: use `sound on`, `sound off`, or `sound bell`', tone: 'err' }];
     },
@@ -2945,70 +3980,202 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 
   deepdive: {
-    summary: 'browse Computational Genomics Deep Dives hub & concept posts',
-    usage: 'deepdive [statgen | gwas | cdcv | imputation | qc | regression | stratification | manhattan | ldsc | finemapping | prs]',
-    run: ({ args }) => {
-      const topic = (args[0] || '').toLowerCase();
+    summary: 'browse technical Deep Dive curricula and concept lessons',
+    usage: 'deepdive [topic or exact lesson slug]',
+    run: ({ args, index }) => {
+      const topic = args.join(' ').trim().toLowerCase();
       let href = '/deep_dives/';
-      let title = 'Computational Genomics Deep Dives Hub';
-      if (topic.includes('pop') || topic.includes('coalescent') || topic.includes('tajima') || topic.includes('infinitesimal')) {
+      let title = 'Technical Deep Dives Hub';
+
+      // Collection-backed lessons resolve from the same payload as search and the
+      // virtual filesystem. Exact slug/title/alias wins; ambiguous text prints choices
+      // rather than silently selecting one curriculum.
+      if (topic && index.deepDives?.length) {
+        const normalize = (value: string) =>
+          value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+        const needle = normalize(topic);
+        const values = (entry: NonNullable<TermIndex['deepDives']>[number]) =>
+          [entry.slug, entry.title, ...entry.aliases].filter(Boolean).map(normalize);
+        const exact = index.deepDives.filter((entry) => values(entry).includes(needle));
+        const candidates = exact.length
+          ? exact
+          : index.deepDives.filter((entry) =>
+              values(entry).some((value) => value.includes(needle))
+            );
+        if (candidates.length === 1) {
+          const match = candidates[0];
+          return {
+            lines: [
+              { text: `Opening ${match.title}…`, tone: 'ok' },
+              { text: `→ ${match.href}`, tone: 'accent', href: match.href },
+            ],
+            effect: { type: 'navigate', href: match.href },
+          };
+        }
+        if (candidates.length > 1) {
+          return [
+            { text: `deepdive: “${topic}” matches ${candidates.length} lessons:`, tone: 'head' },
+            ...candidates.slice(0, 12).map((entry) => ({
+              text: `  ${entry.slug} — ${entry.title}`,
+              tone: 'accent' as const,
+              href: entry.href,
+            })),
+            { text: 'Use an exact lesson slug to choose.', tone: 'dim' },
+          ];
+        }
+      }
+      if (
+        topic.includes('pop') ||
+        topic.includes('coalescent') ||
+        topic.includes('tajima') ||
+        topic.includes('infinitesimal')
+      ) {
         href = '/deep_dives/statgen-population-infinitesimal/';
         title = 'Population Genetics & Infinitesimal Model Deep Dive Post';
-      } else if (topic.includes('prdm9') || (topic.includes('ld') && topic.includes('recomb')) || topic.includes('haplotype')) {
+      } else if (
+        topic.includes('prdm9') ||
+        (topic.includes('ld') && topic.includes('recomb')) ||
+        topic.includes('haplotype')
+      ) {
         href = '/deep_dives/statgen-linkage-disequilibrium/';
         title = 'Linkage Disequilibrium & PRDM9 Deep Dive Post';
-      } else if (topic.includes('greml') || topic.includes('gcta') || topic.includes('grm') || (topic.includes('herit') && !topic.includes('ldsc'))) {
+      } else if (
+        topic.includes('greml') ||
+        topic.includes('gcta') ||
+        topic.includes('grm') ||
+        (topic.includes('herit') && !topic.includes('ldsc'))
+      ) {
         href = '/deep_dives/statgen-heritability-greml/';
         title = 'Heritability Estimation & GREML Deep Dive Post';
       } else if (topic.includes('sldsc') || (topic.includes('ldsc') && topic.includes('strat'))) {
         href = '/deep_dives/statgen-ldsc-sldsc/';
         title = 'LD Score Regression (LDSC & S-LDSC) Deep Dive Post';
-      } else if (topic.includes('lmm') || topic.includes('regenie') || topic.includes('fastgwa') || topic.includes('gemma')) {
+      } else if (
+        topic.includes('lmm') ||
+        topic.includes('regenie') ||
+        topic.includes('fastgwa') ||
+        topic.includes('gemma')
+      ) {
         href = '/deep_dives/statgen-association-linear-mixed-models/';
         title = 'Association Testing & LMMs Deep Dive Post';
-      } else if (topic.includes('abf') || (topic.includes('susie') && topic.includes('prior')) || (topic.includes('fine') && topic.includes('prior'))) {
+      } else if (
+        topic.includes('abf') ||
+        (topic.includes('susie') && topic.includes('prior')) ||
+        (topic.includes('fine') && topic.includes('prior'))
+      ) {
         href = '/deep_dives/statgen-bayesian-fine-mapping/';
         title = 'Bayesian Fine-Mapping (SuSiE) Deep Dive Post';
-      } else if (topic.includes('skat') || topic.includes('rvat') || topic.includes('burden') || topic.includes('deeprvat') || topic.includes('rare')) {
+      } else if (
+        topic.includes('skat') ||
+        topic.includes('rvat') ||
+        topic.includes('burden') ||
+        topic.includes('deeprvat') ||
+        topic.includes('rare')
+      ) {
         href = '/deep_dives/statgen-rare-variant-association/';
         title = 'Rare Variant Association Testing (SKAT) Deep Dive Post';
-      } else if (topic.includes('prscs') || topic.includes('ldpred') || (topic.includes('prs') && topic.includes('ethnic'))) {
+      } else if (
+        topic.includes('prscs') ||
+        topic.includes('ldpred') ||
+        (topic.includes('prs') && topic.includes('ethnic'))
+      ) {
         href = '/deep_dives/statgen-polygenic-risk-scores/';
         title = 'Polygenic Risk Scores (PRS) Deep Dive Post';
-      } else if (topic.includes('mr') || topic.includes('mendelian') || topic.includes('instrumental') || topic.includes('ivw') || topic.includes('egger')) {
+      } else if (
+        topic.includes('mr') ||
+        topic.includes('mendelian') ||
+        topic.includes('instrumental') ||
+        topic.includes('ivw') ||
+        topic.includes('egger')
+      ) {
         href = '/deep_dives/statgen-mendelian-randomization/';
         title = 'Mendelian Randomization (MR) Deep Dive Post';
-      } else if (topic.includes('synth') || (topic.includes('stat') && topic.includes('deep')) || topic.includes('foundation')) {
+      } else if (
+        topic.includes('synth') ||
+        (topic.includes('stat') && topic.includes('deep')) ||
+        topic.includes('foundation')
+      ) {
         href = '/deep_dives/statgen-deep-learning-synthesis/';
         title = 'AI Genomic Synthesis Deep Dive Post';
       } else if (topic.includes('stat')) {
         href = '/deep_dives/statistical-genetics/';
         title = 'Statistical Genetics Master Guide';
-      } else if (topic.includes('cdcv') || topic.includes('variation') || topic.includes('mendel') || topic.includes('hwe')) {
+      } else if (
+        topic.includes('cdcv') ||
+        topic.includes('variation') ||
+        topic.includes('mendel') ||
+        topic.includes('hwe')
+      ) {
         href = '/deep_dives/gwas-biological-variation-cdcv/';
         title = 'Biological Variation & CDCV Deep Dive Post';
-      } else if (topic.includes('imput') || topic.includes('array') || topic.includes('microarray') || topic.includes('hmm') || topic.includes('pbwt')) {
+      } else if (
+        topic.includes('imput') ||
+        topic.includes('array') ||
+        topic.includes('microarray') ||
+        topic.includes('hmm') ||
+        topic.includes('pbwt')
+      ) {
         href = '/deep_dives/gwas-genotyping-imputation/';
         title = 'Genotyping & Imputation Deep Dive Post';
-      } else if (topic.includes('qc') || topic.includes('quality') || topic.includes('heterozyg') || topic.includes('inbreeding')) {
+      } else if (
+        topic.includes('qc') ||
+        topic.includes('quality') ||
+        topic.includes('heterozyg') ||
+        topic.includes('inbreeding')
+      ) {
         href = '/deep_dives/gwas-quality-control/';
         title = 'GWAS Quality Control Deep Dive Post';
-      } else if (topic.includes('regress') || topic.includes('ols') || topic.includes('logistic') || topic.includes('power') || topic.includes('wald')) {
+      } else if (
+        topic.includes('regress') ||
+        topic.includes('ols') ||
+        topic.includes('logistic') ||
+        topic.includes('power') ||
+        topic.includes('wald')
+      ) {
         href = '/deep_dives/gwas-association-statistics/';
         title = 'Association Statistics & Power Deep Dive Post';
-      } else if (topic.includes('strat') || topic.includes('pca') || topic.includes('chopstick') || topic.includes('bolt')) {
+      } else if (
+        topic.includes('strat') ||
+        topic.includes('pca') ||
+        topic.includes('chopstick') ||
+        topic.includes('bolt')
+      ) {
         href = '/deep_dives/gwas-population-stratification/';
         title = 'Population Stratification & LMMs Deep Dive Post';
-      } else if (topic.includes('manhattan') || topic.includes('multiple') || topic.includes('bonferroni') || topic.includes('fdr')) {
+      } else if (
+        topic.includes('manhattan') ||
+        topic.includes('multiple') ||
+        topic.includes('bonferroni') ||
+        topic.includes('fdr')
+      ) {
         href = '/deep_dives/gwas-multiple-testing-manhattan/';
         title = 'Multiple Testing & Manhattan Plot Deep Dive Post';
-      } else if (topic.includes('ldsc') || topic.includes('linkage') || topic.includes('disequilibrium') || topic.includes('recomb')) {
+      } else if (
+        topic.includes('ldsc') ||
+        topic.includes('linkage') ||
+        topic.includes('disequilibrium') ||
+        topic.includes('recomb')
+      ) {
         href = '/deep_dives/gwas-linkage-disequilibrium-ldsc/';
         title = 'Linkage Disequilibrium & LDSC Deep Dive Post';
-      } else if (topic.includes('fine') || topic.includes('susie') || topic.includes('pip') || topic.includes('credible') || topic.includes('coloc')) {
+      } else if (
+        topic.includes('fine') ||
+        topic.includes('susie') ||
+        topic.includes('pip') ||
+        topic.includes('credible') ||
+        topic.includes('coloc')
+      ) {
         href = '/deep_dives/gwas-fine-mapping-functional-genomics/';
         title = 'Fine-Mapping & Functional Biology Deep Dive Post';
-      } else if (topic.includes('prs') || topic.includes('polygenic') || topic.includes('liability') || topic.includes('falconer')) {
+      } else if (
+        topic.includes('prs') ||
+        topic.includes('polygenic') ||
+        topic.includes('liability') ||
+        topic.includes('falconer')
+      ) {
         href = '/deep_dives/gwas-polygenic-risk-scores-prs/';
         title = 'Polygenic Risk Scores (PRS) Deep Dive Post';
       } else if (topic === 'gwas') {
@@ -3027,7 +4194,8 @@ export const COMMANDS: Record<string, Cmd> = {
 
   paper: {
     summary: 'read technical paper summaries and literature deconstructions',
-    usage: 'paper [borzoi | borzoi-prime | decima | scooby | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]',
+    usage:
+      'paper [borzoi | borzoi-prime | decima | scooby | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]',
     run: ({ args }) => {
       const topic = (args[0] || '').toLowerCase();
       let href = '/papers/';
@@ -3041,16 +4209,33 @@ export const COMMANDS: Record<string, Cmd> = {
       } else if (topic.includes('peft') || topic.includes('locon')) {
         href = '/papers/borzoi-peft/';
         title = 'Borzoi PEFT (Locon4) Summary';
-      } else if (topic.includes('decima') || topic.includes('genentech') || topic.includes('disease-state')) {
+      } else if (
+        topic.includes('decima') ||
+        topic.includes('genentech') ||
+        topic.includes('disease-state')
+      ) {
         href = '/papers/decima/';
         title = 'Decima (Genentech) Summary';
-      } else if (topic.includes('scooby') || topic.includes('multimodal') || topic.includes('gagneur')) {
+      } else if (
+        topic.includes('scooby') ||
+        topic.includes('multimodal') ||
+        topic.includes('gagneur')
+      ) {
         href = '/papers/scooby/';
         title = 'scooby (TUM & Broad) Summary';
-      } else if (topic.includes('prime') || topic.includes('single-cell') || topic.includes('3-seq') || topic.includes('3\'-seq')) {
+      } else if (
+        topic.includes('prime') ||
+        topic.includes('single-cell') ||
+        topic.includes('3-seq') ||
+        topic.includes("3'-seq")
+      ) {
         href = '/papers/borzoi-prime/';
         title = 'Borzoi Prime (Calico) Summary';
-      } else if (topic.includes('borzoi') || topic.includes('calico') || topic.includes('rna-seq')) {
+      } else if (
+        topic.includes('borzoi') ||
+        topic.includes('calico') ||
+        topic.includes('rna-seq')
+      ) {
         href = '/papers/borzoi/';
         title = 'Borzoi (Calico) Summary';
       } else if (topic.includes('gpn') || topic.includes('star') || topic.includes('song')) {
@@ -3086,16 +4271,31 @@ export const COMMANDS: Record<string, Cmd> = {
       const sub = args[0]?.toLowerCase() || 'log';
       if (sub === 'log' || sub === 'tree' || sub === 'graph') {
         return [
-          { text: '*   commit 7e9a2b (HEAD -> main, tag: v1.1.1) LiftOn Nature Methods publication & release', tone: 'head' },
+          {
+            text: '*   commit 7e9a2b (HEAD -> main, tag: v1.1.1) LiftOn Nature Methods publication & release',
+            tone: 'head',
+          },
           { text: '|\\  Author: Kuan-Hao Chao <kuanhao.chao@gmail.com>', tone: 'dim' },
           { text: '| * commit 3a1f8c OpenSpliceAI publication in Genome Biology', tone: 'accent' },
           { text: '| | Author: Kuan-Hao Chao <kuanhao.chao@gmail.com>', tone: 'dim' },
           { text: '* | commit 4b9d02 Splam publication in Oxford Bioinformatics', tone: 'ok' },
           { text: '|/  Author: Kuan-Hao Chao <kuanhao.chao@gmail.com>', tone: 'dim' },
-          { text: '* commit 5d3e1a Shorkie: DNA language model for whole-genome variant effect prediction', tone: 'head' },
-          { text: '* commit 2c8f04 WGT: Wheeler Graph Tools & Index recognition algorithm', tone: 'accent' },
-          { text: '* commit 1a0b3e Joined Johns Hopkins University CS PhD program (advisor: Prof. Michael Schatz)', tone: 'ok' },
-          { text: '* commit 0f9e8a Graduated BS in Computer Science & Life Science at National Taiwan University', tone: 'dim' },
+          {
+            text: '* commit 5d3e1a Shorkie: DNA language model for whole-genome variant effect prediction',
+            tone: 'head',
+          },
+          {
+            text: '* commit 2c8f04 WGT: Wheeler Graph Tools & Index recognition algorithm',
+            tone: 'accent',
+          },
+          {
+            text: '* commit 1a0b3e Joined Johns Hopkins University CS PhD program (advisor: Prof. Michael Schatz)',
+            tone: 'ok',
+          },
+          {
+            text: '* commit 0f9e8a Graduated BS in Computer Science & Life Science at National Taiwan University',
+            tone: 'dim',
+          },
           { text: '' },
           { text: '  Try: `git status` · `git branch` · `git diff`', tone: 'dim' },
         ];
@@ -3129,11 +4329,16 @@ export const COMMANDS: Record<string, Cmd> = {
           { text: '+++ b/genomics/annotation.py' },
           { text: '@@ -42,7 +42,7 @@ def predict_gene_structures(sequence):', tone: 'accent' },
           { text: '-    model = StandardHMM(states=EXON_INTRON)', tone: 'err' },
-          { text: '+    model = ResidualCNN_Transformer(context_window=10000, heads=8)', tone: 'ok' },
+          {
+            text: '+    model = ResidualCNN_Transformer(context_window=10000, heads=8)',
+            tone: 'ok',
+          },
           { text: '     return model.annotate(sequence)' },
         ];
       }
-      return err(`git: '${sub}' is not a recognized git command. See 'git log', 'git status', 'git branch', 'git diff'.`);
+      return err(
+        `git: '${sub}' is not a recognized git command. See 'git log', 'git status', 'git branch', 'git diff'.`
+      );
     },
   },
 
@@ -3144,19 +4349,37 @@ export const COMMANDS: Record<string, Cmd> = {
       const locus = args[0] || 'chr1:1000000-1000078';
       return [
         { text: `samtools tview khc_wgs_alignment.bam hg38.fa  [Locus: ${locus}]`, tone: 'head' },
-        { text: '1000000   1000010   1000020   1000030   1000040   1000050   1000060   1000070', tone: 'dim' },
-        { text: 'TGAGTCAGCTAGTCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC', tone: 'accent' },
-        { text: '...............................................................................', tone: 'dim' },
+        {
+          text: '1000000   1000010   1000020   1000030   1000040   1000050   1000060   1000070',
+          tone: 'dim',
+        },
+        {
+          text: 'TGAGTCAGCTAGTCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC',
+          tone: 'accent',
+        },
+        {
+          text: '...............................................................................',
+          tone: 'dim',
+        },
         { text: 'TGAGTCAGCTAGTCGATCGA...........................................................' },
         { text: '....TCAGCTAGTCGATCGATCGATCGAT..................................................' },
         { text: '.......GCTAGTCGATCGATCGATCGATCGAACGATCGATCG....................................' },
-        { text: '..........AGTCGATCGATCGATCGATCGATCGATCGATCGATC+T+TCGATCG.......................', tone: 'ok' },
+        {
+          text: '..........AGTCGATCGATCGATCGATCGATCGATCGATCGATC+T+TCGATCG.......................',
+          tone: 'ok',
+        },
         { text: '..............CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC................' },
-        { text: '..................CGATCGATCGA--GATCGATCGATCGATCGATCGATCGATCGATCGATCG...........', tone: 'err' },
+        {
+          text: '..................CGATCGATCGA--GATCGATCGATCGATCGATCGATCGATCGATCGATCG...........',
+          tone: 'err',
+        },
         { text: '......................GATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC.........' },
         { text: '..........................CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG.......' },
         { text: '' },
-        { text: 'Mean Depth: 34.2x | Mismatches: 1 (SNP A->G) | Indels: +TT, -- | MAPQ: 60', tone: 'dim' },
+        {
+          text: 'Mean Depth: 34.2x | Mismatches: 1 (SNP A->G) | Indels: +TT, -- | MAPQ: 60',
+          tone: 'dim',
+        },
         { text: 'Try: `tview TP53` · `tview BRCA1` · `tview chr1:1000000`', tone: 'dim' },
       ];
     },
@@ -3318,7 +4541,8 @@ export function applyPipeFilter(
     if (isL) parts.push(String(l).padStart(7));
     if (isW) parts.push(String(w).padStart(7));
     if (isC) parts.push(String(c).padStart(7));
-    if (!parts.length) parts.push(String(l).padStart(7), String(w).padStart(7), String(c).padStart(7));
+    if (!parts.length)
+      parts.push(String(l).padStart(7), String(w).padStart(7), String(c).padStart(7));
     return [{ text: parts.join(' ') }];
   }
 
@@ -3362,7 +4586,9 @@ function execSingle(
     return {
       lines: [
         { text: `${name}: command not found`, tone: 'err' },
-        ...(near.length ? [{ text: `Did you mean: ${near.join(', ')}?`, tone: 'dim' as Tone }] : []),
+        ...(near.length
+          ? [{ text: `Did you mean: ${near.join(', ')}?`, tone: 'dim' as Tone }]
+          : []),
         { text: 'Type `help` for the command list.', tone: 'dim' },
       ],
     };
@@ -3379,7 +4605,16 @@ function execSingle(
     else args.push(token);
   }
 
-  const out = cmd.run({ state, index: state.index as TermIndex, argv, args, flags, now, columns, narrow });
+  const out = cmd.run({
+    state,
+    index: state.index as TermIndex,
+    argv,
+    args,
+    flags,
+    now,
+    columns,
+    narrow,
+  });
   return Array.isArray(out) ? { lines: out } : out;
 }
 
@@ -3435,7 +4670,9 @@ export function complete(state: ShellState, input: string): { value: string; opt
   } else if (argv.length === 2 && !trailingSpace && argv[0] === 'bedtools') {
     options = ['intersect', 'merge'].filter((s) => s.startsWith(word)).sort();
   } else if (argv.length === 2 && !trailingSpace && argv[0] === 'theme') {
-    options = ['light', 'dark', 'nord', 'monokai', 'cyberdeck', 'parchment', 'toggle', 'crt'].filter((s) => s.startsWith(word)).sort();
+    options = ['light', 'dark', 'nord', 'monokai', 'cyberdeck', 'parchment', 'toggle', 'crt']
+      .filter((s) => s.startsWith(word))
+      .sort();
   } else if (argv.length === 2 && !trailingSpace && argv[0] === 'crt') {
     options = ['off', 'amber', 'green', 'cyan', 'toggle'].filter((s) => s.startsWith(word)).sort();
   } else if (argv.length === 2 && !trailingSpace && argv[0] === 'sound') {
@@ -3444,7 +4681,11 @@ export function complete(state: ShellState, input: string): { value: string; opt
     const slash = word.lastIndexOf('/');
     const dirPart = slash >= 0 ? word.slice(0, slash + 1) : '';
     const leaf = slash >= 0 ? word.slice(slash + 1) : word;
-    const entries = listDir(state.index, resolvePath(state.cwd, dirPart || '.'), leaf.startsWith('.'));
+    const entries = listDir(
+      state.index,
+      resolvePath(state.cwd, dirPart || '.'),
+      leaf.startsWith('.')
+    );
     options = (entries ?? [])
       .filter((e) => e.name.startsWith(leaf))
       .map((e) => `${dirPart}${e.name}${e.dir ? '/' : ''}`);
@@ -3458,7 +4699,8 @@ export function complete(state: ShellState, input: string): { value: string; opt
     while (!option.startsWith(common)) common = common.slice(0, -1);
   }
   const prefix = trailingSpace ? input : input.slice(0, input.length - word.length);
-  const value = options.length === 1 && !common.endsWith('/') ? `${prefix}${common} ` : `${prefix}${common}`;
+  const value =
+    options.length === 1 && !common.endsWith('/') ? `${prefix}${common} ` : `${prefix}${common}`;
   return { value, options: options.length > 1 ? options : [] };
 }
 
@@ -3474,4 +4716,3 @@ export function historyStep(state: ShellState, direction: -1 | 1, draft: string)
   state.histIndex = next;
   return state.history[next];
 }
-

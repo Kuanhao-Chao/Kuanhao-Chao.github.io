@@ -1,0 +1,163 @@
+lesson: ml-interview-senior-behavioral-leadership
+questions:
+  - id: q-lead-introduction
+    question: 'How should a senior ML candidate answer ‘Tell me about yourself’?'
+    conciseAnswer: "Deliver a role-relevant arc: current professional identity, two or three evidence-backed capabilities, one representative impact pattern, and why the target problem is the logical next step. Keep it under two minutes, distinguish your work from the team's, and invite a technical follow-up."
+    priority: must-know
+    difficulty: foundational
+    roles:
+      [
+        general-mle,
+        applied-scientist,
+        research-scientist,
+        dl-specialist,
+        genai,
+        ml-platform,
+        leadership,
+      ]
+    kind: behavioral
+    round: behavioral
+    stability: evergreen
+    tags: [introduction, portfolio, narrative]
+    aliases: [tell-me-about-yourself, career-story]
+  - id: q-lead-ambiguity
+    question: 'Tell me about a time you led through an ambiguous technical problem.'
+    conciseAnswer: 'Use STAR/L: define why ambiguity mattered, your decision rights and constraints, the smallest uncertainty map and experiments you created, how you aligned people, measurable result, and what you learned. Seniority appears in making uncertainty legible and reversible—not pretending to know the answer early.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, ml-platform, leadership]
+    kind: behavioral
+    round: behavioral
+    stability: evergreen
+    tags: [ambiguity, decision-making, leadership]
+    aliases: [unclear-problem, lead-under-uncertainty]
+  - id: q-lead-disagreement
+    question: 'Describe a consequential technical disagreement and how you resolved it.'
+    conciseAnswer: 'Represent the other view fairly, identify the shared objective and disputed assumptions, bring decision-relevant evidence or a reversible experiment, name your specific communication and concession, and report the outcome plus relationship. Do not make the story work by making a colleague irrational.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, research-scientist, ml-platform, leadership]
+    kind: behavioral
+    round: behavioral
+    stability: evergreen
+    tags: [conflict, disagreement, evidence]
+    aliases: [technical-conflict, influence]
+  - id: q-lead-failure
+    question: 'Tell me about a meaningful failure for which you took ownership.'
+    conciseAnswer: 'Choose a real decision with consequences, state your contribution without hiding behind ‘we,’ explain signals you missed, immediate containment, durable process or technical correction, measurable recovery, and changed behavior. A sanitized weakness or failure caused entirely by others demonstrates neither ownership nor learning.'
+    priority: must-know
+    difficulty: advanced
+    roles:
+      [
+        general-mle,
+        applied-scientist,
+        research-scientist,
+        dl-specialist,
+        genai,
+        ml-platform,
+        leadership,
+      ]
+    kind: behavioral
+    round: behavioral
+    stability: evergreen
+    tags: [failure, ownership, learning]
+    aliases: [biggest-mistake, setback]
+  - id: q-lead-influence
+    question: 'How do you influence a technical decision without formal authority?'
+    conciseAnswer: "Map stakeholders' incentives and decision rights, earn context before proposing, translate the issue into shared outcomes, reduce adoption cost with evidence or a pilot, invite dissent, and give credit. Escalate based on risk and accountability, not frustration; report both decision quality and durable alignment."
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, ml-platform, leadership]
+    kind: behavioral
+    round: behavioral
+    stability: evergreen
+    tags: [influence, stakeholders, alignment]
+    aliases: [lead-without-authority, persuade]
+  - id: q-lead-mentoring
+    question: 'Give an example of mentoring or raising the technical bar of a team.'
+    conciseAnswer: 'Diagnose the learner/team need, agree on an outcome, create scaffolded ownership and timely feedback, measure independent capability rather than your own rescue work, and reflect on what you adapted. Protect psychological safety while keeping standards explicit; mentoring is capability transfer, not task delegation.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, ml-platform, leadership]
+    kind: behavioral
+    round: behavioral
+    stability: evergreen
+    tags: [mentoring, feedback, team-growth]
+    aliases: [develop-others, raise-the-bar]
+  - id: q-lead-tech-debt
+    question: 'How do you balance delivery against ML technical debt and reliability work?'
+    conciseAnswer: 'Translate debt into expected delivery drag, incident risk, scientific invalidity, or compliance exposure; separate reversible shortcuts from compounding hazards; offer staged options with owners and expiry; reserve capacity; and measure whether the intervention changes lead time or incidents. ‘Quality’ and ‘speed’ are not useful without consequences.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: trade-off
+    round: behavioral
+    stability: evergreen
+    tags: [technical-debt, prioritization, reliability]
+    aliases: [speed-vs-quality, roadmap-tradeoff]
+  - id: q-lead-stakeholder
+    question: 'How do you explain model limitations and uncertainty to a non-ML stakeholder?'
+    conciseAnswer: 'Start with the decision and consequence, translate metrics into frequencies and concrete errors, state what population/time the evidence covers, show uncertainty and scenarios, recommend an action with guardrails, and verify understanding. Preserve important caveats while removing implementation detail; never turn a score into certainty.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, leadership]
+    kind: behavioral
+    round: behavioral
+    stability: evergreen
+    tags: [communication, uncertainty, stakeholders]
+    aliases: [explain-to-executive, communicate-risk]
+  - id: q-lead-stop-launch
+    question: 'Tell me about a time you slowed or stopped a launch for technical or ethical risk.'
+    conciseAnswer: 'Describe the concrete harm and evidence threshold, your responsibility, alternatives you offered, how you communicated urgency proportionally, the decision and mitigation, and later learning. A strong answer combines courage with decision process and reversibility rather than claiming personal moral certainty.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, ml-platform, leadership]
+    kind: behavioral
+    round: behavioral
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [responsible-ai, launch, escalation]
+    aliases: [ethical-decision, go-no-go]
+  - id: q-lead-cross-functional
+    question: 'How do you repair a cross-functional collaboration that is not working?'
+    conciseAnswer: 'Diagnose whether the gap is goal, language, incentives, ownership, interface, or trust; discuss observable behavior privately; reset the decision process and operating contract; deliver one small joint win; and inspect recurrence. Escalate persistent risk transparently while avoiding motive attribution.'
+    priority: common
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: behavioral
+    round: behavioral
+    stability: evergreen
+    tags: [cross-functional, conflict, operating-model]
+    aliases: [difficult-partner, collaboration]
+  - id: q-lead-strategy
+    question: 'How do you set a technical strategy rather than a list of projects?'
+    conciseAnswer: 'Begin with user/business decisions and constraints, diagnose current capabilities and bottlenecks, choose a small set of reinforcing bets plus explicit non-goals, define leading and outcome measures, sequence reversible learning before commitments, assign ownership, and create review triggers as evidence changes.'
+    priority: must-know
+    difficulty: advanced
+    roles: [leadership, research-scientist, ml-platform]
+    kind: behavioral
+    round: behavioral
+    stability: evergreen
+    tags: [strategy, roadmap, prioritization]
+    aliases: [technical-vision, multi-year-plan]
+  - id: q-lead-why-role
+    question: 'How do you answer ‘Why this role, and why now?’ without giving a generic pitch?'
+    conciseAnswer: 'Connect a specific company/team problem to verified capabilities and a genuine growth edge, using evidence from the role and your public work. Explain the timing as a coherent next scope, state what you can contribute early, and name what you still need to learn; avoid invented insider knowledge or flattery.'
+    priority: common
+    difficulty: intermediate
+    roles:
+      [
+        general-mle,
+        applied-scientist,
+        research-scientist,
+        dl-specialist,
+        genai,
+        ml-platform,
+        leadership,
+      ]
+    kind: behavioral
+    round: behavioral
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [motivation, role-fit, career]
+    aliases: [why-company, why-now]

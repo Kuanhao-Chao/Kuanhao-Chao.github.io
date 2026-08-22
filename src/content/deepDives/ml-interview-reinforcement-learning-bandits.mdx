@@ -1,0 +1,350 @@
+---
+title: Reinforcement Learning & Contextual Bandits
+shortTitle: RL & Bandits
+description: MDPs, Bellman equations, value and policy methods, Q-learning, actor–critic, PPO, contextual bandits, exploration, off-policy evaluation, and reward failure.
+abstract: An elective for interviews involving sequential decisions. It builds from the causal distinction between contextual bandits and MDPs through Bellman recursion, temporal-difference and policy-gradient learning, then returns to the production obligations of exploration, overlap, counterfactual evaluation, reward validity, and safety.
+date: 2026-08-22
+updated: 2026-08-22
+track: elective
+hub: ml-dl-interview
+lessonType: technical
+category: machine-learning
+moduleId: m13-electives
+moduleLabel: Electives
+order: 23
+level: advanced
+objectives:
+  - Decide whether an application is a supervised prediction problem, contextual bandit, MDP, or partially observed process.
+  - Derive Bellman expectation and optimality equations and connect them to dynamic programming and temporal-difference updates.
+  - Compare value-based, policy-gradient, actor–critic, and proximal policy methods through bias, variance, action space, and data reuse.
+  - Design exploration and logged off-policy evaluation with explicit overlap, variance, safety, and nonstationarity assumptions.
+  - Detect reward misspecification and distinguish proxy optimization from the intended long-term outcome.
+prerequisites: [ml-interview-probability-statistics, ml-interview-optimization-training, ml-interview-neural-network-foundations]
+relatedLessons: []
+referenceIds:
+  - bellman1957dynamic
+  - suttonbarto2018rl
+  - watkins1992qlearning
+  - mnih2015dqn
+  - williams1992reinforce
+  - schulman2017ppo
+  - auer2002ucb
+  - thompson1933
+  - dudik2011doublyrobust
+keyEquations:
+  - 'Q^*(s,a)=\mathbb{E}\!\left[r+\gamma\max_{a^\prime}Q^*(s^\prime,a^\prime)\mid s,a\right]'
+  - '\nabla J(\theta)=\mathbb{E}_{\pi_\theta}\!\left[\nabla_\theta\log\pi_\theta(a\mid s)A^{\pi_\theta}(s,a)\right]'
+  - '\widehat V_{\mathrm{IPS}}=\frac{1}{n}\sum_{i=1}^{n}\frac{\pi(a_i\mid x_i)}{\mu(a_i\mid x_i)}r_i'
+tags: [reinforcement learning, contextual bandits, Bellman equation, Q-learning, PPO, off-policy evaluation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The first question is whether actions change the future
+
+Reinforcement learning is not “machine learning with a reward.” Its distinctive difficulty
+is that an action can change the future states, data, and opportunities used to judge it.
+If that pathway is negligible, a simpler contextual bandit—or ordinary prediction—may be
+more identifiable and easier to operate.
+
+<Callout variant="intuition" title="Prediction observes labels; decision-making creates them">
+A supervised model predicts under a mostly fixed data-generating process. A bandit chooses
+which immediate outcome it gets to observe. An MDP also changes what it can encounter next.
+Exploration is therefore an intervention with user and safety consequences, not a free
+training trick.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 's_t,a_t,r_t', meaning: 'State, action, and reward at step t', dims: 'random variables' },
+    { symbol: 'P(s′|s,a)', meaning: 'Transition kernel', dims: 'conditional distribution' },
+    { symbol: '\\pi(a|s)', meaning: 'Policy action distribution', dims: 'probability' },
+    { symbol: '\\gamma', meaning: 'Discount factor', dims: 'scalar in [0,1]' },
+    { symbol: 'G_t', meaning: 'Discounted return from step t', dims: 'scalar' },
+    { symbol: 'V^\\pi,Q^\\pi', meaning: 'State and state-action values under policy π', dims: 'scalar functions' },
+    { symbol: 'A^\\pi', meaning: 'Advantage Qπ minus Vπ', dims: 'scalar function' },
+    { symbol: '\\mu,\\pi', meaning: 'Logging and target policies in off-policy evaluation', dims: 'action distributions' },
+  ]}
+/>
+
+<Figure
+  id="bandit-versus-mdp"
+  caption="Figure 1. In a contextual bandit, the action reveals an immediate reward and the next context is modeled as unaffected by that action. In an MDP, action changes the transition distribution, so it changes future states and returns. The red causal arrow is the modeling decision that determines whether myopic optimization is defensible."
+  alt="Two diagrams. A contextual-bandit context points to an action and reward while the next context arrives independently. An MDP state points to an action and reward, and the action points in accent color to the next state, which continues the loop."
+  wide
+>
+  <svg viewBox="0 0 780 270" width="780" height="270" font-family="inherit">
+    <defs>
+      <marker id="rl-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+      </marker>
+      <marker id="rl-accent-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-accent)" />
+      </marker>
+    </defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.4">
+      <rect x="34" y="62" width="91" height="50" rx="25" /><rect x="166" y="62" width="91" height="50" rx="8" />
+      <rect x="298" y="62" width="91" height="50" rx="25" /><rect x="166" y="159" width="91" height="50" rx="25" />
+      <path d="M125 87 H164 M257 87 H296" marker-end="url(#rl-arrow)" />
+      <path d="M211 112 V157" marker-end="url(#rl-arrow)" />
+      <path d="M344 112 C344 227 79 227 79 114" stroke-dasharray="5 4" opacity=".5" marker-end="url(#rl-arrow)" />
+      <rect x="436" y="62" width="91" height="50" rx="25" /><rect x="568" y="62" width="91" height="50" rx="8" />
+      <rect x="568" y="159" width="91" height="50" rx="25" /><rect x="700" y="62" width="58" height="50" rx="25" />
+      <path d="M527 87 H566 M659 87 H698" marker-end="url(#rl-arrow)" />
+      <path d="M613 112 V157" marker-end="url(#rl-arrow)" />
+      <path d="M659 184 C738 184 729 114 729 114" stroke="var(--color-accent)" stroke-width="2.4" marker-end="url(#rl-accent-arrow)" />
+      <path d="M729 62 C729 25 481 25 481 60" stroke="var(--color-accent)" stroke-width="2.4" marker-end="url(#rl-accent-arrow)" />
+    </g>
+    <g fill="currentColor" font-size="13" text-anchor="middle">
+      <text x="80" y="91">context</text><text x="211" y="91">action</text><text x="344" y="91">reward</text><text x="211" y="189">next context</text>
+      <text x="481" y="91">state</text><text x="613" y="91">action</text><text x="729" y="91">reward</text><text x="613" y="189">next state</text>
+      <text x="207" y="247" font-weight="600">Contextual bandit: immediate effect</text>
+      <text x="607" y="247" font-weight="600">MDP: action changes the future</text>
+    </g>
+  </svg>
+</Figure>
+
+## Formulate before optimizing
+
+<InterviewQuestion id="q-rl-bandit-vs-mdp">
+Use a contextual bandit when context $x_t$ arrives, action $a_t$ affects immediate reward,
+and—conditional on context—the action does not materially change the next context or future
+opportunities. Ad selection for one independent visit can approximate this. Use an MDP when
+actions affect inventory, user state, information, trust, or later rewards.
+
+Test the causal assumption, not the UI shape. A recommendation can be sequential because it
+changes future preferences and exposure; a robot action certainly changes location. If the
+state pathway is weak relative to uncertainty, begin with a bandit and long-term guardrails.
+If observations omit relevant history, the model may be a POMDP even when called an MDP.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rl-mdp">
+An MDP is $(\mathcal S,\mathcal A,P,R,\gamma,\rho_0)$: states, actions, transition kernel,
+reward law, discount (or horizon), and initial-state distribution. A policy maps state to
+an action distribution. The Markov claim is
+$P(s_{t+1},r_t\mid s_{0:t},a_{0:t})=P(s_{t+1},r_t\mid s_t,a_t)$.
+
+State is therefore a sufficient statistic for controlled prediction—not simply whatever
+features are logged. Check time granularity, terminal states, action availability, delayed
+rewards, nonstationarity, and whether hidden information requires belief state or memory.
+Sutton and Barto provide the standard modern formulation <Citation id="suttonbarto2018rl" />.
+</InterviewQuestion>
+
+## Bellman recursion turns a horizon into a fixed point
+
+Bellman's dynamic-programming principle decomposes an optimal continuation into one step
+plus an optimal subproblem <Citation id="bellman1957dynamic" />. With
+$G_t=\sum_{k\ge0}\gamma^k r_{t+k}$:
+
+<InterviewQuestion id="q-rl-bellman">
+For a fixed policy,
+
+$$
+V^\pi(s)=\mathbb E_\pi[r_t+\gamma V^\pi(s_{t+1})\mid s_t=s],
+$$
+
+because $G_t=r_t+\gamma G_{t+1}$. Conditioning also on action gives $Q^\pi$. Optimality
+replaces the next policy average with the best action:
+
+$$
+Q^*(s,a)=\mathbb E[r_t+\gamma\max_{a'}Q^*(s_{t+1},a')\mid s,a].
+$$
+
+For finite discounted MDPs the Bellman optimality operator is a $\gamma$-contraction, giving
+a unique fixed point. Approximation, partial observability, and changing transitions break
+the simple tabular guarantee even though the equation remains a modeling target.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Solve a two-state Bellman system"
+  given={[
+    { label: 'Policy transition', value: 'A gives reward 2 then moves to B; B gives reward 1 then stays in B' },
+    { label: 'Discount', value: 'γ = 0.5' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+The fixed-policy equations are
+
+$$V(B)=1+0.5V(B),\qquad V(A)=2+0.5V(B).$$
+
+Thus $V(B)=2$ and $V(A)=3$. Truncating after the immediate reward would value A at 2 and B
+at 1, missing B's continuing stream. With $\gamma=0$, both reduce to immediate rewards;
+as $\gamma$ approaches one in a continuing task, return scale and variance grow and finite
+value needs appropriate reward/termination conditions.
+</WorkedExample>
+
+<InterviewQuestion id="q-rl-value-policy">
+Value-based methods estimate $Q$ and choose $\arg\max_a Q(s,a)$, fitting discrete action
+spaces and reusing off-policy experience. Policy methods optimize a differentiable
+$\pi_\theta(a|s)$ directly, supporting continuous and stochastic actions but often using
+high-variance on-policy gradients. Actor–critic uses a policy actor and value critic to
+estimate advantages.
+
+Choose by action geometry, observability, simulator/data access, exploration constraints,
+off-policy reuse, and required stability. “Model-free” only means no explicit transition
+model is used for planning; it does not mean assumption-free or data-efficient.
+</InterviewQuestion>
+
+## Value learning and the deadly triad
+
+<InterviewQuestion id="q-rl-qlearning">
+Tabular Q-learning updates
+
+$$Q(s,a)\leftarrow Q(s,a)+\alpha[r+\gamma\max_{a'}Q(s',a')-Q(s,a)].$$
+
+The max defines a greedy target policy even when behavior explores, making it off-policy.
+Watkins and Dayan proved convergence under tabular coverage and learning-rate conditions
+<Citation id="watkins1992qlearning" />. With function approximation, bootstrapping from an
+estimate plus off-policy distributions creates the deadly triad and can diverge.
+
+DQN stabilized deep Q-learning empirically with a replay buffer and delayed target network
+<Citation id="mnih2015dqn" />. These reduce correlation and moving targets; they do not
+remove extrapolation error, coverage failure, max overestimation, or reward misspecification.
+</InterviewQuestion>
+
+## Policy gradients trade variance for direct control
+
+<InterviewQuestion id="q-rl-policy-gradient">
+For trajectory probability $p_\theta(\tau)$, the log-derivative identity gives
+
+$$
+\nabla J(\theta)=\mathbb E_{\tau\sim\pi_\theta}
+\left[\sum_t\nabla_\theta\log\pi_\theta(a_t|s_t)G_t\right].
+$$
+
+REINFORCE is this Monte Carlo estimator <Citation id="williams1992reinforce" />. Subtracting
+a state-only baseline $b(s_t)$ leaves expectation unchanged because the expected score
+function is zero, while lowering variance. Reward-to-go avoids charging an action for prior
+rewards. Normalize carefully: changing reward scale changes optimization even when the
+optimal policy is theoretically unchanged.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rl-actor-critic">
+An actor update replaces raw return with an advantage estimate, often a temporal-difference
+residual $\delta_t=r_t+\gamma V_\phi(s_{t+1})-V_\phi(s_t)$. The critic's bootstrapping
+reduces Monte Carlo variance but adds approximation bias. Multi-step or generalized
+advantage estimates move along that continuum.
+
+Diagnose actor and critic separately: episodic return and constraints; value loss and
+explained variance; advantage distribution; entropy; gradient norms; and sensitivity to
+seeds. An inaccurate critic can give confidently wrong directions even while its average
+loss falls on a shifted state distribution.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rl-ppo">
+With ratio $r_t(\theta)=\pi_\theta(a_t|s_t)/\pi_{old}(a_t|s_t)$, PPO maximizes the smaller of
+$r_tA_t$ and a clipped version of $r_t$ times $A_t$ <Citation id="schulman2017ppo" />. The
+clip discourages sampled updates that improve the surrogate by moving the ratio far from
+one.
+
+It is a heuristic, not a hard trust region or monotonic-improvement guarantee. Multiple
+epochs can still move the policy substantially. Monitor approximate KL, clip fraction,
+entropy, value error, reward/constraint metrics, and seed variance; stop or adapt when KL
+exceeds the intended regime. Correct optimization cannot repair an incorrect reward.
+</InterviewQuestion>
+
+## Exploration is an ethical and statistical choice
+
+<InterviewQuestion id="q-rl-exploration">
+$\epsilon$-greedy picks a random action with probability $\epsilon$, ignoring structured
+uncertainty. UCB chooses an optimistic estimate such as empirical mean plus a confidence
+bonus; Auer and colleagues established logarithmic regret for bounded stationary bandits
+<Citation id="auer2002ucb" />. Thompson sampling draws a plausible model from a posterior
+and acts optimally for that draw, tracing to Thompson's 1933 rule
+<Citation id="thompson1933" />.
+
+Guarantees depend on stationarity, reward bounds, model correctness, and feedback. Delayed
+rewards, changing catalogs, interference, and unsafe actions alter the problem. Constrain
+the action set, start with small traffic, use fallbacks, monitor cohort risk, and never
+explore an action that policy forbids.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rl-contextual-bandit">
+Define context available **before** action, feasible actions, immediate reward, delay, and
+unit of decision. Choose a policy with explicit exploration, log the full available action
+set (when feasible), chosen action, probability, context version, and outcome. Without the
+propensity, later counterfactual evaluation loses its foundation.
+
+Start against a strong supervised or rule baseline, replay instrumentation in shadow mode,
+then ramp randomized traffic under safety and business guardrails. Handle nonstationarity
+with time-aware monitoring or discounting, and distinguish delayed negative outcomes from
+missing observations.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rl-off-policy-evaluation">
+For logged $(x_i,a_i,r_i,p_i)$ with $p_i=\mu(a_i|x_i)$, IPS estimates target-policy value:
+
+$$\hat V_{IPS}=\frac1n\sum_i\frac{\pi(a_i|x_i)}{p_i}r_i.$$
+
+It needs consistency, correct propensities, and overlap. Large weights create variance;
+self-normalization or clipping trades bias for stability and must be disclosed. Report weight
+quantiles and effective sample size.
+
+A doubly robust estimator adds a reward-model prediction and importance-weights its residual;
+under standard assumptions it remains consistent if either propensity or reward model is
+correct <Citation id="dudik2011doublyrobust" />. Neither repairs unmeasured confounding or
+actions with zero logging probability.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rl-reward-failure">
+Reward misspecification appears when the optimized metric is only a proxy: a recommender can
+increase clicks through sensational content; a robot can exploit a simulator artifact; an
+agent can satisfy a checker without completing the intended task. Distribution shift then
+lets optimization find loopholes unseen in ordinary validation.
+
+Write a causal theory of how reward connects to value, add side-effect and constraint
+metrics, build adversarial environments, hold out exploit families, inspect trajectories,
+limit optimization pressure, and keep human escalation. Compare short- and long-horizon
+outcomes. A sophisticated policy trained on the wrong reward is a more effective optimizer
+of the wrong thing.
+</InterviewQuestion>
+
+## Exercises
+
+<Exercise n={1} title="Bandit or MDP?" difficulty="warm-up">
+A notification can increase today's click probability but also causes some users to disable
+all future notifications. Is a contextual bandit formulation sufficient?
+  <div slot="solution">
+    Not for the full objective. The action changes future action availability and rewards,
+    so state should include relevant notification history or fatigue and the process should
+    be modeled sequentially. A bandit can be a baseline only with explicit long-term
+    disable-rate guardrails and acknowledgment of myopia.
+  </div>
+</Exercise>
+
+<Exercise n={2} title="One Q-learning update" difficulty="core">
+Let $Q(s,a)=2$, observed reward $r=1$, $\gamma=0.9$, learning rate $\alpha=0.5$, and
+$\max_{a'}Q(s',a')=4$. Compute the update.
+  <div slot="solution">
+    The target is $1+0.9(4)=4.6$, TD error is $4.6-2=2.6$, and the new value is
+    $2+0.5(2.6)=3.3$.
+  </div>
+</Exercise>
+
+<Exercise n={3} title="Audit an IPS estimate" difficulty="stretch">
+A target policy's estimated lift is driven by three events with importance weights above
+100. What do you report and do next?
+  <div slot="solution">
+    Report weight distribution, effective sample size, uncertainty, and overlap by context;
+    verify logged propensities and action sets. Compare direct-model, IPS, self-normalized,
+    clipped, and doubly robust sensitivity without hiding bias. Do not launch on the point
+    estimate; collect safer randomized coverage in the weak-overlap region.
+  </div>
+</Exercise>
+
+## Summary
+
+- A bandit assumes actions do not materially change future context; an MDP models that
+  action-to-state pathway. Partial observability can invalidate either state representation.
+- Bellman recursion links immediate reward to future value; Q-learning, policy gradients,
+  actor–critic, and PPO approximate different parts with different bias and data reuse.
+- Exploration must be logged, bounded, and safe. Off-policy estimates require overlap and
+  trustworthy propensities and can have severe variance.
+- Reward is a designed proxy. Validate its causal link to the intended long-term outcome and
+  look deliberately for optimization loopholes.

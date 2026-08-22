@@ -7,416 +7,422 @@
 robbins1918:
   authors: ['Rainard B Robbins']
   year: 1918
-  title: "Some Applications of Mathematics to Breeding Problems III"
-  venue: "Genetics 3:375-389"
+  title: 'Some Applications of Mathematics to Breeding Problems III'
+  venue: 'Genetics 3:375-389'
   doi: https://doi.org/10.1093/genetics/3.4.375
   verified: 2026-08-21
 
 haldane1919:
   authors: ['J. B. S. Haldane']
   year: 1919
-  title: "The combination of linkage values, and the calculation of distances between the loci of linked factors"
-  venue: "Journal of Genetics 8:299-309"
+  title: 'The combination of linkage values, and the calculation of distances between the loci of linked factors'
+  venue: 'Journal of Genetics 8:299-309'
   # No DOI: the only registered one is a 2022 Routledge reprint, not the original.
   verified: 2026-08-21
 
 kosambi1943:
   authors: ['D. D. Kosambi']
   year: 1943
-  title: "The Estimation of Map Distances from Recombination Values"
-  venue: "Annals of Eugenics 12:172-175"
+  title: 'The Estimation of Map Distances from Recombination Values'
+  venue: 'Annals of Eugenics 12:172-175'
   doi: https://doi.org/10.1111/j.1469-1809.1943.tb02321.x
   verified: 2026-08-21
 
 lewontin1964:
   authors: ['R. C. Lewontin']
   year: 1964
-  title: "The Interaction of Selection and Linkage. I. General Considerations; Heterotic Models"
-  venue: "Genetics 49:49-67"
+  title: 'The Interaction of Selection and Linkage. I. General Considerations; Heterotic Models'
+  venue: 'Genetics 49:49-67'
   doi: https://doi.org/10.1093/genetics/49.1.49
   verified: 2026-08-21
 
 hill1968:
   authors: ['W. G. Hill', 'Alan Robertson']
   year: 1968
-  title: "Linkage disequilibrium in finite populations"
-  venue: "Theoretical and Applied Genetics 38:226-231"
+  title: 'Linkage disequilibrium in finite populations'
+  venue: 'Theoretical and Applied Genetics 38:226-231'
   doi: https://doi.org/10.1007/BF01245622
   verified: 2026-08-21
 
 pritchard2001:
   authors: ['Jonathan K. Pritchard', 'Molly Przeworski']
   year: 2001
-  title: "Linkage Disequilibrium in Humans: Models and Data"
-  venue: "The American Journal of Human Genetics 69:1-14"
+  title: 'Linkage Disequilibrium in Humans: Models and Data'
+  venue: 'The American Journal of Human Genetics 69:1-14'
   doi: https://doi.org/10.1086/321275
   verified: 2026-08-21
 
 gabriel2002:
   authors: ['Stacey B. Gabriel', 'Stephen F. Schaffner', 'Huy Nguyen', 'et al.']
   year: 2002
-  title: "The Structure of Haplotype Blocks in the Human Genome"
-  venue: "Science 296:2225-2229"
+  title: 'The Structure of Haplotype Blocks in the Human Genome'
+  venue: 'Science 296:2225-2229'
   doi: https://doi.org/10.1126/science.1069424
   verified: 2026-08-21
 
 hapmap2005:
   authors: ['The International HapMap Consortium']
   year: 2005
-  title: "A haplotype map of the human genome"
-  venue: "Nature 437:1299-1320"
+  title: 'A haplotype map of the human genome'
+  venue: 'Nature 437:1299-1320'
   doi: https://doi.org/10.1038/nature04226
   verified: 2026-08-21
 
 slatkin2008:
   authors: ['Montgomery Slatkin']
   year: 2008
-  title: "Linkage disequilibrium — understanding the evolutionary past and mapping the medical future"
-  venue: "Nature Reviews Genetics 9:477-485"
+  title: 'Linkage disequilibrium — understanding the evolutionary past and mapping the medical future'
+  venue: 'Nature Reviews Genetics 9:477-485'
   doi: https://doi.org/10.1038/nrg2361
   verified: 2026-08-21
 
 baudat2010:
   authors: ['F. Baudat', 'J. Buard', 'C. Grey', 'et al.']
   year: 2010
-  title: "PRDM9 Is a Major Determinant of Meiotic Recombination Hotspots in Humans and Mice"
-  venue: "Science 327:836-840"
+  title: 'PRDM9 Is a Major Determinant of Meiotic Recombination Hotspots in Humans and Mice'
+  venue: 'Science 327:836-840'
   doi: https://doi.org/10.1126/science.1183439
   verified: 2026-08-21
 
 myers2010:
   authors: ['Simon Myers', 'Rory Bowden', 'Afidalina Tumian', 'et al.']
   year: 2010
-  title: "Drive Against Hotspot Motifs in Primates Implicates the PRDM9 Gene in Meiotic Recombination"
-  venue: "Science 327:876-879"
+  title: 'Drive Against Hotspot Motifs in Primates Implicates the PRDM9 Gene in Meiotic Recombination'
+  venue: 'Science 327:876-879'
   doi: https://doi.org/10.1126/science.1182363
   verified: 2026-08-21
 
 tgp2015:
   authors: ['The 1000 Genomes Project Consortium']
   year: 2015
-  title: "A global reference for human genetic variation"
-  venue: "Nature 526:68-74"
+  title: 'A global reference for human genetic variation'
+  venue: 'Nature 526:68-74'
   doi: https://doi.org/10.1038/nature15393
   verified: 2026-08-21
 
 das2016:
   authors: ['Sayantan Das', 'Lukas Forer', 'Sebastian Schönherr', 'et al.']
   year: 2016
-  title: "Next-generation genotype imputation service and methods"
-  venue: "Nature Genetics 48:1284-1287"
+  title: 'Next-generation genotype imputation service and methods'
+  venue: 'Nature Genetics 48:1284-1287'
   doi: https://doi.org/10.1038/ng.3656
   verified: 2026-08-21
 
 browning2018:
   authors: ['Brian L. Browning', 'Ying Zhou', 'Sharon R. Browning']
   year: 2018
-  title: "A One-Penny Imputed Genome from Next-Generation Reference Panels"
-  venue: "The American Journal of Human Genetics 103:338-348"
+  title: 'A One-Penny Imputed Genome from Next-Generation Reference Panels'
+  venue: 'The American Journal of Human Genetics 103:338-348'
   doi: https://doi.org/10.1016/j.ajhg.2018.07.015
   verified: 2026-08-21
 
 falconer1965:
   authors: ['D. S. Falconer']
   year: 1965
-  title: "The inheritance of liability to certain diseases, estimated from the incidence among relatives"
-  venue: "Annals of Human Genetics 29:51-76"
+  title: 'The inheritance of liability to certain diseases, estimated from the incidence among relatives'
+  venue: 'Annals of Human Genetics 29:51-76'
   doi: https://doi.org/10.1111/j.1469-1809.1965.tb00500.x
   verified: 2026-08-21
 
 patterson1971:
   authors: ['H. D. Patterson', 'R. Thompson']
   year: 1971
-  title: "Recovery of inter-block information when block sizes are unequal"
-  venue: "Biometrika 58:545-554"
+  title: 'Recovery of inter-block information when block sizes are unequal'
+  venue: 'Biometrika 58:545-554'
   doi: https://doi.org/10.1093/biomet/58.3.545
   verified: 2026-08-21
 
 gilmour1995:
   authors: ['Arthur R. Gilmour', 'Robin Thompson', 'Brian R. Cullis']
   year: 1995
-  title: "Average Information REML: An Efficient Algorithm for Variance Parameter Estimation in Linear Mixed Models"
-  venue: "Biometrics 51:1440"
+  title: 'Average Information REML: An Efficient Algorithm for Variance Parameter Estimation in Linear Mixed Models'
+  venue: 'Biometrics 51:1440'
   doi: https://doi.org/10.2307/2533274
   verified: 2026-08-21
 
 vanraden2008:
   authors: ['P.m. VanRaden']
   year: 2008
-  title: "Efficient Methods to Compute Genomic Predictions"
-  venue: "Journal of Dairy Science 91:4414-4423"
+  title: 'Efficient Methods to Compute Genomic Predictions'
+  venue: 'Journal of Dairy Science 91:4414-4423'
   doi: https://doi.org/10.3168/jds.2007-0980
   verified: 2026-08-21
 
 visscher2008:
   authors: ['Peter M. Visscher', 'William G. Hill', 'Naomi R. Wray']
   year: 2008
-  title: "Heritability in the genomics era — concepts and misconceptions"
-  venue: "Nature Reviews Genetics 9:255-266"
+  title: 'Heritability in the genomics era — concepts and misconceptions'
+  venue: 'Nature Reviews Genetics 9:255-266'
   doi: https://doi.org/10.1038/nrg2322
   verified: 2026-08-21
 
 manolio2009:
   authors: ['Teri A. Manolio', 'Francis S. Collins', 'Nancy J. Cox', 'et al.']
   year: 2009
-  title: "Finding the missing heritability of complex diseases"
-  venue: "Nature 461:747-753"
+  title: 'Finding the missing heritability of complex diseases'
+  venue: 'Nature 461:747-753'
   doi: https://doi.org/10.1038/nature08494
   verified: 2026-08-21
 
 yang2010common:
   authors: ['Jian Yang', 'Beben Benyamin', 'Brian P McEvoy', 'et al.']
   year: 2010
-  title: "Common SNPs explain a large proportion of the heritability for human height"
-  venue: "Nature Genetics 42:565-569"
+  title: 'Common SNPs explain a large proportion of the heritability for human height'
+  venue: 'Nature Genetics 42:565-569'
   doi: https://doi.org/10.1038/ng.608
   verified: 2026-08-21
 
 langoallen2010:
   authors: ['Hana Lango Allen', 'Karol Estrada', 'Guillaume Lettre', 'et al.']
   year: 2010
-  title: "Hundreds of variants clustered in genomic loci and biological pathways affect human height"
-  venue: "Nature 467:832-838"
+  title: 'Hundreds of variants clustered in genomic loci and biological pathways affect human height'
+  venue: 'Nature 467:832-838'
   doi: https://doi.org/10.1038/nature09410
   verified: 2026-08-21
 
 yang2011gcta:
   authors: ['Jian Yang', 'S. Hong Lee', 'Michael E. Goddard', 'Peter M. Visscher']
   year: 2011
-  title: "GCTA: A Tool for Genome-wide Complex Trait Analysis"
-  venue: "The American Journal of Human Genetics 88:76-82"
+  title: 'GCTA: A Tool for Genome-wide Complex Trait Analysis'
+  venue: 'The American Journal of Human Genetics 88:76-82'
   doi: https://doi.org/10.1016/j.ajhg.2010.11.011
   verified: 2026-08-21
 
 lee2011estimating:
   authors: ['Sang Hong Lee', 'Naomi R. Wray', 'Michael E. Goddard', 'Peter M. Visscher']
   year: 2011
-  title: "Estimating Missing Heritability for Disease from Genome-wide Association Studies"
-  venue: "The American Journal of Human Genetics 88:294-305"
+  title: 'Estimating Missing Heritability for Disease from Genome-wide Association Studies'
+  venue: 'The American Journal of Human Genetics 88:294-305'
   doi: https://doi.org/10.1016/j.ajhg.2011.02.002
   verified: 2026-08-21
 
 polderman2015:
   authors: ['Tinca J C Polderman', 'Beben Benyamin', 'Christiaan A de Leeuw', 'et al.']
   year: 2015
-  title: "Meta-analysis of the heritability of human traits based on fifty years of twin studies"
-  venue: "Nature Genetics 47:702-709"
+  title: 'Meta-analysis of the heritability of human traits based on fifty years of twin studies'
+  venue: 'Nature Genetics 47:702-709'
   doi: https://doi.org/10.1038/ng.3285
   verified: 2026-08-21
 
 wainschtein2022:
   authors: ['Pierrick Wainschtein', 'Deepti Jain', 'Zhili Zheng', 'et al.']
   year: 2022
-  title: "Assessing the contribution of rare variants to complex trait heritability from whole-genome sequence data"
-  venue: "Nature Genetics 54:263-273"
+  title: 'Assessing the contribution of rare variants to complex trait heritability from whole-genome sequence data'
+  venue: 'Nature Genetics 54:263-273'
   doi: https://doi.org/10.1038/s41588-021-00997-7
   verified: 2026-08-21
 
 isc2009:
   authors: ['The International Schizophrenia Consortium']
   year: 2009
-  title: "Common polygenic variation contributes to risk of schizophrenia and bipolar disorder"
-  venue: "Nature 460:748-752"
+  title: 'Common polygenic variation contributes to risk of schizophrenia and bipolar disorder'
+  venue: 'Nature 460:748-752'
   doi: https://doi.org/10.1038/nature08185
   verified: 2026-08-21
 
 daetwyler2008:
   authors: ['Hans D. Daetwyler', 'Beatriz Villanueva', 'John A. Woolliams']
   year: 2008
-  title: "Accuracy of Predicting the Genetic Risk of Disease Using a Genome-Wide Approach"
-  venue: "PLoS ONE 3:e3395"
+  title: 'Accuracy of Predicting the Genetic Risk of Disease Using a Genome-Wide Approach'
+  venue: 'PLoS ONE 3:e3395'
   doi: https://doi.org/10.1371/journal.pone.0003395
   verified: 2026-08-21
 
 wray2013:
   authors: ['Naomi R. Wray', 'Jian Yang', 'Ben J. Hayes', 'et al.']
   year: 2013
-  title: "Pitfalls of predicting complex traits from SNPs"
-  venue: "Nature Reviews Genetics 14:507-515"
+  title: 'Pitfalls of predicting complex traits from SNPs'
+  venue: 'Nature Reviews Genetics 14:507-515'
   doi: https://doi.org/10.1038/nrg3457
   verified: 2026-08-21
 
 vilhjalmsson2015:
   authors: ['Bjarni J. Vilhjálmsson', 'Jian Yang', 'Hilary K. Finucane', 'et al.']
   year: 2015
-  title: "Modeling Linkage Disequilibrium Increases Accuracy of Polygenic Risk Scores"
-  venue: "The American Journal of Human Genetics 97:576-592"
+  title: 'Modeling Linkage Disequilibrium Increases Accuracy of Polygenic Risk Scores'
+  venue: 'The American Journal of Human Genetics 97:576-592'
   doi: https://doi.org/10.1016/j.ajhg.2015.09.001
   verified: 2026-08-21
 
 khera2018:
   authors: ['Amit V. Khera', 'Mark Chaffin', 'Krishna G. Aragam', 'et al.']
   year: 2018
-  title: "Genome-wide polygenic scores for common diseases identify individuals with risk equivalent to monogenic mutations"
-  venue: "Nature Genetics 50:1219-1224"
+  title: 'Genome-wide polygenic scores for common diseases identify individuals with risk equivalent to monogenic mutations'
+  venue: 'Nature Genetics 50:1219-1224'
   doi: https://doi.org/10.1038/s41588-018-0183-z
   verified: 2026-08-21
 
 ge2019:
   authors: ['Tian Ge', 'Chia-Yen Chen', 'Yang Ni', 'et al.']
   year: 2019
-  title: "Polygenic prediction via Bayesian regression and continuous shrinkage priors"
-  venue: "Nature Communications 10"
+  title: 'Polygenic prediction via Bayesian regression and continuous shrinkage priors'
+  venue: 'Nature Communications 10'
   doi: https://doi.org/10.1038/s41467-019-09718-5
   verified: 2026-08-21
 
 martin2019:
   authors: ['Alicia R. Martin', 'Masahiro Kanai', 'Yoichiro Kamatani', 'et al.']
   year: 2019
-  title: "Clinical use of current polygenic risk scores may exacerbate health disparities"
-  venue: "Nature Genetics 51:584-591"
+  title: 'Clinical use of current polygenic risk scores may exacerbate health disparities'
+  venue: 'Nature Genetics 51:584-591'
   doi: https://doi.org/10.1038/s41588-019-0379-x
   verified: 2026-08-21
 
 duncan2019:
   authors: ['L. Duncan', 'H. Shen', 'B. Gelaye', 'et al.']
   year: 2019
-  title: "Analysis of polygenic risk score usage and performance in diverse human populations"
-  venue: "Nature Communications 10"
+  title: 'Analysis of polygenic risk score usage and performance in diverse human populations'
+  venue: 'Nature Communications 10'
   doi: https://doi.org/10.1038/s41467-019-11112-0
   verified: 2026-08-21
 
 choi2020:
   authors: ['Shing Wan Choi', 'Timothy Shin-Heng Mak', 'Paul F. O’Reilly']
   year: 2020
-  title: "Tutorial: a guide to performing polygenic risk score analyses"
-  venue: "Nature Protocols 15:2759-2772"
+  title: 'Tutorial: a guide to performing polygenic risk score analyses'
+  venue: 'Nature Protocols 15:2759-2772'
   doi: https://doi.org/10.1038/s41596-020-0353-1
   verified: 2026-08-21
 
 prive2020:
   authors: ['Florian Privé', 'Julyan Arbel', 'Bjarni J Vilhjálmsson']
   year: 2020
-  title: "LDpred2: better, faster, stronger"
-  venue: "Bioinformatics 36:5424-5431"
+  title: 'LDpred2: better, faster, stronger'
+  venue: 'Bioinformatics 36:5424-5431'
   doi: https://doi.org/10.1093/bioinformatics/btaa1029
   verified: 2026-08-21
 
 ruan2022:
   authors: ['Yunfeng Ruan', 'Yen-Feng Lin', 'Yen-Chen Anne Feng', 'et al.']
   year: 2022
-  title: "Improving polygenic prediction in ancestrally diverse populations"
-  venue: "Nature Genetics 54:573-580"
+  title: 'Improving polygenic prediction in ancestrally diverse populations'
+  venue: 'Nature Genetics 54:573-580'
   doi: https://doi.org/10.1038/s41588-022-01054-7
   verified: 2026-08-21
 
 karczewski2020:
   authors: ['Konrad J. Karczewski', 'Laurent C. Francioli', 'Grace Tiao', 'et al.']
   year: 2020
-  title: "The mutational constraint spectrum quantified from variation in 141,456 humans"
-  venue: "Nature 581:434-443"
+  title: 'The mutational constraint spectrum quantified from variation in 141,456 humans'
+  venue: 'Nature 581:434-443'
   doi: https://doi.org/10.1038/s41586-020-2308-7
   verified: 2026-08-21
 
 chen2024constraint:
   authors: ['Siwei Chen', 'Laurent C. Francioli', 'Julia K. Goodrich', 'et al.']
   year: 2024
-  title: "A genomic mutational constraint map using variation in 76,156 human genomes"
-  venue: "Nature 625:92-100"
+  title: 'A genomic mutational constraint map using variation in 76,156 human genomes'
+  venue: 'Nature 625:92-100'
   doi: https://doi.org/10.1038/s41586-023-06045-0
   verified: 2026-08-21
 
 allofus2024:
-  authors: ['The All of Us Research Program Genomics Investigators', 'Manuscript Writing Group', 'Alexander G. Bick', 'et al.']
+  authors:
+    [
+      'The All of Us Research Program Genomics Investigators',
+      'Manuscript Writing Group',
+      'Alexander G. Bick',
+      'et al.',
+    ]
   year: 2024
-  title: "Genomic data in the All of Us Research Program"
-  venue: "Nature 627:340-346"
+  title: 'Genomic data in the All of Us Research Program'
+  venue: 'Nature 627:340-346'
   doi: https://doi.org/10.1038/s41586-023-06957-x
   verified: 2026-08-21
 
 taliun2021:
   authors: ['Daniel Taliun', 'Daniel N. Harris', 'Michael D. Kessler', 'et al.']
   year: 2021
-  title: "Sequencing of 53,831 diverse genomes from the NHLBI TOPMed Program"
-  venue: "Nature 590:290-299"
+  title: 'Sequencing of 53,831 diverse genomes from the NHLBI TOPMed Program'
+  venue: 'Nature 590:290-299'
   doi: https://doi.org/10.1038/s41586-021-03205-y
   verified: 2026-08-21
 
 bergstrom2020:
   authors: ['Anders Bergström', 'Shane A. McCarthy', 'Ruoyun Hui', 'et al.']
   year: 2020
-  title: "Insights into human genetic variation and population history from 929 diverse genomes"
-  venue: "Science 367"
+  title: 'Insights into human genetic variation and population history from 929 diverse genomes'
+  venue: 'Science 367'
   doi: https://doi.org/10.1126/science.aay5012
   verified: 2026-08-21
 
 lek2016exac:
   authors: ['Exome Aggregation Consortium', 'Monkol Lek', 'Konrad J. Karczewski', 'et al.']
   year: 2016
-  title: "Analysis of protein-coding genetic variation in 60,706 humans"
-  venue: "Nature 536:285-291"
+  title: 'Analysis of protein-coding genetic variation in 60,706 humans'
+  venue: 'Nature 536:285-291'
   doi: https://doi.org/10.1038/nature19057
   verified: 2026-08-21
 
 whiffin2017:
   authors: ['Nicola Whiffin', 'Eric Minikel', 'Roddy Walsh', 'et al.']
   year: 2017
-  title: "Using high-resolution variant frequencies to empower clinical genome interpretation"
-  venue: "Genetics in Medicine 19:1151-1158"
+  title: 'Using high-resolution variant frequencies to empower clinical genome interpretation'
+  venue: 'Genetics in Medicine 19:1151-1158'
   doi: https://doi.org/10.1038/gim.2017.26
   verified: 2026-08-21
 
 richards2015:
   authors: ['Sue Richards', 'Nazneen Aziz', 'Sherri Bale', 'et al.']
   year: 2015
-  title: "Standards and guidelines for the interpretation of sequence variants: a joint consensus recommendation of the American College of Medical Genetics and Genomics and the Association for Molecular Pathology"
-  venue: "Genetics in Medicine 17:405-424"
+  title: 'Standards and guidelines for the interpretation of sequence variants: a joint consensus recommendation of the American College of Medical Genetics and Genomics and the Association for Molecular Pathology'
+  venue: 'Genetics in Medicine 17:405-424'
   doi: https://doi.org/10.1038/gim.2015.30
   verified: 2026-08-21
 
 tavtigian2018:
   authors: ['Sean V. Tavtigian', 'Marc S. Greenblatt', 'Steven M. Harrison', 'et al.']
   year: 2018
-  title: "Modeling the ACMG/AMP variant classification guidelines as a Bayesian classification framework"
-  venue: "Genetics in Medicine 20:1054-1060"
+  title: 'Modeling the ACMG/AMP variant classification guidelines as a Bayesian classification framework'
+  venue: 'Genetics in Medicine 20:1054-1060'
   doi: https://doi.org/10.1038/gim.2017.210
   verified: 2026-08-21
 
 tavtigian2020:
   authors: ['Sean V. Tavtigian', 'Steven M. Harrison', 'Kenneth M. Boucher', 'Leslie G. Biesecker']
   year: 2020
-  title: "Fitting a naturally scaled point system to the ACMG/AMP variant classification guidelines"
-  venue: "Human Mutation 41:1734-1737"
+  title: 'Fitting a naturally scaled point system to the ACMG/AMP variant classification guidelines'
+  venue: 'Human Mutation 41:1734-1737'
   doi: https://doi.org/10.1002/humu.24088
   verified: 2026-08-21
 
 rehm2015clingen:
   authors: ['Heidi L. Rehm', 'Jonathan S. Berg', 'Lisa D. Brooks', 'et al.']
   year: 2015
-  title: "ClinGen — The Clinical Genome Resource"
-  venue: "New England Journal of Medicine 372:2235-2242"
+  title: 'ClinGen — The Clinical Genome Resource'
+  venue: 'New England Journal of Medicine 372:2235-2242'
   doi: https://doi.org/10.1056/NEJMsr1406261
   verified: 2026-08-21
 
 landrum2024clinvar:
   authors: ['Melissa J Landrum', 'Shanmuga Chitipiralla', 'Kuljeet Kaur', 'et al.']
   year: 2024
-  title: "ClinVar: updates to support classifications of both germline and somatic variants"
-  venue: "Nucleic Acids Research 53:D1313-D1321"
+  title: 'ClinVar: updates to support classifications of both germline and somatic variants'
+  venue: 'Nucleic Acids Research 53:D1313-D1321'
   doi: https://doi.org/10.1093/nar/gkae1090
   verified: 2026-08-21
 
 morales2022mane:
   authors: ['Joannella Morales', 'Shashikant Pujar', 'Jane E. Loveland', 'et al.']
   year: 2022
-  title: "A joint NCBI and EMBL-EBI transcript set for clinical genomics and research"
-  venue: "Nature 604:310-315"
+  title: 'A joint NCBI and EMBL-EBI transcript set for clinical genomics and research'
+  venue: 'Nature 604:310-315'
   doi: https://doi.org/10.1038/s41586-022-04558-8
   verified: 2026-08-21
 
 findlay2018sge:
   authors: ['Gregory M. Findlay', 'Riza M. Daza', 'Beth Martin', 'et al.']
   year: 2018
-  title: "Accurate classification of BRCA1 variants with saturation genome editing"
-  venue: "Nature 562:217-222"
+  title: 'Accurate classification of BRCA1 variants with saturation genome editing'
+  venue: 'Nature 562:217-222'
   doi: https://doi.org/10.1038/s41586-018-0461-z
   verified: 2026-08-21
 
 esposito2019mavedb:
   authors: ['Daniel Esposito', 'Jochen Weile', 'Jay Shendure', 'et al.']
   year: 2019
-  title: "MaveDB: an open-source platform to distribute and interpret data from multiplexed assays of variant effect"
-  venue: "Genome Biology 20"
+  title: 'MaveDB: an open-source platform to distribute and interpret data from multiplexed assays of variant effect'
+  venue: 'Genome Biology 20'
   doi: https://doi.org/10.1186/s13059-019-1845-6
   verified: 2026-08-21
 
@@ -425,88 +431,88 @@ esposito2019mavedb:
 kent2002ucsc:
   authors: ['W. James Kent', 'Charles W. Sugnet', 'Terrence S. Furey', 'et al.']
   year: 2002
-  title: "The Human Genome Browser at UCSC"
-  venue: "Genome Research 12:996-1006"
+  title: 'The Human Genome Browser at UCSC'
+  venue: 'Genome Research 12:996-1006'
   doi: https://doi.org/10.1101/gr.229102
   verified: 2026-08-21
 
 siepel2005:
   authors: ['Adam Siepel', 'Gill Bejerano', 'Jakob S. Pedersen', 'et al.']
   year: 2005
-  title: "Evolutionarily conserved elements in vertebrate, insect, worm, and yeast genomes"
-  venue: "Genome Research 15:1034-1050"
+  title: 'Evolutionarily conserved elements in vertebrate, insect, worm, and yeast genomes'
+  venue: 'Genome Research 15:1034-1050'
   doi: https://doi.org/10.1101/gr.3715005
   verified: 2026-08-21
 
 pollard2010phylop:
   authors: ['Katherine S. Pollard', 'Melissa J. Hubisz', 'Kate R. Rosenbloom', 'Adam Siepel']
   year: 2009
-  title: "Detection of nonneutral substitution rates on mammalian phylogenies"
-  venue: "Genome Research 20:110-121"
+  title: 'Detection of nonneutral substitution rates on mammalian phylogenies'
+  venue: 'Genome Research 20:110-121'
   doi: https://doi.org/10.1101/gr.097857.109
   verified: 2026-08-21
 
 danecek2011vcf:
   authors: ['Petr Danecek', 'Adam Auton', 'Goncalo Abecasis', 'et al.']
   year: 2011
-  title: "The variant call format and VCFtools"
-  venue: "Bioinformatics 27:2156-2158"
+  title: 'The variant call format and VCFtools'
+  venue: 'Bioinformatics 27:2156-2158'
   doi: https://doi.org/10.1093/bioinformatics/btr330
   verified: 2026-08-21
 
 oleary2016refseq:
-  authors: ['Nuala A. O''Leary', 'Mathew W. Wright', 'J. Rodney Brister', 'et al.']
+  authors: ["Nuala A. O'Leary", 'Mathew W. Wright', 'J. Rodney Brister', 'et al.']
   year: 2015
-  title: "Reference sequence (RefSeq) database at NCBI: current status, taxonomic expansion, and functional annotation"
-  venue: "Nucleic Acids Research 44:D733-D745"
+  title: 'Reference sequence (RefSeq) database at NCBI: current status, taxonomic expansion, and functional annotation'
+  venue: 'Nucleic Acids Research 44:D733-D745'
   doi: https://doi.org/10.1093/nar/gkv1189
   verified: 2026-08-21
 
 dendunnen2016hgvs:
   authors: ['Johan T. den Dunnen', 'Raymond Dalgleish', 'Donna R. Maglott', 'et al.']
   year: 2016
-  title: "HGVS Recommendations for the Description of Sequence Variants: 2016 Update"
-  venue: "Human Mutation 37:564-569"
+  title: 'HGVS Recommendations for the Description of Sequence Variants: 2016 Update'
+  venue: 'Human Mutation 37:564-569'
   doi: https://doi.org/10.1002/humu.22981
   verified: 2026-08-21
 
 frankish2021gencode:
   authors: ['Adam Frankish', 'Mark Diekhans', 'Irwin Jungreis', 'et al.']
   year: 2020
-  title: "GENCODE 2021"
-  venue: "Nucleic Acids Research 49:D916-D923"
+  title: 'GENCODE 2021'
+  venue: 'Nucleic Acids Research 49:D916-D923'
   doi: https://doi.org/10.1093/nar/gkaa1087
   verified: 2026-08-21
 
 nurk2022t2t:
   authors: ['Sergey Nurk', 'Sergey Koren', 'Arang Rhie', 'et al.']
   year: 2022
-  title: "The complete sequence of a human genome"
-  venue: "Science 376:44-53"
+  title: 'The complete sequence of a human genome'
+  venue: 'Science 376:44-53'
   doi: https://doi.org/10.1126/science.abj6987
   verified: 2026-08-21
 
 christmas2023zoonomia:
   authors: ['Matthew J. Christmas', 'Irene M. Kaplow', 'Diane P. Genereux', 'et al.']
   year: 2023
-  title: "Evolutionary constraint and innovation across hundreds of placental mammals"
-  venue: "Science 380"
+  title: 'Evolutionary constraint and innovation across hundreds of placental mammals'
+  venue: 'Science 380'
   doi: https://doi.org/10.1126/science.abn3943
   verified: 2026-08-21
 
 liao2023pangenome:
   authors: ['Wen-Wei Liao', 'Mobin Asri', 'Jana Ebler', 'et al.']
   year: 2023
-  title: "A draft human pangenome reference"
-  venue: "Nature 617:312-324"
+  title: 'A draft human pangenome reference'
+  venue: 'Nature 617:312-324'
   doi: https://doi.org/10.1038/s41586-023-05896-x
   verified: 2026-08-21
 
 dyer2025ensembl:
   authors: ['Sarah C Dyer', 'Olanrewaju Austine-Orimoloye', 'Andrey G Azov', 'et al.']
   year: 2024
-  title: "Ensembl 2025"
-  venue: "Nucleic Acids Research 53:D948-D957"
+  title: 'Ensembl 2025'
+  venue: 'Nucleic Acids Research 53:D948-D957'
   doi: https://doi.org/10.1093/nar/gkae1071
   verified: 2026-08-21
 
@@ -515,8 +521,8 @@ sherry2001dbsnp:
   # carries seven. Recorded as 'et al.' rather than overstating what the deposit says.
   authors: ['S. T. Sherry', 'M. H. Ward', 'M. Kholodov', 'et al.']
   year: 2001
-  title: "dbSNP: the NCBI database of genetic variation"
-  venue: "Nucleic Acids Research 29:308-311"
+  title: 'dbSNP: the NCBI database of genetic variation'
+  venue: 'Nucleic Acids Research 29:308-311'
   doi: https://doi.org/10.1093/nar/29.1.308
   verified: 2026-08-21
 
@@ -525,48 +531,48 @@ sherry2001dbsnp:
 samocha2014:
   authors: ['Kaitlin E Samocha', 'Elise B Robinson', 'Stephan J Sanders', 'et al.']
   year: 2014
-  title: "A framework for the interpretation of de novo mutation in human disease"
-  venue: "Nature Genetics 46:944-950"
+  title: 'A framework for the interpretation of de novo mutation in human disease'
+  venue: 'Nature Genetics 46:944-950'
   doi: https://doi.org/10.1038/ng.3050
   verified: 2026-08-21
 
 cassa2017shet:
   authors: ['Christopher A Cassa', 'Donate Weghorn', 'Daniel J Balick', 'et al.']
   year: 2017
-  title: "Estimating the selective effects of heterozygous protein-truncating variants from human exome data"
-  venue: "Nature Genetics 49:806-810"
+  title: 'Estimating the selective effects of heterozygous protein-truncating variants from human exome data'
+  venue: 'Nature Genetics 49:806-810'
   doi: https://doi.org/10.1038/ng.3831
   verified: 2026-08-21
 
 havrilla2019ccr:
   authors: ['James M. Havrilla', 'Brent S. Pedersen', 'Ryan M. Layer', 'Aaron R. Quinlan']
   year: 2018
-  title: "A map of constrained coding regions in the human genome"
-  venue: "Nature Genetics 51:88-95"
+  title: 'A map of constrained coding regions in the human genome'
+  venue: 'Nature Genetics 51:88-95'
   doi: https://doi.org/10.1038/s41588-018-0294-6
   verified: 2026-08-21
 
 collins2020sv:
   authors: ['Ryan L. Collins', 'Harrison Brand', 'Konrad J. Karczewski', 'et al.']
   year: 2020
-  title: "A structural variation reference for medical and population genetics"
-  venue: "Nature 581:444-451"
+  title: 'A structural variation reference for medical and population genetics'
+  venue: 'Nature 581:444-451'
   doi: https://doi.org/10.1038/s41586-020-2287-8
   verified: 2026-08-21
 
 cummings2020pext:
   authors: ['Beryl B. Cummings', 'Konrad J. Karczewski', 'Jack A. Kosmicki', 'et al.']
   year: 2020
-  title: "Transcript expression-aware annotation improves rare variant interpretation"
-  venue: "Nature 581:452-458"
+  title: 'Transcript expression-aware annotation improves rare variant interpretation'
+  venue: 'Nature 581:452-458'
   doi: https://doi.org/10.1038/s41586-020-2329-2
   verified: 2026-08-21
 
 zeng2024shet:
   authors: ['Tony Zeng', 'Jeffrey P. Spence', 'Hakhamanesh Mostafavi', 'Jonathan K. Pritchard']
   year: 2024
-  title: "Bayesian estimation of gene constraint from an evolutionary model with gene features"
-  venue: "Nature Genetics 56:1632-1643"
+  title: 'Bayesian estimation of gene constraint from an evolutionary model with gene features'
+  venue: 'Nature Genetics 56:1632-1643'
   doi: https://doi.org/10.1038/s41588-024-01820-9
   verified: 2026-08-21
 
@@ -575,56 +581,57 @@ zeng2024shet:
 kircher2014cadd:
   authors: ['Martin Kircher', 'Daniela M Witten', 'Preti Jain', 'et al.']
   year: 2014
-  title: "A general framework for estimating the relative pathogenicity of human genetic variants"
-  venue: "Nature Genetics 46:310-315"
+  title: 'A general framework for estimating the relative pathogenicity of human genetic variants'
+  venue: 'Nature Genetics 46:310-315'
   doi: https://doi.org/10.1038/ng.2892
   verified: 2026-08-21
 
 rentzsch2019cadd:
   authors: ['Philipp Rentzsch', 'Daniela Witten', 'Gregory M Cooper', 'et al.']
   year: 2018
-  title: "CADD: predicting the deleteriousness of variants throughout the human genome"
-  venue: "Nucleic Acids Research 47:D886-D894"
+  title: 'CADD: predicting the deleteriousness of variants throughout the human genome'
+  venue: 'Nucleic Acids Research 47:D886-D894'
   doi: https://doi.org/10.1093/nar/gky1016
   verified: 2026-08-21
 
 ioannidis2016revel:
   authors: ['Nilah M. Ioannidis', 'Joseph H. Rothstein', 'Vikas Pejaver', 'et al.']
   year: 2016
-  title: "REVEL: An Ensemble Method for Predicting the Pathogenicity of Rare Missense Variants"
-  venue: "The American Journal of Human Genetics 99:877-885"
+  title: 'REVEL: An Ensemble Method for Predicting the Pathogenicity of Rare Missense Variants'
+  venue: 'The American Journal of Human Genetics 99:877-885'
   doi: https://doi.org/10.1016/j.ajhg.2016.08.016
   verified: 2026-08-21
 
 jaganathan2019spliceai:
-  authors: ['Kishore Jaganathan', 'Sofia Kyriazopoulou Panagiotopoulou', 'Jeremy F. McRae', 'et al.']
+  authors:
+    ['Kishore Jaganathan', 'Sofia Kyriazopoulou Panagiotopoulou', 'Jeremy F. McRae', 'et al.']
   year: 2019
-  title: "Predicting Splicing from Primary Sequence with Deep Learning"
-  venue: "Cell 176:535-548.e24"
+  title: 'Predicting Splicing from Primary Sequence with Deep Learning'
+  venue: 'Cell 176:535-548.e24'
   doi: https://doi.org/10.1016/j.cell.2018.12.015
   verified: 2026-08-21
 
 pejaver2022:
   authors: ['Vikas Pejaver', 'Alicia B. Byrne', 'Bing-Jian Feng', 'et al.']
   year: 2022
-  title: "Calibration of computational tools for missense variant pathogenicity classification and ClinGen recommendations for PP3/BP4 criteria"
-  venue: "The American Journal of Human Genetics 109:2163-2177"
+  title: 'Calibration of computational tools for missense variant pathogenicity classification and ClinGen recommendations for PP3/BP4 criteria'
+  venue: 'The American Journal of Human Genetics 109:2163-2177'
   doi: https://doi.org/10.1016/j.ajhg.2022.10.013
   verified: 2026-08-21
 
 cheng2023alphamissense:
   authors: ['Jun Cheng', 'Guido Novati', 'Joshua Pan', 'et al.']
   year: 2023
-  title: "Accurate proteome-wide missense variant effect prediction with AlphaMissense"
-  venue: "Science 381"
+  title: 'Accurate proteome-wide missense variant effect prediction with AlphaMissense'
+  venue: 'Science 381'
   doi: https://doi.org/10.1126/science.adg7492
   verified: 2026-08-21
 
 brandes2023esm1b:
   authors: ['Nadav Brandes', 'Grant Goldman', 'Charlotte H. Wang', 'et al.']
   year: 2023
-  title: "Genome-wide prediction of disease variant effects with a deep protein language model"
-  venue: "Nature Genetics 55:1512-1522"
+  title: 'Genome-wide prediction of disease variant effects with a deep protein language model'
+  venue: 'Nature Genetics 55:1512-1522'
   doi: https://doi.org/10.1038/s41588-023-01465-0
   verified: 2026-08-21
 
@@ -633,16 +640,16 @@ brandes2023esm1b:
 fowler2014dms:
   authors: ['Douglas M Fowler', 'Stanley Fields']
   year: 2014
-  title: "Deep mutational scanning: a new style of protein science"
-  venue: "Nature Methods 11:801-807"
+  title: 'Deep mutational scanning: a new style of protein science'
+  venue: 'Nature Methods 11:801-807'
   doi: https://doi.org/10.1038/nmeth.3027
   verified: 2026-08-21
 
 starita2017:
   authors: ['Lea M. Starita', 'Nadav Ahituv', 'Maitreya J. Dunham', 'et al.']
   year: 2017
-  title: "Variant Interpretation: Functional Assays to the Rescue"
-  venue: "The American Journal of Human Genetics 101:315-325"
+  title: 'Variant Interpretation: Functional Assays to the Rescue'
+  venue: 'The American Journal of Human Genetics 101:315-325'
   doi: https://doi.org/10.1016/j.ajhg.2017.07.014
   verified: 2026-08-21
 
@@ -652,32 +659,32 @@ brnich2020:
   # records the 2019 online-first date, so `audit:refs` reports an expected off-by-one.
   authors: ['Sarah E. Brnich', 'Ahmad N. Abou Tayoun', 'Fergus J. Couch', 'et al.']
   year: 2020
-  title: "Recommendations for application of the functional evidence PS3/BS3 criterion using the ACMG/AMP sequence variant interpretation framework"
-  venue: "Genome Medicine 12"
+  title: 'Recommendations for application of the functional evidence PS3/BS3 criterion using the ACMG/AMP sequence variant interpretation framework'
+  venue: 'Genome Medicine 12'
   doi: https://doi.org/10.1186/s13073-019-0690-2
   verified: 2026-08-21
 
 kircher2019mpra:
   authors: ['Martin Kircher', 'Chenling Xiong', 'Beth Martin', 'et al.']
   year: 2019
-  title: "Saturation mutagenesis of twenty disease-associated regulatory elements at single base-pair resolution"
-  venue: "Nature Communications 10"
+  title: 'Saturation mutagenesis of twenty disease-associated regulatory elements at single base-pair resolution'
+  venue: 'Nature Communications 10'
   doi: https://doi.org/10.1038/s41467-019-11526-w
   verified: 2026-08-21
 
 sullivan2024splicevardb:
   authors: ['Patricia J. Sullivan', 'Julian M.w. Quinn', 'Weilin Wu', 'et al.']
   year: 2024
-  title: "SpliceVarDB: A comprehensive database of experimentally validated human splicing variants"
-  venue: "The American Journal of Human Genetics 111:2164-2175"
+  title: 'SpliceVarDB: A comprehensive database of experimentally validated human splicing variants'
+  venue: 'The American Journal of Human Genetics 111:2164-2175'
   doi: https://doi.org/10.1016/j.ajhg.2024.08.002
   verified: 2026-08-21
 
 mcewen2025mave:
   authors: ['Abbye E. McEwen', 'Malvika Tejura', 'Shawn Fayer', 'et al.']
   year: 2025
-  title: "Multiplexed assays of variant effect for clinical variant interpretation"
-  venue: "Nature Reviews Genetics 27:137-154"
+  title: 'Multiplexed assays of variant effect for clinical variant interpretation'
+  venue: 'Nature Reviews Genetics 27:137-154'
   doi: https://doi.org/10.1038/s41576-025-00870-x
   verified: 2026-08-21
 
@@ -686,39 +693,1675 @@ mcewen2025mave:
 firth2009decipher:
   authors: ['Helen V. Firth', 'Shola M. Richards', 'A. Paul Bevan', 'et al.']
   year: 2009
-  title: "DECIPHER: Database of Chromosomal Imbalance and Phenotype in Humans Using Ensembl Resources"
-  venue: "The American Journal of Human Genetics 84:524-533"
+  title: 'DECIPHER: Database of Chromosomal Imbalance and Phenotype in Humans Using Ensembl Resources'
+  venue: 'The American Journal of Human Genetics 84:524-533'
   doi: https://doi.org/10.1016/j.ajhg.2009.03.010
   verified: 2026-08-21
 
 amberger2019omim:
   authors: ['Joanna S Amberger', 'Carol A Bocchini', 'Alan F Scott', 'Ada Hamosh']
   year: 2018
-  title: "OMIM.org: leveraging knowledge across phenotype–gene relationships"
-  venue: "Nucleic Acids Research 47:D1038-D1043"
+  title: 'OMIM.org: leveraging knowledge across phenotype–gene relationships'
+  venue: 'Nucleic Acids Research 47:D1038-D1043'
   doi: https://doi.org/10.1093/nar/gky1151
   verified: 2026-08-21
 
 riggs2020dosage:
   authors: ['Erin Rooney Riggs', 'Erica F. Andersen', 'Athena M. Cherry', 'et al.']
   year: 2020
-  title: "Technical standards for the interpretation and reporting of constitutional copy-number variants: a joint consensus recommendation of the American College of Medical Genetics and Genomics (ACMG) and the Clinical Genome Resource (ClinGen)"
-  venue: "Genetics in Medicine 22:245-257"
+  title: 'Technical standards for the interpretation and reporting of constitutional copy-number variants: a joint consensus recommendation of the American College of Medical Genetics and Genomics (ACMG) and the Clinical Genome Resource (ClinGen)'
+  venue: 'Genetics in Medicine 22:245-257'
   doi: https://doi.org/10.1038/s41436-019-0686-8
   verified: 2026-08-21
 
 stenson2020hgmd:
   authors: ['Peter D. Stenson', 'Matthew Mort', 'Edward V. Ball', 'et al.']
   year: 2020
-  title: "The Human Gene Mutation Database (HGMD®): optimizing its use in a clinical diagnostic or research setting"
-  venue: "Human Genetics 139:1197-1207"
+  title: 'The Human Gene Mutation Database (HGMD®): optimizing its use in a clinical diagnostic or research setting'
+  venue: 'Human Genetics 139:1197-1207'
   doi: https://doi.org/10.1007/s00439-020-02199-3
   verified: 2026-08-21
 
 whirlcarrillo2021pharmgkb:
   authors: ['Michelle Whirl‐Carrillo', 'Rachel Huddart', 'Li Gong', 'et al.']
   year: 2021
-  title: "An Evidence‐Based Framework for Evaluating Pharmacogenomics Knowledge for Personalized Medicine"
-  venue: "Clinical Pharmacology &amp; Therapeutics 110:563-572"
+  title: 'An Evidence‐Based Framework for Evaluating Pharmacogenomics Knowledge for Personalized Medicine'
+  venue: 'Clinical Pharmacology &amp; Therapeutics 110:563-572'
   doi: https://doi.org/10.1002/cpt.2350
   verified: 2026-08-21
+
+# Machine learning and deep learning interview curriculum
+
+deisenroth2020mml:
+  authors: ['Marc Peter Deisenroth', 'A. Aldo Faisal', 'Cheng Soon Ong']
+  year: 2020
+  title: 'Mathematics for Machine Learning'
+  venue: 'Cambridge University Press'
+  url: https://mml-book.github.io/
+  verified: 2026-08-22
+
+murphy2022pml:
+  authors: ['Kevin P. Murphy']
+  year: 2022
+  title: 'Probabilistic Machine Learning: An Introduction'
+  venue: 'MIT Press'
+  url: https://probml.github.io/pml-book/book1.html
+  verified: 2026-08-22
+
+james2023isl:
+  authors:
+    ['Gareth James', 'Daniela Witten', 'Trevor Hastie', 'Robert Tibshirani', 'Jonathan Taylor']
+  year: 2023
+  title: 'An Introduction to Statistical Learning: with Applications in Python'
+  venue: 'Springer'
+  doi: https://doi.org/10.1007/978-3-031-38747-0
+  verified: 2026-08-22
+
+goodfellow2016deep:
+  authors: ['Ian Goodfellow', 'Yoshua Bengio', 'Aaron Courville']
+  year: 2016
+  title: 'Deep Learning'
+  venue: 'MIT Press'
+  url: https://www.deeplearningbook.org/
+  verified: 2026-08-22
+
+google2026mlcc:
+  authors: ['Google']
+  year: 2026
+  title: 'Machine Learning Crash Course'
+  venue: 'Google for Developers'
+  url: https://developers.google.com/machine-learning/crash-course/
+  verified: 2026-08-22
+
+huyen2022mlinterviews:
+  authors: ['Chip Huyen']
+  year: 2022
+  title: 'Machine Learning Interviews Book'
+  venue: 'Online book'
+  url: https://huyenchip.com/ml-interviews-book/
+  verified: 2026-08-22
+
+pearson1901pca:
+  authors: ['Karl Pearson']
+  year: 1901
+  title: 'On Lines and Planes of Closest Fit to Systems of Points in Space'
+  venue: 'The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science 2(11):559–572'
+  doi: https://doi.org/10.1080/14786440109462720
+  verified: 2026-08-22
+
+hotelling1933pca:
+  authors: ['Harold Hotelling']
+  year: 1933
+  title: 'Analysis of a Complex of Statistical Variables into Principal Components'
+  venue: 'Journal of Educational Psychology 24:417–441'
+  doi: https://doi.org/10.1037/h0071325
+  verified: 2026-08-22
+
+eckart1936lowrank:
+  authors: ['Carl Eckart', 'Gale Young']
+  year: 1936
+  title: 'The Approximation of One Matrix by Another of Lower Rank'
+  venue: 'Psychometrika 1:211–218'
+  doi: https://doi.org/10.1007/BF02288367
+  verified: 2026-08-22
+
+rumelhart1986backprop:
+  authors: ['David E. Rumelhart', 'Geoffrey E. Hinton', 'Ronald J. Williams']
+  year: 1986
+  title: 'Learning Representations by Back-propagating Errors'
+  venue: 'Nature 323:533–536'
+  doi: https://doi.org/10.1038/323533a0
+  verified: 2026-08-22
+
+boyd2004convex:
+  authors: ['Stephen Boyd', 'Lieven Vandenberghe']
+  year: 2004
+  title: 'Convex Optimization'
+  venue: 'Cambridge University Press'
+  url: https://web.stanford.edu/~boyd/cvxbook/
+  verified: 2026-08-22
+
+golub2013matrix:
+  authors: ['Gene H. Golub', 'Charles F. Van Loan']
+  year: 2013
+  title: 'Matrix Computations, Fourth Edition'
+  venue: 'Johns Hopkins University Press'
+  doi: https://doi.org/10.56021/9781421407944
+  verified: 2026-08-22
+
+bayes1763:
+  authors: ['Thomas Bayes', 'Richard Price']
+  year: 1763
+  title: 'An Essay towards Solving a Problem in the Doctrine of Chances'
+  venue: 'Philosophical Transactions 53:370–418'
+  doi: https://doi.org/10.1098/rstl.1763.0053
+  verified: 2026-08-22
+
+fisher1922likelihood:
+  authors: ['R. A. Fisher']
+  year: 1922
+  title: 'On the Mathematical Foundations of Theoretical Statistics'
+  venue: 'Philosophical Transactions of the Royal Society A 222:309–368'
+  doi: https://doi.org/10.1098/rsta.1922.0009
+  verified: 2026-08-22
+
+neymanpearson1933:
+  authors: ['Jerzy Neyman', 'Egon S. Pearson']
+  year: 1933
+  title: 'On the Problem of the Most Efficient Tests of Statistical Hypotheses'
+  venue: 'Philosophical Transactions of the Royal Society A 231:289–337'
+  doi: https://doi.org/10.1098/rsta.1933.0009
+  verified: 2026-08-22
+
+shannon1948information:
+  authors: ['Claude E. Shannon']
+  year: 1948
+  title: 'A Mathematical Theory of Communication'
+  venue: 'Bell System Technical Journal 27:379–423, 623–656'
+  doi: https://doi.org/10.1002/j.1538-7305.1948.tb01338.x
+  verified: 2026-08-22
+
+kullback1951information:
+  authors: ['Solomon Kullback', 'Richard A. Leibler']
+  year: 1951
+  title: 'On Information and Sufficiency'
+  venue: 'The Annals of Mathematical Statistics 22:79–86'
+  doi: https://doi.org/10.1214/aoms/1177729694
+  verified: 2026-08-22
+
+efron1979bootstrap:
+  authors: ['Bradley Efron']
+  year: 1979
+  title: 'Bootstrap Methods: Another Look at the Jackknife'
+  venue: 'The Annals of Statistics 7:1–26'
+  doi: https://doi.org/10.1214/aos/1176344552
+  verified: 2026-08-22
+
+gneiting2007scoring:
+  authors: ['Tilmann Gneiting', 'Adrian E. Raftery']
+  year: 2007
+  title: 'Strictly Proper Scoring Rules, Prediction, and Estimation'
+  venue: 'Journal of the American Statistical Association 102:359–378'
+  doi: https://doi.org/10.1198/016214506000001437
+  verified: 2026-08-22
+
+vapnik1971uniform:
+  authors: ['V. N. Vapnik', 'A. Ya. Chervonenkis']
+  year: 1971
+  title: 'On the Uniform Convergence of Relative Frequencies of Events to Their Probabilities'
+  venue: 'Theory of Probability & Its Applications 16:264–280'
+  doi: https://doi.org/10.1137/1116025
+  verified: 2026-08-22
+
+valiant1984learnable:
+  authors: ['Leslie G. Valiant']
+  year: 1984
+  title: 'A Theory of the Learnable'
+  venue: 'Communications of the ACM 27:1134–1142'
+  doi: https://doi.org/10.1145/1968.1972
+  verified: 2026-08-22
+
+wolpert1996nfl:
+  authors: ['David H. Wolpert']
+  year: 1996
+  title: 'The Lack of A Priori Distinctions Between Learning Algorithms'
+  venue: 'Neural Computation 8:1341–1390'
+  doi: https://doi.org/10.1162/neco.1996.8.7.1341
+  verified: 2026-08-22
+
+zhang2017rethinking:
+  authors: ['Chiyuan Zhang', 'Samy Bengio', 'Moritz Hardt', 'Benjamin Recht', 'Oriol Vinyals']
+  year: 2017
+  title: 'Understanding Deep Learning Requires Rethinking Generalization'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=Sy8gdB9xx
+  verified: 2026-08-22
+
+belkin2019double:
+  authors: ['Mikhail Belkin', 'Daniel Hsu', 'Siyuan Ma', 'Soumik Mandal']
+  year: 2019
+  title: 'Reconciling Modern Machine-learning Practice and the Classical Bias–variance Trade-off'
+  venue: 'Proceedings of the National Academy of Sciences 116:15849–15854'
+  doi: https://doi.org/10.1073/pnas.1903070116
+  verified: 2026-08-22
+
+bartlett2020benign:
+  authors: ['Peter L. Bartlett', 'Philip M. Long', 'Gábor Lugosi', 'Alexander Tsigler']
+  year: 2020
+  title: 'Benign Overfitting in Linear Regression'
+  venue: 'Proceedings of the National Academy of Sciences 117:30063–30070'
+  doi: https://doi.org/10.1073/pnas.1907378117
+  verified: 2026-08-22
+
+sugiyama2007covariate:
+  authors: ['Masashi Sugiyama', 'Matthias Krauledat', 'Klaus-Robert Müller']
+  year: 2007
+  title: 'Covariate Shift Adaptation by Importance Weighted Cross Validation'
+  venue: 'Journal of Machine Learning Research 8:985–1005'
+  url: https://www.jmlr.org/papers/v8/sugiyama07a.html
+  verified: 2026-08-22
+
+arjovsky2019irm:
+  authors: ['Martin Arjovsky', 'Léon Bottou', 'Ishaan Gulrajani', 'David Lopez-Paz']
+  year: 2019
+  title: 'Invariant Risk Minimization'
+  venue: 'arXiv'
+  url: https://arxiv.org/abs/1907.02893
+  verified: 2026-08-22
+
+rubin1976missing:
+  authors: ['Donald B. Rubin']
+  year: 1976
+  title: 'Inference and Missing Data'
+  venue: 'Biometrika 63:581–592'
+  doi: https://doi.org/10.1093/biomet/63.3.581
+  verified: 2026-08-22
+
+kohavi1995crossvalidation:
+  authors: ['Ron Kohavi']
+  year: 1995
+  title: 'A Study of Cross-Validation and Bootstrap for Accuracy Estimation and Model Selection'
+  venue: 'Proceedings of IJCAI 1995:1137–1145'
+  url: https://www.ijcai.org/Proceedings/95-2/Papers/016.pdf
+  verified: 2026-08-22
+
+kaufman2012leakage:
+  authors: ['Shachar Kaufman', 'Saharon Rosset', 'Claudia Perlich']
+  year: 2012
+  title: 'Leakage in Data Mining: Formulation, Detection, and Avoidance'
+  venue: 'ACM Transactions on Knowledge Discovery from Data 6'
+  doi: https://doi.org/10.1145/2382577.2382579
+  verified: 2026-08-22
+
+chawla2002smote:
+  authors: ['Nitesh V. Chawla', 'Kevin W. Bowyer', 'Lawrence O. Hall', 'W. Philip Kegelmeyer']
+  year: 2002
+  title: 'SMOTE: Synthetic Minority Over-sampling Technique'
+  venue: 'Journal of Artificial Intelligence Research 16:321–357'
+  doi: https://doi.org/10.1613/jair.953
+  verified: 2026-08-22
+
+varoquaux2018validation:
+  authors: ['Gaël Varoquaux']
+  year: 2018
+  title: 'Cross-validation Failure: Small Sample Sizes Lead to Large Error Bars'
+  venue: 'NeuroImage 180:68–77'
+  doi: https://doi.org/10.1016/j.neuroimage.2017.06.061
+  verified: 2026-08-22
+
+sculley2015debt:
+  authors: ['D. Sculley', 'Gary Holt', 'Daniel Golovin', 'et al.']
+  year: 2015
+  title: 'Hidden Technical Debt in Machine Learning Systems'
+  venue: 'Advances in Neural Information Processing Systems 28'
+  url: https://papers.nips.cc/paper_files/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html
+  verified: 2026-08-22
+
+gebru2021datasheets:
+  authors: ['Timnit Gebru', 'Jamie Morgenstern', 'Briana Vecchione', 'et al.']
+  year: 2021
+  title: 'Datasheets for Datasets'
+  venue: 'Communications of the ACM 64:86–92'
+  doi: https://doi.org/10.1145/3458723
+  verified: 2026-08-22
+
+nelder1972glm:
+  authors: ['John A. Nelder', 'Robert W. M. Wedderburn']
+  year: 1972
+  title: 'Generalized Linear Models'
+  venue: 'Journal of the Royal Statistical Society, Series A 135(3):370–384'
+  doi: https://doi.org/10.2307/2344614
+  verified: 2026-08-22
+
+hoerl1970ridge:
+  authors: ['Arthur E. Hoerl', 'Robert W. Kennard']
+  year: 1970
+  title: 'Ridge Regression: Biased Estimation for Nonorthogonal Problems'
+  venue: 'Technometrics 12(1):55–67'
+  doi: https://doi.org/10.1080/00401706.1970.10488634
+  verified: 2026-08-22
+
+tibshirani1996lasso:
+  authors: ['Robert Tibshirani']
+  year: 1996
+  title: 'Regression Shrinkage and Selection via the Lasso'
+  venue: 'Journal of the Royal Statistical Society, Series B 58(1):267–288'
+  doi: https://doi.org/10.1111/j.2517-6161.1996.tb02080.x
+  verified: 2026-08-22
+
+cox1958logistic:
+  authors: ['David R. Cox']
+  year: 1958
+  title: 'The Regression Analysis of Binary Sequences'
+  venue: 'Journal of the Royal Statistical Society, Series B 20(2):215–242'
+  doi: https://doi.org/10.1111/j.2517-6161.1958.tb00292.x
+  verified: 2026-08-22
+
+ngjordan2002:
+  authors: ['Andrew Y. Ng', 'Michael I. Jordan']
+  year: 2002
+  title: 'On Discriminative vs. Generative Classifiers: A Comparison of Logistic Regression and Naive Bayes'
+  venue: 'Advances in Neural Information Processing Systems 14:841–848'
+  url: https://papers.nips.cc/paper/2001/hash/7b7a53e239400a13bd6be6c91c4f6c4e-Abstract.html
+  verified: 2026-08-22
+
+coverhart1967:
+  authors: ['Thomas M. Cover', 'Peter E. Hart']
+  year: 1967
+  title: 'Nearest Neighbor Pattern Classification'
+  venue: 'IEEE Transactions on Information Theory 13(1):21–27'
+  doi: https://doi.org/10.1109/TIT.1967.1053964
+  verified: 2026-08-22
+
+boser1992svm:
+  authors: ['Bernhard E. Boser', 'Isabelle M. Guyon', 'Vladimir N. Vapnik']
+  year: 1992
+  title: 'A Training Algorithm for Optimal Margin Classifiers'
+  venue: 'Proceedings of the Fifth Annual Workshop on Computational Learning Theory:144–152'
+  doi: https://doi.org/10.1145/130385.130401
+  verified: 2026-08-22
+
+cortes1995svm:
+  authors: ['Corinna Cortes', 'Vladimir Vapnik']
+  year: 1995
+  title: 'Support-Vector Networks'
+  venue: 'Machine Learning 20:273–297'
+  doi: https://doi.org/10.1007/BF00994018
+  verified: 2026-08-22
+
+quinlan1986trees:
+  authors: ['J. Ross Quinlan']
+  year: 1986
+  title: 'Induction of Decision Trees'
+  venue: 'Machine Learning 1:81–106'
+  doi: https://doi.org/10.1007/BF00116251
+  verified: 2026-08-22
+
+breiman1996bagging:
+  authors: ['Leo Breiman']
+  year: 1996
+  title: 'Bagging Predictors'
+  venue: 'Machine Learning 24:123–140'
+  doi: https://doi.org/10.1007/BF00058655
+  verified: 2026-08-22
+
+breiman2001randomforests:
+  authors: ['Leo Breiman']
+  year: 2001
+  title: 'Random Forests'
+  venue: 'Machine Learning 45:5–32'
+  doi: https://doi.org/10.1023/A:1010933404324
+  verified: 2026-08-22
+
+freundschapire1997adaboost:
+  authors: ['Yoav Freund', 'Robert E. Schapire']
+  year: 1997
+  title: 'A Decision-Theoretic Generalization of On-Line Learning and an Application to Boosting'
+  venue: 'Journal of Computer and System Sciences 55(1):119–139'
+  doi: https://doi.org/10.1006/jcss.1997.1504
+  verified: 2026-08-22
+
+friedman2001gbm:
+  authors: ['Jerome H. Friedman']
+  year: 2001
+  title: 'Greedy Function Approximation: A Gradient Boosting Machine'
+  venue: 'The Annals of Statistics 29(5):1189–1232'
+  doi: https://doi.org/10.1214/aos/1013203451
+  verified: 2026-08-22
+
+chenguestrin2016xgboost:
+  authors: ['Tianqi Chen', 'Carlos Guestrin']
+  year: 2016
+  title: 'XGBoost: A Scalable Tree Boosting System'
+  venue: 'Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining:785–794'
+  doi: https://doi.org/10.1145/2939672.2939785
+  verified: 2026-08-22
+
+strobl2007importance:
+  authors: ['Carolin Strobl', 'Anne-Laure Boulesteix', 'Achim Zeileis', 'Torsten Hothorn']
+  year: 2007
+  title: 'Bias in Random Forest Variable Importance Measures: Illustrations, Sources and a Solution'
+  venue: 'BMC Bioinformatics 8:25'
+  doi: https://doi.org/10.1186/1471-2105-8-25
+  pmid: '17254353'
+  verified: 2026-08-22
+
+lloyd1982kmeans:
+  authors: ['Stuart P. Lloyd']
+  year: 1982
+  title: 'Least Squares Quantization in PCM'
+  venue: 'IEEE Transactions on Information Theory 28(2):129–137'
+  doi: https://doi.org/10.1109/TIT.1982.1056489
+  verified: 2026-08-22
+
+arthur2007kmeanspp:
+  authors: ['David Arthur', 'Sergei Vassilvitskii']
+  year: 2007
+  title: 'k-means++: The Advantages of Careful Seeding'
+  venue: 'Proceedings of the Eighteenth Annual ACM-SIAM Symposium on Discrete Algorithms:1027–1035'
+  url: https://research.google/pubs/k-means-the-advantages-of-careful-seeding/
+  verified: 2026-08-22
+
+dempster1977em:
+  authors: ['Arthur P. Dempster', 'Nan M. Laird', 'Donald B. Rubin']
+  year: 1977
+  title: 'Maximum Likelihood from Incomplete Data via the EM Algorithm'
+  venue: 'Journal of the Royal Statistical Society, Series B 39(1):1–38'
+  doi: https://doi.org/10.1111/j.2517-6161.1977.tb01600.x
+  verified: 2026-08-22
+
+lee1999nmf:
+  authors: ['Daniel D. Lee', 'H. Sebastian Seung']
+  year: 1999
+  title: 'Learning the Parts of Objects by Non-negative Matrix Factorization'
+  venue: 'Nature 401:788–791'
+  doi: https://doi.org/10.1038/44565
+  pmid: '10548103'
+  verified: 2026-08-22
+
+hyvarinen2000ica:
+  authors: ['Aapo Hyvärinen', 'Erkki Oja']
+  year: 2000
+  title: 'Independent Component Analysis: Algorithms and Applications'
+  venue: 'Neural Networks 13(4–5):411–430'
+  doi: https://doi.org/10.1016/S0893-6080(00)00026-5
+  pmid: '10946390'
+  verified: 2026-08-22
+
+vandermaaten2008tsne:
+  authors: ['Laurens van der Maaten', 'Geoffrey Hinton']
+  year: 2008
+  title: 'Visualizing Data Using t-SNE'
+  venue: 'Journal of Machine Learning Research 9:2579–2605'
+  url: https://www.jmlr.org/papers/v9/vandermaaten08a.html
+  verified: 2026-08-22
+
+mcinnes2018umap:
+  authors: ['Leland McInnes', 'John Healy', 'Nathaniel Saul', 'Lukas Großberger']
+  year: 2018
+  title: 'UMAP: Uniform Manifold Approximation and Projection'
+  venue: 'Journal of Open Source Software 3(29):861'
+  doi: https://doi.org/10.21105/joss.00861
+  verified: 2026-08-22
+
+hinton2006autoencoder:
+  authors: ['Geoffrey E. Hinton', 'Ruslan R. Salakhutdinov']
+  year: 2006
+  title: 'Reducing the Dimensionality of Data with Neural Networks'
+  venue: 'Science 313(5786):504–507'
+  doi: https://doi.org/10.1126/science.1127647
+  pmid: '16873662'
+  verified: 2026-08-22
+
+scholkopf2001oneclass:
+  authors:
+    [
+      'Bernhard Schölkopf',
+      'John C. Platt',
+      'John Shawe-Taylor',
+      'Alex J. Smola',
+      'Robert C. Williamson',
+    ]
+  year: 2001
+  title: 'Estimating the Support of a High-Dimensional Distribution'
+  venue: 'Neural Computation 13(7):1443–1471'
+  doi: https://doi.org/10.1162/089976601750264965
+  verified: 2026-08-22
+
+brier1950:
+  authors: ['Glenn W. Brier']
+  year: 1950
+  title: 'Verification of Forecasts Expressed in Terms of Probability'
+  venue: 'Monthly Weather Review 78:1–3'
+  doi: 'https://doi.org/10.1175/1520-0493(1950)078<0001:VOFEIT>2.0.CO;2'
+  verified: 2026-08-22
+
+benjamini1995fdr:
+  authors: ['Yoav Benjamini', 'Yosef Hochberg']
+  year: 1995
+  title: 'Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing'
+  venue: 'Journal of the Royal Statistical Society, Series B 57:289–300'
+  doi: https://doi.org/10.1111/j.2517-6161.1995.tb02031.x
+  verified: 2026-08-22
+
+davis2006prroc:
+  authors: ['Jesse Davis', 'Mark Goadrich']
+  year: 2006
+  title: 'The Relationship Between Precision-Recall and ROC Curves'
+  venue: 'Proceedings of the 23rd International Conference on Machine Learning:233–240'
+  doi: https://doi.org/10.1145/1143844.1143874
+  verified: 2026-08-22
+
+jarvelin2002ndcg:
+  authors: ['Kalervo Järvelin', 'Jaana Kekäläinen']
+  year: 2002
+  title: 'Cumulated Gain-Based Evaluation of IR Techniques'
+  venue: 'ACM Transactions on Information Systems 20:422–446'
+  doi: https://doi.org/10.1145/582415.582418
+  verified: 2026-08-22
+
+kohavi2009experiments:
+  authors: ['Ron Kohavi', 'Roger Longbotham', 'Dan Sommerfield', 'Randal M. Henne']
+  year: 2009
+  title: 'Controlled Experiments on the Web: Survey and Practical Guide'
+  venue: 'Data Mining and Knowledge Discovery 18:140–181'
+  doi: https://doi.org/10.1007/s10618-008-0114-1
+  verified: 2026-08-22
+
+guo2017calibration:
+  authors: ['Chuan Guo', 'Geoff Pleiss', 'Yu Sun', 'Kilian Q. Weinberger']
+  year: 2017
+  title: 'On Calibration of Modern Neural Networks'
+  venue: 'Proceedings of the 34th International Conference on Machine Learning, PMLR 70:1321–1330'
+  url: https://proceedings.mlr.press/v70/guo17a.html
+  verified: 2026-08-22
+
+robbins1951stochastic:
+  authors: ['Herbert Robbins', 'Sutton Monro']
+  year: 1951
+  title: 'A Stochastic Approximation Method'
+  venue: 'The Annals of Mathematical Statistics 22:400–407'
+  doi: https://doi.org/10.1214/aoms/1177729586
+  verified: 2026-08-22
+
+sutskever2013initialization:
+  authors: ['Ilya Sutskever', 'James Martens', 'George Dahl', 'Geoffrey Hinton']
+  year: 2013
+  title: 'On the Importance of Initialization and Momentum in Deep Learning'
+  venue: 'Proceedings of the 30th International Conference on Machine Learning, PMLR 28:1139–1147'
+  url: https://proceedings.mlr.press/v28/sutskever13.html
+  verified: 2026-08-22
+
+glorot2010difficulty:
+  authors: ['Xavier Glorot', 'Yoshua Bengio']
+  year: 2010
+  title: 'Understanding the Difficulty of Training Deep Feedforward Neural Networks'
+  venue: 'Proceedings of the Thirteenth International Conference on Artificial Intelligence and Statistics, PMLR 9:249–256'
+  url: https://proceedings.mlr.press/v9/glorot10a.html
+  verified: 2026-08-22
+
+he2015delving:
+  authors: ['Kaiming He', 'Xiangyu Zhang', 'Shaoqing Ren', 'Jian Sun']
+  year: 2015
+  title: 'Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification'
+  venue: 'Proceedings of the IEEE International Conference on Computer Vision:1026–1034'
+  url: https://openaccess.thecvf.com/content_iccv_2015/html/He_Delving_Deep_into_ICCV_2015_paper.html
+  verified: 2026-08-22
+
+pascanu2013difficulty:
+  authors: ['Razvan Pascanu', 'Tomas Mikolov', 'Yoshua Bengio']
+  year: 2013
+  title: 'On the Difficulty of Training Recurrent Neural Networks'
+  venue: 'Proceedings of the 30th International Conference on Machine Learning, PMLR 28:1310–1318'
+  url: https://proceedings.mlr.press/v28/pascanu13.html
+  verified: 2026-08-22
+
+kingma2015adam:
+  authors: ['Diederik P. Kingma', 'Jimmy Ba']
+  year: 2015
+  title: 'Adam: A Method for Stochastic Optimization'
+  venue: 'International Conference on Learning Representations'
+  url: https://arxiv.org/abs/1412.6980
+  verified: 2026-08-22
+
+goyal2017accurate:
+  authors:
+    [
+      'Priya Goyal',
+      'Piotr Dollár',
+      'Ross Girshick',
+      'Pieter Noordhuis',
+      'Lukasz Wesolowski',
+      'Aapo Kyrola',
+      'Andrew Tulloch',
+      'Yangqing Jia',
+      'Kaiming He',
+    ]
+  year: 2017
+  title: 'Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour'
+  venue: 'arXiv:1706.02677'
+  url: https://arxiv.org/abs/1706.02677
+  verified: 2026-08-22
+
+keskar2017largebatch:
+  authors:
+    [
+      'Nitish Shirish Keskar',
+      'Dheevatsa Mudigere',
+      'Jorge Nocedal',
+      'Mikhail Smelyanskiy',
+      'Ping Tak Peter Tang',
+    ]
+  year: 2017
+  title: 'On Large-Batch Training for Deep Learning: Generalization Gap and Sharp Minima'
+  venue: 'International Conference on Learning Representations'
+  url: https://arxiv.org/abs/1609.04836
+  verified: 2026-08-22
+
+micikevicius2018mixedprecision:
+  authors:
+    [
+      'Paulius Micikevicius',
+      'Sharan Narang',
+      'Jonah Alben',
+      'Gregory Diamos',
+      'Erich Elsen',
+      'David Garcia',
+      'Boris Ginsburg',
+      'Michael Houston',
+      'Oleksii Kuchaiev',
+      'Ganesh Venkatesh',
+      'Hao Wu',
+    ]
+  year: 2018
+  title: 'Mixed Precision Training'
+  venue: 'International Conference on Learning Representations'
+  url: https://arxiv.org/abs/1710.03740
+  verified: 2026-08-22
+
+loshchilov2019adamw:
+  authors: ['Ilya Loshchilov', 'Frank Hutter']
+  year: 2019
+  title: 'Decoupled Weight Decay Regularization'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=Bkg6RiCqY7
+  verified: 2026-08-22
+
+cybenko1989approximation:
+  authors: ['George Cybenko']
+  year: 1989
+  title: 'Approximation by Superpositions of a Sigmoidal Function'
+  venue: 'Mathematics of Control, Signals, and Systems 2:303–314'
+  doi: https://doi.org/10.1007/BF02551274
+  verified: 2026-08-22
+
+lecun1989backprop:
+  authors:
+    [
+      'Yann LeCun',
+      'Bernhard Boser',
+      'John S. Denker',
+      'Donnie Henderson',
+      'Richard E. Howard',
+      'Wayne Hubbard',
+      'Lawrence D. Jackel',
+    ]
+  year: 1989
+  title: 'Backpropagation Applied to Handwritten Zip Code Recognition'
+  venue: 'Neural Computation 1:541–551'
+  doi: https://doi.org/10.1162/neco.1989.1.4.541
+  verified: 2026-08-22
+
+bengio2003language:
+  authors: ['Yoshua Bengio', 'Réjean Ducharme', 'Pascal Vincent', 'Christian Jauvin']
+  year: 2003
+  title: 'A Neural Probabilistic Language Model'
+  venue: 'Journal of Machine Learning Research 3:1137–1155'
+  url: https://jmlr.org/papers/v3/bengio03a.html
+  verified: 2026-08-22
+
+nair2010relu:
+  authors: ['Vinod Nair', 'Geoffrey E. Hinton']
+  year: 2010
+  title: 'Rectified Linear Units Improve Restricted Boltzmann Machines'
+  venue: 'Proceedings of the 27th International Conference on Machine Learning:807–814'
+  url: https://www.cs.toronto.edu/~hinton/absps/reluICML.pdf
+  verified: 2026-08-22
+
+srivastava2014dropout:
+  authors:
+    [
+      'Nitish Srivastava',
+      'Geoffrey Hinton',
+      'Alex Krizhevsky',
+      'Ilya Sutskever',
+      'Ruslan Salakhutdinov',
+    ]
+  year: 2014
+  title: 'Dropout: A Simple Way to Prevent Neural Networks from Overfitting'
+  venue: 'Journal of Machine Learning Research 15:1929–1958'
+  url: https://jmlr.org/papers/v15/srivastava14a.html
+  verified: 2026-08-22
+
+ioffe2015batchnorm:
+  authors: ['Sergey Ioffe', 'Christian Szegedy']
+  year: 2015
+  title: 'Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift'
+  venue: 'Proceedings of the 32nd International Conference on Machine Learning, PMLR 37:448–456'
+  url: https://proceedings.mlr.press/v37/ioffe15.html
+  verified: 2026-08-22
+
+ba2016layernorm:
+  authors: ['Jimmy Lei Ba', 'Jamie Ryan Kiros', 'Geoffrey E. Hinton']
+  year: 2016
+  title: 'Layer Normalization'
+  venue: 'arXiv:1607.06450'
+  url: https://arxiv.org/abs/1607.06450
+  verified: 2026-08-22
+
+he2016resnet:
+  authors: ['Kaiming He', 'Xiangyu Zhang', 'Shaoqing Ren', 'Jian Sun']
+  year: 2016
+  title: 'Deep Residual Learning for Image Recognition'
+  venue: 'Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition:770–778'
+  doi: https://doi.org/10.1109/CVPR.2016.90
+  verified: 2026-08-22
+
+gelman2020bayesianworkflow:
+  authors:
+    [
+      'Andrew Gelman',
+      'Aki Vehtari',
+      'Daniel Simpson',
+      'Charles C. Margossian',
+      'Bob Carpenter',
+      'Yuling Yao',
+      'Lauren Kennedy',
+      'Jonah Gabry',
+      'Paul-Christian Bürkner',
+      'Martin Modrák',
+    ]
+  year: 2020
+  title: 'Bayesian Workflow'
+  venue: 'arXiv:2011.01808'
+  url: https://arxiv.org/abs/2011.01808
+  verified: 2026-08-22
+
+sennrich2016bpe:
+  authors: ['Rico Sennrich', 'Barry Haddow', 'Alexandra Birch']
+  year: 2016
+  title: 'Neural Machine Translation of Rare Words with Subword Units'
+  venue: 'Proceedings of the 54th Annual Meeting of the Association for Computational Linguistics:1715–1725'
+  doi: https://doi.org/10.18653/v1/P16-1162
+  verified: 2026-08-22
+
+kaplan2020scaling:
+  authors:
+    [
+      'Jared Kaplan',
+      'Sam McCandlish',
+      'Tom Henighan',
+      'Tom B. Brown',
+      'Benjamin Chess',
+      'Rewon Child',
+      'Scott Gray',
+      'Alec Radford',
+      'Jeffrey Wu',
+      'Dario Amodei',
+    ]
+  year: 2020
+  title: 'Scaling Laws for Neural Language Models'
+  venue: 'arXiv:2001.08361'
+  url: https://arxiv.org/abs/2001.08361
+  verified: 2026-08-22
+
+hoffmann2022chinchilla:
+  authors: ['Jordan Hoffmann', 'Sebastian Borgeaud', 'Arthur Mensch', 'et al.']
+  year: 2022
+  title: 'Training Compute-Optimal Large Language Models'
+  venue: 'Advances in Neural Information Processing Systems 35'
+  url: https://arxiv.org/abs/2203.15556
+  verified: 2026-08-22
+
+fedus2022switch:
+  authors: ['William Fedus', 'Barret Zoph', 'Noam Shazeer']
+  year: 2022
+  title: 'Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity'
+  venue: 'Journal of Machine Learning Research 23(120):1–39'
+  url: https://jmlr.org/papers/v23/21-0998.html
+  verified: 2026-08-22
+
+holtzman2020nucleus:
+  authors: ['Ari Holtzman', 'Jan Buys', 'Li Du', 'Maxwell Forbes', 'Yejin Choi']
+  year: 2020
+  title: 'The Curious Case of Neural Text Degeneration'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=rygGQyrFvH
+  verified: 2026-08-22
+
+dao2022flashattention:
+  authors: ['Tri Dao', 'Daniel Y. Fu', 'Stefano Ermon', 'Atri Rudra', 'Christopher Ré']
+  year: 2022
+  title: 'FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness'
+  venue: 'Advances in Neural Information Processing Systems 35'
+  url: https://arxiv.org/abs/2205.14135
+  verified: 2026-08-22
+
+dettmers2022llmint8:
+  authors: ['Tim Dettmers', 'Mike Lewis', 'Younes Belkada', 'Luke Zettlemoyer']
+  year: 2022
+  title: 'LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale'
+  venue: 'Advances in Neural Information Processing Systems 35'
+  doi: https://doi.org/10.52202/068431-2198
+  verified: 2026-08-22
+
+hu2022lora:
+  authors:
+    [
+      'Edward J. Hu',
+      'Yelong Shen',
+      'Phillip Wallis',
+      'Zeyuan Allen-Zhu',
+      'Yuanzhi Li',
+      'Shean Wang',
+      'Lu Wang',
+      'Weizhu Chen',
+    ]
+  year: 2022
+  title: 'LoRA: Low-Rank Adaptation of Large Language Models'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=nZeVKeeFYf9
+  verified: 2026-08-22
+
+ouyang2022instructgpt:
+  authors: ['Long Ouyang', 'Jeffrey Wu', 'Xu Jiang', 'et al.']
+  year: 2022
+  title: 'Training Language Models to Follow Instructions with Human Feedback'
+  venue: 'Advances in Neural Information Processing Systems 35'
+  url: https://proceedings.neurips.cc/paper_files/paper/2022/hash/b1efde53be364a73914f58805a001731-Abstract.html
+  verified: 2026-08-22
+
+rafailov2023dpo:
+  authors:
+    [
+      'Rafael Rafailov',
+      'Archit Sharma',
+      'Eric Mitchell',
+      'Christopher D. Manning',
+      'Stefano Ermon',
+      'Chelsea Finn',
+    ]
+  year: 2023
+  title: 'Direct Preference Optimization: Your Language Model Is Secretly a Reward Model'
+  venue: 'Advances in Neural Information Processing Systems 36'
+  doi: https://doi.org/10.52202/075280-2338
+  verified: 2026-08-22
+
+lewis2020rag:
+  authors: ['Patrick Lewis', 'Ethan Perez', 'Aleksandra Piktus', 'et al.']
+  year: 2020
+  title: 'Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks'
+  venue: 'Advances in Neural Information Processing Systems 33'
+  url: https://proceedings.neurips.cc/paper/2020/hash/6b493230-Abstract.html
+  verified: 2026-08-22
+
+karpukhin2020dpr:
+  authors:
+    [
+      'Vladimir Karpukhin',
+      'Barlas Oğuz',
+      'Sewon Min',
+      'Patrick Lewis',
+      'Ledell Wu',
+      'Sergey Edunov',
+      'Danqi Chen',
+      'Wen-tau Yih',
+    ]
+  year: 2020
+  title: 'Dense Passage Retrieval for Open-Domain Question Answering'
+  venue: 'Proceedings of EMNLP 2020:6769–6781'
+  doi: https://doi.org/10.18653/v1/2020.emnlp-main.550
+  verified: 2026-08-22
+
+liang2023helm:
+  authors: ['Percy Liang', 'Rishi Bommasani', 'Tony Lee', 'et al.']
+  year: 2023
+  title: 'Holistic Evaluation of Language Models'
+  venue: 'Transactions on Machine Learning Research'
+  url: https://openreview.net/forum?id=iO4LZibEqW
+  verified: 2026-08-22
+
+yao2023react:
+  authors:
+    [
+      'Shunyu Yao',
+      'Jeffrey Zhao',
+      'Dian Yu',
+      'Nan Du',
+      'Izhak Shafran',
+      'Karthik Narasimhan',
+      'Yuan Cao',
+    ]
+  year: 2023
+  title: 'ReAct: Synergizing Reasoning and Acting in Language Models'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=WE_vluYUL-X
+  verified: 2026-08-22
+
+greshake2023promptinjection:
+  authors:
+    [
+      'Kai Greshake',
+      'Sahar Abdelnabi',
+      'Shailesh Mishra',
+      'Christoph Endres',
+      'Thorsten Holz',
+      'Mario Fritz',
+    ]
+  year: 2023
+  title: "Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection"
+  venue: 'Proceedings of the 16th ACM Workshop on Artificial Intelligence and Security'
+  doi: https://doi.org/10.1145/3605764.3623985
+  verified: 2026-08-22
+
+nist2024genai:
+  authors: ['National Institute of Standards and Technology']
+  year: 2024
+  title: 'Artificial Intelligence Risk Management Framework: Generative Artificial Intelligence Profile'
+  venue: 'NIST AI 600-1'
+  doi: https://doi.org/10.6028/NIST.AI.600-1
+  verified: 2026-08-22
+
+hu2008implicit:
+  authors: ['Yifan Hu', 'Yehuda Koren', 'Chris Volinsky']
+  year: 2008
+  title: 'Collaborative Filtering for Implicit Feedback Datasets'
+  venue: 'Proceedings of the 8th IEEE International Conference on Data Mining:263–272'
+  doi: https://doi.org/10.1109/ICDM.2008.22
+  verified: 2026-08-22
+
+koren2009matrixfactorization:
+  authors: ['Yehuda Koren', 'Robert Bell', 'Chris Volinsky']
+  year: 2009
+  title: 'Matrix Factorization Techniques for Recommender Systems'
+  venue: 'Computer 42(8):30–37'
+  doi: https://doi.org/10.1109/MC.2009.263
+  verified: 2026-08-22
+
+rendle2009bpr:
+  authors: ['Steffen Rendle', 'Christoph Freudenthaler', 'Zeno Gantner', 'Lars Schmidt-Thieme']
+  year: 2009
+  title: 'BPR: Bayesian Personalized Ranking from Implicit Feedback'
+  venue: 'Proceedings of the 25th Conference on Uncertainty in Artificial Intelligence:452–461'
+  url: https://dl.acm.org/doi/10.5555/1795114.1795167
+  verified: 2026-08-22
+
+covington2016youtube:
+  authors: ['Paul Covington', 'Jay Adams', 'Emre Sargin']
+  year: 2016
+  title: 'Deep Neural Networks for YouTube Recommendations'
+  venue: 'Proceedings of the 10th ACM Conference on Recommender Systems:191–198'
+  doi: https://doi.org/10.1145/2959100.2959190
+  verified: 2026-08-22
+
+malkov2020hnsw:
+  authors: ['Yu. A. Malkov', 'D. A. Yashunin']
+  year: 2020
+  title: 'Efficient and Robust Approximate Nearest Neighbor Search Using Hierarchical Navigable Small World Graphs'
+  venue: 'IEEE Transactions on Pattern Analysis and Machine Intelligence 42(4):824–836'
+  doi: https://doi.org/10.1109/TPAMI.2018.2889473
+  verified: 2026-08-22
+
+joachims2017unbiasedltr:
+  authors: ['Thorsten Joachims', 'Adith Swaminathan', 'Tobias Schnabel']
+  year: 2017
+  title: 'Unbiased Learning-to-Rank with Biased Feedback'
+  venue: 'Proceedings of the 10th ACM International Conference on Web Search and Data Mining:781–789'
+  doi: https://doi.org/10.1145/3018661.3018699
+  verified: 2026-08-22
+
+li2010contextualbandit:
+  authors: ['Lihong Li', 'Wei Chu', 'John Langford', 'Robert E. Schapire']
+  year: 2010
+  title: 'A Contextual-Bandit Approach to Personalized News Article Recommendation'
+  venue: 'Proceedings of the 19th International Conference on World Wide Web:661–670'
+  doi: https://doi.org/10.1145/1772690.1772758
+  verified: 2026-08-22
+
+bellman1957dynamic:
+  authors: ['Richard Bellman']
+  year: 1957
+  title: 'Dynamic Programming'
+  venue: 'Princeton University Press'
+  url: https://press.princeton.edu/books/paperback/9780691146683/dynamic-programming
+  verified: 2026-08-22
+
+suttonbarto2018rl:
+  authors: ['Richard S. Sutton', 'Andrew G. Barto']
+  year: 2018
+  title: 'Reinforcement Learning: An Introduction, Second Edition'
+  venue: 'MIT Press'
+  url: https://mitpress.mit.edu/9780262039246/reinforcement-learning/
+  verified: 2026-08-22
+
+watkins1992qlearning:
+  authors: ['Christopher J. C. H. Watkins', 'Peter Dayan']
+  year: 1992
+  title: 'Q-learning'
+  venue: 'Machine Learning 8:279–292'
+  doi: https://doi.org/10.1007/BF00992698
+  verified: 2026-08-22
+
+mnih2015dqn:
+  authors: ['Volodymyr Mnih', 'Koray Kavukcuoglu', 'David Silver', 'et al.']
+  year: 2015
+  title: 'Human-Level Control through Deep Reinforcement Learning'
+  venue: 'Nature 518:529–533'
+  doi: https://doi.org/10.1038/nature14236
+  verified: 2026-08-22
+
+williams1992reinforce:
+  authors: ['Ronald J. Williams']
+  year: 1992
+  title: 'Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning'
+  venue: 'Machine Learning 8:229–256'
+  doi: https://doi.org/10.1007/BF00992696
+  verified: 2026-08-22
+
+schulman2017ppo:
+  authors: ['John Schulman', 'Filip Wolski', 'Prafulla Dhariwal', 'Alec Radford', 'Oleg Klimov']
+  year: 2017
+  title: 'Proximal Policy Optimization Algorithms'
+  venue: 'arXiv:1707.06347'
+  url: https://arxiv.org/abs/1707.06347
+  verified: 2026-08-22
+
+auer2002ucb:
+  authors: ['Peter Auer', 'Nicolò Cesa-Bianchi', 'Paul Fischer']
+  year: 2002
+  title: 'Finite-Time Analysis of the Multiarmed Bandit Problem'
+  venue: 'Machine Learning 47:235–256'
+  doi: https://doi.org/10.1023/A:1013689704352
+  verified: 2026-08-22
+
+thompson1933:
+  authors: ['William R. Thompson']
+  year: 1933
+  title: 'On the Likelihood that One Unknown Probability Exceeds Another in View of the Evidence of Two Samples'
+  venue: 'Biometrika 25(3/4):285–294'
+  doi: https://doi.org/10.1093/biomet/25.3-4.285
+  verified: 2026-08-22
+
+dudik2011doublyrobust:
+  authors: ['Miroslav Dudík', 'John Langford', 'Lihong Li']
+  year: 2011
+  title: 'Doubly Robust Policy Evaluation and Learning'
+  venue: 'Proceedings of the 28th International Conference on Machine Learning:1097–1104'
+  url: https://icml.cc/2011/papers/554_icmlpaper.pdf
+  verified: 2026-08-22
+
+lecun1998gradient:
+  authors: ['Yann LeCun', 'Léon Bottou', 'Yoshua Bengio', 'Patrick Haffner']
+  year: 1998
+  title: 'Gradient-Based Learning Applied to Document Recognition'
+  venue: 'Proceedings of the IEEE 86:2278–2324'
+  doi: https://doi.org/10.1109/5.726791
+  verified: 2026-08-22
+
+long2015fcn:
+  authors: ['Jonathan Long', 'Evan Shelhamer', 'Trevor Darrell']
+  year: 2015
+  title: 'Fully Convolutional Networks for Semantic Segmentation'
+  venue: 'Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition:3431–3440'
+  url: https://openaccess.thecvf.com/content_cvpr_2015/html/Long_Fully_Convolutional_Networks_2015_CVPR_paper.html
+  verified: 2026-08-22
+
+ren2015fasterrcnn:
+  authors: ['Shaoqing Ren', 'Kaiming He', 'Ross Girshick', 'Jian Sun']
+  year: 2015
+  title: 'Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks'
+  venue: 'Advances in Neural Information Processing Systems 28'
+  url: https://proceedings.neurips.cc/paper_files/paper/2015/hash/14bfa6bb14875e45bba028a21ed38046-Abstract.html
+  verified: 2026-08-22
+
+dosovitskiy2021vit:
+  authors:
+    [
+      'Alexey Dosovitskiy',
+      'Lucas Beyer',
+      'Alexander Kolesnikov',
+      'Dirk Weissenborn',
+      'Xiaohua Zhai',
+      'Thomas Unterthiner',
+      'Mostafa Dehghani',
+      'Matthias Minderer',
+      'Georg Heigold',
+      'Sylvain Gelly',
+      'Jakob Uszkoreit',
+      'Neil Houlsby',
+    ]
+  year: 2021
+  title: 'An Image Is Worth 16x16 Words: Transformers for Image Recognition at Scale'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=YicbFdNTTy
+  verified: 2026-08-22
+
+chen2020simclr:
+  authors: ['Ting Chen', 'Simon Kornblith', 'Mohammad Norouzi', 'Geoffrey Hinton']
+  year: 2020
+  title: 'A Simple Framework for Contrastive Learning of Visual Representations'
+  venue: 'Proceedings of the 37th International Conference on Machine Learning, PMLR 119:1597–1607'
+  url: https://proceedings.mlr.press/v119/chen20j.html
+  verified: 2026-08-22
+
+selvaraju2017gradcam:
+  authors:
+    [
+      'Ramprasaath R. Selvaraju',
+      'Michael Cogswell',
+      'Abhishek Das',
+      'Ramakrishna Vedantam',
+      'Devi Parikh',
+      'Dhruv Batra',
+    ]
+  year: 2017
+  title: 'Grad-CAM: Visual Explanations from Deep Networks via Gradient-Based Localization'
+  venue: 'Proceedings of the IEEE International Conference on Computer Vision:618–626'
+  url: https://openaccess.thecvf.com/content_iccv_2017/html/Selvaraju_Grad-CAM_Visual_Explanations_ICCV_2017_paper.html
+  verified: 2026-08-22
+
+hochreiter1997lstm:
+  authors: ['Sepp Hochreiter', 'Jürgen Schmidhuber']
+  year: 1997
+  title: 'Long Short-Term Memory'
+  venue: 'Neural Computation 9:1735–1780'
+  doi: https://doi.org/10.1162/neco.1997.9.8.1735
+  verified: 2026-08-22
+
+gers2000forget:
+  authors: ['Felix A. Gers', 'Jürgen Schmidhuber', 'Fred Cummins']
+  year: 2000
+  title: 'Learning to Forget: Continual Prediction with LSTM'
+  venue: 'Neural Computation 12:2451–2471'
+  doi: https://doi.org/10.1162/089976600300015015
+  verified: 2026-08-22
+
+sutskever2014seq2seq:
+  authors: ['Ilya Sutskever', 'Oriol Vinyals', 'Quoc V. Le']
+  year: 2014
+  title: 'Sequence to Sequence Learning with Neural Networks'
+  venue: 'Advances in Neural Information Processing Systems 27'
+  url: https://proceedings.neurips.cc/paper_files/paper/2014/hash/5a18e133cbf9f257297f410bb7eca942-Abstract.html
+  verified: 2026-08-22
+
+bahdanau2015attention:
+  authors: ['Dzmitry Bahdanau', 'Kyunghyun Cho', 'Yoshua Bengio']
+  year: 2015
+  title: 'Neural Machine Translation by Jointly Learning to Align and Translate'
+  venue: 'International Conference on Learning Representations'
+  url: https://arxiv.org/abs/1409.0473
+  verified: 2026-08-22
+
+bengio2015scheduledsampling:
+  authors: ['Samy Bengio', 'Oriol Vinyals', 'Navdeep Jaitly', 'Noam Shazeer']
+  year: 2015
+  title: 'Scheduled Sampling for Sequence Prediction with Recurrent Neural Networks'
+  venue: 'Advances in Neural Information Processing Systems 28'
+  url: https://arxiv.org/abs/1506.03099
+  verified: 2026-08-22
+
+vaswani2017transformer:
+  authors:
+    [
+      'Ashish Vaswani',
+      'Noam Shazeer',
+      'Niki Parmar',
+      'Jakob Uszkoreit',
+      'Llion Jones',
+      'Aidan N. Gomez',
+      'Łukasz Kaiser',
+      'Illia Polosukhin',
+    ]
+  year: 2017
+  title: 'Attention Is All You Need'
+  venue: 'Advances in Neural Information Processing Systems 30'
+  url: https://proceedings.neurips.cc/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html
+  verified: 2026-08-22
+
+shaw2018relativeposition:
+  authors: ['Peter Shaw', 'Jakob Uszkoreit', 'Ashish Vaswani']
+  year: 2018
+  title: 'Self-Attention with Relative Position Representations'
+  venue: 'Proceedings of NAACL-HLT 2018, Volume 2:464–468'
+  doi: https://doi.org/10.18653/v1/N18-2074
+  verified: 2026-08-22
+
+kingma2014vae:
+  authors: ['Diederik P. Kingma', 'Max Welling']
+  year: 2014
+  title: 'Auto-Encoding Variational Bayes'
+  venue: 'International Conference on Learning Representations'
+  url: https://arxiv.org/abs/1312.6114
+  verified: 2026-08-22
+
+goodfellow2014gan:
+  authors:
+    [
+      'Ian J. Goodfellow',
+      'Jean Pouget-Abadie',
+      'Mehdi Mirza',
+      'Bing Xu',
+      'David Warde-Farley',
+      'Sherjil Ozair',
+      'Aaron Courville',
+      'Yoshua Bengio',
+    ]
+  year: 2014
+  title: 'Generative Adversarial Nets'
+  venue: 'Advances in Neural Information Processing Systems 27'
+  url: https://proceedings.neurips.cc/paper_files/paper/2014/hash/f033ed80deb0234979a61f95710dbe25-Abstract.html
+  verified: 2026-08-22
+
+dinh2017realnvp:
+  authors: ['Laurent Dinh', 'Jascha Sohl-Dickstein', 'Samy Bengio']
+  year: 2017
+  title: 'Density Estimation Using Real NVP'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=HkpbnH9lx
+  verified: 2026-08-22
+
+ho2020ddpm:
+  authors: ['Jonathan Ho', 'Ajay Jain', 'Pieter Abbeel']
+  year: 2020
+  title: 'Denoising Diffusion Probabilistic Models'
+  venue: 'Advances in Neural Information Processing Systems 33:6840–6851'
+  url: https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html
+  verified: 2026-08-22
+
+he2020moco:
+  authors: ['Kaiming He', 'Haoqi Fan', 'Yuxin Wu', 'Saining Xie', 'Ross Girshick']
+  year: 2020
+  title: 'Momentum Contrast for Unsupervised Visual Representation Learning'
+  venue: 'Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition:9729–9738'
+  url: https://openaccess.thecvf.com/content_CVPR_2020/html/He_Momentum_Contrast_for_Unsupervised_Visual_Representation_Learning_CVPR_2020_paper.html
+  verified: 2026-08-22
+
+heusel2017fid:
+  authors:
+    [
+      'Martin Heusel',
+      'Hubert Ramsauer',
+      'Thomas Unterthiner',
+      'Bernhard Nessler',
+      'Sepp Hochreiter',
+    ]
+  year: 2017
+  title: 'GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium'
+  venue: 'Advances in Neural Information Processing Systems 30'
+  url: https://proceedings.neurips.cc/paper_files/paper/2017/hash/8a1d694707eb0fefe65871369074926d-Abstract.html
+  verified: 2026-08-22
+
+gilmer2017mpnn:
+  authors:
+    ['Justin Gilmer', 'Samuel S. Schoenholz', 'Patrick F. Riley', 'Oriol Vinyals', 'George E. Dahl']
+  year: 2017
+  title: 'Neural Message Passing for Quantum Chemistry'
+  venue: 'Proceedings of the 34th International Conference on Machine Learning, PMLR 70:1263–1272'
+  url: https://proceedings.mlr.press/v70/gilmer17a.html
+  verified: 2026-08-22
+
+kipf2017gcn:
+  authors: ['Thomas N. Kipf', 'Max Welling']
+  year: 2017
+  title: 'Semi-Supervised Classification with Graph Convolutional Networks'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=SJU4ayYgl
+  verified: 2026-08-22
+
+hamilton2017graphsage:
+  authors: ['William L. Hamilton', 'Rex Ying', 'Jure Leskovec']
+  year: 2017
+  title: 'Inductive Representation Learning on Large Graphs'
+  venue: 'Advances in Neural Information Processing Systems 30'
+  url: https://proceedings.neurips.cc/paper/2017/hash/5dd9db5e033da9c6fb5ba83c7a7ebea9-Abstract.html
+  verified: 2026-08-22
+
+velickovic2018gat:
+  authors:
+    [
+      'Petar Veličković',
+      'Guillem Cucurull',
+      'Arantxa Casanova',
+      'Adriana Romero',
+      'Pietro Liò',
+      'Yoshua Bengio',
+    ]
+  year: 2018
+  title: 'Graph Attention Networks'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=rJXMpikCZ
+  verified: 2026-08-22
+
+hyndman2006forecastaccuracy:
+  authors: ['Rob J. Hyndman', 'Anne B. Koehler']
+  year: 2006
+  title: 'Another Look at Measures of Forecast Accuracy'
+  venue: 'International Journal of Forecasting 22:679–688'
+  doi: https://doi.org/10.1016/j.ijforecast.2006.03.001
+  verified: 2026-08-22
+
+salinas2020deepar:
+  authors: ['David Salinas', 'Valentin Flunkert', 'Jan Gasthaus', 'Tim Januschowski']
+  year: 2020
+  title: 'DeepAR: Probabilistic Forecasting with Autoregressive Recurrent Networks'
+  venue: 'International Journal of Forecasting 36:1181–1191'
+  doi: https://doi.org/10.1016/j.ijforecast.2019.07.001
+  verified: 2026-08-22
+
+oreshkin2020nbeats:
+  authors: ['Boris N. Oreshkin', 'Dmitri Carpov', 'Nicolas Chapados', 'Yoshua Bengio']
+  year: 2020
+  title: 'N-BEATS: Neural Basis Expansion Analysis for Interpretable Time Series Forecasting'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=r1ecqn4YwB
+  verified: 2026-08-22
+
+lim2021tft:
+  authors: ['Bryan Lim', 'Sercan Ö. Arık', 'Nicolas Loeff', 'Tomas Pfister']
+  year: 2021
+  title: 'Temporal Fusion Transformers for Interpretable Multi-Horizon Time Series Forecasting'
+  venue: 'International Journal of Forecasting 37:1748–1764'
+  doi: https://doi.org/10.1016/j.ijforecast.2021.03.012
+  verified: 2026-08-22
+
+ovadia2019uncertainty:
+  authors: ['Yaniv Ovadia', 'Emily Fertig', 'Jie Ren', 'et al.']
+  year: 2019
+  title: "Can You Trust Your Model's Uncertainty? Evaluating Predictive Uncertainty Under Dataset Shift"
+  venue: 'Advances in Neural Information Processing Systems 32'
+  url: https://papers.nips.cc/paper/9547-can-you-trust-your-models-uncertainty-evaluating-predictive-uncertainty-under-dataset-shift
+  verified: 2026-08-22
+
+hendrycks2017ood:
+  authors: ['Dan Hendrycks', 'Kevin Gimpel']
+  year: 2017
+  title: 'A Baseline for Detecting Misclassified and Out-of-Distribution Examples in Neural Networks'
+  venue: 'International Conference on Learning Representations'
+  url: https://openreview.net/forum?id=Hkg4TI9xl
+  verified: 2026-08-22
+
+goodfellow2015adversarial:
+  authors: ['Ian J. Goodfellow', 'Jonathon Shlens', 'Christian Szegedy']
+  year: 2015
+  title: 'Explaining and Harnessing Adversarial Examples'
+  venue: 'International Conference on Learning Representations'
+  url: https://research.google/pubs/explaining-and-harnessing-adversarial-examples/
+  verified: 2026-08-22
+
+ribeiro2016lime:
+  authors: ['Marco Tulio Ribeiro', 'Sameer Singh', 'Carlos Guestrin']
+  year: 2016
+  title: 'Why Should I Trust You? Explaining the Predictions of Any Classifier'
+  venue: 'Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining:1135–1144'
+  doi: https://doi.org/10.1145/2939672.2939778
+  verified: 2026-08-22
+
+lundberg2017shap:
+  authors: ['Scott M. Lundberg', 'Su-In Lee']
+  year: 2017
+  title: 'A Unified Approach to Interpreting Model Predictions'
+  venue: 'Advances in Neural Information Processing Systems 30'
+  url: https://papers.nips.cc/paper/7062-a-unified-approach-to-interpreting-model-predictions
+  verified: 2026-08-22
+
+hardt2016equality:
+  authors: ['Moritz Hardt', 'Eric Price', 'Nathan Srebro']
+  year: 2016
+  title: 'Equality of Opportunity in Supervised Learning'
+  venue: 'Advances in Neural Information Processing Systems 29'
+  url: https://papers.nips.cc/paper/6374-equality-of-opportunity-in-supervised-learning
+  verified: 2026-08-22
+
+kleinberg2017fairness:
+  authors: ['Jon Kleinberg', 'Sendhil Mullainathan', 'Manish Raghavan']
+  year: 2017
+  title: 'Inherent Trade-Offs in the Fair Determination of Risk Scores'
+  venue: '8th Innovations in Theoretical Computer Science Conference, LIPIcs 67:43:1–43:23'
+  url: https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ITCS.2017.43
+  verified: 2026-08-22
+
+dwork2006dp:
+  authors: ['Cynthia Dwork', 'Frank McSherry', 'Kobbi Nissim', 'Adam Smith']
+  year: 2006
+  title: 'Calibrating Noise to Sensitivity in Private Data Analysis'
+  venue: 'Theory of Cryptography Conference, LNCS 3876:265–284'
+  doi: https://doi.org/10.1007/11681878_14
+  verified: 2026-08-22
+
+mitchell2019modelcards:
+  authors: ['Margaret Mitchell', 'Simone Wu', 'Andrew Zaldivar', 'et al.']
+  year: 2019
+  title: 'Model Cards for Model Reporting'
+  venue: 'Proceedings of the Conference on Fairness, Accountability, and Transparency:220–229'
+  doi: https://doi.org/10.1145/3287560.3287596
+  verified: 2026-08-22
+
+nist2023airmf:
+  authors: ['Elham Tabassi']
+  year: 2023
+  title: 'Artificial Intelligence Risk Management Framework (AI RMF 1.0)'
+  venue: 'NIST AI 100-1'
+  doi: https://doi.org/10.6028/NIST.AI.100-1
+  verified: 2026-08-22
+
+breck2017mltestscore:
+  authors: ['Eric Breck', 'Shanqing Cai', 'Eric Nielsen', 'Michael Salib', 'D. Sculley']
+  year: 2017
+  title: 'The ML Test Score: A Rubric for ML Production Readiness and Technical Debt Reduction'
+  venue: '2017 IEEE International Conference on Big Data:1123–1132'
+  doi: https://doi.org/10.1109/BigData.2017.8258038
+  verified: 2026-08-22
+
+baylor2017tfx:
+  authors: ['Denis Baylor', 'Eric Breck', 'Heng-Tze Cheng', 'et al.']
+  year: 2017
+  title: 'TFX: A TensorFlow-Based Production-Scale Machine Learning Platform'
+  venue: 'Proceedings of the 23rd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining:1387–1395'
+  doi: https://doi.org/10.1145/3097983.3098021
+  verified: 2026-08-22
+
+zaharia2018mlflow:
+  authors: ['Matei Zaharia', 'Andrew Chen', 'Aaron Davidson', 'et al.']
+  year: 2018
+  title: 'Accelerating the Machine Learning Lifecycle with MLflow'
+  venue: 'IEEE Data Engineering Bulletin 41(4):39–45'
+  url: https://www-cs.stanford.edu/~matei/papers/2018/ieee_mlflow.pdf
+  verified: 2026-08-22
+
+dean2004mapreduce:
+  authors: ['Jeffrey Dean', 'Sanjay Ghemawat']
+  year: 2004
+  title: 'MapReduce: Simplified Data Processing on Large Clusters'
+  venue: '6th USENIX Symposium on Operating Systems Design and Implementation:137–150'
+  url: https://research.google/pubs/mapreduce-simplified-data-processing-on-large-clusters/
+  verified: 2026-08-22
+
+dean2012distbelief:
+  authors: ['Jeffrey Dean', 'Greg S. Corrado', 'Rajat Monga', 'et al.']
+  year: 2012
+  title: 'Large Scale Distributed Deep Networks'
+  venue: 'Advances in Neural Information Processing Systems 25'
+  url: https://papers.nips.cc/paper/4687-large-scale-distributed-deep-networks
+  verified: 2026-08-22
+
+li2014parameterserver:
+  authors: ['Mu Li', 'David G. Andersen', 'Jun Woo Park', 'et al.']
+  year: 2014
+  title: 'Scaling Distributed Machine Learning with the Parameter Server'
+  venue: '11th USENIX Symposium on Operating Systems Design and Implementation:583–598'
+  url: https://www.usenix.org/conference/osdi14/technical-sessions/presentation/li_mu
+  verified: 2026-08-22
+
+sergeev2018horovod:
+  authors: ['Alexander Sergeev', 'Mike Del Balso']
+  year: 2018
+  title: 'Horovod: Fast and Easy Distributed Deep Learning in TensorFlow'
+  venue: 'arXiv:1802.05799'
+  url: https://arxiv.org/abs/1802.05799
+  verified: 2026-08-22
+
+narayanan2019pipedream:
+  authors: ['Deepak Narayanan', 'Aaron Harlap', 'Amar Phanishayee', 'et al.']
+  year: 2019
+  title: 'PipeDream: Generalized Pipeline Parallelism for DNN Training'
+  venue: 'Proceedings of the 27th ACM Symposium on Operating Systems Principles:1–15'
+  doi: https://doi.org/10.1145/3341301.3359646
+  verified: 2026-08-22
+
+amershi2019seml:
+  authors: ['Saleema Amershi', 'Andrew Begel', 'Christian Bird', 'et al.']
+  year: 2019
+  title: 'Software Engineering for Machine Learning: A Case Study'
+  venue: '2019 IEEE/ACM 41st International Conference on Software Engineering: Software Engineering in Practice:291–300'
+  doi: https://doi.org/10.1109/ICSE-SEIP.2019.00042
+  verified: 2026-08-22
+
+burges2005ranknet:
+  authors: ['Chris Burges', 'Tal Shaked', 'Erin Renshaw', 'et al.']
+  year: 2005
+  title: 'Learning to Rank Using Gradient Descent'
+  venue: 'Proceedings of the 22nd International Conference on Machine Learning:89–96'
+  doi: https://doi.org/10.1145/1102351.1102363
+  verified: 2026-08-22
+
+bahnsen2015fraud:
+  authors: ['Alejandro Correa Bahnsen', 'Djamila Aouada', 'Björn Ottersten']
+  year: 2015
+  title: 'Example-Dependent Cost-Sensitive Decision Trees'
+  venue: 'Expert Systems with Applications 42(19):6609–6619'
+  doi: https://doi.org/10.1016/j.eswa.2015.04.042
+  verified: 2026-08-22
+
+wulczyn2017toxicity:
+  authors: ['Ellery Wulczyn', 'Nithum Thain', 'Lucas Dixon']
+  year: 2017
+  title: 'Ex Machina: Personal Attacks Seen at Scale'
+  venue: 'Proceedings of the 26th International Conference on World Wide Web:1391–1399'
+  doi: https://doi.org/10.1145/3038912.3052591
+  verified: 2026-08-22
+
+rajkomar2018ehr:
+  authors: ['Alvin Rajkomar', 'Eyal Oren', 'Kai Chen', 'et al.']
+  year: 2018
+  title: 'Scalable and Accurate Deep Learning with Electronic Health Records'
+  venue: 'npj Digital Medicine 1:18'
+  doi: https://doi.org/10.1038/s41746-018-0029-1
+  verified: 2026-08-22
+
+radford2021clip:
+  authors: ['Alec Radford', 'Jong Wook Kim', 'Chris Hallacy', 'et al.']
+  year: 2021
+  title: 'Learning Transferable Visual Models From Natural Language Supervision'
+  venue: 'Proceedings of the 38th International Conference on Machine Learning, PMLR 139:8748–8763'
+  url: https://proceedings.mlr.press/v139/radford21a.html
+  verified: 2026-08-22
+
+chaney2018feedback:
+  authors: ['Allison J. B. Chaney', 'Brandon M. Stewart', 'Barbara E. Engelhardt']
+  year: 2018
+  title: 'How Algorithmic Confounding in Recommendation Systems Increases Homogeneity and Decreases Utility'
+  venue: 'Proceedings of the 12th ACM Conference on Recommender Systems:224–232'
+  doi: https://doi.org/10.1145/3240323.3240370
+  verified: 2026-08-22
+
+kohavi2012experiments:
+  authors: ['Ron Kohavi', 'Alex Deng', 'Brian Frasca', 'et al.']
+  year: 2012
+  title: 'Trustworthy Online Controlled Experiments: Five Puzzling Outcomes Explained'
+  venue: 'Proceedings of the 18th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining:786–794'
+  doi: https://doi.org/10.1145/2339530.2339653
+  verified: 2026-08-22
+
+harris2020numpy:
+  authors: ['Charles R. Harris', 'K. Jarrod Millman', 'Stéfan J. van der Walt', 'et al.']
+  year: 2020
+  title: 'Array Programming with NumPy'
+  venue: 'Nature 585:357–362'
+  doi: https://doi.org/10.1038/s41586-020-2649-2
+  verified: 2026-08-22
+
+goldberg1991floating:
+  authors: ['David Goldberg']
+  year: 1991
+  title: 'What Every Computer Scientist Should Know About Floating-Point Arithmetic'
+  venue: 'ACM Computing Surveys 23(1):5–48'
+  doi: https://doi.org/10.1145/103162.103163
+  verified: 2026-08-22
+
+blanchard2021logsumexp:
+  authors: ['Pierre Blanchard', 'Desmond J. Higham', 'Nicholas J. Higham']
+  year: 2021
+  title: 'Accurately Computing the Log-Sum-Exp and Softmax Functions'
+  venue: 'IMA Journal of Numerical Analysis 41(4):2311–2330'
+  doi: https://doi.org/10.1093/imanum/draa038
+  verified: 2026-08-22
+
+pearlmutter1994hessian:
+  authors: ['Barak A. Pearlmutter']
+  year: 1994
+  title: 'Fast Exact Multiplication by the Hessian'
+  venue: 'Neural Computation 6(1):147–160'
+  doi: https://doi.org/10.1162/neco.1994.6.1.147
+  verified: 2026-08-22
+
+paszke2019pytorch:
+  authors: ['Adam Paszke', 'Sam Gross', 'Francisco Massa', 'et al.']
+  year: 2019
+  title: 'PyTorch: An Imperative Style, High-Performance Deep Learning Library'
+  venue: 'Advances in Neural Information Processing Systems 32'
+  url: https://papers.nips.cc/paper/9015-pytorch-an-imperative-style-high-performance-deep-learning-library
+  verified: 2026-08-22
+
+pineau2021reproducibility:
+  authors: ['Joelle Pineau', 'Philippe Vincent-Lamarre', 'Koustuv Sinha', 'et al.']
+  year: 2021
+  title: 'Improving Reproducibility in Machine Learning Research: A Report from the NeurIPS 2019 Reproducibility Program'
+  venue: 'Journal of Machine Learning Research 22(164):1–20'
+  url: https://www.jmlr.org/papers/v22/20-303.html
+  verified: 2026-08-22
+
+campion1997structured:
+  authors: ['Michael A. Campion', 'David K. Palmer', 'James E. Campion']
+  year: 1997
+  title: 'A Review of Structure in the Selection Interview'
+  venue: 'Personnel Psychology 50(3):655–702'
+  doi: https://doi.org/10.1111/j.1744-6570.1997.tb00709.x
+  verified: 2026-08-22
+
+schmidthunter1998selection:
+  authors: ['Frank L. Schmidt', 'John E. Hunter']
+  year: 1998
+  title: 'The Validity and Utility of Selection Methods in Personnel Psychology: Practical and Theoretical Implications of 85 Years of Research Findings'
+  venue: 'Psychological Bulletin 124(2):262–274'
+  doi: https://doi.org/10.1037/0033-2909.124.2.262
+  verified: 2026-08-22
+
+edmondson1999psychsafety:
+  authors: ['Amy Edmondson']
+  year: 1999
+  title: 'Psychological Safety and Learning Behavior in Work Teams'
+  venue: 'Administrative Science Quarterly 44(2):350–383'
+  doi: https://doi.org/10.2307/2666999
+  verified: 2026-08-22
+
+klugerdenisi1996feedback:
+  authors: ['Avraham N. Kluger', 'Angelo DeNisi']
+  year: 1996
+  title: 'The Effects of Feedback Interventions on Performance: A Historical Review, a Meta-Analysis, and a Preliminary Feedback Intervention Theory'
+  venue: 'Psychological Bulletin 119(2):254–284'
+  doi: https://doi.org/10.1037/0033-2909.119.2.254
+  verified: 2026-08-22
+
+lockelatham2002goals:
+  authors: ['Edwin A. Locke', 'Gary P. Latham']
+  year: 2002
+  title: 'Building a Practically Useful Theory of Goal Setting and Task Motivation: A 35-Year Odyssey'
+  venue: 'American Psychologist 57(9):705–717'
+  doi: https://doi.org/10.1037/0003-066X.57.9.705
+  verified: 2026-08-22
+
+google2016postmortem:
+  authors: ['Google Site Reliability Engineering']
+  year: 2016
+  title: 'Postmortem Culture: Learning from Failure'
+  venue: 'Site Reliability Engineering'
+  url: https://sre.google/sre-book/postmortem-culture/
+  verified: 2026-08-22
+
+acm2018ethics:
+  authors: ['Association for Computing Machinery']
+  year: 2018
+  title: 'ACM Code of Ethics and Professional Conduct'
+  venue: 'Association for Computing Machinery'
+  url: https://www.acm.org/code-of-ethics
+  verified: 2026-08-22

@@ -1,0 +1,368 @@
+---
+title: Recommenders, Search & Ranking Systems
+shortTitle: Recommenders & Ranking
+description: Candidate retrieval, matrix factorization, two-tower embeddings, approximate nearest neighbors, negative sampling, ranking losses, counterfactual evaluation, and feedback loops.
+abstract: A systems-first guide to turning sparse, exposure-biased interaction logs into a two-stage retrieval and ranking product. It connects latent-factor and neural retrieval objectives to serving constraints, ranking metrics, online experiments, cold start, causal bias, and long-term ecosystem effects.
+date: 2026-08-22
+updated: 2026-08-22
+track: workflow
+hub: ml-dl-interview
+lessonType: system-design
+category: machine-learning
+moduleId: m09-applications
+moduleLabel: Applied Model Systems
+order: 16
+level: advanced
+objectives:
+  - Decompose large-catalog discovery into measurable candidate retrieval, ranking, reranking, and policy stages.
+  - Derive matrix-factorization, sampled retrieval, and pairwise ranking objectives and name their label assumptions.
+  - Select offline retrieval and ranking metrics from the user task and connect them to powered online experiments.
+  - Diagnose exposure, position, popularity, cold-start, and feedback-loop bias in logged interactions.
+  - Design a production recommender with freshness, latency, fallbacks, propensity logging, guardrails, and monitoring.
+prerequisites: [ml-interview-linear-kernel-probabilistic-models, ml-interview-metrics-experimentation, ml-interview-neural-network-foundations]
+relatedLessons: [ml-interview-system-design-case-studies]
+referenceIds:
+  - hu2008implicit
+  - koren2009matrixfactorization
+  - rendle2009bpr
+  - covington2016youtube
+  - malkov2020hnsw
+  - jarvelin2002ndcg
+  - joachims2017unbiasedltr
+  - li2010contextualbandit
+keyEquations:
+  - '\hat r_{ui}=\mu+b_u+b_i+p_u^\top q_i'
+  - '\mathcal{L}_{\mathrm{BPR}}=-\sum_{(u,i,j)}\log\sigma(s_{ui}-s_{uj})+\lambda\lVert\Theta\rVert_2^2'
+  - '\widehat V_{\mathrm{IPS}}=\frac{1}{n}\sum_{i=1}^{n}\frac{\pi(a_i\mid x_i)}{\mu(a_i\mid x_i)}r_i'
+tags: [recommendation, retrieval, ranking, search, implicit feedback, counterfactual evaluation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## Ranking is allocation under constraints
+
+A recommender does more than predict affinity. It decides which items receive exposure,
+under inventory, latency, policy, diversity, and business constraints. Those exposures then
+become tomorrow's training labels.
+
+<Callout variant="intuition" title="The model sees only what the old system chose to show">
+A missing interaction is not a clean dislike: the user may never have seen the item. A
+click is not pure relevance: position, thumbnail, price, and curiosity affect it. Treat the
+log as outcomes under a serving policy. If exposure and propensities are not logged, many
+offline questions are unidentifiable after the fact.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'u,i,j', meaning: 'User or query, positive item, and comparison item', dims: 'indices' },
+    { symbol: 'p_u,q_i', meaning: 'User and item latent vectors', dims: 'd × 1' },
+    { symbol: 's(u,i)', meaning: 'Retrieval or ranking score', dims: 'scalar' },
+    { symbol: 'C(u)', meaning: 'Candidate set retrieved for user u', dims: 'set of item IDs' },
+    { symbol: 'y_{ui}', meaning: 'Observed relevance or interaction label', dims: 'scalar' },
+    { symbol: '\\mu(a\\mid x)', meaning: 'Logging-policy action propensity', dims: 'probability' },
+    { symbol: '\\pi(a\\mid x)', meaning: 'Target-policy action probability', dims: 'probability' },
+    { symbol: 'k', meaning: 'Displayed or evaluated rank cutoff', dims: 'positive integer' },
+  ]}
+/>
+
+<Figure
+  id="ranking-system-funnel"
+  caption="Figure 1. A high-scale ranking funnel. Complementary candidate sources maximize coverage; a fast ranker adds personalized relevance; a policy-aware reranker enforces constraints and slate quality. Exposure logs, propensities, outcomes, and versions close the learning loop instead of recording clicks alone."
+  alt="A funnel from a large item corpus through several candidate sources, retrieval union, a rich ranker, and a policy reranker to a small displayed slate. A feedback arrow carries exposures, propensities, and outcomes back to training data."
+  wide
+>
+  <svg viewBox="0 0 810 320" width="810" height="320" font-family="inherit">
+    <defs>
+      <marker id="rank-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+      </marker>
+    </defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.4">
+      <rect x="18" y="34" width="126" height="48" rx="8" /><rect x="18" y="96" width="126" height="48" rx="8" />
+      <rect x="18" y="158" width="126" height="48" rx="8" /><rect x="18" y="220" width="126" height="48" rx="8" />
+      <path d="M144 58 L230 126 M144 120 L230 140 M144 182 L230 154 M144 244 L230 168" marker-end="url(#rank-arrow)" />
+      <path d="M230 112 H348 L326 182 H252 Z" stroke="var(--color-accent)" stroke-width="2.2" />
+      <path d="M348 147 H398" marker-end="url(#rank-arrow)" />
+      <path d="M398 104 H540 L518 190 H420 Z" />
+      <path d="M540 147 H588" marker-end="url(#rank-arrow)" />
+      <path d="M588 116 H700 L681 180 H607 Z" stroke="var(--color-accent)" stroke-width="2.2" />
+      <path d="M700 147 H765" marker-end="url(#rank-arrow)" />
+      <rect x="744" y="116" width="52" height="64" rx="8" />
+      <path d="M770 180 C770 298 290 304 83 270" stroke-dasharray="5 4" marker-end="url(#rank-arrow)" />
+    </g>
+    <g fill="currentColor" font-size="12.5" text-anchor="middle">
+      <text x="81" y="63">collaborative</text><text x="81" y="125">content / search</text>
+      <text x="81" y="187">popular / fresh</text><text x="81" y="249">exploration</text>
+      <text x="289" y="139">candidate</text><text x="289" y="157">union</text>
+      <text x="469" y="140">rich ranker</text><text x="469" y="159">features + context</text>
+      <text x="644" y="140">reranker</text><text x="644" y="159">policy + slate</text>
+      <text x="770" y="145">top-k</text>
+      <text x="407" y="292">log exposure, propensity, position, model/index version, and delayed outcome</text>
+    </g>
+  </svg>
+</Figure>
+
+## Retrieval and ranking optimize different bottlenecks
+
+Large systems often combine multiple candidate generators, then apply a more expensive
+ranker. YouTube's published architecture is a canonical two-stage example
+<Citation id="covington2016youtube" />; its particulars are not a universal recipe.
+
+<InterviewQuestion id="q-rank-two-stage">
+Candidate retrieval must search millions or billions of items in milliseconds, so it uses
+compact representations, inverted indexes, graph search, rules, or precomputed lists and
+targets high recall. Ranking sees perhaps hundreds or thousands of candidates and can use
+cross-features, sequence context, calibrated outcomes, and richer models. Reranking can
+enforce eligibility, diversity, quotas, and slate constraints.
+
+Write the key inequality: if the only relevant item enters the candidate set with
+probability $r$, no downstream ranker can exceed $r$ top-$K$ recall for that query family.
+Measure source-level and union recall, ranker quality conditional on retrieval, and
+end-to-end outcomes. Reserve fallbacks for index or feature-store failure.
+</InterviewQuestion>
+
+## Collaborative signal and missing labels
+
+<InterviewQuestion id="q-rank-matrix-factorization">
+Matrix factorization predicts
+
+$$
+\hat r_{ui}=\mu+b_u+b_i+p_u^Tq_i,
+$$
+
+learning embeddings by regularized loss on observed ratings or weighted implicit events.
+Koren, Bell, and Volinsky explain why biases and temporal effects matter beside low-rank
+interaction structure <Citation id="koren2009matrixfactorization" />. The dot product means
+users and items are close when their latent preferences align; dimensions need not have a
+stable human meaning because rotations preserve dot products.
+
+Regularize sparse users/items more strongly, keep time-aware splits, and avoid random
+interaction splits that place one user's future in training. Cold entities have no learned
+vector, so use metadata encoders, priors, or a hybrid model.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-implicit-feedback">
+Hu, Koren, and Volinsky model implicit observations with a preference indicator and
+observation-dependent confidence <Citation id="hu2008implicit" />. That distinction is
+fundamental: play count can increase confidence that an observed positive matters, but zero
+plays do not establish dislike.
+
+Define the event and window precisely—impression, click, dwell, purchase, skip—and account
+for delayed or censored outcomes. Log the candidate set and display position. Weighting
+every non-event as negative overwhelms positives and teaches the exposure policy; sampling
+or confidence weighting changes the estimand and must be documented.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-negative-sampling">
+For a positive pair $(u,i)$, a sampled-softmax or contrastive loss compares $s(u,i)$ with
+sampled items. Uniform negatives teach broad separation; popularity sampling produces hard,
+frequent comparisons but can reinforce popularity; in-batch negatives are computationally
+efficient but may include items that are actually relevant to another user or duplicate
+entities.
+
+If the goal is an unbiased estimate of a full-corpus objective, correct for the sampling
+probability in logits or weights. If the sampler deliberately defines a different ranking
+task, say so. Track false-negative rate, sampler drift, duplicate handling, and performance
+against both easy and hard candidate sets.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-two-tower">
+A query/user tower produces $f(u)$ and an item tower produces $g(i)$; retrieval uses a dot
+product or distance. Item vectors can be computed offline and inserted in an index, making
+online retrieval fast. The factorized form cannot directly attend over every query-item
+feature interaction, so a cross model often reranks the resulting set.
+
+Keep online and offline feature transformations identical. Version tower checkpoints and
+indexes together, handle embedding staleness, and monitor vector norms. When filtering by
+inventory or permission, choose whether filtering occurs inside the index or after
+over-retrieval and quantify its effect on recall.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-ann">
+Exact nearest-neighbor search scans every vector. Approximate indexes trade some recall for
+latency. HNSW builds a multilayer proximity graph and searches through neighbors
+<Citation id="malkov2020hnsw" />; graph degree and construction/search breadth affect
+memory, build time, recall, and query time.
+
+Benchmark end-to-end on live-like query vectors with required filters. Report candidate
+recall versus exact search, p95/p99 latency, memory, update and deletion lag, and shard
+imbalance. Quantization can lower memory but perturb neighbors. A 99% ANN recall claim does
+not say whether the missed 1% contains the product's rare valuable items.
+</InterviewQuestion>
+
+## The training loss is not the product metric
+
+<InterviewQuestion id="q-rank-pointwise-pairwise-listwise">
+Pointwise learning treats $(u,i)$ independently with regression or classification; it is
+simple and can estimate calibrated outcomes if exposure is handled. Pairwise loss uses a
+preference $i\succ j$, aligning with local swaps but discarding absolute utility. Listwise
+loss scores a slate or surrogate of a ranking measure, capturing context at greater cost.
+
+None automatically optimizes user welfare. Choose labels, weights, and loss from the served
+decision. If multiple objectives matter—click, satisfaction, safety, revenue—model or
+constrain them explicitly and validate the trade-off online rather than hiding them in one
+uninterpretable label.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-bpr">
+Bayesian Personalized Ranking samples $(u,i,j)$ where $i$ is observed and $j$ is unobserved,
+then maximizes $\log\sigma(s_{ui}-s_{uj})$ plus a parameter prior
+<Citation id="rendle2009bpr" />. For matrix factorization,
+$s_{ui}-s_{uj}=p_u^T(q_i-q_j)$ and gradients move $i$ toward $u$ and $j$ away.
+
+The score is an ordering statistic, not a calibrated click probability. The assumption that
+observed $i$ should outrank unobserved $j$ is violated by unseen relevant items, and the
+negative sampler determines which comparisons dominate. Time and exposure-aware sampling
+can be more faithful than drawing uniformly from the whole catalog.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-ndcg-map-mrr">
+Use recall@$k$ for candidate coverage and precision@$k$ when top-set purity matters. MRR is
+$1/r$ for the first relevant result and fits navigation tasks. Average precision averages
+precision at relevant ranks and MAP averages over queries. NDCG supports graded judgments:
+
+$$
+DCG@k=\sum_{r=1}^k\frac{2^{rel_r}-1}{\log_2(r+1)},\qquad
+NDCG@k=DCG@k/IDCG@k.
+$$
+
+Järvelin and Kekäläinen introduced cumulative-gain measures for graded relevance
+<Citation id="jarvelin2002ndcg" />. Define treatment of no-relevant-item queries, ties,
+cutoff, gains, and incomplete judgments; otherwise identical metric names can hide different
+calculations.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Compute NDCG@3 for graded relevance"
+  given={[
+    { label: 'Returned relevance', value: '[2, 0, 1]' },
+    { label: 'Ideal relevance', value: '[2, 1, 0]' },
+    { label: 'Gain', value: '2^rel - 1; discount log2(rank + 1)' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+The returned ranking has
+
+$$DCG=3/\log_2 2+0/\log_2 3+1/\log_2 4=3.5.$$
+
+The ideal has
+
+$$IDCG=3/\log_2 2+1/\log_2 3\approx3.63093.$$
+
+Thus $NDCG@3\approx3.5/3.63093=0.96394$. The high value reflects that the most relevant
+item is already first; swapping the lower two items costs only their discounted gain.
+</WorkedExample>
+
+## Logged behavior is policy-dependent
+
+<InterviewQuestion id="q-rank-offline-online">
+Offline data was produced by an older retrieval/ranking/UI policy. It under-labels items not
+shown, overrepresents popular positions, and cannot capture novelty, latency, or ecosystem
+response to the new policy. Offline metric gains are useful iteration gates, not causal
+product evidence.
+
+Launch a powered randomized experiment with a declared primary outcome, user-level or other
+appropriate randomization, sample-ratio and instrumentation checks, guardrails, and enough
+time for novelty and delayed effects. Examine retrieval/ranking slices and latency. An
+online lift can still be harmful if it sacrifices retention, creator health, safety, or
+catalog diversity.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-position-bias">
+If examination probability at rank $r$ is $e_r$, a click roughly combines examination and
+relevance. Training directly on clicks makes the current top rank look relevant because it
+was visible. Joachims and colleagues developed propensity-weighted learning-to-rank from
+biased feedback <Citation id="joachims2017unbiasedltr" />.
+
+For a logged action, inverse propensity weighting uses outcome divided by its probability
+under the logging policy. It requires overlap: the old policy must sometimes expose actions
+the new policy would choose. Tiny propensities create huge variance; clip only with an
+explicit bias trade-off, report effective sample size, and prefer randomized interventions
+or doubly robust estimation when feasible.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-cold-start">
+New users lack history; use context, onboarding choices, session behavior, population priors,
+and safe exploration. New items lack exposure; use content/metadata encoders, creator or
+catalog priors, editorial candidates, and an exploration budget. A returning user with a
+new intent is a third case: stale history can be worse than none.
+
+Report cohorts by interaction count and item age, not one average. Ensure a new item can be
+retrieved before judging its ranker performance, and preserve fallback quality when feature
+stores or personalized state are unavailable.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-feedback-loops">
+Exposure creates interactions; interactions train the next policy; the policy may then
+amplify popularity, narrow consumption, or reproduce historical exclusion. Monitor exposure
+share, catalog coverage, concentration, novelty, diversity, cohort utility, and supplier
+outcomes beside engagement. Log propensities and keep controlled exploration.
+
+Counterfactual estimators can compare nearby policies under assumptions, but large changes
+need experiments. Contextual-bandit deployment on news recommendation demonstrated both
+the value of logged randomized exploration and the importance of policy evaluation
+<Citation id="li2010contextualbandit" />. Long-term effects may require longer experiments
+and explicit ecosystem objectives.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rank-system-design">
+Begin with the decision: who receives which slate, when, under what constraints, and what
+long-term utility defines success. Generate complementary candidates—collaborative, content,
+search, popular/fresh, and exploration—then deduplicate and apply hard eligibility. Rank
+with point-in-time-correct features, rerank for slate diversity and policy, and provide a
+safe fallback.
+
+Specify feature and embedding stores, index update/delete SLOs, cache invalidation, sharding,
+latency budgets, graceful degradation, and privacy. Log request context, candidate sources,
+scores, filters, exposure positions, propensities, versions, and delayed outcomes. Gate
+offline releases, experiment online with guardrails, and monitor drift and feedback loops.
+</InterviewQuestion>
+
+## Exercises
+
+<Exercise n={1} title="Upper-bound the ranker" difficulty="warm-up">
+Relevant-item recall is 92% after candidate union. The ranker places a relevant retrieved
+item in the top ten for 80% of those queries. What is end-to-end top-ten recall?
+  <div slot="solution">
+    $0.92\times0.80=0.736$, or **73.6%**, assuming the conditional 80% is measured among
+    queries with a relevant candidate. Improving only the ranker cannot recover the missing
+    8%.
+  </div>
+</Exercise>
+
+<Exercise n={2} title="Unbiased or impossible?" difficulty="core">
+A deterministic logging policy never showed category Z. Can inverse propensity scoring
+estimate the value of a target policy that gives Z 10% exposure?
+  <div slot="solution">
+    No. The logging propensity for Z is zero, violating overlap, so the importance ratio is
+    undefined and no logged reward exists for that action. Run bounded randomized
+    exploration or another intervention before claiming counterfactual value.
+  </div>
+</Exercise>
+
+<Exercise n={3} title="Debug an online reversal" difficulty="stretch">
+NDCG rises offline, but click-through and p95 latency worsen online. Give a diagnosis plan.
+  <div slot="solution">
+    Verify experiment integrity and instrumentation, then decompose latency across retrieval,
+    features, ranking, and reranking. Check whether richer scoring causes timeouts or stale
+    fallbacks; compare exposed-item relevance, positions, and candidate recall; slice new
+    users/items and devices; and test whether the offline labels reflect the old exposure
+    policy. Roll back if guardrails fail before iterating.
+  </div>
+</Exercise>
+
+## Summary
+
+- Retrieval maximizes coverage under corpus scale; ranking optimizes richer ordering on a
+  smaller set; reranking enforces slate and policy constraints.
+- Implicit logs record outcomes after exposure, not clean positive and negative labels.
+- Losses and offline ranking metrics are proxies. Randomized online evidence and long-term
+  guardrails complete the evaluation.
+- A production design includes freshness, fallbacks, propensity and exposure logging, cold
+  start, counterfactual assumptions, and feedback-loop monitoring from the start.

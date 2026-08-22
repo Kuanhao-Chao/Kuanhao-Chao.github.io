@@ -1,0 +1,410 @@
+---
+title: Generative & Self-Supervised Learning
+shortTitle: Generative Models
+description: Autoregressive models, VAEs, GANs, normalizing flows, diffusion, contrastive learning and evaluation of quality, diversity and representation.
+abstract: Compare the objectives, operations and failure modes of major generative and self-supervised families rather than treating them as interchangeable ways to sample data.
+date: 2026-08-22
+track: theory
+hub: ml-dl-interview
+lessonType: technical
+category: machine-learning
+moduleId: m07-architectures
+moduleLabel: Deep Learning Architectures
+order: 13
+level: advanced
+objectives:
+  - Derive representative likelihood, variational, adversarial, change-of-variable and denoising objectives.
+  - Explain amortized inference, reparameterization and the roles of latent variables.
+  - Compare sample quality, coverage, likelihood, controllability, encoding and serving cost.
+  - Diagnose collapse, memorization, posterior failure and misleading evaluation.
+prerequisites: [ml-interview-probability-statistics, ml-interview-neural-network-foundations]
+relatedLessons: [ml-interview-llm-foundations]
+referenceIds:
+  - kingma2014vae
+  - goodfellow2014gan
+  - dinh2017realnvp
+  - ho2020ddpm
+  - chen2020simclr
+  - he2020moco
+  - heusel2017fid
+keyEquations:
+  - '\mathcal L_{\mathrm{ELBO}}(x)=\mathbb E_{q_\phi(z\mid x)}\!\left[\log p_\theta(x\mid z)\right]-D_{\mathrm{KL}}\!\left(q_\phi(z\mid x)\,\Vert\,p(z)\right)'
+  - '\log p_X(x)=\log p_Z\!\left(f^{-1}(x)\right)+\log\left\lvert\det J_{f^{-1}}(x)\right\rvert'
+  - '\mathcal L_{\mathrm{InfoNCE}}=-\log\frac{\exp\!\left(\operatorname{sim}(z,z^+)/\tau\right)}{\exp\!\left(\operatorname{sim}(z,z^+)/\tau\right)+\sum_{k\in\mathcal N}\exp\!\left(\operatorname{sim}(z,z_k^-)/\tau\right)}'
+tags: [VAE, GAN, diffusion, self-supervised learning]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The map: choose the operations before the family
+
+“Generate realistic samples” is not one objective. An application may need normalized likelihood,
+fast sampling, a meaningful encoder, exact reconstruction, conditional control, uncertainty or a
+feature representation. Each family makes a different subset convenient and pays elsewhere.
+
+<Callout variant="intuition" title="Every generator moves probability mass">
+An autoregressive model moves through coordinates in an order. A VAE moves through a stochastic
+latent bottleneck. A GAN learns a sampler by a game. A flow transports a base density through an
+invertible map. Diffusion deliberately destroys structure and learns to reverse that destruction.
+
+Interview strength comes from connecting that path to what can be computed, optimized and tested.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'x', meaning: 'Observed data', dims: 'data space' },
+    { symbol: 'z', meaning: 'Latent variable or base-noise sample', dims: 'latent space' },
+    { symbol: 'p_θ(x,z)', meaning: 'Parameterized generative model', dims: 'density' },
+    { symbol: 'q_φ(z|x)', meaning: 'Amortized approximate posterior', dims: 'density' },
+    { symbol: 'G, D', meaning: 'GAN generator and discriminator', dims: 'functions' },
+    { symbol: 'x_t', meaning: 'Data after diffusion noise level t', dims: 'data space' },
+    { symbol: 'ε', meaning: 'Standard Gaussian noise', dims: 'same as x_t' },
+    { symbol: 'τ', meaning: 'Contrastive temperature', dims: 'positive scalar' },
+  ]}
+/>
+
+<Figure
+  id="generative-objective-paths"
+  caption="Figure 1. Representative computational paths. A VAE encodes to a stochastic latent and decodes; a GAN sends noise through a generator while a discriminator compares real and generated samples; diffusion follows a fixed noising path and a learned reverse path. These diagrams expose operations, not a universal quality order."
+  alt="Three theme-safe panels labeled VAE, GAN and diffusion. The VAE has encoder, latent distribution and decoder. The GAN has noise to generator to sample with a discriminator comparing against data. Diffusion has a sequence from data to noise and a learned arrow back."
+  wide
+>
+  <svg viewBox="0 0 780 230" width="780" height="230" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.3">
+      <rect x="10" y="22" width="238" height="166" rx="10" opacity=".35" />
+      <rect x="271" y="22" width="238" height="166" rx="10" opacity=".35" />
+      <rect x="532" y="22" width="238" height="166" rx="10" opacity=".35" />
+      <rect x="29" y="78" width="45" height="39" rx="5" />
+      <rect x="100" y="70" width="50" height="55" rx="5" />
+      <ellipse cx="177" cy="98" rx="18" ry="31" />
+      <rect x="209" y="78" width="24" height="39" rx="5" />
+      <path d="M74 98H100M150 98H159M195 98H209" stroke="var(--color-accent)" stroke-width="2.3" />
+      <circle cx="297" cy="72" r="13" />
+      <rect x="329" y="53" width="55" height="38" rx="5" />
+      <circle cx="410" cy="72" r="13" />
+      <rect x="449" y="83" width="43" height="43" rx="5" />
+      <circle cx="410" cy="142" r="13" />
+      <path d="M310 72H329M384 72H397M423 78L449 94M423 136L449 115" stroke="var(--color-accent)" stroke-width="2.1" />
+      <path d="M551 99H586M604 99H639M657 99H692M710 99H748" opacity=".7" />
+      <circle cx="548" cy="99" r="11" /><circle cx="595" cy="99" r="11" />
+      <circle cx="648" cy="99" r="11" /><circle cx="701" cy="99" r="11" />
+      <circle cx="750" cy="99" r="11" />
+      <path d="M742 124C693 163 600 160 555 119" stroke="var(--color-accent)" stroke-width="2.4" />
+      <path d="M558 130L554 118L566 121" stroke="var(--color-accent)" />
+    </g>
+    <g fill="currentColor" font-size="12" text-anchor="middle">
+      <text x="129" y="211">encode → sample z → decode</text>
+      <text x="390" y="211">generator–discriminator game</text>
+      <text x="651" y="211">fixed noise → learned reverse</text>
+    </g>
+  </svg>
+</Figure>
+
+## What is the model required to compute?
+
+<InterviewQuestion id="q-gen-density-implicit-representation">
+An **explicit-density** model defines $p_\theta(x)$ directly or a tractable lower bound. It can
+compare log scores, but a high likelihood need not mean perceptually good samples. An **implicit**
+model defines a sampling procedure without a tractable normalized density; the original GAN is the
+canonical example. A **self-supervised representation** objective predicts held-out structure or
+matches views and need not estimate all of $p(x)$.
+
+The categories overlap: a VAE has a density bound and encoder; an autoregressive model can supply
+features; diffusion admits likelihood-related formulations; a representation can condition a
+generator. Begin an interview design by listing required operations: `score(x)`, `sample()`,
+`encode(x)`, reconstruct, condition, edit and serve. The operation table is more informative than
+calling one family “generative.”
+</InterviewQuestion>
+
+<InterviewQuestion id="q-gen-autoregressive-factorization">
+The probability chain rule gives, for any chosen order,
+
+$$
+p(x_1,\ldots,x_D)=\prod_{i=1}^{D}p(x_i\mid x_{<i}).
+$$
+
+Maximum likelihood is a sum of conditional negative log-likelihoods. With a causal mask, every
+training position can be scored in parallel because true earlier values are known. Generation is
+sequential: sample $x_1$, append it, then sample $x_2$, and so on. The factorization is exact, but
+the parameterized conditionals and optimization are approximate.
+
+Ordering and tokenization are inductive biases. Raster order makes image pixels far apart across a
+row boundary; subword choices alter sequence length and likelihood units. Report bits per dimension
+or per token with preprocessing specified, and do not compare likelihoods under different
+dequantization or tokenization contracts as if they were identical.
+</InterviewQuestion>
+
+## Variational autoencoders
+
+<InterviewQuestion id="q-gen-vae-elbo">
+Start from $p_\theta(x)=\int p_\theta(x,z)dz$ and introduce $q_\phi(z\mid x)$:
+
+$$
+\log p_\theta(x)
+=\mathbb E_q\!\left[\log\frac{p_\theta(x,z)}{q_\phi(z\mid x)}\right]
++D_{KL}(q_\phi(z\mid x)\Vert p_\theta(z\mid x)).
+$$
+
+The nonnegative second term leaves the evidence lower bound
+
+$$
+\mathcal L_{ELBO}=\mathbb E_q[\log p_\theta(x\mid z)]
+-D_{KL}(q_\phi(z\mid x)\Vert p(z)).
+$$
+
+The first term is a log likelihood, not universally pixel MSE; Gaussian, Bernoulli or categorical
+choices encode different observation assumptions. The KL makes approximate posteriors compatible
+with the prior. Kingma and Welling paired this bound with amortized neural inference
+<Citation id="kingma2014vae" />. A loose bound can reflect an inference-family limitation rather
+than only a poor generator.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-gen-reparameterization">
+A Monte Carlo sample $z\sim q_\phi(z\mid x)$ appears to interrupt differentiation through $\phi$.
+For a diagonal Gaussian, move randomness into a fixed distribution:
+
+$$
+\epsilon\sim\mathcal N(0,I),\qquad
+z=\mu_\phi(x)+\sigma_\phi(x)\odot\epsilon.
+$$
+
+The sample is now a differentiable function of $\mu,\sigma$ and external noise, giving a low-variance
+pathwise gradient. Parameterize `log_variance`, recover $\sigma=\exp(0.5\log\sigma^2)$, and avoid
+an unconstrained negative standard deviation. Discrete latents require score-function estimators,
+continuous relaxations or specialized reparameterizations; the Gaussian trick is not universal.
+</InterviewQuestion>
+
+<WorkedExample
+  title="One-dimensional VAE KL and ELBO"
+  given={[
+    { label: 'Approximate posterior', value: 'q(z|x) = Normal(μ=1, σ=0.5)' },
+    { label: 'Prior', value: 'p(z) = Normal(0, 1)' },
+    { label: 'Expected reconstruction log likelihood', value: 'E_q log p(x|z) = -1.2 nats' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+For diagonal Gaussians,
+
+$$
+D_{KL}(q\Vert p)=\tfrac12(\mu^2+\sigma^2-\log\sigma^2-1).
+$$
+
+Substitution gives
+$\tfrac12(1+0.25-\log0.25-1)=0.8181$ nats. Therefore
+$\mathcal L_{ELBO}=-1.2-0.8181=-2.0181$ nats and the negative ELBO loss is $2.0181$.
+Changing log base would change the unit; dropping the factor one-half would be a derivation bug.
+</WorkedExample>
+
+<InterviewQuestion id="q-gen-posterior-collapse">
+Posterior collapse means $q_\phi(z\mid x)\approx p(z)$ and the decoder output barely depends on
+$z$. It is common when an expressive autoregressive decoder can model $x$ without paying KL for
+information. A small average KL is a clue; inspect per-dimension KL, active units, latent
+interventions, reconstructions and an estimate of information between $x$ and $z$.
+
+KL warmup delays regularization; free bits tolerate a minimum information budget; weakening the
+decoder increases pressure to use $z$; richer priors reduce aggregate mismatch. Each changes the
+objective or capacity and can trade likelihood against representation. Also distinguish collapse
+from the opposite failure: a highly informative $q(z\mid x)$ whose aggregate distribution does not
+match the prior, causing poor prior samples.
+</InterviewQuestion>
+
+## Adversarial games and invertible transport
+
+<InterviewQuestion id="q-gen-gan-objective">
+The original minimax objective is
+
+$$
+\min_G\max_D\;\mathbb E_{x\sim p_{data}}\log D(x)
++\mathbb E_{z\sim p(z)}\log(1-D(G(z))).
+$$
+
+For a fixed generator, the optimal discriminator is
+$D^*(x)=p_{data}(x)/(p_{data}(x)+p_g(x))$. Substitution yields a constant plus twice the
+Jensen-Shannon divergence, with global optimum $p_g=p_{data}$ and $D=1/2$. This is the idealized
+result in the founding GAN paper <Citation id="goodfellow2014gan" />.
+
+Finite alternating updates do not keep $D$ optimal, neural families are restricted and supports may
+barely overlap. The commonly used non-saturating generator maximizes $\log D(G(z))$ for stronger
+early gradients; it has the same ideal fixed point but different optimization dynamics.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-gen-gan-collapse-stability">
+GAN training follows a vector field for two objectives, so updates can rotate, oscillate or let one
+player overpower the other. Mode collapse occurs when many $z$ values map to a few outputs that
+currently fool $D$. Diagnose with nearest-neighbor checks, latent interpolation, class or feature
+coverage, discriminator margins, gradient norms, multiple seeds and held-out data—not one curated
+sample grid.
+
+Balanced update rates, gradient penalties, spectral constraints, alternative divergences and replay
+can improve a particular failure, but none proves distribution coverage. If discriminator accuracy
+is perfect, it may exploit a trivial artifact; if it is one-half, the generator may have succeeded
+or the discriminator may be broken. Inspect losses together with samples and controlled tests.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-gen-normalizing-flows">
+Let $x=f(z)$ be differentiable and invertible. Change of variables gives
+
+$$
+\log p_X(x)=\log p_Z(f^{-1}(x))
++\log\left|\det J_{f^{-1}}(x)\right|.
+$$
+
+For a composition, log determinants add. Real NVP uses coupling transformations whose triangular
+Jacobians make determinants cheap while alternating partitions mixes all coordinates
+<Citation id="dinh2017realnvp" />. Depending on direction, autoregressive flows make either
+sampling or density evaluation parallel and the other sequential.
+
+Exact likelihood and reconstruction require matching dimensions and invertibility. This can force
+architecture constraints and awkward treatment of discrete data or lower-dimensional manifolds.
+“Exact” describes computation under the model, not that its density matches reality.
+</InterviewQuestion>
+
+## Denoising diffusion
+
+<InterviewQuestion id="q-gen-diffusion-forward-reverse">
+A DDPM fixes a forward Markov chain that adds Gaussian noise. With
+$\alpha_t=1-\beta_t$ and $\bar\alpha_t=\prod_{s\le t}\alpha_s$,
+
+$$
+x_t=\sqrt{\bar\alpha_t}x_0+\sqrt{1-\bar\alpha_t}\epsilon,
+\qquad \epsilon\sim\mathcal N(0,I).
+$$
+
+A network predicts noise, score, velocity or clean data from $(x_t,t)$; the learned reverse
+transition denoises toward data. The widely used noise MSE is a weighted form connected to the
+variational bound. Ho, Jain and Abbeel established the modern DDPM formulation and its denoising
+parameterization <Citation id="ho2020ddpm" />.
+
+Training samples a random $t$ directly; it need not simulate every earlier step. Generation starts
+from noise and integrates many reverse steps, so sampler discretization, schedule and parameterization
+affect speed and error even with fixed network weights.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-gen-diffusion-guidance">
+Conditional diffusion supplies class, text or another observation to the denoiser. Classifier-free
+guidance combines conditional and unconditional predictions, schematically
+$\hat\epsilon=(1+w)\epsilon_{cond}-w\epsilon_{uncond}$. Increasing $w$ often strengthens condition
+adherence and apparent sharpness but narrows sample diversity and can introduce saturation or
+artifacts.
+
+Separate four choices: conditioning representation, model objective, reverse sampler and guidance
+rule. Evaluate control accuracy, quality, coverage and latency across guidance scales at fixed random
+seeds and step budgets. Guidance is a sampling-time tilt, not evidence that the base conditional
+density is calibrated.
+</InterviewQuestion>
+
+## Self-supervised representations
+
+<InterviewQuestion id="q-gen-infonce">
+For anchor $z_i$, positive $z_i^+$, candidate set $\mathcal K$ and similarity $s$,
+
+$$
+\mathcal L_i=-\log\frac{e^{s(z_i,z_i^+)/\tau}}
+{\sum_{k\in\mathcal K}e^{s(z_i,z_k)/\tau}}.
+$$
+
+Lower temperature concentrates probability and gradients on hard competitors. A large, representative
+negative dictionary gives a stronger discrimination task, while false negatives can repel examples
+that share semantics. Normalize embeddings if cosine similarity is intended; otherwise norm becomes
+another route to alter logits. SimCLR showed the impact of view composition, projection heads and
+large contrastive batches <Citation id="chen2020simclr" />.
+
+Positive views declare what should be invariant. For pathology, cropping away a lesion is not a
+positive view. For identity, background may be a shortcut. Validate that learned invariances match
+the downstream task.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-gen-self-supervised-families">
+Contrastive methods match positives against alternatives. Masked prediction reconstructs hidden
+tokens or patches from context. Self-distillation aligns student predictions with a teacher view and
+needs centering, sharpening, architectural asymmetry or stop-gradient to avoid constant outputs.
+Predictive methods can target future or transformed representations instead of raw input.
+
+MoCo uses a momentum encoder and queue to build a large, consistent negative dictionary
+<Citation id="he2020moco" />. That differs operationally from in-batch SimCLR but shares a
+contrastive principle. Compare methods using frozen probes, fine-tuning at several label budgets,
+shift and robustness tests, and equal pretraining compute. Pretext losses across different objectives
+are not commensurate.
+</InterviewQuestion>
+
+## Evaluation and family choice
+
+<InterviewQuestion id="q-gen-evaluation">
+Generative evaluation has at least fidelity, coverage, memorization, conditional correctness and
+utility axes. Log likelihood is a proper density score under a common data transform, yet can
+disagree with perception. FID fits Gaussians to features of real and generated samples and compares
+their means and covariances; it depends on feature extractor, preprocessing and sample count. It was
+introduced with the GAN two-timescale analysis <Citation id="heusel2017fid" />.
+
+Use precision-recall-style coverage measures, nearest training neighbors, duplicate rates, subgroup
+metrics and blinded human preference with inter-rater reliability. For conditional generation,
+measure condition adherence and counterfactual sensitivity. Report confidence intervals and exact
+sample counts. A scalar ranking without these qualifiers invites metric gaming.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-gen-family-selection">
+Build a requirements matrix:
+
+- Autoregressive: tractable likelihood, flexible data; sequential sampling.
+- VAE: amortized encoder and smooth latent operations; bound and observation-model tradeoffs.
+- GAN: fast parallel sampling and sharp outputs; no density and unstable coverage.
+- Flow: exact density, sampling and inversion; restrictive invertible transforms.
+- Diffusion: flexible denoising and control; iterative sampling cost.
+
+Then test the smallest viable family under equal data, compute and evaluation. If the product needs
+an embedding more than samples, a self-supervised encoder may be the actual deliverable. Include
+latency, memory, privacy and harmful-content filtering in the design. The right answer is an
+accuracy-quality-cost frontier tied to operations, not a universal winner.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="A sign in the ELBO" difficulty="warm-up">
+A VAE has expected reconstruction log likelihood $-40$ and KL $6$ nats. What are the ELBO and the
+usual minimized negative-ELBO loss?
+
+<div slot="solution">
+The ELBO is reconstruction log likelihood minus KL: $-40-6=-46$. The minimized negative ELBO is
+$46$. Adding KL to the log likelihood would violate the lower-bound identity; adding KL to the
+negative reconstruction loss is the equivalent minimized form.
+</div>
+</Exercise>
+
+<Exercise n={2} title="A flow rescales density" difficulty="core">
+Let $z\sim\mathcal N(0,1)$ and $x=2z+3$. Express $\log p_X(x)$ in terms of the standard-normal
+log density.
+
+<div slot="solution">
+The inverse is $z=(x-3)/2$ with derivative $dz/dx=1/2$. Therefore
+$\log p_X(x)=\log p_Z((x-3)/2)+\log(1/2)$. The negative log-Jacobian term reflects spreading the
+same probability mass over twice the length.
+</div>
+</Exercise>
+
+<Exercise n={3} title="The attractive but collapsed generator" difficulty="stretch">
+Two image generators have similar FID. One produces diverse images with minor artifacts; the other
+produces ten nearly perfect templates. What evaluation would reveal the difference?
+
+<div slot="solution">
+Add an explicit coverage or recall measure in the same feature space, class- and subgroup-frequency
+checks, duplicate and nearest-neighbor analysis, and latent-seed diversity. Inspect precision and
+recall separately rather than one combined distance. Use enough held-out real and generated samples
+with uncertainty. Similar FID does not establish equal support coverage.
+</div>
+</Exercise>
+
+## Summary
+
+- Generative families differ in which operations—scoring, sampling, encoding and control—they make tractable.
+- The VAE ELBO balances observation fit with compatibility between approximate posterior and prior.
+- GANs optimize a game; sample fidelity and distribution coverage must be measured separately.
+- Flows trade architectural freedom for invertibility and exact change-of-variable likelihood.
+- Diffusion learns a reverse denoising process and pays iterative sampling cost.
+- Self-supervised objectives define invariances through views, masks or teacher-student targets.
+- No single likelihood, FID or sample grid is a complete evaluation.

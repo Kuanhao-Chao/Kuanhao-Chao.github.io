@@ -1,0 +1,180 @@
+lesson: ml-interview-ml-systems-mlops
+questions:
+  - id: q-mlops-reproducible-pipeline
+    question: 'What must be versioned to reproduce an ML training run?'
+    conciseAnswer: 'Version immutable data snapshots or queries plus event time, feature and label code, split manifests, environment/container, dependencies, source commit, configuration, seeds, hardware-sensitive settings, and produced artifacts. Reproduction means rebuilding the decision-relevant result within declared tolerance, not merely storing weights.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [reproducibility, lineage, training-pipeline]
+    aliases: [reproduce-training, experiment-lineage]
+  - id: q-mlops-train-serve-skew
+    question: 'What causes training-serving skew, and how do you prevent it?'
+    conciseAnswer: 'Skew arises when feature definitions, event-time joins, missing/default behavior, transforms, or library semantics differ between offline training and online serving. Share or compile one transformation contract, replay production requests, log served features, validate point-in-time joins, and compare shadow predictions before rollout.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: debugging
+    round: system-design
+    stability: evergreen
+    tags: [feature-store, skew, point-in-time-correctness]
+    aliases: [training-serving-skew, feature-parity]
+  - id: q-mlops-batch-stream-online
+    question: 'When should inference be batch, streaming, or synchronous online?'
+    conciseAnswer: 'Choose from freshness and response-time requirements: batch precomputes high-throughput results cheaply, streaming incrementally refreshes state after events, and online inference serves request-time context at higher reliability and latency cost. Hybrid systems commonly batch expensive embeddings and score a small candidate set online.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [batch, streaming, online-serving]
+    aliases: [inference-mode, batch-vs-online]
+  - id: q-mlops-capacity-estimation
+    question: 'How do you estimate inference capacity, latency, and cost before choosing an architecture?'
+    conciseAnswer: 'Convert peak requests per second, payload and model size, service-time distribution, utilization target, replication, and availability margin into compute/memory/network budgets. Report p50/p95/p99—not averages—then benchmark the complete path under realistic batching and concurrency because queueing dominates near saturation.'
+    priority: must-know
+    difficulty: advanced
+    roles: [ml-platform, genai, leadership]
+    kind: mathematics
+    round: system-design
+    stability: evergreen
+    tags: [capacity, latency, queueing, cost]
+    aliases: [back-of-envelope, inference-sizing]
+  - id: q-mlops-serving-architecture
+    question: 'Design a reliable online model-serving path.'
+    conciseAnswer: 'Use authenticated ingress, request validation, point-in-time feature retrieval, a versioned model server, bounded-time downstream calls, policy/postprocessing, response logging, and observable fallbacks. Replicate across failure domains, cap concurrency, make retries safe, and keep the previous compatible model/config ready for rollback.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [serving, reliability, fallback, rollback]
+    aliases: [online-inference-design, model-server]
+  - id: q-mlops-caching-batching-approximation
+    question: 'How do caching, dynamic batching, quantization, and approximate retrieval trade quality for efficiency?'
+    conciseAnswer: 'Caching avoids repeated work but creates staleness and invalidation risk; batching improves accelerator utilization but adds queue delay; quantization reduces memory/compute with distribution-dependent error; approximate retrieval buys latency at recall cost. Expose each as a versioned knob and measure end-to-end utility under the latency budget.'
+    priority: common
+    difficulty: advanced
+    roles: [dl-specialist, genai, ml-platform]
+    kind: trade-off
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [caching, batching, quantization, approximate-search]
+    aliases: [serving-optimization, latency-quality-tradeoff]
+  - id: q-mlops-registry-lineage
+    question: 'What should a model registry record beyond a model file?'
+    conciseAnswer: 'Record immutable artifact digest, training code/config/environment, data and feature lineage, evaluation by slices, approvals, intended use, dependencies, schema/signature, owner, deployment history, and compatibility constraints. A registry is a control plane for promotion and rollback, not a folder with numbered binaries.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: implementation
+    round: system-design
+    stability: evergreen
+    tags: [model-registry, lineage, governance]
+    aliases: [artifact-metadata, model-versioning]
+  - id: q-mlops-shadow-canary-rollout
+    question: 'Compare shadow, canary, A/B, and blue-green model rollouts.'
+    conciseAnswer: 'Shadowing copies traffic without affecting decisions, validating compatibility and latency; canaries expose a small cohort for safety; A/B tests estimate causal product impact with randomized assignment; blue-green keeps two complete environments for rapid switching. They answer different questions and may be composed in that order.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [deployment, canary, shadow, experimentation]
+    aliases: [safe-rollout, model-deployment-strategies]
+  - id: q-mlops-monitoring-stack
+    question: 'What should an ML system monitor when labels arrive late?'
+    conciseAnswer: 'Monitor service health, schema and feature integrity, missingness/range, prediction and confidence distributions, slice and business guardrails, feedback/label coverage and delay, and eventually outcome metrics. Drift alerts are diagnostic leads; pair them with ownership, thresholds based on historical variability, and a runbook.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [monitoring, delayed-labels, data-quality]
+    aliases: [ml-observability, production-metrics]
+  - id: q-mlops-drift-performance
+    question: 'Why does distribution drift neither imply nor exclude model-performance degradation?'
+    conciseAnswer: 'A large shift can occur in irrelevant features with no metric change, while concept drift can damage predictions without a large marginal feature shift. Compare drift to stable references by slice, prioritize features tied to decisions, and confirm impact with delayed outcomes, shadow labels, or controlled review.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, ml-platform]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [drift, performance, observability]
+    aliases: [data-drift-vs-concept-drift, drift-alert]
+  - id: q-mlops-retraining-policy
+    question: 'How do you choose between scheduled, threshold-triggered, and continuous retraining?'
+    conciseAnswer: 'Schedule when change is predictable and labels are slow; trigger when validated quality/data conditions cross sustained thresholds; retrain continuously only when labels, safeguards, and rollback are mature. Every policy needs freshness objectives, minimum evidence, evaluation gates, budget limits, and protection against feedback-driven self-corruption.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, ml-platform, leadership]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [retraining, automation, feedback-loops]
+    aliases: [model-refresh, continuous-training]
+  - id: q-mlops-rollback
+    question: 'What makes an ML rollback safe and actually usable during an incident?'
+    conciseAnswer: 'Keep the prior model, feature schema, preprocessing, dependencies, and policy mutually compatible; separate deploy from traffic shift; define automatic and human rollback triggers; preserve audit logs; and regularly exercise the path. Stateful features and irreversible user actions require forward mitigation, not only binary rollback.'
+    priority: must-know
+    difficulty: advanced
+    roles: [ml-platform, leadership]
+    kind: debugging
+    round: system-design
+    stability: evergreen
+    tags: [rollback, incident-response, compatibility]
+    aliases: [model-recovery, safe-revert]
+  - id: q-mlops-parallelism
+    question: 'Compare data, tensor/model, and pipeline parallelism for distributed training.'
+    conciseAnswer: 'Data parallelism replicates the model and synchronizes gradients; tensor/model parallelism shards operations or parameters when one model does not fit; pipeline parallelism partitions layers and overlaps microbatches but creates bubbles and scheduling complexity. Real large-model training composes them around memory and interconnect topology.'
+    priority: must-know
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, ml-platform]
+    kind: trade-off
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [distributed-training, data-parallel, tensor-parallel, pipeline-parallel]
+    aliases: [parallel-training, model-sharding]
+  - id: q-mlops-sync-async
+    question: 'What are the tradeoffs between synchronous and asynchronous distributed optimization?'
+    conciseAnswer: 'Synchronous workers compute a consistent step but wait for stragglers; asynchronous workers improve utilization but apply stale gradients, changing optimization and reproducibility. Bounded staleness, elastic batches, gradient accumulation, and straggler mitigation occupy the middle; compare statistical efficiency per wall-clock and failure behavior.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, ml-platform]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [distributed-optimization, staleness, stragglers]
+    aliases: [sync-vs-async, parameter-server]
+  - id: q-mlops-idempotence-faults
+    question: 'Why do idempotence and checkpoint semantics matter in ML pipelines?'
+    conciseAnswer: 'Retries are inevitable; a task must produce the same committed logical result or detect prior completion rather than duplicate examples, labels, or registry entries. Use immutable inputs, deterministic keys, atomic publication, lineage, and checkpoints that jointly capture model, optimizer, scheduler, RNG, and data position.'
+    priority: common
+    difficulty: advanced
+    roles: [ml-platform, applied-scientist]
+    kind: implementation
+    round: system-design
+    stability: evergreen
+    tags: [idempotence, checkpoints, fault-tolerance]
+    aliases: [exactly-once, resumable-training]
+  - id: q-mlops-global-design
+    question: 'How would you design a multi-region ML service with freshness, availability, and cost constraints?'
+    conciseAnswer: 'Quantify regional demand, latency/freshness SLOs, residency, failure tolerance, and budget; separate globally versioned artifacts from regional features and serving; choose consistency per state; route with health-aware failover; degrade to cached/baseline decisions; and monitor regional skew plus deployment convergence.'
+    priority: common
+    difficulty: advanced
+    roles: [ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [multi-region, availability, consistency, disaster-recovery]
+    aliases: [global-ml-platform, regional-serving]

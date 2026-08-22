@@ -11,6 +11,7 @@ import {
   sideProjects,
 } from '../data/cv.ts';
 import { projects } from '../data/projects.ts';
+import { plainMdx } from '../lib/plainContent.ts';
 
 /**
  * Knowledge payload for the /terminal/ shell: one fetch serves both the virtual
@@ -28,42 +29,31 @@ const squash = (value = '') => value.replace(/\s+/g, ' ').trim();
 const iso = (date) => date?.toISOString?.().slice(0, 10) ?? '';
 const year = (date) => date?.getUTCFullYear?.() ?? '';
 
-/** MDX body → readable prose: drop imports and JSX tags, unwrap links, de-fence. */
-function plain(body = '', limit = 1400) {
-  const text = body
-    .replace(/^import\s.+$/gm, '')
-    .replace(/^export\s.+$/gm, '')
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/<[A-Z][\w.]*(?:\s[^>]*?)?\/>/g, ' ')
-    .replace(/<\/?[A-Z][\w.]*(?:\s[^>]*?)?>/g, ' ')
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/[*_`#>]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return text.length > limit ? `${text.slice(0, limit).trimEnd()}…` : text;
-}
-
 const bullet = (lines) => lines.map((line) => `  ${line}`).join('\n');
 
 export async function GET() {
-  const [publications, research, talks, posts, news, teaching] = await Promise.all([
-    getCollection('publications'),
-    getCollection('research'),
-    getCollection('presentations'),
-    getCollection('posts'),
-    getCollection('news'),
-    getCollection('teaching'),
-  ]);
+  const [publications, research, talks, posts, news, teaching, deepDives, questionBanks] =
+    await Promise.all([
+      getCollection('publications'),
+      getCollection('research'),
+      getCollection('presentations'),
+      getCollection('posts'),
+      getCollection('news'),
+      getCollection('teaching'),
+      getCollection('deepDives'),
+      getCollection('deepDiveQuestionBanks'),
+    ]);
 
   const livePosts = posts.filter((entry) => !entry.data.draft);
   const liveNews = news
     .filter((entry) => !entry.data.draft)
     .sort((a, b) => b.data.date - a.data.date);
   const pubsByDate = [...publications].sort((a, b) => b.data.date - a.data.date);
-  const talksByDate = [...talks].sort(
-    (a, b) => (b.data.startDate ?? 0) - (a.data.startDate ?? 0)
-  );
+  const talksByDate = [...talks].sort((a, b) => (b.data.startDate ?? 0) - (a.data.startDate ?? 0));
+  const liveDeepDives = deepDives
+    .filter((entry) => !entry.data.draft)
+    .sort((a, b) => a.data.hub.localeCompare(b.data.hub) || a.data.order - b.data.order);
+  const deepDiveById = new Map(liveDeepDives.map((entry) => [entry.id, entry]));
 
   /** path → node. Directories are derived from the paths at runtime. */
   const fs = {};
@@ -105,7 +95,9 @@ export async function GET() {
       `Email: ${site.email}`,
       '',
       'Elsewhere:',
-      bullet(socials.filter((s) => s.key !== 'email').map((s) => `${s.label.padEnd(14)} ${s.href}`)),
+      bullet(
+        socials.filter((s) => s.key !== 'email').map((s) => `${s.label.padEnd(14)} ${s.href}`)
+      ),
     ].join('\n'),
   });
 
@@ -185,7 +177,7 @@ export async function GET() {
         '',
         entry.data.summary,
         '',
-        plain(entry.body),
+        plainMdx(entry.body, 1400),
       ].join('\n'),
     });
   }
@@ -238,13 +230,7 @@ export async function GET() {
       title: entry.data.title,
       href: `/posts/${entry.id}/`,
       keywords: `post article write-up ${(entry.data.tags ?? []).join(' ')}`,
-      body: [
-        entry.data.title,
-        '',
-        entry.data.description,
-        '',
-        plain(entry.body),
-      ].join('\n'),
+      body: [entry.data.title, '', entry.data.description, '', plainMdx(entry.body, 1400)].join('\n'),
     });
   }
 
@@ -254,8 +240,37 @@ export async function GET() {
       title: entry.data.title,
       href: '/teaching/',
       keywords: 'teaching course ta lecture',
-      body: [entry.data.title, '', plain(entry.body, 600)].filter(Boolean).join('\n'),
+      body: [entry.data.title, '', plainMdx(entry.body, 600)].filter(Boolean).join('\n'),
     });
+  }
+
+  // ----------------------------------------------------------- deep dives
+  for (const entry of liveDeepDives) {
+    add(`/home/khc/deep-dives/${entry.id}.txt`, {
+      title: entry.data.title,
+      href: `/deep_dives/${entry.id}/`,
+      keywords: `${entry.data.hub} ${entry.data.moduleLabel} ${entry.data.tags.join(' ')} ${entry.data.objectives.join(' ')}`,
+      body: [entry.data.title, '', entry.data.description, '', plainMdx(entry.body, 1200)].join(
+        '\n'
+      ),
+    });
+  }
+  let interviewQuestionCount = 0;
+  for (const bank of questionBanks) {
+    const lesson = deepDiveById.get(bank.data.lesson.id);
+    if (!lesson) continue;
+    for (const question of bank.data.questions) {
+      interviewQuestionCount += 1;
+      chunks.push({
+        path: `/home/khc/deep-dives/${lesson.id}.txt`,
+        title: question.question,
+        href: `/deep_dives/${lesson.id}/#${question.id}`,
+        kind: 'interview-question',
+        text: squash(
+          `${question.question} ${question.conciseAnswer} ${question.priority} ${question.kind} ${question.tags.join(' ')} ${question.aliases.join(' ')}`
+        ).slice(0, 1400),
+      });
+    }
   }
 
   // ------------------------------------------------------------------ news
@@ -317,6 +332,8 @@ export async function GET() {
       software: software.length,
       research: research.length,
       posts: livePosts.length,
+      deepDives: liveDeepDives.length,
+      interviewQuestions: interviewQuestionCount,
       news: liveNews.length,
       honors: honors.length,
       reviewing: reviewing.length,
@@ -324,6 +341,15 @@ export async function GET() {
     },
     fs,
     chunks,
+    deepDives: liveDeepDives.map((entry) => ({
+      slug: entry.id,
+      title: entry.data.title,
+      href: `/deep_dives/${entry.id}/`,
+      hub: entry.data.hub,
+      moduleId: entry.data.moduleId,
+      order: entry.data.order,
+      aliases: [entry.data.shortTitle, ...entry.data.tags].filter(Boolean),
+    })),
   };
 
   return new Response(JSON.stringify(payload), {

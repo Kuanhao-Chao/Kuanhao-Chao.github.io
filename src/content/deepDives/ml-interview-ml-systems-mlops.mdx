@@ -1,0 +1,346 @@
+---
+title: Production ML Systems & MLOps
+shortTitle: ML Systems & MLOps
+description: Data and training pipelines, distributed training, lineage, registries, batch and online serving, monitoring, retraining, canaries and rollback.
+abstract: Treat a deployed model as one component in a changing sociotechnical system, with explicit reliability, latency, cost, data and operational contracts.
+date: 2026-08-22
+updated: 2026-08-22
+track: workflow
+hub: ml-dl-interview
+lessonType: system-design
+category: machine-learning
+moduleId: m11-production
+moduleLabel: Production & Interview Practice
+order: 18
+level: advanced
+objectives:
+  - Design reproducible data, feature, training and promotion pipelines with inspectable lineage.
+  - Estimate and choose batch, streaming and online-serving architecture under SLO and cost constraints.
+  - Define observability, retraining, canary and rollback policies that remain useful during incidents.
+  - Compare distributed-training strategies through memory, communication, staleness and fault tolerance.
+prerequisites: [ml-interview-data-features-validation, ml-interview-metrics-experimentation, ml-interview-optimization-training]
+relatedLessons: [ml-interview-system-design-case-studies]
+referenceIds:
+  - sculley2015debt
+  - breck2017mltestscore
+  - baylor2017tfx
+  - zaharia2018mlflow
+  - dean2004mapreduce
+  - dean2012distbelief
+  - li2014parameterserver
+  - sergeev2018horovod
+  - narayanan2019pipedream
+keyEquations:
+  - 'N_{\mathrm{inflight}}=\lambda_q\,\mathbb E[S]'
+  - 'T_{\mathrm{step}}\approx\max(T_{\mathrm{compute}},T_{\mathrm{communication}})+T_{\mathrm{sync}}'
+  - 'A=\frac{N_{\mathrm{successful}}}{N_{\mathrm{valid}}}'
+tags: [MLOps, serving, monitoring, distributed training, lineage, deployment]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The model is one versioned dependency
+
+Production quality depends on the least reliable link among data, features, artifact,
+service, policy and feedback. TFX made pipeline components and metadata first-class
+<Citation id="baylor2017tfx" />; MLflow similarly records experiments, projects and models
+<Citation id="zaharia2018mlflow" />. Neither tool supplies the operating contract by itself.
+The hidden dependencies between these pieces are themselves a source of compounding debt
+<Citation id="sculley2015debt" />.
+
+<Callout variant="intuition" title="Two loops, one decision">
+The **learning loop** turns historical events into a tested artifact. The **serving loop**
+turns current context into an action and new events. The registry/control plane decides
+which version may connect them. Train–serve skew, feedback loops and unsafe rollouts occur
+at the seams, so draw those seams before naming infrastructure.
+</Callout>
+
+<Notation rows={[
+  { symbol: '\\lambda_q', meaning: 'Peak request arrival rate', dims: 'requests/second' },
+  { symbol: 'S', meaning: 'End-to-end service time', dims: 'seconds/request' },
+  { symbol: 'U', meaning: 'Target utilization before queueing reserve', dims: 'scalar in (0,1)' },
+  { symbol: 'R', meaning: 'Required replicas', dims: 'positive integer' },
+  { symbol: '\\tau', meaning: 'Maximum acceptable feature/model staleness', dims: 'time' },
+  { symbol: 'v_d,v_f,v_m', meaning: 'Data, feature and model versions', dims: 'immutable identifiers' },
+]}/>
+
+<Figure
+  id="ml-system-control-loops"
+  caption="Figure 1. The learning and serving loops meet at explicit versioned interfaces. Logged decisions return as delayed outcomes; the control plane promotes an artifact only with compatible feature/schema contracts and can route back to the prior bundle."
+  alt="A left training loop connects event store, feature computation, trainer, evaluator and registry. A right serving loop connects request, feature service, model server, decision and event log. A control plane between registry and model server supports promote and rollback."
+  wide
+>
+  <svg viewBox="0 0 760 250" width="760" height="250" font-family="inherit">
+    <defs><marker id="ops-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/></marker></defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#ops-arrow)"><path d="M65 97 H150 M215 97 H300 M365 97 H450"/><path d="M505 97 H585 M645 97 H712"/><path d="M680 117 V190 H84 V119" opacity=".45"/><path d="M475 73 V45 H615 V73" stroke="var(--color-accent)" stroke-width="2"/><path d="M615 120 V147 H475 V120" stroke="var(--color-accent)" stroke-width="2"/></g>
+    <g fill="var(--color-surface)" stroke="currentColor"><rect x="15" y="76" width="50" height="42" rx="6"/><rect x="150" y="76" width="65" height="42" rx="6"/><rect x="300" y="76" width="65" height="42" rx="6"/><rect x="450" y="76" width="55" height="42" rx="6"/><rect x="585" y="76" width="60" height="42" rx="6"/><rect x="712" y="76" width="35" height="42" rx="6"/></g>
+    <g fill="currentColor" font-size="10.5" text-anchor="middle"><text x="40" y="94">event</text><text x="40" y="107">store</text><text x="182" y="101">features</text><text x="332" y="101">trainer</text><text x="477" y="101">registry</text><text x="615" y="101">server</text><text x="729" y="101">action</text><text x="545" y="37">promote compatible bundle</text><text x="545" y="164">rollback</text><text x="370" y="210">outcome + decision log closes the learning loop</text></g>
+  </svg>
+</Figure>
+
+## Build reproducible learning inputs
+
+<InterviewQuestion id="q-mlops-reproducible-pipeline">
+Reproduction requires the inputs to a decision, not just weights: immutable data snapshot or
+query plus event cutoff, feature/label code, split manifest, source commit, config, environment,
+dependencies, seeds, hardware-sensitive flags, checkpoints and evaluation artifact. Give every
+run a lineage graph from source records to promoted digest.
+
+Define tolerance: floating-point/distributed kernels may not be bitwise deterministic, but
+metrics, slices and decisions should reproduce within declared bounds. Make pipeline steps
+idempotent and publish atomically. A run whose source URI now points to mutable “latest” is not
+reproducible. Breck and colleagues' ML Test Score frames production readiness as tests across
+data, model, infrastructure and monitoring <Citation id="breck2017mltestscore" />.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-train-serve-skew">
+Skew includes different feature code, point-in-time joins, defaults, vocabulary, normalization,
+window boundary, dependency version or numerical semantics. Prevention is contractual: define
+features once or compile shared transformations, version schema and defaults, and use event time
+rather than future ingestion state.
+
+Log the exact features/model version served, replay sampled requests through offline code, and
+compare shadow predictions before promotion. Unit equality is insufficient if online data
+arrives late or has different missingness. Alert on parity distributions and join coverage.
+Feature stores help reuse and point-in-time retrieval, but cannot infer whether a definition is
+causally available at decision time.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-batch-stream-online">
+Write freshness $\tau$ and response SLO first. Batch inference maximizes throughput and is easy
+to audit, but results stale between runs. Streaming incrementally updates state or predictions
+after events, adding ordering, watermark and replay concerns. Synchronous online inference uses
+request context but pays network, dependency and availability cost.
+
+A common hybrid computes embeddings and broad candidates in batch, refreshes counters via
+streams, then retrieves/ranks a small set online. Specify fallback when fresh features or model
+service fail. “Real time” is not a requirement; “price decision within 80 ms using events no
+older than five minutes” is.
+</InterviewQuestion>
+
+## Estimate before drawing boxes
+
+<InterviewQuestion id="q-mlops-capacity-estimation">
+Estimate average/peak QPS, burst duration, request bytes, model/feature memory, accelerator
+batch behavior, end-to-end service-time distribution, target utilization, replication and
+failover reserve. Little's relation gives average in-flight work $L\approx\lambda_q E[S]$;
+queueing rises sharply near saturation, so size from p95/p99 and benchmark realistic concurrency.
+
+Separate model compute from feature/network/postprocessing. State assumptions and sensitivity:
+if embedding lookup dominates, optimizing matrix multiply is irrelevant. Include cold starts,
+rollout double-capacity and one-zone loss. Translate replicas and accelerator hours to cost per
+thousand decisions so quality tradeoffs are visible.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Size a replicated synchronous inference tier"
+  given={[
+    { label: 'Peak arrival rate', value: '2,400 requests/s' },
+    { label: 'p95 service time', value: '40 ms' },
+    { label: 'Replica concurrency', value: '8 requests' },
+    { label: 'Target utilization', value: '60%; failover reserve 1.5×' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+Peak in-flight demand is $2{,}400\times0.040=96$ requests. Each replica contributes
+$8\times.60=4.8$ effective concurrent slots, so steady requirement is
+$\lceil96/4.8\rceil=20$. Applying reserve gives $\lceil20\times1.5\rceil=30$ replicas.
+
+This is a starting bound, not a latency guarantee: benchmark queueing, arrival bursts, feature
+dependencies and batch formation. If 40 ms was only mean rather than p95, using it for a p99
+SLO would be unjustified.
+</WorkedExample>
+
+<InterviewQuestion id="q-mlops-serving-architecture">
+**Requirements:** decision, p99 latency, availability, freshness, privacy and fallback.
+**Estimate:** peak QPS, payload/state/model size and failure reserve. **Architecture:**
+authenticated ingress → validation → point-in-time feature retrieval → versioned model server
+→ policy/postprocessing → durable decision log.
+
+Bound every downstream deadline, cap concurrency, make retries idempotent and use circuit
+breakers. Replicate across failure domains and keep a cheap baseline/cached answer when the ML
+path fails. **Evaluation/monitoring:** shadow parity, end-to-end latency, feature health,
+prediction slices and delayed outcomes. **Failure modes:** feature outage, schema mismatch,
+hot key, partial deploy and regional partition—all need runbooks and compatible rollback.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-caching-batching-approximation">
+Caching removes repeated computation but needs a key that includes relevant model/feature/policy
+versions and a staleness bound. Dynamic batching improves accelerator utilization while adding
+queue delay; use deadline-aware maximum wait. Quantization reduces memory/bandwidth and may
+shift accuracy/calibration by subgroup. ANN retrieval trades latency/memory for candidate recall.
+
+Treat each as a measured knob: plot end-to-end utility against p99 and cost, not isolated kernel
+speed. Validate realistic lengths/concurrency, shadow the optimized path, and retain fallback.
+These serving techniques change quickly; claims were reviewed 2026-08-22 and should be checked
+against the deployed runtime.
+</InterviewQuestion>
+
+## Promote, observe and recover
+
+<InterviewQuestion id="q-mlops-registry-lineage">
+A registry record needs artifact digest, code/config/environment, training data and feature
+lineage, schema/signature, metrics and slices, intended use/limitations, approvals, dependency
+compatibility, owner and deployment history. Promotion should reference an immutable bundle;
+mutable tags are pointers, not identity.
+
+The registry is a control plane: enforce evaluation gates, compare candidates, reproduce a
+decision and roll traffic to a compatible prior bundle. Store why a version was rejected as
+well as promoted. MLflow's provenance concepts are useful, but governance and compatibility
+are organizational contracts, not automatic properties of registry software.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-shadow-canary-rollout">
+Shadow copies production requests to a candidate without affecting users, catching schema,
+latency and parity failures but not behavioral impact. Canary exposes a small cohort and limits
+blast radius. Randomized A/B estimates causal product impact when assignment/interference are
+handled. Blue–green maintains complete environments for rapid traffic switching.
+
+Compose them: offline gates → shadow → canary → randomized ramp. Predeclare operational, quality
+and harm guardrails plus stop rules. Keep assignment sticky where user experience carries over,
+and account for novelty. A canary that shares a broken feature service with control does not test
+that dependency's resilience.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-monitoring-stack">
+Monitor four layers: service (traffic/errors/latency/saturation); data (schema, freshness,
+missingness, ranges, joins); model (prediction/confidence, slices, feature attribution only if
+stable); and outcomes (label coverage/delay, decision utility, guardrails). Link every alert to
+version and owner.
+
+When labels lag, use leading indicators and sampled human review without pretending they equal
+performance. Set thresholds from historical variability and decision cost, deduplicate alerts,
+and test the runbook. Monitoring creates value only when someone can diagnose and act before
+the harm window closes.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-drift-performance">
+Feature drift $p_t(x)$ can be large on unused variables with no quality loss; concept drift can
+change $p(y\mid x)$ while marginal features look stable. A population stability index or
+two-sample classifier is therefore a smoke alarm, not a performance estimator.
+
+Compare to seasonal/time-matched references, slice by source/cohort, prioritize model-relevant
+and integrity features, and confirm with delayed outcomes, shadow labels or adjudication. Track
+prediction/decision rates and feedback coverage too. Diagnose cause before retraining: a broken
+join can mimic drift, and retraining on it institutionalizes corruption.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-retraining-policy">
+Schedule refresh when change is predictable and label/evaluation cadence dominates. Trigger
+after sustained validated degradation or feature/population condition, with minimum sample and
+cooldown. Continuous training suits abundant timely labels and mature gates, but increases
+feedback contamination and operational coupling.
+
+Every policy specifies data cutoff, label maturity, candidate baseline, slice/guardrail gates,
+budget, approval, canary and rollback. Retraining is not automatically remediation: concept or
+policy change may require relabeling or redesign. Preserve a champion and explain why the
+challenger was promoted.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-rollback">
+Rollback a **bundle**: model, transforms, feature schema/defaults, dependencies and policy. Keep
+the prior bundle warm, decouple artifact deployment from traffic shift, and define automatic
+and human triggers. Exercise rollback so credentials, migrations and routing are known to work.
+
+Preserve decision/request logs and announce degraded mode. Stateful features, cached embeddings
+and irreversible actions may require forward remediation or replay; changing only weights can
+worsen incompatibility. After containment, run a blameless causal postmortem and add the earliest
+detectable invariant, not merely another dashboard.
+</InterviewQuestion>
+
+## Scale training without losing semantics
+
+<InterviewQuestion id="q-mlops-parallelism">
+Data parallelism replicates parameters, shards batches and all-reduces gradients; it is simplest
+until model memory or communication dominates. Model/tensor parallelism shards parameters or
+individual operations across devices. Pipeline parallelism partitions layers and overlaps
+microbatches, trading memory for bubbles and scheduling complexity; PipeDream explores this
+space <Citation id="narayanan2019pipedream" />.
+
+Distributed neural systems began combining model/data strategies at scale
+<Citation id="dean2012distbelief" />; Horovod popularized efficient ring-allreduce workflows
+<Citation id="sergeev2018horovod" />. Choose from parameter/activation/optimizer memory,
+compute-to-communication ratio, topology and failure domain. Composition is common; preserve
+global batch/loss semantics when scaling.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-sync-async">
+Synchronous data-parallel workers form one logically consistent gradient step but wait for
+stragglers. Asynchronous workers send updates independently to parameter servers
+<Citation id="li2014parameterserver" />; utilization improves while gradients become stale and
+optimization order nondeterministic.
+
+Measure **time to target quality**, not examples/second alone. Large synchronous batches can
+change generalization and schedule; asynchronous staleness can destabilize fast-changing
+parameters. Bounded staleness, elastic membership, gradient accumulation and straggler
+mitigation occupy the middle. State checkpoint consistency and what happens when a worker
+replays data.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-idempotence-faults">
+Retries are normal. A pipeline task should commit one deterministic logical output keyed by
+immutable inputs or detect prior success; otherwise retries duplicate labels, counters or
+registry entries. Use staging plus atomic publish, manifests/checksums and lineage. MapReduce's
+functional task/reexecution model illustrates why deterministic partitions simplify recovery
+<Citation id="dean2004mapreduce" />.
+
+A resumable training checkpoint includes model, optimizer, scaler, scheduler, RNG states,
+epoch/data offset and distributed sampler/shard metadata. Test interruption at boundaries and
+mid-epoch. “Weights saved” is not equivalent to equivalent continuation.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mlops-global-design">
+**Requirements/estimate:** regional QPS, p99, freshness, residency, availability and budget.
+**Architecture:** globally signed/versioned artifacts; regional point-in-time feature and
+serving planes; health-aware routing; explicit replication/consistency per state. **Model/data:**
+evaluate regional representation and prohibit cross-boundary data flows.
+
+**Serving:** degrade to cached/baseline decisions under partition and reserve capacity for zone
+loss. **Evaluation/monitoring:** regional slices, feature lag, deployment convergence, failover
+tests and cost. **Failures:** stale registry, split brain, feature partition, incompatible model,
+correlated dependency and uneven traffic. Pick consistency by consequence: an occasional stale
+recommendation and a duplicated financial action need different contracts.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="Find the skew" difficulty="warm-up">
+Offline training computes a 30-day purchase count using event time. Online serving uses the last
+30 ingestion days. Late events are common. What fails and how do you test it?
+<div slot="solution">The feature windows have different clocks, causing train–serve skew. Define
+one event-time contract with lateness/watermark semantics, replay timestamped production requests
+through both implementations, compare exact values and missing/default rates, and log the served
+feature version/value for diagnosis.</div>
+</Exercise>
+
+<Exercise n={2} title="A drift alert without a quality conclusion" difficulty="core">
+A high-volume feature's distribution changes sharply, but it has zero weight in the deployed
+linear model. Should the model automatically retrain?
+<div slot="solution">No. Verify the feature is truly unused and that the drift does not signal a
+shared pipeline fault; inspect predictions, relevant features and delayed outcomes. Retraining
+on an unexplained change can add risk. Drift is a diagnostic trigger, not proof of degradation.</div>
+</Exercise>
+
+<Exercise n={3} title="Resume exactly enough" difficulty="stretch">
+After restoring weights and optimizer, a distributed run diverges immediately from its prior
+trajectory. What checkpoint state is missing?
+<div slot="solution">Check scheduler/global step, mixed-precision scaler, Python/NumPy/device RNG,
+sampler epoch and within-epoch offset, sharding/world size, gradient-accumulation position and
+data snapshot. Bitwise reproduction may remain unavailable, but omitting these changes the
+logical next examples and update.</div>
+</Exercise>
+
+## Summary
+
+- Reproducibility requires immutable data-to-artifact lineage and declared tolerances.
+- Freshness, QPS, tail latency, availability and cost determine inference mode.
+- Registries control compatible bundles; safe deployment moves through shadow, canary and experiment.
+- Monitoring separates service, data, prediction and delayed outcome evidence.
+- Retraining and rollback are policies with gates, owners and tested failure paths.
+- Distributed training trades memory and utilization against communication, staleness and recovery semantics.

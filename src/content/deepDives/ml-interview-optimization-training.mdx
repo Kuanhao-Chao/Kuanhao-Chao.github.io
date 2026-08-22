@@ -1,0 +1,597 @@
+---
+title: "Machine Learning Interview Guide: Optimization & Training"
+shortTitle: Optimization & Training
+description: "Derive SGD, momentum, Adam and AdamW; reason about initialization, batch size, schedules and precision; and debug training from measurements instead of folklore."
+abstract: "Training is a dynamical system: gradients, curvature, optimizer state, precision, stochastic batches, schedules, and architecture jointly determine each parameter update. This interview guide derives the common optimizers, separates L2 regularization from decoupled weight decay, explains signal-preserving initialization and gradient flow, and turns batch size, mixed precision, early stopping, hyperparameter search, and distributed accumulation into concrete debugging decisions."
+date: 2026-08-22
+track: theory
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m06-training
+moduleLabel: Module 6 · Deep Learning Foundations
+order: 9
+level: intermediate
+objectives:
+  - "Derive mini-batch SGD, momentum, Adam, AdamW, and the state and compute each requires."
+  - "Connect learning rate, curvature, gradient noise, batch size, and schedules to observed training dynamics."
+  - "Choose initialization, normalization, clipping, and precision controls from the failure mechanism they address."
+  - "Debug a stalled or unstable run using tiny-batch overfitting, update norms, gradient norms, and data checks."
+  - "Design reproducible hyperparameter and distributed-training experiments without changing the effective objective accidentally."
+prerequisites: []
+relatedLessons:
+  - ml-interview-neural-network-foundations
+referenceIds:
+  - robbins1951stochastic
+  - sutskever2013initialization
+  - glorot2010difficulty
+  - he2015delving
+  - pascanu2013difficulty
+  - kingma2015adam
+  - goyal2017accurate
+  - keskar2017largebatch
+  - micikevicius2018mixedprecision
+  - loshchilov2019adamw
+keyEquations:
+  - '\theta_{t+1}=\theta_t-\eta_t\,\hat g_t'
+  - 'm_t=\beta_1m_{t-1}+(1-\beta_1)g_t,\quad v_t=\beta_2v_{t-1}+(1-\beta_2)g_t^2'
+  - '\theta_{t+1}=(1-\eta\lambda)\theta_t-\eta\,\operatorname{AdamStep}_t'
+  - '\operatorname{Var}(W_{ij})\approx\frac{2}{\mathrm{fan}_{\mathrm{in}}}\quad\text{for ReLU}'
+tags: [machine learning interviews, optimization, SGD, AdamW, training, debugging]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+
+## Training is a measured dynamical system
+
+“Adam did not work, so I tried SGD” is not a diagnosis. The useful questions are: Did the loss
+decrease on one batch? Were gradients finite? How large was the update relative to each parameter?
+Did validation fail while training improved, or did neither improve? Did the effective batch,
+schedule, or loss reduction change when training moved to more devices?
+
+<Callout variant="intuition" title="The optimizer only sees local slope">
+A gradient points uphill locally; its negative points downhill locally. It does not contain a
+safe distance to travel. The learning rate supplies that distance, momentum supplies memory,
+Adam supplies coordinate-wise scale adaptation, and a schedule changes the distance over time.
+
+Treat a training recipe as one coupled object. Changing batch size without revisiting the
+learning rate and schedule, or adding L2 to Adam while believing it is ordinary weight decay,
+changes the dynamics in ways a model name cannot summarize.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: '\\theta_t', meaning: 'Vector of all trainable parameters at optimizer step t', dims: 'P' },
+    { symbol: 'L_B(\\theta)', meaning: 'Mean loss on mini-batch B', dims: 'scalar' },
+    { symbol: 'g_t=\\nabla_\\theta L_{B_t}(\\theta_t)', meaning: 'Stochastic mini-batch gradient', dims: 'P' },
+    { symbol: '\\eta_t', meaning: 'Learning rate at optimizer step t', dims: 'parameter / gradient' },
+    { symbol: '\\beta_1,\\beta_2', meaning: 'Decay factors for Adam first and second moments', dims: 'in [0,1)' },
+    { symbol: '\\lambda', meaning: 'Weight-decay coefficient', dims: 'inverse learning-rate units' },
+    { symbol: 'B,\\,K,\\,G', meaning: 'Microbatch size, accumulation steps, and data-parallel workers', dims: 'counts' },
+    { symbol: '\\lVert g\\rVert_2', meaning: 'Global Euclidean gradient norm', dims: 'gradient units' },
+    { symbol: '\\epsilon', meaning: 'Numerical stabilizer in an adaptive denominator', dims: 'gradient units' },
+  ]}
+/>
+
+<Widget
+  kind="gradient-descent"
+  title="Learning rate meets curvature"
+  caption="The objective is the exact quadratic L(θ)=θ²/2. Move η through the stability boundary ηλ=2 and inspect the actual iterates. This isolates one mechanism; real objectives add changing curvature and stochastic gradients."
+  alt="Interactive quadratic loss curve with gradient-descent iterates that converge, oscillate, or diverge as the learning rate changes."
+>
+  <svg viewBox="0 0 660 320" role="presentation">
+    <line x1="62" y1="274" x2="638" y2="274" stroke="currentColor" />
+    <line x1="62" y1="22" x2="62" y2="274" stroke="currentColor" />
+    <path d="M78 38 Q350 500 622 38" fill="none" stroke="currentColor" opacity=".5" />
+    <polyline points="570,83 210,185 430,238 300,262 365,271" fill="none" stroke="var(--color-accent,#2e6e5e)" stroke-width="2.5" />
+    <circle cx="365" cy="271" r="5" fill="var(--color-accent,#2e6e5e)" />
+  </svg>
+</Widget>
+
+<Figure
+  caption="Figure 1. Optimizers traverse the same ill-conditioned quadratic differently. Plain gradient descent zigzags across the steep direction; momentum damps that oscillation; coordinate-wise adaptation changes the step scale in each direction. Paths are illustrative—Adam is not inherently better on every objective."
+  alt="Nested elongated elliptical loss contours around a minimum. A plain gradient descent path zigzags slowly from upper left to the center, a momentum path curves smoothly toward the center, and an adaptive path takes larger balanced diagonal steps."
+>
+  <svg viewBox="0 0 680 380" width="680" height="380" font-family="inherit">
+    <g fill="none" stroke="currentColor" opacity=".2">
+      <ellipse cx="366" cy="207" rx="250" ry="92" transform="rotate(-22 366 207)" />
+      <ellipse cx="366" cy="207" rx="190" ry="68" transform="rotate(-22 366 207)" />
+      <ellipse cx="366" cy="207" rx="126" ry="43" transform="rotate(-22 366 207)" />
+      <ellipse cx="366" cy="207" rx="62" ry="21" transform="rotate(-22 366 207)" />
+    </g>
+    <circle cx="366" cy="207" r="5" fill="currentColor" />
+    <text x="377" y="202" font-size="11" fill="currentColor">minimum</text>
+    <polyline points="119,91 240,319 194,124 303,283 269,158 346,246 328,184 366,207" fill="none" stroke="currentColor" stroke-width="2" />
+    <text x="83" y="77" font-size="11" fill="currentColor">plain GD: oscillation</text>
+    <path d="M119 91 C165 196, 222 280, 285 270 C333 261, 343 229, 366 207" fill="none" stroke="var(--color-accent,#2e6e5e)" stroke-width="2.5" />
+    <text x="145" y="301" font-size="11" fill="var(--color-accent,#2e6e5e)">momentum: accumulated direction</text>
+    <polyline points="119,91 177,116 238,143 292,168 334,191 366,207" fill="none" stroke="currentColor" opacity=".63" stroke-width="2.5" stroke-dasharray="6 4" />
+    <text x="169" y="101" font-size="11" fill="currentColor" opacity=".72">adaptive scaling</text>
+    <text x="340" y="356" text-anchor="middle" font-size="12" fill="currentColor">parameter direction 1</text>
+    <text x="25" y="193" text-anchor="middle" font-size="12" fill="currentColor" transform="rotate(-90 25 193)">parameter direction 2</text>
+  </svg>
+</Figure>
+
+## Optimizers and update rules
+
+<InterviewQuestion id="q-opt-gd-sgd-minibatch">
+
+For empirical risk $L(\theta)=N^{-1}\sum_{i=1}^N\ell_i(\theta)$, full-batch gradient descent uses
+all $N$ examples for one exact update. It is stable but each step costs $O(NP)$ and cannot update
+until a complete pass finishes. Single-example SGD replaces the gradient with an unbiased noisy
+estimate; stochastic approximation traces to Robbins and Monro <Citation id="robbins1951stochastic" />.
+
+Mini-batch SGD uses
+
+$$
+g_t=\frac{1}{B}\sum_{i\in B_t}\nabla\ell_i(\theta_t),\qquad
+\theta_{t+1}=\theta_t-\eta_t g_t.
+$$
+
+Its dense-layer compute still scales with $B$, but matrix kernels exploit parallel hardware. The
+gradient variance falls roughly as $1/B$ for independent samples until correlations and finite
+data matter. More frequent noisy updates can escape narrow features and often give better
+statistical efficiency per example than enormous batches.
+
+In PyTorch, keep loss reduction consistent:
+
+```python
+optimizer.zero_grad(set_to_none=True)
+loss = criterion(model(x), y)       # reduction="mean"
+loss.backward()
+optimizer.step()
+```
+
+If the loss uses `sum`, doubling $B$ doubles gradient magnitude and silently changes the effective
+learning rate.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-learning-rate">
+
+On the one-dimensional quadratic $L(\theta)=\tfrac12a\theta^2$, gradient descent gives
+
+$$
+\theta_{t+1}=(1-\eta a)\theta_t.
+$$
+
+Convergence requires $|1-\eta a|<1$, or $0<\eta<2/a$. Near the upper limit it oscillates; above it
+diverges; with very small $\eta$ it contracts slowly. In multiple dimensions, the largest Hessian
+eigenvalue limits stability while the condition number determines how slowly the flattest
+direction converges. Figure 1 is that mismatch.
+
+Diagnose the learning rate with loss-versus-step, gradient norms, and relative update
+$\lVert\Delta\theta\rVert/\lVert\theta\rVert$ per layer. Sudden nonfinite loss or repeating spikes
+suggests too-large steps or numerical instability; smooth barely changing training loss suggests
+too-small steps, saturated gradients, or a broken graph. A short learning-rate range test can
+identify a useful order of magnitude, but confirm it with validation and the full schedule.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-momentum">
+
+One common heavy-ball convention is
+
+$$
+v_t=\mu v_{t-1}+g_t,\qquad
+\theta_{t+1}=\theta_t-\eta v_t.
+$$
+
+Persistent gradients accumulate by about $1/(1-\mu)$ at steady state, while gradients that
+alternate sign cancel. That is exactly what an elongated valley needs: suppress cross-valley
+oscillation and build speed along the shallow direction.
+
+Nesterov momentum evaluates the gradient at a look-ahead point,
+
+$$
+v_t=\mu v_{t-1}+\nabla L(\theta_t-\eta\mu v_{t-1}),
+\qquad \theta_{t+1}=\theta_t-\eta v_t,
+$$
+
+so the new slope corrects the anticipated move. Library recurrences differ in where learning rate,
+dampening, and the initial buffer enter; compare actual equations, not just `momentum=0.9`.
+Careful momentum and initialization choices were central to training deep networks before modern
+normalization became standard <Citation id="sutskever2013initialization" />.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-adam">
+
+Adam estimates first and uncentered second gradient moments:
+
+$$
+m_t=\beta_1m_{t-1}+(1-\beta_1)g_t,\qquad
+v_t=\beta_2v_{t-1}+(1-\beta_2)g_t^2.
+$$
+
+Because both start at zero, use bias corrections
+$\hat m_t=m_t/(1-\beta_1^t)$ and $\hat v_t=v_t/(1-\beta_2^t)$, then
+
+$$
+\theta_{t+1}=\theta_t-\eta\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon}.
+$$
+
+All products, squares, and divisions are elementwise. Adam requires about two additional
+parameter-sized state tensors; that memory matters for large models. It adapts coordinates with
+different scales and handles sparse gradients well, which often gives rapid initial progress
+<Citation id="kingma2015adam" />.
+
+SGD with momentum can still win on validation in some regimes and has less state. The honest
+answer is empirical: control the schedule and regularization, compare equal compute, and inspect
+robustness—not “Adam converges faster, therefore it is better.”
+
+</InterviewQuestion>
+
+<WorkedExample
+  title="Adam's bias correction on its first update"
+  given={[
+    { label: 'Gradient', value: 'g₁ = 0.20' },
+    { label: 'Moments', value: 'm₀=v₀=0, β₁=0.9, β₂=0.999' },
+    { label: 'Step parameters', value: 'η=0.001, ε negligible' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+
+The raw moments are tiny because the exponential averages started at zero:
+
+$$
+m_1=0.1(0.20)=0.020,\qquad v_1=0.001(0.20^2)=0.00004.
+$$
+
+Bias correction restores the observed moments:
+
+$$
+\hat m_1=\frac{0.020}{1-0.9}=0.20,\qquad
+\hat v_1=\frac{0.00004}{1-0.999}=0.04.
+$$
+
+Therefore
+
+$$
+\Delta\theta_1=-0.001\frac{0.20}{\sqrt{0.04}}=-0.001.
+$$
+
+Without correction, the first update would depend strongly on the arbitrary zero initialization
+of the moment buffers. Notice also that, with negligible $\epsilon$, the first scalar step is
+approximately $-\eta\operatorname{sign}(g)$; Adam normalizes its scale.
+
+</WorkedExample>
+
+<InterviewQuestion id="q-opt-adamw">
+
+For SGD, adding $(\lambda/2)\lVert\theta\rVert^2$ to the objective adds $\lambda\theta$ to the
+gradient:
+
+$$
+\theta_{t+1}=\theta_t-\eta(g_t+\lambda\theta_t)
+=(1-\eta\lambda)\theta_t-\eta g_t.
+$$
+
+Thus L2 regularization and multiplicative decay are equivalent. With Adam, an L2 gradient is
+divided by $\sqrt{\hat v_t}$ coordinate by coordinate, so parameters with different gradient
+histories receive different effective shrinkage. AdamW instead applies
+
+$$
+\theta_{t+1}=(1-\eta\lambda)\theta_t-\eta
+\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon},
+$$
+
+decoupling decay from adaptation <Citation id="loshchilov2019adamw" />.
+
+Usually exclude biases and normalization scale/shift from decay because shrinking them does not
+encode the same function-complexity prior and can hurt. Exact framework ordering can differ, so
+check the optimizer definition when reproducing a recipe.
+
+</InterviewQuestion>
+
+## Signal and gradient stability
+
+<InterviewQuestion id="q-opt-initialization">
+
+For $z_j=\sum_{i=1}^{n}W_{ij}x_i$, assume independent zero-mean terms. Then
+$\operatorname{Var}(z_j)\approx n\operatorname{Var}(W)\operatorname{Var}(x)$. To preserve forward
+variance, use roughly $1/n$ weight variance. Backward variance adds a fan-out constraint.
+
+Glorot/Xavier initialization compromises between fan-in and fan-out, often
+$\operatorname{Var}(W)=2/(\mathrm{fan\_in}+\mathrm{fan\_out})$, and was motivated by saturation
+and gradient propagation <Citation id="glorot2010difficulty" />. ReLU zeros roughly half a
+symmetric input, so He/Kaiming initialization uses approximately $2/\mathrm{fan\_in}$
+<Citation id="he2015delving" />.
+
+These are assumptions, not laws: activations are not truly independent, convolutional fan counts
+need kernel dimensions, residual branches add variances, and attention has multiple projections.
+Initialize biases sensibly, use architecture-tested scaling, then measure activation and gradient
+statistics across depth.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-vanishing-exploding">
+
+For a depth-$L$ composition, a gradient contains a product of Jacobians:
+
+$$
+\frac{\partial L}{\partial h_0}=
+\frac{\partial L}{\partial h_L}
+\prod_{\ell=L}^{1}\frac{\partial h_\ell}{\partial h_{\ell-1}}.
+$$
+
+Repeated singular values below one vanish; above one explode. Sigmoid saturation supplies very
+small derivatives, poorly scaled recurrent weights compound across time, and an oversized step
+can push otherwise stable activations into bad regions. Pascanu and colleagues analyzed both
+mechanisms for recurrent networks <Citation id="pascanu2013difficulty" />.
+
+Log per-layer activation mean/variance, fraction saturated or zero, gradient norm, update norm,
+and the first step where nonfinite values appear. Remedies map to mechanisms: variance-preserving
+initialization, residual/shorter paths, normalization, gated recurrence, smaller learning rate,
+or architecture-specific residual scaling. Clipping limits explosions after they occur; it does
+not restore vanished information.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-gradient-clipping">
+
+Global norm clipping with threshold $c$ computes all gradients, then
+
+$$
+g\leftarrow g\min\left(1,\frac{c}{\lVert g\rVert_2+\varepsilon}\right).
+$$
+
+Direction is preserved. Per-value clipping clamps each coordinate and changes direction; it is
+rarely the first choice. With automatic mixed precision, unscale before clipping or the threshold
+applies to artificially scaled gradients:
+
+```python
+scaler.scale(loss).backward()
+scaler.unscale_(optimizer)
+torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+scaler.step(optimizer)
+scaler.update()
+```
+
+Choose $c$ from observed norm distributions or a validated recipe, and log how often clipping
+fires. If every step is clipped, the effective optimizer is different from the one you think you
+configured; fix persistent instability rather than normalizing it away.
+
+</InterviewQuestion>
+
+## Batch, schedules, and precision
+
+<InterviewQuestion id="q-opt-batch-size">
+
+Increasing $B$ improves arithmetic intensity and reduces gradient noise, but memory grows with
+activations and optimizer work per update grows. One epoch contains $N/B$ updates, so comparing
+equal epochs gives large batches fewer parameter updates. Compare equal examples, tokens, or
+compute and report the choice.
+
+Under an approximate linear-scaling regime, multiplying batch and learning rate together can
+preserve the update per processed example, with warmup protecting early training. This enabled
+large-batch ImageNet training in a carefully tuned system <Citation id="goyal2017accurate" />;
+it is not universal. Beyond a problem-dependent critical batch size, gradient variance is already
+small and added examples mostly improve hardware utilization rather than optimization progress.
+
+Large batches have sometimes been associated with a generalization gap and sharper solutions
+<Citation id="keskar2017largebatch" />, but sharpness is parameterization-sensitive. The practical
+answer is a throughput/validation curve: find the largest batch that increases useful throughput
+without worsening time-to-quality, then retune the schedule.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-schedules">
+
+Warmup ramps $\eta$ from a small value while optimizer moments, normalization statistics, and
+representations stabilize. It is especially useful with large effective batches and adaptive
+optimizers. Decay later reduces stochastic motion and refines the solution.
+
+- step decay encodes known transition points but introduces discontinuities;
+- cosine decay smoothly approaches a minimum and needs a specified horizon;
+- plateau schedules react to a noisy validation metric and therefore need patience;
+- one-cycle schedules deliberately rise then fall and couple momentum changes.
+
+Advance schedules on **optimizer steps**, not microbatches, unless the recipe explicitly uses
+tokens or examples. When resuming, restore optimizer and scheduler state together. Warmup can mask
+an overly aggressive peak learning rate, so inspect the curve after it ends.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-mixed-precision">
+
+Mixed precision uses low-precision matrix operations for speed and activation memory, while
+keeping sensitive accumulations and usually master optimizer state in FP32. FP16 has limited
+exponent range: small gradients underflow to zero, so dynamic loss scaling multiplies the loss,
+backpropagates scaled gradients, checks overflow, then unscales before the update. Mixed-precision
+training with these controls was demonstrated at scale by Micikevicius and colleagues
+<Citation id="micikevicius2018mixedprecision" />.
+
+BF16 has FP32's eight-bit exponent and a shorter mantissa, so it usually avoids loss scaling but
+has less precision near a value. Reductions such as softmax normalization and large sums may still
+need FP32. Numerically stable fused losses should take logits.
+
+Compare validation and checkpoint reproducibility, monitor nonfinite-step skips, and keep an FP32
+fallback for diagnosis. Faster training is not correct training if a rare branch silently
+underflows.
+
+</InterviewQuestion>
+
+## Diagnosis and experimental design
+
+<InterviewQuestion id="q-opt-loss-plateau">
+
+Use an evidence order that separates pipeline bugs from optimization:
+
+1. Overfit one tiny batch with augmentation off. If this fails, do not tune generalization.
+2. Inspect examples, labels, masks, units, padding, and the loss/output contract.
+3. Confirm `requires_grad`, parameter registration, nonempty optimizer groups, and that parameters
+   actually change after `step()`.
+4. Check train mode, detached tensors, zeroed gradients, finite loss, and reduction scale.
+5. Log layerwise activation, gradient, and update norms; sweep learning rate over orders of
+   magnitude.
+6. Only then test capacity, regularization, schedules, and more data.
+
+A useful update check is:
+
+```python
+before = {n: p.detach().clone() for n, p in model.named_parameters()}
+loss.backward(); optimizer.step()
+for n, p in model.named_parameters():
+    print(n, (p.detach() - before[n]).norm().item())
+```
+
+If train loss falls but validation does not, that is overfitting or distribution mismatch, not a
+plateau. If neither falls but a tiny batch can be memorized, revisit data scale, learning rate,
+normalization, and capacity.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-landscape">
+
+In a small nonconvex picture, local minima look like the obvious threat. Deep networks are
+high-dimensional and overparameterized: parameter permutations and scaling symmetries produce
+many equivalent solutions, and low-loss regions can be connected. Directions of near-zero
+curvature, saddle points, noisy gradients, and ill conditioning often explain slow training more
+directly.
+
+Also separate optimization from generalization. Two parameter vectors can have equal training
+loss and different validation behavior; conversely, “sharpness” changes if a ReLU layer is scaled
+up and the next layer down without changing the function. Use landscape language as a model for
+measurements—curvature, loss barriers, gradient noise—not as a universal explanation.
+
+The interview-quality conclusion: local minima can matter, but “SGD escapes bad local minima” is
+not a sufficient account of modern training.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-tuning">
+
+Start with a deterministic-enough baseline, versioned data/config/code, and a valid metric. Search
+learning rate on a log scale first; then optimizer/schedule, regularization, batch, and capacity.
+Use random or Bayesian search rather than a Cartesian grid when only a few dimensions matter, and
+successive halving or early learning-curve signals to stop clearly bad trials.
+
+Record training and validation curves, throughput, memory, gradient statistics, seed, and exact
+checkpoint. Promote **regions** that work across seeds rather than a single lucky maximum. When
+resources differ, compare time-to-target or compute-to-target, not epochs.
+
+Freeze the search after selection and evaluate once on untouched test data. Repeatedly consulting
+the test set turns it into validation. For a production recipe, include perturbations—data window,
+seed, batch size, precision—to test robustness.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-early-stopping">
+
+In linear problems, gradient descent fits high-signal directions earlier and low-signal/noisy
+directions later; stopping limits effective complexity. In deep networks the equivalence is not
+exact, but early stopping still regularizes by restricting the training trajectory while saving
+compute.
+
+Choose the monitored validation metric, direction, evaluation interval, minimum improvement,
+patience, and maximum budget before the run. Save the best complete state, not merely the last
+weights. Smooth only for the stopping decision and retain raw metrics for audit.
+
+Test-set-based stopping leaks. So does selecting patience after seeing the test curve. Under shift,
+a rising validation loss might mean an unrepresentative validation window rather than generic
+overfitting; inspect slices and temporal splits.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-opt-accumulation-distributed">
+
+With microbatch mean losses $L_k$ and $K$ equal-sized microbatches, accumulate
+$K^{-1}\sum_k\nabla L_k$ before one step. In data parallelism, $G$ workers usually all-reduce an
+average. The nominal effective batch is $BKG$:
+
+```python
+optimizer.zero_grad(set_to_none=True)
+for micro_x, micro_y in microbatches:
+    (criterion(model(micro_x), micro_y) / K).backward()
+optimizer.step()
+```
+
+Equivalence to a physical large batch requires fixed parameters throughout accumulation and the
+same examples and loss weighting. It breaks or changes subtly with microbatch batch-norm
+statistics, stochastic masks, variable token counts, per-microbatch clipping, schedules stepped
+too often, optimizer updates between microbatches, or reduced-precision communication.
+
+For variable-length sequences, divide summed token loss by the total valid-token count across the
+effective batch—not by $K$ if microbatches contain different counts. Clip after synchronization
+and accumulation. Log optimizer steps and processed tokens so resumes and scaling experiments are
+comparable.
+
+</InterviewQuestion>
+
+## Exercises
+
+<Exercise n={1} title="A quadratic learning-rate boundary" difficulty="warm-up">
+
+For $L(\theta)=5\theta^2$, determine the range of constant learning rates for gradient descent to
+converge, and describe behavior at $\eta=0.15$ and $\eta=0.25$.
+
+<div slot="solution">
+
+The gradient is $10\theta$, so $\theta_{t+1}=(1-10\eta)\theta_t$. Convergence needs
+$|1-10\eta|<1$, hence $0<\eta<0.2$.
+
+At $\eta=0.15$, the multiplier is $-0.5$: the parameter alternates sign while its magnitude halves
+each step, so it converges. At $\eta=0.25$, the multiplier is $-1.5$: signs alternate and magnitude
+grows by 50%, so it diverges. “The gradient points downhill” did not make the step safe.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Accumulation without a hidden fourfold learning-rate change" difficulty="core">
+
+You accumulate four microbatches. `criterion` returns a mean loss for each, and you call
+`loss.backward()` four times before one optimizer step. What gradient do you get, and how do you
+make it match the mean over the combined equal-sized batch?
+
+<div slot="solution">
+
+Autograd adds gradients, so the current code produces $\sum_{k=1}^4\nabla L_k$, four times the
+combined-batch mean. Divide each loss by four before `backward()`, or sum per-example losses and
+divide once by the total example count. The latter generalizes to unequal microbatches.
+
+Zero gradients only before the group and step the scheduler only with the optimizer. If clipping
+is used, clip after all four gradients have accumulated.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Separate Adam L2 from AdamW" difficulty="stretch">
+
+Two coordinates have the same value $\theta=(1,1)$, zero data gradient, learning rate $0.01$, and
+$\lambda=0.1$. Under Adam's preconditioner, suppose the denominators are $(1,100)$. Compare an L2
+gradient passed through Adam with decoupled AdamW decay for one idealized step (ignore momentum and
+$\epsilon$).
+
+<div slot="solution">
+
+L2 contributes gradient $(0.1,0.1)$. After adaptive division it becomes $(0.1,0.001)$, so the
+update is $-0.01(0.1,0.001)=(-0.001,-0.00001)$. The coordinates shrink unequally to
+$(0.999,0.99999)$.
+
+AdamW applies direct contraction $(1-\eta\lambda)=(1-0.001)$ to both: $(0.999,0.999)$. The example
+isolates why adaptive L2 is not ordinary weight decay: the moment-dependent preconditioner changes
+the regularizer by coordinate.
+
+</div>
+</Exercise>
+
+## Summary
+
+- Mini-batch SGD balances gradient noise and hardware throughput; comparisons need a declared
+  compute or data budget.
+- Learning rate is a stability and speed control tied to curvature, batch, normalization, and the
+  optimizer state.
+- Adam adapts coordinate scales; AdamW decouples parameter shrinkage from that adaptation.
+- Initialization, residual paths, normalization, clipping, and loss scaling solve different
+  gradient or numerical mechanisms.
+- Debug from a tiny batch and measured gradients/updates before expanding the hyperparameter search.
+- Accumulation and distribution preserve a large-batch gradient only when reductions, state,
+  stochastic layers, clipping, and schedules are aligned.

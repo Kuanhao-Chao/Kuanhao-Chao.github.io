@@ -1,0 +1,366 @@
+---
+title: Debugging, Robustness & Responsible Machine Learning
+shortTitle: Debugging & Robustness
+description: Training diagnostics, distribution shift, uncertainty, calibration, OOD behavior, adversarial robustness, interpretability, fairness, privacy and security.
+abstract: Diagnose model failures systematically and reason about trustworthy deployment without mistaking explanation scores, confidence or benchmark performance for guarantees.
+date: 2026-08-22
+updated: 2026-08-22
+track: workflow
+hub: ml-dl-interview
+lessonType: technical
+category: machine-learning
+moduleId: m10-reliability
+moduleLabel: Reliability & Responsible ML
+order: 17
+level: advanced
+objectives:
+  - Use controlled diagnostics to localize training and data failures before tuning.
+  - Separate calibration, uncertainty, robustness, shift and OOD detection claims.
+  - Audit explanation and fairness metrics against their assumptions and intended decisions.
+  - Turn privacy, security, human oversight and reversibility into measurable launch gates.
+prerequisites: [ml-interview-data-features-validation, ml-interview-metrics-experimentation, ml-interview-neural-network-foundations]
+relatedLessons: [ml-interview-ml-systems-mlops]
+referenceIds:
+  - sculley2015debt
+  - guo2017calibration
+  - ovadia2019uncertainty
+  - hendrycks2017ood
+  - goodfellow2015adversarial
+  - ribeiro2016lime
+  - lundberg2017shap
+  - hardt2016equality
+  - kleinberg2017fairness
+  - dwork2006dp
+  - mitchell2019modelcards
+  - gebru2021datasheets
+  - nist2023airmf
+keyEquations:
+  - '\operatorname{ECE}=\sum_{b=1}^{B}\frac{n_b}{n}\left\lvert\operatorname{freq}_1(b)-\overline p(b)\right\rvert'
+  - 'p_{\mathrm{test}}(x,y)\ne p_{\mathrm{train}}(x,y)'
+  - '\Pr\!\left[M(D)\in S\right]\le e^\varepsilon\Pr\!\left[M(D^{\prime})\in S\right]+\delta'
+tags: [debugging, robustness, fairness, privacy, interpretability, security, responsible AI]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## Reliability is a chain of claims
+
+A model can optimize correctly and still learn leakage. It can generalize on one split and
+fail after deployment. It can be calibrated on average and unsafe for a subgroup. It can
+survive one adversarial attack without satisfying a realistic security threat model.
+Reliable ML is therefore not one score; it is a chain of falsifiable claims from data to
+decision. Hidden coupling between those stages is a major source of ML technical debt
+<Citation id="sculley2015debt" />.
+
+<Callout variant="intuition" title="Find the first broken invariant">
+Debugging becomes scientific when every step has an invariant: this record owns this label;
+this tensor has this meaning and range; this loss receives logits; this parameter receives a
+finite gradient; this optimizer changes it; this evaluation represents deployment. Locate
+the first invariant that fails. Everything downstream is evidence of propagation, not cause.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'p_{tr}(x,y),p_{te}(x,y)', meaning: 'Training and deployment joint distributions', dims: 'probability distributions' },
+    { symbol: '\\hat p_i', meaning: 'Predicted probability for observation i', dims: 'scalar in [0,1]' },
+    { symbol: 'B_m', meaning: 'Calibration bin m', dims: 'set of observations' },
+    { symbol: '\\epsilon,\\delta', meaning: 'Differential-privacy parameters', dims: 'nonnegative scalars' },
+    { symbol: '\\mathcal A', meaning: 'Attacker capabilities and strategy', dims: 'declared threat model' },
+    { symbol: 'G', meaning: 'Protected or operationally important group', dims: 'categorical variable' },
+  ]}
+/>
+
+<Figure
+  id="debugging-bisect-chain"
+  caption="Figure 1. The reliability chain doubles as a debugging bisection plan. A tiny-batch test probes data through update; a frozen deterministic pass isolates forward and loss; slice and shift tests probe the boundary between evaluation and deployment. The first failed checkpoint determines the next experiment."
+  alt="A horizontal pipeline from raw data through labels, forward pass, loss, gradients, optimizer update, validation, and deployment. Three brackets show progressively narrower diagnostic tests and a marker identifies the first failed invariant."
+  wide
+>
+  <svg viewBox="0 0 760 190" width="760" height="190" font-family="inherit">
+    <defs><marker id="dbg-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="currentColor" /></marker></defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.4"><path d="M70 92 H700" marker-end="url(#dbg-arrow)" opacity=".45"/><path d="M55 70 V48 H515 V70" stroke="var(--color-accent)" stroke-width="2"/><path d="M240 116 V137 H515 V116" stroke="var(--color-accent)" stroke-width="2"/><path d="M518 70 V48 H704 V70" stroke="var(--color-accent)" stroke-width="2" stroke-dasharray="5 3"/></g>
+    <g fill="var(--color-surface)" stroke="currentColor"><circle cx="70" cy="92" r="8"/><circle cx="160" cy="92" r="8"/><circle cx="250" cy="92" r="8"/><circle cx="340" cy="92" r="8"/><circle cx="430" cy="92" r="8"/><circle cx="520" cy="92" r="8"/><circle cx="610" cy="92" r="8"/><circle cx="700" cy="92" r="8"/></g><circle cx="340" cy="92" r="5" fill="var(--color-accent)"/>
+    <g fill="currentColor" font-size="10.5" text-anchor="middle"><text x="70" y="111">data</text><text x="160" y="111">label</text><text x="250" y="111">forward</text><text x="340" y="111">loss</text><text x="430" y="111">gradient</text><text x="520" y="111">update</text><text x="610" y="111">validation</text><text x="700" y="111">deployment</text><text x="285" y="40">overfit one tiny batch</text><text x="378" y="155">deterministic forward / gradient probes</text><text x="611" y="40">slices & shift</text></g>
+  </svg>
+</Figure>
+
+## Debug the learning path
+
+<InterviewQuestion id="q-reliability-loss-not-decreasing">
+Start with evidence, not a sweep. Inspect raw examples beside decoded labels; assert batch,
+feature and target shapes; compare a hand-computed loss; and confirm that the loss expects
+logits rather than probabilities. On one deterministic batch, record activations, loss,
+per-layer gradient norms, parameter checksums before/after `step`, and optimizer state.
+
+Then run escalating controls: a constant predictor, shuffled labels, one example, one small
+batch, and a shallow known-good model. Set regularization and augmentation to zero and use
+full precision. A loss that changes when parameters do not indicates state/metric confusion;
+parameters that do not change despite finite gradients point to optimizer wiring, freezing,
+zeroing, or scale. Change one factor and preserve the failing batch so the conclusion is
+reproducible.
+
+**Follow-up.** If loss falls but accuracy does not, verify class mapping, reduction,
+threshold and metric aggregation before changing architecture.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-overfit-one-batch">
+A flexible model should drive training loss near its attainable floor on a clean tiny batch.
+Failure collapses a large hypothesis space: labels may be misaligned, output dimension or
+loss wrong, the model too constrained, stochastic layers uncontrolled, gradients detached,
+or updates ineffective. Success validates the core computational path from examples to
+updates.
+
+Use enough repeated steps, disable augmentation/dropout, and inspect each example. For noisy
+soft labels or contradictory duplicate inputs, zero loss is unattainable—state that
+assumption. Do not treat success as a generalization test: a model that memorizes four cases
+may still leak, overfit, or fail under shift. The test is powerful because it constructs a
+deliberately easy falsification target.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-train-validation-gap">
+First establish that the gap is real: identical target semantics, train/eval mode, masking,
+preprocessing, weighting and metric denominator. Check entity, time and duplicate leakage;
+then compare learning curves across training sizes and repeated structured splits.
+
+If training improves while representative validation worsens, test capacity and effective
+sample size with a simpler baseline, stronger regularization, early stopping, data or
+domain-valid augmentation. If both plateau badly, adding regularization attacks the wrong
+problem. Slice by time/source/group and compare label quality to distinguish variance from
+distribution mismatch. Repeatedly looking at one validation set makes it part of training
+even if no gradient crosses the boundary.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-data-label-bugs">
+Build a traceable “golden handful”: raw identifiers, event timestamps, source payloads,
+transformed features, labels, split and model input. Render them together and ask a domain
+expert whether the label was knowable at prediction time. Assert join cardinality, uniqueness,
+ranges, missingness, label delay and referential integrity at each boundary.
+
+Compare distributions and duplicates across splits; train suspicious baselines using IDs,
+timestamps and post-event fields. Permuted labels should collapse performance. A small
+manually adjudicated set measures label correctness rather than agreement with the pipeline.
+Datasheets make collection, composition and recommended-use assumptions reviewable
+<Citation id="gebru2021datasheets" />. Lineage matters because a plausible tensor cannot
+reveal that row 391 received row 392's label.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-gradient-pathologies">
+On a fixed batch, log per-layer activation/gradient norms and quantiles, fraction
+zero/nonfinite, parameter norm, and update-to-parameter ratio. Exploding values growing with
+depth suggest initialization, recurrent products, learning rate or unbounded loss; vanishing
+through saturated activations suggests scale, depth or missing residual/normalization paths.
+A tiny gradient at a converged layer is not pathology.
+
+For mixed precision, inspect dynamic loss scale and unscale before clipping. Clipping every
+step hides the cause and changes the objective. Compare full precision, remove one mechanism
+at a time, and use anomaly detection only on the captured window. Gradient histograms without
+parameter updates are incomplete: optimizer state, decay, freeze masks or underflow can still
+apply zero effective change.
+</InterviewQuestion>
+
+## Confidence under uncertainty and shift
+
+<InterviewQuestion id="q-reliability-calibration-uncertainty">
+Discrimination is ordering. Calibration is frequency agreement: among cases predicted near
+.7, about 70% should occur. Confidence is simply a score the model emits; uncertainty is a
+statement about unresolved outcomes or knowledge under a model and dataset.
+
+Neural networks can be accurate yet miscalibrated, and temperature scaling can improve
+calibration without changing ranking <Citation id="guo2017calibration" />. Measure reliability
+plots, proper scores and decision-relevant slices; ECE depends on binning and can hide
+cancellation. Recalibrate on held-out deployment-like data and recheck after shift. A
+calibrated population average can still hide rare-region overconfidence.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Expected calibration error exposes one confident bad bin"
+  given={[
+    { label: 'Low positive-score bin', value: '100 cases, mean P(Y=1) .20, 18 positives' },
+    { label: 'High positive-score bin', value: '100 cases, mean P(Y=1) .80, 60 positives' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+The observed positive-class frequencies are $.18$ and $.60$. With equal bin sizes,
+
+$$
+ECE=\tfrac12|.18-.20|+\tfrac12|.60-.80|=.01+.10=.11.
+$$
+
+The first bin is close; the second is overconfident by 20 percentage points and dominates.
+Merging bins can hide offsetting over- and underconfidence, so show the reliability curve and
+counts beside the summary.
+</WorkedExample>
+
+<InterviewQuestion id="q-reliability-aleatoric-epistemic">
+Aleatoric uncertainty represents variability in $y$ conditional on modeled information;
+epistemic uncertainty represents uncertainty in parameters, functions or mechanisms because
+evidence is limited. Ensembles or Bayesian approximations target the latter; a heteroscedastic
+likelihood can model the former.
+
+The decomposition is model-dependent. A missing causal feature looks irreducible to one model
+and reducible to another. Under shift, methods degrade differently; empirical comparison
+matters <Citation id="ovadia2019uncertainty" />. Use the distinction operationally: acquire
+labels where knowledge is thin, repeat measurements where outcomes are noisy, or abstain when
+either makes action unsafe.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-shift-taxonomy">
+Factor $p(x,y)=p(y\mid x)p(x)=p(x\mid y)p(y)$. Covariate shift changes $p(x)$ while
+$p(y\mid x)$ stays fixed; label shift changes $p(y)$ while $p(x\mid y)$ stays fixed;
+concept drift changes $p(y\mid x)$. Selection bias changes who is observed and can produce
+several apparent shifts.
+
+These are identification assumptions, not labels a feature-drift dashboard can infer. Ask
+what process changed, compare conditional slices, and use delayed/adjudicated labels. Under
+covariate shift, importance weighting by $p_{te}(x)/p_{tr}(x)$ raises variance when ratios
+are extreme and cannot repair absent training support.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-ood-detection">
+OOD is relational: an image can be outside a benchmark yet ordinary for deployment, while a
+subtle hospital/protocol change is near in pixels and dangerous. Possible alternatives are
+open-ended, so a detector trained on a few negative datasets learns that benchmark boundary.
+
+Maximum softmax probability is a useful baseline <Citation id="hendrycks2017ood" />, but
+confident extrapolation is common. Specify near/far and semantic/corruption shifts plus the
+action. Evaluate false-positive rate at useful recall, coverage-risk for abstention, unseen
+shift families and subgroups. Retain monitoring and fallback; detection cannot replace domain
+validation.
+</InterviewQuestion>
+
+## Robustness, explanation and fairness
+
+<InterviewQuestion id="q-reliability-adversarial-threat-model">
+Begin with attacker knowledge, query/access level, which inputs or records can change,
+perturbation/semantic constraint, budget, target and operational cost. Goodfellow and
+colleagues showed high-dimensional linearity can create vulnerability
+<Citation id="goodfellow2015adversarial" />, but an $L_\infty$ image benchmark is not a
+complete security claim.
+
+Test adaptive attacks against preprocessing and detection together, multiple restarts,
+clean/robust utility and semantic validity. Gradient masking can make weak attacks fail.
+Include rate limits, sensor physics and human review in realistic red-teaming, and state the
+claim narrowly: robustness to attack $A$ within set $S$, not “secure.”
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-explanations">
+LIME fits a local surrogate around perturbed samples <Citation id="ribeiro2016lime" />;
+SHAP assigns additive credit under a specified background and value function
+<Citation id="lundberg2017shap" />. Correlated features, unrealistic perturbations and
+baseline changes redistribute credit.
+
+Test fidelity, stability, sensitivity to irrelevant changes and whether the explanation helps
+the intended user detect errors. Compare with global behavior and counterfactual tests. An
+attribution is not causal effect, proof a feature is legitimate, or evidence the model reasons
+like a human. Disclose method/baseline and preserve a path to contest data and decisions.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-fairness-definitions">
+Equalized odds asks prediction to be independent of group conditional on outcome; calibration
+asks outcome frequencies to agree at a score within groups. Equality-of-opportunity
+postprocessing formalizes one error constraint <Citation id="hardt2016equality" />. With
+unequal base rates and imperfect prediction, calibration and equal error rates generally
+cannot coexist <Citation id="kleinberg2017fairness" />.
+
+Identify the allocation/harm, affected people, historical label process and intervention.
+Choose metrics tied to that setting and include domain/qualitative evidence. Mathematical
+parity can preserve unjust labels; metric selection is accountable policy, not a universally
+optimal technical choice.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-subgroup-evaluation">
+Predefine harm-relevant and operational groups, including intersections. Report numerator,
+denominator, threshold and interval. Sparse groups make rankings noisy; hierarchical shrinkage
+can stabilize estimates but must not erase severe rare harm. Correct or contextualize
+multiplicity when searching many slices, and confirm post-hoc discoveries.
+
+Protect privacy and investigate label quality, missingness, access and selection by group
+before attributing disparity to the model. Model cards organize intended use, evaluated groups
+and limitations <Citation id="mitchell2019modelcards" />; they are evidence, not certification.
+</InterviewQuestion>
+
+## Privacy, security and release
+
+<InterviewQuestion id="q-reliability-differential-privacy">
+For every pair of neighboring datasets $D,D'$ differing in one person's record and every
+measurable set of outputs $S$, $M$ is $(\epsilon,\delta)$-DP when
+
+$$
+P[M(D)\in S]\le e^\epsilon P[M(D')\in S]+\delta.
+$$
+
+This limits how much inclusion changes an observer's odds, even with auxiliary information
+<Citation id="dwork2006dp" />. Smaller parameters are stronger; releases compose. DP-SGD
+clips per-example gradients and adds calibrated noise. The guarantee depends on adjacency,
+sampling and accountant; it does not secure raw data, guarantee fairness, or prevent
+population inference.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-security-abuse">
+Threat-model the lifecycle: collection can be poisoned; dependencies compromised; artifacts
+exfiltrated; endpoints extracted/inverted; inputs adversarial; outputs or tools abused. Map
+assets, entry points, capabilities and impact.
+
+Controls include provenance and signed artifacts, least privilege, tenant isolation,
+dependency scanning, request validation, rate limits, monitoring, output policy, escalation
+and incident drills. For agentic systems, minimize tool authority and treat retrieved/user
+text as untrusted instructions. These fast-moving risks were reviewed 2026-08-22; revalidate
+before launch. Security is system-level: a robust model behind unauthenticated bulk access is
+still easy to abuse.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-reliability-launch-decision">
+Translate intended use and foreseeable misuse into gates: utility versus baseline; calibration
+and critical slices; named shifts; privacy and rights; security tests; human review/appeal;
+availability; and rollback. NIST's AI RMF organizes governance, mapping, measurement and
+management as continuous work <Citation id="nist2023airmf" />.
+
+For each gate record evidence, owner, threshold, uncertainty and residual risk. Stage traffic,
+monitor leading/outcome indicators, and define kill criteria before pressure rises. Stop when
+potentially severe harm lacks evidence or containment; narrow scope or gather targeted data
+rather than averaging it into a composite score. Revisit the decision when model, population,
+policy or dependencies change.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="The one-batch test fails" difficulty="warm-up">
+A classifier's one-batch loss is flat. Gradients are finite and nonzero, but parameter hashes
+before and after 100 steps are identical. Name the next three checks.
+<div slot="solution">Confirm the optimizer owns the same trainable parameter objects; confirm
+`step()` runs after backward and gradients are not cleared first; inspect freezing, learning
+rate, mixed-precision skip state and optimizer groups. Do not change architecture: the first
+broken invariant is update.</div>
+</Exercise>
+
+<Exercise n={2} title="Name the shift before the fix" difficulty="core">
+Disease prevalence doubles, but within each class the feature distribution and label process
+remain stable. What idealized shift is this, and what can be adjusted?
+<div slot="solution">Label shift: $p(y)$ changes with stable $p(x\mid y)$. Estimate new
+priors and adjust posterior odds, then revalidate calibration and thresholds. If the class-
+conditional distribution also changed, the correction is not identified.</div>
+</Exercise>
+
+<Exercise n={3} title="Incompatible fairness targets" difficulty="stretch">
+Two groups have different base rates. A stakeholder demands perfect within-group calibration,
+equal false-positive/false-negative rates, and imperfect nontrivial prediction. Respond.
+<div slot="solution">Explain the general incompatibility, return to the decision and harm,
+present feasible threshold/metric tradeoffs with uncertainty, investigate labels and access,
+and involve accountable policy/domain owners. Never silently select the metric favorable to
+the current model.</div>
+</Exercise>
+
+## Summary
+
+- Find the first broken invariant in the data-to-decision chain.
+- Calibration, ranking, confidence and uncertainty are distinct and population-dependent.
+- Shift, OOD and adversarial claims require explicit assumptions and safe actions.
+- Explanations attribute model outputs; they do not establish cause or legitimacy.
+- Fairness criteria encode policies and can conflict mathematically.
+- Privacy, security, oversight, documentation and rollback are release requirements.

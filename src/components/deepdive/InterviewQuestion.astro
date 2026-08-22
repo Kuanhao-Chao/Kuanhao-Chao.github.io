@@ -1,0 +1,90 @@
+---
+import { CONFIDENCE_LEVELS, INTERVIEW_LABELS } from '../../lib/mlInterview';
+import { getInterviewQuestion } from '../../lib/mlInterviewQuestions.server';
+
+interface Props {
+  id: string;
+}
+
+const { id } = Astro.props;
+const { question, lessonId } = await getInterviewQuestion(id);
+const meta = [question.priority, question.difficulty, question.kind];
+const search = [
+  question.question,
+  question.conciseAnswer,
+  ...question.tags,
+  ...question.aliases,
+  ...question.roles,
+]
+  .join(' ')
+  .toLowerCase();
+---
+
+<article
+  class="interview-question"
+  id={question.id}
+  data-interview-question
+  data-question-id={question.id}
+  data-lesson-id={lessonId}
+  data-priority={question.priority}
+  data-difficulty={question.difficulty}
+  data-kind={question.kind}
+  data-round={question.round}
+  data-roles={question.roles.join(' ')}
+  data-search={search}
+  tabindex="-1"
+>
+  <header class="interview-question__header">
+    <div class="interview-question__eyebrow">
+      {meta.map((item) => <span>{item.replaceAll('-', ' ')}</span>)}
+      {
+        question.stability === 'fast-moving' && question.verified && (
+          <span>verified {question.verified.toISOString().slice(0, 10)}</span>
+        )
+      }
+    </div>
+    <h3 class="interview-question__prompt">
+      <a href={`#${question.id}`} aria-label={`Link to question: ${question.question}`}>#</a>
+      {question.question}
+    </h3>
+    <div class="interview-question__progress" data-ml-progress-controls data-ml-enhancement hidden>
+      <button
+        type="button"
+        class="interview-question__bookmark"
+        data-ml-bookmark
+        aria-pressed="false"
+        aria-label={`Bookmark question: ${question.question}`}>Bookmark</button
+      >
+      <label>
+        <span class="visually-hidden">Confidence for question: {question.question}</span>
+        <select data-ml-confidence>
+          <option value="">Not rated</option>
+          {
+            CONFIDENCE_LEVELS.map((confidence) => (
+              <option value={confidence}>{INTERVIEW_LABELS.confidence[confidence]}</option>
+            ))
+          }
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <details class="interview-question__answer" data-ml-answer open>
+    <summary>Answer and explanation</summary>
+    <div class="interview-question__rapid">
+      <h4>30-second answer</h4>
+      <p>{question.conciseAnswer}</p>
+    </div>
+    <div class="interview-question__detail">
+      <slot />
+    </div>
+  </details>
+</article>
+
+<script>
+  import { mountMlInterviewStudy } from '../../scripts/mlInterviewStudy';
+
+  const bind = () => mountMlInterviewStudy(document);
+  bind();
+  document.addEventListener('astro:page-load', bind);
+</script>

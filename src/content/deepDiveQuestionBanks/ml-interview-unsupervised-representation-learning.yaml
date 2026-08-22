@@ -1,0 +1,156 @@
+lesson: ml-interview-unsupervised-representation-learning
+questions:
+  - id: q-unsup-purpose-evaluation
+    question: 'What does unsupervised learning optimize when there are no labels, and how do you evaluate it?'
+    conciseAnswer: 'It optimizes a proxy structure such as compact clusters, likelihood, reconstruction, independence, or neighborhood preservation—not an objective notion of truth. Evaluate stability and held-out proxy fit, then test whether the representation improves the actual downstream decision without leaking labels into selection.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [unsupervised-learning, evaluation, proxy-objectives]
+    aliases: [evaluate-clustering, no-label-evaluation]
+  - id: q-unsup-kmeans-objective
+    question: "What objective does k-means optimize, and why does Lloyd's algorithm converge only to a local optimum?"
+    conciseAnswer: 'K-means minimizes within-cluster squared Euclidean distance to centroids. Assignment and centroid-update steps each cannot increase that objective, so the finite assignment sequence terminates, but the joint problem is non-convex and the result depends on initialization.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [k-means, lloyd-algorithm, clustering]
+    aliases: [within-cluster-sse, centroid-clustering]
+  - id: q-unsup-kmeans-initialization
+    question: 'Why does k-means initialization matter, and what does k-means++ improve?'
+    conciseAnswer: "Poor seeds can trap Lloyd's algorithm in bad local minima or produce empty clusters. K-means++ samples each new seed with probability proportional to squared distance from the existing seeds, spreads initial centers, and has an expected logarithmic approximation guarantee; multiple restarts still help."
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [k-means-plus-plus, initialization, clustering]
+    aliases: [kmeans-seeding, random-restarts]
+  - id: q-unsup-choose-k
+    question: 'How should you choose the number of clusters?'
+    conciseAnswer: 'There is no universal statistic because a cluster is defined by the use case and geometry. Combine domain constraints with held-out likelihood where available, stability under resampling, silhouette or gap diagnostics, and downstream utility; an elbow is a visual prompt, not a proof.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [clustering, model-selection, silhouette]
+    aliases: [number-of-clusters, elbow-method]
+  - id: q-unsup-gmm
+    question: 'How does a Gaussian mixture model differ from k-means?'
+    conciseAnswer: 'A GMM is a probabilistic density model with mixture weights, means, and covariance matrices, producing soft posterior assignments and elliptical components. K-means is recovered as a limiting equal-weight, spherical, equal-variance hard-assignment case; the GMM is more expressive but estimates many more parameters and can develop singular covariances.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [gmm, k-means, soft-clustering]
+    aliases: [gaussian-mixture, soft-vs-hard-clustering]
+  - id: q-unsup-em
+    question: 'Explain expectation-maximization and why each iteration does not decrease likelihood.'
+    conciseAnswer: 'The E-step computes the latent-variable posterior under current parameters; the M-step maximizes the expected complete-data log-likelihood. A Jensen or KL-divergence lower-bound argument shows that these coordinate updates cannot lower observed-data likelihood, but they can converge to a local optimum or saddle point.'
+    priority: specialist
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [expectation-maximization, latent-variables, likelihood]
+    aliases: [em-algorithm, e-step-m-step]
+  - id: q-unsup-clustering-choice
+    question: 'When would you choose k-means, a GMM, hierarchical clustering, or DBSCAN?'
+    conciseAnswer: 'Choose based on the cluster definition: k-means for compact spherical partitions, GMMs for probabilistic elliptical components, hierarchical methods when a multiscale dendrogram matters, and DBSCAN for density-connected shapes with noise. Scaling, metric, dimensionality, density variation, and inference needs often dominate the algorithm name.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [clustering, dbscan, hierarchical-clustering, model-selection]
+    aliases: [choose-clustering-algorithm, density-clustering]
+  - id: q-unsup-pca-derivation
+    question: 'Derive PCA from maximum variance and reconstruction error.'
+    conciseAnswer: 'For centered data, maximizing projected variance over unit vectors yields covariance eigenvectors. The same top-r subspace minimizes squared reconstruction error, and SVD computes it stably without explicitly forming the covariance matrix; the two views differ only in what they emphasize.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [pca, svd, dimensionality-reduction]
+    aliases: [principal-components, low-rank-approximation]
+  - id: q-unsup-pca-traps
+    question: 'Why is PCA not feature selection, and when can high-variance directions be useless?'
+    conciseAnswer: 'PCA creates dense linear combinations rather than selecting original variables and ignores the target. Its top-variance direction can be nuisance batch variation while a low-variance direction carries the predictive signal; fit scaling and PCA inside each training fold, then validate downstream utility.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: debugging
+    round: project-defense
+    stability: evergreen
+    tags: [pca, leakage, nuisance-variation]
+    aliases: [pca-vs-feature-selection, pca-failure-modes]
+  - id: q-unsup-whitening
+    question: 'What is whitening, and why can it amplify noise?'
+    conciseAnswer: 'Whitening rotates data into covariance eigenvectors and divides by the square roots of eigenvalues so the transformed covariance is identity. Dividing by tiny eigenvalues magnifies low-variance noise and makes estimates unstable, so truncate or regularize the spectrum when conditioning is poor.'
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [whitening, pca, conditioning]
+    aliases: [zca-whitening, sphering]
+  - id: q-unsup-ica-nmf
+    question: 'Compare PCA, ICA, and non-negative matrix factorization.'
+    conciseAnswer: 'PCA finds orthogonal directions ordered by variance; ICA seeks statistically independent non-Gaussian sources; NMF constrains factors and loadings to be non-negative, often yielding additive parts. Their assumptions—not a generic desire for lower dimension—determine whether components are meaningful and identifiable.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [pca, ica, nmf, matrix-factorization]
+    aliases: [component-analysis, factorization-comparison]
+  - id: q-unsup-tsne-umap
+    question: 'What can and cannot be inferred from a t-SNE or UMAP plot?'
+    conciseAnswer: 'Both optimize local neighborhood proxies for visualization rather than faithfully preserving every global distance, density, or cluster size. Apparent islands can change with scaling, hyperparameters, seed, and sampling, so use plots as exploratory maps and validate claims in the original space with quantitative tests.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: debugging
+    round: project-defense
+    stability: evergreen
+    tags: [tsne, umap, visualization]
+    aliases: [embedding-plot-traps, manifold-visualization]
+  - id: q-unsup-autoencoder
+    question: 'When does an autoencoder learn useful representations instead of the identity function?'
+    conciseAnswer: 'It needs a bottleneck or another restriction such as noise, sparsity, contractive penalties, masking, or limited capacity. Reconstruction rewards information useful for reproducing inputs, which may not match semantic or predictive utility, so representations must be tested on held-out downstream tasks.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [autoencoder, representation-learning, reconstruction]
+    aliases: [bottleneck-representations, denoising-autoencoder]
+  - id: q-unsup-anomaly-detection
+    question: 'How would you design and evaluate an anomaly-detection system with few labels?'
+    conciseAnswer: 'Define which anomalies matter and their review budget, train only on a representative mostly normal window when possible, and score density, isolation, distance, or reconstruction with assumptions made explicit. Evaluate delayed labels, injected but realistic faults, temporal backtests, precision at review capacity, stability, and drift—not ROC AUC alone.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, research-scientist, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [anomaly-detection, evaluation, drift]
+    aliases: [outlier-detection, rare-event-monitoring]

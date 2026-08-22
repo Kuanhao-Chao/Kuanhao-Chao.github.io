@@ -1,0 +1,427 @@
+---
+title: LLM Adaptation, RAG, Preference Learning & Agents
+shortTitle: Adaptation, RAG & Agents
+description: SFT, LoRA, RLHF, DPO, retrieval pipelines, reranking, tool use, agent control, groundedness, prompt injection, and production evaluation.
+abstract: An interview-focused systems guide to deciding whether an LLM product needs prompting, retrieval, or parameter adaptation, then evaluating the entire evidence-to-action path. It treats agents as fallible control systems and makes reliability, contamination, permissions, latency, cost, and online outcomes explicit.
+date: 2026-08-22
+updated: 2026-08-22
+track: workflow
+hub: ml-dl-interview
+lessonType: system-design
+category: machine-learning
+moduleId: m08-foundation-models
+moduleLabel: Foundation Models & Retrieval
+order: 15
+level: advanced
+objectives:
+  - Diagnose whether prompting, retrieval, supervised adaptation, or preference learning addresses a measured failure.
+  - Derive the LoRA and DPO parameterizations and explain the assumptions behind RLHF.
+  - Design a retrieval pipeline with separately measurable indexing, retrieval, reranking, generation, and attribution stages.
+  - Build an evaluation stack resistant to leakage and contamination, with offline, human, online, latency, and cost measures.
+  - Design tool-using workflows as bounded, least-privilege state machines rather than assuming autonomous reliability.
+prerequisites: [ml-interview-llm-foundations, ml-interview-metrics-experimentation]
+relatedLessons: [ml-interview-ml-systems-mlops]
+referenceIds:
+  - hu2022lora
+  - ouyang2022instructgpt
+  - rafailov2023dpo
+  - lewis2020rag
+  - karpukhin2020dpr
+  - liang2023helm
+  - yao2023react
+  - greshake2023promptinjection
+  - nist2024genai
+keyEquations:
+  - 'W^{\prime}=W+\frac{\alpha}{r}BA,\qquad\operatorname{rank}(BA)\le r'
+  - '\operatorname{AnswerRecall}@k=\frac{1}{\lvert Q_+\rvert}\sum_{q\in Q_+}\mathbf{1}\!\left\{\mathcal R_k(q)\cap\mathcal G(q)\ne\varnothing\right\}'
+  - '\ell_{\mathrm{DPO}}=-\log\sigma\!\left(\beta\left[\log\frac{\pi_\theta(y_w\mid x)}{\pi_{\mathrm{ref}}(y_w\mid x)}-\log\frac{\pi_\theta(y_\ell\mid x)}{\pi_{\mathrm{ref}}(y_\ell\mid x)}\right]\right)'
+tags: [RAG, agents, RLHF, DPO, LoRA, evaluation, prompt injection]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## Start from the failing contract
+
+A request to “improve the LLM” is not a diagnosis. The failure may be missing evidence,
+ambiguous instructions, poor ranking, wrong output format, unsafe permissions, or a model
+whose conditional behavior does not fit the task. Each calls for a different intervention.
+
+<Callout variant="intuition" title="Move the smallest layer that owns the error">
+Prompts specify a task. Retrieval changes what evidence is available now. Fine-tuning
+changes a model's conditional behavior. Tools change what the system can observe or do.
+Evaluation measures whether the composition works. Start with a versioned baseline and an
+error taxonomy, then modify the smallest responsible layer.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'W', meaning: 'A frozen pretrained weight matrix', dims: 'd_out × d_in' },
+    { symbol: 'A,B', meaning: 'Low-rank LoRA factors', dims: 'r × d_in; d_out × r' },
+    { symbol: 'q,d', meaning: 'A query and candidate document chunk', dims: 'text or vectors' },
+    { symbol: 's(q,d)', meaning: 'Retrieval or reranking score', dims: 'scalar' },
+    { symbol: '\\pi_\\theta,\\pi_{ref}', meaning: 'Adapted and reference response policies', dims: 'token distributions' },
+    { symbol: 'y_w,y_l', meaning: 'Preferred and rejected responses', dims: 'token sequences' },
+    { symbol: 'k', meaning: 'Number of retrieved candidates', dims: 'positive integer' },
+    { symbol: 'C,L', meaning: 'Expected request cost and latency', dims: 'currency; time' },
+  ]}
+/>
+
+<Figure
+  id="rag-agent-trust-boundaries"
+  caption="Figure 1. A measurable retrieval-and-tool workflow. Dashed boundaries mark untrusted input: user text, retrieved documents, and tool results. Deterministic code validates schemas and authorization before side effects. Each arrow has a local metric, so an incorrect answer can be traced to coverage, retrieval, generation, or execution."
+  alt="A flow from user query to retrieval, reranking, evidence pack, language model, validated tool proposal, policy gate, and tool execution. Untrusted inputs are shown with dashed outlines and metrics appear below each stage."
+  wide
+>
+  <svg viewBox="0 0 820 310" width="820" height="310" font-family="inherit">
+    <defs>
+      <marker id="rag-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+      </marker>
+    </defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.4">
+      <rect x="18" y="42" width="105" height="55" rx="9" stroke-dasharray="5 4" />
+      <rect x="158" y="42" width="105" height="55" rx="9" />
+      <rect x="298" y="42" width="105" height="55" rx="9" />
+      <rect x="438" y="42" width="105" height="55" rx="9" stroke-dasharray="5 4" />
+      <rect x="578" y="34" width="115" height="71" rx="9" stroke="var(--color-accent)" stroke-width="2.2" />
+      <path d="M123 69 H156 M263 69 H296 M403 69 H436 M543 69 H576" marker-end="url(#rag-arrow)" />
+      <rect x="578" y="178" width="115" height="58" rx="9" stroke-dasharray="5 4" />
+      <rect x="427" y="178" width="115" height="58" rx="9" />
+      <rect x="276" y="178" width="115" height="58" rx="9" stroke="var(--color-accent)" stroke-width="2.2" />
+      <rect x="125" y="178" width="115" height="58" rx="9" />
+      <path d="M635 105 V176 M578 207 H544 M427 207 H393 M276 207 H242" marker-end="url(#rag-arrow)" />
+      <path d="M183 178 C183 139 635 139 635 107" stroke-dasharray="4 4" opacity=".55" marker-end="url(#rag-arrow)" />
+    </g>
+    <g fill="currentColor" font-size="12.5" text-anchor="middle">
+      <text x="70" y="66">user query</text><text x="70" y="83">untrusted</text>
+      <text x="210" y="66">retrieve</text><text x="210" y="83">recall@k</text>
+      <text x="350" y="66">rerank</text><text x="350" y="83">NDCG / latency</text>
+      <text x="490" y="66">evidence pack</text><text x="490" y="83">provenance</text>
+      <text x="635" y="62">LLM</text><text x="635" y="81">answer / action</text>
+      <text x="635" y="202">tool proposal</text><text x="635" y="219">untrusted</text>
+      <text x="484" y="202">schema check</text><text x="484" y="219">typed errors</text>
+      <text x="333" y="202">policy gate</text><text x="333" y="219">least privilege</text>
+      <text x="182" y="202">tool execution</text><text x="182" y="219">audit / result</text>
+      <text x="410" y="280" font-size="12">Observe → propose → validate → authorize → execute → record → stop or continue</text>
+    </g>
+  </svg>
+</Figure>
+
+## Choose the intervention
+
+<InterviewQuestion id="q-rag-prompt-vs-rag-vs-finetune">
+Build a small, adjudicated error set first. If the base model succeeds when the right facts
+are placed in context, the knowledge path—not model capacity—is the likely owner, so improve
+retrieval. If it knows the inputs but violates a stable output contract, structured prompting,
+constrained decoding, or supervised adaptation may help. If the task requires a new
+capability absent even with examples and evidence, collect data and compare adaptation or a
+different model.
+
+Mutable policies and private documents favor retrieval because evidence can be updated and
+attributed without retraining. High-volume stable behavior can justify fine-tuning. Test a
+prompt baseline before either. Track quality, latency, cost, update cadence, privacy, and
+regression risk—not a simplistic “fine-tuning teaches facts” rule. Tool and vendor behavior
+in this comparison was reviewed 2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rag-sft">
+Supervised fine-tuning minimizes token negative log-likelihood on demonstrations
+$(x,y)$, typically masking prompt tokens and scoring response tokens. It changes the
+conditional probability of demonstrated behavior; it does not create a proof that unseen
+facts are correct.
+
+Audit provenance, licenses, author diversity, duplicates, answer quality, refusal cases,
+and train/evaluation overlap. Hold out task families and regress general capabilities and
+safety. A tiny narrow dataset can dominate gradients repeatedly, memorizing templates or
+causing catastrophic regressions; mixing and early stopping should follow measured curves.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rag-lora">
+For a weight $W\in\mathbb R^{d_{out}\times d_{in}}$, LoRA freezes $W$ and learns
+$\Delta W=(\alpha/r)BA$ with rank at most $r$ <Citation id="hu2022lora" />. Trainable
+parameters fall from $d_{out}d_{in}$ to $r(d_{out}+d_{in})$, plus optimizer state. This is a
+rank constraint on the update, not on the pretrained weight.
+
+Base weights and forward activations still occupy memory. Multiple adapters add lifecycle
+and batching complexity. Merging can avoid an extra inference operation for one adapter;
+dynamic multi-tenant serving needs runtime support. Tune rank, target modules, scale,
+dropout, learning rate, and data quality against a full-fine-tune and prompt baseline.
+</InterviewQuestion>
+
+## Preference data specifies a proxy
+
+InstructGPT combined demonstrations, pairwise preferences, a reward model, and policy
+optimization with a reference constraint <Citation id="ouyang2022instructgpt" />. This is
+a concrete alignment pipeline, not a definition of all human preference learning.
+
+<InterviewQuestion id="q-rag-rlhf">
+One common pipeline is: (1) SFT an initial policy; (2) collect comparisons between responses;
+(3) fit $r_\phi(x,y)$ so preferred responses score higher; (4) optimize expected proxy
+reward while penalizing KL divergence from a reference. The KL term limits distribution
+shift into regions where the reward model has little comparison support.
+
+Failure modes include inconsistent annotators, prompt-selection bias, reward overoptimization,
+verbosity preference, sycophancy, mode collapse, and disagreement hidden by one scalar.
+Report who supplied preferences, how ambiguity was handled, and performance by group and
+task. “Human feedback” means sampled judgments under a protocol, not universal values.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rag-dpo">
+DPO derives a preference objective that uses the policy and reference log-ratios directly
+<Citation id="rafailov2023dpo" />. For preferred $y_w$ and rejected $y_l$:
+
+$$
+-\log\sigma\!\left(\beta\left[
+\log\frac{\pi_\theta(y_w\mid x)}{\pi_{ref}(y_w\mid x)}-
+\log\frac{\pi_\theta(y_l\mid x)}{\pi_{ref}(y_l\mid x)}\right]\right).
+$$
+
+It avoids a separately deployed reward model and online RL loop, simplifying optimization.
+It still depends on comparison coverage, reference policy, response-length treatment, and
+$\beta$. It is not automatically safer or immune to preference hacking; compare held-out
+win rate, calibration, diversity, regressions, and contamination.
+</InterviewQuestion>
+
+## Retrieval is a sequence of testable recalls
+
+Retrieval-augmented generation was formulated as generation conditioned on retrieved
+non-parametric memory <Citation id="lewis2020rag" />. Dense Passage Retrieval showed how
+independently encoded queries and passages can support open-domain retrieval
+<Citation id="karpukhin2020dpr" />. Neither paper implies that any vector search result is
+relevant or that a generated citation is faithful.
+
+<InterviewQuestion id="q-rag-chunking">
+Chunk along semantic structure—sections, paragraphs, code units, or records—while preserving
+document identity, headings, time, permissions, and offsets. Choose size based on the
+smallest evidence span sufficient to answer. Tiny pieces raise ambiguity and lose qualifiers;
+large pieces dilute similarity and spend context. Overlap recovers boundary-crossing facts
+but duplicates candidates and can make one source dominate.
+
+Evaluate several policies on judged queries: corpus answerability, recall@k, unique-source
+recall, reranked position, generation support, context tokens, and latency. Keep the parser
+and index versioned so a result can be reproduced.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rag-retrieval">
+Construct queries with annotated answer-bearing source spans plus explicitly unanswerable
+cases. Separate **coverage** (does the corpus contain valid evidence?), **retrieval recall**
+(does top-$k$ include it?), **rank**, **freshness**, **permission correctness**, and latency.
+For multiple valid sources, define relevance at the passage and document level.
+
+Answer accuracy alone confounds these stages. A generator can answer from parametric memory
+despite failed retrieval, or produce a fluent error despite perfect evidence. Log retrieved
+IDs, scores, filters, index version, and exact evidence passed to generation.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rag-hybrid-reranking">
+Lexical retrieval handles exact identifiers and rare names; dense retrieval can match
+paraphrase. Fuse ranks or normalized scores, then use a cross-encoder or richer reranker on
+the small union because it jointly attends to query and passage. Add metadata and
+authorization filters at a stage where they cannot be bypassed.
+
+Each extra stage can improve recall or precision but adds latency and a new failure. Measure
+lexical-only, dense-only, fused, and reranked ablations by slice. Calibrate score thresholds
+for abstention on the deployed corpus; retrieval scores from different query families are
+not automatically comparable.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rag-grounded-generation">
+Pass evidence with stable source IDs and offsets. Ask for claim-level citations and an
+explicit insufficient-evidence outcome. After generation, resolve each citation and check
+whether its cited span entails the nearby claim; reject nonexistent IDs. Keep facts from
+the user's request distinct from retrieved facts and clearly label uncertainty or conflict.
+
+“The answer contains citations” is a formatting metric. Groundedness is whether claims are
+supported by the supplied sources; correctness also asks whether those sources are true and
+current. The model may know an answer without evidence, but a grounded product should
+abstain when its contract requires attributable support. Evaluation tooling was reviewed
+2026-08-22.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Localize a RAG failure before changing the model"
+  given={[
+    { label: 'Evaluation set', value: '100 answerable queries' },
+    { label: 'Top-5 retrieval', value: '80 contain an answer-bearing passage' },
+    { label: 'Generation', value: '60 correct among those 80; 5 correct without retrieved evidence' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+Retrieval recall@5 is $80/100=0.80$. Conditional generation accuracy given retrieved
+evidence is $60/80=0.75$. Overall answer accuracy is $(60+5)/100=0.65$.
+
+If retrieval became perfect while conditional generation stayed at 0.75 and the five
+parametric successes disappeared into the now-retrieved set, the rough ceiling would be
+75%, not 100%. Both retrieval and evidence use need work. The five unsupported successes
+also show why answer accuracy cannot stand in for groundedness.
+</WorkedExample>
+
+## Evaluation must resist self-deception
+
+HELM promoted transparent scenario-, metric-, and adaptation-level evaluation rather than
+one aggregate score <Citation id="liang2023helm" />. A product stack needs the same habit,
+plus private task data and online outcomes.
+
+<InterviewQuestion id="q-rag-evaluation">
+Version a representative set with answerable, conflicting, stale, adversarial, and
+unanswerable inputs. Deduplicate against tuning data. Measure retrieval coverage/recall/rank;
+answer correctness and completeness; claim support and citation validity; abstention;
+safety; latency and cost. Slice by source, language, time, complexity, and user cohort.
+
+Human raters need rubrics and agreement analysis. Automated LLM judges are useful at scale
+only after calibration against humans, position/order tests, and judge-version tracking.
+Before launch specify primary online outcomes, guardrails, power, unit of randomization, and
+rollback. This evaluation stack was reviewed 2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-rag-contamination">
+Leakage can occur when benchmark items or near-duplicates enter pretraining, SFT,
+preference data, prompt examples, retrieval corpus, or judge context. Temporal leakage can
+expose future policy or labels. A benchmark may then measure recognition, retrieval, or
+memorization rather than intended generalization.
+
+Track data provenance and timestamps; normalize and near-deduplicate; use private rotating
+sets and canaries; hold out source families; and run ablations with retrieval disabled.
+When pretraining data is unknown, disclose uncertainty rather than declaring a set clean.
+The contamination checklist was reviewed 2026-08-22.
+</InterviewQuestion>
+
+## Tools turn text risk into action risk
+
+ReAct interleaved language-model reasoning and external actions in an explicit loop
+<Citation id="yao2023react" />. The useful abstraction is not hidden prose reasoning; it is
+an observable controller whose proposed actions pass deterministic checks.
+
+<InterviewQuestion id="q-agent-tool-use">
+Give each tool a narrow typed schema with units, bounds, required fields, semantic examples,
+timeouts, authentication scope, idempotency, and structured errors. Treat model-produced
+arguments as untrusted input. Server code must validate resource ownership, policy, and
+state preconditions; the tool description is not authorization.
+
+Return bounded structured data and provenance, not arbitrary pages where possible. Redact
+secrets from traces, but preserve enough event IDs and versions to reproduce failure. Test
+malformed arguments, partial execution, retries, timeout, duplicate calls, and stale state.
+Tool interfaces were reviewed 2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-agent-loop">
+Represent state explicitly: observation, proposed plan/action, schema validation,
+authorization, execution, result, budget, and terminal reason. Bound wall time, steps,
+tokens, tool calls, money, and retries. Use checkpoints and idempotency keys so recovery
+does not duplicate irreversible actions. Distinguish retryable from permanent errors.
+
+Termination cannot be “until the model feels done.” Define success predicates, no-progress
+detection, repeated-state detection, and escalation. A deterministic workflow is preferable
+when the path is known; use model choice only where inputs genuinely require it. This
+control-loop guidance was reviewed 2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-agent-reliability">
+A demo is one sampled trace. Production evidence requires a task distribution, repeated
+runs for stochastic systems, outcome severity, environment and tool versions, side-effect
+accuracy, recovery, and calibrated abstention. If a workflow needs $n$ independent steps
+each succeeding with probability $p$, full success is $p^n$; dependence can make it worse
+or better, so measure complete trajectories directly.
+
+Agents are not inherently reliable. Limit autonomy by impact, make state observable, test
+adversarial and changed environments, and require human confirmation where error is costly.
+Capability gains do not remove this systems contract. Reviewed 2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-agent-prompt-injection">
+Indirect prompt injection places adversarial instructions inside content the system
+retrieves or browses. Empirical work demonstrated realistic confidentiality and integrity
+attacks on LLM-integrated applications <Citation id="greshake2023promptinjection" />.
+Because the model processes instructions and data in one channel, “ignore malicious text”
+is not a security boundary.
+
+Separate data from control in architecture; keep secrets out of model context; constrain
+destinations and tools in code; sanitize rendered output; use least privilege and approval
+for consequences; and adversarially test documents, tool results, encoded text, and
+cross-session persistence. Threat guidance was reviewed 2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-agent-permissions">
+Create task-scoped, short-lived credentials; allowlist tool/action/resource triples;
+separate reads from writes; cap spend and compute; sandbox untrusted code and network
+destinations; and require step-up approval for irreversible or sensitive actions. Validate
+again at execution time because state may change after proposal.
+
+Log who authorized what, with input hashes and result IDs, while minimizing personal and
+secret data. Provide cancellation and compensating actions. NIST's generative-AI risk
+profile emphasizes lifecycle governance, measurement, and management rather than treating
+one model filter as sufficient <Citation id="nist2024genai" />.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-agent-latency-cost">
+Decompose per-request expectations:
+$E[C]=C_{retrieve}+C_{rerank}+\sum_i P(i\text{ runs})C_i$ and similarly for sequential
+latency; independent calls can run in parallel, but tails and retries remain. Record prompt,
+cached, and output tokens by call plus tool fees and queue time.
+
+Then test bounded contexts, caching with invalidation, smaller-model routing, parallel
+independent retrieval, early exits, fewer retries, and deterministic code for deterministic
+work. Evaluate quality and safety after each change. This operational advice was reviewed
+2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-agent-production-monitoring">
+Version model, prompt, tokenizer, retrieval corpus/index, reranker, tool schema, policy, and
+evaluation set. Monitor query and corpus drift, retrieval coverage, support and citation
+validity, abstention, user correction, tool failures, authorization denials, loops, latency,
+cost, safety, and business outcomes. Slice by risk and cohort.
+
+Sample privacy-minimized traces for adjudication, maintain canaries and shadow tests, and
+define rollback. Alert on changes in denominators and missing telemetry as well as bad
+values. A dashboard cannot prove causal impact; use randomized experiments where possible.
+Reviewed 2026-08-22.
+</InterviewQuestion>
+
+## Exercises
+
+<Exercise n={1} title="Choose the owning layer" difficulty="warm-up">
+A support bot answers policy questions correctly when the policy paragraph is pasted into
+the prompt, but fails after monthly policy updates. Choose an intervention and a check.
+  <div slot="solution">
+    The model can use the evidence, so start with a versioned, permission-aware retrieval
+    index rather than fine-tuning monthly facts. Measure corpus coverage and recall@k on
+    time-sliced questions, require source citations, and test abstention when no current
+    policy is found.
+  </div>
+</Exercise>
+
+<Exercise n={2} title="LoRA parameter count" difficulty="core">
+A $4096\times4096$ projection receives rank-16 LoRA factors. Ignoring scale and bias, how
+many trainable parameters replace a full matrix update, and what is the reduction factor?
+  <div slot="solution">
+    LoRA learns $16(4096+4096)=131{,}072$ parameters instead of $4096^2=16{,}777{,}216$,
+    a **128×** reduction for this update. Base weights and activation memory remain.
+  </div>
+</Exercise>
+
+<Exercise n={3} title="Contain an injected document" difficulty="stretch">
+A retrieved document tells the assistant to email its hidden prompt and customer records.
+Describe defenses that remain effective even if the model follows that text.
+  <div slot="solution">
+    Do not place secrets in context; give the process no customer-record or arbitrary-email
+    permission; constrain recipients and data fields server-side; validate tool arguments;
+    require explicit human approval for disclosure; isolate tenants; and log the denied
+    attempt. Content labeling and model instructions are defense in depth, not the boundary.
+  </div>
+</Exercise>
+
+## Summary
+
+- Diagnose the error before choosing prompts, retrieval, SFT, LoRA, RLHF, or DPO.
+- RAG is a chain of coverage, retrieval, ranking, evidence use, attribution, and abstention;
+  measure every link.
+- Evaluation needs private, deduplicated, sliced data and connects offline quality to online
+  outcomes, latency, cost, and safety.
+- Tool-using agents are fallible controllers. Typed boundaries, least privilege, budgets,
+  termination, audit, and human escalation make their risk governable.

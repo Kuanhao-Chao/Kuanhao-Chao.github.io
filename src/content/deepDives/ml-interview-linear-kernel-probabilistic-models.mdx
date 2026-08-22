@@ -1,0 +1,546 @@
+---
+title: "Classical Models: Linear, Kernel & Probabilistic Reasoning"
+shortTitle: Linear, Kernel & Probabilistic Models
+description: "Interview questions on linear and logistic regression, regularization, Naive Bayes, LDA/QDA, nearest neighbors, support-vector machines, kernels, calibration, and model choice—with derivations and failure modes."
+abstract: "Classical models are where interviewers can see whether a candidate understands the contract between data, objective, assumptions, optimization, and decisions. This lesson develops that contract from least squares through generalized linear and generative classifiers, nearest neighbors, maximum-margin methods, and kernels. It emphasizes what changes when assumptions fail, how geometry and probability tell complementary stories, and how to choose a model under real constraints rather than by reputation."
+date: 2026-08-22
+track: theory
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m04-classical
+moduleLabel: Module 4 · Classical Models
+order: 5
+level: intermediate
+objectives:
+  - "Derive the objectives and decision rules behind linear, logistic, Gaussian, nearest-neighbor, and maximum-margin models."
+  - "Connect each model's assumptions to the guarantees or failure modes those assumptions create."
+  - "Reason about regularization, scaling, calibration, class imbalance, and numerical stability in an implementation."
+  - "Choose a classical baseline from sample size, geometry, interpretability, probability, and latency requirements."
+prerequisites:
+  - ml-interview-probability-statistics
+  - ml-interview-data-features-validation
+relatedLessons:
+  - ml-interview-trees-ensembles-boosting
+  - ml-interview-unsupervised-representation-learning
+referenceIds:
+  - nelder1972glm
+  - hoerl1970ridge
+  - tibshirani1996lasso
+  - cox1958logistic
+  - ngjordan2002
+  - coverhart1967
+  - boser1992svm
+  - cortes1995svm
+keyEquations:
+  - 'X^\top X\,\widehat w=X^\top y'
+  - 'p(Y=1\mid x)=\sigma(w^\top x+b)'
+  - '\min_{w,b,\,\xi\ge0}\ \frac{1}{2}\lVert w\rVert_2^2+C\sum_{i=1}^{n}\xi_i\quad\text{subject to}\quad y_i(w^\top x_i+b)\ge1-\xi_i\ \ \forall i'
+tags: [linear regression, logistic regression, regularization, Naive Bayes, LDA, QDA, kNN, SVM, kernels, calibration]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The map: assumptions buy structure
+
+A strong interview answer does not recite model names. It identifies the **object being
+estimated**, the **assumptions that make it estimable**, the **loss that trains it**, and
+the **decision that consumes its output**. Classical models make those links unusually
+visible.
+
+<Callout variant="intuition" title="One dataset, four different ideas of similarity">
+A linear classifier says two examples are alike when they have similar weighted sums. A
+Gaussian classifier says they are alike when they have similar probability under a class
+density. kNN says they are alike when they are close under a chosen metric. A kernel
+machine says they are alike when their inner product is large in some feature space.
+
+Each can draw a boundary. The important interview question is **why that boundary should
+generalize** in this dataset.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'X', meaning: 'Design matrix; rows are observations and columns are features', dims: 'n × d' },
+    { symbol: 'y', meaning: 'Targets or class labels', dims: 'n × 1' },
+    { symbol: 'w', meaning: 'Coefficient or normal vector', dims: 'd × 1' },
+    { symbol: '\\Sigma_k', meaning: 'Covariance matrix for class k', dims: 'd × d' },
+    { symbol: '\\phi(x)', meaning: 'Possibly implicit feature map', dims: 'D × 1' },
+    { symbol: 'K_{ij}', meaning: 'Kernel Gram entry, k(x_i,x_j)', dims: 'scalar' },
+    { symbol: '\\lambda', meaning: 'Penalty strength in a regularized objective', dims: 'nonnegative scalar' },
+    { symbol: 'C', meaning: 'SVM cost assigned to slack violations', dims: 'positive scalar' },
+  ]}
+/>
+
+<Figure
+  id="classical-model-geometries"
+  caption="Figure 1. Four inductive biases on the same two-dimensional problem. A linear score shares one global direction; a Gaussian classifier compares density contours; nearest neighbors partition locally around stored examples; an RBF kernel assembles a curved boundary from similarities to support vectors. The drawing is conceptual—not a claim that one method always wins."
+  alt="Four small coordinate panels. The first has a straight separating line, the second Gaussian elliptical contours, the third local nearest-neighbor regions, and the fourth a curved kernel boundary supported by marked points."
+  wide
+>
+  <svg viewBox="0 0 760 210" width="760" height="210" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.25">
+      <rect x="14" y="22" width="172" height="148" rx="8" opacity=".35" />
+      <rect x="200" y="22" width="172" height="148" rx="8" opacity=".35" />
+      <rect x="386" y="22" width="172" height="148" rx="8" opacity=".35" />
+      <rect x="572" y="22" width="172" height="148" rx="8" opacity=".35" />
+      <path d="M34 142 L166 48" stroke="var(--color-accent)" stroke-width="2.5" />
+      <ellipse cx="251" cy="73" rx="34" ry="19" transform="rotate(-18 251 73)" />
+      <ellipse cx="251" cy="73" rx="51" ry="31" transform="rotate(-18 251 73)" opacity=".45" />
+      <ellipse cx="326" cy="124" rx="35" ry="20" transform="rotate(20 326 124)" />
+      <ellipse cx="326" cy="124" rx="51" ry="31" transform="rotate(20 326 124)" opacity=".45" />
+      <path d="M402 56 Q435 86 468 62 T542 73 M402 138 Q438 105 474 138 T542 124" opacity=".5" />
+      <path d="M589 130 C612 79 637 96 653 70 C674 36 713 57 729 102 C708 144 671 123 649 148 C628 164 604 153 589 130 Z" stroke="var(--color-accent)" stroke-width="2.5" />
+    </g>
+    <g fill="var(--color-accent)">
+      <circle cx="53" cy="65" r="4" /><circle cx="72" cy="84" r="4" /><circle cx="92" cy="61" r="4" />
+      <circle cx="237" cy="68" r="4" /><circle cx="258" cy="79" r="4" /><circle cx="316" cy="118" r="4" />
+      <circle cx="411" cy="70" r="4" /><circle cx="447" cy="54" r="4" /><circle cx="426" cy="122" r="4" />
+      <circle cx="607" cy="116" r="5" /><circle cx="650" cy="70" r="5" /><circle cx="706" cy="104" r="5" />
+    </g>
+    <g fill="currentColor" font-size="12" text-anchor="middle">
+      <text x="100" y="193">linear score</text><text x="286" y="193">class densities</text>
+      <text x="472" y="193">local neighbors</text><text x="658" y="193">kernel similarities</text>
+    </g>
+  </svg>
+</Figure>
+
+## Conditional or joint: what is the model trying to learn?
+
+<InterviewQuestion id="q-models-generative-discriminative">
+**Intuition.** A discriminative classifier draws the border needed to predict $y$ from
+$x$. A generative classifier first describes what each class could have generated, then
+compares those descriptions. Formally, the former estimates $p(y\mid x)$ or a decision
+score; the latter estimates $p(x\mid y)p(y)$ and obtains
+$p(y\mid x) \propto p(x\mid y)p(y)$.
+
+This distinction changes what the model can do. A joint model can generate features,
+integrate a missing feature, and update the prior explicitly. Its structural assumptions
+can make it learn quickly from few examples. A conditional model avoids spending capacity
+on irrelevant details of $p(x)$ and often reaches lower classification error with enough
+data. Ng and Jordan made this sample-efficiency/asymptotic contrast precise for Naive
+Bayes and logistic regression <Citation id="ngjordan2002" />.
+
+**Trap.** “Generative” does not automatically mean a neural image generator, and
+“discriminative” does not mean non-probabilistic. Logistic regression is both
+discriminative and probabilistic. Always name the distribution or boundary being learned.
+
+**Follow-up.** If $p(x\mid y)$ is wrong but its likelihood ratio ranks the classes
+correctly, classification may remain good while its probabilities are badly calibrated.
+</InterviewQuestion>
+
+## Linear regression: prediction, identification, and inference
+
+<InterviewQuestion id="q-models-linear-regression-assumptions">
+Write $y=Xw+\varepsilon$. **Linearity in parameters** says the conditional mean is
+represented by $Xw$; nonlinear basis functions may already be columns of $X$. **Full
+column rank** makes $w$ identifiable. **Exogeneity**, $E[\varepsilon\mid X]=0$, prevents
+systematic omitted signal from entering the error and gives unbiased coefficients.
+Conditional homoscedasticity and uncorrelated errors make
+$\operatorname{Var}(\hat w\mid X)=\sigma^2(X^TX)^{-1}$ the usual covariance; finite
+variance is needed for its existence.
+
+The Gauss–Markov conclusion is specific: under the linear model, exogeneity, spherical
+errors, and full rank, OLS is the best—minimum-variance—**linear unbiased** estimator. It
+does not say OLS is the best predictor among all algorithms. Gaussian errors are an extra
+assumption for exact small-sample $t$ and $F$ distributions, not for minimizing squares or
+for unbiasedness.
+
+**When assumptions fail.** Heteroscedasticity calls for robust standard errors if the
+conditional mean is valid. Dependence calls for clustered/time-series reasoning.
+Endogeneity or omitted confounding biases the coefficient itself; a robust standard error
+cannot repair it. For prediction, validate out of sample and inspect residual structure
+instead of treating every assumption as an all-or-nothing ritual.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-normal-equations">
+The squared-error objective is
+
+$$L(w)=\lVert y-Xw\rVert_2^2.$$
+
+Using $\nabla_w L=-2X^T(y-Xw)$ and setting it to zero gives the **normal equations**
+$X^TXw=X^Ty$. If $X$ has full column rank, the symbolic solution is
+$(X^TX)^{-1}X^Ty$.
+
+That expression is a derivation, not an implementation recipe. Forming $X^TX$ squares the
+condition number: a nearly collinear design loses roughly twice as many digits. Solve the
+least-squares problem with QR; use SVD when rank and minimum-norm behavior matter; use an
+iterative solver for large sparse $X$. The Moore–Penrose pseudoinverse supplies the
+minimum-norm solution when rank is deficient.
+
+**Dimensions.** $X$ is $n\times d$, $X^TX$ is $d\times d$, $X^Ty$ is $d\times1$, and
+$w$ is $d\times1$. Checking these shapes catches the most common whiteboard error before
+any calculus does.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Solve and diagnose a two-feature least-squares problem"
+  given={[
+    { label: 'Design matrix', value: 'X = [[1,0], [1,1], [1,2]]' },
+    { label: 'Targets', value: 'y = [1,2,2]' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+Here the first column is an intercept. Compute
+
+$$
+X^TX=\begin{bmatrix}3&3\\3&5\end{bmatrix},\qquad
+X^Ty=\begin{bmatrix}5\\6\end{bmatrix}.
+$$
+
+The determinant is $15-9=6$, so the design is full rank, and
+
+$$
+(X^TX)^{-1}=\frac{1}{6}\begin{bmatrix}5&-3\\-3&3\end{bmatrix},
+\qquad
+\hat w=\begin{bmatrix}7/6\\1/2\end{bmatrix}.
+$$
+
+Predictions are $[7/6,5/3,13/6]$ and residuals are $[-1/6,1/3,-1/6]$; their sum is zero
+because the intercept makes the residual orthogonal to the all-ones column. Adding a third
+column equal to twice the second would make the determinant zero: predictions could still
+be identified, but individual coefficients would not be.
+</WorkedExample>
+
+## Regularization changes the estimand
+
+<InterviewQuestion id="q-models-ridge-lasso">
+Ridge solves $\min_w L(w)+\lambda\lVert w\rVert_2^2$ <Citation id="hoerl1970ridge" />;
+lasso uses $\lambda\lVert w\rVert_1$ <Citation id="tibshirani1996lasso" />. The round L2
+constraint touches a loss contour smoothly, so coefficients shrink continuously. The L1
+diamond has axis-aligned corners, so optima often land at exactly zero. Elastic net mixes
+the penalties and tends to keep groups of correlated features more stably.
+
+**Statistical tradeoff.** Both deliberately add bias to reduce estimation variance. Ridge
+is strong when many correlated predictors share weak signal. Lasso is useful when a sparse
+approximation is plausible, but it does not prove the selected variables are causal and
+can pick one arbitrary member of a correlated group.
+
+**Implementation.** Standardize penalized features, usually leave the intercept
+unpenalized, and select $\lambda$ inside cross-validation. The convention for scaling the
+loss by $n$ changes the numerical meaning of $\lambda$, so compare definitions before
+copying a value across libraries. L1 is nondifferentiable at zero; coordinate descent or a
+proximal method handles it cleanly.
+</InterviewQuestion>
+
+## Logistic and multinomial models
+
+Generalized linear models separate a random component, a linear predictor, and a link
+function <Citation id="nelder1972glm" />. Logistic regression uses a Bernoulli response
+and a logit link; Cox's early formulation established the binary regression model
+<Citation id="cox1958logistic" />.
+
+<InterviewQuestion id="q-models-logistic-loss">
+Assume $y_i\in\{0,1\}$ and
+$p_i=P(y_i=1\mid x_i)=\sigma(z_i)$, where $z_i=w^Tx_i+b$. The Bernoulli likelihood is
+$\prod_i p_i^{y_i}(1-p_i)^{1-y_i}$. Taking its negative log gives
+
+$$
+-\log p(y\mid X)= -\sum_i[y_i\log p_i+(1-y_i)\log(1-p_i)],
+$$
+
+binary cross-entropy. This is not an arbitrary preference: it is maximum likelihood under
+the model. Its Hessian is $X^TWX$ with nonnegative diagonal $W$, so the objective is
+convex. Its gradient with respect to a logit is simply $p_i-y_i$.
+
+Squared error plus a sigmoid can be optimized, but it does not match the Bernoulli
+likelihood and creates flatter, less convenient gradients near saturated predictions.
+Cross-entropy also penalizes confident wrong predictions sharply. **Trap:** convexity
+does not guarantee a finite unregularized solution—perfectly separable data drives the
+coefficient norm toward infinity.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-softmax">
+For $K$ classes, logits $z_k=w_k^Tx+b_k$ become
+$p_k=e^{z_k}/\sum_j e^{z_j}$. The negative log-likelihood for true class $y$ is
+$-z_y+\log\sum_j e^{z_j}$, and $\partial L/\partial z_k=p_k-\mathbb{1}[k=y]$.
+
+Softmax is invariant to adding one constant to all logits. Exploit that identity:
+
+$$
+\log\sum_j e^{z_j}=m+\log\sum_j e^{z_j-m},\qquad m=\max_j z_j.
+$$
+
+Now every exponent is at most one, preventing overflow. In code, pass raw logits to a
+fused cross-entropy or `log_softmax`; do not compute softmax, take logs, and then feed the
+result to a loss. Also remember that one class is redundant: shifting all class parameter
+vectors equally changes nothing, so implementations fix a reference class or rely on
+regularization.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-threshold-calibration">
+**Discrimination** asks whether positives rank above negatives. **Calibration** asks
+whether predictions near $p$ occur about a fraction $p$ of the time. **Decision-making**
+asks which action has the best expected utility. They require different evidence.
+
+For a calibrated probability $p=P(y=1\mid x)$, predict positive when
+
+$$
+pC_{FN} > (1-p)C_{FP}
+\quad\Longleftrightarrow\quad
+p>\frac{C_{FP}}{C_{FP}+C_{FN}}
+$$
+
+under the simple two-cost setup. Capacity constraints or downstream benefits change the
+rule. Pick thresholds on validation data that reflects deployment prevalence, then report
+the operating metrics and uncertainty. Platt or isotonic calibration must itself be fit
+on held-out predictions.
+
+**Trap.** A default threshold of 0.5 is justified only by a particular cost/prior setup.
+Class weights, resampling, and distribution shift can also disconnect training outputs
+from deployment probabilities.
+</InterviewQuestion>
+
+## Gaussian and local classifiers
+
+<InterviewQuestion id="q-models-naive-bayes">
+Naive Bayes assumes $p(x\mid y=k)=\prod_jp(x_j\mid y=k)$. At prediction time, sum log
+likelihoods and the log prior, avoiding underflow. The independence premise is often
+false, yet the class with the largest posterior score can still be correct: classification
+only needs the score ordering, while probability estimation needs the joint density to be
+much more accurate.
+
+The assumption also replaces a high-dimensional density estimate with many small
+one-dimensional estimates, reducing variance and making the model competitive in sparse,
+small-data settings. But duplicate or strongly correlated features count the same evidence
+multiple times, often causing overconfidence. Smooth categorical counts so unseen values
+do not zero an entire class likelihood.
+
+**Follow-up.** Under a multivariate Bernoulli event model, absence can be evidence. Under
+a multinomial text event model, token counts are evidence. Naming the event model matters
+more than saying “use Naive Bayes.”
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-lda-qda">
+Assume $x\mid y=k\sim\mathcal N(\mu_k,\Sigma_k)$. Taking the log posterior gives a
+quadratic term $-\tfrac12x^T\Sigma_k^{-1}x$, a linear term, a determinant term, and the
+log prior. LDA sets every $\Sigma_k=\Sigma$, so the common quadratic term cancels in a
+pairwise comparison: the boundary is linear. QDA estimates one covariance per class, so
+the quadratic terms remain and the boundary curves.
+
+LDA estimates roughly $Kd+d(d+1)/2$ mean/covariance parameters; QDA needs
+$Kd+Kd(d+1)/2$. QDA therefore buys flexibility with much higher variance and can be
+singular when a class has fewer observations than dimensions. Shrinkage covariance is a
+useful bridge.
+
+**Trap.** “Linear” describes the decision boundary after the equal-covariance assumption;
+it does not mean each class density is flat or that features are independent.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-knn">
+kNN stores the training set and predicts from the labels or targets of the $k$ closest
+points. With small $k$, neighborhoods adapt sharply—low approximation bias, high sampling
+variance. Larger $k$ smooths noise but can cross real boundaries. Distance weighting makes
+the transition gradual.
+
+The method's real hyperparameter is often the **metric**. Standardize units, avoid mixing
+arbitrary categorical encodings into Euclidean distance, and consider learned or
+domain-specific distance. In high dimensions, pairwise distances concentrate and the
+sample needed to populate a local neighborhood grows rapidly. Cover and Hart established
+the classical nearest-neighbor error result <Citation id="coverhart1967" />, but its
+asymptotic promise does not remove finite-sample geometry.
+
+Naïve inference costs $O(nd)$ per query and storage $O(nd)$; exact trees help mainly in
+lower dimensions, while approximate indexes trade recall for latency. Fit preprocessing
+only on training folds: leakage through a global scaler changes every neighborhood.
+</InterviewQuestion>
+
+## Margins and kernels
+
+<InterviewQuestion id="q-models-svm-margin">
+For a hyperplane $w^Tx+b=0$, the signed geometric distance of $(x_i,y_i)$ is
+$y_i(w^Tx_i+b)/\lVert w\rVert$. Because multiplying $(w,b)$ changes the numerator and
+denominator together, fix the functional constraint $y_i(w^Tx_i+b)\ge1$ and minimize
+$\tfrac12\lVert w\rVert^2$. That maximizes the minimum geometric margin
+$1/\lVert w\rVert$.
+
+Nonseparable data introduce slack $\xi_i$:
+
+$$
+\min_{w,b,\xi}\frac12\lVert w\rVert^2+C\sum_i\xi_i,
+\quad y_i(w^Tx_i+b)\ge1-\xi_i,
+\quad \xi_i\ge0.
+$$
+
+This is regularized hinge-loss minimization. Large $C$ prices violations heavily and
+narrows the tolerated margin; small $C$ accepts more violations for a wider, more regular
+boundary. Boser, Guyon, and Vapnik introduced the optimal-margin training construction
+<Citation id="boser1992svm" />, extended to soft-margin support-vector networks by Cortes
+and Vapnik <Citation id="cortes1995svm" />.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-kernel-trick">
+The SVM dual depends on examples only through inner products. Replace
+$x_i^Tx_j$ with $k(x_i,x_j)=\phi(x_i)^T\phi(x_j)$ to fit a linear separator in an
+implicit feature space. Polynomial kernels represent interactions; the RBF kernel
+$\exp(-\gamma\lVert x-z\rVert^2)$ represents localized similarity in an infinite-
+dimensional space.
+
+A valid real kernel produces a symmetric positive-semidefinite Gram matrix for every
+finite set: $a^TKa\ge0$ for every $a$. This ensures it behaves like an inner product and
+keeps the dual convex. “It looks like a similarity” is insufficient.
+
+**Tradeoff.** Kernels avoid explicit high-dimensional features, but storing a dense Gram
+matrix costs $O(n^2)$ and generic training can approach $O(n^3)$. For very large $n$,
+explicit random/Nyström approximations, linear models, or neural representations may be
+more practical.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-svm-hyperparameters">
+In an RBF SVM, $C$ controls the penalty for violations and $\gamma$ controls the inverse
+length scale. Large $C$ tries hard to classify training examples; large $\gamma$ makes
+each support vector influential only in a tiny region. Together, large values can create
+an intricate memorizing boundary; small $C$ and small $\gamma$ can underfit.
+
+Scale features inside each fold, then search logarithmically over both parameters with
+nested or properly held-out validation. Class weights add another cost choice. If calibrated
+probabilities are needed, fit calibration after selecting the margin model—an SVM score is
+not itself a posterior probability.
+
+**Diagnostic.** Training and validation both poor suggests too little capacity or signal;
+training excellent and validation poor suggests an overly local/high-cost fit. Counting
+support vectors is useful: almost every point becoming a support vector often signals a
+complex boundary, noisy overlap, or a poorly chosen scale.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-support-vectors-dual">
+The dual has multipliers $\alpha_i$ and yields
+$w=\sum_i\alpha_i y_i\phi(x_i)$. Its prediction is
+
+$$f(x)=\sum_i\alpha_i y_i k(x_i,x)+b.$$
+
+Complementary slackness says a point strictly beyond the margin has $\alpha_i=0$. Points
+on the margin or violating it may have nonzero multipliers: they are the support vectors.
+Moving an inactive point a little does not alter the boundary; moving a support vector can.
+
+The Karush–Kuhn–Tucker conditions also diagnose cases: $0<\alpha_i<C$ lies on the margin,
+$\alpha_i=C$ is at or within the soft margin, and $\alpha_i=0$ is outside it, subject to
+degeneracies. This sparsity is in **training examples**, not necessarily in input features.
+</InterviewQuestion>
+
+## Preprocessing, imbalance, and selection
+
+<InterviewQuestion id="q-models-scaling">
+Scaling matters whenever units enter geometry or regularization. A one-unit change in age
+and a one-unit change in income should not be treated as equal by kNN or an RBF kernel.
+L1/L2 penalties compare coefficient magnitudes, so unscaled columns receive unequal
+effective penalties. Gradient descent also moves slowly through elongated contours.
+
+Trees are nearly invariant to monotone rescaling because threshold order is unchanged.
+Unregularized linear predictions are invariant after coefficients adjust, although
+conditioning and coefficient interpretation improve with scaling. Centering sparse
+matrices can destroy sparsity; use scale-without-centering where appropriate.
+
+Fit the scaler on each training split and apply it unchanged to validation/test data.
+Scaling before the split leaks distribution information and makes cross-validation
+optimistic.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-interactions-collinearity">
+A “linear model” is linear in $w$, not necessarily in raw $x$. Adding $x^2$, splines, or
+$x_1x_2$ lets its conditional mean curve or express effect modification while preserving
+linear optimization. Center main effects before constructing interactions when that makes
+the intercept and lower-order coefficients easier to interpret.
+
+When columns are nearly dependent, many coefficient vectors make almost identical
+predictions. Coefficient variance grows, signs can flip between samples, and individual
+$p$-values become fragile even while predictive error stays acceptable. Diagnose the
+design spectrum or condition number, not just pairwise correlations.
+
+**Responses.** Collect information that separates the predictors; combine variables when
+scientifically justified; use ridge for stable prediction; use sparse penalties cautiously;
+or choose an explicit lower-dimensional basis. Dropping one feature blindly can increase
+omitted-variable bias if interpretation, rather than prediction, is the aim.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-imbalance-weights">
+Weighting positive examples by $a$ changes the empirical loss to behave as though positive
+errors cost more—or, in an intercept-capable logistic model, roughly as though the class
+prior changed. It can move the fitted boundary and improve minority recall. It does not
+manufacture information about rare subtypes, and the resulting raw probability may no
+longer match deployment prevalence.
+
+Separate three actions: use stratified/group-aware splits to measure reliably; choose a
+loss or sampler to learn the desired ranking; choose the operating threshold from deployment
+costs. Report precision–recall behavior and calibration under natural prevalence. If a
+sampler creates synthetic points, do it inside the training fold only.
+
+**Trap.** Accuracy can be 99.9% for a useless classifier on a 0.1% event. The remedy is
+not automatically class weighting; first define which errors matter and how many alerts
+the system can act on.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-models-model-choice">
+Start with constraints. For huge sparse $d$ and tight latency, a regularized linear model
+is a formidable baseline. If local distance is meaningful, data are modest, and updates
+must be immediate, kNN trades training cost for query cost. Kernel SVMs suit medium-sized
+nonlinear data with a defensible similarity. A generative classifier is compelling when
+its structure fits the mechanism, missing values must be marginalized, or few labels make
+strong assumptions useful.
+
+Then compare candidates under one leakage-safe validation protocol on the metric and
+latency that deployment uses. Include calibration, memory, training frequency, explanation
+needs, behavior under shift, and the cost of maintaining preprocessing. A 0.2-point metric
+gain may not justify a 50-fold latency increase.
+
+**Interview structure.** State a simple baseline, name the hypothesis behind each more
+complex model, describe an ablation or validation that can falsify it, and say what evidence
+would make you change your choice. That is model selection; “try everything and tune” is
+only search.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="A penalty depends on units" difficulty="warm-up">
+A ridge model uses two predictors: age in years and income in dollars. Why can applying the
+same L2 penalty without scaling suppress age much more strongly, and what pipeline fixes it?
+
+<div slot="solution">
+A unit coefficient on income changes the score by one per dollar, while a unit coefficient
+on age changes it by one per year. Because income values are numerically much larger, its
+coefficient can be much smaller for a comparable predictive effect; L2 then penalizes it
+less. Fit a scaler on the training fold, transform all splits with those training statistics,
+leave the intercept unpenalized, and select the penalty within the same resampling loop.
+</div>
+</Exercise>
+
+<Exercise n={2} title="Costs choose the threshold" difficulty="core">
+A calibrated model estimates disease probability. A false positive costs 1 unit and a
+false negative costs 9. With no other constraints, at what probability should the action
+switch to positive?
+
+<div slot="solution">
+Predict positive when $(1-p)C_{FP}<pC_{FN}$. Thus $(1-p)<9p$, so $p>0.1$. The answer is
+not 0.5. If action capacity, heterogeneous benefit, or an abstain option exists, the rule
+must include those terms rather than blindly retaining 0.1.
+</div>
+</Exercise>
+
+<Exercise n={3} title="A kernel that is only a similarity" difficulty="stretch">
+You are given a symmetric similarity function. An engineer proposes inserting it into an
+SVM because all diagonal entries equal one. What condition is missing, and how can you test
+it on the observed sample?
+
+<div slot="solution">
+The Gram matrix must be positive semidefinite: $a^TKa\ge0$ for every vector $a$. Symmetry
+and unit diagonal do not imply that. On the sample, form $K$, symmetrize small numerical
+error, and inspect its eigenvalues or attempt a stable factorization. A materially negative
+eigenvalue means it is not a valid inner-product kernel on that sample; clipping eigenvalues
+changes the kernel and should be treated as a modeling decision.
+</div>
+</Exercise>
+
+## Summary
+
+- A model's objective, assumptions, geometry, and output interpretation are one contract.
+- Least squares is simple to derive but should be solved with numerically stable linear algebra.
+- L1 and L2 penalties change bias, variance, sparsity, and the meaning of feature scale.
+- Generative classifiers model class densities; discriminative classifiers model the conditional decision directly.
+- Nearest-neighbor and kernel methods are only as sound as their metric or kernel.
+- Calibration, thresholding, and ranking are separate; deployment costs choose the action.
+- Model selection starts from constraints and falsifiable hypotheses, not prestige.

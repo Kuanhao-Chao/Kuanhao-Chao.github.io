@@ -1,0 +1,623 @@
+---
+title: "Machine Learning Interview Guide: Neural Network Foundations"
+shortTitle: Neural Network Foundations
+description: "Build a neural network from tensor shapes and the chain rule, then reason precisely about activations, losses, normalization, dropout, residuals, embeddings, and debugging."
+abstract: "A neural network is a typed computation graph trained by reverse-mode differentiation. This guide makes that statement operational: it derives dense-layer shapes and backpropagation, separates expressivity from learnability, connects activations and initialization to signal flow, derives stable categorical and binary losses, and explains normalization, dropout, residual paths, embeddings, output contracts, parameter sharing, capacity, and PyTorch train/evaluation behavior."
+date: 2026-08-22
+track: theory
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m06-training
+moduleLabel: Module 6 · Deep Learning Foundations
+order: 10
+level: foundational
+objectives:
+  - "Trace tensor shapes, parameter counts, compute, and gradients through a multilayer perceptron."
+  - "Explain what depth and universal approximation establish—and what they do not establish about learning."
+  - "Match activations, output heads, targets, and numerically stable losses to the statistical task."
+  - "Contrast batch normalization, layer normalization, dropout, and residual connections by train/evaluation behavior."
+  - "Debug optimization, shape, mode, and gradient failures with minimal reproducible checks."
+prerequisites:
+  - ml-interview-optimization-training
+referenceIds:
+  - rumelhart1986backprop
+  - cybenko1989approximation
+  - lecun1989backprop
+  - bengio2003language
+  - nair2010relu
+  - srivastava2014dropout
+  - ioffe2015batchnorm
+  - ba2016layernorm
+  - he2016resnet
+  - gelman2020bayesianworkflow
+keyEquations:
+  - 'Z=XW+b,\qquad X\in\mathbb{R}^{B\times d_{\mathrm{in}}},\ W\in\mathbb{R}^{d_{\mathrm{in}}\times d_{\mathrm{out}}}'
+  - 'p_k=\frac{\exp(z_k-z_{\max})}{\sum_j\exp(z_j-z_{\max})}'
+  - '\frac{\partial L}{\partial W}=X^\mathsf{T}\frac{\partial L}{\partial Z}'
+  - 'h_{\ell+1}=h_\ell+F_\ell(h_\ell)'
+tags: [machine learning interviews, neural networks, backpropagation, activations, normalization, PyTorch]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## A network is a typed computation graph
+
+The fastest way to lose a neural-network interview is to manipulate symbols without dimensions.
+The fastest way to recover is to annotate every edge with a shape and ask what scalar objective
+the graph computes. Backpropagation then becomes bookkeeping: every local operation receives an
+upstream gradient of its output shape and returns gradients matching its inputs.
+
+<Callout variant="intuition" title="Forward composes; backward distributes credit">
+The forward pass turns inputs into a scalar loss by composing small operations. The backward pass
+asks how an infinitesimal change at each intermediate value would change that scalar. Reverse mode
+reuses the forward graph and moves this credit signal backward without ever materializing a giant
+Jacobian.
+
+Depth, residual connections, normalization, and activation choice all change how information and
+credit travel. They are structural assumptions, not interchangeable “tricks.”
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'B', meaning: 'Mini-batch size', dims: 'count' },
+    { symbol: 'd_{in},d_h,d_{out}', meaning: 'Input, hidden, and output widths', dims: 'counts' },
+    { symbol: 'X', meaning: 'Batch of input row vectors', dims: 'B × d_in' },
+    { symbol: 'W_1,W_2', meaning: 'Dense-layer weight matrices', dims: 'd_in × d_h; d_h × d_out' },
+    { symbol: 'Z,H', meaning: 'Preactivation and activated hidden tensors', dims: 'B × d_h' },
+    { symbol: 'z_i', meaning: 'Logits for example i', dims: 'C' },
+    { symbol: '\\phi', meaning: 'Elementwise nonlinear activation', dims: 'shape-preserving' },
+    { symbol: '\\nabla_H L', meaning: 'Upstream gradient of scalar loss with respect to H', dims: 'B × d_h' },
+    { symbol: 'V,d', meaning: 'Vocabulary size and embedding width', dims: 'counts' },
+  ]}
+/>
+
+<Figure
+  caption="Figure 1. Reverse-mode differentiation reuses a forward computation graph. Solid arrows carry tensors toward a scalar loss; dashed arrows carry vector–Jacobian products backward. Where one value feeds two paths, its gradient is the sum of both contributions."
+  alt="A computation graph with input X and weights W feeding a matrix multiply Z, then ReLU H, then a second matrix multiply S, softmax cross-entropy, and scalar loss L. Solid arrows run left to right and dashed gradient arrows run right to left. Shape labels appear below each node."
+>
+  <svg viewBox="0 0 720 330" width="720" height="330" font-family="inherit">
+    <defs><marker id="nn-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 Z" fill="currentColor" /></marker><marker id="nn-grad" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 Z" fill="var(--color-accent,#2e6e5e)" /></marker></defs>
+    <g fill="var(--color-bg,#fff)" stroke="currentColor">
+      <rect x="35" y="92" width="72" height="48" rx="8" /><rect x="35" y="181" width="72" height="48" rx="8" />
+      <rect x="153" y="126" width="88" height="55" rx="8" /><rect x="286" y="126" width="83" height="55" rx="8" />
+      <rect x="414" y="126" width="80" height="55" rx="8" /><rect x="539" y="126" width="92" height="55" rx="8" />
+      <circle cx="681" cy="153" r="28" />
+    </g>
+    <g font-size="13" fill="currentColor" text-anchor="middle">
+      <text x="71" y="121">X</text><text x="71" y="210">W₁</text><text x="197" y="158">Z=XW₁+b</text>
+      <text x="327" y="158">H=ReLU(Z)</text><text x="454" y="158">S=HW₂+c</text><text x="585" y="150">softmax +</text><text x="585" y="166">cross-entropy</text><text x="681" y="158">L</text>
+    </g>
+    <g font-size="10.5" fill="currentColor" opacity=".67" text-anchor="middle">
+      <text x="71" y="151">B × dᵢₙ</text><text x="71" y="240">dᵢₙ × dₕ</text><text x="197" y="195">B × dₕ</text><text x="327" y="195">B × dₕ</text><text x="454" y="195">B × C</text><text x="681" y="195">scalar</text>
+    </g>
+    <g fill="none" stroke="currentColor" stroke-width="1.7" marker-end="url(#nn-arrow)">
+      <path d="M107 116 L153 143"/><path d="M107 205 L153 165"/><path d="M241 153 L286 153"/><path d="M369 153 L414 153"/><path d="M494 153 L539 153"/><path d="M631 153 L653 153"/>
+    </g>
+    <path d="M652 79 C575 43, 245 43, 199 116" fill="none" stroke="var(--color-accent,#2e6e5e)" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#nn-grad)" />
+    <text x="425" y="36" text-anchor="middle" font-size="11" fill="var(--color-accent,#2e6e5e)">backward: local vector–Jacobian products</text>
+    <text x="360" y="296" text-anchor="middle" font-size="11.5" fill="currentColor" opacity=".76">forward: tensors compose into one scalar objective →</text>
+  </svg>
+</Figure>
+
+## Expressivity and tensor contracts
+
+<InterviewQuestion id="q-nn-why-depth">
+
+Without nonlinearities, stacked dense layers collapse:
+$W_3(W_2(W_1x))=(W_3W_2W_1)x$, still one linear map. Nonlinear depth creates a composition of
+piecewise or smoothly transformed regions. Earlier layers can detect reusable local patterns;
+later layers combine them. Certain compositional functions require exponentially many shallow
+units but compact deep representations.
+
+Depth also changes the **inductive bias** and parameter reuse. Convolution imposes locality and
+translation equivariance; recurrence reuses one transition over time; residual depth expresses a
+sequence of refinements. Those properties, not the word “deep,” explain sample efficiency on a
+particular task.
+
+More depth can worsen conditioning, memory, latency, and overfitting. A complete answer pairs
+expressivity with trainability: initialization, residual paths, normalization, data scale, and
+optimization decide whether the representation can be learned.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-universal-approximation">
+
+One form says that finite sums of a suitable nonlinear activation,
+
+$$
+f_m(x)=\sum_{j=1}^{m}a_j\,\sigma(w_j^\mathsf{T}x+b_j),
+$$
+
+are dense in continuous functions on a compact domain: for any continuous target and tolerance,
+some sufficiently wide one-hidden-layer network approximates it uniformly. Cybenko proved an
+early sigmoid result <Citation id="cybenko1989approximation" />.
+
+The theorem is existential. It does not bound practical width, say gradient descent finds the
+weights, guarantee generalization from finite samples, extend automatically outside the compact
+domain, or provide robustness. A lookup table can also express many functions and still be a poor
+learning algorithm.
+
+The interview distinction is **representation versus learning**. Universal approximation answers
+“can this class contain an approximation?” It does not answer “will this data, optimizer, compute
+budget, and architecture recover a useful one?”
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-forward-shapes">
+
+For $X\in\mathbb R^{B\times d_{in}}$, $W\in\mathbb R^{d_{in}\times d_{out}}$, and a broadcast bias
+$b\in\mathbb R^{d_{out}}$,
+
+$$
+Z=XW+b\in\mathbb R^{B\times d_{out}}.
+$$
+
+There are $d_{in}d_{out}+d_{out}$ trainable scalars. Dense forward compute is
+$O(Bd_{in}d_{out})$ multiply-adds; activations occupy $O(Bd_{out})$ memory and are often retained
+for backward.
+
+PyTorch stores `Linear.weight` as `[d_out, d_in]` and computes $XW^\mathsf{T}+b$, an important API
+orientation detail:
+
+```python
+layer = torch.nn.Linear(128, 64)
+assert layer.weight.shape == (64, 128)
+assert layer(torch.randn(32, 128)).shape == (32, 64)
+```
+
+Write shapes beside every einsum or matmul. Broadcasting can turn a wrong bias shape into valid
+but unintended code, which is harder to catch than an exception.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-backprop">
+
+Let $Z=XW+b$, $H=\phi(Z)$, and scalar $L$. Given upstream
+$G_H=\partial L/\partial H$, the local derivatives are
+
+$$
+G_Z=G_H\odot\phi'(Z),\qquad
+\frac{\partial L}{\partial W}=X^\mathsf{T}G_Z,\qquad
+\frac{\partial L}{\partial X}=G_ZW^\mathsf{T},\qquad
+\frac{\partial L}{\partial b}=\sum_{i=1}^{B}(G_Z)_{i,:}.
+$$
+
+Every result matches its variable's shape. When a tensor feeds multiple downstream operations,
+the chain rule **adds** their gradient contributions. Reverse-mode automatic differentiation
+performs these vector–Jacobian products from one scalar output to many parameters at a constant
+factor of forward compute, rather than forming full Jacobians.
+
+The modern algorithm was popularized for learned representations by Rumelhart, Hinton, and
+Williams <Citation id="rumelhart1986backprop" /> and applied to handwritten recognition systems
+by LeCun and colleagues <Citation id="lecun1989backprop" />. Frameworks automate it; interviews
+still test whether you can follow shapes, accumulation, and nondifferentiable boundaries.
+
+</InterviewQuestion>
+
+<WorkedExample
+  title="One ReLU neuron, forward and backward"
+  given={[
+    { label: 'Input and target', value: 'x=[2, −1], y=1' },
+    { label: 'Hidden parameters', value: 'w=[0.5, 1], b=0' },
+    { label: 'Output', value: 'ŷ=2h; loss L=½(ŷ−y)²' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+
+Forward:
+
+$$
+z=x^\mathsf{T}w+b=2(0.5)+(-1)(1)=0,
+\qquad h=\operatorname{ReLU}(z)=0.
+$$
+
+At exactly zero ReLU is nondifferentiable, and frameworks conventionally choose derivative zero.
+That makes every hidden gradient zero—an instructive edge case, but a poor finite-difference test.
+Perturb $b$ to $0.5$ so $z=0.5$, $h=0.5$, $\hat y=1$, and $L=0$; that also gives no gradient.
+Instead use $b=1$, yielding $z=1$, $h=1$, $\hat y=2$, and $L=\tfrac12$.
+
+Backward for $b=1$:
+
+$$
+\frac{\partial L}{\partial \hat y}=\hat y-y=1,\quad
+\frac{\partial \hat y}{\partial h}=2,\quad
+\frac{\partial h}{\partial z}=1,
+$$
+
+so $\partial L/\partial z=2$ and
+
+$$
+\frac{\partial L}{\partial w}=2x=[4,-2],\qquad
+\frac{\partial L}{\partial b}=2.
+$$
+
+The example also shows why gradient checks avoid kinks and zero-loss points: the mathematics may be
+valid while the chosen test contains no informative local signal.
+
+</WorkedExample>
+
+## Activations and stable likelihoods
+
+<InterviewQuestion id="q-nn-activations">
+
+- sigmoid maps to $(0,1)$ and suits a Bernoulli output, but hidden units saturate at large
+  magnitudes and its positive mean can slow optimization;
+- tanh maps to $(-1,1)$ and is zero-centered, but also saturates;
+- ReLU $\max(0,z)$ has derivative one on the positive side and enabled major optimization gains
+  <Citation id="nair2010relu" />, but units receiving only negative inputs can “die”;
+- GELU $z\Phi(z)$ and SiLU $z\sigma(z)$ smoothly gate values and are common in Transformers and
+  modern convolutional networks, at somewhat higher compute.
+
+Activation choice and initialization are coupled: He initialization accounts for ReLU's removed
+half; sigmoid needs careful scale to avoid saturation. Normalization and residuals change the
+input distribution again. Output activations follow the statistical distribution, not hidden-layer
+fashion.
+
+In-place activation can overwrite values needed by autograd or skip connections. Prefer clear
+out-of-place code until profiling demonstrates a memory need.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-softmax-cross-entropy">
+
+For $C$ mutually exclusive classes,
+
+$$
+p_k=\frac{e^{z_k}}{\sum_j e^{z_j}},\qquad L=-\log p_y
+=-z_y+\log\sum_j e^{z_j}.
+$$
+
+Softmax is invariant to adding one constant to every logit. Numerically, subtract
+$z_{\max}$ before exponentiation; a fused cross-entropy computes log-sum-exp without materializing
+rounded probabilities. The derivative is exceptionally simple:
+
+$$
+\frac{\partial L}{\partial z_k}=p_k-\mathbf 1[k=y].
+$$
+
+Pass raw logits of shape `[B, C]` and integer targets `[B]` to PyTorch `CrossEntropyLoss`. Applying
+softmax first compresses gradients and asks the loss to treat probabilities as logits. Class
+weights change which population risk is optimized; label smoothing changes the target distribution
+and can affect calibration.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-bce-logits">
+
+For one binary logit $z$, probability $p=\sigma(z)$, and target $y\in\{0,1\}$,
+
+$$
+L=-y\log\sigma(z)-(1-y)\log(1-\sigma(z)).
+$$
+
+Direct sigmoid can round to zero or one. A fused implementation uses a softplus identity such as
+
+$$
+L=\max(z,0)-zy+\log(1+e^{-|z|}),
+$$
+
+which stays finite for large magnitude logits. Its logit derivative is $\sigma(z)-y$.
+
+Use `[B]` or `[B,1]` logits/targets consistently for binary tasks and `[B,C]` for multilabel. A
+`pos_weight` multiplies positive loss terms to target a reweighted risk; it does not make the raw
+sigmoid calibrated for deployment. Tune thresholds and recalibrate on the intended prevalence.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-loss-selection">
+
+Treat a head and loss as a distributional contract:
+
+- real-valued conditional mean under Gaussian noise: linear output with squared error;
+- robust median: linear output with absolute error;
+- conditional quantile: linear output with pinball loss;
+- one of $C$ classes: $C$ logits with categorical cross-entropy;
+- any subset of $C$ labels: $C$ independent logits with BCE;
+- counts: positive-rate parameter with Poisson or negative-binomial likelihood;
+- positive scale: transform or distribution whose support matches the target.
+
+Then check target dtype/shape, mask, reduction, and sample weighting. A loss can be statistically
+valid yet misaligned with business cost, so choose the selection metric separately. Heteroscedastic
+heads can predict both mean and scale, but must constrain scale positive and validate calibration.
+
+Do not choose MSE simply because the framework defaults to it. State the implied conditional
+functional and noise assumptions.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-multiclass-multilabel">
+
+**Multiclass:** exactly one target among $C$. Scores compete through softmax, the target is usually
+one integer, and argmax produces one class. **Multilabel:** each of $C$ labels may independently be
+present; use $C$ sigmoid logits and a binary target vector.
+
+This changes evaluation. Multilabel examples need zero, one, or many predictions, often with
+per-label thresholds and macro/micro metrics. Missing label is not necessarily negative: use a mask
+when annotation is incomplete. In multiclass, class weights alter relative error costs; in
+multilabel, `pos_weight` can differ per class.
+
+A common coding bug is `CrossEntropyLoss` with a multi-hot target or `BCEWithLogitsLoss` with class
+indices. State shapes before naming the loss.
+
+</InterviewQuestion>
+
+## Structure and regularization
+
+<InterviewQuestion id="q-nn-batch-layer-norm">
+
+For each channel, batch normalization estimates mean and variance over a mini-batch (and spatial
+positions for convolution), normalizes, then applies learned scale and shift. Training uses current
+batch statistics and updates running estimates; evaluation uses the running estimates. It enabled
+faster training in deep networks <Citation id="ioffe2015batchnorm" /> but couples examples and can
+struggle with tiny, nonrepresentative, or distributed microbatches.
+
+Layer normalization computes mean and variance over selected feature dimensions within each
+example, then applies affine parameters. It does not need running statistics and behaves the same
+statistically in train and eval, making it natural for variable-length sequence models
+<Citation id="ba2016layernorm" />.
+
+Neither merely “fixes covariate shift.” State axes and mode. In Transformers, pre-norm versus
+post-norm changes the residual gradient path; in CNNs, group norm can avoid batch dependence.
+Freeze batch-norm behavior deliberately during fine-tuning rather than assuming frozen weights
+freeze running buffers.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-dropout">
+
+In inverted dropout during training,
+
+$$
+\tilde h_i=\frac{m_i}{1-p}h_i,\qquad m_i\sim\operatorname{Bernoulli}(1-p),
+$$
+
+so $E[\tilde h_i]=h_i$. Evaluation returns $h$ without masking or rescaling. Dropout discourages
+co-adaptation and can be viewed as training a stochastic ensemble
+<Citation id="srivastava2014dropout" />.
+
+`model.eval()` is therefore required for deterministic validation. Dropout interacts with batch
+normalization and may add little under strong augmentation, weight decay, and abundant data.
+Applying dropout to recurrent state or attention requires architecture-aware masks rather than
+blindly inserting it everywhere.
+
+Monte Carlo dropout intentionally keeps masks active across multiple inference passes and uses
+their variation as an approximate uncertainty signal. It is not the ordinary deployment mode and
+does not automatically yield calibrated epistemic uncertainty.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-residual">
+
+A residual block returns
+
+$$
+h_{\ell+1}=h_\ell+F_\ell(h_\ell).
+$$
+
+Its Jacobian includes an identity:
+
+$$
+\frac{\partial h_{\ell+1}}{\partial h_\ell}=I+
+\frac{\partial F_\ell}{\partial h_\ell},
+$$
+
+so information and gradients have a direct additive route even when the residual branch is poorly
+conditioned. Learning $F=0$ expresses identity easily. Residual networks solved the degradation
+problem that made deeper plain networks train worse <Citation id="he2016resnet" />.
+
+Addition requires matching shapes. Downsampling or channel changes need a projection. Residual
+scale, initialization, stochastic depth, and pre/post normalization still govern stability; a skip
+connection does not make arbitrary depth free.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-embeddings">
+
+An embedding table $E\in\mathbb R^{V\times d}$ maps ID $i$ to row $E_i$. This equals
+$e_i^\mathsf{T}E$ for a one-hot vector $e_i$, but lookup avoids constructing $V$-wide inputs.
+For input IDs `[B, T]`, output is `[B, T, d]`. Repeated IDs accumulate row gradients; unselected
+rows receive zero gradient in a plain lookup.
+
+Padding needs a reserved index whose output or gradient is controlled. Unknown items need an OOV
+strategy, and huge vocabularies may need sparse optimizers, hashing, or sharding. Learned word
+representations emerged from predictive language modeling objectives long before current
+foundation models <Citation id="bengio2003language" />.
+
+Geometry reflects objective and data: nearby vectors are not inherently causal, unbiased, or
+identifiable because rotations can preserve dot products. Evaluate embeddings through their
+downstream task and relevant slices.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-parameter-sharing">
+
+A convolution applies one kernel at every spatial location, asserting that a translated local
+pattern should be recognized by the same rule. A recurrent network reuses one transition over
+time. Sharing reduces parameters, raises statistical efficiency, and produces equivariance:
+translating the input translates a convolutional feature map, ignoring boundaries and stride.
+
+The benefit is also the assumption. Medical scanner sites, genomic positions, or image borders
+may not be homogeneous; add position, conditioning, or locally varying components when the domain
+breaks the symmetry. Pooling can create approximate invariance by discarding position, which is
+different from equivariance.
+
+Compute and memory also change: a dense image layer scales with all input-output pixel pairs,
+whereas a $k\times k$ convolution uses $k^2C_{in}C_{out}$ parameters regardless of image size.
+
+</InterviewQuestion>
+
+## Modes, diagnosis, and capacity
+
+<InterviewQuestion id="q-nn-overfitting">
+
+Use training and validation behavior as a two-axis diagnosis:
+
+- poor training and validation: optimization failure, insufficient capacity, noisy labels, wrong
+  representation, or irreducible ambiguity;
+- good training but poor validation: overfitting, leakage in model selection, or distribution
+  mismatch;
+- both good on random split but production poor: likely split or measurement mismatch.
+
+First overfit a tiny clean batch. If the network cannot drive it near zero, inspect the graph,
+loss, labels, learning rate, and capacity. If it can, plot learning curves versus data. More data,
+augmentation, weight decay, dropout, early stopping, pretrained representations, or a smaller
+hypothesis can reduce variance; better features, capacity, and optimization address training
+underfit.
+
+Do not diagnose from one scalar gap alone. Different stochastic augmentations make train loss
+harder than validation loss; regularization terms may be included only in the reported training
+objective.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-train-eval">
+
+In PyTorch, `model.train()` and `model.eval()` toggle each module's `training` flag. Dropout and
+batch normalization consult it. The calls do **not** toggle autograd, freeze parameters, or move
+devices.
+
+Use both state and gradient contexts correctly:
+
+```python
+model.eval()
+with torch.inference_mode():
+    logits = model(x_valid)
+
+model.train()
+```
+
+`inference_mode` is stronger than `no_grad` and suitable when returned tensors will not reenter an
+autograd-tracked computation. Fine-tuning can set `requires_grad_(False)` on selected parameters
+while keeping the model in training mode; decide separately whether batch-norm running statistics
+should update.
+
+A validation result that changes with batch order strongly suggests mode-dependent layers,
+uncontrolled randomness, or state mutation.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-gradient-checking">
+
+For parameter coordinate $j$, centered finite difference is
+
+$$
+g_j^{num}=\frac{L(\theta+h e_j)-L(\theta-h e_j)}{2h}.
+$$
+
+Compare with analytic $g_j$ using relative error
+$|g_j-g_j^{num}|/\max(1,|g_j|,|g_j^{num}|)$. Use a tiny deterministic function, double precision,
+no dropout, and a step such as $10^{-6}$ adjusted for scale. Too-small $h$ suffers cancellation;
+too-large $h$ measures curvature. Avoid ReLU kinks, max ties, and zero-loss coincidences.
+
+Framework `gradcheck` automates perturbation. For a real model, use anomaly detection, backward
+hooks, and per-layer gradient norms to locate the first nonfinite or missing gradient. A tensor's
+`.grad is None` means no accumulated path or disabled tracking; an all-zero tensor means a path
+existed but its derivative vanished.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-nn-capacity-parameters">
+
+More parameters enlarge a raw hypothesis class, but modern networks often interpolate training
+data and still generalize. Parameter count ignores parameter sharing, norms, margin, augmentation,
+pretraining, optimizer implicit bias, early stopping, label noise, and the amount and structure of
+data. Two reparameterizations can express the same function with different apparent scale.
+
+Use controlled scaling curves: training loss, validation loss, calibration, data size, compute,
+and slices as width/depth grow. If both losses improve, the larger model has not shown classical
+variance-dominated overfit. If training improves and validation worsens consistently, regularize,
+increase effective data, or reduce capacity.
+
+Avoid post-hoc stories from one run. A disciplined model-development workflow checks the whole
+data/model/decision chain rather than treating one complexity number as a guarantee
+<Citation id="gelman2020bayesianworkflow" />.
+
+</InterviewQuestion>
+
+## Exercises
+
+<Exercise n={1} title="Shapes and parameters in a two-layer classifier" difficulty="warm-up">
+
+An input batch is `[32, 100]`. A dense hidden layer has width 64, followed by a 10-class output
+layer. Give every weight/output shape and the trainable parameter count.
+
+<div slot="solution">
+
+Using the mathematical row-vector convention:
+
+- $X:[32,100]$;
+- $W_1:[100,64]$, $b_1:[64]$, hidden $H:[32,64]$;
+- $W_2:[64,10]$, $b_2:[10]$, logits $S:[32,10]$.
+
+Parameters are $100(64)+64+64(10)+10=6{,}400+64+640+10=7{,}114$. PyTorch stores the two weight
+tensors transposed as `[64,100]` and `[10,64]`, while producing the same output shapes.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Stable cross-entropy for extreme logits" difficulty="core">
+
+For logits $[1000,1001,999]$ and target class 0, compute the target probability and loss without
+overflow.
+
+<div slot="solution">
+
+Subtract the maximum 1001, giving $[-1,0,-2]$. The denominator is
+$e^{-1}+1+e^{-2}=0.367879+1+0.135335=1.503214$. Therefore
+
+$$
+p_0=0.367879/1.503214=0.244728,
+$$
+
+and
+
+$$
+L=-\log p_0=1.407606.
+$$
+
+Exponentiating the original logits would overflow in ordinary floating point, even though softmax
+is well-defined because a common logit shift changes nothing.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Find three independent evaluation bugs" difficulty="stretch">
+
+Validation runs with `model.train()`, outside `no_grad`, one example at a time through batch norm,
+and the reported loss is averaged by number of batches even though the last batch is smaller.
+Explain each issue and repair the loop.
+
+<div slot="solution">
+
+`model.train()` leaves dropout stochastic and makes batch norm use/update batch statistics;
+one-example batch statistics are especially unstable. Autograd does not usually change numeric
+forward values, but retaining graphs wastes memory and can cause accidental gradient/state use.
+An unweighted mean of batch means overweights the short final batch.
+
+Use `model.eval()` plus `torch.inference_mode()`, evaluate with a meaningful batch size, accumulate
+`loss_sum += loss_mean * batch_size`, and divide by total examples (or sum per-example losses
+directly). Restore `model.train()` before optimization. For variable-token losses, weight by valid
+tokens rather than examples.
+
+</div>
+</Exercise>
+
+## Summary
+
+- Annotate shapes first: they determine parameters, compute, legal operations, and gradient
+  contracts.
+- Universal approximation is an existence statement; architecture, data, optimization, and
+  inductive bias determine learnability and generalization.
+- Use logits with fused likelihood losses for numerical stability, and match the output head to
+  target structure.
+- Batch norm, layer norm, dropout, and residuals have different axes, state, and gradient effects.
+- `train()`/`eval()` control module behavior; autograd contexts control gradient recording.
+- Diagnose with a tiny batch, finite differences, activation/gradient measurements, and learning
+  curves before blaming capacity or local minima.

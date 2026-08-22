@@ -66,9 +66,11 @@ const structuredData = {
   '@graph': [personLd, websiteLd],
 };
 ---
+
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-{/*
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+{
+  /*
   Browser-enforced security policy. GitHub Pages cannot send HTTP response headers, so
   these <meta> equivalents deliver what is possible: a referrer policy and a site-wide CSP.
   Header-only protections — frame-ancestors / X-Frame-Options (clickjacking),
@@ -81,14 +83,17 @@ const structuredData = {
   therefore defense-in-depth against external-resource injection (blocks foreign scripts,
   images, iframes, form posts, <base> hijack, plugin objects), not a full XSS mitigation.
   Gated to production so it never interferes with the dev server's HMR websocket.
-*/}
+*/
+}
 <meta name="referrer" content="strict-origin-when-cross-origin" />
-{import.meta.env.PROD && (
-  <meta
-    http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline' data:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src https://storage.googleapis.com; connect-src 'self' https://khchao-ask.khchao.workers.dev; base-uri 'self'; form-action 'self'; object-src 'none'"
-  />
-)}
+{
+  import.meta.env.PROD && (
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' data:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src https://storage.googleapis.com; connect-src 'self' https://khchao-ask.khchao.workers.dev; base-uri 'self'; form-action 'self'; object-src 'none'"
+    />
+  )
+}
 <title>{pageTitle}</title>
 <meta name="description" content={description} />
 <link rel="canonical" href={canonical} />
@@ -154,10 +159,7 @@ const structuredData = {
         />
       )}
       {scholarMeta.technicalReportNumber && (
-        <meta
-          name="citation_technical_report_number"
-          content={scholarMeta.technicalReportNumber}
-        />
+        <meta name="citation_technical_report_number" content={scholarMeta.technicalReportNumber} />
       )}
       {scholarMeta.references?.map((ref) => (
         <meta name="citation_reference" content={ref} />

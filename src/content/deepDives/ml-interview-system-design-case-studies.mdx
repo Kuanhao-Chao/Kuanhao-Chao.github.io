@@ -1,0 +1,322 @@
+---
+title: Machine Learning System Design Case Studies
+shortTitle: ML System Design
+description: A reusable design framework applied to recommendation, search, fraud, moderation, forecasting, anomaly detection, medical ML, vision retrieval and RAG.
+abstract: Practice turning ambiguous product prompts into explicit objectives, estimates, data contracts, baselines, evaluation plans, serving architectures, monitoring policies and failure responses.
+date: 2026-08-22
+track: workflow
+hub: ml-dl-interview
+lessonType: system-design
+category: machine-learning
+moduleId: m11-production
+moduleLabel: Production & Interview Practice
+order: 19
+level: advanced
+objectives:
+  - Clarify an underspecified ML design prompt into a decision, SLOs and measurable harms.
+  - Use scale estimates to eliminate infeasible architecture before selecting a model.
+  - Design labels, baselines, retrieval/ranking or prediction, serving and evaluation as one contract.
+  - Anticipate feedback, safety, operational and causal failure modes with monitors and fallbacks.
+prerequisites: [ml-interview-metrics-experimentation, ml-interview-ml-systems-mlops]
+relatedLessons: [ml-interview-coding-project-defense]
+referenceIds:
+  - amershi2019seml
+  - covington2016youtube
+  - burges2005ranknet
+  - bahnsen2015fraud
+  - wulczyn2017toxicity
+  - hyndman2006forecastaccuracy
+  - rajkomar2018ehr
+  - radford2021clip
+  - lewis2020rag
+  - chaney2018feedback
+  - kohavi2012experiments
+  - sculley2015debt
+keyEquations:
+  - 'Q_{\mathrm{peak}}=\frac{N_{\mathrm{day}}f_{\mathrm{peak}}}{86{,}400}'
+  - '\mathbb{E}[C(a,Y)\mid x]=\sum_y P(y\mid x)C(a,y)'
+  - '\widehat V_{\mathrm{IPS}}=\frac{1}{n}\sum_{i=1}^{n}\frac{\pi(a_i\mid x_i)}{\pi_0(a_i\mid x_i)}r_i'
+tags: [system design, case study, architecture, recommendation, search, RAG]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## One framework, different bottlenecks
+
+<Callout variant="intuition" title="The best model is downstream of the design">
+A system-design interview is not a contest to name the newest architecture. Clarify the
+decision, estimate what must move through the system, and locate the binding constraint. Only
+then can labels, model, serving and metrics be right or wrong. Production ML practice repeatedly
+finds that data and surrounding software dominate lifecycle effort
+<Citation id="amershi2019seml" />.
+Making those seams explicit also limits the hidden dependency debt described in deployed ML
+systems <Citation id="sculley2015debt" />.
+</Callout>
+
+<Notation rows={[
+  { symbol: 'Q', meaning: 'Peak request rate', dims: 'requests/second' },
+  { symbol: 'N,M', meaning: 'Number of users/queries and candidate items', dims: 'counts' },
+  { symbol: 'K', meaning: 'Candidates returned by retrieval to ranking', dims: 'count per request' },
+  { symbol: 'L', meaning: 'End-to-end latency budget', dims: 'milliseconds' },
+  { symbol: 'C(a,y)', meaning: 'Cost of action a when outcome is y', dims: 'domain units' },
+  { symbol: '\\pi_0,\\pi', meaning: 'Logging and candidate decision policies', dims: 'action distributions' },
+]}/>
+
+<Figure
+  id="system-design-spine"
+  caption="Figure 1. The interview spine is a loop, not a checklist. Requirements and estimates constrain architecture; data and model feed serving; evaluation and monitoring produce evidence that revises requirements. Failure modes attach to every arrow."
+  alt="Eight nodes arranged in a loop: requirement, estimate, architecture, data and model, serving, evaluation, monitoring, and failure modes. Arrows move clockwise and one arrow returns monitoring evidence to requirements."
+  wide
+>
+  <svg viewBox="0 0 760 260" width="760" height="260" font-family="inherit">
+    <defs><marker id="design-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/></marker></defs>
+    <ellipse cx="380" cy="130" rx="300" ry="87" fill="none" stroke="currentColor" opacity=".18"/>
+    <g fill="none" stroke="var(--color-accent)" stroke-width="2" marker-end="url(#design-arrow)"><path d="M156 65 L250 38"/><path d="M340 38 L445 56"/><path d="M530 74 L595 113"/><path d="M600 151 L535 193"/><path d="M445 211 L340 221"/><path d="M250 218 L157 190"/><path d="M103 164 L103 96"/></g>
+    <g fill="var(--color-surface)" stroke="currentColor"><rect x="68" y="51" width="90" height="38" rx="7"/><rect x="250" y="19" width="90" height="38" rx="7"/><rect x="445" y="39" width="90" height="38" rx="7"/><rect x="595" y="111" width="100" height="38" rx="7"/><rect x="445" y="191" width="90" height="38" rx="7"/><rect x="250" y="202" width="90" height="38" rx="7"/><rect x="63" y="163" width="100" height="38" rx="7"/><rect x="315" y="105" width="130" height="50" rx="9" stroke="var(--color-accent)"/></g>
+    <g fill="currentColor" font-size="11" text-anchor="middle"><text x="113" y="75">requirements</text><text x="295" y="43">estimate</text><text x="490" y="63">architecture</text><text x="645" y="135">data + model</text><text x="490" y="215">serving</text><text x="295" y="226">evaluation</text><text x="113" y="187">monitoring</text><text x="380" y="128">failure modes</text><text x="380" y="143">at every seam</text></g>
+  </svg>
+</Figure>
+
+<InterviewQuestion id="q-design-framework">
+Use the same visible sequence every time. **Requirement:** user, decision, success, harms,
+prediction time, freshness, latency and availability. **Estimate:** QPS, inventory, data,
+memory, bandwidth, review capacity and cost. **Architecture:** sources, stores, offline/online
+paths and ownership. **Data/model:** label availability, point-in-time features, leakage-safe
+split, heuristic baseline and candidate model. **Serving:** batch/stream/online, cache, fallback
+and policy. **Evaluation:** offline metrics/slices and causal online test. **Monitoring:** service,
+data, prediction and delayed outcomes. **Failure modes:** shift, feedback, abuse, outage and
+rollback.
+
+Narrate assumptions and revise them. A design that survives contradiction is stronger than a
+dense diagram built on an unstated premise.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-recommender">
+**Requirement/estimate:** define a meaningful action and long-term satisfaction guardrails;
+size users, items, updates, peak QPS and 100-ms-scale budget. **Architecture/data/model:** event
+log → point-in-time features → two-tower/heuristic retrieval of hundreds → learned ranking →
+policy/diversity re-rank. YouTube's two-stage candidate/ranking architecture is a canonical
+example <Citation id="covington2016youtube" />.
+
+**Serving/evaluation:** precompute item embeddings, ANN retrieve, online user context; measure
+candidate recall and NDCG/calibration offline, then randomized retention/satisfaction with
+guardrails. **Monitoring/failures:** freshness, cohorts, creator exposure, popularity collapse,
+position bias, delayed labels and model/index version. Preserve exploration and log propensities;
+otherwise the model learns only from items it chose to show.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-search">
+**Requirement/estimate:** query intent, relevance, language, index freshness, corpus and tail
+latency. **Architecture:** ingestion builds lexical and embedding indexes; query understanding
+fans into lexical/semantic retrieval; merge, deduplicate, rank and policy-filter. Pairwise
+learning-to-rank methods such as RankNet optimize ordering from preferences
+<Citation id="burges2005ranknet" />.
+
+**Data/model:** editorial judgments, clicks corrected for position and adversarial spam; begin
+with BM25. **Serving/evaluation:** cache normalized head queries carefully; measure recall@K,
+NDCG by query class, zero-results and human judgments; interleave/A-B online. **Monitoring/failure:**
+index lag, tail query quality, latency, language slices, click feedback and unsafe results. A
+semantic ranker cannot recover a document retrieval never surfaced.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-fraud">
+**Requirement:** minimize expected fraud plus customer friction and review cost, within the
+payment deadline. **Estimate/architecture:** peak transactions, feature lookups and investigator
+capacity; combine hard rules, event-time account/device/merchant/network features and a model,
+routing calibrated risk to approve, review or decline.
+
+**Data/model:** chargebacks are delayed and selective; temporal splits, cost-sensitive objectives
+and graph/rule baselines precede complexity. Example-dependent cost modeling makes the decision
+objective explicit <Citation id="bahnsen2015fraud" />. **Serving/evaluation:** low-latency store,
+strict fallback and shadow; report expected cost, precision at review capacity and calibration.
+**Monitoring/failures:** attack adaptation, feature outage, feedback from declined transactions,
+cohorts and appeal outcomes. Missing counterfactual fraud on blocked payments is fundamental.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-moderation">
+**Requirement:** translate policy into severity, locale and action with appeals; estimate upload
+and reviewer capacity. **Architecture/data/model:** known-hash/rule filters → multimodal models
+and similarity retrieval → calibrated allow/review/block tiers; create adjudicated guidelines,
+agreement measures and active-learning queues. Large-scale toxicity work demonstrates both
+labeling value and disagreement <Citation id="wulczyn2017toxicity" />.
+
+**Serving/evaluation:** isolate high-severity paths; report policy-specific precision/recall by
+language and prevalence plus reviewer workload. **Monitoring/failures:** adversarial evasion,
+queue age, policy revision, appeal overturns, coordinated attacks, demographic/dialect impact,
+privacy and reviewer welfare. A global threshold that satisfies average accuracy can overload
+review or silence one community.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-forecasting">
+**Requirement:** decision, horizon, hierarchy and asymmetric stockout/holding loss; estimate
+series count, cadence and availability. **Data/model:** rolling-origin point-in-time features,
+stockout censoring and promotion/calendar inputs; seasonal-naïve baseline before global or
+probabilistic models and hierarchical reconciliation.
+
+**Serving/evaluation:** batch quantiles plus explanation of known events; use scaled errors such
+as MASE and decision cost because percentage metrics fail near zero. Hyndman and Koehler compare
+forecast error measures and motivate scaled alternatives <Citation id="hyndman2006forecastaccuracy" />.
+**Monitoring/failures:** bias, interval coverage, inventory outcome, late inputs and regime
+change. Do not random-split time or treat unavailable future promotions as features.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-anomaly">
+**Requirement:** actionable incident classes, time-to-detect and on-call budget; estimate metric
+cardinality, stream rate and label delay. **Architecture/data/model:** streaming window/state,
+seasonal/robust transforms, rules and forecast or multivariate scores, followed by grouping,
+deduplication and routing.
+
+**Serving/evaluation:** replay incidents chronologically and inject realistic faults; measure
+precision at alert capacity, coverage, detection delay and false pages per engineer. **Monitoring:**
+score/alert distributions, missing telemetry and feedback. **Failures:** alert storms, topology
+changes, silent sensors, correlated duplicates and adaptive suppression. Optimize the alerting
+decision rather than AUROC over synthetic point anomalies.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-medical">
+**Requirement:** eligible population, target time, clinical action, benefit/harm and workflow;
+estimate sites, decisions and response window. **Data/model:** event-time EHR extraction,
+outcome adjudication and missingness semantics; compare a transparent baseline with calibrated
+models. Large-scale EHR prediction shows feasibility but not automatic clinical benefit
+<Citation id="rajkomar2018ehr" />.
+
+**Serving/evaluation:** interruptible integration, human override and safe downtime; external/
+temporal validation of discrimination, calibration, decision curves and subgroups, then prospective
+impact study. **Monitoring/failures:** site drift, adoption, alert fatigue, overrides, outcomes,
+privacy and automation bias. Predictive accuracy is not proof the intervention improves care.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-visual-retrieval">
+**Requirement/estimate:** define similarity, rights/safety and latency; size corpus, embedding,
+ingest/update and QPS. **Architecture/data/model:** validated media → versioned multimodal
+embeddings → ANN index → metadata/filter and learned re-rank. Contrastive image-text pretraining
+supports transferable retrieval <Citation id="radford2021clip" />.
+
+**Serving/evaluation:** cache query embeddings, retrieve K and enforce policy; measure ANN recall
+against exact search, relevance@K and human judgments by domain. **Monitoring/failures:** index
+freshness, embedding/index compatibility, duplicates, unsafe results, demographic/domain slices
+and drift. Changing encoder without rebuilding the index silently compares vectors from different
+spaces.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-rag">
+**Requirement:** answerability, citation, ACL, freshness, privacy, cost and abstention. **Estimate:**
+documents/churn, chunks, query QPS and context tokens. **Architecture:** parse/version → ACL-aware
+hybrid index → retrieve → rerank → context policy → generator → claim/citation checks. RAG jointly
+motivates retrieved evidence and generation <Citation id="lewis2020rag" />.
+
+**Data/model:** curated question/evidence sets plus unanswerable and attack cases. **Serving/evaluation:**
+measure retrieval recall, context precision, claim support and end-task outcome separately; cache
+only with user/ACL/version keys. **Monitoring/failures:** stale documents, permission leakage,
+unsupported claims, prompt injection, context conflict, latency/cost and corrections. Generation
+quality cannot compensate for missing authoritative evidence.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-cold-start">
+**Requirement:** acceptable quality/risk for new user, item or entire market. **Estimate:** new
+cohort share and evidence acquisition rate. **Architecture/model:** content/context features,
+popularity or curated priors, onboarding, transfer and bounded exploration; uncertainty-aware
+policy gathers informative feedback.
+
+**Serving/evaluation:** dedicate fallback and exploration slots; measure new-user/item utility,
+time-to-personalize and harm, not only mature averages. **Monitoring/failure:** exposure
+concentration, sparse-language/region cohorts, manipulation and permanent starvation. The first
+policy creates the data for the next; a deterministic popularity default can make alternatives
+forever look unsupported.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-feedback-loops">
+The deployed policy $\pi_0(a\mid x)$ determines exposure, so outcomes for unchosen actions are
+missing. Retraining on clicks as iid labels conflates preference with past rank. Simulations show
+algorithmic recommendation can homogenize users/items through this loop
+<Citation id="chaney2018feedback" />.
+
+**Design:** log candidate set, position, propensity, model/version and downstream outcome;
+preserve safe randomized exploration. Off-policy inverse-propensity estimates weight observed
+reward by $\pi/\pi_0$, but tiny propensities create variance and zero support prevents
+identification. Monitor concentration, creator/group exposure and label coverage. Validate policy
+changes online with guardrails rather than declaring an offline counterfactual estimate causal
+without overlap assumptions.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-launch-experiment">
+**Requirement:** primary causal outcome, unit, guardrails, minimum effect and stop conditions.
+**Estimate:** baseline rate/variance, power, duration, novelty and interference. **Architecture:**
+offline gates → traffic replay/shadow → canary → sticky randomized assignment; log exposure and
+versions. Large-scale online experimentation requires trustworthy assignment and diagnostics
+<Citation id="kohavi2012experiments" />.
+
+**Evaluation/monitoring:** intention-to-treat primary analysis, predeclared slices, SRM check,
+tail latency, harms and long-term indicators. **Failures:** sample-ratio mismatch, network effects,
+logging change, peeking, multiple metrics and rollback contamination. Ramp by evidence and keep
+the prior path compatible.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-design-estimation">
+Estimate what can change the design: daily and peak requests, payload/event volume, retention,
+feature/embedding/index storage, bandwidth, model memory, service time and replicas, candidate
+pairs per second, label/review throughput and cost. State average versus peak, replication and
+overhead. Precision beyond input certainty is theater.
+
+Use estimates iteratively: if exact scoring requires $Q\times M$ comparisons, introduce retrieval;
+if the raw index fits memory but replicas do not fit budget, compress or tier it; if review receives
+10,000 alerts/day for 500 capacity, threshold/model objective is wrong. Recompute after every
+architectural shortcut.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Size a visual-retrieval index and candidate stream"
+  given={[
+    { label: 'Inventory', value: '20 million items' },
+    { label: 'Embedding', value: '768 float16 values/item' },
+    { label: 'Replication/index overhead', value: '3 replicas; 30% overhead' },
+    { label: 'Peak traffic', value: '5,000 QPS retrieving 200 candidates' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+Raw vectors require $20{,}000{,}000\times768\times2=30.72$ GB. Three replicas and 30% index
+overhead require $30.72\times3\times1.3=119.808$ GB before metadata and allocator reserve.
+Retrieval emits $5{,}000\times200=1{,}000{,}000$ query–candidate pairs each second to reranking.
+
+Those two numbers immediately motivate sharded/tiered ANN retrieval and a bounded reranker. They
+do not predict p99; benchmark index topology, concurrency and cache distribution.
+</WorkedExample>
+
+## Practice
+
+<Exercise n={1} title="Estimate before architecture" difficulty="warm-up">
+A service receives 86.4 million requests/day with a 5× peak factor. Estimate average and peak QPS.
+<div slot="solution">Average is $86.4M/86{,}400=1{,}000$ QPS; peak is approximately 5,000 QPS.
+State whether bursts are sustained and add failover/rollout margin before sizing.</div>
+</Exercise>
+
+<Exercise n={2} title="Retrieval or ranking?" difficulty="core">
+NDCG is poor, but the relevant item appears in the top-500 candidates only 55% of the time. Where
+should the first experiment focus?
+<div slot="solution">Retrieval recall is the binding ceiling: ranking cannot promote an absent
+item. Improve/query-slice candidate generation and measure recall@500 first; then evaluate whether
+ranking gains remain on fixed candidate sets.</div>
+</Exercise>
+
+<Exercise n={3} title="Selected labels in fraud" difficulty="stretch">
+Only approved transactions can later charge back. Why is a model trained on observed outcomes
+biased, and what design evidence helps?
+<div slot="solution">Approval policy selects which counterfactual outcomes are observed; declined
+transactions lack labels. Log policy scores/actions/propensities, use randomized manual review or
+limited safe exploration where lawful, and apply causal/off-policy methods only with overlap and
+well-defined outcomes. Pure supervised retraining reinforces the existing policy.</div>
+</Exercise>
+
+## Summary
+
+- Use requirement → estimate → architecture → data/model → serving → evaluation → monitoring → failure modes.
+- Retrieval quality caps ranking; labels are often selected by the deployed policy.
+- Offline metrics must connect to causal online decisions and operational constraints.
+- Point-in-time availability, fallbacks, human capacity, safety and rollback belong in every design.
+- Back-of-the-envelope estimates are valuable when they eliminate an impossible architecture.

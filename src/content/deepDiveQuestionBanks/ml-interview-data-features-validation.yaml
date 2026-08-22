@@ -1,0 +1,178 @@
+lesson: ml-interview-data-features-validation
+questions:
+  - id: q-data-target
+    question: How do you define a target and label without introducing ambiguity?
+    conciseAnswer: Specify the prediction unit, index time, outcome window, observable label rule, exclusions, and action the prediction supports. A label is an operational measurement of the target, not necessarily the construct itself.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [labels, problem-framing, data]
+    aliases: [target definition, label quality]
+  - id: q-data-split
+    question: How should you choose train, validation, and test splits?
+    conciseAnswer: Split by the independent unit and future deployment boundary, train on one partition, tune on validation, and touch test only for final estimation. Random rows are valid only when rows are exchangeable and independent enough.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: system-design
+    round: experimentation
+    stability: evergreen
+    tags: [data-splitting, validation, test-set]
+    aliases: [train validation test]
+  - id: q-data-leakage
+    question: What is data leakage, and how do you detect it?
+    conciseAnswer: Leakage lets training use information unavailable at prediction time or from held-out outcomes. Audit feature timestamps and provenance, fit transformations inside folds, split entities before rows, and investigate suspiciously strong features or scores.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: debugging
+    round: experimentation
+    stability: evergreen
+    tags: [data-leakage, validation, debugging]
+    aliases: [target leakage, train test contamination]
+  - id: q-data-pipeline
+    question: Why must preprocessing be fit inside each training fold?
+    conciseAnswer: Statistics learned from validation data—means, vocabularies, selected features, imputation values—transfer information into training. Encapsulating preprocessing and estimation in one fold-aware pipeline prevents this contamination.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [preprocessing, pipeline, cross-validation]
+    aliases: [fit transform leakage]
+  - id: q-data-missingness
+    question: What do MCAR, MAR, and MNAR mean?
+    conciseAnswer: MCAR means missingness is independent of observed and missing values; MAR permits dependence on observed values; MNAR still depends on unobserved values after conditioning. These are assumptions about the missingness mechanism, not labels visible in the table.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [missing-data, mcar, mar, mnar]
+    aliases: [missingness mechanism]
+  - id: q-data-imputation
+    question: How should you handle missing values in an ML pipeline?
+    conciseAnswer: Start with why values are missing, fit imputation on training data only, add indicators when absence is informative, compare simple and model-native methods, and evaluate by missingness slice. Imputation does not recover unknowable information.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [imputation, missing-data, preprocessing]
+    aliases: [missing value handling]
+  - id: q-data-scaling
+    question: When does feature scaling matter?
+    conciseAnswer: Scaling matters for distance-based models, regularized linear models, neural optimization, PCA, and kernels because feature magnitude affects geometry or gradients. It usually does not change tree splits, though implementation and regularization details can.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [feature-scaling, normalization, preprocessing]
+    aliases: [standardization, normalization]
+  - id: q-data-categorical
+    question: How do you encode categorical variables?
+    conciseAnswer: One-hot encoding is robust for modest cardinality; ordinal encoding is valid only with real order; hashing bounds vocabulary; learned embeddings help repeated high-cardinality entities. Target encoding must be out-of-fold and regularized to avoid leakage.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [categorical-features, encoding, embeddings]
+    aliases: [one hot, target encoding]
+  - id: q-data-imbalance
+    question: Why is class imbalance not solved by accuracy?
+    conciseAnswer: A majority-only classifier can have high accuracy while finding no positives. Choose metrics and thresholds from error costs and prevalence, inspect precision-recall and calibration, and report per-class or per-slice behavior.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [class-imbalance, metrics, prevalence]
+    aliases: [rare class]
+  - id: q-data-rebalancing
+    question: Compare class weighting, under-sampling, over-sampling, and synthetic sampling.
+    conciseAnswer: Weighting changes loss contribution without duplicating data; under-sampling is cheaper but discards information; over-sampling repeats minority examples; synthetic methods interpolate assumptions. All can alter score calibration and must occur inside training folds.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [class-imbalance, sampling, class-weights]
+    aliases: [smote, oversampling]
+  - id: q-data-augmentation
+    question: When is data augmentation valid?
+    conciseAnswer: An augmentation is valid when it preserves the label and approximates transformations expected at deployment. Validate the invariance, apply only to training data, and watch for artifacts or unrealistic samples the model can exploit.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [data-augmentation, invariance, robustness]
+    aliases: [label preserving transformation]
+  - id: q-data-feature-engineering
+    question: Is feature engineering still useful with deep learning?
+    conciseAnswer: Yes. Representation learning reduces manual work but cannot repair an ill-defined time window, missing context, bad units, or unavailable serving features. Domain-informed transformations can improve sample efficiency, interpretability, and reliability.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: project-defense
+    stability: evergreen
+    tags: [feature-engineering, deep-learning, inductive-bias]
+    aliases: [learned features]
+  - id: q-data-feature-selection
+    question: Compare filter, wrapper, and embedded feature-selection methods.
+    conciseAnswer: Filters rank features independently of a model, wrappers evaluate subsets through repeated fitting, and embedded methods select during training. Selection must happen inside cross-validation and stability across resamples matters more than one chosen set.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, general-mle, research-scientist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [feature-selection, regularization, validation]
+    aliases: [variable selection]
+  - id: q-data-grouped-split
+    question: When do you need a grouped split rather than a random row split?
+    conciseAnswer: Group when rows from one entity, household, patient, device, session, site, or near-duplicate cluster share information. All linked rows must stay in one partition or validation estimates performance on partly seen entities.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: system-design
+    round: experimentation
+    stability: evergreen
+    tags: [grouped-split, duplicates, validation]
+    aliases: [group cross validation]
+  - id: q-data-temporal
+    question: How do you validate a model intended for future predictions?
+    conciseAnswer: 'Reproduce causality: features must precede each prediction time, training precedes validation, and rolling or expanding windows reveal drift. Include label-delay gaps where outcomes are not immediately observable.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: system-design
+    round: experimentation
+    stability: evergreen
+    tags: [temporal-validation, backtesting, time-series]
+    aliases: [time split, rolling validation]
+  - id: q-data-lineage
+    question: What data checks and lineage should a production ML system maintain?
+    conciseAnswer: Version sources and transformations; validate schema, units, ranges, uniqueness, join coverage, freshness, missingness, labels, and slice distributions; tie every model to an immutable dataset snapshot so failures are reproducible and auditable.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, research-scientist, applied-scientist]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [data-quality, lineage, monitoring]
+    aliases: [data validation, provenance]

@@ -1,0 +1,200 @@
+lesson: ml-interview-probability-statistics
+questions:
+  - id: q-prob-conditional
+    question: What is conditional probability, and why is the denominator important?
+    conciseAnswer: P(A|B) = P(A intersect B)/P(B) restricts the reference population to cases where B occurred. Forgetting that changed denominator is a common source of base-rate and selection errors.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [probability, conditional-probability]
+    aliases: [conditioning]
+  - id: q-prob-bayes
+    question: State Bayes' rule and explain the role of the base rate.
+    conciseAnswer: Bayes' rule multiplies the prior by the likelihood and normalizes by the evidence. Even an accurate test can have poor positive predictive value when the event is rare because false positives arise from a much larger population.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [bayes-rule, base-rate, probability]
+    aliases: [posterior, base-rate fallacy]
+  - id: q-prob-independence
+    question: What is the difference between independence and conditional independence?
+    conciseAnswer: A and B are independent when their joint factorizes. They are conditionally independent given C when factorization holds within every C stratum; conditioning can create or remove dependence, so the two claims are not interchangeable.
+    priority: common
+    difficulty: foundational
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [probability, independence, graphical-models]
+    aliases: [conditional independence, collider]
+  - id: q-prob-expectation
+    question: What is expectation, and which properties make it useful?
+    conciseAnswer: Expectation is a probability-weighted average over possible outcomes. Linearity holds without independence, while moving a nonlinear function through expectation generally fails; Jensen's inequality characterizes the direction for convex functions.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [expectation, jensen-inequality, probability]
+    aliases: [expected value, linearity of expectation]
+  - id: q-prob-variance-covariance
+    question: How do variance, covariance, and correlation differ?
+    conciseAnswer: Variance measures squared spread in one variable, covariance measures joint linear variation with units, and correlation standardizes covariance to [-1,1]. Zero correlation does not generally imply independence.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [variance, covariance, correlation]
+    aliases: [correlation versus covariance]
+  - id: q-prob-distributions
+    question: Which probability distributions should an ML candidate recognize and why?
+    conciseAnswer: Bernoulli/binomial model binary outcomes and counts, categorical/multinomial multiple classes, Gaussian continuous noise, Poisson event counts, exponential waiting times, beta probabilities, and Dirichlet class-probability vectors. The data-generating assumptions decide which is appropriate.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [distributions, likelihood, modeling]
+    aliases: [common distributions]
+  - id: q-prob-lln-clt
+    question: How do the law of large numbers and central limit theorem differ?
+    conciseAnswer: The law of large numbers says a sample average converges to its expectation. The central limit theorem describes the approximately Gaussian fluctuations around that expectation at sqrt(n) scale under suitable conditions.
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [law-of-large-numbers, central-limit-theorem, sampling]
+    aliases: [lln, clt]
+  - id: q-prob-mle
+    question: What is maximum likelihood estimation, and why use log-likelihood?
+    conciseAnswer: MLE chooses parameters making the observed data most probable under the model. Logs turn products into sums, improve numerical stability, and preserve the maximizer because log is strictly increasing.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [maximum-likelihood, estimation, log-likelihood]
+    aliases: [mle]
+  - id: q-prob-map
+    question: How does MAP estimation differ from MLE and full Bayesian inference?
+    conciseAnswer: MAP maximizes likelihood times prior and returns one posterior mode; MLE omits the prior. Full Bayesian inference retains and integrates over the entire posterior, so it represents parameter uncertainty that a point estimate discards.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [map, bayesian-inference, mle]
+    aliases: [maximum a posteriori, prior as regularization]
+  - id: q-prob-intervals
+    question: What is the difference between a confidence interval and a credible interval?
+    conciseAnswer: A frequentist confidence procedure covers the fixed parameter at its stated long-run rate; a Bayesian credible interval contains stated posterior probability conditional on the model, prior, and observed data.
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [confidence-interval, credible-interval, uncertainty]
+    aliases: [interval estimation]
+  - id: q-prob-bootstrap
+    question: What does the bootstrap estimate, and when can it fail?
+    conciseAnswer: The bootstrap resamples observed units with replacement to approximate a statistic's sampling distribution. It can fail for dependent, tiny, heavy-tailed, boundary, or non-smooth problems unless the resampling scheme matches the data structure.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: implementation
+    round: experimentation
+    stability: evergreen
+    tags: [bootstrap, resampling, uncertainty]
+    aliases: [nonparametric bootstrap]
+  - id: q-prob-pvalue
+    question: What does a p-value mean, and what does it not mean?
+    conciseAnswer: A p-value is the probability, under a specified null model, of a test statistic at least as incompatible with the null as observed. It is not the probability the null is true or the chance the result arose by accident.
+    priority: must-know
+    difficulty: foundational
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [hypothesis-testing, p-value, statistics]
+    aliases: [statistical significance]
+  - id: q-prob-errors-power
+    question: Explain Type I error, Type II error, statistical power, and their tradeoff.
+    conciseAnswer: Type I error rejects a true null; Type II misses a false null; power is one minus Type II error at a specified alternative. At fixed sample size, lowering the false-positive threshold usually lowers power.
+    priority: common
+    difficulty: foundational
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: experimentation
+    stability: evergreen
+    tags: [hypothesis-testing, power, errors]
+    aliases: [alpha beta, false positive false negative]
+  - id: q-prob-entropy
+    question: What are entropy and cross-entropy, and why does cross-entropy train classifiers?
+    conciseAnswer: Entropy measures expected surprise under the true distribution; cross-entropy measures code length when predictions q encode outcomes from p. Minimizing empirical cross-entropy is maximum likelihood for categorical labels.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [entropy, cross-entropy, classification]
+    aliases: [log loss, negative log likelihood]
+  - id: q-prob-kl
+    question: What is KL divergence, and why is it not a distance?
+    conciseAnswer: KL is the expected log density ratio from p to q and equals the extra coding cost of using q for p. It is nonnegative but asymmetric and lacks the triangle inequality, so direction matters.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [kl-divergence, information-theory, variational-inference]
+    aliases: [relative entropy]
+  - id: q-prob-mutual-information
+    question: What does mutual information measure?
+    conciseAnswer: Mutual information is the KL divergence between the joint distribution and the product of marginals. It measures any dependence, not only linear association, but reliable estimation in high dimensions is difficult.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [mutual-information, dependence, representation-learning]
+    aliases: [information gain]
+  - id: q-prob-calibration
+    question: What does probabilistic calibration mean, and is calibration enough?
+    conciseAnswer: Among predictions near probability p, roughly fraction p should occur. Calibration does not measure ranking or sharpness; a constant base-rate predictor can be calibrated yet useless, so evaluate calibration alongside discrimination and a proper scoring rule.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [calibration, proper-scoring-rules, probabilities]
+    aliases: [reliability, brier score]
+  - id: q-prob-monte-carlo
+    question: How does Monte Carlo estimation work, and how does its error scale?
+    conciseAnswer: Monte Carlo approximates an expectation with an average of samples from the target or a proposal distribution. With finite variance and independent samples, standard error falls as 1/sqrt(n), regardless of dimension but slowly.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [monte-carlo, sampling, estimation]
+    aliases: [sampling estimator]

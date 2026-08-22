@@ -3,7 +3,12 @@ import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
 import AlgorithmLogo from '../../components/AlgorithmLogo.astro';
 import Katex from '../../components/Katex.astro';
-import { DEEP_DIVES, DEEP_DIVE_CATEGORIES, DEEP_DIVE_ORDER, type DeepDiveEntry } from '../../data/deepDives';
+import {
+  DEEP_DIVES,
+  DEEP_DIVE_CATEGORIES,
+  DEEP_DIVE_ORDER,
+  type DeepDiveEntry,
+} from '../../data/deepDives';
 import { getCollection } from 'astro:content';
 import { deepDiveEntriesFromCollection } from '../../lib/deepDives';
 import '../../styles/deepDive.css';
@@ -30,16 +35,15 @@ const deepDives: DeepDiveEntry[] = [
   ...DEEP_DIVE_ORDER.map((id) => byId.get(id)).filter((e): e is DeepDiveEntry => Boolean(e)),
   ...[...byId.values()].filter((e) => !DEEP_DIVE_ORDER.includes(e.id)),
 ];
-
 ---
 
 <PageLayout
   title="Deep Dives"
-  eyebrow="Computational Genomics Foundations"
-  lead="Rigorous, first-principles, and interactive explorations of essential computational genomics concepts, statistical genetics, DNA sequence foundation models, and biological algorithms."
-  description="In-depth computational genomics concept explainers by Kuan-Hao Chao: Genome-Wide Association Studies (GWAS), DNA language models, neural splicing codes, and pangenomics."
+  eyebrow="Technical Foundations & Interview Guides"
+  lead="Rigorous, first-principles explorations of machine learning, deep learning, statistical genetics, genomic resources, DNA sequence models, and biological algorithms."
+  description="In-depth machine-learning, deep-learning and computational-genomics curricula by Kuan-Hao Chao, with derivations, examples, interview questions and interactive explanations."
 >
-  <section class="deep-dive-section" aria-label="Computational Genomics Deep Dive Catalog">
+  <section class="deep-dive-section" aria-label="Technical Deep Dive Catalog">
     <div class="deep-dive-tools" data-dd-tools>
       <div class="deep-dive-filters" role="group" aria-label="Filter deep dives by category">
         {
@@ -107,7 +111,11 @@ const deepDives: DeepDiveEntry[] = [
             >
               <div class="deep-dive-card-leading">
                 {entry.icon && (
-                  <a href={isPublished ? entry.href : '#'} class="deep-dive-logo-link" aria-label={`View ${entry.title}`}>
+                  <a
+                    href={isPublished ? entry.href : '#'}
+                    class="deep-dive-logo-link"
+                    aria-label={`View ${entry.title}`}
+                  >
                     <AlgorithmLogo id={entry.icon} size={56} />
                   </a>
                 )}
@@ -147,7 +155,9 @@ const deepDives: DeepDiveEntry[] = [
 
                 {entry.equations && entry.equations.length > 0 && (
                   <div class="deep-dive-equations">
-                    <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600; margin-right: 0.25rem;">Key Formulations:</span>
+                    <span style="font-size: var(--fs-meta); color: var(--color-muted); font-weight: 600; margin-right: 0.25rem;">
+                      Key Formulations:
+                    </span>
                     {entry.equations.map((eq) => (
                       <span class="deep-dive-eq-chip">
                         <Katex tex={eq} />
@@ -175,7 +185,9 @@ const deepDives: DeepDiveEntry[] = [
       }
     </div>
 
-    <p class="deep-dive-empty" data-dd-empty hidden>No computational genomics deep dives match your filter or search query.</p>
+    <p class="deep-dive-empty" data-dd-empty hidden>
+      No deep dives match your filter or search query.
+    </p>
   </section>
 </PageLayout>
 

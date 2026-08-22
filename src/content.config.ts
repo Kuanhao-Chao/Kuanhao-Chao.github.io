@@ -1,6 +1,14 @@
 import { defineCollection, reference } from 'astro:content';
 import { file, glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import {
+  INTERVIEW_DIFFICULTIES,
+  INTERVIEW_KINDS,
+  INTERVIEW_PRIORITIES,
+  INTERVIEW_ROLES,
+  INTERVIEW_ROUNDS,
+  INTERVIEW_STABILITIES,
+} from './lib/mlInterview';
 
 const publications = defineCollection({
   loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/publications' }),
@@ -311,20 +319,26 @@ const deepDives = defineCollection({
       // the statgen-* and gwas-* series, which currently both cover HWE, LD, mixed
       // models, fine-mapping and PRS with no declared relationship.
       track: z.enum(['theory', 'workflow', 'elective', 'resource']),
-      hub: z.enum(['statistical-genetics', 'gwas', 'genomic-data']).default('statistical-genetics'),
+      hub: z
+        .enum(['statistical-genetics', 'gwas', 'genomic-data', 'ml-dl-interview'])
+        .default('statistical-genetics'),
       moduleId: z.string(),
       moduleLabel: z.string(),
       order: z.number().int(),
       level: z.enum(['foundational', 'intermediate', 'advanced']),
-      category: z.enum([
-        'statistical-genetics',
-        'genomic-data',
-        'sequence-analysis',
-        'gene-regulation',
-        'epigenomics',
-        'pangenomics',
-        'deep-learning',
-      ]).default('statistical-genetics'),
+      lessonType: z.enum(['technical', 'system-design', 'behavioral']).default('technical'),
+      category: z
+        .enum([
+          'statistical-genetics',
+          'genomic-data',
+          'machine-learning',
+          'sequence-analysis',
+          'gene-regulation',
+          'epigenomics',
+          'pangenomics',
+          'deep-learning',
+        ])
+        .default('statistical-genetics'),
 
       // The educational contract. A lesson states what a reader will be able to do
       // and what they need first; both are rendered, so an empty promise is visible.
@@ -353,6 +367,58 @@ const deepDives = defineCollection({
     }),
 });
 
+/**
+ * One bank per interview lesson. Keeping the questions beside their owning lesson
+ * makes parallel authoring and later topic-level updates local, while the collection
+ * still gives the hub, search and terminal one validated source of truth.
+ */
+const deepDiveQuestionBanks = defineCollection({
+  loader: glob({ pattern: '**/*.{yaml,yml,json}', base: './src/content/deepDiveQuestionBanks' }),
+  schema: z.object({
+    lesson: reference('deepDives'),
+    questions: z
+      .array(
+        z
+          .object({
+            id: z.string().regex(/^q-[a-z0-9-]+$/),
+            question: z.string().min(12).max(240),
+            conciseAnswer: z.string().min(20).max(1200),
+            priority: z.enum(INTERVIEW_PRIORITIES),
+            difficulty: z.enum(INTERVIEW_DIFFICULTIES),
+            roles: z.array(z.enum(INTERVIEW_ROLES)).min(1),
+            kind: z.enum(INTERVIEW_KINDS),
+            round: z.enum(INTERVIEW_ROUNDS),
+            stability: z.enum(INTERVIEW_STABILITIES),
+            verified: z.coerce.date().optional(),
+            tags: z.array(z.string()).default([]),
+            aliases: z.array(z.string()).default([]),
+          })
+          .superRefine((question, ctx) => {
+            if (question.stability === 'fast-moving' && !question.verified) {
+              ctx.addIssue({
+                code: 'custom',
+                message: 'Fast-moving interview questions require a verified date.',
+              });
+            }
+          })
+      )
+      .min(1)
+      .superRefine((questions, ctx) => {
+        const seen = new Set<string>();
+        for (const [index, question] of questions.entries()) {
+          if (seen.has(question.id)) {
+            ctx.addIssue({
+              code: 'custom',
+              path: [index, 'id'],
+              message: `Duplicate question id ${question.id}.`,
+            });
+          }
+          seen.add(question.id);
+        }
+      }),
+  }),
+});
+
 export const collections = {
   publications,
   presentations,
@@ -364,4 +430,5 @@ export const collections = {
   deepDives,
   deepDiveReferences,
   deepDiveDatasets,
+  deepDiveQuestionBanks,
 };

@@ -1,0 +1,166 @@
+lesson: ml-interview-coding-project-defense
+questions:
+  - id: q-code-vectorize-distance
+    question: 'How do you compute all pairwise squared Euclidean distances without Python loops?'
+    conciseAnswer: 'Use ||x-y|| squared = ||x|| squared + ||y|| squared - 2 x dot y with X norms shaped n-by-1, Y norms 1-by-m, and matrix product X Y transpose. Clamp tiny negative roundoff to zero and avoid materializing n-by-m when memory requires blocked computation.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [vectorization, broadcasting, distance, complexity]
+    aliases: [pairwise-distance, no-loops]
+  - id: q-code-stable-softmax
+    question: 'Implement a numerically stable softmax and log-sum-exp.'
+    conciseAnswer: 'Subtract the maximum along the normalization axis before exponentiating; normalize shifted exponentials, and compute log-sum-exp as max plus log of their sum. Preserve dimensions for broadcasting, handle masks before the reduction, and prefer fused log-softmax/cross-entropy when available.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [softmax, log-sum-exp, numerical-stability]
+    aliases: [stable-exp, overflow]
+  - id: q-code-binary-cross-entropy
+    question: 'Derive and implement binary cross-entropy safely from logits.'
+    conciseAnswer: 'For logit z and label y, use max(z,0) - yz + log1p(exp(-abs(z))), algebraically equal to -y log sigmoid(z) -(1-y)log(1-sigmoid(z)). This avoids overflow and log-zero; validate shapes, label domain, reduction, weights, and gradient against a trusted fused primitive.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [binary-cross-entropy, logits, stability]
+    aliases: [bce-with-logits, logistic-loss-code]
+  - id: q-code-minibatch-sampler
+    question: 'How would you implement a reproducible mini-batch sampler without dropping or duplicating examples?'
+    conciseAnswer: 'Create an epoch permutation from an explicit RNG, slice it into batches, define the last-batch policy, and checkpoint epoch, offset, sampler state, and distributed shard assignment. Test exact coverage, disjoint ranks, deterministic replay, variable dataset sizes, and worker failures.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [data-loader, minibatch, reproducibility]
+    aliases: [batch-iterator, distributed-sampler]
+  - id: q-code-shapes-broadcasting
+    question: 'How do you reason about tensor shapes and broadcasting before writing code?'
+    conciseAnswer: 'Annotate every axis semantically, write operation signatures, and align dimensions from the right under broadcasting rules. Treat an accidental expansion as a correctness and memory bug; assert critical shapes and test batch size one, empty/masked cases, and noncontiguous inputs.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [tensor-shapes, broadcasting, memory]
+    aliases: [shape-reasoning, dimension-bugs]
+  - id: q-code-complexity
+    question: 'Compare the time and memory complexity of attention, kNN inference, and a dense layer.'
+    conciseAnswer: 'Self-attention over length L and width d forms an L-by-L score matrix: roughly O(L squared d) time and O(L squared) activation memory; exact kNN scans n stored d-vectors per query: O(nd); a dense layer d-in by h-out costs O(dh) per example. Include batch, dtype, backward storage, and constants before choosing.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist, ml-platform]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [complexity, attention, knn, memory]
+    aliases: [big-o-ml, computational-cost]
+  - id: q-code-topk-ties
+    question: 'How do you implement top-k selection with deterministic ties and bounded memory?'
+    conciseAnswer: 'Define ordering first—score descending plus stable ID ascending—because unspecified ties break reproducibility. Use partial selection or a size-k heap instead of full sorting when n is large, stream blocks when data exceed memory, and test k=0, k>n, duplicates, NaNs, and cross-device determinism.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [top-k, sorting, determinism, streaming]
+    aliases: [partial-sort, ranking-code]
+  - id: q-code-finite-difference
+    question: 'How does finite-difference gradient checking work, and when does it fail?'
+    conciseAnswer: 'Compare an analytic directional derivative with [f(theta+h v)-f(theta-h v)]/(2h); sweep h because truncation dominates when large and floating-point cancellation when tiny. Use double precision, deterministic smooth code, small problems, and avoid kinks where a valid subgradient need not match the symmetric difference.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [gradient-check, finite-difference, autograd]
+    aliases: [check-backprop, numerical-gradient]
+  - id: q-code-test-custom-autograd
+    question: 'How do you test a custom differentiable operation?'
+    conciseAnswer: 'Test forward values against a simple reference, analytic gradients against high-precision finite differences, shapes/dtypes/devices, broadcasting reduction, repeated inputs, boundary values, noncontiguous tensors, and higher-order gradients if promised. Run property tests and compare vector-Jacobian products, not only one scalar example.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [autograd, testing, custom-op]
+    aliases: [gradient-test, differentiable-programming]
+  - id: q-code-debug-nan
+    question: 'A training run produces NaNs after several thousand steps. How do you localize the first cause?'
+    conciseAnswer: 'Reproduce from the nearest complete checkpoint, enable finite assertions and anomaly hooks at boundaries, binary-search step/layer, capture the offending batch and RNG state, and inspect logits, denominators, norms, optimizer state, clipping and loss scale. The first nonfinite value matters; later NaNs are propagation.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: debugging
+    round: coding
+    stability: evergreen
+    tags: [nan, overflow, mixed-precision, debugging]
+    aliases: [nonfinite-training, numerical-debug]
+  - id: q-code-ml-test-pyramid
+    question: 'What should an ML test pyramid cover beyond ordinary unit tests?'
+    conciseAnswer: 'Unit-test transforms and math; contract-test schemas, shapes and invariants; integration-test point-in-time pipelines and train/serve parity; metamorphic-test transformations; regression-test metrics/slices within tolerance; smoke-test one-batch training and serving; and continuously test live data quality. Statistical tests need seeds, tolerances, and repeated evidence.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: implementation
+    round: project-defense
+    stability: evergreen
+    tags: [testing, contracts, regression, data-quality]
+    aliases: [ml-tests, pipeline-testing]
+  - id: q-code-review-training-loop
+    question: 'What do you inspect when reviewing a PyTorch-style training loop?'
+    conciseAnswer: 'Check model train/eval state, zero-grad timing, forward/loss shapes and reduction, backward/accumulation, clipping after unscale, optimizer then scheduler semantics, mixed-precision context, device transfer, masked examples, checkpoint completeness, metric weighting, validation no-grad, and distributed synchronization.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, dl-specialist, ml-platform]
+    kind: debugging
+    round: coding
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [pytorch, training-loop, mixed-precision, code-review]
+    aliases: [training-loop-bugs, pytorch-review]
+  - id: q-code-project-defense
+    question: 'How do you defend an ML project so the interviewer can audit your decisions?'
+    conciseAnswer: 'Frame the decision and constraint, state your owned contribution, reconstruct data/label and baseline, justify model and evaluation, quantify result with uncertainty, expose failures and alternatives, and explain launch/monitoring or why it stopped. Separate facts from hypotheses and team outcomes from personal work.'
+    priority: must-know
+    difficulty: advanced
+    roles:
+      [
+        general-mle,
+        applied-scientist,
+        research-scientist,
+        dl-specialist,
+        genai,
+        ml-platform,
+        leadership,
+      ]
+    kind: behavioral
+    round: project-defense
+    stability: evergreen
+    tags: [project-defense, ownership, evidence]
+    aliases: [deep-dive-project, explain-your-project]
+  - id: q-code-failed-experiment
+    question: 'How do you present a failed experiment or negative research result as strong evidence?'
+    conciseAnswer: 'State the prior hypothesis and success criterion, show the controlled comparison and uncertainty, diagnose what the result falsified, describe the decision it changed, and identify the cheapest next test. Do not relabel failure as success; demonstrate that the evidence reduced uncertainty or prevented a worse investment.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, leadership]
+    kind: behavioral
+    round: project-defense
+    stability: evergreen
+    tags: [negative-results, experiments, scientific-reasoning]
+    aliases: [experiment-failed, research-setback]

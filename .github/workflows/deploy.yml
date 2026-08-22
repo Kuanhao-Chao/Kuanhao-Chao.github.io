@@ -40,7 +40,7 @@ jobs:
       - name: Check site
         run: npm run check
 
-      - name: Test game engines
+      - name: Run unit and content tests
         run: npm test
 
       - name: Build site
@@ -56,6 +56,16 @@ jobs:
 
       - name: Audit indexing
         run: npm run audit:indexing
+
+      - name: Audit deep-dive references and datasets
+        run: npm run audit:refs:offline && npm run audit:datasets:offline
+
+      - name: Audit ML interview curriculum
+        run: npm run audit:ml-interview
+
+      - name: Audit deep-dive UI smoke (Chromium and WebKit)
+        timeout-minutes: 12
+        run: npm run audit:deep-dives:ci
 
       - name: Audit built links
         run: npm run audit:links

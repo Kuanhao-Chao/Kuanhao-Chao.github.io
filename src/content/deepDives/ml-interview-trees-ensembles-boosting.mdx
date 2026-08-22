@@ -1,0 +1,442 @@
+---
+title: "Trees, Ensembles & Boosting"
+shortTitle: Trees & Boosting
+description: "Interview questions on greedy tree construction, impurity, pruning, bagging, random forests, AdaBoost, gradient boosting, XGBoost, feature importance, and production tradeoffs."
+abstract: "Trees turn a feature space into nested if–then regions; ensembles turn their instability into a resource. This lesson develops the mathematics of impurity reduction and averaging, separates bagging's variance reduction from boosting's sequential bias correction, derives gradient boosting as functional optimization, and examines validation, interpretation, missingness, imbalance, leakage, and constrained deployment."
+date: 2026-08-22
+track: theory
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m04-classical
+moduleLabel: Module 4 · Classical Models
+order: 6
+level: intermediate
+objectives:
+  - "Compute tree split gains and explain why greedy induction is both effective and unstable."
+  - "Derive how averaging and correlation determine the variance of a bagged ensemble."
+  - "Distinguish bagging, random forests, AdaBoost, gradient boosting, and XGBoost by objective and optimization."
+  - "Audit tree models for leakage, biased importance, imbalance, missing-value behavior, and operational cost."
+prerequisites:
+  - ml-interview-data-features-validation
+  - ml-interview-linear-kernel-probabilistic-models
+relatedLessons:
+  - ml-interview-metrics-experimentation
+  - ml-interview-optimization-training
+referenceIds:
+  - quinlan1986trees
+  - breiman1996bagging
+  - breiman2001randomforests
+  - freundschapire1997adaboost
+  - friedman2001gbm
+  - chenguestrin2016xgboost
+  - strobl2007importance
+keyEquations:
+  - '\Delta I=I(t)-\sum_j\frac{n_j}{n}I(t_j)'
+  - '\operatorname{Var}(\bar f)=\sigma^2\left[\rho+\frac{1-\rho}{B}\right]'
+  - 'F_m(x)=F_{m-1}(x)+\eta h_m(x)'
+tags: [decision trees, bagging, random forest, AdaBoost, gradient boosting, XGBoost, feature importance]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## Three ideas, not one family name
+
+Trees, forests, and boosted trees share a base learner, but solve different statistical
+problems. A single tree creates interpretable rectangular regions. Bagging averages noisy
+versions to suppress variance. Boosting constructs an additive function, asking each new
+tree to repair the current model.
+
+<Callout variant="intuition" title="Instability becomes useful when errors disagree">
+A deep tree is a brittle expert: change a few observations and its first split may change,
+rewriting everything below it. Averaging many identical brittle experts would not help.
+Bootstrap samples and random feature subsets make their mistakes disagree; averaging then
+cancels the disagreements while preserving shared signal.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'p_k', meaning: 'Proportion of examples in a node belonging to class k', dims: 'scalar in [0,1]' },
+    { symbol: 'I(t)', meaning: 'Impurity of node t', dims: 'nonnegative scalar' },
+    { symbol: 'B', meaning: 'Number of trees or base learners', dims: 'positive integer' },
+    { symbol: '\\rho', meaning: 'Average pairwise correlation between base-learner errors', dims: 'scalar in [−1,1]' },
+    { symbol: 'F_m(x)', meaning: 'Boosted ensemble after stage m', dims: 'scalar or K-vector' },
+    { symbol: 'h_m(x)', meaning: 'Weak learner fitted at stage m', dims: 'same as F' },
+    { symbol: '\\eta', meaning: 'Boosting shrinkage or learning rate', dims: 'positive scalar' },
+    { symbol: 'g_i,h_i', meaning: 'First and second loss derivatives for example i in XGBoost notation', dims: 'scalars' },
+  ]}
+/>
+
+<Figure
+  id="tree-ensemble-mechanisms"
+  caption="Figure 1. A single greedy tree partitions once; bagging fits independent perturbed trees and averages them; boosting fits a sequence in which each learner is conditioned on the residual signal left by those before it. Parallel arrows in the middle and serial arrows on the right are the computational consequence of the statistical design."
+  alt="Three panels: one branching tree, several parallel trees flowing into an average, and a chain of small trees where each points to the next and then to a summed prediction."
+  wide
+>
+  <svg viewBox="0 0 760 240" width="760" height="240" font-family="inherit">
+    <g stroke="currentColor" fill="none" stroke-width="1.5">
+      <rect x="12" y="18" width="220" height="174" rx="9" opacity=".3" />
+      <rect x="270" y="18" width="220" height="174" rx="9" opacity=".3" />
+      <rect x="528" y="18" width="220" height="174" rx="9" opacity=".3" />
+      <path d="M122 51 L84 90 M122 51 L160 90 M84 90 L62 127 M84 90 L105 127 M160 90 L139 127 M160 90 L183 127" />
+      <g opacity=".85"><path d="M303 50 L290 75 M303 50 L316 75 M362 50 L349 75 M362 50 L375 75 M421 50 L408 75 M421 50 L434 75" /></g>
+      <path d="M303 83 L303 125 M362 83 L362 125 M421 83 L421 125 M303 125 Q362 154 421 125" stroke="var(--color-accent)" stroke-width="2.5" />
+      <circle cx="362" cy="151" r="17" /><path d="M353 151 H371 M362 142 V160" />
+      <path d="M557 82 H596 M633 82 H672" stroke="var(--color-accent)" stroke-width="2.5" marker-end="url(#arrow)" />
+      <path d="M555 55 L543 78 M555 55 L567 78 M632 55 L620 78 M632 55 L644 78 M709 55 L697 78 M709 55 L721 78" />
+      <path d="M555 92 L555 133 M632 92 L632 133 M709 92 L709 133 M555 133 Q632 168 709 133" opacity=".75" />
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="var(--color-accent)" stroke="none" /></marker></defs>
+    </g>
+    <g fill="currentColor" font-size="12" text-anchor="middle">
+      <text x="122" y="218">one greedy partition</text>
+      <text x="380" y="218">parallel perturb → average</text>
+      <text x="638" y="218">sequential residual correction</text>
+      <text x="122" y="39" font-weight="600">tree</text><text x="380" y="39" font-weight="600">bagging</text><text x="638" y="39" font-weight="600">boosting</text>
+    </g>
+  </svg>
+</Figure>
+
+## How one tree is grown
+
+<InterviewQuestion id="q-trees-split-criterion">
+At a node containing set $S$, enumerate candidate feature/threshold splits into children
+$S_L,S_R$. Choose the candidate with greatest impurity decrease
+
+$$
+\Delta I=I(S)-\frac{|S_L|}{|S|}I(S_L)-\frac{|S_R|}{|S|}I(S_R).
+$$
+
+For regression, $I$ is commonly mean squared deviation from the node mean. For
+classification it is Gini or entropy. With a sorted continuous feature, candidate
+thresholds only need to fall between distinct adjacent values; efficient implementations
+scan sufficient statistics rather than copying datasets. Quinlan's induction work made
+information-gain tree construction systematic <Citation id="quinlan1986trees" />.
+
+The search is greedy: the best immediate split is accepted without exploring every future
+subtree. Finding a globally optimal tree under common objectives is combinatorial, so the
+heuristic is the practical bargain. **Trap:** a large raw gain on a tiny child may simply
+isolate noise; leaf-size and complexity controls belong in the answer.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-trees-gini-entropy">
+For node proportions $p_k$,
+
+$$I_G=1-\sum_kp_k^2,\qquad I_H=-\sum_kp_k\log p_k.$$
+
+Gini is the probability of mislabeling when labels are sampled from the node distribution;
+entropy is expected information content. Both are zero at purity, concave, and sensitive
+enough to rank incremental improvements. Entropy rises more sharply near a rare class;
+Gini is marginally cheaper and often chooses the same split.
+
+Classification error $1-\max_kp_k$ is flatter. In a binary node it remains unchanged as
+$p$ moves from .51 to .99, even though purity changes dramatically, so it is poor for
+growing. It can still summarize a finished node or participate in pruning. Compare the
+**weighted child decrease**, not just child impurity.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Score a binary split with Gini impurity"
+  given={[
+    { label: 'Parent', value: '10 positive, 10 negative' },
+    { label: 'Left child', value: '8 positive, 2 negative' },
+    { label: 'Right child', value: '2 positive, 8 negative' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+The parent has $p=(.5,.5)$, so $I_G(parent)=1-.5^2-.5^2=.5$. Each child has proportions
+$(.8,.2)$ in opposite order and impurity
+
+$$I_G(child)=1-.8^2-.2^2=.32.$$
+
+Both children contain ten of twenty observations, so their weighted impurity is
+$.5(.32)+.5(.32)=.32$. The gain is $.5-.32=.18$. A candidate with one perfectly pure
+one-observation child and a nearly unchanged 19-observation child may have a smaller
+weighted gain despite advertising a “pure leaf.”
+</WorkedExample>
+
+<InterviewQuestion id="q-trees-depth-pruning">
+An unrestricted tree can keep splitting until leaves are pure or unique, yielding low
+training bias and high variance. **Pre-pruning** restricts maximum depth, minimum samples
+per split/leaf, maximum leaves, or minimum gain. These controls are computationally cheap
+but can block a split whose value appears only two levels later.
+
+**Post-pruning** first grows a large tree, then removes branches. Cost-complexity pruning
+chooses a subtree $T$ minimizing
+$R(T)+\alpha|T_{leaves}|$: empirical leaf error plus a price per leaf. As $\alpha$ rises,
+the optimal subtree becomes smaller. Select $\alpha$ by cross-validation, respecting
+groups and time.
+
+**Bias–variance.** Shallower or larger-leaf trees average more observations in each region,
+raising approximation bias but reducing sensitivity to samples. Do not tune until test
+performance peaks; the test set gets one final use.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-trees-instability">
+Tree induction makes discrete, hierarchical choices. If two early split gains are close,
+replacing a few rows can reverse them. Every later candidate then sees a different subset,
+so two visually unrelated trees may result. This is algorithmic instability—high variance
+under perturbing the training sample.
+
+Measure it with bootstrap refits: compare predictions, split frequencies, or feature ranks
+across resamples. A stable aggregate prediction can coexist with unstable individual
+explanations. That distinction matters when someone presents one tree from an ensemble as
+“the model's reasoning.”
+
+This is also the opportunity behind bagging. If perturbed trees remain reasonably accurate
+but make different errors, averaging can reduce variance without forcing any one tree to
+become stable.
+</InterviewQuestion>
+
+## Bagging and random forests
+
+<InterviewQuestion id="q-trees-bagging">
+Bagging draws bootstrap training sets, fits one learner per draw, and averages regression
+predictions or votes/probabilities. Breiman proposed it specifically for unstable
+procedures <Citation id="breiman1996bagging" />.
+
+If each estimator has variance $\sigma^2$ and every pair has correlation $\rho$, then
+
+$$
+\operatorname{Var}\!\left(\frac1B\sum_{b=1}^B\hat f_b\right)
+=\sigma^2\left[\rho+\frac{1-\rho}{B}\right].
+$$
+
+$B$ removes only the uncorrelated part. As $B\to\infty$, variance approaches
+$\rho\sigma^2$, not zero. This is why both base-learner strength and error correlation
+matter. Bagging a stable high-bias learner changes little; averaging deep noisy trees is
+the canonical win.
+</InterviewQuestion>
+
+<WorkedExample
+  title="How much variance remains after averaging correlated trees?"
+  given={[
+    { label: 'Variance of one tree', value: 'σ² = 1' },
+    { label: 'Pairwise correlation', value: 'ρ = 0.20' },
+    { label: 'Number of trees', value: 'B = 25' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+Insert the values:
+
+$$
+\operatorname{Var}(\bar f)=1\left[.20+\frac{.80}{25}\right]=.232.
+$$
+
+The ensemble removes $76.8\%$ of one tree's variance. But even infinitely many trees leave
+$.20$: shared error cannot average away. If random feature selection lowers correlation to
+$.10$ while raising individual variance to $1.10$, the 25-tree variance becomes
+$1.10[.10+.90/25]=.1496$—weaker trees, stronger forest.
+</WorkedExample>
+
+<InterviewQuestion id="q-trees-random-forest">
+Bootstrap trees can still resemble one another: a dominant predictor wins the root split
+in nearly every sample. Random forests additionally expose each split to a random subset
+of features <Citation id="breiman2001randomforests" />. This raises the bias or variance of
+an individual tree slightly but reduces cross-tree correlation; the ensemble can improve.
+
+The main controls are number of trees, features considered per split, leaf size/depth, and
+sample scheme. More trees generally stabilize rather than overfit, though they consume
+memory and latency. Fewer candidate features decorrelate more but can hide signal.
+
+For regression, average outputs. For classification, average class probabilities or votes;
+be explicit because they need not yield identical decisions. Leaf frequencies are not
+automatically calibrated probabilities.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-trees-oob">
+A size-$n$ bootstrap sample draws $n$ times with replacement. The probability an observation
+is never drawn is $(1-1/n)^n\to e^{-1}\approx.368$. For each training row, aggregate only
+trees for which it was out of bag; compare this prediction with its label. OOB error uses
+training data efficiently and can tune many forest choices without a separate validation
+slice.
+
+But “omitted from this tree” does not guarantee independence. A global imputer, target
+encoding, feature selection, or calibration fitted before bootstrapping leaks information.
+Repeated patients, households, or future time points violate row-level exchangeability.
+Group/bootstrap structure must follow deployment. With few trees, some rows receive too
+few OOB votes, increasing noise.
+
+Use the untouched test set once after OOB-driven choices, and use ordinary structured
+cross-validation when the bootstrap assumptions do not match the data-generating process.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-trees-importance">
+Mean decrease in impurity sums each feature's credited training split gains. It favors
+continuous/high-cardinality features because they offer more candidate thresholds, and it
+can assign arbitrary or divided credit among correlated substitutes. Strobl and colleagues
+demonstrated this selection bias <Citation id="strobl2007importance" />.
+
+Permutation importance shuffles a feature on held-out data and measures performance loss.
+That is closer to predictive reliance, but marginal shuffling can create impossible
+feature combinations; correlated alternatives mask one another because the model can use
+the unshuffled substitute. Conditional or grouped permutation may better match the question.
+
+**Interview standard.** State the estimand: global predictive reliance, local explanation,
+or causal effect. Report validation data, metric, uncertainty across resamples, and how
+correlation is handled. Neither impurity importance nor SHAP turns association into cause.
+</InterviewQuestion>
+
+## Sequential additive models
+
+<InterviewQuestion id="q-trees-boosting">
+Bagging fits learners independently to perturbed versions of the same task, then averages;
+its main target is variance. Boosting fits a sequence where stage $m$ depends on the errors
+of $F_{m-1}$, then sums; it progressively expands the function and commonly reduces bias.
+
+The distinction yields operational consequences. Bagging is naturally parallel and
+robust to adding trees. Boosting is serial across stages, more sensitive to noisy labels
+and outliers depending on loss, and needs shrinkage, weak-tree constraints, subsampling,
+and early stopping. Both can reduce variance; “bagging equals variance and boosting equals
+bias” is a useful orientation, not a theorem for every setting.
+
+Use out-of-fold validation to compare them under the same preprocessing and budget. Their
+probabilities may both require calibration.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-trees-adaboost">
+For labels $y_i\in\{-1,+1\}$, AdaBoost begins with equal example weights. At step $m$, fit
+$h_m$, compute its weighted error $e_m$, assign
+$\alpha_m=\tfrac12\log((1-e_m)/e_m)$, and multiply example weights by
+$\exp[-\alpha_m y_i h_m(x_i)]$. Misclassified examples receive more weight. The final sign
+is $\operatorname{sign}\sum_m\alpha_mh_m(x)$.
+
+Freund and Schapire established the adaptive boosting construction
+<Citation id="freundschapire1997adaboost" />. The same update is forward stagewise
+optimization of exponential loss $\sum_i\exp[-y_iF(x_i)]$. That functional view explains
+both the focus on negative margins and sensitivity to mislabeled outliers: exponential
+loss keeps amplifying them.
+
+**Trap.** A base learner with error at or above one half has no positive edge in the binary
+setup. It should be repaired/reversed, not given an ordinary positive stage weight.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-trees-gradient-boosting">
+Choose any differentiable loss $L(y,F(x))$. At stage $m$, compute pseudo-residuals
+
+$$r_{im}=-\left.\frac{\partial L(y_i,F(x_i))}{\partial F(x_i)}\right|_{F=F_{m-1}},$$
+
+fit $h_m(x)$ to $r_{im}$, choose a step, and update
+$F_m=F_{m-1}+\eta\gamma_mh_m$. For squared error, the negative gradient is the ordinary
+residual $y_i-F(x_i)$. For logistic loss it is probability-related, not a raw class error.
+
+Friedman's gradient-boosting formulation turned boosting into optimization over functions
+<Citation id="friedman2001gbm" />. Small $\eta$ usually needs more trees but regularizes
+stagewise fitting. Shallow trees control interaction order; row/column subsampling adds
+stochastic regularization; early stopping chooses effective ensemble size on validation
+data.
+
+**Trap.** Fitting a tree to residuals is exact language only for squared loss. Say
+“negative loss gradients” for the general algorithm.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-trees-xgboost">
+XGBoost uses a regularized second-order approximation. For proposed tree leaf $j$ with
+examples $I_j$, let $G_j=\sum_{i\in I_j}g_i$ and $H_j=\sum_{i\in I_j}h_i$. With L2 leaf
+penalty $\lambda$, the optimal leaf value is
+
+$$w_j^*=-\frac{G_j}{H_j+\lambda},$$
+
+and its score contribution is proportional to $-G_j^2/(H_j+\lambda)$. Split gain compares
+children with the parent and subtracts a leaf-complexity cost. This makes curvature,
+regularization, and tree structure explicit.
+
+The system adds sparse-aware default directions, weighted quantile sketches for approximate
+splits, column/row subsampling, cache-conscious blocks, parallel split search, and out-of-core
+execution <Citation id="chenguestrin2016xgboost" />. Those engineering choices explain the
+name's practical importance. The learning principle remains gradient-boosted trees.
+
+Mention library semantics when discussing missing values or categorical support: behavior
+differs by implementation and version, so it belongs in an evaluated pipeline contract.
+</InterviewQuestion>
+
+## Choosing and operating tree ensembles
+
+<InterviewQuestion id="q-trees-rf-vs-gbdt">
+Prefer a random forest when you need a sturdy baseline with little tuning, parallel training,
+natural OOB diagnostics, and resistance to small hyperparameter mistakes. It excels when
+individual deep trees have adequate signal and variance is the main enemy. Prefer gradient
+boosting when residual structure remains and careful sequential correction can buy tabular
+accuracy.
+
+For boosting, validate learning rate, tree depth/leaves, minimum leaf support, subsampling,
+regularization, and early stopping jointly. For forests, validate feature subsampling and
+leaf structure; increase tree count until metrics and uncertainty stabilize. Compare
+training and inference throughput, model size, recalibration need, and retraining cadence.
+
+**Good system answer.** Launch the simpler candidate as a baseline, specify the expected
+gain from the other, and design a latency/quality experiment. “Boosting always wins on
+tables” ignores small data, label noise, tuning budget, and operational constraints.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-trees-real-data">
+**Missing values.** Some boosted implementations learn a default branch from training
+gain; other estimators require imputation. Missingness itself may be predictive, so add an
+indicator when justified and test changes in the missingness mechanism.
+
+**Imbalance.** Weights or sampling alter the optimized error; thresholding converts scores
+to workload. Validate on natural prevalence and calibrate separately. **Leakage.** A tree
+will exploit timestamps, post-outcome aggregates, IDs, and target encodings with exceptional
+efficiency. Time-aware feature availability checks matter more than regularization.
+
+**Constraints.** Monotonic constraints can encode a defensible rule such as “holding all
+modeled variables fixed, greater risk score must not lower predicted risk.” They reduce the
+hypothesis space and can improve trust, but correlated proxies and confounding mean the
+model is not thereby causal. Interaction constraints similarly encode allowed combinations.
+
+Version the preprocessing/model library because native missing and categorical semantics
+are part of the learned function, not an invisible implementation detail.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="Information gain by hand" difficulty="warm-up">
+A binary parent has 8 positives and 8 negatives. A split produces a left child with 6
+positives and 2 negatives and a right child with 2 positives and 6 negatives. Compute the
+Gini gain.
+
+<div slot="solution">
+The parent Gini is $.5$. Each child has $p=(.75,.25)$, so Gini is
+$1-.75^2-.25^2=.375$. Equal child sizes make the weighted value $.375$, hence gain
+$.5-.375=.125$.
+</div>
+</Exercise>
+
+<Exercise n={2} title="More trees cannot fix shared bias" difficulty="core">
+Base predictions have variance 4 and pairwise correlation .30. What is ensemble variance
+for 100 trees, and its infinite-tree limit?
+
+<div slot="solution">
+$4[.30+.70/100]=1.228$. The limit is $4(.30)=1.2$. Adding trees from 100 onward can remove
+at most .028 variance; improving diversity or the representation now matters more than
+simply increasing $B$.
+</div>
+</Exercise>
+
+<Exercise n={3} title="A suspiciously perfect feature" difficulty="stretch">
+A boosted churn model gets almost perfect validation performance, and `days_since_close`
+dominates importance. What should you investigate before tuning anything?
+
+<div slot="solution">
+Determine exactly when `days_since_close` becomes known relative to the prediction timestamp.
+It likely encodes the outcome or a downstream event. Reconstruct every feature “as of” the
+decision time, split temporally or by entity, fit all encoders within training folds, and
+rerun the baseline. Importance explains reliance, not legitimacy; no depth, regularizer, or
+monotonic constraint repairs target leakage.
+</div>
+</Exercise>
+
+## Summary
+
+- Tree growth greedily maximizes weighted impurity reduction; depth and leaves set the bias–variance tradeoff.
+- Bagging succeeds when accurate base learners have errors that are not perfectly correlated.
+- Random feature subsets trade individual-tree strength for lower forest correlation.
+- OOB evaluation is convenient, but it inherits leakage and dependence if the resampling unit is wrong.
+- Boosting is sequential functional optimization; squared-loss residuals are one special case.
+- XGBoost combines regularized second-order tree scoring with consequential systems engineering.
+- Feature importance measures model reliance, not causal effect, and correlated features complicate credit.

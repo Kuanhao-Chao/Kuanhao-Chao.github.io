@@ -2,6 +2,7 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import BaseLayout from './BaseLayout.astro';
 import Icon from '../components/Icon.astro';
+import InterviewStudyBar from '../components/deepdive/InterviewStudyBar.astro';
 import { site } from '../data/site';
 import { fullDate } from '../lib/format';
 import {
@@ -35,16 +36,37 @@ const minutes = lessonReadingTime(entry.body ?? '');
 const toc = buildToc(headings);
 const hasNesting = toc.some((n) => n.children.length > 0);
 
-// Curriculum position. Draft lessons are excluded so an unfinished lesson cannot
-// appear as somebody else's "next".
-const siblings = orderLessons(
-  (await getCollection('deepDives', ({ data }) => !data.draft)).filter((e) => e.data.hub === d.hub)
+// The hub shows the complete roadmap, including unlinked future lessons. The pager
+// includes only published entries, so a reader can never navigate into a draft.
+const allSiblings = orderLessons(
+  (await getCollection('deepDives')).filter((e) => e.data.hub === d.hub)
 );
+const siblings = allSiblings.filter((e) => !e.data.draft);
 const { prev, next } = neighbours(siblings, entry.id);
+
+const questionBanks = await getCollection('deepDiveQuestionBanks');
+const lessonQuestions = questionBanks
+  .filter((bank) => bank.data.lesson.id === entry.id)
+  .flatMap((bank) => bank.data.questions);
+const publishedLessonIds = new Set(siblings.map((lesson) => lesson.id));
+const courseQuestionIds = [
+  ...new Set(
+    questionBanks
+      .filter((bank) => publishedLessonIds.has(bank.data.lesson.id))
+      .flatMap((bank) => bank.data.questions.map((question) => question.id))
+  ),
+];
 
 const prereqs = await Promise.all(
   d.prerequisites.map(async (ref) => (await getCollection('deepDives', (e) => e.id === ref.id))[0])
 );
+const relatedLessons = (
+  await Promise.all(
+    d.relatedLessons.map(
+      async (ref) => (await getCollection('deepDives', (e) => e.id === ref.id))[0]
+    )
+  )
+).filter((lesson) => lesson && !lesson.data.draft);
 const refs = (await getCollection('deepDiveReferences'))
   .filter((r) => d.referenceIds.some((ref) => ref.id === r.id))
   .sort((a, b) => {
@@ -54,9 +76,13 @@ const refs = (await getCollection('deepDiveReferences'))
   });
 
 const HUBS = {
-  'statistical-genetics': { href: '/deep_dives/statistical-genetics/', label: 'Statistical Genetics' },
+  'statistical-genetics': {
+    href: '/deep_dives/statistical-genetics/',
+    label: 'Statistical Genetics',
+  },
   gwas: { href: '/deep_dives/gwas/', label: 'GWAS' },
   'genomic-data': { href: '/deep_dives/genomic-data/', label: 'Genomic Data & Resources' },
+  'ml-dl-interview': { href: '/deep_dives/ml-dl-interview/', label: 'ML & DL Interview Guide' },
 } as const;
 const hub = HUBS[d.hub];
 
@@ -69,7 +95,7 @@ const backLink = isHub
 
 /** The track's lessons grouped by module, in reading order — the hub's module map. */
 const moduleMap = isHub
-  ? siblings
+  ? allSiblings
       .filter((e) => !e.data.isHub)
       .reduce<{ id: string; label: string; lessons: typeof siblings }[]>((acc, e) => {
         const last = acc[acc.length - 1];
@@ -105,7 +131,11 @@ const lessonLd = {
   educationalLevel: LEVELS[d.level],
   teaches: d.objectives,
   timeRequired: `PT${minutes}M`,
-  isPartOf: { '@type': 'Course', name: `${hub.label} Deep Dive`, url: new URL(hub.href, site.url).href },
+  isPartOf: {
+    '@type': 'Course',
+    name: `${hub.label} Deep Dive`,
+    url: new URL(hub.href, site.url).href,
+  },
   ...(d.tags.length ? { keywords: d.tags.join(', ') } : {}),
   ...(refs.length
     ? {
@@ -123,18 +153,76 @@ const lessonLd = {
   mainEntityOfPage: canonical,
 };
 
+const courseLd = isHub
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'Course',
+      name: d.title,
+      description: d.description,
+      provider: { '@id': `${site.url}/#person` },
+      teaches: d.objectives,
+      educationalLevel: LEVELS[d.level],
+      hasPart: siblings
+        .filter((lesson) => !lesson.data.isHub)
+        .map((lesson) => ({
+          '@type': 'LearningResource',
+          name: lesson.data.title,
+          url: new URL(`/deep_dives/${lesson.id}/`, site.url).href,
+        })),
+      inLanguage: 'en',
+      url: canonical,
+    }
+  : null;
+
+const faqLd = lessonQuestions.length
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: lessonQuestions.map((question) => ({
+        '@type': 'Question',
+        name: question.question,
+        acceptedAnswer: { '@type': 'Answer', text: question.conciseAnswer },
+      })),
+    }
+  : null;
+
 const breadcrumbLd = {
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Deep Dives', item: new URL('/deep_dives/', site.url).href },
-    { '@type': 'ListItem', position: 2, name: hub.label, item: new URL(hub.href, site.url).href },
-    { '@type': 'ListItem', position: 3, name: d.shortTitle ?? d.title, item: canonical },
-  ],
+  itemListElement: isHub
+    ? [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Deep Dives',
+          item: new URL('/deep_dives/', site.url).href,
+        },
+        { '@type': 'ListItem', position: 2, name: d.shortTitle ?? d.title, item: canonical },
+      ]
+    : [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Deep Dives',
+          item: new URL('/deep_dives/', site.url).href,
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: hub.label,
+          item: new URL(hub.href, site.url).href,
+        },
+        { '@type': 'ListItem', position: 3, name: d.shortTitle ?? d.title, item: canonical },
+      ],
 };
 ---
 
-<BaseLayout title={d.title} description={d.description} type="article" noindex={d.draft}>
+<BaseLayout
+  title={d.shortTitle ?? d.title}
+  description={d.description}
+  type="article"
+  noindex={d.draft}
+>
   <article class="deep-dive-article">
     <nav class="dd-backlink">
       <a href={backLink.href}>
@@ -145,120 +233,217 @@ const breadcrumbLd = {
     <header class="deep-dive-header">
       <div class="deep-dive-meta-bar" style="margin-bottom: var(--space-2);">
         <span class="deep-dive-tag">{d.moduleLabel}</span>
-        <span class="deep-dive-level-badge"><Icon name="book-open" size={14} /> {LEVELS[d.level]}</span>
-        <span class="deep-dive-time-badge"><Icon name="clock" size={14} /> {formatReadingTime(minutes)}</span>
+        <span class="deep-dive-level-badge"
+          ><Icon name="book-open" size={14} /> {LEVELS[d.level]}</span
+        >
+        <span class="deep-dive-time-badge"
+          ><Icon name="clock" size={14} /> {formatReadingTime(minutes)}</span
+        >
       </div>
       <h1 class="deep-dive-title">{d.title}</h1>
       <p class="deep-dive-meta-bar">
         <span>By <strong>{d.authors.join(', ')}</strong></span>
         <span>·</span>
         <span>{fullDate(d.date)}</span>
-        {d.updated && (<><span>·</span><span>Updated {fullDate(d.updated)}</span></>)}
+        {
+          d.updated && (
+            <>
+              <span>·</span>
+              <span>Updated {fullDate(d.updated)}</span>
+            </>
+          )
+        }
       </p>
     </header>
 
     <p class="deep-dive-lead">{d.abstract}</p>
 
+    {
+      courseQuestionIds.length > 0 && (
+        <span
+          data-ml-question-manifest
+          data-question-ids={courseQuestionIds.join(' ')}
+          hidden
+          aria-hidden="true"
+        />
+      )
+    }
+
     <div class="dd-contract">
       <section class="dd-contract__col">
-        <h2 class="dd-contract__title"><Icon name="target" size={14} /> What you will be able to do</h2>
+        <h2 class="dd-contract__title">
+          <Icon name="target" size={14} /> What you will be able to do
+        </h2>
         <ul class="dd-contract__list">
           {d.objectives.map((o) => <li>{o}</li>)}
         </ul>
       </section>
 
-      {prereqs.length > 0 && (
-        <section class="dd-contract__col">
-          <h2 class="dd-contract__title"><Icon name="layers" size={14} /> Read first</h2>
-          <ul class="dd-contract__list">
-            {prereqs.map((p) => (
-              <li><a href={`/deep_dives/${p.id}/`}>{p.data.shortTitle ?? p.data.title}</a></li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {
+        prereqs.length > 0 && (
+          <section class="dd-contract__col">
+            <h2 class="dd-contract__title">
+              <Icon name="layers" size={14} /> Read first
+            </h2>
+            <ul class="dd-contract__list">
+              {prereqs.map((p) => (
+                <li>
+                  <a href={`/deep_dives/${p.id}/`}>{p.data.shortTitle ?? p.data.title}</a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
     </div>
 
-    {toc.length > 0 && (
-      <nav class="deep-dive-toc" aria-label="Table of contents">
-        <div class="deep-dive-toc-title"><Icon name="list" size={14} /> Contents</div>
-        {/* Its own classes, not `.deep-dive-toc-list`: that one is a two-column grid
+    {
+      toc.length > 0 && (
+        <nav class="deep-dive-toc" aria-label="Table of contents">
+          <div class="deep-dive-toc-title">
+            <Icon name="list" size={14} /> Contents
+          </div>
+          {/* Its own classes, not `.deep-dive-toc-list`: that one is a two-column grid
             built for the flat hand-written lists, and a nested sub-list inside it
             strands the child in the wrong column. A flat outline may still use two
             columns on a wide screen; a nested one stays single-column so the
             indentation actually reads as hierarchy. */}
-        <ol class={`dd-toc__list${hasNesting ? '' : ' dd-toc__list--flat'}`}>
-          {toc.map((node: TocNode) => (
-            <li>
-              <a href={`#${node.slug}`}>{node.text}</a>
-              {node.children.length > 0 && (
-                <ol class="dd-toc__sub">
-                  {node.children.map((child) => (
-                    <li><a href={`#${child.slug}`}>{child.text}</a></li>
-                  ))}
-                </ol>
-              )}
-            </li>
-          ))}
-        </ol>
-      </nav>
-    )}
+          <ol class={`dd-toc__list${hasNesting ? '' : ' dd-toc__list--flat'}`}>
+            {toc.map((node: TocNode) => (
+              <li>
+                <a href={`#${node.slug}`}>{node.text}</a>
+                {node.children.length > 0 && (
+                  <ol class="dd-toc__sub">
+                    {node.children.map((child) => (
+                      <li>
+                        <a href={`#${child.slug}`}>{child.text}</a>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )
+    }
+
+    {lessonQuestions.length > 0 && <InterviewStudyBar count={lessonQuestions.length} />}
 
     <div class="dd-body"><slot /></div>
 
-    {refs.length > 0 && (
-      <section class="dd-references" id="references">
-        <h2>References</h2>
-        <ol class="dd-references__list">
-          {refs.map((r) => (
-            <li id={`ref-${r.id}`}>
-              <span>{r.data.authors.join(', ')} ({r.data.year}). {r.data.title}. <em>{r.data.venue}</em>.</span>
-              {r.data.doi && <> <a href={r.data.doi}>DOI</a></>}
-              {!r.data.doi && r.data.url && <> <a href={r.data.url}>Link</a></>}
-            </li>
+    {
+      refs.length > 0 && (
+        <section class="dd-references" id="references">
+          <h2>References</h2>
+          <ol class="dd-references__list">
+            {refs.map((r) => (
+              <li id={`ref-${r.id}`}>
+                <span>
+                  {r.data.authors.join(', ')} ({r.data.year}). {r.data.title}.{' '}
+                  <em>{r.data.venue}</em>.
+                </span>
+                {r.data.doi && (
+                  <>
+                    {' '}
+                    <a href={r.data.doi}>DOI</a>
+                  </>
+                )}
+                {!r.data.doi && r.data.url && (
+                  <>
+                    {' '}
+                    <a href={r.data.url}>Link</a>
+                  </>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )
+    }
+
+    {
+      !isHub && relatedLessons.length > 0 && (
+        <aside class="dd-related-lessons" aria-labelledby="dd-related-lessons-title">
+          <h2 id="dd-related-lessons-title">
+            <Icon name="layers" size={15} /> Connect the concepts
+          </h2>
+          <ul>
+            {relatedLessons.map((lesson) => (
+              <li>
+                <a href={`/deep_dives/${lesson.id}/`}>
+                  {lesson.data.shortTitle ?? lesson.data.title}
+                </a>
+                <p>{lesson.data.description}</p>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )
+    }
+
+    {
+      isHub && moduleMap.length > 0 && (
+        <nav class="dd-modulemap" aria-label="Track contents">
+          <h2 class="dd-modulemap__title">
+            <Icon name="layers" size={15} /> The track
+          </h2>
+          {moduleMap.map((mod) => (
+            <section class="dd-modulemap__module">
+              <h3 class="dd-modulemap__module-title">{mod.label}</h3>
+              <ol class="dd-modulemap__list">
+                {mod.lessons.map((l) => (
+                  <li class={l.data.draft ? 'is-planned' : undefined}>
+                    {l.data.draft ? (
+                      <span class="dd-modulemap__planned-title">
+                        {l.data.shortTitle ?? l.data.title}
+                      </span>
+                    ) : (
+                      <a href={`/deep_dives/${l.id}/`}>{l.data.shortTitle ?? l.data.title}</a>
+                    )}
+                    <span class="dd-modulemap__time">
+                      {l.data.draft
+                        ? 'Coming next'
+                        : formatReadingTime(lessonReadingTime(l.body ?? ''))}
+                    </span>
+                    <p class="dd-modulemap__summary">{l.data.description}</p>
+                  </li>
+                ))}
+              </ol>
+            </section>
           ))}
-        </ol>
-      </section>
-    )}
+        </nav>
+      )
+    }
 
-    {isHub && moduleMap.length > 0 && (
-      <nav class="dd-modulemap" aria-label="Track contents">
-        <h2 class="dd-modulemap__title"><Icon name="layers" size={15} /> The track</h2>
-        {moduleMap.map((mod) => (
-          <section class="dd-modulemap__module">
-            <h3 class="dd-modulemap__module-title">{mod.label}</h3>
-            <ol class="dd-modulemap__list">
-              {mod.lessons.map((l) => (
-                <li>
-                  <a href={`/deep_dives/${l.id}/`}>{l.data.shortTitle ?? l.data.title}</a>
-                  <span class="dd-modulemap__time">{formatReadingTime(lessonReadingTime(l.body ?? ''))}</span>
-                  <p class="dd-modulemap__summary">{l.data.description}</p>
-                </li>
-              ))}
-            </ol>
-          </section>
-        ))}
-      </nav>
-    )}
-
-    {!isHub && (prev || next) && (
-      <nav class="dd-pager" aria-label="Curriculum">
-        {prev ? (
-          <a class="dd-pager__link dd-pager__link--prev" href={`/deep_dives/${prev.id}/`}>
-            <span class="dd-pager__dir"><Icon name="arrow-left" size={13} /> Previous</span>
-            <span class="dd-pager__title">{prev.data.shortTitle ?? prev.data.title}</span>
-          </a>
-        ) : <span />}
-        {next && (
-          <a class="dd-pager__link dd-pager__link--next" href={`/deep_dives/${next.id}/`}>
-            <span class="dd-pager__dir">Next <Icon name="arrow-right" size={13} /></span>
-            <span class="dd-pager__title">{next.data.shortTitle ?? next.data.title}</span>
-          </a>
-        )}
-      </nav>
-    )}
+    {
+      !isHub && (prev || next) && (
+        <nav class="dd-pager" aria-label="Curriculum">
+          {prev ? (
+            <a class="dd-pager__link dd-pager__link--prev" href={`/deep_dives/${prev.id}/`}>
+              <span class="dd-pager__dir">
+                <Icon name="arrow-left" size={13} /> Previous
+              </span>
+              <span class="dd-pager__title">{prev.data.shortTitle ?? prev.data.title}</span>
+            </a>
+          ) : (
+            <span />
+          )}
+          {next && (
+            <a class="dd-pager__link dd-pager__link--next" href={`/deep_dives/${next.id}/`}>
+              <span class="dd-pager__dir">
+                Next <Icon name="arrow-right" size={13} />
+              </span>
+              <span class="dd-pager__title">{next.data.shortTitle ?? next.data.title}</span>
+            </a>
+          )}
+        </nav>
+      )
+    }
   </article>
 
   <script type="application/ld+json" is:inline set:html={JSON.stringify(lessonLd)} />
+  {courseLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(courseLd)} />}
+  {faqLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(faqLd)} />}
   <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
 </BaseLayout>

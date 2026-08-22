@@ -116,6 +116,35 @@ const fixture = (): TermIndex => ({
       text: 'LiftOn v1.0.0 is released',
     },
   ],
+  deepDives: [
+    {
+      slug: 'ml-dl-interview',
+      title: 'Machine Learning & Deep Learning Interview Guide',
+      href: '/deep_dives/ml-dl-interview/',
+      hub: 'ml-dl-interview',
+      moduleId: 'm00-guide',
+      order: 0,
+      aliases: ['ML & DL Interview Guide', 'machine learning interview'],
+    },
+    {
+      slug: 'ml-interview-learning-theory-generalization',
+      title: 'Learning Theory and Generalization for Machine Learning Interviews',
+      href: '/deep_dives/ml-interview-learning-theory-generalization/',
+      hub: 'ml-dl-interview',
+      moduleId: 'm02-theory',
+      order: 3,
+      aliases: ['Learning Theory & Generalization', 'generalization'],
+    },
+    {
+      slug: 'ml-interview-optimization-training',
+      title: 'Machine Learning Interview Guide: Optimization & Training',
+      href: '/deep_dives/ml-interview-optimization-training/',
+      hub: 'ml-dl-interview',
+      moduleId: 'm06-training',
+      order: 9,
+      aliases: ['Optimization & Training', 'training'],
+    },
+  ],
 });
 
 const shell = () => createShell(fixture());
@@ -975,6 +1004,22 @@ describe('genomics commands', () => {
 });
 
 describe('unix utilities and content navigation commands', () => {
+  it('routes an exact collection-backed deep-dive slug', () => {
+    const out = exec(shell(), 'deepdive ml-interview-optimization-training');
+    expect(out.effect).toEqual({
+      type: 'navigate',
+      href: '/deep_dives/ml-interview-optimization-training/',
+    });
+    expect(joined(out.lines)).toContain('Optimization & Training');
+  });
+
+  it('shows choices instead of guessing when a deep-dive alias is ambiguous', () => {
+    const out = exec(shell(), 'deepdive machine learning');
+    expect(out.effect).toBeUndefined();
+    expect(joined(out.lines)).toContain('matches 3 lessons');
+    expect(out.lines.filter((line) => line.href)).toHaveLength(3);
+  });
+
   it('head outputs first N lines of a file', () => {
     const out = exec(shell(), 'head -n 1 about.txt');
     expect(out.lines.length).toBe(1);
@@ -1135,7 +1180,11 @@ describe('unix utilities and content navigation commands', () => {
 
   it('crt and sound commands emit appropriate effects', () => {
     const crt = exec(shell(), 'crt');
-    expect(crt.effect).toEqual({ type: 'custom', eventName: 'khc:start-crt', detail: { mode: 'amber' } });
+    expect(crt.effect).toEqual({
+      type: 'custom',
+      eventName: 'khc:start-crt',
+      detail: { mode: 'amber' },
+    });
 
     const sound = exec(shell(), 'sound on');
     expect(sound.effect).toEqual({ type: 'sound', mode: 'on' });
@@ -1273,7 +1322,10 @@ describe('unix utilities and content navigation commands', () => {
     // ribosome & splicerush alias
     const ribOut = exec(state, 'ribosome');
     expect(ribOut.effect).toEqual({ type: 'custom', eventName: 'khc:start-ribosome' });
-    expect(exec(state, 'splicerush').effect).toEqual({ type: 'custom', eventName: 'khc:start-ribosome' });
+    expect(exec(state, 'splicerush').effect).toEqual({
+      type: 'custom',
+      eventName: 'khc:start-ribosome',
+    });
 
     // synth & piano alias
     const synthOut = exec(state, 'synth');
@@ -1282,11 +1334,23 @@ describe('unix utilities and content navigation commands', () => {
 
     // crt command options
     const crtAmber = exec(state, 'crt amber');
-    expect(crtAmber.effect).toEqual({ type: 'custom', eventName: 'khc:start-crt', detail: { mode: 'amber' } });
+    expect(crtAmber.effect).toEqual({
+      type: 'custom',
+      eventName: 'khc:start-crt',
+      detail: { mode: 'amber' },
+    });
     const crtGreen = exec(state, 'crt green');
-    expect(crtGreen.effect).toEqual({ type: 'custom', eventName: 'khc:start-crt', detail: { mode: 'green' } });
+    expect(crtGreen.effect).toEqual({
+      type: 'custom',
+      eventName: 'khc:start-crt',
+      detail: { mode: 'green' },
+    });
     const crtOff = exec(state, 'crt off');
-    expect(crtOff.effect).toEqual({ type: 'custom', eventName: 'khc:start-crt', detail: { mode: 'off' } });
+    expect(crtOff.effect).toEqual({
+      type: 'custom',
+      eventName: 'khc:start-crt',
+      detail: { mode: 'off' },
+    });
 
     // eggs / secrets
     const eggsOut = exec(state, 'eggs');
@@ -1297,5 +1361,3 @@ describe('unix utilities and content navigation commands', () => {
     expect(joined(exec(state, 'secrets').lines)).toContain('CRISPR-Cas9');
   });
 });
-
-
