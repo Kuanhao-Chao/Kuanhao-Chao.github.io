@@ -358,3 +358,64 @@ esm1b-variants:
     reference residue, with no variant labels used in training. That independence from
     ClinVar is the property that makes it worth having alongside supervised scores.
   verified: 2026-08-21
+
+# ── Layer 4 · Multiplexed assays of variant effect ───────────────────────────
+#
+# Counts are deliberately absent from `scale` here. MaveDB grows continuously and its
+# homepage is a client-rendered app, so any figure written down would be stale and
+# unverifiable at the same time — which is the combination the registry exists to avoid.
+
+mavedb:
+  name: MaveDB
+  fullName: Multiplexed Assay of Variant Effect Database
+  layer: mave-assays
+  url: https://www.mavedb.org/
+  scale: "Score sets from published multiplexed assays, with per-variant scores, counts and assay metadata"
+  access: open
+  citationId: esposito2019mavedb
+  note: >-
+    The repository, not an assay. Its value is that scores arrive with the target sequence,
+    the scoring model and the raw counts attached, so a score can be recalibrated rather
+    than only re-read.
+  verified: 2026-08-21
+
+brca1-sge:
+  name: BRCA1 SGE
+  fullName: Saturation genome editing of BRCA1
+  layer: mave-assays
+  url: https://www.mavedb.org/score-sets/urn:mavedb:00000097-0-1/
+  scale: "~4,000 SNVs across 13 exons encoding the RING and BRCT domains, edited in situ"
+  access: open
+  citationId: findlay2018sge
+  note: >-
+    Edits the endogenous locus by homology-directed repair rather than expressing a
+    construct, so the variant is read in its own promoter, splicing and chromatin context.
+    That is what makes it evidence about the gene rather than about a plasmid.
+  verified: 2026-08-21
+
+splicevardb:
+  name: SpliceVarDB
+  fullName: Database of experimentally validated human splicing variants
+  layer: mave-assays
+  url: https://splicevardb.org/
+  scale: "Human splicing variants with published experimental validation, graded by assay type"
+  access: open
+  citationId: sullivan2024splicevardb
+  note: >-
+    A truth set rather than a predictor, which is what makes it usable for calibrating
+    splicing models instead of only for looking variants up.
+  verified: 2026-08-21
+
+mpra-satmut:
+  name: MPRA saturation mutagenesis
+  fullName: Saturation mutagenesis of disease-associated regulatory elements
+  layer: mave-assays
+  url: https://www.mavedb.org/
+  scale: "Twenty promoters and enhancers, every possible SNV assayed for transcriptional output"
+  access: open
+  citationId: kircher2019mpra
+  note: >-
+    The non-coding counterpart to deep mutational scanning. It measures transcriptional
+    output from an episomal reporter, so it establishes that a sequence *can* drive
+    expression — not that it does so at its native locus.
+  verified: 2026-08-21
