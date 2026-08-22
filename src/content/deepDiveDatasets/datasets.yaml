@@ -778,3 +778,46 @@ crispr-screens:
     which gene. Most enhancers regulate a gene that is not the nearest one, which is the
     assumption these screens exist to test.
   verified: 2026-08-22
+
+# ── Layer 4 · GWAS summary statistics ────────────────────────────────────────
+
+gwas-catalog:
+  name: GWAS Catalog
+  fullName: NHGRI-EBI GWAS Catalog
+  layer: gwas-summary-stats
+  url: https://www.ebi.ac.uk/gwas/
+  scale: "Curated associations from published GWAS, plus a deposition service for full summary statistics"
+  access: open
+  citationId: sollis2023gwascatalog
+  note: >-
+    Two products that are easy to confuse: the curated top-hit table, which is what most
+    people mean by "the Catalog", and the full summary-statistic deposits, which are what
+    any reanalysis actually needs. Harmonised files are provided on a common build and strand.
+  verified: 2026-08-22
+
+finngen:
+  name: FinnGen
+  fullName: FinnGen
+  layer: gwas-summary-stats
+  url: https://www.finngen.fi/en/access_results
+  scale: "Genome-wide association results across thousands of disease endpoints from national health registers"
+  access: open
+  citationId: kurki2023finngen
+  note: >-
+    A bottlenecked founder population, so variants rare elsewhere are common enough to test
+    here — and its endpoints come from register codes rather than from research diagnoses,
+    which changes what a phenotype means.
+  verified: 2026-08-22
+
+opentargets-l2g:
+  name: Open Targets Genetics
+  fullName: Open Targets Genetics locus-to-gene resource
+  layer: gwas-summary-stats
+  url: https://genetics.opentargets.org/
+  scale: "Harmonised GWAS across studies with fine-mapping, colocalisation and gene assignment"
+  access: open
+  citationId: mountjoy2021l2g
+  note: >-
+    Does the harmonisation, fine-mapping and colocalisation as a pipeline, which is the work
+    most reanalyses would otherwise repeat badly. Its L2G score is a prediction, not a result.
+  verified: 2026-08-22

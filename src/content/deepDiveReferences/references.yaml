@@ -2639,3 +2639,45 @@ igvf2024:
   venue: "Nature 633:47-57"
   doi: https://doi.org/10.1038/s41586-024-07510-0
   verified: 2026-08-21
+
+# ── Layer 4 · GWAS summary statistics ─────────────────────────────────────────
+
+devlin1999gc:
+  authors: ['B. Devlin', 'Kathryn Roeder']
+  year: 1999
+  title: "Genomic Control for Association Studies"
+  venue: "Biometrics 55:997-1004"
+  doi: https://doi.org/10.1111/j.0006-341X.1999.00997.x
+  verified: 2026-08-21
+
+palmer2017winners:
+  authors: ['Cameron Palmer', 'Itsik Pe’er']
+  year: 2017
+  title: "Statistical correction of the Winner’s Curse explains replication variability in quantitative trait genome-wide association studies"
+  venue: "PLOS Genetics 13:e1006916"
+  doi: https://doi.org/10.1371/journal.pgen.1006916
+  verified: 2026-08-21
+
+oconnor2021effects:
+  authors: ['Luke J. O’Connor']
+  year: 2021
+  title: "The distribution of common-variant effect sizes"
+  venue: "Nature Genetics 53:1243-1249"
+  doi: https://doi.org/10.1038/s41588-021-00901-3
+  verified: 2026-08-21
+
+sollis2023gwascatalog:
+  authors: ['Elliot Sollis', 'Abayomi Mosaku', 'Ala Abid', 'et al.']
+  year: 2022
+  title: "The NHGRI-EBI GWAS Catalog: knowledgebase and deposition resource"
+  venue: "Nucleic Acids Research 51:D977-D985"
+  doi: https://doi.org/10.1093/nar/gkac1010
+  verified: 2026-08-21
+
+kurki2023finngen:
+  authors: ['Mitja I. Kurki', 'Juha Karjalainen', 'Priit Palta', 'et al.']
+  year: 2023
+  title: "FinnGen provides genetic insights from a well-phenotyped isolated population"
+  venue: "Nature 613:508-518"
+  doi: https://doi.org/10.1038/s41586-022-05473-8
+  verified: 2026-08-21
