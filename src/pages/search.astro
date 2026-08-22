@@ -166,7 +166,13 @@ import Icon from '../components/Icon.astro';
     const q = query.trim().toLowerCase();
     const tokens = q.split(/\s+/).filter(Boolean);
     const matches = tokens.length
-      ? items.filter((item) => tokens.every((token) => `${item.search ?? ''} ${item.title}`.toLowerCase().includes(token)))
+      ? items.filter((item) =>
+          tokens.every((token) =>
+            `${item.search ?? ''} ${item.title} ${item.description ?? ''}`
+              .toLowerCase()
+              .includes(token)
+          )
+        )
       : items.slice(0, 12);
     const shown = matches.slice(0, 40);
 

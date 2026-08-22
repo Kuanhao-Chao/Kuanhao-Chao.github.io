@@ -1,0 +1,212 @@
+lesson: ml-interview-llm-adaptation-rag-agents
+questions:
+  - id: q-rag-prompt-vs-rag-vs-finetune
+    question: 'How do you choose among prompting, retrieval, and fine-tuning for an LLM application?'
+    conciseAnswer: 'Prompting changes instructions and context, retrieval supplies mutable external evidence, and fine-tuning changes model behavior or task priors. Choose from the diagnosed error: missing current facts favors retrieval; inconsistent format or behavior may favor examples or fine-tuning; no technique guarantees factuality, so keep an evaluated baseline and escalation path.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, genai, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [prompting, rag, fine-tuning]
+    aliases: [adaptation-choice, rag-vs-finetuning]
+  - id: q-rag-sft
+    question: 'What does supervised fine-tuning optimize, and why can a small dataset cause regressions?'
+    conciseAnswer: 'SFT applies token-level likelihood training to curated input-output demonstrations, teaching response style and conditional behavior. A narrow, duplicated, contaminated, or low-quality set can overfit, forget useful behavior, distort calibration, or teach shortcuts; mix design, held-out slices, and regression evaluations matter as much as optimizer settings.'
+    priority: must-know
+    difficulty: foundational
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: concept
+    round: project-defense
+    stability: evergreen
+    tags: [sft, fine-tuning, data-quality]
+    aliases: [instruction-tuning, supervised-adaptation]
+  - id: q-rag-lora
+    question: 'How does LoRA reduce trainable parameters, and what does it not reduce automatically?'
+    conciseAnswer: 'LoRA freezes a weight matrix and learns a low-rank update B times A, reducing trainable parameters and optimizer state. It does not automatically reduce base-weight memory, activation memory, sequence-length cost, data requirements, or inference latency unless adapters are merged or served with an efficient adapter-aware runtime.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist, genai, ml-platform]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [lora, peft, low-rank]
+    aliases: [parameter-efficient-finetuning, adapters]
+  - id: q-rag-rlhf
+    question: 'Describe the RLHF pipeline and its main statistical failure modes.'
+    conciseAnswer: 'A typical pipeline obtains preference comparisons, fits a reward model, and optimizes a policy against that proxy while constraining drift from a reference policy. Annotator disagreement, selection bias, reward-model extrapolation, reward hacking, mode collapse, and evaluation dependence mean the resulting model optimizes measured preference—not universal human values.'
+    priority: must-know
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, genai]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [rlhf, preference-learning, reward-model]
+    aliases: [human-feedback, reward-modeling]
+  - id: q-rag-dpo
+    question: 'What objective does Direct Preference Optimization use, and how does it relate to RLHF?'
+    conciseAnswer: 'DPO turns preferred-versus-rejected response pairs into a logistic objective over the policy log-ratio relative to a reference model. It avoids fitting an explicit reward model and running an online RL optimizer, but still inherits preference-data bias, reference-policy dependence, coverage limits, and sensitivity to its regularization scale.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [dpo, preference-learning, alignment]
+    aliases: [direct-preference-optimization, dpo-vs-rlhf]
+  - id: q-rag-chunking
+    question: 'How would you choose chunk boundaries and overlap for retrieval-augmented generation?'
+    conciseAnswer: 'Start from semantic units and the evidence span needed to answer, then tune size and overlap on retrieval recall, attribution, latency, and redundancy. Tiny chunks lose context; large chunks dilute embeddings and consume generation context; overlap can recover boundary evidence but creates duplicates and biased rankings.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, genai]
+    kind: trade-off
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [rag, chunking, retrieval]
+    aliases: [document-chunking, chunk-overlap]
+  - id: q-rag-retrieval
+    question: 'What should be measured separately in a RAG retrieval stage?'
+    conciseAnswer: 'Measure whether answer-bearing evidence is indexed, retrieved in top-k, and ranked early, using judged relevance and query slices. Separate corpus coverage, parser quality, embedding recall, filter failures, freshness, and latency; end-answer accuracy alone cannot localize which retrieval component failed.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, genai, ml-platform]
+    kind: system-design
+    round: experimentation
+    stability: evergreen
+    tags: [rag, recall-at-k, evaluation]
+    aliases: [retrieval-evaluation, evidence-recall]
+  - id: q-rag-hybrid-reranking
+    question: 'Why combine lexical retrieval, dense retrieval, and reranking?'
+    conciseAnswer: 'Lexical systems preserve exact rare terms, dense retrievers capture learned semantic similarity, and a cross-encoder reranker can model query-document interactions more precisely on a small candidate set. Fusion improves coverage but adds tuning, latency, and failure dependencies; evaluate components and fused rankings by slice.'
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, genai, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [hybrid-search, dense-retrieval, reranking]
+    aliases: [bm25-plus-embeddings, cross-encoder]
+  - id: q-rag-grounded-generation
+    question: 'How do you make a generated answer grounded in retrieved evidence?'
+    conciseAnswer: 'Require claim-level support, pass provenance with evidence, instruct the model to abstain when evidence is insufficient, and verify citations against the exact source spans. Groundedness is an evaluated relationship between answer and evidence, not a property conferred by adding documents to a prompt.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, genai]
+    kind: implementation
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [groundedness, attribution, abstention]
+    aliases: [faithfulness, citation-verification]
+  - id: q-rag-evaluation
+    question: 'Design an evaluation stack for a RAG application before launch.'
+    conciseAnswer: 'Create versioned, deduplicated examples with answerable and unanswerable cases; score retrieval recall and rank, answer correctness, claim support, citation validity, refusal, safety, latency, and cost. Use human review to calibrate automated judges, slice by query and corpus conditions, then validate business outcomes online.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, genai, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [rag-evaluation, llm-judge, online-metrics]
+    aliases: [rag-eval, evaluation-pyramid]
+  - id: q-rag-contamination
+    question: 'How can evaluation contamination make an LLM or RAG system look better than it is?'
+    conciseAnswer: 'Benchmarks, answers, near-duplicates, or future documents can leak into pretraining, tuning, prompts, retrieval indexes, or judge context. Use provenance and time-based splits, deduplication, canary items, held-out private sets, and exposure audits; a familiar benchmark score alone is weak evidence of generalization.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, genai]
+    kind: debugging
+    round: experimentation
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [contamination, leakage, evaluation]
+    aliases: [benchmark-leakage, data-contamination]
+  - id: q-agent-tool-use
+    question: 'What contract should an LLM tool call satisfy?'
+    conciseAnswer: 'A tool contract needs a narrow typed schema, semantic field descriptions, validation, authentication context, timeouts, idempotency rules, structured errors, and auditable results. Treat generated arguments as untrusted input; deterministic application code—not prose—must enforce permissions and invariants.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, genai, ml-platform]
+    kind: implementation
+    round: coding
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [tool-use, schemas, validation]
+    aliases: [function-calling, tool-contract]
+  - id: q-agent-loop
+    question: 'What are the essential states in an agent control loop?'
+    conciseAnswer: 'A robust loop separates observation, plan or policy choice, validated action proposal, authorization, execution, result recording, termination, and recovery. Explicit budgets and terminal states prevent unbounded loops; checkpoints and idempotent actions support retries without repeating irreversible side effects.'
+    priority: common
+    difficulty: advanced
+    roles: [genai, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [agents, state-machine, orchestration]
+    aliases: [agent-loop, agent-state-machine]
+  - id: q-agent-reliability
+    question: 'Why are agent demonstrations not evidence of production reliability?'
+    conciseAnswer: 'A successful trace samples one task, environment, tool state, and stochastic path. Reliability requires task-distribution success rates, repeated trials, side-effect severity, calibrated uncertainty, recovery behavior, and adversarial tests; longer autonomous horizons compound per-step failures and environmental drift.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, genai, ml-platform, leadership]
+    kind: concept
+    round: project-defense
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [agents, reliability, evaluation]
+    aliases: [agent-benchmark, demo-vs-production]
+  - id: q-agent-prompt-injection
+    question: 'How does indirect prompt injection threaten a tool-using RAG system?'
+    conciseAnswer: 'Untrusted retrieved text can contain instructions that compete with the application policy and induce disclosure or tool misuse. Prompt hierarchy alone is not a security boundary: isolate content from control, enforce least privilege and destination policy in code, sanitize rendering, require confirmation for consequential actions, and test adversarial documents.'
+    priority: must-know
+    difficulty: advanced
+    roles: [genai, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [prompt-injection, security, rag]
+    aliases: [indirect-prompt-injection, tool-security]
+  - id: q-agent-permissions
+    question: 'Design a least-privilege execution boundary for an LLM agent.'
+    conciseAnswer: 'Issue short-lived task-scoped credentials, allowlist tools and resource targets, separate read from write, cap money and compute, validate arguments server-side, sandbox untrusted code, and require human approval for high-impact actions. Record immutable traces while minimizing secrets and personal data.'
+    priority: common
+    difficulty: advanced
+    roles: [genai, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [least-privilege, sandboxing, authorization]
+    aliases: [agent-permissions, execution-safety]
+  - id: q-agent-latency-cost
+    question: 'How do you reduce latency and cost without silently degrading an LLM workflow?'
+    conciseAnswer: 'Decompose cost and latency by retrieval, reranking, prompt tokens, model calls, output tokens, tools, and retries. Then test caching, smaller routing models, bounded context, parallel independent calls, early exits, and response limits against quality and safety gates; averages alone hide expensive tails and retry storms.'
+    priority: common
+    difficulty: advanced
+    roles: [genai, ml-platform, leadership]
+    kind: trade-off
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [latency, cost, routing]
+    aliases: [llm-cost-optimization, token-budget]
+  - id: q-agent-production-monitoring
+    question: 'What should a production RAG or agent system monitor after launch?'
+    conciseAnswer: 'Monitor input and corpus drift, retrieval coverage, answer support, abstention, tool errors, policy violations, user corrections, latency, token and external-tool cost, and business outcomes. Preserve versioned prompts, models, indexes, policies, and traces so regressions are reproducible, with privacy-aware sampling and rollback.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, genai, ml-platform, leadership]
+    kind: system-design
+    round: project-defense
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [monitoring, observability, rag, agents]
+    aliases: [llm-observability, production-evaluation]

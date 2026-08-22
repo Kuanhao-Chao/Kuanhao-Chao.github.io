@@ -1,0 +1,453 @@
+---
+title: "Machine Learning Interview Mathematics: Probability and Statistics"
+shortTitle: Probability & Statistics
+description: "Eighteen detailed interview answers covering Bayes' rule, dependence, estimation, uncertainty, testing, information theory, calibration and Monte Carlo reasoning."
+abstract: "Probability describes uncertainty in a model; statistics asks what data justify about an unknown process. This lesson connects both to interview decisions: updating a rare-event probability, choosing MLE or MAP, interpreting an interval or p-value, recognizing the loss behind cross-entropy, and reporting uncertainty without claiming more than the assumptions support."
+date: 2026-08-22
+updated: 2026-08-22
+track: theory
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m01-math
+moduleLabel: Module 1 · Mathematical Foundations
+order: 2
+level: foundational
+objectives:
+  - "Update prior odds with evidence and explain the base-rate effect quantitatively."
+  - "Distinguish sampling variation, parameter uncertainty and predictive uncertainty."
+  - "Choose and interpret likelihood, interval, bootstrap and hypothesis-test procedures."
+  - "Connect entropy, cross-entropy, KL divergence and mutual information."
+  - "Evaluate probabilities using calibration, discrimination and proper scores together."
+prerequisites:
+  - ml-interview-linear-algebra-calculus
+relatedLessons:
+  - ml-interview-learning-theory-generalization
+  - ml-interview-metrics-experimentation
+referenceIds:
+  - bayes1763
+  - fisher1922likelihood
+  - neymanpearson1933
+  - shannon1948information
+  - kullback1951information
+  - efron1979bootstrap
+  - gneiting2007scoring
+keyEquations:
+  - 'p(\theta\mid D)\propto p(D\mid\theta)p(\theta)'
+  - 'D_{\mathrm{KL}}(p\parallel q)=\mathbb E_{X\sim p}\!\left[\log\frac{p(X)}{q(X)}\right]'
+  - '\operatorname{SE}(\bar X)=\frac{\sigma}{\sqrt{n}}'
+tags: [machine learning, interview, probability, statistics, Bayes, information theory]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The mental model: populations, observations, and uncertainty
+
+Probability starts with a process and reasons about possible data. Statistics starts with
+observed data and reasons about the process. An interview answer becomes much clearer when
+it says which distribution is random, what is conditioned on, and which assumptions make
+the calculation valid.
+
+<Callout variant="intuition">
+Probabilities always live inside a **reference population and information set**. Conditioning
+changes that population; Bayes' rule changes the information set; a sampling distribution
+imagines repeating the data collection. Most interpretation errors come from silently
+switching one of those three.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'p(x)', meaning: 'Probability mass or density assigned to x', dims: 'mass, or inverse units of x' },
+    { symbol: 'p(A\\mid B)', meaning: 'Probability of A after restricting to B', dims: 'scalar in [0,1]' },
+    { symbol: '\\theta', meaning: 'Unknown model parameter', dims: 'model-dependent' },
+    { symbol: '\\ell(\\theta;D)', meaning: 'Log-likelihood of parameter θ for observed data D', dims: 'scalar' },
+    { symbol: '\\mathbb{E}[X]', meaning: 'Expectation of random variable X', dims: 'units of X' },
+    { symbol: '\\operatorname{Var}(X)', meaning: 'Expected squared deviation from the mean', dims: 'squared units of X' },
+    { symbol: 'H(p)', meaning: 'Shannon entropy', dims: 'bits with log₂; nats with ln' },
+    { symbol: 'D_{KL}(p\\parallel q)', meaning: 'KL divergence from p to q', dims: 'bits or nats' },
+  ]}
+/>
+
+## Conditioning and Bayesian updating
+
+<InterviewQuestion id="q-prob-conditional">
+
+Conditional probability is
+
+$$
+P(A\mid B)=\frac{P(A\cap B)}{P(B)},\qquad P(B)>0.
+$$
+
+It asks for the fraction satisfying $A$ *within the restricted population satisfying $B$*.
+The product rule follows: $P(A,B)=P(A\mid B)P(B)$. Because the denominator changes,
+$P(A\mid B)$ and $P(B\mid A)$ can differ dramatically.
+
+In ML, selection on $B$ may make a training statistic irrelevant at deployment. Conditioning
+on a collider—a variable influenced by both $A$ and another cause—can even create an
+association that was absent in the population. State what has been conditioned on before
+calling a feature independent, unbiased, or predictive.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-bayes">
+
+Bayes' rule is
+
+$$
+P(A\mid B)=\frac{P(B\mid A)P(A)}{P(B\mid A)P(A)+P(B\mid\neg A)P(\neg A)}.
+$$
+
+The prior $P(A)$ is the base rate, the likelihood measures compatibility of evidence with
+each state, and the denominator normalizes. In odds form, posterior odds equal prior odds
+times the likelihood ratio. This formulation makes sequential evidence updates transparent
+and traces back to Bayes' original inverse-probability argument <Citation id="bayes1763" />.
+
+For rare events, false positives from the large negative population can outnumber true
+positives. Ask for prevalence, sensitivity, and specificity before accepting “95% accurate.”
+The same update underlies spam filtering, diagnosis, fraud review, and Bayesian parameter
+inference.
+
+</InterviewQuestion>
+
+<WorkedExample
+  title="A good detector on a rare event"
+  given={[
+    { label: 'Prevalence', value: 'P(Y=1) = 0.01' },
+    { label: 'Sensitivity', value: 'P(+|Y=1) = 0.90' },
+    { label: 'Specificity', value: 'P(−|Y=0) = 0.95' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+
+Among 10,000 cases, expect 100 positives and 9,900 negatives. The detector flags
+$0.90(100)=90$ true positives and $0.05(9{,}900)=495$ false positives. Therefore
+
+$$
+P(Y=1\mid +)=\frac{0.90(0.01)}{0.90(0.01)+0.05(0.99)}
+=\frac{0.009}{0.0585}=0.1538.
+$$
+
+Only **15.4%** of alerts are true events. The detector is not contradictory: sensitivity
+and specificity condition on the true class, while precision conditions on the alert. To
+raise precision, improve specificity, enrich the reviewed population, or require additional
+independent evidence.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. At one-percent prevalence, false alerts dominate even with 90% sensitivity and 95% specificity. Each class bar is scaled separately for legibility, then partitioned proportionally: 90 true alerts and 10 misses among 100 positives; 495 false alerts and 9,405 correct rejections among 9,900 negatives."
+  alt="Two separately scaled class bars show expected counts in 10,000 cases. The positive-class bar contains 90 alerts and 10 misses; the negative-class bar contains 495 false alerts and 9,405 correct rejections. A note states that only 15.4 percent of all alerts are true."
+>
+  <svg viewBox="0 0 720 250" width="720" height="250" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.3">
+      <rect x="55" y="55" width="100" height="72"/><rect x="55" y="55" width="90" height="72" fill="var(--color-accent)" fill-opacity=".32"/>
+      <rect x="205" y="55" width="460" height="72"/><rect x="205" y="55" width="23" height="72" fill="var(--color-accent)" fill-opacity=".32"/>
+    </g>
+    <g fill="currentColor" font-size="13"><text x="55" y="43">100 actual positives</text><text x="205" y="43">9,900 actual negatives</text><text x="100" y="92" text-anchor="middle">90 alerts</text><text x="155" y="151" text-anchor="end">10 misses</text><text x="216" y="92" text-anchor="middle" font-size="10">495</text><text x="435" y="92" text-anchor="middle">9,405 correct rejections</text><text x="55" y="188">Among all 585 alerts: 90 / 585 = 15.4% are true</text></g>
+    <line x1="55" y1="208" x2="665" y2="208" stroke="var(--color-accent)" stroke-width="5" opacity=".32"/>
+  </svg>
+</Figure>
+
+<InterviewQuestion id="q-prob-independence">
+
+Marginal independence means $p(a,b)=p(a)p(b)$. Conditional independence means
+$p(a,b\mid c)=p(a\mid c)p(b\mid c)$ for relevant $c$. Neither implies the other. Two
+symptoms can be associated because both share a disease, yet become independent once the
+disease is known. Conversely, two independent causes become dependent after conditioning
+on their common effect—a collider.
+
+This distinction enables graphical models and naive Bayes. Naive Bayes assumes features are
+conditionally independent given the class, not marginally independent. Test the claim in
+the population where the model will operate; grouping, selection, and unobserved variables
+can invalidate it.
+
+</InterviewQuestion>
+
+## Moments, distributions, and sampling
+
+<InterviewQuestion id="q-prob-expectation">
+
+Expectation is $\mathbb E[g(X)]=\sum_x g(x)p(x)$ or
+$\int g(x)p(x)dx$. Linearity,
+$\mathbb E[aX+bY]=a\mathbb E[X]+b\mathbb E[Y]$, needs no independence. By contrast,
+$\mathbb E[XY]=\mathbb E[X]\mathbb E[Y]$ generally does.
+
+For convex $g$, Jensen's inequality gives
+$g(\mathbb E[X])\le\mathbb E[g(X)]$. This explains why average loss and loss at an average
+prediction differ. Expectations may not exist for sufficiently heavy tails, and a sample
+mean can be dominated by rare extremes. Always state which distribution owns the
+expectation—training, test, posterior, or model-generated.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-variance-covariance">
+
+$\operatorname{Var}(X)=\mathbb E[(X-\mu_X)^2]$ measures spread in squared units.
+$\operatorname{Cov}(X,Y)=\mathbb E[(X-\mu_X)(Y-\mu_Y)]$ measures joint linear variation;
+correlation divides by $\sigma_X\sigma_Y$ to remove units. Covariance matrices are
+positive semidefinite because $a^\top\Sigma a=\operatorname{Var}(a^\top X)\ge0$.
+
+Independence implies zero covariance when moments exist, but zero covariance need not imply
+independence: if $X$ is symmetric and $Y=X^2$, then covariance is zero although $Y$ is
+determined by $X$. Correlation is also sensitive to outliers and can hide nonlinear or
+group-specific relations.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-distributions">
+
+Match support and generation mechanism. Bernoulli models one binary outcome; binomial counts
+successes in fixed independent trials. Categorical and multinomial extend them to multiple
+classes. Gaussian models additive continuous variation and is characterized by mean and
+covariance. Poisson models counts under a rate and independence approximation; exponential
+models memoryless waiting times. Beta and Dirichlet distributions live on probabilities and
+probability vectors.
+
+Do not choose from the variable's appearance alone. Count variance exceeding its mean
+contradicts a basic Poisson; bounded scores contradict an untruncated Gaussian; repeated
+events contradict independence. In neural networks, the output activation and loss jointly
+encode a distributional assumption.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-lln-clt">
+
+Under standard conditions, the law of large numbers says
+$\bar X_n\to\mu$ as $n$ grows. It justifies sample averages as estimators. The central limit
+theorem says
+$\sqrt n(\bar X_n-\mu)/\sigma$ approaches a standard Gaussian, explaining the familiar
+$\sigma/\sqrt n$ standard error.
+
+The CLT describes fluctuations, not convergence itself. It can be poor for small samples,
+rare events, heavy tails, or strong dependence. More data reduce sampling error but do not
+remove bias, leakage, distribution shift, or measurement error. For clustered observations,
+effective sample size may be much smaller than row count.
+
+</InterviewQuestion>
+
+## Estimation and uncertainty
+
+<InterviewQuestion id="q-prob-mle">
+
+Given observed $D$, maximum likelihood selects
+$\hat\theta=\arg\max_\theta p(D\mid\theta)$. For independent examples, the likelihood is a
+product; log turns it into a sum and avoids underflow. Because log is monotone, the optimizer
+is unchanged. Minimizing categorical cross-entropy is therefore MLE for a conditional
+categorical model <Citation id="fisher1922likelihood" />.
+
+MLE is an estimator, not a guarantee that the model is correct. It can be biased in finite
+samples, fail to exist—for separable unregularized logistic regression—or overfit flexible
+models. Report assumptions, constraints, uncertainty, and out-of-sample checks along with
+the point estimate.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-map">
+
+MAP chooses
+$\hat\theta_{MAP}=\arg\max_\theta[\log p(D\mid\theta)+\log p(\theta)]$. A Gaussian prior
+on parameters produces an L2-shaped penalty; a Laplace prior produces L1. The equivalence
+depends on scale and parameterization, so “regularization is a prior” is a modeling
+interpretation, not a universal identity.
+
+MAP retains one posterior mode, ignores multimodality and posterior width, and changes under
+nonlinear reparameterization. Full Bayesian prediction integrates
+$p(y_*\mid x_*,D)=\int p(y_*\mid x_*,\theta)p(\theta\mid D)d\theta$. Use it when parameter
+uncertainty matters and approximation cost is justified.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-intervals">
+
+A 95% frequentist confidence interval is produced by a procedure that covers the fixed true
+parameter in 95% of repeated compatible samples. After observing one interval, the
+parameter is not random in that framework. A 95% Bayesian credible interval contains 95% of
+posterior mass conditional on prior, likelihood, and data.
+
+The numerical intervals can coincide in special cases but answer different questions.
+Neither automatically handles misspecification, selection after looking at data, multiple
+comparisons, or deployment shift. State the procedure, estimand, unit of resampling, and
+assumptions rather than merely attaching “95% confidence.”
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-bootstrap">
+
+The nonparametric bootstrap samples $n$ observed units with replacement, recomputes the
+statistic, and uses the resulting empirical distribution for standard errors, bias, or
+intervals <Citation id="efron1979bootstrap" />. It is powerful when analytic sampling
+distributions are difficult.
+
+Resample the independent unit: rows for IID data, clusters for grouped data, or blocks for
+time dependence. Ordinary bootstrap can fail at boundaries, with tiny samples, extreme
+tails, rare classes, nonsmooth statistics, or dependent observations. It reproduces the
+empirical distribution, including its blind spots; it does not repair a biased sample.
+
+</InterviewQuestion>
+
+## Testing and decision errors
+
+<InterviewQuestion id="q-prob-pvalue">
+
+A p-value is $P_{H_0}(T\text{ at least as incompatible as }T_{obs})$ for a prespecified
+statistic and null model. It conditions on $H_0$; it is not $P(H_0\mid D)$, not an effect
+size, and not a replication probability. Optional stopping or testing many hypotheses
+without adjustment changes its error behavior.
+
+Good reporting includes the effect estimate, uncertainty interval, sample size, design, and
+multiplicity handling. “Statistically significant” can be practically negligible with huge
+$n$; a nonsignificant small study can still allow important effects. The test is a decision
+procedure with assumptions, formalized through long-run error control
+<Citation id="neymanpearson1933" />.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-errors-power">
+
+Type I error rejects a true null, controlled at $\alpha$. Type II error fails to reject at a
+specified alternative, with rate $\beta$; power is $1-\beta$. At fixed $n$ and effect size,
+reducing $\alpha$ usually raises $\beta$. More samples, less noise, balanced allocation, or a
+more efficient design can improve both.
+
+Power is not a property of a test alone: it depends on effect size, variance, prevalence,
+design, and alternative. In product experiments, distinguish statistical error from the
+decision cost of false launch or missed improvement. Predefine a minimum practically
+important effect rather than powering for any nonzero change.
+
+</InterviewQuestion>
+
+## Information and probabilistic predictions
+
+<InterviewQuestion id="q-prob-entropy">
+
+Shannon entropy is $H(p)=-\sum_xp(x)\log p(x)$, the expected surprise or optimal code length
+under $p$ <Citation id="shannon1948information" />. Cross-entropy
+$H(p,q)=-\sum_xp(x)\log q(x)$ is the expected code length when data follow $p$ but we encode
+with $q$. Since $H(p,q)=H(p)+D_{KL}(p\parallel q)$, it is minimized at $q=p$.
+
+For one-hot labels, empirical cross-entropy is $-\log q_y$, exactly negative conditional
+log-likelihood. It penalizes confident wrong answers without bound. Label noise, class
+weighting, and label smoothing change the effective target and often the calibration, so
+explain the objective rather than saying it “measures classification error.”
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-kl">
+
+$D_{KL}(p\parallel q)=\mathbb E_p[\log(p(X)/q(X))]\ge0$, with equality only when the
+distributions agree almost everywhere. It measures extra coding cost or information lost
+when $q$ approximates $p$ <Citation id="kullback1951information" />.
+
+Direction matters. Forward KL heavily penalizes $q=0$ where $p>0$ and tends to cover modes;
+reverse KL, common in variational inference, can prefer one mode because it averages under
+$q$. KL is asymmetric and violates the triangle inequality, so it is not a metric. It can
+also be infinite when supports mismatch.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-mutual-information">
+
+Mutual information is
+$I(X;Y)=D_{KL}(p(x,y)\parallel p(x)p(y))=H(X)-H(X\mid Y)$. It is zero exactly at
+independence and detects nonlinear dependence. It is invariant under invertible
+reparameterizations, unlike raw covariance.
+
+Applications include feature selection, representation learning, and information gain.
+The hard part is estimation: discretization is sensitive, density estimation deteriorates
+in high dimensions, and neural lower bounds can be loose or high-variance. A high estimate
+does not establish causality and may reflect an identifier or leakage.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-calibration">
+
+A probabilistic classifier is calibrated if, among cases assigned probability near $p$, the
+event occurs about fraction $p$. Reliability diagrams and calibration error summarize this;
+Brier score and log loss are proper scores that jointly reward honest probability forecasts
+<Citation id="gneiting2007scoring" />.
+
+Calibration alone is insufficient: always predicting prevalence is calibrated in a stable
+population but has no discrimination. Conversely, a ranking can have high AUC and poor
+probabilities. Evaluate ranking, calibration, sharpness, and decision utility. Fit Platt,
+isotonic, or temperature calibration on held-out data and recheck after shift.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-prob-monte-carlo">
+
+For $\mu=\mathbb E_p[f(X)]$, draw $X_i\sim p$ and estimate
+$\hat\mu=n^{-1}\sum_i f(X_i)$. With independent finite-variance samples,
+$SE(\hat\mu)=\sqrt{\operatorname{Var}(f)/n}$: halving error takes four times the samples.
+This rate is dimension-insensitive in form, though variance can explode with dimension.
+
+Importance sampling draws from $q$ and weights by $p/q$; it fails when $q$ misses important
+mass. Markov-chain samples are correlated, reducing effective sample size. Report uncertainty,
+multiple chains or seeds, and convergence diagnostics. A larger sample cannot rescue a
+biased estimator or wrong target distribution.
+
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="Update the odds" difficulty="warm-up">
+
+A prior event probability is 0.20. Evidence has likelihood ratio 3. What is the posterior
+probability?
+
+<div slot="solution">
+
+Prior odds are $0.20/0.80=0.25$. Posterior odds are $0.25\times3=0.75$. Convert back:
+$0.75/(1+0.75)=0.4286$. The evidence raises probability from 20% to **42.9%**, not to 60%;
+likelihood ratios multiply odds, not probabilities.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="A confidence statement" difficulty="core">
+
+Rewrite this claim correctly: “There is a 95% probability that the fixed conversion-rate
+difference lies in this frequentist confidence interval.”
+
+<div slot="solution">
+
+“The interval was produced by a procedure that, under its sampling assumptions, covers the
+true fixed conversion-rate difference in 95% of repeated experiments.” If a direct 95%
+probability statement about the parameter is wanted, specify a Bayesian model and prior and
+report a posterior credible interval.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="KL is directional" difficulty="stretch">
+
+Let $p=(0.5,0.5)$ and $q=(1,0)$. Compare $D_{KL}(p\parallel q)$ with
+$D_{KL}(q\parallel p)$ using natural logs.
+
+<div slot="solution">
+
+$D_{KL}(p\parallel q)$ is infinite because $p$ assigns positive mass to the second outcome
+where $q$ assigns zero. In the other direction,
+$D_{KL}(q\parallel p)=1\log(1/0.5)+0=\log2\approx0.6931$. This support mismatch is the
+clearest demonstration that KL is asymmetric.
+
+</div>
+</Exercise>
+
+## Summary
+
+- Conditioning changes the reference population; Bayes' rule combines a base rate with
+  evidence.
+- LLN justifies averages, while CLT approximates their sampling fluctuations under stated
+  conditions.
+- MLE, MAP, and posterior integration answer different estimation questions.
+- Confidence intervals, credible intervals, p-values, and power require distinct readings.
+- Cross-entropy is negative log-likelihood; KL and mutual information quantify distributional
+  mismatch and dependence.
+- Calibration, ranking, sharpness, and decision utility are complementary—not interchangeable—
+  properties of probabilistic predictions.

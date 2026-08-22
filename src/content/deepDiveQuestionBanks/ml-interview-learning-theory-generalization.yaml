@@ -1,0 +1,156 @@
+lesson: ml-interview-learning-theory-generalization
+questions:
+  - id: q-theory-risk
+    question: What is the difference between expected risk and empirical risk?
+    conciseAnswer: Expected risk averages loss over the unknown deployment distribution; empirical risk averages it over the observed training sample. Learning succeeds when minimizing the latter yields low former risk on the population of interest.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [learning-theory, empirical-risk, generalization]
+    aliases: [erm, population risk]
+  - id: q-theory-bias-variance
+    question: Derive and interpret the bias-variance decomposition.
+    conciseAnswer: Under squared loss, expected prediction error decomposes into irreducible noise plus squared bias and estimator variance. Complexity can reduce bias while raising variance, but modern overparameterized models make the simple U-shaped story incomplete.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [bias-variance, generalization, regression]
+    aliases: [bias variance tradeoff]
+  - id: q-theory-overfitting
+    question: How do underfitting and overfitting appear, and how would you diagnose them?
+    conciseAnswer: Underfitting has poor training and validation performance; overfitting has strong training but weaker validation performance. Compare learning curves and slice metrics before changing capacity, regularization, data, or optimization.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: debugging
+    round: knowledge
+    stability: evergreen
+    tags: [overfitting, underfitting, learning-curves]
+    aliases: [high bias high variance]
+  - id: q-theory-capacity
+    question: What is model capacity, and why is parameter count not a complete measure?
+    conciseAnswer: Capacity is the richness of functions a learning procedure can realize. Parameter count is only a proxy because architecture, norms, margins, optimization, data augmentation, and parameter sharing constrain the effective hypothesis class.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [capacity, hypothesis-class, complexity]
+    aliases: [model complexity]
+  - id: q-theory-vc
+    question: What is VC dimension, intuitively and formally?
+    conciseAnswer: VC dimension is the largest number of points a binary hypothesis class can label in every possible way. Finite VC dimension yields distribution-free uniform-convergence bounds, though those bounds can be loose for modern networks.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [vc-dimension, learning-theory, capacity]
+    aliases: [shattering]
+  - id: q-theory-pac
+    question: What does PAC learnability guarantee?
+    conciseAnswer: PAC learning asks for an algorithm that, with probability at least 1-delta, returns a hypothesis with error at most epsilon using polynomially many samples and computation under specified assumptions.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [pac-learning, sample-complexity, theory]
+    aliases: [probably approximately correct]
+  - id: q-theory-generalization-bound
+    question: What does a generalization bound say, and what does it not say?
+    conciseAnswer: A bound limits the gap between population and empirical risk with stated probability using sample size and a complexity measure. It is conditional on assumptions and can be too loose to predict actual test performance.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [generalization-bound, concentration, complexity]
+    aliases: [uniform convergence]
+  - id: q-theory-regularization
+    question: How does explicit regularization improve generalization?
+    conciseAnswer: Regularization adds a preference among training solutions, such as smaller L2 norm or sparse L1 coefficients. It can reduce sensitivity and variance, but the right penalty reflects invariances and deployment costs rather than being automatically beneficial.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [regularization, l1, l2]
+    aliases: [weight decay, shrinkage]
+  - id: q-theory-implicit
+    question: What is implicit regularization?
+    conciseAnswer: It is solution preference induced without an explicit penalty—for example by optimizer, initialization, early stopping, architecture, or augmentation. Two algorithms can fit training data equally yet select solutions with different test behavior.
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, applied-scientist, general-mle]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [implicit-bias, early-stopping, optimization]
+    aliases: [implicit bias]
+  - id: q-theory-double-descent
+    question: What is double descent, and why does it challenge the classical capacity curve?
+    conciseAnswer: Test error may first fall, then peak near the interpolation threshold, then fall again as capacity grows. Overparameterization can still generalize when the learning algorithm selects a low-complexity interpolating solution.
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, applied-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [double-descent, interpolation, overparameterization]
+    aliases: [benign overfitting]
+  - id: q-theory-shift
+    question: Distinguish covariate shift, label shift, and concept shift.
+    conciseAnswer: Covariate shift changes p(x) while p(y|x) stays fixed; label shift changes p(y) while p(x|y) stays fixed; concept shift changes p(y|x). Each requires different diagnostics and corrections.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [distribution-shift, covariate-shift, concept-drift]
+    aliases: [dataset shift]
+  - id: q-theory-spurious
+    question: What are spurious correlations, and why can ERM rely on them?
+    conciseAnswer: A spurious feature predicts labels in training without representing a stable mechanism. ERM rewards any predictive shortcut, so changing environments or minority groups can expose severe failures despite high average validation accuracy.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: debugging
+    round: project-defense
+    stability: evergreen
+    tags: [spurious-correlation, shortcuts, robustness]
+    aliases: [shortcut learning]
+  - id: q-theory-no-free-lunch
+    question: What does the no-free-lunch idea imply for model selection?
+    conciseAnswer: Averaged uniformly over all possible target functions, no learner dominates. Success therefore comes from inductive bias matching structure in the real problem; it does not imply all algorithms are equally good on a specified domain.
+    priority: specialist
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [no-free-lunch, inductive-bias, model-selection]
+    aliases: [inductive bias]
+  - id: q-theory-evaluation
+    question: What evidence would convince you that a model truly generalizes?
+    conciseAnswer: Use untouched data matching deployment, group/time/geography stress tests, uncertainty across resamples or seeds, leakage checks, strong baselines, ablations, and prospective or online evidence when feasible—not one random-split score.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: system-design
+    round: project-defense
+    stability: evergreen
+    tags: [evaluation, robustness, experimental-design]
+    aliases: [generalization evidence]

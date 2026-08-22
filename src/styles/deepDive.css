@@ -86,7 +86,9 @@
   border-radius: 6px;
   color: var(--color-muted);
   min-height: 38px;
-  transition: border-color var(--transition), box-shadow var(--transition);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
 }
 
 .deep-dive-controls .search:focus-within {
@@ -157,7 +159,10 @@
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-lg, 8px);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
 }
 
 .deep-dive-card:hover {
@@ -319,6 +324,9 @@
    ========================================================================== */
 
 .deep-dive-article {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   max-width: var(--measure, 72ch);
   margin: 0 auto var(--space-12, 3rem) auto;
   padding: 0 var(--gutter, 1.25rem);
@@ -950,9 +958,6 @@
   }
 }
 
-
-
-
 /* ═══════════════════════════════════════════════════════════════════════════
    Curriculum lesson chrome (`dd-*`)
    ═══════════════════════════════════════════════════════════════════════════
@@ -1033,7 +1038,9 @@
   color: var(--color-ink);
   transition: color var(--transition);
 }
-.dd-toc__list a:hover { color: var(--color-accent); }
+.dd-toc__list a:hover {
+  color: var(--color-accent);
+}
 
 .dd-toc__sub {
   display: grid;
@@ -1042,12 +1049,17 @@
   padding-left: 1.1rem;
   font-size: 0.95em;
 }
-.dd-toc__sub a { color: var(--color-muted); }
+.dd-toc__sub a {
+  color: var(--color-muted);
+}
 
 /* Only a flat outline may run in two columns — reading order down one column and
    back up the next is fine for a list of peers, and wrong for a hierarchy. */
 @media (min-width: 769px) {
-  .dd-toc__list--flat { grid-template-columns: 1fr 1fr; gap: 0.4rem 1.5rem; }
+  .dd-toc__list--flat {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem 1.5rem;
+  }
 }
 
 /* ── Callouts ─────────────────────────────────────────────────────────────── */
@@ -1062,9 +1074,13 @@
   border-radius: 0 var(--radius-lg, 4px) var(--radius-lg, 4px) 0;
   background: color-mix(in srgb, var(--dd-callout-hue) 7%, var(--color-surface));
 }
-.dd-callout--warning { --dd-callout-hue: var(--color-badge-warm-text); }
+.dd-callout--warning {
+  --dd-callout-hue: var(--color-badge-warm-text);
+}
 .dd-callout--note,
-.dd-callout--assumption { --dd-callout-hue: var(--color-muted); }
+.dd-callout--assumption {
+  --dd-callout-hue: var(--color-muted);
+}
 
 .dd-callout__title {
   display: flex;
@@ -1078,8 +1094,12 @@
   letter-spacing: 0.05em;
   color: var(--dd-callout-hue);
 }
-.dd-callout__body > :last-child { margin-bottom: 0; }
-.dd-callout__body p { margin: 0 0 var(--space-2, 0.5rem); }
+.dd-callout__body > :last-child {
+  margin-bottom: 0;
+}
+.dd-callout__body p {
+  margin: 0 0 var(--space-2, 0.5rem);
+}
 
 /* ── Notation table ───────────────────────────────────────────────────────── */
 .dd-notation {
@@ -1101,7 +1121,10 @@
   color: var(--color-accent);
 }
 /* The table scrolls inside this box rather than widening the page. */
-.dd-notation__scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.dd-notation__scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .dd-notation__table {
   width: 100%;
   border-collapse: collapse;
@@ -1121,9 +1144,16 @@
   color: var(--color-muted);
   font-weight: 600;
 }
-.dd-notation__table tr:last-child td { border-bottom: none; }
-.dd-notation__sym { white-space: nowrap; }
-.dd-notation__dims { color: var(--color-muted); white-space: nowrap; }
+.dd-notation__table tr:last-child td {
+  border-bottom: none;
+}
+.dd-notation__sym {
+  white-space: nowrap;
+}
+.dd-notation__dims {
+  color: var(--color-muted);
+  white-space: nowrap;
+}
 
 /* ── Worked example ───────────────────────────────────────────────────────── */
 .dd-worked {
@@ -1154,11 +1184,24 @@
   gap: 0.4rem var(--space-5, 1.25rem);
   font-size: var(--fs-small, 0.9375rem);
 }
-.dd-worked__given-row { display: flex; gap: 0.5rem; align-items: baseline; }
-.dd-worked__given dt { color: var(--color-muted); }
-.dd-worked__given dd { margin: 0; font-weight: 600; }
-.dd-worked__body { padding: var(--space-4, 1rem) var(--space-5, 1.25rem); }
-.dd-worked__body > :last-child { margin-bottom: 0; }
+.dd-worked__given-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+.dd-worked__given dt {
+  color: var(--color-muted);
+}
+.dd-worked__given dd {
+  margin: 0;
+  font-weight: 600;
+}
+.dd-worked__body {
+  padding: var(--space-4, 1rem) var(--space-5, 1.25rem);
+}
+.dd-worked__body > :last-child {
+  margin-bottom: 0;
+}
 .dd-worked__provenance {
   display: flex;
   align-items: center;
@@ -1210,8 +1253,12 @@
   border-color: var(--color-badge-warm-border);
   background: var(--color-badge-warm-bg);
 }
-.dd-exercise__prompt > :last-child { margin-bottom: 0; }
-.dd-exercise__solution { margin-top: var(--space-3, 0.75rem); }
+.dd-exercise__prompt > :last-child {
+  margin-bottom: 0;
+}
+.dd-exercise__solution {
+  margin-top: var(--space-3, 0.75rem);
+}
 .dd-exercise__solution > summary {
   cursor: pointer;
   font-size: var(--fs-small, 0.9375rem);
@@ -1223,16 +1270,66 @@
   padding-top: var(--space-2, 0.5rem);
   border-top: 1px dashed var(--color-rule);
 }
-.dd-exercise__solution-body > :last-child { margin-bottom: 0; }
+.dd-exercise__solution-body > :last-child {
+  margin-bottom: 0;
+}
 /* Print the answers: a collapsed <details> would silently drop every solution
    from the PDF, which is where a reader most wants them. */
 @media print {
-  .dd-exercise__solution > summary { display: none; }
-  .dd-exercise__solution-body { display: block !important; }
+  .dd-exercise__solution > summary {
+    display: none;
+  }
+  .dd-exercise__solution-body {
+    display: block !important;
+  }
+}
+
+.dd-related-lessons {
+  margin-block: var(--space-8);
+  padding: var(--space-5);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
+}
+
+.dd-related-lessons h2 {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0 0 var(--space-4);
+  font-size: var(--fs-body);
+}
+
+.dd-related-lessons ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dd-related-lessons li {
+  min-width: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.dd-related-lessons a {
+  font-weight: 700;
+}
+
+.dd-related-lessons p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-muted);
+  font-size: var(--fs-small);
 }
 
 /* ── Figures ──────────────────────────────────────────────────────────────── */
-.dd-figure { margin: var(--space-6, 1.5rem) 0; }
+.dd-figure {
+  margin: var(--space-6, 1.5rem) 0;
+}
 .dd-figure__frame {
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-lg, 4px);
@@ -1241,7 +1338,11 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
-.dd-figure__frame svg { max-width: 100%; height: auto; margin-inline: auto; }
+.dd-figure__frame svg {
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
 .dd-figure__caption {
   margin-top: var(--space-2, 0.5rem);
   font-size: var(--fs-small, 0.9375rem);
@@ -1268,13 +1369,17 @@
   font-size: var(--fs-small, 0.9375rem);
   color: var(--color-muted);
 }
-.dd-references__list li { scroll-margin-top: 5rem; }
+.dd-references__list li {
+  scroll-margin-top: 5rem;
+}
 .dd-references__list li:target {
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border-radius: var(--radius, 2px);
 }
 /* A bare DOI is one unbreakable token; without this it widens the page on a phone. */
-.dd-references__list a { overflow-wrap: anywhere; }
+.dd-references__list a {
+  overflow-wrap: anywhere;
+}
 
 /* ── Prev / next pager ────────────────────────────────────────────────────── */
 .dd-pager {
@@ -1292,14 +1397,18 @@
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-lg, 4px);
   background: var(--color-surface);
-  transition: border-color var(--transition), background var(--transition);
+  transition:
+    border-color var(--transition),
+    background var(--transition);
 }
 .dd-pager__link:hover {
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
   text-decoration: none;
 }
-.dd-pager__link--next { text-align: right; }
+.dd-pager__link--next {
+  text-align: right;
+}
 .dd-pager__dir {
   display: inline-flex;
   align-items: center;
@@ -1309,7 +1418,9 @@
   letter-spacing: 0.06em;
   color: var(--color-muted);
 }
-.dd-pager__link--next .dd-pager__dir { justify-content: flex-end; }
+.dd-pager__link--next .dd-pager__dir {
+  justify-content: flex-end;
+}
 .dd-pager__title {
   font-family: var(--font-display);
   font-size: var(--fs-small, 0.9375rem);
@@ -1368,7 +1479,10 @@
 }
 /* Scrolls inside its own box rather than widening the document — these tables have four
    columns and one of them is a sentence. */
-.dd-datatable__scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.dd-datatable__scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .dd-datatable__table {
   width: 100%;
   /* Without a floor the browser starves the name column to feed `scale`, wrapping
@@ -1378,10 +1492,18 @@
   border-collapse: collapse;
   font-size: var(--fs-small, 0.9375rem);
 }
-.dd-datatable__table th:nth-child(1) { width: 24%; }
-.dd-datatable__table th:nth-child(2) { width: 17%; }
-.dd-datatable__table th:nth-child(3) { width: 47%; }
-.dd-datatable__table th:nth-child(4) { width: 12%; }
+.dd-datatable__table th:nth-child(1) {
+  width: 24%;
+}
+.dd-datatable__table th:nth-child(2) {
+  width: 17%;
+}
+.dd-datatable__table th:nth-child(3) {
+  width: 47%;
+}
+.dd-datatable__table th:nth-child(4) {
+  width: 12%;
+}
 .dd-datatable__table th,
 .dd-datatable__table td {
   padding: 0.55rem var(--space-4, 1rem);
@@ -1397,15 +1519,22 @@
   color: var(--color-muted);
   white-space: nowrap;
 }
-.dd-datatable__table tr:last-child td { border-bottom: none; }
-.dd-datatable__name { font-weight: 600; white-space: nowrap; }
+.dd-datatable__table tr:last-child td {
+  border-bottom: none;
+}
+.dd-datatable__name {
+  font-weight: 600;
+  white-space: nowrap;
+}
 .dd-datatable__full {
   display: block;
   font-size: 0.86em;
   color: var(--color-muted);
   margin-top: 0.1rem;
 }
-.dd-datatable__version { color: var(--color-muted); }
+.dd-datatable__version {
+  color: var(--color-muted);
+}
 
 /* Access level. Not decoration: it is whether the reader can get the data at all. */
 .dd-access {
@@ -1451,7 +1580,9 @@
   letter-spacing: 0.05em;
   color: var(--color-accent);
 }
-.dd-modulemap__module { margin-bottom: var(--space-5, 1.25rem); }
+.dd-modulemap__module {
+  margin-bottom: var(--space-5, 1.25rem);
+}
 .deep-dive-article .dd-modulemap__module-title {
   margin: 0 0 var(--space-2, 0.5rem);
   font-size: var(--fs-meta, 0.8125rem);
@@ -1474,13 +1605,17 @@
   background: var(--color-surface);
   transition: border-color var(--transition);
 }
-.dd-modulemap__list li:hover { border-color: var(--color-accent); }
+.dd-modulemap__list li:hover {
+  border-color: var(--color-accent);
+}
 .dd-modulemap__list a {
   font-family: var(--font-display);
   font-weight: 600;
   color: var(--color-ink);
 }
-.dd-modulemap__list a:hover { color: var(--color-accent); }
+.dd-modulemap__list a:hover {
+  color: var(--color-accent);
+}
 .dd-modulemap__time {
   margin-left: 0.5rem;
   font-size: var(--fs-meta, 0.8125rem);
@@ -1495,7 +1630,9 @@
 
 @media (max-width: 640px) {
   .dd-datatable__table th,
-  .dd-datatable__table td { padding: 0.45rem 0.7rem; }
+  .dd-datatable__table td {
+    padding: 0.45rem 0.7rem;
+  }
 }
 
 /* ── Interactive figures ───────────────────────────────────────────────────── */
@@ -1533,7 +1670,9 @@
   color: var(--color-ink);
 }
 /* Out-specify `.deep-dive-article h3`, which otherwise adds heading spacing here. */
-.deep-dive-article .dd-widget__title { margin: 0; }
+.deep-dive-article .dd-widget__title {
+  margin: 0;
+}
 
 .dd-widget__controls {
   display: grid;
@@ -1541,7 +1680,10 @@
   gap: 0.75rem 1.25rem;
   margin-bottom: var(--space-3, 0.75rem);
 }
-.dd-widget__control { display: grid; gap: 0.25rem; }
+.dd-widget__control {
+  display: grid;
+  gap: 0.25rem;
+}
 .dd-widget__label {
   display: flex;
   justify-content: space-between;
@@ -1578,7 +1720,12 @@
   border-radius: var(--radius, 3px);
   padding: 0.5rem 0;
 }
-.dd-widget__frame svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.dd-widget__frame svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
 
 .dd-widget__readout {
   margin: var(--space-3, 0.75rem) 0 0;
@@ -1586,7 +1733,9 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-ink);
 }
-.dd-widget__readout strong { font-weight: var(--fw-semibold, 600); }
+.dd-widget__readout strong {
+  font-weight: var(--fw-semibold, 600);
+}
 
 .dd-widget__caption {
   margin-top: var(--space-3, 0.75rem);
@@ -1597,6 +1746,315 @@
 
 @media print {
   /* The drawing prints at whatever the reader left it on; the controls do not. */
-  .dd-widget__controls { display: none; }
-  .dd-widget { break-inside: avoid; }
+  .dd-widget__controls {
+    display: none;
+  }
+  .dd-widget {
+    break-inside: avoid;
+  }
+}
+
+/* ── ML interview questions and local study controls ─────────────────────── */
+[data-ml-enhancement][hidden] {
+  display: none !important;
+}
+
+.ml-studybar,
+.ml-question-index {
+  min-width: 0;
+  margin: var(--space-6, 1.5rem) 0;
+  padding: var(--space-4, 1rem);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 6px);
+  background: color-mix(in srgb, var(--color-accent) 4%, var(--color-surface));
+}
+
+.ml-studybar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+.ml-studybar__summary {
+  display: grid;
+  margin-right: auto;
+  font-size: var(--fs-small, 0.9375rem);
+}
+.ml-studybar__summary span {
+  color: var(--color-muted);
+  font-size: var(--fs-meta, 0.8125rem);
+}
+.ml-studybar__search {
+  flex: 1 1 12rem;
+}
+.ml-studybar input[type='search'],
+.ml-studybar select,
+.ml-studybar button,
+.ml-question-index input,
+.ml-question-index select,
+.ml-question-index button,
+.interview-question button,
+.interview-question select {
+  min-height: 44px;
+  max-width: 100%;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius, 4px);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  padding: 0.45rem 0.7rem;
+}
+.ml-studybar button,
+.ml-question-index button,
+.interview-question button {
+  cursor: pointer;
+}
+.ml-studybar button:hover,
+.ml-question-index button:hover,
+.interview-question button:hover {
+  border-color: var(--color-accent);
+}
+.ml-studybar__search input {
+  width: 100%;
+}
+.ml-studybar__bookmarks {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+}
+.ml-studybar__bookmarks input {
+  min-height: auto;
+}
+
+.interview-question {
+  scroll-margin-top: 5rem;
+  margin: var(--space-7, 1.75rem) 0;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 6px);
+  background: var(--color-surface);
+  overflow: clip;
+}
+.interview-question:target {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+.interview-question__header {
+  padding: var(--space-4, 1rem);
+}
+.interview-question__eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+.interview-question__eyebrow span,
+.ml-question-index__meta span {
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  color: var(--color-muted);
+  font-size: var(--fs-meta, 0.8125rem);
+  text-transform: capitalize;
+}
+.deep-dive-article .interview-question__prompt {
+  display: flex;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: clamp(1.05rem, 2.2vw, 1.28rem);
+  line-height: 1.4;
+}
+.interview-question__prompt a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.interview-question__progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+.interview-question__bookmark[aria-pressed='true'] {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.interview-question__answer {
+  border-top: 1px solid var(--color-rule);
+}
+.interview-question__answer > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.6rem var(--space-4, 1rem);
+  color: var(--color-accent);
+  cursor: pointer;
+  font-weight: 650;
+}
+.interview-question__rapid,
+.interview-question__detail {
+  padding: 0 var(--space-4, 1rem) var(--space-4, 1rem);
+}
+.interview-question__rapid {
+  margin: 0 var(--space-4, 1rem) var(--space-4, 1rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border-left: 3px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+}
+.deep-dive-article .interview-question__rapid h4 {
+  margin-top: 0;
+}
+.interview-question__detail > :first-child {
+  margin-top: 0;
+}
+.interview-question__detail > :last-child {
+  margin-bottom: 0;
+}
+
+.ml-question-index__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.ml-question-index__header h2 {
+  margin-top: 0;
+}
+.ml-study-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+.ml-question-filters {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0.7rem;
+  margin: var(--space-4, 1rem) 0;
+}
+.ml-question-filters label {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+  color: var(--color-muted);
+  font-size: var(--fs-meta, 0.8125rem);
+}
+.ml-question-filters__search {
+  grid-column: span 2;
+}
+.ml-question-filters input:not([type='checkbox']),
+.ml-question-filters select {
+  width: 100%;
+  min-width: 0;
+}
+.ml-question-filters__check {
+  display: flex !important;
+  align-items: center;
+  grid-auto-flow: column;
+  justify-content: start;
+  min-height: 44px;
+}
+.ml-question-filters__check input {
+  min-height: auto;
+}
+.ml-question-index__count {
+  color: var(--color-muted);
+  font-size: var(--fs-small, 0.9375rem);
+}
+.ml-question-index__list {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0;
+  list-style: none;
+}
+.ml-question-index__list > li {
+  scroll-margin-top: 4rem;
+  padding: var(--space-3, 0.75rem);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius, 4px);
+  background: var(--color-surface);
+}
+.ml-question-index__list > li > a {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-weight: 650;
+}
+.ml-question-index__meta,
+.ml-question-index__progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.ml-question-index__progress {
+  margin-top: 0.55rem;
+}
+.ml-question-index__progress button,
+.ml-question-index__progress select {
+  min-height: 44px;
+}
+
+.dd-modulemap__list li.is-planned {
+  border-style: dashed;
+  opacity: 0.78;
+}
+.dd-modulemap__planned-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .ml-question-index__header {
+    display: block;
+  }
+  .ml-study-actions {
+    justify-content: flex-start;
+  }
+  .ml-question-filters__search {
+    grid-column: auto;
+  }
+  .interview-question__progress > * {
+    flex: 1 1 9rem;
+  }
+  .ml-question-index__progress > * {
+    flex: 1 1 9rem;
+  }
+  .ml-studybar input[type='search'],
+  .ml-studybar select,
+  .ml-question-index input[type='search'],
+  .ml-question-index select,
+  .interview-question select {
+    height: 44px;
+    min-height: 44px;
+    font-size: 1rem;
+  }
+  .ml-studybar button,
+  .ml-question-index button,
+  .interview-question button {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  .interview-question__progress select,
+  .ml-question-index__progress select {
+    width: 100%;
+  }
+}
+
+@media print {
+  .ml-studybar,
+  .ml-study-actions,
+  .ml-question-filters,
+  .interview-question__progress,
+  .ml-question-index__progress {
+    display: none !important;
+  }
+  .interview-question {
+    break-inside: avoid;
+  }
+  .interview-question__answer > *:not(summary) {
+    display: block !important;
+  }
+  .interview-question__answer > summary {
+    display: none;
+  }
 }

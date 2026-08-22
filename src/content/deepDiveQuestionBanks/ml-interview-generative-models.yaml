@@ -1,0 +1,170 @@
+lesson: ml-interview-generative-models
+questions:
+  - id: q-gen-density-implicit-representation
+    question: 'Distinguish explicit-density, implicit, and representation-learning objectives.'
+    conciseAnswer: >-
+      Explicit-density models define a normalized likelihood or a tractable bound, enabling scoring but not necessarily fast sampling. Implicit models can sample without evaluating density, as in a basic GAN. Self-supervised representation objectives learn features from structure in unlabeled data and need not model the full data distribution. These goals overlap in hybrids, so state which operations—score, sample, encode, condition—the application requires.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist, genai]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [generative-models, density-estimation, representation-learning]
+    aliases: [explicit versus implicit generative model, generative objective families]
+  - id: q-gen-autoregressive-factorization
+    question: 'How does an autoregressive model turn a joint distribution into a training objective?'
+    conciseAnswer: >-
+      The chain rule factorizes p(x) as the product over positions of p(x_i given x before i), so teacher-forced maximum likelihood becomes a sum of next-element cross-entropies and can train in parallel under a causal mask. Exact likelihood is tractable, but sampling remains sequential; the chosen ordering and tokenization define the conditionals and can inject asymmetric inductive bias.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [autoregressive, likelihood, chain-rule]
+    aliases: [next token likelihood, causal factorization]
+  - id: q-gen-vae-elbo
+    question: 'Derive the variational autoencoder evidence lower bound.'
+    conciseAnswer: >-
+      Insert an approximate posterior q(z|x) into log p(x), then use Jensen or the KL identity to obtain log p(x) at least E_q log p(x|z) minus KL(q(z|x) parallel p(z)). The first term rewards reconstruction under a specified likelihood; the KL regularizes the encoded distribution toward the prior. The gap equals KL(q(z|x) parallel p(z|x)), so a tight bound requires expressive inference.
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [vae, elbo, variational-inference]
+    aliases: [variational lower bound, VAE loss]
+  - id: q-gen-reparameterization
+    question: 'Why is the reparameterization trick useful in a VAE?'
+    conciseAnswer: >-
+      Sampling z directly from q_phi(z|x) hides the dependence of a Monte Carlo sample on phi. For a diagonal Gaussian, write z=mu_phi(x)+sigma_phi(x) times epsilon with epsilon from a fixed standard normal; gradients then pass through a deterministic transform while randomness is external. This gives a low-variance pathwise estimator but requires a differentiable reparameterizable family or an alternative estimator.
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [reparameterization, vae, gradients]
+    aliases: [pathwise gradient, VAE sampling trick]
+  - id: q-gen-posterior-collapse
+    question: 'What is posterior collapse in a VAE, and how do you diagnose it?'
+    conciseAnswer: >-
+      Posterior collapse occurs when q(z|x) approaches the prior and the decoder ignores z, often because an expressive autoregressive decoder can model x without latent information. A near-zero KL alone is a clue, not a full diagnosis; inspect per-dimension KL, mutual-information proxies, latent interventions, reconstructions, and active units. KL warmup, free bits, weakening the decoder, or changing the objective can help but changes tradeoffs.
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, genai]
+    kind: debugging
+    round: experimentation
+    stability: evergreen
+    tags: [posterior-collapse, vae, debugging]
+    aliases: [latent variable ignored, KL collapse]
+  - id: q-gen-gan-objective
+    question: 'Explain the original GAN minimax game and its ideal equilibrium.'
+    conciseAnswer: >-
+      A discriminator maximizes log D(x)+log(1-D(G(z))) while a generator minimizes the second term; with an optimal discriminator and enough capacity, the value reduces to a Jensen-Shannon-divergence expression whose global optimum has model distribution equal to data distribution. In practice alternating finite updates do not maintain an optimal discriminator, and the non-saturating generator loss is often used for stronger early gradients.
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [gan, minimax, discriminator]
+    aliases: [GAN loss, adversarial training]
+  - id: q-gen-gan-collapse-stability
+    question: 'Why do GANs exhibit mode collapse and unstable training?'
+    conciseAnswer: >-
+      The generator and discriminator optimize a coupled game rather than one stationary scalar objective; a generator can map many latent points to a few outputs that currently fool the discriminator, losing diversity. Diagnose sample diversity, nearest neighbors, discriminator margins, gradients, and multiple seeds. Balanced update rates, regularization, better divergences, architectural constraints, and replay can help, but one attractive sample grid cannot establish coverage.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: debugging
+    round: experimentation
+    stability: evergreen
+    tags: [mode-collapse, gan, training-stability]
+    aliases: [GAN instability, missing modes]
+  - id: q-gen-normalizing-flows
+    question: 'How do normalizing flows compute exact likelihood, and what do invertibility constraints cost?'
+    conciseAnswer: >-
+      An invertible map x=f(z) transforms a tractable base density by log p_X(x)=log p_Z(f inverse x)+log absolute determinant of the inverse Jacobian. Composing maps adds log determinants. Exact density and parallel generation are attractive, but dimensions usually match, every transform must be invertible, and Jacobian determinants must be cheap; coupling or autoregressive structure trades expressivity against sampling or scoring speed.
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [normalizing-flow, change-of-variables, likelihood]
+    aliases: [flow model, invertible neural network]
+  - id: q-gen-diffusion-forward-reverse
+    question: 'Describe the forward and learned reverse processes in a denoising diffusion model.'
+    conciseAnswer: >-
+      A fixed Markov forward process gradually adds Gaussian noise so x_t has a closed-form sample from x_0; a network predicts noise, score, velocity, or x_0 so a parameterized reverse process can denoise from a simple prior. The common noise-prediction mean-squared loss is a weighted variational objective. Sampling integrates many reverse steps, trading compute against discretization and model error.
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [diffusion, denoising, score-matching]
+    aliases: [DDPM objective, reverse diffusion]
+  - id: q-gen-diffusion-guidance
+    question: 'What tradeoffs do conditioning and guidance introduce in diffusion sampling?'
+    conciseAnswer: >-
+      Conditioning supplies side information to the denoiser; guidance amplifies conditional direction relative to an unconditional or classifier score. Stronger guidance often improves prompt or label adherence and apparent fidelity while reducing diversity and potentially producing saturation or artifacts. Evaluate the full quality-coverage-control frontier at fixed sampling cost, and distinguish training-time conditioning from the sampler and guidance rule.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [diffusion, guidance, conditioning]
+    aliases: [classifier free guidance, conditional diffusion]
+  - id: q-gen-infonce
+    question: 'Write the InfoNCE objective and explain the roles of negatives and temperature.'
+    conciseAnswer: >-
+      For an anchor and its positive, InfoNCE is the negative log of positive exponential similarity divided by the sum over positive and candidate negatives, usually with similarities divided by temperature tau. More representative negatives sharpen discrimination but false negatives repel semantically related examples; smaller tau makes the distribution sharper and gradients concentrate on hard competitors. View construction defines the intended invariances.
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [infonce, contrastive-learning, temperature]
+    aliases: [contrastive loss, negative samples]
+  - id: q-gen-self-supervised-families
+    question: 'Compare contrastive, masked-prediction, and self-distillation objectives.'
+    conciseAnswer: >-
+      Contrastive learning separates matched views from alternatives; masked prediction reconstructs hidden content from context; self-distillation aligns student and teacher views without explicit labels and needs a mechanism that prevents constant representations. They preserve different information and impose different compute and augmentation assumptions. Compare downstream transfer, linear probes, robustness, and representation collapse—not pretext loss values across unlike objectives.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [self-supervised-learning, masking, distillation]
+    aliases: [SSL objectives, representation pretraining]
+  - id: q-gen-evaluation
+    question: 'Why is generative-model evaluation intrinsically multidimensional?'
+    conciseAnswer: >-
+      Likelihood measures assigned density but may disagree with perceived sample quality; FID compares moments in one feature space and is biased at finite sample sizes; precision and recall separate fidelity from coverage; human evaluation can test utility but needs blinding and reliability. Add memorization and subgroup checks, condition adherence, downstream utility, and latency. Never rank models from one unqualified scalar.
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [generative-evaluation, fid, precision-recall]
+    aliases: [evaluate image generators, quality versus diversity]
+  - id: q-gen-family-selection
+    question: 'How would you choose among autoregressive, VAE, GAN, flow, and diffusion families?'
+    conciseAnswer: >-
+      Translate requirements into operations: exact or comparable likelihood, sample fidelity and coverage, encoding, controllability, deterministic reconstruction, streaming, and latency. Autoregressive models score exactly but sample sequentially; VAEs provide amortized latents; GANs sample quickly without density; flows require invertibility; diffusion is flexible but often iterative. Benchmark the smallest viable family under equal data, compute, evaluation, and safety constraints.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist, genai, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [model-selection, generative-models, system-design]
+    aliases: [which generative model, generator architecture choice]

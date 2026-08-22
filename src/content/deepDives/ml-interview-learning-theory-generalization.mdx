@@ -1,0 +1,420 @@
+---
+title: "Learning Theory and Generalization for Machine Learning Interviews"
+shortTitle: Learning Theory & Generalization
+description: "Fourteen detailed interview answers on risk, bias and variance, capacity, VC and PAC ideas, regularization, double descent, distribution shift, shortcuts and trustworthy evaluation."
+abstract: "Generalization is not a property read from training loss. It is a relationship among a data-generating process, a hypothesis class, a learning algorithm and the deployment population. This lesson builds the classical toolkit, explains where modern overparameterized models challenge its simplest story, and turns theory into concrete diagnosis and evaluation decisions."
+date: 2026-08-22
+updated: 2026-08-22
+track: theory
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m02-theory
+moduleLabel: Module 2 · Learning, Generalization & Evaluation
+order: 3
+level: intermediate
+objectives:
+  - "Separate empirical risk, expected risk and the generalization gap."
+  - "Derive squared-loss bias–variance decomposition and explain its limitations."
+  - "Interpret capacity, VC dimension, PAC guarantees and generalization bounds without overclaiming."
+  - "Compare explicit and implicit regularization in classical and overparameterized models."
+  - "Diagnose distribution shift and spurious shortcuts with deployment-matched evidence."
+prerequisites:
+  - ml-interview-linear-algebra-calculus
+  - ml-interview-probability-statistics
+relatedLessons:
+  - ml-interview-data-features-validation
+  - ml-interview-metrics-experimentation
+referenceIds:
+  - vapnik1971uniform
+  - valiant1984learnable
+  - wolpert1996nfl
+  - zhang2017rethinking
+  - belkin2019double
+  - bartlett2020benign
+  - sugiyama2007covariate
+  - arjovsky2019irm
+keyEquations:
+  - 'R(f)=\mathbb E_{(X,Y)\sim P}\!\left[\ell\!\left(f(X),Y\right)\right]'
+  - '\mathbb E_{\mathcal D,Y\mid x}\!\left[(Y-\widehat f_{\mathcal D}(x))^2\right]=\sigma^2(x)+\left(\mathbb E_{\mathcal D}[\widehat f_{\mathcal D}(x)]-f^\star(x)\right)^2+\operatorname{Var}_{\mathcal D}\!\left[\widehat f_{\mathcal D}(x)\right]'
+  - '\Pr\!\left(\forall f\in\mathcal H:\ R(f)\le\widehat R_n(f)+\sqrt{\frac{\log\!\left(\lvert\mathcal H\rvert/\delta\right)}{2n}}\right)\ge1-\delta'
+tags: [machine learning, interview, learning theory, generalization, bias variance, distribution shift]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+
+## The mental model: a learner, not just a model
+
+A trained network is one output of a learning procedure applied to one sample. Generalization
+depends on the population that sample represents, what functions the model and optimizer can
+select, and how closely evaluation reproduces deployment.
+
+<Callout variant="intuition">
+Training loss asks, “Did this solution fit the examples it saw?” Generalization asks, “What
+will the **whole procedure**—sampling, preprocessing, optimization, model selection and
+thresholding—do on a new unit from the population we care about?” A test set estimates that
+only when it is untouched and population-matched.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'f\\in\\mathcal H', meaning: 'Predictor selected from hypothesis class H', dims: 'function' },
+    { symbol: '\\ell(f(x),y)', meaning: 'Loss on one labeled example', dims: 'scalar' },
+    { symbol: 'R(f)', meaning: 'Expected or population risk under deployment distribution P', dims: 'expected loss' },
+    { symbol: '\\hat R_n(f)', meaning: 'Empirical risk on n training observations', dims: 'average loss' },
+    { symbol: 'd_{VC}', meaning: 'VC dimension of a binary hypothesis class', dims: 'nonnegative integer' },
+    { symbol: '\\epsilon', meaning: 'Allowed excess error in a PAC statement', dims: 'scalar in (0,1)' },
+    { symbol: '\\delta', meaning: 'Failure probability in a PAC statement', dims: 'scalar in (0,1)' },
+    { symbol: 'P_{tr},P_{te}', meaning: 'Training and deployment joint distributions', dims: 'distributions over X × Y' },
+  ]}
+/>
+
+<Widget
+  kind="bias-variance"
+  title="What moves the bias–variance balance?"
+  caption="A deliberately transparent toy decomposition. Move complexity and sample size to see why model capacity alone does not determine test error. The curves teach the terms in the equation; they are not an empirical law for modern networks."
+  alt="Interactive plot of squared bias, estimation variance, irreducible noise, and their total against illustrative model complexity."
+>
+  <svg viewBox="0 0 660 320" role="presentation">
+    <line x1="62" y1="274" x2="638" y2="274" stroke="currentColor" />
+    <line x1="62" y1="22" x2="62" y2="274" stroke="currentColor" />
+    <path d="M70 52 C180 128 310 215 630 253" fill="none" stroke="currentColor" stroke-dasharray="7 4" />
+    <path d="M70 260 C290 252 470 196 630 76" fill="none" stroke="currentColor" stroke-dasharray="2 4" />
+    <path d="M70 70 C205 159 330 204 438 191 C520 181 581 137 630 92" fill="none" stroke="var(--color-accent,#2e6e5e)" stroke-width="2.5" />
+  </svg>
+</Widget>
+
+## Risk and the classical picture
+
+<InterviewQuestion id="q-theory-risk">
+
+For loss $\ell$, population risk is
+$R(f)=\mathbb E_{(X,Y)\sim P}[\ell(f(X),Y)]$. Because $P$ is unknown, training minimizes
+$\hat R_n(f)=n^{-1}\sum_i\ell(f(x_i),y_i)$. Their difference is a generalization gap, but
+the quantity we ultimately care about is deployment risk—not a small gap by itself. A model
+with both risks high underfits.
+
+Empirical risk minimization is meaningful only after defining the sample unit, loss,
+hypothesis class, and target population. Validation used repeatedly for choices becomes
+part of training; the final test must evaluate the entire selected procedure. Under shift,
+even a small IID test gap can say little about deployment.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-theory-bias-variance">
+
+For $Y=f(X)+\varepsilon$, with $\mathbb E[\varepsilon\mid X]=0$ and variance $\sigma^2$,
+average over possible training sets $D$:
+
+$$
+\mathbb E_{D,Y}[(Y-\hat f_D(x))^2]
+=\sigma^2+
+(\mathbb E_D[\hat f_D(x)]-f(x))^2+
+\operatorname{Var}_D(\hat f_D(x)).
+$$
+
+Noise is irreducible for predicting $Y$ from $X$; squared bias measures systematic error;
+variance measures sensitivity to the sample. It is an exact squared-loss identity at a
+fixed $x$, not a universal decomposition for every metric. More capacity often lowers bias
+and raises variance, but regularization and optimizer bias can make an overparameterized
+model interpolate while remaining stable.
+
+</InterviewQuestion>
+
+<WorkedExample
+  title="A little shrinkage lowers expected error"
+  given={[
+    { label: 'Observations', value: 'Yᵢ = μ + εᵢ, μ = 3, Var(εᵢ) = 4' },
+    { label: 'Sample size', value: 'n = 4' },
+    { label: 'Estimator', value: 'μ̂ = 0.9Ȳ' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+
+The estimator's bias is $(0.9-1)3=-0.3$, so squared bias is $0.09$. Its variance is
+$0.9^2(4/4)=0.81$. Predicting a new observation adds irreducible noise 4:
+
+$$
+\mathbb E[(Y_{new}-\hat\mu)^2]=4+0.09+0.81=4.90.
+$$
+
+The unshrunk sample mean has zero bias and variance $4/4=1$, for total error $5.00$.
+Shrinkage deliberately buys $0.09$ bias to remove $0.19$ variance. This is not a universal
+win: if $\mu$ were far from the shrinkage target zero, squared bias could dominate.
+
+</WorkedExample>
+
+<InterviewQuestion id="q-theory-overfitting">
+
+Underfitting typically shows high training and validation loss: the representation,
+optimization, or signal is inadequate. Overfitting shows low training loss but a persistent
+validation gap. Plot both against training set size and training steps, then inspect slices
+and label quality.
+
+Responses differ. For underfitting: verify optimization, improve features, relax
+regularization, or increase capacity. For overfitting: obtain independent data, reduce
+effective capacity, augment validly, regularize, or stop earlier. A validation gap can also
+be a distribution mismatch; and uniformly poor validation with excellent train scores can
+be leakage or duplicate removal exposing the real task.
+
+</InterviewQuestion>
+
+<Figure
+  caption="Figure 1. Learning curves distinguish three regimes. Underfitting leaves both losses high; ordinary overfitting opens a train–validation gap; more data often narrows that gap but cannot repair a population mismatch."
+  alt="Three small learning-curve panels. The first has high training and validation losses close together; the second has low training loss and higher validation loss; the third shows the validation curve approaching training loss as sample size grows, with a dashed lower line marking irreducible noise."
+>
+  <svg viewBox="0 0 720 250" width="720" height="250" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.2">
+      <path d="M45 35 V190 H220"/><path d="M270 35 V190 H445"/><path d="M495 35 V190 H680"/>
+      <path d="M55 75 C105 95 160 100 210 103" stroke="var(--color-accent)" stroke-width="3"/>
+      <path d="M55 60 C105 80 160 88 210 92" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/>
+      <path d="M280 55 C330 120 390 154 435 165" stroke="var(--color-accent)" stroke-width="3"/>
+      <path d="M280 55 C330 72 390 82 435 88" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/>
+      <path d="M505 50 C550 72 610 115 670 145" stroke="var(--color-accent)" stroke-width="3"/>
+      <path d="M505 170 C555 166 610 160 670 154" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/>
+      <line x1="495" y1="174" x2="680" y2="174" opacity=".35" stroke-dasharray="3 3"/>
+    </g>
+    <g fill="currentColor" font-size="12" text-anchor="middle"><text x="132" y="220">underfitting</text><text x="357" y="220">overfitting</text><text x="587" y="220">more data</text></g>
+    <g fill="currentColor" font-size="10"><text x="72" y="48">validation</text><text x="72" y="68">training</text><text x="552" y="169">noise floor</text></g>
+  </svg>
+</Figure>
+
+## Capacity and learnability
+
+<InterviewQuestion id="q-theory-capacity">
+
+Capacity describes how many distinct input-output patterns a hypothesis class and training
+procedure can realize. Parameter count can correlate with capacity but misses weight
+sharing, norm constraints, margins, architecture, and optimizer selection. A convolutional
+network can have fewer parameters yet express a strong translation-aware family; a large
+network constrained near initialization may have low effective complexity.
+
+Useful measures depend on the question: VC dimension for binary shattering, Rademacher
+complexity for data-dependent fit to random signs, norm or margin bounds for networks, and
+algorithmic stability for sensitivity to one sample. Capacity is not inherently bad: enough
+is required to express the signal. It becomes risky relative to data, noise, and inductive
+bias.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-theory-vc">
+
+A set of $m$ points is shattered if the class can realize all $2^m$ binary labelings. VC
+dimension is the largest $m$ for which some set can be shattered. A threshold on the real
+line has VC dimension one; intervals have two. Linear separators in general position in
+$\mathbb R^d$ have VC dimension $d+1$.
+
+Finite VC dimension enables distribution-free uniform convergence: empirical errors of all
+hypotheses approach population errors together as sample size grows
+<Citation id="vapnik1971uniform" />. The framework explains capacity control but worst-case
+bounds are often loose for deep networks and ignore data geometry and optimizer bias. Use it
+as a guarantee language, not a precise sample-size calculator.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-theory-pac">
+
+In the realizable PAC setup, an algorithm is probably approximately correct if, for any
+distribution, it returns with probability at least $1-\delta$ a hypothesis with error at
+most $\epsilon$, using resources polynomial in $1/\epsilon$, $1/\delta$, and problem size
+<Citation id="valiant1984learnable" />. Agnostic PAC compares against the best hypothesis in
+the class when labels need not be perfectly realizable.
+
+“Probably” refers to randomness of the sample; “approximately” to allowed error. A PAC
+claim must name hypothesis class, data assumptions, loss, computational requirement, and
+confidence. It does not say a particular finite training run meets a practical reliability
+target under distribution shift.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-theory-generalization-bound">
+
+A representative bound has
+
+$$
+R(f)\le\hat R_n(f)+O\!\left(\sqrt{\frac{C+\log(1/\delta)}{n}}\right)
+$$
+
+simultaneously for a class, where $C$ is a complexity term. It explains why more data and a
+smaller effective class shrink uncertainty. Some bounds are uniform over all hypotheses;
+others use margins, norms, stability, compression, or posterior-dependent complexity.
+
+Check whether the chosen $f$ was covered, the observations satisfy independence or mixing
+conditions, loss is bounded or controlled, and deployment matches the bound's distribution.
+A vacuous bound above the loss maximum remains mathematically valid but operationally
+uninformative. Bounds support reasoning about dependencies; validation estimates actual
+performance.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-theory-no-free-lunch">
+
+No-free-lunch results average performance over all target functions or problems and show
+that gains on some must be offset elsewhere <Citation id="wolpert1996nfl" />. The practical
+message is that learning requires inductive bias: smoothness, sparsity, locality,
+compositionality, invariance, or another assumption matching the domain.
+
+It does **not** mean all algorithms perform equally on images, language, or a defined
+business distribution. Those domains are far from uniform over arbitrary labelings.
+Compare models using domain knowledge and deployment-matched evidence; state what structural
+bias makes a chosen model plausible.
+
+</InterviewQuestion>
+
+## Regularization and overparameterization
+
+<InterviewQuestion id="q-theory-regularization">
+
+Explicit regularization solves $\min_f\hat R(f)+\lambda\Omega(f)$. L2 discourages large
+Euclidean weights and stabilizes correlated linear problems; L1 promotes zeros; group and
+structured penalties encode other preferences. In Bayesian terms, they can correspond to
+negative log priors under particular parameterizations.
+
+Tune $\lambda$ inside validation. Scaling features changes what equal weight penalties mean.
+In neural networks, weight decay and adding an L2 term are not identical for every optimizer,
+especially adaptive ones. Regularization trades training fit for a preferred solution; it
+cannot fix leakage, wrong labels, or a deployment shift.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-theory-implicit">
+
+Implicit regularization is a solution preference induced by the learning process without an
+explicit penalty. Gradient descent on underdetermined linear regression from zero selects a
+minimum-L2-norm interpolant. Architecture, initialization, early stopping, stochastic noise,
+normalization, and augmentation can similarly privilege some fitted functions.
+
+The distinction matters because two procedures with identical zero training error can
+generalize differently. It also means parameter count alone cannot predict behavior. Treat
+implicit-bias claims as algorithm- and regime-specific: changing optimizer, learning rate,
+batch size, or parameterization may change the selected solution.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-theory-double-descent">
+
+Classical intuition predicts a U-shaped test-error curve as capacity rises. Double descent
+adds a peak near the interpolation threshold, followed by decreasing error in a highly
+overparameterized regime <Citation id="belkin2019double" />. In linear models, sufficiently
+benign data geometry can let the minimum-norm interpolator fit noise without paying large
+population error <Citation id="bartlett2020benign" />.
+
+This does not prove “bigger is always better.” The curve depends on data, noise, optimizer,
+regularization, and compute; the interpolation peak can be dangerous. It reconciles why deep
+nets can fit random labels <Citation id="zhang2017rethinking" /> yet sometimes generalize:
+ability to memorize and the solution actually selected are separate facts.
+
+</InterviewQuestion>
+
+## Shift, shortcuts, and evidence
+
+<InterviewQuestion id="q-theory-shift">
+
+Write $p(x,y)=p(y\mid x)p(x)=p(x\mid y)p(y)$. Covariate shift changes $p(x)$ while
+$p(y\mid x)$ stays fixed; importance weighting can correct it if density ratios are
+estimable and supports overlap <Citation id="sugiyama2007covariate" />. Label shift changes
+$p(y)$ while $p(x\mid y)$ stays fixed. Concept shift changes $p(y\mid x)$ and usually
+requires new labels, features, or model adaptation.
+
+Real systems can mix all three. Diagnose feature distributions, prevalence, conditional
+performance, calibration, and temporal slices. Unlabeled drift detection cannot establish
+concept shift. Reweighting fails when deployment has regions absent from training.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-theory-spurious">
+
+A shortcut is predictive in training but unstable or semantically wrong for deployment: a
+hospital token predicting disease, background predicting animal class, or future workflow
+code revealing an outcome. ERM rewards it because loss does not distinguish mechanism from
+correlation. Average IID accuracy can hide failure on rare groups.
+
+Use environment and subgroup splits, counterfactual perturbations, feature ablations,
+error inspection, and external validation. Invariant-learning methods attempt to find
+predictors stable across environments <Citation id="arjovsky2019irm" />, but guarantees need
+strong environment and causal assumptions. The safest answer combines data provenance,
+stress tests, and monitoring rather than naming one robust objective.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-theory-evaluation">
+
+Convincing evidence starts with a target population and untouched evaluation units. Report a
+strong simple baseline, confidence across resamples and seeds, subgroup and temporal
+performance, calibration, leakage/duplicate audits, ablations, and robustness to plausible
+perturbations. Use external, prospective, or online evaluation where consequences justify
+it.
+
+Match split unit to deployment: users, patients, devices, sites, or time—not arbitrary rows.
+Record every model-selection choice; validation is no longer independent after enough
+adaptive tuning. Discuss failure costs and reject options. One leaderboard number is a
+comparison on one sample, not evidence of universal generalization.
+
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="Read the learning curves" difficulty="warm-up">
+
+Training and validation losses are both high and nearly equal. Would adding regularization
+be your first move? What would you check?
+
+<div slot="solution">
+
+No: the pattern suggests underfitting rather than a variance gap, so stronger regularization
+may worsen both. First verify optimization and label/feature correctness. Then try a more
+expressive representation, longer or better optimization, or weaker regularization. Check
+slices because averaging can hide one easy majority group and one failing minority group.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Bound the generalization gap" difficulty="core">
+
+A simplified bound is $\sqrt{(C+\ln(1/\delta))/n}$. With $C=20$, $\delta=0.05$, and
+$n=10{,}000$, compute the term.
+
+<div slot="solution">
+
+$\ln(20)\approx2.996$, so the numerator is $22.996$. Divide by 10,000 and take the square
+root: $\sqrt{0.0022996}=0.04795$, about **4.8 percentage points**. This is a bound term under
+its assumptions, not an expected observed gap; constants and the definition of $C$ matter.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Name the shift" difficulty="stretch">
+
+A fraud model moves to a country with a higher fraud prevalence. Conditional transaction
+patterns $p(x\mid y)$ within fraud and legitimate classes are believed unchanged. What shift
+is assumed, and what would you verify before correction?
+
+<div slot="solution">
+
+This is label shift: $p(y)$ changes while $p(x\mid y)$ is invariant. Estimate the new class
+prior from unlabeled predictions only if the classifier/confusion model is identifiable and
+stable. Verify class-conditional feature and error distributions on labeled samples, support
+overlap, calibration after prior adjustment, and whether concept or covariate shift also
+occurred.
+
+</div>
+</Exercise>
+
+## Summary
+
+- Expected risk concerns deployment; empirical risk is the observable training surrogate.
+- Bias–variance is an exact squared-loss decomposition under explicit averaging assumptions.
+- Capacity measures a function class or procedure, not just a raw parameter count.
+- VC/PAC and bounds give assumption-dependent guarantees; they need not predict a neural
+  network's exact test error.
+- Explicit and implicit regularization select among fitted solutions; double descent shows
+  interpolation need not imply poor generalization.
+- Generalization claims require population-matched, leakage-resistant, sliced and uncertain
+  evaluation—especially under shift and shortcuts.

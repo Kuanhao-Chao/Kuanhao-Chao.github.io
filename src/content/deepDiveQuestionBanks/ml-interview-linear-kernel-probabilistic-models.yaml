@@ -1,0 +1,200 @@
+lesson: ml-interview-linear-kernel-probabilistic-models
+questions:
+  - id: q-models-generative-discriminative
+    question: 'What is the difference between a generative and a discriminative classifier?'
+    conciseAnswer: "A discriminative model learns a decision boundary or p(y|x); a generative model learns p(x|y) together with p(y), then applies Bayes' rule. Generative assumptions can improve sample efficiency and enable missing-data or simulation workflows, while discriminative models usually win asymptotically when their conditional model is well specified."
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [classification, bayes, generative-models]
+    aliases: [generative-vs-discriminative, joint-vs-conditional]
+  - id: q-models-linear-regression-assumptions
+    question: 'What assumptions does ordinary least squares make, and which conclusion does each assumption support?'
+    conciseAnswer: 'Linearity in parameters and zero conditional-mean errors make OLS unbiased; full column rank makes the coefficient vector identifiable; finite, homoscedastic, uncorrelated errors make the usual variance formula valid. Normal errors are not needed to fit OLS or prove unbiasedness—they make exact small-sample t and F inference possible.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [linear-regression, ols, assumptions, inference]
+    aliases: [ols-assumptions, gauss-markov]
+  - id: q-models-normal-equations
+    question: 'Derive the normal equations, and explain why production code should rarely invert X transpose X directly.'
+    conciseAnswer: 'Differentiating ||y-Xw|| squared gives X transpose X w = X transpose y. Forming and inverting X transpose X squares the condition number and is numerically fragile; solve least squares with QR, SVD, or an iterative method, using the pseudoinverse when rank deficient.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [linear-regression, numerical-linear-algebra, conditioning]
+    aliases: [closed-form-linear-regression, pseudoinverse]
+  - id: q-models-ridge-lasso
+    question: 'Compare ridge and lasso regularization geometrically, statistically, and computationally.'
+    conciseAnswer: 'Ridge adds an L2 penalty, continuously shrinking correlated coefficients and producing a unique stable solution under mild conditions. Lasso adds an L1 penalty whose corners create exact zeros, but selected features can be unstable under collinearity; elastic net combines both behaviors.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [regularization, ridge, lasso, elastic-net]
+    aliases: [l1-vs-l2, feature-selection]
+  - id: q-models-logistic-loss
+    question: 'Why does logistic regression use log loss instead of squared error?'
+    conciseAnswer: 'A Bernoulli likelihood with log-odds linear in x yields sigmoid probabilities and binary cross-entropy as the negative log-likelihood. The resulting objective is convex, heavily penalizes confident wrong answers, and estimates conditional probabilities when the model is correctly specified; squared error lacks that likelihood match and has poorer optimization geometry with a sigmoid.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [logistic-regression, cross-entropy, maximum-likelihood]
+    aliases: [binary-cross-entropy, sigmoid-loss]
+  - id: q-models-softmax
+    question: 'How does multinomial logistic regression work, and why must softmax be computed with log-sum-exp stabilization?'
+    conciseAnswer: 'The model assigns one logit per class and normalizes exponentials into probabilities. Adding or subtracting one constant from every logit changes no probability, so subtracting the maximum logit prevents overflow; log-softmax or log-sum-exp should be fused with cross-entropy in code.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [softmax, multiclass, numerical-stability]
+    aliases: [multinomial-logistic-regression, log-sum-exp]
+  - id: q-models-threshold-calibration
+    question: 'Why are probability calibration and decision-threshold selection separate problems?'
+    conciseAnswer: 'Calibration asks whether events predicted at probability p occur about p of the time; thresholding converts probabilities into actions using costs, benefits, prevalence, and constraints. A calibrated model can have a poor operating threshold, and a rank-accurate model can be poorly calibrated yet still support a useful threshold after validation.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, leadership]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [calibration, thresholds, decision-theory]
+    aliases: [calibration-vs-discrimination, operating-point]
+  - id: q-models-naive-bayes
+    question: 'Why can naive Bayes work well when conditional independence is false?'
+    conciseAnswer: 'Classification needs the correct ordering of posterior scores, not a perfect joint density. Correlated features can distort probability calibration while leaving the winning class unchanged, and the strong factorization assumption reduces estimation variance in small data; duplicated evidence remains a major failure mode.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [naive-bayes, conditional-independence, bias-variance]
+    aliases: [why-naive-bayes-works, conditional-independence]
+  - id: q-models-lda-qda
+    question: 'Derive the difference between LDA and QDA decision boundaries.'
+    conciseAnswer: 'Both assume a class-conditional Gaussian. Sharing one covariance matrix makes the quadratic x terms cancel in log-posterior ratios, so LDA has linear boundaries; class-specific covariance matrices retain those terms, giving QDA curved boundaries with many more parameters.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [lda, qda, gaussian-classifier]
+    aliases: [linear-discriminant-analysis, quadratic-discriminant-analysis]
+  - id: q-models-knn
+    question: 'What controls the bias, variance, and computational cost of k-nearest neighbors?'
+    conciseAnswer: 'Small k creates flexible low-bias, high-variance neighborhoods; larger k smooths predictions and raises bias. Distance scaling, metric choice, dimensionality, and local density determine whether neighbors are meaningful, while naïve inference costs O(nd) per query and stores the training set.'
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [knn, nonparametric, curse-of-dimensionality]
+    aliases: [nearest-neighbors, choosing-k]
+  - id: q-models-svm-margin
+    question: 'What is the geometric margin in an SVM, and why does maximizing it regularize the classifier?'
+    conciseAnswer: "For hyperplane w transpose x plus b equals zero, a labeled point's signed geometric margin is y(w transpose x plus b)/||w||. Fixing functional margin constraints and minimizing ||w|| squared maximizes the smallest geometric margin, controlling capacity while hinge-loss slack trades violations against boundary width."
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [svm, margin, hinge-loss, regularization]
+    aliases: [maximum-margin, soft-margin-svm]
+  - id: q-models-kernel-trick
+    question: 'What is the kernel trick, and what makes a function a valid kernel?'
+    conciseAnswer: 'A kernel evaluates an inner product in an implicit feature space, letting dual algorithms fit nonlinear boundaries without explicitly constructing those features. On any finite sample its Gram matrix must be symmetric positive semidefinite; a convenient similarity function is not automatically a valid kernel.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [kernels, svm, reproducing-kernel]
+    aliases: [implicit-feature-map, mercer-kernel]
+  - id: q-models-svm-hyperparameters
+    question: 'How do C and gamma change an RBF SVM, and how should they be tuned?'
+    conciseAnswer: "C controls the cost of margin violations: large C fits training points more aggressively. RBF gamma controls locality: large gamma makes each point's influence narrow and the boundary wiggly; both must be tuned inside cross-validation after scaling features, preferably on logarithmic grids."
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [svm, rbf, hyperparameters]
+    aliases: [c-and-gamma, rbf-bandwidth]
+  - id: q-models-support-vectors-dual
+    question: 'Why do only support vectors determine an SVM prediction?'
+    conciseAnswer: 'In the dual solution, w is a weighted sum of training examples and complementary slackness makes the multiplier zero for points strictly outside the margin. Only points on or inside the margin retain nonzero multipliers, so predictions depend on their kernel similarities.'
+    priority: specialist
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [svm, duality, support-vectors, kkt]
+    aliases: [svm-dual, complementary-slackness]
+  - id: q-models-scaling
+    question: 'Which classical models require feature scaling, and why?'
+    conciseAnswer: 'Distance-based methods, gradient-based optimization, and coefficient penalties are sensitive to units, so kNN, RBF SVMs, PCA, and regularized linear models generally need scaling. Ordinary unregularized predictions are invariant to invertible rescaling after refitting, while tree splits are effectively scale invariant.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist]
+    kind: implementation
+    round: knowledge
+    stability: evergreen
+    tags: [preprocessing, scaling, leakage]
+    aliases: [standardization, normalize-features]
+  - id: q-models-interactions-collinearity
+    question: 'How do interactions, polynomial features, and multicollinearity change a linear model?'
+    conciseAnswer: 'A model is linear because it is linear in its coefficients, so transformed and interaction features can represent curved responses. Correlated columns make individual coefficients unstable and inflate their variance without necessarily hurting prediction; centering, regularization, domain-driven bases, or dimensionality reduction can help.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: project-defense
+    stability: evergreen
+    tags: [feature-engineering, interactions, multicollinearity]
+    aliases: [polynomial-regression, correlated-features]
+  - id: q-models-imbalance-weights
+    question: 'What does class weighting change in a probabilistic classifier?'
+    conciseAnswer: 'Weighting changes the empirical risk and usually the effective class prior, emphasizing mistakes on one class. It may improve ranking or recall but its raw outputs need not represent deployment probabilities; evaluate on the natural prevalence and recalibrate or adjust prior odds when probabilities matter.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [class-imbalance, weighting, calibration]
+    aliases: [weighted-loss, rare-class]
+  - id: q-models-model-choice
+    question: 'How would you choose among a linear model, kNN, an SVM, and a probabilistic generative model?'
+    conciseAnswer: 'Start from sample size, dimensionality, sparsity, latency, missingness, calibration, and interpretability—not a leaderboard. Use a regularized linear baseline for sparse or explainable problems, kNN for meaningful local geometry and cheap training, kernels for medium-sized nonlinear data, and generative models when their structure or missing-data capabilities are valuable.'
+    priority: common
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, research-scientist, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [model-selection, trade-offs, baselines]
+    aliases: [which-classifier, classical-model-selection]

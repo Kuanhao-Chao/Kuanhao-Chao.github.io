@@ -1,0 +1,134 @@
+lesson: ml-interview-reinforcement-learning-bandits
+questions:
+  - id: q-rl-bandit-vs-mdp
+    question: 'When is a contextual bandit sufficient, and when do you need a full MDP?'
+    conciseAnswer: 'A contextual bandit is appropriate when an action affects the immediate reward but not meaningfully the next context or future opportunity. Use an MDP when actions change future states, information, constraints, or rewards; pretending a sequential problem is a bandit creates myopic policies.'
+    priority: must-know
+    difficulty: foundational
+    roles: [applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [bandits, mdp, sequential-decisions]
+    aliases: [bandit-vs-rl, contextual-bandit]
+  - id: q-rl-mdp
+    question: 'Define a Markov decision process and the Markov assumption.'
+    conciseAnswer: 'An MDP consists of states, actions, a transition kernel, reward distribution, discount or horizon, and an initial-state distribution. Markov means the current state contains the history needed to model the next state and reward given the action; it is a modeling claim that can fail under partial observability.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [mdp, markov-property, state]
+    aliases: [markov-decision-process, rl-formulation]
+  - id: q-rl-bellman
+    question: 'Derive the Bellman expectation and optimality equations.'
+    conciseAnswer: 'Splitting return into immediate reward plus discounted future return gives a recursive value equation under a fixed policy. Maximizing over the next action produces the optimality equation; the fixed point relies on the modeled transition and reward process and, in continuing tasks, a suitable discount or termination condition.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [bellman-equation, value-function, dynamic-programming]
+    aliases: [bellman-optimality, recursive-value]
+  - id: q-rl-value-policy
+    question: 'Compare value-based, policy-based, and actor-critic methods.'
+    conciseAnswer: 'Value methods learn action values and derive a policy, working naturally for discrete actions. Policy methods optimize a parameterized policy directly and handle continuous or stochastic actions but can have high-variance gradients. Actor-critic combines a policy actor with a learned value baseline, trading variance for critic bias.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [value-methods, policy-gradient, actor-critic]
+    aliases: [rl-algorithm-families, actor-vs-critic]
+  - id: q-rl-qlearning
+    question: 'Why is Q-learning off-policy, and what can make function approximation diverge?'
+    conciseAnswer: 'Q-learning updates toward reward plus the maximum next-action value even when behavior came from another exploratory policy, so its target policy is greedy. Bootstrapping, off-policy data, and function approximation form the deadly triad; moving targets, extrapolation, and poor coverage can destabilize learning.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [q-learning, off-policy, deadly-triad]
+    aliases: [temporal-difference, dqn-instability]
+  - id: q-rl-policy-gradient
+    question: 'Derive the score-function policy-gradient estimator and explain the baseline.'
+    conciseAnswer: 'The log-derivative identity turns the gradient of expected return into an expectation of return times the gradient of log policy probability. Subtracting any action-independent state baseline leaves the expectation unchanged while reducing variance; an inaccurate action-dependent baseline can bias the gradient.'
+    priority: must-know
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [policy-gradient, reinforce, variance-reduction]
+    aliases: [score-function-estimator, reinforce]
+  - id: q-rl-actor-critic
+    question: 'What bias-variance trade-off does an actor-critic algorithm make?'
+    conciseAnswer: 'The actor updates the policy using an advantage estimate; the critic estimates value to replace part of a noisy Monte Carlo return with bootstrapping. More bootstrapping lowers variance but imports approximation bias, so target construction, timescale, normalization, and critic diagnostics are central.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [actor-critic, advantage, bootstrapping]
+    aliases: [critic-bias, generalized-advantage]
+  - id: q-rl-ppo
+    question: 'What does PPO clipping attempt to control, and what does it guarantee?'
+    conciseAnswer: 'PPO clips the probability-ratio contribution when an update would improve the sampled surrogate by moving too far, creating a practical conservative-update heuristic. It does not enforce a hard trust region, monotonic improvement, safety, or correct rewards; monitor KL, clip fraction, entropy, returns, and value error.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist]
+    kind: mathematics
+    round: experimentation
+    stability: evergreen
+    tags: [ppo, policy-ratio, trust-region]
+    aliases: [proximal-policy-optimization, clipped-objective]
+  - id: q-rl-exploration
+    question: 'Compare epsilon-greedy, optimism, and posterior sampling for exploration.'
+    conciseAnswer: 'Epsilon-greedy explores without using uncertainty structure; optimism selects actions with high upper confidence bounds; posterior or Thompson sampling randomizes according to posterior plausibility. Their guarantees depend on stationarity and model assumptions, while unsafe actions may require constrained exploration rather than any of these alone.'
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [exploration, ucb, thompson-sampling]
+    aliases: [exploration-exploitation, epsilon-greedy]
+  - id: q-rl-contextual-bandit
+    question: 'Design a contextual-bandit policy for personalized recommendations.'
+    conciseAnswer: 'Define context available before action, a feasible action set, immediate reward and delay, then choose a policy with explicit exploration and propensity logging. Use guardrails and fallbacks, handle nonstationarity and censored outcomes, and evaluate policy value and segment risk before increasing traffic.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [contextual-bandit, personalization, propensity]
+    aliases: [bandit-system-design, online-learning]
+  - id: q-rl-off-policy-evaluation
+    question: 'How do inverse propensity scoring and doubly robust off-policy evaluation work?'
+    conciseAnswer: 'IPS reweights logged rewards by target-policy probability divided by logging-policy propensity, requiring overlap and trustworthy propensities but often suffering high variance. A doubly robust estimator combines a reward model with the weighted residual and is consistent if either the propensity or reward model is correct under standard assumptions.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: experimentation
+    stability: evergreen
+    tags: [off-policy-evaluation, ips, doubly-robust]
+    aliases: [counterfactual-policy-evaluation, importance-sampling]
+  - id: q-rl-reward-failure
+    question: 'How do reward misspecification and reward hacking appear in practice?'
+    conciseAnswer: 'A policy exploits the operational reward while violating the intended outcome—for example increasing clicks through low-quality exposure. Test proxy validity and side effects, hold out adversarial environments, monitor constraint and long-horizon metrics, limit optimization pressure, and keep human oversight; a larger model does not fix a wrong objective.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, leadership]
+    kind: debugging
+    round: project-defense
+    stability: evergreen
+    tags: [reward-hacking, specification, safety]
+    aliases: [goodharts-law, reward-misspecification]

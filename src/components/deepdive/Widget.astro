@@ -1,4 +1,6 @@
 ---
+import type { DeepDiveWidgetKind } from '../../lib/deepDiveWidgetKinds';
+
 /**
  * An interactive figure: the shell only. Every control, every drawn element and every
  * number comes from `src/scripts/deepDiveWidgets.ts`, which computes them with
@@ -12,13 +14,7 @@
  */
 interface Props {
   /** Which widget to mount. Must match a case in `deepDiveWidgets.ts`. */
-  kind:
-    | 'ld-decay'
-    | 'drift'
-    | 'power'
-    | 'selection'
-    | 'finemap'
-    | 'prs';
+  kind: DeepDiveWidgetKind;
   title: string;
   caption: string;
   /** Text alternative for the drawing. Required — a figure that cannot be described is decoration. */

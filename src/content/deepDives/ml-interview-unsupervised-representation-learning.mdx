@@ -1,0 +1,455 @@
+---
+title: "Unsupervised & Representation Learning"
+shortTitle: Unsupervised Learning
+description: "Interview questions on clustering, k-means, Gaussian mixtures and EM, PCA/SVD, whitening, ICA, NMF, t-SNE, UMAP, autoencoders, anomaly detection, and evaluation without labels."
+abstract: "Without labels, an algorithm still optimizes something: compactness, likelihood, reconstruction, independence, neighborhood fidelity, or rarity. This lesson makes those proxy objectives explicit. It derives k-means, expectation-maximization, and PCA; compares clustering and factorization assumptions; explains what visualization embeddings cannot prove; and designs representation and anomaly evaluations around stability and downstream utility."
+date: 2026-08-22
+track: theory
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m04-classical
+moduleLabel: Module 4 · Classical Models
+order: 7
+level: intermediate
+objectives:
+  - "Identify the proxy objective and geometric assumptions behind major unsupervised methods."
+  - "Derive Lloyd's k-means updates, EM monotonicity, and PCA's variance and reconstruction views."
+  - "Choose clustering and factorization methods from density, shape, scale, identifiability, and downstream needs."
+  - "Evaluate embeddings, visualizations, and anomaly detectors without treating an unlabeled score as ground truth."
+prerequisites:
+  - ml-interview-linear-algebra-calculus
+  - ml-interview-probability-statistics
+  - ml-interview-data-features-validation
+relatedLessons:
+  - ml-interview-neural-network-foundations
+  - ml-interview-metrics-experimentation
+referenceIds:
+  - lloyd1982kmeans
+  - arthur2007kmeanspp
+  - dempster1977em
+  - pearson1901pca
+  - lee1999nmf
+  - hyvarinen2000ica
+  - vandermaaten2008tsne
+  - mcinnes2018umap
+  - hinton2006autoencoder
+  - scholkopf2001oneclass
+keyEquations:
+  - '\min_{\substack{z_i\in\{1,\ldots,K\}\\\mu_1,\ldots,\mu_K}}\sum_i\lVert x_i-\mu_{z_i}\rVert_2^2'
+  - 'r_{ik}\propto\pi_k\mathcal{N}(x_i\mid\mu_k,\Sigma_k)'
+  - '\max_{\lVert v\rVert_2=1}v^\top Sv'
+tags: [clustering, k-means, GMM, EM, PCA, SVD, ICA, NMF, t-SNE, UMAP, autoencoders, anomaly detection]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## No labels does not mean no objective
+
+“Find structure” is not a mathematical instruction. Every unsupervised algorithm supplies
+its own definition of structure, and its output is meaningful only to the extent that the
+definition matches the question.
+
+<Callout variant="intuition" title="The proxy is the product specification">
+K-means calls compact Euclidean balls structure. A mixture model calls probability density
+structure. PCA calls variance structure. An autoencoder calls reconstructability structure.
+t-SNE and UMAP call selected local-neighborhood relations structure. None discovers the
+one true organization hidden in a dataset; each preserves some relations and discards
+others.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'X', meaning: 'Centered data matrix unless stated otherwise', dims: 'n × d' },
+    { symbol: 'z_i', meaning: 'Latent cluster assignment for observation i', dims: 'integer in {1,…,K}' },
+    { symbol: '\\mu_k', meaning: 'Centroid or Gaussian component mean', dims: 'd × 1' },
+    { symbol: '\\Sigma_k', meaning: 'Gaussian component covariance', dims: 'd × d' },
+    { symbol: 'r_{ik}', meaning: 'Responsibility P(z_i=k | x_i)', dims: 'scalar in [0,1]' },
+    { symbol: 'S=X^TX/n', meaning: 'Empirical covariance under the population-denominator convention', dims: 'd × d' },
+    { symbol: 'V_r', meaning: 'Top r right singular vectors / principal axes', dims: 'd × r' },
+    { symbol: 'Z', meaning: 'Learned low-dimensional representation', dims: 'n × r' },
+  ]}
+/>
+
+<Figure
+  id="unsupervised-objectives"
+  caption="Figure 1. Different objectives preserve different structure. K-means summarizes points by spherical centroids; a Gaussian mixture can represent elliptical uncertainty; PCA preserves a global linear direction; a neighborhood embedding prioritizes which points remain local neighbors. The same cloud can support all four descriptions without any one being ground truth."
+  alt="Four panels show the same curved point cloud represented by two centroids and circular regions, elliptical Gaussian contours, one straight principal axis, and a low-dimensional neighborhood map."
+  wide
+>
+  <svg viewBox="0 0 760 220" width="760" height="220" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.25">
+      <rect x="12" y="18" width="172" height="158" rx="8" opacity=".32" />
+      <rect x="200" y="18" width="172" height="158" rx="8" opacity=".32" />
+      <rect x="388" y="18" width="172" height="158" rx="8" opacity=".32" />
+      <rect x="576" y="18" width="172" height="158" rx="8" opacity=".32" />
+      <circle cx="62" cy="78" r="35" opacity=".35" /><circle cx="138" cy="124" r="35" opacity=".35" />
+      <path d="M53 73 l18 10 M62 69 l0 20" stroke="var(--color-accent)" stroke-width="2" />
+      <path d="M129 119 l18 10 M138 115 l0 20" stroke="var(--color-accent)" stroke-width="2" />
+      <ellipse cx="250" cy="79" rx="42" ry="20" transform="rotate(25 250 79)" />
+      <ellipse cx="325" cy="125" rx="42" ry="19" transform="rotate(-18 325 125)" />
+      <path d="M405 145 L543 49" stroke="var(--color-accent)" stroke-width="2.5" />
+      <path d="M599 127 C622 67 662 55 721 91" stroke="var(--color-accent)" stroke-width="2.5" stroke-dasharray="5 4" />
+    </g>
+    <g fill="currentColor" opacity=".7">
+      <circle cx="42" cy="66" r="3"/><circle cx="60" cy="91" r="3"/><circle cx="79" cy="67" r="3"/><circle cx="116" cy="111" r="3"/><circle cx="139" cy="139" r="3"/><circle cx="156" cy="113" r="3"/>
+      <circle cx="228" cy="70" r="3"/><circle cx="254" cy="88" r="3"/><circle cx="271" cy="68" r="3"/><circle cx="306" cy="129" r="3"/><circle cx="330" cy="111" r="3"/><circle cx="347" cy="137" r="3"/>
+      <circle cx="420" cy="132" r="3"/><circle cx="447" cy="119" r="3"/><circle cx="471" cy="94" r="3"/><circle cx="500" cy="82" r="3"/><circle cx="529" cy="60" r="3"/>
+      <circle cx="604" cy="118" r="3"/><circle cx="625" cy="88" r="3"/><circle cx="651" cy="72" r="3"/><circle cx="680" cy="74" r="3"/><circle cx="714" cy="94" r="3"/>
+    </g>
+    <g fill="currentColor" font-size="12" text-anchor="middle">
+      <text x="98" y="203">centroid compactness</text><text x="286" y="203">density likelihood</text>
+      <text x="474" y="203">global variance</text><text x="662" y="203">local neighbors</text>
+    </g>
+  </svg>
+</Figure>
+
+<InterviewQuestion id="q-unsup-purpose-evaluation">
+Unsupervised learning removes observed targets, not judgment. The training objective may be
+within-cluster distance, held-out likelihood, reconstruction error, contrastive agreement,
+or neighborhood preservation. It is a proxy chosen by the designer; optimizing it proves
+only that the proxy improved.
+
+Evaluation should triangulate. **Internal:** measure the exact proxy on held-out observations
+when it has a probabilistic or reconstructive interpretation. **Stability:** perturb samples,
+features, preprocessing, and seeds; compare assignments or neighborhoods after resolving
+label permutations. **External:** if trustworthy labels exist but were not used to fit,
+compare with the adjusted Rand index, adjusted mutual information, or retrieval quality.
+**Downstream:** freeze or
+properly refit the representation inside each training fold and test the actual decision.
+
+Avoid selecting an embedding with labels and then claiming label-free discovery. Also ask
+whether a stable cluster is actionable and whether important rare structure is being
+averaged away. Stability is evidence of reproducibility, not semantic truth.
+</InterviewQuestion>
+
+## Centroid clustering
+
+<InterviewQuestion id="q-unsup-kmeans-objective">
+K-means solves
+
+$$
+J(z,\mu)=\sum_{i=1}^n\lVert x_i-\mu_{z_i}\rVert_2^2.
+$$
+
+Lloyd's algorithm alternates two exact conditional minimizers
+<Citation id="lloyd1982kmeans" />. With centers fixed, assign each point to its closest
+center. With assignments fixed, differentiating the within-cluster sum of squares makes
+each center the arithmetic mean. Each step cannot increase $J$; because there are finitely
+many assignments, the procedure terminates (up to ties/numerics).
+
+Joint optimization is non-convex, so termination need not be global. Squared Euclidean
+distance implies roughly spherical, equal-scale clusters and makes means sensitive to
+outliers. Standardize or choose a domain metric before fitting. The arithmetic mean is not
+the minimizer for Manhattan distance—that would lead toward medians/k-medoids.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-unsup-kmeans-initialization">
+Random initial centers can begin in one dense region, duplicate coverage, create empty
+clusters, or converge to a poor local minimum. Multiple independent restarts reduce—but do
+not diagnose—the risk.
+
+k-means++ selects the first center uniformly, then samples each new center with probability
+proportional to its squared distance from the nearest selected center. It spreads seeds in
+the metric the objective uses and provides an expected $O(\log K)$ approximation bound
+before Lloyd refinement <Citation id="arthur2007kmeanspp" />.
+
+In code, fix/report seeds for reproducibility but evaluate across seeds for robustness. For
+large data, k-means|| or minibatch variants trade approximation for throughput. Empty
+clusters can be reseeded to high-error points; silently leaving an empty centroid is an
+implementation bug, not a new cluster discovery.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-unsup-choose-k">
+An elbow plots compactness against $K$, but compactness must improve as more centers are
+added and the bend can be subjective. Silhouette contrasts within-cluster distance with the
+nearest other cluster, yet inherits the metric and favors separated compact shapes. Gap
+statistics compare compactness with a reference null; likelihood models can use held-out
+log likelihood, AIC, or BIC under their assumptions.
+
+The defensible answer combines: a domain range for useful granularity; resampled stability;
+an internal diagnostic; held-out or downstream utility; and inspection of tiny/unstable
+groups. If the data form a continuum, no $K$ may be intrinsically correct. Report that
+rather than forcing ontology onto a partition.
+
+**Trap.** Choose preprocessing and $K$ inside the evaluation design. Picking scaling and
+$K$ by the full dataset, then reporting the same score, understates selection uncertainty.
+</InterviewQuestion>
+
+## Mixtures, latent assignments, and density shape
+
+<InterviewQuestion id="q-unsup-gmm">
+A Gaussian mixture writes
+
+$$p(x)=\sum_{k=1}^K\pi_k\,\mathcal N(x\mid\mu_k,\Sigma_k),\qquad \sum_k\pi_k=1.$$
+
+It returns responsibilities $P(z=k\mid x)$ rather than only a nearest-center label. Full
+covariances express elliptical orientation; diagonal/spherical covariances reduce parameters.
+K-means emerges as equal spherical variances shrink toward zero and assignments harden.
+
+The flexibility has costs: a full-covariance component estimates $d(d+1)/2$ covariance
+terms, and likelihood is unbounded if one covariance collapses onto one data point. Add
+covariance floors/priors, multiple initializations, and monitor component mass. A Gaussian
+component is a density component—not automatically a semantic population.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-unsup-em">
+For latent $z$, observed likelihood contains a difficult $\log\sum_z p(x,z\mid\theta)$.
+Introduce any distribution $q(z)$ and use
+
+$$
+\log p(x\mid\theta)
+=\mathcal L(q,\theta)+D_{KL}\!\left(q(z)\,\|\,p(z\mid x,\theta)\right).
+$$
+
+The E-step sets $q$ to the current posterior, making the KL zero and the bound tight. The
+M-step maximizes the bound over $\theta$. After the M-step, the new likelihood is at least
+the new bound, which is at least the previous likelihood—EM is monotone
+<Citation id="dempster1977em" />.
+
+For a GMM, the E-step computes responsibilities; the M-step forms responsibility-weighted
+mixture proportions, means, and covariances. Monotonic does not mean globally optimal or
+numerically safe: EM can stall at a local solution, converge slowly, or pursue a singular
+component. Check likelihood traces, parameter validity, seeds, and held-out fit.
+</InterviewQuestion>
+
+<WorkedExample
+  title="One GMM responsibility calculation"
+  given={[
+    { label: 'Mixture priors', value: 'π₁ = π₂ = 0.5' },
+    { label: 'Densities at x', value: 'N₁(x) = 0.12, N₂(x) = 0.03' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+The unnormalized component weights are $.5(.12)=.06$ and $.5(.03)=.015$. Normalize:
+
+$$
+r_1=\frac{.06}{.06+.015}=.8,\qquad r_2=.2.
+$$
+
+This observation contributes weight $.8$ to component 1's mean/covariance update and $.2$
+to component 2's. A hard assignment would discard that uncertainty. If prior 1 fell to
+$.1$ while prior 2 became $.9$, the same likelihoods would give
+$r_1=.012/(.012+.027)\approx.308$: responsibilities combine density and prevalence.
+</WorkedExample>
+
+<InterviewQuestion id="q-unsup-clustering-choice">
+Match method to the meaning of a cluster.
+
+- **k-means:** fast partitions around Euclidean means; best for compact, similarly scaled
+  groups when a hard centroid is useful.
+- **GMM:** overlapping elliptical density components, soft membership, and likelihood-based
+  prediction; covariance estimation needs data and regularization.
+- **Hierarchical:** a dendrogram when nested resolution or inter-cluster relationships
+  matter; linkage choice changes the geometry and early merges cannot be undone.
+- **DBSCAN:** density-connected shapes and explicit noise without choosing $K$; a single
+  radius/min-points pair struggles when densities vary, and high-dimensional distances
+  become weak.
+
+First settle metric, scaling, mixed-feature handling, and whether new points need assignments.
+Then compare stability and downstream use. Algorithm choice cannot rescue a representation
+where “near” has no domain meaning.
+</InterviewQuestion>
+
+## PCA as geometry and reconstruction
+
+<InterviewQuestion id="q-unsup-pca-derivation">
+For centered covariance $S=X^TX/n$, the variance along a unit direction $v$ is $v^TSv$.
+Maximize it subject to $v^Tv=1$. A Lagrange multiplier gives $Sv=\lambda v$; the maximum
+is the top eigenvector. Further components impose orthogonality and take descending
+eigenvectors, the construction originating with Pearson <Citation id="pearson1901pca" />.
+
+The rank-$r$ reconstruction is $\hat X=XV_rV_r^T$. Its squared error is the sum of squared
+discarded singular values, so the top singular subspace also minimizes linear squared
+reconstruction error. Compute centered $X=U\Sigma V^T$ directly: it avoids forming $X^TX$
+and squaring the condition number.
+
+Shapes: $X$ is $n\times d$, $V_r$ is $d\times r$, scores $XV_r$ are $n\times r$, and
+reconstruction returns $n\times d$. Components can flip sign with no mathematical change.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Variance explained and reconstruction error"
+  given={[
+    { label: 'Centered rows', value: '(2,0), (0,1), (−2,0), (0,−1)' },
+    { label: 'Convention', value: 'S = XᵀX / n' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+$X^TX=\operatorname{diag}(8,2)$, so $S=\operatorname{diag}(2,.5)$. The principal axes
+are the coordinate axes with eigenvalues 2 and .5. Keeping the first captures
+$2/(2+.5)=.8$, or 80% of variance.
+
+Projecting onto the x-axis reconstructs $(2,0),(0,0),(-2,0),(0,0)$. Only the two vertical
+points incur error, one each, so total squared reconstruction error is 2—the discarded
+singular value squared. Centering is essential: otherwise the first component can mainly
+point toward the mean rather than describe variation around it.
+</WorkedExample>
+
+<InterviewQuestion id="q-unsup-pca-traps">
+PCA creates components $z_j=Xv_j$, usually dense mixtures of original variables. That is
+feature **extraction**, not feature selection. Loadings describe a direction; they are not
+regression effects, causal weights, or universally comparable unless preprocessing is fixed.
+
+Because PCA ignores $y$, high variance can represent batch, lighting, scanner, ancestry,
+or another nuisance while a low-variance direction carries prediction. Scaling decides
+whether physical variance or standardized correlation dominates. Outliers can rotate the
+subspace.
+
+Fit centering, scaling, number of components, and PCA on each training fold, transform held-
+out data unchanged, and select dimension by downstream validation when the goal is predictive.
+A pretty separated PCA plot can reflect leakage or confounding; color was not part of PCA,
+but it may have guided analyst choices.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-unsup-whitening">
+Let $S=V\Lambda V^T$. PCA whitening maps
+$x\mapsto\Lambda^{-1/2}V^T(x-\mu)$, producing identity covariance in the fitted sample.
+ZCA rotates back with $V$ after scaling, keeping coordinates closer to the original basis.
+
+Whitening removes second-order scale and correlation, useful for some optimization and
+source-separation assumptions. But a tiny eigenvalue receives multiplier
+$1/\sqrt{\lambda_j}$: measurement noise in a nearly constant direction can explode.
+Use $1/\sqrt{\lambda_j+\epsilon}$ or truncate low eigenvalues, fit only on training data,
+and serialize the exact transform.
+
+Identity covariance does not imply independence except under special distributions such as
+multivariate Gaussian. Whitening is decorrelation plus scaling, not a proof that features
+are independent.
+</InterviewQuestion>
+
+## Alternative factorizations and maps
+
+<InterviewQuestion id="q-unsup-ica-nmf">
+**PCA** asks for orthogonal variance directions; with only second moments, non-Gaussian
+source structure is invisible. **ICA** assumes observations are linear mixtures of
+statistically independent, mostly non-Gaussian sources and seeks an unmixing matrix; scale
+and order remain indeterminate. Hyvärinen and Oja develop the independence/non-Gaussianity
+principle <Citation id="hyvarinen2000ica" />.
+
+**NMF** approximates nonnegative $X\approx WH$ with $W,H\ge0$. Without cancellation by
+negative loadings, components can look like additive parts; Lee and Seung demonstrated this
+parts-based representation <Citation id="lee1999nmf" />. NMF solutions are non-convex and
+non-unique, so initialization and regularization matter.
+
+Choose PCA for best linear squared reconstruction/conditioning, ICA when a plausible
+independent-source mechanism exists, and NMF when nonnegative additive factors match the
+domain. Component interpretability is an empirical claim, not guaranteed by a factorization
+name.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-unsup-tsne-umap">
+t-SNE converts high-dimensional neighbor distances into probabilities, chooses low-dimensional
+points whose Student-t neighbor probabilities minimize a KL divergence, and uses the heavy
+tail to relieve crowding <Citation id="vandermaaten2008tsne" />. UMAP builds a weighted
+nearest-neighbor graph from local fuzzy simplicial relationships and optimizes a low-
+dimensional graph layout <Citation id="mcinnes2018umap" />.
+
+Both prioritize local neighborhoods. The distance between islands, their area/density, and
+sometimes their separation can be artifacts of perplexity/neighbors, minimum distance,
+metric, seed, or sampling. Neither is a clustering algorithm or evidence that visible
+groups are biological/product categories.
+
+Standardize intentionally, compare seeds and hyperparameters, plot held-out metadata only
+after choices are frozen, and quantify any claimed separation in the original space or a
+predeclared representation. Use PCA first when speed/noise warrants it, and retain the full
+pipeline for new-point transforms where supported.
+</InterviewQuestion>
+
+## Learned representations and anomalies
+
+<InterviewQuestion id="q-unsup-autoencoder">
+An unconstrained network with enough capacity can copy $x$ through an identity map. Useful
+representation pressure comes from a low-dimensional bottleneck, denoising corrupted inputs,
+sparsity, contraction, masking, quantization, or another task. Hinton and Salakhutdinov
+showed deep autoencoders for nonlinear dimensionality reduction
+<Citation id="hinton2006autoencoder" />.
+
+Reconstruction captures information needed to reproduce the input under the chosen loss.
+Pixel MSE favors average local appearance; sequence token loss favors token predictability.
+Neither automatically captures class semantics. Compare against linear PCA at the same
+dimension, evaluate reconstruction on held-out data, probe the frozen representation on
+downstream tasks, and test robustness to nuisance factors.
+
+**Trap.** Low reconstruction error can come from memorization. Conversely, a useful invariant
+representation may intentionally discard detail and reconstruct worse. The downstream
+contract decides which is success.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-unsup-anomaly-detection">
+First define “anomaly”: rare under the training distribution, operationally harmful, or
+novel enough to review. These are not equivalent. Choose a score whose assumption matches
+that definition—distance/density, isolation depth, one-class boundary, predictive residual,
+or reconstruction. One-class support-vector methods explicitly estimate a high-density
+region boundary <Citation id="scholkopf2001oneclass" />.
+
+Train on a representative, mostly normal historical window when possible, preventing future
+and entity leakage. Pick a threshold from investigation capacity and asymmetric cost, not
+from a universal contamination fraction. For evaluation, use temporal backtests, delayed
+confirmed incidents, realistic fault injection, precision at review budget, time-to-detect,
+false-alert burden, and stability across normal regimes. ROC AUC can look excellent when
+the useful top-ranked alerts are poor.
+
+Monitor input drift, score distributions, alert composition, feedback delay, and analyst
+outcomes. New legitimate behavior can look anomalous; an adaptive update can then learn a
+real attack. Human review and controlled retraining are part of the statistical system.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="One Lloyd update" difficulty="warm-up">
+Points are $0,2,9,11$ on a line, with initial centers $0$ and $9$. Perform one assignment
+and centroid-update step. What is the new objective?
+
+<div slot="solution">
+Assignments are $(0,2)$ to the first center and $(9,11)$ to the second. Updated means are
+$1$ and $10$. The squared-error objective is
+$(0-1)^2+(2-1)^2+(9-10)^2+(11-10)^2=4$, down from
+$0^2+2^2+0^2+2^2=8$. Reassignment does not change the groups, so this initialization has
+converged.
+</div>
+</Exercise>
+
+<Exercise n={2} title="PCA can discard the label" difficulty="core">
+Feature $x_1$ has variance 100 but is independent of a binary target. Feature $x_2$ has
+variance 1 and perfectly separates the target. What happens if PCA keeps one component?
+
+<div slot="solution">
+Assuming the features are centered and uncorrelated, PCA keeps $x_1$ because its eigenvalue
+is 100 versus 1. It retains about $100/101=99.0\%$ of input variance and discards all target
+signal. This is not a PCA bug: the unsupervised objective never saw the target. Choose
+dimension within a downstream validation pipeline or use a supervised representation when
+prediction is the goal.
+</div>
+</Exercise>
+
+<Exercise n={3} title="A persuasive but invalid t-SNE story" difficulty="stretch">
+A t-SNE plot shows three islands matching hospital sites. A colleague concludes there are
+three disease subtypes. Give a validation plan.
+
+<div slot="solution">
+Treat site as a suspected batch variable, not subtype evidence. Refit preprocessing and the
+embedding across seeds, perplexities, balanced site samples, and leave-one-site-out data;
+check whether neighborhoods persist. Quantify site and clinical-label predictability in the
+original/predeclared feature space with patient-aware splits. Inspect acquisition and
+processing covariates, correct justified batch effects inside training folds, and seek
+replication where subtype labels recur across sites. Island geometry alone supports none of
+the causal or clinical conclusion.
+</div>
+</Exercise>
+
+## Summary
+
+- Every unsupervised method defines structure through a proxy objective; evaluation must reconnect it to use.
+- Lloyd's algorithm monotonically improves k-means but initialization and geometry determine the local result.
+- A GMM adds probabilistic soft assignments and covariance shape; EM is monotone, not globally optimal.
+- PCA's maximum-variance and minimum-reconstruction formulations select the same linear subspace.
+- Whitening can improve conditioning but amplifies small-eigenvalue noise and does not establish independence.
+- ICA, NMF, t-SNE, UMAP, and autoencoders preserve different relations under different assumptions.
+- Anomaly systems require temporal evaluation, review-budget metrics, drift monitoring, and explicit definitions.

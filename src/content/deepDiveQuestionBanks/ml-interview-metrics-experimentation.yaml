@@ -1,0 +1,218 @@
+lesson: ml-interview-metrics-experimentation
+questions:
+  - id: q-metrics-objective
+    question: 'How do you choose the right evaluation metric for a machine-learning problem?'
+    conciseAnswer: >-
+      Start from the decision the prediction enables, identify the costly errors and the unit of evaluation, then choose a metric whose averaging and threshold match that decision. Report a small metric suite rather than optimizing a convenient proxy blindly, and validate the metric against the eventual online or operational outcome.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, leadership]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [metrics, objectives, decision-theory]
+    aliases: [metric selection, evaluation objective]
+  - id: q-metrics-confusion
+    question: 'Explain precision, recall, specificity, and false-positive rate from a confusion matrix.'
+    conciseAnswer: >-
+      Recall is TP/(TP+FN), the fraction of actual positives found; specificity is TN/(TN+FP), the fraction of negatives rejected; false-positive rate is one minus specificity; and precision is TP/(TP+FP), the fraction of positive predictions that are correct. Recall and specificity condition on the true class, whereas precision conditions on the model's positive calls and therefore changes with prevalence.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [classification, confusion-matrix, precision, recall]
+    aliases: [sensitivity and specificity, classification rates]
+  - id: q-metrics-imbalance
+    question: 'Why can accuracy be misleading on an imbalanced dataset?'
+    conciseAnswer: >-
+      Accuracy weights each example equally, so a majority-class rule can score highly while never detecting the rare event that matters. Inspect class-conditional errors, precision-recall behavior, calibration, and decision cost; do not replace accuracy with F1 automatically because F1 also encodes an implicit and often inappropriate tradeoff.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [classification, imbalance, accuracy]
+    aliases: [class imbalance, majority baseline]
+  - id: q-metrics-roc-pr
+    question: 'When should you prefer a precision-recall curve over an ROC curve?'
+    conciseAnswer: >-
+      ROC plots TPR against FPR and is useful when both class-conditional rates matter, but an apparently small FPR may still create many false alarms when negatives dominate. Precision-recall exposes that burden and is usually easier to interpret for rare-positive retrieval, while its baseline and precision values depend on prevalence and therefore cannot be compared blindly across populations.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [roc, precision-recall, imbalance, ranking]
+    aliases: [AUROC versus AUPRC, ROC or PR]
+  - id: q-metrics-f1
+    question: 'What does the F1 score measure, and what important information does it hide?'
+    conciseAnswer: >-
+      F1 is the harmonic mean 2PR/(P+R), so it becomes high only when both precision and recall are high at one threshold. It ignores true negatives, calibration, asymmetric costs, and the operating prevalence; two models with the same F1 can imply very different business outcomes.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [f1, precision, recall, thresholds]
+    aliases: [harmonic mean metric, limitations of F1]
+  - id: q-metrics-threshold
+    question: 'How should you choose a classification threshold?'
+    conciseAnswer: >-
+      Choose the threshold on validation data to minimize expected decision cost or satisfy an operational constraint, not to maximize accuracy by default. With calibrated probability p and false-positive and false-negative costs, predict positive when p exceeds C_FP/(C_FP+C_FN); then stress-test the threshold under prevalence and cost shifts.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, leadership]
+    kind: mathematics
+    round: experimentation
+    stability: evergreen
+    tags: [thresholds, decision-theory, costs, calibration]
+    aliases: [operating point, threshold tuning]
+  - id: q-metrics-calibration
+    question: 'What is calibration, and how is it different from discrimination?'
+    conciseAnswer: >-
+      A calibrated model's predictions near p are correct about p of the time, while a discriminative model ranks positives above negatives. A monotone transformation can preserve AUROC while destroying calibration, so assess them separately and fit calibration only on held-out data using methods such as temperature, Platt, or isotonic scaling.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [calibration, discrimination, probabilities]
+    aliases: [reliability, probability calibration]
+  - id: q-metrics-proper-scoring
+    question: 'Compare log loss and Brier score. Why are they called proper scoring rules?'
+    conciseAnswer: >-
+      Both are minimized in expectation by reporting the true probability: binary log loss is -[y log p+(1-y)log(1-p)], while Brier score is (p-y)^2. Log loss penalizes confident mistakes without bound and matches Bernoulli maximum likelihood; Brier is bounded and more forgiving, but both evaluate probability quality rather than one chosen threshold.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [log-loss, brier-score, proper-scoring]
+    aliases: [cross entropy versus Brier, probability scoring]
+  - id: q-metrics-regression
+    question: 'How do MAE, MSE, RMSE, R-squared, and MAPE differ?'
+    conciseAnswer: >-
+      MAE targets a conditional median and grows linearly with errors; MSE targets a conditional mean and heavily penalizes outliers; RMSE restores target units but keeps MSE's ranking; R-squared is improvement over a mean baseline on the stated sample; and MAPE is unstable at or near zero. Match the loss to the noise, cost, scale, and aggregation needed in production.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [regression, mae, mse, r-squared]
+    aliases: [regression metrics, RMSE versus MAE]
+  - id: q-metrics-ranking
+    question: 'How do you evaluate a ranking or retrieval system?'
+    conciseAnswer: >-
+      Choose a user model and cutoff: precision@k and recall@k measure set quality, MRR rewards the first relevant result, MAP averages precision at relevant ranks, and NDCG discounts graded relevance by position and normalizes per query. Aggregate per query, report slices and uncertainty, and remember that logged relevance is biased by the previous ranker and presentation.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [ranking, retrieval, ndcg, map]
+    aliases: [search metrics, recommender metrics]
+  - id: q-metrics-averaging
+    question: 'What is the difference between micro, macro, and weighted averaging in multiclass evaluation?'
+    conciseAnswer: >-
+      Micro averaging pools all decisions before computing the metric and is dominated by frequent classes; macro averaging computes each class equally and surfaces minority performance; weighted macro averages per-class metrics by support and can again hide rare classes. Report the aggregation that matches the deployment objective plus the per-class or per-slice distribution.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [multiclass, averaging, imbalance]
+    aliases: [micro versus macro, weighted F1]
+  - id: q-metrics-cross-validation
+    question: 'When is ordinary k-fold cross-validation invalid, and what should replace it?'
+    conciseAnswer: >-
+      Ordinary random folds assume exchangeable observations, so they leak information when rows share a person, group, time period, location, or near-duplicate. Split on the deployment unit: grouped folds for entities, forward-chaining or blocked splits for time, and nested cross-validation when hyperparameter selection and performance estimation would otherwise reuse the same folds.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: debugging
+    round: experimentation
+    stability: evergreen
+    tags: [cross-validation, leakage, temporal-splits, groups]
+    aliases: [CV leakage, grouped cross validation]
+  - id: q-metrics-uncertainty
+    question: 'How do you attach uncertainty to a model metric?'
+    conciseAnswer: >-
+      Define the independent sampling unit, then use an analytic interval when its assumptions fit or resample that unit with a paired bootstrap to preserve correlation between models. Cross-validation fold variance is not a valid confidence interval by itself, and a narrow interval does not correct dataset shift or biased labels.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: experimentation
+    stability: evergreen
+    tags: [bootstrap, confidence-intervals, significance]
+    aliases: [metric confidence interval, paired bootstrap]
+  - id: q-metrics-ab-design
+    question: 'How would you design a trustworthy A/B test for an ML feature?'
+    conciseAnswer: >-
+      Predefine the randomization unit, primary outcome, guardrails, minimum detectable effect, duration, exclusions, and analysis before launch; verify sample-ratio balance and instrumentation; then analyze according to assignment. Account for clustering, interference, novelty, repeated peeking, and multiple metrics instead of treating every logged event as independent.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, leadership]
+    kind: system-design
+    round: experimentation
+    stability: evergreen
+    tags: [ab-testing, randomization, causal-inference]
+    aliases: [online experiment, randomized experiment]
+  - id: q-metrics-power
+    question: 'What are statistical power and minimum detectable effect, and how do they determine sample size?'
+    conciseAnswer: >-
+      Power is the probability of rejecting the null for a specified true effect; the minimum detectable effect is the smallest effect the design is powered to find. For a two-arm mean comparison, per-arm sample size scales approximately as 2 sigma squared times (z_alpha/2+z_beta) squared divided by delta squared, so halving the detectable effect needs about four times as many observations.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: experimentation
+    stability: evergreen
+    tags: [power, sample-size, mde, hypothesis-testing]
+    aliases: [experiment sizing, type II error]
+  - id: q-metrics-multiple-testing
+    question: 'How do you handle multiple comparisons in model evaluation and experimentation?'
+    conciseAnswer: >-
+      Repeatedly testing metrics, slices, models, or stopping times inflates the chance of a false discovery. Pre-register one primary outcome, control family-wise error when any false positive is costly or false-discovery rate for exploratory families, and use sequential methods when decisions are monitored continuously rather than peeking at fixed-horizon p-values.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, leadership]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [multiple-testing, fdr, sequential-testing]
+    aliases: [p hacking, repeated peeking]
+  - id: q-metrics-offline-online
+    question: 'Why can an offline metric improve while the online product metric gets worse?'
+    conciseAnswer: >-
+      Offline data encode the old policy, labels and exposure process, whereas deployment changes who sees what and how they respond. Proxy misalignment, feedback loops, latency, calibration, diversity, position bias, delayed outcomes, and distribution shift can all reverse the result, so use counterfactual care, guardrails, shadow tests, and randomized online validation.
+    priority: common
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, leadership]
+    kind: debugging
+    round: system-design
+    stability: evergreen
+    tags: [offline-evaluation, online-metrics, feedback-loops]
+    aliases: [offline online gap, metric mismatch]
+  - id: q-metrics-slices-drift
+    question: 'How do slice analysis and drift monitoring complement an aggregate metric?'
+    conciseAnswer: >-
+      An aggregate can remain stable while a small, safety-critical, or newly shifted subgroup fails. Define meaningful slices before looking, monitor input, prediction and delayed outcome distributions, attach uncertainty and support counts, and investigate whether the change is covariate, label, concept, instrumentation, or policy drift before retraining.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: debugging
+    round: system-design
+    stability: evergreen
+    tags: [slices, drift, monitoring, fairness]
+    aliases: [subgroup evaluation, model drift]

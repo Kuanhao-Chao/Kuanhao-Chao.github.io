@@ -1,0 +1,208 @@
+---
+import { getCollection } from 'astro:content';
+import {
+  CONFIDENCE_LEVELS,
+  INTERVIEW_DIFFICULTIES,
+  INTERVIEW_KINDS,
+  INTERVIEW_LABELS,
+  INTERVIEW_PRIORITIES,
+  INTERVIEW_ROLES,
+  INTERVIEW_ROUNDS,
+  STUDY_PLANS,
+} from '../../lib/mlInterview';
+
+interface Props {
+  hub?: string;
+  title?: string;
+}
+
+const { hub = 'ml-dl-interview', title = 'Interview question bank' } = Astro.props;
+const lessons = (
+  await getCollection('deepDives', ({ data }) => !data.draft && data.hub === hub)
+).sort((a, b) => a.data.order - b.data.order);
+const lessonMap = new Map(lessons.map((lesson) => [lesson.id, lesson]));
+const modules = [
+  ...new Map(
+    lessons
+      .filter((lesson) => !lesson.data.isHub)
+      .map((lesson) => [lesson.data.moduleId, lesson.data.moduleLabel] as const)
+  ),
+];
+const banks = await getCollection('deepDiveQuestionBanks');
+const questions = banks
+  .filter((bank) => lessonMap.has(bank.data.lesson.id))
+  .flatMap((bank) => {
+    const lesson = lessonMap.get(bank.data.lesson.id)!;
+    return bank.data.questions.map((question, index) => ({ question, index, lesson }));
+  })
+  .sort((a, b) => a.lesson.data.order - b.lesson.data.order || a.index - b.index);
+---
+
+<section class="ml-question-index" data-ml-question-index aria-labelledby="ml-question-index-title">
+  <header class="ml-question-index__header">
+    <div>
+      <p class="eyebrow">Study bank</p>
+      <h2 id="ml-question-index-title">{title}</h2>
+      <p>Search the published curriculum or build a review path. Progress stays in this browser.</p>
+    </div>
+    <div class="ml-study-actions" aria-label="Study controls" data-ml-enhancement hidden>
+      <button type="button" data-ml-practice-toggle aria-pressed="false">Practice mode</button>
+      <button type="button" data-ml-shuffle>Shuffle visible</button>
+      <button type="button" data-ml-export>Export progress</button>
+      <button type="button" data-ml-reset>Reset</button>
+    </div>
+  </header>
+
+  <div class="ml-question-filters" data-ml-enhancement hidden>
+    <label class="ml-question-filters__search">
+      <span>Search</span>
+      <input type="search" data-ml-question-search placeholder="Question, concept, alias…" />
+    </label>
+    <label>
+      <span>Study path</span>
+      <select data-ml-study-plan data-ml-question-filter>
+        <option value="all">All published</option>
+        {STUDY_PLANS.map((plan) => <option value={plan}>{INTERVIEW_LABELS.plan[plan]}</option>)}
+      </select>
+    </label>
+    <label>
+      <span>Module</span>
+      <select data-ml-filter-module data-ml-question-filter>
+        <option value="all">All modules</option>
+        {modules.map(([id, label]) => <option value={id}>{label}</option>)}
+      </select>
+    </label>
+    <label>
+      <span>Priority</span>
+      <select data-ml-filter-priority data-ml-question-filter>
+        <option value="all">All priorities</option>
+        {
+          INTERVIEW_PRIORITIES.map((priority) => (
+            <option value={priority}>{INTERVIEW_LABELS.priority[priority]}</option>
+          ))
+        }
+      </select>
+    </label>
+    <label>
+      <span>Difficulty</span>
+      <select data-ml-filter-difficulty data-ml-question-filter>
+        <option value="all">All levels</option>
+        {
+          INTERVIEW_DIFFICULTIES.map((difficulty) => (
+            <option value={difficulty}>{INTERVIEW_LABELS.difficulty[difficulty]}</option>
+          ))
+        }
+      </select>
+    </label>
+    <label>
+      <span>Question type</span>
+      <select data-ml-filter-kind data-ml-question-filter>
+        <option value="all">All types</option>
+        {INTERVIEW_KINDS.map((kind) => <option value={kind}>{INTERVIEW_LABELS.kind[kind]}</option>)}
+      </select>
+    </label>
+    <label>
+      <span>Interview round</span>
+      <select data-ml-filter-round data-ml-question-filter>
+        <option value="all">All rounds</option>
+        {
+          INTERVIEW_ROUNDS.map((round) => (
+            <option value={round}>{INTERVIEW_LABELS.round[round]}</option>
+          ))
+        }
+      </select>
+    </label>
+    <label>
+      <span>Role</span>
+      <select data-ml-filter-role data-ml-question-filter>
+        <option value="all">All roles</option>
+        {INTERVIEW_ROLES.map((role) => <option value={role}>{INTERVIEW_LABELS.role[role]}</option>)}
+      </select>
+    </label>
+    <label>
+      <span>Confidence</span>
+      <select data-ml-filter-confidence data-ml-question-filter>
+        <option value="all">All confidence</option>
+        <option value="unrated">Not rated</option>
+        {
+          CONFIDENCE_LEVELS.map((confidence) => (
+            <option value={confidence}>{INTERVIEW_LABELS.confidence[confidence]}</option>
+          ))
+        }
+      </select>
+    </label>
+    <label class="ml-question-filters__check">
+      <input type="checkbox" data-ml-filter-bookmarks data-ml-question-filter />
+      <span>Bookmarks only</span>
+    </label>
+  </div>
+
+  <p class="ml-question-index__count" aria-live="polite" data-ml-result-count>
+    {questions.length} questions
+  </p>
+
+  <ol class="ml-question-index__list">
+    {
+      questions.map(({ question, lesson }) => {
+        const search = [
+          question.question,
+          question.conciseAnswer,
+          ...question.tags,
+          ...question.aliases,
+          ...question.roles,
+        ]
+          .join(' ')
+          .toLowerCase();
+        return (
+          <li
+            data-ml-question-row
+            data-question-id={question.id}
+            data-lesson-id={lesson.id}
+            data-priority={question.priority}
+            data-difficulty={question.difficulty}
+            data-kind={question.kind}
+            data-round={question.round}
+            data-module={lesson.data.moduleId}
+            data-roles={question.roles.join(' ')}
+            data-search={search}
+            tabindex="-1"
+          >
+            <div class="ml-question-index__meta">
+              <span>{lesson.data.shortTitle ?? lesson.data.title}</span>
+              <span>{question.priority.replaceAll('-', ' ')}</span>
+              <span>{question.kind.replaceAll('-', ' ')}</span>
+            </div>
+            <a href={`/deep_dives/${lesson.id}/#${question.id}`}>{question.question}</a>
+            <div class="ml-question-index__progress" data-ml-enhancement hidden>
+              <button
+                type="button"
+                data-ml-bookmark
+                aria-pressed="false"
+                aria-label={`Bookmark question: ${question.question}`}
+              >
+                Bookmark
+              </button>
+              <label>
+                <span class="visually-hidden">Confidence for question: {question.question}</span>
+                <select data-ml-confidence>
+                  <option value="">Not rated</option>
+                  {CONFIDENCE_LEVELS.map((confidence) => (
+                    <option value={confidence}>{INTERVIEW_LABELS.confidence[confidence]}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </li>
+        );
+      })
+    }
+  </ol>
+  <p data-ml-question-empty hidden>No questions match these filters.</p>
+</section>
+
+<script>
+  import { mountMlInterviewStudy } from '../../scripts/mlInterviewStudy';
+  const bind = () => mountMlInterviewStudy(document);
+  bind();
+  document.addEventListener('astro:page-load', bind);
+</script>

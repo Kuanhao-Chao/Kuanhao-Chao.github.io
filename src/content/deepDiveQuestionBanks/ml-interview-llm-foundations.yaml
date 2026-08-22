@@ -1,0 +1,206 @@
+lesson: ml-interview-llm-foundations
+questions:
+  - id: q-llm-tokenization
+    question: 'Why do language models use subword tokenization, and what can go wrong at token boundaries?'
+    conciseAnswer: 'Subword vocabularies trade sequence length against vocabulary size while retaining a path to represent rare strings. Token boundaries are learned compression artifacts, not linguistic truth: spelling, numbers, whitespace, morphology, and different languages can receive unequal token budgets, which changes cost and model difficulty.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist, genai]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [tokenization, bpe, vocabulary]
+    aliases: [subword-tokenization, byte-pair-encoding]
+  - id: q-llm-causal-objective
+    question: 'Derive the causal language-model objective and explain teacher forcing.'
+    conciseAnswer: 'The chain rule factors a sequence probability as a product of next-token conditionals. Training minimizes the summed negative log probability of each observed next token while supplying the true prefix; this parallel teacher-forced computation differs from autoregressive inference, where generated tokens become future inputs.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [pretraining, autoregressive, teacher-forcing]
+    aliases: [next-token-prediction, causal-lm-loss]
+  - id: q-llm-masked-vs-causal
+    question: 'Compare masked-language modeling with causal-language modeling.'
+    conciseAnswer: 'Masked modeling predicts selected hidden tokens using both left and right context, which is natural for representation learning. Causal modeling predicts each token only from its prefix, matching left-to-right generation. Neither objective alone guarantees instruction following, factuality, or calibrated uncertainty.'
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist, genai]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [masked-lm, causal-lm, pretraining]
+    aliases: [bert-vs-gpt-objective, denoising-vs-autoregressive]
+  - id: q-llm-cross-entropy-perplexity
+    question: 'What does perplexity measure, and when is comparing perplexity invalid?'
+    conciseAnswer: 'Token-level perplexity is the exponential of average negative log-likelihood, so lower means more probability assigned to the observed tokens. Values are comparable only under the same evaluation text, tokenization, normalization, and likelihood accounting; a different tokenizer changes the prediction units and denominator.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: experimentation
+    stability: evergreen
+    tags: [perplexity, cross-entropy, evaluation]
+    aliases: [language-model-perplexity, bits-per-token]
+  - id: q-llm-transformer-path
+    question: 'Trace one token through a decoder-only Transformer block.'
+    conciseAnswer: 'A token and position representation enter a residual stream; normalized states produce causal self-attention queries, keys, and values, the attention update returns through a residual connection, and a position-wise MLP adds another update. A final projection maps the resulting state to vocabulary logits.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist, genai]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [transformer, residual-stream, attention]
+    aliases: [decoder-block, transformer-forward-pass]
+  - id: q-llm-context-position
+    question: 'Why does a long advertised context window not guarantee effective long-context reasoning?'
+    conciseAnswer: 'A positional scheme makes order representable, but effective use also depends on training-length coverage, attention allocation, distractors, retrieval position, optimization, and evaluation. Context capacity is an interface limit; accuracy must be measured across relevant lengths and information positions.'
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist, genai]
+    kind: trade-off
+    round: experimentation
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [long-context, positional-encoding, evaluation]
+    aliases: [context-window, lost-in-the-middle]
+  - id: q-llm-scaling-laws
+    question: 'What can and cannot be concluded from empirical neural scaling laws?'
+    conciseAnswer: 'Within measured regimes, held-out loss often follows smooth power-law trends with model size, data, and compute. These are empirical fits useful for allocation and forecasting, not universal laws: data quality, architecture, optimizer, downstream thresholds, and extrapolation can change the curve.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist, leadership]
+    kind: concept
+    round: project-defense
+    stability: evergreen
+    tags: [scaling-laws, compute, forecasting]
+    aliases: [neural-scaling, power-laws]
+  - id: q-llm-compute-optimal
+    question: 'What does compute-optimal training mean for model size and token count?'
+    conciseAnswer: 'For a fixed training-compute budget, compute-optimality chooses model parameters and training tokens jointly to minimize validation loss rather than maximizing parameter count. The optimum depends on the fitted scaling regime, data mixture, reuse, architecture, and deployment objective, so it is a planning estimate rather than a timeless ratio.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, leadership]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [compute-optimal, chinchilla, training-budget]
+    aliases: [model-size-vs-data, training-tokens]
+  - id: q-llm-moe
+    question: 'How does a sparse mixture-of-experts language model trade capacity against compute?'
+    conciseAnswer: 'A router sends each token to a small subset of expert feed-forward networks, so total parameter capacity can grow without activating every parameter for every token. Routing balance, communication, expert capacity, dropped tokens, memory, and serving complexity become first-class failure modes.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, ml-platform]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [mixture-of-experts, sparse-models, routing]
+    aliases: [moe, switch-transformer]
+  - id: q-llm-decoding
+    question: 'Compare greedy decoding, beam search, and stochastic sampling.'
+    conciseAnswer: 'Greedy decoding takes the highest-probability token locally; beam search retains several high-scoring prefixes and is useful when sequence likelihood aligns with the task; sampling preserves distributional diversity. The right method follows the product objective, and none repairs an incorrect model distribution.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist, genai]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [decoding, beam-search, sampling]
+    aliases: [generation-strategies, greedy-vs-beam]
+  - id: q-llm-temperature-top-p
+    question: 'How do temperature, top-k, and nucleus sampling alter token generation?'
+    conciseAnswer: 'Temperature rescales all logits before softmax; values below one sharpen and above one flatten. Top-k restricts support to k tokens, while top-p keeps the smallest set whose cumulative probability reaches p. Their interaction changes diversity and tail risk and must be evaluated on the application, not treated as creativity knobs.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [temperature, top-k, nucleus-sampling]
+    aliases: [top-p, sampling-parameters]
+  - id: q-llm-repetition-stopping
+    question: 'How would you debug repetition, truncation, and failure to stop during generation?'
+    conciseAnswer: 'First inspect the token stream, stop-token configuration, chat template, maximum-token limit, and sampling policy. Then distinguish a serving bug from model probability: repetition penalties and stop strings can mask symptoms, but malformed prompts, distribution shift, or weak training may require data or model changes.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, genai, ml-platform]
+    kind: debugging
+    round: coding
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [generation, stopping, debugging]
+    aliases: [repetition-loop, eos-token]
+  - id: q-llm-kv-cache
+    question: 'What is the key-value cache, and how do you estimate its memory cost?'
+    conciseAnswer: 'Autoregressive decoding stores prior attention keys and values so each new token need not recompute them. Memory scales with batch size, cached sequence length, layer count, key-value head count, head dimension, two tensors, and bytes per element; grouped-query attention reduces the head factor.'
+    priority: must-know
+    difficulty: advanced
+    roles: [dl-specialist, genai, ml-platform]
+    kind: mathematics
+    round: system-design
+    stability: evergreen
+    tags: [kv-cache, inference-memory, attention]
+    aliases: [attention-cache, decoder-cache]
+  - id: q-llm-prefill-decode
+    question: 'Why should LLM serving distinguish prefill latency from decode latency?'
+    conciseAnswer: 'Prefill processes prompt tokens in parallel and is usually compute intensive; decoding generates one token per sequence step while repeatedly reading weights and cache, often making it memory-bandwidth and scheduling sensitive. Time-to-first-token, inter-token latency, and total throughput expose different bottlenecks.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [genai, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [prefill, decode, serving, latency]
+    aliases: [ttft, time-per-output-token]
+  - id: q-llm-attention-complexity
+    question: 'What are the time and memory complexities of dense self-attention?'
+    conciseAnswer: 'Forming all query-key scores for sequence length n and head width d costs O(n squared d) arithmetic and materializing the score matrix costs O(n squared) memory per head, while projections add O(n d_model squared). During cached single-token decoding, attention over the existing context is linear in cached length per step.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist, ml-platform]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [attention, complexity, long-context]
+    aliases: [quadratic-attention, transformer-complexity]
+  - id: q-llm-flash-attention
+    question: 'Does FlashAttention make exact attention subquadratic? Explain the actual optimization.'
+    conciseAnswer: 'FlashAttention remains an exact dense-attention algorithm with quadratic arithmetic in sequence length. It tiles the computation and avoids materializing the full score matrix in high-bandwidth memory, reducing memory traffic and auxiliary storage; the speedup depends on hardware, shapes, kernel support, and surrounding operations.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, ml-platform]
+    kind: implementation
+    round: knowledge
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [flash-attention, io-awareness, gpu]
+    aliases: [memory-efficient-attention, attention-kernel]
+  - id: q-llm-quantization
+    question: 'What is lost when language-model weights or activations are quantized?'
+    conciseAnswer: 'Quantization represents values with fewer bits, reducing storage and memory bandwidth and sometimes increasing hardware throughput. Rounding, clipping, outliers, calibration data, accumulator precision, and unsupported kernels can degrade accuracy or erase speed gains; weight-only and weight-plus-activation schemes have different risks.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, dl-specialist, genai, ml-platform]
+    kind: trade-off
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [quantization, inference, precision]
+    aliases: [int8, low-bit-inference]
+  - id: q-llm-inference-capacity
+    question: 'Design a capacity plan for an LLM endpoint with latency and cost constraints.'
+    conciseAnswer: 'Measure the prompt and output-length distributions, separate prefill and decode service times, choose an SLO percentile, estimate weight and cache memory, and load-test realistic concurrency. Dynamic batching raises throughput but can hurt tail latency; admission control, token budgets, prefix caching, routing, and fallback policies must be modeled together.'
+    priority: common
+    difficulty: advanced
+    roles: [genai, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [capacity-planning, serving, latency, cost]
+    aliases: [llm-serving-design, throughput-planning]

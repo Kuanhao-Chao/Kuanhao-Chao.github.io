@@ -1,0 +1,180 @@
+lesson: ml-interview-debugging-robustness-responsible-ml
+questions:
+  - id: q-reliability-loss-not-decreasing
+    question: 'A training loss does not decrease. How do you debug it without guessing?'
+    conciseAnswer: 'Reduce the system until one batch can overfit, then verify labels, shapes, loss inputs, gradient flow, parameter updates, numerical ranges, and learning rate in that order. Change one variable at a time and record the first invariant that breaks; broad hyperparameter sweeps hide wiring bugs.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: debugging
+    round: project-defense
+    stability: evergreen
+    tags: [training, loss, gradients, debugging]
+    aliases: [model-does-not-learn, flat-loss]
+  - id: q-reliability-overfit-one-batch
+    question: 'Why is overfitting one tiny batch such a powerful diagnostic?'
+    conciseAnswer: 'A sufficiently expressive model should nearly memorize a small clean batch. Failure narrows the fault to data/label alignment, model capacity, loss semantics, gradients, optimizer state, or stochastic layers; success clears the core learning path but says nothing about generalization.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: debugging
+    round: coding
+    stability: evergreen
+    tags: [sanity-check, memorization, training-loop]
+    aliases: [tiny-batch-test, overfit-small-batch]
+  - id: q-reliability-train-validation-gap
+    question: 'Training performance improves while validation degrades. What hypotheses do you test?'
+    conciseAnswer: 'First verify comparable pipelines, split integrity, metric aggregation, and train/eval modes. Then distinguish variance from distribution mismatch by learning curves, subgroup/time slices, repeated splits, and simpler baselines before adding regularization, data, augmentation, or early stopping.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: debugging
+    round: experimentation
+    stability: evergreen
+    tags: [overfitting, validation, learning-curves]
+    aliases: [generalization-gap, validation-loss-rises]
+  - id: q-reliability-data-label-bugs
+    question: 'How do you detect silent data and label bugs before blaming the model?'
+    conciseAnswer: 'Trace sampled raw records through every transform, assert schemas/ranges/joins and cardinalities, visualize examples with labels, compare feature distributions by split and time, and train leakage-oriented baselines. Version lineage and test invariants at boundaries because plausible tensors can still represent the wrong examples.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: debugging
+    round: project-defense
+    stability: evergreen
+    tags: [data-quality, labels, leakage, lineage]
+    aliases: [silent-data-corruption, label-misalignment]
+  - id: q-reliability-gradient-pathologies
+    question: 'How do you diagnose vanishing, exploding, and otherwise unhealthy gradients?'
+    conciseAnswer: 'Log per-layer activation and gradient norms, nonfinite counts, update-to-weight ratios, saturation, and clipping frequency on a deterministic batch. Use the pattern to test initialization, normalization, residual paths, loss scale, sequence depth, learning rate, and mixed-precision scaling rather than declaring every small gradient vanishing.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: debugging
+    round: coding
+    stability: evergreen
+    tags: [gradients, activations, numerical-stability]
+    aliases: [vanishing-gradients, exploding-gradients]
+  - id: q-reliability-calibration-uncertainty
+    question: 'How are confidence, calibration, discrimination, and uncertainty different?'
+    conciseAnswer: 'A confidence score is a model output; discrimination measures ranking; calibration compares predicted probabilities with empirical frequencies; uncertainty describes unresolved outcome or model knowledge. None guarantees the others, and all are conditional on the evaluated population and decision context.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, leadership]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [calibration, uncertainty, confidence, discrimination]
+    aliases: [confidence-vs-uncertainty, calibrated-probabilities]
+  - id: q-reliability-aleatoric-epistemic
+    question: 'What are aleatoric and epistemic uncertainty, and when is the distinction useful?'
+    conciseAnswer: 'Aleatoric uncertainty represents outcome variability that remains even with the correct parameters and inputs; epistemic uncertainty reflects limited knowledge about the model or data-generating process and can shrink with informative data. The decomposition is model-dependent, so use it to select actions, not as an observed ground-truth partition.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [aleatoric, epistemic, bayesian-modeling]
+    aliases: [data-vs-model-uncertainty, uncertainty-decomposition]
+  - id: q-reliability-shift-taxonomy
+    question: 'Distinguish covariate shift, label shift, concept drift, and selection bias.'
+    conciseAnswer: 'Covariate shift changes p(x) while p(y|x) stays fixed; label shift changes p(y) while p(x|y) stays fixed; concept drift changes p(y|x); selection bias changes which examples are observed. The assumptions overlap imperfectly in real systems, so diagnosis needs causal timing, labels, and slices—not one drift score.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, ml-platform]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [distribution-shift, concept-drift, label-shift]
+    aliases: [dataset-shift, covariate-shift]
+  - id: q-reliability-ood-detection
+    question: 'Why is out-of-distribution detection not a solved binary classification problem?'
+    conciseAnswer: 'OOD is defined relative to an intended deployment distribution, while possible alternatives are unbounded and often unavailable during training. A detector can separate one benchmark OOD set yet fail on another, so specify the shift family and action, evaluate multiple near/far shifts, and retain abstention plus monitoring.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [ood, abstention, distribution-shift]
+    aliases: [out-of-distribution, novelty-detection]
+  - id: q-reliability-adversarial-threat-model
+    question: 'How do you define and evaluate an adversarial-robustness claim?'
+    conciseAnswer: 'State attacker knowledge, capabilities, perturbation set, budget, target, and success metric before choosing an attack. Evaluate adaptive attacks against the complete defense, clean/robust utility, and realistic semantic constraints; robustness to one norm and radius does not imply security outside that threat model.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist, ml-platform]
+    kind: system-design
+    round: project-defense
+    stability: evergreen
+    tags: [adversarial-robustness, security, threat-model]
+    aliases: [adversarial-examples, robust-accuracy]
+  - id: q-reliability-explanations
+    question: 'What do feature-attribution methods explain, and what do they not prove?'
+    conciseAnswer: 'They attribute a particular model output relative to a baseline, perturbation distribution, or cooperative-game definition. They do not establish causal effects, data validity, model correctness, or human-understandable mechanism; test fidelity, stability, baseline sensitivity, and usefulness for the concrete decision.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, leadership]
+    kind: trade-off
+    round: project-defense
+    stability: evergreen
+    tags: [interpretability, lime, shap, attribution]
+    aliases: [feature-attribution, explainable-ai]
+  - id: q-reliability-fairness-definitions
+    question: 'Why can common statistical fairness criteria be mutually incompatible?'
+    conciseAnswer: 'When base rates differ and prediction is imperfect, calibration within groups and equalized error rates generally cannot both hold. Selecting a criterion is therefore a policy decision tied to harms, legal context, and intervention—not a technical search for the universally fair metric.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, leadership]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [fairness, calibration, equalized-odds]
+    aliases: [fairness-impossibility, group-fairness]
+  - id: q-reliability-subgroup-evaluation
+    question: 'How do you evaluate subgroup performance without producing noisy or misleading tables?'
+    conciseAnswer: 'Predefine harm-relevant and intersectional groups, report denominators and uncertainty, protect privacy, and use hierarchical or multiplicity-aware analysis for sparse slices. Pair aggregate disparities with threshold/label-quality investigation and avoid choosing only favorable slices after seeing results.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, leadership]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [subgroups, fairness, uncertainty, multiple-testing]
+    aliases: [slice-analysis, intersectional-evaluation]
+  - id: q-reliability-differential-privacy
+    question: 'What guarantee does differential privacy provide, and what does epsilon mean?'
+    conciseAnswer: 'An algorithm is epsilon-delta differentially private when neighboring datasets induce nearly indistinguishable output distributions: probabilities differ by at most a multiplicative exp(epsilon) plus delta. The guarantee limits additional disclosure caused by one record and composes across releases; it does not anonymize the raw data or prevent every inference.'
+    priority: common
+    difficulty: advanced
+    roles: [research-scientist, ml-platform, leadership]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [differential-privacy, privacy-budget, composition]
+    aliases: [epsilon-delta-dp, privacy-guarantee]
+  - id: q-reliability-security-abuse
+    question: 'What security and abuse risks belong in an ML launch review?'
+    conciseAnswer: 'Model the full attack surface: poisoned or exfiltrated data, dependency compromise, unauthorized model access, extraction/inversion, adversarial inputs, prompt/tool abuse, and harmful legitimate use. Map each threat to access controls, provenance, isolation, rate limits, red-team tests, incident ownership, and a rollback or kill path.'
+    priority: common
+    difficulty: advanced
+    roles: [ml-platform, genai, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [security, abuse, supply-chain, model-extraction]
+    aliases: [ml-threat-model, ai-security]
+  - id: q-reliability-launch-decision
+    question: 'How do you decide whether a model is responsible and ready to launch?'
+    conciseAnswer: 'Translate intended use and foreseeable misuse into measurable acceptance gates across utility, subgroup harms, privacy, security, reliability, human oversight, and reversibility. Record evidence and residual risk in model/data documentation, assign owners, stage exposure, monitor leading indicators, and stop when a critical uncertainty lacks mitigation.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [responsible-ai, launch-review, governance, risk]
+    aliases: [go-no-go, model-risk-review]

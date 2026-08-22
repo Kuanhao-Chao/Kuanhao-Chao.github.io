@@ -1557,10 +1557,14 @@ async function navigateWithAudit(page, path, expectedSelector) {
     });
     document.body.append(link);
   }, path);
-  // A browser-generated click is required to exercise ClientRouter. Calling
-  // element.click() can bypass Astro's trusted navigation path and silently
-  // turn the lifecycle check into a full reload.
-  await page.locator('[data-cell-audit-navigation]').click({ force: true });
+  // A browser-generated activation is required to exercise ClientRouter. Calling
+  // element.click() can bypass Astro's trusted navigation path and silently turn the
+  // lifecycle check into a full reload. A focused Enter is also robust after interacting
+  // with a game canvas, where Chromium can retarget a forced click on this tiny audit link
+  // to the document root instead of the anchor.
+  const auditLink = page.locator('[data-cell-audit-navigation]');
+  await auditLink.focus();
+  await auditLink.press('Enter');
   await urlReady;
   await page.locator(expectedSelector).waitFor({ state: 'attached', timeout: navigationTimeout });
   await page.waitForTimeout(80);

@@ -1,3 +1,5 @@
+import mlInterviewCurriculum from './mlInterviewCurriculum.json';
+
 /**
  * The /deep_dives/ index catalog: display order, category taxonomy, and cards for the
  * pages that have no content file yet.
@@ -10,7 +12,16 @@
  */
 
 export interface DeepDiveCategory {
-  slug: 'all' | 'statistical-genetics' | 'genomic-data' | 'sequence-analysis' | 'gene-regulation' | 'epigenomics' | 'pangenomics' | 'deep-learning';
+  slug:
+    | 'all'
+    | 'statistical-genetics'
+    | 'genomic-data'
+    | 'machine-learning'
+    | 'sequence-analysis'
+    | 'gene-regulation'
+    | 'epigenomics'
+    | 'pangenomics'
+    | 'deep-learning';
   label: string;
 }
 
@@ -19,7 +30,15 @@ export interface DeepDiveEntry {
   title: string;
   shortTitle?: string;
   area: string;
-  category: 'statistical-genetics' | 'genomic-data' | 'sequence-analysis' | 'gene-regulation' | 'epigenomics' | 'pangenomics' | 'deep-learning';
+  category:
+    | 'statistical-genetics'
+    | 'genomic-data'
+    | 'machine-learning'
+    | 'sequence-analysis'
+    | 'gene-regulation'
+    | 'epigenomics'
+    | 'pangenomics'
+    | 'deep-learning';
   tag: string;
   level: string; // e.g. "Foundational to Advanced"
   readingTime: string; // e.g. "18 min read"
@@ -38,6 +57,7 @@ export const DEEP_DIVE_CATEGORIES: DeepDiveCategory[] = [
   { slug: 'all', label: 'All Concepts' },
   { slug: 'statistical-genetics', label: 'Statistical & Population Genetics' },
   { slug: 'genomic-data', label: 'Genomic Data & Resources' },
+  { slug: 'machine-learning', label: 'Machine Learning, Deep Learning & AI' },
   { slug: 'sequence-analysis', label: 'Sequence Analysis & Alignment' },
   { slug: 'gene-regulation', label: 'Gene Regulation & Splicing' },
   { slug: 'epigenomics', label: 'Epigenomics & Functional Genomics' },
@@ -88,6 +108,9 @@ export const DEEP_DIVE_ORDER: string[] = [
   'data-variant-effect-scores',
   'data-mave-assays',
   'data-germline-clinical',
+  // Machine Learning & Deep Learning Interview Guide — complete course order.
+  mlInterviewCurriculum.hub,
+  ...mlInterviewCurriculum.lessons.map(({ id }) => id),
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',
@@ -97,7 +120,8 @@ export const DEEP_DIVE_ORDER: string[] = [
 export const DEEP_DIVES: DeepDiveEntry[] = [
   {
     id: 'statistical-genetics',
-    title: 'Statistical Genetics: The Mathematical Machinery of Quantitative Traits, Heritability & Causal Mapping',
+    title:
+      'Statistical Genetics: The Mathematical Machinery of Quantitative Traits, Heritability & Causal Mapping',
     shortTitle: 'Statistical Genetics',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
@@ -109,7 +133,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     highlights: [
       'Population genetics foundations: Hardy-Weinberg equilibrium, Wright-Fisher genetic drift, and Kingman coalescent TMRCA',
       'Infinitesimal model, variance decomposition (V_P = V_A + V_D + V_I + V_{GxE} + V_E), and narrow-sense heritability (h²)',
-      'Linkage Disequilibrium (D, D\', r²), exact half-life decay, recombination hotspots (PRDM9), and haplotype blocks',
+      "Linkage Disequilibrium (D, D', r²), exact half-life decay, recombination hotspots (PRDM9), and haplotype blocks",
       'Genomic Relatedness Matrix (GRM) & GREML variance-component estimation (GCTA / AI-REML)',
       'LD Score Regression (LDSC & S-LDSC) mathematical proof, genetic correlation (r_g), and tissue enrichment (τ*)',
       'Linear Mixed Models (LMM): from GEMMA to BOLT-LMM, fastGWA, and Regenie stacked ridge regression',
@@ -141,14 +165,14 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     level: 'Foundational to Advanced',
     readingTime: '12 min read',
     summary:
-      'First-principles exploration of Hardy-Weinberg equilibrium, Wright-Fisher genetic drift, Kingman\'s coalescent TMRCA genealogy, Tajima\'s D neutrality metric, Fisher\'s 1918 infinitesimal synthesis, and complete phenotypic variance decomposition.',
+      "First-principles exploration of Hardy-Weinberg equilibrium, Wright-Fisher genetic drift, Kingman's coalescent TMRCA genealogy, Tajima's D neutrality metric, Fisher's 1918 infinitesimal synthesis, and complete phenotypic variance decomposition.",
     highlights: [
       'Hardy-Weinberg equilibrium mathematical derivation and Chi-square testing',
       'Wright-Fisher transition probabilities and rate of heterozygosity decay (H_t = H_0(1 - 1/(2N_e))^t)',
-      'Kingman\'s coalescent genealogy and expected TMRCA derivation (4Ne generations)',
-      'Tajima\'s D neutrality test comparing pairwise diversity against segregating sites',
-      'Ronald A. Fisher\'s 1918 infinitesimal synthesis and Central Limit Theorem convergence',
-      'Master variance decomposition (V_P = V_A + V_D + V_I + V_{GxE} + 2Cov(G,E) + V_E) & Breeder\'s equation',
+      "Kingman's coalescent genealogy and expected TMRCA derivation (4Ne generations)",
+      "Tajima's D neutrality test comparing pairwise diversity against segregating sites",
+      "Ronald A. Fisher's 1918 infinitesimal synthesis and Central Limit Theorem convergence",
+      "Master variance decomposition (V_P = V_A + V_D + V_I + V_{GxE} + 2Cov(G,E) + V_E) & Breeder's equation",
     ],
     equations: [
       'p^2 + 2pq + q^2 = 1',
@@ -236,10 +260,10 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     level: 'Advanced & Mathematical',
     readingTime: '7 min read',
     summary:
-      'A mathematical and algorithmic guide to Bayesian fine-mapping — from Wakefield\'s Approximate Bayes Factor (ABF) with null normalization to the Sum of Single Effects (SuSiE) model, coordinate ascent variational inference (IBSS), 95% credible sets, and statistical colocalization (coloc).',
+      "A mathematical and algorithmic guide to Bayesian fine-mapping — from Wakefield's Approximate Bayes Factor (ABF) with null normalization to the Sum of Single Effects (SuSiE) model, coordinate ascent variational inference (IBSS), 95% credible sets, and statistical colocalization (coloc).",
     highlights: [
       'The fundamental LD confounding matrix equation (E[β̂] = R β_true)',
-      'Wakefield\'s Approximate Bayes Factor (ABF) and null-normalized PIP calculation',
+      "Wakefield's Approximate Bayes Factor (ABF) and null-normalized PIP calculation",
       'Sum of Single Effects (SuSiE, Wang & Stephens 2020) generative multivariate formulation',
       'Iterative Bayesian Stepwise Selection (IBSS / CAVI) variational optimization',
       'Posterior Inclusion Probabilities (PIP) and construction of 95% Credible Sets with purity checks',
@@ -301,7 +325,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     summary:
       'A mathematical and epidemiological guide to Mendelian Randomization (MR) — evaluating the 3 core instrumental variable assumptions, the Inverse-Variance Weighted (IVW) estimator, MR-Egger directional pleiotropy tests, Weighted Median, MVMR, and within-family sibling models.',
     highlights: [
-      'Nature\'s Randomized Controlled Trial: meiotic assortment and instrumental variables (IVs)',
+      "Nature's Randomized Controlled Trial: meiotic assortment and instrumental variables (IVs)",
       'The 3 core IV assumptions: Relevance (F > 10), Independence (Z ⟂ U), and Exclusion Restriction',
       'Inverse-Variance Weighted (IVW) master fixed- and random-effects causal estimators',
       'MR-Egger regression: testing directional horizontal pleiotropy under the InSIDE assumption',
@@ -343,7 +367,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     equations: [
       '\\Delta \\hat{\\mathbf{y}}_j = f_\\theta(\\mathbf{s}_{\\text{alt}, j}) - f_\\theta(\\mathbf{s}_{\\text{ref}, j})',
       '\\pi_j \\propto \\exp(\\boldsymbol{\\tau}^T \\Delta \\hat{\\mathbf{y}}_j)',
-      '\\text{IG}_i(x) = (x_i - x_i\') \\times \\int_0^1 \\frac{\\partial f_\\theta(x\' + \\alpha(x-x\'))}{\\partial x_i} d\\alpha',
+      "\\text{IG}_i(x) = (x_i - x_i') \\times \\int_0^1 \\frac{\\partial f_\\theta(x' + \\alpha(x-x'))}{\\partial x_i} d\\alpha",
     ],
     href: '/deep_dives/statgen-deep-learning-synthesis/',
     badge: 'Deep Dive Post',
@@ -368,7 +392,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       'Rigorous QC protocols: sample call rate (>98%), sex checks, heterozygosity & IBD relatedness',
       'Additive OLS & LMM regression derivations with Wald test statistics and power scaling',
       'The chopsticks problem: ancestry confounding, EIGENSTRAT PCA, λ_GC inflation & LDSC',
-      'Linkage Disequilibrium blocks (r², D\'), SuSiE 95% credible sets & deep learning splicing',
+      "Linkage Disequilibrium blocks (r², D'), SuSiE 95% credible sets & deep learning splicing",
       'Bonferroni derivation (p < 5×10⁻⁸), omnigenic architecture & clinical PRS risk stratification',
     ],
     equations: [
@@ -386,7 +410,8 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
   },
   {
     id: 'gwas-biological-variation-cdcv',
-    title: 'The Spectrum of Genetic Variation: From Mendelian Linkage to the Common Disease–Common Variant (CDCV) Paradigm',
+    title:
+      'The Spectrum of Genetic Variation: From Mendelian Linkage to the Common Disease–Common Variant (CDCV) Paradigm',
     shortTitle: 'Biological Variation & CDCV',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
@@ -416,7 +441,8 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
   },
   {
     id: 'gwas-genotyping-imputation',
-    title: 'SNP Microarrays & Statistical Genotype Imputation: Hidden Markov Models and Population Reference Panels',
+    title:
+      'SNP Microarrays & Statistical Genotype Imputation: Hidden Markov Models and Population Reference Panels',
     shortTitle: 'Microarrays & Imputation',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
@@ -433,7 +459,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       'Imputation dosage calculation and INFO score (R²_info) quality filtering',
     ],
     equations: [
-      'P(S_m = k\' \\mid S_{m-1} = k) = (1 - \\rho_m) + \\frac{\\rho_m}{K}',
+      "P(S_m = k' \\mid S_{m-1} = k) = (1 - \\rho_m) + \\frac{\\rho_m}{K}",
       'G_{ij} = p_1 + 2 p_2 \\in [0.0, 2.0]',
       'R^2_{\\text{info}} = \\frac{\\text{Var}(G_j)}{2 \\hat{p}_j (1 - \\hat{p}_j)}',
     ],
@@ -446,7 +472,8 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
   },
   {
     id: 'gwas-quality-control',
-    title: 'Rigorous Quality Control (QC) Protocols in GWAS: Sample- and Variant-Level Filtering Pipelines',
+    title:
+      'Rigorous Quality Control (QC) Protocols in GWAS: Sample- and Variant-Level Filtering Pipelines',
     shortTitle: 'GWAS Quality Control',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
@@ -476,7 +503,8 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
   },
   {
     id: 'gwas-association-statistics',
-    title: 'The Mathematical Association Engine: OLS, Logistic Regression, Wald Statistics, and Statistical Power',
+    title:
+      'The Mathematical Association Engine: OLS, Logistic Regression, Wald Statistics, and Statistical Power',
     shortTitle: 'Association Statistics & Power',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
@@ -490,7 +518,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       'Frisch-Waugh-Lovell projection matrix M_Z orthogonalizing non-genetic covariates',
       'Exact analytical standard error SE(β̂) = σ / √(2N p(1-p)) under HWE',
       'Newton-Raphson / IRLS parameter estimation for logistic regression & Odds Ratios',
-      'Non-centrality parameter (NCP) power scaling and Winner\'s Curse correction',
+      "Non-centrality parameter (NCP) power scaling and Winner's Curse correction",
     ],
     equations: [
       '\\hat{\\beta}_j = \\frac{\\text{Cov}(x_j^*, y^*)}{\\text{Var}(x_j^*)}',
@@ -506,7 +534,8 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
   },
   {
     id: 'gwas-population-stratification',
-    title: 'Population Stratification Confounding: The Chopsticks Problem, Ancestry PCA, and Linear Mixed Models (LMM)',
+    title:
+      'Population Stratification Confounding: The Chopsticks Problem, Ancestry PCA, and Linear Mixed Models (LMM)',
     shortTitle: 'Population Stratification & LMMs',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
@@ -536,7 +565,8 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
   },
   {
     id: 'gwas-multiple-testing-manhattan',
-    title: 'Multiple Hypothesis Testing, Family-Wise Error Rate, and the Genome-Wide Significance Threshold',
+    title:
+      'Multiple Hypothesis Testing, Family-Wise Error Rate, and the Genome-Wide Significance Threshold',
     shortTitle: 'Multiple Testing & Manhattan Plot',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
@@ -574,10 +604,10 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     level: 'Advanced & Mathematical',
     readingTime: '7 min read',
     summary:
-      'A mathematical and population-genetics masterclass on Linkage Disequilibrium: D, D\', r² formulas, PRDM9 recombination hotspots, and the complete mathematical proof of LD Score Regression (LDSC & S-LDSC).',
+      "A mathematical and population-genetics masterclass on Linkage Disequilibrium: D, D', r² formulas, PRDM9 recombination hotspots, and the complete mathematical proof of LD Score Regression (LDSC & S-LDSC).",
     highlights: [
       'Biological crossing over, PRDM9 13-mer hotspots, and meiotic LD decay',
-      'Mathematical formulas for D, Lewontin\'s D\', and Pearson r²',
+      "Mathematical formulas for D, Lewontin's D', and Pearson r²",
       'Why λ_GC fails to separate polygenicity from confounding in biobanks',
       'Full mathematical proof of LD Score Regression expectation E[χ²_j]',
       'Cross-trait bivariate LDSC (genetic correlation r_g) and Stratified LDSC (τ*)',
@@ -626,7 +656,8 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
   },
   {
     id: 'gwas-polygenic-risk-scores-prs',
-    title: 'Polygenic Risk Scores (PRS): Methodology, Clinical Liability Thresholds, and Cross-Ancestry Portability',
+    title:
+      'Polygenic Risk Scores (PRS): Methodology, Clinical Liability Thresholds, and Cross-Ancestry Portability',
     shortTitle: 'Polygenic Risk Scores (PRS)',
     area: 'Statistical & Population Genetics',
     category: 'statistical-genetics',
@@ -634,11 +665,11 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     level: 'Translational & Clinical',
     readingTime: '6 min read',
     summary:
-      'A clinical and mathematical masterclass on Polygenic Risk Scores (PRS): Bayesian shrinkage models (LDpred2, PRS-CS), Falconer\'s liability threshold model, monogenic risk equivalence, and multi-ancestry PRS-CSx.',
+      "A clinical and mathematical masterclass on Polygenic Risk Scores (PRS): Bayesian shrinkage models (LDpred2, PRS-CS), Falconer's liability threshold model, monogenic risk equivalence, and multi-ancestry PRS-CSx.",
     highlights: [
       'PRS formulation aggregating thousands of marginal effect weights',
       'Clumping & Thresholding (C+T) vs. Bayesian shrinkage (LDpred2, PRS-CS, SBayesR)',
-      'Falconer\'s continuous liability threshold model & heritability conversion',
+      "Falconer's continuous liability threshold model & heritability conversion",
       'Clinical risk stratification: top 5% PRS conferring monogenic-equivalent risk',
       'Cross-ancestry portability crisis and multi-ancestry solutions (PRS-CSx)',
     ],
@@ -725,7 +756,7 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       'GBZ, r-index, and PanVC pangenome index querying complexity',
     ],
     equations: [
-      'u < v \\implies u\' < v\'',
+      "u < v \\implies u' < v'",
       '\\text{Query Time: } \\mathcal{O}(P \\cdot \\log \\Sigma)',
     ],
     href: '/deep_dives/wheeler-pangenome-graphs/',

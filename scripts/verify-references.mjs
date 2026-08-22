@@ -23,8 +23,8 @@
  */
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { parse } from 'yaml';
 
 const REFS = 'src/content/deepDiveReferences/references.yaml';
 const LESSONS = 'src/content/deepDives';
@@ -35,36 +35,39 @@ const MAX_RETRIES = 4;
 const errors = [];
 const warnings = [];
 
-// ── Parse the YAML we control, without adding a dependency ────────────────────
-// The file is machine-generated in a fixed shape: a top-level key per entry, then
-// two-space-indented scalar fields. Anything else is a authoring error worth reporting.
+// ── Parse the YAML we control ──────────────────────────────────
+// This must consume normal YAML rather than a line-oriented approximation: Prettier can
+// legitimately wrap long author arrays, and the audit must not depend on presentation.
 function parseReferences(text) {
-  const entries = new Map();
-  let current = null;
-  text.split('\n').forEach((line, i) => {
-    if (/^\s*(#|$)/.test(line)) return;
-    const top = line.match(/^([A-Za-z0-9_-]+):\s*$/);
-    if (top) {
-      current = { key: top[1], line: i + 1 };
-      entries.set(top[1], current);
-      return;
-    }
-    const field = line.match(/^\s{2}([a-zA-Z]+):\s*(.*)$/);
-    if (field && current) {
-      const [, name, raw] = field;
-      current[name] = raw.startsWith('[')
-        ? raw.slice(1, -1).split(',').map((s) => s.trim().replace(/^'|'$/g, ''))
-        : raw.replace(/^["']|["']$/g, '');
-    }
-  });
-  return entries;
+  const parsed = parse(text, { uniqueKeys: true });
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('bibliography root must be a mapping');
+  }
+  return new Map(
+    Object.entries(parsed).map(([key, value]) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error(`${key}: bibliography entry must be a mapping`);
+      }
+      return [key, { key, ...value }];
+    })
+  );
 }
 
 // Case-folded: Crossref deposits some older surnames in caps (KOSAMBI, FALCONER), while
 // this bibliography stores them title-cased. Comparing raw strings reports a mismatch on
 // three correct entries.
 const surname = (name) =>
-  name.trim().split(/\s+/).slice(-1)[0].replace(/[^\p{L}-]/gu, '').toLocaleLowerCase();
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(-1)[0]
+    .replace(/[^\p{L}-]/gu, '')
+    .toLocaleLowerCase();
+
+const isCorporateAuthor = (name) =>
+  /\b(consortium|institute|institution|organization|association|collaboration|program|project|working group|committee|team|society|department|university|college|laborator(?:y|ies)|agency|administration|government|ministry|office|cent(?:er|re))\b/i.test(
+    name
+  );
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -132,14 +135,8 @@ if (!existsSync(REFS)) {
  * every page. Catch it here, where the error names the line.
  */
 function assertParses(path) {
-  let load;
   try {
-    ({ load } = createRequire(import.meta.url)('js-yaml'));
-  } catch {
-    return; // js-yaml comes in via Astro; if it is absent, skip rather than fail the audit
-  }
-  try {
-    load(readFileSync(path, 'utf8'));
+    parse(readFileSync(path, 'utf8'), { uniqueKeys: true });
   } catch (err) {
     console.error(`Reference audit failed: ${path} is not valid YAML — Astro will not load it.`);
     console.error(String(err.message).split('\n').slice(0, 8).join('\n'));
@@ -213,7 +210,8 @@ if (!OFFLINE) {
     }
     const want = surname(e.authors[0]);
     // Consortium and corporate authors are deposited inconsistently; only check people.
-    const isPerson = want.length > 1 && !/^(the|consortium|anon)$/.test(want);
+    const isPerson =
+      want.length > 1 && !/^(the|consortium|anon)$/.test(want) && !isCorporateAuthor(e.authors[0]);
     if (isPerson && r.authors.length && !r.authors.some((a) => surname(a) === want)) {
       errors.push(
         `${e.key}: first author "${e.authors[0]}" not among Crossref authors ` +

@@ -1,0 +1,436 @@
+---
+title: Sequence Models, Attention & Transformers
+shortTitle: Attention & Transformers
+description: RNNs, LSTMs, sequence-to-sequence learning, attention, Transformer blocks, masks, positional information, complexity and caching.
+abstract: Follow sequence modeling from recurrence through attention to Transformers while keeping tensor dimensions, causal constraints, computational cost and train-inference differences explicit.
+date: 2026-08-22
+track: theory
+hub: ml-dl-interview
+lessonType: technical
+category: machine-learning
+moduleId: m07-architectures
+moduleLabel: Deep Learning Architectures
+order: 12
+level: intermediate
+objectives:
+  - Explain recurrent state, backpropagation through time and gated memory.
+  - Derive scaled dot-product and multi-head attention with explicit tensor dimensions.
+  - Distinguish padding, causal and cross-attention masks and test them for leakage.
+  - Analyze Transformer training, autoregressive decoding, cache memory and long-context tradeoffs.
+prerequisites: [ml-interview-neural-network-foundations]
+relatedLessons: [ml-interview-llm-foundations]
+referenceIds:
+  - hochreiter1997lstm
+  - gers2000forget
+  - sutskever2014seq2seq
+  - bahdanau2015attention
+  - bengio2015scheduledsampling
+  - vaswani2017transformer
+  - shaw2018relativeposition
+  - dao2022flashattention
+keyEquations:
+  - 'h_t=\phi(x_tW_x+h_{t-1}W_h+b)'
+  - '\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}+M\right)V'
+  - 'M_{\mathrm{cache}}=O\!\left(LT(h_kd_k+h_vd_v)\right)'
+tags: [sequence models, attention, Transformer]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The map: state, addressable memory and causality
+
+A sequence model must decide what the past leaves behind. Recurrence compresses prior inputs into
+one evolving state. Attention retains a collection of states and retrieves a weighted combination
+for each query. A Transformer builds repeated attention and feed-forward transformations, then
+uses a mask to decide which tokens are legal evidence.
+
+<Callout variant="intuition" title="The architecture is only half the sequence model">
+The other half is the information boundary. Which timestamps are available when the prediction is
+made? Which tokens are padding? Is the target shifted by one position? Does evaluation feed true
+history or the model's own output? A perfect attention equation with the wrong boundary is a
+high-capacity leakage machine.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'B', meaning: 'Batch size', dims: 'scalar' },
+    { symbol: 'T, S', meaning: 'Query and source sequence lengths', dims: 'tokens or steps' },
+    { symbol: 'd_x, d_h, d', meaning: 'Input, recurrent-state and model widths', dims: 'features' },
+    { symbol: 'Q', meaning: 'Query matrix', dims: 'T × d_k per example/head' },
+    { symbol: 'K', meaning: 'Key matrix', dims: 'S × d_k per example/head' },
+    { symbol: 'V', meaning: 'Value matrix', dims: 'S × d_v per example/head' },
+    { symbol: 'M', meaning: 'Additive attention mask: 0 allowed, -infinity forbidden', dims: 'T × S' },
+    { symbol: 'L', meaning: 'Number of stacked Transformer layers', dims: 'scalar' },
+  ]}
+/>
+
+<Figure
+  id="sequence-memory-paths"
+  caption="Figure 1. Recurrence moves a fixed-width state through time; attention lets each query address retained keys and values; autoregressive serving appends one new key-value pair per layer to a cache. The cache avoids recomputing the prefix but does not remove the growing attention span."
+  alt="Three theme-safe panels. Recurrent cells form a left-to-right chain. An attention panel connects one query to several key-value pairs with different line weights. A cache panel shows stored blocks growing by one token at each decoding step."
+  wide
+>
+  <svg viewBox="0 0 780 230" width="780" height="230" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.3">
+      <rect x="10" y="22" width="238" height="166" rx="10" opacity=".35" />
+      <rect x="271" y="22" width="238" height="166" rx="10" opacity=".35" />
+      <rect x="532" y="22" width="238" height="166" rx="10" opacity=".35" />
+      <g>
+        <rect x="37" y="80" width="42" height="36" rx="5" />
+        <rect x="106" y="80" width="42" height="36" rx="5" />
+        <rect x="175" y="80" width="42" height="36" rx="5" />
+        <path d="M79 98H106M148 98H175" stroke="var(--color-accent)" stroke-width="2.4" />
+        <path d="M97 92L106 98L97 104M166 92L175 98L166 104" stroke="var(--color-accent)" />
+        <path d="M58 139V117M127 139V117M196 139V117" opacity=".65" />
+      </g>
+      <g>
+        <circle cx="313" cy="106" r="13" />
+        <circle cx="391" cy="55" r="12" /><circle cx="391" cy="90" r="12" />
+        <circle cx="391" cy="125" r="12" /><circle cx="391" cy="160" r="12" />
+        <path d="M326 102L379 58" stroke="var(--color-accent)" stroke-width="1" />
+        <path d="M326 104L379 91" stroke="var(--color-accent)" stroke-width="3.2" />
+        <path d="M326 109L379 124" stroke="var(--color-accent)" stroke-width="2.1" />
+        <path d="M326 111L379 157" stroke="var(--color-accent)" stroke-width=".8" />
+        <path d="M403 55H474M403 90H474M403 125H474M403 160H474" opacity=".65" />
+      </g>
+      <g>
+        <rect x="554" y="52" width="38" height="78" rx="4" />
+        <rect x="600" y="52" width="38" height="78" rx="4" />
+        <rect x="646" y="52" width="38" height="78" rx="4" />
+        <rect x="692" y="52" width="38" height="78" rx="4" stroke="var(--color-accent)" stroke-width="2.5" />
+        <path d="M554 72H592M600 72H638M646 72H684M692 72H730" opacity=".45" />
+        <path d="M711 151V132" stroke="var(--color-accent)" stroke-width="2.2" />
+        <path d="M705 140L711 132L717 140" stroke="var(--color-accent)" />
+      </g>
+    </g>
+    <g fill="currentColor" font-size="12" text-anchor="middle">
+      <text x="129" y="211">fixed-width recurrent state</text>
+      <text x="390" y="211">content-addressed values</text>
+      <text x="651" y="211">append-only KV cache</text>
+    </g>
+  </svg>
+</Figure>
+
+## Recurrence: shared dynamics through time
+
+<InterviewQuestion id="q-seq-rnn-recurrence">
+For $X\in\mathbb R^{B\times T\times d_x}$ and hidden width $d_h$, a basic recurrent step is
+
+$$
+h_t=\phi(x_tW_x+h_{t-1}W_h+b),
+$$
+
+where $W_x\in\mathbb R^{d_x\times d_h}$, $W_h\in\mathbb R^{d_h\times d_h}$ and
+$b\in\mathbb R^{d_h}$. The retained sequence of states is $B\times T\times d_h$; a
+last-state classifier uses only $B\times d_h$. The recurrent cell has
+$d_xd_h+d_h^2+d_h$ parameters before its output head.
+
+Weights are shared across steps, so parameter count is independent of $T$. Compute is not:
+each $h_t$ depends on $h_{t-1}$, limiting training parallelism. For padded batches, decide whether
+the “last state” means the tensor's last column or each example's last valid step.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-bptt-gradients">
+Unrolling recurrence turns it into a deep network with tied weights. A distant derivative contains
+a product of Jacobians,
+
+$$
+\frac{\partial h_t}{\partial h_k}
+=\prod_{i=k+1}^{t}\frac{\partial h_i}{\partial h_{i-1}}.
+$$
+
+Repeated singular values below one erase distant influence; values above one amplify it. Saturated
+sigmoid or tanh derivatives compound vanishing. Log gradient norms by lag, not just one aggregate.
+Orthogonal initialization, gated memory, normalization and shorter computational paths can help;
+global-norm clipping contains an explosion but cannot restore a vanished signal. The LSTM was
+introduced specifically to improve long-range gradient-based learning
+<Citation id="hochreiter1997lstm" />.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-lstm-gates">
+A modern LSTM computes gates from $[x_t,h_{t-1}]$ and updates
+
+$$
+c_t=f_t\odot c_{t-1}+i_t\odot g_t,\qquad
+h_t=o_t\odot\tanh(c_t).
+$$
+
+$f_t$ retains old cell content, $i_t$ controls writing, $g_t$ proposes content and $o_t$
+controls exposure. The additive cell path has derivative $f_t$ with respect to $c_{t-1}$, so it
+can preserve information when the forget gate is near one. The adaptive forget gate was developed
+for continual streams <Citation id="gers2000forget" />.
+
+Four affine projections make an LSTM roughly four times the parameter and matrix-multiply cost of
+a comparable vanilla recurrent cell. It can still forget, saturate, accumulate stale state or fail
+when the task demands addressable access to many separate events.
+</InterviewQuestion>
+
+## Sequence-to-sequence learning and attention
+
+<InterviewQuestion id="q-seq-seq2seq-teacher-forcing">
+An encoder-decoder maps a source sequence to a target sequence. The early LSTM sequence-to-sequence
+formulation encoded the source into a fixed vector and decoded autoregressively
+<Citation id="sutskever2014seq2seq" />. During teacher forcing, training predicts $y_t$ from the
+true $y_{<t}$; at inference it conditions on its own earlier outputs. The latter distribution can
+drift after one error—**exposure bias**.
+
+Scheduled sampling sometimes replaces true history with model output during training
+<Citation id="bengio2015scheduledsampling" />, but it changes the learning objective and is not a
+general consistency guarantee. Diagnose the gap by comparing teacher-forced loss, free-running
+task metrics and recovery after injected errors. Better sequence-level data, decoding constraints,
+verification or a non-autoregressive formulation may address the application more directly.
+</InterviewQuestion>
+
+Bahdanau, Cho and Bengio replaced one fixed source summary with differentiable content-based
+retrieval over encoder states <Citation id="bahdanau2015attention" />. The Transformer later made
+self-attention the main sequence interaction <Citation id="vaswani2017transformer" />.
+
+<InterviewQuestion id="q-seq-attention-derivation">
+For one example and head, let $Q\in\mathbb R^{T\times d_k}$,
+$K\in\mathbb R^{S\times d_k}$ and $V\in\mathbb R^{S\times d_v}$. Then
+
+$$
+A=\operatorname{softmax}\!\left(\frac{QK^T}{\sqrt{d_k}}+M\right)
+\in\mathbb R^{T\times S},\qquad AV\in\mathbb R^{T\times d_v}.
+$$
+
+Softmax is row-wise over source keys. Each output row is a weighted sum of value rows, so it lies
+in their convex hull before the output projection. Queries ask, keys advertise and values carry
+content; their learned projections need not have equal widths. Include batch and head axes in code,
+usually $B\times h\times T\times d_k$.
+
+**Coding trap.** Transposing values instead of keys can still broadcast into plausible shapes in a
+small test. Assert dimensions at the score and output boundaries.
+</InterviewQuestion>
+
+<WorkedExample
+  title="One query attends to two values"
+  given={[
+    { label: 'Query', value: 'q = [1, 0]' },
+    { label: 'Keys', value: 'k₁ = [1, 0], k₂ = [0, 1]' },
+    { label: 'Values', value: 'v₁ = [2, 0], v₂ = [0, 4]' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+Here $d_k=2$. Scaled logits are $[1/\sqrt2,0]\approx[0.7071,0]$. Their softmax is
+
+$$
+[a_1,a_2]\approx[0.670,0.330].
+$$
+
+The output is $0.670[2,0]+0.330[0,4]\approx[1.340,1.321]$. Attention does not copy one
+value; it interpolates. If the second logit is masked with $-\infty$, weights become $[1,0]$ and
+the output is exactly $[2,0]$.
+</WorkedExample>
+
+<Widget
+  kind="attention-temperature"
+  title="Temperature redistributes attention without reranking keys"
+  caption="Move temperature while the four logits stay fixed. Lower temperature concentrates mass on the same highest-logit key; higher temperature flattens the distribution. For every positive temperature, division preserves logit ordering, so temperature changes concentration but not the argmax."
+  alt="Interactive bar chart of four attention weights for fixed logits. A temperature slider makes the bars more concentrated or more uniform while the first bar remains the largest."
+>
+  <svg viewBox="0 0 660 320" role="presentation">
+    <line x1="62" y1="274" x2="638" y2="274" stroke="currentColor" />
+    <line x1="62" y1="22" x2="62" y2="274" stroke="currentColor" />
+    <rect x="104" y="66" width="82" height="208" fill="var(--color-accent)" opacity=".9" />
+    <rect x="237" y="211" width="82" height="63" fill="currentColor" opacity=".32" />
+    <rect x="370" y="244" width="82" height="30" fill="currentColor" opacity=".32" />
+    <rect x="503" y="263" width="82" height="11" fill="currentColor" opacity=".32" />
+    <g fill="currentColor" font-size="12" text-anchor="middle">
+      <text x="145" y="297">signal</text>
+      <text x="278" y="297">context</text>
+      <text x="411" y="297">modifier</text>
+      <text x="544" y="297">distractor</text>
+    </g>
+  </svg>
+</Widget>
+
+<InterviewQuestion id="q-seq-attention-scaling">
+Suppose query and key coordinates are independent, mean zero and variance one. The unscaled dot
+product $q^Tk=\sum_{j=1}^{d_k}q_jk_j$ has variance approximately $d_k$. As width grows, logits
+spread, softmax approaches one-hot outputs and most derivatives shrink. Dividing by $\sqrt{d_k}$
+keeps variance near one under that initialization argument.
+
+This is conditioning, not a theorem that every trained logit has unit variance. Normalization,
+correlated coordinates and learned norms change the distribution. Temperature can be separated
+from this width correction when the desired entropy itself is a model choice.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-multihead-attention">
+Head $i$ uses its own $W_i^Q,W_i^K,W_i^V$, computes attention, and the concatenated head outputs
+are mixed by $W^O$. Separate projections let heads learn different similarity geometries and
+value subspaces. With total width $d$ divided across $h$ heads, leading projection cost remains on
+the same order as one $d$-wide construction; the score tensor gains a head axis.
+
+More heads are not free semantic experts. Very small head width can constrain similarity, heads can
+duplicate one another, and attention weights alone do not identify human-readable relations. Ablate
+or prune heads under task metrics before claiming specialization.
+</InterviewQuestion>
+
+## Masks and position are part of the mathematics
+
+<InterviewQuestion id="q-seq-attention-masks">
+A **key-padding mask** forbids padded source columns. A **causal mask** forbids keys later than each
+query. A cross-attention mask combines source validity with the decoder-query contract. Add the
+mask before softmax using $0$ for allowed entries and $-\infty$ (or a safe dtype minimum) for
+forbidden entries.
+
+Mask APIs disagree on whether `true` means keep or block. Broadcasting a $B\times S$ mask across
+heads and query rows is different from a $T\times S$ causal mask. A fully masked row can become
+NaN; padded query outputs may also need zeroing, and padded targets must be excluded from the loss.
+
+**Invariant test.** Modify every future token while holding a prefix fixed. Earlier causal logits
+must remain bitwise or numerically unchanged in deterministic evaluation.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-position-information">
+Self-attention without positions is permutation equivariant: permuting token rows permutes outputs.
+Absolute learned embeddings attach trainable identities to positions. Sinusoids provide fixed
+multiscale coordinates. Relative methods add an offset-dependent term to pairwise attention, as in
+Shaw, Uszkoreit and Vaswani <Citation id="shaw2018relativeposition" />. Rotary designs encode
+relative displacement by rotating query and key coordinates.
+
+Extrapolation beyond trained lengths is empirical. Learned absolute tables may lack unseen rows;
+relative methods may generalize offsets but still face untrained content and scale. State padding
+side, index reset, special-token treatment and maximum length—position bugs can survive loss curves.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-transformer-block">
+A Transformer block contains multi-head attention and a position-wise feed-forward network, each
+combined with residual addition, normalization and usually dropout. In **post-norm**, a sublayer is
+$\operatorname{LN}(x+F(x))$. In **pre-norm**, it is $x+F(\operatorname{LN}(x))$; the residual
+stream then provides a more direct gradient path through deep stacks.
+
+The feed-forward network applies the same two-layer nonlinear map independently at every position,
+often expanding width before projecting back. Attention mixes positions; the feed-forward network
+mixes channels. When reproducing a model, include activation, biases, dropout sites, normalization
+epsilon, residual scaling and whether query/key normalization is used. “A Transformer block” is a
+family, not a byte-for-byte specification.
+</InterviewQuestion>
+
+## Cost and decoding
+
+<InterviewQuestion id="q-seq-attention-complexity">
+Dense self-attention scores cost $O(T^2d)$ operations and $O(T^2)$ stored weights per layer and
+head in a straightforward implementation, plus $O(Td^2)$ projections and feed-forward work.
+A dense recurrent cell costs $O(Td^2)$ but its $T$ state transitions are sequential. Thus attention
+can train efficiently at moderate length despite higher asymptotic pairwise cost.
+
+FLOPs alone miss memory traffic. FlashAttention computes exact attention in tiles, reducing reads
+and writes between memory levels without changing the mathematical result
+<Citation id="dao2022flashattention" />. Activation checkpointing, fused kernels, sparsity, width,
+padding and hardware determine wall time. Quote both asymptotics and the measured bottleneck.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-kv-cache">
+At autoregressive step $t$, each layer's earlier keys and values are unchanged. Cache them and
+compute projections only for the new token. This avoids rerunning the complete prefix through each
+attention layer, but the new query still reads $t$ cached positions. Per-token attention grows with
+context, and memory is roughly $O(LT(h_kd_k+h_vd_v))$ per sequence, multiplied by bytes per value.
+
+Multi-query or grouped-query attention shares keys and values across query heads to reduce cache
+width. Beam search must duplicate or reorder cache ancestry; continuous batching fragments capacity;
+quantized caches trade precision for memory. A serving answer should include these costs, not just
+“use a cache.”
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-decoding-strategies">
+Greedy decoding keeps the locally highest-probability token. Beam search retains several high-score
+prefixes and often suits constrained tasks with one expected output, but length normalization and
+beam width matter. Temperature rescales logits; top-$k$ samples from the $k$ largest probabilities;
+nucleus sampling chooses the smallest set whose cumulative probability reaches $p$.
+
+Open-ended generation needs a quality-diversity and safety evaluation; structured prediction may
+need validity constraints or a verifier. Sampling adds diversity, not knowledge. Beam search can
+prefer generic high-probability strings, and a larger beam is not guaranteed to improve a task
+metric. Tune decoding separately from model training on the deployment utility.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-padding-batching">
+Bucket examples by length, pad only within buckets, and carry a valid-token mask through attention,
+pooling and loss. Normalize token loss by valid-token count, not padded tensor size. Packed recurrent
+APIs can skip padded transitions; ordinary dense Transformer kernels still spend work on padding
+unless ragged or block-aware kernels are used.
+
+Report tokens per optimizer step because equal sequence counts can contain very different work.
+Define truncation direction and special-token budget. A robust unit test appends arbitrary right
+padding and checks that all original-token logits and pooled outputs are unchanged.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-long-context-design">
+First measure the dependency horizon: can a local model, retrieval over chunks, or a recurrent
+summary solve the task? Full attention is defensible when arbitrary pairwise access at the target
+length improves validated utility within memory and latency. Local or sparse patterns reduce cost
+but encode reachability assumptions; retrieval moves selection outside the network; recurrent or
+state-space summaries support streaming but compress history.
+
+Build an accuracy-memory-latency frontier at several lengths. Include preprocessing, retrieval and
+cache transfer, not only kernel time. Probe synthetic long-distance dependencies, boundary cases,
+position extrapolation and distractor sensitivity, then verify that those probes predict real
+errors. The most efficient architecture is the simplest one whose information path matches the task.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-seq-causal-leakage-debug">
+Audit four clocks: feature event time, feature availability time, target time and inference time.
+Then inspect target shift, mask orientation, bidirectional preprocessing, full-series normalization,
+window overlap and train-validation chronology. Compare a parallel teacher-forced pass with
+stepwise cached decoding under identical prefixes.
+
+Construct a tiny sequence where the future token is unique. Change or erase it and assert earlier
+logits do not move. Check every attention head, not only the final prediction. If validation loss is
+suspiciously below training loss, disable augmentation and dropout before celebrating; future
+leakage and duplicated windows are more likely than extraordinary generalization.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="Attention shapes" difficulty="warm-up">
+A head receives 12 queries of width 64, 20 keys of width 64 and 20 values of width 32. Give the
+shapes of scores, row-softmax weights and output.
+
+<div slot="solution">
+$QK^T$ is $12\times20$. Row-wise softmax preserves $12\times20$. Multiplication by
+$V\in\mathbb R^{20\times32}$ gives $12\times32$. The query and key widths must agree; value
+width determines this head's output width.
+</div>
+</Exercise>
+
+<Exercise n={2} title="A mask that leaks" difficulty="core">
+An implementation fills positions above the diagonal with zero before softmax rather than adding
+$-\infty$. Why is it wrong, and what test catches it?
+
+<div slot="solution">
+Zero is an ordinary logit, so future positions receive positive softmax probability unless every
+allowed logit dominates it infinitely. Add a blocking value before softmax. In deterministic mode,
+change all suffix tokens after position $t$ and assert logits through $t$ are unchanged; also inspect
+the attention row and confirm forbidden weights are exactly or numerically zero.
+</div>
+</Exercise>
+
+<Exercise n={3} title="Cache accounting" difficulty="stretch">
+A decoder has 24 layers, 8 key-value heads, head width 64, context 4096 and stores both keys and
+values in 2-byte values. Estimate cache bytes for one sequence, ignoring metadata.
+
+<div slot="solution">
+The count is $24\cdot4096\cdot8\cdot64\cdot2$ values, where the final factor 2 is key plus value.
+Multiplying by 2 bytes gives $201{,}326{,}592$ bytes, about 192 MiB. Batch size, beams and longer
+context multiply this directly, which is why KV-head sharing and cache precision affect serving.
+</div>
+</Exercise>
+
+## Summary
+
+- Recurrence compresses history into state; attention retrieves from retained states.
+- Backpropagation through time exposes products of Jacobians, motivating gates and shorter paths.
+- Attention dimensions, scale and masks are a single mathematical contract.
+- Position information breaks permutation symmetry; extrapolation remains an empirical question.
+- Dense attention is quadratic in sequence length, while real performance also depends on memory traffic.
+- KV caching removes prefix recomputation but leaves a growing read and memory footprint.
+- Causality must be tested by intervention on future inputs, not inferred from a low loss.

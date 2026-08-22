@@ -1,0 +1,417 @@
+---
+title: "Machine Learning Interview Mathematics: Linear Algebra and Calculus"
+shortTitle: Linear Algebra & Calculus
+description: "Fifteen interview questions that connect tensor shapes, projections, rank, SVD, PCA, derivatives, backpropagation, convexity, conditioning and stable computation."
+abstract: "Machine-learning mathematics is most useful when it predicts what code can do. This lesson treats shapes as types, matrices as transformations, derivatives as sensitivity maps and numerical analysis as part of correctness. Each answer moves from a compact interview response to geometry, dimensions, equations, implementation choices and failure modes."
+date: 2026-08-22
+updated: 2026-08-22
+track: theory
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m01-math
+moduleLabel: Module 1 · Mathematical Foundations
+order: 1
+level: foundational
+objectives:
+  - "Check the dimensions of common linear-algebra and calculus expressions before computing them."
+  - "Explain eigenvectors, singular vectors and principal components geometrically and algebraically."
+  - "Trace gradients through a computation graph and distinguish gradients, Jacobians and Hessians."
+  - "Diagnose rank deficiency, ill-conditioning and floating-point instability in ML code."
+  - "State precisely what convexity and local Taylor approximations do—and do not—guarantee."
+prerequisites: []
+relatedLessons:
+  - ml-interview-probability-statistics
+  - ml-interview-optimization-training
+referenceIds:
+  - pearson1901pca
+  - hotelling1933pca
+  - eckart1936lowrank
+  - rumelhart1986backprop
+  - boyd2004convex
+  - golub2013matrix
+keyEquations:
+  - 'A=U\Sigma V^\top'
+  - '\nabla_x(L\circ f)(x)=J_f(x)^\top\nabla L\!\left(f(x)\right)'
+  - '\kappa_2(A)=\frac{\sigma_{\max}(A)}{\sigma_{\min}(A)}'
+tags: [machine learning, interview, linear algebra, calculus, SVD, PCA, backpropagation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The mental model: transformations and sensitivity
+
+An interview rarely rewards reciting a determinant formula. It rewards noticing that
+`X @ W` cannot work, recognizing that a covariance matrix has lost rank, or explaining why
+backpropagation uses one reverse sweep instead of one derivative calculation per parameter.
+
+<Callout variant="intuition">
+Treat **shapes as types**, a matrix as a machine that transforms directions, and a
+derivative as a map from a small input change to a small output change. Then most formulas
+can be reconstructed rather than memorized. SVD reveals what directions a matrix amplifies;
+the chain rule composes sensitivity maps; conditioning tells us whether tiny uncertainty can
+become a large answer.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: '\\mathbf{x}', meaning: 'One feature vector', dims: 'd × 1' },
+    { symbol: '\\mathbf{X}', meaning: 'A batch of row-wise examples', dims: 'n × d' },
+    { symbol: '\\mathbf{W}', meaning: 'A linear map from d inputs to k outputs', dims: 'd × k' },
+    { symbol: '\\mathbf{A}=\\mathbf{U}\\boldsymbol{\\Sigma}\\mathbf{V}^{\\top}', meaning: 'Singular value decomposition', dims: 'm × n' },
+    { symbol: '\\nabla_{\\mathbf{x}} f', meaning: 'Gradient of a scalar with respect to x', dims: 'd × 1' },
+    { symbol: '\\mathbf{J}_f', meaning: 'Jacobian of f: R^d → R^k', dims: 'k × d' },
+    { symbol: '\\mathbf{H}_f', meaning: 'Hessian of scalar f: R^d → R', dims: 'd × d' },
+    { symbol: '\\kappa_2(\\mathbf{A})', meaning: 'Two-norm condition number', dims: 'scalar ≥ 1' },
+  ]}
+/>
+
+## Vectors, matrices, and rank
+
+<InterviewQuestion id="q-mla-shapes">
+
+State the convention first: a batch $\mathbf{X}\in\mathbb{R}^{n\times d}$ contains $n$
+examples and $d$ features; weights $\mathbf{W}\in\mathbb{R}^{d\times k}$ produce
+$\mathbf{Y}=\mathbf{X}\mathbf{W}\in\mathbb{R}^{n\times k}$. The touching dimensions contract and
+the outside dimensions remain.
+
+This check catches more than illegal products. If a bias intended to be
+$1\times k$ is accidentally $n\times1$, broadcasting may produce an $n\times k$ result
+that runs without error but means something different. Name every axis—batch, time,
+channel, feature—and test boundary cases such as batch size one. In code, prefer explicit
+reshaping and assertions at interfaces over a chain of silent `squeeze` calls.
+
+**Follow-up:** for attention, if $Q$ and $K$ are $b\times h\times t\times d_h$, then
+$QK^\top$ is $b\times h\times t\times t$; the last two axes index query and key positions.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-dot-product">
+
+Algebraically, $\mathbf{x}^\top\mathbf{w}=\sum_j x_jw_j$ is a weighted sum. Geometrically,
+
+$$
+\mathbf{x}^\top\mathbf{w}=\lVert\mathbf{x}\rVert_2\lVert\mathbf{w}\rVert_2\cos\theta.
+$$
+
+It is positive for aligned directions, zero for orthogonal ones, and negative for opposing
+ones. A linear classifier compares this projection with a threshold. Cosine similarity
+divides out both magnitudes, which is useful when direction represents semantics but harmful
+when magnitude contains confidence or frequency. A dot product is basis-dependent unless
+the feature scales and inner product have been defined; standardizing unrelated units can
+therefore change the geometry deliberately.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-matrix-product">
+
+The entry formula $(AB)_{ij}=\sum_r A_{ir}B_{rj}$ matters less than the composition:
+$B$ transforms first and $A$ transforms its result. That explains why $AB\ne BA$ in
+general and why shapes must line up. In a dense layer, every example row receives the same
+linear transformation; in a stack, $XW_1W_2$ composes two linear maps.
+
+Associativity permits $(XW_1)W_2=X(W_1W_2)$, but the computational cost differs. With no
+nonlinearity, two dense layers collapse to one matrix; nonlinear activations are what add
+expressive power. In sparse or batched code, choose an order that avoids materializing a
+large intermediate, while remembering floating-point arithmetic makes the two orders only
+approximately equal.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-rank">
+
+Rank is the dimension of the column space, equivalently the number of nonzero singular
+values. If $\operatorname{rank}(X)<d$, there is a nonzero vector $v$ with $Xv=0$:
+moving parameters along $v$ cannot change predictions. Least squares may therefore have
+many minimizers and $X^\top X$ is singular.
+
+Causes include duplicate features, one-hot encoding all categories plus an intercept,
+$d>n$, and near-collinearity. Near-rank deficiency is numerically more dangerous than exact
+rank deficiency because a solve may return enormous, unstable coefficients. Diagnose with
+singular values or a rank-revealing factorization; address it with feature redesign,
+regularization, or a pseudoinverse—not by adding an unexplained constant to the diagonal.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-solve-inverse">
+
+Writing $x=A^{-1}b$ is algebraically clean but is usually the wrong implementation. An LU,
+QR, or Cholesky solve performs less work, stores less, and avoids rounding error introduced
+by constructing every entry of $A^{-1}$. For symmetric positive-definite $A$, Cholesky is
+both efficient and structure-aware; for least squares, QR or SVD avoids forming
+$X^\top X$, whose condition number is squared.
+
+Use an inverse only when the inverse itself is the required output—and even then consider a
+factorization or linear operator. Libraries expose `solve`, `lstsq`, and triangular solves
+for this reason. Always inspect residual $\lVert Ax-b\rVert$ and conditioning; a tiny
+residual does not imply accurate parameters when the problem is ill-conditioned
+<Citation id="golub2013matrix" />.
+
+</InterviewQuestion>
+
+## Spectral views: eigenvectors, SVD, and PCA
+
+<InterviewQuestion id="q-mla-eigendecomposition">
+
+An eigenpair satisfies $Av=\lambda v$: the map preserves the direction $v$ and scales it
+by $\lambda$. A square matrix is diagonalizable only if it has enough independent
+eigenvectors. The spectral theorem gives the especially useful case: every real symmetric
+matrix has $A=Q\Lambda Q^\top$ with orthonormal $Q$ and real $\Lambda$.
+
+Covariance matrices are symmetric positive semidefinite, so their eigenvalues are
+nonnegative variances. The largest eigenvalue of a transition or adjacency operator can
+govern long-run dynamics. Traps: eigenvectors are defined only up to sign; repeated
+eigenvalues define an eigenspace rather than unique vectors; and a general nonsymmetric
+matrix can have complex eigenpairs or be defective.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-svd">
+
+Every $A\in\mathbb{R}^{m\times n}$ has $A=U\Sigma V^\top$. Each right singular vector
+$v_i$ is an orthogonal input direction, $A$ maps it to $\sigma_i u_i$, and singular values
+are nonnegative gains in descending order. Unlike eigendecomposition, SVD works for
+rectangular and rank-deficient matrices.
+
+The rank is the count of nonzero $\sigma_i$; the spectral norm is $\sigma_1$; and the
+pseudoinverse reciprocates only nonzero singular values. Keeping the first $k$ terms gives
+the best rank-$k$ approximation in Frobenius and spectral norm
+<Citation id="eckart1936lowrank" />. The practical caveat is scale: randomized or truncated
+methods are preferable when only leading components of a huge sparse matrix are needed.
+
+</InterviewQuestion>
+
+<Figure
+  caption="Figure 1. SVD decomposes a linear map into a rotation or reflection, axis-aligned scaling, and another rotation or reflection. The longer singular axis is the direction of greatest amplification; a tiny second singular value signals an almost-lost direction and poor conditioning."
+  alt="Three coordinate panels show a circle rotated into the right-singular-vector basis, stretched into an ellipse by two singular values, and rotated into the output basis. The horizontal ellipse axis is much longer than the vertical axis."
+>
+  <svg viewBox="0 0 720 250" width="720" height="250" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.5">
+      <line x1="40" y1="115" x2="190" y2="115" opacity=".35"/><line x1="115" y1="35" x2="115" y2="195" opacity=".35"/>
+      <circle cx="115" cy="115" r="55"/>
+      <line x1="115" y1="115" x2="155" y2="78" stroke="var(--color-accent)" stroke-width="3"/>
+      <line x1="115" y1="115" x2="150" y2="153" stroke="var(--color-accent)" stroke-width="3" opacity=".55"/>
+      <path d="M205 115 H250" stroke="currentColor"/><path d="M242 108 L250 115 L242 122"/>
+      <line x1="270" y1="115" x2="450" y2="115" opacity=".35"/><line x1="360" y1="35" x2="360" y2="195" opacity=".35"/>
+      <ellipse cx="360" cy="115" rx="82" ry="28"/>
+      <line x1="360" y1="115" x2="442" y2="115" stroke="var(--color-accent)" stroke-width="3"/>
+      <line x1="360" y1="115" x2="360" y2="87" stroke="var(--color-accent)" stroke-width="3" opacity=".55"/>
+      <path d="M470 115 H515" stroke="currentColor"/><path d="M507 108 L515 115 L507 122"/>
+      <g transform="rotate(-24 610 115)"><ellipse cx="610" cy="115" rx="82" ry="28"/><line x1="610" y1="115" x2="692" y2="115" stroke="var(--color-accent)" stroke-width="3"/><line x1="610" y1="115" x2="610" y2="87" stroke="var(--color-accent)" stroke-width="3" opacity=".55"/></g>
+    </g>
+    <g fill="currentColor" font-size="13" text-anchor="middle"><text x="115" y="224">input directions Vᵀ</text><text x="360" y="224">scale by Σ</text><text x="610" y="224">output directions U</text></g>
+  </svg>
+</Figure>
+
+<InterviewQuestion id="q-mla-pca">
+
+Center $X$ first. For a unit direction $v$, projected variance is
+$v^\top(X^\top X/n)v$. The Rayleigh quotient is maximized by the top eigenvector of the
+covariance matrix; later components maximize variance subject to orthogonality. If
+$X=U\Sigma V^\top$, the columns of $V$ are those directions and variance explained by
+component $i$ is proportional to $\sigma_i^2$ <Citation id="pearson1901pca" />
+<Citation id="hotelling1933pca" />.
+
+Equivalently, $X_k=U_k\Sigma_kV_k^\top$ minimizes $\lVert X-X_k\rVert_F^2$ among rank-$k$
+matrices. Scale features when units should not dominate, fit centering/scaling on training
+data only, and do not claim components are causal or intrinsically interpretable. PCA is
+linear and variance-seeking; low-variance directions can still predict the target.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-norms">
+
+For a vector, $\lVert x\rVert_1=\sum_i|x_i|$ and
+$\lVert x\rVert_2=(\sum_i x_i^2)^{1/2}$. L1 balls have corners, so an optimum touching a
+constraint boundary often has exact zeros; L2 shrinks smoothly and is rotation-invariant.
+For matrices, Frobenius norm treats all entries as one vector, whereas spectral norm
+$\lVert A\rVert_2=\sigma_{\max}$ is the maximum factor by which $A$ stretches any vector.
+
+The penalty, error metric, and operator norm are different uses. Squaring L2 makes a smooth
+penalty but removes the norm's linear scaling. Norm choice encodes geometry: it should match
+which perturbations or parameter structures matter, not be selected because “L1 is sparse,
+L2 is stable” without checking feature scale and correlation.
+
+</InterviewQuestion>
+
+<WorkedExample
+  title="PCA of two perfectly correlated features"
+  given={[
+    { label: 'Centered data', value: 'X = [[−1, −1], [0, 0], [1, 1]]' },
+    { label: 'Covariance convention', value: 'C = XᵀX / n' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+
+The covariance is
+
+$$
+C=\frac{1}{3}\begin{bmatrix}2&2\\2&2\end{bmatrix}
+=\begin{bmatrix}2/3&2/3\\2/3&2/3\end{bmatrix}.
+$$
+
+Its normalized eigenvectors are $v_1=(1,1)^\top/\sqrt2$ and
+$v_2=(1,-1)^\top/\sqrt2$, with eigenvalues $4/3$ and $0$. Thus the data have rank one,
+the first component explains $100\%$ of variance, and each point's first score is
+$[-\sqrt2,0,\sqrt2]$. The zero eigenvalue is not “small noise”; here it is exact evidence
+that the second feature adds no independent direction.
+
+</WorkedExample>
+
+## Derivatives and optimization geometry
+
+<InterviewQuestion id="q-mla-conditioning">
+
+For an invertible matrix, $\kappa_2(A)=\sigma_{\max}/\sigma_{\min}$. Roughly, relative
+input error can be amplified by up to this factor in a linear solve. Scaling a loss cannot
+repair information lost because two columns are nearly identical.
+
+Conditioning describes the mathematical problem. Stability describes whether an algorithm
+solves a nearby problem accurately. A stable algorithm can still return an uncertain answer
+to an ill-conditioned problem; an unstable algorithm can corrupt a well-conditioned one.
+Use scaling or preconditioning, better parameterization, regularization, and stable
+factorizations. Monitor singular values, residuals, and solution sensitivity—not just NaNs.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-derivatives">
+
+If $f:\mathbb{R}^d\to\mathbb{R}$, its gradient $\nabla_x f\in\mathbb{R}^d$ collects first
+partial derivatives and points in steepest ascent under Euclidean geometry. If
+$g:\mathbb{R}^d\to\mathbb{R}^k$, its Jacobian $J_g\in\mathbb{R}^{k\times d}$ maps a small
+$dx$ to $dg\approx J_gdx$. A scalar function's Hessian
+$H_f\in\mathbb{R}^{d\times d}$ maps $dx$ to the gradient change.
+
+Declare numerator- or denominator-layout convention in matrix calculus; many “transpose
+errors” are convention mismatches. In implementation, vector-Jacobian and
+Jacobian-vector products are usually preferable to materializing a huge Jacobian.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-chain-rule">
+
+For $L=g(f(x))$, $\nabla_xL=J_f(x)^\top\nabla_fL$. A computation graph applies this
+locally: each node receives an upstream derivative, multiplies by its local derivative,
+and sums contributions along multiple outgoing paths. Reverse-mode automatic
+differentiation is efficient for one scalar loss and millions of parameters because one
+reverse traversal obtains all parameter gradients <Citation id="rumelhart1986backprop" />.
+
+Keep saved forward values until backward, avoid accidental graph detachment or in-place
+mutation, and check custom operations with finite differences at several step sizes. A
+gradient is a local sensitivity, not a finite causal effect; saturation can make it tiny
+even when a feature is globally important.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-convexity">
+
+A function is convex when
+$f(\theta x+(1-\theta)y)\le\theta f(x)+(1-\theta)f(y)$ for $\theta\in[0,1]$. For a
+differentiable convex function, every tangent plane is a global lower bound; therefore any
+stationary point is globally optimal. Strict convexity gives at most one minimizer, if one
+exists. Strong convexity additionally supplies a quadratic lower bound and enables sharper
+rates <Citation id="boyd2004convex" />.
+
+Convexity does not ensure a minimizer exists, make constraints convex, or guarantee a
+poorly conditioned problem is fast. Neural-network objectives are nonconvex, while logistic
+regression with an L2 penalty is convex. State the objective *and feasible set* before
+claiming a guarantee.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-taylor">
+
+Near $x$, a smooth scalar function satisfies
+
+$$
+f(x+\Delta)\approx f(x)+\nabla f(x)^\top\Delta+
+\tfrac12\Delta^\top H_f(x)\Delta.
+$$
+
+The first-order term motivates descent opposite the gradient. The quadratic term explains
+curvature, Newton's $H^{-1}\nabla f$ step, sharp versus flat directions, and local
+uncertainty approximations. The approximation is local: large steps, nonsmooth activations,
+indefinite Hessians, or badly estimated curvature can invalidate it. Damped or trust-region
+methods explicitly restrict how far the local model is trusted.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-mla-numerical-stability">
+
+Floating point has finite range and precision. Stable softmax subtracts
+$m=\max_i z_i$ before exponentiating; stable log-sum-exp uses
+$m+\log\sum_i e^{z_i-m}$. Use `log1p` for $\log(1+x)$ near zero, avoid normal equations for
+ill-conditioned least squares, scale inputs, and accumulate reductions in adequate
+precision.
+
+Debug systematically: reproduce with a tiny batch, locate the first nonfinite tensor,
+inspect ranges and dtypes, verify algebraic invariants, and compare against a higher-
+precision reference. Gradient clipping contains an explosion but does not explain it.
+Mixed precision needs loss scaling and selected full-precision reductions. Numerical
+correctness includes a plausible error bound, not merely a finite result.
+
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="Shape a two-head attention score" difficulty="warm-up">
+
+$Q$ and $K$ each have shape $32\times2\times128\times64$ for batch, heads, tokens, and
+head width. What is the shape of $QK^\top$, and what factor usually scales it?
+
+<div slot="solution">
+
+Transpose only the final two axes of $K$, giving
+$32\times2\times64\times128$. Contract the width 64, so the score tensor is
+$32\times2\times128\times128$. Scale logits by $1/\sqrt{64}=1/8$ to control their variance
+before softmax.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Diagnose a singular design" difficulty="core">
+
+A regression uses an intercept and one-hot columns for red, green, and blue. Why is
+$X^\top X$ singular, and what are two principled fixes?
+
+<div slot="solution">
+
+For every row, `red + green + blue = intercept`, so the columns are linearly dependent and
+parameters are not identifiable. Drop one reference category, or remove the intercept and
+interpret all three category coefficients directly. A regularizer can select a numerical
+solution but does not make the original unregularized coefficients uniquely identifiable.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Differentiate softplus stably" difficulty="stretch">
+
+For $f(x)=\log(1+e^x)$, derive $f'(x)$ and explain stable evaluation for large positive and
+negative $x$.
+
+<div slot="solution">
+
+$f'(x)=e^x/(1+e^x)=\sigma(x)$. Computing $e^x$ directly overflows for large positive $x$.
+Use $\max(x,0)+\log(1+e^{-|x|})$ for the value and a library's stable sigmoid for the
+derivative. For large positive $x$, $f(x)\approx x$ and $f'(x)\approx1$; for large negative
+$x$, both approach zero.
+
+</div>
+</Exercise>
+
+## Summary
+
+- Shapes are executable dimensional analysis: contract matching axes and name every axis.
+- Rank tells how many directions survive; SVD exposes those directions and their gains.
+- PCA is both maximum-variance projection and minimum-error linear reconstruction.
+- Gradients, Jacobians, and Hessians are sensitivity maps with checkable dimensions.
+- Backpropagation is reverse-mode chain rule; convexity supplies global guarantees only
+  when its assumptions hold.
+- Conditioning belongs to a problem, stability to an algorithm, and both belong in an ML
+  correctness argument.

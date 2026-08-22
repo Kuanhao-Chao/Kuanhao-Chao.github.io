@@ -1,0 +1,146 @@
+lesson: ml-interview-graph-time-series
+questions:
+  - id: q-structured-message-passing
+    question: 'Write a general message-passing neural-network layer and its tensor contract.'
+    conciseAnswer: >-
+      For node v, compute messages m_uv=phi(h_u,h_v,e_uv), aggregate a_v with a permutation-invariant operator over neighbors, then update h_v prime=psi(h_v,a_v). With n nodes, node width d, and m edges, an edge-list implementation materializes order m messages and scatter-reduces to n rows. Sum preserves multiplicity, mean normalizes degree, and max keeps only coordinate-wise extremes.
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [gnn, message-passing, aggregation]
+    aliases: [MPNN equation, graph neural network layer]
+  - id: q-structured-graph-invariance
+    question: 'What permutation properties should a graph model satisfy?'
+    conciseAnswer: >-
+      Relabeling node indices should relabel node outputs in the same way, which is permutation equivariance; a graph-level prediction should remain unchanged, which is invariance. Shared node and edge functions plus symmetric neighborhood aggregation provide these properties. Sorting by arbitrary IDs or concatenating neighbors in storage order breaks them, while positional or structural encodings may intentionally distinguish otherwise symmetric nodes without depending on ID labels.
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [permutation-invariance, equivariance, graphs]
+    aliases: [graph isomorphism invariance, node ordering]
+  - id: q-structured-gcn-normalization
+    question: 'Derive the normalized graph-convolution update and explain the self-loop.'
+    conciseAnswer: >-
+      Add self-loops to adjacency A, form degree matrix D from A tilde, then update H prime=sigma(D to minus one half A tilde D to minus one half H W). Symmetric degree normalization prevents high-degree nodes from dominating raw sums and the self-loop retains a transformed node contribution. This is a particular linear neighborhood smoother, not a universal definition of graph convolution.
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [gcn, adjacency, degree-normalization]
+    aliases: [Kipf Welling GCN, normalized adjacency]
+  - id: q-structured-graphsage-induction
+    question: 'How does GraphSAGE support inductive inference on unseen nodes or graphs?'
+    conciseAnswer: >-
+      GraphSAGE learns shared aggregation and update functions over sampled neighborhoods instead of assigning an embedding parameter to every training node. At inference, an unseen node can be embedded from its features and sampled neighbors using the same functions. Induction still assumes compatible feature semantics and graph-generating mechanisms; neighbor fanout trades receptive coverage, variance, memory, and bias.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist, ml-platform]
+    kind: concept
+    round: system-design
+    stability: evergreen
+    tags: [graphsage, inductive-learning, neighbor-sampling]
+    aliases: [inductive GNN, unseen graph nodes]
+  - id: q-structured-graph-attention
+    question: 'What does graph attention learn, and when is it not worth its cost?'
+    conciseAnswer: >-
+      Graph attention computes learned compatibility scores on edges, normalizes them over each destination neighborhood, and forms a weighted value sum. It can distinguish which observed neighbors matter, but costs per-edge scoring, may be unstable on large-degree nodes, and attention weights are not automatically causal explanations. If edge types or known weights already encode relevance, a simpler relational or normalized aggregator can be stronger and cheaper.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [graph-attention, gat, edge-weights]
+    aliases: [GAT, attention over neighbors]
+  - id: q-structured-oversmoothing
+    question: 'What are oversmoothing and oversquashing in graph neural networks?'
+    conciseAnswer: >-
+      Oversmoothing is the loss of node distinguishability as repeated aggregation drives representations toward similar low-frequency components. Oversquashing compresses information from an exponentially growing receptive neighborhood through fixed-width states and graph bottlenecks. Diagnose layerwise representation distance, gradients and depth ablations; residuals, normalization, jumping connections, rewiring, positional features, or wider states address different mechanisms.
+    priority: must-know
+    difficulty: advanced
+    roles: [research-scientist, dl-specialist]
+    kind: debugging
+    round: knowledge
+    stability: evergreen
+    tags: [oversmoothing, oversquashing, gnn-depth]
+    aliases: [deep GNN failure, graph bottleneck]
+  - id: q-structured-graph-leakage
+    question: 'How can a graph train-test split leak information?'
+    conciseAnswer: >-
+      Randomly splitting edges or nodes can leave duplicates, reverse edges, future interactions, near-identical components, or test-derived node features in training. In transductive node classification the full adjacency may be intentionally observed, while inductive deployment forbids unseen test structure—state the contract. Split by time, entity, component, or whole graph to match deployment and recompute every neighborhood statistic from allowed data.
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: debugging
+    round: experimentation
+    stability: evergreen
+    tags: [graph-leakage, splitting, evaluation]
+    aliases: [transductive leakage, edge split leakage]
+  - id: q-structured-stationarity
+    question: 'What does stationarity mean in time-series modeling, and when is differencing useful?'
+    conciseAnswer: >-
+      Weak stationarity means constant mean and autocovariance that depends only on lag, not calendar time. Differencing can remove stochastic trend and seasonal differencing can remove recurring level shifts, making simple models more appropriate. It can also amplify noise, erase long-run relationships, or be unnecessary for models with explicit trend; diagnose transformations on training windows and invert them correctly for forecasts.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [stationarity, differencing, time-series]
+    aliases: [weak stationary process, unit root transformation]
+  - id: q-structured-temporal-leakage
+    question: 'List the main sources of temporal leakage and how to prevent them.'
+    conciseAnswer: >-
+      Future-derived rolling statistics, centered windows, backfilled values, revised records, globally fit scalers, random folds, and late-arriving labels can all expose unavailable information. Give every feature an event time and availability time, build it as of the prediction cutoff, fit preprocessing inside each training window, use rolling-origin evaluation, and simulate the production data delay rather than merely sorting rows by timestamp.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: debugging
+    round: experimentation
+    stability: evergreen
+    tags: [temporal-leakage, feature-availability, backtesting]
+    aliases: [look ahead bias, time series data leakage]
+  - id: q-structured-forecast-baselines
+    question: 'What baselines and backtests should precede a complex forecasting model?'
+    conciseAnswer: >-
+      Compare last value, seasonal naive, drift, and a simple statistical or linear model under the same rolling-origin windows and forecast horizons. Use multiple cutoffs, preserve retraining cadence, include feature availability and latency, and summarize performance by horizon and series rather than pooling silently. A deep model must beat a deployable baseline after uncertainty and operational cost, not just one historical split.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, ml-platform]
+    kind: system-design
+    round: experimentation
+    stability: evergreen
+    tags: [forecasting, baselines, rolling-origin]
+    aliases: [time series baseline, walk forward validation]
+  - id: q-structured-probabilistic-forecast
+    question: 'Compare point, quantile, and distributional forecasts and their metrics.'
+    conciseAnswer: >-
+      Squared-error training targets a conditional mean and absolute error a conditional median; quantile pinball loss targets a chosen conditional quantile; a distributional model predicts parameters or samples for the full conditional law. Evaluate point accuracy with scale-aware metrics, quantiles with pinball loss and empirical coverage, and distributions with proper scores such as log score or CRPS. Coverage without interval width is incomplete.
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [probabilistic-forecasting, quantiles, calibration]
+    aliases: [prediction interval, pinball loss]
+  - id: q-structured-multihorizon-design
+    question: 'Compare recursive, direct, and multi-output strategies for multi-horizon forecasting.'
+    conciseAnswer: >-
+      Recursive forecasting trains one-step dynamics and feeds predictions back, sharing parameters but accumulating error and changing the input distribution. Direct models fit each horizon separately, avoiding feedback but ignoring cross-horizon structure and multiplying models. Multi-output models predict all horizons jointly and can enforce coherent shared representations, but need horizon-aware loss weighting and careful availability masks.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [multihorizon, forecasting, recursive]
+    aliases: [direct versus recursive forecast, sequence forecasting]

@@ -1,0 +1,31 @@
+{
+  "hub": "ml-dl-interview",
+  "totalQuestions": 351,
+  "rapidLessonCount": 10,
+  "rapidQuestionCount": 72,
+  "lessons": [
+    { "id": "ml-interview-linear-algebra-calculus", "questionCount": 15 },
+    { "id": "ml-interview-probability-statistics", "questionCount": 18 },
+    { "id": "ml-interview-learning-theory-generalization", "questionCount": 14 },
+    { "id": "ml-interview-data-features-validation", "questionCount": 16 },
+    { "id": "ml-interview-linear-kernel-probabilistic-models", "questionCount": 18 },
+    { "id": "ml-interview-trees-ensembles-boosting", "questionCount": 14 },
+    { "id": "ml-interview-unsupervised-representation-learning", "questionCount": 14 },
+    { "id": "ml-interview-metrics-experimentation", "questionCount": 18 },
+    { "id": "ml-interview-optimization-training", "questionCount": 16 },
+    { "id": "ml-interview-neural-network-foundations", "questionCount": 18 },
+    { "id": "ml-interview-cnn-vision", "questionCount": 14 },
+    { "id": "ml-interview-sequences-attention-transformers", "questionCount": 16 },
+    { "id": "ml-interview-generative-models", "questionCount": 14 },
+    { "id": "ml-interview-llm-foundations", "questionCount": 18 },
+    { "id": "ml-interview-llm-adaptation-rag-agents", "questionCount": 18 },
+    { "id": "ml-interview-recommenders-search-ranking", "questionCount": 14 },
+    { "id": "ml-interview-debugging-robustness-responsible-ml", "questionCount": 16 },
+    { "id": "ml-interview-ml-systems-mlops", "questionCount": 16 },
+    { "id": "ml-interview-system-design-case-studies", "questionCount": 14 },
+    { "id": "ml-interview-coding-project-defense", "questionCount": 14 },
+    { "id": "ml-interview-senior-behavioral-leadership", "questionCount": 12 },
+    { "id": "ml-interview-graph-time-series", "questionCount": 12 },
+    { "id": "ml-interview-reinforcement-learning-bandits", "questionCount": 12 }
+  ]
+}

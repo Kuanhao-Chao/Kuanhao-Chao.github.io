@@ -1,0 +1,158 @@
+lesson: ml-interview-system-design-case-studies
+questions:
+  - id: q-design-framework
+    question: 'What framework keeps an ML system-design interview rigorous and complete?'
+    conciseAnswer: 'Proceed in one visible loop: clarify decision and constraints, estimate scale/SLOs, draw architecture and data flow, define labels/features/baseline/model, specify serving, choose offline and online evaluation, design monitoring, then enumerate failure modes and mitigations. Revisit assumptions when estimates contradict the design.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [framework, requirements, estimation, architecture]
+    aliases: [ml-system-design-template, interview-framework]
+  - id: q-design-recommender
+    question: 'Design a personalized recommendation system for a large content feed.'
+    conciseAnswer: 'Define the user action and long-term guardrails, estimate inventory/QPS, retrieve hundreds of candidates with approximate embeddings or heuristics, rank with point-in-time features, re-rank for policy/diversity, cache where safe, evaluate recall plus ranking utility offline, experiment online, and monitor feedback loops, freshness, cohorts, and creator exposure.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, research-scientist, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [recommendation, retrieval, ranking, feedback-loops]
+    aliases: [design-feed, two-stage-recommender]
+  - id: q-design-search
+    question: 'Design a machine-learned search and ranking system.'
+    conciseAnswer: 'Clarify query types, relevance and latency; estimate corpus/update/QPS; combine lexical and semantic retrieval; rank candidates with query-document and context features; apply policy; cache carefully; evaluate retrieval recall and graded ranking metrics with judged logs; interleave or A/B test; monitor zero results, freshness, tail latency, bias, and adversarial content.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, research-scientist, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [search, ranking, retrieval, relevance]
+    aliases: [learning-to-rank-design, semantic-search]
+  - id: q-design-fraud
+    question: 'Design a real-time payment-fraud detection system.'
+    conciseAnswer: 'Turn asymmetric loss and review capacity into decision tiers; estimate peak transactions and decision deadline; join event-time account/device/network features; combine rules with a calibrated cost-sensitive ranker and graph signals; serve with low-latency fallbacks; backtest temporally and shadow; monitor delayed chargebacks, investigator yield, attack adaptation, subgroup impact, and feature outages.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [fraud, delayed-labels, cost-sensitive, graph-features]
+    aliases: [payment-risk, fraud-system]
+  - id: q-design-moderation
+    question: 'Design a content-moderation system with human review and appeals.'
+    conciseAnswer: 'Define policy labels, severity and locale; estimate upload and review capacity; use rules/hashes plus multimodal classifiers and retrieval; route by calibrated risk into allow/review/block with strict high-severity paths; evaluate policy-specific precision/recall and reviewer agreement; monitor evasion, queues, language slices, appeals, policy change, and reviewer welfare.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, genai, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [moderation, human-in-loop, policy, safety]
+    aliases: [trust-and-safety, content-classification]
+  - id: q-design-forecasting
+    question: 'Design a demand-forecasting system for inventory planning.'
+    conciseAnswer: 'Specify horizon, hierarchy, action and asymmetric stockout/holding costs; estimate series count and cadence; build point-in-time covariates and backtests with rolling origins; start with seasonal naïve baselines, add global/probabilistic models and reconciliation; batch forecasts with uncertainty; evaluate scaled error and decision cost; monitor bias, coverage, promotions, stockouts, and regime shifts.'
+    priority: common
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [forecasting, time-series, uncertainty, inventory]
+    aliases: [demand-prediction, hierarchical-forecast]
+  - id: q-design-anomaly
+    question: 'Design an anomaly-detection and alerting system for infrastructure telemetry.'
+    conciseAnswer: 'Define actionable incident classes and on-call budget; estimate streams/cardinality/delay; aggregate robust seasonal features; combine rules, forecasts, and multivariate anomaly scores; stream state with deduplication; validate by temporal incident replay and realistic injection; monitor precision at alert budget, time-to-detect, coverage, drift, storms, and suppression failures.'
+    priority: common
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [anomaly-detection, alerting, time-series, operations]
+    aliases: [incident-detection, telemetry-alerts]
+  - id: q-design-medical
+    question: 'Design a clinical risk-prediction system without confusing prediction with care improvement.'
+    conciseAnswer: 'Define the clinical decision, target time, eligible population, intervention and harm; estimate sites/latency; construct event-time labels/features; compare a transparent baseline with calibrated models; integrate an interruptible workflow and fallback; externally and prospectively validate discrimination, calibration, utility and subgroups; monitor workflow adoption, drift, overrides, outcomes, privacy, and automation bias.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [medical-ml, calibration, prospective-validation, safety]
+    aliases: [clinical-ai-design, risk-model]
+  - id: q-design-visual-retrieval
+    question: 'Design a visual similarity and image-retrieval service.'
+    conciseAnswer: 'Define semantic similarity and rights/safety constraints; estimate corpus, ingest and QPS; compute versioned embeddings, build an ANN index, retrieve then rerank with metadata; serve cached embeddings and filtered results; evaluate recall at k plus human relevance; monitor index freshness, embedding drift, duplicates, unsafe content, demographic slices, and model-index compatibility.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, dl-specialist, ml-platform]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [vision, embeddings, approximate-nearest-neighbor, retrieval]
+    aliases: [image-search, visual-similarity]
+  - id: q-design-rag
+    question: 'Design a retrieval-augmented generation system over changing private documents.'
+    conciseAnswer: 'Define answerability, citation, authorization and latency; estimate corpus/change/query load; parse and version chunks with ACL metadata; use hybrid retrieval and reranking; construct an injection-resistant context and abstaining generator; evaluate retrieval, grounded claims and task success separately; monitor freshness, permission leaks, unsupported claims, attacks, cost, and user corrections.'
+    priority: must-know
+    difficulty: advanced
+    roles: [genai, applied-scientist, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: fast-moving
+    verified: 2026-08-22
+    tags: [rag, retrieval, grounding, access-control]
+    aliases: [enterprise-rag, grounded-generation]
+  - id: q-design-cold-start
+    question: 'How do you handle user, item, and system cold start?'
+    conciseAnswer: 'Use content/context features, popularity or policy-safe priors, controlled exploration, onboarding signals, and cross-domain transfer while uncertainty is high. Evaluate new-user/item cohorts separately, cap risky exploration, and design the logging policy so early defaults do not permanently starve alternatives of exposure.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [cold-start, exploration, recommendation]
+    aliases: [new-user-problem, new-item-problem]
+  - id: q-design-feedback-loops
+    question: 'How do prediction, ranking, and collection policies create feedback loops?'
+    conciseAnswer: 'The model changes exposure and actions, which changes labels and the next training distribution; unexposed alternatives have missing counterfactual outcomes. Log propensities and interventions, preserve randomized exploration where safe, evaluate policy changes causally, monitor concentration, and avoid treating selected outcomes as iid ground truth.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, leadership]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [feedback-loops, selection-bias, counterfactuals]
+    aliases: [performative-prediction, exposure-bias]
+  - id: q-design-launch-experiment
+    question: 'How do you move an ML design from offline evaluation to a safe online launch?'
+    conciseAnswer: 'Lock offline and slice gates, verify data/serving in shadow, canary with operational and harm guardrails, then randomize at the correct unit with power and interference considered. Ramp by predeclared criteria, retain holdouts when useful, inspect novelty and long-term effects, and keep owner, rollback, and incident paths explicit.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: system-design
+    round: experimentation
+    stability: evergreen
+    tags: [online-experiment, canary, guardrails, launch]
+    aliases: [offline-to-online, experiment-rollout]
+  - id: q-design-estimation
+    question: 'What back-of-the-envelope estimates should appear in an ML system-design answer?'
+    conciseAnswer: 'Estimate average and peak QPS, data/event volume, retention, feature and embedding storage, bandwidth, model memory, service time, accelerator/CPU replicas, batch delay, review capacity, and cost margin. State assumptions and orders of magnitude; estimates are useful when they eliminate designs or expose a bottleneck, not when they mimic precision.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, ml-platform, leadership]
+    kind: mathematics
+    round: system-design
+    stability: evergreen
+    tags: [estimation, qps, storage, capacity]
+    aliases: [capacity-math, sizing]

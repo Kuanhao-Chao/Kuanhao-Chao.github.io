@@ -1,0 +1,411 @@
+---
+title: Large Language Model Foundations
+shortTitle: LLM Foundations
+description: Tokenization, pretraining, scaling, sparse experts, decoding, KV caches, efficient attention, quantization, and inference trade-offs.
+abstract: A mechanism-first guide to how decoder language models turn text into tokens, learn next-token distributions, generate sequences, and consume serving resources. The lesson separates durable mathematics from implementation-dependent claims and gives interview-ready methods for reasoning about quality, memory, latency, and cost.
+date: 2026-08-22
+updated: 2026-08-22
+track: theory
+hub: ml-dl-interview
+lessonType: technical
+category: machine-learning
+moduleId: m08-foundation-models
+moduleLabel: Foundation Models & Retrieval
+order: 14
+level: advanced
+objectives:
+  - Derive causal language-model likelihood, cross-entropy, and perplexity from the chain rule.
+  - Explain how tokenization, position, attention, residual blocks, and sparse experts shape model behavior.
+  - Compare decoding algorithms and diagnose generation pathologies without confusing controls with guarantees.
+  - Estimate attention and KV-cache costs and separate prefill, decode, memory, latency, and throughput bottlenecks.
+  - Interpret scaling, quantization, and efficient-attention results only within their empirical and hardware regimes.
+prerequisites: [ml-interview-sequences-attention-transformers]
+relatedLessons: [ml-interview-llm-adaptation-rag-agents]
+referenceIds:
+  - sennrich2016bpe
+  - vaswani2017transformer
+  - kaplan2020scaling
+  - hoffmann2022chinchilla
+  - fedus2022switch
+  - holtzman2020nucleus
+  - dao2022flashattention
+  - dettmers2022llmint8
+keyEquations:
+  - '\mathcal L_{\mathrm{NLL}}=-\sum_{t=1}^{T}\log p_\theta(x_t\mid x_{<t})'
+  - '\operatorname{PPL}=\exp\!\left(\frac{\mathcal L_{\mathrm{NLL}}}{T}\right)'
+  - 'M_{\mathrm{KV}}=2BNLH_{\mathrm{KV}}d_hs'
+tags: [LLM, tokenization, scaling, decoding, inference, KV cache, quantization]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The durable mental model
+
+An LLM endpoint crosses several layers at once: text segmentation, a probabilistic
+objective, a Transformer, a decoding policy, and a distributed serving system. Interview
+answers become clearer when those layers stay separate.
+
+<Callout variant="intuition" title="A language model is a conditional distribution, not a database">
+At each step the model receives a finite token prefix and assigns scores to possible next
+tokens. Decoding turns those scores into one continuation. Pretraining changes the score
+function; retrieval changes the supplied evidence; sampling changes which continuation is
+selected. None of these layers, by itself, verifies that a sentence is true.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'x_{1:T}', meaning: 'A sequence of T token identifiers', dims: 'T integers' },
+    { symbol: 'V', meaning: 'Tokenizer vocabulary size', dims: 'positive integer' },
+    { symbol: 'd', meaning: 'Residual-stream width', dims: 'features per token' },
+    { symbol: 'L', meaning: 'Number of Transformer layers', dims: 'positive integer' },
+    { symbol: 'H_q, H_{kv}', meaning: 'Query heads and key-value heads', dims: 'positive integers' },
+    { symbol: 'd_h', meaning: 'Dimension of one attention head', dims: 'features' },
+    { symbol: '\\tau', meaning: 'Sampling temperature', dims: 'positive scalar' },
+    { symbol: 'B, N', meaning: 'Serving batch size and cached context length', dims: 'counts' },
+  ]}
+/>
+
+<Figure
+  id="llm-training-serving-path"
+  caption="Figure 1. The same conditional model participates in two computations. Training scores shifted targets in parallel under a causal mask. Serving prefills a prompt, then repeatedly scores one position while reusing cached keys and values. Decoding policy sits after the model."
+  alt="Two horizontal flows. Training goes from text through shifted tokens and a parallel causal Transformer to token losses. Serving goes from prompt through prefill and a key-value cache into a repeated one-token decode and select loop."
+  wide
+>
+  <svg viewBox="0 0 800 285" width="800" height="285" font-family="inherit">
+    <defs>
+      <marker id="llm-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+      </marker>
+    </defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.4">
+      <rect x="22" y="38" width="118" height="50" rx="9" />
+      <rect x="190" y="38" width="118" height="50" rx="9" />
+      <rect x="358" y="30" width="160" height="66" rx="9" stroke="var(--color-accent)" stroke-width="2.2" />
+      <rect x="568" y="38" width="178" height="50" rx="9" />
+      <path d="M140 63 H188 M308 63 H356 M518 63 H566" marker-end="url(#llm-arrow)" />
+      <rect x="22" y="190" width="118" height="50" rx="9" />
+      <rect x="190" y="190" width="118" height="50" rx="9" />
+      <rect x="358" y="174" width="144" height="82" rx="9" stroke="var(--color-accent)" stroke-width="2.2" />
+      <rect x="558" y="190" width="92" height="50" rx="9" />
+      <rect x="702" y="190" width="76" height="50" rx="25" />
+      <path d="M140 215 H188 M308 215 H356 M502 215 H556 M650 215 H700" marker-end="url(#llm-arrow)" />
+      <path d="M739 190 C739 145 570 145 570 188" stroke-dasharray="5 4" marker-end="url(#llm-arrow)" />
+      <path d="M385 192 H475 M385 211 H475 M385 230 H475" opacity=".45" />
+    </g>
+    <g fill="currentColor" font-size="13" text-anchor="middle">
+      <text x="81" y="68">training text</text><text x="249" y="68">shifted tokens</text>
+      <text x="438" y="57">causal Transformer</text><text x="438" y="77">all positions in parallel</text>
+      <text x="657" y="68">sum token losses</text>
+      <text x="81" y="220">prompt tokens</text><text x="249" y="220">prefill</text>
+      <text x="430" y="202">cached K,V</text><text x="430" y="222">every layer</text><text x="430" y="242">all prior positions</text>
+      <text x="604" y="220">vocab logits</text><text x="740" y="220">select</text>
+      <text x="75" y="24" text-anchor="start" font-weight="600">Training</text>
+      <text x="75" y="176" text-anchor="start" font-weight="600">Serving</text>
+    </g>
+  </svg>
+</Figure>
+
+## Tokens are the model's units
+
+Subword methods give common strings short representations while retaining a route to rare
+ones. Byte-pair encoding became influential in neural translation because it handled rare
+words without one word-level unknown token <Citation id="sennrich2016bpe" />. Modern
+tokenizers differ in normalization, byte fallback, and special tokens, but the systems
+consequence is constant: **billing, context limits, and loss are defined over tokens, not
+human-perceived words**.
+
+<InterviewQuestion id="q-llm-tokenization">
+Suppose one tokenizer represents `electroencephalography` as two pieces and another as
+eight. The second system spends four times as many positions on the same visible string,
+creates more prediction boundaries, and reaches its context limit sooner. This does not
+prove its model is worse: a larger vocabulary enlarges the embedding and output matrices,
+and token frequency affects how well each piece is learned.
+
+In an interview, name the audit: compare tokens per character and semantic unit across
+languages, code, numbers, whitespace, and domain terms. Never truncate by guessed word
+counts; call the deployed tokenizer and preserve its exact chat template and special tokens.
+</InterviewQuestion>
+
+## Pretraining is likelihood estimation
+
+The chain rule gives
+
+$$
+p_\theta(x_{1:T})=\prod_{t=1}^{T}p_\theta(x_t\mid x_{<t}),\qquad
+\mathcal L(\theta)=-\sum_{t=1}^{T}\log p_\theta(x_t\mid x_{<t}).
+$$
+
+During training a causal mask lets all positions be computed in parallel while each sees
+only its permitted prefix. At deployment, selected tokens become future inputs.
+
+<InterviewQuestion id="q-llm-causal-objective">
+The target at position $t$ is $x_t$ and its features come from $x_{<t}$. Teacher forcing
+means that even if the model assigns low probability to $x_{t-1}$, training still supplies
+the observed $x_{t-1}$ when predicting $x_t$. This makes maximum-likelihood training
+parallel and well defined, but inference visits prefixes generated by the model.
+
+The loss is not sentence-level correctness. It rewards probability assigned to every
+observed token, including factual and stylistic patterns. Filtering, deduplication, mixture
+weights, and contamination therefore define part of the trained behavior.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-masked-vs-causal">
+A masked encoder hides selected tokens and predicts them with left and right context,
+which is efficient for representation learning. A causal decoder sees only the prefix, so
+its conditional matches left-to-right generation. Encoder–decoder denoising can condition
+on one sequence while generating another.
+
+Architecture and objective are not synonyms. Ask what attention mask and targets are used.
+A bidirectional encoder can score text without being an autoregressive generator; a causal
+model can yield embeddings but was not directly trained to make all positions comparable.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-cross-entropy-perplexity">
+With $M$ scored tokens, $\bar L=-M^{-1}\sum_t\log p(x_t\mid x_{<t})$ and perplexity is
+$\exp(\bar L)$. It is the geometric-mean inverse probability assigned to observed next
+tokens—not literally the number of equally likely words.
+
+Do not compare raw perplexities across tokenizers: segmentation changes the events and the
+denominator. Bits per byte or a shared text unit helps. Also report domain, packing,
+beginning-of-sequence handling, and whether overlapping windows double-count tokens.
+</InterviewQuestion>
+
+## Inside a decoder block
+
+The Transformer made attention the main communication operation between positions
+<Citation id="vaswani2017transformer" />. In a decoder-only block, causal attention mixes
+prefix information, an MLP transforms each position, and residual and normalization paths
+support optimization.
+
+<InterviewQuestion id="q-llm-transformer-path">
+For states $H$, projections form $Q=HW_Q$, $K=HW_K$, and $V=HW_V$. A head computes
+
+$$
+\operatorname{softmax}\!\left(\frac{QK^T}{\sqrt{d_h}}+M_{\text{causal}}\right)V.
+$$
+
+The update returns to the residual stream, followed by a position-wise MLP update. Layer
+normalization placement varies; do not memorize “attention then MLP” while forgetting
+residual paths. A final vocabulary projection produces logits. Weight tying, grouped-query
+attention, rotary positions, and gated MLPs alter details, not this interface.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-context-position">
+Content vectors alone do not encode order. Absolute embeddings, relative biases, or rotary
+transformations make position available. But accepting $N$ tokens is not using every fact
+reliably: training may contain few examples at that length; attention can favor distractors;
+evidence may be split, buried, or contradicted.
+
+Evaluate accuracy by context length, evidence position, distractor count, and required
+evidence hops. Context capacity is an interface limit, not a reasoning guarantee. This
+implementation-sensitive guidance was reviewed 2026-08-22.
+</InterviewQuestion>
+
+## Scaling is an empirical planning tool
+
+Kaplan and colleagues fit power-law relationships between autoregressive loss, parameters,
+data, and compute <Citation id="kaplan2020scaling" />. Hoffmann and colleagues later found
+that, under their setup, model size and token count should grow together
+<Citation id="hoffmann2022chinchilla" />.
+
+<InterviewQuestion id="q-llm-scaling-laws">
+Say what was fitted: held-out likelihood under specified data, architecture, optimizer, and
+compute conventions. A smooth curve helps choose pilots and reject inefficient allocations.
+It does not establish that every downstream capability is smooth, data is interchangeable,
+or extrapolation is unbounded.
+
+Thresholded benchmark scores can look abrupt while token probabilities change smoothly.
+Report uncertainty in fitted exponents and validate a plan at multiple smaller scales.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-compute-optimal">
+Training compute is often approximated as proportional to parameters times tokens, with an
+architecture-dependent constant. Under a fixed budget, compute-optimality minimizes
+validation loss over both. A larger model trained on too few tokens may lose to a smaller,
+better-trained one.
+
+Deployment can reverse the choice: a larger sparse model, smaller dense model trained
+longer, and distilled model have different memory and latency. Include data acquisition,
+repeated epochs, serving volume, and quality rather than quoting one universal ratio.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-moe">
+A router selects one or a few expert MLPs per token. Switch Transformers demonstrated the
+capacity benefit and need for load balancing <Citation id="fedus2022switch" />. Activated
+FLOPs can stay near a smaller dense model while total parameters rise.
+
+The costs are physical: expert weights occupy memory; tokens move across devices; hot
+experts create stragglers; finite capacity can drop or reroute tokens. State whether a
+parameter count is total or active, and measure throughput rather than inferring it from
+activated FLOPs.
+</InterviewQuestion>
+
+## Decoding is a policy over logits
+
+For logits $z$, $p_i(\tau)=\exp(z_i/\tau)/\sum_j\exp(z_j/\tau)$. Holtzman and colleagues
+showed that high-likelihood decoding can yield degenerate text and proposed nucleus sampling
+to truncate the unreliable tail <Citation id="holtzman2020nucleus" />.
+
+<InterviewQuestion id="q-llm-decoding">
+Greedy decoding commits to $\arg\max_i p_i$ and can miss a better sequence after a locally
+less likely token. Beam search retains prefixes by cumulative log-probability, but length
+normalization and stopping matter, and likelihood may reward generic output. Sampling
+represents diversity at the cost of run-to-run variance.
+
+Match policy to product loss: extraction may value constrained output; brainstorming may
+value diverse samples; pass@k deliberately uses repeated attempts. Generation diversity is
+not calibrated uncertainty or evidence verification.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-temperature-top-p">
+Dividing logits by $\tau$ changes log-odds:
+$\log(p_i/p_j)=(z_i-z_j)/\tau$. Low temperature sharpens comparisons. Top-$k$ keeps
+exactly $k$ tokens; top-$p$ keeps the smallest probability-ranked set whose cumulative mass
+reaches $p$, so its size adapts to distribution shape.
+
+Filter, renormalize, then sample; report the runtime's precise order when combining controls.
+Tune against task metrics and malformed-output and safety rates, not a “creativity” label.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-repetition-stopping">
+Reproduce with the exact serialized prompt. Verify delimiters, assistant prefix, stop token
+IDs, stop strings, output limit, and streaming boundary handling. Inspect token IDs because
+visually identical Unicode and whitespace can differ.
+
+If plumbing is correct, compare greedy and sampled traces and inspect repeated
+high-probability cycles. Penalties and constraints can mask symptoms and can also suppress
+valid repeated code or lists. This runtime checklist was reviewed 2026-08-22.
+</InterviewQuestion>
+
+## Serving: prefill, cache, and bandwidth
+
+<InterviewQuestion id="q-llm-kv-cache">
+The cache stores prior keys and values rather than recomputing them. For batch $B$, cached
+length $N$, layers $L$, KV heads $H_{kv}$, head width $d_h$, and $s$ bytes per element,
+
+$$M_{KV}=2BNLH_{kv}d_hs,$$
+
+where two means keys plus values. This excludes fragmentation, metadata, workspace, and
+weights. Multi-query or grouped-query attention makes $H_{kv}<H_q$, cutting the cache while
+leaving query-head count unchanged.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Budget a KV cache before choosing concurrency"
+  given={[
+    { label: 'Model', value: '32 layers, 8 KV heads, head width 128' },
+    { label: 'Request', value: 'batch 4, cached length 4,096, FP16 cache (2 bytes)' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+$$
+2(4)(4096)(32)(8)(128)(2)=2{,}147{,}483{,}648\ \text{bytes}=2\ \text{GiB}.
+$$
+
+That is 512 MiB per sequence before weights and workspace. Doubling context doubles this
+term. Using 32 instead of 8 KV heads makes it 8 GiB for the batch. Reserve headroom and
+load-test fragmentation rather than treating 2 GiB as the whole footprint.
+</WorkedExample>
+
+<InterviewQuestion id="q-llm-prefill-decode">
+Prefill evaluates prompt positions together, giving efficient matrix operations but large
+attention work. It helps determine time to first token. Decode adds one position per active
+sequence while repeatedly reading weights and cache; variable sequence lengths complicate
+batching. It helps determine inter-token latency and sustained throughput.
+
+Report p50/p95 time-to-first-token, inter-token and end-to-end latency, input/output tokens
+per second, queue time, and failures by length. Continuous batching can raise utilization
+while worsening one request's tail. These trade-offs were reviewed 2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-attention-complexity">
+For all $N$ positions, $QK^T$ and multiplication by $V$ cost $O(N^2d_h)$ per head and a
+naive score matrix occupies $O(N^2)$. Projections and MLPs cost roughly $O(Nd^2)$, so
+attention need not dominate at short $N$ or large $d$.
+
+With cached decode, one new query compares with $N$ cached positions: that attention step
+is $O(Nd_h)$ rather than a new $N\times N$ computation. Many generated tokens still
+accumulate work as context grows.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-flash-attention">
+FlashAttention changes the memory schedule, not the attention result: tiling and online
+softmax avoid writing the full score matrix to high-bandwidth memory
+<Citation id="dao2022flashattention" />. Arithmetic remains quadratic for exact dense
+attention while auxiliary memory and costly traffic fall.
+
+Do not promise a paper's speedup. Hardware, shapes, dtype, masks, kernels, and surrounding
+operations determine end-to-end benefit. This kernel-level statement was reviewed
+2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-quantization">
+Uniform quantization sketches as
+$q=\operatorname{clip}(\operatorname{round}(x/s)+z)$. Lower precision saves weight or cache
+bytes and may raise throughput when kernels exploit it. Outliers can dominate scale;
+per-channel scales, mixed precision, or calibration help. LLM.int8() isolates outlier
+features to preserve quality <Citation id="dettmers2022llmint8" />.
+
+Distinguish post-training from quantization-aware training; weights from activations;
+storage from accumulators; and memory savings from measured latency. Validate perplexity,
+task, and safety slices. Format and kernel claims were reviewed 2026-08-22.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-llm-inference-capacity">
+Start with prompt/output distributions, concurrency, bursts, and streaming. Define
+percentile SLOs and a quality floor. Fit weights, cache, and workspace with headroom;
+benchmark prefill and decode separately; load-test realistic length mixtures.
+
+Levers include routing, quantization, parallelism, continuous batching, prefix caching,
+speculative decoding, admission control, and output caps. Pair every lever with quality and
+reliability checks. Peak throughput at intolerable latency does not satisfy an interactive
+SLO. This checklist was reviewed 2026-08-22.
+</InterviewQuestion>
+
+## Exercises
+
+<Exercise n={1} title="Perplexity and units" difficulty="warm-up">
+A model assigns probabilities $[0.5,0.25,0.125]$ to three observed next tokens. Compute
+token perplexity. Would it be directly comparable after retokenizing the text?
+  <div slot="solution">
+    Average negative log-likelihood is
+    $-[\log 0.5+\log 0.25+\log 0.125]/3=\log 4$, so perplexity is $4$.
+    Retokenization changes events and token count; compare with a common unit and identical
+    text handling.
+  </div>
+</Exercise>
+
+<Exercise n={2} title="Cache scaling" difficulty="core">
+The example moves from batch 4 at 4,096 tokens to batch 6 at 6,144 tokens with other terms
+unchanged. What cache memory is required?
+  <div slot="solution">
+    Multiply 2 GiB by $(6/4)(6144/4096)=2.25$ to get **4.5 GiB**. Runtime overhead and
+    weights are additional.
+  </div>
+</Exercise>
+
+<Exercise n={3} title="Diagnose a latency regression" difficulty="stretch">
+Time to first token is stable but p95 inter-token latency doubles only for long outputs.
+Give a focused investigation plan.
+  <div slot="solution">
+    Stable first-token time makes prefill less likely. Slice by active batch and cached
+    length; inspect cache pressure, paging, scheduling, bandwidth, and kernel fallbacks.
+    Compare versions with identical length distributions and test whether admission control
+    or a cache-format change restores the tail without violating quality.
+  </div>
+</Exercise>
+
+## Summary
+
+- A causal LM estimates next-token conditionals under a tokenizer; it is not a fact store.
+- Scaling, sparse experts, efficient kernels, and quantization are conditional trade-offs,
+  not universal guarantees.
+- Decoding traverses a learned distribution; it cannot verify unsupported knowledge.
+- Production reasoning separates prefill and decode and budgets weights, cache, latency,
+  throughput, quality, and cost.

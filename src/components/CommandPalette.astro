@@ -13,6 +13,11 @@ import Icon from './Icon.astro';
           id="command-palette-input"
           class="palette-input"
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-controls="command-palette-results"
+          aria-expanded="false"
+          aria-label="Search the site and run commands"
           placeholder="Search pages, publications, algorithms, or run commands..."
           autocomplete="off"
           autocapitalize="off"
@@ -25,10 +30,18 @@ import Icon from './Icon.astro';
     </div>
 
     <div class="palette-body">
-      <div id="command-palette-results" class="palette-results" role="listbox"></div>
+      <div
+        id="command-palette-results"
+        class="palette-results"
+        role="listbox"
+        aria-label="Command palette results"
+      >
+      </div>
       <div id="command-palette-empty" class="palette-empty" hidden>
         <p class="palette-empty-title">No matching results</p>
-        <p class="palette-empty-desc muted">Try searching for papers, tools, algorithms, or actions like "theme" or "cv".</p>
+        <p class="palette-empty-desc muted">
+          Try searching for papers, tools, algorithms, or actions like "theme" or "cv".
+        </p>
       </div>
     </div>
 

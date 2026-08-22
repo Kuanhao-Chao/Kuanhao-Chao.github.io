@@ -42,7 +42,9 @@ export interface LessonLike {
 export function lessonReadingTime(body: string): number {
   const { prose, display, inlineWords, codeLines } = analyseBody(body);
   const seconds =
-    ((prose + inlineWords) / 200) * 60 + display * DISPLAY_EQUATION_SECONDS + codeLines * CODE_LINE_SECONDS;
+    ((prose + inlineWords) / 200) * 60 +
+    display * DISPLAY_EQUATION_SECONDS +
+    codeLines * CODE_LINE_SECONDS;
   return Math.max(1, Math.round(seconds / 60));
 }
 
@@ -119,9 +121,7 @@ export function analyseBody(body: string): BodyAnalysis {
   rest = rest.replace(/^\s*[-*+|:]+\s*$/gm, ' '); // list bullets, table rules
   rest = rest.replace(/[*_~`|]/g, ' ');
 
-  const prose = rest
-    .split(/\s+/)
-    .filter((w) => /[A-Za-z0-9]/.test(w)).length;
+  const prose = rest.split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w)).length;
 
   return { prose, display, inline, inlineWords, codeLines };
 }
@@ -184,7 +184,9 @@ export function orderLessons<T extends LessonLike>(entries: T[]): T[] {
  * each claiming the other must be read first.
  */
 export function findPrerequisiteCycle(entries: LessonLike[]): string[] | null {
-  const prereqs = new Map(entries.map((e) => [e.id, (e.data.prerequisites ?? []).map((p) => p.id)]));
+  const prereqs = new Map(
+    entries.map((e) => [e.id, (e.data.prerequisites ?? []).map((p) => p.id)])
+  );
   const state = new Map<string, 'open' | 'done'>();
   const path: string[] = [];
 
@@ -222,7 +224,6 @@ export function neighbours<T extends LessonLike>(
   return { prev: ordered[i - 1] ?? null, next: ordered[i + 1] ?? null };
 }
 
-
 // ── Catalog derivation ────────────────────────────────────────────────────────
 
 /** The subset of a collection entry this module needs to build a catalog card. */
@@ -257,6 +258,13 @@ const AREA_LABELS: Record<string, string> = {
   epigenomics: 'Epigenomics & Functional Genomics',
   pangenomics: 'Pangenomics & Graphs',
   'deep-learning': 'Deep Learning & Foundation Models',
+  'machine-learning': 'Machine Learning, Deep Learning & AI',
+};
+
+const CATEGORY_ICONS: Record<string, string> = {
+  'statistical-genetics': 'gwas',
+  'genomic-data': 'ism',
+  'machine-learning': 'ml-interview',
 };
 
 /**
@@ -285,12 +293,15 @@ export function deepDiveEntriesFromCollection<T extends CatalogSource>(
     level: e.data.isHub ? 'Curriculum Hub' : (LEVEL_LABELS[e.data.level] ?? e.data.level),
     readingTime: formatReadingTime(lessonReadingTime(e.body ?? '')),
     summary: e.data.description,
-    highlights: e.data.objectives,
-    equations: e.data.keyEquations ?? [],
+    // The catalog is an orientation surface, not a duplicate of every syllabus. A compact
+    // preview keeps dozens of migrated lessons usable on phones while the lesson page owns
+    // the complete objective and formulation lists.
+    highlights: e.data.objectives.slice(0, e.data.isHub ? 4 : 3),
+    equations: (e.data.keyEquations ?? []).slice(0, 2),
     href: `/deep_dives/${e.id}/`,
     badge: 'Deep Dive Post',
     actionText: opts.actionText ?? 'Read concept deep dive',
-    icon: opts.icon ?? 'gwas',
+    icon: opts.icon ?? CATEGORY_ICONS[e.data.category] ?? 'gwas',
     status: 'published' as const,
   }));
 }

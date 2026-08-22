@@ -1,0 +1,64 @@
+---
+import { INTERVIEW_LABELS, INTERVIEW_PRIORITIES, INTERVIEW_ROUNDS } from '../../lib/mlInterview';
+
+interface Props {
+  count: number;
+}
+
+const { count } = Astro.props;
+---
+
+<aside
+  class="ml-studybar"
+  aria-label="Interview study controls"
+  data-ml-studybar
+  data-ml-enhancement
+  hidden
+>
+  <div class="ml-studybar__summary">
+    <strong>{count} interview questions</strong>
+    <span data-ml-result-count>{count} questions</span>
+  </div>
+  <label class="ml-studybar__search">
+    <span class="visually-hidden">Search this lesson's interview questions</span>
+    <input type="search" data-ml-question-search placeholder="Filter this lesson…" />
+  </label>
+  <label>
+    <span class="visually-hidden">Question priority</span>
+    <select data-ml-filter-priority data-ml-question-filter aria-label="Question priority">
+      <option value="all">All priorities</option>
+      {
+        INTERVIEW_PRIORITIES.map((priority) => (
+          <option value={priority}>{INTERVIEW_LABELS.priority[priority]}</option>
+        ))
+      }
+    </select>
+  </label>
+  <label>
+    <span class="visually-hidden">Interview round</span>
+    <select data-ml-filter-round data-ml-question-filter aria-label="Interview round">
+      <option value="all">All rounds</option>
+      {
+        INTERVIEW_ROUNDS.map((round) => (
+          <option value={round}>{INTERVIEW_LABELS.round[round]}</option>
+        ))
+      }
+    </select>
+  </label>
+  <button type="button" data-ml-practice-toggle aria-pressed="false">Practice mode</button>
+  <button type="button" data-ml-expand>Expand all</button>
+  <button type="button" data-ml-collapse>Collapse all</button>
+  <button type="button" data-ml-shuffle>Shuffle</button>
+  <label class="ml-studybar__bookmarks">
+    <input type="checkbox" data-ml-filter-bookmarks data-ml-question-filter />
+    Bookmarks
+  </label>
+  <p data-ml-question-empty hidden>No questions match this filter.</p>
+</aside>
+
+<script>
+  import { mountMlInterviewStudy } from '../../scripts/mlInterviewStudy';
+  const bind = () => mountMlInterviewStudy(document);
+  bind();
+  document.addEventListener('astro:page-load', bind);
+</script>

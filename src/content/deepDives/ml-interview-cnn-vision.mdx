@@ -1,0 +1,419 @@
+---
+title: CNNs, Vision Models & Visual Representation Learning
+shortTitle: CNNs & Vision
+description: Convolution, receptive fields, residual networks, transfer learning, detection, segmentation, contrastive learning and vision Transformers for ML interviews.
+abstract: Build from the convolution operator to production vision systems, keeping tensor shapes, parameter counts, spatial assumptions, evaluation contracts and failure analysis explicit.
+date: 2026-08-22
+track: theory
+hub: ml-dl-interview
+lessonType: technical
+category: machine-learning
+moduleId: m07-architectures
+moduleLabel: Deep Learning Architectures
+order: 11
+level: intermediate
+objectives:
+  - Derive convolution output shapes, parameter counts and receptive fields.
+  - Explain residual learning, augmentation and transfer-learning decisions from first principles.
+  - Compare convolutional and vision-Transformer inductive biases under data and compute constraints.
+  - Design and debug leakage-safe classification, detection and segmentation systems.
+prerequisites: [ml-interview-neural-network-foundations]
+relatedLessons: [ml-interview-sequences-attention-transformers]
+referenceIds:
+  - lecun1998gradient
+  - he2016resnet
+  - long2015fcn
+  - ren2015fasterrcnn
+  - dosovitskiy2021vit
+  - chen2020simclr
+  - selvaraju2017gradcam
+keyEquations:
+  - 'H_{\mathrm{out}}=\left\lfloor\frac{H_{\mathrm{in}}+2P-D(K-1)-1}{S}+1\right\rfloor'
+  - 'r_\ell=r_{\ell-1}+(k_\ell-1)d_\ell j_{\ell-1}'
+  - '\operatorname{IoU}(A,B)=\frac{\lvert A\cap B\rvert}{\lvert A\cup B\rvert}'
+tags: [computer vision, CNN, ResNet, ViT]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The map: a vision model is a spatial contract
+
+An image is not merely a long vector. Nearby pixels tend to interact, the same visual motif
+can appear at many locations, and the output may need to retain precise geometry. A vision
+architecture decides which of these facts to encode and which to learn. The convolutional
+networks consolidated by LeCun and colleagues encode locality and shared filters directly
+<Citation id="lecun1998gradient" />. Later architectures change how information crosses
+scale, how easily gradients travel, and how much spatial structure is assumed in advance.
+
+<Callout variant="intuition" title="Ask four questions before naming an architecture">
+What is the smallest signal that determines the label? Which transformations should preserve
+that label? Does the output describe a whole image, a set of objects, or every pixel? Which
+shift—camera, site, season, device, or population—will deployment introduce?
+
+These questions determine resolution, augmentation, split strategy and metrics before they
+determine whether the backbone is a CNN or a Transformer.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'B', meaning: 'Mini-batch size', dims: 'scalar' },
+    { symbol: 'C_{in}, C_{out}', meaning: 'Input and output channel counts', dims: 'scalars' },
+    { symbol: 'H, W', meaning: 'Input height and width', dims: 'pixels' },
+    { symbol: 'K, S, P, D', meaning: 'Kernel, stride, padding and dilation', dims: 'per spatial axis' },
+    { symbol: 'j_l', meaning: 'Input-pixel jump between adjacent layer-l units', dims: 'pixels' },
+    { symbol: 'r_l', meaning: 'Theoretical receptive-field width at layer l', dims: 'pixels' },
+    { symbol: 'N', meaning: 'Number of image patches or visual tokens', dims: 'scalar' },
+    { symbol: 'd', meaning: 'Feature or token width', dims: 'scalar' },
+  ]}
+/>
+
+<Figure
+  id="vision-spatial-contracts"
+  caption="Figure 1. Three ways to preserve or consume spatial structure. A convolution shares a local filter, a residual pyramid enlarges context while keeping multiscale maps, and a patch Transformer connects tokens globally. Arrows describe information paths, not performance rankings."
+  alt="Three theme-colored panels. The first shows one small filter sliding over an image grid. The second shows progressively smaller feature grids connected by a residual shortcut. The third shows image patches becoming tokens with all-to-all connections."
+  wide
+>
+  <svg viewBox="0 0 780 230" width="780" height="230" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.3">
+      <rect x="10" y="22" width="238" height="166" rx="10" opacity=".35" />
+      <rect x="271" y="22" width="238" height="166" rx="10" opacity=".35" />
+      <rect x="532" y="22" width="238" height="166" rx="10" opacity=".35" />
+      <g opacity=".55">
+        <path d="M38 51H178M38 75H178M38 99H178M38 123H178M38 147H178M38 171H178" />
+        <path d="M38 51V171M62 51V171M86 51V171M110 51V171M134 51V171M158 51V171M178 51V171" />
+      </g>
+      <rect x="85" y="74" width="72" height="72" stroke="var(--color-accent)" stroke-width="2.6" />
+      <path d="M158 109H215" stroke="var(--color-accent)" stroke-width="2.2" />
+      <path d="M207 102L217 109L207 116" stroke="var(--color-accent)" stroke-width="2.2" />
+      <rect x="295" y="48" width="72" height="72" rx="4" />
+      <rect x="390" y="65" width="54" height="54" rx="4" />
+      <rect x="461" y="79" width="34" height="34" rx="4" />
+      <path d="M367 84H390M444 91H461" stroke="var(--color-accent)" stroke-width="2.2" />
+      <path d="M313 132C341 169 423 165 476 121" stroke="var(--color-accent)" stroke-width="2.2" />
+      <path d="M467 122L478 120L475 131" stroke="var(--color-accent)" stroke-width="2.2" />
+      <rect x="553" y="46" width="80" height="80" rx="4" />
+      <path d="M553 73H633M553 100H633M580 46V126M607 46V126" opacity=".55" />
+      <circle cx="675" cy="61" r="10" /><circle cx="713" cy="61" r="10" />
+      <circle cx="675" cy="101" r="10" /><circle cx="713" cy="101" r="10" />
+      <path d="M633 84H660M675 71V91M685 61H703M685 101H703M713 71L684 96M675 71L706 96" stroke="var(--color-accent)" />
+    </g>
+    <g fill="currentColor" font-size="12" text-anchor="middle">
+      <text x="129" y="212">local shared filter</text>
+      <text x="390" y="212">residual feature pyramid</text>
+      <text x="651" y="212">patch tokens + attention</text>
+    </g>
+  </svg>
+</Figure>
+
+## Convolution: shapes before slogans
+
+<InterviewQuestion id="q-vision-convolution-shapes">
+For one spatial axis, the last legal kernel origin determines the output count:
+
+$$
+H_{out}=\left\lfloor\frac{H+2P-D(K_h-1)-1}{S}+1\right\rfloor.
+$$
+
+Apply the same expression to width. In channels-first notation, a weight tensor has shape
+$C_{out}\times C_{in}\times K_h\times K_w$ and an optional bias has $C_{out}$ entries.
+Thus a dense convolution has $C_{out}(C_{in}K_hK_w+1)$ parameters. Direct evaluation uses
+approximately $BH_{out}W_{out}C_{out}C_{in}K_hK_w$ multiply-accumulates. Groups divide the
+input-output channel connections; depthwise convolution is the extreme with one spatial
+filter per input channel, usually followed by a $1\times1$ channel mixer.
+
+**Implementation follow-up.** State the tensor convention. “Same padding” is ambiguous for
+even kernels or stride above one, and framework APIs differ in whether they accept it. Check
+the exact integer formula rather than guessing from a picture.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Shape, parameters, compute and context for two convolutions"
+  given={[
+    { label: 'Input', value: '1 × 3 × 32 × 32' },
+    { label: 'Layer 1', value: '16 filters, 3 × 3, stride 2, padding 1' },
+    { label: 'Layer 2', value: '16 filters, 3 × 3, stride 1, padding 1' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+Layer 1 has spatial width
+$\lfloor(32+2-2-1)/2+1\rfloor=16$, so its output is $1\times16\times16\times16$.
+It has $16(3\cdot3\cdot3+1)=448$ parameters and
+$16\cdot16\cdot16\cdot27=110{,}592$ multiply-accumulates.
+
+Initialize receptive field $r_0=1$ and jump $j_0=1$. After layer 1,
+$r_1=1+(3-1)\cdot1=3$ and $j_1=2$. After layer 2,
+$r_2=3+(3-1)\cdot2=7$ and $j_2=2$. Every second-layer unit is connected to a theoretical
+$7\times7$ input region, and adjacent units are centered two input pixels apart.
+</WorkedExample>
+
+<InterviewQuestion id="q-vision-equivariance-invariance">
+Let $T_\delta$ translate an image by displacement $\delta$. A feature map $f$ is
+**equivariant** if $f(T_\delta x)=T_\delta f(x)$: the representation moves with the object.
+A final predictor $g$ is **invariant** if $g(T_\delta x)=g(x)$.
+
+Convolution with shared weights is translation equivariant on an infinite grid. Finite
+padding changes the boundary, and stride can alias: a one-pixel shift need not produce an
+exactly shifted downsampled map. Pooling and augmentation create tolerance, while global
+pooling removes location from a whole-image summary. That is useful for classification but
+wrong when laterality or coordinates matter. Convolution does not, by itself, make a model
+invariant to rotation, scale, occlusion or lighting.
+
+**Likely follow-up.** If orientation should not matter, use valid rotation augmentation or
+an equivariant construction and test rotated groups explicitly. Do not claim an invariance
+that the data pipeline has never enforced.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-vision-receptive-field">
+Track the jump $j_l$ and receptive field $r_l$ through layer $l$:
+
+$$
+j_l=S_lj_{l-1},\qquad
+r_l=r_{l-1}+(K_l-1)D_lj_{l-1}.
+$$
+
+Stacked $3\times3$ kernels expand context with extra nonlinearities and often fewer
+parameters than one large kernel; dilation expands context without downsampling. The
+theoretical field only says that a computational path exists. Gradients and learned weights
+often concentrate influence near the center, so the **effective** field can be smaller.
+
+For a task needing a 20-pixel object interaction, a theoretical 200-pixel field is not
+proof of usable context. Occlude regions, inspect sensitivity by distance, and ablate scales.
+Padding-heavy border units and aggressive stride can discard precisely the detail the formula
+appears to include.
+</InterviewQuestion>
+
+## Depth, residual paths and transfer
+
+<InterviewQuestion id="q-vision-residual-networks">
+A residual block computes $y=x+F(x)$. If the useful mapping is near identity, the branch can
+learn a small correction instead of reconstructing $x$. The derivative contains an additive
+identity term,
+
+$$
+\frac{\partial y}{\partial x}=I+\frac{\partial F}{\partial x},
+$$
+
+so gradients have a direct route through the stack. He and colleagues introduced residual
+learning to address the optimization degradation observed in deeper plain vision networks
+<Citation id="he2016resnet" />.
+
+The shortcut is not magic. When spatial or channel shape changes, it needs a projection or a
+carefully defined padding rule. Pre-activation versus post-activation, normalization placement,
+branch initialization and residual scaling alter stability. Residuals make deep optimization
+easier; they do not guarantee that added depth is data-efficient, robust or worth its latency.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-vision-transfer-learning">
+Treat transfer as a bias-variance and distribution-match decision:
+
+- A frozen backbone plus trained head is cheap, stable and a strong small-label baseline.
+- Partial unfreezing adapts task-specific later features while preserving early filters.
+- Full fine-tuning offers the most adaptation but increases compute and overfitting risk.
+
+Use a smaller backbone learning rate than the new head as a starting hypothesis, and compare
+the three regimes under one validation design. Batch-normalization running statistics require
+an explicit choice: updating them on tiny batches can be noisy, while freezing source statistics
+can preserve a mismatch. Pretraining can also transfer source shortcuts, representation gaps or
+demographic bias. “Pretrained” identifies initialization, not fitness for deployment.
+
+**Interview answer.** Name source-target similarity, label count, resolution and shift; propose a
+linear probe; then unfreeze only if its error pattern suggests representation mismatch.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-vision-augmentation">
+An augmentation declares an invariance. A crop says the retained region still determines the
+label; a color transformation says color is nuisance; a flip says handedness does not matter.
+Those declarations can be false. Transform masks, keypoints and boxes with exactly the same
+sampled geometry as the image, and remove boxes whose visible fraction no longer meets a defined
+policy.
+
+Inspect augmented examples by class and source, tune composition and strength on held-out data,
+and keep deterministic evaluation preprocessing. SimCLR's controlled study found that view
+composition is central to contrastive representation quality <Citation id="chen2020simclr" />;
+that makes augmentation a learning objective, not decoration. Mixup-like methods also change the
+target and calibration behavior, so record them as model assumptions.
+</InterviewQuestion>
+
+## Whole images, boxes and pixels
+
+<InterviewQuestion id="q-vision-detection-iou-nms">
+For boxes $A$ and $B$,
+$\operatorname{IoU}(A,B)=|A\cap B|/|A\cup B|$. Detection evaluation matches scored predictions
+to ground truth at one or more IoU thresholds and integrates precision-recall behavior. During
+inference, non-maximum suppression sorts candidates by score, keeps the best, and suppresses
+same-class boxes whose overlap with it exceeds a threshold.
+
+Low score thresholds improve candidate recall but increase work and false alarms. Aggressive NMS
+removes duplicates but can erase adjacent real objects; permissive NMS retains crowded objects but
+duplicates predictions. Tune both on deployment-like density and inspect class-specific errors.
+Faster R-CNN illustrates the two-stage proposal-and-classification decomposition
+<Citation id="ren2015fasterrcnn" />; one-stage systems combine the stages differently, but the
+evaluation and post-processing contract remains.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-vision-segmentation-metrics">
+Semantic segmentation predicts one class for every pixel. Instance segmentation also separates
+individual countable objects. Panoptic segmentation joins instance-aware “things” and amorphous
+“stuff.” A high pixel accuracy can come from predicting background everywhere.
+
+Per-class intersection over union is $TP/(TP+FP+FN)$; Dice is $2TP/(2TP+FP+FN)$ and weights
+overlap differently. Report macro and per-class results, define how absent classes are handled,
+and inspect boundaries if they matter operationally. Instance evaluation additionally requires
+matching predicted and true objects. Long, Shelhamer and Darrell's fully convolutional formulation
+showed how coarse semantics and fine spatial features can be combined for dense prediction
+<Citation id="long2015fcn" />.
+
+**Failure mode.** Resizing masks with bilinear interpolation invents fractional class IDs. Use
+nearest-neighbor interpolation for categorical masks and verify alignment visually.
+</InterviewQuestion>
+
+## Convolution, patches and learned invariance
+
+<InterviewQuestion id="q-vision-cnn-versus-vit">
+A CNN shares a local filter across position, giving strong locality and translation priors. A basic
+Vision Transformer splits an image into patches, projects each to a token, adds positional
+information and applies global self-attention. ViT demonstrated that this weaker visual prior can
+work strongly when paired with suitable large-scale pretraining <Citation id="dosovitskiy2021vit" />.
+
+For fixed kernel size, convolutional spatial work is roughly linear in pixel count. Dense attention
+forms an $N\times N$ matrix, so its attention term is $O(N^2d)$; halving patch width quadruples $N$
+and increases this term about sixteen-fold. CNNs can be favorable on limited data or strict edge
+latency; attention can model content-dependent long-range interactions directly. Hierarchical,
+windowed and hybrid models blur the categories. Compare accuracy, memory, throughput and
+resolution under equal pretraining rather than repeating “Transformers need more data” as a law.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-vision-contrastive-learning">
+For an anchor representation $z_i$ and positive view $z_j$, an InfoNCE-style term is
+
+$$
+-\log\frac{\exp(\operatorname{sim}(z_i,z_j)/\tau)}
+{\sum_{k\ne i}\exp(\operatorname{sim}(z_i,z_k)/\tau)}.
+$$
+
+The encoder learns to retain information shared by positive views while distinguishing other
+images. Augmentation therefore defines semantics: weak views admit pixel shortcuts; destructive
+views remove downstream signal. Temperature controls softmax concentration, and batch or queue
+construction determines the negative set. False negatives can repel semantically related samples.
+
+Evaluate the backbone representation before the projection head with a frozen linear probe and
+with full fine-tuning. SimCLR supplies the canonical augmentation-and-projection ablations; its
+source is cited above. A good pretext loss alone does not establish transferable or fair features.
+</InterviewQuestion>
+
+## From benchmark to deployment
+
+<InterviewQuestion id="q-vision-small-data-system">
+Begin with the split, not the backbone. Keep correlated images from one patient, burst, camera,
+slide or site in one partition. Determine the smallest relevant object and choose resolution,
+tiling and crop overlap so it remains visible. Then establish a pretrained-backbone linear probe,
+domain-valid augmentation and a calibrated operating point.
+
+Compare resizing against tiles with image-level aggregation. Use cross-validation or repeated
+group splits when uncertainty is large, and maintain an untouched source- or time-shifted test if
+deployment changes source. Error review should guide the next label batch: uncertain boundaries,
+rare subtypes and new acquisition conditions usually buy more information than a larger backbone.
+
+**Tradeoff.** Tiling preserves detail but multiplies compute and complicates labels; resizing is
+cheap but can erase small targets. State that frontier explicitly.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-vision-debugging-pipeline">
+Failure to memorize a tiny clean batch is a wiring alarm. Disable random augmentation; visualize
+images and transformed labels; confirm channel order, value range and normalization; verify class
+indices and loss-logit shapes; log per-layer finite activations, gradients and parameter deltas;
+and deliberately remove regularization. Check train/evaluation mode for dropout and normalization.
+
+Use one hand-computed sample and one deliberately trivial label. If loss falls for the trivial
+case but not the real mini-batch, inspect targets and preprocessing. If loss does not fall at all,
+test optimizer parameter ownership, detached tensors, zeroed masks and learning-rate scale. Only
+after this sanity gate should the diagnosis move to generalization.
+
+**Useful invariant.** With stochasticity disabled, inserting extra right/bottom padding and then
+cropping the corresponding valid output should behave exactly as the padding convention predicts.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-vision-imbalance-shift">
+Accuracy collapses prevalence and error cost. Preserve natural prevalence in the final evaluation,
+report per-class recall and precision-recall operating curves, and measure calibration after any
+resampling or class weighting. A weighted loss changes the optimized conditional score; it does
+not automatically yield deployment probabilities.
+
+Random image splits can learn scanner marks, backgrounds or compression pipelines. Group by
+acquisition source and report source-stratified results. Test external sites or later time periods,
+and include abstention or human review when unfamiliar inputs can be detected. Compare failure
+rates at the actual action capacity, such as alerts per reviewer-hour, rather than selecting a
+threshold from a balanced benchmark.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-vision-explanations">
+Gradient saliency asks how a score changes under infinitesimal pixel perturbation; class-activation
+maps summarize weighted spatial features; occlusion asks how a chosen replacement changes the
+prediction. Grad-CAM is a useful localization probe for convolutional features
+<Citation id="selvaraju2017gradcam" />, but a plausible heat map is not a causal explanation.
+
+Results can depend on layer, baseline, smoothing and image scale. An explanation may look similar
+for a randomized model or highlight a correlated region without showing necessity. Use saliency to
+form a hypothesis, then falsify it with controlled masking, counterfactual acquisition, subgroup
+tests and expert review. Preserve the original model score while testing—the explanation should
+not quietly change the classifier or input distribution.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="Convolution arithmetic" difficulty="warm-up">
+An input has shape $8\times64\times31\times31$. A convolution uses 32 output channels, a
+$5\times5$ kernel, stride 2, padding 2, dilation 1 and bias. Find its output shape and parameter
+count.
+
+<div slot="solution">
+Each spatial axis is
+$\lfloor(31+4-4-1)/2+1\rfloor=\lfloor16\rfloor=16$. The output is
+$8\times32\times16\times16$. Parameters are
+$32(64\cdot5\cdot5+1)=32\cdot1601=51{,}232$. Batch and spatial size do not affect parameter
+count.
+</div>
+</Exercise>
+
+<Exercise n={2} title="The invalid augmentation" difficulty="core">
+A medical-image classifier predicts left-versus-right pathology. The team uses random horizontal
+flips without changing labels and observes better random-split validation. Explain the problem and
+redesign the test.
+
+<div slot="solution">
+The flip changes laterality, so it is not label preserving; the model receives contradictory
+supervision. Remove it or swap left/right targets and any side-specific metadata together. Group
+related images by patient, preserve acquisition prevalence, and evaluate laterality-specific
+confusions on an untouched site or time split. The random-split gain cannot validate a corrupted
+task contract.
+</div>
+</Exercise>
+
+<Exercise n={3} title="Patch size has a quadratic consequence" difficulty="stretch">
+A square image uses non-overlapping $16\times16$ patches. If patch width is reduced to 8 while
+image resolution and embedding width stay fixed, how do token count and dense-attention score
+entries change?
+
+<div slot="solution">
+Halving patch width doubles the patch count on each spatial axis, so token count becomes four
+times larger. The attention score matrix has one entry per token pair, so it becomes
+$4^2=16$ times larger. Projection and MLP costs scale differently, but this score-memory result
+explains why resolution changes require explicit systems accounting.
+</div>
+</Exercise>
+
+## Summary
+
+- Convolution encodes local shared computation; shape arithmetic defines what the network actually sees.
+- Theoretical receptive field, effective influence and final invariance are different claims.
+- Residual paths improve optimization, while augmentation and transfer learning encode assumptions about shift.
+- Classification, detection and segmentation require different outputs, matching rules and metrics.
+- CNN-versus-ViT is an inductive-bias and systems decision, not a historical popularity contest.
+- Vision debugging starts by visualizing transformed data and proving that one tiny batch can be learned.
+- Explanations generate hypotheses; controlled interventions and shifted evaluation test them.

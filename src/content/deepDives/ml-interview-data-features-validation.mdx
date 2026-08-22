@@ -1,0 +1,418 @@
+---
+title: "Data, Features, and Validation for Machine Learning Interviews"
+shortTitle: Data, Features & Validation
+description: "Sixteen detailed interview answers on targets, splits, leakage, preprocessing, missing values, categorical features, imbalance, augmentation, feature selection, temporal validation and lineage."
+abstract: "Most production ML failures begin before model fitting: an ambiguous target, an invalid split, future information in a feature, or a preprocessing statistic learned from held-out data. This lesson treats the dataset as a time-indexed measurement system, then develops leakage-resistant transformations and validation designs that reproduce the unit and boundary of deployment."
+date: 2026-08-22
+updated: 2026-08-22
+track: workflow
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m03-data
+moduleLabel: Module 3 · Data, Features & Validation
+order: 4
+level: foundational
+objectives:
+  - "Define a prediction unit, index time, label window and decision before building features."
+  - "Choose random, grouped or temporal splits that reproduce deployment independence."
+  - "Identify target, temporal, entity and preprocessing leakage and prevent each in a pipeline."
+  - "Handle missing, categorical, imbalanced and high-cardinality data without contaminating validation."
+  - "Design data-quality and lineage checks that make a trained model reproducible and auditable."
+prerequisites:
+  - ml-interview-probability-statistics
+  - ml-interview-learning-theory-generalization
+relatedLessons:
+  - ml-interview-metrics-experimentation
+  - ml-interview-linear-kernel-probabilistic-models
+referenceIds:
+  - rubin1976missing
+  - kohavi1995crossvalidation
+  - kaufman2012leakage
+  - chawla2002smote
+  - varoquaux2018validation
+  - sculley2015debt
+  - gebru2021datasheets
+keyEquations:
+  - '\mathcal U_{\mathrm{train}}\cap\mathcal U_{\mathrm{test}}=\varnothing\quad\text{at the deployment-unit level}'
+  - 'w_c\propto\frac{1}{n_c}'
+  - '\frac{p_d(Y=1\mid x)}{p_d(Y=0\mid x)}=\frac{p_s(Y=1\mid x)}{p_s(Y=0\mid x)}\frac{\pi_d/(1-\pi_d)}{\pi_s/(1-\pi_s)}\quad\text{if }p_d(x\mid Y)=p_s(x\mid Y)'
+tags: [machine learning, interview, data quality, features, validation, leakage]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## The mental model: reconstruct the moment of prediction
+
+Rows do not arrive from nowhere. Each represents an entity at a time, measured through a
+process, joined across systems, and labeled later—sometimes imperfectly. A valid offline
+dataset must reconstruct what would have been known at the exact moment a real prediction
+is made.
+
+<Callout variant="intuition">
+Draw a vertical line at **prediction time**. Features must lie to its left; the outcome lies
+to its right. Then draw a boundary around the **deployment unit**—user, patient, device,
+site, document family. Linked information must not cross from validation into training.
+These two drawings expose most leakage before any model runs.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'u_i', meaning: 'Independent deployment unit for example i', dims: 'entity identifier' },
+    { symbol: 't_i', meaning: 'Index time at which prediction i would be issued', dims: 'timestamp' },
+    { symbol: '\\mathbf{x}_i(t_i)', meaning: 'Features observable no later than index time', dims: 'd-vector' },
+    { symbol: 'y_i[t_i,t_i+h]', meaning: 'Outcome measured in a future horizon h', dims: 'label' },
+    { symbol: '\\pi=P(Y=1)', meaning: 'Positive-class prevalence', dims: 'scalar in [0,1]' },
+    { symbol: 'M_j', meaning: 'Indicator that feature j is missing', dims: 'binary' },
+    { symbol: '\\mathcal T', meaning: 'Preprocessing transformation fit on training data', dims: 'mapping' },
+    { symbol: 'P_{deploy}', meaning: 'Distribution at intended deployment', dims: 'distribution over examples' },
+  ]}
+/>
+
+## Problem and split design
+
+<InterviewQuestion id="q-data-target">
+
+Define six things: prediction unit, index time, target construct, observable label rule,
+outcome horizon, and decision. “Predict churn” is ambiguous; “at each paid renewal date,
+predict whether the account will cancel within 30 days so retention can prioritize outreach”
+is testable.
+
+The recorded label is a measurement, not the construct. Nonresponse, delayed adjudication,
+policy changes, and interventions can make it noisy or selectively observed. Avoid defining
+a feature using the label window. Establish exclusions and what happens after a positive
+prediction. A model can predict a proxy extremely well while failing the intended decision.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-split">
+
+Training fits parameters, validation chooses features/hyperparameters/thresholds, and test
+estimates the fully selected procedure. The split must preserve independence at deployment.
+IID random splitting is reasonable only for exchangeable, sufficiently independent units.
+
+Group repeated entities; split by time for future deployment; hold out sites or geographies
+when transfer matters. Stratification stabilizes class counts but does not override grouping
+or chronology. The test set is not a renewable tuning resource—repeated decisions based on
+it adapt to its noise <Citation id="kohavi1995crossvalidation" />. Report the unit and date
+boundaries, not only 80/10/10 percentages.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-leakage">
+
+Leakage is information available during training or evaluation that would not be available
+for a new deployment prediction. Target leakage uses outcome-derived fields; temporal
+leakage uses future values; entity leakage puts related rows across splits; preprocessing
+leakage fits statistics or feature selection on held-out data. Benchmark leakage tunes to a
+test set through repeated publication.
+
+Audit feature timestamps, creation logic, joins, and provenance. Split independent units
+before transformations. Search for suspicious feature importance, implausibly strong
+metrics, and performance collapse under time/group splits. Automated feature-selection
+systems are especially vulnerable <Citation id="kaufman2012leakage" />. Dropping the obvious
+leaky column is insufficient if derived copies remain.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-pipeline">
+
+Any transformation that learns from data—mean and variance, vocabulary, imputation,
+target encoding, PCA, feature selection—has parameters. During cross-validation, fit those
+parameters on each fold's training subset and apply them to that fold's validation subset.
+Then refit the chosen pipeline on all development data before final test evaluation.
+
+A compositional pipeline makes this invariant executable and serializes preprocessing with
+the model. Pure row-wise operations such as a known unit conversion need not be “fit,” but
+their version still belongs in lineage. Production must apply the identical graph; training-
+serving skew is a data bug even if model weights are correct.
+
+</InterviewQuestion>
+
+<Figure
+  caption="Figure 1. A leakage-resistant temporal pipeline reconstructs each prediction. Training examples and their outcome windows end before validation index times; preprocessing is fit only inside the training region. A label-delay gap prevents outcomes that would not yet be recorded from entering training."
+  alt="A horizontal time diagram shows a blue training region, a narrow label-delay gap, and a validation region. Feature windows end at prediction-time markers and label windows extend to their right. An arrow says fit preprocessing on training only and another says transform validation without refitting."
+>
+  <svg viewBox="0 0 720 250" width="720" height="250" font-family="inherit">
+    <line x1="55" y1="185" x2="675" y2="185" stroke="currentColor" stroke-width="1.5"/>
+    <g fill="var(--color-accent)" fill-opacity=".15" stroke="var(--color-accent)" stroke-width="1.2"><rect x="70" y="45" width="300" height="115"/><rect x="440" y="45" width="205" height="115"/></g>
+    <rect x="370" y="45" width="70" height="115" fill="currentColor" opacity=".06" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4"/>
+    <g fill="currentColor" font-size="13" text-anchor="middle"><text x="220" y="35">training history</text><text x="405" y="35">label-delay gap</text><text x="542" y="35">validation future</text></g>
+    <g stroke="currentColor" stroke-width="2"><line x1="140" y1="76" x2="140" y2="140"/><line x1="275" y1="76" x2="275" y2="140"/><line x1="505" y1="76" x2="505" y2="140"/><line x1="590" y1="76" x2="590" y2="140"/></g>
+    <g stroke="var(--color-accent)" stroke-width="6" opacity=".65"><line x1="90" y1="98" x2="140" y2="98"/><line x1="225" y1="98" x2="275" y2="98"/><line x1="455" y1="98" x2="505" y2="98"/><line x1="540" y1="98" x2="590" y2="98"/></g>
+    <g stroke="currentColor" stroke-width="6" opacity=".35"><line x1="140" y1="122" x2="190" y2="122"/><line x1="275" y1="122" x2="325" y2="122"/><line x1="505" y1="122" x2="555" y2="122"/><line x1="590" y1="122" x2="640" y2="122"/></g>
+    <g fill="currentColor" font-size="11"><text x="75" y="216">past</text><text x="645" y="216">future</text><text x="75" y="236">features ← | prediction | → label</text></g>
+  </svg>
+</Figure>
+
+<InterviewQuestion id="q-data-grouped-split">
+
+Use grouped splitting whenever multiple rows share information through a user, patient,
+household, device, session, site, source document, or duplicate cluster. Assign each group
+wholly to one partition. Otherwise a model can recognize the entity rather than generalize
+to a new one, and effective test size is overstated.
+
+Choose the group from deployment: if predicting future events for known users, a temporal
+within-user evaluation may be relevant; if onboarding unseen users, user-held-out evaluation
+is essential. Nested group structure may require holding out sites outside patients. Hash or
+similarity-based duplicate detection catches copies that do not share IDs.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-temporal">
+
+For future prediction, sort by index time. Train on the past and validate on later windows;
+rolling-origin evaluation repeats this across cutoffs. Every feature must be computable as
+of its index time. Add a gap at the boundary for outcomes with delayed labels and for feature
+windows that overlap the future.
+
+Choose expanding windows when old data remain useful, sliding windows when drift makes them
+stale, and several seasons to expose periodic behavior. Never randomly shuffle a forecasting
+problem merely to balance folds. Backtests still miss future interventions and unprecedented
+events, so accompany them with drift assumptions and live monitoring.
+
+</InterviewQuestion>
+
+## Missing and heterogeneous features
+
+<InterviewQuestion id="q-data-missingness">
+
+Let $M$ indicate missingness. MCAR assumes $M$ is independent of observed and missing data;
+MAR allows $M$ to depend on observed variables; MNAR retains dependence on the missing value
+or unobserved factors after conditioning <Citation id="rubin1976missing" />. These mechanisms
+cannot generally be identified from the observed table alone.
+
+The labels describe assumptions about the data-collection process, not percentages. A lab
+test ordered only for severe cases is likely informative missingness. Interview answers
+should explain collection workflow, compare missingness by time/group/outcome where legal,
+and run sensitivity analyses rather than declaring “MAR” from a histogram.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-imputation">
+
+First ask why a value is missing and whether absence itself is observable at prediction.
+Fit median/mode or a learned imputer on training only, optionally add a missingness indicator,
+and compare against model-native handling. Multiple imputation represents uncertainty for
+statistical inference; a single filled value does not.
+
+Evaluate by missingness pattern and group, not just aggregate score. A sentinel outside the
+natural range can work for trees but distort distances or neural scale. Forward filling is
+valid only when chronology and staleness are explicit. No imputer recovers information that
+was never measured; improving collection may dominate modeling.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-scaling">
+
+Standardization $(x-\mu)/s$ matters when an algorithm uses Euclidean distance, dot-product
+geometry, gradient magnitude, isotropic regularization, PCA, or kernels. Fit $\mu,s$ on
+training only. Robust scaling can help with heavy tails; known physical transforms such as
+log concentration may better match the mechanism.
+
+Decision trees compare ordered thresholds, so positive monotone rescaling usually preserves
+candidate partitions. Scaling still matters around histogram binning, finite precision, or
+combined models. Do not normalize away meaningful magnitude, and preserve a safe behavior
+for constant or previously unseen-range features.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-categorical">
+
+One-hot encoding is transparent for low or moderate cardinality and linear models. Ordinal
+codes are appropriate only when order is real. Hashing fixes memory with collisions. Learned
+embeddings can share statistical strength for frequently observed high-cardinality values.
+Unknown and rare categories need explicit behavior.
+
+Target encoding estimates an outcome statistic and is therefore high-risk: compute it out
+of fold, smooth toward a global prior, and enforce time order. Never let a row's own label
+encode its feature. Consider whether a category is a protected attribute, mutable workflow
+artifact, or identifier likely to disappear at serving.
+
+</InterviewQuestion>
+
+## Imbalance, augmentation, and selection
+
+<InterviewQuestion id="q-data-imbalance">
+
+With 1% positives, predicting negative always gives 99% accuracy. Start from error costs and
+the action: precision controls alert burden, recall controls misses, PR curves emphasize the
+rare class, and calibrated probabilities support changing thresholds. Always report
+prevalence because precision changes with it.
+
+Imbalance is not automatically a training problem; a sufficiently large rare class may be
+learnable with proper loss. First build a stratified yet group/time-valid evaluation and
+inspect subgroups. Accuracy can remain useful when error costs are symmetric, but its
+majority dominance must be explicit.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-rebalancing">
+
+Class weighting changes each error's loss contribution. Under-sampling reduces compute but
+throws away majority information; over-sampling repeats minority examples and can overfit.
+SMOTE interpolates minority neighbors <Citation id="chawla2002smote" />, which is harmful
+when interpolation crosses class manifolds or mixes grouped/temporal units.
+
+Apply all sampling inside the training fold. Rebalancing changes the effective class prior,
+so raw outputs may not be deployment probabilities. Keep validation/test at natural
+prevalence, recalibrate, and choose thresholds using real costs. Compare with an unchanged
+baseline; improved recall can simply reflect a moved threshold.
+
+</InterviewQuestion>
+
+<WorkedExample
+  title="Correct an oversampled posterior for deployment prevalence"
+  given={[
+    { label: 'Training prevalence after sampling', value: 'πₛ = 0.50' },
+    { label: 'Deployment prevalence', value: 'π_d = 0.01' },
+    { label: 'Model output in sampled data', value: 'pₛ = 0.80' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+
+Assuming sampling changes only the class prior, sampled odds are $0.8/0.2=4$. Correct them
+by the ratio of deployment to sampled prior odds:
+
+$$
+o_d=4\times\frac{0.01/0.99}{0.50/0.50}=0.040404,
+\qquad
+p_d=\frac{0.040404}{1+0.040404}=0.03883.
+$$
+
+A score of 0.80 on the balanced sample corresponds to only **3.88%** at deployment. This
+correction depends on class-conditional distributions remaining stable; otherwise use a
+deployment-like calibration set.
+
+</WorkedExample>
+
+<InterviewQuestion id="q-data-augmentation">
+
+An augmentation encodes an invariance: the label should remain correct after the
+transformation, and the transformed example should be plausible at deployment. Horizontal
+flips may preserve many object classes but not written digits or anatomical laterality.
+Apply augmentation only during training and keep validation natural.
+
+Measure performance by transformation and real subgroup. Strong augmentation can introduce
+artifacts, erase label signal, shift calibration, or turn a rare class into unrealistic
+interpolations. For text and biological sequence, semantics can change under one-token or
+one-base edits; domain validation matters more than visual plausibility.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-feature-engineering">
+
+Deep learning learns representations, but it cannot reconstruct unavailable timestamps,
+correct units, choose the decision window, or know which information will exist at serving.
+Domain-informed aggregation, log transforms, rates, masks, and relative time can improve
+sample efficiency and encode valid invariances.
+
+Avoid features that are hard to reproduce online, create feedback loops, or summarize future
+behavior. Compare learned and engineered representations with ablations. A good senior answer
+frames feature engineering as measurement and interface design, not a contest between manual
+features and neural networks.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-data-feature-selection">
+
+Filters use univariate association or variance without repeatedly fitting the target model;
+wrappers search subsets by model performance and are expensive; embedded methods such as L1
+or tree splits select during fitting. Correlated features can make any selected set unstable.
+
+Run selection inside every training fold. Otherwise validation labels influence which
+features exist. Measure predictive value on held-out data and selection stability across
+resamples. Selection may improve cost, interpretability, and variance, but it can remove
+weak features useful jointly or across shifted environments.
+
+</InterviewQuestion>
+
+## Production data integrity
+
+<InterviewQuestion id="q-data-lineage">
+
+Version source snapshots, query text, schemas, joins, transformations, label definitions,
+and split assignments; connect each model artifact to those immutable inputs. Validate
+types, units, ranges, uniqueness, join coverage, missingness, class balance, freshness, and
+slice distributions. Data documentation should record motivation, collection, composition,
+recommended uses, and limitations <Citation id="gebru2021datasheets" />.
+
+At serving, monitor feature availability and drift plus delayed-label performance. Alert on
+schema and semantic failures, not only model latency. ML systems accumulate hidden consumers
+and feedback loops, making data dependencies a major source of technical debt
+<Citation id="sculley2015debt" />. Reproducibility requires the exact data transformation,
+not just a random seed.
+
+</InterviewQuestion>
+
+<Callout variant="warning" title="Cross-validation cannot rescue the wrong unit">
+More folds reduce neither leakage nor population mismatch. If scans from one patient,
+events from one user, or near-duplicate documents cross folds, the estimate answers a
+different and easier question. Even properly grouped estimates can be uncertain when the
+number of groups is small <Citation id="varoquaux2018validation" />.
+</Callout>
+
+## Practice
+
+<Exercise n={1} title="Find the future feature" difficulty="warm-up">
+
+At hospital admission, a model predicts seven-day readmission. One feature is “number of
+follow-up appointments scheduled at discharge.” Is it valid?
+
+<div slot="solution">
+
+No for an admission-time prediction: discharge occurs after the index time, and scheduling
+may encode clinicians' knowledge of the outcome risk. Either remove it or redefine the
+product to predict at discharge. Rebuilding historical rows with only admission-time
+information is required; masking the column in production does not undo training leakage.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Choose the split unit" difficulty="core">
+
+A dataset contains 20 images per manufactured part. Deployment classifies defects on newly
+manufactured parts. Should images be split randomly?
+
+<div slot="solution">
+
+No. Group by part so all 20 correlated images stay in one partition. A row split lets the
+model recognize surface texture, camera alignment, or background from a part already seen
+in training. If deployment also changes production lines, add a line-held-out evaluation or
+temporal split to measure that transfer.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Repair target encoding" difficulty="stretch">
+
+A category feature is replaced by its mean label computed over the full dataset, then
+five-fold cross-validation is run. Explain and repair the leakage.
+
+<div slot="solution">
+
+Every validation label contributes to its category mean, so the validation feature already
+contains outcome information. Within each outer training fold, compute smoothed category
+means using only that training fold; generate training encodings with an inner out-of-fold
+scheme so a row never uses its own label; transform the outer validation fold with those
+training-only statistics. Fit one final smoothed map only after model selection.
+
+</div>
+</Exercise>
+
+## Summary
+
+- Define unit, index time, label window and decision before extracting a feature.
+- Split at the independence and chronology boundaries deployment will impose.
+- Fit every learned transformation inside training folds and ship it with the model.
+- Missingness, high-cardinality categories, imbalance and augmentation encode assumptions
+  that must be validated by subgroup and time.
+- Rebalancing changes the training prior and can destroy probability calibration.
+- Immutable lineage and semantic data checks are prerequisites for reproducible production
+  ML, not administrative extras.

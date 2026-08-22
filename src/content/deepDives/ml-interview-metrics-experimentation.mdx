@@ -1,0 +1,663 @@
+---
+title: "Machine Learning Interview Guide: Metrics, Validation & Experimentation"
+shortTitle: Metrics & Experimentation
+description: "Choose metrics from decisions and costs, validate without leakage, quantify uncertainty, and design online experiments that can survive an interview—and production."
+abstract: "A model metric is useful only when its estimand, averaging, threshold, sampling unit, and decision cost match the system it is meant to evaluate. This interview guide connects confusion-matrix rates, ROC and precision-recall curves, calibration, proper scoring rules, regression and ranking metrics, cross-validation, uncertainty, power, multiple testing, A/B experiments, and the offline–online gap. Each answer starts with the operational question, then makes the mathematics and failure modes explicit."
+date: 2026-08-22
+track: workflow
+hub: ml-dl-interview
+category: machine-learning
+lessonType: technical
+moduleId: m05-evaluation
+moduleLabel: Module 5 · Evaluation & Experimentation
+order: 8
+level: intermediate
+objectives:
+  - "Choose a metric by tracing a prediction to a decision, cost, population, and unit of analysis."
+  - "Derive classification, calibration, regression, and ranking metrics and explain what each discards."
+  - "Design leakage-resistant validation and attach defensible uncertainty to model comparisons."
+  - "Size, launch, and analyze an online experiment without invalid independence or repeated-testing assumptions."
+  - "Diagnose why offline gains fail online and design slice and drift checks that expose the failure."
+prerequisites: []
+referenceIds:
+  - brier1950
+  - neymanpearson1933
+  - efron1979bootstrap
+  - benjamini1995fdr
+  - kohavi1995crossvalidation
+  - davis2006prroc
+  - jarvelin2002ndcg
+  - kohavi2009experiments
+  - guo2017calibration
+keyEquations:
+  - '\operatorname{precision}=\frac{\mathrm{TP}}{\mathrm{TP}+\mathrm{FP}},\quad \operatorname{recall}=\frac{\mathrm{TP}}{\mathrm{TP}+\mathrm{FN}}'
+  - '\operatorname{risk}(t)=C_{\mathrm{FP}}\Pr(\hat y_t=1,y=0)+C_{\mathrm{FN}}\Pr(\hat y_t=0,y=1)'
+  - '\operatorname{Brier}=\frac{1}{N}\sum_{i=1}^{N}(p_i-y_i)^2'
+  - 'n\approx\frac{2\sigma^2(z_{1-\alpha/2}+z_{1-\beta})^2}{\delta^2}'
+tags: [machine learning interviews, evaluation, metrics, calibration, cross-validation, A/B testing]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+
+## The question behind every metric
+
+Suppose two fraud models have these summaries:
+
+- model A has AUROC $0.96$;
+- model B has precision $0.72$ at 80% recall;
+- the operations team can investigate 400 alerts per day;
+- a missed fraud costs about 100 times a manual review.
+
+Which model is better? There is deliberately not enough information. AUROC averages over
+thresholds the team will never use. Precision depends on the deployment prevalence. Neither
+number says whether 400 alerts reach the high-cost cases or whether the labels arrive soon
+enough to measure them. A strong interview answer notices the missing decision before doing
+arithmetic.
+
+<Callout variant="intuition" title="A metric is a compressed decision model">
+Every metric chooses—often silently—what counts as an error, how errors are weighted, which
+examples are averaged together, and whether probabilities, rankings, or decisions are being
+judged. Start an evaluation answer with four nouns: **decision, cost, population, unit**.
+
+Only then name a metric. This habit prevents the most common interview failure: reciting a
+catalogue of formulas while leaving the actual product question unanswered.
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'TP,FP,TN,FN', meaning: 'Counts in a binary confusion matrix at one threshold', dims: 'counts' },
+    { symbol: '\\pi', meaning: 'Positive-class prevalence, P(y=1)', dims: 'in [0,1]' },
+    { symbol: 'p_i', meaning: 'Predicted probability for example i', dims: 'in [0,1]' },
+    { symbol: 't', meaning: 'Decision threshold: predict positive when p ≥ t', dims: 'in [0,1]' },
+    { symbol: 'C_{FP},C_{FN}', meaning: 'Costs of a false positive and false negative', dims: 'cost / decision' },
+    { symbol: 'k', meaning: 'Displayed or retrieved rank cutoff', dims: 'positive integer' },
+    { symbol: '\\alpha,\\beta', meaning: 'Type-I error and type-II error probabilities', dims: 'in (0,1)' },
+    { symbol: '\\delta', meaning: 'Minimum effect the experiment is designed to detect', dims: 'outcome units' },
+    { symbol: 'B,G,C', meaning: 'Batch size, number of groups, and number of classes', dims: 'counts' },
+  ]}
+/>
+
+<Widget
+  kind="decision-threshold"
+  title="One ranking, many operational decisions"
+  caption="Move the threshold across the same fixed synthetic scores. Filled points are predicted positive; their true-class row does not change. Precision, recall, specificity, F1, and workload change because the decision changed—not because the model was retrained."
+  alt="Interactive score plot with true positive and negative rows and a movable decision threshold."
+>
+  <svg viewBox="0 0 660 320" role="presentation">
+    <line x1="62" y1="274" x2="638" y2="274" stroke="currentColor" />
+    <line x1="62" y1="22" x2="62" y2="274" stroke="currentColor" />
+    <line x1="350" y1="22" x2="350" y2="274" stroke="currentColor" stroke-dasharray="5 4" />
+    <circle cx="510" cy="75" r="7" fill="var(--color-accent,#2e6e5e)" />
+    <circle cx="270" cy="225" r="7" fill="none" stroke="currentColor" />
+  </svg>
+</Widget>
+
+<Figure
+  caption="Figure 1. Threshold selection is a decision, not a beauty contest between curves. Lowering the threshold usually increases recall and alert volume; raising it usually increases precision and missed positives. The valid operating point is the portion that satisfies capacity and minimizes expected cost. The shapes are illustrative."
+  alt="A threshold tradeoff diagram. From left to right, threshold rises. Recall descends, precision rises, and expected decision cost forms a U shape. A shaded feasible band marks thresholds whose alert volume fits operational capacity, and the chosen threshold is the cost minimum inside that band."
+>
+  <svg viewBox="0 0 680 330" width="680" height="330" font-family="inherit">
+    <line x1="72" y1="274" x2="620" y2="274" stroke="currentColor" stroke-width="1.4" />
+    <line x1="72" y1="44" x2="72" y2="274" stroke="currentColor" stroke-width="1.4" />
+    <rect x="330" y="44" width="150" height="230" fill="var(--color-accent,#2e6e5e)" opacity=".08" />
+    <text x="405" y="62" text-anchor="middle" font-size="11" fill="var(--color-accent,#2e6e5e)">capacity-feasible thresholds</text>
+    <path d="M88 70 C190 91, 310 145, 603 251" fill="none" stroke="currentColor" stroke-width="2.5" />
+    <text x="112" y="61" font-size="12" fill="currentColor">recall</text>
+    <path d="M88 242 C210 216, 360 126, 603 78" fill="none" stroke="var(--color-accent,#2e6e5e)" stroke-width="2.5" />
+    <text x="552" y="68" font-size="12" fill="var(--color-accent,#2e6e5e)">precision</text>
+    <path d="M88 126 C205 246, 330 258, 449 197 C520 160, 572 115, 603 84" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="6 5" opacity=".72" />
+    <text x="104" y="115" font-size="11" fill="currentColor" opacity=".75">expected cost</text>
+    <line x1="433" y1="44" x2="433" y2="274" stroke="var(--color-accent,#2e6e5e)" stroke-width="1.5" stroke-dasharray="3 4" />
+    <circle cx="433" cy="204" r="5" fill="var(--color-accent,#2e6e5e)" />
+    <text x="443" y="220" font-size="11" fill="var(--color-accent,#2e6e5e)" font-weight="600">chosen operating point</text>
+    <text x="346" y="309" text-anchor="middle" font-size="12" fill="currentColor">decision threshold t →</text>
+    <text x="22" y="159" text-anchor="middle" font-size="12" fill="currentColor" transform="rotate(-90 22 159)">metric value / normalized cost</text>
+  </svg>
+</Figure>
+
+## Choosing and interpreting metrics
+
+<InterviewQuestion id="q-metrics-objective">
+
+Work backward from the deployment decision:
+
+1. **Action:** What happens after a score—auto-approve, rank, route to a human, or estimate a
+   quantity?
+2. **Errors and costs:** Is a missed cancer case worse than a biopsy, or is one irrelevant
+   recommendation nearly free? Include latency and capacity, not only label error.
+3. **Population and unit:** Is the estimand per impression, user, patient, query, or month?
+   Correlated rows do not become independent users.
+4. **Output contract:** Does the consumer need a ranking, a calibrated probability, a point
+   estimate, or a hard decision?
+
+Then select a primary metric and guardrails. A ranking stage with a fixed screen might use
+recall@100; a triage queue with limited reviewers might use precision at a fixed daily volume;
+a pricing decision needs calibration or expected cost; a forecasting model might use MAE plus
+tail-error slices. State the threshold and aggregation explicitly.
+
+A good answer also separates the **training loss**, the **offline selection metric**, and the
+**online outcome**. They can differ because a differentiable surrogate such as cross-entropy is
+convenient to optimize, while the product may care about recall under a latency constraint.
+Validate that improvements in the surrogate predict the downstream outcome rather than assuming
+they do.
+
+**Interview trap:** “Use F1 for imbalance” is not a decision analysis. Ask whether precision and
+recall are actually equally valuable and why true negatives are excluded.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-confusion">
+
+At one threshold, binary predictions produce four counts. The denominators tell the story:
+
+$$
+\mathrm{recall}=\mathrm{TPR}=\frac{TP}{TP+FN},\qquad
+\mathrm{specificity}=\mathrm{TNR}=\frac{TN}{TN+FP}
+$$
+
+$$
+\mathrm{FPR}=1-\mathrm{specificity}=\frac{FP}{FP+TN},\qquad
+\mathrm{precision}=\mathrm{PPV}=\frac{TP}{TP+FP}.
+$$
+
+Recall and FPR condition on the **true class**, so a model with fixed class-conditional score
+distributions can retain the same ROC curve when prevalence changes. Precision conditions on a
+**positive prediction**, so Bayes' rule makes prevalence explicit:
+
+$$
+P(y=1\mid \hat y=1)=
+\frac{\mathrm{TPR}\,\pi}{\mathrm{TPR}\,\pi+\mathrm{FPR}(1-\pi)}.
+$$
+
+For example, with TPR $=0.9$, FPR $=0.01$, and prevalence $\pi=0.001$, precision is only
+$0.0009/(0.0009+0.00999)=8.26\%$. “One percent false-positive rate” sounds excellent until it
+is multiplied by a huge negative population.
+
+In code, protect undefined denominators and report support:
+
+```python
+precision = tp / (tp + fp) if tp + fp else float("nan")
+recall = tp / (tp + fn) if tp + fn else float("nan")
+```
+
+Silently replacing an undefined precision with zero mixes “the model made no positive calls”
+with “every positive call was wrong.”
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-imbalance">
+
+If 0.1% of transactions are fraudulent, predicting “not fraud” for everything obtains 99.9%
+accuracy. It has zero detection value. Accuracy is not mathematically broken; its implicit cost
+is one unit per misclassified row, so the large negative class dominates.
+
+Use a metric that exposes the intended failure: per-class recall and specificity, precision at
+the review capacity, PR curves for rare-positive retrieval, calibrated expected cost, and slices
+by amount or fraud type. Always include the majority and simple-rule baselines.
+
+Reweighting the loss or resampling training data does not automatically repair evaluation.
+Evaluate on a sample whose prevalence represents deployment, or explicitly reweight to it. If a
+case-control test set was balanced artificially, raw precision from that set is not deployment
+precision.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-roc-pr">
+
+An ROC curve sweeps thresholds and plots TPR against FPR. A PR curve plots precision against
+recall. Davis and Goadrich showed the mathematical relationship between the two spaces and why
+interpolation behaves differently <Citation id="davis2006prroc" />.
+
+Prefer ROC when both class-conditional error rates are meaningful, when prevalence may differ
+but conditional score distributions are comparable, or when selecting among operating points
+across a broad cost range. Prefer PR when the positive class is rare and the consumer directly
+cares how many retrieved items are relevant: precision turns the negative-class burden into a
+visible quantity.
+
+Two cautions matter in interviews:
+
+- AUROC is the probability that a randomly drawn positive outranks a randomly drawn negative;
+  it is not accuracy and does not choose a threshold.
+- AUPRC depends on prevalence—the no-skill baseline is $\pi$—so AUPRC values from populations
+  with different prevalence are not directly comparable without reweighting or qualification.
+
+Partial AUC or precision/recall at the actual operating constraint is often more honest than a
+full-curve area.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-f1">
+
+The harmonic mean
+
+$$
+F_1=\frac{2\,\mathrm{precision}\,\mathrm{recall}}
+{\mathrm{precision}+\mathrm{recall}}=\frac{2TP}{2TP+FP+FN}
+$$
+
+is low if either precision or recall is low. $F_\beta$ weights recall by $\beta^2$, but even
+then the weights are not a calibrated statement of real cost. F1 discards true negatives,
+probability quality, ranking beyond one threshold, and absolute scale. It is also
+prevalence-dependent through precision.
+
+Use F1 when positive retrieval is the right abstraction, true negatives genuinely carry little
+value, and a single operating point is needed. Otherwise show the frontier or minimize expected
+cost. A classic trap is comparing F1 after tuning the threshold on the test set; threshold
+selection is model selection and belongs on validation data.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-threshold">
+
+Assume a calibrated probability $p=P(y=1\mid x)$, zero cost for correct decisions, false-positive
+cost $C_{FP}$, and false-negative cost $C_{FN}$. Predicting positive has expected cost
+$C_{FP}(1-p)$; predicting negative costs $C_{FN}p$. Choose positive when
+
+$$
+C_{FP}(1-p) < C_{FN}p
+\quad\Longleftrightarrow\quad
+p > \frac{C_{FP}}{C_{FP}+C_{FN}}.
+$$
+
+This is why 0.5 is special only when costs are equal and probabilities are calibrated. With
+$C_{FN}=9C_{FP}$, the threshold is $0.1$. If reviewers can accept only $k$ cases, the constraint
+may instead choose the top $k$ scores, after which precision@k and captured value are natural.
+
+Estimate the threshold on a held-out validation distribution, then lock it before the test.
+Stress-test prevalence, delayed labels, cost ranges, and capacity. If probabilities are not
+calibrated, directly optimize empirical cost at a threshold but avoid pretending the score is a
+probability.
+
+</InterviewQuestion>
+
+<WorkedExample
+  title="Choose a threshold from expected cost"
+  given={[
+    { label: '1,000 validation cases', value: '100 positive, 900 negative' },
+    { label: 'Threshold A', value: 'TP=90, FN=10, FP=180, TN=720' },
+    { label: 'Threshold B', value: 'TP=75, FN=25, FP=45, TN=855' },
+    { label: 'Costs', value: 'False negative = 500; false positive = 20' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+
+At A, recall is $90/100=0.90$ and precision is $90/270=0.333$. At B, recall is $0.75$ and
+precision is $75/120=0.625$. Neither pair alone chooses the threshold.
+
+Apply the stated costs:
+
+$$
+\mathrm{cost}_A=10(500)+180(20)=\$8{,}600,
+$$
+
+$$
+\mathrm{cost}_B=25(500)+45(20)=\$13{,}400.
+$$
+
+Despite worse precision, A wins under these costs because 15 additional misses cost far more
+than 135 additional reviews. The conclusion changes if capacity forbids 270 alerts or if the
+false-positive cost includes customer harm. Report the assumptions with the answer.
+
+</WorkedExample>
+
+## Probabilities, regression, and ranking
+
+<InterviewQuestion id="q-metrics-calibration">
+
+Calibration asks whether probabilities mean what they say:
+
+$$
+P(Y=1\mid \hat p=p)=p.
+$$
+
+Discrimination asks whether positive examples receive higher scores. Any strictly increasing
+transformation preserves ranks and AUROC but changes probabilities. Squaring every predicted
+probability, for example, preserves ordering while usually destroying calibration; whether the
+result is over- or underconfident depends on the original probabilities and event frequencies.
+
+Reliability diagrams bin predictions and compare mean confidence with empirical frequency, but
+the conclusion depends on binning and sample size. Pair them with a proper scoring rule and
+uncertainty. Expected calibration error is a useful summary, not a proper scoring rule and not
+proof of calibration.
+
+Fit Platt scaling, isotonic regression, or temperature scaling on data not used to train the
+base model, and evaluate again on a third split or by cross-fitting. Temperature scaling divides
+multiclass logits by a learned scalar and was found to be a strong simple baseline for modern
+neural networks <Citation id="guo2017calibration" />. Recalibrate after meaningful distribution
+shift; a calibrator cannot make unobserved populations safe.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-proper-scoring">
+
+For binary outcomes,
+
+$$
+\mathrm{logloss}=-\frac{1}{N}\sum_i[y_i\log p_i+(1-y_i)\log(1-p_i)]
+$$
+
+and
+
+$$
+\mathrm{Brier}=\frac{1}{N}\sum_i(p_i-y_i)^2.
+$$
+
+A scoring rule is **strictly proper** when the expected score is uniquely optimized by reporting
+the forecaster's true belief. Brier's quadratic score dates to probabilistic forecast
+verification <Citation id="brier1950" />. Log loss is the Bernoulli negative log-likelihood and
+penalizes a confident wrong prediction without bound; clip only inside the numerical
+implementation, not to hide poor forecasts. Brier is bounded by one in the binary convention
+above and is easier to decompose, but less sensitive to catastrophic confidence.
+
+Neither score tells you the operational threshold. Use them to train or compare probabilities,
+then apply decision cost. Class-weighted cross-entropy changes the target risk and often destroys
+raw probability calibration unless corrected.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-regression">
+
+For residuals $e_i=y_i-\hat y_i$:
+
+$$
+\mathrm{MAE}=N^{-1}\sum_i|e_i|,\qquad
+\mathrm{MSE}=N^{-1}\sum_i e_i^2,\qquad
+\mathrm{RMSE}=\sqrt{\mathrm{MSE}}.
+$$
+
+Minimizing expected squared error predicts the conditional mean; minimizing absolute error
+predicts a conditional median. MSE emphasizes large errors and is smooth; MAE is robust to
+outliers but nonsmooth at zero. RMSE is in target units but ranks models identically to MSE on
+the same observations.
+
+$R^2=1-\sum e_i^2/\sum(y_i-\bar y)^2$ compares with the sample-mean baseline. It can be negative
+out of sample and cannot compare tasks with different outcome variance. MAPE divides by $|y_i|$,
+so zeros are undefined and near-zero targets dominate; symmetric MAPE has its own biases.
+
+Name the deployment cost and distribution. For asymmetric costs use quantile loss; for positive
+heavy-tailed targets consider log-space errors but explain that exponentiating a conditional log
+mean is not generally the original-scale mean.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-ranking">
+
+Ranking metrics encode where relevance matters:
+
+- precision@$k$ is the relevant fraction among the first $k$; recall@$k$ is the recovered
+  fraction of all relevant items;
+- reciprocal rank is $1/r$ for the first relevant result, and MRR averages it over queries;
+- average precision averages precision at each relevant rank, and MAP averages across queries;
+- DCG@$k=\sum_{i=1}^k(2^{rel_i}-1)/\log_2(i+1)$ rewards graded relevance near the top; NDCG
+  divides by the ideal DCG for that query <Citation id="jarvelin2002ndcg" />.
+
+Compute per query before averaging so queries, not documents, are the unit. Define what happens
+when a query has no relevant items. Report latency, coverage, diversity and calibration alongside
+relevance when they affect users.
+
+The hard part is labels: clicks are censored by the old ranker, position, snippet, and exposure.
+Randomized interleaving, propensity weighting, and online experiments can help; treating unshown
+items as irrelevant trains the logging policy back into the metric.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-averaging">
+
+For $C$ classes, compute a one-versus-rest metric $m_c$ per class. **Macro** averaging is
+$C^{-1}\sum_c m_c$ and gives every class equal weight. **Weighted macro** uses class supports.
+**Micro** first sums $TP_c,FP_c,FN_c$ across classes, then computes the metric, so frequent
+decisions dominate.
+
+In single-label multiclass classification, micro precision, recall, F1, and accuracy coincide.
+That surprising fact is a useful interview check: every incorrect prediction contributes one FP
+for the predicted class and one FN for the true class.
+
+Use macro when minority classes deserve equal attention, micro when every decision has equal
+value, and weighted macro when the deployment mixture is itself the weighting policy. Always show
+per-class support and critical slices; an average can hide a class with zero recall.
+
+</InterviewQuestion>
+
+## Validation and uncertainty
+
+<InterviewQuestion id="q-metrics-cross-validation">
+
+Random $k$-fold cross-validation assumes observations are exchangeable and the train/test split
+mimics deployment. It fails when the same patient, user, molecule, time window, location, or
+duplicate can cross folds. Use group folds for shared entities and temporal forward splits when
+the future must be predicted from the past. Fit every learned preprocessing step—including
+imputation, vocabulary, scaling, feature selection and calibration—inside each training fold.
+
+If cross-validation selects hyperparameters and estimates their performance on the same folds,
+the estimate is optimistically selected. Nested CV uses outer folds for assessment and inner
+folds for selection. Kohavi's empirical study remains a foundational comparison of resampling
+procedures <Citation id="kohavi1995crossvalidation" />.
+
+```python
+for outer_train, outer_test in outer_split(groups):
+    # The complete pipeline and hyperparameters are chosen only within outer_train.
+    fitted = inner_search(pipeline, X[outer_train], y[outer_train])
+    outer_scores.append(metric(y[outer_test], fitted.predict(X[outer_test])))
+```
+
+Fold-to-fold standard deviation describes sensitivity to those particular partitions; it is not
+automatically a confidence interval because training sets overlap.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-uncertainty">
+
+First identify the independent sampling unit. If predictions from two models are evaluated on
+the same users, compare them **paired**: resample users, recompute both metrics, and take the
+distribution of the difference. Resampling rows would understate uncertainty when each user has
+many correlated rows.
+
+The nonparametric bootstrap samples $N$ units with replacement, fits or reevaluates as required,
+and uses the empirical distribution of the statistic <Citation id="efron1979bootstrap" />.
+Percentile intervals are easy; BCa or problem-specific analytic intervals may improve coverage.
+For rare outcomes or small clusters, stratification or cluster bootstrap matters.
+
+Statistical significance is not practical significance. Report the effect, interval, sample
+support, and decision threshold. No resampling method repairs selection bias, label leakage, or a
+test distribution unrelated to deployment.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-ab-design">
+
+A defensible A/B plan specifies before exposure:
+
+1. hypothesis and one primary outcome;
+2. assignment unit and analysis unit;
+3. eligibility, allocation, duration, MDE, power, and stopping rule;
+4. guardrails such as latency, errors, complaints, or safety;
+5. logging and an intention-to-treat analysis.
+
+Randomize at the unit that can interfere. If a recommendation changes a user's later behavior,
+randomize users, not impressions; if marketplace participants affect each other, ordinary
+individual randomization may violate no-interference assumptions. After launch, check sample
+ratio mismatch and invariant pre-treatment features before reading outcomes.
+
+Online controlled experiments are the strongest way to resolve the causal offline–online gap,
+but engineering details and organizational assumptions determine whether they are trustworthy
+<Citation id="kohavi2009experiments" />. Do not drop assigned users because they failed to use the
+feature: that conditions on a post-treatment variable.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-power">
+
+For equal-size arms comparing means with common variance $\sigma^2$, an approximate two-sided
+per-arm size is
+
+$$
+n\approx \frac{2\sigma^2(z_{1-\alpha/2}+z_{1-\beta})^2}{\delta^2}.
+$$
+
+$1-\beta$ is power at true effect $\delta$. With $\alpha=0.05$, power $0.80$, standard deviation
+$10$, and MDE $2$, $z_{.975}=1.96$ and $z_{.8}=0.84$ give
+$n\approx2(100)(2.8)^2/4=392$ per arm. Halving $\delta$ quadruples $n$.
+
+Use baseline data for variance and conversion rates, inflate for clustering and attrition, and
+choose an MDE meaningful to the decision—not the effect the current traffic conveniently detects.
+For ratio metrics and heavy tails, simulation or delta-method variance may be more reliable than
+plugging row-level variance into this formula. The distinction between type-I and type-II error
+follows the classical hypothesis-testing framework of Neyman and Pearson
+<Citation id="neymanpearson1933" />.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-multiple-testing">
+
+At level $0.05$, twenty independent null tests have probability
+$1-0.95^{20}=0.642$ of at least one false rejection. Model variants, metrics, slices, and repeated
+looks all create multiplicity.
+
+Predeclare one primary metric and a limited guardrail family. Bonferroni or Holm controls the
+probability of any false rejection; Benjamini–Hochberg orders p-values and controls expected false
+discovery proportion under its assumptions <Citation id="benjamini1995fdr" />. Exploratory
+results can remain exploratory with adjusted q-values and replication.
+
+Fixed-horizon p-values are invalid under arbitrary repeated peeking. Use a planned alpha-spending,
+group-sequential, always-valid, or Bayesian decision procedure whose stopping rule matches the
+monitoring. “We stopped when it became significant” is both a statistical and interview red flag.
+
+</InterviewQuestion>
+
+## From offline evaluation to a living system
+
+<InterviewQuestion id="q-metrics-offline-online">
+
+Offline evaluation observes labels under an old data-collection and exposure policy. Deployment
+changes actions, which changes future data. A recommender trained on clicks may increase click
+through by promoting sensational items while lowering satisfaction; a fraud model may deter the
+fraud it is later evaluated against.
+
+Walk through failure categories:
+
+- **proxy:** offline loss does not encode long-term value, diversity, safety, or cost;
+- **selection:** only items shown by the old policy receive labels;
+- **system:** latency, feature freshness, fallbacks, and quantization change predictions;
+- **shift:** prevalence, population, and feedback change;
+- **measurement:** online logging or attribution differs from the training definition.
+
+Use temporal and policy-aware validation, replay or counterfactual methods where assumptions hold,
+shadow and canary deployment, online randomization, and guardrails. State that an A/B test validates
+the full policy, not merely the model weights.
+
+</InterviewQuestion>
+
+<InterviewQuestion id="q-metrics-slices-drift">
+
+An average can be stable while one subgroup collapses. Choose slices from domain mechanisms and
+harms—device, geography, acquisition channel, rare class, data quality, uncertainty—not by mining
+hundreds of tiny groups for the worst noise fluctuation. Report numerator, denominator and
+uncertainty.
+
+Distinguish:
+
+- covariate drift: $P(X)$ changes;
+- label or prior drift: $P(Y)$ changes;
+- concept drift: $P(Y\mid X)$ changes;
+- instrumentation or policy drift: the measurement process changes.
+
+Population stability, two-sample tests, embedding distances, and prediction distributions can
+alert before labels arrive, but they do not say performance worsened. Once delayed labels arrive,
+monitor the actual outcome and calibration. Build a response policy—investigate logging, rollback,
+recalibrate, retrain, or relabel—rather than a dashboard of unactionable alarms.
+
+</InterviewQuestion>
+
+## Exercises
+
+<Exercise n={1} title="Prevalence changes precision" difficulty="warm-up">
+
+A classifier has sensitivity $0.90$ and specificity $0.98$. What precision should you expect at
+10% prevalence and at 1% prevalence, assuming those class-conditional rates transfer?
+
+<div slot="solution">
+
+The FPR is $0.02$. Apply Bayes' rule:
+
+$$
+\mathrm{PPV}_{10\%}=\frac{0.90(0.10)}{0.90(0.10)+0.02(0.90)}
+=\frac{0.09}{0.108}=0.8333.
+$$
+
+At 1% prevalence,
+
+$$
+\mathrm{PPV}_{1\%}=\frac{0.90(0.01)}{0.90(0.01)+0.02(0.99)}
+=\frac{0.009}{0.0288}=0.3125.
+$$
+
+The model's TPR and FPR stayed fixed while precision fell from 83.3% to 31.25%. This is why a PR
+curve or precision measured on a balanced benchmark does not transfer without the target
+prevalence.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Find the leakage-resistant split" difficulty="core">
+
+You have five years of hospital encounters. A patient can appear many times, and the production
+model predicts a patient's next admission using all history available that day. Design validation.
+
+<div slot="solution">
+
+Use a forward temporal boundary so every evaluation prediction occurs after its training data.
+Within a boundary, keep each prediction's features strictly before its index date and fit
+preprocessing only on past training data. Decide the deployment estimand: if production serves
+returning patients, the same patient may legitimately appear earlier in training and later in
+test, but no future encounter or label may leak backward. If the claim is generalization to new
+patients, add a patient-grouped holdout.
+
+Use rolling origins to measure stability across seasons, and bootstrap patients—not encounters—for
+uncertainty. A random encounter-level split is invalid because near-identical histories and future
+information cross folds.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Size an experiment, then challenge the assumptions" difficulty="stretch">
+
+A continuous primary metric has standard deviation $12$. You want a two-sided 5% test, 80% power,
+and MDE $3$. Estimate equal per-arm sample size. What changes if every user generates ten strongly
+correlated events?
+
+<div slot="solution">
+
+Using $z_{.975}=1.96$ and $z_{.8}=0.84$,
+
+$$
+n\approx\frac{2(12^2)(1.96+0.84)^2}{3^2}
+=\frac{288(7.84)}{9}=250.88,
+$$
+
+so round up to **251 users per arm** before attrition. Ten events per user do not create ten times
+the independent information. Randomize and analyze at user level, or use a cluster-robust variance
+and inflate by the design effect $1+(m-1)\rho$. The intraclass correlation $\rho$ must be estimated;
+without it, “2,510 events per arm” is not a valid power statement.
+
+</div>
+</Exercise>
+
+## Summary
+
+- Start with the decision, error costs, deployment population, and independent unit.
+- Distinguish ranking, probability quality, and thresholded decisions; no one metric substitutes
+  for all three.
+- Treat splitting, preprocessing, threshold choice, and calibration as one leakage-sensitive
+  validation pipeline.
+- Report effects with uncertainty and practical meaning, not isolated p-values.
+- An online experiment measures the deployed policy; offline metrics are evidence, not the final
+  causal answer.
+- Monitor slices and drift with an action policy, because aggregate stability can conceal the
+  failure that matters.

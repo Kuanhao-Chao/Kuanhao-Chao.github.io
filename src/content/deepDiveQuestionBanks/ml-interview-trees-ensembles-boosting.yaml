@@ -1,0 +1,156 @@
+lesson: ml-interview-trees-ensembles-boosting
+questions:
+  - id: q-trees-split-criterion
+    question: 'How does a decision tree choose a split?'
+    conciseAnswer: 'It greedily searches candidate feature thresholds and selects the split with the largest weighted reduction in node impurity. This local optimization is fast and interpretable but does not guarantee the globally smallest or best-generalizing tree.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [decision-trees, impurity, greedy-algorithms]
+    aliases: [information-gain, best-split]
+  - id: q-trees-gini-entropy
+    question: 'Compare Gini impurity, entropy, and classification error as split criteria.'
+    conciseAnswer: 'Gini is one minus the sum of squared class probabilities; entropy is minus the sum of p log p; both are smooth, concave, and reward pure children, with entropy somewhat more sensitive near zero probabilities. Classification error is too flat for growing trees and is more useful for evaluating or pruning them.'
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [gini, entropy, impurity]
+    aliases: [gini-vs-entropy, information-gain]
+  - id: q-trees-depth-pruning
+    question: "How do depth, minimum leaf size, and pruning control a tree's bias and variance?"
+    conciseAnswer: 'Deep trees with tiny leaves have low training bias and high variance; limiting depth or leaf size regularizes during growth. Cost-complexity pruning grows a large tree then removes branches whose error reduction does not justify added leaves, with the penalty selected on validation data.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [pruning, regularization, bias-variance]
+    aliases: [tree-overfitting, cost-complexity]
+  - id: q-trees-instability
+    question: 'Why are individual decision trees unstable?'
+    conciseAnswer: 'Greedy split choices are discrete: a small data perturbation can replace an early threshold and route many downstream examples differently. That high variance is precisely why averaging decorrelated trees works so well, even though each constituent tree is noisy.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [decision-trees, variance, stability]
+    aliases: [high-variance-trees, tree-sensitivity]
+  - id: q-trees-bagging
+    question: 'Why does bagging reduce variance, and when does it help most?'
+    conciseAnswer: 'Averaging B estimators with variance sigma squared and pairwise correlation rho has variance sigma squared times rho plus (1-rho)/B. Bagging helps unstable low-bias learners such as deep trees; it gives little benefit when base learners are already stable or their errors are almost perfectly correlated.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [bagging, variance-reduction, ensembles]
+    aliases: [bootstrap-aggregation, ensemble-variance]
+  - id: q-trees-random-forest
+    question: 'What does random feature subsampling add beyond bagging?'
+    conciseAnswer: 'Bagged trees remain correlated when the same dominant predictors win early splits. A random forest exposes each split to only a random feature subset, slightly weakening individual trees but reducing their correlation enough that the ensemble variance often falls.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [random-forest, bagging, decorrelation]
+    aliases: [feature-subsampling, random-subspace]
+  - id: q-trees-oob
+    question: 'What is out-of-bag evaluation, and what can make it misleading?'
+    conciseAnswer: 'A bootstrap tree leaves out about exp(-1), roughly 36.8%, of training observations; aggregate predictions only from trees that omitted each observation to estimate generalization without a separate validation set. Leakage, grouped or temporal dependence, preprocessing outside the resampling loop, and too few trees can still invalidate it.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist]
+    kind: mathematics
+    round: experimentation
+    stability: evergreen
+    tags: [out-of-bag, bootstrap, validation]
+    aliases: [oob-error, bootstrap-validation]
+  - id: q-trees-importance
+    question: 'Why can tree feature importance be misleading?'
+    conciseAnswer: 'Impurity-decrease importance favors variables with many candidate splits and spreads or reallocates credit among correlated features. Permutation importance measures predictive reliance but can create unrealistic inputs and similarly masks substitutes; report the method, validation set, uncertainty, and grouped or conditional alternatives.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, leadership]
+    kind: debugging
+    round: project-defense
+    stability: evergreen
+    tags: [feature-importance, permutation, interpretability]
+    aliases: [mdi-bias, tree-explanations]
+  - id: q-trees-boosting
+    question: 'How is boosting fundamentally different from bagging?'
+    conciseAnswer: 'Bagging fits base learners independently and averages them to reduce variance. Boosting fits learners sequentially to correct the current ensemble, typically reducing bias but making training less parallel, more sensitive to noise, and dependent on shrinkage and early stopping.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [boosting, bagging, ensembles]
+    aliases: [bagging-vs-boosting, sequential-ensemble]
+  - id: q-trees-adaboost
+    question: 'Explain AdaBoost as both example reweighting and additive modeling.'
+    conciseAnswer: 'AdaBoost increases weight on currently misclassified examples, fits a weak classifier, and gives it weight based on its error. The same update performs forward stagewise minimization of exponential loss, so the two stories are algorithmic and functional views of one procedure.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [adaboost, exponential-loss, additive-models]
+    aliases: [adaptive-boosting, weak-learners]
+  - id: q-trees-gradient-boosting
+    question: 'Why is gradient boosting described as gradient descent in function space?'
+    conciseAnswer: 'At each stage it evaluates the loss gradient with respect to current predictions, fits a weak learner to the negative gradients or residuals, then adds that learner with a step size. The parameter being updated is the prediction function itself rather than one fixed coefficient vector.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [gradient-boosting, functional-gradient, residuals]
+    aliases: [gbdt, pseudo-residuals]
+  - id: q-trees-xgboost
+    question: 'What algorithmic ideas distinguish XGBoost from a generic gradient-boosted tree implementation?'
+    conciseAnswer: 'XGBoost uses a second-order regularized objective to score leaves and splits, shrinkage and column subsampling for regularization, sparsity-aware default directions, quantile-based approximate split finding, and systems optimizations for parallel and out-of-core execution. It is an engineered GBDT system, not a different learning principle.'
+    priority: common
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, ml-platform]
+    kind: implementation
+    round: system-design
+    stability: evergreen
+    tags: [xgboost, gbdt, second-order, systems]
+    aliases: [regularized-boosting, xgboost-vs-gbdt]
+  - id: q-trees-rf-vs-gbdt
+    question: 'When would you choose a random forest over gradient boosting, or the reverse?'
+    conciseAnswer: 'Random forests are robust, parallel, comparatively insensitive to tuning, and strong when variance reduction is the main need. Gradient boosting often achieves higher tabular accuracy through bias correction but needs careful validation, learning-rate and tree controls, early stopping, and more sequential training.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [random-forest, gradient-boosting, model-selection]
+    aliases: [forest-vs-boosting, tabular-model-choice]
+  - id: q-trees-real-data
+    question: 'How do tree ensembles handle missing values, imbalance, leakage, and monotonic constraints in real systems?'
+    conciseAnswer: 'Implementation support varies: some boosted trees learn a default missing-value branch, while many forests require imputation. Weighting and resampling change the training objective but not deployment prevalence; temporal or target-derived leakage remains fatal, and monotonic constraints encode justified directional priors but cannot repair confounding.'
+    priority: common
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [missing-data, imbalance, leakage, monotonicity]
+    aliases: [production-tree-models, constrained-boosting]

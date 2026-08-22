@@ -1,0 +1,170 @@
+lesson: ml-interview-cnn-vision
+questions:
+  - id: q-vision-convolution-shapes
+    question: 'Derive the output shape, parameter count, and compute of a two-dimensional convolution.'
+    conciseAnswer: >-
+      For input B by C_in by H by W, kernel K_h by K_w, padding P, dilation D, stride S, and C_out filters, each spatial output is floor((H+2P-D(K_h-1)-1)/S+1), with the analogous width. Parameters are C_out(C_in K_h K_w+1) with bias, independent of image size, while direct multiply-accumulate cost scales with B H_out W_out C_out C_in K_h K_w.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [convolution, tensor-shapes, parameter-count]
+    aliases: [conv2d output size, convolution dimensions]
+  - id: q-vision-equivariance-invariance
+    question: 'What are translation equivariance and invariance, and which CNN operations provide them?'
+    conciseAnswer: >-
+      A map is translation equivariant when shifting the input shifts its feature map, while a prediction is invariant when the output does not change. Shared convolution is approximately equivariant away from boundaries and sampling artifacts; pooling, striding, augmentation, and global aggregation can encourage local tolerance or final invariance, but none guarantees invariance to scale, rotation, cropping, or every discrete shift.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [equivariance, invariance, inductive-bias]
+    aliases: [translation invariance, weight sharing]
+  - id: q-vision-receptive-field
+    question: 'How do you calculate a CNN receptive field, and why can the effective field be smaller?'
+    conciseAnswer: >-
+      Track jump j and receptive field r from the input: for layer l with kernel k, dilation d, and stride s, r_l=r_(l-1)+(k-1)d j_(l-1) and j_l=s j_(l-1). This theoretical field lists pixels connected by the graph; learned gradient influence is often concentrated near its center, and padding, downsampling, nonlinearities, or weak training signal can make the useful context smaller.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [receptive-field, dilation, stride]
+    aliases: [CNN context size, effective receptive field]
+  - id: q-vision-residual-networks
+    question: 'Why do residual connections help deep vision networks, and what can still go wrong?'
+    conciseAnswer: >-
+      A residual block returns x+F(x), making an identity transformation easy and giving gradients an additive route through depth. This addresses optimization degradation rather than proving that every deeper model generalizes better; mismatched shapes need projections, and normalization placement, activation scale, stochastic depth, initialization, or an oversized residual branch can still destabilize training.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [resnet, skip-connections, gradient-flow]
+    aliases: [residual learning, skip connections]
+  - id: q-vision-transfer-learning
+    question: 'When should you freeze, partially fine-tune, or fully fine-tune a pretrained vision model?'
+    conciseAnswer: >-
+      Freeze the backbone for a fast low-variance baseline when labels are scarce and source and target images are similar; unfreeze later blocks when higher-level features differ; fully fine-tune with smaller learning rates when enough representative data and compute justify adaptation. Validate each regime, handle normalization statistics deliberately, and remember that pretraining can transfer source bias or spurious shortcuts along with useful features.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [transfer-learning, fine-tuning, pretraining]
+    aliases: [freeze backbone, linear probing]
+  - id: q-vision-augmentation
+    question: 'How do you choose image augmentations without corrupting the learning problem?'
+    conciseAnswer: >-
+      Encode transformations under which the label and deployment task should remain valid, then apply the identical geometry to images and structured targets such as boxes or masks. Tune strength on held-out data, inspect transformed samples, and separate invariance-inducing augmentation from realistic nuisance simulation; a horizontal flip can be valid for animals yet wrong for text, laterality, or directional signs.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [augmentation, invariance, data-quality]
+    aliases: [image augmentation policy, label preserving transforms]
+  - id: q-vision-detection-iou-nms
+    question: 'Explain IoU, confidence thresholds, and non-maximum suppression in object detection.'
+    conciseAnswer: >-
+      Intersection over union is intersection area divided by union area and measures localization overlap. A detector first filters low-score candidates, then NMS repeatedly keeps a high-score box and suppresses overlapping same-class boxes above an IoU threshold. Score and NMS thresholds jointly trade recall, duplicate predictions, and crowded-object errors, so tune them on deployment-like validation data rather than treating 0.5 as universal.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [object-detection, iou, nms]
+    aliases: [non maximum suppression, bounding box overlap]
+  - id: q-vision-segmentation-metrics
+    question: 'How do semantic, instance, and panoptic segmentation differ, and how should they be evaluated?'
+    conciseAnswer: >-
+      Semantic segmentation assigns a class per pixel; instance segmentation separates individual countable objects; panoptic segmentation unifies instance-aware things with amorphous stuff. Pixel accuracy can hide rare-class failure, so report per-class IoU or Dice and macro summaries; instance tasks need matching-aware average precision, while panoptic quality combines recognition and mask overlap.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [segmentation, iou, dice]
+    aliases: [semantic versus instance segmentation, segmentation evaluation]
+  - id: q-vision-cnn-versus-vit
+    question: 'Compare the inductive biases and scaling behavior of CNNs and vision Transformers.'
+    conciseAnswer: >-
+      CNNs hard-code locality and translation-shared filters, so they are parameter-efficient and often data-efficient; a basic ViT turns patches into tokens and learns global content-dependent interactions with weaker spatial priors. Full attention scales quadratically in token count, while convolution scales roughly linearly in pixels for fixed kernels. Data, resolution, latency, pretraining, and dense-output needs—not novelty—should drive the choice, and hybrids blur the boundary.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [vision-transformer, cnn, inductive-bias]
+    aliases: [ViT versus CNN, convolution versus attention]
+  - id: q-vision-contrastive-learning
+    question: 'How does contrastive visual representation learning work, and why are augmentations central?'
+    conciseAnswer: >-
+      Two views of one image form a positive pair, while other images provide negatives; an InfoNCE-style objective raises positive similarity relative to alternatives. Augmentations define which information the representation should discard, so overly weak views permit shortcuts and overly strong views can destroy class information. Batch composition, temperature, projection head, false negatives, and linear-probe versus fine-tune evaluation all affect the conclusion.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [contrastive-learning, simclr, infonce]
+    aliases: [self supervised vision, positive pairs]
+  - id: q-vision-small-data-system
+    question: 'Design a vision baseline when labeled data are scarce and images are high resolution.'
+    conciseAnswer: >-
+      Start with leakage-safe patient, scene, or source-level splits; a pretrained backbone; input resolution justified by the smallest relevant object; conservative domain-valid augmentation; and a linear-head baseline. Compare crops or tiling against resizing, calibrate and stratify by source, inspect errors, then selectively unfreeze. Use cross-validation or repeated splits for uncertainty and prioritize labeling ambiguous failure modes over increasing architecture size.
+    priority: common
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [small-data, transfer-learning, system-design]
+    aliases: [limited labels vision, high resolution images]
+  - id: q-vision-debugging-pipeline
+    question: 'A vision model does not overfit one tiny batch. What do you inspect first?'
+    conciseAnswer: >-
+      Freeze stochastic augmentation, inspect image ranges and channels, visualize labels after every transform, verify class indices and loss-logit contracts, and confirm gradients and parameter updates are finite and nonzero. Put normalization and dropout in the intended mode, lower regularization, test a simple head, and compare one manually computed sample. Failure on a tiny clean batch usually indicates data, shape, loss, mode, or optimization wiring—not insufficient generalization.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: debugging
+    round: coding
+    stability: evergreen
+    tags: [debugging, overfit-batch, preprocessing]
+    aliases: [CNN will not train, vision sanity check]
+  - id: q-vision-imbalance-shift
+    question: 'How do class imbalance and image-source shift change a vision evaluation plan?'
+    conciseAnswer: >-
+      Preserve realistic prevalence in the final test set, stratify metrics by class and acquisition source, and use precision-recall or cost-weighted operating points rather than accuracy alone. Reweighting or resampling changes the training objective and may alter calibration; source-specific artifacts can inflate random-split results, so group splits and an external or later-time test are often more informative than another model variant.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [class-imbalance, domain-shift, evaluation]
+    aliases: [vision dataset shift, imbalanced image classification]
+  - id: q-vision-explanations
+    question: 'What can saliency maps tell you about a vision model, and what can they not establish?'
+    conciseAnswer: >-
+      A saliency method probes sensitivity or attributes a prediction under a chosen baseline and algorithm; it can reveal obvious background shortcuts and motivate targeted tests. It is not a causal proof, can be unstable or visually persuasive without model specificity, and different methods answer different questions. Validate explanations with controlled perturbations, counterfactual data, subgroup errors, and human review rather than accepting one heat map.
+    priority: specialist
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: project-defense
+    stability: evergreen
+    tags: [interpretability, saliency, shortcuts]
+    aliases: [Grad CAM limitations, vision explanations]

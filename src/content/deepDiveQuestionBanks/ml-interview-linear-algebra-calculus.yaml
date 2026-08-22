@@ -1,0 +1,167 @@
+lesson: ml-interview-linear-algebra-calculus
+questions:
+  - id: q-mla-shapes
+    question: Why should you check tensor shapes before doing any algebra?
+    conciseAnswer: Shapes are a lightweight type system. They expose invalid products, unintended broadcasting, wrong batch axes, and scalar-versus-vector mistakes before numerical values hide the bug.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: implementation
+    round: knowledge
+    stability: evergreen
+    tags: [linear-algebra, tensors, debugging]
+    aliases: [dimension analysis, shape checking]
+  - id: q-mla-dot-product
+    question: What does a dot product mean geometrically and in a machine-learning model?
+    conciseAnswer: 'The dot product is both a weighted sum and a geometric similarity: x^T w equals ||x||||w|| cos(theta). Linear models use it to project features onto a learned direction.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [linear-algebra, geometry, linear-models]
+    aliases: [inner product, projection]
+  - id: q-mla-matrix-product
+    question: How do you interpret matrix multiplication beyond its elementwise formula?
+    conciseAnswer: A matrix product composes linear maps. In Y = XW, every row of X is transformed by the same map W; associativity lets us choose an efficient order, but multiplication is generally not commutative.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [linear-algebra, matrices, computation]
+    aliases: [matmul, linear map]
+  - id: q-mla-rank
+    question: What is matrix rank, and why does rank deficiency matter in machine learning?
+    conciseAnswer: Rank is the number of independent directions a matrix preserves. Rank deficiency means some parameters or features are redundant, so least-squares solutions may be non-unique and covariance estimates singular.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [linear-algebra, rank, identifiability]
+    aliases: [linear independence, null space]
+  - id: q-mla-solve-inverse
+    question: Why should you solve a linear system instead of explicitly inverting a matrix?
+    conciseAnswer: A factorization-based solve is faster, more memory-efficient, and usually more numerically stable than forming A^{-1}. Explicit inversion also obscures exploitable structure such as symmetry or sparsity.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [numerical-linear-algebra, linear-systems, stability]
+    aliases: [matrix inverse, linear solve]
+  - id: q-mla-eigendecomposition
+    question: What does an eigendecomposition tell you, and when does it exist?
+    conciseAnswer: An eigenvector is a direction a linear map only scales. A square matrix is diagonalizable when it has a complete independent eigenbasis; real symmetric matrices always have an orthonormal one and real eigenvalues.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [linear-algebra, eigenvalues, spectral-methods]
+    aliases: [eigenvectors, spectral decomposition]
+  - id: q-mla-svd
+    question: What is the singular value decomposition, and why is it so useful?
+    conciseAnswer: Any m-by-n matrix factors as U Sigma V^T. The singular vectors identify input and output directions, singular values give their gains, and truncation produces the best low-rank approximation under common norms.
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [linear-algebra, svd, low-rank]
+    aliases: [singular values, matrix factorization]
+  - id: q-mla-pca
+    question: Derive PCA and explain its two equivalent optimization views.
+    conciseAnswer: After centering, PCA chooses orthonormal directions of maximum projected variance. Equivalently, its first k components minimize squared reconstruction error; they are the top right singular vectors of the centered data matrix.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [pca, dimensionality-reduction, svd]
+    aliases: [principal components, maximum variance]
+  - id: q-mla-norms
+    question: How do L1, L2, Frobenius, and spectral norms differ?
+    conciseAnswer: Vector L1 sums magnitudes and favors sparse solutions; L2 is Euclidean length. Frobenius is matrix entrywise L2, while the spectral norm is the largest singular value and measures maximum amplification.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [norms, regularization, linear-algebra]
+    aliases: [l1 versus l2, matrix norms]
+  - id: q-mla-conditioning
+    question: What is a condition number, and how is it different from numerical stability?
+    conciseAnswer: 'Conditioning belongs to the problem: it measures how input perturbations can amplify in the answer. Stability belongs to the algorithm: a stable method behaves like an exact solution to a nearby problem.'
+    priority: common
+    difficulty: intermediate
+    roles: [research-scientist, applied-scientist, general-mle]
+    kind: debugging
+    round: knowledge
+    stability: evergreen
+    tags: [numerical-analysis, conditioning, debugging]
+    aliases: [ill-conditioned, numerical stability]
+  - id: q-mla-derivatives
+    question: What are gradients, Jacobians, and Hessians, including their dimensions?
+    conciseAnswer: A scalar-valued function has a gradient shaped like its input; a vector-valued function has an output-by-input Jacobian; differentiating a scalar function twice gives a square Hessian that describes local curvature.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [calculus, gradients, hessian]
+    aliases: [jacobian, matrix calculus]
+  - id: q-mla-chain-rule
+    question: Explain backpropagation as the chain rule on a computation graph.
+    conciseAnswer: Backpropagation applies the chain rule from outputs to inputs, multiplying each node's local derivative by the accumulated upstream derivative. Reverse mode is efficient when many parameters produce one scalar loss.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [calculus, backpropagation, autodiff]
+    aliases: [chain rule, reverse-mode autodiff]
+  - id: q-mla-convexity
+    question: What does convexity guarantee in optimization?
+    conciseAnswer: For a convex objective over a convex domain, every local minimum is global; differentiable convex functions lie above their tangent planes. Convexity does not guarantee strict uniqueness or fast optimization.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [optimization, convexity, guarantees]
+    aliases: [convex optimization, local minimum]
+  - id: q-mla-taylor
+    question: Why are Taylor approximations useful in machine learning?
+    conciseAnswer: Taylor expansion replaces a smooth function locally by a polynomial. First order explains gradient steps; second order exposes curvature, motivates Newton methods, and predicts sensitivity to perturbations.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, general-mle]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [calculus, taylor-expansion, optimization]
+    aliases: [linearization, quadratic approximation]
+  - id: q-mla-numerical-stability
+    question: How do you make common ML computations numerically stable?
+    conciseAnswer: Avoid subtracting nearly equal values and exponentiating large logits; use log-sum-exp, stable factorizations, adequate precision, feature scaling, and invariant or residual checks instead of assuming finite output means correct output.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, research-scientist, applied-scientist]
+    kind: debugging
+    round: coding
+    stability: evergreen
+    tags: [numerical-stability, floating-point, debugging]
+    aliases: [log-sum-exp, floating point]

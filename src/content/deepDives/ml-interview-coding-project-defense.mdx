@@ -1,0 +1,320 @@
+---
+title: ML Coding, Debugging & Project Defense
+shortTitle: Coding & Project Defense
+description: Vectorized implementation, numerical stability, complexity, testing, model debugging and clear defense of technical and research decisions.
+abstract: Prepare for implementation exercises and the deeper interview in which every modeling, data and evaluation decision in a past project must be defended.
+date: 2026-08-22
+track: workflow
+hub: ml-dl-interview
+lessonType: system-design
+category: machine-learning
+moduleId: m11-production
+moduleLabel: Production & Interview Practice
+order: 20
+level: intermediate
+objectives:
+  - Implement core ML operations with explicit shapes, stable arithmetic and bounded memory.
+  - Analyze time, memory and numerical error before optimizing code.
+  - Test gradients, stochastic pipelines and training loops with layered invariants.
+  - Defend project decisions with ownership, evidence, alternatives, failures and reproducible artifacts.
+prerequisites: [ml-interview-neural-network-foundations, ml-interview-system-design-case-studies]
+relatedLessons: [ml-interview-senior-behavioral-leadership]
+referenceIds:
+  - harris2020numpy
+  - goldberg1991floating
+  - blanchard2021logsumexp
+  - rumelhart1986backprop
+  - pearlmutter1994hessian
+  - paszke2019pytorch
+  - breck2017mltestscore
+  - pineau2021reproducibility
+keyEquations:
+  - '\lVert x-y\rVert_2^2=\lVert x\rVert_2^2+\lVert y\rVert_2^2-2x^\top y'
+  - '\operatorname{LSE}(z)=m+\log\sum_i\exp(z_i-m),\qquad m=\max_i z_i'
+  - 'D_vf(\theta)=\nabla f(\theta)^\top v\approx\frac{f(\theta+hv)-f(\theta-hv)}{2h}'
+tags: [Python, PyTorch, coding, numerical stability, testing, project defense]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import InterviewQuestion from '../../components/deepdive/InterviewQuestion.astro';
+
+## Correctness before cleverness
+
+Array programming makes mathematical structure visible and efficient
+<Citation id="harris2020numpy" />, but vectorized code can allocate a catastrophic intermediate
+or broadcast the wrong axis while returning plausible numbers. The interview standard is:
+state shapes, derive, implement stably, analyze complexity, then test properties and edges.
+
+<Callout variant="intuition" title="Make illegal states loud">
+A good ML implementation does not merely produce one expected number. It makes axis meaning,
+label domain, mask semantics, reduction, dtype, device and randomness explicit. Assertions and
+reference implementations turn silent scientific errors into ordinary failing tests.
+</Callout>
+
+<Notation rows={[
+  { symbol: 'X,Y', meaning: 'Two batches of d-dimensional vectors', dims: 'n × d and m × d' },
+  { symbol: 'D', meaning: 'Pairwise squared-distance matrix', dims: 'n × m' },
+  { symbol: 'z', meaning: 'Logits before sigmoid or softmax', dims: 'batch × classes' },
+  { symbol: 'h', meaning: 'Finite-difference step', dims: 'positive scalar' },
+  { symbol: 'v', meaning: 'Direction used for a directional derivative', dims: 'same shape as parameters' },
+  { symbol: 'B,L,d,h_a', meaning: 'Batch, sequence, width and attention-head counts', dims: 'positive integers' },
+]}/>
+
+<Figure
+  id="ml-testing-layers"
+  caption="Figure 1. A useful ML test stack widens from pure numerical kernels to live data. Lower tests are fast and exact; higher tests exercise more realistic coupling and statistical tolerance. A production incident should add the lowest test capable of catching its earliest cause."
+  alt="A five-layer pyramid labeled numerical unit, tensor contract, pipeline integration, metric regression, and live data monitor, with speed decreasing and realism increasing upward."
+>
+  <svg viewBox="0 0 620 280" width="620" height="280" font-family="inherit">
+    <g fill="none" stroke="currentColor" stroke-width="1.4"><path d="M80 240 H540 L480 198 H140 Z"/><path d="M140 194 H480 L433 154 H187 Z"/><path d="M187 150 H433 L397 112 H223 Z"/><path d="M223 108 H397 L370 72 H250 Z"/><path d="M250 68 H370 L346 34 H274 Z"/></g>
+    <g fill="currentColor" font-size="11" text-anchor="middle"><text x="310" y="224">numerical unit / reference</text><text x="310" y="180">shape · dtype · property contract</text><text x="310" y="137">pipeline / train–serve integration</text><text x="310" y="95">metric + slice regression</text><text x="310" y="56">live data monitor</text><text x="73" y="262" text-anchor="start">faster · narrower</text><text x="547" y="262" text-anchor="end">broader · realistic</text></g>
+  </svg>
+</Figure>
+
+## Vectorization and stable arithmetic
+
+<InterviewQuestion id="q-code-vectorize-distance">
+For rows of $X\in\mathbb R^{n\times d}$ and $Y\in\mathbb R^{m\times d}$,
+
+$$D=X_{norm}+Y_{norm}^T-2XY^T,$$
+
+where `X_norm = (X*X).sum(axis=1, keepdims=True)` is $n\times1$ and `Y_norm.T` is
+$1\times m$. Broadcasting yields $n\times m$.
+
+```python
+def sqdist(x, y):
+    d = (x*x).sum(1, keepdims=True) + (y*y).sum(1)[None, :] - 2*x @ y.T
+    return d.clip(min=0)  # roundoff may create tiny negatives
+```
+
+Time is $O(nmd)$ and output memory $O(nm)$; vectorization does not remove that matrix. For
+large collections, compute blocks or retrieve approximate candidates. Test symmetry for
+$X=Y$, zero diagonal, nonnegativity and agreement with a loop on tiny random inputs.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-stable-softmax">
+Because softmax is invariant to a shared shift, let $m=\max_i z_i$ and compute
+$e_i=\exp(z_i-m)$, $p_i=e_i/\sum e$. Log-sum-exp is
+$m+\log\sum_i\exp(z_i-m)$; its numerical analysis is studied directly by Blanchard and
+colleagues <Citation id="blanchard2021logsumexp" />.
+
+```python
+def logsumexp(z, axis=-1, keepdims=False):
+    m = z.max(axis=axis, keepdims=True)
+    out = m + np.log(np.exp(z-m).sum(axis=axis, keepdims=True))
+    return out if keepdims else np.squeeze(out, axis=axis)
+```
+
+Define behavior for an all-masked row: blindly subtracting $-\infty$ produces NaN. Prefer
+fused `log_softmax`/cross-entropy, preserve the reduction axis, and test shift invariance and
+extreme logits. Floating-point arithmetic is a model with rounding, not real arithmetic
+<Citation id="goldberg1991floating" />.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-binary-cross-entropy">
+Starting from $-y\log\sigma(z)-(1-y)\log(1-\sigma(z))$, algebra gives
+
+$$L(z,y)=\max(z,0)-yz+\log(1+e^{-|z|}).$$
+
+This avoids materializing a sigmoid that rounds to zero/one and avoids `log(0)`. `log1p`
+preserves small additions. Specify whether weights multiply examples/classes, whether reduction
+is sum or mean, and whether padded items enter the denominator.
+
+The derivative is $\sigma(z)-y$, which supplies a simple gradient reference. Test $z=0$,
+extreme signs, both labels, shape broadcasting and parity with the framework fused primitive.
+Do not apply sigmoid before a “with logits” loss.
+</InterviewQuestion>
+
+<WorkedExample
+  title="Stable BCE survives an extreme wrong logit"
+  given={[
+    { label: 'Logit', value: 'z = −1000' },
+    { label: 'Positive label', value: 'y = 1' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+Naïve `sigmoid(-1000)` underflows to zero and `-log(0)` becomes infinity. The stable form is
+
+$$
+\max(-1000,0)-(1)(-1000)+\log(1+e^{-1000})\approx1000.
+$$
+
+The loss is enormous but finite, with gradient approximately $-1$. Finite does not mean the
+example is healthy; it means the optimizer receives meaningful evidence rather than NaN/Inf.
+</WorkedExample>
+
+<InterviewQuestion id="q-code-minibatch-sampler">
+Create an explicit epoch permutation from a generator, then slice indices. In distributed
+training derive one global order, pad/drop by declared policy, and assign disjoint rank shards.
+Checkpoint epoch, offset, RNG and shard/world-size state.
+
+Tests: every eligible ID appears exactly once per epoch (unless declared padding/drop); rank
+sets are disjoint; same seed/state replays; different seeds permute; dataset smaller than batch,
+last batch and resume mid-epoch work. Worker prefetch can advance hidden RNG/state, so keep
+sampling ownership separate from transform randomness. “Set a global seed” is not a
+reproducibility design.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-shapes-broadcasting">
+Name axes—`[batch, heads, query, key]`, not “4-D”—and write each operation's signature. Two
+dimensions broadcast if equal or one; alignment begins from the right. A mask `[B,L]` does not
+automatically mean `[B,1,1,L]`, and an accidental `[B,B,L]` expansion can be both plausible and
+quadratic.
+
+Assert public boundary shapes/dtypes and document whether length-one dimensions are preserved.
+Test `B=1`, `L=1`, empty/all-masked sequences, noncontiguous slices and mixed devices. Before
+calling `.view`, know contiguity or use reshape intentionally. Shape discipline is mathematical
+reasoning, not defensive clutter.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-complexity">
+Dense self-attention forms $QK^T$ per head: $O(BL^2d)$ time and $O(Bh_aL^2)$ score memory,
+plus projections $O(BLd^2)$. Exact kNN scans $n$ stored $d$-vectors per query: $O(nd)$ time and
+$O(nd)$ storage. A dense $d\to h$ layer costs $O(Bdh)$ and stores weights $O(dh)$.
+
+State training versus inference: backward stores/recomputes activations; autoregressive KV cache
+changes per-token work/memory. Dtype and constants matter. Complexity should drive the alternative:
+block/flash attention changes materialization, ANN changes recall, and low-rank/sparse layers
+change hypothesis and hardware efficiency.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-topk-ties">
+Define total order: score descending, stable unique ID ascending; decide NaN placement and whether
+duplicates collapse. For one array, partial selection is expected $O(n)$ plus $O(k\log k)$ sort;
+a size-$k$ heap streams in $O(n\log k)$ and $O(k)$ memory. Full sort $O(n\log n)$ is simplest
+when $n$ is modest.
+
+Test $k=0,1,n,>n$, ties, infinities/NaNs, repeated IDs, blocks and device parity. Deterministic
+tie rules matter for reproducible metrics and stable user exposure. If only a set is required,
+do not accidentally promise order.
+</InterviewQuestion>
+
+## Gradients, NaNs and tests
+
+<InterviewQuestion id="q-code-finite-difference">
+For random unit direction $v$, compare analytic $g^Tv$ with
+
+$$\frac{f(\theta+hv)-f(\theta-hv)}{2h}.$$
+
+Central differences have $O(h^2)$ truncation, while roundoff grows as $h$ becomes tiny; sweep
+$h$ and expect a U-shaped error curve. Use double precision, deterministic small inputs and a
+smooth point. ReLU at zero has no unique derivative, so mismatch can be legitimate.
+
+Reverse-mode backprop efficiently computes vector–Jacobian products
+<Citation id="rumelhart1986backprop" />; Pearlmutter's method extends efficient products to
+second-order structure <Citation id="pearlmutter1994hessian" />. Check directional products
+rather than every coordinate for large parameters.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-test-custom-autograd">
+Test forward against a slow scalar reference; first derivatives with high-precision finite
+differences; vector–Jacobian products across random cotangents; higher derivatives only if the
+API promises them. Cover shapes, broadcast reductions, repeated indices, boundary values,
+noncontiguous tensors, dtype/device and empty/masked cases.
+
+Property tests add invariances—permutation equivariance, normalization sums, conservation—and
+stress random cases. Use tolerances based on dtype and conditioning, not `1e-6` folklore. A
+custom backward can pass one scalar example while dropping gradients along a broadcast axis;
+shape-diverse tests expose it.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-debug-nan">
+Resume the nearest complete checkpoint and preserve batch/RNG. Add finite assertions after data,
+each suspicious forward block, loss, backward unscale, optimizer state and update. Binary-search
+the first failing step/layer, then inspect logits, denominators, norms, clipping frequency,
+loss scale and input extremes.
+
+Run the captured window in float64/32 without augmentation or compiler fusion; compare. Common
+causes include log/sqrt/division domain, masked softmax with no valid element, exploding updates,
+corrupt data and mixed-precision overflow. Fix the first nonfinite source, not downstream NaNs;
+blanket `nan_to_num` destroys evidence and can silently train nonsense.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-ml-test-pyramid">
+Pure unit tests cover transforms/math. Contract tests cover schema, axes, ranges and label timing.
+Integration tests reconstruct point-in-time datasets and train–serve parity. Metamorphic tests
+assert behavior under transformations. Metric regressions compare slices within statistically
+justified tolerance. Smoke tests overfit one batch and serve one request. Live monitors validate
+freshness and evolving distributions.
+
+Breck's production test rubric spans these layers <Citation id="breck2017mltestscore" />.
+Stochastic tests report seeds and use repetitions/intervals; snapshots are not a substitute for
+invariants. When an incident occurs, add the lowest, fastest test that catches its earliest cause.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-review-training-loop">
+Review state and order: `train()` versus `eval()`; device transfer; zero-grad; autocast forward;
+loss shape/reduction; scaled backward; accumulation; unscale then clipping; optimizer step;
+scaler update; scheduler semantics; and metric weighting. Validation needs `eval()` and no-grad,
+without fitting preprocessing/calibration on validation.
+
+Checkpoint model, optimizer, scheduler, scaler, RNG, sampler and global step. In distributed
+code verify sampler epochs, gradient synchronization, global metric numerators/denominators and
+rank-zero side effects. PyTorch's eager/autograd system makes these pieces explicit
+<Citation id="paszke2019pytorch" />. Runtime behavior changes; details were reviewed 2026-08-22.
+</InterviewQuestion>
+
+## Defend decisions, not mythology
+
+<InterviewQuestion id="q-code-project-defense">
+Use **decision → constraint → ownership → evidence → alternatives → result → failure → next**.
+Define the real user/scientific decision and baseline. Reconstruct point-in-time data/labels and
+your personally owned contribution. Justify model/evaluation from hypotheses, quantify results
+with uncertainty and slices, then name what did not work, launch/monitoring or why work stopped.
+
+Bring reproducible public evidence—paper, repository, documentation, test, figure—not invented
+impact. For Splam, OpenSpliceAI, Shorkie or LiftOn, prepare the problem boundary, key technical
+choice, controlled comparison and limitation from the actual artifact. Reproducibility checklists
+make such claims auditable <Citation id="pineau2021reproducibility" />. Say “the team” for team
+outcomes and “I” only for your contribution.
+</InterviewQuestion>
+
+<InterviewQuestion id="q-code-failed-experiment">
+State the prior hypothesis, falsifiable success criterion and controlled comparison. Show result
+and uncertainty, what alternatives were ruled out, and the decision changed—stop, redesign,
+collect data or narrow claim. Then say what cheaper diagnostic you would run earlier now.
+
+Do not convert failure into a hidden success story or blame implementation without evidence.
+A negative result is valuable when it reduces uncertainty or prevents an expensive path; it is
+weak when the experiment was underpowered, leaked or changed several variables. Distinguish “no
+detected effect” from “proved no effect,” and preserve artifacts so another person can audit it.
+</InterviewQuestion>
+
+## Practice
+
+<Exercise n={1} title="Broadcast the mask deliberately" difficulty="warm-up">
+Attention scores have shape `[B,H,L,L]`; a key-validity mask is `[B,L]`. What shape should the
+mask take before filling invalid keys?
+<div slot="solution">Use `[B,1,1,L]`, e.g. `mask[:, None, None, :]`, so it broadcasts over heads
+and query positions while selecting keys. Assert an all-invalid-row policy before softmax.</div>
+</Exercise>
+
+<Exercise n={2} title="Choose a finite-difference step" difficulty="core">
+Why can gradient-check error increase both when $h$ is too large and too small?
+<div slot="solution">Large $h$ leaves higher-order Taylor truncation; tiny $h$ subtracts nearly
+equal floating-point values and magnifies rounding by division. Sweep logarithmic $h$ in double
+precision and compare at a smooth point rather than trusting one constant.</div>
+</Exercise>
+
+<Exercise n={3} title="Defend a metric improvement" difficulty="stretch">
+Your model improved AUROC from .91 to .93. Give the minimum evidence needed before calling it a
+project success.
+<div slot="solution">State uncertainty/repeated split or test interval, leakage-safe locked data,
+decision-relevant operating metrics and calibration, important slices, comparison cost/latency,
+and whether online or scientific downstream utility changed. AUROC alone neither chooses a
+threshold nor proves deployment benefit.</div>
+</Exercise>
+
+## Summary
+
+- Derive vectorized operations with shapes and memory, then test against a simple reference.
+- Stable formulas preserve useful gradients at extreme inputs.
+- Complexity includes outputs, activations, dtype, backward and system constants.
+- Gradient checks need a step sweep, smooth point and deterministic high precision.
+- ML testing spans numerical kernels through live data contracts.
+- Project defense separates ownership, evidence, alternatives and limitations without invented impact.

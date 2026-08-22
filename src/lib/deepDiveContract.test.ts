@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { DEEP_DIVE_WIDGET_KINDS } from './deepDiveWidgetKinds';
+import katex from 'katex';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse } from 'yaml';
 
 /**
  * The educational contract, as a gate.
@@ -19,6 +22,127 @@ const DIR = 'src/content/deepDives';
 const REFS = 'src/content/deepDiveReferences/references.yaml';
 const REGISTRY = 'src/content/deepDiveDatasets/datasets.yaml';
 
+function hasOddBackslashRun(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    if (value[i] !== '\\') continue;
+    let end = i;
+    while (value[end] === '\\') end += 1;
+    if ((end - i) % 2 === 1) return true;
+    i = end - 1;
+  }
+  return false;
+}
+
+const LATEX_COMMAND_NAMES = [
+  'alpha',
+  'approx',
+  'argmax',
+  'argmin',
+  'bar',
+  'begin',
+  'beta',
+  'boldsymbol',
+  'cdot',
+  'cos',
+  'delta',
+  'det',
+  'dfrac',
+  'ell',
+  'end',
+  'epsilon',
+  'exp',
+  'frac',
+  'gamma',
+  'geq',
+  'hat',
+  'infty',
+  'lambda',
+  'left',
+  'leq',
+  'lim',
+  'ln',
+  'log',
+  'mathbb',
+  'mathcal',
+  'mathbf',
+  'mathsf',
+  'max',
+  'mid',
+  'min',
+  'mu',
+  'nabla',
+  'neq',
+  'omega',
+  'operatorname',
+  'overbrace',
+  'overline',
+  'overset',
+  'partial',
+  'perp',
+  'phi',
+  'pi',
+  'prod',
+  'propto',
+  'psi',
+  'qquad',
+  'quad',
+  'rho',
+  'right',
+  'sigma',
+  'sim',
+  'sin',
+  'softmax',
+  'sqrt',
+  'sum',
+  'tan',
+  'tau',
+  'text',
+  'tfrac',
+  'theta',
+  'tilde',
+  'times',
+  'top',
+  'underbrace',
+  'varepsilon',
+].join('|');
+
+function maskedMarkdownMath(body: string): { expression: string; line: number }[] {
+  const mask = (value: string) => value.replace(/[^\n]/g, ' ');
+  const source = body
+    .replace(/```[\s\S]*?```/g, mask)
+    .replace(/`[^`\n]*`/g, mask)
+    .replace(/<svg[\s\S]*?<\/svg>/g, mask);
+  return [...source.matchAll(/\$\$([\s\S]*?)\$\$|(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)/g)].map(
+    (match) => ({
+      expression: match[1] ?? match[2],
+      line: source.slice(0, match.index).split('\n').length,
+    })
+  );
+}
+
+function keyEquations(front: string): string[] {
+  const value = parse(front).keyEquations;
+  return Array.isArray(value) && value.every((equation) => typeof equation === 'string')
+    ? value
+    : [];
+}
+
+function unstyledMathWords(expression: string): string[] {
+  const withoutStyledNames = expression.replace(
+    /\\(?:boldsymbol|mathbb|mathbf|mathcal|mathrm|mathsf|operatorname|text)\*?\{[^{}]*\}/g,
+    ' '
+  );
+  const withoutCommands = withoutStyledNames.replace(/\\[A-Za-z]+/g, ' ');
+  const words = [...withoutCommands.matchAll(/\b[A-Za-z]*[a-z]{3,}[A-Za-z]*\b/g)].map(
+    (match) => match[0]
+  );
+  const matrixProducts = new Set(['BA', 'LT', 'QK', 'XW']);
+  const acronyms = [...withoutCommands.matchAll(/\b[A-Z]{2,}\b/g)]
+    .map((match) => match[0])
+    .filter((name) => !matrixProducts.has(name));
+  return [...words, ...acronyms];
+}
+
 const FLOOR = {
   objectives: 4,
   workedExamples: 1,
@@ -33,6 +157,7 @@ interface Lesson {
   id: string;
   front: string;
   body: string;
+  draft: boolean;
 }
 
 function lessons(): Lesson[] {
@@ -43,7 +168,13 @@ function lessons(): Lesson[] {
     .map((f) => {
       const raw = readFileSync(join(DIR, f), 'utf8');
       const parts = raw.split(/^---$/m);
-      return { id: f.replace(/\.mdx?$/, ''), front: parts[1] ?? '', body: parts.slice(2).join('---') };
+      const front = parts[1] ?? '';
+      return {
+        id: f.replace(/\.mdx?$/, ''),
+        front,
+        body: parts.slice(2).join('---'),
+        draft: /^draft:\s*true\s*$/m.test(front),
+      };
     });
 }
 
@@ -70,13 +201,14 @@ const referenceKeys = () =>
   );
 
 const all = lessons();
+const published = all.filter((lesson) => !lesson.draft);
 
 describe('deep-dive lesson contract', () => {
   it('has at least one lesson to check, so the suite cannot pass vacuously', () => {
     expect(all.length).toBeGreaterThan(0);
   });
 
-  describe.each(all.map((l) => [l.id, l] as const))('%s', (_id, lesson) => {
+  describe.each(published.map((l) => [l.id, l] as const))('%s', (_id, lesson) => {
     const { front, body } = lesson;
 
     it(`states at least ${FLOOR.objectives} learning objectives`, () => {
@@ -95,11 +227,35 @@ describe('deep-dive lesson contract', () => {
       expect(count(body, /<WorkedExample\b/g)).toBeGreaterThanOrEqual(FLOOR.workedExamples);
     });
 
-    it('ties every worked example to the test that recomputes it', () => {
-      // `verifiedBy` is the provenance line the component renders. An example without one
-      // is a number nothing is checking.
-      expect(count(body, /verifiedBy=/g)).toBeGreaterThanOrEqual(count(body, /<WorkedExample\b/g));
+    it('points every worked example at an existing test file', () => {
+      // `verifiedBy` is the provenance line the component renders. Checking the count alone
+      // allowed a typo or a plausible-looking but unrelated file to appear as verification.
+      const examples = [...body.matchAll(/<WorkedExample\b[\s\S]*?<\/WorkedExample>/g)];
+      const broken = examples.flatMap((example) => {
+        const title = example[0].match(/\btitle="([^"]+)"/)?.[1] ?? 'untitled example';
+        const verifiedBy = example[0].match(/\bverifiedBy="([^"]+)"/)?.[1];
+        return !verifiedBy || !existsSync(verifiedBy)
+          ? [`${title}: ${verifiedBy ?? 'missing verifiedBy'}`]
+          : [];
+      });
+      expect(broken).toEqual([]);
     });
+
+    it.runIf(/^hub:\s*ml-dl-interview\s*$/m.test(front))(
+      'registers every ML interview worked example by title in its provenance test',
+      () => {
+        const examples = [...body.matchAll(/<WorkedExample\b[\s\S]*?<\/WorkedExample>/g)];
+        const unlinked = examples.flatMap((example) => {
+          const title = example[0].match(/\btitle="([^"]+)"/)?.[1] ?? 'untitled example';
+          const verifiedBy = example[0].match(/\bverifiedBy="([^"]+)"/)?.[1];
+          if (!verifiedBy || !existsSync(verifiedBy)) return [`${title}: missing test file`];
+          return readFileSync(verifiedBy, 'utf8').includes(title)
+            ? []
+            : [`${title}: absent from ${verifiedBy}`];
+        });
+        expect(unlinked).toEqual([]);
+      }
+    );
 
     it(`sets at least ${FLOOR.exercises} exercises`, () => {
       expect(count(body, /<Exercise\b/g)).toBeGreaterThanOrEqual(FLOOR.exercises);
@@ -175,9 +331,7 @@ describe('deep-dive lesson contract', () => {
     });
 
     it.runIf(isResourcePage)('imports the registry components it uses', () => {
-      const used = new Set(
-        [...body.matchAll(/<(Dataset|DatasetTable)\b/g)].map((m) => m[1])
-      );
+      const used = new Set([...body.matchAll(/<(Dataset|DatasetTable)\b/g)].map((m) => m[1]));
       const imported = new Set(
         [...body.matchAll(/^import\s+(\w+)\s+from\s+'[^']*deepdive\/[^']*'/gm)].map((m) => m[1])
       );
@@ -192,7 +346,7 @@ describe('deep-dive lesson contract', () => {
       // A curriculum whose lessons announce no order of study is a list, not a course.
       // The rule only applies once an earlier lesson is actually in the collection —
       // `reference('deepDives')` cannot point at a file that has not been written yet.
-      const earlier = all.some(
+      const earlier = published.some(
         (l) =>
           /^hub:\s*statistical-genetics\s*$/m.test(l.front) &&
           Number(l.front.match(/^order:\s*(\d+)\s*$/m)?.[1] ?? NaN) < order &&
@@ -216,7 +370,9 @@ describe('deep-dive lesson contract', () => {
 
     it('imports every deep-dive component it uses', () => {
       const used = new Set(
-        [...body.matchAll(/<(Callout|Notation|WorkedExample|Exercise|Figure|Citation)\b/g)].map((m) => m[1])
+        [...body.matchAll(/<(Callout|Notation|WorkedExample|Exercise|Figure|Citation)\b/g)].map(
+          (m) => m[1]
+        )
       );
       const imported = new Set(
         [...body.matchAll(/^import\s+(\w+)\s+from\s+'[^']*deepdive\/[^']*'/gm)].map((m) => m[1])
@@ -225,7 +381,6 @@ describe('deep-dive lesson contract', () => {
     });
   });
 });
-
 
 /**
  * The conventions the curriculum must not disagree with itself about.
@@ -242,7 +397,7 @@ describe('curriculum consistency', () => {
   // path command `L339.6,` reads as the constant 39.6 to any pattern loose enough to be
   // useful. Strip the figures first, and scan the prose.
   const prose = (body: string) => body.replace(/<svg[\s\S]*?<\/svg>/g, ' ');
-  const corpus = all.map((l) => ({ id: l.id, text: prose(l.body) }));
+  const corpus = published.map((l) => ({ id: l.id, text: prose(l.body) }));
   const mentioning = (re: RegExp) => corpus.filter((c) => re.test(c.text));
 
   it('uses one constant for the median of the null chi-square', () => {
@@ -265,16 +420,19 @@ describe('curriculum consistency', () => {
     for (const { id, text } of mentioning(/Wakefield|\\text\{ABF\}|\bABF\b/)) {
       expect(text, `${id}: ABF must be written BF₀₁`).toMatch(/BF_\{?01\}?|BF₀₁/);
       if (/BF_\{?10\}?|BF₁₀/.test(text)) {
-        expect(text, `${id}: the BF₁₀ form appears without saying it is the reciprocal`)
-          .toMatch(/reciprocal/i);
+        expect(text, `${id}: the BF₁₀ form appears without saying it is the reciprocal`).toMatch(
+          /reciprocal/i
+        );
       }
     }
   });
 
   it('normalises the PIP against an explicit null', () => {
     for (const { id, text } of mentioning(/\\text\{PIP\}|\bPIP\b/)) {
-      expect(text, `${id}: a PIP without π₀ asserts the locus certainly contains a causal variant`)
-        .toMatch(/\\pi_0|π₀/);
+      expect(
+        text,
+        `${id}: a PIP without π₀ asserts the locus certainly contains a causal variant`
+      ).toMatch(/\\pi_0|π₀/);
     }
   });
 
@@ -290,19 +448,78 @@ describe('curriculum consistency', () => {
   it('quotes one number of ancestry principal components', () => {
     const counts = new Set(
       corpus.flatMap((c) =>
-        [...c.text.matchAll(/(\d+)(?:\s*[–-]\s*\d+)?\s+(?:ancestry\s+)?(?:principal components|PCs)\b/g)]
-          .map((m) => m[1])
+        [
+          ...c.text.matchAll(
+            /(\d+)(?:\s*[–-]\s*\d+)?\s+(?:ancestry\s+)?(?:principal components|PCs)\b/g
+          ),
+        ].map((m) => m[1])
       )
     );
-    expect([...counts], 'the series has quoted 10, "10–20" and 20 in three places')
-      .toHaveLength(Math.min(counts.size, 1));
+    expect([...counts], 'the series has quoted 10, "10–20" and 20 in three places').toHaveLength(
+      Math.min(counts.size, 1)
+    );
   });
 
   it('mounts no widget kind the controller cannot render', () => {
-    const known = new Set(['ld-decay', 'drift', 'power', 'selection', 'finemap', 'prs']);
+    const known = new Set<string>(DEEP_DIVE_WIDGET_KINDS);
     const used = corpus.flatMap((c) =>
       [...c.text.matchAll(/<Widget[\s\S]*?kind="([^"]+)"/g)].map((m) => ({ id: c.id, kind: m[1] }))
     );
     expect(used.filter((u) => !known.has(u.kind)).map((u) => `${u.id}: ${u.kind}`)).toEqual([]);
+  });
+
+  it('escapes LaTeX backslashes inside JSX notation strings', () => {
+    const broken = corpus.flatMap(({ id, text }) =>
+      [...text.matchAll(/symbol:\s*'([^']*)'/g)]
+        .filter((match) => hasOddBackslashRun(match[1]))
+        .map((match) => `${id}: ${match[1]}`)
+    );
+    expect(broken).toEqual([]);
+  });
+
+  it('uses backslashes for LaTeX command names in ML Markdown math', () => {
+    const bareCommand = new RegExp(`(?<!\\\\)\\b(${LATEX_COMMAND_NAMES})\\b`, 'g');
+    const namedArguments =
+      /\\(?:begin|boldsymbol|end|mathbb|mathbf|mathcal|mathrm|mathsf|operatorname|text)\{[^{}]*\}/g;
+    const broken = published
+      .filter(({ front }) => /^hub:\s*ml-dl-interview\s*$/m.test(front))
+      .flatMap(({ id, body }) =>
+        maskedMarkdownMath(body).flatMap(({ expression, line }) => {
+          const searchable = expression.replace(namedArguments, ' ');
+          return [...searchable.matchAll(bareCommand)].map(
+            (match) => `${id}:${line}: ${match[1]} in $${expression.replace(/\s+/g, ' ').trim()}$`
+          );
+        })
+      );
+    expect(broken).toEqual([]);
+  });
+
+  it('stores ML key equations as semantic LaTeX rather than pseudo-math', () => {
+    const broken = published
+      .filter(({ front }) => /^hub:\s*ml-dl-interview\s*$/m.test(front))
+      .flatMap(({ id, front }) =>
+        keyEquations(front).flatMap((expression, index) => {
+          const issues: string[] = [];
+          if (/[^\x00-\x7f]/.test(expression)) issues.push('contains Unicode math shorthand');
+          if (/_\(/.test(expression)) issues.push('uses parenthesized pseudo-subscript syntax');
+          if (/\|/.test(expression)) issues.push('uses ASCII vertical bars');
+          const words = [...new Set(unstyledMathWords(expression))];
+          if (words.length > 0) issues.push(`has unstyled multi-letter names: ${words.join(', ')}`);
+          try {
+            katex.renderToString(expression, { strict: 'error', throwOnError: true });
+          } catch (error) {
+            issues.push(`does not parse as strict KaTeX: ${(error as Error).message}`);
+          }
+          return issues.map((issue) => `${id} keyEquations[${index}]: ${issue} in ${expression}`);
+        })
+      );
+    expect(broken).toEqual([]);
+  });
+
+  it('contains no non-whitespace control characters', () => {
+    const broken = corpus
+      .filter(({ text }) => /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text))
+      .map(({ id }) => id);
+    expect(broken).toEqual([]);
   });
 });

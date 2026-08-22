@@ -1,0 +1,218 @@
+lesson: ml-interview-neural-network-foundations
+questions:
+  - id: q-nn-why-depth
+    question: 'What does depth buy a neural network beyond adding more parameters to one hidden layer?'
+    conciseAnswer: >-
+      Depth composes simple transformations into hierarchical features and can represent some functions with exponentially fewer units than a shallow network. It also changes optimization and inductive bias: parameter sharing, residual structure and locality matter as much as universal approximation, while extra depth without data or trainability can simply overfit or fail.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [depth, representation-learning, mlp]
+    aliases: [deep versus shallow networks, benefit of depth]
+  - id: q-nn-universal-approximation
+    question: 'What does the universal approximation theorem say—and not say?'
+    conciseAnswer: >-
+      Under suitable activation and compact-domain assumptions, a sufficiently wide network can approximate any continuous function arbitrarily well. The theorem does not give a practical width, efficient optimization, generalization from finite data, robustness, or a reason that a learned solution will be found; it is an expressivity result, not a learning guarantee.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [universal-approximation, expressivity]
+    aliases: [UAT, neural network expressiveness]
+  - id: q-nn-forward-shapes
+    question: 'Derive the tensor shapes and parameter count of a dense neural-network layer.'
+    conciseAnswer: >-
+      For an input X of shape B by d_in and weights W of d_in by d_out, Z=XW+b has shape B by d_out, with d_in times d_out plus d_out trainable scalars. The matrix multiply costs order B d_in d_out, and checking this contract catches transposes and unintended broadcasting before any training diagnosis.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [tensor-shapes, dense-layer, parameters]
+    aliases: [linear layer shapes, parameter count]
+  - id: q-nn-backprop
+    question: 'Explain backpropagation as reverse-mode automatic differentiation.'
+    conciseAnswer: >-
+      The forward pass stores a directed computation graph; starting from dL/dL=1, reverse mode applies each operation's vector-Jacobian product and sums contributions where paths meet. It computes gradients of one scalar loss with respect to many parameters at a cost on the order of the forward computation, without constructing full Jacobian matrices.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [backpropagation, autodiff, chain-rule]
+    aliases: [reverse mode autodiff, gradient computation]
+  - id: q-nn-activations
+    question: 'Compare sigmoid, tanh, ReLU, GELU, and SiLU activations.'
+    conciseAnswer: >-
+      Sigmoid is bounded but saturates and is not zero-centered; tanh is zero-centered but still saturates; ReLU is cheap and nonsaturating on the positive side but can die; GELU and SiLU are smooth gated alternatives common in modern deep networks. Activation choice interacts with initialization, normalization, precision and architecture, so there is no context-free winner.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [activations, relu, gelu, silu]
+    aliases: [activation functions, nonlinearities]
+  - id: q-nn-softmax-cross-entropy
+    question: 'Why are softmax and cross-entropy usually implemented from logits rather than probabilities?'
+    conciseAnswer: >-
+      For mutually exclusive classes, softmax turns logits into a normalized categorical distribution and cross-entropy is the negative log-likelihood of the target class. A fused log-sum-exp implementation subtracts the maximum logit and avoids overflow, underflow and log of zero; passing already-softmaxed probabilities to such a loss is both redundant and numerically worse.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [softmax, cross-entropy, logits, stability]
+    aliases: [CrossEntropyLoss, log sum exp]
+  - id: q-nn-bce-logits
+    question: 'Why should binary cross-entropy be computed with logits?'
+    conciseAnswer: >-
+      A fused BCE-with-logits loss algebraically combines sigmoid and log terms into a stable softplus expression, avoiding rounded probabilities of exactly zero or one. Its derivative with respect to the logit is simply sigmoid(z)-y, and per-class positive weights change the training objective rather than calibrating the final probability.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [binary-cross-entropy, logits, numerical-stability]
+    aliases: [BCEWithLogitsLoss, sigmoid cross entropy]
+  - id: q-nn-batch-layer-norm
+    question: 'Compare batch normalization and layer normalization.'
+    conciseAnswer: >-
+      Batch norm normalizes each feature using batch statistics and keeps running estimates for inference, coupling examples and making small or shifted batches delicate. Layer norm normalizes features within each example and behaves the same in train and evaluation modes, which suits variable-length sequence models; axis choice and affine parameters are part of the definition.
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [batch-normalization, layer-normalization, normalization]
+    aliases: [batch norm versus layer norm, normalization layers]
+  - id: q-nn-dropout
+    question: 'How does inverted dropout differ between training and inference?'
+    conciseAnswer: >-
+      During training, inverted dropout independently zeros activations with probability p and divides survivors by 1-p so their expectation is unchanged. Evaluation disables the mask and scaling; forgetting model.eval changes outputs, while Monte Carlo dropout intentionally retains stochastic passes to approximate predictive uncertainty under additional assumptions.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [dropout, regularization, train-eval]
+    aliases: [inverted dropout, dropout inference]
+  - id: q-nn-residual
+    question: 'Why do residual connections make deep networks easier to train?'
+    conciseAnswer: >-
+      A residual block learns F(x) and returns x+F(x), providing an identity path for activations and a direct additive path for gradients. This makes near-identity transformations easy and reduces degradation with depth, but shape changes need projections and residual scaling or normalization placement still controls stability.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [residual-connections, resnet, gradient-flow]
+    aliases: [skip connections, residual learning]
+  - id: q-nn-embeddings
+    question: 'What is an embedding layer mathematically, and how is it trained?'
+    conciseAnswer: >-
+      An embedding is a learned matrix V by d; integer IDs select rows, which is equivalent to multiplying one-hot vectors without constructing them. Backpropagation updates only selected rows in a basic lookup, repeated IDs accumulate gradients, padding needs explicit handling, and semantic geometry emerges only from the training objective and data.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist, genai]
+    kind: mathematics
+    round: coding
+    stability: evergreen
+    tags: [embeddings, lookup-table, sparse-gradients]
+    aliases: [embedding matrix, learned representation]
+  - id: q-nn-loss-selection
+    question: 'How do you choose a neural-network output layer and loss?'
+    conciseAnswer: >-
+      Match them to the conditional distribution and decision: linear plus squared error for Gaussian-mean regression, logits plus categorical cross-entropy for one exclusive class, independent logits plus binary cross-entropy for multilabel targets, or likelihoods for counts, quantiles and censored data. The output shape, target encoding, reduction and masking must agree.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [loss-functions, output-layer, likelihood]
+    aliases: [choosing a loss, prediction head]
+  - id: q-nn-multiclass-multilabel
+    question: 'What is the difference between multiclass and multilabel classification?'
+    conciseAnswer: >-
+      Multiclass assumes exactly one of C classes, uses one categorical target and coupled softmax logits; multilabel allows any subset, uses C binary targets and independent sigmoid logits. Accuracy and thresholds also differ: multilabel systems often need per-label thresholds, missing-label masks and macro/micro reporting.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [multiclass, multilabel, softmax, sigmoid]
+    aliases: [single label versus multi label, classification heads]
+  - id: q-nn-overfitting
+    question: 'How do you distinguish optimization failure from overfitting?'
+    conciseAnswer: >-
+      Optimization failure means training performance is poor; overfitting means training improves while validation stagnates or degrades. First verify a model can overfit a tiny clean sample, then inspect train-validation curves and data splits; use better optimization or capacity for underfitting, and more data, augmentation, regularization or simpler hypotheses for overfitting.
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: debugging
+    round: project-defense
+    stability: evergreen
+    tags: [overfitting, underfitting, debugging]
+    aliases: [bias variance diagnosis, model not generalizing]
+  - id: q-nn-train-eval
+    question: 'What changes when a PyTorch model switches between train and eval mode?'
+    conciseAnswer: >-
+      train() and eval() change the behavior of stateful modules such as dropout and batch normalization; they do not enable or disable gradient tracking. Use model.eval() with an inference or no-grad context for evaluation, restore training mode afterward, and remember that frozen parameters can coexist with a model in training mode.
+    priority: common
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, dl-specialist]
+    kind: implementation
+    round: coding
+    stability: evergreen
+    tags: [pytorch, train-mode, eval-mode]
+    aliases: [model eval, inference mode]
+  - id: q-nn-gradient-checking
+    question: 'How do you verify that a custom neural-network gradient is correct?'
+    conciseAnswer: >-
+      Compare the analytic gradient with centered finite differences on a tiny deterministic double-precision problem using relative error, while avoiding nondifferentiable points and poorly chosen step sizes. Framework gradcheck tools automate this, but hooks, anomaly detection and per-layer norms are better for tracing a real training graph once the local formula is validated.
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, research-scientist, dl-specialist]
+    kind: debugging
+    round: coding
+    stability: evergreen
+    tags: [gradient-checking, autodiff, finite-differences]
+    aliases: [gradcheck, numerical gradient]
+  - id: q-nn-parameter-sharing
+    question: 'Why is parameter sharing a useful neural-network inductive bias?'
+    conciseAnswer: >-
+      Reusing the same parameters across positions asserts that the same local rule should apply everywhere, reducing sample and memory complexity and creating equivariance, as in convolutions and recurrent networks. The assumption is powerful only when the task has the corresponding symmetry; absolute position or heterogeneous domains may require positional or conditional parameters.
+    priority: common
+    difficulty: intermediate
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: concept
+    round: knowledge
+    stability: evergreen
+    tags: [parameter-sharing, inductive-bias, equivariance]
+    aliases: [weight sharing, symmetry]
+  - id: q-nn-capacity-parameters
+    question: 'Does a neural network with more parameters necessarily overfit more?'
+    conciseAnswer: >-
+      Parameter count is one capacity signal, not a monotone prediction of test error in modern overparameterized learning. Architecture, norms, optimizer bias, augmentation, early stopping, data scale and label noise constrain the function actually learned; compare learning curves and controlled scaling experiments instead of declaring a model unsafe from parameter count alone.
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: trade-off
+    round: project-defense
+    stability: evergreen
+    tags: [capacity, overparameterization, generalization]
+    aliases: [parameter count and overfitting, model size]

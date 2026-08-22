@@ -1,0 +1,187 @@
+---
+title: Machine Learning & Deep Learning Interview Guide
+shortTitle: ML & DL Interview Guide
+description: A source-driven interview curriculum spanning mathematical foundations, classical machine learning, deep learning, evaluation, implementation, systems and senior technical leadership.
+abstract: Prepare for senior machine-learning engineer, applied-scientist and deep-learning interviews through 351 structured questions, concise answers, rigorous derivations, implementation reasoning, design cases and local practice tools.
+date: 2026-08-22
+updated: 2026-08-22
+track: theory
+hub: ml-dl-interview
+isHub: true
+lessonType: technical
+category: machine-learning
+moduleId: m00-hub
+moduleLabel: ML & DL Interview Curriculum
+order: 0
+level: foundational
+objectives:
+  - Build an interview study path that matches a target role, available time and current confidence.
+  - Move between a concise spoken answer, an intuitive explanation and a precise mathematical statement.
+  - Diagnose weak answers by checking assumptions, dimensions, baselines, failure modes and alternatives.
+  - Practice technical, coding, experimentation, system-design, project-defense and senior behavioral rounds.
+prerequisites: []
+relatedLessons: []
+referenceIds:
+  - deisenroth2020mml
+  - murphy2022pml
+  - james2023isl
+  - goodfellow2016deep
+  - google2026mlcc
+  - huyen2022mlinterviews
+keyEquations:
+  - '\widehat{R}_n(f)=\frac{1}{n}\sum_{i=1}^{n}\ell\!\left(f(x_i),y_i\right)'
+  - '\theta_{t+1}=\theta_t-\eta\nabla_\theta L(\theta_t)'
+tags: [machine learning, deep learning, interview preparation, applied science, ML systems]
+featured: true
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import QuestionIndex from '../../components/deepdive/QuestionIndex.astro';
+
+## What this curriculum is for
+
+An interview answer has to work at several resolutions. The first sentence must be useful
+to an interviewer who stops you after thirty seconds. The next minute should expose the
+intuition. If the interviewer keeps digging, the assumptions, derivation, tensor shapes,
+failure modes and engineering trade-offs must still hold together.
+
+<Callout variant="intuition" title="Prepare a zoom lens, not a script">
+Do not memorize one paragraph per concept. Prepare a compact claim you can defend, then a
+sequence of increasingly precise layers. “Regularization discourages solutions that fit
+noise” is a reasonable opening. A senior answer can then distinguish explicit penalties,
+implicit optimization bias, data augmentation and early stopping, and explain when each
+fails.
+</Callout>
+
+This course is organized around that zoom lens. The mathematical sequence is informed by
+*Mathematics for Machine Learning* <Citation id="deisenroth2020mml" /> and probabilistic
+machine learning <Citation id="murphy2022pml" />. Classical modeling follows the applied
+discipline of *An Introduction to Statistical Learning* <Citation id="james2023isl" />;
+the neural-network sequence uses the primary literature and the *Deep Learning* reference
+<Citation id="goodfellow2016deep" />. The modular shape also follows the practical lesson
+boundaries used by the current Google ML curriculum <Citation id="google2026mlcc" />.
+
+<Notation
+  rows={[
+    { symbol: 'x \\in \\mathbb{R}^{d}', meaning: 'One example with d input features', dims: 'd-vector' },
+    { symbol: 'X \\in \\mathbb{R}^{n \\times d}', meaning: 'A design matrix with n examples', dims: 'n by d' },
+    { symbol: 'y', meaning: 'Observed target or label', dims: 'scalar, class, sequence or structured output' },
+    { symbol: 'f_{\\theta}', meaning: 'A model parameterized by θ', dims: 'input-to-output map' },
+    { symbol: '\\ell', meaning: 'Per-example loss used by the learning objective', dims: 'scalar' },
+    { symbol: 'R(f)', meaning: 'Population risk under the deployment distribution', dims: 'expected loss' },
+  ]}
+/>
+
+## The complete roadmap
+
+The track beneath this page is the source of truth. Its 23 linked lessons move through
+mathematics, probability, generalization, data, classical models, evaluation, optimization
+and neural-network mechanics before model-family, LLM, production and leadership
+specialization. The order is deliberate: later pages may be read independently, but their
+answers can point back to explicit assumptions rather than redefining foundations.
+
+<Figure
+  caption="Figure 1. The curriculum is a dependency graph, not a flat checklist. Mathematics and probability support learning theory; data and evaluation constrain every model; classical and neural modeling then feed specialized models, production systems and interview cases."
+  alt="A five-level curriculum graph flowing from mathematics and probability through data and classical models, deep learning, specialized models, and finally production and interview practice."
+>
+  <svg viewBox="0 0 720 330" width="720" height="330" font-family="inherit">
+    <defs><marker id="ml-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" opacity=".45" /></marker></defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".38" marker-end="url(#ml-arrow)">
+      <path d="M142 62 C190 62 188 118 230 118" /><path d="M142 118 H230" /><path d="M142 174 C190 174 188 118 230 118" />
+      <path d="M338 118 H410" /><path d="M518 90 C558 90 558 74 596 74" /><path d="M518 146 C558 146 558 186 596 186" />
+      <path d="M650 103 V155" /><path d="M650 215 V258" />
+    </g>
+    {[
+      [22, 34, 120, 56, 'Mathematics'], [22, 90, 120, 56, 'Probability'], [22, 146, 120, 56, 'Data & validation'],
+      [230, 90, 108, 56, 'Learning theory'], [410, 62, 108, 56, 'Classical ML'], [410, 118, 108, 56, 'Deep learning'],
+      [596, 46, 108, 56, 'Specialized models'], [596, 158, 108, 56, 'ML systems'], [596, 258, 108, 56, 'Interview practice'],
+    ].map(([x,y,w,h,label]) => <g><rect x={x} y={y} width={w} height={h} rx="8" fill="var(--color-surface)" stroke="currentColor" opacity=".92"/><text x={Number(x)+Number(w)/2} y={Number(y)+Number(h)/2+4} text-anchor="middle" fill="currentColor" font-size="12" font-weight="650">{label}</text></g>)}
+  </svg>
+</Figure>
+
+## Choose a study path
+
+<WorkedExample
+  title="Turn fourteen days into an interview loop"
+  given={[
+    { label: 'Available time', value: '14 days × 90 min/day' },
+    { label: 'Current target', value: 'Senior ML engineer' },
+    { label: 'Weakest rounds', value: 'metrics and system design' },
+  ]}
+  verifiedBy="src/lib/mlInterviewExamples.test.ts"
+>
+The available budget is $14\times90=1{,}260$ minutes, or 21 hours. With one 90-minute
+session per day and every third session reserved for synthesis, that gives fourteen primary
+sessions, including four designated synthesis sessions.
+
+Start with the **Core** filter rather than reading every specialist question. Spend the
+first pass speaking each 30-second answer aloud and mark it `Confident`, `Learning`, or
+`Review again`. On the second pass, filter to the last two states and work the derivations
+or examples without looking. Reserve every third session for synthesis: compare two
+methods, diagnose a failure, or design a complete system. The filter therefore becomes a
+feedback loop rather than a completion counter.
+</WorkedExample>
+
+- **Seven-day rapid review:** the 72 `Must know` questions from the first ten foundational
+  lessons, spoken aloud, plus selected coding and design drills.
+- **Two-week core review:** `Must know` and `Common`, with derivations for weak topics.
+- **Four-week complete review:** every published question, including specialist follow-ups.
+
+The question styles are original. External interview guides are used only to check that
+the course represents real interview rounds rather than becoming a list of textbook
+definitions <Citation id="huyen2022mlinterviews" />.
+
+## Search and practice
+
+<QuestionIndex />
+
+Your bookmark and confidence state never leaves this browser. Answers remain expanded in
+the server-rendered page and in print; Practice mode collapses them only after JavaScript
+loads. A direct `#q-...` link always opens the requested answer.
+
+## Before you begin
+
+<Exercise title="Build a baseline answer">
+Choose one familiar concept—cross-validation, regularization, or gradient descent—and
+record a thirty-second spoken answer. Then write the assumptions you omitted.
+<div slot="solution">
+A useful baseline names the purpose, mechanism and one failure mode. For cross-validation:
+“It estimates performance across repeated held-out partitions when one validation split is
+too noisy. The split unit must match deployment—grouped or temporal data cannot be shuffled
+as IID—and the final test set remains untouched.” Missing assumptions become the first
+items in your review queue.
+</div>
+</Exercise>
+
+<Exercise title="Audit the dimensions">
+For a batch $X\in\mathbb{R}^{32\times128}$ and weights
+$W\in\mathbb{R}^{128\times10}$, state the logit shape and the gradient shape for $W$.
+<div slot="solution">
+$XW\in\mathbb{R}^{32\times10}$. Because a parameter gradient has the same shape as its
+parameter, $\nabla_WL\in\mathbb{R}^{128\times10}$. Saying both aloud catches many
+backpropagation mistakes before any algebra begins.
+</div>
+</Exercise>
+
+<Exercise title="Correct an underspecified question">
+An interviewer asks, “Is accuracy a good metric?” Give the clarification you would ask
+before answering.
+<div slot="solution">
+Ask about class prevalence, error costs, whether a threshold must be selected, and whether
+the deployment distribution matches the evaluation set. Accuracy is meaningful only after
+those facts make the costs of false positives and false negatives interpretable.
+</div>
+</Exercise>
+
+## Summary
+
+Use the hub as a map and the question bank as a feedback system. Lead with a defensible
+thirty-second answer, then expose intuition, assumptions, mathematics, evidence and
+trade-offs as the interviewer asks for more depth. The complete 23-lesson track stays
+linkable by concept, role, question type and confidence so review follows your gaps rather
+than a generic checklist.

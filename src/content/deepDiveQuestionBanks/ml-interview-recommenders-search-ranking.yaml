@@ -1,0 +1,156 @@
+lesson: ml-interview-recommenders-search-ranking
+questions:
+  - id: q-rank-two-stage
+    question: 'Why do large recommendation and search systems separate candidate retrieval from ranking?'
+    conciseAnswer: 'Retrieval searches a huge corpus under a tight latency budget and optimizes high recall; ranking applies richer features and interactions to a much smaller candidate set and optimizes ordering or utility. Overall recall is upper-bounded by retrieval, so ranking cannot recover items never proposed.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [retrieval, ranking, architecture]
+    aliases: [two-stage-ranking, candidate-generation]
+  - id: q-rank-matrix-factorization
+    question: 'What does matrix factorization learn in collaborative filtering?'
+    conciseAnswer: 'It approximates a user-item interaction matrix with low-dimensional user and item vectors, often adding biases, so their dot product predicts affinity. The low-rank assumption shares statistical strength across interactions but cannot represent a new user or item without features, priors, or new events.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [matrix-factorization, collaborative-filtering, embeddings]
+    aliases: [latent-factor-model, user-item-factorization]
+  - id: q-rank-implicit-feedback
+    question: 'Why is implicit feedback not a clean negative-label dataset?'
+    conciseAnswer: 'A click or watch is a noisy positive shaped by exposure and position; absence may mean irrelevance, no exposure, or no opportunity. Training must model confidence or sampling, log the serving policy, and evaluate exposure bias rather than labeling every unobserved pair as a true negative.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [implicit-feedback, exposure, labels]
+    aliases: [missing-not-negative, one-class-feedback]
+  - id: q-rank-negative-sampling
+    question: 'How does negative sampling change the objective in retrieval training?'
+    conciseAnswer: 'It replaces an infeasible full-corpus normalization or pair set with sampled non-positive items. The sampling distribution controls task difficulty and bias; in-batch negatives are efficient but can create false negatives and popularity effects, while importance correction is needed when estimating a target distribution exactly.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, dl-specialist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [negative-sampling, retrieval-loss, sampling-bias]
+    aliases: [in-batch-negatives, sampled-softmax]
+  - id: q-rank-two-tower
+    question: 'Why are two-tower models useful for retrieval, and what interactions do they miss?'
+    conciseAnswer: 'Separate query or user and item encoders produce vectors whose items can be precomputed and indexed for nearest-neighbor search. The dot product is serving-friendly but compresses all cross-features into two independent embeddings; a downstream cross model can represent richer pairwise interactions at higher cost.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, dl-specialist, ml-platform]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [two-tower, embeddings, retrieval]
+    aliases: [dual-encoder, dssm]
+  - id: q-rank-ann
+    question: 'What accuracy and systems trade-offs arise in approximate nearest-neighbor search?'
+    conciseAnswer: 'ANN indexes exchange exact recall for lower latency and memory-access cost. Graph or partition parameters, vector compression, filtering, update strategy, sharding, and hardware determine recall-latency-memory behavior; evaluate end-to-end candidate recall on live-like queries, not only synthetic vector recall.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, ml-platform]
+    kind: trade-off
+    round: system-design
+    stability: evergreen
+    tags: [ann, vector-index, latency]
+    aliases: [approximate-nearest-neighbor, hnsw]
+  - id: q-rank-pointwise-pairwise-listwise
+    question: 'Compare pointwise, pairwise, and listwise learning-to-rank losses.'
+    conciseAnswer: 'Pointwise losses predict each item label independently; pairwise losses learn which of two items should rank higher; listwise losses operate on a slate or ranking metric surrogate. The closer objective may better match ordering but costs more and still requires propensity, diversity, and business-utility reasoning.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, research-scientist]
+    kind: trade-off
+    round: knowledge
+    stability: evergreen
+    tags: [learning-to-rank, losses, ordering]
+    aliases: [pointwise-vs-pairwise, listwise-ranking]
+  - id: q-rank-bpr
+    question: 'Derive the Bayesian Personalized Ranking objective for implicit feedback.'
+    conciseAnswer: 'For observed item i and sampled unobserved item j for user u, BPR maximizes log sigmoid of score(u,i) minus score(u,j), plus a prior or regularizer. It learns pairwise ordering rather than calibrated click probabilities and inherits the meaning and bias of the negative sampler.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: knowledge
+    stability: evergreen
+    tags: [bpr, pairwise-loss, implicit-feedback]
+    aliases: [bayesian-personalized-ranking, pairwise-recommendation]
+  - id: q-rank-ndcg-map-mrr
+    question: 'When would you use NDCG, MAP, MRR, recall at k, or precision at k?'
+    conciseAnswer: 'Recall at k checks candidate coverage; precision at k measures top-set relevance; MRR emphasizes the first relevant result; MAP averages precision at relevant ranks for binary relevance; NDCG discounts positions and supports graded relevance. Choose the metric from the user task and report slices and uncertainty.'
+    priority: must-know
+    difficulty: foundational
+    roles: [general-mle, applied-scientist, research-scientist, leadership]
+    kind: concept
+    round: experimentation
+    stability: evergreen
+    tags: [ndcg, map, mrr, recall-at-k]
+    aliases: [ranking-metrics, information-retrieval-metrics]
+  - id: q-rank-offline-online
+    question: 'Why can an offline ranking improvement fail in an online experiment?'
+    conciseAnswer: 'Logged data reflects an older exposure policy, offline relevance labels are incomplete, the metric may miss satisfaction or novelty, and latency or UI changes affect behavior. Use offline gates for iteration, then a powered randomized experiment with guardrails, novelty checks, and longer-term outcomes.'
+    priority: must-know
+    difficulty: intermediate
+    roles: [applied-scientist, leadership]
+    kind: trade-off
+    round: experimentation
+    stability: evergreen
+    tags: [offline-evaluation, ab-testing, metric-gap]
+    aliases: [offline-online-gap, ranking-experiment]
+  - id: q-rank-position-bias
+    question: 'How does position bias corrupt click-based learning-to-rank?'
+    conciseAnswer: 'Higher-ranked items receive more examination, so clicks conflate relevance with exposure generated by the current policy. Randomized interventions, interleaving, propensity models, or doubly robust methods can help, but positivity and correct logging assumptions must be checked and high-variance weights controlled.'
+    priority: must-know
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist]
+    kind: mathematics
+    round: experimentation
+    stability: evergreen
+    tags: [position-bias, propensity, counterfactual]
+    aliases: [click-bias, inverse-propensity]
+  - id: q-rank-cold-start
+    question: 'How do you handle cold-start users and items?'
+    conciseAnswer: 'Use content and metadata encoders, popularity or contextual priors, onboarding signals, exploration, and uncertainty-aware fallbacks. New users and new items are different problems; evaluate them as separate cohorts and avoid requiring interaction-only embeddings before an item can receive exposure.'
+    priority: common
+    difficulty: intermediate
+    roles: [general-mle, applied-scientist, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [cold-start, exploration, metadata]
+    aliases: [new-user, new-item]
+  - id: q-rank-feedback-loops
+    question: 'How can a recommender create harmful feedback loops, and how would you detect them?'
+    conciseAnswer: 'Ranking controls exposure, exposure creates labels, and retraining can amplify popularity, homogenization, or historical disadvantage. Log propensities, monitor catalog and cohort exposure, diversity and concentration, reserve randomized exploration, simulate policy changes carefully, and include long-term user and ecosystem guardrails.'
+    priority: common
+    difficulty: advanced
+    roles: [applied-scientist, research-scientist, leadership]
+    kind: trade-off
+    round: project-defense
+    stability: evergreen
+    tags: [feedback-loops, bias, diversity]
+    aliases: [popularity-bias, exposure-loop]
+  - id: q-rank-system-design
+    question: 'Design an end-to-end recommender for a high-traffic product.'
+    conciseAnswer: 'Define user and ecosystem objectives, generate candidates from complementary sources, filter policy constraints, rank and re-rank for utility and diversity, then log exposures and propensities. Specify freshness, stores, index updates, latency budgets, fallbacks, experiments, guardrails, and monitoring before choosing a model.'
+    priority: must-know
+    difficulty: advanced
+    roles: [general-mle, applied-scientist, ml-platform, leadership]
+    kind: system-design
+    round: system-design
+    stability: evergreen
+    tags: [recommendation-system, architecture, monitoring]
+    aliases: [design-recommender, feed-ranking]

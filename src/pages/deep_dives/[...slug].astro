@@ -5,8 +5,8 @@ import DeepDiveLesson from '../../layouts/DeepDiveLesson.astro';
 /**
  * One route for every migrated lesson.
  *
- * Only slugs present in the `deepDives` collection are emitted, so the 21 lessons
- * still authored as static `.astro` files in this directory are untouched and keep
+ * Only slugs present in the `deepDives` collection are emitted, so lessons still
+ * authored as static `.astro` files in this directory are untouched and keep
  * their URLs. Each is deleted in the same commit its `.mdx` lands — leaving both
  * would put two routes on one URL, which `src/lib/deepDives.test.ts` fails on.
  */

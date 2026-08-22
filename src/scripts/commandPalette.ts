@@ -13,7 +13,18 @@ import { startDnaSynth } from './dnaSynth';
 
 export interface CommandItem {
   id: string;
-  category: 'Actions' | 'Algorithms' | 'Navigation' | 'Publications' | 'Software' | 'Research' | 'Posts' | 'Talks' | 'News' | 'Games';
+  category:
+    | 'Actions'
+    | 'Algorithms'
+    | 'Deep Dives'
+    | 'Navigation'
+    | 'Publications'
+    | 'Software'
+    | 'Research'
+    | 'Posts'
+    | 'Talks'
+    | 'News'
+    | 'Games';
   title: string;
   subtitle?: string;
   badge?: string;
@@ -31,7 +42,10 @@ const STATIC_ACTIONS: CommandItem[] = [
     subtitle: 'Switch between light and dark base theme',
     badge: 'Theme',
     action: () => {
-      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { toggle: () => void } }).__khcTheme) {
+      if (
+        typeof window !== 'undefined' &&
+        (window as unknown as { __khcTheme?: { toggle: () => void } }).__khcTheme
+      ) {
         (window as unknown as { __khcTheme: { toggle: () => void } }).__khcTheme.toggle();
       }
     },
@@ -44,7 +58,10 @@ const STATIC_ACTIONS: CommandItem[] = [
     subtitle: 'Crisp Calico minimalist light theme',
     badge: 'Theme',
     action: () => {
-      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+      if (
+        typeof window !== 'undefined' &&
+        (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme
+      ) {
         (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('light');
       }
     },
@@ -57,7 +74,10 @@ const STATIC_ACTIONS: CommandItem[] = [
     subtitle: 'Deep slate and emerald dark theme',
     badge: 'Theme',
     action: () => {
-      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+      if (
+        typeof window !== 'undefined' &&
+        (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme
+      ) {
         (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('dark');
       }
     },
@@ -70,8 +90,13 @@ const STATIC_ACTIONS: CommandItem[] = [
     subtitle: 'Warm aged paper with walnut sepia ink and burnt terracotta',
     badge: 'Theme',
     action: () => {
-      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
-        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('parchment');
+      if (
+        typeof window !== 'undefined' &&
+        (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme
+      ) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set(
+          'parchment'
+        );
       }
     },
     keywords: ['parchment', 'bell labs', 'sepia', 'paper', 'knuth', 'tex', 'smalltalk', 'theme'],
@@ -83,7 +108,10 @@ const STATIC_ACTIONS: CommandItem[] = [
     subtitle: 'Polar night dark mode with arctic ice cyan accents',
     badge: 'Theme',
     action: () => {
-      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
+      if (
+        typeof window !== 'undefined' &&
+        (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme
+      ) {
         (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('nord');
       }
     },
@@ -96,8 +124,13 @@ const STATIC_ACTIONS: CommandItem[] = [
     subtitle: 'Warm charcoal editor theme with compiler gold and syntax rose',
     badge: 'Theme',
     action: () => {
-      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
-        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('monokai');
+      if (
+        typeof window !== 'undefined' &&
+        (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme
+      ) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set(
+          'monokai'
+        );
       }
     },
     keywords: ['monokai', 'compiler', 'gold', 'code', 'editor', 'theme'],
@@ -109,8 +142,13 @@ const STATIC_ACTIONS: CommandItem[] = [
     subtitle: 'Obsidian navy with electric ice cyan phosphor glow',
     badge: 'Theme',
     action: () => {
-      if (typeof window !== 'undefined' && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
-        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set('cyberdeck');
+      if (
+        typeof window !== 'undefined' &&
+        (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme
+      ) {
+        (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set(
+          'cyberdeck'
+        );
       }
     },
     keywords: ['cyberdeck', 'cyan', 'vt220', 'dec', 'matrix', 'terminal', 'theme'],
@@ -146,7 +184,17 @@ const STATIC_ACTIONS: CommandItem[] = [
     action: () => {
       startCrtMode('cyan');
     },
-    keywords: ['crt', 'retro', '1988', 'cyan', 'vt220', 'phosphor', 'terminal', 'scanlines', 'display'],
+    keywords: [
+      'crt',
+      'retro',
+      '1988',
+      'cyan',
+      'vt220',
+      'phosphor',
+      'terminal',
+      'scanlines',
+      'display',
+    ],
   },
   {
     id: 'act-crt-off',
@@ -232,7 +280,16 @@ const STATIC_ACTIONS: CommandItem[] = [
     action: () => {
       startDnaSynth();
     },
-    keywords: ['synth', 'piano', 'audio', 'music', 'dna', 'nucleotide', 'frequencies', 'easter egg'],
+    keywords: [
+      'synth',
+      'piano',
+      'audio',
+      'music',
+      'dna',
+      'nucleotide',
+      'frequencies',
+      'easter egg',
+    ],
   },
   {
     id: 'act-dna-rain',
@@ -243,25 +300,119 @@ const STATIC_ACTIONS: CommandItem[] = [
     action: () => {
       startDnaRain();
     },
-    keywords: ['matrix', 'rain', 'dna', 'konami', 'easter egg', 'animation', 'nucleotide', 'helix', 'cascade'],
+    keywords: [
+      'matrix',
+      'rain',
+      'dna',
+      'konami',
+      'easter egg',
+      'animation',
+      'nucleotide',
+      'helix',
+      'cascade',
+    ],
   },
 ];
 
 const STATIC_NAV: CommandItem[] = [
-  { id: 'nav-home', category: 'Navigation', title: 'Home', subtitle: 'Overview, research focus, and updates', href: '/' },
-  { id: 'nav-research', category: 'Navigation', title: 'Research Areas', subtitle: 'Core themes in computational genomics and ML', href: '/research/' },
-  { id: 'nav-publications', category: 'Navigation', title: 'Publications', subtitle: 'Peer-reviewed papers, preprints, and citations', href: '/publications/' },
-  { id: 'nav-software', category: 'Navigation', title: 'Software & Open Source', subtitle: 'LiftOn, Splam, OpenSpliceAI, Shorkie, WGT', href: '/software/' },
-  { id: 'nav-algorithms', category: 'Navigation', title: 'Algorithms Hub', subtitle: 'Interactive visualizers for CS & genomic algorithms', href: '/algorithms/' },
-  { id: 'nav-deep-dives', category: 'Navigation', title: 'Deep Dives Hub', subtitle: 'Computational genomics foundations & concept posts', href: '/deep_dives/' },
-  { id: 'nav-papers', category: 'Navigation', title: 'Paper Summaries', subtitle: 'Detailed literature deconstructions & methodology summaries', href: '/papers/' },
-  { id: 'nav-teaching', category: 'Navigation', title: 'Teaching & Mentorship', subtitle: 'Courses, students mentored, pedagogical visualizers', href: '/teaching/' },
-  { id: 'nav-talks', category: 'Navigation', title: 'Talks & Presentations', subtitle: 'Invited talks, conference presentations, slides', href: '/talks/' },
-  { id: 'nav-news', category: 'Navigation', title: 'Recent News', subtitle: 'Academic updates, awards, and milestones', href: '/news/' },
-  { id: 'nav-posts', category: 'Navigation', title: 'Blog Posts & Explaners', subtitle: 'Deep dives and interactive articles', href: '/posts/' },
-  { id: 'nav-cv', category: 'Navigation', title: 'Curriculum Vitae', subtitle: 'Education, experience, honors, and service', href: '/cv/' },
-  { id: 'nav-photos', category: 'Navigation', title: 'Photos & Life', subtitle: 'Academic travels and conferences', href: '/photos/' },
-  { id: 'nav-games', category: 'Games', title: 'Genomic Mini-Games', subtitle: 'Tetris, Snake, Genome Jumper, Dino Run, Proofreader', href: '/games/tetris/' },
+  {
+    id: 'nav-home',
+    category: 'Navigation',
+    title: 'Home',
+    subtitle: 'Overview, research focus, and updates',
+    href: '/',
+  },
+  {
+    id: 'nav-research',
+    category: 'Navigation',
+    title: 'Research Areas',
+    subtitle: 'Core themes in computational genomics and ML',
+    href: '/research/',
+  },
+  {
+    id: 'nav-publications',
+    category: 'Navigation',
+    title: 'Publications',
+    subtitle: 'Peer-reviewed papers, preprints, and citations',
+    href: '/publications/',
+  },
+  {
+    id: 'nav-software',
+    category: 'Navigation',
+    title: 'Software & Open Source',
+    subtitle: 'LiftOn, Splam, OpenSpliceAI, Shorkie, WGT',
+    href: '/software/',
+  },
+  {
+    id: 'nav-algorithms',
+    category: 'Navigation',
+    title: 'Algorithms Hub',
+    subtitle: 'Interactive visualizers for CS & genomic algorithms',
+    href: '/algorithms/',
+  },
+  {
+    id: 'nav-deep-dives',
+    category: 'Navigation',
+    title: 'Deep Dives Hub',
+    subtitle: 'Machine learning, statistics and computational-genomics curricula',
+    href: '/deep_dives/',
+  },
+  {
+    id: 'nav-papers',
+    category: 'Navigation',
+    title: 'Paper Summaries',
+    subtitle: 'Detailed literature deconstructions & methodology summaries',
+    href: '/papers/',
+  },
+  {
+    id: 'nav-teaching',
+    category: 'Navigation',
+    title: 'Teaching & Mentorship',
+    subtitle: 'Courses, students mentored, pedagogical visualizers',
+    href: '/teaching/',
+  },
+  {
+    id: 'nav-talks',
+    category: 'Navigation',
+    title: 'Talks & Presentations',
+    subtitle: 'Invited talks, conference presentations, slides',
+    href: '/talks/',
+  },
+  {
+    id: 'nav-news',
+    category: 'Navigation',
+    title: 'Recent News',
+    subtitle: 'Academic updates, awards, and milestones',
+    href: '/news/',
+  },
+  {
+    id: 'nav-posts',
+    category: 'Navigation',
+    title: 'Blog Posts & Explaners',
+    subtitle: 'Deep dives and interactive articles',
+    href: '/posts/',
+  },
+  {
+    id: 'nav-cv',
+    category: 'Navigation',
+    title: 'Curriculum Vitae',
+    subtitle: 'Education, experience, honors, and service',
+    href: '/cv/',
+  },
+  {
+    id: 'nav-photos',
+    category: 'Navigation',
+    title: 'Photos & Life',
+    subtitle: 'Academic travels and conferences',
+    href: '/photos/',
+  },
+  {
+    id: 'nav-games',
+    category: 'Games',
+    title: 'Genomic Mini-Games',
+    subtitle: 'Tetris, Snake, Genome Jumper, Dino Run, Proofreader',
+    href: '/games/tetris/',
+  },
 ];
 
 const ALGORITHM_ITEMS: CommandItem[] = ALGORITHMS.map((algo) => ({
@@ -274,15 +425,24 @@ const ALGORITHM_ITEMS: CommandItem[] = ALGORITHMS.map((algo) => ({
   keywords: [algo.id, algo.area, algo.category, algo.tag, algo.cliCommand ?? ''].filter(Boolean),
 }));
 
-const DEEP_DIVE_ITEMS: CommandItem[] = DEEP_DIVES.filter((d) => d.status === 'published').map((d) => ({
-  id: `deep-dive-${d.id}`,
-  category: 'Posts',
-  title: d.title,
-  subtitle: d.summary,
-  badge: d.tag,
-  href: d.href,
-  keywords: [d.id, d.area, d.category, d.tag, ...(d.highlights || []), ...(d.equations || [])].filter(Boolean),
-}));
+const DEEP_DIVE_ITEMS: CommandItem[] = DEEP_DIVES.filter((d) => d.status === 'published').map(
+  (d) => ({
+    id: `deep-dive-${d.id}`,
+    category: 'Deep Dives',
+    title: d.title,
+    subtitle: d.summary,
+    badge: d.tag,
+    href: d.href,
+    keywords: [
+      d.id,
+      d.area,
+      d.category,
+      d.tag,
+      ...(d.highlights || []),
+      ...(d.equations || []),
+    ].filter(Boolean),
+  })
+);
 
 const PAPER_ITEMS: CommandItem[] = PAPERS.filter((p) => p.status === 'published').map((p) => ({
   id: `paper-${p.id}`,
@@ -291,48 +451,61 @@ const PAPER_ITEMS: CommandItem[] = PAPERS.filter((p) => p.status === 'published'
   subtitle: p.summary,
   badge: p.venue,
   href: p.href,
-  keywords: [p.id, p.area, p.category, p.tag, ...(p.authors || []), ...(p.highlights || []), ...(p.equations || [])].filter(Boolean),
+  keywords: [
+    p.id,
+    p.area,
+    p.category,
+    p.tag,
+    ...(p.authors || []),
+    ...(p.highlights || []),
+    ...(p.equations || []),
+  ].filter(Boolean),
 }));
 
 let searchIndexCache: CommandItem[] | null = null;
-let isFetchingIndex = false;
+let searchIndexPromise: Promise<CommandItem[]> | null = null;
 
 async function fetchSearchIndex(): Promise<CommandItem[]> {
   if (searchIndexCache) return searchIndexCache;
-  if (isFetchingIndex) return [];
-  isFetchingIndex = true;
+  if (searchIndexPromise) return searchIndexPromise;
 
-  try {
-    const res = await fetch('/search.json');
-    if (!res.ok) throw new Error('Search index load failed');
-    const data = await res.json();
-    const dynamicItems: CommandItem[] = (data.items || []).map((item: any, idx: number) => {
-      let category: CommandItem['category'] = 'Publications';
-      if (item.type === 'Publication') category = 'Publications';
-      else if (item.type === 'Software') category = 'Software';
-      else if (item.type === 'Research') category = 'Research';
-      else if (item.type === 'Post') category = 'Posts';
-      else if (item.type === 'Talk') category = 'Talks';
-      else if (item.type === 'News') category = 'News';
+  searchIndexPromise = (async () => {
+    try {
+      const res = await fetch('/search.json');
+      if (!res.ok) throw new Error('Search index load failed');
+      const data = await res.json();
+      const dynamicItems: CommandItem[] = (data.items || []).map((item: any, idx: number) => {
+        let category: CommandItem['category'] = 'Publications';
+        if (item.type === 'Publication') category = 'Publications';
+        else if (item.type === 'Software') category = 'Software';
+        else if (item.type === 'Research') category = 'Research';
+        else if (item.type === 'Post') category = 'Posts';
+        else if (item.type === 'Talk') category = 'Talks';
+        else if (item.type === 'News') category = 'News';
+        else if (item.type === 'Deep Dive' || item.type === 'Interview Question')
+          category = 'Deep Dives';
 
-      return {
-        id: `dyn-${item.type.toLowerCase()}-${idx}`,
-        category,
-        title: item.title,
-        subtitle: item.description,
-        badge: item.tags?.[0] || item.type,
-        href: item.href,
-        keywords: [item.search, ...(item.tags || [])],
-      };
-    });
+        return {
+          id: `dyn-${item.type.toLowerCase()}-${idx}`,
+          category,
+          title: item.title,
+          subtitle: item.description,
+          badge: item.tags?.[0] || item.type,
+          href: item.href,
+          keywords: [item.search, ...(item.tags || [])],
+        };
+      });
 
-    searchIndexCache = dynamicItems;
-    isFetchingIndex = false;
-    return dynamicItems;
-  } catch (err) {
-    isFetchingIndex = false;
-    return [];
-  }
+      searchIndexCache = dynamicItems;
+      return dynamicItems;
+    } catch {
+      return [];
+    } finally {
+      searchIndexPromise = null;
+    }
+  })();
+
+  return searchIndexPromise;
 }
 
 export function initCommandPalette() {
@@ -348,21 +521,24 @@ export function initCommandPalette() {
   let activeIndex = 0;
   let currentFilteredItems: CommandItem[] = [];
 
-  // Pre-fetch search index in background
-  fetchSearchIndex();
-
   function openPalette() {
     if (!dialog) return;
     input!.value = '';
     dialog.showModal();
+    input!.setAttribute('aria-expanded', 'true');
     document.body.style.overflow = 'hidden';
     renderResults('');
     input!.focus();
+    void fetchSearchIndex().then(() => {
+      if (dialog.open) renderResults(input!.value);
+    });
   }
 
   function closePalette() {
     if (!dialog) return;
     dialog.close();
+    input!.setAttribute('aria-expanded', 'false');
+    input!.removeAttribute('aria-activedescendant');
     document.body.style.overflow = '';
   }
 
@@ -432,6 +608,7 @@ export function initCommandPalette() {
     resultsContainer!.replaceChildren();
 
     if (currentFilteredItems.length === 0) {
+      input!.removeAttribute('aria-activedescendant');
       if (emptyState) emptyState.hidden = false;
       return;
     }
@@ -500,6 +677,7 @@ export function initCommandPalette() {
         resultsContainer!.appendChild(itemEl);
       }
     }
+    input!.setAttribute('aria-activedescendant', 'palette-item-0');
   }
 
   function updateActiveIndex(nextIdx: number) {
@@ -513,6 +691,7 @@ export function initCommandPalette() {
       el.classList.toggle('is-selected', isSelected);
       el.setAttribute('aria-selected', String(isSelected));
       if (isSelected) {
+        input!.setAttribute('aria-activedescendant', el.id);
         (el as HTMLElement).scrollIntoView({ block: 'nearest' });
       }
     });
@@ -553,7 +732,9 @@ export function initCommandPalette() {
   // Global key shortcuts: Cmd+K, Ctrl+K, or Slash (/) when not in text input
   function onGlobalKeyDown(e: KeyboardEvent) {
     const target = e.target as HTMLElement | null;
-    const isTyping = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+    const isTyping =
+      target &&
+      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
 
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
