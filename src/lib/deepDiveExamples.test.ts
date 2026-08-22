@@ -6,6 +6,7 @@ import {
   sampleSizeForR2, shrinkageFactor, wilsonInterval,
   cdsLength, cdsPosition, codonOf, complementBase, phylopToP, type Exon,
   likelihoodRatioPositive, oddsPathFor, oddsPathPoints, oddsPathStrength,
+  cancerCellFraction, tumourMutationalBurden,
 } from './deepDiveMath.ts';
 
 /**
@@ -1203,6 +1204,127 @@ describe('data-germline-clinical', () => {
       expect(acmgPosterior(10)).toBeGreaterThan(acmgPosterior(9));
       // ...while real benign evidence lowers it
       expect(acmgPosterior(9 - 4)).toBeLessThan(acmgPosterior(9));
+    });
+  });
+});
+
+describe('data-somatic-oncology', () => {
+  const mdx = lesson('data-somatic-oncology');
+
+  describe('worked example — the same allele fraction, three readings', () => {
+    it('makes VAF 0.31 clonal at 68% purity', () => {
+      expect(cancerCellFraction(0.31, 0.68)).toBeCloseTo(0.9118, 4);
+      expect(mdx).toContain('\\frac{2 \\times 0.31}{0.68} = 0.9118');
+    });
+
+    it('makes VAF 0.11 subclonal in the very same sample', () => {
+      expect(cancerCellFraction(0.11, 0.68)).toBeCloseTo(0.3235, 4);
+      expect(cancerCellFraction(0.11, 0.68)).toBeLessThan(0.5);
+      expect(mdx).toContain('\\frac{2 \\times 0.11}{0.68} = 0.3235');
+    });
+
+    it('overflows past one when the purity is wrong', () => {
+      const bad = cancerCellFraction(0.31, 0.35);
+      expect(bad).toBeCloseTo(1.7714, 4);
+      expect(bad).toBeGreaterThan(1);
+      expect(mdx).toContain('\\frac{2 \\times 0.31}{0.35} = 1.7714');
+    });
+
+    it('separates the two variants by kind, not by a factor of three', () => {
+      // the VAFs differ by <3x; the readings differ across the clonal boundary
+      expect(0.31 / 0.11).toBeLessThan(3);
+      expect(cancerCellFraction(0.31, 0.68)).toBeGreaterThan(0.9);
+      expect(cancerCellFraction(0.11, 0.68)).toBeLessThan(0.4);
+    });
+  });
+
+  describe('figure 1 — one VAF, four purities', () => {
+    it('draws the rays and marks the three computed points', () => {
+      for (const p of [0.35, 0.5, 0.68, 0.85]) {
+        expect(mdx).toContain(`purity ${p.toFixed(2)}`);
+      }
+      expect(mdx).toContain('CCF = 1 — every tumour cell');
+      expect(mdx).toContain('VAF 0.31');
+      // the caption's numbers are the module's
+      expect(mdx).toContain('CCF 0.9118');
+      expect(mdx).toContain('1.7714');
+      expect(mdx).toContain('0.3235');
+    });
+
+    it('keeps every drawn ray inside the plotted CCF range, and the impossible point on it', () => {
+      // The generator's frame. CCF_MAX was 1.6 and clipped the 1.7714 point off the top,
+      // leaving a marker with no ray beneath it; 1.9 puts it on-chart where it argues.
+      const CCF_MAX = 1.9;
+      for (const rho of [0.35, 0.5, 0.68, 0.85]) {
+        const xEnd = Math.min(0.6, (CCF_MAX * rho) / 2);
+        expect(cancerCellFraction(xEnd, rho)).toBeLessThanOrEqual(CCF_MAX + 1e-9);
+      }
+      // the lowest-purity ray must actually reach VAF 0.31, or its marker floats
+      expect(Math.min(0.6, (CCF_MAX * 0.35) / 2)).toBeGreaterThan(0.31);
+      expect(cancerCellFraction(0.31, 0.35)).toBeLessThan(CCF_MAX);
+    });
+  });
+
+  describe('copy number moves the answer', () => {
+    it('turns clonal into subclonal under loss of heterozygosity', () => {
+      const loh = cancerCellFraction(0.31, 0.68, 1, 1);
+      expect(loh).toBeCloseTo(0.6018, 4);
+      expect(loh).toBeLessThan(cancerCellFraction(0.31, 0.68));
+      // the intermediate the prose shows
+      expect(0.68 * 1 + (1 - 0.68) * 2).toBeCloseTo(1.32, 12);
+      expect(mdx).toContain('\\frac{1.32}{0.68} = 0.6018');
+    });
+  });
+
+  describe('worked example — a burden the panel cannot measure', () => {
+    it('gives 8.9385 mut/Mb on the exome', () => {
+      expect(tumourMutationalBurden(320, 35.8)).toBeCloseTo(8.9385, 4);
+      expect(mdx).toContain('\\frac{320}{35.8} = 8.9385');
+    });
+
+    it('gives a panel interval that straddles the clinical threshold', () => {
+      const ci = poissonCI(11, 0.95);
+      expect(ci.lower).toBeCloseTo(5.49, 2);
+      expect(ci.upper).toBeCloseTo(19.68, 2);
+      const lo = tumourMutationalBurden(ci.lower, 1.1);
+      const hi = tumourMutationalBurden(ci.upper, 1.1);
+      expect(lo).toBeCloseTo(4.99, 2);
+      expect(hi).toBeCloseTo(17.89, 2);
+      expect(lo).toBeLessThan(10);
+      expect(hi).toBeGreaterThan(10);
+      expect(mdx).toContain('[5.49,\\; 19.68]');
+      expect(mdx).toContain('[4.99,\\; 17.89]');
+    });
+
+    it('has the panel point estimate land on the far side of the threshold', () => {
+      expect(tumourMutationalBurden(11, 1.1)).toBeCloseTo(10, 12);
+    });
+  });
+
+  describe('exercise 1 — low purity is not subclonality', () => {
+    it('is clonal at 0.9048 despite a VAF of 0.19', () => {
+      expect(cancerCellFraction(0.19, 0.42)).toBeCloseTo(0.9048, 4);
+      expect(mdx).toContain('\\frac{2 \\times 0.19}{0.42} = 0.9048');
+    });
+
+    it('matches the worked example on CCF while differing on VAF', () => {
+      // the same clonal variant reads as 0.19 here and ~0.31 at 68% purity
+      expect(cancerCellFraction(0.19, 0.42)).toBeCloseTo(cancerCellFraction(0.31, 0.68), 1);
+    });
+  });
+
+  describe('exercise 3 — how much panel would TMB need', () => {
+    it('needs a 9.60 Mb footprint for a 20% half-width', () => {
+      const lambda = (1.96 / 0.2) ** 2;
+      expect(lambda).toBeCloseTo(96.04, 2);
+      expect(lambda / 10).toBeCloseTo(9.6, 2);
+      expect(mdx).toContain('\\right)^2 = 96.04');
+      expect(mdx).toContain('9.60');
+    });
+
+    it('leaves a 1.1 Mb panel at a 59% half-width', () => {
+      expect((1.96 / Math.sqrt(11)) * 100).toBeCloseTo(59, 0);
+      expect(mdx).toContain('1.96/\\sqrt{11} = 59\\%');
     });
   });
 });

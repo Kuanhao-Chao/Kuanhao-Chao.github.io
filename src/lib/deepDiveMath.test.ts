@@ -21,6 +21,7 @@ import {
   stoufferMeta, variantScores, wakefieldAbf, waldRatio, weightedMedian, weightedMedianMr,
   winnersCurseExpectation, zThreshold, haldaneMorgans, kosambiMorgans, driftVariance,
   likelihoodRatioPositive, oddsPathFor, oddsPathPoints, oddsPathStrength,
+  cancerCellFraction, tumourMutationalBurden,
 } from './deepDiveMath.ts';
 
 /**
@@ -1618,5 +1619,71 @@ describe('predictor output as evidence', () => {
     for (const s of ['supporting', 'moderate', 'strong', 'very-strong'] as const) {
       expect(oddsPathStrength(oddsPathFor(s))).toBe(s);
     }
+  });
+});
+
+describe('cancerCellFraction', () => {
+  it('returns the VAF doubled at full purity in a diploid locus', () => {
+    // With no normal contamination, a heterozygous variant in every tumour cell is VAF 0.5.
+    expect(cancerCellFraction(0.5, 1)).toBeCloseTo(1, 12);
+    expect(cancerCellFraction(0.25, 1)).toBeCloseTo(0.5, 12);
+  });
+
+  it('inverts the forward model exactly, for any purity and copy state', () => {
+    // Round trip: build a VAF from a known CCF, then recover it.
+    const vafFrom = (ccf: number, p: number, cnT: number, m: number) =>
+      (p * ccf * m) / (p * cnT + (1 - p) * 2);
+    for (const p of [0.3, 0.55, 0.68, 0.9]) {
+      for (const [cnT, m] of [[2, 1], [1, 1], [3, 2], [4, 1]] as const) {
+        for (const ccf of [0.2, 0.5, 1]) {
+          expect(cancerCellFraction(vafFrom(ccf, p, cnT, m), p, cnT, m)).toBeCloseTo(ccf, 10);
+        }
+      }
+    }
+  });
+
+  it('scales inversely with purity, so a diluted sample reads lower', () => {
+    const a = cancerCellFraction(0.31, 0.68);
+    const b = cancerCellFraction(0.31, 0.34);
+    expect(b / a).toBeCloseTo(2, 9); // halving purity doubles the inferred fraction
+  });
+
+  it('can exceed one, which is the diagnostic rather than a bug', () => {
+    expect(cancerCellFraction(0.31, 0.35)).toBeGreaterThan(1);
+  });
+
+  it('gives a lower fraction under loss of heterozygosity at the same VAF', () => {
+    // One tumour copy rather than two: the same reads imply fewer mutated cells.
+    expect(cancerCellFraction(0.31, 0.68, 1, 1)).toBeLessThan(cancerCellFraction(0.31, 0.68));
+  });
+
+  it('rejects impossible inputs', () => {
+    expect(() => cancerCellFraction(1.2, 0.5)).toThrow();
+    expect(() => cancerCellFraction(0.3, 0)).toThrow();
+    expect(() => cancerCellFraction(0.3, 0.5, 2, 0)).toThrow();
+  });
+});
+
+describe('tumourMutationalBurden', () => {
+  it('is a rate, so the footprint is what it is sensitive to', () => {
+    expect(tumourMutationalBurden(320, 35.8)).toBeCloseTo(8.9385, 4);
+    // the same count on a tenth of the footprint is ten times the burden
+    expect(tumourMutationalBurden(320, 3.58)).toBeCloseTo(89.385, 3);
+    expect(() => tumourMutationalBurden(10, 0)).toThrow();
+  });
+
+  it('is far less certain on a small panel, because the count is Poisson', () => {
+    // 1.1 Mb panel at a true burden of 10 sees ~11 mutations; the interval on that count
+    // spans the clinical threshold in both directions.
+    const ci = poissonCI(11, 0.95);
+    const lo = tumourMutationalBurden(ci.lower, 1.1);
+    const hi = tumourMutationalBurden(ci.upper, 1.1);
+    expect(lo).toBeLessThan(10);
+    expect(hi).toBeGreaterThan(10);
+    // a 35.8 Mb exome at the same burden is far tighter, relatively
+    const wide = poissonCI(358, 0.95);
+    expect((hi - lo) / 10).toBeGreaterThan(
+      (tumourMutationalBurden(wide.upper, 35.8) - tumourMutationalBurden(wide.lower, 35.8)) / 10
+    );
   });
 });
