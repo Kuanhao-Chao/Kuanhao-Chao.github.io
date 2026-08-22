@@ -43,6 +43,7 @@ import WorkedExample from '../../components/deepdive/WorkedExample.astro';
 import Exercise from '../../components/deepdive/Exercise.astro';
 import Figure from '../../components/deepdive/Figure.astro';
 import Citation from '../../components/deepdive/Citation.astro';
+import Widget from '../../components/deepdive/Widget.astro';
 
 ## The question this lesson answers
 
@@ -325,6 +326,13 @@ tenfold — which in a real programme means a collapse in effective population s
 inbreeding that follows.
 
 </WorkedExample>
+
+<Widget
+  kind="selection"
+  title="Truncation selection, with the two dials that set the response"
+  alt="An interactive plot of a normal phenotype distribution with the selected upper tail shaded, and a second dashed curve showing the offspring distribution shifted by the predicted response. Controls set heritability and the selected fraction; a readout gives the truncation point, selection intensity, differential, response, and the cumulative response after ten generations."
+  caption="The worked example with both dials free. Two things repay a minute. Hold the selected fraction at the top 10% and sweep heritability from 0.1 to 0.9: the shaded tail never moves, because who breeds does not depend on h² — only how much of their advantage survives does. Then fix h² and tighten the fraction, and watch the response curve flatten: the truncation point runs off to the right much faster than the intensity grows, which is the diminishing return the table above tabulates."
+/>
 
 ## Why the equation over-promises
 
