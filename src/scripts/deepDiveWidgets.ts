@@ -776,8 +776,9 @@ const selection: Renderer = (canvas, controlHost, readoutHost) => {
       curve(density(shift), { stroke: ACCENT, 'stroke-width': 2, 'stroke-dasharray': '7 4' })
     );
 
-    // Label heights are chosen to miss the two curves: the outer rules get their text
-    // near the top where the densities are already low, the inner ones near the axis.
+    // Label heights are staggered so the four rules' texts cannot stack, and every one
+    // carries a background halo because no fixed height clears both densities at every
+    // setting of the dials.
     const rule = (v: number, text: string, colour: string, dy: number, anchor = 'start') => {
       g.appendChild(
         el('line', {
@@ -797,13 +798,20 @@ const selection: Renderer = (canvas, controlHost, readoutHost) => {
           'font-size': 11,
           'font-weight': 600,
           'text-anchor': anchor,
+          // Four rules and two densities cross this plot, so no label height misses
+          // everything at every setting of the dials. A stroke in the page background
+          // painted under the glyphs lifts the text off whatever it lands on, and stays
+          // correct in both themes; it has to go through `style` because var() does not
+          // resolve inside an SVG presentation attribute.
+          style:
+            'paint-order:stroke;stroke:var(--color-bg,#fff);stroke-width:3.5px;stroke-linejoin:round',
         })
       );
     };
     rule(0, 'population mean', 'currentColor', PLOT.h - 10, 'end');
     rule(cut, `truncation, top ${(prop * 100).toFixed(0)}%`, 'currentColor', PLOT.h - 26);
     rule(i, `mean of the selected: S = ${i.toFixed(2)} SD`, ACCENT, 16, 'end');
-    rule(shift, `offspring mean: R = h²S = ${shift.toFixed(2)} SD`, ACCENT, PLOT.h - 42);
+    rule(shift, `offspring mean: R = h²S = ${shift.toFixed(2)} SD`, ACCENT, PLOT.h - 48);
 
     canvas.replaceChildren(svg);
     readout(readoutHost, [

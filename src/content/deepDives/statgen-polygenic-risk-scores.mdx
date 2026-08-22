@@ -21,6 +21,7 @@ prerequisites:
   - statgen-heritability-greml
 relatedLessons:
   - statgen-linkage-disequilibrium
+  - statgen-blup-genomic-selection
   - data-gwas-summary-stats
 keyEquations:
   - '\mathrm{PRS}_i = \sum_{j=1}^{M} w_j\,G_{ij}'
@@ -259,6 +260,12 @@ infinitesimal model the expected squared correlation between score and phenotype
 $$
 R^2_{\mathrm{PRS}} \;=\; \frac{h^2}{1 + \dfrac{M}{N h^2}}
 $$
+
+This is the same relation the genomic-selection literature writes as
+$r = \sqrt{N h^2/(N h^2 + M_e)}$, with $M_e$ — the number of independent chromosome
+segments — playing the part of $M$ here. The BLUP lesson derives it in that notation; the
+two are one result, and the difference in symbol is a difference in field rather than in
+mathematics.
 
 Two features of this are worth stating plainly. As $N \to \infty$ the accuracy approaches
 $h^2$ and stops — **an additive score cannot explain more variance than the additive
