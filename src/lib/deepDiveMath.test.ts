@@ -5,6 +5,7 @@ import {
   powerFromNcp, sampleSizeForPower, sampleSizeForR2, shrinkageFactor, varianceExplained,
   acmgClassify, acmgPosterior, auprc, auprcBaseline, auroc, chi2Quantile, lnGamma,
   oeUpperBound, poissonCI, regularizedGammaP, spearman, wilsonInterval,
+  cdsLength, cdsPosition, codonOf, complementBase, phylopToP, type Exon,
 } from './deepDiveMath.ts';
 
 /**
@@ -433,5 +434,112 @@ describe('acmgPosterior', () => {
     expect(acmgClassify(0)).toBe('uncertain');
     expect(acmgClassify(-1)).toBe('likely-benign');
     expect(acmgClassify(-7)).toBe('benign');
+  });
+});
+
+describe('transcript coordinates', () => {
+  // A three-exon gene. Everything below is checked against properties of the mapping
+  // rather than against a second copy of the same arithmetic.
+  const exons: Exon[] = [
+    { start: 1000, end: 1300 },
+    { start: 1500, end: 1700 },
+    { start: 2000, end: 2200 },
+  ];
+  const MINUS = { cdsStart: 2150, cdsEnd: 1101 }; // transcript orientation: high -> low
+  const PLUS = { cdsStart: 1101, cdsEnd: 2150 };
+
+  it('gives a coding length that is a whole number of codons', () => {
+    const n = cdsLength(exons, MINUS.cdsStart, MINUS.cdsEnd, '-');
+    expect(n).toBe(552);
+    expect(n % 3).toBe(0);
+  });
+
+  it('measures the same length whichever way the gene is read', () => {
+    expect(cdsLength(exons, PLUS.cdsStart, PLUS.cdsEnd, '+')).toBe(
+      cdsLength(exons, MINUS.cdsStart, MINUS.cdsEnd, '-')
+    );
+  });
+
+  it('maps every coding base to a distinct position, covering 1..n exactly once', () => {
+    // The strongest statement available: the mapping is a bijection onto the CDS.
+    const seen = new Set<number>();
+    for (let g = 1000; g <= 2200; g++) {
+      const c = cdsPosition(g, exons, MINUS.cdsStart, MINUS.cdsEnd, '-');
+      if (c === null) continue;
+      expect(seen.has(c)).toBe(false);
+      seen.add(c);
+    }
+    expect(seen.size).toBe(552);
+    expect(Math.min(...seen)).toBe(1);
+    expect(Math.max(...seen)).toBe(552);
+  });
+
+  it('runs the two strands in opposite directions, position for position', () => {
+    // c_minus(g) + c_plus(g) = n + 1 for every coding base, because one counts up from
+    // the end the other counts down from.
+    const n = 552;
+    for (const g of [1101, 1200, 1300, 1500, 1650, 1700, 2000, 2100, 2150]) {
+      const cm = cdsPosition(g, exons, MINUS.cdsStart, MINUS.cdsEnd, '-')!;
+      const cp = cdsPosition(g, exons, PLUS.cdsStart, PLUS.cdsEnd, '+')!;
+      expect(cm + cp).toBe(n + 1);
+    }
+  });
+
+  it('starts numbering at the first coding base and ends at the last', () => {
+    expect(cdsPosition(2150, exons, MINUS.cdsStart, MINUS.cdsEnd, '-')).toBe(1);
+    expect(cdsPosition(1101, exons, MINUS.cdsStart, MINUS.cdsEnd, '-')).toBe(552);
+  });
+
+  it('returns null outside the coding sequence, including in the introns', () => {
+    for (const g of [999, 1100, 1400, 1850, 2151, 2201]) {
+      expect(cdsPosition(g, exons, MINUS.cdsStart, MINUS.cdsEnd, '-')).toBeNull();
+    }
+  });
+
+  it('skips introns rather than counting through them', () => {
+    // Adjacent coding bases either side of an intron must be adjacent in c. space.
+    const a = cdsPosition(1500, exons, MINUS.cdsStart, MINUS.cdsEnd, '-')!;
+    const b = cdsPosition(1300, exons, MINUS.cdsStart, MINUS.cdsEnd, '-')!;
+    expect(b - a).toBe(1);
+  });
+
+  it('partitions the CDS into codons of exactly three bases', () => {
+    const counts = new Map<number, number>();
+    for (let c = 1; c <= 552; c++) {
+      const { codon, offset } = codonOf(c);
+      expect(offset).toBeGreaterThanOrEqual(1);
+      expect(offset).toBeLessThanOrEqual(3);
+      counts.set(codon, (counts.get(codon) ?? 0) + 1);
+    }
+    expect(counts.size).toBe(184);
+    for (const n of counts.values()) expect(n).toBe(3);
+  });
+
+  it('complements bases as an involution, and rejects anything else', () => {
+    for (const b of ['A', 'C', 'G', 'T', 'N']) {
+      expect(complementBase(complementBase(b))).toBe(b);
+    }
+    expect(complementBase('A')).toBe('T');
+    expect(complementBase('c')).toBe('g');
+    expect(() => complementBase('X')).toThrow();
+  });
+});
+
+describe('phylopToP', () => {
+  it('inverts a base-10 logarithm', () => {
+    expect(phylopToP(2)).toBeCloseTo(0.01, 12);
+    expect(phylopToP(3)).toBeCloseTo(0.001, 12);
+    expect(phylopToP(0)).toBeCloseTo(1, 12);
+  });
+
+  it('treats acceleration and conservation as equally significant', () => {
+    // The sign says which direction; the magnitude says how surprising.
+    expect(phylopToP(-2.5)).toBeCloseTo(phylopToP(2.5), 15);
+  });
+
+  it('round-trips against the score that produced it', () => {
+    for (const s of [0.5, 1, 2.3, 4, 7.5]) {
+      expect(-Math.log10(phylopToP(s))).toBeCloseTo(s, 12);
+    }
   });
 });

@@ -4,6 +4,7 @@ import {
   acmgClassify, acmgPosterior, expectedR2, falconerACE, ldHalfLife, ldMeasures,
   liabilityScale, normalPdf, normalQuantile, oeUpperBound, poissonCI,
   sampleSizeForR2, shrinkageFactor, wilsonInterval,
+  cdsLength, cdsPosition, codonOf, complementBase, phylopToP, type Exon,
 } from './deepDiveMath.ts';
 
 /**
@@ -555,6 +556,148 @@ describe('data-population-frequency', () => {
       expect(mdx).toContain('AN = 480,000');
       expect(mdx).toContain('gnomAD v4.1.1');
       expect(mdx).toContain('a 3,000-person cohort');
+    });
+  });
+});
+
+describe('data-reference-annotation', () => {
+  const mdx = lesson('data-reference-annotation');
+
+  // The gene model the page and its figure both use.
+  const EXONS: Exon[] = [
+    { start: 1000, end: 1300 },
+    { start: 1500, end: 1700 },
+    { start: 2000, end: 2200 },
+  ];
+  const VARIANT = 1650;
+
+  describe('worked example — one position, three answers', () => {
+    it('has a coding length of 552, which is 184 whole codons', () => {
+      const n = cdsLength(EXONS, 2150, 1101, '-');
+      expect(n).toBe(552);
+      expect(n / 3).toBe(184);
+      expect(mdx).toContain('151 + 201 + 200 = 552');
+      expect(mdx).toContain('184$ codons');
+    });
+
+    it('puts the variant at c.202, codon 68, under the MANE transcript', () => {
+      const c = cdsPosition(VARIANT, EXONS, 2150, 1101, '-')!;
+      expect(c).toBe(202);
+      expect(codonOf(c).codon).toBe(68);
+      expect(mdx).toContain('c. = 151 + 51 = 202');
+      expect(mdx).toContain('\\lceil 202/3 \\rceil = 68');
+    });
+
+    it('puts it at c.351, codon 117, if the strand is ignored', () => {
+      const c = cdsPosition(VARIANT, EXONS, 1101, 2150, '+')!;
+      expect(c).toBe(351);
+      expect(codonOf(c).codon).toBe(117);
+      expect(mdx).toContain('200 + 151 = c.351');
+      expect(mdx).toContain('codon 117');
+    });
+
+    it('puts it at c.51, codon 17, under the shorter isoform', () => {
+      const c = cdsPosition(VARIANT, EXONS, 1700, 1101, '-')!;
+      expect(c).toBe(51);
+      expect(codonOf(c).codon).toBe(17);
+      expect(mdx).toContain('c.51, codon 17');
+    });
+
+    it('reports the exon boundaries in c. space that the derivation states', () => {
+      expect(cdsPosition(2150, EXONS, 2150, 1101, '-')).toBe(1);
+      expect(cdsPosition(2000, EXONS, 2150, 1101, '-')).toBe(151);
+      expect(cdsPosition(1700, EXONS, 2150, 1101, '-')).toBe(152);
+      expect(cdsPosition(1500, EXONS, 2150, 1101, '-')).toBe(352);
+      expect(mdx).toContain('c.1\\text{–}c.151');
+      expect(mdx).toContain('c.152\\text{–}c.352');
+    });
+  });
+
+  describe('figure 1 — the three readings', () => {
+    it('draws exactly the c. positions and codons the module computes', () => {
+      const rows: [number, number, '+' | '-', number, number][] = [
+        [2150, 1101, '-', 202, 68],
+        [1101, 2150, '+', 351, 117],
+        [1700, 1101, '-', 51, 17],
+      ];
+      for (const [hi, lo, strand, c, codon] of rows) {
+        expect(cdsPosition(VARIANT, EXONS, hi, lo, strand)).toBe(c);
+        expect(codonOf(c).codon).toBe(codon);
+        // the label the Python generator drew, asserted from the TypeScript side
+        expect(mdx).toContain(`c.${c} \u00b7 codon ${codon}`);
+      }
+    });
+  });
+
+  describe('worked example — why conservation alone cannot prioritise', () => {
+    const GENOME = 3.1e9;
+    const CONSTRAINED = 0.035;
+
+    it('turns phyloP 2.0 into p = 0.01', () => {
+      expect(phylopToP(2)).toBeCloseTo(0.01, 12);
+      expect(mdx).toContain('10^{-2.0} = 0.01');
+    });
+
+    it('expects 3.1e7 bases to pass by chance', () => {
+      expect(GENOME * phylopToP(2)).toBeCloseTo(3.1e7, 0);
+      expect(mdx).toContain('3.1 \\times 10^7');
+    });
+
+    it('puts the constrained set at 1.085e8 bases', () => {
+      expect(GENOME * CONSTRAINED).toBeCloseTo(1.085e8, 0);
+      expect(mdx).toContain('1.085 \\times 10^8');
+    });
+
+    it('bounds precision at 0.778 even under the most generous assumption', () => {
+      const tp = GENOME * CONSTRAINED;
+      const fp = GENOME * phylopToP(2);
+      expect(tp / (tp + fp)).toBeCloseTo(0.778, 3);
+      expect(mdx).toContain('= 0.778');
+      // and the complement the prose quotes
+      expect(Math.round((1 - tp / (tp + fp)) * 100)).toBe(22);
+      expect(mdx).toContain('Twenty-two per cent');
+    });
+  });
+
+  describe('exercise 1 — number another base', () => {
+    it('gives c.453, the third base of codon 151', () => {
+      const c = cdsPosition(1200, EXONS, 2150, 1101, '-')!;
+      expect(c).toBe(453);
+      const { codon, offset } = codonOf(c);
+      expect(codon).toBe(151);
+      expect(offset).toBe(3);
+      expect(453).toBe(3 * 151); // exactly, which is what makes it a wobble base
+      expect(mdx).toContain('c. = 352 + 101 = 453');
+      expect(mdx).toContain('\\lceil 453/3 \\rceil = 151');
+    });
+  });
+
+  describe('exercise 2 — the alleles flip too', () => {
+    it('complements the VCF alleles into the coding description', () => {
+      expect(complementBase('A')).toBe('T');
+      expect(complementBase('G')).toBe('C');
+      expect(mdx).toContain('c.202T>C');
+      expect(mdx).toContain('c.202A>G');
+    });
+  });
+
+  describe('exercise 3 — what threshold would you need', () => {
+    it('needs p = 3.226e-4, i.e. phyloP 3.49', () => {
+      const p = 1e6 / 3.1e9;
+      expect(p).toBeCloseTo(3.226e-4, 7);
+      expect(-Math.log10(p)).toBeCloseTo(3.49, 2);
+      // and the round trip through the module agrees
+      expect(3.1e9 * phylopToP(-Math.log10(p))).toBeCloseTo(1e6, 6);
+      expect(mdx).toContain('3.226 \\times 10^{-4}');
+      expect(mdx).toContain('= 3.49');
+    });
+  });
+
+  describe('GENCODE 50 figures quoted in the prose', () => {
+    it('states a transcript-per-gene ratio consistent with the counts', () => {
+      expect(278_455 / 19_442).toBeCloseTo(14.3, 1);
+      expect(mdx).toContain('19,442 protein-coding genes carrying 278,455 protein-coding');
+      expect(mdx).toContain('14.3 transcripts per gene');
     });
   });
 });

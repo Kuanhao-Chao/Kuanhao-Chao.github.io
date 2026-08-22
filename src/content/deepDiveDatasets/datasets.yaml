@@ -91,3 +91,140 @@ hgdp:
     Small, but sampled for breadth rather than for disease, which makes it the reference
     that shows what a frequency looks like outside the handful of well-sequenced groups.
   verified: 2026-08-21
+
+# ── Layer 1 · Reference assemblies, annotation and conservation ───────────────
+#
+# `version` is set only where it was actually confirmed against the source. An omitted
+# version is an honest gap, not an oversight — a guessed release number is worse than none,
+# because it looks checked.
+
+grch38:
+  name: GRCh38
+  fullName: Genome Reference Consortium Human Build 38
+  layer: reference-annotation
+  url: https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000001405.40/
+  version: GRCh38.p14
+  scale: "~3.1 Gb primary assembly; 24 chromosomes plus unplaced scaffolds and alt loci"
+  access: open
+  note: >-
+    Still the coordinate system essentially all clinical and population resources are
+    published in, which is why it remains the default despite being demonstrably incomplete.
+  verified: 2026-08-21
+
+t2t-chm13:
+  name: T2T-CHM13
+  fullName: Telomere-to-Telomere CHM13 human reference
+  layer: reference-annotation
+  url: https://github.com/marbl/CHM13
+  version: v2.0
+  scale: "3.117 Gb gapless; adds ~200 Mb of sequence absent or misassembled in GRCh38"
+  access: open
+  citationId: nurk2022t2t
+  note: >-
+    Complete through centromeres, acrocentric short arms and segmental duplications. One
+    haplotype from one hydatidiform mole, so it is a complete genome, not a diverse one.
+  verified: 2026-08-21
+
+hprc:
+  name: HPRC pangenome
+  fullName: Human Pangenome Reference Consortium draft reference
+  layer: reference-annotation
+  url: https://humanpangenome.org/
+  scale: "47 diploid assemblies (94 haplotypes) in the draft release"
+  access: open
+  citationId: liao2023pangenome
+  note: >-
+    A graph rather than a string. Recovers variants that a single linear reference cannot
+    represent, at the cost of tooling that most pipelines do not yet speak.
+  verified: 2026-08-21
+
+gencode:
+  name: GENCODE
+  fullName: GENCODE gene annotation
+  layer: reference-annotation
+  url: https://www.gencodegenes.org/human/
+  version: Release 50
+  scale: "78,733 genes (19,442 protein-coding); 644,292 transcripts, 278,455 protein-coding"
+  access: open
+  citationId: frankish2021gencode
+  note: >-
+    The annotation Ensembl ships and most sequence models are trained against. Its
+    transcript count is the reason a c. coordinate needs an accession beside it.
+  verified: 2026-08-21
+
+ensembl:
+  name: Ensembl
+  fullName: Ensembl genome browser and annotation
+  layer: reference-annotation
+  url: https://www.ensembl.org/
+  scale: "Vertebrate and non-vertebrate genomes; ENST/ENSG identifiers, REST API, BioMart"
+  access: open
+  citationId: dyer2025ensembl
+  verified: 2026-08-21
+
+refseq:
+  name: RefSeq
+  fullName: NCBI Reference Sequence collection
+  layer: reference-annotation
+  url: https://www.ncbi.nlm.nih.gov/refseq/
+  scale: "Curated NM_/NP_ transcripts and proteins across all domains of life"
+  access: open
+  citationId: oleary2016refseq
+  note: >-
+    The other half of the annotation split. RefSeq and Ensembl disagree about transcript
+    boundaries often enough that MANE exists to reconcile them.
+  verified: 2026-08-21
+
+mane:
+  name: MANE
+  fullName: Matched Annotation from NCBI and EMBL-EBI
+  layer: reference-annotation
+  url: https://www.ncbi.nlm.nih.gov/refseq/MANE/
+  version: v1.5
+  released: 2026-03-09
+  scale: "One agreed MANE Select transcript per protein-coding gene, plus MANE Plus Clinical"
+  access: open
+  citationId: morales2022mane
+  note: >-
+    A RefSeq and an Ensembl transcript that are identical base for base across the CDS and
+    the UTRs, so a c. coordinate means the same thing on both sides.
+  verified: 2026-08-21
+
+dbsnp:
+  name: dbSNP
+  fullName: NCBI Database of Single Nucleotide Polymorphisms
+  layer: reference-annotation
+  url: https://www.ncbi.nlm.nih.gov/snp/
+  scale: "The rs-identifier namespace for human variation"
+  access: open
+  citationId: sherry2001dbsnp
+  note: >-
+    An rs number is an identifier, not an assertion: it records that someone submitted the
+    variant, and says nothing about frequency, quality or consequence.
+  verified: 2026-08-21
+
+ucsc:
+  name: UCSC Genome Browser
+  fullName: UCSC Genome Browser and Table Browser
+  layer: reference-annotation
+  url: https://genome.ucsc.edu/
+  scale: "Whole-genome alignments and conservation tracks (phyloP, phastCons) over 100+ species"
+  access: open
+  citationId: kent2002ucsc
+  note: >-
+    Also the home of liftOver, which is where most cross-assembly coordinate errors are
+    introduced and where they can be caught.
+  verified: 2026-08-21
+
+zoonomia:
+  name: Zoonomia
+  fullName: Zoonomia comparative genomics resource
+  layer: reference-annotation
+  url: https://zoonomiaproject.org/
+  scale: "241 placental mammal genomes aligned; per-base constraint over ~3.5% of the genome"
+  access: open
+  citationId: christmas2023zoonomia
+  note: >-
+    Deep enough phylogeny to resolve constraint at single-base resolution, which shallower
+    alignments cannot do.
+  verified: 2026-08-21
