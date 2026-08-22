@@ -2681,3 +2681,72 @@ kurki2023finngen:
   venue: "Nature 613:508-518"
   doi: https://doi.org/10.1038/s41586-022-05473-8
   verified: 2026-08-21
+
+# ── Module 1 · Mathematical foundations ───────────────────────────────────────
+
+
+wilks1938lrt:
+  authors: ['S. S. Wilks']
+  year: 1938
+  title: "The Large-Sample Distribution of the Likelihood Ratio for Testing Composite Hypotheses"
+  venue: "The Annals of Mathematical Statistics 9:60-62"
+  doi: https://doi.org/10.1214/aoms/1177732360
+  verified: 2026-08-21
+
+wald1943:
+  authors: ['Abraham Wald']
+  year: 1943
+  title: "Tests of statistical hypotheses concerning several parameters when the number of observations is large"
+  venue: "Transactions of the American Mathematical Society 54:426-482"
+  doi: https://doi.org/10.1090/S0002-9947-1943-0012401-3
+  verified: 2026-08-21
+
+rao1948score:
+  authors: ['C. Radhakrishna Rao']
+  year: 1948
+  title: "Large sample tests of statistical hypotheses concerning several parameters with applications to problems of estimation"
+  venue: "Mathematical Proceedings of the Cambridge Philosophical Society 44:50-57"
+  doi: https://doi.org/10.1017/S0305004100023987
+  verified: 2026-08-21
+
+efron1978information:
+  authors: ['Bradley Efron', 'David V. Hinkley']
+  year: 1978
+  title: "Assessing the accuracy of the maximum likelihood estimator: Observed versus expected Fisher information"
+  venue: "Biometrika 65:457-483"
+  doi: https://doi.org/10.1093/biomet/65.3.457
+  verified: 2026-08-21
+
+buse1982trinity:
+  authors: ['A. Buse']
+  year: 1982
+  title: "The Likelihood Ratio, Wald, and Lagrange Multiplier Tests: An Expository Note"
+  venue: "The American Statistician 36:153-157"
+  doi: https://doi.org/10.1080/00031305.1982.10482817
+  verified: 2026-08-21
+
+# ── Module 1 · Mathematical foundations ───────────────────────────────────────
+
+self1987boundary:
+  authors: ['Steven G. Self', 'Kung-Yee Liang']
+  year: 1987
+  title: "Asymptotic Properties of Maximum Likelihood Estimators and Likelihood Ratio Tests under Nonstandard Conditions"
+  venue: "Journal of the American Statistical Association 82:605-610"
+  doi: https://doi.org/10.1080/01621459.1987.10478472
+  verified: 2026-08-21
+
+peer2008threshold:
+  authors: ['Itsik Pe''er', 'Roman Yelensky', 'David Altshuler', 'Mark J. Daly']
+  year: 2008
+  title: "Estimation of the multiple testing burden for genomewide association studies of nearly all common variants"
+  venue: "Genetic Epidemiology 32:381-385"
+  doi: https://doi.org/10.1002/gepi.20303
+  verified: 2026-08-21
+
+dudbridge2008threshold:
+  authors: ['Frank Dudbridge', 'Arief Gusnanto']
+  year: 2008
+  title: "Estimation of significance thresholds for genomewide association scans"
+  venue: "Genetic Epidemiology 32:227-234"
+  doi: https://doi.org/10.1002/gepi.20297
+  verified: 2026-08-21

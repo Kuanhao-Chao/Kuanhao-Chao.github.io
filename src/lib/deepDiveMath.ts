@@ -1792,6 +1792,81 @@ function lnChoose(n: number, k: number): number {
   return lnGamma(n + 1) - lnGamma(k + 1) - lnGamma(n - k + 1);
 }
 
+export interface ContingencyTests {
+  /** Cell counts expected under independence, in the same a, b, c, d order. */
+  expected: [number, number, number, number];
+  oddsRatio: number;
+  logOddsRatio: number;
+  /** Woolf's standard error for the log odds ratio. */
+  seLogOddsRatio: number;
+  /** (log OR / SE)² — the fit under the alternative only. */
+  wald: number;
+  /** Pearson's χ² — which *is* the score test for this model. */
+  score: number;
+  /** The deviance G² = 2 Σ O log(O/E) — the likelihood-ratio statistic. */
+  lrt: number;
+}
+
+/**
+ * The Wald, score and likelihood-ratio tests for one 2 × 2 table, all on 1 df.
+ *
+ *      exposed   unexposed
+ *   +  a         b
+ *   -  c         d
+ *
+ * Written here rather than three times across the association lessons, because the point
+ * these tests make in the curriculum is that they are three readings of a single
+ * log-likelihood — the logistic model for the table with its intercept profiled out — and
+ * that they agree only asymptotically.
+ *
+ * Two classical identities are what make the table worth using as the teaching example,
+ * and `deepDiveMath.test.ts` proves both against a numerical profile likelihood rather
+ * than restating them:
+ *
+ *   - the **score** statistic is exactly Pearson's χ²;
+ *   - the **likelihood ratio** is exactly the deviance G² = 2 Σ O log(O/E).
+ *
+ * So three tests students meet under three unrelated names are one construction applied
+ * three ways. The Wald form is the odd one out: it alone depends on the scale the
+ * parameter is written in, which is why it is the one that misbehaves.
+ */
+export function contingencyTests(a: number, b: number, c: number, d: number): ContingencyTests {
+  for (const v of [a, b, c, d]) {
+    if (!(v > 0) || !Number.isFinite(v)) {
+      throw new RangeError('contingencyTests needs four positive cell counts');
+    }
+  }
+  const n = a + b + c + d;
+  const observed = [a, b, c, d];
+  const expected: [number, number, number, number] = [
+    ((a + b) * (a + c)) / n,
+    ((a + b) * (b + d)) / n,
+    ((c + d) * (a + c)) / n,
+    ((c + d) * (b + d)) / n,
+  ];
+
+  const oddsRatio = (a * d) / (b * c);
+  const logOddsRatio = Math.log(oddsRatio);
+  const seLogOddsRatio = Math.sqrt(1 / a + 1 / b + 1 / c + 1 / d);
+
+  let score = 0;
+  let lrt = 0;
+  for (let i = 0; i < 4; i++) {
+    score += (observed[i] - expected[i]) ** 2 / expected[i];
+    lrt += observed[i] * Math.log(observed[i] / expected[i]);
+  }
+
+  return {
+    expected,
+    oddsRatio,
+    logOddsRatio,
+    seLogOddsRatio,
+    wald: (logOddsRatio / seLogOddsRatio) ** 2,
+    score,
+    lrt: 2 * lrt,
+  };
+}
+
 /**
  * One-sided Fisher exact p-value for enrichment in a 2×2 table
  *
