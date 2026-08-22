@@ -12,6 +12,7 @@ import {
   colocPosteriors,
   fisherExactP, foldEnrichment,
   ivwMeta, winnersCurseExpectation, zThreshold, normalCdf,
+  chi2Quantile, regularizedGammaP, solveLinear, matMul, transpose, contingencyTests,
 } from './deepDiveMath.ts';
 
 /**
@@ -33,6 +34,278 @@ const lesson = (id: string) => readFileSync(`src/content/deepDives/${id}.mdx`, '
  * `deepDiveMath.test.ts`; this file's job is to tie its output to the published text.
  */
 const ld = ldMeasures;
+
+describe('statgen-mathematical-foundations', () => {
+  const mdx = lesson('statgen-mathematical-foundations');
+  const chi2Tail = (x: number) => 1 - regularizedGammaP(0.5, x / 2);
+
+  // The binomial log-likelihood the lesson derives the machinery on, written out here
+  // rather than imported so the test proves the algebra rather than restating it.
+  const loglik = (k: number, n: number, p: number) => k * Math.log(p) + (n - k) * Math.log(1 - p);
+  const fisherInfo = (n: number, p: number) => n / (p * (1 - p));
+  const binomialTrinity = (k: number, n: number, p0: number) => {
+    const ph = k / n;
+    return {
+      ph,
+      wald: (ph - p0) ** 2 * fisherInfo(n, ph),
+      score: (ph - p0) ** 2 * fisherInfo(n, p0),
+      lrt: 2 * (loglik(k, n, ph) - loglik(k, n, p0)),
+    };
+  };
+
+  describe('worked example — one 2 x 2 table through all three tests', () => {
+    const t = contingencyTests(80, 20, 40, 60);
+
+    it('states the table and its margins', () => {
+      for (const s of ['| **cases** | 80 | 20 | 100 |',
+                       '| **controls** | 40 | 60 | 100 |',
+                       '| **total** | 120 | 80 | 200 |']) {
+        expect(mdx).toContain(s);
+      }
+    });
+
+    it('estimates the log odds ratio in closed form', () => {
+      expect(t.oddsRatio).toBeCloseTo(6, 12);
+      expect(t.logOddsRatio).toBeCloseTo(1.791759, 6);
+      expect(mdx).toContain('\\log 6 = 1.791759');
+    });
+
+    it("gives Woolf's standard error and the Wald statistic", () => {
+      expect(1 / 80 + 1 / 20 + 1 / 40 + 1 / 60).toBeCloseTo(0.1041667, 7);
+      expect(t.seLogOddsRatio).toBeCloseTo(0.322749, 6);
+      expect(t.logOddsRatio / t.seLogOddsRatio).toBeCloseTo(5.551564, 6);
+      expect(t.wald).toBeCloseTo(30.8199, 4);
+      expect(mdx).toContain('\\sqrt{0.1041667} = 0.322749');
+      expect(mdx).toContain('5.551564^2 = 30.8199');
+    });
+
+    it("gives the score statistic, which is exactly Pearson's chi-square", () => {
+      expect(t.expected).toEqual([60, 40, 60, 40]);
+      // Pearson computed independently of the module
+      const pearson = [[80, 60], [20, 40], [40, 60], [60, 40]]
+        .reduce((acc, [o, e]) => acc + (o - e) ** 2 / e, 0);
+      expect(pearson).toBeCloseTo(100 / 3, 10);
+      expect(t.score).toBeCloseTo(pearson, 10);
+      expect(mdx).toContain('E = (60, 40, 60, 40)');
+      expect(mdx).toContain('6.666667 + 10 + 6.666667 + 10 = 33.3333');
+    });
+
+    it('gives the likelihood ratio, which is exactly the deviance G^2', () => {
+      const terms = [[80, 60], [20, 40], [40, 60], [60, 40]].map(([o, e]) => o * Math.log(o / e));
+      expect(terms[0]).toBeCloseTo(23.014566, 6);
+      expect(terms[1]).toBeCloseTo(-13.862944, 6);
+      expect(terms[2]).toBeCloseTo(-16.218604, 6);
+      expect(terms[3]).toBeCloseTo(24.327906, 6);
+      const half = terms.reduce((a, b) => a + b, 0);
+      expect(half).toBeCloseTo(17.260924, 6);
+      expect(t.lrt).toBeCloseTo(2 * half, 10);
+      expect(t.lrt).toBeCloseTo(34.5218, 4);
+      for (const s of ['80(0.287682)', '20(-0.693147)', '40(-0.405465)', '60(0.405465)',
+                       '23.014566 - 13.862944 - 16.218604 + 24.327906',
+                       '2 \\times 17.260924 = 34.5218']) {
+        expect(mdx).toContain(s);
+      }
+    });
+
+    it('reads all three against chi-square on one degree of freedom', () => {
+      expect(chi2Tail(t.lrt)).toBeCloseTo(4.215e-9, 12);
+      expect(chi2Tail(t.score)).toBeCloseTo(7.764e-9, 12);
+      expect(chi2Tail(t.wald)).toBeCloseTo(2.831e-8, 11);
+      for (const s of ['4.215\\times10^{-9}', '7.764\\times10^{-9}', '2.831\\times10^{-8}']) {
+        expect(mdx).toContain(s);
+      }
+    });
+
+    it('spans a factor of 6.7 in p-value, as the lesson claims', () => {
+      const ratio = chi2Tail(t.wald) / chi2Tail(t.lrt);
+      expect(ratio).toBeCloseTo(6.7, 1);
+      // a regex, not toContain: the phrase wraps across a line in the prose
+      expect(mdx).toMatch(/a factor\s+of 6\.7/);
+    });
+
+    it('orders them LRT > score > Wald here, the reverse of the usual claim', () => {
+      expect(t.lrt).toBeGreaterThan(t.score);
+      expect(t.score).toBeGreaterThan(t.wald);
+      expect(mdx).toContain('This table gives $\\Lambda > S > W$');
+    });
+
+    it('separates by 12 percent, the figure caption’s number', () => {
+      const spread = t.lrt / t.wald - 1;
+      expect(Math.round(spread * 100)).toBe(12);
+      expect(mdx).toContain('differ here by 12 percent');
+    });
+  });
+
+  describe('figure 1 — the three tests as distances on one curve', () => {
+    const t = contingencyTests(80, 20, 40, 60);
+
+    it('labels the same three statistics the worked example computes', () => {
+      for (const [label, value] of [['LRT = 34.5218', t.lrt],
+                                    ['score = 33.3333', t.score],
+                                    ['Wald = 30.8199', t.wald]] as const) {
+        expect(value).toBeCloseTo(Number(label.split('= ')[1]), 4);
+        expect(mdx).toContain(label);
+      }
+    });
+
+    it('marks the MLE at log 6 = 1.7918', () => {
+      expect(t.logOddsRatio).toBeCloseTo(1.7918, 4);
+      expect(mdx).toContain('MLE: β = log 6 = 1.7918');
+    });
+  });
+
+  describe('worked example — solving the normal equations by hand', () => {
+    const X = [[1, 1], [1, 2], [1, 3], [1, 4]];
+    const y = [2.1, 3.9, 6.2, 7.8];
+    const Xt = transpose(X);
+    const XtX = matMul(Xt, X);
+    const Xty = matMul(Xt, y.map((v) => [v])).map((r) => r[0]);
+
+    it('assembles the cross-products the lesson tabulates', () => {
+      expect(XtX).toEqual([[4, 10], [10, 30]]);
+      expect(Xty[0]).toBeCloseTo(20.0, 12);
+      expect(Xty[1]).toBeCloseTo(59.7, 12);
+      expect(mdx).toContain('\\begin{pmatrix} 4 & 10 \\\\ 10 & 30 \\end{pmatrix}');
+      expect(mdx).toContain('\\begin{pmatrix} 20.0 \\\\ 59.7 \\end{pmatrix}');
+    });
+
+    it('has determinant 20', () => {
+      expect(XtX[0][0] * XtX[1][1] - XtX[0][1] * XtX[1][0]).toBe(20);
+      expect(mdx).toContain('4(30) - 10(10) = 20');
+    });
+
+    it('solves to beta = (0.15, 1.94)', () => {
+      const beta = solveLinear(XtX, Xty);
+      expect(beta[0]).toBeCloseTo(0.15, 10);
+      expect(beta[1]).toBeCloseTo(1.94, 10);
+      // Cramer's rule, the route the lesson actually walks
+      expect((30 * 20.0 - 10 * 59.7) / 20).toBeCloseTo(0.15, 10);
+      expect((4 * 59.7 - 10 * 20.0) / 20).toBeCloseTo(1.94, 10);
+      expect(mdx).toContain('\\frac{600 - 597}{20} = 0.15');
+      expect(mdx).toContain('\\frac{238.8 - 200}{20} = 1.94');
+      expect(mdx).toContain('(0.15,\\, 1.94)');
+    });
+  });
+
+  describe('the genome-wide threshold, and figure 2', () => {
+    const fwer = (m: number, a: number) => 1 - (1 - a) ** m;
+
+    it('is Bonferroni over a million effectively independent tests', () => {
+      expect(0.05 / 1e6).toBeCloseTo(5e-8, 20);
+      expect(mdx).toContain('5\\times 10^{-8}');
+    });
+
+    it('has the chi-square and |z| critical values the lesson quotes', () => {
+      const crit = chi2Quantile(1 - 5e-8, 1);
+      expect(crit).toBeCloseTo(29.7168, 3);
+      expect(Math.sqrt(crit)).toBeCloseTo(5.4513, 3);
+      expect(mdx).toContain('29.7168');
+      expect(mdx).toContain('|z| = 5.4513');
+    });
+
+    it('spends 0.0488 of the 0.05 at a million tests — the figure’s marked point', () => {
+      expect(fwer(1e6, 5e-8)).toBeCloseTo(0.048771, 6);
+      expect(mdx).toContain('the risk is 0.0488');
+      expect(mdx).toContain('still at 0.0488 after a million');
+    });
+
+    it('reaches near-certainty by a hundred tests at 0.05, as the caption says', () => {
+      expect(fwer(100, 0.05)).toBeGreaterThan(0.99);
+      expect(mdx).toContain('near-certainty by a hundred tests');
+    });
+  });
+
+  describe('exercise 1 — the same three tests, closer to the null', () => {
+    it('(a) merges the three for a weak 2 x 2 table', () => {
+      const w = contingencyTests(240, 760, 200, 800);
+      expect(w.expected).toEqual([220, 780, 220, 780]);
+      expect(w.oddsRatio).toBeCloseTo(1.2632, 4);
+      expect(w.logOddsRatio).toBeCloseTo(0.233615, 6);
+      expect(w.seLogOddsRatio).toBeCloseTo(0.108316, 6);
+      expect(w.wald).toBeCloseTo(4.6517, 4);
+      expect(w.score).toBeCloseTo(4.6620, 4);
+      expect(w.lrt).toBeCloseTo(4.6671, 4);
+      expect(chi2Tail(w.score)).toBeCloseTo(0.031, 3);
+      for (const s of ['E = (220, 780, 220, 780)', '1.2632', '0.233615', '0.108316',
+                       'W = 4.6517, \\qquad S = 4.6620, \\qquad \\Lambda = 4.6671',
+                       'p \\approx 0.031']) {
+        expect(mdx).toContain(s);
+      }
+    });
+
+    it('(a) spans 0.3% against 12% in the worked example', () => {
+      const w = contingencyTests(240, 760, 200, 800);
+      const strong = contingencyTests(80, 20, 40, 60);
+      expect((w.lrt / w.wald - 1) * 100).toBeCloseTo(0.3, 1);
+      expect(Math.round((strong.lrt / strong.wald - 1) * 100)).toBe(12);
+      expect(mdx).toContain('span 0.3% of their own size, against 12%');
+    });
+
+    it('(b) recomputes the binomial trinity at k = 20', () => {
+      const t = binomialTrinity(20, 50, 0.5);
+      expect(fisherInfo(50, 0.4)).toBeCloseTo(208.3333, 4);
+      expect(t.wald).toBeCloseTo(2.083333, 6);
+      expect(t.score).toBeCloseTo(2.0, 12);
+      expect(t.lrt).toBeCloseTo(2.013551, 6);
+      for (const s of ['208.3333', '208.3333 = 2.0833', '\\frac{0.01}{0.005} = 2.0000',
+                       '= 2.0136']) {
+        expect(mdx).toContain(s);
+      }
+    });
+
+    it('(b) reverses the ordering the 2 x 2 table gave — the point of the exercise', () => {
+      const table = contingencyTests(240, 760, 200, 800);
+      const binom = binomialTrinity(20, 50, 0.5);
+      expect(table.lrt).toBeGreaterThan(table.score);
+      expect(table.score).toBeGreaterThan(table.wald);
+      expect(binom.wald).toBeGreaterThan(binom.lrt);
+      expect(binom.lrt).toBeGreaterThan(binom.score);
+      expect(mdx).toContain('Part (a) gives $\\Lambda > S > W$; part (b) gives $W > \\Lambda > S$');
+    });
+  });
+
+  describe('exercise 2 — thresholds for two study designs', () => {
+    it('gives the exome-wide threshold and its critical value', () => {
+      expect(0.05 / 20000).toBeCloseTo(2.5e-6, 18);
+      expect(chi2Quantile(1 - 0.05 / 20000, 1)).toBeCloseTo(22.1665, 3);
+      expect(mdx).toContain('2.50\\times10^{-6}');
+      expect(mdx).toContain('22.1665');
+    });
+
+    it('is fifty times looser than genome-wide, as the solution says', () => {
+      expect((0.05 / 20000) / (0.05 / 1e6)).toBeCloseTo(50, 10);
+      expect(mdx).toContain('fifty times looser');
+    });
+
+    it('holds family-wise error at 0.001 if the genome-wide value is used instead', () => {
+      expect(5e-8 * 20000).toBeCloseTo(1e-3, 12);
+      expect(mdx).toContain('0.001 rather than');
+    });
+  });
+
+  describe('exercise 3 — a variance component at the boundary', () => {
+    const LAMBDA = 2.7055;
+
+    it('gives 0.1000 naively and 0.0500 under the Self-Liang mixture', () => {
+      expect(chi2Tail(LAMBDA)).toBeCloseTo(0.1, 4);
+      expect(0.5 * chi2Tail(LAMBDA)).toBeCloseTo(0.05, 4);
+      expect(mdx).toContain('p = 0.1000');
+      expect(mdx).toContain('0.1000 = 0.0500');
+    });
+
+    it('makes 2.7055 the 90th percentile of chi-square, not the 95th', () => {
+      expect(chi2Quantile(0.9, 1)).toBeCloseTo(2.7055, 4);
+      expect(chi2Quantile(0.95, 1)).toBeCloseTo(3.8415, 4);
+      expect(mdx).toContain('2.7055, not 3.8415');
+      expect(mdx).toContain('rather than the 95th percentile, 3.8415');
+    });
+
+    it('errs conservatively — the naive p-value is the larger one', () => {
+      expect(chi2Tail(LAMBDA)).toBeGreaterThan(0.5 * chi2Tail(LAMBDA));
+      expect(mdx).toContain('is *larger* than the correct one');
+    });
+  });
+});
 
 describe('statgen-linkage-disequilibrium', () => {
   const mdx = lesson('statgen-linkage-disequilibrium');

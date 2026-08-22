@@ -1,0 +1,667 @@
+---
+title: "Mathematical Foundations: Likelihood, Least Squares & the Three Classical Tests"
+shortTitle: Mathematical Foundations
+description: "The statistical machinery every later lesson assumes: the likelihood and its first two derivatives, the Wald, score and likelihood-ratio tests and why they disagree, least squares as a projection, where the genome-wide threshold comes from, and the two places the asymptotics break."
+abstract: "Mixed models, LD score regression, fine-mapping and Mendelian randomisation look like four unrelated machines. They are four arrangements of the same three parts: a likelihood, a test of whether a parameter is zero, and a rule for turning the answer into a decision. This lesson assembles those parts once, on data small enough to check by hand. It derives the score and the information from a single log-likelihood, runs one 2 × 2 case-control table through the Wald, score and likelihood-ratio tests — where two of the three turn out to be Pearson’s χ² and the deviance under different names — recovers least squares as both a projection and a maximum-likelihood estimate, explains why the genome-wide threshold is 5 × 10⁻⁸ rather than 0.05, and ends at the two boundaries — sparse counts and parameters on the edge of their space — where every approximation here stops being true."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m01-foundations
+moduleLabel: Module 1 · Mathematical Foundations
+order: 1
+level: foundational
+objectives:
+  - "Write down a log-likelihood, differentiate it twice, and identify the score and the Fisher information."
+  - "Derive the Wald, score and likelihood-ratio statistics for one hypothesis and explain what each one measures on the likelihood surface."
+  - "Recognise Pearson's chi-square and the deviance as the score and likelihood-ratio tests for a 2 x 2 table."
+  - "Say which of the three a given genetics method uses, and why that choice follows from what is expensive to compute."
+  - "Solve the normal equations for a small design and state the two senses in which least squares is optimal."
+  - "Explain where the 5 × 10⁻⁸ genome-wide threshold comes from and what would change it."
+  - "Identify the two situations — sparse counts and a parameter on the boundary — where the chi-square approximation fails, and state the correction for each."
+prerequisites: []
+relatedLessons:
+  - statgen-heritability-greml
+keyEquations:
+  - 'U(\theta) = \frac{\partial \ell}{\partial \theta}, \qquad \mathcal{I}(\theta) = -\mathbb{E}\!\left[\frac{\partial^2 \ell}{\partial \theta^2}\right]'
+  - 'W = (\hat\theta - \theta_0)^2\,\mathcal{I}(\hat\theta), \quad S = \frac{U(\theta_0)^2}{\mathcal{I}(\theta_0)}, \quad \Lambda = 2\big[\ell(\hat\theta) - \ell(\theta_0)\big]'
+  - '\hat{\boldsymbol{\beta}} = (\mathbf{X}^{\!\top}\mathbf{X})^{-1}\mathbf{X}^{\!\top}\mathbf{y}'
+referenceIds:
+  - fisher1922likelihood
+  - wilks1938lrt
+  - wald1943
+  - rao1948score
+  - efron1978information
+  - buse1982trinity
+  - self1987boundary
+  - peer2008threshold
+  - dudbridge2008threshold
+tags: [likelihood, maximum likelihood, hypothesis testing, Wald test, score test, likelihood ratio test, least squares, multiple testing]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The rest of this curriculum is a sequence of specific machines. A mixed model that absorbs
+relatedness into a variance component. A regression of $\chi^2$ statistics on LD scores. A
+Bayes factor computed over a fine-mapping region. A ratio of two association estimates that
+claims to be causal. They are introduced separately, they carry different names, and they
+appear to have nothing to do with one another.
+
+They are four arrangements of the same three parts:
+
+1. a **likelihood** — a function that says how well each candidate value of a parameter
+   explains the data;
+2. a **test** — a way of asking whether some parameter is zero, of which there are exactly
+   three classical answers;
+3. a **decision rule** — a way of turning that answer into a number you are allowed to act
+   on, which in this field means surviving a million simultaneous tests.
+
+This lesson assembles those parts once, on data small enough to check by hand, so that the
+later lessons can use them without stopping to re-derive them. It is the only lesson in the
+series with no genetics in it, which is deliberate: the statistics is hard enough to learn
+without simultaneously learning what a haplotype is.
+
+<Notation
+  rows={[
+    { symbol: '\\mathbf{y}', meaning: 'Observed data', dims: 'n × 1' },
+    { symbol: '\\theta,\\;\\theta_0', meaning: 'A parameter, and the value the null hypothesis asserts', dims: 'scalar' },
+    { symbol: 'L(\\theta),\\;\\ell(\\theta)', meaning: 'Likelihood and log-likelihood of θ given the data', dims: 'scalar' },
+    { symbol: '\\hat\\theta', meaning: 'Maximum-likelihood estimate — the θ that maximises ℓ', dims: 'scalar' },
+    { symbol: 'U(\\theta)', meaning: 'Score: the first derivative of ℓ', dims: 'per unit of θ' },
+    { symbol: 'J(\\theta)', meaning: 'Observed information: minus the second derivative of ℓ', dims: 'per unit² of θ' },
+    { symbol: '\\mathcal{I}(\\theta)', meaning: 'Fisher information: the expectation of J over repeated samples', dims: 'per unit² of θ' },
+    { symbol: 'W,\\;S,\\;\\Lambda', meaning: 'Wald, score and likelihood-ratio statistics', dims: 'χ² on d df' },
+    { symbol: '\\mathbf{X},\\;\\boldsymbol{\\beta}', meaning: 'Design matrix and its coefficient vector', dims: 'n × p, p × 1' },
+    { symbol: '\\mathbf{H}', meaning: 'Hat matrix X(XᵀX)⁻¹Xᵀ — the projection onto the column space of X', dims: 'n × n' },
+    { symbol: 'a,\\;b,\\;c,\\;d', meaning: 'Cell counts of a 2 x 2 table, rows cases then controls', dims: 'counts' },
+    { symbol: 'O_i,\\;E_i', meaning: 'Observed and independence-expected count in cell i', dims: 'counts' },
+    { symbol: 'M_{\\mathrm{eff}}', meaning: 'Number of effectively independent tests in a genome scan', dims: 'count' },
+  ]}
+/>
+
+## Likelihood: one function and its first two derivatives
+
+Write $L(\theta) = \Pr(\mathbf{y} \mid \theta)$ — the probability of the data you actually
+saw, read as a function of the parameter rather than of the data. Maximising it is the
+estimation principle <Citation id="fisher1922likelihood" /> introduced, and it is the one
+this curriculum uses almost everywhere. Work with the logarithm, because products of
+independent observations become sums:
+
+$$
+\ell(\theta) = \log L(\theta)
+$$
+
+Everything else is a derivative of this one function. The **score** is its slope,
+
+$$
+U(\theta) = \frac{\partial \ell}{\partial \theta}
+$$
+
+and the maximum-likelihood estimate $\hat\theta$ is where that slope is zero. The
+**observed information** is minus its curvature, $J(\theta) = -\partial^2\ell/\partial\theta^2$,
+and the **Fisher information** is what that curvature averages to over repeated samples,
+$\mathcal{I}(\theta) = \mathbb{E}[J(\theta)]$. The central asymptotic result is that in
+large samples
+
+$$
+\hat\theta \;\sim\; \mathcal{N}\!\left(\theta,\; \mathcal{I}(\theta)^{-1}\right)
+$$
+
+so information is literally the inverse of variance: a sharply peaked log-likelihood is a
+precise estimate, a flat one is not.
+
+<Callout variant="intuition" title="Information is curvature, and curvature is precision">
+
+Picture the log-likelihood as a hill whose summit is the estimate. If the hill is a narrow
+spike, moving the parameter even slightly makes the data much less probable — the data have
+pinned the parameter down, and the standard error is small. If it is a broad plateau, a wide
+range of parameter values explains the data about equally well, and the standard error is
+large. The second derivative measures exactly that narrowness. This is why the standard
+error printed beside every GWAS effect size is $1/\sqrt{\mathcal{I}}$: it is a statement
+about the shape of a hill you never see.
+
+</Callout>
+
+Do this once concretely, because the same three quantities reappear in every later lesson.
+For $k$ successes in $n$ independent trials with success probability $p$:
+
+$$
+\ell(p) = k\log p + (n-k)\log(1-p)
+$$
+
+$$
+U(p) = \frac{k}{p} - \frac{n-k}{1-p},
+\qquad
+J(p) = \frac{k}{p^2} + \frac{n-k}{(1-p)^2},
+\qquad
+\mathcal{I}(p) = \frac{n}{p(1-p)}
+$$
+
+Setting $U(p) = 0$ gives $\hat p = k/n$, which is the answer you would have written down
+anyway. The point is not the answer; it is that the machinery produced it, and that the same
+machinery will produce answers in situations where intuition has nothing to offer.
+
+Note that $J$ and $\mathcal{I}$ differ: the first depends on the data through $k$, the second
+does not. Which to use for a standard error is a real question, and
+<Citation id="efron1978information" /> showed that the observed information is generally the
+better choice — it is conditional on the sample you have rather than on samples you did not
+take.
+
+## Three tests, one hypothesis
+
+To test $H_0: \theta = \theta_0$ you need to compare the null against the fit. There are
+three ways to measure the distance, and they use different parts of the same curve.
+
+**The Wald test** <Citation id="wald1943" /> measures the horizontal distance between
+$\hat\theta$ and $\theta_0$, scaled by the curvature at the estimate:
+
+$$
+W = (\hat\theta - \theta_0)^2 \, \mathcal{I}(\hat\theta)
+$$
+
+**The score test** <Citation id="rao1948score" /> never fits the alternative at all. It
+stands at the null and asks how steep the likelihood is there — if $\theta_0$ were correct,
+the slope should be near zero:
+
+$$
+S = \frac{U(\theta_0)^2}{\mathcal{I}(\theta_0)}
+$$
+
+**The likelihood-ratio test** <Citation id="wilks1938lrt" /> measures the vertical drop
+between the two heights:
+
+$$
+\Lambda = 2\big[\ell(\hat\theta) - \ell(\theta_0)\big]
+$$
+
+All three converge to $\chi^2_d$ under the null, where $d$ is the number of restrictions.
+<Citation id="buse1982trinity" /> gives the geometric account the figure below follows.
+
+<Figure
+  caption="Figure 1. The three tests as three vertical distances on one curve. The solid line is the profile deviance for the case-control table below, peaking at the maximum-likelihood estimate; the two broken lines are the parabolas the Wald and score tests implicitly substitute for it. Each statistic is a drop or a rise measured on this single plot: the likelihood ratio takes the drop on the true curve, Wald takes the drop of the parabola fitted at the maximum, and the score test takes the rise of the parabola fitted at the null. They differ here by 12 percent because the effect is large; shrink it and all three converge on the same number."
+  alt="A deviance curve against the log odds ratio, rising from below minus forty at the left to a maximum of zero at beta equals log 6 and falling again. Two broken curves approximate it: a dashed parabola fitted at the maximum and a dotted parabola fitted at the null. Three vertical bars measure, respectively, the drop on the true curve labelled LRT equals 34.5218, the drop of the dashed parabola labelled Wald equals 30.8199, and the rise of the dotted parabola labelled score equals 33.3333."
+  wide
+>
+<svg viewBox="0 0 640 306" width="640" height="306" font-family="inherit"><line x1="86.0" y1="46.0" x2="86.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="86.0" y1="250.0" x2="470.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="86.0" y1="226.0" x2="470.0" y2="226.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="78.0" y="230.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-40</text><line x1="86.0" y1="186.0" x2="470.0" y2="186.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="78.0" y="190.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-30</text><line x1="86.0" y1="146.0" x2="470.0" y2="146.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="78.0" y="150.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-20</text><line x1="86.0" y1="106.0" x2="470.0" y2="106.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="78.0" y="110.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-10</text><line x1="86.0" y1="66.0" x2="470.0" y2="66.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="78.0" y="70.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="146.3" y1="250.0" x2="146.3" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="146.3" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="201.2" y1="250.0" x2="201.2" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="201.2" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.5</text><line x1="256.1" y1="250.0" x2="256.1" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="256.1" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.0</text><line x1="310.9" y1="250.0" x2="310.9" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="310.9" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.5</text><line x1="365.8" y1="250.0" x2="365.8" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="365.8" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2.0</text><line x1="420.6" y1="250.0" x2="420.6" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="420.6" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2.5</text><path d="M118.0,248.6 L119.1,246.8 L120.1,245.0 L121.2,243.3 L122.3,241.5 L123.3,239.8 L124.4,238.0 L125.5,236.3 L126.5,234.5 L127.6,232.8 L128.7,231.1 L129.7,229.4 L130.8,227.7 L131.9,226.0 L132.9,224.4 L134.0,222.7 L135.1,221.0 L136.1,219.4 L137.2,217.8 L138.3,216.1 L139.3,214.5 L140.4,212.9 L141.5,211.3 L142.5,209.7 L143.6,208.1 L144.7,206.5 L145.7,205.0 L146.8,203.4 L147.9,201.9 L148.9,200.3 L150.0,198.8 L151.1,197.3 L152.1,195.8 L153.2,194.3 L154.3,192.8 L155.3,191.3 L156.4,189.8 L157.5,188.4 L158.5,186.9 L159.6,185.5 L160.7,184.0 L161.7,182.6 L162.8,181.2 L163.9,179.8 L164.9,178.4 L166.0,177.0 L167.1,175.6 L168.1,174.2 L169.2,172.8 L170.3,171.5 L171.3,170.1 L172.4,168.8 L173.5,167.5 L174.5,166.1 L175.6,164.8 L176.7,163.5 L177.7,162.2 L178.8,161.0 L179.9,159.7 L180.9,158.4 L182.0,157.2 L183.1,155.9 L184.1,154.7 L185.2,153.4 L186.3,152.2 L187.3,151.0 L188.4,149.8 L189.5,148.6 L190.5,147.4 L191.6,146.2 L192.7,145.1 L193.7,143.9 L194.8,142.8 L195.9,141.6 L196.9,140.5 L198.0,139.4 L199.1,138.3 L200.1,137.1 L201.2,136.1 L202.3,135.0 L203.3,133.9 L204.4,132.8 L205.5,131.8 L206.5,130.7 L207.6,129.7 L208.7,128.6 L209.7,127.6 L210.8,126.6 L211.9,125.6 L212.9,124.6 L214.0,123.6 L215.1,122.6 L216.1,121.6 L217.2,120.7 L218.3,119.7 L219.3,118.8 L220.4,117.8 L221.5,116.9 L222.5,116.0 L223.6,115.1 L224.7,114.2 L225.7,113.3 L226.8,112.4 L227.9,111.5 L228.9,110.7 L230.0,109.8 L231.1,109.0 L232.1,108.1 L233.2,107.3 L234.3,106.5 L235.3,105.6 L236.4,104.8 L237.5,104.0 L238.5,103.3 L239.6,102.5 L240.7,101.7 L241.7,100.9 L242.8,100.2 L243.9,99.4 L244.9,98.7 L246.0,98.0 L247.1,97.3 L248.1,96.6 L249.2,95.8 L250.3,95.2 L251.3,94.5 L252.4,93.8 L253.5,93.1 L254.5,92.5 L255.6,91.8 L256.7,91.2 L257.7,90.5 L258.8,89.9 L259.9,89.3 L260.9,88.7 L262.0,88.1 L263.1,87.5 L264.1,86.9 L265.2,86.3 L266.3,85.8 L267.3,85.2 L268.4,84.7 L269.5,84.1 L270.5,83.6 L271.6,83.1 L272.7,82.5 L273.7,82.0 L274.8,81.5 L275.9,81.0 L276.9,80.5 L278.0,80.1 L279.1,79.6 L280.1,79.1 L281.2,78.7 L282.3,78.2 L283.3,77.8 L284.4,77.4 L285.5,77.0 L286.5,76.6 L287.6,76.2 L288.7,75.8 L289.7,75.4 L290.8,75.0 L291.9,74.6 L292.9,74.3 L294.0,73.9 L295.1,73.6 L296.1,73.2 L297.2,72.9 L298.3,72.6 L299.3,72.3 L300.4,71.9 L301.5,71.6 L302.5,71.4 L303.6,71.1 L304.7,70.8 L305.7,70.5 L306.8,70.3 L307.9,70.0 L308.9,69.8 L310.0,69.5 L311.1,69.3 L312.1,69.1 L313.2,68.9 L314.3,68.7 L315.3,68.5 L316.4,68.3 L317.5,68.1 L318.5,67.9 L319.6,67.8 L320.7,67.6 L321.7,67.5 L322.8,67.3 L323.9,67.2 L324.9,67.0 L326.0,66.9 L327.1,66.8 L328.1,66.7 L329.2,66.6 L330.3,66.5 L331.3,66.4 L332.4,66.4 L333.5,66.3 L334.5,66.2 L335.6,66.2 L336.7,66.1 L337.7,66.1 L338.8,66.1 L339.9,66.0 L340.9,66.0 L342.0,66.0 L343.1,66.0 L344.1,66.0 L345.2,66.0 L346.3,66.0 L347.3,66.1 L348.4,66.1 L349.5,66.1 L350.5,66.2 L351.6,66.2 L352.7,66.3 L353.7,66.4 L354.8,66.4 L355.9,66.5 L356.9,66.6 L358.0,66.7 L359.1,66.8 L360.1,66.9 L361.2,67.1 L362.3,67.2 L363.3,67.3 L364.4,67.4 L365.5,67.6 L366.5,67.7 L367.6,67.9 L368.7,68.1 L369.7,68.2 L370.8,68.4 L371.9,68.6 L372.9,68.8 L374.0,69.0 L375.1,69.2 L376.1,69.4 L377.2,69.6 L378.3,69.9 L379.3,70.1 L380.4,70.4 L381.5,70.6 L382.5,70.9 L383.6,71.1 L384.7,71.4 L385.7,71.7 L386.8,71.9 L387.9,72.2 L388.9,72.5 L390.0,72.8 L391.1,73.1 L392.1,73.4 L393.2,73.7 L394.3,74.1 L395.3,74.4 L396.4,74.7 L397.5,75.1 L398.5,75.4 L399.6,75.8 L400.7,76.2 L401.7,76.5 L402.8,76.9 L403.9,77.3 L404.9,77.7 L406.0,78.1 L407.1,78.5 L408.1,78.9 L409.2,79.3 L410.3,79.7 L411.3,80.1 L412.4,80.6 L413.5,81.0 L414.5,81.4 L415.6,81.9 L416.7,82.3 L417.7,82.8 L418.8,83.3 L419.9,83.7 L420.9,84.2 L422.0,84.7 L423.1,85.2 L424.1,85.7 L425.2,86.2 L426.3,86.7 L427.3,87.2 L428.4,87.7 L429.5,88.3 L430.5,88.8 L431.6,89.3 L432.7,89.9 L433.7,90.4 L434.8,91.0 L435.9,91.5 L436.9,92.1 L438.0,92.7 L439.1,93.2 L440.1,93.8 L441.2,94.4 L442.3,95.0 L443.3,95.6 L444.4,96.2 L445.5,96.8 L446.5,97.4 L447.6,98.0 L448.7,98.7 L449.7,99.3 L450.8,99.9 L451.9,100.6 L452.9,101.2 L454.0,101.9 L455.1,102.5 L456.1,103.2 L457.2,103.9 L458.3,104.5 L459.3,105.2 L460.4,105.9 L461.5,106.6 L462.5,107.3 L463.6,108.0 L464.7,108.7 L465.7,109.4 L466.8,110.1 L467.9,110.8 L468.9,111.5 L470.0,112.3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M103.1,249.5 L104.1,247.9 L105.2,246.3 L106.3,244.7 L107.3,243.1 L108.4,241.5 L109.5,239.9 L110.5,238.3 L111.6,236.7 L112.7,235.1 L113.7,233.6 L114.8,232.0 L115.9,230.5 L116.9,228.9 L118.0,227.4 L119.1,225.9 L120.1,224.3 L121.2,222.8 L122.3,221.3 L123.3,219.8 L124.4,218.3 L125.5,216.9 L126.5,215.4 L127.6,213.9 L128.7,212.4 L129.7,211.0 L130.8,209.5 L131.9,208.1 L132.9,206.7 L134.0,205.2 L135.1,203.8 L136.1,202.4 L137.2,201.0 L138.3,199.6 L139.3,198.2 L140.4,196.8 L141.5,195.5 L142.5,194.1 L143.6,192.7 L144.7,191.4 L145.7,190.0 L146.8,188.7 L147.9,187.4 L148.9,186.1 L150.0,184.7 L151.1,183.4 L152.1,182.1 L153.2,180.8 L154.3,179.5 L155.3,178.3 L156.4,177.0 L157.5,175.7 L158.5,174.5 L159.6,173.2 L160.7,172.0 L161.7,170.7 L162.8,169.5 L163.9,168.3 L164.9,167.1 L166.0,165.9 L167.1,164.7 L168.1,163.5 L169.2,162.3 L170.3,161.1 L171.3,159.9 L172.4,158.8 L173.5,157.6 L174.5,156.5 L175.6,155.3 L176.7,154.2 L177.7,153.1 L178.8,151.9 L179.9,150.8 L180.9,149.7 L182.0,148.6 L183.1,147.5 L184.1,146.4 L185.2,145.4 L186.3,144.3 L187.3,143.2 L188.4,142.2 L189.5,141.1 L190.5,140.1 L191.6,139.1 L192.7,138.0 L193.7,137.0 L194.8,136.0 L195.9,135.0 L196.9,134.0 L198.0,133.0 L199.1,132.0 L200.1,131.0 L201.2,130.1 L202.3,129.1 L203.3,128.2 L204.4,127.2 L205.5,126.3 L206.5,125.3 L207.6,124.4 L208.7,123.5 L209.7,122.6 L210.8,121.7 L211.9,120.8 L212.9,119.9 L214.0,119.0 L215.1,118.2 L216.1,117.3 L217.2,116.4 L218.3,115.6 L219.3,114.7 L220.4,113.9 L221.5,113.1 L222.5,112.2 L223.6,111.4 L224.7,110.6 L225.7,109.8 L226.8,109.0 L227.9,108.2 L228.9,107.5 L230.0,106.7 L231.1,105.9 L232.1,105.2 L233.2,104.4 L234.3,103.7 L235.3,102.9 L236.4,102.2 L237.5,101.5 L238.5,100.8 L239.6,100.1 L240.7,99.4 L241.7,98.7 L242.8,98.0 L243.9,97.3 L244.9,96.6 L246.0,96.0 L247.1,95.3 L248.1,94.7 L249.2,94.0 L250.3,93.4 L251.3,92.8 L252.4,92.1 L253.5,91.5 L254.5,90.9 L255.6,90.3 L256.7,89.7 L257.7,89.2 L258.8,88.6 L259.9,88.0 L260.9,87.4 L262.0,86.9 L263.1,86.3 L264.1,85.8 L265.2,85.3 L266.3,84.7 L267.3,84.2 L268.4,83.7 L269.5,83.2 L270.5,82.7 L271.6,82.2 L272.7,81.7 L273.7,81.3 L274.8,80.8 L275.9,80.3 L276.9,79.9 L278.0,79.4 L279.1,79.0 L280.1,78.6 L281.2,78.2 L282.3,77.7 L283.3,77.3 L284.4,76.9 L285.5,76.5 L286.5,76.1 L287.6,75.8 L288.7,75.4 L289.7,75.0 L290.8,74.7 L291.9,74.3 L292.9,74.0 L294.0,73.6 L295.1,73.3 L296.1,73.0 L297.2,72.7 L298.3,72.4 L299.3,72.1 L300.4,71.8 L301.5,71.5 L302.5,71.2 L303.6,70.9 L304.7,70.7 L305.7,70.4 L306.8,70.2 L307.9,69.9 L308.9,69.7 L310.0,69.5 L311.1,69.2 L312.1,69.0 L313.2,68.8 L314.3,68.6 L315.3,68.4 L316.4,68.2 L317.5,68.1 L318.5,67.9 L319.6,67.7 L320.7,67.6 L321.7,67.4 L322.8,67.3 L323.9,67.2 L324.9,67.0 L326.0,66.9 L327.1,66.8 L328.1,66.7 L329.2,66.6 L330.3,66.5 L331.3,66.4 L332.4,66.4 L333.5,66.3 L334.5,66.2 L335.6,66.2 L336.7,66.1 L337.7,66.1 L338.8,66.1 L339.9,66.0 L340.9,66.0 L342.0,66.0 L343.1,66.0 L344.1,66.0 L345.2,66.0 L346.3,66.0 L347.3,66.1 L348.4,66.1 L349.5,66.1 L350.5,66.2 L351.6,66.2 L352.7,66.3 L353.7,66.4 L354.8,66.4 L355.9,66.5 L356.9,66.6 L358.0,66.7 L359.1,66.8 L360.1,66.9 L361.2,67.1 L362.3,67.2 L363.3,67.3 L364.4,67.5 L365.5,67.6 L366.5,67.8 L367.6,67.9 L368.7,68.1 L369.7,68.3 L370.8,68.5 L371.9,68.7 L372.9,68.9 L374.0,69.1 L375.1,69.3 L376.1,69.5 L377.2,69.7 L378.3,70.0 L379.3,70.2 L380.4,70.5 L381.5,70.7 L382.5,71.0 L383.6,71.3 L384.7,71.6 L385.7,71.8 L386.8,72.1 L387.9,72.4 L388.9,72.8 L390.0,73.1 L391.1,73.4 L392.1,73.7 L393.2,74.1 L394.3,74.4 L395.3,74.8 L396.4,75.1 L397.5,75.5 L398.5,75.9 L399.6,76.2 L400.7,76.6 L401.7,77.0 L402.8,77.4 L403.9,77.8 L404.9,78.3 L406.0,78.7 L407.1,79.1 L408.1,79.6 L409.2,80.0 L410.3,80.5 L411.3,80.9 L412.4,81.4 L413.5,81.9 L414.5,82.4 L415.6,82.8 L416.7,83.3 L417.7,83.9 L418.8,84.4 L419.9,84.9 L420.9,85.4 L422.0,85.9 L423.1,86.5 L424.1,87.0 L425.2,87.6 L426.3,88.2 L427.3,88.7 L428.4,89.3 L429.5,89.9 L430.5,90.5 L431.6,91.1 L432.7,91.7 L433.7,92.3 L434.8,92.9 L435.9,93.6 L436.9,94.2 L438.0,94.8 L439.1,95.5 L440.1,96.1 L441.2,96.8 L442.3,97.5 L443.3,98.2 L444.4,98.8 L445.5,99.5 L446.5,100.2 L447.6,101.0 L448.7,101.7 L449.7,102.4 L450.8,103.1 L451.9,103.9 L452.9,104.6 L454.0,105.4 L455.1,106.1 L456.1,106.9 L457.2,107.7 L458.3,108.4 L459.3,109.2 L460.4,110.0 L461.5,110.8 L462.5,111.6 L463.6,112.5 L464.7,113.3 L465.7,114.1 L466.8,115.0 L467.9,115.8 L468.9,116.7 L470.0,117.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="7 4" opacity=".75"/><path d="M118.0,248.6 L119.1,246.8 L120.1,245.0 L121.2,243.3 L122.3,241.5 L123.3,239.8 L124.4,238.0 L125.5,236.3 L126.5,234.5 L127.6,232.8 L128.7,231.1 L129.7,229.4 L130.8,227.7 L131.9,226.0 L132.9,224.4 L134.0,222.7 L135.1,221.0 L136.1,219.4 L137.2,217.8 L138.3,216.1 L139.3,214.5 L140.4,212.9 L141.5,211.3 L142.5,209.7 L143.6,208.1 L144.7,206.5 L145.7,205.0 L146.8,203.4 L147.9,201.9 L148.9,200.3 L150.0,198.8 L151.1,197.3 L152.1,195.8 L153.2,194.3 L154.3,192.8 L155.3,191.3 L156.4,189.8 L157.5,188.4 L158.5,186.9 L159.6,185.5 L160.7,184.0 L161.7,182.6 L162.8,181.2 L163.9,179.8 L164.9,178.4 L166.0,177.0 L167.1,175.6 L168.1,174.2 L169.2,172.8 L170.3,171.5 L171.3,170.1 L172.4,168.8 L173.5,167.5 L174.5,166.1 L175.6,164.8 L176.7,163.5 L177.7,162.2 L178.8,161.0 L179.9,159.7 L180.9,158.4 L182.0,157.2 L183.1,155.9 L184.1,154.7 L185.2,153.4 L186.3,152.2 L187.3,151.0 L188.4,149.8 L189.5,148.6 L190.5,147.4 L191.6,146.3 L192.7,145.1 L193.7,143.9 L194.8,142.8 L195.9,141.6 L196.9,140.5 L198.0,139.4 L199.1,138.3 L200.1,137.2 L201.2,136.1 L202.3,135.0 L203.3,133.9 L204.4,132.9 L205.5,131.8 L206.5,130.8 L207.6,129.7 L208.7,128.7 L209.7,127.7 L210.8,126.7 L211.9,125.7 L212.9,124.7 L214.0,123.7 L215.1,122.7 L216.1,121.7 L217.2,120.8 L218.3,119.8 L219.3,118.9 L220.4,118.0 L221.5,117.0 L222.5,116.1 L223.6,115.2 L224.7,114.3 L225.7,113.4 L226.8,112.6 L227.9,111.7 L228.9,110.8 L230.0,110.0 L231.1,109.2 L232.1,108.3 L233.2,107.5 L234.3,106.7 L235.3,105.9 L236.4,105.1 L237.5,104.3 L238.5,103.5 L239.6,102.8 L240.7,102.0 L241.7,101.3 L242.8,100.5 L243.9,99.8 L244.9,99.1 L246.0,98.4 L247.1,97.7 L248.1,97.0 L249.2,96.3 L250.3,95.6 L251.3,94.9 L252.4,94.3 L253.5,93.6 L254.5,93.0 L255.6,92.4 L256.7,91.7 L257.7,91.1 L258.8,90.5 L259.9,89.9 L260.9,89.3 L262.0,88.8 L263.1,88.2 L264.1,87.6 L265.2,87.1 L266.3,86.5 L267.3,86.0 L268.4,85.5 L269.5,85.0 L270.5,84.5 L271.6,84.0 L272.7,83.5 L273.7,83.0 L274.8,82.6 L275.9,82.1 L276.9,81.6 L278.0,81.2 L279.1,80.8 L280.1,80.4 L281.2,79.9 L282.3,79.5 L283.3,79.1 L284.4,78.8 L285.5,78.4 L286.5,78.0 L287.6,77.7 L288.7,77.3 L289.7,77.0 L290.8,76.6 L291.9,76.3 L292.9,76.0 L294.0,75.7 L295.1,75.4 L296.1,75.1 L297.2,74.8 L298.3,74.6 L299.3,74.3 L300.4,74.1 L301.5,73.8 L302.5,73.6 L303.6,73.4 L304.7,73.2 L305.7,72.9 L306.8,72.8 L307.9,72.6 L308.9,72.4 L310.0,72.2 L311.1,72.1 L312.1,71.9 L313.2,71.8 L314.3,71.6 L315.3,71.5 L316.4,71.4 L317.5,71.3 L318.5,71.2 L319.6,71.1 L320.7,71.0 L321.7,71.0 L322.8,70.9 L323.9,70.9 L324.9,70.8 L326.0,70.8 L327.1,70.8 L328.1,70.8 L329.2,70.8 L330.3,70.8 L331.3,70.8 L332.4,70.8 L333.5,70.8 L334.5,70.9 L335.6,70.9 L336.7,71.0 L337.7,71.0 L338.8,71.1 L339.9,71.2 L340.9,71.3 L342.0,71.4 L343.1,71.5 L344.1,71.6 L345.2,71.8 L346.3,71.9 L347.3,72.1 L348.4,72.2 L349.5,72.4 L350.5,72.6 L351.6,72.8 L352.7,73.0 L353.7,73.2 L354.8,73.4 L355.9,73.6 L356.9,73.8 L358.0,74.1 L359.1,74.3 L360.1,74.6 L361.2,74.8 L362.3,75.1 L363.3,75.4 L364.4,75.7 L365.5,76.0 L366.5,76.3 L367.6,76.6 L368.7,77.0 L369.7,77.3 L370.8,77.7 L371.9,78.0 L372.9,78.4 L374.0,78.8 L375.1,79.1 L376.1,79.5 L377.2,79.9 L378.3,80.4 L379.3,80.8 L380.4,81.2 L381.5,81.6 L382.5,82.1 L383.6,82.6 L384.7,83.0 L385.7,83.5 L386.8,84.0 L387.9,84.5 L388.9,85.0 L390.0,85.5 L391.1,86.0 L392.1,86.5 L393.2,87.1 L394.3,87.6 L395.3,88.2 L396.4,88.8 L397.5,89.3 L398.5,89.9 L399.6,90.5 L400.7,91.1 L401.7,91.7 L402.8,92.4 L403.9,93.0 L404.9,93.6 L406.0,94.3 L407.1,94.9 L408.1,95.6 L409.2,96.3 L410.3,97.0 L411.3,97.7 L412.4,98.4 L413.5,99.1 L414.5,99.8 L415.6,100.5 L416.7,101.3 L417.7,102.0 L418.8,102.8 L419.9,103.5 L420.9,104.3 L422.0,105.1 L423.1,105.9 L424.1,106.7 L425.2,107.5 L426.3,108.3 L427.3,109.2 L428.4,110.0 L429.5,110.8 L430.5,111.7 L431.6,112.6 L432.7,113.4 L433.7,114.3 L434.8,115.2 L435.9,116.1 L436.9,117.0 L438.0,118.0 L439.1,118.9 L440.1,119.8 L441.2,120.8 L442.3,121.7 L443.3,122.7 L444.4,123.7 L445.5,124.7 L446.5,125.7 L447.6,126.7 L448.7,127.7 L449.7,128.7 L450.8,129.7 L451.9,130.8 L452.9,131.8 L454.0,132.9 L455.1,133.9 L456.1,135.0 L457.2,136.1 L458.3,137.2 L459.3,138.3 L460.4,139.4 L461.5,140.5 L462.5,141.6 L463.6,142.8 L464.7,143.9 L465.7,145.1 L466.8,146.3 L467.9,147.4 L468.9,148.6 L470.0,149.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 4" opacity=".75"/><line x1="146.3" y1="250.0" x2="146.3" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".28" stroke-dasharray="3 3"/><line x1="342.9" y1="250.0" x2="342.9" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".28" stroke-dasharray="3 3"/><text x="342.9" y="38.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">MLE: β = log 6 = 1.7918</text><text x="151.3" y="38.0" font-size="10.5" fill="currentColor" font-weight="600">null: β = 0</text><line x1="146.3" y1="204.1" x2="146.3" y2="66.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><line x1="142.3" y1="204.1" x2="150.3" y2="204.1" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><line x1="142.3" y1="66.0" x2="150.3" y2="66.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><circle cx="146.3" cy="204.1" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="342.9" cy="66.0" r="4.5" fill="var(--color-accent, #2e6e5e)"/><line x1="113.4" y1="189.3" x2="146.3" y2="189.3" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="2 3"/><line x1="113.4" y1="189.3" x2="113.4" y2="66.0" stroke="currentColor" stroke-width="2" opacity=".75"/><line x1="109.4" y1="189.3" x2="117.4" y2="189.3" stroke="currentColor" stroke-width="2" opacity=".75"/><line x1="109.4" y1="66.0" x2="117.4" y2="66.0" stroke="currentColor" stroke-width="2" opacity=".75"/><circle cx="146.3" cy="189.3" r="3.5" fill="currentColor" opacity=".75"/><line x1="146.3" y1="204.1" x2="329.2" y2="204.1" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="2 3"/><line x1="329.2" y1="204.1" x2="329.2" y2="70.8" stroke="currentColor" stroke-width="2" opacity=".75"/><line x1="325.2" y1="204.1" x2="333.2" y2="204.1" stroke="currentColor" stroke-width="2" opacity=".75"/><line x1="325.2" y1="70.8" x2="333.2" y2="70.8" stroke="currentColor" stroke-width="2" opacity=".75"/><circle cx="329.2" cy="70.8" r="3.5" fill="currentColor" opacity=".75"/><text x="484.0" y="78.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">LRT = 34.5218</text><text x="484.0" y="93.0" font-size="10" fill="currentColor" opacity=".75">the drop on the true curve</text><text x="484.0" y="124.0" font-size="11" fill="currentColor" font-weight="700">score = 33.3333</text><text x="484.0" y="139.0" font-size="10" fill="currentColor" opacity=".75">the rise of the parabola</text><text x="484.0" y="152.0" font-size="10" fill="currentColor" opacity=".75">fitted at the null</text><text x="484.0" y="183.0" font-size="11" fill="currentColor" font-weight="700">Wald = 30.8199</text><text x="484.0" y="198.0" font-size="10" fill="currentColor" opacity=".75">the drop of the parabola</text><text x="484.0" y="211.0" font-size="10" fill="currentColor" opacity=".75">fitted at the MLE</text><text x="278.0" y="292.0" font-size="12" fill="currentColor" text-anchor="middle">Log odds ratio β</text><text x="20.0" y="148.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 148)">Deviance, relative to the maximum</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">One likelihood, three ways of asking how far the null is from its maximum</text></svg>
+</Figure>
+
+<WorkedExample
+  title="One 2 x 2 table through all three tests"
+  given={[
+    { label: 'Cases', value: '80 A / 20 a' },
+    { label: 'Controls', value: '40 A / 60 a' },
+    { label: 'Null', value: 'no association, β = 0' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+The table, with its margins:
+
+|  | allele A | allele a | total |
+| --- | --- | --- | --- |
+| **cases** | 80 | 20 | 100 |
+| **controls** | 40 | 60 | 100 |
+| **total** | 120 | 80 | 200 |
+
+**Step 1 — the estimate.** The model is logistic with the intercept as a nuisance parameter,
+and for a 2 × 2 table the fit is saturated, so the maximum-likelihood estimate of the log
+odds ratio is available in closed form:
+
+$$
+\hat\beta = \log \frac{ad}{bc} = \log \frac{80 \times 60}{20 \times 40} = \log 6 = 1.791759
+$$
+
+**Step 2 — Wald.** Woolf's standard error is built from the reciprocals of the four cells:
+
+$$
+\mathrm{SE}(\hat\beta) = \sqrt{\tfrac{1}{80} + \tfrac{1}{20} + \tfrac{1}{40} + \tfrac{1}{60}}
+= \sqrt{0.1041667} = 0.322749
+$$
+
+$$
+W = \left(\frac{1.791759}{0.322749}\right)^2 = 5.551564^2 = 30.8199
+$$
+
+**Step 3 — score.** Under independence each cell's expectation is its row total times its
+column total over $n$, giving $E = (60, 40, 60, 40)$. The score statistic for this model is
+**exactly Pearson's $\chi^2$** — the same statistic introduced in every first course as an
+unrelated test of a contingency table:
+
+$$
+S = \sum_i \frac{(O_i - E_i)^2}{E_i}
+= \frac{400}{60} + \frac{400}{40} + \frac{400}{60} + \frac{400}{40}
+$$
+
+$$
+= 6.666667 + 10 + 6.666667 + 10 = 33.3333
+$$
+
+**Step 4 — likelihood ratio.** Twice the difference in log-likelihood is **exactly the
+deviance** $G^2 = 2\sum_i O_i \log(O_i/E_i)$:
+
+$$
+\Lambda = 2\big[80(0.287682) + 20(-0.693147) + 40(-0.405465) + 60(0.405465)\big]
+$$
+
+$$
+= 2\big[23.014566 - 13.862944 - 16.218604 + 24.327906\big]
+$$
+
+$$
+= 2 \times 17.260924 = 34.5218
+$$
+
+**Step 5 — read all three against $\chi^2_1$.**
+
+| test | statistic | $p$-value |
+| --- | --- | --- |
+| Likelihood ratio ($G^2$) | 34.5218 | $4.215\times10^{-9}$ |
+| Score (Pearson's $\chi^2$) | 33.3333 | $7.764\times10^{-9}$ |
+| Wald | 30.8199 | $2.831\times10^{-8}$ |
+
+Same table, same hypothesis, same asymptotic distribution — and $p$-values spanning a factor
+of 6.7. All three clear $5\times10^{-8}$, but Wald clears it by less than a factor of two.
+A slightly weaker effect and this variant would be genome-wide significant by one test and
+not by another, with nothing to choose between them but convention.
+
+</WorkedExample>
+
+The identities in steps 3 and 4 are worth pausing on, because they collapse three things
+most readers learned separately. **Pearson's $\chi^2$ is the score test** for the 2 × 2
+table, and **the deviance $G^2$ is the likelihood-ratio test**. They were not invented as
+approximations to each other; they are the same construction read at two points on one
+curve. `deepDiveMath.ts` proves both against a numerically profiled logistic likelihood
+rather than asserting them.
+
+<Callout variant="warning" title="There is no universal ordering of the three">
+
+It is often said that Wald exceeds the likelihood ratio, which exceeds the score test. That
+inequality is a theorem for the *linear* model with normal errors, and it does not carry
+over. This table gives $\Lambda > S > W$ — the reverse. A binomial proportion far from its
+null, as in Exercise 1, gives $W > \Lambda > S$.
+
+The reliable statement is weaker and more useful: the three agree to the precision anyone
+cares about when $\hat\theta$ is close to $\theta_0$, and separate unpredictably in the tail.
+Since genome-wide significance lives entirely in the tail, **which test produced a borderline
+$p$-value is part of the result**, not a footnote to it.
+
+</Callout>
+
+### Which test a method uses, and why
+
+The choice is almost never made on statistical grounds. It is made on what is expensive.
+
+| Test | Needs | Where the curriculum meets it |
+| --- | --- | --- |
+| **Wald** | The fit under the alternative only | The $\hat\beta$ and SE in every GWAS summary-statistics file; confidence intervals; the Wald ratio in Mendelian randomisation |
+| **Score** | The fit under the null only | Genome scans: fit the null model once with all its covariates and its relatedness structure, then test millions of variants cheaply. Also SKAT and burden tests |
+| **Likelihood ratio** | Both fits | Variance-component testing in GREML; comparing nested models where neither fit is expensive |
+
+The score test's advantage is the reason it dominates large-scale association testing. A
+linear mixed model costs a great deal to fit; fitting one per variant across ten million
+variants is not possible. Fitting it *once* under the null and then evaluating a slope at
+each variant is, and that is precisely what a score test evaluates.
+
+<Callout variant="warning" title="The Wald statistic is not invariant, and can move the wrong way">
+
+Two things go wrong with Wald tests specifically, and both have bitten real analyses.
+
+First, it is **not invariant to reparameterisation**. Testing $\beta = 0$ and testing
+$e^{\beta} = 1$ are the same hypothesis, but they give different Wald statistics, because
+the curvature is measured on different scales. The likelihood-ratio test gives the same
+answer either way.
+
+Second, the **Hauck–Donner effect**: as an effect size grows very large, the estimated
+standard error can grow faster than the estimate, so the Wald statistic *decreases* and a
+genuinely enormous effect can fail to reach significance. This appears in logistic
+regression when a variant almost perfectly separates cases from controls — exactly the
+situation with a very rare, very penetrant variant. The likelihood-ratio and score tests are
+untroubled by it.
+
+</Callout>
+
+## The linear model is a projection
+
+The second reusable object is the linear model. Write
+
+$$
+\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \boldsymbol{\varepsilon}
+$$
+
+and choose $\boldsymbol{\beta}$ to minimise $\lVert \mathbf{y} - \mathbf{X}\boldsymbol{\beta} \rVert^2$.
+Differentiating and setting to zero gives the **normal equations**
+
+$$
+\mathbf{X}^{\!\top}\mathbf{X}\,\hat{\boldsymbol{\beta}} = \mathbf{X}^{\!\top}\mathbf{y}
+\qquad\Longrightarrow\qquad
+\hat{\boldsymbol{\beta}} = (\mathbf{X}^{\!\top}\mathbf{X})^{-1}\mathbf{X}^{\!\top}\mathbf{y}
+$$
+
+Two readings of the same formula matter later. **Geometrically**, the fitted values are
+$\hat{\mathbf{y}} = \mathbf{H}\mathbf{y}$ with $\mathbf{H} = \mathbf{X}(\mathbf{X}^{\!\top}\mathbf{X})^{-1}\mathbf{X}^{\!\top}$,
+the orthogonal projection onto the column space of $\mathbf{X}$; the residual is what is
+left over, perpendicular to everything the model can express. **Probabilistically**, if
+$\boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0}, \sigma^2\mathbf{I})$ then the
+log-likelihood is $-\frac{1}{2\sigma^2}\lVert \mathbf{y} - \mathbf{X}\boldsymbol{\beta}\rVert^2$
+plus a constant, so **least squares is maximum likelihood** and the machinery of the
+previous section applies unchanged.
+
+<WorkedExample
+  title="Solving the normal equations by hand"
+  given={[
+    { label: 'Predictor x', value: '1, 2, 3, 4' },
+    { label: 'Response y', value: '2.1, 3.9, 6.2, 7.8' },
+    { label: 'Model', value: 'y = β₀ + β₁x' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — assemble the cross-products.** With an intercept column,
+$\mathbf{X} = [\mathbf{1}, \mathbf{x}]$, so
+
+$$
+\mathbf{X}^{\!\top}\mathbf{X} = \begin{pmatrix} n & \sum x \\ \sum x & \sum x^2 \end{pmatrix}
+= \begin{pmatrix} 4 & 10 \\ 10 & 30 \end{pmatrix},
+\qquad
+\mathbf{X}^{\!\top}\mathbf{y} = \begin{pmatrix} \sum y \\ \sum xy \end{pmatrix}
+= \begin{pmatrix} 20.0 \\ 59.7 \end{pmatrix}
+$$
+
+**Step 2 — invert the 2 × 2.** Its determinant is $4(30) - 10(10) = 20$, so
+
+$$
+(\mathbf{X}^{\!\top}\mathbf{X})^{-1} = \frac{1}{20}\begin{pmatrix} 30 & -10 \\ -10 & 4 \end{pmatrix}
+$$
+
+**Step 3 — solve.**
+
+$$
+\hat\beta_0 = \frac{30(20.0) - 10(59.7)}{20} = \frac{600 - 597}{20} = 0.15
+$$
+
+$$
+\hat\beta_1 = \frac{4(59.7) - 10(20.0)}{20} = \frac{238.8 - 200}{20} = 1.94
+$$
+
+So $\hat{\boldsymbol{\beta}} = (0.15,\, 1.94)$. The slope is the quantity of interest; the
+intercept is a nuisance parameter that had to be estimated anyway, and the $-10$ off-diagonal
+in the inverse is why estimating it changed the slope from what a no-intercept fit would give.
+That off-diagonal is the whole reason covariates matter: **estimates in a linear model are
+not independent of one another**, and the inverse cross-product matrix is the bookkeeping of
+how much each one contaminates the rest.
+
+</WorkedExample>
+
+Everything later is a modification of these normal equations, and it is worth naming the
+modifications now so they are recognisable when they arrive:
+
+- Replace $\mathbf{I}$ with a general covariance $\mathbf{V}$ and you get generalised least
+  squares, which is what a **linear mixed model** solves once $\mathbf{V}$ carries the
+  genetic relatedness.
+- Add a penalty $\lambda\lVert\boldsymbol{\beta}\rVert^2$ and you get **ridge regression**,
+  whose solution $(\mathbf{X}^{\!\top}\mathbf{X} + \lambda\mathbf{I})^{-1}\mathbf{X}^{\!\top}\mathbf{y}$
+  is algebraically the same object as BLUP and as the shrinkage applied to polygenic scores.
+- Replace the normal likelihood with a binomial one and the closed form disappears, but the
+  score and information do not — that is logistic regression, and it is fitted by iterating
+  weighted least squares.
+
+## From a statistic to a decision
+
+A $\chi^2_1$ statistic becomes a $p$-value through the tail of its distribution, and for one
+degree of freedom the relation to the normal is exact: $\chi^2 = z^2$, so
+$p = 2\big[1 - \Phi(|z|)\big]$. This is why summary statistics files sometimes carry $z$,
+sometimes $\chi^2$, and sometimes only $p$ — they are three encodings of one number, and
+LD score regression in a later lesson consumes the $\chi^2$ form directly.
+
+What that number is *not* is the probability that the null hypothesis is true. It is the
+probability of data at least this extreme *if the null were true*. The distinction is not
+pedantry: a $p$-value of $10^{-6}$ in a scan of a million variants is unremarkable, and
+converting it into a belief about the variant requires a prior, which the next section
+supplies.
+
+### Why the threshold is 5 × 10⁻⁸
+
+If you test $M$ independent hypotheses at level $\alpha$, the chance of at least one false
+positive is $1 - (1-\alpha)^M \approx M\alpha$. Holding that family-wise error at 0.05
+requires testing each at $\alpha/M$ — the Bonferroni correction. The genome-wide threshold is
+that arithmetic with a specific $M$:
+
+$$
+\alpha_{\mathrm{GW}} = \frac{0.05}{M_{\mathrm{eff}}} = \frac{0.05}{10^6} = 5\times 10^{-8}
+$$
+
+The number one million is not the number of variants tested, which is far larger. It is the
+number of *effectively independent* tests, and it is smaller than the variant count because
+LD makes neighbouring variants redundant. <Citation id="peer2008threshold" /> estimated it by
+tagging common variants in European samples; <Citation id="dudbridge2008threshold" /> reached
+a compatible figure by permutation. On the $\chi^2_1$ scale the threshold is 29.7168, or
+$|z| = 5.4513$.
+
+<Figure
+  caption="Figure 2. Why the divisor has to be there. Each curve is the chance of at least one false positive against the number of independent tests performed. Testing every variant at 0.05 reaches near-certainty by a hundred tests; testing each at 5 × 10⁻⁸ is still at 0.0488 after a million, which is the 5% the correction was built to spend. The threshold is not a stricter convention — it is the value that makes the family-wise error come out at the level you asked for, and it is only correct for the number of tests it was derived from."
+  alt="A log-scale plot of the chance of at least one false positive against the number of independent tests. A solid curve for a per-test level of 0.05 rises to 1.00 by about a hundred tests. A dashed curve for a per-test level of 5 times ten to the minus eight stays near zero until about a hundred thousand tests and crosses the 5 percent line at one million tests, marked at 0.0488."
+  wide
+>
+<svg viewBox="0 0 640 306" width="640" height="306" font-family="inherit"><line x1="74.0" y1="34.0" x2="74.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="74.0" y1="250.0" x2="600.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="74.0" y1="250.0" x2="600.0" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="66.0" y="254.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="74.0" y1="196.0" x2="600.0" y2="196.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="66.0" y="200.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.25</text><line x1="74.0" y1="142.0" x2="600.0" y2="142.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="66.0" y="146.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.50</text><line x1="74.0" y1="88.0" x2="600.0" y2="88.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="66.0" y="92.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.75</text><line x1="74.0" y1="34.0" x2="600.0" y2="34.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="66.0" y="38.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.00</text><line x1="74.0" y1="250.0" x2="74.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="74.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="149.1" y1="250.0" x2="149.1" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="149.1" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="224.3" y1="250.0" x2="224.3" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="224.3" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1k</text><line x1="299.4" y1="250.0" x2="299.4" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="299.4" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10k</text><line x1="374.6" y1="250.0" x2="374.6" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="374.6" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100k</text><line x1="449.7" y1="250.0" x2="449.7" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="449.7" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1M</text><line x1="524.9" y1="250.0" x2="524.9" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="524.9" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10M</text><line x1="600.0" y1="250.0" x2="600.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="600.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100M</text><line x1="74.0" y1="239.2" x2="600.0" y2="239.2" stroke="currentColor" stroke-width="1.25" opacity=".45" stroke-dasharray="4 4"/><text x="80.0" y="231.2" font-size="10.5" fill="currentColor" opacity=".7">the 5% you meant to spend</text><path d="M74.0,163.3 L76.2,158.8 L78.4,154.1 L80.6,149.3 L82.8,144.4 L85.0,139.4 L87.2,134.3 L89.3,129.1 L91.5,123.8 L93.7,118.5 L95.9,113.1 L98.1,107.8 L100.3,102.5 L102.5,97.3 L104.7,92.1 L106.9,87.0 L109.1,82.1 L111.3,77.3 L113.4,72.7 L115.6,68.4 L117.8,64.3 L120.0,60.4 L122.2,56.8 L124.4,53.5 L126.6,50.5 L128.8,47.8 L131.0,45.4 L133.2,43.3 L135.4,41.5 L137.6,39.9 L139.8,38.6 L141.9,37.5 L144.1,36.7 L146.3,36.0 L148.5,35.4 L150.7,35.0 L152.9,34.7 L155.1,34.5 L157.3,34.3 L159.5,34.2 L161.7,34.1 L163.9,34.1 L166.0,34.0 L168.2,34.0 L170.4,34.0 L172.6,34.0 L174.8,34.0 L177.0,34.0 L179.2,34.0 L181.4,34.0 L183.6,34.0 L185.8,34.0 L188.0,34.0 L190.2,34.0 L192.4,34.0 L194.5,34.0 L196.7,34.0 L198.9,34.0 L201.1,34.0 L203.3,34.0 L205.5,34.0 L207.7,34.0 L209.9,34.0 L212.1,34.0 L214.3,34.0 L216.5,34.0 L218.7,34.0 L220.8,34.0 L223.0,34.0 L225.2,34.0 L227.4,34.0 L229.6,34.0 L231.8,34.0 L234.0,34.0 L236.2,34.0 L238.4,34.0 L240.6,34.0 L242.8,34.0 L245.0,34.0 L247.1,34.0 L249.3,34.0 L251.5,34.0 L253.7,34.0 L255.9,34.0 L258.1,34.0 L260.3,34.0 L262.5,34.0 L264.7,34.0 L266.9,34.0 L269.1,34.0 L271.2,34.0 L273.4,34.0 L275.6,34.0 L277.8,34.0 L280.0,34.0 L282.2,34.0 L284.4,34.0 L286.6,34.0 L288.8,34.0 L291.0,34.0 L293.2,34.0 L295.4,34.0 L297.5,34.0 L299.7,34.0 L301.9,34.0 L304.1,34.0 L306.3,34.0 L308.5,34.0 L310.7,34.0 L312.9,34.0 L315.1,34.0 L317.3,34.0 L319.5,34.0 L321.7,34.0 L323.8,34.0 L326.0,34.0 L328.2,34.0 L330.4,34.0 L332.6,34.0 L334.8,34.0 L337.0,34.0 L339.2,34.0 L341.4,34.0 L343.6,34.0 L345.8,34.0 L348.0,34.0 L350.2,34.0 L352.3,34.0 L354.5,34.0 L356.7,34.0 L358.9,34.0 L361.1,34.0 L363.3,34.0 L365.5,34.0 L367.7,34.0 L369.9,34.0 L372.1,34.0 L374.3,34.0 L376.4,34.0 L378.6,34.0 L380.8,34.0 L383.0,34.0 L385.2,34.0 L387.4,34.0 L389.6,34.0 L391.8,34.0 L394.0,34.0 L396.2,34.0 L398.4,34.0 L400.6,34.0 L402.8,34.0 L404.9,34.0 L407.1,34.0 L409.3,34.0 L411.5,34.0 L413.7,34.0 L415.9,34.0 L418.1,34.0 L420.3,34.0 L422.5,34.0 L424.7,34.0 L426.9,34.0 L429.1,34.0 L431.2,34.0 L433.4,34.0 L435.6,34.0 L437.8,34.0 L440.0,34.0 L442.2,34.0 L444.4,34.0 L446.6,34.0 L448.8,34.0 L451.0,34.0 L453.2,34.0 L455.3,34.0 L457.5,34.0 L459.7,34.0 L461.9,34.0 L464.1,34.0 L466.3,34.0 L468.5,34.0 L470.7,34.0 L472.9,34.0 L475.1,34.0 L477.3,34.0 L479.5,34.0 L481.7,34.0 L483.8,34.0 L486.0,34.0 L488.2,34.0 L490.4,34.0 L492.6,34.0 L494.8,34.0 L497.0,34.0 L499.2,34.0 L501.4,34.0 L503.6,34.0 L505.8,34.0 L507.9,34.0 L510.1,34.0 L512.3,34.0 L514.5,34.0 L516.7,34.0 L518.9,34.0 L521.1,34.0 L523.3,34.0 L525.5,34.0 L527.7,34.0 L529.9,34.0 L532.1,34.0 L534.2,34.0 L536.4,34.0 L538.6,34.0 L540.8,34.0 L543.0,34.0 L545.2,34.0 L547.4,34.0 L549.6,34.0 L551.8,34.0 L554.0,34.0 L556.2,34.0 L558.4,34.0 L560.5,34.0 L562.7,34.0 L564.9,34.0 L567.1,34.0 L569.3,34.0 L571.5,34.0 L573.7,34.0 L575.9,34.0 L578.1,34.0 L580.3,34.0 L582.5,34.0 L584.7,34.0 L586.9,34.0 L589.0,34.0 L591.2,34.0 L593.4,34.0 L595.6,34.0 L597.8,34.0 L600.0,34.0" fill="none" stroke="currentColor" stroke-width="2"/><text x="174.9" y="59.9" font-size="11" fill="currentColor" opacity=".85">each variant tested at 0.05</text><path d="M74.0,250.0 L76.2,250.0 L78.4,250.0 L80.6,250.0 L82.8,250.0 L85.0,250.0 L87.2,250.0 L89.3,250.0 L91.5,250.0 L93.7,250.0 L95.9,250.0 L98.1,250.0 L100.3,250.0 L102.5,250.0 L104.7,250.0 L106.9,250.0 L109.1,250.0 L111.3,250.0 L113.4,250.0 L115.6,250.0 L117.8,250.0 L120.0,250.0 L122.2,250.0 L124.4,250.0 L126.6,250.0 L128.8,250.0 L131.0,250.0 L133.2,250.0 L135.4,250.0 L137.6,250.0 L139.8,250.0 L141.9,250.0 L144.1,250.0 L146.3,250.0 L148.5,250.0 L150.7,250.0 L152.9,250.0 L155.1,250.0 L157.3,250.0 L159.5,250.0 L161.7,250.0 L163.9,250.0 L166.0,250.0 L168.2,250.0 L170.4,250.0 L172.6,250.0 L174.8,250.0 L177.0,250.0 L179.2,250.0 L181.4,250.0 L183.6,250.0 L185.8,250.0 L188.0,250.0 L190.2,250.0 L192.4,250.0 L194.5,250.0 L196.7,250.0 L198.9,250.0 L201.1,250.0 L203.3,250.0 L205.5,250.0 L207.7,250.0 L209.9,250.0 L212.1,250.0 L214.3,250.0 L216.5,250.0 L218.7,250.0 L220.8,250.0 L223.0,250.0 L225.2,250.0 L227.4,250.0 L229.6,250.0 L231.8,250.0 L234.0,250.0 L236.2,250.0 L238.4,250.0 L240.6,250.0 L242.8,250.0 L245.0,250.0 L247.1,250.0 L249.3,250.0 L251.5,250.0 L253.7,250.0 L255.9,250.0 L258.1,250.0 L260.3,250.0 L262.5,250.0 L264.7,250.0 L266.9,250.0 L269.1,250.0 L271.2,250.0 L273.4,250.0 L275.6,249.9 L277.8,249.9 L280.0,249.9 L282.2,249.9 L284.4,249.9 L286.6,249.9 L288.8,249.9 L291.0,249.9 L293.2,249.9 L295.4,249.9 L297.5,249.9 L299.7,249.9 L301.9,249.9 L304.1,249.9 L306.3,249.9 L308.5,249.9 L310.7,249.8 L312.9,249.8 L315.1,249.8 L317.3,249.8 L319.5,249.8 L321.7,249.8 L323.8,249.8 L326.0,249.8 L328.2,249.7 L330.4,249.7 L332.6,249.7 L334.8,249.7 L337.0,249.7 L339.2,249.6 L341.4,249.6 L343.6,249.6 L345.8,249.6 L348.0,249.5 L350.2,249.5 L352.3,249.5 L354.5,249.4 L356.7,249.4 L358.9,249.3 L361.1,249.3 L363.3,249.2 L365.5,249.2 L367.7,249.1 L369.9,249.1 L372.1,249.0 L374.3,248.9 L376.4,248.9 L378.6,248.8 L380.8,248.7 L383.0,248.6 L385.2,248.5 L387.4,248.4 L389.6,248.3 L391.8,248.2 L394.0,248.1 L396.2,247.9 L398.4,247.8 L400.6,247.6 L402.8,247.5 L404.9,247.3 L407.1,247.1 L409.3,246.9 L411.5,246.7 L413.7,246.4 L415.9,246.2 L418.1,245.9 L420.3,245.7 L422.5,245.4 L424.7,245.0 L426.9,244.7 L429.1,244.3 L431.2,244.0 L433.4,243.5 L435.6,243.1 L437.8,242.6 L440.0,242.1 L442.2,241.6 L444.4,241.0 L446.6,240.4 L448.8,239.8 L451.0,239.1 L453.2,238.3 L455.3,237.5 L457.5,236.7 L459.7,235.8 L461.9,234.9 L464.1,233.8 L466.3,232.8 L468.5,231.6 L470.7,230.4 L472.9,229.1 L475.1,227.7 L477.3,226.3 L479.5,224.7 L481.7,223.1 L483.8,221.4 L486.0,219.5 L488.2,217.6 L490.4,215.5 L492.6,213.3 L494.8,211.0 L497.0,208.6 L499.2,206.0 L501.4,203.3 L503.6,200.5 L505.8,197.5 L507.9,194.4 L510.1,191.1 L512.3,187.6 L514.5,184.1 L516.7,180.3 L518.9,176.4 L521.1,172.3 L523.3,168.1 L525.5,163.7 L527.7,159.2 L529.9,154.6 L532.1,149.8 L534.2,144.9 L536.4,139.9 L538.6,134.8 L540.8,129.6 L543.0,124.3 L545.2,119.0 L547.4,113.7 L549.6,108.3 L551.8,103.0 L554.0,97.7 L556.2,92.6 L558.4,87.5 L560.5,82.5 L562.7,77.8 L564.9,73.2 L567.1,68.8 L569.3,64.6 L571.5,60.8 L573.7,57.1 L575.9,53.8 L578.1,50.8 L580.3,48.1 L582.5,45.6 L584.7,43.5 L586.9,41.6 L589.0,40.1 L591.2,38.7 L593.4,37.6 L595.6,36.7 L597.8,36.0 L600.0,35.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="7 4"/><text x="521.4" y="137.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".85">each variant tested at 5 × 10⁻⁸</text><circle cx="449.7" cy="239.5" r="4.5" fill="var(--color-accent, #2e6e5e)"/><line x1="449.7" y1="239.5" x2="449.7" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="3 3"/><text x="449.7" y="226.5" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">at 1M independent tests, the risk is 0.0488</text><text x="337.0" y="292.0" font-size="12" fill="currentColor" text-anchor="middle">Independent tests performed (log scale)</text><text x="18.0" y="142.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 18 142)">Chance of at least one false positive</text><text x="18.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">The threshold is not a convention: it is 0.05 divided by how many tests there really are</text></svg>
+</Figure>
+
+<Callout variant="assumption" title="What the threshold assumes, and when it changes">
+
+$5\times10^{-8}$ is a property of a particular genome, a particular ancestry and a
+particular set of variants — not a law of statistics. It moves when any of those change:
+
+- **Ancestry.** LD blocks are shorter in African-ancestry populations, so more independent
+  tests fit in the same genome and $M_{\mathrm{eff}}$ is larger.
+- **Variant class.** Whole-genome sequencing tests rare variants that tag nothing, so
+  $M_{\mathrm{eff}}$ rises again; exome-wide gene-based tests run roughly 20,000 tests and
+  use a correspondingly looser threshold.
+- **Number of traits.** Testing 100 phenotypes on the same variants multiplies the burden,
+  and nothing in the conventional threshold accounts for it.
+
+Quoting $5\times10^{-8}$ for an analysis that satisfies none of these conditions is the most
+common way the correction is misapplied.
+
+</Callout>
+
+## The Bayesian alternative
+
+The frequentist tests above never state how plausible the hypothesis was to begin with. The
+Bayesian route makes that explicit. Posterior odds are prior odds times a **Bayes factor**:
+
+$$
+\underbrace{\frac{\Pr(H_1 \mid \mathbf{y})}{\Pr(H_0 \mid \mathbf{y})}}_{\text{posterior odds}}
+=
+\underbrace{\frac{\Pr(H_1)}{\Pr(H_0)}}_{\text{prior odds}}
+\times
+\underbrace{\frac{\Pr(\mathbf{y} \mid H_1)}{\Pr(\mathbf{y} \mid H_0)}}_{\text{Bayes factor}}
+$$
+
+The Bayes factor resembles a likelihood ratio, and for simple hypotheses it *is* one. The
+difference is that when $H_1$ contains a free parameter, the Bayes factor averages the
+likelihood over a prior on that parameter rather than maximising it — which is what makes it
+penalise a model for having somewhere to hide.
+
+This becomes concrete in fine-mapping, where the object of interest is a posterior inclusion
+probability (PIP) for each variant $j$ in a region:
+
+$$
+\mathrm{PIP}_j = \frac{\pi_j \,\mathrm{BF}_j}{\pi_0 + \sum_{k} \pi_k \,\mathrm{BF}_k}
+$$
+
+The term $\pi_0$ in the denominator is the prior probability that the region contains **no**
+causal variant, and dropping it — as is often done — forces the PIPs to sum to one and
+thereby asserts that some variant in the window must be causal. That assertion is frequently
+false, and the later fine-mapping lesson keeps the term explicit for exactly this reason.
+
+## Where these approximations fail
+
+Every result above is asymptotic. Two failures matter enough in genetics to name here,
+because both have produced published false positives.
+
+**Sparse counts.** The $\chi^2$ approximation assumes the score is approximately normal,
+which needs enough observations in every cell. For a variant carried by twelve people in a
+cohort of half a million — an ordinary situation in sequencing studies — it is badly wrong,
+and wrong in the anti-conservative direction when the case-control ratio is unbalanced.
+Exact tests, permutation, and saddlepoint approximations exist for this; the rare-variant
+lesson takes it up properly.
+
+**A parameter on the boundary.** Testing whether a variance component is zero — the central
+question in heritability estimation — puts the null value at the edge of the parameter space,
+since a variance cannot be negative. Wilks' theorem assumes the null sits in the interior and
+simply does not apply. <Citation id="self1987boundary" /> gives the correct reference
+distribution: a 50:50 mixture of a point mass at zero and $\chi^2_1$. The practical
+consequence is that the naive $p$-value is *twice* what it should be, so using $\chi^2_1$
+uncorrected is conservative — the 5% critical value is 2.7055, not 3.8415.
+
+<Callout variant="key" title="What to carry into the rest of the curriculum">
+
+A likelihood, its slope, and its curvature. Three tests that measure the same discrepancy in
+three places and agree only asymptotically. Least squares as both a projection and a maximum
+-likelihood estimate, with the inverse cross-product matrix recording how estimates
+contaminate one another. A threshold that is arithmetic over an effective number of tests,
+not a constant of nature. And two named places where all of it stops being true.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="The same three tests, closer to the null" difficulty="warm-up">
+
+(a) Repeat the worked example for a much weaker association: 240 / 760 in cases against
+200 / 800 in controls. Compute all three statistics. (b) Separately, take a binomial with
+$k = 20$ successes in $n = 50$ trials against $p_0 = 0.50$ and compute all three there.
+What do the two parts together say about the ordering of the tests?
+
+<div slot="solution">
+
+**(a)** The margins are 1,000 / 1,000 by 440 / 1,560, so $E = (220, 780, 220, 780)$ and
+$\widehat{\mathrm{OR}} = (240 \times 800)/(760 \times 200) = 1.2632$, giving
+$\hat\beta = 0.233615$ and $\mathrm{SE} = 0.108316$:
+
+$$
+W = 4.6517, \qquad S = 4.6620, \qquad \Lambda = 4.6671
+$$
+
+The three now span 0.3% of their own size, against 12% in the worked example. All give
+$p \approx 0.031$. This is the general behaviour: the three statistics are built from the
+same quadratic approximation to the log-likelihood, and that approximation is good exactly
+when the estimate is near the null.
+
+**(b)** For the binomial, $\hat p = 0.40$ and $\mathcal{I}(\hat p) = 50/(0.4 \times 0.6) = 208.3333$:
+
+$$
+W = (0.40-0.50)^2 \times 208.3333 = 2.0833,
+\qquad
+S = \frac{0.01}{0.005} = 2.0000
+$$
+
+$$
+\Lambda = 2\left[20\log\frac{0.40}{0.50} + 30\log\frac{0.60}{0.50}\right] = 2.0136
+$$
+
+**Together.** Part (a) gives $\Lambda > S > W$; part (b) gives $W > \Lambda > S$. The
+ordering is not a property of the three tests, it is a property of the problem — which is
+precisely why no rule of thumb about "Wald is anticonservative" survives contact with real
+data. What does generalise is that the spread shrinks as the estimate approaches the null,
+and that all of these examples are far more benign than a genome-wide scan, where the
+interesting statistics sit eight orders of magnitude into the tail.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Thresholds for two study designs" difficulty="core">
+
+(a) Confirm the genome-wide threshold and give the corresponding $\chi^2_1$ and $|z|$
+critical values. (b) A gene-based exome analysis runs one test per protein-coding gene,
+about 20,000 of them. What threshold and critical value does Bonferroni give? (c) Why is
+the answer to (b) not simply "the genome-wide threshold, since it is more stringent and
+therefore safe"?
+
+<div slot="solution">
+
+**(a)** $0.05 / 10^6 = 5\times10^{-8}$. The $\chi^2_1$ critical value is 29.7168 and
+$|z| = \sqrt{29.7168} = 5.4513$.
+
+**(b)** $0.05 / 20{,}000 = 2.50\times10^{-6}$, a $\chi^2_1$ critical value of 22.1665. The
+threshold is fifty times looser than genome-wide because there are fifty times fewer tests.
+
+**(c)** Because a threshold that is too stringent is not "safe" — it is a different error.
+Using $5\times10^{-8}$ for 20,000 tests holds the family-wise error rate at 0.001 rather than
+0.05, discarding real signal for no stated benefit. The correction is supposed to match the
+number of tests actually performed; treating stringency as a free good is how gene-based and
+rare-variant analyses come to be systematically underpowered. Note also that both figures
+assume independence, and 20,000 gene-based tests are closer to independent than a million
+common-variant tests are.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A variance component at the boundary" difficulty="stretch">
+
+A GREML analysis reports a likelihood-ratio statistic of $\Lambda = 2.7055$ for the
+hypothesis $\sigma^2_g = 0$. (a) What $p$-value does a naive $\chi^2_1$ give? (b) What is
+the correct $p$-value under the Self–Liang mixture? (c) Which direction does the naive
+calculation err in, and why does that direction make the error easy to miss?
+
+<div slot="solution">
+
+**(a)** The upper tail of $\chi^2_1$ at 2.7055 is $p = 0.1000$.
+
+**(b)** Under the null, $\hat\sigma^2_g$ is at the boundary half the time, giving
+$\Lambda = 0$; the other half of the time $\Lambda$ behaves like $\chi^2_1$. The reference
+distribution is therefore $\tfrac{1}{2}\chi^2_0 + \tfrac{1}{2}\chi^2_1$, and the tail
+probability is half the naive one:
+
+$$
+p = \tfrac{1}{2} \times 0.1000 = 0.0500
+$$
+
+Equivalently, the 5% critical value is the 90th percentile of $\chi^2_1$, which is 2.7055,
+rather than the 95th percentile, 3.8415.
+
+**(c)** The naive $p$-value is *larger* than the correct one, so the error is conservative:
+it makes you under-report heritability, not over-report it. That is exactly why it survives.
+An anti-conservative error announces itself as a flood of implausible findings; a
+conservative one produces a slightly quieter result that nobody investigates. It is worth
+stating explicitly that "conservative" is not a synonym for "correct" — a boundary-corrected
+analysis and a naive one disagree about which traits are heritable at all near the margin.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A log-likelihood and its first two derivatives are the whole toolkit.** The score
+  $U(\theta)$ locates the estimate; the information $\mathcal{I}(\theta)$ measures the
+  curvature there and is the inverse of the estimate's variance. Observed and expected
+  information differ, and the observed form is generally preferable for a standard error.
+- **Three tests measure one discrepancy in three places.** Wald uses only the fit under the
+  alternative, the score test only the fit under the null, the likelihood ratio both. On one
+  2 × 2 table they return 30.8199, 33.3333 and 34.5218 — $p$-values spanning a factor of
+  6.7 — and there is no universal ordering among them; a binomial far from its null reverses
+  it. They agree only as the estimate approaches the null.
+- **Two of the three are old friends.** For a 2 × 2 table the score test *is* Pearson's
+  $\chi^2$ and the likelihood-ratio test *is* the deviance $G^2$. Three separately-named
+  procedures are one construction read at different points on a single curve.
+- **The choice among them is computational.** Genome scans use score tests because the
+  expensive null model — covariates, relatedness — is fitted once and reused for every
+  variant; GWAS summary statistics report Wald quantities because $\hat\beta$ and its
+  standard error are what a per-variant fit produces; GREML uses likelihood ratios because
+  both fits are cheap and neither is nested inside a scan.
+- **Least squares is a projection and a maximum-likelihood estimate at once**, with
+  $\hat{\boldsymbol{\beta}} = (\mathbf{X}^{\!\top}\mathbf{X})^{-1}\mathbf{X}^{\!\top}\mathbf{y}$.
+  Mixed models, ridge regression, BLUP and polygenic-score shrinkage are all this equation
+  with either the covariance or the penalty changed.
+- **$5\times10^{-8}$ is Bonferroni over roughly a million effectively independent tests**,
+  not a universal constant. It moves with ancestry, variant class and the number of traits
+  tested, and a threshold that is too stringent is an error in its own right.
+- **Two failures are worth memorising.** Sparse counts break the normal approximation to the
+  score, anti-conservatively when case-control ratios are unbalanced. A variance component
+  tested at zero sits on the boundary of its space, where the reference distribution is a
+  50:50 mixture and the naive $\chi^2_1$ $p$-value is twice what it should be.

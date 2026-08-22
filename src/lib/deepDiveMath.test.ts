@@ -25,6 +25,7 @@ import {
   topKRecall, rmse,
   colocPosteriors,
   fisherExactP, foldEnrichment,
+  contingencyTests,
 } from './deepDiveMath.ts';
 
 /**
@@ -1788,6 +1789,112 @@ describe('colocPosteriors', () => {
 
   it('rejects mismatched inputs', () => {
     expect(() => colocPosteriors([1, 2], [1])).toThrow();
+  });
+});
+
+describe('contingencyTests', () => {
+  /**
+   * The reference implementation: the logistic model for a 2 x 2 table, with the nuisance
+   * intercept profiled out numerically. Nothing here reuses the closed forms under test,
+   * so agreement is evidence rather than restatement.
+   */
+  const profileLogLik = (a: number, b: number, c: number, d: number) => {
+    const expit = (t: number) => 1 / (1 + Math.exp(-t));
+    const ll = (alpha: number, beta: number) => {
+      const p1 = expit(alpha + beta);
+      const p0 = expit(alpha);
+      return a * Math.log(p1) + b * Math.log(1 - p1) + c * Math.log(p0) + d * Math.log(1 - p0);
+    };
+    return (beta: number) => {
+      // golden-section over a bracket wide enough for every table used here
+      let lo = -12;
+      let hi = 12;
+      const gr = (Math.sqrt(5) - 1) / 2;
+      let x1 = hi - gr * (hi - lo);
+      let x2 = lo + gr * (hi - lo);
+      for (let i = 0; i < 300; i++) {
+        if (ll(x1, beta) < ll(x2, beta)) lo = x1;
+        else hi = x2;
+        x1 = hi - gr * (hi - lo);
+        x2 = lo + gr * (hi - lo);
+      }
+      return ll((lo + hi) / 2, beta);
+    };
+  };
+
+  const TABLES: [number, number, number, number][] = [
+    [80, 20, 40, 60],
+    [240, 760, 200, 800],
+    [15, 35, 25, 25],
+    [500, 500, 450, 550],
+  ];
+
+  it('places the expected counts at the independence fit', () => {
+    const r = contingencyTests(80, 20, 40, 60);
+    expect(r.expected).toEqual([60, 40, 60, 40]);
+    // rows and columns of the expected table reproduce the observed margins
+    expect(r.expected[0] + r.expected[1]).toBeCloseTo(100, 10);
+    expect(r.expected[0] + r.expected[2]).toBeCloseTo(120, 10);
+  });
+
+  it('gives the odds ratio and Woolf standard error', () => {
+    const r = contingencyTests(80, 20, 40, 60);
+    expect(r.oddsRatio).toBeCloseTo(6, 12);
+    expect(r.logOddsRatio).toBeCloseTo(Math.log(6), 12);
+    expect(r.seLogOddsRatio).toBeCloseTo(Math.sqrt(1 / 80 + 1 / 20 + 1 / 40 + 1 / 60), 12);
+    expect(r.wald).toBeCloseTo((Math.log(6) / r.seLogOddsRatio) ** 2, 12);
+  });
+
+  it('has a likelihood ratio equal to the profiled logistic deviance', () => {
+    for (const [a, b, c, d] of TABLES) {
+      const profile = profileLogLik(a, b, c, d);
+      // the unrestricted fit is saturated, so beta-hat is exactly the log odds ratio
+      const bhat = Math.log((a * d) / (b * c));
+      const deviance = 2 * (profile(bhat) - profile(0));
+      expect(contingencyTests(a, b, c, d).lrt).toBeCloseTo(deviance, 6);
+    }
+  });
+
+  it("has a score statistic equal to Pearson's chi-square", () => {
+    for (const [a, b, c, d] of TABLES) {
+      const profile = profileLogLik(a, b, c, d);
+      const h = 1e-4;
+      const slope = (profile(h) - profile(-h)) / (2 * h);
+      const info = -(profile(h) - 2 * profile(0) + profile(-h)) / h ** 2;
+      expect(contingencyTests(a, b, c, d).score).toBeCloseTo(slope ** 2 / info, 4);
+    }
+  });
+
+  it('separates the three tests for a strong effect and merges them for a weak one', () => {
+    const spread = (a: number, b: number, c: number, d: number) => {
+      const r = contingencyTests(a, b, c, d);
+      const v = [r.wald, r.score, r.lrt];
+      return Math.max(...v) / Math.min(...v) - 1;
+    };
+    expect(spread(80, 20, 40, 60)).toBeGreaterThan(0.1);
+    expect(spread(240, 760, 200, 800)).toBeLessThan(0.01);
+  });
+
+  it('sends all three to zero together as the table approaches independence', () => {
+    // the same margins, with the effect shrunk toward nothing
+    for (const eps of [4, 2, 1, 0.5]) {
+      const r = contingencyTests(60 + eps, 40 - eps, 60 - eps, 40 + eps);
+      for (const v of [r.wald, r.score, r.lrt]) expect(v).toBeLessThan(2 * eps ** 2);
+      expect(Math.abs(r.wald - r.score) / r.score).toBeLessThan(0.05);
+    }
+  });
+
+  it('is symmetric under swapping both rows and both columns', () => {
+    const r = contingencyTests(80, 20, 40, 60);
+    const flipped = contingencyTests(60, 40, 20, 80);
+    for (const k of ['wald', 'score', 'lrt'] as const) {
+      expect(flipped[k]).toBeCloseTo(r[k], 10);
+    }
+  });
+
+  it('rejects a table with an empty cell rather than returning Infinity', () => {
+    expect(() => contingencyTests(10, 0, 5, 5)).toThrow(RangeError);
+    expect(() => contingencyTests(10, -1, 5, 5)).toThrow(RangeError);
   });
 });
 
