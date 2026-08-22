@@ -1,0 +1,298 @@
+---
+title: "Variant Benchmarks: Scoring Predictions on a Problem That Is Mostly Negatives"
+shortTitle: Variant Benchmarks
+description: "TraitGym, GeneticsGym and the fine-mapping results underneath them — how a causal-variant benchmark is built, why a one-to-nine design forces AUPRC rather than AUROC, and why an AUPRC is only interpretable against its own benchmark's baseline."
+abstract: "Benchmarking a non-coding variant predictor means assembling a set of variants believed causal, matching them against controls believed not, and scoring a ranking. Every one of those steps is a modelling decision that shows up in the number. This page covers how TraitGym constructs its labels from fine-mapping, why the deliberate class imbalance makes AUROC misleading, and what a benchmark score does and does not transfer to."
+date: 2026-08-22
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d06-benchmarks
+moduleLabel: Layer 6 · Benchmarks & Evaluation
+order: 12
+level: advanced
+objectives:
+  - "Describe how a causal-variant benchmark builds its positive and control sets from fine-mapping."
+  - "Explain why a deliberate class imbalance makes AUPRC the appropriate metric and AUROC a misleading one."
+  - "Compute an AUPRC baseline and interpret a score relative to it."
+  - "Show that AUROC is invariant to the positive-to-control ratio and AUPRC is not."
+  - "Say what leave-one-chromosome-out scoring prevents that a random split does not."
+prerequisites:
+  - data-protein-benchmarks
+referenceIds:
+  - davis2006prroc
+  - saito2015prplot
+  - benner2016finemap
+  - wang2020susie
+  - benegas2025traitgym
+  - wu2026finemapping
+tags: [TraitGym, GeneticsGym, AUPRC, AUROC, fine-mapping, class imbalance, benchmarking]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+The previous page benchmarked predictors against an assay, where the truth was measured. Here
+the truth is *inferred*: nobody has demonstrated which non-coding variant at a GWAS locus is
+causal, so a benchmark has to decide, and it decides using fine-mapping.
+
+That makes the benchmark's construction part of its result in a way that a DMS benchmark's is
+not — and the construction also forces the choice of metric.
+
+<Callout variant="intuition">
+Causal variants are rare. At a typical GWAS locus, dozens or hundreds of variants are
+associated and one or a few are responsible; genome-wide, the fraction of variants that do
+anything is tiny.
+
+A benchmark that reflected that honestly would be almost entirely negatives, and a model that
+answered "no" to everything would score superbly on any metric that rewards being right on
+average. So benchmarks build a *matched* set instead — each putative causal variant against a
+fixed number of controls — and that ratio is a design choice which then determines what the
+scores mean.
+
+The consequence is the thing most often skipped: **an AUPRC has no fixed interpretation.** Its
+floor is the fraction of positives, so 0.38 is good on one benchmark and poor on another, and
+AUROC — which does have a fixed floor of 0.5 — is exactly the metric that hides the problem.
+</Callout>
+
+<DatasetTable layer="variant-benchmarks" caption="Causal-variant benchmarks and their label source" />
+
+<Notation
+  rows={[
+    { symbol: '\\text{PIP}', meaning: 'Posterior inclusion probability that a variant is causal, from fine-mapping', dims: 'in [0,1]' },
+    { symbol: '\\text{AUROC}', meaning: 'Area under the receiver operating characteristic curve', dims: 'in [0,1]; floor 0.5' },
+    { symbol: '\\text{AUPRC}', meaning: 'Area under the precision-recall curve', dims: 'in [0,1]; floor = positive rate' },
+    { symbol: '\\pi', meaning: 'Positive rate: positives over all examples', dims: 'in (0,1)' },
+    { symbol: 'P@k', meaning: 'Precision at k: true positives among the top k predictions', dims: 'in [0,1]' },
+  ]}
+/>
+
+## How the labels are made
+
+**<Dataset id="traitgym" />** builds two sets <Citation id="benegas2025traitgym" />. The
+Mendelian half takes curated causal non-coding variants for **113 traits** from OMIM — 338 of
+them, against 3,380 variants in total. The complex half takes **83 traits** from UK Biobank
+fine-mapping: **1,140 causal** against 11,400 in total. Both are deliberately one positive to
+nine controls.
+
+The complex-trait positives are variants with a posterior inclusion probability above $0.9$ in
+a credible set *and* genome-wide significance at $5\times10^{-8}$; controls are variants with
+PIP below $0.01$ in every trait. The gap between those thresholds is doing real work — it
+excludes the ambiguous middle rather than forcing it into one class or the other.
+
+**<Dataset id="ukb-finemapping" />** is where those posteriors come from
+<Citation id="wu2026finemapping" />, computed by methods such as SuSiE
+<Citation id="wang2020susie" /> and FINEMAP <Citation id="benner2016finemap" />. A benchmark
+built this way inherits everything the fine-mapping got wrong — most importantly its
+sensitivity to a mismatch between the LD reference panel and the study population, which can
+move a credible set onto the wrong variant entirely.
+
+It also inherits a subtler assumption. A posterior inclusion probability is normalised across
+the variants at a locus, so unless the null is given explicit prior mass $\pi_0$ — the
+probability that the locus contains *no* causal variant at all — the posteriors are
+conditioned on one being there and must sum to one regardless. At a locus where the signal is
+in fact driven by something unmodelled, that normalisation manufactures a high PIP for
+whichever variant fits best. Positives selected at PIP above 0.9 therefore carry a residue of
+loci where the truth was "none of these", and no threshold on PIP alone can remove it.
+
+**GeneticsGym** is the coding-variant counterpart, evaluating causal-variant prediction for
+complex traits restricted to protein-coding variation <Citation id="benegas2025traitgym" />.
+The split matters: a model that does well on coding variants has not thereby shown anything
+about regulatory ones, and the two benchmarks exist separately for that reason.
+
+<Callout variant="warning" title="Two things worth correcting about how this is usually described">
+**The retention criterion is not agreement between fine-mappers.** It is often stated that
+variants enter the benchmark when SuSiE and FINEMAP agree on the PIP to within some
+tolerance. That describes a filter applied upstream, when the fine-mapping resource itself was
+built. TraitGym's own criterion is the one above: PIP above 0.9 with genome-wide significance
+for positives, PIP below 0.01 for controls. Merging the two makes the benchmark sound more
+conservative than it is.
+
+**The one-to-nine ratio is not incidental.** It is what fixes the AUPRC baseline at 0.1, and
+without it the reported AUPRC values cannot be read at all. A benchmark's positive rate belongs
+next to its scores.
+</Callout>
+
+## Why the metric follows from the design
+
+<WorkedExample
+  title="One ranking, two verdicts"
+  given={[
+    { label: 'Examples', value: '100 variants: 10 causal, 90 controls' },
+    { label: 'The model', value: 'ranks the bulk well, but eight controls outrank every positive' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the ROC verdict.**
+
+$$
+\text{AUROC} = 0.9111
+$$
+
+Against a floor of $0.5$, that reads as a strong model — the sort of number that appears in an
+abstract.
+
+**Step 2 — the precision-recall verdict.**
+
+$$
+\text{AUPRC} = 0.3782, \qquad \text{baseline} = \pi = \frac{10}{100} = 0.1000
+$$
+
+**Step 3 — look at the top of the ranking.** The eight highest-scoring variants are all
+controls, so the first true positive is the **ninth** prediction:
+
+$$
+P@8 = \frac{0}{8} = 0.0000, \qquad
+P@9 = \frac{1}{9} = 0.1111, \qquad
+P@10 = \frac{2}{10} = 0.2000
+$$
+
+Precision at the point where the first hit arrives is $0.1111$ — indistinguishable from
+picking at random.
+
+**Step 4 — see why the two disagree.** Eight false positives out of ninety controls is a false
+positive rate of under nine per cent, and ROC measures exactly that: a small horizontal step.
+Precision measures how many of the *predictions you would act on* are right, and by that
+measure the model has failed completely at the top of its own ranking
+<Citation id="davis2006prroc" />.
+
+**Step 5 — which one describes the use.** Nobody follows up all hundred variants. They follow
+up the top few, which is the region ROC is least sensitive to and precision-recall is entirely
+about <Citation id="saito2015prplot" />.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The same 100 predictions, drawn twice. On the left the ROC curve rises steeply and encloses 0.9111 — eight false positives among ninety controls is a small step along the horizontal axis. On the right the precision-recall curve starts at 0.1111, because the first true positive is the ninth prediction, and encloses 0.3782 against a baseline of 0.1. The eight controls that outrank every causal variant are visible in one panel and nearly invisible in the other."
+  alt="Two side-by-side plots of the same predictions. The left is a receiver operating characteristic curve rising steeply to the top left with an area of 0.9111. The right is a precision-recall curve that begins at a precision of 0.1111 at low recall, with a dashed baseline at 0.1, enclosing an area of 0.3782."
+>
+  <svg viewBox="0 0 640 322" width="640" height="322" font-family="inherit"><text x="320.0" y="18.0" font-size="12" fill="currentColor" text-anchor="middle" font-weight="600">The same 100 predictions, two curves</text><line x1="64.0" y1="46.0" x2="64.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="64.0" y1="250.0" x2="288.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="64.0" y1="250.0" x2="288.0" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="56.0" y="254.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="64.0" y1="148.0" x2="288.0" y2="148.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="56.0" y="152.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.5</text><line x1="64.0" y1="46.0" x2="288.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="56.0" y="50.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="64.0" y1="250.0" x2="64.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="64.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="176.0" y1="250.0" x2="176.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="176.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.5</text><line x1="288.0" y1="250.0" x2="288.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="288.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="64.0" y1="250.0" x2="288.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><path d="M64.0,250.0 L66.5,250.0 L69.0,250.0 L71.5,250.0 L74.0,250.0 L76.4,250.0 L78.9,250.0 L81.4,250.0 L83.9,250.0 L83.9,229.6 L83.9,209.2 L83.9,188.8 L83.9,168.4 L83.9,148.0 L83.9,127.6 L83.9,107.2 L83.9,86.8 L83.9,66.4 L83.9,46.0 L86.4,46.0 L88.9,46.0 L91.4,46.0 L93.9,46.0 L96.4,46.0 L98.8,46.0 L101.3,46.0 L103.8,46.0 L106.3,46.0 L108.8,46.0 L111.3,46.0 L113.8,46.0 L116.3,46.0 L118.8,46.0 L121.2,46.0 L123.7,46.0 L126.2,46.0 L128.7,46.0 L131.2,46.0 L133.7,46.0 L136.2,46.0 L138.7,46.0 L141.2,46.0 L143.6,46.0 L146.1,46.0 L148.6,46.0 L151.1,46.0 L153.6,46.0 L156.1,46.0 L158.6,46.0 L161.1,46.0 L163.6,46.0 L166.0,46.0 L168.5,46.0 L171.0,46.0 L173.5,46.0 L176.0,46.0 L178.5,46.0 L181.0,46.0 L183.5,46.0 L186.0,46.0 L188.4,46.0 L190.9,46.0 L193.4,46.0 L195.9,46.0 L198.4,46.0 L200.9,46.0 L203.4,46.0 L205.9,46.0 L208.4,46.0 L210.8,46.0 L213.3,46.0 L215.8,46.0 L218.3,46.0 L220.8,46.0 L223.3,46.0 L225.8,46.0 L228.3,46.0 L230.8,46.0 L233.2,46.0 L235.7,46.0 L238.2,46.0 L240.7,46.0 L243.2,46.0 L245.7,46.0 L248.2,46.0 L250.7,46.0 L253.2,46.0 L255.6,46.0 L258.1,46.0 L260.6,46.0 L263.1,46.0 L265.6,46.0 L268.1,46.0 L270.6,46.0 L273.1,46.0 L275.6,46.0 L278.0,46.0 L280.5,46.0 L283.0,46.0 L285.5,46.0 L288.0,46.0" fill="none" stroke="currentColor" stroke-width="2"/><text x="176.0" y="36.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">AUROC = 0.9111</text><text x="176.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle">False positive rate</text><text x="20.0" y="148.0" font-size="11" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 148)">Recall</text><line x1="376.0" y1="46.0" x2="376.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="376.0" y1="250.0" x2="600.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="376.0" y1="250.0" x2="600.0" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="368.0" y="254.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="376.0" y1="148.0" x2="600.0" y2="148.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="368.0" y="152.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.5</text><line x1="376.0" y1="46.0" x2="600.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="368.0" y="50.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="376.0" y1="250.0" x2="376.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="376.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="488.0" y1="250.0" x2="488.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="488.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.5</text><line x1="600.0" y1="250.0" x2="600.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="600.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="376.0" y1="229.6" x2="600.0" y2="229.6" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5" stroke-dasharray="5 4"/><text x="595.5" y="222.6" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">baseline 0.1</text><path d="M398.4,227.3 L420.8,209.2 L443.2,194.4 L465.6,182.0 L488.0,171.5 L510.4,162.6 L532.8,154.8 L555.2,148.0 L577.6,142.0 L600.0,136.7 L600.0,142.6 L600.0,148.0 L600.0,152.9 L600.0,157.3 L600.0,161.3 L600.0,165.0 L600.0,168.4 L600.0,171.5 L600.0,174.4 L600.0,177.1 L600.0,179.7 L600.0,182.0 L600.0,184.2 L600.0,186.2 L600.0,188.2 L600.0,190.0 L600.0,191.7 L600.0,193.3 L600.0,194.9 L600.0,196.3 L600.0,197.7 L600.0,199.0 L600.0,200.2 L600.0,201.4 L600.0,202.6 L600.0,203.6 L600.0,204.7 L600.0,205.7 L600.0,206.6 L600.0,207.5 L600.0,208.4 L600.0,209.2 L600.0,210.0 L600.0,210.8 L600.0,211.5 L600.0,212.2 L600.0,212.9 L600.0,213.6 L600.0,214.2 L600.0,214.8 L600.0,215.4 L600.0,216.0 L600.0,216.6 L600.0,217.1 L600.0,217.6 L600.0,218.1 L600.0,218.6 L600.0,219.1 L600.0,219.6 L600.0,220.0 L600.0,220.4 L600.0,220.9 L600.0,221.3 L600.0,221.7 L600.0,222.1 L600.0,222.4 L600.0,222.8 L600.0,223.2 L600.0,223.5 L600.0,223.8 L600.0,224.2 L600.0,224.5 L600.0,224.8 L600.0,225.1 L600.0,225.4 L600.0,225.7 L600.0,226.0 L600.0,226.3 L600.0,226.6 L600.0,226.8 L600.0,227.1 L600.0,227.3 L600.0,227.6 L600.0,227.8 L600.0,228.1 L600.0,228.3 L600.0,228.5 L600.0,228.8 L600.0,229.0 L600.0,229.2 L600.0,229.4 L600.0,229.6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="398.4" cy="227.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="398.4" y1="222.3" x2="412.4" y2="192.8" stroke="var(--color-accent, #2e6e5e)" stroke-width="1" opacity=".6"/><text x="416.4" y="195.8" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">first hit is the 9th prediction</text><text x="488.0" y="36.0" font-size="11" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">AUPRC = 0.3782</text><text x="488.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle">Recall</text><text x="332.0" y="148.0" font-size="11" fill="currentColor" text-anchor="middle" transform="rotate(-90 332 148)">Precision</text><text x="320.0" y="308.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">Eight negatives outrank every positive; only one curve shows it</text></svg>
+</Figure>
+
+## Exercises
+
+<Exercise n={1} title="What a score is worth against its floor" difficulty="warm-up">
+
+The model above scores AUROC 0.9111 and AUPRC 0.3782. Express each relative to the floor a
+random predictor would achieve on the same set, and say which comparison is more informative.
+
+<div slot="solution">
+
+A random ranking gives $\text{AUROC} = 0.5$ regardless of the class balance, and
+$\text{AUPRC} = \pi = 0.1$ on a one-to-nine set.
+
+$$
+\frac{0.9111}{0.5} = 1.8222, \qquad \frac{0.3782}{0.1} = 3.7820
+$$
+
+By the ratio the model looks *better* on precision-recall — nearly four times random against
+under twice. But the ratio is the wrong comparison for AUROC, whose useful range is the
+half-interval above 0.5 rather than the whole interval above 0.
+
+The informative statement is the absolute one: the model recovers 38% of the area under a
+perfect precision-recall curve on a problem where 10% is free, and its first eight predictions
+are wrong. Neither ratio conveys that, which is why benchmarks report AUPRC *and* its baseline
+rather than a normalised score.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="What a follow-up budget actually buys" difficulty="core">
+
+A laboratory can validate ten variants. Using the same ranking, how many causal variants do
+they find, and how does that change at eighteen?
+
+<div slot="solution">
+
+$$
+P@10 = \frac{2}{10} = 0.2000
+\quad\Longrightarrow\quad
+\text{two hits from ten experiments}
+$$
+
+$$
+P@18 = \frac{10}{18} = 0.5556
+\quad\Longrightarrow\quad
+\text{all ten, from eighteen experiments}
+$$
+
+The eight false positives sit entirely at the top, so the first ten experiments are spent
+clearing them and the next eight find everything. A budget of ten yields two hits; a budget
+of eighteen yields ten.
+
+This is the practical content of the AUPRC-versus-AUROC difference, and it is invisible in an
+AUROC of 0.9111. It also shows why precision at a *fixed, realistic k* is often the most
+honest single number a benchmark can report — it corresponds to a decision somebody actually
+makes, whereas an area under a curve integrates over operating points nobody will use.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Why AUPRC values do not transfer between benchmarks" difficulty="stretch">
+
+Keep the model and the negative distribution fixed and enlarge the control set from nine
+controls per positive to twenty-seven, then to ninety-nine. What happens to each metric, and
+what follows for comparing published scores?
+
+<div slot="solution">
+
+Drawing the additional controls from the same distribution — so the fraction of high-scoring
+controls is unchanged — gives:
+
+| positives : controls | baseline $\pi$ | AUROC | AUPRC |
+|---|---:|---:|---:|
+| 1 : 9 | 0.1000 | 0.9111 | 0.3782 |
+| 1 : 27 | 0.0357 | 0.9111 | 0.1786 |
+| 1 : 99 | 0.0100 | 0.9111 | 0.0579 |
+
+**AUROC does not move at all.** It is built from true and false positive *rates*, each
+normalised within its own class, so multiplying the number of controls changes neither.
+
+**AUPRC falls by more than a factor of six.** Precision is positives over predicted-positives,
+and adding controls adds candidates for the denominator at every threshold. Nothing about the
+model changed.
+
+Three consequences:
+
+- **An AUPRC without its baseline is unreadable.** 0.0579 on the 1:99 set is the same model as
+  0.3782 on the 1:9 set.
+- **AUPRC values from different benchmarks are not comparable**, even for the same task, unless
+  the designs match. This is a real hazard when a paper compares its number to one published
+  against a different control set.
+- **AUROC's stability here is not a virtue.** It is stable because it is insensitive to the
+  thing that changed, and that thing — how many candidates you must sift to find a causal
+  variant — is precisely the difficulty of the real problem.
+
+The honest reading is that AUROC measures separability and AUPRC measures separability *at the
+prevalence you built*, so the benchmark's design has to be quoted with the score.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **The labels are inferred, not measured.** Causal status comes from fine-mapping, so a
+  benchmark inherits the fine-mapping's assumptions — including its sensitivity to LD
+  reference mismatch.
+- **TraitGym is 338 causal over 113 Mendelian traits (3,380 total) and 1,140 over 83 complex
+  traits (11,400 total)**, at a deliberate one-to-nine ratio. Positives need PIP above 0.9 and
+  genome-wide significance; controls need PIP below 0.01 in every trait, which excludes the
+  ambiguous middle rather than assigning it.
+- **The ratio fixes the AUPRC baseline at 0.1**, and that baseline is part of the result.
+- **AUROC and AUPRC can disagree completely.** The same ranking scored 0.9111 and 0.3782,
+  because eight controls outranked every causal variant — a small step on a ROC axis and a
+  total failure at the top of the list.
+- **The top of the list is where decisions are made.** Ten experiments returned two hits;
+  eighteen returned all ten. Precision at a realistic k often says more than either area.
+- **AUROC is invariant to the positive-to-control ratio and AUPRC is not**: 0.3782, 0.1786 and
+  0.0579 are one unchanged model at 1:9, 1:27 and 1:99. Published AUPRCs are not comparable
+  across benchmarks with different designs.

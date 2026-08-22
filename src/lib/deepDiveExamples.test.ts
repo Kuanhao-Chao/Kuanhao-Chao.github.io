@@ -8,6 +8,7 @@ import {
   likelihoodRatioPositive, oddsPathFor, oddsPathPoints, oddsPathStrength,
   cancerCellFraction, tumourMutationalBurden,
   topKRecall, rmse, spearman,
+  auroc, auprc, auprcBaseline,
 } from './deepDiveMath.ts';
 
 /**
@@ -1424,6 +1425,136 @@ describe('data-protein-benchmarks', () => {
       // and it is the more useful predictor: the severe tail is ordered exactly
       expect(topKRecall(truth, bulkScrambled, 5)).toBe(1);
       expect(topKRecall(truth, structured, 5)).toBe(0);
+    });
+  });
+});
+
+describe('data-variant-benchmarks', () => {
+  const mdx = lesson('data-variant-benchmarks');
+
+  /**
+   * The benchmark set the page and its figure both use: 10 causal variants, `nNeg` controls,
+   * and a fixed 8/90 fraction of controls scoring above every positive. Built here rather
+   * than imported so the test does not simply reread the generator.
+   */
+  const build = (nNeg: number) => {
+    const top = Math.round((nNeg * 8) / 90);
+    const labels: number[] = [];
+    const scores: number[] = [];
+    for (let i = 0; i < 10; i++) { labels.push(1); scores.push(0.6 + (0.3 * i) / 9); }
+    for (let j = 0; j < nNeg - top; j++) { labels.push(0); scores.push((0.55 * j) / (nNeg - top - 1)); }
+    for (let k = 0; k < top; k++) { labels.push(0); scores.push(0.92 + (0.07 * k) / Math.max(1, top - 1)); }
+    return { labels, scores };
+  };
+  const precisionAt = (labels: number[], scores: number[], k: number) => {
+    const order = [...scores.keys()].sort((a, b) => scores[b] - scores[a]);
+    return order.slice(0, k).filter((i) => labels[i] === 1).length / k;
+  };
+
+  describe('worked example — one ranking, two verdicts', () => {
+    const { labels, scores } = build(90);
+
+    it('scores AUROC 0.9111, which reads as a strong model', () => {
+      expect(auroc(labels, scores)).toBeCloseTo(0.9111, 4);
+      expect(mdx).toContain('\\text{AUROC} = 0.9111');
+    });
+
+    it('scores AUPRC 0.3782 against a baseline of exactly the positive rate', () => {
+      expect(auprc(labels, scores)).toBeCloseTo(0.3782, 4);
+      expect(auprcBaseline(labels)).toBeCloseTo(0.1, 12);
+      expect(auprcBaseline(labels)).toBeCloseTo(10 / 100, 12);
+      expect(mdx).toContain('\\text{AUPRC} = 0.3782');
+      expect(mdx).toContain('\\frac{10}{100} = 0.1000');
+    });
+
+    it('puts the first true positive ninth', () => {
+      expect(precisionAt(labels, scores, 8)).toBe(0);
+      expect(precisionAt(labels, scores, 9)).toBeCloseTo(1 / 9, 12);
+      expect(precisionAt(labels, scores, 10)).toBeCloseTo(0.2, 12);
+      expect(mdx).toContain('P@8 = \\frac{0}{8} = 0.0000');
+      expect(mdx).toContain('P@9 = \\frac{1}{9} = 0.1111');
+      expect(mdx).toContain('P@10 = \\frac{2}{10} = 0.2000');
+    });
+
+    it('has a false positive rate small enough for ROC to shrug at', () => {
+      expect(8 / 90).toBeLessThan(0.09); // "under nine per cent"
+    });
+  });
+
+  describe('figure 1 — the same predictions drawn twice', () => {
+    it('labels both areas with the values the module computes', () => {
+      const { labels, scores } = build(90);
+      expect(mdx).toContain('AUROC = 0.9111');
+      expect(mdx).toContain('AUPRC = 0.3782');
+      expect(mdx).toContain('baseline 0.1');
+      expect(auroc(labels, scores)).toBeCloseTo(0.9111, 4);
+      expect(auprc(labels, scores)).toBeCloseTo(0.3782, 4);
+    });
+
+    it('starts the precision-recall curve at 1/9, as the annotation says', () => {
+      const { labels, scores } = build(90);
+      expect(precisionAt(labels, scores, 9)).toBeCloseTo(0.1111, 4);
+      expect(mdx).toContain('first hit is the 9th prediction');
+    });
+  });
+
+  describe('exercise 1 — a score against its floor', () => {
+    it('gives the two ratios the solution quotes', () => {
+      expect(0.9111 / 0.5).toBeCloseTo(1.8222, 4);
+      expect(0.3782 / 0.1).toBeCloseTo(3.782, 3);
+      expect(mdx).toContain('\\frac{0.9111}{0.5} = 1.8222');
+      expect(mdx).toContain('\\frac{0.3782}{0.1} = 3.7820');
+    });
+  });
+
+  describe('exercise 2 — what a follow-up budget buys', () => {
+    it('yields two hits from ten and all ten from eighteen', () => {
+      const { labels, scores } = build(90);
+      expect(precisionAt(labels, scores, 10)).toBeCloseTo(0.2, 12);
+      expect(precisionAt(labels, scores, 18)).toBeCloseTo(10 / 18, 12);
+      expect(precisionAt(labels, scores, 18) * 18).toBe(10); // every positive found
+      expect(mdx).toContain('P@18 = \\frac{10}{18} = 0.5556');
+    });
+  });
+
+  describe('exercise 3 — why AUPRC does not transfer', () => {
+    it('leaves AUROC unchanged as the control set grows', () => {
+      const rocs = [90, 270, 990].map((n) => {
+        const { labels, scores } = build(n);
+        return auroc(labels, scores);
+      });
+      for (const r of rocs) expect(r).toBeCloseTo(0.9111, 4);
+    });
+
+    it('collapses AUPRC with the baseline it is measured against', () => {
+      const rows: [number, number, number][] = [
+        [90, 0.1, 0.3782],
+        [270, 0.0357, 0.1786],
+        [990, 0.01, 0.0579],
+      ];
+      for (const [n, base, area] of rows) {
+        const { labels, scores } = build(n);
+        expect(auprcBaseline(labels)).toBeCloseTo(base, 4);
+        expect(auprc(labels, scores)).toBeCloseTo(area, 4);
+        expect(mdx).toContain(area.toFixed(4));
+      }
+    });
+
+    it('falls by more than sixfold across the range, as the solution claims', () => {
+      const a = auprc(build(90).labels, build(90).scores);
+      const b = auprc(build(990).labels, build(990).scores);
+      expect(a / b).toBeGreaterThan(6);
+    });
+  });
+
+  describe('TraitGym scale quoted in the prose', () => {
+    it('states the counts and the one-to-nine design consistently', () => {
+      expect(338 * 10).toBe(3380);
+      expect(1140 * 10).toBe(11400);
+      expect(mdx).toContain('113 traits');
+      expect(mdx).toContain('83 traits');
+      expect(mdx).toContain('1,140 causal');
+      expect(mdx).toContain('11,400');
     });
   });
 });
