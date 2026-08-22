@@ -16,6 +16,7 @@ Astro 7 static site for the personal academic website `khchao.com` (Kuan-Hao Cha
 - `npm run pdf:posts` — regenerate per-page PDFs from an existing `dist/` (requires a prior build).
 - `npm run audit:indexing` — post-build SEO/indexing invariant checker (see below). Run after `npm run build`.
 - `npm run audit:posts` — Playwright-driven visual/behavioral audit of interactive post animations (`scripts/audit-post-ui.mjs`): boots a preview server, drives chromium+webkit across desktop/phone × light/dark, and checks figure zoom, animation playback, `prefers-reduced-motion`, and print output against a per-post `inventory` of expected animation/figure counts. Update `inventory` when a post's interactive component count changes.
+- `npm run audit:deep-dives` — Playwright rendering gate for the statistical-genetics curriculum (see below); `audit:deep-dives:ci` is the chromium-only smoke form.
 - `npm run audit:security` — static scan (`scripts/audit-security.mjs`) over `src/`, `public/`, `scripts/`, `.github/`, and config files for `target="_blank"` without `rel=noopener`, plain-`http://` links, hardcoded secrets, unsanitized `set:html`/`innerHTML` sinks (outside an allowlist), iframe issues, privacy leaks, missing `noindex` on invite pages, and `javascript:`/`data:` protocol usage. `npm run audit:security:live` additionally fetches the live site to check response headers.
 - `npm run preview` — serve the built site.
 
@@ -119,8 +120,9 @@ Things specific to this subsystem:
   value a figure draws as a label must also be asserted in that lesson's test file.** The
   Python generator writes the label into the MDX; the TypeScript test recomputes it and
   asserts the MDX contains it.
-- **Three conventions the series must not disagree with itself about**, each of which it
-  did before:
+- **Four conventions the series must not disagree with itself about**, each of which it
+  did before, and all four now enforced by a `curriculum consistency` block in
+  `deepDiveContract.test.ts`:
   - **Wakefield's ABF is written `BF₀₁`** (null over alternative) with explicit `π₀`
     normalisation in the PIP. The `BF₁₀` form is its exact reciprocal; using both without
     saying so is how two lessons ended up appearing to contradict each other.
@@ -129,6 +131,12 @@ Things specific to this subsystem:
     per curriculum.
   - **Ancestry PCs: state the number and the reason.** The series has quoted 10, "10–20"
     and 20 in three places.
+  - **λ_GC divides by `0.454936…`**, the exact median of χ²₁, never a rounding of it.
+    One page used 0.455 beside seven that did not.
+
+  Those checks scan the **prose**, with inline `<svg>` stripped first. Both regexes were
+  false-positive machines before that: `0.45` matched a haplotype frequency, and `39.6`
+  matched the SVG path command `L339.6`.
 - **The genomic-data track keeps its resources in a registry**, not in prose.
   `src/content/deepDiveDatasets/datasets.yaml` defines each resource once — version, scale,
   URL and **`access`** (open / registered / controlled / licensed, the fact that decides
@@ -146,10 +154,43 @@ Things specific to this subsystem:
   `deepDiveEntriesFromCollection`. `src/data/deepDives.ts` now holds only entries with no
   content file, so a migration *deletes* a catalog entry rather than editing a second copy
   of the same facts. That duplication had already put wrong reading times and a wrong level
-  on the live index.
+  on the live index. Two follow-ons: a lesson declares its own
+  `keyEquations` in frontmatter, because the catalog entry was the only place the index
+  card's formula chips lived and migrating a lesson silently dropped them; and display
+  order — the one catalog fact the collection genuinely cannot supply — is an explicit
+  `DEEP_DIVE_ORDER` list of ids, which `deepDives.test.ts` keeps complete.
 - **`npm run audit:refs`** re-checks every DOI against Crossref — that it resolves, and
   that its year and first author match what the bibliography claims. A 429 is throttling,
   not a bad DOI, and is reported as a warning. Not part of `build`; it needs the network.
+
+- **Interactive figures follow the same three-layer split as the games**, with
+  `src/lib/deepDiveMath.ts` as the top layer: `src/components/deepdive/Widget.astro` is
+  markup, `src/scripts/deepDiveWidgets.ts` is DOM and SVG, and **every number a widget
+  shows or draws comes from the tested module** — which is what stops a slider
+  contradicting the prose beside it. Six kinds exist (`ld-decay`, `drift`, `power`,
+  `selection`, `finemap`, `prs`); the contract test rejects any other. Things specific to
+  it:
+  - **The frame must not use `--color-figure-mat`.** That token is a deliberately *light*
+    card for raster figures with baked-in dark line art. A widget draws in `currentColor`,
+    so on the mat it is light-on-light in dark mode and the entire plot disappears.
+    `.dd-widget__frame` is transparent, which puts the drawing on the same pairing as body
+    text in either theme.
+  - **Mounting binds on `astro:page-load` and is idempotent** via a `dataset.ddReady`
+    flag. `ClientRouter` is active, so the module is evaluated once and a widget that
+    bound only at module scope is dead after one navigation — while one that re-binds
+    without the guard grows a second set of controls.
+  - `.dd-widget*` styles live in `src/styles/deepDive.css`, not the component: the
+    controller injects the controls and the SVG at runtime, so nothing it creates would
+    carry a component scope hash.
+- **`npm run audit:deep-dives`** (`scripts/audit-deep-dive-ui.mjs`) is the rendering gate
+  for the curriculum: every statistical-genetics route across chromium and webkit at
+  320/390/768/1440 in both themes, asserting no document overflow, no `.katex-error`, no
+  empty `<svg>`, no literal `$…$` in the prose, every citation link resolving to an anchor
+  that exists, and every widget mounting, drawing, printing without its controls,
+  rebinding after a client-side navigation and **changing its readout when a control
+  moves**. Its expected figure and widget counts are **derived from the MDX source**, not
+  held in an inventory — unlike `audit:posts`, whose `inventory` must be edited by hand.
+  `npm run audit:deep-dives:ci` is the chromium-only smoke form.
 
 - **`Citation` throws on an unknown key** rather than rendering an empty marker. That is
   deliberate: twelve icon names rendered as empty `<svg>` for months precisely because
