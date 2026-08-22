@@ -1,0 +1,318 @@
+---
+title: "Protein Benchmarks: Scoring a Predictor That Has No Units"
+shortTitle: Protein Benchmarks
+description: "ProteinGym, CAGI, UniProt and AlphaFold DB — why deep mutational scanning benchmarks report rank correlation rather than error, what top-K recall adds that Spearman hides, and why a blinded challenge is the only evaluation immune to contamination."
+abstract: "A zero-shot variant effect predictor outputs a log-likelihood ratio; a deep mutational scan outputs enrichment in an assay-specific unit. Neither is on the other's scale, so the error between them measures the mismatch and not the model. This page covers the benchmark suites for protein variant effects, shows why rank correlation is the metric that survives that mismatch, and why a respectable Spearman can coexist with recovering none of the variants anyone would follow up."
+date: 2026-08-22
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d06-benchmarks
+moduleLabel: Layer 6 · Benchmarks & Evaluation
+order: 11
+level: advanced
+objectives:
+  - "Explain why RMSE cannot compare predictors whose outputs are on different scales."
+  - "Show that rank correlation is invariant to monotone transformation and error is not."
+  - "Compute top-K recall and say what it measures that Spearman does not."
+  - "Say what a blinded challenge establishes that a static benchmark cannot."
+  - "Distinguish a predicted structure and its confidence from an experimental one."
+prerequisites:
+  - data-mave-assays
+referenceIds:
+  - jumper2021alphafold
+  - varadi2022afdb
+  - uniprot2023
+  - notin2023proteingym
+  - cagi2024
+  - esposito2019mavedb
+  - brnich2020
+tags: [ProteinGym, CAGI, UniProt, AlphaFold, Spearman, benchmarking, evaluation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+You have a predictor that scores every possible missense change, and an assay that measured
+several thousand of them. How well does the predictor do?
+
+The obvious answer — compare the numbers and take the error — is unusable here, and for a
+reason that is easy to state and easy to forget: **the two are not on the same scale, and
+neither has a natural one.**
+
+<Callout variant="intuition">
+A protein language model outputs a log-likelihood ratio. A deep mutational scan outputs
+enrichment: how much a variant's barcode grew or shrank in a pool, in units that depend on
+how long the selection ran and how hard it was.
+
+Neither number has a physical unit, and nothing maps one to the other. So the difference
+between them is not the model's error — it is mostly the arbitrary offset and stretch
+between two arbitrary scales, and a predictor can be punished severely for a rescaling that
+loses no information whatsoever.
+
+What survives the mismatch is **order**. If the assay says variant A is worse than variant B,
+a good predictor should agree, and that comparison is unaffected by any monotone
+transformation of either scale. This is why every benchmark in this layer reports rank
+statistics, and it is not a stylistic preference.
+</Callout>
+
+<DatasetTable layer="protein-benchmarks" caption="Protein benchmarks and their substrate" />
+
+<Notation
+  rows={[
+    { symbol: '\\rho_s', meaning: 'Spearman rank correlation between predicted and measured', dims: 'in [−1, 1]' },
+    { symbol: '\\text{RMSE}', meaning: 'Root mean squared error between two score vectors', dims: 'units of the scores' },
+    { symbol: 'R@k', meaning: 'Top-K recall: the fraction of the true top k that the predicted top k recovers', dims: 'in [0,1]' },
+    { symbol: '\\text{pLDDT}', meaning: 'AlphaFold per-residue confidence in its own local geometry', dims: 'in [0,100]' },
+  ]}
+/>
+
+## Four resources: two benchmarks and the substrate underneath
+
+**<Dataset id="proteingym" />** is the standard evaluation for variant effect predictors on
+protein sequence <Citation id="notin2023proteingym" />: a large collection of deep mutational
+scans, standardised splits, and a scoring protocol built around rank statistics. The assays
+it aggregates are the ones deposited in MaveDB <Citation id="esposito2019mavedb" />, so its
+ceiling is set by what has been measured rather than by what could be. Its substitution and
+indel tracks are separate benchmarks — a model good at one is not thereby good at the other,
+and results do not transfer.
+
+**<Dataset id="cagi" />** does something no static benchmark can <Citation id="cagi2024" />.
+Predictions are submitted against data that has not been released, and only afterwards is the
+answer key revealed. Everything else in this layer has to argue that a model was not trained
+on the test set; CAGI does not have to argue, because the test set did not exist publicly
+when the predictions were made.
+
+**<Dataset id="uniprot" />** is the sequence substrate everything indexes against
+<Citation id="uniprot2023" />. Its reviewed and unreviewed halves are not interchangeable: a
+Swiss-Prot annotation has been curated, a TrEMBL one has usually been propagated by
+similarity from something that was.
+
+**<Dataset id="alphafold-db" />** supplies structure at proteome scale
+<Citation id="jumper2021alphafold" /><Citation id="varadi2022afdb" />, which is what makes
+structure-informed variant scoring possible for proteins with no experimental model. They are
+*predictions*, and pLDDT is the model's confidence in its own local geometry — a low-pLDDT
+region is often intrinsically disordered rather than badly predicted, and the two failure
+modes need different responses.
+
+## Why the error is the wrong number
+
+<WorkedExample
+  title="The same predictor, scored two ways"
+  given={[
+    { label: 'Assay scores', value: '−3.2, −2.1, −1.5, −0.4, 0.1, 0.6, 1.2, 2.0' },
+    { label: 'Predictor output', value: 'the logistic transform of each' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+The predictor's ordering is exactly the assay's — it reports the same information squashed
+onto $(0,1)$, which is what a model emitting a probability rather than a log-odds does.
+
+**Step 1 — the predicted values.**
+
+$$
+0.0392,\; 0.1091,\; 0.1824,\; 0.4013,\; 0.5250,\; 0.6457,\; 0.7685,\; 0.8808
+$$
+
+**Step 2 — rank correlation.** The transform is strictly increasing, so every pairwise
+comparison is preserved and
+
+$$
+\rho_s = 1.0000
+$$
+
+The predictor is *perfect* by this measure, and it should be: it disagrees with the assay
+about nothing.
+
+**Step 3 — error.** Against the assay's own units,
+
+$$
+\text{RMSE} = 1.5995
+$$
+
+which on scores spanning $-3.2$ to $2.0$ is a large error. Reported alone it would read as a
+poor model.
+
+**Step 4 — see what the number is measuring.** Had the same predictor emitted the assay's
+units directly, its RMSE would be $0$. Nothing about its knowledge changed between those two
+cases — only the units. **RMSE is measuring the choice of output scale, and the choice of
+output scale is not a property of the model.**
+
+This is why a benchmark that pooled predictors reporting log-odds, probabilities and
+z-scores under a single error metric would rank them by their formatting conventions.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. One predictor, two verdicts. On the left the predicted score is plotted against the assay score, with a dropline to the identity line: the points lie far from y = x and RMSE is 1.5995. On the right the same eight variants are plotted rank against rank and fall exactly on the diagonal, giving a Spearman of 1.0000. The predictor is identical in both panels; only the comparison changed."
+  alt="Two side-by-side scatter plots of the same eight variants. The left plots predicted score against assay score, with points curving well away from the dashed identity line and a root mean squared error of 1.5995. The right plots predicted rank against assay rank, with all eight points exactly on the diagonal and a Spearman correlation of 1.0000."
+>
+  <svg viewBox="0 0 640 322" width="640" height="322" font-family="inherit"><text x="320.0" y="18.0" font-size="12" fill="currentColor" text-anchor="middle" font-weight="600">One predictor, two verdicts</text><line x1="64.0" y1="46.0" x2="64.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="64.0" y1="250.0" x2="288.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="64.0" y1="250.0" x2="288.0" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="56.0" y="254.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-4</text><line x1="64.0" y1="191.7" x2="288.0" y2="191.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="56.0" y="195.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-2</text><line x1="64.0" y1="133.4" x2="288.0" y2="133.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="56.0" y="137.4" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="64.0" y1="75.1" x2="288.0" y2="75.1" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="56.0" y="79.1" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">2</text><line x1="64.0" y1="250.0" x2="64.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="64.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">-4</text><line x1="128.0" y1="250.0" x2="128.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="128.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">-2</text><line x1="192.0" y1="250.0" x2="192.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="192.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="256.0" y1="250.0" x2="256.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="256.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="64.0" y1="250.0" x2="288.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="4 4"/><text x="236.8" y="66.4" font-size="10" fill="currentColor" opacity=".6">y = x</text><circle cx="89.6" cy="132.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="89.6" y1="132.3" x2="89.6" y2="226.7" stroke="currentColor" stroke-width="1" opacity=".3"/><circle cx="124.8" cy="130.2" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="124.8" y1="130.2" x2="124.8" y2="194.6" stroke="currentColor" stroke-width="1" opacity=".3"/><circle cx="144.0" cy="128.1" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="144.0" y1="128.1" x2="144.0" y2="177.1" stroke="currentColor" stroke-width="1" opacity=".3"/><circle cx="179.2" cy="121.7" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="179.2" y1="121.7" x2="179.2" y2="145.1" stroke="currentColor" stroke-width="1" opacity=".3"/><circle cx="195.2" cy="118.1" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="195.2" y1="118.1" x2="195.2" y2="130.5" stroke="currentColor" stroke-width="1" opacity=".3"/><circle cx="211.2" cy="114.6" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="211.2" y1="114.6" x2="211.2" y2="115.9" stroke="currentColor" stroke-width="1" opacity=".3"/><circle cx="230.4" cy="111.0" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="230.4" y1="111.0" x2="230.4" y2="98.5" stroke="currentColor" stroke-width="1" opacity=".3"/><circle cx="256.0" cy="107.8" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="256.0" y1="107.8" x2="256.0" y2="75.1" stroke="currentColor" stroke-width="1" opacity=".3"/><text x="176.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle">Assay score</text><text x="20.0" y="148.0" font-size="11" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 148)">Predicted score</text><text x="176.0" y="36.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">RMSE = 1.5995</text><line x1="376.0" y1="46.0" x2="376.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="376.0" y1="250.0" x2="600.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="376.0" y1="250.0" x2="600.0" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="368.0" y="254.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="376.0" y1="204.7" x2="600.0" y2="204.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="368.0" y="208.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">2</text><line x1="376.0" y1="159.3" x2="600.0" y2="159.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="368.0" y="163.3" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">4</text><line x1="376.0" y1="114.0" x2="600.0" y2="114.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="368.0" y="118.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">6</text><line x1="376.0" y1="68.7" x2="600.0" y2="68.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="368.0" y="72.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">8</text><line x1="376.0" y1="250.0" x2="376.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="376.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="425.8" y1="250.0" x2="425.8" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="425.8" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="475.6" y1="250.0" x2="475.6" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="475.6" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">4</text><line x1="525.3" y1="250.0" x2="525.3" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="525.3" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">6</text><line x1="575.1" y1="250.0" x2="575.1" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="575.1" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">8</text><line x1="376.0" y1="250.0" x2="600.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="4 4"/><circle cx="400.9" cy="227.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="425.8" cy="204.7" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="450.7" cy="182.0" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="475.6" cy="159.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="500.4" cy="136.7" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="525.3" cy="114.0" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="550.2" cy="91.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="575.1" cy="68.7" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="488.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle">Assay rank</text><text x="332.0" y="148.0" font-size="11" fill="currentColor" text-anchor="middle" transform="rotate(-90 332 148)">Predicted rank</text><text x="488.0" y="36.0" font-size="11" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">Spearman = 1.0000</text><text x="320.0" y="308.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">A monotone rescale costs no information and RMSE sees nothing else</text></svg>
+</Figure>
+
+<Callout variant="warning" title="Rank correlation has its own blind spot">
+Spearman is computed over every variant, and most variants are unremarkable. A predictor can
+be reliably right about the great mass of neutral changes — which is most of the correlation —
+and wrong about precisely the handful of severe ones anybody would act on.
+
+That is not a hypothetical trade-off; it is the expected shape of the problem, because the
+tail is small and contributes little to a rank statistic. Benchmarks therefore report top-K
+recall alongside it, and the next example shows how far the two can diverge.
+</Callout>
+
+<WorkedExample
+  title="A respectable correlation that recovers nothing you would act on"
+  given={[
+    { label: 'Variants', value: '20, truly ranked 1 (worst) to 20' },
+    { label: 'Predictor', value: 'correct except that it swaps true ranks 1–5 with 6–10' },
+    { label: 'Follow-up budget', value: 'the top 5' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the rank correlation.** Ten variants are displaced by exactly five positions and
+ten are untouched, so $\sum d^2 = 10 \times 25 = 250$ and
+
+$$
+\rho_s = 1 - \frac{6 \times 250}{20(20^2 - 1)} = 1 - \frac{1500}{7980} = 0.8120
+$$
+
+A Spearman of 0.81 is a good result by the standards of this field, and would be reported as
+one.
+
+**Step 2 — top-5 recall.** The predictor's five highest-scoring variants are the ones truly
+ranked 6th to 10th. Its intersection with the true top five is empty:
+
+$$
+R@5 = \frac{0}{5} = 0.0000
+$$
+
+**Step 3 — top-10 recall.**
+
+$$
+R@10 = \frac{10}{10} = 1.0000
+$$
+
+**Step 4 — read the three numbers together.** They are not in conflict; they are describing
+different things precisely. The predictor knows exactly *which ten* variants matter — that is
+$R@10 = 1$ — and has no idea of the order within them, which is why $R@5$ is zero. The
+Spearman of 0.81 is carried almost entirely by the ten variants it never got wrong.
+
+If the follow-up budget is five experiments, this predictor delivers nothing, and its headline
+correlation says it is working well.
+
+</WorkedExample>
+
+## Exercises
+
+<Exercise n={1} title="A predictor with the sign flipped" difficulty="warm-up">
+
+A model is evaluated against a DMS assay where *lower* scores mean more damaging, but the
+model reports higher scores for more damaging variants. Its Spearman comes out at −0.72. What
+should be concluded, and what would RMSE have said?
+
+<div slot="solution">
+
+That the model works, and the orientation convention was not matched. $|\rho_s| = 0.72$ is the
+performance; the sign records which direction the two scales run.
+
+Negating either vector flips the sign and changes nothing else, because rank correlation is
+odd under negation — a property RMSE does not share at all. Against the un-negated vector RMSE
+would report an error compounded from the sign error *and* the scale mismatch, and there would
+be no way to separate the two by looking at it.
+
+The practical rule: check the sign before concluding anything, and record the orientation
+convention alongside the score. A benchmark that reports $|\rho_s|$ silently hides genuinely
+anti-correlated models, so ProteinGym reports the signed value and fixes the convention
+instead.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Where the correlation comes from" difficulty="core">
+
+Using the 20-variant example, suppose instead the predictor ranks the top ten perfectly and
+completely scrambles the bottom ten. Would you expect a higher or lower Spearman than 0.8120,
+and which predictor would you rather have?
+
+<div slot="solution">
+
+**Lower.** Scrambling ten positions among themselves produces displacements spread across the
+whole block rather than a uniform five, and the expected $\sum d^2$ from a random permutation
+of ten items is larger than the 250 the structured swap produced. So the headline number gets
+worse.
+
+And this predictor is **far more useful**. It orders the severe variants correctly, which is
+where every decision is made; it is confused about the neutral ones, where nothing is at
+stake. The first predictor had it exactly the wrong way round.
+
+This is the concrete form of the blind spot: Spearman weights every variant equally, and the
+variants are not equally important. Reporting it alone lets a model be rewarded for being
+right where it does not matter. The remedy is not to abandon rank correlation — it is what
+survives the units problem — but to read it beside a top-K recall that looks only at the
+tail.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Why a blinded challenge is different in kind" difficulty="stretch">
+
+A model reports state-of-the-art Spearman on a public benchmark. What can and cannot be
+concluded, and what does a CAGI-style evaluation add?
+
+<div slot="solution">
+
+**What can be concluded:** on those assays, under that split, it ranks variants better than
+the compared models did.
+
+**What cannot:** that it will do so on an assay released next year. A public benchmark's
+assays are in the literature, and any supervised model trained afterwards may have seen them —
+directly, or through a resource such as ClinVar that absorbed their conclusions. Even a
+zero-shot model is affected indirectly, since the proteins are well studied and their
+homologues populate the sequence databases the model was pretrained on.
+
+Nothing about the score reveals this. Contamination does not look like anything; it looks like
+a good result.
+
+**What blinding adds** <Citation id="cagi2024" />: the answers did not exist publicly when the
+predictions were submitted, so contamination is impossible rather than merely argued against.
+That is a difference in kind, not degree — the difference between "we checked and found no
+overlap" and "there was nothing to overlap with."
+
+The cost is that blinded challenges are small, infrequent and cover whatever data happened to
+be embargoed. So the honest reading is that static benchmarks measure *ranking on known
+assays* at scale, blinded challenges measure *generalisation* on a handful, and a model
+claiming both should be able to show both.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Neither side of this comparison has units.** A predictor emits a log-likelihood ratio and
+  an assay emits enrichment, so their difference measures the mismatch between two arbitrary
+  scales rather than the model's error.
+- **Rank correlation survives that and error does not.** A logistic rescale of a perfect
+  predictor keeps $\rho_s = 1.0000$ and produces $\text{RMSE} = 1.5995$ — the same model
+  reporting the assay's own units would score $0$.
+- **Spearman is dominated by the bulk.** A predictor that swaps the true top five with ranks
+  six to ten scores $\rho_s = 0.8120$, $R@10 = 1.0000$ and $R@5 = 0.0000$: it knows which ten
+  matter and cannot order them, and delivers nothing on a five-experiment budget.
+- **Read the two together.** Rank correlation for whether the model understands the protein,
+  top-K recall for whether it would change what you do next. Neither is an evidence strength:
+  converting a benchmark score into something a classification can use needs the separate
+  calibration step <Citation id="brnich2020" />, against controls rather than against an assay.
+- **Blinding is a difference in kind.** A static benchmark can only argue that a model did not
+  see the answers; a challenge scored against embargoed data removes the question.
+- **AlphaFold DB is predictions with a confidence attached.** Low pLDDT frequently marks
+  disorder rather than failure, and a structure-informed score disagreeing there is not
+  necessarily wrong.
