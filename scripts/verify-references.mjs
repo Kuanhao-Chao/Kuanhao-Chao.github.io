@@ -23,6 +23,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 const REFS = 'src/content/deepDiveReferences/references.yaml';
@@ -121,6 +122,32 @@ if (!existsSync(REFS)) {
   process.exit(1);
 }
 
+/**
+ * Parse the file the way Astro will, before doing anything else.
+ *
+ * Both audits read this file with a small regex parser, which is fine for the fixed shape
+ * it is generated in — but a regex parser cannot fail on invalid YAML, and Astro's loader
+ * can. A single unescaped apostrophe (`'Nuala A. O'Leary'`) once passed this audit cleanly
+ * and then took the whole build down with an empty collection and a Citation throwing on
+ * every page. Catch it here, where the error names the line.
+ */
+function assertParses(path) {
+  let load;
+  try {
+    ({ load } = createRequire(import.meta.url)('js-yaml'));
+  } catch {
+    return; // js-yaml comes in via Astro; if it is absent, skip rather than fail the audit
+  }
+  try {
+    load(readFileSync(path, 'utf8'));
+  } catch (err) {
+    console.error(`Reference audit failed: ${path} is not valid YAML — Astro will not load it.`);
+    console.error(String(err.message).split('\n').slice(0, 8).join('\n'));
+    process.exit(1);
+  }
+}
+
+assertParses(REFS);
 const entries = parseReferences(readFileSync(REFS, 'utf8'));
 const list = [...entries.values()];
 

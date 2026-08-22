@@ -48,7 +48,12 @@ def line(x1, y1, x2, y2, width=1, opacity=None, dash=None, stroke='currentColor'
 
 
 def rect(x, y, w, h, opacity=None, fill='currentColor', rx=2, stroke=None, sw=1):
-    o = ' opacity="%.2f"' % opacity if opacity is not None else ''
+    # Accept either form. Every other primitive here takes opacity as a string like '.28',
+    # and rect taking only a float was a trap for anyone writing their second figure — but
+    # floats must keep formatting as %.2f, or already-published SVGs churn on regeneration
+    # ('0.50' -> '0.5') for no visual change at all.
+    o = '' if opacity is None else ' opacity="%s"' % (
+        ('%.2f' % opacity) if isinstance(opacity, (int, float)) else opacity)
     s = ' stroke="%s" stroke-width="%s"' % (stroke, sw) if stroke else ''
     return '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%s" fill="%s"%s%s/>' % (
         x, y, w, h, rx, fill, o, s)

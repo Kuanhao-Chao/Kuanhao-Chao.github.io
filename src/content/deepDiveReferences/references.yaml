@@ -419,3 +419,103 @@ esposito2019mavedb:
   venue: "Genome Biology 20"
   doi: https://doi.org/10.1186/s13059-019-1845-6
   verified: 2026-08-21
+
+# ── Layer 1 · Reference assemblies, annotation and conservation ──────────────
+
+kent2002ucsc:
+  authors: ['W. James Kent', 'Charles W. Sugnet', 'Terrence S. Furey', 'et al.']
+  year: 2002
+  title: "The Human Genome Browser at UCSC"
+  venue: "Genome Research 12:996-1006"
+  doi: https://doi.org/10.1101/gr.229102
+  verified: 2026-08-21
+
+siepel2005:
+  authors: ['Adam Siepel', 'Gill Bejerano', 'Jakob S. Pedersen', 'et al.']
+  year: 2005
+  title: "Evolutionarily conserved elements in vertebrate, insect, worm, and yeast genomes"
+  venue: "Genome Research 15:1034-1050"
+  doi: https://doi.org/10.1101/gr.3715005
+  verified: 2026-08-21
+
+pollard2010phylop:
+  authors: ['Katherine S. Pollard', 'Melissa J. Hubisz', 'Kate R. Rosenbloom', 'Adam Siepel']
+  year: 2009
+  title: "Detection of nonneutral substitution rates on mammalian phylogenies"
+  venue: "Genome Research 20:110-121"
+  doi: https://doi.org/10.1101/gr.097857.109
+  verified: 2026-08-21
+
+danecek2011vcf:
+  authors: ['Petr Danecek', 'Adam Auton', 'Goncalo Abecasis', 'et al.']
+  year: 2011
+  title: "The variant call format and VCFtools"
+  venue: "Bioinformatics 27:2156-2158"
+  doi: https://doi.org/10.1093/bioinformatics/btr330
+  verified: 2026-08-21
+
+oleary2016refseq:
+  authors: ['Nuala A. O''Leary', 'Mathew W. Wright', 'J. Rodney Brister', 'et al.']
+  year: 2015
+  title: "Reference sequence (RefSeq) database at NCBI: current status, taxonomic expansion, and functional annotation"
+  venue: "Nucleic Acids Research 44:D733-D745"
+  doi: https://doi.org/10.1093/nar/gkv1189
+  verified: 2026-08-21
+
+dendunnen2016hgvs:
+  authors: ['Johan T. den Dunnen', 'Raymond Dalgleish', 'Donna R. Maglott', 'et al.']
+  year: 2016
+  title: "HGVS Recommendations for the Description of Sequence Variants: 2016 Update"
+  venue: "Human Mutation 37:564-569"
+  doi: https://doi.org/10.1002/humu.22981
+  verified: 2026-08-21
+
+frankish2021gencode:
+  authors: ['Adam Frankish', 'Mark Diekhans', 'Irwin Jungreis', 'et al.']
+  year: 2020
+  title: "GENCODE 2021"
+  venue: "Nucleic Acids Research 49:D916-D923"
+  doi: https://doi.org/10.1093/nar/gkaa1087
+  verified: 2026-08-21
+
+nurk2022t2t:
+  authors: ['Sergey Nurk', 'Sergey Koren', 'Arang Rhie', 'et al.']
+  year: 2022
+  title: "The complete sequence of a human genome"
+  venue: "Science 376:44-53"
+  doi: https://doi.org/10.1126/science.abj6987
+  verified: 2026-08-21
+
+christmas2023zoonomia:
+  authors: ['Matthew J. Christmas', 'Irene M. Kaplow', 'Diane P. Genereux', 'et al.']
+  year: 2023
+  title: "Evolutionary constraint and innovation across hundreds of placental mammals"
+  venue: "Science 380"
+  doi: https://doi.org/10.1126/science.abn3943
+  verified: 2026-08-21
+
+liao2023pangenome:
+  authors: ['Wen-Wei Liao', 'Mobin Asri', 'Jana Ebler', 'et al.']
+  year: 2023
+  title: "A draft human pangenome reference"
+  venue: "Nature 617:312-324"
+  doi: https://doi.org/10.1038/s41586-023-05896-x
+  verified: 2026-08-21
+
+dyer2025ensembl:
+  authors: ['Sarah C Dyer', 'Olanrewaju Austine-Orimoloye', 'Andrey G Azov', 'et al.']
+  year: 2024
+  title: "Ensembl 2025"
+  venue: "Nucleic Acids Research 53:D948-D957"
+  doi: https://doi.org/10.1093/nar/gkae1071
+  verified: 2026-08-21
+
+sherry2001dbsnp:
+  # Crossref's deposit for this paper lists only the first author; the published paper
+  # carries seven. Recorded as 'et al.' rather than overstating what the deposit says.
+  authors: ['S. T. Sherry', 'M. H. Ward', 'M. Kholodov', 'et al.']
+  year: 2001
+  title: "dbSNP: the NCBI database of genetic variation"
+  venue: "Nucleic Acids Research 29:308-311"
+  doi: https://doi.org/10.1093/nar/29.1.308
+  verified: 2026-08-21

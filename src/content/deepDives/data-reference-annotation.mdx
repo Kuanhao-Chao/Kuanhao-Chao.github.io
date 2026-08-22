@@ -1,0 +1,392 @@
+---
+title: "Reference Assemblies and Annotation: The Coordinate System Everything Else Assumes"
+shortTitle: Reference & Annotation
+description: "GRCh38, T2T-CHM13 and the HPRC pangenome; GENCODE, Ensembl, RefSeq and MANE Select; HGVS, VCF and rs identifiers; phyloP, phastCons and Zoonomia — what each defines, and why a variant description is meaningless without all three of assembly, transcript and convention."
+abstract: "A genomic coordinate is not a fact about the genome. It is a fact about a particular description of the genome, and it stops being true the moment you change the assembly, the transcript or the naming convention. This page covers the three reference assemblies now in use, the two annotation lineages and the MANE set that reconciles them, the grammar of variant naming, and the conservation tracks that supply the evolutionary prior every downstream layer leans on."
+date: 2026-08-21
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d01-reference
+moduleLabel: Genomic Data · Layer 1
+order: 1
+level: foundational
+objectives:
+  - "Say what GRCh38, T2T-CHM13 and the HPRC pangenome each are, and why GRCh38 is still the default despite being demonstrably incomplete."
+  - "Convert a genomic coordinate to a CDS position on either strand, and explain why the answer depends on the transcript."
+  - "Explain what MANE Select is and which specific failure it removes."
+  - "Read an HGVS description and a VCF record, and say what normalisation and an rs identifier do and do not guarantee."
+  - "Interpret phyloP and phastCons correctly, and quantify why single-base conservation cannot prioritise a variant on its own."
+prerequisites: []
+referenceIds:
+  - kent2002ucsc
+  - siepel2005
+  - pollard2010phylop
+  - danecek2011vcf
+  - oleary2016refseq
+  - dendunnen2016hgvs
+  - frankish2021gencode
+  - nurk2022t2t
+  - christmas2023zoonomia
+  - liao2023pangenome
+  - dyer2025ensembl
+  - morales2022mane
+  - sherry2001dbsnp
+tags: [GRCh38, T2T, pangenome, GENCODE, MANE, HGVS, VCF, conservation, annotation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+Someone sends you a variant: `chr1:1,650 A>G`. Before you can say anything at all about it,
+three things have to be pinned down — which assembly those coordinates are in, which
+transcript any protein consequence is numbered against, and which convention the description
+follows.
+
+Get any one of them wrong and you do not get an error. You get a different variant, described
+in perfectly valid syntax, and everything downstream agrees with itself.
+
+<Callout variant="intuition">
+A coordinate is not a property of the genome. It is a property of a *description* of the
+genome — like a page number, which is meaningless without the edition.
+
+`chr1:1,650` names a different base in GRCh37 than in GRCh38. `c.202` names a different
+base under two transcripts of the same gene. And on the minus strand, the base a VCF calls
+`A` is the base an HGVS description calls `T`.
+
+None of these are exotic edge cases. They are the ordinary situation, and this layer exists
+to make the three choices explicit so that everything built on top has something stable to
+stand on.
+</Callout>
+
+<DatasetTable layer="reference-annotation" caption="Reference assemblies, annotation and conservation" />
+
+<Notation
+  rows={[
+    { symbol: '\\text{g.}', meaning: 'Genomic coordinate, relative to a named assembly', dims: '1-based in HGVS; 1-based in VCF; 0-based in BED' },
+    { symbol: '\\text{c.}', meaning: 'Coding-sequence position, relative to a named transcript', dims: '1 = first base of the start codon' },
+    { symbol: '\\text{p.}', meaning: 'Protein position, relative to a named protein isoform', dims: 'codon number' },
+    { symbol: 'n', meaning: 'Length of the coding sequence', dims: 'nucleotides; always a multiple of 3' },
+    { symbol: '\\text{phyloP}', meaning: 'Signed −log₁₀ p-value against neutral evolution at one base', dims: 'positive = conserved' },
+    { symbol: '\\text{phastCons}', meaning: 'Posterior probability that a base lies in a conserved element', dims: 'in [0,1]' },
+    { symbol: '\\text{rs}', meaning: 'dbSNP identifier for a submitted variant', dims: 'an identifier, not an assertion' },
+  ]}
+/>
+
+## Three assemblies, and why the oldest is still the default
+
+**<Dataset id="grch38" version />** is a mosaic built from several donors, and it has known
+gaps: centromeres, acrocentric short arms and long segmental duplications were beyond the
+sequencing technology available when it was assembled. It nonetheless remains the coordinate
+system that gnomAD, ClinVar, GTEx and essentially every clinical pipeline publish in — and
+being the coordinate system everything else uses is a property no technically superior
+assembly can acquire quickly.
+
+**<Dataset id="t2t-chm13" version />** closed those gaps: a genuinely gapless 3.117 Gb
+sequence adding roughly 200 Mb absent or misassembled in GRCh38 <Citation id="nurk2022t2t" />.
+The caveat is in the name — CHM13 is a hydatidiform mole, effectively one haplotype from one
+individual. It is a *complete* genome, not a *representative* one.
+
+**<Dataset id="hprc" />** is the response to that: 47 diploid assemblies held as a graph
+rather than a string, so that a variant common in one population is part of the reference
+rather than a deviation from someone else's <Citation id="liao2023pangenome" />. The cost is
+that a graph reference needs tooling most pipelines do not yet speak, and the coordinate on
+a graph is not a single number.
+
+<Callout variant="warning" title="Mixing assemblies is the most common silent error here">
+`liftOver` <Citation id="kent2002ucsc" /> converts coordinates between assemblies, and it is
+where most cross-assembly mistakes are both introduced and catchable. Three things it does
+not do:
+
+- **It is not lossless.** Some regions have no unique counterpart and simply fail to map.
+  A pipeline that ignores the failure list quietly loses variants.
+- **It does not check alleles.** A region inverted between assemblies lifts its coordinates
+  correctly and leaves the reference and alternate alleles wrong.
+- **It cannot be inferred.** Nothing in a bare `chr1:1,650` records which assembly produced
+  it, so an unlabelled coordinate is not recoverable — only guessable.
+
+The discipline is to carry the assembly in the filename, in the VCF header and in every
+conversation, and to treat a coordinate without one as missing data.
+</Callout>
+
+## Two annotation lineages, and the set that reconciles them
+
+**<Dataset id="gencode" version />** and **<Dataset id="refseq" />** are independent gene
+annotations. GENCODE is what <Dataset id="ensembl" /> ships and what nearly every sequence
+model is trained against <Citation id="frankish2021gencode" /><Citation id="dyer2025ensembl" />;
+RefSeq is the curated `NM_`/`NP_` set most clinical laboratories report in
+<Citation id="oleary2016refseq" />. They disagree about transcript boundaries often enough
+to matter.
+
+The deeper problem is not the disagreement between them but the multiplicity within each.
+GENCODE release 50 annotates **19,442 protein-coding genes carrying 278,455 protein-coding
+transcripts** — a mean of 14.3 transcripts per gene. A `c.` coordinate is numbered against
+*one* of them. Quoting `c.202` without an accession is like quoting a line number without
+saying which file.
+
+**<Dataset id="mane" version />** is the fix, and it is a boringly practical one: for each
+protein-coding gene, one RefSeq transcript and one Ensembl transcript that are identical base
+for base across the CDS and the UTRs, agreed between NCBI and EMBL-EBI
+<Citation id="morales2022mane" />. MANE Select gives the field a default answer to "which
+transcript?", and MANE Plus Clinical adds transcripts where the Select one cannot represent
+known pathogenic variants.
+
+<WorkedExample
+  title="One position, three answers"
+  given={[
+    { label: 'Variant', value: 'chr1:1,650 A>G' },
+    { label: 'Exons (genomic)', value: '1,000–1,300 · 1,500–1,700 · 2,000–2,200' },
+    { label: 'CDS (transcript order)', value: '2,150 down to 1,101, minus strand' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — check the exon model before trusting it.** Clip each exon to the coding region and
+add up: $151 + 201 + 200 = 552$ nucleotides, which is $184$ codons exactly. A coding length
+that is not a multiple of three means the model is wrong, and the check costs nothing.
+
+**Step 2 — number in transcript order.** The gene is on the minus strand, so transcription
+runs from the *high* coordinate down. Counting from the first coding base at genomic 2,150:
+
+$$
+\text{exon A: } c.1\text{–}c.151 \;\leftrightarrow\; 2{,}150\text{–}2{,}000, \qquad
+\text{exon B: } c.152\text{–}c.352 \;\leftrightarrow\; 1{,}700\text{–}1{,}500
+$$
+
+The variant at 1,650 falls in exon B, at offset $1{,}700 - 1{,}650 + 1 = 51$ into it:
+
+$$
+c. = 151 + 51 = 202 \quad\Longrightarrow\quad \text{codon } \lceil 202/3 \rceil = 68
+$$
+
+**Step 3 — get the strand wrong.** Number the same exons from the low coordinate instead and
+the variant lands at $200 + 151 = c.351$, in **codon 117**. Nothing errors. The description
+is well-formed. It is simply a different variant.
+
+**Step 4 — use a different transcript.** Take a shorter isoform whose CDS begins at genomic
+1,700, and the same base is now the 51st coding nucleotide: **c.51, codon 17**.
+
+**Step 5 — and the alleles flip too.** On the minus strand the genomic `A>G` of the VCF is
+`T>C` in the coding description. A pipeline that copies VCF `REF`/`ALT` straight into an HGVS
+`c.` string produces a syntactically valid, wrong variant for roughly half of all genes.
+
+Three coordinate systems, one position, three defensible-looking answers — and only the first
+is the one a laboratory would report.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The same base, read three ways. The gene is on the minus strand, so transcription runs right to left and c.1 sits at the highest coding coordinate. Under the MANE Select transcript the variant is c.202 (codon 68); numbering the identical exons as though the gene were on the plus strand gives c.351 (codon 117); a shorter isoform whose CDS starts at 1,700 gives c.51 (codon 17). The position never moved."
+  alt="A three-exon gene model on the minus strand with a variant marked at genomic position 1,650. Beneath it, three rows show the coding region under three different models, each with its own c.1 marker, yielding c.202 in codon 68, c.351 in codon 117, and c.51 in codon 17."
+>
+  <svg viewBox="0 0 700 242" width="700" height="242" font-family="inherit"><text x="350.0" y="16.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">One genomic position, three transcript models, three answers</text><line x1="161.4" y1="58.0" x2="548.6" y2="58.0" stroke="currentColor" stroke-width="1" opacity=".45"/><rect x="161.4" y="48.0" width="96.8" height="20.0" rx="2" fill="currentColor" opacity=".28"/><rect x="322.7" y="48.0" width="64.5" height="20.0" rx="2" fill="currentColor" opacity=".28"/><rect x="484.1" y="48.0" width="64.5" height="20.0" rx="2" fill="currentColor" opacity=".28"/><path d="M269.8 58.0 l5 -4 v8 z" fill="currentColor" opacity=".55"/><path d="M376.3 58.0 l5 -4 v8 z" fill="currentColor" opacity=".55"/><path d="M482.8 58.0 l5 -4 v8 z" fill="currentColor" opacity=".55"/><text x="151.4" y="62.0" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".7">minus strand</text><line x1="371.1" y1="36.0" x2="371.1" y2="72.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5"/><text x="371.1" y="34.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">chr1:1,650 A>G</text><text x="130.0" y="112.0" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".85">MANE Select, minus</text><rect x="484.1" y="100.0" width="48.4" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="322.7" y="100.0" width="64.5" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="194.0" y="100.0" width="64.2" height="16.0" rx="2" fill="currentColor" opacity=".5"/><line x1="532.5" y1="95.0" x2="532.5" y2="121.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25"/><text x="527.5" y="92.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">c.1</text><line x1="371.1" y1="96.0" x2="371.1" y2="120.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5"/><text x="580.0" y="112.0" font-size="11" fill="var(--color-accent, #2e6e5e)" text-anchor="start" font-weight="600">c.202 · codon 68</text><text x="130.0" y="152.0" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".85">same exons, plus</text><rect x="194.0" y="140.0" width="64.2" height="16.0" rx="2" fill="currentColor" opacity=".22"/><rect x="322.7" y="140.0" width="64.5" height="16.0" rx="2" fill="currentColor" opacity=".22"/><rect x="484.1" y="140.0" width="48.4" height="16.0" rx="2" fill="currentColor" opacity=".22"/><line x1="194.0" y1="135.0" x2="194.0" y2="161.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25"/><text x="199.0" y="132.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="start" font-weight="600">c.1</text><line x1="371.1" y1="136.0" x2="371.1" y2="160.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5"/><text x="580.0" y="152.0" font-size="11" fill="currentColor" text-anchor="start" font-weight="600">c.351 · codon 117</text><text x="130.0" y="192.0" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".85">short isoform, minus</text><rect x="322.7" y="180.0" width="64.5" height="16.0" rx="2" fill="currentColor" opacity=".22"/><rect x="194.0" y="180.0" width="64.2" height="16.0" rx="2" fill="currentColor" opacity=".22"/><line x1="387.3" y1="175.0" x2="387.3" y2="201.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25"/><text x="382.3" y="172.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">c.1</text><line x1="371.1" y1="176.0" x2="371.1" y2="200.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5"/><text x="580.0" y="192.0" font-size="11" fill="currentColor" text-anchor="start" font-weight="600">c.51 · codon 17</text><text x="350.0" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">The position never moved. Only the transcript and the strand did.</text></svg>
+</Figure>
+
+## Naming the variant
+
+Two grammars are in use, and they are not interchangeable.
+
+**HGVS** <Citation id="dendunnen2016hgvs" /> is a description language, written against a
+named reference sequence: `NM_000059.4:c.202A>G`. The accession is not decoration — it is
+the half of the statement that makes the number mean anything, which is exactly what the
+worked example above demonstrates.
+
+**VCF** <Citation id="danecek2011vcf" /> is a file format, written against an assembly, with
+`POS`, `REF` and `ALT` columns. The same variant has many valid VCF representations, because
+an indel in a repeat can be written at several positions. **Normalisation** — left-aligning
+and trimming to the most parsimonious representation — is what makes two files comparable,
+and skipping it is the standard reason a variant "isn't in gnomAD" when it plainly is.
+
+**<Dataset id="dbsnp" />** supplies rs identifiers <Citation id="sherry2001dbsnp" />. An rs
+number records that somebody submitted a variant. It is not evidence of frequency, of
+quality, or of consequence; rs numbers can merge, split and be retired as submissions are
+reconciled. Treating one as a stable primary key across dbSNP builds is a mistake that
+surfaces years later.
+
+## Conservation: the prior underneath everything else
+
+If a base has stayed the same across a hundred million years of mammalian evolution, something
+was probably removing the mutations that changed it. That is the entire argument, and it is
+the only genome-wide functional evidence available for sequence that has never been assayed.
+
+Two scores, computed on whole-genome alignments distributed through
+**<Dataset id="ucsc" />**, answer two different questions:
+
+- **phyloP** <Citation id="pollard2010phylop" /> asks about **one base**: is its substitution
+  rate different from neutral? It is a signed −log₁₀ p-value, so positive means conserved,
+  negative means accelerated, and the magnitude is the significance.
+- **phastCons** <Citation id="siepel2005" /> asks about a **region**: what is the posterior
+  probability that this base lies inside a conserved *element*? It uses a hidden Markov model,
+  so neighbouring bases inform each other and the output is smoothed along the sequence.
+
+Use phyloP when you care about a single position and phastCons when you care about whether a
+window is functional. They are not substitutes, and averaging phyloP over a window is not
+phastCons.
+
+**<Dataset id="zoonomia" />** changed what is achievable here by aligning 241 placental mammals
+<Citation id="christmas2023zoonomia" />. Depth of phylogeny is what buys resolution: with a
+handful of species there is not enough independent evolutionary time to call a single base
+constrained, and with 241 there is.
+
+<WorkedExample
+  title="Why conservation alone cannot prioritise a variant"
+  given={[
+    { label: 'phyloP threshold', value: '2.0' },
+    { label: 'Genome size', value: '3.1 × 10⁹ bases' },
+    { label: 'Constrained fraction (Zoonomia)', value: '≈ 3.5%' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — turn the score into a p-value.** phyloP is a signed −log₁₀ p-value, so
+
+$$
+p = 10^{-2.0} = 0.01
+$$
+
+**Step 2 — count what passes by chance.** Under the null, one base in a hundred clears that
+threshold. Across the genome:
+
+$$
+3.1 \times 10^9 \times 0.01 = 3.1 \times 10^7 \text{ bases}
+$$
+
+Thirty-one million false positives, before a single real constrained base is counted.
+
+**Step 3 — compare with the truth set.** Zoonomia's constrained fraction is about 3.5%:
+
+$$
+3.1 \times 10^9 \times 0.035 = 1.085 \times 10^8 \text{ bases}
+$$
+
+**Step 4 — bound the precision.** Even granting the impossibly generous assumption that
+*every* constrained base clears the threshold, the best achievable precision is
+
+$$
+\frac{1.085 \times 10^8}{1.085 \times 10^8 + 3.1 \times 10^7} = 0.778
+$$
+
+**Step 5 — read it.** A phyloP of 2 is real evidence: it moves the odds by a factor of a few.
+It is not identification. Twenty-two per cent of everything it flags is noise under the most
+favourable assumptions available, and a single candidate variant clearing it has not been
+prioritised so much as failed to be excluded. Conservation is a prior, and the later layers of
+this landscape exist because a prior is not a conclusion.
+
+</WorkedExample>
+
+## Exercises
+
+<Exercise n={1} title="Number another base" difficulty="warm-up">
+
+Using the same gene — exons 1,000–1,300, 1,500–1,700 and 2,000–2,200 on the minus strand, CDS
+from 2,150 down to 1,101 — what are the `c.` position and codon number of genomic position
+1,200?
+
+<div slot="solution">
+
+Walk the coding exons in transcript order, accumulating length:
+
+$$
+\text{exon A } (2{,}150\text{–}2{,}000) = 151, \qquad
+\text{exon B } (1{,}700\text{–}1{,}500) = 201 \;\Rightarrow\; 352 \text{ so far}
+$$
+
+Position 1,200 lies in exon C, whose coding portion runs 1,300 down to 1,101. Its offset into
+that exon is $1{,}300 - 1{,}200 + 1 = 101$, so
+
+$$
+c. = 352 + 101 = 453 \quad\Longrightarrow\quad \text{codon } \lceil 453/3 \rceil = 151
+$$
+
+and $453 = 3 \times 151$ exactly, so it is the **third** base of codon 151 — a wobble position,
+where a substitution is most often synonymous. Which of the three bases of a codon you are in
+is frequently more informative than the codon number itself.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="The alleles flip too" difficulty="core">
+
+A VCF records `chr1 1650 . A G` for the minus-strand gene above. Write the coding description,
+and explain what goes wrong in a pipeline that copies `REF` and `ALT` across unchanged.
+
+<div slot="solution">
+
+The VCF alleles are on the genomic forward strand. The transcript is on the reverse strand, so
+the coding description takes the complements:
+
+$$
+\text{A} \to \text{T}, \qquad \text{G} \to \text{C}
+\quad\Longrightarrow\quad
+\texttt{c.202T>C}
+$$
+
+A pipeline that copies the alleles across emits `c.202A>G`. That description is syntactically
+valid HGVS, it parses, and it refers to a **different substitution** — one whose reference base
+does not match the transcript at all. Some tools catch this by validating the reference base
+against the sequence; many do not, and the error survives into a report.
+
+The general rule: strand affects the position *and* the alleles, and the two are easy to fix
+separately and forget to fix together.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="What threshold would you need?" difficulty="stretch">
+
+Keeping the genome at $3.1 \times 10^9$ bases, what phyloP threshold limits the expected number
+of bases passing by chance to one million? What does the answer tell you about using
+conservation as a stand-alone filter?
+
+<div slot="solution">
+
+Set the expected count equal to the target and solve for the p-value:
+
+$$
+3.1 \times 10^9 \times p = 10^6
+\quad\Longrightarrow\quad
+p = 3.226 \times 10^{-4}
+$$
+
+$$
+\text{phyloP} = -\log_{10}(3.226 \times 10^{-4}) = 3.49
+$$
+
+So roughly **phyloP ≥ 3.5**, which is a stringent threshold that most genuinely constrained
+bases do not reach — the tail of the distribution is thin on both sides.
+
+And the answer is still a million bases. Tightening the threshold by 1.5 log units bought a
+factor of thirty in false positives and left a candidate set four orders of magnitude larger
+than the number of variants any study will follow up. There is no threshold that makes
+conservation alone into a prioritisation method; it has to be combined with something
+orthogonal — which is what every subsequent layer of this landscape provides.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A coordinate is a claim about a description**, not about the genome. It needs an assembly;
+  a `c.` position additionally needs a transcript accession; and neither is recoverable from a
+  bare number.
+- **GRCh38 is incomplete and still the default**, because being the system everything else
+  publishes in is a property T2T-CHM13 and the HPRC pangenome cannot acquire quickly. T2T is
+  complete but is one haplotype; the pangenome is diverse but is a graph.
+- **GENCODE 50 carries 278,455 protein-coding transcripts for 19,442 genes**, 14.3 apiece.
+  MANE Select exists so that "which transcript?" has one agreed answer, identical in RefSeq
+  and Ensembl.
+- **Strand changes the position and the alleles.** The same base was c.202 codon 68, c.351
+  codon 117, or c.51 codon 17 depending only on how it was read.
+- **HGVS describes, VCF records, rs identifies.** Normalise before comparing VCFs; never treat
+  an rs number as evidence or as a stable key.
+- **phyloP scores a base, phastCons scores an element.** At phyloP 2 the best achievable
+  precision is 0.778 and the flagged set is tens of millions of bases — conservation is a
+  strong prior and never, on its own, an answer.

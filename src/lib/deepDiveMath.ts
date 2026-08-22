@@ -428,3 +428,92 @@ export function acmgClassify(points: number): AcmgClass {
   if (points >= -6) return points <= -1 ? 'likely-benign' : 'uncertain';
   return 'benign';
 }
+
+// ── Transcript coordinates ────────────────────────────────────────────────────
+
+/** One exon, in genomic coordinates: 1-based, inclusive, `start <= end` on both strands. */
+export interface Exon {
+  start: number;
+  end: number;
+}
+
+/**
+ * Clip exons to the coding region and put them in transcription order.
+ *
+ * Everything about `c.` numbering follows from this one step, which is why it is shared
+ * rather than repeated: on the minus strand transcription runs from the *high* genomic
+ * coordinate downward, so the first coding exon is the last one in genomic order.
+ *
+ * `cdsStart` and `cdsEnd` are the first and last coding bases **in transcript orientation**,
+ * so on the minus strand `cdsStart > cdsEnd`.
+ */
+function codingExons(exons: Exon[], cdsStart: number, cdsEnd: number, strand: '+' | '-'): Exon[] {
+  const lo = Math.min(cdsStart, cdsEnd);
+  const hi = Math.max(cdsStart, cdsEnd);
+  const clipped = exons
+    .map((e) => ({ start: Math.max(e.start, lo), end: Math.min(e.end, hi) }))
+    .filter((e) => e.start <= e.end);
+  return clipped.sort((a, b) => (strand === '+' ? a.start - b.start : b.start - a.start));
+}
+
+/**
+ * Length of the coding sequence in nucleotides.
+ *
+ * Worth computing even when you do not need it: a CDS that is not a multiple of three is
+ * a broken exon model, and the check costs nothing.
+ */
+export function cdsLength(exons: Exon[], cdsStart: number, cdsEnd: number, strand: '+' | '-'): number {
+  return codingExons(exons, cdsStart, cdsEnd, strand).reduce((n, e) => n + (e.end - e.start + 1), 0);
+}
+
+/**
+ * The CDS position (`c.`) of a genomic coordinate, or null if it falls outside the CDS.
+ *
+ * The answer depends on the transcript *and* the strand, and getting either wrong yields a
+ * different, entirely plausible-looking number rather than an error — which is why a `c.`
+ * coordinate quoted without its transcript accession is not a coordinate at all.
+ */
+export function cdsPosition(
+  genomic: number,
+  exons: Exon[],
+  cdsStart: number,
+  cdsEnd: number,
+  strand: '+' | '-'
+): number | null {
+  let acc = 0;
+  for (const e of codingExons(exons, cdsStart, cdsEnd, strand)) {
+    if (genomic >= e.start && genomic <= e.end) {
+      return acc + (strand === '+' ? genomic - e.start + 1 : e.end - genomic + 1);
+    }
+    acc += e.end - e.start + 1;
+  }
+  return null;
+}
+
+/** Which codon a CDS position falls in, and which of its three bases (1, 2 or 3). */
+export function codonOf(cdsPos: number): { codon: number; offset: number } {
+  const codon = Math.ceil(cdsPos / 3);
+  return { codon, offset: cdsPos - 3 * (codon - 1) };
+}
+
+/**
+ * Complement a single base. On the minus strand the reference and alternate alleles of a
+ * VCF record are the opposite of the ones the `c.` description carries, and a pipeline that
+ * transfers them unchanged produces a syntactically valid, wrong variant.
+ */
+export function complementBase(base: string): string {
+  const map: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C', N: 'N' };
+  const up = base.toUpperCase();
+  const out = map[up];
+  if (!out) throw new Error(`complementBase: not a nucleotide: ${base}`);
+  return base === up ? out : out.toLowerCase();
+}
+
+/**
+ * phyloP reports a signed −log₁₀ p-value against a neutral-evolution null: positive means
+ * slower substitution than neutral (conserved), negative means faster (accelerated). The
+ * magnitude is what carries the significance, so the sign is dropped here.
+ */
+export function phylopToP(score: number): number {
+  return 10 ** -Math.abs(score);
+}
