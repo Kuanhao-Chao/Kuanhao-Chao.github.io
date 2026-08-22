@@ -2581,3 +2581,61 @@ sun2023pqtl:
   venue: "Nature 622:329-338"
   doi: https://doi.org/10.1038/s41586-023-06592-6
   verified: 2026-08-21
+
+# ── Layer 4 · Regulatory maps and perturbation ────────────────────────────────
+
+encode2012:
+  authors: ['The ENCODE Project Consortium']
+  year: 2012
+  title: "An integrated encyclopedia of DNA elements in the human genome"
+  venue: "Nature 489:57-74"
+  doi: https://doi.org/10.1038/nature11247
+  verified: 2026-08-21
+
+buenrostro2013atac:
+  authors: ['Jason D Buenrostro', 'Paul G Giresi', 'Lisa C Zaba', 'et al.']
+  year: 2013
+  title: "Transposition of native chromatin for fast and sensitive epigenomic profiling of open chromatin, DNA-binding proteins and nucleosome position"
+  venue: "Nature Methods 10:1213-1218"
+  doi: https://doi.org/10.1038/nmeth.2688
+  verified: 2026-08-21
+
+roadmap2015:
+  authors: ['Roadmap Epigenomics Consortium', 'Anshul Kundaje', 'Wouter Meuleman', 'et al.']
+  year: 2015
+  title: "Integrative analysis of 111 reference human epigenomes"
+  venue: "Nature 518:317-330"
+  doi: https://doi.org/10.1038/nature14248
+  verified: 2026-08-21
+
+gasperini2019crispr:
+  authors: ['Molly Gasperini', 'Andrew J. Hill', 'José L. McFaline-Figueroa', 'et al.']
+  year: 2019
+  title: "A Genome-wide Framework for Mapping Gene Regulation via Cellular Genetic Screens"
+  venue: "Cell 176:377-390.e19"
+  doi: https://doi.org/10.1016/j.cell.2018.11.029
+  verified: 2026-08-21
+
+fulco2019abc:
+  authors: ['Charles P. Fulco', 'Joseph Nasser', 'Thouis R. Jones', 'et al.']
+  year: 2019
+  title: "Activity-by-contact model of enhancer–promoter regulation from thousands of CRISPR perturbations"
+  venue: "Nature Genetics 51:1664-1669"
+  doi: https://doi.org/10.1038/s41588-019-0538-0
+  verified: 2026-08-21
+
+encode2020ccre:
+  authors: ['The ENCODE Project Consortium', 'Federico Abascal', 'Reyes Acosta', 'et al.']
+  year: 2020
+  title: "Expanded encyclopaedias of DNA elements in the human and mouse genomes"
+  venue: "Nature 583:699-710"
+  doi: https://doi.org/10.1038/s41586-020-2493-4
+  verified: 2026-08-21
+
+igvf2024:
+  authors: ['IGVF Consortium', 'Writing group (ordered by contribution)', 'Jesse M. Engreitz', 'et al.']
+  year: 2024
+  title: "Deciphering the impact of genomic variation on function"
+  venue: "Nature 633:47-57"
+  doi: https://doi.org/10.1038/s41586-024-07510-0
+  verified: 2026-08-21

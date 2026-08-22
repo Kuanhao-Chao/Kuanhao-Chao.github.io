@@ -1,0 +1,277 @@
+---
+title: "Regulatory Maps: Where the Non-Coding Genome Appears to Do Something"
+shortTitle: Regulatory Maps
+description: "ENCODE, Roadmap, IGVF and CRISPR enhancer screens — what chromatin accessibility and ChIP-seq actually measure, why a candidate element is a candidate rather than a finding, and why an enrichment p-value says more about how many variants you had than about the biology."
+abstract: "Ninety-eight per cent of the genome does not code for protein, and most trait-associated variants land in it. Regulatory maps say where that sequence looks active — open chromatin, bound transcription factors, particular histone marks — and the honest reading of them is narrower than the usual one. This page covers the assays and consortia, works an enrichment through fold change and a Fisher test, and shows the two coming apart."
+date: 2026-08-22
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d04-function
+moduleLabel: Layer 4 · Function, Assays & Trait Maps
+order: 7
+level: intermediate
+objectives:
+  - "Say what DNase, ATAC and ChIP-seq each measure, and what a chromatin state is."
+  - "Explain why a candidate cis-regulatory element is a candidate, and what would make it a finding."
+  - "Compute a fold enrichment and a one-sided Fisher p-value for variants in an annotation."
+  - "Show that the same fold enrichment can be decisive or unremarkable depending on sample size."
+  - "Explain why the choice of background set changes the answer as much as the annotation does."
+prerequisites:
+  - data-expression-qtl
+referenceIds:
+  - encode2012
+  - buenrostro2013atac
+  - roadmap2015
+  - gasperini2019crispr
+  - fulco2019abc
+  - encode2020ccre
+  - igvf2024
+tags: [ENCODE, Roadmap, IGVF, ATAC-seq, ChIP-seq, cCRE, enrichment, CRISPR]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+Most trait-associated variants are non-coding, and the previous layer's QTLs only reach the
+ones that change a measurable molecular phenotype in a tissue somebody assayed. For the rest,
+the question is whether the variant sits somewhere the genome is doing regulatory work at all.
+
+Regulatory maps answer that — with a caveat that is easy to state and constantly dropped.
+
+<Callout variant="intuition">
+These assays measure **correlates of activity**, not activity. Open chromatin means a
+nuclease could cut there. A ChIP-seq peak means a protein was crosslinked nearby. A histone
+mark means a particular modification was present.
+
+Each is genuinely informative and none of them demonstrates that the sequence *does*
+anything. The genome contains far more places that look regulatory than places whose
+disruption changes a gene — which is why the field's own vocabulary hedges: ENCODE publishes
+**candidate** cis-regulatory elements, and the word is doing real work.
+
+Turning a candidate into a finding needs perturbation: change the sequence and see whether
+expression moves. That is what the CRISPR screens and IGVF exist to do, and it is why a
+variant landing in a cCRE is a hypothesis rather than a mechanism.
+</Callout>
+
+<DatasetTable layer="regulatory-maps" caption="Regulatory annotation and perturbation resources" />
+
+<Notation
+  rows={[
+    { symbol: '\\text{cCRE}', meaning: 'Candidate cis-regulatory element — a region with a regulatory chromatin signature', dims: 'genomic interval' },
+    { symbol: 'f_{\\text{bg}}', meaning: 'Fraction of the background genome or control set inside the annotation', dims: 'in (0,1]' },
+    { symbol: '\\text{fold}', meaning: 'Observed rate divided by the background rate', dims: '≥ 0; 1 means no enrichment' },
+    { symbol: 'p', meaning: 'One-sided Fisher exact p-value for at least this much overlap', dims: 'in (0,1]' },
+  ]}
+/>
+
+## What the assays measure
+
+**DNase-seq and ATAC-seq** find accessible chromatin — regions a nuclease or a transposase can
+reach because nucleosomes are not packed over them <Citation id="buenrostro2013atac" />. ATAC
+needs far fewer cells, which is why single-cell chromatin profiling is an ATAC method.
+
+**ChIP-seq** finds where a particular protein was crosslinked to DNA: a transcription factor,
+or a histone carrying a specific modification. H3K4me1 and H3K27ac together are the usual
+enhancer signature, H3K4me3 marks promoters, H3K27me3 marks repression.
+
+**Chromatin states** are not measurements at all. A segmentation such as Roadmap's assigns
+each region a label — enhancer, promoter, heterochromatin — by fitting a hidden Markov model
+across several marks <Citation id="roadmap2015" />. The label is model output, and two
+segmentations of the same data can disagree.
+
+**<Dataset id="encode" />** aggregates all of it and publishes the cCRE registry
+<Citation id="encode2012" /><Citation id="encode2020ccre" />. **<Dataset id="roadmap" />**
+complements it with primary tissues rather than cell lines.
+
+**<Dataset id="igvf" />** and **<Dataset id="crispr-screens" />** are the step past
+correlation <Citation id="igvf2024" />. CRISPR interference tiled across a locus perturbs
+elements directly and measures which genes respond <Citation id="gasperini2019crispr" />,
+and the activity-by-contact model turns accessibility and 3D contact into a prediction of
+which element regulates which gene <Citation id="fulco2019abc" />. The recurring result is
+that the regulated gene is frequently not the nearest one.
+
+<Callout variant="warning" title="The registry is a union, and a union answers a weaker question">
+The cCRE registry is built across hundreds of biosamples, so an element is in it if it looked
+regulatory *anywhere*. Intersecting a variant list with the whole registry therefore asks
+"does this sit somewhere that is regulatory in some cell type", which a large fraction of the
+genome satisfies.
+
+The question worth asking is almost always narrower — is it regulatory *in the tissue this
+trait acts through* — and answering it means intersecting with one biosample's peaks, not the
+union. The two give very different enrichments, and papers that report the union figure while
+discussing a specific tissue are comparing against the wrong denominator.
+</Callout>
+
+## Enrichment, and the two questions it hides
+
+<WorkedExample
+  title="Fine-mapped variants in candidate regulatory elements"
+  given={[
+    { label: 'Fine-mapped variants', value: '500, of which 120 fall in a cCRE' },
+    { label: 'Background', value: '10,000 matched control variants, 800 in a cCRE' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the two rates.**
+
+$$
+\frac{120}{500} = 0.2400, \qquad f_{\text{bg}} = \frac{800}{10{,}000} = 0.0800
+$$
+
+**Step 2 — what the background predicts.** If the fine-mapped variants were an ordinary sample
+of the genome, the expected overlap would be
+
+$$
+500 \times 0.0800 = 40.0 \text{ variants}
+$$
+
+against 120 observed.
+
+**Step 3 — fold enrichment.**
+
+$$
+\text{fold} = \frac{0.2400}{0.0800} = 3.0000
+$$
+
+**Step 4 — significance.** The one-sided Fisher exact test on the 2×2 table asks how often
+chance alone would produce 120 or more:
+
+$$
+p = 6.473\times10^{-26}
+$$
+
+**Step 5 — read them as two separate claims.** The fold change says the effect is
+*large* — three times background. The p-value says it is *not chance*. Neither implies the
+other, and the next exercises separate them: the same threefold enrichment is unremarkable
+with twelve variants, and a 1.4-fold enrichment is comfortably significant with five hundred.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Fold enrichment against significance, for four hypothetical studies. Three of them find exactly the same threefold enrichment in cCREs and report p-values of 6.5×10⁻²⁶, 4.9×10⁻⁴ and 6.5×10⁻² depending only on whether 500, 50 or 12 variants went in. The fourth finds a much weaker 1.4-fold enrichment on 500 variants and is significant at 8.8×10⁻³ — more significant than the threefold result on twelve. The dashed line is p = 0.05."
+  alt="A plot of Fisher p-value on a logarithmic vertical axis against fold enrichment on the horizontal axis, with four marked points. Three sit at threefold enrichment with p-values of 6.5e-26, 4.9e-4 and 6.5e-2 for 500, 50 and 12 variants. A fourth sits at 1.4-fold with p 8.8e-3. A dashed horizontal line marks p = 0.05."
+>
+  <svg viewBox="0 0 640 304" width="640" height="304" font-family="inherit"><line x1="80.0" y1="40.0" x2="80.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="80.0" y1="250.0" x2="500.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="80.0" y1="250.0" x2="500.0" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="254.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1e-30</text><line x1="80.0" y1="180.0" x2="500.0" y2="180.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="184.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1e-20</text><line x1="80.0" y1="110.0" x2="500.0" y2="110.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="114.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1e-10</text><line x1="80.0" y1="54.0" x2="500.0" y2="54.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="58.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.01</text><line x1="80.0" y1="40.0" x2="500.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="44.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="80.0" y1="250.0" x2="80.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="80.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1x</text><line x1="185.0" y1="250.0" x2="185.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="185.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2x</text><line x1="290.0" y1="250.0" x2="290.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="290.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">3x</text><line x1="395.0" y1="250.0" x2="395.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="395.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">4x</text><line x1="500.0" y1="250.0" x2="500.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="500.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5x</text><line x1="80.0" y1="49.1" x2="500.0" y2="49.1" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25" stroke-dasharray="5 4"/><text x="494.0" y="42.1" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">p = 0.05</text><circle cx="290.0" cy="216.3" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="300.0" y="220.3" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">cCREs, 500 variants — p 6.5e-26</text><circle cx="290.0" cy="63.2" r="5.0" fill="currentColor" opacity=".55"/><text x="300.0" y="67.2" font-size="10" fill="currentColor" opacity=".8">cCREs, 50 variants — p 4.9e-04</text><circle cx="290.0" cy="48.3" r="5.0" fill="currentColor" opacity=".55"/><text x="300.0" y="64.3" font-size="10" fill="currentColor" opacity=".8">cCREs, 12 variants — p 6.5e-02</text><circle cx="122.0" cy="54.4" r="5.0" fill="currentColor" opacity=".55"/><text x="132.0" y="58.4" font-size="10" fill="currentColor" opacity=".8">weak, 500 variants — p 8.8e-03</text><text x="290.0" y="290.0" font-size="12" fill="currentColor" text-anchor="middle">Fold enrichment over background coverage</text><text x="18.0" y="145.0" font-size="12" fill="currentColor" text-anchor="middle" transform="rotate(-90 18 145)">Fisher p-value</text><text x="290.0" y="20.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">The same enrichment, four studies: significance is mostly about how many variants</text></svg>
+</Figure>
+
+## Exercises
+
+<Exercise n={1} title="The same enrichment, a different verdict" difficulty="warm-up">
+
+A smaller study fine-maps only 12 variants and finds 3 of them in cCREs, against the same 8%
+background. What is the fold enrichment, and is it significant?
+
+<div slot="solution">
+
+$$
+\text{fold} = \frac{3/12}{0.08} = \frac{0.25}{0.08} = 3.1250
+\qquad
+p = 6.549\times10^{-2}
+$$
+
+Slightly *more* enriched than the worked example, and **not significant** at 0.05.
+
+Nothing about the biology differs. Three variants out of twelve is compatible with chance
+because chance produces about one, and getting three instead is not surprising. Five hundred
+variants producing 120 where 40 were expected is a different matter entirely.
+
+The lesson is that a fold enrichment is an effect size and needs its sample size quoted beside
+it, exactly as an odds ratio does. A paper reporting "3.1-fold enrichment in regulatory
+elements" without the counts has reported half a result.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Significant and uninteresting" difficulty="core">
+
+A study of 500 fine-mapped variants finds 56 in cCREs. Compute the enrichment and the
+p-value, and say whether the result supports a regulatory mechanism.
+
+<div slot="solution">
+
+$$
+\text{fold} = \frac{56/500}{0.08} = \frac{0.1120}{0.08} = 1.4000
+\qquad
+p = 8.750\times10^{-3}
+$$
+
+**Significant, and weak.** It is comfortably below 0.05 — and it is more significant than
+the threefold result on twelve variants from Exercise 1, which is worth sitting with.
+
+What does a 1.4-fold enrichment support? That *some* of these variants act through regulatory
+elements, which was never in doubt. It does not support the claim the reader usually takes
+from such a sentence, that the trait acts predominantly through regulation: 88% of the
+variants are still outside cCREs, and the excess amounts to about sixteen variants.
+
+$$
+56 - 500 \times 0.08 = 16 \text{ variants above expectation}
+$$
+
+Significance answers "is this more than chance". Fold enrichment answers "by enough to matter".
+Reporting only the first is how a marginal effect acquires the language of a mechanism.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="The background you did not choose carefully" difficulty="stretch">
+
+The worked example compared against controls that are 8% cCRE. Fine-mapped variants are not
+ordinary variants — they are common, near genes, and in well-covered regions. Suppose properly
+matched controls turn out to be 12% cCRE, or 18%. What happens?
+
+<div slot="solution">
+
+The observed rate is fixed at $120/500 = 0.2400$; only the comparison moves.
+
+| background $f_{\text{bg}}$ | fold | $p$ |
+|---|---:|---:|
+| 0.08 | 3.0000 | $6.473\times10^{-26}$ |
+| 0.12 | 2.0000 | $4.427\times10^{-13}$ |
+| 0.18 | 1.3333 | $6.224\times10^{-4}$ |
+
+The enrichment falls from threefold to a third, and the result goes from overwhelming to
+merely significant — without a single variant changing.
+
+**Why the background is not a detail.** Fine-mapped variants are selected for being common
+enough to be well powered, for being in regions with dense genotyping, and often for being
+near genes. Every one of those properties raises the chance of landing in a cCRE for reasons
+having nothing to do with the trait. A background of "all variants in dbSNP" therefore builds
+in an enrichment before the biology is consulted.
+
+The remedy is matched controls — sampled to have the same allele-frequency spectrum, the same
+distance-to-gene distribution and the same LD-block structure — which is what turns the number
+into a statement about the trait rather than about the ascertainment. When a paper's enrichment
+looks implausibly large, the background is the first thing to check.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **These assays measure correlates of activity.** Accessibility means a nuclease could cut
+  there; a ChIP peak means a protein was crosslinked nearby; a chromatin state is a hidden
+  Markov model's label, not a measurement.
+- **A candidate cis-regulatory element is a candidate.** The genome has far more
+  regulatory-looking sequence than sequence whose disruption moves a gene, which is why
+  perturbation — CRISPR screens, IGVF — is a different kind of evidence, and why the regulated
+  gene is frequently not the nearest one.
+- **The cCRE registry is a union across biosamples.** Intersecting with all of it asks whether
+  a variant is regulatory *somewhere*; the useful question is almost always about one tissue.
+- **Fold enrichment and significance are separate claims.** 120 of 500 variants against an 8%
+  background is 3.0000-fold at $p = 6.473\times10^{-26}$; the same threefold enrichment on
+  twelve variants is $p = 6.549\times10^{-2}$, and a 1.4-fold enrichment on five hundred is
+  $p = 8.750\times10^{-3}$ — more significant than the stronger effect.
+- **The background decides the answer.** Holding the observations fixed, moving the control
+  rate from 8% to 18% takes the enrichment from 3.0 to 1.33. Fine-mapped variants are selected
+  in ways that raise cCRE overlap on their own, so matched controls are what make the number a
+  statement about the trait.
