@@ -680,3 +680,45 @@ mcewen2025mave:
   venue: "Nature Reviews Genetics 27:137-154"
   doi: https://doi.org/10.1038/s41576-025-00870-x
   verified: 2026-08-21
+
+# ── Layer 5 · Clinical curation ───────────────────────────────────────────────
+
+firth2009decipher:
+  authors: ['Helen V. Firth', 'Shola M. Richards', 'A. Paul Bevan', 'et al.']
+  year: 2009
+  title: "DECIPHER: Database of Chromosomal Imbalance and Phenotype in Humans Using Ensembl Resources"
+  venue: "The American Journal of Human Genetics 84:524-533"
+  doi: https://doi.org/10.1016/j.ajhg.2009.03.010
+  verified: 2026-08-21
+
+amberger2019omim:
+  authors: ['Joanna S Amberger', 'Carol A Bocchini', 'Alan F Scott', 'Ada Hamosh']
+  year: 2018
+  title: "OMIM.org: leveraging knowledge across phenotype–gene relationships"
+  venue: "Nucleic Acids Research 47:D1038-D1043"
+  doi: https://doi.org/10.1093/nar/gky1151
+  verified: 2026-08-21
+
+riggs2020dosage:
+  authors: ['Erin Rooney Riggs', 'Erica F. Andersen', 'Athena M. Cherry', 'et al.']
+  year: 2020
+  title: "Technical standards for the interpretation and reporting of constitutional copy-number variants: a joint consensus recommendation of the American College of Medical Genetics and Genomics (ACMG) and the Clinical Genome Resource (ClinGen)"
+  venue: "Genetics in Medicine 22:245-257"
+  doi: https://doi.org/10.1038/s41436-019-0686-8
+  verified: 2026-08-21
+
+stenson2020hgmd:
+  authors: ['Peter D. Stenson', 'Matthew Mort', 'Edward V. Ball', 'et al.']
+  year: 2020
+  title: "The Human Gene Mutation Database (HGMD®): optimizing its use in a clinical diagnostic or research setting"
+  venue: "Human Genetics 139:1197-1207"
+  doi: https://doi.org/10.1007/s00439-020-02199-3
+  verified: 2026-08-21
+
+whirlcarrillo2021pharmgkb:
+  authors: ['Michelle Whirl‐Carrillo', 'Rachel Huddart', 'Li Gong', 'et al.']
+  year: 2021
+  title: "An Evidence‐Based Framework for Evaluating Pharmacogenomics Knowledge for Personalized Medicine"
+  venue: "Clinical Pharmacology &amp; Therapeutics 110:563-572"
+  doi: https://doi.org/10.1002/cpt.2350
+  verified: 2026-08-21

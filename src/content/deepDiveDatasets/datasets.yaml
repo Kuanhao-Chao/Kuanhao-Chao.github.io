@@ -419,3 +419,87 @@ mpra-satmut:
     output from an episomal reporter, so it establishes that a sequence *can* drive
     expression — not that it does so at its native locus.
   verified: 2026-08-21
+
+# ── Layer 5 · Clinical curation ──────────────────────────────────────────────
+
+clinvar:
+  name: ClinVar
+  fullName: NCBI ClinVar
+  layer: germline-clinical
+  url: https://www.ncbi.nlm.nih.gov/clinvar/
+  scale: "4,553,176 variation records from 3,497 submitters; 22,402 reviewed by expert panel"
+  access: open
+  citationId: landrum2024clinvar
+  note: >-
+    An archive of assertions, not a source of truth. Every record carries a review status,
+    and only about one classified variant in 192 has expert-panel review — which is the
+    number to have in mind before treating a ClinVar label as settled.
+  verified: 2026-08-22
+
+clingen:
+  name: ClinGen
+  fullName: Clinical Genome Resource
+  layer: germline-clinical
+  url: https://clinicalgenome.org/
+  scale: "Gene–disease validity classifications, dosage sensitivity scores, and gene-specific ACMG rule specifications"
+  access: open
+  citationId: rehm2015clingen
+  note: >-
+    Does the work ClinVar does not: decides whether a gene–disease relationship is real at
+    all, and publishes the expert-panel specifications that make the ACMG criteria concrete
+    for a given gene.
+  verified: 2026-08-22
+
+omim:
+  name: OMIM
+  fullName: Online Mendelian Inheritance in Man
+  layer: germline-clinical
+  url: https://www.omim.org/
+  scale: "Curated gene–phenotype relationships for Mendelian disorders, with narrative review"
+  access: registered
+  citationId: amberger2019omim
+  note: >-
+    The phenotype catalogue rather than a variant database. Downloads and API access need
+    registration; the narrative text is what distinguishes it from a table.
+  verified: 2026-08-22
+
+hgmd:
+  name: HGMD
+  fullName: Human Gene Mutation Database
+  layer: germline-clinical
+  url: https://www.hgmd.cf.ac.uk/
+  scale: "Published disease-associated germline variants curated from the literature"
+  access: licensed
+  citationId: stenson2020hgmd
+  note: >-
+    The professional release needs a subscription; the public release lags it by years.
+    Its inclusion criterion is *published association*, not verified causality, so it
+    carries a substantially higher false-positive rate than its reputation suggests.
+  verified: 2026-08-22
+
+decipher:
+  name: DECIPHER
+  fullName: Database of Chromosomal Imbalance and Phenotype in Humans using Ensembl Resources
+  layer: germline-clinical
+  url: https://www.deciphergenomics.org/
+  scale: "Patient-level structural and sequence variants with phenotype, plus population CNV frequencies"
+  access: open
+  citationId: firth2009decipher
+  note: >-
+    Consented patient data shared for interpretation. Browsing is open; depositing requires
+    a registered clinical project, which is what keeps the phenotype annotations usable.
+  verified: 2026-08-22
+
+pharmgkb:
+  name: PharmGKB
+  fullName: Pharmacogenomics Knowledgebase
+  layer: germline-clinical
+  url: https://www.pharmgkb.org/
+  scale: "Gene–drug associations with evidence levels, plus CPIC dosing guideline annotations"
+  access: open
+  citationId: whirlcarrillo2021pharmgkb
+  note: >-
+    A different question from pathogenicity: not whether a variant causes disease but
+    whether it changes how a drug should be dosed. Its evidence levels are its own scale
+    and do not map onto ACMG tiers.
+  verified: 2026-08-22
