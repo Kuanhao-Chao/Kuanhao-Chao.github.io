@@ -879,6 +879,9 @@ async function main() {
     ['run', 'preview', '--', '--host', '127.0.0.1', '--port', String(port)],
     {
       stdio: ['ignore', 'pipe', 'pipe'],
+      // npm launches Astro through a shell child. Keep that entire preview tree
+      // in one process group so teardown cannot leave Astro holding these pipes.
+      detached: process.platform !== 'win32',
     }
   );
   let previewLog = '';
@@ -948,7 +951,15 @@ async function main() {
   } catch (error) {
     failures.push(error instanceof Error ? (error.stack ?? error.message) : String(error));
   } finally {
-    preview.kill('SIGTERM');
+    if (process.platform !== 'win32' && preview.pid) {
+      try {
+        process.kill(-preview.pid, 'SIGTERM');
+      } catch {
+        preview.kill('SIGTERM');
+      }
+    } else {
+      preview.kill('SIGTERM');
+    }
     await new Promise((resolve) => {
       if (preview.exitCode !== null) resolve();
       else {
