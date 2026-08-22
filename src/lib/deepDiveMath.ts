@@ -107,9 +107,24 @@ export function haldaneTheta(morgans: number): number {
   return 0.5 * (1 - Math.exp(-2 * morgans));
 }
 
+/** Haldane inverted: recombination fraction → genetic distance in Morgans. */
+export function haldaneMorgans(theta: number): number {
+  if (theta >= 0.5) return Infinity;
+  // `-0.5 * Math.log(1)` is negative zero, which formats as "-0.000 cM" in a readout.
+  if (theta <= 0) return 0;
+  return -0.5 * Math.log(1 - 2 * theta);
+}
+
 /** Kosambi's mapping function, which builds in crossover interference. */
 export function kosambiTheta(morgans: number): number {
   return 0.5 * Math.tanh(2 * morgans);
+}
+
+/** Kosambi inverted: recombination fraction → genetic distance in Morgans. */
+export function kosambiMorgans(theta: number): number {
+  if (theta >= 0.5) return Infinity;
+  if (theta <= 0) return 0;
+  return 0.25 * Math.log((1 + 2 * theta) / (1 - 2 * theta));
 }
 
 // ── Heritability ──────────────────────────────────────────────────────────────
@@ -712,6 +727,18 @@ export function hweExactP(g: GenotypeCounts): number {
  */
 export function heterozygosityDecay(h0: number, ne: number, t: number): number {
   return h0 * (1 - 1 / (2 * ne)) ** t;
+}
+
+/**
+ * Variance of the allele frequency after `t` generations of drift from `p0`:
+ * p₀q₀[1 − (1 − 1/2Nₑ)ᵗ].
+ *
+ * The same decay constant as heterozygosity, and not by coincidence — the identity
+ * Var(p_t) = p₀q₀ − H_t/2 says that the variance drift *creates* between populations is
+ * exactly the heterozygosity it *destroys* within them. Wahlund's principle, in one line.
+ */
+export function driftVariance(p0: number, ne: number, t: number): number {
+  return p0 * (1 - p0) * (1 - (1 - 1 / (2 * ne)) ** t);
 }
 
 /**

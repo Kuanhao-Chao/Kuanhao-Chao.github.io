@@ -46,6 +46,7 @@ import WorkedExample from '../../components/deepdive/WorkedExample.astro';
 import Exercise from '../../components/deepdive/Exercise.astro';
 import Figure from '../../components/deepdive/Figure.astro';
 import Citation from '../../components/deepdive/Citation.astro';
+import Widget from '../../components/deepdive/Widget.astro';
 
 ## The question this lesson answers
 
@@ -312,6 +313,13 @@ score's $R^2$ without its $h^2$ is uninformative: a score at $R^2 = 0.05$ is poo
 trait with $h^2 = 0.5$ and close to optimal for one with $h^2 = 0.06$.
 
 </WorkedExample>
+
+<Widget
+  kind="prs"
+  title="What the ceiling costs to approach"
+  alt="An interactive plot of the expected R-squared of a polygenic score against discovery sample size on a logarithmic axis, with the h-squared ceiling drawn as a dashed line. Raising the marker count pushes the curve right; raising heritability raises the ceiling."
+  caption="Expected R² against discovery N, with the h² ceiling dashed. The shape is the whole argument: R² reaches half the ceiling at N = M/h² and needs nine times that for ninety per cent of it. Raising M — a denser panel, or a more polygenic trait — does not lower the ceiling, it moves the sample size needed to reach it."
+/>
 
 ## Evaluating a score honestly
 

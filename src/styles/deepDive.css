@@ -1497,3 +1497,106 @@
   .dd-datatable__table th,
   .dd-datatable__table td { padding: 0.45rem 0.7rem; }
 }
+
+/* ── Interactive figures ───────────────────────────────────────────────────── */
+/* These live here rather than in Widget.astro's <style> for the same reason every
+   other dd-* rule does: Astro scopes a component's styles to its own elements, and the
+   controller injects the controls and the SVG at runtime, so nothing it creates would
+   ever carry the component's scope hash. */
+
+.dd-widget {
+  margin: var(--space-8, 2rem) 0;
+  padding: var(--space-4, 1rem);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg, 4px);
+  background: var(--color-surface);
+}
+.dd-widget__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3, 0.75rem);
+}
+.dd-widget__tag {
+  font-size: var(--fs-meta, 0.8125rem);
+  font-weight: var(--fw-semibold, 600);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.dd-widget__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold, 600);
+  color: var(--color-ink);
+}
+/* Out-specify `.deep-dive-article h3`, which otherwise adds heading spacing here. */
+.deep-dive-article .dd-widget__title { margin: 0; }
+
+.dd-widget__controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin-bottom: var(--space-3, 0.75rem);
+}
+.dd-widget__control { display: grid; gap: 0.25rem; }
+.dd-widget__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: var(--fs-meta, 0.8125rem);
+  color: var(--color-muted);
+}
+.dd-widget__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold, 600);
+  color: var(--color-ink);
+}
+.dd-widget__control input[type='range'] {
+  width: 100%;
+  /* 44px of vertical target without 44px of visual weight. */
+  min-height: 44px;
+  accent-color: var(--color-accent);
+  background: transparent;
+  cursor: pointer;
+}
+.dd-widget__control input[type='range']:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* No `--color-figure-mat` here, and that is deliberate: the mat is a *light* card for
+   raster figures with baked-in dark line art. These drawings use `currentColor`, so they
+   follow the theme — on the mat they come out light-on-light in dark mode and vanish.
+   Transparent lets them sit on the card's own surface, the same pairing as body text. */
+.dd-widget__frame {
+  overflow-x: auto;
+  background: transparent;
+  border-radius: var(--radius, 3px);
+  padding: 0.5rem 0;
+}
+.dd-widget__frame svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+
+.dd-widget__readout {
+  margin: var(--space-3, 0.75rem) 0 0;
+  font-size: var(--fs-small, 0.9375rem);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+.dd-widget__readout strong { font-weight: var(--fw-semibold, 600); }
+
+.dd-widget__caption {
+  margin-top: var(--space-3, 0.75rem);
+  font-size: var(--fs-small, 0.9375rem);
+  color: var(--color-muted);
+  line-height: 1.55;
+}
+
+@media print {
+  /* The drawing prints at whatever the reader left it on; the controls do not. */
+  .dd-widget__controls { display: none; }
+  .dd-widget { break-inside: avoid; }
+}

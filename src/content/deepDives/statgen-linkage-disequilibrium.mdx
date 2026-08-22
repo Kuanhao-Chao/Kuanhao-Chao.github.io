@@ -45,6 +45,7 @@ import WorkedExample from '../../components/deepdive/WorkedExample.astro';
 import Exercise from '../../components/deepdive/Exercise.astro';
 import Figure from '../../components/deepdive/Figure.astro';
 import Citation from '../../components/deepdive/Citation.astro';
+import Widget from '../../components/deepdive/Widget.astro';
 
 ## The question this lesson answers
 
@@ -362,6 +363,13 @@ millennia — which is why LD-based methods can speak to post-glacial demography
 they say very little about events much older than that.
 
 </WorkedExample>
+
+<Widget
+  kind="ld-decay"
+  title="Move θ and watch the clock change"
+  alt="An interactive plot of the fraction of the original disequilibrium remaining against generations, with the half-life marked. Lowering the recombination fraction stretches the curve to the right and lengthens the half-life."
+  caption="The same decay law as Figure 1, with θ under your control. Two things are worth doing: drag θ across a decade and watch the half-life move by exactly a decade — that is the 0.693/θ relation being linear on this scale — and then set θ near 0.5 and see that the curve collapses within a handful of generations, which is why unlinked loci carry no historical signal at all."
+/>
 
 ## From recombination fraction to map distance
 

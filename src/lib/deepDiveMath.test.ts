@@ -19,7 +19,7 @@ import {
   betaWeight, burdenStatistic, CHI2_1DF_MEDIAN, credibleSet, csPurity, eggerRegression,
   fStatistic, ivwMeta, ivwMr, lambdaGc, ldscRegression, pipsFromAbf, skatOQ, skatQ,
   stoufferMeta, variantScores, wakefieldAbf, waldRatio, weightedMedian, weightedMedianMr,
-  winnersCurseExpectation, zThreshold,
+  winnersCurseExpectation, zThreshold, haldaneMorgans, kosambiMorgans, driftVariance,
 } from './deepDiveMath.ts';
 
 /**
@@ -1520,5 +1520,60 @@ describe('Mendelian randomization', () => {
     expect(weightedMedian([5], [1])).toBe(5);
     // Unaffected by an arbitrarily extreme minority, which is the whole point.
     expect(weightedMedian([1, 2, 3, 1e6], [1, 1, 1, 1])).toBeCloseTo(2.5, 12);
+  });
+});
+
+describe('map functions, inverted', () => {
+  it('round-trips Haldane and Kosambi', () => {
+    for (const d of [0.001, 0.01, 0.1, 0.5, 1, 2]) {
+      expect(haldaneMorgans(haldaneTheta(d))).toBeCloseTo(d, 10);
+      expect(kosambiMorgans(kosambiTheta(d))).toBeCloseTo(d, 10);
+    }
+    for (const theta of [0.001, 0.05, 0.2, 0.45, 0.49]) {
+      expect(haldaneTheta(haldaneMorgans(theta))).toBeCloseTo(theta, 12);
+      expect(kosambiTheta(kosambiMorgans(theta))).toBeCloseTo(theta, 12);
+    }
+  });
+
+  it('agrees with θ ≈ d over short distances and diverges over long ones', () => {
+    // First-order: both map functions are the identity for small d, so a 1 cM interval
+    // is a recombination fraction of 0.01 either way.
+    expect(haldaneMorgans(0.01)).toBeCloseTo(0.0101, 4);
+    expect(kosambiMorgans(0.01)).toBeCloseTo(0.0100, 4);
+    // Kosambi builds in interference, so it always reports a *shorter* map than Haldane
+    // for the same observed recombination fraction.
+    for (const theta of [0.1, 0.2, 0.3, 0.4]) {
+      expect(kosambiMorgans(theta)).toBeLessThan(haldaneMorgans(theta));
+    }
+  });
+
+  it('sends free recombination to infinite distance', () => {
+    expect(haldaneMorgans(0.5)).toBe(Infinity);
+    expect(kosambiMorgans(0.5)).toBe(Infinity);
+    expect(haldaneMorgans(0)).toBe(0);
+    expect(kosambiMorgans(0)).toBe(0);
+  });
+});
+
+describe('driftVariance', () => {
+  it('starts at zero and saturates at p₀q₀', () => {
+    expect(driftVariance(0.3, 100, 0)).toBeCloseTo(0, 12);
+    expect(driftVariance(0.3, 100, 1e7)).toBeCloseTo(0.3 * 0.7, 10);
+  });
+
+  it('is exactly the heterozygosity drift destroys', () => {
+    // Var(p_t) = p₀q₀ − H_t/2: the between-population variance created equals the
+    // within-population heterozygosity lost. Wahlund's principle.
+    for (const [p0, ne, t] of [[0.3, 100, 50], [0.5, 25, 10], [0.1, 1000, 400]]) {
+      const h = heterozygosityDecay(2 * p0 * (1 - p0), ne, t);
+      expect(driftVariance(p0, ne, t)).toBeCloseTo(p0 * (1 - p0) - h / 2, 12);
+    }
+  });
+
+  it('accumulates faster in a smaller population', () => {
+    expect(driftVariance(0.5, 10, 20)).toBeGreaterThan(driftVariance(0.5, 1000, 20));
+    for (const t of [1, 5, 20]) {
+      expect(driftVariance(0.5, 100, t + 1)).toBeGreaterThan(driftVariance(0.5, 100, t));
+    }
   });
 });
