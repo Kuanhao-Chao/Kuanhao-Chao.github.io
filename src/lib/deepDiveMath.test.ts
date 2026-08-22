@@ -6,6 +6,20 @@ import {
   acmgClassify, acmgPosterior, auprc, auprcBaseline, auroc, chi2Quantile, lnGamma,
   oeUpperBound, poissonCI, regularizedGammaP, spearman, wilsonInterval,
   cdsLength, cdsPosition, codonOf, complementBase, phylopToP, type Exon,
+  alleleFrequency, expectedCoalescentTime, expectedTmrca, expectedTotalBranchLength,
+  fixationProbability, fixationProbabilitySelected, fstHudson, harmonic, harmonicSquared,
+  heterozygosityDecay, hweChiSquare, hweExactP, hweExpected, invert, matMul, matVec,
+  pairwiseTheta, solveLinear, tajimaConstants, tajimasD, transpose, wattersonTheta, type Matrix,
+  additiveRelationshipMatrix, additiveVariance, averageEffect, blupSolve, breedersResponse,
+  breedersResponseFromIntensity, breedingValues, chi2ToLod, correlatedResponse,
+  dominanceVariance, expectedFixationTime, genotypicMean, genotypicVariance, grmFromMarkers,
+  hendersonMme, inbreedingCoefficients, kinshipMatrix, lodScore, lodToChi2, maxLod,
+  multivariateResponse, predictionAccuracy, selectionIntensity, tdtStatistic,
+  type LocusEffect, type PedigreeEntry,
+  betaWeight, burdenStatistic, CHI2_1DF_MEDIAN, credibleSet, csPurity, eggerRegression,
+  fStatistic, ivwMeta, ivwMr, lambdaGc, ldscRegression, pipsFromAbf, skatOQ, skatQ,
+  stoufferMeta, variantScores, wakefieldAbf, waldRatio, weightedMedian, weightedMedianMr,
+  winnersCurseExpectation, zThreshold,
 } from './deepDiveMath.ts';
 
 /**
@@ -541,5 +555,970 @@ describe('phylopToP', () => {
     for (const s of [0.5, 1, 2.3, 4, 7.5]) {
       expect(-Math.log10(phylopToP(s))).toBeCloseTo(s, 12);
     }
+  });
+});
+
+describe('small dense linear algebra', () => {
+  it('solves a system whose answer is known by hand', () => {
+    // 2x +  y −  z =  8
+    // −3x − y + 2z = −11
+    // −2x + y + 2z = −3      →  (2, 3, −1)
+    const x = solveLinear([[2, 1, -1], [-3, -1, 2], [-2, 1, 2]], [8, -11, -3]);
+    expect(x[0]).toBeCloseTo(2, 12);
+    expect(x[1]).toBeCloseTo(3, 12);
+    expect(x[2]).toBeCloseTo(-1, 12);
+  });
+
+  it('pivots past a zero on the diagonal instead of returning NaN', () => {
+    // Without partial pivoting the first elimination divides by zero here.
+    const x = solveLinear([[0, 2], [1, 1]], [4, 3]);
+    expect(x[0]).toBeCloseTo(1, 12);
+    expect(x[1]).toBeCloseTo(2, 12);
+  });
+
+  it('refuses a singular matrix rather than returning nonsense', () => {
+    expect(() => solveLinear([[1, 2], [2, 4]], [1, 2])).toThrow(/singular/);
+  });
+
+  it('inverts against a known inverse', () => {
+    // [[4,7],[2,6]]⁻¹ = [[0.6,−0.7],[−0.2,0.4]]
+    const inv = invert([[4, 7], [2, 6]]);
+    expect(inv[0][0]).toBeCloseTo(0.6, 12);
+    expect(inv[0][1]).toBeCloseTo(-0.7, 12);
+    expect(inv[1][0]).toBeCloseTo(-0.2, 12);
+    expect(inv[1][1]).toBeCloseTo(0.4, 12);
+  });
+
+  it('round-trips A⁻¹A to the identity', () => {
+    const A: Matrix = [[4, 1, 2], [1, 5, 3], [2, 3, 6]];
+    const I = matMul(invert(A), A);
+    for (let i = 0; i < 3; i += 1) {
+      for (let j = 0; j < 3; j += 1) expect(I[i][j]).toBeCloseTo(i === j ? 1 : 0, 10);
+    }
+  });
+
+  it('agrees with the solver: A⁻¹b and solveLinear(A, b) are the same vector', () => {
+    const A: Matrix = [[4, 1, 2], [1, 5, 3], [2, 3, 6]];
+    const b = [7, -2, 11];
+    const viaInverse = matVec(invert(A), b);
+    solveLinear(A, b).forEach((v, i) => expect(v).toBeCloseTo(viaInverse[i], 10));
+  });
+
+  it('transposes involutively and multiplies associatively', () => {
+    const A: Matrix = [[1, 2, 3], [4, 5, 6]];
+    expect(transpose(transpose(A))).toEqual(A);
+    const B: Matrix = [[1, 0], [0, 2], [3, 1]];
+    const C: Matrix = [[2, 1], [1, 3]];
+    const left = matMul(matMul(A, B), C);
+    const right = matMul(A, matMul(B, C));
+    left.forEach((row, i) => row.forEach((v, j) => expect(v).toBeCloseTo(right[i][j], 12)));
+    // (AB)ᵀ = BᵀAᵀ
+    const t1 = transpose(matMul(A, B));
+    const t2 = matMul(transpose(B), transpose(A));
+    t1.forEach((row, i) => row.forEach((v, j) => expect(v).toBeCloseTo(t2[i][j], 12)));
+  });
+});
+
+describe('Hardy–Weinberg', () => {
+  it('reproduces p² : 2pq : q² exactly, and conserves the sample size', () => {
+    const g = { AA: 360, Aa: 480, aa: 160 }; // q = (320+480)/2000 = 0.4
+    expect(alleleFrequency(g)).toBeCloseTo(0.4, 12);
+    const e = hweExpected(g);
+    expect(e.AA).toBeCloseTo(1000 * 0.36, 10);
+    expect(e.Aa).toBeCloseTo(1000 * 0.48, 10);
+    expect(e.aa).toBeCloseTo(1000 * 0.16, 10);
+    expect(e.AA + e.Aa + e.aa).toBeCloseTo(1000, 10);
+    expect(hweChiSquare(g)).toBeCloseTo(0, 10);
+  });
+
+  it('gives a chi-square that grows with the departure', () => {
+    // Same allele frequency (q = 0.4), heterozygotes progressively depleted.
+    const chis = [
+      hweChiSquare({ AA: 360, Aa: 480, aa: 160 }),
+      hweChiSquare({ AA: 410, Aa: 380, aa: 210 }),
+      hweChiSquare({ AA: 460, Aa: 280, aa: 260 }),
+    ];
+    [1, 2].forEach((i) => expect(chis[i]).toBeGreaterThan(chis[i - 1]));
+    chis.forEach((_, i) => expect(alleleFrequency([
+      { AA: 360, Aa: 480, aa: 160 }, { AA: 410, Aa: 380, aa: 210 }, { AA: 460, Aa: 280, aa: 260 },
+    ][i])).toBeCloseTo(0.4, 12));
+  });
+
+  it('matches an exact enumeration of the conditional distribution', () => {
+    // Independently computed by summing the exact conditional multinomial
+    // P(h | N, n_a) = n_a!(2N−n_a)!N! 2^h / [(2N)! ((n_a−h)/2)! h! ((2N−n_a−h)/2)!]
+    // over every heterozygote count no more probable than the one observed.
+    // The first row is the worked example of Wigginton, Cutler & Abecasis (2005).
+    const cases: [{ AA: number; Aa: number; aa: number }, number][] = [
+      [{ AA: 1469, Aa: 138, aa: 5 }, 0.3825186675],
+      [{ AA: 0, Aa: 10, aa: 0 }, 0.0069064063],
+      [{ AA: 5, Aa: 2, aa: 3 }, 0.0816861157],
+      [{ AA: 998, Aa: 1, aa: 1 }, 0.0015007504],
+      [{ AA: 20, Aa: 20, aa: 20 }, 0.0103072889],
+      [{ AA: 100, Aa: 5, aa: 0 }, 1.0],
+      [{ AA: 3, Aa: 0, aa: 3 }, 0.0216450216],
+    ];
+    for (const [g, p] of cases) expect(hweExactP(g)).toBeCloseTo(p, 9);
+  });
+
+  it('is a probability, and is symmetric in the two homozygotes', () => {
+    for (const g of [{ AA: 30, Aa: 40, aa: 12 }, { AA: 7, Aa: 1, aa: 0 }, { AA: 1, Aa: 8, aa: 1 }]) {
+      const p = hweExactP(g);
+      expect(p).toBeGreaterThan(0);
+      expect(p).toBeLessThanOrEqual(1);
+      // Which homozygote is called "reference" is a labelling choice, not a fact.
+      expect(hweExactP({ AA: g.aa, Aa: g.Aa, aa: g.AA })).toBeCloseTo(p, 12);
+    }
+  });
+
+  it('separates from the chi-square approximation exactly where the counts are small', () => {
+    // 1-df upper tail, so the comparison is against something outside this module.
+    const chiP = (g: { AA: number; Aa: number; aa: number }) =>
+      1 - regularizedGammaP(0.5, hweChiSquare(g) / 2);
+
+    // A common variant with plenty of every genotype: the approximation is fine.
+    const common = { AA: 1469, Aa: 138, aa: 5 };
+    expect(hweExactP(common)).toBeCloseTo(0.3825186675, 9);
+    expect(chiP(common)).toBeCloseTo(0.3619985, 5);
+    expect(Math.abs(hweExactP(common) - chiP(common))).toBeLessThan(0.03);
+
+    // One heterozygote and one rare homozygote in a thousand people. The expected
+    // homozygote count is 0.00225, so the (O−E)²/E term explodes and χ² reports
+    // 1.6×10⁻⁹⁸ for a configuration the exact test rates at 1.5×10⁻³ — anti-conservative
+    // by ninety-five orders of magnitude. This is why rare-variant QC uses the exact test.
+    const rare = { AA: 998, Aa: 1, aa: 1 };
+    expect(hweExactP(rare)).toBeCloseTo(0.0015007504, 9);
+    expect(chiP(rare)).toBeLessThan(1e-90);
+    expect(Math.log10(hweExactP(rare) / chiP(rare))).toBeGreaterThan(90);
+
+    // And it fails on small samples too, not only rare alleles: ten heterozygotes and
+    // nothing else is 4.4× more probable than χ² makes it.
+    const tiny = { AA: 0, Aa: 10, aa: 0 };
+    expect(hweExactP(tiny)).toBeCloseTo(0.0069064063, 9);
+    expect(chiP(tiny)).toBeCloseTo(0.001565402, 7);
+    expect(hweExactP(tiny) / chiP(tiny)).toBeCloseTo(4.41, 1);
+  });
+});
+
+describe('drift and the coalescent', () => {
+  it('decays heterozygosity at exactly 1/(2Nₑ) per generation', () => {
+    expect(heterozygosityDecay(0.5, 100, 0)).toBeCloseTo(0.5, 12);
+    expect(heterozygosityDecay(0.5, 100, 1)).toBeCloseTo(0.5 * (1 - 1 / 200), 12);
+    // Half-life: t such that (1 − 1/2Nₑ)^t = 0.5, i.e. t = ln0.5 / ln(1 − 1/2Nₑ).
+    const ne = 100;
+    const half = Math.log(0.5) / Math.log(1 - 1 / (2 * ne));
+    expect(heterozygosityDecay(1, ne, half)).toBeCloseTo(0.5, 10);
+    // For large Nₑ the half-life is ≈ 2Nₑ ln2 = 1.386 Nₑ generations.
+    expect(half / ne).toBeCloseTo(2 * Math.LN2, 2);
+  });
+
+  it('fixes a neutral allele with probability equal to its frequency', () => {
+    for (const p of [0.01, 0.25, 0.5, 0.9]) expect(fixationProbability(p)).toBe(p);
+  });
+
+  it('reduces Kimura to the neutral case as selection vanishes', () => {
+    expect(fixationProbabilitySelected(0.3, 0, 1000)).toBeCloseTo(0.3, 12);
+    expect(fixationProbabilitySelected(0.3, 1e-12, 1000)).toBeCloseTo(0.3, 8);
+    // Independently evaluated (1 − e^{−4Nₑsp}) / (1 − e^{−4Nₑs}).
+    expect(fixationProbabilitySelected(0.01, 0.001, 1000)).toBeCloseTo(0.0399421264, 9);
+    expect(fixationProbabilitySelected(0.01, 0.01, 1000)).toBeCloseTo(0.3296799540, 9);
+    expect(fixationProbabilitySelected(0.01, -0.001, 1000)).toBeCloseTo(0.0007614213, 9);
+    // Selection helps a beneficial allele and hurts a deleterious one.
+    expect(fixationProbabilitySelected(0.01, 0.001, 1000)).toBeGreaterThan(0.01);
+    expect(fixationProbabilitySelected(0.01, -0.001, 1000)).toBeLessThan(0.01);
+  });
+
+  it('sums the pairwise waiting times to the expected TMRCA', () => {
+    const ne = 5000;
+    for (const n of [2, 5, 20, 100]) {
+      let total = 0;
+      for (let k = n; k >= 2; k -= 1) total += expectedCoalescentTime(k, ne);
+      expect(total).toBeCloseTo(expectedTmrca(n, ne), 8);
+    }
+    // Two lineages coalesce in 2Nₑ generations; a large sample takes 4Nₑ.
+    expect(expectedTmrca(2, ne)).toBeCloseTo(2 * ne, 10);
+    expect(expectedTmrca(1e6, ne)).toBeCloseTo(4 * ne, 1);
+  });
+
+  it('gives a total branch length of 4Nₑ Σ1/i', () => {
+    const ne = 1000;
+    expect(expectedTotalBranchLength(2, ne)).toBeCloseTo(4 * ne, 9);
+    expect(expectedTotalBranchLength(10, ne)).toBeCloseTo(4 * ne * harmonic(9), 9);
+    // The total tree is much longer than the depth: adding samples adds tips, not depth.
+    expect(expectedTotalBranchLength(100, ne)).toBeGreaterThan(expectedTmrca(100, ne));
+  });
+
+  it('computes the harmonic sums', () => {
+    expect(harmonic(1)).toBe(1);
+    expect(harmonic(4)).toBeCloseTo(1 + 1 / 2 + 1 / 3 + 1 / 4, 12);
+    expect(harmonicSquared(3)).toBeCloseTo(1 + 1 / 4 + 1 / 9, 12);
+    // Σ1/i² → π²/6.
+    expect(harmonicSquared(200000)).toBeCloseTo((Math.PI ** 2) / 6, 4);
+  });
+});
+
+describe('the site frequency spectrum and neutrality', () => {
+  it('estimates the same θ two ways under neutrality', () => {
+    const n = 12;
+    const a1 = harmonic(n - 1);
+    expect(wattersonTheta(a1 * 5, n)).toBeCloseTo(5, 10);
+    // θ_π from a spectrum: one site at each derived count 1..n−1 sums to 2 Σ i(n−i)/(n(n−1)).
+    const counts = Array.from({ length: n - 1 }, (_, i) => i + 1);
+    const expected = counts.reduce((s, i) => s + (2 * i * (n - i)) / (n * (n - 1)), 0);
+    expect(pairwiseTheta(counts, n)).toBeCloseTo(expected, 12);
+    // A singleton contributes least, a balanced site most.
+    expect(pairwiseTheta([1], n)).toBeLessThan(pairwiseTheta([6], n));
+  });
+
+  it('is zero exactly when the two estimators agree', () => {
+    const n = 12;
+    const S = 10;
+    expect(tajimasD(S, S / harmonic(n - 1), n)).toBeCloseTo(0, 12);
+    expect(tajimasD(0, 0, n)).toBe(0);
+  });
+
+  it('signs the departure the way the literature reads it', () => {
+    const n = 12;
+    const thetaW = 10 / harmonic(n - 1);
+    // Excess of rare variants — π below θ_W — is negative (a sweep, or growth).
+    expect(tajimasD(10, thetaW * 0.6, n)).toBeLessThan(0);
+    // Excess of intermediate-frequency variants is positive (balancing selection, structure).
+    expect(tajimasD(10, thetaW * 1.5, n)).toBeGreaterThan(0);
+    // Independently evaluated from Tajima (1989) eq. 38 with n = 12, S = 10.
+    expect(tajimasD(10, 2.0, n)).toBeCloseTo(-1.629265, 5);
+    expect(tajimasD(10, 5.0, n)).toBeCloseTo(2.097913, 5);
+  });
+
+  it('uses the variance Tajima derived, not a bootstrap', () => {
+    // Independently evaluated for n = 12.
+    const k = tajimaConstants(12);
+    expect(k.a1).toBeCloseTo(3.0198773449, 9);
+    expect(k.a2).toBeCloseTo(1.5580321940, 9);
+    expect(k.b1).toBeCloseTo(0.3939393939, 9);
+    expect(k.b2).toBeCloseTo(0.2676767677, 9);
+    expect(k.c1).toBeCloseTo(0.0628001171, 9);
+    expect(k.c2).toBeCloseTo(0.0521908593, 9);
+    expect(k.e1).toBeCloseTo(0.0207955854, 9);
+    expect(k.e2).toBeCloseTo(0.0048878412, 9);
+  });
+
+  it('recovers c₁θ + c₂θ² when S is replaced by its expectation', () => {
+    // The estimator's whole content: e₁ and e₂ are c₁ and c₂ divided by the factors
+    // that make S/a₁ and S(S−1)/(a₁²+a₂) unbiased for θ and θ². Substituting E[S] = a₁θ
+    // and E[S(S−1)] = (a₁²+a₂)θ² must therefore collapse e₁S + e₂S(S−1) back to
+    // Tajima's variance exactly. Checked against 120,000 neutral coalescent replicates
+    // per (n, θ), where simulated Var(π − θ_W) matched c₁θ + c₂θ² to within 0.2–1.6 %.
+    for (const n of [8, 12, 30]) {
+      const { a1, a2, c1, c2, e1, e2 } = tajimaConstants(n);
+      for (const theta of [3, 5, 10]) {
+        const substituted = e1 * (a1 * theta) + e2 * (a1 * a1 + a2) * theta * theta;
+        expect(substituted).toBeCloseTo(c1 * theta + c2 * theta * theta, 12);
+      }
+    }
+    const { a1, a2, e1, e2 } = tajimaConstants(12);
+    expect(e1 * (a1 * 5) + e2 * (a1 * a1 + a2) * 25).toBeCloseTo(1.6187720692, 9);
+    expect(e1 * (a1 * 10) + e2 * (a1 * a1 + a2) * 100).toBeCloseTo(5.8470871054, 9);
+  });
+
+  it('divides by the square root of e₁S + e₂S(S−1) at the observed S', () => {
+    const { a1, e1, e2 } = tajimaConstants(12);
+    const S = 10;
+    const numerator = 2.0 - S / a1;
+    expect(tajimasD(S, 2.0, 12)).toBeCloseTo(numerator / Math.sqrt(e1 * S + e2 * S * (S - 1)), 12);
+  });
+});
+
+describe('F_ST', () => {
+  it('is zero for identical frequencies, up to the sampling correction', () => {
+    // Hudson's numerator subtracts the sampling variance, so equal sample frequencies
+    // give a small negative value rather than exactly zero — which is the point: an
+    // uncorrected estimator would report structure that is only sampling noise.
+    expect(fstHudson(0.3, 0.3, 1000, 1000)).toBeCloseTo(-0.001001001, 9);
+    expect(fstHudson(0.3, 0.3, 1e7, 1e7)).toBeCloseTo(0, 6);
+  });
+
+  it('is one for a fixed difference', () => {
+    expect(fstHudson(1, 0, 100, 100)).toBeCloseTo(1, 12);
+    expect(fstHudson(0, 1, 100, 100)).toBeCloseTo(1, 12);
+  });
+
+  it('matches independently evaluated values and is symmetric', () => {
+    expect(fstHudson(0.5, 0.1, 1000, 1000)).toBeCloseTo(0.3193193193, 9);
+    expect(fstHudson(0.2, 0.8, 500, 500)).toBeCloseTo(0.5284687021, 9);
+    expect(fstHudson(0.5, 0.1, 1000, 1000)).toBeCloseTo(fstHudson(0.1, 0.5, 1000, 1000), 12);
+  });
+});
+
+describe('pedigrees and relatedness', () => {
+  // 1 and 2 are unrelated founders; 3 = (1×2); 4 = (1×3) — a sire bred to his own
+  // daughter; 5 = (4×3). Chosen because it makes 4 and 5 inbred, so the diagonal is not
+  // trivially 1 and the recursion's f(x,x) = ½(1+F) branch is actually exercised.
+  const ped: PedigreeEntry[] = [
+    { id: '1' }, { id: '2' },
+    { id: '3', sire: '1', dam: '2' },
+    { id: '4', sire: '1', dam: '3' },
+    { id: '5', sire: '4', dam: '3' },
+  ];
+
+  it('reproduces the relationship matrix computed by the tabular method', () => {
+    // Independently evaluated in exact rational arithmetic:
+    //   1     0     1/2   3/4   5/8
+    //   0     1     1/2   1/4   3/8
+    //   1/2   1/2   1     3/4   7/8
+    //   3/4   1/4   3/4   5/4   1
+    //   5/8   3/8   7/8   1     11/8
+    const { ids, A } = additiveRelationshipMatrix(ped);
+    expect(ids).toEqual(['1', '2', '3', '4', '5']);
+    const expected = [
+      [1, 0, 0.5, 0.75, 0.625],
+      [0, 1, 0.5, 0.25, 0.375],
+      [0.5, 0.5, 1, 0.75, 0.875],
+      [0.75, 0.25, 0.75, 1.25, 1],
+      [0.625, 0.375, 0.875, 1, 1.375],
+    ];
+    A.forEach((row, i) => row.forEach((v, j) => expect(v).toBeCloseTo(expected[i][j], 12)));
+  });
+
+  it('is symmetric, and gives founders a diagonal of exactly one', () => {
+    const { A } = additiveRelationshipMatrix(ped);
+    A.forEach((row, i) => row.forEach((v, j) => expect(v).toBeCloseTo(A[j][i], 15)));
+    expect(A[0][0]).toBe(1);
+    expect(A[1][1]).toBe(1);
+    expect(A[0][1]).toBe(0);
+  });
+
+  it('reads inbreeding straight off the diagonal', () => {
+    const F = inbreedingCoefficients(ped);
+    expect(F.get('1')).toBeCloseTo(0, 12);
+    expect(F.get('3')).toBeCloseTo(0, 12);
+    // 4 is the offspring of 1 and 1's own daughter: F = ¼.
+    expect(F.get('4')).toBeCloseTo(0.25, 12);
+    expect(F.get('5')).toBeCloseTo(0.375, 12);
+  });
+
+  it('gives the textbook relationships for the standard family structures', () => {
+    const fullSibs = additiveRelationshipMatrix([
+      { id: 's' }, { id: 'd' },
+      { id: 'c1', sire: 's', dam: 'd' }, { id: 'c2', sire: 's', dam: 'd' },
+    ]);
+    expect(fullSibs.A[2][3]).toBeCloseTo(0.5, 12);   // full sibs
+    expect(fullSibs.A[0][2]).toBeCloseTo(0.5, 12);   // parent–offspring
+
+    const halfSibs = additiveRelationshipMatrix([
+      { id: 's' }, { id: 'd1' }, { id: 'd2' },
+      { id: 'h1', sire: 's', dam: 'd1' }, { id: 'h2', sire: 's', dam: 'd2' },
+    ]);
+    expect(halfSibs.A[3][4]).toBeCloseTo(0.25, 12);  // half sibs
+  });
+
+  it('halves kinship with each generation of distance', () => {
+    const { ids, f } = kinshipMatrix([
+      { id: 'g0' }, { id: 'm0' },
+      { id: 'g1', sire: 'g0', dam: 'm0' }, { id: 'm1' },
+      { id: 'g2', sire: 'g1', dam: 'm1' }, { id: 'm2' },
+      { id: 'g3', sire: 'g2', dam: 'm2' },
+    ]);
+    const at = (a: string, b: string) => f[ids.indexOf(a)][ids.indexOf(b)];
+    expect(at('g0', 'g1')).toBeCloseTo(0.25, 12);
+    expect(at('g0', 'g2')).toBeCloseTo(0.125, 12);
+    expect(at('g0', 'g3')).toBeCloseTo(0.0625, 12);
+  });
+
+  it('rejects a pedigree in which someone is their own ancestor', () => {
+    expect(() => kinshipMatrix([
+      { id: 'a', sire: 'b' }, { id: 'b', sire: 'a' },
+    ])).toThrow(/cycle/);
+  });
+});
+
+describe('linkage and LOD scores', () => {
+  it('maximises the likelihood at the observed recombination fraction', () => {
+    const { theta, lod } = maxLod(3, 30);
+    expect(theta).toBeCloseTo(0.1, 12);
+    // No other θ can beat the maximum.
+    for (const t of [0.02, 0.05, 0.15, 0.3, 0.49]) expect(lodScore(3, 30, t)).toBeLessThan(lod);
+  });
+
+  it('is zero at free recombination and maximal at complete linkage', () => {
+    expect(lodScore(15, 30, 0.5)).toBeCloseTo(0, 12);
+    // Twenty meioses with no recombinant: 2²⁰ to one, i.e. 20 log₁₀2.
+    expect(maxLod(0, 20).lod).toBeCloseTo(20 * Math.log10(2), 10);
+    expect(maxLod(0, 20).lod).toBeCloseTo(6.0206, 4);
+  });
+
+  it('converts to chi-square as the same likelihood ratio in other units', () => {
+    // LOD 3 is χ² = 2 ln10 × 3 = 13.8155 on 1 df — a point-wise p of 2.0×10⁻⁴.
+    expect(lodToChi2(3)).toBeCloseTo(13.815511, 6);
+    expect(chi2ToLod(13.815511)).toBeCloseTo(3, 6);
+    const p = 1 - regularizedGammaP(0.5, lodToChi2(3) / 2);
+    expect(p).toBeCloseTo(2.0166451872e-4, 12);
+    // Round trip for a range of scores.
+    for (const l of [1, 2, 3.3, 5]) expect(chi2ToLod(lodToChi2(l))).toBeCloseTo(l, 12);
+  });
+
+  it('scores the TDT on the transmitted counts alone', () => {
+    expect(tdtStatistic(30, 10)).toBeCloseTo(400 / 40, 12);
+    expect(tdtStatistic(20, 20)).toBe(0);
+    expect(tdtStatistic(0, 0)).toBe(0);
+    // Symmetric in which allele is called "transmitted".
+    expect(tdtStatistic(10, 30)).toBeCloseTo(tdtStatistic(30, 10), 12);
+  });
+});
+
+describe('quantitative genetics', () => {
+  const decompose = (locus: LocusEffect) => {
+    const { p, a, d } = locus;
+    const q = 1 - p;
+    const mean = genotypicMean(locus);
+    const bv = breedingValues(locus);
+    const freq = { AA: p * p, Aa: 2 * p * q, aa: q * q };
+    const value = { AA: a, Aa: d, aa: -a };
+    const keys = ['AA', 'Aa', 'aa'] as const;
+    // Everything below is computed from the genotype table directly, not from the module.
+    const vg = keys.reduce((s, k) => s + freq[k] * (value[k] - mean) ** 2, 0);
+    const va = keys.reduce((s, k) => s + freq[k] * bv[k] ** 2, 0);
+    const vd = keys.reduce((s, k) => s + freq[k] * (value[k] - mean - bv[k]) ** 2, 0);
+    const cov = keys.reduce((s, k) => s + freq[k] * bv[k] * (value[k] - mean - bv[k]), 0);
+    const meanBv = keys.reduce((s, k) => s + freq[k] * bv[k], 0);
+    return { vg, va, vd, cov, meanBv };
+  };
+
+  const loci: LocusEffect[] = [
+    { p: 0.6, a: 10, d: 0 },
+    { p: 0.6, a: 10, d: 5 },
+    { p: 0.2, a: 0, d: 8 },
+    { p: 0.5, a: 0, d: 8 },
+    { p: 0.9, a: 4, d: -3 },
+  ];
+
+  it('centres the breeding values on zero', () => {
+    for (const l of loci) expect(decompose(l).meanBv).toBeCloseTo(0, 12);
+  });
+
+  it('partitions the genotypic variance exactly, with no covariance left over', () => {
+    for (const l of loci) {
+      const { vg, va, vd, cov } = decompose(l);
+      expect(additiveVariance(l)).toBeCloseTo(va, 10);
+      expect(dominanceVariance(l)).toBeCloseTo(vd, 10);
+      expect(genotypicVariance(l)).toBeCloseTo(vg, 10);
+      // Orthogonal by construction: the breeding value IS the least-squares fit on
+      // allele count, so the residual cannot correlate with it.
+      expect(cov).toBeCloseTo(0, 10);
+    }
+  });
+
+  it('makes the breeding value the regression on allele count', () => {
+    for (const l of loci) {
+      const alpha = averageEffect(l);
+      const bv = breedingValues(l);
+      expect(bv.AA).toBeCloseTo(alpha * (2 - 2 * l.p), 12);
+      expect(bv.Aa).toBeCloseTo(alpha * (1 - 2 * l.p), 12);
+      expect(bv.aa).toBeCloseTo(alpha * (0 - 2 * l.p), 12);
+    }
+  });
+
+  it('shows additive variance is not the same thing as additive gene action', () => {
+    // Pure dominance, no additive gene action anywhere (a = 0), yet at unequal
+    // frequencies most of the genotypic variance is additive.
+    const skewed: LocusEffect = { p: 0.2, a: 0, d: 8 };
+    expect(averageEffect(skewed)).toBeCloseTo(4.8, 12);
+    expect(additiveVariance(skewed)).toBeCloseTo(7.3728, 10);
+    expect(dominanceVariance(skewed)).toBeCloseTo(6.5536, 10);
+    expect(additiveVariance(skewed)).toBeGreaterThan(dominanceVariance(skewed));
+
+    // The identical locus at p = ½: α is exactly zero and *all* the variance is dominance.
+    const balanced: LocusEffect = { p: 0.5, a: 0, d: 8 };
+    expect(averageEffect(balanced)).toBeCloseTo(0, 12);
+    expect(additiveVariance(balanced)).toBeCloseTo(0, 12);
+    expect(dominanceVariance(balanced)).toBeCloseTo(16, 10);
+  });
+
+  it('reduces to a = α with no dominance', () => {
+    const additive: LocusEffect = { p: 0.6, a: 10, d: 0 };
+    expect(averageEffect(additive)).toBeCloseTo(10, 12);
+    expect(genotypicMean(additive)).toBeCloseTo(10 * (0.6 - 0.4), 12);
+    expect(additiveVariance(additive)).toBeCloseTo(2 * 0.6 * 0.4 * 100, 10);
+    expect(dominanceVariance(additive)).toBe(0);
+  });
+});
+
+describe('selection', () => {
+  it('matches the standard truncation-selection intensities', () => {
+    // i = φ(Φ⁻¹(1−p))/p, evaluated independently.
+    expect(selectionIntensity(0.5)).toBeCloseTo(0.7979, 4);
+    expect(selectionIntensity(0.2)).toBeCloseTo(1.3998, 4);
+    expect(selectionIntensity(0.1)).toBeCloseTo(1.7550, 4);
+    expect(selectionIntensity(0.05)).toBeCloseTo(2.0627, 4);
+    expect(selectionIntensity(0.01)).toBeCloseTo(2.6652, 4);
+    // At p = ½ the closed form is √(2/π).
+    expect(selectionIntensity(0.5)).toBeCloseTo(Math.sqrt(2 / Math.PI), 6);
+  });
+
+  it('has sharply diminishing returns', () => {
+    // Cutting the selected fraction by 5× from 25 % to 5 % buys under 80 % more intensity.
+    const ratio = selectionIntensity(0.05) / selectionIntensity(0.25);
+    expect(ratio).toBeLessThan(1.8);
+    expect(ratio).toBeGreaterThan(1.5);
+    for (const [a, b] of [[0.5, 0.2], [0.2, 0.05], [0.05, 0.01]]) {
+      expect(selectionIntensity(b)).toBeGreaterThan(selectionIntensity(a));
+    }
+    expect(() => selectionIntensity(0)).toThrow();
+  });
+
+  it('agrees between the two forms of the breeder’s equation', () => {
+    const h2 = 0.4;
+    const sdP = 12;
+    const i = selectionIntensity(0.05);
+    // S = i·σ_P, so R = h²S and R = i·h²·σ_P must be the same number.
+    expect(breedersResponse(h2, i * sdP)).toBeCloseTo(breedersResponseFromIntensity(h2, i, sdP), 12);
+    expect(breedersResponseFromIntensity(h2, i, sdP)).toBeCloseTo(2.0627 * 0.4 * 12, 3);
+  });
+
+  it('predicts a correlated response through h, not h squared', () => {
+    // CR_y = i·h_x·h_y·r_g·σ_Py, evaluated independently at i = 2.0627, h²_x = 0.4,
+    // h²_y = 0.25, r_g = 0.35, σ_Py = 12.
+    const cr = correlatedResponse(2.0627, Math.sqrt(0.4), Math.sqrt(0.25), 0.35, 12);
+    expect(cr).toBeCloseTo(2.7396, 3);
+    // A negative genetic correlation drags the unselected trait the wrong way.
+    expect(correlatedResponse(2.0627, Math.sqrt(0.4), 0.5, -0.35, 12)).toBeCloseTo(-cr, 10);
+    expect(correlatedResponse(2.0627, Math.sqrt(0.4), 0.5, 0, 12)).toBe(0);
+  });
+
+  it('lets an unselected trait respond, through G P⁻¹ s', () => {
+    const G: Matrix = [[40, 18], [18, 25]];
+    const P: Matrix = [[100, 30], [30, 90]];
+    const s = [6, 2];
+    const dz = multivariateResponse(G, P, s);
+    // Independently evaluated: (2.41481, 1.12840).
+    expect(dz[0]).toBeCloseTo(2.41481, 5);
+    expect(dz[1]).toBeCloseTo(1.12840, 5);
+    // The univariate prediction h²s for trait 1 alone is 2.40 — close, but wrong, and
+    // it says nothing at all about trait 2.
+    expect((G[0][0] / P[0][0]) * s[0]).toBeCloseTo(2.4, 10);
+    expect(dz[0]).not.toBeCloseTo(2.4, 3);
+
+    // With no genetic covariance the two collapse to the univariate answer.
+    const diagonal = multivariateResponse([[40, 0], [0, 25]], [[100, 0], [0, 90]], s);
+    expect(diagonal[0]).toBeCloseTo(0.4 * 6, 10);
+    expect(diagonal[1]).toBeCloseTo((25 / 90) * 2, 10);
+  });
+});
+
+describe('BLUP and genomic selection', () => {
+  const ped: PedigreeEntry[] = [
+    { id: '1' }, { id: '2' },
+    { id: '3', sire: '1', dam: '2' },
+    { id: '4', sire: '1', dam: '3' },
+    { id: '5', sire: '4', dam: '3' },
+  ];
+  const y = [4.5, 2.9, 3.9, 3.5, 5.0];
+  const X: Matrix = y.map(() => [1]);
+  const Z: Matrix = y.map((_, i) => y.map((__, j) => (i === j ? 1 : 0)));
+  const lambda = 0.6 / 0.4;
+
+  it('solves Henderson’s equations to the independently computed answer', () => {
+    const { A } = additiveRelationshipMatrix(ped);
+    const { fixed, random } = hendersonMme(X, Z, invert(A), lambda, y);
+    expect(fixed[0]).toBeCloseTo(3.8304407650, 9);
+    const expected = [0.3096362886, -0.3096362886, 0.1042333624, 0.1723891208, 0.3711736917];
+    random.forEach((v, i) => expect(v).toBeCloseTo(expected[i], 9));
+  });
+
+  it('gives the same predictions from the form that never inverts K', () => {
+    // û = K(K+λI)⁻¹ê is Henderson's system rewritten. They must agree exactly wherever
+    // K⁻¹ exists — and the second form is defined when it does not.
+    const { A } = additiveRelationshipMatrix(ped);
+    const { fixed, random } = hendersonMme(X, Z, invert(A), lambda, y);
+    const adjusted = y.map((v) => v - fixed[0]);
+    blupSolve(A, lambda, adjusted).forEach((v, i) => expect(v).toBeCloseTo(random[i], 10));
+  });
+
+  it('shrinks toward zero as the residual variance grows', () => {
+    const { A } = additiveRelationshipMatrix(ped);
+    const adjusted = y.map((v) => v - 3.83);
+    const light = blupSolve(A, 0.1, adjusted);
+    const heavy = blupSolve(A, 20, adjusted);
+    light.forEach((v, i) => expect(Math.abs(heavy[i])).toBeLessThan(Math.abs(v)));
+    // λ → ∞ means no heritable signal at all.
+    blupSolve(A, 1e9, adjusted).forEach((v) => expect(Math.abs(v)).toBeLessThan(1e-6));
+  });
+
+  it('builds a genomic relationship matrix that is symmetric and correctly scaled', () => {
+    // Two individuals, both homozygous alternate at every marker: identical genotypes,
+    // so their relationship equals their own diagonal.
+    const freqs = [0.5, 0.5, 0.5, 0.5];
+    const G = grmFromMarkers([[2, 2, 2, 2], [2, 2, 2, 2], [0, 0, 0, 0]], freqs);
+    expect(G[0][1]).toBeCloseTo(G[0][0], 12);
+    // Opposite homozygotes at every marker: maximally unrelated, and negatively so.
+    expect(G[0][2]).toBeCloseTo(-G[0][0], 12);
+    G.forEach((row, i) => row.forEach((v, j) => expect(v).toBeCloseTo(G[j][i], 15)));
+    expect(() => grmFromMarkers([[2]], [0])).toThrow();
+  });
+
+  it('warns in code what centring on the sample does to G', () => {
+    // Centre on frequencies computed from these same three individuals and every column
+    // of W sums to zero, so G·1 = 0 — the matrix is singular and G⁻¹ does not exist.
+    const genos: Matrix = [[2, 1, 0, 2], [1, 1, 2, 0], [0, 1, 1, 1]];
+    const sampleFreqs = [0, 1, 2, 3].map((j) => genos.reduce((s, r) => s + r[j], 0) / (2 * genos.length));
+    const G = grmFromMarkers(genos, sampleFreqs);
+    matVec(G, [1, 1, 1]).forEach((v) => expect(Math.abs(v)).toBeLessThan(1e-12));
+    expect(() => invert(G)).toThrow(/singular/);
+    // The non-inverse form still works on it.
+    expect(blupSolve(G, 1.5, [0.5, -0.2, -0.3]).length).toBe(3);
+  });
+
+  it('raises accuracy with N and heritability, and lowers it with segment count', () => {
+    expect(predictionAccuracy(10000, 0.5, 5000)).toBeGreaterThan(predictionAccuracy(1000, 0.5, 5000));
+    expect(predictionAccuracy(10000, 0.5, 5000)).toBeGreaterThan(predictionAccuracy(10000, 0.2, 5000));
+    expect(predictionAccuracy(10000, 0.5, 50000)).toBeLessThan(predictionAccuracy(10000, 0.5, 5000));
+    // Nh² = Mₑ is the half-way point: r² = ½.
+    expect(predictionAccuracy(10000, 0.5, 5000) ** 2).toBeCloseTo(0.5, 12);
+    expect(predictionAccuracy(1e12, 0.5, 5000)).toBeCloseTo(1, 6);
+  });
+});
+
+describe('expectedFixationTime', () => {
+  it('matches the diffusion result', () => {
+    // −4Nₑ((1−p)/p)ln(1−p), evaluated independently.
+    expect(expectedFixationTime(0.1, 1000)).toBeCloseTo(3792.9786, 3);
+    expect(expectedFixationTime(0.5, 1000)).toBeCloseTo(2772.5887, 3);
+  });
+
+  it('approaches 4Nₑ for a new mutation', () => {
+    const ne = 10000;
+    // p = 1/(2Nₑ): −4Nₑ·2Nₑ·ln(1 − 1/2Nₑ) → 4Nₑ as Nₑ grows.
+    expect(expectedFixationTime(1 / (2 * ne), ne) / (4 * ne)).toBeCloseTo(1, 3);
+  });
+
+  it('is shorter for an allele that is already common', () => {
+    expect(expectedFixationTime(0.9, 1000)).toBeLessThan(expectedFixationTime(0.1, 1000));
+    expect(() => expectedFixationTime(0, 100)).toThrow();
+    expect(() => expectedFixationTime(1, 100)).toThrow();
+  });
+});
+
+describe('genomic inflation', () => {
+  it('divides by the exact median of the null, not a rounded one', () => {
+    // (Φ⁻¹(0.75))² = 0.67448975019608174² = 0.45493642311957275, to full precision.
+    expect(CHI2_1DF_MEDIAN).toBeCloseTo(0.45493642311957275, 15);
+    // Acklam's quantile approximation is good to ~1e-9 relative, so squaring it agrees
+    // only to about ten places — asserting more would test the approximation against a
+    // precision it never claimed, and the constant is the thing being checked here.
+    expect(CHI2_1DF_MEDIAN).toBeCloseTo(normalQuantile(0.75) ** 2, 9);
+  });
+
+  it('is one when the statistics are drawn from the null', () => {
+    // A set whose median is exactly the null median must give λ = 1.
+    expect(lambdaGc([0.1, CHI2_1DF_MEDIAN, 20])).toBeCloseTo(1, 12);
+    // Doubling every statistic doubles λ.
+    expect(lambdaGc([0.2, 2 * CHI2_1DF_MEDIAN, 40])).toBeCloseTo(2, 12);
+  });
+
+  it('takes the median, so a handful of huge hits cannot move it', () => {
+    const nulls = Array.from({ length: 999 }, (_, i) => (i / 999) * 5);
+    const withHits = [...nulls, 400, 500, 600];
+    expect(Math.abs(lambdaGc(withHits) - lambdaGc(nulls))).toBeLessThan(0.02);
+    expect(() => lambdaGc([])).toThrow();
+  });
+});
+
+describe('LD score regression', () => {
+  it('recovers the intercept and slope from a clean line', () => {
+    const ld = [1, 5, 10, 25, 60];
+    const n = 100000;
+    const m = 1000000;
+    const h2 = 0.35;
+    const slope = (n * h2) / m;
+    const chisqs = ld.map((l) => 1 + slope * l);
+    const fit = ldscRegression(ld, chisqs, n, m);
+    expect(fit.intercept).toBeCloseTo(1, 10);
+    expect(fit.slope).toBeCloseTo(slope, 12);
+    expect(fit.h2).toBeCloseTo(0.35, 10);
+  });
+
+  it('puts confounding in the intercept and leaves heritability alone', () => {
+    // The whole claim: a stratification term Na shifts every χ² by the same amount
+    // regardless of LD score, so it lands entirely on the intercept.
+    const ld = [1, 5, 10, 25, 60];
+    const n = 100000;
+    const m = 1000000;
+    const slope = (n * 0.35) / m;
+    const clean = ldscRegression(ld, ld.map((l) => 1 + slope * l), n, m);
+    const confounded = ldscRegression(ld, ld.map((l) => 3 + slope * l), n, m);
+    expect(confounded.intercept).toBeCloseTo(3, 9);
+    expect(confounded.h2).toBeCloseTo(clean.h2, 9);
+    // λ_GC would have blamed all of it on the data; the ratio says how much is confounding.
+    expect(confounded.ratio).toBeCloseTo(0.738825, 5);
+  });
+
+  it('honours the weights', () => {
+    const ld = [1, 5, 10, 25, 60];
+    const chisqs = [1.1, 1.2, 1.4, 1.9, 3.5];
+    const flat = ldscRegression(ld, chisqs, 1e5, 1e6);
+    // Weighting the low-LD points heavily must move the fit toward them.
+    const tilted = ldscRegression(ld, chisqs, 1e5, 1e6, [100, 100, 1, 1, 1]);
+    expect(tilted.slope).not.toBeCloseTo(flat.slope, 6);
+    expect(() => ldscRegression([1, 2], [1], 1, 1)).toThrow();
+  });
+});
+
+describe('meta-analysis', () => {
+  const betas = [0.2, 0.14, 0.31, 0.05];
+  const ses = [0.05, 0.04, 0.09, 0.06];
+
+  it('pools by inverse variance, to an independently computed answer', () => {
+    const r = ivwMeta(betas, ses);
+    expect(r.beta).toBeCloseTo(0.154014, 6);
+    expect(r.se).toBeCloseTo(0.026479, 6);
+    expect(r.z).toBeCloseTo(5.8164, 4);
+    expect(r.q).toBeCloseTo(6.9778, 4);
+    expect(r.df).toBe(3);
+    expect(r.i2).toBeCloseTo(57.01, 2);
+    expect(r.tau2).toBeCloseTo(0.004078, 6);
+  });
+
+  it('is more precise than any study it pools', () => {
+    const r = ivwMeta(betas, ses);
+    ses.forEach((s) => expect(r.se).toBeLessThan(s));
+    // With k identical studies the SE falls as 1/√k exactly.
+    const same = ivwMeta([0.2, 0.2, 0.2, 0.2], [0.05, 0.05, 0.05, 0.05]);
+    expect(same.beta).toBeCloseTo(0.2, 12);
+    expect(same.se).toBeCloseTo(0.05 / 2, 12);
+    expect(same.q).toBeCloseTo(0, 12);
+    expect(same.i2).toBe(0);
+    expect(same.tau2).toBe(0);
+  });
+
+  it('weights by precision, not by count', () => {
+    // One precise study and three vague ones: the pooled estimate sits near the precise one.
+    const r = ivwMeta([0.5, 0.0, 0.0, 0.0], [0.01, 0.5, 0.5, 0.5]);
+    expect(r.beta).toBeGreaterThan(0.49);
+  });
+
+  it('reports no heterogeneity when Q is at or below its degrees of freedom', () => {
+    const r = ivwMeta([0.20, 0.21, 0.19], [0.05, 0.05, 0.05]);
+    expect(r.q).toBeLessThan(r.df);
+    expect(r.i2).toBe(0);
+    expect(r.tau2).toBe(0);
+    expect(() => ivwMeta([1], [])).toThrow();
+  });
+
+  it('gives Stouffer a z but no effect size', () => {
+    // Equal sample sizes reduce to the plain √k rule.
+    expect(stoufferMeta([2, 2, 2, 2], [1000, 1000, 1000, 1000]).z).toBeCloseTo(4, 12);
+    // A larger study pulls the combined z toward its own.
+    const z = stoufferMeta([4, 0], [90000, 10000]).z;
+    expect(z).toBeGreaterThan(3);
+    expect(z).toBeLessThan(4);
+  });
+});
+
+describe("the winner's curse", () => {
+  it('matches the truncated-normal expectation', () => {
+    const c = 5.4513; // two-sided 5×10⁻⁸
+    expect(winnersCurseExpectation(3.0, c)).toBeCloseTo(5.7784, 3);
+    expect(winnersCurseExpectation(4.0, c)).toBeCloseTo(5.8974, 3);
+    expect(winnersCurseExpectation(5.5, c)).toBeCloseTo(6.2671, 3);
+    expect(winnersCurseExpectation(7.0, c)).toBeCloseTo(7.1280, 3);
+  });
+
+  it('is worst for effects that only just clear the threshold', () => {
+    const c = zThreshold(5e-8);
+    const bias = (z: number) => winnersCurseExpectation(z, c) - z;
+    expect(bias(3)).toBeGreaterThan(bias(5));
+    expect(bias(5)).toBeGreaterThan(bias(7));
+    expect(bias(9)).toBeLessThan(0.01);
+    // Always upward: conditioning on discovery selects upward fluctuations.
+    for (const z of [2, 4, 6, 8]) expect(bias(z)).toBeGreaterThan(0);
+  });
+
+  it('inverts the p-value into the z it corresponds to', () => {
+    expect(zThreshold(5e-8)).toBeCloseTo(5.4513104378, 6);
+    expect(zThreshold(0.05)).toBeCloseTo(1.959964, 5);
+  });
+});
+
+describe('Bayesian fine-mapping', () => {
+  const V = 0.0025; // SE = 0.05
+  const W = 0.04;
+
+  it('is the exact reciprocal of the BF₁₀ form', () => {
+    for (const z of [0.5, 3, 6.2]) {
+      expect(wakefieldAbf(z, V, W) * (1 / wakefieldAbf(z, V, W))).toBeCloseTo(1, 12);
+    }
+    // Independently evaluated √((V+W)/V)·exp(−z²/2 · W/(V+W)).
+    expect(wakefieldAbf(6.2, V, W)).toBeCloseTo(5.7423908688e-8, 16);
+    expect(wakefieldAbf(3.0, V, W)).toBeCloseTo(5.9684230117e-2, 10);
+    expect(wakefieldAbf(1.2, V, W)).toBeCloseTo(2.0937560648, 8);
+  });
+
+  it('supports the null when there is nothing to see', () => {
+    // BF₀₁ > 1 means the data favour no effect. z = 0 is the strongest such case.
+    expect(wakefieldAbf(0, V, W)).toBeCloseTo(Math.sqrt((V + W) / V), 12);
+    expect(wakefieldAbf(0, V, W)).toBeGreaterThan(1);
+    // Monotone: stronger evidence, smaller BF₀₁.
+    const bfs = [0, 1, 2, 4, 6].map((z) => wakefieldAbf(z, V, W));
+    for (let i = 1; i < bfs.length; i += 1) expect(bfs[i]).toBeLessThan(bfs[i - 1]);
+  });
+
+  it('lets the PIPs fall short of one at a locus with no signal', () => {
+    // This is what the π₀ term buys, and dropping it is the standard error: without a
+    // null in the denominator the PIPs are forced to sum to 1, which asserts a causal
+    // variant is certainly present.
+    const quiet = [1.6, 1.1, 0.7, 0.3].map((z) => wakefieldAbf(z, V, W));
+    const priors = [0.25, 0.25, 0.25, 0.25];
+    const withNull = pipsFromAbf(quiet, priors, 1);
+    const withoutNull = pipsFromAbf(quiet, priors, 0);
+    expect(withoutNull.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
+    expect(withNull.reduce((a, b) => a + b, 0)).toBeCloseTo(0.309884, 6);
+    expect(withoutNull[0]).toBeCloseTo(0.450439, 6);
+    expect(withNull[0]).toBeCloseTo(0.139584, 6);
+    expect(() => pipsFromAbf([1], [0.5, 0.5], 1)).toThrow();
+  });
+
+  it('concentrates the posterior on a real signal regardless of the null', () => {
+    const loud = [6.2, 5.1, 3.0, 1.2].map((z) => wakefieldAbf(z, V, W));
+    const priors = [0.25, 0.25, 0.25, 0.25];
+    const pips = pipsFromAbf(loud, priors, 1);
+    expect(pips[0]).toBeCloseTo(0.997125, 5);
+    // With this much evidence the null prior is irrelevant, which is also the point.
+    expect(pipsFromAbf(loud, priors, 0)[0]).toBeCloseTo(0.997126, 5);
+  });
+
+  it('builds the smallest set reaching the requested coverage', () => {
+    const cs = credibleSet([0.02, 0.60, 0.30, 0.08], 0.95);
+    expect(cs.indices).toEqual([1, 2, 3]);
+    expect(cs.coverage).toBeCloseTo(0.98, 12);
+    // A single dominant variant needs no company.
+    expect(credibleSet([0.97, 0.01, 0.01, 0.01], 0.95).indices).toEqual([0]);
+    // And a locus with no signal cannot reach 95 % at all — it returns what it has.
+    const flat = credibleSet([0.1, 0.08, 0.05], 0.95);
+    expect(flat.coverage).toBeCloseTo(0.23, 12);
+    expect(flat.indices).toHaveLength(3);
+  });
+
+  it('reports purity as the weakest correlation in the set', () => {
+    const ld: Matrix = [
+      [1.0, 0.98, 0.42],
+      [0.98, 1.0, 0.45],
+      [0.42, 0.45, 1.0],
+    ];
+    expect(csPurity([0, 1], ld)).toBeCloseTo(0.98, 12);
+    expect(csPurity([0, 1, 2], ld)).toBeCloseTo(0.42, 12);
+    expect(csPurity([0], ld)).toBe(1);
+  });
+});
+
+describe('rare-variant aggregation', () => {
+  it('weights rarer variants more, on the Beta(1,25) closed form', () => {
+    for (const maf of [0.0001, 0.001, 0.01, 0.05]) {
+      expect(betaWeight(maf)).toBeCloseTo(25 * (1 - maf) ** 24, 8);
+    }
+    expect(betaWeight(0.0001)).toBeCloseTo(24.94006895, 7);
+    expect(betaWeight(0.01)).toBeCloseTo(19.64195352, 7);
+    // A singleton carries roughly 3.4× the weight of a 5 % variant.
+    expect(betaWeight(0.0001) / betaWeight(0.05)).toBeCloseTo(3.416, 2);
+  });
+
+  it('shows burden cancelling where SKAT does not', () => {
+    // Four rare variants, two raising the trait and two lowering it by the same amount.
+    const genotypes: Matrix = [
+      [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1],
+      [0, 0, 0, 0], [0, 0, 0, 0],
+    ];
+    const residuals = [2, 2, -2, -2, 0, 0];
+    const scores = variantScores(genotypes, residuals);
+    expect(scores).toEqual([2, 2, -2, -2]);
+    const w = [1, 1, 1, 1];
+    // (2 + 2 − 2 − 2)² = 0 — the gene looks completely unassociated.
+    expect(burdenStatistic(scores, w)).toBeCloseTo(0, 12);
+    // 4 + 4 + 4 + 4 = 16 — squaring first means direction cannot cancel.
+    expect(skatQ(scores, w)).toBeCloseTo(16, 12);
+  });
+
+  it('reverses the ranking when every variant pushes the same way', () => {
+    const scores = [2, 2, 2, 2];
+    const w = [1, 1, 1, 1];
+    expect(burdenStatistic(scores, w)).toBeCloseTo(64, 12);
+    expect(skatQ(scores, w)).toBeCloseTo(16, 12);
+    expect(burdenStatistic(scores, w)).toBeGreaterThan(skatQ(scores, w));
+  });
+
+  it('interpolates SKAT-O between the two', () => {
+    const scores = [2, 2, -2, -2];
+    const w = [1, 1, 1, 1];
+    expect(skatOQ(scores, w, 0)).toBeCloseTo(skatQ(scores, w), 12);
+    expect(skatOQ(scores, w, 1)).toBeCloseTo(burdenStatistic(scores, w), 12);
+    expect(skatOQ(scores, w, 0.5)).toBeCloseTo(8, 12);
+    expect(() => variantScores([[1, 0]], [1, 2])).toThrow();
+  });
+});
+
+describe('Mendelian randomization', () => {
+  const gamma = [0.1, 0.08, 0.12, 0.06, 0.09];
+  const seOutcome = [0.01, 0.009, 0.011, 0.008, 0.01];
+  const TRUE_BETA = 0.4;
+
+  it('takes the ratio of the two effects', () => {
+    expect(waldRatio(0.1, 0.04)).toBeCloseTo(0.4, 12);
+    expect(() => waldRatio(0, 0.04)).toThrow();
+  });
+
+  it('scores instrument strength as γ̂²/Var(γ̂)', () => {
+    expect(fStatistic(0.1, 0.008)).toBeCloseTo(156.25, 10);
+    expect(fStatistic(0.06, 0.006)).toBeCloseTo(100, 10);
+    // The rule of thumb: F = 10 means |γ̂/SE| = √10 ≈ 3.16, a t of barely three.
+    expect(fStatistic(3.1623, 1)).toBeCloseTo(10, 3);
+  });
+
+  it('recovers the causal effect when every instrument is valid', () => {
+    const clean = gamma.map((g) => TRUE_BETA * g);
+    const r = ivwMr(gamma, clean, seOutcome);
+    expect(r.beta).toBeCloseTo(TRUE_BETA, 12);
+    expect(r.q).toBeCloseTo(0, 10);
+    expect(eggerRegression(gamma, clean, seOutcome).intercept).toBeCloseTo(0, 10);
+    expect(eggerRegression(gamma, clean, seOutcome).slope).toBeCloseTo(TRUE_BETA, 10);
+    expect(weightedMedianMr(gamma, clean, seOutcome)).toBeCloseTo(TRUE_BETA, 12);
+  });
+
+  it('shows that the robust estimators fail in different places — one bad instrument', () => {
+    // Four valid instruments and one carrying +0.030 of its own effect on the outcome.
+    const outcome = gamma.map((g, i) => TRUE_BETA * g + (i === 4 ? 0.03 : 0));
+    const ivw = ivwMr(gamma, outcome, seOutcome);
+    expect(ivw.beta).toBeCloseTo(0.4620303769, 8);   // biased away from 0.40
+    expect(ivw.q).toBeCloseTo(7.325180, 5);          // and it shows, as heterogeneity
+
+    // Egger looks for an *average* shift and finds none, so it does not help here.
+    const egger = eggerRegression(gamma, outcome, seOutcome);
+    expect(Math.abs(egger.intercept)).toBeLessThan(0.001);
+    expect(egger.slope).toBeCloseTo(0.4574725256, 8);
+
+    // The weighted median does: the bad instrument is a minority of the weight.
+    expect(weightedMedianMr(gamma, outcome, seOutcome)).toBeCloseTo(0.4, 10);
+  });
+
+  it('and the other way round — pleiotropy on every instrument', () => {
+    // Now every instrument carries the same +0.020, so the majority is no longer valid.
+    const outcome = gamma.map((g) => TRUE_BETA * g + 0.02);
+    expect(ivwMr(gamma, outcome, seOutcome).beta).toBeCloseTo(0.6213285136, 8);
+    // The median is no help — it is a median of biased ratios.
+    expect(weightedMedianMr(gamma, outcome, seOutcome)).toBeCloseTo(0.6119403415, 8);
+    // Egger recovers both the pleiotropy and the truth exactly.
+    const egger = eggerRegression(gamma, outcome, seOutcome);
+    expect(egger.intercept).toBeCloseTo(0.02, 10);
+    expect(egger.slope).toBeCloseTo(TRUE_BETA, 10);
+  });
+
+  it('interpolates the weighted median across the crossing point', () => {
+    // With equal weights it must reduce to the ordinary median — which is exactly what
+    // the half-weight offset in Bowden's definition is there to guarantee.
+    expect(weightedMedian([1, 2, 3, 4], [1, 1, 1, 1])).toBeCloseTo(2.5, 12);
+    expect(weightedMedian([1, 2, 3], [1, 1, 1])).toBeCloseTo(2, 12);
+    expect(weightedMedian([4, 1, 3, 2], [1, 1, 1, 1])).toBeCloseTo(2.5, 12);
+    // A dominant weight drags it onto that value.
+    expect(weightedMedian([1, 2, 3], [1, 100, 1])).toBeCloseTo(2, 6);
+    expect(weightedMedian([5], [1])).toBe(5);
+    // Unaffected by an arbitrarily extreme minority, which is the whole point.
+    expect(weightedMedian([1, 2, 3, 1e6], [1, 1, 1, 1])).toBeCloseTo(2.5, 12);
   });
 });
