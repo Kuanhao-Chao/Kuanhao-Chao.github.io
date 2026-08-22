@@ -184,6 +184,36 @@ describe('deep-dive lesson contract', () => {
       expect([...used].filter((u) => !imported.has(u)).sort()).toEqual([]);
     });
 
+    // ── Statistical-genetics track ───────────────────────────────────────────
+    const isStatgen = /^hub:\s*statistical-genetics\s*$/m.test(front);
+    const order = Number(front.match(/^order:\s*(\d+)\s*$/m)?.[1] ?? NaN);
+
+    it.runIf(isStatgen)('declares a prerequisite once one exists to declare', () => {
+      // A curriculum whose lessons announce no order of study is a list, not a course.
+      // The rule only applies once an earlier lesson is actually in the collection —
+      // `reference('deepDives')` cannot point at a file that has not been written yet.
+      const earlier = all.some(
+        (l) =>
+          /^hub:\s*statistical-genetics\s*$/m.test(l.front) &&
+          Number(l.front.match(/^order:\s*(\d+)\s*$/m)?.[1] ?? NaN) < order &&
+          !/^isHub:\s*true\s*$/m.test(l.front)
+      );
+      if (!earlier || /^isHub:\s*true\s*$/m.test(front)) return;
+      expect(listLength(front, 'prerequisites')).toBeGreaterThanOrEqual(1);
+    });
+
+    it('imports Widget if it mounts one', () => {
+      if (!/<Widget\b/.test(body)) return;
+      expect(body).toMatch(/^import\s+Widget\s+from\s+'[^']*deepdive\/Widget\.astro'/m);
+    });
+
+    it('gives every widget a caption and a text alternative', () => {
+      const tags = [...body.matchAll(/<Widget\b[\s\S]*?\/>/g)].map((m) => m[0]);
+      expect(tags.filter((t) => /\bcaption="/.test(t))).toHaveLength(tags.length);
+      expect(tags.filter((t) => /\balt="/.test(t))).toHaveLength(tags.length);
+      expect(tags.filter((t) => /\bkind="/.test(t))).toHaveLength(tags.length);
+    });
+
     it('imports every deep-dive component it uses', () => {
       const used = new Set(
         [...body.matchAll(/<(Callout|Notation|WorkedExample|Exercise|Figure|Citation)\b/g)].map((m) => m[1])
@@ -193,5 +223,86 @@ describe('deep-dive lesson contract', () => {
       );
       expect([...used].filter((u) => !imported.has(u)).sort()).toEqual([]);
     });
+  });
+});
+
+
+/**
+ * The conventions the curriculum must not disagree with itself about.
+ *
+ * Each of these is a failure the series has already shipped, or come within one commit
+ * of shipping: two lessons quoting different constants for the same quantity, two
+ * writing Wakefield's Bayes factor in opposite directions without saying they are
+ * reciprocals, three quoting different numbers of ancestry PCs. They read as
+ * contradictions to anyone reading more than one page, and nothing else catches them —
+ * each page is internally consistent.
+ */
+describe('curriculum consistency', () => {
+  // Inline SVG is full of numbers that are pixel coordinates and mean nothing here — a
+  // path command `L339.6,` reads as the constant 39.6 to any pattern loose enough to be
+  // useful. Strip the figures first, and scan the prose.
+  const prose = (body: string) => body.replace(/<svg[\s\S]*?<\/svg>/g, ' ');
+  const corpus = all.map((l) => ({ id: l.id, text: prose(l.body) }));
+  const mentioning = (re: RegExp) => corpus.filter((c) => re.test(c.text));
+
+  it('uses one constant for the median of the null chi-square', () => {
+    // 0.4549364231195727 exactly. A rounded 0.455 in one lesson beside 0.454936 in seven
+    // others reads as two different corrections. Scanning near λ_GC rather than for every
+    // "0.45…" in the corpus, because a haplotype frequency of 0.45 is not this constant.
+    const offenders: string[] = [];
+    for (const { id, text } of corpus) {
+      for (const m of text.matchAll(/\\lambda_\{?(?:\\text\{GC\}|GC)\}?|λ_?\{?GC\}?/g)) {
+        const window = text.slice(m.index, m.index + 240);
+        for (const n of window.matchAll(/0\.45\d*/g)) {
+          if (!n[0].startsWith('0.454936')) offenders.push(`${id}: ${n[0]}`);
+        }
+      }
+    }
+    expect(offenders, 'λ_GC divides by 0.454936…, never a rounding of it').toEqual([]);
+  });
+
+  it('writes Wakefield in the BF₀₁ direction, and flags the reciprocal if it uses it', () => {
+    for (const { id, text } of mentioning(/Wakefield|\\text\{ABF\}|\bABF\b/)) {
+      expect(text, `${id}: ABF must be written BF₀₁`).toMatch(/BF_\{?01\}?|BF₀₁/);
+      if (/BF_\{?10\}?|BF₁₀/.test(text)) {
+        expect(text, `${id}: the BF₁₀ form appears without saying it is the reciprocal`)
+          .toMatch(/reciprocal/i);
+      }
+    }
+  });
+
+  it('normalises the PIP against an explicit null', () => {
+    for (const { id, text } of mentioning(/\\text\{PIP\}|\bPIP\b/)) {
+      expect(text, `${id}: a PIP without π₀ asserts the locus certainly contains a causal variant`)
+        .toMatch(/\\pi_0|π₀/);
+    }
+  });
+
+  it('parameterises power by q², the variance explained', () => {
+    // N ≥ 39.60/q² and N ≥ 19.80/(p(1−p)β²) are the same result; one notation per
+    // curriculum, or two lessons look like they disagree. The boundary matters: 39.60
+    // must not match a coordinate or the tail of some longer number.
+    for (const { id, text } of mentioning(/(?<![\d.])(?:39\.60|19\.80)(?![\d])/)) {
+      expect(text, `${id}: sample-size formulas are written in q²`).toMatch(/q\^2|q²/);
+    }
+  });
+
+  it('quotes one number of ancestry principal components', () => {
+    const counts = new Set(
+      corpus.flatMap((c) =>
+        [...c.text.matchAll(/(\d+)(?:\s*[–-]\s*\d+)?\s+(?:ancestry\s+)?(?:principal components|PCs)\b/g)]
+          .map((m) => m[1])
+      )
+    );
+    expect([...counts], 'the series has quoted 10, "10–20" and 20 in three places')
+      .toHaveLength(Math.min(counts.size, 1));
+  });
+
+  it('mounts no widget kind the controller cannot render', () => {
+    const known = new Set(['ld-decay', 'drift', 'power', 'selection', 'finemap', 'prs']);
+    const used = corpus.flatMap((c) =>
+      [...c.text.matchAll(/<Widget[\s\S]*?kind="([^"]+)"/g)].map((m) => ({ id: c.id, kind: m[1] }))
+    );
+    expect(used.filter((u) => !known.has(u.kind)).map((u) => `${u.id}: ${u.kind}`)).toEqual([]);
   });
 });

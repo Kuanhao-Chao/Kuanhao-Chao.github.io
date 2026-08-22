@@ -1,0 +1,59 @@
+---
+/**
+ * An interactive figure: the shell only. Every control, every drawn element and every
+ * number comes from `src/scripts/deepDiveWidgets.ts`, which computes them with
+ * `src/lib/deepDiveMath.ts` — the same module the lesson's worked examples and its
+ * Vitest assertions use. That is the whole design constraint: a slider must not be able
+ * to disagree with the prose beside it.
+ *
+ * The controls start `hidden` and the script reveals them, so a reader without
+ * JavaScript is never shown a dead panel. Anything in the default slot is the static
+ * fallback and stays visible until the script replaces it.
+ */
+interface Props {
+  /** Which widget to mount. Must match a case in `deepDiveWidgets.ts`. */
+  kind:
+    | 'ld-decay'
+    | 'drift'
+    | 'power'
+    | 'selection'
+    | 'finemap'
+    | 'prs';
+  title: string;
+  caption: string;
+  /** Text alternative for the drawing. Required — a figure that cannot be described is decoration. */
+  alt: string;
+  id?: string;
+}
+
+const { kind, title, caption, alt, id } = Astro.props;
+---
+
+<figure class="dd-widget" id={id} data-dd-widget={kind}>
+  <div class="dd-widget__head">
+    <span class="dd-widget__tag">Interactive</span>
+    <h3 class="dd-widget__title">{title}</h3>
+  </div>
+
+  <div class="dd-widget__controls" data-dd-controls hidden></div>
+
+  <div class="dd-widget__frame" role="img" aria-label={alt} data-dd-canvas>
+    <slot />
+  </div>
+
+  <p class="dd-widget__readout" data-dd-readout aria-live="polite" hidden></p>
+
+  <figcaption class="dd-widget__caption">{caption}</figcaption>
+</figure>
+
+<script>
+  import { mountDeepDiveWidgets } from '../../scripts/deepDiveWidgets';
+
+  // `ClientRouter` is active, so this module is evaluated once and every later
+  // navigation only fires `astro:page-load`. Binding there — and letting the mount
+  // function no-op on an already-initialised node — is what makes the widget survive a
+  // round trip through another page.
+  const bind = () => mountDeepDiveWidgets(document);
+  bind();
+  document.addEventListener('astro:page-load', bind);
+</script>
