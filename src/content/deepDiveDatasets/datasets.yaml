@@ -632,3 +632,33 @@ alphafold-db:
     and low-confidence regions are frequently intrinsically disordered rather than badly
     modelled — a distinction worth keeping when a structure-informed score disagrees.
   verified: 2026-08-22
+
+# ── Layer 6 · Variant benchmarks ─────────────────────────────────────────────
+
+traitgym:
+  name: TraitGym
+  fullName: TraitGym causal regulatory variant benchmark
+  layer: variant-benchmarks
+  url: https://huggingface.co/datasets/songlab/TraitGym
+  scale: "338 causal variants over 113 Mendelian traits (3,380 total) and 1,140 over 83 complex traits (11,400 total)"
+  access: open
+  citationId: benegas2025traitgym
+  note: >-
+    A deliberate one-to-nine positive-to-control design, which is why it is scored by AUPRC
+    and why the AUPRC baseline is 0.1. Scored leave-one-chromosome-out and then weighted by
+    sample size, so a model cannot learn a chromosome it is tested on.
+  verified: 2026-08-22
+
+ukb-finemapping:
+  name: UK Biobank fine-mapping
+  fullName: Genome-wide fine-mapping results across UK Biobank traits
+  layer: variant-benchmarks
+  url: https://www.finucanelab.org/data
+  scale: "Posterior inclusion probabilities and credible sets across hundreds of quantitative and binary traits"
+  access: open
+  citationId: wu2026finemapping
+  note: >-
+    The upstream source of the "causal" labels a non-coding benchmark uses. Variants enter a
+    positive set at high PIP, so the benchmark inherits whatever the fine-mapping got wrong —
+    most importantly its sensitivity to LD reference mismatch.
+  verified: 2026-08-22

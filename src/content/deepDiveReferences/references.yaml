@@ -2481,3 +2481,45 @@ cagi2024:
   venue: "Genome Biology 25"
   doi: https://doi.org/10.1186/s13059-023-03113-6
   verified: 2026-08-21
+
+# ── Layer 6 · Variant benchmarks and evaluation ───────────────────────────────
+
+saito2015prplot:
+  authors: ['Takaya Saito', 'Marc Rehmsmeier']
+  year: 2015
+  title: "The Precision-Recall Plot Is More Informative than the ROC Plot When Evaluating Binary Classifiers on Imbalanced Datasets"
+  venue: "PLOS ONE 10:e0118432"
+  doi: https://doi.org/10.1371/journal.pone.0118432
+  verified: 2026-08-21
+
+benner2016finemap:
+  authors: ['Christian Benner', 'Chris C.a. Spencer', 'Aki S. Havulinna', 'et al.']
+  year: 2016
+  title: "FINEMAP: efficient variable selection using summary data from genome-wide association studies"
+  venue: "Bioinformatics 32:1493-1501"
+  doi: https://doi.org/10.1093/bioinformatics/btw018
+  verified: 2026-08-21
+
+wang2020susie:
+  authors: ['Gao Wang', 'Abhishek Sarkar', 'Peter Carbonetto', 'Matthew Stephens']
+  year: 2020
+  title: "A Simple New Approach to Variable Selection in Regression, with Application to Genetic Fine Mapping"
+  venue: "Journal of the Royal Statistical Society Series B: Statistical Methodology 82:1273-1300"
+  doi: https://doi.org/10.1111/rssb.12388
+  verified: 2026-08-21
+
+benegas2025traitgym:
+  authors: ['Gonzalo Benegas', 'Gokcen Eraslan', 'Yun S. Song']
+  year: 2025
+  title: "Benchmarking DNA Sequence Models for Causal Regulatory Variant Prediction in Human Genetics"
+  venue: "?"
+  doi: https://doi.org/10.1101/2025.02.11.637758
+  verified: 2026-08-21
+
+wu2026finemapping:
+  authors: ['Yang Wu', 'Zhili Zheng', 'Loic Thibaut', 'et al.']
+  year: 2026
+  title: "Genome-wide fine-mapping improves identification of causal variants"
+  venue: "Nature Genetics 58:940-951"
+  doi: https://doi.org/10.1038/s41588-026-02549-3
+  verified: 2026-08-21
