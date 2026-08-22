@@ -1783,3 +1783,55 @@ export function colocPosteriors(
   const [pp0, pp1, pp2, pp3, pp4] = l.map((v) => v / total);
   return { pp0, pp1, pp2, pp3, pp4 };
 }
+
+// ── Enrichment ────────────────────────────────────────────────────────────────
+
+/** log of the binomial coefficient, via lnGamma so large tables do not overflow. */
+function lnChoose(n: number, k: number): number {
+  if (k < 0 || k > n) return -Infinity;
+  return lnGamma(n + 1) - lnGamma(k + 1) - lnGamma(n - k + 1);
+}
+
+/**
+ * One-sided Fisher exact p-value for enrichment in a 2×2 table
+ *
+ *        in set   not in set
+ *   test    a          b
+ *   bg      c          d
+ *
+ * Returns P(X ≥ a) under the hypergeometric null — the probability of seeing this much
+ * overlap, or more, if the test set were drawn at random from the same pool.
+ *
+ * Computed in log space and summed from the observed value upward. A χ² approximation is
+ * fine for large balanced tables and wrong in exactly the case enrichment analyses care
+ * about, where one cell is small.
+ */
+export function fisherExactP(a: number, b: number, c: number, d: number): number {
+  for (const v of [a, b, c, d]) {
+    if (!Number.isInteger(v) || v < 0) throw new RangeError('fisherExactP needs non-negative integers');
+  }
+  const n = a + b + c + d;
+  const row = a + b;      // size of the test set
+  const col = a + c;      // total in the annotation
+  const denom = lnChoose(n, row);
+  let p = 0;
+  for (let x = a; x <= Math.min(row, col); x++) {
+    p += Math.exp(lnChoose(col, x) + lnChoose(n - col, row - x) - denom);
+  }
+  return Math.min(1, p);
+}
+
+/**
+ * Fold enrichment: the observed rate over the rate expected from background coverage.
+ *
+ * Deliberately separate from the p-value. A large genome makes tiny enrichments
+ * overwhelmingly significant, so significance answers "is this more than chance" and fold
+ * enrichment answers "by enough to care", and only reporting both distinguishes them.
+ */
+export function foldEnrichment(observed: number, total: number, backgroundFraction: number): number {
+  if (total <= 0) throw new RangeError('foldEnrichment needs a positive total');
+  if (backgroundFraction <= 0 || backgroundFraction > 1) {
+    throw new RangeError('foldEnrichment needs a background fraction in (0,1]');
+  }
+  return observed / total / backgroundFraction;
+}

@@ -24,6 +24,7 @@ import {
   cancerCellFraction, tumourMutationalBurden,
   topKRecall, rmse,
   colocPosteriors,
+  fisherExactP, foldEnrichment,
 } from './deepDiveMath.ts';
 
 /**
@@ -1787,5 +1788,67 @@ describe('colocPosteriors', () => {
 
   it('rejects mismatched inputs', () => {
     expect(() => colocPosteriors([1, 2], [1])).toThrow();
+  });
+});
+
+describe('fisherExactP', () => {
+  it('is near one half when the observed count equals the expectation', () => {
+    // 500 drawn from a pool that is 8% annotated: 40 expected. A discrete test cannot hit
+    // 0.5 exactly, but it must sit close.
+    const p = fisherExactP(40, 460, 800, 9200);
+    expect(p).toBeGreaterThan(0.4);
+    expect(p).toBeLessThan(0.6);
+  });
+
+  it('is one when the overlap is at or below the minimum possible', () => {
+    expect(fisherExactP(0, 500, 800, 9200)).toBeCloseTo(1, 12);
+  });
+
+  it('shrinks monotonically as the overlap grows', () => {
+    let prev = 2;
+    for (const a of [40, 60, 80, 100, 120]) {
+      const p = fisherExactP(a, 500 - a, 800, 9200);
+      expect(p).toBeLessThan(prev);
+      prev = p;
+    }
+  });
+
+  it('is symmetric under transposing the table', () => {
+    // P(X >= a) depends on the table, not on which margin is called "test"
+    expect(fisherExactP(120, 380, 800, 9200)).toBeCloseTo(fisherExactP(120, 800, 380, 9200), 12);
+  });
+
+  it('handles a table large enough to overflow a factorial', () => {
+    const p = fisherExactP(120, 380, 800, 9200);
+    expect(Number.isFinite(p)).toBe(true);
+    expect(p).toBeGreaterThan(0);
+    expect(p).toBeLessThan(1e-20);
+  });
+
+  it('rejects non-integer or negative cells', () => {
+    expect(() => fisherExactP(1.5, 2, 3, 4)).toThrow();
+    expect(() => fisherExactP(-1, 2, 3, 4)).toThrow();
+  });
+});
+
+describe('foldEnrichment', () => {
+  it('is the observed rate over the background rate', () => {
+    expect(foldEnrichment(120, 500, 0.08)).toBeCloseTo(3, 12);
+    expect(foldEnrichment(40, 500, 0.08)).toBeCloseTo(1, 12); // exactly expected
+  });
+
+  it('is independent of the size of the test set at a fixed rate', () => {
+    expect(foldEnrichment(24, 100, 0.08)).toBeCloseTo(foldEnrichment(240, 1000, 0.08), 12);
+  });
+
+  it('says nothing about significance on its own', () => {
+    // The same threefold enrichment, from 3 variants or from 300.
+    expect(foldEnrichment(3, 12.5, 0.08)).toBeCloseTo(foldEnrichment(120, 500, 0.08), 9);
+    expect(fisherExactP(3, 10, 800, 9200)).toBeGreaterThan(fisherExactP(120, 380, 800, 9200));
+  });
+
+  it('rejects an impossible background', () => {
+    expect(() => foldEnrichment(1, 10, 0)).toThrow();
+    expect(() => foldEnrichment(1, 10, 1.5)).toThrow();
   });
 });

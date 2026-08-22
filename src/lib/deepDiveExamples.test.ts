@@ -10,6 +10,7 @@ import {
   topKRecall, rmse, spearman,
   auroc, auprc, auprcBaseline,
   colocPosteriors,
+  fisherExactP, foldEnrichment,
 } from './deepDiveMath.ts';
 
 /**
@@ -1693,5 +1694,106 @@ describe('these assertions themselves', () => {
       }
     }
     expect(offenders, 'odd backslash run: the string is not what it looks like').toEqual([]);
+  });
+});
+
+describe('data-regulatory-maps', () => {
+  const mdx = lesson('data-regulatory-maps');
+  const BG_IN = 800, BG_OUT = 9200;
+
+  describe('worked example — fine-mapped variants in cCREs', () => {
+    it('states the two rates', () => {
+      expect(120 / 500).toBeCloseTo(0.24, 12);
+      expect(BG_IN / (BG_IN + BG_OUT)).toBeCloseTo(0.08, 12);
+      expect(mdx).toContain('\\frac{120}{500} = 0.2400');
+      expect(mdx).toContain('= 0.0800');
+    });
+
+    it('expects 40 variants and observes three times that', () => {
+      expect(500 * 0.08).toBeCloseTo(40, 12);
+      expect(foldEnrichment(120, 500, 0.08)).toBeCloseTo(3, 12);
+      expect(mdx).toContain('500 \\times 0.0800 = 40.0');
+      expect(mdx).toContain('\\frac{0.2400}{0.0800} = 3.0000');
+    });
+
+    it('gives a Fisher p of 6.473e-26', () => {
+      const p = fisherExactP(120, 380, BG_IN, BG_OUT);
+      expect(p).toBeGreaterThan(0);
+      expect(p / 6.473e-26).toBeCloseTo(1, 2); // relative: the value is ~1e-26
+      expect(mdx).toContain('6.473\\times10^{-26}');
+    });
+  });
+
+  describe('figure 1 — enrichment against significance', () => {
+    it('draws four studies whose p-values the module reproduces', () => {
+      const rows: [number, number, string][] = [
+        [3, 500, '6.5e-26'],
+        [3, 50, '4.9e-4'],
+        [3, 12, '6.5e-2'],
+        [1.4, 500, '8.8e-3'],
+      ];
+      for (const [fold, total, shown] of rows) {
+        const a = Math.round(total * 0.08 * fold);
+        const p = fisherExactP(a, total - a, BG_IN, BG_OUT);
+        // the label the generator drew, to one significant figure of the mantissa
+        const [m, e] = shown.split('e');
+        expect(Math.log10(p)).toBeCloseTo(Math.log10(Number(m) * 10 ** Number(e)), 1);
+        expect(mdx).toContain(shown.replace('e', 'e'));
+      }
+      expect(mdx).toContain('p = 0.05');
+    });
+  });
+
+  describe('exercise 1 — the same enrichment, a different verdict', () => {
+    it('is slightly more enriched and not significant', () => {
+      const fold = foldEnrichment(3, 12, 0.08);
+      const p = fisherExactP(3, 9, BG_IN, BG_OUT);
+      expect(fold).toBeCloseTo(3.125, 4);
+      expect(fold).toBeGreaterThan(3); // more enriched than the worked example
+      expect(p).toBeCloseTo(0.06549, 5);
+      expect(p).toBeGreaterThan(0.05); // and not significant
+      expect(mdx).toContain('\\frac{0.25}{0.08} = 3.1250');
+      expect(mdx).toContain('6.549\\times10^{-2}');
+    });
+  });
+
+  describe('exercise 2 — significant and uninteresting', () => {
+    it('is 1.4-fold at p 8.75e-3, more significant than a 3.1-fold on twelve', () => {
+      const fold = foldEnrichment(56, 500, 0.08);
+      const p = fisherExactP(56, 444, BG_IN, BG_OUT);
+      expect(fold).toBeCloseTo(1.4, 12);
+      expect(p).toBeCloseTo(0.00875, 5);
+      expect(p).toBeLessThan(fisherExactP(3, 9, BG_IN, BG_OUT));
+      expect(mdx).toContain('\\frac{0.1120}{0.08} = 1.4000');
+      expect(mdx).toContain('8.750\\times10^{-3}');
+    });
+
+    it('amounts to sixteen variants above expectation', () => {
+      expect(56 - 500 * 0.08).toBeCloseTo(16, 12);
+      expect(mdx).toContain('56 - 500 \\times 0.08 = 16');
+    });
+  });
+
+  describe('exercise 3 — the background you did not choose carefully', () => {
+    it('collapses the enrichment as the control rate rises', () => {
+      const rows: [number, number, number, number][] = [
+        [0.08, 3.0, 800, 9200],
+        [0.12, 2.0, 1200, 8800],
+        [0.18, 4 / 3, 1800, 8200],
+      ];
+      let prevP = 0;
+      for (const [bg, fold, c, d] of rows) {
+        expect(foldEnrichment(120, 500, bg)).toBeCloseTo(fold, 4);
+        const p = fisherExactP(120, 380, c, d);
+        expect(p).toBeGreaterThan(prevP); // weaker background -> weaker significance
+        prevP = p;
+      }
+      expect(mdx).toContain('4.427\\times10^{-13}');
+      expect(mdx).toContain('6.224\\times10^{-4}');
+    });
+
+    it('leaves the observed rate untouched throughout', () => {
+      expect(120 / 500).toBeCloseTo(0.24, 12);
+    });
   });
 });

@@ -720,3 +720,61 @@ opentargets-genetics:
     a locus acts through and inherits the training set's bias toward genes that were already
     known.
   verified: 2026-08-22
+
+# ── Layer 4 · Regulatory maps and perturbation ───────────────────────────────
+
+encode:
+  name: ENCODE
+  fullName: Encyclopedia of DNA Elements
+  layer: regulatory-maps
+  url: https://www.encodeproject.org/
+  scale: "DNase, ATAC, ChIP-seq and RNA across hundreds of biosamples, plus a registry of candidate cis-regulatory elements"
+  access: open
+  citationId: encode2020ccre
+  note: >-
+    The cCRE registry is a union across biosamples, so an element in it is a candidate
+    *somewhere*, not necessarily in the tissue you care about. Intersecting variants with the
+    whole registry answers a much weaker question than intersecting with one cell type.
+  verified: 2026-08-22
+
+roadmap:
+  name: Roadmap Epigenomics
+  fullName: NIH Roadmap Epigenomics Mapping Consortium
+  layer: regulatory-maps
+  url: https://egg2.wustl.edu/roadmap/web_portal/
+  scale: "111 reference epigenomes with chromatin-state segmentations across primary tissues and cells"
+  access: open
+  citationId: roadmap2015
+  note: >-
+    Primary tissues rather than cell lines, which is its complement to ENCODE. Its
+    chromatin-state segmentations are model output, not measurement — a state label is a
+    hidden Markov model's summary of several marks.
+  verified: 2026-08-22
+
+igvf:
+  name: IGVF
+  fullName: Impact of Genomic Variation on Function Consortium
+  layer: regulatory-maps
+  url: https://igvf.org/
+  scale: "Single-cell chromatin and expression maps paired with systematic CRISPR perturbation"
+  access: open
+  citationId: igvf2024
+  note: >-
+    The step past correlation: rather than annotating where regulatory elements appear to be,
+    it perturbs them and measures what changes. That is the difference between a candidate and
+    a demonstrated element.
+  verified: 2026-08-22
+
+crispr-screens:
+  name: CRISPR enhancer screens
+  fullName: CRISPRi enhancer-perturbation screens and the activity-by-contact model
+  layer: regulatory-maps
+  url: https://www.engreitzlab.org/abc/
+  scale: "Perturbed element–gene pairs with measured expression effects, and ABC predictions genome-wide"
+  access: open
+  citationId: fulco2019abc
+  note: >-
+    Supplies the ground truth that annotation alone cannot: which element actually regulates
+    which gene. Most enhancers regulate a gene that is not the nearest one, which is the
+    assumption these screens exist to test.
+  verified: 2026-08-22
