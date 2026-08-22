@@ -129,6 +129,24 @@ Things specific to this subsystem:
     per curriculum.
   - **Ancestry PCs: state the number and the reason.** The series has quoted 10, "10–20"
     and 20 in three places.
+- **The genomic-data track keeps its resources in a registry**, not in prose.
+  `src/content/deepDiveDatasets/datasets.yaml` defines each resource once — version, scale,
+  URL and **`access`** (open / registered / controlled / licensed, the fact that decides
+  whether a reader can use it at all) — and pages render it through `<Dataset>` and
+  `<DatasetTable>`. Version numbers written into twelve pages disagree with themselves
+  within a release cycle; this repo has already shipped that failure twice.
+  `npm run audit:datasets` checks ids resolve, URLs are live, nothing is orphaned, and the
+  `verified` dates are fresh. A 403 or 429 is a warning — institutional sites block bots
+  exactly as Crossref throttles.
+- **`isHub: true` makes a collection entry its track's landing page**: the back-link goes to
+  `/deep_dives/` instead of to itself, and the page ends with a module map derived from its
+  siblings rather than a prev/next pager. That is the "hub as a real syllabus" mechanism,
+  available to the statistical-genetics and GWAS hubs when they migrate.
+- **The `/deep_dives/` index derives its cards from the collection** via
+  `deepDiveEntriesFromCollection`. `src/data/deepDives.ts` now holds only entries with no
+  content file, so a migration *deletes* a catalog entry rather than editing a second copy
+  of the same facts. That duplication had already put wrong reading times and a wrong level
+  on the live index.
 - **`npm run audit:refs`** re-checks every DOI against Crossref — that it resolves, and
   that its year and first author match what the bibliography claims. A 429 is throttling,
   not a bad DOI, and is reported as a warning. Not part of `build`; it needs the network.

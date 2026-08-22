@@ -299,3 +299,43 @@ ruan2022:
   venue: "Nature Genetics 54:573-580"
   doi: https://doi.org/10.1038/s41588-022-01054-7
   verified: 2026-08-21
+
+karczewski2020:
+  authors: ['Konrad J. Karczewski', 'Laurent C. Francioli', 'Grace Tiao', 'et al.']
+  year: 2020
+  title: "The mutational constraint spectrum quantified from variation in 141,456 humans"
+  venue: "Nature 581:434-443"
+  doi: https://doi.org/10.1038/s41586-020-2308-7
+  verified: 2026-08-21
+
+chen2024constraint:
+  authors: ['Siwei Chen', 'Laurent C. Francioli', 'Julia K. Goodrich', 'et al.']
+  year: 2024
+  title: "A genomic mutational constraint map using variation in 76,156 human genomes"
+  venue: "Nature 625:92-100"
+  doi: https://doi.org/10.1038/s41586-023-06045-0
+  verified: 2026-08-21
+
+allofus2024:
+  authors: ['The All of Us Research Program Genomics Investigators', 'Manuscript Writing Group', 'Alexander G. Bick', 'et al.']
+  year: 2024
+  title: "Genomic data in the All of Us Research Program"
+  venue: "Nature 627:340-346"
+  doi: https://doi.org/10.1038/s41586-023-06957-x
+  verified: 2026-08-21
+
+taliun2021:
+  authors: ['Daniel Taliun', 'Daniel N. Harris', 'Michael D. Kessler', 'et al.']
+  year: 2021
+  title: "Sequencing of 53,831 diverse genomes from the NHLBI TOPMed Program"
+  venue: "Nature 590:290-299"
+  doi: https://doi.org/10.1038/s41586-021-03205-y
+  verified: 2026-08-21
+
+bergstrom2020:
+  authors: ['Anders Bergström', 'Shane A. McCarthy', 'Ruoyun Hui', 'et al.']
+  year: 2020
+  title: "Insights into human genetic variation and population history from 929 diverse genomes"
+  venue: "Science 367"
+  doi: https://doi.org/10.1126/science.aay5012
+  verified: 2026-08-21

@@ -1,0 +1,88 @@
+---
+import { getCollection } from 'astro:content';
+import Icon from '../Icon.astro';
+
+/**
+ * The resource table for one layer of the landscape.
+ *
+ * Give it a `layer` and it renders every registry entry in that layer; give it `ids` to
+ * pick an explicit set. Either way the version, scale and access level come from the
+ * registry, so the table cannot disagree with the `<Dataset>` chips in the prose beside it.
+ *
+ * `access` is deliberately a column rather than a footnote. It is the fact that decides
+ * whether a reader can use a resource at all, and the one most surveys of this landscape
+ * leave out entirely.
+ */
+interface Props {
+  layer?: string;
+  ids?: string[];
+  caption?: string;
+}
+
+const { layer, ids, caption } = Astro.props;
+
+if (!layer && !ids) throw new Error('<DatasetTable> needs either a `layer` or an `ids` list');
+
+const all = await getCollection('deepDiveDatasets');
+
+if (ids) {
+  const missing = ids.filter((id) => !all.some((e) => e.id === id));
+  if (missing.length) {
+    throw new Error(`<DatasetTable ids> names unknown datasets: ${missing.join(', ')}`);
+  }
+}
+
+const rows = (ids ? ids.map((id) => all.find((e) => e.id === id)!) : all.filter((e) => e.data.layer === layer))
+  // Registry order is alphabetical by id; sort by name so the table reads naturally.
+  .sort((a, b) => (ids ? 0 : a.data.name.localeCompare(b.data.name)));
+
+if (!rows.length) throw new Error(`<DatasetTable layer="${layer}"> matched no datasets`);
+
+const ACCESS = {
+  open: { label: 'Open', hint: 'Download or query without an account' },
+  registered: { label: 'Registered', hint: 'Free, but needs an account or an agreement' },
+  controlled: { label: 'Controlled', hint: 'Requires an application to a data access committee' },
+  licensed: { label: 'Licensed', hint: 'Requires a paid or institutional licence' },
+} as const;
+---
+
+<div class="dd-datatable">
+  <div class="dd-datatable__title">
+    <Icon name="database" size={14} />
+    <span>{caption ?? 'Resources in this layer'}</span>
+  </div>
+  <div class="dd-datatable__scroll">
+    <table class="dd-datatable__table">
+      <thead>
+        <tr>
+          <th scope="col">Resource</th>
+          <th scope="col">Version</th>
+          <th scope="col">Scale</th>
+          <th scope="col">Access</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr>
+            <td>
+              <a class="dd-datatable__name" href={r.data.url} target="_blank" rel="noopener noreferrer">
+                {r.data.name}
+              </a>
+              <span class="dd-datatable__full">{r.data.fullName}</span>
+            </td>
+            <td class="dd-datatable__version">{r.data.version ?? '—'}</td>
+            <td>{r.data.scale}</td>
+            <td>
+              <span
+                class={`dd-access dd-access--${r.data.access}`}
+                title={ACCESS[r.data.access].hint}
+              >
+                {ACCESS[r.data.access].label}
+              </span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>

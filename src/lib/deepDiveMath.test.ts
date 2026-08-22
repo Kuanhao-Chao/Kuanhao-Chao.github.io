@@ -3,6 +3,8 @@ import {
   expectedR2, falconerACE, haldaneTheta, kosambiTheta, ldHalfLife, ldMeasures,
   liabilityScale, ncp, ncpForPower, normalCdf, normalPdf, normalQuantile,
   powerFromNcp, sampleSizeForPower, sampleSizeForR2, shrinkageFactor, varianceExplained,
+  acmgClassify, acmgPosterior, auprc, auprcBaseline, auroc, chi2Quantile, lnGamma,
+  oeUpperBound, poissonCI, regularizedGammaP, spearman, wilsonInterval,
 } from './deepDiveMath.ts';
 
 /**
@@ -231,5 +233,205 @@ describe('association power', () => {
 
   it('computes variance explained symmetrically in the minor allele frequency', () => {
     expect(varianceExplained(0.3, 0.1)).toBeCloseTo(varianceExplained(0.7, 0.1), 12);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Genomic data & resources track
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('incomplete gamma and chi-square', () => {
+  it('reproduces ln Γ at the integers, where it is a factorial', () => {
+    for (const n of [1, 2, 3, 5, 10]) {
+      let fact = 1;
+      for (let i = 2; i < n; i++) fact *= i;
+      expect(Math.exp(lnGamma(n))).toBeCloseTo(fact, 6);
+    }
+    expect(lnGamma(0.5)).toBeCloseTo(Math.log(Math.sqrt(Math.PI)), 10);
+  });
+
+  it('runs P(a, x) from 0 to 1 monotonically', () => {
+    expect(regularizedGammaP(3, 0)).toBe(0);
+    expect(regularizedGammaP(3, 200)).toBeCloseTo(1, 10);
+    let prev = -1;
+    for (const x of [0.5, 1, 2, 4, 8, 16]) {
+      const v = regularizedGammaP(3, x);
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
+  });
+
+  it('round-trips the chi-square quantile through its own CDF', () => {
+    for (const df of [1, 2, 6, 20]) {
+      for (const p of [0.05, 0.5, 0.9, 0.95, 0.99]) {
+        expect(regularizedGammaP(df / 2, chi2Quantile(p, df) / 2)).toBeCloseTo(p, 8);
+      }
+    }
+  });
+
+  it('matches the chi-square table values the curriculum already uses', () => {
+    // the 1-df median that λ_GC divides by, and the 5% critical value for an HWE test
+    expect(chi2Quantile(0.5, 1)).toBeCloseTo(0.454936, 5);
+    expect(chi2Quantile(0.95, 1)).toBeCloseTo(3.841459, 5);
+    expect(chi2Quantile(0.95, 2)).toBeCloseTo(5.991465, 5);
+  });
+});
+
+describe('wilsonInterval', () => {
+  it('brackets the point estimate and stays inside [0,1]', () => {
+    for (const [k, n] of [[3, 1_500_000], [50, 200], [0, 100], [100, 100]]) {
+      const { lower, upper } = wilsonInterval(k, n);
+      expect(lower).toBeGreaterThanOrEqual(0);
+      expect(upper).toBeLessThanOrEqual(1);
+      expect(lower).toBeLessThanOrEqual(k / n + 1e-12);
+      expect(upper).toBeGreaterThanOrEqual(k / n - 1e-12);
+    }
+  });
+
+  it('gives a non-degenerate interval at zero observations, unlike the normal one', () => {
+    const { lower, upper } = wilsonInterval(0, 100);
+    expect(lower).toBe(0);
+    expect(upper).toBeGreaterThan(0); // the normal interval would collapse to [0, 0]
+  });
+
+  it('narrows as the denominator grows', () => {
+    const width = (n: number) => {
+      const w = wilsonInterval(Math.round(0.01 * n), n);
+      return w.upper - w.lower;
+    };
+    expect(width(10_000)).toBeLessThan(width(1_000));
+    expect(width(1_000)).toBeLessThan(width(100));
+  });
+
+  it('refuses an empty denominator', () => {
+    expect(() => wilsonInterval(0, 0)).toThrow(RangeError);
+  });
+});
+
+describe('poissonCI and oeUpperBound', () => {
+  it('matches the published exact interval for a count of 10', () => {
+    // Garwood 95%: [4.795, 18.390] — a standard table entry
+    const { lower, upper } = poissonCI(10, 0.95);
+    expect(lower).toBeCloseTo(4.795, 3);
+    expect(upper).toBeCloseTo(18.39, 2);
+  });
+
+  it('is defined at zero, with a lower bound of exactly zero', () => {
+    const { lower, upper } = poissonCI(0, 0.95);
+    expect(lower).toBe(0);
+    expect(upper).toBeCloseTo(3.689, 3); // −ln(0.025)
+  });
+
+  it('brackets the count itself', () => {
+    for (const k of [0, 1, 5, 25, 100]) {
+      const { lower, upper } = poissonCI(k, 0.9);
+      expect(lower).toBeLessThanOrEqual(k);
+      expect(upper).toBeGreaterThanOrEqual(k);
+    }
+  });
+
+  it('makes LOEUF a bound that punishes thin evidence, not just a ratio', () => {
+    // Two genes both observe o/e = 0. The one with more expected LoF has the stronger
+    // claim to constraint, and only the bound expresses that; the ratio cannot.
+    const thin = oeUpperBound(0, 2);
+    const solid = oeUpperBound(0, 40);
+    expect(thin).toBeGreaterThan(solid);
+    expect(solid).toBeLessThan(0.1);
+    expect(thin).toBeGreaterThan(1); // two expected LoF is no evidence of constraint at all
+  });
+
+  it('always exceeds the point estimate it bounds', () => {
+    for (const [o, e] of [[5, 20], [0, 10], [30, 30], [100, 50]]) {
+      expect(oeUpperBound(o, e)).toBeGreaterThan(o / e);
+    }
+  });
+
+  it('refuses a zero expectation', () => {
+    expect(() => oeUpperBound(1, 0)).toThrow(RangeError);
+  });
+});
+
+describe('benchmark metrics', () => {
+  const perfect = { labels: [1, 1, 1, 0, 0, 0], scores: [0.9, 0.8, 0.7, 0.3, 0.2, 0.1] };
+
+  it('scores a perfect ranking at 1 on both curves', () => {
+    expect(auroc(perfect.labels, perfect.scores)).toBeCloseTo(1, 12);
+    expect(auprc(perfect.labels, perfect.scores)).toBeCloseTo(1, 12);
+  });
+
+  it('scores an inverted ranking at 0 on the ROC', () => {
+    expect(auroc(perfect.labels, perfect.scores.map((s) => -s))).toBeCloseTo(0, 12);
+  });
+
+  it('puts a coin-flip ranking at 0.5 AUROC but at the positive rate on AUPRC', () => {
+    // ten items, one positive, all tied: the whole point of the two baselines differing
+    const labels = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const tied = labels.map(() => 0.5);
+    expect(auroc(labels, tied)).toBeCloseTo(0.5, 12);
+    expect(auprc(labels, tied)).toBeCloseTo(auprcBaseline(labels), 12);
+    expect(auprcBaseline(labels)).toBeCloseTo(0.1, 12);
+  });
+
+  it('shows why an imbalanced set needs AUPRC — the same predictions, two verdicts', () => {
+    // TraitGym's 1:9 design. A model that ranks every positive above 80% of controls
+    // looks strong on AUROC and much weaker on AUPRC.
+    const labels: number[] = [];
+    const scores: number[] = [];
+    for (let i = 0; i < 10; i++) { labels.push(1); scores.push(0.9 - i * 0.001); }
+    for (let i = 0; i < 90; i++) { labels.push(0); scores.push(i < 18 ? 0.95 : 0.1 - i * 0.0001); }
+    expect(auroc(labels, scores)).toBeGreaterThan(0.79);
+    expect(auprc(labels, scores)).toBeLessThan(0.45);
+    expect(auprcBaseline(labels)).toBeCloseTo(0.1, 12);
+  });
+
+  it('refuses a single-class input, where neither curve is defined', () => {
+    expect(() => auroc([1, 1], [0.1, 0.2])).toThrow(RangeError);
+    expect(() => auprc([0, 0], [0.1, 0.2])).toThrow(RangeError);
+  });
+
+  it('computes Spearman as Pearson on ranks, and is invariant to monotone rescaling', () => {
+    const a = [1, 2, 3, 4, 5];
+    const b = [2, 4, 5, 4, 6];
+    expect(spearman(a, a)).toBeCloseTo(1, 12);
+    expect(spearman(a, [...a].reverse())).toBeCloseTo(-1, 12);
+    // exp() is strictly increasing, so ranks — and therefore Spearman — cannot change
+    expect(spearman(a, b)).toBeCloseTo(spearman(a.map(Math.exp), b), 12);
+  });
+
+  it('shares ranks between ties', () => {
+    // [10, 20, 20, 30] -> ranks 1, 2.5, 2.5, 4; correlating with itself is still 1
+    expect(spearman([10, 20, 20, 30], [1, 5, 5, 9])).toBeCloseTo(1, 12);
+  });
+});
+
+describe('acmgPosterior', () => {
+  it('lands the guideline thresholds exactly where the point system says', () => {
+    // Tavtigian et al. 2018: 10 points is Pathogenic (>0.99), 6 is Likely pathogenic (0.90)
+    expect(acmgPosterior(10)).toBeCloseTo(0.9941, 4);
+    expect(acmgPosterior(6)).toBeCloseTo(0.9, 3);
+    expect(acmgPosterior(0)).toBeCloseTo(0.1, 12); // no evidence returns the prior
+  });
+
+  it('is monotone in the evidence', () => {
+    let prev = -1;
+    for (const pts of [-8, -4, -1, 0, 1, 2, 4, 8, 10, 16]) {
+      const v = acmgPosterior(pts);
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
+  });
+
+  it('makes one very strong criterion worth 350:1 odds, by construction', () => {
+    const post = acmgPosterior(8);
+    const odds = post / (1 - post) / (0.1 / 0.9);
+    expect(odds).toBeCloseTo(350, 6);
+  });
+
+  it('classifies the five tiers at the stated point boundaries', () => {
+    expect(acmgClassify(10)).toBe('pathogenic');
+    expect(acmgClassify(6)).toBe('likely-pathogenic');
+    expect(acmgClassify(0)).toBe('uncertain');
+    expect(acmgClassify(-1)).toBe('likely-benign');
+    expect(acmgClassify(-7)).toBe('benign');
   });
 });

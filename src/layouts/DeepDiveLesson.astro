@@ -56,8 +56,28 @@ const refs = (await getCollection('deepDiveReferences'))
 const HUBS = {
   'statistical-genetics': { href: '/deep_dives/statistical-genetics/', label: 'Statistical Genetics' },
   gwas: { href: '/deep_dives/gwas/', label: 'GWAS' },
+  'genomic-data': { href: '/deep_dives/genomic-data/', label: 'Genomic Data & Resources' },
 } as const;
 const hub = HUBS[d.hub];
+
+// A hub page is the landing page of its own track: it goes back to /deep_dives/ rather
+// than to itself, and it ends with a map of the track instead of a prev/next pager.
+const isHub = d.isHub;
+const backLink = isHub
+  ? { href: '/deep_dives/', label: 'all deep dives' }
+  : { href: hub.href, label: `the ${hub.label} curriculum` };
+
+/** The track's lessons grouped by module, in reading order — the hub's module map. */
+const moduleMap = isHub
+  ? siblings
+      .filter((e) => !e.data.isHub)
+      .reduce<{ id: string; label: string; lessons: typeof siblings }[]>((acc, e) => {
+        const last = acc[acc.length - 1];
+        if (last && last.id === e.data.moduleId) last.lessons.push(e);
+        else acc.push({ id: e.data.moduleId, label: e.data.moduleLabel, lessons: [e] });
+        return acc;
+      }, [])
+  : [];
 
 const LEVELS = {
   foundational: 'Foundational',
@@ -117,8 +137,8 @@ const breadcrumbLd = {
 <BaseLayout title={d.title} description={d.description} type="article" noindex={d.draft}>
   <article class="deep-dive-article">
     <nav class="dd-backlink">
-      <a href={hub.href}>
-        <Icon name="arrow-left" size={14} /> Back to the {hub.label} curriculum
+      <a href={backLink.href}>
+        <Icon name="arrow-left" size={14} /> Back to {backLink.label}
       </a>
     </nav>
 
@@ -201,7 +221,27 @@ const breadcrumbLd = {
       </section>
     )}
 
-    {(prev || next) && (
+    {isHub && moduleMap.length > 0 && (
+      <nav class="dd-modulemap" aria-label="Track contents">
+        <h2 class="dd-modulemap__title"><Icon name="layers" size={15} /> The track</h2>
+        {moduleMap.map((mod) => (
+          <section class="dd-modulemap__module">
+            <h3 class="dd-modulemap__module-title">{mod.label}</h3>
+            <ol class="dd-modulemap__list">
+              {mod.lessons.map((l) => (
+                <li>
+                  <a href={`/deep_dives/${l.id}/`}>{l.data.shortTitle ?? l.data.title}</a>
+                  <span class="dd-modulemap__time">{formatReadingTime(lessonReadingTime(l.body ?? ''))}</span>
+                  <p class="dd-modulemap__summary">{l.data.description}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ))}
+      </nav>
+    )}
+
+    {!isHub && (prev || next) && (
       <nav class="dd-pager" aria-label="Curriculum">
         {prev ? (
           <a class="dd-pager__link dd-pager__link--prev" href={`/deep_dives/${prev.id}/`}>

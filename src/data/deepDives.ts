@@ -4,7 +4,7 @@
  */
 
 export interface DeepDiveCategory {
-  slug: 'all' | 'statistical-genetics' | 'sequence-analysis' | 'gene-regulation' | 'epigenomics' | 'pangenomics' | 'deep-learning';
+  slug: 'all' | 'statistical-genetics' | 'genomic-data' | 'sequence-analysis' | 'gene-regulation' | 'epigenomics' | 'pangenomics' | 'deep-learning';
   label: string;
 }
 
@@ -13,7 +13,7 @@ export interface DeepDiveEntry {
   title: string;
   shortTitle?: string;
   area: string;
-  category: 'statistical-genetics' | 'sequence-analysis' | 'gene-regulation' | 'epigenomics' | 'pangenomics' | 'deep-learning';
+  category: 'statistical-genetics' | 'genomic-data' | 'sequence-analysis' | 'gene-regulation' | 'epigenomics' | 'pangenomics' | 'deep-learning';
   tag: string;
   level: string; // e.g. "Foundational to Advanced"
   readingTime: string; // e.g. "18 min read"
@@ -31,6 +31,7 @@ export interface DeepDiveEntry {
 export const DEEP_DIVE_CATEGORIES: DeepDiveCategory[] = [
   { slug: 'all', label: 'All Concepts' },
   { slug: 'statistical-genetics', label: 'Statistical & Population Genetics' },
+  { slug: 'genomic-data', label: 'Genomic Data & Resources' },
   { slug: 'sequence-analysis', label: 'Sequence Analysis & Alignment' },
   { slug: 'gene-regulation', label: 'Gene Regulation & Splicing' },
   { slug: 'epigenomics', label: 'Epigenomics & Functional Genomics' },
