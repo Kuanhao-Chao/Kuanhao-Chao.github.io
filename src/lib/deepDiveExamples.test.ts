@@ -5,6 +5,7 @@ import {
   liabilityScale, normalPdf, normalQuantile, oeUpperBound, poissonCI,
   sampleSizeForR2, shrinkageFactor, wilsonInterval,
   cdsLength, cdsPosition, codonOf, complementBase, phylopToP, type Exon,
+  likelihoodRatioPositive, oddsPathFor, oddsPathPoints, oddsPathStrength,
 } from './deepDiveMath.ts';
 
 /**
@@ -825,6 +826,143 @@ describe('data-constraint-intolerance', () => {
     it('agrees with the cohort-growth factor the solution quotes', () => {
       expect(807_162 / 141_456).toBeCloseTo(5.7, 1); // "roughly a factor of six"
       expect(mdx).toContain('141,456 to 807,162');
+    });
+  });
+});
+
+describe('data-variant-effect-scores', () => {
+  const mdx = lesson('data-variant-effect-scores');
+
+  describe('worked example — an impressive AUC worth the weakest tier', () => {
+    const LR = likelihoodRatioPositive(0.88, 0.28);
+
+    it('gives LR+ = 3.1429', () => {
+      expect(LR).toBeCloseTo(3.142857, 6);
+      expect(mdx).toContain('\\frac{0.88}{0.28} = 3.1429');
+    });
+
+    it('converts to 1.5639 points, which is supporting and not moderate', () => {
+      expect(oddsPathPoints(LR)).toBeCloseTo(1.5639, 4);
+      expect(oddsPathStrength(LR)).toBe('supporting');
+      expect(oddsPathPoints(LR)).toBeGreaterThanOrEqual(1);
+      expect(oddsPathPoints(LR)).toBeLessThan(2);
+      expect(mdx).toContain('= 1.5639');
+      expect(mdx).toContain('At 1.5639 the');
+    });
+
+    it('quotes the logs the derivation shows its working with', () => {
+      expect(Math.log(3.142857)).toBeCloseTo(1.1451, 4);
+      expect(Math.log(350)).toBeCloseTo(5.8579, 4);
+      expect(mdx).toContain('\\frac{\\ln 3.1429}{\\ln 350}');
+    });
+
+    it('sits on a curve of area 0.909', () => {
+      // TPR = FPR^a through (0.28, 0.88); AUC of that family is 1/(1+a).
+      const a = Math.log(0.88) / Math.log(0.28);
+      expect(1 / (1 + a)).toBeCloseTo(0.908743, 6);
+      expect(mdx).toContain('AUC = 0.909');
+    });
+  });
+
+  describe('worked example — what it would take to reach strong', () => {
+    const STRONG = oddsPathFor('strong');
+
+    it('needs specificity of 95.296% at 88% sensitivity', () => {
+      expect(STRONG).toBeCloseTo(18.708, 3);
+      expect(0.88 / STRONG).toBeCloseTo(0.04704, 5);
+      expect(1 - 0.88 / STRONG).toBeCloseTo(0.95296, 5);
+      expect(mdx).toContain('\\frac{0.88}{18.708} = 0.04704');
+      expect(mdx).toContain('1 - 0.04704 = 0.95296');
+      expect(mdx).toContain('95.3%');
+    });
+
+    it('makes strong unreachable at FPR 0.28 for any sensitivity', () => {
+      const needed = STRONG * 0.28;
+      expect(needed).toBeCloseTo(5.238, 3);
+      expect(needed).toBeGreaterThan(1); // a rate cannot exceed one
+      expect(mdx).toContain('18.708 \\times 0.28 = 5.238');
+    });
+  });
+
+  describe('figure 1 — the iso-LR rays', () => {
+    it('draws each tier at the power of 350 the framework uses', () => {
+      for (const [label, lr] of [['supporting', 2.08], ['moderate', 4.325], ['strong', 18.71], ['very strong', 350]] as const) {
+        expect(mdx).toContain(`${label} \u2014 LR ${lr}`);
+      }
+      expect(oddsPathFor('supporting')).toBeCloseTo(2.0797, 4);
+      expect(oddsPathFor('moderate')).toBeCloseTo(4.3253, 4);
+      expect(oddsPathFor('strong')).toBeCloseTo(18.7083, 4);
+    });
+
+    it('marks the operating point with the values the prose derives', () => {
+      expect(mdx).toContain('threshold here: TPR 0.88, FPR 0.28');
+      expect(mdx).toContain('LR+ = 3.14 — supporting');
+      expect(mdx).toContain('the predictor, AUC 0.909');
+    });
+  });
+
+  describe('exercise 1 — a sensitive threshold worth nothing', () => {
+    it('reaches no tier at all', () => {
+      const LR = likelihoodRatioPositive(0.95, 0.6);
+      expect(LR).toBeCloseTo(1.5833, 4);
+      expect(oddsPathPoints(LR)).toBeCloseTo(0.6276, 4);
+      expect(oddsPathStrength(LR)).toBe('none');
+      expect(mdx).toContain('\\frac{0.95}{0.60} = 1.5833');
+      expect(mdx).toContain('= 0.6276');
+    });
+  });
+
+  describe('exercise 2 — one predictor, two verdicts', () => {
+    const a = 1 / 0.95 - 1;
+
+    it('derives the curve exponent from the AUC', () => {
+      expect(a).toBeCloseTo(0.052632, 6);
+      expect(1 / (1 + a)).toBeCloseTo(0.95, 12); // round trip
+      expect(mdx).toContain('1/0.95 - 1 = 0.052632');
+    });
+
+    it('is strong at FPR 0.01', () => {
+      const tpr = 0.01 ** a;
+      const LR = tpr / 0.01;
+      expect(tpr).toBeCloseTo(0.7848, 4);
+      expect(LR).toBeCloseTo(78.476, 3);
+      expect(oddsPathPoints(LR)).toBeCloseTo(5.958, 3);
+      expect(oddsPathStrength(LR)).toBe('strong');
+      expect(mdx).toContain('0.01^{0.052632} = 0.7848');
+      expect(mdx).toContain('\\frac{0.7848}{0.01} = 78.48');
+    });
+
+    it('is nothing at all at FPR 0.50, on the very same curve', () => {
+      const tpr = 0.5 ** a;
+      const LR = tpr / 0.5;
+      expect(tpr).toBeCloseTo(0.9642, 4);
+      expect(LR).toBeCloseTo(1.9284, 4);
+      expect(oddsPathPoints(LR)).toBeCloseTo(0.897, 3);
+      expect(oddsPathStrength(LR)).toBe('none');
+      expect(mdx).toContain('0.50^{0.052632} = 0.9642');
+      expect(mdx).toContain('\\frac{0.9642}{0.50} = 1.9284');
+    });
+  });
+
+  describe('exercise 3 — counting the same evidence twice', () => {
+    it('inflates the posterior from 0.1877 to 0.3246', () => {
+      expect(acmgPosterior(2)).toBeCloseTo(0.3246, 4);
+      expect(acmgPosterior(1)).toBeCloseTo(0.1877, 4);
+      expect(mdx).toContain('350^{1/4} = 4.3253');
+      expect(mdx).toContain('350^{1/8} = 2.0797');
+      expect(mdx).toContain('= 0.3246');
+      expect(mdx).toContain('= 0.1877');
+    });
+
+    it('is a 72.9% overstatement', () => {
+      const inflation = (acmgPosterior(2) - acmgPosterior(1)) / acmgPosterior(1);
+      expect(inflation * 100).toBeCloseTo(72.9, 1);
+      expect(mdx).toContain('72.9\\%');
+      expect(mdx).toContain('72.9% overstatement');
+    });
+
+    it('always inflates, never deflates — more evidence cannot lower the posterior', () => {
+      for (let p = 0; p <= 8; p++) expect(acmgPosterior(p + 1)).toBeGreaterThan(acmgPosterior(p));
     });
   });
 });

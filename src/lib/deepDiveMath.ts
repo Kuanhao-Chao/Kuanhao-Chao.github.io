@@ -1607,3 +1607,54 @@ export function weightedMedianMr(
   const weights = gammaExposure.map((g, i) => (g / seOutcome[i]) ** 2);
   return weightedMedian(ratios, weights);
 }
+
+// ── Predictor output as evidence ──────────────────────────────────────────────
+
+/**
+ * Positive likelihood ratio: how much more often a positive call happens on a true
+ * positive than on a true negative.
+ *
+ * This, not AUC, is what a variant-classification framework can consume. AUC integrates
+ * over every threshold at once and so describes a *ranking*; evidence is generated at one
+ * chosen threshold, and the ratio there is all that matters.
+ */
+export function likelihoodRatioPositive(tpr: number, fpr: number): number {
+  if (tpr < 0 || tpr > 1 || fpr <= 0 || fpr > 1) {
+    throw new RangeError('likelihoodRatioPositive needs tpr in [0,1] and fpr in (0,1]');
+  }
+  return tpr / fpr;
+}
+
+/**
+ * ACMG evidence points an odds-of-pathogenicity is worth.
+ *
+ * The exact inverse of the exponent inside `acmgPosterior`: one very strong criterion is
+ * 8 points and OddsPath 350, and each point is the eighth root of 350. So the strength
+ * tiers are not arbitrary labels but powers — supporting 350^(1/8) = 2.08, moderate
+ * 350^(1/4) = 4.33, strong 350^(1/2) = 18.7.
+ */
+export function oddsPathPoints(oddsPath: number, oddsVeryStrong = 350): number {
+  if (oddsPath <= 0) throw new RangeError('oddsPathPoints needs oddsPath > 0');
+  return (8 * Math.log(oddsPath)) / Math.log(oddsVeryStrong);
+}
+
+export type EvidenceStrength = 'none' | 'supporting' | 'moderate' | 'strong' | 'very-strong';
+
+/**
+ * The strength tier an odds-of-pathogenicity reaches — the tier it *attains*, not the one
+ * it is nearest, so a ratio between two tiers earns the lower one.
+ */
+export function oddsPathStrength(oddsPath: number, oddsVeryStrong = 350): EvidenceStrength {
+  const pts = oddsPathPoints(oddsPath, oddsVeryStrong);
+  if (pts >= 8) return 'very-strong';
+  if (pts >= 4) return 'strong';
+  if (pts >= 2) return 'moderate';
+  if (pts >= 1) return 'supporting';
+  return 'none';
+}
+
+/** The odds-of-pathogenicity a given evidence strength requires. */
+export function oddsPathFor(strength: Exclude<EvidenceStrength, 'none'>, oddsVeryStrong = 350): number {
+  const points = { supporting: 1, moderate: 2, strong: 4, 'very-strong': 8 }[strength];
+  return oddsVeryStrong ** (points / 8);
+}

@@ -286,3 +286,75 @@ shet:
     on a scale that means the same thing for a short gene as for a long one — which is
     exactly what LOEUF cannot offer.
   verified: 2026-08-21
+
+# ── Layer 4 · Variant effect prediction ──────────────────────────────────────
+
+cadd:
+  name: CADD
+  fullName: Combined Annotation Dependent Depletion
+  layer: variant-effect-scores
+  url: https://cadd.gs.washington.edu/
+  version: v1.7
+  scale: "Every possible SNV plus indels, GRCh37 and GRCh38; PHRED-scaled genome-wide"
+  access: open
+  citationId: rentzsch2019cadd
+  note: >-
+    Trained to separate fixed human-derived variants from simulated ones, so it learns
+    depletion rather than pathogenicity. Free for non-commercial use; commercial use needs
+    a licence. A PHRED of 20 means "top 1% of all possible SNVs", not "20% likely causal".
+  verified: 2026-08-21
+
+revel:
+  name: REVEL
+  fullName: Rare Exome Variant Ensemble Learner
+  layer: variant-effect-scores
+  url: https://sites.google.com/site/revelgenomics/
+  scale: "Precomputed for every possible missense change in the human exome"
+  access: open
+  citationId: ioannidis2016revel
+  note: >-
+    An ensemble over thirteen component predictors. Because those components were trained
+    on overlapping variant sets, REVEL correlates with them by construction — it is not an
+    independent line of evidence from the tools inside it.
+  verified: 2026-08-21
+
+alphamissense:
+  name: AlphaMissense
+  fullName: AlphaMissense proteome-wide missense predictions
+  layer: variant-effect-scores
+  url: https://github.com/google-deepmind/alphamissense
+  scale: "71 million missense variants across the human proteome, precomputed"
+  access: open
+  citationId: cheng2023alphamissense
+  note: >-
+    Structure-informed and trained without human clinical labels, which is what makes it
+    usable on genes ClinVar has never seen. Predictions are released CC BY-NC-SA.
+  verified: 2026-08-21
+
+spliceai:
+  name: SpliceAI
+  fullName: SpliceAI deep-learning splice predictor
+  layer: variant-effect-scores
+  url: https://github.com/Illumina/SpliceAI
+  scale: "Delta scores for acceptor/donor gain and loss within 50 nt (precomputed) or 10 kb (on demand)"
+  access: registered
+  citationId: jaganathan2019spliceai
+  note: >-
+    Predicts splicing from primary sequence alone, which is why it works on deep intronic
+    variants no exome annotation reaches. The precomputed set is windowed; a variant outside
+    the window needs the model run, and the two are not interchangeable.
+  verified: 2026-08-21
+
+esm1b-variants:
+  name: ESM-1b variant effects
+  fullName: Genome-wide variant effects from a protein language model
+  layer: variant-effect-scores
+  url: https://huggingface.co/spaces/ntranoslab/esm_variants
+  scale: "~450 million missense variants over 42,000 protein isoforms"
+  access: open
+  citationId: brandes2023esm1b
+  note: >-
+    Zero-shot: the score is the model's log-likelihood ratio between the alternate and
+    reference residue, with no variant labels used in training. That independence from
+    ClinVar is the property that makes it worth having alongside supervised scores.
+  verified: 2026-08-21

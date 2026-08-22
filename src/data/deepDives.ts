@@ -85,6 +85,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'data-reference-annotation',
   'data-population-frequency',
   'data-constraint-intolerance',
+  'data-variant-effect-scores',
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',

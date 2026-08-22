@@ -1,0 +1,378 @@
+---
+title: "Variant Effect Prediction: Turning a Score Into Evidence"
+shortTitle: Variant Effect Scores
+description: "CADD, REVEL, AlphaMissense, SpliceAI and zero-shot protein language models — what each is actually trained on, why a high AUC does not make a score strong evidence, and how a threshold is calibrated to a likelihood ratio a classification framework can consume."
+abstract: "Every missense variant in the genome already has half a dozen scores attached to it. Turning one into evidence means answering two questions the score itself does not: what was it trained to separate, and how much more often does it fire on a pathogenic variant than a benign one at the threshold you chose. This page separates discrimination from evidence strength, shows that the two can point in very different directions on the same predictor, and covers the circularity that makes several of these scores less independent than they look."
+date: 2026-08-21
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d04-function
+moduleLabel: Layer 4 · Function, Assays & Trait Maps
+order: 4
+level: advanced
+objectives:
+  - "Say what each major predictor was trained to separate, and why that decides what its score means."
+  - "Convert a threshold's sensitivity and specificity into a likelihood ratio and an ACMG evidence strength."
+  - "Explain why a predictor's AUC does not determine the evidence strength it can supply."
+  - "Identify when two predictors are not independent evidence, and what double-counting them costs."
+  - "Explain what calibration adds over a published default threshold."
+prerequisites:
+  - data-constraint-intolerance
+referenceIds:
+  - richards2015
+  - kircher2014cadd
+  - ioannidis2016revel
+  - tavtigian2018
+  - rentzsch2019cadd
+  - jaganathan2019spliceai
+  - pejaver2022
+  - cheng2023alphamissense
+  - brandes2023esm1b
+tags: [CADD, REVEL, AlphaMissense, SpliceAI, calibration, likelihood ratio, ACMG]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+The variant is missense, absent from population databases, in a constrained gene. Every
+predictor you can query returns a number: CADD 24.7, REVEL 0.71, AlphaMissense "likely
+pathogenic".
+
+None of that is yet evidence. Evidence is a quantity — how much these numbers should move
+your belief — and getting from a score to that quantity requires two things the score does
+not carry: what it was trained to separate, and how often it is wrong at the threshold you
+picked.
+
+<Callout variant="intuition">
+A predictor gives you a **ranking**. A classification framework needs a **likelihood ratio**.
+Those are different objects, and almost every misuse of these scores is a conversion error
+between them.
+
+The ranking question is "does this score put pathogenic variants above benign ones?" — and
+the area under the ROC curve answers it, across every possible threshold at once. The
+evidence question is "at the one threshold I actually used, how much more often does a
+positive call happen on a pathogenic variant than on a benign one?" A predictor can be
+excellent at the first and nearly useless at the second, because you chose a bad place to
+cut.
+
+The worked example below is exactly that case: an AUC of 0.909, and a threshold worth the
+weakest evidence tier the framework has.
+</Callout>
+
+<DatasetTable layer="variant-effect-scores" caption="Variant effect predictors" />
+
+<Notation
+  rows={[
+    { symbol: '\\text{TPR}', meaning: 'True positive rate, or sensitivity: pathogenic variants called positive', dims: 'in [0,1]' },
+    { symbol: '\\text{FPR}', meaning: 'False positive rate, 1 − specificity: benign variants called positive', dims: 'in [0,1]' },
+    { symbol: '\\text{LR}^{+}', meaning: 'Positive likelihood ratio, TPR / FPR', dims: '> 0' },
+    { symbol: '\\text{AUC}', meaning: 'Area under the ROC curve — a property of the ranking, not of a threshold', dims: 'in [0,1]' },
+    { symbol: '\\text{OddsPath}', meaning: 'Odds of pathogenicity a piece of evidence carries', dims: '> 0' },
+    { symbol: '\\text{PHRED}', meaning: 'CADD’s rank scaling: −10 log₁₀(rank fraction) among all possible SNVs', dims: '≥ 0' },
+    { symbol: '\\Delta', meaning: 'SpliceAI delta score: change in predicted splice-site probability', dims: 'in [0,1]' },
+  ]}
+/>
+
+## What each score was trained to separate
+
+This is the question that decides what a score means, and it is answered differently by
+every resource in the table.
+
+**<Dataset id="cadd" version />** was never trained on pathogenic variants at all. It
+separates variants that became fixed in the human lineage from simulated ones matched for
+mutation rate <Citation id="kircher2014cadd" />. What it learns is **depletion** — which
+changes selection has been removing — and deleteriousness is a proxy read off that. Its
+PHRED scaling is a *rank*: 20 means "in the top 1% of all possible SNVs", which is a
+statement about the genome, not about your variant's probability of causing disease
+<Citation id="rentzsch2019cadd" />.
+
+**<Dataset id="revel" />** is a supervised ensemble over thirteen component predictors
+<Citation id="ioannidis2016revel" />. It performs well, and it inherits everything its
+components were trained on.
+
+**<Dataset id="alphamissense" />** is structure-informed and trained without human clinical
+labels <Citation id="cheng2023alphamissense" />, which is what lets it speak about genes no
+clinical laboratory has ever submitted a variant for.
+
+**<Dataset id="spliceai" />** answers a different question entirely: not "is this protein
+change damaging" but "does this sequence change where the spliceosome cuts"
+<Citation id="jaganathan2019spliceai" />. It works on deep intronic variants no protein-level
+predictor can see. Its delta scores are precomputed only within a window around the variant;
+outside it the model has to be run, and the two are not interchangeable.
+
+**<Dataset id="esm1b-variants" />** scores zero-shot: the log-likelihood ratio a protein
+language model assigns to the alternate residue against the reference, with no variant
+labels used anywhere in training <Citation id="brandes2023esm1b" />.
+
+<Callout variant="warning" title="Several of these are not independent of ClinVar, or of each other">
+Supervised predictors are trained on labelled variants, and the labels overwhelmingly come
+from ClinVar and HGMD. Two consequences follow, and both are routinely ignored.
+
+**Evaluating on ClinVar overstates.** A test set drawn from the same resource the training
+labels came from measures memorisation as much as generalisation. This is why benchmark
+suites go to such lengths over splits, and why the unsupervised scores are worth having
+even when they rank slightly worse.
+
+**Stacking them double-counts.** REVEL is an ensemble *of* other predictors; using REVEL and
+one of its components as two lines of evidence counts the same signal twice. The framework
+<Citation id="richards2015" /> has one computational criterion, PP3, and treats it as one
+piece of evidence for exactly this reason. Exercise 3 puts a number on what ignoring that
+costs.
+
+The scores genuinely independent of clinical labels — AlphaMissense, ESM-1b, SpliceAI — are
+valuable partly *because* of that independence, not only because of their accuracy.
+</Callout>
+
+## From a score to an amount of evidence
+
+The ACMG/AMP framework is Bayesian underneath <Citation id="tavtigian2018" />: each criterion
+carries an odds of pathogenicity, and the tiers are powers of a single constant. One very
+strong criterion is $\text{OddsPath} = 350$, and every other tier is a root of it —
+$350^{1/2} = 18.71$ for strong, $350^{1/4} = 4.33$ for moderate, $350^{1/8} = 2.08$ for
+supporting.
+
+A predictor supplies that odds directly. At a chosen threshold it has some sensitivity and
+some false positive rate, and
+
+$$
+\text{OddsPath} \;=\; \text{LR}^{+} \;=\; \frac{\text{TPR}}{\text{FPR}}
+$$
+
+<WorkedExample
+  title="An impressive AUC worth the weakest tier"
+  given={[
+    { label: 'Sensitivity at the threshold', value: 'TPR = 0.88' },
+    { label: 'False positive rate', value: 'FPR = 0.28' },
+    { label: 'Curve through that point', value: 'AUC = 0.909' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the likelihood ratio.**
+
+$$
+\text{LR}^{+} = \frac{0.88}{0.28} = 3.1429
+$$
+
+**Step 2 — convert to points.** Points are the logarithm of the odds in base $350^{1/8}$:
+
+$$
+\text{points} = 8\,\frac{\ln 3.1429}{\ln 350} = 8 \times \frac{1.1451}{5.8579} = 1.5639
+$$
+
+**Step 3 — read off the tier.** The tiers sit at 1, 2, 4 and 8 points. At 1.5639 the
+threshold has cleared **supporting** and not reached moderate, so it earns *supporting* —
+the weakest tier the framework defines.
+
+**Step 4 — put that beside the AUC.** The ROC curve through this operating point has an area
+of $0.909$. By the usual reading that is a strong predictor, and it is: it ranks well. But
+ranking well across all thresholds and generating evidence at *this* threshold are different
+claims, and only the second one is what a classification needs.
+
+**Step 5 — see where the loss is.** Nothing is wrong with the predictor. The threshold is
+letting through 28% of benign variants, and a call that fires on more than a quarter of
+benign variants cannot be worth much however often it also fires on pathogenic ones.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Evidence strength is a ray from the origin. Because LR+ is TPR divided by FPR, it is the slope of the line joining an operating point to the origin — so each evidence tier is a wedge, and very strong (LR 350) is a sliver hugging the vertical axis. The curve shown has AUC 0.909, and the marked threshold on it is worth only supporting evidence. Area under the curve and evidence strength are different quantities and this figure is the reason."
+  alt="A ROC plot with false positive rate on the x axis and true positive rate on the y axis. Four straight rays from the origin mark likelihood ratios of 2.08, 4.33, 18.7 and 350, labelled supporting, moderate, strong and very strong; the very strong ray is nearly vertical. A concave curve of area 0.909 passes through a marked point at FPR 0.28 and TPR 0.88, which falls in the supporting wedge."
+>
+  <svg viewBox="0 0 640 386" width="640" height="386" font-family="inherit"><line x1="96.0" y1="44.0" x2="96.0" y2="344.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="344.0" x2="396.0" y2="344.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="344.0" x2="396.0" y2="344.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="348.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="269.0" x2="396.0" y2="269.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="273.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.25</text><line x1="96.0" y1="194.0" x2="396.0" y2="194.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="198.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.5</text><line x1="96.0" y1="119.0" x2="396.0" y2="119.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="123.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.75</text><line x1="96.0" y1="44.0" x2="396.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="48.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="96.0" y1="344.0" x2="96.0" y2="349.0" stroke="currentColor" stroke-width="1"/><text x="96.0" y="362.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="171.0" y1="344.0" x2="171.0" y2="349.0" stroke="currentColor" stroke-width="1"/><text x="171.0" y="362.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.25</text><line x1="246.0" y1="344.0" x2="246.0" y2="349.0" stroke="currentColor" stroke-width="1"/><text x="246.0" y="362.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.5</text><line x1="321.0" y1="344.0" x2="321.0" y2="349.0" stroke="currentColor" stroke-width="1"/><text x="321.0" y="362.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.75</text><line x1="396.0" y1="344.0" x2="396.0" y2="349.0" stroke="currentColor" stroke-width="1"/><text x="396.0" y="362.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="96.0" y1="344.0" x2="396.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="282.0" y="170.0" font-size="10" fill="currentColor" opacity=".55">chance, LR = 1</text><line x1="96.0" y1="344.0" x2="240.2" y2="44.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25" opacity=".75"/><line x1="96.0" y1="344.0" x2="165.4" y2="44.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25" opacity=".75"/><line x1="96.0" y1="344.0" x2="112.0" y2="44.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25" opacity=".75"/><line x1="96.0" y1="344.0" x2="96.9" y2="44.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25" opacity=".75"/><path d="M96.0,344.0 L97.5,167.8 L99.0,155.1 L100.5,147.2 L102.0,141.5 L103.5,136.9 L105.0,133.0 L106.5,129.8 L108.0,126.9 L109.5,124.3 L111.0,121.9 L112.5,119.8 L114.0,117.8 L115.5,116.0 L117.0,114.3 L118.5,112.7 L120.0,111.2 L121.5,109.8 L123.0,108.4 L124.5,107.2 L126.0,105.9 L127.5,104.8 L129.0,103.6 L130.5,102.6 L132.0,101.5 L133.5,100.5 L135.0,99.6 L136.5,98.6 L138.0,97.8 L139.5,96.9 L141.0,96.0 L142.5,95.2 L144.0,94.4 L145.5,93.7 L147.0,92.9 L148.5,92.2 L150.0,91.5 L151.5,90.8 L153.0,90.1 L154.5,89.4 L156.0,88.8 L157.5,88.1 L159.0,87.5 L160.5,86.9 L162.0,86.3 L163.5,85.7 L165.0,85.2 L166.5,84.6 L168.0,84.1 L169.5,83.5 L171.0,83.0 L172.5,82.5 L174.0,82.0 L175.5,81.5 L177.0,81.0 L178.5,80.5 L180.0,80.0 L181.5,79.5 L183.0,79.1 L184.5,78.6 L186.0,78.2 L187.5,77.7 L189.0,77.3 L190.5,76.9 L192.0,76.4 L193.5,76.0 L195.0,75.6 L196.5,75.2 L198.0,74.8 L199.5,74.4 L201.0,74.0 L202.5,73.6 L204.0,73.3 L205.5,72.9 L207.0,72.5 L208.5,72.1 L210.0,71.8 L211.5,71.4 L213.0,71.1 L214.5,70.7 L216.0,70.4 L217.5,70.0 L219.0,69.7 L220.5,69.4 L222.0,69.0 L223.5,68.7 L225.0,68.4 L226.5,68.1 L228.0,67.7 L229.5,67.4 L231.0,67.1 L232.5,66.8 L234.0,66.5 L235.5,66.2 L237.0,65.9 L238.5,65.6 L240.0,65.3 L241.5,65.0 L243.0,64.7 L244.5,64.5 L246.0,64.2 L247.5,63.9 L249.0,63.6 L250.5,63.3 L252.0,63.1 L253.5,62.8 L255.0,62.5 L256.5,62.3 L258.0,62.0 L259.5,61.7 L261.0,61.5 L262.5,61.2 L264.0,61.0 L265.5,60.7 L267.0,60.5 L268.5,60.2 L270.0,60.0 L271.5,59.7 L273.0,59.5 L274.5,59.2 L276.0,59.0 L277.5,58.8 L279.0,58.5 L280.5,58.3 L282.0,58.1 L283.5,57.8 L285.0,57.6 L286.5,57.4 L288.0,57.1 L289.5,56.9 L291.0,56.7 L292.5,56.5 L294.0,56.3 L295.5,56.0 L297.0,55.8 L298.5,55.6 L300.0,55.4 L301.5,55.2 L303.0,55.0 L304.5,54.8 L306.0,54.6 L307.5,54.3 L309.0,54.1 L310.5,53.9 L312.0,53.7 L313.5,53.5 L315.0,53.3 L316.5,53.1 L318.0,52.9 L319.5,52.7 L321.0,52.5 L322.5,52.3 L324.0,52.2 L325.5,52.0 L327.0,51.8 L328.5,51.6 L330.0,51.4 L331.5,51.2 L333.0,51.0 L334.5,50.8 L336.0,50.6 L337.5,50.5 L339.0,50.3 L340.5,50.1 L342.0,49.9 L343.5,49.7 L345.0,49.6 L346.5,49.4 L348.0,49.2 L349.5,49.0 L351.0,48.9 L352.5,48.7 L354.0,48.5 L355.5,48.3 L357.0,48.2 L358.5,48.0 L360.0,47.8 L361.5,47.7 L363.0,47.5 L364.5,47.3 L366.0,47.2 L367.5,47.0 L369.0,46.8 L370.5,46.7 L372.0,46.5 L373.5,46.3 L375.0,46.2 L376.5,46.0 L378.0,45.9 L379.5,45.7 L381.0,45.5 L382.5,45.4 L384.0,45.2 L385.5,45.1 L387.0,44.9 L388.5,44.8 L390.0,44.6 L391.5,44.5 L393.0,44.3 L394.5,44.2 L396.0,44.0" fill="none" stroke="currentColor" stroke-width="2" opacity=".85"/><circle cx="180.0" cy="80.0" r="5.0" fill="var(--color-accent, #2e6e5e)"/><line x1="180.0" y1="80.0" x2="180.0" y2="344.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="3 3"/><text x="189.0" y="96.0" font-size="10.5" fill="currentColor" font-weight="600">threshold here: TPR 0.88, FPR 0.28</text><text x="189.0" y="109.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">LR+ = 3.14 — supporting</text><line x1="237.0" y1="236.0" x2="261.0" y2="236.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5" opacity=".75"/><text x="268.5" y="239.5" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">supporting — LR 2.08</text><line x1="237.0" y1="254.0" x2="261.0" y2="254.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5" opacity=".75"/><text x="268.5" y="257.5" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">moderate — LR 4.325</text><line x1="237.0" y1="272.0" x2="261.0" y2="272.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5" opacity=".75"/><text x="268.5" y="275.5" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">strong — LR 18.71</text><line x1="237.0" y1="290.0" x2="261.0" y2="290.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5" opacity=".75"/><text x="268.5" y="293.5" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">very strong — LR 350</text><line x1="237.0" y1="308.0" x2="261.0" y2="308.0" stroke="currentColor" stroke-width="2" opacity=".85"/><text x="268.5" y="311.5" font-size="10" fill="currentColor" opacity=".85" font-weight="600">the predictor, AUC 0.909</text><text x="246.0" y="372.0" font-size="12" fill="currentColor" text-anchor="middle">False positive rate</text><text x="20.0" y="194.0" font-size="12" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 194)">True positive rate</text><text x="320.0" y="20.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">Evidence strength is a ray from the origin, not an area under the curve</text></svg>
+</Figure>
+
+<WorkedExample
+  title="What it would take to reach strong"
+  given={[
+    { label: 'Target', value: 'strong evidence, OddsPath ≥ 18.708' },
+    { label: 'Sensitivity held at', value: 'TPR = 0.88' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — invert the ratio.** Strong requires $\text{TPR}/\text{FPR} \ge 18.708$, so
+
+$$
+\text{FPR} \le \frac{0.88}{18.708} = 0.04704
+$$
+
+**Step 2 — read it as specificity.**
+
+$$
+\text{specificity} \ge 1 - 0.04704 = 0.95296
+$$
+
+The threshold must reject better than **95.3%** of benign variants while still catching 88%
+of pathogenic ones. That is a far harder requirement than the original threshold met, and it
+is why computational evidence at strong is rare.
+
+**Step 3 — notice what sensitivity cannot buy.** Hold the false positive rate at its original
+$0.28$ and ask what sensitivity would reach strong:
+
+$$
+\text{TPR} \ge 18.708 \times 0.28 = 5.238
+$$
+
+which is impossible, since a rate cannot exceed 1. **At a 28% false positive rate, strong
+evidence is unreachable at any sensitivity whatsoever.** Evidence strength is bought with
+specificity; sensitivity only decides how often you get to use it.
+
+</WorkedExample>
+
+## Calibration
+
+Published default thresholds — CADD above 20, REVEL above 0.5 — were not chosen to deliver a
+stated amount of evidence. They were chosen as reasonable operating points, and the amount of
+evidence they happen to carry was nobody's design parameter.
+
+Calibration fixes that by working backwards <Citation id="pejaver2022" />: take a set of
+variants with known classification, find the score thresholds at which the observed
+likelihood ratio equals each tier's required OddsPath, and publish *those* thresholds with
+the tier attached. The result is usually sobering — the thresholds that deliver strong
+evidence are much more extreme than the defaults, and for several tools no threshold reaches
+strong at all.
+
+The practical consequence is that a calibrated tool reports a strength, not a score, and the
+strength is what enters the classification.
+
+## Exercises
+
+<Exercise n={1} title="A sensitive threshold worth nothing" difficulty="warm-up">
+
+A predictor is run at a permissive threshold: it catches 95% of pathogenic variants but also
+calls 60% of benign ones. What evidence strength does it supply?
+
+<div slot="solution">
+
+$$
+\text{LR}^{+} = \frac{0.95}{0.60} = 1.5833
+$$
+
+$$
+\text{points} = 8\,\frac{\ln 1.5833}{\ln 350} = 0.6276
+$$
+
+Below one point, so it reaches **no tier at all** — not even supporting. A call that fires on
+three benign variants for every five pathogenic ones barely moves the odds, and the framework
+correctly assigns it nothing.
+
+The lesson is that sensitivity alone is worthless as evidence. A threshold that flags almost
+everything catches almost every pathogenic variant by construction, and tells you nothing when
+it does.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="One predictor, two verdicts" difficulty="core">
+
+A predictor has AUC 0.95 — better than the one in the worked example. Its ROC curve has the
+form $\text{TPR} = \text{FPR}^{a}$, for which $\text{AUC} = 1/(1+a)$. Compute the evidence
+strength at a threshold with FPR 0.01, and at one with FPR 0.50.
+
+<div slot="solution">
+
+From $\text{AUC} = 1/(1+a) = 0.95$ we get $a = 1/0.95 - 1 = 0.052632$.
+
+**At FPR = 0.01:**
+
+$$
+\text{TPR} = 0.01^{0.052632} = 0.7848,
+\qquad
+\text{LR}^{+} = \frac{0.7848}{0.01} = 78.48
+$$
+
+which is $5.958$ points — comfortably **strong**.
+
+**At FPR = 0.50:**
+
+$$
+\text{TPR} = 0.50^{0.052632} = 0.9642,
+\qquad
+\text{LR}^{+} = \frac{0.9642}{0.50} = 1.9284
+$$
+
+which is $0.897$ points — **no tier at all**.
+
+The same predictor, the same ROC curve, the same AUC of 0.95, and two thresholds that differ
+by the entire range the framework can express. This is the concrete form of the claim that
+AUC does not determine evidence strength: it is a property of the curve, and evidence is a
+property of the point you stand on.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Counting the same evidence twice" difficulty="stretch">
+
+Two predictors each supply supporting evidence for the same variant. Treated as independent,
+they combine to 2 points. If they are in fact so correlated that the second adds nothing, only
+1 point is real. Starting from a prior of 0.1, what posterior does each give, and how large is
+the error?
+
+<div slot="solution">
+
+The posterior from a point tally is $\text{OddsPath} = 350^{\text{points}/8}$ applied to the
+prior odds:
+
+**Treated as independent, 2 points:**
+
+$$
+\text{OddsPath} = 350^{1/4} = 4.3253
+\quad\Longrightarrow\quad
+\text{posterior} = 0.3246
+$$
+
+**Counting once, 1 point:**
+
+$$
+\text{OddsPath} = 350^{1/8} = 2.0797
+\quad\Longrightarrow\quad
+\text{posterior} = 0.1877
+$$
+
+The double-count nearly doubles the posterior, from 0.1877 to 0.3246 — a $72.9\%$ relative
+inflation from a mistake that looks like diligence.
+
+**Why it happens.** REVEL is an ensemble over thirteen predictors; several of those thirteen
+are themselves available separately. Running "two tools" can mean running one tool and a
+weighted average that contains it. The framework's single PP3 criterion exists precisely to
+stop this, and the discipline is to ask not "how many tools agree" but "how many *independent*
+lines of evidence are there" — which, for supervised predictors trained on the same labels, is
+usually one.
+
+Note the direction: this error always inflates, never deflates, because agreeing predictors
+are counted as corroboration when they are actually the same measurement repeated.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **What a score was trained to separate decides what it means.** CADD learns depletion from
+  simulated versus fixed variants and reports a genome-wide rank; REVEL is a supervised
+  ensemble; AlphaMissense and ESM-1b use no clinical labels; SpliceAI answers a different
+  question altogether.
+- **Evidence is a likelihood ratio at one threshold**, $\text{LR}^{+} = \text{TPR}/\text{FPR}$,
+  and the ACMG tiers are powers of 350: supporting 2.08, moderate 4.33, strong 18.71, very
+  strong 350.
+- **AUC does not determine evidence strength.** A curve of area 0.909 supplied only
+  *supporting* evidence at its threshold, and a curve of area 0.95 supplied *strong* at one
+  threshold and *nothing* at another.
+- **Specificity buys evidence; sensitivity buys opportunity.** Reaching strong at 88%
+  sensitivity needs 95.3% specificity — and at a 28% false positive rate, strong is
+  unreachable at any sensitivity at all.
+- **Supervised predictors trained on ClinVar are not independent of ClinVar, or of each
+  other.** Stacking two correlated tools as two supporting criteria inflated the posterior
+  from 0.1877 to 0.3246 in the exercise above — a 72.9% overstatement.
+- **Calibration turns a score into a strength** by finding the threshold at which the observed
+  likelihood ratio equals a tier's requirement, rather than inheriting a default nobody chose
+  for that purpose.
