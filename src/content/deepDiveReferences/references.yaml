@@ -569,3 +569,61 @@ zeng2024shet:
   venue: "Nature Genetics 56:1632-1643"
   doi: https://doi.org/10.1038/s41588-024-01820-9
   verified: 2026-08-21
+
+# ── Layer 4 · Variant effect prediction ───────────────────────────────────────
+
+kircher2014cadd:
+  authors: ['Martin Kircher', 'Daniela M Witten', 'Preti Jain', 'et al.']
+  year: 2014
+  title: "A general framework for estimating the relative pathogenicity of human genetic variants"
+  venue: "Nature Genetics 46:310-315"
+  doi: https://doi.org/10.1038/ng.2892
+  verified: 2026-08-21
+
+rentzsch2019cadd:
+  authors: ['Philipp Rentzsch', 'Daniela Witten', 'Gregory M Cooper', 'et al.']
+  year: 2018
+  title: "CADD: predicting the deleteriousness of variants throughout the human genome"
+  venue: "Nucleic Acids Research 47:D886-D894"
+  doi: https://doi.org/10.1093/nar/gky1016
+  verified: 2026-08-21
+
+ioannidis2016revel:
+  authors: ['Nilah M. Ioannidis', 'Joseph H. Rothstein', 'Vikas Pejaver', 'et al.']
+  year: 2016
+  title: "REVEL: An Ensemble Method for Predicting the Pathogenicity of Rare Missense Variants"
+  venue: "The American Journal of Human Genetics 99:877-885"
+  doi: https://doi.org/10.1016/j.ajhg.2016.08.016
+  verified: 2026-08-21
+
+jaganathan2019spliceai:
+  authors: ['Kishore Jaganathan', 'Sofia Kyriazopoulou Panagiotopoulou', 'Jeremy F. McRae', 'et al.']
+  year: 2019
+  title: "Predicting Splicing from Primary Sequence with Deep Learning"
+  venue: "Cell 176:535-548.e24"
+  doi: https://doi.org/10.1016/j.cell.2018.12.015
+  verified: 2026-08-21
+
+pejaver2022:
+  authors: ['Vikas Pejaver', 'Alicia B. Byrne', 'Bing-Jian Feng', 'et al.']
+  year: 2022
+  title: "Calibration of computational tools for missense variant pathogenicity classification and ClinGen recommendations for PP3/BP4 criteria"
+  venue: "The American Journal of Human Genetics 109:2163-2177"
+  doi: https://doi.org/10.1016/j.ajhg.2022.10.013
+  verified: 2026-08-21
+
+cheng2023alphamissense:
+  authors: ['Jun Cheng', 'Guido Novati', 'Joshua Pan', 'et al.']
+  year: 2023
+  title: "Accurate proteome-wide missense variant effect prediction with AlphaMissense"
+  venue: "Science 381"
+  doi: https://doi.org/10.1126/science.adg7492
+  verified: 2026-08-21
+
+brandes2023esm1b:
+  authors: ['Nadav Brandes', 'Grant Goldman', 'Charlotte H. Wang', 'et al.']
+  year: 2023
+  title: "Genome-wide prediction of disease variant effects with a deep protein language model"
+  venue: "Nature Genetics 55:1512-1522"
+  doi: https://doi.org/10.1038/s41588-023-01465-0
+  verified: 2026-08-21

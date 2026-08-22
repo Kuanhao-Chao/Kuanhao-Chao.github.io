@@ -20,6 +20,7 @@ import {
   fStatistic, ivwMeta, ivwMr, lambdaGc, ldscRegression, pipsFromAbf, skatOQ, skatQ,
   stoufferMeta, variantScores, wakefieldAbf, waldRatio, weightedMedian, weightedMedianMr,
   winnersCurseExpectation, zThreshold, haldaneMorgans, kosambiMorgans, driftVariance,
+  likelihoodRatioPositive, oddsPathFor, oddsPathPoints, oddsPathStrength,
 } from './deepDiveMath.ts';
 
 /**
@@ -1574,6 +1575,48 @@ describe('driftVariance', () => {
     expect(driftVariance(0.5, 10, 20)).toBeGreaterThan(driftVariance(0.5, 1000, 20));
     for (const t of [1, 5, 20]) {
       expect(driftVariance(0.5, 100, t + 1)).toBeGreaterThan(driftVariance(0.5, 100, t));
+    }
+  });
+});
+
+describe('predictor output as evidence', () => {
+  it('reads a likelihood ratio off sensitivity and false-positive rate', () => {
+    expect(likelihoodRatioPositive(0.88, 0.28)).toBeCloseTo(3.142857, 6);
+    expect(likelihoodRatioPositive(0.5, 0.5)).toBeCloseTo(1, 12); // a coin
+    expect(() => likelihoodRatioPositive(0.9, 0)).toThrow();
+  });
+
+  it('inverts acmgPosterior exactly', () => {
+    // acmgPosterior raises 350 to points/8; oddsPathPoints takes the log back. Round-trip
+    // through both must return the point tally it started with.
+    for (const pts of [-4, 0, 1, 2, 4, 8, 10]) {
+      expect(oddsPathPoints(350 ** (pts / 8))).toBeCloseTo(pts, 12);
+    }
+  });
+
+  it('puts the tier boundaries on the powers of 350 the framework uses', () => {
+    expect(oddsPathFor('very-strong')).toBeCloseTo(350, 12);
+    expect(oddsPathFor('strong')).toBeCloseTo(18.708, 3);
+    expect(oddsPathFor('moderate')).toBeCloseTo(4.3253, 4);
+    expect(oddsPathFor('supporting')).toBeCloseTo(2.0797, 4);
+    // each tier is the square root of the one above, by construction
+    expect(oddsPathFor('strong') ** 2).toBeCloseTo(oddsPathFor('very-strong'), 9);
+    expect(oddsPathFor('moderate') ** 2).toBeCloseTo(oddsPathFor('strong'), 9);
+    expect(oddsPathFor('supporting') ** 2).toBeCloseTo(oddsPathFor('moderate'), 9);
+  });
+
+  it('awards the tier attained, never the nearest', () => {
+    expect(oddsPathStrength(oddsPathFor('strong'))).toBe('strong');
+    // just under a boundary earns the tier below, however close
+    expect(oddsPathStrength(oddsPathFor('strong') - 1e-9)).toBe('moderate');
+    expect(oddsPathStrength(3.142857)).toBe('supporting');
+    expect(oddsPathStrength(1.5)).toBe('none');
+    expect(oddsPathStrength(1000)).toBe('very-strong');
+  });
+
+  it('agrees with oddsPathFor at every tier, both directions', () => {
+    for (const s of ['supporting', 'moderate', 'strong', 'very-strong'] as const) {
+      expect(oddsPathStrength(oddsPathFor(s))).toBe(s);
     }
   });
 });
