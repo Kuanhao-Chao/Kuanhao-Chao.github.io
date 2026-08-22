@@ -1,0 +1,366 @@
+---
+title: "Population Frequency: What Allele Counts Can and Cannot Tell You"
+shortTitle: Population Frequency
+description: "gnomAD, All of Us, 1000 Genomes, TOPMed and HGDP — what AC, AN and AF actually measure, why the denominator matters more than the numerator, how ancestry grouping changes the answer, and how to turn a frequency into a filtering threshold."
+abstract: "An allele frequency is a ratio, and almost every mistake made with one comes from reading the numerator while ignoring the denominator. This lesson covers the population reference resources, what a joint exome/genome call set buys, why grpmax rather than global frequency is the number to filter on, and how to convert a disease's prevalence and genetic architecture into the maximum frequency a causal variant could possibly have."
+date: 2026-08-21
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d02-population
+moduleLabel: Genomic Data · Layer 2
+order: 2
+level: intermediate
+objectives:
+  - "Read AC, AN and AF correctly, and say why AN is the number that decides what a frequency means."
+  - "Explain what a joint exome/genome call set provides that two separate call sets do not."
+  - "Choose between global and ancestry-group frequency, and say why grpmax is the one that filters."
+  - "Compute the maximum credible allele frequency for a disease from its prevalence, architecture and penetrance."
+  - "Determine how many chromosomes must be genotyped before an absent variant can be called rare."
+prerequisites: []
+referenceIds:
+  - chen2024constraint
+  - karczewski2020
+  - lek2016exac
+  - allofus2024
+  - taliun2021
+  - bergstrom2020
+  - tgp2015
+  - whiffin2017
+  - richards2015
+tags: [gnomAD, allele frequency, population genetics, variant filtering, ancestry]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+A variant is not in gnomAD. Is it rare?
+
+The question sounds like a lookup and is not one. "Not in gnomAD" could mean the variant is
+genuinely vanishingly rare, or that the position was poorly covered, or that nobody of the
+relevant ancestry was sequenced, or that it was filtered out for a quality reason and is
+sitting in the data under a flag you did not read.
+
+This layer is where variant interpretation gets its most powerful single piece of evidence —
+and where that evidence is most often over-read.
+
+<Callout variant="intuition">
+An allele frequency is a fraction, and the interesting number is underneath the line.
+
+The numerator, AC, is what you saw. The denominator, AN, is how hard you looked. A count of
+zero out of five thousand and a count of zero out of two million are the same numerator and
+completely different statements — the first excludes almost nothing, the second excludes
+almost everything.
+
+So the reflex worth building is: **never read an AF without reading its AN.** A frequency
+computed on a small denominator is not really a frequency. It is an upper bound wearing a
+point estimate's clothes.
+</Callout>
+
+<DatasetTable layer="population-frequency" caption="Population reference resources" />
+
+<Notation
+  rows={[
+    { symbol: '\\text{AC}', meaning: 'Allele count: chromosomes observed carrying the alternate allele', dims: 'count' },
+    { symbol: '\\text{AN}', meaning: 'Allele number: chromosomes successfully genotyped at the site', dims: 'count; 2× individuals for autosomes' },
+    { symbol: '\\text{AF}', meaning: 'Allele frequency, AC / AN', dims: 'in [0,1]' },
+    { symbol: '\\text{grpmax}', meaning: 'The highest AF across genetic ancestry groups (formerly popmax)', dims: 'in [0,1]' },
+    { symbol: '\\text{AF}_{\\max}', meaning: 'Maximum credible AF a causal variant could have', dims: 'in [0,1]' },
+    { symbol: 'p', meaning: 'Disease prevalence in the population', dims: 'in (0,1)' },
+    { symbol: '\\text{MAC}', meaning: 'Maximum allelic contribution: fraction of cases from one variant', dims: 'in (0,1]' },
+    { symbol: '\\text{MGC}', meaning: 'Maximum genetic contribution: fraction of cases from one gene', dims: 'in (0,1]' },
+    { symbol: 'f', meaning: 'Penetrance: probability a carrier is affected', dims: 'in (0,1]' },
+  ]}
+/>
+
+## The resources
+
+**<Dataset id="gnomad" version />** is the reference by default, and the reason is the
+denominator: 807,162 individuals is enough AN to make "absent" mean something. The lineage
+runs from ExAC's 60,706 exomes <Citation id="lek2016exac" /> through gnomAD v2's 141,456
+<Citation id="karczewski2020" /> to here — an order of magnitude roughly every five years,
+and each one moved the frequency floor down with it. Two features
+of v4 matter in practice.
+
+*Joint call sets.* Exomes and genomes are called separately and reported together, so a
+site covered in one and not the other does not silently lose callability — the AN reflects
+who was actually genotyped there, not who was in the cohort <Citation id="chen2024constraint" />.
+
+*The non-UK-Biobank subset.* gnomAD v4 incorporates UK Biobank exomes. If you evaluate a
+model or a polygenic score on UK Biobank and filter with gnomAD, the same samples are on
+both sides. The subset exists to break that, and it is the kind of leakage that produces a
+result nobody can reproduce.
+
+**<Dataset id="allofus" />** is the complement: fewer genomes, but deliberately over-sampling
+populations that earlier cohorts under-represented, and linked to longitudinal health records
+<Citation id="allofus2024" />. Access is controlled — analysis happens inside the Researcher
+Workbench and the data does not leave it, which is a design constraint on your pipeline, not
+a footnote.
+
+**<Dataset id="thousand-genomes" />** stopped being a useful frequency reference years ago;
+2,504 individuals cannot measure what a million can. It remains the default LD and phasing
+panel because it is open, small enough to distribute, and everything is benchmarked against
+it <Citation id="tgp2015" />.
+
+**<Dataset id="topmed" />** is three different things wearing one name: a controlled
+dbGaP dataset, an open allele-frequency browser, and a free imputation server
+<Citation id="taliun2021" />. Which access level applies depends entirely on which one you
+need — a distinction the single word "controlled" in the table above cannot carry.
+
+**<Dataset id="hgdp" />** is small and sampled for geographic breadth rather than disease
+<Citation id="bergstrom2020" />. Its value is showing what a frequency looks like outside
+the handful of well-sequenced groups.
+
+<Callout variant="warning" title="Global AF is the wrong number to filter on">
+gnomAD reports a global AF and a per-ancestry-group AF. The global figure is dominated by
+whichever groups contributed most of the AN — historically European-ancestry samples.
+
+A variant that reached 2% by drift in one population and is absent elsewhere can have a
+global AF of $10^{-4}$: rare-looking, and completely uninformative for a patient from that
+population. **`grpmax`** — the highest frequency across ancestry groups — is the number that
+filters, because a variant common *anywhere* in healthy people is not causing a severe
+dominant disease *anywhere*.
+
+This is not a rare edge case. It is the ordinary situation for founder populations, and it
+is the mechanism by which frequency filters fail hardest on exactly the patients least
+served by the reference data.
+</Callout>
+
+## What a count actually establishes
+
+<WorkedExample
+  title="The same allele count, two denominators"
+  given={[
+    { label: 'Allele count', value: 'AC = 3 in both' },
+    { label: 'Large cohort', value: 'AN = 1,500,000' },
+    { label: 'Small cohort', value: 'AN = 6,000' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the point estimates.**
+
+$$
+\text{AF}_{\text{large}} = \frac{3}{1{,}500{,}000} = 2.000 \times 10^{-6},
+\qquad
+\text{AF}_{\text{small}} = \frac{3}{6{,}000} = 5.000 \times 10^{-4}
+$$
+
+Two hundred and fifty times apart, from the identical observation. The numerator carried no
+information about the frequency at all; the denominator carried all of it.
+
+**Step 2 — the intervals.** Using the Wilson score interval, which is the right one for a
+proportion this small:
+
+$$
+\text{large: } [6.80 \times 10^{-7},\; 5.88 \times 10^{-6}]
+\qquad
+\text{small: } [1.70 \times 10^{-4},\; 1.47 \times 10^{-3}]
+$$
+
+**Step 3 — read them.** Both intervals span the same *relative* range — about 2.6 times the
+point estimate either way, because three observations is three observations. What differs is
+where that range sits. The large cohort has established a frequency near $10^{-6}$; the small
+one has established only that the frequency is somewhere in a band that includes values a
+thousand times higher.
+
+The lesson is not that the small cohort is wrong. It is that **AC alone is not evidence**,
+and an AF quoted without its AN cannot be acted on.
+
+</WorkedExample>
+
+<Callout variant="key" title="When nothing is observed, the bound has a closed form">
+Set $k = 0$ in the Wilson interval and the algebra collapses. The centre becomes
+$\tfrac{z^2/2}{n + z^2}$ and the half-width becomes exactly the same quantity, so the lower
+bound is zero and
+
+$$
+\text{AF}_{\text{upper}} = \frac{z^2}{n + z^2} \;\approx\; \frac{z^2}{n}
+$$
+
+At 95% confidence $z^2 = 3.8415$, so seeing no carriers in $n$ chromosomes bounds the
+frequency at roughly $3.84/n$ — and nothing more. This is the "rule of three" in its exact
+form, and it is worth committing to memory: **absence in $n$ chromosomes excludes
+frequencies above about $4/n$, and says nothing whatever below that.**
+</Callout>
+
+<Figure
+  caption="Figure 1. What a zero observation excludes. The curve is the exact 95% upper bound on the allele frequency when no carriers are seen, z²/(AN + z²). A 3,000-person cohort bounds the frequency only at 6.4×10⁻⁴; gnomAD's 1.6 million chromosomes bound it at 2.4×10⁻⁶. To exclude the example disease's maximum credible frequency of 8×10⁻⁶ requires roughly 480,000 chromosomes."
+  alt="A log-log plot of the upper 95% confidence bound on allele frequency against the number of chromosomes genotyped, falling from about 1e-3 at AN of 1,000 to below 1e-6 at AN of 10 million. A dashed horizontal line marks a maximum credible frequency of 8e-6, crossed at AN of 480,000."
+>
+  <svg viewBox="0 0 640 302" width="640" height="302" font-family="inherit"><line x1="78.0" y1="28.0" x2="78.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="78.0" y1="250.0" x2="606.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="78.0" y1="250.0" x2="606.0" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="254.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1e-7</text><line x1="78.0" y1="205.6" x2="606.0" y2="205.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="209.6" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1e-6</text><line x1="78.0" y1="161.2" x2="606.0" y2="161.2" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="165.2" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1e-5</text><line x1="78.0" y1="116.8" x2="606.0" y2="116.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="120.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1e-4</text><line x1="78.0" y1="72.4" x2="606.0" y2="72.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="76.4" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1e-3</text><line x1="78.0" y1="28.0" x2="606.0" y2="28.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="32.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1e-2</text><line x1="78.0" y1="250.0" x2="78.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="78.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1k</text><line x1="210.0" y1="250.0" x2="210.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="210.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10k</text><line x1="342.0" y1="250.0" x2="342.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="342.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100k</text><line x1="474.0" y1="250.0" x2="474.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="474.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1M</text><line x1="606.0" y1="250.0" x2="606.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="606.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10M</text><line x1="78.0" y1="165.5" x2="606.0" y2="165.5" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="600.0" y="158.5" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">maximum credible AF for the example disease, 8e-6</text><path d="M78.0,46.5 L81.3,47.6 L84.6,48.7 L87.9,49.8 L91.2,50.9 L94.5,52.1 L97.8,53.2 L101.1,54.3 L104.4,55.4 L107.7,56.5 L111.0,57.6 L114.3,58.7 L117.6,59.8 L120.9,60.9 L124.2,62.0 L127.5,63.1 L130.8,64.2 L134.1,65.3 L137.4,66.5 L140.7,67.6 L144.0,68.7 L147.3,69.8 L150.6,70.9 L153.9,72.0 L157.2,73.1 L160.5,74.2 L163.8,75.3 L167.1,76.4 L170.4,77.5 L173.7,78.7 L177.0,79.8 L180.3,80.9 L183.6,82.0 L186.9,83.1 L190.2,84.2 L193.5,85.3 L196.8,86.4 L200.1,87.5 L203.4,88.6 L206.7,89.7 L210.0,90.9 L213.3,92.0 L216.6,93.1 L219.9,94.2 L223.2,95.3 L226.5,96.4 L229.8,97.5 L233.1,98.6 L236.4,99.7 L239.7,100.8 L243.0,102.0 L246.3,103.1 L249.6,104.2 L252.9,105.3 L256.2,106.4 L259.5,107.5 L262.8,108.6 L266.1,109.7 L269.4,110.8 L272.7,111.9 L276.0,113.1 L279.3,114.2 L282.6,115.3 L285.9,116.4 L289.2,117.5 L292.5,118.6 L295.8,119.7 L299.1,120.8 L302.4,121.9 L305.7,123.0 L309.0,124.1 L312.3,125.3 L315.6,126.4 L318.9,127.5 L322.2,128.6 L325.5,129.7 L328.8,130.8 L332.1,131.9 L335.4,133.0 L338.7,134.1 L342.0,135.2 L345.3,136.4 L348.6,137.5 L351.9,138.6 L355.2,139.7 L358.5,140.8 L361.8,141.9 L365.1,143.0 L368.4,144.1 L371.7,145.2 L375.0,146.3 L378.3,147.5 L381.6,148.6 L384.9,149.7 L388.2,150.8 L391.5,151.9 L394.8,153.0 L398.1,154.1 L401.4,155.2 L404.7,156.3 L408.0,157.4 L411.3,158.6 L414.6,159.7 L417.9,160.8 L421.2,161.9 L424.5,163.0 L427.8,164.1 L431.1,165.2 L434.4,166.3 L437.7,167.4 L441.0,168.5 L444.3,169.7 L447.6,170.8 L450.9,171.9 L454.2,173.0 L457.5,174.1 L460.8,175.2 L464.1,176.3 L467.4,177.4 L470.7,178.5 L474.0,179.6 L477.3,180.8 L480.6,181.9 L483.9,183.0 L487.2,184.1 L490.5,185.2 L493.8,186.3 L497.1,187.4 L500.4,188.5 L503.7,189.6 L507.0,190.7 L510.3,191.9 L513.6,193.0 L516.9,194.1 L520.2,195.2 L523.5,196.3 L526.8,197.4 L530.1,198.5 L533.4,199.6 L536.7,200.7 L540.0,201.8 L543.3,203.0 L546.6,204.1 L549.9,205.2 L553.2,206.3 L556.5,207.4 L559.8,208.5 L563.1,209.6 L566.4,210.7 L569.7,211.8 L573.0,212.9 L576.3,214.1 L579.6,215.2 L582.9,216.3 L586.2,217.4 L589.5,218.5 L592.8,219.6 L596.1,220.7 L599.4,221.8 L602.7,222.9 L606.0,224.0" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="431.9" cy="165.5" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="431.9" y="185.5" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">AN = 480,000</text><line x1="180.7" y1="81.0" x2="180.7" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".28" stroke-dasharray="3 3"/><circle cx="180.7" cy="81.0" r="3.5" fill="currentColor"/><text x="189.7" y="85.0" font-size="10" fill="currentColor" text-anchor="start" opacity=".75">a 3,000-person cohort</text><line x1="501.1" y1="188.8" x2="501.1" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".28" stroke-dasharray="3 3"/><circle cx="501.1" cy="188.8" r="3.5" fill="currentColor"/><text x="501.1" y="206.8" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">gnomAD v4.1.1</text><text x="342.0" y="290.0" font-size="12" fill="currentColor" text-anchor="middle">Chromosomes genotyped, AN (log scale)</text><text x="18.0" y="139.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 18 139)">Upper 95% bound on AF when nothing is seen</text><text x="342.0" y="18.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">Seeing no carriers only excludes frequencies above this line</text></svg>
+</Figure>
+
+## Turning a disease into a threshold
+
+A frequency is only high or low relative to something. The ACMG/AMP framework
+<Citation id="richards2015" /> makes frequency a stand-alone exclusion — its BA1 criterion
+is the only one that can classify a variant benign on its own — but leaves the threshold to
+judgement. <Citation id="whiffin2017" /> made that threshold explicit: given a disease's prevalence and genetic architecture, there is a
+**maximum credible allele frequency** above which no single variant can be causal, because
+the arithmetic would require more affected people than the disease has.
+
+For a dominant (monoallelic) disorder, each affected carrier contributes one disease allele
+out of two:
+
+$$
+\text{AF}_{\max} = \frac{p \times \text{MGC} \times \text{MAC}}{2f}
+$$
+
+<WorkedExample
+  title="A filtering threshold from first principles"
+  given={[
+    { label: 'Prevalence p', value: '1 in 500' },
+    { label: 'Max genetic contribution', value: '0.20 (this gene)' },
+    { label: 'Max allelic contribution', value: '0.02 (one variant)' },
+    { label: 'Penetrance f', value: '0.50' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — substitute.**
+
+$$
+\text{AF}_{\max} = \frac{0.002 \times 0.20 \times 0.02}{2 \times 0.50}
+= \frac{8 \times 10^{-6}}{1}
+= 8.000 \times 10^{-6}
+$$
+
+**Step 2 — read it as a filter.** Any variant whose `grpmax` frequency exceeds
+$8 \times 10^{-6}$ in a reference population is too common to be a monogenic cause of this
+disease under these assumptions. That is a hard exclusion, and it is why frequency is such
+strong *exculpatory* evidence.
+
+**Step 3 — ask what it takes to apply it.** The filter compares an observed frequency to
+$8 \times 10^{-6}$. If the variant is absent, the comparison needs the upper bound to fall
+below the threshold, and by the closed form above that needs
+
+$$
+\frac{z^2}{n + z^2} < 8 \times 10^{-6}
+\quad\Longrightarrow\quad
+n > z^2\left(\frac{1}{8 \times 10^{-6}} - 1\right) \approx 480{,}000
+$$
+
+chromosomes. Below roughly half a million, "absent from the reference" simply does not
+establish the thing the filter needs. gnomAD's 1.6 million clears it comfortably; a
+population-specific cohort of a few thousand does not come close.
+
+**Step 4 — note what the threshold is not.** It excludes; it does not implicate. A variant
+below $8 \times 10^{-6}$ has passed a filter that the great majority of rare neutral variants
+also pass — every genome carries thousands of them.
+
+</WorkedExample>
+
+## Exercises
+
+<Exercise n={1} title="Read a count" difficulty="warm-up">
+
+A variant has AC = 12 and AN = 800,000. Compute the frequency and its 95% Wilson interval,
+and say whether it clears the $8 \times 10^{-6}$ threshold derived above.
+
+<div slot="solution">
+
+$$
+\text{AF} = \frac{12}{800{,}000} = 1.500 \times 10^{-5},
+\qquad
+95\% \text{ CI} = [8.58 \times 10^{-6},\; 2.62 \times 10^{-5}]
+$$
+
+The point estimate is roughly twice the threshold, and — the part that matters — the **entire
+confidence interval lies above it**. The variant is too common to be a monogenic cause of
+that disease, and the conclusion is not marginal.
+
+Had the interval straddled the threshold, the honest answer would have been that the data do
+not decide, which is a different result from "it passes".
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Absent globally, common locally" difficulty="core">
+
+A variant is absent from gnomAD's non-Finnish European samples (AN ≈ 1,200,000) but present
+at AF = 1×10⁻³ among Finnish samples (AN ≈ 40,000). The global AF is about 3×10⁻⁵. Your
+patient is Finnish. Which number should the filter use, and what does the pattern suggest?
+
+<div slot="solution">
+
+Use the **Finnish** frequency, $10^{-3}$ — which is what `grpmax` reports. Against the
+$8 \times 10^{-6}$ threshold it fails by more than two orders of magnitude, so the variant is
+excluded as a monogenic cause.
+
+The global AF of $3 \times 10^{-5}$ is an artefact of averaging: it is the Finnish carriers
+diluted by a million non-Finnish chromosomes in which the variant does not segregate. It
+describes no actual population, and using it here would have let a common local variant
+through the filter.
+
+The pattern itself — absent in a large group, appreciable in a smaller isolated one — is the
+signature of a **founder effect**: a bottleneck, then drift lifting a variant that arose once
+to appreciable frequency. Finland, Ashkenazi Jewish, Amish and French-Canadian populations
+all show it, and it is precisely why single-population reference data generalises badly.
+
+The uncomfortable corollary: this failure mode is worst for the populations with the least
+reference data, because a small AN both hides local commonness and produces a global average
+dominated by someone else.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="How much cohort would you need?" difficulty="stretch">
+
+You are studying a recessive disease with prevalence 1 in 40,000, where one gene accounts for
+at most 60% of cases and one variant for at most 10% of those, with full penetrance. For a
+biallelic disease the inheritance factor is 1 rather than 2. Derive the maximum credible
+frequency, then the AN needed to exclude it from a zero observation.
+
+<div slot="solution">
+
+**The threshold.** With $p = 2.5 \times 10^{-5}$, MGC $= 0.60$, MAC $= 0.10$, $f = 1$ and an
+inheritance factor of 1:
+
+$$
+\text{AF}_{\max} = \frac{2.5\times10^{-5} \times 0.60 \times 0.10}{1} = 1.500 \times 10^{-6}
+$$
+
+**The cohort.** From the closed form,
+
+$$
+n > z^2\left(\frac{1}{1.5 \times 10^{-6}} - 1\right)
+= 3.8415 \times (666{,}666.7 - 1)
+\approx 2.56 \times 10^{6}
+$$
+
+About **2.56 million chromosomes**, or 1.28 million individuals — more than gnomAD currently
+holds. So for this disease a zero observation in gnomAD *cannot* exclude the threshold, and
+frequency evidence simply is not available at the strength the filter assumes.
+
+That is the general shape of the problem: the rarer the disease, the lower the credible
+frequency, and the requirement on AN grows as $1/\text{AF}_{\max}$ — linearly in the
+reciprocal, which is brutal. Recessive conditions with small allelic contributions are where
+frequency evidence runs out first, and where absence genuinely means nothing.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **AN decides what AF means.** The same AC of 3 is $2\times10^{-6}$ in 1.5 million
+  chromosomes and $5\times10^{-4}$ in six thousand. Never read one without the other.
+- **A zero observation has an exact bound**, $z^2/(n + z^2) \approx 3.84/n$ at 95%. Absence
+  in $n$ chromosomes excludes frequencies above roughly $4/n$ and nothing below.
+- **Filter on `grpmax`, not the global AF.** The global figure is an average over whoever
+  contributed the AN, and it hides founder variants in exactly the populations with the least
+  reference data.
+- **A threshold comes from the disease, not the data.** Prevalence, genetic and allelic
+  contribution and penetrance give a maximum credible frequency; anything above it is
+  excluded, and anything below it has merely passed a filter thousands of neutral variants
+  also pass.
+- **Joint call sets and the non-UKB subset are not details.** One keeps callability honest;
+  the other keeps your evaluation from sharing samples with your filter.

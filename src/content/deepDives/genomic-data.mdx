@@ -1,0 +1,340 @@
+---
+title: "Genomic Data & Resources: The Evidence Layers Behind Every Variant Call"
+shortTitle: Genomic Data & Resources
+description: "A working map of the genomics resource ecosystem — reference annotation, population baselines, constraint, functional maps, clinical curation, multiplexed assays and AI benchmarks — and how a single variant acquires an interpretation by passing through all of them."
+abstract: "Interpreting one variant means assembling evidence from a dozen independent resources, each with its own coordinates, versions, access rules and failure modes. This track maps that ecosystem layer by layer: what each resource actually measures, how to get it, and — the part a link list cannot give you — how each one is routinely misread. The hub traces a single real variant, BRCA1 c.181T>G, from genomic coordinate to a classified result, and shows where every number along the way comes from."
+date: 2026-08-21
+track: resource
+hub: genomic-data
+isHub: true
+category: genomic-data
+moduleId: d00-hub
+moduleLabel: Genomic Data & Resources
+order: 0
+level: foundational
+objectives:
+  - "Name the six evidence layers a variant interpretation draws on, and say what each one can and cannot establish."
+  - "Read a variant's identity across coordinate systems — genomic, SPDI, HGVS on a MANE transcript — and say why the transcript choice matters."
+  - "Distinguish an allele frequency that is low from one that is merely unmeasured."
+  - "Explain why gene-level constraint says nothing about whether a particular missense variant is damaging."
+  - "Combine evidence from several layers into an ACMG point tally and turn that tally into a probability."
+prerequisites: []
+referenceIds:
+  - chen2024constraint
+  - karczewski2020
+  - lek2016exac
+  - morales2022mane
+  - landrum2024clinvar
+  - rehm2015clingen
+  - richards2015
+  - tavtigian2018
+  - tavtigian2020
+  - findlay2018sge
+  - esposito2019mavedb
+  - whiffin2017
+tags: [genomic data, resources, variant interpretation, gnomAD, ClinVar, ACMG]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this track answers
+
+Someone hands you a variant: chromosome 17, position 43,106,487, A changed to C. Is it a
+problem?
+
+Nothing about that string answers the question. The answer has to be assembled — from a
+gene annotation that says which transcript the position falls in, a population database
+that says how often the change is seen, a constraint metric that says whether the gene
+tolerates damage, a functional assay that says what the change does to the protein, and a
+curated archive that says what other laboratories concluded. Each of those lives in a
+different resource, with its own coordinates, versions, access rules and characteristic
+ways of being misread.
+
+This track is a map of those resources. Not a link list — the value is in what each one
+actually measures, how to get it, and where it misleads.
+
+<Callout variant="intuition">
+Think of variant interpretation as a court case rather than a lookup.
+
+No single witness decides it. The population database is an alibi witness: it can say "this
+change is common in healthy people", which is powerful *exculpatory* evidence and almost
+worthless as incriminating evidence. The functional assay is an expert witness: it says what
+the change does in a dish, which is not the same as what it does in a person. The clinical
+archive is hearsay of a useful kind — it reports what other laboratories concluded, with a
+review status telling you how much scrutiny that conclusion received.
+
+The layers are not interchangeable and they are not redundant. Each answers a question the
+others cannot, and the interpretation is the combination.
+</Callout>
+
+## The six layers
+
+<Figure
+  caption="Figure 1. The six evidence layers — reference and annotation, population frequency, gene constraint, function and assays, clinical curation, benchmarks — and what each can establish. Reading down, the layers move from identity through observation to experiment to judgement. An arrow means the lower layer depends on the one above it for coordinates or for interpretation — nothing can be looked up in a population database until the reference layer has fixed what the variant is called."
+  alt="Six stacked layers: reference and annotation at the top, then population frequency, then constraint, then functional maps and assays, then clinical curation, with benchmarks alongside. Each layer is labelled with the question it answers and the question it cannot answer."
+>
+  <svg viewBox="0 0 640 380" width="640" height="380" font-family="inherit"><text x="320.0" y="16.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">Each layer answers a question the others cannot</text><text x="250.0" y="32.0" font-size="9.5" fill="currentColor" opacity=".6" font-weight="600">ESTABLISHES</text><text x="430.0" y="32.0" font-size="9.5" fill="currentColor" opacity=".45" font-weight="600">CANNOT ESTABLISH</text><rect x="128.0" y="42.0" width="484.0" height="46.0" rx="3" fill="currentColor" opacity="0.05" stroke="currentColor" stroke-width="1"/><rect x="98.0" y="42.0" width="26.0" height="46.0" rx="3" fill="var(--color-accent, #2e6e5e)"/><text x="111.0" y="69.0" font-size="13" fill="var(--color-on-accent, #fff)" text-anchor="middle" font-weight="700">1</text><text x="142.0" y="69.0" font-size="12.5" fill="currentColor" font-weight="600">Reference</text><text x="250.0" y="69.0" font-size="10.5" fill="currentColor" opacity=".75">what the variant is called</text><text x="430.0" y="69.0" font-size="10.5" fill="currentColor" opacity=".5">whether it matters</text><rect x="128.0" y="96.0" width="484.0" height="46.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><rect x="98.0" y="96.0" width="26.0" height="46.0" rx="3" fill="var(--color-accent, #2e6e5e)"/><text x="111.0" y="123.0" font-size="13" fill="var(--color-on-accent, #fff)" text-anchor="middle" font-weight="700">2</text><text x="142.0" y="123.0" font-size="12.5" fill="currentColor" font-weight="600">Frequency</text><text x="250.0" y="123.0" font-size="10.5" fill="currentColor" opacity=".75">how often it is seen</text><text x="430.0" y="123.0" font-size="10.5" fill="currentColor" opacity=".5">why it is rare</text><rect x="128.0" y="150.0" width="484.0" height="46.0" rx="3" fill="currentColor" opacity="0.09" stroke="currentColor" stroke-width="1"/><rect x="98.0" y="150.0" width="26.0" height="46.0" rx="3" fill="var(--color-accent, #2e6e5e)"/><text x="111.0" y="177.0" font-size="13" fill="var(--color-on-accent, #fff)" text-anchor="middle" font-weight="700">3</text><text x="142.0" y="177.0" font-size="12.5" fill="currentColor" font-weight="600">Constraint</text><text x="250.0" y="177.0" font-size="10.5" fill="currentColor" opacity=".75">whether the gene tolerates LoF</text><text x="430.0" y="177.0" font-size="10.5" fill="currentColor" opacity=".5">anything about one variant</text><rect x="128.0" y="204.0" width="484.0" height="46.0" rx="3" fill="currentColor" opacity="0.11" stroke="currentColor" stroke-width="1"/><rect x="98.0" y="204.0" width="26.0" height="46.0" rx="3" fill="var(--color-accent, #2e6e5e)"/><text x="111.0" y="231.0" font-size="13" fill="var(--color-on-accent, #fff)" text-anchor="middle" font-weight="700">4</text><text x="142.0" y="231.0" font-size="12.5" fill="currentColor" font-weight="600">Function</text><text x="250.0" y="231.0" font-size="10.5" fill="currentColor" opacity=".75">what the sequence does</text><text x="430.0" y="231.0" font-size="10.5" fill="currentColor" opacity=".5">what it does in a person</text><rect x="128.0" y="258.0" width="484.0" height="46.0" rx="3" fill="currentColor" opacity="0.13" stroke="currentColor" stroke-width="1"/><rect x="98.0" y="258.0" width="26.0" height="46.0" rx="3" fill="var(--color-accent, #2e6e5e)"/><text x="111.0" y="285.0" font-size="13" fill="var(--color-on-accent, #fff)" text-anchor="middle" font-weight="700">5</text><text x="142.0" y="285.0" font-size="12.5" fill="currentColor" font-weight="600">Curation</text><text x="250.0" y="285.0" font-size="10.5" fill="currentColor" opacity=".75">what others concluded</text><text x="430.0" y="285.0" font-size="10.5" fill="currentColor" opacity=".5">a first-hand measurement</text><rect x="128.0" y="312.0" width="484.0" height="46.0" rx="3" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1"/><rect x="98.0" y="312.0" width="26.0" height="46.0" rx="3" fill="var(--color-accent, #2e6e5e)"/><text x="111.0" y="339.0" font-size="13" fill="var(--color-on-accent, #fff)" text-anchor="middle" font-weight="700">6</text><text x="142.0" y="339.0" font-size="12.5" fill="currentColor" font-weight="600">Benchmarks</text><text x="250.0" y="339.0" font-size="10.5" fill="currentColor" opacity=".75">whether a predictor works</text><text x="430.0" y="339.0" font-size="10.5" fill="currentColor" opacity=".5">the answer itself</text><line x1="86.0" y1="50.0" x2="86.0" y2="350.0" stroke="currentColor" stroke-width="1.5" opacity=".45" stroke-dasharray="5 4"/><path d="M82.0 88.0 L86.0 92.0 L90.0 88.0" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45" stroke-linecap="round"/><path d="M82.0 142.0 L86.0 146.0 L90.0 142.0" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45" stroke-linecap="round"/><path d="M82.0 196.0 L86.0 200.0 L90.0 196.0" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45" stroke-linecap="round"/><path d="M82.0 250.0 L86.0 254.0 L90.0 250.0" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45" stroke-linecap="round"/><path d="M82.0 304.0 L86.0 308.0 L90.0 304.0" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45" stroke-linecap="round"/><text x="78.0" y="200.0" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".6" transform="rotate(-90 78.0 200.0)">depends on the layer above</text></svg>
+</Figure>
+
+**1 · Reference and annotation** fixes what the variant *is*: an assembly, a coordinate, a
+transcript, and a name. Nothing else can happen first. Different transcripts give the same
+change different names, which is why <Citation id="morales2022mane" /> exists.
+
+**2 · Population baselines** say how often the change is seen in people not selected for
+disease. <Dataset id="gnomad" version /> is the reference, and the approach it inherits was
+established by ExAC <Citation id="lek2016exac" />: aggregate enough unselected exomes that
+*absence* becomes informative. The layer's whole value is negative evidence, and its
+characteristic failure is treating absence as rarity.
+
+**3 · Constraint** aggregates that frequency data up to the gene, asking whether damage to
+this gene is tolerated at all <Citation id="karczewski2020" /><Citation id="chen2024constraint" />.
+It is a property of the *gene*, not of your variant.
+
+**4 · Functional maps and assays** measure what sequence does — expression, chromatin,
+splicing, protein function. Multiplexed assays <Citation id="esposito2019mavedb" /> turn
+this from anecdote into a saturating measurement.
+
+**5 · Clinical curation** records what laboratories and expert panels concluded
+<Citation id="landrum2024clinvar" /><Citation id="rehm2015clingen" />, under a framework
+that says how evidence combines <Citation id="richards2015" />.
+
+**6 · Benchmarks** exist because everything above is now also being predicted by models,
+and a prediction is only as good as the evaluation that certified it.
+
+<DatasetTable layer="population-frequency" caption="Layer 2 — population reference baselines" />
+
+The table above is the pattern every page in this track follows: the resources of one layer,
+with the version they are at, the scale they cover, and — the column most surveys omit —
+whether you can actually get them. An `Open` resource is a download; a `Controlled` one is an
+application to a data access committee and, often, an analysis that never leaves someone
+else's cloud.
+
+<Notation
+  rows={[
+    { symbol: '\\text{AC}', meaning: 'Allele count — chromosomes observed carrying the alternate allele', dims: 'count' },
+    { symbol: '\\text{AN}', meaning: 'Allele number — chromosomes successfully genotyped at that site', dims: 'count' },
+    { symbol: '\\text{AF}', meaning: 'Allele frequency, AC / AN', dims: 'in [0,1]' },
+    { symbol: '\\text{LOEUF}', meaning: 'Upper bound of the observed/expected LoF ratio for a gene', dims: '> 0; lower is more constrained' },
+    { symbol: '\\text{pLI}', meaning: 'Probability a gene is intolerant of heterozygous LoF', dims: 'in [0,1]' },
+    { symbol: '\\text{OddsPath}', meaning: 'Likelihood ratio a piece of evidence contributes', dims: '> 0' },
+    { symbol: '\\pi_{\\text{prior}}', meaning: 'Prior probability of pathogenicity before evidence', dims: 'in (0,1)' },
+    { symbol: '\\text{MANE}', meaning: 'The transcript NCBI and EMBL-EBI agree to treat as canonical', dims: 'one per gene' },
+  ]}
+/>
+
+## One variant, all six layers
+
+<WorkedExample
+  title="BRCA1 c.181T>G, from coordinate to classification"
+  given={[
+    { label: 'Genomic (GRCh38)', value: '17-43106487-A-C' },
+    { label: 'dbSNP', value: 'rs28897672' },
+    { label: 'Retrieved', value: '2026-08-21' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+Every value below was retrieved live from the resource named, on the date given. The
+arithmetic is reproducible from the counts shown.
+
+**Layer 1 — what is it called?** The MANE Select transcript for BRCA1 is
+`ENST00000357654` / `NM_007294.4` <Citation id="morales2022mane" />. On it the change is
+`c.181T>G`, `p.Cys61Gly`. The genomic allele is A→C while the coding change is T→G because
+BRCA1 is transcribed from the minus strand — the first place a trace like this goes wrong.
+gnomAD annotates this position against **25** BRCA1 transcripts; they agree here, and on
+many variants they do not.
+
+**Layer 2 — how often is it seen?** In <Dataset id="gnomad" version />, exomes and genomes
+are called separately and reported jointly:
+
+$$
+\text{exomes: } \tfrac{25}{1{,}452{,}604} \qquad
+\text{genomes: } \tfrac{5}{152{,}214} \qquad
+\text{joint: } \text{AF} = \frac{30}{1{,}604{,}818} = 1.8694 \times 10^{-5}
+$$
+
+with a 95% Wilson interval of $[1.310, 2.669] \times 10^{-5}$. Rare — and *measured* to be
+rare, which is the distinction the next layer down depends on.
+
+**Layer 3 — does the gene tolerate damage?** BRCA1 has 140 observed loss-of-function
+variants against 173.66 expected, so $o/e = 0.806$. The published LOEUF is **0.928**, and
+you can recompute it: it is the upper bound of the 90% interval on that ratio, which from
+those counts is $0.9276$.
+
+$$
+\text{LOEUF} = \frac{\text{upper 90\% bound on } o}{e} = \frac{161.08}{173.66} = 0.928
+$$
+
+A LOEUF near 1 means **no detectable depletion of LoF variants**, and pLI is
+$5.5\times10^{-38}$ — as close to zero as the metric goes.
+
+<Callout variant="warning" title="BRCA1 is not LoF-constrained, and that is not a mistake">
+The most famous cancer gene in medicine scores as entirely LoF-tolerant. That is correct,
+and it is the single most instructive fact on this page.
+
+Constraint metrics measure **selection in the general population**. BRCA1 heterozygotes are
+born, live and reproduce; the cancer risk acts decades later, largely after reproduction.
+Selection barely sees it. LOEUF is blind to exactly the class of disease — late-onset,
+dominant, incompletely penetrant — that dominates clinical genetics.
+
+So a low LOEUF is evidence a gene matters; a high LOEUF is **not** evidence it does not. And
+neither says anything about a specific missense variant, because the metric is computed from
+loss-of-function variants only.
+</Callout>
+
+**Layer 4 — what does the change do?** Cys61 is a zinc-coordinating residue of the BRCA1
+RING domain. Saturation genome editing <Citation id="findlay2018sge" /> measured every
+possible single-nucleotide variant across the RING and BRCT domains in their endogenous
+context — exon 5, which contains c.181, is inside that window. This is the layer that
+supplies experimental rather than inferential evidence.
+
+**Layer 5 — what did others conclude?** ClinVar <Citation id="landrum2024clinvar" /> holds
+this as `VCV000017661`, classified **Pathogenic**, review status *reviewed by expert panel*
+— the ENIGMA panel, evaluated 2015-08-10. Review status is not decoration: it is the
+difference between one laboratory's opinion and a panel's adjudication.
+
+**Combining it.** The ACMG/AMP framework <Citation id="richards2015" /> assigns evidence
+strengths, and the Bayesian reading of it <Citation id="tavtigian2018" /> makes those
+strengths multiplicative likelihood ratios; the point system <Citation id="tavtigian2020" />
+is the arithmetic form. An illustrative tally for this variant:
+
+| Criterion | Evidence | Strength | Points |
+|---|---|---|---|
+| PS3 | Functional assay shows loss of function | Strong | 4 |
+| PS4 | Enriched in affected individuals | Strong | 4 |
+| PM2_Supporting | AF = 1.9×10⁻⁵, far below the disease allele frequency | Supporting | 1 |
+| PP3 | Computational agreement (REVEL 0.948, phyloP 6.32) | Supporting | 1 |
+| | | **Total** | **10** |
+
+With a prior of $0.10$ and one very strong criterion worth 350:1, ten points give
+
+$$
+\text{OddsPath} = 350^{10/8} = 1514, \qquad
+P = \frac{1514 \times 0.10}{1513 \times 0.10 + 1} = 0.9941
+$$
+
+Above the 0.99 threshold: **Pathogenic**, consistent with the expert panel. The criteria
+assignment here is illustrative of how the layers combine; the resource values and the
+arithmetic are real.
+
+</WorkedExample>
+
+<Callout variant="key" title="What each layer can and cannot do">
+- **Frequency is powerful exculpatory evidence and weak incriminating evidence.** A variant
+  at 5% in healthy adults is not causing a severe dominant disease. A variant at
+  $10^{-5}$ is consistent with pathogenic *and* with being an ordinary rare neutral variant,
+  of which every genome carries thousands <Citation id="whiffin2017" />.
+- **Constraint is a gene-level property** derived from LoF variants. It cannot speak to a
+  missense variant, and it is blind to late-onset disease.
+- **Functional assays measure a phenotype in a dish**, chosen by the experimenter. Their
+  strength depends entirely on how well that readout was calibrated against known variants.
+- **Curation is evidence about evidence.** Its unit of trust is the review status.
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Absent, or just unobserved?" difficulty="warm-up">
+
+You look up the same variant in a cohort of 2,500 individuals (AN = 5,000) and find no
+carriers. Compute the frequency estimate and the upper bound of its 95% Wilson interval.
+What can you conclude?
+
+<div slot="solution">
+
+The point estimate is $0/5{,}000 = 0$. The Wilson upper bound is
+
+$$
+7.677 \times 10^{-4}
+$$
+
+That is **41 times higher** than the frequency measured in gnomAD's 1.6 million
+chromosomes. Seeing nothing in 5,000 chromosomes is entirely compatible with a frequency
+forty times the true one.
+
+So the conclusion is not "this variant is absent from this population" but "this cohort
+cannot measure frequencies below about $10^{-3}$". Absence of evidence, at this sample
+size, is very nearly no evidence. That is why ACMG's PM2 criterion is now applied at
+*Supporting* strength rather than *Moderate*: the observation is much weaker than its
+apparent decisiveness suggests.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Does a high LOEUF exonerate a gene?" difficulty="core">
+
+BRCA1 has LOEUF 0.928 and pLI ≈ 0 — statistically indistinguishable from a gene under no
+constraint on loss of function. A colleague concludes that BRCA1 LoF variants are therefore
+unlikely to be disease-causing. Where is the error?
+
+<div slot="solution">
+
+Two errors, one about the metric and one about the disease.
+
+**The metric.** Constraint quantifies depletion of LoF variants relative to a mutational
+expectation, i.e. the strength of *purifying selection* on the gene in the general
+population. It is an evolutionary measurement, not a clinical one.
+
+**The disease.** Selection acts on reproductive fitness. Hereditary breast and ovarian
+cancer is late-onset, incompletely penetrant, and largely post-reproductive. A BRCA1 LoF
+carrier's expected number of offspring is close to unaffected — so there is almost nothing
+for selection to deplete, and the metric correctly reports almost no depletion.
+
+The general rule: **constraint is informative when it is low, and uninformative when it is
+high.** A low LOEUF says damage to this gene is selected against, which is evidence a
+disruptive variant matters. A high LOEUF is consistent with a gene that is unimportant *or*
+with one whose importance selection cannot see — and those two cannot be distinguished from
+the metric alone.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="How much does one criterion move the verdict?" difficulty="stretch">
+
+In the tally above, suppose the functional evidence is judged Moderate rather than Strong —
+the assay was not calibrated against enough known-pathogenic controls to justify full
+weight. Recompute the total, the posterior and the classification.
+
+<div slot="solution">
+
+PS3 drops from Strong (4 points) to Moderate (2), so the total falls from 10 to 8:
+
+$$
+\text{OddsPath} = 350^{8/8} = 350, \qquad
+P = \frac{350 \times 0.10}{349 \times 0.10 + 1} = 0.9749
+$$
+
+That is below the 0.99 threshold for Pathogenic and above the 0.90 threshold for Likely
+pathogenic — the variant is reclassified as **Likely pathogenic**.
+
+Two points to take from this. First, the point system is deliberately steep near the
+thresholds: a single step in one criterion's strength is enough to change the reported
+class, which is why assay calibration is a first-order concern rather than a technical
+footnote. Second, "Likely pathogenic" is not a hedge — it is a specific claim that the
+posterior lies in $[0.90, 0.99)$, and it carries the same clinical management implications
+as Pathogenic in most guidelines.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Six layers, each answering a question the others cannot.** Identity, then frequency,
+  then gene-level constraint, then function, then curation, with benchmarks certifying the
+  predictions that increasingly stand in for all of it.
+- **The reference layer comes first and is not a formality.** A variant has no name until a
+  transcript is chosen, and the same change has different names on different transcripts.
+- **Frequency exonerates far more readily than it incriminates**, and a frequency measured
+  on a small AN is not a frequency at all — it is an upper bound.
+- **Gene constraint is not variant evidence.** BRCA1's LOEUF of 0.928 is correct and says
+  nothing about c.181T>G, because selection cannot see a disease that acts after
+  reproduction.
+- **The layers combine multiplicatively**, and the ACMG point system is the arithmetic that
+  makes that combination explicit: ten points is a posterior of 0.994, and losing one step
+  of one criterion moves the variant a whole class.

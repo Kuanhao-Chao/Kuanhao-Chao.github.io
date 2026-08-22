@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  expectedR2, falconerACE, ldHalfLife, ldMeasures, liabilityScale,
-  normalPdf, normalQuantile, sampleSizeForR2, shrinkageFactor,
+  acmgClassify, acmgPosterior, expectedR2, falconerACE, ldHalfLife, ldMeasures,
+  liabilityScale, normalPdf, normalQuantile, oeUpperBound, poissonCI,
+  sampleSizeForR2, shrinkageFactor, wilsonInterval,
 } from './deepDiveMath.ts';
 
 /**
@@ -359,6 +360,201 @@ describe('statgen-polygenic-risk-scores', () => {
       expect(mdx).toContain(' = 0.50</text>');
       expect(mdx).toContain('2M → half the ceiling');
       expect(mdx).toContain('8M → 80% of it');
+    });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Genomic data & resources track
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('genomic-data (hub)', () => {
+  const mdx = lesson('genomic-data');
+
+  // Retrieved live from gnomAD v4.1.1 on 2026-08-21 for 17-43106487-A-C (rs28897672),
+  // BRCA1 c.181T>G p.Cys61Gly. Recorded here so the page and the test share one source.
+  const EXOME = { ac: 25, an: 1_452_604 };
+  const GENOME = { ac: 5, an: 152_214 };
+  const BRCA1_LOF = { observed: 140, expected: 173.65795480634046 };
+
+  describe('the variant trace', () => {
+    it('sums the exome and genome call sets to the joint frequency', () => {
+      const ac = EXOME.ac + GENOME.ac;
+      const an = EXOME.an + GENOME.an;
+      expect(ac).toBe(30);
+      expect(an).toBe(1_604_818);
+      expect(ac / an).toBeCloseTo(1.8694e-5, 9);
+      expect(mdx).toContain('1.8694 \\times 10^{-5}');
+      expect(mdx).toContain('{30}{1{,}604{,}818}');
+    });
+
+    it('brackets it with the Wilson interval the page quotes', () => {
+      const w = wilsonInterval(30, 1_604_818);
+      expect(w.lower).toBeCloseTo(1.31e-5, 7);
+      expect(w.upper).toBeCloseTo(2.669e-5, 7);
+      expect(mdx).toContain('[1.310, 2.669] \\times 10^{-5}');
+    });
+
+    it("reproduces gnomAD's published LOEUF from the raw counts", () => {
+      // The strongest check on this page: our own Garwood bound, computed from gnomAD's
+      // observed and expected LoF counts, must land on the LOEUF gnomAD publishes (0.928).
+      const oe = BRCA1_LOF.observed / BRCA1_LOF.expected;
+      expect(oe).toBeCloseTo(0.806, 3);
+      expect(poissonCI(BRCA1_LOF.observed, 0.9).upper).toBeCloseTo(161.08, 2);
+      expect(oeUpperBound(BRCA1_LOF.observed, BRCA1_LOF.expected)).toBeCloseTo(0.9276, 4);
+      expect(mdx).toContain('o/e = 0.806');
+      expect(mdx).toContain('\\frac{161.08}{173.66} = 0.928');
+    });
+
+    it('turns ten ACMG points into a pathogenic posterior', () => {
+      expect(350 ** (10 / 8)).toBeCloseTo(1513.86, 2);
+      expect(acmgPosterior(10)).toBeCloseTo(0.9941, 4);
+      expect(acmgClassify(10)).toBe('pathogenic');
+      expect(mdx).toContain('350^{10/8} = 1514');
+      expect(mdx).toContain('= 0.9941');
+    });
+
+    it('adds its evidence table to exactly ten points', () => {
+      expect(4 + 4 + 1 + 1).toBe(10); // PS3 + PS4 + PM2_Supporting + PP3
+      expect(mdx).toContain('**10**');
+    });
+  });
+
+  describe('exercise 1 — absent, or just unobserved', () => {
+    it('bounds a zero observation in 5,000 chromosomes at 7.677e-4', () => {
+      const w = wilsonInterval(0, 5000);
+      expect(w.lower).toBe(0);
+      expect(w.upper).toBeCloseTo(7.677e-4, 7);
+      expect(mdx).toContain('7.677 \\times 10^{-4}');
+    });
+
+    it('makes that bound 41 times the measured frequency', () => {
+      const ratio = wilsonInterval(0, 5000).upper / (30 / 1_604_818);
+      expect(Math.round(ratio)).toBe(41);
+      expect(mdx).toContain('41 times higher');
+    });
+  });
+
+  describe('exercise 3 — one criterion downgraded', () => {
+    it('drops the variant a class when PS3 becomes moderate', () => {
+      expect(350 ** (8 / 8)).toBeCloseTo(350, 12);
+      expect(acmgPosterior(8)).toBeCloseTo(0.9749, 4);
+      expect(acmgClassify(8)).toBe('likely-pathogenic');
+      expect(acmgClassify(10)).toBe('pathogenic');
+      expect(mdx).toContain('350^{8/8} = 350');
+      expect(mdx).toContain('= 0.9749');
+    });
+  });
+});
+
+describe('data-population-frequency', () => {
+  const mdx = lesson('data-population-frequency');
+  const Z2 = normalQuantile(0.975) ** 2;
+
+  describe('worked example — the same count, two denominators', () => {
+    it('puts identical numerators 250-fold apart', () => {
+      expect(3 / 1_500_000).toBeCloseTo(2.0e-6, 12);
+      expect(3 / 6_000).toBeCloseTo(5.0e-4, 12);
+      expect((3 / 6_000) / (3 / 1_500_000)).toBeCloseTo(250, 9);
+      expect(mdx).toContain('= 2.000 \\times 10^{-6}');
+      expect(mdx).toContain('= 5.000 \\times 10^{-4}');
+    });
+
+    it('quotes both Wilson intervals correctly', () => {
+      const big = wilsonInterval(3, 1_500_000);
+      const small = wilsonInterval(3, 6_000);
+      expect(big.lower).toBeCloseTo(6.802e-7, 9);
+      expect(big.upper).toBeCloseTo(5.881e-6, 8);
+      expect(small.lower).toBeCloseTo(1.701e-4, 6);
+      expect(small.upper).toBeCloseTo(1.469e-3, 5);
+      expect(mdx).toContain('[6.80 \\times 10^{-7},\\; 5.88 \\times 10^{-6}]');
+      expect(mdx).toContain('[1.70 \\times 10^{-4},\\; 1.47 \\times 10^{-3}]');
+    });
+
+    it('gives both the same relative width, because three observations is three observations', () => {
+      const rel = (k: number, n: number) => {
+        const w = wilsonInterval(k, n);
+        return (w.upper - w.lower) / (k / n);
+      };
+      expect(rel(3, 1_500_000)).toBeCloseTo(rel(3, 6_000), 2);
+      expect(rel(3, 1_500_000)).toBeCloseTo(2.6, 1);
+    });
+  });
+
+  describe('the zero-observation closed form', () => {
+    it('equals z²/(n + z²) exactly, at every denominator', () => {
+      for (const n of [1_000, 5_000, 100_000, 480_179, 1_604_818, 10_000_000]) {
+        expect(wilsonInterval(0, n).upper).toBeCloseTo(Z2 / (n + Z2), 15);
+      }
+      expect(Z2).toBeCloseTo(3.8415, 4);
+      expect(mdx).toContain('\\frac{z^2}{n + z^2}');
+      expect(mdx).toContain('z^2 = 3.8415');
+    });
+
+    it('is the rule of three: absence in n excludes about 4/n and nothing below', () => {
+      // 3.84/n is within a few percent of the exact bound once n is large
+      for (const n of [10_000, 1_000_000]) {
+        expect(wilsonInterval(0, n).upper / (Z2 / n)).toBeCloseTo(1, 3);
+      }
+    });
+  });
+
+  describe('worked example — a filtering threshold from first principles', () => {
+    const maxAF = (p: number, mgc: number, mac: number, f: number, inheritance: number) =>
+      (p * mgc * mac) / (inheritance * f);
+
+    it('gives 8.000e-6 for the dominant example', () => {
+      expect(maxAF(1 / 500, 0.2, 0.02, 0.5, 2)).toBeCloseTo(8.0e-6, 12);
+      expect(mdx).toContain('= 8.000 \\times 10^{-6}');
+    });
+
+    it('needs about 480,000 chromosomes to exclude it from a zero observation', () => {
+      const n = Z2 * (1 / 8.0e-6 - 1);
+      expect(n).toBeCloseTo(480_179, 0);
+      expect(Math.round(n / 10_000) * 10_000).toBe(480_000);
+      // and the bound at that n really does meet the threshold
+      expect(wilsonInterval(0, Math.ceil(n)).upper).toBeLessThanOrEqual(8.0e-6);
+      expect(mdx).toContain('480{,}000');
+    });
+
+    it('clears the threshold with gnomAD but not with a small cohort', () => {
+      expect(wilsonInterval(0, 1_604_818).upper).toBeLessThan(8.0e-6);
+      expect(wilsonInterval(0, 6_000).upper).toBeGreaterThan(8.0e-6);
+    });
+  });
+
+  describe('exercise 1 — read a count', () => {
+    it('puts the whole interval above the threshold', () => {
+      const w = wilsonInterval(12, 800_000);
+      expect(12 / 800_000).toBeCloseTo(1.5e-5, 12);
+      expect(w.lower).toBeCloseTo(8.581e-6, 8);
+      expect(w.upper).toBeCloseTo(2.622e-5, 7);
+      expect(w.lower).toBeGreaterThan(8.0e-6); // the point of the exercise
+      expect(mdx).toContain('= 1.500 \\times 10^{-5}');
+      expect(mdx).toContain('[8.58 \\times 10^{-6},\\; 2.62 \\times 10^{-5}]');
+    });
+  });
+
+  describe('exercise 3 — a recessive disease', () => {
+    it('gives a maximum credible frequency of 1.500e-6', () => {
+      expect((2.5e-5 * 0.6 * 0.1) / 1).toBeCloseTo(1.5e-6, 15);
+      expect(mdx).toContain('= 1.500 \\times 10^{-6}');
+    });
+
+    it('needs 2.56 million chromosomes, more than gnomAD holds', () => {
+      const n = Z2 * (1 / 1.5e-6 - 1);
+      expect(n / 1e6).toBeCloseTo(2.56, 2);
+      expect(n).toBeGreaterThan(1_604_818); // beyond gnomAD v4.1.1
+      expect(mdx).toContain('2.56 \\times 10^{6}');
+    });
+  });
+
+  describe('figure 1 — labels match the mathematics', () => {
+    it('draws the threshold and the crossing point the prose derives', () => {
+      expect(mdx).toContain('8e-6');
+      expect(mdx).toContain('AN = 480,000');
+      expect(mdx).toContain('gnomAD v4.1.1');
+      expect(mdx).toContain('a 3,000-person cohort');
     });
   });
 });

@@ -1371,9 +1371,17 @@
 .dd-datatable__scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .dd-datatable__table {
   width: 100%;
+  /* Without a floor the browser starves the name column to feed `scale`, wrapping
+     "1000 Genomes Project" over five lines. The scroll container above handles the
+     narrow viewports this creates. */
+  min-width: 34rem;
   border-collapse: collapse;
   font-size: var(--fs-small, 0.9375rem);
 }
+.dd-datatable__table th:nth-child(1) { width: 24%; }
+.dd-datatable__table th:nth-child(2) { width: 17%; }
+.dd-datatable__table th:nth-child(3) { width: 47%; }
+.dd-datatable__table th:nth-child(4) { width: 12%; }
 .dd-datatable__table th,
 .dd-datatable__table td {
   padding: 0.55rem var(--space-4, 1rem);
@@ -1390,14 +1398,14 @@
   white-space: nowrap;
 }
 .dd-datatable__table tr:last-child td { border-bottom: none; }
-.dd-datatable__name { font-weight: 600; }
+.dd-datatable__name { font-weight: 600; white-space: nowrap; }
 .dd-datatable__full {
   display: block;
   font-size: 0.86em;
   color: var(--color-muted);
   margin-top: 0.1rem;
 }
-.dd-datatable__version { white-space: nowrap; color: var(--color-muted); }
+.dd-datatable__version { color: var(--color-muted); }
 
 /* Access level. Not decoration: it is whether the reader can get the data at all. */
 .dd-access {
