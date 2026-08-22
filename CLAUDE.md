@@ -146,6 +146,25 @@ Things specific to this subsystem:
   `npm run audit:datasets` checks ids resolve, URLs are live, nothing is orphaned, and the
   `verified` dates are fresh. A 403 or 429 is a warning — institutional sites block bots
   exactly as Crossref throttles.
+- **`moduleId` groups a track's pages; `order` positions them across the whole track — and the
+  two must agree.** `orderLessons` sorts on `moduleId` first, so if one module holds orders
+  4, 5, 8 while the next holds 6, 7, the prev/next pager walks 5 → 8 → 6 and "next" goes
+  backwards. `deepDives.test.ts` catches it, and the genomic-data track shipped that bug once:
+  orders had been assigned in writing order rather than by layer. Its six layers are now
+  contiguous — 1 reference, 2 population, 3 constraint, 4–8 function/assays/trait maps,
+  9–10 clinical curation, 11–12 benchmarks — and `moduleLabel` names the layer so the hub's
+  derived module map reads as the six-layer taxonomy the hub teaches.
+- **Every new lesson must be listed in `DEEP_DIVE_ORDER`** (`src/data/deepDives.ts`), which is
+  the one catalog fact the collection cannot supply. A missing entry fails the suite rather
+  than silently dropping the card.
+- **A lone backslash in a quoted assertion is not what it looks like.** In a JS single-quoted
+  string `'\;'` is `;`, and in a JSX prop the same collapse happens — so `symbol: 'p_1,\; p_2'`
+  renders as `p_1,; p_2` and `toContain('[5.49,\; 19.68]')` searches for text no lesson
+  contains. Worse, a mangled search string can *pass* where the mangled text happens to occur,
+  testing nothing. Two guards exist because this cost four separate fixes: the contract's
+  `escapes LaTeX backslashes inside JSX notation strings` for MDX, and a self-check in
+  `deepDiveExamples.test.ts` requiring every backslash run inside a `toContain('…')` to be
+  even, except where it escapes the closing quote.
 - **`isHub: true` makes a collection entry its track's landing page**: the back-link goes to
   `/deep_dives/` instead of to itself, and the page ends with a module map derived from its
   siblings rather than a prev/next pager. That is the "hub as a real syllabus" mechanism,
