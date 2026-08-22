@@ -339,3 +339,83 @@ bergstrom2020:
   venue: "Science 367"
   doi: https://doi.org/10.1126/science.aay5012
   verified: 2026-08-21
+
+lek2016exac:
+  authors: ['Exome Aggregation Consortium', 'Monkol Lek', 'Konrad J. Karczewski', 'et al.']
+  year: 2016
+  title: "Analysis of protein-coding genetic variation in 60,706 humans"
+  venue: "Nature 536:285-291"
+  doi: https://doi.org/10.1038/nature19057
+  verified: 2026-08-21
+
+whiffin2017:
+  authors: ['Nicola Whiffin', 'Eric Minikel', 'Roddy Walsh', 'et al.']
+  year: 2017
+  title: "Using high-resolution variant frequencies to empower clinical genome interpretation"
+  venue: "Genetics in Medicine 19:1151-1158"
+  doi: https://doi.org/10.1038/gim.2017.26
+  verified: 2026-08-21
+
+richards2015:
+  authors: ['Sue Richards', 'Nazneen Aziz', 'Sherri Bale', 'et al.']
+  year: 2015
+  title: "Standards and guidelines for the interpretation of sequence variants: a joint consensus recommendation of the American College of Medical Genetics and Genomics and the Association for Molecular Pathology"
+  venue: "Genetics in Medicine 17:405-424"
+  doi: https://doi.org/10.1038/gim.2015.30
+  verified: 2026-08-21
+
+tavtigian2018:
+  authors: ['Sean V. Tavtigian', 'Marc S. Greenblatt', 'Steven M. Harrison', 'et al.']
+  year: 2018
+  title: "Modeling the ACMG/AMP variant classification guidelines as a Bayesian classification framework"
+  venue: "Genetics in Medicine 20:1054-1060"
+  doi: https://doi.org/10.1038/gim.2017.210
+  verified: 2026-08-21
+
+tavtigian2020:
+  authors: ['Sean V. Tavtigian', 'Steven M. Harrison', 'Kenneth M. Boucher', 'Leslie G. Biesecker']
+  year: 2020
+  title: "Fitting a naturally scaled point system to the ACMG/AMP variant classification guidelines"
+  venue: "Human Mutation 41:1734-1737"
+  doi: https://doi.org/10.1002/humu.24088
+  verified: 2026-08-21
+
+rehm2015clingen:
+  authors: ['Heidi L. Rehm', 'Jonathan S. Berg', 'Lisa D. Brooks', 'et al.']
+  year: 2015
+  title: "ClinGen — The Clinical Genome Resource"
+  venue: "New England Journal of Medicine 372:2235-2242"
+  doi: https://doi.org/10.1056/NEJMsr1406261
+  verified: 2026-08-21
+
+landrum2024clinvar:
+  authors: ['Melissa J Landrum', 'Shanmuga Chitipiralla', 'Kuljeet Kaur', 'et al.']
+  year: 2024
+  title: "ClinVar: updates to support classifications of both germline and somatic variants"
+  venue: "Nucleic Acids Research 53:D1313-D1321"
+  doi: https://doi.org/10.1093/nar/gkae1090
+  verified: 2026-08-21
+
+morales2022mane:
+  authors: ['Joannella Morales', 'Shashikant Pujar', 'Jane E. Loveland', 'et al.']
+  year: 2022
+  title: "A joint NCBI and EMBL-EBI transcript set for clinical genomics and research"
+  venue: "Nature 604:310-315"
+  doi: https://doi.org/10.1038/s41586-022-04558-8
+  verified: 2026-08-21
+
+findlay2018sge:
+  authors: ['Gregory M. Findlay', 'Riza M. Daza', 'Beth Martin', 'et al.']
+  year: 2018
+  title: "Accurate classification of BRCA1 variants with saturation genome editing"
+  venue: "Nature 562:217-222"
+  doi: https://doi.org/10.1038/s41586-018-0461-z
+  verified: 2026-08-21
+
+esposito2019mavedb:
+  authors: ['Daniel Esposito', 'Jochen Weile', 'Jay Shendure', 'et al.']
+  year: 2019
+  title: "MaveDB: an open-source platform to distribute and interpret data from multiplexed assays of variant effect"
+  venue: "Genome Biology 20"
+  doi: https://doi.org/10.1186/s13059-019-1845-6
+  verified: 2026-08-21

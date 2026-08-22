@@ -110,10 +110,12 @@ describe('deep-dive lesson contract', () => {
     });
 
     it(`includes at least ${FLOOR.figures} figure, each with a caption and alt text`, () => {
-      const figures = count(body, /<Figure\b/g);
-      expect(figures).toBeGreaterThanOrEqual(FLOOR.figures);
-      expect(count(body, /\bcaption="/g)).toBe(figures);
-      expect(count(body, /\balt="/g)).toBe(figures);
+      // Match each <Figure …> opening tag and check inside it. Counting bare `caption="`
+      // across the body is wrong: <DatasetTable caption="…"> has one too.
+      const tags = [...body.matchAll(/<Figure\b[\s\S]*?>/g)].map((m) => m[0]);
+      expect(tags.length).toBeGreaterThanOrEqual(FLOOR.figures);
+      expect(tags.filter((t) => /\bcaption="/.test(t))).toHaveLength(tags.length);
+      expect(tags.filter((t) => /\balt="/.test(t))).toHaveLength(tags.length);
     });
 
     it(`cites at least ${FLOOR.references} references`, () => {
