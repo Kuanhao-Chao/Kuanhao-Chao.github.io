@@ -2977,3 +2977,61 @@ habier2007relationship:
   venue: "Genetics 177:2389-2397"
   doi: https://doi.org/10.1534/genetics.107.081190
   verified: 2026-08-21
+
+# ── Module 3 · Multivariate genetics & G×E ────────────────────────────────────
+
+lande1979multivariate:
+  authors: ['Russell Lande']
+  year: 1979
+  title: "QUANTITATIVE GENETIC ANALYSIS OF MULTIVARIATE EVOLUTION, APPLIED TO BRAIN:BODY SIZE ALLOMETRY"
+  venue: "Evolution 33:402-416"
+  doi: https://doi.org/10.1111/j.1558-5646.1979.tb04694.x
+  verified: 2026-08-21
+
+falconer1952environment:
+  authors: ['D. S. Falconer']
+  year: 1952
+  title: "The Problem of Environment and Selection"
+  venue: "The American Naturalist 86:293-298"
+  doi: https://doi.org/10.1086/281736
+  verified: 2026-08-21
+
+robertson1959correlation:
+  authors: ['Alan Robertson']
+  year: 1959
+  title: "The Sampling Variance of the Genetic Correlation Coefficient"
+  venue: "Biometrics 15:469"
+  doi: https://doi.org/10.2307/2527750
+  verified: 2026-08-21
+
+via1985plasticity:
+  authors: ['Sara Via', 'Russell Lande']
+  year: 1985
+  title: "GENOTYPE-ENVIRONMENT INTERACTION AND THE EVOLUTION OF PHENOTYPIC PLASTICITY"
+  venue: "Evolution 39:505-522"
+  doi: https://doi.org/10.1111/j.1558-5646.1985.tb00391.x
+  verified: 2026-08-21
+
+schluter1996leastresistance:
+  authors: ['Dolph Schluter']
+  year: 1996
+  title: "Adaptive Radiation Along Genetic Lines of Least Resistance"
+  venue: "Evolution 50:1766"
+  doi: https://doi.org/10.2307/2410734
+  verified: 2026-08-21
+
+blows2005limits:
+  authors: ['Mark W. Blows', 'Ary A. Hoffmann']
+  year: 2005
+  title: "A REASSESSMENT OF GENETIC LIMITS TO EVOLUTIONARY CHANGE"
+  venue: "Ecology 86:1371-1384"
+  doi: https://doi.org/10.1890/04-1209
+  verified: 2026-08-21
+
+kirkpatrick2009dimensions:
+  authors: ['Mark Kirkpatrick']
+  year: 2008
+  title: "Patterns of quantitative genetic variation in multiple dimensions"
+  venue: "Genetica 136:271-284"
+  doi: https://doi.org/10.1007/s10709-008-9302-6
+  verified: 2026-08-21

@@ -1,0 +1,416 @@
+---
+title: "Multivariate Genetics & G×E: Genetic Correlations, the G Matrix & Constraint"
+shortTitle: Multivariate Genetics & G×E
+description: "Why selecting on one trait moves another, the multivariate breeder's equation and the difference between a selection differential and a selection gradient, genetic constraint along g_max, and why a trait measured in two environments is two traits."
+abstract: "Traits do not evolve one at a time. A genetic correlation means that selecting on one trait drags another along with it, sometimes in the direction nobody chose — and the multivariate breeder's equation makes that precise: the response is G P⁻¹ s, which is not parallel to the selection that caused it. This lesson works one two-trait example where direct selection pushes a trait down and the genetic covariance sends it up anyway, derives the criterion under which indirect selection beats direct, and closes on the observation that unlocks G×E: a trait measured in two environments is two traits with a genetic correlation below one, so the ranking of genotypes can change between them."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m03-quantitative
+moduleLabel: Module 3 · Quantitative Genetics
+order: 8
+level: advanced
+objectives:
+  - "Define the genetic correlation and compute a correlated response to selection."
+  - "Explain why the correlated response uses h rather than h², and one h from each trait."
+  - "Distinguish the selection differential s from the selection gradient β = P⁻¹s."
+  - "Apply the multivariate breeder's equation and explain why the response is not parallel to the gradient."
+  - "Identify g_max and say what a genetic line of least resistance predicts about evolution."
+  - "Treat a trait measured in two environments as two traits, and decide when that warrants separate programmes."
+prerequisites:
+  - statgen-quantitative-genetics-selection
+relatedLessons:
+  - statgen-blup-genomic-selection
+  - statgen-heritability-greml
+keyEquations:
+  - 'CR_y = i\,h_x\,h_y\,r_g\,\sigma_{P_y}'
+  - '\Delta\bar{\mathbf{z}} = \mathbf{G}\mathbf{P}^{-1}\mathbf{s} = \mathbf{G}\boldsymbol{\beta}'
+  - '\frac{CR_y}{R_y} = r_g\,\frac{h_x}{h_y}'
+referenceIds:
+  - falconer1952environment
+  - robertson1959correlation
+  - lande1979multivariate
+  - lande1983selection
+  - via1985plasticity
+  - schluter1996leastresistance
+  - blows2005limits
+  - kirkpatrick2009dimensions
+tags: [genetic correlation, correlated response, G matrix, selection gradient, genetic constraint, GxE, reaction norm]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The previous lesson treated one trait at a time. Nothing in nature or in a breeding
+programme does.
+
+An allele that increases growth rate may also delay reproduction. A locus that raises milk
+yield may lower fertility. When the same alleles affect two traits — through pleiotropy, or
+because they sit close enough together to be inherited as a unit — the traits acquire a
+**genetic correlation**, and the consequence is immediate and often unwelcome:
+
+> **A trait can respond to selection it was never selected on, and it can respond in the
+> wrong direction.**
+
+This is not an exotic case. It is the ordinary situation, and it is why dairy fertility
+declined for two decades while the industry selected hard on yield, and why a
+single-trait breeder's equation applied trait by trait gives systematically wrong answers.
+
+<Notation
+  rows={[
+    { symbol: 'r_g', meaning: 'Genetic correlation between two traits', dims: 'in [-1, 1]' },
+    { symbol: 'h_x,\\;h_y', meaning: 'Square roots of the two heritabilities — note h, not h²', dims: 'in [0,1]' },
+    { symbol: 'CR_y', meaning: 'Correlated response in y to selection applied to x', dims: 'trait-y units' },
+    { symbol: '\\mathbf{G}', meaning: 'Additive genetic variance-covariance matrix across traits', dims: 'k × k' },
+    { symbol: '\\mathbf{P}', meaning: 'Phenotypic variance-covariance matrix', dims: 'k × k' },
+    { symbol: '\\mathbf{s}', meaning: 'Selection differential: observed shift in the selected parents', dims: 'k × 1' },
+    { symbol: '\\boldsymbol{\\beta}', meaning: 'Selection gradient P⁻¹s: the direct selection on each trait', dims: 'k × 1' },
+    { symbol: '\\mathbf{g}_{\\max}', meaning: 'Leading eigenvector of G — the direction of most genetic variance', dims: 'k × 1' },
+  ]}
+/>
+
+## The correlated response
+
+Selection on trait $x$ produces a response in trait $y$:
+
+$$
+CR_y = i\,h_x\,h_y\,r_g\,\sigma_{P_y}
+$$
+
+Compare this with the single-trait $R = i\,h^2\,\sigma_P$ and one difference stands out: the
+correlated response uses **$h$, not $h^2$**, and takes one $h$ from each trait.
+
+<Callout variant="intuition" title="Why one h from each trait">
+
+Read the formula as a path the selection has to travel.
+
+Selection acts on the **phenotype** of $x$, but only the part of that phenotype which is
+breeding value gets transmitted. Getting from the phenotype of $x$ into the breeding value
+of $x$ costs a factor of $h_x$ — that is what a correlation between phenotype and breeding
+value *is*.
+
+Then $r_g$ carries it across from the breeding value of $x$ to the breeding value of $y$.
+
+Finally it has to come back **out** into the phenotype of $y$ to be measured, which costs a
+factor of $h_y$.
+
+So the journey is phenotype → breeding value → breeding value → phenotype, and it picks up
+$h_x \cdot r_g \cdot h_y$ on the way. The single-trait case is the same journey with $x = y$
+and $r_g = 1$, giving $h \cdot 1 \cdot h = h^2$ — which is where the square in the ordinary
+breeder's equation comes from. It was never a square; it was always two separate factors
+that happened to be equal.
+
+</Callout>
+
+<WorkedExample
+  title="Selecting on yield, losing fertility"
+  given={[
+    { label: 'Selected fraction', value: 'top 10%' },
+    { label: 'Heritabilities', value: 'yield 0.30, fertility 0.05' },
+    { label: 'Genetic correlation', value: 'r_g = −0.35' },
+    { label: 'σ_P for fertility', value: '10 units' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the pieces.** At the top 10%, $i = 1.754983$. The two square roots are
+
+$$
+h_{\text{yield}} = \sqrt{0.30} = 0.547723, \qquad h_{\text{fert}} = \sqrt{0.05} = 0.223607
+$$
+
+**Step 2 — the correlated response.**
+
+$$
+CR = 1.754983 \times 0.547723 \times 0.223607 \times (-0.35) \times 10 = -0.752292
+$$
+
+Fertility falls by 0.752292 units per generation, and **nobody selected on fertility at
+all**. The programme selected on yield; the genetic correlation did the rest.
+
+**Step 3 — put it in context.** If the same intensity were applied directly to fertility,
+the response would be $R = i\,h^2\,\sigma_P = 1.754983 \times 0.05 \times 10 = 0.877492$
+units per generation upward.
+
+So the damage done by ignoring the correlation is comparable in size to the progress that
+could be made by attending to it. Over twenty generations the two differ by roughly 32
+units of fertility — which is not an abstraction; it is the reason dairy fertility fell for
+two decades and why modern selection indices carry fertility explicitly.
+
+</WorkedExample>
+
+## The G matrix, and why the response is not parallel to the selection
+
+With more than two traits the bookkeeping needs matrices.
+<Citation id="lande1979multivariate" /> gave the generalisation, and
+<Citation id="lande1983selection" /> the form that is used:
+
+$$
+\Delta\bar{\mathbf{z}} = \mathbf{G}\mathbf{P}^{-1}\mathbf{s} = \mathbf{G}\boldsymbol{\beta}
+$$
+
+The step that repays attention is $\boldsymbol{\beta} = \mathbf{P}^{-1}\mathbf{s}$.
+
+The **selection differential** $\mathbf{s}$ is what you observe: how much the selected
+parents differ from the population, trait by trait. But if two traits are phenotypically
+correlated, selecting on one *automatically* shifts the observed mean of the other, whether
+or not anyone cared about it. $\mathbf{s}$ therefore mixes direct selection with the
+by-product of selection on everything else.
+
+The **selection gradient** $\boldsymbol{\beta}$ strips that out. It is the vector of partial
+regression coefficients of fitness on each trait, holding the others constant — the *direct*
+selection. Multiplying by $\mathbf{P}^{-1}$ is what performs the holding-constant.
+
+<WorkedExample
+  title="Direct selection pushes a trait down; it goes up"
+  given={[
+    { label: 'G', value: '[[40, 20], [20, 30]]' },
+    { label: 'P', value: '[[100, 30], [30, 80]]' },
+    { label: 's', value: '(10, 0) — selection applied to trait 1 only' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the selection gradient.** $\det\mathbf{P} = 100(80) - 30(30) = 7100$, so
+
+$$
+\boldsymbol{\beta} = \mathbf{P}^{-1}\mathbf{s}
+= \frac{1}{7100}\begin{pmatrix} 80 & -30 \\ -30 & 100 \end{pmatrix}
+\begin{pmatrix} 10 \\ 0 \end{pmatrix}
+= \begin{pmatrix} 0.112676 \\ -0.042254 \end{pmatrix}
+$$
+
+Look at the second entry. Nobody selected on trait 2 — $s_2 = 0$ — and yet the *direct*
+selection on it is **negative**. That is what the observed $s_2 = 0$ actually means: trait 2
+is phenotypically correlated with trait 1, so if there were no direct selection against it,
+its mean would have risen. Holding it flat required pushing it down.
+
+**Step 2 — the response.**
+
+$$
+\Delta\bar{\mathbf{z}} = \mathbf{G}\boldsymbol{\beta}
+= \begin{pmatrix} 40 & 20 \\ 20 & 30 \end{pmatrix}
+\begin{pmatrix} 0.112676 \\ -0.042254 \end{pmatrix}
+= \begin{pmatrix} 3.661972 \\ 0.985915 \end{pmatrix}
+$$
+
+**Step 3 — read the second entry again.** Direct selection on trait 2 was $-0.042254$, and
+trait 2 **increased** by $0.985915$. The genetic covariance of $+20$ dragged it up with
+trait 1, and it more than overcame the direct selection against it.
+
+Selection pushed one way and the trait went the other. Nothing is paradoxical here — $G$
+simply does not commute with anybody's intentions — but it means that a trait's observed
+trajectory says very little on its own about what was being selected.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The same two vectors, drawn. The selection gradient β points down and to the right: direct selection is positive on trait 1 and negative on trait 2. The response Δz̄ = Gβ points up and to the right, because the genetic covariance of +20 couples the two traits. The dashed line is g_max, the leading eigenvector of G, which carries 79.5 percent of the genetic variance at 38.0 degrees — and the response leans toward it. β is drawn at 26 times its true length so its direction is visible on the same axes as the response."
+  alt="A plot of change in trait 2 against change in trait 1, with two arrows from the origin. A dark arrow labelled beta points down and right to about plus 2.9, minus 1.1. A green arrow labelled delta z-bar points up and right to plus 3.66, plus 0.99. A dashed line labelled g-max runs up and to the right at 38 degrees. A note gives beta as plus 0.1127, minus 0.0423 and the response as plus 3.6620, plus 0.9859."
+  wide
+>
+<svg viewBox="0 0 640 306" width="640" height="306" font-family="inherit"><line x1="96.0" y1="46.0" x2="96.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="250.0" x2="424.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="219.4" x2="424.0" y2="219.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="223.4" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-1</text><line x1="96.0" y1="168.4" x2="424.0" y2="168.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="172.4" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="117.4" x2="424.0" y2="117.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="121.4" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">+1</text><line x1="96.0" y1="66.4" x2="424.0" y2="66.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="70.4" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">+2</text><line x1="127.7" y1="250.0" x2="127.7" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="127.7" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">-1</text><line x1="180.6" y1="250.0" x2="180.6" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="180.6" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="233.5" y1="250.0" x2="233.5" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="233.5" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">+1</text><line x1="286.5" y1="250.0" x2="286.5" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="286.5" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">+2</text><line x1="339.4" y1="250.0" x2="339.4" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="339.4" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">+3</text><line x1="392.3" y1="250.0" x2="392.3" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="392.3" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">+4</text><line x1="96.0" y1="168.4" x2="424.0" y2="168.4" stroke="currentColor" stroke-width="1" opacity=".35"/><line x1="180.6" y1="250.0" x2="180.6" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".35"/><line x1="98.6" y1="230.1" x2="343.3" y2="46.0" stroke="currentColor" stroke-width="1.6" opacity=".4" stroke-dasharray="6 4"/><text x="335.3" y="59.0" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".7" font-weight="600">g<tspan font-size="8.5" dy="3">m</tspan><tspan dy="-3"></tspan>ax</text><line x1="180.6" y1="168.4" x2="335.6" y2="224.4" stroke="currentColor" stroke-width="2.2" opacity=".85"/><line x1="335.6" y1="224.4" x2="324.7" y2="225.4" stroke="currentColor" stroke-width="2.2" opacity=".85"/><line x1="335.6" y1="224.4" x2="327.8" y2="216.7" stroke="currentColor" stroke-width="2.2" opacity=".85"/><text x="325.6" y="232.4" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">β = P⁻¹s, the direct selection</text><text x="325.6" y="246.4" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">(drawn ×26; trait 2 pushed down)</text><line x1="180.6" y1="168.4" x2="374.4" y2="118.1" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><line x1="374.4" y1="118.1" x2="365.9" y2="125.1" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><line x1="374.4" y1="118.1" x2="363.6" y2="116.2" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><circle cx="374.4" cy="118.1" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="362.4" y="99.1" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">Δz̄ = Gβ, the response</text><text x="438.0" y="74.0" font-size="11" fill="currentColor" font-weight="700">Selection pushes trait 2</text><text x="438.0" y="90.0" font-size="11" fill="currentColor" font-weight="700">down; it goes up.</text><text x="438.0" y="116.0" font-size="10" fill="currentColor" opacity=".85">β  = (+0.1127, −0.0423)</text><text x="438.0" y="130.0" font-size="10" fill="currentColor" opacity=".85">Δz̄ = (+3.6620, +0.9859)</text><text x="438.0" y="144.0" font-size="10" fill="currentColor" opacity=".85"></text><text x="438.0" y="158.0" font-size="10" fill="currentColor" opacity=".85">The genetic covariance</text><text x="438.0" y="172.0" font-size="10" fill="currentColor" opacity=".85">of +20 drags trait 2 with</text><text x="438.0" y="186.0" font-size="10" fill="currentColor" opacity=".85">trait 1 and overrides the</text><text x="438.0" y="200.0" font-size="10" fill="currentColor" opacity=".85">direct selection against</text><text x="438.0" y="214.0" font-size="10" fill="currentColor" opacity=".85">it. Response follows G,</text><text x="438.0" y="228.0" font-size="10" fill="currentColor" opacity=".85">not β.</text><text x="438.0" y="250.0" font-size="10" fill="currentColor" opacity=".75">79.5% of genetic variance</text><text x="438.0" y="263.0" font-size="10" fill="currentColor" opacity=".75">lies along g<tspan font-size="8.5" dy="3">m</tspan><tspan dy="-3"></tspan>ax (38.0°)</text><text x="260.0" y="292.0" font-size="12" fill="currentColor" text-anchor="middle">Change in trait 1</text><text x="20.0" y="148.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 148)">Change in trait 2</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">The response is not parallel to the selection that caused it</text></svg>
+</Figure>
+
+## Genetic constraint: the line of least resistance
+
+$\mathbf{G}$ has eigenvectors, and the leading one, $\mathbf{g}_{\max}$, is the direction in
+which the population carries the most additive genetic variance. In the example it lies at
+38.0° and accounts for **79.5%** of the total genetic variance across the two traits.
+
+That concentration has a consequence <Citation id="schluter1996leastresistance" /> made
+precise: populations evolve most readily along $\mathbf{g}_{\max}$, and among related
+species the directions of divergence tend to align with it. Selection in a direction where
+$\mathbf{G}$ has little variance produces almost no response, however hard it is applied.
+
+Two cautions follow. <Citation id="blows2005limits" /> points out that with many traits,
+$\mathbf{G}$ is often close to singular in some directions — there are combinations of
+traits with essentially **no** additive variance at all, and selection along them is simply
+refused. And <Citation id="kirkpatrick2009dimensions" /> makes the dimensional point: the
+number of directions in which a population can actually respond is usually far smaller than
+the number of traits measured, so counting traits overstates the room to manoeuvre.
+
+<Callout variant="warning" title="A genetic correlation is a property of a population, not a law">
+
+$r_g$ is built from $\mathbf{G}$, and $\mathbf{G}$ is built from allele frequencies. Both
+change. A correlation of $-0.35$ today is not a permanent trade-off; it is a statement about
+the alleles currently segregating.
+
+Two consequences. Selection itself erodes the correlation, because it preferentially fixes
+the pleiotropic alleles responsible for it — long-term selection experiments routinely break
+correlations that looked structural. And a correlation estimated in one population does not
+transfer to another with different allele frequencies.
+
+Sampling makes this worse. <Citation id="robertson1959correlation" /> derived the sampling
+variance of $r_g$, and it is large: genetic correlations need far more data than
+heritabilities to pin down, and a literature value quoted without a standard error should
+be treated as a hypothesis rather than a measurement.
+
+</Callout>
+
+## G×E: the same trait in two environments is two traits
+
+The final idea in this module is a change of viewpoint, and it is due to
+<Citation id="falconer1952environment" />. A trait measured in environment A and the same
+trait measured in environment B are **not one trait** — they are two traits, connected by a
+genetic correlation.
+
+If $r_g = 1$ the environments rank genotypes identically and nothing is lost by ignoring the
+distinction. If $r_g < 1$ they do not, and selecting in one environment delivers only a
+correlated response in the other — which the formula above already prices, with $h_A$,
+$h_B$ and $r_g$ in their usual places.
+
+<Figure
+  caption="Figure 2. Four genotypes measured in two environments. Non-parallel reaction norms are exactly what makes the cross-environment genetic correlation less than one; here the four pairs give r_g = 0.3739. Two of the genotypes cross: the best genotype in environment A is only third in environment B. That rank change is the strong form of G×E, and it is the form that matters, because a scale change leaves the ranking — and therefore the selection decision — intact while a rank change does not."
+  alt="A plot of genotypic value in two environments, with four lines connecting each genotype's value in environment A to its value in environment B. Two highlighted lines cross: one genotype starts highest in A at plus 1.2 and falls to plus 0.3 in B, while another starts at plus 0.4 and rises to plus 2.4, becoming the best in B."
+  wide
+>
+<svg viewBox="0 0 640 296" width="640" height="296" font-family="inherit"><line x1="112.0" y1="50.0" x2="112.0" y2="238.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="238.0" x2="372.0" y2="238.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="203.5" x2="372.0" y2="203.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="207.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-1</text><line x1="112.0" y1="165.1" x2="372.0" y2="165.1" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="169.1" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="112.0" y1="126.7" x2="372.0" y2="126.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="130.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">+1</text><line x1="112.0" y1="88.4" x2="372.0" y2="88.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="92.4" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">+2</text><line x1="112.0" y1="50.0" x2="372.0" y2="50.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="54.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">+3</text><line x1="169.8" y1="238.0" x2="169.8" y2="243.0" stroke="currentColor" stroke-width="1"/><text x="169.8" y="256.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">environment A</text><line x1="314.2" y1="238.0" x2="314.2" y2="243.0" stroke="currentColor" stroke-width="1"/><text x="314.2" y="256.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">environment B</text><line x1="169.8" y1="119.1" x2="314.2" y2="153.6" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><circle cx="169.8" cy="119.1" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="314.2" cy="153.6" r="4.2" fill="var(--color-accent, #2e6e5e)"/><line x1="169.8" y1="149.8" x2="314.2" y2="73.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><circle cx="169.8" cy="149.8" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="314.2" cy="73.0" r="4.2" fill="var(--color-accent, #2e6e5e)"/><line x1="169.8" y1="184.3" x2="314.2" y2="111.4" stroke="currentColor" stroke-width="1.8" opacity=".45"/><circle cx="169.8" cy="184.3" r="4.2" fill="currentColor" opacity=".45"/><circle cx="314.2" cy="111.4" r="4.2" fill="currentColor" opacity=".45"/><line x1="169.8" y1="207.3" x2="314.2" y2="199.6" stroke="currentColor" stroke-width="1.8" opacity=".45"/><circle cx="169.8" cy="207.3" r="4.2" fill="currentColor" opacity=".45"/><circle cx="314.2" cy="199.6" r="4.2" fill="currentColor" opacity=".45"/><text x="160.8" y="123.1" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">best in A</text><text x="323.2" y="157.6" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">only third in B</text><text x="160.8" y="153.8" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">second in A</text><text x="323.2" y="77.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">best in B</text><text x="446.0" y="74.0" font-size="11" fill="currentColor" font-weight="700">A trait measured in two</text><text x="446.0" y="90.0" font-size="11" fill="currentColor" font-weight="700">environments is two traits</text><text x="446.0" y="114.0" font-size="10" fill="currentColor" opacity=".85">related by a genetic</text><text x="446.0" y="128.0" font-size="10" fill="currentColor" opacity=".85">correlation r<tspan font-size="8.5" dy="3">g</tspan><tspan dy="-3"></tspan> < 1.</text><text x="446.0" y="142.0" font-size="10" fill="currentColor" opacity=".85"></text><text x="446.0" y="156.0" font-size="10" fill="currentColor" opacity=".85">These four genotypes give</text><text x="446.0" y="170.0" font-size="10" fill="currentColor" opacity=".85">r<tspan font-size="8.5" dy="3">g</tspan><tspan dy="-3"></tspan> = 0.3739, and two of</text><text x="446.0" y="184.0" font-size="10" fill="currentColor" opacity=".85">them change rank — the</text><text x="446.0" y="198.0" font-size="10" fill="currentColor" opacity=".85">strong form of G × E.</text><text x="446.0" y="212.0" font-size="10" fill="currentColor" opacity=".85"></text><text x="446.0" y="226.0" font-size="10" fill="currentColor" opacity=".85">Robertson: below r<tspan font-size="8.5" dy="3">g</tspan><tspan dy="-3"></tspan> ≈ 0.8</text><text x="446.0" y="240.0" font-size="10" fill="currentColor" opacity=".85">the two environments are</text><text x="446.0" y="254.0" font-size="10" fill="currentColor" opacity=".85">worth separate programmes.</text><text x="242.0" y="282.0" font-size="12" fill="currentColor" text-anchor="middle">Environment</text><text x="22.0" y="144.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 22 144)">Genotypic value</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Genotype × environment: when the ranking itself changes</text></svg>
+</Figure>
+
+A rule of thumb widely used in animal breeding and generally attributed to Robertson puts
+the practical threshold at $r_g \approx 0.8$: below it, the two environments are different
+enough that selecting separately in each is worth the cost of running two programmes.
+
+<Citation id="via1985plasticity" /> takes the same machinery in the evolutionary direction,
+treating the **reaction norm** — the function mapping environment to phenotype — as the
+thing under selection, which is how plasticity itself becomes a trait that can evolve.
+
+## Exercises
+
+<Exercise n={1} title="When is indirect selection better?" difficulty="warm-up">
+
+Trait $x$ has $h^2_x = 0.4$; trait $y$, which you actually care about, has $h^2_y = 0.2$ and
+$\sigma_{P_y} = 5$. They are correlated at $r_g = 0.6$. Selecting the top 20%,
+(a) compute the correlated response in $y$ from selecting on $x$, (b) compare it with
+selecting on $y$ directly, (c) derive the general criterion.
+
+<div slot="solution">
+
+**(a)** With $i = 1.399810$, $h_x = 0.632456$ and $h_y = 0.447214$:
+
+$$
+CR_y = 1.399810 \times 0.632456 \times 0.447214 \times 0.6 \times 5 = 1.187778
+$$
+
+**(b)** Direct selection on $y$ gives
+$R_y = i\,h^2_y\,\sigma_{P_y} = 1.399810 \times 0.2 \times 5 = 1.399810$. The indirect route
+delivers 84.9% of the direct one, so here direct selection wins.
+
+**(c)** Dividing one by the other, everything cancels except
+
+$$
+\frac{CR_y}{R_y} = \frac{i h_x h_y r_g \sigma_{P_y}}{i h_y^2 \sigma_{P_y}} = r_g\,\frac{h_x}{h_y}
+$$
+
+which is $0.6 \times 0.632456/0.447214 = 0.848528$, matching (b) exactly. **Indirect
+selection beats direct when $r_g h_x > h_y$** — here the break-even correlation is
+$h_y/h_x = 0.707107$.
+
+The criterion is why indirect selection is used at all. It wins when the correlated trait is
+much more heritable, or much cheaper or faster to measure — a juvenile trait standing in for
+an adult one, or a marker panel standing in for a slaughter measurement. The formula has no
+term for cost, so the arithmetic is only half the decision.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Selecting on both traits" difficulty="core">
+
+Using the same $\mathbf{G}$ and $\mathbf{P}$, compute $\Delta\bar{\mathbf{z}}$ for
+$\mathbf{s} = (10, 5)$ and for $\mathbf{s} = (10, -5)$. Compare both with the worked
+example's $(10, 0)$ and say what changed.
+
+<div slot="solution">
+
+| $\mathbf{s}$ | $\boldsymbol{\beta}$ | $\Delta\bar{\mathbf{z}}$ |
+| --- | --- | --- |
+| $(10, 0)$ | $(0.112676,\ -0.042254)$ | $(3.661972,\ 0.985915)$ |
+| $(10, 5)$ | $(0.091549,\ 0.028169)$ | $(4.225352,\ 2.676056)$ |
+| $(10, -5)$ | $(0.133803,\ -0.112676)$ | $(3.098592,\ -0.704225)$ |
+
+**What changed.** Adding modest positive selection on trait 2 more than doubles its response
+— and *also* increases trait 1's response, from 3.661972 to 4.225352, even though the
+selection on trait 1 is unchanged. That is the genetic covariance working in the helpful
+direction for once.
+
+The third row is the important one. To make trait 2 actually decline, the programme has to
+select against it hard enough to overcome the covariance: at $s_2 = -5$ the response finally
+turns negative, at $-0.704225$. **The sign reversal in the worked example is not
+inevitable** — it happens when direct opposition is too weak to beat the pull of the
+correlated trait, and the whole point of an index is to choose $\mathbf{s}$ knowing that.
+
+Note also that trait 1's response *falls* in the third row, to 3.098592. Fighting the
+correlation costs progress on the trait you wanted. There is no arrangement of these numbers
+in which the correlation is free.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="One programme or two?" difficulty="stretch">
+
+A trait is measured in two environments with $h^2_A = 0.35$ and $h^2_B = 0.25$, and the
+cross-environment genetic correlation is $r_g = 0.373877$, the value in Figure 2. With
+$\sigma_{P_B} = 6$ and selection at the top 20%: (a) how much progress in environment B does
+selecting in A deliver, against selecting in B directly? (b) What does the rule of thumb
+say? (c) What would make you decide otherwise?
+
+<div slot="solution">
+
+**(a)** With $h_A = 0.591608$ and $h_B = 0.5$:
+
+$$
+CR_B = 1.399810 \times 0.591608 \times 0.5 \times 0.373877 \times 6 = 0.928866
+$$
+
+against a direct response of $R_B = 1.399810 \times 0.25 \times 6 = 2.099714$. The ratio is
+$0.442377$, which is $r_g h_A/h_B$ again — selecting in A buys **44%** of the progress that
+selecting in B would.
+
+**(b)** $r_g = 0.3739$ is far below the 0.8 threshold, so the rule of thumb says the two
+environments are effectively different traits and warrant separate programmes.
+
+**(c)** Three things would change the decision, and none of them is in the formula.
+
+*Cost.* Two programmes cost roughly twice as much and each runs at half the size, which
+lowers selection intensity and raises inbreeding in both. A 44% response at full scale can
+beat a 100% response at half scale.
+
+*The precision of $r_g$ itself.* By Robertson's result the sampling variance of a genetic
+correlation is large. If 0.3739 carries a standard error of 0.15, the decision is being made
+on an estimate that is consistent with anything from 0.08 to 0.67 — and the honest first
+move is to estimate it better, not to reorganise the programme.
+
+*Which environment you are actually selling into.* If environment B is 90% of the market,
+the comparison is not between one programme and two but between selecting in the wrong
+environment and selecting in the right one.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A genetic correlation makes traits respond to selection they never received.**
+  $CR_y = i\,h_x\,h_y\,r_g\,\sigma_{P_y}$, with one $h$ from each trait because the selection
+  has to travel from a phenotype into a breeding value, across, and back out.
+- **Selecting on yield with $r_g = -0.35$ costs 0.752292 units of fertility a generation**,
+  comparable to what selecting on fertility directly would gain.
+- **$\mathbf{s}$ is what you observe; $\boldsymbol{\beta} = \mathbf{P}^{-1}\mathbf{s}$ is the
+  direct selection.** A trait under no observed selection can be under substantial direct
+  selection, and vice versa.
+- **The response is $\mathbf{G}\boldsymbol{\beta}$ and is not parallel to
+  $\boldsymbol{\beta}$.** In the worked example direct selection on trait 2 is negative and
+  the trait rises by 0.985915 anyway. It takes $s_2 = -5$ before it actually declines.
+- **Populations evolve along $\mathbf{g}_{\max}$**, which here carries 79.5% of the genetic
+  variance. Directions in which $\mathbf{G}$ is near-singular refuse selection however hard
+  it is applied.
+- **A trait in two environments is two traits.** Non-parallel reaction norms are what make
+  $r_g < 1$; rank changes are the form that matters, and below $r_g \approx 0.8$ the two
+  environments are usually worth separate programmes — subject to cost, to how precisely
+  $r_g$ is known, and to which environment you are breeding for.

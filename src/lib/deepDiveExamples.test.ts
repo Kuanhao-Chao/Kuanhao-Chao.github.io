@@ -20,6 +20,7 @@ import {
   genotypicMean, averageEffect, breedingValues, additiveVariance, dominanceVariance,
   selectionIntensity, breedersResponse, breedersResponseFromIntensity,
   hendersonMme, blupSolve, grmFromMarkers, predictionAccuracy, matVec, invert,
+  correlatedResponse, multivariateResponse,
 } from './deepDiveMath.ts';
 
 /**
@@ -1308,6 +1309,260 @@ describe('statgen-blup-genomic-selection', () => {
       const u = blupSolve(A1, lambda, [1.0]);
       expect(u[0]).toBeCloseTo(h2 * 1.0, 12);
       expect(mdx).toContain('\\hat u = h^2(y - \\mu)');
+    });
+  });
+});
+
+describe('statgen-multivariate-genetics-gxe', () => {
+  const mdx = lesson('statgen-multivariate-genetics-gxe');
+  const G = [[40, 20], [20, 30]];
+  const P = [[100, 30], [30, 80]];
+
+  describe('worked example — selecting on yield, losing fertility', () => {
+    const i = selectionIntensity(0.1);
+    const hY = Math.sqrt(0.3);
+    const hF = Math.sqrt(0.05);
+
+    it('has the two square roots the lesson prints', () => {
+      expect(i).toBeCloseTo(1.754983, 6);
+      expect(hY).toBeCloseTo(0.547723, 6);
+      expect(hF).toBeCloseTo(0.223607, 6);
+      expect(mdx).toContain('\\sqrt{0.30} = 0.547723');
+      expect(mdx).toContain('\\sqrt{0.05} = 0.223607');
+    });
+
+    it('loses 0.752292 units of fertility per generation', () => {
+      const cr = correlatedResponse(i, hY, hF, -0.35, 10);
+      expect(cr).toBeCloseTo(-0.752292, 6);
+      expect(cr).toBeLessThan(0);
+      expect(mdx).toContain('(-0.35) \\times 10 = -0.752292');
+    });
+
+    it('is comparable to what direct selection on fertility would gain', () => {
+      const direct = breedersResponseFromIntensity(0.05, i, 10);
+      expect(direct).toBeCloseTo(0.877492, 6);
+      const cr = Math.abs(correlatedResponse(i, hY, hF, -0.35, 10));
+      expect(cr / direct).toBeGreaterThan(0.8);
+      expect(cr / direct).toBeLessThan(1);
+      expect(mdx).toContain('1.754983 \\times 0.05 \\times 10 = 0.877492');
+    });
+
+    it('differs by roughly 32 units over twenty generations', () => {
+      const cr = correlatedResponse(i, hY, hF, -0.35, 10);
+      const direct = breedersResponseFromIntensity(0.05, i, 10);
+      expect(20 * (direct - cr)).toBeCloseTo(32.6, 1);
+      expect(mdx).toContain('roughly 32');
+    });
+
+    it('uses h and not h-squared — one from each trait', () => {
+      // the same call with h² substituted would give a different number
+      const withH = correlatedResponse(i, hY, hF, -0.35, 10);
+      const withH2 = correlatedResponse(i, 0.3, 0.05, -0.35, 10);
+      expect(withH).not.toBeCloseTo(withH2, 3);
+      // and the single-trait case is the same formula with x = y and r_g = 1
+      expect(correlatedResponse(i, hF, hF, 1, 10)).toBeCloseTo(
+        breedersResponseFromIntensity(0.05, i, 10), 12
+      );
+    });
+  });
+
+  describe('worked example — direct selection pushes a trait down; it goes up', () => {
+    const s2 = [10, 0];
+    const beta = solveLinear(P, s2);
+    const dz = multivariateResponse(G, P, s2);
+
+    it('has determinant 7100 and the gradient the lesson prints', () => {
+      expect(P[0][0] * P[1][1] - P[0][1] * P[1][0]).toBe(7100);
+      expect(beta[0]).toBeCloseTo(0.112676, 6);
+      expect(beta[1]).toBeCloseTo(-0.042254, 6);
+      expect(mdx).toContain('100(80) - 30(30) = 7100');
+      expect(mdx).toContain('0.112676');
+      expect(mdx).toContain('-0.042254');
+    });
+
+    it('has a negative direct selection on trait 2 despite s_2 = 0', () => {
+      expect(s2[1]).toBe(0);
+      expect(beta[1]).toBeLessThan(0);
+    });
+
+    it('gives a response of (3.661972, 0.985915)', () => {
+      expect(dz[0]).toBeCloseTo(3.661972, 6);
+      expect(dz[1]).toBeCloseTo(0.985915, 6);
+      // computed independently as G times beta
+      expect(G[1][0] * beta[0] + G[1][1] * beta[1]).toBeCloseTo(dz[1], 10);
+      expect(mdx).toContain('3.661972');
+      expect(mdx).toContain('0.985915');
+    });
+
+    it('reverses the sign: selection down, response up', () => {
+      expect(beta[1]).toBeLessThan(0);
+      expect(dz[1]).toBeGreaterThan(0);
+      expect(mdx).toContain('Selection pushed one way and the trait went the other');
+    });
+
+    it('is not parallel to the gradient', () => {
+      const cross = beta[0] * dz[1] - beta[1] * dz[0];
+      expect(Math.abs(cross)).toBeGreaterThan(0.01);
+    });
+  });
+
+  describe('figure 1 — g_max and the share of genetic variance', () => {
+    // exact 2x2 eigen-decomposition, written out rather than imported
+    const tr = G[0][0] + G[1][1];
+    const det = G[0][0] * G[1][1] - G[0][1] * G[1][0];
+    const disc = Math.sqrt(tr * tr - 4 * det);
+    const l1 = (tr + disc) / 2;
+    const l2 = (tr - disc) / 2;
+    const slope = (l1 - G[0][0]) / G[0][1];
+
+    it('has the two eigenvalues', () => {
+      expect(l1).toBeCloseTo(55.615528, 6);
+      expect(l2).toBeCloseTo(14.384472, 6);
+      expect(l1 + l2).toBeCloseTo(tr, 10);
+      expect(l1 * l2).toBeCloseTo(det, 8);
+    });
+
+    it('puts g_max at 38.0 degrees carrying 79.5% of the variance', () => {
+      expect((Math.atan(slope) * 180) / Math.PI).toBeCloseTo(37.9819, 3);
+      expect(l1 / (l1 + l2)).toBeCloseTo(0.794508, 6);
+      expect(mdx).toContain('79.5%');
+      expect(mdx).toContain('38.0°');
+    });
+
+    it('has the response leaning toward g_max, not toward beta', () => {
+      const dz = multivariateResponse(G, P, [10, 0]);
+      const beta = solveLinear(P, [10, 0]);
+      const angle = (v: number[]) => Math.atan2(v[1], v[0]);
+      const gmaxAngle = Math.atan(slope);
+      expect(Math.abs(angle(dz) - gmaxAngle)).toBeLessThan(Math.abs(angle(beta) - gmaxAngle));
+    });
+  });
+
+  describe('figure 2 — reaction norms and the cross-environment correlation', () => {
+    const NORMS: [number, number][] = [[1.2, 0.3], [0.4, 2.4], [-0.5, 1.4], [-1.1, -0.9]];
+    const mean = (v: number[]) => v.reduce((a, b) => a + b, 0) / v.length;
+    const A = NORMS.map((n) => n[0]);
+    const B = NORMS.map((n) => n[1]);
+    const mA = mean(A);
+    const mB = mean(B);
+    const cov = NORMS.reduce((acc, [a, b]) => acc + (a - mA) * (b - mB), 0) / NORMS.length;
+    const sd = (v: number[], m: number) => Math.sqrt(mean(v.map((x) => (x - m) ** 2)));
+    const rg = cov / (sd(A, mA) * sd(B, mB));
+
+    it('gives r_g = 0.3739 from the four plotted pairs', () => {
+      expect(rg).toBeCloseTo(0.373877, 6);
+      expect(mdx).toContain('r_g = 0.3739');
+    });
+
+    it('has a genuine rank reversal between the two highlighted genotypes', () => {
+      expect(A[0]).toBeGreaterThan(A[1]);   // genotype 0 beats 1 in environment A
+      expect(B[0]).toBeLessThan(B[1]);      // and loses to it in environment B
+      // and genotype 0 is best in A but only third in B
+      expect(A.filter((v) => v > A[0]).length).toBe(0);
+      expect(B.filter((v) => v > B[0]).length).toBe(2);
+      expect(mdx).toContain('only third in environment B');
+    });
+
+    it('falls below the 0.8 rule of thumb', () => {
+      expect(rg).toBeLessThan(0.8);
+      expect(mdx).toContain('r_g \\approx 0.8');
+    });
+  });
+
+  describe('exercise 1 — when is indirect selection better?', () => {
+    const i = selectionIntensity(0.2);
+    const hX = Math.sqrt(0.4);
+    const hY = Math.sqrt(0.2);
+
+    it('computes the correlated and direct responses', () => {
+      expect(i).toBeCloseTo(1.39981, 5);
+      expect(correlatedResponse(i, hX, hY, 0.6, 5)).toBeCloseTo(1.187778, 6);
+      expect(breedersResponseFromIntensity(0.2, i, 5)).toBeCloseTo(1.39981, 5);
+      expect(mdx).toContain('0.6 \\times 5 = 1.187778');
+      expect(mdx).toContain('1.399810 \\times 0.2 \\times 5 = 1.399810');
+    });
+
+    it('has a ratio equal to r_g·h_x/h_y exactly', () => {
+      const ratio = correlatedResponse(i, hX, hY, 0.6, 5) / breedersResponseFromIntensity(0.2, i, 5);
+      expect(ratio).toBeCloseTo(0.848528, 6);
+      expect(ratio).toBeCloseTo(0.6 * (hX / hY), 12);
+      expect(mdx).toContain('0.848528');
+    });
+
+    it('has a break-even correlation of h_y/h_x', () => {
+      expect(hY / hX).toBeCloseTo(0.707107, 6);
+      // at exactly break-even the two responses coincide
+      const rgStar = hY / hX;
+      expect(correlatedResponse(i, hX, hY, rgStar, 5)).toBeCloseTo(
+        breedersResponseFromIntensity(0.2, i, 5), 10
+      );
+      expect(mdx).toContain('h_y/h_x = 0.707107');
+    });
+  });
+
+  describe('exercise 2 — selecting on both traits', () => {
+    it('has the three-row table the solution prints', () => {
+      for (const [s2, b0, b1, d0, d1] of [
+        [[10, 0], 0.112676, -0.042254, 3.661972, 0.985915],
+        [[10, 5], 0.091549, 0.028169, 4.225352, 2.676056],
+        [[10, -5], 0.133803, -0.112676, 3.098592, -0.704225],
+      ] as [number[], number, number, number, number][]) {
+        const beta = solveLinear(P, s2);
+        const dz = multivariateResponse(G, P, s2);
+        expect(beta[0]).toBeCloseTo(b0, 6);
+        expect(beta[1]).toBeCloseTo(b1, 6);
+        expect(dz[0]).toBeCloseTo(d0, 6);
+        expect(dz[1]).toBeCloseTo(d1, 6);
+      }
+      for (const row of [
+        '| $(10, 0)$ | $(0.112676,\\ -0.042254)$ | $(3.661972,\\ 0.985915)$ |',
+        '| $(10, 5)$ | $(0.091549,\\ 0.028169)$ | $(4.225352,\\ 2.676056)$ |',
+        '| $(10, -5)$ | $(0.133803,\\ -0.112676)$ | $(3.098592,\\ -0.704225)$ |',
+      ]) {
+        expect(mdx).toContain(row);
+      }
+    });
+
+    it('needs s_2 = -5 before trait 2 actually declines', () => {
+      expect(multivariateResponse(G, P, [10, 0])[1]).toBeGreaterThan(0);
+      expect(multivariateResponse(G, P, [10, -5])[1]).toBeLessThan(0);
+      // a regex, not toContain: the phrase wraps across a line in the prose
+      expect(mdx).toMatch(/is not\s+inevitable/);
+    });
+
+    it('costs trait 1 progress to fight the correlation', () => {
+      const base = multivariateResponse(G, P, [10, 0])[0];
+      const fighting = multivariateResponse(G, P, [10, -5])[0];
+      const helping = multivariateResponse(G, P, [10, 5])[0];
+      expect(fighting).toBeLessThan(base);
+      expect(helping).toBeGreaterThan(base);
+      expect(mdx).toContain('falls* in the third row, to 3.098592');
+    });
+  });
+
+  describe('exercise 3 — one programme or two?', () => {
+    const i = selectionIntensity(0.2);
+    const hA = Math.sqrt(0.35);
+    const hB = Math.sqrt(0.25);
+    const RG = 0.373877;
+
+    it('delivers 44% of the direct response', () => {
+      expect(hA).toBeCloseTo(0.591608, 6);
+      expect(hB).toBeCloseTo(0.5, 12);
+      const cr = correlatedResponse(i, hA, hB, RG, 6);
+      const direct = breedersResponseFromIntensity(0.25, i, 6);
+      expect(cr).toBeCloseTo(0.928866, 6);
+      expect(direct).toBeCloseTo(2.099714, 6);
+      expect(cr / direct).toBeCloseTo(0.442377, 6);
+      expect(cr / direct).toBeCloseTo(RG * (hA / hB), 10);
+      expect(mdx).toContain('= 0.928866');
+      expect(mdx).toContain('1.399810 \\times 0.25 \\times 6 = 2.099714');
+      expect(mdx).toContain('0.442377');
+    });
+
+    it('sits far below the 0.8 threshold', () => {
+      expect(RG).toBeLessThan(0.8);
+      expect(mdx).toContain('**44%**');
     });
   });
 });

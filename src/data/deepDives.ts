@@ -86,6 +86,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'statgen-quantitative-genetics-selection',
   'statgen-heritability-greml',
   'statgen-blup-genomic-selection',
+  'statgen-multivariate-genetics-gxe',
   'statgen-association-linear-mixed-models',
   'statgen-ldsc-sldsc',
   'statgen-rare-variant-association',
