@@ -2824,3 +2824,69 @@ barton2017infinitesimal:
   venue: "Theoretical Population Biology 118:50-73"
   doi: https://doi.org/10.1016/j.tpb.2017.06.001
   verified: 2026-08-21
+
+# ── Module 2 · Pedigrees, linkage & QTL ───────────────────────────────────────
+
+wright1922coefficients:
+  authors: ['Sewall Wright']
+  year: 1922
+  title: "Coefficients of Inbreeding and Relationship"
+  venue: "The American Naturalist 56:330-338"
+  doi: https://doi.org/10.1086/279872
+  verified: 2026-08-21
+
+elston1971peeling:
+  authors: ['R. C. Elston', 'J. Stewart']
+  year: 1971
+  title: "A General Model for the Genetic Analysis of Pedigree Data"
+  venue: "Human Heredity 21:523-542"
+  doi: https://doi.org/10.1159/000152448
+  verified: 2026-08-21
+
+henderson1976inverse:
+  authors: ['C. R. Henderson']
+  year: 1976
+  title: "A Simple Method for Computing the Inverse of a Numerator Relationship Matrix Used in Prediction of Breeding Values"
+  venue: "Biometrics 32:69"
+  doi: https://doi.org/10.2307/2529339
+  verified: 2026-08-21
+
+lander1989interval:
+  authors: ['E. S. Lander', 'D Botstein']
+  year: 1989
+  title: "Mapping mendelian factors underlying quantitative traits using RFLP linkage maps."
+  venue: "Genetics 121:185-199"
+  doi: https://doi.org/10.1093/genetics/121.1.185
+  verified: 2026-08-21
+
+lander1995thresholds:
+  authors: ['Eric Lander', 'Leonid Kruglyak']
+  year: 1995
+  title: "Genetic dissection of complex traits: guidelines for interpreting and reporting linkage results"
+  venue: "Nature Genetics 11:241-247"
+  doi: https://doi.org/10.1038/ng1195-241
+  verified: 2026-08-21
+
+risch1996future:
+  authors: ['Neil Risch', 'Kathleen Merikangas']
+  year: 1996
+  title: "The Future of Genetic Studies of Complex Human Diseases"
+  venue: "Science 273:1516-1517"
+  doi: https://doi.org/10.1126/science.273.5281.1516
+  verified: 2026-08-21
+
+morton1955lod:
+  authors: ['N. E. Morton']
+  year: 1955
+  title: 'Sequential tests for the detection of linkage'
+  venue: 'American Journal of Human Genetics 7:277-318'
+  pmid: '13258560'
+  verified: '2026-08-22'
+
+spielman1993tdt:
+  authors: ['R. S. Spielman', 'R. E. McGinnis', 'W. J. Ewens']
+  year: 1993
+  title: 'Transmission test for linkage disequilibrium: the insulin gene region and insulin-dependent diabetes mellitus (IDDM)'
+  venue: 'American Journal of Human Genetics 52:506-516'
+  pmid: '8447318'
+  verified: '2026-08-22'
