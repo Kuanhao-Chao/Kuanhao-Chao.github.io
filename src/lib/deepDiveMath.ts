@@ -1703,3 +1703,35 @@ export function tumourMutationalBurden(mutations: number, megabasesSequenced: nu
   if (megabasesSequenced <= 0) throw new RangeError('tumourMutationalBurden needs a positive footprint');
   return mutations / megabasesSequenced;
 }
+
+// ── Ranking quality ───────────────────────────────────────────────────────────
+
+/** Indices of the k largest values, ties broken by original position. */
+function topKIndices(values: readonly number[], k: number): number[] {
+  return values
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => (b.v - a.v) || (a.i - b.i))
+    .slice(0, k)
+    .map((e) => e.i);
+}
+
+/**
+ * Fraction of the true top-k that a prediction's own top-k recovers.
+ *
+ * Rank correlation is dominated by the bulk, and the bulk is not where decisions are made:
+ * a laboratory follows up a handful of variants, so what matters is whether the few the
+ * model ranked highest are the few that matter. A predictor can hold a respectable Spearman
+ * while recovering none of the true extremes, which is why benchmark suites report both.
+ */
+export function topKRecall(truth: readonly number[], predicted: readonly number[], k: number): number {
+  if (truth.length !== predicted.length) throw new RangeError('topKRecall needs equal-length inputs');
+  if (k <= 0 || k > truth.length) throw new RangeError('topKRecall needs 0 < k <= n');
+  const want = new Set(topKIndices(truth, k));
+  return topKIndices(predicted, k).filter((i) => want.has(i)).length / k;
+}
+
+/** Root mean squared error — reported here only to show what it does to a rescaled score. */
+export function rmse(a: readonly number[], b: readonly number[]): number {
+  if (a.length !== b.length) throw new RangeError('rmse needs equal-length inputs');
+  return Math.sqrt(a.reduce((s, v, i) => s + (v - b[i]) ** 2, 0) / a.length);
+}

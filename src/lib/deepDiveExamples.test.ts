@@ -7,6 +7,7 @@ import {
   cdsLength, cdsPosition, codonOf, complementBase, phylopToP, type Exon,
   likelihoodRatioPositive, oddsPathFor, oddsPathPoints, oddsPathStrength,
   cancerCellFraction, tumourMutationalBurden,
+  topKRecall, rmse, spearman,
 } from './deepDiveMath.ts';
 
 /**
@@ -1325,6 +1326,104 @@ describe('data-somatic-oncology', () => {
     it('leaves a 1.1 Mb panel at a 59% half-width', () => {
       expect((1.96 / Math.sqrt(11)) * 100).toBeCloseTo(59, 0);
       expect(mdx).toContain('1.96/\\sqrt{11} = 59\\%');
+    });
+  });
+});
+
+describe('data-protein-benchmarks', () => {
+  const mdx = lesson('data-protein-benchmarks');
+  const ASSAY = [-3.2, -2.1, -1.5, -0.4, 0.1, 0.6, 1.2, 2.0];
+  const PRED = ASSAY.map((v) => 1 / (1 + Math.exp(-v)));
+
+  describe('worked example — the same predictor, scored two ways', () => {
+    it('lists the logistic values the derivation quotes', () => {
+      const shown = ['0.0392', '0.1091', '0.1824', '0.4013', '0.5250', '0.6457', '0.7685', '0.8808'];
+      PRED.forEach((v, i) => expect(v).toBeCloseTo(Number(shown[i]), 4));
+      for (const v of shown) expect(mdx).toContain(v);
+    });
+
+    it('is a perfect rank correlation, because the transform is monotone', () => {
+      expect(spearman(ASSAY, PRED)).toBeCloseTo(1, 12);
+      // and stays perfect under any other increasing map
+      expect(spearman(ASSAY, ASSAY.map((v) => Math.exp(v)))).toBeCloseTo(1, 12);
+      expect(mdx).toContain('\\rho_s = 1.0000');
+    });
+
+    it('reports an RMSE of 1.5995 that measures only the change of units', () => {
+      expect(rmse(ASSAY, PRED)).toBeCloseTo(1.5995, 4);
+      expect(rmse(ASSAY, ASSAY)).toBe(0);
+      expect(mdx).toContain('\\text{RMSE} = 1.5995');
+    });
+  });
+
+  describe('figure 1 — one predictor, two verdicts', () => {
+    it('draws the error on the left and the perfect rank agreement on the right', () => {
+      expect(mdx).toContain('RMSE = 1.5995');
+      expect(mdx).toContain('Spearman = 1.0000');
+      // the right panel's points must genuinely lie on the diagonal
+      const rank = (xs: number[]) => xs.map((v) => [...xs].sort((a, b) => a - b).indexOf(v) + 1);
+      expect(rank(ASSAY)).toEqual(rank(PRED));
+    });
+  });
+
+  describe('worked example — a correlation that recovers nothing actionable', () => {
+    const truth = Array.from({ length: 20 }, (_, i) => 20 - i);
+    const pred = (() => {
+      const p = truth.slice();
+      for (let i = 0; i < 5; i++) [p[i], p[i + 5]] = [p[i + 5], p[i]];
+      return p;
+    })();
+
+    it('gives a respectable Spearman of 0.8120', () => {
+      expect(spearman(truth, pred)).toBeCloseTo(0.812, 4);
+      // the closed form the derivation shows, from sum d^2 = 250
+      expect(1 - (6 * 250) / (20 * (400 - 1))).toBeCloseTo(0.812, 4);
+      expect(mdx).toContain('\\frac{1500}{7980} = 0.8120');
+    });
+
+    it('recovers none of the true top five', () => {
+      expect(topKRecall(truth, pred, 5)).toBe(0);
+      expect(mdx).toContain('R@5 = \\frac{0}{5} = 0.0000');
+    });
+
+    it('recovers all of the true top ten', () => {
+      expect(topKRecall(truth, pred, 10)).toBe(1);
+      expect(mdx).toContain('R@10 = \\frac{10}{10} = 1.0000');
+    });
+
+    it('has the three numbers describe one consistent state of knowledge', () => {
+      // knows the set of ten, not the order inside it
+      expect(topKRecall(truth, pred, 10)).toBe(1);
+      expect(topKRecall(truth, pred, 5)).toBe(0);
+      expect(spearman(truth, pred)).toBeGreaterThan(0.8);
+    });
+  });
+
+  describe('exercise 1 — a predictor with the sign flipped', () => {
+    it('is odd under negation, which RMSE is not', () => {
+      const flipped = PRED.map((v) => -v);
+      expect(spearman(ASSAY, flipped)).toBeCloseTo(-1, 12);
+      expect(Math.abs(spearman(ASSAY, flipped))).toBeCloseTo(spearman(ASSAY, PRED), 12);
+      // RMSE has no such symmetry
+      expect(rmse(ASSAY, flipped)).not.toBeCloseTo(rmse(ASSAY, PRED), 3);
+      expect(mdx).toContain('−0.72');
+    });
+  });
+
+  describe('exercise 2 — where the correlation comes from', () => {
+    it('scores lower when the neutral bulk is scrambled instead', () => {
+      const truth = Array.from({ length: 20 }, (_, i) => 20 - i);
+      const structured = (() => {
+        const p = truth.slice();
+        for (let i = 0; i < 5; i++) [p[i], p[i + 5]] = [p[i + 5], p[i]];
+        return p;
+      })();
+      // reverse the bottom ten: a large, structured scramble of the neutral block
+      const bulkScrambled = truth.slice(0, 10).concat(truth.slice(10).reverse());
+      expect(spearman(truth, bulkScrambled)).toBeLessThan(spearman(truth, structured));
+      // and it is the more useful predictor: the severe tail is ordered exactly
+      expect(topKRecall(truth, bulkScrambled, 5)).toBe(1);
+      expect(topKRecall(truth, structured, 5)).toBe(0);
     });
   });
 });

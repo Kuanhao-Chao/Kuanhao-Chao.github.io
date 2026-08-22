@@ -22,6 +22,7 @@ import {
   winnersCurseExpectation, zThreshold, haldaneMorgans, kosambiMorgans, driftVariance,
   likelihoodRatioPositive, oddsPathFor, oddsPathPoints, oddsPathStrength,
   cancerCellFraction, tumourMutationalBurden,
+  topKRecall, rmse,
 } from './deepDiveMath.ts';
 
 /**
@@ -1685,5 +1686,54 @@ describe('tumourMutationalBurden', () => {
     expect((hi - lo) / 10).toBeGreaterThan(
       (tumourMutationalBurden(wide.upper, 35.8) - tumourMutationalBurden(wide.lower, 35.8)) / 10
     );
+  });
+});
+
+describe('topKRecall', () => {
+  const truth = Array.from({ length: 20 }, (_, i) => 20 - i);
+
+  it('is 1 when the prediction is the truth, at every k', () => {
+    for (const k of [1, 5, 10, 20]) expect(topKRecall(truth, truth, k)).toBe(1);
+  });
+
+  it('is 1 at k = n, because both sets are everything', () => {
+    const noise = truth.map(() => Math.random());
+    expect(topKRecall(truth, noise, truth.length)).toBe(1);
+  });
+
+  it('is invariant to any monotone rescaling of the prediction', () => {
+    const pred = truth.map((v) => Math.exp(v / 5) + 3);
+    for (const k of [1, 5, 10]) expect(topKRecall(truth, pred, k)).toBe(1);
+  });
+
+  it('can be zero while the ranking is still broadly right', () => {
+    // swap true ranks 1–5 with 6–10: the top ten are known, their order is not
+    const pred = truth.slice();
+    for (let i = 0; i < 5; i++) [pred[i], pred[i + 5]] = [pred[i + 5], pred[i]];
+    expect(topKRecall(truth, pred, 5)).toBe(0);
+    expect(topKRecall(truth, pred, 10)).toBe(1);
+    expect(spearman(truth, pred)).toBeGreaterThan(0.8); // and Spearman stays respectable
+  });
+
+  it('rejects mismatched lengths and out-of-range k', () => {
+    expect(() => topKRecall([1, 2], [1], 1)).toThrow();
+    expect(() => topKRecall(truth, truth, 0)).toThrow();
+    expect(() => topKRecall(truth, truth, 21)).toThrow();
+  });
+});
+
+describe('rmse', () => {
+  it('is zero only for an exact match, and symmetric', () => {
+    expect(rmse([1, 2, 3], [1, 2, 3])).toBe(0);
+    expect(rmse([1, 2, 3], [2, 3, 4])).toBeCloseTo(1, 12);
+    expect(rmse([1, 2, 3], [2, 3, 4])).toBeCloseTo(rmse([2, 3, 4], [1, 2, 3]), 12);
+  });
+
+  it('punishes a monotone rescale that costs no information', () => {
+    // The contrast the lesson turns on: Spearman cannot see this and RMSE sees nothing else.
+    const y = [-3.2, -2.1, -1.5, -0.4, 0.1, 0.6, 1.2, 2.0];
+    const rescaled = y.map((v) => 1 / (1 + Math.exp(-v)));
+    expect(spearman(y, rescaled)).toBeCloseTo(1, 12);
+    expect(rmse(y, rescaled)).toBeGreaterThan(1.5);
   });
 });

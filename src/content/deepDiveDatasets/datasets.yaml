@@ -574,3 +574,61 @@ pcawg:
     through cBioPortal and the GDC. Which access level applies depends entirely on which
     layer of the data you need.
   verified: 2026-08-22
+
+# ── Layer 6 · Protein benchmarks and their substrate ─────────────────────────
+
+proteingym:
+  name: ProteinGym
+  fullName: ProteinGym benchmark suite
+  layer: protein-benchmarks
+  url: https://proteingym.org/
+  scale: "Deep mutational scanning assays across protein families, plus a clinical benchmark, with standardised splits"
+  access: open
+  citationId: notin2023proteingym
+  note: >-
+    Reports Spearman and top-K recall rather than an error against assay units, because a
+    zero-shot score has no units to be wrong in. Its substitution and indel tracks are
+    separate benchmarks and results do not transfer between them.
+  verified: 2026-08-22
+
+cagi:
+  name: CAGI
+  fullName: Critical Assessment of Genome Interpretation
+  layer: protein-benchmarks
+  url: https://genomeinterpretation.org/
+  scale: "Blinded prediction challenges scored against experimental or clinical data withheld until after submission"
+  access: registered
+  citationId: cagi2024
+  note: >-
+    The only evaluation here where the answers did not exist publicly when predictions were
+    made, which is what makes it immune to the training-set contamination every static
+    benchmark has to argue its way around.
+  verified: 2026-08-22
+
+uniprot:
+  name: UniProt
+  fullName: Universal Protein Knowledgebase
+  layer: protein-benchmarks
+  url: https://www.uniprot.org/
+  scale: "Reviewed (Swiss-Prot) and unreviewed (TrEMBL) protein sequences with functional annotation"
+  access: open
+  citationId: uniprot2023
+  note: >-
+    The sequence substrate everything in this layer is indexed against. The reviewed and
+    unreviewed halves differ enormously in evidence: a TrEMBL annotation is usually
+    propagated by similarity, not observed.
+  verified: 2026-08-22
+
+alphafold-db:
+  name: AlphaFold DB
+  fullName: AlphaFold Protein Structure Database
+  layer: protein-benchmarks
+  url: https://alphafold.ebi.ac.uk/
+  scale: "Predicted structures covering UniProt at proteome scale, each with per-residue pLDDT"
+  access: open
+  citationId: varadi2022afdb
+  note: >-
+    Predictions, not structures. pLDDT is the model's confidence in its own local geometry
+    and low-confidence regions are frequently intrinsically disordered rather than badly
+    modelled — a distinction worth keeping when a structure-informed score disagrees.
+  verified: 2026-08-22

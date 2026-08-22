@@ -2439,3 +2439,45 @@ pcawg2020:
   venue: "Nature 578:82-93"
   doi: https://doi.org/10.1038/s41586-020-1969-6
   verified: 2026-08-21
+
+# ── Layer 6 · Protein benchmarks ──────────────────────────────────────────────
+
+jumper2021alphafold:
+  authors: ['John Jumper', 'Richard Evans', 'Alexander Pritzel', 'et al.']
+  year: 2021
+  title: "Highly accurate protein structure prediction with AlphaFold"
+  venue: "Nature 596:583-589"
+  doi: https://doi.org/10.1038/s41586-021-03819-2
+  verified: 2026-08-21
+
+varadi2022afdb:
+  authors: ['Mihaly Varadi', 'Stephen Anyango', 'Mandar Deshpande', 'et al.']
+  year: 2021
+  title: "AlphaFold Protein Structure Database: massively expanding the structural coverage of protein-sequence space with high-accuracy models"
+  venue: "Nucleic Acids Research 50:D439-D444"
+  doi: https://doi.org/10.1093/nar/gkab1061
+  verified: 2026-08-21
+
+uniprot2023:
+  authors: ['The UniProt Consortium', 'Alex Bateman', 'Maria-Jesus Martin', 'et al.']
+  year: 2022
+  title: "UniProt: the Universal Protein Knowledgebase in 2023"
+  venue: "Nucleic Acids Research 51:D523-D531"
+  doi: https://doi.org/10.1093/nar/gkac1052
+  verified: 2026-08-21
+
+notin2023proteingym:
+  authors: ['Pascal Notin', 'Aaron W. Kollasch', 'Daniel Ritter', 'et al.']
+  year: 2023
+  title: "ProteinGym: Large-Scale Benchmarks for Protein Design and Fitness Prediction"
+  venue: "?"
+  doi: https://doi.org/10.1101/2023.12.07.570727
+  verified: 2026-08-21
+
+cagi2024:
+  authors: ['The Critical Assessment of Genome Interpretation Consortium', 'Shantanu Jain', 'Constantina Bakolitsa', 'et al.']
+  year: 2024
+  title: "CAGI, the Critical Assessment of Genome Interpretation, establishes progress and prospects for computational genetic variant interpretation methods"
+  venue: "Genome Biology 25"
+  doi: https://doi.org/10.1186/s13059-023-03113-6
+  verified: 2026-08-21
