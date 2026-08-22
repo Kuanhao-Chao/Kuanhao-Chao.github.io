@@ -3,7 +3,7 @@ import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
 import AlgorithmLogo from '../../components/AlgorithmLogo.astro';
 import Katex from '../../components/Katex.astro';
-import { DEEP_DIVES, DEEP_DIVE_CATEGORIES, type DeepDiveEntry } from '../../data/deepDives';
+import { DEEP_DIVES, DEEP_DIVE_CATEGORIES, DEEP_DIVE_ORDER, type DeepDiveEntry } from '../../data/deepDives';
 import { getCollection } from 'astro:content';
 import { deepDiveEntriesFromCollection } from '../../lib/deepDives';
 import '../../styles/deepDive.css';
@@ -18,10 +18,17 @@ const categories = DEEP_DIVE_CATEGORIES;
 const collectionEntries = await getCollection('deepDives', ({ data }) => !data.draft);
 const derived = deepDiveEntriesFromCollection(collectionEntries) as unknown as DeepDiveEntry[];
 
-// A migrated lesson keeps its slot in the curated order; anything new is appended.
+// One card per id, the collection winning wherever it has a file, laid out in the curated
+// order. Anything DEEP_DIVE_ORDER does not name still renders, at the end: a card that
+// vanishes is a worse failure than one in the wrong place, and `deepDives.test.ts` fails
+// on the omission anyway.
+const byId = new Map<string, DeepDiveEntry>();
+for (const e of DEEP_DIVES) byId.set(e.id, e);
+for (const d of derived) byId.set(d.id, d);
+
 const deepDives: DeepDiveEntry[] = [
-  ...DEEP_DIVES.map((e) => derived.find((d) => d.id === e.id) ?? e),
-  ...derived.filter((d) => !DEEP_DIVES.some((e) => e.id === d.id)),
+  ...DEEP_DIVE_ORDER.map((id) => byId.get(id)).filter((e): e is DeepDiveEntry => Boolean(e)),
+  ...[...byId.values()].filter((e) => !DEEP_DIVE_ORDER.includes(e.id)),
 ];
 
 ---

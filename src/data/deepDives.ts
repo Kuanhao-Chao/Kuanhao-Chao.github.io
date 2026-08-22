@@ -1,6 +1,12 @@
 /**
- * Centralized Computational Genomics Deep Dives Catalog & Taxonomy Data Module.
- * Single source of truth for /deep_dives/ hub and related cross-links.
+ * The /deep_dives/ index catalog: display order, category taxonomy, and cards for the
+ * pages that have no content file yet.
+ *
+ * It is *not* the source of truth for a migrated lesson. `DEEP_DIVES` once held a
+ * second copy of every lesson's title, level, summary and reading time, and that copy
+ * drifted — the index shipped 7 min for lessons that compute 18 and 15. Anything with
+ * an entry in the `deepDives` collection is derived from it instead, and migrating a
+ * lesson means deleting its entry here rather than editing it.
  */
 
 export interface DeepDiveCategory {
@@ -37,6 +43,52 @@ export const DEEP_DIVE_CATEGORIES: DeepDiveCategory[] = [
   { slug: 'epigenomics', label: 'Epigenomics & Functional Genomics' },
   { slug: 'pangenomics', label: 'Pangenomics & Graphs' },
   { slug: 'deep-learning', label: 'Deep Learning & Foundation Models' },
+];
+
+/**
+ * The curated order the index lists cards in — the one fact about a lesson that the
+ * content collection genuinely cannot supply, since it is a presentation choice about
+ * the catalog rather than a property of the lesson.
+ *
+ * Everything else a card shows (title, level, reading time, summary, objectives, key
+ * equations) is derived from the collection by `deepDiveEntriesFromCollection`, so a
+ * migrated lesson *deletes* its entry from `DEEP_DIVES` below and keeps only its id
+ * here. `deepDives.test.ts` asserts the two stay in step: every id here resolves, and
+ * every entry is ordered.
+ */
+export const DEEP_DIVE_ORDER: string[] = [
+  // Statistical Genetics — curriculum order, matching the hub's module map.
+  'statistical-genetics',
+  'statgen-population-infinitesimal',
+  'statgen-linkage-disequilibrium',
+  'statgen-heritability-greml',
+  'statgen-association-linear-mixed-models',
+  'statgen-ldsc-sldsc',
+  'statgen-rare-variant-association',
+  'statgen-bayesian-fine-mapping',
+  'statgen-polygenic-risk-scores',
+  'statgen-mendelian-randomization',
+  'statgen-deep-learning-synthesis',
+  // GWAS — the applied workflow track.
+  'gwas',
+  'gwas-biological-variation-cdcv',
+  'gwas-genotyping-imputation',
+  'gwas-quality-control',
+  'gwas-association-statistics',
+  'gwas-population-stratification',
+  'gwas-multiple-testing-manhattan',
+  'gwas-linkage-disequilibrium-ldsc',
+  'gwas-fine-mapping-functional-genomics',
+  'gwas-polygenic-risk-scores-prs',
+  // Genomic Data & Resources.
+  'genomic-data',
+  'data-reference-annotation',
+  'data-population-frequency',
+  'data-constraint-intolerance',
+  // Outlined but not written.
+  'dna-foundation-models',
+  'splice-neural-mechanisms',
+  'wheeler-pangenome-graphs',
 ];
 
 export const DEEP_DIVES: DeepDiveEntry[] = [
@@ -102,69 +154,6 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       'V_P = V_A + V_D + V_I + V_{G \\times E} + 2\\operatorname{Cov}(G, E) + V_E',
     ],
     href: '/deep_dives/statgen-population-infinitesimal/',
-    badge: 'Deep Dive Post',
-    actionText: 'Read concept deep dive',
-    featured: false,
-    icon: 'gwas',
-    status: 'published',
-  },
-  {
-    id: 'statgen-linkage-disequilibrium',
-    title: 'Linkage Disequilibrium, Recombination Hotspots & Chromosomal Haplotype Architecture',
-    shortTitle: 'Linkage Disequilibrium & PRDM9',
-    area: 'Statistical & Population Genetics',
-    category: 'statistical-genetics',
-    tag: 'Statistical Genetics · Part 5',
-    level: 'Advanced & Mathematical',
-    readingTime: '20 min read',
-    summary:
-      'Mathematical quantification of Linkage Disequilibrium (D, D\', r²), exact exponential half-life decay under recombination, PRDM9 zinc-finger sequence motifs, SPO11 double-strand breaks, and human haplotype block structure.',
-    highlights: [
-      'Mathematical quantification of LD via 2x2 gamete contingency tables',
-      'Lewontin\'s normalized D\' versus Hill & Robertson\'s r² correlation metrics',
-      'Exact half-life decay of Linkage Disequilibrium over generational time (t_{1/2} ≈ 69.3 / d)',
-      'Molecular biophysics of PRDM9 zinc fingers, 13-mer binding motifs, and SPO11 DSBs',
-      'Haplotype block structure (r² > 0.8) and the Tag SNP paradigm',
-      'Population divergence in LD architecture: African versus non-African genomes',
-    ],
-    equations: [
-      'D = p_{AB} - p_A p_B',
-      'r^2 = \\frac{D^2}{p_A (1-p_A) p_B (1-p_B)}',
-      't_{1/2} = \\frac{\\ln(0.5)}{\\ln(1 - \\theta)} \\approx \\frac{69.3}{d}',
-    ],
-    href: '/deep_dives/statgen-linkage-disequilibrium/',
-    badge: 'Deep Dive Post',
-    actionText: 'Read concept deep dive',
-    featured: false,
-    icon: 'gwas',
-    status: 'published',
-  },
-  {
-    id: 'statgen-heritability-greml',
-    title: 'Heritability Estimation: From Classical Twin Models to Genomic REML (GREML)',
-    shortTitle: 'Heritability Estimation & GREML',
-    area: 'Statistical & Population Genetics',
-    category: 'statistical-genetics',
-    tag: 'Statistical Genetics · Part 6',
-    level: 'Advanced & Mathematical',
-    readingTime: '18 min read',
-    summary:
-      'A rigorous exploration of heritability estimation — from Falconer\'s twin correlation formulas and the missing heritability crisis to Yang et al. (2010) GCTA Genomic Relatedness Matrices (GRM), AI-REML variance components, and Lee et al. liability scale conversion.',
-    highlights: [
-      'Classical quantitative genetics: Falconer\'s twin formula and the ACE structural model',
-      'The "missing heritability" dilemma and the common vs. rare variant architecture debate',
-      'Yang et al. (2010) Genomic Relatedness Matrix (GRM) step-by-step mathematical derivation',
-      'Genomic Restricted Maximum Likelihood (GREML) linear mixed model formulation',
-      'Average Information (AI-REML) optimization and calculating h²_SNP',
-      'Lee et al. (2011) liability-scale transformation for case-control ascertainment bias',
-    ],
-    equations: [
-      'h^2 = 2(r_{\\text{MZ}} - r_{\\text{DZ}})',
-      '\\mathbf{A} = \\frac{1}{M} \\mathbf{W}\\mathbf{W}^T',
-      '\\mathbf{V} = \\sigma_g^2 \\mathbf{A} + \\sigma_e^2 \\mathbf{I}',
-      'h^2_l = h^2_o \\frac{K^2(1 - K)^2}{z_K^2 P(1 - P)}',
-    ],
-    href: '/deep_dives/statgen-heritability-greml/',
     badge: 'Deep Dive Post',
     actionText: 'Read concept deep dive',
     featured: false,
@@ -291,38 +280,6 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
       '\\mathcal{Q}_\\rho = \\rho \\mathcal{Q}_{\\text{Burden}} + (1-\\rho) \\mathcal{Q}_{\\text{SKAT}}',
     ],
     href: '/deep_dives/statgen-rare-variant-association/',
-    badge: 'Deep Dive Post',
-    actionText: 'Read concept deep dive',
-    featured: false,
-    icon: 'gwas',
-    status: 'published',
-  },
-  {
-    id: 'statgen-polygenic-risk-scores',
-    title: 'Polygenic Risk Scores (PRS): Bayesian Shrinkage & The Portability Crisis',
-    shortTitle: 'Polygenic Risk Scores (PRS)',
-    area: 'Statistical & Population Genetics',
-    category: 'statistical-genetics',
-    tag: 'Statistical Genetics · Part 14',
-    level: 'Advanced & Methodological',
-    readingTime: '15 min read',
-    summary:
-      'A mathematical and clinical guide to Polygenic Risk Scores (PRS) — comparing Clumping+Thresholding, LDpred2 spike-and-slab MCMC, PRS-CS continuous shrinkage hierarchy, clinical calibration metrics, and multi-ancestry PRS-CSx.',
-    highlights: [
-      'Linear additive polygenic score formulation and dosage weighting',
-      'Methodological comparison: Clumping+Thresholding, LDpred2, and PRS-CS',
-      'LDpred2 Bayesian spike-and-slab generative model with MCMC Gibbs sampling',
-      'PRS-CS continuous horseshoe shrinkage modeling local and global sparsity (PRS-CS-auto)',
-      'Clinical evaluation: incremental variance (ΔR²), Brier score, and odds ratio per SD',
-      'The trans-ethnic portability crisis: 50-75% accuracy decay in non-European cohorts and PRS-CSx',
-    ],
-    equations: [
-      '\\text{PRS}_i = \\sum_{j=1}^M w_j G_{ij}',
-      '\\beta_j \\sim \\mathcal{N}\\left(0, \\frac{\\sigma^2}{N} \\phi \\psi_j\\right), \\; \\psi_j \\sim \\mathcal{G}(a, \\delta_j)',
-      '\\sqrt{\\phi} \\sim \\mathcal{C}^+(0, 1)',
-      '\\text{BS} = \\frac{1}{N} \\sum (y_i - \\hat{p}_i)^2',
-    ],
-    href: '/deep_dives/statgen-polygenic-risk-scores/',
     badge: 'Deep Dive Post',
     actionText: 'Read concept deep dive',
     featured: false,

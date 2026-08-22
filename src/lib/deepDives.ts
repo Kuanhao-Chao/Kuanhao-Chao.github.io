@@ -237,6 +237,7 @@ export interface CatalogSource {
     moduleLabel: string;
     level: 'foundational' | 'intermediate' | 'advanced';
     objectives: string[];
+    keyEquations?: string[];
     isHub?: boolean;
   };
 }
@@ -285,6 +286,7 @@ export function deepDiveEntriesFromCollection<T extends CatalogSource>(
     readingTime: formatReadingTime(lessonReadingTime(e.body ?? '')),
     summary: e.data.description,
     highlights: e.data.objectives,
+    equations: e.data.keyEquations ?? [],
     href: `/deep_dives/${e.id}/`,
     badge: 'Deep Dive Post',
     actionText: opts.actionText ?? 'Read concept deep dive',
