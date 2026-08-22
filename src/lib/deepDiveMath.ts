@@ -1658,3 +1658,48 @@ export function oddsPathFor(strength: Exclude<EvidenceStrength, 'none'>, oddsVer
   const points = { supporting: 1, moderate: 2, strong: 4, 'very-strong': 8 }[strength];
   return oddsVeryStrong ** (points / 8);
 }
+
+// ── Somatic variant allele fraction ───────────────────────────────────────────
+
+/**
+ * Cancer cell fraction: the proportion of *tumour* cells carrying a somatic variant.
+ *
+ * A variant allele fraction is not that number, and reading one as the other is the
+ * standard way a clonal driver gets filed as a subclonal passenger. VAF is diluted by
+ * normal cells in the sample and scaled by how many copies of the locus the tumour has:
+ *
+ *   VAF = ρ·CCF·m / (ρ·CN_t + (1−ρ)·CN_n)
+ *
+ * so inverting it needs the purity ρ, the tumour copy number CN_t at that locus, and the
+ * multiplicity m — the number of tumour copies actually carrying the mutation. Defaults
+ * describe the ordinary case: a diploid locus, mutated on one copy.
+ *
+ * A result above 1 is not a tumour where every cell carries the variant twice. It means
+ * one of the inputs is wrong — usually an underestimated purity or an unnoticed copy
+ * number change — and it is the most useful diagnostic this formula produces.
+ */
+export function cancerCellFraction(
+  vaf: number,
+  purity: number,
+  tumourCopyNumber = 2,
+  multiplicity = 1,
+  normalCopyNumber = 2
+): number {
+  if (vaf < 0 || vaf > 1) throw new RangeError('cancerCellFraction needs vaf in [0,1]');
+  if (purity <= 0 || purity > 1) throw new RangeError('cancerCellFraction needs purity in (0,1]');
+  if (multiplicity <= 0) throw new RangeError('cancerCellFraction needs multiplicity > 0');
+  const totalCopies = purity * tumourCopyNumber + (1 - purity) * normalCopyNumber;
+  return (vaf * totalCopies) / (purity * multiplicity);
+}
+
+/**
+ * Tumour mutational burden in mutations per megabase.
+ *
+ * Trivial arithmetic whose difficulty is entirely in the denominator: the same tumour
+ * scored on a 1 Mb panel and a 35 Mb exome gives estimates whose confidence intervals
+ * barely overlap, because the count is Poisson and the panel sees very few events.
+ */
+export function tumourMutationalBurden(mutations: number, megabasesSequenced: number): number {
+  if (megabasesSequenced <= 0) throw new RangeError('tumourMutationalBurden needs a positive footprint');
+  return mutations / megabasesSequenced;
+}

@@ -108,6 +108,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'data-variant-effect-scores',
   'data-mave-assays',
   'data-germline-clinical',
+  'data-somatic-oncology',
   // Machine Learning & Deep Learning Interview Guide — complete course order.
   mlInterviewCurriculum.hub,
   ...mlInterviewCurriculum.lessons.map(({ id }) => id),

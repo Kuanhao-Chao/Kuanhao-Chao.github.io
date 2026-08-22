@@ -2365,3 +2365,77 @@ acm2018ethics:
   venue: 'Association for Computing Machinery'
   url: https://www.acm.org/code-of-ethics
   verified: 2026-08-22
+
+# ── Layer 5 · Somatic and precision oncology ──────────────────────────────────
+
+cerami2012cbioportal:
+  authors: ['Ethan Cerami', 'Jianjiong Gao', 'Ugur Dogrusoz', 'et al.']
+  year: 2012
+  title: "The cBio Cancer Genomics Portal: An Open Platform for Exploring Multidimensional Cancer Genomics Data"
+  venue: "Cancer Discovery 2:401-404"
+  doi: https://doi.org/10.1158/2159-8290.CD-12-0095
+  verified: 2026-08-21
+
+tcga2013pancancer:
+  authors: ['The Cancer Genome Atlas Research Network', 'John N Weinstein', 'Eric A Collisson', 'et al.']
+  year: 2013
+  title: "The Cancer Genome Atlas Pan-Cancer analysis project"
+  venue: "Nature Genetics 45:1113-1120"
+  doi: https://doi.org/10.1038/ng.2764
+  verified: 2026-08-21
+
+li2017amp:
+  authors: ['Marilyn M. Li', 'Michael Datto', 'Eric J. Duncavage', 'et al.']
+  year: 2017
+  title: "Standards and Guidelines for the Interpretation and Reporting of Sequence Variants in Cancer"
+  venue: "The Journal of Molecular Diagnostics 19:4-23"
+  doi: https://doi.org/10.1016/j.jmoldx.2016.10.002
+  verified: 2026-08-21
+
+chakravarty2017oncokb:
+  authors: ['Debyani Chakravarty', 'Jianjiong Gao', 'Sarah Phillips', 'et al.']
+  year: 2017
+  title: "OncoKB: A Precision Oncology Knowledge Base"
+  venue: "JCO Precision Oncology:1-16"
+  doi: https://doi.org/10.1200/PO.17.00011
+  verified: 2026-08-21
+
+griffith2017civic:
+  authors: ['Malachi Griffith', 'Nicholas C Spies', 'Kilannin Krysiak', 'et al.']
+  year: 2017
+  title: "CIViC is a community knowledgebase for expert crowdsourcing the clinical interpretation of variants in cancer"
+  venue: "Nature Genetics 49:170-174"
+  doi: https://doi.org/10.1038/ng.3774
+  verified: 2026-08-21
+
+mcgranahan2017clonal:
+  authors: ['Nicholas McGranahan', 'Charles Swanton']
+  year: 2017
+  title: "Clonal Heterogeneity and Tumor Evolution: Past, Present, and the Future"
+  venue: "Cell 168:613-628"
+  doi: https://doi.org/10.1016/j.cell.2017.01.018
+  verified: 2026-08-21
+
+tate2019cosmic:
+  authors: ['John G Tate', 'Sally Bamford', 'Harry C Jubb', 'et al.']
+  year: 2018
+  title: "COSMIC: the Catalogue Of Somatic Mutations In Cancer"
+  venue: "Nucleic Acids Research 47:D941-D947"
+  doi: https://doi.org/10.1093/nar/gky1015
+  verified: 2026-08-21
+
+merino2020tmb:
+  authors: ['Diana M Merino', 'Lisa M McShane', 'David Fabrizio', 'et al.']
+  year: 2020
+  title: "Establishing guidelines to harmonize tumor mutational burden (TMB): in silico assessment of variation in TMB quantification across diagnostic platforms: phase I of the Friends of Cancer Research TMB Harmonization Project"
+  venue: "Journal for ImmunoTherapy of Cancer 8:e000147"
+  doi: https://doi.org/10.1136/jitc-2019-000147
+  verified: 2026-08-21
+
+pcawg2020:
+  authors: ['The ICGC/TCGA Pan-Cancer Analysis of Whole Genomes Consortium', 'Lauri A. Aaltonen', 'Federico Abascal', 'et al.']
+  year: 2020
+  title: "Pan-cancer analysis of whole genomes"
+  venue: "Nature 578:82-93"
+  doi: https://doi.org/10.1038/s41586-020-1969-6
+  verified: 2026-08-21

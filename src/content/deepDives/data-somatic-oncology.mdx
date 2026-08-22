@@ -1,0 +1,358 @@
+---
+title: "Somatic Oncology: Reading a Tumour Through Contaminated, Rearranged Sequence"
+shortTitle: Somatic Oncology
+description: "COSMIC, OncoKB, CIViC, cBioPortal and PCAWG/TCGA — why a somatic variant needs purity and copy number divided out before it means anything, how actionability tiers differ from pathogenicity, and why tumour mutational burden depends more on the panel than the tumour."
+abstract: "Somatic variant interpretation asks a different question from germline, and gets a messier substrate to answer it on: a sample that is part tumour and part normal, at a locus whose copy number the tumour has usually changed. This page covers the resources that catalogue and interpret somatic variation, the arithmetic that turns an allele fraction into a cancer cell fraction, and why a tumour mutational burden measured on a small panel cannot distinguish the values a treatment decision turns on."
+date: 2026-08-22
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d05-curation
+moduleLabel: Layer 5 · Clinical Curation
+order: 7
+level: intermediate
+objectives:
+  - "Say what each somatic resource curates, and which of them answers a therapeutic rather than a causal question."
+  - "Convert a variant allele fraction into a cancer cell fraction given purity and copy number."
+  - "Recognise a cancer cell fraction above one as a diagnostic that an input is wrong."
+  - "Explain why actionability tiers are tumour-type specific and do not transfer across tissues."
+  - "Quantify how much a panel's size, rather than the tumour, determines a mutational burden estimate."
+prerequisites:
+  - data-germline-clinical
+referenceIds:
+  - cerami2012cbioportal
+  - tcga2013pancancer
+  - li2017amp
+  - chakravarty2017oncokb
+  - griffith2017civic
+  - mcgranahan2017clonal
+  - tate2019cosmic
+  - merino2020tmb
+  - pcawg2020
+tags: [COSMIC, OncoKB, CIViC, cBioPortal, somatic, tumour purity, TMB, actionability]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+A germline variant is in every cell, at a locus with two copies, and the question is whether
+it causes disease. A somatic variant is in *some* of the tumour's cells, in a sample that is
+partly normal tissue, at a locus the tumour may have duplicated or deleted — and the question
+is usually whether a drug exists.
+
+Both the substrate and the question change, and the resources change with them.
+
+<Callout variant="intuition">
+Sequencing a tumour does not sequence a tumour. It sequences a biopsy, which is some mixture
+of cancer cells and the normal tissue around them, and reports one number per variant: the
+fraction of reads carrying it.
+
+That fraction is diluted twice over. Normal cells contribute reference reads and drag it
+down; a duplicated locus contributes extra reads and drags it somewhere else. So the raw
+number cannot distinguish *a mutation in every tumour cell of a half-normal sample* from *a
+mutation in half the tumour cells of a pure one* — and those are completely different
+findings. The first is a founding driver; the second is a passenger that appeared late.
+
+Recovering the distinction needs two more numbers, the purity and the local copy number, and
+the arithmetic below is what most misreadings of somatic data skip.
+</Callout>
+
+<DatasetTable layer="somatic-oncology" caption="Somatic and precision-oncology resources" />
+
+<Notation
+  rows={[
+    { symbol: '\\text{VAF}', meaning: 'Variant allele fraction: reads carrying the variant, over reads at the locus', dims: 'in [0,1]' },
+    { symbol: '\\rho', meaning: 'Tumour purity: fraction of sampled cells that are cancer', dims: 'in (0,1]' },
+    { symbol: '\\text{CCF}', meaning: 'Cancer cell fraction: fraction of *tumour* cells carrying the variant', dims: 'in [0,1]' },
+    { symbol: 'CN_t,\\; CN_n', meaning: 'Copy number at the locus in tumour and in normal cells', dims: 'count' },
+    { symbol: 'm', meaning: 'Multiplicity: tumour copies actually carrying the mutation', dims: 'count, ≤ CN_t' },
+    { symbol: '\\text{TMB}', meaning: 'Tumour mutational burden', dims: 'mutations per megabase' },
+  ]}
+/>
+
+## Five resources, and which question each answers
+
+**<Dataset id="cosmic" />** is the catalogue <Citation id="tate2019cosmic" />: curated somatic
+mutations across cancer types, the Cancer Gene Census, and the mutational signatures that let
+a spectrum be attributed to a process. Its recurrence counts are recurrence *in the studies
+submitted to it*, so a gene can look heavily mutated partly because it has been sequenced
+often — an ascertainment effect, not a biological one.
+
+**<Dataset id="oncokb" />** answers a therapeutic question <Citation id="chakravarty2017oncokb" />:
+is there a drug for this alteration, in this tumour type, at what level of evidence. Level 1
+means an FDA-recognised biomarker — and the tumour type is part of the claim, not context for
+it. BRAF V600E is level 1 in melanoma and does not carry that level into colorectal cancer,
+where the same drug alone performs poorly.
+
+**<Dataset id="civic" />** covers the same ground openly and shows its working
+<Citation id="griffith2017civic" />. Every assertion decomposes into the evidence items behind
+it, which makes it the resource you can actually audit rather than only consult.
+
+**<Dataset id="cbioportal" />** is the query layer over the consortium studies
+<Citation id="cerami2012cbioportal" />: mutation, copy number and expression across thousands
+of cohorts, with processed calls open even where the reads are not.
+
+**<Dataset id="pcawg" />** is the substrate underneath much of it — the TCGA exome cohort
+<Citation id="tcga2013pancancer" /> and the 2,658 whole cancer genomes of PCAWG
+<Citation id="pcawg2020" />, which is where non-coding and structural somatic variation
+became visible at all.
+
+<Callout variant="warning" title="Actionability is not pathogenicity, and the tiers are not ACMG's">
+The germline framework asks whether a variant causes disease. The somatic framework
+<Citation id="li2017amp" /> asks whether it changes management, and its four tiers — strong
+clinical significance, potential clinical significance, unknown, benign or likely benign —
+are about evidence *for a clinical action in a specific tumour type*.
+
+Two consequences. A variant can be tier I in one cancer and tier III in another with no new
+biology involved, because the trial evidence exists in one and not the other. And a variant
+with overwhelming functional evidence that it damages the protein can still be tier III, if
+nothing follows from knowing that.
+
+Reading an OncoKB level or an AMP tier as though it were an ACMG classification is a category
+error, and the two scales are not convertible.
+</Callout>
+
+## From reads to cells
+
+The measurement is a read fraction; the thing worth knowing is a cell fraction. Under a
+diploid normal and a tumour carrying $m$ mutated copies out of $CN_t$:
+
+$$
+\text{VAF} \;=\; \frac{\rho\,\text{CCF}\,m}{\rho\,CN_t + (1-\rho)\,CN_n}
+\qquad\Longrightarrow\qquad
+\text{CCF} \;=\; \text{VAF}\,\frac{\rho\,CN_t + (1-\rho)\,CN_n}{\rho\,m}
+$$
+
+At a diploid locus mutated on one copy this collapses to $\text{CCF} = 2\,\text{VAF}/\rho$.
+
+<WorkedExample
+  title="The same allele fraction, three readings"
+  given={[
+    { label: 'Variant A', value: 'VAF 0.31, purity 0.68' },
+    { label: 'Variant B', value: 'VAF 0.11, purity 0.68' },
+    { label: 'Locus', value: 'diploid, mutated on one copy' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — variant A.**
+
+$$
+\text{CCF}_A = \frac{2 \times 0.31}{0.68} = 0.9118
+$$
+
+Essentially every tumour cell carries it. This is a **clonal** variant — present in the
+founding cell, and therefore a candidate driver and a candidate therapeutic target, because
+treating it cannot leave an untreated majority behind.
+
+**Step 2 — variant B.**
+
+$$
+\text{CCF}_B = \frac{2 \times 0.11}{0.68} = 0.3235
+$$
+
+Under a third of tumour cells. This is **subclonal** — it arose after the tumour was
+established. Targeting it treats a minority and selects for the rest, which is a substantially
+worse therapeutic proposition even if the variant is in a famous gene.
+
+The two VAFs differ by a factor of under three and the clinical readings differ in kind. The
+raw fractions, 0.31 and 0.11, do not say that on their own.
+
+**Step 3 — get the purity wrong.** Suppose the purity estimate was 0.35 rather than 0.68:
+
+$$
+\text{CCF}_A = \frac{2 \times 0.31}{0.35} = 1.7714
+$$
+
+A cancer cell fraction of 1.77 is not a finding. It is impossible — no more than every cell
+can carry it — and the value is telling you that one of the inputs is wrong. Usually the
+purity is underestimated, or the locus is not diploid. **This overflow is the most useful
+diagnostic the formula produces**, and a pipeline that silently clips CCF at 1 throws it away.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. One allele fraction, four purities. At a diploid locus CCF = 2·VAF/ρ, so each purity is a ray and the same read fraction lands anywhere along a vertical line. VAF 0.31 reads as clonal at purity 0.68 (CCF 0.9118) and as arithmetically impossible at purity 0.35 (CCF 1.7714); VAF 0.11 at the same purity is subclonal at 0.3235. The shaded region above CCF = 1 is unreachable, so a point landing there is a failed input rather than a discovery."
+  alt="A plot of cancer cell fraction against variant allele fraction with four straight rays, one per tumour purity of 0.35, 0.50, 0.68 and 0.85. A dashed line at cancer cell fraction 1 marks the clonal limit and the region above it is shaded as impossible. Three marked points at VAF 0.31 and 0.11 show fractions of 0.91, 0.32 and 1.77."
+>
+  <svg viewBox="0 0 640 314" width="640" height="314" font-family="inherit"><line x1="78.0" y1="36.0" x2="78.0" y2="268.0" stroke="currentColor" stroke-width="1.25"/><line x1="78.0" y1="268.0" x2="566.0" y2="268.0" stroke="currentColor" stroke-width="1.25"/><line x1="78.0" y1="268.0" x2="566.0" y2="268.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="272.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="78.0" y1="206.9" x2="566.0" y2="206.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="210.9" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.5</text><line x1="78.0" y1="145.9" x2="566.0" y2="145.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="149.9" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.0</text><line x1="78.0" y1="84.8" x2="566.0" y2="84.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="88.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.5</text><line x1="78.0" y1="268.0" x2="78.0" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="78.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="159.3" y1="268.0" x2="159.3" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="159.3" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.1</text><line x1="240.7" y1="268.0" x2="240.7" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="240.7" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="322.0" y1="268.0" x2="322.0" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="322.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.3</text><line x1="403.3" y1="268.0" x2="403.3" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="403.3" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="484.7" y1="268.0" x2="484.7" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="484.7" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.5</text><line x1="566.0" y1="268.0" x2="566.0" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="566.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.6</text><rect x="78.0" y="36.0" width="488.0" height="109.9" rx="2" fill="currentColor" opacity=".05"/><line x1="78.0" y1="145.9" x2="566.0" y2="145.9" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="560.0" y="137.9" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">CCF = 1 — every tumour cell</text><text x="88.0" y="52.0" font-size="10.5" fill="currentColor" opacity=".7">above this line an input is wrong, not the biology</text><line x1="78.0" y1="268.0" x2="348.4" y2="36.0" stroke="currentColor" stroke-width="1.75" opacity=".75"/><text x="354.4" y="40.0" font-size="10" fill="currentColor" opacity=".85">purity 0.35</text><line x1="78.0" y1="268.0" x2="464.3" y2="36.0" stroke="currentColor" stroke-width="1.75" opacity=".75"/><text x="470.3" y="40.0" font-size="10" fill="currentColor" opacity=".85">purity 0.50</text><line x1="78.0" y1="268.0" x2="566.0" y2="52.5" stroke="currentColor" stroke-width="1.75" opacity=".75"/><text x="572.0" y="56.5" font-size="10" fill="currentColor" opacity=".85">purity 0.68</text><line x1="78.0" y1="268.0" x2="566.0" y2="95.6" stroke="currentColor" stroke-width="1.75" opacity=".75"/><text x="572.0" y="99.6" font-size="10" fill="currentColor" opacity=".85">purity 0.85</text><circle cx="330.1" cy="156.7" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="167.5" cy="228.5" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="330.1" cy="51.7" r="4.5" fill="var(--color-accent, #2e6e5e)"/><line x1="330.1" y1="268.0" x2="330.1" y2="36.0" stroke="currentColor" stroke-width="1" opacity=".25" stroke-dasharray="3 3"/><text x="330.1" y="260.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">VAF 0.31</text><text x="322.0" y="300.0" font-size="12" fill="currentColor" text-anchor="middle">Variant allele fraction</text><text x="18.0" y="152.0" font-size="12" fill="currentColor" text-anchor="middle" transform="rotate(-90 18 152)">Cancer cell fraction</text><text x="322.0" y="20.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">One VAF, four purities: the same reads mean four different things</text></svg>
+</Figure>
+
+<Callout variant="key" title="Copy number moves the answer as much as purity does">
+The diploid shortcut is a shortcut. Tumours rearrange their genomes, and the locus you care
+about is frequently not diploid.
+
+Take the same VAF 0.31 at the same purity 0.68, but suppose the region has lost a copy —
+$CN_t = 1$, the mutation on the single remaining copy:
+
+$$
+\text{CCF} = 0.31 \times \frac{0.68 \times 1 + 0.32 \times 2}{0.68 \times 1} = 0.6018
+$$
+
+Clonal at 0.9118 under the diploid assumption, and clearly subclonal at 0.6018 once the loss
+is accounted for. Nothing about the reads changed.
+
+This is why somatic callers consume a copy-number profile rather than a VCF alone, and why a
+CCF quoted without the copy state it assumed is not interpretable
+<Citation id="mcgranahan2017clonal" />.
+</Callout>
+
+## Tumour mutational burden, and the panel it was measured on
+
+TMB is a rate — mutations per megabase of sequence examined — and it gates immunotherapy
+eligibility at a threshold of 10 mutations per megabase. The arithmetic is a division. The
+difficulty is entirely in the denominator.
+
+<WorkedExample
+  title="A burden the panel cannot actually measure"
+  given={[
+    { label: 'Exome result', value: '320 mutations over 35.8 Mb' },
+    { label: 'Panel result', value: '11 mutations over 1.1 Mb' },
+    { label: 'Clinical threshold', value: '10 mutations per megabase' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the exome estimate.**
+
+$$
+\text{TMB} = \frac{320}{35.8} = 8.9385 \text{ mut/Mb}
+$$
+
+Below the threshold, and on a footprint large enough that the count is stable.
+
+**Step 2 — the panel estimate.** Eleven mutations on 1.1 Mb is $10.0$ mut/Mb — apparently
+*above* the threshold, and apparently a different answer for the same tumour.
+
+**Step 3 — bound the panel's count.** Mutation counts are Poisson, so eleven observed
+mutations carry a 95% interval of $[5.49,\; 19.68]$. Dividing through by the footprint:
+
+$$
+\text{TMB} \in \left[\frac{5.49}{1.1},\; \frac{19.68}{1.1}\right] = [4.99,\; 17.89] \text{ mut/Mb}
+$$
+
+**Step 4 — read what that interval contains.** It spans from half the threshold to nearly
+twice it. The panel has not measured this tumour as TMB-high; it has failed to distinguish
+TMB-high from TMB-low, and reported a point estimate on the wrong side of a decision boundary
+while doing so.
+
+The disagreement between exome and panel is not a discrepancy to reconcile. It is one estimate
+with a usable interval and one without, and harmonisation efforts exist because the field
+spent years treating them as comparable numbers <Citation id="merino2020tmb" />.
+
+</WorkedExample>
+
+## Exercises
+
+<Exercise n={1} title="Low purity is not subclonality" difficulty="warm-up">
+
+A sample is estimated at 42% tumour purity and a variant is seen at VAF 0.19 in a diploid
+region. Is it clonal?
+
+<div slot="solution">
+
+$$
+\text{CCF} = \frac{2 \times 0.19}{0.42} = 0.9048
+$$
+
+**Yes — clonal**, at essentially every tumour cell. A VAF of 0.19 looks low and is not: most
+of the dilution is the 58% of the sample that is normal tissue.
+
+This is the error the formula exists to prevent. Ranking variants by raw VAF within a
+low-purity sample systematically demotes clonal drivers, and comparing raw VAFs *between*
+samples of different purity is meaningless — the same CCF of 0.9 shows up as VAF 0.19 here and
+VAF 0.31 in the worked example's 68%-pure sample.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="The copy-number trap" difficulty="core">
+
+Same sample as the worked example — VAF 0.31, purity 0.68 — but copy-number analysis shows the
+region has undergone loss of heterozygosity: one tumour copy, carrying the mutation. What is
+the CCF, and what changes?
+
+<div slot="solution">
+
+$$
+\text{CCF} = 0.31 \times \frac{0.68 \times 1 + (1 - 0.68) \times 2}{0.68 \times 1}
+= 0.31 \times \frac{1.32}{0.68} = 0.6018
+$$
+
+Against 0.9118 under the diploid assumption — the same reads, and the variant moves from
+clonal to clearly subclonal.
+
+The direction is worth understanding rather than memorising. Losing a copy means the locus
+contributes *fewer* tumour reads in total, so a given VAF is being produced by a
+proportionally larger share of the reads that remain — which implies fewer mutated cells were
+needed to produce it, not more.
+
+The practical rule: a CCF is a statement conditional on an assumed copy state, and quoting one
+without it is quoting half a result. This is why clonality callers take a segmented
+copy-number profile as required input rather than as an optional refinement.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="How much panel would TMB need?" difficulty="stretch">
+
+At a true burden of 10 mutations per megabase, how large must a panel be for the 95% interval
+on TMB to be within ±20% of the estimate? Compare with the panels actually in use.
+
+<div slot="solution">
+
+For a Poisson count $k$ with mean $\lambda$, the relative standard error is $1/\sqrt{\lambda}$,
+so a 95% half-width of 20% requires
+
+$$
+\frac{1.96}{\sqrt{\lambda}} = 0.20
+\quad\Longrightarrow\quad
+\lambda = \left(\frac{1.96}{0.20}\right)^2 = 96.04
+$$
+
+At 10 mut/Mb that is $96.04/10 = 9.60$ **megabases** of sequenced footprint.
+
+Targeted cancer panels are typically 0.8–2 Mb. At 1.1 Mb the expected count is about eleven,
+the relative half-width is $1.96/\sqrt{11} = 59\%$, and the interval spans the threshold in
+both directions — which is exactly what the worked example showed numerically.
+
+Three things follow:
+
+- **A panel TMB is a screen, not a measurement.** It can flag an extreme value; it cannot
+  place a tumour near the boundary.
+- **The fix is footprint, not depth.** Sequencing the same 1.1 Mb more deeply reduces
+  genotyping error and does nothing to the Poisson variance, which is set by how many mutable
+  bases were looked at.
+- **Cross-panel comparison needs more than a common threshold.** Two panels of different size
+  and content produce estimates with different bias *and* different variance, which is the
+  problem harmonisation work addresses and the reason a bare "TMB = 12" is uninterpretable
+  without knowing what produced it.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Somatic interpretation asks whether a drug exists**, not whether a variant causes disease,
+  and its tiers are about clinical action in a specific tumour type. An OncoKB level or an AMP
+  tier does not convert into an ACMG class, and does not transfer across tissues.
+- **A VAF is a read fraction, diluted by normal cells and scaled by copy number.** Recovering
+  the cancer cell fraction needs purity and copy state:
+  $\text{CCF} = \text{VAF}(\rho\,CN_t + (1-\rho)CN_n)/(\rho\,m)$.
+- **The distinction it recovers is clinical.** VAF 0.31 at 68% purity is clonal at CCF 0.9118;
+  VAF 0.11 is subclonal at 0.3235 — a founding driver against a late passenger.
+- **A CCF above 1 is a diagnostic, not a result.** The same variant at an assumed purity of
+  0.35 gives 1.7714, which means an input is wrong; clipping it at 1 discards the signal.
+- **Copy number moves the answer as much as purity.** Under loss of heterozygosity the same
+  reads give 0.6018 rather than 0.9118 — clonal becomes subclonal with no change in the data.
+- **TMB is dominated by its denominator.** An exome gives 8.9385 mut/Mb; a 1.1 Mb panel seeing
+  eleven mutations gives an interval of [4.99, 17.89], which straddles the treatment threshold.
+  Reaching ±20% would take a 9.60 Mb footprint, roughly five times the panels in use.

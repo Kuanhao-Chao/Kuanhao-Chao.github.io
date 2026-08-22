@@ -503,3 +503,74 @@ pharmgkb:
     whether it changes how a drug should be dosed. Its evidence levels are its own scale
     and do not map onto ACMG tiers.
   verified: 2026-08-22
+
+# ── Layer 5 · Somatic and precision oncology ─────────────────────────────────
+
+cosmic:
+  name: COSMIC
+  fullName: Catalogue Of Somatic Mutations In Cancer
+  layer: somatic-oncology
+  url: https://cancer.sanger.ac.uk/cosmic
+  scale: "Curated somatic mutations across cancer types, with the Cancer Gene Census and mutational signatures"
+  access: registered
+  citationId: tate2019cosmic
+  note: >-
+    Free for academic use after registration; commercial use needs a licence. Its counts are
+    recurrence in the *literature and submitted studies*, so a gene can look mutated largely
+    because it has been sequenced often.
+  verified: 2026-08-22
+
+oncokb:
+  name: OncoKB
+  fullName: OncoKB precision oncology knowledge base
+  layer: somatic-oncology
+  url: https://www.oncokb.org/
+  scale: "Variant-level therapeutic, diagnostic and prognostic annotations with FDA-recognised evidence levels"
+  access: registered
+  citationId: chakravarty2017oncokb
+  note: >-
+    Answers "is there a drug for this" rather than "is this variant real". Its evidence levels
+    are about actionability, and level 1 means an FDA-recognised biomarker for that specific
+    tumour type — a claim that does not transfer to a different tissue.
+  verified: 2026-08-22
+
+civic:
+  name: CIViC
+  fullName: Clinical Interpretation of Variants in Cancer
+  layer: somatic-oncology
+  url: https://civicdb.org/
+  scale: "Community-curated, expert-moderated evidence items linking variants to clinical significance"
+  access: open
+  citationId: griffith2017civic
+  note: >-
+    CC0 and openly editable, which makes it the one resource here whose reasoning you can read
+    end to end: each assertion cites the evidence items behind it rather than only a level.
+  verified: 2026-08-22
+
+cbioportal:
+  name: cBioPortal
+  fullName: cBioPortal for Cancer Genomics
+  layer: somatic-oncology
+  url: https://www.cbioportal.org/
+  scale: "Processed mutation, copy number and expression data across thousands of cancer studies"
+  access: open
+  citationId: cerami2012cbioportal
+  note: >-
+    The query layer over the large consortium studies. Processed calls are open here even
+    where the underlying reads are controlled, which is what makes cohort-level questions
+    answerable without an application.
+  verified: 2026-08-22
+
+pcawg:
+  name: PCAWG / TCGA
+  fullName: Pan-Cancer Analysis of Whole Genomes and The Cancer Genome Atlas
+  layer: somatic-oncology
+  url: https://dcc.icgc.org/pcawg
+  scale: "2,658 whole cancer genomes (PCAWG) over the ~11,000-tumour TCGA exome cohort"
+  access: controlled
+  citationId: pcawg2020
+  note: >-
+    Raw sequence is controlled through dbGaP and ICGC DACO; derived mutation calls are open
+    through cBioPortal and the GDC. Which access level applies depends entirely on which
+    layer of the data you need.
+  verified: 2026-08-22
