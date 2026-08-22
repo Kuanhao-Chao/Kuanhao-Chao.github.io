@@ -662,3 +662,61 @@ ukb-finemapping:
     positive set at high PIP, so the benchmark inherits whatever the fine-mapping got wrong —
     most importantly its sensitivity to LD reference mismatch.
   verified: 2026-08-22
+
+# ── Layer 4 · Expression and molecular QTLs ──────────────────────────────────
+
+gtex:
+  name: GTEx
+  fullName: Genotype-Tissue Expression project
+  layer: expression-qtl
+  url: https://gtexportal.org/
+  scale: "cis-eQTLs and sQTLs across 49 tissues from ~950 post-mortem donors"
+  access: open
+  citationId: gtex2020
+  note: >-
+    Summary statistics are open; individual genotypes are controlled through dbGaP. Donors
+    are post-mortem adults, so developmental and stimulus-dependent regulation is largely
+    invisible here — a common reason a GWAS locus has no eQTL in GTEx and a real one elsewhere.
+  verified: 2026-08-22
+
+eqtl-catalogue:
+  name: eQTL Catalogue
+  fullName: eQTL Catalogue
+  layer: expression-qtl
+  url: https://www.ebi.ac.uk/eqtl/
+  scale: "Uniformly reprocessed eQTL and sQTL summary statistics across many published studies and cell types"
+  access: open
+  citationId: kerimov2021eqtl
+  note: >-
+    The value is the uniform reprocessing: studies that used different pipelines, annotations
+    and covariates are not comparable as published, and colocalisation across them is
+    meaningless until they are.
+  verified: 2026-08-22
+
+ukb-ppp:
+  name: UKB-PPP
+  fullName: UK Biobank Pharma Proteomics Project
+  layer: expression-qtl
+  url: https://www.ukbiobank.ac.uk/
+  scale: "Plasma levels of ~3,000 proteins with genetic associations across ~54,000 participants"
+  access: controlled
+  citationId: sun2023pqtl
+  note: >-
+    pQTLs sit one step closer to function than eQTLs, and carry their own artefact: a variant
+    in the epitope an assay binds changes measured abundance without changing the protein,
+    producing a cis-pQTL that is purely technical.
+  verified: 2026-08-22
+
+opentargets-genetics:
+  name: Open Targets Genetics
+  fullName: Open Targets Genetics portal and Locus-to-Gene model
+  layer: expression-qtl
+  url: https://genetics.opentargets.org/
+  scale: "GWAS loci integrated with QTL colocalisation, chromatin interaction and variant consequence, scored by L2G"
+  access: open
+  citationId: mountjoy2021l2g
+  note: >-
+    L2G is a trained model over those features, so its score is a prediction about which gene
+    a locus acts through and inherits the training set's bias toward genes that were already
+    known.
+  verified: 2026-08-22

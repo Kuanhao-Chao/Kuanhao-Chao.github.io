@@ -9,6 +9,7 @@ import {
   cancerCellFraction, tumourMutationalBurden,
   topKRecall, rmse, spearman,
   auroc, auprc, auprcBaseline,
+  colocPosteriors,
 } from './deepDiveMath.ts';
 
 /**
@@ -1556,5 +1557,141 @@ describe('data-variant-benchmarks', () => {
       expect(mdx).toContain('1,140 causal');
       expect(mdx).toContain('11,400');
     });
+  });
+});
+
+describe('data-expression-qtl', () => {
+  const mdx = lesson('data-expression-qtl');
+  const GWAS = [2, 15, 1e6, 30, 6];
+  const SHARED = [3, 10, 8e5, 25, 9];
+  const DISTINCT = [3, 8e5, 10, 25, 9];
+  const WEAK = [1, 1, 25, 1, 1];
+  const FLAT = [1, 1, 1, 1, 1];
+  const r4 = (x: number) => Number(x.toFixed(4));
+
+  describe('worked example — the same peak, and two peaks that look the same', () => {
+    it('gives PP4 = 1.0000 when both traits peak at the same variant', () => {
+      expect(r4(colocPosteriors(GWAS, SHARED).pp4)).toBe(1);
+      expect(mdx).toContain('\\text{PP4} = 1.0000');
+    });
+
+    it('gives PP3 = 0.9523 when only the eQTL peak moves by one variant', () => {
+      const p = colocPosteriors(GWAS, DISTINCT);
+      expect(p.pp3).toBeCloseTo(0.9523, 4);
+      expect(p.pp4).toBeCloseTo(0.0262, 4);
+      expect(mdx).toContain('\\text{PP3} = 0.9523');
+      expect(mdx).toContain('\\text{PP4} = 0.0262');
+    });
+
+    it('has both cases carry a strong signal in both traits, which is the trap', () => {
+      // an "is there an eQTL here?" check cannot tell them apart
+      for (const e of [SHARED, DISTINCT]) {
+        expect(Math.max(...e)).toBeGreaterThan(1e5);
+        expect(Math.max(...GWAS)).toBeGreaterThan(1e5);
+      }
+    });
+  });
+
+  describe('a high PP4 built from almost no QTL evidence', () => {
+    it('reaches 0.7122 on a single Bayes factor of 25', () => {
+      const p = colocPosteriors(GWAS, WEAK);
+      expect(p.pp1).toBeCloseTo(0.2849, 4);
+      expect(p.pp4).toBeCloseTo(0.7122, 4);
+      expect(mdx).toContain('\\text{PP1} = 0.2849');
+      expect(mdx).toContain('\\text{PP4} = 0.7122');
+    });
+  });
+
+  describe('figure 1 — three loci, five hypotheses', () => {
+    it('draws exactly the posteriors the module computes', () => {
+      const rows: [number[], number[]][] = [[GWAS, SHARED], [GWAS, DISTINCT], [GWAS, WEAK]];
+      for (const [a, b] of rows) {
+        const p = colocPosteriors(a, b);
+        for (const v of [p.pp0, p.pp1, p.pp2, p.pp3, p.pp4]) {
+          if (v >= 0.01) expect(mdx).toContain(v.toFixed(4));
+        }
+      }
+      expect(mdx).toContain('Shared causal variant');
+      expect(mdx).toContain('Distinct causal variants');
+      expect(mdx).toContain('Weak eQTL, strong GWAS');
+    });
+  });
+
+  describe('exercise 1 — reading the whole posterior', () => {
+    it('is trait-one-only against a flat eQTL', () => {
+      const p = colocPosteriors(GWAS, FLAT);
+      expect(p.pp0).toBeCloseTo(0.009, 3);
+      expect(p.pp1).toBeCloseTo(0.9006, 4);
+      expect(p.pp4).toBeCloseTo(0.0901, 4);
+      expect(mdx).toContain('PP1 0.9006');
+      expect(mdx).toContain('PP4 0.0901');
+    });
+
+    it('has the quoted values sum to 1 up to their own rounding', () => {
+      const quoted = [0.009, 0.9006, 0.0, 0.0001, 0.0901];
+      expect(quoted.reduce((a, b) => a + b, 0)).toBeCloseTo(0.9998, 4);
+      expect(mdx).toContain('= 0.9998');
+    });
+  });
+
+  describe('exercise 2 — what one Bayes factor buys', () => {
+    it('moves PP4 from 0.0901 to 0.7122, about eightfold', () => {
+      const before = colocPosteriors(GWAS, FLAT).pp4;
+      const after = colocPosteriors(GWAS, WEAK).pp4;
+      expect(before).toBeCloseTo(0.0901, 4);
+      expect(after).toBeCloseTo(0.7122, 4);
+      expect(after / before).toBeGreaterThan(7.5);
+      expect(after / before).toBeLessThan(8.5);
+      expect(mdx).toContain('0.0901 \\;\\longrightarrow\\; 0.7122');
+    });
+  });
+
+  describe('exercise 3 — the prior nobody examines', () => {
+    it('gives three incompatible conclusions from one dataset', () => {
+      const rows: [number, number, number][] = [
+        [1e-6, 0.7934, 0.1983],
+        [1e-5, 0.2849, 0.7122],
+        [1e-4, 0.0384, 0.9612],
+      ];
+      for (const [p12, pp1, pp4] of rows) {
+        const p = colocPosteriors(GWAS, WEAK, 1e-4, 1e-4, p12);
+        expect(p.pp1).toBeCloseTo(pp1, 4);
+        expect(p.pp4).toBeCloseTo(pp4, 4);
+        expect(mdx).toContain(pp4.toFixed(4));
+      }
+    });
+
+    it('leaves a decisive locus almost untouched by the same prior sweep', () => {
+      // the solution's closing claim: prior sensitivity is a symptom of weak data
+      for (const p12 of [1e-6, 1e-5, 1e-4]) {
+        expect(colocPosteriors(GWAS, SHARED, 1e-4, 1e-4, p12).pp4).toBeGreaterThan(0.99);
+      }
+    });
+  });
+});
+
+/**
+ * Guard for a foot-gun this file has hit three times.
+ *
+ * These assertions quote LaTeX, and in a JS single-quoted string a lone backslash is an
+ * escape: '\;' is ';', not '\;'. An assertion written that way searches for text the lesson
+ * does not contain — and where the mangled string happens to occur anyway, it passes while
+ * proving nothing.
+ *
+ * A backslash run may be odd only when it escapes the closing-quote character, which is the
+ * one legitimate single-backslash escape these strings use.
+ */
+describe('these assertions themselves', () => {
+  it('escape every backslash, so no toContain is silently searching for the wrong text', () => {
+    const src = readFileSync('src/lib/deepDiveExamples.test.ts', 'utf8');
+    const offenders: string[] = [];
+    for (const m of src.matchAll(/toContain\('((?:[^'\\]|\\.)*)'\)/g)) {
+      const body = m[1];
+      for (const run of body.matchAll(/\\+/g)) {
+        const after = body[run.index! + run[0].length];
+        if (run[0].length % 2 === 1 && after !== "'") offenders.push(body.slice(0, 70));
+      }
+    }
+    expect(offenders, 'odd backslash run: the string is not what it looks like').toEqual([]);
   });
 });

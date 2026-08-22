@@ -1,0 +1,307 @@
+---
+title: "Expression and Molecular QTLs: From a Locus to a Gene"
+shortTitle: Expression & QTLs
+description: "GTEx, the eQTL Catalogue, UKB-PPP and Open Targets Genetics — what an eQTL, sQTL and pQTL each measure, how colocalisation separates a shared causal variant from two neighbouring ones, and why the prior it depends on decides the answer more than the data does."
+abstract: "A GWAS says a locus matters and almost never says which gene. Molecular QTLs supply the missing link by finding variants that change expression, splicing or protein abundance, and colocalisation asks the question that matters: not whether both traits have a signal here, but whether it is the same variant. This page covers the resources, works the five colocalisation posteriors through three loci, and shows that a barely-detectable QTL and an unexamined prior can produce a confident-looking colocalisation."
+date: 2026-08-22
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d04-function
+moduleLabel: Layer 4 · Function, Assays & Trait Maps
+order: 6
+level: advanced
+objectives:
+  - "Distinguish eQTL, sQTL and pQTL by what molecular phenotype each measures."
+  - "State the five colocalisation hypotheses and say which two the question actually turns on."
+  - "Compute colocalisation posteriors from per-variant Bayes factors."
+  - "Explain why a weak QTL signal can produce a high PP4, and what that does to a gene assignment."
+  - "Show how sensitive the conclusion is to the shared-causal prior."
+prerequisites:
+  - data-constraint-intolerance
+referenceIds:
+  - li2018leafcutter
+  - giambartolomei2014coloc
+  - gtex2020
+  - wallace2021coloc
+  - kerimov2021eqtl
+  - mountjoy2021l2g
+  - sun2023pqtl
+tags: [GTEx, eQTL, sQTL, pQTL, colocalisation, coloc, Open Targets]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+A GWAS hit is a position, and positions are not actionable. The variant is usually
+non-coding, the nearest gene is frequently not the right one, and the locus may span several
+plausible candidates.
+
+Molecular QTLs are the bridge: find variants that change something measurable about a gene —
+how much RNA it makes, how that RNA is spliced, how much protein appears — and ask whether the
+variant driving the trait is the same one.
+
+<Callout variant="intuition">
+The naive approach is to look for an eQTL at the GWAS locus and, finding one, conclude the
+GWAS acts through that gene. At a locus dense with variants in linkage disequilibrium, this
+almost always finds something, and the something is frequently a coincidence.
+
+The real question is not "is there a signal in both datasets" but **"is it the same variant"**.
+Two independent causal variants a few kilobases apart, in LD with each other, produce two
+overlapping association peaks that look identical to one shared variant unless you ask
+carefully.
+
+Colocalisation is the careful asking. It enumerates the possibilities — neither, one, the
+other, both-but-different, both-and-shared — and puts a posterior on each. Everything below
+is about the last two, because they are the two the eye cannot separate.
+</Callout>
+
+<DatasetTable layer="expression-qtl" caption="Molecular QTL resources" />
+
+<Notation
+  rows={[
+    { symbol: '\\text{eQTL}', meaning: 'Variant associated with a gene’s expression level', dims: 'effect per allele' },
+    { symbol: '\\text{sQTL}', meaning: 'Variant associated with splicing — which isoform, not how much', dims: 'effect per allele' },
+    { symbol: '\\text{pQTL}', meaning: 'Variant associated with protein abundance', dims: 'effect per allele' },
+    { symbol: '\\text{ABF}', meaning: 'Approximate Bayes factor for one variant against its null', dims: '> 0' },
+    { symbol: 'p_1,\\; p_2', meaning: 'Prior that a variant is causal for one trait alone', dims: 'per variant, ~10⁻⁴' },
+    { symbol: 'p_{12}', meaning: 'Prior that a variant is causal for *both* traits', dims: 'per variant, ~10⁻⁵' },
+    { symbol: '\\text{PP4}', meaning: 'Posterior that both traits share one causal variant', dims: 'in [0,1]' },
+  ]}
+/>
+
+## Three molecular phenotypes, and a portal over them
+
+**<Dataset id="gtex" />** is the reference tissue atlas <Citation id="gtex2020" />: cis-eQTLs
+and sQTLs across 49 tissues. Two limits are worth carrying. Its donors are post-mortem adults,
+so regulation that only happens during development, or on immune stimulation, or in a rare
+cell type, is largely invisible — which is a common and benign reason a GWAS locus has no
+GTEx eQTL. And summary statistics are open while genotypes are controlled.
+
+**<Dataset id="eqtl-catalogue" />** reprocesses many published studies through one pipeline
+<Citation id="kerimov2021eqtl" />. That uniformity is the product: studies using different
+annotations, covariates and normalisations are not comparable as published, and colocalising
+across them without reprocessing compares pipelines as much as biology.
+
+**sQTLs** ask a different question from eQTLs — not how much RNA but which isoform — and are
+typically quantified from intron excision ratios rather than gene-level counts
+<Citation id="li2018leafcutter" />. A variant can leave total expression untouched while
+switching the protein produced, which no eQTL will detect.
+
+**<Dataset id="ukb-ppp" />** measures protein abundance <Citation id="sun2023pqtl" />, one
+step closer to function. Its characteristic artefact is worth knowing: a variant inside the
+epitope an affinity assay binds changes *measured* abundance without changing the protein, so
+some cis-pQTLs are purely technical.
+
+**<Dataset id="opentargets-genetics" />** assembles all of it per locus and trains a
+Locus-to-Gene model over the features <Citation id="mountjoy2021l2g" />. L2G is a prediction,
+and being trained on known gene-disease pairs it inherits a bias toward genes that were
+already known.
+
+## The five hypotheses
+
+For one genomic region and two traits, colocalisation enumerates
+<Citation id="giambartolomei2014coloc" />:
+
+- **H0** — neither trait has a causal variant here.
+- **H1** — trait 1 only. **H2** — trait 2 only.
+- **H3** — both, at *different* causal variants.
+- **H4** — both, at the *same* causal variant.
+
+$$
+\text{PP}_k \;\propto\; \text{prior}_k \times \sum \text{ABF}
+$$
+
+with per-variant priors $p_1$, $p_2$ for a single-trait causal variant and $p_{12}$ for a
+shared one. H3 sums over distinct variant pairs; H4 sums over the same variant in both.
+
+<Callout variant="note" title="These Bayes factors point the other way">
+The approximate Bayes factors used here are $\mathrm{BF_{10}}$ — alternative over null —
+so a larger value is *more* evidence that the variant is associated, and the sums above grow
+with the strength of the signal.
+
+That is the **reciprocal** of the $\mathrm{BF_{01}}$ convention this curriculum uses for
+Wakefield's ABF in fine-mapping, where the factor is written null over alternative. Both are
+standard in their own literature and neither is wrong; mixing them inside one calculation
+inverts the answer silently, which is why the direction is stated here rather than assumed.
+</Callout>
+
+<WorkedExample
+  title="The same peak, and two peaks that look the same"
+  given={[
+    { label: 'GWAS ABFs', value: '2, 15, 1×10⁶, 30, 6' },
+    { label: 'eQTL ABFs — case A', value: '3, 10, 8×10⁵, 25, 9' },
+    { label: 'eQTL ABFs — case B', value: '3, 8×10⁵, 10, 25, 9' },
+    { label: 'Priors', value: 'p₁ = p₂ = 10⁻⁴, p₁₂ = 10⁻⁵' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+Five variants at a locus. In case A both traits peak at the **third**; in case B the eQTL
+peaks at the **second** instead. Nothing else differs.
+
+**Step 1 — case A, shared peak.**
+
+$$
+\text{PP4} = 1.0000
+$$
+
+The evidence is overwhelming and unambiguous: one variant drives both, and the gene is
+implicated.
+
+**Step 2 — case B, adjacent peaks.**
+
+$$
+\text{PP3} = 0.9523, \qquad \text{PP4} = 0.0262
+$$
+
+Both traits still have a strong signal in this region — an analysis that only checked "is
+there an eQTL here?" would return yes in both cases and implicate the gene both times. The
+posterior says the second case is two separate causal variants that happen to be neighbours,
+and the gene is **not** implicated by it.
+
+**Step 3 — note what separates them.** One index. The peak moved by a single variant, and the
+conclusion inverted. This is why colocalisation is not a formality laid over an overlap
+check: the overlap is the same in both cases and the answer is opposite.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Three loci, five hypotheses. Case A has both traits peaking at the same variant and gives PP4 = 1.0000. Case B moves only the eQTL peak by one variant and gives PP3 = 0.9523 — both traits still have strong signals, and the gene is no longer implicated. The third row is a locus where the eQTL evidence is a single Bayes factor of 25 and PP4 is nonetheless 0.7122."
+  alt="Three groups of five horizontal bars showing colocalisation posteriors H0 to H4. The first group has H4 at 1.0000. The second has H3 at 0.9523 and H4 at 0.0262. The third has H1 at 0.2849 and H4 at 0.7122."
+>
+  <svg viewBox="0 0 640 438" width="640" height="438" font-family="inherit"><text x="320.0" y="18.0" font-size="12" fill="currentColor" text-anchor="middle" font-weight="600">What a colocalisation actually concludes</text><text x="64.0" y="44.0" font-size="11.5" fill="currentColor" font-weight="600">Shared causal variant</text><text x="202.2" y="44.0" font-size="10" fill="currentColor" opacity=".65">— both traits peak at the same variant</text><text x="104.0" y="65.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H0</text><rect x="112.0" y="56.0" width="1.2" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="104.0" y="81.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H1</text><rect x="112.0" y="72.0" width="1.2" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="104.0" y="97.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H2</text><rect x="112.0" y="88.0" width="1.2" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="104.0" y="113.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H3</text><rect x="112.0" y="104.0" width="1.2" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="104.0" y="129.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H4</text><rect x="112.0" y="120.0" width="448.0" height="12.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".9"/><text x="567.0" y="129.5" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">1.0000</text><text x="64.0" y="176.0" font-size="11.5" fill="currentColor" font-weight="600">Distinct causal variants</text><text x="220.8" y="176.0" font-size="10" fill="currentColor" opacity=".65">— the eQTL peak moves by one variant</text><text x="104.0" y="197.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H0</text><rect x="112.0" y="188.0" width="1.2" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="104.0" y="213.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H1</text><rect x="112.0" y="204.0" width="5.3" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="124.3" y="213.5" font-size="9.5" fill="currentColor" opacity=".85">0.0119</text><text x="104.0" y="229.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H2</text><rect x="112.0" y="220.0" width="4.3" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="123.3" y="229.5" font-size="9.5" fill="currentColor" opacity=".85">0.0095</text><text x="104.0" y="245.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H3</text><rect x="112.0" y="236.0" width="426.6" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="545.6" y="245.5" font-size="9.5" fill="currentColor" opacity=".85">0.9523</text><text x="104.0" y="261.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H4</text><rect x="112.0" y="252.0" width="11.7" height="12.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".9"/><text x="130.7" y="261.5" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">0.0262</text><text x="64.0" y="308.0" font-size="11.5" fill="currentColor" font-weight="600">Weak eQTL, strong GWAS</text><text x="208.4" y="308.0" font-size="10" fill="currentColor" opacity=".65">— the eQTL evidence is a single Bayes factor of 25</text><text x="104.0" y="329.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H0</text><rect x="112.0" y="320.0" width="1.3" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="104.0" y="345.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H1</text><rect x="112.0" y="336.0" width="127.6" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="246.6" y="345.5" font-size="9.5" fill="currentColor" opacity=".85">0.2849</text><text x="104.0" y="361.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H2</text><rect x="112.0" y="352.0" width="1.2" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="104.0" y="377.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H3</text><rect x="112.0" y="368.0" width="1.2" height="12.0" rx="2" fill="currentColor" opacity=".28"/><text x="104.0" y="393.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">H4</text><rect x="112.0" y="384.0" width="319.1" height="12.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".9"/><text x="438.1" y="393.5" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">0.7122</text><text x="320.0" y="424.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">H3 and H4 are the whole question: both traits have a signal either way</text></svg>
+</Figure>
+
+<Callout variant="warning" title="A high PP4 can be built from almost no QTL evidence">
+Take a locus with an overwhelming GWAS signal and an eQTL that barely registers — a single
+approximate Bayes factor of 25, which is not a discovery by any threshold anyone uses. The
+posteriors come out as
+
+$$
+\text{PP1} = 0.2849, \qquad \text{PP4} = 0.7122
+$$
+
+A PP4 above 0.7 is routinely reported as a colocalisation, and here it rests on an eQTL that
+would not survive multiple-testing correction on its own.
+
+The mechanism is structural rather than a bug. When one trait's evidence is enormous, H1 and
+H4 both explain it, and what separates them is only the modest additional evidence from trait
+two weighed against the ratio of $p_{12}$ to $p_1$. A little QTL evidence goes a long way,
+because the prior is already saying that a variant causal for the GWAS is fairly likely to be
+causal for expression too.
+
+The remedy is to read PP4 beside the QTL's own significance, and to treat colocalisation as
+uninformative — rather than negative — where the QTL is underpowered
+<Citation id="wallace2021coloc" />. This is also why single-signal coloc is increasingly
+replaced by methods that fine-map both traits first and colocalise credible sets.
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Reading the whole posterior" difficulty="warm-up">
+
+At a locus with a strong GWAS signal and a completely flat eQTL — every eQTL Bayes factor
+equal to 1 — the posteriors are PP0 0.0090, PP1 0.9006, PP2 0.0000, PP3 0.0001, PP4 0.0901.
+What does this say, and what would reporting PP4 alone have suggested?
+
+<div slot="solution">
+
+It says **trait 1 only**: there is a causal variant for the GWAS here and no evidence of one
+for expression. PP1 at 0.90 is the conclusion; PP4 at 0.09 is the residual probability that
+the same variant also affects expression undetectably.
+
+Reporting PP4 = 0.09 alone would read as "not colocalised", which is correct here but for the
+wrong reason — it would read identically at a locus where both traits are absent, or where the
+eQTL is present but distinct. The five posteriors sum to one and are meant to be read
+together; a single one of them is a projection that discards which alternative it lost to.
+
+Check the sum as a habit: $0.0090 + 0.9006 + 0.0000 + 0.0001 + 0.0901 = 0.9998$, which is 1
+up to the rounding shown.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="What one Bayes factor buys" difficulty="core">
+
+Compare the flat-eQTL locus above with the same locus when a single variant gains an eQTL
+Bayes factor of 25. How much does PP4 move, and is that proportionate?
+
+<div slot="solution">
+
+$$
+\text{PP4}: 0.0901 \;\longrightarrow\; 0.7122
+$$
+
+An eight-fold increase in the posterior, from a piece of evidence that on its own is
+unremarkable — a Bayes factor of 25 against a null is "worth a look", not "established".
+
+It is proportionate *given the priors*, and that is the point. The likelihood ratio between H4
+and H1 at the shared variant is roughly the eQTL's Bayes factor there scaled by
+$p_{12}/p_1$, so a factor of 25 in the data becomes a large swing in the posterior because the
+prior ratio is only ten-to-one against. The arithmetic is doing what it was told.
+
+What is not proportionate is the *reporting*. "PP4 = 0.71" in a table looks like the same kind
+of statement as "PP4 = 0.71" at a locus with a genome-wide-significant eQTL, and it is not.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="The prior nobody examines" difficulty="stretch">
+
+Keep that locus fixed and vary only $p_{12}$, the prior that a variant is causal for both
+traits, across $10^{-6}$, $10^{-5}$ and $10^{-4}$. What happens, and what should be reported?
+
+<div slot="solution">
+
+| $p_{12}$ | PP1 | PP4 | reads as |
+|---|---:|---:|---|
+| $10^{-6}$ | 0.7934 | 0.1983 | not colocalised |
+| $10^{-5}$ | 0.2849 | 0.7122 | probably colocalised |
+| $10^{-4}$ | 0.0384 | 0.9612 | confidently colocalised |
+
+The same data, three incompatible conclusions, from a parameter that is almost never stated in
+a results table and is usually left at a package default.
+
+$p_{12}$ encodes a genuine belief: how often is a variant that affects a trait *also* one that
+affects this gene's expression. There is no universal answer — it depends on the trait, the
+tissue, and how the region was selected — and the default of $10^{-5}$ is a convention rather
+than an estimate.
+
+Three things follow:
+
+- **Report the priors** with the posteriors, as you would report a significance threshold.
+- **Show sensitivity** when PP4 is near a decision boundary. A colocalisation that survives
+  $p_{12} = 10^{-6}$ is a different claim from one that needs $10^{-4}$.
+- **Prefer strong evidence on both sides.** At the shared-peak locus in the worked example,
+  PP4 stays essentially 1 across this whole range: when both traits have decisive evidence, the
+  prior stops mattering. Prior sensitivity is a symptom of weak data, not a flaw in the method.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A GWAS locus names a position, not a gene.** Molecular QTLs bridge the gap by linking
+  variants to expression (eQTL), splicing (sQTL) or protein abundance (pQTL) — and a variant
+  can change the isoform without changing the amount, which only an sQTL sees.
+- **The question is not "is there a signal in both" but "is it the same variant".** At a locus
+  in LD the first question almost always answers yes.
+- **Colocalisation enumerates five hypotheses**, and the whole difficulty lives in H3 against
+  H4. Moving the eQTL peak by a single variant turned PP4 = 1.0000 into PP3 = 0.9523.
+- **A high PP4 can rest on very little QTL evidence.** A single Bayes factor of 25 took PP4
+  from 0.0901 to 0.7122; read PP4 beside the QTL's own significance, and treat an underpowered
+  QTL as uninformative rather than negative.
+- **The shared-causal prior decides borderline cases.** The same locus gives PP4 of 0.1983,
+  0.7122 or 0.9612 at $p_{12}$ of $10^{-6}$, $10^{-5}$ and $10^{-4}$. Report the priors, and
+  show sensitivity when it is close.
+- **Uniform reprocessing matters.** Colocalising across studies with different pipelines
+  compares pipelines as much as biology, which is what the eQTL Catalogue exists to remove.

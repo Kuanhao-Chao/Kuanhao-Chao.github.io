@@ -23,6 +23,7 @@ import {
   likelihoodRatioPositive, oddsPathFor, oddsPathPoints, oddsPathStrength,
   cancerCellFraction, tumourMutationalBurden,
   topKRecall, rmse,
+  colocPosteriors,
 } from './deepDiveMath.ts';
 
 /**
@@ -1735,5 +1736,56 @@ describe('rmse', () => {
     const rescaled = y.map((v) => 1 / (1 + Math.exp(-v)));
     expect(spearman(y, rescaled)).toBeCloseTo(1, 12);
     expect(rmse(y, rescaled)).toBeGreaterThan(1.5);
+  });
+});
+
+describe('colocPosteriors', () => {
+  const flat = [1, 1, 1, 1, 1];
+
+  it('returns a proper distribution over the five hypotheses', () => {
+    const p = colocPosteriors([2, 15, 1e6, 30, 6], [3, 10, 8e5, 25, 9]);
+    const all = [p.pp0, p.pp1, p.pp2, p.pp3, p.pp4];
+    expect(all.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 12);
+    for (const v of all) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); }
+  });
+
+  it('favours the null when neither trait has evidence', () => {
+    const p = colocPosteriors(flat, flat);
+    expect(p.pp0).toBeGreaterThan(0.99);
+  });
+
+  it('is symmetric in the two traits, up to swapping H1 and H2', () => {
+    const a = [2, 15, 1e6, 30, 6];
+    const b = [3, 10, 8e5, 25, 9];
+    const ab = colocPosteriors(a, b);
+    const ba = colocPosteriors(b, a);
+    expect(ba.pp1).toBeCloseTo(ab.pp2, 12);
+    expect(ba.pp2).toBeCloseTo(ab.pp1, 12);
+    expect(ba.pp3).toBeCloseTo(ab.pp3, 12);
+    expect(ba.pp4).toBeCloseTo(ab.pp4, 12);
+  });
+
+  it('separates a shared peak from adjacent peaks', () => {
+    const gwas = [2, 15, 1e6, 30, 6];
+    const shared = colocPosteriors(gwas, [3, 10, 8e5, 25, 9]);
+    const distinct = colocPosteriors(gwas, [3, 8e5, 10, 25, 9]);
+    expect(shared.pp4).toBeGreaterThan(0.99);
+    expect(distinct.pp3).toBeGreaterThan(0.9);
+    expect(distinct.pp4).toBeLessThan(0.1);
+  });
+
+  it('is monotone in the shared-causal prior', () => {
+    const gwas = [2, 15, 1e6, 30, 6];
+    const weak = [1, 1, 25, 1, 1];
+    let prev = -1;
+    for (const p12 of [1e-7, 1e-6, 1e-5, 1e-4]) {
+      const v = colocPosteriors(gwas, weak, 1e-4, 1e-4, p12).pp4;
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
+  });
+
+  it('rejects mismatched inputs', () => {
+    expect(() => colocPosteriors([1, 2], [1])).toThrow();
   });
 });

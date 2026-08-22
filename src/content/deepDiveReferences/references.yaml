@@ -2523,3 +2523,61 @@ wu2026finemapping:
   venue: "Nature Genetics 58:940-951"
   doi: https://doi.org/10.1038/s41588-026-02549-3
   verified: 2026-08-21
+
+# ── Layer 4 · Expression and molecular QTLs ───────────────────────────────────
+
+li2018leafcutter:
+  authors: ['Yang I. Li', 'David A. Knowles', 'Jack Humphrey', 'et al.']
+  year: 2017
+  title: "Annotation-free quantification of RNA splicing using LeafCutter"
+  venue: "Nature Genetics 50:151-158"
+  doi: https://doi.org/10.1038/s41588-017-0004-9
+  verified: 2026-08-21
+
+giambartolomei2014coloc:
+  authors: ['Claudia Giambartolomei', 'Damjan Vukcevic', 'Eric E. Schadt', 'et al.']
+  year: 2014
+  title: "Bayesian Test for Colocalisation between Pairs of Genetic Association Studies Using Summary Statistics"
+  venue: "PLoS Genetics 10:e1004383"
+  doi: https://doi.org/10.1371/journal.pgen.1004383
+  verified: 2026-08-21
+
+gtex2020:
+  authors: ['The GTEx Consortium', 'François Aguet', 'Shankara Anand', 'et al.']
+  year: 2020
+  title: "The GTEx Consortium atlas of genetic regulatory effects across human tissues"
+  venue: "Science 369:1318-1330"
+  doi: https://doi.org/10.1126/science.aaz1776
+  verified: 2026-08-21
+
+wallace2021coloc:
+  authors: ['Chris Wallace']
+  year: 2021
+  title: "A more accurate method for colocalisation analysis allowing for multiple causal variants"
+  venue: "PLOS Genetics 17:e1009440"
+  doi: https://doi.org/10.1371/journal.pgen.1009440
+  verified: 2026-08-21
+
+kerimov2021eqtl:
+  authors: ['Nurlan Kerimov', 'James D. Hayhurst', 'Kateryna Peikova', 'et al.']
+  year: 2021
+  title: "A compendium of uniformly processed human gene expression and splicing quantitative trait loci"
+  venue: "Nature Genetics 53:1290-1299"
+  doi: https://doi.org/10.1038/s41588-021-00924-w
+  verified: 2026-08-21
+
+mountjoy2021l2g:
+  authors: ['Edward Mountjoy', 'Ellen M. Schmidt', 'Miguel Carmona', 'et al.']
+  year: 2021
+  title: "An open approach to systematically prioritize causal variants and genes at all published human GWAS trait-associated loci"
+  venue: "Nature Genetics 53:1527-1533"
+  doi: https://doi.org/10.1038/s41588-021-00945-5
+  verified: 2026-08-21
+
+sun2023pqtl:
+  authors: ['Benjamin B. Sun', 'Joshua Chiou', 'Matthew Traylor', 'et al.']
+  year: 2023
+  title: "Plasma proteomic associations with genetics and health in the UK Biobank"
+  venue: "Nature 622:329-338"
+  doi: https://doi.org/10.1038/s41586-023-06592-6
+  verified: 2026-08-21

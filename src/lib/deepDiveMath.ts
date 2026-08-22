@@ -1735,3 +1735,51 @@ export function rmse(a: readonly number[], b: readonly number[]): number {
   if (a.length !== b.length) throw new RangeError('rmse needs equal-length inputs');
   return Math.sqrt(a.reduce((s, v, i) => s + (v - b[i]) ** 2, 0) / a.length);
 }
+
+// ── Colocalisation ────────────────────────────────────────────────────────────
+
+export interface ColocPosteriors {
+  /** Neither trait has a causal variant here. */
+  pp0: number;
+  /** Trait 1 only. */
+  pp1: number;
+  /** Trait 2 only. */
+  pp2: number;
+  /** Both, but at *different* causal variants. */
+  pp3: number;
+  /** Both, at the same causal variant — the hypothesis of interest. */
+  pp4: number;
+}
+
+/**
+ * Posterior probabilities over the five colocalisation hypotheses.
+ *
+ * The question a QTL asks of a GWAS locus is not "is there a signal in both" — at a locus
+ * dense with variants there usually is — but "is it the *same* variant". H3 and H4 separate
+ * exactly those, and the difference between them is what decides whether a gene is
+ * implicated or merely nearby.
+ *
+ * Takes per-variant approximate Bayes factors for each trait against its own null. The
+ * priors are per-variant: `p1` and `p2` that a variant is causal for one trait alone, `p12`
+ * that it is causal for both. `p12` is the assumption doing the most work and the one least
+ * often examined — it encodes how often a regulatory variant is expected to affect a trait.
+ */
+export function colocPosteriors(
+  abf1: readonly number[],
+  abf2: readonly number[],
+  p1 = 1e-4,
+  p2 = 1e-4,
+  p12 = 1e-5
+): ColocPosteriors {
+  if (abf1.length !== abf2.length) throw new RangeError('colocPosteriors needs equal-length ABFs');
+  const s1 = abf1.reduce((a, b) => a + b, 0);
+  const s2 = abf2.reduce((a, b) => a + b, 0);
+  const shared = abf1.reduce((a, v, i) => a + v * abf2[i], 0);
+  // H3 sums over *distinct* variant pairs, which is the full product minus the diagonal.
+  const distinct = s1 * s2 - shared;
+
+  const l = [1, p1 * s1, p2 * s2, p1 * p2 * distinct, p12 * shared];
+  const total = l.reduce((a, b) => a + b, 0);
+  const [pp0, pp1, pp2, pp3, pp4] = l.map((v) => v / total);
+  return { pp0, pp1, pp2, pp3, pp4 };
+}

@@ -107,6 +107,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'data-constraint-intolerance',
   'data-variant-effect-scores',
   'data-mave-assays',
+  'data-expression-qtl',
   'data-germline-clinical',
   'data-somatic-oncology',
   'data-protein-benchmarks',
