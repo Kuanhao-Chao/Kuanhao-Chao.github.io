@@ -1,0 +1,485 @@
+---
+title: "BLUP & Genomic Selection: Mixed Models, the Relationship Matrix & Prediction"
+shortTitle: BLUP & Genomic Selection
+description: "Henderson's mixed model equations solved on a small pedigree, why the same equations with a genomic relationship matrix become GBLUP, the exact equivalence between GBLUP and ridge regression on markers, and what a reference population buys in accuracy."
+abstract: "The animals you most want to rank are usually the ones without records — a young bull has no milk yield, and by the time he does the decision is years old. BLUP solves this by predicting breeding values for every individual in a pedigree from its relatives' records, and Henderson's mixed model equations make the computation feasible by never forming the phenotypic covariance matrix at all. Replace the pedigree relationship matrix with one built from markers and the same equations become genomic selection, which is algebraically identical to ridge regression on marker effects — a fact this lesson verifies to machine precision rather than asserting. The lesson ends on what accuracy a reference population actually buys, and why the real gain from genomic selection came from shortening the generation interval rather than from predicting better."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m03-quantitative
+moduleLabel: Module 3 · Quantitative Genetics
+order: 7
+level: advanced
+objectives:
+  - "Write a mixed model with a relationship-structured random effect and identify each term."
+  - "Set up and solve Henderson's mixed model equations for a small pedigree by hand."
+  - "Explain why BLUP produces non-zero estimates for individuals with no phenotype, and when it produces exactly zero."
+  - "Interpret the variance ratio λ as a heritability and predict how shrinkage changes with it."
+  - "Show that GBLUP and ridge regression on marker effects give identical predictions."
+  - "Compute prediction accuracy from training size, heritability and the number of independent segments."
+prerequisites:
+  - statgen-quantitative-genetics-selection
+  - statgen-pedigrees-linkage-qtl
+relatedLessons:
+  - statgen-heritability-greml
+  - statgen-polygenic-risk-scores
+keyEquations:
+  - '\mathbf{y} = \mathbf{X}\mathbf{b} + \mathbf{Z}\mathbf{u} + \mathbf{e}, \qquad \mathrm{Var}(\mathbf{u}) = \mathbf{A}\sigma^2_g'
+  - '\begin{pmatrix} \mathbf{X}^{\!\top}\mathbf{X} & \mathbf{X}^{\!\top}\mathbf{Z} \\ \mathbf{Z}^{\!\top}\mathbf{X} & \mathbf{Z}^{\!\top}\mathbf{Z} + \mathbf{A}^{-1}\lambda \end{pmatrix}\begin{pmatrix} \hat{\mathbf{b}} \\ \hat{\mathbf{u}} \end{pmatrix} = \begin{pmatrix} \mathbf{X}^{\!\top}\mathbf{y} \\ \mathbf{Z}^{\!\top}\mathbf{y}\end{pmatrix}'
+  - 'r = \sqrt{\dfrac{N h^2}{N h^2 + M_e}}'
+referenceIds:
+  - henderson1975blup
+  - henderson1976inverse
+  - meuwissen2001genomic
+  - habier2007relationship
+  - daetwyler2008
+  - vanraden2008
+  - hayes2009dairy
+  - deloscampos2013regression
+tags: [BLUP, mixed model, Henderson, genomic selection, GBLUP, ridge regression, relationship matrix, prediction accuracy]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The previous lesson gave the breeder's equation, which says what happens *if* you select the
+right parents. It said nothing about how to find them, and the practical problem is harder
+than it looks for one reason: **the individuals you most want to rank usually have no
+record**.
+
+A young bull has no milk yield and never will. A seedling has no harvest. In both cases the
+decision has to be made now, and the only evidence is what relatives have done. Worse, those
+relatives were themselves measured in different herds, different years and different
+management systems, so their records are not comparable until those effects are removed —
+and removing them requires knowing the genetic merit you are trying to estimate.
+
+BLUP solves both problems at once, in one system of equations. It is not a clever heuristic;
+it is the best linear unbiased predictor in a precise sense, and <Citation id="henderson1975blup" />
+is where the properties are established. What made it *usable* was a computational trick,
+and that trick is the centre of this lesson.
+
+<Notation
+  rows={[
+    { symbol: '\\mathbf{y}', meaning: 'Vector of phenotypic records', dims: 'n × 1' },
+    { symbol: '\\mathbf{b}', meaning: 'Fixed effects — herd, year, sex, and the overall mean', dims: 'p × 1' },
+    { symbol: '\\mathbf{u}', meaning: 'Random breeding values, one per individual in the pedigree', dims: 'q × 1' },
+    { symbol: '\\mathbf{X},\\;\\mathbf{Z}', meaning: 'Incidence matrices linking records to fixed and random effects', dims: 'n × p, n × q' },
+    { symbol: '\\mathbf{A}', meaning: 'Additive relationship matrix from the pedigree', dims: 'q × q' },
+    { symbol: '\\mathbf{G}', meaning: 'Genomic relationship matrix, estimated from markers', dims: 'q × q' },
+    { symbol: '\\lambda', meaning: 'Variance ratio σ²ₑ/σ²_g — the shrinkage parameter', dims: '> 0' },
+    { symbol: 'M_e', meaning: 'Number of effectively independent chromosome segments', dims: 'count' },
+    { symbol: 'r', meaning: 'Accuracy: correlation between true and predicted breeding value', dims: 'in [0,1]' },
+    { symbol: 'L', meaning: 'Generation interval — mean age of parents when offspring are born', dims: 'years' },
+  ]}
+/>
+
+## The mixed model, and the trick that made it computable
+
+Write the records as a sum of what you must remove and what you want to estimate:
+
+$$
+\mathbf{y} = \mathbf{X}\mathbf{b} + \mathbf{Z}\mathbf{u} + \mathbf{e},
+\qquad
+\mathrm{Var}(\mathbf{u}) = \mathbf{A}\sigma^2_g,
+\qquad
+\mathrm{Var}(\mathbf{e}) = \mathbf{I}\sigma^2_e
+$$
+
+The fixed effects $\mathbf{b}$ are nuisances to be estimated and discarded; the random
+effects $\mathbf{u}$ are the breeding values, and they are *random* precisely because they
+have a distribution the pedigree specifies — that is the whole content of the previous
+lesson's relationship matrix.
+
+The direct route is generalised least squares, which needs
+$\mathbf{V} = \mathbf{Z}\mathbf{A}\mathbf{Z}^{\!\top}\sigma^2_g + \mathbf{I}\sigma^2_e$
+inverted. $\mathbf{V}$ is $n \times n$ in the number of *records*, which for a national dairy
+evaluation is tens of millions, and it is dense. That computation has never been possible and
+never will be.
+
+Henderson's insight was that $\hat{\mathbf{b}}$ and $\hat{\mathbf{u}}$ both fall out of a
+single joint system that never mentions $\mathbf{V}$:
+
+$$
+\begin{pmatrix}
+\mathbf{X}^{\!\top}\mathbf{X} & \mathbf{X}^{\!\top}\mathbf{Z} \\
+\mathbf{Z}^{\!\top}\mathbf{X} & \mathbf{Z}^{\!\top}\mathbf{Z} + \mathbf{A}^{-1}\lambda
+\end{pmatrix}
+\begin{pmatrix} \hat{\mathbf{b}} \\ \hat{\mathbf{u}} \end{pmatrix}
+=
+\begin{pmatrix} \mathbf{X}^{\!\top}\mathbf{y} \\ \mathbf{Z}^{\!\top}\mathbf{y}\end{pmatrix}
+$$
+
+The matrix that does appear is $\mathbf{A}^{-1}$, and by
+<Citation id="henderson1976inverse" /> that can be written down directly from the pedigree
+without forming $\mathbf{A}$ — and it is extremely sparse, with non-zeros only among parents
+and offspring. **The dense inverse was replaced by a sparse one that never needs to be
+computed.** That is why national genetic evaluations exist.
+
+<Callout variant="intuition" title="Why BLUP shrinks, and why that is not a compromise">
+
+The $\lambda$ added to the diagonal is doing something specific, and calling it
+"regularisation" undersells it.
+
+An animal's record is its breeding value plus environment plus non-additive genetics. Taking
+the record at face value would credit all of that to the animal. Shrinking it toward the mean
+by the right amount is not caution — it is the **conditional expectation** of the breeding
+value given the data, which is the estimate that minimises squared error. BLUP is the
+posterior mean under a normal prior, and $\lambda$ is what converts prior variance into
+shrinkage.
+
+The size of the shrinkage is set by how much evidence there is. One record on the animal
+itself shrinks a lot; fifty daughters shrink very little. The same equation handles both
+without any special-casing, because the amount of information enters through
+$\mathbf{Z}^{\!\top}\mathbf{Z}$ and the relationship structure enters through
+$\mathbf{A}^{-1}$.
+
+And because $\mathbf{A}^{-1}$ connects every individual to its relatives, the system produces
+an estimate for an animal with **no record at all** — its equation has zero on the left from
+$\mathbf{Z}^{\!\top}\mathbf{Z}$ and is driven entirely by its relatives. That is the property
+the whole method exists for.
+
+</Callout>
+
+<Figure
+  caption="Figure 1. BLUP on the worked example's pedigree. Grey points are the three records as deviations from the estimated mean; green points are the BLUP estimates. Two things happen at once. Every record is pulled toward the mean — calf 5's record of +0.971 becomes an estimate of +0.284 — because a record contains environment and non-additive genetics as well as breeding value. And the two sires, neither of which has a record, receive estimates of +0.224 and −0.224 entirely from their offspring. The dam is a special case worth understanding: she is the dam of all three calves, so her effect is indistinguishable from the overall mean, and BLUP returns exactly zero."
+  alt="A dot plot with one row per animal, showing deviation from the population mean. Sire A is at plus 0.224 and sire B at minus 0.224, both with no record. Dam D is at exactly zero. Calves 4, 5 and 6 each show a grey record point connected by a dashed line to a green BLUP estimate closer to zero: plus 0.371 to plus 0.164, plus 0.971 to plus 0.284, and minus 1.229 to minus 0.335."
+  wide
+>
+<svg viewBox="0 0 640 288" width="640" height="288" font-family="inherit"><line x1="120.0" y1="52.0" x2="120.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="120.0" y1="236.0" x2="470.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="141.9" y1="236.0" x2="141.9" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="141.9" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">-1.2</text><line x1="200.2" y1="236.0" x2="200.2" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="200.2" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">-0.8</text><line x1="258.5" y1="236.0" x2="258.5" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="258.5" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">-0.4</text><line x1="316.9" y1="236.0" x2="316.9" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="316.9" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="375.2" y1="236.0" x2="375.2" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="375.2" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">+0.4</text><line x1="433.5" y1="236.0" x2="433.5" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="433.5" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">+0.8</text><text x="108.0" y="67.5" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">sire A</text><circle cx="349.5" cy="63.5" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="349.5" y="79.5" font-size="9.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">+0.224</text><text x="108.0" y="96.2" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">sire B</text><circle cx="284.3" cy="92.2" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="284.3" y="108.2" font-size="9.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">-0.224</text><text x="108.0" y="125.0" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">dam D</text><circle cx="316.9" cy="121.0" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="316.9" y="137.0" font-size="9.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">+0.000</text><text x="108.0" y="153.8" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">calf 4</text><line x1="370.9" y1="149.8" x2="340.7" y2="149.8" stroke="currentColor" stroke-width="1.4" opacity=".45" stroke-dasharray="3 3"/><circle cx="370.9" cy="149.8" r="4.0" fill="currentColor" opacity=".45"/><text x="370.9" y="139.8" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".6">+0.371</text><circle cx="340.7" cy="149.8" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="340.7" y="165.8" font-size="9.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">+0.164</text><text x="108.0" y="182.5" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">calf 5</text><line x1="458.4" y1="178.5" x2="358.2" y2="178.5" stroke="currentColor" stroke-width="1.4" opacity=".45" stroke-dasharray="3 3"/><circle cx="458.4" cy="178.5" r="4.0" fill="currentColor" opacity=".45"/><text x="458.4" y="168.5" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".6">+0.971</text><circle cx="358.2" cy="178.5" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="358.2" y="194.5" font-size="9.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">+0.284</text><text x="108.0" y="211.2" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">calf 6</text><line x1="137.6" y1="207.2" x2="268.0" y2="207.2" stroke="currentColor" stroke-width="1.4" opacity=".45" stroke-dasharray="3 3"/><circle cx="137.6" cy="207.2" r="4.0" fill="currentColor" opacity=".45"/><text x="137.6" y="197.2" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".6">-1.229</text><circle cx="268.0" cy="207.2" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="268.0" y="223.2" font-size="9.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">-0.335</text><line x1="316.9" y1="236.0" x2="316.9" y2="52.0" stroke="currentColor" stroke-width="1.25" opacity=".4" stroke-dasharray="4 3"/><text x="316.9" y="44.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">population mean</text><circle cx="490.0" cy="74.0" r="4.0" fill="currentColor" opacity=".45"/><text x="502.0" y="78.0" font-size="10" fill="currentColor" opacity=".8">record, as a deviation</text><circle cx="490.0" cy="94.0" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="502.0" y="98.0" font-size="10" fill="currentColor" opacity=".8">BLUP estimate</text><text x="484.0" y="132.0" font-size="11" fill="currentColor" font-weight="700">Two things at once:</text><text x="484.0" y="148.0" font-size="10" fill="currentColor" opacity=".8">every record is pulled</text><text x="484.0" y="161.0" font-size="10" fill="currentColor" opacity=".8">toward the mean, and the</text><text x="484.0" y="174.0" font-size="10" fill="currentColor" opacity=".8">three animals with no</text><text x="484.0" y="187.0" font-size="10" fill="currentColor" opacity=".8">record get estimates from</text><text x="484.0" y="200.0" font-size="10" fill="currentColor" opacity=".8">their relatives.</text><text x="484.0" y="226.0" font-size="11" fill="currentColor" font-weight="700">dam D is confounded</text><text x="484.0" y="242.0" font-size="10" fill="currentColor" opacity=".8">with the mean, so BLUP</text><text x="484.0" y="255.0" font-size="10" fill="currentColor" opacity=".8">returns exactly zero.</text><text x="295.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Deviation from the population mean</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">BLUP shrinks what it measured, and predicts what it did not</text></svg>
+</Figure>
+
+<WorkedExample
+  title="Henderson's equations on six animals"
+  given={[
+    { label: 'Pedigree', value: 'sires A, B; dam D; calves 4, 5 (A×D) and 6 (B×D)' },
+    { label: 'Records', value: 'only on calves: 4.5, 5.1, 2.9' },
+    { label: 'Variance ratio λ', value: '2, so h² = 1/3' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the relationship matrix.** Calves 4 and 5 are full sibs, so $A_{45} = 0.5$; calf 6
+shares only the dam, so $A_{46} = A_{56} = 0.25$. Each sire is related to its own offspring at
+0.5 and to the other sire's offspring at 0.
+
+**Step 2 — set up the system.** With one fixed effect (the mean), $\mathbf{X}$ is a column of
+ones and $\mathbf{Z}$ maps each record to its calf. The random block gets
+$\mathbf{A}^{-1}\lambda$ added, which for $\lambda = 2$ puts $2 \times 2 = 4$ on the diagonal
+for each calf and couples every parent to its offspring at $-2$.
+
+**Step 3 — solve.** The estimated mean is
+
+$$
+\hat\mu = 4.129412
+$$
+
+which is **not** the average of the three records, 4.166667. The records are not independent —
+two of them share a sire — so the generalised least-squares estimate weights them
+differently from a simple average. This is the second thing BLUP is for.
+
+**Step 4 — read the breeding values.**
+
+| animal | record | deviation | BLUP |
+| --- | --- | --- | --- |
+| sire A | — | — | $+0.223529$ |
+| sire B | — | — | $-0.223529$ |
+| dam D | — | — | $0.000000$ |
+| calf 4 | 4.5 | $+0.370588$ | $+0.163529$ |
+| calf 5 | 5.1 | $+0.970588$ | $+0.283529$ |
+| calf 6 | 2.9 | $-1.229412$ | $-0.335294$ |
+
+**Step 5 — three things to notice.** Every calf is shrunk toward zero, and by a lot: with
+$h^2 = 1/3$, roughly two-thirds of each deviation is attributed to environment. The two
+sires get non-zero estimates without records, ranked correctly — A's two calves are both
+above average, B's one calf is well below. And the dam gets exactly zero, because she is the
+dam of *all three* calves and so contributes identically to every record: her effect cannot
+be separated from the overall mean, and BLUP correctly declines to guess.
+
+</WorkedExample>
+
+## λ is a heritability wearing different clothes
+
+The variance ratio and the heritability are the same number:
+
+$$
+\lambda = \frac{\sigma^2_e}{\sigma^2_g} = \frac{1 - h^2}{h^2},
+\qquad\text{equivalently}\qquad
+h^2 = \frac{1}{1 + \lambda}
+$$
+
+Re-solving the worked example at three values makes the consequence concrete:
+
+| $\lambda$ | $h^2$ | $\hat\mu$ | sire A | calf 5 |
+| --- | --- | --- | --- | --- |
+| 0.5 | 0.6667 | 4.087500 | $+0.475000$ | $+0.625000$ |
+| 2 | 0.3333 | 4.129412 | $+0.223529$ | $+0.283529$ |
+| 9 | 0.1000 | 4.155932 | $+0.064407$ | $+0.080196$ |
+
+A low-heritability trait is shrunk almost to nothing, which is correct: if only a tenth of
+the variance is transmissible, a record is mostly noise about breeding value. Note also that
+$\hat\mu$ drifts toward the raw mean of 4.166667 as $h^2$ falls — as the records become
+uninformative about genetics, the correlation structure they induce weakens and GLS
+approaches ordinary least squares.
+
+## From A to G: genomic selection
+
+Everything so far uses the *expected* relationship from the pedigree. Two full sibs get
+$A_{ij} = 0.5$ because that is what full sibs share on average. They do not actually share
+exactly half — Mendelian segregation is random, and the realised fraction varies with a
+standard deviation of roughly 0.04.
+
+<Citation id="meuwissen2001genomic" /> proposed replacing the pedigree matrix with one
+estimated from dense markers, and predicting breeding values for animals with genotypes but
+no phenotypes. <Citation id="vanraden2008" /> gave the form that became standard:
+
+$$
+\mathbf{G} = \frac{\mathbf{W}\mathbf{W}^{\!\top}}{\sum_j 2p_j(1-p_j)},
+\qquad
+W_{ij} = g_{ij} - 2p_j
+$$
+
+Substituting $\mathbf{G}$ for $\mathbf{A}$ in Henderson's equations gives **GBLUP**, and
+nothing else changes. What changes is what the matrix knows: $\mathbf{G}$ captures realised
+sharing rather than expected sharing, which is why it can distinguish two full sibs at all —
+and, as <Citation id="habier2007relationship" /> showed, a large part of the accuracy of
+genomic prediction comes precisely from this better estimate of relationship rather than from
+tracking causal variants.
+
+<WorkedExample
+  title="GBLUP is ridge regression on markers"
+  given={[
+    { label: 'Animals', value: '5' },
+    { label: 'Markers', value: '6, coded 0/1/2' },
+    { label: 'Variance ratio λ', value: '2' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+Two apparently different methods, computed independently.
+
+**Route 1 — GBLUP.** Build $\mathbf{G}$ from the markers, then solve for breeding values
+directly, one number per animal:
+
+$$
+\hat{\mathbf{u}} = \mathbf{G}\left(\mathbf{G} + \lambda\mathbf{I}\right)^{-1}\hat{\mathbf{e}}
+$$
+
+$$
+\hat{\mathbf{u}} = (0.294451,\; -0.244158,\; -0.474334,\; 0.423848,\; 0.000193)
+$$
+
+**Route 2 — SNP-BLUP.** Never build $\mathbf{G}$. Instead fit a ridge regression for the
+*marker* effects, with a penalty $\lambda_\beta = \lambda \sum_j 2p_j(1-p_j)$, and then sum
+each animal's marker effects:
+
+$$
+\hat{\boldsymbol\beta} = \left(\mathbf{W}^{\!\top}\mathbf{W} + \lambda_\beta \mathbf{I}\right)^{-1}\mathbf{W}^{\!\top}\hat{\mathbf{e}},
+\qquad
+\hat{\mathbf{u}} = \mathbf{W}\hat{\boldsymbol\beta}
+$$
+
+$$
+\hat{\mathbf{u}} = (0.294451,\; -0.244158,\; -0.474334,\; 0.423848,\; 0.000193)
+$$
+
+**They agree to $1.1\times10^{-16}$** — machine precision, not approximation. The two routes
+are the same estimator written in two bases, and which one you compute is purely a question
+of whether you have more animals or more markers: SNP-BLUP inverts a matrix of size $m$, and
+GBLUP one of size $n$.
+
+This equivalence is the organising fact of the field, and <Citation id="deloscampos2013regression" />
+extends it: a whole family of methods — BayesA, BayesB, the Bayesian lasso — differ from
+GBLUP only in the prior placed on marker effects. GBLUP is the member of that family with a
+normal prior, which is exactly the infinitesimal model of Module 2.
+
+</WorkedExample>
+
+<Callout variant="warning" title="A sample-centred G has no inverse, and the textbook equations need one">
+
+Henderson's equations as written above contain $\mathbf{A}^{-1}$. Substituting
+$\mathbf{G}$ and reaching for $\mathbf{G}^{-1}$ fails, and not for a numerical reason.
+
+If the allele frequencies used for centring are computed from the same sample, then every
+column of $\mathbf{W}$ sums to zero by construction, so $\mathbf{W}$ has rank at most $n-1$
+and every row of $\mathbf{G} = \mathbf{W}\mathbf{W}^{\!\top}/s$ sums to zero as well.
+$\mathbf{G}$ is **singular by construction**, and inverting it throws.
+
+Three ways out, all in use: centre on external reference frequencies; add a small ridge to
+the diagonal, usually written $\mathbf{G} + 0.01\mathbf{I}$, or blend with $\mathbf{A}$; or
+use the equivalent non-inverse form $\hat{\mathbf{u}} = \mathbf{K}(\mathbf{K} + \lambda\mathbf{I})^{-1}\hat{\mathbf{e}}$,
+which never inverts $\mathbf{K}$ alone and is what the worked example above uses. The third
+is exact and needs no fudge, which is why it is worth knowing that the two forms are
+identical wherever both are defined.
+
+</Callout>
+
+## What a reference population buys
+
+Accuracy rises with the size of the training population, the heritability, and inversely with
+how many independent chromosome segments have to be estimated:
+
+$$
+r = \sqrt{\frac{N h^2}{N h^2 + M_e}}
+$$
+
+This is <Citation id="daetwyler2008" />'s relation, and it is the same expression as the
+polygenic-score accuracy ceiling in Module 5, written in the vocabulary of animal breeding.
+
+<Figure
+  caption="Figure 2. Prediction accuracy against training population size, for three heritabilities and Mₑ = 10,000 independent segments. What matters is the product Nh² against Mₑ, so halving the heritability costs exactly as much as halving the training set. The two marked points sit on the h² = 0.3 curve: 20,000 records give r = 0.6124, and 50,000 give 0.7746 — two and a half times the data for a quarter more accuracy, which is the shape of every curve here."
+  alt="A log-scale plot of prediction accuracy against training population size from 500 to 200,000, with three curves for heritabilities of 0.6, 0.3 and 0.1. All rise steeply then flatten. Two points are marked on the middle curve at 20,000 and 50,000 animals."
+  wide
+>
+<svg viewBox="0 0 640 316" width="640" height="316" font-family="inherit"><line x1="90.0" y1="46.0" x2="90.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="90.0" y1="244.0" x2="452.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="90.0" y1="244.0" x2="452.0" y2="244.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="82.0" y="248.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="90.0" y1="194.5" x2="452.0" y2="194.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="82.0" y="198.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.25</text><line x1="90.0" y1="145.0" x2="452.0" y2="145.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="82.0" y="149.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.50</text><line x1="90.0" y1="95.5" x2="452.0" y2="95.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="82.0" y="99.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.75</text><line x1="90.0" y1="46.0" x2="452.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="82.0" y="50.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.00</text><line x1="131.9" y1="244.0" x2="131.9" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="131.9" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1,000</text><line x1="271.0" y1="244.0" x2="271.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="271.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10,000</text><line x1="410.1" y1="244.0" x2="410.1" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="410.1" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100,000</text><path d="M90.0,210.2 L91.5,209.8 L93.0,209.4 L94.5,209.0 L96.0,208.5 L97.5,208.1 L99.1,207.7 L100.6,207.2 L102.1,206.8 L103.6,206.3 L105.1,205.9 L106.6,205.4 L108.1,204.9 L109.6,204.5 L111.1,204.0 L112.6,203.5 L114.1,203.0 L115.6,202.5 L117.2,202.0 L118.7,201.5 L120.2,201.0 L121.7,200.5 L123.2,200.0 L124.7,199.5 L126.2,198.9 L127.7,198.4 L129.2,197.9 L130.7,197.3 L132.2,196.8 L133.7,196.2 L135.2,195.6 L136.8,195.1 L138.3,194.5 L139.8,193.9 L141.3,193.3 L142.8,192.7 L144.3,192.1 L145.8,191.5 L147.3,190.9 L148.8,190.3 L150.3,189.7 L151.8,189.0 L153.3,188.4 L154.9,187.8 L156.4,187.1 L157.9,186.5 L159.4,185.8 L160.9,185.1 L162.4,184.5 L163.9,183.8 L165.4,183.1 L166.9,182.4 L168.4,181.7 L169.9,181.0 L171.4,180.3 L173.0,179.6 L174.5,178.8 L176.0,178.1 L177.5,177.4 L179.0,176.6 L180.5,175.9 L182.0,175.1 L183.5,174.4 L185.0,173.6 L186.5,172.9 L188.0,172.1 L189.6,171.3 L191.1,170.5 L192.6,169.7 L194.1,168.9 L195.6,168.1 L197.1,167.3 L198.6,166.5 L200.1,165.7 L201.6,164.8 L203.1,164.0 L204.6,163.2 L206.1,162.3 L207.7,161.5 L209.2,160.6 L210.7,159.8 L212.2,158.9 L213.7,158.0 L215.2,157.2 L216.7,156.3 L218.2,155.4 L219.7,154.5 L221.2,153.6 L222.7,152.7 L224.2,151.8 L225.8,150.9 L227.3,150.0 L228.8,149.1 L230.3,148.2 L231.8,147.3 L233.3,146.3 L234.8,145.4 L236.3,144.5 L237.8,143.6 L239.3,142.6 L240.8,141.7 L242.3,140.8 L243.8,139.8 L245.4,138.9 L246.9,137.9 L248.4,137.0 L249.9,136.0 L251.4,135.1 L252.9,134.1 L254.4,133.2 L255.9,132.2 L257.4,131.3 L258.9,130.3 L260.4,129.4 L261.9,128.4 L263.5,127.5 L265.0,126.5 L266.5,125.6 L268.0,124.6 L269.5,123.7 L271.0,122.8 L272.5,121.8 L274.0,120.9 L275.5,119.9 L277.0,119.0 L278.5,118.0 L280.1,117.1 L281.6,116.2 L283.1,115.2 L284.6,114.3 L286.1,113.4 L287.6,112.5 L289.1,111.6 L290.6,110.7 L292.1,109.7 L293.6,108.8 L295.1,107.9 L296.6,107.0 L298.1,106.2 L299.7,105.3 L301.2,104.4 L302.7,103.5 L304.2,102.7 L305.7,101.8 L307.2,100.9 L308.7,100.1 L310.2,99.2 L311.7,98.4 L313.2,97.6 L314.7,96.7 L316.2,95.9 L317.8,95.1 L319.3,94.3 L320.8,93.5 L322.3,92.7 L323.8,91.9 L325.3,91.2 L326.8,90.4 L328.3,89.6 L329.8,88.9 L331.3,88.1 L332.8,87.4 L334.4,86.7 L335.9,86.0 L337.4,85.3 L338.9,84.5 L340.4,83.9 L341.9,83.2 L343.4,82.5 L344.9,81.8 L346.4,81.2 L347.9,80.5 L349.4,79.9 L350.9,79.2 L352.4,78.6 L354.0,78.0 L355.5,77.4 L357.0,76.8 L358.5,76.2 L360.0,75.6 L361.5,75.0 L363.0,74.4 L364.5,73.9 L366.0,73.3 L367.5,72.8 L369.0,72.2 L370.6,71.7 L372.1,71.2 L373.6,70.7 L375.1,70.2 L376.6,69.7 L378.1,69.2 L379.6,68.7 L381.1,68.3 L382.6,67.8 L384.1,67.3 L385.6,66.9 L387.1,66.5 L388.6,66.0 L390.2,65.6 L391.7,65.2 L393.2,64.8 L394.7,64.4 L396.2,64.0 L397.7,63.6 L399.2,63.2 L400.7,62.9 L402.2,62.5 L403.7,62.1 L405.2,61.8 L406.8,61.4 L408.3,61.1 L409.8,60.8 L411.3,60.4 L412.8,60.1 L414.3,59.8 L415.8,59.5 L417.3,59.2 L418.8,58.9 L420.3,58.6 L421.8,58.3 L423.3,58.1 L424.9,57.8 L426.4,57.5 L427.9,57.3 L429.4,57.0 L430.9,56.8 L432.4,56.5 L433.9,56.3 L435.4,56.0 L436.9,55.8 L438.4,55.6 L439.9,55.4 L441.4,55.1 L442.9,54.9 L444.5,54.7 L446.0,54.5 L447.5,54.3 L449.0,54.1 L450.5,54.0 L452.0,53.8" fill="none" stroke="currentColor" stroke-width="2" opacity=".8"/><path d="M90.0,219.9 L91.5,219.6 L93.0,219.3 L94.5,219.0 L96.0,218.7 L97.5,218.4 L99.1,218.1 L100.6,217.8 L102.1,217.4 L103.6,217.1 L105.1,216.8 L106.6,216.5 L108.1,216.1 L109.6,215.8 L111.1,215.4 L112.6,215.1 L114.1,214.7 L115.6,214.4 L117.2,214.0 L118.7,213.6 L120.2,213.3 L121.7,212.9 L123.2,212.5 L124.7,212.1 L126.2,211.7 L127.7,211.3 L129.2,210.9 L130.7,210.5 L132.2,210.1 L133.7,209.7 L135.2,209.3 L136.8,208.9 L138.3,208.4 L139.8,208.0 L141.3,207.6 L142.8,207.1 L144.3,206.7 L145.8,206.2 L147.3,205.8 L148.8,205.3 L150.3,204.8 L151.8,204.4 L153.3,203.9 L154.9,203.4 L156.4,202.9 L157.9,202.4 L159.4,201.9 L160.9,201.4 L162.4,200.9 L163.9,200.4 L165.4,199.9 L166.9,199.3 L168.4,198.8 L169.9,198.3 L171.4,197.7 L173.0,197.2 L174.5,196.6 L176.0,196.1 L177.5,195.5 L179.0,194.9 L180.5,194.4 L182.0,193.8 L183.5,193.2 L185.0,192.6 L186.5,192.0 L188.0,191.4 L189.6,190.8 L191.1,190.1 L192.6,189.5 L194.1,188.9 L195.6,188.3 L197.1,187.6 L198.6,187.0 L200.1,186.3 L201.6,185.6 L203.1,185.0 L204.6,184.3 L206.1,183.6 L207.7,182.9 L209.2,182.2 L210.7,181.5 L212.2,180.8 L213.7,180.1 L215.2,179.4 L216.7,178.7 L218.2,177.9 L219.7,177.2 L221.2,176.5 L222.7,175.7 L224.2,175.0 L225.8,174.2 L227.3,173.4 L228.8,172.7 L230.3,171.9 L231.8,171.1 L233.3,170.3 L234.8,169.5 L236.3,168.7 L237.8,167.9 L239.3,167.1 L240.8,166.3 L242.3,165.5 L243.8,164.6 L245.4,163.8 L246.9,163.0 L248.4,162.1 L249.9,161.3 L251.4,160.4 L252.9,159.6 L254.4,158.7 L255.9,157.8 L257.4,156.9 L258.9,156.1 L260.4,155.2 L261.9,154.3 L263.5,153.4 L265.0,152.5 L266.5,151.6 L268.0,150.7 L269.5,149.8 L271.0,148.9 L272.5,148.0 L274.0,147.1 L275.5,146.1 L277.0,145.2 L278.5,144.3 L280.1,143.3 L281.6,142.4 L283.1,141.5 L284.6,140.5 L286.1,139.6 L287.6,138.7 L289.1,137.7 L290.6,136.8 L292.1,135.8 L293.6,134.9 L295.1,133.9 L296.6,133.0 L298.1,132.0 L299.7,131.1 L301.2,130.1 L302.7,129.2 L304.2,128.2 L305.7,127.3 L307.2,126.3 L308.7,125.4 L310.2,124.4 L311.7,123.5 L313.2,122.5 L314.7,121.6 L316.2,120.6 L317.8,119.7 L319.3,118.8 L320.8,117.8 L322.3,116.9 L323.8,116.0 L325.3,115.0 L326.8,114.1 L328.3,113.2 L329.8,112.3 L331.3,111.4 L332.8,110.4 L334.4,109.5 L335.9,108.6 L337.4,107.7 L338.9,106.8 L340.4,106.0 L341.9,105.1 L343.4,104.2 L344.9,103.3 L346.4,102.5 L347.9,101.6 L349.4,100.7 L350.9,99.9 L352.4,99.0 L354.0,98.2 L355.5,97.4 L357.0,96.6 L358.5,95.7 L360.0,94.9 L361.5,94.1 L363.0,93.3 L364.5,92.5 L366.0,91.8 L367.5,91.0 L369.0,90.2 L370.6,89.5 L372.1,88.7 L373.6,88.0 L375.1,87.2 L376.6,86.5 L378.1,85.8 L379.6,85.1 L381.1,84.4 L382.6,83.7 L384.1,83.0 L385.6,82.3 L387.1,81.7 L388.6,81.0 L390.2,80.3 L391.7,79.7 L393.2,79.1 L394.7,78.4 L396.2,77.8 L397.7,77.2 L399.2,76.6 L400.7,76.0 L402.2,75.4 L403.7,74.9 L405.2,74.3 L406.8,73.7 L408.3,73.2 L409.8,72.7 L411.3,72.1 L412.8,71.6 L414.3,71.1 L415.8,70.6 L417.3,70.1 L418.8,69.6 L420.3,69.1 L421.8,68.6 L423.3,68.2 L424.9,67.7 L426.4,67.2 L427.9,66.8 L429.4,66.4 L430.9,65.9 L432.4,65.5 L433.9,65.1 L435.4,64.7 L436.9,64.3 L438.4,63.9 L439.9,63.5 L441.4,63.1 L442.9,62.8 L444.5,62.4 L446.0,62.0 L447.5,61.7 L449.0,61.4 L450.5,61.0 L452.0,60.7" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2" stroke-dasharray="7 4"/><path d="M90.0,230.0 L91.5,229.9 L93.0,229.7 L94.5,229.5 L96.0,229.3 L97.5,229.1 L99.1,229.0 L100.6,228.8 L102.1,228.6 L103.6,228.4 L105.1,228.2 L106.6,228.0 L108.1,227.8 L109.6,227.6 L111.1,227.4 L112.6,227.2 L114.1,227.0 L115.6,226.8 L117.2,226.5 L118.7,226.3 L120.2,226.1 L121.7,225.9 L123.2,225.7 L124.7,225.4 L126.2,225.2 L127.7,225.0 L129.2,224.7 L130.7,224.5 L132.2,224.2 L133.7,224.0 L135.2,223.7 L136.8,223.5 L138.3,223.2 L139.8,223.0 L141.3,222.7 L142.8,222.5 L144.3,222.2 L145.8,221.9 L147.3,221.6 L148.8,221.4 L150.3,221.1 L151.8,220.8 L153.3,220.5 L154.9,220.2 L156.4,219.9 L157.9,219.6 L159.4,219.3 L160.9,219.0 L162.4,218.7 L163.9,218.4 L165.4,218.1 L166.9,217.8 L168.4,217.4 L169.9,217.1 L171.4,216.8 L173.0,216.5 L174.5,216.1 L176.0,215.8 L177.5,215.4 L179.0,215.1 L180.5,214.7 L182.0,214.4 L183.5,214.0 L185.0,213.6 L186.5,213.3 L188.0,212.9 L189.6,212.5 L191.1,212.1 L192.6,211.7 L194.1,211.3 L195.6,210.9 L197.1,210.5 L198.6,210.1 L200.1,209.7 L201.6,209.3 L203.1,208.9 L204.6,208.4 L206.1,208.0 L207.7,207.6 L209.2,207.1 L210.7,206.7 L212.2,206.2 L213.7,205.8 L215.2,205.3 L216.7,204.8 L218.2,204.4 L219.7,203.9 L221.2,203.4 L222.7,202.9 L224.2,202.4 L225.8,201.9 L227.3,201.4 L228.8,200.9 L230.3,200.4 L231.8,199.9 L233.3,199.4 L234.8,198.8 L236.3,198.3 L237.8,197.7 L239.3,197.2 L240.8,196.6 L242.3,196.1 L243.8,195.5 L245.4,194.9 L246.9,194.4 L248.4,193.8 L249.9,193.2 L251.4,192.6 L252.9,192.0 L254.4,191.4 L255.9,190.8 L257.4,190.1 L258.9,189.5 L260.4,188.9 L261.9,188.3 L263.5,187.6 L265.0,187.0 L266.5,186.3 L268.0,185.6 L269.5,185.0 L271.0,184.3 L272.5,183.6 L274.0,182.9 L275.5,182.2 L277.0,181.5 L278.5,180.8 L280.1,180.1 L281.6,179.4 L283.1,178.7 L284.6,178.0 L286.1,177.2 L287.6,176.5 L289.1,175.7 L290.6,175.0 L292.1,174.2 L293.6,173.5 L295.1,172.7 L296.6,171.9 L298.1,171.1 L299.7,170.3 L301.2,169.5 L302.7,168.7 L304.2,167.9 L305.7,167.1 L307.2,166.3 L308.7,165.5 L310.2,164.6 L311.7,163.8 L313.2,163.0 L314.7,162.1 L316.2,161.3 L317.8,160.4 L319.3,159.6 L320.8,158.7 L322.3,157.8 L323.8,157.0 L325.3,156.1 L326.8,155.2 L328.3,154.3 L329.8,153.4 L331.3,152.5 L332.8,151.6 L334.4,150.7 L335.9,149.8 L337.4,148.9 L338.9,148.0 L340.4,147.1 L341.9,146.1 L343.4,145.2 L344.9,144.3 L346.4,143.4 L347.9,142.4 L349.4,141.5 L350.9,140.5 L352.4,139.6 L354.0,138.7 L355.5,137.7 L357.0,136.8 L358.5,135.8 L360.0,134.9 L361.5,133.9 L363.0,133.0 L364.5,132.0 L366.0,131.1 L367.5,130.1 L369.0,129.2 L370.6,128.2 L372.1,127.3 L373.6,126.3 L375.1,125.4 L376.6,124.4 L378.1,123.5 L379.6,122.5 L381.1,121.6 L382.6,120.6 L384.1,119.7 L385.6,118.8 L387.1,117.8 L388.6,116.9 L390.2,116.0 L391.7,115.0 L393.2,114.1 L394.7,113.2 L396.2,112.3 L397.7,111.4 L399.2,110.4 L400.7,109.5 L402.2,108.6 L403.7,107.7 L405.2,106.8 L406.8,106.0 L408.3,105.1 L409.8,104.2 L411.3,103.3 L412.8,102.5 L414.3,101.6 L415.8,100.7 L417.3,99.9 L418.8,99.1 L420.3,98.2 L421.8,97.4 L423.3,96.6 L424.9,95.7 L426.4,94.9 L427.9,94.1 L429.4,93.3 L430.9,92.5 L432.4,91.8 L433.9,91.0 L435.4,90.2 L436.9,89.5 L438.4,88.7 L439.9,88.0 L441.4,87.2 L442.9,86.5 L444.5,85.8 L446.0,85.1 L447.5,84.4 L449.0,83.7 L450.5,83.0 L452.0,82.3" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 4" opacity=".8"/><circle cx="312.9" cy="122.8" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="368.2" cy="90.6" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="466.0" y="80.0" font-size="10.5" fill="currentColor" font-weight="600">h² = 0.6</text><text x="466.0" y="100.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">h² = 0.3</text><text x="466.0" y="120.0" font-size="10.5" fill="currentColor" font-weight="600">h² = 0.1</text><text x="466.0" y="152.0" font-size="11" fill="currentColor" font-weight="700">Mₑ = 10,000</text><text x="466.0" y="168.0" font-size="10" fill="currentColor" opacity=".8">independent chromosome</text><text x="466.0" y="181.0" font-size="10" fill="currentColor" opacity=".8">segments. Accuracy is set</text><text x="466.0" y="194.0" font-size="10" fill="currentColor" opacity=".8">by Nh² against Mₑ, so a</text><text x="466.0" y="207.0" font-size="10" fill="currentColor" opacity=".8">low-heritability trait needs</text><text x="466.0" y="220.0" font-size="10" fill="currentColor" opacity=".8">proportionally more data.</text><text x="466.0" y="250.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">on the h² = 0.3 curve</text><text x="466.0" y="266.0" font-size="10" fill="currentColor" opacity=".85">N = 20,000 → r = 0.6124</text><text x="466.0" y="279.0" font-size="10" fill="currentColor" opacity=".85">N = 50,000 → r = 0.7746</text><text x="271.0" y="288.0" font-size="12" fill="currentColor" text-anchor="middle">Training population size N (log scale)</text><text x="20.0" y="145.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 145)">Accuracy of prediction, r</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">What a reference population buys: accuracy against training size</text></svg>
+</Figure>
+
+## Why genomic selection actually changed dairy cattle
+
+The accuracy of a genomic prediction on a young bull is *worse* than a progeny test — around
+0.65 against 0.99. Genomic selection nonetheless roughly doubled the rate of genetic gain,
+and the reason has nothing to do with accuracy.
+
+Genetic gain per year is
+
+$$
+\Delta G = \frac{i\, r\, \sigma_A}{L}
+$$
+
+where $L$ is the generation interval. Progeny testing requires waiting for a bull's daughters
+to lactate, which puts $L$ near six years. A genomic prediction is available at birth, which
+puts it near two. So
+
+$$
+\frac{\Delta G_{\text{genomic}}}{\Delta G_{\text{progeny}}}
+= \frac{0.65/2}{0.99/6} = \frac{0.325}{0.165} = 1.97
+$$
+
+Nearly a doubling, bought entirely by **not waiting** — and paid for with a third of the
+accuracy. <Citation id="hayes2009dairy" /> is the review that documented the transition as it
+happened. The general lesson generalises past cattle: when a prediction sits inside a cycle,
+its value depends on when it arrives as much as on how good it is.
+
+## Exercises
+
+<Exercise n={1} title="Shrinkage at three heritabilities" difficulty="warm-up">
+
+Using the worked example's data, the BLUP estimate for calf 5 is $+0.625000$ at
+$\lambda = 0.5$, $+0.283529$ at $\lambda = 2$ and $+0.080196$ at $\lambda = 9$. (a) Convert
+each $\lambda$ to a heritability. (b) Calf 5's record deviates by $+0.970588$ at
+$\lambda = 2$. What fraction survives at each heritability? (c) Explain the pattern in one
+sentence.
+
+<div slot="solution">
+
+**(a)** $h^2 = 1/(1+\lambda)$: 0.6667, 0.3333 and 0.1000.
+
+**(b)** Taking the deviation at each solution's own $\hat\mu$, the surviving fractions are
+roughly 62%, 29% and 8%.
+
+**(c)** The fraction retained tracks the heritability, because BLUP is the conditional
+expectation of breeding value given the record — and the fraction of a record that is
+breeding value *is* the heritability.
+
+That last identity is exact in the simplest case. For a single own record and no relatives,
+BLUP reduces to $\hat u = h^2(y - \mu)$, which is the breeder's equation from the previous
+lesson applied to one individual. Everything else BLUP does — relatives, unequal information,
+fixed effects — is a generalisation of that one line.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="How large a reference population?" difficulty="core">
+
+A breeding programme has a trait with $h^2 = 0.30$ and estimates $M_e = 10{,}000$.
+(a) How many training records are needed for accuracies of 0.5, 0.7 and 0.9? (b) The
+programme currently has 20,000 and wants to reach 0.9. Comment. (c) What else could be
+changed?
+
+<div slot="solution">
+
+**(a)** Invert $r^2 = Nh^2/(Nh^2 + M_e)$ to get $N = r^2 M_e / \left[h^2(1-r^2)\right]$:
+
+| target $r$ | $N$ required |
+| --- | --- |
+| 0.5 | 11,111 |
+| 0.7 | 32,026 |
+| 0.9 | 142,105 |
+
+**(b)** Going from 20,000 to 142,105 is a seven-fold increase in phenotyping for a jump from
+0.61 to 0.90. The cost grows as $r^2/(1-r^2)$, which diverges — the last stretch toward 1 is
+unbounded, exactly as with the polygenic-score ceiling. For most programmes 0.9 is not a
+target, it is a statement that the budget was never checked.
+
+**(c)** Three things, in rough order of practicality. Reduce $M_e$ by working within a
+narrower population — $M_e$ scales with effective population size, which is why a single
+breed predicts better than a mixture and why across-breed prediction is so much harder.
+Raise the effective heritability by taking repeated measurements. Or accept the accuracy and
+spend the money on shortening the generation interval instead, which by the previous section
+is usually the better purchase.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Why the textbook equations fail on a genomic matrix" difficulty="stretch">
+
+You build $\mathbf{G}$ from markers, centring on allele frequencies computed from the same
+five animals, and try to form Henderson's equations. (a) Show that every row of
+$\mathbf{G}$ sums to zero. (b) What does that imply, and what happens when you try?
+(c) Give two fixes and say which is exact.
+
+<div slot="solution">
+
+**(a)** Centring uses $\hat p_j = \sum_i g_{ij}/(2n)$, so each column of
+$\mathbf{W}$ has $\sum_i W_{ij} = \sum_i g_{ij} - 2n\hat p_j = 0$ exactly. Then the $i$-th row
+sum of $\mathbf{W}\mathbf{W}^{\!\top}$ is
+$\sum_k \sum_j W_{ij}W_{kj} = \sum_j W_{ij}\left(\sum_k W_{kj}\right) = 0$.
+
+**(b)** A matrix whose rows all sum to zero has the all-ones vector in its null space, so it
+is singular and has no inverse. Attempting it raises a singular-matrix error — and this is
+not a rounding artefact that a tolerance could absorb, it is exact and structural.
+
+**(c)** Two fixes. *Blend or ridge*: use $\mathbf{G} + \delta\mathbf{I}$ or a weighted average
+of $\mathbf{G}$ and $\mathbf{A}$, which is standard practice and also guards against
+genotyping error, but introduces an arbitrary constant. *Use the equivalent non-inverse form*
+$\hat{\mathbf{u}} = \mathbf{K}(\mathbf{K}+\lambda\mathbf{I})^{-1}\hat{\mathbf{e}}$, which
+never inverts $\mathbf{K}$ on its own; $\mathbf{K} + \lambda\mathbf{I}$ is non-singular for
+any $\lambda > 0$ because $\mathbf{K}$ is positive semi-definite.
+
+The second is exact — it agrees with Henderson's equations to machine precision wherever
+those can be formed, and remains defined where they cannot. A third option, centring on
+external reference frequencies, avoids the problem at its source but makes the matrix depend
+on which reference you chose.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **BLUP estimates fixed effects and predicts breeding values in one system**, and its
+  central practical property is that individuals with no record still get estimates, driven
+  entirely by their relatives through $\mathbf{A}^{-1}$.
+- **Henderson's equations avoid the $n \times n$ phenotypic covariance entirely.** The only
+  inverse that appears is $\mathbf{A}^{-1}$, which is sparse and can be written straight from
+  the pedigree. That is why national evaluations on tens of millions of records are possible.
+- **Shrinkage is the conditional expectation, not a compromise**, and $\lambda = (1-h^2)/h^2$
+  controls it. At $h^2 = 1/3$ a record's deviation of $+0.971$ becomes an estimate of
+  $+0.284$.
+- **An effect confounded with a fixed effect is returned as exactly zero** — the dam of all
+  three calves in the worked example gets 0.000000, because nothing in the data distinguishes
+  her from the mean.
+- **GBLUP is Henderson's equations with $\mathbf{G}$ in place of $\mathbf{A}$**, and it is
+  algebraically identical to ridge regression on marker effects — verified here to
+  $1.1\times10^{-16}$. Which you compute depends only on whether you have more animals or
+  more markers.
+- **A sample-centred $\mathbf{G}$ is singular by construction.** Every row sums to zero, so
+  $\mathbf{G}^{-1}$ does not exist; the non-inverse form is the exact way around it.
+- **Accuracy follows $r = \sqrt{Nh^2/(Nh^2+M_e)}$**, and the real gain from genomic selection
+  was not accuracy at all: predicting at birth rather than after a progeny test cut the
+  generation interval from six years to two, nearly doubling annual gain despite an accuracy
+  of 0.65 against 0.99.

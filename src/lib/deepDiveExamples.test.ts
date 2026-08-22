@@ -19,6 +19,7 @@ import {
   lodScore, maxLod, lodToChi2, chi2ToLod, tdtStatistic,
   genotypicMean, averageEffect, breedingValues, additiveVariance, dominanceVariance,
   selectionIntensity, breedersResponse, breedersResponseFromIntensity,
+  hendersonMme, blupSolve, grmFromMarkers, predictionAccuracy, matVec, invert,
 } from './deepDiveMath.ts';
 
 /**
@@ -1061,6 +1062,252 @@ describe('statgen-quantitative-genetics-selection', () => {
       expect(averageEffect(L)).toBeCloseTo(0, 12);
       // a regex, not toContain: the phrase wraps across a line in the prose
       expect(mdx).toMatch(/slope \*is\* \$.alpha\$, which\s+is exactly zero here/);
+    });
+  });
+});
+
+describe('statgen-blup-genomic-selection', () => {
+  const mdx = lesson('statgen-blup-genomic-selection');
+
+  // Two sires and one dam, none recorded; calves 4 and 5 out of sire A, calf 6 out of B.
+  const PED = [
+    { id: 'A', sire: null, dam: null },
+    { id: 'B', sire: null, dam: null },
+    { id: 'D', sire: null, dam: null },
+    { id: '4', sire: 'A', dam: 'D' },
+    { id: '5', sire: 'A', dam: 'D' },
+    { id: '6', sire: 'B', dam: 'D' },
+  ];
+  const Y = [4.5, 5.1, 2.9];
+  const X = [[1], [1], [1]];
+  const Z = [
+    [0, 0, 0, 1, 0, 0],
+    [0, 0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 0, 1],
+  ];
+  const { ids, A } = additiveRelationshipMatrix(PED);
+  const Ainv = invert(A);
+  const solve = (lambda: number) => hendersonMme(X, Z, Ainv, lambda, Y);
+
+  describe("worked example — Henderson's equations on six animals", () => {
+    const sol = solve(2);
+    const ebv = (id: string) => sol.random[ids.indexOf(id)];
+
+    it('has the relationships the lesson describes', () => {
+      const rel = (a: string, b: string) => A[ids.indexOf(a)][ids.indexOf(b)];
+      expect(rel('4', '5')).toBeCloseTo(0.5, 12);   // full sibs
+      expect(rel('4', '6')).toBeCloseTo(0.25, 12);  // maternal half sibs
+      expect(rel('5', '6')).toBeCloseTo(0.25, 12);
+      expect(rel('A', '4')).toBeCloseTo(0.5, 12);
+      expect(rel('A', '6')).toBeCloseTo(0, 12);     // sire A unrelated to B's calf
+      expect(mdx).toContain('A_{45} = 0.5');
+      expect(mdx).toContain('A_{46} = A_{56} = 0.25');
+    });
+
+    it('estimates a mean that is not the average of the records', () => {
+      expect(sol.fixed[0]).toBeCloseTo(4.129412, 6);
+      expect((4.5 + 5.1 + 2.9) / 3).toBeCloseTo(4.166667, 6);
+      expect(sol.fixed[0]).not.toBeCloseTo(4.166667, 4);
+      expect(mdx).toContain('\\hat\\mu = 4.129412');
+      expect(mdx).toContain('4.166667');
+    });
+
+    it('gives the six breeding values the table prints', () => {
+      expect(ebv('A')).toBeCloseTo(0.223529, 6);
+      expect(ebv('B')).toBeCloseTo(-0.223529, 6);
+      expect(ebv('D')).toBeCloseTo(0, 10);
+      expect(ebv('4')).toBeCloseTo(0.163529, 6);
+      expect(ebv('5')).toBeCloseTo(0.283529, 6);
+      expect(ebv('6')).toBeCloseTo(-0.335294, 6);
+      for (const row of [
+        '| sire A | — | — | $+0.223529$ |',
+        '| sire B | — | — | $-0.223529$ |',
+        '| dam D | — | — | $0.000000$ |',
+        '| calf 4 | 4.5 | $+0.370588$ | $+0.163529$ |',
+        '| calf 5 | 5.1 | $+0.970588$ | $+0.283529$ |',
+        '| calf 6 | 2.9 | $-1.229412$ | $-0.335294$ |',
+      ]) {
+        expect(mdx).toContain(row);
+      }
+    });
+
+    it('shrinks every record toward the mean', () => {
+      for (const [id, rec] of [['4', 4.5], ['5', 5.1], ['6', 2.9]] as const) {
+        const dev = rec - sol.fixed[0];
+        expect(Math.abs(ebv(id))).toBeLessThan(Math.abs(dev));
+        expect(Math.sign(ebv(id))).toBe(Math.sign(dev));
+      }
+    });
+
+    it('returns exactly zero for the effect confounded with the mean', () => {
+      // dam D is the dam of all three calves, so she contributes identically to every
+      // record and cannot be separated from the intercept
+      expect(ebv('D')).toBeCloseTo(0, 10);
+      for (const lambda of [0.5, 2, 9, 20]) {
+        expect(solve(lambda).random[ids.indexOf('D')]).toBeCloseTo(0, 10);
+      }
+      expect(mdx).toContain('BLUP correctly declines to guess');
+    });
+
+    it('ranks the two recordless sires correctly', () => {
+      expect(ebv('A')).toBeGreaterThan(0);
+      expect(ebv('B')).toBeLessThan(0);
+      // A's two calves are both above the estimated mean, B's one is well below
+      expect(4.5).toBeGreaterThan(sol.fixed[0]);
+      expect(5.1).toBeGreaterThan(sol.fixed[0]);
+      expect(2.9).toBeLessThan(sol.fixed[0]);
+    });
+  });
+
+  describe('lambda is a heritability', () => {
+    it('has the three-row table the lesson prints', () => {
+      for (const [lambda, h2, mu, sireA, calf5] of [
+        [0.5, 0.6667, 4.0875, 0.475, 0.625],
+        [2, 0.3333, 4.129412, 0.223529, 0.283529],
+        [9, 0.1, 4.155932, 0.064407, 0.080196],
+      ] as const) {
+        expect(1 / (1 + lambda)).toBeCloseTo(h2, 4);
+        const sol = solve(lambda);
+        expect(sol.fixed[0]).toBeCloseTo(mu, 5);
+        expect(sol.random[ids.indexOf('A')]).toBeCloseTo(sireA, 6);
+        expect(sol.random[ids.indexOf('5')]).toBeCloseTo(calf5, 6);
+      }
+      for (const row of [
+        '| 0.5 | 0.6667 | 4.087500 | $+0.475000$ | $+0.625000$ |',
+        '| 2 | 0.3333 | 4.129412 | $+0.223529$ | $+0.283529$ |',
+        '| 9 | 0.1000 | 4.155932 | $+0.064407$ | $+0.080196$ |',
+      ]) {
+        expect(mdx).toContain(row);
+      }
+    });
+
+    it('drifts the estimated mean toward the raw mean as h² falls', () => {
+      const raw = (4.5 + 5.1 + 2.9) / 3;
+      const d = (lambda: number) => Math.abs(solve(lambda).fixed[0] - raw);
+      expect(d(9)).toBeLessThan(d(2));
+      expect(d(2)).toBeLessThan(d(0.5));
+      expect(mdx).toContain('drifts toward the raw mean');
+    });
+  });
+
+  describe('worked example — GBLUP is ridge regression on markers', () => {
+    const MARKERS = [
+      [0, 1, 2, 1, 0, 2],
+      [1, 1, 1, 0, 2, 2],
+      [2, 0, 0, 1, 1, 1],
+      [0, 2, 1, 2, 0, 0],
+      [1, 1, 2, 1, 1, 1],
+    ];
+    const FREQ = [0.4, 0.5, 0.6, 0.5, 0.4, 0.6];
+    const ADJ = [0.6, -0.2, -0.9, 0.8, -0.3];
+    const LAMBDA = 2;
+    const SCALE = FREQ.reduce((s2, p2) => s2 + 2 * p2 * (1 - p2), 0);
+    const EXPECTED = [0.294451, -0.244158, -0.474334, 0.423848, 0.000193];
+
+    it('gives the GBLUP solution the lesson prints', () => {
+      const u = blupSolve(grmFromMarkers(MARKERS, FREQ), LAMBDA, ADJ);
+      u.forEach((v, i) => expect(v).toBeCloseTo(EXPECTED[i], 6));
+      expect(mdx).toContain('(0.294451,\\; -0.244158,\\; -0.474334,\\; 0.423848,\\; 0.000193)');
+    });
+
+    it('gives the identical answer from ridge regression on marker effects', () => {
+      const W = MARKERS.map((row) => row.map((g, j) => g - 2 * FREQ[j]));
+      const Wt = transpose(W);
+      const WtW = matMul(Wt, W);
+      const lamBeta = LAMBDA * SCALE;
+      const ridged = WtW.map((row, i) => row.map((v, j) => (i === j ? v + lamBeta : v)));
+      const beta = solveLinear(ridged, matVec(Wt, ADJ));
+      const uSnp = matVec(W, beta);
+      const uG = blupSolve(grmFromMarkers(MARKERS, FREQ), LAMBDA, ADJ);
+      const maxDiff = Math.max(...uG.map((v, i) => Math.abs(v - uSnp[i])));
+      expect(maxDiff).toBeLessThan(1e-12);
+      uSnp.forEach((v, i) => expect(v).toBeCloseTo(EXPECTED[i], 6));
+      expect(mdx).toContain('1.1\\times10^{-16}');
+    });
+
+    it("uses VanRaden's scaling, the sum of 2p(1-p)", () => {
+      expect(SCALE).toBeCloseTo(2.92, 10);
+    });
+  });
+
+  describe('the singular genomic relationship matrix', () => {
+    const MARKERS = [
+      [0, 1, 2, 1, 0, 2],
+      [1, 1, 1, 0, 2, 2],
+      [2, 0, 0, 1, 1, 1],
+      [0, 2, 1, 2, 0, 0],
+      [1, 1, 2, 1, 1, 1],
+    ];
+    const sampleFreq = MARKERS[0].map(
+      (_, j) => MARKERS.reduce((s2, r) => s2 + r[j], 0) / (2 * MARKERS.length)
+    );
+
+    it('has every row summing to zero when centred on sample frequencies', () => {
+      const G = grmFromMarkers(MARKERS, sampleFreq);
+      for (const row of G) expect(Math.abs(row.reduce((a, b) => a + b, 0))).toBeLessThan(1e-12);
+    });
+
+    it('therefore cannot be inverted', () => {
+      expect(() => invert(grmFromMarkers(MARKERS, sampleFreq))).toThrow(/singular/i);
+      expect(mdx).toContain('singular by construction');
+    });
+
+    it('is still usable through the non-inverse form', () => {
+      const u = blupSolve(grmFromMarkers(MARKERS, sampleFreq), 2, [0.6, -0.2, -0.9, 0.8, -0.3]);
+      expect(u.every((v) => Number.isFinite(v))).toBe(true);
+    });
+  });
+
+  describe('accuracy and the generation interval', () => {
+    it('has the two marked points on the h² = 0.3 curve', () => {
+      expect(predictionAccuracy(20000, 0.3, 10000)).toBeCloseTo(0.612372, 6);
+      expect(predictionAccuracy(50000, 0.3, 10000)).toBeCloseTo(0.774597, 6);
+      expect(predictionAccuracy(20000, 0.3, 10000) ** 2).toBeCloseTo(0.375, 10);
+      expect(predictionAccuracy(50000, 0.3, 10000) ** 2).toBeCloseTo(0.6, 10);
+      expect(mdx).toContain('r = 0.6124');
+      expect(mdx).toContain('0.7746');
+    });
+
+    it('inverts to the training sizes exercise 2 tabulates', () => {
+      const need = (r: number, h2: number, me: number) => (r ** 2 * me) / (h2 * (1 - r ** 2));
+      expect(Math.round(need(0.5, 0.3, 10000))).toBe(11111);
+      expect(Math.round(need(0.7, 0.3, 10000))).toBe(32026);
+      expect(Math.round(need(0.9, 0.3, 10000))).toBe(142105);
+      for (const [r, n] of [[0.5, 11111], [0.7, 32026], [0.9, 142105]] as const) {
+        expect(predictionAccuracy(n, 0.3, 10000)).toBeCloseTo(r, 4);
+      }
+      for (const row of ['| 0.5 | 11,111 |', '| 0.7 | 32,026 |', '| 0.9 | 142,105 |']) {
+        expect(mdx).toContain(row);
+      }
+    });
+
+    it('nearly doubles annual gain by shortening the generation interval', () => {
+      expect(0.65 / 2).toBeCloseTo(0.325, 12);
+      expect(0.99 / 6).toBeCloseTo(0.165, 12);
+      expect(0.325 / 0.165).toBeCloseTo(1.97, 2);
+      expect(mdx).toContain('\\frac{0.325}{0.165} = 1.97');
+    });
+  });
+
+  describe('exercise 1 — shrinkage at three heritabilities', () => {
+    it('retains roughly 62%, 29% and 8% of the record deviation', () => {
+      for (const [lambda, pct] of [[0.5, 61.73], [2, 29.21], [9, 8.49]] as const) {
+        const sol = solve(lambda);
+        const frac = (sol.random[ids.indexOf('5')] / (5.1 - sol.fixed[0])) * 100;
+        expect(frac).toBeCloseTo(pct, 1);
+      }
+      expect(mdx).toContain('62%, 29% and 8%');
+    });
+
+    it('reduces to h²(y − μ) for a single own record with no relatives', () => {
+      // one animal, one record, unrelated to anything
+      const solo = [{ id: '1', sire: null, dam: null }];
+      const { A: A1 } = additiveRelationshipMatrix(solo);
+      const lambda = 2;
+      const h2 = 1 / (1 + lambda);
+      const u = blupSolve(A1, lambda, [1.0]);
+      expect(u[0]).toBeCloseTo(h2 * 1.0, 12);
+      expect(mdx).toContain('\\hat u = h^2(y - \\mu)');
     });
   });
 });
