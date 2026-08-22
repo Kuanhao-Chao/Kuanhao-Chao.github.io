@@ -15,6 +15,8 @@ import {
   chi2Quantile, regularizedGammaP, solveLinear, matMul, transpose, contingencyTests,
   hweExpected, hweChiSquare, hweExactP, alleleFrequency, heterozygosityDecay, driftVariance,
   wattersonTheta, tajimaConstants, tajimasD,
+  kinshipMatrix, additiveRelationshipMatrix, inbreedingCoefficients,
+  lodScore, maxLod, lodToChi2, chi2ToLod, tdtStatistic,
 } from './deepDiveMath.ts';
 
 /**
@@ -575,6 +577,248 @@ describe('statgen-population-infinitesimal', () => {
       expect(Math.abs(tajimasD(S, 12.4, n))).toBeLessThan(0.1);
       expect(mdx).toContain('= -0.089741');
       expect(mdx).toContain('= -1.416281');
+    });
+  });
+});
+
+describe('statgen-pedigrees-linkage-qtl', () => {
+  const mdx = lesson('statgen-pedigrees-linkage-qtl');
+  const chi2Tail = (x: number) => 1 - regularizedGammaP(0.5, x / 2);
+
+  // The pedigree drawn in figure 1: two founders, full sibs P1/P2 who marry in, first
+  // cousins C1/C2, and their child X.
+  const PEDIGREE = [
+    { id: 'G1', sire: null, dam: null },
+    { id: 'G2', sire: null, dam: null },
+    { id: 'P1', sire: 'G1', dam: 'G2' },
+    { id: 'P2', sire: 'G1', dam: 'G2' },
+    { id: 'S1', sire: null, dam: null },
+    { id: 'S2', sire: null, dam: null },
+    { id: 'C1', sire: 'P1', dam: 'S1' },
+    { id: 'C2', sire: 'P2', dam: 'S2' },
+    { id: 'X', sire: 'C1', dam: 'C2' },
+  ];
+
+  describe('worked example — kinship through a first-cousin mating', () => {
+    const { ids, f } = kinshipMatrix(PEDIGREE);
+    const kin = (a: string, b: string) => f[ids.indexOf(a)][ids.indexOf(b)];
+
+    it('makes the full sibs a quarter', () => {
+      expect(kin('P1', 'P2')).toBeCloseTo(0.25, 12);
+      // a regex, not toContain: the assertion needs the line break after the fraction
+      expect(mdx).toMatch(/= .tfrac\{1\}\{4\}\s*\n\$\$/);
+    });
+
+    it('makes the first cousins one sixteenth', () => {
+      expect(kin('C1', 'C2')).toBeCloseTo(1 / 16, 12);
+      expect(kin('C1', 'C2')).toBeCloseTo(0.0625, 12);
+      expect(mdx).toContain('= \\tfrac{1}{16} = 0.0625');
+    });
+
+    it("makes X's inbreeding coefficient its parents' kinship", () => {
+      const F = inbreedingCoefficients(PEDIGREE);
+      expect(F.get('X')).toBeCloseTo(0.0625, 12);
+      expect(F.get('X')).toBeCloseTo(kin('C1', 'C2'), 12);
+      expect(kin('X', 'X')).toBeCloseTo(0.53125, 12);
+      expect(0.5 * (1 + 0.0625)).toBeCloseTo(0.53125, 12);
+      expect(mdx).toContain('F_X = f(\\text{C1}, \\text{C2}) = 0.0625');
+      expect(mdx).toContain('\\tfrac{1}{2}(1 + 0.0625) = 0.53125');
+    });
+
+    it('doubles into the relationship matrix, with A_XX above one', () => {
+      const { ids: aIds, A } = additiveRelationshipMatrix(PEDIGREE);
+      const a = (x: string, y: string) => A[aIds.indexOf(x)][aIds.indexOf(y)];
+      expect(a('C1', 'C2')).toBeCloseTo(0.125, 12);
+      expect(a('X', 'X')).toBeCloseTo(1.0625, 12);
+      expect(a('X', 'X')).toBeGreaterThan(1);
+      expect(mdx).toContain('2 f(\\text{C1},\\text{C2}) = 0.125');
+      expect(mdx).toContain('1 + F_X = 1.0625');
+    });
+
+    it('has every founder unrelated, as step 1 asserts', () => {
+      for (const a of ['G1', 'G2', 'S1', 'S2']) {
+        expect(kin(a, a)).toBeCloseTo(0.5, 12);
+        for (const b of ['G1', 'G2', 'S1', 'S2']) {
+          if (a !== b) expect(kin(a, b)).toBeCloseTo(0, 12);
+        }
+      }
+    });
+  });
+
+  describe('worked example — a LOD score from twenty-five meioses', () => {
+    const R = 3;
+    const N = 25;
+    const best = maxLod(R, N);
+
+    it('estimates theta as r/n = 0.12', () => {
+      expect(best.theta).toBeCloseTo(0.12, 10);
+      expect(R / N).toBeCloseTo(0.12, 12);
+      expect(mdx).toContain('3/25 = 0.12');
+    });
+
+    it('has the three terms and the LOD the lesson prints', () => {
+      expect(3 * Math.log10(0.12)).toBeCloseTo(-2.762456, 6);
+      expect(22 * Math.log10(0.88)).toBeCloseTo(-1.221381, 6);
+      expect(25 * Math.log10(2)).toBeCloseTo(7.52575, 5);
+      expect(best.lod).toBeCloseTo(3.5419124, 6);
+      expect(lodScore(R, N, 0.12)).toBeCloseTo(best.lod, 12);
+      expect(mdx).toContain('-2.762456 - 1.221381 + 7.525750 = 3.5419');
+    });
+
+    it('converts to chi-square on 1 df', () => {
+      expect(2 * Math.log(10)).toBeCloseTo(4.60517, 5);
+      expect(lodToChi2(best.lod)).toBeCloseTo(16.3111, 4);
+      expect(chi2Tail(lodToChi2(best.lod))).toBeCloseTo(5.375e-5, 8);
+      expect(mdx).toContain('4.60517 \\times 3.5419 = 16.3111');
+      expect(mdx).toContain('5.375\\times10^{-5}');
+    });
+
+    it('has the one-LOD support interval the lesson quotes', () => {
+      const target = best.lod - 1;
+      const cross = (lo: number, hi: number) => {
+        for (let i = 0; i < 200; i++) {
+          const m = (lo + hi) / 2;
+          if (lodScore(R, N, m) < target) lo = m;
+          else hi = m;
+        }
+        return (lo + hi) / 2;
+      };
+      expect(cross(1e-9, 0.12)).toBeCloseTo(0.0266, 4);
+      expect(cross(0.5, 0.12)).toBeCloseTo(0.3008, 4);
+      expect(mdx).toContain('\\theta = 0.0266$ and $\\theta = 0.3008$');
+    });
+
+    it('is zero at free recombination, by construction', () => {
+      expect(lodScore(R, N, 0.5)).toBeCloseTo(0, 12);
+    });
+  });
+
+  describe('figure 2 and the meaning of LOD 3', () => {
+    it('is chi-square 13.8155 and p = 2.0e-4, not 0.001', () => {
+      expect(lodToChi2(3)).toBeCloseTo(13.8155, 4);
+      expect(chi2Tail(lodToChi2(3))).toBeCloseTo(2.017e-4, 7);
+      expect(chi2Tail(lodToChi2(3))).toBeLessThan(1e-3);
+      expect(mdx).toContain('2\\ln(10)\\times 3 = 13.8155');
+      expect(mdx).toContain('2.0\\times10^{-4}');
+    });
+
+    it('puts the genome-wide association threshold at LOD 6.4529', () => {
+      expect(chi2ToLod(chi2Quantile(1 - 5e-8, 1))).toBeCloseTo(6.4529, 3);
+      expect(lodToChi2(3.3)).toBeCloseTo(15.1971, 3);
+      expect(mdx).toContain('\\chi^2 = 29.7168$, or a LOD of 6.4529');
+      expect(mdx).toContain('**LOD 3.3**');
+    });
+
+    it('crosses LOD 3 where the figure caption says', () => {
+      const cross = (lo: number, hi: number) => {
+        for (let i = 0; i < 200; i++) {
+          const m = (lo + hi) / 2;
+          if (lodScore(3, 25, m) < 3) lo = m;
+          else hi = m;
+        }
+        return (lo + hi) / 2;
+      };
+      expect(cross(1e-9, 0.12)).toBeCloseTo(0.0427, 4);
+      expect(cross(0.5, 0.12)).toBeCloseTo(0.2461, 4);
+      expect(mdx).toContain('θ = 0.04 to 0.25');
+    });
+  });
+
+  describe('worked example — a transmission disequilibrium test', () => {
+    it('gives 441/55 = 8.018182', () => {
+      expect(tdtStatistic(38, 17)).toBeCloseTo(8.018182, 6);
+      expect((38 - 17) ** 2 / (38 + 17)).toBeCloseTo(8.018182, 6);
+      expect(chi2Tail(tdtStatistic(38, 17))).toBeCloseTo(4.631e-3, 6);
+      expect(mdx).toContain('\\frac{441}{55} = 8.018182');
+      expect(mdx).toContain('4.631\\times10^{-3}');
+    });
+
+    it('is zero when transmissions balance', () => {
+      expect(tdtStatistic(25, 25)).toBeCloseTo(0, 12);
+    });
+  });
+
+  describe('exercise 1 — kinship for three relationships', () => {
+    const PED2 = [
+      { id: 'A', sire: null, dam: null },
+      { id: 'B', sire: null, dam: null },
+      { id: 'C', sire: null, dam: null },
+      { id: 'HS1', sire: 'A', dam: 'B' },
+      { id: 'HS2', sire: 'A', dam: 'C' },
+      { id: 'D', sire: null, dam: null },
+      { id: 'N', sire: 'HS1', dam: 'D' },
+    ];
+    const { ids, f } = kinshipMatrix(PED2);
+    const kin = (a: string, b: string) => f[ids.indexOf(a)][ids.indexOf(b)];
+
+    it('makes half sibs one eighth and uncle-niece one sixteenth', () => {
+      expect(kin('HS1', 'HS2')).toBeCloseTo(1 / 8, 12);
+      expect(kin('HS2', 'N')).toBeCloseTo(1 / 16, 12);
+      expect(mdx).toContain('\\tfrac{1}{8} = 0.125');
+      expect(mdx).toContain('\\tfrac{1}{2}\\times\\tfrac{1}{8} = \\tfrac{1}{16} = 0.0625');
+    });
+
+    it('gives uncle-niece the same coefficient as first cousins', () => {
+      // the point of the exercise: distinct relationships share a coefficient
+      const cousins = kinshipMatrix(PEDIGREE);
+      const cousinF =
+        cousins.f[cousins.ids.indexOf('C1')][cousins.ids.indexOf('C2')];
+      expect(kin('HS2', 'N')).toBeCloseTo(cousinF, 12);
+      expect(mdx).toContain('identical to the first-cousin kinship');
+    });
+
+    it('doubles to 0.25 and 0.125 in A', () => {
+      const { ids: aIds, A } = additiveRelationshipMatrix(PED2);
+      expect(A[aIds.indexOf('HS1')][aIds.indexOf('HS2')]).toBeCloseTo(0.25, 12);
+      expect(A[aIds.indexOf('HS2')][aIds.indexOf('N')]).toBeCloseTo(0.125, 12);
+      expect(mdx).toContain('these are 0.25 and 0.125');
+    });
+  });
+
+  describe('exercise 2 — the smallest study that reaches LOD 3', () => {
+    it('gives Z(0) = n log10 2 with no recombinants', () => {
+      expect(lodScore(0, 10, 1e-12)).toBeCloseTo(10 * Math.log10(2), 6);
+      expect(10 * Math.log10(2)).toBeCloseTo(3.0103, 4);
+      expect(mdx).toContain('n\\log_{10} 2');
+      expect(mdx).toContain('10\\log_{10}2 = 3.010300');
+    });
+
+    it('needs ten meioses, since 3/log10(2) = 9.97', () => {
+      expect(3 / Math.log10(2)).toBeCloseTo(9.9658, 4);
+      expect(Math.ceil(3 / Math.log10(2))).toBe(10);
+      expect(mdx).toContain('3/0.301030 = 9.97');
+      expect(mdx).toContain('**ten meioses**');
+    });
+
+    it('has a one-sided support interval reaching 0.2057', () => {
+      const target = 10 * Math.log10(2) - 1;
+      let lo = 0;
+      let hi = 0.5;
+      for (let i = 0; i < 200; i++) {
+        const m = (lo + hi) / 2;
+        if (lodScore(0, 10, m) > target) lo = m;
+        else hi = m;
+      }
+      expect(lo).toBeCloseTo(0.2057, 4);
+      expect(mdx).toContain('\\theta = 0.2057');
+    });
+
+    it('is still compatible with theta = 0.10, under half a LOD down', () => {
+      expect(10 * Math.log10(2) - lodScore(0, 10, 0.1)).toBeCloseTo(0.4576, 4);
+      expect(mdx).toContain('\\theta = 0.10');
+    });
+  });
+
+  describe('exercise 3 — when the case-control test and the TDT disagree', () => {
+    it('gives a TDT of exactly zero', () => {
+      expect(tdtStatistic(25, 25)).toBe(0);
+      expect(chi2Tail(0)).toBeCloseTo(1, 12);
+      expect(mdx).toContain('(25-25)^2/50 = 0$, $p = 1$');
+    });
+
+    it('counts 165 genotypes for 55 trios, as the lesson says twice', () => {
+      expect(55 * 3).toBe(165);
+      expect(mdx).toContain('165 genotypes');
     });
   });
 });

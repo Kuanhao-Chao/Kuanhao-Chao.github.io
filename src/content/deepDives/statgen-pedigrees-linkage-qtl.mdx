@@ -1,0 +1,521 @@
+---
+title: "Pedigrees, Linkage Analysis & QTL Mapping"
+shortTitle: Pedigrees & Linkage
+description: "Kinship and the additive relationship matrix from first principles, the LOD score and what its famous threshold actually means, why linkage mapped Mendelian genes but not complex traits, interval mapping for QTL, and the transmission disequilibrium test."
+abstract: "Linkage and linkage disequilibrium have the same physical cause — recombination fails to separate nearby loci — but they are measured on completely different scales, and confusing them is the most common error in this part of the field. Linkage is co-segregation within a family, observable over a handful of meioses; LD is correlation across a population, the residue of thousands. This lesson builds kinship from Malécot's recursion, derives the LOD score and shows that the classical threshold of 3 is a chi-square of 13.8155 rather than a p-value of 0.001, explains from the number of available meioses why linkage delivered Mendelian genes and stalled on complex traits, and ends on the transmission disequilibrium test, which buys immunity to population structure by conditioning on the parents."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m02-populations
+moduleLabel: Module 2 · Populations & Inheritance
+order: 4
+level: intermediate
+objectives:
+  - "Compute Malécot kinship coefficients and inbreeding coefficients from a pedigree by recursion."
+  - "Build the additive relationship matrix and say what makes it the covariance of breeding values."
+  - "Derive the LOD score from the recombination likelihood and find the maximum-likelihood recombination fraction."
+  - "State what a LOD of 3 corresponds to on the chi-square and p-value scales, and why it is not 0.001."
+  - "Explain from the number of available meioses why linkage resolves to megabases and association to kilobases."
+  - "Describe interval mapping for QTL and why its significance threshold needs permutation."
+  - "Compute a TDT statistic and explain why population structure cannot confound it."
+prerequisites:
+  - statgen-mathematical-foundations
+  - statgen-population-infinitesimal
+relatedLessons:
+  - statgen-linkage-disequilibrium
+  - statgen-heritability-greml
+keyEquations:
+  - 'f(x, y) = \tfrac{1}{2}\big[f(\text{sire}_x, y) + f(\text{dam}_x, y)\big]'
+  - 'A_{ij} = 2 f(i, j), \qquad A_{ii} = 1 + F_i'
+  - 'Z(\theta) = \log_{10} \frac{\theta^{r}(1-\theta)^{n-r}}{(1/2)^{n}}'
+  - '\chi^2_{\mathrm{TDT}} = \frac{(b-c)^2}{b+c}'
+referenceIds:
+  - wright1922coefficients
+  - haldane1919
+  - morton1955lod
+  - elston1971peeling
+  - henderson1976inverse
+  - lander1989interval
+  - spielman1993tdt
+  - lander1995thresholds
+  - risch1996future
+tags: [pedigree, kinship, inbreeding, linkage analysis, LOD score, QTL mapping, interval mapping, TDT]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Linkage and linkage disequilibrium have the same physical cause: recombination does not
+separate loci that sit close together on a chromosome. They are not the same thing, and
+treating them as interchangeable is the most common error in this corner of the field.
+
+| | **Linkage** | **Linkage disequilibrium** |
+| --- | --- | --- |
+| Observed in | One family | A population |
+| Counts | Meioses you can see, tens to hundreds | Meioses since a shared ancestor, thousands |
+| Detects | Co-segregation of alleles within pedigrees | Correlation of alleles across unrelated people |
+| Resolves to | Tens of megabases | Tens of kilobases |
+| Finds | Rare variants of large effect | Common variants of small effect |
+
+The two rows that matter are the last two, and they are consequences of the second. A study
+sees only as many recombination events as it has meioses, and a pedigree has very few. That
+single fact explains both why linkage analysis identified the genes for cystic fibrosis and
+Huntington's disease, and why two decades of linkage studies of schizophrenia and diabetes
+produced almost nothing.
+
+<Notation
+  rows={[
+    { symbol: 'f(x, y)', meaning: 'Malécot kinship: probability that a random allele from x and one from y are identical by descent', dims: 'in [0,1]' },
+    { symbol: 'F_x', meaning: "Inbreeding coefficient of x, equal to its parents' kinship", dims: 'in [0,1]' },
+    { symbol: '\\mathbf{A}', meaning: 'Additive relationship matrix, the covariance of breeding values in units of V_A', dims: 'n × n' },
+    { symbol: '\\theta', meaning: 'Recombination fraction between two loci', dims: 'in [0, 0.5]' },
+    { symbol: 'r,\\;n', meaning: 'Recombinant and total informative meioses observed', dims: 'counts' },
+    { symbol: 'Z(\\theta)', meaning: 'LOD score: base-10 log of the likelihood ratio against free recombination', dims: 'dimensionless' },
+    { symbol: 'b,\\;c', meaning: 'TDT counts: transmissions and non-transmissions of an allele from heterozygous parents', dims: 'counts' },
+  ]}
+/>
+
+## Kinship: counting shared ancestry
+
+Two individuals are related to the extent that they can draw the same ancestral allele.
+<Citation id="wright1922coefficients" /> put a number on this; Malécot's formulation is the
+one that computes. Define $f(x,y)$ as the probability that an allele drawn at random from
+$x$ and one drawn at random from $y$ are **identical by descent** — copies of one ancestral
+allele.
+
+<Callout variant="intuition" title="Kinship is the answer to a two-draw experiment">
+
+Before any recursion, fix what the number *is*. Reach into individual $x$ and take one of
+its two alleles at a locus, at random. Reach into $y$ and take one of its two. Kinship is
+the probability that those two are the same physical copy, inherited from one ancestor.
+
+Three things follow without algebra. Two unrelated people have kinship zero, because no
+ancestor is shared. An individual's kinship *with itself* is $\tfrac{1}{2}$, not 1 — you may
+draw the same allele twice, which happens half the time, or the two different ones, which
+are not copies of each other unless the individual is inbred. And every coefficient is a sum
+over the paths by which an allele could descend to both parties, which is exactly what the
+recursion below evaluates without your having to enumerate them.
+
+Holding onto the experiment is what keeps the sign and the factor of two straight later:
+$\mathbf{A} = 2f$ has full sibs at $\tfrac{1}{2}$ and an individual at 1, because the
+relationship matrix is a *covariance* rather than a probability.
+
+</Callout>
+
+The whole calculation is one recursion. An allele drawn from $x$ came from $x$'s sire or
+$x$'s dam with equal probability, so
+
+$$
+f(x, y) = \tfrac{1}{2}\big[f(\text{sire}_x, y) + f(\text{dam}_x, y)\big]
+$$
+
+provided $x$ is not an ancestor of $y$ — which is why the pedigree must be processed with
+parents before offspring. Two special cases complete it: an individual with unknown parents
+is unrelated to everyone and has $f(x,x) = \tfrac{1}{2}$, and in general
+
+$$
+f(x, x) = \tfrac{1}{2}(1 + F_x), \qquad F_x = f(\text{sire}_x, \text{dam}_x)
+$$
+
+The inbreeding coefficient of an individual is precisely the kinship of its parents. That is
+not a coincidence or a convention — it is the same probability, read from a different end.
+
+<Figure
+  caption="Figure 1. A first-cousin mating. P1 and P2 are full sibs, so their children C1 and C2 are first cousins, and their child X is inbred. Every kinship the worked example computes appears here on the pair it describes. The recursion is worth tracing by eye once: X's inbreeding coefficient is nothing more than the kinship of its two parents, which is itself nothing more than a sum over the paths through the two shared grandparents."
+  alt="A three-generation pedigree. A square G1 and circle G2 at the top have two sons, squares P1 and P2. Each marries in an unrelated female, S1 and S2, producing C1 and C2 respectively. C1 and C2 mate and have a child X, drawn filled to mark it as inbred. A column of notes gives the kinship of the full sibs as one quarter, of the first cousins as one sixteenth or 0.0625, and X's inbreeding coefficient as 0.0625."
+  wide
+>
+<svg viewBox="0 0 640 320" width="640" height="320" font-family="inherit"><rect x="135.0" y="37.0" width="30.0" height="30.0" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><text x="150.0" y="56.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">G1</text><circle cx="250.0" cy="52.0" r="15.0" fill="none" stroke="currentColor" stroke-width="1.6"/><text x="250.0" y="56.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">G2</text><line x1="165.0" y1="52.0" x2="235.0" y2="52.0" stroke="currentColor" stroke-width="1.6"/><line x1="200.0" y1="52.0" x2="200.0" y2="92.0" stroke="currentColor" stroke-width="1.6"/><line x1="150.0" y1="92.0" x2="250.0" y2="92.0" stroke="currentColor" stroke-width="1.6"/><line x1="150.0" y1="92.0" x2="150.0" y2="123.0" stroke="currentColor" stroke-width="1.6"/><line x1="250.0" y1="92.0" x2="250.0" y2="123.0" stroke="currentColor" stroke-width="1.6"/><rect x="135.0" y="123.0" width="30.0" height="30.0" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><text x="150.0" y="142.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">P1</text><rect x="235.0" y="123.0" width="30.0" height="30.0" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><text x="250.0" y="142.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">P2</text><circle cx="60.0" cy="138.0" r="15.0" fill="none" stroke="currentColor" stroke-width="1.6"/><text x="60.0" y="142.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">S1</text><circle cx="340.0" cy="138.0" r="15.0" fill="none" stroke="currentColor" stroke-width="1.6"/><text x="340.0" y="142.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">S2</text><line x1="75.0" y1="138.0" x2="135.0" y2="138.0" stroke="currentColor" stroke-width="1.6"/><line x1="265.0" y1="138.0" x2="325.0" y2="138.0" stroke="currentColor" stroke-width="1.6"/><line x1="105.0" y1="138.0" x2="105.0" y2="178.0" stroke="currentColor" stroke-width="1.6"/><line x1="105.0" y1="178.0" x2="105.0" y2="178.0" stroke="currentColor" stroke-width="1.6"/><line x1="105.0" y1="178.0" x2="105.0" y2="209.0" stroke="currentColor" stroke-width="1.6"/><line x1="295.0" y1="138.0" x2="295.0" y2="178.0" stroke="currentColor" stroke-width="1.6"/><line x1="295.0" y1="178.0" x2="295.0" y2="178.0" stroke="currentColor" stroke-width="1.6"/><line x1="295.0" y1="178.0" x2="295.0" y2="209.0" stroke="currentColor" stroke-width="1.6"/><rect x="90.0" y="209.0" width="30.0" height="30.0" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><text x="105.0" y="228.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">C1</text><circle cx="295.0" cy="224.0" r="15.0" fill="none" stroke="currentColor" stroke-width="1.6"/><text x="295.0" y="228.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">C2</text><line x1="120.0" y1="224.0" x2="280.0" y2="224.0" stroke="currentColor" stroke-width="1.6"/><line x1="200.0" y1="224.0" x2="200.0" y2="268.0" stroke="currentColor" stroke-width="1.6"/><circle cx="200.0" cy="284.0" r="15.0" fill="var(--color-accent, #2e6e5e)" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.6"/><text x="200.0" y="288.0" font-size="10.5" fill="var(--color-on-accent,#fff)" text-anchor="middle" font-weight="600">X</text><text x="396.0" y="50.0" font-size="10.5" fill="currentColor" opacity=".7">□ male    ○ female</text><text x="396.0" y="84.0" font-size="11" fill="currentColor" font-weight="700">P1 and P2 are full sibs</text><text x="396.0" y="100.0" font-size="10.5" fill="currentColor" opacity=".85">f(P1, P2) = 1/4</text><text x="396.0" y="134.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">C1 and C2 are first cousins</text><text x="396.0" y="150.0" font-size="10.5" fill="currentColor" opacity=".85">f(C1, C2) = 1/16 = 0.0625</text><text x="396.0" y="166.0" font-size="10.5" fill="currentColor" opacity=".85">A(C1, C2) = 2f = 0.125</text><text x="396.0" y="200.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">X is their child, so X is inbred</text><text x="396.0" y="216.0" font-size="10.5" fill="currentColor" opacity=".85">F(X) = f(C1, C2) = 0.0625</text><text x="396.0" y="232.0" font-size="10.5" fill="currentColor" opacity=".85">f(X, X) = ½(1 + F) = 0.53125</text><text x="396.0" y="248.0" font-size="10.5" fill="currentColor" opacity=".85">A(X, X) = 1 + F = 1.0625</text><text x="30.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">A first-cousin mating: every kinship the worked example computes, on the pedigree it comes from</text></svg>
+</Figure>
+
+<WorkedExample
+  title="Kinship through a first-cousin mating"
+  given={[
+    { label: 'Generation I', value: 'G1 × G2, unrelated' },
+    { label: 'Generation II', value: 'full sibs P1, P2, each married in' },
+    { label: 'Generation III', value: 'first cousins C1 × C2 → X' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the founders.** G1, G2, S1 and S2 have unknown parents, so they are mutually
+unrelated and each has $f(x,x) = 0.5$ and $F = 0$.
+
+**Step 2 — the full sibs.** Apply the recursion to P1 and P2, both children of G1 × G2:
+
+$$
+f(\text{P1}, \text{P2}) = \tfrac{1}{2}\big[f(\text{G1}, \text{P2}) + f(\text{G2}, \text{P2})\big]
+= \tfrac{1}{2}\big[\tfrac{1}{4} + \tfrac{1}{4}\big] = \tfrac{1}{4}
+$$
+
+**Step 3 — the first cousins.** C1 has parents P1 × S1 and C2 has parents P2 × S2, with S1
+and S2 unrelated to everything:
+
+$$
+f(\text{C1}, \text{C2}) = \tfrac{1}{4}\, f(\text{P1}, \text{P2}) = \tfrac{1}{4}\times\tfrac{1}{4}
+= \tfrac{1}{16} = 0.0625
+$$
+
+**Step 4 — the inbred child.** X's inbreeding coefficient *is* its parents' kinship:
+
+$$
+F_X = f(\text{C1}, \text{C2}) = 0.0625,
+\qquad
+f(X, X) = \tfrac{1}{2}(1 + 0.0625) = 0.53125
+$$
+
+**Step 5 — the relationship matrix.** Doubling gives $\mathbf{A}$:
+
+$$
+A_{\text{C1},\text{C2}} = 2 f(\text{C1},\text{C2}) = 0.125,
+\qquad
+A_{XX} = 2 f(X,X) = 1 + F_X = 1.0625
+$$
+
+The diagonal exceeding 1 is the whole content of inbreeding in this framework: an inbred
+individual carries **more** additive genetic variance than an outbred one, because its two
+alleles at a locus are more often the same.
+
+</WorkedExample>
+
+The matrix $\mathbf{A}$ with $A_{ij} = 2f(i,j)$ is the object the rest of the curriculum
+uses. It is the covariance of breeding values in units of $V_A$ — full sibs at $\tfrac{1}{2}$,
+parent and offspring at $\tfrac{1}{2}$, half sibs at $\tfrac{1}{4}$ — and it is what a mixed
+model puts in its variance structure. <Citation id="henderson1976inverse" /> gave the result
+that made this practical at scale: $\mathbf{A}^{-1}$, which is what the equations actually
+need, can be written down directly from the pedigree without ever forming or inverting
+$\mathbf{A}$, and it is extremely sparse.
+
+<Callout variant="key" title="The same matrix, twice, from different data">
+
+Everything above is computed from a **recorded pedigree**: it gives the *expected* fraction
+of alleles shared. Two full sibs have $A_{ij} = 0.5$ by definition of being full sibs.
+
+The genomic relatedness matrix in Module 3 estimates the same quantity from **genotypes**,
+and gets a different answer: two full sibs actually share somewhere near 0.5, but with a
+standard deviation of about 0.04, because Mendelian segregation is itself random. That
+difference is not error — it is real information, and it is what lets a within-family
+design estimate heritability free of shared environment.
+
+</Callout>
+
+## Linkage: co-segregation within a family
+
+Now the mapping problem. A disease allele segregates through a pedigree; so does a marker
+allele. If the two loci are far apart, recombination separates them half the time and they
+segregate independently. If they are close, they travel together.
+
+Let $\theta$ be the recombination fraction. Observing $r$ recombinants in $n$ informative
+meioses, the likelihood is binomial, and the natural comparison is against **free
+recombination**, $\theta = 0.5$:
+
+$$
+Z(\theta) = \log_{10}\frac{L(\theta)}{L(0.5)}
+= \log_{10}\frac{\theta^{r}(1-\theta)^{n-r}}{(1/2)^{n}}
+$$
+
+<Citation id="morton1955lod" /> introduced this as a sequential test, and the base-10
+logarithm is deliberate: it makes the score readable as an order of magnitude of odds. The
+maximum-likelihood estimate of $\theta$ falls out immediately as $\hat\theta = r/n$, and
+$Z(0.5) = 0$ by construction.
+
+<Figure
+  caption="Figure 2. The LOD curve for three recombinants in twenty-five meioses. Everything a linkage study knows about a locus is in this one curve. It peaks at θ = r/n = 0.12 with a LOD of 3.5419, clears the classical threshold of 3, and returns to zero at free recombination by construction. The curve's width is what a linkage study can and cannot say about position: it stays above 3 across roughly θ = 0.04 to 0.25, which at this sample size is a confidence interval tens of megabases wide."
+  alt="A plot of LOD score against recombination fraction from 0 to 0.5. The curve rises steeply from below minus one at theta equals zero, peaks at 3.5419 at theta equals 0.12, and falls smoothly to zero at theta equals 0.5. A dashed horizontal line marks the classical LOD threshold of 3. A side note gives LOD 3 as a chi-square of 13.8155 on one degree of freedom and a point-wise p-value of 2.0 times ten to the minus four."
+  wide
+>
+<svg viewBox="0 0 640 302" width="640" height="302" font-family="inherit"><line x1="84.0" y1="46.0" x2="84.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="84.0" y1="246.0" x2="458.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="84.0" y1="246.0" x2="458.0" y2="246.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="250.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">-1</text><line x1="84.0" y1="207.5" x2="458.0" y2="207.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="211.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="84.0" y1="169.1" x2="458.0" y2="169.1" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="173.1" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="84.0" y1="130.6" x2="458.0" y2="130.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="134.6" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">2</text><line x1="84.0" y1="92.2" x2="458.0" y2="92.2" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="96.2" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">3</text><line x1="84.0" y1="53.7" x2="458.0" y2="53.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="57.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">4</text><line x1="84.0" y1="246.0" x2="84.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="84.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="158.8" y1="246.0" x2="158.8" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="158.8" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.1</text><line x1="233.6" y1="246.0" x2="233.6" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="233.6" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="308.4" y1="246.0" x2="308.4" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="308.4" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.3</text><line x1="383.2" y1="246.0" x2="383.2" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="383.2" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="458.0" y1="246.0" x2="458.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="458.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.5</text><path d="M85.5,230.2 L86.2,210.3 L87.0,196.2 L87.7,185.4 L88.5,176.7 L89.2,169.3 L90.0,163.0 L90.7,157.5 L91.5,152.5 L92.2,148.1 L93.0,144.2 L93.7,140.5 L94.5,137.2 L95.2,134.1 L96.0,131.2 L96.7,128.6 L97.5,126.1 L98.2,123.7 L99.0,121.5 L99.7,119.5 L100.5,117.5 L101.2,115.7 L102.0,113.9 L102.7,112.2 L103.4,110.7 L104.2,109.1 L104.9,107.7 L105.7,106.3 L106.4,105.0 L107.2,103.7 L107.9,102.5 L108.7,101.4 L109.4,100.2 L110.2,99.2 L110.9,98.1 L111.7,97.1 L112.4,96.2 L113.2,95.3 L113.9,94.4 L114.7,93.5 L115.4,92.7 L116.2,91.9 L116.9,91.1 L117.7,90.4 L118.4,89.7 L119.2,89.0 L119.9,88.3 L120.7,87.7 L121.4,87.1 L122.1,86.4 L122.9,85.9 L123.6,85.3 L124.4,84.7 L125.1,84.2 L125.9,83.7 L126.6,83.2 L127.4,82.7 L128.1,82.3 L128.9,81.8 L129.6,81.4 L130.4,80.9 L131.1,80.5 L131.9,80.1 L132.6,79.8 L133.4,79.4 L134.1,79.0 L134.9,78.7 L135.6,78.3 L136.4,78.0 L137.1,77.7 L137.9,77.4 L138.6,77.1 L139.4,76.8 L140.1,76.5 L140.8,76.3 L141.6,76.0 L142.3,75.8 L143.1,75.5 L143.8,75.3 L144.6,75.1 L145.3,74.9 L146.1,74.6 L146.8,74.5 L147.6,74.3 L148.3,74.1 L149.1,73.9 L149.8,73.7 L150.6,73.6 L151.3,73.4 L152.1,73.3 L152.8,73.1 L153.6,73.0 L154.3,72.8 L155.1,72.7 L155.8,72.6 L156.6,72.5 L157.3,72.4 L158.1,72.3 L158.8,72.2 L159.5,72.1 L160.3,72.0 L161.0,71.9 L161.8,71.9 L162.5,71.8 L163.3,71.7 L164.0,71.7 L164.8,71.6 L165.5,71.6 L166.3,71.5 L167.0,71.5 L167.8,71.4 L168.5,71.4 L169.3,71.4 L170.0,71.4 L170.8,71.3 L171.5,71.3 L172.3,71.3 L173.0,71.3 L173.8,71.3 L174.5,71.3 L175.3,71.3 L176.0,71.3 L176.8,71.3 L177.5,71.4 L178.2,71.4 L179.0,71.4 L179.7,71.4 L180.5,71.5 L181.2,71.5 L182.0,71.5 L182.7,71.6 L183.5,71.6 L184.2,71.7 L185.0,71.7 L185.7,71.8 L186.5,71.8 L187.2,71.9 L188.0,72.0 L188.7,72.0 L189.5,72.1 L190.2,72.2 L191.0,72.3 L191.7,72.3 L192.5,72.4 L193.2,72.5 L194.0,72.6 L194.7,72.7 L195.5,72.8 L196.2,72.9 L196.9,73.0 L197.7,73.1 L198.4,73.2 L199.2,73.3 L199.9,73.4 L200.7,73.5 L201.4,73.6 L202.2,73.7 L202.9,73.9 L203.7,74.0 L204.4,74.1 L205.2,74.2 L205.9,74.4 L206.7,74.5 L207.4,74.6 L208.2,74.8 L208.9,74.9 L209.7,75.1 L210.4,75.2 L211.2,75.4 L211.9,75.5 L212.7,75.7 L213.4,75.8 L214.2,76.0 L214.9,76.1 L215.6,76.3 L216.4,76.4 L217.1,76.6 L217.9,76.8 L218.6,76.9 L219.4,77.1 L220.1,77.3 L220.9,77.5 L221.6,77.6 L222.4,77.8 L223.1,78.0 L223.9,78.2 L224.6,78.4 L225.4,78.6 L226.1,78.7 L226.9,78.9 L227.6,79.1 L228.4,79.3 L229.1,79.5 L229.9,79.7 L230.6,79.9 L231.4,80.1 L232.1,80.3 L232.9,80.5 L233.6,80.7 L234.3,80.9 L235.1,81.2 L235.8,81.4 L236.6,81.6 L237.3,81.8 L238.1,82.0 L238.8,82.2 L239.6,82.5 L240.3,82.7 L241.1,82.9 L241.8,83.1 L242.6,83.4 L243.3,83.6 L244.1,83.8 L244.8,84.1 L245.6,84.3 L246.3,84.5 L247.1,84.8 L247.8,85.0 L248.6,85.3 L249.3,85.5 L250.1,85.8 L250.8,86.0 L251.6,86.3 L252.3,86.5 L253.0,86.8 L253.8,87.0 L254.5,87.3 L255.3,87.5 L256.0,87.8 L256.8,88.0 L257.5,88.3 L258.3,88.6 L259.0,88.8 L259.8,89.1 L260.5,89.4 L261.3,89.6 L262.0,89.9 L262.8,90.2 L263.5,90.5 L264.3,90.7 L265.0,91.0 L265.8,91.3 L266.5,91.6 L267.3,91.8 L268.0,92.1 L268.8,92.4 L269.5,92.7 L270.3,93.0 L271.0,93.3 L271.7,93.6 L272.5,93.9 L273.2,94.1 L274.0,94.4 L274.7,94.7 L275.5,95.0 L276.2,95.3 L277.0,95.6 L277.7,95.9 L278.5,96.2 L279.2,96.5 L280.0,96.9 L280.7,97.2 L281.5,97.5 L282.2,97.8 L283.0,98.1 L283.7,98.4 L284.5,98.7 L285.2,99.0 L286.0,99.3 L286.7,99.7 L287.5,100.0 L288.2,100.3 L289.0,100.6 L289.7,101.0 L290.4,101.3 L291.2,101.6 L291.9,101.9 L292.7,102.3 L293.4,102.6 L294.2,102.9 L294.9,103.3 L295.7,103.6 L296.4,103.9 L297.2,104.3 L297.9,104.6 L298.7,104.9 L299.4,105.3 L300.2,105.6 L300.9,106.0 L301.7,106.3 L302.4,106.7 L303.2,107.0 L303.9,107.4 L304.7,107.7 L305.4,108.1 L306.2,108.4 L306.9,108.8 L307.7,109.1 L308.4,109.5 L309.1,109.8 L309.9,110.2 L310.6,110.6 L311.4,110.9 L312.1,111.3 L312.9,111.7 L313.6,112.0 L314.4,112.4 L315.1,112.8 L315.9,113.1 L316.6,113.5 L317.4,113.9 L318.1,114.3 L318.9,114.6 L319.6,115.0 L320.4,115.4 L321.1,115.8 L321.9,116.1 L322.6,116.5 L323.4,116.9 L324.1,117.3 L324.9,117.7 L325.6,118.1 L326.4,118.5 L327.1,118.8 L327.8,119.2 L328.6,119.6 L329.3,120.0 L330.1,120.4 L330.8,120.8 L331.6,121.2 L332.3,121.6 L333.1,122.0 L333.8,122.4 L334.6,122.8 L335.3,123.2 L336.1,123.6 L336.8,124.0 L337.6,124.4 L338.3,124.8 L339.1,125.3 L339.8,125.7 L340.6,126.1 L341.3,126.5 L342.1,126.9 L342.8,127.3 L343.6,127.7 L344.3,128.2 L345.1,128.6 L345.8,129.0 L346.5,129.4 L347.3,129.8 L348.0,130.3 L348.8,130.7 L349.5,131.1 L350.3,131.6 L351.0,132.0 L351.8,132.4 L352.5,132.8 L353.3,133.3 L354.0,133.7 L354.8,134.2 L355.5,134.6 L356.3,135.0 L357.0,135.5 L357.8,135.9 L358.5,136.4 L359.3,136.8 L360.0,137.3 L360.8,137.7 L361.5,138.1 L362.3,138.6 L363.0,139.0 L363.8,139.5 L364.5,140.0 L365.2,140.4 L366.0,140.9 L366.7,141.3 L367.5,141.8 L368.2,142.2 L369.0,142.7 L369.7,143.2 L370.5,143.6 L371.2,144.1 L372.0,144.6 L372.7,145.0 L373.5,145.5 L374.2,146.0 L375.0,146.4 L375.7,146.9 L376.5,147.4 L377.2,147.9 L378.0,148.3 L378.7,148.8 L379.5,149.3 L380.2,149.8 L381.0,150.3 L381.7,150.7 L382.5,151.2 L383.2,151.7 L383.9,152.2 L384.7,152.7 L385.4,153.2 L386.2,153.7 L386.9,154.2 L387.7,154.7 L388.4,155.2 L389.2,155.7 L389.9,156.2 L390.7,156.7 L391.4,157.2 L392.2,157.7 L392.9,158.2 L393.7,158.7 L394.4,159.2 L395.2,159.7 L395.9,160.2 L396.7,160.7 L397.4,161.2 L398.2,161.7 L398.9,162.2 L399.7,162.8 L400.4,163.3 L401.2,163.8 L401.9,164.3 L402.6,164.8 L403.4,165.4 L404.1,165.9 L404.9,166.4 L405.6,166.9 L406.4,167.5 L407.1,168.0 L407.9,168.5 L408.6,169.1 L409.4,169.6 L410.1,170.1 L410.9,170.7 L411.6,171.2 L412.4,171.8 L413.1,172.3 L413.9,172.8 L414.6,173.4 L415.4,173.9 L416.1,174.5 L416.9,175.0 L417.6,175.6 L418.4,176.1 L419.1,176.7 L419.9,177.2 L420.6,177.8 L421.3,178.4 L422.1,178.9 L422.8,179.5 L423.6,180.0 L424.3,180.6 L425.1,181.2 L425.8,181.7 L426.6,182.3 L427.3,182.9 L428.1,183.4 L428.8,184.0 L429.6,184.6 L430.3,185.2 L431.1,185.7 L431.8,186.3 L432.6,186.9 L433.3,187.5 L434.1,188.1 L434.8,188.6 L435.6,189.2 L436.3,189.8 L437.1,190.4 L437.8,191.0 L438.6,191.6 L439.3,192.2 L440.0,192.8 L440.8,193.4 L441.5,194.0 L442.3,194.6 L443.0,195.2 L443.8,195.8 L444.5,196.4 L445.3,197.0 L446.0,197.6 L446.8,198.2 L447.5,198.8 L448.3,199.4 L449.0,200.0 L449.8,200.7 L450.5,201.3 L451.3,201.9 L452.0,202.5 L452.8,203.1 L453.5,203.8 L454.3,204.4 L455.0,205.0 L455.8,205.6 L456.5,206.3 L457.3,206.9 L458.0,207.5" fill="none" stroke="currentColor" stroke-width="2"/><line x1="84.0" y1="92.2" x2="458.0" y2="92.2" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.4" stroke-dasharray="5 3"/><text x="452.0" y="85.2" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">LOD = 3, the classical threshold</text><line x1="84.0" y1="207.5" x2="458.0" y2="207.5" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="173.8" cy="71.3" r="4.5" fill="var(--color-accent, #2e6e5e)"/><line x1="173.8" y1="246.0" x2="173.8" y2="71.3" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="3 3"/><line x1="173.8" y1="66.3" x2="199.9" y2="141.4" stroke="currentColor" stroke-width="1" opacity=".45"/><text x="203.7" y="146.0" font-size="10.5" fill="currentColor" font-weight="600">peak at θ = 0.12,</text><text x="203.7" y="156.8" font-size="10.5" fill="currentColor" font-weight="600">LOD = 3.5419</text><text x="470.0" y="108.0" font-size="11" fill="currentColor" font-weight="700">LOD 3 in other units</text><text x="470.0" y="124.0" font-size="10" fill="currentColor" opacity=".8">χ² = 2 ln(10) × 3</text><text x="470.0" y="137.0" font-size="10" fill="currentColor" opacity=".8">    = 13.8155 on 1 df</text><text x="470.0" y="150.0" font-size="10" fill="currentColor" opacity=".8">point-wise p = 2.0 × 10⁻⁴</text><text x="470.0" y="180.0" font-size="10" fill="currentColor" opacity=".8">Not p = 0.001: the</text><text x="470.0" y="193.0" font-size="10" fill="currentColor" opacity=".8">thousand-to-one reading</text><text x="470.0" y="206.0" font-size="10" fill="currentColor" opacity=".8">is about the prior odds</text><text x="470.0" y="219.0" font-size="10" fill="currentColor" opacity=".8">that two loci are linked.</text><text x="271.0" y="288.0" font-size="12" fill="currentColor" text-anchor="middle">Recombination fraction θ</text><text x="20.0" y="146.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 146)">LOD score</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Three recombinants in twenty-five meioses: the whole of the evidence for linkage</text></svg>
+</Figure>
+
+<WorkedExample
+  title="A LOD score from twenty-five meioses"
+  given={[
+    { label: 'Informative meioses n', value: '25' },
+    { label: 'Recombinants r', value: '3' },
+    { label: 'Null', value: 'free recombination, θ = 0.5' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the estimate.** $\hat\theta = r/n = 3/25 = 0.12$.
+
+**Step 2 — the LOD at that estimate.**
+
+$$
+Z(0.12) = 3\log_{10}(0.12) + 22\log_{10}(0.88) + 25\log_{10} 2
+$$
+
+$$
+= -2.762456 - 1.221381 + 7.525750 = 3.5419
+$$
+
+**Step 3 — convert to the scale Module 1 used.** The LOD is a base-10 log likelihood ratio,
+so twice the natural log of the same ratio is
+
+$$
+\chi^2 = 2\ln(10)\,Z = 4.60517 \times 3.5419 = 16.3111
+$$
+
+on 1 df, a point-wise $p$ of $5.375\times10^{-5}$.
+
+**Step 4 — read the interval, not just the peak.** The conventional support interval drops
+one LOD unit from the maximum, here down to 2.5419, which the curve reaches at
+$\theta = 0.0266$ and $\theta = 0.3008$. In a genome where 1 cM is about a megabase, that is an
+interval tens of megabases wide containing hundreds of genes.
+
+**This is the real limitation of linkage**, and it is not statistical power — the peak is
+perfectly significant. It is that twenty-five meioses contain only twenty-five opportunities
+for recombination to tell you anything about position.
+
+</WorkedExample>
+
+<Callout variant="warning" title="LOD 3 is not p = 0.001">
+
+The threshold is routinely explained as "a thousand to one", and then silently treated as a
+$p$-value of $10^{-3}$. It is neither of those things.
+
+As a **frequentist statistic**, $\mathrm{LOD} = 3$ is $\chi^2 = 2\ln(10)\times 3 = 13.8155$
+on 1 df, which is a point-wise $p$ of $2.0\times10^{-4}$ — five times smaller than $0.001$.
+
+The thousand-to-one is a **prior odds** argument, and <Citation id="morton1955lod" /> was
+explicit about it: any two loci picked at random are unlikely to be linked, roughly 50:1
+against for the human genome, so a likelihood ratio of 1000:1 is needed before the posterior
+odds favour linkage. It is a Bayesian threshold that happens to be quoted in log units.
+
+For a genome scan neither number is enough. <Citation id="lander1995thresholds" /> derived
+the threshold that accounts for searching the whole genome, and got **LOD 3.3** for
+sib-pair linkage — and by the same logic, a genome-wide association threshold of
+$5\times10^{-8}$ corresponds to $\chi^2 = 29.7168$, or a LOD of 6.4529. The gap between
+3.3 and 6.45 is the difference between scanning a few hundred markers and scanning a million.
+
+</Callout>
+
+## Why linkage worked for Mendelian disease and stalled on complex traits
+
+Both failures and successes follow from the meiosis count.
+
+**Resolution.** A study observes $n$ meioses and therefore at most $n$ informative
+recombination events. Distances shorter than about $1/n$ in recombination units cannot be
+resolved, and $\theta$ is converted to map distance by a mapping function — Haldane's
+$d = -\tfrac{1}{2}\ln(1-2\theta)$ from <Citation id="haldane1919" /> — which only makes
+things worse at short distances by correcting for double crossovers. A few hundred meioses
+buys a few centimorgans. Population-scale LD, by contrast, reflects every meiosis since the
+variant arose, which is thousands of generations, and resolves accordingly.
+
+**Power.** Linkage detects a locus through its effect on *sharing within families*, which
+requires the locus to substantially determine who in the family is affected. A variant with
+a genotype relative risk of 1.2 does not do that in any pedigree of realistic size.
+<Citation id="risch1996future" /> made this argument precisely and concluded that
+association testing would be far more powerful than linkage for such variants — a
+prediction the genome-wide association era then confirmed comprehensively.
+
+The likelihood computation itself is not the obstacle. <Citation id="elston1971peeling" />
+gave the peeling algorithm, which evaluates a pedigree likelihood in time linear in the
+number of individuals rather than exponential, and it is still the basis of exact pedigree
+likelihood software.
+
+## QTL mapping: linkage for a quantitative trait
+
+For a continuous trait in an experimental cross, the same logic applies with the disease
+status replaced by a phenotype. The naive approach tests each marker separately, which
+confounds the QTL's effect size with its distance from the marker: a large effect far away
+and a small effect nearby look identical.
+
+<Citation id="lander1989interval" /> solved this with **interval mapping**. At each position
+between two flanking markers, the genotype at that position is unobserved, so its
+probability is computed from the flanking markers and the trait is modelled as a mixture over
+the possible genotypes. Maximising the likelihood at every position gives a LOD profile
+along the chromosome, whose peak estimates position and whose height estimates significance —
+and, crucially, effect size and position are no longer confounded.
+
+The threshold for that profile cannot come from a $\chi^2$ table. The statistic is maximised
+over a continuum of positions, the tests are correlated by linkage, and the null distribution
+depends on the marker map and the missing-data pattern. The standard solution is
+**permutation**: shuffle the phenotypes against the genotypes, recompute the whole genome
+scan, record the maximum LOD, and repeat. The 95th percentile of those maxima is the
+threshold. It is expensive and it is correct, and it automatically accounts for the density
+of the marker map — which no table can.
+
+## The TDT: association immune to population structure
+
+Case-control association has a well-known failure mode. If cases and controls are drawn
+from populations with different ancestry, any variant whose frequency differs between those
+populations will appear associated, whether or not it has anything to do with the trait.
+
+<Citation id="spielman1993tdt" /> proposed a design that cannot fail this way. Take
+**trios**: an affected child and both parents. Consider only parents heterozygous at the
+variant — each transmits one of two alleles to the child, and under the null of no
+association transmits either with probability one half. Count $b$ transmissions of the
+candidate allele and $c$ non-transmissions:
+
+$$
+\chi^2_{\mathrm{TDT}} = \frac{(b-c)^2}{b+c}
+$$
+
+on 1 df — McNemar's test, applied to transmission.
+
+<WorkedExample
+  title="A transmission disequilibrium test"
+  given={[
+    { label: 'Heterozygous parents', value: '55' },
+    { label: 'Transmitted the allele', value: 'b = 38' },
+    { label: 'Did not transmit', value: 'c = 17' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the statistic.**
+
+$$
+\chi^2 = \frac{(38-17)^2}{38+17} = \frac{441}{55} = 8.018182
+$$
+
+**Step 2 — the $p$-value.** On 1 df, $p = 4.631\times10^{-3}$.
+
+**Step 3 — why this cannot be confounded.** The test conditions on the parents. Population
+structure changes **which** parents are heterozygous — an ancestry group with a higher allele
+frequency contributes more heterozygous parents — but it does not change what a heterozygous
+parent transmits, which is one allele or the other with probability one half regardless of
+ancestry. There is no mechanism by which stratification can bias $b$ relative to $c$.
+
+That immunity is bought with data. Recruiting 55 informative trios means genotyping at least
+165 people and finding families with both parents available, which for a late-onset disease
+is often impossible. Modern studies mostly pay for robustness a different way, by modelling
+ancestry directly in unrelated samples.
+
+</WorkedExample>
+
+## Exercises
+
+<Exercise n={1} title="Kinship for three relationships" difficulty="warm-up">
+
+Using the recursion, compute the kinship coefficient for (a) half sibs — two individuals
+sharing one parent — and (b) an uncle and his niece. Convert both to entries of
+$\mathbf{A}$. What do you notice?
+
+<div slot="solution">
+
+**(a) Half sibs.** Let HS1 and HS2 share sire A but have unrelated dams B and C:
+
+$$
+f(\text{HS1}, \text{HS2}) = \tfrac{1}{2}\big[f(A, \text{HS2}) + f(B, \text{HS2})\big]
+= \tfrac{1}{2}\big[\tfrac{1}{4} + 0\big] = \tfrac{1}{8} = 0.125
+$$
+
+**(b) Uncle and niece.** Let N be the child of HS1 and an unrelated female. HS2 is then N's
+uncle:
+
+$$
+f(\text{HS2}, N) = \tfrac{1}{2}\big[f(\text{HS2}, \text{HS1}) + 0\big]
+= \tfrac{1}{2}\times\tfrac{1}{8} = \tfrac{1}{16} = 0.0625
+$$
+
+In $\mathbf{A}$ these are 0.25 and 0.125 respectively.
+
+**What to notice:** the uncle–niece kinship of 1/16 is identical to the first-cousin kinship
+in the worked example, and half sibs at 1/8 match a grandparent–grandchild pair. Kinship
+counts paths, not relationship names, so genealogically distinct relationships routinely
+share a coefficient — and a pedigree-based model therefore cannot tell them apart. Only
+genotype data can, because the *realised* sharing differs even when the expected sharing
+does not.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="The smallest study that reaches LOD 3" difficulty="core">
+
+A single large pedigree yields informative meioses with **no** recombinants observed between
+a marker and a disease locus. (a) Write $Z(\theta)$ for $r = 0$ and find where it is
+maximised. (b) How many meioses are needed to reach LOD 3? (c) Contrast the interval this
+gives with the one in the worked example.
+
+<div slot="solution">
+
+**(a)** With $r = 0$ the likelihood is $(1-\theta)^n$, maximised at $\hat\theta = 0$, and
+
+$$
+Z(0) = \log_{10}\frac{1}{(1/2)^n} = n\log_{10} 2
+$$
+
+**(b)** Setting $n \log_{10} 2 \ge 3$ gives $n \ge 3/0.301030 = 9.97$, so **ten meioses**.
+With exactly ten, $Z = 10\log_{10}2 = 3.010300$ — the classical threshold is cleared, only
+just, by a single well-chosen family.
+
+**(c)** The two studies reach comparable LODs from very different evidence. Ten meioses with
+no recombinants put $\hat\theta$ at 0, and the support interval runs from 0 to $\theta = 0.2057$ — one-sided, because $\theta$ cannot be negative. Twenty-five meioses with three
+recombinants put $\hat\theta$ at 0.12 with a two-sided interval.
+
+The instructive point is that the zero-recombinant study, despite its tiny sample, localises
+*better*: every meiosis it observed was consistent with complete linkage. This is why
+linkage studies of Mendelian disease sought large consanguineous families rather than many
+small ones. It is also why $\hat\theta = 0$ should be reported with its interval and never
+as a point estimate — "no recombinants in ten meioses" is entirely compatible with
+$\theta = 0.10$.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="When the case-control test and the TDT disagree" difficulty="stretch">
+
+A variant is tested two ways in the same population. A case-control analysis gives a highly
+significant association; a TDT on trios from the same families gives $b = 25$, $c = 25$.
+(a) Compute the TDT statistic. (b) What is the most likely explanation of the discrepancy?
+(c) What would you check, and what would reverse your conclusion?
+
+<div slot="solution">
+
+**(a)** $\chi^2 = (25-25)^2/50 = 0$, $p = 1$. There is no evidence of transmission
+distortion at all.
+
+**(b)** The most likely explanation is **population stratification** in the case-control
+analysis. The variant's frequency differs between ancestry groups, and those groups are
+represented unequally among cases and controls, which produces association at a variant with
+no causal role. The TDT conditions on the parents and is therefore blind to that mechanism,
+so it correctly reports nothing.
+
+**(c)** Check whether the case-control result survives explicit adjustment for ancestry, and
+check the genomic inflation factor across all variants — stratification that is strong enough
+to manufacture one association will inflate the whole distribution of test statistics, not
+just this one. If it does inflate, the TDT is right.
+
+**What would reverse the conclusion:** the TDT is a test of linkage *and* association
+jointly, and it has far less power than a case-control analysis of the same number of
+individuals — 55 trios cost 165 genotypes. A null TDT on 50 informative transmissions is
+consistent with a genuine odds ratio around 1.3, so absence of evidence here is weak
+evidence of absence. If the case-control association survived ancestry adjustment and the
+inflation factor were near 1, the honest reading would be that the TDT was simply
+underpowered.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Kinship is one recursion**, $f(x,y) = \tfrac{1}{2}[f(\text{sire}_x, y) + f(\text{dam}_x, y)]$,
+  and an inbreeding coefficient is just the kinship of the parents. First cousins are at
+  $1/16$; their child carries $F = 0.0625$.
+- **$\mathbf{A} = 2f$ is the covariance of breeding values**, with $A_{ii} = 1 + F_i$.
+  Henderson's rules give $\mathbf{A}^{-1}$ directly from the pedigree, which is what makes
+  mixed models on large pedigrees tractable. The genomic relatedness matrix estimates the
+  same quantity and disagrees with it, and that disagreement is information.
+- **The LOD score is a base-10 log likelihood ratio against free recombination**, maximised
+  at $\hat\theta = r/n$. Three recombinants in twenty-five meioses give LOD 3.5419 at
+  $\theta = 0.12$.
+- **LOD 3 is $\chi^2 = 13.8155$ and a point-wise $p$ of $2.0\times10^{-4}$**, not 0.001.
+  The thousand-to-one is a prior-odds argument. A genome scan needs LOD 3.3 by
+  Lander–Kruglyak, and the association-era $5\times10^{-8}$ corresponds to LOD 6.4529.
+- **Linkage resolves badly because a pedigree contains few meioses.** That, not statistical
+  power, is why linkage intervals span megabases; and its inability to detect small effects
+  is why it stalled on complex traits while association did not.
+- **Interval mapping** removes the confounding of QTL effect and position by modelling the
+  unobserved genotype between flanking markers; its threshold must come from permutation,
+  because the statistic is maximised over a correlated continuum.
+- **The TDT cannot be confounded by ancestry** because it conditions on the parents:
+  structure changes which parents are heterozygous, not what they transmit. It pays for that
+  in sample size, needing complete trios.
