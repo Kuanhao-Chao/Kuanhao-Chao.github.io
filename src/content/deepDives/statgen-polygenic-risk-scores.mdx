@@ -6,8 +6,8 @@ abstract: "A polygenic score is a weighted sum of allele counts, and every hard 
 date: 2026-08-21
 track: theory
 hub: statistical-genetics
-moduleId: m12-prediction
-moduleLabel: Statistical Genetics · Part 14
+moduleId: m05-inference
+moduleLabel: Module 5 · Inference, Prediction & Causality
 order: 14
 level: advanced
 objectives:
@@ -21,6 +21,10 @@ prerequisites:
   - statgen-heritability-greml
 relatedLessons:
   - statgen-linkage-disequilibrium
+keyEquations:
+  - '\mathrm{PRS}_i = \sum_{j=1}^{M} w_j\,G_{ij}'
+  - '\mathbb{E}[\beta_j \mid \hat\beta_j] = \frac{\hat\beta_j}{1 + M/(Nh^2)}'
+  - 'R^2_{\mathrm{PRS}} = \frac{h^2}{1 + M/(N h^2)}'
 referenceIds:
   - daetwyler2008
   - isc2009

@@ -336,6 +336,12 @@ const deepDives = defineCollection({
       // NOTE: there is deliberately no `readingTime` field. It is computed from the
       // body by `lessonReadingTime`, and a test rejects frontmatter that sets one.
 
+      /** The two-to-four formulations the index card shows as chips. Declared here
+       *  rather than in `src/data/deepDives.ts` for the same reason as everything
+       *  else on the card: the catalog held a second copy, and a migrated lesson
+       *  silently lost its chips when the derived entry replaced the hand-written one. */
+      keyEquations: z.array(z.string()).default([]),
+
       /** True for a track's landing page: back-link goes to /deep_dives/ and the
        *  page renders a module map of its own track instead of a prev/next pager. */
       isHub: z.boolean().default(false),

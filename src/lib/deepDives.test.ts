@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { DEEP_DIVES, DEEP_DIVE_ORDER } from '../data/deepDives';
 import {
   analyseBody,
   buildToc,
@@ -284,5 +285,35 @@ describe('deep-dive collection', () => {
     );
     const collisions = collectionIds().filter((id) => statics.has(id));
     expect(collisions, 'delete the .astro when the .mdx lands').toEqual([]);
+  });
+});
+
+
+describe('index catalog', () => {
+  // `DEEP_DIVE_ORDER` is the last fact about a lesson that lives outside the collection,
+  // and the index falls back to appending anything it omits — which would hide the
+  // omission. These three checks are what make that fallback safe to keep.
+  const legacyIds = DEEP_DIVES.map((e) => e.id);
+
+  it('orders every card exactly once', () => {
+    expect(DEEP_DIVE_ORDER.length).toBe(new Set(DEEP_DIVE_ORDER).size);
+  });
+
+  it('names nothing that does not exist', () => {
+    const known = new Set([...legacyIds, ...collectionIds()]);
+    expect(DEEP_DIVE_ORDER.filter((id) => !known.has(id))).toEqual([]);
+  });
+
+  it('leaves nothing unordered', () => {
+    const ordered = new Set(DEEP_DIVE_ORDER);
+    const missing = [...legacyIds, ...collectionIds()].filter((id) => !ordered.has(id));
+    expect(missing, 'add new deep dives to DEEP_DIVE_ORDER').toEqual([]);
+  });
+
+  it('keeps no hand-written copy of a lesson that has a content file', () => {
+    // The whole point of deriving the card: two copies of a title and a reading time
+    // drift, and this repo has already shipped that. A migration deletes the entry.
+    const collection = new Set(collectionIds());
+    expect(legacyIds.filter((id) => collection.has(id))).toEqual([]);
   });
 });
