@@ -1,0 +1,331 @@
+---
+title: "GWAS Summary Statistics: Alignment, Inflation and the Winner's Curse"
+shortTitle: GWAS Summary Stats
+description: "The GWAS Catalog, FinnGen and Open Targets Genetics — what a summary-statistic file has to carry to be reusable, why a palindromic SNP aligned to the wrong strand silently destroys a meta-analysis, and why published effect sizes are systematically too large."
+abstract: "Summary statistics are the substrate of nearly all downstream genetics — meta-analysis, fine-mapping, colocalisation, polygenic scores, Mendelian randomisation. They are also the layer where the most damaging errors are silent, because a sign flip or a wrong reference allele produces a valid-looking file. This page covers the repositories, works a strand-alignment failure through to the p-value it costs, and quantifies the inflation that discovery thresholds impose on every effect size they select."
+date: 2026-08-22
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d04-function
+moduleLabel: Layer 4 · Function, Assays & Trait Maps
+order: 8
+level: advanced
+objectives:
+  - "List what a summary-statistic file must carry for a reanalysis to be possible."
+  - "Explain why palindromic variants are strand-ambiguous and how allele frequency resolves them."
+  - "Quantify what one misaligned variant costs in a two-study meta-analysis."
+  - "Distinguish inflation from polygenicity when reading a genomic control factor."
+  - "Explain the winner's curse and say where on the effect-size scale it bites hardest."
+prerequisites:
+  - data-regulatory-maps
+referenceIds:
+  - devlin1999gc
+  - palmer2017winners
+  - oconnor2021effects
+  - mountjoy2021l2g
+  - sollis2023gwascatalog
+  - kurki2023finngen
+  - wu2026finemapping
+tags: [GWAS Catalog, FinnGen, summary statistics, harmonisation, winner's curse, genomic control]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+Almost nothing in modern genetics runs on individual-level genotypes. Meta-analysis,
+fine-mapping, colocalisation, polygenic scores and Mendelian randomisation all consume
+*summary statistics*: one row per variant, carrying an effect size, a standard error and the
+allele the effect refers to.
+
+That last field is where the trouble lives.
+
+<Callout variant="intuition">
+An effect size is meaningless without knowing which allele it belongs to. "This variant
+raises LDL by 0.04" is only a statement once you know whether the raising allele is the A or
+the G.
+
+Combining two studies therefore means aligning them: agreeing on a reference genome, agreeing
+which allele is the effect allele, and flipping the sign wherever they disagree. Almost all
+of that is mechanical.
+
+The exception is variants whose two alleles are complements of each other — A/T and C/G. For
+those, reading the alleles cannot tell you which strand a study used, because the reverse
+complement of an A/T variant is a T/A variant, which is the same pair written backwards. Get
+it wrong and you do not get an error; you get a sign flip, on a file that looks perfectly
+normal.
+</Callout>
+
+<DatasetTable layer="gwas-summary-stats" caption="GWAS summary-statistic resources" />
+
+<Notation
+  rows={[
+    { symbol: '\\beta', meaning: 'Effect size, per copy of the stated effect allele', dims: 'trait units or log-odds' },
+    { symbol: '\\text{EA}', meaning: 'Effect allele — the one β refers to', dims: 'a base' },
+    { symbol: '\\text{EAF}', meaning: 'Effect allele frequency, which is what resolves strand ambiguity', dims: 'in [0,1]' },
+    { symbol: 'z', meaning: 'Test statistic, β divided by its standard error', dims: 'standard deviations' },
+    { symbol: '\\lambda_{GC}', meaning: 'Genomic control factor: median χ² over the χ²₁ median', dims: '≥ 0; 1 means no inflation' },
+  ]}
+/>
+
+## The repositories, and what each is for
+
+**<Dataset id="gwas-catalog" />** is two things that get conflated
+<Citation id="sollis2023gwascatalog" />. The curated table of published associations is what
+most people mean by "the Catalog", and it holds top hits with their reported effects. The
+deposition service holds *full* summary statistics, and that is what any reanalysis needs —
+a fine-mapping or a colocalisation cannot run on lead SNPs. Harmonised files are provided on
+a common build and strand, which removes most of the work this page is about.
+
+**<Dataset id="finngen" />** is a bottlenecked founder population
+<Citation id="kurki2023finngen" />, so variants too rare to test elsewhere reach testable
+frequency there. Its phenotypes come from national health registers rather than research
+diagnoses, which is a genuine difference in what an endpoint means rather than a caveat about
+quality.
+
+**<Dataset id="opentargets-l2g" />** runs harmonisation, fine-mapping
+<Citation id="wu2026finemapping" /> and colocalisation as a pipeline
+<Citation id="mountjoy2021l2g" />, which is most of what a careful reanalysis would do and
+frequently does worse.
+
+<Callout variant="key" title="What a file has to carry to be reusable">
+A summary-statistic file is reusable only if it states, unambiguously:
+
+- the **genome build**, and ideally the strand convention;
+- **both alleles**, with which one is the effect allele marked;
+- the **effect allele frequency**, without which palindromic variants cannot be aligned;
+- $\beta$ and its **standard error**, not only a p-value — a p-value has no sign and cannot be
+  meta-analysed by inverse variance;
+- the **sample size**, per variant where it varies, since imputation quality and missingness
+  make it vary.
+
+Files missing the effect allele frequency are the common case and the expensive one: every
+A/T and C/G variant in them is unusable in any analysis that combines studies.
+</Callout>
+
+## What one misaligned variant costs
+
+<WorkedExample
+  title="A palindromic SNP flipped between two studies"
+  given={[
+    { label: 'Study 1', value: 'A/T variant, effect allele A, EAF 0.18, β = +0.043, SE 0.008' },
+    { label: 'Study 2', value: 'same variant, effect allele A, EAF 0.82, β = −0.041, SE 0.009' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — notice the frequencies.** Both studies name the effect allele "A", and their
+frequencies are $0.18$ and $0.82$, which sum to one. For a palindromic variant that is the
+signature of opposite strands: study 2's "A" is the reverse complement of study 1's "A",
+which is study 1's T.
+
+**Step 2 — meta-analyse without noticing.** Taking the files at face value and combining by
+inverse variance:
+
+$$
+\hat\beta = 0.005924, \qquad \text{SE} = 0.005979, \qquad z = 0.9908, \qquad p = 0.3218
+$$
+
+The two effects nearly cancel. The result is null and looks like an honest null.
+
+**Step 3 — align first, then meta-analyse.** Flipping study 2 to study 1's strand turns its
+$\beta$ from $-0.041$ to $+0.041$:
+
+$$
+\hat\beta = 0.042117, \qquad \text{SE} = 0.005979, \qquad z = 7.0439, \qquad p = 1.882\times10^{-12}
+$$
+
+**Step 4 — compare.** The same two studies, the same numbers, and a difference between
+$p = 0.32$ and $p = 1.9\times10^{-12}$ — the difference between "no association" and a
+genome-wide significant one, decided entirely by which strand a file assumed.
+
+**Step 5 — note what saved it.** The allele frequencies. Had both been near $0.5$ — say $0.48$
+and $0.52$ — the ambiguity would be unresolvable from the file alone, which is why careful
+pipelines *drop* palindromic variants with intermediate frequency rather than guess.
+
+</WorkedExample>
+
+<Callout variant="warning" title="λ_GC above 1 is not evidence of confounding">
+Genomic control compares the median test statistic to what a null distribution would give
+<Citation id="devlin1999gc" />:
+
+$$
+\lambda_{GC} = \frac{\text{median}(\chi^2)}{0.454936\ldots}
+$$
+
+with the denominator the exact median of $\chi^2_1$. It was introduced when inflation meant
+population stratification, and dividing every statistic by $\lambda_{GC}$ was a reasonable
+correction.
+
+For a polygenic trait it is not. If thousands of variants carry small true effects, the median
+statistic *should* exceed the null — the inflation is signal. A large modern GWAS routinely
+reports $\lambda_{GC}$ well above 1 with no confounding at all, and correcting by it discards
+real association <Citation id="oconnor2021effects" />. Separating the two needs LD score
+regression, whose intercept isolates the confounding part while the slope absorbs polygenicity.
+</Callout>
+
+## Why published effect sizes are too large
+
+A variant enters the literature by clearing a threshold. That selection is not neutral: among
+variants whose true effect sits near the threshold, the ones that get discovered are
+disproportionately those whose noise happened to point the right way.
+
+<WorkedExample
+  title="The winner's curse at the discovery threshold"
+  given={[
+    { label: 'Threshold', value: 'p < 5×10⁻⁸, i.e. |z| > 5.4513' },
+    { label: 'Question', value: 'given discovery, how inflated is the published z?' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — a variant barely above the threshold.** For a true effect of $z = 5.45$, the
+expected published estimate conditional on being discovered is
+
+$$
+\mathbb{E}[z_{\text{obs}} \mid \text{discovered}] = 6.2487
+\quad\Longrightarrow\quad
+\text{inflation } 1.1466\times
+$$
+
+Nearly 15% too large, on average, before anyone has made a mistake.
+
+**Step 2 — a moderately strong variant.** At a true $z = 6.50$:
+
+$$
+\mathbb{E}[z_{\text{obs}}] = 6.7699 \quad\Longrightarrow\quad 1.0415\times
+$$
+
+**Step 3 — a strong one.** At a true $z = 8.00$:
+
+$$
+\mathbb{E}[z_{\text{obs}}] = 8.0156 \quad\Longrightarrow\quad 1.0019\times
+$$
+
+Essentially nothing: a variant this strong would have been found whatever the noise did, so
+conditioning on discovery selects almost nothing.
+
+**Step 4 — read the pattern.** The bias is **worst exactly at the threshold** and disappears
+for effects comfortably above it. Since most discoveries in a well-powered GWAS sit close to
+the threshold — that is where the mass of the effect-size distribution is — the typical
+published effect is inflated, and the typical replication estimate is smaller
+<Citation id="palmer2017winners" />.
+
+**Step 5 — what follows.** A polygenic score trained on discovery effect sizes inherits the
+inflation, which is one reason its out-of-sample $R^2$ underperforms the value predicted from
+the discovery statistics. Shrinkage methods correct for this implicitly; taking published
+betas at face value does not.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Winner's-curse inflation against true effect size. The curve is the expected published z divided by the true z, conditional on clearing p < 5×10⁻⁸ (z = 5.4513, marked). A variant whose true z is 5.45 is published on average 1.1466 times too large; at z = 6.50 the inflation is 1.0415, and at z = 8.00 it is 1.0019. The bias is largest exactly at the threshold that selected the variant."
+  alt="A curve of expected inflation against true effect size in units of z, falling from about 1.15 at z equals 5.45 toward 1.00 by z equals 8. A vertical dashed line marks the discovery threshold at 5.4513 and four points are marked at 1.1466, 1.1017, 1.0415 and 1.0019."
+>
+  <svg viewBox="0 0 640 304" width="640" height="304" font-family="inherit"><line x1="80.0" y1="40.0" x2="80.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="80.0" y1="250.0" x2="590.0" y2="250.0" stroke="currentColor" stroke-width="1.25"/><line x1="80.0" y1="250.0" x2="590.0" y2="250.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="254.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.00</text><line x1="80.0" y1="208.0" x2="590.0" y2="208.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="212.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.05</text><line x1="80.0" y1="166.0" x2="590.0" y2="166.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="170.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.10</text><line x1="80.0" y1="124.0" x2="590.0" y2="124.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="128.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.15</text><line x1="80.0" y1="82.0" x2="590.0" y2="82.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="86.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.20</text><line x1="80.0" y1="40.0" x2="590.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="44.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.25</text><line x1="80.0" y1="250.0" x2="80.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="80.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="207.5" y1="250.0" x2="207.5" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="207.5" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">6</text><line x1="335.0" y1="250.0" x2="335.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="335.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">7</text><line x1="462.5" y1="250.0" x2="462.5" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="462.5" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">8</text><line x1="590.0" y1="250.0" x2="590.0" y2="255.0" stroke="currentColor" stroke-width="1"/><text x="590.0" y="268.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">9</text><line x1="80.0" y1="250.0" x2="590.0" y2="250.0" stroke="currentColor" stroke-width="1.25" opacity=".35" stroke-dasharray="5 4"/><text x="584.0" y="242.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".6">no inflation</text><line x1="137.5" y1="40.0" x2="137.5" y2="250.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.25" stroke-dasharray="4 4"/><text x="144.5" y="54.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">discovery threshold, z = 5.4513</text><path d="M80.0,64.3 L82.5,67.4 L85.1,70.5 L87.6,73.6 L90.2,76.7 L92.7,79.7 L95.3,82.6 L97.8,85.6 L100.4,88.5 L102.9,91.4 L105.5,94.2 L108.0,97.0 L110.6,99.8 L113.1,102.5 L115.7,105.2 L118.2,107.9 L120.8,110.5 L123.3,113.1 L125.9,115.7 L128.4,118.3 L131.0,120.8 L133.5,123.2 L136.1,125.7 L138.7,128.1 L141.2,130.5 L143.8,132.8 L146.3,135.2 L148.9,137.5 L151.4,139.7 L153.9,141.9 L156.5,144.1 L159.1,146.3 L161.6,148.5 L164.2,150.6 L166.7,152.7 L169.3,154.7 L171.8,156.7 L174.4,158.7 L176.9,160.7 L179.5,162.6 L182.0,164.6 L184.6,166.4 L187.1,168.3 L189.7,170.1 L192.2,171.9 L194.8,173.7 L197.3,175.5 L199.8,177.2 L202.4,178.9 L205.0,180.5 L207.5,182.2 L210.0,183.8 L212.6,185.4 L215.2,186.9 L217.7,188.5 L220.2,190.0 L222.8,191.5 L225.3,192.9 L227.9,194.4 L230.4,195.8 L233.0,197.2 L235.5,198.5 L238.1,199.9 L240.6,201.2 L243.2,202.5 L245.7,203.7 L248.3,205.0 L250.8,206.2 L253.4,207.4 L255.9,208.6 L258.5,209.7 L261.0,210.8 L263.6,211.9 L266.1,213.0 L268.7,214.1 L271.2,215.1 L273.8,216.1 L276.4,217.1 L278.9,218.1 L281.5,219.1 L284.0,220.0 L286.6,220.9 L289.1,221.8 L291.6,222.7 L294.2,223.5 L296.8,224.3 L299.3,225.2 L301.9,226.0 L304.4,226.7 L307.0,227.5 L309.5,228.2 L312.1,228.9 L314.6,229.6 L317.2,230.3 L319.7,231.0 L322.3,231.6 L324.8,232.3 L327.3,232.9 L329.9,233.5 L332.5,234.1 L335.0,234.6 L337.5,235.2 L340.1,235.7 L342.7,236.2 L345.2,236.8 L347.7,237.2 L350.3,237.7 L352.9,238.2 L355.4,238.6 L357.9,239.1 L360.5,239.5 L363.1,239.9 L365.6,240.3 L368.1,240.7 L370.7,241.1 L373.2,241.4 L375.8,241.8 L378.3,242.1 L380.9,242.4 L383.4,242.7 L386.0,243.0 L388.6,243.3 L391.1,243.6 L393.6,243.9 L396.2,244.2 L398.8,244.4 L401.3,244.7 L403.9,244.9 L406.4,245.1 L408.9,245.3 L411.5,245.5 L414.1,245.7 L416.6,245.9 L419.2,246.1 L421.7,246.3 L424.2,246.5 L426.8,246.7 L429.4,246.8 L431.9,247.0 L434.4,247.1 L437.0,247.2 L439.6,247.4 L442.1,247.5 L444.6,247.6 L447.2,247.8 L449.8,247.9 L452.3,248.0 L454.8,248.1 L457.4,248.2 L460.0,248.3 L462.5,248.4 L465.0,248.4 L467.6,248.5 L470.2,248.6 L472.7,248.7 L475.2,248.8 L477.8,248.8 L480.4,248.9 L482.9,248.9 L485.4,249.0 L488.0,249.1 L490.6,249.1 L493.1,249.2 L495.6,249.2 L498.2,249.3 L500.8,249.3 L503.3,249.3 L505.8,249.4 L508.4,249.4 L510.9,249.5 L513.5,249.5 L516.0,249.5 L518.6,249.5 L521.2,249.6 L523.7,249.6 L526.2,249.6 L528.8,249.6 L531.3,249.7 L533.9,249.7 L536.5,249.7 L539.0,249.7 L541.6,249.7 L544.1,249.8 L546.7,249.8 L549.2,249.8 L551.7,249.8 L554.3,249.8 L556.9,249.8 L559.4,249.8 L561.9,249.9 L564.5,249.9 L567.0,249.9 L569.6,249.9 L572.1,249.9 L574.7,249.9 L577.2,249.9 L579.8,249.9 L582.3,249.9 L584.9,249.9 L587.5,249.9 L590.0,249.9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="137.4" cy="126.9" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="145.4" y="118.9" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">1.1466x</text><circle cx="182.0" cy="164.6" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="190.0" y="156.6" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">1.1017x</text><circle cx="271.2" cy="215.1" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="279.2" y="207.1" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">1.0415x</text><circle cx="462.5" cy="248.4" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="470.5" y="240.4" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">1.0019x</text><text x="335.0" y="290.0" font-size="12" fill="currentColor" text-anchor="middle">True effect size, in units of z</text><text x="18.0" y="145.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 18 145)">Expected inflation of the published estimate</text><text x="335.0" y="20.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">The winner’s curse bites hardest exactly at the threshold that found the variant</text></svg>
+</Figure>
+
+## Exercises
+
+<Exercise n={1} title="Which variants can be aligned" difficulty="warm-up">
+
+Which of these can be aligned between two studies using the alleles alone, and which need the
+effect allele frequency? (a) A/G, (b) C/G, (c) A/T, (d) T/C.
+
+<div slot="solution">
+
+**(a) A/G and (d) T/C align from the alleles alone.** Their reverse complements are T/C and
+A/G respectively — a *different* pair of letters — so seeing which pair a study reported
+determines the strand.
+
+**(b) C/G and (c) A/T cannot.** Each is its own reverse complement, so both strands produce
+the same pair and the file cannot say which was meant. These are the palindromic, or
+strand-ambiguous, variants and they need the effect allele frequency to resolve.
+
+Roughly a sixth of common SNPs are palindromic, so this is not a rare corner: any pipeline
+that ignores it mis-signs a substantial fraction of the genome, and the mis-signed variants
+are scattered rather than clustered, which makes the damage hard to spot.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="When frequency cannot save you either" difficulty="core">
+
+Two studies report the same A/T variant with effect allele A at frequencies 0.48 and 0.52.
+Can the strand be determined, and what should be done?
+
+<div slot="solution">
+
+**No.** The frequencies are consistent with the same strand — where 0.48 and 0.52 are ordinary
+sampling variation around a common frequency — and equally consistent with opposite strands,
+where 0.52 is the complement of 0.48. Nothing in the file distinguishes them.
+
+The correct action is to **drop the variant**, not to guess. The alternatives are both worse: a
+coin-flip alignment is wrong half the time, and defaulting to "same strand" is wrong whenever
+the studies used different conventions, which is exactly the situation that makes the check
+necessary.
+
+Standard pipelines therefore exclude palindromic variants with an effect allele frequency
+inside a window around 0.5, commonly 0.4 to 0.6. The cost is a small, *unbiased* loss of
+variants. The cost of guessing is a small, *sign-flipped* set of variants, which is far more
+damaging: an unbiased loss weakens a meta-analysis, whereas sign flips actively cancel real
+signal, as the worked example showed.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Reading a replication that came back smaller" difficulty="stretch">
+
+A discovery study reports a variant at $z = 6.2$. Replication in an independent cohort of the
+same size returns $z = 5.4$. Is this a failure to replicate?
+
+<div slot="solution">
+
+**No — it is what the winner's curse predicts.**
+
+The discovery estimate was selected for being large. Inverting the relation above, a published
+$z$ of about 6.2 is what a true $z$ of roughly 5.45 produces on average once conditioned on
+discovery, because that true effect is inflated by a factor of 1.1466. The replication is
+unconditioned — it did not have to clear anything to be reported — so it estimates the true
+effect without that bias, and 5.4 is almost exactly what the true value should be.
+
+Two things follow:
+
+- **Replication should be judged against the de-biased estimate**, not the published one.
+  Expecting the original figure is expecting the bias to recur, which it will not in an
+  unselected sample.
+- **A replication returning the *same* effect size is mildly surprising**, and at a threshold-
+  adjacent discovery it is weak evidence that something correlated is going on — shared
+  samples, shared population structure, or a shared covariate — rather than reassurance.
+
+The general habit: at a discovery near the threshold, treat the effect size as an upper bound
+and the direction as the finding.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Summary statistics are the substrate of everything downstream**, and their errors are
+  silent: a wrong effect allele produces a valid file, not an error.
+- **A reusable file states build, both alleles, which is the effect allele, the effect allele
+  frequency, β with its standard error, and per-variant sample size.** A p-value alone has no
+  sign and cannot be meta-analysed.
+- **Palindromic A/T and C/G variants are strand-ambiguous.** Frequency resolves them unless it
+  is near 0.5, in which case the right move is to drop them — an unbiased loss beats a
+  sign-flipped inclusion.
+- **One misaligned variant cost the whole result.** The same two studies gave
+  $p = 1.882\times10^{-12}$ aligned and $p = 0.3218$ flipped.
+- **λ_GC above 1 is not evidence of confounding** for a polygenic trait; the inflation is
+  largely signal, and correcting by it discards real association.
+- **Discovery inflates effect sizes, worst at the threshold.** A true $z$ of 5.45 publishes at
+  1.1466× on average, 6.50 at 1.0415× and 8.00 at 1.0019× — so a replication that comes back
+  smaller is usually the unbiased estimate rather than a failure.

@@ -11,6 +11,7 @@ import {
   auroc, auprc, auprcBaseline,
   colocPosteriors,
   fisherExactP, foldEnrichment,
+  ivwMeta, winnersCurseExpectation, zThreshold, normalCdf,
 } from './deepDiveMath.ts';
 
 /**
@@ -1794,6 +1795,100 @@ describe('data-regulatory-maps', () => {
 
     it('leaves the observed rate untouched throughout', () => {
       expect(120 / 500).toBeCloseTo(0.24, 12);
+    });
+  });
+});
+
+describe('data-gwas-summary-stats', () => {
+  const mdx = lesson('data-gwas-summary-stats');
+  const SE = [0.008, 0.009];
+  const twoSided = (z: number) => 2 * (1 - normalCdf(Math.abs(z)));
+
+  describe('worked example — a palindromic SNP flipped between two studies', () => {
+    it('has frequencies that sum to one, which is the tell', () => {
+      expect(0.18 + 0.82).toBeCloseTo(1, 12);
+      expect(mdx).toContain('EAF 0.18');
+      expect(mdx).toContain('EAF 0.82');
+    });
+
+    it('nearly cancels when the files are taken at face value', () => {
+      const m = ivwMeta([0.043, -0.041], SE);
+      expect(m.beta).toBeCloseTo(0.005924, 6);
+      expect(m.se).toBeCloseTo(0.005979, 6);
+      const z = m.beta / m.se;
+      expect(z).toBeCloseTo(0.9908, 4);
+      expect(twoSided(z)).toBeCloseTo(0.3218, 4);
+      expect(mdx).toContain('0.005924');
+      expect(mdx).toContain('p = 0.3218');
+    });
+
+    it('is genome-wide significant once aligned', () => {
+      const m = ivwMeta([0.043, 0.041], SE);
+      expect(m.beta).toBeCloseTo(0.042117, 6);
+      const z = m.beta / m.se;
+      expect(z).toBeCloseTo(7.0439, 4);
+      expect(twoSided(z)).toBeLessThan(5e-8);
+      expect(mdx).toContain('0.042117');
+      expect(mdx).toContain('1.882\\times10^{-12}');
+    });
+
+    it('shares a standard error between the two, so only the sign moved', () => {
+      expect(ivwMeta([0.043, 0.041], SE).se).toBeCloseTo(ivwMeta([0.043, -0.041], SE).se, 12);
+    });
+  });
+
+  describe('worked example — the winner’s curse', () => {
+    const T = zThreshold(5e-8);
+
+    it('puts the genome-wide threshold at z = 5.4513', () => {
+      expect(T).toBeCloseTo(5.4513, 4);
+      expect(mdx).toContain('5.4513');
+    });
+
+    it('inflates a threshold-adjacent effect by 1.1466x', () => {
+      const obs = winnersCurseExpectation(5.45, T);
+      expect(obs).toBeCloseTo(6.2487, 4);
+      expect(obs / 5.45).toBeCloseTo(1.1466, 4);
+      expect(mdx).toContain('6.2487');
+      expect(mdx).toContain('1.1466');
+    });
+
+    it('all but vanishes for a strong effect', () => {
+      for (const [tz, obs, infl] of [[6.5, 6.7699, 1.0415], [8.0, 8.0156, 1.0019]] as const) {
+        expect(winnersCurseExpectation(tz, T)).toBeCloseTo(obs, 4);
+        expect(winnersCurseExpectation(tz, T) / tz).toBeCloseTo(infl, 4);
+        expect(mdx).toContain(String(obs));
+      }
+    });
+
+    it('is monotone decreasing in the true effect, which is the figure’s shape', () => {
+      let prev = Infinity;
+      for (const tz of [5.45, 5.8, 6.5, 7.2, 8.0, 9.0]) {
+        const r = winnersCurseExpectation(tz, T) / tz;
+        expect(r).toBeLessThan(prev);
+        expect(r).toBeGreaterThan(1);
+        prev = r;
+      }
+    });
+  });
+
+  describe('figure 1 — inflation against true effect', () => {
+    it('marks the four ratios the module computes', () => {
+      const T = zThreshold(5e-8);
+      for (const tz of [5.45, 5.8, 6.5, 8.0]) {
+        const r = winnersCurseExpectation(tz, T) / tz;
+        expect(mdx).toContain(`${r.toFixed(4)}x`);
+      }
+      expect(mdx).toContain('discovery threshold, z = 5.4513');
+    });
+  });
+
+  describe('exercise 3 — a replication that came back smaller', () => {
+    it('has 6.2 as roughly what a true 5.45 publishes at', () => {
+      const T = zThreshold(5e-8);
+      expect(winnersCurseExpectation(5.45, T)).toBeCloseTo(6.25, 1);
+      // so an unconditioned replication should land near the true value, not the published one
+      expect(Math.abs(5.4 - 5.45)).toBeLessThan(Math.abs(5.4 - 6.2));
     });
   });
 });
