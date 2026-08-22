@@ -186,3 +186,245 @@ export function sampleSizeForPower(q2: number, power = 0.8, alpha = 5e-8): numbe
   const lambda = ncpForPower(power, alpha);
   return (lambda * (1 - q2)) / q2;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Genomic data & resources track
+// ══════════════════════════════════════════════════════════════════════════════
+// The data layer needs its own primitives: interval estimates for counts (an allele
+// frequency and a LoF tally are both counts, and both are routinely misread as point
+// estimates), the metrics benchmark suites are scored on, and the point system that
+// turns an ACMG evidence tally into a probability.
+
+// ── Incomplete gamma, for exact count intervals ───────────────────────────────
+// Written out because the alternative — a Wilson–Hilferty approximation — is poor at
+// exactly the small counts that matter here. A gene with zero observed LoF variants is
+// the most constrained case there is, and that is where the approximation is worst.
+
+/** Regularized lower incomplete gamma P(a, x). Series below a+1, continued fraction above. */
+export function regularizedGammaP(a: number, x: number): number {
+  if (x < 0 || a <= 0) throw new RangeError(`regularizedGammaP needs a > 0 and x >= 0`);
+  if (x === 0) return 0;
+  const lnGammaA = lnGamma(a);
+  if (x < a + 1) {
+    let ap = a;
+    let sum = 1 / a;
+    let del = sum;
+    for (let n = 0; n < 500; n++) {
+      ap += 1;
+      del *= x / ap;
+      sum += del;
+      if (Math.abs(del) < Math.abs(sum) * 1e-15) break;
+    }
+    return sum * Math.exp(-x + a * Math.log(x) - lnGammaA);
+  }
+  // Lentz's continued fraction for Q(a, x), then P = 1 − Q.
+  const tiny = 1e-300;
+  let b = x + 1 - a;
+  let c = 1 / tiny;
+  let d = 1 / b;
+  let h = d;
+  for (let i = 1; i < 500; i++) {
+    const an = -i * (i - a);
+    b += 2;
+    d = an * d + b;
+    if (Math.abs(d) < tiny) d = tiny;
+    c = b + an / c;
+    if (Math.abs(c) < tiny) c = tiny;
+    d = 1 / d;
+    const del = d * c;
+    h *= del;
+    if (Math.abs(del - 1) < 1e-15) break;
+  }
+  return 1 - Math.exp(-x + a * Math.log(x) - lnGammaA) * h;
+}
+
+/** Lanczos approximation to ln Γ(z). */
+export function lnGamma(z: number): number {
+  const g = [
+    676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059,
+    12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
+  ];
+  if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - lnGamma(1 - z);
+  const x = z - 1;
+  let a = 0.99999999999980993;
+  for (let i = 0; i < g.length; i++) a += g[i] / (x + i + 1);
+  const t = x + g.length - 0.5;
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+}
+
+/** Quantile of the chi-square distribution, by bisection on the CDF. */
+export function chi2Quantile(p: number, df: number): number {
+  if (p <= 0) return 0;
+  if (p >= 1) return Infinity;
+  let lo = 0;
+  let hi = Math.max(df * 4, 10);
+  while (regularizedGammaP(df / 2, hi / 2) < p) hi *= 2;
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    if (regularizedGammaP(df / 2, mid / 2) < p) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+// ── Interval estimates for counts ─────────────────────────────────────────────
+
+export interface Interval { lower: number; upper: number }
+
+/**
+ * Wilson score interval for a proportion.
+ *
+ * The right interval for an allele frequency. The textbook normal interval is useless
+ * here — at AC = 0 it collapses to the single point zero, which is exactly the case a
+ * reader most needs an interval for: "not seen" is not the same as "does not occur".
+ */
+export function wilsonInterval(successes: number, trials: number, level = 0.95): Interval {
+  if (trials <= 0) throw new RangeError('wilsonInterval needs trials > 0');
+  const z = normalQuantile(1 - (1 - level) / 2);
+  const z2 = z * z;
+  const centre = (successes + z2 / 2) / (trials + z2);
+  const half =
+    (z / (trials + z2)) * Math.sqrt((successes * (trials - successes)) / trials + z2 / 4);
+  return { lower: Math.max(0, centre - half), upper: Math.min(1, centre + half) };
+}
+
+/**
+ * Garwood exact interval for a Poisson count, via the chi-square relationship.
+ * Defined at k = 0, where the lower bound is 0 and the upper bound is not.
+ */
+export function poissonCI(count: number, level = 0.9): Interval {
+  if (count < 0 || !Number.isInteger(count)) throw new RangeError('poissonCI needs a count >= 0');
+  const alpha = 1 - level;
+  return {
+    lower: count === 0 ? 0 : 0.5 * chi2Quantile(alpha / 2, 2 * count),
+    upper: 0.5 * chi2Quantile(1 - alpha / 2, 2 * count + 2),
+  };
+}
+
+/**
+ * The upper bound of the observed/expected ratio — which *is* LOEUF when the counts are
+ * loss-of-function variants in a gene.
+ *
+ * gnomAD publishes the bound rather than the point estimate on purpose: a short gene can
+ * show o/e = 0 on two expected LoF variants and look maximally constrained on almost no
+ * evidence. The upper bound folds in how much evidence there was, so a gene only scores
+ * low when the data can support it.
+ */
+export function oeUpperBound(observed: number, expected: number, level = 0.9): number {
+  if (expected <= 0) throw new RangeError('oeUpperBound needs expected > 0');
+  return poissonCI(observed, level).upper / expected;
+}
+
+// ── Benchmark metrics ─────────────────────────────────────────────────────────
+
+/** Average ranks, with ties sharing their mean rank. */
+function ranks(values: number[]): number[] {
+  const order = values.map((v, i) => [v, i] as const).sort((a, b) => a[0] - b[0]);
+  const out = new Array<number>(values.length);
+  let i = 0;
+  while (i < order.length) {
+    let j = i;
+    while (j + 1 < order.length && order[j + 1][0] === order[i][0]) j++;
+    const mean = (i + j) / 2 + 1;
+    for (let k = i; k <= j; k++) out[order[k][1]] = mean;
+    i = j + 1;
+  }
+  return out;
+}
+
+/** Spearman rank correlation — the metric ProteinGym scores on, because a DMS assay's
+ *  units are arbitrary and only the ordering of variants is comparable across assays. */
+export function spearman(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length < 2) throw new RangeError('spearman needs equal lengths >= 2');
+  const ra = ranks(a);
+  const rb = ranks(b);
+  const n = a.length;
+  const ma = ra.reduce((s, v) => s + v, 0) / n;
+  const mb = rb.reduce((s, v) => s + v, 0) / n;
+  let num = 0;
+  let da = 0;
+  let db = 0;
+  for (let i = 0; i < n; i++) {
+    num += (ra[i] - ma) * (rb[i] - mb);
+    da += (ra[i] - ma) ** 2;
+    db += (rb[i] - mb) ** 2;
+  }
+  return num / Math.sqrt(da * db);
+}
+
+/** Area under the ROC curve, via the Mann–Whitney U identity (ties count a half). */
+export function auroc(labels: number[], scores: number[]): number {
+  const pos = scores.filter((_, i) => labels[i] === 1);
+  const neg = scores.filter((_, i) => labels[i] !== 1);
+  if (!pos.length || !neg.length) throw new RangeError('auroc needs both classes present');
+  let wins = 0;
+  for (const p of pos) for (const n of neg) wins += p > n ? 1 : p === n ? 0.5 : 0;
+  return wins / (pos.length * neg.length);
+}
+
+/**
+ * Area under the precision–recall curve, as average precision.
+ *
+ * The metric TraitGym reports, and it is the right one because its sets are a deliberate
+ * 1 : 9 positive-to-control design. On imbalanced data AUROC flatters a model — the vast
+ * negative class makes the false-positive rate look small however many it produces — while
+ * AUPRC's baseline is the positive rate itself.
+ */
+export function auprc(labels: number[], scores: number[]): number {
+  const n = labels.length;
+  if (n !== scores.length || !n) throw new RangeError('auprc needs equal, non-empty inputs');
+  const order = scores.map((s, i) => [s, i] as const).sort((a, b) => b[0] - a[0]);
+  const total = labels.filter((l) => l === 1).length;
+  if (!total) throw new RangeError('auprc needs at least one positive');
+  let tp = 0;
+  let fp = 0;
+  let prevRecall = 0;
+  let ap = 0;
+  for (let i = 0; i < order.length; i++) {
+    if (labels[order[i][1]] === 1) tp++;
+    else fp++;
+    // Only emit a point once the whole tie group is consumed, or precision is wrong.
+    if (i + 1 < order.length && order[i + 1][0] === order[i][0]) continue;
+    const recall = tp / total;
+    const precision = tp / (tp + fp);
+    ap += (recall - prevRecall) * precision;
+    prevRecall = recall;
+  }
+  return ap;
+}
+
+/** The AUPRC a random ranking achieves: the positive rate. AUROC's is always 0.5. */
+export function auprcBaseline(labels: number[]): number {
+  return labels.filter((l) => l === 1).length / labels.length;
+}
+
+// ── ACMG evidence, as a probability ───────────────────────────────────────────
+
+/**
+ * Posterior probability of pathogenicity from an ACMG/AMP point tally
+ * (Tavtigian et al. 2018, the Bayesian reading of the 2015 guidelines).
+ *
+ * Points are the evidence: very strong 8, strong 4, moderate 2, supporting 1, and
+ * benign evidence the same magnitudes negative. The odds of pathogenicity for one very
+ * strong criterion is 350, and each point is the eighth root of that — which is what makes
+ * the categories combine multiplicatively instead of by counting rules.
+ *
+ * The classification thresholds fall out of the arithmetic rather than being decreed:
+ * 10 points gives 0.994 and 6 gives 0.900, which are exactly the pathogenic and
+ * likely-pathogenic boundaries the guidelines state.
+ */
+export function acmgPosterior(points: number, prior = 0.1, oddsVeryStrong = 350): number {
+  const oddsPath = oddsVeryStrong ** (points / 8);
+  return (oddsPath * prior) / ((oddsPath - 1) * prior + 1);
+}
+
+export type AcmgClass =
+  | 'pathogenic' | 'likely-pathogenic' | 'uncertain' | 'likely-benign' | 'benign';
+
+/** The five-tier ACMG classification a point tally lands in. */
+export function acmgClassify(points: number): AcmgClass {
+  if (points >= 10) return 'pathogenic';
+  if (points >= 6) return 'likely-pathogenic';
+  if (points >= -6) return points <= -1 ? 'likely-benign' : 'uncertain';
+  return 'benign';
+}

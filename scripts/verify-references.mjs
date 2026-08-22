@@ -174,8 +174,15 @@ if (!OFFLINE) {
       continue;
     }
     checked++;
+    // Online-ahead-of-print, and volumes that straddle a new year, routinely put the
+    // journal-of-record year one off Crossref's `issued`. That is a publishing artifact,
+    // not a citation error, so a gap of one is a warning. A gap of more than one usually
+    // means the DOI points at a different work, which is what this check is really for.
     if (r.year && Number(e.year) !== r.year) {
-      errors.push(`${e.key}: year ${e.year} but Crossref says ${r.year} — "${r.title}"`);
+      const gap = Math.abs(Number(e.year) - r.year);
+      const msg = `${e.key}: year ${e.year} but Crossref says ${r.year} — "${r.title}"`;
+      if (gap <= 1) warnings.push(`${msg} (off by one; likely online-ahead-of-print)`);
+      else errors.push(msg);
     }
     const want = surname(e.authors[0]);
     // Consortium and corporate authors are deposited inconsistently; only check people.

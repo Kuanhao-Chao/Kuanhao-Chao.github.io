@@ -4,11 +4,26 @@ import Icon from '../../components/Icon.astro';
 import AlgorithmLogo from '../../components/AlgorithmLogo.astro';
 import Katex from '../../components/Katex.astro';
 import { DEEP_DIVES, DEEP_DIVE_CATEGORIES, type DeepDiveEntry } from '../../data/deepDives';
+import { getCollection } from 'astro:content';
+import { deepDiveEntriesFromCollection } from '../../lib/deepDives';
 import '../../styles/deepDive.css';
 import 'katex/dist/katex.min.css';
 
 const categories = DEEP_DIVE_CATEGORIES;
-const deepDives: DeepDiveEntry[] = DEEP_DIVES;
+
+// Cards for migrated lessons are derived from the collection, so their title, level and
+// reading time cannot drift from the page — that drift has already shipped wrong reading
+// times to the live site once. `src/data/deepDives.ts` keeps only the entries with no
+// content file yet, so every migration *deletes* a catalog entry rather than editing one.
+const collectionEntries = await getCollection('deepDives', ({ data }) => !data.draft);
+const derived = deepDiveEntriesFromCollection(collectionEntries) as unknown as DeepDiveEntry[];
+
+// A migrated lesson keeps its slot in the curated order; anything new is appended.
+const deepDives: DeepDiveEntry[] = [
+  ...DEEP_DIVES.map((e) => derived.find((d) => d.id === e.id) ?? e),
+  ...derived.filter((d) => !DEEP_DIVES.some((e) => e.id === d.id)),
+];
+
 ---
 
 <PageLayout

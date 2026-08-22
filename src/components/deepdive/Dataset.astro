@@ -1,0 +1,37 @@
+---
+import { getEntry } from 'astro:content';
+
+/**
+ * An inline reference to a resource, resolved from the registry at build time.
+ *
+ * The name and version come from `deepDiveDatasets/datasets.yaml`, never from the prose,
+ * so a version bump is one edit rather than a search across twelve pages. An unknown id
+ * throws rather than rendering an empty chip — the same decision as `Citation.astro`, and
+ * for the same reason: twelve icon names rendered as empty `<svg>` for months precisely
+ * because the component failed quietly.
+ */
+interface Props {
+  id: string;
+  /** Show the version alongside the name. Off by default; on where the version matters. */
+  version?: boolean;
+}
+
+const { id, version = false } = Astro.props;
+const entry = await getEntry('deepDiveDatasets', id);
+if (!entry) {
+  throw new Error(
+    `<Dataset id="${id}"> has no entry in src/content/deepDiveDatasets/datasets.yaml`
+  );
+}
+const d = entry.data;
+---
+
+<a
+  class="dd-dataset"
+  href={d.url}
+  target="_blank"
+  rel="noopener noreferrer"
+  title={`${d.fullName}${d.version ? ` · ${d.version}` : ''} — ${d.scale}`}
+>
+  {d.name}{version && d.version ? <span class="dd-dataset__version">{d.version}</span> : null}
+</a>

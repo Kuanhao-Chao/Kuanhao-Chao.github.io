@@ -156,6 +156,9 @@ const posts = defineCollection({
       date: z.coerce.date(),
       updated: z.coerce.date().optional(),
       category: z.enum(['summary', 'opinion']).default('summary'),
+      /** True for a track's landing page: back-link goes to /deep_dives/ and the
+       *  page renders a module map of its own track instead of a prev/next pager. */
+      isHub: z.boolean().default(false),
       tags: z.array(z.string()).default([]),
       image: image().optional(),
       imageAlt: z.string().optional(),
@@ -193,6 +196,9 @@ const reports = defineCollection({
       updated: z.coerce.date().optional(),
       venue: z.string().default('Technical Report'),
       institution: z.string().default('Johns Hopkins University'),
+      /** True for a track's landing page: back-link goes to /deep_dives/ and the
+       *  page renders a module map of its own track instead of a prev/next pager. */
+      isHub: z.boolean().default(false),
       tags: z.array(z.string()).default([]),
       image: image().optional(),
       imageAlt: z.string().optional(),
@@ -247,6 +253,45 @@ const deepDiveReferences = defineCollection({
   }),
 });
 
+/**
+ * The genomic resource registry for the data track.
+ *
+ * A resource is defined once here and referenced by id from the pages, for the same
+ * reason `readingTime` is derived rather than stored: a version number or a sample count
+ * written into prose in twelve places will disagree with itself within a release cycle.
+ */
+const deepDiveDatasets = defineCollection({
+  loader: file('./src/content/deepDiveDatasets/datasets.yaml'),
+  schema: z.object({
+    name: z.string(),
+    fullName: z.string(),
+    layer: z.enum([
+      'reference-annotation',
+      'population-frequency',
+      'constraint-intolerance',
+      'expression-qtl',
+      'regulatory-maps',
+      'gwas-summary-stats',
+      'germline-clinical',
+      'somatic-oncology',
+      'mave-assays',
+      'variant-effect-scores',
+      'protein-benchmarks',
+      'variant-benchmarks',
+    ]),
+    url: z.url(),
+    version: z.string().optional(),
+    released: z.coerce.date().optional(),
+    /** Sample counts, variant counts, assembly — whatever states the size of the thing. */
+    scale: z.string(),
+    /** Whether a reader can actually get it. See datasets.yaml for what each level means. */
+    access: z.enum(['open', 'registered', 'controlled', 'licensed']),
+    citationId: reference('deepDiveReferences').optional(),
+    note: z.string().optional(),
+    verified: z.coerce.date(),
+  }),
+});
+
 const deepDives = defineCollection({
   loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/deepDives' }),
   schema: ({ image }) =>
@@ -265,14 +310,15 @@ const deepDives = defineCollection({
       // and link back to the theory. That split is what resolves the overlap between
       // the statgen-* and gwas-* series, which currently both cover HWE, LD, mixed
       // models, fine-mapping and PRS with no declared relationship.
-      track: z.enum(['theory', 'workflow', 'elective']),
-      hub: z.enum(['statistical-genetics', 'gwas']).default('statistical-genetics'),
+      track: z.enum(['theory', 'workflow', 'elective', 'resource']),
+      hub: z.enum(['statistical-genetics', 'gwas', 'genomic-data']).default('statistical-genetics'),
       moduleId: z.string(),
       moduleLabel: z.string(),
       order: z.number().int(),
       level: z.enum(['foundational', 'intermediate', 'advanced']),
       category: z.enum([
         'statistical-genetics',
+        'genomic-data',
         'sequence-analysis',
         'gene-regulation',
         'epigenomics',
@@ -290,6 +336,9 @@ const deepDives = defineCollection({
       // NOTE: there is deliberately no `readingTime` field. It is computed from the
       // body by `lessonReadingTime`, and a test rejects frontmatter that sets one.
 
+      /** True for a track's landing page: back-link goes to /deep_dives/ and the
+       *  page renders a module map of its own track instead of a prev/next pager. */
+      isHub: z.boolean().default(false),
       tags: z.array(z.string()).default([]),
       image: image().optional(),
       imageAlt: z.string().optional(),
@@ -308,4 +357,5 @@ export const collections = {
   reports,
   deepDives,
   deepDiveReferences,
+  deepDiveDatasets,
 };

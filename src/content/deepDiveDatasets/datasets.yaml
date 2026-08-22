@@ -1,0 +1,93 @@
+# The genomic resource registry.
+#
+# Version numbers, sample counts and URLs are exactly the facts that go stale silently,
+# and this repository has already been bitten twice by the same mechanism (reading times,
+# then catalog metadata). So each resource is defined once, here, and every page renders
+# it through <Dataset> or <DatasetTable> rather than re-typing it.
+#
+# `access` is a first-class field because it is the practical fact that decides whether a
+# reader can use a resource at all, and the one most surveys omit:
+#   open        — download or query without an account
+#   registered  — free, but requires an account or a click-through agreement
+#   controlled  — requires an application to a data access committee (dbGaP, UKB, AoU)
+#   licensed    — requires a paid or institutional licence
+#
+# `verified` records when the version, scale and URL were last checked against the source.
+# `npm run audit:datasets` re-checks the URLs and the staleness of that date.
+
+# ── Layer 2 · Population reference baselines ──────────────────────────────────
+
+gnomad:
+  name: gnomAD
+  fullName: Genome Aggregation Database
+  layer: population-frequency
+  url: https://gnomad.broadinstitute.org/
+  version: v4.1.1
+  released: 2026-03-30
+  scale: "730,947 exomes + 76,215 genomes (807,162 individuals), GRCh38"
+  access: open
+  citationId: chen2024constraint
+  note: >-
+    Publishes joint exome/genome allele numbers, so callability is not silently lost when
+    the two call sets disagree. The non-UK-Biobank subset exists to keep UKB out of both
+    sides of an evaluation.
+  verified: 2026-08-21
+
+allofus:
+  name: All of Us
+  fullName: All of Us Research Program
+  layer: population-frequency
+  url: https://www.researchallofus.org/
+  version: "Controlled Tier, v8"
+  scale: "~250,000 whole genomes linked to longitudinal electronic health records"
+  access: controlled
+  citationId: allofus2024
+  note: >-
+    Deliberately over-samples populations under-represented in earlier cohorts, which is
+    what makes it useful for polygenic-score portability. Analysis happens inside the
+    Researcher Workbench; the data does not leave it.
+  verified: 2026-08-21
+
+thousand-genomes:
+  name: 1000 Genomes
+  fullName: 1000 Genomes Project (phase 3, NYGC 30x re-sequencing)
+  layer: population-frequency
+  url: https://www.internationalgenome.org/
+  version: "Phase 3 / NYGC high-coverage"
+  scale: "2,504 individuals (5,008 haplotypes) from 26 populations; 3,202 with the trios"
+  access: open
+  citationId: tgp2015
+  note: >-
+    Long past its usefulness as a frequency reference, and still the default LD and phasing
+    panel because it is open, small enough to distribute, and everything is benchmarked
+    against it.
+  verified: 2026-08-21
+
+topmed:
+  name: TOPMed
+  fullName: Trans-Omics for Precision Medicine
+  layer: population-frequency
+  url: https://topmed.nhlbi.nih.gov/
+  version: "Freeze 8 / BRAVO"
+  scale: "53,831 deeply sequenced genomes in the flagship freeze; >150,000 in later freezes"
+  access: controlled
+  citationId: taliun2021
+  note: >-
+    Individual-level data is controlled through dbGaP, but the BRAVO browser exposes
+    allele frequencies openly, and the imputation server is free to use — so the practical
+    access level depends entirely on which of the three you need.
+  verified: 2026-08-21
+
+hgdp:
+  name: HGDP
+  fullName: Human Genome Diversity Project (CEPH panel)
+  layer: population-frequency
+  url: https://www.internationalgenome.org/data-portal/data-collection/hgdp
+  version: "gnomAD-harmonised call set"
+  scale: "929 individuals from 54 geographically diverse populations"
+  access: open
+  citationId: bergstrom2020
+  note: >-
+    Small, but sampled for breadth rather than for disease, which makes it the reference
+    that shows what a frequency looks like outside the handful of well-sequenced groups.
+  verified: 2026-08-21

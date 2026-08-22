@@ -17,6 +17,7 @@ import { join } from 'node:path';
 
 const DIR = 'src/content/deepDives';
 const REFS = 'src/content/deepDiveReferences/references.yaml';
+const REGISTRY = 'src/content/deepDiveDatasets/datasets.yaml';
 
 const FLOOR = {
   objectives: 4,
@@ -53,6 +54,13 @@ const listLength = (front: string, field: string) => {
 };
 
 const count = (body: string, re: RegExp) => (body.match(re) ?? []).length;
+
+const datasetKeys = () =>
+  new Set(
+    existsSync(REGISTRY)
+      ? [...readFileSync(REGISTRY, 'utf8').matchAll(/^([A-Za-z0-9_-]+):$/gm)].map((m) => m[1])
+      : []
+  );
 
 const referenceKeys = () =>
   new Set(
@@ -142,6 +150,36 @@ describe('deep-dive lesson contract', () => {
       const keys = referenceKeys();
       const cited = [...new Set([...body.matchAll(/<Citation\s+id="([^"]+)"/g)].map((m) => m[1]))];
       expect(cited.filter((c) => !keys.has(c))).toEqual([]);
+    });
+
+    // ── Resource-track pages carry one extra obligation ──────────────────────
+    // "Full contract, adapted" means adding a floor, not relaxing one. Everything above
+    // applies unchanged; a data page must additionally render its layer's resource table
+    // and name only resources the registry actually defines.
+    const isResourcePage = /^track:\s*resource\s*$/m.test(front);
+
+    it.runIf(isResourcePage)('renders at least one resource table', () => {
+      expect(count(body, /<DatasetTable\b/g)).toBeGreaterThanOrEqual(1);
+    });
+
+    it.runIf(isResourcePage)('names only resources the registry defines', () => {
+      const keys = datasetKeys();
+      const named = new Set<string>();
+      for (const m of body.matchAll(/<Dataset\s+id="([^"]+)"/g)) named.add(m[1]);
+      for (const m of body.matchAll(/<DatasetTable[^>]*\bids=\{\[([^\]]*)\]\}/g)) {
+        for (const id of m[1].matchAll(/['"]([^'"]+)['"]/g)) named.add(id[1]);
+      }
+      expect([...named].filter((n) => !keys.has(n))).toEqual([]);
+    });
+
+    it.runIf(isResourcePage)('imports the registry components it uses', () => {
+      const used = new Set(
+        [...body.matchAll(/<(Dataset|DatasetTable)\b/g)].map((m) => m[1])
+      );
+      const imported = new Set(
+        [...body.matchAll(/^import\s+(\w+)\s+from\s+'[^']*deepdive\/[^']*'/gm)].map((m) => m[1])
+      );
+      expect([...used].filter((u) => !imported.has(u)).sort()).toEqual([]);
     });
 
     it('imports every deep-dive component it uses', () => {

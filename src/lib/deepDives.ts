@@ -221,3 +221,74 @@ export function neighbours<T extends LessonLike>(
   if (i === -1) return { prev: null, next: null };
   return { prev: ordered[i - 1] ?? null, next: ordered[i + 1] ?? null };
 }
+
+
+// ── Catalog derivation ────────────────────────────────────────────────────────
+
+/** The subset of a collection entry this module needs to build a catalog card. */
+export interface CatalogSource {
+  id: string;
+  body?: string;
+  data: {
+    title: string;
+    shortTitle?: string;
+    description: string;
+    category: string;
+    moduleLabel: string;
+    level: 'foundational' | 'intermediate' | 'advanced';
+    objectives: string[];
+    isHub?: boolean;
+  };
+}
+
+/** What the index card calls each level. Mirrors `LEVELS` in `DeepDiveLesson.astro`. */
+const LEVEL_LABELS: Record<string, string> = {
+  foundational: 'Foundational',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced & Mathematical',
+};
+
+const AREA_LABELS: Record<string, string> = {
+  'statistical-genetics': 'Statistical & Population Genetics',
+  'genomic-data': 'Genomic Data & Resources',
+  'sequence-analysis': 'Sequence Analysis & Alignment',
+  'gene-regulation': 'Gene Regulation & Splicing',
+  epigenomics: 'Epigenomics & Functional Genomics',
+  pangenomics: 'Pangenomics & Graphs',
+  'deep-learning': 'Deep Learning & Foundation Models',
+};
+
+/**
+ * Build index-catalog cards from collection entries.
+ *
+ * `src/data/deepDives.ts` holds a hand-written duplicate of every lesson's title, level,
+ * summary and reading time — the drift mechanism CLAUDE.md names, and one that has already
+ * shipped wrong numbers to the live site. Deriving the card instead means a migrated
+ * lesson *deletes* its catalog entry rather than acquiring a second copy of itself.
+ *
+ * Reading time comes from `lessonReadingTime`, so the card and the page cannot disagree.
+ * `icon` and `actionText` stay parameters because they are presentation choices the
+ * collection deliberately does not model.
+ */
+export function deepDiveEntriesFromCollection<T extends CatalogSource>(
+  entries: T[],
+  opts: { icon?: string; actionText?: string } = {}
+) {
+  return entries.map((e) => ({
+    id: e.id,
+    title: e.data.title,
+    shortTitle: e.data.shortTitle,
+    area: AREA_LABELS[e.data.category] ?? e.data.category,
+    category: e.data.category as never,
+    tag: e.data.moduleLabel,
+    level: e.data.isHub ? 'Curriculum Hub' : (LEVEL_LABELS[e.data.level] ?? e.data.level),
+    readingTime: formatReadingTime(lessonReadingTime(e.body ?? '')),
+    summary: e.data.description,
+    highlights: e.data.objectives,
+    href: `/deep_dives/${e.id}/`,
+    badge: 'Deep Dive Post',
+    actionText: opts.actionText ?? 'Read concept deep dive',
+    icon: opts.icon ?? 'gwas',
+    status: 'published' as const,
+  }));
+}
