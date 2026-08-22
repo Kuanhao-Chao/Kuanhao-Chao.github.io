@@ -141,7 +141,7 @@ gilmour1995:
   verified: 2026-08-21
 
 vanraden2008:
-  authors: ['P.m. VanRaden']
+  authors: ['P. M. VanRaden']
   year: 2008
   title: 'Efficient Methods to Compute Genomic Predictions'
   venue: 'Journal of Dairy Science 91:4414-4423'
@@ -2934,4 +2934,46 @@ lande1983selection:
   title: "THE MEASUREMENT OF SELECTION ON CORRELATED CHARACTERS"
   venue: "Evolution 37:1210-1226"
   doi: https://doi.org/10.1111/j.1558-5646.1983.tb00236.x
+  verified: 2026-08-21
+
+# ── Module 3 · BLUP & genomic selection ───────────────────────────────────────
+
+henderson1975blup:
+  authors: ['C. R. Henderson']
+  year: 1975
+  title: "Best Linear Unbiased Estimation and Prediction under a Selection Model"
+  venue: "Biometrics 31:423"
+  doi: https://doi.org/10.2307/2529430
+  verified: 2026-08-21
+
+meuwissen2001genomic:
+  authors: ['T. H. E. Meuwissen', 'B J Hayes', 'M E Goddard']
+  year: 2001
+  title: "Prediction of Total Genetic Value Using Genome-Wide Dense Marker Maps"
+  venue: "Genetics 157:1819-1829"
+  doi: https://doi.org/10.1093/genetics/157.4.1819
+  verified: 2026-08-21
+
+hayes2009dairy:
+  authors: ['B. J. Hayes', 'P.j. Bowman', 'A.j. Chamberlain', 'M.e. Goddard']
+  year: 2009
+  title: "Invited review: Genomic selection in dairy cattle: Progress and challenges"
+  venue: "Journal of Dairy Science 92:433-443"
+  doi: https://doi.org/10.3168/jds.2008-1646
+  verified: 2026-08-21
+
+deloscampos2013regression:
+  authors: ['Gustavo de los Campos', 'John M Hickey', 'Ricardo Pong-Wong', 'et al.']
+  year: 2013
+  title: "Whole-Genome Regression and Prediction Methods Applied to Plant and Animal Breeding"
+  venue: "Genetics 193:327-345"
+  doi: https://doi.org/10.1534/genetics.112.143313
+  verified: 2026-08-21
+
+habier2007relationship:
+  authors: ['D. Habier', 'R L Fernando', 'J C M Dekkers']
+  year: 2007
+  title: "The Impact of Genetic Relationship Information on Genome-Assisted Breeding Values"
+  venue: "Genetics 177:2389-2397"
+  doi: https://doi.org/10.1534/genetics.107.081190
   verified: 2026-08-21
