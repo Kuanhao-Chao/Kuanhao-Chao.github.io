@@ -6,7 +6,7 @@ import process from 'node:process';
 import { chromium, webkit } from 'playwright';
 
 /**
- * Rendering audit for the statistical-genetics curriculum.
+ * Rendering audit for the deep-dive curriculum — every track, not one of them.
  *
  * Modelled on `audit-post-ui.mjs`, with one deliberate difference: the expected number of
  * figures and widgets per lesson is **derived from the MDX source**, not held in a
@@ -63,7 +63,10 @@ function routes() {
       const raw = readFileSync(join(CONTENT_DIR, file), 'utf8');
       const front = raw.split(/^---$/m)[1] ?? '';
       const body = raw.split(/^---$/m).slice(2).join('---');
-      if (!/^hub:\s*statistical-genetics\s*$/m.test(front)) continue;
+      // Any hub. This once read `statistical-genetics`, which quietly left the whole
+      // Genomic Data track outside the only gate that checks overflow, KaTeX errors,
+      // empty <svg> and dead citation anchors.
+      if (!/^hub:\s*\S+\s*$/m.test(front)) continue;
       out.push({
         slug: file.replace(/\.mdx?$/, ''),
         migrated: true,
