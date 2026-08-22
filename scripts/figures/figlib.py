@@ -33,6 +33,9 @@ def sub(text, size=8.5):
 
 
 def text(x, y, s, size=11, anchor=None, fill='currentColor', opacity=None, weight=None, extra=''):
+    # `fill=None` from a conditional expression would emit fill="None", which browsers read
+    # as fill="none" and render as nothing at all — invisible text that no audit can see.
+    fill = fill or 'currentColor'
     a = ' text-anchor="%s"' % anchor if anchor else ''
     o = ' opacity="%s"' % opacity if opacity is not None else ''
     w = ' font-weight="%s"' % weight if weight else ''

@@ -1,0 +1,562 @@
+---
+title: "Population Genetics: Hardy–Weinberg, Drift, the Coalescent & the Infinitesimal Model"
+shortTitle: Populations & Drift
+description: "The null model that makes genotype data interpretable, the sampling process that erodes variation, the genealogy that process implies when read backwards, the neutrality test built on it, and the 1918 result that reconciled Mendel with continuous traits."
+abstract: "Every association study compares observed genotypes against what should happen if nothing were going on, and this lesson builds that 'nothing' from scratch. Hardy–Weinberg fixes all three genotype frequencies from one allele frequency, and its test is the first place the chi-square approximation from Module 1 visibly fails. Wright–Fisher makes finite population size a source of noise with a measurable half-life; read backwards it becomes Kingman's coalescent, whose lopsided waiting times explain why most genetic variation is rare. Tajima's D turns the discrepancy between two estimators of the same quantity into a test of neutrality. The lesson closes on Fisher's 1918 synthesis, which showed that Mendelian inheritance at many loci produces exactly the continuous, normally distributed traits that Mendel's critics said it could not — the result the whole quantitative-genetics module rests on."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m02-populations
+moduleLabel: Module 2 · Populations & Inheritance
+order: 2
+level: intermediate
+objectives:
+  - "Derive Hardy–Weinberg proportions from random union of gametes and state the five assumptions they require."
+  - "Test a genotype table for departure from Hardy–Weinberg, and say why the test has one degree of freedom rather than two."
+  - "Explain when the chi-square test of Hardy–Weinberg must be replaced by the exact test, and in which direction it errs."
+  - "Compute the half-life of heterozygosity under drift and relate it to effective population size."
+  - "State the coalescent's waiting-time distribution and explain why the final join dominates the genealogy."
+  - "Compute Tajima's D from segregating sites and pairwise diversity, and interpret its sign."
+  - "Explain how the infinitesimal model reconciles Mendelian inheritance with continuously distributed traits."
+prerequisites:
+  - statgen-mathematical-foundations
+relatedLessons:
+  - statgen-linkage-disequilibrium
+  - statgen-heritability-greml
+keyEquations:
+  - 'p^2 + 2pq + q^2 = 1'
+  - 'H_t = H_0\left(1 - \frac{1}{2N_e}\right)^{t}'
+  - '\mathbb{E}[T_k] = \frac{4N_e}{k(k-1)}'
+  - 'D = \frac{\hat\theta_\pi - \hat\theta_W}{\sqrt{\widehat{\mathrm{Var}}(\hat\theta_\pi - \hat\theta_W)}}'
+referenceIds:
+  - hardy1908
+  - fisher1918infinitesimal
+  - wright1931drift
+  - kimura1969fixation
+  - watterson1975
+  - kingman1982coalescent
+  - tajima1989
+  - wigginton2005hwe
+  - barton2017infinitesimal
+tags: [Hardy-Weinberg, genetic drift, Wright-Fisher, coalescent, TMRCA, Tajima's D, infinitesimal model, effective population size]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+
+## The question this lesson answers
+
+Module 1 supplied the machinery for testing whether a parameter is zero. This lesson supplies
+the thing that machinery gets pointed at: a **null model for a population**, without which a
+genotype count is just a number.
+
+The null has four layers, and they build on one another:
+
+1. **Hardy–Weinberg** says what genotype frequencies should be, given allele frequencies, in
+   an idealised population. It is the assumption every genotype quality-control filter tests.
+2. **Wright–Fisher** admits that populations are finite, which makes allele frequencies drift
+   at a rate set by one parameter, $N_e$.
+3. **The coalescent** reads that same process backwards, turning a model of frequencies into
+   a model of genealogies — and explains, as a consequence, why most human variants are rare.
+4. **The infinitesimal model** takes many such loci and shows that their sum is a normally
+   distributed continuous trait, which is what makes the rest of this curriculum possible.
+
+<Notation
+  rows={[
+    { symbol: 'p,\\;q', meaning: 'Frequencies of the major and minor allele, p + q = 1', dims: 'in [0,1]' },
+    { symbol: 'N_e', meaning: 'Effective population size — the size of the idealised population that drifts as fast as this one', dims: 'count' },
+    { symbol: 'H_t', meaning: 'Expected heterozygosity after t generations', dims: 'in [0,1]' },
+    { symbol: 'T_k', meaning: 'Time spent with exactly k ancestral lineages remaining', dims: 'generations' },
+    { symbol: '\\theta', meaning: 'Population mutation parameter 4N_e μ', dims: 'per site' },
+    { symbol: '\\hat\\theta_W', meaning: "Watterson's estimator, from the number of segregating sites", dims: 'per sequence' },
+    { symbol: '\\hat\\theta_\\pi', meaning: 'Average number of pairwise differences', dims: 'per sequence' },
+    { symbol: 'S', meaning: 'Segregating sites observed in the sample', dims: 'count' },
+    { symbol: 'a_1', meaning: 'The harmonic number 1 + 1/2 + ... + 1/(n-1)', dims: 'dimensionless' },
+    { symbol: 'V_A', meaning: 'Additive genetic variance — the part of trait variance transmitted to offspring', dims: 'trait units²' },
+  ]}
+/>
+
+## Hardy–Weinberg: the null that makes genotype data interpretable
+
+Take a population where allele $A$ has frequency $p$ and allele $a$ has frequency $q = 1-p$.
+If gametes unite at random, a zygote's two alleles are two independent draws from that pool,
+and the genotype frequencies are simply the terms of $(p+q)^2$:
+
+$$
+\underbrace{p^2}_{AA} + \underbrace{2pq}_{Aa} + \underbrace{q^2}_{aa} = 1
+$$
+
+This is the result <Citation id="hardy1908" /> published in a half-page letter, irritated that
+biologists had convinced themselves dominant alleles must increase in frequency over time.
+They do not. In the absence of anything acting on them, allele frequencies do not change at
+all, and the genotype frequencies reach their equilibrium in **one generation**.
+
+<Figure
+  caption="Figure 1. Hardy–Weinberg proportions across the frequency range. One number, the minor allele frequency q, determines all three genotype frequencies. Two readings matter later: heterozygosity is maximised at q = 0.5 and can never exceed 0.5, which is why the information a variant carries about anything peaks at intermediate frequency; and the minor-homozygote curve is quadratic, so it is still on the floor across the frequency range where most variants actually sit. At q = 0.032, the frequency in the worked example below, Hardy–Weinberg expects a single minor homozygote in a thousand people."
+  alt="A plot of expected genotype frequency against minor allele frequency q from 0 to 0.5. A dashed curve for p squared falls from 1.00 to 0.25; a solid curve for 2pq rises from 0 to a maximum of 0.50 at q equals 0.5; a dotted curve for q squared rises slowly from 0 to 0.25. A vertical marker at q equals 0.032 shows where the worked example sits, with q squared equal to 0.001024."
+  wide
+>
+<svg viewBox="0 0 640 300" width="640" height="300" font-family="inherit"><line x1="84.0" y1="46.0" x2="84.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="84.0" y1="244.0" x2="436.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="84.0" y1="244.0" x2="436.0" y2="244.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="248.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="84.0" y1="194.5" x2="436.0" y2="194.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="198.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.25</text><line x1="84.0" y1="145.0" x2="436.0" y2="145.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="149.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.50</text><line x1="84.0" y1="95.5" x2="436.0" y2="95.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="99.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.75</text><line x1="84.0" y1="46.0" x2="436.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="50.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.00</text><line x1="84.0" y1="244.0" x2="84.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="84.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="154.4" y1="244.0" x2="154.4" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="154.4" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.1</text><line x1="224.8" y1="244.0" x2="224.8" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="224.8" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="295.2" y1="244.0" x2="295.2" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="295.2" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.3</text><line x1="365.6" y1="244.0" x2="365.6" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="365.6" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="436.0" y1="244.0" x2="436.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="436.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.5</text><path d="M84.0,46.0 L85.8,47.0 L87.5,48.0 L89.3,49.0 L91.0,49.9 L92.8,50.9 L94.6,51.9 L96.3,52.9 L98.1,53.8 L99.8,54.8 L101.6,55.8 L103.4,56.7 L105.1,57.7 L106.9,58.7 L108.6,59.6 L110.4,60.6 L112.2,61.5 L113.9,62.5 L115.7,63.4 L117.4,64.4 L119.2,65.3 L121.0,66.2 L122.7,67.2 L124.5,68.1 L126.2,69.0 L128.0,70.0 L129.8,70.9 L131.5,71.8 L133.3,72.7 L135.0,73.7 L136.8,74.6 L138.6,75.5 L140.3,76.4 L142.1,77.3 L143.8,78.2 L145.6,79.1 L147.4,80.0 L149.1,80.9 L150.9,81.8 L152.6,82.7 L154.4,83.6 L156.2,84.5 L157.9,85.4 L159.7,86.3 L161.4,87.2 L163.2,88.0 L165.0,88.9 L166.7,89.8 L168.5,90.7 L170.2,91.5 L172.0,92.4 L173.8,93.3 L175.5,94.1 L177.3,95.0 L179.0,95.9 L180.8,96.7 L182.6,97.6 L184.3,98.4 L186.1,99.3 L187.8,100.1 L189.6,100.9 L191.4,101.8 L193.1,102.6 L194.9,103.5 L196.6,104.3 L198.4,105.1 L200.2,105.9 L201.9,106.8 L203.7,107.6 L205.4,108.4 L207.2,109.2 L209.0,110.1 L210.7,110.9 L212.5,111.7 L214.2,112.5 L216.0,113.3 L217.8,114.1 L219.5,114.9 L221.3,115.7 L223.0,116.5 L224.8,117.3 L226.6,118.1 L228.3,118.9 L230.1,119.6 L231.8,120.4 L233.6,121.2 L235.4,122.0 L237.1,122.8 L238.9,123.5 L240.6,124.3 L242.4,125.1 L244.2,125.8 L245.9,126.6 L247.7,127.4 L249.4,128.1 L251.2,128.9 L253.0,129.6 L254.7,130.4 L256.5,131.1 L258.2,131.9 L260.0,132.6 L261.8,133.4 L263.5,134.1 L265.3,134.8 L267.0,135.6 L268.8,136.3 L270.6,137.0 L272.3,137.8 L274.1,138.5 L275.8,139.2 L277.6,139.9 L279.4,140.6 L281.1,141.4 L282.9,142.1 L284.6,142.8 L286.4,143.5 L288.2,144.2 L289.9,144.9 L291.7,145.6 L293.4,146.3 L295.2,147.0 L297.0,147.7 L298.7,148.4 L300.5,149.0 L302.2,149.7 L304.0,150.4 L305.8,151.1 L307.5,151.8 L309.3,152.4 L311.0,153.1 L312.8,153.8 L314.6,154.5 L316.3,155.1 L318.1,155.8 L319.8,156.4 L321.6,157.1 L323.4,157.8 L325.1,158.4 L326.9,159.1 L328.6,159.7 L330.4,160.3 L332.2,161.0 L333.9,161.6 L335.7,162.3 L337.4,162.9 L339.2,163.5 L341.0,164.2 L342.7,164.8 L344.5,165.4 L346.2,166.0 L348.0,166.7 L349.8,167.3 L351.5,167.9 L353.3,168.5 L355.0,169.1 L356.8,169.7 L358.6,170.3 L360.3,170.9 L362.1,171.5 L363.8,172.1 L365.6,172.7 L367.4,173.3 L369.1,173.9 L370.9,174.5 L372.6,175.1 L374.4,175.7 L376.2,176.2 L377.9,176.8 L379.7,177.4 L381.4,178.0 L383.2,178.5 L385.0,179.1 L386.7,179.7 L388.5,180.2 L390.2,180.8 L392.0,181.4 L393.8,181.9 L395.5,182.5 L397.3,183.0 L399.0,183.6 L400.8,184.1 L402.6,184.6 L404.3,185.2 L406.1,185.7 L407.8,186.3 L409.6,186.8 L411.4,187.3 L413.1,187.9 L414.9,188.4 L416.6,188.9 L418.4,189.4 L420.2,189.9 L421.9,190.5 L423.7,191.0 L425.4,191.5 L427.2,192.0 L429.0,192.5 L430.7,193.0 L432.5,193.5 L434.2,194.0 L436.0,194.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="7 4"/><path d="M84.0,244.0 L85.8,243.0 L87.5,242.0 L89.3,241.1 L91.0,240.1 L92.8,239.1 L94.6,238.1 L96.3,237.2 L98.1,236.2 L99.8,235.3 L101.6,234.3 L103.4,233.4 L105.1,232.5 L106.9,231.5 L108.6,230.6 L110.4,229.7 L112.2,228.8 L113.9,227.9 L115.7,227.0 L117.4,226.1 L119.2,225.2 L121.0,224.3 L122.7,223.4 L124.5,222.5 L126.2,221.7 L128.0,220.8 L129.8,219.9 L131.5,219.1 L133.3,218.2 L135.0,217.4 L136.8,216.5 L138.6,215.7 L140.3,214.9 L142.1,214.0 L143.8,213.2 L145.6,212.4 L147.4,211.6 L149.1,210.8 L150.9,210.0 L152.6,209.2 L154.4,208.4 L156.2,207.6 L157.9,206.8 L159.7,206.0 L161.4,205.2 L163.2,204.5 L165.0,203.7 L166.7,202.9 L168.5,202.2 L170.2,201.4 L172.0,200.7 L173.8,199.9 L175.5,199.2 L177.3,198.5 L179.0,197.8 L180.8,197.0 L182.6,196.3 L184.3,195.6 L186.1,194.9 L187.8,194.2 L189.6,193.5 L191.4,192.8 L193.1,192.1 L194.9,191.5 L196.6,190.8 L198.4,190.1 L200.2,189.4 L201.9,188.8 L203.7,188.1 L205.4,187.5 L207.2,186.8 L209.0,186.2 L210.7,185.6 L212.5,184.9 L214.2,184.3 L216.0,183.7 L217.8,183.1 L219.5,182.4 L221.3,181.8 L223.0,181.2 L224.8,180.6 L226.6,180.0 L228.3,179.5 L230.1,178.9 L231.8,178.3 L233.6,177.7 L235.4,177.2 L237.1,176.6 L238.9,176.0 L240.6,175.5 L242.4,174.9 L244.2,174.4 L245.9,173.9 L247.7,173.3 L249.4,172.8 L251.2,172.3 L253.0,171.8 L254.7,171.3 L256.5,170.7 L258.2,170.2 L260.0,169.8 L261.8,169.3 L263.5,168.8 L265.3,168.3 L267.0,167.8 L268.8,167.3 L270.6,166.9 L272.3,166.4 L274.1,165.9 L275.8,165.5 L277.6,165.0 L279.4,164.6 L281.1,164.2 L282.9,163.7 L284.6,163.3 L286.4,162.9 L288.2,162.5 L289.9,162.1 L291.7,161.6 L293.4,161.2 L295.2,160.8 L297.0,160.4 L298.7,160.1 L300.5,159.7 L302.2,159.3 L304.0,158.9 L305.8,158.6 L307.5,158.2 L309.3,157.8 L311.0,157.5 L312.8,157.1 L314.6,156.8 L316.3,156.4 L318.1,156.1 L319.8,155.8 L321.6,155.5 L323.4,155.1 L325.1,154.8 L326.9,154.5 L328.6,154.2 L330.4,153.9 L332.2,153.6 L333.9,153.3 L335.7,153.0 L337.4,152.8 L339.2,152.5 L341.0,152.2 L342.7,152.0 L344.5,151.7 L346.2,151.4 L348.0,151.2 L349.8,150.9 L351.5,150.7 L353.3,150.5 L355.0,150.2 L356.8,150.0 L358.6,149.8 L360.3,149.6 L362.1,149.4 L363.8,149.2 L365.6,149.0 L367.4,148.8 L369.1,148.6 L370.9,148.4 L372.6,148.2 L374.4,148.0 L376.2,147.9 L377.9,147.7 L379.7,147.5 L381.4,147.4 L383.2,147.2 L385.0,147.1 L386.7,146.9 L388.5,146.8 L390.2,146.7 L392.0,146.5 L393.8,146.4 L395.5,146.3 L397.3,146.2 L399.0,146.1 L400.8,146.0 L402.6,145.9 L404.3,145.8 L406.1,145.7 L407.8,145.6 L409.6,145.6 L411.4,145.5 L413.1,145.4 L414.9,145.4 L416.6,145.3 L418.4,145.2 L420.2,145.2 L421.9,145.2 L423.7,145.1 L425.4,145.1 L427.2,145.1 L429.0,145.0 L430.7,145.0 L432.5,145.0 L434.2,145.0 L436.0,145.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><path d="M84.0,244.0 L85.8,244.0 L87.5,244.0 L89.3,244.0 L91.0,244.0 L92.8,244.0 L94.6,244.0 L96.3,243.9 L98.1,243.9 L99.8,243.9 L101.6,243.9 L103.4,243.9 L105.1,243.8 L106.9,243.8 L108.6,243.8 L110.4,243.7 L112.2,243.7 L113.9,243.6 L115.7,243.6 L117.4,243.6 L119.2,243.5 L121.0,243.5 L122.7,243.4 L124.5,243.3 L126.2,243.3 L128.0,243.2 L129.8,243.2 L131.5,243.1 L133.3,243.0 L135.0,243.0 L136.8,242.9 L138.6,242.8 L140.3,242.7 L142.1,242.7 L143.8,242.6 L145.6,242.5 L147.4,242.4 L149.1,242.3 L150.9,242.2 L152.6,242.1 L154.4,242.0 L156.2,241.9 L157.9,241.8 L159.7,241.7 L161.4,241.6 L163.2,241.5 L165.0,241.4 L166.7,241.3 L168.5,241.1 L170.2,241.0 L172.0,240.9 L173.8,240.8 L175.5,240.7 L177.3,240.5 L179.0,240.4 L180.8,240.3 L182.6,240.1 L184.3,240.0 L186.1,239.8 L187.8,239.7 L189.6,239.5 L191.4,239.4 L193.1,239.2 L194.9,239.1 L196.6,238.9 L198.4,238.8 L200.2,238.6 L201.9,238.4 L203.7,238.3 L205.4,238.1 L207.2,237.9 L209.0,237.8 L210.7,237.6 L212.5,237.4 L214.2,237.2 L216.0,237.0 L217.8,236.9 L219.5,236.7 L221.3,236.5 L223.0,236.3 L224.8,236.1 L226.6,235.9 L228.3,235.7 L230.1,235.5 L231.8,235.3 L233.6,235.1 L235.4,234.8 L237.1,234.6 L238.9,234.4 L240.6,234.2 L242.4,234.0 L244.2,233.8 L245.9,233.5 L247.7,233.3 L249.4,233.1 L251.2,232.8 L253.0,232.6 L254.7,232.4 L256.5,232.1 L258.2,231.9 L260.0,231.6 L261.8,231.4 L263.5,231.1 L265.3,230.9 L267.0,230.6 L268.8,230.4 L270.6,230.1 L272.3,229.8 L274.1,229.6 L275.8,229.3 L277.6,229.0 L279.4,228.8 L281.1,228.5 L282.9,228.2 L284.6,227.9 L286.4,227.6 L288.2,227.3 L289.9,227.1 L291.7,226.8 L293.4,226.5 L295.2,226.2 L297.0,225.9 L298.7,225.6 L300.5,225.3 L302.2,225.0 L304.0,224.7 L305.8,224.4 L307.5,224.0 L309.3,223.7 L311.0,223.4 L312.8,223.1 L314.6,222.8 L316.3,222.4 L318.1,222.1 L319.8,221.8 L321.6,221.4 L323.4,221.1 L325.1,220.8 L326.9,220.4 L328.6,220.1 L330.4,219.7 L332.2,219.4 L333.9,219.0 L335.7,218.7 L337.4,218.3 L339.2,218.0 L341.0,217.6 L342.7,217.3 L344.5,216.9 L346.2,216.5 L348.0,216.2 L349.8,215.8 L351.5,215.4 L353.3,215.0 L355.0,214.7 L356.8,214.3 L358.6,213.9 L360.3,213.5 L362.1,213.1 L363.8,212.7 L365.6,212.3 L367.4,211.9 L369.1,211.5 L370.9,211.1 L372.6,210.7 L374.4,210.3 L376.2,209.9 L377.9,209.5 L379.7,209.1 L381.4,208.7 L383.2,208.2 L385.0,207.8 L386.7,207.4 L388.5,207.0 L390.2,206.5 L392.0,206.1 L393.8,205.7 L395.5,205.2 L397.3,204.8 L399.0,204.3 L400.8,203.9 L402.6,203.5 L404.3,203.0 L406.1,202.6 L407.8,202.1 L409.6,201.6 L411.4,201.2 L413.1,200.7 L414.9,200.3 L416.6,199.8 L418.4,199.3 L420.2,198.9 L421.9,198.4 L423.7,197.9 L425.4,197.4 L427.2,196.9 L429.0,196.5 L430.7,196.0 L432.5,195.5 L434.2,195.0 L436.0,194.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 4"/><line x1="450.0" y1="72.0" x2="476.0" y2="72.0" stroke="currentColor" stroke-width="2" stroke-dasharray="7 4"/><text x="483.0" y="76.0" font-size="10.5" fill="currentColor">p²  major homozygote</text><line x1="450.0" y1="96.0" x2="476.0" y2="96.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><text x="483.0" y="100.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">2pq  heterozygote</text><line x1="450.0" y1="120.0" x2="476.0" y2="120.0" stroke="currentColor" stroke-width="2" stroke-dasharray="2 4"/><text x="483.0" y="124.0" font-size="10.5" fill="currentColor">q²  minor homozygote</text><circle cx="436.0" cy="145.0" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="429.0" y="120.2" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">heterozygosity peaks</text><text x="429.0" y="132.1" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">at 0.5, never higher</text><line x1="106.5" y1="244.0" x2="106.5" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="3 3"/><circle cx="106.5" cy="243.8" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="450.0" y="168.0" font-size="11" fill="currentColor" font-weight="700">the worked example</text><text x="450.0" y="184.0" font-size="10" fill="currentColor" opacity=".8">q = 0.032, so q² = 0.001024.</text><text x="450.0" y="197.0" font-size="10" fill="currentColor" opacity=".8">Hardy–Weinberg expects just</text><text x="450.0" y="210.0" font-size="10" fill="currentColor" opacity=".8">1.02 minor homozygotes in a</text><text x="450.0" y="223.0" font-size="10" fill="currentColor" opacity=".8">cohort of 1,000 — far below</text><text x="450.0" y="236.0" font-size="10" fill="currentColor" opacity=".8">the count χ² needs before it</text><text x="450.0" y="249.0" font-size="10" fill="currentColor" opacity=".8">can be trusted.</text><text x="260.0" y="286.0" font-size="12" fill="currentColor" text-anchor="middle">Minor allele frequency q</text><text x="20.0" y="145.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 145)">Expected genotype frequency</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Hardy–Weinberg: one allele frequency fixes all three genotype frequencies</text></svg>
+</Figure>
+
+The five assumptions are worth naming, because a rejected test is only useful if you know
+what it could be telling you: random mating, no selection, no mutation, no migration, and
+infinite population size. In practice a departure at a single variant in a modern cohort is
+almost never any of those things — it is a genotyping artefact, which is precisely why the
+test survives as a quality-control filter.
+
+### Testing a departure, and the degrees of freedom
+
+Three genotype counts give two free proportions. One more is spent estimating $p$ from the
+same data, so the test has **one degree of freedom, not two** — an instance of the general
+rule from Module 1 that estimating a parameter costs a degree of freedom in the statistic
+that tests it.
+
+<WorkedExample
+  title="The same test on a common and a rare variant"
+  given={[
+    { label: 'Cohort', value: '1,000 individuals' },
+    { label: 'Variant A (common)', value: '298 / 489 / 213' },
+    { label: 'Variant B (rare)', value: '940 / 56 / 4' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Variant A.** The minor allele frequency is
+$q = (2 \times 213 + 489)/2000 = 0.4575$, so the expected counts are
+
+$$
+(p^2 n,\; 2pqn,\; q^2 n) = (294.306,\; 496.388,\; 209.306)
+$$
+
+$$
+\chi^2 = \frac{(298-294.306)^2}{294.306} + \frac{(489-496.388)^2}{496.388}
++ \frac{(213-209.306)^2}{209.306} = 0.2215
+$$
+
+On 1 df that is $p = 0.6379$. The exact test of <Citation id="wigginton2005hwe" /> gives
+$p = 0.6557$. **They agree**, because every expected count is in the hundreds.
+
+**Variant B.** Now $q = (2 \times 4 + 56)/2000 = 0.0320$, and the expected counts are
+
+$$
+(937.024,\; 61.952,\; 1.024)
+$$
+
+The third cell is the problem: Hardy–Weinberg expects **one** minor homozygote, and four were
+seen.
+
+$$
+\chi^2 = \frac{(940-937.024)^2}{937.024} + \frac{(56-61.952)^2}{61.952}
++ \frac{(4-1.024)^2}{1.024} = 9.2303
+$$
+
+On 1 df that is $p = 2.380\times10^{-3}$ — apparently a clear rejection. The exact test gives
+$p = 1.568\times10^{-2}$, **6.6 times larger**, and no longer clears a 0.01 filter.
+
+The entire discrepancy comes from the last term. A cell with an expectation of 1.024
+contributes $(4-1.024)^2/1.024 = 8.65$ of the 9.23, and the χ² approximation assumes that
+cell's count is roughly normal. It is not; it is a count of about one.
+
+</WorkedExample>
+
+<Callout variant="warning" title="The direction of the error is the dangerous part">
+
+For rare variants the χ² test returns a **smaller** $p$-value than the truth. It
+over-rejects, so a Hardy–Weinberg quality-control filter set at some fixed threshold discards
+rare variants more aggressively than it was designed to — and rare variants are exactly the
+ones a sequencing study was run to find. This is the sparse-count failure named in Module 1,
+in the place it does the most damage.
+
+Two consequences follow. Use the exact test, which is cheap and has no lower limit. And
+never apply a Hardy–Weinberg filter to **cases only** in a case-control study: a variant with
+a genuinely large effect on disease risk departs from Hardy–Weinberg in cases *because it
+works*, and filtering on that discards the real findings along with the artefacts.
+
+</Callout>
+
+## Wright–Fisher: drift is sampling noise that never averages out
+
+Hardy–Weinberg assumed an infinite population. Drop that, and each generation becomes a
+finite sample: $2N$ gametes drawn from the previous generation's pool. The Wright–Fisher
+model is exactly this, and the count of $A$ alleles in the next generation is binomial:
+
+$$
+X_{t+1} \sim \mathrm{Binomial}(2N,\; p_t), \qquad p_{t+1} = X_{t+1}/2N
+$$
+
+Two properties follow immediately from the binomial. The expectation is unchanged,
+$\mathbb{E}[p_{t+1}] = p_t$ — drift has **no direction**. But the variance is not zero:
+
+$$
+\mathrm{Var}(p_{t+1} \mid p_t) = \frac{p_t(1-p_t)}{2N}
+$$
+
+so the frequency wanders, and because $p = 0$ and $p = 1$ are absorbing, every variant is
+eventually lost or fixed. <Citation id="wright1931drift" /> is where this becomes a
+quantitative theory of populations rather than an observation.
+
+The consequence that matters for the rest of the curriculum is the decay of heterozygosity.
+Each generation, two alleles drawn from the sample are identical by descent with probability
+$1/2N_e$, so
+
+$$
+H_t = H_0\left(1 - \frac{1}{2N_e}\right)^{t} \approx H_0 e^{-t/2N_e}
+$$
+
+**Real populations are not Wright–Fisher populations**, which is what $N_e$ is for: it is the
+size of the idealised population that would drift at the same rate as the real one. Unequal
+sex ratios, variance in offspring number, and past bottlenecks all make $N_e$ smaller than
+the census size, often by an order of magnitude.
+
+<WorkedExample
+  title="How fast does a population forget?"
+  given={[
+    { label: 'Effective size Nₑ', value: '10,000' },
+    { label: 'Starting heterozygosity', value: '0.5 (a variant at q = 0.5)' },
+    { label: 'Elapsed time', value: '1,000 generations' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — heterozygosity retained.**
+
+$$
+\frac{H_{1000}}{H_0} = \left(1 - \frac{1}{20{,}000}\right)^{1000} = 0.951228
+$$
+
+About **95.1%** survives. Drift is slow at this population size — a thousand generations is
+roughly 25,000 years of human history, and it costs five percent of the variation.
+
+**Step 2 — the half-life.** Set the ratio to one half and solve:
+
+$$
+t_{1/2} = \frac{\log 0.5}{\log(1 - 1/2N_e)} = 13{,}862.6 \text{ generations}
+$$
+
+which is $2N_e \log 2 = 13{,}862.9$ to within the discreteness of the model. **The half-life
+of genetic variation is proportional to $N_e$**, and that single fact is why $N_e$ is the
+parameter population genetics is organised around.
+
+**Step 3 — the spread in frequency.** After 1,000 generations the standard deviation of $p$
+about its unchanged mean of 0.5 is
+
+$$
+\sqrt{\mathrm{Var}(p_t)} = \sqrt{p_0(1-p_0)\left[1 - (1 - 1/2N_e)^t\right]} = 0.11042
+$$
+
+So a variant that started at 50% is typically somewhere between 39% and 61% — the mean has
+not moved, but any particular population has.
+
+</WorkedExample>
+
+<Widget
+  kind="drift"
+  title="Eight populations, one starting frequency"
+  alt="An interactive plot of allele frequency against generations. Eight replicate Wright-Fisher trajectories start at the same frequency and diverge; a dashed band shows plus and minus one standard deviation about the unchanged mean. Controls set effective population size, number of generations, and starting frequency."
+  caption="The same model, run rather than solved. Two things are worth doing. Set Nₑ small and watch trajectories hit the boundaries and stay there — that is fixation, and it is why drift removes variation rather than merely shuffling it. Then set Nₑ large and note that the mean of the eight runs stays put while each individual run wanders: drift has no direction, but no single population enjoys that fact."
+/>
+
+A variant's chance of eventually fixing is just its current frequency, $\Pr(\text{fix}) = p$ —
+a striking result that follows from $\mathbb{E}[p_t] = p_0$ and the fact that the process
+must end at 0 or 1. <Citation id="kimura1969fixation" /> derived how long that takes on
+average, and the answer is long: for a variant currently at 1% in a population of
+$N_e = 10{,}000$, conditional on fixing, roughly $4N_e$ generations.
+
+## The coalescent: the same process, read backwards
+
+Everything above follows allele frequencies forwards in time. Almost every question about
+real data runs the other way: you have a sample of sequences *now* and want to know about
+their shared history. <Citation id="kingman1982coalescent" /> showed that the Wright–Fisher
+model, viewed backwards from a sample of $n$ sequences, becomes a simple continuous process.
+
+With $k$ lineages remaining, any particular pair coalesces in the previous generation with
+probability $1/2N_e$, and there are $\binom{k}{2}$ pairs. So the waiting time in state $k$ is
+exponential, with
+
+$$
+\mathbb{E}[T_k] = \frac{2N_e}{\binom{k}{2}} = \frac{4N_e}{k(k-1)}
+$$
+
+<Figure
+  caption="Figure 2. Expected waiting times in a genealogy of twenty samples. The wait shortens as k² — with many lineages there are many pairs, so a coalescence happens quickly — which means the tree is nearly complete long before it is finished. The final wait for the last two lineages to join is 20,000 generations, 53 percent of the whole tree depth on its own. The total, 38,000 generations, is 4Nₑ(1 − 1/n), which approaches 4Nₑ as the sample grows: adding sequences to a study deepens its genealogy hardly at all."
+  alt="A bar chart of expected waiting time against the number of lineages remaining, from twenty down to two, for an effective population size of ten thousand. The bars grow rapidly as the number of lineages falls; the final bar at k equals two reaches 20,000 generations, more than three times the next largest, and is highlighted."
+  wide
+>
+<svg viewBox="0 0 640 292" width="640" height="292" font-family="inherit"><line x1="84.0" y1="46.0" x2="84.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="84.0" y1="236.0" x2="470.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="84.0" y1="236.0" x2="470.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="240.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="84.0" y1="190.8" x2="470.0" y2="190.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="194.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">5k</text><line x1="84.0" y1="145.5" x2="470.0" y2="145.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="149.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">10k</text><line x1="84.0" y1="100.3" x2="470.0" y2="100.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="104.3" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">15k</text><line x1="84.0" y1="55.0" x2="470.0" y2="55.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="76.0" y="59.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">20k</text><line x1="113.0" y1="236.0" x2="113.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="113.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="170.9" y1="236.0" x2="170.9" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="170.9" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="267.4" y1="236.0" x2="267.4" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="267.4" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="363.8" y1="236.0" x2="363.8" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="363.8" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">15</text><line x1="460.3" y1="236.0" x2="460.3" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="460.3" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">20</text><rect x="454.4" y="235.0" width="12.0" height="1.0" rx="2" fill="currentColor" opacity=".45"/><rect x="435.1" y="234.9" width="12.0" height="1.1" rx="2" fill="currentColor" opacity=".45"/><rect x="415.8" y="234.8" width="12.0" height="1.2" rx="2" fill="currentColor" opacity=".45"/><rect x="396.5" y="234.7" width="12.0" height="1.3" rx="2" fill="currentColor" opacity=".45"/><rect x="377.2" y="234.5" width="12.0" height="1.5" rx="2" fill="currentColor" opacity=".45"/><rect x="357.9" y="234.3" width="12.0" height="1.7" rx="2" fill="currentColor" opacity=".45"/><rect x="338.6" y="234.0" width="12.0" height="2.0" rx="2" fill="currentColor" opacity=".45"/><rect x="319.3" y="233.7" width="12.0" height="2.3" rx="2" fill="currentColor" opacity=".45"/><rect x="300.0" y="233.3" width="12.0" height="2.7" rx="2" fill="currentColor" opacity=".45"/><rect x="280.7" y="232.7" width="12.0" height="3.3" rx="2" fill="currentColor" opacity=".45"/><rect x="261.4" y="232.0" width="12.0" height="4.0" rx="2" fill="currentColor" opacity=".45"/><rect x="242.1" y="231.0" width="12.0" height="5.0" rx="2" fill="currentColor" opacity=".45"/><rect x="222.8" y="229.5" width="12.0" height="6.5" rx="2" fill="currentColor" opacity=".45"/><rect x="203.5" y="227.4" width="12.0" height="8.6" rx="2" fill="currentColor" opacity=".45"/><rect x="184.2" y="223.9" width="12.0" height="12.1" rx="2" fill="currentColor" opacity=".45"/><rect x="164.9" y="217.9" width="12.0" height="18.1" rx="2" fill="currentColor" opacity=".45"/><rect x="145.6" y="205.8" width="12.0" height="30.2" rx="2" fill="currentColor" opacity=".45"/><rect x="126.3" y="175.7" width="12.0" height="60.3" rx="2" fill="currentColor" opacity=".45"/><rect x="107.0" y="55.0" width="12.0" height="181.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="124.5" y="67.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">20,000 generations</text><text x="209.4" y="98.5" font-size="11.5" fill="currentColor" font-weight="600">E[Tₖ] = 4Nₑ / k(k−1)</text><text x="209.4" y="114.8" font-size="10.5" fill="currentColor" opacity=".8">the wait for the last two lineages to join is 53% of the whole tree</text><text x="209.4" y="129.2" font-size="10.5" fill="currentColor" opacity=".8">total depth E[TMRCA] = 38,000 generations, and 4Nₑ = 40,000</text><text x="277.0" y="280.0" font-size="12" fill="currentColor" text-anchor="middle">Number of lineages remaining, k</text><text x="20.0" y="141.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 141)">Expected wait in that state</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">A genealogy of 20 samples, Nₑ = 10,000: almost all of the depth is the last join</text></svg>
+</Figure>
+
+Two consequences of that lopsided shape run through the rest of this curriculum.
+
+**Most variation is rare.** A mutation falling on one of the many short branches near the
+tips of the tree is carried by very few samples. Since most of the tree's *branches* are near
+the tips even though most of its *depth* is at the root, the site frequency spectrum is
+dominated by rare variants — which is the observed fact that makes rare-variant association
+testing a separate discipline.
+
+**Sampling more people does not buy more history.** The total expected depth is
+$4N_e(1 - 1/n)$, so going from 20 sequences to 20,000 raises it from $0.95 \times 4N_e$ to
+$0.99995 \times 4N_e$. More samples buy more *branches* — more rare variants, better frequency
+estimates — but essentially no additional depth.
+
+Mutations fall on this tree at a constant rate, which gives an estimator of
+$\theta = 4N_e\mu$ from the number of segregating sites. Because the expected total branch
+length is $4N_e \sum_{i=1}^{n-1} 1/i$, <Citation id="watterson1975" /> obtained
+
+$$
+\hat\theta_W = \frac{S}{a_1}, \qquad a_1 = \sum_{i=1}^{n-1}\frac{1}{i}
+$$
+
+## Tajima's D: two estimators that should agree
+
+There is a second, entirely different estimator of the same $\theta$: the average number of
+differences between two sequences picked at random, $\hat\theta_\pi$. Under neutrality and
+constant population size both estimate $\theta$, so their difference should be zero.
+<Citation id="tajima1989" /> turned that difference into a test by dividing it by its own
+standard error — the same construction as any of the statistics in Module 1:
+
+$$
+D = \frac{\hat\theta_\pi - \hat\theta_W}{\sqrt{\widehat{\mathrm{Var}}(\hat\theta_\pi - \hat\theta_W)}}
+$$
+
+The two estimators weight the frequency spectrum differently, and that is what makes the
+comparison informative. $\hat\theta_W$ counts a site once however rare it is;
+$\hat\theta_\pi$ weights it by $2f(1-f)$, so it barely notices a singleton. **An excess of
+rare variants therefore pushes $\hat\theta_W$ up while leaving $\hat\theta_\pi$ alone**, and
+$D$ goes negative.
+
+<WorkedExample
+  title="Tajima's D for a sequenced locus"
+  given={[
+    { label: 'Sequences n', value: '50' },
+    { label: 'Segregating sites S', value: '120' },
+    { label: 'Mean pairwise differences π', value: '15.5' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the harmonic number.**
+
+$$
+a_1 = \sum_{i=1}^{49}\frac{1}{i} = 4.479205
+$$
+
+**Step 2 — Watterson's estimator.**
+
+$$
+\hat\theta_W = \frac{S}{a_1} = \frac{120}{4.479205} = 26.790466
+$$
+
+**Step 3 — the difference.** $\hat\theta_\pi = 15.5$, so
+
+$$
+\hat\theta_\pi - \hat\theta_W = 15.5 - 26.790466 = -11.290466
+$$
+
+**Step 4 — standardise.** Tajima's variance estimate uses two constants derived from $n$,
+here $e_1 = 0.027613$ and $e_2 = 0.003705$, giving
+$\widehat{\mathrm{Var}} = e_1 S + e_2 S(S-1)$:
+
+$$
+D = \frac{-11.290466}{\sqrt{0.027613(120) + 0.003705(120)(119)}} = -1.505723
+$$
+
+**Step 5 — read it.** $D = -1.51$ says there are far more segregating sites than the
+pairwise diversity can account for: the locus carries an excess of rare variants. Two
+explanations produce that, and the statistic cannot distinguish them — a **population
+expansion**, which adds recent branches to every locus in the genome, or **purifying
+selection** at this locus, which removes deleterious variants before they become common.
+
+Which one it is depends on whether the rest of the genome looks the same. That is the
+practical rule: a genome-wide negative $D$ is demography, a locus-specific one is selection.
+
+</WorkedExample>
+
+## Fisher 1918: how Mendelian genes make continuous traits
+
+One question hangs over everything so far. Mendelian inheritance is discrete — alleles come
+in whole units — yet height, blood pressure and every trait this curriculum cares about are
+continuous and close to normally distributed. For fifteen years after Mendel's rediscovery
+this was taken as evidence that the two could not both be true.
+
+<Citation id="fisher1918infinitesimal" /> resolved it in one move: let the trait be the sum
+of contributions from **many loci, each of small effect**. The central limit theorem does the
+rest, and the sum of many small independent contributions is normal regardless of the
+discreteness of each one. Every one of Mendel's critics' observations survives; so does
+Mendel.
+
+The paper does far more than that, and the part this curriculum uses is the second half. If
+a trait is such a sum, then the covariance between two relatives is determined by the
+proportion of alleles they share:
+
+$$
+\mathrm{Cov}(\text{relatives}) = 2\Phi\, V_A + \ldots
+$$
+
+where $\Phi$ is the kinship coefficient. Full siblings share half their alleles on average
+and so covary at $\tfrac{1}{2}V_A$; parent and offspring the same; identical twins at $V_A$
+plus the whole dominance component. **This is the mechanism every heritability estimate
+runs on** — twin studies, pedigree models and the genomic relatedness matrix alike all
+estimate $V_A$ by comparing observed covariance against expected sharing.
+
+<Callout variant="intuition" title="Why the infinitesimal model survives being false">
+
+No trait is really controlled by infinitely many loci of infinitesimal effect. The model is
+a limit, and the honest question is why predictions built on it work anyway.
+
+The answer is that the model's *predictions* depend on the sum, not on the loci. What it
+asserts is that the distribution of breeding values within a family is normal with a variance
+that does not depend on the parents' own values — and <Citation id="barton2017infinitesimal" />
+shows this holds under far weaker conditions than infinitely many loci, requiring only that
+no single locus dominates. Modern GWAS confirmed the premise directly: for height, thousands
+of variants each explain a small fraction of a percent, which is what "many loci of small
+effect" looks like when you can finally see them.
+
+Where it does break is where a single variant is large — a monogenic disorder, or a
+major-effect locus segregating in a breeding population. There the infinitesimal
+approximation fails, and the failure is visible as a non-normal trait distribution.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="A variant that fails quality control" difficulty="warm-up">
+
+A cohort of 1,500 people is genotyped at a variant with counts 1,470 / 24 / 6. Compute the
+expected counts, the χ² statistic, and decide whether this looks like biology or like an
+artefact.
+
+<div slot="solution">
+
+The minor allele frequency is $q = (2 \times 6 + 24)/3000 = 0.0120$, so the expected counts
+are
+
+$$
+(1464.216,\; 35.568,\; 0.216)
+$$
+
+$$
+\chi^2 = \frac{(1470-1464.216)^2}{1464.216} + \frac{(24-35.568)^2}{35.568}
++ \frac{(6-0.216)^2}{0.216} = 158.6678
+$$
+
+The exact test gives $p = 1.668\times10^{-8}$.
+
+This is an artefact, and the *shape* of the departure says so. There are 28 times more minor
+homozygotes than expected and 33% too few heterozygotes — heterozygotes have been miscalled
+as homozygotes, the classic signature of a poorly clustering genotyping assay or of two
+paralogous regions collapsing onto one another in alignment.
+
+Note also that 158.6678 of the statistic is almost entirely the third term, worth 154.9 on
+its own, whose expected count is 0.216. A χ² statistic dominated by a cell expecting a
+fifth of an observation should never be reported as a χ² statistic; the exact test's
+$1.668\times10^{-8}$ is the defensible number, and it is still overwhelming.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="How long does variation last?" difficulty="core">
+
+(a) Compute the half-life of heterozygosity for $N_e = 500$ and for $N_e = 10{,}000$, and
+check both against the approximation $2N_e \log 2$. (b) How many generations does it take to
+lose just 10% of the starting heterozygosity in each case? (c) A conservation biologist
+reports that a population has "lost 10% of its genetic diversity in 100 generations". What
+does that imply about $N_e$?
+
+<div slot="solution">
+
+**(a)** Using $t_{1/2} = \log 0.5 / \log(1 - 1/2N_e)$:
+
+| $N_e$ | half-life | $2N_e\log 2$ |
+| --- | --- | --- |
+| 500 | 692.8 | 693.1 |
+| 10,000 | 13,862.6 | 13,862.9 |
+
+The approximation is excellent, and it is exact in the limit — the two disagree only by the
+difference between $\log(1-x)$ and $-x$.
+
+**(b)** Replace $0.5$ with $0.9$: 105.3 generations at $N_e = 500$, and 2,107.2 generations
+at $N_e = 10{,}000$. Note that losing the *first* 10% takes about 15% of the half-life, not
+10% of it — the decay is exponential, so early losses are fastest.
+
+**(c)** Solving $105.3$ generations $\to 100$ gives $N_e \approx 475$. The claim is
+therefore a statement about effective size, and a fairly precise one. It is worth adding
+that this is a small number: a census population of several thousand can easily have
+$N_e$ in the hundreds, and it is $N_e$ that sets the rate.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Reading two loci with the same S" difficulty="stretch">
+
+Two loci are sequenced in the same 20 individuals. Both show $S = 45$ segregating sites.
+Locus 1 has $\pi = 12.4$ and locus 2 has $\pi = 8.2$. Compute Tajima's D for each and say
+what distinguishes them.
+
+<div slot="solution">
+
+Both share $a_1 = \sum_{i=1}^{19} 1/i = 3.547740$ and therefore the same Watterson estimate:
+
+$$
+\hat\theta_W = \frac{45}{3.547740} = 12.684133
+$$
+
+The two constants for $n = 20$ are $e_1 = 0.024396$ and $e_2 = 0.004508$, so the denominator
+is $\sqrt{0.024396(45) + 0.004508(45)(44)} = 3.1661$ for both loci.
+
+$$
+D_1 = \frac{12.4 - 12.684133}{3.1661} = -0.089741,
+\qquad
+D_2 = \frac{8.2 - 12.684133}{3.1661} = -1.416281
+$$
+
+**Locus 1 is indistinguishable from neutral.** Its two estimators of $\theta$ agree to
+within a fortieth of a standard error, which is exactly what the neutral constant-size model
+predicts.
+
+**Locus 2 has an excess of rare variants.** Same number of segregating sites, but they are
+carried by far fewer individuals each, so pairwise diversity is low while the site count is
+not.
+
+The instructive part is that $S$ alone cannot tell these apart, and neither can $\pi$ alone
+without knowing what to compare it to. Only the discrepancy between two estimators of the
+same quantity carries the information — which is the same idea as the three tests in Module
+1, used in the opposite direction: there, agreement was assumed and the discrepancy was
+error; here, the discrepancy is the signal.
+
+Two cautions on interpreting $D_2$. Its null distribution is not standard normal — it is
+bounded and skewed, so significance must come from simulation or from tabulated critical
+values rather than from $\pm 1.96$. And a single locus cannot separate selection from
+demography; that requires knowing whether the rest of the genome shows the same thing.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Hardy–Weinberg** fixes all three genotype frequencies from one allele frequency and is
+  reached in a single generation of random mating. Its test has one degree of freedom because
+  the allele frequency is estimated from the same data.
+- **Use the exact test for rare variants.** The χ² approximation over-rejects when the
+  minor-homozygote expectation is small — 6.6-fold in the worked example — which is the
+  Module 1 sparse-count failure landing on the variants a sequencing study exists to find.
+  And never filter on Hardy–Weinberg in cases only: a real risk variant departs from it
+  *because* it is real.
+- **Drift is directionless but not harmless.** $\mathbb{E}[p_{t+1}] = p_t$, yet variance
+  accumulates until every variant is lost or fixed. Heterozygosity decays with a half-life of
+  $2N_e\log 2$ — 13,863 generations at $N_e = 10{,}000$, 693 at $N_e = 500$.
+- **The coalescent is Wright–Fisher read backwards**, with $\mathbb{E}[T_k] = 4N_e/k(k-1)$.
+  The final join takes 53% of the depth of a 20-sample genealogy; total depth is
+  $4N_e(1-1/n)$, so more sequences buy more branches and essentially no more history. This
+  branch-heavy, shallow shape is why most variants are rare.
+- **Tajima's D is a discrepancy between two estimators of $\theta$** that weight the
+  frequency spectrum differently. Negative means an excess of rare variants; whether that is
+  expansion or purifying selection depends on whether the whole genome shows it.
+- **The infinitesimal model** makes many small Mendelian effects sum to a normal trait, and
+  gives the covariance between relatives as a function of allele sharing. That relation is
+  what every heritability estimate in Module 3 measures.
