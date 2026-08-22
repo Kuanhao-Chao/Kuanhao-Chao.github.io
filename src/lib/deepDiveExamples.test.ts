@@ -701,3 +701,130 @@ describe('data-reference-annotation', () => {
     });
   });
 });
+
+describe('data-constraint-intolerance', () => {
+  const mdx = lesson('data-constraint-intolerance');
+
+  describe('worked example — two genes, the same depletion', () => {
+    it('gives both genes the same observed/expected ratio', () => {
+      expect(3 / 25.3).toBeCloseTo(0.1186, 4);
+      expect(12 / 100).toBeCloseTo(0.12, 12);
+      expect(mdx).toContain('\\frac{3}{25.3} = 0.1186');
+      expect(mdx).toContain('\\frac{12}{100.0} = 0.1200');
+    });
+
+    it('bounds the counts with the Poisson intervals the derivation quotes', () => {
+      const a = poissonCI(3, 0.9);
+      const b = poissonCI(12, 0.9);
+      expect(a.lower).toBeCloseTo(0.818, 3);
+      expect(a.upper).toBeCloseTo(7.754, 3);
+      expect(b.lower).toBeCloseTo(6.924, 3);
+      expect(b.upper).toBeCloseTo(19.443, 3);
+      expect(mdx).toContain('[0.818,\\; 7.754]');
+      expect(mdx).toContain('[6.924,\\; 19.443]');
+    });
+
+    it('separates the two genes on LOEUF despite the identical ratio', () => {
+      const A = oeUpperBound(3, 25.3);
+      const B = oeUpperBound(12, 100);
+      expect(A).toBeCloseTo(0.3065, 4);
+      expect(B).toBeCloseTo(0.1944, 4);
+      expect(B).toBeLessThan(A); // more evidence, tighter bound
+      expect(mdx).toContain('\\frac{7.754}{25.3} = 0.3065');
+      expect(mdx).toContain('\\frac{19.443}{100.0} = 0.1944');
+    });
+  });
+
+  describe('the power floor', () => {
+    // With nothing observed the bound collapses to a constant, so the floor depends only
+    // on gene size. This is the fact the page and its figure are both built on.
+    const FLOOR = poissonCI(0, 0.9).upper;
+
+    it('collapses to 2.996 when nothing is observed', () => {
+      expect(FLOOR).toBeCloseTo(2.996, 3);
+      expect(FLOOR).toBeCloseTo(-Math.log(0.05), 6); // the closed form
+      expect(mdx).toContain('= 2.996');
+    });
+
+    it('needs 8.56 expected variants before the constrained bin is reachable', () => {
+      expect(FLOOR / 0.35).toBeCloseTo(8.56, 2);
+      expect(mdx).toContain('\\frac{2.996}{0.35} = 8.56');
+      expect(mdx).toContain('8.56 expected');
+    });
+
+    it('puts a small gene with zero observed at LOEUF 1.4265, above the threshold', () => {
+      const small = oeUpperBound(0, 2.1);
+      expect(small).toBeCloseTo(1.4265, 4);
+      expect(small).toBeGreaterThan(0.35);
+      // and it sits exactly on the floor, which is what the figure draws
+      expect(small).toBeCloseTo(FLOOR / 2.1, 12);
+    });
+  });
+
+  describe('figure 1 — the floor curve', () => {
+    it('draws the crossing and the marked genes at the computed values', () => {
+      expect(poissonCI(0, 0.9).upper / 0.35).toBeCloseTo(8.5592, 4);
+      expect(mdx).toContain('8.56 expected — below this, no gene can reach the bin');
+      expect(mdx).toContain('obs 0 of 2.1 expected');
+      expect(mdx).toContain('obs 3 of 25.3');
+      expect(mdx).toContain('obs 12 of 100');
+      expect(mdx).toContain('LOEUF = 0.35, the constrained bin');
+    });
+  });
+
+  describe('worked example — pext', () => {
+    const TPM = { t1: 12.0, t2: 6.5, t3: 1.2, t4: 0.3 };
+    const total = TPM.t1 + TPM.t2 + TPM.t3 + TPM.t4;
+
+    it('sums the transcript expression to 20 TPM', () => {
+      expect(total).toBeCloseTo(20.0, 12);
+      expect(mdx).toContain('12.0 + 6.5 + 1.2 + 0.3 = 20.0');
+    });
+
+    it('gives pext 0.075 for an exon in the minority isoforms', () => {
+      const pext = (TPM.t3 + TPM.t4) / total;
+      expect(TPM.t3 + TPM.t4).toBeCloseTo(1.5, 12);
+      expect(pext).toBeCloseTo(0.075, 12);
+      expect(1 - pext).toBeCloseTo(0.925, 12);
+      expect(mdx).toContain('\\frac{1.5}{20.0} = 0.075');
+      expect(mdx).toContain('**92.5%**');
+    });
+  });
+
+  describe('exercise 1 — a gene that tolerates loss', () => {
+    it('gives O/E 0.90 and LOEUF 1.1539, a well-powered null', () => {
+      expect(45 / 50).toBeCloseTo(0.9, 12);
+      const ci = poissonCI(45, 0.9);
+      expect(ci.lower).toBeCloseTo(34.563, 3);
+      expect(ci.upper).toBeCloseTo(57.695, 3);
+      expect(oeUpperBound(45, 50)).toBeCloseTo(1.1539, 4);
+      expect(oeUpperBound(45, 50)).toBeGreaterThan(1); // no depletion is compatible
+      expect(mdx).toContain('[34.563,\\; 57.695]');
+      expect(mdx).toContain('\\frac{57.695}{50} = 1.1539');
+    });
+  });
+
+  describe('exercise 2 — the same gene, a different exon', () => {
+    it('gives pext 0.925 and a 12.33-fold contrast', () => {
+      const hi = (12.0 + 6.5) / 20.0;
+      const lo = (1.2 + 0.3) / 20.0;
+      expect(hi).toBeCloseTo(0.925, 12);
+      expect(hi / lo).toBeCloseTo(12.33, 2);
+      expect(mdx).toContain('\\frac{18.5}{20.0} = 0.925');
+      expect(mdx).toContain('\\frac{0.925}{0.075} = 12.33');
+    });
+  });
+
+  describe('exercise 3 — how much gene do you need', () => {
+    it('reaches 8.56 from the closed-form bound', () => {
+      expect(-Math.log(0.05)).toBeCloseTo(2.996, 3);
+      expect(-Math.log(0.05) / 0.35).toBeCloseTo(8.56, 2);
+      expect(mdx).toContain('-\\ln(0.05) = 2.996');
+    });
+
+    it('agrees with the cohort-growth factor the solution quotes', () => {
+      expect(807_162 / 141_456).toBeCloseTo(5.7, 1); // "roughly a factor of six"
+      expect(mdx).toContain('141,456 to 807,162');
+    });
+  });
+});

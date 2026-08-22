@@ -1,0 +1,396 @@
+---
+title: "Gene Constraint: Reading Selection Out of What Is Missing"
+shortTitle: Constraint & Intolerance
+description: "LOEUF, pLI, missense z, pext, CCR and s_het — how a mutational model turns an absence of variants into a measure of selection, why LOEUF is an upper bound rather than a ratio, and why short genes cannot be called constrained however perfectly they are observed."
+abstract: "Constraint metrics answer a question no disease cohort can: is losing one copy of this gene tolerable, judged from healthy people alone. The method is an absence argument — predict how many loss-of-function variants a gene should carry under neutrality, count how many it actually carries, and attribute the shortfall to selection. This page builds that expectation, shows why gnomAD publishes a confidence bound rather than the ratio itself, and quantifies the power floor that makes the metric unusable for short genes."
+date: 2026-08-21
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d03-constraint
+moduleLabel: Genomic Data · Layer 3
+order: 3
+level: intermediate
+objectives:
+  - "Explain how a mutational model produces an expected variant count, and what it must correct for."
+  - "Compute LOEUF from observed and expected loss-of-function counts, and say why it is a bound rather than a ratio."
+  - "Show why two genes with the same observed/expected ratio get different LOEUF values."
+  - "Determine the minimum gene size at which a constrained call is even possible, and explain what that means for short genes."
+  - "Distinguish gene-level, sub-genic and transcript-level constraint, and say which question each answers."
+prerequisites:
+  - data-population-frequency
+referenceIds:
+  - samocha2014
+  - lek2016exac
+  - karczewski2020
+  - cassa2017shet
+  - havrilla2019ccr
+  - collins2020sv
+  - cummings2020pext
+  - rehm2015clingen
+  - chen2024constraint
+  - zeng2024shet
+tags: [LOEUF, pLI, constraint, selection, pext, structural variation, gnomAD]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+A candidate gene has no entry in OMIM, no ClinVar submissions and no published disease
+association. Is losing one copy of it likely to matter?
+
+Every clinical resource is silent, because they record what has been *observed in patients*.
+Constraint answers the question from healthy people alone — and it is often the only evidence
+available for a gene nobody has studied.
+
+<Callout variant="intuition">
+Constraint is an argument from absence, and it works the way an inventory does.
+
+Predict how many loss-of-function variants a gene should be carrying if nothing were removing
+them — from its length, its sequence context and how well it was sequenced. Then count how
+many are actually there. Whatever is missing was removed by selection, which means the people
+who carried it had fewer children. That is what "this gene matters" means, measured without
+a single patient.
+
+The catch is entirely in the word *should*. The whole method is the quality of the
+expectation, and the whole difficulty is that a shortfall you cannot measure precisely is
+indistinguishable from no shortfall at all.
+</Callout>
+
+<DatasetTable layer="constraint-intolerance" caption="Constraint and intolerance resources" />
+
+<Notation
+  rows={[
+    { symbol: 'O', meaning: 'Observed count of a variant class in the gene', dims: 'count' },
+    { symbol: 'E', meaning: 'Expected count under the mutational model, absent selection', dims: 'count (non-integer)' },
+    { symbol: 'O/E', meaning: 'Depletion ratio; 1 means no depletion, 0 means total', dims: 'in [0, ∞)' },
+    { symbol: '\\text{LOEUF}', meaning: 'Upper bound of the 90% CI on O/E for loss of function', dims: 'in (0, ∞); lower = more constrained' },
+    { symbol: '\\text{pLI}', meaning: 'Posterior probability a gene is LoF-intolerant under a three-class model', dims: 'in [0,1]' },
+    { symbol: 'z_{\\text{mis}}', meaning: 'Standardised missense depletion', dims: 'standard deviations' },
+    { symbol: '\\text{pext}', meaning: 'Proportion of a gene’s expression from transcripts containing the base', dims: 'in [0,1]' },
+    { symbol: 's_{\\text{het}}', meaning: 'Fitness cost of losing one copy', dims: 'in [0,1]; selection coefficient' },
+  ]}
+/>
+
+## Building the expectation
+
+The observed count is a lookup. The expected count is a model, and it has to survive three
+things that would otherwise masquerade as selection.
+
+**Sequence context.** Mutation rates are not uniform. CpG dinucleotides deaminate roughly an
+order of magnitude faster than other contexts, so a gene rich in them should carry more
+variants — and would look unconstrained by comparison if that were ignored. The standard model
+estimates a rate per trinucleotide context from intergenic sequence
+<Citation id="samocha2014" />.
+
+**Coverage.** A region that was poorly sequenced yields few variants for a reason that has
+nothing to do with fitness. gnomAD's expectation is corrected for observed depth, and the
+correction is why the metric can be computed at all on exome data with uneven capture
+<Citation id="karczewski2020" />.
+
+**Which transcript.** Expected counts are computed against one transcript, so the metric
+inherits the transcript-choice problem from the previous layer: a "loss-of-function" variant
+is only loss-of-function relative to a chosen isoform.
+
+<Callout variant="warning" title="Constraint measures fitness, not importance">
+The shortfall is caused by selection acting on carriers *before they finish reproducing*.
+That makes constraint a measure of reproductive fitness cost, not of biological importance or
+clinical severity.
+
+Genes underlying late-onset disease are frequently unconstrained — selection cannot see a
+phenotype that appears after reproduction. So is anything whose loss is recessive: a
+heterozygous carrier is unaffected, so heterozygous LoF variants are not removed, and the
+gene looks tolerant while homozygous loss is lethal.
+
+A high LOEUF is therefore not evidence that a gene is unimportant. It is evidence that
+*heterozygous* loss did not reduce fitness, which is a much narrower claim than it is usually
+read as.
+</Callout>
+
+## From a ratio to a bound
+
+<WorkedExample
+  title="Two genes, the same depletion, different answers"
+  given={[
+    { label: 'Gene A', value: 'observed 3 LoF, expected 25.3' },
+    { label: 'Gene B', value: 'observed 12 LoF, expected 100.0' },
+    { label: 'Confidence level', value: '90%' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the point estimates, which agree.**
+
+$$
+\text{O/E}_A = \frac{3}{25.3} = 0.1186, \qquad \text{O/E}_B = \frac{12}{100.0} = 0.1200
+$$
+
+Both genes are carrying about an eighth of the loss-of-function variation they should. On the
+ratio alone there is nothing to choose between them.
+
+**Step 2 — bound the observed count.** Variant counts are Poisson, so a 90% interval on the
+count comes from the chi-squared quantiles:
+
+$$
+O_A = 3 \;\Rightarrow\; [0.818,\; 7.754], \qquad O_B = 12 \;\Rightarrow\; [6.924,\; 19.443]
+$$
+
+**Step 3 — divide by the expectation.** LOEUF is the *upper* end of that interval expressed as
+a ratio:
+
+$$
+\text{LOEUF}_A = \frac{7.754}{25.3} = 0.3065, \qquad
+\text{LOEUF}_B = \frac{19.443}{100.0} = 0.1944
+$$
+
+**Step 4 — read the difference.** Identical depletion, and gene B scores substantially more
+constrained. Nothing about gene B's biology is stronger; there is simply more evidence. Three
+observations are compatible with a true ratio as high as 0.31, and twelve are not.
+
+This is the whole reason gnomAD publishes the bound instead of the ratio. A ratio invites you
+to rank genes by depletion; the bound forces you to rank them by *demonstrated* depletion,
+and a short gene has less to demonstrate with.
+
+**Step 5 — and it is directional.** LOEUF is conservative in exactly one direction. A low
+LOEUF is strong evidence of constraint. A high LOEUF is weak evidence of tolerance, because it
+is equally consistent with a small gene nobody could measure.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. LOEUF has a floor set by gene size. With zero loss-of-function variants observed, the 90% Poisson upper bound is 2.996, so the lowest LOEUF a gene can reach is 2.996 divided by its expected count. Below 8.56 expected variants that floor sits above 0.35 and no gene can enter the constrained bin however perfectly it is observed. The marked genes are the worked example and the exercises."
+  alt="A log-linear plot of LOEUF against expected loss-of-function count. A hyperbolic floor curve falls from 2.0 at about 1.5 expected variants to near zero at 300, crossing a dashed threshold line at LOEUF 0.35 where the expected count is 8.56. Three marked points show genes with 0 of 2.1, 3 of 25.3, and 12 of 100 observed."
+>
+  <svg viewBox="0 0 640 300" width="640" height="300" font-family="inherit"><line x1="78.0" y1="30.0" x2="78.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="78.0" y1="246.0" x2="606.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="78.0" y1="246.0" x2="606.0" y2="246.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="250.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="78.0" y1="192.0" x2="606.0" y2="192.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="196.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.5</text><line x1="78.0" y1="138.0" x2="606.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="142.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.0</text><line x1="78.0" y1="84.0" x2="606.0" y2="84.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="88.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.5</text><line x1="78.0" y1="30.0" x2="606.0" y2="30.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="70.0" y="34.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">2.0</text><line x1="106.7" y1="246.0" x2="106.7" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="106.7" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="198.0" y1="246.0" x2="198.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="198.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="267.1" y1="246.0" x2="267.1" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="267.1" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="376.5" y1="246.0" x2="376.5" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="376.5" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">30</text><line x1="496.5" y1="246.0" x2="496.5" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="496.5" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="606.0" y1="246.0" x2="606.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="606.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">300</text><line x1="78.0" y1="208.2" x2="606.0" y2="208.2" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="602.0" y="201.2" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">LOEUF = 0.35, the constrained bin</text><path d="M78.0,30.3 L81.3,37.3 L84.6,44.1 L87.9,50.7 L91.2,57.1 L94.5,63.2 L97.8,69.2 L101.1,74.9 L104.4,80.5 L107.7,85.9 L111.0,91.1 L114.3,96.2 L117.6,101.0 L120.9,105.8 L124.2,110.3 L127.5,114.7 L130.8,119.0 L134.1,123.2 L137.4,127.2 L140.7,131.0 L144.0,134.8 L147.3,138.4 L150.6,141.9 L153.9,145.3 L157.2,148.6 L160.5,151.7 L163.8,154.8 L167.1,157.8 L170.4,160.7 L173.7,163.4 L177.0,166.1 L180.3,168.7 L183.6,171.2 L186.9,173.7 L190.2,176.0 L193.5,178.3 L196.8,180.5 L200.1,182.7 L203.4,184.7 L206.7,186.7 L210.0,188.6 L213.3,190.5 L216.6,192.3 L219.9,194.1 L223.2,195.8 L226.5,197.4 L229.8,199.0 L233.1,200.5 L236.4,202.0 L239.7,203.4 L243.0,204.8 L246.3,206.2 L249.6,207.5 L252.9,208.7 L256.2,209.9 L259.5,211.1 L262.8,212.2 L266.1,213.3 L269.4,214.4 L272.7,215.4 L276.0,216.4 L279.3,217.4 L282.6,218.3 L285.9,219.2 L289.2,220.1 L292.5,220.9 L295.8,221.8 L299.1,222.5 L302.4,223.3 L305.7,224.0 L309.0,224.8 L312.3,225.5 L315.6,226.1 L318.9,226.8 L322.2,227.4 L325.5,228.0 L328.8,228.6 L332.1,229.2 L335.4,229.7 L338.7,230.2 L342.0,230.7 L345.3,231.2 L348.6,231.7 L351.9,232.2 L355.2,232.6 L358.5,233.1 L361.8,233.5 L365.1,233.9 L368.4,234.3 L371.7,234.7 L375.0,235.0 L378.3,235.4 L381.6,235.7 L384.9,236.1 L388.2,236.4 L391.5,236.7 L394.8,237.0 L398.1,237.3 L401.4,237.6 L404.7,237.9 L408.0,238.1 L411.3,238.4 L414.6,238.6 L417.9,238.9 L421.2,239.1 L424.5,239.3 L427.8,239.6 L431.1,239.8 L434.4,240.0 L437.7,240.2 L441.0,240.4 L444.3,240.5 L447.6,240.7 L450.9,240.9 L454.2,241.1 L457.5,241.2 L460.8,241.4 L464.1,241.5 L467.4,241.7 L470.7,241.8 L474.0,241.9 L477.3,242.1 L480.6,242.2 L483.9,242.3 L487.2,242.4 L490.5,242.6 L493.8,242.7 L497.1,242.8 L500.4,242.9 L503.7,243.0 L507.0,243.1 L510.3,243.2 L513.6,243.3 L516.9,243.4 L520.2,243.4 L523.5,243.5 L526.8,243.6 L530.1,243.7 L533.4,243.8 L536.7,243.8 L540.0,243.9 L543.3,244.0 L546.6,244.0 L549.9,244.1 L553.2,244.2 L556.5,244.2 L559.8,244.3 L563.1,244.3 L566.4,244.4 L569.7,244.4 L573.0,244.5 L576.3,244.5 L579.6,244.6 L582.9,244.6 L586.2,244.7 L589.5,244.7 L592.8,244.8 L596.1,244.8 L599.4,244.8 L602.7,244.9 L606.0,244.9" fill="none" stroke="currentColor" stroke-width="2"/><text x="159.5" y="142.8" font-size="11" fill="currentColor" opacity=".85">floor: zero LoF observed</text><line x1="251.6" y1="208.2" x2="251.6" y2="246.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="3 3"/><circle cx="251.6" cy="208.2" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="259.6" y="224.2" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">8.56 expected — below this, no gene can reach the bin</text><circle cx="111.5" cy="91.9" r="4.0" fill="currentColor"/><text x="119.5" y="101.9" font-size="10.5" fill="currentColor" text-anchor="start" opacity=".85">obs 0 of 2.1 expected</text><circle cx="359.6" cy="212.9" r="4.0" fill="currentColor"/><text x="359.6" y="200.9" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".85">obs 3 of 25.3</text><circle cx="496.5" cy="225.0" r="4.0" fill="currentColor"/><text x="496.5" y="213.0" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".85">obs 12 of 100</text><text x="342.0" y="286.0" font-size="12" fill="currentColor" text-anchor="middle">Expected LoF variants in the gene (log scale)</text><text x="18.0" y="138.0" font-size="12" fill="currentColor" text-anchor="middle" transform="rotate(-90 18 138)">LOEUF</text><text x="342.0" y="18.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">The area under the curve is unreachable: no gene of that size can score there</text></svg>
+</Figure>
+
+<Callout variant="key" title="A short gene cannot be called constrained">
+Set the observed count to zero — the most extreme depletion available — and the Poisson upper
+bound collapses to a constant, $\tfrac{1}{2}\chi^2_{0.95,\,2} = 2.996$. So the best LOEUF a
+gene can possibly achieve is
+
+$$
+\text{LOEUF}_{\min} = \frac{2.996}{E}
+$$
+
+which depends on nothing but the gene's size and sequence. For that floor to fall below the
+conventional 0.35 threshold requires $E > 8.56$ expected variants. A gene below that is not
+"unconstrained" — it is **unmeasured**, and the metric has no way to say so.
+
+This is the same distinction as the previous layer's: a bound near zero excludes; a bound far
+from zero establishes nothing. It bites hardest on short genes, single-exon genes and genes in
+poorly covered regions, which is a systematic bias rather than random noise.
+</Callout>
+
+## pLI, and why LOEUF replaced it
+
+**pLI** came first <Citation id="lek2016exac" />: the posterior probability that a gene belongs
+to a "LoF-intolerant" class in a three-class mixture, and the field settled on
+$\text{pLI} > 0.9$ as the cut. It worked, and it had two problems that LOEUF exists to fix.
+
+It is a **classification**, so it is bimodal — most genes sit near 0 or near 1 and the middle
+is nearly empty, which destroys any ability to rank. And being a posterior, it also absorbs
+statistical power, but silently: a short gene gets a low pLI for want of evidence and looks
+exactly like a gene shown to be tolerant.
+
+LOEUF is continuous, so genes can be ranked and binned, and its dependence on power is on the
+face of the number rather than hidden inside it <Citation id="karczewski2020" />. gnomAD v4
+recomputes both on the larger call set <Citation id="chen2024constraint" />; **<Dataset
+id="gnomad-constraint" version />** ships them together.
+
+## Constraint below the whole gene
+
+Averaging over a gene hides structure. Three resources look underneath it.
+
+**<Dataset id="ccr" />** ranks stretches of coding sequence by how depleted of
+protein-changing variation they are, without reference to gene boundaries
+<Citation id="havrilla2019ccr" />. A tolerant gene can contain an intolerant domain, and the
+whole-gene average erases exactly the region a variant is likely to matter in.
+
+**pext** asks a different question: is this base even in the transcripts the tissue expresses?
+<Citation id="cummings2020pext" /> An exon present in a minority isoform can carry a confident
+"stop gained" annotation while contributing almost nothing to the gene's actual output.
+
+<WorkedExample
+  title="A confident annotation against almost no expression"
+  given={[
+    { label: 'Transcript 1 (MANE)', value: '12.0 TPM — exon absent' },
+    { label: 'Transcript 2', value: '6.5 TPM — exon absent' },
+    { label: 'Transcript 3', value: '1.2 TPM — exon present' },
+    { label: 'Transcript 4', value: '0.3 TPM — exon present' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+A stop-gained variant falls in an exon carried by only two of the gene's four transcripts.
+
+**Step 1 — total expression.**
+
+$$
+12.0 + 6.5 + 1.2 + 0.3 = 20.0 \text{ TPM}
+$$
+
+**Step 2 — expression that actually contains the base.**
+
+$$
+1.2 + 0.3 = 1.5 \text{ TPM}
+$$
+
+**Step 3 — the proportion.**
+
+$$
+\text{pext} = \frac{1.5}{20.0} = 0.075
+$$
+
+**Step 4 — read it.** The annotation is not wrong: in transcripts 3 and 4 this really is a
+premature stop. But **92.5%** of the gene's transcript output in this tissue does not contain
+the exon at all, so the variant truncates a small minority of the protein produced. A pipeline
+that annotates against the MANE transcript alone would not have flagged it; one that annotates
+against every transcript flags it at full strength. Neither is calibrated. pext is what puts a
+number on the difference.
+
+</WorkedExample>
+
+## Beyond depletion, and beyond point mutations
+
+**$s_{\text{het}}$** estimates the fitness cost of losing one copy directly, as a
+population-genetic parameter, rather than reporting a depletion statistic
+<Citation id="cassa2017shet" />. Recent estimates place a prior over genes using gene features,
+which stabilises the estimate for exactly the short genes LOEUF cannot measure
+<Citation id="zeng2024shet" />. **<Dataset id="shet" />** publishes them per gene.
+
+The advantage is that a selection coefficient means the same thing regardless of gene length,
+so genes become comparable in a way LOEUF's power-dependence prevents. The cost is a model
+with more assumptions in it.
+
+**<Dataset id="gnomad-sv" version />** covers what none of the above can see: deletions,
+duplications, inversions and complex rearrangements <Citation id="collins2020sv" />. Two
+things to carry across from it — SV frequencies come from a *separate* callset with its own
+resolution limits, so absence is much weaker evidence than for SNVs; and whether losing or
+gaining a copy of a gene causes disease is curated separately by ClinGen's dosage-sensitivity
+map <Citation id="rehm2015clingen" />, which the clinical layer covers.
+
+## Exercises
+
+<Exercise n={1} title="A gene that tolerates loss" difficulty="warm-up">
+
+A gene carries 45 observed loss-of-function variants against 50 expected. The 90% Poisson
+interval on 45 is $[34.563,\; 57.695]$. Compute O/E and LOEUF, and say what they support.
+
+<div slot="solution">
+
+$$
+\text{O/E} = \frac{45}{50} = 0.90, \qquad
+\text{LOEUF} = \frac{57.695}{50} = 1.1539
+$$
+
+The gene carries essentially the loss-of-function variation the model predicts, and the bound
+sits above 1 — so even the *most* constrained value compatible with the data is no depletion at
+all. This is a well-powered null result, and it is the one case where a high LOEUF genuinely
+supports tolerance rather than merely failing to demonstrate constraint.
+
+Note the difference from a short gene with the same LOEUF: there the bound is high because
+$E$ is small, here it is high because $O$ really is close to $E$. The number is the same and
+the evidence is not, which is why the expected count should always be read alongside it.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="The same gene, a different exon" difficulty="core">
+
+Using the transcript expression from the worked example — 12.0, 6.5, 1.2 and 0.3 TPM — a
+second stop-gained variant falls in an exon carried by transcripts 1 and 2 but not 3 and 4.
+What is its pext, and how should the two variants be treated differently?
+
+<div slot="solution">
+
+$$
+\text{pext} = \frac{12.0 + 6.5}{20.0} = \frac{18.5}{20.0} = 0.925
+$$
+
+Against $0.075$ for the first variant: the same gene, the same consequence annotation, and a
+twelve-fold difference in how much of the gene's output is affected.
+
+$$
+\frac{0.925}{0.075} = 12.33
+$$
+
+The second variant truncates almost everything the gene makes in this tissue; the first
+truncates a minority isoform. Treating them as equivalent because both are annotated
+"stop gained" discards the distinction that matters most for predicting a phenotype.
+
+The caveat worth keeping: pext is computed per tissue, and a variant with low pext in one
+tissue can have high pext in another. A single genome-wide pext value has already averaged
+away the thing you were asking about.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="How much gene do you need?" difficulty="stretch">
+
+With zero observed loss-of-function variants, what is the smallest expected count at which a
+gene can reach $\text{LOEUF} < 0.35$? What follows for genes below that, and why is the
+problem not fixed by sequencing more people?
+
+<div slot="solution">
+
+With $O = 0$ the Poisson upper bound is a constant:
+
+$$
+\tfrac{1}{2}\chi^2_{0.95,\,2} = -\ln(0.05) = 2.996
+$$
+
+Setting the resulting LOEUF at the threshold:
+
+$$
+\frac{2.996}{E} < 0.35
+\quad\Longrightarrow\quad
+E > \frac{2.996}{0.35} = 8.56
+$$
+
+So a gene needs at least about **8.6 expected loss-of-function variants** before a constrained
+call is arithmetically possible. Below that, the metric returns a high LOEUF for every gene
+regardless of biology, and the value carries no information about selection whatsoever.
+
+**Why more sequencing does help, and only slowly.** $E$ scales with cohort size, so the floor
+does fall — doubling the cohort roughly doubles $E$ and halves $\text{LOEUF}_{\min}$. But the
+genes that fail the test are short ones, and shortness is a fixed property: a gene with a tenth
+the coding sequence needs a tenfold larger cohort to reach the same expected count. gnomAD's
+growth from 141,456 to 807,162 exomes bought roughly a factor of six, which moves the boundary
+but does not remove it.
+
+The deeper point is that the floor is a property of the *estimator*, not of the data. This is
+what motivates $s_{\text{het}}$-style approaches: putting a prior over genes borrows strength
+across them, and gives a short gene an estimate rather than a shrug.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Constraint is an absence argument.** Predict the loss-of-function variants a gene should
+  carry under neutrality, count what is there, and attribute the shortfall to selection. The
+  method is only as good as the expectation, which must correct for trinucleotide mutation
+  rate, sequencing coverage and the choice of transcript.
+- **It measures fitness cost, not importance.** Late-onset and recessive genes are routinely
+  unconstrained; a high LOEUF says heterozygous loss did not reduce reproductive success, and
+  nothing more.
+- **LOEUF is a bound, not a ratio, and that is the point.** Two genes at O/E ≈ 0.12 scored
+  0.3065 and 0.1944 purely because one had four times the evidence. Ranking by bound ranks by
+  demonstrated depletion.
+- **The metric has a hard floor at 2.996/E.** Below 8.56 expected variants, no gene can reach
+  the constrained bin however perfectly it is observed — so a high LOEUF on a short gene means
+  *unmeasured*, not *tolerant*.
+- **Look below the gene when the gene-level number is uninformative.** CCR finds intolerant
+  regions inside tolerant genes; pext asks whether the affected exon is even expressed, and
+  separated two identically annotated stop-gained variants by a factor of 12.3.
+- **$s_{\text{het}}$ and gnomAD-SV cover what LOEUF cannot** — a length-independent scale, and
+  the structural variation that point-mutation constraint never sees.

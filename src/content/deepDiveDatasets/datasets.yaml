@@ -228,3 +228,61 @@ zoonomia:
     Deep enough phylogeny to resolve constraint at single-base resolution, which shallower
     alignments cannot do.
   verified: 2026-08-21
+
+# ── Layer 3 · Gene constraint and intolerance ─────────────────────────────────
+
+gnomad-constraint:
+  name: gnomAD constraint
+  fullName: gnomAD gene constraint metrics
+  layer: constraint-intolerance
+  url: https://gnomad.broadinstitute.org/downloads#v4-constraint
+  version: v4.1
+  scale: "Per-transcript observed/expected counts for LoF, missense and synonymous variation"
+  access: open
+  citationId: chen2024constraint
+  note: >-
+    Ships LOEUF, pLI, missense z and pext as a single table keyed by transcript. The
+    per-transcript keying matters: constraint is computed against one transcript, so it
+    inherits the transcript-choice problem from Layer 1.
+  verified: 2026-08-21
+
+gnomad-sv:
+  name: gnomAD-SV
+  fullName: gnomAD structural variation callset
+  layer: constraint-intolerance
+  url: https://gnomad.broadinstitute.org/downloads#v4-structural-variants
+  version: v4.1
+  scale: "Deletions, duplications, insertions, inversions and complex events with population frequencies"
+  access: open
+  citationId: collins2020sv
+  note: >-
+    A separate callset from the SNV data, with its own frequencies and its own resolution
+    limits. Absence of an SV here is much weaker evidence than absence of an SNV.
+  verified: 2026-08-21
+
+ccr:
+  name: CCR
+  fullName: Constrained Coding Regions
+  layer: constraint-intolerance
+  url: https://s3.us-east-2.amazonaws.com/ccrs/ccr.html
+  scale: "Sub-genic regions of coding sequence depleted of protein-changing variation, percentile-ranked"
+  access: open
+  citationId: havrilla2019ccr
+  note: >-
+    Constraint below the gene level. A gene can be tolerant overall while containing a
+    short stretch that is not, which whole-gene metrics average away.
+  verified: 2026-08-21
+
+shet:
+  name: s_het
+  fullName: Heterozygous selection coefficient estimates
+  layer: constraint-intolerance
+  url: https://github.com/tkzeng/GeneBayes
+  scale: "Per-gene posterior estimates of the fitness cost of losing one copy"
+  access: open
+  citationId: zeng2024shet
+  note: >-
+    Estimates a population-genetic parameter rather than a depletion statistic, so it is
+    on a scale that means the same thing for a short gene as for a long one — which is
+    exactly what LOEUF cannot offer.
+  verified: 2026-08-21

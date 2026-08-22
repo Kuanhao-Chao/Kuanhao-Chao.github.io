@@ -519,3 +519,53 @@ sherry2001dbsnp:
   venue: "Nucleic Acids Research 29:308-311"
   doi: https://doi.org/10.1093/nar/29.1.308
   verified: 2026-08-21
+
+# ── Layer 3 · Gene constraint and intolerance ─────────────────────────────────
+
+samocha2014:
+  authors: ['Kaitlin E Samocha', 'Elise B Robinson', 'Stephan J Sanders', 'et al.']
+  year: 2014
+  title: "A framework for the interpretation of de novo mutation in human disease"
+  venue: "Nature Genetics 46:944-950"
+  doi: https://doi.org/10.1038/ng.3050
+  verified: 2026-08-21
+
+cassa2017shet:
+  authors: ['Christopher A Cassa', 'Donate Weghorn', 'Daniel J Balick', 'et al.']
+  year: 2017
+  title: "Estimating the selective effects of heterozygous protein-truncating variants from human exome data"
+  venue: "Nature Genetics 49:806-810"
+  doi: https://doi.org/10.1038/ng.3831
+  verified: 2026-08-21
+
+havrilla2019ccr:
+  authors: ['James M. Havrilla', 'Brent S. Pedersen', 'Ryan M. Layer', 'Aaron R. Quinlan']
+  year: 2018
+  title: "A map of constrained coding regions in the human genome"
+  venue: "Nature Genetics 51:88-95"
+  doi: https://doi.org/10.1038/s41588-018-0294-6
+  verified: 2026-08-21
+
+collins2020sv:
+  authors: ['Ryan L. Collins', 'Harrison Brand', 'Konrad J. Karczewski', 'et al.']
+  year: 2020
+  title: "A structural variation reference for medical and population genetics"
+  venue: "Nature 581:444-451"
+  doi: https://doi.org/10.1038/s41586-020-2287-8
+  verified: 2026-08-21
+
+cummings2020pext:
+  authors: ['Beryl B. Cummings', 'Konrad J. Karczewski', 'Jack A. Kosmicki', 'et al.']
+  year: 2020
+  title: "Transcript expression-aware annotation improves rare variant interpretation"
+  venue: "Nature 581:452-458"
+  doi: https://doi.org/10.1038/s41586-020-2329-2
+  verified: 2026-08-21
+
+zeng2024shet:
+  authors: ['Tony Zeng', 'Jeffrey P. Spence', 'Hakhamanesh Mostafavi', 'Jonathan K. Pritchard']
+  year: 2024
+  title: "Bayesian estimation of gene constraint from an evolutionary model with gene features"
+  venue: "Nature Genetics 56:1632-1643"
+  doi: https://doi.org/10.1038/s41588-024-01820-9
+  verified: 2026-08-21
