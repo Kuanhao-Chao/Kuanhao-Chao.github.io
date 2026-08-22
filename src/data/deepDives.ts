@@ -86,6 +86,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'data-population-frequency',
   'data-constraint-intolerance',
   'data-variant-effect-scores',
+  'data-mave-assays',
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',

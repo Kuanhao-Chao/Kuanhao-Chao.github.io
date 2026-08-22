@@ -966,3 +966,130 @@ describe('data-variant-effect-scores', () => {
     });
   });
 });
+
+describe('data-mave-assays', () => {
+  const mdx = lesson('data-mave-assays');
+  const Z2 = 1.959963984540054 ** 2;
+
+  describe('worked example — calibrating an assay against its controls', () => {
+    const LR = likelihoodRatioPositive(36 / 40, 6 / 60);
+
+    it('gives OddsPath 9.00 from the two control rates', () => {
+      expect(36 / 40).toBeCloseTo(0.9, 12);
+      expect(6 / 60).toBeCloseTo(0.1, 12);
+      expect(LR).toBeCloseTo(9, 12);
+      expect(mdx).toContain('\\frac{36}{40} = 0.90');
+      expect(mdx).toContain('\\frac{6}{60} = 0.10');
+      expect(mdx).toContain('\\frac{0.90}{0.10} = 9.00');
+    });
+
+    it('is 3.0007 points, which attains moderate and not strong', () => {
+      expect(oddsPathPoints(LR)).toBeCloseTo(3.0007, 4);
+      expect(oddsPathStrength(LR)).toBe('moderate');
+      expect(oddsPathPoints(LR)).toBeGreaterThanOrEqual(2);
+      expect(oddsPathPoints(LR)).toBeLessThan(4);
+      expect(mdx).toContain('\\ln 350} = 3.0007');
+    });
+  });
+
+  describe('a perfect record on a small control set', () => {
+    it('bounds a zero observation by the Wilson upper bound, not by zero', () => {
+      const upper = wilsonInterval(0, 10, 0.95).upper;
+      expect(upper).toBeCloseTo(0.2775, 4);
+      // The closed form the prose quotes, derived independently. Tolerance is 1e-8 rather
+      // than exact because `normalQuantile` is a rational approximation: it returns
+      // 1.959963986 where the true z(0.975) is 1.959963985, a 1.6e-9 discrepancy that
+      // propagates here. That is the module's precision, not an error in either formula.
+      expect(upper).toBeCloseTo(Z2 / (10 + Z2), 8);
+      expect(mdx).toContain('\\frac{3.8415}{10 + 3.8415} = 0.2775');
+    });
+
+    it('turns an apparently infinite ratio into supporting', () => {
+      const LR = 0.9 / wilsonInterval(0, 10, 0.95).upper;
+      expect(LR).toBeCloseTo(3.2429, 4);
+      expect(oddsPathPoints(LR)).toBeCloseTo(1.6066, 4);
+      expect(oddsPathStrength(LR)).toBe('supporting');
+      expect(mdx).toContain('\\frac{0.90}{0.2775} = 3.2429');
+      expect(mdx).toContain('1.6066 points');
+    });
+  });
+
+  describe('figure 1 — what each tier costs in controls', () => {
+    // The curve is TPR (n + z^2) / z^2; the marked crossings are the smallest integer n
+    // at which it reaches each tier. Recomputed here from the tier definitions.
+    const bound = (n: number) => (0.9 * (n + Z2)) / Z2;
+    const smallestN = (lr: number) => Math.ceil(Z2 / (0.9 / lr) - Z2);
+
+    it('marks each tier at the control count the bound actually reaches it', () => {
+      const expected: [Parameters<typeof oddsPathFor>[0], number][] = [
+        ['supporting', 6], ['moderate', 15], ['strong', 77], ['very-strong', 1491],
+      ];
+      for (const [tier, n] of expected) {
+        expect(smallestN(oddsPathFor(tier))).toBe(n);
+        expect(bound(n)).toBeGreaterThanOrEqual(oddsPathFor(tier));
+        expect(bound(n - 1)).toBeLessThan(oddsPathFor(tier)); // and n is the *smallest*
+      }
+      for (const label of ['supporting — LR 2.08', 'moderate — LR 4.325',
+                           'strong — LR 18.71', 'very strong — LR 350']) {
+        expect(mdx).toContain(label);
+      }
+    });
+
+    it('agrees with the Wilson interval it is derived from', () => {
+      // Relative, not absolute: the bound reaches ~350 at n = 1491, where the module's
+      // 1.6e-9 quantile error becomes ~6e-7 in absolute terms. Comparing ratios keeps the
+      // assertion about agreement rather than about magnitude.
+      for (const n of [6, 15, 77, 1491]) {
+        expect(bound(n) / (0.9 / wilsonInterval(0, n, 0.95).upper)).toBeCloseTo(1, 8);
+      }
+    });
+  });
+
+  describe('exercise 1 — close to strong, and not strong', () => {
+    it('gives OddsPath 15 and stays moderate', () => {
+      const LR = likelihoodRatioPositive(45 / 50, 3 / 50);
+      expect(LR).toBeCloseTo(15, 12);
+      expect(oddsPathPoints(LR)).toBeCloseTo(3.6983, 4);
+      expect(oddsPathStrength(LR)).toBe('moderate');
+      expect(mdx).toContain('\\frac{3}{50} = 0.06');
+      expect(mdx).toContain('= 3.6983');
+    });
+  });
+
+  describe('exercise 2 — how many controls buy strong', () => {
+    it('needs 77, and 76 is not enough', () => {
+      const need = 0.9 / oddsPathFor('strong');
+      expect(need).toBeCloseTo(0.048107, 6);
+      expect(Z2 / need - Z2).toBeCloseTo(76.01, 2);
+      const at = (n: number) => 0.9 / wilsonInterval(0, n, 0.95).upper;
+      expect(at(76)).toBeCloseTo(18.7057, 4);
+      expect(at(77)).toBeCloseTo(18.94, 2);
+      expect(oddsPathStrength(at(76))).toBe('moderate');
+      expect(oddsPathStrength(at(77))).toBe('strong');
+      expect(mdx).toContain('\\frac{0.90}{18.7083} = 0.0481070');
+      expect(mdx).toContain('n_B \\ge 76.01');
+      expect(mdx).toContain('18.7057');
+      expect(mdx).toContain('18.9400');
+    });
+  });
+
+  describe('exercise 3 — why nobody claims very strong', () => {
+    it('needs 1,491 benign controls', () => {
+      const need = 0.9 / 350;
+      expect(need).toBeCloseTo(0.0025714, 7);
+      expect(Z2 / need - Z2).toBeCloseTo(1490.1, 1);
+      expect(Math.ceil(Z2 / need - Z2)).toBe(1491);
+      expect(oddsPathStrength(0.9 / wilsonInterval(0, 1491, 0.95).upper)).toBe('very-strong');
+      expect(mdx).toContain('\\frac{0.90}{350} = 0.0025714');
+      expect(mdx).toContain('= 1490.1');
+      expect(mdx).toContain('**1,491 benign controls**');
+    });
+
+    it('costs several times the controls of the tier below, at every step', () => {
+      const n = (t: Parameters<typeof oddsPathFor>[0]) => Math.ceil(Z2 / (0.9 / oddsPathFor(t)) - Z2);
+      expect(n('moderate') / n('supporting')).toBeGreaterThan(2);
+      expect(n('strong') / n('moderate')).toBeGreaterThan(4);
+      expect(n('very-strong') / n('strong')).toBeGreaterThan(19);
+    });
+  });
+});

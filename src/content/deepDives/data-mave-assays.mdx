@@ -1,0 +1,330 @@
+---
+title: "Multiplexed Assays: Measuring What a Variant Does, and What That Is Worth"
+shortTitle: MAVE Assays
+description: "MaveDB, deep mutational scanning, saturation genome editing, MPRA and SpliceVarDB — what a multiplexed assay measures, how a function score is calibrated to an ACMG evidence strength, and why the number of benign controls, not the cleanliness of the assay, is what bounds the evidence."
+abstract: "A multiplexed assay measures every possible variant in a region at once, which turns variant interpretation from a lookup into a measurement — including for variants no patient has ever presented with. Turning those scores into evidence needs the same conversion as a predictor: a likelihood ratio against known controls. This page shows that the bound on that ratio comes from the control set rather than the assay, and works out what each evidence tier actually costs in controls."
+date: 2026-08-21
+track: resource
+hub: genomic-data
+category: genomic-data
+moduleId: d04-function
+moduleLabel: Layer 4 · Function, Assays & Trait Maps
+order: 5
+level: advanced
+objectives:
+  - "Distinguish deep mutational scanning, saturation genome editing and MPRA by what each actually perturbs and reads out."
+  - "Calibrate a function score to an ACMG evidence strength from its performance on known controls."
+  - "Explain why a perfect record on a small control set does not license strong evidence."
+  - "Compute the number of benign controls each evidence tier requires."
+  - "Say what a saturating assay gives that a variant-by-variant study cannot."
+prerequisites:
+  - data-variant-effect-scores
+referenceIds:
+  - richards2015
+  - fowler2014dms
+  - starita2017
+  - findlay2018sge
+  - tavtigian2018
+  - esposito2019mavedb
+  - kircher2019mpra
+  - brnich2020
+  - sullivan2024splicevardb
+  - mcewen2025mave
+tags: [MaveDB, deep mutational scanning, saturation genome editing, MPRA, calibration, PS3]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Dataset from '../../components/deepdive/Dataset.astro';
+import DatasetTable from '../../components/deepdive/DatasetTable.astro';
+
+## The question this page answers
+
+The previous layer *predicted* what a variant does. This one *measures* it — and measures it
+for every possible variant in a region at once, including the ones no patient has ever
+presented with.
+
+That changes what variant interpretation is. A multiplexed assay does not answer "what do we
+know about this variant"; it answers "what did this variant do in this assay", which is a
+question with an answer even for a variant seen for the first time this morning.
+
+<Callout variant="intuition">
+The ordinary way to study a variant is to make it and test it — one variant, one experiment.
+A multiplexed assay inverts that: make **all** of them at once, mixed together in one pool,
+and use sequencing as the readout. Variants that damage the protein get depleted from the
+pool because their cells die or their transcripts vanish; variants that do not, do not. The
+score is a ratio of sequencing counts.
+
+The consequence is that the data arrives *before* the clinical question. Findlay's saturation
+scan of BRCA1 <Citation id="findlay2018sge" /> measured roughly four thousand variants; the
+overwhelming majority had never been seen in a patient at the time, and each of them now has
+a functional measurement waiting for the day one presents.
+
+The catch is that a score is not evidence until it is calibrated, and calibration is bounded
+by something most people do not look at: the number of *benign* controls the assay got right.
+</Callout>
+
+<DatasetTable layer="mave-assays" caption="Multiplexed assay resources" />
+
+<Notation
+  rows={[
+    { symbol: 's', meaning: 'Function score: log ratio of variant abundance after selection to before', dims: 'arbitrary, assay-specific' },
+    { symbol: '\\text{TPR}', meaning: 'Fraction of known pathogenic controls the assay calls abnormal', dims: 'in [0,1]' },
+    { symbol: '\\text{FPR}', meaning: 'Fraction of known benign controls the assay calls abnormal', dims: 'in [0,1]' },
+    { symbol: '\\text{OddsPath}', meaning: 'Odds of pathogenicity the assay result carries', dims: '> 0' },
+    { symbol: 'n_B', meaning: 'Number of benign controls in the calibration set', dims: 'count' },
+    { symbol: '\\text{PS3}/\\text{BS3}', meaning: 'The ACMG criteria for functional evidence, for and against', dims: 'a strength, not a score' },
+  ]}
+/>
+
+## Four ways to perturb, and what each one licenses
+
+The assays differ in what they perturb and where, and that decides what a score is evidence
+*about*.
+
+**Deep mutational scanning** <Citation id="fowler2014dms" /> expresses a library of variant
+proteins — usually from a plasmid, often in yeast or a human cell line — and selects on
+something the protein does: binding, stability, enzymatic activity, or the ability to rescue a
+growth defect. It is the broadest and cheapest approach, and its scores are about *the
+protein*, in the context the construct provides.
+
+**<Dataset id="brca1-sge" />** takes the harder route: edit the endogenous locus by
+homology-directed repair, so the variant sits in its own promoter, its own splicing context
+and its own chromatin <Citation id="findlay2018sge" />. That difference matters more than it
+sounds. A construct-based assay cannot see a variant that acts by disrupting splicing, because
+the construct has no introns; saturation genome editing can, and does.
+
+**<Dataset id="mpra-satmut" />** is the non-coding counterpart <Citation id="kircher2019mpra" />:
+thousands of candidate regulatory sequences, each driving a barcoded reporter, read out as
+transcript abundance. It establishes that a sequence *can* drive expression in the assayed cell
+type — which is not the same as establishing that it does so at its native locus, and the gap
+between those two claims is where most over-reading of MPRA happens.
+
+**<Dataset id="splicevardb" />** is not an assay but a truth set
+<Citation id="sullivan2024splicevardb" />: human splicing variants with published experimental
+validation, graded by how the validation was done. Its value is for calibrating splicing
+predictors rather than for looking variants up.
+
+**<Dataset id="mavedb" />** is where the score sets live <Citation id="esposito2019mavedb" />.
+It stores the target sequence, the scoring model and the raw counts alongside the scores, which
+is what makes a published assay *recalibratable* rather than merely readable — and recalibration
+is exactly what the rest of this page is about.
+
+<Callout variant="warning" title="An assay measures one function, in one context">
+A score of "normal" means the variant did not disturb *the thing this assay measured, in the
+cells it was measured in*. A protein with two separable functions assayed for one of them will
+return normal scores for variants that abolish the other.
+
+This is not hypothetical for BRCA1, whose RING and BRCT domains do different jobs, and it is
+why <Citation id="starita2017" /> argues that assay design — not assay quality — is the limiting
+factor in using functional data clinically. The corresponding review a decade on
+<Citation id="mcewen2025mave" /> makes the same point about the assays that have since become
+routine.
+
+Read a benign functional result as "not damaged in this respect", never as "not damaging".
+</Callout>
+
+## From a function score to an evidence strength
+
+The ACMG framework has one criterion for functional evidence, PS3 in favour and BS3 against
+<Citation id="richards2015" />. The calibration guidance <Citation id="brnich2020" /> makes the
+strength quantitative in the same currency as everything else
+<Citation id="tavtigian2018" />: run the assay on variants of known classification, and the
+observed likelihood ratio is the OddsPath.
+
+$$
+\text{OddsPath} \;=\; \frac{\text{fraction of pathogenic controls called abnormal}}{\text{fraction of benign controls called abnormal}}
+$$
+
+<WorkedExample
+  title="Calibrating an assay against its controls"
+  given={[
+    { label: 'Pathogenic controls', value: '40, of which 36 called abnormal' },
+    { label: 'Benign controls', value: '60, of which 6 called abnormal' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the two rates.**
+
+$$
+\text{TPR} = \frac{36}{40} = 0.90, \qquad \text{FPR} = \frac{6}{60} = 0.10
+$$
+
+**Step 2 — the odds of pathogenicity.**
+
+$$
+\text{OddsPath} = \frac{0.90}{0.10} = 9.00
+$$
+
+**Step 3 — the tier.**
+
+$$
+\text{points} = 8\,\frac{\ln 9.00}{\ln 350} = 3.0007
+$$
+
+Two points is moderate and four is strong, so 3.0007 points earns **moderate** — the tier it
+has attained, not the one it is closest to.
+
+**Step 4 — read what that means in practice.** An assay agreeing with 90% of known pathogenic
+variants and disagreeing with only 10% of known benign ones is a good assay, and it supplies
+PS3 at moderate strength. Getting to strong from here is not a matter of polishing the assay;
+it is a matter of the control set, which the next example shows.
+
+</WorkedExample>
+
+<Callout variant="key" title="A perfect record on a small control set proves very little">
+Suppose the assay misclassifies **none** of its benign controls. The naive likelihood ratio is
+then $0.90 / 0 = \infty$, which would be very strong evidence and more.
+
+It is not. An observed zero does not establish a rate of zero — it establishes an upper bound
+that depends entirely on how many controls there were. With ten benign controls and none
+misclassified, the 95% Wilson upper bound on the false-positive rate is
+
+$$
+\text{FPR}_{\text{upper}} = \frac{z^2}{n_B + z^2} = \frac{3.8415}{10 + 3.8415} = 0.2775
+$$
+
+so the largest defensible likelihood ratio is
+
+$$
+\frac{0.90}{0.2775} = 3.2429
+$$
+
+which is **1.6066 points — supporting**. From infinity to the weakest tier, on the same
+flawless assay, purely because ten is not many.
+
+This is the same argument as the population layer's: absence is evidence in proportion to how
+hard you looked. Here what you are counting is controls rather than chromosomes.
+</Callout>
+
+<Figure
+  caption="Figure 1. What each evidence tier costs in benign controls. The curve is the largest likelihood ratio an assay can defend when it misclassifies none of its benign controls — TPR times (n + z²) over z², from the Wilson bound. Reaching supporting takes 6 controls, moderate 15, strong 77, and very strong 1,491. The assay is identical along the whole curve; only the calibration set grows."
+  alt="A log-log plot of the largest defensible likelihood ratio against the number of correctly classified benign controls. The curve rises from about 2 at three controls to above 350 at three thousand. Four dashed horizontal lines mark the evidence tiers at 2.08, 4.33, 18.71 and 350, crossed at 6, 15, 77 and 1491 controls respectively."
+>
+  <svg viewBox="0 0 640 314" width="640" height="314" font-family="inherit"><line x1="80.0" y1="40.0" x2="80.0" y2="268.0" stroke="currentColor" stroke-width="1.25"/><line x1="80.0" y1="268.0" x2="596.0" y2="268.0" stroke="currentColor" stroke-width="1.25"/><line x1="80.0" y1="268.0" x2="596.0" y2="268.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="272.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="80.0" y1="192.0" x2="596.0" y2="192.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="196.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">10</text><line x1="80.0" y1="116.0" x2="596.0" y2="116.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="120.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">100</text><line x1="80.0" y1="40.0" x2="596.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="72.0" y="44.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1,000</text><line x1="80.0" y1="268.0" x2="80.0" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="80.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">3</text><line x1="169.9" y1="268.0" x2="169.9" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="169.9" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="252.0" y1="268.0" x2="252.0" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="252.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">30</text><line x1="341.9" y1="268.0" x2="341.9" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="341.9" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="424.0" y1="268.0" x2="424.0" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">300</text><line x1="513.9" y1="268.0" x2="513.9" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="513.9" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1k</text><line x1="596.0" y1="268.0" x2="596.0" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="596.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">3k</text><line x1="80.0" y1="243.8" x2="596.0" y2="243.8" stroke="var(--color-accent, #2e6e5e)" stroke-width="1" opacity=".45" stroke-dasharray="5 4"/><text x="86.0" y="238.8" font-size="9.5" fill="var(--color-accent, #2e6e5e)" opacity=".9">supporting — LR 2.08</text><line x1="80.0" y1="219.7" x2="596.0" y2="219.7" stroke="var(--color-accent, #2e6e5e)" stroke-width="1" opacity=".45" stroke-dasharray="5 4"/><text x="86.0" y="214.7" font-size="9.5" fill="var(--color-accent, #2e6e5e)" opacity=".9">moderate — LR 4.325</text><line x1="80.0" y1="171.3" x2="596.0" y2="171.3" stroke="var(--color-accent, #2e6e5e)" stroke-width="1" opacity=".45" stroke-dasharray="5 4"/><text x="86.0" y="166.3" font-size="9.5" fill="var(--color-accent, #2e6e5e)" opacity=".9">strong — LR 18.71</text><line x1="80.0" y1="74.7" x2="596.0" y2="74.7" stroke="var(--color-accent, #2e6e5e)" stroke-width="1" opacity=".45" stroke-dasharray="5 4"/><text x="86.0" y="69.7" font-size="9.5" fill="var(--color-accent, #2e6e5e)" opacity=".9">very strong — LR 350</text><path d="M80.0,252.4 L82.6,251.9 L85.2,251.4 L87.7,250.9 L90.3,250.4 L92.9,249.8 L95.5,249.3 L98.1,248.7 L100.6,248.1 L103.2,247.5 L105.8,246.9 L108.4,246.3 L111.0,245.7 L113.5,245.1 L116.1,244.5 L118.7,243.8 L121.3,243.2 L123.9,242.5 L126.4,241.8 L129.0,241.2 L131.6,240.5 L134.2,239.8 L136.8,239.1 L139.3,238.3 L141.9,237.6 L144.5,236.9 L147.1,236.1 L149.7,235.4 L152.2,234.6 L154.8,233.9 L157.4,233.1 L160.0,232.3 L162.6,231.5 L165.1,230.7 L167.7,229.9 L170.3,229.1 L172.9,228.2 L175.5,227.4 L178.0,226.5 L180.6,225.7 L183.2,224.8 L185.8,224.0 L188.4,223.1 L190.9,222.2 L193.5,221.3 L196.1,220.4 L198.7,219.5 L201.3,218.6 L203.8,217.7 L206.4,216.8 L209.0,215.9 L211.6,214.9 L214.2,214.0 L216.7,213.1 L219.3,212.1 L221.9,211.2 L224.5,210.2 L227.1,209.2 L229.6,208.3 L232.2,207.3 L234.8,206.3 L237.4,205.3 L240.0,204.3 L242.5,203.3 L245.1,202.3 L247.7,201.3 L250.3,200.3 L252.9,199.3 L255.4,198.3 L258.0,197.3 L260.6,196.3 L263.2,195.2 L265.8,194.2 L268.3,193.2 L270.9,192.2 L273.5,191.1 L276.1,190.1 L278.7,189.0 L281.2,188.0 L283.8,186.9 L286.4,185.9 L289.0,184.8 L291.6,183.8 L294.1,182.7 L296.7,181.6 L299.3,180.6 L301.9,179.5 L304.5,178.4 L307.0,177.4 L309.6,176.3 L312.2,175.2 L314.8,174.1 L317.4,173.0 L319.9,172.0 L322.5,170.9 L325.1,169.8 L327.7,168.7 L330.3,167.6 L332.8,166.5 L335.4,165.4 L338.0,164.3 L340.6,163.2 L343.2,162.1 L345.7,161.0 L348.3,159.9 L350.9,158.8 L353.5,157.7 L356.1,156.6 L358.6,155.5 L361.2,154.4 L363.8,153.3 L366.4,152.2 L369.0,151.1 L371.5,150.0 L374.1,148.9 L376.7,147.8 L379.3,146.6 L381.9,145.5 L384.4,144.4 L387.0,143.3 L389.6,142.2 L392.2,141.1 L394.8,139.9 L397.3,138.8 L399.9,137.7 L402.5,136.6 L405.1,135.5 L407.7,134.3 L410.2,133.2 L412.8,132.1 L415.4,131.0 L418.0,129.8 L420.6,128.7 L423.1,127.6 L425.7,126.5 L428.3,125.3 L430.9,124.2 L433.5,123.1 L436.0,122.0 L438.6,120.8 L441.2,119.7 L443.8,118.6 L446.4,117.4 L448.9,116.3 L451.5,115.2 L454.1,114.1 L456.7,112.9 L459.3,111.8 L461.8,110.7 L464.4,109.5 L467.0,108.4 L469.6,107.3 L472.2,106.1 L474.7,105.0 L477.3,103.9 L479.9,102.7 L482.5,101.6 L485.1,100.5 L487.6,99.3 L490.2,98.2 L492.8,97.1 L495.4,95.9 L498.0,94.8 L500.5,93.7 L503.1,92.5 L505.7,91.4 L508.3,90.3 L510.9,89.1 L513.4,88.0 L516.0,86.9 L518.6,85.7 L521.2,84.6 L523.8,83.4 L526.3,82.3 L528.9,81.2 L531.5,80.0 L534.1,78.9 L536.7,77.8 L539.2,76.6 L541.8,75.5 L544.4,74.4 L547.0,73.2 L549.6,72.1 L552.1,70.9 L554.7,69.8 L557.3,68.7 L559.9,67.5 L562.5,66.4 L565.0,65.3 L567.6,64.1 L570.2,63.0 L572.8,61.8 L575.4,60.7 L577.9,59.6 L580.5,58.4 L583.1,57.3 L585.7,56.1 L588.3,55.0 L590.8,53.9 L593.4,52.7 L596.0,51.6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="131.8" cy="243.8" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="131.8" y="259.8" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">6</text><circle cx="200.2" cy="219.7" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="200.2" y="235.7" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">15</text><circle cx="322.4" cy="171.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="322.4" y="187.3" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">77</text><circle cx="543.8" cy="74.7" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="543.8" y="90.7" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">1491</text><text x="177.1" y="258.1" font-size="10" fill="currentColor" opacity=".8">ten controls cannot exceed supporting</text><text x="424.0" y="242.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">each tier costs several times the controls of the one below</text><text x="338.0" y="300.0" font-size="12" fill="currentColor" text-anchor="middle">Benign controls classified correctly, all of them (log scale)</text><text x="18.0" y="154.0" font-size="12" fill="currentColor" text-anchor="middle" transform="rotate(-90 18 154)">Largest defensible LR+</text><text x="338.0" y="20.0" font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".8">An assay that never misclassifies a control is still limited by how many it had</text></svg>
+</Figure>
+
+## Exercises
+
+<Exercise n={1} title="Close to strong, and not strong" difficulty="warm-up">
+
+An assay calls 45 of 50 pathogenic controls abnormal and 3 of 50 benign controls abnormal.
+What evidence strength does it supply?
+
+<div slot="solution">
+
+$$
+\text{TPR} = \frac{45}{50} = 0.90, \qquad \text{FPR} = \frac{3}{50} = 0.06
+\quad\Longrightarrow\quad
+\text{OddsPath} = 15.00
+$$
+
+$$
+\text{points} = 8\,\frac{\ln 15.00}{\ln 350} = 3.6983
+$$
+
+Still **moderate**. Fifteen is a large likelihood ratio and it is not 18.71, and the framework
+awards the tier attained rather than the one nearly reached. The gap looks small on the ratio
+scale and is not small in points: strong sits at 4 points and this is at 3.70.
+
+The practical reading is that halving the false-positive rate from 0.10 to 0.06 — a real
+improvement in the assay — did not change the tier. Tiers are coarse by design, and effort
+that does not cross one buys nothing the classification can use.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="How many controls buy strong?" difficulty="core">
+
+An assay classifies every benign control correctly and calls 90% of pathogenic controls
+abnormal. How many benign controls does it need before it can claim strong evidence?
+
+<div slot="solution">
+
+Strong requires $\text{OddsPath} \ge 18.7083$, so with $\text{TPR} = 0.90$ the false-positive
+rate must satisfy
+
+$$
+\text{FPR} \le \frac{0.90}{18.7083} = 0.0481070
+$$
+
+With zero misclassified, the Wilson upper bound is $z^2/(n_B + z^2)$, so
+
+$$
+\frac{3.8415}{n_B + 3.8415} \le 0.0481070
+\quad\Longrightarrow\quad
+n_B \ge 76.01
+$$
+
+so **77 benign controls**. The boundary is genuinely a knife-edge:
+
+$$
+n_B = 76 \;\Rightarrow\; \text{LR} = 18.7057 \;(\text{moderate}), \qquad
+n_B = 77 \;\Rightarrow\; \text{LR} = 18.9400 \;(\text{strong})
+$$
+
+One additional control, correctly classified, moves the assay a whole tier. Nothing about the
+assay changed — only the confidence with which its false-positive rate could be bounded.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Why nobody claims very strong" difficulty="stretch">
+
+Extend the same reasoning to very strong evidence, $\text{OddsPath} = 350$. How many
+correctly-classified benign controls would that take, and what does the answer explain about
+how functional evidence is used in practice?
+
+<div slot="solution">
+
+$$
+\text{FPR} \le \frac{0.90}{350} = 0.0025714
+\quad\Longrightarrow\quad
+n_B \ge \frac{3.8415}{0.0025714} - 3.8415 = 1490.1
+$$
+
+so **1,491 benign controls**, every single one classified correctly.
+
+That is an implausible calibration set for most genes. Benign controls are variants confidently
+classified benign by *other* evidence, and for a typical gene there are not fifteen hundred of
+them — and if there were, the variant you care about would probably be among them already.
+
+Three things follow, and they are what you actually see in the literature:
+
+- **Calibration papers cap at strong.** Not from caution about the assays but from the
+  arithmetic above; the control sets do not exist to support more.
+- **The bottleneck is the control set, not the assay.** Doubling assay throughput does nothing
+  here. Assembling more confidently-classified benign variants does — which is why functional
+  calibration improves as clinical databases grow, not as sequencing gets cheaper.
+- **Saturating assays help sideways.** They cannot manufacture benign controls, but by
+  measuring every variant they let one calibration serve every future variant in the region,
+  so the cost is paid once per gene rather than once per patient.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A multiplexed assay measures every variant in a region at once**, so the data exists before
+  the clinical question does — the BRCA1 scan measured roughly four thousand variants, most of
+  which no patient had presented with.
+- **What was perturbed decides what the score is about.** Deep mutational scanning reads a
+  protein out of a construct; saturation genome editing edits the endogenous locus and so can
+  see splicing effects a construct cannot; MPRA shows a sequence *can* drive expression, not
+  that it does at its native locus.
+- **An assay measures one function in one context.** A benign functional result means "not
+  damaged in this respect", never "not damaging".
+- **Calibration is the same conversion as for a predictor**: the observed likelihood ratio
+  against known controls is the OddsPath. An assay at 90% sensitivity and 10% false positives
+  supplies 3.0007 points — moderate.
+- **The control set bounds the evidence, not the assay.** A flawless record on ten benign
+  controls bounds the ratio at 3.2429, which is *supporting* — because an observed zero only
+  ever establishes an upper bound.
+- **Each tier costs several times the controls of the one below**: 6 for supporting, 15 for
+  moderate, 77 for strong, and 1,491 for very strong — which is why published calibrations stop
+  at strong.

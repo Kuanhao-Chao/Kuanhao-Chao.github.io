@@ -627,3 +627,56 @@ brandes2023esm1b:
   venue: "Nature Genetics 55:1512-1522"
   doi: https://doi.org/10.1038/s41588-023-01465-0
   verified: 2026-08-21
+
+# ── Layer 4 · Multiplexed assays of variant effect ────────────────────────────
+
+fowler2014dms:
+  authors: ['Douglas M Fowler', 'Stanley Fields']
+  year: 2014
+  title: "Deep mutational scanning: a new style of protein science"
+  venue: "Nature Methods 11:801-807"
+  doi: https://doi.org/10.1038/nmeth.3027
+  verified: 2026-08-21
+
+starita2017:
+  authors: ['Lea M. Starita', 'Nadav Ahituv', 'Maitreya J. Dunham', 'et al.']
+  year: 2017
+  title: "Variant Interpretation: Functional Assays to the Rescue"
+  venue: "The American Journal of Human Genetics 101:315-325"
+  doi: https://doi.org/10.1016/j.ajhg.2017.07.014
+  verified: 2026-08-21
+
+brnich2020:
+  # Crossref deposits the ClinGen working group in the first author slot; the paper's own
+  # byline leads with Brnich. Year is the volume year (Genome Medicine 12, 2020); Crossref
+  # records the 2019 online-first date, so `audit:refs` reports an expected off-by-one.
+  authors: ['Sarah E. Brnich', 'Ahmad N. Abou Tayoun', 'Fergus J. Couch', 'et al.']
+  year: 2020
+  title: "Recommendations for application of the functional evidence PS3/BS3 criterion using the ACMG/AMP sequence variant interpretation framework"
+  venue: "Genome Medicine 12"
+  doi: https://doi.org/10.1186/s13073-019-0690-2
+  verified: 2026-08-21
+
+kircher2019mpra:
+  authors: ['Martin Kircher', 'Chenling Xiong', 'Beth Martin', 'et al.']
+  year: 2019
+  title: "Saturation mutagenesis of twenty disease-associated regulatory elements at single base-pair resolution"
+  venue: "Nature Communications 10"
+  doi: https://doi.org/10.1038/s41467-019-11526-w
+  verified: 2026-08-21
+
+sullivan2024splicevardb:
+  authors: ['Patricia J. Sullivan', 'Julian M.w. Quinn', 'Weilin Wu', 'et al.']
+  year: 2024
+  title: "SpliceVarDB: A comprehensive database of experimentally validated human splicing variants"
+  venue: "The American Journal of Human Genetics 111:2164-2175"
+  doi: https://doi.org/10.1016/j.ajhg.2024.08.002
+  verified: 2026-08-21
+
+mcewen2025mave:
+  authors: ['Abbye E. McEwen', 'Malvika Tejura', 'Shawn Fayer', 'et al.']
+  year: 2025
+  title: "Multiplexed assays of variant effect for clinical variant interpretation"
+  venue: "Nature Reviews Genetics 27:137-154"
+  doi: https://doi.org/10.1038/s41576-025-00870-x
+  verified: 2026-08-21
