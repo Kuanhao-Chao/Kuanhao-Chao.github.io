@@ -3387,3 +3387,19 @@ sasse2023benchmark:
   venue: "Nature Genetics 55:2060-2064"
   doi: https://doi.org/10.1038/s41588-023-01524-6
   verified: 2026-08-21
+
+boyle2017omnigenic:
+  authors: ['Evan A. Boyle', 'Yang I. Li', 'Jonathan K. Pritchard']
+  year: 2017
+  title: "An Expanded View of Complex Traits: From Polygenic to Omnigenic"
+  venue: "Cell 169:1177-1186"
+  doi: https://doi.org/10.1016/j.cell.2017.05.038
+  verified: 2026-08-23
+
+visscher2017gwas:
+  authors: ['Peter M. Visscher', 'Naomi R. Wray', 'Qian Zhang', 'et al.']
+  year: 2017
+  title: "10 Years of GWAS Discovery: Biology, Function, and Translation"
+  venue: "The American Journal of Human Genetics 101:5-22"
+  doi: https://doi.org/10.1016/j.ajhg.2017.06.005
+  verified: 2026-08-23

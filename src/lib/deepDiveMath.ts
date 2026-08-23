@@ -169,6 +169,30 @@ export function sampleSizeForR2(targetR2: number, M: number, h2: number): number
   return M / (h2 * (h2 / targetR2 - 1));
 }
 
+// ── Study design ──────────────────────────────────────────────────────────────
+
+/**
+ * Effective sample size of a case-control study, the harmonic-mean form
+ * N_eff = 4/(1/N_cases + 1/N_controls).
+ *
+ * This is the number that goes into a power calculation, not the headcount. Two
+ * consequences decide how a study is designed, and neither is obvious from the formula:
+ *
+ *   * **Balance dominates size.** 25,000 cases and 25,000 controls give N_eff = 50,000;
+ *     the same 50,000 people split 10,000/40,000 give 32,000.
+ *   * **Controls saturate.** Holding cases fixed, N_eff → 4·N_cases as controls → ∞. At a
+ *     4:1 ratio a study already has 80% of everything controls can ever buy it, so the next
+ *     sample should almost always be a case.
+ */
+export function effectiveSampleSize(nCases: number, nControls: number): number {
+  return 4 / (1 / nCases + 1 / nControls);
+}
+
+/** The ceiling `effectiveSampleSize` approaches as controls grow without bound. */
+export function controlCeiling(nCases: number): number {
+  return 4 * nCases;
+}
+
 // ── Association power ─────────────────────────────────────────────────────────
 
 /** Variance in the phenotype explained by one additive variant, q² = 2p(1−p)β²/σ². */
