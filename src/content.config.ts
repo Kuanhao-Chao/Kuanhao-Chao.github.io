@@ -249,6 +249,9 @@ const deepDiveReferences = defineCollection({
   loader: file('./src/content/deepDiveReferences/references.yaml'),
   schema: z.object({
     authors: z.array(z.string()).min(1),
+    /** Overrides the derived surname in citation markers, for compound names with no
+     *  particle to detect — "George Davey Smith" would otherwise render as "Smith". */
+    surname: z.string().optional(),
     year: z.number().int(),
     title: z.string(),
     venue: z.string(),

@@ -10,6 +10,7 @@ import {
   lessonReadingTime,
   neighbours,
   orderLessons,
+  referenceSurname,
   type Heading,
   type LessonLike,
 } from './deepDives.ts';
@@ -317,3 +318,31 @@ describe('index catalog', () => {
     expect(legacyIds.filter((id) => collection.has(id))).toEqual([]);
   });
 });
+
+describe('referenceSurname', () => {
+  it('takes the last word for an ordinary name', () => {
+    expect(referenceSurname('Peter M. Visscher')).toBe('Visscher');
+    expect(referenceSurname('Marc Peter Deisenroth')).toBe('Deisenroth');
+    expect(referenceSurname('R. A. Fisher')).toBe('Fisher');
+  });
+
+  it('absorbs lowercase particles, which the naive rule dropped', () => {
+    expect(referenceSurname('Gustavo de los Campos')).toBe('de los Campos');
+    expect(referenceSurname('Laurens van der Maaten')).toBe('van der Maaten');
+    expect(referenceSurname('Johan T. den Dunnen')).toBe('den Dunnen');
+    expect(referenceSurname('Ludwig von Mises')).toBe('von Mises');
+  });
+
+  it('does not absorb a capitalised middle name', () => {
+    // the case that stops the particle rule from eating everything
+    expect(referenceSurname('Sang Hong Lee')).toBe('Lee');
+    expect(referenceSurname('W. James Kent')).toBe('Kent');
+  });
+
+  it('survives odd input', () => {
+    expect(referenceSurname('Plato')).toBe('Plato');
+    expect(referenceSurname('  spaced   out  ')).toBe('out');
+    expect(referenceSurname('')).toBe('');
+  });
+});
+

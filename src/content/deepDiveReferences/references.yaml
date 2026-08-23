@@ -3286,3 +3286,70 @@ weissbrod2020polyfun:
   venue: "Nature Genetics 52:1355-1363"
   doi: https://doi.org/10.1038/s41588-020-00735-5
   verified: 2026-08-21
+
+# ── Module 5 · Mendelian randomisation ────────────────────────────────────────
+
+daveysmith2003mr:
+  authors: ['George Davey Smith', 'Shah Ebrahim']
+  surname: 'Davey Smith'
+  year: 2003
+  title: "‘Mendelian randomization’: can genetic epidemiology contribute to understanding environmental determinants of disease?*"
+  venue: "International Journal of Epidemiology 32:1-22"
+  doi: https://doi.org/10.1093/ije/dyg070
+  verified: 2026-08-21
+
+lawlor2008mr:
+  authors: ['Debbie A. Lawlor', 'Roger M. Harbord', 'Jonathan A. C. Sterne', 'et al.']
+  year: 2008
+  title: "Mendelian randomization: Using genes as instruments for making causal inferences in epidemiology"
+  venue: "Statistics in Medicine 27:1133-1163"
+  doi: https://doi.org/10.1002/sim.3034
+  verified: 2026-08-21
+
+burgess2013ivw:
+  authors: ['Stephen Burgess', 'Adam Butterworth', 'Simon G. Thompson']
+  year: 2013
+  title: "Mendelian Randomization Analysis With Multiple Genetic Variants Using Summarized Data"
+  venue: "Genetic Epidemiology 37:658-665"
+  doi: https://doi.org/10.1002/gepi.21758
+  verified: 2026-08-21
+
+bowden2015egger:
+  authors: ['J. Bowden', 'G. Davey Smith', 'S. Burgess']
+  year: 2015
+  title: "Mendelian randomization with invalid instruments: effect estimation and bias detection through Egger regression"
+  venue: "International Journal of Epidemiology 44:512-525"
+  doi: https://doi.org/10.1093/ije/dyv080
+  verified: 2026-08-21
+
+bowden2016median:
+  authors: ['Jack Bowden', 'George Davey Smith', 'Philip C. Haycock', 'Stephen Burgess']
+  year: 2016
+  title: "Consistent Estimation in Mendelian Randomization with Some Invalid Instruments Using a Weighted Median Estimator"
+  venue: "Genetic Epidemiology 40:304-314"
+  doi: https://doi.org/10.1002/gepi.21965
+  verified: 2026-08-21
+
+davies2018reading:
+  authors: ['Neil M Davies', 'Michael V Holmes', 'George Davey Smith']
+  year: 2018
+  title: "Reading Mendelian randomisation studies: a guide, glossary, and checklist for clinicians"
+  venue: "BMJ:k601"
+  doi: https://doi.org/10.1136/bmj.k601
+  verified: 2026-08-21
+
+verbanck2018presso:
+  authors: ['Marie Verbanck', 'Chia-Yen Chen', 'Benjamin Neale', 'Ron Do']
+  year: 2018
+  title: "Detection of widespread horizontal pleiotropy in causal relationships inferred from Mendelian randomization between complex traits and diseases"
+  venue: "Nature Genetics 50:693-698"
+  doi: https://doi.org/10.1038/s41588-018-0099-7
+  verified: 2026-08-21
+
+brumpton2020withinfamily:
+  authors: ['Ben Brumpton', 'Eleanor Sanderson', 'Karl Heilbron', 'et al.']
+  year: 2020
+  title: "Avoiding dynastic, assortative mating, and population stratification biases in Mendelian randomization through within-family analyses"
+  venue: "Nature Communications 11"
+  doi: https://doi.org/10.1038/s41467-020-17117-4
+  verified: 2026-08-21

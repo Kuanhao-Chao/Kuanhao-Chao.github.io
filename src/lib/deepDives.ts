@@ -305,3 +305,29 @@ export function deepDiveEntriesFromCollection<T extends CatalogSource>(
     status: 'published' as const,
   }));
 }
+
+/** Surname particles that belong to the name rather than preceding it. */
+const NAME_PARTICLES = new Set([
+  'de', 'del', 'della', 'di', 'da', 'dos', 'du',
+  'van', 'von', 'der', 'den', 'ter', 'ten',
+  'la', 'le', 'los', 'bin', 'al',
+]);
+
+/**
+ * The surname to show in an author-year citation marker.
+ *
+ * Naively taking the last word renders "Gustavo de los Campos" as "Campos" and
+ * "Laurens van der Maaten" as "Maaten", which are not those people's names. Lowercase
+ * particles are absorbed backwards into the surname.
+ *
+ * Compound surnames with no particle — "George Davey Smith" — cannot be detected this way
+ * without also breaking every "Marc Peter Deisenroth", so those carry an explicit
+ * `surname` in the bibliography and this function is not consulted.
+ */
+export function referenceSurname(author: string): string {
+  const tokens = author.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return author;
+  let start = tokens.length - 1;
+  while (start > 0 && NAME_PARTICLES.has(tokens[start - 1].toLowerCase())) start -= 1;
+  return tokens.slice(start).join(' ');
+}
