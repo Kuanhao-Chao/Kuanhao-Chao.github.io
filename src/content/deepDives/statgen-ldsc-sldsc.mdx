@@ -1,0 +1,408 @@
+---
+title: "LD Score Regression: Separating Confounding from Polygenicity"
+shortTitle: LD Score Regression
+description: "The regression that answered the question λ_GC could not, how its intercept and slope divide inflation between confounding and signal, genetic correlation from summary statistics alone, and stratified LDSC for partitioning heritability across the genome."
+abstract: "The previous lesson ended on a diagnostic that does not work: λ_GC cannot tell an inflated study from a polygenic one, and correcting by it destroys real discoveries. LD score regression fixes this with one observation — a variant in high LD tags more of the genome, so under polygenicity its expected test statistic is higher, while a stratification artefact shifts every statistic regardless of how much LD it sits in. Regressing χ² on LD score therefore splits the two: the slope is heritability and the intercept is everything else. This lesson derives that expectation, recovers a known heritability from constructed data exactly, shows the same summary statistics yielding a genetic correlation between two traits with no individual-level data, extends the regression to functional annotations, and states plainly where the model's assumptions fail."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m04-association
+moduleLabel: Module 4 · Association & Discovery
+order: 10
+level: advanced
+objectives:
+  - "Define the LD score and explain why it is the variable that separates confounding from polygenicity."
+  - "State the LD score regression expectation and identify what the slope and intercept each estimate."
+  - "Recover SNP heritability from a fitted slope."
+  - "Compute the attenuation ratio and interpret it against λ_GC."
+  - "Explain how a genetic correlation is obtained from two sets of summary statistics."
+  - "Compute functional enrichment under stratified LDSC and say what enrichment alone cannot establish."
+prerequisites:
+  - statgen-association-linear-mixed-models
+relatedLessons:
+  - statgen-heritability-greml
+  - data-gwas-summary-stats
+keyEquations:
+  - '\ell_j = \sum_k r^2_{jk}'
+  - '\mathbb{E}\left[\chi^2_j\right] = 1 + Na + \frac{N h^2}{M}\,\ell_j'
+  - '\text{attenuation ratio} = \frac{\text{intercept} - 1}{\text{mean }\chi^2 - 1}'
+  - '\text{enrichment}_C = \frac{h^2_C / h^2}{M_C / M}'
+referenceIds:
+  - devlin1999gc
+  - bulik2015ldsc
+  - bulik2015rg
+  - finucane2015sldsc
+  - gazal2017baselineld
+  - finucane2018celltype
+  - speed2019sumher
+  - yang2014mlm
+tags: [LD score regression, LDSC, SNP heritability, genetic correlation, stratified LDSC, partitioned heritability, confounding]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The previous lesson left a diagnostic that does not work. $\lambda_{\mathrm{GC}}$ measures
+inflation but cannot say what caused it, and the correction
+<Citation id="devlin1999gc" /> proposed — divide every statistic by it — actively destroys
+real findings when the inflation is genuine signal.
+
+<Citation id="bulik2015ldsc" /> resolved this with a single observation, and it is worth
+stating before any algebra:
+
+> **Confounding shifts every test statistic by about the same amount. Polygenic signal
+> shifts a variant's statistic in proportion to how much of the genome that variant tags.**
+
+Those are different functional forms, so if you can measure "how much of the genome a variant
+tags", you can regress on it and read the two contributions off separately. That quantity is
+the **LD score**, and the entire method is one line fitted to ten million points.
+
+<Notation
+  rows={[
+    { symbol: '\\ell_j', meaning: 'LD score of variant j: the sum of r² with every variant including itself', dims: '≥ 1' },
+    { symbol: '\\chi^2_j', meaning: 'Association test statistic at variant j', dims: 'χ² on 1 df' },
+    { symbol: 'N,\\;M', meaning: 'Sample size and number of variants', dims: 'counts' },
+    { symbol: 'h^2', meaning: 'SNP heritability — the variance explained by all M variants', dims: 'in [0,1]' },
+    { symbol: 'a', meaning: 'Confounding contribution, entering through the intercept as 1 + Na', dims: '≥ 0' },
+    { symbol: 'h^2_C,\\;M_C', meaning: 'Heritability and variant count in functional category C', dims: '—' },
+    { symbol: '\\tau_C', meaning: 'Per-variant contribution of category C, conditional on all others', dims: 'per variant' },
+    { symbol: 'r_g', meaning: 'Genetic correlation between two traits', dims: 'in [-1, 1]' },
+  ]}
+/>
+
+## The LD score, and the expectation
+
+The LD score of variant $j$ is how much linkage disequilibrium it sits in:
+
+$$
+\ell_j = \sum_k r^2_{jk}
+$$
+
+summed over every variant $k$ in a window, including $j$ itself, so $\ell_j \ge 1$. A variant
+in a recombination desert tags hundreds of neighbours and has a large LD score; one in a
+hotspot tags almost nothing and has a small one.
+
+Under a polygenic model where causal effects are spread across the genome, a variant's
+expected test statistic is
+
+$$
+\mathbb{E}\left[\chi^2_j\right] = 1 + Na + \frac{N h^2}{M}\,\ell_j
+$$
+
+<Callout variant="intuition" title="Why the LD score is the variable that tells them apart">
+
+A variant is tested marginally, so its statistic picks up not only its own effect but the
+effect of everything it is correlated with. If effects are spread across the genome, a
+variant that tags 200 neighbours is standing in for 200 chances to have caught a causal
+site, and a variant that tags 5 is standing in for 5. **Real signal therefore scales with
+the LD score.**
+
+Now consider stratification. A variant appears associated because its frequency differs
+between ancestry groups and ancestry predicts the trait. That mechanism has nothing to do
+with how many neighbours the variant tags — a variant in a recombination hotspot is exactly
+as capable of differing in frequency between populations as one in a desert. **Confounding
+therefore does not scale with the LD score.** It adds a constant.
+
+One effect is a slope; the other is an intercept. Fit a line and you have both.
+
+This is why the method needs no individual-level data, no genotypes and no permission: LD
+scores come from a reference panel and the χ² values come from a published summary-statistics
+file. It turned a computation that required the cohort into one that requires a download.
+
+</Callout>
+
+<WorkedExample
+  title="Recovering heritability and confounding from six points"
+  given={[
+    { label: 'Sample size N', value: '100,000' },
+    { label: 'Variants M', value: '1,000,000' },
+    { label: 'LD scores', value: '10, 30, 50, 80, 120, 200' },
+    { label: 'Mean χ² at each', value: '1.30, 1.80, 2.30, 3.05, 4.05, 6.05' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — fit the line.** Regressing $\chi^2$ on $\ell$ gives
+
+$$
+\text{intercept} = 1.050000, \qquad \text{slope} = 0.025000
+$$
+
+**Step 2 — read the slope as heritability.** The slope is $Nh^2/M$, so
+
+$$
+h^2 = \text{slope} \times \frac{M}{N} = 0.025 \times \frac{1{,}000{,}000}{100{,}000} = 0.2500
+$$
+
+**Step 3 — read the intercept as everything else.** A clean analysis has intercept 1. This
+one is 1.05, so there is a small amount of confounding or uncontrolled relatedness.
+
+**Step 4 — the attenuation ratio.** The mean $\chi^2$ across these variants is $3.091667$,
+so the fraction of the excess attributable to the intercept rather than to polygenicity is
+
+$$
+\frac{\text{intercept} - 1}{\text{mean }\chi^2 - 1} = \frac{0.05}{2.091667} = 0.023904
+$$
+
+**Only 2.4% of the inflation is confounding.** The other 97.6% is real polygenic signal.
+
+**Step 5 — now compute what the previous lesson would have reported.** The median of these
+six statistics is $2.675$, and $\lambda_{\mathrm{GC}} = 2.675/0.4549364\ldots = 5.8799$.
+
+A $\lambda_{\mathrm{GC}}$ of 5.88 reads as a catastrophically broken analysis, and the
+genomic-control prescription would divide every statistic by 5.88 — annihilating every
+discovery in the study. The intercept of 1.05 says the analysis is very nearly clean and the
+trait is simply extremely polygenic. **The two diagnostics disagree completely on the same
+data, and the regression is the one that is right.**
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. LD score regression on the worked example's data. The slope is Nh²/M — a rise of 2.00 over a run of 80 gives 0.025, and multiplying by M/N returns the heritability of 0.2500. The intercept is what the line hits at an LD score of zero, where a variant tags nothing and no polygenic signal can reach it: 1.05 against a null expectation of 1. λ_GC computed on the same six points would read 5.8799 and condemn the study."
+  alt="A scatter of six points rising linearly with LD score, with a fitted line. A vertical bracket at the left marks the intercept at 1.05 above zero. A dashed step marks a rise of 2.00 over a run of 80. A dashed horizontal line marks the null expectation of chi-square equal to one."
+  wide
+>
+<svg viewBox="0 0 640 302" width="640" height="302" font-family="inherit"><line x1="94.0" y1="46.0" x2="94.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="94.0" y1="246.0" x2="430.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="94.0" y1="246.0" x2="430.0" y2="246.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="86.0" y="250.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="94.0" y1="216.6" x2="430.0" y2="216.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="86.0" y="220.6" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="94.0" y1="187.2" x2="430.0" y2="187.2" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="86.0" y="191.2" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">2</text><line x1="94.0" y1="157.8" x2="430.0" y2="157.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="86.0" y="161.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">3</text><line x1="94.0" y1="128.4" x2="430.0" y2="128.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="86.0" y="132.4" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">4</text><line x1="94.0" y1="98.9" x2="430.0" y2="98.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="86.0" y="102.9" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">5</text><line x1="94.0" y1="69.5" x2="430.0" y2="69.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="86.0" y="73.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">6</text><line x1="94.0" y1="246.0" x2="94.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="94.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="170.4" y1="246.0" x2="170.4" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="170.4" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50</text><line x1="246.7" y1="246.0" x2="246.7" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="246.7" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="323.1" y1="246.0" x2="323.1" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="323.1" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">150</text><line x1="399.5" y1="246.0" x2="399.5" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="399.5" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">200</text><line x1="94.0" y1="215.1" x2="430.0" y2="53.4" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><circle cx="109.3" cy="207.8" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="139.8" cy="193.1" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="170.4" cy="178.4" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="216.2" cy="156.3" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="277.3" cy="126.9" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="399.5" cy="68.1" r="4.5" fill="var(--color-accent, #2e6e5e)"/><line x1="94.0" y1="216.6" x2="430.0" y2="216.6" stroke="currentColor" stroke-width="1.2" opacity=".4" stroke-dasharray="4 3"/><text x="424.0" y="208.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".7">χ² = 1, the null expectation</text><line x1="103.2" y1="246.0" x2="103.2" y2="215.1" stroke="currentColor" stroke-width="2" opacity=".85"/><line x1="98.2" y1="246.0" x2="108.2" y2="246.0" stroke="currentColor" stroke-width="2" opacity=".85"/><line x1="98.2" y1="215.1" x2="108.2" y2="215.1" stroke="currentColor" stroke-width="2" opacity=".85"/><text x="115.4" y="227.8" font-size="10.5" fill="currentColor" font-weight="600">intercept = 1.05</text><text x="115.4" y="237.2" font-size="10" fill="currentColor" opacity=".8">confounding only</text><line x1="277.3" y1="126.9" x2="399.5" y2="126.9" stroke="currentColor" stroke-width="1.4" opacity=".55" stroke-dasharray="3 3"/><line x1="399.5" y1="126.9" x2="399.5" y2="68.1" stroke="currentColor" stroke-width="1.4" opacity=".55" stroke-dasharray="3 3"/><text x="317.0" y="118.9" font-size="10" fill="currentColor" opacity=".8">run = 80</text><text x="394.9" y="97.5" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">rise = 2.00</text><text x="444.0" y="74.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">slope = N h²/M</text><text x="444.0" y="90.0" font-size="10" fill="currentColor" opacity=".85">= 2.00 / 80 = 0.025</text><text x="444.0" y="103.0" font-size="10" fill="currentColor" opacity=".85">so h² = 0.025 × M/N</text><text x="444.0" y="116.0" font-size="10" fill="currentColor" opacity=".85">     = 0.2500</text><text x="444.0" y="148.0" font-size="11" fill="currentColor" font-weight="700">λ_GC on this data</text><text x="444.0" y="164.0" font-size="10" fill="currentColor" opacity=".85">would read 5.8799 —</text><text x="444.0" y="177.0" font-size="10" fill="currentColor" opacity=".85">catastrophic inflation.</text><text x="444.0" y="190.0" font-size="10" fill="currentColor" opacity=".85">The intercept says 1.05.</text><text x="444.0" y="203.0" font-size="10" fill="currentColor" opacity=".85"></text><text x="444.0" y="216.0" font-size="10" fill="currentColor" opacity=".85">Only 2.4% of the excess</text><text x="444.0" y="229.0" font-size="10" fill="currentColor" opacity=".85">is confounding; the rest</text><text x="444.0" y="242.0" font-size="10" fill="currentColor" opacity=".85">is real polygenic signal.</text><text x="262.0" y="288.0" font-size="12" fill="currentColor" text-anchor="middle">LD score ℓⱼ (how much of the genome variant j tags)</text><text x="20.0" y="146.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 146)">Expected χ²</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">One line, two numbers: the slope is heritability, the intercept is everything else</text></svg>
+</Figure>
+
+## What replaced genomic control
+
+Three numbers come out of one fit, and modern practice reports all three.
+
+- **The intercept** estimates confounding. Near 1 means clean; substantially above means
+  structure, relatedness or sample overlap that the analysis did not handle.
+- **The slope** estimates SNP heritability, from summary statistics alone — no genotypes,
+  and none of the computational cost of the methods in Module 3.
+- **The attenuation ratio** puts the intercept on an interpretable scale by asking what
+  fraction of the mean excess it accounts for. Values below about 0.1 are routinely treated
+  as acceptable; a high ratio says the inflation is mostly not signal.
+
+The practical rule that follows is short: **report $\lambda_{\mathrm{GC}}$ if convention
+demands it, act on the intercept.** And never correct test statistics by
+$\lambda_{\mathrm{GC}}$, which after this lesson should look like dividing by a number that
+measures the wrong thing.
+
+## Two traits at once: genetic correlation
+
+The same regression run on the *product* of two studies' statistics estimates the genetic
+covariance rather than the variance. <Citation id="bulik2015rg" /> works this out and it
+gives $r_g$ between any two traits with published summary statistics — no shared samples
+required, and sample overlap, if it exists, lands in the intercept where it can be seen
+rather than biasing the slope.
+
+That last point is what made the method spread. Estimating a genetic correlation previously
+needed individual genotypes for both traits in the same people; afterwards it needed two
+downloads. The result was an atlas of correlations across hundreds of traits, built from
+studies whose authors never coordinated.
+
+## Stratified LDSC: where in the genome the heritability is
+
+The regression generalises by splitting the LD score into per-annotation LD scores.
+<Citation id="finucane2015sldsc" /> partitions the genome into functional categories and
+fits
+
+$$
+\mathbb{E}\left[\chi^2_j\right] = 1 + Na + N\sum_C \tau_C\,\ell_{j,C}
+$$
+
+where $\ell_{j,C}$ is variant $j$'s LD score computed only against variants in category $C$,
+and $\tau_C$ is that category's per-variant contribution **conditional on every other
+category in the model**. Summing gives each category's heritability, and the headline
+quantity is the enrichment:
+
+$$
+\text{enrichment}_C = \frac{h^2_C/h^2}{M_C/M}
+$$
+
+<WorkedExample
+  title="Enrichment across a functional partition"
+  given={[
+    { label: 'Conserved, non-coding', value: '2.5% of variants, 20% of h²' },
+    { label: 'Coding', value: '1.1% of variants, 8% of h²' },
+    { label: 'Intergenic', value: '48.0% of variants, 15% of h²' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — divide the shares.**
+
+$$
+\text{conserved: } \frac{0.20}{0.025} = 8.0000, \qquad
+\text{coding: } \frac{0.08}{0.011} = 7.2727, \qquad
+\text{intergenic: } \frac{0.15}{0.480} = 0.3125
+$$
+
+**Step 2 — read them.** Conserved non-coding sequence carries eight times the heritability
+its size would predict. Coding sequence carries seven times. Intergenic sequence carries
+about a third of what its size would predict — it is **depleted**, and it is nearly half the
+genome.
+
+**Step 3 — notice what this says about GWAS.** The great majority of genome-wide significant
+variants are non-coding, which was initially read as a puzzle. It is not: non-coding
+regulatory and conserved sequence is where the heritability is. The enrichment in conserved
+non-coding sequence is comparable to that in coding sequence, and there is far more of it.
+
+**Step 4 — the caveat that matters.** Enrichment is a marginal quantity. If two annotations
+overlap — and in the real baseline model many do — an annotation can look enriched purely by
+containing another one that is. That is what $\tau_C$ is for: it is the contribution of a
+category *conditional on the others in the model*, and an annotation with high enrichment but
+$\tau_C$ indistinguishable from zero is explaining nothing the model did not already know.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 2. Enrichment across a functional partition of the genome. Bars past the dashed line carry more heritability than their share of variants; bars short of it carry less. A few percent of the genome — conserved non-coding sequence, coding sequence, promoters — carries a large multiple of its share, while intergenic sequence, at nearly half the genome, is depleted. These proportions are illustrative, chosen to sum to one in both columns so the picture reads as a decomposition; the real baseline model's annotations overlap and its shares do not sum to one."
+  alt="A horizontal bar chart of enrichment by functional category. Conserved non-coding sequence at 2.5 percent of variants reaches 8.0 times, coding at 1.1 percent reaches 7.3 times, promoters 4.4 times and enhancers 3.2 times. Intronic sequence at 39 percent reaches 0.6 times and intergenic at 48 percent reaches 0.3 times, both below the no-enrichment line."
+  wide
+>
+<svg viewBox="0 0 640 300" width="640" height="300" font-family="inherit"><line x1="190.0" y1="50.0" x2="190.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="190.0" y1="244.0" x2="452.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="190.0" y1="244.0" x2="190.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="190.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="245.2" y1="244.0" x2="245.2" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="245.2" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="300.3" y1="244.0" x2="300.3" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="300.3" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">4</text><line x1="355.5" y1="244.0" x2="355.5" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="355.5" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">6</text><line x1="410.6" y1="244.0" x2="410.6" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="410.6" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">8</text><line x1="217.6" y1="244.0" x2="217.6" y2="50.0" stroke="currentColor" stroke-width="1.4" opacity=".5" stroke-dasharray="4 3"/><text x="223.6" y="57.8" font-size="10" fill="currentColor" opacity=".7">no enrichment</text><text x="178.0" y="72.8" font-size="10.5" fill="currentColor" text-anchor="end">conserved, non-coding  (2.5%)</text><rect x="190.0" y="60.8" width="220.6" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="417.6" y="72.8" font-size="10" fill="currentColor" font-weight="600">8.0×</text><text x="178.0" y="104.1" font-size="10.5" fill="currentColor" text-anchor="end">coding  (1.1%)</text><rect x="190.0" y="92.1" width="200.6" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="397.6" y="104.1" font-size="10" fill="currentColor" font-weight="600">7.3×</text><text x="178.0" y="135.4" font-size="10.5" fill="currentColor" text-anchor="end">promoter  (1.8%)</text><rect x="190.0" y="123.4" width="122.6" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="319.6" y="135.4" font-size="10" fill="currentColor" font-weight="600">4.4×</text><text x="178.0" y="166.6" font-size="10.5" fill="currentColor" text-anchor="end">enhancer  (7.6%)</text><rect x="190.0" y="154.6" width="87.1" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="284.1" y="166.6" font-size="10" fill="currentColor" font-weight="600">3.2×</text><text x="178.0" y="197.9" font-size="10.5" fill="currentColor" text-anchor="end">intronic  (39.0%)</text><rect x="190.0" y="185.9" width="17.7" height="16.0" rx="2" fill="currentColor" opacity=".45"/><text x="214.7" y="197.9" font-size="10" fill="currentColor" font-weight="600">0.6×</text><text x="178.0" y="229.2" font-size="10.5" fill="currentColor" text-anchor="end">intergenic  (48.0%)</text><rect x="190.0" y="217.2" width="8.6" height="16.0" rx="2" fill="currentColor" opacity=".45"/><text x="205.6" y="229.2" font-size="10" fill="currentColor" font-weight="600">0.3×</text><text x="321.0" y="286.0" font-size="12" fill="currentColor" text-anchor="middle">Enrichment: share of heritability ÷ share of variants</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Where the heritability actually is: a few percent of the genome carries most of it</text></svg>
+</Figure>
+
+<Citation id="gazal2017baselineld" /> extended the annotation set with LD-dependent terms,
+after showing that variants in low-LD regions carry more heritability per variant than the
+basic model assumes — a correction that changes enrichment estimates for every other
+annotation, because they are all conditional on one another.
+<Citation id="finucane2018celltype" /> then took the same machinery to cell-type-specific
+expression, which is how a summary-statistics file becomes a claim about which tissue a
+disease acts in.
+
+<Callout variant="warning" title="What the regression assumes, and where it breaks">
+
+The expectation $\mathbb{E}[\chi^2] = 1 + Na + (Nh^2/M)\ell$ rests on assumptions, and they
+are not always met.
+
+**Effect sizes are assumed independent of LD score.** If variants in low-LD regions have
+systematically larger effects — which <Citation id="gazal2017baselineld" /> showed they do —
+the basic model is misspecified and heritability is biased. The baseline-LD model exists to
+absorb this.
+
+**The variance model is assumed uniform across frequency.** <Citation id="speed2019sumher" />
+argues the standard assumption that each variant contributes variance in proportion to
+$2p(1-p)$ is wrong for many traits, and that heritability estimates shift materially under a
+different assumption. This is a live disagreement, not a settled point, and estimates from
+LDSC and from LDAK-style models can differ by a factor that matters.
+
+**The reference panel must match the study population.** LD scores are computed from a
+reference panel; if the study population's LD structure differs, the regressor is
+mismeasured and the slope is wrong. This is why LDSC results are reported per ancestry and
+why applying European LD scores to a non-European study is an error rather than an
+approximation.
+
+**It is not a substitute for a well-specified association model.** A clean intercept means
+the *summary statistics* show no evidence of confounding at the level LDSC can detect. It
+does not mean the mixed model was fitted correctly, and <Citation id="yang2014mlm" />'s
+pitfalls remain in force upstream.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Heritability from a slope" difficulty="warm-up">
+
+A study of 250,000 people with 1,100,000 variants reports an LDSC slope of 0.012 and an
+intercept of 1.04. (a) What is the SNP heritability? (b) What does the intercept say?
+
+<div slot="solution">
+
+**(a)** $h^2 = \text{slope} \times M/N = 0.012 \times 1{,}100{,}000/250{,}000 = 0.052800$,
+so about 5.3% of the variance is explained by common variants.
+
+**(b)** An intercept of 1.04 is a small excess over 1, consistent with mild residual
+structure, some cryptic relatedness, or a modest amount of sample overlap if the study was a
+meta-analysis. On its own it is not alarming — but it should be read alongside the mean
+$\chi^2$, because an intercept of 1.04 means something very different in a study with mean
+$\chi^2 = 1.05$ than in one with mean $\chi^2 = 2.0$. That comparison is exactly the
+attenuation ratio, and it is the subject of the next exercise.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Same inflation, opposite conclusions" difficulty="core">
+
+Two studies each report a mean $\chi^2$ of 1.30. Study A has an LDSC intercept of 1.02;
+study B has 1.25. (a) Compute each attenuation ratio. (b) What do you conclude about each?
+(c) What would $\lambda_{\mathrm{GC}}$ have told you?
+
+<div slot="solution">
+
+**(a)** The ratio is $(\text{intercept}-1)/(\text{mean }\chi^2 - 1)$:
+
+$$
+\text{A: } \frac{0.02}{0.30} = 0.066667, \qquad
+\text{B: } \frac{0.25}{0.30} = 0.833333
+$$
+
+**(b)** Study A's inflation is 6.7% confounding and 93.3% signal — a normal, healthy
+polygenic result. Study B's is 83.3% confounding: almost all of its apparent inflation is
+artefact, and its association results should not be trusted until the source is found.
+
+**(c)** Nothing useful, and that is the point. Both studies have the same mean $\chi^2$, so
+their $\lambda_{\mathrm{GC}}$ values are similar and neither is far from 1.3 — a value that
+would be read as "slightly inflated, apply genomic control" in both cases. The prescription
+would shrink study A's genuine discoveries and would fail to convey that study B is broken.
+
+One number is not enough to describe inflation, because inflation has two sources. That is
+the whole content of this lesson.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="An enrichment that means less than it looks" difficulty="stretch">
+
+An annotation covering 1.0% of variants is reported as carrying 10% of the heritability.
+(a) What is its enrichment? (b) A colleague concludes the annotation marks causal biology.
+What would you check first? (c) How would you tell the difference?
+
+<div slot="solution">
+
+**(a)** $0.10/0.010 = 10.0000$ — a tenfold enrichment, which sounds decisive.
+
+**(b)** Whether the annotation **overlaps other enriched annotations**. Suppose it is largely
+contained within conserved non-coding sequence, which is itself enriched around eightfold.
+Then most of the tenfold could be inherited from the containing annotation rather than being
+a property of this one, and the number would look almost as large for any annotation drawn
+inside conserved sequence — including annotations with no biological meaning at all.
+
+**(c)** By reading $\tau_C$ rather than the enrichment. $\tau_C$ is the per-variant
+contribution *conditional on every other annotation in the model*, so an annotation whose
+apparent enrichment is entirely inherited from an overlapping one has $\tau_C$ near zero
+even while its enrichment is large. The test that matters is whether $\tau_C$ is
+significantly non-zero when the baseline model is included, which is exactly why the
+baseline model exists and why enrichment is never reported without it.
+
+A second thing to check: the standard error. Enrichment for a 1% annotation is estimated
+from a small slice of the genome, and a tenfold point estimate with a confidence interval
+running from two to eighteen is a different claim from one running from eight to twelve.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **LD score regression separates confounding from polygenicity** by using the one variable
+  that distinguishes them: real signal scales with how much of the genome a variant tags,
+  and confounding does not.
+- **$\mathbb{E}[\chi^2_j] = 1 + Na + (Nh^2/M)\ell_j$.** The slope is heritability; the
+  intercept is everything else. On the worked example a slope of 0.025 returns
+  $h^2 = 0.2500$ exactly, and the intercept of 1.05 accounts for only 2.4% of the inflation.
+- **On that same data $\lambda_{\mathrm{GC}}$ reads 5.8799.** The two diagnostics disagree
+  completely, and the regression is right. Report $\lambda_{\mathrm{GC}}$ if convention
+  demands it; act on the intercept.
+- **It needs only summary statistics**, which is why it turned heritability and genetic
+  correlation from computations requiring a cohort into computations requiring a download.
+  Sample overlap between two studies lands in the intercept rather than biasing $r_g$.
+- **Stratified LDSC partitions heritability across functional annotations.** Conserved
+  non-coding sequence and coding sequence each carry seven to eight times their share;
+  intergenic sequence, nearly half the genome, carries a third of its share.
+- **Enrichment is marginal; $\tau_C$ is conditional.** An annotation can look tenfold
+  enriched purely by sitting inside another enriched annotation, which is why the baseline
+  model is not optional.
+- **The assumptions are real.** Effects are taken to be independent of LD score, the
+  frequency-variance relationship is assumed, and the reference panel must match the study
+  population. Each has been shown to bite.
