@@ -26,6 +26,7 @@ import {
   wakefieldAbf, pipsFromAbf, credibleSet, csPurity,
   waldRatio, fStatistic, ivwMr, eggerRegression, weightedMedianMr,
   effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
+  callRate, piHat, inbreedingF,
 
 } from './deepDiveMath.ts';
 
@@ -4975,6 +4976,110 @@ describe('gwas-arrays-imputation', () => {
       expect(0.9 / 0.55).toBeCloseTo(1.64, 2);
       for (const v of ['2.2001 \\times 10^{-3}', '3.6001 \\times 10^{-3}', '64% higher', '32{,}727', '1.64'])
         expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+describe('gwas-quality-control', () => {
+  const mdx = lesson('gwas-quality-control');
+
+  describe('worked example — four pairs, and what breaking them costs', () => {
+    it('step 1: the PI_HAT of each pair in the table', () => {
+      const rows: [number, number, number, string][] = [
+        [0.0, 0.0, 1.0, '1.0000'],
+        [0.25, 0.5, 0.25, '0.5000'],
+        [0.5, 0.5, 0.0, '0.2500'],
+        [0.75, 0.25, 0.0, '0.1250'],
+      ];
+      for (const [z0, z1, z2, shown] of rows) {
+        expect(z0 + z1 + z2).toBeCloseTo(1, 12);
+        expect(piHat(z0, z1, z2).toFixed(4)).toBe(shown);
+        expect(mdx).toContain(`| ${shown} |`);
+      }
+    });
+
+    it('step 2: 0.185 sits in the gap, near its midpoint of 0.1875', () => {
+      expect(piHat(0.75, 0.25, 0)).toBeLessThan(0.185);
+      expect(piHat(0.5, 0.5, 0)).toBeGreaterThan(0.185);
+      expect((0.25 + 0.125) / 2).toBeCloseTo(0.1875, 12);
+      expect(mdx).toContain('0.1875');
+    });
+
+    it('step 3: the same 400 people cost sixteen times more from the case arm', () => {
+      const base = effectiveSampleSize(10000, 40000);
+      const dropCases = effectiveSampleSize(9600, 40000);
+      const dropControls = effectiveSampleSize(10000, 39600);
+      expect(dropCases).toBeCloseTo(30967.74, 2);
+      expect(dropControls).toBeCloseTo(31935.48, 2);
+      expect(base - dropCases).toBeCloseTo(1032.26, 2);
+      expect(base - dropControls).toBeCloseTo(64.52, 2);
+      expect((base - dropCases) / (base - dropControls)).toBeCloseTo(16, 6);
+      for (const v of ['30{,}967.74', '31{,}935.48', '1{,}032.26', '64.52'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figures', () => {
+    it('figure 1 draws the relationship classes at their expected values', () => {
+      expect(piHat(0, 0, 1)).toBe(1);
+      expect(piHat(0, 1, 0)).toBe(0.5);
+      expect(piHat(0.5, 0.5, 0)).toBe(0.25);
+      expect(piHat(0.75, 0.25, 0)).toBe(0.125);
+      expect(piHat(1, 0, 0)).toBe(0);
+      for (const l of ['cut at 0.185', 'unrelated', 'first cousin', '2nd degree', '1st degree',
+                       'duplicate / MZ'])
+        expect(mdx, `figure 1 label ${l}`).toContain(l);
+    });
+
+    it('figure 2 draws both pruning outcomes and the pre-pruning line', () => {
+      expect(Math.round(effectiveSampleSize(10000, 39600))).toBe(31935);
+      expect(Math.round(effectiveSampleSize(9600, 40000))).toBe(30968);
+      for (const l of ['31935', '30968', 'before pruning', '1,032 effective samples'])
+        expect(mdx, `figure 2 label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — PI_HAT cannot separate parent-offspring from full sibs; z0 can', () => {
+      expect(piHat(0, 1, 0)).toBeCloseTo(0.5, 12);
+      expect(piHat(0.6, 0.35, 0.05)).toBeCloseTo(0.225, 12);
+      expect(piHat(0.25, 0.5, 0.25)).toBeCloseTo(0.5, 12);
+      // identical summaries, different z0 — which is the point of the exercise
+      expect(piHat(0, 1, 0)).toBe(piHat(0.25, 0.5, 0.25));
+      expect(mdx).toContain('0.2250');
+      // Regex: the sentence wraps between "both" and "give".
+      expect(mdx).toMatch(/both\s+give exactly 0\.5/);
+    });
+
+    it('2 — the choice is worth nothing in a balanced study', () => {
+      const base = effectiveSampleSize(25000, 25000);
+      const pruned = effectiveSampleSize(24600, 25000);
+      expect(base).toBeCloseTo(50000, 6);
+      expect(pruned).toBeCloseTo(49596.77, 2);
+      expect(base - pruned).toBeCloseTo(403.23, 2);
+      // symmetric, so both choices are the same number
+      expect(effectiveSampleSize(24600, 25000)).toBeCloseTo(
+        effectiveSampleSize(25000, 24600),
+        9
+      );
+      expect(mdx).toContain('49{,}596.77');
+      expect(mdx).toContain('403.23');
+    });
+
+    it('2 — and the ratio is exactly (controls/cases) squared', () => {
+      // The generalisation the solution states, checked at three imbalances.
+      for (const [cases, controls, expected] of [
+        [10000, 40000, 16],
+        [25000, 25000, 1],
+        [10000, 100000, 100],
+      ] as [number, number, number][]) {
+        const base = effectiveSampleSize(cases, controls);
+        const dc = base - effectiveSampleSize(cases - 400, controls);
+        const dk = base - effectiveSampleSize(cases, controls - 400);
+        expect(dc / dk).toBeCloseTo(expected, 4);
+        expect((controls / cases) ** 2).toBeCloseTo(expected, 9);
+      }
+      expect(mdx).toContain('(N_{\\mathrm{controls}}/N_{\\mathrm{cases}})^2');
     });
   });
 });

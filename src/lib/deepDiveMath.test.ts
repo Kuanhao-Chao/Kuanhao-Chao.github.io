@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
+  callRate, piHat, inbreedingF,
   expectedR2, falconerACE, haldaneTheta, kosambiTheta, ldHalfLife, ldMeasures,
   liabilityScale, ncp, ncpForPower, normalCdf, normalPdf, normalQuantile,
   powerFromNcp, sampleSizeForPower, sampleSizeForR2, shrinkageFactor, varianceExplained,
@@ -273,6 +274,45 @@ describe('study design', () => {
     expect(addCases).toBeCloseTo(53_333.333333, 6);
     expect(addCases - addControls).toBeCloseTo(20_000, 6);
     expect(addCases / addControls).toBeCloseTo(1.6, 9);
+  });
+});
+
+describe('quality control', () => {
+  it('scores a call rate as a plain fraction, and survives zero attempts', () => {
+    expect(callRate(97, 100)).toBeCloseTo(0.97, 12);
+    expect(callRate(0, 100)).toBe(0);
+    expect(callRate(5, 0)).toBe(0);
+  });
+
+  it('places every standard relationship at its textbook PI_HAT', () => {
+    expect(piHat(0, 0, 1)).toBeCloseTo(1, 12);        // duplicate / MZ twin
+    expect(piHat(0.25, 0.5, 0.25)).toBeCloseTo(0.5, 12); // full sibs
+    expect(piHat(0, 1, 0)).toBeCloseTo(0.5, 12);      // parent-offspring
+    expect(piHat(0.5, 0.5, 0)).toBeCloseTo(0.25, 12); // half sib, avuncular, grandparent
+    expect(piHat(0.75, 0.25, 0)).toBeCloseTo(0.125, 12); // first cousins
+    expect(piHat(1, 0, 0)).toBeCloseTo(0, 12);        // unrelated
+  });
+
+  it('puts the conventional 0.185 cut in the empty gap, not on a relationship', () => {
+    const secondDegree = piHat(0.5, 0.5, 0);
+    const thirdDegree = piHat(0.75, 0.25, 0);
+    expect(thirdDegree).toBeLessThan(0.185);
+    expect(secondDegree).toBeGreaterThan(0.185);
+    // and it is very nearly the midpoint of that gap
+    expect((secondDegree + thirdDegree) / 2).toBeCloseTo(0.1875, 12);
+  });
+
+  it('reads F as 1 for a fully homozygous sample and 0 at the expectation', () => {
+    expect(inbreedingF(10_000, 10_000, 10_000)).toBe(0); // degenerate: N = E
+    expect(inbreedingF(9_000, 6_000, 10_000)).toBeCloseTo(0.75, 12);
+    expect(inbreedingF(6_000, 6_000, 10_000)).toBeCloseTo(0, 12);
+    expect(inbreedingF(10_000, 6_000, 10_000)).toBeCloseTo(1, 12); // every site homozygous
+  });
+
+  it('goes negative when a sample has more heterozygotes than it should', () => {
+    // The contamination signature: mixing two people manufactures heterozygotes.
+    expect(inbreedingF(4_000, 6_000, 10_000)).toBeCloseTo(-0.5, 12);
+    expect(inbreedingF(4_000, 6_000, 10_000)).toBeLessThan(0);
   });
 });
 

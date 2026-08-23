@@ -163,37 +163,6 @@ export const DEEP_DIVES: DeepDiveEntry[] = [
     status: 'published',
   },
   {
-    id: 'gwas-quality-control',
-    title:
-      'Rigorous Quality Control (QC) Protocols in GWAS: Sample- and Variant-Level Filtering Pipelines',
-    shortTitle: 'GWAS Quality Control',
-    area: 'Statistical & Population Genetics',
-    category: 'statistical-genetics',
-    tag: 'GWAS Foundations · Part 3',
-    level: 'Practical & Methodological',
-    readingTime: '5 min read',
-    summary:
-      'A step-by-step mathematical guide to quality control in genome-wide association studies: call rate thresholds, sex chromosome inbreeding metrics, heterozygosity outlier tests, cryptic relatedness via IBD, and differential missingness.',
-    highlights: [
-      'Two-tier sample- and variant-level filtering pipeline to eliminate batch artifacts',
-      'X-chromosome inbreeding coefficient (F_inbreeding) for sex discrepancy checks',
-      'Autosomal heterozygosity outlier detection (|F_het| > 3 SD) for contamination',
-      'Identity-By-Descent (IBD) kinship coefficients (π̂ > 0.20) for cryptic relatedness',
-      'Case-control differential missingness Fisher exact tests (p < 10⁻⁵)',
-    ],
-    equations: [
-      'F_{\\text{inbreeding}} = \\frac{O(\\text{Hom}) - E(\\text{Hom})}{N - E(\\text{Hom})}',
-      '\\hat{\\pi} = Z_2 + 0.5 Z_1',
-      'F_{\\text{het}} = \\frac{N_{\\text{total}} - N_{\\text{hom}} - \\mathbb{E}[N_{\\text{het}}]}{N_{\\text{total}}}',
-    ],
-    href: '/deep_dives/gwas-quality-control/',
-    badge: 'Deep Dive Post',
-    actionText: 'Read concept deep dive',
-    featured: false,
-    icon: 'gwas',
-    status: 'published',
-  },
-  {
     id: 'gwas-association-statistics',
     title:
       'The Mathematical Association Engine: OLS, Logistic Regression, Wald Statistics, and Statistical Power',
