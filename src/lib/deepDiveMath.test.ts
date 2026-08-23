@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  effectiveSampleSize, controlCeiling,
   expectedR2, falconerACE, haldaneTheta, kosambiTheta, ldHalfLife, ldMeasures,
   liabilityScale, ncp, ncpForPower, normalCdf, normalPdf, normalQuantile,
   powerFromNcp, sampleSizeForPower, sampleSizeForR2, shrinkageFactor, varianceExplained,
@@ -226,6 +227,52 @@ describe('polygenic prediction', () => {
 
   it('needs infinitely many samples to reach the ceiling itself', () => {
     expect(sampleSizeForR2(0.5, 1e6, 0.5)).toBe(Infinity);
+  });
+});
+
+describe('study design', () => {
+  it('reduces to the headcount when the study is balanced', () => {
+    // closed form: 4/(1/n + 1/n) = 4/(2/n) = 2n, so an equal split of 2n people is
+    // fully efficient — N_eff equals the number of people.
+    for (const n of [500, 25_000, 1e6]) {
+      expect(effectiveSampleSize(n, n)).toBeCloseTo(2 * n, 6);
+    }
+  });
+
+  it('is a harmonic mean, so the smaller arm dominates', () => {
+    // 10,000 cases and 40,000 controls is 50,000 people and 32,000 effective.
+    expect(effectiveSampleSize(10_000, 40_000)).toBeCloseTo(32_000, 9);
+    // The same 50,000 people, balanced, are worth 50,000.
+    expect(effectiveSampleSize(25_000, 25_000)).toBeCloseTo(50_000, 9);
+    expect(effectiveSampleSize(25_000, 25_000)).toBeGreaterThan(
+      effectiveSampleSize(10_000, 40_000)
+    );
+  });
+
+  it('is symmetric in the two arms', () => {
+    expect(effectiveSampleSize(3_000, 17_000)).toBeCloseTo(effectiveSampleSize(17_000, 3_000), 9);
+  });
+
+  it('saturates at four times the case count however many controls are added', () => {
+    const cases = 10_000;
+    expect(controlCeiling(cases)).toBe(40_000);
+    for (const controls of [1e6, 1e9, 1e12]) {
+      expect(effectiveSampleSize(cases, controls)).toBeLessThan(controlCeiling(cases));
+    }
+    expect(effectiveSampleSize(cases, 1e12)).toBeCloseTo(controlCeiling(cases), 3);
+    // A 4:1 ratio already banks 80% of everything controls can ever buy.
+    expect(effectiveSampleSize(cases, 4 * cases) / controlCeiling(cases)).toBeCloseTo(0.8, 12);
+    // Doubling controls again from there buys under nine points more.
+    expect(effectiveSampleSize(cases, 8 * cases) / controlCeiling(cases)).toBeCloseTo(8 / 9, 12);
+  });
+
+  it('makes the next sample a case, not a control, past a 4:1 ratio', () => {
+    const addControls = effectiveSampleSize(10_000, 50_000);
+    const addCases = effectiveSampleSize(20_000, 40_000);
+    expect(addControls).toBeCloseTo(33_333.333333, 6);
+    expect(addCases).toBeCloseTo(53_333.333333, 6);
+    expect(addCases - addControls).toBeCloseTo(20_000, 6);
+    expect(addCases / addControls).toBeCloseTo(1.6, 9);
   });
 });
 

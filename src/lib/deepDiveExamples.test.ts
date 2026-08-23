@@ -25,6 +25,7 @@ import {
   betaWeight, burdenStatistic, skatQ, skatOQ,
   wakefieldAbf, pipsFromAbf, credibleSet, csPurity,
   waldRatio, fStatistic, ivwMr, eggerRegression, weightedMedianMr,
+  effectiveSampleSize, controlCeiling,
 
 } from './deepDiveMath.ts';
 
@@ -4728,6 +4729,137 @@ describe('statistical-genetics (hub)', () => {
       expect(mdx).toContain('5.40 percentage');
       expect(100 * (expectedR2(5e5, M, 0.36) - expectedR2(5e5, M, 0.3))).toBeCloseTo(1.5785, 4);
       expect(mdx).toContain('1.58 percentage');
+    });
+  });
+});
+
+describe('gwas-study-design', () => {
+  const mdx = lesson('gwas-study-design');
+  const CASES = 10000;
+  const CONTROLS = 40000;
+  const K = (Math.sqrt(chi2Quantile(1 - 5e-8, 1)) + normalQuantile(0.8)) ** 2;
+
+  describe('worked example — where the next ten thousand samples go', () => {
+    it('step 1: 50,000 people are worth 32,000, and balanced would be worth all of them', () => {
+      expect(effectiveSampleSize(CASES, CONTROLS)).toBeCloseTo(32000, 9);
+      expect(effectiveSampleSize(25000, 25000)).toBeCloseTo(50000, 9);
+      expect(mdx).toContain('= 32{,}000');
+      expect(mdx).toContain('N_{\\mathrm{eff}} = 50{,}000$, the headcount exactly');
+      // the 4:1 split costs exactly 18,000 effective samples
+      // toBeCloseTo, not toBe: the two harmonic means are exact in decimal but not in
+      // binary, and the difference lands on 17999.999999999993.
+      expect(
+        effectiveSampleSize(25000, 25000) - effectiveSampleSize(CASES, CONTROLS)
+      ).toBeCloseTo(18000, 6);
+      expect(mdx).toContain('costs 18,000 effective');
+    });
+
+    it('step 2: controls saturate at four times the cases, and 4:1 banks 80% of it', () => {
+      expect(controlCeiling(CASES)).toBe(40000);
+      expect(effectiveSampleSize(CASES, CONTROLS) / controlCeiling(CASES)).toBeCloseTo(0.8, 12);
+      expect(mdx).toContain('4 N_{\\mathrm{cases}} = 40{,}000');
+      expect(mdx).toContain('32{,}000/40{,}000 = 80\\%');
+    });
+
+    it('step 3: the same ten thousand people are worth exactly sixteen times more as cases', () => {
+      const base = effectiveSampleSize(CASES, CONTROLS);
+      const addControls = effectiveSampleSize(CASES, CONTROLS + 10000);
+      const addCases = effectiveSampleSize(CASES + 10000, CONTROLS);
+      expect(addControls).toBeCloseTo(33333.33, 2);
+      expect(addCases).toBeCloseTo(53333.33, 2);
+      expect(addControls - base).toBeCloseTo(1333.33, 2);
+      expect(addCases - base).toBeCloseTo(21333.33, 2);
+      // exactly 16, not approximately — the lesson says so and it must hold
+      expect((addCases - base) / (addControls - base)).toBeCloseTo(16, 9);
+      expect(mdx).toContain('= 33{,}333.33');
+      expect(mdx).toContain('= 53{,}333.33');
+      expect(mdx).toContain('sixteen times more as cases');
+    });
+
+    it('step 4: converts each effective size into a detection limit and an effect', () => {
+      const detect = (n: number) => K / n;
+      const beta = (q2: number) => Math.sqrt(q2 / (2 * 0.3 * 0.7));
+      const base = detect(effectiveSampleSize(CASES, CONTROLS));
+      const cases = detect(effectiveSampleSize(CASES + 10000, CONTROLS));
+      const controls = detect(effectiveSampleSize(CASES, CONTROLS + 10000));
+      expect(base).toBeCloseTo(1.2375e-3, 7);
+      expect(cases).toBeCloseTo(7.4252e-4, 8);
+      expect(mdx).toContain('1.2375 \\times 10^{-3}');
+      expect(mdx).toContain('7.4252 \\times 10^{-4}');
+      expect(beta(base)).toBeCloseTo(0.054282, 6);
+      expect(beta(cases)).toBeCloseTo(0.042046, 6);
+      expect(beta(controls)).toBeCloseTo(0.053185, 6);
+      for (const b of ['0.054282', '0.042046', '0.053185']) expect(mdx).toContain(b);
+      // 2% against 23% — the comparison the step draws
+      expect(Math.round(100 * (1 - beta(controls) / beta(base)))).toBe(2);
+      expect(Math.round(100 * (1 - beta(cases) / beta(base)))).toBe(23);
+    });
+
+    it('step 5: puts both on the liability scale, which needs the prevalence', () => {
+      expect(liabilityScale(1.2375e-3, 0.01, 0.2)).toBeCloseTo(1.0672e-3, 7);
+      expect(liabilityScale(7.4252e-4, 0.01, 1 / 3)).toBeCloseTo(4.6103e-4, 8);
+      expect(mdx).toContain('1.0672 \\times 10^{-3}');
+      expect(mdx).toContain('4.6103 \\times 10^{-4}');
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('marks the two ratios, the ceiling and the case alternative', () => {
+      expect(effectiveSampleSize(CASES, 40000)).toBeCloseTo(32000, 6);
+      expect(effectiveSampleSize(CASES, 80000)).toBeCloseTo(35555.56, 2);
+      for (const label of ['32,000 at 4:1', '35,556 at 8:1', 'ceiling: 4 x cases = 40,000',
+                           '53,333 effective']) {
+        expect(mdx, `figure label ${label}`).toContain(label);
+      }
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — a 2,000/100,000 study is at 98% of its ceiling, so cases win 24.6 to 1', () => {
+      const base = effectiveSampleSize(2000, 100000);
+      expect(base).toBeCloseTo(7843.14, 2);
+      expect(controlCeiling(2000)).toBe(8000);
+      expect(100 * (base / 8000)).toBeCloseTo(98.04, 2);
+      expect(8000 - base).toBeCloseTo(156.86, 2);
+      const moreControls = effectiveSampleSize(2000, 200000);
+      const moreCases = effectiveSampleSize(2500, 100000);
+      expect(moreControls).toBeCloseTo(7920.79, 2);
+      expect(moreCases).toBeCloseTo(9756.1, 2);
+      expect((moreCases - base) / (moreControls - base)).toBeCloseTo(24.63, 2);
+      for (const v of ['7{,}843.14', '98.04\\%', '156.86', '7{,}920.79', '9{,}756.10', '24.6 times more'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('2 — a 15,000-case study cannot reach the target however many controls it buys', () => {
+      const need = K / 5e-4;
+      expect(need).toBeCloseTo(79201.98, 2);
+      expect(controlCeiling(15000)).toBe(60000);
+      expect(controlCeiling(15000)).toBeLessThan(need);        // (b) unreachable
+      expect(need / 4).toBeCloseTo(19800.49, 2);               // (c) minimum cases
+      expect(Math.ceil(need / 4)).toBe(19801);
+      // a 4:1 design has N_eff = 3.2 * cases
+      expect(effectiveSampleSize(1000, 4000)).toBeCloseTo(3.2 * 1000, 9);
+      expect(Math.ceil(need / 3.2)).toBe(24751);
+      expect(effectiveSampleSize(24751, 99004)).toBeGreaterThan(need);
+      for (const v of ['79{,}201.98', '19{,}800.49', '24,751 cases and 99,004 controls'])
+        expect(mdx, v).toContain(v);
+      // and the rounded constant must not be presented as producing that result
+      expect(39.6 / 5e-4).toBe(79200);
+      expect(mdx).toContain('39.600989/(5 \\times 10^{-4}) = 79{,}201.98');
+    });
+
+    it('3 — the liability scale makes two apparently contradictory studies agree', () => {
+      const a = liabilityScale(0.0012, 0.02, 0.5);
+      const b = liabilityScale(0.0004, 0.02, 0.1);
+      expect(a).toBeCloseTo(7.8657e-4, 8);
+      expect(b).toBeCloseTo(7.2831e-4, 8);
+      // observed scale: a threefold gap. Liability scale: 8%.
+      expect(0.0012 / 0.0004).toBeCloseTo(3, 12);
+      expect(a / b).toBeCloseTo(1.08, 4);
+      expect(mdx).toContain('7.8657 \\times 10^{-4}');
+      expect(mdx).toContain('7.2831 \\times 10^{-4}');
+      expect(mdx).toContain('7.8657/7.2831 = 1.08');
+      expect(mdx).toContain('agree to within 8%');
     });
   });
 });

@@ -72,6 +72,10 @@ export default defineConfig({
     // The v1.0.10 report was superseded by v1.0.11 (a single-fix release whose
     // numbers were re-measured); keep the previously-shared URL working.
     '/reports/lifton-v1-0-10-technical-report': '/reports/lifton-v1-0-11-technical-report',
+    // The GWAS track was rebuilt as the workflow counterpart to the statistical-genetics
+    // theory track, and some lessons were renamed to say what they now cover. The old
+    // URLs have been shared, so they keep working.
+    '/deep_dives/gwas-biological-variation-cdcv': '/deep_dives/gwas-study-design/',
     // Per-item pages from the previous site (auto-generated; see
     // scripts/gen-legacy-redirects.mjs). Originals live on archive.khchao.com.
     ...legacyRedirects,
