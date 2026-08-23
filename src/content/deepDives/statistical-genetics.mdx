@@ -115,7 +115,7 @@ of a GWAS catalogue — and the trace is entirely arithmetic.
 
 <Notation
   rows={[
-    { symbol: 'p', meaning: 'Minor allele frequency at the tested variant', dims: 'in (0, 0.5]' },
+    { symbol: 'p', meaning: 'Effect-allele frequency at the tested variant', dims: 'in [0,1]' },
     { symbol: '\\beta', meaning: 'Additive effect per copy of the minor allele', dims: 'trait SD per allele' },
     { symbol: 'q^2', meaning: 'Variance of the trait explained by that one variant', dims: 'in [0,1]' },
     { symbol: 'h^2', meaning: 'Narrow-sense heritability — the additive genetic share of trait variance', dims: 'in [0,1]' },
@@ -148,8 +148,11 @@ $$
 Nothing about the variant enters yet. This is the bar, fixed by how many questions are being
 asked at once.
 
-**Module 2 — is the test valid here?** At $p = 0.30$, a sample of a thousand people is
-expected to contain $1000 p^2 = 90$ minor homozygotes. The χ² approximation is comfortable at
+**Module 2 — is the test valid here?** The effect allele here is also the minor one, at a
+frequency of 0.30, so a sample of a thousand people is expected to contain
+$1000 \times 0.30^2 = 90$ homozygous carriers. (Module 2 writes that frequency $q$ and
+reserves $p$ for the major allele; $2p(1-p)$ below is symmetric in the two, so only the
+genotype counts care which is which.) The χ² approximation is comfortable at
 that count; it is *not* comfortable in the sparse cell a variant at 3% frequency would
 produce, which is where Module 1's exact-test boundary applies. Note also what this variant
 is: one marker in a block of correlated neighbours. Whatever the test finds belongs to the
@@ -169,8 +172,12 @@ architecture, not a disappointment.
 $q^2$. For 80% power at the threshold above,
 
 $$
-N \geq \frac{39.60}{q^2} = \frac{39.60}{1.05 \times 10^{-3}} = 37{,}716 .
+N \geq \frac{39.60}{q^2} = \frac{39.600989}{1.05 \times 10^{-3}} = 37{,}716 .
 $$
+
+The constant is $(z_{\alpha/2} + z_\beta)^2 = 39.600989$, written $39.60$ throughout this
+curriculum; the division above uses it unrounded, which is the difference between 37,715 and
+37,716.
 
 Thirty-eight thousand people, and the variant clears genome-wide significance. By the
 standards of Module 4 this is a success and it gets a row in the catalogue.
@@ -192,10 +199,13 @@ $N = 3{,}333{,}334$ — 88 times the discovery sample. Reaching nine tenths of i
 $R^2 = 0.27$, needs $N = 30{,}000{,}001$, or 795 times. The last tenth is not reachable at
 any $N$; the formula approaches $h^2$ and never arrives.
 
-**And as an instrument?** Used in Mendelian randomisation with a standard error of 0.010, the
-variant's instrument strength is $F = (\beta/\text{SE})^2 = 25$, comfortably past the
-conventional threshold of 10 — so it is a usable instrument even while being a nearly useless
-predictor. The three roles are independent.
+**And as an instrument?** In Mendelian randomisation the strength of a single instrument is
+$F = (\hat\gamma/\mathrm{SE})^2$, which for one variant is exactly its association $\chi^2$ in
+the exposure GWAS. At $N = 37{,}716$ that is $Nq^2 = 39.60$ — and the equality is the point,
+not a coincidence: it is the same non-centrality the power calculation just solved for. Since
+the genome-wide threshold is $\chi^2 \geq 29.7168$, **anything that clears discovery is
+already a strong instrument**, four times past the conventional $F > 10$. Instrument strength
+and discovery significance are one number wearing two names. Prediction is the odd one out.
 
 </WorkedExample>
 
@@ -383,8 +393,9 @@ nothing at all for the transferability problem in Exercise 2(b).
   0.34% of the trait, and reaching half of $h^2$ costs 88 times more people.
 - **Heritability is a ceiling, not a target.** $R^2 = h^2/(1 + M/(N h^2))$ approaches $h^2$
   and never reaches it, so the last increment of accuracy is always the most expensive.
-- **A variant can be a strong instrument and a weak predictor at once.** The variant traced
-  here has $F = 25$ — usable for Mendelian randomisation — while contributing almost nothing
-  to a polygenic score.
+- **Instrument strength and discovery significance are the same number.** For a single
+  variant $F = Nq^2$, which is its association $\chi^2$ — 39.60 here — so anything
+  genome-wide significant is automatically a strong instrument, while still contributing
+  almost nothing to a polygenic score.
 - **Every method here returns a number whether or not its assumptions hold.** The comparison
   table's last column, not its first, is what decides whether a method applies.

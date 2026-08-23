@@ -122,9 +122,13 @@ LX = ax2.x1 + 74
 p2.append(text(LX, 74, 'A trait measured in two', 11, weight='700'))
 p2.append(text(LX, 90, 'environments is two traits', 11, weight='700'))
 for i2, s2 in enumerate(['related by a genetic',
-                         'correlation r_g < 1.', '',
+                         # `&lt;`, not a bare `<`: a raw less-than in SVG text content is
+                         # invalid XML. Browsers parse inline SVG leniently so it renders,
+                         # which is why it survived — but it breaks any XML tooling and
+                         # would fail if the file were ever served as image/svg+xml.
+                         'correlation r_g &lt; 1.', '',
                          'These four genotypes give',
-                         'r_g = %.4f, and two of' % RG,
+                         'r_g = %.4f, and three of' % RG,
                          'them change rank — the',
                          'strong form of G × E.', '',
                          'Robertson: below r_g ≈ 0.8',

@@ -269,7 +269,7 @@ by virtue of having more variance to contribute.
 average standardised product across all $M$ SNPs <Citation id="vanraden2008" />:
 
 $$
-A_{ik} = \frac{1}{M}\sum_{j=1}^{M} \frac{(X_{ij}-2p_j)(X_{kj}-2p_j)}{2p_j(1-p_j)}
+G_{ik} = \frac{1}{M}\sum_{j=1}^{M} \frac{(X_{ij}-2p_j)(X_{kj}-2p_j)}{2p_j(1-p_j)}
 \qquad\Longleftrightarrow\qquad
 \mathbf{G} = \frac{1}{M}\mathbf{W}\mathbf{W}^{\mathsf{T}}
 $$
@@ -296,7 +296,7 @@ nothing.
 The quantity estimated is $h^2_{\mathrm{SNP}}$, a *lower bound* on $h^2$ whose tightness
 depends on array density and on the frequency spectrum of the causal variants. Reporting
 it as "the heritability" is the single most common misreading of a GCTA result. GREML
-studies also routinely drop one of each pair with $A_{ik} > 0.025$, because close
+studies also routinely drop one of each pair with $G_{ik} > 0.025$, because close
 relatives share environment as well as genome and would reintroduce exactly the
 confounding the method is designed to avoid.
 </Callout>

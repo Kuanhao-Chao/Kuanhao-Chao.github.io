@@ -26,8 +26,11 @@ for k, (name, b, se, n) in enumerate(STUDIES):
     o.append(line(ax.px(b - 1.96 * se), y, ax.px(b + 1.96 * se), y, 1.6, opacity='.7'))
     for e in (b - 1.96 * se, b + 1.96 * se):
         o.append(line(ax.px(e), y - 4, ax.px(e), y + 4, 1.6, opacity='.7'))
-    # box area proportional to the inverse-variance weight
-    s = 4 + 12 * (IVW_W[k] / max(IVW_W))
+    # Box AREA proportional to the inverse-variance weight, which is what a forest plot
+    # conventionally encodes and what the caption promises — so the side goes as the square
+    # root. An affine side length (4 + 12 w/w_max) reads as area ∝ w² and understates the
+    # spread: study 3 drew at 13% of the largest box where its weight is 14%.
+    s = 16 * math.sqrt(IVW_W[k] / max(IVW_W))
     o.append(rect(ax.px(b) - s / 2, y - s / 2, s, s, fill=ACCENT))
     o.append(text(ax.x0 - 12, y + 4, name, 10.5, anchor='end'))
     o.append(text(ax.x1 + 12, y + 4, '%4.1f%%' % (100 * IVW_W[k] / tot_i), 10, weight='600',

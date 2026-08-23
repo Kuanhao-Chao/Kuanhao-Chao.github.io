@@ -174,10 +174,12 @@ $v_3$, $v_4$ and $v_5$, with coverage $0.99996$. Two variants would give only
 $0.770194 + 0.114882 = 0.885076$, short of the threshold, so three are needed.
 
 **Step 4 — the purity.** The smallest pairwise $|r|$ inside that set is $0.7000$. That is
-the honest summary: the data localise the signal to three variants and **cannot go
-further**. No increase in sample size will separate them, because they are not independent
-sources of information — only recombination, or a population whose LD structure differs,
-can.
+the honest summary *at this sample size*: the data localise the signal to three variants and
+no further. More data does help — every $z$ grows as $\sqrt{N}$ while the LD between the
+variants does not, so this same locus resolves to a **single-variant** credible set by
+$N \approx 95{,}500$. What sample size cannot fix is $|r| = 1$: two variants in perfect LD
+have identical likelihoods, and no quantity of data separates them. Moving that limit rather
+than approaching it takes recombination, or a population whose LD structure differs.
 
 **Step 5 — note what the PIPs sum to.** Here they sum to $1.000000$, and $\pi_0$ appears to
 have done nothing. That is correct: when the evidence is this strong, $\pi_0 = 0.05$ is

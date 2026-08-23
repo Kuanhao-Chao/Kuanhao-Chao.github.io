@@ -535,6 +535,24 @@ describe('curriculum consistency', () => {
     );
   });
 
+  it('has no bare "<" in inline figure text, which is invalid XML', () => {
+    // Companion to the brace check above. A generator writing "r_g < 1." puts a raw
+    // less-than into SVG text content, which is not well-formed XML. Browsers parse inline
+    // SVG with the lenient HTML parser, so it renders and every rendering audit passes —
+    // but it breaks XML tooling and would fail outright if the file were served as
+    // image/svg+xml. Write &lt; instead.
+    const offenders: string[] = [];
+    for (const lesson of published) {
+      for (const svg of lesson.body.match(/<svg[\s\S]*?<\/svg>/g) ?? []) {
+        // A "<" that does not begin a tag, a closing tag, a comment or a PI.
+        for (const m of svg.matchAll(/>([^<>]*)<(?![a-zA-Z/!?])/g)) {
+          offenders.push(`${lesson.id}: ${m[0].slice(0, 40)}`);
+        }
+      }
+    }
+    expect(offenders, 'a raw < in SVG text content is not well-formed XML').toEqual([]);
+  });
+
   it('mounts no widget kind the controller cannot render', () => {
     const known = new Set<string>(DEEP_DIVE_WIDGET_KINDS);
     const used = corpus.flatMap((c) =>
