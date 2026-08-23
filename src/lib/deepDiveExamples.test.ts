@@ -1899,7 +1899,7 @@ describe('statgen-rare-variant-association', () => {
       expect(mdx).toContain('= 36.8181');
     });
 
-    it('collapses the burden statistic by a factor of 490', () => {
+    it('collapses the burden statistic by a factor of 106.6', () => {
       const a = burdenStatistic(GENE_A, W);
       const b = burdenStatistic(GENE_B, W);
       expect(Math.round(a)).toBe(144476);
@@ -1908,6 +1908,17 @@ describe('statgen-rare-variant-association', () => {
       expect(mdx).toContain('380.1000^2 = 144{,}476');
       expect(mdx).toContain('36.8181^2 = 1{,}356');
       expect(mdx).toContain('factor of **106.6**');
+      // The abstract renders as the page's lead paragraph and is also the citation
+      // abstract, and no assertion here reached it — so it claimed a factor of 490 and
+      // an eight-percent SKAT shift for months, contradicting the body two screens
+      // below. Regexes because both sentences wrap a line.
+      expect(mdx, 'abstract states the ratio the body derives').toMatch(
+        /factor of 106\.6\s+while SKAT does not move\s+at all/
+      );
+      expect(mdx, 'exercise 3(a) states the same ratio').toMatch(
+        /burden statistic 106\.6\s+times smaller/
+      );
+      expect(mdx, 'the wrong ratio must not survive anywhere in the lesson').not.toContain('490');
     });
 
     it('leaves SKAT essentially unchanged', () => {
@@ -2440,13 +2451,17 @@ describe('statgen-mendelian-randomization', () => {
 
 describe('statgen-deep-learning-synthesis', () => {
   const mdx = lesson('statgen-deep-learning-synthesis');
-  const SWEEP: [string, number, number][] = [
-    ['0.50', 0.95, 0.4],
-    ['0.75', 0.88, 0.2],
-    ['0.90', 0.78, 0.12],
-    ['0.98', 0.62, 0.06],
-    ['0.995', 0.41, 0.015],
-    ['0.999', 0.22, 0.004],
+  // threshold, TPR, FPR, and the LR+ exactly as the table prints it. The fourth element
+  // is not decoration: 0.95/0.4 is exactly 2.375, but in floating point it is
+  // 2.3749999999999996, so `.toFixed(2)` produced "2.37" where the arithmetic says 2.38.
+  // Carrying the printed string lets the test check the *display*, not just the value.
+  const SWEEP: [string, number, number, string][] = [
+    ['0.50', 0.95, 0.4, '2.375'],
+    ['0.75', 0.88, 0.2, '4.40'],
+    ['0.90', 0.78, 0.12, '6.50'],
+    ['0.98', 0.62, 0.06, '10.33'],
+    ['0.995', 0.41, 0.015, '27.33'],
+    ['0.999', 0.22, 0.004, '55.00'],
   ];
 
   describe('worked example — what a score of 0.98 is worth', () => {
@@ -2500,20 +2515,49 @@ describe('statgen-deep-learning-synthesis', () => {
     });
   });
 
+  it('prices the two exercise instruments at 1.893 and 4.645 points', () => {
+    // 0.30/0.01 = 30 exactly, and 8 ln(30)/ln(350) = 4.6449 — printed as 4.640 for a while,
+    // which nothing caught because no assertion covered an exercise solution's arithmetic.
+    expect(oddsPathPoints(likelihoodRatioPositive(0.8, 0.2))).toBeCloseTo(1.8932, 4);
+    expect(oddsPathPoints(likelihoodRatioPositive(0.3, 0.01))).toBeCloseTo(4.6449, 4);
+    // Regex, not toContain: the solution wraps its line between "1.893$" and "points".
+    expect(mdx).toMatch(/1\.893\$\s+points/);
+    expect(mdx).toMatch(/4\.645\$\s+points/);
+  });
+
   describe('worked example — accuracy-optimal is not evidence-optimal', () => {
     it('has the six-row table the lesson prints', () => {
-      for (const [thr, tpr, fpr] of SWEEP) {
+      for (const [thr, tpr, fpr, shownLr] of SWEEP) {
         const lr = likelihoodRatioPositive(tpr, fpr);
         const pts = oddsPathPoints(lr);
         expect(mdx).toContain(`| ${thr} | ${tpr.toFixed(2)} |`);
         expect(mdx).toContain(pts.toFixed(3));
         expect(mdx).toContain(acmgPosterior(pts).toFixed(4));
+        // The printed LR+ must be the exact ratio rounded at its own precision. Two
+        // floating-point traps sit here and a tolerance comparison falls into both:
+        // 0.95/0.4 evaluates to 2.3749999999999996 rather than 2.375, and 2.375 - 2.37
+        // evaluates to 0.004999999999999893 rather than 0.005 — so a mis-rounded "2.37"
+        // slips under any epsilon. Doing the whole thing in integers avoids both: the
+        // ratio becomes 950/400, and rounding happens on 237.5, where Math.round goes up.
+        const decimals = shownLr.split('.')[1]?.length ?? 0;
+        const scaled = (Math.round(tpr * 1000) * 10 ** decimals) / Math.round(fpr * 1000);
+        expect(shownLr, `LR+ printed as ${shownLr}`).toBe(
+          (Math.round(scaled) / 10 ** decimals).toFixed(decimals)
+        );
+        expect(mdx).toContain(shownLr);
+        // Youden's J, the column that made the lesson's point and had no assertion. The
+        // winning row bolds its cell, so accept either form.
+        const jCell = (tpr - fpr).toFixed(3);
+        expect(
+          mdx.includes(`| ${jCell} |`) || mdx.includes(`| **${jCell}** |`),
+          `J cell ${jCell}`
+        ).toBe(true);
       }
     });
 
     it("maximises Youden's J at 0.75 and the likelihood ratio at 0.999", () => {
-      const j = (r: [string, number, number]) => r[1] - r[2];
-      const lr = (r: [string, number, number]) => likelihoodRatioPositive(r[1], r[2]);
+      const j = (r: (typeof SWEEP)[number]) => r[1] - r[2];
+      const lr = (r: (typeof SWEEP)[number]) => likelihoodRatioPositive(r[1], r[2]);
       const bestJ = SWEEP.reduce((a, b) => (j(b) > j(a) ? b : a));
       const bestLr = SWEEP.reduce((a, b) => (lr(b) > lr(a) ? b : a));
       expect(bestJ[0]).toBe('0.75');
@@ -2811,6 +2855,22 @@ describe('statgen-polygenic-risk-scores', () => {
   const shrink = (N: number) => shrinkageFactor(N, M, H2);
   const r2 = (N: number) => expectedR2(N, M, H2);
   const nFor = (target: number) => sampleSizeForR2(target, M, H2);
+
+  it('states an M_e the r² and R²_PRS beside it actually follow from', () => {
+    // The sentence exists to keep M (variant count) and M_e (independent segments)
+    // apart, and had M_e = 10^6 — M's value — beside numbers that require 10,000.
+    // At 10^6 the accuracy would be r² = 0.005964, not 0.375.
+    const r2 = (20000 * 0.3) / (20000 * 0.3 + 10000);
+    expect(r2).toBeCloseTo(0.375, 10);
+    expect(predictionAccuracy(20000, 0.3, 10000) ** 2).toBeCloseTo(r2, 10);
+    expect(0.3 * r2).toBeCloseTo(0.1125, 10);
+    expect((20000 * 0.3) / (20000 * 0.3 + 1e6)).toBeCloseTo(0.005964, 6);
+    expect(mdx).toMatch(/M_e = 10\{,\}000\$ the two read/);
+    expect(mdx).toContain('r^2 = 0.375');
+    expect(mdx).toContain('R^2_{\\mathrm{PRS}} = 0.1125');
+    // and it must agree with the BLUP lesson, which states the same example
+    expect(lesson('statgen-blup-genomic-selection')).toContain('M_e = 10{,}000');
+  });
 
   describe('worked example — how hard is a marginal estimate shrunk', () => {
     it('forms the governing ratio M/(Nh²) = 20 at N = 100,000', () => {
