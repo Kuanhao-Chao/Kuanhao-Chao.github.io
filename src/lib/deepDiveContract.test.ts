@@ -490,6 +490,51 @@ describe('curriculum consistency', () => {
     expect(offenders, 'a brace in SVG text content becomes a JSX expression').toEqual([]);
   });
 
+  it('states no figure number the figure does not draw and the lesson never mentions', () => {
+    // A caption is edited far more often than the generator that produced the drawing beside
+    // it, so a caption drifts. The rare-variant lesson shipped one claiming a burden of 295
+    // and "SKAT holds at 34,797" beside a figure drawing 1,356 and 32,097 — inverting the
+    // point, since SKAT not moving is the whole reason that figure exists. Nothing else
+    // caught it: the prose, the table, the SVG and the tests all agreed, and only the two
+    // strings a reader actually reads were wrong.
+    //
+    // Comma-formatted integers only. They are almost always measured results, whereas a bare
+    // decimal in a caption is usually a parameter ("h² = 0.30") that the drawing states some
+    // other way ("ceiling: 30%"). A number is accepted if the SVG draws it OR the lesson
+    // states it anywhere else — a caption may legitimately restate a value from the prose.
+    const ALLOWED = new Set([
+      // Alt text describing an axis *domain*, whose endpoints carry no tick label. Good
+      // practice for a screen reader, and invisible to the check above.
+      'data-population-frequency::1,000',
+      'statgen-blup-genomic-selection::200,000',
+    ]);
+    const offenders: string[] = [];
+    for (const lesson of published) {
+      const prose = lesson.body.replace(/<svg[\s\S]*?<\/svg>/g, ' ');
+      for (const fig of lesson.body.matchAll(/<Figure\b([\s\S]*?)<\/Figure>/g)) {
+        const svg = fig[1].match(/<svg[\s\S]*?<\/svg>/)?.[0];
+        if (!svg) continue;
+        const drawn = [...svg.matchAll(/>([^<>]*)</g)].map((m) => m[1]).join(' ');
+        for (const attr of ['caption', 'alt']) {
+          const text = fig[1].match(new RegExp(`${attr}="([^"]*)"`))?.[1];
+          if (!text) continue;
+          const rest = prose.replace(text, ' ');
+          for (const n of new Set(text.match(/\d{1,3}(?:,\d{3})+/g) ?? [])) {
+            const bare = n.replace(/,/g, '');
+            const latex = n.replace(/,/g, '{,}');
+            if (drawn.includes(n) || drawn.includes(bare)) continue;
+            if (rest.includes(n) || rest.includes(latex)) continue;
+            if (ALLOWED.has(`${lesson.id}::${n}`)) continue;
+            offenders.push(`${lesson.id} [${attr}]: ${n}`);
+          }
+        }
+      }
+    }
+    expect(offenders, 'a caption may not state a figure number nothing else in the lesson does').toEqual(
+      []
+    );
+  });
+
   it('mounts no widget kind the controller cannot render', () => {
     const known = new Set<string>(DEEP_DIVE_WIDGET_KINDS);
     const used = corpus.flatMap((c) =>
