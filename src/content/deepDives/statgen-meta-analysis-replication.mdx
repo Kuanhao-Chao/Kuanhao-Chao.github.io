@@ -1,0 +1,466 @@
+---
+title: "Meta-Analysis & Replication: Pooling Studies, Heterogeneity & the Winner's Curse"
+shortTitle: Meta-Analysis & Replication
+description: "Why inverse-variance weighting is the only optimal pooling, when sample-size weighting is used instead and what it costs, what Cochran's Q and I² actually measure, and why a discovery effect size is systematically too large."
+abstract: "No single cohort is large enough to find effects explaining a hundredth of a percent of a trait, so almost every result in this field is pooled from studies that never coordinated. Inverse-variance weighting is the only weighting that minimises the variance of the pooled estimate; sample size is a proxy for precision and the two come apart exactly when studies differ in allele frequency or case-control ratio. This lesson pools four studies both ways and shows the divergence, derives Cochran's Q and I² and explains why I² rises with precision even when the disagreement between studies does not change, and closes on the winner's curse: conditioning on discovery selects upward fluctuations, so a variant whose true z is 5.0 is expected to be reported at 6.1 — a 22 percent overestimate, worst exactly at the threshold where most discoveries live."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m04-association
+moduleLabel: Module 4 · Association & Discovery
+order: 12
+level: advanced
+objectives:
+  - "Compute an inverse-variance-weighted pooled estimate and explain why that weighting is optimal."
+  - "Contrast it with sample-size weighting and say when the two diverge and what is lost."
+  - "Compute Cochran's Q and I², and state precisely what I² does and does not measure."
+  - "Distinguish fixed-effect from random-effects pooling and say which question each answers."
+  - "Explain the winner's curse and quantify the overestimate as a function of the true effect."
+  - "Say why replication effect sizes are routinely smaller, without that indicating a false positive."
+prerequisites:
+  - statgen-association-linear-mixed-models
+relatedLessons:
+  - statgen-polygenic-risk-scores
+  - data-gwas-summary-stats
+keyEquations:
+  - '\hat\beta_{\mathrm{IVW}} = \frac{\sum_i w_i \hat\beta_i}{\sum_i w_i}, \qquad w_i = 1/\mathrm{SE}_i^2'
+  - 'Q = \sum_i w_i\left(\hat\beta_i - \hat\beta_{\mathrm{IVW}}\right)^2'
+  - 'I^2 = \max\left(0,\; \frac{Q - (k-1)}{Q}\right) \times 100\%'
+  - '\mathbb{E}\!\left[\hat z \mid |\hat z| > c\right] > z'
+referenceIds:
+  - dersimonian1986random
+  - higgins2002heterogeneity
+  - higgins2003inconsistency
+  - zollner2007winners
+  - willer2010metal
+  - evangelou2013meta
+  - palmer2017winners
+  - price2006eigenstrat
+tags: [meta-analysis, inverse variance weighting, heterogeneity, Cochran Q, I-squared, winner's curse, replication]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Module 4 has so far assumed one study. Almost nothing in this field is one study.
+
+The sample sizes the power calculations demand — hundreds of thousands for effects
+explaining a hundredth of a percent — are beyond any single cohort, so results are pooled
+across consortia whose members recruited differently, genotyped on different arrays, and
+measured the trait by different protocols. <Citation id="evangelou2013meta" /> surveys the
+resulting methodology; <Citation id="willer2010metal" /> is the tool almost everyone uses.
+
+Two questions follow, and they are the lesson:
+
+1. **How should studies be combined?** There is a right answer, and the common alternative
+   is a proxy for it that fails in a specific, predictable way.
+2. **What does the pooled estimate mean if the studies disagree?** Disagreement is measured
+   by Q and I², and I² in particular is routinely misread.
+
+Then a third question, about what happens *after* discovery: an effect size that earned its
+way past a threshold is, on average, too large.
+
+<Notation
+  rows={[
+    { symbol: '\\hat\\beta_i,\\;\\mathrm{SE}_i', meaning: 'Effect estimate and standard error from study i', dims: 'trait units' },
+    { symbol: 'w_i', meaning: 'Weight given to study i in the pool', dims: '> 0' },
+    { symbol: 'k', meaning: 'Number of studies pooled', dims: 'count' },
+    { symbol: 'Q', meaning: "Cochran's Q: weighted sum of squared deviations from the pooled estimate", dims: 'χ² on k−1 df' },
+    { symbol: 'I^2', meaning: 'Share of total variability that is heterogeneity rather than sampling error', dims: 'in [0,1]' },
+    { symbol: '\\tau^2', meaning: 'Between-study variance in the random-effects model', dims: 'trait units²' },
+    { symbol: 'c', meaning: 'Discovery threshold on the z scale, 5.4513 at genome-wide significance', dims: 'dimensionless' },
+  ]}
+/>
+
+## Inverse-variance weighting, and its proxy
+
+Pool $k$ estimates by a weighted average. The variance of that average is minimised — over
+all possible choices of weights — by taking
+
+$$
+w_i = \frac{1}{\mathrm{SE}_i^2},
+\qquad
+\hat\beta_{\mathrm{IVW}} = \frac{\sum_i w_i \hat\beta_i}{\sum_i w_i},
+\qquad
+\mathrm{SE}_{\mathrm{IVW}} = \frac{1}{\sqrt{\sum_i w_i}}
+$$
+
+This is not one option among several. It is *the* optimal linear combination, and every
+other weighting is a compromise made for a reason.
+
+The usual reason is that the studies do not report effects on a common scale — different
+transformations of the trait, different units, or a mix of quantitative and binary outcomes.
+Then <Citation id="willer2010metal" />'s sample-size scheme pools $z$-scores with weights
+$\sqrt{N_i}$, which produces a $p$-value but **no effect size at all**, because nothing about
+the units of $\beta$ survives the transformation.
+
+<Callout variant="intuition" title="Sample size is a proxy for precision, and proxies come apart">
+
+Why does $\sqrt{N}$ work at all? Because $\mathrm{SE} \approx \sigma/\sqrt{N q^2 \cdot N}$ —
+loosely, precision grows with the square root of the sample — so weighting by $\sqrt{N}$ is
+weighting by something monotone in precision.
+
+The approximation fails whenever precision depends on anything besides sample size, and in
+genetics it usually does:
+
+- **Allele frequency.** A variant at 1% in one cohort and 8% in another has very different
+  standard errors at the same $N$, because $q^2 = 2p(1-p)\beta^2$ carries the frequency.
+- **Case-control ratio.** 5,000 cases among 100,000 people carries far less information than
+  50,000 cases among the same 100,000, and $\sqrt{N}$ cannot see the difference.
+- **Imputation quality.** A poorly imputed variant has an inflated standard error at
+  unchanged $N$.
+
+Each of these makes a study's *reported precision* diverge from what its headcount suggests.
+Inverse-variance weighting uses the precision the study actually achieved; sample-size
+weighting uses the precision its size would predict. When they disagree, the second one is
+wrong.
+
+</Callout>
+
+<WorkedExample
+  title="Four studies, two weightings"
+  given={[
+    { label: 'Study 1', value: 'β = 0.10, SE = 0.020, N = 20,000' },
+    { label: 'Study 2', value: 'β = 0.06, SE = 0.015, N = 30,000' },
+    { label: 'Study 3', value: 'β = 0.14, SE = 0.040, N = 25,000' },
+    { label: 'Study 4', value: 'β = 0.08, SE = 0.018, N = 22,000' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the inverse-variance weights.** $w_i = 1/\mathrm{SE}_i^2$:
+
+$$
+(2500.0,\; 4444.4,\; 625.0,\; 3086.4)
+$$
+
+**Step 2 — the pooled estimate.**
+
+$$
+\hat\beta_{\mathrm{IVW}} = 0.079870,
+\qquad
+\mathrm{SE} = 0.009687,
+\qquad
+z = 8.2447
+$$
+
+**Step 3 — now weight by $\sqrt{N}$ instead.** The weights become
+$(141.4,\; 173.2,\; 158.1,\; 148.3)$, and as shares of the total:
+
+| | IVW share | √N share |
+| --- | --- | --- |
+| study 1 | 23.5% | 22.8% |
+| study 2 | 41.7% | 27.9% |
+| study 3 | **5.9%** | **25.5%** |
+| study 4 | 29.0% | 23.9% |
+
+**Step 4 — look at study 3.** It has 25,000 people, the second-largest sample, and the
+*largest* effect estimate in the set at 0.14. Inverse-variance weighting gives it 5.9%.
+Sample-size weighting gives it 25.5% — more than four times as much.
+
+Study 3's standard error is 0.040, double anyone else's. Whatever the reason — a rarer
+variant in that cohort, worse imputation, a more unbalanced design — the study is telling
+you directly that its estimate is imprecise, and $\sqrt{N}$ weighting ignores that in favour
+of a headcount.
+
+**Step 5 — the consequence.** Sample-size weighting pulls the pooled estimate toward the
+least reliable study, precisely because that study's unreliability is invisible to it. Here
+it happens to be the study with the most extreme effect, which is not a coincidence: noisy
+estimates are extreme more often.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Four studies pooled, with both weightings shown. Box area is proportional to the inverse-variance weight, so study 3's box is small despite its large sample and its extreme effect estimate. The two weight columns diverge most for that study: 5.9% under inverse-variance weighting against 25.5% under √N. The diamond is the pooled estimate, 0.0799 with a 95% interval that excludes zero comfortably."
+  alt="A forest plot of four studies with confidence intervals and square markers sized by inverse-variance weight. Study 3 has the widest interval and the largest point estimate at 0.14 but the smallest marker. Two columns to the right give each study's weight share under inverse-variance and square-root-N weighting. A diamond at the bottom marks the pooled estimate of 0.0799."
+  wide
+>
+<svg viewBox="0 0 640 320" width="640" height="320" font-family="inherit"><line x1="150.0" y1="52.0" x2="150.0" y2="208.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="208.0" x2="400.0" y2="208.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="208.0" x2="150.0" y2="213.0" stroke="currentColor" stroke-width="1"/><text x="150.0" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="202.1" y1="208.0" x2="202.1" y2="213.0" stroke="currentColor" stroke-width="1"/><text x="202.1" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.05</text><line x1="254.2" y1="208.0" x2="254.2" y2="213.0" stroke="currentColor" stroke-width="1"/><text x="254.2" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.10</text><line x1="306.2" y1="208.0" x2="306.2" y2="213.0" stroke="currentColor" stroke-width="1"/><text x="306.2" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.15</text><line x1="358.3" y1="208.0" x2="358.3" y2="213.0" stroke="currentColor" stroke-width="1"/><text x="358.3" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.20</text><line x1="150.0" y1="208.0" x2="150.0" y2="52.0" stroke="currentColor" stroke-width="1" opacity=".4" stroke-dasharray="4 3"/><line x1="213.3" y1="70.7" x2="295.0" y2="70.7" stroke="currentColor" stroke-width="1.6" opacity=".7"/><line x1="213.3" y1="66.7" x2="213.3" y2="74.7" stroke="currentColor" stroke-width="1.6" opacity=".7"/><line x1="295.0" y1="66.7" x2="295.0" y2="74.7" stroke="currentColor" stroke-width="1.6" opacity=".7"/><rect x="248.8" y="65.3" width="10.8" height="10.8" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="138.0" y="74.7" font-size="10.5" fill="currentColor" text-anchor="end">study 1</text><text x="412.0" y="74.7" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">23.5%</text><text x="462.0" y="74.7" font-size="10" fill="currentColor" opacity=".75">22.8%</text><line x1="181.9" y1="101.9" x2="243.1" y2="101.9" stroke="currentColor" stroke-width="1.6" opacity=".7"/><line x1="181.9" y1="97.9" x2="181.9" y2="105.9" stroke="currentColor" stroke-width="1.6" opacity=".7"/><line x1="243.1" y1="97.9" x2="243.1" y2="105.9" stroke="currentColor" stroke-width="1.6" opacity=".7"/><rect x="204.5" y="93.9" width="16.0" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="138.0" y="105.9" font-size="10.5" fill="currentColor" text-anchor="end">study 2</text><text x="412.0" y="105.9" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">41.7%</text><text x="462.0" y="105.9" font-size="10" fill="currentColor" opacity=".75">27.9%</text><line x1="214.2" y1="133.1" x2="377.5" y2="133.1" stroke="currentColor" stroke-width="1.6" opacity=".7"/><line x1="214.2" y1="129.1" x2="214.2" y2="137.1" stroke="currentColor" stroke-width="1.6" opacity=".7"/><line x1="377.5" y1="129.1" x2="377.5" y2="137.1" stroke="currentColor" stroke-width="1.6" opacity=".7"/><rect x="293.0" y="130.3" width="5.7" height="5.7" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="138.0" y="137.1" font-size="10.5" fill="currentColor" text-anchor="end">study 3</text><text x="412.0" y="137.1" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600"> 5.9%</text><text x="462.0" y="137.1" font-size="10" fill="currentColor" opacity=".75">25.5%</text><line x1="196.6" y1="164.3" x2="270.1" y2="164.3" stroke="currentColor" stroke-width="1.6" opacity=".7"/><line x1="196.6" y1="160.3" x2="196.6" y2="168.3" stroke="currentColor" stroke-width="1.6" opacity=".7"/><line x1="270.1" y1="160.3" x2="270.1" y2="168.3" stroke="currentColor" stroke-width="1.6" opacity=".7"/><rect x="227.2" y="158.2" width="12.3" height="12.3" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="138.0" y="168.3" font-size="10.5" fill="currentColor" text-anchor="end">study 4</text><text x="412.0" y="168.3" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">29.0%</text><text x="462.0" y="168.3" font-size="10" fill="currentColor" opacity=".75">23.9%</text><text x="412.0" y="54.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="700">IVW</text><text x="462.0" y="54.0" font-size="10" fill="currentColor" opacity=".75" font-weight="700">√N</text><path d="M213.4,192.4 L233.2,184.4 L253.0,192.4 L233.2,200.4 L213.4,192.4" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.6"/><text x="138.0" y="196.4" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="700">pooled (IVW)</text><text x="261.0" y="196.4" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">0.0799</text><text x="30.0" y="274.0" font-size="10.5" fill="currentColor" opacity=".85">Study 3 has 25,000 people but a standard error of 0.040, so inverse-variance</text><text x="30.0" y="289.0" font-size="10.5" fill="currentColor" opacity=".85">weighting gives it 5.9% while √N weighting gives it 25.5% — the largest</text><text x="30.0" y="304.0" font-size="10.5" fill="currentColor" opacity=".85">effect estimate in the set, and the least trustworthy one.</text><text x="275.0" y="246.0" font-size="12" fill="currentColor" text-anchor="middle">Effect estimate (95% CI)</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Sample size is a proxy for precision, and the two come apart</text></svg>
+</Figure>
+
+## Heterogeneity: Q and I²
+
+If the studies are estimating the same thing, their spread should be no more than sampling
+error accounts for. Cochran's Q tests that:
+
+$$
+Q = \sum_i w_i \left(\hat\beta_i - \hat\beta_{\mathrm{IVW}}\right)^2
+$$
+
+which is $\chi^2$ on $k-1$ degrees of freedom under homogeneity — one degree of freedom
+spent on estimating the pooled value. For the four studies above, $Q = 5.0276$ on 3 df, a
+$p$-value of $0.0249$.
+
+<Citation id="higgins2002heterogeneity" /> and <Citation id="higgins2003inconsistency" />
+introduced $I^2$ to put that on an interpretable scale:
+
+$$
+I^2 = \max\left(0,\; \frac{Q - (k-1)}{Q}\right) \times 100\%
+$$
+
+Here $I^2 = (5.0276 - 3)/5.0276 = 40.3\%$.
+
+<Callout variant="warning" title="I² is not a measure of how much studies disagree">
+
+This is the most consistently misread statistic in meta-analysis, and the misreading is
+easy to state.
+
+$I^2$ is the **share of total variability that is not sampling error**. It is a ratio, and
+the denominator shrinks as studies get more precise. So:
+
+> **Take the same studies, disagreeing by exactly the same absolute amount, and quadruple
+> everyone's sample size. The between-study differences have not changed. $I^2$ goes up.**
+
+A large $I^2$ in a well-powered consortium may reflect genuinely trivial disagreement that
+has simply become visible. A small $I^2$ in four tiny studies may hide disagreement that is
+enormous but drowned in noise.
+
+Two consequences. Report $\tau^2$ — the between-study variance, in the units of the effect —
+alongside $I^2$, because $\tau^2$ is an absolute measure and $I^2$ is not. And do not apply
+the conventional 25/50/75% "low/moderate/high" bands across studies of very different size,
+because they are not comparable.
+
+For the worked example $\tau^2 = 0.000278$, so the between-study standard deviation is
+$0.0167$ — about a fifth of the pooled effect of 0.0799. That is a statement one can act on
+in a way that "40.3%" is not.
+
+</Callout>
+
+### Fixed effect or random effects
+
+The two models answer different questions.
+
+**Fixed effect** assumes every study estimates the same underlying $\beta$ and that all
+spread is sampling error. Its confidence interval answers: *what is that common effect?*
+
+**Random effects** — <Citation id="dersimonian1986random" /> is the standard estimator —
+assumes each study has its own $\beta_i$ drawn from a distribution with variance $\tau^2$,
+and widens the interval accordingly. It answers: *what is the mean of the distribution of
+study-specific effects?*
+
+In genetics the fixed-effect model is used far more than the logic strictly justifies, and
+the reason is defensible: for a genuinely causal variant with a biological mechanism, the
+per-allele effect really should be close to constant across cohorts, and observed
+heterogeneity is more often a sign of a problem — different phenotype definitions,
+population structure, imputation differences — than of genuinely varying biology. Random
+effects would absorb that problem into a wider interval rather than flagging it.
+
+## The winner's curse
+
+A variant enters the literature because some study's estimate crossed a threshold.
+Conditioning on that fact selects, among all studies of that variant, the ones whose
+sampling error happened to point away from zero.
+
+<Citation id="zollner2007winners" /> set this out for genetic association. The expected
+reported effect, given discovery, is
+
+$$
+\mathbb{E}\!\left[\hat z \;\middle|\; |\hat z| > c\right]
+= z + \frac{\varphi(z - c) - \varphi(z + c)}{\Phi(z - c) + \Phi(-z - c)}
+$$
+
+which exceeds $z$ always, and by an amount that depends sharply on how close $z$ is to $c$.
+
+<WorkedExample
+  title="How much too large is a discovery estimate?"
+  given={[
+    { label: 'Threshold', value: '|z| > 5.4513 (genome-wide)' },
+    { label: 'Question', value: 'expected reported z, given discovery' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — a variant whose true z is 5.0.** It sits just *below* the threshold, so it is
+discovered only when noise pushes it up:
+
+$$
+\mathbb{E}\!\left[\hat z \mid \text{discovered}\right] = 6.105655
+$$
+
+an overestimate of **22.1%**.
+
+**Step 2 — a variant whose true z is 6.0.** Comfortably past the threshold, so most studies
+of it are significant and the selection is mild:
+
+$$
+\mathbb{E}\!\left[\hat z \mid \text{discovered}\right] = 6.484465
+\qquad\text{— an 8.1\% overestimate}
+$$
+
+**Step 3 — a variant whose true z is 9.0.** Essentially always discovered, so conditioning
+on discovery selects nothing:
+
+$$
+\mathbb{E}\!\left[\hat z \mid \text{discovered}\right] = 9.000735
+\qquad\text{— 0.0\%}
+$$
+
+**Step 4 — see where the damage is.** The curse is negligible for large effects and severe
+near the threshold. And **most discoveries are near the threshold**, because the distribution
+of true effects rises steeply as effects get smaller — there are far more variants just
+strong enough to be found than variants far past the line.
+
+So the typical newly discovered variant is meaningfully overestimated, and the effect
+reported in the discovery paper is the wrong number to carry forward.
+
+**Step 5 — what this means for replication.** A replication study estimating the same variant
+without conditioning on significance gets an unbiased estimate, which is *smaller*. That is
+the expected outcome of a successful replication, not evidence against the finding.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 2. The expected overestimate of a discovery effect, against the true effect. At a true z of 5.0 — below the threshold, so discovered only when noise helps — the expected reported value is 22.1 percent too large. By a true z of 9.0 the bias is gone, because such a variant is discovered whether or not noise cooperates. The curse is worst just below the threshold, which is exactly where most discoveries sit."
+  alt="A curve of expected percentage overestimate against the true standardised effect z, falling steeply from over thirty percent near z equals 4.5 to essentially zero by z equals 8. A dashed vertical line marks the discovery threshold at 5.45. Points are marked at true z of 5.0 giving 22.1 percent, 6.0 giving 8.1 percent, and 9.0 giving 0.0 percent."
+  wide
+>
+<svg viewBox="0 0 640 302" width="640" height="302" font-family="inherit"><line x1="96.0" y1="46.0" x2="96.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="244.0" x2="430.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="244.0" x2="430.0" y2="244.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="248.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="194.5" x2="430.0" y2="194.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="198.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">8</text><line x1="96.0" y1="145.0" x2="430.0" y2="145.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="149.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">16</text><line x1="96.0" y1="95.5" x2="430.0" y2="95.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="99.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">24</text><line x1="96.0" y1="46.0" x2="430.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="50.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">32</text><line x1="96.0" y1="244.0" x2="96.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="96.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">4</text><line x1="151.7" y1="244.0" x2="151.7" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="151.7" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="207.3" y1="244.0" x2="207.3" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="207.3" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">6</text><line x1="263.0" y1="244.0" x2="263.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="263.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">7</text><line x1="318.7" y1="244.0" x2="318.7" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="318.7" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">8</text><line x1="374.3" y1="244.0" x2="374.3" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="374.3" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">9</text><line x1="430.0" y1="244.0" x2="430.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="430.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><path d="M126.6,47.3 L128.0,51.0 L129.4,54.7 L130.8,58.3 L132.2,61.9 L133.6,65.4 L135.0,68.9 L136.4,72.4 L137.8,75.8 L139.1,79.1 L140.5,82.4 L141.9,85.7 L143.3,88.9 L144.7,92.0 L146.1,95.1 L147.5,98.2 L148.9,101.2 L150.3,104.2 L151.7,107.2 L153.1,110.1 L154.4,112.9 L155.8,115.8 L157.2,118.5 L158.6,121.3 L160.0,124.0 L161.4,126.6 L162.8,129.2 L164.2,131.8 L165.6,134.4 L167.0,136.9 L168.4,139.3 L169.8,141.7 L171.1,144.1 L172.5,146.5 L173.9,148.8 L175.3,151.1 L176.7,153.3 L178.1,155.5 L179.5,157.7 L180.9,159.8 L182.3,161.9 L183.7,164.0 L185.1,166.0 L186.5,168.0 L187.9,170.0 L189.2,171.9 L190.6,173.8 L192.0,175.7 L193.4,177.5 L194.8,179.3 L196.2,181.1 L197.6,182.8 L199.0,184.5 L200.4,186.2 L201.8,187.8 L203.2,189.4 L204.6,191.0 L205.9,192.5 L207.3,194.0 L208.7,195.5 L210.1,197.0 L211.5,198.4 L212.9,199.8 L214.3,201.2 L215.7,202.5 L217.1,203.8 L218.5,205.1 L219.9,206.3 L221.2,207.6 L222.6,208.8 L224.0,209.9 L225.4,211.1 L226.8,212.2 L228.2,213.3 L229.6,214.3 L231.0,215.4 L232.4,216.4 L233.8,217.3 L235.2,218.3 L236.6,219.2 L237.9,220.1 L239.3,221.0 L240.7,221.9 L242.1,222.7 L243.5,223.5 L244.9,224.3 L246.3,225.1 L247.7,225.8 L249.1,226.6 L250.5,227.3 L251.9,228.0 L253.3,228.6 L254.6,229.3 L256.0,229.9 L257.4,230.5 L258.8,231.1 L260.2,231.6 L261.6,232.2 L263.0,232.7 L264.4,233.2 L265.8,233.7 L267.2,234.1 L268.6,234.6 L270.0,235.0 L271.4,235.5 L272.7,235.9 L274.1,236.3 L275.5,236.6 L276.9,237.0 L278.3,237.3 L279.7,237.7 L281.1,238.0 L282.5,238.3 L283.9,238.6 L285.3,238.9 L286.7,239.1 L288.1,239.4 L289.4,239.6 L290.8,239.9 L292.2,240.1 L293.6,240.3 L295.0,240.5 L296.4,240.7 L297.8,240.9 L299.2,241.1 L300.6,241.3 L302.0,241.4 L303.4,241.6 L304.8,241.7 L306.1,241.8 L307.5,242.0 L308.9,242.1 L310.3,242.2 L311.7,242.3 L313.1,242.4 L314.5,242.5 L315.9,242.6 L317.3,242.7 L318.7,242.8 L320.1,242.9 L321.5,242.9 L322.8,243.0 L324.2,243.1 L325.6,243.1 L327.0,243.2 L328.4,243.3 L329.8,243.3 L331.2,243.4 L332.6,243.4 L334.0,243.4 L335.4,243.5 L336.8,243.5 L338.1,243.6 L339.5,243.6 L340.9,243.6 L342.3,243.6 L343.7,243.7 L345.1,243.7 L346.5,243.7 L347.9,243.7 L349.3,243.8 L350.7,243.8 L352.1,243.8 L353.5,243.8 L354.9,243.8 L356.2,243.8 L357.6,243.9 L359.0,243.9 L360.4,243.9 L361.8,243.9 L363.2,243.9 L364.6,243.9 L366.0,243.9 L367.4,243.9 L368.8,243.9 L370.2,243.9 L371.5,243.9 L372.9,243.9 L374.3,243.9 L375.7,244.0 L377.1,244.0 L378.5,244.0 L379.9,244.0 L381.3,244.0 L382.7,244.0 L384.1,244.0 L385.5,244.0 L386.9,244.0 L388.2,244.0 L389.6,244.0 L391.0,244.0 L392.4,244.0 L393.8,244.0 L395.2,244.0 L396.6,244.0 L398.0,244.0 L399.4,244.0 L400.8,244.0 L402.2,244.0 L403.6,244.0 L405.0,244.0 L406.3,244.0 L407.7,244.0 L409.1,244.0 L410.5,244.0 L411.9,244.0 L413.3,244.0 L414.7,244.0 L416.1,244.0 L417.5,244.0 L418.9,244.0 L420.3,244.0 L421.6,244.0 L423.0,244.0 L424.4,244.0 L425.8,244.0 L427.2,244.0 L428.6,244.0 L430.0,244.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><line x1="176.8" y1="244.0" x2="176.8" y2="46.0" stroke="currentColor" stroke-width="1.2" opacity=".45" stroke-dasharray="4 3"/><text x="183.8" y="58.4" font-size="10" fill="currentColor" opacity=".75">the discovery</text><text x="183.8" y="69.5" font-size="10" fill="currentColor" opacity=".75">threshold, |z| = 5.45</text><circle cx="151.7" cy="107.2" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="207.3" cy="194.0" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="374.3" cy="243.9" r="4.2" fill="var(--color-accent, #2e6e5e)"/><text x="444.0" y="74.0" font-size="11" fill="currentColor" font-weight="700">Inflation of the</text><text x="444.0" y="90.0" font-size="11" fill="currentColor" font-weight="700">discovery estimate</text><text x="444.0" y="114.0" font-size="10" fill="currentColor" opacity=".85">true z = 5.0  →  22.1%</text><text x="444.0" y="128.0" font-size="10" fill="currentColor" opacity=".85">true z = 6.0  →   8.1%</text><text x="444.0" y="142.0" font-size="10" fill="currentColor" opacity=".85">true z = 9.0  →   0.0%</text><text x="444.0" y="176.0" font-size="10" fill="currentColor" opacity=".85">The curse is worst just</text><text x="444.0" y="189.0" font-size="10" fill="currentColor" opacity=".85">below the threshold —</text><text x="444.0" y="202.0" font-size="10" fill="currentColor" opacity=".85">which is where most</text><text x="444.0" y="215.0" font-size="10" fill="currentColor" opacity=".85">discoveries live, because</text><text x="444.0" y="228.0" font-size="10" fill="currentColor" opacity=".85">that is where the effect</text><text x="444.0" y="241.0" font-size="10" fill="currentColor" opacity=".85">distribution is densest.</text><text x="263.0" y="288.0" font-size="12" fill="currentColor" text-anchor="middle">True standardised effect, z</text><text x="20.0" y="145.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 145)">Expected overestimate (%)</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">The winner's curse: what discovery selects for</text></svg>
+</Figure>
+
+<Citation id="palmer2017winners" /> shows that correcting for this explains much of the
+apparent variability between discovery and replication effect sizes in quantitative-trait
+studies — the replications were not failing, the discoveries were inflated. The practical
+rules that follow are short: **never weight a polygenic score with discovery effect sizes
+from the same data that discovered them**, and expect replication estimates to be smaller
+without treating that as a problem.
+
+## Exercises
+
+<Exercise n={1} title="Pooling by hand" difficulty="warm-up">
+
+Three studies report β = 0.20 (SE 0.05), β = 0.12 (SE 0.04), and β = 0.16 (SE 0.10).
+(a) Compute the inverse-variance weights and the pooled estimate. (b) Compute Q and I².
+(c) Is the heterogeneity concerning?
+
+<div slot="solution">
+
+**(a)** $w_i = 1/\mathrm{SE}_i^2 = (400,\; 625,\; 100)$, summing to 1,125.
+
+$$
+\hat\beta = \frac{400(0.20) + 625(0.12) + 100(0.16)}{1125} = \frac{171}{1125} = 0.152000
+$$
+
+$$
+\mathrm{SE} = 1/\sqrt{1125} = 0.029814, \qquad z = 5.0983
+$$
+
+**(b)** $Q = 400(0.048)^2 + 625(-0.032)^2 + 100(0.008)^2 = 0.9216 + 0.64 + 0.0064 = 1.568000$
+on 2 df. Since $Q < k-1 = 2$, $I^2$ is truncated at $0\%$ and $\tau^2 = 0$.
+
+**(c)** No. $Q$ is *below* its degrees of freedom, meaning the studies agree slightly more
+closely than sampling error alone would predict — which is what homogeneous studies look
+like. The three estimates span 0.12 to 0.20, which sounds like disagreement until you notice
+the standard errors are 0.04 to 0.10; that spread is entirely ordinary noise.
+
+This is the case $I^2$ handles correctly, and it is worth seeing alongside the warning
+above: the statistic is not useless, it is just a ratio whose denominator moves.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="The same disagreement, four times the data" difficulty="core">
+
+Take two studies with $\hat\beta_1 = 0.10$ and $\hat\beta_2 = 0.14$, both with SE 0.030.
+(a) Compute Q and I². (b) Now quadruple both sample sizes, which halves both standard
+errors to 0.015, and suppose the point estimates are unchanged. Recompute. (c) What
+changed, and what did not?
+
+<div slot="solution">
+
+**(a)** Weights are $1/0.03^2 = 1111.1$ each; the pooled estimate is 0.12, and
+
+$$
+Q = 1111.1(0.02)^2 + 1111.1(-0.02)^2 = 0.888889 \text{ on 1 df}
+$$
+
+$Q < 1$, so $I^2 = 0\%$.
+
+**(b)** Weights become $1/0.015^2 = 4444.4$, the pooled estimate is still 0.12, and
+
+$$
+Q = 4444.4(0.02)^2 \times 2 = 3.555556 \text{ on 1 df}
+$$
+
+$$
+I^2 = \frac{3.5556 - 1}{3.5556} = 71.9\%
+$$
+
+**(c)** **What did not change:** the studies' estimates, their difference of 0.04, and the
+pooled value of 0.12. In every absolute sense the disagreement is identical.
+
+**What changed:** $I^2$ went from 0% to 71.9% — from "no heterogeneity" to "high
+heterogeneity" on the conventional bands — purely because the studies got more precise.
+$Q$ scales with the weights, and $I^2$ is a function of $Q$.
+
+This is the warning made concrete. Reporting $I^2$ without $\tau^2$ or the raw spread invites
+exactly the wrong conclusion, and in a field where sample sizes grow by an order of magnitude
+per decade, the same finding will acquire a worse-looking $I^2$ over time while being
+unchanged.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A replication that looks like a failure" difficulty="stretch">
+
+A discovery study reports a variant at $z = 6.2$. An independent replication of similar size
+estimates the same variant at $z = 4.9$, which does not reach genome-wide significance. A
+reviewer calls the finding unreplicated. (a) Is that reading right? (b) What would you
+compute? (c) What would genuinely indicate a false positive?
+
+<div slot="solution">
+
+**(a)** No, and the reviewer has made two errors. First, a replication does not need to clear
+$5\times10^{-8}$ — that threshold corrects for a genome-wide search, and a replication tests
+*one* pre-specified variant, so the appropriate threshold is roughly 0.05. At $z = 4.9$ the
+replication $p$-value is around $10^{-6}$, which is overwhelming for a single test.
+
+Second, the replication estimate being smaller is the *expected* outcome. The discovery
+estimate is conditioned on having crossed the threshold; the replication is not.
+
+**(b)** The winner's-curse-corrected expectation. If the true $z$ were around 5.3, a
+discovery estimate of 6.2 and an unbiased replication near 4.9 are both entirely consistent —
+the discovery was inflated by roughly the amount the curse predicts at that effect size, and
+the replication is estimating the truth. Comparing the replication against the *corrected*
+discovery estimate rather than the raw one is the right test.
+
+**(c)** Three things would. A replication estimate whose confidence interval **excludes** the
+corrected discovery estimate, rather than merely being smaller. An effect in the **opposite
+direction**, which the curse cannot produce. Or heterogeneity concentrated by ancestry or by
+cohort in a way that tracks a known technical difference — different arrays, different
+imputation panels, different phenotype definitions — which points at an artefact rather than
+at a variable biological effect. Heterogeneity that lines up with ancestry is worth
+separating from the rest, because it can equally mean the discovery cohort was
+inadequately corrected for structure in the sense of <Citation id="price2006eigenstrat" />
+rather than that the effect genuinely differs between populations.
+
+None of those is "the replication p-value did not clear a genome-wide threshold it was never
+required to clear."
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Inverse-variance weighting is the unique optimal pooling.** $w_i = 1/\mathrm{SE}_i^2$
+  minimises the variance of the pooled estimate; everything else is a compromise.
+- **Sample-size weighting is a proxy that fails predictably** — when allele frequency,
+  case-control ratio or imputation quality make a study's achieved precision differ from what
+  its headcount predicts. In the worked example study 3 gets 5.9% of the weight by precision
+  and 25.5% by headcount, and it has both the largest effect estimate and the worst standard
+  error.
+- **It also produces no effect size**, only a $p$-value, which is why it is reserved for
+  studies whose scales cannot be pooled.
+- **$Q = \sum_i w_i(\hat\beta_i - \hat\beta)^2$ is χ² on $k-1$ df**; for the worked example
+  5.0276 on 3 df, $p = 0.0249$.
+- **$I^2$ is a ratio, not an amount.** The same studies disagreeing by the same absolute
+  amount give $I^2 = 0\%$ at SE 0.030 and 71.9% at SE 0.015. Report $\tau^2$ alongside it.
+- **The winner's curse inflates discovery estimates**, by 22.1% at a true $z$ of 5.0, 8.1% at
+  6.0 and essentially nothing at 9.0 — worst near the threshold, which is where most
+  discoveries are. A smaller replication estimate is the expected result of a successful
+  replication, and discovery effect sizes must never weight a score built from the same data.

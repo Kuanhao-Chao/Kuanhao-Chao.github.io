@@ -2008,6 +2008,162 @@ describe('statgen-rare-variant-association', () => {
   });
 });
 
+describe('statgen-meta-analysis-replication', () => {
+  const mdx = lesson('statgen-meta-analysis-replication');
+  const B = [0.1, 0.06, 0.14, 0.08];
+  const SE = [0.02, 0.015, 0.04, 0.018];
+  const N = [20000, 30000, 25000, 22000];
+  const THRESH = 5.45131;
+
+  describe('worked example — four studies, two weightings', () => {
+    const fit = ivwMeta(B, SE);
+
+    it('has the four inverse-variance weights', () => {
+      const w = SE.map((se) => 1 / se ** 2);
+      const expected = [2500.0, 4444.4, 625.0, 3086.4];
+      w.forEach((x, i) => expect(x).toBeCloseTo(expected[i], 1));
+      expect(mdx).toContain('(2500.0,\\; 4444.4,\\; 625.0,\\; 3086.4)');
+    });
+
+    it('pools to 0.079870 with SE 0.009687', () => {
+      expect(fit.beta).toBeCloseTo(0.07987, 6);
+      expect(fit.se).toBeCloseTo(0.009687, 6);
+      expect(fit.z).toBeCloseTo(8.2447, 4);
+      // computed independently
+      const w = SE.map((se) => 1 / se ** 2);
+      const tot = w.reduce((a, b) => a + b, 0);
+      expect(B.reduce((a, b, i) => a + w[i] * b, 0) / tot).toBeCloseTo(fit.beta, 12);
+      expect(1 / Math.sqrt(tot)).toBeCloseTo(fit.se, 12);
+      expect(mdx).toContain('\\hat\\beta_{\\mathrm{IVW}} = 0.079870');
+      expect(mdx).toContain('0.009687');
+    });
+
+    it('has the weight-share table, where study 3 diverges fourfold', () => {
+      const w = SE.map((se) => 1 / se ** 2);
+      const wn = N.map(Math.sqrt);
+      const share = (a: number[], i: number) => (100 * a[i]) / a.reduce((x, y) => x + y, 0);
+      for (const [i, ivw, sqrtn] of [[0, 23.5, 22.8], [1, 41.7, 27.9], [2, 5.9, 25.5], [3, 29.0, 23.9]] as [number, number, number][]) {
+        expect(share(w, i)).toBeCloseTo(ivw, 1);
+        expect(share(wn, i)).toBeCloseTo(sqrtn, 1);
+      }
+      expect(share(wn, 2) / share(w, 2)).toBeGreaterThan(4);
+      for (const row of [
+        '| study 2 | 41.7% | 27.9% |',
+        '| study 3 | **5.9%** | **25.5%** |',
+      ]) {
+        expect(mdx).toContain(row);
+      }
+    });
+
+    it('has study 3 carrying the largest effect and the worst standard error', () => {
+      expect(Math.max(...B)).toBe(B[2]);
+      expect(Math.max(...SE)).toBe(SE[2]);
+      expect(SE[2] / Math.min(...SE)).toBeCloseTo(2.667, 2);
+      expect(mdx).toContain('double anyone else');
+    });
+  });
+
+  describe('heterogeneity', () => {
+    const fit = ivwMeta(B, SE);
+
+    it("gives Cochran's Q on k-1 df", () => {
+      expect(fit.q).toBeCloseTo(5.0276, 4);
+      expect(fit.df).toBe(3);
+      expect(1 - regularizedGammaP(0.5, fit.q / 2)).toBeCloseTo(0.0249, 4);
+      expect(mdx).toContain('Q = 5.0276$ on 3 df');
+      expect(mdx).toContain('0.0249');
+    });
+
+    it('gives I² as the share of variability that is not sampling error', () => {
+      expect(fit.i2).toBeCloseTo(40.33, 1);
+      expect(((fit.q - fit.df) / fit.q) * 100).toBeCloseTo(fit.i2, 8);
+      expect(mdx).toContain('40.3\\%');
+    });
+
+    it('reports tau² in the units of the effect', () => {
+      expect(fit.tau2).toBeCloseTo(0.000278, 6);
+      expect(Math.sqrt(fit.tau2)).toBeCloseTo(0.0167, 4);
+      expect(Math.sqrt(fit.tau2) / fit.beta).toBeCloseTo(0.209, 2);
+      expect(mdx).toContain('\\tau^2 = 0.000278');
+      expect(mdx).toContain('0.0167');
+    });
+  });
+
+  describe("worked example — the winner's curse", () => {
+    it('inflates a true z of 5.0 by 22.1%', () => {
+      const e = winnersCurseExpectation(5.0, THRESH);
+      expect(e).toBeCloseTo(6.105655, 5);
+      expect((e / 5.0 - 1) * 100).toBeCloseTo(22.11, 2);
+      expect(mdx).toContain('= 6.105655');
+      expect(mdx).toContain('**22.1%**');
+    });
+
+    it('inflates a true z of 6.0 by 8.1% and 9.0 by nothing', () => {
+      expect(winnersCurseExpectation(6.0, THRESH)).toBeCloseTo(6.484465, 5);
+      expect(winnersCurseExpectation(9.0, THRESH)).toBeCloseTo(9.000735, 5);
+      expect((winnersCurseExpectation(6.0, THRESH) / 6 - 1) * 100).toBeCloseTo(8.07, 2);
+      expect((winnersCurseExpectation(9.0, THRESH) / 9 - 1) * 100).toBeLessThan(0.05);
+      expect(mdx).toContain('6.484465');
+      expect(mdx).toContain('9.000735');
+    });
+
+    it('always overestimates, and monotonically less so as the effect grows', () => {
+      let prev = Infinity;
+      for (const z of [5.0, 5.5, 6.0, 6.5, 7.0, 8.0, 9.0]) {
+        const inflation = winnersCurseExpectation(z, THRESH) / z - 1;
+        expect(inflation).toBeGreaterThan(0);
+        expect(inflation).toBeLessThan(prev);
+        prev = inflation;
+      }
+    });
+  });
+
+  describe('exercise 1 — pooling by hand', () => {
+    const fit = ivwMeta([0.2, 0.12, 0.16], [0.05, 0.04, 0.1]);
+
+    it('has weights summing to 1,125 and a pooled estimate of 0.152', () => {
+      expect([0.05, 0.04, 0.1].reduce((a, se) => a + 1 / se ** 2, 0)).toBeCloseTo(1125, 8);
+      expect(fit.beta).toBeCloseTo(0.152, 10);
+      expect(fit.se).toBeCloseTo(0.029814, 6);
+      expect(fit.z).toBeCloseTo(5.098235, 5);
+      expect(mdx).toContain('\\frac{171}{1125} = 0.152000');
+      expect(mdx).toContain('1/\\sqrt{1125} = 0.029814');
+    });
+
+    it('has Q below its df, so I² truncates to zero', () => {
+      expect(fit.q).toBeCloseTo(1.568, 6);
+      expect(fit.q).toBeLessThan(fit.df);
+      expect(fit.i2).toBe(0);
+      expect(fit.tau2).toBe(0);
+      expect(mdx).toContain('= 1.568000');
+      expect(mdx).toContain('truncated at $0\\%$');
+    });
+  });
+
+  describe('exercise 2 — the same disagreement, four times the data', () => {
+    it('leaves the pooled estimate and the spread unchanged', () => {
+      const coarse = ivwMeta([0.1, 0.14], [0.03, 0.03]);
+      const fine = ivwMeta([0.1, 0.14], [0.015, 0.015]);
+      expect(coarse.beta).toBeCloseTo(0.12, 12);
+      expect(fine.beta).toBeCloseTo(0.12, 12);
+      expect(0.14 - 0.1).toBeCloseTo(0.04, 12);
+    });
+
+    it('quadruples Q and sends I² from 0% to 71.9%', () => {
+      const coarse = ivwMeta([0.1, 0.14], [0.03, 0.03]);
+      const fine = ivwMeta([0.1, 0.14], [0.015, 0.015]);
+      expect(coarse.q).toBeCloseTo(0.888889, 6);
+      expect(fine.q).toBeCloseTo(3.555556, 6);
+      expect(fine.q / coarse.q).toBeCloseTo(4, 8);
+      expect(coarse.i2).toBe(0);
+      expect(fine.i2).toBeCloseTo(71.875, 3);
+      expect(mdx).toContain('= 0.888889');
+      expect(mdx).toContain('= 3.555556');
+      expect(mdx).toContain('71.9\\%');
+    });
+  });
+});
+
 describe('statgen-linkage-disequilibrium', () => {
   const mdx = lesson('statgen-linkage-disequilibrium');
 

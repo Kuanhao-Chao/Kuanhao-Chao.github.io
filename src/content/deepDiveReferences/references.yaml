@@ -3210,3 +3210,53 @@ backman2021exome:
   venue: "Nature 599:628-634"
   doi: https://doi.org/10.1038/s41586-021-04103-z
   verified: 2026-08-21
+
+# ── Module 4 · Meta-analysis & replication ────────────────────────────────────
+
+dersimonian1986random:
+  authors: ['Rebecca DerSimonian', 'Nan Laird']
+  year: 1986
+  title: "Meta-analysis in clinical trials"
+  venue: "Controlled Clinical Trials 7:177-188"
+  doi: https://doi.org/10.1016/0197-2456(86)90046-2
+  verified: 2026-08-21
+
+higgins2002heterogeneity:
+  authors: ['Julian P. T. Higgins', 'Simon G. Thompson']
+  year: 2002
+  title: "Quantifying heterogeneity in a meta‐analysis"
+  venue: "Statistics in Medicine 21:1539-1558"
+  doi: https://doi.org/10.1002/sim.1186
+  verified: 2026-08-21
+
+higgins2003inconsistency:
+  authors: ['Julian P. T. Higgins', 'Simon G Thompson', 'Jonathan J Deeks', 'Douglas G Altman']
+  year: 2003
+  title: "Measuring inconsistency in meta-analyses"
+  venue: "BMJ 327:557-560"
+  doi: https://doi.org/10.1136/bmj.327.7414.557
+  verified: 2026-08-21
+
+zollner2007winners:
+  authors: ['Sebastian Zöllner', 'Jonathan K. Pritchard']
+  year: 2007
+  title: "Overcoming the Winner’s Curse: Estimating Penetrance Parameters from Case-Control Data"
+  venue: "The American Journal of Human Genetics 80:605-615"
+  doi: https://doi.org/10.1086/512821
+  verified: 2026-08-21
+
+willer2010metal:
+  authors: ['Cristen J. Willer', 'Yun Li', 'Gonçalo R. Abecasis']
+  year: 2010
+  title: "METAL: fast and efficient meta-analysis of genomewide association scans"
+  venue: "Bioinformatics 26:2190-2191"
+  doi: https://doi.org/10.1093/bioinformatics/btq340
+  verified: 2026-08-21
+
+evangelou2013meta:
+  authors: ['Evangelos Evangelou', 'John P. A. Ioannidis']
+  year: 2013
+  title: "Meta-analysis methods for genome-wide association studies and beyond"
+  venue: "Nature Reviews Genetics 14:379-389"
+  doi: https://doi.org/10.1038/nrg3472
+  verified: 2026-08-21
