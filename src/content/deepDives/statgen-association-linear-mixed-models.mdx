@@ -1,0 +1,471 @@
+---
+title: "Association Testing & Linear Mixed Models: Power, Stratification & λ_GC"
+shortTitle: Association & Mixed Models
+description: "What a genome-wide scan actually computes, the sample size a given variance explained demands, why population structure inflates every test statistic, what λ_GC can and cannot diagnose, and how a mixed model absorbs relatedness without absorbing the signal."
+abstract: "A genome-wide scan is ten million applications of a test from Module 1, and almost everything hard about it is a consequence of that number. This lesson derives the sample size a target variance explained requires and shows the two standard parameterisations are one formula; explains why population structure produces association at variants with no causal role; defines the genomic inflation factor and demonstrates its central limitation — that a single λ_GC of 1.20 is equally consistent with confounding and with genuine polygenic signal; and builds the linear mixed model that fixed the problem, including why the tested chromosome has to be left out of the relatedness matrix it is being controlled against."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m04-association
+moduleLabel: Module 4 · Association & Discovery
+order: 9
+level: advanced
+objectives:
+  - "Write the single-variant association model and say which of the three classical tests a genome scan uses, and why."
+  - "Compute the sample size a target variance explained requires at genome-wide significance."
+  - "Show that the q² and p(1−p)β² sample-size formulas are the same result."
+  - "Explain the mechanism by which population structure creates association at non-causal variants."
+  - "Compute λ_GC and state precisely what it cannot distinguish."
+  - "Describe the linear mixed model for association and explain why leave-one-chromosome-out is necessary."
+prerequisites:
+  - statgen-mathematical-foundations
+  - statgen-heritability-greml
+relatedLessons:
+  - statgen-population-infinitesimal
+  - data-gwas-summary-stats
+keyEquations:
+  - 'N \ge \frac{39.60}{q^2} \quad\text{at }\alpha = 5\times10^{-8}\text{, 80\% power}'
+  - 'q^2 = 2p(1-p)\beta^2'
+  - '\lambda_{\mathrm{GC}} = \frac{\mathrm{median}(\chi^2_{\mathrm{obs}})}{0.4549364\ldots}'
+  - '\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + g\,\beta_g + \mathbf{u} + \boldsymbol{\varepsilon}, \quad \mathrm{Var}(\mathbf{u}) = \mathbf{K}\sigma^2_g'
+referenceIds:
+  - devlin1999gc
+  - price2006eigenstrat
+  - astle2009structure
+  - kang2010emmax
+  - yang2014mlm
+  - loh2015bolt
+  - jiang2019fastgwa
+  - mbatchou2021regenie
+tags: [GWAS, association testing, statistical power, population stratification, genomic inflation, linear mixed model, LOCO]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+
+## The question this lesson answers
+
+A genome-wide association study fits one regression per variant:
+
+$$
+y_i = \mu + g_{ij}\,\beta_j + \text{covariates} + \varepsilon_i
+$$
+
+and tests $\beta_j = 0$. That is Module 1, applied ten million times. Everything difficult
+about a GWAS follows from the number ten million and from the fact that the people carrying
+those genotypes are related to one another — sometimes recently and obviously, sometimes
+distantly and invisibly.
+
+Three consequences, and this lesson is about all three:
+
+1. **Power.** With a threshold of $5\times10^{-8}$, the effects a study can find are tiny,
+   and the sample size required for a given effect is a hard number worth being able to
+   compute.
+2. **Confounding.** If ancestry differs between cases and controls, every variant whose
+   frequency differs with ancestry looks associated. This is not a subtle bias; early
+   candidate-gene literature is largely made of it.
+3. **Diagnosis.** The standard diagnostic, $\lambda_{\mathrm{GC}}$, cannot tell confounding
+   apart from real polygenic signal — a limitation that motivated the next lesson entirely.
+
+<Notation
+  rows={[
+    { symbol: 'g_{ij}', meaning: 'Genotype dosage of individual i at variant j', dims: 'in {0,1,2}' },
+    { symbol: '\\beta_j', meaning: 'Per-allele effect of variant j on the trait', dims: 'trait units' },
+    { symbol: 'p', meaning: 'Effect-allele frequency', dims: 'in [0,1]' },
+    { symbol: 'q^2', meaning: 'Variance in the trait explained by the variant', dims: 'in [0,1]' },
+    { symbol: 'z_{\\alpha/2},\\;z_\\beta', meaning: 'Normal quantiles for the threshold and for the power', dims: 'dimensionless' },
+    { symbol: '\\lambda_{\\mathrm{GC}}', meaning: 'Genomic inflation factor: median observed χ² over its null median', dims: '≥ 0' },
+    { symbol: '\\mathbf{K}', meaning: 'Relatedness matrix — pedigree A or genomic G', dims: 'n × n' },
+    { symbol: '\\mathbf{u}', meaning: 'Random polygenic effect absorbing relatedness and background signal', dims: 'n × 1' },
+  ]}
+/>
+
+## Which test a scan uses
+
+All three tests from Module 1 are available, and the choice is made on cost. Fitting a full
+model per variant across ten million variants is not possible when the null model carries
+covariates and a relatedness structure; fitting the **null model once** and evaluating a
+score at each variant is.
+
+That is why score tests dominate genome scans, and why the modern tools below are organised
+around exactly that split. The Wald quantities — $\hat\beta_j$ and its standard error — are
+what get *reported*, because a per-variant fit produces them, but the scan itself is a score
+test almost everywhere.
+
+## Power: the sample size a variance explained demands
+
+Under the alternative, the test statistic is non-central $\chi^2_1$ with non-centrality
+$\lambda = N q^2$, where $q^2$ is the fraction of trait variance the variant explains.
+Achieving power $1-\beta$ at threshold $\alpha$ requires
+
+$$
+\lambda \ge \left(z_{\alpha/2} + z_\beta\right)^2
+\qquad\Longrightarrow\qquad
+N \ge \frac{\left(z_{\alpha/2} + z_\beta\right)^2}{q^2}
+$$
+
+At $\alpha = 5\times10^{-8}$ and 80% power, $z_{\alpha/2} = 5.451310$ and
+$z_\beta = 0.841621$, so the constant is $39.60$ and
+
+$$
+\boxed{\;N \ge \frac{39.60}{q^2}\;}
+$$
+
+<Callout variant="key" title="This curriculum parameterises power by q², and here is why">
+
+You will also see the same result written
+
+$$
+N \ge \frac{19.80}{p(1-p)\beta^2}
+$$
+
+These are **not two results**. For an additive variant on a standardised trait,
+
+$$
+q^2 = 2p(1-p)\beta^2
+$$
+
+so substituting gives $N \ge 39.60 / \left[2p(1-p)\beta^2\right] = 19.80/\left[p(1-p)\beta^2\right]$.
+The 19.80 is simply 39.60 divided by the 2 in $2p(1-p)$. The worked example below computes
+both and gets the identical integer.
+
+The $q^2$ form is the one this curriculum uses throughout, for a reason worth stating: it
+makes the trade-off visible. A variant's detectability depends only on the variance it
+explains, so a common variant of small effect and a rare variant of large effect that share
+a $q^2$ need the same sample size. The $\beta$ form hides that behind two symbols that move
+in opposite directions.
+
+</Callout>
+
+<WorkedExample
+  title="How many people to find a variant explaining 0.1% of the variance"
+  given={[
+    { label: 'Threshold α', value: '5 × 10⁻⁸' },
+    { label: 'Power', value: '80%' },
+    { label: 'Variant', value: 'p = 0.30, β = 0.05 SD per allele' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the constant.** The two-sided normal quantile at $5\times10^{-8}$ is
+$z_{\alpha/2} = 5.451310$, and 80% power needs $z_\beta = 0.841621$:
+
+$$
+\left(5.451310 + 0.841621\right)^2 = 6.292931^2 = 39.600989
+$$
+
+**Step 2 — the variance explained.**
+
+$$
+q^2 = 2p(1-p)\beta^2 = 2(0.30)(0.70)(0.05)^2 = 0.42 \times 0.0025 = 1.05\times10^{-3}
+$$
+
+The variant explains about a tenth of one percent of the trait.
+
+**Step 3 — the sample size, in $q^2$.**
+
+$$
+N \ge \frac{39.600989}{1.05\times10^{-3}} = 37{,}716
+$$
+
+**Step 4 — the same thing in the other notation.**
+
+$$
+N \ge \frac{19.800495}{p(1-p)\beta^2} = \frac{19.800495}{(0.30)(0.70)(0.0025)} = 37{,}716
+$$
+
+Identical, as it must be.
+
+**Step 5 — feel the scaling.** $N$ goes as $1/q^2$, so halving the variance explained
+doubles the sample. A variant explaining $10^{-4}$ of the variance — an ordinary effect size
+for a complex trait — needs 396,010 people. That number is the whole reason biobanks exist.
+
+</WorkedExample>
+
+<Widget
+  kind="power"
+  title="Move the effect and the frequency, watch the sample size"
+  alt="An interactive plot of statistical power against sample size on a log axis, with controls for minor allele frequency, per-allele effect size, and sample size. A readout gives the variance explained, the non-centrality parameter, the achieved power, and the sample size needed for eighty percent power."
+  caption="The same calculation with the dials free. The instructive move is to trade frequency against effect: set a common variant with a small effect, note the variance explained, then find the rare large-effect variant that gives the same q² — the required sample size is identical, because power depends on the variance explained and on nothing else about how the variant got there."
+/>
+
+## Population stratification
+
+Suppose a sample is drawn from two ancestry groups, and the trait is more common in one of
+them for reasons that have nothing to do with the variant being tested — diet, environment,
+ascertainment. Then **every** variant whose frequency differs between the groups will show
+association, because group membership predicts both.
+
+<Callout variant="intuition" title="Why structure manufactures association out of nothing">
+
+The mechanism is easier to see with a deliberately silly example than with a real one.
+
+Suppose you sample from two populations, and one of them eats with chopsticks far more often
+than the other. Test every variant in the genome against chopstick use. Any variant whose
+frequency differs between the two populations will come out associated — thousands of them —
+and not one has anything to do with hands, coordination or culture. The variant is
+predicting **which population the person came from**, and population predicts the trait.
+
+The trait does not have to be cultural. Anything that differs between the groups for
+non-genetic reasons will do: diet, altitude, healthcare access, or simply how the two groups
+were recruited into the study.
+
+Two features of this make it dangerous rather than merely annoying. It scales with sample
+size like a real effect, so collecting more data makes the spurious associations *more*
+significant rather than washing them out. And it is not confined to obviously distinct
+groups: ancestry varies continuously within every population, so the same mechanism operates
+in a study that looks entirely homogeneous.
+
+What the fixes below have in common is that they give the model a way to know where each
+person sits in that continuum, so that the trait's dependence on ancestry can be accounted
+for before any variant is tested.
+
+</Callout>
+
+Nothing about this is subtle, and it does not require exotic population structure. Ancestry
+varies continuously within every human population, and <Citation id="astle2009structure" />
+sets out how cryptic relatedness produces the same effect without any discrete groups at all.
+
+The classical fix is to estimate the axes of ancestry variation directly from the genotypes
+and include them as covariates, which is what <Citation id="price2006eigenstrat" />
+introduced. The number of axes to include is a judgement call: this curriculum uses **ten**
+throughout, which is the common default for a single-ancestry cohort, and the reason to
+state a number and stick to it is that the correction is only as good as the structure it
+captures.
+
+### λ_GC: the diagnostic, and its limit
+
+<Citation id="devlin1999gc" /> proposed a simple check. Under the null, a
+$\chi^2_1$ statistic has median $0.4549364\ldots$ — the exact median of the distribution,
+not a rounding of it. So compare the observed median against it:
+
+$$
+\lambda_{\mathrm{GC}} = \frac{\mathrm{median}\left(\chi^2_{\mathrm{obs}}\right)}{0.4549364\ldots}
+$$
+
+A clean scan gives 1. Inflation gives more.
+
+<WorkedExample
+  title="Computing λ_GC, and then failing to interpret it"
+  given={[
+    { label: 'Statistics', value: 'nine χ² values from a scan' },
+    { label: 'Values', value: '0.02, 0.11, 0.28, 0.44, 0.545924, 0.95, 1.51, 2.84, 6.10' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the median.** Nine values, so the median is the fifth: $0.545924$.
+
+**Step 2 — divide by the null median.**
+
+$$
+\lambda_{\mathrm{GC}} = \frac{0.545924}{0.4549364} = 1.200000
+$$
+
+**Step 3 — the genomic-control correction.** Devlin and Roeder's proposal was to divide
+every statistic by $\lambda_{\mathrm{GC}}$. Doing so returns the median to $0.4549364$ and
+$\lambda_{\mathrm{GC}}$ to exactly 1, by construction.
+
+**Step 4 — now try to say what caused it.** You cannot, and this is the important step.
+
+A $\lambda_{\mathrm{GC}}$ of 1.20 is produced by uncorrected population structure. It is
+*also* produced by a genuinely polygenic trait measured in a large clean sample, because
+thousands of real small effects lift every test statistic slightly. The median cannot
+separate a constant added to every statistic from a scaling of all of them.
+
+Worse, the correction actively harms the second case: dividing every statistic by 1.20 when
+the inflation is real signal throws away real discoveries. In modern biobank analyses
+$\lambda_{\mathrm{GC}}$ routinely exceeds 1.1 on perfectly clean data, and it rises with
+sample size, which is the opposite of how a diagnostic should behave.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Two ways to arrive at λ_GC = 1.20. Confounding adds a constant to every statistic; polygenic signal scales them, because the non-centrality grows with how much LD a variant tags. Both are tuned here to give exactly 1.20, and both do — because λ_GC looks only at the median, marked. Away from the median the two are not alike at all: the polygenic tail is genuinely enriched and the confounded one is barely distinguishable from the null. The next lesson recovers that distinction by regressing on LD score instead of reading one point."
+  alt="A quantile-quantile plot of observed against expected negative log-ten p-values. A dashed diagonal marks the null. A green curve labelled polygenic rises steadily above it. A pale curve labelled confounding tracks the null closely. A vertical dashed line marks the median, where both curves coincide."
+  wide
+>
+<svg viewBox="0 0 640 322" width="640" height="322" font-family="inherit"><line x1="88.0" y1="46.0" x2="88.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="88.0" y1="246.0" x2="424.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="88.0" y1="246.0" x2="424.0" y2="246.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="250.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="88.0" y1="202.5" x2="424.0" y2="202.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="206.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="88.0" y1="159.0" x2="424.0" y2="159.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="163.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">2</text><line x1="88.0" y1="115.6" x2="424.0" y2="115.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="119.6" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">3</text><line x1="88.0" y1="72.1" x2="424.0" y2="72.1" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="76.1" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">4</text><line x1="88.0" y1="246.0" x2="88.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="88.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="200.0" y1="246.0" x2="200.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="200.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="312.0" y1="246.0" x2="312.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="312.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="424.0" y1="246.0" x2="424.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">3</text><line x1="88.0" y1="246.0" x2="424.0" y2="115.6" stroke="currentColor" stroke-width="1.4" opacity=".45" stroke-dasharray="5 3"/><text x="362.4" y="130.5" font-size="10.5" fill="currentColor" opacity=".65" font-weight="600">null</text><path d="M413.1,118.8 L359.7,139.6 L334.9,149.2 L318.5,155.6 L306.3,160.3 L296.5,164.1 L288.4,167.2 L281.4,169.9 L275.3,172.3 L269.9,174.4 L265.1,176.3 L260.6,178.0 L256.6,179.6 L252.8,181.0 L249.4,182.4 L246.1,183.6 L243.1,184.8 L240.2,185.9 L237.5,186.9 L234.9,187.9 L232.5,188.9 L230.2,189.8 L228.0,190.6 L225.9,191.4 L223.8,192.2 L221.9,193.0 L220.0,193.7 L218.2,194.4 L216.5,195.1 L214.8,195.7 L213.2,196.4 L211.6,197.0 L210.1,197.5 L208.6,198.1 L207.2,198.7 L205.8,199.2 L204.5,199.7 L203.1,200.2 L201.9,200.7 L200.6,201.2 L199.4,201.7 L198.2,202.1 L197.1,202.6 L195.9,203.0 L194.8,203.4 L193.7,203.9 L192.7,204.3 L191.6,204.7 L190.6,205.1 L189.6,205.4 L188.7,205.8 L187.7,206.2 L186.8,206.6 L185.9,206.9 L185.0,207.3 L184.1,207.6 L183.2,207.9 L182.3,208.3 L181.5,208.6 L180.7,208.9 L179.9,209.2 L179.1,209.5 L178.3,209.8 L177.5,210.1 L176.8,210.4 L176.0,210.7 L175.3,211.0 L174.5,211.3 L173.8,211.5 L173.1,211.8 L172.4,212.1 L171.7,212.3 L171.1,212.6 L170.4,212.9 L169.7,213.1 L169.1,213.4 L168.5,213.6 L167.8,213.8 L167.2,214.1 L166.6,214.3 L166.0,214.6 L165.4,214.8 L164.8,215.0 L164.2,215.2 L163.6,215.5 L163.1,215.7 L162.5,215.9 L161.9,216.1 L161.4,216.3 L160.8,216.5 L160.3,216.7 L159.8,216.9 L159.2,217.1 L158.7,217.4 L158.2,217.5 L157.7,217.7 L157.2,217.9 L156.7,218.1 L156.2,218.3 L155.7,218.5 L155.2,218.7 L154.7,218.9 L154.2,219.1 L153.8,219.2 L153.3,219.4 L152.8,219.6 L152.4,219.8 L151.9,219.9 L151.5,220.1 L151.0,220.3 L150.6,220.5 L150.1,220.6 L149.7,220.8 L149.3,221.0 L148.8,221.1 L148.4,221.3 L148.0,221.4 L147.6,221.6 L147.2,221.8 L146.8,221.9 L146.4,222.1 L146.0,222.2 L145.6,222.4 L145.2,222.5 L144.8,222.7 L144.4,222.8 L144.0,223.0 L143.6,223.1 L143.2,223.3 L142.9,223.4 L142.5,223.5 L142.1,223.7 L141.7,223.8 L141.4,224.0 L141.0,224.1 L140.7,224.2 L140.3,224.4 L139.9,224.5 L139.6,224.6 L139.2,224.8 L138.9,224.9 L138.5,225.0 L138.2,225.2 L137.9,225.3 L137.5,225.4 L137.2,225.5 L136.9,225.7 L136.5,225.8 L136.2,225.9 L135.9,226.0 L135.5,226.2 L135.2,226.3 L134.9,226.4 L134.6,226.5 L134.3,226.7 L134.0,226.8 L133.6,226.9 L133.3,227.0 L133.0,227.1 L132.7,227.2 L132.4,227.3 L132.1,227.5 L131.8,227.6 L131.5,227.7 L131.2,227.8 L130.9,227.9 L130.6,228.0 L130.3,228.1 L130.1,228.2 L129.8,228.3 L129.5,228.5 L129.2,228.6 L128.9,228.7 L128.6,228.8 L128.3,228.9 L128.1,229.0 L127.8,229.1 L127.5,229.2 L127.2,229.3 L127.0,229.4 L126.7,229.5 L126.4,229.6 L126.2,229.7 L125.9,229.8 L125.6,229.9 L125.4,230.0 L125.1,230.1 L124.9,230.2 L124.6,230.3 L124.3,230.4 L124.1,230.5 L123.8,230.6 L123.6,230.7 L123.3,230.7 L123.1,230.8 L122.8,230.9 L122.6,231.0 L122.3,231.1 L122.1,231.2 L121.8,231.3 L121.6,231.4 L121.4,231.5 L121.1,231.6 L120.9,231.6 L120.6,231.7 L120.4,231.8 L120.2,231.9 L119.9,232.0 L119.7,232.1 L119.5,232.2 L119.2,232.2 L119.0,232.3 L118.8,232.4 L118.5,232.5 L118.3,232.6 L118.1,232.7 L117.9,232.7 L117.6,232.8 L117.4,232.9 L117.2,233.0 L117.0,233.1 L116.7,233.1 L116.5,233.2 L116.3,233.3 L116.1,233.4 L115.9,233.5 L115.7,233.5 L115.4,233.6 L115.2,233.7 L115.0,233.8 L114.8,233.8 L114.6,233.9 L114.4,234.0 L114.2,234.1 L114.0,234.1 L113.8,234.2 L113.6,234.3 L113.4,234.4 L113.2,234.4 L112.9,234.5 L112.7,234.6 L112.5,234.7 L112.3,234.7 L112.1,234.8 L111.9,234.9 L111.7,234.9 L111.5,235.0 L111.4,235.1 L111.2,235.1 L111.0,235.2 L110.8,235.3 L110.6,235.3 L110.4,235.4 L110.2,235.5 L110.0,235.5 L109.8,235.6 L109.6,235.7 L109.4,235.7 L109.2,235.8 L109.0,235.9 L108.9,235.9 L108.7,236.0 L108.5,236.1 L108.3,236.1 L108.1,236.2 L107.9,236.3 L107.8,236.3 L107.6,236.4 L107.4,236.4 L107.2,236.5 L107.0,236.6 L106.8,236.6 L106.7,236.7 L106.5,236.7 L106.3,236.8 L106.1,236.9 L106.0,236.9 L105.8,237.0 L105.6,237.0 L105.4,237.1 L105.3,237.1 L105.1,237.2 L104.9,237.3 L104.7,237.3 L104.6,237.4 L104.4,237.4 L104.2,237.5 L104.1,237.5 L103.9,237.6 L103.7,237.6 L103.6,237.7 L103.4,237.7 L103.2,237.8 L103.1,237.8 L102.9,237.9 L102.7,238.0 L102.6,238.0 L102.4,238.1 L102.2,238.1 L102.1,238.2 L101.9,238.2 L101.8,238.3 L101.6,238.3 L101.4,238.3 L101.3,238.4 L101.1,238.4 L101.0,238.5 L100.8,238.5 L100.6,238.6 L100.5,238.6 L100.3,238.7 L100.2,238.7 L100.0,238.8 L99.9,238.8 L99.7,238.9 L99.5,238.9 L99.4,238.9 L99.2,239.0 L99.1,239.0 L98.9,239.1 L98.8,239.1 L98.6,239.2 L98.5,239.2 L98.3,239.2 L98.2,239.3 L98.0,239.3 L97.9,239.4 L97.7,239.4 L97.6,239.4 L97.4,239.5 L97.3,239.5 L97.1,239.5 L97.0,239.6 L96.8,239.6 L96.7,239.7 L96.6,239.7 L96.4,239.7 L96.3,239.8 L96.1,239.8 L96.0,239.8 L95.8,239.9 L95.7,239.9 L95.5,239.9 L95.4,240.0 L95.3,240.0 L95.1,240.0 L95.0,240.1 L94.8,240.1 L94.7,240.1 L94.6,240.1 L94.4,240.2 L94.3,240.2 L94.1,240.2 L94.0,240.2 L93.9,240.3 L93.7,240.3 L93.6,240.3 L93.5,240.4 L93.3,240.4 L93.2,240.4 L93.1,240.4 L92.9,240.4 L92.8,240.5 L92.7,240.5 L92.5,240.5 L92.4,240.5 L92.3,240.6 L92.1,240.6 L92.0,240.6 L91.9,240.6 L91.7,240.6 L91.6,240.6 L91.5,240.7 L91.3,240.7 L91.2,240.7 L91.1,240.7 L90.9,240.7 L90.8,240.7 L90.7,240.7 L90.6,240.8 L90.4,240.8 L90.3,240.8 L90.2,240.8 L90.0,240.8 L89.9,240.8 L89.8,240.8 L89.7,240.8 L89.5,240.8 L89.4,240.9 L89.3,240.9 L89.2,240.9 L89.0,240.9 L88.9,240.9 L88.8,240.9 L88.7,240.9 L88.6,240.9 L88.4,240.9 L88.3,240.9 L88.2,240.9 L88.1,240.9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M413.1,98.6 L359.7,123.2 L334.9,134.6 L318.5,142.1 L306.3,147.7 L296.5,152.2 L288.4,155.9 L281.4,159.1 L275.3,161.9 L269.9,164.4 L265.1,166.6 L260.6,168.6 L256.6,170.5 L252.8,172.2 L249.4,173.8 L246.1,175.2 L243.1,176.6 L240.2,177.9 L237.5,179.2 L234.9,180.3 L232.5,181.4 L230.2,182.5 L228.0,183.5 L225.9,184.5 L223.8,185.4 L221.9,186.3 L220.0,187.1 L218.2,187.9 L216.5,188.7 L214.8,189.5 L213.2,190.2 L211.6,190.9 L210.1,191.6 L208.6,192.3 L207.2,192.9 L205.8,193.6 L204.5,194.2 L203.1,194.8 L201.9,195.4 L200.6,195.9 L199.4,196.5 L198.2,197.0 L197.1,197.5 L195.9,198.1 L194.8,198.6 L193.7,199.0 L192.7,199.5 L191.6,200.0 L190.6,200.5 L189.6,200.9 L188.7,201.3 L187.7,201.8 L186.8,202.2 L185.9,202.6 L185.0,203.0 L184.1,203.4 L183.2,203.8 L182.3,204.2 L181.5,204.6 L180.7,204.9 L179.9,205.3 L179.1,205.7 L178.3,206.0 L177.5,206.4 L176.8,206.7 L176.0,207.1 L175.3,207.4 L174.5,207.7 L173.8,208.0 L173.1,208.4 L172.4,208.7 L171.7,209.0 L171.1,209.3 L170.4,209.6 L169.7,209.9 L169.1,210.2 L168.5,210.5 L167.8,210.7 L167.2,211.0 L166.6,211.3 L166.0,211.6 L165.4,211.8 L164.8,212.1 L164.2,212.4 L163.6,212.6 L163.1,212.9 L162.5,213.1 L161.9,213.4 L161.4,213.6 L160.8,213.9 L160.3,214.1 L159.8,214.4 L159.2,214.6 L158.7,214.8 L158.2,215.1 L157.7,215.3 L157.2,215.5 L156.7,215.8 L156.2,216.0 L155.7,216.2 L155.2,216.4 L154.7,216.6 L154.2,216.9 L153.8,217.1 L153.3,217.3 L152.8,217.5 L152.4,217.7 L151.9,217.9 L151.5,218.1 L151.0,218.3 L150.6,218.5 L150.1,218.7 L149.7,218.9 L149.3,219.1 L148.8,219.3 L148.4,219.5 L148.0,219.6 L147.6,219.8 L147.2,220.0 L146.8,220.2 L146.4,220.4 L146.0,220.6 L145.6,220.7 L145.2,220.9 L144.8,221.1 L144.4,221.3 L144.0,221.4 L143.6,221.6 L143.2,221.8 L142.9,221.9 L142.5,222.1 L142.1,222.3 L141.7,222.4 L141.4,222.6 L141.0,222.8 L140.7,222.9 L140.3,223.1 L139.9,223.2 L139.6,223.4 L139.2,223.6 L138.9,223.7 L138.5,223.9 L138.2,224.0 L137.9,224.2 L137.5,224.3 L137.2,224.5 L136.9,224.6 L136.5,224.8 L136.2,224.9 L135.9,225.1 L135.5,225.2 L135.2,225.3 L134.9,225.5 L134.6,225.6 L134.3,225.8 L134.0,225.9 L133.6,226.0 L133.3,226.2 L133.0,226.3 L132.7,226.5 L132.4,226.6 L132.1,226.7 L131.8,226.9 L131.5,227.0 L131.2,227.1 L130.9,227.3 L130.6,227.4 L130.3,227.5 L130.1,227.6 L129.8,227.8 L129.5,227.9 L129.2,228.0 L128.9,228.2 L128.6,228.3 L128.3,228.4 L128.1,228.5 L127.8,228.6 L127.5,228.8 L127.2,228.9 L127.0,229.0 L126.7,229.1 L126.4,229.2 L126.2,229.4 L125.9,229.5 L125.6,229.6 L125.4,229.7 L125.1,229.8 L124.9,229.9 L124.6,230.1 L124.3,230.2 L124.1,230.3 L123.8,230.4 L123.6,230.5 L123.3,230.6 L123.1,230.7 L122.8,230.8 L122.6,231.0 L122.3,231.1 L122.1,231.2 L121.8,231.3 L121.6,231.4 L121.4,231.5 L121.1,231.6 L120.9,231.7 L120.6,231.8 L120.4,231.9 L120.2,232.0 L119.9,232.1 L119.7,232.2 L119.5,232.3 L119.2,232.4 L119.0,232.5 L118.8,232.6 L118.5,232.7 L118.3,232.8 L118.1,232.9 L117.9,233.0 L117.6,233.1 L117.4,233.2 L117.2,233.3 L117.0,233.4 L116.7,233.5 L116.5,233.6 L116.3,233.7 L116.1,233.8 L115.9,233.9 L115.7,234.0 L115.4,234.1 L115.2,234.2 L115.0,234.3 L114.8,234.4 L114.6,234.5 L114.4,234.6 L114.2,234.7 L114.0,234.7 L113.8,234.8 L113.6,234.9 L113.4,235.0 L113.2,235.1 L112.9,235.2 L112.7,235.3 L112.5,235.4 L112.3,235.5 L112.1,235.6 L111.9,235.6 L111.7,235.7 L111.5,235.8 L111.4,235.9 L111.2,236.0 L111.0,236.1 L110.8,236.2 L110.6,236.2 L110.4,236.3 L110.2,236.4 L110.0,236.5 L109.8,236.6 L109.6,236.7 L109.4,236.7 L109.2,236.8 L109.0,236.9 L108.9,237.0 L108.7,237.1 L108.5,237.2 L108.3,237.2 L108.1,237.3 L107.9,237.4 L107.8,237.5 L107.6,237.6 L107.4,237.6 L107.2,237.7 L107.0,237.8 L106.8,237.9 L106.7,237.9 L106.5,238.0 L106.3,238.1 L106.1,238.2 L106.0,238.3 L105.8,238.3 L105.6,238.4 L105.4,238.5 L105.3,238.6 L105.1,238.6 L104.9,238.7 L104.7,238.8 L104.6,238.9 L104.4,238.9 L104.2,239.0 L104.1,239.1 L103.9,239.2 L103.7,239.2 L103.6,239.3 L103.4,239.4 L103.2,239.4 L103.1,239.5 L102.9,239.6 L102.7,239.7 L102.6,239.7 L102.4,239.8 L102.2,239.9 L102.1,239.9 L101.9,240.0 L101.8,240.1 L101.6,240.2 L101.4,240.2 L101.3,240.3 L101.1,240.4 L101.0,240.4 L100.8,240.5 L100.6,240.6 L100.5,240.6 L100.3,240.7 L100.2,240.8 L100.0,240.8 L99.9,240.9 L99.7,241.0 L99.5,241.0 L99.4,241.1 L99.2,241.2 L99.1,241.2 L98.9,241.3 L98.8,241.4 L98.6,241.4 L98.5,241.5 L98.3,241.6 L98.2,241.6 L98.0,241.7 L97.9,241.8 L97.7,241.8 L97.6,241.9 L97.4,242.0 L97.3,242.0 L97.1,242.1 L97.0,242.1 L96.8,242.2 L96.7,242.3 L96.6,242.3 L96.4,242.4 L96.3,242.5 L96.1,242.5 L96.0,242.6 L95.8,242.6 L95.7,242.7 L95.5,242.8 L95.4,242.8 L95.3,242.9 L95.1,243.0 L95.0,243.0 L94.8,243.1 L94.7,243.1 L94.6,243.2 L94.4,243.3 L94.3,243.3 L94.1,243.4 L94.0,243.4 L93.9,243.5 L93.7,243.5 L93.6,243.6 L93.5,243.7 L93.3,243.7 L93.2,243.8 L93.1,243.8 L92.9,243.9 L92.8,244.0 L92.7,244.0 L92.5,244.1 L92.4,244.1 L92.3,244.2 L92.1,244.2 L92.0,244.3 L91.9,244.4 L91.7,244.4 L91.6,244.5 L91.5,244.5 L91.3,244.6 L91.2,244.6 L91.1,244.7 L90.9,244.7 L90.8,244.8 L90.7,244.9 L90.6,244.9 L90.4,245.0 L90.3,245.0 L90.2,245.1 L90.0,245.1 L89.9,245.2 L89.8,245.2 L89.7,245.3 L89.5,245.3 L89.4,245.4 L89.3,245.4 L89.2,245.5 L89.0,245.6 L88.9,245.6 L88.8,245.7 L88.7,245.7 L88.6,245.8 L88.4,245.8 L88.3,245.9 L88.2,245.9 L88.1,246.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><line x1="121.7" y1="246.0" x2="121.7" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".4" stroke-dasharray="3 3"/><text x="128.7" y="65.6" font-size="10" fill="currentColor" opacity=".75">the median —</text><text x="128.7" y="74.3" font-size="10" fill="currentColor" opacity=".75">all λ_GC looks at</text><text x="438.0" y="72.0" font-size="11" fill="currentColor" font-weight="700">λ_GC = 1.20 for both</text><line x1="438.0" y1="94.0" x2="458.0" y2="94.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><text x="465.0" y="98.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">polygenic</text><text x="438.0" y="114.0" font-size="10" fill="currentColor" opacity=".85">scales every statistic,</text><text x="438.0" y="127.0" font-size="10" fill="currentColor" opacity=".85">so the tail really is</text><text x="438.0" y="140.0" font-size="10" fill="currentColor" opacity=".85">enriched</text><line x1="438.0" y1="168.0" x2="458.0" y2="168.0" stroke="currentColor" stroke-width="2"/><text x="465.0" y="172.0" font-size="10.5" fill="currentColor" font-weight="600">confounding</text><text x="438.0" y="188.0" font-size="10" fill="currentColor" opacity=".85">adds a constant, which</text><text x="438.0" y="201.0" font-size="10" fill="currentColor" opacity=".85">the median notices and</text><text x="438.0" y="214.0" font-size="10" fill="currentColor" opacity=".85">the tail barely does</text><text x="438.0" y="242.0" font-size="10" fill="currentColor" opacity=".85">One number, two different</text><text x="438.0" y="255.0" font-size="10" fill="currentColor" opacity=".85">things. LD score regression</text><text x="438.0" y="268.0" font-size="10" fill="currentColor" opacity=".85">separates them by using</text><text x="438.0" y="281.0" font-size="10" fill="currentColor" opacity=".85">the whole line instead of</text><text x="438.0" y="294.0" font-size="10" fill="currentColor" opacity=".85">one point on it.</text><text x="256.0" y="288.0" font-size="12" fill="currentColor" text-anchor="middle">Expected −log₁₀ p</text><text x="20.0" y="146.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 146)">Observed −log₁₀ p</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">One λ_GC of 1.20, arrived at two completely different ways</text></svg>
+</Figure>
+
+## The linear mixed model
+
+Principal components correct for the broad axes of ancestry. They do not correct for close
+relatedness, for family structure, or for fine-scale population structure that no small
+number of axes captures.
+
+The mixed model handles all of it in one term. Write
+
+$$
+\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{g}\,\beta_g + \mathbf{u} + \boldsymbol{\varepsilon},
+\qquad
+\mathrm{Var}(\mathbf{u}) = \mathbf{K}\sigma^2_g
+$$
+
+This is exactly the model from the BLUP lesson, with one addition: a fixed effect $\beta_g$
+for the variant being tested. The random effect $\mathbf{u}$ carries the relatedness
+structure $\mathbf{K}$, and because it does, any correlation between the trait and the
+genome-wide background is absorbed there rather than being attributed to the variant.
+
+<Citation id="kang2010emmax" /> made this practical for association scans. The cost is
+severe — a naive implementation is $O(n^3)$ per variant — and the three tools that made it
+routine each attack that differently: <Citation id="loh2015bolt" /> with a Bayesian
+iterative scheme that also gains power from non-infinitesimal architectures,
+<Citation id="jiang2019fastgwa" /> by exploiting sparsity in the relatedness matrix, and
+<Citation id="mbatchou2021regenie" /> with a two-stage ridge scheme that scales to thousands
+of phenotypes at once.
+
+<Callout variant="warning" title="The control must not contain what it is controlling for">
+
+If $\mathbf{K}$ is built from all variants, it contains the variant under test. The random
+effect then explains part of the signal the fixed effect is trying to detect — the variant
+is competing against itself — and the test loses power. This is **proximal contamination**,
+and <Citation id="yang2014mlm" /> is the paper that laid out this and the other pitfalls of
+applying mixed models to association.
+
+The standard fix is **leave-one-chromosome-out**: when testing a variant on chromosome $k$,
+build $\mathbf{K}$ from every chromosome except $k$. Relatedness is still controlled — it is
+a genome-wide property and 21 chromosomes estimate it perfectly well — while the tested
+variant and everything in LD with it are excluded from the control.
+
+The same logic explains a subtler failure: including the tested chromosome also removes
+genuine local signal, so a real association can be attenuated rather than merely
+under-powered. LOCO is not a refinement; without it the model answers a different question
+than the one asked.
+
+</Callout>
+
+<Figure
+  caption="Figure 2. Why leave-one-chromosome-out is necessary. Above: a relatedness matrix built from every chromosome contains the variant under test, so the random effect absorbs part of the very signal the fixed effect is meant to detect. Below: excluding the tested chromosome leaves relatedness fully estimated from the rest of the genome — it is a genome-wide property and loses nothing by dropping one chromosome — while removing the variant and its linked neighbourhood from the control."
+  alt="A schematic with eight chromosome blocks. In the first row, chromosome 4 is highlighted as carrying the variant under test. In the second, a relatedness matrix is drawn including all eight blocks, annotated as proximal contamination. In the third, the same matrix is drawn with chromosome 4 empty, annotated as leave-one-chromosome-out."
+  wide
+>
+<svg viewBox="0 0 640 372" width="640" height="372" font-family="inherit"><rect x="98.0" y="96.0" width="42.8" height="26.0" rx="2" fill="currentColor" opacity=".28"/><text x="119.4" y="113.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">chr 1</text><rect x="144.8" y="96.0" width="42.8" height="26.0" rx="2" fill="currentColor" opacity=".28"/><text x="166.1" y="113.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">chr 2</text><rect x="191.5" y="96.0" width="42.8" height="26.0" rx="2" fill="currentColor" opacity=".28"/><text x="212.9" y="113.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">chr 3</text><rect x="238.2" y="96.0" width="42.8" height="26.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="259.6" y="113.0" font-size="9.5" fill="var(--color-on-accent,#fff)" text-anchor="middle">chr 4</text><rect x="285.0" y="96.0" width="42.8" height="26.0" rx="2" fill="currentColor" opacity=".28"/><text x="306.4" y="113.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">chr 5</text><rect x="331.8" y="96.0" width="42.8" height="26.0" rx="2" fill="currentColor" opacity=".28"/><text x="353.1" y="113.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">chr 6</text><rect x="378.5" y="96.0" width="42.8" height="26.0" rx="2" fill="currentColor" opacity=".28"/><text x="399.9" y="113.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">chr 7</text><rect x="425.2" y="96.0" width="42.8" height="26.0" rx="2" fill="currentColor" opacity=".28"/><text x="446.6" y="113.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">chr 8</text><text x="96.0" y="84.0" font-size="11" fill="currentColor" font-weight="600">the variant being tested sits on chromosome 4</text><text x="96.0" y="162.0" font-size="11" fill="currentColor" font-weight="700">GRM built from all chromosomes</text><rect x="98.0" y="174.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="144.8" y="174.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="191.5" y="174.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="238.2" y="174.0" width="42.8" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".5"/><rect x="285.0" y="174.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="331.8" y="174.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="378.5" y="174.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="425.2" y="174.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><text x="96.0" y="212.0" font-size="10" fill="currentColor" opacity=".85">the random effect already contains the variant under test, so it absorbs</text><text x="96.0" y="226.0" font-size="10" fill="currentColor" opacity=".85">part of the signal it is supposed to be a control for — proximal contamination,</text><text x="96.0" y="240.0" font-size="10" fill="currentColor" opacity=".85">and the test loses power.</text><text x="96.0" y="276.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">GRM leaving chromosome 4 out (LOCO)</text><rect x="98.0" y="288.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="144.8" y="288.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="191.5" y="288.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="238.2" y="288.0" width="42.8" height="16.0" rx="2" fill="none" opacity=".45" stroke="currentColor" stroke-width="1.2"/><rect x="285.0" y="288.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="331.8" y="288.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="378.5" y="288.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><rect x="425.2" y="288.0" width="42.8" height="16.0" rx="2" fill="currentColor" opacity=".5"/><text x="96.0" y="326.0" font-size="10" fill="currentColor" opacity=".85">relatedness is still controlled, from every other chromosome, and the</text><text x="96.0" y="340.0" font-size="10" fill="currentColor" opacity=".85">tested variant is no longer competing against itself.</text><text x="96.0" y="40.0" font-size="11.5" fill="currentColor" opacity=".8">Leave one chromosome out: the fix for a control that controls too much</text></svg>
+</Figure>
+
+## Exercises
+
+<Exercise n={1} title="Two variants, one sample size" difficulty="warm-up">
+
+Variant A is common with a small effect: $p = 0.40$, $\beta = 0.04$. Variant B is rare with
+a large one: $p = 0.02$, $\beta = 0.204$. (a) Compute $q^2$ for each. (b) Compute the sample
+size each needs at genome-wide significance and 80% power. (c) What is the point?
+
+<div slot="solution">
+
+**(a)** Using $q^2 = 2p(1-p)\beta^2$:
+
+$$
+q^2_A = 2(0.40)(0.60)(0.04)^2 = 0.48 \times 0.0016 = 7.680000\times10^{-4}
+$$
+
+$$
+q^2_B = 2(0.02)(0.98)(0.204)^2 = 0.0392 \times 0.041616 = 1.631347\times10^{-3}
+$$
+
+**(b)** $N_A \ge 39.600989 / 7.68\times10^{-4} = 51{,}564$ and
+$N_B \ge 39.600989 / 1.631347\times10^{-3} = 24{,}276$.
+
+**(c)** The rare variant needs **less than half** the sample despite being twenty times
+rarer, because its effect is five times larger and $\beta$ enters squared while $p$ enters
+linearly. Detectability is a property of $q^2$ alone — which is why writing the formula in
+$q^2$ makes the comparison a division and writing it in $p$ and $\beta$ makes it an
+argument.
+
+The practical corollary runs the other way, though: rare variants with effects that large
+are rare *as a class*, which is why genome-wide scans of common variants dominated the field
+until sequencing made the rare tail accessible at all.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="What λ_GC will not tell you" difficulty="core">
+
+A biobank analysis of height in 400,000 people reports $\lambda_{\mathrm{GC}} = 1.31$.
+A colleague proposes dividing every test statistic by 1.31 before reporting.
+(a) What would that do? (b) Is the inflation evidence of a problem? (c) What should be
+reported instead?
+
+<div slot="solution">
+
+**(a)** Dividing by $\lambda_{\mathrm{GC}}$ returns the median statistic to its null value
+and $\lambda_{\mathrm{GC}}$ to exactly 1. It also shrinks every genuine association by the
+same factor, and at genome-wide significance that is not cosmetic: a variant at
+$\chi^2 = 33$ falls to $25.2$ and drops below the 29.7168 threshold.
+
+**(b)** No — not on its own. Height is among the most polygenic traits known, and in a
+sample this size thousands of real small effects lift every statistic. A
+$\lambda_{\mathrm{GC}}$ of 1.31 is exactly what a *clean* analysis of a highly polygenic
+trait at $N = 400{,}000$ looks like. The diagnostic rises with sample size under a correct
+analysis, which is the opposite of what a diagnostic should do.
+
+**(c)** The **LD score regression intercept**, which is the subject of the next lesson. It
+separates the two contributions by using the relationship between a variant's test statistic
+and how much LD it tags: real polygenic signal scales with LD score, confounding does not.
+An intercept near 1 with a large λ_GC says the inflation is signal; an intercept well above 1
+says it is not.
+
+Report $\lambda_{\mathrm{GC}}$ if you like — it is cheap and conventional — but never act on
+it, and never correct by it.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A mixed model that lost its signal" difficulty="stretch">
+
+An analyst runs a mixed-model GWAS building $\mathbf{K}$ from all variants including the
+tested one. A variant with a genuine effect that should reach $\chi^2 = 40$ comes back at
+$\chi^2 = 26$. (a) Name the mechanism. (b) Does it clear genome-wide significance either
+way? (c) Why does the effect get worse as the study grows, and what else does it distort?
+
+<div slot="solution">
+
+**(a)** Proximal contamination. The random effect $\mathbf{u}$ has $\mathbf{K}$ built from a
+set that includes the tested variant and everything in LD with it, so part of that variant's
+own contribution is absorbed into the polygenic term and never reaches the fixed effect.
+
+**(b)** The genome-wide threshold on the $\chi^2_1$ scale is $29.7168$. At 40 the variant
+clears it comfortably; at 26 it does not. The contamination is the difference between a
+discovery and nothing.
+
+**(c)** It worsens with study size for a specific reason: as $N$ grows, $\sigma^2_g$ is
+estimated more precisely and the random effect becomes better at explaining the trait —
+including the part attributable to the variant under test. A model that fits the background
+better absorbs more of the foreground.
+
+What else it distorts: the effect-size estimate, not only the test. $\hat\beta_g$ is biased
+toward zero by the same mechanism, so a contaminated analysis feeding a polygenic score or a
+Mendelian randomisation downstream propagates an attenuated effect into results that never
+mention mixed models at all. That is the case for treating LOCO as correctness rather than
+tuning.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A genome scan is one test from Module 1 run ten million times**, and it uses a score
+  test because the expensive null model — covariates, relatedness — can then be fitted once
+  and reused. Wald quantities are what get reported.
+- **Sample size is $N \ge 39.60/q^2$** at $5\times10^{-8}$ and 80% power. The alternative
+  form $N \ge 19.80/[p(1-p)\beta^2]$ is the identical result, since $q^2 = 2p(1-p)\beta^2$
+  and $19.80 = 39.60/2$. This curriculum uses $q^2$ because detectability depends on the
+  variance explained and on nothing else.
+- **A variant explaining 0.1% of the variance needs 37,716 people; one explaining 0.01%
+  needs 396,010.** The scaling is $1/q^2$, and it is why biobanks exist.
+- **Population structure creates association at variants with no causal role**, because
+  ancestry predicts both genotype and trait. Principal components correct the broad axes;
+  this curriculum uses ten.
+- **λ_GC divides the observed median χ² by 0.4549364…**, the exact median of χ²₁. It cannot
+  distinguish confounding from polygenic signal — a λ_GC of 1.20 is reachable either way —
+  and correcting by it destroys real discoveries. In biobanks it rises with sample size
+  under a perfectly clean analysis.
+- **The mixed model absorbs relatedness into a random effect with covariance $\mathbf{K}$**,
+  and the relatedness matrix must exclude the chromosome being tested. Without LOCO the
+  variant competes against itself, losing both power and an unbiased effect estimate — and
+  the problem grows with sample size.
