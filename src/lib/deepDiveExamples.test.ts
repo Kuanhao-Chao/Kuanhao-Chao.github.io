@@ -5083,3 +5083,100 @@ describe('gwas-quality-control', () => {
     });
   });
 });
+
+describe('gwas-population-structure', () => {
+  const mdx = lesson('gwas-population-structure');
+  const THRESH = chi2Quantile(1 - 5e-8, 1);
+  const pOf = (c: number) => 1 - regularizedGammaP(0.5, c / 2);
+  const LAM = 1.18;
+  const INT = 1.02;
+
+  describe('worked example — a study with λ = 1.18 and an intercept of 1.02', () => {
+    it('step 1: only 5.71% of the inflation is confounding', () => {
+      expect((100 * (INT - 1)) / (1.35 - 1)).toBeCloseTo(5.71, 2);
+      expect(mdx).toContain('5.71\\%');
+    });
+
+    it('step 2: genomic control removes nearly eight times what is earned', () => {
+      expect(100 * (1 - 1 / LAM)).toBeCloseTo(15.25, 2);
+      expect(100 * (1 - 1 / INT)).toBeCloseTo(1.96, 2);
+      expect((1 - 1 / LAM) / (1 - 1 / INT)).toBeCloseTo(7.78, 2);
+      expect(mdx).toContain('15.25\\%');
+      expect(mdx).toContain('1.96\\%');
+      expect(mdx).toMatch(/nearly eight\s+times too large/);
+    });
+
+    it('step 3: a real locus at 33 is destroyed by one correction and kept by the other', () => {
+      expect(pOf(33)).toBeCloseTo(9.216e-9, 12);
+      expect(33 / LAM).toBeCloseTo(27.9661, 4);
+      expect(pOf(33 / LAM)).toBeCloseTo(1.235e-7, 10);
+      expect(33 / INT).toBeCloseTo(32.3529, 4);
+      // the whole point: one lands below the threshold, the other above
+      expect(33 / LAM).toBeLessThan(THRESH);
+      expect(33 / INT).toBeGreaterThan(THRESH);
+      for (const v of ['9.216 \\times 10^{-9}', '27.9661', '1.235 \\times 10^{-7}', '32.3529'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 4: the band is 4.7547 wide and spans the discovery range', () => {
+      expect(THRESH * INT).toBeCloseTo(30.3111, 4);
+      expect(THRESH * LAM).toBeCloseTo(35.0658, 4);
+      expect(THRESH * LAM - THRESH * INT).toBeCloseTo(4.7547, 4);
+      expect(pOf(THRESH * INT)).toBeCloseTo(3.68e-8, 10);
+      expect(pOf(THRESH * LAM)).toBeCloseTo(3.187e-9, 11);
+      for (const v of ['30.3111', '35.0658', '4.7547', '3.680 \\times 10^{-8}',
+                       '3.187 \\times 10^{-9}'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('conventions', () => {
+    it('divides λ_GC by the exact median of the null, never a rounding', () => {
+      expect(CHI2_1DF_MEDIAN).toBe(0.4549364231195727);
+      expect(mdx).toContain('0.4549364231195727');
+      // and the helper agrees with the lesson's definition
+      expect(lambdaGc([CHI2_1DF_MEDIAN])).toBeCloseTo(1, 12);
+    });
+
+    it('quotes one number of ancestry principal components, with a reason', () => {
+      expect(mdx).toContain('Use 10 PCs');
+      // exactly one distinct count in this lesson, so the corpus-wide rule holds
+      const counts = new Set(
+        [...mdx.matchAll(/(\d+)\s+(?:ancestry\s+)?(?:principal components|PCs)\b/g)].map(
+          (m) => m[1]
+        )
+      );
+      expect([...counts]).toEqual(['10']);
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('marks the threshold, the band and both corrections', () => {
+      for (const label of ['threshold 29.72', 'lost to genomic control,', 'kept by the intercept',
+                           'a real locus at 33', 'GC: 27.97', 'intercept: 32.35',
+                           '30.31 to 35.07'])
+        expect(mdx, `figure label ${label}`).toContain(label);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — two studies with identical λ and opposite diagnoses', () => {
+      expect((100 * (1.29 - 1)) / (1.33 - 1)).toBeCloseTo(87.88, 2);
+      expect((100 * (1.01 - 1)) / (1.6 - 1)).toBeCloseTo(1.67, 2);
+      expect(100 * (1 - 1 / 1.31)).toBeCloseTo(23.66, 2);
+      for (const v of ['87.88\\%', '1.67\\%', '23.66\\%']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — genomic control would cost about 26 of the 40 loci', () => {
+      const lo = THRESH * 1.03;
+      const hi = THRESH * 1.25;
+      expect(lo).toBeCloseTo(30.6083, 4);
+      expect(hi).toBeCloseTo(37.146, 4);
+      expect(hi - lo).toBeCloseTo(6.5377, 4);
+      expect((40 * (hi - lo)) / 10).toBeCloseTo(26.15, 2);
+      expect(100 * (1 - 1 / 1.25)).toBeCloseTo(20, 9);
+      for (const v of ['30.6083', '37.1460', '6.5377', '26.15', '20\\%'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+});

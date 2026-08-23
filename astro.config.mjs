@@ -77,6 +77,7 @@ export default defineConfig({
     // URLs have been shared, so they keep working.
     '/deep_dives/gwas-biological-variation-cdcv': '/deep_dives/gwas-study-design/',
     '/deep_dives/gwas-genotyping-imputation': '/deep_dives/gwas-arrays-imputation/',
+    '/deep_dives/gwas-population-stratification': '/deep_dives/gwas-population-structure/',
     // Per-item pages from the previous site (auto-generated; see
     // scripts/gen-legacy-redirects.mjs). Originals live on archive.khchao.com.
     ...legacyRedirects,
