@@ -26,7 +26,7 @@ import {
   wakefieldAbf, pipsFromAbf, credibleSet, csPurity,
   waldRatio, fStatistic, ivwMr, eggerRegression, weightedMedianMr,
   effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
-  callRate, piHat, inbreedingF,
+  callRate, piHat, inbreedingF, armitageTrend,
 
 } from './deepDiveMath.ts';
 
@@ -5177,6 +5177,79 @@ describe('gwas-population-structure', () => {
       expect(100 * (1 - 1 / 1.25)).toBeCloseTo(20, 9);
       for (const v of ['30.6083', '37.1460', '6.5377', '26.15', '20\\%'])
         expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+describe('gwas-running-the-scan', () => {
+  const mdx = lesson('gwas-running-the-scan');
+  const RECESSIVE_CASES: [number, number, number] = [1000, 1000, 900];
+  const RECESSIVE_CONTROLS: [number, number, number] = [1200, 1200, 400];
+  const ADDITIVE_CASES: [number, number, number] = [1200, 1600, 700];
+  const ADDITIVE_CONTROLS: [number, number, number] = [1500, 1550, 450];
+  const ADD: [number, number, number] = [0, 1, 2];
+  const DOM: [number, number, number] = [0, 1, 1];
+  const REC: [number, number, number] = [0, 0, 1];
+
+  describe('worked example — a recessive-truth locus tested three ways', () => {
+    it('gives the three statistics the table prints', () => {
+      const a = armitageTrend(RECESSIVE_CASES, RECESSIVE_CONTROLS, ADD);
+      const d = armitageTrend(RECESSIVE_CASES, RECESSIVE_CONTROLS, DOM);
+      const r = armitageTrend(RECESSIVE_CASES, RECESSIVE_CONTROLS, REC);
+      expect(a).toBeCloseTo(152.6291, 4);
+      expect(d).toBeCloseTo(42.1547, 4);
+      expect(r).toBeCloseTo(226.9868, 4);
+      expect(r).toBeGreaterThan(a); // the matching encoding wins
+      for (const v of ['152.6291', '42.1547', '226.9868']) expect(mdx, v).toContain(v);
+    });
+
+    it('shows the additive test keeping 67.2% of the best statistic', () => {
+      const a = armitageTrend(RECESSIVE_CASES, RECESSIVE_CONTROLS, ADD);
+      const r = armitageTrend(RECESSIVE_CASES, RECESSIVE_CONTROLS, REC);
+      expect((100 * a) / r).toBeCloseTo(67.2, 1);
+      expect(mdx).toContain('67.2\\%');
+      // and still far past the threshold — the loss is a third of a statistic, not a locus
+      expect(a / chi2Quantile(1 - 5e-8, 1)).toBeGreaterThan(5);
+      expect(mdx).toMatch(/more than five times\s+the threshold/);
+    });
+
+    it('prices three encodings genome-wide', () => {
+      expect(5e-8 / 3).toBeCloseTo(1.6667e-8, 12);
+      expect(chi2Quantile(1 - 5e-8 / 3, 1)).toBeCloseTo(31.8486, 4);
+      expect(chi2Quantile(1 - 5e-8, 1)).toBeCloseTo(29.7168, 4);
+      expect(chi2Quantile(1 - 5e-8, 2)).toBeCloseTo(33.6225, 4);
+      for (const v of ['1.6667 \\times 10^{-8}', '31.8486', '33.6225']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('draws both panels at their computed statistics', () => {
+      expect(armitageTrend(ADDITIVE_CASES, ADDITIVE_CONTROLS, ADD)).toBeCloseTo(86.2613, 4);
+      expect(armitageTrend(ADDITIVE_CASES, ADDITIVE_CONTROLS, DOM)).toBeCloseTo(54.2636, 4);
+      expect(armitageTrend(ADDITIVE_CASES, ADDITIVE_CONTROLS, REC)).toBeCloseTo(65.0316, 4);
+      for (const l of ['86.3', '54.3', '65.0', '152.6', '42.2', '227.0', 'threshold 29.72',
+                       'truth is additive', 'truth is recessive'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — the additive test wins on an additive-truth locus', () => {
+      const a = armitageTrend(ADDITIVE_CASES, ADDITIVE_CONTROLS, ADD);
+      expect(a).toBeCloseTo(86.2613, 4);
+      expect(a).toBeGreaterThan(armitageTrend(ADDITIVE_CASES, ADDITIVE_CONTROLS, DOM));
+      expect(a).toBeGreaterThan(armitageTrend(ADDITIVE_CASES, ADDITIVE_CONTROLS, REC));
+      for (const v of ['86.2613', '54.2636', '65.0316']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — four encodings raise the bar past a locus at 30.5', () => {
+      expect(5e-8 / 4).toBeCloseTo(1.25e-8, 12);
+      expect(chi2Quantile(1 - 5e-8 / 4, 1)).toBeCloseTo(32.4075, 4);
+      expect(chi2Quantile(1 - 1.25e-8, 2)).toBeCloseTo(36.3951, 4);
+      // the locus clears one test and fails four
+      expect(30.5).toBeGreaterThan(chi2Quantile(1 - 5e-8, 1));
+      expect(30.5).toBeLessThan(chi2Quantile(1 - 5e-8 / 4, 1));
+      for (const v of ['1.25 \\times 10^{-8}', '32.4075', '36.3951']) expect(mdx, v).toContain(v);
     });
   });
 });

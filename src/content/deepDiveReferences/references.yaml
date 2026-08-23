@@ -3451,3 +3451,11 @@ laurie2010qc:
   venue: "Genetic Epidemiology 34:591-602"
   doi: https://doi.org/10.1002/gepi.20516
   verified: 2026-08-23
+
+zhou2018saige:
+  authors: ['Wei Zhou', 'Jonas B. Nielsen', 'Lars G. Fritsche', 'et al.']
+  year: 2018
+  title: "Efficiently controlling for case-control imbalance and sample relatedness in large-scale genetic association studies"
+  venue: "Nature Genetics 50:1335-1341"
+  doi: https://doi.org/10.1038/s41588-018-0184-y
+  verified: 2026-08-23

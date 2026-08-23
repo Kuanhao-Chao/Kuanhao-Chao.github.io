@@ -1,0 +1,318 @@
+---
+title: "Running the Scan: Encodings, Covariates and the Software That Does It"
+shortTitle: Running the Scan
+description: "What the association software actually computes at each of ten million variants — the genotype encoding, the covariates, the model for a binary trait — and which of those choices changes the answer."
+abstract: "A genome-wide scan is one small regression repeated ten million times, and almost every decision about it was made before the command ran. This lesson covers the ones that change results: the genotype encoding, where the additive test is not the most powerful at any given locus but is the one that is never far off — under a recessive truth it still retains 67.2% of the best statistic while running all three encodings would raise the bar at every locus in the genome from 29.72 to 31.85; the covariates, where adjusting for a heritable mediator introduces a bias that no sample size removes; and the model for a binary trait, where the ordinary logistic score test stops being calibrated exactly when a study is most valuable — at rare variants in a badly unbalanced cohort."
+date: 2026-08-23
+track: workflow
+hub: gwas
+moduleId: g02-scan
+moduleLabel: Module 2 · The Scan
+order: 5
+level: intermediate
+objectives:
+  - "Compute the additive, dominant and recessive tests for one locus and say which the scan should use."
+  - "Explain why an additive-only scan loses little even when the underlying model is not additive."
+  - "Price the multiple-testing cost of running more than one encoding genome-wide."
+  - "Choose covariates without adjusting away the effect being measured."
+  - "Say when an ordinary logistic model stops being calibrated, and what replaces it."
+prerequisites:
+  - gwas-population-structure
+relatedLessons:
+  - gwas-population-structure
+  - statgen-mathematical-foundations
+  - statgen-association-linear-mixed-models
+keyEquations:
+  - '\chi^2_{\mathrm{CA}} = N\,r^2_{x,y}'
+  - 'x \in \{0, 1, 2\} \text{ additive}, \; \{0,1,1\} \text{ dominant}, \; \{0,0,1\} \text{ recessive}'
+  - '\alpha_{\text{per test}} = 5 \times 10^{-8} / k'
+referenceIds:
+  - purcell2007plink
+  - chang2015plink2
+  - loh2015bolt
+  - mbatchou2021regenie
+  - zhou2018saige
+  - kang2010emmax
+  - yang2014mlm
+  - jiang2019fastgwa
+tags: [GWAS, association testing, genotype encoding, covariates, logistic regression, SAIGE]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The command is one line. What is it doing ten million times, and which parts of it were
+decisions?
+
+The regression itself is standard and the derivations belong to
+[Mathematical Foundations](/deep_dives/statgen-mathematical-foundations/), which builds the
+score, Wald and likelihood-ratio tests from one likelihood. This lesson is about the three
+choices wrapped around that regression which change what comes out: how genotypes are coded,
+which covariates go in, and what happens to a binary trait when the arms are badly
+unbalanced.
+
+<Callout variant="intuition">
+
+Every genotype encoding is the **same test with different scores**. Give the three genotypes
+numbers, correlate those numbers with the phenotype, and the trend statistic is $N$ times the
+squared correlation. Additive scores them 0, 1, 2; dominant scores 0, 1, 1; recessive scores
+0, 0, 1. Nothing else changes — same table, same machinery, same one degree of freedom, same
+threshold. The choice is purely a claim about which arrangement of the three genotypes the
+biology follows.
+
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'x', meaning: 'Score assigned to a genotype — the encoding', dims: 'usually 0, 1, 2' },
+    { symbol: '\\chi^2_{\\mathrm{CA}}', meaning: 'Cochran–Armitage trend statistic', dims: '1 df' },
+    { symbol: 'r_{x,y}', meaning: 'Correlation between genotype score and case status', dims: 'in [-1,1]' },
+    { symbol: 'k', meaning: 'Number of encodings tested at each variant', dims: 'count' },
+    { symbol: 'N', meaning: 'Total samples, cases plus controls', dims: 'count' },
+  ]}
+/>
+
+## One locus, three encodings
+
+<WorkedExample
+  title="A recessive-truth locus, tested three ways"
+  given={[
+    { label: 'Cases', value: '1,000 / 1,000 / 900 by genotype' },
+    { label: 'Controls', value: '1,200 / 1,200 / 400 by genotype' },
+    { label: 'Threshold', value: 'χ² ≥ 29.7168 at 5 × 10⁻⁸, 1 df' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — one machine, three sets of scores.** The trend statistic on a 2 × 3 table has an
+exact closed form: it is $N$ times the squared correlation between the genotype score and
+case status,
+
+$$
+\chi^2_{\mathrm{CA}} = N\,r^2_{x,y} .
+$$
+
+Feeding the three encodings through it:
+
+| encoding | scores | χ² | reading |
+| --- | --- | --- | --- |
+| additive | 0, 1, 2 | 152.6291 | strongly significant |
+| dominant | 0, 1, 1 | 42.1547 | significant |
+| recessive | 0, 0, 1 | 226.9868 | strongly significant, and the largest |
+
+**Step 2 — the recessive test wins, as it should.** These counts were built so that risk
+sits only in the double-carrier genotype, and the encoding that matches recovers the most
+signal. That is the case *for* trying several encodings.
+
+**Step 3 — and the case against.** The additive test returns 152.6291, which is
+
+$$
+\frac{152.6291}{226.9868} = 67.2\%
+$$
+
+of the best available statistic — and still enormously significant, at more than five times
+the threshold. The additive encoding did not match the biology and lost a third of the
+statistic; it did not lose the locus.
+
+**Step 4 — what running all three would cost.** Three tests per variant means a Bonferroni
+correction of $5 \times 10^{-8}/3 = 1.6667 \times 10^{-8}$, which moves the threshold from
+
+$$
+\chi^2 \geq 29.7168 \qquad\text{to}\qquad \chi^2 \geq 31.8486 .
+$$
+
+That penalty applies at **every variant in the genome**, including the overwhelming majority
+where the truth is close to additive and the extra encodings find nothing. The unconstrained
+2-df genotypic test is worse still, needing $\chi^2 \geq 33.6225$.
+
+So the scan runs additive, and the loci where that choice cost something are found again in
+follow-up, at one locus rather than ten million. This is not a claim that biology is
+additive. It is a claim that the additive test is the one whose worst case is acceptable,
+which is a different and more defensible statement.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The same locus under two truths, tested three ways. When the truth is additive the additive test is the largest of the three at 86.3. When the truth is recessive the recessive test wins at 227.0 — and the additive test still returns 152.6, which is 67.2% of it and far past the dashed threshold at 29.72. The additive encoding is never the worst and rarely far from the best, which is what makes it the default rather than any claim about biology."
+  alt="Two panels of three horizontal bars each, on a chi-square axis from 0 to 240 with a dashed threshold at 29.72. Under an additive truth the bars read additive 86.3, dominant 54.3, recessive 65.0, with additive highlighted. Under a recessive truth they read additive 152.6, dominant 42.2, recessive 227.0, with recessive highlighted."
+>
+<svg viewBox="0 0 640 400" width="640" height="400" font-family="inherit"><line x1="150.0" y1="60.0" x2="150.0" y2="136.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="136.0" x2="470.0" y2="136.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="136.0" x2="150.0" y2="141.0" stroke="currentColor" stroke-width="1"/><text x="150.0" y="154.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="216.7" y1="136.0" x2="216.7" y2="141.0" stroke="currentColor" stroke-width="1"/><text x="216.7" y="154.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50</text><line x1="283.3" y1="136.0" x2="283.3" y2="141.0" stroke="currentColor" stroke-width="1"/><text x="283.3" y="154.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="350.0" y1="136.0" x2="350.0" y2="141.0" stroke="currentColor" stroke-width="1"/><text x="350.0" y="154.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">150</text><line x1="416.7" y1="136.0" x2="416.7" y2="141.0" stroke="currentColor" stroke-width="1"/><text x="416.7" y="154.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">200</text><text x="20.0" y="46.0" font-size="11.5" fill="currentColor" font-weight="700">truth is additive</text><rect x="150.0" y="66.2" width="115.0" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.9"/><text x="140.0" y="78.2" font-size="10" fill="currentColor" text-anchor="end">additive</text><text x="272.0" y="78.2" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">86.3</text><rect x="150.0" y="90.0" width="72.4" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.35"/><text x="140.0" y="102.0" font-size="10" fill="currentColor" text-anchor="end">dominant</text><text x="229.4" y="102.0" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">54.3</text><rect x="150.0" y="113.8" width="86.7" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.35"/><text x="140.0" y="125.8" font-size="10" fill="currentColor" text-anchor="end">recessive</text><text x="243.7" y="125.8" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">65.0</text><line x1="189.6" y1="136.0" x2="189.6" y2="60.0" stroke="currentColor" stroke-width="1.3" opacity=".55" stroke-dasharray="4 3"/><line x1="150.0" y1="192.0" x2="150.0" y2="268.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="268.0" x2="470.0" y2="268.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="268.0" x2="150.0" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="150.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="216.7" y1="268.0" x2="216.7" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="216.7" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50</text><line x1="283.3" y1="268.0" x2="283.3" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="283.3" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="350.0" y1="268.0" x2="350.0" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="350.0" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">150</text><line x1="416.7" y1="268.0" x2="416.7" y2="273.0" stroke="currentColor" stroke-width="1"/><text x="416.7" y="286.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">200</text><text x="20.0" y="178.0" font-size="11.5" fill="currentColor" font-weight="700">truth is recessive</text><rect x="150.0" y="198.2" width="203.5" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.35"/><text x="140.0" y="210.2" font-size="10" fill="currentColor" text-anchor="end">additive</text><text x="360.5" y="210.2" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">152.6</text><rect x="150.0" y="222.0" width="56.2" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.35"/><text x="140.0" y="234.0" font-size="10" fill="currentColor" text-anchor="end">dominant</text><text x="213.2" y="234.0" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">42.2</text><rect x="150.0" y="245.8" width="302.6" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.9"/><text x="140.0" y="257.8" font-size="10" fill="currentColor" text-anchor="end">recessive</text><text x="459.6" y="257.8" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">227.0</text><line x1="189.6" y1="268.0" x2="189.6" y2="192.0" stroke="currentColor" stroke-width="1.3" opacity=".55" stroke-dasharray="4 3"/><text x="150.0" y="46.0" font-size="9" fill="currentColor" opacity=".7">threshold 29.72</text><text x="310.0" y="330.0" font-size="12" fill="currentColor" text-anchor="middle">Association statistic (chi-square, 1 df)</text><text x="20.0" y="24.0" font-size="11.5" fill="currentColor" opacity=".8">The additive encoding is never the worst, and rarely far from the best</text><text x="20.0" y="356.0" font-size="10" fill="currentColor" opacity=".85">Under a recessive truth the recessive test wins — and the additive test</text><text x="20.0" y="370.0" font-size="10" fill="currentColor" opacity=".85">still keeps 67.2% of it, at 152.6 against 227.0. Running all three</text><text x="20.0" y="384.0" font-size="10" fill="currentColor" opacity=".85">instead raises the bar from 29.72 to 31.85 at every locus in the genome.</text></svg>
+</Figure>
+
+## Covariates, and the ones that hurt
+
+Age, sex, genotyping batch and the ancestry components from the previous lesson are the
+standard set, and including them is uncontroversial. Two other kinds are not.
+
+**Do not adjust for a heritable mediator.** If the variant affects the trait *through* some
+intermediate — body mass index in a study of type 2 diabetes, say — then adjusting for that
+intermediate removes the part of the effect that runs through it, and the remaining estimate
+answers a question nobody asked. Worse, if the mediator is itself heritable and shares causes
+with the outcome, conditioning on it opens a path between them and can create association
+where none exists. This bias does not shrink with sample size; it is estimated more precisely.
+
+**Be careful adjusting for anything measured after the phenotype.** The general rule is that
+a covariate is safe if it could not have been affected by the genotype. Age and sex qualify.
+Medication use, disease duration and biomarker levels do not.
+
+**Adjust for what generated the data.** Genotyping batch, plate, and recruitment centre are
+the covariates most likely to matter and least likely to be recorded properly. If cases and
+controls were assayed separately, no covariate rescues the study — that is a design failure,
+and the previous lesson's differential-missingness test is where it shows up.
+
+## Binary traits, and where the standard model breaks
+
+For a quantitative trait, linear regression on dosage is the whole story. For a binary trait
+there is a subtlety worth knowing before it produces a false positive.
+
+The ordinary logistic score test is calibrated when the expected cell counts are reasonable.
+It stops being calibrated when they are not — and that happens exactly where a modern biobank
+is most interesting: a rare variant, in a study with 1,000 cases and 400,000 controls. The
+test becomes anti-conservative, and the resulting p-values are too small in a way that no
+genomic-control-style correction fixes, because the miscalibration depends on the variant's
+frequency.
+
+Two remedies are standard. **Firth's penalised likelihood** shrinks the estimate and restores
+calibration at the cost of some power, and is what REGENIE applies to variants that trip its
+threshold <Citation id="mbatchou2021regenie" />. **Saddlepoint approximation**, as
+implemented in SAIGE <Citation id="zhou2018saige" />, approximates the score statistic's
+actual distribution rather than assuming it is normal, which is both accurate and cheap
+enough for whole-biobank use.
+
+<Callout variant="key" title="Choosing the software">
+
+The three mainstream choices differ in what they solve, not in the regression they run.
+<Citation id="purcell2007plink" /> and its successor <Citation id="chang2015plink2" /> are
+fastest for unrelated samples with covariate adjustment.
+<Citation id="loh2015bolt" /> and <Citation id="kang2010emmax" /> fit the mixed model that
+absorbs relatedness and structure together; <Citation id="jiang2019fastgwa" /> makes that
+affordable at biobank scale. <Citation id="mbatchou2021regenie" /> and
+<Citation id="zhou2018saige" /> add the binary-trait machinery above.
+
+Whichever you use, check whether it leaves the tested variant's chromosome out of the
+relationship matrix <Citation id="yang2014mlm" />. A pipeline that does not is quietly
+fitting the signal away, and the symptom is a scan that looks clean and finds less than it
+should.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="The additive test on a dominant locus" difficulty="warm-up">
+
+Cases are 1,200 / 1,600 / 700 by genotype; controls are 1,500 / 1,550 / 450.
+
+(a) Which of the three encodings gives the largest statistic?
+
+(b) The additive test gives 86.2613. How does that compare with the others?
+
+(c) What does that tell you about running additive only?
+
+<div slot="solution">
+
+**(a)** The additive test, at 86.2613. Dominant gives 54.2636 and recessive 65.0316.
+
+**(b)** It is the largest of the three, by a comfortable margin — these counts were built
+with an additive truth, and the matching encoding wins.
+
+**(c)** That this locus costs nothing. Combined with the worked example, the pattern is the
+one that justifies the convention: when the truth is additive the additive test is best, and
+when it is not, the additive test is still close enough to find the locus. A scan that runs
+additive only is trading a bounded loss at a few loci against a threshold penalty at all of
+them.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="What does a fourth encoding cost?" difficulty="core">
+
+A team proposes testing additive, dominant, recessive and the 2-df genotypic model at every
+variant.
+
+(a) What threshold does a Bonferroni correction over four tests imply, on the 1-df scale?
+
+(b) The 2-df test has its own threshold. What is it at $5 \times 10^{-8}$, and what at
+$5 \times 10^{-8}/4$?
+
+(c) A locus has additive $\chi^2 = 30.5$. What happens to it under this scheme?
+
+<div slot="solution">
+
+**(a)** $\alpha = 5 \times 10^{-8}/4 = 1.25 \times 10^{-8}$, which on 1 df is
+$\chi^2 \geq 32.4075$.
+
+**(b)** The 2-df test needs $\chi^2 \geq 33.6225$ at $5 \times 10^{-8}$ and
+$\chi^2 \geq 36.3951$ at $1.25 \times 10^{-8}$. Note that these are not comparable with the
+1-df numbers — a 2-df statistic of 36 is not "larger" evidence than a 1-df statistic of 33.
+Comparing them directly is a common and serious error.
+
+**(c)** It is lost. At 30.5 it clears the single-test threshold of 29.7168 and fails the
+four-test threshold of 32.4075. The team would have to find it at one of the other three
+encodings by a wide enough margin to pay for all four — and if the truth is additive, they
+will not.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A covariate that should not be there" difficulty="stretch">
+
+A study of type 2 diabetes adjusts for body mass index, reasoning that BMI is a confounder.
+The reported effect of a known adiposity variant drops to near zero, and a variant with no
+prior connection to either trait becomes significant.
+
+(a) Is BMI a confounder here?
+
+(b) Explain both observations.
+
+(c) What should the study report instead?
+
+<div slot="solution">
+
+**(a)** No. A confounder causes both exposure and outcome. Genotype is fixed at conception,
+so nothing measured in adulthood can cause it — BMI here is a **mediator**, on the path from
+genotype to disease.
+
+**(b)** The first observation is mediation: adjusting for BMI removes the part of the
+variant's effect that runs *through* BMI, and for an adiposity variant that is most of it.
+The estimate that survives answers "what is this variant's effect on diabetes at fixed BMI?",
+which is a coherent question and not the one the study asked.
+
+The second is **collider bias**. Conditioning on BMI — a common effect of many causes — opens
+a non-causal path between anything else that influences BMI and anything else that influences
+diabetes. A variant affecting BMI through a route unrelated to diabetes can acquire an
+apparent association with diabetes purely from the adjustment. It will replicate in any other
+study that adjusts the same way, which is what makes it dangerous.
+
+**(c)** The unadjusted association as the primary result, since that is the effect of the
+variant on the disease. A BMI-adjusted analysis can be reported alongside it, labelled as
+what it is — an estimate of the effect not mediated by BMI — with the collider risk stated.
+Where the mediation itself is the question, a design built for it is required, not a
+covariate.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Every encoding is the same test with different scores**, and the trend statistic is
+  exactly $N r^2$ between the score and case status. Additive, dominant and recessive are all
+  1-df and directly comparable.
+- **The additive encoding is the default because its worst case is acceptable**, not because
+  biology is additive. On a recessive-truth locus it still returns 67.2% of the best
+  statistic and finds the locus comfortably.
+- **Running more encodings costs the whole genome.** Three tests move the threshold from
+  $\chi^2 \geq 29.7168$ to $31.8486$, and four move it to $32.4075$, at every variant —
+  including the vast majority where the extra encodings find nothing.
+- **Do not adjust for a heritable mediator.** It removes the effect you are measuring, and
+  conditioning on a collider can manufacture associations that replicate in every study that
+  makes the same mistake.
+- **The ordinary logistic test loses calibration exactly where biobanks are interesting** —
+  rare variants in badly unbalanced cohorts. Firth's penalisation or a saddlepoint
+  approximation is the fix, and both are standard in the software that expects to meet the
+  problem.
