@@ -1792,6 +1792,35 @@ describe('colocPosteriors', () => {
   });
 });
 
+describe('betaWeight', () => {
+  it('is the Beta(1, 25) density, 25(1-maf)^24', () => {
+    for (const maf of [1e-6, 0.001, 0.01, 0.05, 0.2]) {
+      expect(betaWeight(maf)).toBeCloseTo(25 * (1 - maf) ** 24, 9);
+    }
+  });
+
+  it('is flat across the rare range, not the 25-fold tilt the constant suggests', () => {
+    // The 25 is the density's height at zero, not a ratio. This was documented wrongly
+    // and a lesson would have repeated it.
+    const nearSingleton = betaWeight(1e-9);
+    expect(nearSingleton).toBeCloseTo(25, 5);
+    expect(nearSingleton / betaWeight(0.01)).toBeCloseTo(1.2728, 4);
+    // SKAT squares the weight, so that is the ratio that actually acts
+    expect((nearSingleton / betaWeight(0.01)) ** 2).toBeCloseTo(1.62, 2);
+  });
+
+  it('does its real work by suppressing common variants', () => {
+    const nearSingleton = betaWeight(1e-9);
+    expect(nearSingleton / betaWeight(0.05)).toBeCloseTo(3.4248, 4);
+    expect((nearSingleton / betaWeight(0.05)) ** 2).toBeCloseTo(11.7292, 3);
+    // monotone decreasing in frequency
+    const mafs = [1e-4, 1e-3, 5e-3, 0.01, 0.02, 0.05, 0.1];
+    for (let i = 1; i < mafs.length; i++) {
+      expect(betaWeight(mafs[i])).toBeLessThan(betaWeight(mafs[i - 1]));
+    }
+  });
+});
+
 describe('contingencyTests', () => {
   /**
    * The reference implementation: the logistic model for a 2 x 2 table, with the nuisance

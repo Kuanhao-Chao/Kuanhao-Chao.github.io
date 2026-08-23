@@ -22,6 +22,7 @@ import {
   hendersonMme, blupSolve, grmFromMarkers, predictionAccuracy, matVec, invert,
   correlatedResponse, multivariateResponse,
   lambdaGc, CHI2_1DF_MEDIAN, varianceExplained, ldscRegression,
+  betaWeight, burdenStatistic, skatQ, skatOQ,
 } from './deepDiveMath.ts';
 
 /**
@@ -1830,6 +1831,179 @@ describe('statgen-ldsc-sldsc', () => {
     it('could be inherited from a containing annotation at eightfold', () => {
       expect(0.2 / 0.025).toBeCloseTo(8.0, 10);
       expect(mdx).toContain('around eightfold');
+    });
+  });
+});
+
+describe('statgen-rare-variant-association', () => {
+  const mdx = lesson('statgen-rare-variant-association');
+  const K = 39.600989007;
+  const MAF = [0.001, 0.002, 0.005, 0.008, 0.01];
+  const W = MAF.map((m) => betaWeight(m));
+  const GENE_A = [4, 3, 5, 2, 3];
+  const GENE_B = [4, -3, 5, -2, -4];
+
+  describe('worked example — what frequency costs', () => {
+    it('has the four rows of the power table', () => {
+      for (const [maf, q2, n] of [
+        [0.05, 2.375e-2, 1668],
+        [0.01, 4.95e-3, 8001],
+        [0.001, 4.995e-4, 79282],
+        [0.0001, 4.9995e-5, 792099],
+      ] as [number, number, number][]) {
+        expect(varianceExplained(maf, 0.5)).toBeCloseTo(q2, 9);
+        expect(Math.ceil(K / varianceExplained(maf, 0.5))).toBe(n);
+      }
+      for (const row of [
+        '| 5% | $2.3750\\times10^{-2}$ | 1,668 |',
+        '| 1% | $4.9500\\times10^{-3}$ | 8,001 |',
+        '| 0.1% | $4.9950\\times10^{-4}$ | 79,282 |',
+        '| 0.01% | $4.9995\\times10^{-5}$ | 792,099 |',
+      ]) {
+        expect(mdx).toContain(row);
+      }
+    });
+
+    it('rises 475-fold between 5% and 0.01%', () => {
+      const lo = Math.ceil(K / varianceExplained(0.05, 0.5));
+      const hi = Math.ceil(K / varianceExplained(0.0001, 0.5));
+      expect(hi / lo).toBeCloseTo(475, 0);
+      expect(mdx).toContain('475-fold');
+    });
+
+    it('states the q² convention, since 39.60 appears', () => {
+      expect(mdx).toMatch(/q\^2|q²/);
+    });
+  });
+
+  describe('worked example — two genes, identical except for three minus signs', () => {
+    it('has the five Beta(1,25) weights', () => {
+      const expected = [24.4068, 23.8272, 22.1663, 20.6167, 19.642];
+      W.forEach((w, i) => expect(w).toBeCloseTo(expected[i], 4));
+      expect(mdx).toContain('(24.4068,\\; 23.8272,\\; 22.1663,\\; 20.6167,\\; 19.6420)');
+    });
+
+    it('has the same magnitudes in both genes — only signs differ', () => {
+      expect(GENE_A.map(Math.abs)).toEqual([4, 3, 5, 2, 3]);
+      expect(GENE_B.map(Math.abs)).toEqual([4, 3, 5, 2, 4]);
+      // four of the five magnitudes are identical; the fifth differs by one
+      expect(GENE_A.slice(0, 4).map(Math.abs)).toEqual(GENE_B.slice(0, 4).map(Math.abs));
+    });
+
+    it('has weighted sums that differ by more than twentyfold', () => {
+      const wsum = (S: number[]) => S.reduce((acc, sj, j) => acc + W[j] * sj, 0);
+      expect(wsum(GENE_A)).toBeCloseTo(380.1, 4);
+      expect(wsum(GENE_B)).toBeCloseTo(17.1762, 4);
+      expect(mdx).toContain('= 380.1000');
+      expect(mdx).toContain('= 17.1762');
+    });
+
+    it('collapses the burden statistic by a factor of 490', () => {
+      const a = burdenStatistic(GENE_A, W);
+      const b = burdenStatistic(GENE_B, W);
+      expect(Math.round(a)).toBe(144476);
+      expect(Math.round(b)).toBe(295);
+      expect(a / b).toBeCloseTo(489.7, 1);
+      expect(mdx).toContain('380.1000^2 = 144{,}476');
+      expect(mdx).toContain('17.1762^2 = 295');
+      expect(mdx).toContain('factor of **490**');
+    });
+
+    it('leaves SKAT essentially unchanged', () => {
+      const a = skatQ(GENE_A, W);
+      const b = skatQ(GENE_B, W);
+      expect(Math.round(a)).toBe(32097);
+      expect(Math.round(b)).toBe(34797);
+      expect(a / b).toBeCloseTo(0.922, 3);
+      // gene B is slightly larger, not smaller
+      expect(b).toBeGreaterThan(a);
+      expect(mdx).toContain('32{,}097');
+      expect(mdx).toContain('34{,}797');
+    });
+
+    it('has neither test dominating', () => {
+      expect(burdenStatistic(GENE_A, W) / skatQ(GENE_A, W)).toBeCloseTo(4.501, 3);
+      expect(skatQ(GENE_B, W) / burdenStatistic(GENE_B, W)).toBeCloseTo(117.9, 1);
+      expect(mdx).toContain('$4.50\\times$');
+      expect(mdx).toContain('$117.9\\times$');
+    });
+  });
+
+  describe('the Beta weight, whose constant is not a ratio', () => {
+    it('is 25(1-maf)^24', () => {
+      for (const m of MAF) expect(betaWeight(m)).toBeCloseTo(25 * (1 - m) ** 24, 9);
+      expect(mdx).toContain('25\\,(1 - \\mathrm{MAF}_j)^{24}');
+    });
+
+    it('gives a near-singleton only 1.27x a 1% variant', () => {
+      expect(betaWeight(1e-9) / betaWeight(0.01)).toBeCloseTo(1.2728, 4);
+      expect((betaWeight(1e-9) / betaWeight(0.01)) ** 2).toBeCloseTo(1.62, 2);
+      expect(mdx).toContain('$1.27\\times$');
+      expect(mdx).toContain('$1.62\\times$');
+    });
+
+    it('does its work against common variants', () => {
+      expect(betaWeight(1e-9) / betaWeight(0.05)).toBeCloseTo(3.4248, 4);
+      expect((betaWeight(1e-9) / betaWeight(0.05)) ** 2).toBeCloseTo(11.7292, 3);
+      expect(mdx).toContain('$3.42\\times$');
+      expect(mdx).toContain('$11.73\\times$');
+    });
+  });
+
+  describe('exercise 1 — where SKAT-O lands', () => {
+    it('has the five-row table for both genes', () => {
+      for (const [rho, a, b] of [
+        [0, 32097, 34797],
+        [0.25, 60192, 26172],
+        [0.5, 88286, 17546],
+        [0.75, 116381, 8921],
+        [1, 144476, 295],
+      ] as [number, number, number][]) {
+        expect(Math.round(skatOQ(GENE_A, W, rho))).toBe(a);
+        expect(Math.round(skatOQ(GENE_B, W, rho))).toBe(b);
+      }
+      for (const row of [
+        '| 0 (pure SKAT) | 32,097 | 34,797 |',
+        '| 0.5 | 88,286 | 17,546 |',
+        '| 1 (pure burden) | 144,476 | 295 |',
+      ]) {
+        expect(mdx).toContain(row);
+      }
+    });
+
+    it('is maximised at opposite endpoints for the two genes', () => {
+      const best = (S: number[]) =>
+        [0, 0.25, 0.5, 0.75, 1].reduce((b, r) => (skatOQ(S, W, r) > skatOQ(S, W, b) ? r : b), 0);
+      expect(best(GENE_A)).toBe(1);
+      expect(best(GENE_B)).toBe(0);
+      expect(mdx).toContain('opposite corners');
+    });
+
+    it('is linear in rho, so the maximum is always at an endpoint', () => {
+      for (const S of [GENE_A, GENE_B]) {
+        const mid = skatOQ(S, W, 0.5);
+        expect(mid).toBeCloseTo((skatOQ(S, W, 0) + skatOQ(S, W, 1)) / 2, 8);
+      }
+      expect(mdx).toContain('linear in $\\rho$');
+    });
+  });
+
+  describe('exercise 2 — how many genes, and at what threshold', () => {
+    it('reuses the exome threshold from the association lesson', () => {
+      expect(0.05 / 20000).toBeCloseTo(2.5e-6, 18);
+      expect(chi2Quantile(1 - 0.05 / 20000, 1)).toBeCloseTo(22.1665, 3);
+      expect(mdx).toContain('2.50\\times10^{-6}');
+      expect(mdx).toContain('22.1665');
+    });
+
+    it('notes the genome-wide threshold would hold error at 0.001', () => {
+      expect(5e-8 * 20000).toBeCloseTo(1e-3, 12);
+      expect(mdx).toContain('$0.001$ rather than');
+    });
+
+    it('counts 80,000 tests for four masks per gene', () => {
+      expect(20000 * 4).toBe(80000);
+      expect(mdx).toContain('80,000 tests');
     });
   });
 });

@@ -1,0 +1,420 @@
+---
+title: "Rare Variant Association: Burden Tests, SKAT & the Direction Problem"
+shortTitle: Rare Variant Association
+description: "Why single-variant testing collapses below 0.1% frequency, how collapsing tests recover power by aggregating a gene, the directional cancellation that makes burden tests fail, the variance-component test that fixes it, and what SKAT-O buys."
+abstract: "A variant carried by twelve people in half a million cannot be tested one at a time — at a minor allele frequency of 0.01% even an effect of half a phenotypic standard deviation needs 792,099 people at genome-wide significance. Aggregating a gene's rare variants into a single test is the only way the analysis exists, and the whole design space is a question about how to aggregate. Burden tests collapse first and test second, which is optimal when every variant pushes the same way and catastrophic when they do not: this lesson shows one gene where flipping three signs, changing nothing else, drops the burden statistic by a factor of 490 while SKAT moves by eight percent. SKAT-O mixes the two so a study does not have to know which case it is in before it looks."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m04-association
+moduleLabel: Module 4 · Association & Discovery
+order: 11
+level: advanced
+objectives:
+  - "Quantify the single-variant power cliff in terms of the variance explained, q²."
+  - "Explain how collapsing a gene's rare variants into one test recovers power."
+  - "Compute a weighted burden statistic and say when it is the optimal test."
+  - "Show that burden tests lose almost all power when variant effects point in different directions."
+  - "Compute the SKAT statistic and explain why squaring before summing removes the cancellation."
+  - "Interpret SKAT-O's ρ and say what it costs and what it buys."
+prerequisites:
+  - statgen-association-linear-mixed-models
+relatedLessons:
+  - statgen-mathematical-foundations
+  - data-constraint-intolerance
+keyEquations:
+  - 'N \ge \frac{39.60}{q^2}, \qquad q^2 = 2p(1-p)\beta^2'
+  - 'Q_{\mathrm{burden}} = \left(\sum_j w_j S_j\right)^2'
+  - 'Q_{\mathrm{SKAT}} = \sum_j w_j^2 S_j^2'
+  - 'Q_\rho = \rho\,Q_{\mathrm{burden}} + (1-\rho)\,Q_{\mathrm{SKAT}}'
+referenceIds:
+  - li2008cmc
+  - madsen2009weighted
+  - morris2010evaluation
+  - wu2011skat
+  - lee2012skato
+  - povysil2019collapsing
+  - zhou2020saigegene
+  - backman2021exome
+tags: [rare variants, burden test, SKAT, SKAT-O, collapsing, gene-based test, exome sequencing]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The previous lessons built the machinery for testing one variant at a time. For rare
+variants that machinery does not work, and the reason is arithmetic rather than
+methodological.
+
+Sample size scales as $1/q^2$, and $q^2 = 2p(1-p)\beta^2$ carries the allele frequency
+linearly. Halve the frequency and you double the sample required. Below about 0.1% the
+requirement passes what any cohort can supply, **even for effects large enough that no
+common variant has ever had one**.
+
+So rare variants are not tested individually. They are aggregated — a gene's variants
+collapsed into a single test — and every method in this lesson is a different answer to one
+question: *how* should they be aggregated?
+
+<Notation
+  rows={[
+    { symbol: 'S_j', meaning: 'Score statistic for variant j: its genotype vector against the residuals', dims: 'per variant' },
+    { symbol: 'w_j', meaning: 'Weight applied to variant j, usually a function of its frequency', dims: '> 0' },
+    { symbol: 'Q_{\\mathrm{burden}}', meaning: 'Burden statistic: collapse first, then test', dims: '≥ 0' },
+    { symbol: 'Q_{\\mathrm{SKAT}}', meaning: 'SKAT statistic: test first, then sum', dims: '≥ 0' },
+    { symbol: '\\rho', meaning: 'SKAT-O mixing parameter, 0 for pure SKAT and 1 for pure burden', dims: 'in [0,1]' },
+    { symbol: 'q^2', meaning: 'Variance in the trait explained by a variant', dims: 'in [0,1]' },
+  ]}
+/>
+
+## The power cliff
+
+Take a variant with $\beta = 0.5$ — half a phenotypic standard deviation per allele, which
+would be an extraordinary effect for a complex trait — and ask how many people are needed at
+genome-wide significance and 80% power, using $N \ge 39.60/q^2$ from Module 4's opening
+lesson.
+
+<WorkedExample
+  title="What frequency costs"
+  given={[
+    { label: 'Effect β', value: '0.5 SD per allele' },
+    { label: 'Threshold', value: '5 × 10⁻⁸, 80% power' },
+    { label: 'Constant', value: '(z_{α/2} + z_β)² = 39.600989' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the variance explained at four frequencies.**
+
+$$
+q^2 = 2p(1-p)\beta^2 = 2p(1-p)(0.25)
+$$
+
+| MAF | $q^2$ | $N \ge 39.60/q^2$ |
+| --- | --- | --- |
+| 5% | $2.3750\times10^{-2}$ | 1,668 |
+| 1% | $4.9500\times10^{-3}$ | 8,001 |
+| 0.1% | $4.9950\times10^{-4}$ | 79,282 |
+| 0.01% | $4.9995\times10^{-5}$ | 792,099 |
+
+**Step 2 — read the scaling.** Each tenfold drop in frequency costs a tenfold rise in sample
+size, because $q^2$ is linear in $p$ when $p$ is small. Between a 5% variant and a 0.01% one
+the requirement rises 475-fold, and the effect size never changed.
+
+**Step 3 — see why this is fatal rather than inconvenient.** 792,099 people is larger than
+most biobanks, for a variant with an effect ten times anything a common-variant GWAS reports.
+For the effects rare variants *actually* have, and at the frequencies they *actually* occur,
+single-variant testing is not underpowered — it is impossible.
+
+**Step 4 — what aggregation buys.** Twenty variants each at 0.01%, collapsed into one test,
+behave roughly like a single variant at 0.2%. That moves the requirement from 792,099 to
+under 40,000. **Aggregation is not a refinement of rare-variant analysis; it is the thing
+that makes it exist.**
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Sample size for 80% power against minor allele frequency, at a per-allele effect of half a standard deviation. The solid line is one variant tested alone: it passes a million people below 0.01% frequency. The dashed line aggregates twenty such variants into a single test, which multiplies the effective frequency twentyfold and drops the requirement by the same factor. The dashed line is drawn only across the rare range, because past 1% these are not rare variants and nobody collapses them."
+  alt="A log-log plot of people needed for eighty percent power against minor allele frequency. A solid line falls from about ten million at a frequency of 0.001 percent to one thousand at ten percent, with points marked at 792,099 people for 0.01 percent and 79,282 for 0.1 percent. A dashed line for twenty aggregated variants runs parallel and about twenty times lower, ending at one percent."
+  wide
+>
+<svg viewBox="0 0 640 302" width="640" height="302" font-family="inherit"><line x1="96.0" y1="46.0" x2="96.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="246.0" x2="430.0" y2="246.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="246.0" x2="430.0" y2="246.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="250.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1k</text><line x1="96.0" y1="206.0" x2="430.0" y2="206.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="210.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">10k</text><line x1="96.0" y1="166.0" x2="430.0" y2="166.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="170.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">100k</text><line x1="96.0" y1="126.0" x2="430.0" y2="126.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="130.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1M</text><line x1="96.0" y1="86.0" x2="430.0" y2="86.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="90.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">10M</text><line x1="96.0" y1="46.0" x2="430.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="50.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">100M</text><line x1="96.0" y1="246.0" x2="96.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="96.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.001%</text><line x1="179.5" y1="246.0" x2="179.5" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="179.5" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.01%</text><line x1="263.0" y1="246.0" x2="263.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="263.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.1%</text><line x1="346.5" y1="246.0" x2="346.5" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="346.5" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1%</text><line x1="430.0" y1="246.0" x2="430.0" y2="251.0" stroke="currentColor" stroke-width="1"/><text x="430.0" y="264.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10%</text><path d="M96.0,90.1 L97.4,90.7 L98.8,91.4 L100.2,92.1 L101.6,92.7 L103.0,93.4 L104.3,94.1 L105.7,94.7 L107.1,95.4 L108.5,96.1 L109.9,96.7 L111.3,97.4 L112.7,98.1 L114.1,98.7 L115.5,99.4 L116.9,100.1 L118.3,100.7 L119.7,101.4 L121.0,102.1 L122.4,102.7 L123.8,103.4 L125.2,104.1 L126.6,104.7 L128.0,105.4 L129.4,106.1 L130.8,106.7 L132.2,107.4 L133.6,108.1 L135.0,108.7 L136.4,109.4 L137.8,110.1 L139.1,110.7 L140.5,111.4 L141.9,112.0 L143.3,112.7 L144.7,113.4 L146.1,114.0 L147.5,114.7 L148.9,115.4 L150.3,116.0 L151.7,116.7 L153.1,117.4 L154.5,118.0 L155.8,118.7 L157.2,119.4 L158.6,120.0 L160.0,120.7 L161.4,121.4 L162.8,122.0 L164.2,122.7 L165.6,123.4 L167.0,124.0 L168.4,124.7 L169.8,125.4 L171.2,126.0 L172.5,126.7 L173.9,127.4 L175.3,128.0 L176.7,128.7 L178.1,129.4 L179.5,130.0 L180.9,130.7 L182.3,131.4 L183.7,132.0 L185.1,132.7 L186.5,133.4 L187.9,134.0 L189.2,134.7 L190.6,135.4 L192.0,136.0 L193.4,136.7 L194.8,137.4 L196.2,138.0 L197.6,138.7 L199.0,139.4 L200.4,140.0 L201.8,140.7 L203.2,141.4 L204.5,142.0 L205.9,142.7 L207.3,143.4 L208.7,144.0 L210.1,144.7 L211.5,145.4 L212.9,146.0 L214.3,146.7 L215.7,147.4 L217.1,148.0 L218.5,148.7 L219.9,149.4 L221.2,150.0 L222.6,150.7 L224.0,151.4 L225.4,152.0 L226.8,152.7 L228.2,153.4 L229.6,154.0 L231.0,154.7 L232.4,155.4 L233.8,156.0 L235.2,156.7 L236.6,157.4 L238.0,158.0 L239.3,158.7 L240.7,159.4 L242.1,160.0 L243.5,160.7 L244.9,161.4 L246.3,162.0 L247.7,162.7 L249.1,163.4 L250.5,164.0 L251.9,164.7 L253.3,165.4 L254.7,166.0 L256.0,166.7 L257.4,167.4 L258.8,168.0 L260.2,168.7 L261.6,169.4 L263.0,170.0 L264.4,170.7 L265.8,171.4 L267.2,172.0 L268.6,172.7 L270.0,173.4 L271.4,174.0 L272.7,174.7 L274.1,175.4 L275.5,176.0 L276.9,176.7 L278.3,177.4 L279.7,178.0 L281.1,178.7 L282.5,179.4 L283.9,180.0 L285.3,180.7 L286.7,181.4 L288.0,182.0 L289.4,182.7 L290.8,183.3 L292.2,184.0 L293.6,184.7 L295.0,185.3 L296.4,186.0 L297.8,186.7 L299.2,187.3 L300.6,188.0 L302.0,188.7 L303.4,189.3 L304.8,190.0 L306.1,190.7 L307.5,191.3 L308.9,192.0 L310.3,192.7 L311.7,193.3 L313.1,194.0 L314.5,194.6 L315.9,195.3 L317.3,196.0 L318.7,196.6 L320.1,197.3 L321.5,198.0 L322.8,198.6 L324.2,199.3 L325.6,200.0 L327.0,200.6 L328.4,201.3 L329.8,201.9 L331.2,202.6 L332.6,203.3 L334.0,203.9 L335.4,204.6 L336.8,205.3 L338.1,205.9 L339.5,206.6 L340.9,207.2 L342.3,207.9 L343.7,208.6 L345.1,209.2 L346.5,209.9 L347.9,210.5 L349.3,211.2 L350.7,211.9 L352.1,212.5 L353.5,213.2 L354.9,213.8 L356.2,214.5 L357.6,215.1 L359.0,215.8 L360.4,216.5 L361.8,217.1 L363.2,217.8 L364.6,218.4 L366.0,219.1 L367.4,219.7 L368.8,220.4 L370.2,221.0 L371.6,221.7 L372.9,222.4 L374.3,223.0 L375.7,223.7 L377.1,224.3 L378.5,225.0 L379.9,225.6 L381.3,226.3 L382.7,226.9 L384.1,227.6 L385.5,228.2 L386.9,228.8 L388.2,229.5 L389.6,230.1 L391.0,230.8 L392.4,231.4 L393.8,232.1 L395.2,232.7 L396.6,233.3 L398.0,234.0 L399.4,234.6 L400.8,235.3 L402.2,235.9 L403.6,236.5 L404.9,237.2 L406.3,237.8 L407.7,238.4 L409.1,239.0 L410.5,239.7 L411.9,240.3 L413.3,240.9 L414.7,241.5 L416.1,242.2 L417.5,242.8 L418.9,243.4 L420.3,244.0 L421.6,244.6 L423.0,245.2 L424.4,245.8 L425.8,246.4 L427.2,247.0 L428.6,247.6 L430.0,248.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M96.0,142.1 L97.0,142.6 L98.1,143.1 L99.1,143.6 L100.2,144.1 L101.2,144.6 L102.3,145.1 L103.3,145.6 L104.3,146.1 L105.4,146.6 L106.4,147.1 L107.5,147.6 L108.5,148.1 L109.6,148.6 L110.6,149.1 L111.7,149.6 L112.7,150.1 L113.7,150.6 L114.8,151.1 L115.8,151.6 L116.9,152.1 L117.9,152.6 L119.0,153.1 L120.0,153.6 L121.0,154.1 L122.1,154.6 L123.1,155.1 L124.2,155.6 L125.2,156.1 L126.3,156.6 L127.3,157.1 L128.4,157.6 L129.4,158.1 L130.4,158.6 L131.5,159.1 L132.5,159.6 L133.6,160.1 L134.6,160.6 L135.7,161.1 L136.7,161.6 L137.8,162.1 L138.8,162.6 L139.8,163.1 L140.9,163.6 L141.9,164.1 L143.0,164.6 L144.0,165.1 L145.1,165.6 L146.1,166.1 L147.1,166.6 L148.2,167.1 L149.2,167.6 L150.3,168.1 L151.3,168.6 L152.4,169.1 L153.4,169.6 L154.5,170.1 L155.5,170.6 L156.5,171.1 L157.6,171.6 L158.6,172.1 L159.7,172.6 L160.7,173.1 L161.8,173.6 L162.8,174.1 L163.8,174.6 L164.9,175.1 L165.9,175.6 L167.0,176.1 L168.0,176.6 L169.1,177.1 L170.1,177.6 L171.2,178.1 L172.2,178.6 L173.2,179.1 L174.3,179.6 L175.3,180.1 L176.4,180.6 L177.4,181.1 L178.5,181.6 L179.5,182.1 L180.5,182.6 L181.6,183.1 L182.6,183.6 L183.7,184.1 L184.7,184.6 L185.8,185.1 L186.8,185.5 L187.9,186.0 L188.9,186.5 L189.9,187.0 L191.0,187.5 L192.0,188.0 L193.1,188.5 L194.1,189.0 L195.2,189.5 L196.2,190.0 L197.2,190.5 L198.3,191.0 L199.3,191.5 L200.4,192.0 L201.4,192.5 L202.5,193.0 L203.5,193.5 L204.5,194.0 L205.6,194.5 L206.6,195.0 L207.7,195.5 L208.7,196.0 L209.8,196.5 L210.8,197.0 L211.9,197.5 L212.9,198.0 L213.9,198.5 L215.0,199.0 L216.0,199.5 L217.1,200.0 L218.1,200.5 L219.2,201.0 L220.2,201.5 L221.2,202.0 L222.3,202.5 L223.3,203.0 L224.4,203.5 L225.4,204.0 L226.5,204.5 L227.5,205.0 L228.6,205.5 L229.6,206.0 L230.6,206.4 L231.7,206.9 L232.7,207.4 L233.8,207.9 L234.8,208.4 L235.9,208.9 L236.9,209.4 L238.0,209.9 L239.0,210.4 L240.0,210.9 L241.1,211.4 L242.1,211.9 L243.2,212.4 L244.2,212.9 L245.3,213.4 L246.3,213.9 L247.3,214.4 L248.4,214.9 L249.4,215.4 L250.5,215.8 L251.5,216.3 L252.6,216.8 L253.6,217.3 L254.7,217.8 L255.7,218.3 L256.7,218.8 L257.8,219.3 L258.8,219.8 L259.9,220.3 L260.9,220.8 L262.0,221.3 L263.0,221.7 L264.0,222.2 L265.1,222.7 L266.1,223.2 L267.2,223.7 L268.2,224.2 L269.3,224.7 L270.3,225.2 L271.4,225.6 L272.4,226.1 L273.4,226.6 L274.5,227.1 L275.5,227.6 L276.6,228.1 L277.6,228.6 L278.7,229.0 L279.7,229.5 L280.7,230.0 L281.8,230.5 L282.8,231.0 L283.9,231.5 L284.9,231.9 L286.0,232.4 L287.0,232.9 L288.0,233.4 L289.1,233.9 L290.1,234.3 L291.2,234.8 L292.2,235.3 L293.3,235.8 L294.3,236.2 L295.4,236.7 L296.4,237.2 L297.4,237.7 L298.5,238.1 L299.5,238.6 L300.6,239.1 L301.6,239.6 L302.7,240.0 L303.7,240.5 L304.8,241.0 L305.8,241.4 L306.8,241.9 L307.9,242.4 L308.9,242.8 L310.0,243.3 L311.0,243.7 L312.1,244.2 L313.1,244.7 L314.1,245.1 L315.2,245.6" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2" stroke-dasharray="7 4"/><circle cx="179.5" cy="130.0" r="4.5" fill="currentColor"/><circle cx="263.0" cy="170.0" r="4.5" fill="currentColor"/><text x="189.0" y="120.0" font-size="10.5" fill="currentColor" font-weight="600">792,099 people</text><text x="272.5" y="160.0" font-size="10.5" fill="currentColor" font-weight="600">79,282</text><line x1="444.0" y1="74.0" x2="464.0" y2="74.0" stroke="currentColor" stroke-width="2"/><text x="471.0" y="78.0" font-size="10.5" fill="currentColor" font-weight="600">one variant</text><text x="444.0" y="96.0" font-size="10" fill="currentColor" opacity=".85">at β = 0.5 SD per allele —</text><text x="444.0" y="109.0" font-size="10" fill="currentColor" opacity=".85">an enormous effect</text><line x1="444.0" y1="138.0" x2="464.0" y2="138.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2" stroke-dasharray="7 4"/><text x="471.0" y="142.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">twenty aggregated</text><text x="444.0" y="160.0" font-size="10" fill="currentColor" opacity=".85">into one test, so the</text><text x="444.0" y="173.0" font-size="10" fill="currentColor" opacity=".85">effective frequency is</text><text x="444.0" y="186.0" font-size="10" fill="currentColor" opacity=".85">twenty times higher</text><text x="444.0" y="216.0" font-size="10" fill="currentColor" opacity=".85">Aggregation is not a</text><text x="444.0" y="229.0" font-size="10" fill="currentColor" opacity=".85">refinement. Below about</text><text x="444.0" y="242.0" font-size="10" fill="currentColor" opacity=".85">0.1% it is the only way</text><text x="444.0" y="255.0" font-size="10" fill="currentColor" opacity=".85">the test exists at all.</text><text x="263.0" y="288.0" font-size="12" fill="currentColor" text-anchor="middle">Minor allele frequency (log scale)</text><text x="20.0" y="146.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 146)">People needed for 80% power</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">The power cliff: why rare variants cannot be tested one at a time</text></svg>
+</Figure>
+
+## Collapsing: burden tests
+
+The first family of methods collapses a gene's variants into a single burden score per
+person and tests that. <Citation id="li2008cmc" /> introduced the combined multivariate and
+collapsing approach; <Citation id="madsen2009weighted" /> added frequency weighting;
+<Citation id="morris2010evaluation" /> compared the variants of the idea systematically.
+
+In score form the burden statistic is
+
+$$
+Q_{\mathrm{burden}} = \left(\sum_j w_j S_j\right)^2
+$$
+
+— weight each variant's score, add them up, *then* square.
+
+<Callout variant="intuition" title="What the Beta weight actually does, and what it does not">
+
+The standard weight is the Beta density $w_j = \mathrm{Beta}(\mathrm{MAF}_j;\,1,\,25)$,
+which for the default parameters is simply
+
+$$
+w_j = 25\,(1 - \mathrm{MAF}_j)^{24}
+$$
+
+It is easy to read that 25 as saying a singleton gets twenty-five times the weight of a 1%
+variant. It does not. The 25 is the density's **height at zero**, not a ratio, and across
+the rare range the weight is remarkably flat: a near-singleton gets $1.27\times$ the weight
+of a 1% variant, or $1.62\times$ once SKAT squares it.
+
+What the weight actually does is **suppress common variants**. Against a 5% variant the
+ratio is $3.42\times$, and squared, $11.73\times$. So the Beta weight is not a sharp prior
+favouring the very rarest alleles; it is a soft filter keeping common variants from
+dominating a test that was built for rare ones.
+
+That distinction matters when choosing parameters. If you want the rarest alleles to
+dominate, Beta(1, 25) will not do it, and increasing the second parameter is what changes
+the tilt.
+
+</Callout>
+
+## The flaw: directions cancel
+
+The burden statistic squares **after** summing, which is exactly the right thing to do when
+every variant in the gene pushes the same way — and exactly the wrong thing when they do not.
+
+A gene containing both loss-of-function alleles that lower a trait and gain-of-function
+alleles that raise it will have scores of both signs. The weighted sum cancels, and the
+burden test sees nothing at all.
+
+<WorkedExample
+  title="Two genes, identical except for three minus signs"
+  given={[
+    { label: 'Five variants, MAF', value: '0.001, 0.002, 0.005, 0.008, 0.010' },
+    { label: 'Gene A scores', value: '+4, +3, +5, +2, +3' },
+    { label: 'Gene B scores', value: '+4, −3, +5, −2, −4' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+Both genes have the same variants, the same frequencies, therefore the same weights, and the
+same score *magnitudes*. Only three signs differ.
+
+**Step 1 — the weights.** $w_j = 25(1-\mathrm{MAF}_j)^{24}$ gives
+
+$$
+(24.4068,\; 23.8272,\; 22.1663,\; 20.6167,\; 19.6420)
+$$
+
+**Step 2 — the weighted sums.** For gene A every term adds:
+
+$$
+\sum_j w_j S_j = 380.1000
+$$
+
+For gene B they fight each other:
+
+$$
+\sum_j w_j S_j = 17.1762
+$$
+
+**Step 3 — the burden statistics.** Squaring:
+
+$$
+Q^A_{\mathrm{burden}} = 380.1000^2 = 144{,}476,
+\qquad
+Q^B_{\mathrm{burden}} = 17.1762^2 = 295
+$$
+
+A factor of **490**, produced entirely by three sign flips.
+
+**Step 4 — now SKAT, which squares before summing.**
+
+$$
+Q_{\mathrm{SKAT}} = \sum_j w_j^2 S_j^2
+\qquad\Longrightarrow\qquad
+Q^A_{\mathrm{SKAT}} = 32{,}097, \quad Q^B_{\mathrm{SKAT}} = 34{,}797
+$$
+
+Essentially unchanged — gene B is if anything slightly *larger*, because its scores are
+marginally bigger in magnitude. Squaring first makes sign irrelevant.
+
+**Step 5 — the trade.** In gene A the burden statistic is $4.50\times$ SKAT's; in gene B,
+SKAT's is $117.9\times$ the burden's. Neither test dominates. Each is optimal for a
+different truth, and the truth is not known in advance.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 2. The same five variants twice, with only three signs changed. When every score points the same way the burden statistic is 144,476 against SKAT's 32,097; when the directions mix, the burden collapses to 295 while SKAT holds at 34,797. The winning statistic is highlighted in each case. Nothing about the gene, the frequencies, the weights or the score magnitudes differs between the two panels."
+  alt="Two panels of five signed bars. In the upper panel all five bars are positive, plus 4, plus 3, plus 5, plus 2, plus 3, with a burden statistic of 144,476 and a SKAT statistic of 32,097. In the lower panel the same magnitudes appear with three negative, giving a burden of 295 and a SKAT of 34,797."
+  wide
+>
+<svg viewBox="0 0 640 384" width="640" height="384" font-family="inherit"><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Same five variants, same weights, same magnitudes — only the signs differ</text><text x="30.0" y="58.0" font-size="11" fill="currentColor" font-weight="700">gene A — every variant pushes the same way</text><line x1="150.0" y1="106.0" x2="360.0" y2="106.0" stroke="currentColor" stroke-width="1" opacity=".45"/><rect x="164.2" y="81.3" width="26.0" height="24.7" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="177.2" y="76.3" font-size="9.5" fill="currentColor" text-anchor="middle">+4</text><rect x="203.1" y="87.5" width="26.0" height="18.5" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="216.1" y="82.5" font-size="9.5" fill="currentColor" text-anchor="middle">+3</text><rect x="242.0" y="75.1" width="26.0" height="30.9" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="255.0" y="70.1" font-size="9.5" fill="currentColor" text-anchor="middle">+5</text><rect x="280.9" y="93.6" width="26.0" height="12.4" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="293.9" y="88.6" font-size="9.5" fill="currentColor" text-anchor="middle">+2</text><rect x="319.8" y="87.5" width="26.0" height="18.5" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="332.8" y="82.5" font-size="9.5" fill="currentColor" text-anchor="middle">+3</text><text x="138.0" y="110.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">score Sⱼ</text><text x="392.0" y="80.0" font-size="10.5" fill="currentColor" font-weight="600">burden  Q = (Σ wⱼSⱼ)²</text><text x="392.0" y="96.0" font-size="12" fill="var(--color-accent, #2e6e5e)" font-weight="700">144,476</text><text x="392.0" y="120.0" font-size="10.5" fill="currentColor" font-weight="600">SKAT  Q = Σ wⱼ²Sⱼ²</text><text x="392.0" y="136.0" font-size="12" fill="currentColor" font-weight="700">32,097</text><text x="30.0" y="196.0" font-size="11" fill="currentColor" font-weight="700">gene B — directions mixed</text><line x1="150.0" y1="244.0" x2="360.0" y2="244.0" stroke="currentColor" stroke-width="1" opacity=".45"/><rect x="164.2" y="219.3" width="26.0" height="24.7" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="177.2" y="214.3" font-size="9.5" fill="currentColor" text-anchor="middle">+4</text><rect x="203.1" y="244.0" width="26.0" height="18.5" rx="2" fill="currentColor" opacity=".55"/><text x="216.1" y="275.5" font-size="9.5" fill="currentColor" text-anchor="middle">-3</text><rect x="242.0" y="213.1" width="26.0" height="30.9" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="255.0" y="208.1" font-size="9.5" fill="currentColor" text-anchor="middle">+5</text><rect x="280.9" y="244.0" width="26.0" height="12.4" rx="2" fill="currentColor" opacity=".55"/><text x="293.9" y="269.4" font-size="9.5" fill="currentColor" text-anchor="middle">-2</text><rect x="319.8" y="244.0" width="26.0" height="24.7" rx="2" fill="currentColor" opacity=".55"/><text x="332.8" y="281.7" font-size="9.5" fill="currentColor" text-anchor="middle">-4</text><text x="138.0" y="248.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">score Sⱼ</text><text x="392.0" y="218.0" font-size="10.5" fill="currentColor" font-weight="600">burden  Q = (Σ wⱼSⱼ)²</text><text x="392.0" y="234.0" font-size="12" fill="currentColor" font-weight="700">295</text><text x="392.0" y="258.0" font-size="10.5" fill="currentColor" font-weight="600">SKAT  Q = Σ wⱼ²Sⱼ²</text><text x="392.0" y="274.0" font-size="12" fill="var(--color-accent, #2e6e5e)" font-weight="700">34,797</text><text x="30.0" y="334.0" font-size="10.5" fill="currentColor" opacity=".85">Burden collapses by a factor of 490 when the directions mix.</text><text x="30.0" y="350.0" font-size="10.5" fill="currentColor" opacity=".85">SKAT barely moves: 32,097 against 34,797. SKAT-O mixes the two so a</text><text x="30.0" y="366.0" font-size="10.5" fill="currentColor" opacity=".85">study does not have to know which case it is in before it looks.</text></svg>
+</Figure>
+
+## SKAT, and then SKAT-O
+
+<Citation id="wu2011skat" /> derived the sequence kernel association test as a
+variance-component score test. Instead of asking whether the gene's variants have a non-zero
+*mean* effect, it asks whether they have a non-zero *variance* of effects — a question that
+does not care about sign:
+
+$$
+Q_{\mathrm{SKAT}} = \sum_j w_j^2 S_j^2
+$$
+
+The price is real. Against a genuinely unidirectional signal SKAT is less powerful than the
+burden test, because it spends degrees of freedom accommodating a possibility that is not
+present.
+
+<Citation id="lee2012skato" /> resolved the choice by refusing to make it. SKAT-O takes the
+convex combination
+
+$$
+Q_\rho = \rho\,Q_{\mathrm{burden}} + (1-\rho)\,Q_{\mathrm{SKAT}}
+$$
+
+and maximises over $\rho$, paying a modest multiple-testing cost for the search. $\rho = 1$
+recovers the burden test, $\rho = 0$ recovers SKAT, and the optimum lands wherever the gene's
+architecture puts it. That is why SKAT-O rather than either component is the default in
+modern pipelines — not because it is more powerful than the best of the two, but because it
+does not require knowing which is the best of the two.
+
+<Callout variant="warning" title="At biobank scale the asymptotics fail before the methods do">
+
+Everything above assumes the score statistic is approximately normal, which is the
+assumption Module 1 flagged as the first to break with sparse counts. In rare-variant
+analysis it breaks routinely and in the dangerous direction.
+
+Consider a binary trait with 5,000 cases and 400,000 controls, and a variant carried by
+thirty people. The case-control ratio is 1:80 and the carrier count is tiny; the normal
+approximation to the score is badly skewed, and the resulting $p$-values are
+**anti-conservative** — too small, so the test over-rejects. Whole exome-wide scans run this
+way produce inflation that has nothing to do with population structure and that
+LD score regression will not diagnose.
+
+<Citation id="zhou2020saigegene" /> addresses it with a saddlepoint approximation to the
+score's distribution, which is accurate in the tail where the normal approximation is not.
+<Citation id="backman2021exome" /> is the analysis at the scale that made the problem
+unavoidable, and <Citation id="povysil2019collapsing" /> reviews the design decisions —
+which variants to include, how to define a mask, what to do about ancestry — that determine
+a collapsing analysis's result at least as much as the choice between burden and SKAT.
+
+The order of operations matters here: a beautifully chosen kernel on a badly calibrated
+score is still a badly calibrated test.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Where SKAT-O lands" difficulty="warm-up">
+
+Using the two genes from the worked example, compute $Q_\rho$ at
+$\rho = 0,\ 0.25,\ 0.5,\ 0.75,\ 1$ for each. Where is each maximised, and what does that
+say about the method?
+
+<div slot="solution">
+
+| $\rho$ | gene A | gene B |
+| --- | --- | --- |
+| 0 (pure SKAT) | 32,097 | 34,797 |
+| 0.25 | 60,192 | 26,172 |
+| 0.5 | 88,286 | 17,546 |
+| 0.75 | 116,381 | 8,921 |
+| 1 (pure burden) | 144,476 | 295 |
+
+Gene A is maximised at $\rho = 1$ and gene B at $\rho = 0$ — the two opposite corners.
+
+**What it says:** the optimal $\rho$ is a property of the gene, not of the study, and it is
+different for two genes in the same analysis. A method that fixed $\rho$ in advance would be
+wrong on roughly half the genome, and no amount of care in choosing it would help, because
+the choice would have to be made per gene and the information needed to make it is what the
+test is trying to discover.
+
+Note also that $Q_\rho$ is linear in $\rho$, so its maximum over $[0,1]$ is always at an
+endpoint for a fixed dataset. SKAT-O's real work is in the *null distribution* of the
+maximised statistic, which accounts for having searched — the search itself is not the hard
+part.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="How many genes, and at what threshold" difficulty="core">
+
+A gene-based exome scan tests roughly 20,000 protein-coding genes. (a) What Bonferroni
+threshold applies, and what $\chi^2_1$ critical value? (b) Why is this not
+$5\times10^{-8}$? (c) A colleague argues the gene-based threshold should be even looser
+because the tests are correlated. Evaluate.
+
+<div slot="solution">
+
+**(a)** $0.05/20{,}000 = 2.50\times10^{-6}$, with a $\chi^2_1$ critical value of $22.1665$ —
+the same numbers Module 4's opening lesson derived for this design.
+
+**(b)** Because $5\times10^{-8}$ is $0.05$ divided by roughly a million *effectively
+independent common-variant tests*. A gene-based scan performs 20,000 tests, not a million,
+so applying the genome-wide threshold holds the family-wise error at $0.001$ rather than
+$0.05$ and discards real signal for nothing. The correction should match the number of tests
+actually performed.
+
+**(c)** The colleague is directionally right and it usually does not help much. Gene-based
+tests are less correlated than common-variant tests, because genes are separated by
+recombination and rare variants tag almost nothing outside their own gene — so the
+effective number of tests is close to 20,000, and Bonferroni is close to correct rather than
+badly conservative. That is the opposite of the common-variant case, where a million
+effective tests stand in for ten million performed.
+
+Where the argument does bite is in multi-mask analyses: running four variant masks per gene
+is 80,000 tests, and those *are* strongly correlated with one another because they are
+nested subsets of the same variants. Bonferroni over 80,000 would be genuinely conservative
+there.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A gene that only one test can see" difficulty="stretch">
+
+You analyse a gene with a strong biological prior and get $p = 0.4$ from a burden test.
+(a) What single check would you run before concluding there is no signal? (b) The gene
+contains both truncating and missense variants. How does that change the analysis?
+(c) The trait is binary with 3,000 cases and 300,000 controls. What else would you check?
+
+<div slot="solution">
+
+**(a)** Run SKAT on the same gene. A burden $p$ of 0.4 with a SKAT $p$ of $10^{-6}$ is the
+signature of directional cancellation, and it is not rare — the worked example's gene B has
+a burden statistic 490 times smaller than gene A's while carrying essentially the same
+information. Better still, run SKAT-O, which does both and adjusts for having done so.
+
+**(b)** It makes cancellation the *expected* case rather than a possibility. Truncating
+variants generally remove function; missense variants can remove, reduce, or occasionally
+increase it. Aggregating both into one burden score is close to guaranteed to mix
+directions.
+
+The standard response is to test them as separate masks — truncating alone, missense alone,
+both together — accepting the multiple-testing cost. That is a better use of prior knowledge
+than choosing a kernel, because it puts a biological hypothesis into the variant set rather
+than into the test statistic.
+
+**(c)** The case-control ratio, which is 1:100. With that imbalance and rare carrier counts,
+the normal approximation to the score statistic is skewed and $p$-values are
+anti-conservative — so a *significant* result needs checking before a null one does. Confirm
+the analysis used a saddlepoint approximation or an exact method rather than the asymptotic
+score test, and check whether the inflation appears across all genes rather than in this one.
+
+The two failure modes point in opposite directions, which is why both checks are needed: a
+burden test can hide a real signal, and an uncorrected asymptotic test can manufacture one.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Single-variant testing dies below about 0.1% frequency.** At MAF 0.01%, an effect of
+  half a standard deviation still needs 792,099 people at genome-wide significance —
+  a 475-fold rise over the same effect at 5%. Aggregation is what makes rare-variant
+  analysis possible at all.
+- **Burden tests collapse first and square second**, $Q = (\sum_j w_j S_j)^2$, which is
+  optimal when every variant pushes the same way.
+- **They fail when directions mix.** Flipping three signs in a five-variant gene — changing
+  nothing else — drops the burden statistic from 144,476 to 295, a factor of 490.
+- **SKAT squares first and sums second**, $Q = \sum_j w_j^2 S_j^2$, so sign cannot cancel.
+  On the same two genes it returns 32,097 and 34,797 — an eight percent difference.
+- **Neither dominates**: burden is $4.50\times$ SKAT on the unidirectional gene, SKAT is
+  $117.9\times$ burden on the mixed one. SKAT-O mixes them and maximises over $\rho$, which
+  lands at opposite endpoints for the two genes.
+- **The Beta(1, 25) weight is flatter than its name suggests.** A near-singleton gets
+  $1.27\times$ the weight of a 1% variant, not $25\times$; the weight's real work is
+  suppressing common variants, at $3.42\times$ against a 5% variant.
+- **Calibration fails before the kernel choice matters.** With unbalanced case-control ratios
+  and small carrier counts the asymptotic score test is anti-conservative, and a saddlepoint
+  or exact method is required before any of the above means anything.
