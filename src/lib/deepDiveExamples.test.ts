@@ -23,6 +23,7 @@ import {
   correlatedResponse, multivariateResponse,
   lambdaGc, CHI2_1DF_MEDIAN, varianceExplained, ldscRegression,
   betaWeight, burdenStatistic, skatQ, skatOQ,
+  wakefieldAbf, pipsFromAbf, credibleSet, csPurity,
 } from './deepDiveMath.ts';
 
 /**
@@ -2160,6 +2161,156 @@ describe('statgen-meta-analysis-replication', () => {
       expect(mdx).toContain('= 0.888889');
       expect(mdx).toContain('= 3.555556');
       expect(mdx).toContain('71.9\\%');
+    });
+  });
+});
+
+describe('statgen-bayesian-fine-mapping', () => {
+  const mdx = lesson('statgen-bayesian-fine-mapping');
+  const N = 50000;
+  const P = 0.3;
+  const V = 1 / (2 * P * (1 - P) * N);
+  const W = 0.04;
+  const PI0 = 0.05;
+  const SIGNAL = [2.1, 4.6, 6.2, 6.5, 6.2, 4.6, 2.4, 1.8];
+  const NULLZ = [0.8, 1.2, 0.4, 1.7, 0.9, 1.1, 0.3, 1.4];
+  const flat = (n: number) => Array.from({ length: n }, () => 1 / n);
+  // LD falling away from the causal variant at index 3
+  const DECAY = [1, 0.95, 0.7, 0.35, 0.15, 0.05, 0.02, 0.01];
+  const LD = Array.from({ length: 8 }, (_, i) =>
+    Array.from({ length: 8 }, (_, j) => DECAY[Math.abs(i - j)])
+  );
+
+  describe('worked example — fine-mapping eight variants', () => {
+    const abfs = SIGNAL.map((z) => wakefieldAbf(z, V, W));
+    const pips = pipsFromAbf(abfs, flat(8), PI0);
+
+    it('has the variance the lesson quotes', () => {
+      expect(V).toBeCloseTo(4.7619e-5, 9);
+      expect(mdx).toContain('4.7619 × 10⁻⁵');
+    });
+
+    it('gives a tiny BF01 at the peak, meaning strong evidence against the null', () => {
+      expect(abfs[3]).toBeCloseTo(1.99e-8, 10);
+      expect(abfs[3]).toBeLessThan(1);
+      // and BF10 is its reciprocal, which is what the coloc section needs
+      expect(1 / abfs[3]).toBeGreaterThan(1e7);
+      expect(mdx).toContain('1.990\\times10^{-8}');
+    });
+
+    it('gives the eight posterior inclusion probabilities', () => {
+      const expected = [0, 0.000021, 0.114882, 0.770194, 0.114882, 0.000021, 0, 0];
+      pips.forEach((p, i) => expect(p).toBeCloseTo(expected[i], 6));
+      expect(mdx).toContain('0.770194');
+      expect(mdx).toContain('0.114882');
+    });
+
+    it('needs three variants to reach 95%, not two', () => {
+      expect(pips[3] + pips[2]).toBeCloseTo(0.8850766, 6);
+      expect(pips[3] + pips[2]).toBeLessThan(0.95);
+      const cs = credibleSet(pips, 0.95);
+      expect(cs.indices.length).toBe(3);
+      expect(cs.indices.slice().sort()).toEqual([2, 3, 4]);
+      expect(cs.coverage).toBeCloseTo(0.99996, 5);
+      expect(mdx).toContain('0.885076');
+      expect(mdx).toContain('0.99996');
+    });
+
+    it('has a purity of 0.7000 — the limit LD imposes', () => {
+      const cs = credibleSet(pips, 0.95);
+      expect(csPurity(cs.indices, LD)).toBeCloseTo(0.7, 10);
+      expect(mdx).toContain('0.7000');
+    });
+
+    it('has PIPs summing to one here, because the evidence swamps pi_0', () => {
+      expect(pips.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    });
+  });
+
+  describe('the null prior, at a locus with no signal', () => {
+    const abfs = NULLZ.map((z) => wakefieldAbf(z, V, W));
+
+    it('has every BF01 above one — evidence for the null throughout', () => {
+      expect(abfs.every((b) => b > 1)).toBe(true);
+      expect(Math.max(...NULLZ)).toBe(1.7);
+    });
+
+    it('leaves the PIPs summing to 0.5764 when pi_0 is kept', () => {
+      const pips = pipsFromAbf(abfs, flat(8), PI0);
+      expect(pips.reduce((a, b) => a + b, 0)).toBeCloseTo(0.576378, 6);
+      const cs = credibleSet(pips, 0.95);
+      expect(cs.coverage).toBeLessThan(0.95);
+      expect(mdx).toContain('0.576378');
+    });
+
+    it('forces them to one when pi_0 is dropped, manufacturing a set from noise', () => {
+      const pips = pipsFromAbf(abfs, flat(8), 0);
+      expect(pips.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
+      const cs = credibleSet(pips, 0.95);
+      expect(cs.indices.length).toBe(8);
+      expect(cs.coverage).toBeCloseTo(1, 8);
+      expect(csPurity(cs.indices, LD)).toBeCloseTo(0.01, 10);
+      expect(mdx).toContain('purity of 0.0100');
+    });
+
+    it('is the difference between reporting nothing and reporting a confident set', () => {
+      const kept = credibleSet(pipsFromAbf(abfs, flat(8), PI0), 0.95);
+      const dropped = credibleSet(pipsFromAbf(abfs, flat(8), 0), 0.95);
+      expect(kept.coverage).toBeLessThan(0.95);
+      expect(dropped.coverage).toBeGreaterThanOrEqual(0.95);
+    });
+  });
+
+  describe('worked example — colocalisation', () => {
+    const bf10 = (zs: number[]) => zs.map((z) => 1 / wakefieldAbf(z, V, W));
+    const SHIFTED = [6.4, 6.1, 4.4, 2.3, 1.9, 2.0, 1.5, 1.2];
+    const FLATZ = [1.1, 0.7, 1.4, 0.9, 1.2, 0.5, 1.0, 1.3];
+
+    it('finds a shared causal variant', () => {
+      const p = colocPosteriors(bf10(SIGNAL), bf10(SIGNAL.map((z) => z * 0.85)));
+      expect(p.pp4).toBeCloseTo(0.9991, 4);
+      expect(mdx).toContain('**0.9991**');
+    });
+
+    it('finds distinct causals when the second peak moves', () => {
+      const p = colocPosteriors(bf10(SIGNAL), bf10(SHIFTED));
+      expect(p.pp3).toBeCloseTo(0.9947, 4);
+      expect(p.pp4).toBeLessThan(0.01);
+      expect(mdx).toContain('**0.9947**');
+    });
+
+    it('finds a signal in one trait only, and in neither', () => {
+      expect(colocPosteriors(bf10(SIGNAL), bf10(FLATZ)).pp1).toBeCloseTo(0.994, 3);
+      expect(
+        colocPosteriors(bf10(FLATZ), bf10([0.9, 1.2, 0.6, 1.0, 0.8, 1.1, 0.7, 1.3])).pp0
+      ).toBeCloseTo(0.9999, 4);
+      expect(mdx).toContain('**0.9940**');
+      expect(mdx).toContain('**0.9999**');
+    });
+
+    it('has the p12 sensitivity the lesson tabulates', () => {
+      const run = (p12: number) =>
+        colocPosteriors(bf10(SIGNAL), bf10(SIGNAL.map((z) => z * 0.85)), 1e-4, 1e-4, p12);
+      expect(run(1e-6).pp4).toBeCloseTo(0.991, 3);
+      expect(run(1e-5).pp4).toBeCloseTo(0.9991, 4);
+      expect(run(1e-4).pp4).toBeCloseTo(0.9999, 4);
+      expect(mdx).toContain('0.9910');
+    });
+
+    it('would report PP0 if fed BF01 instead — the direction the reciprocal fixes', () => {
+      const wrong = colocPosteriors(
+        SIGNAL.map((z) => wakefieldAbf(z, V, W)),
+        SIGNAL.map((z) => wakefieldAbf(z * 0.85, V, W))
+      );
+      expect(wrong.pp0).toBeGreaterThan(0.99);
+      expect(mdx).toContain('reciprocal');
+    });
+  });
+
+  describe('exercise 1 — reading a Bayes factor in the right direction', () => {
+    it('inverts 2.5e-6 to 400,000', () => {
+      expect(1 / 2.5e-6).toBeCloseTo(400000, 6);
+      expect(mdx).toContain('400{,}000');
     });
   });
 });

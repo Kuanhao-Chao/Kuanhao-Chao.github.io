@@ -1764,10 +1764,24 @@ export interface ColocPosteriors {
  * exactly those, and the difference between them is what decides whether a gene is
  * implicated or merely nearby.
  *
- * Takes per-variant approximate Bayes factors for each trait against its own null. The
- * priors are per-variant: `p1` and `p2` that a variant is causal for one trait alone, `p12`
- * that it is causal for both. `p12` is the assumption doing the most work and the one least
- * often examined — it encodes how often a regulatory variant is expected to affect a trait.
+ * **Takes BF₁₀, not BF₀₁** — evidence *for* a causal variant, so larger means more support.
+ * That is the opposite direction from `wakefieldAbf`, which this curriculum fixes as BF₀₁,
+ * and the two must be bridged by a reciprocal:
+ *
+ * ```ts
+ * const bf10 = zs.map((z) => 1 / wakefieldAbf(z, v, w));
+ * colocPosteriors(bf10, ...);
+ * ```
+ *
+ * Feeding BF₀₁ straight in does not throw. It returns PP0 ≈ 1 at a locus with a genome-wide
+ * signal in both traits, because every strong variant reads as evidence for the null — a
+ * wrong answer that looks like a real one. The direction is pinned by a test for exactly
+ * this reason.
+ *
+ * The priors are per-variant: `p1` and `p2` that a variant is causal for one trait alone,
+ * `p12` that it is causal for both. `p12` is the assumption doing the most work and the one
+ * least often examined — it encodes how often a regulatory variant is expected to affect a
+ * trait.
  */
 export function colocPosteriors(
   abf1: readonly number[],

@@ -1792,6 +1792,40 @@ describe('colocPosteriors', () => {
   });
 });
 
+describe('colocPosteriors direction', () => {
+  const V = 1 / (2 * 0.3 * 0.7 * 50000);
+  const W = 0.04;
+  const PEAK = [2.1, 4.6, 6.2, 6.5, 6.2, 4.6, 2.4, 1.8];
+  const bf10 = (zs: number[]) => zs.map((z) => 1 / wakefieldAbf(z, V, W));
+  const bf01 = (zs: number[]) => zs.map((z) => wakefieldAbf(z, V, W));
+
+  it('finds a shared causal variant when given BF10', () => {
+    const p = colocPosteriors(bf10(PEAK), bf10(PEAK.map((z) => z * 0.85)));
+    expect(p.pp4).toBeGreaterThan(0.99);
+  });
+
+  it('returns PP0 near 1 if fed BF01 by mistake — the failure this pins', () => {
+    // Same locus, same genome-wide signal in both traits, wrong direction: every strong
+    // variant reads as evidence for the null and the answer looks plausible.
+    const p = colocPosteriors(bf01(PEAK), bf01(PEAK.map((z) => z * 0.85)));
+    expect(p.pp0).toBeGreaterThan(0.99);
+    expect(p.pp4).toBeLessThan(0.01);
+  });
+
+  it('separates distinct causals from a shared one', () => {
+    const shared = colocPosteriors(bf10(PEAK), bf10(PEAK.map((z) => z * 0.85)));
+    const distinct = colocPosteriors(bf10(PEAK), bf10([6.4, 6.1, 4.4, 2.3, 1.9, 2.0, 1.5, 1.2]));
+    expect(shared.pp4).toBeGreaterThan(0.99);
+    expect(distinct.pp3).toBeGreaterThan(0.99);
+    expect(distinct.pp4).toBeLessThan(0.01);
+  });
+
+  it('sums to one over the five hypotheses', () => {
+    const p = colocPosteriors(bf10(PEAK), bf10(PEAK));
+    expect(p.pp0 + p.pp1 + p.pp2 + p.pp3 + p.pp4).toBeCloseTo(1, 10);
+  });
+});
+
 describe('betaWeight', () => {
   it('is the Beta(1, 25) density, 25(1-maf)^24', () => {
     for (const maf of [1e-6, 0.001, 0.01, 0.05, 0.2]) {
