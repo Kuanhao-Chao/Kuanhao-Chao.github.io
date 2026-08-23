@@ -27,6 +27,7 @@ import {
   waldRatio, fStatistic, ivwMr, eggerRegression, weightedMedianMr,
   effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
   callRate, piHat, inbreedingF, armitageTrend, benjaminiHochberg, bonferroni,
+  liabilityRisk,
 
 } from './deepDiveMath.ts';
 
@@ -5515,6 +5516,84 @@ describe('gwas-fine-mapping-practice', () => {
                        'coverage 0.999959', 'coverage 0.999821', 'purity 0.7000',
                        '3 variants', '2 variants'])
         expect(mdx, `figure label ${l}`).toContain(l);
+    });
+  });
+});
+
+describe('gwas-prs-practice', () => {
+  const mdx = lesson('gwas-prs-practice');
+
+  describe('worked example — what a percentile means', () => {
+    it('step 1: the liability threshold for a 2% disease', () => {
+      expect(normalQuantile(0.98)).toBeCloseTo(2.053749, 6);
+      expect(mdx).toContain('2.053749');
+    });
+
+    it('step 2: r is the square root of the variance explained', () => {
+      expect(Math.sqrt(0.1)).toBeCloseTo(0.316228, 6);
+      expect(mdx).toContain('0.316228');
+    });
+
+    it('step 3: risks at the 99th, 90th and 1st centiles', () => {
+      expect(liabilityRisk(normalQuantile(0.99), 0.1, 0.02)).toBeCloseTo(0.082357, 6);
+      expect(liabilityRisk(normalQuantile(0.9), 0.1, 0.02)).toBeCloseTo(0.041136, 6);
+      expect(liabilityRisk(normalQuantile(0.01), 0.1, 0.02)).toBeCloseTo(0.00164, 6);
+      for (const v of ['0.082357', '0.041136', '0.001640']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 4: both sentences describe the same centile of the same score', () => {
+      const top = liabilityRisk(normalQuantile(0.99), 0.1, 0.02);
+      const bottom = liabilityRisk(normalQuantile(0.01), 0.1, 0.02);
+      expect(top / bottom).toBeCloseTo(50.2, 1);
+      expect(1 - top).toBeCloseTo(0.917643, 6);
+      expect(mdx).toContain('= 50.2');
+      expect(mdx).toContain('0.917643');
+      expect(mdx).toContain('91.76%');
+    });
+
+    it('averages to the prevalence, so the curve is consistent with K', () => {
+      // A sanity property of the model the figure draws: risk at the median is below K,
+      // and the whole curve integrates back to K (proved in deepDiveMath.test.ts).
+      expect(liabilityRisk(0, 0.1, 0.02)).toBeLessThan(0.02);
+      expect(liabilityRisk(normalQuantile(0.99), 0.1, 0.02)).toBeGreaterThan(0.02);
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('marks the three centiles and the population line', () => {
+      expect((100 * liabilityRisk(normalQuantile(0.99), 0.1, 0.02)).toFixed(2)).toBe('8.24');
+      expect((100 * liabilityRisk(normalQuantile(0.9), 0.1, 0.02)).toFixed(2)).toBe('4.11');
+      expect((100 * liabilityRisk(normalQuantile(0.01), 0.1, 0.02)).toFixed(2)).toBe('0.16');
+      for (const l of ['8.24%', '4.11%', '0.16%', 'population risk, 2%', '50.2 times the risk'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — a commoner disease gives a much smaller fold-change for the same score', () => {
+      expect(normalQuantile(0.9)).toBeCloseTo(1.281552, 6);
+      const top = liabilityRisk(normalQuantile(0.99), 0.1, 0.1);
+      const bottom = liabilityRisk(normalQuantile(0.01), 0.1, 0.1);
+      expect(top).toBeCloseTo(0.282502, 6);
+      expect(bottom).toBeCloseTo(0.016738, 6);
+      expect(top / bottom).toBeCloseTo(16.9, 1);
+      // the point: same score, prevalence 5x higher, fold-change 3x smaller
+      const ratio2pc =
+        liabilityRisk(normalQuantile(0.99), 0.1, 0.02) /
+        liabilityRisk(normalQuantile(0.01), 0.1, 0.02);
+      expect(ratio2pc).toBeGreaterThan(top / bottom);
+      for (const v of ['1.281552', '0.282502', '0.016738', '16.9']) expect(mdx, v).toContain(v);
+    });
+
+    it('3 — the top 5% of a 1% disease is a 3.3% absolute risk', () => {
+      expect(normalQuantile(0.99)).toBeCloseTo(2.326348, 6);
+      expect(Math.sqrt(0.15)).toBeCloseTo(0.387298, 6);
+      expect(normalQuantile(0.95)).toBeCloseTo(1.644854, 6);
+      const r = liabilityRisk(normalQuantile(0.95), 0.15, 0.01);
+      expect(r).toBeCloseTo(0.033453, 6);
+      expect(Math.round(1000 * r)).toBe(33);
+      expect(Math.round(1000 * (1 - r))).toBe(967);
+      for (const v of ['0.387298', '1.644854', '0.033453', '33 in every']) expect(mdx, v).toContain(v);
     });
   });
 });

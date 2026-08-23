@@ -82,6 +82,7 @@ export default defineConfig({
     '/deep_dives/gwas-multiple-testing-manhattan': '/deep_dives/gwas-reading-the-output/',
     '/deep_dives/gwas-linkage-disequilibrium-ldsc': '/deep_dives/gwas-ld-reference-panels/',
     '/deep_dives/gwas-fine-mapping-functional-genomics': '/deep_dives/gwas-fine-mapping-practice/',
+    '/deep_dives/gwas-polygenic-risk-scores-prs': '/deep_dives/gwas-prs-practice/',
     // Per-item pages from the previous site (auto-generated; see
     // scripts/gen-legacy-redirects.mjs). Originals live on archive.khchao.com.
     ...legacyRedirects,

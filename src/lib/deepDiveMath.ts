@@ -193,6 +193,29 @@ export function controlCeiling(nCases: number): number {
   return 4 * nCases;
 }
 
+// ── Risk from a polygenic score ───────────────────────────────────────────────
+
+/**
+ * Absolute disease risk for someone whose polygenic score sits at `zScore` standard
+ * deviations, under the liability-threshold model.
+ *
+ * Liability is standard normal and disease occurs above T = Φ⁻¹(1−K). A score explaining
+ * `r2` of liability variance shifts the mean by r·z and leaves residual variance 1−r²,
+ * so the risk is Φ((r·z − T)/√(1−r²)).
+ *
+ * This is the function that converts the number a paper reports — an odds ratio per
+ * standard deviation, or a top-versus-bottom fold difference — into the number a person
+ * asks for. The two are very different: a 50-fold ratio between extreme centiles is
+ * routine for a score explaining a tenth of the liability of a 2%-prevalence disease, and
+ * the top centile's absolute risk is still only about 8%.
+ */
+export function liabilityRisk(zScore: number, r2: number, prevalence: number): number {
+  if (r2 < 0 || r2 >= 1) throw new RangeError(`r2 must be in [0,1), got ${r2}`);
+  const T = normalQuantile(1 - prevalence);
+  const r = Math.sqrt(r2);
+  return normalCdf((r * zScore - T) / Math.sqrt(1 - r2));
+}
+
 // ── Multiple testing ──────────────────────────────────────────────────────────
 
 export interface BhResult {
