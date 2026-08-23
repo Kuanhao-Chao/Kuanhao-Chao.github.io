@@ -25,7 +25,7 @@ import {
   betaWeight, burdenStatistic, skatQ, skatOQ,
   wakefieldAbf, pipsFromAbf, credibleSet, csPurity,
   waldRatio, fStatistic, ivwMr, eggerRegression, weightedMedianMr,
-  effectiveSampleSize, controlCeiling,
+  effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
 
 } from './deepDiveMath.ts';
 
@@ -4860,6 +4860,121 @@ describe('gwas-study-design', () => {
       expect(mdx).toContain('7.2831 \\times 10^{-4}');
       expect(mdx).toContain('7.8657/7.2831 = 1.08');
       expect(mdx).toContain('agree to within 8%');
+    });
+  });
+});
+
+describe('gwas-arrays-imputation', () => {
+  const mdx = lesson('gwas-arrays-imputation');
+  const K = (Math.sqrt(chi2Quantile(1 - 5e-8, 1)) + normalQuantile(0.8)) ** 2;
+  const POST: [number, number, number][] = [
+    [0.98, 0.02, 0.0],
+    [0.95, 0.05, 0.0],
+    [0.1, 0.85, 0.05],
+    [0.05, 0.9, 0.05],
+    [0.6, 0.35, 0.05],
+    [0.02, 0.18, 0.8],
+    [0.99, 0.01, 0.0],
+    [0.3, 0.6, 0.1],
+  ];
+  const dosages = POST.map(([a, b, c]) => genotypeDosage(a, b, c));
+
+  describe('worked example — eight individuals at one imputed site', () => {
+    it('step 1: turns each posterior into the dosage the table prints', () => {
+      const shown = ['0.02', '0.05', '0.95', '1.00', '0.45', '1.78', '0.01', '0.80'];
+      dosages.forEach((d, i) => {
+        expect(d.toFixed(2)).toBe(shown[i]);
+        expect(mdx).toContain(`| ${shown[i]} |`);
+      });
+    });
+
+    it('steps 2 and 3: the two variances the metric compares', () => {
+      const mean = dosages.reduce((a, b) => a + b, 0) / dosages.length;
+      const theta = mean / 2;
+      expect(theta).toBeCloseTo(0.31625, 8);
+      expect(2 * theta * (1 - theta)).toBeCloseTo(0.432472, 6);
+      const observed = dosages.reduce((a, x) => a + (x - mean) ** 2, 0) / dosages.length;
+      expect(observed).toBeCloseTo(0.339494, 6);
+      // uncertainty pulls dosages toward the mean, so the observed variance is the smaller
+      expect(observed).toBeLessThan(2 * theta * (1 - theta));
+      for (const v of ['0.632500', '0.316250', '0.432472', '0.339494']) expect(mdx).toContain(v);
+    });
+
+    it('step 4: gives r-hat-squared = 0.785008', () => {
+      expect(imputationR2(dosages)).toBeCloseTo(0.785008, 6);
+      expect(mdx).toContain('\\frac{0.339494}{0.432472} = 0.785008');
+    });
+
+    it('step 5: treats quality as an effective-sample-size multiplier', () => {
+      // The lesson writes this with an approximation sign, deliberately: multiplying the
+      // displayed 0.785008 gives 25,120.256 while the exact product is 25,120.246, and
+      // printing either as an exact equality is the rounded-factor trap.
+      expect(32000 * imputationR2(dosages)).toBeCloseTo(25120.25, 2);
+      expect(Math.round(32000 * imputationR2(dosages))).toBe(25120);
+      expect(mdx).toContain('\\approx 25{,}120$ effective samples');
+      const worth = [0.95, 0.55, 0.32].map((r) => 32000 * r);
+      [30400, 17600, 10240].forEach((v, i) => expect(worth[i]).toBeCloseTo(v, 6));
+      for (const w of ['30,400', '17,600', '10,240']) expect(mdx).toContain(w);
+      const limits = worth.map((n) => K / n);
+      expect(limits[0]).toBeCloseTo(1.3027e-3, 7);
+      expect(limits[1]).toBeCloseTo(2.2501e-3, 7);
+      expect(limits[2]).toBeCloseTo(3.8673e-3, 7);
+      for (const v of ['1.3027 \\times 10^{-3}', '2.2501 \\times 10^{-3}', '3.8673 \\times 10^{-3}'])
+        expect(mdx).toContain(v);
+    });
+
+    it('warns that the metric exceeds 1 on hard calls in a tiny sample', () => {
+      expect(imputationR2(dosages.map((d) => Math.round(d)))).toBeCloseTo(1.127273, 6);
+      expect(mdx).toContain('1.127273');
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('marks three qualities, the filter and the perfect-calling floor', () => {
+      const q = (info: number) => K / (32000 * info);
+      expect(q(0.95).toFixed(4)).toBe('0.0013');
+      expect(q(0.55).toFixed(4)).toBe('0.0023');
+      expect(q(0.32).toFixed(4)).toBe('0.0039');
+      expect(q(1.0).toFixed(4)).toBe('0.0012');
+      expect(q(0.3) / q(1.0)).toBeCloseTo(3.3333, 4);
+      for (const label of ['0.0013', '0.0023', '0.0039', 'floor at perfect calling: 0.0012',
+                           'the usual filter, INFO > 0.3', '3.33x'])
+        expect(mdx, `figure label ${label}`).toContain(label);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — two different posteriors give the same dosage', () => {
+      expect(genotypeDosage(0.2, 0.5, 0.3)).toBeCloseTo(1.1, 12);
+      expect(genotypeDosage(0.45, 0.0, 0.55)).toBeCloseTo(1.1, 12);
+      expect(mdx).toContain('(0.45, 0.00, 0.55)$ both give $D = 1.10$');
+    });
+
+    it('2 — prices the 0.3 threshold and the proposed relaxation to 0.2', () => {
+      expect(K / (50000 * 0.45)).toBeCloseTo(1.76e-3, 7);
+      expect(K / (50000 * 1e-3)).toBeCloseTo(0.79202, 6);
+      expect(K / (50000 * 0.2)).toBeCloseTo(3.9601e-3, 7);
+      expect(K / (50000 * 0.3)).toBeCloseTo(2.6401e-3, 7);
+      expect(K / 50000).toBeCloseTo(7.9202e-4, 8);
+      // the relaxation admits variants needing five times the study's floor
+      expect(K / (50000 * 0.2) / (K / 50000)).toBeCloseTo(5, 9);
+      for (const v of ['1.7600 \\times 10^{-3}', '0.792020', '3.9601 \\times 10^{-3}',
+                       '2.6401 \\times 10^{-3}', '7.9202 \\times 10^{-4}', 'five times'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('3 — a badly-matched panel costs cohort B 1.64x the recruitment', () => {
+      const a = 20000 * 0.9;
+      const b = 20000 * 0.55;
+      expect(a).toBe(18000);
+      expect(b).toBeCloseTo(11000, 9);
+      expect(K / a).toBeCloseTo(2.2001e-3, 7);
+      expect(K / b).toBeCloseTo(3.6001e-3, 7);
+      expect(Math.round(100 * (K / b / (K / a) - 1))).toBe(64);
+      expect(Math.round(a / 0.55)).toBe(32727);
+      expect(0.9 / 0.55).toBeCloseTo(1.64, 2);
+      for (const v of ['2.2001 \\times 10^{-3}', '3.6001 \\times 10^{-3}', '64% higher', '32{,}727', '1.64'])
+        expect(mdx, v).toContain(v);
     });
   });
 });

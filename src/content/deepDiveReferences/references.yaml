@@ -3403,3 +3403,11 @@ visscher2017gwas:
   venue: "The American Journal of Human Genetics 101:5-22"
   doi: https://doi.org/10.1016/j.ajhg.2017.06.005
   verified: 2026-08-23
+
+listephens2003:
+  authors: ['Na Li', 'Matthew Stephens']
+  year: 2003
+  title: "Modeling Linkage Disequilibrium and Identifying Recombination Hotspots Using Single-Nucleotide Polymorphism Data"
+  venue: "Genetics 165:2213-2233"
+  doi: https://doi.org/10.1093/genetics/165.4.2213
+  verified: 2026-08-23

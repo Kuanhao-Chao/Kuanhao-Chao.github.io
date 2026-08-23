@@ -268,7 +268,13 @@ describe('deep-dive lesson contract', () => {
     it(`includes at least ${FLOOR.figures} figure, each with a caption and alt text`, () => {
       // Match each <Figure …> opening tag and check inside it. Counting bare `caption="`
       // across the body is wrong: <DatasetTable caption="…"> has one too.
-      const tags = [...body.matchAll(/<Figure\b[\s\S]*?>/g)].map((m) => m[0]);
+      //
+      // The tag pattern must skip over quoted attribute values rather than stopping at the
+      // first `>`. A caption is prose, and prose in this field says "INFO > 0.3", "p > 0.05",
+      // "F > 10" — a lazy `[\s\S]*?>` truncates the tag mid-caption and then reports the
+      // figure as having no alt text, which is a confusing way to learn you wrote a
+      // greater-than sign.
+      const tags = [...body.matchAll(/<Figure\b(?:[^>"]|"[^"]*")*>/g)].map((m) => m[0]);
       expect(tags.length).toBeGreaterThanOrEqual(FLOOR.figures);
       expect(tags.filter((t) => /\bcaption="/.test(t))).toHaveLength(tags.length);
       expect(tags.filter((t) => /\balt="/.test(t))).toHaveLength(tags.length);
