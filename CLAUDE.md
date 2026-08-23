@@ -71,21 +71,36 @@ An interactive UNIX shell over the site's own content, following the same three-
 
   Two things about this Worker are easy to get wrong and were both wrong once. **The rate limiter must use the GA `[[ratelimits]]` block**; the pre-GA `[[unsafe.bindings]]` form deploys as `Unsafe Metadata` and silently does nothing — check the `wrangler deploy` binding line reads `(12 requests/60s) — Rate Limit`. And **the system prompt's scope rule has to lead and name its own refusal sentence**: as the last of four bullets the model ignored it and cheerfully answered "what is the capital of France?".
 
-### The deep-dive curriculum is mid-migration
+### The deep-dive curriculum
 
-`/deep_dives/` is being moved from 21 hand-authored `.astro` pages onto a content
-collection. **Both renderers are live at once**, deliberately:
+**The migration is complete.** Every page under `/deep_dives/` is a content-collection
+entry rendered by `src/content/deepDives/<slug>.mdx` +
+`src/pages/deep_dives/[...slug].astro` + `src/layouts/DeepDiveLesson.astro`. There are no
+hand-authored `.astro` lessons left, and `src/lib/deepDives.test.ts` fails if one
+reappears alongside an entry of the same slug.
 
-- `src/pages/deep_dives/<slug>.astro` — the unmigrated lessons, each repeating its own
-  back-link, badge row, byline and hand-numbered table of contents.
-- `src/content/deepDives/<slug>.mdx` + `src/pages/deep_dives/[...slug].astro` +
-  `src/layouts/DeepDiveLesson.astro` — the migrated ones. `getStaticPaths` emits only
-  slugs present in the collection, so the two coexist without colliding.
+Four tracks, 64 pages, each with a hub carrying `isHub: true`:
 
-**A lesson's `.astro` must be deleted in the same commit its `.mdx` lands**, or two
-routes claim one URL. `src/lib/deepDives.test.ts` fails on that overlap, and on
-frontmatter that sets `readingTime` — which is derived by `lessonReadingTime` from the
-body, not stored. (Storing it is what let every lesson claim ~2.5x its real length.)
+| hub | pages | `track` | owns |
+| --- | --- | --- | --- |
+| `statistical-genetics` | 17 | `theory` | definitions, assumptions, derivations |
+| `gwas` | 10 | `workflow` | commands, thresholds, diagnostics, failure modes |
+| `genomic-data` | 13 | `resource` | the resource ecosystem and its access rules |
+| `ml-dl-interview` | 24 | `workflow` / `elective` | 351 interview questions |
+
+**The `theory`/`workflow` split is load-bearing, not decorative.** The GWAS track used to
+re-derive Wakefield's ABF, the LDSC proof, PRS shrinkage, EIGENSTRAT and the 5 × 10⁻⁸
+threshold — all of which the statgen track owns. It now defers every derivation by
+cross-link and owns the practice instead. **A workflow lesson that re-derives is a bug**;
+so is a theory lesson that prescribes a threshold.
+
+**Renaming a slug kills its URL.** Eight GWAS lessons were renamed to say what they now
+cover, and each needed an entry in `astro.config.mjs`'s `redirects` block (not
+`src/legacy-redirects.mjs`, which is generated for the Jekyll-era pages) in the same
+commit. `audit:links` will not catch a URL that simply stopped existing.
+
+Frontmatter must not set `readingTime` — it is derived by `lessonReadingTime` from the
+body. (Storing it is what let every lesson claim ~2.5x its real length.)
 
 Things specific to this subsystem:
 
@@ -211,11 +226,16 @@ Things specific to this subsystem:
   held in an inventory — unlike `audit:posts`, whose `inventory` must be edited by hand.
   `npm run audit:deep-dives:ci` is the chromium-only smoke form.
 
-- **The statistical-genetics track is finished — 17 pages, all in the collection.** It is the
-  worked precedent for the migration: a hub with `isHub: true` plus sixteen lessons across
-  five modules, every worked example tied to `deepDiveExamples.test.ts`, every figure
-  generated from `scripts/figures/`. The **GWAS track (10 lessons + hub) and three standalone
-  pages are still hand-authored `.astro`**, which is why both renderers stay live.
+- **`effectiveSampleSize` is the GWAS track's spine, and the 16× is not a coincidence.**
+  A case-control study's power runs on `4/(1/cases + 1/controls)`, a harmonic mean, so the
+  derivative with respect to the smaller arm is far steeper. The same factor decides where
+  the next samples go (lesson 1) and which member of a related pair to prune (lesson 3), and
+  it generalises exactly to `(N_controls/N_cases)²` — verified at 4:1, 1:1 and 10:1. Most QC
+  pipelines break related pairs by call rate, which optimises the wrong quantity.
+
+- **Three standalone catalog entries are `coming-soon` placeholders** — `dna-foundation-models`,
+  `splice-neural-mechanisms`, `wheeler-pangenome-graphs`. They have no page and no content
+  file, only a card in `DEEP_DIVES`.
 
 - **An adversarial multi-agent audit found nine real defects that 2,076 passing tests
   missed**, and it is worth re-running after a track is finished rather than trusting the
