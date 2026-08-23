@@ -48,8 +48,8 @@ import Citation from '../../components/deepdive/Citation.astro';
 
 ## The question this lesson answers
 
-The previous lesson gave the breeder's equation, which says what happens *if* you select the
-right parents. It said nothing about how to find them, and the practical problem is harder
+The quantitative-genetics lesson gave the breeder's equation, which says what happens *if*
+you select the right parents. It said nothing about how to find them, and the practical problem is harder
 than it looks for one reason: **the individuals you most want to rank usually have no
 record**.
 
@@ -328,8 +328,12 @@ $$
 r = \sqrt{\frac{N h^2}{N h^2 + M_e}}
 $$
 
-This is <Citation id="daetwyler2008" />'s relation, and it is the same expression as the
-polygenic-score accuracy ceiling in Module 5, written in the vocabulary of animal breeding.
+This is <Citation id="daetwyler2008" />'s relation. It is closely related to the
+polygenic-score accuracy ceiling in Module 5 but **is not the same number**: $r$ here is the
+correlation between the prediction and the *breeding value*, while a polygenic score's
+$R^2$ is measured against the *phenotype*. The two differ by exactly a factor of $h^2$,
+since $R^2 = h^2 r^2$ — so an animal-breeding accuracy of 0.6124 corresponds to explaining
+$0.30 \times 0.375 = 0.1125$ of phenotypic variance, not 0.375.
 
 <Figure
   caption="Figure 2. Prediction accuracy against training population size, for three heritabilities and Mₑ = 10,000 independent segments. What matters is the product Nh² against Mₑ, so halving the heritability costs exactly as much as halving the training set. The two marked points sit on the h² = 0.3 curve: 20,000 records give r = 0.6124, and 50,000 give 0.7746 — two and a half times the data for a quarter more accuracy, which is the shape of every curve here."

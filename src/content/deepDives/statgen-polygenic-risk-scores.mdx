@@ -261,11 +261,20 @@ $$
 R^2_{\mathrm{PRS}} \;=\; \frac{h^2}{1 + \dfrac{M}{N h^2}}
 $$
 
-This is the same relation the genomic-selection literature writes as
+The genomic-selection literature writes a closely related quantity as
 $r = \sqrt{N h^2/(N h^2 + M_e)}$, with $M_e$ — the number of independent chromosome
-segments — playing the part of $M$ here. The BLUP lesson derives it in that notation; the
-two are one result, and the difference in symbol is a difference in field rather than in
-mathematics.
+segments — playing the part of $M$ here. **The two are not the same number**, and the
+difference is worth being exact about: $r$ is the accuracy of the predictor against the
+*breeding value*, whereas $R^2_{\mathrm{PRS}}$ is the variance it explains in the
+*phenotype*. Since a breeding value itself explains only $h^2$ of phenotypic variance,
+
+$$
+R^2_{\mathrm{PRS}} = h^2 \, r^2
+$$
+
+At $N = 20{,}000$, $h^2 = 0.30$ and $M_e = 10^6$ the two read $r^2 = 0.375$ against
+$R^2_{\mathrm{PRS}} = 0.1125$ — a factor of $h^2$ apart. Quoting one as the other overstates
+a score's phenotypic accuracy by roughly threefold for a typical complex trait.
 
 Two features of this are worth stating plainly. As $N \to \infty$ the accuracy approaches
 $h^2$ and stops — **an additive score cannot explain more variance than the additive

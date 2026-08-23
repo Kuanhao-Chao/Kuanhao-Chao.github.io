@@ -1056,11 +1056,10 @@ describe('statgen-quantitative-genetics-selection', () => {
     });
 
     it('still spans twenty trait units, so it is not a small effect', () => {
-      expect(L.a - -L.a).toBe(8);
-      expect(L.d - -L.a).toBe(14);
-      // heterozygote to lower homozygote plus upper homozygote to heterozygote
+      // the span runs from the lower homozygote at -a to the heterozygote at d
       expect(Math.max(L.a, L.d) - -L.a).toBe(14);
-      expect(mdx).toContain('this is not a small-effect locus');
+      expect(mdx).toContain('span 14 units');
+      expect(mdx).toMatch(/this\s+is not a small-effect locus/);
     });
 
     it('is invisible to an additive test, whose slope is alpha', () => {
@@ -1843,7 +1842,7 @@ describe('statgen-rare-variant-association', () => {
   const MAF = [0.001, 0.002, 0.005, 0.008, 0.01];
   const W = MAF.map((m) => betaWeight(m));
   const GENE_A = [4, 3, 5, 2, 3];
-  const GENE_B = [4, -3, 5, -2, -4];
+  const GENE_B = [4, -3, 5, -2, -3];
 
   describe('worked example — what frequency costs', () => {
     it('has the four rows of the power table', () => {
@@ -1886,48 +1885,46 @@ describe('statgen-rare-variant-association', () => {
     });
 
     it('has the same magnitudes in both genes — only signs differ', () => {
+      // the prose claims the magnitudes are identical, so assert exactly that
+      expect(GENE_A.map(Math.abs)).toEqual(GENE_B.map(Math.abs));
       expect(GENE_A.map(Math.abs)).toEqual([4, 3, 5, 2, 3]);
-      expect(GENE_B.map(Math.abs)).toEqual([4, 3, 5, 2, 4]);
-      // four of the five magnitudes are identical; the fifth differs by one
-      expect(GENE_A.slice(0, 4).map(Math.abs)).toEqual(GENE_B.slice(0, 4).map(Math.abs));
     });
 
     it('has weighted sums that differ by more than twentyfold', () => {
       const wsum = (S: number[]) => S.reduce((acc, sj, j) => acc + W[j] * sj, 0);
       expect(wsum(GENE_A)).toBeCloseTo(380.1, 4);
-      expect(wsum(GENE_B)).toBeCloseTo(17.1762, 4);
+      expect(wsum(GENE_B)).toBeCloseTo(36.8181, 4);
       expect(mdx).toContain('= 380.1000');
-      expect(mdx).toContain('= 17.1762');
+      expect(mdx).toContain('= 36.8181');
     });
 
     it('collapses the burden statistic by a factor of 490', () => {
       const a = burdenStatistic(GENE_A, W);
       const b = burdenStatistic(GENE_B, W);
       expect(Math.round(a)).toBe(144476);
-      expect(Math.round(b)).toBe(295);
-      expect(a / b).toBeCloseTo(489.7, 1);
+      expect(Math.round(b)).toBe(1356);
+      expect(a / b).toBeCloseTo(106.6, 1);
       expect(mdx).toContain('380.1000^2 = 144{,}476');
-      expect(mdx).toContain('17.1762^2 = 295');
-      expect(mdx).toContain('factor of **490**');
+      expect(mdx).toContain('36.8181^2 = 1{,}356');
+      expect(mdx).toContain('factor of **106.6**');
     });
 
     it('leaves SKAT essentially unchanged', () => {
       const a = skatQ(GENE_A, W);
       const b = skatQ(GENE_B, W);
       expect(Math.round(a)).toBe(32097);
-      expect(Math.round(b)).toBe(34797);
-      expect(a / b).toBeCloseTo(0.922, 3);
-      // gene B is slightly larger, not smaller
-      expect(b).toBeGreaterThan(a);
+      // identical, not merely close: squaring discards sign completely
+      expect(Math.round(b)).toBe(32097);
+      expect(a).toBeCloseTo(b, 10);
       expect(mdx).toContain('32{,}097');
-      expect(mdx).toContain('34{,}797');
+      expect(mdx).toContain('Q^B_{\\mathrm{SKAT}} = 32{,}097');
     });
 
     it('has neither test dominating', () => {
       expect(burdenStatistic(GENE_A, W) / skatQ(GENE_A, W)).toBeCloseTo(4.501, 3);
-      expect(skatQ(GENE_B, W) / burdenStatistic(GENE_B, W)).toBeCloseTo(117.9, 1);
+      expect(skatQ(GENE_B, W) / burdenStatistic(GENE_B, W)).toBeCloseTo(23.7, 1);
       expect(mdx).toContain('$4.50\\times$');
-      expect(mdx).toContain('$117.9\\times$');
+      expect(mdx).toContain('$23.7\\times$');
     });
   });
 
@@ -1955,19 +1952,19 @@ describe('statgen-rare-variant-association', () => {
   describe('exercise 1 — where SKAT-O lands', () => {
     it('has the five-row table for both genes', () => {
       for (const [rho, a, b] of [
-        [0, 32097, 34797],
-        [0.25, 60192, 26172],
-        [0.5, 88286, 17546],
-        [0.75, 116381, 8921],
-        [1, 144476, 295],
+        [0, 32097, 32097],
+        [0.25, 60192, 24412],
+        [0.5, 88286, 16726],
+        [0.75, 116381, 9041],
+        [1, 144476, 1356],
       ] as [number, number, number][]) {
         expect(Math.round(skatOQ(GENE_A, W, rho))).toBe(a);
         expect(Math.round(skatOQ(GENE_B, W, rho))).toBe(b);
       }
       for (const row of [
-        '| 0 (pure SKAT) | 32,097 | 34,797 |',
-        '| 0.5 | 88,286 | 17,546 |',
-        '| 1 (pure burden) | 144,476 | 295 |',
+        '| 0 (pure SKAT) | 32,097 | 32,097 |',
+        '| 0.5 | 88,286 | 16,726 |',
+        '| 1 (pure burden) | 144,476 | 1,356 |',
       ]) {
         expect(mdx).toContain(row);
       }
@@ -1978,7 +1975,7 @@ describe('statgen-rare-variant-association', () => {
         [0, 0.25, 0.5, 0.75, 1].reduce((b, r) => (skatOQ(S, W, r) > skatOQ(S, W, b) ? r : b), 0);
       expect(best(GENE_A)).toBe(1);
       expect(best(GENE_B)).toBe(0);
-      expect(mdx).toContain('opposite corners');
+      expect(mdx).toMatch(/opposite\s+corners/);
     });
 
     it('is linear in rho, so the maximum is always at an endpoint', () => {
@@ -1986,7 +1983,7 @@ describe('statgen-rare-variant-association', () => {
         const mid = skatOQ(S, W, 0.5);
         expect(mid).toBeCloseTo((skatOQ(S, W, 0) + skatOQ(S, W, 1)) / 2, 8);
       }
-      expect(mdx).toContain('linear in $\\rho$');
+      expect(mdx).toContain('is linear in $\\rho$, which is why it cannot be the thing optimised');
     });
   });
 
@@ -2071,9 +2068,11 @@ describe('statgen-meta-analysis-replication', () => {
     it("gives Cochran's Q on k-1 df", () => {
       expect(fit.q).toBeCloseTo(5.0276, 4);
       expect(fit.df).toBe(3);
-      expect(1 - regularizedGammaP(0.5, fit.q / 2)).toBeCloseTo(0.0249, 4);
+      // chi-square on k-1 = 3 df, not 1 — the prose and this assertion were both wrong
+      expect(1 - regularizedGammaP(fit.df / 2, fit.q / 2)).toBeCloseTo(0.1698, 4);
+      expect(1 - regularizedGammaP(fit.df / 2, fit.q / 2)).toBeGreaterThan(0.05);
       expect(mdx).toContain('Q = 5.0276$ on 3 df');
-      expect(mdx).toContain('0.0249');
+      expect(mdx).toContain('0.1699');
     });
 
     it('gives I² as the share of variability that is not sampling error', () => {

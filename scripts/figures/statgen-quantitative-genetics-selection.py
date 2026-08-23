@@ -34,7 +34,9 @@ for g in (0, 1, 2):
     o.append(line(x, y, x, yhat, 1.6, dash='4 3', opacity='.8'))
     o.append(circle(x, yhat, 4, fill=ACCENT, opacity='.55'))
     o.append(circle(x, y, 5.5, fill='currentColor'))
-    o.append(text(x + 10, (y + yhat) / 2 + 4, 'd = %+.2f' % (GVAL[g] - fit(g)), 10, opacity='.85'))
+    # 'd' is already the dominance parameter in this figure; the residuals are D_i in the prose
+    o.append(text(x + 10, (y + yhat) / 2 + 4, 'D = %+.2f' % (GVAL[g] - fit(g)), 10,
+                  opacity='.85'))
 
 LX = ax.x1 + 14
 o.append(text(LX, 74, 'slope = α = 9.20', 11, weight='700', fill=ACCENT))
