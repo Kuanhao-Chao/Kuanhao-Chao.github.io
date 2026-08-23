@@ -1,0 +1,339 @@
+---
+title: "Population Structure: Diagnosing It, Correcting It, and Over-Correcting It"
+shortTitle: Population Structure
+description: "How to tell whether a scan is confounded, why the inflation factor cannot answer that question on its own, and what genomic control costs when you apply it to a study that did not need it."
+abstract: "Population structure is the confounder a GWAS is most likely to meet and the one most likely to be mis-diagnosed. The genomic inflation factor rises with sample size under a perfectly clean analysis, because a polygenic trait genuinely inflates every statistic — so a large modern study reporting a lambda above 1 has told you nothing yet. The LD score regression intercept is what separates the two, and the difference is expensive: in a study with lambda 1.18 and an intercept of 1.02, genomic control removes 15.25% of every test statistic where 1.96% is warranted, and every genuinely significant locus between chi-square 30.31 and 35.07 is destroyed by the correction and kept by the right one. The lesson then covers what the two real corrections — principal components and mixed models — each absorb, and the failure neither of them touches."
+date: 2026-08-23
+track: workflow
+hub: gwas
+moduleId: g02-scan
+moduleLabel: Module 2 · The Scan
+order: 4
+level: intermediate
+objectives:
+  - "Explain how population structure manufactures association, and why it is not fixed by a larger sample."
+  - "Compute the genomic inflation factor and say precisely what it can and cannot distinguish."
+  - "Use the LD score regression intercept to decide whether a scan needs correcting at all."
+  - "Price genomic control in units of lost loci, and say when applying it is the wrong decision."
+  - "Choose between principal components and a mixed model, and list what neither corrects."
+prerequisites:
+  - gwas-quality-control
+relatedLessons:
+  - gwas-quality-control
+  - statgen-association-linear-mixed-models
+  - statgen-ldsc-sldsc
+keyEquations:
+  - '\lambda_{\mathrm{GC}} = \dfrac{\mathrm{median}(\chi^2_j)}{0.4549364231195727}'
+  - '\mathbb{E}[\chi^2_j] = 1 + Na + \dfrac{N h^2}{M}\,\ell_j'
+  - '\chi^2_{\text{corrected}} = \chi^2_j / \lambda_{\mathrm{GC}}'
+referenceIds:
+  - devlin1999gc
+  - price2006eigenstrat
+  - astle2009structure
+  - bulik2015ldsc
+  - kang2010emmax
+  - loh2015bolt
+  - mbatchou2021regenie
+  - yang2014mlm
+  - brumpton2020withinfamily
+tags: [GWAS, population structure, genomic control, principal components, mixed models, lambda]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Your scan is finished and the QQ plot lifts off the diagonal early. Is that structure, or is
+it signal?
+
+The honest answer for most modern studies is *both*, and the interesting question is the
+proportion. Getting it wrong in one direction leaves a confounded scan; getting it wrong in
+the other throws away real loci to fix a problem the study did not have. This lesson is about
+telling them apart and about what each mistake costs.
+
+<Callout variant="intuition">
+
+Structure manufactures association through a mechanism with nothing to do with biology. If
+two ancestral groups differ in the frequency of a variant, *and* they differ in the rate of
+the phenotype, then that variant is associated with the phenotype in the pooled sample. Both
+differences can be entirely incidental — the allele frequency from drift, the phenotype rate
+from diet, healthcare access or how the cohort was recruited.
+
+The crucial property is that this is **not noise**. A larger sample estimates the spurious
+association more precisely, so structure does not average out — it gets more significant.
+Every other confounder in this curriculum behaves the same way, which is why none of them is
+a sample-size problem.
+
+</Callout>
+
+## The inflation factor cannot answer the question
+
+The traditional diagnostic <Citation id="devlin1999gc" /> compares the middle of the observed
+test-statistic distribution with the middle of the null:
+
+$$
+\lambda_{\mathrm{GC}} = \frac{\mathrm{median}(\chi^2_j)}{0.4549364231195727} ,
+$$
+
+where the denominator is the exact median of a $\chi^2_1$ variate. The original proposal was
+to divide every statistic by $\lambda_{\mathrm{GC}}$, which is where the trouble starts.
+
+The problem is that a **truly polygenic trait inflates every statistic on its own**. Under
+the decomposition that LD score regression rests on
+<Citation id="bulik2015ldsc" />,
+
+$$
+\mathbb{E}[\chi^2_j] = 1 + Na + \frac{N h^2}{M}\,\ell_j ,
+$$
+
+the third term grows with $N$ and is nothing to do with confounding: it is the study
+correctly detecting a polygenic architecture. So $\lambda_{\mathrm{GC}}$ rises with sample
+size under a perfectly clean analysis, and in a biobank-scale study a $\lambda$ of 1.1 or 1.2
+is the expected result of doing everything right. The full derivation belongs to
+[LDSC & Stratified LDSC](/deep_dives/statgen-ldsc-sldsc/); what matters here is the
+consequence.
+
+**The intercept is the part $\lambda_{\mathrm{GC}}$ was being asked for.** Confounding shifts
+every statistic regardless of how much LD a variant tags, so it lands in the intercept;
+polygenicity scales with the LD score, so it lands in the slope. Reading the intercept
+instead of $\lambda$ is the whole diagnostic.
+
+<Notation
+  rows={[
+    { symbol: '\\lambda_{\\mathrm{GC}}', meaning: 'Genomic inflation factor — median observed χ² over the null median', dims: '≥ 0, 1 under no inflation' },
+    { symbol: '\\ell_j', meaning: 'LD score of variant j — how much of the genome it tags', dims: '> 0' },
+    { symbol: 'a', meaning: 'Confounding term, the part of the inflation not from polygenicity', dims: '≥ 0' },
+    { symbol: 'N, M', meaning: 'Sample size; number of variants', dims: 'counts' },
+    { symbol: 'h^2', meaning: 'SNP heritability of the trait', dims: 'in [0,1]' },
+  ]}
+/>
+
+## What genomic control costs when it is not needed
+
+<WorkedExample
+  title="A study with λ = 1.18 and an intercept of 1.02"
+  given={[
+    { label: 'Genomic inflation', value: 'λ_GC = 1.18' },
+    { label: 'LDSC intercept', value: '1.02' },
+    { label: 'Mean χ²', value: '1.35' },
+    { label: 'Threshold', value: 'χ² ≥ 29.7168, i.e. 5 × 10⁻⁸' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — how much of the inflation is real confounding?** The excess mean statistic is
+$1.35 - 1 = 0.35$, and the part attributable to the intercept is $1.02 - 1 = 0.02$. So
+
+$$
+\frac{0.02}{0.35} = 5.71\% ,
+$$
+
+and the other 94% is the study detecting polygenicity. A scan in this state does not need
+correcting; it needs reporting.
+
+**Step 2 — what genomic control would do anyway.** Dividing by $\lambda_{\mathrm{GC}}$
+removes
+
+$$
+1 - \frac{1}{1.18} = 15.25\%
+$$
+
+of *every* statistic, against the $1 - 1/1.02 = 1.96\%$ that the confounding justifies. It
+is not a small over-correction: it is nearly eight times too large.
+
+**Step 3 — in loci.** A locus at $\chi^2 = 33$ has $p = 9.216 \times 10^{-9}$, comfortably
+genome-wide significant. After genomic control it is
+
+$$
+\frac{33}{1.18} = 27.9661 \qquad (p = 1.235 \times 10^{-7}),
+$$
+
+which no longer clears the threshold. Correcting by the intercept instead gives
+$33/1.02 = 32.3529$, still significant. The locus is real either way; only one of the two
+corrections reports it.
+
+**Step 4 — the whole band.** Every statistic between
+
+$$
+29.7168 \times 1.02 = 30.3111 \quad\text{and}\quad 29.7168 \times 1.18 = 35.0658
+$$
+
+is in the same position: genuinely significant, kept by the correct correction, destroyed by
+genomic control. That is a window 4.7547 wide in $\chi^2$, corresponding to p-values from
+$3.680 \times 10^{-8}$ down to $3.187 \times 10^{-9}$ — precisely the range where a
+well-powered study finds most of its new loci.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The band of genuinely significant loci that genomic control destroys in a study whose inflation is almost entirely polygenic. Dividing every statistic by λ = 1.18 removes 15.25% where the 1.02 intercept justifies 1.96%. A real locus at χ² = 33 falls to 27.97 and stops clearing the threshold; corrected by the intercept it is 32.35 and survives. The shaded band, from 30.31 to 35.07, contains every locus with that fate."
+  alt="A horizontal chi-square axis from 26 to 42 with the genome-wide threshold marked at 29.72. A shaded band from 30.31 to 35.07 is labelled as lost to genomic control but kept by the intercept. A point at 33 has two dashed arrows: one to 32.35 under the intercept correction, which stays right of the threshold, and one to 27.97 under genomic control, which falls left of it."
+>
+<svg viewBox="0 0 640 336" width="640" height="336" font-family="inherit"><line x1="96.0" y1="196.0" x2="470.0" y2="196.0" stroke="currentColor" stroke-width="1.25"/><line x1="142.8" y1="196.0" x2="142.8" y2="201.0" stroke="currentColor" stroke-width="1"/><text x="142.8" y="214.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">28</text><line x1="189.5" y1="196.0" x2="189.5" y2="201.0" stroke="currentColor" stroke-width="1"/><text x="189.5" y="214.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">30</text><line x1="236.2" y1="196.0" x2="236.2" y2="201.0" stroke="currentColor" stroke-width="1"/><text x="236.2" y="214.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">32</text><line x1="283.0" y1="196.0" x2="283.0" y2="201.0" stroke="currentColor" stroke-width="1"/><text x="283.0" y="214.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">34</text><line x1="329.8" y1="196.0" x2="329.8" y2="201.0" stroke="currentColor" stroke-width="1"/><text x="329.8" y="214.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">36</text><line x1="376.5" y1="196.0" x2="376.5" y2="201.0" stroke="currentColor" stroke-width="1"/><text x="376.5" y="214.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">38</text><line x1="423.2" y1="196.0" x2="423.2" y2="201.0" stroke="currentColor" stroke-width="1"/><text x="423.2" y="214.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">40</text><rect x="196.8" y="92.0" width="111.1" height="104.0" rx="2" fill="currentColor" opacity="0.16"/><text x="252.3" y="70.0" font-size="10" fill="currentColor" text-anchor="middle" font-weight="600">lost to genomic control,</text><text x="252.3" y="84.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">kept by the intercept</text><line x1="182.9" y1="92.0" x2="182.9" y2="196.0" stroke="currentColor" stroke-width="1.6" opacity=".7" stroke-dasharray="5 4"/><text x="182.9" y="236.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">threshold 29.72</text><circle cx="259.6" cy="116.0" r="5.5" fill="var(--color-accent, #2e6e5e)"/><text x="269.6" y="120.0" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">a real locus at 33</text><path d="M259.6,146.0 L244.5,146.0" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="3 3" opacity=".6"/><circle cx="244.5" cy="146.0" r="3.6" fill="currentColor" opacity=".7"/><text x="236.5" y="150.0" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".85">intercept: 32.35</text><path d="M259.6,174.0 L142.0,174.0" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="3 3" opacity=".6"/><circle cx="142.0" cy="174.0" r="3.6" fill="currentColor" opacity=".7"/><text x="134.0" y="178.0" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".85">GC: 27.97</text><text x="283.0" y="262.0" font-size="12" fill="currentColor" text-anchor="middle">Association statistic (chi-square, 1 df)</text><text x="20.0" y="24.0" font-size="11.5" fill="currentColor" opacity=".8">Genomic control removes 15.25% of every statistic; only 1.96% is earned</text><text x="20.0" y="292.0" font-size="10" fill="currentColor" opacity=".85">The shaded band runs from 30.31 to 35.07 — every locus in it is genuinely</text><text x="20.0" y="306.0" font-size="10" fill="currentColor" opacity=".85">significant, survives dividing by the 1.02 intercept, and is destroyed by</text><text x="20.0" y="320.0" font-size="10" fill="currentColor" opacity=".85">dividing by the 1.18 lambda.</text></svg>
+</Figure>
+
+## The two corrections that work
+
+**Principal components** on the genotype matrix <Citation id="price2006eigenstrat" /> give
+axes of ancestry variation that can be included as covariates. Three practical points decide
+whether they work:
+
+- **Compute them on LD-pruned variants.** Without pruning the leading components describe
+  local LD structure rather than ancestry.
+- **Exclude the long-range LD regions** — the MHC and the chromosome 8 inversion are the
+  usual offenders. A component that turns out to be one locus is not an ancestry axis.
+- **Use 10 PCs**, and say so. The number is a convention rather than a result: it is well
+  past the point where components stop describing continental-scale ancestry in a
+  single-ancestry cohort, and adding more costs a little power for nothing. A cohort spanning
+  several ancestries, or one with fine structure within a country, needs more — and needs to
+  justify how many by showing what the extra components capture.
+
+**Mixed models** put a genetic relationship matrix into the model as a random effect
+<Citation id="kang2010emmax" />, and modern implementations
+<Citation id="loh2015bolt" /><Citation id="mbatchou2021regenie" /> make that affordable at
+biobank scale. They absorb structure and relatedness in one step, which is why they have
+become the default — a mixed model does not need the relatedness pruning of the previous
+lesson, and therefore does not pay its cost.
+
+The trade is **proximal contamination**: the relationship matrix includes the variant being
+tested, so the model partly fits the signal away, and power drops
+<Citation id="yang2014mlm" />. Every serious implementation solves this by leaving the
+tested variant's chromosome out of the relationship matrix. If a pipeline does not say
+whether it does this, that is worth finding out before interpreting a null result.
+
+<Callout variant="warning" title="What neither correction touches">
+
+Both methods correct for **ancestry as measured by genotype**. Neither corrects for a
+phenotype whose *definition* varies with ancestry, for differential participation, or for an
+environment that tracks ancestry without being caused by it. A structure correction that
+returns an intercept of 1.00 is evidence about genotype-phenotype confounding through
+ancestry, and about nothing else <Citation id="astle2009structure" />.
+
+The sharpest demonstration of the limit is that within-family analyses — where the
+confounding cannot survive, because siblings share ancestry exactly — recover systematically
+smaller effects for some traits than population studies do
+<Citation id="brumpton2020withinfamily" />. Whatever produced that difference was not removed
+by any number of principal components.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Reading two studies" difficulty="warm-up">
+
+Study A: $\lambda_{\mathrm{GC}} = 1.31$, LDSC intercept 1.29, mean $\chi^2 = 1.33$.
+Study B: $\lambda_{\mathrm{GC}} = 1.31$, LDSC intercept 1.01, mean $\chi^2 = 1.60$.
+
+(a) Which is confounded?
+
+(b) What fraction of each study's inflation is confounding?
+
+(c) What should each do next?
+
+<div slot="solution">
+
+**(a)** Study A. The two have identical $\lambda$ and completely different diagnoses, which
+is the point of the exercise — $\lambda$ carries no information about the split.
+
+**(b)** A: $(1.29 - 1)/(1.33 - 1) = 87.88\%$ of the inflation is confounding. B:
+$(1.01 - 1)/(1.60 - 1) = 1.67\%$.
+
+**(c)** Study A should not report these results. Nearly all of its inflation is unmodelled
+structure, and the fix is a better correction — more principal components, or a mixed model
+— not a division. Study B should report as-is: its inflation is the trait being polygenic
+and its scan is clean. Applying genomic control to B would remove $1 - 1/1.31 = 23.66\%$ of
+every statistic to address 1.67% of the problem.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="How many loci does the correction cost?" difficulty="core">
+
+A study has $\lambda_{\mathrm{GC}} = 1.25$ and an intercept of 1.03, and 40 loci with
+$\chi^2$ between 30 and 40.
+
+(a) Which $\chi^2$ values are destroyed by genomic control but kept by the intercept
+correction?
+
+(b) If the 40 loci are spread evenly across 30 to 40, how many fall in that band?
+
+(c) One reviewer asks for genomic control to be applied "to be safe". What is the reply?
+
+<div slot="solution">
+
+**(a)** The band runs from $29.7168 \times 1.03 = 30.6083$ to
+$29.7168 \times 1.25 = 37.1460$.
+
+**(b)** The band spans $37.1460 - 30.6083 = 6.5377$ of the 10-wide interval, so
+$40 \times 0.65377 = 26.15$ — about **26 of the 40 loci**, nearly two thirds.
+
+**(c)** That applying it is not the safe choice; it is a choice to trade about 26 real loci
+against removing $1 - 1/1.25 = 20\%$ of a $\chi^2$ inflation that the intercept says is 3%
+confounding. "To be safe" describes the intercept correction, which is both smaller and
+targeted at the thing actually estimated to be wrong. If the reviewer's concern is that the
+intercept might be underestimated, the answer is a sensitivity analysis at a larger
+intercept, not a correction eight times bigger than any estimate supports.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A clean intercept and a wrong answer" difficulty="stretch">
+
+A study of educational attainment reports an LDSC intercept of 1.00, uses 10 PCs, and finds
+hundreds of genome-wide significant loci. A within-family analysis of the same trait recovers
+effects roughly half the size.
+
+(a) Does the intercept of 1.00 mean the population estimates are unconfounded?
+
+(b) Name two mechanisms that would produce this pattern and survive every correction in this
+lesson.
+
+(c) What would you need to distinguish them?
+
+<div slot="solution">
+
+**(a)** No. An intercept of 1.00 says the *test statistics* are not inflated by the kind of
+stratification that shifts every variant equally. It does not say the effect estimates are
+unbiased. Those are different claims, and the first is routinely reported as though it
+established the second.
+
+**(b)** First, **indirect genetic effects**: a parent's genotype affects the child's
+environment, so the child's genotype is associated with an environment it did not cause. The
+association is real, replicates, and is not what "the effect of this variant" is usually
+taken to mean. Second, **assortative mating**, which induces correlations between variants at
+unlinked loci and inflates estimates of the genetic contribution without any structure a PC
+would see.
+
+**(c)** Family data — specifically, comparing within-sibship estimates against population
+estimates for the same variants <Citation id="brumpton2020withinfamily" />. Siblings share
+ancestry and share parents, so both mechanisms are removed by the design rather than modelled.
+The gap between the two estimates *is* the measurement. No amount of unrelated-individual data
+substitutes, which is the real limitation of the correction methods above: they can only
+remove what they can see in a genotype matrix.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Structure is not noise.** A larger sample estimates a spurious association more
+  precisely, so confounding gets more significant rather than averaging out.
+- **$\lambda_{\mathrm{GC}}$ cannot separate confounding from polygenicity**, and rises with
+  sample size under a clean analysis. A biobank-scale $\lambda$ of 1.1–1.2 is what doing
+  everything right looks like.
+- **The LDSC intercept is the diagnostic $\lambda$ was being asked for.** Confounding shifts
+  every statistic; polygenicity scales with the LD score.
+- **Genomic control on a clean scan is expensive.** At $\lambda = 1.18$ against an intercept
+  of 1.02 it removes 15.25% of every statistic instead of 1.96%, and destroys every genuinely
+  significant locus between $\chi^2 = 30.3111$ and $35.0658$.
+- **Principal components and mixed models are the real corrections.** Compute PCs on
+  LD-pruned variants outside long-range LD regions; prefer a mixed model at scale, and check
+  it leaves the tested chromosome out of the relationship matrix.
+- **Neither corrects what it cannot see in a genotype matrix** — indirect genetic effects,
+  assortative mating, or a phenotype defined differently across groups. Family designs, not
+  more components, are what address those.
