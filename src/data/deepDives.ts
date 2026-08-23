@@ -131,38 +131,6 @@ export const DEEP_DIVE_ORDER: string[] = [
 
 export const DEEP_DIVES: DeepDiveEntry[] = [
   {
-    id: 'gwas',
-    title: 'Genome-Wide Association Studies (GWAS): The Mathematical Engine of Trait Mapping',
-    shortTitle: 'GWAS & Statistical Genetics',
-    area: 'Statistical & Population Genetics',
-    category: 'statistical-genetics',
-    tag: 'Polygenic Architecture & Trait Mapping',
-    level: 'Foundational to Advanced',
-    readingTime: '18 min read',
-    summary:
-      'A comprehensive first-principles guide to Genome-Wide Association Studies (GWAS) — from biological variation, genotyping arrays, and step-by-step QC protocols to OLS/LMM regression, ancestry PCA confounding, Linkage Disequilibrium, and clinical Polygenic Risk Scores (PRS).',
-    highlights: [
-      'Biological foundations: common disease–common variant (CDCV) hypothesis & HMM imputation',
-      'Rigorous QC protocols: sample call rate (>98%), sex checks, heterozygosity & IBD relatedness',
-      'Additive OLS & LMM regression derivations with Wald test statistics and power scaling',
-      'The chopsticks problem: ancestry confounding, EIGENSTRAT PCA, λ_GC inflation & LDSC',
-      "Linkage Disequilibrium blocks (r², D'), SuSiE 95% credible sets & deep learning splicing",
-      'Bonferroni derivation (p < 5×10⁻⁸), omnigenic architecture & clinical PRS risk stratification',
-    ],
-    equations: [
-      'y = \\alpha + x_j \\beta_j + Z\\gamma + \\epsilon',
-      't_j = \\hat{\\beta}_j / \\text{SE}(\\hat{\\beta}_j)',
-      '\\lambda_{GC} = \\text{median}(\\chi^2_{\\text{obs}}) / 0.456',
-      '\\text{PRS}_i = \\sum \\hat{\\beta}_j G_{ij}',
-    ],
-    href: '/deep_dives/gwas/',
-    badge: 'Deep Dive Post',
-    actionText: 'Read technical deep dive',
-    featured: true,
-    icon: 'gwas',
-    status: 'published',
-  },
-  {
     id: 'dna-foundation-models',
     title: 'DNA Language Models & Genomic Foundation Architectures',
     shortTitle: 'DNA Foundation Models',

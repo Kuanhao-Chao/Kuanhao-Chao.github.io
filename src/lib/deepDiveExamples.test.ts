@@ -5597,3 +5597,86 @@ describe('gwas-prs-practice', () => {
     });
   });
 });
+
+describe('gwas (hub)', () => {
+  const mdx = lesson('gwas');
+  const K = (Math.sqrt(chi2Quantile(1 - 5e-8, 1)) + normalQuantile(0.8)) ** 2;
+
+  describe('worked example — fifty thousand people, and what one variant is worth', () => {
+    it('step 1: the 4:1 imbalance costs 18,000 before any data exists', () => {
+      expect(effectiveSampleSize(10000, 40000)).toBeCloseTo(32000, 9);
+      expect(effectiveSampleSize(25000, 25000) - effectiveSampleSize(10000, 40000)).toBeCloseTo(
+        18000,
+        6
+      );
+      expect(mdx).toContain('= 32{,}000');
+      expect(mdx).toContain('cost 18,000');
+    });
+
+    it('step 2: pruning the control arm costs 64.52, the case arm 1,032.26', () => {
+      expect(effectiveSampleSize(10000, 39600)).toBeCloseTo(31935.48, 2);
+      expect(32000 - effectiveSampleSize(10000, 39600)).toBeCloseTo(64.52, 2);
+      expect(32000 - effectiveSampleSize(9600, 40000)).toBeCloseTo(1032.26, 2);
+      expect(mdx).toContain('31{,}935.48');
+      expect(mdx).toContain('1,032.26');
+    });
+
+    it('step 3: imputation quality multiplies, leaving 17,564.52', () => {
+      expect(effectiveSampleSize(10000, 39600) * 0.55).toBeCloseTo(17564.52, 2);
+      expect(mdx).toContain('17{,}564.52');
+    });
+
+    it('step 4: the detection limit is nearly three times what the grant promised', () => {
+      const atVariant = effectiveSampleSize(10000, 39600) * 0.55;
+      expect(K / atVariant).toBeCloseTo(2.2546e-3, 7);
+      expect(K / 50000).toBeCloseTo(7.9202e-4, 8);
+      expect(K / atVariant / (K / 50000)).toBeCloseTo(2.8466, 4);
+      expect(mdx).toContain('2.2546 \\times 10^{-3}');
+      expect(mdx).toContain('7.92 \\times 10^{-4}');
+    });
+
+    it('step 5: 35.13% of the headcount survives, with no error anywhere', () => {
+      const atVariant = effectiveSampleSize(10000, 39600) * 0.55;
+      expect((100 * atVariant) / 50000).toBeCloseTo(35.13, 2);
+      expect(mdx).toContain('35.13\\%');
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('draws the four stages of the erosion', () => {
+      expect(Math.round(effectiveSampleSize(10000, 39600))).toBe(31935);
+      expect(Math.round(effectiveSampleSize(10000, 39600) * 0.55)).toBe(17565);
+      for (const l of ['50,000', '32,000', '31,935', '17,565', 'people recruited',
+                       'after the 4:1 imbalance', 'after relatedness pruning',
+                       'at a variant imputed 0.55', '35.1%'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — a 9:1 split wastes almost all its controls', () => {
+      expect(effectiveSampleSize(5000, 45000)).toBeCloseTo(18000, 6);
+      expect(controlCeiling(5000)).toBe(20000);
+      expect(effectiveSampleSize(5000, 45000) / controlCeiling(5000)).toBeCloseTo(0.9, 9);
+      expect(effectiveSampleSize(25000, 25000)).toBeCloseTo(50000, 6);
+      for (const v of ['18{,}000', '90\\%']) expect(mdx, v).toContain(v);
+    });
+
+    it('3 — better imputation nearly matches spending everything on cases', () => {
+      const base = effectiveSampleSize(8000, 32000);
+      expect(base).toBeCloseTo(25600, 6);
+      expect(base * 0.6).toBeCloseTo(15360, 6);
+      const addControls = effectiveSampleSize(8000, 40000) * 0.6;
+      const addCases = effectiveSampleSize(16000, 32000) * 0.6;
+      expect(addControls).toBeCloseTo(16000, 2);
+      expect(addCases).toBeCloseTo(25600, 2);
+      expect(addCases - addControls).toBeCloseTo(9600, 2);
+      // and deeper sequencing, which applies genome-wide rather than to the study
+      expect(base * 0.95).toBeCloseTo(24320, 6);
+      expect(base * 0.95 - base * 0.6).toBeCloseTo(8960, 6);
+      for (const v of ['25{,}600', '15{,}360', '26{,}666.67', '42{,}666.67', '9{,}600.00',
+                       '24{,}320', '8,960'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+});
