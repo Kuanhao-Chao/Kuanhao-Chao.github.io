@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
-  callRate, piHat, inbreedingF,
+  callRate, piHat, inbreedingF, armitageTrend,
   expectedR2, falconerACE, haldaneTheta, kosambiTheta, ldHalfLife, ldMeasures,
   liabilityScale, ncp, ncpForPower, normalCdf, normalPdf, normalQuantile,
   powerFromNcp, sampleSizeForPower, sampleSizeForR2, shrinkageFactor, varianceExplained,
@@ -274,6 +274,81 @@ describe('study design', () => {
     expect(addCases).toBeCloseTo(53_333.333333, 6);
     expect(addCases - addControls).toBeCloseTo(20_000, 6);
     expect(addCases / addControls).toBeCloseTo(1.6, 9);
+  });
+});
+
+describe('genotype encodings', () => {
+  const CASES: [number, number, number] = [1200, 1600, 700];
+  const CONTROLS: [number, number, number] = [1500, 1550, 450];
+
+  /** Independent closed form: the additive trend statistic is N times the squared
+   *  correlation between genotype dosage and case status. Built from individual rows so
+   *  it shares no algebra with the implementation. */
+  const nTimesR2 = (cases: number[], controls: number[]) => {
+    const xs: number[] = [];
+    const ys: number[] = [];
+    cases.forEach((c, i) => {
+      for (let k = 0; k < c; k += 1) {
+        xs.push(i);
+        ys.push(1);
+      }
+    });
+    controls.forEach((c, i) => {
+      for (let k = 0; k < c; k += 1) {
+        xs.push(i);
+        ys.push(0);
+      }
+    });
+    const n = xs.length;
+    const mx = xs.reduce((a, b) => a + b, 0) / n;
+    const my = ys.reduce((a, b) => a + b, 0) / n;
+    let sxy = 0;
+    let sxx = 0;
+    let syy = 0;
+    for (let i = 0; i < n; i += 1) {
+      sxy += (xs[i] - mx) * (ys[i] - my);
+      sxx += (xs[i] - mx) ** 2;
+      syy += (ys[i] - my) ** 2;
+    }
+    return (n * (sxy / Math.sqrt(sxx * syy))) * (sxy / Math.sqrt(sxx * syy));
+  };
+
+  it('equals N r² between dosage and case status', () => {
+    for (const [cs, ct] of [
+      [CASES, CONTROLS],
+      [[1000, 1000, 900], [1200, 1200, 400]],
+      [[300, 50, 10], [280, 60, 12]],
+    ] as [number[], number[]][]) {
+      expect(armitageTrend(cs as never, ct as never)).toBeCloseTo(nTimesR2(cs, ct), 8);
+    }
+  });
+
+  it('is zero when the two arms have identical genotype distributions', () => {
+    expect(armitageTrend([100, 100, 100], [100, 100, 100])).toBeCloseTo(0, 12);
+    expect(armitageTrend([50, 120, 30], [100, 240, 60])).toBeCloseTo(0, 12);
+  });
+
+  it('is zero when every score is the same, because nothing is being contrasted', () => {
+    expect(armitageTrend(CASES, CONTROLS, [1, 1, 1])).toBe(0);
+    expect(armitageTrend(CASES, CONTROLS, [0, 0, 0])).toBe(0);
+  });
+
+  it('is invariant to an affine rescaling of the scores', () => {
+    const base = armitageTrend(CASES, CONTROLS, [0, 1, 2]);
+    expect(armitageTrend(CASES, CONTROLS, [0, 2, 4])).toBeCloseTo(base, 8);
+    expect(armitageTrend(CASES, CONTROLS, [5, 6, 7])).toBeCloseTo(base, 8);
+    expect(armitageTrend(CASES, CONTROLS, [2, 1, 0])).toBeCloseTo(base, 8); // sign-free
+  });
+
+  it('runs every encoding through the same machine', () => {
+    // dominant collapses the two carrier genotypes, recessive collapses the two non-risk
+    const dominant = armitageTrend(CASES, CONTROLS, [0, 1, 1]);
+    const recessive = armitageTrend(CASES, CONTROLS, [0, 0, 1]);
+    expect(dominant).toBeGreaterThan(0);
+    expect(recessive).toBeGreaterThan(0);
+    // and the additive test is the best of the three when the truth is additive
+    expect(armitageTrend(CASES, CONTROLS)).toBeGreaterThan(dominant);
+    expect(armitageTrend(CASES, CONTROLS)).toBeGreaterThan(recessive);
   });
 });
 

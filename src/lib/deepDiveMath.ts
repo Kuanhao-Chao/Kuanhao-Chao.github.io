@@ -193,6 +193,38 @@ export function controlCeiling(nCases: number): number {
   return 4 * nCases;
 }
 
+// ── Genotype encodings ────────────────────────────────────────────────────────
+
+/**
+ * Cochran-Armitage trend test on a 2 × 3 genotype table, with scores supplied by the
+ * caller — which is what makes it the same machine for every encoding a GWAS runs.
+ *
+ *   * scores (0, 1, 2) give the **additive** test, the GWAS default;
+ *   * (0, 1, 1) give the **dominant** test;
+ *   * (0, 0, 1) give the **recessive** test.
+ *
+ * All three are 1-df, so they are directly comparable against the same threshold. The
+ * unconstrained 2-df genotypic test is a different statistic and pays a different price.
+ *
+ * `cases` and `controls` are counts of the three genotypes, in dosage order.
+ */
+export function armitageTrend(
+  cases: [number, number, number],
+  controls: [number, number, number],
+  scores: [number, number, number] = [0, 1, 2]
+): number {
+  const n = cases.map((r, i) => r + controls[i]);
+  const R = cases.reduce((a, b) => a + b, 0);
+  const S = controls.reduce((a, b) => a + b, 0);
+  const N = R + S;
+  const sxr = scores.reduce((a, x, i) => a + x * cases[i], 0);
+  const sxn = scores.reduce((a, x, i) => a + x * n[i], 0);
+  const sxxn = scores.reduce((a, x, i) => a + x * x * n[i], 0);
+  const num = N * sxr - R * sxn;
+  const den = R * S * (N * sxxn - sxn * sxn);
+  return den === 0 ? 0 : (N * num * num) / den;
+}
+
 // ── Quality control ───────────────────────────────────────────────────────────
 
 /** Fraction of attempted genotypes that returned a call. */
