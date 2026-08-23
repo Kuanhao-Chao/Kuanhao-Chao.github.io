@@ -211,6 +211,59 @@ Things specific to this subsystem:
   held in an inventory — unlike `audit:posts`, whose `inventory` must be edited by hand.
   `npm run audit:deep-dives:ci` is the chromium-only smoke form.
 
+- **The statistical-genetics track is finished — 17 pages, all in the collection.** It is the
+  worked precedent for the migration: a hub with `isHub: true` plus sixteen lessons across
+  five modules, every worked example tied to `deepDiveExamples.test.ts`, every figure
+  generated from `scripts/figures/`. The **GWAS track (10 lessons + hub) and three standalone
+  pages are still hand-authored `.astro`**, which is why both renderers stay live.
+
+- **An adversarial multi-agent audit found nine real defects that 2,076 passing tests
+  missed**, and it is worth re-running after a track is finished rather than trusting the
+  suite. Two of the nine the tests actively *agreed with*, because prose and assertion were
+  written together and were wrong the same way — Cochran's Q read on 1 df instead of 3, with
+  a hardcoded `regularizedGammaP(0.5, …)` confirming it. A third was introduced by a fix-up
+  commit while adding a cross-link. **A test asserting a value is not evidence the value is
+  right**; recompute from the definition. A third of the findings did not survive
+  verification, so verify each one by hand before acting on it.
+
+- **`figlib.sub` is subscripts only, and silently no-ops on a superscript.** It rewrites
+  `V_A`, so it needs the underscore: `sub('4')` returns `'4'` unchanged, and `'10' + sub('4')`
+  drew a log axis reading "104 105 106" — three integers where three powers were meant. The
+  curriculum writes superscripts as Unicode (`10⁴`, `h²`, `χ²`); there is no `sup` helper.
+
+- **`figlib.text` coerces a falsy `fill` back to `currentColor`.** A conditional expression
+  yielding `None` emits `fill="None"`, which browsers read as `fill="none"` — invisible text
+  that renders clean, validates clean, and no audit can see.
+
+- **Dense figure annotation goes in a right-hand margin column**, never inside the plot area,
+  where it collides with the data at some viewport or theme.
+
+- **Braces in an inline `<svg>` break the MDX build.** A generator writing a set as
+  `{v3, v4, v5}` splices a JSX expression into the page and the build fails with
+  `ReferenceError: v3 is not defined`, pointing at a compiled chunk rather than the figure.
+  `deepDiveContract.test.ts` guards it, checking *text content* only — braces inside a tag are
+  JSX attribute bindings and are deliberate.
+
+- **A wide table crushes rather than scrolls.** `article table` in `global.css` sets
+  `overflow-x: auto`, but that only fires once content exceeds the container, and a table of
+  prose cells will break "Mathematical Foundations" into four fragments to avoid overflowing.
+  `.dd-scroll-x` in `deepDive.css` sets a `min-width` just under the article column — wide
+  enough to force a scrollbar at narrow viewports, narrow enough that desktop sees the whole
+  table. Overshoot it and every reader scrolls.
+
+- **An unmounted widget is untested code.** Each of the four mounted late in this track had a
+  defect that no test caught, because nothing rendered it. `audit:deep-dives` drives every
+  widget's controls; a widget that exists but is never placed in a lesson is outside it.
+
+- **`colocPosteriors` takes BF₁₀ while `wakefieldAbf` returns BF₀₁** — opposite directions,
+  and feeding one straight into the other does not throw. It returns PP0 ≈ 1 at a locus with
+  a genome-wide signal in both traits.
+
+- **`referenceSurname` absorbs name particles** (`van der Maaten` → "van der Maaten", not
+  "Maaten"), and a compound surname without a particle carries an explicit `surname` in
+  `references.yaml` — "George Davey Smith" is "Davey Smith". Both `Citation.astro` and
+  `DeepDiveLesson.astro` read `surname ?? referenceSurname(authors[0])`.
+
 - **`Citation` throws on an unknown key** rather than rendering an empty marker. That is
   deliberate: twelve icon names rendered as empty `<svg>` for months precisely because
   `Icon.astro` failed quietly, and `src/lib/icons.test.ts` now guards that class of bug.
