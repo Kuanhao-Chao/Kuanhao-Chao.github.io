@@ -25,7 +25,7 @@ relatedLessons:
 keyEquations:
   - 'H^2 = \frac{V_A + V_D + V_I}{V_P}, \qquad h^2 = \frac{V_A}{V_P}'
   - 'h^2 = 2(r_{\mathrm{MZ}} - r_{\mathrm{DZ}})'
-  - '\mathbf{A} = \frac{1}{M}\mathbf{W}\mathbf{W}^{\mathsf{T}}'
+  - '\mathbf{G} = \frac{1}{M}\mathbf{W}\mathbf{W}^{\mathsf{T}}'
   - 'h^2_l = h^2_o\,\frac{K^2(1-K)^2}{z_K^2\,P(1-P)}'
 referenceIds:
   - falconer1965
@@ -95,7 +95,7 @@ $$
     { symbol: 'V_E', meaning: 'Environmental, including measurement error', dims: 'trait units²' },
     { symbol: 'H^2', meaning: 'Broad-sense heritability, V_G / V_P', dims: 'in [0,1]' },
     { symbol: 'h^2', meaning: 'Narrow-sense heritability, V_A / V_P', dims: 'in [0,1]' },
-    { symbol: '\\mathbf{A}', meaning: 'Genomic relatedness matrix over N individuals', dims: 'N × N' },
+    { symbol: '\\mathbf{G}', meaning: 'Genomic relatedness matrix over N individuals', dims: 'N × N' },
     { symbol: '\\mathbf{W}', meaning: 'Standardised genotypes, N individuals × M SNPs', dims: 'N × M' },
     { symbol: '\\sigma_g^2,\\; \\sigma_e^2', meaning: 'Genetic and residual variance components', dims: 'trait units²' },
     { symbol: 'K', meaning: 'Disease prevalence in the population', dims: 'in (0,1)' },
@@ -271,10 +271,15 @@ average standardised product across all $M$ SNPs <Citation id="vanraden2008" />:
 $$
 A_{ik} = \frac{1}{M}\sum_{j=1}^{M} \frac{(X_{ij}-2p_j)(X_{kj}-2p_j)}{2p_j(1-p_j)}
 \qquad\Longleftrightarrow\qquad
-\mathbf{A} = \frac{1}{M}\mathbf{W}\mathbf{W}^{\mathsf{T}}
+\mathbf{G} = \frac{1}{M}\mathbf{W}\mathbf{W}^{\mathsf{T}}
 $$
 
-The matrix form makes two things obvious that the sum does not: $\mathbf{A}$ is $N\times N$
+This is the **genomic** relationship matrix, written $\mathbf{G}$ throughout this
+curriculum to keep it distinct from the pedigree matrix $\mathbf{A}$ of Module 2 — the two
+estimate the same quantity from different evidence, and the whole point of the genomic one
+is that it disagrees with the pedigree.
+
+The matrix form makes two things obvious that the sum does not: $\mathbf{G}$ is $N\times N$
 regardless of how many SNPs went into it, and it is positive semi-definite, so it is a
 legitimate covariance structure.
 
@@ -283,7 +288,7 @@ siblings, and scattered around zero with a small variance for unrelated people. 
 entries are $A_{ii} \approx 1 + F_i$, where $F_i$ is the inbreeding coefficient.
 
 <Callout variant="warning" title="GREML estimates h²_SNP, not h²">
-$\mathbf{A}$ is built from the SNPs you genotyped. It therefore captures causal variance
+$\mathbf{G}$ is built from the SNPs you genotyped. It therefore captures causal variance
 only to the extent that causal variants are in LD with those SNPs — which is exactly the
 $r^2$ from the previous lesson, and exactly why a rare causal variant contributes almost
 nothing.
@@ -304,7 +309,7 @@ covariance is the relatedness matrix:
 $$
 \mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{g} + \boldsymbol{\varepsilon},
 \qquad
-\mathbf{g} \sim \mathcal{N}(\mathbf{0}, \sigma_g^2\mathbf{A}),
+\mathbf{g} \sim \mathcal{N}(\mathbf{0}, \sigma_g^2\mathbf{G}),
 \qquad
 \boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0}, \sigma_e^2\mathbf{I})
 $$
@@ -317,7 +322,7 @@ generate is.
 $\boldsymbol{\varepsilon}$ are independent,
 
 $$
-\mathbf{V} = \operatorname{Var}(\mathbf{y}) = \sigma_g^2\mathbf{A} + \sigma_e^2\mathbf{I},
+\mathbf{V} = \operatorname{Var}(\mathbf{y}) = \sigma_g^2\mathbf{G} + \sigma_e^2\mathbf{I},
 \qquad
 h^2_{\mathrm{SNP}} = \frac{\sigma_g^2}{\sigma_g^2 + \sigma_e^2}
 $$
@@ -490,7 +495,7 @@ $$
 For the more demanding half-width of $0.02$ the same formula gives $N \approx 31{,}000$.
 
 The severity has a clear source. All the information about $\sigma_g^2$ lives in the
-*variance of the off-diagonal entries* of $\mathbf{A}$, and among unrelated people that
+*variance of the off-diagonal entries* of $\mathbf{G}$, and among unrelated people that
 variance is tiny — relatedness is scattered narrowly around zero. The estimator is
 regressing phenotypic similarity on a predictor with almost no spread, which is
 statistically expensive. Pedigree studies get away with far smaller samples precisely
@@ -513,7 +518,7 @@ escape.
   environment only under the equal-environments assumption, which biases it upward when it
   fails, and returns out-of-range components when non-additive variance is present.
 - **GREML replaces pedigree categories with a measured relatedness matrix**,
-  $\mathbf{A} = \mathbf{W}\mathbf{W}^{\mathsf{T}}/M$, and estimates the variance component
+  $\mathbf{G} = \mathbf{W}\mathbf{W}^{\mathsf{T}}/M$, and estimates the variance component
   $\sigma_g^2$ by REML — recovering height's heritability from 10% to 45% without
   identifying a single new locus.
 - **What GREML estimates is $h^2_{\mathrm{SNP}}$**, a lower bound set by what the

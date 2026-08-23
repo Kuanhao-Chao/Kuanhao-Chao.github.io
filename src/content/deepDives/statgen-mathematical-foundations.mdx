@@ -491,8 +491,13 @@ This becomes concrete in fine-mapping, where the object of interest is a posteri
 probability (PIP) for each variant $j$ in a region:
 
 $$
-\mathrm{PIP}_j = \frac{\pi_j \,\mathrm{BF}_j}{\pi_0 + \sum_{k} \pi_k \,\mathrm{BF}_k}
+\mathrm{PIP}_j = \frac{\pi_j \,\mathrm{BF}_{10,j}}{\pi_0 + \sum_{k} \pi_k \,\mathrm{BF}_{10,k}}
 $$
+
+The subscript matters. $\mathrm{BF}_{10}$ is the direction defined above — evidence *for*
+the alternative — so it multiplies. The fine-mapping lesson writes the same quantity with
+$\mathrm{BF}_{01}$, its exact reciprocal, which therefore divides. Both give the same PIP;
+mixing them silently does not.
 
 The term $\pi_0$ in the denominator is the prior probability that the region contains **no**
 causal variant, and dropping it — as is often done — forces the PIPs to sum to one and

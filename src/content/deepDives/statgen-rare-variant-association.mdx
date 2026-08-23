@@ -180,13 +180,13 @@ burden test sees nothing at all.
   given={[
     { label: 'Five variants, MAF', value: '0.001, 0.002, 0.005, 0.008, 0.010' },
     { label: 'Gene A scores', value: '+4, +3, +5, +2, +3' },
-    { label: 'Gene B scores', value: '+4, −3, +5, −2, −4' },
+    { label: 'Gene B scores', value: '+4, −3, +5, −2, −3' },
   ]}
   verifiedBy="src/lib/deepDiveExamples.test.ts"
 >
 
 Both genes have the same variants, the same frequencies, therefore the same weights, and the
-same score *magnitudes*. Only three signs differ.
+same score magnitudes. Only three signs differ.
 
 **Step 1 — the weights.** $w_j = 25(1-\mathrm{MAF}_j)^{24}$ gives
 
@@ -203,7 +203,7 @@ $$
 For gene B they fight each other:
 
 $$
-\sum_j w_j S_j = 17.1762
+\sum_j w_j S_j = 36.8181
 $$
 
 **Step 3 — the burden statistics.** Squaring:
@@ -211,24 +211,24 @@ $$
 $$
 Q^A_{\mathrm{burden}} = 380.1000^2 = 144{,}476,
 \qquad
-Q^B_{\mathrm{burden}} = 17.1762^2 = 295
+Q^B_{\mathrm{burden}} = 36.8181^2 = 1{,}356
 $$
 
-A factor of **490**, produced entirely by three sign flips.
+A factor of **106.6**, produced entirely by three sign flips.
 
 **Step 4 — now SKAT, which squares before summing.**
 
 $$
 Q_{\mathrm{SKAT}} = \sum_j w_j^2 S_j^2
 \qquad\Longrightarrow\qquad
-Q^A_{\mathrm{SKAT}} = 32{,}097, \quad Q^B_{\mathrm{SKAT}} = 34{,}797
+Q^A_{\mathrm{SKAT}} = 32{,}097, \quad Q^B_{\mathrm{SKAT}} = 32{,}097
 $$
 
-Essentially unchanged — gene B is if anything slightly *larger*, because its scores are
-marginally bigger in magnitude. Squaring first makes sign irrelevant.
+**Identical.** Not approximately — exactly, because the two genes differ only in sign and
+squaring each score before summing discards sign completely.
 
 **Step 5 — the trade.** In gene A the burden statistic is $4.50\times$ SKAT's; in gene B,
-SKAT's is $117.9\times$ the burden's. Neither test dominates. Each is optimal for a
+SKAT's is $23.7\times$ the burden's. Neither test dominates. Each is optimal for a
 different truth, and the truth is not known in advance.
 
 </WorkedExample>
@@ -238,7 +238,7 @@ different truth, and the truth is not known in advance.
   alt="Two panels of five signed bars. In the upper panel all five bars are positive, plus 4, plus 3, plus 5, plus 2, plus 3, with a burden statistic of 144,476 and a SKAT statistic of 32,097. In the lower panel the same magnitudes appear with three negative, giving a burden of 295 and a SKAT of 34,797."
   wide
 >
-<svg viewBox="0 0 640 384" width="640" height="384" font-family="inherit"><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Same five variants, same weights, same magnitudes — only the signs differ</text><text x="30.0" y="58.0" font-size="11" fill="currentColor" font-weight="700">gene A — every variant pushes the same way</text><line x1="150.0" y1="106.0" x2="360.0" y2="106.0" stroke="currentColor" stroke-width="1" opacity=".45"/><rect x="164.2" y="81.3" width="26.0" height="24.7" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="177.2" y="76.3" font-size="9.5" fill="currentColor" text-anchor="middle">+4</text><rect x="203.1" y="87.5" width="26.0" height="18.5" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="216.1" y="82.5" font-size="9.5" fill="currentColor" text-anchor="middle">+3</text><rect x="242.0" y="75.1" width="26.0" height="30.9" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="255.0" y="70.1" font-size="9.5" fill="currentColor" text-anchor="middle">+5</text><rect x="280.9" y="93.6" width="26.0" height="12.4" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="293.9" y="88.6" font-size="9.5" fill="currentColor" text-anchor="middle">+2</text><rect x="319.8" y="87.5" width="26.0" height="18.5" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="332.8" y="82.5" font-size="9.5" fill="currentColor" text-anchor="middle">+3</text><text x="138.0" y="110.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">score Sⱼ</text><text x="392.0" y="80.0" font-size="10.5" fill="currentColor" font-weight="600">burden  Q = (Σ wⱼSⱼ)²</text><text x="392.0" y="96.0" font-size="12" fill="var(--color-accent, #2e6e5e)" font-weight="700">144,476</text><text x="392.0" y="120.0" font-size="10.5" fill="currentColor" font-weight="600">SKAT  Q = Σ wⱼ²Sⱼ²</text><text x="392.0" y="136.0" font-size="12" fill="currentColor" font-weight="700">32,097</text><text x="30.0" y="196.0" font-size="11" fill="currentColor" font-weight="700">gene B — directions mixed</text><line x1="150.0" y1="244.0" x2="360.0" y2="244.0" stroke="currentColor" stroke-width="1" opacity=".45"/><rect x="164.2" y="219.3" width="26.0" height="24.7" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="177.2" y="214.3" font-size="9.5" fill="currentColor" text-anchor="middle">+4</text><rect x="203.1" y="244.0" width="26.0" height="18.5" rx="2" fill="currentColor" opacity=".55"/><text x="216.1" y="275.5" font-size="9.5" fill="currentColor" text-anchor="middle">-3</text><rect x="242.0" y="213.1" width="26.0" height="30.9" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="255.0" y="208.1" font-size="9.5" fill="currentColor" text-anchor="middle">+5</text><rect x="280.9" y="244.0" width="26.0" height="12.4" rx="2" fill="currentColor" opacity=".55"/><text x="293.9" y="269.4" font-size="9.5" fill="currentColor" text-anchor="middle">-2</text><rect x="319.8" y="244.0" width="26.0" height="24.7" rx="2" fill="currentColor" opacity=".55"/><text x="332.8" y="281.7" font-size="9.5" fill="currentColor" text-anchor="middle">-4</text><text x="138.0" y="248.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">score Sⱼ</text><text x="392.0" y="218.0" font-size="10.5" fill="currentColor" font-weight="600">burden  Q = (Σ wⱼSⱼ)²</text><text x="392.0" y="234.0" font-size="12" fill="currentColor" font-weight="700">295</text><text x="392.0" y="258.0" font-size="10.5" fill="currentColor" font-weight="600">SKAT  Q = Σ wⱼ²Sⱼ²</text><text x="392.0" y="274.0" font-size="12" fill="var(--color-accent, #2e6e5e)" font-weight="700">34,797</text><text x="30.0" y="334.0" font-size="10.5" fill="currentColor" opacity=".85">Burden collapses by a factor of 490 when the directions mix.</text><text x="30.0" y="350.0" font-size="10.5" fill="currentColor" opacity=".85">SKAT barely moves: 32,097 against 34,797. SKAT-O mixes the two so a</text><text x="30.0" y="366.0" font-size="10.5" fill="currentColor" opacity=".85">study does not have to know which case it is in before it looks.</text></svg>
+<svg viewBox="0 0 640 384" width="640" height="384" font-family="inherit"><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Same five variants, same weights, same magnitudes — only the signs differ</text><text x="30.0" y="58.0" font-size="11" fill="currentColor" font-weight="700">gene A — every variant pushes the same way</text><line x1="150.0" y1="106.0" x2="360.0" y2="106.0" stroke="currentColor" stroke-width="1" opacity=".45"/><rect x="164.2" y="81.3" width="26.0" height="24.7" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="177.2" y="76.3" font-size="9.5" fill="currentColor" text-anchor="middle">+4</text><rect x="203.1" y="87.5" width="26.0" height="18.5" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="216.1" y="82.5" font-size="9.5" fill="currentColor" text-anchor="middle">+3</text><rect x="242.0" y="75.1" width="26.0" height="30.9" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="255.0" y="70.1" font-size="9.5" fill="currentColor" text-anchor="middle">+5</text><rect x="280.9" y="93.6" width="26.0" height="12.4" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="293.9" y="88.6" font-size="9.5" fill="currentColor" text-anchor="middle">+2</text><rect x="319.8" y="87.5" width="26.0" height="18.5" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="332.8" y="82.5" font-size="9.5" fill="currentColor" text-anchor="middle">+3</text><text x="138.0" y="110.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">score Sⱼ</text><text x="392.0" y="80.0" font-size="10.5" fill="currentColor" font-weight="600">burden  Q = (Σ wⱼSⱼ)²</text><text x="392.0" y="96.0" font-size="12" fill="var(--color-accent, #2e6e5e)" font-weight="700">144,476</text><text x="392.0" y="120.0" font-size="10.5" fill="currentColor" font-weight="600">SKAT  Q = Σ wⱼ²Sⱼ²</text><text x="392.0" y="136.0" font-size="12" fill="currentColor" font-weight="700">32,097</text><text x="30.0" y="196.0" font-size="11" fill="currentColor" font-weight="700">gene B — directions mixed</text><line x1="150.0" y1="244.0" x2="360.0" y2="244.0" stroke="currentColor" stroke-width="1" opacity=".45"/><rect x="164.2" y="219.3" width="26.0" height="24.7" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="177.2" y="214.3" font-size="9.5" fill="currentColor" text-anchor="middle">+4</text><rect x="203.1" y="244.0" width="26.0" height="18.5" rx="2" fill="currentColor" opacity=".55"/><text x="216.1" y="275.5" font-size="9.5" fill="currentColor" text-anchor="middle">-3</text><rect x="242.0" y="213.1" width="26.0" height="30.9" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="255.0" y="208.1" font-size="9.5" fill="currentColor" text-anchor="middle">+5</text><rect x="280.9" y="244.0" width="26.0" height="12.4" rx="2" fill="currentColor" opacity=".55"/><text x="293.9" y="269.4" font-size="9.5" fill="currentColor" text-anchor="middle">-2</text><rect x="319.8" y="244.0" width="26.0" height="18.5" rx="2" fill="currentColor" opacity=".55"/><text x="332.8" y="275.5" font-size="9.5" fill="currentColor" text-anchor="middle">-3</text><text x="138.0" y="248.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">score Sⱼ</text><text x="392.0" y="218.0" font-size="10.5" fill="currentColor" font-weight="600">burden  Q = (Σ wⱼSⱼ)²</text><text x="392.0" y="234.0" font-size="12" fill="currentColor" font-weight="700">1,356</text><text x="392.0" y="258.0" font-size="10.5" fill="currentColor" font-weight="600">SKAT  Q = Σ wⱼ²Sⱼ²</text><text x="392.0" y="274.0" font-size="12" fill="var(--color-accent, #2e6e5e)" font-weight="700">32,097</text><text x="30.0" y="334.0" font-size="10.5" fill="currentColor" opacity=".85">Burden collapses by a factor of 106.6 when the directions mix.</text><text x="30.0" y="350.0" font-size="10.5" fill="currentColor" opacity=".85">SKAT does not move at all — 32,097 either way — because squaring each</text><text x="30.0" y="366.0" font-size="10.5" fill="currentColor" opacity=".85">score before summing erases sign entirely. SKAT-O mixes the two.</text></svg>
 </Figure>
 
 ## SKAT, and then SKAT-O
@@ -263,7 +263,9 @@ $$
 Q_\rho = \rho\,Q_{\mathrm{burden}} + (1-\rho)\,Q_{\mathrm{SKAT}}
 $$
 
-and maximises over $\rho$, paying a modest multiple-testing cost for the search. $\rho = 1$
+and searches over $\rho$ — **by minimising the $p$-value**, not by maximising $Q_\rho$,
+which matters because each $Q_\rho$ has its own null distribution and the statistics are not
+comparable across $\rho$ on their own scale. $\rho = 1$
 recovers the burden test, $\rho = 0$ recovers SKAT, and the optimum lands wherever the gene's
 architecture puts it. That is why SKAT-O rather than either component is the default in
 modern pipelines — not because it is more powerful than the best of the two, but because it
@@ -306,13 +308,15 @@ say about the method?
 
 | $\rho$ | gene A | gene B |
 | --- | --- | --- |
-| 0 (pure SKAT) | 32,097 | 34,797 |
-| 0.25 | 60,192 | 26,172 |
-| 0.5 | 88,286 | 17,546 |
-| 0.75 | 116,381 | 8,921 |
-| 1 (pure burden) | 144,476 | 295 |
+| 0 (pure SKAT) | 32,097 | 32,097 |
+| 0.25 | 60,192 | 24,412 |
+| 0.5 | 88,286 | 16,726 |
+| 0.75 | 116,381 | 9,041 |
+| 1 (pure burden) | 144,476 | 1,356 |
 
-Gene A is maximised at $\rho = 1$ and gene B at $\rho = 0$ — the two opposite corners.
+Gene A's evidence is strongest at $\rho = 1$ and gene B's at $\rho = 0$ — the two opposite
+corners. (Strongest means smallest $p$; the $Q_\rho$ values below are on different scales
+for different $\rho$ and are shown to expose the mixing, not to be compared directly.)
 
 **What it says:** the optimal $\rho$ is a property of the gene, not of the study, and it is
 different for two genes in the same analysis. A method that fixed $\rho$ in advance would be
@@ -320,10 +324,11 @@ wrong on roughly half the genome, and no amount of care in choosing it would hel
 the choice would have to be made per gene and the information needed to make it is what the
 test is trying to discover.
 
-Note also that $Q_\rho$ is linear in $\rho$, so its maximum over $[0,1]$ is always at an
-endpoint for a fixed dataset. SKAT-O's real work is in the *null distribution* of the
-maximised statistic, which accounts for having searched — the search itself is not the hard
-part.
+Note that $Q_\rho$ is linear in $\rho$, which is why it cannot be the thing optimised: a
+linear function is extremised at an endpoint regardless of the data, so maximising it would
+choose $\rho$ without consulting the evidence. SKAT-O instead converts each $Q_\rho$ to a
+$p$-value under *its own* null and minimises that, then derives the null distribution of the
+minimum to pay for the search.
 
 </div>
 </Exercise>
@@ -406,12 +411,13 @@ burden test can hide a real signal, and an uncorrected asymptotic test can manuf
 - **Burden tests collapse first and square second**, $Q = (\sum_j w_j S_j)^2$, which is
   optimal when every variant pushes the same way.
 - **They fail when directions mix.** Flipping three signs in a five-variant gene — changing
-  nothing else — drops the burden statistic from 144,476 to 295, a factor of 490.
+  nothing else — drops the burden statistic from 144,476 to 1,356, a factor of 106.6.
 - **SKAT squares first and sums second**, $Q = \sum_j w_j^2 S_j^2$, so sign cannot cancel.
-  On the same two genes it returns 32,097 and 34,797 — an eight percent difference.
+  On the same two genes it returns 32,097 both times — identical, because squaring discards
+  sign completely.
 - **Neither dominates**: burden is $4.50\times$ SKAT on the unidirectional gene, SKAT is
-  $117.9\times$ burden on the mixed one. SKAT-O mixes them and maximises over $\rho$, which
-  lands at opposite endpoints for the two genes.
+  $23.7\times$ burden on the mixed one. SKAT-O searches over $\rho$ by minimising a
+  $p$-value, and the strongest evidence lands at opposite endpoints for the two genes.
 - **The Beta(1, 25) weight is flatter than its name suggests.** A near-singleton gets
   $1.27\times$ the weight of a 1% variant, not $25\times$; the weight's real work is
   suppressing common variants, at $3.42\times$ against a 5% variant.

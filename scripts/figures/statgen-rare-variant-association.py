@@ -62,7 +62,7 @@ for p in (1e-4, 1e-3, 1e-2, 5e-2):
 MAF = [0.001, 0.002, 0.005, 0.008, 0.010]
 W = [25 * (1 - m) ** 24 for m in MAF]
 GENES = [('gene A — every variant pushes the same way', [4, 3, 5, 2, 3]),
-         ('gene B — directions mixed', [4, -3, 5, -2, -4])]
+         ('gene B — directions mixed', [4, -3, 5, -2, -3])]
 
 def burden(S):
     return sum(w * s for w, s in zip(W, S)) ** 2
@@ -96,11 +96,11 @@ for g, (title, S) in enumerate(GENES):
     o2.append(text(392, top + 78, '%s' % format(round(k), ','), 12, weight='700',
                    fill=ACCENT if k > b else 'currentColor'))
 
-o2.append(text(30, 334, 'Burden collapses by a factor of 490 when the directions mix.', 10.5,
+o2.append(text(30, 334, 'Burden collapses by a factor of 106.6 when the directions mix.', 10.5,
                opacity='.85'))
-o2.append(text(30, 350, 'SKAT barely moves: 32,097 against 34,797. SKAT-O mixes the two so a', 10.5,
+o2.append(text(30, 350, 'SKAT does not move at all — 32,097 either way — because squaring each', 10.5,
                opacity='.85'))
-o2.append(text(30, 366, 'study does not have to know which case it is in before it looks.', 10.5,
+o2.append(text(30, 366, 'score before summing erases sign entirely. SKAT-O mixes the two.', 10.5,
                opacity='.85'))
 print('fig2 bytes:', write(os.path.join(OUT, 'statgen-rare-variant-association-burden.svg'),
                            svg(640, 384, ''.join(o2))))
