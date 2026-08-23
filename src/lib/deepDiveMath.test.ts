@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
-  callRate, piHat, inbreedingF, armitageTrend,
+  callRate, piHat, inbreedingF, armitageTrend, liabilityRisk,
   expectedR2, falconerACE, haldaneTheta, kosambiTheta, ldHalfLife, ldMeasures,
   liabilityScale, ncp, ncpForPower, normalCdf, normalPdf, normalQuantile,
   powerFromNcp, sampleSizeForPower, sampleSizeForR2, shrinkageFactor, varianceExplained,
@@ -274,6 +274,64 @@ describe('study design', () => {
     expect(addCases).toBeCloseTo(53_333.333333, 6);
     expect(addCases - addControls).toBeCloseTo(20_000, 6);
     expect(addCases / addControls).toBeCloseTo(1.6, 9);
+  });
+});
+
+describe('risk from a polygenic score', () => {
+  it('gives everyone the population risk when the score explains nothing', () => {
+    // Six places, not twelve: the ceiling here is the round-trip accuracy of
+    // normalQuantile followed by normalCdf, about 7e-8, not anything about the model.
+    for (const z of [-3, -1, 0, 1, 3]) {
+      expect(liabilityRisk(z, 0, 0.02)).toBeCloseTo(0.02, 6);
+      expect(liabilityRisk(z, 0, 0.15)).toBeCloseTo(0.15, 6);
+    }
+  });
+
+  it('is monotone increasing in the score', () => {
+    let prev = -Infinity;
+    for (const z of [-3, -2, -1, 0, 1, 2, 3]) {
+      const r = liabilityRisk(z, 0.1, 0.02);
+      expect(r).toBeGreaterThan(prev);
+      prev = r;
+    }
+  });
+
+  it('averages back to the prevalence over the score distribution', () => {
+    // Closed form: ∫ Φ((rz − T)/√(1−r²)) φ(z) dz = Φ(−T) = K, for any r.
+    // Checked by Simpson's rule over ±8 SD, which is far more than enough.
+    const integrate = (r2: number, K: number) => {
+      const lo = -8;
+      const hi = 8;
+      const n = 4000;
+      const h = (hi - lo) / n;
+      let total = 0;
+      for (let i = 0; i <= n; i += 1) {
+        const z = lo + i * h;
+        const w = i === 0 || i === n ? 1 : i % 2 ? 4 : 2;
+        total += w * liabilityRisk(z, r2, K) * normalPdf(z);
+      }
+      return (total * h) / 3;
+    };
+    for (const [r2, K] of [
+      [0.1, 0.02],
+      [0.3, 0.05],
+      [0.05, 0.15],
+    ] as [number, number][]) {
+      expect(integrate(r2, K)).toBeCloseTo(K, 6);
+    }
+  });
+
+  it('rejects an r² outside [0,1)', () => {
+    expect(() => liabilityRisk(0, 1, 0.02)).toThrow(RangeError);
+    expect(() => liabilityRisk(0, -0.1, 0.02)).toThrow(RangeError);
+  });
+
+  it('produces a large ratio between extremes and a modest absolute risk', () => {
+    // The whole point of the lesson: both statements are true of the same score.
+    const top = liabilityRisk(normalQuantile(0.99), 0.1, 0.02);
+    const bottom = liabilityRisk(normalQuantile(0.01), 0.1, 0.02);
+    expect(top / bottom).toBeGreaterThan(50);
+    expect(top).toBeLessThan(0.09);
   });
 });
 
