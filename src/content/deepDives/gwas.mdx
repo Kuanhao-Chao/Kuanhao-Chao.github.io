@@ -1,0 +1,314 @@
+---
+title: "Genome-Wide Association Studies: The Pipeline, End to End"
+shortTitle: GWAS
+description: "The applied companion to the statistical genetics curriculum — what a GWAS actually runs, in what order, and how each step's decisions are charged against the study's power."
+abstract: "A genome-wide association study is a sequence of decisions, and most of them are made before anyone looks at a p-value. This track walks the pipeline in order — design, arrays and imputation, quality control, structure, the scan, then reading, fine-mapping and scoring what comes out — and prices each step in the currency that matters, which is effective sample size. The hub traces one study through it: fifty thousand people recruited, thirty-two thousand effective after a 4:1 case-control imbalance, thirty-one thousand nine hundred and thirty-five after relatedness pruning, and seventeen thousand five hundred and sixty-five at a variant imputed at INFO 0.55. Thirty-five percent of the headcount, with no mistake made anywhere — and the power calculation in the grant used fifty thousand. Every derivation defers to the statistical genetics track rather than being repeated."
+date: 2026-08-23
+track: workflow
+hub: gwas
+isHub: true
+moduleId: g00-hub
+moduleLabel: GWAS
+order: 0
+level: foundational
+objectives:
+  - "Name the nine steps of a GWAS pipeline and the decision each one fixes."
+  - "Trace a single study's effective sample size through design, quality control and imputation."
+  - "Say which steps are recoverable later and which are not."
+  - "Choose the right lesson for a problem you actually have."
+prerequisites: []
+keyEquations:
+  - 'N_{\mathrm{eff}} = \dfrac{4}{1/N_{\mathrm{cases}} + 1/N_{\mathrm{controls}}}'
+  - 'N_{\mathrm{eff}}^{\text{variant}} = N_{\mathrm{eff}} \times \hat{r}^2'
+  - 'q^2 \geq \dfrac{39.60}{N_{\mathrm{eff}}}'
+referenceIds:
+  - risch1996future
+  - visscher2017gwas
+  - anderson2010qc
+  - purcell2007plink
+  - bulik2015ldsc
+  - martin2019
+  - sollis2023gwascatalog
+  - boyle2017omnigenic
+tags: [GWAS, pipeline, quality control, imputation, association testing, polygenic scores]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this track answers
+
+The [Statistical Genetics](/deep_dives/statistical-genetics/) track derives the methods. This
+one runs them.
+
+That division is real rather than cosmetic. A derivation tells you what an estimator
+converges to; it does not tell you which reference panel to use, whether to drop the case or
+the control from a related pair, or what a significance threshold costs when you move it.
+Those decisions are made in a specific order, most of them before any data is analysed, and
+several of them cannot be revisited afterwards. This track is those decisions.
+
+<Callout variant="intuition">
+
+There is one currency in which almost every step of a GWAS can be priced, and it is not
+p-values. It is **effective sample size** — the number a power calculation actually consumes,
+as opposed to the number of people who consented.
+
+A case-control imbalance reduces it. Relatedness pruning reduces it. Imputation quality
+multiplies it. By the time a particular variant is tested, the study that recruited fifty
+thousand people may be testing that variant with the power of seventeen thousand, without
+anyone having made a mistake. Keeping one running total across the whole pipeline is the
+single most useful habit this track teaches.
+
+</Callout>
+
+## The three modules
+
+**Module 1 — Before the Scan.** The decisions that cannot be undone. Who is recruited and in
+what ratio, which variants the array types and which the reference panel can fill in, and
+which samples and variants survive quality control. The case for doing association studies
+this way at all was made on power grounds <Citation id="risch1996future" />, and the same
+arithmetic governs every choice in this module.
+
+**Module 2 — The Scan.** Population structure and the association test itself. Structure is
+the confounder most likely to be mis-diagnosed, because the inflation factor rises with
+sample size under a perfectly clean analysis and the diagnostic that separates the two is
+elsewhere <Citation id="bulik2015ldsc" />. The scan is then one small regression repeated ten
+million times, wrapped in three choices that change the answer.
+
+**Module 3 — After the Scan.** What the output means and what may be built from it: the
+threshold and the biases in the effect estimates, the LD reference that everything downstream
+depends on, fine-mapping a locus to candidate variants, and turning the whole thing into a
+score. Two decades of results <Citation id="visscher2017gwas" /> have made the architecture
+clear — very many variants of very small effect
+<Citation id="boyle2017omnigenic" /> — and that architecture is what makes this module's
+trade-offs sharp.
+
+## One study, counted nine times
+
+<Notation
+  rows={[
+    { symbol: 'N_{\\mathrm{eff}}', meaning: 'Effective sample size — what a power calculation consumes', dims: 'count' },
+    { symbol: '\\hat{r}^2', meaning: 'Imputation quality at a variant (INFO)', dims: 'about [0,1]' },
+    { symbol: 'q^2', meaning: 'Trait variance one variant explains', dims: 'in [0,1]' },
+    { symbol: '\\lambda_{\\mathrm{GC}}', meaning: 'Genomic inflation factor', dims: '≥ 0' },
+  ]}
+/>
+
+<WorkedExample
+  title="Fifty thousand people, and what one variant is worth"
+  given={[
+    { label: 'Recruited', value: '10,000 cases and 40,000 controls' },
+    { label: 'Related pairs', value: '400, broken on the control arm' },
+    { label: 'The variant', value: 'imputed at INFO 0.55' },
+    { label: 'Threshold', value: '80% power at 5 × 10⁻⁸' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the imbalance, from [Study Design](/deep_dives/gwas-study-design/).** Power runs on
+a harmonic mean of the two arms:
+
+$$
+N_{\mathrm{eff}} = \frac{4}{1/10{,}000 + 1/40{,}000} = 32{,}000 .
+$$
+
+Fifty thousand people, thirty-two thousand effective. Balanced recruitment would have given
+all fifty thousand, so the ratio cost 18,000 before any data existed.
+
+**Step 2 — the pruning, from [Quality Control](/deep_dives/gwas-quality-control/).** Four
+hundred related pairs must be broken. Dropping the *controls* costs
+
+$$
+N_{\mathrm{eff}} = \frac{4}{1/10{,}000 + 1/39{,}600} = 31{,}935.48 ,
+$$
+
+a loss of 64.52. Dropping the cases instead would have cost 1,032.26 — sixteen times more,
+for the same four hundred people. Which member you drop is a decision, and most pipelines
+make it by call rate.
+
+**Step 3 — the imputation, from
+[Arrays & Imputation](/deep_dives/gwas-arrays-imputation/).** Quality multiplies:
+
+$$
+N_{\mathrm{eff}}^{\text{variant}} = 31{,}935.48 \times 0.55 = 17{,}564.52 .
+$$
+
+**Step 4 — what that variant can be seen at.** Using $q^2 \geq 39.60/N_{\mathrm{eff}}$,
+
+$$
+q^2 \geq \frac{39.600989}{17{,}564.52} = 2.2546 \times 10^{-3} .
+$$
+
+The study can detect this variant only if it explains more than about two parts in a thousand
+of the trait — while the grant's power calculation, run on fifty thousand people, promised
+$7.92 \times 10^{-4}$.
+
+**Step 5 — and none of it was a mistake.** The imbalance reflected who was available. The
+pruning was required. The variant is imputed as well as the panel permits. Three defensible
+decisions, taken in three different lessons, leave $17{,}564.52/50{,}000 = 35.13\%$ of the
+headcount at this variant.
+
+The remaining five lessons are about not compounding the problem: not applying genomic
+control to a scan that does not need it, not reporting a discovery effect as though it were
+unbiased, not fine-mapping with a mismatched panel, and not quoting a fold-change without an
+absolute risk.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The same study counted at four points in the pipeline. Fifty thousand people become 32,000 effective after a 4:1 case-control imbalance, 31,935 after relatedness pruning, and 17,565 at a variant imputed at INFO 0.55 — 35.1% of the headcount, with no error made at any step. The three reductions come from three different lessons and are usually reported, if at all, in three different places."
+  alt="Four horizontal bars on an axis of effective sample size from 0 to 50,000. People recruited is 50,000; after the four-to-one imbalance 32,000; after relatedness pruning 31,935; at a variant imputed at 0.55, highlighted, 17,565. A note explains that none of the three steps is a mistake and together they leave 35.1% of the headcount."
+>
+<svg viewBox="0 0 640 310" width="640" height="310" font-family="inherit"><line x1="210.0" y1="56.0" x2="210.0" y2="190.0" stroke="currentColor" stroke-width="1.25"/><line x1="210.0" y1="190.0" x2="452.0" y2="190.0" stroke="currentColor" stroke-width="1.25"/><line x1="210.0" y1="190.0" x2="210.0" y2="195.0" stroke="currentColor" stroke-width="1"/><text x="210.0" y="208.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="256.5" y1="190.0" x2="256.5" y2="195.0" stroke="currentColor" stroke-width="1"/><text x="256.5" y="208.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10k</text><line x1="303.1" y1="190.0" x2="303.1" y2="195.0" stroke="currentColor" stroke-width="1"/><text x="303.1" y="208.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">20k</text><line x1="349.6" y1="190.0" x2="349.6" y2="195.0" stroke="currentColor" stroke-width="1"/><text x="349.6" y="208.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">30k</text><line x1="396.2" y1="190.0" x2="396.2" y2="195.0" stroke="currentColor" stroke-width="1"/><text x="396.2" y="208.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">40k</text><line x1="442.7" y1="190.0" x2="442.7" y2="195.0" stroke="currentColor" stroke-width="1"/><text x="442.7" y="208.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50k</text><rect x="210.0" y="64.1" width="232.7" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.35"/><text x="200.0" y="79.1" font-size="10" fill="currentColor" text-anchor="end">people recruited</text><text x="450.7" y="79.1" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">50,000</text><rect x="210.0" y="96.0" width="148.9" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.35"/><text x="200.0" y="111.0" font-size="10" fill="currentColor" text-anchor="end">after the 4:1 imbalance</text><text x="366.9" y="111.0" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">32,000</text><text x="200.0" y="122.0" font-size="8" fill="currentColor" text-anchor="end" opacity=".55">lesson 1</text><rect x="210.0" y="128.0" width="148.6" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.35"/><text x="200.0" y="143.0" font-size="10" fill="currentColor" text-anchor="end">after relatedness pruning</text><text x="366.6" y="143.0" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">31,935</text><text x="200.0" y="154.0" font-size="8" fill="currentColor" text-anchor="end" opacity=".55">lesson 3</text><rect x="210.0" y="159.9" width="81.7" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.9"/><text x="200.0" y="174.9" font-size="10" fill="currentColor" text-anchor="end">at a variant imputed 0.55</text><text x="299.7" y="174.9" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">17,565</text><text x="200.0" y="185.9" font-size="8" fill="currentColor" text-anchor="end" opacity=".55">lesson 2</text><text x="331.0" y="232.0" font-size="12" fill="currentColor" text-anchor="middle">Effective sample size</text><text x="20.0" y="24.0" font-size="11.5" fill="currentColor" opacity=".8">The same study, counted at four points in the pipeline</text><text x="20.0" y="252.0" font-size="10" fill="currentColor" opacity=".85">None of the three steps is a mistake. The imbalance was a recruitment</text><text x="20.0" y="266.0" font-size="10" fill="currentColor" opacity=".85">decision, the pruning was required, and the variant is imputed as well as</text><text x="20.0" y="280.0" font-size="10" fill="currentColor" opacity=".85">the panel allows. Together they leave 35.1% of the headcount — and the</text><text x="20.0" y="294.0" font-size="10" fill="currentColor" opacity=".85">power calculation in the grant used 50,000.</text></svg>
+</Figure>
+
+## What each step decides
+
+The pipeline in order, with the decision each step fixes and what it costs when it is made
+badly. Nothing here substitutes for the lesson; it is an index.
+
+<div class="dd-scroll-x">
+
+| Step | The decision it fixes | What it costs when wrong |
+| --- | --- | --- |
+| [Study Design](/deep_dives/gwas-study-design/) | Case definition, ascertainment, the case-to-control ratio | Sets a detection ceiling nothing later can raise |
+| [Arrays & Imputation](/deep_dives/gwas-arrays-imputation/) | Which variants exist at all, and how well | A quality filter is a power decision, and it removes rarer variants preferentially |
+| [Quality Control](/deep_dives/gwas-quality-control/) | Which samples and variants survive | Differential missingness manufactures associations no other filter can see |
+| [Population Structure](/deep_dives/gwas-population-structure/) | Whether the scan is confounded, and what to do about it | Over-correcting destroys real loci; under-correcting invents them |
+| [Running the Scan](/deep_dives/gwas-running-the-scan/) | Encoding, covariates, and the model for a binary trait | A mediator covariate removes the effect being measured |
+| [Reading the Output](/deep_dives/gwas-reading-the-output/) | Which control — family-wise or false-discovery — and what the estimates mean | FDR on a polygenic trait hands back a catalogue with dozens of wrong entries |
+| [LD in Practice](/deep_dives/gwas-ld-reference-panels/) | Which reference panel, and pruning versus clumping | A mismatched panel can make a study eight times too small |
+| [Fine-mapping in Practice](/deep_dives/gwas-fine-mapping-practice/) | Which variants are candidates, and how confident to be | A credible set that excludes the truth reports nothing wrong |
+| [Building a PRS](/deep_dives/gwas-prs-practice/) | How weights are chosen and how accuracy is reported | Tuning on the test cohort, and fold-changes without absolute risks |
+
+</div>
+
+<Callout variant="key" title="Which column matters">
+
+The third one. Every step in this pipeline runs successfully and produces output whether or
+not its decision was right — that is what makes them dangerous. A mismatched LD panel does
+not raise an error, an over-corrected scan looks cleaner than a correct one, and a credible
+set missing its causal variant reports better coverage than one containing it. The tooling
+<Citation id="purcell2007plink" /> and the published protocols
+<Citation id="anderson2010qc" /> will not tell you; each lesson is largely about how to check.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Where did the power go?" difficulty="warm-up">
+
+A study recruits 5,000 cases and 45,000 controls — the same 50,000 people as the worked
+example, split differently.
+
+(a) What is $N_{\mathrm{eff}}$?
+
+(b) How does that compare with the worked example's 4:1 split?
+
+(c) What would 25,000 and 25,000 have given?
+
+<div slot="solution">
+
+**(a)** $4/(1/5{,}000 + 1/45{,}000) = 18{,}000$.
+
+**(b)** Substantially worse — 18,000 against 32,000, from the same headcount. The 9:1 split is
+already at $18{,}000/20{,}000 = 90\%$ of everything controls can ever buy for 5,000 cases, so
+almost all of those 45,000 controls are doing nothing.
+
+**(c)** All 50,000. A balanced study is fully efficient, which is why the imbalance is worth
+naming as a cost rather than treating as a fact of life: recruiting 20,000 more cases would
+be worth far more than the 40,000 controls already collected.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Which lesson has the answer?" difficulty="core">
+
+Name the step that owns each problem.
+
+(a) "Our λ is 1.22 and a reviewer wants genomic control applied."
+
+(b) "This locus replicates with an effect half the size."
+
+(c) "Our credible sets got smaller after we tightened an upstream filter."
+
+(d) "The score works in our discovery cohort and not in the clinic's population."
+
+(e) "A variant is significant, has a 98.5% call rate, and sits at Hardy-Weinberg equilibrium."
+
+<div slot="solution">
+
+**(a)** [Population Structure](/deep_dives/gwas-population-structure/). λ cannot separate
+confounding from polygenicity; the LDSC intercept can, and applying genomic control on the
+strength of λ alone destroys real loci.
+
+**(b)** [Reading the Output](/deep_dives/gwas-reading-the-output/). The winner's curse — a
+smaller effect on replication is the expected result for a marginal locus, not a failure.
+
+**(c)** [Fine-mapping in Practice](/deep_dives/gwas-fine-mapping-practice/). Smaller sets may
+mean better resolution or may mean the causal variants were filtered out, and coverage and
+purity cannot tell you which.
+
+**(d)** [Building a PRS](/deep_dives/gwas-prs-practice/), with the mechanism in
+[LD in Practice](/deep_dives/gwas-ld-reference-panels/): accuracy is a property of the
+population tested in, and tagging is population-specific <Citation id="martin2019" />.
+
+**(e)** [Quality Control](/deep_dives/gwas-quality-control/). Every filter named is computed
+without reference to phenotype and is therefore blind to differential missingness, which is
+the one failure mode that manufactures associations.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Budgeting a study" difficulty="stretch">
+
+You have 8,000 cases, 32,000 controls, and funding for 8,000 more samples. Typical imputation
+quality for the variants you care about is 0.60.
+
+(a) What is the current effective sample size at such a variant?
+
+(b) Spending the 8,000 on cases versus controls: what is each worth at the variant?
+
+(c) A collaborator proposes spending it on deeper sequencing of the existing samples instead,
+raising typical INFO from 0.60 to 0.95. Compare.
+
+<div slot="solution">
+
+**(a)** $N_{\mathrm{eff}} = 4/(1/8{,}000 + 1/32{,}000) = 25{,}600$, and at INFO 0.60 the
+variant is worth $25{,}600 \times 0.60 = 15{,}360$.
+
+**(b)** Adding controls: $4/(1/8{,}000 + 1/40{,}000) = 26{,}666.67$, worth
+$16{,}000.00$ at the variant. Adding cases: $4/(1/16{,}000 + 1/32{,}000) = 42{,}666.67$,
+worth $25{,}600.00$. Cases are worth $9{,}600.00$ more effective samples than controls at
+this variant — the sixteen-fold rule of Module 1, carried through the imputation multiplier.
+
+**(c)** Better imputation raises the variant to $25{,}600 \times 0.95 = 24{,}320$, a gain of
+8,960 — nearly as good as spending everything on cases, and it applies to **every variant in
+the genome** rather than to the study as a whole. It also raises the INFO of variants
+currently below the filter, which adds tests rather than only power. Whether that is the right
+call depends on how many variants of interest sit near the threshold, but the comparison is
+much closer than it looks, and it is the one most study designs never make.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **This track runs the methods the
+  [Statistical Genetics](/deep_dives/statistical-genetics/) track derives.** Where a
+  derivation is needed it is linked, not repeated.
+- **Effective sample size is the currency.** Imbalance reduces it, pruning reduces it,
+  imputation quality multiplies it, and keeping one running total across the pipeline is the
+  habit that makes the trade-offs visible.
+- **Fifty thousand people can be seventeen thousand at a variant** — 35.13% of the headcount —
+  with three defensible decisions and no error anywhere.
+- **The decisions in Module 1 cannot be revisited.** Ascertainment, ratio and array content
+  set a ceiling; everything later is about not falling further below it.
+- **Every step produces output whether or not its decision was right.** That is what the
+  lessons are for: each one is largely about how to check a step that will not complain.
+- **The catalogue <Citation id="sollis2023gwascatalog" /> is the cheapest calibration
+  available** for what a study of a given size should expect to find.
