@@ -1319,6 +1319,23 @@ describe('statgen-blup-genomic-selection', () => {
 
 describe('statgen-multivariate-genetics-gxe', () => {
   const mdx = lesson('statgen-multivariate-genetics-gxe');
+
+  it('counts the rank changes Figure 2 actually draws', () => {
+    // The caption said "two of the genotypes cross". Two line-crossings occur, but three of
+    // the four genotypes change rank (1->3, 2->1, 3->2, 4->4) — and rank change, not
+    // crossing count, is the quantity the surrounding paragraph is about.
+    const A = [1.2, 0.4, -0.5, -1.1];
+    const B = [0.3, 2.4, 1.4, -0.9];
+    const rank = (x: number[]) => x.map((v) => x.filter((w) => w > v).length + 1);
+    const moved = rank(A).filter((r, k) => r !== rank(B)[k]).length;
+    expect(moved).toBe(3);
+    expect(rank(A)).toEqual([1, 2, 3, 4]);
+    expect(rank(B)).toEqual([3, 1, 2, 4]);
+    expect(spearman(A, B)).toBeLessThan(1);
+    expect(mdx).toContain('Three of the four change rank');
+    expect(mdx).toContain('three of');           // the figure's own margin note
+    expect(mdx).not.toContain('Two of the genotypes cross');
+  });
   const G = [[40, 20], [20, 30]];
   const P = [[100, 30], [30, 80]];
 
@@ -1464,7 +1481,10 @@ describe('statgen-multivariate-genetics-gxe', () => {
       // and genotype 0 is best in A but only third in B
       expect(A.filter((v) => v > A[0]).length).toBe(0);
       expect(B.filter((v) => v > B[0]).length).toBe(2);
-      expect(mdx).toContain('only third in environment B');
+      // The caption now states the whole picture — three of four move — rather than the
+      // single pair; the figure's own label still marks this genotype.
+      expect(mdx).toContain('falls to third in B');
+      expect(mdx).toContain('only third in B');
     });
 
     it('falls below the 0.8 rule of thumb', () => {
@@ -2026,6 +2046,32 @@ describe('statgen-meta-analysis-replication', () => {
   const N = [20000, 30000, 25000, 22000];
   const THRESH = 5.45131;
 
+  it('draws forest-plot boxes whose AREA tracks the inverse-variance weight', () => {
+    // The caption states the decoding rule a reader uses on a forest plot, so the drawing
+    // has to obey it. The generator originally set the SIDE affine in the weight
+    // (4 + 12 w/w_max), which makes area go as the square — study 3 drew at 13% of the
+    // largest box where its weight is 14%. Side now goes as the square root.
+    const svg = lesson('statgen-meta-analysis-replication').match(/<svg[\s\S]*?<\/svg>/)![0];
+    expect(svg).toContain('study 1');
+    const sides = [...svg.matchAll(/<rect[^>]*width="([\d.]+)"/g)].map((m) => Number(m[1]));
+    expect(sides).toHaveLength(4);
+    const weights = [0.02, 0.015, 0.04, 0.018].map((se) => 1 / se ** 2);
+    const wMax = Math.max(...weights);
+    const sMax = Math.max(...sides);
+    // Boxes are emitted in study order, so area/areaMax must equal weight/weightMax.
+    // Two decimal places, not three: figlib writes coordinates to one decimal, so a side
+    // of 13.3333 is drawn as 13.3 and its area lands 0.0035 off. That is the renderer's
+    // resolution, not a modelling error — the affine version was off by 0.11.
+    weights.forEach((w, k) => {
+      expect((sides[k] / sMax) ** 2, `study ${k + 1} box area`).toBeCloseTo(w / wMax, 2);
+    });
+    // and every box stays large enough to see
+    expect(Math.min(...sides)).toBeGreaterThanOrEqual(5);
+    expect(lesson('statgen-meta-analysis-replication')).toContain(
+      'Box area is proportional to the inverse-variance weight'
+    );
+  });
+
   describe('worked example — four studies, two weightings', () => {
     const fit = ivwMeta(B, SE);
 
@@ -2197,6 +2243,29 @@ describe('statgen-bayesian-fine-mapping', () => {
     const abfs = SIGNAL.map((z) => wakefieldAbf(z, V, W));
     const pips = pipsFromAbf(abfs, flat(8), PI0);
 
+    it('resolves the credible set to one variant as N grows, as Step 4 now says', () => {
+      // Step 4 used to claim "No increase in sample size will separate them" at a purity of
+      // |r| = 0.70. False: marginal z scales as sqrt(N) while LD does not, so the evidence
+      // gap between causal and tag widens with N. Only |r| = 1 is beyond sample size.
+      const setSize = (n: number) => {
+        const v = 1 / (2 * P * (1 - P) * n);
+        const z = SIGNAL.map((x) => x * Math.sqrt(n / N));
+        return credibleSet(
+          pipsFromAbf(
+            z.map((x) => wakefieldAbf(x, v, W)),
+            flat(8),
+            PI0
+          ),
+          0.95
+        ).indices.length;
+      };
+      expect(setSize(N)).toBe(3);
+      expect(setSize(96000)).toBe(1);
+      expect(setSize(95000)).toBeGreaterThan(1);
+      expect(mdx).toContain('N \\approx 95{,}500');
+      expect(mdx).not.toContain('No increase in sample size will separate them');
+    });
+
     it('has the variance the lesson quotes', () => {
       expect(V).toBeCloseTo(4.7619e-5, 9);
       expect(mdx).toContain('4.7619 × 10⁻⁵');
@@ -2329,6 +2398,18 @@ describe('statgen-bayesian-fine-mapping', () => {
 
 describe('statgen-mendelian-randomization', () => {
   const mdx = lesson('statgen-mendelian-randomization');
+
+  it('names the design before asserting which way weak instruments bias', () => {
+    // The direction is not a general fact. One-sample MR shares individuals between the two
+    // estimates, so correlated errors pull toward the observational association; two-sample
+    // MR has independent errors and attenuates toward the null. The lesson stated the
+    // one-sample direction as universal and named neither design anywhere.
+    expect(mdx).toContain('**one-sample** MR');
+    expect(mdx).toContain('**two-sample** MR');
+    expect(mdx).toMatch(/bias runs toward the confounded observational/);
+    expect(mdx).toMatch(/bias runs toward the \*\*null\*\*/);
+    expect(mdx).not.toMatch(/biases\* the\s+ratio, toward the confounded/);
+  });
   const TRUE = 0.3;
   const GX = [0.1, 0.12, 0.08, 0.15, 0.09, 0.11, 0.13, 0.07];
   const SEX = GX.map(() => 0.01);
@@ -4520,9 +4601,14 @@ describe('statistical-genetics (hub)', () => {
       expect(mdx).toContain('5.4513');
     });
 
-    it('module 2 counts 90 minor homozygotes per thousand at MAF 0.30', () => {
+    it('module 2 counts 90 homozygous carriers per thousand, in Module 2\'s notation', () => {
       expect(1000 * P * P).toBe(90);
-      expect(mdx).toContain('1000 p^2 = 90');
+      expect(mdx).toContain('1000 \\times 0.30^2 = 90');
+      // statgen-population-infinitesimal writes the MINOR allele q and the major p, so the
+      // hub may not call p the minor allele — it is the effect allele, as in Module 4.
+      expect(mdx).toContain("Effect-allele frequency at the tested variant");
+      expect(mdx).not.toContain('Minor allele frequency at the tested variant');
+      expect(lesson('statgen-population-infinitesimal')).toContain('minor allele frequency is $q');
     });
 
     it('module 3 gives q² = 1.05e-3, which is 0.105% of the trait and 0.35% of h²', () => {
@@ -4537,7 +4623,11 @@ describe('statistical-genetics (hub)', () => {
     it('module 4 needs 37,716 people, from the q²-parameterised constant 39.60', () => {
       expect(K).toBeCloseTo(39.600989, 6);
       expect(N).toBe(37716);
-      expect(mdx).toContain('\\frac{39.60}{1.05 \\times 10^{-3}} = 37{,}716');
+      // The displayed division must produce the displayed result: 39.60/1.05e-3 is
+      // 37,714.29, and only the unrounded 39.600989 gives 37,716.
+      expect(Math.ceil(39.6 / q2), 'the rounded constant gives a different N').toBe(37715);
+      expect(mdx).toContain('\\frac{39.600989}{1.05 \\times 10^{-3}} = 37{,}716');
+      expect(mdx).toContain('(z_{\\alpha/2} + z_\\beta)^2 = 39.600989');
     });
 
     it('module 5 reaches R² = 3.3565e-3 at that same N — 0.34% of the trait', () => {
@@ -4566,11 +4656,21 @@ describe('statistical-genetics (hub)', () => {
       expect(mdx).toContain('795 times');
     });
 
-    it('makes the same variant a strong instrument and a weak predictor', () => {
-      expect(fStatistic(BETA, 0.01)).toBeCloseTo(25, 10);
-      expect(mdx).toContain('= 25');
-      // Strong as an instrument (F > 10) while contributing 0.105% to prediction.
-      expect(fStatistic(BETA, 0.01)).toBeGreaterThan(10);
+    it('gives the instrument the same F as the discovery chi-square', () => {
+      // For a single instrument F = (gamma/SE)^2, which is the variant's association
+      // chi-square in the exposure GWAS — and that is N q^2, the non-centrality the power
+      // calculation solved for. The hub said F = 25 from an invented SE of 0.010, which
+      // would have put the variant *below* the 29.7168 discovery threshold it had just
+      // cleared two paragraphs earlier.
+      expect(N * q2).toBeCloseTo(39.6018, 4);
+      // N was rounded up to a whole person, so N q^2 sits just above the constant it
+      // was solved from — never below, or the study would be underpowered.
+      expect(N * q2).toBeGreaterThanOrEqual(K);
+      expect(N * q2 - K).toBeLessThan(q2);
+      expect(mdx).toContain('Nq^2 = 39.60');
+      // Anything genome-wide significant is past the conventional F > 10 by construction.
+      expect(chi2Quantile(1 - 5e-8, 1)).toBeGreaterThan(10);
+      expect(mdx).not.toContain('F = (\\beta/\\text{SE})^2 = 25');
     });
   });
 

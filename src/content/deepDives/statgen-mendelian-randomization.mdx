@@ -121,7 +121,12 @@ pleiotropy, and nothing in the ratio can tell the difference.
 ## Weak instruments
 
 Dividing by a noisy $\hat\gamma_X$ does not merely inflate the variance; it *biases* the
-ratio, toward the confounded observational association the study was run to escape. The
+ratio — and the direction depends on where the two estimates came from. If the same
+individuals supply both $\hat\gamma_X$ and $\hat\gamma_Y$ (**one-sample** MR), the two
+errors are correlated and the bias runs toward the confounded observational association
+the study was run to escape. If they come from independent samples (**two-sample** MR,
+which is what the summary-statistic estimators below assume), the errors are independent
+and the bias runs toward the **null** instead. The
 first-stage F-statistic measures it:
 
 $$
@@ -131,8 +136,9 @@ F = \frac{\hat\gamma_X^2}{\mathrm{Var}(\hat\gamma_X)},
 $$
 
 The conventional threshold is $F > 10$. It is worth being precise about what that buys:
-$F = 10$ means roughly **10% of the confounding remains**, not that the instrument is fine.
-It is a bias tolerance dressed as a significance threshold.
+$F = 10$ leaves roughly **10% of the bias** in place — a tenth of the way toward the
+observational estimate in one sample, a tenth of the effect attenuated away in two — not that
+the instrument is fine. It is a bias tolerance dressed as a significance threshold.
 
 ## Many instruments: IVW
 
