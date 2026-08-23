@@ -1,0 +1,324 @@
+---
+title: "LD in Practice: Reference Panels, Pruning and Clumping"
+shortTitle: LD in Practice
+description: "Choosing an LD reference that matches the cohort, the difference between pruning and clumping and when each is right, and what happens downstream when the panel is wrong."
+abstract: "Almost everything after the scan needs an LD reference, and the choice of that reference is a modelling decision disguised as a file path. The reason is that r-squared is not a property of two variants; it is a property of two variants in a population. The lesson works a pair sitting at frequency 0.50 at both loci in two populations — nothing about the variants differs — where r-squared is 0.640000 in one and 0.078400 in the other, so a study needs 61,877 people to see a causal signal through that tag in the first and 505,115 in the second, a factor of 8.16. That single fact explains why a mismatched panel corrupts clumping, LD score regression and fine-mapping alike. The second half separates pruning from clumping, which are routinely confused and answer different questions."
+date: 2026-08-23
+track: workflow
+hub: gwas
+moduleId: g03-after
+moduleLabel: Module 3 · After the Scan
+order: 7
+level: intermediate
+objectives:
+  - "Compute D, D-prime and r-squared from haplotype frequencies and say which of them a tagging argument depends on."
+  - "Explain why identical allele frequencies in two populations can still give completely different r-squared."
+  - "Convert a tagging r-squared into the sample size a study needs to see the causal variant through it."
+  - "Choose between LD pruning and clumping for a given downstream task."
+  - "Say what a mismatched LD reference does to clumping, LD score regression and fine-mapping."
+prerequisites:
+  - gwas-reading-the-output
+relatedLessons:
+  - gwas-reading-the-output
+  - statgen-linkage-disequilibrium
+  - statgen-ldsc-sldsc
+keyEquations:
+  - "D = p_{AB} - p_A p_B"
+  - "r^2 = \\dfrac{D^2}{p_A p_a p_B p_b}"
+  - "q^2_{\\text{tag}} = r^2 \\, q^2_{\\text{causal}}"
+referenceIds:
+  - hill1968
+  - gabriel2002
+  - pritchard2001
+  - hapmap2005
+  - tgp2015
+  - bulik2015ldsc
+  - purcell2007plink
+  - martin2019
+tags: [GWAS, linkage disequilibrium, reference panels, clumping, pruning, LDSC]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Three of the things a GWAS does after the scan — clumping the results, estimating
+heritability from them, fine-mapping a locus — take an LD reference panel as an argument.
+Which one, and does it matter?
+
+It matters more than almost any other file path in the pipeline, and the reason is a single
+property of $r^2$ that is easy to state and easy to forget.
+
+<Callout variant="intuition">
+
+**$r^2$ is not a property of two variants.** It is a property of two variants *in a
+population*. The same pair of positions, at the same allele frequencies, can be almost
+perfectly correlated in one group of people and nearly independent in another, because
+correlation is about which combinations actually occur on the chromosomes those people
+carry — and that is a matter of their shared history, not of the variants.
+
+So an LD reference panel is not a lookup table for a fact about the genome. It is a claim
+about which population your samples resemble.
+
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: 'p_{AB}', meaning: 'Frequency of the haplotype carrying A at one locus and B at the other', dims: 'in [0,1]' },
+    { symbol: 'D', meaning: 'Linkage disequilibrium, the excess of a haplotype over independence', dims: 'real' },
+    { symbol: "D'", meaning: 'D scaled by its maximum given the allele frequencies', dims: 'in [-1,1]' },
+    { symbol: 'r^2', meaning: 'Squared correlation between the two loci', dims: 'in [0,1]' },
+    { symbol: 'q^2_{\\text{tag}}', meaning: 'Trait variance an association at the tag appears to explain', dims: 'in [0,1]' },
+  ]}
+/>
+
+## The same pair in two populations
+
+<WorkedExample
+  title="Identical allele frequencies, an 8.16-fold difference in what the study needs"
+  given={[
+    { label: 'Population A haplotypes', value: 'AB 0.45, Ab 0.05, aB 0.05, ab 0.45' },
+    { label: 'Population B haplotypes', value: 'AB 0.32, Ab 0.18, aB 0.18, ab 0.32' },
+    { label: 'Causal variance explained', value: 'q² = 1.0 × 10⁻³' },
+    { label: 'Threshold', value: '80% power at 5 × 10⁻⁸' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the allele frequencies are the same.** In both populations,
+
+$$
+p_A = p_{AB} + p_{Ab} = 0.50, \qquad p_B = p_{AB} + p_{aB} = 0.50 .
+$$
+
+Nothing that a frequency-based filter, an imputation quality metric or a minor-allele
+threshold can see differs between them.
+
+**Step 2 — the haplotypes are not.** Disequilibrium is the excess of a haplotype over what
+independence would give <Citation id="hill1968" />:
+
+$$
+D = p_{AB} - p_A p_B .
+$$
+
+Population A gives $D = 0.45 - 0.25 = 0.2000$; population B gives
+$D = 0.32 - 0.25 = 0.0700$.
+
+**Step 3 — normalise twice, two different ways.** $D'$ divides by the largest $D$ the allele
+frequencies permit, which here is $0.25$:
+
+$$
+D'_A = 0.8000, \qquad D'_B = 0.2800 .
+$$
+
+$r^2$ divides by the product of all four allele frequencies:
+
+$$
+r^2 = \frac{D^2}{p_A p_a p_B p_b}, \qquad r^2_A = 0.640000, \qquad r^2_B = 0.078400 .
+$$
+
+Because both loci sit at exactly $0.50$ here, the two normalisations coincide:
+$r^2 = D'^2$, which is why $0.8000^2 = 0.640000$ and $0.2800^2 = 0.078400$. That identity
+holds only at equal frequencies, and is a useful check when reading a figure like this one.
+
+**Step 4 — which one does tagging depend on?** $r^2$, and only $r^2$. A causal variant
+explaining $q^2$ of the trait shows up at a tag as
+
+$$
+q^2_{\text{tag}} = r^2 \, q^2_{\text{causal}} ,
+$$
+
+so with $q^2_{\text{causal}} = 1.0 \times 10^{-3}$ the tag carries $6.4 \times 10^{-4}$ in
+population A and $7.84 \times 10^{-5}$ in population B.
+
+**Step 5 — in people.** Using $N \geq 39.60/q^2$ from the design lesson, the study needs
+
+$$
+N_A = 61{,}877 \qquad\text{and}\qquad N_B = 505{,}115 .
+$$
+
+The ratio is $8.1633$, exactly the ratio of the two $r^2$ values, because the sample size is
+inversely proportional to the variance the tag carries. Choosing the wrong reference panel
+does not make a study slightly less efficient. It can make it eight times too small.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The same two variants in two populations, with identical allele frequencies of 0.50 at both loci. Population A's haplotypes are concentrated on AB and ab, giving D = 0.2000 and r² = 0.640000; population B's are spread, giving D = 0.0700 and r² = 0.078400. The required sample size rises from 61,877 to 505,115 — a factor of 8.16, exactly the ratio of the two r² values."
+  alt="Two haplotype frequency grids side by side. Population A shows 0.45, 0.05, 0.05, 0.45 with D of 0.2000, D-prime of 0.8000 and r squared of 0.640000, needing 61,877 people. Population B shows 0.32, 0.18, 0.18, 0.32 with D of 0.0700, D-prime of 0.2800 and r squared of 0.078400, needing 505,115."
+>
+<svg viewBox="0 0 640 366" width="640" height="366" font-family="inherit"><text x="60.0" y="46.0" font-size="12" fill="currentColor" font-weight="700">population A</text><text x="156.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">B</text><text x="212.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">b</text><text x="116.0" y="96.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">A</text><rect x="132.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="158.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.45</text><rect x="188.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="214.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.05</text><text x="116.0" y="140.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">a</text><rect x="132.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="158.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.05</text><rect x="188.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="214.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.45</text><text x="60.0" y="190.0" font-size="10.5" fill="currentColor" opacity=".85">D = 0.2000</text><text x="60.0" y="207.0" font-size="10.5" fill="currentColor" opacity=".85">D' = 0.8000</text><text x="60.0" y="224.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">r² = 0.640000</text><text x="60.0" y="250.0" font-size="10.5" fill="currentColor" font-weight="600">N needed: 61,877</text><text x="380.0" y="46.0" font-size="12" fill="currentColor" font-weight="700">population B</text><text x="476.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">B</text><text x="532.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">b</text><text x="436.0" y="96.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">A</text><rect x="452.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="478.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.32</text><rect x="508.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="534.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.18</text><text x="436.0" y="140.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">a</text><rect x="452.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="478.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.18</text><rect x="508.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="534.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.32</text><text x="380.0" y="190.0" font-size="10.5" fill="currentColor" opacity=".85">D = 0.0700</text><text x="380.0" y="207.0" font-size="10.5" fill="currentColor" opacity=".85">D' = 0.2800</text><text x="380.0" y="224.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">r² = 0.078400</text><text x="380.0" y="250.0" font-size="10.5" fill="currentColor" font-weight="600">N needed: 505,115</text><text x="20.0" y="24.0" font-size="11.5" fill="currentColor" opacity=".8">Same two variants, same allele frequencies, different populations</text><line x1="340.0" y1="40.0" x2="340.0" y2="262.0" stroke="currentColor" stroke-width="1" opacity=".2"/><text x="20.0" y="286.0" font-size="10" fill="currentColor" opacity=".85">Both loci sit at frequency 0.50 in both populations, so nothing about the</text><text x="20.0" y="300.0" font-size="10" fill="currentColor" opacity=".85">variants themselves differs. Only the haplotypes do — and r² falls 8.16-fold,</text><text x="20.0" y="314.0" font-size="10" fill="currentColor" opacity=".85">which is exactly the factor by which the required sample size rises.</text><text x="20.0" y="336.0" font-size="10" fill="currentColor" opacity=".7">At equal frequencies r² = D'² exactly, which is why the two columns above</text><text x="20.0" y="350.0" font-size="10" fill="currentColor" opacity=".7">move together.</text></svg>
+</Figure>
+
+## Pruning and clumping are different jobs
+
+These two are constantly confused, partly because the same tool performs both
+<Citation id="purcell2007plink" />, and choosing the wrong one silently changes the answer.
+
+**Pruning** walks the genome and removes variants correlated above a threshold with a
+retained neighbour. It knows nothing about the phenotype. What survives is a set that is
+roughly independent and *unbiased with respect to signal* — which is exactly what an ancestry
+principal-components calculation and a genetic relationship matrix need, and why the previous
+module insisted on pruning before computing either.
+
+**Clumping** keeps the most significant variant in each LD neighbourhood and discards the
+rest. It is phenotype-aware by construction. What survives is a set of independent *signals*,
+which is what a polygenic score wants — one weight per locus rather than fifty correlated
+copies of the same one.
+
+Using them the wrong way round produces two distinct failures. Clumping before a PC
+calculation enriches the variant set for associated regions, so the components partly
+describe the phenotype rather than the ancestry. Pruning before a score keeps an arbitrary
+member of each block rather than the best one, discarding signal for no reason.
+
+## Where a mismatched panel does its damage
+
+**Clumping** decides which variants are "the same signal" using the panel's $r^2$. With a
+panel from the wrong population, a genuinely independent second signal in the locus gets
+absorbed into the first, or one signal fragments into several — and both errors propagate
+into whatever consumes the clumped list.
+
+**LD score regression** regresses $\chi^2$ on how much of the genome each variant tags
+<Citation id="bulik2015ldsc" />, and those LD scores come entirely from the panel. Because
+the slope is $Nh^2/M$, a systematically wrong LD score gives a systematically wrong
+heritability, with no diagnostic in the output to reveal it. This is why LDSC's documentation
+is emphatic about ancestry matching, and why the intercept — which is *not* proportional to
+the LD score — remains interpretable even when the slope is not.
+
+**Fine-mapping** is the most sensitive of the three, because it is trying to distinguish
+variants that are nearly indistinguishable. It is the subject of the next lesson, which uses
+in-sample LD rather than a panel for precisely this reason.
+
+<Callout variant="warning" title="There is no universal panel">
+
+Reference panels <Citation id="hapmap2005" /><Citation id="tgp2015" /> are collections of
+particular people, and haplotype structure varies continuously rather than falling into
+labelled boxes <Citation id="gabriel2002" /><Citation id="pritchard2001" />. A cohort that is
+admixed, or that comes from a population under-represented in every available panel, has no
+correct choice — only a least-wrong one, and an obligation to say which was used.
+
+This is a concrete part of why results transfer poorly across populations
+<Citation id="martin2019" />: not only are the effect sizes estimated in one group, the LD
+structure used to interpret them is too. Both have to travel for the result to.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Two loci at unequal frequencies" difficulty="warm-up">
+
+Haplotype frequencies are $p_{AB} = 0.30$, $p_{Ab} = 0.10$, $p_{aB} = 0.10$, $p_{ab} = 0.50$.
+
+(a) Compute $p_A$, $p_B$, $D$ and $r^2$.
+
+(b) Does $r^2 = D'^2$ here?
+
+(c) A causal variant explains $q^2 = 8 \times 10^{-4}$. What does a study see at this tag?
+
+<div slot="solution">
+
+**(a)** $p_A = 0.40$, $p_B = 0.40$, $D = 0.30 - 0.16 = 0.1400$, and
+$r^2 = 0.14^2/(0.4 \times 0.6 \times 0.4 \times 0.6) = 0.0196/0.0576 = 0.340278$.
+
+**(b)** No. $D_{\max} = \min(p_A p_b,\, p_a p_B) = \min(0.24, 0.24) = 0.24$, so
+$D' = 0.583333$ and $D'^2 = 0.340278$ — which does equal $r^2$ here, because the two loci
+still share the *same* allele frequency as each other (both 0.40), even though neither is
+0.50. The identity needs $p_A = p_B$, not $p_A = 0.5$; the worked example's phrasing is a
+special case of that.
+
+**(c)** $q^2_{\text{tag}} = 0.340278 \times 8 \times 10^{-4} = 2.72222 \times 10^{-4}$, so
+the study needs $N \geq 39.600989/(2.72222 \times 10^{-4}) = 145{,}474$ people.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Which tool for which job?" difficulty="core">
+
+For each task, say whether to prune or to clump, and what goes wrong with the other choice.
+
+(a) Computing ancestry principal components.
+
+(b) Selecting variants for a polygenic score.
+
+(c) Building a genetic relationship matrix for a mixed model.
+
+(d) Counting how many independent signals a locus contains.
+
+<div slot="solution">
+
+**(a) Prune.** Clumping selects for association with the phenotype, so the leading components
+would partly describe the trait rather than ancestry — and adjusting a scan for components
+built from its own signal removes the signal.
+
+**(b) Clump.** Pruning keeps an arbitrary variant per block; clumping keeps the one carrying
+the evidence, which is the one whose weight you want.
+
+**(c) Prune.** Same reason as (a): a relationship matrix should describe how related people
+are, not how similar their phenotypes are.
+
+**(d) Clump**, but carefully — and this is the case where neither tool is really right.
+Clumping counts signals by an $r^2$ rule, which cannot distinguish two causal variants in
+modest LD from one causal variant tagged twice. That question needs the fine-mapping of the
+next lesson, and treating a clump count as a signal count is a common way to over-report
+independent associations.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A heritability that will not replicate" difficulty="stretch">
+
+A group estimates $h^2_{\mathrm{SNP}}$ by LD score regression on a South Asian cohort, using
+LD scores computed from a European panel because that is what the software ships with. They
+report $h^2 = 0.31$ with a clean intercept of 1.01.
+
+(a) Is the intercept reassuring?
+
+(b) In which direction is the heritability likely wrong, and why can you not simply correct
+it?
+
+(c) What should they do?
+
+<div slot="solution">
+
+**(a)** Only about the thing it measures. The intercept estimates the part of the inflation
+that does *not* scale with the LD score, so it is largely insensitive to the LD scores being
+wrong — which is precisely why it stays clean while the slope is corrupted. A clean intercept
+alongside a mismatched panel is the most misleading combination available, because it looks
+like a passing diagnostic.
+
+**(b)** The slope is $Nh^2/M$, so $h^2$ is misestimated by whatever factor the LD scores are
+wrong by, and the direction depends on whether European LD scores are systematically higher
+or lower than South Asian ones for the variants analysed. It cannot be corrected by a scalar
+because the error is not a constant factor: it varies variant by variant with how the two
+populations' haplotype structures differ, which is the same fact the worked example
+demonstrated at a single pair.
+
+**(c)** Compute LD scores from a panel matched to the cohort — a South Asian subset of a
+large reference resource <Citation id="tgp2015" />, or better, in-sample from the cohort's own
+genotypes if it is large enough. Then report which panel was used, because a reader cannot
+otherwise tell this analysis from a correct one: the published numbers look identical.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **$r^2$ is a property of a pair *in a population*.** Two variants at identical allele
+  frequencies gave $r^2 = 0.640000$ in one population and $0.078400$ in another, and an
+  LD panel is a claim about which population your samples resemble.
+- **Tagging depends on $r^2$, not $D'$.** The variance an association carries is
+  $q^2_{\text{tag}} = r^2 q^2_{\text{causal}}$, so sample size scales as $1/r^2$ — 61,877
+  people against 505,115 for the same causal variant.
+- **The two normalisations coincide when the loci share an allele frequency**, where
+  $r^2 = D'^2$. That is a useful arithmetic check and not a general fact.
+- **Pruning is signal-blind, clumping is signal-aware.** Prune for principal components and
+  relationship matrices; clump for scores. Swapping them puts phenotype into your ancestry
+  axes or throws away the best variant in every block.
+- **A mismatched panel corrupts the LDSC slope while leaving the intercept clean**, which is
+  the most misleading diagnostic combination there is — the heritability is wrong and nothing
+  in the output says so.
