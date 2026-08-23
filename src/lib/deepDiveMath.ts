@@ -193,6 +193,41 @@ export function controlCeiling(nCases: number): number {
   return 4 * nCases;
 }
 
+// ── Quality control ───────────────────────────────────────────────────────────
+
+/** Fraction of attempted genotypes that returned a call. */
+export function callRate(called: number, attempted: number): number {
+  return attempted === 0 ? 0 : called / attempted;
+}
+
+/**
+ * Proportion of the genome two samples share identical by descent,
+ * PI_HAT = P(IBD = 2) + ½ P(IBD = 1).
+ *
+ * The expected values are what make it a classifier rather than a score: duplicates and
+ * monozygotic twins sit at 1, full sibs and parent-offspring pairs at ½, half-sibs,
+ * avuncular and grandparent pairs at ¼, first cousins at ⅛, unrelated pairs at 0. The
+ * conventional 0.185 cut is deliberately placed in the gap between ¼ and ⅛ — it is not a
+ * significance threshold, it is the midpoint of an empty region.
+ */
+export function piHat(z0: number, z1: number, z2: number): number {
+  return z2 + 0.5 * z1;
+}
+
+/**
+ * Inbreeding coefficient from homozygote counts, F = (O − E)/(N − E).
+ *
+ * Used two ways in quality control and they mean different things. On the X chromosome it
+ * is a **sex check**: males are hemizygous so F ≈ 1, females F ≈ 0, and anything between is
+ * a sample swap, a contamination, or a genuine sex-chromosome aneuploidy. On the autosomes
+ * an unusually low F is the signature of a **contaminated sample** — mixing two people's DNA
+ * manufactures heterozygotes that neither of them has.
+ */
+export function inbreedingF(observedHom: number, expectedHom: number, nSites: number): number {
+  const denom = nSites - expectedHom;
+  return denom === 0 ? 0 : (observedHom - expectedHom) / denom;
+}
+
 // ── Imputation ────────────────────────────────────────────────────────────────
 
 /**

@@ -3411,3 +3411,43 @@ listephens2003:
   venue: "Genetics 165:2213-2233"
   doi: https://doi.org/10.1093/genetics/165.4.2213
   verified: 2026-08-23
+
+purcell2007plink:
+  authors: ['Shaun Purcell', 'Benjamin Neale', 'Kathe Todd-Brown', 'et al.']
+  year: 2007
+  title: "PLINK: A Tool Set for Whole-Genome Association and Population-Based Linkage Analyses"
+  venue: "The American Journal of Human Genetics 81:559-575"
+  doi: https://doi.org/10.1086/519795
+  verified: 2026-08-23
+
+chang2015plink2:
+  authors: ['Christopher C. Chang', 'Carson C. Chow', 'Laurent C. A. M. Tellier', 'et al.']
+  year: 2015
+  title: "Second-generation PLINK: rising to the challenge of larger and richer datasets"
+  venue: "GigaScience 4:7"
+  doi: https://doi.org/10.1186/s13742-015-0047-8
+  verified: 2026-08-23
+
+manichaikul2010king:
+  authors: ['Ani Manichaikul', 'Josyf C. Mychaleckyj', 'Stephen S. Rich', 'et al.']
+  year: 2010
+  title: "Robust relationship inference in genome-wide association studies"
+  venue: "Bioinformatics 26:2867-2873"
+  doi: https://doi.org/10.1093/bioinformatics/btq559
+  verified: 2026-08-23
+
+anderson2010qc:
+  authors: ['Carl A. Anderson', 'Fredrik H. Pettersson', 'Geraldine M. Clarke', 'et al.']
+  year: 2010
+  title: "Data quality control in genetic case-control association studies"
+  venue: "Nature Protocols 5:1564-1573"
+  doi: https://doi.org/10.1038/nprot.2010.116
+  verified: 2026-08-23
+
+laurie2010qc:
+  authors: ['Cathy C. Laurie', 'Kimberly F. Doheny', 'Daniel B. Mirel', 'et al.']
+  year: 2010
+  title: "Quality control and quality assurance in genotypic data for genome-wide association studies"
+  venue: "Genetic Epidemiology 34:591-602"
+  doi: https://doi.org/10.1002/gepi.20516
+  verified: 2026-08-23

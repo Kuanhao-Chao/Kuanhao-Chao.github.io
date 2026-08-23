@@ -1,0 +1,351 @@
+---
+title: "Quality Control: Which Samples and Variants Survive, and What Each Filter Costs"
+shortTitle: Quality Control
+description: "The sample and variant filters every GWAS runs — call rate, heterozygosity, sex concordance, relatedness, differential missingness and Hardy-Weinberg — with the reason each one exists and the sample-size price it charges."
+abstract: "Quality control is usually taught as a checklist and is actually a sequence of trades. Every filter removes something real along with something spurious, and the ones applied to samples are the expensive ones. This lesson works through the standard passes in the order they have to run, and then prices the one that costs the most: relatedness pruning. Breaking 400 related pairs in a study of 10,000 cases and 40,000 controls removes 400 people either way, but removing them from the case arm costs 1,032 effective samples and removing them from the control arm costs 65 — a factor of sixteen, the same ratio the design lesson found, because it is the same derivative. Which member of a related pair you drop is a decision, and the default in most pipelines is to let the software choose."
+date: 2026-08-23
+track: workflow
+hub: gwas
+moduleId: g01-before
+moduleLabel: Module 1 · Before the Scan
+order: 3
+level: intermediate
+objectives:
+  - "Run the standard sample and variant quality-control passes in an order whose steps do not undo one another."
+  - "Compute PI_HAT from IBD probabilities and classify a pair against the relationship classes it is expected to fall into."
+  - "Explain why the 0.185 relatedness cut is placed where it is, and why it is not a significance threshold."
+  - "Price relatedness pruning in effective samples, and choose which member of a related pair to drop."
+  - "Say why Hardy-Weinberg filtering is applied in controls only, and what differential missingness does to an association test."
+prerequisites:
+  - gwas-study-design
+relatedLessons:
+  - gwas-study-design
+  - gwas-arrays-imputation
+  - statgen-population-infinitesimal
+keyEquations:
+  - '\widehat{\Pi} = P(\mathrm{IBD}=2) + \tfrac{1}{2}P(\mathrm{IBD}=1)'
+  - 'F = \dfrac{O - E}{N - E}'
+  - 'N_{\mathrm{eff}} = \dfrac{4}{1/N_{\mathrm{cases}} + 1/N_{\mathrm{controls}}}'
+referenceIds:
+  - anderson2010qc
+  - laurie2010qc
+  - purcell2007plink
+  - chang2015plink2
+  - manichaikul2010king
+  - astle2009structure
+  - hapmap2005
+  - martin2019
+tags: [GWAS, quality control, relatedness, PI_HAT, Hardy-Weinberg, missingness]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Quality control is where a GWAS is won or lost, and it is the part most often run as a
+recipe. The published protocols <Citation id="anderson2010qc" /><Citation id="laurie2010qc" />
+give the thresholds; the tools <Citation id="purcell2007plink" /><Citation id="chang2015plink2" />
+implement them in a few commands. What the recipe does not say is that every filter is a
+trade, and that the sample-level filters are charged against the study's power at a rate
+that depends on which arm the sample came from.
+
+<Callout variant="intuition">
+
+Every quality-control filter is protecting the analysis against **a correlation between a
+technical artefact and the phenotype**. That is the whole subject. A variant that fails in
+5% of samples is harmless if the failures are scattered at random; it manufactures a
+genome-wide significant hit if the failures are concentrated in cases. Nothing else about a
+filter matters as much as whether the thing it removes is associated with the outcome.
+
+</Callout>
+
+## The passes, in an order that works
+
+Order matters because the passes interact, and running them in the wrong sequence lets one
+undo another.
+
+**1 — Variant-level, first pass, loose.** Remove variants with very low call rate before
+computing anything per-sample, because a handful of catastrophic variants will otherwise make
+every sample look bad.
+
+**2 — Sample-level.** Call rate, then heterozygosity, then sex concordance, then relatedness.
+Each is cheap to compute and expensive to get wrong.
+
+**3 — Variant-level, second pass, strict.** Call rate again on the surviving samples,
+Hardy-Weinberg in controls, minor allele frequency, and differential missingness between
+arms.
+
+**4 — Population structure.** Which is a large enough subject to be the next lesson.
+
+Re-running step 3 after step 2 is the part pipelines skip. Removing bad samples changes every
+variant's call rate, and a variant that failed only in the samples you just removed should
+come back.
+
+<Notation
+  rows={[
+    { symbol: '\\widehat{\\Pi}', meaning: 'PI_HAT — estimated proportion of the genome shared identical by descent', dims: 'in [0,1]' },
+    { symbol: 'z_0, z_1, z_2', meaning: 'Probabilities that a pair shares 0, 1 or 2 alleles IBD at a locus', dims: 'sum to 1' },
+    { symbol: 'F', meaning: 'Inbreeding coefficient, (observed − expected homozygosity) / (sites − expected)', dims: 'about [-1,1]' },
+    { symbol: 'O, E, N', meaning: 'Observed homozygotes, expected homozygotes, sites examined', dims: 'counts' },
+    { symbol: 'N_{\\mathrm{eff}}', meaning: 'Effective sample size, from the design lesson', dims: 'count' },
+  ]}
+/>
+
+## Relatedness, and which member to drop
+
+Cryptic relatedness inflates association statistics because related samples are not
+independent observations <Citation id="astle2009structure" />. The standard remedy is to
+break every pair above a threshold by removing one member. What the remedy does not specify
+is *which* member — and by the arithmetic of the design lesson, that choice is worth sixteen
+times the cost of the pruning itself.
+
+<Figure
+  caption="Figure 1. The relationship classes PI_HAT is expected to fall into, and the conventional 0.185 cut. Duplicates and monozygotic twins sit at 1, first-degree relatives at 1/2, second-degree at 1/4, first cousins at 1/8, unrelated pairs at 0. The cut is placed in the widest gap — between 1/4 and 1/8 — so it is not a significance threshold but the midpoint of a region where, under any standard pedigree, nothing is expected to land."
+  alt="A horizontal scale of the proportion of the genome shared identical by descent, from 0 to 1. Five points are marked: unrelated at 0, first cousin at one eighth, second degree at one quarter, first degree at one half, and duplicate or monozygotic twin at 1. A dashed line at 0.185 falls inside a shaded band between one eighth and one quarter."
+>
+<svg viewBox="0 0 640 208" width="640" height="208" font-family="inherit"><line x1="110.0" y1="150.0" x2="470.0" y2="150.0" stroke="currentColor" stroke-width="1.25"/><line x1="126.1" y1="150.0" x2="126.1" y2="155.0" stroke="currentColor" stroke-width="1"/><text x="126.1" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="166.2" y1="150.0" x2="166.2" y2="155.0" stroke="currentColor" stroke-width="1"/><text x="166.2" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1/8</text><line x1="206.4" y1="150.0" x2="206.4" y2="155.0" stroke="currentColor" stroke-width="1"/><text x="206.4" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1/4</text><line x1="286.8" y1="150.0" x2="286.8" y2="155.0" stroke="currentColor" stroke-width="1"/><text x="286.8" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1/2</text><line x1="447.5" y1="150.0" x2="447.5" y2="155.0" stroke="currentColor" stroke-width="1"/><text x="447.5" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><rect x="166.2" y="78.0" width="40.2" height="72.0" rx="2" fill="currentColor" opacity="0.09"/><line x1="185.5" y1="66.0" x2="185.5" y2="150.0" stroke="currentColor" stroke-width="1.6" opacity=".65" stroke-dasharray="5 4"/><text x="185.5" y="58.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">cut at 0.185</text><circle cx="126.1" cy="124.0" r="5.5" fill="var(--color-accent, #2e6e5e)"/><text x="126.1" y="100.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".85">unrelated</text><circle cx="166.2" cy="124.0" r="5.5" fill="var(--color-accent, #2e6e5e)"/><text x="157.2" y="86.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".85">first cousin</text><line x1="166.2" y1="92.0" x2="166.2" y2="116.0" stroke="currentColor" stroke-width="1" opacity=".25"/><circle cx="206.4" cy="124.0" r="5.5" fill="var(--color-accent, #2e6e5e)"/><text x="206.4" y="100.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".85">2nd degree</text><circle cx="286.8" cy="124.0" r="5.5" fill="var(--color-accent, #2e6e5e)"/><text x="286.8" y="86.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".85">1st degree</text><line x1="286.8" y1="92.0" x2="286.8" y2="116.0" stroke="currentColor" stroke-width="1" opacity=".25"/><circle cx="447.5" cy="124.0" r="5.5" fill="var(--color-accent, #2e6e5e)"/><text x="447.5" y="100.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".85">duplicate / MZ</text><text x="290.0" y="190.0" font-size="12" fill="currentColor" text-anchor="middle">Proportion of the genome shared IBD</text><text x="20.0" y="24.0" font-size="11.5" fill="currentColor" opacity=".8">PI<tspan font-size="8.5" dy="3">H</tspan><tspan dy="-3"></tspan>AT is a set of expected values with gaps — and the cut sits in one</text></svg>
+</Figure>
+
+<WorkedExample
+  title="Four pairs, and what breaking them costs"
+  given={[
+    { label: 'Study', value: '10,000 cases and 40,000 controls' },
+    { label: 'Effective size', value: 'N_eff = 32,000' },
+    { label: 'Related pairs found', value: '400 above the 0.185 cut' },
+    { label: 'Threshold', value: 'PI_HAT > 0.185' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — from IBD probabilities to one number.** Relationship inference
+<Citation id="manichaikul2010king" /> returns, for each pair, the probability of sharing 0, 1
+or 2 alleles IBD. The summary is
+
+$$
+\widehat{\Pi} = P(\mathrm{IBD}=2) + \tfrac{1}{2}P(\mathrm{IBD}=1) .
+$$
+
+| pair | z₀ | z₁ | z₂ | PI_HAT | reading |
+| --- | --- | --- | --- | --- | --- |
+| A | 0.00 | 0.00 | 1.00 | 1.0000 | duplicate or MZ twin |
+| B | 0.25 | 0.50 | 0.25 | 0.5000 | full siblings |
+| C | 0.50 | 0.50 | 0.00 | 0.2500 | second degree |
+| D | 0.75 | 0.25 | 0.00 | 0.1250 | first cousins |
+
+Pairs B and C are above the cut and must be broken. Pair D is below it and stays. Pair A is
+not a relationship at all — a PI_HAT of 1 between two samples with different identifiers
+means the same person was genotyped twice, or two samples were swapped, and it is a data
+problem rather than a pedigree.
+
+**Step 2 — why 0.185.** The classes above are not points on a continuum; they are the only
+values a standard pedigree produces. The gap between second-degree relatives at $1/4$ and
+first cousins at $1/8$ is the widest one, and $0.185$ sits inside it — close to its midpoint
+of $0.1875$. That is the entire justification. It is not calibrated against a false-positive
+rate, and moving it to 0.2 or 0.15 changes nothing, because nothing is expected to land in
+between.
+
+**Step 3 — the bill.** Four hundred pairs must be broken, so 400 samples leave. If every one
+is a case:
+
+$$
+N_{\mathrm{eff}} = \frac{4}{1/9{,}600 + 1/40{,}000} = 30{,}967.74 ,
+$$
+
+a loss of $1{,}032.26$. If every one is a control:
+
+$$
+N_{\mathrm{eff}} = \frac{4}{1/10{,}000 + 1/39{,}600} = 31{,}935.48 ,
+$$
+
+a loss of $64.52$. **The same 400 people cost sixteen times more from the case arm** — the
+same factor the design lesson found, and for the same reason: the derivative of a harmonic
+mean is much steeper in its smaller argument.
+
+**Step 4 — so choose.** Where a related pair contains one case and one control, drop the
+control. Where it contains two controls, drop either. Where it contains two cases, you have
+lost a case whatever you do. A pipeline that removes whichever sample has the lower call
+rate — the common default — is optimising the wrong quantity, and on a 4:1 study it will
+throw away roughly the arm ratio's worth of power for no reason.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 2. Effective sample size after breaking the same 400 related pairs, depending which arm the removed samples come from. Both bars remove exactly 400 people from a study of 50,000. Dropping controls leaves 31,935 effective samples; dropping cases leaves 30,968. The dashed line is the 32,000 the study had before pruning."
+  alt="Two horizontal bars on an axis of effective sample size. Dropping 400 controls leaves 31,935; dropping 400 cases leaves 30,968. A dashed vertical line marks 32,000 before pruning. A note says the case costs 1,032 effective samples against 65 for the control, sixteen times."
+>
+<svg viewBox="0 0 640 226" width="640" height="226" font-family="inherit"><line x1="200.0" y1="60.0" x2="200.0" y2="132.0" stroke="currentColor" stroke-width="1.25"/><line x1="200.0" y1="132.0" x2="452.0" y2="132.0" stroke="currentColor" stroke-width="1.25"/><line x1="238.2" y1="132.0" x2="238.2" y2="137.0" stroke="currentColor" stroke-width="1"/><text x="238.2" y="150.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">31,000</text><line x1="333.6" y1="132.0" x2="333.6" y2="137.0" stroke="currentColor" stroke-width="1"/><text x="333.6" y="150.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">31,500</text><line x1="429.1" y1="132.0" x2="429.1" y2="137.0" stroke="currentColor" stroke-width="1"/><text x="429.1" y="150.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">32,000</text><line x1="429.1" y1="132.0" x2="429.1" y2="60.0" stroke="currentColor" stroke-width="1.2" opacity=".45" stroke-dasharray="4 3"/><text x="423.1" y="54.0" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".7">before pruning</text><rect x="200.0" y="71.0" width="216.8" height="20.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.4"/><text x="188.0" y="85.0" font-size="10" fill="currentColor" text-anchor="end">drop 400 controls</text><text x="408.8" y="85.0" font-size="9.5" fill="currentColor" text-anchor="end" font-weight="700">31935</text><rect x="200.0" y="101.0" width="32.0" height="20.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.85"/><text x="188.0" y="115.0" font-size="10" fill="currentColor" text-anchor="end">drop 400 cases</text><text x="224.0" y="115.0" font-size="9.5" fill="var(--color-on-accent, #fff)" text-anchor="end" font-weight="700">30968</text><text x="326.0" y="174.0" font-size="12" fill="currentColor" text-anchor="middle">Effective sample size after pruning</text><text x="20.0" y="24.0" font-size="11.5" fill="currentColor" opacity=".8">The same 400 people, removed from one arm or the other</text><text x="20.0" y="198.0" font-size="10" fill="currentColor" opacity=".85">Dropping the case costs 1,032 effective samples; dropping the control</text><text x="20.0" y="212.0" font-size="10" fill="currentColor" opacity=".85">costs 65 — sixteen times, the same ratio as the design lesson.</text></svg>
+</Figure>
+
+## The filters that catch artefacts, not people
+
+**Heterozygosity.** An unusually *low* autosomal heterozygosity is inbreeding; an unusually
+*high* one is contamination, because mixing two people's DNA manufactures heterozygotes
+neither of them carries. Written as an inbreeding coefficient,
+
+$$
+F = \frac{O - E}{N - E} ,
+$$
+
+contamination shows up as $F$ going negative. The filter is conventionally a few standard
+deviations either side of the cohort mean, which means it is defined relative to the batch —
+a genuinely inbred cohort will flag half its samples if the bound is copied from a protocol
+written for another population.
+
+**Sex concordance.** The same statistic on the X chromosome separates the sexes cleanly:
+males are hemizygous, so $F \approx 1$; females sit near 0. A sample landing between them is
+a swap, a contamination, or a real sex-chromosome aneuploidy, and the three are
+distinguishable only by looking at the Y and at the intensity data. A mismatch against the
+recorded sex is the single most reliable indicator that sample identifiers have been mixed
+up, which is why it is worth running even in a study that will never analyse the X.
+
+**Hardy-Weinberg, in controls only.** A variant far from Hardy-Weinberg proportions is
+usually a genotyping failure — a cluster plot the calling algorithm split wrongly. But a
+*real* association also pushes cases away from equilibrium, so filtering on HWE across the
+whole cohort removes true positives. Test in controls, apply the filter to both. This is the
+one QC step where the conventional recipe and the naive reading of the statistic point in
+opposite directions.
+
+**Differential missingness.** The filter that catches what the others miss. A variant called
+in 99% of controls and 97% of cases is not a missing-data problem; it is a variant whose
+genotypes are associated with case status through the assay rather than through biology, and
+it will produce a clean-looking association. Test the difference in call rate between arms
+directly and remove the variants that fail, regardless of how good their overall call rate
+looks.
+
+<Callout variant="warning" title="QC thresholds are population-specific">
+
+Every numeric threshold above was calibrated on cohorts of predominantly European ancestry,
+and several of them are not transferable. Heterozygosity bounds depend on the population's
+history; Hardy-Weinberg deviations arise from structure as well as from bad calling; and
+because imputation quality is lower for cohorts poorly matched to the reference panel, a
+fixed variant-level filter removes more variants from exactly those cohorts
+<Citation id="martin2019" />. Thresholds inherited from a protocol are a starting point, not
+a standard, and the haplotype structure they assume <Citation id="hapmap2005" /> is not
+universal.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Reading three pairs" difficulty="warm-up">
+
+Compute PI_HAT and classify:
+
+(a) $z_0 = 0.00,\; z_1 = 1.00,\; z_2 = 0.00$
+
+(b) $z_0 = 0.60,\; z_1 = 0.35,\; z_2 = 0.05$
+
+(c) $z_0 = 0.25,\; z_1 = 0.50,\; z_2 = 0.25$
+
+Which of (a) and (c) would a PI_HAT threshold distinguish, and what would?
+
+<div slot="solution">
+
+**(a)** $\widehat{\Pi} = 0.00 + 0.5(1.00) = 0.5000$ — parent-offspring.
+
+**(b)** $\widehat{\Pi} = 0.05 + 0.5(0.35) = 0.2250$. Above the cut, so one member goes. It
+does not sit cleanly on a class, which usually means a more distant or a mixed relationship,
+or noise in the estimate.
+
+**(c)** $\widehat{\Pi} = 0.25 + 0.5(0.50) = 0.5000$ — full siblings.
+
+**Neither PI_HAT distinguishes (a) from (c)**: both are first-degree relationships and both
+give exactly 0.5. What separates them is $z_0$. A parent and child share at least one allele
+IBD at *every* locus, so $z_0 = 0$ exactly; full siblings share none at about a quarter of
+loci. Any tool reporting only the summary throws that away, which is why relationship
+inference reports all three probabilities.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Pruning a balanced study" difficulty="core">
+
+Repeat the worked example's step 3 for a **balanced** study: 25,000 cases and 25,000
+controls, breaking 400 pairs.
+
+(a) What does dropping 400 cases cost? What does dropping 400 controls cost?
+
+(b) Explain the difference from the 4:1 study.
+
+(c) What does this say about when the "which member?" question is worth engineering effort?
+
+<div slot="solution">
+
+**(a)** Before pruning, $N_{\mathrm{eff}} = 50{,}000$. Dropping 400 from either arm gives
+$4/(1/24{,}600 + 1/25{,}000) = 49{,}596.77$, a loss of $403.23$ — **identical either way**,
+because the study is symmetric in its two arms.
+
+**(b)** In the 4:1 study the arms are far apart, and a harmonic mean is far more sensitive to
+its smaller argument, so the two choices differ by a factor of sixteen. At 1:1 the derivative
+with respect to each arm is the same and the choice is worth nothing. The factor is
+$(N_{\mathrm{controls}}/N_{\mathrm{cases}})^2$: at 4:1 that is 16, at 1:1 it is 1.
+
+**(c)** Only when the study is unbalanced — and the more unbalanced, the more it matters. A
+1:1 study can let the pipeline choose by call rate and lose nothing. A 10:1 study is throwing
+away a hundredfold difference by doing the same, and should choose deliberately.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A variant that passes every filter" difficulty="stretch">
+
+A variant has an overall call rate of 98.5%, sits at Hardy-Weinberg equilibrium in controls
+($p = 0.4$), has a minor allele frequency of 12%, and an imputation INFO of 0.91. It comes
+out at $p = 3 \times 10^{-9}$.
+
+(a) Which standard filter has it passed that it should not have?
+
+(b) The call rate is 99.4% in controls and 96.1% in cases. Is that a large difference?
+
+(c) What would you check before believing the association, and what would convince you?
+
+<div slot="solution">
+
+**(a)** None of them tests what matters here. Overall call rate, HWE in controls, MAF and
+INFO are all computed **without reference to phenotype**, so none of them can see a
+difference *between arms*. The variant passes every listed filter precisely because the
+listed filters are blind to the failure mode.
+
+**(b)** It is enormous. The missingness differs by 3.3 percentage points, and — this is the
+point — the missing genotypes are not missing at random with respect to genotype, because
+assays fail preferentially on particular clusters. A systematic difference between arms in
+*which* genotypes fail to call produces an allele-frequency difference between arms that has
+nothing to do with the phenotype. A missingness test between cases and controls would return
+a p-value far smaller than the association itself.
+
+**(c)** First, the differential-missingness test — if it fails, stop. Second, the cluster
+plots for that variant in each arm; a variant whose calling failed asymmetrically usually
+looks obviously wrong to a human eye and passes every automated threshold. Third,
+genotyping batch against case status, since if cases and controls were genotyped in different
+batches every variant is at risk and this one is just the most visible. What would convince
+me is replication in a cohort where cases and controls were assayed together, which is the
+only design that removes the confound rather than testing for it.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Every filter is protecting against a correlation between a technical artefact and the
+  phenotype.** A failure scattered at random is harmless; the same failure concentrated in
+  one arm manufactures associations.
+- **Order the passes so they do not undo one another**, and re-run the variant filters after
+  removing samples — a variant that failed only in the samples you just dropped should come
+  back.
+- **PI_HAT is a set of expected values with gaps**, not a smooth score. The 0.185 cut is the
+  midpoint of the widest gap, between $1/4$ and $1/8$, and moving it within that gap changes
+  nothing.
+- **Relatedness pruning is a decision, not a step.** Breaking 400 pairs in a 4:1 study costs
+  1,032 effective samples from the case arm and 65 from the control arm — a factor of
+  $(N_{\mathrm{controls}}/N_{\mathrm{cases}})^2 = 16$, which vanishes at 1:1 and grows with
+  imbalance.
+- **Test Hardy-Weinberg in controls only**, because a real association pushes cases away from
+  equilibrium and filtering on the whole cohort removes true positives.
+- **Differential missingness is the filter the others cannot replace**, because every other
+  variant-level filter is computed without reference to phenotype and is therefore blind to
+  the one failure mode that produces false associations.
