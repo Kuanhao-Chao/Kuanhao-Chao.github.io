@@ -131,43 +131,6 @@ export const DEEP_DIVE_ORDER: string[] = [
 
 export const DEEP_DIVES: DeepDiveEntry[] = [
   {
-    id: 'statistical-genetics',
-    title:
-      'Statistical Genetics: The Mathematical Machinery of Quantitative Traits, Heritability & Causal Mapping',
-    shortTitle: 'Statistical Genetics',
-    area: 'Statistical & Population Genetics',
-    category: 'statistical-genetics',
-    tag: 'Quantitative Genetics & Mathematical Genomics',
-    level: 'Comprehensive Curriculum Hub',
-    readingTime: '23 min read',
-    summary:
-      'A definitive, first-principles exploration of statistical genetics — bridging population genetics (HWE, Wright-Fisher drift, coalescent), Fisher infinitesimal models, Linkage Disequilibrium, GREML/GCTA heritability, LD Score Regression (LDSC/S-LDSC), Linear Mixed Models (BOLT-LMM/Regenie), Bayesian fine-mapping (SuSiE), rare-variant testing (SKAT/DeepRVAT), Mendelian Randomization (MR), and deep learning sequence models.',
-    highlights: [
-      'Population genetics foundations: Hardy-Weinberg equilibrium, Wright-Fisher genetic drift, and Kingman coalescent TMRCA',
-      'Infinitesimal model, variance decomposition (V_P = V_A + V_D + V_I + V_{GxE} + V_E), and narrow-sense heritability (h²)',
-      "Linkage Disequilibrium (D, D', r²), exact half-life decay, recombination hotspots (PRDM9), and haplotype blocks",
-      'Genomic Relatedness Matrix (GRM) & GREML variance-component estimation (GCTA / AI-REML)',
-      'LD Score Regression (LDSC & S-LDSC) mathematical proof, genetic correlation (r_g), and tissue enrichment (τ*)',
-      'Linear Mixed Models (LMM): from GEMMA to BOLT-LMM, fastGWA, and Regenie stacked ridge regression',
-      'Bayesian fine-mapping: SuSiE 95% credible sets, PIPs, and functional priors (PolyFun)',
-      'Rare variant tests: Burden, SKAT, SKAT-O, and DeepRVAT neural aggregation',
-      'Mendelian Randomization (IVW, MR-Egger, Weighted Median, MVMR) and causal inference in epidemiology',
-      'The modern synthesis: regulatory sequence models (Borzoi, AlphaGenome) and language models (GPN-Star) in genetics',
-    ],
-    equations: [
-      'V_P = V_A + V_D + V_I + V_{G \\times E} + 2\\text{Cov}(G, E) + V_E',
-      '\\mathbb{E}[\\chi^2_j] = 1 + N a + \\frac{N h^2}{M} \\ell_j',
-      '\\mathbf{A} = \\frac{1}{M}\\mathbf{W}\\mathbf{W}^T',
-      '\\text{PIP}_j = \\frac{\\pi_j / \\text{ABF}_j}{\\pi_0 + \\sum \\pi_k / \\text{ABF}_k}',
-    ],
-    href: '/deep_dives/statistical-genetics/',
-    badge: 'Deep Dive Post',
-    actionText: 'Read technical deep dive',
-    featured: true,
-    icon: 'gwas',
-    status: 'published',
-  },
-  {
     id: 'gwas',
     title: 'Genome-Wide Association Studies (GWAS): The Mathematical Engine of Trait Mapping',
     shortTitle: 'GWAS & Statistical Genetics',

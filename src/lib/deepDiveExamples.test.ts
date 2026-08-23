@@ -4437,3 +4437,137 @@ describe('data-gwas-summary-stats', () => {
     });
   });
 });
+
+describe('statistical-genetics (hub)', () => {
+  const mdx = lesson('statistical-genetics');
+  const P = 0.3;
+  const BETA = 0.05;
+  const H2 = 0.3;
+  const M = 1e6;
+
+  // The one variant the hub traces through all five modules. Each module contributes one
+  // number, and the last two are the point of the page: the sample size that makes the
+  // variant a discovery, and the accuracy a whole score reaches at that same sample size.
+  const q2 = varianceExplained(P, BETA);
+  const K = (Math.sqrt(chi2Quantile(1 - 5e-8, 1)) + normalQuantile(0.8)) ** 2;
+  const N = Math.ceil(K / q2);
+
+  describe('worked example — one common variant, five modules', () => {
+    it('module 1 states the genome-wide threshold on both scales', () => {
+      expect(chi2Quantile(1 - 5e-8, 1)).toBeCloseTo(29.7168, 4);
+      expect(Math.sqrt(chi2Quantile(1 - 5e-8, 1))).toBeCloseTo(5.4513, 4);
+      expect(mdx).toContain('29.7168');
+      expect(mdx).toContain('5.4513');
+    });
+
+    it('module 2 counts 90 minor homozygotes per thousand at MAF 0.30', () => {
+      expect(1000 * P * P).toBe(90);
+      expect(mdx).toContain('1000 p^2 = 90');
+    });
+
+    it('module 3 gives q² = 1.05e-3, which is 0.105% of the trait and 0.35% of h²', () => {
+      expect(q2).toBeCloseTo(1.05e-3, 12);
+      expect(mdx).toContain('1.05 \\times 10^{-3}');
+      expect(100 * q2).toBeCloseTo(0.105, 6);
+      expect(mdx).toContain('0.105%');
+      expect((100 * q2) / H2).toBeCloseTo(0.35, 6);
+      expect(mdx).toContain('0.35%');
+    });
+
+    it('module 4 needs 37,716 people, from the q²-parameterised constant 39.60', () => {
+      expect(K).toBeCloseTo(39.600989, 6);
+      expect(N).toBe(37716);
+      expect(mdx).toContain('\\frac{39.60}{1.05 \\times 10^{-3}} = 37{,}716');
+    });
+
+    it('module 5 reaches R² = 3.3565e-3 at that same N — 0.34% of the trait', () => {
+      const r2 = expectedR2(N, M, H2);
+      expect(r2).toBeCloseTo(3.356462e-3, 9);
+      expect(mdx).toContain('3.3565 \\times 10^{-3}');
+      expect(mdx).toContain('0.34% of the trait');
+      // The comparison that makes the gap concrete: the whole score is worth 3.2 single
+      // variants, and 1.1% of the heritability that exists.
+      expect(r2 / q2).toBeCloseTo(3.197, 3);
+      expect(mdx).toContain('3.2 times what the single variant does');
+      expect(100 * (r2 / H2)).toBeCloseTo(1.1188, 4);
+      expect(mdx).toContain('1.1% of the heritability');
+    });
+
+    it('prices the rest of the ceiling at 88x and 795x the discovery sample', () => {
+      const half = Math.ceil(sampleSizeForR2(0.15, M, H2));
+      const ninety = Math.ceil(sampleSizeForR2(0.27, M, H2));
+      expect(half).toBe(3333334);
+      expect(ninety).toBe(30000001);
+      expect(mdx).toContain('3{,}333{,}334');
+      expect(mdx).toContain('30{,}000{,}001');
+      expect(half / N).toBeCloseTo(88.4, 1);
+      expect(ninety / N).toBeCloseTo(795.4, 1);
+      expect(mdx).toContain('88 times the discovery sample');
+      expect(mdx).toContain('795 times');
+    });
+
+    it('makes the same variant a strong instrument and a weak predictor', () => {
+      expect(fStatistic(BETA, 0.01)).toBeCloseTo(25, 10);
+      expect(mdx).toContain('= 25');
+      // Strong as an instrument (F > 10) while contributing 0.105% to prediction.
+      expect(fStatistic(BETA, 0.01)).toBeGreaterThan(10);
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('marks the three sample sizes and the accuracies at them', () => {
+      expect(expectedR2(37716, M, H2) * 100).toBeCloseTo(0.3356, 4);
+      expect(expectedR2(3333334, M, H2) * 100).toBeCloseTo(15, 4);
+      expect(expectedR2(30000001, M, H2) * 100).toBeCloseTo(27, 4);
+      for (const label of ['0.34%', '15%', '27%', '37,716', '3.3M', '30M', 'ceiling: h² = 30%']) {
+        expect(mdx, `figure label ${label}`).toContain(label);
+      }
+    });
+
+    it('draws the ceiling at h², which the curve never reaches', () => {
+      expect(expectedR2(1e12, M, H2)).toBeLessThan(H2);
+      expect(mdx).toContain('approaches $h^2$ and never arrives');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — raising h² leaves q² and the discovery N untouched, and moves R²', () => {
+      // q² depends on p and β only, so (a) is "no" twice over; (b) is the whole point.
+      expect(varianceExplained(P, BETA)).toBe(q2);
+      expect(expectedR2(N, M, 0.6)).toBeCloseTo(0.013277, 6);
+      expect(mdx).toContain('= 0.013277');
+      expect(mdx).toContain('1.33% of the trait');
+      // Doubling h² multiplies R² by very nearly four, because h² is both the ceiling
+      // and the numerator inside the shrinkage term.
+      expect(expectedR2(N, M, 0.6) / expectedR2(N, M, H2)).toBeCloseTo(3.9557, 4);
+    });
+
+    it('3 — a million more samples beats better phenotyping here, and not everywhere', () => {
+      expect(expectedR2(5e5, M, 0.3)).toBeCloseTo(0.03913, 5);
+      expect(expectedR2(1.5e6, M, 0.3)).toBeCloseTo(0.093103, 6);
+      expect(expectedR2(5e5, M, 0.36)).toBeCloseTo(0.054915, 6);
+      // (c) The answer flips once the study is already large: the extra samples buy a
+      // shrinking increment while the higher ceiling is worth the same at every N.
+      const better = (n: number) => expectedR2(n + 1e6, M, 0.3) > expectedR2(n, M, 0.36);
+      expect(better(5e5)).toBe(true);
+      expect(better(2e6)).toBe(false);
+      let lo = 1e6;
+      let hi = 1e7;
+      for (let i = 0; i < 80; i += 1) {
+        const mid = (lo + hi) / 2;
+        if (better(mid)) lo = mid;
+        else hi = mid;
+      }
+      expect(Math.round(lo)).toBe(1595256);
+      expect(mdx).toContain('1{,}595{,}256');
+      expect(mdx).toContain('= 0.039130');
+      expect(mdx).toContain('R^2 = 0.093103');
+      expect(mdx).toContain('= 0.054915');
+      // The two gains the solution quotes, in percentage points.
+      expect(100 * (expectedR2(1.5e6, M, 0.3) - expectedR2(5e5, M, 0.3))).toBeCloseTo(5.3973, 4);
+      expect(mdx).toContain('5.40 percentage');
+      expect(100 * (expectedR2(5e5, M, 0.36) - expectedR2(5e5, M, 0.3))).toBeCloseTo(1.5785, 4);
+      expect(mdx).toContain('1.58 percentage');
+    });
+  });
+});
