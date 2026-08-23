@@ -26,7 +26,7 @@ import {
   wakefieldAbf, pipsFromAbf, credibleSet, csPurity,
   waldRatio, fStatistic, ivwMr, eggerRegression, weightedMedianMr,
   effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
-  callRate, piHat, inbreedingF, armitageTrend,
+  callRate, piHat, inbreedingF, armitageTrend, benjaminiHochberg, bonferroni,
 
 } from './deepDiveMath.ts';
 
@@ -5250,6 +5250,99 @@ describe('gwas-running-the-scan', () => {
       expect(30.5).toBeGreaterThan(chi2Quantile(1 - 5e-8, 1));
       expect(30.5).toBeLessThan(chi2Quantile(1 - 5e-8 / 4, 1));
       for (const v of ['1.25 \\times 10^{-8}', '32.4075', '36.3951']) expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+describe('gwas-reading-the-output', () => {
+  const mdx = lesson('gwas-reading-the-output');
+  const M = 1e6;
+  const Q = 0.05;
+  const TOP = [1.2e-12, 8.0e-10, 3.1e-9, 4.4e-8, 9.7e-8, 2.2e-7, 8.0e-7, 3.5e-6];
+
+  describe('worked example — the same scan under both procedures', () => {
+    it('reproduces the Benjamini-Hochberg 1995 example, so the helper is right', () => {
+      // External check: the paper's own 15-hypothesis worked example rejects 4 at q = 0.05.
+      const classic = [
+        0.0001, 0.0004, 0.0019, 0.0095, 0.0201, 0.0278, 0.0298, 0.0344, 0.0459, 0.324,
+        0.4262, 0.5719, 0.6528, 0.759, 1.0,
+      ];
+      expect(benjaminiHochberg(classic, 0.05).rejected).toBe(4);
+      expect(benjaminiHochberg(classic, 0.05).threshold).toBeCloseTo(0.0095, 12);
+    });
+
+    it('step 1 and 2: Bonferroni takes 4, BH takes 6', () => {
+      expect(bonferroni(0.05, M)).toBeCloseTo(5e-8, 15);
+      expect(TOP.filter((p) => p <= bonferroni(0.05, M))).toHaveLength(4);
+      const bh = benjaminiHochberg(TOP, Q, M);
+      expect(bh.rejected).toBe(6);
+      expect(bh.threshold).toBeCloseTo(2.2e-7, 12);
+      expect(bh.expectedFalse).toBeCloseTo(0.3, 12);
+      // every bound in the printed table
+      TOP.forEach((p, i) => {
+        const bound = ((i + 1) / M) * Q;
+        expect(mdx).toContain(`| ${p.toExponential(1)} |`.replace('e-', 'e-'));
+        expect(p <= bound).toBe(i < 6);
+      });
+      expect(mdx).toContain('0.05 \\times 6 = 0.30');
+    });
+
+    it('step 3: BH loosens in proportion to the discoveries', () => {
+      for (const [k, thr, mult, exp] of [
+        [6, 3.0e-7, 6, 0.3],
+        [500, 2.5e-5, 500, 25],
+        [5000, 2.5e-4, 5000, 250],
+      ] as [number, number, number, number][]) {
+        expect((k / M) * Q).toBeCloseTo(thr, 12);
+        expect((k / M) * Q / 5e-8).toBeCloseTo(mult, 6);
+        expect(Q * k).toBeCloseTo(exp, 10);
+      }
+      for (const v of ['3.0e-7', '2.5e-5', '2.5e-4', '500× looser', '5,000× looser', '250.0'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe("winner's curse", () => {
+    it('inflates a threshold locus by 14.64% and a sub-threshold one by 22.11%', () => {
+      const z = zThreshold(5e-8);
+      expect(z).toBeCloseTo(5.4513, 4);
+      const atThreshold = winnersCurseExpectation(z, z);
+      const below = winnersCurseExpectation(5.0, z);
+      expect(atThreshold).toBeCloseTo(6.2492, 4);
+      expect(below).toBeCloseTo(6.1057, 4);
+      expect(100 * (atThreshold / z - 1)).toBeCloseTo(14.64, 2);
+      expect(100 * (below / 5.0 - 1)).toBeCloseTo(22.11, 2);
+      for (const v of ['6.2492', '6.1057', '14.64%', '22.11%']) expect(mdx, v).toContain(v);
+    });
+
+    it('collapses as the true effect grows, so it is a new-locus problem', () => {
+      const z = zThreshold(5e-8);
+      expect(100 * (winnersCurseExpectation(7, z) / 7 - 1)).toBeCloseTo(1.83, 2);
+      expect(100 * (winnersCurseExpectation(9, z) / 9 - 1)).toBeCloseTo(0.01, 2);
+      expect(mdx).toContain('1.83%');
+      expect(mdx).toContain('0.01%');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — with two hits the two procedures nearly agree', () => {
+      const bh = benjaminiHochberg([3.0e-9, 6.0e-8], Q, M);
+      expect(bh.rejected).toBe(2);
+      expect(bh.threshold).toBeCloseTo(6.0e-8, 12);
+      expect(bh.expectedFalse).toBeCloseTo(0.1, 12);
+      expect([3.0e-9, 6.0e-8].filter((p) => p <= 5e-8)).toHaveLength(1);
+      expect(mdx).toContain('0.05 \\times 2 = 0.1');
+    });
+
+    it('2 — 1,200 loci at q = 0.05 expects 60 false and 120 postdoc-years', () => {
+      expect((1200 / M) * Q).toBeCloseTo(6.0e-5, 12);
+      expect(((1200 / M) * Q) / 5e-8).toBeCloseTo(1200, 6);
+      expect(Q * 1200).toBeCloseTo(60, 10);
+      expect(2 * Q * 1200).toBeCloseTo(120, 10);
+      for (const v of ['6.0 \\times 10^{-5}', '1,200 times looser', '0.05 \\times 1200 = 60'])
+        expect(mdx, v).toContain(v);
+      // wraps a line between the number and the noun
+      expect(mdx).toMatch(/120\s+postdoc-years/);
     });
   });
 });
