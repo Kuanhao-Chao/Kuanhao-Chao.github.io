@@ -1,0 +1,432 @@
+---
+title: "Bayesian Fine-Mapping: Approximate Bayes Factors, Credible Sets & Colocalisation"
+shortTitle: Bayesian Fine-Mapping
+description: "Turning an association peak into a ranked list of candidate causal variants, why the null prior π₀ is not optional, what a credible set's purity tells you that its coverage does not, and how colocalisation distinguishes a shared causal variant from two that merely sit close together."
+abstract: "A genome-wide significant locus is a statement about a region, not a variant: linkage disequilibrium makes the causal site and everything correlated with it produce near-identical statistics. Fine-mapping converts the peak into posterior probabilities over the variants in it. This lesson derives Wakefield's approximate Bayes factor in the BF₀₁ direction the curriculum fixes throughout, computes posterior inclusion probabilities with an explicit null prior, and shows what happens without one: on a locus whose largest z is 1.7, dropping π₀ renormalises the probabilities to sum to one and manufactures a confident 95 percent credible set out of noise, with a purity of 0.01. It closes on colocalisation, where the question is not whether two traits both have a signal but whether it is the same variant."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m05-inference
+moduleLabel: Module 5 · Inference, Prediction & Causality
+order: 13
+level: advanced
+objectives:
+  - "Explain why a significant locus does not identify a variant, and what fine-mapping adds."
+  - "Compute Wakefield's approximate Bayes factor and state which direction this curriculum writes it in."
+  - "Compute posterior inclusion probabilities with an explicit null prior π₀."
+  - "Show what dropping π₀ does at a locus with no signal."
+  - "Construct a credible set and interpret its purity alongside its coverage."
+  - "Distinguish the five colocalisation hypotheses and say which prior does the most work."
+prerequisites:
+  - statgen-linkage-disequilibrium
+  - statgen-association-linear-mixed-models
+relatedLessons:
+  - statgen-ldsc-sldsc
+  - data-expression-qtl
+keyEquations:
+  - '\mathrm{BF}_{01} = \sqrt{\frac{V+W}{V}}\;\exp\!\left(-\frac{z^2}{2}\cdot\frac{W}{V+W}\right)'
+  - '\mathrm{PIP}_j = \frac{\pi_j / \mathrm{BF}_{01,j}}{\pi_0 + \sum_k \pi_k / \mathrm{BF}_{01,k}}'
+  - '\text{purity} = \min_{j,k \in C} |r_{jk}|'
+referenceIds:
+  - wakefield2008abf
+  - giambartolomei2014coloc
+  - benner2016finemap
+  - hormozdiari2016ecaviar
+  - finucane2015sldsc
+  - finucane2018celltype
+  - wang2020susie
+  - weissbrod2020polyfun
+tags: [fine-mapping, Bayes factor, credible set, posterior inclusion probability, SuSiE, colocalisation, purity]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+
+## The question this lesson answers
+
+A genome-wide significant hit identifies a **region**, not a variant. The lesson on linkage
+disequilibrium explains why: the causal site and every variant correlated with it produce
+nearly the same marginal statistic, and at $r^2 = 0.99$ the difference between their
+$z$-scores is noise.
+
+So the output of a GWAS is a peak, and the question fine-mapping answers is: given the
+peak, **how should belief be distributed over the variants inside it?**
+
+That is a Bayesian question, and it has three parts. A likelihood ratio for each variant
+against the null. A prior over which variant is causal — including, crucially, the
+possibility that **none of them is**. And a summary of the resulting posterior that a
+biologist can act on.
+
+<Notation
+  rows={[
+    { symbol: 'z_j', meaning: 'Association z-score at variant j', dims: 'dimensionless' },
+    { symbol: 'V', meaning: 'Squared standard error of the effect estimate', dims: 'trait units²' },
+    { symbol: 'W', meaning: 'Prior variance of the true effect; 0.04 for a standardised quantitative trait', dims: 'trait units²' },
+    { symbol: '\\mathrm{BF}_{01}', meaning: 'Bayes factor for the null over the alternative — smaller means more evidence of an effect', dims: '> 0' },
+    { symbol: '\\pi_j', meaning: 'Prior probability that variant j is the causal one', dims: 'in [0,1]' },
+    { symbol: '\\pi_0', meaning: 'Prior probability that no variant in the region is causal', dims: 'in [0,1]' },
+    { symbol: '\\mathrm{PIP}_j', meaning: 'Posterior inclusion probability of variant j', dims: 'in [0,1]' },
+    { symbol: 'C', meaning: 'A credible set of variants', dims: 'set' },
+  ]}
+/>
+
+<Callout variant="intuition" title="Why ranking by p-value does not work here">
+
+The obvious thing to do with a peak is take the variant with the smallest $p$-value and call
+it causal. It is worth being precise about why that fails, because the failure is not that
+the top variant is *usually* wrong — it is that the ranking carries almost no information.
+
+Two variants in LD at $r^2 = 0.99$ have $z$-scores that differ by roughly the noise in a
+single study. Which of them comes out on top is close to a coin flip, and re-running the same
+analysis in a different sample of the same population would often reverse it. A ranking whose
+order is not reproducible is not a ranking.
+
+What *is* stable is the group. The causal variant and its near-perfect tags are collectively
+supported by the data every time, even though their internal order is not. So the honest
+output is a **set** with a probability attached, not a winner.
+
+That is what makes this a Bayesian problem rather than a testing problem. A $p$-value asks
+whether a variant could be null; here every variant in the peak clears that easily by virtue
+of its neighbours. The question is how belief should be *divided* among them, which requires
+a prior — and once you have written down a prior over which variant is causal, you have to
+decide what to do about the possibility that none of them is.
+
+</Callout>
+
+## Wakefield's approximate Bayes factor
+
+Computing a Bayes factor properly needs the full likelihood.
+<Citation id="wakefield2008abf" /> showed that a normal approximation gets you almost all
+the way there from summary statistics alone — the $z$-score and the standard error:
+
+$$
+\mathrm{BF}_{01} = \sqrt{\frac{V+W}{V}}\;\exp\!\left(-\frac{z^2}{2}\cdot\frac{W}{V+W}\right)
+$$
+
+<Callout variant="key" title="This curriculum writes Bayes factors as BF₀₁, always">
+
+The formula above is the evidence for the **null over the alternative**. Smaller means more
+evidence that the variant has an effect — which reads backwards the first time and is worth
+stating explicitly, because the alternative convention is equally common.
+
+$\mathrm{BF}_{10}$ is the exact reciprocal, $1/\mathrm{BF}_{01}$. Both are correct; using
+both without saying which is which is how two write-ups end up appearing to contradict each
+other over the same locus. This curriculum fixes $\mathrm{BF}_{01}$ throughout, and where a
+result is conventionally stated the other way — colocalisation is the case below — the
+reciprocal is taken explicitly rather than silently.
+
+The parameter $W$ is a genuine prior and it does affect the answer: 0.04 corresponds to
+believing the true effect is within about $\pm 0.4$ standard deviations, which is generous
+for a complex trait. A $W$ chosen much too large penalises the alternative for being vague
+and shrinks every PIP.
+
+</Callout>
+
+## Posterior inclusion probabilities, and the null nobody includes
+
+Convert the Bayes factors into posterior probabilities with a prior over which variant is
+causal. Writing it in the $\mathrm{BF}_{01}$ direction, the term for variant $j$ is
+$\pi_j / \mathrm{BF}_{01,j}$, and
+
+$$
+\mathrm{PIP}_j = \frac{\pi_j / \mathrm{BF}_{01,j}}{\pi_0 + \sum_k \pi_k / \mathrm{BF}_{01,k}}
+$$
+
+The $\pi_0$ in the denominator is the prior probability that **no variant in the region is
+causal**, and it is the term most write-ups drop.
+
+<WorkedExample
+  title="Fine-mapping a locus of eight variants"
+  given={[
+    { label: 'z-scores', value: '2.1, 4.6, 6.2, 6.5, 6.2, 4.6, 2.4, 1.8' },
+    { label: 'N, MAF', value: '50,000 at 30%, so V = 4.7619 × 10⁻⁵' },
+    { label: 'Priors', value: 'π_j = 1/8 each, π₀ = 0.05' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the Bayes factors.** With $W = 0.04$, the peak variant at $z = 6.5$ gives
+
+$$
+\mathrm{BF}_{01} = \sqrt{\frac{0.04004762}{0.00004762}}\;
+\exp\!\left(-\frac{42.25}{2}\cdot 0.998811\right) = 1.990\times10^{-8}
+$$
+
+Tiny, meaning overwhelming evidence *against* the null — which is what $\mathrm{BF}_{01}$
+being small means.
+
+**Step 2 — the posterior probabilities.**
+
+$$
+\mathrm{PIP} = (0.000000,\; 0.000021,\; 0.114882,\; 0.770194,\; 0.114882,\; 0.000021,\; 0.000000,\; 0.000000)
+$$
+
+The causal variant takes 77%, and its two closest tags take 11.5% each. The remaining five
+variants take essentially nothing.
+
+**Step 3 — the credible set.** The smallest set whose PIPs reach 0.95 is
+$v_3$, $v_4$ and $v_5$, with coverage $0.99996$. Two variants would give only
+$0.770194 + 0.114882 = 0.885076$, short of the threshold, so three are needed.
+
+**Step 4 — the purity.** The smallest pairwise $|r|$ inside that set is $0.7000$. That is
+the honest summary: the data localise the signal to three variants and **cannot go
+further**. No increase in sample size will separate them, because they are not independent
+sources of information — only recombination, or a population whose LD structure differs,
+can.
+
+**Step 5 — note what the PIPs sum to.** Here they sum to $1.000000$, and $\pi_0$ appears to
+have done nothing. That is correct: when the evidence is this strong, $\pi_0 = 0.05$ is
+negligible against the enormous $\sum_k \pi_k/\mathrm{BF}_{01,k}$. The next section is where
+it earns its place.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Posterior inclusion probabilities across an eight-variant locus with one causal site. The causal variant takes 0.770 and its two closest tags 0.115 each; the 95 percent credible set is those three, with coverage 0.99996 and purity 0.7000. The purity is the number that matters for what happens next: it says the data have localised the signal as far as they can, and the remaining ambiguity is a property of the LD, not of the sample size."
+  alt="A bar chart of posterior inclusion probability across eight variants. Variant 4 reaches 0.770, variants 3 and 5 reach 0.115 each, and the remaining five are at essentially zero. The three non-zero bars are highlighted as the credible set."
+  wide
+>
+<svg viewBox="0 0 640 326" width="640" height="326" font-family="inherit"><line x1="96.0" y1="46.0" x2="96.0" y2="200.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="200.0" x2="430.0" y2="200.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="200.0" x2="430.0" y2="200.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="204.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="165.0" x2="430.0" y2="165.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="169.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.2</text><line x1="96.0" y1="130.0" x2="430.0" y2="130.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="134.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.4</text><line x1="96.0" y1="95.0" x2="430.0" y2="95.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="99.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.6</text><line x1="96.0" y1="60.0" x2="430.0" y2="60.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="64.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.8</text><line x1="123.8" y1="200.0" x2="123.8" y2="205.0" stroke="currentColor" stroke-width="1"/><text x="123.8" y="218.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v1</text><line x1="163.6" y1="200.0" x2="163.6" y2="205.0" stroke="currentColor" stroke-width="1"/><text x="163.6" y="218.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v2</text><line x1="203.4" y1="200.0" x2="203.4" y2="205.0" stroke="currentColor" stroke-width="1"/><text x="203.4" y="218.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v3</text><line x1="243.1" y1="200.0" x2="243.1" y2="205.0" stroke="currentColor" stroke-width="1"/><text x="243.1" y="218.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v4</text><line x1="282.9" y1="200.0" x2="282.9" y2="205.0" stroke="currentColor" stroke-width="1"/><text x="282.9" y="218.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v5</text><line x1="322.6" y1="200.0" x2="322.6" y2="205.0" stroke="currentColor" stroke-width="1"/><text x="322.6" y="218.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v6</text><line x1="362.4" y1="200.0" x2="362.4" y2="205.0" stroke="currentColor" stroke-width="1"/><text x="362.4" y="218.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v7</text><line x1="402.2" y1="200.0" x2="402.2" y2="205.0" stroke="currentColor" stroke-width="1"/><text x="402.2" y="218.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v8</text><rect x="110.8" y="200.0" width="26.0" height="0.0" rx="2" fill="currentColor" opacity=".35"/><rect x="150.6" y="200.0" width="26.0" height="0.0" rx="2" fill="currentColor" opacity=".35"/><rect x="190.4" y="179.9" width="26.0" height="20.1" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="203.4" y="173.9" font-size="9.5" fill="currentColor" text-anchor="middle" font-weight="600">0.115</text><rect x="230.1" y="65.2" width="26.0" height="134.8" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="243.1" y="59.2" font-size="9.5" fill="currentColor" text-anchor="middle" font-weight="600">0.770</text><rect x="269.9" y="179.9" width="26.0" height="20.1" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="282.9" y="173.9" font-size="9.5" fill="currentColor" text-anchor="middle" font-weight="600">0.115</text><rect x="309.6" y="200.0" width="26.0" height="0.0" rx="2" fill="currentColor" opacity=".35"/><rect x="349.4" y="200.0" width="26.0" height="0.0" rx="2" fill="currentColor" opacity=".35"/><rect x="389.2" y="200.0" width="26.0" height="0.0" rx="2" fill="currentColor" opacity=".35"/><text x="30.0" y="262.0" font-size="10.5" fill="currentColor" opacity=".9">The 95% credible set is v3 + v4 + v5 — three variants, coverage 0.99996.</text><text x="30.0" y="278.0" font-size="10.5" fill="currentColor" opacity=".85">Its purity is 0.7000: the lowest pairwise r inside it. The data cannot</text><text x="30.0" y="294.0" font-size="10.5" fill="currentColor" opacity=".85">separate these three, and no amount of extra sample size will — only</text><text x="30.0" y="310.0" font-size="10.5" fill="currentColor" opacity=".85">recombination, or a population where the LD differs, can.</text><text x="263.0" y="236.0" font-size="12" fill="currentColor" text-anchor="middle">Variant</text><text x="20.0" y="123.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 123)">PIP</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">One causal variant, three that the data cannot tell apart from it</text></svg>
+</Figure>
+
+<Callout variant="warning" title="Drop π₀ and the method cannot say 'nothing here'">
+
+Set $\pi_0 = 0$ and the denominator becomes $\sum_k \pi_k/\mathrm{BF}_{01,k}$ alone, so the
+PIPs are forced to sum to one. That is not a normalisation convenience — it is the assertion
+that **some variant among those tested is definitely causal**.
+
+At a locus with a real signal the assertion is harmless. At a locus without one it is
+exactly wrong, and it is where confident credible sets around noise come from.
+
+Take eight variants whose largest $z$ is 1.7 — no signal at all. With $\pi_0 = 0.05$ the
+PIPs sum to $0.576378$, no 95 percent set can be formed, and the method correctly declines
+to name a causal variant. Drop $\pi_0$ and the same PIPs are renormalised to sum to
+$1.000000$; a "95 percent credible set" now exists, contains all eight variants, and has a
+**purity of 0.0100** — a set of essentially uncorrelated variants, which is the signature of
+a set assembled from noise rather than from LD.
+
+That is why purity is reported alongside coverage, and why <Citation id="wang2020susie" />
+discards sets below 0.5. A high-coverage, low-purity set is not a weak result; it is a sign
+that the model has grouped unrelated things.
+
+</Callout>
+
+<Figure
+  caption="Figure 2. The same eight variants, none of them associated, fine-mapped with and without the null prior. Keeping π₀ = 0.05 leaves the posterior probabilities summing to 0.5764, so no 95 percent set exists and the method reports what is true: there is no evidence any of these variants is causal. Dropping π₀ renormalises them to one, produces a set containing all eight, and gives it a purity of 0.0100."
+  alt="A paired bar chart across eight variants. Green bars, computed with a null prior of 0.05, sum to 0.5764 and none exceeds 0.16. Grey bars, computed with the null prior dropped, are uniformly larger and sum to 1.0000, with the largest reaching 0.27."
+  wide
+>
+<svg viewBox="0 0 640 304" width="640" height="304" font-family="inherit"><line x1="120.0" y1="62.0" x2="120.0" y2="176.0" stroke="currentColor" stroke-width="1.25"/><line x1="120.0" y1="176.0" x2="424.0" y2="176.0" stroke="currentColor" stroke-width="1.25"/><line x1="120.0" y1="176.0" x2="424.0" y2="176.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="180.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="120.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="142.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.1</text><line x1="120.0" y1="100.0" x2="424.0" y2="100.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="104.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.2</text><line x1="120.0" y1="62.0" x2="424.0" y2="62.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="66.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.3</text><line x1="145.3" y1="176.0" x2="145.3" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="145.3" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v1</text><line x1="181.5" y1="176.0" x2="181.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="181.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v2</text><line x1="217.7" y1="176.0" x2="217.7" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="217.7" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v3</text><line x1="253.9" y1="176.0" x2="253.9" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="253.9" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v4</text><line x1="290.1" y1="176.0" x2="290.1" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="290.1" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v5</text><line x1="326.3" y1="176.0" x2="326.3" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="326.3" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v6</text><line x1="362.5" y1="176.0" x2="362.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="362.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v7</text><line x1="398.7" y1="176.0" x2="398.7" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="398.7" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">v8</text><rect x="132.3" y="156.9" width="12.0" height="19.1" rx="2" fill="var(--color-accent, #2e6e5e)"/><rect x="146.3" y="142.9" width="12.0" height="33.1" rx="2" fill="currentColor" opacity=".45"/><rect x="168.5" y="147.5" width="12.0" height="28.5" rx="2" fill="var(--color-accent, #2e6e5e)"/><rect x="182.5" y="126.6" width="12.0" height="49.4" rx="2" fill="currentColor" opacity=".45"/><rect x="204.7" y="161.0" width="12.0" height="15.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><rect x="218.7" y="149.9" width="12.0" height="26.1" rx="2" fill="currentColor" opacity=".45"/><rect x="240.9" y="117.2" width="12.0" height="58.8" rx="2" fill="var(--color-accent, #2e6e5e)"/><rect x="254.9" y="74.0" width="12.0" height="102.0" rx="2" fill="currentColor" opacity=".45"/><rect x="277.1" y="155.2" width="12.0" height="20.8" rx="2" fill="var(--color-accent, #2e6e5e)"/><rect x="291.1" y="139.9" width="12.0" height="36.1" rx="2" fill="currentColor" opacity=".45"/><rect x="313.3" y="150.6" width="12.0" height="25.4" rx="2" fill="var(--color-accent, #2e6e5e)"/><rect x="327.3" y="131.9" width="12.0" height="44.1" rx="2" fill="currentColor" opacity=".45"/><rect x="349.5" y="161.5" width="12.0" height="14.5" rx="2" fill="var(--color-accent, #2e6e5e)"/><rect x="363.5" y="150.8" width="12.0" height="25.2" rx="2" fill="currentColor" opacity=".45"/><rect x="385.7" y="139.1" width="12.0" height="36.9" rx="2" fill="var(--color-accent, #2e6e5e)"/><rect x="399.7" y="111.9" width="12.0" height="64.1" rx="2" fill="currentColor" opacity=".45"/><rect x="438.0" y="66.0" width="14.0" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="459.0" y="75.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">with π₀ = 0.05</text><text x="438.0" y="92.0" font-size="10" fill="currentColor" opacity=".85">PIPs sum to 0.5764</text><text x="438.0" y="105.0" font-size="10" fill="currentColor" opacity=".85">no 95% set exists</text><rect x="438.0" y="128.0" width="14.0" height="10.0" rx="2" fill="currentColor" opacity=".45"/><text x="459.0" y="137.0" font-size="10.5" fill="currentColor" font-weight="600">with π₀ dropped</text><text x="438.0" y="154.0" font-size="10" fill="currentColor" opacity=".85">PIPs forced to 1.0000</text><text x="438.0" y="167.0" font-size="10" fill="currentColor" opacity=".85">a "95% set" of all 8,</text><text x="438.0" y="180.0" font-size="10" fill="currentColor" opacity=".85">purity 0.0100</text><text x="30.0" y="240.0" font-size="10.5" fill="currentColor" opacity=".85">Eight variants with no signal at all — the largest z is 1.7. With the null</text><text x="30.0" y="256.0" font-size="10.5" fill="currentColor" opacity=".85">prior kept, the posterior correctly refuses to name a causal variant. With</text><text x="30.0" y="272.0" font-size="10.5" fill="currentColor" opacity=".85">it dropped, the PIPs are renormalised to one and the method returns a</text><text x="30.0" y="288.0" font-size="10.5" fill="currentColor" opacity=".85">confident-looking credible set built entirely out of noise.</text><text x="272.0" y="212.0" font-size="12" fill="currentColor" text-anchor="middle">Variant</text><text x="22.0" y="119.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 22 119)">PIP</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Why the null prior π₀ is not optional</text></svg>
+</Figure>
+
+<Widget
+  kind="finemap"
+  title="Move the LD and watch the credible set grow"
+  alt="An interactive fine-mapping plot showing posterior inclusion probabilities across a locus, with the credible set highlighted. Controls set which variant is causal, the strength of linkage disequilibrium between neighbours, and the causal variant's z-score. A readout gives the credible set size, its coverage, its purity, whether it contains the causal variant, and that variant's PIP."
+  caption="The trade-off, with the dials free. Raise the LD decay toward 1 and watch the credible set grow from five variants to nineteen while coverage stays around 95 percent — the certainty is unchanged, the resolution is not. Raise the causal variant's z-score and the set shrinks, but never below the group in near-perfect LD with it, because no amount of signal separates variants the data cannot distinguish. And the fourth dial is this lesson's argument made movable: lower π₀ toward zero and watch a locus with no signal acquire a confident credible set anyway."
+/>
+
+## Beyond one causal variant
+
+The construction above assumes exactly one causal variant in the region. Real loci often have
+more, and a single-causal model handles a second signal badly — it produces a credible set
+straddling both, with low purity.
+
+<Citation id="benner2016finemap" /> searches over configurations of multiple causal variants
+directly. <Citation id="wang2020susie" /> takes a different route: it represents the locus as
+a **sum of single effects**, fitting one single-causal model per signal and iterating, which
+yields one credible set per signal with a purity attached to each. That decomposition is why
+SuSiE's output is a *list* of sets rather than one set, and why a locus can legitimately
+return a tight set for one signal and a useless one for another.
+
+Priors need not be uniform either. <Citation id="weissbrod2020polyfun" /> uses functional
+annotations — the same stratified-LDSC machinery from <Citation id="finucane2015sldsc" />
+and <Citation id="finucane2018celltype" /> — to set $\pi_j$ per variant, so a variant in a
+conserved enhancer starts with more prior mass than one in unannotated intergenic sequence.
+That sharpens fine-mapping when the annotations are right and biases it when they are not,
+which is the same trade every informative prior makes.
+
+## Colocalisation: is it the *same* variant?
+
+A GWAS peak and an expression QTL peak in the same region raise an obvious hypothesis: the
+variant that changes the gene's expression is the variant that changes the trait. It is
+obvious and frequently wrong, because at a locus dense with variants two independent signals
+land near each other often.
+
+<Citation id="giambartolomei2014coloc" /> formalises the question as five hypotheses:
+
+| | |
+| --- | --- |
+| **H₀** | no causal variant for either trait |
+| **H₁** | a causal variant for trait 1 only |
+| **H₂** | a causal variant for trait 2 only |
+| **H₃** | causal variants for both, but **different** ones |
+| **H₄** | a **shared** causal variant |
+
+H₃ and H₄ are the pair that matters, and the difference between them is whether a gene is
+implicated or merely nearby.
+
+<WorkedExample
+  title="Four loci, four answers"
+  given={[
+    { label: 'GWAS peak', value: 'z = 2.1 … 6.5 … 1.8 across eight variants' },
+    { label: 'Priors', value: 'p₁ = p₂ = 10⁻⁴, p₁₂ = 10⁻⁵' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+Colocalisation is conventionally computed from Bayes factors in the $\mathrm{BF}_{10}$
+direction, so the $\mathrm{BF}_{01}$ values above are inverted first —
+$\mathrm{BF}_{10} = 1/\mathrm{BF}_{01}$ — which is exactly the kind of bridge the fixed
+convention exists to make visible rather than silent.
+
+| second trait | PP₀ | PP₁ | PP₂ | PP₃ | PP₄ |
+| --- | --- | --- | --- | --- | --- |
+| same peak, weaker | 0.0000 | 0.0001 | 0.0000 | 0.0008 | **0.9991** |
+| peak shifted three variants | 0.0000 | 0.0003 | 0.0002 | **0.9947** | 0.0048 |
+| no signal | 0.0002 | **0.9940** | 0.0000 | 0.0000 | 0.0058 |
+| no signal in either | **0.9999** | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+
+**Step 1 — read row two against row one.** Both second traits have a strong signal in the
+same region. Shifting where the peak sits moves the answer from PP₄ = 0.9991 to
+PP₃ = 0.9947 — from "the same variant does both" to "two different variants, close
+together". A test that only asked *is there a signal in both* would report the same thing
+for both rows.
+
+**Step 2 — check the prior that carries the argument.** $p_{12}$ is the per-variant prior
+that a variant is causal for both traits, and it is doing more work than the data in
+ambiguous cases. On row one, varying it over two orders of magnitude gives
+
+$$
+p_{12} = 10^{-6} \Rightarrow \mathrm{PP}_4 = 0.9910,
+\quad
+10^{-5} \Rightarrow 0.9991,
+\quad
+10^{-4} \Rightarrow 0.9999
+$$
+
+Here the conclusion is robust. It is not always, and a colocalisation reported without a
+sensitivity analysis over $p_{12}$ has not been checked.
+
+</WorkedExample>
+
+<Citation id="hormozdiari2016ecaviar" /> takes an alternative route that allows multiple
+causal variants per trait, which matters because coloc's single-causal assumption can turn a
+genuine shared signal into H₃ when a second independent signal is present. The
+expression-QTL lesson in the Genomic Data track covers what the QTL side of this requires.
+
+## Exercises
+
+<Exercise n={1} title="Reading a Bayes factor in the right direction" difficulty="warm-up">
+
+A variant has $\mathrm{BF}_{01} = 2.5\times10^{-6}$. (a) What does that say? (b) What is
+the corresponding $\mathrm{BF}_{10}$? (c) A second variant at the same locus has
+$\mathrm{BF}_{01} = 3.2$. What does that say?
+
+<div slot="solution">
+
+**(a)** Strong evidence **against** the null — the data are 400,000 times more likely under
+an effect than under no effect. Small $\mathrm{BF}_{01}$ means a likely causal variant, which
+is the direction that needs stating because it inverts the usual intuition about large Bayes
+factors.
+
+**(b)** $\mathrm{BF}_{10} = 1/(2.5\times10^{-6}) = 400{,}000$.
+
+**(c)** $\mathrm{BF}_{01} = 3.2$ means the data are 3.2 times *more* likely under the null,
+so this variant is mild evidence for no effect. In a fine-mapping calculation it will
+receive a PIP near zero — and note that it contributes $\pi_j/3.2$ to the denominator, a
+small positive amount, so it is not ignored, merely outvoted.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="A credible set that should not be trusted" difficulty="core">
+
+A fine-mapping run returns a 95% credible set of 14 variants with coverage 0.961 and purity
+0.08. (a) What does the purity tell you? (b) Give two explanations. (c) What would
+distinguish them?
+
+<div slot="solution">
+
+**(a)** That some pair of variants in the set has $|r| = 0.08$ — essentially uncorrelated.
+A credible set is supposed to be the group of variants the data cannot distinguish, and
+variants that uncorrelated *are* distinguishable. Something has gone wrong.
+
+**(b)** Two explanations. Either **there is no real signal**, and the set is an artefact of
+renormalising probabilities across a locus with nothing in it — which is what dropping
+$\pi_0$ produces, and the worked example's null locus had purity 0.0100. Or **there are
+multiple causal variants**, and a single-causal model has smeared one set across two
+independent signals.
+
+**(c)** Look at the strongest $z$-score in the region. If nothing approaches genome-wide
+significance, the first explanation is likely and the honest output is no set at all. If
+there are two clearly separated peaks, the second is likely, and refitting with a
+multiple-causal method — SuSiE or FINEMAP — should return two sets, each with acceptable
+purity.
+
+The general rule: **coverage without purity is not a result.** Coverage can be manufactured
+by the prior; purity cannot.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A colocalisation that proves less than claimed" difficulty="stretch">
+
+A paper reports PP₄ = 0.82 for a GWAS locus and an eQTL for gene X, and concludes gene X
+mediates the association. (a) What would you check first? (b) The GWAS locus has two
+independent signals. Why does that matter? (c) What would make the claim convincing?
+
+<div slot="solution">
+
+**(a)** The sensitivity of PP₄ to $p_{12}$. At PP₄ = 0.82 the result is not overwhelming,
+and $p_{12}$ is a prior that is rarely justified from data. If PP₄ falls below 0.5 at
+$p_{12} = 10^{-6}$ and rises above 0.95 at $10^{-4}$, the conclusion is a restatement of the
+prior. Also check PP₃: if PP₃ is 0.15 the two hypotheses are not well separated.
+
+**(b)** Because coloc assumes **at most one causal variant per trait per region**. With two
+independent GWAS signals, one colocalising and one not, the single-causal model is misspecified
+— and the usual failure is that it dilutes the shared signal, pushing probability toward H₃.
+A PP₄ of 0.82 under a misspecified model could be understating or overstating; the direction
+is not predictable, which is worse than a known bias. eCAVIAR or a SuSiE-based colocalisation
+handles multiple signals directly.
+
+**(c)** Three things. Colocalisation redone allowing multiple causal variants, per signal.
+Replication in an independent eQTL dataset, ideally in the tissue the disease acts in rather
+than whichever tissue had the largest sample. And direct evidence that the variant changes
+the gene's expression — a reporter assay or a base edit — because colocalisation is a
+statement about statistical coincidence, not about mechanism.
+
+Even at PP₄ = 0.99, colocalisation says the same variant is causal for both traits. It does
+not say the trait effect is *mediated by* that gene's expression: the variant may affect
+both independently, and the direction of mediation is not identified by the coloc model at
+all.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A significant locus names a region, not a variant.** Fine-mapping distributes posterior
+  probability across the variants in it, from summary statistics alone.
+- **Wakefield's approximate Bayes factor** needs only $z$, $V$ and a prior variance $W$.
+  This curriculum writes it as $\mathrm{BF}_{01}$ — evidence for the null — so **small means
+  a likely causal variant**, and $\mathrm{BF}_{10}$ is its exact reciprocal.
+- **π₀ is not optional.** With it, the PIPs at a null locus sum to 0.5764 and no 95% set can
+  be formed. Without it they are forced to 1.0000, and the method returns a set of all eight
+  variants with a purity of 0.0100 — a confident-looking answer assembled from noise.
+- **Purity is the diagnostic, coverage is not.** The worked example's real set has coverage
+  0.99996 and purity 0.7000: three variants the data genuinely cannot separate. Sets below
+  0.5 purity are discarded.
+- **The resolution limit is LD, not sample size.** More people will not split variants at
+  $r = 0.95$; only recombination or a different LD structure will.
+- **Colocalisation asks whether it is the same variant**, not whether both traits have a
+  signal. Shifting a second trait's peak by three variants moves the answer from
+  PP₄ = 0.9991 to PP₃ = 0.9947.
+- **p₁₂ carries the colocalisation argument**, and a result reported without a sensitivity
+  analysis over it has not been checked. Nor does PP₄ establish mediation — only that one
+  variant is causal for both.

@@ -417,9 +417,14 @@ describe('curriculum consistency', () => {
   });
 
   it('writes Wakefield in the BF₀₁ direction, and flags the reciprocal if it uses it', () => {
+    // The subscript can arrive three ways and the guard has to see all of them: the Unicode
+    // BF₀₁, a bare BF_{01}, and — the one that slipped through first — \mathrm{BF}_{01},
+    // where the closing brace sits between "BF" and the underscore.
+    const direction = (d: string) =>
+      new RegExp(`BF\\}?_\\{?${d}[,\\}]|BF${d === '01' ? '₀₁' : '₁₀'}`);
     for (const { id, text } of mentioning(/Wakefield|\\text\{ABF\}|\bABF\b/)) {
-      expect(text, `${id}: ABF must be written BF₀₁`).toMatch(/BF_\{?01\}?|BF₀₁/);
-      if (/BF_\{?10\}?|BF₁₀/.test(text)) {
+      expect(text, `${id}: ABF must be written BF₀₁`).toMatch(direction('01'));
+      if (direction('10').test(text)) {
         expect(text, `${id}: the BF₁₀ form appears without saying it is the reciprocal`).toMatch(
           /reciprocal/i
         );
@@ -458,6 +463,31 @@ describe('curriculum consistency', () => {
     expect([...counts], 'the series has quoted 10, "10–20" and 20 in three places').toHaveLength(
       Math.min(counts.size, 1)
     );
+  });
+
+  it('has no braces inside an inline figure, which MDX reads as an expression', () => {
+    // A figure generator that writes a set as "{v3, v4, v5}" splices a JSX expression into
+    // the page, and the build fails with `ReferenceError: v3 is not defined` — pointing at
+    // a compiled chunk rather than at the figure. Cheap to check, expensive to diagnose.
+    // Only *text content* — the gap between > and < — is checked. Braces inside a tag are
+    // JSX attribute bindings, which are deliberate and work (the ML hub's figure uses them).
+    const offenders: string[] = [];
+    for (const lesson of published) {
+      for (const svg of lesson.body.match(/<svg[\s\S]*?<\/svg>/g) ?? []) {
+        for (const node of svg.matchAll(/>([^<>]*)</g)) {
+          for (const brace of node[1].match(/\{[^}]*\}/g) ?? []) {
+            // A bare identifier is a real binding — the ML hub's figure maps over data and
+            // emits <text>{label}</text>. Anything with a comma, a space or punctuation is
+            // literal text that MDX will try, and fail, to evaluate.
+            const inner = brace.slice(1, -1);
+            if (!/^[A-Za-z_$][\w$.]*$/.test(inner)) {
+              offenders.push(`${lesson.id}: ${brace.slice(0, 44)}`);
+            }
+          }
+        }
+      }
+    }
+    expect(offenders, 'a brace in SVG text content becomes a JSX expression').toEqual([]);
   });
 
   it('mounts no widget kind the controller cannot render', () => {

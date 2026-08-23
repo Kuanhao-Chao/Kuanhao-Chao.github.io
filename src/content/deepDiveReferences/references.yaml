@@ -3260,3 +3260,29 @@ evangelou2013meta:
   venue: "Nature Reviews Genetics 14:379-389"
   doi: https://doi.org/10.1038/nrg3472
   verified: 2026-08-21
+
+# ── Module 5 · Fine-mapping ───────────────────────────────────────────────────
+
+wakefield2008abf:
+  authors: ['Jon Wakefield']
+  year: 2008
+  title: "Bayes factors for genome‐wide association studies: comparison with P ‐values"
+  venue: "Genetic Epidemiology 33:79-86"
+  doi: https://doi.org/10.1002/gepi.20359
+  verified: 2026-08-21
+
+hormozdiari2016ecaviar:
+  authors: ['Farhad Hormozdiari', 'Martijn van de Bunt', 'Ayellet V. Segrè', 'et al.']
+  year: 2016
+  title: "Colocalization of GWAS and eQTL Signals Detects Target Genes"
+  venue: "The American Journal of Human Genetics 99:1245-1260"
+  doi: https://doi.org/10.1016/j.ajhg.2016.10.003
+  verified: 2026-08-21
+
+weissbrod2020polyfun:
+  authors: ['Omer Weissbrod', 'Farhad Hormozdiari', 'Christian Benner', 'et al.']
+  year: 2020
+  title: "Functionally informed fine-mapping and polygenic localization of complex trait heritability"
+  venue: "Nature Genetics 52:1355-1363"
+  doi: https://doi.org/10.1038/s41588-020-00735-5
+  verified: 2026-08-21
