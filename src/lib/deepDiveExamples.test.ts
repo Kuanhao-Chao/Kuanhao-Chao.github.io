@@ -21,6 +21,7 @@ import {
   selectionIntensity, breedersResponse, breedersResponseFromIntensity,
   hendersonMme, blupSolve, grmFromMarkers, predictionAccuracy, matVec, invert,
   correlatedResponse, multivariateResponse,
+  lambdaGc, CHI2_1DF_MEDIAN, varianceExplained,
 } from './deepDiveMath.ts';
 
 /**
@@ -1563,6 +1564,139 @@ describe('statgen-multivariate-genetics-gxe', () => {
     it('sits far below the 0.8 threshold', () => {
       expect(RG).toBeLessThan(0.8);
       expect(mdx).toContain('**44%**');
+    });
+  });
+});
+
+describe('statgen-association-linear-mixed-models', () => {
+  const mdx = lesson('statgen-association-linear-mixed-models');
+  const zAlpha = Math.sqrt(chi2Quantile(1 - 5e-8, 1));
+  const zBeta = normalQuantile(0.8);
+  const K = (zAlpha + zBeta) ** 2;
+
+  describe('worked example — sample size for a variant explaining 0.1%', () => {
+    it('has the two quantiles and the constant 39.60', () => {
+      expect(zAlpha).toBeCloseTo(5.45131, 5);
+      expect(zBeta).toBeCloseTo(0.841621, 6);
+      expect(zAlpha + zBeta).toBeCloseTo(6.2929317, 6);
+      expect(K).toBeCloseTo(39.600989, 6);
+      expect(mdx).toContain('6.292931^2 = 39.600989');
+    });
+
+    it('has the variance explained', () => {
+      expect(varianceExplained(0.3, 0.05)).toBeCloseTo(1.05e-3, 12);
+      expect(2 * 0.3 * 0.7 * 0.05 ** 2).toBeCloseTo(1.05e-3, 12);
+      expect(mdx).toContain('0.42 \\times 0.0025 = 1.05\\times10^{-3}');
+    });
+
+    it('gives 37,716 by the q² route', () => {
+      expect(Math.ceil(K / 1.05e-3)).toBe(37716);
+      expect(mdx).toContain('{1.05\\times10^{-3}} = 37{,}716');
+    });
+
+    it('gives the identical 37,716 by the p(1−p)β² route', () => {
+      const half = K / 2;
+      expect(half).toBeCloseTo(19.800495, 6);
+      expect(Math.ceil(half / (0.3 * 0.7 * 0.0025))).toBe(37716);
+      // the two formulas are one formula
+      expect(Math.ceil(K / varianceExplained(0.3, 0.05))).toBe(
+        Math.ceil(half / (0.3 * 0.7 * 0.0025))
+      );
+      expect(mdx).toContain('(0.30)(0.70)(0.0025)} = 37{,}716');
+    });
+
+    it('needs 396,010 for a variant ten times smaller', () => {
+      expect(Math.ceil(K / 1e-4)).toBe(396010);
+      expect(mdx).toContain('396,010 people');
+    });
+
+    it('states the q² convention, since 39.60 and 19.80 both appear', () => {
+      expect(mdx).toMatch(/q\^2|q²/);
+    });
+  });
+
+  describe('worked example — computing λ_GC', () => {
+    const STATS = [0.02, 0.11, 0.28, 0.44, 0.545924, 0.95, 1.51, 2.84, 6.1];
+
+    it('uses the exact median of chi-square on 1 df', () => {
+      expect(CHI2_1DF_MEDIAN).toBeCloseTo(0.4549364231195727, 15);
+      // it is the square of the 0.75 normal quantile
+      expect(normalQuantile(0.75) ** 2).toBeCloseTo(CHI2_1DF_MEDIAN, 9);
+      expect(mdx).toContain('0.4549364');
+    });
+
+    it('takes the fifth of nine as the median and gives 1.20', () => {
+      expect(STATS[4]).toBe(0.545924);
+      expect(lambdaGc(STATS)).toBeCloseTo(1.2, 5);
+      expect(mdx).toContain('\\frac{0.545924}{0.4549364} = 1.200000');
+    });
+
+    it('returns to exactly 1 after genomic control', () => {
+      const corrected = STATS.map((v) => v / lambdaGc(STATS));
+      expect(lambdaGc(corrected)).toBeCloseTo(1, 10);
+    });
+
+    it('cannot separate a constant lift from a scaling', () => {
+      // both constructions give the same lambda, which is the figure's whole point
+      const additive = STATS.map((v) => v + (1.2 * CHI2_1DF_MEDIAN - CHI2_1DF_MEDIAN));
+      const multiplicative = STATS.map((v) => v * 1.2);
+      const base = lambdaGc(STATS);
+      expect(lambdaGc(multiplicative)).toBeCloseTo(base * 1.2, 6);
+      // tuned so the additive version matches at the median
+      expect(lambdaGc(additive) - base).toBeCloseTo(0.2, 4);
+      expect(mdx).toContain('equally consistent with confounding');
+    });
+  });
+
+  describe('figure 1 — one λ_GC, two causes', () => {
+    it('has both constructions land on 1.20 exactly', () => {
+      const add = 1.2 * CHI2_1DF_MEDIAN - CHI2_1DF_MEDIAN;
+      expect(add).toBeCloseTo(0.090987, 6);
+      expect((CHI2_1DF_MEDIAN + add) / CHI2_1DF_MEDIAN).toBeCloseTo(1.2, 12);
+      expect((CHI2_1DF_MEDIAN * 1.2) / CHI2_1DF_MEDIAN).toBeCloseTo(1.2, 12);
+      expect(mdx).toContain('λ_GC = 1.20 for both');
+    });
+  });
+
+  describe('exercise 1 — two variants, one sample size', () => {
+    it('computes both variances explained', () => {
+      expect(varianceExplained(0.4, 0.04)).toBeCloseTo(7.68e-4, 12);
+      expect(varianceExplained(0.02, 0.204)).toBeCloseTo(1.631347e-3, 9);
+      expect(mdx).toContain('0.48 \\times 0.0016 = 7.680000\\times10^{-4}');
+      expect(mdx).toContain('0.0392 \\times 0.041616 = 1.631347\\times10^{-3}');
+    });
+
+    it('needs fewer people for the rare large-effect variant', () => {
+      const nA = Math.ceil(K / varianceExplained(0.4, 0.04));
+      const nB = Math.ceil(K / varianceExplained(0.02, 0.204));
+      expect(nA).toBe(51564);
+      expect(nB).toBe(24276);
+      expect(nB).toBeLessThan(nA / 2);
+      expect(mdx).toContain('51{,}564');
+      expect(mdx).toContain('24{,}276');
+      expect(mdx).toContain('**less than half**');
+    });
+  });
+
+  describe('exercise 2 — what λ_GC will not tell you', () => {
+    it('drops a real hit below threshold when corrected', () => {
+      const crit = chi2Quantile(1 - 5e-8, 1);
+      expect(crit).toBeCloseTo(29.7168, 3);
+      expect(33 / 1.31).toBeCloseTo(25.2, 1);
+      expect(33).toBeGreaterThan(crit);
+      expect(33 / 1.31).toBeLessThan(crit);
+      expect(mdx).toContain('falls to $25.2$');
+      expect(mdx).toContain('29.7168');
+    });
+  });
+
+  describe('exercise 3 — a mixed model that lost its signal', () => {
+    it('straddles the genome-wide threshold', () => {
+      const crit = chi2Quantile(1 - 5e-8, 1);
+      expect(40).toBeGreaterThan(crit);
+      expect(26).toBeLessThan(crit);
+      expect(mdx).toContain('At 40 the variant');
+      expect(mdx).toContain('at 26 it does not');
     });
   });
 });

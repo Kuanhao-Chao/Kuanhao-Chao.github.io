@@ -3035,3 +3035,62 @@ kirkpatrick2009dimensions:
   venue: "Genetica 136:271-284"
   doi: https://doi.org/10.1007/s10709-008-9302-6
   verified: 2026-08-21
+
+# ── Module 4 · Association testing ────────────────────────────────────────────
+
+
+price2006eigenstrat:
+  authors: ['Alkes L. Price', 'Nick J Patterson', 'Robert M Plenge', 'et al.']
+  year: 2006
+  title: "Principal components analysis corrects for stratification in genome-wide association studies"
+  venue: "Nature Genetics 38:904-909"
+  doi: https://doi.org/10.1038/ng1847
+  verified: 2026-08-21
+
+astle2009structure:
+  authors: ['William Astle', 'David J. Balding']
+  year: 2009
+  title: "Population Structure and Cryptic Relatedness in Genetic Association Studies"
+  venue: "Statistical Science 24"
+  doi: https://doi.org/10.1214/09-STS307
+  verified: 2026-08-21
+
+kang2010emmax:
+  authors: ['Hyun Min Kang', 'Jae Hoon Sul', 'Susan K Service', 'et al.']
+  year: 2010
+  title: "Variance component model to account for sample structure in genome-wide association studies"
+  venue: "Nature Genetics 42:348-354"
+  doi: https://doi.org/10.1038/ng.548
+  verified: 2026-08-21
+
+yang2014mlm:
+  authors: ['Jian Yang', 'Noah A Zaitlen', 'Michael E Goddard', 'et al.']
+  year: 2014
+  title: "Advantages and pitfalls in the application of mixed-model association methods"
+  venue: "Nature Genetics 46:100-106"
+  doi: https://doi.org/10.1038/ng.2876
+  verified: 2026-08-21
+
+loh2015bolt:
+  authors: ['Po-Ru Loh', 'George Tucker', 'Brendan K Bulik-Sullivan', 'et al.']
+  year: 2015
+  title: "Efficient Bayesian mixed-model analysis increases association power in large cohorts"
+  venue: "Nature Genetics 47:284-290"
+  doi: https://doi.org/10.1038/ng.3190
+  verified: 2026-08-21
+
+jiang2019fastgwa:
+  authors: ['Longda Jiang', 'Zhili Zheng', 'Ting Qi', 'et al.']
+  year: 2019
+  title: "A resource-efficient tool for mixed model association analysis of large-scale data"
+  venue: "Nature Genetics 51:1749-1755"
+  doi: https://doi.org/10.1038/s41588-019-0530-8
+  verified: 2026-08-21
+
+mbatchou2021regenie:
+  authors: ['Joelle Mbatchou', 'Leland Barnard', 'Joshua Backman', 'et al.']
+  year: 2021
+  title: "Computationally efficient whole-genome regression for quantitative and binary traits"
+  venue: "Nature Genetics 53:1097-1103"
+  doi: https://doi.org/10.1038/s41588-021-00870-7
+  verified: 2026-08-21
