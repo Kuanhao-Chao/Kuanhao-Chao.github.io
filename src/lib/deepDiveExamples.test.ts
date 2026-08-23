@@ -5424,3 +5424,97 @@ describe('gwas-ld-reference-panels', () => {
     });
   });
 });
+
+describe('gwas-fine-mapping-practice', () => {
+  const mdx = lesson('gwas-fine-mapping-practice');
+  const P = 0.3;
+  const N = 50000;
+  const V = 1 / (2 * P * (1 - P) * N);
+  const W = 0.04;
+  const PI0 = 0.05;
+  const Z = [2.1, 4.6, 6.2, 6.5, 6.2, 4.6, 2.4, 1.8];
+  const DECAY = [1, 0.95, 0.7, 0.35, 0.15, 0.05, 0.02, 0.01];
+  const flat = (n: number) => Array.from({ length: n }, () => 1 / n);
+  const CAUSAL = 3;
+
+  describe('worked example — the same locus run twice', () => {
+    const full = pipsFromAbf(
+      Z.map((z) => wakefieldAbf(z, V, W)),
+      flat(8),
+      PI0
+    );
+    const ldFull = Array.from({ length: 8 }, (_, i) =>
+      Array.from({ length: 8 }, (_, j) => DECAY[Math.abs(i - j)])
+    );
+    const keep = [0, 1, 2, 4, 5, 6, 7];
+    const dropped = pipsFromAbf(
+      keep.map((i) => wakefieldAbf(Z[i], V, W)),
+      flat(7),
+      PI0
+    );
+    const ldDropped = keep.map((i) => keep.map((j) => DECAY[Math.abs(i - j)]));
+
+    it('step 1: with the causal variant present it takes 0.770194', () => {
+      expect(full[CAUSAL]).toBeCloseTo(0.770194, 6);
+      expect(full[2]).toBeCloseTo(0.114882, 6);
+      expect(full[4]).toBeCloseTo(0.114882, 6);
+      const cs = credibleSet(full, 0.95);
+      expect(cs.indices.slice().sort()).toEqual([2, 3, 4]);
+      expect(cs.coverage).toBeCloseTo(0.999959, 6);
+      expect(csPurity(cs.indices, ldFull)).toBeCloseTo(0.7, 10);
+      for (const v of ['0.770194', '0.114882', '0.999959', '0.7000'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 2: without it the two flanking tags split the posterior evenly', () => {
+      expect(dropped[2]).toBeCloseTo(0.499911, 6);
+      expect(dropped[3]).toBeCloseTo(0.499911, 6);
+      const cs = credibleSet(dropped, 0.95);
+      expect(cs.indices.slice().sort()).toEqual([2, 3]);
+      // positions 2 and 3 of the reduced list are original variants 2 and 4
+      expect(cs.indices.map((i) => keep[i]).sort()).toEqual([2, 4]);
+      expect(cs.coverage).toBeCloseTo(0.999821, 6);
+      expect(csPurity(cs.indices, ldDropped)).toBeCloseTo(0.7, 10);
+      expect(mdx).toContain('0.499911');
+      expect(mdx).toContain('0.999821');
+    });
+
+    it('step 3: the wrong answer looks better by every reported diagnostic', () => {
+      const good = credibleSet(full, 0.95);
+      const bad = credibleSet(dropped, 0.95);
+      // smaller set
+      expect(bad.indices.length).toBeLessThan(good.indices.length);
+      expect(bad.indices).toHaveLength(2);
+      expect(good.indices).toHaveLength(3);
+      // identical purity
+      expect(csPurity(bad.indices, ldDropped)).toBeCloseTo(
+        csPurity(good.indices, ldFull),
+        10
+      );
+      // both coverages above the target
+      expect(bad.coverage).toBeGreaterThan(0.95);
+      expect(good.coverage).toBeGreaterThan(0.95);
+      // and the causal variant is not in the second set
+      expect(bad.indices.map((i) => keep[i])).not.toContain(CAUSAL);
+      expect(good.indices).toContain(CAUSAL);
+    });
+  });
+
+  describe('conventions', () => {
+    it('normalises the PIP against an explicit null and writes ABF as BF01', () => {
+      expect(mdx).toContain('\\pi_0');
+      expect(mdx).toContain('\\mathrm{BF}_{01');
+      // π₀ is stated as a number in the given block, not left implicit
+      expect(mdx).toContain('π₀ = 0.05');
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('draws both panels with their diagnostics', () => {
+      for (const l of ['0.770', '0.115', '0.500', 'causal', 'absent',
+                       'coverage 0.999959', 'coverage 0.999821', 'purity 0.7000',
+                       '3 variants', '2 variants'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+  });
+});

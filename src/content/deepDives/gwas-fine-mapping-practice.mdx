@@ -1,0 +1,315 @@
+---
+title: "Fine-Mapping in Practice: Running It, Reading It, and Knowing When It Lied"
+shortTitle: Fine-mapping in Practice
+description: "What a credible set is conditional on, why coverage and purity cannot detect the failure that matters most, and what a fine-mapped locus does and does not tell you about a gene."
+abstract: "Fine-mapping turns an association into a short list of candidate variants, and the output is easy to over-trust because its two diagnostics are silent about its most common failure. This lesson runs a locus twice with the same summary statistics, the same LD and the same priors, changing only whether the causal variant survived the upstream filters. With it present the credible set holds three variants at coverage 0.999959 and purity 0.7000, and the truth carries a posterior inclusion probability of 0.770194. With it absent the set holds two variants at coverage 0.999821 and purity 0.7000 — a tighter, more confident-looking answer that does not contain the causal variant, with nothing in the output to say so. The lesson then covers what fine-mapping needs to work at all, and the separate question of getting from a variant to a gene."
+date: 2026-08-23
+track: workflow
+hub: gwas
+moduleId: g03-after
+moduleLabel: Module 3 · After the Scan
+order: 8
+level: advanced
+objectives:
+  - "State what a credible set's coverage is conditional on, and why that condition is usually unverifiable."
+  - "Read posterior inclusion probability, coverage and purity, and say which failures each can and cannot detect."
+  - "Explain why fine-mapping needs in-sample LD where clumping can tolerate a reference panel."
+  - "Recognise the signature of a locus with more than one causal variant."
+  - "Say what a fine-mapped variant establishes about the nearest gene."
+prerequisites:
+  - gwas-ld-reference-panels
+relatedLessons:
+  - gwas-ld-reference-panels
+  - statgen-bayesian-fine-mapping
+  - gwas-arrays-imputation
+keyEquations:
+  - '\text{PIP}_j = \dfrac{\pi_j / \mathrm{BF}_{01,j}}{\pi_0 + \sum_k \pi_k / \mathrm{BF}_{01,k}}'
+  - '\text{coverage} = \sum_{j \in \mathcal{C}} \text{PIP}_j'
+  - '\text{purity} = \min_{j,k \in \mathcal{C}} |r_{jk}|'
+referenceIds:
+  - wang2020susie
+  - benner2016finemap
+  - hormozdiari2016ecaviar
+  - mountjoy2021l2g
+  - giambartolomei2014coloc
+  - tgp2015
+  - martin2019
+tags: [GWAS, fine-mapping, credible sets, PIP, in-sample LD, SuSiE]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+A locus is significant and a hundred variants in it are significant, because they are all in
+LD with whatever is actually doing the work. Fine-mapping narrows that to a short list. How
+much should you believe the list?
+
+The machinery — approximate Bayes factors, posterior inclusion probabilities, credible sets —
+is derived in
+[Bayesian Fine-mapping](/deep_dives/statgen-bayesian-fine-mapping/) and is not repeated here.
+This lesson is about running it and reading it, and in particular about the assumption the
+output is silent on.
+
+<Callout variant="intuition">
+
+A credible set answers a **conditional** question: *given that exactly one of these variants
+is causal, which are the candidates?* Everything reported — the posterior inclusion
+probabilities, the coverage, the purity — is computed inside that conditional.
+
+So if the causal variant is not among the ones supplied, the method does not report failure.
+It reports the best answer available under a premise that is false, and it reports it with
+exactly the same confidence it would have shown had the premise held. That is the failure
+mode this lesson is built around, because the two standard diagnostics cannot see it.
+
+</Callout>
+
+<Notation
+  rows={[
+    { symbol: '\\text{PIP}_j', meaning: 'Posterior probability that variant j is the causal one', dims: 'in [0,1]' },
+    { symbol: '\\pi_0', meaning: 'Prior probability that no variant in the region is causal', dims: 'in [0,1]' },
+    { symbol: '\\mathcal{C}', meaning: 'The credible set — the smallest group reaching the target coverage', dims: 'a set' },
+    { symbol: '\\text{coverage}', meaning: 'Total PIP inside the credible set', dims: 'in [0,1]' },
+    { symbol: '\\text{purity}', meaning: 'Smallest absolute correlation between any two members', dims: 'in [0,1]' },
+  ]}
+/>
+
+## The same locus, run twice
+
+<WorkedExample
+  title="A credible set that excludes the causal variant and reports nothing wrong"
+  given={[
+    { label: 'Region', value: '8 variants, causal at position 4' },
+    { label: 'z-scores', value: '2.1, 4.6, 6.2, 6.5, 6.2, 4.6, 2.4, 1.8' },
+    { label: 'Null prior', value: 'π₀ = 0.05, uniform over the rest' },
+    { label: 'Target coverage', value: '95%' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — with everything present.** Running the standard machinery over all eight variants,
+with the posterior normalised against an explicit $\pi_0 = 0.05$, gives
+
+$$
+\text{PIP} = (0.000000,\; 0.000021,\; 0.114882,\; \mathbf{0.770194},\; 0.114882,\; 0.000021,\; 0.000000,\; 0.000000) .
+$$
+
+The causal variant takes 0.770194 and its two immediate neighbours 0.114882 each. The 95%
+credible set is those three, with **coverage 0.999959** and **purity 0.7000** — the smallest
+correlation between any two members. That is an honest and useful result: the signal is
+localised to three variants and the data cannot go further at this sample size.
+
+**Step 2 — now drop the causal variant.** Not maliciously: it failed the imputation-quality
+filter from the arrays lesson, or it is absent from the reference panel, or it is an indel
+the pipeline skipped. Everything else is identical. Re-running over the remaining seven:
+
+$$
+\text{PIP} = (0.000000,\; 0.000089,\; \mathbf{0.499911},\; \mathbf{0.499911},\; 0.000089,\; 0.000000,\; 0.000000) .
+$$
+
+The two flanking tags now split the posterior evenly. The 95% credible set is those two, with
+**coverage 0.999821** and **purity 0.7000**.
+
+**Step 3 — compare the two reports.** Coverage: 0.999959 against 0.999821. Purity: 0.7000
+against 0.7000. Set size: three against **two**.
+
+By every number a fine-mapping tool prints, the second run is the *better* result — a tighter
+set, equally pure, equally well covered. It is also the run whose credible set does not
+contain the causal variant, and there is no diagnostic in the output that distinguishes them.
+
+**Step 4 — what would have caught it.** Nothing downstream. The check has to happen upstream:
+confirm that the region's variants were not thinned by an INFO filter, that the reference
+panel covers the region's frequency spectrum, and that indels and multi-allelic sites were
+not silently dropped. A credible set is only as complete as the candidate list it was given,
+and that list is assembled three lessons earlier.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The same locus fine-mapped twice, with identical summary statistics, LD and priors. Above, the causal variant is present and takes a posterior inclusion probability of 0.770 in a three-variant credible set at coverage 0.999959. Below, it was dropped upstream: the two flanking tags split the posterior at 0.500 each, and the resulting two-variant set has coverage 0.999821 and the same purity of 0.7000. The second report looks tighter and more confident, and excludes the truth."
+  alt="Two panels of posterior inclusion probability bars for eight variants. In the upper panel the causal variant has a bar of 0.770 with neighbours at 0.115, giving a three-variant credible set with coverage 0.999959 and purity 0.7000. In the lower panel the causal position is marked absent with a dashed line, and two flanking variants each have 0.500, giving a two-variant set with coverage 0.999821 and the same purity."
+>
+<svg viewBox="0 0 640 388" width="640" height="388" font-family="inherit"><line x1="88.0" y1="54.0" x2="88.0" y2="128.0" stroke="currentColor" stroke-width="1.25"/><line x1="88.0" y1="128.0" x2="430.0" y2="128.0" stroke="currentColor" stroke-width="1.25"/><line x1="88.0" y1="128.0" x2="430.0" y2="128.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="132.0" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="88.0" y1="93.2" x2="430.0" y2="93.2" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="97.2" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".75">0.4</text><line x1="88.0" y1="58.4" x2="430.0" y2="58.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="62.4" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".75">0.8</text><text x="20.0" y="40.0" font-size="11.5" fill="currentColor" font-weight="700">the causal variant is in the data</text><rect x="106.5" y="128.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><rect x="147.2" y="128.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><rect x="187.9" y="118.0" width="20.0" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.9"/><text x="197.9" y="113.0" font-size="8.5" fill="currentColor" text-anchor="middle" font-weight="600">0.115</text><rect x="228.6" y="60.9" width="20.0" height="67.1" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.9"/><text x="238.6" y="55.9" font-size="8.5" fill="currentColor" text-anchor="middle" font-weight="600">0.770</text><text x="238.6" y="143.0" font-size="8.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="700">causal</text><rect x="269.4" y="118.0" width="20.0" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.9"/><text x="279.4" y="113.0" font-size="8.5" fill="currentColor" text-anchor="middle" font-weight="600">0.115</text><rect x="310.1" y="128.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><rect x="350.8" y="128.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><rect x="391.5" y="128.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><text x="446.0" y="84.0" font-size="9.5" fill="currentColor" opacity=".85">coverage 0.999959</text><text x="446.0" y="98.0" font-size="9.5" fill="currentColor" opacity=".85">purity 0.7000</text><text x="446.0" y="116.0" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">3 variants</text><line x1="88.0" y1="204.0" x2="88.0" y2="278.0" stroke="currentColor" stroke-width="1.25"/><line x1="88.0" y1="278.0" x2="430.0" y2="278.0" stroke="currentColor" stroke-width="1.25"/><line x1="88.0" y1="278.0" x2="430.0" y2="278.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="282.0" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="88.0" y1="243.2" x2="430.0" y2="243.2" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="247.2" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".75">0.4</text><line x1="88.0" y1="208.4" x2="430.0" y2="208.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="80.0" y="212.4" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".75">0.8</text><text x="20.0" y="190.0" font-size="11.5" fill="currentColor" font-weight="700">it was dropped before fine-mapping</text><rect x="106.5" y="278.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><rect x="147.2" y="278.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><rect x="187.9" y="234.5" width="20.0" height="43.5" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.9"/><text x="197.9" y="229.5" font-size="8.5" fill="currentColor" text-anchor="middle" font-weight="600">0.500</text><line x1="238.6" y1="278.0" x2="238.6" y2="208.4" stroke="currentColor" stroke-width="1.4" opacity=".4" stroke-dasharray="3 3"/><text x="238.6" y="293.0" font-size="8.5" fill="currentColor" text-anchor="middle" opacity=".6">absent</text><rect x="269.4" y="234.5" width="20.0" height="43.5" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.9"/><text x="279.4" y="229.5" font-size="8.5" fill="currentColor" text-anchor="middle" font-weight="600">0.500</text><rect x="310.1" y="278.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><rect x="350.8" y="278.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><rect x="391.5" y="278.0" width="20.0" height="0.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity="0.3"/><text x="446.0" y="234.0" font-size="9.5" fill="currentColor" opacity=".85">coverage 0.999821</text><text x="446.0" y="248.0" font-size="9.5" fill="currentColor" opacity=".85">purity 0.7000</text><text x="446.0" y="266.0" font-size="9.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">2 variants</text><text x="20.0" y="24.0" font-size="11.5" fill="currentColor" opacity=".8">Both credible sets look equally trustworthy; one of them is wrong</text><text x="244.0" y="318.0" font-size="11" fill="currentColor" text-anchor="middle">Variant</text><text x="20.0" y="344.0" font-size="10" fill="currentColor" opacity=".85">Removing the causal variant makes the answer look better, not worse: a two-variant</text><text x="20.0" y="358.0" font-size="10" fill="currentColor" opacity=".85">set instead of three, the same purity, the same coverage. Nothing in the</text><text x="20.0" y="372.0" font-size="10" fill="currentColor" opacity=".85">output reports that the truth was never a candidate.</text></svg>
+</Figure>
+
+## What fine-mapping needs to work
+
+**In-sample LD, not a reference panel.** Clumping can tolerate an approximate LD matrix
+because it only has to decide which variants are roughly the same signal. Fine-mapping is
+trying to separate variants that are *nearly identical*, and a small error in the correlation
+between two candidates moves the posterior between them. The previous lesson's arithmetic is
+the reason: $r^2$ estimated from the wrong population is not slightly wrong, it is a
+different number. Where in-sample LD is unavailable, the honest report is a larger credible
+set, not a confident small one <Citation id="benner2016finemap" />.
+
+**A model that allows more than one causal variant.** The single-causal-variant assumption is
+frequently false, and its signature is recognisable: after conditioning on the lead variant,
+a secondary signal remains. Methods built on a sum of single effects
+<Citation id="wang2020susie" /> return several credible sets per locus for exactly this
+reason, and a locus reported with one set by a single-effect method and three by SuSiE is
+usually the latter being right.
+
+**Summary statistics that match the LD.** If the effect estimates come from a meta-analysis
+across cohorts with different LD structures, no single LD matrix describes them, and
+fine-mapping on the meta-analysed statistics is not well defined however good the panel is.
+This is a common and under-reported problem in consortium papers.
+
+## From a variant to a gene
+
+A credible set names positions. It does not name genes, and the two steps most often used to
+bridge that gap are both weaker than they look.
+
+**Nearest gene** is right often enough to be tempting and wrong often enough to be dangerous.
+Regulatory variants act at distance, through chromatin contacts that ignore linear order.
+
+**Colocalisation** with an expression QTL <Citation id="giambartolomei2014coloc" /> asks
+whether the trait signal and the expression signal share a causal variant, which is a
+sharper question than "is there an eQTL nearby" — and it inherits every limitation above,
+since it is fine-mapping run twice and compared. A colocalisation computed on mismatched LD
+is as unreliable as the fine-mapping underneath it
+<Citation id="hormozdiari2016ecaviar" />.
+
+**Integrated scores** <Citation id="mountjoy2021l2g" /> combine distance, colocalisation,
+chromatin data and functional prediction into a ranking. They are the best available
+automated answer and are still a ranking, not an identification.
+
+<Callout variant="warning" title="Fine-mapping transfers worse than association does">
+
+Association results replicate across populations reasonably well, because the causal variant
+is usually present in both and the tag structure only has to be good enough to find it.
+Fine-mapping does not, for the reason lesson 7 made concrete: the credible set depends on
+$r^2$ among candidates, and $r^2$ is population-specific.
+
+A credible set from a European cohort is a statement about European haplotypes. Applying it
+elsewhere — or fine-mapping a multi-ancestry meta-analysis with a European panel — produces
+confident, well-covered, high-purity nonsense <Citation id="martin2019" />. The upside is
+that multi-ancestry data is genuinely *more* informative here than more of the same
+ancestry <Citation id="tgp2015" />: different LD structures break different ties, and a
+variant causal in both populations is the one that stays significant in both.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="Reading three reports" difficulty="warm-up">
+
+Three loci come back from the same pipeline:
+
+- Locus A: 2 variants, coverage 0.96, purity 0.98.
+- Locus B: 41 variants, coverage 0.95, purity 0.91.
+- Locus C: 3 variants, coverage 0.95, purity 0.12.
+
+(a) Which is the most useful result?
+
+(b) What does locus B's report mean?
+
+(c) What is wrong with locus C?
+
+<div slot="solution">
+
+**(a)** Locus A. Two candidates in near-perfect LD is the best outcome available from
+statistics alone: the data have localised the signal as far as they can, and the remaining
+ambiguity is a property of the region rather than of the study.
+
+**(b)** That the region is large and the LD is extensive, so 41 variants are needed to reach
+95%. It is not a failure — it is an accurate report that this locus is not resolvable at this
+sample size. Reporting the lead variant as "the" variant would be the failure.
+
+**(c)** A purity of 0.12 means two members of the set are essentially uncorrelated, which a
+single-causal-variant model should never produce: if only one variant is causal, everything
+sharing its posterior must share its LD. The likely truth is **two causal variants** being
+forced into one set. SuSiE would report them as separate credible sets, and tools drop sets
+below a purity of 0.5 for this reason.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="A tighter set after a filter change" difficulty="core">
+
+A team re-runs fine-mapping after tightening their imputation INFO filter from 0.3 to 0.8.
+Several loci come back with smaller credible sets. The team reports improved resolution.
+
+(a) Is that a reasonable interpretation?
+
+(b) What is the alternative explanation?
+
+(c) How would you distinguish them?
+
+<div slot="solution">
+
+**(a)** Partly. A tighter INFO filter does remove poorly-imputed variants whose uncertain
+dosages genuinely blur the posterior, so some of the improvement can be real.
+
+**(b)** That the filter removed candidate variants, including causal ones — exactly the
+worked example. A credible set drawn from a smaller candidate list is smaller almost
+mechanically, and its coverage and purity are unchanged because both are computed within
+whatever list was supplied.
+
+**(c)** Check whether the lead variant of each shrunken set changed. If the set merely lost
+peripheral members and kept the same top variant, the resolution claim is plausible. If the
+top variant moved, a candidate carrying substantial posterior was removed, and the new set is
+answering a different question. Also check how many variants the filter removed *inside* each
+credible region specifically — a genome-wide count will not show it, because the regions that
+matter are a tiny fraction of the genome.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="One locus, two ancestries" difficulty="stretch">
+
+A locus is genome-wide significant in both a European and an East Asian cohort with similar
+effect sizes. Fine-mapped separately, the European credible set has 6 variants and the East
+Asian 4, and they share exactly one variant.
+
+(a) Is this a contradiction?
+
+(b) What does the shared variant suggest?
+
+(c) The team proposes meta-analysing the two and fine-mapping the combined statistics with a
+European panel. Comment.
+
+<div slot="solution">
+
+**(a)** No — it is the expected result, and a useful one. The two sets are answering the same
+question under different LD structures. A variant that is indistinguishable from four others
+in Europeans may be well separated in East Asians because recombination has broken that
+haplotype differently, and vice versa.
+
+**(b)** That it is the strongest candidate available. A single variant appearing in both sets
+is supported under two different correlation structures, which is much stronger evidence than
+a high posterior under one. This is the mechanism by which multi-ancestry data improves
+fine-mapping resolution rather than merely adding samples.
+
+**(c)** It would discard the advantage and add a bias. The gain above comes from the two
+populations having *different* LD; meta-analysing pools the effect estimates while a single
+panel imposes one LD structure on statistics that were generated under two, so the model is
+misspecified for at least one cohort — and a European panel makes it the East Asian cohort.
+The correct approach is to fine-map each cohort with its own in-sample LD and intersect, or
+to use a method that takes per-cohort LD matrices explicitly. The intersection is what
+question (b) already exploited.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A credible set is conditional on the causal variant being among the candidates**, and
+  when it is not, the method reports the best answer under a false premise with undiminished
+  confidence.
+- **Coverage and purity cannot detect that failure.** Dropping the causal variant took the set
+  from three members at coverage 0.999959 to two at 0.999821, purity 0.7000 both times — a
+  tighter, better-looking, wrong answer.
+- **The check is upstream.** Confirm the region's variants were not thinned by an
+  imputation-quality filter or missing from the panel before believing any credible set.
+- **Fine-mapping needs in-sample LD** where clumping tolerates a panel, because it is
+  separating variants that are nearly identical and $r^2$ is population-specific.
+- **A low-purity set is usually two causal variants**, not one uncertain signal, and a
+  multi-effect method will say so.
+- **Multi-ancestry data helps here more than more of the same ancestry**, because different
+  LD structures break different ties — but only if each cohort is fine-mapped with its own
+  LD rather than pooled under one panel.
