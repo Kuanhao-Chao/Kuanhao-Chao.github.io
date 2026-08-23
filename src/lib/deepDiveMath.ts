@@ -193,6 +193,49 @@ export function controlCeiling(nCases: number): number {
   return 4 * nCases;
 }
 
+// ── Multiple testing ──────────────────────────────────────────────────────────
+
+export interface BhResult {
+  /** Number of hypotheses rejected. */
+  rejected: number;
+  /** The largest p-value rejected, i.e. the effective threshold. 0 if nothing is. */
+  threshold: number;
+  /** Expected number of the rejections that are false, q × rejected. */
+  expectedFalse: number;
+}
+
+/**
+ * Benjamini-Hochberg: reject the k smallest p-values, where k is the largest index with
+ * p₍ₖ₎ ≤ (k/m)·q.
+ *
+ * The contrast with Bonferroni is the whole reason a GWAS uses the threshold it does.
+ * Bonferroni controls the probability of **any** false positive, so its cutoff stays at
+ * α/m however much signal there is. BH controls the *proportion* of rejections that are
+ * false, so its cutoff rises with the number of discoveries — which is what makes it
+ * powerful, and what makes it the wrong choice when each false locus costs years of
+ * follow-up.
+ *
+ * `m` defaults to the number of p-values supplied; pass it explicitly when the vector is
+ * only the top of a much larger scan.
+ */
+export function benjaminiHochberg(pValues: number[], q: number, m = pValues.length): BhResult {
+  const sorted = [...pValues].sort((a, b) => a - b);
+  let k = 0;
+  for (let i = 0; i < sorted.length; i += 1) {
+    if (sorted[i] <= ((i + 1) / m) * q) k = i + 1;
+  }
+  return {
+    rejected: k,
+    threshold: k === 0 ? 0 : sorted[k - 1],
+    expectedFalse: q * k,
+  };
+}
+
+/** The Bonferroni cutoff for m tests at family-wise level α. */
+export function bonferroni(alpha: number, m: number): number {
+  return alpha / m;
+}
+
 // ── Genotype encodings ────────────────────────────────────────────────────────
 
 /**
