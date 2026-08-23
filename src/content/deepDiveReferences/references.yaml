@@ -3144,3 +3144,69 @@ speed2019sumher:
   venue: "Nature Genetics 51:277-284"
   doi: https://doi.org/10.1038/s41588-018-0279-5
   verified: 2026-08-21
+
+# ── Module 4 · Rare variant association ───────────────────────────────────────
+
+li2008cmc:
+  authors: ['Bingshan Li', 'Suzanne M. Leal']
+  year: 2008
+  title: "Methods for Detecting Associations with Rare Variants for Common Diseases: Application to Analysis of Sequence Data"
+  venue: "The American Journal of Human Genetics 83:311-321"
+  doi: https://doi.org/10.1016/j.ajhg.2008.06.024
+  verified: 2026-08-21
+
+madsen2009weighted:
+  authors: ['Bo Eskerod Madsen', 'Sharon R. Browning']
+  year: 2009
+  title: "A Groupwise Association Test for Rare Mutations Using a Weighted Sum Statistic"
+  venue: "PLoS Genetics 5:e1000384"
+  doi: https://doi.org/10.1371/journal.pgen.1000384
+  verified: 2026-08-21
+
+morris2010evaluation:
+  authors: ['Andrew P. Morris', 'Eleftheria Zeggini']
+  year: 2010
+  title: "An evaluation of statistical approaches to rare variant analysis in genetic association studies"
+  venue: "Genetic Epidemiology 34:188-193"
+  doi: https://doi.org/10.1002/gepi.20450
+  verified: 2026-08-21
+
+wu2011skat:
+  authors: ['Michael C. Wu', 'Seunggeun Lee', 'Tianxi Cai', 'et al.']
+  year: 2011
+  title: "Rare-Variant Association Testing for Sequencing Data with the Sequence Kernel Association Test"
+  venue: "The American Journal of Human Genetics 89:82-93"
+  doi: https://doi.org/10.1016/j.ajhg.2011.05.029
+  verified: 2026-08-21
+
+lee2012skato:
+  authors: ['S. Lee', 'M. C. Wu', 'X. Lin']
+  year: 2012
+  title: "Optimal tests for rare variant effects in sequencing association studies"
+  venue: "Biostatistics 13:762-775"
+  doi: https://doi.org/10.1093/biostatistics/kxs014
+  verified: 2026-08-21
+
+povysil2019collapsing:
+  authors: ['Gundula Povysil', 'Slavé Petrovski', 'Joseph Hostyk', 'et al.']
+  year: 2019
+  title: "Rare-variant collapsing analyses for complex traits: guidelines and applications"
+  venue: "Nature Reviews Genetics 20:747-759"
+  doi: https://doi.org/10.1038/s41576-019-0177-4
+  verified: 2026-08-21
+
+zhou2020saigegene:
+  authors: ['Wei Zhou', 'Zhangchen Zhao', 'Jonas B. Nielsen', 'et al.']
+  year: 2020
+  title: "Scalable generalized linear mixed model for region-based association tests in large biobanks and cohorts"
+  venue: "Nature Genetics 52:634-639"
+  doi: https://doi.org/10.1038/s41588-020-0621-6
+  verified: 2026-08-21
+
+backman2021exome:
+  authors: ['Joshua D. Backman', 'Alexander H. Li', 'Anthony Marcketta', 'et al.']
+  year: 2021
+  title: "Exome sequencing and analysis of 454,787 UK Biobank participants"
+  venue: "Nature 599:628-634"
+  doi: https://doi.org/10.1038/s41586-021-04103-z
+  verified: 2026-08-21

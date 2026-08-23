@@ -1441,9 +1441,14 @@ export function csPurity(indices: number[], ld: Matrix): number {
 /**
  * The Beta(MAF; a₁, a₂) weight of Wu et al. (2011), defaulting to Beta(1, 25).
  *
- * It is a prior in the shape of a density: rarer means more weight, sharply. Beta(1, 25)
- * gives a singleton about 25× the weight of a 1 %-frequency variant, encoding the belief
- * that a deleterious allele has been kept rare by selection.
+ * It is a prior in the shape of a density, `25(1−maf)^24` for the default: rarer means more
+ * weight, encoding the belief that a deleterious allele has been kept rare by selection.
+ *
+ * The 25 is the density's height at zero, **not** a ratio — the weight is remarkably flat
+ * across the rare range. A near-singleton gets only 1.27× the weight of a 1 % variant, and
+ * 1.62× once SKAT squares it. What the weight actually does is suppress *common* variants:
+ * against a 5 % variant the ratio is 3.42×, or 11.73× squared. Reading the 25 as a ratio
+ * overstates the tilt toward the rarest alleles by an order of magnitude.
  */
 export function betaWeight(maf: number, a1 = 1, a2 = 25): number {
   const lnB = lnGamma(a1) + lnGamma(a2) - lnGamma(a1 + a2);
