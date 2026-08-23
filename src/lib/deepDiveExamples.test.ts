@@ -21,7 +21,7 @@ import {
   selectionIntensity, breedersResponse, breedersResponseFromIntensity,
   hendersonMme, blupSolve, grmFromMarkers, predictionAccuracy, matVec, invert,
   correlatedResponse, multivariateResponse,
-  lambdaGc, CHI2_1DF_MEDIAN, varianceExplained,
+  lambdaGc, CHI2_1DF_MEDIAN, varianceExplained, ldscRegression,
 } from './deepDiveMath.ts';
 
 /**
@@ -1697,6 +1697,139 @@ describe('statgen-association-linear-mixed-models', () => {
       expect(26).toBeLessThan(crit);
       expect(mdx).toContain('At 40 the variant');
       expect(mdx).toContain('at 26 it does not');
+    });
+  });
+});
+
+describe('statgen-ldsc-sldsc', () => {
+  const mdx = lesson('statgen-ldsc-sldsc');
+  const N = 100000;
+  const M = 1000000;
+  const H2 = 0.25;
+  const INTERCEPT = 1.05;
+  const LD = [10, 30, 50, 80, 120, 200];
+  const CHI = LD.map((l) => INTERCEPT + ((N * H2) / M) * l);
+
+  describe('worked example — recovering heritability from six points', () => {
+    const fit = ldscRegression(LD, CHI, N, M);
+
+    it('has the chi-square values the lesson tabulates', () => {
+      expect(CHI.map((v) => +v.toFixed(2))).toEqual([1.3, 1.8, 2.3, 3.05, 4.05, 6.05]);
+      expect(mdx).toContain('1.30, 1.80, 2.30, 3.05, 4.05, 6.05');
+    });
+
+    it('recovers the intercept and slope exactly', () => {
+      expect(fit.intercept).toBeCloseTo(1.05, 10);
+      expect(fit.slope).toBeCloseTo(0.025, 12);
+      expect((N * H2) / M).toBeCloseTo(0.025, 12);
+      expect(mdx).toContain('\\text{intercept} = 1.050000');
+      expect(mdx).toContain('\\text{slope} = 0.025000');
+    });
+
+    it('turns the slope back into the heritability it was built from', () => {
+      expect(fit.h2).toBeCloseTo(H2, 10);
+      expect(0.025 * (M / N)).toBeCloseTo(0.25, 12);
+      expect(mdx).toContain('{100{,}000} = 0.2500');
+    });
+
+    it('attributes only 2.4% of the inflation to confounding', () => {
+      const meanChi = CHI.reduce((a, b) => a + b, 0) / CHI.length;
+      expect(meanChi).toBeCloseTo(3.091667, 6);
+      expect(fit.ratio).toBeCloseTo(0.023904, 6);
+      expect(fit.ratio).toBeCloseTo((INTERCEPT - 1) / (meanChi - 1), 10);
+      expect(mdx).toContain('\\frac{0.05}{2.091667} = 0.023904');
+      expect(mdx).toContain('**Only 2.4% of the inflation is confounding.**');
+    });
+
+    it('would be condemned by λ_GC, which reads 5.8799 on the same data', () => {
+      expect(lambdaGc(CHI)).toBeCloseTo(5.8799, 4);
+      const median = (CHI[2] + CHI[3]) / 2;
+      expect(median).toBeCloseTo(2.675, 10);
+      expect(median / CHI2_1DF_MEDIAN).toBeCloseTo(5.8799, 4);
+      // the two diagnostics disagree by a factor of five on identical data
+      expect(lambdaGc(CHI) / fit.intercept).toBeGreaterThan(5);
+      expect(mdx).toContain('2.675/0.4549364');
+      expect(mdx).toContain('5.8799');
+    });
+  });
+
+  describe('figure 1 — the regression line', () => {
+    it('has a rise of 2.00 over a run of 80', () => {
+      expect(CHI[5] - CHI[4]).toBeCloseTo(2.0, 10);
+      expect(LD[5] - LD[4]).toBe(80);
+      expect(2.0 / 80).toBeCloseTo(0.025, 12);
+      expect(mdx).toContain('2.00 over a run of 80');
+    });
+
+    it('has an intercept that is the value at LD score zero', () => {
+      const fit = ldscRegression(LD, CHI, N, M);
+      expect(fit.intercept + fit.slope * 0).toBeCloseTo(1.05, 10);
+    });
+  });
+
+  describe('worked example — enrichment across a functional partition', () => {
+    const CATS: [string, number, number][] = [
+      ['conserved', 0.025, 0.2],
+      ['coding', 0.011, 0.08],
+      ['promoter', 0.018, 0.08],
+      ['enhancer', 0.076, 0.24],
+      ['intronic', 0.39, 0.25],
+      ['intergenic', 0.48, 0.15],
+    ];
+
+    it('is a genuine partition — both columns sum to one', () => {
+      expect(CATS.reduce((a, c) => a + c[1], 0)).toBeCloseTo(1, 10);
+      expect(CATS.reduce((a, c) => a + c[2], 0)).toBeCloseTo(1, 10);
+      expect(mdx).toContain('sum to one in both columns');
+    });
+
+    it('gives the three enrichments the lesson prints', () => {
+      expect(0.2 / 0.025).toBeCloseTo(8.0, 10);
+      expect(0.08 / 0.011).toBeCloseTo(7.2727, 4);
+      expect(0.15 / 0.48).toBeCloseTo(0.3125, 10);
+      expect(mdx).toContain('\\frac{0.20}{0.025} = 8.0000');
+      expect(mdx).toContain('\\frac{0.08}{0.011} = 7.2727');
+      expect(mdx).toContain('\\frac{0.15}{0.480} = 0.3125');
+    });
+
+    it('has intergenic sequence depleted despite being half the genome', () => {
+      const intergenic = CATS.find((c) => c[0] === 'intergenic')!;
+      expect(intergenic[2] / intergenic[1]).toBeLessThan(1);
+      expect(intergenic[1]).toBeGreaterThan(0.4);
+      expect(mdx).toContain('**depleted**');
+    });
+  });
+
+  describe('exercise 1 — heritability from a slope', () => {
+    it('gives h² = 0.0528', () => {
+      expect(0.012 * (1100000 / 250000)).toBeCloseTo(0.0528, 10);
+      expect(mdx).toContain('0.012 \\times 1{,}100{,}000/250{,}000 = 0.052800');
+    });
+  });
+
+  describe('exercise 2 — same inflation, opposite conclusions', () => {
+    it('separates two studies with an identical mean chi-square', () => {
+      expect(0.02 / 0.3).toBeCloseTo(0.066667, 6);
+      expect(0.25 / 0.3).toBeCloseTo(0.833333, 6);
+      expect(mdx).toContain('\\frac{0.02}{0.30} = 0.066667');
+      expect(mdx).toContain('\\frac{0.25}{0.30} = 0.833333');
+    });
+
+    it('has the two ratios on opposite sides of any sensible threshold', () => {
+      expect(0.02 / 0.3).toBeLessThan(0.1);
+      expect(0.25 / 0.3).toBeGreaterThan(0.8);
+    });
+  });
+
+  describe('exercise 3 — an enrichment that means less than it looks', () => {
+    it('is tenfold', () => {
+      expect(0.1 / 0.01).toBeCloseTo(10.0, 10);
+      expect(mdx).toContain('0.10/0.010 = 10.0000');
+    });
+
+    it('could be inherited from a containing annotation at eightfold', () => {
+      expect(0.2 / 0.025).toBeCloseTo(8.0, 10);
+      expect(mdx).toContain('around eightfold');
     });
   });
 });
