@@ -1,0 +1,421 @@
+---
+title: "Deep Learning & Statistical Genetics: Sequence Models, Calibration & Evidence"
+shortTitle: Deep Learning Synthesis
+description: "What a regulatory sequence model actually predicts, why a confident score is not evidence until it is tied to a likelihood ratio, how the ACMG points framework converts one into the other, and where these models are known to fail."
+abstract: "A sequence model that reads DNA and predicts a molecular readout answers a different question from the one statistical genetics asks. It predicts what a stretch of sequence does; a study wants to know whether a variant changes a trait, and those are separated by every layer of biology in between. This lesson takes the gap seriously and then closes part of it quantitatively: a model score of 0.98 means nothing until it is measured against labelled variants, and once it is — at a true-positive rate of 0.62 and a false-positive rate of 0.06 — it earns a likelihood ratio of 10.33, which is 3.19 ACMG points, which is moderate evidence, which moves a 10 percent prior to 53 percent. It closes on a result that should change how these models are benchmarked: the threshold that classifies best earns the weakest evidence."
+date: 2026-08-23
+track: theory
+hub: statistical-genetics
+moduleId: m05-inference
+moduleLabel: Module 5 · Inference, Prediction & Causality
+order: 16
+level: advanced
+objectives:
+  - "State what a regulatory sequence model predicts and what it does not."
+  - "Explain why a raw model score carries no evidential weight on its own."
+  - "Convert a score threshold into a likelihood ratio and then into ACMG evidence points."
+  - "Read the evidence tier a score attains, and the posterior it implies from a stated prior."
+  - "Show that the accuracy-optimal threshold is not the evidence-optimal one."
+  - "Name the failure modes these models are known to have on personal genomes."
+prerequisites:
+  - statgen-bayesian-fine-mapping
+relatedLessons:
+  - statgen-polygenic-risk-scores
+  - data-variant-effect-scores
+keyEquations:
+  - '\mathrm{LR}^{+} = \frac{\mathrm{TPR}}{\mathrm{FPR}}'
+  - '\text{points} = 8\,\frac{\ln \mathrm{OddsPath}}{\ln 350}'
+  - '\mathrm{posterior} = \frac{O}{1+O}, \qquad O = \frac{\pi}{1-\pi}\,350^{\,\text{points}/8}'
+referenceIds:
+  - richards2015
+  - zhou2015deepsea
+  - tavtigian2018
+  - jaganathan2019spliceai
+  - avsec2021enformer
+  - pejaver2022
+  - cheng2023alphamissense
+  - karollus2023limits
+  - sasse2023benchmark
+  - brandes2023esm1b
+tags: [deep learning, sequence models, variant effect prediction, calibration, ACMG, likelihood ratio, evidence]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Every earlier lesson in this curriculum estimates something from *observed variation*: an
+allele frequency, a variance component, a slope. A sequence model does something different.
+It reads DNA and predicts a molecular readout — accessibility, expression, splicing — from
+sequence alone, having never seen the trait.
+
+<Citation id="zhou2015deepsea" /> showed the approach worked at all;
+<Citation id="jaganathan2019spliceai" /> made it clinically consequential for splicing;
+<Citation id="avsec2021enformer" /> extended the receptive field to hundreds of kilobases;
+<Citation id="cheng2023alphamissense" /> and <Citation id="brandes2023esm1b" /> did the
+protein-coding equivalent.
+
+The temptation is to treat the output as an answer. It is not, for a reason worth stating
+before any of the machinery:
+
+> **The model predicts what a sequence does. The study wants to know whether a variant
+> changes a trait. Those are separated by every layer of biology between a molecular readout
+> and a phenotype — and by the question of whether the model is right.**
+
+This lesson is about closing the second gap, which is tractable, and being honest about the
+first, which is not.
+
+<Notation
+  rows={[
+    { symbol: '\\mathrm{TPR},\\;\\mathrm{FPR}', meaning: 'True and false positive rates at a chosen score threshold', dims: 'in [0,1]' },
+    { symbol: '\\mathrm{LR}^{+}', meaning: 'Positive likelihood ratio, TPR/FPR', dims: '> 0' },
+    { symbol: '\\mathrm{OddsPath}', meaning: 'Odds of pathogenicity contributed by the evidence', dims: '> 0' },
+    { symbol: '\\pi', meaning: 'Prior probability of pathogenicity before the model is consulted', dims: 'in [0,1]' },
+    { symbol: 'J', meaning: "Youden's J, TPR − FPR — the balanced-accuracy criterion", dims: 'in [-1,1]' },
+  ]}
+/>
+
+## A score is not evidence
+
+A model reports 0.98 for a variant. What follows from that?
+
+Nothing at all, until the number is measured. 0.98 is a position in the model's own output
+distribution; it is not a probability of pathogenicity, and treating it as one is the single
+most common error in applying these tools.
+
+What makes it evidence is a **likelihood ratio** — how much more often the model says 0.98
+or higher about a variant that really is pathogenic than about one that really is not:
+
+$$
+\mathrm{LR}^{+} = \frac{\mathrm{TPR}}{\mathrm{FPR}}
+$$
+
+measured on a labelled set the model did not train on. <Citation id="pejaver2022" /> did
+exactly this for the widely used missense predictors, and the results were sobering: scores
+that are quoted as near-certainties support far weaker evidence than their magnitudes
+suggest.
+
+<Callout variant="intuition" title="Why the ratio, and not the score">
+
+The score is a statement about the model. The likelihood ratio is a statement about the
+world, and only the second kind can update a belief.
+
+Think about what "0.98" would have to mean to be a probability. It would have to be true
+that among all variants the model scores 0.98, ninety-eight percent are pathogenic. That is
+a claim about the *population of variants*, and nothing in the model's training makes it
+true — the model was fitted to reproduce a molecular assay, not to be calibrated against
+disease. Its output is a rank, and a rank has no natural units.
+
+The likelihood ratio supplies the units. It asks the only question a piece of evidence can
+answer: **how much more likely is this observation if the hypothesis is true than if it is
+false?** Answering it requires a labelled set, which is why calibration is empirical work
+rather than a property of the model.
+
+And once you have it, Bayes does the rest. Prior odds times likelihood ratio is posterior
+odds — the same arithmetic Module 1 introduced and Module 5 has used at every step.
+
+</Callout>
+
+## The ACMG points scale
+
+<Citation id="richards2015" /> defined variant classification with categorical evidence
+strengths — supporting, moderate, strong, very strong — combined by counting rules.
+<Citation id="tavtigian2018" /> showed those rules are a Bayesian model in disguise, with one
+very strong criterion worth an odds of pathogenicity of 350, and each **point** the eighth
+root of that:
+
+$$
+\text{points} = 8\,\frac{\ln \mathrm{OddsPath}}{\ln 350}
+$$
+
+So the tiers are not labels but powers: supporting is $350^{1/8} = 2.08$, moderate
+$350^{1/4} = 4.33$, strong $350^{1/2} = 18.71$. And the classification thresholds fall out of
+the arithmetic rather than being decreed — 10 points gives a posterior of 0.994 and 6 points
+gives 0.900, which are exactly the pathogenic and likely-pathogenic boundaries the guidelines
+state.
+
+<WorkedExample
+  title="What a score of 0.98 is actually worth"
+  given={[
+    { label: 'Model score threshold', value: '0.98' },
+    { label: 'On a held-out labelled set', value: 'TPR = 0.62, FPR = 0.06' },
+    { label: 'Prior', value: 'π = 0.10' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the likelihood ratio.**
+
+$$
+\mathrm{LR}^{+} = \frac{0.62}{0.06} = 10.333333
+$$
+
+The model says "≥ 0.98" about a pathogenic variant 10.3 times more often than about a benign
+one. That is the entire evidential content of the score.
+
+**Step 2 — convert to points.**
+
+$$
+\text{points} = 8\,\frac{\ln 10.333333}{\ln 350} = 8 \times 0.398669 = 3.189350
+$$
+
+**Step 3 — read the tier.** Moderate is 2 points and strong is 4. At 3.19 the score reaches
+**moderate** — the tier it *attains*, not the one it is nearest. A criterion that falls
+between two tiers earns the lower one, because the evidence has not met the higher bar.
+
+**Step 4 — the posterior.** From a prior of 0.10, the posterior odds are
+$\tfrac{0.1}{0.9} \times 350^{3.18935/8}$, giving
+
+$$
+\mathrm{posterior} = 0.534483
+$$
+
+**A score of 0.98 moves a 10% prior to 53%.** Not to 98%, and not to anything that would
+classify the variant on its own — 53% is below even the likely-pathogenic threshold of 90%.
+
+**Step 5 — what "very strong" would require.** Very strong is an OddsPath of 350. At the same
+TPR of 0.62 that needs
+
+$$
+\mathrm{FPR} = \frac{0.62}{350} = 1.7714\times10^{-3}
+$$
+
+a false-positive rate of 0.18% — thirty-four times tighter than the 6% the threshold actually
+achieves. This is why no computational predictor is granted very strong evidence on its own.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Six thresholds on one model, converted into evidence. The horizontal position is the odds of pathogenicity the threshold earns; the dashed lines are the ACMG tier boundaries, which sit at 2.08, 4.33, 18.71 and 350 because each point is the eighth root of 350. Only the two tightest thresholds reach strong. A score of 0.98 — which reads as near-certainty — earns 3.19 points, which is moderate, and moves a 10 percent prior to 53 percent."
+  alt="Six horizontal bars, one per score threshold, extending along a log axis of odds of pathogenicity from 1 to 350. Vertical dashed lines mark the supporting, moderate, strong and very strong tier boundaries. Thresholds of 0.50 through 0.98 stop short of the strong line; only 0.995 and 0.999 pass it, at likelihood ratios of 27.33 and 55.00."
+  wide
+>
+<svg viewBox="0 0 640 336" width="640" height="336" font-family="inherit"><line x1="150.0" y1="56.0" x2="150.0" y2="224.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="224.0" x2="452.0" y2="224.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="224.0" x2="150.0" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="150.0" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="184.9" y1="224.0" x2="184.9" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="184.9" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="231.1" y1="224.0" x2="231.1" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="231.1" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="266.1" y1="224.0" x2="266.1" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="266.1" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="301.0" y1="224.0" x2="301.0" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="301.0" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">20</text><line x1="347.2" y1="224.0" x2="347.2" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="347.2" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50</text><line x1="382.1" y1="224.0" x2="382.1" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="382.1" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="445.3" y1="224.0" x2="445.3" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="445.3" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">350</text><line x1="186.9" y1="224.0" x2="186.9" y2="81.5" stroke="currentColor" stroke-width="1.2" opacity=".4" stroke-dasharray="4 3"/><text x="186.9" y="76.4" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">supporting</text><line x1="223.8" y1="224.0" x2="223.8" y2="81.5" stroke="currentColor" stroke-width="1.2" opacity=".4" stroke-dasharray="4 3"/><text x="223.8" y="67.5" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">moderate</text><line x1="297.6" y1="224.0" x2="297.6" y2="81.5" stroke="currentColor" stroke-width="1.2" opacity=".4" stroke-dasharray="4 3"/><text x="297.6" y="76.4" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">strong</text><line x1="445.3" y1="224.0" x2="445.3" y2="81.5" stroke="currentColor" stroke-width="1.2" opacity=".4" stroke-dasharray="4 3"/><text x="445.3" y="67.5" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">very strong</text><line x1="150.0" y1="91.6" x2="193.6" y2="91.6" stroke="currentColor" stroke-width="2" opacity=".5"/><circle cx="193.6" cy="91.6" r="5.0" fill="currentColor" opacity=".7"/><text x="138.0" y="95.6" font-size="10.5" fill="currentColor" text-anchor="end">score ≥ 0.50</text><text x="203.6" y="95.6" font-size="10" fill="currentColor" opacity=".85">LR+ 2.37 → 1.18 pts</text><line x1="150.0" y1="115.1" x2="224.7" y2="115.1" stroke="currentColor" stroke-width="2" opacity=".5"/><circle cx="224.7" cy="115.1" r="5.0" fill="currentColor" opacity=".7"/><text x="138.0" y="119.1" font-size="10.5" fill="currentColor" text-anchor="end">score ≥ 0.75</text><text x="234.7" y="119.1" font-size="10" fill="currentColor" opacity=".85">LR+ 4.40 → 2.02 pts</text><line x1="150.0" y1="138.5" x2="244.3" y2="138.5" stroke="currentColor" stroke-width="2" opacity=".5"/><circle cx="244.3" cy="138.5" r="5.0" fill="currentColor" opacity=".7"/><text x="138.0" y="142.5" font-size="10.5" fill="currentColor" text-anchor="end">score ≥ 0.90</text><text x="254.3" y="142.5" font-size="10" fill="currentColor" opacity=".85">LR+ 6.50 → 2.56 pts</text><line x1="150.0" y1="161.9" x2="267.7" y2="161.9" stroke="currentColor" stroke-width="2" opacity=".5"/><circle cx="267.7" cy="161.9" r="5.0" fill="currentColor" opacity=".7"/><text x="138.0" y="165.9" font-size="10.5" fill="currentColor" text-anchor="end">score ≥ 0.98</text><text x="277.7" y="165.9" font-size="10" fill="currentColor" opacity=".85">LR+ 10.33 → 3.19 pts</text><line x1="150.0" y1="185.3" x2="316.7" y2="185.3" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><circle cx="316.7" cy="185.3" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="138.0" y="189.3" font-size="10.5" fill="currentColor" text-anchor="end">score ≥ 0.995</text><text x="326.7" y="189.3" font-size="10" fill="currentColor" opacity=".85">LR+ 27.33 → 4.52 pts</text><line x1="150.0" y1="208.7" x2="352.0" y2="208.7" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><circle cx="352.0" cy="208.7" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="138.0" y="212.7" font-size="10.5" fill="currentColor" text-anchor="end">score ≥ 0.999</text><text x="362.0" y="212.7" font-size="10" fill="currentColor" opacity=".85">LR+ 55.00 → 5.47 pts</text><text x="301.0" y="262.0" font-size="12" fill="currentColor" text-anchor="middle">Odds of pathogenicity (log scale)</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">A model score becomes evidence only after it is tied to a likelihood ratio</text><text x="30.0" y="288.0" font-size="10.5" fill="currentColor" opacity=".85">The tier a score reaches is the tier it attains, so 3.19 points is moderate,</text><text x="30.0" y="304.0" font-size="10.5" fill="currentColor" opacity=".85">not "nearly strong". A confident-looking 0.98 earns moderate evidence and</text><text x="30.0" y="320.0" font-size="10.5" fill="currentColor" opacity=".85">moves a 10% prior to 53% — not to anything resembling 98%.</text></svg>
+</Figure>
+
+## The threshold that classifies best proves least
+
+A benchmark chooses an operating point — usually the one maximising balanced accuracy, or
+equivalently Youden's $J = \mathrm{TPR} - \mathrm{FPR}$. That choice is wrong for evidence,
+and the reason is structural rather than incidental.
+
+$J$ rewards catching true positives and penalises false positives **on the same scale**, so
+it is happiest in the middle of the ROC curve. $\mathrm{LR}^{+}$ is a *ratio*, so it is
+driven by how small the false-positive rate is — and it keeps improving into the extreme tail
+where $J$ has long since collapsed.
+
+<WorkedExample
+  title="One model, six thresholds, two different answers"
+  given={[
+    { label: 'The same model throughout', value: 'six thresholds on one ROC curve' },
+    { label: 'Prior', value: 'π = 0.10' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+| threshold | TPR | FPR | LR⁺ | J | points | tier | posterior |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.50 | 0.95 | 0.400 | 2.37 | 0.550 | 1.181 | supporting | 0.2088 |
+| 0.75 | 0.88 | 0.200 | 4.40 | **0.680** | 2.023 | moderate | 0.3284 |
+| 0.90 | 0.78 | 0.120 | 6.50 | 0.660 | 2.556 | moderate | 0.4194 |
+| 0.98 | 0.62 | 0.060 | 10.33 | 0.560 | 3.189 | moderate | 0.5345 |
+| 0.995 | 0.41 | 0.015 | 27.33 | 0.395 | 4.518 | strong | 0.7523 |
+| 0.999 | 0.22 | 0.004 | **55.00** | 0.216 | 5.473 | strong | 0.8594 |
+
+**Step 1 — find the accuracy-optimal threshold.** $J$ is maximised at **0.75**, with
+$J = 0.680$. A benchmark paper reporting a single operating point would report this one.
+
+**Step 2 — find the evidence-optimal threshold.** $\mathrm{LR}^{+}$ is maximised at
+**0.999**, at 55.00 — where $J$ has fallen to 0.216, its *worst* value in the table.
+
+**Step 3 — price the difference.** At the accuracy-optimal threshold the posterior is
+$0.3284$. At the evidence-optimal one it is $0.8594$. **Same model, same data, same variant —
+and the conclusion moves from "probably not" to "probably yes" on the choice of threshold
+alone.**
+
+**Step 4 — what follows.** The operating point a machine-learning evaluation selects is the
+one that produces the weakest evidence, and the two criteria point in opposite directions
+across the entire range. A predictor intended for variant classification should be
+characterised by its likelihood ratio at a **stringent** threshold, and reporting a single
+balanced-accuracy operating point actively misleads about its clinical usefulness.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 2. The two criteria pull in opposite directions. ACMG points rise monotonically with the threshold, because evidence is a ratio and wants a small false-positive rate. Youden's J — scaled by six to share the axis — peaks at 0.75 and falls away, because it trades true and false positives at par. The threshold a benchmark would select gives a posterior of 33 percent; the threshold that maximises evidence gives 86 percent, on the same model and the same data."
+  alt="Two curves against six score thresholds from 0.50 to 0.999. A solid curve of ACMG points rises steadily from 1.18 to 5.47. A dashed curve of Youden's J times six peaks at the 0.75 threshold near 4.1 and declines to 1.3 at the highest threshold. The two cross between the 0.98 and 0.995 thresholds."
+  wide
+>
+<svg viewBox="0 0 640 296" width="640" height="296" font-family="inherit"><line x1="96.0" y1="46.0" x2="96.0" y2="238.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="238.0" x2="424.0" y2="238.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="238.0" x2="424.0" y2="238.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="242.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="174.0" x2="424.0" y2="174.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="178.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">2</text><line x1="96.0" y1="110.0" x2="424.0" y2="110.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="114.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">4</text><line x1="96.0" y1="46.0" x2="424.0" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="50.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">6</text><line x1="118.6" y1="238.0" x2="118.6" y2="243.0" stroke="currentColor" stroke-width="1"/><text x="118.6" y="256.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.50</text><line x1="175.2" y1="238.0" x2="175.2" y2="243.0" stroke="currentColor" stroke-width="1"/><text x="175.2" y="256.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.75</text><line x1="231.7" y1="238.0" x2="231.7" y2="243.0" stroke="currentColor" stroke-width="1"/><text x="231.7" y="256.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.90</text><line x1="288.3" y1="238.0" x2="288.3" y2="243.0" stroke="currentColor" stroke-width="1"/><text x="288.3" y="256.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.98</text><line x1="344.8" y1="238.0" x2="344.8" y2="243.0" stroke="currentColor" stroke-width="1"/><text x="344.8" y="256.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.995</text><line x1="401.4" y1="238.0" x2="401.4" y2="243.0" stroke="currentColor" stroke-width="1"/><text x="401.4" y="256.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.999</text><path d="M118.6,200.2 L175.2,173.3 L231.7,156.2 L288.3,135.9 L344.8,93.4 L401.4,62.9" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><circle cx="118.6" cy="200.2" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="175.2" cy="173.3" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="231.7" cy="156.2" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="288.3" cy="135.9" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="344.8" cy="93.4" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="401.4" cy="62.9" r="4.5" fill="var(--color-accent, #2e6e5e)"/><path d="M118.6,132.4 L175.2,107.4 L231.7,111.3 L288.3,130.5 L344.8,162.2 L401.4,196.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="7 4" opacity=".8"/><circle cx="118.6" cy="132.4" r="4.0" fill="currentColor" opacity=".7"/><circle cx="175.2" cy="107.4" r="4.0" fill="currentColor" opacity=".7"/><circle cx="231.7" cy="111.3" r="4.0" fill="currentColor" opacity=".7"/><circle cx="288.3" cy="130.5" r="4.0" fill="currentColor" opacity=".7"/><circle cx="344.8" cy="162.2" r="4.0" fill="currentColor" opacity=".7"/><circle cx="401.4" cy="196.5" r="4.0" fill="currentColor" opacity=".7"/><line x1="175.2" y1="238.0" x2="175.2" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="3 3"/><line x1="401.4" y1="238.0" x2="401.4" y2="46.0" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="3 3"/><line x1="438.0" y1="70.0" x2="458.0" y2="70.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><text x="465.0" y="74.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">ACMG points</text><text x="438.0" y="90.0" font-size="10" fill="currentColor" opacity=".8">rises all the way —</text><text x="438.0" y="103.0" font-size="10" fill="currentColor" opacity=".8">evidence wants a low</text><text x="438.0" y="116.0" font-size="10" fill="currentColor" opacity=".8">false-positive rate</text><line x1="438.0" y1="142.0" x2="458.0" y2="142.0" stroke="currentColor" stroke-width="2" opacity=".8" stroke-dasharray="7 4"/><text x="465.0" y="146.0" font-size="10.5" fill="currentColor" font-weight="600">Youden's J</text><text x="438.0" y="162.0" font-size="10" fill="currentColor" opacity=".8">(×6, to share the axis)</text><text x="438.0" y="175.0" font-size="10" fill="currentColor" opacity=".8">peaks at 0.75 and falls</text><text x="438.0" y="202.0" font-size="10" fill="currentColor" font-weight="600">Same model, same data.</text><text x="438.0" y="216.0" font-size="10" fill="currentColor" opacity=".85">Classifying best: 33%</text><text x="438.0" y="229.0" font-size="10" fill="currentColor" opacity=".85">posterior. Proving most:</text><text x="438.0" y="242.0" font-size="10" fill="currentColor" opacity=".85">86%.</text><text x="260.0" y="280.0" font-size="12" fill="currentColor" text-anchor="middle">Score threshold</text><text x="20.0" y="142.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 142)">ACMG points  /  J × 6</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">The operating point a benchmark picks is the one that proves least</text></svg>
+</Figure>
+
+## What these models are known not to do
+
+The calibration above closes the gap between a score and evidence. It says nothing about the
+first gap — between a molecular prediction and a trait — and the evidence there is not
+encouraging.
+
+<Citation id="karollus2023limits" /> showed that current sequence models capture the
+*average* expression of a gene across the genome well, while doing much worse at the thing a
+genetic study needs: predicting how expression differs **between individuals**. Those are
+different tasks, and success at the first has been widely reported as if it implied the
+second. <Citation id="sasse2023benchmark" /> reached a compatible conclusion benchmarking
+across personal genomes.
+
+<Callout variant="warning" title="Four ways a model score gets over-read">
+
+**Predicting a readout is not predicting a trait.** A variant that halves a transcript's
+abundance may have no phenotypic consequence, because the gene is haplosufficient or the
+pathway is buffered. The model has no access to that.
+
+**Cross-individual is a different task from cross-locus.** A model that explains most of the
+variance in expression *across genes* may explain very little of the variance *across people
+at one gene*, and it is the second that a GWAS locus is asking about. Benchmarks usually
+report the first.
+
+**Training-set leakage inflates apparent accuracy.** Variant-effect predictors are frequently
+evaluated on databases that overlap their training data, or on genes whose disease status was
+known when the labels were made. A calibration that was not computed on genuinely held-out
+labels is not a calibration.
+
+**Attribution is not mechanism.** Saliency maps and in-silico mutagenesis show what the
+*model* is sensitive to, which is a fact about the model. Whether the sequence element it
+highlights actually does anything is a wet-lab question, and the two answers routinely
+differ.
+
+None of this makes the models useless. It makes their output a hypothesis with a measurable
+strength — which is exactly what the ACMG framework is built to consume, and exactly why the
+calibration step is not optional.
+
+</Callout>
+
+## Where this leaves the curriculum
+
+The sixteen lessons divide into things estimated from variation and things predicted from
+sequence, and they meet at the point this lesson has been about: **a prediction becomes usable
+in a statistical-genetics argument at the moment it acquires a likelihood ratio.** Before
+that, it is a ranking; after it, it is evidence with a weight that can be combined with other
+evidence.
+
+The fine-mapping lesson's credible sets and this lesson's calibrated scores compose in
+exactly that way, and the Genomic Data track's survey of variant-effect resources is where
+the calibrations themselves are catalogued.
+
+## Exercises
+
+<Exercise n={1} title="Two predictors, one threshold each" difficulty="warm-up">
+
+Predictor A reaches TPR 0.80 at FPR 0.20. Predictor B reaches TPR 0.30 at FPR 0.01.
+(a) Compute each likelihood ratio and evidence tier. (b) Which is the better classifier?
+(c) Which is the better evidence?
+
+<div slot="solution">
+
+**(a)** $\mathrm{LR}^{+}_A = 0.80/0.20 = 4.000000$, which is $8\ln(4)/\ln(350) = 1.893$
+points — **supporting**. $\mathrm{LR}^{+}_B = 0.30/0.01 = 30.000000$, which is $4.640$ points
+— **strong**.
+
+**(b)** By balanced accuracy, A: $J_A = 0.60$ against $J_B = 0.29$. A is much the better
+classifier, and would win any benchmark reporting a single balanced operating point.
+
+**(c)** B, decisively. It earns strong evidence where A earns supporting, and the difference
+in posterior from a 10% prior is $0.7692$ against $0.3077$.
+
+The two questions have different answers because they measure different things. A is right
+more often; B is more *informative when it fires*. For a screening tool you want A; for a
+piece of evidence entering a classification you want B — and B's low sensitivity is not a
+defect in that role, because a variant B misses simply gets no evidence from B rather than
+being called benign.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="How good would a predictor have to be?" difficulty="core">
+
+(a) What likelihood ratio does a predictor need to reach strong evidence on its own?
+(b) At a TPR of 0.50, what false-positive rate does that require? (c) A colleague proposes
+combining three independent supporting-level predictors to reach strong. Evaluate.
+
+<div slot="solution">
+
+**(a)** Strong is 4 points, so $\mathrm{OddsPath} = 350^{4/8} = 18.708287$.
+
+**(b)** $\mathrm{FPR} = 0.50/18.708287 = 0.026726$, about 2.7%.
+
+**(c)** Arithmetically the colleague is right and practically they are usually wrong.
+
+Three supporting criteria are $1 + 1 + 1 = 3$ points, which is still moderate — so it takes
+*four* to reach strong, not three. That is the arithmetic point, and it is worth doing before
+the argument.
+
+The deeper problem is **independence**. The points scale adds because the evidence is assumed
+independent given the truth, and computational predictors are anything but: they are trained
+on overlapping data, they use overlapping features, and they agree with each other far more
+than their individual accuracies would predict. Three predictors that agree because they
+share a training set carry nowhere near three points of information.
+
+This is why the guidelines restrict computational evidence to a single criterion in
+aggregate rather than letting each tool contribute separately.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="A benchmark that proves the wrong thing" difficulty="stretch">
+
+A paper reports a new model with AUROC 0.94, better than every published predictor, and
+recommends it for clinical variant interpretation. (a) What has and has not been established?
+(b) What single number would you ask for? (c) What would you check about how it was computed?
+
+<div slot="solution">
+
+**(a)** *Established*: the model ranks variants well on that benchmark. AUROC integrates over
+every threshold at once, so it is a statement about ordering.
+
+*Not established*: anything about evidence. Evidence is generated at **one chosen threshold**,
+and AUROC says nothing about which threshold or what it earns there. Two models with
+identical AUROC can differ by a tier or more in the evidence they support, because the ratio
+in the extreme tail is invisible to an integral over the whole curve.
+
+**(b)** The likelihood ratio at a stated stringent threshold, with a confidence interval —
+and the resulting ACMG points. That is the number a classification framework can consume, and
+it is the number the worked examples above turn on.
+
+**(c)** Three things. Whether the labelled set was genuinely held out, or overlaps the
+training data — the most common way these numbers are inflated. Whether the benchmark's class
+balance resembles the setting of use, since a predictor evaluated at 50% pathogenic behaves
+very differently where the rate is 1 in 100. And whether the labels themselves came from
+sources that already used computational prediction, which makes the evaluation partly
+circular.
+
+Note that (c)'s second point is why AUPRC is reported alongside AUROC in the Genomic Data
+track's benchmark lesson: it moves with prevalence where AUROC does not. But neither is a
+substitute for the likelihood ratio, because both are threshold-free and evidence is not.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **A sequence model predicts a molecular readout from sequence.** That is a different
+  question from whether a variant changes a trait, and the gap between them is biology the
+  model has no access to.
+- **A raw score is a rank, not a probability.** It becomes evidence only when tied to a
+  likelihood ratio $\mathrm{LR}^{+} = \mathrm{TPR}/\mathrm{FPR}$ measured on held-out labels.
+- **The ACMG points scale converts one into the other**, with each point the eighth root of
+  350. The tiers are powers, not labels: supporting 2.08, moderate 4.33, strong 18.71.
+- **A score of 0.98 at TPR 0.62 and FPR 0.06 earns 3.19 points** — moderate, the tier it
+  attains rather than the one it is near — and moves a 10% prior to 53%. Very strong would
+  need a false-positive rate of 0.18%, thirty-four times tighter.
+- **The accuracy-optimal threshold earns the weakest evidence.** Youden's J peaks at 0.75
+  where the posterior is 0.3284; the likelihood ratio peaks at 0.999 where it is 0.8594. The
+  two criteria disagree across the whole range, and benchmarks report the first.
+- **AUROC cannot answer the evidential question**, because evidence is generated at one
+  threshold and AUROC integrates over all of them.
+- **The known failure modes are specific**: cross-individual prediction is much weaker than
+  cross-locus, training-set overlap inflates apparent accuracy, and attribution describes the
+  model rather than the biology.

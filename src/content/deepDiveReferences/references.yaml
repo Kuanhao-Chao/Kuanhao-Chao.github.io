@@ -3353,3 +3353,37 @@ brumpton2020withinfamily:
   venue: "Nature Communications 11"
   doi: https://doi.org/10.1038/s41467-020-17117-4
   verified: 2026-08-21
+
+# ── Module 5 · Sequence models ────────────────────────────────────────────────
+
+zhou2015deepsea:
+  authors: ['Jian Zhou', 'Olga G Troyanskaya']
+  year: 2015
+  title: "Predicting effects of noncoding variants with deep learning–based sequence model"
+  venue: "Nature Methods 12:931-934"
+  doi: https://doi.org/10.1038/nmeth.3547
+  verified: 2026-08-21
+
+avsec2021enformer:
+  authors: ['Žiga Avsec', 'Vikram Agarwal', 'Daniel Visentin', 'et al.']
+  year: 2021
+  title: "Effective gene expression prediction from sequence by integrating long-range interactions"
+  venue: "Nature Methods 18:1196-1203"
+  doi: https://doi.org/10.1038/s41592-021-01252-x
+  verified: 2026-08-21
+
+karollus2023limits:
+  authors: ['Alexander Karollus', 'Thomas Mauermeier', 'Julien Gagneur']
+  year: 2023
+  title: "Current sequence-based models capture gene expression determinants in promoters but mostly ignore distal enhancers"
+  venue: "Genome Biology 24"
+  doi: https://doi.org/10.1186/s13059-023-02899-9
+  verified: 2026-08-21
+
+sasse2023benchmark:
+  authors: ['Alexander Sasse', 'Bernard Ng', 'Anna E. Spiro', 'et al.']
+  year: 2023
+  title: "Benchmarking of deep neural networks for predicting personal gene expression from DNA sequence highlights shortcomings"
+  venue: "Nature Genetics 55:2060-2064"
+  doi: https://doi.org/10.1038/s41588-023-01524-6
+  verified: 2026-08-21

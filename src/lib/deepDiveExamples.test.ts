@@ -25,6 +25,7 @@ import {
   betaWeight, burdenStatistic, skatQ, skatOQ,
   wakefieldAbf, pipsFromAbf, credibleSet, csPurity,
   waldRatio, fStatistic, ivwMr, eggerRegression, weightedMedianMr,
+
 } from './deepDiveMath.ts';
 
 /**
@@ -2433,6 +2434,147 @@ describe('statgen-mendelian-randomization', () => {
       const five = ivwMr(GX.slice(0, 5), GY.slice(0, 5), SEY.slice(0, 5));
       const eight = ivwMr(GX, GY, SEY);
       expect(five.se).toBeGreaterThan(eight.se);
+    });
+  });
+});
+
+describe('statgen-deep-learning-synthesis', () => {
+  const mdx = lesson('statgen-deep-learning-synthesis');
+  const SWEEP: [string, number, number][] = [
+    ['0.50', 0.95, 0.4],
+    ['0.75', 0.88, 0.2],
+    ['0.90', 0.78, 0.12],
+    ['0.98', 0.62, 0.06],
+    ['0.995', 0.41, 0.015],
+    ['0.999', 0.22, 0.004],
+  ];
+
+  describe('worked example — what a score of 0.98 is worth', () => {
+    it('has a likelihood ratio of 10.333333', () => {
+      expect(likelihoodRatioPositive(0.62, 0.06)).toBeCloseTo(10.333333, 6);
+      expect(mdx).toContain('\\frac{0.62}{0.06} = 10.333333');
+    });
+
+    it('converts to 3.189350 points', () => {
+      const pts = oddsPathPoints(likelihoodRatioPositive(0.62, 0.06));
+      expect(pts).toBeCloseTo(3.18935, 5);
+      // the conversion written out, independently of the helper
+      expect((8 * Math.log(10.333333)) / Math.log(350)).toBeCloseTo(pts, 6);
+      expect(mdx).toContain('8 \\times 0.398669 = 3.189350');
+    });
+
+    it('attains moderate, not strong — the tier reached, not the nearest', () => {
+      const lr = likelihoodRatioPositive(0.62, 0.06);
+      expect(oddsPathStrength(lr)).toBe('moderate');
+      expect(oddsPathPoints(lr)).toBeGreaterThan(2);
+      expect(oddsPathPoints(lr)).toBeLessThan(4);
+      expect(mdx).toContain('the tier it *attains*');
+    });
+
+    it('moves a 10% prior to 53.4%, not to anything classifying', () => {
+      const post = acmgPosterior(oddsPathPoints(likelihoodRatioPositive(0.62, 0.06)));
+      expect(post).toBeCloseTo(0.534483, 6);
+      expect(post).toBeLessThan(0.9);
+      expect(mdx).toContain('0.534483');
+    });
+
+    it('would need a 0.18% false-positive rate for very strong', () => {
+      expect(oddsPathFor('very-strong')).toBeCloseTo(350, 6);
+      expect(0.62 / 350).toBeCloseTo(1.7714e-3, 7);
+      expect(0.06 / (0.62 / 350)).toBeCloseTo(33.9, 1);
+      expect(mdx).toContain('1.7714\\times10^{-3}');
+      expect(mdx).toContain('thirty-four times tighter');
+    });
+
+    it('has the tier boundaries at the eighth roots of 350', () => {
+      expect(oddsPathFor('supporting')).toBeCloseTo(2.0797, 4);
+      expect(oddsPathFor('moderate')).toBeCloseTo(4.3253, 4);
+      expect(oddsPathFor('strong')).toBeCloseTo(18.7083, 4);
+      for (const v of ['2.08', '4.33', '18.71']) expect(mdx).toContain(v);
+    });
+
+    it('reproduces the guideline classification boundaries', () => {
+      expect(acmgPosterior(10)).toBeCloseTo(0.994, 3);
+      expect(acmgPosterior(6)).toBeCloseTo(0.9, 3);
+      expect(mdx).toContain('10 points gives a posterior of 0.994');
+    });
+  });
+
+  describe('worked example — accuracy-optimal is not evidence-optimal', () => {
+    it('has the six-row table the lesson prints', () => {
+      for (const [thr, tpr, fpr] of SWEEP) {
+        const lr = likelihoodRatioPositive(tpr, fpr);
+        const pts = oddsPathPoints(lr);
+        expect(mdx).toContain(`| ${thr} | ${tpr.toFixed(2)} |`);
+        expect(mdx).toContain(pts.toFixed(3));
+        expect(mdx).toContain(acmgPosterior(pts).toFixed(4));
+      }
+    });
+
+    it("maximises Youden's J at 0.75 and the likelihood ratio at 0.999", () => {
+      const j = (r: [string, number, number]) => r[1] - r[2];
+      const lr = (r: [string, number, number]) => likelihoodRatioPositive(r[1], r[2]);
+      const bestJ = SWEEP.reduce((a, b) => (j(b) > j(a) ? b : a));
+      const bestLr = SWEEP.reduce((a, b) => (lr(b) > lr(a) ? b : a));
+      expect(bestJ[0]).toBe('0.75');
+      expect(bestLr[0]).toBe('0.999');
+      expect(j(bestJ)).toBeCloseTo(0.68, 10);
+      expect(lr(bestLr)).toBeCloseTo(55, 10);
+      // the evidence-optimal threshold has the WORST J in the table
+      expect(j(bestLr)).toBeCloseTo(Math.min(...SWEEP.map(j)), 10);
+      expect(mdx).toContain('**0.680**');
+      expect(mdx).toContain('**55.00**');
+    });
+
+    it('moves the posterior from 0.3284 to 0.8594 on threshold alone', () => {
+      const post = (tpr: number, fpr: number) =>
+        acmgPosterior(oddsPathPoints(likelihoodRatioPositive(tpr, fpr)));
+      expect(post(0.88, 0.2)).toBeCloseTo(0.3284, 4);
+      expect(post(0.22, 0.004)).toBeCloseTo(0.8594, 4);
+      expect(mdx).toContain('$0.3284$');
+      expect(mdx).toContain('$0.8594$');
+    });
+
+    it('has the two criteria moving in opposite directions across the sweep', () => {
+      const j = SWEEP.map((r) => r[1] - r[2]);
+      const pts = SWEEP.map((r) => oddsPathPoints(likelihoodRatioPositive(r[1], r[2])));
+      // points rise monotonically; J does not
+      for (let i = 1; i < pts.length; i++) expect(pts[i]).toBeGreaterThan(pts[i - 1]);
+      expect(j[j.length - 1]).toBeLessThan(j[0]);
+    });
+  });
+
+  describe('exercise 1 — two predictors', () => {
+    it('makes A the better classifier and B the better evidence', () => {
+      const a = likelihoodRatioPositive(0.8, 0.2);
+      const b = likelihoodRatioPositive(0.3, 0.01);
+      expect(a).toBeCloseTo(4, 10);
+      expect(b).toBeCloseTo(30, 10);
+      expect(oddsPathPoints(a)).toBeCloseTo(1.893, 3);
+      expect(oddsPathPoints(b)).toBeCloseTo(4.64, 2);
+      expect(oddsPathStrength(a)).toBe('supporting');
+      expect(oddsPathStrength(b)).toBe('strong');
+      // A wins on Youden, B on evidence
+      expect(0.8 - 0.2).toBeGreaterThan(0.3 - 0.01);
+      expect(acmgPosterior(oddsPathPoints(a))).toBeCloseTo(0.3077, 4);
+      expect(acmgPosterior(oddsPathPoints(b))).toBeCloseTo(0.7692, 4);
+      expect(mdx).toContain('0.80/0.20 = 4.000000');
+      expect(mdx).toContain('0.30/0.01 = 30.000000');
+    });
+  });
+
+  describe('exercise 2 — how good would a predictor have to be', () => {
+    it('needs OddsPath 18.708287 for strong, and 2.7% FPR at TPR 0.50', () => {
+      expect(oddsPathFor('strong')).toBeCloseTo(18.708287, 6);
+      expect(0.5 / oddsPathFor('strong')).toBeCloseTo(0.026726, 6);
+      expect(mdx).toContain('350^{4/8} = 18.708287');
+      expect(mdx).toContain('0.026726');
+    });
+
+    it('shows three supporting criteria fall short of strong', () => {
+      expect(1 + 1 + 1).toBeLessThan(4);
+      expect(oddsPathStrength(oddsPathFor('supporting') ** 3)).toBe('moderate');
+      expect(mdx).toContain('still moderate');
     });
   });
 });
