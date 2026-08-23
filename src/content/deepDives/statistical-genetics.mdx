@@ -1,0 +1,390 @@
+---
+title: "Statistical Genetics: From One Locus to a Causal Claim"
+shortTitle: Statistical Genetics
+description: "The five-module curriculum in statistical genetics — likelihood and testing, populations and inheritance, quantitative genetics, association and discovery, and inference, prediction and causality — and how one variant passes through all five on its way from a correlation to a claim about biology."
+abstract: "A peak on a Manhattan plot is a statement about a correlation in one sample. Everything a reader wants to do with it — name the causal variant, predict a phenotype, argue that an exposure causes a disease — needs a different piece of machinery, and the pieces do not compose in the order intuition suggests. This hub lays out the five modules that machinery divides into, and then traces a single common variant through all of them: the threshold it must clear, the equilibrium check that makes the test valid, the heritability that bounds everything downstream, the sample size that finds it, and the prediction that — at exactly that sample size — explains three tenths of one percent of the trait. The gap between the fourth number and the fifth is the reason the last two modules exist."
+date: 2026-08-23
+track: theory
+hub: statistical-genetics
+isHub: true
+moduleId: m00-hub
+moduleLabel: Statistical Genetics
+order: 0
+level: foundational
+objectives:
+  - "Name the five modules of the curriculum and say which question each one answers."
+  - "Explain why a genome-wide significant variant and a useful polygenic predictor are different achievements requiring different sample sizes."
+  - "Trace one variant from a significance threshold through heritability to a predicted value, and say where each number comes from."
+  - "Given a method, state what it estimates, what data it needs, and the first assumption whose failure invalidates it."
+  - "Choose the right lesson for a question you actually have."
+prerequisites: []
+keyEquations:
+  - 'q^2 = 2p(1-p)\beta^2'
+  - 'N \geq \dfrac{39.60}{q^2}'
+  - 'R^2 = \dfrac{h^2}{1 + M/(N h^2)}'
+referenceIds:
+  - fisher1922likelihood
+  - wright1931drift
+  - hill1968
+  - fisher1918infinitesimal
+  - visscher2008
+  - yang2011gcta
+  - meuwissen2001genomic
+  - bulik2015ldsc
+  - wang2020susie
+  - daveysmith2003mr
+tags: [statistical genetics, quantitative genetics, GWAS, heritability, fine-mapping, polygenic scores, Mendelian randomisation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this track answers
+
+Someone shows you a peak on a Manhattan plot and asks what it means.
+
+The peak itself is a modest statement: in this sample, genotype at this position correlates
+with this trait more strongly than chance would produce across a million tests. Almost
+nothing a reader actually wants follows from it directly. Which variant in the peak is doing
+the work? How much of the trait does the whole genome explain, and how much of *that* has
+been found? Would a score built from these results predict anything in a person? Does the
+exposure the peak implicates *cause* the disease?
+
+Each of those is a separate machine with its own inputs, its own failure modes, and its own
+literature. This curriculum is those machines, in the order that they depend on each other.
+
+<Callout variant="intuition">
+
+Every method in this track is a way of reading one sentence: **an observed trait is a genetic
+part plus everything else.** Module 2 asks what the genetic part is made of and how it travels
+between generations. Module 3 asks how big it is. Module 4 asks which positions contribute to
+it. Module 5 asks what may honestly be done with the answer. Module 1 supplies the arithmetic
+all four use to decide whether a number is real. The differences between the methods are
+mostly differences in what they are willing to assume about "everything else".
+
+</Callout>
+
+## The five modules
+
+**Module 1 — Mathematical Foundations.** A likelihood, its first two derivatives, and the
+three tests that fall out of them. Every later method is one of these three tests wearing
+different clothing, so the disagreements between Wald, score and likelihood-ratio statistics
+<Citation id="fisher1922likelihood" /> are worth meeting once, on a table small enough to
+check by hand. This is also where the genome-wide threshold comes from, and where the two
+situations that break the χ² approximation are named.
+
+**Module 2 — Populations & Inheritance.** What a locus is before anyone tests it. Allele
+frequencies under random mating, the drift that moves them in a finite population
+<Citation id="wright1931drift" />, and the linkage disequilibrium that makes a tested variant
+a proxy for its neighbours rather than a thing in itself <Citation id="hill1968" />. The last
+of these is why Module 5 exists: the variant with the smallest p-value in a region is usually
+not the causal one, and nothing in Module 4 can tell them apart.
+
+**Module 3 — Quantitative Genetics.** How much genetic signal a trait has at all. Fisher's
+reconciliation of Mendelian inheritance with continuous variation
+<Citation id="fisher1918infinitesimal" /> gives the variance decomposition; heritability is
+the ratio it defines, and it is routinely over-read <Citation id="visscher2008" />. Estimating
+it from genotypes rather than pedigrees <Citation id="yang2011gcta" /> is what turned it into
+a measurable quantity in unrelated people, and predicting breeding values from dense markers
+<Citation id="meuwissen2001genomic" /> is the same mathematics pointed at a different goal.
+Heritability is a ceiling: no predictor built from additive genetic data can beat it, and
+knowing its value tells you how much of the problem is left.
+
+**Module 4 — Association & Discovery.** Finding the positions. Marginal tests at millions of
+sites, the population structure that inflates them, mixed models that absorb it, aggregation
+tests for variants too rare to test one at a time, and meta-analysis to combine studies that
+were never designed together. Distinguishing genuine polygenicity from confounding
+<Citation id="bulik2015ldsc" /> is the diagnostic that makes the rest interpretable.
+
+**Module 5 — Inference, Prediction & Causality.** What may be done with a hit. Fine-mapping
+resolves an association into a small set of candidate variants
+<Citation id="wang2020susie" />; polygenic scores turn thousands of small effects into one
+number per person; Mendelian randomisation uses genotype as an instrument to ask whether an
+exposure causes an outcome <Citation id="daveysmith2003mr" />; and sequence models supply
+functional predictions that are only evidence once they have been calibrated.
+
+## One variant, five modules
+
+The modules are easier to keep straight when one variant passes through all of them. The
+variant below is unremarkable — a common SNP with a small effect, the kind that makes up most
+of a GWAS catalogue — and the trace is entirely arithmetic.
+
+<Notation
+  rows={[
+    { symbol: 'p', meaning: 'Minor allele frequency at the tested variant', dims: 'in (0, 0.5]' },
+    { symbol: '\\beta', meaning: 'Additive effect per copy of the minor allele', dims: 'trait SD per allele' },
+    { symbol: 'q^2', meaning: 'Variance of the trait explained by that one variant', dims: 'in [0,1]' },
+    { symbol: 'h^2', meaning: 'Narrow-sense heritability — the additive genetic share of trait variance', dims: 'in [0,1]' },
+    { symbol: 'M', meaning: 'Effective number of independent variants tested', dims: 'count' },
+    { symbol: 'N', meaning: 'GWAS sample size', dims: 'count' },
+    { symbol: 'R^2', meaning: 'Trait variance explained by a polygenic score built at that N', dims: 'in [0, h²)' },
+    { symbol: 'F', meaning: 'Instrument strength for one variant in Mendelian randomisation', dims: '> 0' },
+  ]}
+/>
+
+<WorkedExample
+  title="One common variant, traced through all five modules"
+  given={[
+    { label: 'Minor allele frequency', value: 'p = 0.30' },
+    { label: 'Effect size', value: 'β = 0.05 trait SD per allele' },
+    { label: 'Trait heritability', value: 'h² = 0.30' },
+    { label: 'Independent variants', value: 'M = 1,000,000' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Module 1 — what would count as evidence?** Testing about a million effectively independent
+positions, a Bonferroni correction on 0.05 gives the familiar genome-wide threshold
+$\alpha = 5 \times 10^{-8}$. On the χ² scale with one degree of freedom that is
+
+$$
+\chi^2 \geq 29.7168, \qquad \text{equivalently } |z| \geq 5.4513 .
+$$
+
+Nothing about the variant enters yet. This is the bar, fixed by how many questions are being
+asked at once.
+
+**Module 2 — is the test valid here?** At $p = 0.30$, a sample of a thousand people is
+expected to contain $1000 p^2 = 90$ minor homozygotes. The χ² approximation is comfortable at
+that count; it is *not* comfortable in the sparse cell a variant at 3% frequency would
+produce, which is where Module 1's exact-test boundary applies. Note also what this variant
+is: one marker in a block of correlated neighbours. Whatever the test finds belongs to the
+block, not to this position.
+
+**Module 3 — how much is there to find?** The variance a single additive variant explains is
+
+$$
+q^2 = 2p(1-p)\beta^2 = 2(0.30)(0.70)(0.05)^2 = 1.05 \times 10^{-3}.
+$$
+
+That is 0.105% of the trait — and against a heritability of $h^2 = 0.30$, just 0.35% of the
+genetic signal that exists. A variant like this is a normal member of a polygenic
+architecture, not a disappointment.
+
+**Module 4 — how many people to find it?** Power for a marginal test is governed entirely by
+$q^2$. For 80% power at the threshold above,
+
+$$
+N \geq \frac{39.60}{q^2} = \frac{39.60}{1.05 \times 10^{-3}} = 37{,}716 .
+$$
+
+Thirty-eight thousand people, and the variant clears genome-wide significance. By the
+standards of Module 4 this is a success and it gets a row in the catalogue.
+
+**Module 5 — what is it worth?** Now build a polygenic score from that same study. With
+$M$ independent variants and heritability $h^2$, the expected accuracy of a score trained at
+sample size $N$ is
+
+$$
+R^2 = \frac{h^2}{1 + M/(N h^2)} .
+$$
+
+At $N = 37{,}716$ this gives $R^2 = 3.3565 \times 10^{-3}$ — **0.34% of the trait**. The
+entire genome-wide score, built from the same data that made this variant a discovery,
+explains 3.2 times what the single variant does, and 1.1% of the heritability available.
+
+The remaining distance is expensive. Reaching half the ceiling, $R^2 = 0.15$, needs
+$N = 3{,}333{,}334$ — 88 times the discovery sample. Reaching nine tenths of it,
+$R^2 = 0.27$, needs $N = 30{,}000{,}001$, or 795 times. The last tenth is not reachable at
+any $N$; the formula approaches $h^2$ and never arrives.
+
+**And as an instrument?** Used in Mendelian randomisation with a standard error of 0.010, the
+variant's instrument strength is $F = (\beta/\text{SE})^2 = 25$, comfortably past the
+conventional threshold of 10 — so it is a usable instrument even while being a nearly useless
+predictor. The three roles are independent.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Polygenic score accuracy against training sample size, for a trait with h² = 0.30 and one million independent variants. The three marked points are the worked example's numbers: 0.34% of the trait explained at the sample size that made the variant a genome-wide discovery, 15% at 88 times that sample, and 27% at 795 times. The dashed line is h² itself, which the curve approaches and never reaches — the additive genetic ceiling on any predictor built this way."
+  alt="A rising S-shaped curve on a logarithmic sample-size axis from ten thousand to one hundred million, showing polygenic score accuracy climbing from near zero toward a dashed ceiling at thirty percent. Three points are marked: 0.34 percent at N = 37,716, 15 percent at 3.3 million, and 27 percent at 30 million."
+>
+<svg viewBox="0 0 640 296" width="640" height="296" font-family="inherit"><line x1="96.0" y1="44.0" x2="96.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="236.0" x2="430.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="236.0" x2="430.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="240.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="176.9" x2="430.0" y2="176.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="180.9" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">10%</text><line x1="96.0" y1="117.8" x2="430.0" y2="117.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="121.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">20%</text><line x1="96.0" y1="58.8" x2="430.0" y2="58.8" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="88.0" y="62.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">30%</text><line x1="96.0" y1="236.0" x2="96.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="96.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10⁴</text><line x1="179.5" y1="236.0" x2="179.5" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="179.5" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10⁵</text><line x1="263.0" y1="236.0" x2="263.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="263.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10⁶</text><line x1="346.5" y1="236.0" x2="346.5" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="346.5" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10⁷</text><line x1="430.0" y1="236.0" x2="430.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="430.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10⁸</text><path d="M96.0,235.5 L97.4,235.4 L98.8,235.4 L100.2,235.4 L101.6,235.4 L103.0,235.4 L104.3,235.3 L105.7,235.3 L107.1,235.3 L108.5,235.3 L109.9,235.2 L111.3,235.2 L112.7,235.2 L114.1,235.1 L115.5,235.1 L116.9,235.1 L118.3,235.0 L119.7,235.0 L121.0,234.9 L122.4,234.9 L123.8,234.9 L125.2,234.8 L126.6,234.8 L128.0,234.7 L129.4,234.7 L130.8,234.6 L132.2,234.6 L133.6,234.5 L135.0,234.5 L136.4,234.4 L137.8,234.3 L139.1,234.3 L140.5,234.2 L141.9,234.1 L143.3,234.1 L144.7,234.0 L146.1,233.9 L147.5,233.8 L148.9,233.7 L150.3,233.7 L151.7,233.6 L153.1,233.5 L154.5,233.4 L155.8,233.3 L157.2,233.2 L158.6,233.1 L160.0,232.9 L161.4,232.8 L162.8,232.7 L164.2,232.6 L165.6,232.5 L167.0,232.3 L168.4,232.2 L169.8,232.0 L171.2,231.9 L172.5,231.7 L173.9,231.6 L175.3,231.4 L176.7,231.2 L178.1,231.0 L179.5,230.8 L180.9,230.6 L182.3,230.4 L183.7,230.2 L185.1,230.0 L186.5,229.8 L187.8,229.5 L189.2,229.3 L190.6,229.1 L192.0,228.8 L193.4,228.5 L194.8,228.2 L196.2,228.0 L197.6,227.7 L199.0,227.3 L200.4,227.0 L201.8,226.7 L203.2,226.3 L204.5,226.0 L205.9,225.6 L207.3,225.2 L208.7,224.8 L210.1,224.4 L211.5,224.0 L212.9,223.6 L214.3,223.1 L215.7,222.7 L217.1,222.2 L218.5,221.7 L219.9,221.2 L221.2,220.6 L222.6,220.1 L224.0,219.5 L225.4,218.9 L226.8,218.3 L228.2,217.7 L229.6,217.1 L231.0,216.4 L232.4,215.8 L233.8,215.1 L235.2,214.3 L236.6,213.6 L238.0,212.8 L239.3,212.1 L240.7,211.2 L242.1,210.4 L243.5,209.6 L244.9,208.7 L246.3,207.8 L247.7,206.9 L249.1,205.9 L250.5,205.0 L251.9,204.0 L253.3,202.9 L254.7,201.9 L256.0,200.8 L257.4,199.7 L258.8,198.6 L260.2,197.5 L261.6,196.3 L263.0,195.1 L264.4,193.9 L265.8,192.6 L267.2,191.4 L268.6,190.1 L270.0,188.8 L271.3,187.4 L272.7,186.0 L274.1,184.7 L275.5,183.2 L276.9,181.8 L278.3,180.4 L279.7,178.9 L281.1,177.4 L282.5,175.9 L283.9,174.3 L285.3,172.8 L286.7,171.2 L288.0,169.6 L289.4,168.0 L290.8,166.4 L292.2,164.8 L293.6,163.2 L295.0,161.5 L296.4,159.8 L297.8,158.2 L299.2,156.5 L300.6,154.8 L302.0,153.1 L303.4,151.4 L304.8,149.7 L306.1,148.0 L307.5,146.3 L308.9,144.6 L310.3,142.9 L311.7,141.2 L313.1,139.5 L314.5,137.9 L315.9,136.2 L317.3,134.5 L318.7,132.8 L320.1,131.2 L321.5,129.6 L322.8,127.9 L324.2,126.3 L325.6,124.7 L327.0,123.1 L328.4,121.6 L329.8,120.0 L331.2,118.5 L332.6,117.0 L334.0,115.5 L335.4,114.0 L336.8,112.6 L338.2,111.2 L339.5,109.8 L340.9,108.4 L342.3,107.0 L343.7,105.7 L345.1,104.4 L346.5,103.1 L347.9,101.8 L349.3,100.6 L350.7,99.4 L352.1,98.2 L353.5,97.0 L354.8,95.9 L356.2,94.8 L357.6,93.7 L359.0,92.6 L360.4,91.6 L361.8,90.6 L363.2,89.6 L364.6,88.6 L366.0,87.7 L367.4,86.7 L368.8,85.9 L370.2,85.0 L371.6,84.1 L372.9,83.3 L374.3,82.5 L375.7,81.7 L377.1,81.0 L378.5,80.2 L379.9,79.5 L381.3,78.8 L382.7,78.2 L384.1,77.5 L385.5,76.9 L386.9,76.3 L388.2,75.7 L389.6,75.1 L391.0,74.5 L392.4,74.0 L393.8,73.5 L395.2,73.0 L396.6,72.5 L398.0,72.0 L399.4,71.5 L400.8,71.1 L402.2,70.6 L403.6,70.2 L404.9,69.8 L406.3,69.4 L407.7,69.1 L409.1,68.7 L410.5,68.3 L411.9,68.0 L413.3,67.7 L414.7,67.3 L416.1,67.0 L417.5,66.7 L418.9,66.5 L420.3,66.2 L421.7,65.9 L423.0,65.6 L424.4,65.4 L425.8,65.2 L427.2,64.9 L428.6,64.7 L430.0,64.5" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><text x="426.0" y="49.8" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".75">ceiling: h² = 30%</text><line x1="144.1" y1="236.0" x2="144.1" y2="234.0" stroke="currentColor" stroke-width="1.1" opacity=".35" stroke-dasharray="3 3"/><circle cx="144.1" cy="234.0" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="144.1" y="220.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">0.34%</text><line x1="306.7" y1="236.0" x2="306.7" y2="147.4" stroke="currentColor" stroke-width="1.1" opacity=".35" stroke-dasharray="3 3"/><circle cx="306.7" cy="147.4" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="306.7" y="133.4" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">15%</text><line x1="386.3" y1="236.0" x2="386.3" y2="76.5" stroke="currentColor" stroke-width="1.1" opacity=".35" stroke-dasharray="3 3"/><circle cx="386.3" cy="76.5" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="386.3" y="62.5" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">27%</text><text x="144.1" y="254.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">37,716</text><text x="306.7" y="254.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">3.3M</text><text x="386.3" y="254.0" font-size="9.5" fill="currentColor" text-anchor="middle" opacity=".75">30M</text><text x="263.0" y="276.0" font-size="12" fill="currentColor" text-anchor="middle">GWAS sample size N</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Variance of the trait the score explains</text><text x="452.0" y="60.0" font-size="11" fill="currentColor" font-weight="700">The same variant,</text><text x="452.0" y="75.0" font-size="11" fill="currentColor" font-weight="700">twice over:</text><text x="452.0" y="95.0" font-size="10" fill="currentColor" opacity=".8">found at N = 37,716,</text><text x="452.0" y="108.0" font-size="10" fill="currentColor" opacity=".8">where it is a genome-wide</text><text x="452.0" y="121.0" font-size="10" fill="currentColor" opacity=".8">hit worth reporting —</text><text x="452.0" y="134.0" font-size="10" fill="currentColor" opacity=".8">and where the entire</text><text x="452.0" y="147.0" font-size="10" fill="currentColor" opacity=".8">score predicts 0.34% of</text><text x="452.0" y="160.0" font-size="10" fill="currentColor" opacity=".8">the trait.</text><text x="452.0" y="188.0" font-size="11" fill="currentColor" font-weight="700">Half the ceiling costs</text><text x="452.0" y="203.0" font-size="10" fill="currentColor" opacity=".8">88x more people. Nine</text><text x="452.0" y="216.0" font-size="10" fill="currentColor" opacity=".8">tenths of it costs 795x,</text><text x="452.0" y="229.0" font-size="10" fill="currentColor" opacity=".8">and the last tenth is</text><text x="452.0" y="242.0" font-size="10" fill="currentColor" opacity=".8">unreachable.</text></svg>
+</Figure>
+
+The gap between Module 4's answer and Module 5's answer is the single most useful thing to
+carry out of this curriculum. Discovery and prediction are different problems with different
+sample-size requirements, and a result that is impressive as one can be worthless as the
+other. Most public confusion about genetics lives in exactly that gap.
+
+## What each method estimates
+
+The curriculum's methods, with the fact that most often decides whether one of them applies to
+a problem: the assumption whose failure invalidates it. Nothing here is a substitute for the
+lesson — it is an index for finding the right one.
+
+<div class="dd-scroll-x">
+
+| Method | What it estimates | What it needs | First assumption to fail |
+| --- | --- | --- | --- |
+| [Wald / score / likelihood-ratio tests](/deep_dives/statgen-mathematical-foundations/) | Whether a parameter differs from zero | A likelihood and an estimate | The χ² approximation — sparse counts and boundary parameters break it |
+| [Hardy–Weinberg test](/deep_dives/statgen-population-infinitesimal/) | Whether genotype counts match allele frequencies | Genotype counts in one sample | Random mating — but genotyping error fails it far more often |
+| [LD measures (D′, r²)](/deep_dives/statgen-linkage-disequilibrium/) | Correlation between two loci | Genotypes, or haplotypes | The reference panel’s ancestry matches the sample’s |
+| [Linkage analysis, QTL mapping](/deep_dives/statgen-pedigrees-linkage-qtl/) | Map position of a locus | Phenotyped pedigrees or crosses | The marker map and the assumed inheritance model |
+| [Breeder’s equation](/deep_dives/statgen-quantitative-genetics-selection/) | Response to one generation of selection | h² and the selection differential | h² stays constant as the population responds |
+| [GREML / GCTA](/deep_dives/statgen-heritability-greml/) | SNP-based heritability | Individual genotypes and phenotypes | Causal variants are tagged as well as the average SNP |
+| [BLUP, genomic selection](/deep_dives/statgen-blup-genomic-selection/) | Breeding values for selection candidates | Genotypes, phenotypes, a relationship matrix | Variance components are treated as known when they were estimated |
+| [Multivariate models, G×E](/deep_dives/statgen-multivariate-genetics-gxe/) | Genetic correlation; interaction | Several traits, or several environments | The scale of measurement — interaction can vanish under transformation |
+| [Linear mixed model GWAS](/deep_dives/statgen-association-linear-mixed-models/) | Per-variant effect, structure controlled | Individual genotypes and phenotypes | Relatedness and stratification are fully captured by the relatedness matrix |
+| [LD score regression](/deep_dives/statgen-ldsc-sldsc/) | SNP heritability, genetic correlation, confounding | Summary statistics and an LD reference | The LD reference matches the GWAS sample’s ancestry |
+| [Burden, SKAT, SKAT-O](/deep_dives/statgen-rare-variant-association/) | Gene-level rare-variant effect | Sequencing plus functional annotation | Burden assumes one direction of effect; SKAT assumes its weights |
+| [Meta-analysis](/deep_dives/statgen-meta-analysis-replication/) | Pooled effect across studies | Per-study effects and standard errors | Fixed effects assume every study estimates the same parameter |
+| [Bayesian fine-mapping](/deep_dives/statgen-bayesian-fine-mapping/) | Posterior inclusion probability (PIP), credible sets | Summary statistics and in-sample LD | The causal variant is present in the data; PIPs are normalised against an explicit null π₀ |
+| [Polygenic scores](/deep_dives/statgen-polygenic-risk-scores/) | A predicted value for one person | Training effects and target genotypes | Effect sizes, LD and allele frequencies transfer to the target ancestry |
+| [Mendelian randomisation](/deep_dives/statgen-mendelian-randomization/) | Causal effect of an exposure on an outcome | Two GWAS, and instruments | No horizontal pleiotropy — instruments act only through the exposure |
+| [Sequence models](/deep_dives/statgen-deep-learning-synthesis/) | A functional score for a variant | Sequence, and labelled variants to calibrate against | The score is calibrated; an uncalibrated score is not evidence |
+
+</div>
+
+<Callout variant="key" title="Reading the table">
+
+The fourth column is doing most of the work. Nearly every method in this list is
+straightforward to run and produces a number regardless of whether its assumption holds — that
+is what makes them dangerous. An LD reference from the wrong population still yields a
+heritability estimate; a fixed-effects meta-analysis of heterogeneous studies still yields a
+pooled effect with a small standard error; a polygenic score still returns a percentile for a
+person whose ancestry is nowhere in the training data. Each lesson spends most of its length
+on how to tell whether its assumption is holding.
+
+</Callout>
+
+## Exercises
+
+<Exercise n={1} title="The same variant in a different trait" difficulty="warm-up">
+
+Keep the variant from the worked example — $p = 0.30$, $\beta = 0.05$ — but move it to a trait
+with $h^2 = 0.60$ rather than 0.30.
+
+(a) Does $q^2$ change? Does the sample size needed to discover the variant change?
+
+(b) At the *same* $N = 37{,}716$, what does the polygenic score's $R^2$ become?
+
+(c) Explain in one sentence why one of those answers changed and the other did not.
+
+<div slot="solution">
+
+**(a) Neither changes.** $q^2 = 2p(1-p)\beta^2$ contains no $h^2$ — it is a property of the
+variant, not of the trait around it. So $q^2 = 1.05 \times 10^{-3}$ still, and
+$N \geq 39.60/q^2 = 37{,}716$ still. Discovery power depends on how much variance *this
+variant* explains, and a trait being more heritable overall does not make any one of its
+variants easier to find.
+
+**(b)** $R^2 = 0.60/(1 + 10^6/(37{,}716 \times 0.60)) = 0.013277$ — 1.33% of the trait, against
+0.34% before. Roughly a fourfold improvement from a twofold change in $h^2$.
+
+**(c)** $h^2$ enters prediction twice and discovery not at all. It is the ceiling, and it also
+sits inside the shrinkage term $M/(Nh^2)$, so a more heritable trait both has more to give and
+needs fewer samples to give it. That squared dependence is why the gain is about $2^2$ rather
+than $2$.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Which module owns the question?" difficulty="core">
+
+For each question, name the module — and the lesson — that answers it, and say what would go
+wrong if you reached for a neighbouring module instead.
+
+(a) "The lead SNP in this locus is intronic. Is that the causal variant?"
+
+(b) "Our polygenic score has $R^2 = 0.08$ in Europeans and 0.02 in West Africans. Is the score
+broken?"
+
+(c) "Our λ is 1.18. Is the study confounded?"
+
+(d) "This gene has twelve rare missense variants across 400 cases. Should we test them
+individually?"
+
+(e) "Higher circulating vitamin D correlates with lower risk. Should people take supplements?"
+
+<div slot="solution">
+
+**(a) Module 5 — [Bayesian Fine-mapping](/deep_dives/statgen-bayesian-fine-mapping/).** The
+lead SNP is the most significant marker, which is not the same as the causal variant; Module 2
+explains why they usually differ. Reaching for Module 4 here means reading a marginal p-value
+as a causal claim, which is the single most common error in the field.
+
+**(b) Module 5 — [Polygenic Risk Scores](/deep_dives/statgen-polygenic-risk-scores/).** The
+score is not broken; its transferability assumption failed. Effect sizes, LD and allele
+frequencies all differ across ancestries, and the score was fitted in one of them. Module 3
+would tell you the trait's heritability, which is not what changed.
+
+**(c) Module 4 —
+[Association & Linear Mixed Models](/deep_dives/statgen-association-linear-mixed-models/),
+then [LDSC](/deep_dives/statgen-ldsc-sldsc/).** An inflation factor above 1 is what a truly
+polygenic trait *should* produce, so λ alone cannot answer the question. The LD score
+regression intercept separates the two, and dividing every statistic by λ would deflate a
+genuine polygenic signal.
+
+**(d) Module 4 —
+[Rare Variant Association](/deep_dives/statgen-rare-variant-association/).** Individually
+they are far below the power cliff — a variant seen a handful of times cannot reach
+$5 \times 10^{-8}$ at any effect size worth having. Aggregate them to the gene.
+
+**(e) Module 5 —
+[Mendelian Randomisation](/deep_dives/statgen-mendelian-randomization/).** A correlation in
+observational data supports no recommendation. Module 4 can establish that variants near the
+vitamin D pathway associate with risk; only an instrumental-variable argument gets from there
+to what a supplement would do.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="Where does the next million people go?" difficulty="stretch">
+
+A consortium can add one million samples to a trait with $h^2 = 0.30$ and
+$M = 1{,}000{,}000$, currently at $N = 500{,}000$.
+
+(a) Compute the score's $R^2$ before and after, using the formula from the worked example.
+
+(b) Suppose instead the million samples were spent on deep phenotyping of the existing
+500,000, halving measurement error and thereby raising the *measured* $h^2$ from 0.30 to 0.36.
+Compute $R^2$ at $N = 500{,}000$ with the new heritability.
+
+(c) Which investment bought more? State the condition on the current $N$ under which the
+answer flips — and say why a consortium might still choose the option that buys less $R^2$.
+
+<div slot="solution">
+
+**(a)** At $N = 500{,}000$: $R^2 = 0.30/(1 + 10^6/150{,}000) = 0.039130$, or 3.91%. At
+$N = 1{,}500{,}000$: $R^2 = 0.093103$, or 9.31%. The million samples buy **5.40 percentage
+points**.
+
+**(b)** With $h^2 = 0.36$ at the original $N = 500{,}000$:
+$R^2 = 0.36/(1 + 10^6/180{,}000) = 0.054915$, or 5.49% — **1.58 percentage points**.
+
+**(c)** More samples wins, 9.31% against 5.49%. But the ordering is not permanent: solving
+$R^2(N + 10^6,\, h^2{=}0.30) = R^2(N,\, h^2{=}0.36)$ gives a crossover at
+$N \approx 1{,}595{,}256$. Above that, a fixed million extra samples buys a shrinking increment
+— the curve is flattening — while a higher ceiling lifts every point on it.
+
+A consortium might still take the smaller $R^2$. Better phenotyping raises $h^2$ for *every*
+analysis the cohort supports, not just this score, and it is the only one of the two options
+that improves results already collected. Extra samples of the same ancestry, meanwhile, do
+nothing at all for the transferability problem in Exercise 2(b).
+
+</div>
+
+</Exercise>
+
+## Summary
+
+- The curriculum is five modules: the **arithmetic of evidence**, the **structure of
+  populations**, the **size of the genetic signal**, the **discovery of positions**, and the
+  **inferences the positions support**. They depend on each other in that order.
+- **Discovery and prediction are different problems.** One common variant explaining 0.105%
+  of a trait is found at $N = 37{,}716$; the whole score built at that sample size explains
+  0.34% of the trait, and reaching half of $h^2$ costs 88 times more people.
+- **Heritability is a ceiling, not a target.** $R^2 = h^2/(1 + M/(N h^2))$ approaches $h^2$
+  and never reaches it, so the last increment of accuracy is always the most expensive.
+- **A variant can be a strong instrument and a weak predictor at once.** The variant traced
+  here has $F = 25$ — usable for Mendelian randomisation — while contributing almost nothing
+  to a polygenic score.
+- **Every method here returns a number whether or not its assumptions hold.** The comparison
+  table's last column, not its first, is what decides whether a method applies.

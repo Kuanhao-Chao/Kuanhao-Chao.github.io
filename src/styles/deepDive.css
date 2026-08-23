@@ -2040,6 +2040,42 @@
   }
 }
 
+/*
+ * A comparison table wide enough that letting it reflow is worse than letting it scroll.
+ * `article table` in global.css already sets `display: block; overflow-x: auto`, but that
+ * only produces a scrollbar once the *content* exceeds the container — and a table of
+ * prose cells will happily crush itself to fit instead, breaking words mid-syllable
+ * rather than overflowing. The min-width is what forces the choice the other way.
+ */
+.dd-scroll-x {
+  overflow-x: auto;
+  margin: 1.75rem 0;
+}
+
+.dd-scroll-x table {
+  /* Just under the article column, so a desktop reader sees the whole table and only a
+     narrow viewport has to scroll it. Overshoot this and everyone scrolls. */
+  min-width: 39rem;
+  margin: 0;
+}
+
+/* The first column is a list of names. Breaking "randomisation" across two lines to save
+   forty pixels makes the index harder to scan than the scrollbar does. */
+.dd-scroll-x th:first-child,
+.dd-scroll-x td:first-child {
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+@media print {
+  .dd-scroll-x {
+    overflow-x: visible;
+  }
+  .dd-scroll-x table {
+    min-width: 0;
+  }
+}
+
 @media print {
   .ml-studybar,
   .ml-study-actions,
