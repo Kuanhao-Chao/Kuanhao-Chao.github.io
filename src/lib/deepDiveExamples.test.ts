@@ -24,6 +24,7 @@ import {
   lambdaGc, CHI2_1DF_MEDIAN, varianceExplained, ldscRegression,
   betaWeight, burdenStatistic, skatQ, skatOQ,
   wakefieldAbf, pipsFromAbf, credibleSet, csPurity,
+  waldRatio, fStatistic, ivwMr, eggerRegression, weightedMedianMr,
 } from './deepDiveMath.ts';
 
 /**
@@ -2311,6 +2312,128 @@ describe('statgen-bayesian-fine-mapping', () => {
     it('inverts 2.5e-6 to 400,000', () => {
       expect(1 / 2.5e-6).toBeCloseTo(400000, 6);
       expect(mdx).toContain('400{,}000');
+    });
+  });
+});
+
+describe('statgen-mendelian-randomization', () => {
+  const mdx = lesson('statgen-mendelian-randomization');
+  const TRUE = 0.3;
+  const GX = [0.1, 0.12, 0.08, 0.15, 0.09, 0.11, 0.13, 0.07];
+  const SEX = GX.map(() => 0.01);
+  const PLEIO = [0, 0, 0, 0, 0, 0.02, 0.02, 0.02];
+  const GY = GX.map((g, i) => Number((TRUE * g + PLEIO[i]).toFixed(6)));
+  const SEY = GX.map(() => 0.006);
+
+  describe('worked example — eight instruments, three pleiotropic', () => {
+    it('gives every valid instrument a Wald ratio of exactly the truth', () => {
+      for (let i = 0; i < 5; i++) expect(waldRatio(GX[i], GY[i])).toBeCloseTo(TRUE, 10);
+      expect(waldRatio(0.15, 0.045)).toBeCloseTo(0.3, 12);
+      expect(mdx).toContain('\\frac{0.045}{0.15} = 0.3000');
+    });
+
+    it('inflates the pleiotropic ones most where the instrument is weakest', () => {
+      const bad = [5, 6, 7].map((i) => ({ g: GX[i], r: waldRatio(GX[i], GY[i]) }));
+      expect(bad.map((b) => +b.r.toFixed(4))).toEqual([0.4818, 0.4538, 0.5857]);
+      // the weakest instrument of the three gets the largest inflation
+      const weakest = bad.reduce((a, b) => (b.g < a.g ? b : a));
+      expect(weakest.r).toBe(Math.max(...bad.map((b) => b.r)));
+      expect(mdx).toContain('0.4818');
+      expect(mdx).toContain('0.5857');
+    });
+
+    it('has every instrument strong, so weak-instrument bias is not the cause', () => {
+      const fs = GX.map((g, i) => fStatistic(g, SEX[i]));
+      expect(Math.min(...fs)).toBeCloseTo(49, 6);
+      expect(Math.max(...fs)).toBeCloseTo(225, 6);
+      expect(Math.min(...fs)).toBeGreaterThan(10);
+      expect(mdx).toContain('49 to 225');
+    });
+
+    it('biases IVW 21.7% high, with an interval excluding the truth', () => {
+      const fit = ivwMr(GX, GY, SEY);
+      expect(fit.beta).toBeCloseTo(0.365058, 6);
+      expect(fit.se).toBeCloseTo(0.019436, 6);
+      expect((fit.beta / TRUE - 1) * 100).toBeCloseTo(21.7, 1);
+      const lo = fit.beta - 1.96 * fit.se;
+      expect(lo).toBeGreaterThan(TRUE);
+      expect(lo).toBeCloseTo(0.327, 3);
+      expect(fit.beta + 1.96 * fit.se).toBeCloseTo(0.4032, 3);
+      expect(mdx).toContain('0.365058');
+      expect(mdx).toContain('**21.7% too high**');
+    });
+  });
+
+  describe('worked example — three estimators', () => {
+    const ivw = ivwMr(GX, GY, SEY);
+    const egg = eggerRegression(GX, GY, SEY);
+
+    it('has the three-row table', () => {
+      expect(ivw.beta).toBeCloseTo(0.365058, 6);
+      expect(egg.slope).toBeCloseTo(0.264912, 6);
+      expect(egg.seSlope).toBeCloseTo(0.157663, 6);
+      expect(weightedMedianMr(GX, GY, SEY)).toBeCloseTo(0.3, 10);
+      for (const row of [
+        '| IVW | 0.365058 | 0.019436 | 0.3270 to 0.4032 |',
+        '| MR-Egger slope | 0.264912 | 0.157663 | −0.0441 to 0.5739 |',
+        '| weighted median | 0.300000 | — | — |',
+      ]) {
+        expect(mdx).toContain(row);
+      }
+    });
+
+    it('makes Egger 8.1 times less precise than IVW', () => {
+      expect(egg.seSlope / ivw.se).toBeCloseTo(8.11, 2);
+      expect(egg.slope - 1.96 * egg.seSlope).toBeLessThan(0);
+      expect(egg.slope + 1.96 * egg.seSlope).toBeCloseTo(0.5739, 3);
+      expect(mdx).toContain('**8.1 times wider**');
+    });
+
+    it('has the weighted median land exactly on the truth', () => {
+      expect(weightedMedianMr(GX, GY, SEY)).toBe(0.3);
+      expect(mdx).toContain('$0.300000$, because five of eight');
+    });
+
+    it('has an Egger intercept that is real but not significant', () => {
+      expect(egg.intercept).toBeCloseTo(0.011228, 6);
+      expect(egg.seIntercept).toBeCloseTo(0.017208, 6);
+      const t = egg.intercept / egg.seIntercept;
+      expect(t).toBeCloseTo(0.6525, 4);
+      const p = 2 * (1 - normalCdf(Math.abs(t)));
+      expect(p).toBeCloseTo(0.5141, 4);
+      expect(p).toBeGreaterThan(0.05);
+      // the pleiotropy it fails to detect is real and biases IVW by 21.7%
+      expect(PLEIO.filter((x) => x > 0).length).toBe(3);
+      expect(mdx).toContain('= 0.6525');
+      expect(mdx).toContain('p = 0.5141');
+      expect(mdx).toContain('is not evidence that there is no pleiotropy');
+    });
+  });
+
+  describe('exercise 1 — one instrument, two checks', () => {
+    it('gives F = 225 for a strong instrument and 4 for a weak one', () => {
+      expect(fStatistic(0.15, 0.01)).toBeCloseTo(225, 8);
+      expect(fStatistic(0.02, 0.01)).toBeCloseTo(4, 10);
+      expect(1 / fStatistic(0.02, 0.01)).toBeCloseTo(0.25, 10);
+      expect(mdx).toContain('(0.15/0.010)^2 = 225');
+      expect(mdx).toContain('(0.02/0.010)^2 = 4');
+      expect(mdx).toContain('1/4 = 25\\%');
+    });
+  });
+
+  describe('exercise 2 — removing the bad instruments', () => {
+    it('returns IVW to exactly the truth on the five valid instruments', () => {
+      const fit = ivwMr(GX.slice(0, 5), GY.slice(0, 5), SEY.slice(0, 5));
+      expect(fit.beta).toBeCloseTo(0.3, 10);
+      expect(fit.se).toBeCloseTo(0.024214, 6);
+      expect(mdx).toContain('0.300000$ with $\\mathrm{SE} = 0.024214');
+    });
+
+    it('is less precise than the biased eight-instrument fit', () => {
+      // dropping instruments costs precision, which is why nobody drops at random
+      const five = ivwMr(GX.slice(0, 5), GY.slice(0, 5), SEY.slice(0, 5));
+      const eight = ivwMr(GX, GY, SEY);
+      expect(five.se).toBeGreaterThan(eight.se);
     });
   });
 });

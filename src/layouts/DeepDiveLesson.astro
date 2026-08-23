@@ -11,6 +11,7 @@ import {
   lessonReadingTime,
   neighbours,
   orderLessons,
+  referenceSurname,
   type Heading,
   type TocNode,
 } from '../lib/deepDives';
@@ -70,8 +71,8 @@ const relatedLessons = (
 const refs = (await getCollection('deepDiveReferences'))
   .filter((r) => d.referenceIds.some((ref) => ref.id === r.id))
   .sort((a, b) => {
-    const an = a.data.authors[0].split(/\s+/).slice(-1)[0];
-    const bn = b.data.authors[0].split(/\s+/).slice(-1)[0];
+    const an = a.data.surname ?? referenceSurname(a.data.authors[0]);
+    const bn = b.data.surname ?? referenceSurname(b.data.authors[0]);
     return an === bn ? a.data.year - b.data.year : an < bn ? -1 : 1;
   });
 

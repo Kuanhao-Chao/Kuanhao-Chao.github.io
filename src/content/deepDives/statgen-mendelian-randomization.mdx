@@ -1,0 +1,420 @@
+---
+title: "Mendelian Randomization: Instruments, Pleiotropy & What Genetics Can Say About Cause"
+shortTitle: Mendelian Randomization
+description: "The three instrumental-variable assumptions and which of them genetics actually buys, the Wald ratio and IVW estimators, weak-instrument bias and the F-statistic, and what MR-Egger and the weighted median do when the exclusion restriction fails."
+abstract: "Alleles are assigned at conception and are not chosen, which makes a variant look like a randomised assignment to a lifetime of higher or lower exposure. That analogy is the whole appeal of Mendelian randomisation and it is also where every difficulty lives, because the one assumption genetics does not buy is the one that matters: that the variant affects the outcome only through the exposure. This lesson builds the estimators, then constructs eight instruments of which five are valid and three are pleiotropic, and shows the standard estimator returning 0.3651 for a true effect of 0.30 while MR-Egger lands near the truth with an interval eight times wider and the weighted median returns 0.3000 exactly. It closes on the diagnostic most often misread: Egger's intercept test is underpowered, and on this data it returns p = 0.51 while the pleiotropy is real."
+date: 2026-08-22
+track: theory
+hub: statistical-genetics
+moduleId: m05-inference
+moduleLabel: Module 5 · Inference, Prediction & Causality
+order: 15
+level: advanced
+objectives:
+  - "State the three instrumental-variable assumptions and say which one genetics does not guarantee."
+  - "Compute a Wald ratio and an inverse-variance-weighted causal estimate."
+  - "Compute a first-stage F-statistic and say what the F > 10 rule is actually about."
+  - "Explain why IVW is a regression through the origin and what that assumes."
+  - "Apply MR-Egger and the weighted median, and state the assumption each substitutes."
+  - "Interpret a non-significant Egger intercept correctly."
+prerequisites:
+  - statgen-association-linear-mixed-models
+  - statgen-meta-analysis-replication
+relatedLessons:
+  - statgen-bayesian-fine-mapping
+  - statgen-ldsc-sldsc
+keyEquations:
+  - '\hat\beta_{\mathrm{Wald}} = \frac{\hat\gamma_Y}{\hat\gamma_X}'
+  - 'F = \frac{\hat\gamma_X^2}{\mathrm{Var}(\hat\gamma_X)}, \qquad \text{bias} \approx 1/F'
+  - '\hat\beta_{\mathrm{IVW}} = \frac{\sum_j \hat\gamma_{Xj}\hat\gamma_{Yj}/\sigma_{Yj}^2}{\sum_j \hat\gamma_{Xj}^2/\sigma_{Yj}^2}'
+  - '\hat\gamma_{Yj} = \alpha + \beta\,\hat\gamma_{Xj} + \varepsilon_j \quad (\text{Egger: } \alpha \ne 0)'
+referenceIds:
+  - daveysmith2003mr
+  - lawlor2008mr
+  - burgess2013ivw
+  - bowden2015egger
+  - bowden2016median
+  - verbanck2018presso
+  - davies2018reading
+  - brumpton2020withinfamily
+tags: [Mendelian randomization, instrumental variables, pleiotropy, MR-Egger, weighted median, causal inference]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Observational epidemiology is full of associations that are not causes. People with higher
+circulating levels of some biomarker get more of some disease — but they also differ in diet,
+income, smoking, and a hundred things nobody measured, and the biomarker may be a consequence
+of early disease rather than a cause of it.
+
+<Citation id="daveysmith2003mr" /> pointed out that genetics offers a partial escape. Alleles
+are assigned at conception, before any of those confounders exist, and are not chosen. A
+variant that raises the biomarker assigns its carriers to a lifetime of slightly higher
+exposure, in a way that is uncorrelated with income or diet. That is close enough to a
+randomised trial to be worth exploiting.
+
+The whole subject is about how close "close enough" is.
+
+<Notation
+  rows={[
+    { symbol: 'Z', meaning: 'The genetic instrument — a variant, or a set of them', dims: '—' },
+    { symbol: 'X,\\;Y', meaning: 'Exposure and outcome', dims: '—' },
+    { symbol: 'U', meaning: 'Everything unmeasured that confounds X and Y', dims: '—' },
+    { symbol: '\\hat\\gamma_X', meaning: "The instrument's estimated effect on the exposure", dims: 'exposure units' },
+    { symbol: '\\hat\\gamma_Y', meaning: "The instrument's estimated effect on the outcome", dims: 'outcome units' },
+    { symbol: '\\beta', meaning: 'The causal effect of X on Y — what MR is trying to estimate', dims: 'outcome per exposure' },
+    { symbol: '\\alpha', meaning: 'Pleiotropic effect: an instrument on the outcome, not via the exposure', dims: 'outcome units' },
+    { symbol: 'F', meaning: 'First-stage F-statistic, measuring instrument strength', dims: '> 0' },
+  ]}
+/>
+
+## The three assumptions, and the one genetics does not give you
+
+| | Assumption | What it requires | How it fails |
+| --- | --- | --- | --- |
+| 1 | **Relevance** | $\mathrm{Cov}(Z, X) \ne 0$ — the variant really moves the exposure | Weak instruments, diagnosed by $F$ |
+| 2 | **Independence** | $Z \perp U$ — the variant is unrelated to the confounders | Population structure, assortative mating, dynastic effects |
+| 3 | **Exclusion restriction** | $Z$ affects $Y$ **only** through $X$ | Horizontal pleiotropy — and it is not directly testable |
+
+Assumption 1 is checkable from the data. Assumption 2 is what Mendel's randomisation is
+supposed to buy, and mostly does — subject to the corrections from Module 4, since ancestry
+correlates with both genotype and outcome exactly as it does in any association study.
+
+**Assumption 3 is the problem.** A variant that affects the exposure has no obligation to
+affect nothing else, and genes are pleiotropic as a rule rather than as an exception.
+<Citation id="lawlor2008mr" /> sets out the framework and is careful about this; most of the
+methodology since has been about what to do when assumption 3 fails.
+
+<Callout variant="intuition" title="Why the ratio estimator is a ratio">
+
+The estimator is easier to remember if you see where the division comes from.
+
+The instrument moves the exposure by $\gamma_X$. If the exposure causes the outcome with
+effect $\beta$, then the instrument must move the outcome by $\gamma_X \times \beta$ — the
+effect travels *through* the exposure and picks up both factors on the way.
+
+So $\gamma_Y = \beta\,\gamma_X$, and rearranging gives
+
+$$
+\beta = \frac{\gamma_Y}{\gamma_X}
+$$
+
+That is the whole idea. The instrument's effect on the outcome, divided by its effect on the
+exposure, is the exposure's effect on the outcome — **provided the only route from $Z$ to
+$Y$ is through $X$**, which is assumption 3 restated as arithmetic.
+
+Two things follow immediately. If $\gamma_X$ is small the ratio divides by something near
+zero, which is weak-instrument bias. And if the instrument reaches $Y$ by any other route,
+that extra effect lands in the numerator and is attributed to the exposure — which is
+pleiotropy, and nothing in the ratio can tell the difference.
+
+</Callout>
+
+## Weak instruments
+
+Dividing by a noisy $\hat\gamma_X$ does not merely inflate the variance; it *biases* the
+ratio, toward the confounded observational association the study was run to escape. The
+first-stage F-statistic measures it:
+
+$$
+F = \frac{\hat\gamma_X^2}{\mathrm{Var}(\hat\gamma_X)},
+\qquad
+\text{bias} \approx \frac{1}{F}
+$$
+
+The conventional threshold is $F > 10$. It is worth being precise about what that buys:
+$F = 10$ means roughly **10% of the confounding remains**, not that the instrument is fine.
+It is a bias tolerance dressed as a significance threshold.
+
+## Many instruments: IVW
+
+With several instruments, each gives its own Wald ratio and they are pooled exactly as
+Module 4 pooled studies — inverse-variance weighted. <Citation id="burgess2013ivw" /> gives
+the form:
+
+$$
+\hat\beta_{\mathrm{IVW}}
+= \frac{\sum_j \hat\gamma_{Xj}\hat\gamma_{Yj}/\sigma_{Yj}^2}{\sum_j \hat\gamma_{Xj}^2/\sigma_{Yj}^2}
+$$
+
+which is identical to a weighted regression of $\hat\gamma_Y$ on $\hat\gamma_X$ **through the
+origin**. That constraint is not a modelling convenience — it *is* assumption 3. Forcing the
+intercept to zero states that an instrument with no effect on the exposure has no effect on
+the outcome.
+
+<WorkedExample
+  title="Eight instruments, three of them pleiotropic"
+  given={[
+    { label: 'True causal effect', value: 'β = 0.30' },
+    { label: 'Instruments', value: '8, all strong (F from 49 to 225)' },
+    { label: 'Pleiotropy', value: 'three instruments add +0.02 to the outcome directly' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the per-instrument ratios.** For a valid instrument with
+$\hat\gamma_X = 0.15$ and $\hat\gamma_Y = 0.045$:
+
+$$
+\hat\beta_{\mathrm{Wald}} = \frac{0.045}{0.15} = 0.3000
+$$
+
+All five valid instruments give exactly 0.3000. The three pleiotropic ones give
+$0.4818$, $0.4538$ and $0.5857$ — inflated, and inflated *most* for the weakest instrument,
+because the same $+0.02$ is divided by a smaller $\hat\gamma_X$.
+
+**Step 2 — instrument strength.** Every $F$ runs from 49 to 225, so weak-instrument bias is
+not in play here. This matters: the failure about to appear is not a strength problem, and
+checking $F$ would not have caught it.
+
+**Step 3 — IVW.**
+
+$$
+\hat\beta_{\mathrm{IVW}} = 0.365058, \qquad \mathrm{SE} = 0.019436
+$$
+
+The truth is 0.30. IVW is **21.7% too high**, with a 95% interval of $0.3270$ to $0.4032$
+that **excludes the true value**. It is precise and it is wrong, which is the worst
+combination a point estimate can have.
+
+**Step 4 — where the bias comes from.** The three pleiotropic instruments sit above the line
+that passes through the origin. Since the line is forced through zero, the only way it can
+accommodate them is by tilting upward — so their $+0.02$ is absorbed into the *slope*, which
+is precisely the quantity being reported as a causal effect.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The regression MR actually fits. Each point is one instrument: its effect on the exposure against its effect on the outcome. Five instruments lie on the true line of slope 0.30; three sit 0.02 above it, because they reach the outcome by a second route. IVW must pass through the origin, so it tilts up to 0.3651 to accommodate them. MR-Egger frees the intercept, which lands at 0.0112 and lets the slope fall back toward the truth."
+  alt="A scatter of eight instruments, effect on exposure against effect on outcome, with error bars. Five green points lie on a dotted line of slope 0.30 through the origin; three grey points sit above it. A solid line through the origin fits at slope 0.3651. A dashed line with a non-zero intercept of 0.0112 has a shallower slope."
+  wide
+>
+<svg viewBox="0 0 640 300" width="640" height="300" font-family="inherit"><line x1="96.0" y1="46.0" x2="96.0" y2="240.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="240.0" x2="424.0" y2="240.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="240.0" x2="424.0" y2="240.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="244.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="182.9" x2="424.0" y2="182.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="186.9" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.02</text><line x1="96.0" y1="125.9" x2="424.0" y2="125.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="129.9" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.04</text><line x1="96.0" y1="68.8" x2="424.0" y2="68.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="72.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.06</text><line x1="96.0" y1="240.0" x2="96.0" y2="245.0" stroke="currentColor" stroke-width="1"/><text x="96.0" y="258.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="192.5" y1="240.0" x2="192.5" y2="245.0" stroke="currentColor" stroke-width="1"/><text x="192.5" y="258.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.05</text><line x1="288.9" y1="240.0" x2="288.9" y2="245.0" stroke="currentColor" stroke-width="1"/><text x="288.9" y="258.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.10</text><line x1="385.4" y1="240.0" x2="385.4" y2="245.0" stroke="currentColor" stroke-width="1"/><text x="385.4" y="258.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.15</text><line x1="96.0" y1="240.0" x2="424.0" y2="62.9" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><line x1="96.0" y1="208.0" x2="424.0" y2="79.5" stroke="currentColor" stroke-width="2" opacity=".85" stroke-dasharray="7 4"/><line x1="96.0" y1="240.0" x2="424.0" y2="94.5" stroke="currentColor" stroke-width="1.4" opacity=".4" stroke-dasharray="2 4"/><line x1="288.9" y1="188.0" x2="288.9" y2="120.9" stroke="currentColor" stroke-width="1.2" opacity=".45"/><circle cx="288.9" cy="154.4" r="5.0" fill="var(--color-accent, #2e6e5e)"/><line x1="327.5" y1="170.8" x2="327.5" y2="103.7" stroke="currentColor" stroke-width="1.2" opacity=".45"/><circle cx="327.5" cy="137.3" r="5.0" fill="var(--color-accent, #2e6e5e)"/><line x1="250.4" y1="205.1" x2="250.4" y2="138.0" stroke="currentColor" stroke-width="1.2" opacity=".45"/><circle cx="250.4" cy="171.5" r="5.0" fill="var(--color-accent, #2e6e5e)"/><line x1="385.4" y1="145.2" x2="385.4" y2="78.1" stroke="currentColor" stroke-width="1.2" opacity=".45"/><circle cx="385.4" cy="111.6" r="5.0" fill="var(--color-accent, #2e6e5e)"/><line x1="269.6" y1="196.5" x2="269.6" y2="129.4" stroke="currentColor" stroke-width="1.2" opacity=".45"/><circle cx="269.6" cy="163.0" r="5.0" fill="var(--color-accent, #2e6e5e)"/><line x1="308.2" y1="122.3" x2="308.2" y2="55.2" stroke="currentColor" stroke-width="1.2" opacity=".45"/><circle cx="308.2" cy="88.8" r="5.0" fill="currentColor" opacity=".85"/><line x1="346.8" y1="105.2" x2="346.8" y2="38.1" stroke="currentColor" stroke-width="1.2" opacity=".45"/><circle cx="346.8" cy="71.7" r="5.0" fill="currentColor" opacity=".85"/><line x1="231.1" y1="156.6" x2="231.1" y2="89.5" stroke="currentColor" stroke-width="1.2" opacity=".45"/><circle cx="231.1" cy="123.0" r="5.0" fill="currentColor" opacity=".85"/><circle cx="96.0" cy="208.0" r="3.5" fill="currentColor" opacity=".85"/><circle cx="445.0" cy="72.0" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="457.0" y="76.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">valid (5)</text><circle cx="445.0" cy="92.0" r="5.0" fill="currentColor" opacity=".85"/><text x="457.0" y="96.0" font-size="10.5" fill="currentColor" font-weight="600">pleiotropic (3)</text><text x="438.0" y="122.0" font-size="10" fill="currentColor" opacity=".8">each lifted +0.02 on</text><text x="438.0" y="135.0" font-size="10" fill="currentColor" opacity=".8">the outcome, by a route</text><text x="438.0" y="148.0" font-size="10" fill="currentColor" opacity=".8">that is not the exposure</text><line x1="438.0" y1="176.0" x2="460.0" y2="176.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2"/><text x="467.0" y="180.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">IVW</text><text x="438.0" y="196.0" font-size="10" fill="currentColor" opacity=".8">forced through the origin</text><line x1="438.0" y1="214.0" x2="460.0" y2="214.0" stroke="currentColor" stroke-width="2" opacity=".85" stroke-dasharray="7 4"/><text x="467.0" y="218.0" font-size="10.5" fill="currentColor" font-weight="600">Egger</text><text x="438.0" y="234.0" font-size="10" fill="currentColor" opacity=".8">intercept free, at 0.0112</text><line x1="438.0" y1="256.0" x2="460.0" y2="256.0" stroke="currentColor" stroke-width="1.4" opacity=".4" stroke-dasharray="2 4"/><text x="467.0" y="260.0" font-size="10.5" fill="currentColor" opacity=".75" font-weight="600">the truth, 0.30</text><text x="260.0" y="282.0" font-size="12" fill="currentColor" text-anchor="middle">Instrument effect on the exposure, γ_X</text><text x="20.0" y="143.0" font-size="11.5" fill="currentColor" text-anchor="middle" transform="rotate(-90 20 143)">Effect on the outcome, γ_Y</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Three pleiotropic instruments lift the line that has to pass through zero</text></svg>
+</Figure>
+
+## When the exclusion restriction fails
+
+Two methods handle pleiotropy by substituting a weaker assumption for assumption 3. Neither
+removes the need for an assumption; they move it.
+
+**MR-Egger** frees the intercept. <Citation id="bowden2015egger" /> shows that the slope of
+the unconstrained regression is consistent under **InSIDE** — that the pleiotropic effects
+are independent of the instrument strengths. A non-zero intercept is directional pleiotropy:
+instruments pushing the outcome one way on average.
+
+**The weighted median** takes the median of the Wald ratios, weighted by precision.
+<Citation id="bowden2016median" /> shows it is consistent if **more than half the weight**
+sits on valid instruments — which is a different assumption, not a weaker one, and it is
+robust to a few badly behaved instruments in a way Egger is not.
+
+<WorkedExample
+  title="Three estimators on the same eight instruments"
+  given={[
+    { label: 'Truth', value: 'β = 0.30' },
+    { label: 'Valid instruments', value: '5 of 8, carrying most of the weight' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+| estimator | estimate | SE | 95% interval |
+| --- | --- | --- | --- |
+| IVW | 0.365058 | 0.019436 | 0.3270 to 0.4032 |
+| MR-Egger slope | 0.264912 | 0.157663 | −0.0441 to 0.5739 |
+| weighted median | 0.300000 | — | — |
+
+**Step 1 — IVW is precise and excludes the truth.** Its interval is narrow and wrong.
+
+**Step 2 — Egger is close and enormously imprecise.** The slope, 0.264912, is nearer the
+truth than IVW's. But its standard error is $0.157663$ — **8.1 times wider** than IVW's — so
+the interval runs from below zero to 0.57. Egger has traded almost all of its power for a
+weaker assumption, and on this data it cannot distinguish a causal effect from none at all.
+
+**Step 3 — the weighted median is exact.** $0.300000$, because five of eight instruments are
+valid and they carry a majority of the weight. This is the case the median was built for.
+
+**Step 4 — now read Egger's intercept.** It is $0.011228$ with a standard error of
+$0.017208$, so
+
+$$
+t = \frac{0.011228}{0.017208} = 0.6525, \qquad p = 0.5141
+$$
+
+**Not significant.** And yet the pleiotropy is real: three of eight instruments were
+constructed with a direct effect on the outcome, and IVW is biased by 21.7% because of it.
+
+This is the diagnostic's central limitation, and it is routinely misread. **A non-significant
+Egger intercept is not evidence that there is no pleiotropy.** The test is underpowered with
+a realistic number of instruments, and reporting "Egger intercept p = 0.51, so no evidence of
+pleiotropy" — as papers do — states almost nothing.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 2. The three estimators against the truth. IVW is precise and its interval excludes 0.30. MR-Egger's point estimate is closer but its interval spans from below zero to 0.57, so it cannot rule out no effect at all. The weighted median returns 0.3000 exactly, because a majority of the weight sits on valid instruments — which is the condition it needs and IVW does not have."
+  alt="A comparison of three causal-effect estimates against a dashed line at the true value of 0.30. IVW sits at 0.3651 with a narrow interval that does not reach the true value. MR-Egger sits at 0.2649 with an interval running from below zero to about 0.57. The weighted median sits exactly on 0.30."
+  wide
+>
+<svg viewBox="0 0 640 312" width="640" height="312" font-family="inherit"><line x1="178.0" y1="54.0" x2="178.0" y2="176.0" stroke="currentColor" stroke-width="1.25"/><line x1="178.0" y1="176.0" x2="470.0" y2="176.0" stroke="currentColor" stroke-width="1.25"/><line x1="214.5" y1="176.0" x2="214.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="214.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="287.5" y1="176.0" x2="287.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="287.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="360.5" y1="176.0" x2="360.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="360.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="433.5" y1="176.0" x2="433.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="433.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.6</text><line x1="324.0" y1="176.0" x2="324.0" y2="54.0" stroke="currentColor" stroke-width="1.4" opacity=".5" stroke-dasharray="4 3"/><text x="324.0" y="46.0" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".75">the true causal effect, 0.30</text><line x1="333.8" y1="79.1" x2="361.7" y2="79.1" stroke="currentColor" stroke-width="1.8" opacity=".6"/><line x1="333.8" y1="74.1" x2="333.8" y2="84.1" stroke="currentColor" stroke-width="1.8" opacity=".6"/><line x1="361.7" y1="74.1" x2="361.7" y2="84.1" stroke="currentColor" stroke-width="1.8" opacity=".6"/><circle cx="347.7" cy="79.1" r="6.0" fill="currentColor"/><text x="166.0" y="83.1" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">IVW</text><text x="482.0" y="83.1" font-size="10.5" fill="currentColor" font-weight="600">0.3651</text><line x1="198.4" y1="115.0" x2="424.0" y2="115.0" stroke="currentColor" stroke-width="1.8" opacity=".6"/><line x1="198.4" y1="110.0" x2="198.4" y2="120.0" stroke="currentColor" stroke-width="1.8" opacity=".6"/><line x1="424.0" y1="110.0" x2="424.0" y2="120.0" stroke="currentColor" stroke-width="1.8" opacity=".6"/><circle cx="311.2" cy="115.0" r="6.0" fill="currentColor"/><text x="166.0" y="119.0" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">MR-Egger</text><text x="482.0" y="119.0" font-size="10.5" fill="currentColor" font-weight="600">0.2649</text><circle cx="324.0" cy="150.9" r="6.0" fill="var(--color-accent, #2e6e5e)"/><text x="166.0" y="154.9" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">weighted median</text><text x="482.0" y="154.9" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">0.3000</text><text x="30.0" y="244.0" font-size="10.5" fill="currentColor" opacity=".85">IVW is off by 21.7% because it must pass through the origin and three</text><text x="30.0" y="260.0" font-size="10.5" fill="currentColor" opacity=".85">instruments do not. Egger frees the intercept and lands near the truth,</text><text x="30.0" y="276.0" font-size="10.5" fill="currentColor" opacity=".85">but its interval spans 0 to 0.57. The median needs only that a majority</text><text x="30.0" y="292.0" font-size="10.5" fill="currentColor" opacity=".85">of weight sits on valid instruments — here it does, and it is exact.</text><text x="324.0" y="216.0" font-size="12" fill="currentColor" text-anchor="middle">Estimated causal effect (95% CI)</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Three estimators, one dataset: bias and precision trade against each other</text></svg>
+</Figure>
+
+<Callout variant="warning" title="Agreement between methods is weak evidence, and disagreement is strong">
+
+The standard practice is to report IVW alongside Egger, the weighted median and
+<Citation id="verbanck2018presso" />'s MR-PRESSO, and to treat agreement as reassurance.
+Half of that is sound.
+
+**Disagreement is informative.** If IVW says 0.37 and the median says 0.30, something is
+violating assumption 3, and the IVW estimate should not be the headline.
+
+**Agreement is much weaker than it looks.** The methods are computed from the *same* eight
+numbers and fail together under the failure modes that matter most. If pleiotropy is
+*balanced* — as likely to push down as up — then Egger's intercept is near zero, IVW is
+unbiased, and all three agree. But if pleiotropy is correlated with instrument strength,
+InSIDE fails, and Egger is biased in the same direction as IVW while agreeing with it.
+Concordance across methods that share an assumption is not independent confirmation.
+
+<Citation id="davies2018reading" /> is the practical guide to reading these studies, and its
+recommendations are mostly about what to look at besides the point estimate.
+
+</Callout>
+
+## What genetic randomisation does not randomise
+
+Assumption 2 needs more care than "alleles are randomly assigned" suggests, because the
+randomisation is *within families*, not across a population.
+
+<Citation id="brumpton2020withinfamily" /> shows three mechanisms that break it in
+population samples. **Dynastic effects**: a parent's genotype affects the child's environment,
+so the child's genotype correlates with an environmental exposure. **Assortative mating**:
+partners resemble each other on a trait, which induces correlations between variants that
+Mendel's law would have kept independent. **Residual population structure**: the same
+confounding Module 4 spent a lesson on.
+
+The fix is a within-sibship design, comparing siblings who differ in genotype — where the
+randomisation genuinely is random, because which alleles a sibling received is determined at
+meiosis. The estimates are substantially attenuated for some traits, which is the size of the
+problem in population MR rather than a curiosity.
+
+## Exercises
+
+<Exercise n={1} title="One instrument, two checks" difficulty="warm-up">
+
+An instrument has $\hat\gamma_X = 0.15$ with $\mathrm{SE} = 0.010$, and
+$\hat\gamma_Y = 0.045$. (a) Compute the Wald ratio. (b) Compute $F$ and say whether the
+instrument is strong. (c) A second instrument has $\hat\gamma_X = 0.02$ with the same
+standard error. What is its $F$, and what does that imply?
+
+<div slot="solution">
+
+**(a)** $\hat\beta = 0.045/0.15 = 0.300000$.
+
+**(b)** $F = (0.15/0.010)^2 = 225$. Comfortably strong — the bias from weak-instrument
+effects is around $1/225$, well under a percent.
+
+**(c)** $F = (0.02/0.010)^2 = 4$. The bias is roughly $1/4 = 25\%$, **toward the
+observational association**. An instrument this weak does not merely add noise; it drags the
+estimate back toward the confounded association MR was supposed to escape, which is the
+opposite of what the method is for.
+
+Note what $F$ does *not* check. It is entirely about assumption 1. An instrument with
+$F = 225$ can still violate the exclusion restriction completely, and in the worked example
+every instrument is strong while three are invalid.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Removing the bad instruments" difficulty="core">
+
+Suppose you knew which three instruments were pleiotropic and dropped them. (a) What does
+IVW return on the remaining five? (b) What does this tell you about IVW? (c) Why is this not
+a usable strategy?
+
+<div slot="solution">
+
+**(a)** $\hat\beta_{\mathrm{IVW}} = 0.300000$ with $\mathrm{SE} = 0.024214$ — exact.
+
+**(b)** That IVW is not broken. It is the efficient estimator *when its assumption holds*,
+and its 21.7% bias in the worked example is entirely attributable to three invalid
+instruments. The problem is never the estimator; it is the instrument set.
+
+**(c)** Because you do not know which instruments are pleiotropic. That is the entire
+difficulty: assumption 3 is not directly testable, and the pleiotropic instruments in the
+worked example are indistinguishable from the valid ones by any within-study check — they
+are strong, they are individually significant, and their Wald ratios are not extreme enough
+to look like outliers without knowing the answer.
+
+Methods like MR-PRESSO do attempt exactly this — detect and remove outlying instruments —
+and they work when pleiotropy affects a minority of instruments and is large enough to see.
+They fail quietly when it is widespread and modest, which is the case the whole field
+worries about.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Reading a published MR result" difficulty="stretch">
+
+A paper reports: IVW $\hat\beta = 0.37$ (95% CI 0.33 to 0.40); weighted median 0.30;
+MR-Egger slope 0.26 (95% CI −0.04 to 0.57), intercept $p = 0.51$. The authors conclude a
+causal effect of 0.37 and note "no evidence of directional pleiotropy". Evaluate.
+
+<div slot="solution">
+
+**The conclusion is not supported, and the pleiotropy sentence is the clearest error.**
+
+*On the intercept.* $p = 0.51$ means the test did not detect pleiotropy, which given its
+power says very little. These are the worked example's numbers, where pleiotropy is present
+by construction in three of eight instruments and biases IVW by 21.7%. "No evidence of
+directional pleiotropy" should read "this test is not powered to detect the pleiotropy that
+may be present" — and the honest version is that the intercept is uninformative.
+
+*On the discrepancy.* IVW at 0.37 and the weighted median at 0.30 disagree by more than IVW's
+entire confidence interval. That is the finding. When a robust estimator moves the answer by
+more than the primary estimator's stated uncertainty, the primary estimator's uncertainty is
+not describing the real uncertainty.
+
+*On Egger.* Its interval includes zero, so it neither supports nor refutes a causal effect.
+Quoting it as agreement is wrong in both directions: it does not corroborate 0.37, and it
+does not establish 0.
+
+**What should be reported:** that the estimates range from 0.26 to 0.37 depending on which
+assumption is made, that they are not independent checks, and that the data cannot narrow it
+further. If a single number is required, the weighted median is the better default here
+because its assumption — a majority of weight on valid instruments — is more plausible than
+IVW's requirement that *every* instrument be valid.
+
+And separately: none of these methods addresses whether the population sample carries dynastic
+or assortative-mating confounding, which a within-sibship analysis would test and none of the
+three sensitivity analyses touches.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **MR exploits that alleles are assigned at conception**, giving a variant the character of
+  a randomised assignment to lifelong exposure — which buys assumption 2 largely, assumption
+  1 checkably, and assumption 3 not at all.
+- **The Wald ratio is $\hat\gamma_Y/\hat\gamma_X$** because the effect travels through the
+  exposure and picks up both factors. Pleiotropy lands in the numerator and is attributed to
+  the exposure; nothing in the ratio can separate them.
+- **$F > 10$ is a bias tolerance, not a significance threshold.** At $F = 10$ about 10% of
+  the confounding remains; at $F = 4$, 25%.
+- **IVW is a weighted regression through the origin**, and that constraint *is* assumption 3.
+  With three of eight instruments pleiotropic it returns 0.365058 for a truth of 0.30 — 21.7%
+  high, with an interval that excludes the true value.
+- **MR-Egger frees the intercept** and lands at 0.264912, but with a standard error 8.1 times
+  wider; its interval spans below zero to 0.57. **The weighted median returns 0.300000
+  exactly**, needing only that a majority of weight be valid.
+- **A non-significant Egger intercept is not evidence of no pleiotropy.** On data where
+  pleiotropy is present by construction, the intercept test gives $p = 0.5141$.
+- **Disagreement between methods is informative; agreement is weak**, because they are
+  computed from the same numbers and fail together under correlated pleiotropy.
+- **Population MR does not randomise everything.** Dynastic effects, assortative mating and
+  residual structure survive it, and only a within-sibship design tests for them.

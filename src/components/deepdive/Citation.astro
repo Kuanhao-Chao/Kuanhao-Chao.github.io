@@ -1,5 +1,6 @@
 ---
 import { getEntry } from 'astro:content';
+import { referenceSurname } from '../../lib/deepDives.ts';
 
 /**
  * An inline citation, resolved from the shared bibliography at build time.
@@ -25,8 +26,8 @@ if (!entry) {
   );
 }
 
-const { authors, year } = entry.data;
-const lead = authors[0].split(/\s+/).slice(-1)[0];
+const { authors, year, surname } = entry.data;
+const lead = surname ?? referenceSurname(authors[0]);
 const label = authors.length > 1 ? `${lead} et al. ${year}` : `${lead} ${year}`;
 ---
 
