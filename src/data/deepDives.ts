@@ -90,6 +90,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'statgen-association-linear-mixed-models',
   'statgen-ldsc-sldsc',
   'statgen-rare-variant-association',
+  'statgen-meta-analysis-replication',
   'statgen-bayesian-fine-mapping',
   'statgen-polygenic-risk-scores',
   'statgen-mendelian-randomization',
