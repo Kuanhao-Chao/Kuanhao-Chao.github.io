@@ -80,6 +80,7 @@ export default defineConfig({
     '/deep_dives/gwas-population-stratification': '/deep_dives/gwas-population-structure/',
     '/deep_dives/gwas-association-statistics': '/deep_dives/gwas-running-the-scan/',
     '/deep_dives/gwas-multiple-testing-manhattan': '/deep_dives/gwas-reading-the-output/',
+    '/deep_dives/gwas-linkage-disequilibrium-ldsc': '/deep_dives/gwas-ld-reference-panels/',
     // Per-item pages from the previous site (auto-generated; see
     // scripts/gen-legacy-redirects.mjs). Originals live on archive.khchao.com.
     ...legacyRedirects,

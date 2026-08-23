@@ -5346,3 +5346,81 @@ describe('gwas-reading-the-output', () => {
     });
   });
 });
+
+describe('gwas-ld-reference-panels', () => {
+  const mdx = lesson('gwas-ld-reference-panels');
+  const K = (Math.sqrt(chi2Quantile(1 - 5e-8, 1)) + normalQuantile(0.8)) ** 2;
+  const A = ldMeasures(0.45, 0.05, 0.05, 0.45);
+  const B = ldMeasures(0.32, 0.18, 0.18, 0.32);
+
+  describe('worked example — the same pair in two populations', () => {
+    it('step 1: the allele frequencies are identical, so no filter can tell them apart', () => {
+      expect(A.pA).toBeCloseTo(0.5, 12);
+      expect(A.pB).toBeCloseTo(0.5, 12);
+      expect(B.pA).toBeCloseTo(0.5, 12);
+      expect(B.pB).toBeCloseTo(0.5, 12);
+      expect(mdx).toContain('p_{AB} + p_{Ab} = 0.50');
+    });
+
+    it('steps 2 and 3: D, D-prime and r² for both populations', () => {
+      expect(A.D).toBeCloseTo(0.2, 12);
+      expect(B.D).toBeCloseTo(0.07, 12);
+      expect(A.Dprime).toBeCloseTo(0.8, 12);
+      expect(B.Dprime).toBeCloseTo(0.28, 12);
+      expect(A.r2).toBeCloseTo(0.64, 12);
+      expect(B.r2).toBeCloseTo(0.0784, 12);
+      for (const v of ['0.2000', '0.0700', '0.8000', '0.2800', '0.640000', '0.078400'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it("step 3: r² = D'² exactly, because both loci sit at the same frequency", () => {
+      expect(A.Dprime ** 2).toBeCloseTo(A.r2, 12);
+      expect(B.Dprime ** 2).toBeCloseTo(B.r2, 12);
+      // and it is p_A = p_B that does it, not p = 0.5 — the exercise makes this point
+      const equalButNotHalf = ldMeasures(0.3, 0.1, 0.1, 0.5);
+      expect(equalButNotHalf.pA).toBeCloseTo(equalButNotHalf.pB, 12);
+      expect(equalButNotHalf.Dprime ** 2).toBeCloseTo(equalButNotHalf.r2, 12);
+      // unequal frequencies break it
+      const unequal = ldMeasures(0.5, 0.2, 0.1, 0.2);
+      expect(unequal.pA).not.toBeCloseTo(unequal.pB, 6);
+      expect(unequal.Dprime ** 2).not.toBeCloseTo(unequal.r2, 6);
+    });
+
+    it('steps 4 and 5: the sample size ratio is exactly the r² ratio', () => {
+      const nA = Math.ceil(K / (A.r2 * 1e-3));
+      const nB = Math.ceil(K / (B.r2 * 1e-3));
+      expect(A.r2 * 1e-3).toBeCloseTo(6.4e-4, 12);
+      expect(B.r2 * 1e-3).toBeCloseTo(7.84e-5, 12);
+      expect(nA).toBe(61877);
+      expect(nB).toBe(505115);
+      expect(A.r2 / B.r2).toBeCloseTo(8.1633, 4);
+      for (const v of ['61{,}877', '505{,}115', '8.1633']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('draws both grids with their haplotype frequencies and summaries', () => {
+      for (const l of ['0.45', '0.05', '0.32', '0.18', 'D = 0.2000', "D' = 0.8000",
+                       'r² = 0.640000', 'D = 0.0700', "D' = 0.2800", 'r² = 0.078400',
+                       'N needed: 61,877', 'N needed: 505,115'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — unequal-from-half but equal-to-each-other frequencies keep the identity', () => {
+      const e = ldMeasures(0.3, 0.1, 0.1, 0.5);
+      expect(e.pA).toBeCloseTo(0.4, 12);
+      expect(e.pB).toBeCloseTo(0.4, 12);
+      expect(e.D).toBeCloseTo(0.14, 12);
+      expect(e.Dprime).toBeCloseTo(0.583333, 6);
+      expect(e.r2).toBeCloseTo(0.340278, 6);
+      expect(e.Dprime ** 2).toBeCloseTo(e.r2, 10);
+      const qTag = e.r2 * 8e-4;
+      expect(qTag).toBeCloseTo(2.72222e-4, 9);
+      expect(Math.ceil(K / qTag)).toBe(145474);
+      for (const v of ['0.1400', '0.583333', '0.340278', '2.72222 \\times 10^{-4}', '145{,}474'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+});
