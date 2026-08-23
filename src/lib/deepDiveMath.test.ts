@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  effectiveSampleSize, controlCeiling,
+  effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
   expectedR2, falconerACE, haldaneTheta, kosambiTheta, ldHalfLife, ldMeasures,
   liabilityScale, ncp, ncpForPower, normalCdf, normalPdf, normalQuantile,
   powerFromNcp, sampleSizeForPower, sampleSizeForR2, shrinkageFactor, varianceExplained,
@@ -273,6 +273,54 @@ describe('study design', () => {
     expect(addCases).toBeCloseTo(53_333.333333, 6);
     expect(addCases - addControls).toBeCloseTo(20_000, 6);
     expect(addCases / addControls).toBeCloseTo(1.6, 9);
+  });
+});
+
+describe('imputation quality', () => {
+  it('reads a posterior as an expected genotype', () => {
+    expect(genotypeDosage(1, 0, 0)).toBe(0);
+    expect(genotypeDosage(0, 1, 0)).toBe(1);
+    expect(genotypeDosage(0, 0, 1)).toBe(2);
+    expect(genotypeDosage(0.3, 0.6, 0.1)).toBeCloseTo(0.8, 12);
+  });
+
+  it('is exactly 1 when calls are certain and the sample sits at HWE', () => {
+    // theta = 0.5, genotypes 0,1,1,2: variance 0.5, and 2(0.5)(0.5) = 0.5.
+    expect(imputationR2([0, 1, 1, 2])).toBeCloseTo(1, 12);
+  });
+
+  it('is 0 when every dosage is the same, because nothing was learned', () => {
+    expect(imputationR2([0.7, 0.7, 0.7, 0.7])).toBeCloseTo(0, 12);
+    expect(imputationR2([1, 1, 1, 1])).toBeCloseTo(0, 12);
+  });
+
+  it('returns 0 for a monomorphic site rather than dividing by zero', () => {
+    expect(imputationR2([0, 0, 0, 0])).toBe(0);
+    expect(imputationR2([2, 2, 2, 2])).toBe(0);
+    expect(Number.isFinite(imputationR2([0, 0, 0]))).toBe(true);
+  });
+
+  it('falls as the posteriors get less certain, holding the frequency fixed', () => {
+    // Same expected allele frequency, progressively flatter posteriors.
+    const certain = [0, 1, 1, 2];
+    const fuzzy = [0.25, 1, 1, 1.75];
+    const fuzzier = [0.5, 1, 1, 1.5];
+    expect(imputationR2(certain)).toBeGreaterThan(imputationR2(fuzzy));
+    expect(imputationR2(fuzzy)).toBeGreaterThan(imputationR2(fuzzier));
+  });
+
+  it('can exceed 1 in a small sample, which is why implementations cap it', () => {
+    // Eight hard calls whose genotype variance happens to beat 2*theta*(1-theta).
+    expect(imputationR2([0, 0, 1, 1, 0, 2, 0, 1])).toBeGreaterThan(1);
+  });
+
+  it('multiplies the effective sample size', () => {
+    // The property the INFO filter is really about: 0.4 quality in N people carries the
+    // information of 0.4N. Asserted as the identity the lesson uses.
+    const N = 32_000;
+    for (const info of [0.95, 0.55, 0.32]) {
+      expect(N * info).toBeCloseTo(N * imputationR2([0, 1, 1, 2]) * info, 6);
+    }
   });
 });
 

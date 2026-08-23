@@ -76,6 +76,7 @@ export default defineConfig({
     // theory track, and some lessons were renamed to say what they now cover. The old
     // URLs have been shared, so they keep working.
     '/deep_dives/gwas-biological-variation-cdcv': '/deep_dives/gwas-study-design/',
+    '/deep_dives/gwas-genotyping-imputation': '/deep_dives/gwas-arrays-imputation/',
     // Per-item pages from the previous site (auto-generated; see
     // scripts/gen-legacy-redirects.mjs). Originals live on archive.khchao.com.
     ...legacyRedirects,

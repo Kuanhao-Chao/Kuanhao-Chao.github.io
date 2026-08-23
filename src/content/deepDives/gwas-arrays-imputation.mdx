@@ -1,0 +1,336 @@
+---
+title: "Arrays & Imputation: Where the Genotypes in a GWAS Actually Come From"
+shortTitle: Arrays & Imputation
+description: "A genotyping array types a few hundred thousand sites and a GWAS tests ten million. This lesson covers what fills the gap — the copying model behind imputation, the dosage that replaces a hard call, and the quality metric that decides how much a variant is worth."
+abstract: "Almost every variant in a GWAS was never measured. An array types a few hundred thousand chosen sites; the rest are inferred from a reference panel by a model that describes each new chromosome as a mosaic of the panel's haplotypes. The output is not a genotype but a posterior over three, summarised as a dosage in [0,2], and the metric that scores it — INFO, or r-hat-squared — is the one number in this lesson that changes decisions. It is a ratio of variances, and it behaves as a multiplier on the effective sample size: a variant imputed at 0.32 in a study worth 32,000 effective samples carries the information of 10,240. The conventional INFO > 0.3 filter is therefore a power decision, costing a factor of 3.33 in the smallest detectable effect, and it is not applied evenly — imputation quality falls with allele frequency and with distance from the reference panel's ancestry."
+date: 2026-08-23
+track: workflow
+hub: gwas
+moduleId: g01-before
+moduleLabel: Module 1 · Before the Scan
+order: 2
+level: intermediate
+objectives:
+  - "Explain what a genotyping array measures and why testing ten million variants from a few hundred thousand probes is possible at all."
+  - "Describe the copying model that imputation rests on, and name the two parameters that control it."
+  - "Convert an imputation posterior into a dosage, and compute the INFO metric from a set of dosages."
+  - "Use INFO as a multiplier on effective sample size to price an imputation-quality filter in units of detectable effect."
+  - "Say which variants an INFO filter removes disproportionately, and why that is not ancestry-neutral."
+prerequisites:
+  - gwas-study-design
+relatedLessons:
+  - gwas-study-design
+  - statgen-linkage-disequilibrium
+  - statgen-population-infinitesimal
+keyEquations:
+  - 'D_i = P(g_i = 1) + 2\,P(g_i = 2)'
+  - '\hat{r}^2 = \dfrac{\mathrm{Var}(D)}{2\hat\theta(1 - \hat\theta)}'
+  - 'N_{\mathrm{eff}}^{\text{variant}} = N_{\mathrm{eff}} \times \hat{r}^2'
+referenceIds:
+  - listephens2003
+  - das2016
+  - browning2018
+  - tgp2015
+  - taliun2021
+  - hapmap2005
+  - gabriel2002
+  - martin2019
+tags: [GWAS, genotyping arrays, imputation, dosage, INFO score, reference panels]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+A GWAS reports associations at ten million variants. The array it ran on typed perhaps
+650,000. Where did the other 94% come from, and how much should you trust them?
+
+The short answer is that they were inferred, one chromosome at a time, from a panel of
+sequenced haplotypes — and that the inference comes with a per-variant confidence which
+almost nobody reads carefully enough. This lesson is about reading it.
+
+<Callout variant="intuition">
+
+Imputation works for the same reason a GWAS works at all: nearby variants travel together.
+A chromosome you have just typed is not a random string. It is a **patchwork of stretches
+that already exist in the reference panel**, spliced at the places where its ancestors
+recombined. If you can work out which panel haplotype each stretch was copied from, you can
+read off every variant in that stretch — including the ones your array never touched.
+
+</Callout>
+
+## What the array measures, and what it does not
+
+A genotyping array carries probes for a fixed, chosen set of sites. The choice is the point:
+sites are picked so that the rest of the genome is *predictable* from them, using the
+haplotype block structure mapped by <Citation id="gabriel2002" /> and catalogued by
+<Citation id="hapmap2005" />. A well-chosen tag captures its neighbours; a badly-chosen one
+captures nothing.
+
+Three consequences follow, and all three are permanent for that dataset:
+
+- **Nothing off the array and off the panel exists.** A variant absent from both is not rare
+  in your results — it is missing from them.
+- **Array content is ancestry-specific.** Tag choices that work in one population work less
+  well in another, because the blocks are not the same.
+- **Batch is confounded with everything.** Two arrays, or two versions of one array, do not
+  fail in the same places. This is a quality-control problem, treated in the next lesson.
+
+## The copying model
+
+The model that fills the gaps <Citation id="listephens2003" /> describes a new haplotype as a
+mosaic of the reference haplotypes. Walking along the chromosome, a hidden state says which
+panel haplotype is currently being copied, and two parameters govern the walk:
+
+- a **switch rate**, controlling how often copying jumps to a different panel haplotype —
+  this is recombination, so the rate follows the genetic map rather than physical distance;
+- a **mismatch rate**, allowing the copy to differ from its template — this absorbs mutation
+  since the common ancestor, and genotyping error.
+
+Given the typed sites, standard forward-backward inference returns, for every untyped site, a
+posterior over the three genotypes. Everything modern imputation software does
+<Citation id="das2016" /><Citation id="browning2018" /> is an efficiency argument on top of
+that model, not a different one.
+
+The panel matters more than the algorithm. <Citation id="tgp2015" /> made genome-wide
+imputation routine; larger and deeper panels <Citation id="taliun2021" /> push accuracy down
+to rarer variants, because a rare allele can only be imputed if some panel haplotype carries
+it.
+
+<Notation
+  rows={[
+    { symbol: 'D_i', meaning: 'Dosage — the posterior mean genotype for individual i', dims: 'in [0,2]' },
+    { symbol: '\\hat\\theta', meaning: 'Estimated alternate-allele frequency, the mean dosage over 2', dims: 'in [0,1]' },
+    { symbol: '\\hat{r}^2', meaning: 'Imputation quality (INFO): observed dosage variance over the variance a perfect call would have', dims: 'about [0,1]' },
+    { symbol: 'N_{\\mathrm{eff}}', meaning: 'Effective sample size of the study, from the previous lesson', dims: 'count' },
+    { symbol: 'q^2', meaning: 'Variance of the phenotype explained by one variant', dims: 'in [0,1]' },
+  ]}
+/>
+
+## Reading an imputed variant
+
+<WorkedExample
+  title="Eight individuals at one imputed site, and what the site is worth"
+  given={[
+    { label: 'Posteriors', value: 'P(0), P(1), P(2) for eight individuals' },
+    { label: 'Study', value: 'N_eff = 32,000, from the previous lesson' },
+    { label: 'Threshold', value: '5 × 10⁻⁸, 80% power' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — from posterior to dosage.** Imputation returns three probabilities per person, not
+a genotype. The dosage is their expected value:
+
+$$
+D_i = P(g_i = 1) + 2\,P(g_i = 2) .
+$$
+
+| individual | P(0) | P(1) | P(2) | dosage |
+| --- | --- | --- | --- | --- |
+| 1 | 0.98 | 0.02 | 0.00 | 0.02 |
+| 2 | 0.95 | 0.05 | 0.00 | 0.05 |
+| 3 | 0.10 | 0.85 | 0.05 | 0.95 |
+| 4 | 0.05 | 0.90 | 0.05 | 1.00 |
+| 5 | 0.60 | 0.35 | 0.05 | 0.45 |
+| 6 | 0.02 | 0.18 | 0.80 | 1.78 |
+| 7 | 0.99 | 0.01 | 0.00 | 0.01 |
+| 8 | 0.30 | 0.60 | 0.10 | 0.80 |
+
+Individual 5 is the interesting one. A hard call would round 0.45 to a reference homozygote
+and throw away the 35% chance of a heterozygote; the dosage keeps it, which is why
+association software takes dosages.
+
+**Step 2 — the frequency, and the variance a perfect call would have.** The mean dosage is
+$0.632500$, so $\hat\theta = 0.316250$ and a perfectly-called variant at that frequency would
+have genotype variance
+
+$$
+2\hat\theta(1 - \hat\theta) = 0.432472 .
+$$
+
+**Step 3 — the variance actually present.** The dosages themselves vary by
+
+$$
+\mathrm{Var}(D) = 0.339494 ,
+$$
+
+which is less, because uncertainty pulls every dosage toward the mean. That shortfall *is*
+the missing information.
+
+**Step 4 — the metric.**
+
+$$
+\hat{r}^2 = \frac{\mathrm{Var}(D)}{2\hat\theta(1-\hat\theta)}
+= \frac{0.339494}{0.432472} = 0.785008 .
+$$
+
+**Step 5 — what it is worth.** The quantity is a ratio of variances, and variance is what an
+association test consumes, so it acts as a **multiplier on the effective sample size**:
+
+$$
+N_{\mathrm{eff}}^{\text{variant}} = N_{\mathrm{eff}} \times \hat{r}^2 .
+$$
+
+In the 32,000-effective-sample study from the previous lesson, this variant is worth
+$32{,}000 \times 0.785008 \approx 25{,}120$ effective samples. Three variants at $\hat{r}^2$ of 0.95, 0.55 and 0.32
+are worth 30,400, 17,600 and 10,240 — and since $q^2 \geq 39.60/N_{\mathrm{eff}}$, the
+smallest effects they can detect are $1.3027 \times 10^{-3}$, $2.2501 \times 10^{-3}$ and
+$3.8673 \times 10^{-3}$. Same study, same threshold, a threefold spread in what is findable.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. The smallest detectable q² against imputation quality, in a study worth 32,000 effective samples. Because quality multiplies the effective sample size, the curve is a hyperbola: flat and forgiving above INFO 0.6, and rising steeply below it. At the conventional INFO > 0.3 filter a study needs 3.33 times the effect it would need with perfect calls, which is the real content of that threshold."
+  alt="A falling hyperbola of smallest detectable q squared against imputation quality from 0.2 to 1.0. Three points are marked at quality 0.32, 0.55 and 0.95, reading 0.0039, 0.0023 and 0.0013. A dashed vertical line marks the conventional filter at 0.3 and a dashed horizontal line marks the floor of 0.0012 reached with perfect calls."
+>
+<svg viewBox="0 0 640 288" width="640" height="288" font-family="inherit"><line x1="96.0" y1="44.0" x2="96.0" y2="228.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="228.0" x2="420.0" y2="228.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="228.0" x2="420.0" y2="228.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="232.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="96.0" y1="175.4" x2="420.0" y2="175.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="179.4" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.002</text><line x1="96.0" y1="122.9" x2="420.0" y2="122.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="126.9" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.004</text><line x1="96.0" y1="70.3" x2="420.0" y2="70.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="74.3" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.006</text><line x1="96.0" y1="228.0" x2="96.0" y2="233.0" stroke="currentColor" stroke-width="1"/><text x="96.0" y="246.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="177.0" y1="228.0" x2="177.0" y2="233.0" stroke="currentColor" stroke-width="1"/><text x="177.0" y="246.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="258.0" y1="228.0" x2="258.0" y2="233.0" stroke="currentColor" stroke-width="1"/><text x="258.0" y="246.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.6</text><line x1="339.0" y1="228.0" x2="339.0" y2="233.0" stroke="currentColor" stroke-width="1"/><text x="339.0" y="246.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.8</text><line x1="420.0" y1="228.0" x2="420.0" y2="233.0" stroke="currentColor" stroke-width="1"/><text x="420.0" y="246.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.0</text><path d="M96.0,65.4 L97.3,68.0 L98.7,70.6 L100.0,73.1 L101.4,75.5 L102.8,77.9 L104.1,80.1 L105.5,82.3 L106.8,84.5 L108.2,86.6 L109.5,88.6 L110.9,90.6 L112.2,92.5 L113.5,94.3 L114.9,96.1 L116.2,97.9 L117.6,99.6 L119.0,101.3 L120.3,102.9 L121.7,104.5 L123.0,106.0 L124.3,107.5 L125.7,109.0 L127.0,110.4 L128.4,111.8 L129.8,113.2 L131.1,114.5 L132.5,115.8 L133.8,117.1 L135.2,118.4 L136.5,119.6 L137.8,120.8 L139.2,121.9 L140.6,123.1 L141.9,124.2 L143.2,125.3 L144.6,126.3 L145.9,127.4 L147.3,128.4 L148.7,129.4 L150.0,130.4 L151.3,131.4 L152.7,132.3 L154.1,133.3 L155.4,134.2 L156.8,135.1 L158.1,135.9 L159.4,136.8 L160.8,137.6 L162.2,138.5 L163.5,139.3 L164.8,140.1 L166.2,140.9 L167.6,141.6 L168.9,142.4 L170.2,143.1 L171.6,143.9 L172.9,144.6 L174.3,145.3 L175.6,146.0 L177.0,146.7 L178.3,147.3 L179.7,148.0 L181.1,148.7 L182.4,149.3 L183.8,149.9 L185.1,150.5 L186.4,151.2 L187.8,151.8 L189.1,152.4 L190.5,152.9 L191.8,153.5 L193.2,154.1 L194.6,154.6 L195.9,155.2 L197.2,155.7 L198.6,156.2 L199.9,156.8 L201.3,157.3 L202.7,157.8 L204.0,158.3 L205.4,158.8 L206.7,159.3 L208.1,159.8 L209.4,160.2 L210.8,160.7 L212.1,161.2 L213.4,161.6 L214.8,162.1 L216.2,162.5 L217.5,162.9 L218.9,163.4 L220.2,163.8 L221.5,164.2 L222.9,164.6 L224.2,165.0 L225.6,165.4 L227.0,165.8 L228.3,166.2 L229.7,166.6 L231.0,167.0 L232.3,167.4 L233.7,167.8 L235.0,168.1 L236.4,168.5 L237.8,168.9 L239.1,169.2 L240.4,169.6 L241.8,169.9 L243.2,170.3 L244.5,170.6 L245.8,170.9 L247.2,171.3 L248.5,171.6 L249.9,171.9 L251.2,172.2 L252.6,172.6 L254.0,172.9 L255.3,173.2 L256.6,173.5 L258.0,173.8 L259.3,174.1 L260.7,174.4 L262.0,174.7 L263.4,175.0 L264.8,175.2 L266.1,175.5 L267.4,175.8 L268.8,176.1 L270.1,176.4 L271.5,176.6 L272.9,176.9 L274.2,177.2 L275.5,177.4 L276.9,177.7 L278.2,178.0 L279.6,178.2 L281.0,178.5 L282.3,178.7 L283.6,179.0 L285.0,179.2 L286.4,179.4 L287.7,179.7 L289.1,179.9 L290.4,180.2 L291.8,180.4 L293.1,180.6 L294.5,180.9 L295.8,181.1 L297.2,181.3 L298.5,181.5 L299.9,181.7 L301.2,182.0 L302.5,182.2 L303.9,182.4 L305.3,182.6 L306.6,182.8 L308.0,183.0 L309.3,183.2 L310.6,183.4 L312.0,183.6 L313.4,183.8 L314.7,184.0 L316.1,184.2 L317.4,184.4 L318.8,184.6 L320.1,184.8 L321.4,185.0 L322.8,185.2 L324.2,185.4 L325.5,185.6 L326.9,185.8 L328.2,185.9 L329.6,186.1 L330.9,186.3 L332.3,186.5 L333.6,186.6 L335.0,186.8 L336.3,187.0 L337.6,187.2 L339.0,187.3 L340.4,187.5 L341.7,187.7 L343.1,187.8 L344.4,188.0 L345.8,188.2 L347.1,188.3 L348.5,188.5 L349.8,188.6 L351.2,188.8 L352.5,189.0 L353.9,189.1 L355.2,189.3 L356.6,189.4 L357.9,189.6 L359.3,189.7 L360.6,189.9 L362.0,190.0 L363.3,190.2 L364.7,190.3 L366.0,190.5 L367.4,190.6 L368.7,190.8 L370.1,190.9 L371.4,191.0 L372.8,191.2 L374.1,191.3 L375.5,191.5 L376.8,191.6 L378.2,191.7 L379.5,191.9 L380.9,192.0 L382.2,192.1 L383.6,192.3 L384.9,192.4 L386.3,192.5 L387.6,192.6 L388.9,192.8 L390.3,192.9 L391.6,193.0 L393.0,193.1 L394.4,193.3 L395.7,193.4 L397.1,193.5 L398.4,193.6 L399.8,193.8 L401.1,193.9 L402.5,194.0 L403.8,194.1 L405.2,194.2 L406.5,194.3 L407.9,194.5 L409.2,194.6 L410.6,194.7 L411.9,194.8 L413.2,194.9 L414.6,195.0 L415.9,195.1 L417.3,195.3 L418.7,195.4 L420.0,195.5" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><line x1="136.5" y1="228.0" x2="136.5" y2="44.0" stroke="currentColor" stroke-width="1.3" opacity=".5" stroke-dasharray="5 4"/><text x="142.5" y="60.0" font-size="10" fill="currentColor" opacity=".75">the usual filter, INFO > 0.3</text><circle cx="399.8" cy="193.8" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="399.8" y="181.8" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">0.0013</text><circle cx="237.8" cy="168.9" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="237.8" y="156.9" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">0.0023</text><circle cx="144.6" cy="126.3" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="153.6" y="120.3" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="start" font-weight="600">0.0039</text><line x1="96.0" y1="195.5" x2="420.0" y2="195.5" stroke="currentColor" stroke-width="1.2" opacity=".35" stroke-dasharray="4 4"/><text x="416.0" y="210.5" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">floor at perfect calling: 0.0012</text><text x="258.0" y="268.0" font-size="12" fill="currentColor" text-anchor="middle">Imputation quality (INFO)</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Smallest detectable q²</text><text x="444.0" y="62.0" font-size="11" fill="currentColor" font-weight="700">Quality multiplies</text><text x="444.0" y="77.0" font-size="11" fill="currentColor" font-weight="700">the sample.</text><text x="444.0" y="97.0" font-size="10" fill="currentColor" opacity=".8">A variant at INFO 0.32</text><text x="444.0" y="110.0" font-size="10" fill="currentColor" opacity=".8">in 32,000 effective</text><text x="444.0" y="123.0" font-size="10" fill="currentColor" opacity=".8">samples carries the</text><text x="444.0" y="136.0" font-size="10" fill="currentColor" opacity=".8">information of 10,240.</text><text x="444.0" y="168.0" font-size="11" fill="currentColor" font-weight="700">So the filter is a</text><text x="444.0" y="183.0" font-size="11" fill="currentColor" font-weight="700">power decision.</text><text x="444.0" y="203.0" font-size="10" fill="currentColor" opacity=".8">At the 0.3 threshold a</text><text x="444.0" y="216.0" font-size="10" fill="currentColor" opacity=".8">study needs 3.33x the</text><text x="444.0" y="229.0" font-size="10" fill="currentColor" opacity=".8">effect it would need</text><text x="444.0" y="242.0" font-size="10" fill="currentColor" opacity=".8">with perfect calls.</text></svg>
+</Figure>
+
+<Callout variant="warning" title="The metric can exceed 1, and that is not a bug">
+
+$\hat{r}^2$ compares an observed variance with an expected one, and in a small sample the
+observed variance can land above $2\hat\theta(1-\hat\theta)$ by chance. Rounding the eight
+dosages above to hard calls gives $\hat{r}^2 = 1.127273$ — a number that cannot mean
+"112% of the information". Implementations cap the metric at 1, and it is only stable in
+samples large enough for the denominator to be a fair expectation. Never compute it on a
+handful of people and believe the result, which is exactly what this worked example just
+did for the sake of showing the arithmetic.
+
+</Callout>
+
+## The filter is not ancestry-neutral
+
+An INFO threshold looks like a uniform quality bar and behaves like a selective one. Two
+biases run in the same direction.
+
+**Rare variants impute worse.** A rare allele is carried by few panel haplotypes, so there is
+less evidence for the copy that contains it. Imputation quality therefore falls as frequency
+falls — and, since rare variants are where the larger effects tend to sit, a fixed INFO cut
+removes preferentially the variants a study would most want to find.
+
+**Distance from the panel costs quality.** Imputation is only as good as the match between
+the target haplotypes and the reference. A cohort whose ancestry is poorly represented in the
+panel gets systematically lower INFO across the genome, loses more variants to the same
+filter, and ends up with a smaller effective study than its headcount suggests. This is one
+of the concrete mechanisms behind the unequal performance of genetic results across
+populations <Citation id="martin2019" />, and it is decided before any analysis is run.
+
+Neither problem is fixed by lowering the threshold, which just trades false negatives for
+noise. They are fixed by a better-matched panel.
+
+## Exercises
+
+<Exercise n={1} title="A dosage that is not a genotype" difficulty="warm-up">
+
+An individual has posteriors $P(0) = 0.20$, $P(1) = 0.50$, $P(2) = 0.30$.
+
+(a) What is the dosage?
+
+(b) What would a hard call be, and how much information does it discard?
+
+(c) Two individuals have dosages 1.10 and 1.10. Must they have the same posteriors?
+
+<div slot="solution">
+
+**(a)** $D = 0.50 + 2(0.30) = 1.10$.
+
+**(b)** The most likely genotype is the heterozygote at $P = 0.50$, so a hard call gives 1.
+That call is right half the time; the other half it is off by one in one of two directions.
+The dosage keeps the asymmetry — 1.10 rather than 1 records that the alternate homozygote is
+more likely than the reference homozygote.
+
+**(c)** No. $(0.20, 0.50, 0.30)$ and $(0.45, 0.00, 0.55)$ both give $D = 1.10$, and they are
+completely different states of knowledge — the second is confident that the individual is a
+homozygote and unsure which. Dosage is a summary, and summarising loses this. It is also why
+$\hat{r}^2$ is computed from the spread of dosages rather than from the posteriors directly.
+
+</div>
+</Exercise>
+
+<Exercise n={2} title="Pricing the threshold" difficulty="core">
+
+A study has $N_{\mathrm{eff}} = 50{,}000$.
+
+(a) A variant is imputed at $\hat{r}^2 = 0.45$. What is it worth, and what is the smallest
+$q^2$ it can detect?
+
+(b) What $\hat{r}^2$ would the study need for that variant to detect $q^2 = 10^{-3}$?
+
+(c) The team proposes relaxing the filter from 0.3 to 0.2 to keep more variants. In units of
+detectable effect, what does the marginal variant at 0.2 actually offer?
+
+<div slot="solution">
+
+**(a)** $50{,}000 \times 0.45 = 22{,}500$ effective samples, so
+$q^2 \geq 39.600989/22{,}500 = 1.7600 \times 10^{-3}$.
+
+**(b)** Solve $39.600989/(50{,}000\,\hat{r}^2) = 10^{-3}$, giving
+$\hat{r}^2 = 0.792020$. A variant would have to be imputed nearly as well as it could be
+typed.
+
+**(c)** At $\hat{r}^2 = 0.2$ the variant is worth 10,000 effective samples and can detect
+$q^2 \geq 3.9601 \times 10^{-3}$ — against $2.6401 \times 10^{-3}$ at the 0.3 threshold, and
+$7.9202 \times 10^{-4}$ at perfect calling. So the variants the relaxation admits are ones
+the study can only see if their effects are **five times** the study's floor. They are not
+free: each one is another test in the multiple-testing burden, which the later lesson on
+reading the output makes precise. Relaxing an INFO filter adds tests faster than it adds
+power.
+
+</div>
+</Exercise>
+
+<Exercise n={3} title="Two cohorts, one panel" difficulty="stretch">
+
+Cohort A is well represented in the reference panel and has median $\hat{r}^2 = 0.90$ across
+variants at 1% frequency. Cohort B is not, and has median $\hat{r}^2 = 0.55$ at the same
+frequency. Both have 20,000 effective samples, and both apply INFO > 0.3.
+
+(a) At a variant where each hits its median, what is each cohort's detection limit?
+
+(b) How many effective samples would cohort B need to match cohort A's limit?
+
+(c) The two are meta-analysed together and the locus does not replicate in B. Give two
+explanations that have nothing to do with biology.
+
+<div slot="solution">
+
+**(a)** A: $20{,}000 \times 0.90 = 18{,}000$, so $q^2 \geq 2.2001 \times 10^{-3}$.
+B: $20{,}000 \times 0.55 = 11{,}000$, so $q^2 \geq 3.6001 \times 10^{-3}$ — a 64% higher bar
+from imputation alone.
+
+**(b)** B needs $N_{\mathrm{eff}} \times 0.55 = 18{,}000$, so $N_{\mathrm{eff}} = 32{,}727$ —
+it must recruit 1.64 times as many people to run the same analysis. That ratio is exactly
+$0.90/0.55$, and it applies to the whole genome, not to one variant.
+
+**(c)** First, **power**: B's effective study is smaller at every variant, so a true effect is
+simply less likely to clear the threshold — a failure to replicate is the expected outcome,
+not evidence against the locus. Second, **the filter is applied after imputation**, so B loses
+more variants entirely; if the lead variant in A fell below 0.3 in B, B did not test it at
+all, and "did not replicate" would mean "was never examined". Checking whether the variant is
+present in B's results at all is the first thing to do, and it is skipped surprisingly often.
+
+</div>
+</Exercise>
+
+## Summary
+
+- **Most variants in a GWAS were never measured.** They are inferred from a reference panel by
+  a copying model that treats a new chromosome as a mosaic of panel haplotypes, switching at
+  a recombination-driven rate and mismatching at a mutation-driven one.
+- **The output is a posterior, summarised as a dosage** $D = P(1) + 2P(2)$. Hard-calling
+  discards the uncertainty; association software takes dosages for that reason.
+- **INFO is a ratio of variances**, $\hat{r}^2 = \mathrm{Var}(D)/2\hat\theta(1-\hat\theta)$,
+  and it behaves as a **multiplier on the effective sample size**. A variant at 0.32 in a
+  32,000-effective study carries the information of 10,240.
+- **An INFO filter is therefore a power decision.** The conventional 0.3 threshold costs a
+  factor of 3.33 in the smallest detectable effect, and relaxing it adds multiple-testing
+  burden faster than it adds power.
+- **The filter is not applied evenly.** Quality falls with allele frequency and with distance
+  from the panel's ancestry, so a fixed threshold removes preferentially the rarer variants
+  and penalises cohorts the panel represents badly.

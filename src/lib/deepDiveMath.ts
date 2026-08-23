@@ -193,6 +193,40 @@ export function controlCeiling(nCases: number): number {
   return 4 * nCases;
 }
 
+// ── Imputation ────────────────────────────────────────────────────────────────
+
+/**
+ * Expected genotype under the imputation posterior — the "dosage".
+ * A number in [0,2] that replaces a hard call and carries the uncertainty with it.
+ */
+export function genotypeDosage(p0: number, p1: number, p2: number): number {
+  return p1 + 2 * p2;
+}
+
+/**
+ * The imputation quality metric (MaCH/minimac r̂², IMPUTE's `info`): the variance actually
+ * present in the dosages divided by the variance a perfectly-called variant of the same
+ * allele frequency would have, 2θ(1−θ).
+ *
+ * Two properties decide how it is used, and only the first is widely known:
+ *
+ *   * **It is an effective-sample-size multiplier.** A variant imputed at r̂² = 0.4 in a
+ *     study of N carries the information of 0.4N perfectly genotyped people, so an INFO
+ *     filter is a power decision rather than a data-cleaning one.
+ *   * **It can exceed 1 in a small sample**, because the sample's genotype variance is
+ *     itself an estimate and can land above 2θ(1−θ) by chance. Implementations cap it;
+ *     the quantity is only meaningful at scale.
+ */
+export function imputationR2(dosages: number[]): number {
+  const n = dosages.length;
+  const mean = dosages.reduce((a, b) => a + b, 0) / n;
+  const theta = mean / 2;
+  const expected = 2 * theta * (1 - theta);
+  if (expected === 0) return 0; // monomorphic: nothing to impute, nothing to score
+  const observed = dosages.reduce((a, x) => a + (x - mean) ** 2, 0) / n;
+  return observed / expected;
+}
+
 // ── Association power ─────────────────────────────────────────────────────────
 
 /** Variance in the phenotype explained by one additive variant, q² = 2p(1−p)β²/σ². */
