@@ -60,13 +60,13 @@ o.append(text(ax.x0 - 74, 26, 'Absolute lifetime risk', 11, opacity='.8'))
 
 LX = ax.x1 + 22
 o.append(text(LX, 62, 'Both are true.', 11, weight='700'))
-for i, t in enumerate(['The top centile carries', '50.2 times the risk of',
-                       'the bottom centile —', 'and a 91.76% chance of', 'never getting the',
-                       'disease at all.']):
+for i, t in enumerate(['People in the top centile', 'carry 86.1 times the risk',
+                       'of those in the bottom —', 'and an 89.79% chance of',
+                       'never getting the', 'disease at all.']):
     o.append(text(LX, 82 + 13 * i, t, 10, opacity='.8'))
-o.append(text(LX, 178, 'A fold-change needs', 11, weight='700'))
-o.append(text(LX, 193, 'an absolute risk', 11, weight='700'))
-o.append(text(LX, 208, 'beside it, always.', 11, weight='700'))
+o.append(text(LX, 178, 'The curve is risk AT', 11, weight='700'))
+o.append(text(LX, 193, 'a centile; a group', 11, weight='700'))
+o.append(text(LX, 208, 'mean sits above it.', 11, weight='700'))
 
 print('bytes:', write(os.path.join(OUT, 'gwas-prs-practice-absolute-risk.svg'),
                       svg(640, 284, ''.join(o))))

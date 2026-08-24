@@ -259,6 +259,28 @@ Things specific to this subsystem:
   never states elsewhere. Two legitimate cases are allowlisted: alt text describing an axis
   *domain*, whose endpoints carry no tick label.
 
+- **A bar chart truncated at a non-zero baseline lies in the one channel a bar is read by.**
+  The relatedness figure drew surviving effective size from a 30,800 baseline, so its bars ran
+  216.8 px against 32.0 px — a 6.8:1 picture of a 1.03:1 difference. It was also the only
+  non-zero baseline among the repo's bar figures. Plot the *difference* from zero when the
+  difference is the point: the same figure replotted as loss-per-arm reads 16:1, which is the
+  number the caption was already claiming.
+
+- **"Derived in [X]" is a claim about X, and nothing checks it.** The GWAS track's most
+  load-bearing formula, `N ≥ 39.60/q²`, deferred to `statgen-mathematical-foundations`, which
+  contains no power derivation at all — the constant lives in
+  `statgen-association-linear-mixed-models`. `audit:links` cannot catch this: the URL resolved
+  fine, it just did not contain the thing it was cited for. Assert the target contains the
+  token whenever a lesson defers a specific result.
+
+- **A point on a curve is not the mean of the group beyond it.** For a convex risk curve the
+  gap is large and always in the same direction: a polygenic score's 99th centile reads
+  8.2357%, while the *top 1% as a group* averages 10.21% — 24% higher — and the ratio between
+  extreme centiles goes from 50.2 to 86.1. Prose saying "people in the top 1%" needs the group
+  mean; the curve and its markers are point values and should say so. There is a check that
+  needs no integration: the top centile holds 5.11% of all cases, and 0.0511·K/0.01 recovers
+  the mean exactly.
+
 - **A caption that states an encoding rule is a claim about the drawing.** The forest plot
   promised box *area* proportional to the inverse-variance weight while the generator set the
   *side* affine in it — so area went as the square, and the smallest study drew at 13% of the

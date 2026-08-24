@@ -4778,6 +4778,18 @@ describe('gwas-study-design', () => {
       expect(mdx).toContain('sixteen times more as cases');
     });
 
+    it('defers the power constant to a lesson that actually derives it', () => {
+      // The track's most load-bearing formula pointed at Mathematical Foundations, which
+      // contains no power derivation at all. `audit:links` cannot catch this: the URL
+      // resolved fine, it just did not contain the thing it was cited for.
+      expect(lesson('statgen-association-linear-mixed-models')).toContain('39.600989');
+      expect(lesson('statgen-mathematical-foundations')).not.toContain('39.60');
+      expect(mdx).toContain('/deep_dives/statgen-association-linear-mixed-models/');
+      expect(mdx).not.toContain(
+        'derived in\n[Mathematical Foundations](/deep_dives/statgen-mathematical-foundations/)'
+      );
+    });
+
     it('step 4: converts each effective size into a detection limit and an effect', () => {
       const detect = (n: number) => K / n;
       const beta = (q2: number) => Math.sqrt(q2 / (2 * 0.3 * 0.7));
@@ -5006,6 +5018,18 @@ describe('gwas-quality-control', () => {
       expect(mdx).toContain('0.1875');
     });
 
+    it('does not call that gap the widest, because it is the narrowest', () => {
+      // The classes are a geometric sequence, so the gaps grow going up: 0.125, 0.125,
+      // 0.25, 0.5. The cut is chosen for WHERE it sits, not for the gap's size.
+      const classes = [0, 0.125, 0.25, 0.5, 1];
+      const gaps = classes.slice(1).map((v, i) => v - classes[i]);
+      expect(gaps).toEqual([0.125, 0.125, 0.25, 0.5]);
+      const cutGap = classes[2] - classes[1];
+      expect(cutGap).toBe(Math.min(...gaps));
+      expect(cutGap).not.toBe(Math.max(...gaps));
+      expect(mdx).not.toContain('widest');
+    });
+
     it('step 3: the same 400 people cost sixteen times more from the case arm', () => {
       const base = effectiveSampleSize(10000, 40000);
       const dropCases = effectiveSampleSize(9600, 40000);
@@ -5032,11 +5056,26 @@ describe('gwas-quality-control', () => {
         expect(mdx, `figure 1 label ${l}`).toContain(l);
     });
 
-    it('figure 2 draws both pruning outcomes and the pre-pruning line', () => {
-      expect(Math.round(effectiveSampleSize(10000, 39600))).toBe(31935);
-      expect(Math.round(effectiveSampleSize(9600, 40000))).toBe(30968);
-      for (const l of ['31935', '30968', 'before pruning', '1,032 effective samples'])
+    it('figure 2 plots the losses from zero, so bar length carries the 16x', () => {
+      const base = effectiveSampleSize(10000, 40000);
+      const lossControls = base - effectiveSampleSize(10000, 39600);
+      const lossCases = base - effectiveSampleSize(9600, 40000);
+      expect(lossControls).toBeCloseTo(64.5161, 4);
+      expect(lossCases).toBeCloseTo(1032.2581, 4);
+      for (const l of ['64.52', '1032.26', 'Effective samples lost'])
         expect(mdx, `figure 2 label ${l}`).toContain(l);
+
+      // The defect this replaced: bars drawn from a 30,800 baseline gave a 6.8:1 picture of
+      // a 1.03:1 difference. Decode the rects and require length to track the losses.
+      const svg = mdx.match(/<svg[\s\S]*?<\/svg>/g)![1];
+      const widths = [...svg.matchAll(/<rect[^>]*width="([\d.]+)"/g)].map((m) => Number(m[1]));
+      expect(widths).toHaveLength(2);
+      const [wControls, wCases] = widths;
+      // one decimal of SVG rounding on a 14 px bar is ~0.4%, hence 1 place
+      expect(wCases / wControls).toBeCloseTo(lossCases / lossControls, 1);
+      expect(lossCases / lossControls).toBeCloseTo(16, 6);
+      // and the axis starts at zero: the shorter bar must be ~1/16 of the longer, not ~1/7
+      expect(wControls / wCases).toBeLessThan(0.1);
     });
   });
 
@@ -5377,14 +5416,33 @@ describe('gwas-ld-reference-panels', () => {
     it("step 3: r² = D'² exactly, because both loci sit at the same frequency", () => {
       expect(A.Dprime ** 2).toBeCloseTo(A.r2, 12);
       expect(B.Dprime ** 2).toBeCloseTo(B.r2, 12);
-      // and it is p_A = p_B that does it, not p = 0.5 — the exercise makes this point
+      // equal frequencies away from 0.5, with D > 0: still holds
       const equalButNotHalf = ldMeasures(0.3, 0.1, 0.1, 0.5);
       expect(equalButNotHalf.pA).toBeCloseTo(equalButNotHalf.pB, 12);
+      expect(equalButNotHalf.D).toBeGreaterThan(0);
       expect(equalButNotHalf.Dprime ** 2).toBeCloseTo(equalButNotHalf.r2, 12);
       // unequal frequencies break it
       const unequal = ldMeasures(0.5, 0.2, 0.1, 0.2);
       expect(unequal.pA).not.toBeCloseTo(unequal.pB, 6);
       expect(unequal.Dprime ** 2).not.toBeCloseTo(unequal.r2, 6);
+    });
+
+    it("and the identity needs D > 0 as well as equal frequencies", () => {
+      // The exercise originally stated "needs p_A = p_B, not p_A = 0.5" as a general rule.
+      // It is false for D < 0: D_max becomes min(p_A p_B, p_a p_b), which equals p(1-p)
+      // only at p = 0.5.
+      const negEqual = ldMeasures(0.06, 0.34, 0.34, 0.26);
+      expect(negEqual.pA).toBeCloseTo(0.4, 12);
+      expect(negEqual.pB).toBeCloseTo(0.4, 12);
+      expect(negEqual.D).toBeLessThan(0);
+      expect(negEqual.r2).toBeCloseTo(0.173611, 6);
+      expect(negEqual.Dprime ** 2).toBeCloseTo(0.390625, 6);
+      expect(negEqual.Dprime ** 2).not.toBeCloseTo(negEqual.r2, 4);
+      // but at p = 0.5 it survives either sign
+      const negHalf = ldMeasures(0.15, 0.35, 0.35, 0.15);
+      expect(negHalf.D).toBeLessThan(0);
+      expect(negHalf.Dprime ** 2).toBeCloseTo(negHalf.r2, 12);
+      for (const v of ['0.390625', '0.173611']) expect(mdx, v).toContain(v);
     });
 
     it('steps 4 and 5: the sample size ratio is exactly the r² ratio', () => {
@@ -5523,6 +5581,24 @@ describe('gwas-fine-mapping-practice', () => {
 describe('gwas-prs-practice', () => {
   const mdx = lesson('gwas-prs-practice');
 
+  /** E[risk(z) | lo < z < hi] under the liability-threshold model, by Simpson's rule.
+   *  The lesson's headline numbers are group means, not points on the curve, and the two
+   *  differ by a quarter at the top centile because risk is convex in the score. */
+  const groupMean = (lo: number, hi: number, r2: number, K: number) => {
+    const n = 20000;
+    const h = (hi - lo) / n;
+    let num = 0;
+    let den = 0;
+    for (let i = 0; i <= n; i += 1) {
+      const z = lo + i * h;
+      const w = i === 0 || i === n ? 1 : i % 2 ? 4 : 2;
+      const phi = normalPdf(z);
+      num += w * liabilityRisk(z, r2, K) * phi;
+      den += w * phi;
+    }
+    return num / den;
+  };
+
   describe('worked example — what a percentile means', () => {
     it('step 1: the liability threshold for a 2% disease', () => {
       expect(normalQuantile(0.98)).toBeCloseTo(2.053749, 6);
@@ -5541,14 +5617,48 @@ describe('gwas-prs-practice', () => {
       for (const v of ['0.082357', '0.041136', '0.001640']) expect(mdx, v).toContain(v);
     });
 
-    it('step 4: both sentences describe the same centile of the same score', () => {
+    it('step 3: the point ratio between the two extreme centiles is 50.2', () => {
       const top = liabilityRisk(normalQuantile(0.99), 0.1, 0.02);
       const bottom = liabilityRisk(normalQuantile(0.01), 0.1, 0.02);
       expect(top / bottom).toBeCloseTo(50.2, 1);
-      expect(1 - top).toBeCloseTo(0.917643, 6);
-      expect(mdx).toContain('= 50.2');
-      expect(mdx).toContain('0.917643');
-      expect(mdx).toContain('91.76%');
+      expect(mdx).toContain('0.082357/0.001640 = 50.2');
+    });
+
+    it('step 4: the GROUP mean is a quarter above the boundary, and the ratio is 86.1', () => {
+      // The defect this replaced answered a group question with a boundary value.
+      const c99 = normalQuantile(0.99);
+      const c01 = normalQuantile(0.01);
+      const topGroup = groupMean(c99, 9, 0.1, 0.02);
+      const bottomGroup = groupMean(-9, c01, 0.1, 0.02);
+      expect(topGroup).toBeCloseTo(0.102136, 5);
+      expect(bottomGroup).toBeCloseTo(0.001187, 5);
+      expect(topGroup / bottomGroup).toBeCloseTo(86.1, 1);
+      // convex, so the group mean exceeds the boundary — by 24% here
+      expect(topGroup).toBeGreaterThan(liabilityRisk(c99, 0.1, 0.02));
+      expect(topGroup / liabilityRisk(c99, 0.1, 0.02)).toBeCloseTo(1.2402, 3);
+      // and the bottom group sits BELOW its boundary, because the curve is decreasing there
+      expect(bottomGroup).toBeLessThan(liabilityRisk(c01, 0.1, 0.02));
+      for (const v of ['0.102136', '0.001187', '= 86.1']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 4: the case-share identity recovers the group mean without integrating', () => {
+      // 5.11% of all cases sit in the top centile, so 0.0511 * K / 0.01 = the group mean.
+      const topGroup = groupMean(normalQuantile(0.99), 9, 0.1, 0.02);
+      const shareOfCases = (topGroup * 0.01) / 0.02;
+      expect(100 * shareOfCases).toBeCloseTo(5.11, 2);
+      expect((shareOfCases * 0.02) / 0.01).toBeCloseTo(topGroup, 12);
+      expect(mdx).toContain('5.11\\%');
+      expect(mdx).toContain('0.0511 \\times 0.02 / 0.01 = 0.102136');
+    });
+
+    it('step 5: the two sentences now carry the group numbers', () => {
+      const topGroup = groupMean(normalQuantile(0.99), 9, 0.1, 0.02);
+      expect(1 - topGroup).toBeCloseTo(0.897864, 5);
+      expect(mdx).toContain('0.897864');
+      expect(mdx).toContain('89.79%');
+      // and the old boundary-derived figures are gone from the group claims
+      expect(mdx).not.toContain('0.917643');
+      expect(mdx).not.toContain('91.76%');
     });
 
     it('averages to the prevalence, so the curve is consistent with K', () => {
@@ -5564,8 +5674,14 @@ describe('gwas-prs-practice', () => {
       expect((100 * liabilityRisk(normalQuantile(0.99), 0.1, 0.02)).toFixed(2)).toBe('8.24');
       expect((100 * liabilityRisk(normalQuantile(0.9), 0.1, 0.02)).toFixed(2)).toBe('4.11');
       expect((100 * liabilityRisk(normalQuantile(0.01), 0.1, 0.02)).toFixed(2)).toBe('0.16');
-      for (const l of ['8.24%', '4.11%', '0.16%', 'population risk, 2%', '50.2 times the risk'])
+      // the curve is a point function, so its markers stay point values
+      expect((100 * liabilityRisk(0, 0.1, 0.02)).toFixed(2)).toBe('1.52');
+      for (const l of ['8.24%', '4.11%', '0.16%', 'population risk, 2%',
+                       'carry 86.1 times the risk'])
         expect(mdx, `figure label ${l}`).toContain(l);
+      // the caption used to list the 2% prevalence line as a fourth curve reading
+      expect(mdx).toContain('1.52% at the median');
+      expect(mdx).not.toContain('2% at the population average');
     });
   });
 
@@ -5585,15 +5701,22 @@ describe('gwas-prs-practice', () => {
       for (const v of ['1.281552', '0.282502', '0.016738', '16.9']) expect(mdx, v).toContain(v);
     });
 
-    it('3 — the top 5% of a 1% disease is a 3.3% absolute risk', () => {
+    it('3 — the screened top 5% averages 51 per 1,000, not the 33 at its boundary', () => {
       expect(normalQuantile(0.99)).toBeCloseTo(2.326348, 6);
       expect(Math.sqrt(0.15)).toBeCloseTo(0.387298, 6);
       expect(normalQuantile(0.95)).toBeCloseTo(1.644854, 6);
-      const r = liabilityRisk(normalQuantile(0.95), 0.15, 0.01);
-      expect(r).toBeCloseTo(0.033453, 6);
-      expect(Math.round(1000 * r)).toBe(33);
-      expect(Math.round(1000 * (1 - r))).toBe(967);
-      for (const v of ['0.387298', '1.644854', '0.033453', '33 in every']) expect(mdx, v).toContain(v);
+      const boundary = liabilityRisk(normalQuantile(0.95), 0.15, 0.01);
+      expect(boundary).toBeCloseTo(0.033453, 6);
+      const group = groupMean(normalQuantile(0.95), 9, 0.15, 0.01);
+      expect(group).toBeCloseTo(0.050973, 5);
+      expect(Math.round(1000 * group)).toBe(51);
+      expect(Math.round(1000 * (1 - group))).toBe(949);
+      // the boundary understates the screening yield by a third
+      expect(boundary / group).toBeCloseTo(0.6563, 3);
+      // independent check quoted in the solution: the top 5% holds 25.5% of all cases
+      expect(100 * ((group * 0.05) / 0.01)).toBeCloseTo(25.5, 1);
+      for (const v of ['0.387298', '1.644854', '0.033453', '0.050973', '51 in every 1,000', '25.5%'])
+        expect(mdx, v).toContain(v);
     });
   });
 });

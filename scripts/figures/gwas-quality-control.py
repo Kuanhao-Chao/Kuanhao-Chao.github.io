@@ -7,7 +7,10 @@ OUT = os.path.join(os.path.dirname(__file__), 'out')
 
 # ── Figure 1: where the relatedness cut falls ────────────────────────────────
 # PI_HAT is not a continuous score to threshold; it is a set of expected values with gaps
-# between them, and 0.185 is placed in the widest gap. Labels alternate rows because five
+# between them, and 0.185 sits in the lowest gap a study still wants to break across — the
+# one between second-degree relatives and first cousins. It is not the widest gap; the ones
+# above it are, and every pair on that side is one the study means to remove anyway.
+# Labels alternate rows because five
 # classes bunched at the low end collide on one. Every value is asserted in the test file.
 CLASSES = [(0.0, 'unrelated', 0), (0.125, 'first cousin', 1), (0.25, '2nd degree', 0),
            (0.5, '1st degree', 1), (1.0, 'duplicate / MZ', 0)]
@@ -39,34 +42,33 @@ print('fig1 bytes:', write(os.path.join(OUT, 'gwas-quality-control-pihat.svg'),
                            svg(640, 208, ''.join(o))))
 
 # ── Figure 2: what breaking 400 pairs costs, per arm ─────────────────────────
+# Plotted as the LOSS from zero, not as the surviving effective size from a truncated
+# baseline. The first version drew bars from 30,800, so their lengths were 216.8 px and
+# 32.0 px — a 6.8:1 picture of a 1.03:1 difference, in the one channel a bar is read by.
+# The loss is also the quantity the figure is about, and it is the one that differs 16-fold.
 neff = lambda c, k: 4 / (1 / c + 1 / k)
 BASE = neff(10000, 40000)
-BARS = [('drop 400 controls', neff(10000, 39600)), ('drop 400 cases', neff(9600, 40000))]
+BARS = [('drop 400 controls', BASE - neff(10000, 39600)),
+        ('drop 400 cases', BASE - neff(9600, 40000))]
 
-bx = Axes(200.0, 452.0, 60.0, 132.0, (30800.0, 32120.0), (-0.7, 1.7))
+bx = Axes(200.0, 452.0, 60.0, 132.0, (0.0, 1150.0), (-0.7, 1.7))
 p = [bx.frame()]
-p.append(bx.xticks([31000, 31500, 32000], ['31,000', '31,500', '32,000']))
-p.append(line(bx.px(BASE), bx.py(-0.7), bx.px(BASE), bx.py(1.7), 1.2, opacity='.45', dash='4 3'))
-p.append(text(bx.px(BASE) - 6, bx.py(1.7) - 6, 'before pruning', 9.5, anchor='end', opacity='.7'))
+p.append(bx.xticks([0, 250, 500, 750, 1000], ['0', '250', '500', '750', '1,000']))
 for k, (lab, v) in enumerate(BARS):
     y = bx.py(1 - k)
-    p.append(rect(bx.px(30800.0), y - 10, bx.px(v) - bx.px(30800.0), 20, fill=ACCENT,
+    p.append(rect(bx.px(0.0), y - 10, bx.px(v) - bx.px(0.0), 20, fill=ACCENT,
                   opacity='0.85' if k else '0.4', rx=2))
     p.append(text(bx.x0 - 12, y + 4, lab, 10, anchor='end'))
-    # inside the bar, so it cannot collide with the "before pruning" rule
-    p.append(text(bx.px(v) - 8, y + 4, '%.0f' % v, 9.5, anchor='end', weight='700',
-                  fill='var(--color-on-accent, #fff)' if k else 'currentColor'))
-p.append(text((bx.x0 + bx.x1) / 2, bx.y1 + 42, 'Effective sample size after pruning', 12,
-              anchor='middle'))
+    p.append(text(bx.px(v) + 8, y + 4, '%.2f' % v, 9.5, weight='600', fill=ACCENT))
+p.append(text((bx.x0 + bx.x1) / 2, bx.y1 + 42, 'Effective samples lost', 12, anchor='middle'))
 p.append(text(20, 24, 'The same 400 people, removed from one arm or the other', 11.5,
               opacity='.8'))
-# The axis title sits at y1+42 = 174, so the closing note starts below it, not on it.
-p.append(text(20, 198, 'Dropping the case costs 1,032 effective samples; dropping the control',
+p.append(text(20, 198, 'Dropping the case costs 1,032.26 effective samples; dropping the control',
               10, opacity='.85'))
-p.append(text(20, 212, 'costs 65 — sixteen times, the same ratio as the design lesson.', 10,
+p.append(text(20, 212, 'costs 64.52 — sixteen times, the same ratio as the design lesson.', 10,
               opacity='.85'))
 print('fig2 bytes:', write(os.path.join(OUT, 'gwas-quality-control-pruning.svg'),
                            svg(640, 226, ''.join(p))))
-print('  drop controls %.4f  drop cases %.4f  ratio %.4f'
-      % (neff(10000, 39600), neff(9600, 40000),
+print('  losses %.4f vs %.4f  ratio %.4f'
+      % (BASE - neff(10000, 39600), BASE - neff(9600, 40000),
          (BASE - neff(9600, 40000)) / (BASE - neff(10000, 39600))))

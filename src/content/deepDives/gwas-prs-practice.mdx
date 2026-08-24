@@ -2,7 +2,7 @@
 title: "Building a Polygenic Score: Tuning, Validation and What a Percentile Means"
 shortTitle: Building a PRS
 description: "Turning summary statistics into a score somebody could act on — the clumping-and-thresholding pipeline, the three-cohort discipline that keeps the reported accuracy honest, and how to convert a fold-change into an absolute risk."
-abstract: "A polygenic score is the most consequential thing a GWAS produces and the easiest to report misleadingly. This lesson covers the pipeline — clump, threshold or shrink, tune, validate — and then spends its worked example on the number that matters to a person rather than a paper. For a score explaining a tenth of the liability of a disease with 2% prevalence, the top centile carries 50.2 times the risk of the bottom centile, which is the sentence that reaches the press release, and an absolute risk of 8.2357%, which means a 91.76% chance of never developing the disease. Both are exactly true of the same curve. The lesson also covers the two ways a reported accuracy becomes fiction: tuning the threshold in the cohort you report in, and moving a score to an ancestry it was not fitted in."
+abstract: "A polygenic score is the most consequential thing a GWAS produces and the easiest to report misleadingly. This lesson covers the pipeline — clump, threshold or shrink, tune, validate — and then spends its worked example on the number that matters to a person rather than a paper. For a score explaining a tenth of the liability of a disease with 2% prevalence, people in the top centile carry 86.1 times the risk of those in the bottom centile, which is the sentence that reaches the press release, and an absolute risk of 10.21%, which means an 89.79% chance of never developing the disease. Both are exactly true of the same score. The lesson also separates the two numbers those sentences are routinely muddled between: the risk *at* the 99th centile is 8.2357%, while the average risk of the people *above* it is 10.21%, because risk is convex in the score. The lesson also covers the two ways a reported accuracy becomes fiction: tuning the threshold in the cohort you report in, and moving a score to an ancestry it was not fitted in."
 date: 2026-08-23
 track: workflow
 hub: gwas
@@ -14,7 +14,8 @@ objectives:
   - "Build a score by clumping and thresholding, and say what a Bayesian shrinkage method does differently."
   - "Split cohorts into discovery, tuning and testing, and explain what leaks when the last two are the same."
   - "Convert a score percentile into an absolute risk under the liability-threshold model."
-  - "Explain how a 50-fold relative risk and a 92% chance of staying well describe the same score."
+  - "Explain how an 86-fold relative risk and a 90% chance of staying well describe the same score."
+  - "Distinguish the risk at a centile from the mean risk of the group above it, and say which a paper is reporting."
   - "Say why a score's accuracy falls when it is applied to another ancestry, and which parts of the fall are fixable."
 prerequisites:
   - gwas-fine-mapping-practice
@@ -137,44 +138,59 @@ $$
 \text{risk}(z) = \Phi\!\left(\frac{r z - T}{\sqrt{1 - r^2}}\right), \qquad r = \sqrt{0.10} = 0.316228 .
 $$
 
-**Step 3 — read it at the extremes.** The 99th centile has $z = 2.3263$:
+**Step 3 — read the curve at the extremes.** These are values *at* a centile — the risk of one
+person standing exactly there. The 99th centile has $z = 2.3263$:
 
 $$
 \text{risk} = \Phi\!\left(\frac{0.316228 \times 2.3263 - 2.053749}{\sqrt{0.90}}\right) = 0.082357 .
 $$
 
-The 1st centile, at $z = -2.3263$, gives $0.001640$. The 90th centile gives $0.041136$.
+The 1st centile, at $z = -2.3263$, gives $0.001640$. The 90th centile gives $0.041136$, and
+the ratio between the two extremes is $0.082357/0.001640 = 50.2$.
 
-**Step 4 — the two sentences.** Dividing the extremes:
-
-$$
-\frac{0.082357}{0.001640} = 50.2 .
-$$
-
-*"People in the top 1% have fifty times the risk of those in the bottom 1%."* True.
-
-Subtracting from one:
+**Step 4 — but "the top 1%" is a group, not a point.** Nobody reports the risk of the person
+standing exactly at the 99th centile. Papers report the mean risk of everyone above it, and
+because risk is **convex** in the score, that mean sits above the boundary value:
 
 $$
-1 - 0.082357 = 0.917643 .
+\mathbb{E}\!\left[\text{risk}(z) \mid z > 2.3263\right] = 0.102136 ,
 $$
 
-*"People in the top 1% have a 91.76% chance of never developing the disease."* Also true, of
-the same score, at the same centile.
+a quarter higher than the $0.082357$ at the boundary. The bottom centile moves the other way,
+to $0.001187$, because there the curve is decreasing. So the group-to-group ratio is
 
-**Step 5 — which to report.** Both, always. A fold-change without an absolute risk is
-uninterpretable, because the same 50-fold ratio describes a score that moves risk from 0.16%
-to 8.2% and one that moves it from 1% to 50%. Those are different clinical objects and the
+$$
+\frac{0.102136}{0.001187} = 86.1 ,
+$$
+
+not 50.2. That number has a check on it that needs no integration at all: the top centile
+holds $5.11\%$ of every case in the population, and $0.0511 \times 0.02 / 0.01 = 0.102136$
+recovers the same mean exactly.
+
+**Step 5 — now the two sentences.**
+
+*"People in the top 1% have eighty-six times the risk of those in the bottom 1%."* True.
+
+*"People in the top 1% have an 89.79% chance of never developing the disease,"* since
+$1 - 0.102136 = 0.897864$. Also true, of the same group.
+
+**Step 6 — which to report.** Both, always. A fold-change without an absolute risk is
+uninterpretable, because the same 86-fold ratio describes a score that moves risk from 0.12%
+to 10.2% and one that moves it from 1% to 86%. Those are different clinical objects and the
 ratio cannot distinguish them. This is not a subtle statistical point; it is the single most
 common way polygenic scores are oversold, and the fix costs one extra number.
+
+And say **which** of the two you mean. A paper quoting 8.2% for the top centile of this score
+and one quoting 10.2% are both right and are answering different questions. The gap is 24%,
+and the convention in the literature is the group mean.
 
 </WorkedExample>
 
 <Figure
-  caption="Figure 1. Absolute risk against polygenic score percentile, for a score explaining 10% of the liability of a disease with 2% prevalence. The curve is flat across most of the distribution and rises steeply only in the top few centiles: 0.16% at the 1st, 2% at the population average, 4.11% at the 90th, and 8.24% at the 99th. The 50.2-fold ratio between the extremes and the 91.76% chance of staying well are the same two points on this curve."
-  alt="A rising curve of absolute lifetime risk against polygenic score percentile from the 1st to the 99th. It is flat and below the dashed 2% population line for most of the range, crossing it around the 60th percentile, then rising steeply to 8.24% at the 99th. Points are marked at 0.16%, 4.11% and 8.24%."
+  caption="Figure 1. Absolute risk against polygenic score percentile, for a score explaining 10% of the liability of a disease with 2% prevalence. The curve gives the risk at a centile — one person standing there — and is flat across most of the distribution, rising steeply only in the top few: 0.16% at the 1st, 1.52% at the median, 4.11% at the 90th, and 8.24% at the 99th. It crosses the dashed 2% population-prevalence line only at about the 63rd centile, because the prevalence is an average over everyone and risk is convex. The mean risk of a group — the top 1%, at 10.21% — therefore sits above the curve at that group's boundary."
+  alt="A rising curve of absolute lifetime risk against polygenic score percentile from the 1st to the 99th. It is flat and below the dashed 2% population line for most of the range, crossing it around the 63rd percentile, then rising steeply to 8.24% at the 99th. Points are marked at 0.16%, 4.11% and 8.24%. A note says people in the top centile carry 86.1 times the risk of those in the bottom and an 89.79% chance of never getting the disease."
 >
-<svg viewBox="0 0 640 284" width="640" height="284" font-family="inherit"><line x1="96.0" y1="48.0" x2="96.0" y2="224.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="224.0" x2="430.0" y2="224.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="224.0" x2="430.0" y2="224.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="228.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0%</text><line x1="96.0" y1="184.9" x2="430.0" y2="184.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="188.9" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">2%</text><line x1="96.0" y1="145.8" x2="430.0" y2="145.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="149.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">4%</text><line x1="96.0" y1="106.7" x2="430.0" y2="106.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="110.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">6%</text><line x1="96.0" y1="67.6" x2="430.0" y2="67.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="71.6" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">8%</text><line x1="97.7" y1="224.0" x2="97.7" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="97.7" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1st</text><line x1="178.7" y1="224.0" x2="178.7" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="178.7" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">25th</text><line x1="263.0" y1="224.0" x2="263.0" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="263.0" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50th</text><line x1="347.3" y1="224.0" x2="347.3" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="347.3" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">75th</text><line x1="428.3" y1="224.0" x2="428.3" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="428.3" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">99th</text><path d="M96.0,221.6 L97.4,220.9 L98.8,220.4 L100.2,220.0 L101.6,219.6 L103.0,219.2 L104.3,218.9 L105.7,218.6 L107.1,218.3 L108.5,218.0 L109.9,217.7 L111.3,217.5 L112.7,217.2 L114.1,217.0 L115.5,216.7 L116.9,216.5 L118.3,216.2 L119.7,216.0 L121.0,215.8 L122.4,215.5 L123.8,215.3 L125.2,215.1 L126.6,214.9 L128.0,214.7 L129.4,214.5 L130.8,214.3 L132.2,214.0 L133.6,213.8 L135.0,213.6 L136.4,213.4 L137.8,213.2 L139.1,213.0 L140.5,212.8 L141.9,212.6 L143.3,212.4 L144.7,212.2 L146.1,212.0 L147.5,211.8 L148.9,211.6 L150.3,211.5 L151.7,211.3 L153.1,211.1 L154.4,210.9 L155.8,210.7 L157.2,210.5 L158.6,210.3 L160.0,210.1 L161.4,209.9 L162.8,209.7 L164.2,209.5 L165.6,209.3 L167.0,209.1 L168.4,208.9 L169.8,208.7 L171.2,208.6 L172.5,208.4 L173.9,208.2 L175.3,208.0 L176.7,207.8 L178.1,207.6 L179.5,207.4 L180.9,207.2 L182.3,207.0 L183.7,206.8 L185.1,206.6 L186.5,206.4 L187.8,206.2 L189.2,206.0 L190.6,205.8 L192.0,205.6 L193.4,205.4 L194.8,205.2 L196.2,205.0 L197.6,204.8 L199.0,204.6 L200.4,204.4 L201.8,204.2 L203.2,204.0 L204.5,203.8 L205.9,203.6 L207.3,203.4 L208.7,203.2 L210.1,203.0 L211.5,202.8 L212.9,202.6 L214.3,202.4 L215.7,202.2 L217.1,201.9 L218.5,201.7 L219.9,201.5 L221.2,201.3 L222.6,201.1 L224.0,200.9 L225.4,200.7 L226.8,200.4 L228.2,200.2 L229.6,200.0 L231.0,199.8 L232.4,199.6 L233.8,199.3 L235.2,199.1 L236.6,198.9 L238.0,198.6 L239.3,198.4 L240.7,198.2 L242.1,198.0 L243.5,197.7 L244.9,197.5 L246.3,197.2 L247.7,197.0 L249.1,196.8 L250.5,196.5 L251.9,196.3 L253.3,196.0 L254.7,195.8 L256.0,195.5 L257.4,195.3 L258.8,195.0 L260.2,194.8 L261.6,194.5 L263.0,194.3 L264.4,194.0 L265.8,193.8 L267.2,193.5 L268.6,193.2 L270.0,193.0 L271.4,192.7 L272.7,192.4 L274.1,192.1 L275.5,191.9 L276.9,191.6 L278.3,191.3 L279.7,191.0 L281.1,190.7 L282.5,190.5 L283.9,190.2 L285.3,189.9 L286.7,189.6 L288.0,189.3 L289.4,189.0 L290.8,188.7 L292.2,188.4 L293.6,188.1 L295.0,187.7 L296.4,187.4 L297.8,187.1 L299.2,186.8 L300.6,186.5 L302.0,186.1 L303.4,185.8 L304.8,185.5 L306.1,185.1 L307.5,184.8 L308.9,184.4 L310.3,184.1 L311.7,183.7 L313.1,183.3 L314.5,183.0 L315.9,182.6 L317.3,182.2 L318.7,181.9 L320.1,181.5 L321.5,181.1 L322.8,180.7 L324.2,180.3 L325.6,179.9 L327.0,179.5 L328.4,179.1 L329.8,178.7 L331.2,178.2 L332.6,177.8 L334.0,177.4 L335.4,176.9 L336.8,176.5 L338.1,176.0 L339.5,175.5 L340.9,175.1 L342.3,174.6 L343.7,174.1 L345.1,173.6 L346.5,173.1 L347.9,172.6 L349.3,172.1 L350.7,171.5 L352.1,171.0 L353.5,170.4 L354.9,169.9 L356.2,169.3 L357.6,168.7 L359.0,168.1 L360.4,167.5 L361.8,166.9 L363.2,166.3 L364.6,165.6 L366.0,165.0 L367.4,164.3 L368.8,163.6 L370.2,162.9 L371.6,162.2 L372.9,161.4 L374.3,160.7 L375.7,159.9 L377.1,159.1 L378.5,158.3 L379.9,157.4 L381.3,156.5 L382.7,155.6 L384.1,154.7 L385.5,153.8 L386.9,152.8 L388.2,151.8 L389.6,150.7 L391.0,149.6 L392.4,148.5 L393.8,147.3 L395.2,146.1 L396.6,144.8 L398.0,143.5 L399.4,142.1 L400.8,140.7 L402.2,139.2 L403.6,137.6 L404.9,135.9 L406.3,134.1 L407.7,132.2 L409.1,130.2 L410.5,128.1 L411.9,125.8 L413.3,123.3 L414.7,120.6 L416.1,117.7 L417.5,114.5 L418.9,110.9 L420.3,106.9 L421.6,102.4 L423.0,97.1 L424.4,90.9 L425.8,83.2 L427.2,73.3 L428.6,59.5 L430.0,36.8" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><line x1="96.0" y1="184.9" x2="430.0" y2="184.9" stroke="currentColor" stroke-width="1.3" opacity=".45" stroke-dasharray="5 4"/><text x="104.0" y="177.9" font-size="10" fill="currentColor" opacity=".75">population risk, 2%</text><circle cx="428.3" cy="62.9" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="397.9" cy="143.6" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="97.7" cy="220.8" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="419.3" y="56.9" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">8.24%</text><text x="406.9" y="137.6" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="start" font-weight="600">4.11%</text><text x="106.7" y="214.8" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="start" font-weight="600">0.16%</text><text x="263.0" y="266.0" font-size="12" fill="currentColor" text-anchor="middle">Polygenic score percentile</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Absolute lifetime risk</text><text x="452.0" y="62.0" font-size="11" fill="currentColor" font-weight="700">Both are true.</text><text x="452.0" y="82.0" font-size="10" fill="currentColor" opacity=".8">The top centile carries</text><text x="452.0" y="95.0" font-size="10" fill="currentColor" opacity=".8">50.2 times the risk of</text><text x="452.0" y="108.0" font-size="10" fill="currentColor" opacity=".8">the bottom centile —</text><text x="452.0" y="121.0" font-size="10" fill="currentColor" opacity=".8">and a 91.76% chance of</text><text x="452.0" y="134.0" font-size="10" fill="currentColor" opacity=".8">never getting the</text><text x="452.0" y="147.0" font-size="10" fill="currentColor" opacity=".8">disease at all.</text><text x="452.0" y="178.0" font-size="11" fill="currentColor" font-weight="700">A fold-change needs</text><text x="452.0" y="193.0" font-size="11" fill="currentColor" font-weight="700">an absolute risk</text><text x="452.0" y="208.0" font-size="11" fill="currentColor" font-weight="700">beside it, always.</text></svg>
+<svg viewBox="0 0 640 284" width="640" height="284" font-family="inherit"><line x1="96.0" y1="48.0" x2="96.0" y2="224.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="224.0" x2="430.0" y2="224.0" stroke="currentColor" stroke-width="1.25"/><line x1="96.0" y1="224.0" x2="430.0" y2="224.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="228.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0%</text><line x1="96.0" y1="184.9" x2="430.0" y2="184.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="188.9" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">2%</text><line x1="96.0" y1="145.8" x2="430.0" y2="145.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="149.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">4%</text><line x1="96.0" y1="106.7" x2="430.0" y2="106.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="110.7" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">6%</text><line x1="96.0" y1="67.6" x2="430.0" y2="67.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="88.0" y="71.6" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">8%</text><line x1="97.7" y1="224.0" x2="97.7" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="97.7" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1st</text><line x1="178.7" y1="224.0" x2="178.7" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="178.7" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">25th</text><line x1="263.0" y1="224.0" x2="263.0" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="263.0" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50th</text><line x1="347.3" y1="224.0" x2="347.3" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="347.3" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">75th</text><line x1="428.3" y1="224.0" x2="428.3" y2="229.0" stroke="currentColor" stroke-width="1"/><text x="428.3" y="242.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">99th</text><path d="M96.0,221.6 L97.4,220.9 L98.8,220.4 L100.2,220.0 L101.6,219.6 L103.0,219.2 L104.3,218.9 L105.7,218.6 L107.1,218.3 L108.5,218.0 L109.9,217.7 L111.3,217.5 L112.7,217.2 L114.1,217.0 L115.5,216.7 L116.9,216.5 L118.3,216.2 L119.7,216.0 L121.0,215.8 L122.4,215.5 L123.8,215.3 L125.2,215.1 L126.6,214.9 L128.0,214.7 L129.4,214.5 L130.8,214.3 L132.2,214.0 L133.6,213.8 L135.0,213.6 L136.4,213.4 L137.8,213.2 L139.1,213.0 L140.5,212.8 L141.9,212.6 L143.3,212.4 L144.7,212.2 L146.1,212.0 L147.5,211.8 L148.9,211.6 L150.3,211.5 L151.7,211.3 L153.1,211.1 L154.4,210.9 L155.8,210.7 L157.2,210.5 L158.6,210.3 L160.0,210.1 L161.4,209.9 L162.8,209.7 L164.2,209.5 L165.6,209.3 L167.0,209.1 L168.4,208.9 L169.8,208.7 L171.2,208.6 L172.5,208.4 L173.9,208.2 L175.3,208.0 L176.7,207.8 L178.1,207.6 L179.5,207.4 L180.9,207.2 L182.3,207.0 L183.7,206.8 L185.1,206.6 L186.5,206.4 L187.8,206.2 L189.2,206.0 L190.6,205.8 L192.0,205.6 L193.4,205.4 L194.8,205.2 L196.2,205.0 L197.6,204.8 L199.0,204.6 L200.4,204.4 L201.8,204.2 L203.2,204.0 L204.5,203.8 L205.9,203.6 L207.3,203.4 L208.7,203.2 L210.1,203.0 L211.5,202.8 L212.9,202.6 L214.3,202.4 L215.7,202.2 L217.1,201.9 L218.5,201.7 L219.9,201.5 L221.2,201.3 L222.6,201.1 L224.0,200.9 L225.4,200.7 L226.8,200.4 L228.2,200.2 L229.6,200.0 L231.0,199.8 L232.4,199.6 L233.8,199.3 L235.2,199.1 L236.6,198.9 L238.0,198.6 L239.3,198.4 L240.7,198.2 L242.1,198.0 L243.5,197.7 L244.9,197.5 L246.3,197.2 L247.7,197.0 L249.1,196.8 L250.5,196.5 L251.9,196.3 L253.3,196.0 L254.7,195.8 L256.0,195.5 L257.4,195.3 L258.8,195.0 L260.2,194.8 L261.6,194.5 L263.0,194.3 L264.4,194.0 L265.8,193.8 L267.2,193.5 L268.6,193.2 L270.0,193.0 L271.4,192.7 L272.7,192.4 L274.1,192.1 L275.5,191.9 L276.9,191.6 L278.3,191.3 L279.7,191.0 L281.1,190.7 L282.5,190.5 L283.9,190.2 L285.3,189.9 L286.7,189.6 L288.0,189.3 L289.4,189.0 L290.8,188.7 L292.2,188.4 L293.6,188.1 L295.0,187.7 L296.4,187.4 L297.8,187.1 L299.2,186.8 L300.6,186.5 L302.0,186.1 L303.4,185.8 L304.8,185.5 L306.1,185.1 L307.5,184.8 L308.9,184.4 L310.3,184.1 L311.7,183.7 L313.1,183.3 L314.5,183.0 L315.9,182.6 L317.3,182.2 L318.7,181.9 L320.1,181.5 L321.5,181.1 L322.8,180.7 L324.2,180.3 L325.6,179.9 L327.0,179.5 L328.4,179.1 L329.8,178.7 L331.2,178.2 L332.6,177.8 L334.0,177.4 L335.4,176.9 L336.8,176.5 L338.1,176.0 L339.5,175.5 L340.9,175.1 L342.3,174.6 L343.7,174.1 L345.1,173.6 L346.5,173.1 L347.9,172.6 L349.3,172.1 L350.7,171.5 L352.1,171.0 L353.5,170.4 L354.9,169.9 L356.2,169.3 L357.6,168.7 L359.0,168.1 L360.4,167.5 L361.8,166.9 L363.2,166.3 L364.6,165.6 L366.0,165.0 L367.4,164.3 L368.8,163.6 L370.2,162.9 L371.6,162.2 L372.9,161.4 L374.3,160.7 L375.7,159.9 L377.1,159.1 L378.5,158.3 L379.9,157.4 L381.3,156.5 L382.7,155.6 L384.1,154.7 L385.5,153.8 L386.9,152.8 L388.2,151.8 L389.6,150.7 L391.0,149.6 L392.4,148.5 L393.8,147.3 L395.2,146.1 L396.6,144.8 L398.0,143.5 L399.4,142.1 L400.8,140.7 L402.2,139.2 L403.6,137.6 L404.9,135.9 L406.3,134.1 L407.7,132.2 L409.1,130.2 L410.5,128.1 L411.9,125.8 L413.3,123.3 L414.7,120.6 L416.1,117.7 L417.5,114.5 L418.9,110.9 L420.3,106.9 L421.6,102.4 L423.0,97.1 L424.4,90.9 L425.8,83.2 L427.2,73.3 L428.6,59.5 L430.0,36.8" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><line x1="96.0" y1="184.9" x2="430.0" y2="184.9" stroke="currentColor" stroke-width="1.3" opacity=".45" stroke-dasharray="5 4"/><text x="104.0" y="177.9" font-size="10" fill="currentColor" opacity=".75">population risk, 2%</text><circle cx="428.3" cy="62.9" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="397.9" cy="143.6" r="4.5" fill="var(--color-accent, #2e6e5e)"/><circle cx="97.7" cy="220.8" r="4.5" fill="var(--color-accent, #2e6e5e)"/><text x="419.3" y="56.9" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">8.24%</text><text x="406.9" y="137.6" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="start" font-weight="600">4.11%</text><text x="106.7" y="214.8" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="start" font-weight="600">0.16%</text><text x="263.0" y="266.0" font-size="12" fill="currentColor" text-anchor="middle">Polygenic score percentile</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Absolute lifetime risk</text><text x="452.0" y="62.0" font-size="11" fill="currentColor" font-weight="700">Both are true.</text><text x="452.0" y="82.0" font-size="10" fill="currentColor" opacity=".8">People in the top centile</text><text x="452.0" y="95.0" font-size="10" fill="currentColor" opacity=".8">carry 86.1 times the risk</text><text x="452.0" y="108.0" font-size="10" fill="currentColor" opacity=".8">of those in the bottom —</text><text x="452.0" y="121.0" font-size="10" fill="currentColor" opacity=".8">and an 89.79% chance of</text><text x="452.0" y="134.0" font-size="10" fill="currentColor" opacity=".8">never getting the</text><text x="452.0" y="147.0" font-size="10" fill="currentColor" opacity=".8">disease at all.</text><text x="452.0" y="178.0" font-size="11" fill="currentColor" font-weight="700">The curve is risk AT</text><text x="452.0" y="193.0" font-size="11" fill="currentColor" font-weight="700">a centile; a group</text><text x="452.0" y="208.0" font-size="11" fill="currentColor" font-weight="700">mean sits above it.</text></svg>
 </Figure>
 
 ## Where the accuracy goes when the ancestry changes
@@ -222,7 +238,8 @@ A score explains $r^2 = 0.10$ of liability for a disease with prevalence $K = 0.
 about 28.3%.
 
 **(c)** The 1st centile gives $0.016738$, so the ratio is $0.282502/0.016738 = 16.9$ — much
-*smaller* than the 50.2 of the worked example, for exactly the same score. Fold-changes shrink
+*smaller* than the 50.2 the worked example got at the same two centiles, for exactly the same
+score. (Both are point ratios, so they are comparable; the group ratios would differ too.) Fold-changes shrink
 as prevalence rises, because the threshold moves into the denser part of the liability
 distribution where a given shift in liability changes risk proportionally less. A headline
 fold-change therefore says as much about the disease's rarity as about the score's quality,
@@ -280,8 +297,11 @@ African-ancestry. What happens?
 <div slot="solution">
 
 **(a)** $T = \Phi^{-1}(0.99) = 2.326348$ and $r = \sqrt{0.15} = 0.387298$. The 95th centile
-has $z = 1.644854$, giving $\text{risk} = 0.033453$ — about 3.3%. So roughly 33 in every
-1,000 screened would develop the disease and about 967 would not. Whether that justifies
+has $z = 1.644854$, giving $\text{risk} = 0.033453$ at the boundary — but the question asks
+about the *group*, and everyone screened is above that boundary. Averaging over the top 5%
+gives $0.050973$, so roughly **51 in every 1,000 screened** would develop the disease and
+about 949 would not. Using the boundary value understates the yield by a third. (Check:
+the top 5% holds 25.5% of all cases, and $0.255 \times 0.01 / 0.05 = 0.051$.) Whether that justifies
 screening depends entirely on the procedure's harms, not on the score.
 
 **(b)** The score's accuracy in the African-ancestry portion is lower — by the three
@@ -309,9 +329,12 @@ the honest position is that the score's performance in 40% of the population is 
   curse inflates most.
 - **Three cohorts: discovery, tuning, testing.** Reporting the best of several thresholds in
   the cohort you report accuracy in is selecting a maximum and calling it an estimate.
-- **A fold-change needs an absolute risk beside it.** The same score gives 50.2× between
-  extreme centiles and a 91.76% chance of never developing the disease, and a 50-fold ratio
-  equally describes moving risk from 0.16% to 8.2% or from 1% to 50%.
+- **A fold-change needs an absolute risk beside it.** The same score gives 86.1× between
+  extreme centiles as groups and an 89.79% chance of never developing the disease, and an
+  86-fold ratio equally describes moving risk from 0.12% to 10.2% or from 1% to 86%.
+- **The risk *at* a centile is not the mean risk of the group beyond it.** Risk is convex in
+  the score, so the top centile reads 8.2357% at its boundary and 10.21% as a group — a 24%
+  gap, and the literature reports the second.
 - **Fold-changes shrink as prevalence rises**, so a headline ratio reports the disease's
   rarity as much as the score's quality.
 - **$R^2$ above $h^2_{\mathrm{SNP}}$ is an error, not a result** — usually sample overlap or
