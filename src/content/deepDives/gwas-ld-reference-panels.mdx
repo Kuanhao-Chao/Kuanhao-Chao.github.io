@@ -229,8 +229,12 @@ $r^2 = 0.14^2/(0.4 \times 0.6 \times 0.4 \times 0.6) = 0.0196/0.0576 = 0.340278$
 **(b)** No. $D_{\max} = \min(p_A p_b,\, p_a p_B) = \min(0.24, 0.24) = 0.24$, so
 $D' = 0.583333$ and $D'^2 = 0.340278$ — which does equal $r^2$ here, because the two loci
 still share the *same* allele frequency as each other (both 0.40), even though neither is
-0.50. The identity needs $p_A = p_B$, not $p_A = 0.5$; the worked example's phrasing is a
-special case of that.
+0.50. The identity needs the two loci to share a frequency *and* $D$ to be positive: with $D > 0$
+and $p_A = p_B = p$, $D_{\max} = p(1-p) = \sqrt{p_A p_a p_B p_b}$ and the two normalisations
+coincide. With $D < 0$ the maximum becomes $\min(p_A p_B,\, p_a p_b)$, which equals
+$p(1-p)$ only at $p = 0.5$ — so at $p_A = p_B = 0.40$ and $D = -0.10$ the identity fails
+outright, giving $D'^2 = 0.390625$ against $r^2 = 0.173611$. The worked example sits at
+$p_A = p_B = 0.5$, which satisfies it for either sign.
 
 **(c)** $q^2_{\text{tag}} = 0.340278 \times 8 \times 10^{-4} = 2.72222 \times 10^{-4}$, so
 the study needs $N \geq 39.600989/(2.72222 \times 10^{-4}) = 145{,}474$ people.
