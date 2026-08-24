@@ -5538,6 +5538,14 @@ describe('gwas-fine-mapping-practice', () => {
       expect(mdx).toContain('0.999821');
     });
 
+    it('the hub summarises this correctly: tighter, not better-covered', () => {
+      const hub = lesson('gwas');
+      // Coverage is slightly LOWER without the causal variant (0.999821 vs 0.999959);
+      // what makes the wrong answer look good is the smaller set at equal purity.
+      expect(hub).toContain('a *tighter* answer');
+      expect(hub).not.toContain('reports better coverage');
+    });
+
     it('step 3: the wrong answer looks better by every reported diagnostic', () => {
       const good = credibleSet(full, 0.95);
       const bad = credibleSet(dropped, 0.95);
