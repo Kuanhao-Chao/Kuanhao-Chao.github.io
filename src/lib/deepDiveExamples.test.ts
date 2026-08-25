@@ -5695,7 +5695,9 @@ describe('gwas-prs-practice', () => {
       expect(topGroup / liabilityRisk(c99, 0.1, 0.02)).toBeCloseTo(1.2402, 3);
       // and the bottom group sits BELOW its boundary, because the curve is decreasing there
       expect(bottomGroup).toBeLessThan(liabilityRisk(c01, 0.1, 0.02));
-      for (const v of ['0.102136', '0.001187', '= 86.1']) expect(mdx, v).toContain(v);
+      for (const v of ['0.102136', '0.001187', '\\approx 86.1']) expect(mdx, v).toContain(v);
+      // marked approximate: 0.102136/0.001187 is 86.0455, not 86.1 on the nose
+      expect(0.102136 / 0.001187).toBeCloseTo(86.05, 2);
     });
 
     it('step 4: the case-share identity recovers the group mean without integrating', () => {
@@ -5704,8 +5706,12 @@ describe('gwas-prs-practice', () => {
       const shareOfCases = (topGroup * 0.01) / 0.02;
       expect(100 * shareOfCases).toBeCloseTo(5.11, 2);
       expect((shareOfCases * 0.02) / 0.01).toBeCloseTo(topGroup, 12);
-      expect(mdx).toContain('5.11\\%');
-      expect(mdx).toContain('0.0511 \\times 0.02 / 0.01 = 0.102136');
+      // The identity needs the UNROUNDED share: 0.0511 x 2 = 0.1022, not 0.102136.
+      expect(100 * shareOfCases).toBeCloseTo(5.1068, 3);
+      expect(0.051068 * 0.02 / 0.01).toBeCloseTo(0.102136, 6);
+      expect(0.0511 * 0.02 / 0.01).not.toBeCloseTo(0.102136, 5);
+      expect(mdx).toContain('5.1068\\%');
+      expect(mdx).toContain('0.051068 \\times 0.02 / 0.01 = 0.102136');
     });
 
     it('step 5: the two sentences now carry the group numbers', () => {

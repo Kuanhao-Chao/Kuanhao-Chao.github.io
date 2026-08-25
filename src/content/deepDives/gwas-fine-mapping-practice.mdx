@@ -118,8 +118,10 @@ The two flanking tags now split the posterior evenly. The 95% credible set is th
 **Step 3 — compare the two reports.** Coverage: 0.999959 against 0.999821. Purity: 0.7000
 against 0.7000. Set size: three against **two**.
 
-By every number a fine-mapping tool prints, the second run is the *better* result — a tighter
-set, equally pure, equally well covered. It is also the run whose credible set does not
+By the number a reader weighs most, the second run is the *better* result — a set of two
+rather than three, at identical purity. Coverage is not quite equal, and it moves the wrong
+way for the story a tool would tell: 0.999821 against 0.999959, a difference four decimal
+places down and far too small to flag anything. It is also the run whose credible set does not
 contain the causal variant, and there is no diagnostic in the output that distinguishes them.
 
 **Step 4 — what would have caught it.** Nothing downstream. The check has to happen upstream:

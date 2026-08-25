@@ -50,7 +50,8 @@ for i, t in enumerate(['A variant at INFO 0.32', 'in 32,000 effective',
 o.append(text(LX, 168, 'So the filter is a', 11, weight='700'))
 o.append(text(LX, 183, 'power decision.', 11, weight='700'))
 for i, t in enumerate(['At the 0.3 threshold a', 'study needs 3.33x the',
-                       'effect it would need', 'with perfect calls.']):
+                       'variance explained, or', '1.83x the per-allele',
+                       'effect, that perfect', 'calling would need.']):
     o.append(text(LX, 203 + 13 * i, t, 10, opacity='.8'))
 
 print('bytes:', write(os.path.join(OUT, 'gwas-arrays-imputation-info-power.svg'),
