@@ -126,6 +126,8 @@ export const DEEP_DIVE_ORDER: string[] = [
   mlInterviewCurriculum.hub,
   ...mlInterviewCurriculum.lessons.map(({ id }) => id),
   // Single-Cell Genomics — ids are added here as each lesson lands.
+  'single-cell',
+  'sc-from-cells-to-counts',
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',

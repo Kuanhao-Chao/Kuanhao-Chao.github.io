@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clusteredFalsePositiveRate,
+  effectiveIndependentCells,
+  designEffect,
   effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
   poissonPmf, poissonZeroProbability, negBinomialPmf, nbVariance, nbZeroProbability,
   multipletRate,
@@ -2374,5 +2377,75 @@ describe('foldEnrichment', () => {
   it('rejects an impossible background', () => {
     expect(() => foldEnrichment(1, 10, 0)).toThrow();
     expect(() => foldEnrichment(1, 10, 1.5)).toThrow();
+  });
+});
+
+
+describe('clustered sampling — the design effect and what it does to a test', () => {
+  it('designEffect matches 1 + (m - 1)rho, and is 1 when there is nothing to cluster', () => {
+    for (const m of [1, 2, 10, 500, 5000])
+      for (const rho of [0, 0.01, 0.05, 0.3, 1])
+        expect(designEffect(m, rho)).toBeCloseTo(1 + (m - 1) * rho, 12);
+    expect(designEffect(1, 0.5)).toBe(1); // one cell per sample is not clustered
+    expect(designEffect(5000, 0)).toBe(1); // nor is a gene with no between-sample variance
+    expect(designEffect(10, 1)).toBe(10); // perfectly correlated cells are one observation
+  });
+
+  it('designEffect grows without bound in cells per sample', () => {
+    const rho = 0.05;
+    let prev = 0;
+    for (const m of [1, 10, 100, 1000, 10000]) {
+      const v = designEffect(m, rho);
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
+    expect(designEffect(1e6, rho)).toBeGreaterThan(1000);
+  });
+
+  it('effectiveIndependentCells saturates at n/rho however many cells are added', () => {
+    const n = 8;
+    const rho = 0.05;
+    const ceiling = n / rho;
+    expect(ceiling).toBe(160);
+    for (const m of [10, 100, 1000, 10000, 1e6])
+      expect(effectiveIndependentCells(n, m, rho)).toBeLessThan(ceiling);
+    expect(effectiveIndependentCells(n, 1e9, rho)).toBeCloseTo(ceiling, 4);
+    // with no clustering every cell counts, which is the claim the naive test makes
+    expect(effectiveIndependentCells(n, 500, 0)).toBe(4000);
+  });
+
+  it('effectiveIndependentCells buys more from donors than from cells past the knee', () => {
+    const rho = 0.05;
+    // doubling cells per sample at 500, against doubling the donors
+    const base = effectiveIndependentCells(8, 500, rho);
+    expect(effectiveIndependentCells(8, 1000, rho) - base).toBeCloseTo(2.87, 2);
+    expect(effectiveIndependentCells(16, 500, rho) - base).toBeCloseTo(154.14, 2);
+  });
+
+  it('clusteredFalsePositiveRate returns the nominal alpha exactly when m = 1', () => {
+    for (const alpha of [0.05, 0.01, 0.001])
+      expect(clusteredFalsePositiveRate(1, 0.05, alpha)).toBeCloseTo(alpha, 5);
+    expect(clusteredFalsePositiveRate(5000, 0, 0.05)).toBeCloseTo(0.05, 5);
+  });
+
+  it('clusteredFalsePositiveRate matches 2*Phi(-z/sqrt(VIF)) and rises towards 1', () => {
+    const rho = 0.05;
+    for (const m of [2, 50, 500, 5000]) {
+      const expected = 2 * normalCdf(-normalQuantile(0.975) / Math.sqrt(designEffect(m, rho)));
+      expect(clusteredFalsePositiveRate(m, rho)).toBeCloseTo(expected, 12);
+    }
+    expect(clusteredFalsePositiveRate(50, rho)).toBeCloseTo(0.2913, 4);
+    expect(clusteredFalsePositiveRate(500, rho)).toBeCloseTo(0.7004, 4);
+    expect(clusteredFalsePositiveRate(5000, rho)).toBeCloseTo(0.9015, 4);
+    // the property that makes it pathological: more data, worse calibration
+    expect(clusteredFalsePositiveRate(5000, rho))
+      .toBeGreaterThan(clusteredFalsePositiveRate(500, rho));
+    expect(clusteredFalsePositiveRate(1e7, rho)).toBeGreaterThan(0.99);
+  });
+
+  it('a stricter alpha does not rescue a clustered test', () => {
+    // going from 5% to 0.05% at 500 cells per sample still leaves a third of nulls rejected
+    expect(clusteredFalsePositiveRate(500, 0.05, 0.05)).toBeCloseTo(0.7004, 4);
+    expect(clusteredFalsePositiveRate(500, 0.05, 5e-4)).toBeGreaterThan(0.3);
   });
 });

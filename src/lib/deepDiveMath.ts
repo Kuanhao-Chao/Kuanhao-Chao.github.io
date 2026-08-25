@@ -246,6 +246,82 @@ export function multipletRate(lambda: number): number {
   return (1 - p0 - p1) / (1 - p0);
 }
 
+/**
+ * Design effect of clustered sampling: 1 + (m - 1)ρ, for m observations per cluster with
+ * intra-cluster correlation ρ.
+ *
+ * This is the factor by which the variance of a mean is *underestimated* when clustered
+ * observations are treated as independent. In single-cell work the clusters are samples
+ * (donors, mice, patients) and the observations are cells, so m is cells per sample and ρ
+ * is the share of a gene's variance that sits between samples rather than between cells
+ * within one.
+ *
+ * The consequence is the central statistical fact of the field: the design effect grows
+ * **linearly in cells per sample and without bound**, so sequencing more cells from the
+ * same donors does not buy independent replicates. It buys a more precise estimate of
+ * those particular donors.
+ */
+export function designEffect(cellsPerSample: number, icc: number): number {
+  if (cellsPerSample < 1) throw new RangeError(`designEffect needs m >= 1, got ${cellsPerSample}`);
+  if (icc < 0 || icc > 1) throw new RangeError(`designEffect needs icc in [0,1], got ${icc}`);
+  return 1 + (cellsPerSample - 1) * icc;
+}
+
+/**
+ * Cells that a clustered design is worth, n·m/(1 + (m - 1)ρ).
+ *
+ * As m grows this saturates at n/ρ — the same shape as a case-control study's control
+ * ceiling, and with the same moral. Past a few multiples of 1/ρ, the next cell is nearly
+ * worthless and the next donor is not.
+ */
+export function effectiveIndependentCells(
+  nSamples: number,
+  cellsPerSample: number,
+  icc: number,
+): number {
+  if (nSamples < 1) throw new RangeError(`effectiveIndependentCells needs n >= 1, got ${nSamples}`);
+  return (nSamples * cellsPerSample) / designEffect(cellsPerSample, icc);
+}
+
+/**
+ * False-positive rate of a two-sided test run at nominal `alpha` on clustered observations
+ * treated as independent.
+ *
+ * The naive statistic is inflated by √(design effect), so the true null distribution
+ * crosses the nominal critical value far more often than α: the rate is
+ * 2Φ(−z_{α/2}/√(1 + (m − 1)ρ)), which rises towards 1 as m grows. A test that gets *worse*
+ * with more data is the signature of the error, and no multiple-testing correction repairs
+ * it, because the p-values are wrong rather than merely numerous.
+ */
+export function clusteredFalsePositiveRate(
+  cellsPerSample: number,
+  icc: number,
+  alpha = 0.05,
+): number {
+  if (alpha <= 0 || alpha >= 1) throw new RangeError(`clusteredFalsePositiveRate needs alpha in (0,1), got ${alpha}`);
+  const zCrit = normalQuantile(1 - alpha / 2);
+  return 2 * normalCdf(-zCrit / Math.sqrt(designEffect(cellsPerSample, icc)));
+}
+
+/**
+ * Method-of-moments dispersion for a negative binomial, θ = μ²/(σ² − μ).
+ *
+ * Inverts nbVariance. It is the cheapest honest way to ask whether a gene's zeros need
+ * explaining: fit θ from the mean and variance alone, then compare the NB zero probability
+ * it implies against the zeros actually observed. In droplet data the two almost always
+ * agree, which is the finding that removed zero-inflation from the standard model — the
+ * excess zeros over Poisson are explained by overdispersion, not by a separate dropout
+ * process.
+ *
+ * Returns Infinity when σ² <= μ: under-dispersed data has no NB fit, and the Poisson limit
+ * (θ → ∞) is the closest member of the family.
+ */
+export function nbTheta(mean: number, variance: number): number {
+  if (mean <= 0) throw new RangeError(`nbTheta needs mean > 0, got ${mean}`);
+  if (variance <= mean) return Number.POSITIVE_INFINITY;
+  return (mean * mean) / (variance - mean);
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**
