@@ -126,7 +126,9 @@ contain the causal variant, and there is no diagnostic in the output that distin
 confirm that the region's variants were not thinned by an INFO filter, that the reference
 panel covers the region's frequency spectrum, and that indels and multi-allelic sites were
 not silently dropped. A credible set is only as complete as the candidate list it was given,
-and that list is assembled three lessons earlier.
+and that list is assembled in
+[Arrays & Imputation](/deep_dives/gwas-arrays-imputation/) and
+[Quality Control](/deep_dives/gwas-quality-control/), six and five lessons earlier.
 
 </WorkedExample>
 
@@ -180,8 +182,12 @@ automated answer and are still a ranking, not an identification.
 
 <Callout variant="warning" title="Fine-mapping transfers worse than association does">
 
-Association results replicate across populations reasonably well, because the causal variant
-is usually present in both and the tag structure only has to be good enough to find it.
+The *direction* of an effect at an already-discovered locus is often concordant across
+populations, because the causal variant is usually present in both. Whether the locus is
+**detectable** at all is not: the previous lesson took one tag from $r^2 = 0.64$ to $0.078$
+between two populations at identical allele frequencies, an 8.16-fold penalty in the sample
+size needed to see through it. So even association transfers less well than it is usually
+credited with.
 Fine-mapping does not, for the reason lesson 7 made concrete: the credible set depends on
 $r^2$ among candidates, and $r^2$ is population-specific.
 

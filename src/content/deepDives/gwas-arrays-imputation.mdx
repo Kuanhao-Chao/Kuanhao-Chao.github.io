@@ -278,10 +278,16 @@ typed.
 **(c)** At $\hat{r}^2 = 0.2$ the variant is worth 10,000 effective samples and can detect
 $q^2 \geq 3.9601 \times 10^{-3}$ — against $2.6401 \times 10^{-3}$ at the 0.3 threshold, and
 $7.9202 \times 10^{-4}$ at perfect calling. So the variants the relaxation admits are ones
-the study can only see if their effects are **five times** the study's floor. They are not
-free: each one is another test in the multiple-testing burden, which the later lesson on
-reading the output makes precise. Relaxing an INFO filter adds tests faster than it adds
-power.
+the study can only see if their effects are **five times** the study's floor.
+
+What relaxing the filter does *not* do is raise the multiple-testing burden. It is tempting
+to assume it does, but the threshold counts effectively independent tests, and LD fixes that
+count at roughly a million however many variants a chip or a filter admits — the point
+[Reading the Output](/deep_dives/gwas-reading-the-output/) makes about denser arrays. The
+badly-imputed variants a lower cut lets through sit in LD with variants already tested and
+add essentially no independent tests. The cost is entirely per-variant: they are positions
+the study cannot see unless their effects are implausibly large, reported alongside ones it
+can.
 
 </div>
 </Exercise>

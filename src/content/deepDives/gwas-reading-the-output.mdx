@@ -185,11 +185,22 @@ sample size. And a wide peak is not a large region of causal variation; it is on
 spread across everything in LD with it, which is the subject of the next two lessons.
 
 **The QQ plot** shows observed against expected quantiles, and is the more informative of the
-two. Early departure from the diagonal across the whole distribution is inflation — the
-previous lesson's subject. Departure only in the extreme tail, with the bulk on the
-diagonal, is what real signal looks like. The distinction is visible by eye and is the first
-thing to check before reading any threshold at all
-<Citation id="devlin1999gc" />.
+two — but not in the way it is usually read. The folk rule is that early departure across the
+whole distribution means inflation while tail-only departure means real signal. That rule is
+false in exactly the regime this track cares about. Under
+$\mathbb{E}[\chi^2_j] = 1 + Na + (Nh^2/M)\ell_j$, a polygenic trait lifts **every** statistic
+in proportion to how much genome the variant tags: at $N = 10^5$, $h^2 = 0.3$ and
+$M = 10^6$, a variant with an LD score of 50 already expects $\chi^2 = 2.5$. A clean,
+well-powered scan of a polygenic trait therefore leaves the diagonal early, bulk and all —
+which is the same fact that makes $\lambda_{\mathrm{GC}}$ useless, since $\lambda$ *is* the
+median of that bulk.
+
+So curve shape alone cannot separate confounding from polygenicity, and the diagnostic is the
+LD score regression intercept, the subject of
+[Population Structure](/deep_dives/gwas-population-structure/)
+<Citation id="devlin1999gc" />. What a flat bulk with a tail-only departure actually indicates
+is a *sparse* architecture or a study too small to lift the bulk yet — informative, but not
+what "real signal" looks like for a typical complex trait.
 
 Neither plot is a substitute for the catalogue <Citation id="sollis2023gwascatalog" />: the
 question "has this locus been seen before?" is answered by looking, not by squinting at a

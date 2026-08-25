@@ -5274,6 +5274,22 @@ describe('gwas-running-the-scan', () => {
   });
 
   describe('exercises', () => {
+    it('does not claim the additive test is never the worst', () => {
+      // True across monotone models (dominant → additive → recessive), false under a
+      // heterozygote-effect truth, where the 0/1/2 score is uncorrelated with the risk
+      // pattern and the additive test returns exactly zero.
+      const od: [number, number, number] = [1000, 1400, 1000];
+      const odCtrl: [number, number, number] = [1200, 1000, 1200];
+      expect(armitageTrend(od, odCtrl, ADD)).toBeCloseTo(0, 10);
+      expect(armitageTrend(od, odCtrl, DOM)).toBeCloseTo(26.8775, 4);
+      expect(armitageTrend(od, odCtrl, REC)).toBeCloseTo(26.8775, 4);
+      // The assertive form, not the string: the lesson now quotes the phrase in order to
+      // disown it ('"never the worst" is not true of it').
+      expect(mdx).not.toContain('encoding is never the worst');
+      expect(mdx).toContain('Across the monotone models');
+      expect(mdx).toContain('heterozygote-effect');
+    });
+
     it('1 — the additive test wins on an additive-truth locus', () => {
       const a = armitageTrend(ADDITIVE_CASES, ADDITIVE_CONTROLS, ADD);
       expect(a).toBeCloseTo(86.2613, 4);
@@ -5362,6 +5378,15 @@ describe('gwas-reading-the-output', () => {
       expect(mdx).toContain('1.83%');
       expect(mdx).toContain('0.01%');
     });
+  });
+
+  it('does not teach that a lifted QQ bulk means confounding', () => {
+    // A polygenic trait lifts every statistic: at N=1e5, h2=0.3, M=1e6 a variant with an
+    // LD score of 50 already expects chi2 = 2.5, so a clean scan leaves the diagonal early.
+    expect(1 + ((1e5 * 0.3) / 1e6) * 50).toBeCloseTo(2.5, 10);
+    expect(mdx).toContain('lifts **every** statistic');
+    expect(mdx).not.toContain('Departure only in the extreme tail, with the bulk on the');
+    expect(mdx).toContain('/deep_dives/gwas-population-structure/');
   });
 
   describe('exercises', () => {
@@ -5457,11 +5482,35 @@ describe('gwas-ld-reference-panels', () => {
     });
   });
 
+  it('does not claim the LDSC intercept survives a mismatched panel', () => {
+    // Multiplicative rescaling leaves the intercept exactly alone; variant-level noise —
+    // which a real panel mismatch has — inflates it, so a clean intercept proves nothing.
+    const L: number[] = [];
+    const C: number[] = [];
+    for (let i = 0; i < 400; i += 1) {
+      const l = 20 + (i % 100) * 1.6;
+      L.push(l);
+      C.push(1.02 + (1e5 * 0.3 / 1e6) * l);
+    }
+    expect(ldscRegression(L, C, 1e5, 1e6).intercept).toBeCloseTo(1.02, 6);
+    expect(ldscRegression(L.map((l) => l * 1.2), C, 1e5, 1e6).intercept).toBeCloseTo(1.02, 6);
+    let seed = 7;
+    const rnd = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648 - 0.5;
+    };
+    const noisy = ldscRegression(L.map((l) => l + 25 * rnd() * 3.46), C, 1e5, 1e6);
+    expect(noisy.intercept).toBeGreaterThan(1.5);
+    expect(noisy.slope).toBeLessThan(1e5 * 0.3 / 1e6);
+    expect(mdx).not.toContain('remains interpretable even when the slope is not');
+    expect(mdx).toContain('errors-in-variables');
+  });
+
   describe('figure 1 — every label it draws', () => {
     it('draws both grids with their haplotype frequencies and summaries', () => {
       for (const l of ['0.45', '0.05', '0.32', '0.18', 'D = 0.2000', "D' = 0.8000",
                        'r² = 0.640000', 'D = 0.0700', "D' = 0.2800", 'r² = 0.078400',
-                       'N needed: 61,877', 'N needed: 505,115'])
+                       'needed: 61,877', 'needed: 505,115'])
         expect(mdx, `figure label ${l}`).toContain(l);
     });
   });

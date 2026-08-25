@@ -36,7 +36,7 @@ for pi, (title, bars) in enumerate(PANELS):
 
 o.append(text(150.0, 46.0, 'threshold 29.72', 9, opacity='.7'))
 o.append(text(310.0, 330.0, 'Association statistic (chi-square, 1 df)', 12, anchor='middle'))
-o.append(text(20, 24, 'The additive encoding is never the worst, and rarely far from the best',
+o.append(text(20, 24, 'Across monotone models the additive encoding is rarely far from the best',
               11.5, opacity='.8'))
 o.append(text(20, 356, 'Under a recessive truth the recessive test wins — and the additive test',
               10, opacity='.85'))
