@@ -1,0 +1,314 @@
+---
+title: "Single-Cell Genomics"
+shortTitle: Single-Cell Genomics
+description: "A seventeen-lesson track building single-cell analysis from the count model up — what a count is, how to make the matrix usable, the geometry of clustering, what the clusters mean, and the statistics that decide whether a result is real."
+abstract: "Single-cell genomics is usually taught as a pipeline: load the matrix, filter, normalise, cluster, annotate, test. The steps are easy to run and the defaults usually produce something. This track teaches the same sequence as a series of statistical decisions, each with a derivation and a failure mode, because the pipeline's most consequential error is invisible at every step that precedes it. Cells from one donor are not independent replicates of that donor, so a differential-expression test run per cell has a false-positive rate set by the design effect 1 + (m − 1)ρ rather than by its nominal α. At an intra-donor correlation of 0.05 and 500 cells per donor, a nominal 5% test rejects 70.0% of true nulls, and adding cells makes it worse: 40,000 cells from eight donors are worth 159 independent ones against a hard ceiling of 160. The track is built so that this result arrives with the machinery to understand it already in place."
+date: 2026-08-25
+track: theory
+hub: single-cell
+isHub: true
+moduleId: s00-hub
+moduleLabel: Track overview
+order: 0
+level: foundational
+objectives:
+  - "Describe what a single-cell count matrix is a record of, and what it is not a measurement of."
+  - "Compute the design effect of a clustered single-cell design and the false-positive rate it produces."
+  - "Explain why more cells from the same donors do not buy statistical power, and what does."
+  - "Navigate the track's five modules and say what each one is responsible for."
+prerequisites: []
+keyEquations:
+  - '\mathrm{DE} = 1 + (m - 1)\rho'
+  - '\mathrm{FPR} = 2\Phi\!\left(-z_{\alpha/2} / \sqrt{\mathrm{DE}}\right)'
+  - 'N_{\mathrm{eff}} = \dfrac{nm}{1 + (m-1)\rho} \to \dfrac{n}{\rho}'
+referenceIds:
+  - macosko2015dropseq
+  - zheng2017chromium
+  - luecken2019bestpractices
+  - svensson2020zeroinflation
+  - squair2021falsediscoveries
+  - crowell2020muscat
+  - wolf2018scanpy
+  - hao2021seurat
+tags: [single-cell, scRNA-seq, count models, clustering, differential expression, pseudobulk]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## What this track is for
+
+Measuring transcription one cell at a time turned a twenty-year-old average into a
+distribution. Tissues that looked homogeneous in bulk turned out to hold a dozen states; rare
+populations that bulk RNA-seq had diluted into invisibility became findable; and questions
+about *which* cells respond to a treatment became askable at all. The methods that made this
+routine arrived within a few years of each other <Citation id="macosko2015dropseq" />
+<Citation id="zheng2017chromium" />, and the software that analyses their output is now mature
+and well documented <Citation id="wolf2018scanpy" /><Citation id="hao2021seurat" />.
+
+That maturity is the problem this track is written against. The standard pipeline runs to
+completion on almost any input and returns clusters, markers and p-values whether or not any
+of them mean anything. Nearly every default is defensible; the trouble is that defending a
+default requires knowing what it assumes, and the tutorials that teach the steps rarely teach
+the assumptions <Citation id="luecken2019bestpractices" />.
+
+So this track derives rather than prescribes. Seventeen lessons, five modules, each lesson
+owning one decision — what a count is, what to filter, how to normalise, how many dimensions
+to keep, how to decide there are seven clusters rather than twelve, whether a difference
+between conditions is real. The order is the order of the pipeline, because the errors
+compound in that order.
+
+<Notation
+  rows={[
+    { symbol: 'c_{gj}', meaning: 'Count of gene g in cell j — the matrix entry', dims: 'integer >= 0' },
+    { symbol: 'n_j', meaning: 'Library size of cell j, the sum of its counts', dims: 'integer >= 0' },
+    { symbol: 'n', meaning: 'Number of independent samples — donors, animals, patients', dims: 'count' },
+    { symbol: 'm', meaning: 'Cells assayed per sample', dims: 'count' },
+    { symbol: '\\rho', meaning: 'Intra-class correlation — share of a gene\'s variance sitting between samples', dims: 'in [0,1]' },
+    { symbol: '\\mathrm{DE}', meaning: 'Design effect — factor by which clustering inflates the variance of a mean', dims: '>= 1' },
+    { symbol: '\\alpha', meaning: 'Nominal significance level of a test', dims: 'in (0,1)' },
+  ]}
+/>
+
+## The result the whole track is arranged around
+
+Here is the finding that decides whether a single-cell paper is right, and it is arithmetic
+rather than biology.
+
+A typical experiment has a handful of donors per condition and thousands of cells per donor.
+The obvious analysis treats each cell as an observation, which gives tens of thousands of
+observations and correspondingly tiny p-values. But cells from one donor share that donor's
+genotype, age, treatment history, batch, dissociation stress and sequencing run. They are
+correlated, and correlated observations carry less information than independent ones.
+
+Write $\rho$ for the share of a gene's variance that sits *between* donors rather than between
+cells within a donor. Then the variance of a group mean computed from $m$ cells per donor is
+larger than the independence assumption allows by the **design effect**
+
+$$
+\mathrm{DE} = 1 + (m - 1)\rho,
+$$
+
+which is linear in cells per donor and unbounded. Every test statistic computed as though the
+cells were independent is inflated by $\sqrt{\mathrm{DE}}$, so a two-sided test at nominal
+$\alpha$ actually rejects true nulls at
+
+$$
+\mathrm{FPR} = 2\Phi\!\left(\frac{-z_{\alpha/2}}{\sqrt{1 + (m-1)\rho}}\right).
+$$
+
+At $\rho = 0.05$ — a modest value — and 500 cells per donor, a nominal 5% test rejects **70.0%**
+of genes that do not differ at all. At 5,000 cells per donor it rejects **90.2%**. The test
+gets worse as the experiment gets bigger, which is the opposite of how statistics is supposed
+to behave, and it is why lists of thousands of "differentially expressed" genes with
+astronomically small p-values are the field's most reproducible artefact
+<Citation id="squair2021falsediscoveries" />.
+
+<Figure
+  caption="Figure 1. False-positive rate of a differential-expression test run per cell at nominal 5%, against cells per sample, at an intra-sample correlation of 0.05. The rate rises with the number of cells because the design effect 1 + (m − 1)ρ grows linearly in m: 29.1% at 50 cells per sample, 70.0% at 500, and 90.2% at 5,000. Aggregating each sample to a single value before testing removes the clustering entirely and is calibrated at 5% by construction."
+  alt="A rising S-shaped curve on a logarithmic x-axis showing the fraction of null genes called significant against cells per sample, climbing from near 5% at one cell to over 90% at ten thousand. A dashed horizontal line at 5% is labelled as the calibrated pseudobulk rate. Three points are marked at 29.1%, 70.0% and 90.2%."
+>
+<svg viewBox="0 0 760 320" width="760" height="320" font-family="inherit"><line x1="104.0" y1="44.0" x2="104.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="236.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0%</text><line x1="104.0" y1="185.0" x2="424.0" y2="185.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="189.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">25%</text><line x1="104.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="142.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">50%</text><line x1="104.0" y1="91.0" x2="424.0" y2="91.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="95.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">75%</text><line x1="104.0" y1="44.0" x2="424.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="48.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">100%</text><line x1="104.0" y1="232.0" x2="104.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="184.0" y1="232.0" x2="184.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="184.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="264.0" y1="232.0" x2="264.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="264.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="344.0" y1="232.0" x2="344.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="344.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1,000</text><line x1="424.0" y1="232.0" x2="424.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10,000</text><line x1="104.0" y1="222.6" x2="424.0" y2="222.6" stroke="currentColor" stroke-width="1.6" opacity=".55" stroke-dasharray="5 4"/><text x="420.0" y="213.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">pseudobulk: calibrated at 5%</text><path d="M104.0,222.6 L105.2,222.6 L106.5,222.5 L107.7,222.5 L108.9,222.4 L110.2,222.4 L111.4,222.3 L112.6,222.3 L113.8,222.2 L115.1,222.2 L116.3,222.1 L117.5,222.1 L118.8,222.0 L120.0,222.0 L121.2,221.9 L122.5,221.8 L123.7,221.8 L124.9,221.7 L126.2,221.6 L127.4,221.6 L128.6,221.5 L129.8,221.4 L131.1,221.3 L132.3,221.2 L133.5,221.1 L134.8,221.0 L136.0,220.9 L137.2,220.8 L138.5,220.7 L139.7,220.6 L140.9,220.5 L142.2,220.4 L143.4,220.3 L144.6,220.2 L145.8,220.0 L147.1,219.9 L148.3,219.8 L149.5,219.6 L150.8,219.5 L152.0,219.3 L153.2,219.2 L154.5,219.0 L155.7,218.8 L156.9,218.6 L158.2,218.4 L159.4,218.3 L160.6,218.1 L161.8,217.8 L163.1,217.6 L164.3,217.4 L165.5,217.2 L166.8,216.9 L168.0,216.7 L169.2,216.4 L170.5,216.2 L171.7,215.9 L172.9,215.6 L174.2,215.3 L175.4,215.0 L176.6,214.7 L177.8,214.3 L179.1,214.0 L180.3,213.7 L181.5,213.3 L182.8,212.9 L184.0,212.5 L185.2,212.1 L186.5,211.7 L187.7,211.3 L188.9,210.8 L190.2,210.4 L191.4,209.9 L192.6,209.4 L193.8,208.9 L195.1,208.4 L196.3,207.8 L197.5,207.3 L198.8,206.7 L200.0,206.1 L201.2,205.5 L202.5,204.9 L203.7,204.3 L204.9,203.6 L206.2,202.9 L207.4,202.2 L208.6,201.5 L209.8,200.8 L211.1,200.0 L212.3,199.3 L213.5,198.5 L214.8,197.7 L216.0,196.9 L217.2,196.0 L218.5,195.1 L219.7,194.3 L220.9,193.4 L222.2,192.4 L223.4,191.5 L224.6,190.5 L225.8,189.6 L227.1,188.6 L228.3,187.6 L229.5,186.5 L230.8,185.5 L232.0,184.4 L233.2,183.3 L234.5,182.3 L235.7,181.1 L236.9,180.0 L238.2,178.9 L239.4,177.7 L240.6,176.6 L241.8,175.4 L243.1,174.2 L244.3,173.0 L245.5,171.8 L246.8,170.6 L248.0,169.3 L249.2,168.1 L250.5,166.8 L251.7,165.6 L252.9,164.3 L254.2,163.0 L255.4,161.8 L256.6,160.5 L257.8,159.2 L259.1,157.9 L260.3,156.6 L261.5,155.3 L262.8,154.0 L264.0,152.7 L265.2,151.4 L266.5,150.1 L267.7,148.8 L268.9,147.5 L270.2,146.2 L271.4,144.9 L272.6,143.7 L273.8,142.4 L275.1,141.1 L276.3,139.8 L277.5,138.5 L278.8,137.3 L280.0,136.0 L281.2,134.8 L282.5,133.5 L283.7,132.3 L284.9,131.0 L286.2,129.8 L287.4,128.6 L288.6,127.4 L289.8,126.2 L291.1,125.0 L292.3,123.8 L293.5,122.7 L294.8,121.5 L296.0,120.4 L297.2,119.2 L298.5,118.1 L299.7,117.0 L300.9,115.9 L302.2,114.8 L303.4,113.7 L304.6,112.6 L305.8,111.6 L307.1,110.5 L308.3,109.5 L309.5,108.5 L310.8,107.5 L312.0,106.5 L313.2,105.5 L314.5,104.5 L315.7,103.5 L316.9,102.6 L318.2,101.6 L319.4,100.7 L320.6,99.8 L321.8,98.9 L323.1,98.0 L324.3,97.1 L325.5,96.3 L326.8,95.4 L328.0,94.6 L329.2,93.7 L330.5,92.9 L331.7,92.1 L332.9,91.3 L334.2,90.5 L335.4,89.8 L336.6,89.0 L337.8,88.3 L339.1,87.5 L340.3,86.8 L341.5,86.1 L342.8,85.4 L344.0,84.7 L345.2,84.0 L346.5,83.3 L347.7,82.7 L348.9,82.0 L350.2,81.4 L351.4,80.7 L352.6,80.1 L353.8,79.5 L355.1,78.9 L356.3,78.3 L357.5,77.7 L358.8,77.1 L360.0,76.6 L361.2,76.0 L362.5,75.5 L363.7,74.9 L364.9,74.4 L366.2,73.9 L367.4,73.4 L368.6,72.9 L369.8,72.4 L371.1,71.9 L372.3,71.4 L373.5,70.9 L374.8,70.5 L376.0,70.0 L377.2,69.6 L378.5,69.1 L379.7,68.7 L380.9,68.3 L382.2,67.8 L383.4,67.4 L384.6,67.0 L385.8,66.6 L387.1,66.2 L388.3,65.8 L389.5,65.5 L390.8,65.1 L392.0,64.7 L393.2,64.4 L394.5,64.0 L395.7,63.7 L396.9,63.3 L398.2,63.0 L399.4,62.7 L400.6,62.3 L401.8,62.0 L403.1,61.7 L404.3,61.4 L405.5,61.1 L406.8,60.8 L408.0,60.5 L409.2,60.2 L410.5,59.9 L411.7,59.6 L412.9,59.4 L414.2,59.1 L415.4,58.8 L416.6,58.6 L417.8,58.3 L419.1,58.1 L420.3,57.8 L421.5,57.6 L422.8,57.4 L424.0,57.1" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.3"/><circle cx="239.9" cy="177.2" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="319.9" cy="100.3" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="399.9" cy="62.5" r="4.2" fill="var(--color-accent, #2e6e5e)"/><text x="264.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Cells per sample</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Null genes called significant</text><text x="446.0" y="60.0" font-size="11" fill="currentColor" font-weight="700">More cells, worse test.</text><text x="446.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">50 cells</text><text x="546.0" y="80.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">29.1%</text><text x="446.0" y="96.0" font-size="10" fill="currentColor" opacity=".8">500 cells</text><text x="546.0" y="96.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">70.0%</text><text x="446.0" y="112.0" font-size="10" fill="currentColor" opacity=".8">5,000 cells</text><text x="546.0" y="112.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">90.2%</text><text x="446.0" y="148.0" font-size="10" fill="currentColor" opacity=".8">At an intra-donor correlation</text><text x="446.0" y="161.0" font-size="10" fill="currentColor" opacity=".8">of 0.05, a per-cell test at</text><text x="446.0" y="174.0" font-size="10" fill="currentColor" opacity=".8">nominal 5% rejects seven in</text><text x="446.0" y="187.0" font-size="10" fill="currentColor" opacity=".8">ten true nulls once there are</text><text x="446.0" y="200.0" font-size="10" fill="currentColor" opacity=".8">500 cells per donor - and the</text><text x="446.0" y="213.0" font-size="10" fill="currentColor" opacity=".8">cells, not the biology, are</text><text x="446.0" y="226.0" font-size="10" fill="currentColor" opacity=".8">what drives the number up.</text><text x="446.0" y="239.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="446.0" y="252.0" font-size="10" fill="currentColor" opacity=".8">Averaging each donor to one</text><text x="446.0" y="265.0" font-size="10" fill="currentColor" opacity=".8">value first is the only line</text><text x="446.0" y="278.0" font-size="10" fill="currentColor" opacity=".8">here that is calibrated.</text></svg>
+</Figure>
+
+<Callout variant="intuition" title="Ask how many times the experiment was done">
+
+The cure is a question, not a method: **how many times was this experiment performed?** If a
+treatment was given to four mice and a vehicle to four others, the experiment was performed
+eight times, and no amount of sequencing changes that. Twenty thousand cells is a very precise
+measurement of those eight animals.
+
+Everything in the statistical treatment follows from taking that seriously. Average each
+animal's cells to one value per gene per cell type — a **pseudobulk** profile — and test those
+eight numbers with an ordinary bulk method <Citation id="crowell2020muscat" />. It feels
+wasteful, throwing away 20,000 observations to get 8. It is not: the 20,000 were never 20,000.
+
+</Callout>
+
+<WorkedExample
+  title="What forty thousand cells are actually worth"
+  given={[
+    'Eight donors, 5,000 cells assayed from each',
+    'Intra-donor correlation rho = 0.05 for the gene in question',
+    'A per-cell test at nominal alpha = 0.05',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the design effect.**
+
+$$
+\mathrm{DE} = 1 + (5{,}000 - 1)(0.05) = 250.95.
+$$
+
+The variance of each group's mean is 251 times what the per-cell analysis believes it to be.
+
+**Step 2 — what that does to the test.** Statistics are inflated by
+$\sqrt{250.95} = 15.841$, so the nominal 5% critical value of 1.96 is really being applied at
+$1.96/15.841 = 0.12372$ standard errors:
+
+$$
+\mathrm{FPR} = 2\Phi(-0.12372) = 0.9015.
+$$
+
+**90.2% of genes with no true difference will be called significant.** Not 5%.
+
+**Step 3 — the effective sample size.** The 40,000 cells are worth
+
+$$
+N_{\mathrm{eff}} = \frac{8 \times 5{,}000}{250.95} = 159.39
+$$
+
+independent cells — **0.398%** of the headcount.
+
+**Step 4 — where the next money goes.** The effective count saturates at $n/\rho = 160$, so
+the ceiling is already 99.6% reached. Doubling the cells per donor to 10,000 raises 159.39 to
+159.70, a gain of **0.30**. Doubling the donors to sixteen instead raises it to 318.79, a gain
+of **159.39** — over five hundred times as much, for a design change rather than a deeper
+sequencing run.
+
+**The rule this gives you.** Cells per donor buy *resolution* — the ability to see rarer cell
+types and describe their states more finely. Donors buy *power*. They are different currencies
+and they are not interchangeable, and almost every underpowered single-cell study in the
+literature spent the whole budget on the first one.
+
+</WorkedExample>
+
+## How the track is organised
+
+**Module 1 · What a Count Is** (lessons 1–3) builds the matrix from the bench up: the physical
+path from tissue to integer, the count distribution that path implies, and the two artefacts —
+ambient RNA and doublets — that manufacture cell types out of nothing. The headline is that
+most zeros are not a separate biological phenomenon but ordinary counting statistics
+<Citation id="svensson2020zeroinflation" />.
+
+**Module 2 · Building a Usable Matrix** (4–6) covers the decisions that turn raw counts into
+something analysable: distinguishing cells from empty droplets, quality filters priced in cells
+retained, normalisation and why the standard log-transform is biased at low counts, and how
+choosing 2,000 variable genes shapes everything downstream.
+
+**Module 3 · Geometry** (7–10) is where the analysis becomes geometry: principal components and
+how many to keep, the neighbour graph everything else is built on, clustering and the fact that
+there is no true number of clusters, and what a UMAP does and does not preserve.
+
+**Module 4 · Meaning** (11–13) attaches biology to structure: annotating clusters as cell
+types, differential expression done correctly — where the result above is derived in full — and
+compositional analysis, where the constraint that proportions sum to one makes one population's
+expansion look like every other population's decline.
+
+**Module 5 · Beyond One Snapshot** (14–17) handles the harder designs: integrating batches
+without erasing the biology, trajectories and pseudotime, RNA velocity and the assumptions its
+arrows rest on, and a closing survey of multi-omic and spatial assays with the analysis
+assumption each one breaks.
+
+## Summary
+
+- A count matrix records **molecules recovered from a physical process**, not abundances.
+  Module 1 builds it; every later module undoes one step of it.
+- Cells within a sample are correlated, so the variance of a mean is inflated by the design
+  effect $\mathrm{DE} = 1 + (m-1)\rho$ — linear in cells per sample and unbounded.
+- A per-cell test at nominal $\alpha$ therefore has false-positive rate
+  $2\Phi(-z_{\alpha/2}/\sqrt{\mathrm{DE}})$, which **rises with the number of cells**: 29.1% at
+  50 cells per sample, 70.0% at 500 and 90.2% at 5,000, for $\rho = 0.05$.
+- Effective sample size saturates: $nm/\mathrm{DE} \to n/\rho$. Eight donors at 5,000 cells
+  each are worth 159.39 independent cells against a ceiling of 160.
+- **Cells buy resolution; samples buy power.** The two are not interchangeable, and the design
+  effect is how you tell which one a study bought.
+
+<Exercise n={1} title="A test that cannot be rescued by a smaller alpha" difficulty="warm-up">
+
+A study has 200 cells per donor and a gene with intra-donor correlation $\rho = 0.1$.
+
+(a) Compute the design effect and the factor by which test statistics are inflated.
+
+(b) What fraction of true nulls does a nominal 5% per-cell test reject?
+
+(c) The analyst proposes fixing this with Bonferroni correction across 20,000 genes. Say why
+that does not work.
+
+<div slot="solution">
+
+(a) $\mathrm{DE} = 1 + 199(0.1) = 20.9$, so statistics are inflated by
+$\sqrt{20.9} = 4.5717$.
+
+(b) $\mathrm{FPR} = 2\Phi(-1.96/4.5717) = 2\Phi(-0.4287) = 0.6681$, so **66.8%**.
+
+(c) Bonferroni controls the family-wise error rate *given correct p-values*. Here the p-values
+themselves are wrong — each one is computed from a standard error that is 4.57 times too small,
+so it is not a valid p-value at any threshold. Correcting for multiplicity fixes the number of
+tests, not the calibration of each test. Concretely, at a Bonferroni threshold of
+$0.05/20{,}000 = 2.5 \times 10^{-6}$ the per-cell test still rejects far more than that
+fraction of nulls, and no threshold restores calibration because the inflation applies to
+every quantile at once.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="How many cells before the design effect bites" difficulty="core">
+
+(a) For a general $\rho$, how many cells per sample make the design effect exceed 10?
+
+(b) Evaluate that for $\rho = 0.01$, $0.05$ and $0.1$.
+
+(c) A reviewer says a study is fine because it used "only" 500 cells per donor. Respond.
+
+<div slot="solution">
+
+(a) Solve $1 + (m-1)\rho > 10$, giving $m > 1 + 9/\rho$.
+
+(b) $\rho = 0.01$ needs 901 cells; $\rho = 0.05$ needs 181; $\rho = 0.1$ needs 91.
+
+(c) Five hundred cells per donor is well past all three thresholds. At $\rho = 0.05$ the design
+effect at 500 cells is $1 + 499(0.05) = 25.95$, a nearly fivefold inflation of every statistic
+and a 70.0% false-positive rate. There is no cell count at which a per-cell test becomes safe —
+the quantity that has to be small is $(m-1)\rho$, and $m$ is the thing single-cell experiments
+are designed to make large. The number to ask about is the number of donors.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="Designing to a target" difficulty="stretch">
+
+(a) Show that $N_{\mathrm{eff}} = nm/(1 + (m-1)\rho)$ approaches $n/\rho$ as $m$ grows, and
+interpret the limit.
+
+(b) A study needs 400 effective cells and expects $\rho = 0.05$. What is the minimum number of
+donors, regardless of sequencing budget?
+
+(c) With four donors and $\rho = 0.05$, what is the largest effective sample size obtainable at
+any cell count? How close does 1,000 cells per donor get?
+
+<div slot="solution">
+
+(a) Divide numerator and denominator by $m$:
+
+$$
+N_{\mathrm{eff}} = \frac{n}{1/m + (1 - 1/m)\rho} \xrightarrow{\ m \to \infty\ } \frac{n}{\rho}.
+$$
+
+Each donor contributes at most $1/\rho$ independent cells however many are sequenced, because
+past that point the cells are just re-measuring the same donor-level value. The parallel with a
+case-control study's control ceiling is exact: one input saturates and the other does not.
+
+(b) The ceiling is $n/\rho = 20n$, so 400 effective cells need $n \geq 20$ donors. **Twenty
+donors**, and no amount of sequencing substitutes for the twentieth.
+
+(c) With $n = 4$ the ceiling is $4/0.05 = 80$. At 1,000 cells per donor,
+$\mathrm{DE} = 1 + 999(0.05) = 50.95$ and
+
+$$
+N_{\mathrm{eff}} = \frac{4{,}000}{50.95} = 78.51,
+$$
+
+which is 98.1% of the ceiling. The remaining 1.9% is unreachable: sequencing a million cells
+per donor would add less than two effective cells. A four-donor study is a four-donor study.
+
+</div>
+
+</Exercise>

@@ -3459,3 +3459,107 @@ zhou2018saige:
   venue: "Nature Genetics 50:1335-1341"
   doi: https://doi.org/10.1038/s41588-018-0184-y
   verified: 2026-08-23
+
+zheng2017chromium:
+  authors: ['Grace X. Y. Zheng', 'Jessica M. Terry', 'Phillip Belgrader', 'et al.']
+  year: 2017
+  title: "Massively parallel digital transcriptional profiling of single cells"
+  venue: "Nature Communications 8:14049"
+  doi: https://doi.org/10.1038/ncomms14049
+  verified: 2026-08-25
+
+macosko2015dropseq:
+  authors: ['Evan Z. Macosko', 'Anindita Basu', 'Rahul Satija', 'et al.']
+  year: 2015
+  title: "Highly Parallel Genome-wide Expression Profiling of Individual Cells Using Nanoliter Droplets"
+  venue: "Cell 161:1202-1214"
+  doi: https://doi.org/10.1016/j.cell.2015.05.002
+  verified: 2026-08-25
+
+klein2015indrop:
+  authors: ['Allon M. Klein', 'Linas Mazutis', 'Ilke Akartuna', 'et al.']
+  year: 2015
+  title: "Droplet Barcoding for Single-Cell Transcriptomics Applied to Embryonic Stem Cells"
+  venue: "Cell 161:1187-1201"
+  doi: https://doi.org/10.1016/j.cell.2015.04.044
+  verified: 2026-08-25
+
+kivioja2011umi:
+  authors: ['Teemu Kivioja', 'Anna Vähärautio', 'Kasper Karlsson', 'et al.']
+  year: 2011
+  title: "Counting absolute numbers of molecules using unique molecular identifiers"
+  venue: "Nature Methods 9:72-74"
+  doi: https://doi.org/10.1038/nmeth.1778
+  verified: 2026-08-25
+
+islam2013umi:
+  authors: ['Saiful Islam', 'Amit Zeisel', 'Simon Joost', 'et al.']
+  year: 2013
+  title: "Quantitative single-cell RNA-seq with unique molecular identifiers"
+  venue: "Nature Methods 11:163-166"
+  doi: https://doi.org/10.1038/nmeth.2772
+  verified: 2026-08-25
+
+picelli2013smartseq2:
+  authors: ['Simone Picelli', 'Åsa K Björklund', 'Omid R Faridani', 'et al.']
+  year: 2013
+  title: "Smart-seq2 for sensitive full-length transcriptome profiling in single cells"
+  venue: "Nature Methods 10:1096-1098"
+  doi: https://doi.org/10.1038/nmeth.2639
+  verified: 2026-08-25
+
+cao2017sciRNA:
+  authors: ['Junyue Cao', 'Jonathan S. Packer', 'Vijay Ramani', 'et al.']
+  year: 2017
+  title: "Comprehensive single-cell transcriptional profiling of a multicellular organism"
+  venue: "Science 357:661-667"
+  doi: https://doi.org/10.1126/science.aam8940
+  verified: 2026-08-25
+
+luecken2019bestpractices:
+  authors: ['Malte D. Luecken', 'Fabian J. Theis']
+  year: 2019
+  title: "Current best practices in single-cell RNA-seq analysis: a tutorial"
+  venue: "Molecular Systems Biology 15:e8746"
+  doi: https://doi.org/10.15252/msb.20188746
+  verified: 2026-08-25
+
+svensson2020zeroinflation:
+  authors: ['Valentine Svensson']
+  year: 2020
+  title: "Droplet scRNA-seq is not zero-inflated"
+  venue: "Nature Biotechnology 38:147-150"
+  doi: https://doi.org/10.1038/s41587-019-0379-5
+  verified: 2026-08-25
+
+squair2021falsediscoveries:
+  authors: ['Jordan W. Squair', 'Matthieu Gautier', 'Claudia Kathe', 'et al.']
+  year: 2021
+  title: "Confronting false discoveries in single-cell differential expression"
+  venue: "Nature Communications 12:5692"
+  doi: https://doi.org/10.1038/s41467-021-25960-2
+  verified: 2026-08-25
+
+crowell2020muscat:
+  authors: ['Helena L. Crowell', 'Charlotte Soneson', 'Pierre-Luc Germain', 'et al.']
+  year: 2020
+  title: "muscat detects subpopulation-specific state transitions from multi-sample multi-condition single-cell transcriptomics data"
+  venue: "Nature Communications 11:6077"
+  doi: https://doi.org/10.1038/s41467-020-19894-4
+  verified: 2026-08-25
+
+wolf2018scanpy:
+  authors: ['F. Alexander Wolf', 'Philipp Angerer', 'Fabian J. Theis']
+  year: 2018
+  title: "SCANPY: large-scale single-cell gene expression data analysis"
+  venue: "Genome Biology 19:15"
+  doi: https://doi.org/10.1186/s13059-017-1382-0
+  verified: 2026-08-25
+
+hao2021seurat:
+  authors: ['Yuhan Hao', 'Stephanie Hao', 'Erica Andersen-Nissen', 'et al.']
+  year: 2021
+  title: "Integrated analysis of multimodal single-cell data"
+  venue: "Cell 184:3573-3587"
+  doi: https://doi.org/10.1016/j.cell.2021.04.048
+  verified: 2026-08-25

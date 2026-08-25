@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  clusteredFalsePositiveRate,
+  effectiveIndependentCells,
+  designEffect,
+  multipletRate,
   acmgClassify, acmgPosterior, expectedR2, falconerACE, ldHalfLife, ldMeasures,
   liabilityScale, normalPdf, normalQuantile, oeUpperBound, poissonCI,
   sampleSizeForR2, shrinkageFactor, wilsonInterval,
@@ -5928,6 +5932,281 @@ describe('gwas (hub)', () => {
       for (const v of ['25{,}600', '15{,}360', '26{,}666.67', '42{,}666.67', '9{,}600.00',
                        '24{,}320', '8,960'])
         expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+
+describe('sc-from-cells-to-counts — worked example, figures and exercises', () => {
+  const mdx = lesson('sc-from-cells-to-counts');
+
+  // The whole lesson hangs off one device constant, inverted from the field's rule of
+  // thumb: 0.8% doublets per 1,000 cells recovered is 500/D per thousand, so D = 62,500.
+  const D = 62500;
+  const lambdaFor = (recovered: number) => -Math.log(1 - recovered / D);
+  const rateFor = (recovered: number) => multipletRate(lambdaFor(recovered));
+  // two decimals, rounded in integer space so the digits asserted are the digits printed
+  const pct2 = (x: number) => (Math.round(x * 1e4) / 100).toFixed(2);
+
+  describe('the small-lambda approximation the lesson leans on', () => {
+    it('r(lambda) ~ lambda/2, to 0.167% at lambda = 0.01', () => {
+      expect(multipletRate(0.01)).toBeCloseTo(0.0049917, 7);
+      const relErr = (100 * (multipletRate(0.01) - 0.005)) / multipletRate(0.01);
+      expect(relErr).toBeCloseTo(-0.167, 3);
+      expect(mdx).toContain('0.4992%');
+      expect(mdx).toContain('0.5000%');
+      expect(mdx).toContain('0.167%');
+    });
+
+    it('D = 62,500 is what the 0.8%-per-1,000 rule implies, and reproduces it', () => {
+      expect(500 / 0.008).toBe(D);
+      expect(pct2(rateFor(1000))).toBe('0.80');
+      expect(mdx).toContain('62{,}500');
+    });
+  });
+
+  describe('worked example — a doublet budget for a 10,000-cell run', () => {
+    it('step 1: recovering 10,000 of 62,500 partitions needs lambda = 0.17435', () => {
+      expect(1 - 10000 / D).toBeCloseTo(0.84, 12);
+      expect(lambdaFor(10000)).toBeCloseTo(0.17435, 5);
+      expect(mdx).toContain('0.17435');
+      expect(mdx).toContain('\\ln(0.84)');
+    });
+
+    it('step 2: the rate is 8.46%, not the 8.00% the linear rule promises', () => {
+      expect(rateFor(10000)).toBeCloseTo(0.084645, 6);
+      expect(pct2(rateFor(10000))).toBe('8.46');
+      expect(Math.round(rateFor(10000) * 10000)).toBe(846);
+      expect(100 * 0.008 * 10).toBeCloseTo(8, 12);
+      expect(mdx).toContain('0.084645');
+      expect(mdx).toContain('846');
+    });
+
+    it('step 3: hashing four samples catches three quarters of them', () => {
+      const doublets = rateFor(10000) * 10000;
+      expect(Math.round(doublets * 0.75)).toBe(635);
+      expect(Math.round(doublets * 0.25)).toBe(212);
+      expect(mdx).toContain('635');
+      expect(mdx).toContain('212');
+    });
+
+    it('step 4: 8.46% becomes 2.26% among the survivors, and 1.14% at eight samples', () => {
+      const doublets = rateFor(10000) * 10000;
+      const kept = 10000 - doublets * 0.75;
+      expect(Math.round(kept)).toBe(9365);
+      expect(pct2((doublets * 0.25) / kept)).toBe('2.26');
+      const kept8 = 10000 - doublets * (7 / 8);
+      expect(pct2((doublets / 8) / kept8)).toBe('1.14');
+      expect(mdx).toContain('9{,}365');
+      expect(mdx).toContain('2.26\\%');
+      expect(mdx).toContain('1.14%');
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('draws the three readings and the linear rule they are measured against', () => {
+      expect(pct2(rateFor(1000))).toBe('0.80');
+      expect(pct2(rateFor(10000))).toBe('8.46');
+      expect(pct2(rateFor(20000))).toBe('18.05');
+      for (const l of ['0.80%', '8.46%', '18.05%', '1,000 cells', '10,000 cells',
+                       '20,000 cells', 'the 0.8%-per-1,000 rule', 'Cells recovered'])
+        expect(mdx, `figure 1 label ${l}`).toContain(l);
+    });
+
+    it('the caption states the gap against the rule in both directions', () => {
+      // the rule is the tangent at the origin: 0.8% per thousand, exactly linear
+      expect((0.008 * 20000) / 1000).toBeCloseTo(0.16, 12);
+      expect(mdx).toContain('16.00%');
+      expect(mdx).toContain('8.00%');
+    });
+  });
+
+  describe('UMI collision', () => {
+    const distinct = (m: number, k: number) => 4 ** k * (1 - Math.exp(-m / 4 ** k));
+    const loss = (m: number, k: number) => (m - distinct(m, k)) / m;
+
+    it('at 1,000 molecules the three barcode lengths lose 0.76%, 0.048% and 0.0030%', () => {
+      expect(100 * loss(1000, 8)).toBeCloseTo(0.7591, 4);
+      expect(100 * loss(1000, 10)).toBeCloseTo(0.0477, 4);
+      expect(100 * loss(1000, 12)).toBeCloseTo(0.0030, 4);
+      for (const l of ['0.76%', '0.048%', '0.0030%']) expect(mdx, l).toContain(l);
+    });
+
+    it('two extra bases divide the loss by sixteen, which is the whole argument', () => {
+      // exactly sixteen in the m/(2U) limit the claim is made in ...
+      expect((1000 / (2 * 4 ** 8)) / (1000 / (2 * 4 ** 10))).toBe(16);
+      expect((1000 / (2 * 4 ** 10)) / (1000 / (2 * 4 ** 12))).toBe(16);
+      // ... and within half a unit of it at the m = 1,000 the lesson quotes, since the
+      // exact curve has already begun to saturate at 8 bases
+      expect(loss(1000, 8) / loss(1000, 10)).toBeCloseTo(15.92, 2);
+      expect(loss(1000, 10) / loss(1000, 12)).toBeCloseTo(16.0, 1);
+      expect(mdx).toContain('sixteen for every two bases');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — 5,000 cells gives 4.11%, already over the quoted rule per thousand', () => {
+      expect(lambdaFor(5000)).toBeCloseTo(0.083382, 6);
+      expect(1 - 5000 / D).toBeCloseTo(0.92, 12);
+      expect(rateFor(5000)).toBeCloseTo(0.041111, 6);
+      expect(pct2(rateFor(5000))).toBe('4.11');
+      expect(rateFor(5000) * 5000).toBeCloseTo(205.6, 1);
+      expect((100 * rateFor(5000)) / 5).toBeCloseTo(0.8222, 4);
+      for (const v of ['0.083382', '\\ln(0.92)', '0.041111', '205.6', '206',
+                       '0.8222\\%']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — superloading loses to eight lanes at 8 samples and beats them at 16', () => {
+      expect(lambdaFor(20000)).toBeCloseTo(0.385662, 6);
+      expect(1 - 20000 / D).toBeCloseTo(0.68, 12);
+      expect(rateFor(20000)).toBeCloseTo(0.180467, 6);
+      const doublets = rateFor(20000) * 20000;
+      expect(Math.round(doublets)).toBe(3609);
+      expect(Math.round(doublets * (7 / 8))).toBe(3158);
+      const kept = 20000 - doublets * (7 / 8);
+      expect(Math.round(doublets / 8)).toBe(451);
+      expect(Math.round(kept)).toBe(16842);
+      expect(pct2((doublets / 8) / kept)).toBe('2.68');
+      // eight separate lanes of 2,500, nothing hashed and nothing removed
+      expect(lambdaFor(2500)).toBeCloseTo(0.040822, 6);
+      expect(rateFor(2500)).toBeCloseTo(0.020272, 6);
+      expect(pct2(rateFor(2500))).toBe('2.03');
+      // sixteen hashed samples reverses the verdict
+      const kept16 = 20000 - doublets * (15 / 16);
+      expect(Math.round(doublets / 16)).toBe(226);
+      expect(Math.round(kept16)).toBe(16616);
+      expect(pct2((doublets / 16) / kept16)).toBe('1.36');
+      for (const v of ['0.385662', '\\ln(0.68)', '0.180467', '3,609', '3,158',
+                       '16{,}842', '2.68\\%', '0.040822', '\\ln(0.96)', '0.020272',
+                       '16,616', '1.36%']) expect(mdx, v).toContain(v);
+    });
+
+    it('3 — 5,000 molecules needs eleven bases to stay under 0.1%', () => {
+      const distinct = (m: number, k: number) => 4 ** k * (1 - Math.exp(-m / 4 ** k));
+      const loss = (m: number, k: number) => (m - distinct(m, k)) / m;
+      expect(distinct(5000, 8)).toBeCloseTo(4814.0, 1);
+      expect(100 * loss(5000, 8)).toBeCloseTo(3.72, 2);
+      expect(distinct(5000, 10)).toBeCloseTo(4988.1, 1);
+      expect(100 * loss(5000, 10)).toBeCloseTo(0.238, 3);
+      // the threshold: 10 bases misses, 11 clears it
+      expect(loss(5000, 10)).toBeGreaterThan(0.001);
+      expect(loss(5000, 11)).toBeLessThan(0.001);
+      expect(100 * loss(5000, 11)).toBeCloseTo(0.0596, 4);
+      expect(4 ** 10 / 1e6).toBeCloseTo(1.05, 2);
+      expect(4 ** 11 / 1e6).toBeCloseTo(4.19, 2);
+      for (const v of ['65{,}536', '4{,}814.0', '3.72%', '4{,}988.1', '0.24%',
+                       '1.05 \\times 10^6', '4.19 \\times 10^6', '0.0596%', '11 bases'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+
+describe('single-cell hub — the design effect the whole track is arranged around', () => {
+  const mdx = lesson('single-cell');
+  const RHO = 0.05;
+  const pct1 = (x: number) => (Math.round(x * 1e3) / 10).toFixed(1);
+  const pct2 = (x: number) => (Math.round(x * 1e4) / 100).toFixed(2);
+
+  describe('worked example — what forty thousand cells are actually worth', () => {
+    it('step 1: eight donors at 5,000 cells carry a design effect of 250.95', () => {
+      expect(designEffect(5000, RHO)).toBeCloseTo(250.95, 10);
+      expect(1 + 4999 * RHO).toBeCloseTo(250.95, 10);
+      expect(mdx).toContain('250.95');
+    });
+
+    it('step 2: statistics inflate 15.842-fold, giving a 90.2% false-positive rate', () => {
+      expect(Math.sqrt(designEffect(5000, RHO))).toBeCloseTo(15.8414, 4);
+      expect(1.959963984540054 / Math.sqrt(designEffect(5000, RHO))).toBeCloseTo(0.12372, 5);
+      // the page must NOT print the rounded 15.842, nor 2*Phi(-0.1237), which is 0.9016
+      expect(mdx).not.toContain('15.842');
+      expect(mdx).not.toContain('2\\Phi(-0.1237)');
+      expect(clusteredFalsePositiveRate(5000, RHO)).toBeCloseTo(0.9015, 4);
+      expect(pct1(clusteredFalsePositiveRate(5000, RHO))).toBe('90.2');
+      for (const v of ['15.841', '0.12372', '0.9015', '90.2%']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: 40,000 cells are worth 159.39 independent ones, 0.398% of them', () => {
+      expect(effectiveIndependentCells(8, 5000, RHO)).toBeCloseTo(159.39, 2);
+      expect((100 * effectiveIndependentCells(8, 5000, RHO)) / 40000).toBeCloseTo(0.398, 3);
+      expect(mdx).toContain('159.39');
+      expect(mdx).toContain('0.398%');
+    });
+
+    it('step 4: the ceiling is 160 and is already 99.6% reached', () => {
+      const ceiling = 8 / RHO;
+      expect(ceiling).toBe(160);
+      expect(pct1(effectiveIndependentCells(8, 5000, RHO) / ceiling)).toBe('99.6');
+      expect(mdx).toContain('n/\\rho = 160');
+      expect(mdx).toContain('99.6%');
+    });
+
+    it('step 4: doubling cells gains 0.30, doubling donors gains 159.39', () => {
+      const base = effectiveIndependentCells(8, 5000, RHO);
+      const moreCells = effectiveIndependentCells(8, 10000, RHO);
+      const moreDonors = effectiveIndependentCells(16, 5000, RHO);
+      expect(moreCells).toBeCloseTo(159.7, 2);
+      expect(moreCells - base).toBeCloseTo(0.3, 2);
+      expect(moreDonors).toBeCloseTo(318.79, 2);
+      expect(moreDonors - base).toBeCloseTo(159.39, 2);
+      // the claim the prose makes about the ratio of the two gains
+      expect((moreDonors - base) / (moreCells - base)).toBeGreaterThan(500);
+      for (const v of ['159.70', '318.79', '0.30', 'over five hundred times'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('draws the three false-positive rates and the calibrated line', () => {
+      expect(pct1(clusteredFalsePositiveRate(50, RHO))).toBe('29.1');
+      expect(pct1(clusteredFalsePositiveRate(500, RHO))).toBe('70.0');
+      expect(pct1(clusteredFalsePositiveRate(5000, RHO))).toBe('90.2');
+      for (const l of ['29.1%', '70.0%', '90.2%', '50 cells', '500 cells', '5,000 cells',
+                       'pseudobulk: calibrated at 5%', 'Cells per sample'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+
+    it('the caption decodes the curve the same way the figure draws it', () => {
+      // the caption attributes the rise to DE growing linearly in m — check it does
+      expect(designEffect(5000, RHO) / designEffect(500, RHO)).toBeCloseTo(9.6705, 4);
+      expect(mdx).toContain('29.1% at 50 cells per sample, 70.0% at 500, and 90.2% at 5,000');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — 200 cells at rho = 0.1 rejects 66.8% of nulls, and Bonferroni cannot help', () => {
+      expect(designEffect(200, 0.1)).toBeCloseTo(20.9, 10);
+      expect(Math.sqrt(designEffect(200, 0.1))).toBeCloseTo(4.5717, 4);
+      expect(1.959963984540054 / Math.sqrt(designEffect(200, 0.1))).toBeCloseTo(0.4287, 4);
+      expect(clusteredFalsePositiveRate(200, 0.1)).toBeCloseTo(0.6681, 4);
+      expect(0.05 / 20000).toBeCloseTo(2.5e-6, 12);
+      for (const v of ['20.9', '4.5717', '0.4287', '0.6681', '66.8%',
+                       '2.5 \\times 10^{-6}']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — the design effect passes 10 at 901, 181 and 91 cells', () => {
+      for (const [rho, m] of [[0.01, 901], [0.05, 181], [0.1, 91]] as const) {
+        expect(1 + 9 / rho).toBeCloseTo(m, 10);
+        expect(designEffect(m, rho)).toBeCloseTo(10, 10);
+        expect(designEffect(m - 1, rho)).toBeLessThan(10);
+      }
+      expect(designEffect(500, RHO)).toBeCloseTo(25.95, 10);
+      expect(pct1(clusteredFalsePositiveRate(500, RHO))).toBe('70.0');
+      for (const v of ['901', '181', '91', '25.95']) expect(mdx, v).toContain(v);
+    });
+
+    it('3 — four donors cap at 80 effective cells and 1,000 each reaches 98.1% of it', () => {
+      expect(4 / RHO).toBe(80);
+      expect(designEffect(1000, RHO)).toBeCloseTo(50.95, 10);
+      expect(effectiveIndependentCells(4, 1000, RHO)).toBeCloseTo(78.51, 2);
+      expect(pct1(effectiveIndependentCells(4, 1000, RHO) / 80)).toBe('98.1');
+      // and the limit really is unreachable: a million cells each adds under two
+      expect(effectiveIndependentCells(4, 1e6, RHO) - effectiveIndependentCells(4, 1000, RHO))
+        .toBeLessThan(2);
+      // 400 effective cells needs 20 donors however deep the sequencing
+      expect(400 * RHO).toBe(20);
+      for (const v of ['50.95', '78.51', '98.1%', '20n']) expect(mdx, v).toContain(v);
+      expect(mdx).toMatch(/\*\*Twenty\s+donors\*\*/);
     });
   });
 });
