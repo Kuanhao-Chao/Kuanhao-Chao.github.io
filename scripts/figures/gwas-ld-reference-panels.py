@@ -48,9 +48,9 @@ o.append(text(20, 300, 'variants themselves differs. Only the haplotypes do — 
               10, opacity='.85'))
 o.append(text(20, 314, 'which is exactly the factor by which the required sample size rises.', 10,
               opacity='.85'))
-o.append(text(20, 336, "At equal frequencies r² = D'² exactly, which is why the two columns above",
+o.append(text(20, 336, "At equal frequencies with D > 0, r² = D'² exactly — which is why the two",
               10, opacity='.7'))
-o.append(text(20, 350, 'move together.', 10, opacity='.7'))
+o.append(text(20, 350, 'columns above move together. With D &lt; 0 it holds only at 0.5.', 10, opacity='.7'))
 
 print('bytes:', write(os.path.join(OUT, 'gwas-ld-reference-panels-two-populations.svg'),
                       svg(640, 366, ''.join(o))))

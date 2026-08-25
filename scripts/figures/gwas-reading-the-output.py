@@ -33,7 +33,9 @@ for k, lab, anchor, dx in ((6, '6 hits', 'start', 9), (500, '500 hits', 'start',
 
 o.append(text((ax.x0 + ax.x1) / 2, ax.py(2.0e-8) + 42, 'Discoveries the scan makes', 12,
               anchor='middle'))
-o.append(text(ax.x0 - 80, 26, 'Effective p-value threshold', 11, opacity='.8'))
+# The curve is the BH *bound* (k/m)q, not the largest p-value a scan rejects. The lesson
+# uses "effective threshold" for the latter, so the axis names the former explicitly.
+o.append(text(ax.x0 - 80, 26, 'Benjamini-Hochberg bound, (k/m)q', 11, opacity='.8'))
 
 LX = ax.x1 + 22
 o.append(text(LX, 60, "BH's threshold", 11, weight='700'))

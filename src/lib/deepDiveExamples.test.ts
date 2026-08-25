@@ -4785,6 +4785,10 @@ describe('gwas-study-design', () => {
       expect(lesson('statgen-association-linear-mixed-models')).toContain('39.600989');
       expect(lesson('statgen-mathematical-foundations')).not.toContain('39.60');
       expect(mdx).toContain('/deep_dives/statgen-association-linear-mixed-models/');
+      // .not on the OLD claim, not just .toContain on the new: a fix applied to one
+      // passage and not the summary is how four of six defects reached an audit pass.
+      expect(mdx).not.toContain('a later lesson in this module');
+      expect(mdx).not.toContain('taken up later in this');
       expect(mdx).not.toContain(
         'derived in\n[Mathematical Foundations](/deep_dives/statgen-mathematical-foundations/)'
       );
@@ -4879,6 +4883,17 @@ describe('gwas-study-design', () => {
 });
 
 describe('gwas-arrays-imputation', () => {
+
+  it('does not reinstate the multiple-testing claim anywhere in the lesson', () => {
+    // Removed from Exercise 2(c) and left standing in the Summary fifty-five lines below.
+    expect(mdx).not.toContain('adds multiple-testing');
+    expect(mdx).not.toContain('adds tests faster');
+    expect(mdx).toContain('does *not* do is raise the multiple-testing burden');
+    // and 3.33 is the factor in q2, not in the per-allele effect
+    expect(mdx).not.toContain('3.33 in the smallest detectable effect');
+    expect(Math.sqrt(1 / 0.3)).toBeCloseTo(1.8257, 4);
+    expect(mdx).toContain('1.83');
+  });
   const mdx = lesson('gwas-arrays-imputation');
   const K = (Math.sqrt(chi2Quantile(1 - 5e-8, 1)) + normalQuantile(0.8)) ** 2;
   const POST: [number, number, number][] = [
@@ -4994,6 +5009,14 @@ describe('gwas-arrays-imputation', () => {
 });
 
 describe('gwas-quality-control', () => {
+
+  it('states the premise the pruning cost depends on', () => {
+    // The hub called this "required"; lesson 4 says a mixed model avoids it entirely.
+    expect(mdx).toContain('for an analysis');
+    expect(mdx).toContain('/deep_dives/gwas-population-structure/');
+    expect(lesson('gwas')).toContain('by the analysis chosen');
+    expect(lesson('gwas')).not.toContain('pruning was required. The');
+  });
   const mdx = lesson('gwas-quality-control');
 
   describe('worked example — four pairs, and what breaking them costs', () => {
@@ -5125,6 +5148,14 @@ describe('gwas-quality-control', () => {
 });
 
 describe('gwas-population-structure', () => {
+
+  it('gets the over-correction ratio right in the exercise as well', () => {
+    expect((1 - 1 / 1.25) / (1 - 1 / 1.03)).toBeCloseTo(6.87, 2);
+    expect(mdx).not.toContain('eight times bigger');
+    expect(mdx).toContain('nearly seven times bigger');
+    // and LOCO is not claimed as universal
+    expect(mdx).not.toContain('Every serious implementation');
+  });
   const mdx = lesson('gwas-population-structure');
   const THRESH = chi2Quantile(1 - 5e-8, 1);
   const pOf = (c: number) => 1 - regularizedGammaP(0.5, c / 2);
@@ -5311,6 +5342,15 @@ describe('gwas-running-the-scan', () => {
 });
 
 describe('gwas-reading-the-output', () => {
+
+  it('names the BH bound and the largest rejected p-value separately', () => {
+    expect(((6 / 1e6) * 0.05)).toBeCloseTo(3.0e-7, 12);
+    expect(benjaminiHochberg([1.2e-12, 8.0e-10, 3.1e-9, 4.4e-8, 9.7e-8, 2.2e-7, 8.0e-7, 3.5e-6],
+      0.05, 1e6).threshold).toBeCloseTo(2.2e-7, 12);
+    expect(mdx).toContain('Benjamini-Hochberg bound, (k/m)q');
+    expect(mdx).not.toContain("with an effective threshold of $2.2");
+    expect(mdx).not.toContain("previous lesson's subject");
+  });
   const mdx = lesson('gwas-reading-the-output');
   const M = 1e6;
   const Q = 0.05;
@@ -5413,6 +5453,13 @@ describe('gwas-reading-the-output', () => {
 });
 
 describe('gwas-ld-reference-panels', () => {
+
+  it('counts in effective samples, the unit the rest of the track uses', () => {
+    expect(mdx).toContain('N_{\\mathrm{eff}}');
+    expect(mdx).not.toContain('**Step 5 — in people.**');
+    expect(mdx).not.toContain('= 145{,}474$ people');
+    expect(mdx).not.toContain('61,877 people');
+  });
   const mdx = lesson('gwas-ld-reference-panels');
   const K = (Math.sqrt(chi2Quantile(1 - 5e-8, 1)) + normalQuantile(0.8)) ** 2;
   const A = ldMeasures(0.45, 0.05, 0.05, 0.45);
@@ -5534,6 +5581,13 @@ describe('gwas-ld-reference-panels', () => {
 });
 
 describe('gwas-fine-mapping-practice', () => {
+
+  it('does not claim the two runs are equally well covered', () => {
+    expect(mdx).not.toContain('equally pure, equally well covered');
+    expect(mdx).not.toContain('more confident, and excludes the truth');
+    expect(mdx).toContain('/deep_dives/gwas-arrays-imputation/');
+    expect(mdx).not.toContain('assembled three lessons earlier');
+  });
   const mdx = lesson('gwas-fine-mapping-practice');
   const P = 0.3;
   const N = 50000;
