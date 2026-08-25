@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  marchenkoPasturEdge,
+  symmetricEigenvalues,
+  covarianceMatrix,
   transformSd,
   transformMean,
   nbTheta,
@@ -2543,5 +2546,87 @@ describe('count transforms — what each one does to mean and variance', () => {
   it('rejects a non-positive mean', () => {
     expect(() => transformSd('log1p', 0)).toThrow(RangeError);
     expect(() => transformMean('log1p', -1)).toThrow(RangeError);
+  });
+});
+
+
+describe('PCA — covariance, eigenvalues, and where noise lands', () => {
+  /** Deterministic standard normals: an LCG through Box-Muller. No Math.random anywhere. */
+  const normals = (n: number, p: number, seed: number) => {
+    let state = seed >>> 0;
+    const u = () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+    const g = () => {
+      const a = Math.max(u(), 1e-12);
+      return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * u());
+    };
+    return Array.from({ length: n }, () => Array.from({ length: p }, g));
+  };
+
+  it('covarianceMatrix is symmetric and reproduces known variances', () => {
+    const X = [[1, 2], [3, 6], [5, 10], [7, 14]];
+    const C = covarianceMatrix(X);
+    expect(C[0][1]).toBeCloseTo(C[1][0], 12);
+    // column 1 is 1,3,5,7 -> variance 20/3; column 2 is exactly twice it
+    expect(C[0][0]).toBeCloseTo(20 / 3, 10);
+    expect(C[1][1]).toBeCloseTo(4 * (20 / 3), 10);
+    expect(C[0][1]).toBeCloseTo(2 * (20 / 3), 10);
+  });
+
+  it('symmetricEigenvalues recovers a known spectrum, descending', () => {
+    // a diagonal matrix has its diagonal as its spectrum
+    expect(symmetricEigenvalues([[3, 0, 0], [0, 7, 0], [0, 0, 1]])).toEqual([7, 3, 1]);
+    // 2x2 with known closed form: [[2,1],[1,2]] has eigenvalues 3 and 1
+    const e = symmetricEigenvalues([[2, 1], [1, 2]]);
+    expect(e[0]).toBeCloseTo(3, 10);
+    expect(e[1]).toBeCloseTo(1, 10);
+    // the trace is preserved
+    const A = [[4, 1, 2], [1, 5, 3], [2, 3, 6]];
+    expect(symmetricEigenvalues(A).reduce((a, b) => a + b, 0)).toBeCloseTo(15, 8);
+  });
+
+  it('marchenkoPasturEdge matches its closed form and collapses at gamma = 0', () => {
+    const e = marchenkoPasturEdge(400, 60);
+    expect(e.gamma).toBeCloseTo(0.15, 12);
+    expect(e.upper).toBeCloseTo((1 + Math.sqrt(0.15)) ** 2, 12);
+    expect(e.lower).toBeCloseTo((1 - Math.sqrt(0.15)) ** 2, 12);
+    // square case: the lower edge touches zero
+    expect(marchenkoPasturEdge(100, 100).lower).toBeCloseTo(0, 12);
+    expect(marchenkoPasturEdge(100, 100).upper).toBeCloseTo(4, 12);
+    // variance scales both edges
+    expect(marchenkoPasturEdge(400, 60, 3).upper).toBeCloseTo(3 * e.upper, 10);
+  });
+
+  it('pure-noise eigenvalues really do fill the MP interval', () => {
+    for (const [n, p] of [[400, 60], [600, 120], [300, 150]] as const) {
+      const ev = symmetricEigenvalues(covarianceMatrix(normals(n, p, 42 + p)));
+      const { lower, upper } = marchenkoPasturEdge(n, p);
+      // the bulk sits inside, and the extremes sit close to the edges
+      expect(ev[0]).toBeGreaterThan(0.9 * upper);
+      expect(ev[0]).toBeLessThan(1.05 * upper);
+      expect(ev[ev.length - 1]).toBeGreaterThan(0.85 * lower);
+      expect(ev[ev.length - 1]).toBeLessThan(1.2 * lower);
+      // the edge is asymptotic, so the top noise eigenvalue overshoots it slightly
+      expect(ev[0] / upper).toBeGreaterThan(1);
+      expect(ev[0] / upper).toBeLessThan(1.02);
+    }
+  });
+
+  it('one planted structure gives exactly one eigenvalue well above the edge', () => {
+    const n = 400;
+    const p = 60;
+    const X = normals(n, p, 7);
+    for (let i = 0; i < n; i += 1) {
+      const g = i < n / 2 ? 1 : -1;
+      for (let j = 0; j < 15; j += 1) X[i][j] += g * 1.2;
+    }
+    const ev = symmetricEigenvalues(covarianceMatrix(X));
+    const { upper } = marchenkoPasturEdge(n, p);
+    expect(ev[0]).toBeGreaterThan(20);
+    expect(ev[0] / upper).toBeGreaterThan(10);
+    // and nothing else clears the edge
+    expect(ev.slice(1).filter((e) => e > upper)).toHaveLength(0);
   });
 });

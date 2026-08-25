@@ -371,6 +371,98 @@ function poissonTailBound(mu: number): number {
   return Math.max(40, Math.ceil(mu + 12 * Math.sqrt(mu)));
 }
 
+/**
+ * Sample covariance of a data matrix, rows = observations, columns = features.
+ *
+ * Uses the unbiased (n - 1) denominator, which is what a PCA on scaled data assumes.
+ */
+export function covarianceMatrix(X: Matrix): Matrix {
+  const n = X.length;
+  if (n < 2) throw new RangeError(`covarianceMatrix needs at least 2 rows, got ${n}`);
+  const p = X[0].length;
+  const means = Array.from({ length: p }, (_, j) =>
+    X.reduce((acc, row) => acc + row[j], 0) / n);
+  const C: Matrix = Array.from({ length: p }, () => new Array(p).fill(0));
+  for (const row of X)
+    for (let i = 0; i < p; i += 1)
+      for (let j = i; j < p; j += 1)
+        C[i][j] += (row[i] - means[i]) * (row[j] - means[j]);
+  for (let i = 0; i < p; i += 1)
+    for (let j = i; j < p; j += 1) {
+      C[i][j] /= n - 1;
+      C[j][i] = C[i][j];
+    }
+  return C;
+}
+
+/**
+ * Eigenvalues of a real symmetric matrix, descending, by cyclic Jacobi rotation.
+ *
+ * Jacobi rather than anything faster because the matrices here are small, it needs no
+ * tridiagonalisation step to get wrong, and it is unconditionally stable for symmetric
+ * input — which matters when the thing being demonstrated is where eigenvalues fall.
+ */
+export function symmetricEigenvalues(A: Matrix): number[] {
+  const n = A.length;
+  const M = A.map((row) => row.slice());
+  for (let sweep = 0; sweep < 100; sweep += 1) {
+    let off = 0;
+    for (let i = 0; i < n; i += 1)
+      for (let j = i + 1; j < n; j += 1) off += M[i][j] * M[i][j];
+    if (off < 1e-22) break;
+    for (let p2 = 0; p2 < n - 1; p2 += 1)
+      for (let q = p2 + 1; q < n; q += 1) {
+        if (Math.abs(M[p2][q]) < 1e-300) continue;
+        const theta = (M[q][q] - M[p2][p2]) / (2 * M[p2][q]);
+        const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+        const c = 1 / Math.sqrt(t * t + 1);
+        const s = t * c;
+        for (let k = 0; k < n; k += 1) {
+          const akp = M[k][p2];
+          const akq = M[k][q];
+          M[k][p2] = c * akp - s * akq;
+          M[k][q] = s * akp + c * akq;
+        }
+        for (let k = 0; k < n; k += 1) {
+          const apk = M[p2][k];
+          const aqk = M[q][k];
+          M[p2][k] = c * apk - s * aqk;
+          M[q][k] = s * apk + c * aqk;
+        }
+      }
+  }
+  return Array.from({ length: n }, (_, i) => M[i][i]).sort((a, b) => b - a);
+}
+
+/**
+ * Marchenko-Pastur edges for the eigenvalues of a pure-noise covariance matrix.
+ *
+ * With `n` observations of `p` independent features each of variance `variance`, the sample
+ * covariance eigenvalues converge to the interval σ²(1 ∓ √γ)² with γ = p/n — *not* to σ².
+ * Finite data manufactures spread, and the upper edge is how much.
+ *
+ * This is what turns "pick the elbow" into a decision with a defensible cut: a component
+ * whose eigenvalue sits below the upper edge is consistent with carrying no signal at all.
+ * The caveat worth stating wherever it is used is that MP describes independent features,
+ * and genes are not independent — so the edge is a floor on the noise, not a proof of signal
+ * above it.
+ */
+export function marchenkoPasturEdge(
+  nObservations: number,
+  nFeatures: number,
+  variance = 1,
+): { lower: number; upper: number; gamma: number } {
+  if (nObservations < 1) throw new RangeError(`marchenkoPasturEdge needs n >= 1, got ${nObservations}`);
+  if (nFeatures < 1) throw new RangeError(`marchenkoPasturEdge needs p >= 1, got ${nFeatures}`);
+  const gamma = nFeatures / nObservations;
+  const root = Math.sqrt(gamma);
+  return {
+    lower: variance * (1 - root) ** 2,
+    upper: variance * (1 + root) ** 2,
+    gamma,
+  };
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**
