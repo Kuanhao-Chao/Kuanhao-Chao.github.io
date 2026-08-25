@@ -15,6 +15,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'decision-threshold',
   'gradient-descent',
   'attention-temperature',
+  'sc-dropout',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];

@@ -128,6 +128,9 @@ export const DEEP_DIVE_ORDER: string[] = [
   // Single-Cell Genomics — ids are added here as each lesson lands.
   'single-cell',
   'sc-from-cells-to-counts',
+  'sc-count-noise-model',
+  'sc-ambient-and-doublets',
+  'sc-cell-calling-qc',
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',

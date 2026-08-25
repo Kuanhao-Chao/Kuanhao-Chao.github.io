@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  poissonZeroProbability,
+  nbZeroProbability,
+  nbVariance,
+  nbTheta,
   clusteredFalsePositiveRate,
   effectiveIndependentCells,
   designEffect,
@@ -6207,6 +6211,388 @@ describe('single-cell hub — the design effect the whole track is arranged arou
       expect(400 * RHO).toBe(20);
       for (const v of ['50.95', '78.51', '98.1%', '20n']) expect(mdx, v).toContain(v);
       expect(mdx).toMatch(/\*\*Twenty\s+donors\*\*/);
+    });
+  });
+});
+
+
+describe('sc-count-noise-model — the count model, and what it says about zeros', () => {
+  const mdx = lesson('sc-count-noise-model');
+  const pct2 = (x: number) => (Math.round(x * 1e4) / 100).toFixed(2);
+
+  describe('the Poisson baseline', () => {
+    it('a mean of 0.1 is zero in 90.48% of cells, from sampling alone', () => {
+      expect(poissonZeroProbability(0.1)).toBeCloseTo(0.904837, 6);
+      expect(pct2(poissonZeroProbability(0.1))).toBe('90.48');
+      expect(mdx).toContain('0.904837');
+      expect(mdx).toContain('90.48%');
+    });
+
+    it('the same number is what a mean of one molecule at 10% capture gives', () => {
+      expect(1 * 0.1).toBeCloseTo(0.1, 12);
+      expect(poissonZeroProbability(1000 * 0.1)).toBeLessThan(1e-40); // "never zero"
+    });
+  });
+
+  describe('worked example — does this gene need a dropout parameter?', () => {
+    const MU = 0.5;
+    const VAR = 0.625;
+    const CELLS = 5000;
+
+    it('step 1: it is overdispersed, so Poisson is already out', () => {
+      expect(VAR - MU).toBeCloseTo(0.125, 12);
+      expect(mdx).toContain('0.625 - 0.5 = 0.125');
+    });
+
+    it('step 2: the moment estimator gives theta = 2 without touching the zeros', () => {
+      expect(nbTheta(MU, VAR)).toBeCloseTo(2, 12);
+      expect((MU * MU) / (VAR - MU)).toBeCloseTo(2, 12);
+      expect(mdx).toContain('\\frac{0.25}{0.125} = 2');
+    });
+
+    it('step 3: theta = 2 predicts 64.00% zeros, which is 3,200 of 5,000 cells', () => {
+      expect(nbZeroProbability(MU, 2)).toBeCloseTo(0.64, 12);
+      expect(0.8 ** 2).toBeCloseTo(0.64, 12);
+      expect(pct2(nbZeroProbability(MU, 2))).toBe('64.00');
+      expect(nbZeroProbability(MU, 2) * CELLS).toBeCloseTo(3200, 9);
+      expect(mdx).toContain('64.00%');
+      expect(mdx).toContain('3{,}200');
+      // and the variance the fitted theta implies is the variance we started from
+      expect(nbVariance(MU, 2)).toBeCloseTo(VAR, 12);
+    });
+
+    it('step 4: against Poisson the same gene would be reported as 5.5% dropout', () => {
+      expect(poissonZeroProbability(MU)).toBeCloseTo(0.606531, 6);
+      expect(Math.round(poissonZeroProbability(MU) * CELLS)).toBe(3033);
+      expect(3200 - Math.round(poissonZeroProbability(MU) * CELLS)).toBe(167);
+      expect(pct2(nbZeroProbability(MU, 2) - poissonZeroProbability(MU))).toBe('3.35');
+      // the reported rate is the excess as a share of cells, 167/3000-ish -> 5.5% of zeros
+      expect((100 * 167) / 3033).toBeCloseTo(5.5, 1);
+      for (const v of ['0.606531', '3,033', '167', '5.5%']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('the three curves agree at a mean of 0.1 and the caption says by how much', () => {
+      expect(pct2(poissonZeroProbability(0.1))).toBe('90.48');
+      expect(pct2(nbZeroProbability(0.1, 2))).toBe('90.70');
+      expect(pct2(nbZeroProbability(0.1, 0.5))).toBe('91.29');
+      expect(mdx).toContain('90.48%, 90.70% and 91.29%');
+      for (const l of ['90.5% at a mean of 0.1', 'where most genes sit', 'Poisson',
+                       'NB, theta 2', 'NB, theta 0.5', 'Mean UMIs per cell'])
+        expect(mdx, `figure 1 label ${l}`).toContain(l);
+    });
+  });
+
+  describe('figure 2 — the caption states an encoding rule, so decode it the same way', () => {
+    it('the NB really does sit 5% above Poisson at a mean of 0.1', () => {
+      expect(nbVariance(0.1, 2)).toBeCloseTo(0.105, 12);
+      expect(nbVariance(0.1, 2) / 0.1).toBeCloseTo(1.05, 12);
+      expect(mdx).toContain('mean 0.1: the NB sits 5% above Poisson');
+      // "dominant by a mean of 10": the quadratic term is 5x the linear one at theta 2
+      expect((10 * 10) / 2 / 10).toBe(5);
+    });
+
+    it('overdispersion can only add zeros, never remove them', () => {
+      for (const mu of [0.05, 0.1, 0.5, 1, 3, 10])
+        for (const theta of [0.5, 2, 10, 100])
+          expect(nbZeroProbability(mu, theta)).toBeGreaterThan(poissonZeroProbability(mu));
+      expect(mdx).toContain('mixing rates always adds zeros');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — two very different count models differ by 43 cells in 10,000', () => {
+      expect(poissonZeroProbability(0.1)).toBeCloseTo(0.904837, 6);
+      expect(nbZeroProbability(0.1, 1)).toBeCloseTo(0.909091, 6);
+      expect(Math.round(poissonZeroProbability(0.1) * 10000)).toBe(9048);
+      expect(Math.round(nbZeroProbability(0.1, 1) * 10000)).toBe(9091);
+      expect(9091 - 9048).toBe(43);
+      expect(pct2(nbZeroProbability(0.1, 1) - poissonZeroProbability(0.1))).toBe('0.43');
+      for (const v of ['0.909091', '9,048', '9,091', '43 cells out of 10,000',
+                       '0.43 percentage points']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — a 25.5% dropout claim is entirely the Poisson-vs-NB gap', () => {
+      expect(nbTheta(2, 8)).toBeCloseTo(0.666667, 6);
+      expect(nbZeroProbability(2, nbTheta(2, 8))).toBeCloseTo(0.39685, 5);
+      expect(Math.round(nbZeroProbability(2, nbTheta(2, 8)) * 5000)).toBe(1984);
+      expect(poissonZeroProbability(2)).toBeCloseTo(0.135335, 6);
+      expect(Math.round(poissonZeroProbability(2) * 5000)).toBe(677);
+      expect(1950 - 677).toBe(1273);
+      expect(pct2(1273 / 5000)).toBe('25.46'); // the prose rounds this to 25.5%
+      // the observed shortfall against the NB is under one standard deviation
+      const sd = Math.sqrt(5000 * 0.39685 * (1 - 0.39685));
+      expect(sd).toBeCloseTo(34.6, 1);
+      expect(Math.abs(1950 - 1984) / sd).toBeLessThan(1);
+      for (const v of ['0.6667', '0.396850', '1,984', '0.135335', '677', '1{,}273',
+                       '25.5%']) expect(mdx, v).toContain(v);
+      // anchored to its LaTeX context: a bare '34.6' also matches SVG path data
+      expect(mdx).toContain('= 34.6$');
+    });
+
+    it('3 — 43 cells is 1.47 SD, so the models are not separable at low mean', () => {
+      const p0 = poissonZeroProbability(0.1);
+      const sd = Math.sqrt(10000 * p0 * (1 - p0));
+      expect(10000 * p0 * (1 - p0)).toBeCloseTo(861.07, 2);
+      expect(sd).toBeCloseTo(29.34, 2);
+      expect(43 / sd).toBeCloseTo(1.47, 2);
+      // and the well-expressed genes really are twelvefold apart
+      expect(pct2(poissonZeroProbability(5))).toBe('0.67');
+      expect(pct2(nbZeroProbability(5, 2))).toBe('8.16');
+      expect(nbZeroProbability(5, 2) / poissonZeroProbability(5)).toBeCloseTo(12.1, 1);
+      for (const v of ['861.06', '29.34', '1.47', '0.67%', '8.16%', 'twelvefold'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+
+describe('sc-ambient-and-doublets — two artefacts that look like cell types', () => {
+  const mdx = lesson('sc-ambient-and-doublets');
+  const pct1 = (x: number) => (Math.round(x * 1e3) / 10).toFixed(1);
+  const pct2 = (x: number) => (Math.round(x * 1e4) / 100).toFixed(2);
+  const detected = (depth: number, alpha: number, soup: number) =>
+    1 - Math.exp(-depth * alpha * soup);
+
+  describe('worked example — a marker that means nothing', () => {
+    it('step 1: the marker is 0.40% of the soup', () => {
+      expect(0.2 * 0.02).toBeCloseTo(0.004, 12);
+      expect(pct2(0.004)).toBe('0.40');
+      expect(mdx).toContain('0.20 \\times 0.02 = 0.004');
+      expect(mdx).toContain('0.40%');
+    });
+
+    it('step 2: a 5,000-UMI cell picks up 2.0 counts of it', () => {
+      expect(5000 * 0.1 * 0.004).toBeCloseTo(2, 12);
+      expect(5000 * 0.1).toBe(500);
+      expect(mdx).toContain('5{,}000 \\times 0.10 \\times 0.004 = 2.0');
+    });
+
+    it('step 3: which is visible in 86.5% of the wrong cells', () => {
+      expect(detected(5000, 0.1, 0.004)).toBeCloseTo(0.864665, 6);
+      expect(pct1(detected(5000, 0.1, 0.004))).toBe('86.5');
+      expect(mdx).toContain('0.864665');
+      expect(mdx).toContain('86.5%');
+    });
+
+    it('step 4: the same cell at 20,000 and 1,000 UMIs gives 99.97% and 33.0%', () => {
+      expect(20000 * 0.1 * 0.004).toBeCloseTo(8, 12);
+      expect(1000 * 0.1 * 0.004).toBeCloseTo(0.4, 12);
+      expect(detected(20000, 0.1, 0.004)).toBeCloseTo(0.999665, 6);
+      expect(pct2(detected(20000, 0.1, 0.004))).toBe('99.97');
+      expect(detected(1000, 0.1, 0.004)).toBeCloseTo(0.329680, 6);
+      expect(pct1(detected(1000, 0.1, 0.004))).toBe('33.0');
+      for (const v of ['99.97%', '33.0%']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — every label it draws', () => {
+    it('draws the three depths and the 86.5% reading', () => {
+      expect(pct1(detected(5000, 0.1, 0.004))).toBe('86.5');
+      for (const l of ['86.5% at 10% ambient', '20,000 UMIs', '5,000 UMIs', '1,000 UMIs'])
+        expect(mdx, `figure 1 label ${l}`).toContain(l);
+      // the caption's three readings, decoded the way the figure draws them
+      expect(mdx).toContain('86.5% of the time');
+      expect(mdx).toContain('only 33.0% of the time');
+    });
+  });
+
+  describe('figure 2 — the Gamma sum is exact, so the caption can be checked exactly', () => {
+    const K = 4;
+    const S = 1250;
+    const cdf = (x: number, shape: number) => regularizedGammaP(shape, x / S);
+
+    it('a doublet is Gamma(2k, s): mean 10,000 and sd sqrt(2k)s', () => {
+      expect(K * S).toBe(5000);
+      expect(2 * K * S).toBe(10000);
+      expect(Math.sqrt(K) * S).toBe(2500);
+      expect(Math.sqrt(2 * K) * S).toBeCloseTo(3535.53, 2);
+      expect(mdx).toContain('\\Gamma(2k, s)');
+    });
+
+    it('9,692 is the singlet 95th percentile and catches 48.8% of doublets', () => {
+      expect(cdf(9692, K)).toBeCloseTo(0.95, 4);
+      expect(pct1(1 - cdf(9692, 2 * K))).toBe('48.8');
+      for (const v of ['9,692', '48.8%']) expect(mdx, v).toContain(v);
+    });
+
+    it('catching 90% of doublets costs 31.7% of singlets', () => {
+      // solve for the threshold that leaves 90% of doublets above it
+      let lo = 1;
+      let hi = 200000;
+      for (let i = 0; i < 200; i += 1) {
+        const m = (lo + hi) / 2;
+        if (1 - cdf(m, 2 * K) > 0.9) lo = m;
+        else hi = m;
+      }
+      const t = (lo + hi) / 2;
+      expect(t).toBeCloseTo(5820, 0);
+      expect(pct1(1 - cdf(t, K))).toBe('31.7');
+      expect(mdx).toContain('31.7%');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — albumin is 3% of the soup and reaches every Kupffer cell', () => {
+      expect(0.6 * 0.05).toBeCloseTo(0.03, 12);
+      expect(8000 * 0.05 * 0.03).toBeCloseTo(12, 12);
+      expect(detected(8000, 0.05, 0.03)).toBeCloseTo(0.99999386, 8);
+      for (const v of ['0.60 \\times 0.05 = 0.03', '= 12', '0.99999386'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('2 — a 95th-percentile filter takes 10% to 5.65% and costs 450 real cells', () => {
+      const doublets = 0.1 * 10000;
+      const singlets = 10000 - doublets;
+      expect(doublets).toBe(1000);
+      expect(0.488 * doublets).toBeCloseTo(488, 6);
+      expect(0.05 * singlets).toBeCloseTo(450, 6);
+      const keptS = singlets - 450;
+      const keptD = doublets - 488;
+      expect(keptS).toBe(8550);
+      expect(keptD).toBe(512);
+      expect(pct2(keptD / (keptS + keptD))).toBe('5.65');
+      for (const v of ['488', '450', '8{,}550', '512', '9{,}062', '5.65\\%'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('3 — 54% of doublets are homotypic, so simulation leaves 4.49% and hashing 1.08%', () => {
+      expect(0.7 ** 2 + 0.2 ** 2 + 0.1 ** 2).toBeCloseTo(0.54, 12);
+      const doublets = 0.08 * 10000;
+      expect(doublets).toBeCloseTo(800, 9);
+      // simulation removes only the heterotypic 46%
+      expect(0.46 * doublets).toBeCloseTo(368, 6);
+      expect(pct2((doublets - 368) / (10000 - 368))).toBe('4.49');
+      // hashing removes (S-1)/S regardless of type
+      expect((7 / 8) * doublets).toBeCloseTo(700, 6);
+      expect(pct2((doublets / 8) / (10000 - 700))).toBe('1.08');
+      for (const v of ['0.49 + 0.04 + 0.01 = 0.54', '368', '432', '9{,}632', '4.49\\%',
+                       '9{,}300', '1.08%']) expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+
+describe('sc-cell-calling-qc — every filter priced in cells and in cell types', () => {
+  const mdx = lesson('sc-cell-calling-qc');
+  const pct1 = (x: number) => (Math.round(x * 1e3) / 10).toFixed(1);
+  const pct2 = (x: number) => (Math.round(x * 1e4) / 100).toFixed(2);
+  /** Fraction of a Gamma(k, s) population surviving a threshold at t UMIs. */
+  const keep = (t: number, k: number, s: number) => 1 - regularizedGammaP(k, t / s);
+
+  describe('what a depth cutoff does to two size classes', () => {
+    it('500 UMIs keeps 99.92% of the large population and 26.50% of the small', () => {
+      expect(keep(500, 4, 1250)).toBeCloseTo(0.99922375, 8);
+      expect(keep(500, 4, 100)).toBeCloseTo(0.26502592, 8);
+      expect(pct1(keep(500, 4, 1250))).toBe('99.9');
+      expect(pct1(keep(500, 4, 100))).toBe('26.5');
+      expect(pct2(keep(500, 4, 1250))).toBe('99.92');
+      expect(pct2(keep(500, 4, 100))).toBe('26.50');
+      for (const v of ['26.5%', '99.9%', '99.92%', '26.50%']) expect(mdx, v).toContain(v);
+    });
+
+    it('the figure-1 mixture is the one the caption describes', () => {
+      expect(0.04 * 100000).toBe(4000);
+      expect(0.06 * 100000).toBeCloseTo(6000, 9);
+      expect(0.9 * 100000).toBe(90000);
+      expect(4 * 1250).toBe(5000);
+      expect(4 * 100).toBe(400);
+      expect(2 * 30).toBe(60);
+      for (const l of ['a 500-UMI cutoff', 'large cells', 'small cells', 'empty droplets',
+                       'Barcode rank'])
+        expect(mdx, `figure 1 label ${l}`).toContain(l);
+      expect(mdx).toContain('4,000 large cells averaging 5,000 UMIs, 6,000 small cells');
+    });
+  });
+
+  describe('worked example — pricing a standard pipeline', () => {
+    const SEQ = [0.96, 0.97, 0.92, 0.95];
+
+    it('step 1: the four filters leave 81.4% of cells', () => {
+      let n = 10000;
+      const stages: number[] = [];
+      for (const k of SEQ) {
+        n *= k;
+        stages.push(Math.round(n));
+      }
+      expect(stages).toEqual([9600, 9312, 8567, 8139]);
+      expect(pct1(n / 10000)).toBe('81.4');
+      expect(mdx).toContain('10{,}000 \\to 9{,}600 \\to 9{,}312 \\to 8{,}567 \\to 8{,}139');
+      expect(mdx).toContain('81.4%');
+    });
+
+    it('step 2: 1,500 small cells lose 1,102, and 400 lost implies at most 544', () => {
+      const lostShare = 1 - keep(500, 4, 100);
+      expect(lostShare).toBeCloseTo(0.734974, 6);
+      expect(Math.round(1500 * lostShare)).toBe(1102);
+      expect(Math.round(400 / lostShare)).toBe(544);
+      // the page must not print the rounded 0.735 chain it originally used
+      expect(mdx).not.toContain('(1 - 0.265)');
+      expect(mdx).not.toContain('400/0.735 =');
+      for (const v of ['0.734974', '1{,}102', '544']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: the mitochondrial filter removes 745 cells', () => {
+      expect(Math.round(9312 * 0.08)).toBe(745);
+      expect(mdx).toContain('745');
+    });
+  });
+
+  describe('figure 2 — a global mitochondrial cutoff, decoded the way the caption states', () => {
+    const survive = (median: number) => normalCdf((0.1 - median) / 0.05);
+
+    it('keeps 0.0%, 0.8%, 78.8% and 88.5% of the four types', () => {
+      expect(pct1(survive(0.3))).toBe('0.0');
+      expect(pct1(survive(0.22))).toBe('0.8');
+      expect(pct1(survive(0.06))).toBe('78.8');
+      expect(pct1(survive(0.04))).toBe('88.5');
+      for (const l of ['0.0% kept', '0.8% kept', '78.8% kept', '88.5% kept',
+                       '30% mito', '22% mito', '6% mito', '4% mito'])
+        expect(mdx, `figure 2 label ${l}`).toContain(l);
+    });
+
+    it('the effect is monotone in the type median, which is the caption’s claim', () => {
+      const medians = [0.04, 0.06, 0.22, 0.3];
+      for (let i = 1; i < medians.length; i += 1)
+        expect(survive(medians[i])).toBeLessThan(survive(medians[i - 1]));
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — moving 200 to 1,000 costs the small population 98.8% of what it had', () => {
+      expect(pct1(keep(200, 4, 1250))).toBe('100.0');
+      expect(pct1(keep(200, 4, 100))).toBe('85.7');
+      expect(pct1(keep(1000, 4, 1250))).toBe('99.1');
+      expect(pct1(keep(1000, 4, 100))).toBe('1.0');
+      // the relative loss the solution quotes
+      expect(pct1(1 - keep(1000, 4, 100) / keep(200, 4, 100))).toBe('98.8');
+      for (const v of ['100.0%', '85.7%', '99.1%', '1.0%', '98.8%'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('2 — a 6% overall loss implies the small cells are 8.1% of called barcodes', () => {
+      const lostS = 1 - keep(500, 4, 100);
+      const lostL = 1 - keep(500, 4, 1250);
+      expect(lostL).toBeCloseTo(0.000776, 6);
+      const f = (0.06 - lostL) / (lostS - lostL);
+      expect(lostS - lostL).toBeCloseTo(0.734198, 6);
+      expect(0.06 - lostL).toBeCloseTo(0.059224, 6);
+      expect(f).toBeCloseTo(0.080665, 6);
+      for (const v of ['0.000776', '0.734974', '0.734198f = 0.059224', '0.080665'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('3 — a per-cluster rule retains 97.7% of every type by construction', () => {
+      expect(normalCdf((0.1 - 0.3) / 0.05)).toBeCloseTo(3.1686e-5, 8);
+      expect(pct2(normalCdf((0.1 - 0.3) / 0.05))).toBe('0.00');
+      expect(pct1(normalCdf((0.1 - 0.04) / 0.05))).toBe('88.5');
+      // two SD above each cluster's own mean
+      expect(0.3 + 2 * 0.05).toBeCloseTo(0.4, 12);
+      expect(0.04 + 2 * 0.05).toBeCloseTo(0.14, 12);
+      expect(pct1(normalCdf(2))).toBe('97.7');
+      for (const v of ['\\Phi(-4)', '0.0032\\%', '\\Phi(1.2)', '0.8849', '97.7%'])
+        expect(mdx, v).toContain(v);
     });
   });
 });
