@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  transformSd,
+  transformMean,
   poissonZeroProbability,
   nbZeroProbability,
   nbVariance,
@@ -5944,6 +5946,12 @@ describe('gwas (hub)', () => {
 describe('sc-from-cells-to-counts — worked example, figures and exercises', () => {
   const mdx = lesson('sc-from-cells-to-counts');
 
+    it('the remaining printed constants are what they claim to be', () => {
+      expect(4 ** 10).toBe(1048576);
+      expect((100 * rateFor(5000)).toFixed(4)).toBe('4.1111');
+      for (const v of ['1{,}048{,}576', '4.1111']) expect(mdx, v).toContain(v);
+    });
+
   // The whole lesson hangs off one device constant, inverted from the field's rule of
   // thumb: 0.8% doublets per 1,000 cells recovered is 500/D per thousand, so D = 62,500.
   const D = 62500;
@@ -6218,6 +6226,15 @@ describe('single-cell hub — the design effect the whole track is arranged arou
 
 describe('sc-count-noise-model — the count model, and what it says about zeros', () => {
   const mdx = lesson('sc-count-noise-model');
+
+    it('the remaining printed constants are what they claim to be', () => {
+      const theta = nbTheta(2, 8);
+      expect((theta + 2).toFixed(4)).toBe('2.6667');
+      const p0 = nbZeroProbability(2, theta);
+      expect(p0.toFixed(4)).toBe('0.3969');
+      expect((1 - p0).toFixed(4)).toBe('0.6031');
+      for (const v of ['2.6667', '0.3969', '0.6031']) expect(mdx, v).toContain(v);
+    });
   const pct2 = (x: number) => (Math.round(x * 1e4) / 100).toFixed(2);
 
   describe('the Poisson baseline', () => {
@@ -6476,6 +6493,12 @@ describe('sc-ambient-and-doublets — two artefacts that look like cell types', 
 
 describe('sc-cell-calling-qc — every filter priced in cells and in cell types', () => {
   const mdx = lesson('sc-cell-calling-qc');
+
+    it('the remaining printed constants are what they claim to be', () => {
+      expect(normalCdf(2).toFixed(4)).toBe('0.9772');
+      expect(10000 - 8139).toBe(1861);
+      for (const v of ['0.9772', '1,861']) expect(mdx, v).toContain(v);
+    });
   const pct1 = (x: number) => (Math.round(x * 1e3) / 10).toFixed(1);
   const pct2 = (x: number) => (Math.round(x * 1e4) / 100).toFixed(2);
   /** Fraction of a Gamma(k, s) population surviving a threshold at t UMIs. */
@@ -6593,6 +6616,219 @@ describe('sc-cell-calling-qc — every filter priced in cells and in cell types'
       expect(pct1(normalCdf(2))).toBe('97.7');
       for (const v of ['\\Phi(-4)', '0.0032\\%', '\\Phi(1.2)', '0.8849', '97.7%'])
         expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+
+describe('sc-normalization — what a transform fixes and what it cannot', () => {
+  const mdx = lesson('sc-normalization');
+  const pct1 = (x: number) => (Math.round(x * 1e3) / 10).toFixed(1);
+  const pct2 = (x: number) => (Math.round(x * 1e4) / 100).toFixed(2);
+
+  describe('the log transform is biased low', () => {
+    it('returns 71.25% of log1p(mean) at a mean of 0.1 and 99.89% at 100', () => {
+      expect(transformMean('log1p', 0.1)).toBeCloseTo(0.067904, 6);
+      expect(Math.log1p(0.1)).toBeCloseTo(0.095310, 6);
+      expect(pct2(transformMean('log1p', 0.1) / Math.log1p(0.1))).toBe('71.25');
+      expect(pct2(transformMean('log1p', 100) / Math.log1p(100))).toBe('99.89');
+      for (const v of ['0.067904', '0.095310', '71.25%', '99.89%'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('the bias is Jensen, so it holds at every mean', () => {
+      for (const mu of [0.05, 0.1, 0.5, 1, 5, 50, 200])
+        expect(transformMean('log1p', mu)).toBeLessThan(Math.log1p(mu));
+      expect(mdx).toContain("Jensen's inequality");
+    });
+  });
+
+  describe('figure 1 — the stabilisation claim, decoded as the caption states it', () => {
+    it('log1p runs 0.5123 to 0.0997, a factor of 5.14, and is the least flat', () => {
+      expect(transformSd('log1p', 2)).toBeCloseTo(0.5123, 4);
+      expect(transformSd('log1p', 100)).toBeCloseTo(0.0997, 4);
+      const sds = [0.1, 0.5, 1, 2, 5, 20, 100].map((mu) => transformSd('log1p', mu));
+      expect(Math.max(...sds) / Math.min(...sds)).toBeCloseTo(5.14, 2);
+      for (const v of ['0.5123', '0.0997', '5.14']) expect(mdx, v).toContain(v);
+    });
+
+    it('Pearson is flat at 1 and Anscombe reaches it above a mean of about five', () => {
+      expect(transformSd('pearson', 0.1)).toBe(1);
+      expect(transformSd('pearson', 100)).toBe(1);
+      expect(transformSd('anscombe', 5)).toBeCloseTo(1.0011, 4);
+      expect(transformSd('anscombe', 100)).toBeCloseTo(1.0, 5);
+      for (const l of ['Pearson residual', 'Anscombe', 'log1p', 'sqrt',
+                       'SD of the transformed count'])
+        expect(mdx, `figure 1 label ${l}`).toContain(l);
+    });
+  });
+
+  describe('worked example — a difference that is entirely depth', () => {
+    const detect = (mu: number) => 1 - Math.exp(-mu);
+
+    it('step 1: the same true level gives means of 0.1 and 1.0', () => {
+      expect(2000 * 5e-5).toBeCloseTo(0.1, 12);
+      expect(20000 * 5e-5).toBeCloseTo(1.0, 12);
+      expect(mdx).toContain('2{,}000 \\times 5 \\times 10^{-5} = 0.1');
+    });
+
+    it('step 2: detected in 9.5% against 63.2%, a ratio of 6.64', () => {
+      expect(detect(0.1)).toBeCloseTo(0.095163, 6);
+      expect(detect(1.0)).toBeCloseTo(0.632121, 6);
+      expect(pct1(detect(0.1))).toBe('9.5');
+      expect(pct1(detect(1.0))).toBe('63.2');
+      expect(detect(1.0) / detect(0.1)).toBeCloseTo(6.6425, 4);
+      for (const v of ['0.095163', '0.632121', '9.5%', '63.2%', '6.64'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: normalisation rescales but leaves the zero at zero', () => {
+      expect((0 / 2000) * 1e4).toBe(0);
+      expect((1 / 20000) * 1e4).toBeCloseTo(0.5, 12);
+      expect(Math.log1p(0)).toBe(0);
+      expect(Math.log1p(0.5)).toBeCloseTo(0.4055, 4);
+      for (const v of ['0.4055', '0.0000']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 2 — detection against depth', () => {
+    it('draws the two markers the caption quotes', () => {
+      expect(pct1(1 - Math.exp(-2000 * 5e-5))).toBe('9.5');
+      expect(pct1(1 - Math.exp(-20000 * 5e-5))).toBe('63.2');
+      for (const l of ['9.5%', '63.2%', '5 in 100,000', '2 in 10,000', '1 in 1,000',
+                       'Sequencing depth of the cell'])
+        expect(mdx, `figure 2 label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — at a mean of 1 the transform returns 82.72% of log 2', () => {
+      expect(transformMean('log1p', 1)).toBeCloseTo(0.573403, 6);
+      expect(Math.log(2)).toBeCloseTo(0.693147, 6);
+      expect(transformMean('log1p', 1) / Math.log(2)).toBeCloseTo(0.8272, 4);
+      for (const v of ['0.573403', '0.693147', '0.8272']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — log1p spreads 5.14x where Anscombe spreads 1.04x', () => {
+      expect(transformSd('log1p', 2) / transformSd('log1p', 100)).toBeCloseTo(5.14, 2);
+      expect(transformSd('anscombe', 2)).toBeCloseTo(0.9614, 4);
+      expect(transformSd('anscombe', 100)).toBeCloseTo(1.0, 4);
+      expect(transformSd('anscombe', 100) / transformSd('anscombe', 2)).toBeCloseTo(1.04, 2);
+      for (const v of ['0.9614', '1.04']) expect(mdx, v).toContain(v);
+    });
+
+    it('3 — 18.1% against 86.5% detection from depth alone', () => {
+      expect(1000 * 2e-4).toBeCloseTo(0.2, 12);
+      expect(10000 * 2e-4).toBeCloseTo(2.0, 12);
+      expect(1 - Math.exp(-0.2)).toBeCloseTo(0.181269, 6);
+      expect(1 - Math.exp(-2.0)).toBeCloseTo(0.864665, 6);
+      expect(pct1(1 - Math.exp(-0.2))).toBe('18.1');
+      expect(pct1(1 - Math.exp(-2.0))).toBe('86.5');
+      for (const v of ['0.181269', '0.864665', '18.1%', '86.5%'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+
+describe('sc-feature-selection — every simple criterion ranks by expression', () => {
+  const mdx = lesson('sc-feature-selection');
+  const log1pVar = (mu: number) => transformSd('log1p', mu) ** 2;
+  const fano = (mu: number, theta: number) => nbVariance(mu, theta) / mu;
+
+  describe('worked example — ranking two genes that are the same gene', () => {
+    it('step 1: raw variance is the mean, so gene B ranks 50x above gene A', () => {
+      expect(100 / 2).toBe(50);
+      expect(mdx).toContain('50.0');
+      expect(mdx).toContain('\\sigma^2_A = 2');
+    });
+
+    it('step 2: log1p variance reverses it, ranking A 26.38x above B', () => {
+      expect(log1pVar(2)).toBeCloseTo(0.262448, 6);
+      expect(log1pVar(100)).toBeCloseTo(0.009950, 6);
+      expect(log1pVar(100) / log1pVar(2)).toBeCloseTo(0.0379, 4);
+      expect(log1pVar(2) / log1pVar(100)).toBeCloseTo(26.38, 2);
+      for (const v of ['0.262448', '0.009950', '0.0379', '26.38']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: Fano is exactly 1 for a Poisson, whatever the mean', () => {
+      for (const mu of [0.1, 2, 100, 1000]) expect(mu / mu).toBe(1);
+    });
+
+    it('step 4: at a shared theta = 1 the Fano factors are 3.0 and 101.0', () => {
+      expect(nbVariance(2, 1)).toBe(6);
+      expect(nbVariance(100, 1)).toBe(10100);
+      expect(fano(2, 1)).toBeCloseTo(3, 12);
+      expect(fano(100, 1)).toBeCloseTo(101, 12);
+      expect(fano(100, 1) / fano(2, 1)).toBeCloseTo(33.667, 3);
+      for (const v of ['3.0', '101.0', '33.7']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 5: (var - mean)/mean^2 is exactly 1/theta for both', () => {
+      for (const mu of [2, 100]) {
+        const v = nbVariance(mu, 1);
+        expect((v - mu) / (mu * mu)).toBeCloseTo(1, 12);
+      }
+      // and it stays scale-free at other dispersions too
+      for (const theta of [0.5, 2, 8])
+        for (const mu of [0.5, 5, 500])
+          expect((nbVariance(mu, theta) - mu) / (mu * mu)).toBeCloseTo(1 / theta, 10);
+      expect(mdx).toContain('\\frac{6 - 2}{4} = 1');
+    });
+  });
+
+  describe('figure 1 — the criteria plotted against a reference gene at mean 2', () => {
+    it('draws 50x and 0.038x at a mean of 100, relative to that reference', () => {
+      expect(100 / 2).toBe(50);
+      expect((log1pVar(100) / log1pVar(2)).toFixed(3)).toBe('0.038');
+      for (const l of ['50x', '0.038x', 'reference gene, mean 2', 'mean 100',
+                       'raw variance', 'log1p variance', 'trend residual'])
+        expect(mdx, `figure 1 label ${l}`).toContain(l);
+    });
+
+    it('the log1p curve really does peak near a mean of 1.72, as the caption says', () => {
+      let best = 0;
+      let arg = 0;
+      for (let mu = 0.05; mu < 20; mu += 0.01) {
+        const v = transformSd('log1p', mu);
+        if (v > best) {
+          best = v;
+          arg = mu;
+        }
+      }
+      expect(arg).toBeCloseTo(1.72, 2);
+      expect(mdx).toContain('1.72');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — Fano is flat on the null and separates 7.43x on the signal', () => {
+      expect(fano(5, 2)).toBeCloseTo(3.5, 12);
+      expect(fano(50, 2)).toBeCloseTo(26, 12);
+      expect(fano(50, 2) / fano(5, 2)).toBeCloseTo(7.4286, 4);
+      for (const v of ['3.5', '26.0', '7.43']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — Fano says 12.75x where the dispersion ratio is 1.67x', () => {
+      expect(20 / 5).toBe(4);
+      expect(2550 / 50).toBe(51);
+      expect(51 / 4).toBe(12.75);
+      expect((20 - 5) / 25).toBeCloseTo(0.6, 12);
+      expect((2550 - 50) / 2500).toBeCloseTo(1, 12);
+      expect(nbTheta(5, 20)).toBeCloseTo(1.6667, 4);
+      expect(nbTheta(50, 2550)).toBeCloseTo(1, 12);
+      expect(nbTheta(5, 20) / nbTheta(50, 2550)).toBeCloseTo(1.6667, 4);
+      for (const v of ['4.0', '51.0', '12.75', '1.6667', '1.67']) expect(mdx, v).toContain(v);
+    });
+
+    it('3 — the rare-population argument is about total variance, not local', () => {
+      // a gene differing between a 1% population and the rest contributes little
+      // total variance: the mixture is 99% one component
+      const mixVar = (p: number, d: number) => p * (1 - p) * d * d;
+      expect(mixVar(0.01, 1)).toBeCloseTo(0.0099, 6);
+      expect(mixVar(0.5, 1)).toBeCloseTo(0.25, 6);
+      expect(mixVar(0.5, 1) / mixVar(0.01, 1)).toBeCloseTo(25.25, 2);
+      expect(mdx).toContain('99% one component');
     });
   });
 });

@@ -3660,3 +3660,60 @@ ilicic2016lowquality:
   venue: "Genome Biology 17:29"
   doi: https://doi.org/10.1186/s13059-016-0888-1
   verified: 2026-08-25
+
+lun2016pooling:
+  authors: ['Aaron T. L. Lun', 'Karsten Bach', 'John C. Marioni']
+  surname: Lun
+  year: 2016
+  title: "Pooling across cells to normalize single-cell RNA sequencing data with many zero counts"
+  venue: "Genome Biology 17:75"
+  doi: https://doi.org/10.1186/s13059-016-0947-7
+  verified: 2026-08-25
+
+lause2021pearson:
+  authors: ['Jan Lause', 'Philipp Berens', 'Dmitry Kobak']
+  year: 2021
+  title: "Analytic Pearson residuals for normalization of single-cell RNA-seq UMI data"
+  venue: "Genome Biology 22:258"
+  doi: https://doi.org/10.1186/s13059-021-02451-7
+  verified: 2026-08-25
+
+ahlmanneltze2023transformations:
+  authors: ['Constantin Ahlmann-Eltze', 'Wolfgang Huber']
+  year: 2023
+  title: "Comparison of transformations for single-cell RNA-seq data"
+  venue: "Nature Methods 20:665-672"
+  doi: https://doi.org/10.1038/s41592-023-01814-1
+  verified: 2026-08-25
+
+bacher2017scnorm:
+  authors: ['Rhonda Bacher', 'Li-Fang Chu', 'Ning Leng', 'et al.']
+  year: 2017
+  title: "SCnorm: robust normalization of single-cell RNA-seq data"
+  venue: "Nature Methods 14:584-586"
+  doi: https://doi.org/10.1038/nmeth.4263
+  verified: 2026-08-25
+
+brennecke2013hvg:
+  authors: ['Philip Brennecke', 'Simon Anders', 'Jong Kyoung Kim', 'et al.']
+  year: 2013
+  title: "Accounting for technical noise in single-cell RNA-seq experiments"
+  venue: "Nature Methods 10:1093-1095"
+  doi: https://doi.org/10.1038/nmeth.2645
+  verified: 2026-08-25
+
+stuart2019seurat3:
+  authors: ['Tim Stuart', 'Andrew Butler', 'Paul Hoffman', 'et al.']
+  year: 2019
+  title: "Comprehensive Integration of Single-Cell Data"
+  venue: "Cell 177:1888-1902"
+  doi: https://doi.org/10.1016/j.cell.2019.05.031
+  verified: 2026-08-25
+
+yip2019hvgbenchmark:
+  authors: ['Shun H. Yip', 'Pak Chung Sham', 'Junwen Wang']
+  year: 2019
+  title: "Evaluation of tools for highly variable gene discovery from single-cell RNA-seq data"
+  venue: "Briefings in Bioinformatics 20:1583-1589"
+  doi: https://doi.org/10.1093/bib/bby011
+  verified: 2026-08-25

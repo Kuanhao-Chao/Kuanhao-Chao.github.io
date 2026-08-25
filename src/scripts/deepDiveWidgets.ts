@@ -18,6 +18,8 @@
  */
 
 import {
+  transformSd,
+  transformMean,
   poissonZeroProbability,
   poissonPmf,
   nbZeroProbability,
@@ -1499,6 +1501,96 @@ const scDropout: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * Whether a transform stabilises the variance it is chosen to stabilise.
+ *
+ * Draws the sd of the transformed count against the gene's mean for the four transforms a
+ * pipeline picks between, with a marker the reader drags along the mean. A flat line is the
+ * whole point of the exercise, and log1p — the default — is the least flat of them.
+ */
+const scNormalize: Renderer = (canvas, controlHost, readoutHost) => {
+  const MU_MIN = 0.05;
+  const MU_MAX = 200;
+  const CURVES = [
+    { kind: 'anscombe' as const, opacity: 0.7, width: 2 },
+    { kind: 'sqrt' as const, opacity: 0.42, width: 2 },
+    { kind: 'log1p' as const, opacity: 1, width: 2.4, accent: true },
+  ];
+
+  const draw = () => {
+    const mu = c.get('mu');
+    const x = logarithmic(MU_MIN, MU_MAX, PAD.left, PAD.left + PLOT.w,
+      [0.1, 1, 10, 100], (v) => String(v));
+    const y = linear(0, 1.2, PAD.top + PLOT.h, PAD.top, [0, 0.5, 1], (v) => v.toFixed(1));
+
+    const svg = newSvg();
+    const g = frame(x, y, 'Mean UMIs per cell', 'SD of transformed count', svg);
+
+    // Pearson is flat at 1 by construction, so it is the reference the others are read against
+    g.appendChild(
+      el('line', {
+        x1: PAD.left, y1: y(1), x2: PAD.left + PLOT.w, y2: y(1),
+        stroke: 'currentColor', 'stroke-width': 2, opacity: 0.85, 'stroke-dasharray': '6 4',
+      })
+    );
+
+    const sample = (kind: 'log1p' | 'sqrt' | 'anscombe') => {
+      const pts: [number, number][] = [];
+      for (let i = 0; i <= 80; i += 1) {
+        const m = 10 ** (Math.log10(MU_MIN) + (Math.log10(MU_MAX) - Math.log10(MU_MIN)) * (i / 80));
+        pts.push([x(m), y(transformSd(kind, m))]);
+      }
+      return pts;
+    };
+    for (const cv of CURVES)
+      g.appendChild(curve(sample(cv.kind), {
+        stroke: cv.accent ? ACCENT : 'currentColor',
+        'stroke-width': cv.width,
+        opacity: cv.opacity,
+      }));
+
+    g.appendChild(
+      el('line', {
+        x1: x(mu), y1: PAD.top, x2: x(mu), y2: PAD.top + PLOT.h,
+        stroke: 'currentColor', 'stroke-width': 1.1, opacity: 0.32, 'stroke-dasharray': '3 3',
+      })
+    );
+    g.appendChild(el('circle', { cx: x(mu), cy: y(transformSd('log1p', mu)), r: 4.4, fill: ACCENT }));
+
+    g.appendChild(label(PAD.left + PLOT.w - 4, PAD.top + 16, 'dashed = Pearson residual, flat at 1', {
+      'text-anchor': 'end', opacity: 0.7,
+    }));
+
+    canvas.replaceChildren(svg);
+
+    const bias = transformMean('log1p', mu) / Math.log1p(mu);
+    readout(readoutHost, [
+      ['SD log1p', transformSd('log1p', mu).toFixed(3)],
+      ['sqrt', transformSd('sqrt', mu).toFixed(3)],
+      ['Anscombe', transformSd('anscombe', mu).toFixed(3)],
+      ['E[log1p] as a share of log1p(mean)', `${(100 * bias).toFixed(1)}%`],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'mu',
+        label: 'Mean UMIs per cell',
+        min: Math.log10(MU_MIN),
+        max: Math.log10(MU_MAX),
+        step: 0.02,
+        value: Math.log10(0.5),
+        scale: (v) => 10 ** v,
+        format: (v) => (10 ** v).toFixed(2),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'ld-decay': ldDecay,
   drift,
@@ -1511,6 +1603,7 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'gradient-descent': gradientDescent,
   'attention-temperature': attentionTemperature,
   'sc-dropout': scDropout,
+  'sc-normalize': scNormalize,
 };
 
 /**

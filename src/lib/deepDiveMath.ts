@@ -322,6 +322,55 @@ export function nbTheta(mean: number, variance: number): number {
   return (mean * mean) / (variance - mean);
 }
 
+/** The count transforms a single-cell pipeline chooses between. */
+export type CountTransform = 'log1p' | 'sqrt' | 'anscombe' | 'pearson';
+
+/**
+ * Expected value of a transform applied to a Poisson count of mean `mu`.
+ *
+ * The gap between this and the transform of the mean is the bias every log-transformed
+ * pipeline carries: E[log(1+X)] is not log(1+mu), and at the means single-cell genes
+ * actually have the shortfall is severe — 71.25% of log1p(mu) at mu = 0.1.
+ */
+export function transformMean(kind: CountTransform, mu: number): number {
+  if (mu <= 0) throw new RangeError(`transformMean needs mu > 0, got ${mu}`);
+  if (kind === 'pearson') return 0;
+  const f = TRANSFORM_FN[kind];
+  let total = 0;
+  for (let k = 0; k <= poissonTailBound(mu); k += 1) total += poissonPmf(k, mu) * f(k);
+  return total;
+}
+
+/**
+ * Standard deviation of a transform applied to a Poisson count of mean `mu`.
+ *
+ * A transform is variance-stabilising exactly when this is flat in `mu`. Pearson residuals
+ * are flat at 1 by construction; Anscombe reaches 1 above a mean of about five; and log1p,
+ * the field's default, is the least flat of the three — which is worth knowing given that
+ * variance stabilisation is the reason it is chosen.
+ */
+export function transformSd(kind: CountTransform, mu: number): number {
+  if (mu <= 0) throw new RangeError(`transformSd needs mu > 0, got ${mu}`);
+  if (kind === 'pearson') return 1;
+  const f = TRANSFORM_FN[kind];
+  const mean = transformMean(kind, mu);
+  let total = 0;
+  for (let k = 0; k <= poissonTailBound(mu); k += 1)
+    total += poissonPmf(k, mu) * (f(k) - mean) ** 2;
+  return Math.sqrt(Math.max(total, 0));
+}
+
+const TRANSFORM_FN: Record<Exclude<CountTransform, 'pearson'>, (k: number) => number> = {
+  log1p: (k) => Math.log1p(k),
+  sqrt: (k) => Math.sqrt(k),
+  anscombe: (k) => 2 * Math.sqrt(k + 3 / 8),
+};
+
+/** Where a Poisson pmf has nothing left worth summing — mean plus twelve standard deviations. */
+function poissonTailBound(mu: number): number {
+  return Math.max(40, Math.ceil(mu + 12 * Math.sqrt(mu)));
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**

@@ -131,6 +131,8 @@ export const DEEP_DIVE_ORDER: string[] = [
   'sc-count-noise-model',
   'sc-ambient-and-doublets',
   'sc-cell-calling-qc',
+  'sc-normalization',
+  'sc-feature-selection',
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',
