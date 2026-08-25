@@ -169,6 +169,83 @@ export function sampleSizeForR2(targetR2: number, M: number, h2: number): number
   return M / (h2 * (h2 / targetR2 - 1));
 }
 
+// ── Single-cell counts ────────────────────────────────────────────────────────
+
+/** Poisson probability of observing exactly k, P(k) = e^{-μ} μ^k / k!. */
+export function poissonPmf(k: number, mu: number): number {
+  if (k < 0 || !Number.isInteger(k)) throw new RangeError(`poissonPmf needs k >= 0, got ${k}`);
+  if (mu < 0) throw new RangeError(`poissonPmf needs mu >= 0, got ${mu}`);
+  if (mu === 0) return k === 0 ? 1 : 0;
+  return Math.exp(-mu + k * Math.log(mu) - lnGamma(k + 1));
+}
+
+/**
+ * Probability a Poisson count is zero, e^{-μ}.
+ *
+ * This is the number that dissolves most of what single-cell papers call "dropout". A gene
+ * whose true mean is 0.1 counts per cell is absent from 90.48% of cells with no
+ * zero-inflating process of any kind — the zeros are the sampling distribution, not
+ * evidence of a technical failure to detect.
+ */
+export function poissonZeroProbability(mu: number): number {
+  return Math.exp(-mu);
+}
+
+/**
+ * Negative-binomial variance under the mean/dispersion parameterisation used throughout
+ * single-cell work: Var = μ + μ²/θ.
+ *
+ * θ → ∞ recovers the Poisson, Var = μ. Small θ is heavy overdispersion. The quadratic term
+ * is what makes biological variability dominate at high expression while sampling noise
+ * dominates at low expression — the reason the mean–variance trend has the shape it does.
+ */
+export function nbVariance(mu: number, theta: number): number {
+  if (theta <= 0) throw new RangeError(`nbVariance needs theta > 0, got ${theta}`);
+  return mu + (mu * mu) / theta;
+}
+
+/** Negative-binomial probability of exactly k, in the mean/dispersion parameterisation. */
+export function negBinomialPmf(k: number, mu: number, theta: number): number {
+  if (k < 0 || !Number.isInteger(k)) throw new RangeError(`negBinomialPmf needs k >= 0`);
+  if (theta <= 0) throw new RangeError(`negBinomialPmf needs theta > 0, got ${theta}`);
+  if (mu === 0) return k === 0 ? 1 : 0;
+  const logP =
+    lnGamma(k + theta) - lnGamma(theta) - lnGamma(k + 1) +
+    theta * Math.log(theta / (theta + mu)) + k * Math.log(mu / (theta + mu));
+  return Math.exp(logP);
+}
+
+/**
+ * Probability a negative-binomial count is zero, (θ/(θ+μ))^θ.
+ *
+ * Always at least the Poisson value: overdispersion adds zeros, so a gene looks *more*
+ * absent than Poisson sampling alone would make it. Quantifying that gap is how one decides
+ * whether a dataset needs a zero-inflated model at all — for UMI data it usually does not.
+ */
+export function nbZeroProbability(mu: number, theta: number): number {
+  if (theta <= 0) throw new RangeError(`nbZeroProbability needs theta > 0, got ${theta}`);
+  return Math.pow(theta / (theta + mu), theta);
+}
+
+/**
+ * Fraction of recovered droplets that contain more than one cell, given Poisson loading.
+ *
+ * With λ cells per droplet, a droplet holds k cells with probability e^{-λ}λ^k/k!. Only
+ * droplets holding at least one cell are recovered, so the multiplet rate among recovered
+ * droplets is P(k ≥ 2)/P(k ≥ 1) = (1 − e^{-λ} − λe^{-λ})/(1 − e^{-λ}).
+ *
+ * It rises with λ, and λ rises with how many cells you load — which is why the doublet rate
+ * of a droplet experiment is a function of the cells recovered, not a constant of the
+ * chemistry.
+ */
+export function multipletRate(lambda: number): number {
+  if (lambda < 0) throw new RangeError(`multipletRate needs lambda >= 0, got ${lambda}`);
+  if (lambda === 0) return 0;
+  const p0 = Math.exp(-lambda);
+  const p1 = lambda * p0;
+  return (1 - p0 - p1) / (1 - p0);
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**

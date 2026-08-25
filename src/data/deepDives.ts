@@ -21,7 +21,8 @@ export interface DeepDiveCategory {
     | 'gene-regulation'
     | 'epigenomics'
     | 'pangenomics'
-    | 'deep-learning';
+    | 'deep-learning'
+    | 'single-cell';
   label: string;
 }
 
@@ -63,6 +64,7 @@ export const DEEP_DIVE_CATEGORIES: DeepDiveCategory[] = [
   { slug: 'epigenomics', label: 'Epigenomics & Functional Genomics' },
   { slug: 'pangenomics', label: 'Pangenomics & Graphs' },
   { slug: 'deep-learning', label: 'Deep Learning & Foundation Models' },
+  { slug: 'single-cell', label: 'Single-Cell Genomics' },
 ];
 
 /**
@@ -123,6 +125,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   // Machine Learning & Deep Learning Interview Guide — complete course order.
   mlInterviewCurriculum.hub,
   ...mlInterviewCurriculum.lessons.map(({ id }) => id),
+  // Single-Cell Genomics — ids are added here as each lesson lands.
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',

@@ -289,6 +289,7 @@ const deepDiveDatasets = defineCollection({
       'variant-effect-scores',
       'protein-benchmarks',
       'variant-benchmarks',
+      'single-cell-atlases',
     ]),
     url: z.url(),
     version: z.string().optional(),
@@ -323,7 +324,7 @@ const deepDives = defineCollection({
       // models, fine-mapping and PRS with no declared relationship.
       track: z.enum(['theory', 'workflow', 'elective', 'resource']),
       hub: z
-        .enum(['statistical-genetics', 'gwas', 'genomic-data', 'ml-dl-interview'])
+        .enum(['statistical-genetics', 'gwas', 'genomic-data', 'ml-dl-interview', 'single-cell'])
         .default('statistical-genetics'),
       moduleId: z.string(),
       moduleLabel: z.string(),
@@ -340,6 +341,7 @@ const deepDives = defineCollection({
           'epigenomics',
           'pangenomics',
           'deep-learning',
+          'single-cell',
         ])
         .default('statistical-genetics'),
 
