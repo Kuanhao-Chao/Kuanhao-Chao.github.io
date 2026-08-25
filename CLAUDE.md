@@ -79,7 +79,7 @@ entry rendered by `src/content/deepDives/<slug>.mdx` +
 hand-authored `.astro` lessons left, and `src/lib/deepDives.test.ts` fails if one
 reappears alongside an entry of the same slug.
 
-Four tracks, 64 pages, each with a hub carrying `isHub: true`:
+Five tracks, each with a hub carrying `isHub: true`:
 
 | hub | pages | `track` | owns |
 | --- | --- | --- | --- |
@@ -87,6 +87,19 @@ Four tracks, 64 pages, each with a hub carrying `isHub: true`:
 | `gwas` | 10 | `workflow` | commands, thresholds, diagnostics, failure modes |
 | `genomic-data` | 13 | `resource` | the resource ecosystem and its access rules |
 | `ml-dl-interview` | 24 | `workflow` / `elective` | 351 interview questions |
+| `single-cell` | 6 of 18 | `theory` | the count model up through the analysis pipeline |
+
+**The single-cell track is in progress** — hub plus lessons 1–5 of a planned 17, in five
+modules (`s00-hub`, `s01-counts`, `s02-matrix`, `s03-geometry`, `s04-meaning`,
+`s05-beyond`). Its spine is the design effect `1 + (m-1)ρ`: cells from one donor are not
+replicates of that donor, so a per-cell test's false-positive rate *rises* with the number
+of cells (70.0% at 500 cells per donor, ρ = 0.05) and effective sample size saturates at
+`n/ρ`. That is the same shape as the GWAS control ceiling, and the hub is built on it.
+Its widgets are prefixed `sc-`; two of six exist (`sc-dropout`, `sc-normalize`).
+
+**The hub shipped first here, not last.** `isHub` derives the module map from siblings, so a
+hub works with one sibling and fills in as lessons land — and shipping it first keeps
+`audit:links` green on every intermediate push, because each lesson's back-link targets it.
 
 **The `theory`/`workflow` split is load-bearing, not decorative.** The GWAS track used to
 re-derive Wakefield's ABF, the LDSC proof, PRS shrinkage, EIGENSTRAT and the 5 × 10⁻⁸
@@ -180,6 +193,32 @@ Things specific to this subsystem:
   `escapes LaTeX backslashes inside JSX notation strings` for MDX, and a self-check in
   `deepDiveExamples.test.ts` requiring every backslash run inside a `toContain('…')` to be
   even, except where it escapes the closing quote.
+- **Two `<Citation>` markers with nothing between them cannot wrap.** `/><Citation` puts two
+  inline links adjacent with no break opportunity, so the pair renders as one unbreakable run
+  of roughly 280px and overflows the document at 320px. It only *fails* when the pair happens
+  to land near the end of a line, which is why it survives review: the identical construct sits
+  harmlessly in most lessons and blew up in exactly one. Write a newline between them — it
+  becomes a space, and a space is a break opportunity. `audit:deep-dives` catches it as
+  "document overflows by Npx at 320px", and the culprit is found by loading the page at 320
+  and listing elements whose `right` exceeds the viewport *and* which no ancestor clips.
+  **20 occurrences existed repo-wide when this was found**; the six in the single-cell track
+  were fixed and the rest were left, so the next 320px overflow is probably this again.
+
+- **A number is written twice in a lesson and only one form is the one you assert.** The same
+  value appears as `86.5\%` inside `$…$` and as `86.5%` in prose, and `toContain` sees only
+  the literal. Roughly twenty assertion failures across the single-cell build were this and
+  nothing else — the value was right, the form was wrong. Grep the lesson for the number
+  before writing the assertion rather than guessing which side of a `$` it landed on. Two
+  further wrinkles: a bare `34.6` or `25.5` also matches **SVG path data**, so anchor such
+  assertions to their LaTeX context (`'= 34.6$'`); and a value the figure draws is a *third*
+  form again, unescaped, inside the inline `<svg>`.
+
+- **`figlib.text` with `fill='var(--color-bg, …)'` is invisible on a short bar.** Labelling
+  inside a bar reads fine while the bar is long and vanishes the moment the bar is near zero —
+  which is exactly the row a bar chart of retention rates is drawn to show. Put the annotation
+  in the row label, never inside the geometry, and never in the page background colour. Same
+  family as the `fill="None"` trap, and equally invisible to every automated check.
+
 - **`isHub: true` makes a collection entry its track's landing page**: the back-link goes to
   `/deep_dives/` instead of to itself, and the page ends with a module map derived from its
   siblings rather than a prev/next pager. That is the "hub as a real syllabus" mechanism,

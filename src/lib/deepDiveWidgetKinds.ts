@@ -16,6 +16,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'gradient-descent',
   'attention-temperature',
   'sc-dropout',
+  'sc-normalize',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];

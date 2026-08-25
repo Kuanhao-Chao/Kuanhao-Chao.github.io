@@ -1,0 +1,322 @@
+---
+title: "Feature Selection: Choosing the Genes Before Choosing the Question"
+shortTitle: Feature Selection
+description: "How two thousand highly variable genes get picked, why every simple criterion ranks by expression level rather than by biology, and what that decision does to everything downstream."
+abstract: "Selecting highly variable genes is the last step before the analysis becomes geometry, and it is made without reference to the question being asked. The trouble is that the obvious criteria do not measure what they are meant to. Take two genes with no biological variance whatever — both pure Poisson, one at a mean of 2 and one at 100. Raw variance calls the second 50 times more variable, because a Poisson's variance is its mean. log1p variance calls it 26.38 times less, because the log transform compresses high counts. The Fano factor, the classical scale-free correction, still separates them 3.0 to 101.0 once any real overdispersion is present. All three are ranking by expression level, in different directions, and only the residual from a fitted mean-variance trend is flat where it should be. This lesson derives each criterion's bias, shows what a trend fit repairs, and asks what it means that a pipeline discards ninety percent of the genome before knowing what it is looking for."
+date: 2026-08-25
+track: theory
+hub: single-cell
+moduleId: s02-matrix
+moduleLabel: Module 2 · Building a Usable Matrix
+order: 6
+level: intermediate
+objectives:
+  - "Show that raw variance ranks genes by mean expression, and quantify the effect for genes with no biological variance."
+  - "Show that variance after log1p ranks genes by mean in the opposite direction, and say why."
+  - "Explain why the Fano factor does not fix the problem once genes are overdispersed."
+  - "Compute the trend residual that is scale-free, and connect it to the dispersion of lesson 2."
+  - "State what selecting a fixed number of genes commits the analysis to, and when to revisit it."
+prerequisites:
+  - sc-count-noise-model
+  - sc-normalization
+relatedLessons:
+  - sc-normalization
+  - sc-count-noise-model
+keyEquations:
+  - '\mathrm{Var}(c) = \mu \quad \text{(Poisson: variance is the mean)}'
+  - '\mathrm{Fano} = \dfrac{\sigma^2}{\mu} = 1 + \dfrac{\mu}{\theta}'
+  - '\dfrac{\sigma^2 - \mu}{\mu^2} = \dfrac{1}{\theta}'
+referenceIds:
+  - brennecke2013hvg
+  - stuart2019seurat3
+  - yip2019hvgbenchmark
+  - townes2019glmpca
+  - hafemeister2019sctransform
+  - lause2021pearson
+  - ahlmanneltze2023transformations
+  - luecken2019bestpractices
+tags: [single-cell, feature selection, highly variable genes, dispersion, Fano factor, mean-variance trend]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+A standard pipeline keeps about two thousand genes out of twenty thousand and throws the rest
+away. Everything after — the principal components, the neighbour graph, the clusters, the
+embedding — is computed on that tenth of the genome, so the selection is not a preprocessing
+detail. It decides what structure the analysis is capable of finding.
+
+It is also made before the question is asked. Nothing about "highly variable" refers to the
+comparison the experiment was designed for; the criterion is unsupervised, and a gene that
+separates the two conditions perfectly but varies little overall will not be selected. That
+trade is usually worth making, because supervised selection on the same data that is later
+tested is circular. But it is a trade, and it is worth knowing precisely what the unsupervised
+criterion is measuring.
+
+The answer, for every simple criterion, is: expression level.
+
+<Notation
+  rows={[
+    { symbol: '\\mu_g', meaning: 'Mean count of gene g across cells', dims: '> 0' },
+    { symbol: '\\sigma^2_g', meaning: 'Variance of gene g across cells', dims: '> 0' },
+    { symbol: '\\theta_g', meaning: 'Negative binomial dispersion of gene g, from lesson 2', dims: '> 0' },
+    { symbol: '\\mathrm{Fano}', meaning: 'Variance-to-mean ratio, 1 for a Poisson', dims: '> 0' },
+    { symbol: 'f(\\mu)', meaning: 'Fitted mean-variance trend across all genes', dims: '> 0' },
+    { symbol: 'r_g', meaning: 'Residual of gene g from that trend — the selection score', dims: 'real' },
+  ]}
+/>
+
+## Every simple criterion ranks by expression
+
+The cleanest way to see this is to feed each criterion genes that are, by construction,
+equally interesting: pure Poisson counts with no biological variance at all. A criterion that
+measures biology should rank them equally. None of them does.
+
+**Raw variance ranks by mean, ascending.** For a Poisson count, $\sigma^2 = \mu$ exactly. So a
+gene at a mean of 100 has fifty times the variance of one at a mean of 2, and a
+variance-ranked list is simply a list of the most-expressed genes. This is why nobody uses raw
+variance — but it is worth stating, because it establishes that the problem is structural
+rather than a flaw in one method.
+
+**Variance after log1p ranks by mean, descending.** Lesson 5 showed that the standard deviation
+of a log1p-transformed Poisson count is not flat: it peaks near a mean of 1.72 and falls away
+on both sides. Squaring, the variance of our mean-2 gene is 0.262448 and of our mean-100 gene
+0.009950 — so the criterion now prefers the *lower*-expressed gene by a factor of **26.38**.
+Two genes that are statistically identical are ranked in opposite orders by the two most
+obvious criteria, which is a useful demonstration that neither is measuring what it claims.
+
+<Figure
+  caption="Figure 1. What three selection criteria say about genes with no biological variance at all, plotted relative to a reference gene at a mean of 2. Every gene here is pure Poisson, so the correct answer is the flat dashed line. Raw variance instead rises without bound, calling a mean-100 gene 50 times more variable; log1p variance peaks near a mean of 1.72 and collapses, calling the same gene 0.038 times as variable — a factor of 26.38 the other way. Only the residual from a fitted mean–variance trend is flat."
+  alt="A log-log plot of variability relative to a reference gene against mean UMIs per cell. A rising straight line is labelled raw variance, a curve peaking near a mean of two and then falling is labelled log1p variance, and a flat dashed line at one is labelled trend residual. Markers at a mean of 100 read 50x on the rising line and 0.038x on the falling one."
+>
+<svg viewBox="0 0 772 322" width="772" height="322" font-family="inherit"><line x1="120.0" y1="44.0" x2="120.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="120.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="120.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="236.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.001</text><line x1="120.0" y1="200.7" x2="424.0" y2="200.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="204.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.01</text><line x1="120.0" y1="169.3" x2="424.0" y2="169.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="173.3" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.1</text><line x1="120.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="112.0" y="142.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="120.0" y1="106.7" x2="424.0" y2="106.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="110.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10</text><line x1="120.0" y1="75.3" x2="424.0" y2="75.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="79.3" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">100</text><line x1="120.0" y1="44.0" x2="424.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="48.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1,000</text><line x1="120.0" y1="232.0" x2="120.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="120.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.1</text><line x1="196.0" y1="232.0" x2="196.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="196.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="272.0" y1="232.0" x2="272.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="272.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="348.0" y1="232.0" x2="348.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="348.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="424.0" y1="232.0" x2="424.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1,000</text><path d="M120.0,178.8 L121.5,178.1 L123.0,177.5 L124.6,176.9 L126.1,176.3 L127.6,175.6 L129.1,175.0 L130.6,174.4 L132.2,173.8 L133.7,173.1 L135.2,172.5 L136.7,171.9 L138.2,171.2 L139.8,170.6 L141.3,170.0 L142.8,169.4 L144.3,168.7 L145.8,168.1 L147.4,167.5 L148.9,166.9 L150.4,166.2 L151.9,165.6 L153.4,165.0 L155.0,164.4 L156.5,163.7 L158.0,163.1 L159.5,162.5 L161.0,161.8 L162.6,161.2 L164.1,160.6 L165.6,160.0 L167.1,159.3 L168.6,158.7 L170.2,158.1 L171.7,157.5 L173.2,156.8 L174.7,156.2 L176.2,155.6 L177.8,155.0 L179.3,154.3 L180.8,153.7 L182.3,153.1 L183.8,152.4 L185.4,151.8 L186.9,151.2 L188.4,150.6 L189.9,149.9 L191.4,149.3 L193.0,148.7 L194.5,148.1 L196.0,147.4 L197.5,146.8 L199.0,146.2 L200.6,145.6 L202.1,144.9 L203.6,144.3 L205.1,143.7 L206.6,143.0 L208.2,142.4 L209.7,141.8 L211.2,141.2 L212.7,140.5 L214.2,139.9 L215.8,139.3 L217.3,138.7 L218.8,138.0 L220.3,137.4 L221.8,136.8 L223.4,136.2 L224.9,135.5 L226.4,134.9 L227.9,134.3 L229.4,133.6 L231.0,133.0 L232.5,132.4 L234.0,131.8 L235.5,131.1 L237.0,130.5 L238.6,129.9 L240.1,129.3 L241.6,128.6 L243.1,128.0 L244.6,127.4 L246.2,126.8 L247.7,126.1 L249.2,125.5 L250.7,124.9 L252.2,124.2 L253.8,123.6 L255.3,123.0 L256.8,122.4 L258.3,121.7 L259.8,121.1 L261.4,120.5 L262.9,119.9 L264.4,119.2 L265.9,118.6 L267.4,118.0 L269.0,117.4 L270.5,116.7 L272.0,116.1 L273.5,115.5 L275.0,114.8 L276.6,114.2 L278.1,113.6 L279.6,113.0 L281.1,112.3 L282.6,111.7 L284.2,111.1 L285.7,110.5 L287.2,109.8 L288.7,109.2 L290.2,108.6 L291.8,108.0 L293.3,107.3 L294.8,106.7 L296.3,106.1 L297.8,105.4 L299.4,104.8 L300.9,104.2 L302.4,103.6 L303.9,102.9 L305.4,102.3 L307.0,101.7 L308.5,101.1 L310.0,100.4 L311.5,99.8 L313.0,99.2 L314.6,98.6 L316.1,97.9 L317.6,97.3 L319.1,96.7 L320.6,96.0 L322.2,95.4 L323.7,94.8 L325.2,94.2 L326.7,93.5 L328.2,92.9 L329.8,92.3 L331.3,91.7 L332.8,91.0 L334.3,90.4 L335.8,89.8 L337.4,89.2 L338.9,88.5 L340.4,87.9 L341.9,87.3 L343.4,86.6 L345.0,86.0 L346.5,85.4 L348.0,84.8 L349.5,84.1 L351.0,83.5 L352.6,82.9 L354.1,82.3 L355.6,81.6 L357.1,81.0 L358.6,80.4 L360.2,79.8 L361.7,79.1 L363.2,78.5 L364.7,77.9 L366.2,77.2 L367.8,76.6 L369.3,76.0 L370.8,75.4 L372.3,74.7 L373.8,74.1 L375.4,73.5 L376.9,72.9 L378.4,72.2 L379.9,71.6 L381.4,71.0 L383.0,70.4 L384.5,69.7 L386.0,69.1 L387.5,68.5 L389.0,67.8 L390.6,67.2 L392.1,66.6 L393.6,66.0 L395.1,65.3 L396.6,64.7 L398.2,64.1 L399.7,63.5 L401.2,62.8 L402.7,62.2 L404.2,61.6 L405.8,61.0 L407.3,60.3 L408.8,59.7 L410.3,59.1 L411.8,58.4 L413.4,57.8 L414.9,57.2 L416.4,56.6 L417.9,55.9 L419.4,55.3 L421.0,54.7 L422.5,54.1 L424.0,53.4" fill="none" stroke="currentColor" stroke-width="2.2" opacity=".72"/><path d="M120.0,162.1 L121.5,161.5 L123.0,161.0 L124.6,160.4 L126.1,159.8 L127.6,159.2 L129.1,158.7 L130.6,158.1 L132.2,157.5 L133.7,157.0 L135.2,156.4 L136.7,155.9 L138.2,155.3 L139.8,154.8 L141.3,154.2 L142.8,153.7 L144.3,153.2 L145.8,152.6 L147.4,152.1 L148.9,151.6 L150.4,151.1 L151.9,150.6 L153.4,150.1 L155.0,149.6 L156.5,149.1 L158.0,148.6 L159.5,148.1 L161.0,147.6 L162.6,147.1 L164.1,146.7 L165.6,146.2 L167.1,145.8 L168.6,145.3 L170.2,144.9 L171.7,144.5 L173.2,144.1 L174.7,143.7 L176.2,143.3 L177.8,142.9 L179.3,142.5 L180.8,142.2 L182.3,141.8 L183.8,141.5 L185.4,141.1 L186.9,140.8 L188.4,140.5 L189.9,140.2 L191.4,140.0 L193.0,139.7 L194.5,139.5 L196.0,139.2 L197.5,139.0 L199.0,138.8 L200.6,138.6 L202.1,138.5 L203.6,138.3 L205.1,138.2 L206.6,138.1 L208.2,138.0 L209.7,138.0 L211.2,137.9 L212.7,137.9 L214.2,137.9 L215.8,137.9 L217.3,137.9 L218.8,138.0 L220.3,138.1 L221.8,138.2 L223.4,138.3 L224.9,138.5 L226.4,138.6 L227.9,138.8 L229.4,139.0 L231.0,139.3 L232.5,139.6 L234.0,139.8 L235.5,140.1 L237.0,140.5 L238.6,140.8 L240.1,141.2 L241.6,141.6 L243.1,142.0 L244.6,142.4 L246.2,142.8 L247.7,143.3 L249.2,143.8 L250.7,144.2 L252.2,144.7 L253.8,145.2 L255.3,145.8 L256.8,146.3 L258.3,146.8 L259.8,147.4 L261.4,147.9 L262.9,148.5 L264.4,149.0 L265.9,149.6 L267.4,150.2 L269.0,150.7 L270.5,151.3 L272.0,151.9 L273.5,152.5 L275.0,153.1 L276.6,153.7 L278.1,154.3 L279.6,154.9 L281.1,155.5 L282.6,156.1 L284.2,156.7 L285.7,157.3 L287.2,157.9 L288.7,158.5 L290.2,159.1 L291.8,159.7 L293.3,160.3 L294.8,160.9 L296.3,161.5 L297.8,162.1 L299.4,162.7 L300.9,163.3 L302.4,163.9 L303.9,164.6 L305.4,165.2 L307.0,165.8 L308.5,166.4 L310.0,167.0 L311.5,167.6 L313.0,168.3 L314.6,168.9 L316.1,169.5 L317.6,170.1 L319.1,170.7 L320.6,171.3 L322.2,172.0 L323.7,172.6 L325.2,173.2 L326.7,173.8 L328.2,174.4 L329.8,175.1 L331.3,175.7 L332.8,176.3 L334.3,176.9 L335.8,177.5 L337.4,178.2 L338.9,178.8 L340.4,179.4 L341.9,180.0 L343.4,180.7 L345.0,181.3 L346.5,181.9 L348.0,182.5 L349.5,183.2 L351.0,183.8 L352.6,184.4 L354.1,185.0 L355.6,185.7 L357.1,186.3 L358.6,186.9 L360.2,187.5 L361.7,188.1 L363.2,188.8 L364.7,189.4 L366.2,190.0 L367.8,190.6 L369.3,191.3 L370.8,191.9 L372.3,192.5 L373.8,193.1 L375.4,193.8 L376.9,194.4 L378.4,195.0 L379.9,195.6 L381.4,196.3 L383.0,196.9 L384.5,197.5 L386.0,198.2 L387.5,198.8 L389.0,199.4 L390.6,200.0 L392.1,200.7 L393.6,201.3 L395.1,201.9 L396.6,202.5 L398.2,203.2 L399.7,203.8 L401.2,204.4 L402.7,205.0 L404.2,205.7 L405.8,206.3 L407.3,206.9 L408.8,207.5 L410.3,208.2 L411.8,208.8 L413.4,209.4 L414.9,210.0 L416.4,210.7 L417.9,211.3 L419.4,211.9 L421.0,212.6 L422.5,213.2 L424.0,213.8" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><line x1="218.9" y1="232.0" x2="218.9" y2="44.0" stroke="currentColor" stroke-width="1.1" opacity=".25" stroke-dasharray="3 3"/><line x1="348.0" y1="232.0" x2="348.0" y2="44.0" stroke="currentColor" stroke-width="1.1" opacity=".25" stroke-dasharray="3 3"/><circle cx="348.0" cy="84.8" r="4.2" fill="currentColor"/><text x="339.0" y="74.8" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">50x</text><circle cx="348.0" cy="182.5" r="4.2" fill="var(--color-accent, #2e6e5e)"/><text x="339.0" y="198.5" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">0.038x</text><text x="218.9" y="36.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">reference gene, mean 2</text><text x="348.0" y="36.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">mean 100</text><text x="272.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Mean UMIs per cell</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Variability, relative to the reference gene</text><line x1="450.0" y1="54.0" x2="472.0" y2="54.0" stroke="currentColor" stroke-width="2.2" opacity=".72"/><text x="480.0" y="58.0" font-size="10" fill="currentColor" opacity=".72">raw variance</text><line x1="450.0" y1="71.0" x2="472.0" y2="71.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><text x="480.0" y="75.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">log1p variance</text><line x1="450.0" y1="88.0" x2="472.0" y2="88.0" stroke="currentColor" stroke-width="2.2" opacity=".4" stroke-dasharray="4 3"/><text x="480.0" y="92.0" font-size="10" fill="currentColor" opacity=".4">trend residual</text><text x="450.0" y="128.0" font-size="11" fill="currentColor" font-weight="700">Opposite orderings.</text><text x="450.0" y="146.0" font-size="10" fill="currentColor" opacity=".8">Neither gene has any</text><text x="450.0" y="159.0" font-size="10" fill="currentColor" opacity=".8">biological variance - both are</text><text x="450.0" y="172.0" font-size="10" fill="currentColor" opacity=".8">pure Poisson. Raw variance</text><text x="450.0" y="185.0" font-size="10" fill="currentColor" opacity=".8">still calls the mean-100 gene</text><text x="450.0" y="198.0" font-size="10" fill="currentColor" opacity=".8">50 times more variable, and</text><text x="450.0" y="211.0" font-size="10" fill="currentColor" opacity=".8">log1p variance calls it 26</text><text x="450.0" y="224.0" font-size="10" fill="currentColor" opacity=".8">times less.</text><text x="450.0" y="237.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="450.0" y="250.0" font-size="10" fill="currentColor" opacity=".8">Both are ranking by mean, in</text><text x="450.0" y="263.0" font-size="10" fill="currentColor" opacity=".8">opposite directions. Only the</text><text x="450.0" y="276.0" font-size="10" fill="currentColor" opacity=".8">residual from the fitted</text><text x="450.0" y="289.0" font-size="10" fill="currentColor" opacity=".8">mean-variance trend is flat,</text><text x="450.0" y="302.0" font-size="10" fill="currentColor" opacity=".8">which is the right answer.</text><line x1="120.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1.8" opacity=".4" stroke-dasharray="4 3"/></svg>
+</Figure>
+
+**The Fano factor does not rescue it.** The classical fix is to divide out the mean:
+$\mathrm{Fano} = \sigma^2/\mu$, which is exactly 1 for any Poisson regardless of level. On our
+two noise genes it correctly returns 1 and 1.
+
+But real genes are overdispersed, and for a negative binomial
+
+$$
+\mathrm{Fano} = \frac{\mu + \mu^2/\theta}{\mu} = 1 + \frac{\mu}{\theta},
+$$
+
+which grows linearly in the mean. Two genes with *identical* dispersion $\theta = 1$ — the same
+biological variability by any reasonable definition — have Fano factors of 3.0 at a mean of 2
+and 101.0 at a mean of 100. The correction works on the null and fails on the signal, which is
+the worst possible place for a correction to fail.
+
+## What is actually scale-free
+
+Rearranging the same expression isolates the quantity that does not depend on the mean:
+
+$$
+\frac{\sigma^2 - \mu}{\mu^2} = \frac{1}{\theta}.
+$$
+
+The excess variance over Poisson, divided by the *square* of the mean, is exactly the inverse
+dispersion — and it is the same number for both genes above. That is the quantity a selection
+criterion should be ranking on, and it is the same $\theta$ that lesson 2 fitted from the
+moments.
+
+In practice the trend is fitted rather than assumed. The methods differ in how:
+
+- **Fit the technical trend from spike-ins** and rank by the excess above it. The original
+  approach, and the most defensible where spike-ins exist <Citation id="brennecke2013hvg" />.
+- **Fit a smooth curve of variance against mean across all genes** and rank by the residual.
+  This is what `vst` does, and it makes the reasonable assumption that most genes are not
+  variable, so the bulk of them define the null <Citation id="stuart2019seurat3" />.
+- **Fit a count model directly** and use its dispersion, or skip selection and let a GLM-based
+  dimension reduction weight genes by their likelihood contribution
+  <Citation id="hafemeister2019sctransform" />
+<Citation id="townes2019glmpca" />. Pearson
+  residual variance is a particularly clean version: under the null it is 1 for every gene, so
+  the excess above 1 is directly interpretable <Citation id="lause2021pearson" />.
+
+Benchmarks of the many available methods find they agree on the strongest genes and diverge
+substantially in the middle of the ranking <Citation id="yip2019hvgbenchmark" />, which matters
+precisely because the cut is usually taken at a fixed count rather than at a threshold.
+
+<Callout variant="intuition" title="Two thousand is a budget, not a discovery">
+
+The number 2,000 is not estimated from anything. It is a default, and it propagates: papers
+report "the 2,000 most variable genes" as though the data had nominated them.
+
+What the number actually controls is a bias–variance trade on the geometry. Too few genes and
+rare populations lose the features that distinguish them, because a cell type that is 1% of the
+sample contributes little to any global variance ranking. Too many and the distances are
+dominated by genes carrying only noise, which is the distance concentration problem of
+lesson 8.
+
+The useful discipline is to check that the finding survives the choice. Re-run at 1,000 and
+5,000 genes; if the clusters you are about to build a paper on appear at 2,000 and not at
+5,000, that is a result about the selection, not about the tissue
+<Citation id="luecken2019bestpractices" />.
+
+</Callout>
+
+<WorkedExample
+  title="Ranking two genes that are the same gene"
+  given={[
+    'Gene A: mean 2 UMIs per cell',
+    'Gene B: mean 100 UMIs per cell',
+    'Both pure Poisson — no biological variance whatsoever',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — raw variance.** For a Poisson, variance equals the mean, so $\sigma^2_A = 2$ and
+$\sigma^2_B = 100$. Gene B ranks **50.0×** above gene A.
+
+**Step 2 — variance after log1p.** From lesson 5's machinery, the variance of the transformed
+count is 0.262448 for gene A and 0.009950 for gene B. Gene B now ranks
+
+$$
+\frac{0.009950}{0.262448} = 0.0379
+$$
+
+times gene A — that is, gene A ranks **26.38×** above gene B. The ordering has reversed.
+
+**Step 3 — the Fano factor.** $\sigma^2/\mu = 1$ for both, since both are Poisson. On these two
+genes the correction works.
+
+**Step 4 — the Fano factor on genes that are actually variable.** Give both genes the same real
+dispersion $\theta = 1$. Then $\sigma^2 = \mu + \mu^2$, so
+
+$$
+\mathrm{Fano}_A = \frac{2 + 4}{2} = 3.0,
+\qquad
+\mathrm{Fano}_B = \frac{100 + 10{,}000}{100} = 101.0.
+$$
+
+Identical dispersion, and the criterion separates them **33.7×**. It was flat only on the null.
+
+**Step 5 — the scale-free quantity.**
+
+$$
+\frac{\sigma^2 - \mu}{\mu^2} = \frac{6 - 2}{4} = 1,
+\qquad
+\frac{10{,}100 - 100}{10{,}000} = 1,
+$$
+
+both exactly $1/\theta = 1$. This is the number that does not care how expressed the gene is,
+and it is the one a trend-residual criterion is estimating.
+
+**The moral.** Three of the four criteria are ranking by expression level. That is not a subtle
+statistical point: it means a highly variable gene list built with any of them is substantially
+a list of highly *expressed* genes, and the enrichment analyses run on such lists inherit that.
+
+</WorkedExample>
+
+## Summary
+
+- Feature selection is **unsupervised and irreversible**: everything downstream sees only the
+  selected genes, and the criterion never refers to the question being asked.
+- **Raw variance ranks by mean** — for a Poisson, $\sigma^2 = \mu$ exactly, so a mean-100 gene
+  beats a mean-2 gene **50×** with no biological difference between them.
+- **log1p variance ranks by mean in the opposite direction**, preferring the mean-2 gene by
+  **26.38×**, because the transform compresses high counts (lesson 5).
+- **The Fano factor is flat on the null and not on the signal**: $1 + \mu/\theta$, so two genes
+  with the same $\theta = 1$ score 3.0 and 101.0.
+- The scale-free quantity is $(\sigma^2 - \mu)/\mu^2 = 1/\theta$ — the same dispersion lesson 2
+  fitted. Trend-residual methods estimate it by fitting the bulk of genes as the null.
+- **2,000 is a budget, not a discovery.** Re-run at 1,000 and 5,000; a cluster that appears at
+  only one of them is a fact about the selection.
+
+<Exercise n={1} title="A criterion on the null and on the signal" difficulty="warm-up">
+
+Two genes have means 5 and 50.
+
+(a) If both are pure Poisson, what is each one's Fano factor?
+
+(b) If both have dispersion $\theta = 2$, what is each one's Fano factor?
+
+(c) State in one sentence what (a) and (b) together show about the Fano factor.
+
+<div slot="solution">
+
+(a) A Poisson has $\sigma^2 = \mu$, so both have Fano **1.0**. The criterion is correctly flat.
+
+(b) $\mathrm{Fano} = 1 + \mu/\theta$, so the mean-5 gene gives $1 + 2.5 = 3.5$ and the mean-50
+gene gives $1 + 25 = 26.0$ — a separation of **7.43×** between genes of identical dispersion.
+
+(c) The Fano factor is scale-free exactly when there is nothing to detect, and acquires a
+mean-dependence proportional to the overdispersion it is supposed to be measuring.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Recovering the dispersion from two genes" difficulty="core">
+
+Gene P has observed mean 5 and variance 20. Gene Q has observed mean 50 and variance 2,550.
+
+(a) Compute each gene's Fano factor, and say which looks more variable.
+
+(b) Compute $(\sigma^2 - \mu)/\mu^2$ for each, and say which is more variable.
+
+(c) Which answer should go in the paper, and why do the two disagree?
+
+<div slot="solution">
+
+(a) $\mathrm{Fano}_P = 20/5 = 4.0$ and $\mathrm{Fano}_Q = 2{,}550/50 = 51.0$. By this criterion
+Q is **12.75×** more variable.
+
+(b) $(20 - 5)/25 = 0.6$ and $(2{,}550 - 50)/2{,}500 = 1.0$, so $\theta_P = 1/0.6 = 1.6667$ and
+$\theta_Q = 1.0$. Q is more variable, but only by a factor of **1.67**, not 12.75.
+
+(c) The second. The two disagree because the Fano factor carries a $\mu/\theta$ term that grows
+with expression, so most of the apparent 12.75-fold gap is Q simply being ten times more
+expressed. The genes do differ — Q really is more overdispersed — but by less than a fifth of
+what the first criterion reported.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="What a fixed gene count commits you to" difficulty="stretch">
+
+A tissue contains a population that is 1% of the cells and differs from its neighbours in
+forty genes, all of moderate expression.
+
+(a) Why might those forty genes fail to enter a top-2,000 list, even under a well-behaved
+trend-residual criterion?
+
+(b) Propose a check that would reveal the problem, and state what a negative result would and
+would not establish.
+
+(c) Explain why simply raising the count to 10,000 genes is not a general fix.
+
+<div slot="solution">
+
+(a) A trend-residual criterion measures variance across *all* cells. A gene that differs
+sharply between a 1% population and everything else has, across the whole dataset, a mixture
+distribution that is 99% one component — so its total variance is inflated only slightly. The
+gene is genuinely variable *within the comparison that matters* and barely variable overall,
+and the criterion is blind to the distinction because it never sees the comparison.
+
+(b) Re-run the selection and clustering on progressively larger gene sets — 2,000, 5,000,
+10,000 and all genes — and watch whether a new cluster appears. If the rare population only
+resolves at 10,000 genes, the 2,000-gene analysis was missing it. A negative result establishes
+that no *additional* population is recovered by relaxing the gene budget; it does not establish
+that none exists, because a population differing in a handful of genes may not resolve at any
+gene count without a targeted comparison.
+
+(c) Because the trade runs both ways. Adding genes adds their noise to every distance, and in
+high dimensions that noise accumulates faster than the signal does — the distance concentration
+problem. Past some point, extra genes make all cells look equidistant and rare populations
+resolve *worse*, not better. There is no single count that is right for every dataset, which is
+why the check in (b) is the answer rather than a larger default. This is also why methods that
+weight genes continuously by their likelihood contribution, rather than admitting a fixed
+number, avoid the question entirely <Citation id="ahlmanneltze2023transformations" />.
+
+</div>
+
+</Exercise>

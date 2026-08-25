@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  transformSd,
+  transformMean,
   nbTheta,
   clusteredFalsePositiveRate,
   effectiveIndependentCells,
@@ -2481,5 +2483,65 @@ describe('nbTheta — the method-of-moments dispersion', () => {
   it('rejects a non-positive mean', () => {
     expect(() => nbTheta(0, 1)).toThrow(RangeError);
     expect(() => nbTheta(-1, 1)).toThrow(RangeError);
+  });
+});
+
+
+describe('count transforms — what each one does to mean and variance', () => {
+  it('log1p is biased low by Jensen, since log1p is concave', () => {
+    for (const mu of [0.1, 0.5, 1, 2, 5, 20, 100])
+      expect(transformMean('log1p', mu)).toBeLessThan(Math.log1p(mu));
+    // and the shortfall shrinks as the mean grows
+    expect(transformMean('log1p', 0.1) / Math.log1p(0.1)).toBeCloseTo(0.7125, 4);
+    expect(transformMean('log1p', 100) / Math.log1p(100)).toBeCloseTo(0.9989, 4);
+  });
+
+  it('Anscombe converges on an sd of exactly 1, which is what it was built for', () => {
+    expect(transformSd('anscombe', 5)).toBeCloseTo(1, 2);
+    expect(transformSd('anscombe', 20)).toBeCloseTo(1, 3);
+    expect(transformSd('anscombe', 100)).toBeCloseTo(1, 5);
+  });
+
+  it('sqrt converges on 1/2, the delta-method value for a Poisson', () => {
+    expect(transformSd('sqrt', 100)).toBeCloseTo(0.5, 2);
+    expect(transformSd('sqrt', 1000)).toBeCloseTo(0.5, 3);
+  });
+
+  it('log1p converges on sqrt(mu)/(1+mu), so its sd falls away instead of flattening', () => {
+    for (const mu of [50, 100, 500])
+      expect(transformSd('log1p', mu)).toBeCloseTo(Math.sqrt(mu) / (1 + mu), 2);
+    // the property that matters: it is not flat
+    const sds = [0.1, 0.5, 1, 2, 5, 20, 100].map((mu) => transformSd('log1p', mu));
+    expect(Math.max(...sds) / Math.min(...sds)).toBeCloseTo(5.14, 2);
+    expect(Math.max(...sds)).toBeCloseTo(0.5123, 4);
+    expect(Math.min(...sds)).toBeCloseTo(0.0997, 4);
+  });
+
+  it('log1p is the least flat of the three, which is the lesson’s claim', () => {
+    const spread = (kind: 'log1p' | 'sqrt' | 'anscombe') => {
+      const sds = [0.1, 0.5, 1, 2, 5, 20, 100].map((mu) => transformSd(kind, mu));
+      return Math.max(...sds) / Math.min(...sds);
+    };
+    expect(spread('log1p')).toBeGreaterThan(spread('sqrt'));
+    expect(spread('log1p')).toBeGreaterThan(spread('anscombe'));
+    // above a mean of 2, where the comparison is fair, Anscombe is flat and log1p is not
+    const above2 = (kind: 'log1p' | 'anscombe') => {
+      const sds = [2, 5, 20, 100].map((mu) => transformSd(kind, mu));
+      return Math.max(...sds) / Math.min(...sds);
+    };
+    expect(above2('anscombe')).toBeLessThan(1.05);
+    expect(above2('log1p')).toBeGreaterThan(5);
+  });
+
+  it('Pearson residuals are standardised by construction', () => {
+    for (const mu of [0.1, 1, 100]) {
+      expect(transformSd('pearson', mu)).toBe(1);
+      expect(transformMean('pearson', mu)).toBe(0);
+    }
+  });
+
+  it('rejects a non-positive mean', () => {
+    expect(() => transformSd('log1p', 0)).toThrow(RangeError);
+    expect(() => transformMean('log1p', -1)).toThrow(RangeError);
   });
 });
