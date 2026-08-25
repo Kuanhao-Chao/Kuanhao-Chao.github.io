@@ -37,7 +37,7 @@ for pi, (name, cells, D, Dp, r2, N) in enumerate(PANELS):
     o.append(text(x0, 190, 'D = %.4f' % D, 10.5, opacity='.85'))
     o.append(text(x0, 207, "D' = %.4f" % Dp, 10.5, opacity='.85'))
     o.append(text(x0, 224, 'r² = %.6f' % r2, 11, weight='700', fill=ACCENT))
-    o.append(text(x0, 250, 'N needed: %s' % format(N, ','), 10.5, weight='600'))
+    o.append(text(x0, 250, 'N_eff needed: %s' % format(N, ','), 10.5, weight='600'))
 
 o.append(text(20, 24, 'Same two variants, same allele frequencies, different populations',
               11.5, opacity='.8'))

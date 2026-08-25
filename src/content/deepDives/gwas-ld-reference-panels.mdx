@@ -2,7 +2,7 @@
 title: "LD in Practice: Reference Panels, Pruning and Clumping"
 shortTitle: LD in Practice
 description: "Choosing an LD reference that matches the cohort, the difference between pruning and clumping and when each is right, and what happens downstream when the panel is wrong."
-abstract: "Almost everything after the scan needs an LD reference, and the choice of that reference is a modelling decision disguised as a file path. The reason is that r-squared is not a property of two variants; it is a property of two variants in a population. The lesson works a pair sitting at frequency 0.50 at both loci in two populations — nothing about the variants differs — where r-squared is 0.640000 in one and 0.078400 in the other, so a study needs 61,877 people to see a causal signal through that tag in the first and 505,115 in the second, a factor of 8.16. That single fact explains why a mismatched panel corrupts clumping, LD score regression and fine-mapping alike. The second half separates pruning from clumping, which are routinely confused and answer different questions."
+abstract: "Almost everything after the scan needs an LD reference, and the choice of that reference is a modelling decision disguised as a file path. The reason is that r-squared is not a property of two variants; it is a property of two variants in a population. The lesson works a pair sitting at frequency 0.50 at both loci in two populations — nothing about the variants differs — where r-squared is 0.640000 in one and 0.078400 in the other, so a study needs an effective sample of 61,877 to see a causal signal through that tag in the first and 505,115 in the second, a factor of 8.16 — which at the track's 4:1 case-control ratio is 96,683 people against 789,242. That single fact explains why a mismatched panel corrupts clumping, LD score regression and fine-mapping alike. The second half separates pruning from clumping, which are routinely confused and answer different questions."
 date: 2026-08-23
 track: workflow
 hub: gwas
@@ -136,12 +136,15 @@ $$
 so with $q^2_{\text{causal}} = 1.0 \times 10^{-3}$ the tag carries $6.4 \times 10^{-4}$ in
 population A and $7.84 \times 10^{-5}$ in population B.
 
-**Step 5 — in people.** Using $N \geq 39.60/q^2$ from [Study Design](/deep_dives/gwas-study-design/), the study
-needs
+**Step 5 — in effective samples.** Using $N_{\mathrm{eff}} \geq 39.60/q^2$ from
+[Study Design](/deep_dives/gwas-study-design/), the study needs
 
 $$
-N_A = 61{,}877 \qquad\text{and}\qquad N_B = 505{,}115 .
+N_{\mathrm{eff},A} = 61{,}877 \qquad\text{and}\qquad N_{\mathrm{eff},B} = 505{,}115 .
 $$
+
+These are effective samples, the unit the rest of the track counts in — at a 4:1 case-control
+ratio they are 96,683 and 789,242 people.
 
 The ratio is $8.1633$, exactly the ratio of the two $r^2$ values, because the sample size is
 inversely proportional to the variance the tag carries. Choosing the wrong reference panel
@@ -150,10 +153,10 @@ does not make a study slightly less efficient. It can make it eight times too sm
 </WorkedExample>
 
 <Figure
-  caption="Figure 1. The same two variants in two populations, with identical allele frequencies of 0.50 at both loci. Population A's haplotypes are concentrated on AB and ab, giving D = 0.2000 and r² = 0.640000; population B's are spread, giving D = 0.0700 and r² = 0.078400. The required sample size rises from 61,877 to 505,115 — a factor of 8.16, exactly the ratio of the two r² values."
-  alt="Two haplotype frequency grids side by side. Population A shows 0.45, 0.05, 0.05, 0.45 with D of 0.2000, D-prime of 0.8000 and r squared of 0.640000, needing 61,877 people. Population B shows 0.32, 0.18, 0.18, 0.32 with D of 0.0700, D-prime of 0.2800 and r squared of 0.078400, needing 505,115."
+  caption="Figure 1. The same two variants in two populations, with identical allele frequencies of 0.50 at both loci. Population A's haplotypes are concentrated on AB and ab, giving D = 0.2000 and r² = 0.640000; population B's are spread, giving D = 0.0700 and r² = 0.078400. The required effective sample size rises from 61,877 to 505,115 — a factor of 8.16, exactly the ratio of the two r² values."
+  alt="Two haplotype frequency grids side by side. Population A shows 0.45, 0.05, 0.05, 0.45 with D of 0.2000, D-prime of 0.8000 and r squared of 0.640000, needing an effective sample of 61,877. Population B shows 0.32, 0.18, 0.18, 0.32 with D of 0.0700, D-prime of 0.2800 and r squared of 0.078400, needing 505,115."
 >
-<svg viewBox="0 0 640 366" width="640" height="366" font-family="inherit"><text x="60.0" y="46.0" font-size="12" fill="currentColor" font-weight="700">population A</text><text x="156.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">B</text><text x="212.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">b</text><text x="116.0" y="96.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">A</text><rect x="132.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="158.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.45</text><rect x="188.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="214.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.05</text><text x="116.0" y="140.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">a</text><rect x="132.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="158.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.05</text><rect x="188.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="214.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.45</text><text x="60.0" y="190.0" font-size="10.5" fill="currentColor" opacity=".85">D = 0.2000</text><text x="60.0" y="207.0" font-size="10.5" fill="currentColor" opacity=".85">D' = 0.8000</text><text x="60.0" y="224.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">r² = 0.640000</text><text x="60.0" y="250.0" font-size="10.5" fill="currentColor" font-weight="600">N needed: 61,877</text><text x="380.0" y="46.0" font-size="12" fill="currentColor" font-weight="700">population B</text><text x="476.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">B</text><text x="532.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">b</text><text x="436.0" y="96.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">A</text><rect x="452.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="478.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.32</text><rect x="508.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="534.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.18</text><text x="436.0" y="140.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">a</text><rect x="452.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="478.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.18</text><rect x="508.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="534.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.32</text><text x="380.0" y="190.0" font-size="10.5" fill="currentColor" opacity=".85">D = 0.0700</text><text x="380.0" y="207.0" font-size="10.5" fill="currentColor" opacity=".85">D' = 0.2800</text><text x="380.0" y="224.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">r² = 0.078400</text><text x="380.0" y="250.0" font-size="10.5" fill="currentColor" font-weight="600">N needed: 505,115</text><text x="20.0" y="24.0" font-size="11.5" fill="currentColor" opacity=".8">Same two variants, same allele frequencies, different populations</text><line x1="340.0" y1="40.0" x2="340.0" y2="262.0" stroke="currentColor" stroke-width="1" opacity=".2"/><text x="20.0" y="286.0" font-size="10" fill="currentColor" opacity=".85">Both loci sit at frequency 0.50 in both populations, so nothing about the</text><text x="20.0" y="300.0" font-size="10" fill="currentColor" opacity=".85">variants themselves differs. Only the haplotypes do — and r² falls 8.16-fold,</text><text x="20.0" y="314.0" font-size="10" fill="currentColor" opacity=".85">which is exactly the factor by which the required sample size rises.</text><text x="20.0" y="336.0" font-size="10" fill="currentColor" opacity=".7">At equal frequencies r² = D'² exactly, which is why the two columns above</text><text x="20.0" y="350.0" font-size="10" fill="currentColor" opacity=".7">move together.</text></svg>
+<svg viewBox="0 0 640 366" width="640" height="366" font-family="inherit"><text x="60.0" y="46.0" font-size="12" fill="currentColor" font-weight="700">population A</text><text x="156.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">B</text><text x="212.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">b</text><text x="116.0" y="96.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">A</text><rect x="132.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="158.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.45</text><rect x="188.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="214.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.05</text><text x="116.0" y="140.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">a</text><rect x="132.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="158.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.05</text><rect x="188.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="214.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.45</text><text x="60.0" y="190.0" font-size="10.5" fill="currentColor" opacity=".85">D = 0.2000</text><text x="60.0" y="207.0" font-size="10.5" fill="currentColor" opacity=".85">D' = 0.8000</text><text x="60.0" y="224.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">r² = 0.640000</text><text x="60.0" y="250.0" font-size="10.5" fill="currentColor" font-weight="600">N<tspan font-size="8.5" dy="3">e</tspan><tspan dy="-3"></tspan>ff needed: 61,877</text><text x="380.0" y="46.0" font-size="12" fill="currentColor" font-weight="700">population B</text><text x="476.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">B</text><text x="532.0" y="68.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">b</text><text x="436.0" y="96.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">A</text><rect x="452.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="478.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.32</text><rect x="508.0" y="76.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="534.0" y="99.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.18</text><text x="436.0" y="140.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">a</text><rect x="452.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="478.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.18</text><rect x="508.0" y="120.0" width="52.0" height="36.0" rx="3" fill="currentColor" opacity="0.07" stroke="currentColor" stroke-width="1"/><text x="534.0" y="143.0" font-size="11" fill="currentColor" text-anchor="middle" font-weight="600">0.32</text><text x="380.0" y="190.0" font-size="10.5" fill="currentColor" opacity=".85">D = 0.0700</text><text x="380.0" y="207.0" font-size="10.5" fill="currentColor" opacity=".85">D' = 0.2800</text><text x="380.0" y="224.0" font-size="11" fill="var(--color-accent, #2e6e5e)" font-weight="700">r² = 0.078400</text><text x="380.0" y="250.0" font-size="10.5" fill="currentColor" font-weight="600">N<tspan font-size="8.5" dy="3">e</tspan><tspan dy="-3"></tspan>ff needed: 505,115</text><text x="20.0" y="24.0" font-size="11.5" fill="currentColor" opacity=".8">Same two variants, same allele frequencies, different populations</text><line x1="340.0" y1="40.0" x2="340.0" y2="262.0" stroke="currentColor" stroke-width="1" opacity=".2"/><text x="20.0" y="286.0" font-size="10" fill="currentColor" opacity=".85">Both loci sit at frequency 0.50 in both populations, so nothing about the</text><text x="20.0" y="300.0" font-size="10" fill="currentColor" opacity=".85">variants themselves differs. Only the haplotypes do — and r² falls 8.16-fold,</text><text x="20.0" y="314.0" font-size="10" fill="currentColor" opacity=".85">which is exactly the factor by which the required sample size rises.</text><text x="20.0" y="336.0" font-size="10" fill="currentColor" opacity=".7">At equal frequencies r² = D'² exactly, which is why the two columns above</text><text x="20.0" y="350.0" font-size="10" fill="currentColor" opacity=".7">move together.</text></svg>
 </Figure>
 
 ## Pruning and clumping are different jobs
@@ -188,8 +191,16 @@ into whatever consumes the clumped list.
 <Citation id="bulik2015ldsc" />, and those LD scores come entirely from the panel. Because
 the slope is $Nh^2/M$, a systematically wrong LD score gives a systematically wrong
 heritability, with no diagnostic in the output to reveal it. This is why LDSC's documentation
-is emphatic about ancestry matching, and why the intercept — which is *not* proportional to
-the LD score — remains interpretable even when the slope is not.
+is emphatic about ancestry matching.
+
+The intercept is not the safe harbour it is often taken for, either. It survives a *purely
+multiplicative* discrepancy — scale every LD score by 1.2 and the slope moves while the
+intercept stays exactly where it was — but a real panel mismatch is not a clean rescaling.
+It errs variant by variant, which is textbook errors-in-variables: the slope attenuates and
+the part of the signal it loses reappears in the intercept. Fitting the same clean statistics
+against LD scores carrying variant-level noise moves an intercept of 1.02 to 1.70, which a
+reader would diagnose as heavy confounding in a scan that has none. So a clean intercept is
+not evidence the LD scores are right, and an inflated one is not proof of confounding.
 
 **Fine-mapping** is the most sensitive of the three, because it is trying to distinguish
 variants that are nearly indistinguishable. It is the subject of the next lesson, which uses
@@ -237,7 +248,7 @@ outright, giving $D'^2 = 0.390625$ against $r^2 = 0.173611$. The worked example 
 $p_A = p_B = 0.5$, which satisfies it for either sign.
 
 **(c)** $q^2_{\text{tag}} = 0.340278 \times 8 \times 10^{-4} = 2.72222 \times 10^{-4}$, so
-the study needs $N \geq 39.600989/(2.72222 \times 10^{-4}) = 145{,}474$ people.
+the study needs $N_{\mathrm{eff}} \geq 39.600989/(2.72222 \times 10^{-4}) = 145{,}474$.
 
 </div>
 </Exercise>
@@ -290,11 +301,14 @@ it?
 
 <div slot="solution">
 
-**(a)** Only about the thing it measures. The intercept estimates the part of the inflation
-that does *not* scale with the LD score, so it is largely insensitive to the LD scores being
-wrong — which is precisely why it stays clean while the slope is corrupted. A clean intercept
-alongside a mismatched panel is the most misleading combination available, because it looks
-like a passing diagnostic.
+**(a)** No, and not for the reason usually given. The intercept is insulated from a purely
+multiplicative error in the LD scores — rescale them all and it does not move — so a clean
+intercept is consistent with a badly scaled panel, and looks like a passing diagnostic while
+$h^2$ is wrong. But a mismatched panel also errs *variant by variant*, and that pushes the
+intercept **up**: the same clean statistics fitted against noisy LD scores gave 1.70 rather
+than 1.02 in the worked figures above. So an intercept of 1.01 here says the panel's error is
+close to multiplicative, not that the panel is right — and had it come back at 1.4 the team
+would have been equally wrong to read it as confounding.
 
 **(b)** The slope is $Nh^2/M$, so $h^2$ is misestimated by whatever factor the LD scores are
 wrong by, and the direction depends on whether European LD scores are systematically higher
@@ -317,8 +331,8 @@ otherwise tell this analysis from a correct one: the published numbers look iden
   frequencies gave $r^2 = 0.640000$ in one population and $0.078400$ in another, and an
   LD panel is a claim about which population your samples resemble.
 - **Tagging depends on $r^2$, not $D'$.** The variance an association carries is
-  $q^2_{\text{tag}} = r^2 q^2_{\text{causal}}$, so sample size scales as $1/r^2$ — 61,877
-  people against 505,115 for the same causal variant.
+  $q^2_{\text{tag}} = r^2 q^2_{\text{causal}}$, so effective sample size scales as
+  $1/r^2$ — 61,877 against 505,115 for the same causal variant.
 - **The two normalisations coincide when the loci share an allele frequency**, where
   $r^2 = D'^2$. That is a useful arithmetic check and not a general fact.
 - **Pruning is signal-blind, clumping is signal-aware.** Prune for principal components and

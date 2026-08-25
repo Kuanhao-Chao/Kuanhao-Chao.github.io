@@ -202,8 +202,10 @@ lesson, and therefore does not pay its cost.
 
 The trade is **proximal contamination**: the relationship matrix includes the variant being
 tested, so the model partly fits the signal away, and power drops
-<Citation id="yang2014mlm" />. Every serious implementation solves this by leaving the
-tested variant's chromosome out of the relationship matrix. If a pipeline does not say
+<Citation id="yang2014mlm" />. The implementations that solve it leave the tested
+variant's chromosome out of the relationship matrix — BOLT-LMM and REGENIE do this, and GCTA
+offers it; EMMAX, cited above, fits one genome-wide matrix and does not, while fastGWA
+sidesteps the issue with a sparse relatedness matrix rather than by leaving anything out. If a pipeline does not say
 whether it does this, that is worth finding out before interpreting a null result.
 
 <Callout variant="warning" title="What neither correction touches">
