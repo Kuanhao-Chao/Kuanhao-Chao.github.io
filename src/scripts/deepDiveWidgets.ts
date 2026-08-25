@@ -18,6 +18,11 @@
  */
 
 import {
+  poissonZeroProbability,
+  poissonPmf,
+  nbZeroProbability,
+  nbVariance,
+  negBinomialPmf,
   breedersResponseFromIntensity,
   credibleSet,
   csPurity,
@@ -1385,6 +1390,115 @@ const attentionTemperature: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * Where a single-cell zero comes from.
+ *
+ * Draws the count distribution of one gene under Poisson sampling and under the negative
+ * binomial that the same mean with overdispersion implies, so the reader can see that most
+ * zeros are ordinary counting statistics rather than a separate dropout process. Every
+ * number comes from deepDiveMath, so the widget cannot disagree with the prose beside it.
+ */
+const scDropout: Renderer = (canvas, controlHost, readoutHost) => {
+  const KMAX = 10;
+
+  const draw = () => {
+    const mu = c.get('mu');
+    const theta = c.get('theta');
+
+    const pPois = Array.from({ length: KMAX + 1 }, (_, k) => poissonPmf(k, mu));
+    const pNb = Array.from({ length: KMAX + 1 }, (_, k) => negBinomialPmf(k, mu, theta));
+    const top = Math.max(...pPois, ...pNb, 0.05);
+
+    const x = linear(-0.5, KMAX + 0.5, PAD.left, PAD.left + PLOT.w,
+      Array.from({ length: KMAX + 1 }, (_, k) => k), (v) => String(v));
+    const y = linear(0, top, PAD.top + PLOT.h, PAD.top,
+      [0, top / 2, top], (v) => v.toFixed(2));
+
+    const svg = newSvg();
+    const g = frame(x, y, 'UMIs of this gene in one cell', 'Probability', svg);
+
+    const slot = (x(1) - x(0)) * 0.42;
+    for (let k = 0; k <= KMAX; k += 1) {
+      const base = y(0);
+      // negative binomial: filled, the model the field settled on
+      g.appendChild(
+        el('rect', {
+          x: x(k) - slot,
+          y: y(pNb[k]),
+          width: slot,
+          height: Math.max(0, base - y(pNb[k])),
+          fill: ACCENT,
+          opacity: 0.85,
+        })
+      );
+      // Poisson: outlined, so the overlap is visible rather than hidden
+      g.appendChild(
+        el('rect', {
+          x: x(k),
+          y: y(pPois[k]),
+          width: slot,
+          height: Math.max(0, base - y(pPois[k])),
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': 1.4,
+          opacity: 0.75,
+        })
+      );
+    }
+
+    g.appendChild(
+      label(PAD.left + PLOT.w - 4, PAD.top + 16, 'filled = negative binomial', {
+        'text-anchor': 'end',
+        opacity: 0.72,
+      })
+    );
+    g.appendChild(
+      label(PAD.left + PLOT.w - 4, PAD.top + 32, 'outlined = Poisson, same mean', {
+        'text-anchor': 'end',
+        opacity: 0.72,
+      })
+    );
+
+    canvas.replaceChildren(svg);
+
+    const zPois = poissonZeroProbability(mu);
+    const zNb = nbZeroProbability(mu, theta);
+    readout(readoutHost, [
+      ['zeros, Poisson', `${(100 * zPois).toFixed(1)}%`],
+      ['zeros, NB', `${(100 * zNb).toFixed(1)}%`],
+      ['of the NB zeros, sampling alone explains', `${(100 * (zPois / zNb)).toFixed(1)}%`],
+      ['variance', `${nbVariance(mu, theta).toFixed(2)} vs ${mu.toFixed(2)} Poisson`],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'mu',
+        label: 'Mean UMIs per cell',
+        min: 0.05,
+        max: 3,
+        step: 0.05,
+        value: 0.5,
+        format: (v) => v.toFixed(2),
+      },
+      {
+        key: 'theta',
+        label: 'Dispersion theta (higher = closer to Poisson)',
+        min: -0.7,
+        max: 2,
+        step: 0.05,
+        value: Math.log10(2),
+        scale: (v) => 10 ** v,
+        format: (v) => (10 ** v).toFixed(2),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'ld-decay': ldDecay,
   drift,
@@ -1396,6 +1510,7 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'decision-threshold': decisionThreshold,
   'gradient-descent': gradientDescent,
   'attention-temperature': attentionTemperature,
+  'sc-dropout': scDropout,
 };
 
 /**

@@ -3563,3 +3563,100 @@ hao2021seurat:
   venue: "Cell 184:3573-3587"
   doi: https://doi.org/10.1016/j.cell.2021.04.048
   verified: 2026-08-25
+
+grun2014noise:
+  authors: ['Dominic Grün', 'Lennart Kester', 'Alexander van Oudenaarden']
+  year: 2014
+  title: "Validation of noise models for single-cell transcriptomics"
+  venue: "Nature Methods 11:637-640"
+  doi: https://doi.org/10.1038/nmeth.2930
+  verified: 2026-08-25
+
+hafemeister2019sctransform:
+  authors: ['Christoph Hafemeister', 'Rahul Satija']
+  year: 2019
+  title: "Normalization and variance stabilization of single-cell RNA-seq data using regularized negative binomial regression"
+  venue: "Genome Biology 20:296"
+  doi: https://doi.org/10.1186/s13059-019-1874-1
+  verified: 2026-08-25
+
+kharchenko2014scde:
+  authors: ['Peter V. Kharchenko', 'Lev Silberstein', 'David T. Scadden']
+  year: 2014
+  title: "Bayesian approach to single-cell differential expression analysis"
+  venue: "Nature Methods 11:740-742"
+  doi: https://doi.org/10.1038/nmeth.2967
+  verified: 2026-08-25
+
+townes2019glmpca:
+  authors: ['F. William Townes', 'Stephanie C. Hicks', 'Martin J. Aryee', 'Rafael A. Irizarry']
+  year: 2019
+  title: "Feature selection and dimension reduction for single-cell RNA-Seq based on a multinomial model"
+  venue: "Genome Biology 20:295"
+  doi: https://doi.org/10.1186/s13059-019-1861-6
+  verified: 2026-08-25
+
+young2020soupx:
+  authors: ['Matthew D. Young', 'Sam Behjati']
+  year: 2020
+  title: "SoupX removes ambient RNA contamination from droplet-based single-cell RNA sequencing data"
+  venue: "GigaScience 9:giaa151"
+  doi: https://doi.org/10.1093/gigascience/giaa151
+  verified: 2026-08-25
+
+fleming2023cellbender:
+  authors: ['Stephen J. Fleming', 'Mark D. Chaffin', 'Alessandro Arduini', 'et al.']
+  year: 2023
+  title: "Unsupervised removal of systematic background noise from droplet-based single-cell experiments using CellBender"
+  venue: "Nature Methods 20:1323-1335"
+  doi: https://doi.org/10.1038/s41592-023-01943-7
+  verified: 2026-08-25
+
+wolock2019scrublet:
+  authors: ['Samuel L. Wolock', 'Romain Lopez', 'Allon M. Klein']
+  year: 2019
+  title: "Scrublet: Computational Identification of Cell Doublets in Single-Cell Transcriptomic Data"
+  venue: "Cell Systems 8:281-291"
+  doi: https://doi.org/10.1016/j.cels.2018.11.005
+  verified: 2026-08-25
+
+mcginnis2019doubletfinder:
+  authors: ['Christopher S. McGinnis', 'Lyndsay M. Murrow', 'Zev J. Gartner']
+  year: 2019
+  title: "DoubletFinder: Doublet Detection in Single-Cell RNA Sequencing Data Using Artificial Nearest Neighbors"
+  venue: "Cell Systems 8:329-337"
+  doi: https://doi.org/10.1016/j.cels.2019.03.003
+  verified: 2026-08-25
+
+lun2019emptydrops:
+  authors: ['Aaron T. L. Lun', 'Samantha Riesenfeld', 'Tallulah Andrews', 'et al.']
+  surname: Lun
+  year: 2019
+  title: "EmptyDrops: distinguishing cells from empty droplets in droplet-based single-cell RNA sequencing data"
+  venue: "Genome Biology 20:63"
+  doi: https://doi.org/10.1186/s13059-019-1662-y
+  verified: 2026-08-25
+
+stoeckius2018hashing:
+  authors: ['Marlon Stoeckius', 'Shiwei Zheng', 'Brian Houck-Loomis', 'et al.']
+  year: 2018
+  title: "Cell Hashing with barcoded antibodies enables multiplexing and doublet detection for single cell genomics"
+  venue: "Genome Biology 19:224"
+  doi: https://doi.org/10.1186/s13059-018-1603-1
+  verified: 2026-08-25
+
+osorio2021mito:
+  authors: ['Daniel Osorio', 'James J. Cai']
+  year: 2021
+  title: "Systematic determination of the mitochondrial proportion in human and mice tissues for single-cell RNA-sequencing data quality control"
+  venue: "Bioinformatics 37:963-967"
+  doi: https://doi.org/10.1093/bioinformatics/btaa751
+  verified: 2026-08-25
+
+ilicic2016lowquality:
+  authors: ['Tomislav Ilicic', 'Jong Kyoung Kim', 'Aleksandra A. Kolodziejczyk', 'et al.']
+  year: 2016
+  title: "Classification of low quality cells from single-cell RNA-seq data"
+  venue: "Genome Biology 17:29"
+  doi: https://doi.org/10.1186/s13059-016-0888-1
+  verified: 2026-08-25

@@ -1,0 +1,361 @@
+---
+title: "The Count Noise Model: Where a Zero Comes From"
+shortTitle: Count Noise Model
+description: "Why a single-cell count is Poisson to begin with, why it becomes negative binomial once cells differ, and why the zeros almost never need a third process to explain them."
+abstract: "Most of a single-cell matrix is zeros, and for a decade the field treated that as a technical failure to be modelled and imputed away. It is mostly not. Capturing a fraction of the molecules in a cell is a thinning of a count, which is Poisson, so a gene averaging 0.1 UMIs per cell is zero in 90.48% of cells with nothing having gone wrong. Cells then differ from one another in size, cycle and state, which mixes the Poisson rate over a Gamma and gives a negative binomial with variance μ + μ²/θ. The question that settled the matter is quantitative: fit θ from the mean and variance alone, and ask whether the zeros the NB predicts match the zeros observed. For a gene with mean 0.5 and variance 0.625 the moment estimator gives θ = 2 and predicts 64.00% zeros — 3,200 of 5,000 cells, exactly what is seen. A zero-inflation parameter fitted to that data comes back at zero. This lesson derives both distributions, shows where they can and cannot be told apart, and prices the difference in cells."
+date: 2026-08-25
+track: theory
+hub: single-cell
+moduleId: s01-counts
+moduleLabel: Module 1 · What a Count Is
+order: 2
+level: foundational
+objectives:
+  - "Derive the Poisson count model from the capture process and compute the zero probability it implies."
+  - "Explain how variation between cells turns a Poisson into a negative binomial, and write its variance."
+  - "Estimate the dispersion θ from a gene's mean and variance and test whether its zeros need any further explanation."
+  - "Say precisely when zero-inflation is and is not identifiable, and why the answer depends on the gene's mean."
+  - "Explain why imputing zeros before a differential-expression test inflates false positives."
+prerequisites:
+  - sc-from-cells-to-counts
+relatedLessons:
+  - sc-from-cells-to-counts
+  - statgen-mathematical-foundations
+keyEquations:
+  - '\Pr(c = 0 \mid \mu) = e^{-\mu}'
+  - '\mathrm{Var}(c) = \mu + \dfrac{\mu^2}{\theta}'
+  - '\Pr(c = 0 \mid \mu, \theta) = \left(\dfrac{\theta}{\theta + \mu}\right)^{\theta}'
+  - '\hat{\theta} = \dfrac{\mu^2}{\sigma^2 - \mu}'
+referenceIds:
+  - svensson2020zeroinflation
+  - grun2014noise
+  - kharchenko2014scde
+  - hafemeister2019sctransform
+  - townes2019glmpca
+  - luecken2019bestpractices
+  - islam2013umi
+  - zheng2017chromium
+tags: [single-cell, Poisson, negative binomial, dropout, zero-inflation, overdispersion]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Between 80% and 95% of a single-cell count matrix is zeros. What are they?
+
+For most of the field's first decade the answer was "technical failures" — molecules that were
+present but not captured, a phenomenon named **dropout**, modelled with an extra parameter and
+frequently imputed away before analysis <Citation id="kharchenko2014scde" />. The name stuck,
+the software spread, and a large literature grew on top of a premise that had not been checked
+against the simplest alternative.
+
+The alternative is that a zero is what you get when you count a small number of things. This
+lesson works out what that alternative predicts, in cells, so that the two can be told apart.
+
+<Notation
+  rows={[
+    { symbol: 'c', meaning: 'Observed UMI count of one gene in one cell', dims: 'integer >= 0' },
+    { symbol: 'M', meaning: 'True molecules of the gene present in the cell', dims: 'integer >= 0' },
+    { symbol: 'p', meaning: 'Capture efficiency — probability one molecule is recovered', dims: 'in (0,1)' },
+    { symbol: '\\mu', meaning: 'Mean observed count of the gene, Mp', dims: '> 0' },
+    { symbol: '\\theta', meaning: 'Negative binomial dispersion — small means highly overdispersed', dims: '> 0' },
+    { symbol: '\\sigma^2', meaning: 'Variance of the observed count across cells', dims: '> 0' },
+    { symbol: '\\pi_0', meaning: 'Zero-inflation parameter — extra zeros beyond the count model', dims: 'in [0,1)' },
+  ]}
+/>
+
+## Capture is a thinning, and a thinning is Poisson
+
+A cell contains $M$ molecules of some gene. Each is captured, reverse-transcribed and
+sequenced independently with probability $p$ — the capture efficiency, which for droplet
+protocols is on the order of 0.1. The observed count is therefore binomial:
+
+$$
+c \sim \mathrm{Binomial}(M, p).
+$$
+
+$M$ is large and $p$ is small, so this is the classical Poisson regime. Writing $\mu = Mp$,
+
+$$
+\Pr(c = k) = \frac{\mu^k e^{-\mu}}{k!}, \qquad \Pr(c = 0) = e^{-\mu}.
+$$
+
+That last expression is the whole argument in one line. A gene with 1,000 molecules in a cell
+and 10% capture has $\mu = 100$ and is never zero. A gene with **one** molecule in a cell and
+10% capture has $\mu = 0.1$ and is zero in
+
+$$
+e^{-0.1} = 0.904837,
+$$
+
+**90.48%** of cells. No molecule failed to be captured in any interesting sense; the count is
+small, and small counts are mostly zero. Most genes in most cells are in the second regime,
+which is why most of the matrix is zeros.
+
+<Callout variant="intuition" title="Zero is a number, not a missing value">
+
+The instinct that a zero is *missing data* comes from technologies where it was. A microarray
+spot with no signal really did fail; a bulk RNA-seq gene with zero reads at 30 million depth
+really is off.
+
+A single-cell zero is neither. It is an observation, and it carries information: a gene
+observed zero in a cell is evidence that gene is lowly expressed there, and the strength of
+that evidence is exactly $e^{-\mu}$. Treating it as missing and filling it in replaces a
+correct observation with a guess derived from other cells — which is to say, with the very
+similarity the analysis is about to go looking for.
+
+</Callout>
+
+## Cells differ, so the rate is not fixed
+
+Poisson would be the whole story if every cell of a type had the same $\mu$. They do not.
+Cells differ in size, in total RNA content, in cell-cycle phase, in how much ambient fluid
+came with them and in how deeply they happened to be sequenced. So $\mu$ is itself a random
+variable across cells.
+
+Let it vary as a Gamma with mean $\mu$ and shape $\theta$. Mixing a Poisson over a Gamma rate
+gives, exactly, a **negative binomial**:
+
+$$
+\Pr(c = k) = \frac{\Gamma(k + \theta)}{k!\,\Gamma(\theta)}
+\left(\frac{\mu}{\mu + \theta}\right)^{k}
+\left(\frac{\theta}{\mu + \theta}\right)^{\theta},
+$$
+
+with
+
+$$
+\mathbb{E}[c] = \mu, \qquad
+\mathrm{Var}(c) = \mu + \frac{\mu^2}{\theta}, \qquad
+\Pr(c = 0) = \left(\frac{\theta}{\theta + \mu}\right)^{\theta}.
+$$
+
+Three things to read off this. The variance exceeds the mean by $\mu^2/\theta$, which is
+**quadratic**, so overdispersion is invisible at low mean and dominant at high. As
+$\theta \to \infty$ the Gamma collapses to a point and the negative binomial returns to
+Poisson. And the zero probability is *larger* than Poisson's for every finite $\theta$ —
+mixing rates always adds zeros, because the cells that drew a low rate contribute more zeros
+than the cells that drew a high rate remove.
+
+That last point matters: **overdispersion alone manufactures excess zeros over Poisson.** Any
+comparison that finds "more zeros than Poisson predicts" and concludes dropout has skipped
+the model that was going to explain them.
+
+<Figure
+  caption="Figure 1. Probability that a gene's count is zero, against its mean, under Poisson sampling and under negative binomials with dispersion 2 and 0.5. Below a mean of about 1 — where the great majority of genes sit — the three curves are indistinguishable: at a mean of 0.1 they give 90.48%, 90.70% and 91.29%. They separate only above a mean of 1, and a gene with a high mean has few zeros left to attribute to any process."
+  alt="Three descending curves of zero probability against mean UMIs per cell on a logarithmic x-axis, converging near 100% at the left and separating past a mean of one. A marker at a mean of 0.1 reads 90.5%, and a bracket along the lower left is labelled as where most genes sit."
+>
+<svg viewBox="0 0 720 306" width="720" height="306" font-family="inherit"><line x1="104.0" y1="44.0" x2="104.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="236.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0%</text><line x1="104.0" y1="185.0" x2="424.0" y2="185.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="189.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">25%</text><line x1="104.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="142.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">50%</text><line x1="104.0" y1="91.0" x2="424.0" y2="91.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="95.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">75%</text><line x1="104.0" y1="44.0" x2="424.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="48.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">100%</text><line x1="104.0" y1="232.0" x2="104.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.01</text><line x1="210.7" y1="232.0" x2="210.7" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="210.7" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.1</text><line x1="317.3" y1="232.0" x2="317.3" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="317.3" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="424.0" y1="232.0" x2="424.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><path d="M104.0,45.9 L105.2,45.9 L106.5,46.0 L107.7,46.0 L108.9,46.1 L110.2,46.1 L111.4,46.2 L112.6,46.2 L113.8,46.3 L115.1,46.3 L116.3,46.4 L117.5,46.5 L118.8,46.5 L120.0,46.6 L121.2,46.7 L122.5,46.7 L123.7,46.8 L124.9,46.9 L126.2,47.0 L127.4,47.0 L128.6,47.1 L129.8,47.2 L131.1,47.3 L132.3,47.4 L133.5,47.5 L134.8,47.5 L136.0,47.6 L137.2,47.7 L138.5,47.8 L139.7,47.9 L140.9,48.0 L142.2,48.1 L143.4,48.3 L144.6,48.4 L145.8,48.5 L147.1,48.6 L148.3,48.7 L149.5,48.8 L150.8,49.0 L152.0,49.1 L153.2,49.2 L154.5,49.4 L155.7,49.5 L156.9,49.6 L158.2,49.8 L159.4,49.9 L160.6,50.1 L161.8,50.2 L163.1,50.4 L164.3,50.6 L165.5,50.7 L166.8,50.9 L168.0,51.1 L169.2,51.2 L170.5,51.4 L171.7,51.6 L172.9,51.8 L174.2,52.0 L175.4,52.2 L176.6,52.4 L177.8,52.6 L179.1,52.8 L180.3,53.1 L181.5,53.3 L182.8,53.5 L184.0,53.8 L185.2,54.0 L186.5,54.2 L187.7,54.5 L188.9,54.8 L190.2,55.0 L191.4,55.3 L192.6,55.6 L193.8,55.9 L195.1,56.1 L196.3,56.4 L197.5,56.7 L198.8,57.0 L200.0,57.4 L201.2,57.7 L202.5,58.0 L203.7,58.3 L204.9,58.7 L206.2,59.0 L207.4,59.4 L208.6,59.8 L209.8,60.1 L211.1,60.5 L212.3,60.9 L213.5,61.3 L214.8,61.7 L216.0,62.1 L217.2,62.5 L218.5,62.9 L219.7,63.4 L220.9,63.8 L222.2,64.3 L223.4,64.7 L224.6,65.2 L225.8,65.7 L227.1,66.2 L228.3,66.6 L229.5,67.1 L230.8,67.7 L232.0,68.2 L233.2,68.7 L234.5,69.2 L235.7,69.8 L236.9,70.3 L238.2,70.9 L239.4,71.5 L240.6,72.1 L241.8,72.7 L243.1,73.3 L244.3,73.9 L245.5,74.5 L246.8,75.1 L248.0,75.8 L249.2,76.4 L250.5,77.1 L251.7,77.7 L252.9,78.4 L254.2,79.1 L255.4,79.8 L256.6,80.5 L257.8,81.2 L259.1,81.9 L260.3,82.6 L261.5,83.4 L262.8,84.1 L264.0,84.9 L265.2,85.6 L266.5,86.4 L267.7,87.2 L268.9,88.0 L270.2,88.7 L271.4,89.5 L272.6,90.4 L273.8,91.2 L275.1,92.0 L276.3,92.8 L277.5,93.7 L278.8,94.5 L280.0,95.4 L281.2,96.2 L282.5,97.1 L283.7,98.0 L284.9,98.8 L286.2,99.7 L287.4,100.6 L288.6,101.5 L289.8,102.4 L291.1,103.3 L292.3,104.2 L293.5,105.2 L294.8,106.1 L296.0,107.0 L297.2,107.9 L298.5,108.9 L299.7,109.8 L300.9,110.7 L302.2,111.7 L303.4,112.6 L304.6,113.6 L305.8,114.5 L307.1,115.5 L308.3,116.4 L309.5,117.4 L310.8,118.3 L312.0,119.3 L313.2,120.3 L314.5,121.2 L315.7,122.2 L316.9,123.1 L318.2,124.1 L319.4,125.1 L320.6,126.0 L321.8,127.0 L323.1,127.9 L324.3,128.9 L325.5,129.9 L326.8,130.8 L328.0,131.8 L329.2,132.7 L330.5,133.7 L331.7,134.6 L332.9,135.6 L334.2,136.5 L335.4,137.4 L336.6,138.4 L337.8,139.3 L339.1,140.2 L340.3,141.2 L341.5,142.1 L342.8,143.0 L344.0,143.9 L345.2,144.8 L346.5,145.7 L347.7,146.6 L348.9,147.5 L350.2,148.4 L351.4,149.3 L352.6,150.2 L353.8,151.1 L355.1,152.0 L356.3,152.8 L357.5,153.7 L358.8,154.5 L360.0,155.4 L361.2,156.2 L362.5,157.1 L363.7,157.9 L364.9,158.7 L366.2,159.6 L367.4,160.4 L368.6,161.2 L369.8,162.0 L371.1,162.8 L372.3,163.6 L373.5,164.4 L374.8,165.2 L376.0,165.9 L377.2,166.7 L378.5,167.5 L379.7,168.2 L380.9,169.0 L382.2,169.7 L383.4,170.4 L384.6,171.2 L385.8,171.9 L387.1,172.6 L388.3,173.3 L389.5,174.0 L390.8,174.7 L392.0,175.4 L393.2,176.1 L394.5,176.7 L395.7,177.4 L396.9,178.1 L398.2,178.7 L399.4,179.4 L400.6,180.0 L401.8,180.6 L403.1,181.3 L404.3,181.9 L405.5,182.5 L406.8,183.1 L408.0,183.7 L409.2,184.3 L410.5,184.9 L411.7,185.5 L412.9,186.1 L414.2,186.6 L415.4,187.2 L416.6,187.8 L417.8,188.3 L419.1,188.9 L420.3,189.4 L421.5,189.9 L422.8,190.5 L424.0,191.0" fill="none" stroke="currentColor" stroke-width="2.0" opacity=".45"/><path d="M104.0,45.9 L105.2,45.9 L106.5,46.0 L107.7,46.0 L108.9,46.1 L110.2,46.1 L111.4,46.2 L112.6,46.2 L113.8,46.3 L115.1,46.4 L116.3,46.4 L117.5,46.5 L118.8,46.6 L120.0,46.6 L121.2,46.7 L122.5,46.8 L123.7,46.8 L124.9,46.9 L126.2,47.0 L127.4,47.1 L128.6,47.2 L129.8,47.2 L131.1,47.3 L132.3,47.4 L133.5,47.5 L134.8,47.6 L136.0,47.7 L137.2,47.8 L138.5,47.9 L139.7,48.0 L140.9,48.1 L142.2,48.2 L143.4,48.3 L144.6,48.4 L145.8,48.6 L147.1,48.7 L148.3,48.8 L149.5,48.9 L150.8,49.1 L152.0,49.2 L153.2,49.3 L154.5,49.5 L155.7,49.6 L156.9,49.8 L158.2,49.9 L159.4,50.1 L160.6,50.2 L161.8,50.4 L163.1,50.6 L164.3,50.7 L165.5,50.9 L166.8,51.1 L168.0,51.3 L169.2,51.5 L170.5,51.7 L171.7,51.9 L172.9,52.1 L174.2,52.3 L175.4,52.5 L176.6,52.7 L177.8,52.9 L179.1,53.2 L180.3,53.4 L181.5,53.6 L182.8,53.9 L184.0,54.1 L185.2,54.4 L186.5,54.7 L187.7,54.9 L188.9,55.2 L190.2,55.5 L191.4,55.8 L192.6,56.1 L193.8,56.4 L195.1,56.7 L196.3,57.1 L197.5,57.4 L198.8,57.7 L200.0,58.1 L201.2,58.4 L202.5,58.8 L203.7,59.2 L204.9,59.6 L206.2,60.0 L207.4,60.4 L208.6,60.8 L209.8,61.2 L211.1,61.6 L212.3,62.1 L213.5,62.5 L214.8,63.0 L216.0,63.4 L217.2,63.9 L218.5,64.4 L219.7,64.9 L220.9,65.4 L222.2,66.0 L223.4,66.5 L224.6,67.0 L225.8,67.6 L227.1,68.2 L228.3,68.8 L229.5,69.4 L230.8,70.0 L232.0,70.6 L233.2,71.2 L234.5,71.9 L235.7,72.5 L236.9,73.2 L238.2,73.9 L239.4,74.6 L240.6,75.3 L241.8,76.1 L243.1,76.8 L244.3,77.6 L245.5,78.3 L246.8,79.1 L248.0,79.9 L249.2,80.8 L250.5,81.6 L251.7,82.5 L252.9,83.3 L254.2,84.2 L255.4,85.1 L256.6,86.0 L257.8,86.9 L259.1,87.9 L260.3,88.9 L261.5,89.8 L262.8,90.8 L264.0,91.8 L265.2,92.9 L266.5,93.9 L267.7,95.0 L268.9,96.0 L270.2,97.1 L271.4,98.2 L272.6,99.3 L273.8,100.5 L275.1,101.6 L276.3,102.8 L277.5,104.0 L278.8,105.2 L280.0,106.4 L281.2,107.6 L282.5,108.8 L283.7,110.1 L284.9,111.4 L286.2,112.7 L287.4,113.9 L288.6,115.3 L289.8,116.6 L291.1,117.9 L292.3,119.3 L293.5,120.6 L294.8,122.0 L296.0,123.4 L297.2,124.7 L298.5,126.1 L299.7,127.6 L300.9,129.0 L302.2,130.4 L303.4,131.8 L304.6,133.3 L305.8,134.7 L307.1,136.2 L308.3,137.6 L309.5,139.1 L310.8,140.6 L312.0,142.0 L313.2,143.5 L314.5,145.0 L315.7,146.5 L316.9,148.0 L318.2,149.4 L319.4,150.9 L320.6,152.4 L321.8,153.9 L323.1,155.3 L324.3,156.8 L325.5,158.3 L326.8,159.7 L328.0,161.2 L329.2,162.6 L330.5,164.1 L331.7,165.5 L332.9,167.0 L334.2,168.4 L335.4,169.8 L336.6,171.2 L337.8,172.6 L339.1,173.9 L340.3,175.3 L341.5,176.7 L342.8,178.0 L344.0,179.3 L345.2,180.6 L346.5,181.9 L347.7,183.2 L348.9,184.5 L350.2,185.7 L351.4,186.9 L352.6,188.2 L353.8,189.4 L355.1,190.5 L356.3,191.7 L357.5,192.8 L358.8,194.0 L360.0,195.1 L361.2,196.1 L362.5,197.2 L363.7,198.2 L364.9,199.3 L366.2,200.3 L367.4,201.3 L368.6,202.2 L369.8,203.2 L371.1,204.1 L372.3,205.0 L373.5,205.9 L374.8,206.7 L376.0,207.6 L377.2,208.4 L378.5,209.2 L379.7,210.0 L380.9,210.7 L382.2,211.5 L383.4,212.2 L384.6,212.9 L385.8,213.6 L387.1,214.2 L388.3,214.9 L389.5,215.5 L390.8,216.1 L392.0,216.7 L393.2,217.3 L394.5,217.8 L395.7,218.4 L396.9,218.9 L398.2,219.4 L399.4,219.9 L400.6,220.4 L401.8,220.8 L403.1,221.3 L404.3,221.7 L405.5,222.1 L406.8,222.5 L408.0,222.9 L409.2,223.2 L410.5,223.6 L411.7,224.0 L412.9,224.3 L414.2,224.6 L415.4,224.9 L416.6,225.2 L417.8,225.5 L419.1,225.8 L420.3,226.0 L421.5,226.3 L422.8,226.5 L424.0,226.8" fill="none" stroke="currentColor" stroke-width="2.0" opacity=".7"/><path d="M104.0,45.9 L105.2,45.9 L106.5,46.0 L107.7,46.0 L108.9,46.1 L110.2,46.1 L111.4,46.2 L112.6,46.3 L113.8,46.3 L115.1,46.4 L116.3,46.4 L117.5,46.5 L118.8,46.6 L120.0,46.6 L121.2,46.7 L122.5,46.8 L123.7,46.9 L124.9,46.9 L126.2,47.0 L127.4,47.1 L128.6,47.2 L129.8,47.3 L131.1,47.3 L132.3,47.4 L133.5,47.5 L134.8,47.6 L136.0,47.7 L137.2,47.8 L138.5,47.9 L139.7,48.0 L140.9,48.1 L142.2,48.2 L143.4,48.3 L144.6,48.5 L145.8,48.6 L147.1,48.7 L148.3,48.8 L149.5,49.0 L150.8,49.1 L152.0,49.2 L153.2,49.4 L154.5,49.5 L155.7,49.7 L156.9,49.8 L158.2,50.0 L159.4,50.1 L160.6,50.3 L161.8,50.4 L163.1,50.6 L164.3,50.8 L165.5,51.0 L166.8,51.1 L168.0,51.3 L169.2,51.5 L170.5,51.7 L171.7,51.9 L172.9,52.1 L174.2,52.4 L175.4,52.6 L176.6,52.8 L177.8,53.0 L179.1,53.3 L180.3,53.5 L181.5,53.8 L182.8,54.0 L184.0,54.3 L185.2,54.5 L186.5,54.8 L187.7,55.1 L188.9,55.4 L190.2,55.7 L191.4,56.0 L192.6,56.3 L193.8,56.6 L195.1,57.0 L196.3,57.3 L197.5,57.6 L198.8,58.0 L200.0,58.4 L201.2,58.7 L202.5,59.1 L203.7,59.5 L204.9,59.9 L206.2,60.3 L207.4,60.7 L208.6,61.2 L209.8,61.6 L211.1,62.0 L212.3,62.5 L213.5,63.0 L214.8,63.5 L216.0,64.0 L217.2,64.5 L218.5,65.0 L219.7,65.5 L220.9,66.1 L222.2,66.6 L223.4,67.2 L224.6,67.8 L225.8,68.4 L227.1,69.0 L228.3,69.6 L229.5,70.2 L230.8,70.9 L232.0,71.6 L233.2,72.2 L234.5,72.9 L235.7,73.7 L236.9,74.4 L238.2,75.1 L239.4,75.9 L240.6,76.7 L241.8,77.5 L243.1,78.3 L244.3,79.1 L245.5,80.0 L246.8,80.8 L248.0,81.7 L249.2,82.6 L250.5,83.5 L251.7,84.5 L252.9,85.4 L254.2,86.4 L255.4,87.4 L256.6,88.4 L257.8,89.5 L259.1,90.5 L260.3,91.6 L261.5,92.7 L262.8,93.8 L264.0,95.0 L265.2,96.1 L266.5,97.3 L267.7,98.5 L268.9,99.7 L270.2,101.0 L271.4,102.3 L272.6,103.5 L273.8,104.9 L275.1,106.2 L276.3,107.5 L277.5,108.9 L278.8,110.3 L280.0,111.7 L281.2,113.2 L282.5,114.6 L283.7,116.1 L284.9,117.6 L286.2,119.1 L287.4,120.7 L288.6,122.2 L289.8,123.8 L291.1,125.4 L292.3,127.0 L293.5,128.6 L294.8,130.3 L296.0,132.0 L297.2,133.7 L298.5,135.4 L299.7,137.1 L300.9,138.8 L302.2,140.5 L303.4,142.3 L304.6,144.1 L305.8,145.9 L307.1,147.6 L308.3,149.4 L309.5,151.3 L310.8,153.1 L312.0,154.9 L313.2,156.7 L314.5,158.6 L315.7,160.4 L316.9,162.2 L318.2,164.1 L319.4,165.9 L320.6,167.7 L321.8,169.6 L323.1,171.4 L324.3,173.2 L325.5,175.0 L326.8,176.8 L328.0,178.6 L329.2,180.4 L330.5,182.2 L331.7,183.9 L332.9,185.6 L334.2,187.4 L335.4,189.1 L336.6,190.7 L337.8,192.4 L339.1,194.0 L340.3,195.6 L341.5,197.2 L342.8,198.7 L344.0,200.2 L345.2,201.7 L346.5,203.2 L347.7,204.6 L348.9,206.0 L350.2,207.3 L351.4,208.6 L352.6,209.9 L353.8,211.2 L355.1,212.4 L356.3,213.5 L357.5,214.6 L358.8,215.7 L360.0,216.8 L361.2,217.7 L362.5,218.7 L363.7,219.6 L364.9,220.5 L366.2,221.3 L367.4,222.1 L368.6,222.9 L369.8,223.6 L371.1,224.3 L372.3,224.9 L373.5,225.5 L374.8,226.1 L376.0,226.6 L377.2,227.1 L378.5,227.5 L379.7,228.0 L380.9,228.4 L382.2,228.7 L383.4,229.1 L384.6,229.4 L385.8,229.7 L387.1,229.9 L388.3,230.2 L389.5,230.4 L390.8,230.6 L392.0,230.7 L393.2,230.9 L394.5,231.0 L395.7,231.2 L396.9,231.3 L398.2,231.4 L399.4,231.5 L400.6,231.6 L401.8,231.6 L403.1,231.7 L404.3,231.7 L405.5,231.8 L406.8,231.8 L408.0,231.8 L409.2,231.9 L410.5,231.9 L411.7,231.9 L412.9,231.9 L414.2,231.9 L415.4,232.0 L416.6,232.0 L417.8,232.0 L419.1,232.0 L420.3,232.0 L421.5,232.0 L422.8,232.0 L424.0,232.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.3"/><line x1="104.0" y1="220.7" x2="317.3" y2="220.7" stroke="currentColor" stroke-width="1.4" opacity=".4"/><text x="210.7" y="212.3" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">where most genes sit</text><line x1="210.7" y1="232.0" x2="210.7" y2="61.9" stroke="currentColor" stroke-width="1.1" opacity=".3" stroke-dasharray="3 3"/><circle cx="210.7" cy="61.9" r="4.2" fill="var(--color-accent, #2e6e5e)"/><text x="200.7" y="78.9" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">90.5% at a mean of 0.1</text><text x="264.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Mean UMIs per cell</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Cells with zero count</text><line x1="454.0" y1="54.0" x2="476.0" y2="54.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><text x="484.0" y="58.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">Poisson</text><line x1="454.0" y1="71.0" x2="476.0" y2="71.0" stroke="currentColor" stroke-width="2.2" opacity=".7"/><text x="484.0" y="75.0" font-size="10" fill="currentColor" opacity=".7">NB, theta 2</text><line x1="454.0" y1="88.0" x2="476.0" y2="88.0" stroke="currentColor" stroke-width="2.2" opacity=".45"/><text x="484.0" y="92.0" font-size="10" fill="currentColor" opacity=".45">NB, theta 0.5</text><text x="454.0" y="128.0" font-size="11" fill="currentColor" font-weight="700">Zeros are sampling.</text><text x="454.0" y="146.0" font-size="10" fill="currentColor" opacity=".8">Below a mean of about 1,</text><text x="454.0" y="159.0" font-size="10" fill="currentColor" opacity=".8">the three curves are the</text><text x="454.0" y="172.0" font-size="10" fill="currentColor" opacity=".8">same curve: whatever the</text><text x="454.0" y="185.0" font-size="10" fill="currentColor" opacity=".8">dispersion, the zeros are</text><text x="454.0" y="198.0" font-size="10" fill="currentColor" opacity=".8">what counting produces.</text><text x="454.0" y="211.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="224.0" font-size="10" fill="currentColor" opacity=".8">They separate only where</text><text x="454.0" y="237.0" font-size="10" fill="currentColor" opacity=".8">the mean is high - and a</text><text x="454.0" y="250.0" font-size="10" fill="currentColor" opacity=".8">gene with a high mean has</text><text x="454.0" y="263.0" font-size="10" fill="currentColor" opacity=".8">almost no zeros left to</text><text x="454.0" y="276.0" font-size="10" fill="currentColor" opacity=".8">attribute to anything.</text></svg>
+</Figure>
+
+<Figure
+  caption="Figure 2. Variance against mean on logarithmic axes. Poisson forces variance to equal the mean, the straight line of slope one; a negative binomial adds μ²/θ, which curves upward. Because the excess is quadratic it is 5% of the variance at a mean of 0.1 and dominant by a mean of 10, so the mean–variance trend identifies θ almost entirely from well-expressed genes."
+  alt="A log-log plot of variance against mean showing a straight Poisson line of slope one and two negative binomial curves for dispersion 2 and 0.5 that track it at low mean and rise above it at high mean. A dashed marker at a mean of 0.1 notes the negative binomial sits 5% above Poisson there."
+>
+<svg viewBox="0 0 784 300" width="784" height="300" font-family="inherit"><line x1="112.0" y1="44.0" x2="112.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="236.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.001</text><line x1="112.0" y1="185.0" x2="424.0" y2="185.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="189.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.1</text><line x1="112.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="142.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10</text><line x1="112.0" y1="91.0" x2="424.0" y2="91.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="95.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1,000</text><line x1="112.0" y1="44.0" x2="424.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="48.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">100,000</text><line x1="112.0" y1="232.0" x2="112.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="112.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.01</text><line x1="190.0" y1="232.0" x2="190.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="190.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.1</text><line x1="268.0" y1="232.0" x2="268.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="268.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="346.0" y1="232.0" x2="346.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="346.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="424.0" y1="232.0" x2="424.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><path d="M112.0,208.3 L113.2,207.9 L114.4,207.6 L115.6,207.2 L116.8,206.8 L118.0,206.5 L119.2,206.1 L120.4,205.7 L121.6,205.3 L122.8,205.0 L124.0,204.6 L125.2,204.2 L126.4,203.9 L127.6,203.5 L128.8,203.1 L130.0,202.7 L131.2,202.4 L132.4,202.0 L133.6,201.6 L134.8,201.2 L136.0,200.9 L137.2,200.5 L138.4,200.1 L139.6,199.7 L140.8,199.4 L142.0,199.0 L143.2,198.6 L144.4,198.2 L145.6,197.8 L146.8,197.5 L148.0,197.1 L149.2,196.7 L150.4,196.3 L151.6,195.9 L152.8,195.5 L154.0,195.2 L155.2,194.8 L156.4,194.4 L157.6,194.0 L158.8,193.6 L160.0,193.2 L161.2,192.8 L162.4,192.4 L163.6,192.1 L164.8,191.7 L166.0,191.3 L167.2,190.9 L168.4,190.5 L169.6,190.1 L170.8,189.7 L172.0,189.3 L173.2,188.9 L174.4,188.5 L175.6,188.1 L176.8,187.7 L178.0,187.3 L179.2,186.9 L180.4,186.5 L181.6,186.1 L182.8,185.6 L184.0,185.2 L185.2,184.8 L186.4,184.4 L187.6,184.0 L188.8,183.6 L190.0,183.1 L191.2,182.7 L192.4,182.3 L193.6,181.9 L194.8,181.4 L196.0,181.0 L197.2,180.6 L198.4,180.1 L199.6,179.7 L200.8,179.3 L202.0,178.8 L203.2,178.4 L204.4,177.9 L205.6,177.5 L206.8,177.0 L208.0,176.6 L209.2,176.1 L210.4,175.7 L211.6,175.2 L212.8,174.8 L214.0,174.3 L215.2,173.8 L216.4,173.4 L217.6,172.9 L218.8,172.4 L220.0,171.9 L221.2,171.4 L222.4,171.0 L223.6,170.5 L224.8,170.0 L226.0,169.5 L227.2,169.0 L228.4,168.5 L229.6,168.0 L230.8,167.5 L232.0,167.0 L233.2,166.5 L234.4,166.0 L235.6,165.4 L236.8,164.9 L238.0,164.4 L239.2,163.9 L240.4,163.3 L241.6,162.8 L242.8,162.3 L244.0,161.7 L245.2,161.2 L246.4,160.6 L247.6,160.1 L248.8,159.5 L250.0,159.0 L251.2,158.4 L252.4,157.9 L253.6,157.3 L254.8,156.7 L256.0,156.2 L257.2,155.6 L258.4,155.0 L259.6,154.4 L260.8,153.9 L262.0,153.3 L263.2,152.7 L264.4,152.1 L265.6,151.5 L266.8,150.9 L268.0,150.3 L269.2,149.7 L270.4,149.1 L271.6,148.5 L272.8,147.9 L274.0,147.2 L275.2,146.6 L276.4,146.0 L277.6,145.4 L278.8,144.8 L280.0,144.1 L281.2,143.5 L282.4,142.9 L283.6,142.2 L284.8,141.6 L286.0,140.9 L287.2,140.3 L288.4,139.7 L289.6,139.0 L290.8,138.4 L292.0,137.7 L293.2,137.1 L294.4,136.4 L295.6,135.8 L296.8,135.1 L298.0,134.4 L299.2,133.8 L300.4,133.1 L301.6,132.4 L302.8,131.8 L304.0,131.1 L305.2,130.4 L306.4,129.8 L307.6,129.1 L308.8,128.4 L310.0,127.7 L311.2,127.1 L312.4,126.4 L313.6,125.7 L314.8,125.0 L316.0,124.3 L317.2,123.7 L318.4,123.0 L319.6,122.3 L320.8,121.6 L322.0,120.9 L323.2,120.2 L324.4,119.5 L325.6,118.8 L326.8,118.1 L328.0,117.4 L329.2,116.7 L330.4,116.0 L331.6,115.4 L332.8,114.7 L334.0,114.0 L335.2,113.3 L336.4,112.6 L337.6,111.9 L338.8,111.2 L340.0,110.4 L341.2,109.7 L342.4,109.0 L343.6,108.3 L344.8,107.6 L346.0,106.9 L347.2,106.2 L348.4,105.5 L349.6,104.8 L350.8,104.1 L352.0,103.4 L353.2,102.7 L354.4,102.0 L355.6,101.3 L356.8,100.6 L358.0,99.8 L359.2,99.1 L360.4,98.4 L361.6,97.7 L362.8,97.0 L364.0,96.3 L365.2,95.6 L366.4,94.9 L367.6,94.1 L368.8,93.4 L370.0,92.7 L371.2,92.0 L372.4,91.3 L373.6,90.6 L374.8,89.9 L376.0,89.1 L377.2,88.4 L378.4,87.7 L379.6,87.0 L380.8,86.3 L382.0,85.6 L383.2,84.8 L384.4,84.1 L385.6,83.4 L386.8,82.7 L388.0,82.0 L389.2,81.3 L390.4,80.5 L391.6,79.8 L392.8,79.1 L394.0,78.4 L395.2,77.7 L396.4,76.9 L397.6,76.2 L398.8,75.5 L400.0,74.8 L401.2,74.1 L402.4,73.3 L403.6,72.6 L404.8,71.9 L406.0,71.2 L407.2,70.5 L408.4,69.7 L409.6,69.0 L410.8,68.3 L412.0,67.6 L413.2,66.9 L414.4,66.1 L415.6,65.4 L416.8,64.7 L418.0,64.0 L419.2,63.3 L420.4,62.5 L421.6,61.8 L422.8,61.1 L424.0,60.4" fill="none" stroke="currentColor" stroke-width="2.0" opacity=".45"/><path d="M112.0,208.4 L113.2,208.1 L114.4,207.7 L115.6,207.4 L116.8,207.0 L118.0,206.6 L119.2,206.3 L120.4,205.9 L121.6,205.5 L122.8,205.2 L124.0,204.8 L125.2,204.4 L126.4,204.1 L127.6,203.7 L128.8,203.4 L130.0,203.0 L131.2,202.6 L132.4,202.3 L133.6,201.9 L134.8,201.5 L136.0,201.2 L137.2,200.8 L138.4,200.4 L139.6,200.1 L140.8,199.7 L142.0,199.3 L143.2,199.0 L144.4,198.6 L145.6,198.2 L146.8,197.9 L148.0,197.5 L149.2,197.1 L150.4,196.8 L151.6,196.4 L152.8,196.0 L154.0,195.7 L155.2,195.3 L156.4,194.9 L157.6,194.6 L158.8,194.2 L160.0,193.8 L161.2,193.5 L162.4,193.1 L163.6,192.7 L164.8,192.4 L166.0,192.0 L167.2,191.6 L168.4,191.2 L169.6,190.9 L170.8,190.5 L172.0,190.1 L173.2,189.8 L174.4,189.4 L175.6,189.0 L176.8,188.6 L178.0,188.3 L179.2,187.9 L180.4,187.5 L181.6,187.1 L182.8,186.8 L184.0,186.4 L185.2,186.0 L186.4,185.6 L187.6,185.3 L188.8,184.9 L190.0,184.5 L191.2,184.1 L192.4,183.7 L193.6,183.4 L194.8,183.0 L196.0,182.6 L197.2,182.2 L198.4,181.8 L199.6,181.5 L200.8,181.1 L202.0,180.7 L203.2,180.3 L204.4,179.9 L205.6,179.5 L206.8,179.1 L208.0,178.7 L209.2,178.4 L210.4,178.0 L211.6,177.6 L212.8,177.2 L214.0,176.8 L215.2,176.4 L216.4,176.0 L217.6,175.6 L218.8,175.2 L220.0,174.8 L221.2,174.4 L222.4,174.0 L223.6,173.6 L224.8,173.2 L226.0,172.8 L227.2,172.4 L228.4,172.0 L229.6,171.5 L230.8,171.1 L232.0,170.7 L233.2,170.3 L234.4,169.9 L235.6,169.5 L236.8,169.0 L238.0,168.6 L239.2,168.2 L240.4,167.8 L241.6,167.3 L242.8,166.9 L244.0,166.5 L245.2,166.1 L246.4,165.6 L247.6,165.2 L248.8,164.7 L250.0,164.3 L251.2,163.8 L252.4,163.4 L253.6,163.0 L254.8,162.5 L256.0,162.0 L257.2,161.6 L258.4,161.1 L259.6,160.7 L260.8,160.2 L262.0,159.7 L263.2,159.3 L264.4,158.8 L265.6,158.3 L266.8,157.8 L268.0,157.4 L269.2,156.9 L270.4,156.4 L271.6,155.9 L272.8,155.4 L274.0,154.9 L275.2,154.4 L276.4,153.9 L277.6,153.4 L278.8,152.9 L280.0,152.4 L281.2,151.9 L282.4,151.4 L283.6,150.8 L284.8,150.3 L286.0,149.8 L287.2,149.3 L288.4,148.7 L289.6,148.2 L290.8,147.7 L292.0,147.1 L293.2,146.6 L294.4,146.0 L295.6,145.5 L296.8,144.9 L298.0,144.4 L299.2,143.8 L300.4,143.2 L301.6,142.7 L302.8,142.1 L304.0,141.5 L305.2,140.9 L306.4,140.4 L307.6,139.8 L308.8,139.2 L310.0,138.6 L311.2,138.0 L312.4,137.4 L313.6,136.8 L314.8,136.2 L316.0,135.6 L317.2,135.0 L318.4,134.4 L319.6,133.8 L320.8,133.2 L322.0,132.6 L323.2,131.9 L324.4,131.3 L325.6,130.7 L326.8,130.1 L328.0,129.4 L329.2,128.8 L330.4,128.2 L331.6,127.5 L332.8,126.9 L334.0,126.2 L335.2,125.6 L336.4,125.0 L337.6,124.3 L338.8,123.7 L340.0,123.0 L341.2,122.4 L342.4,121.7 L343.6,121.0 L344.8,120.4 L346.0,119.7 L347.2,119.0 L348.4,118.4 L349.6,117.7 L350.8,117.0 L352.0,116.4 L353.2,115.7 L354.4,115.0 L355.6,114.4 L356.8,113.7 L358.0,113.0 L359.2,112.3 L360.4,111.6 L361.6,111.0 L362.8,110.3 L364.0,109.6 L365.2,108.9 L366.4,108.2 L367.6,107.5 L368.8,106.8 L370.0,106.2 L371.2,105.5 L372.4,104.8 L373.6,104.1 L374.8,103.4 L376.0,102.7 L377.2,102.0 L378.4,101.3 L379.6,100.6 L380.8,99.9 L382.0,99.2 L383.2,98.5 L384.4,97.8 L385.6,97.1 L386.8,96.4 L388.0,95.7 L389.2,95.0 L390.4,94.3 L391.6,93.6 L392.8,92.9 L394.0,92.2 L395.2,91.5 L396.4,90.8 L397.6,90.0 L398.8,89.3 L400.0,88.6 L401.2,87.9 L402.4,87.2 L403.6,86.5 L404.8,85.8 L406.0,85.1 L407.2,84.4 L408.4,83.7 L409.6,82.9 L410.8,82.2 L412.0,81.5 L413.2,80.8 L414.4,80.1 L415.6,79.4 L416.8,78.7 L418.0,77.9 L419.2,77.2 L420.4,76.5 L421.6,75.8 L422.8,75.1 L424.0,74.4" fill="none" stroke="currentColor" stroke-width="2.0" opacity=".7"/><path d="M112.0,208.5 L113.2,208.1 L114.4,207.8 L115.6,207.4 L116.8,207.1 L118.0,206.7 L119.2,206.3 L120.4,206.0 L121.6,205.6 L122.8,205.2 L124.0,204.9 L125.2,204.5 L126.4,204.2 L127.6,203.8 L128.8,203.4 L130.0,203.1 L131.2,202.7 L132.4,202.4 L133.6,202.0 L134.8,201.6 L136.0,201.3 L137.2,200.9 L138.4,200.5 L139.6,200.2 L140.8,199.8 L142.0,199.5 L143.2,199.1 L144.4,198.7 L145.6,198.4 L146.8,198.0 L148.0,197.7 L149.2,197.3 L150.4,196.9 L151.6,196.6 L152.8,196.2 L154.0,195.8 L155.2,195.5 L156.4,195.1 L157.6,194.8 L158.8,194.4 L160.0,194.0 L161.2,193.7 L162.4,193.3 L163.6,193.0 L164.8,192.6 L166.0,192.2 L167.2,191.9 L168.4,191.5 L169.6,191.1 L170.8,190.8 L172.0,190.4 L173.2,190.1 L174.4,189.7 L175.6,189.3 L176.8,189.0 L178.0,188.6 L179.2,188.3 L180.4,187.9 L181.6,187.5 L182.8,187.2 L184.0,186.8 L185.2,186.4 L186.4,186.1 L187.6,185.7 L188.8,185.4 L190.0,185.0 L191.2,184.6 L192.4,184.3 L193.6,183.9 L194.8,183.6 L196.0,183.2 L197.2,182.8 L198.4,182.5 L199.6,182.1 L200.8,181.7 L202.0,181.4 L203.2,181.0 L204.4,180.7 L205.6,180.3 L206.8,179.9 L208.0,179.6 L209.2,179.2 L210.4,178.9 L211.6,178.5 L212.8,178.1 L214.0,177.8 L215.2,177.4 L216.4,177.0 L217.6,176.7 L218.8,176.3 L220.0,176.0 L221.2,175.6 L222.4,175.2 L223.6,174.9 L224.8,174.5 L226.0,174.2 L227.2,173.8 L228.4,173.4 L229.6,173.1 L230.8,172.7 L232.0,172.3 L233.2,172.0 L234.4,171.6 L235.6,171.3 L236.8,170.9 L238.0,170.5 L239.2,170.2 L240.4,169.8 L241.6,169.5 L242.8,169.1 L244.0,168.7 L245.2,168.4 L246.4,168.0 L247.6,167.6 L248.8,167.3 L250.0,166.9 L251.2,166.6 L252.4,166.2 L253.6,165.8 L254.8,165.5 L256.0,165.1 L257.2,164.8 L258.4,164.4 L259.6,164.0 L260.8,163.7 L262.0,163.3 L263.2,162.9 L264.4,162.6 L265.6,162.2 L266.8,161.9 L268.0,161.5 L269.2,161.1 L270.4,160.8 L271.6,160.4 L272.8,160.1 L274.0,159.7 L275.2,159.3 L276.4,159.0 L277.6,158.6 L278.8,158.2 L280.0,157.9 L281.2,157.5 L282.4,157.2 L283.6,156.8 L284.8,156.4 L286.0,156.1 L287.2,155.7 L288.4,155.4 L289.6,155.0 L290.8,154.6 L292.0,154.3 L293.2,153.9 L294.4,153.5 L295.6,153.2 L296.8,152.8 L298.0,152.5 L299.2,152.1 L300.4,151.7 L301.6,151.4 L302.8,151.0 L304.0,150.7 L305.2,150.3 L306.4,149.9 L307.6,149.6 L308.8,149.2 L310.0,148.8 L311.2,148.5 L312.4,148.1 L313.6,147.8 L314.8,147.4 L316.0,147.0 L317.2,146.7 L318.4,146.3 L319.6,146.0 L320.8,145.6 L322.0,145.2 L323.2,144.9 L324.4,144.5 L325.6,144.1 L326.8,143.8 L328.0,143.4 L329.2,143.1 L330.4,142.7 L331.6,142.3 L332.8,142.0 L334.0,141.6 L335.2,141.3 L336.4,140.9 L337.6,140.5 L338.8,140.2 L340.0,139.8 L341.2,139.4 L342.4,139.1 L343.6,138.7 L344.8,138.4 L346.0,138.0 L347.2,137.6 L348.4,137.3 L349.6,136.9 L350.8,136.6 L352.0,136.2 L353.2,135.8 L354.4,135.5 L355.6,135.1 L356.8,134.7 L358.0,134.4 L359.2,134.0 L360.4,133.7 L361.6,133.3 L362.8,132.9 L364.0,132.6 L365.2,132.2 L366.4,131.9 L367.6,131.5 L368.8,131.1 L370.0,130.8 L371.2,130.4 L372.4,130.0 L373.6,129.7 L374.8,129.3 L376.0,129.0 L377.2,128.6 L378.4,128.2 L379.6,127.9 L380.8,127.5 L382.0,127.2 L383.2,126.8 L384.4,126.4 L385.6,126.1 L386.8,125.7 L388.0,125.3 L389.2,125.0 L390.4,124.6 L391.6,124.3 L392.8,123.9 L394.0,123.5 L395.2,123.2 L396.4,122.8 L397.6,122.5 L398.8,122.1 L400.0,121.7 L401.2,121.4 L402.4,121.0 L403.6,120.6 L404.8,120.3 L406.0,119.9 L407.2,119.6 L408.4,119.2 L409.6,118.8 L410.8,118.5 L412.0,118.1 L413.2,117.8 L414.4,117.4 L415.6,117.0 L416.8,116.7 L418.0,116.3 L419.2,115.9 L420.4,115.6 L421.6,115.2 L422.8,114.9 L424.0,114.5" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.3"/><text x="430.0" y="64.4" font-size="10" fill="currentColor" opacity=".6">theta 0.5</text><text x="430.0" y="78.4" font-size="10" fill="currentColor" opacity=".8">theta 2</text><text x="430.0" y="118.5" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">Poisson</text><line x1="190.0" y1="232.0" x2="190.0" y2="44.0" stroke="currentColor" stroke-width="1.1" opacity=".28" stroke-dasharray="3 3"/><text x="190.0" y="36.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">mean 0.1: the NB sits 5% above Poisson</text><text x="268.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Mean UMIs per cell</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Variance</text><text x="486.0" y="62.0" font-size="11" fill="currentColor" font-weight="700">The excess is quadratic.</text><text x="486.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">Variance is mu + mu squared</text><text x="486.0" y="93.0" font-size="10" fill="currentColor" opacity=".8">over theta. The second term</text><text x="486.0" y="106.0" font-size="10" fill="currentColor" opacity=".8">is negligible at low mean and</text><text x="486.0" y="119.0" font-size="10" fill="currentColor" opacity=".8">dominant at high, so the</text><text x="486.0" y="132.0" font-size="10" fill="currentColor" opacity=".8">trend identifies theta only</text><text x="486.0" y="145.0" font-size="10" fill="currentColor" opacity=".8">from the well-expressed genes.</text><text x="486.0" y="158.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="486.0" y="171.0" font-size="10" fill="currentColor" opacity=".8">This is also why a variance-</text><text x="486.0" y="184.0" font-size="10" fill="currentColor" opacity=".8">stabilising transform has to</text><text x="486.0" y="197.0" font-size="10" fill="currentColor" opacity=".8">know the trend before it can</text><text x="486.0" y="210.0" font-size="10" fill="currentColor" opacity=".8">undo it.</text></svg>
+</Figure>
+
+<Widget
+  kind="sc-dropout"
+  title="Move the mean and the dispersion, and watch where the zeros go"
+  alt="An interactive bar chart of the count distribution of one gene, showing the negative binomial as filled bars and the Poisson with the same mean as outlined bars, with a readout of the zero probability under each. Lowering the mean makes both distributions collapse onto the zero bar; lowering the dispersion raises the negative binomial's zero bar above the Poisson's."
+  caption="Two things are worth doing. Set the mean to 0.1 and sweep the dispersion across its whole range: the two zero bars stay locked together, and the readout showing what share of the negative binomial's zeros Poisson sampling alone explains never drops far below 100% — this is Figure 1's left-hand side, and it is why zero-inflation is not identifiable there. Then set the mean to 3 and sweep again: now the bars separate, and the same readout falls sharply. Discriminating between models needs the genes that have the fewest zeros to discriminate with."
+/>
+
+## Testing a gene's zeros against its own mean and variance
+
+The negative binomial has two parameters and there are two moments to fit them with. Solving
+$\sigma^2 = \mu + \mu^2/\theta$ for $\theta$ gives the method-of-moments estimator
+
+$$
+\hat{\theta} = \frac{\mu^2}{\sigma^2 - \mu},
+$$
+
+which needs no zeros at all — only the mean and variance. That makes it an honest test: fit
+$\theta$ without looking at the zero count, then predict the zero count and compare.
+
+<WorkedExample
+  title="Does this gene need a dropout parameter?"
+  given={[
+    '5,000 cells',
+    'Observed mean count 0.5, observed variance 0.625',
+    'Observed zeros: 3,200 cells',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — is it overdispersed at all?** The variance exceeds the mean by
+$0.625 - 0.5 = 0.125$, so yes, and Poisson is already ruled out.
+
+**Step 2 — fit θ from the moments, ignoring the zeros.**
+
+$$
+\hat{\theta} = \frac{0.5^2}{0.625 - 0.5} = \frac{0.25}{0.125} = 2.
+$$
+
+**Step 3 — predict the zeros.**
+
+$$
+\Pr(c = 0) = \left(\frac{2}{2 + 0.5}\right)^{2} = 0.8^2 = 0.64,
+$$
+
+so **64.00%**, or $0.64 \times 5{,}000 = 3{,}200$ cells.
+
+**Step 4 — compare.** 3,200 predicted, 3,200 observed. A zero-inflation parameter fitted to
+this gene comes back at $\pi_0 = 0$, because there is nothing left for it to explain.
+
+**What the naive comparison would have concluded.** Poisson at the same mean predicts
+$e^{-0.5} = 0.606531$, or 3,033 cells. Against *that* baseline the gene has 167 excess zeros,
+and a paper reporting "5.5% dropout" would be reporting the difference between a negative
+binomial and a Poisson — that is, reporting overdispersion under another name.
+
+</WorkedExample>
+
+Run over whole datasets, this is what the analysis found: droplet counts are consistent with a
+negative binomial, and the zero-inflation parameter is estimated at essentially zero
+genome-wide <Citation id="svensson2020zeroinflation" />. The same conclusion had been reached
+earlier with spike-in controls, where the true input is known
+<Citation id="grun2014noise" />, and it underpins the modern normalisation and feature-selection
+methods, which model counts directly rather than imputing them
+<Citation id="hafemeister2019sctransform" /><Citation id="townes2019glmpca" />.
+
+The nuance worth keeping: **full-length protocols are a different case.** Plate-based methods
+without UMIs have genuine technical zeros from failed reverse transcription, and zero-inflated
+models were developed on exactly that kind of data. The claim is about droplet UMI counts
+<Citation id="zheng2017chromium" /><Citation id="islam2013umi" />, which is what nearly
+everyone now generates.
+
+## Why this decides what you may do to the matrix
+
+If the zeros are sampling, imputation is not recovering a hidden value — it is smoothing. And
+smoothing a matrix before testing it for differences is the classic way to manufacture
+significance: imputed values are borrowed from similar cells, which makes similar cells more
+similar, which makes any grouping you then test look cleaner than it is
+<Citation id="luecken2019bestpractices" />.
+
+The count model also decides what a normalisation is allowed to do, which is the subject of
+lesson 5, and what "highly variable" means, which is lesson 6. Both are questions about the
+mean–variance trend in Figure 2, and both go wrong when the trend is assumed rather than fitted.
+
+## Summary
+
+- Capture is a binomial thinning of a molecule count, so in the small-$p$ regime the observed
+  count is **Poisson**: $\Pr(c = 0) = e^{-\mu}$, which is **90.48%** at a mean of 0.1.
+- Cells differ, so $\mu$ varies. Mixing Poisson over a Gamma gives the **negative binomial**,
+  with $\mathrm{Var}(c) = \mu + \mu^2/\theta$ and
+  $\Pr(c = 0) = (\theta/(\theta+\mu))^{\theta}$.
+- The excess variance is **quadratic in the mean**, so overdispersion is negligible at low mean
+  and dominant at high — and it always adds zeros over Poisson, so "more zeros than Poisson"
+  is not evidence of dropout.
+- Fit $\hat\theta = \mu^2/(\sigma^2 - \mu)$ from the moments and predict the zeros. For a gene
+  with mean 0.5 and variance 0.625 this gives $\theta = 2$, predicts 64.00% zeros, and matches
+  3,200 of 5,000 observed exactly.
+- Genome-wide, droplet UMI counts need **no zero-inflation parameter**. Full-length protocols
+  without UMIs are a genuinely different case.
+- Zeros are observations. Imputing them before a test smooths the matrix towards whatever
+  grouping is about to be tested.
+
+<Exercise n={1} title="Pricing the difference in cells" difficulty="warm-up">
+
+A gene has mean 0.1 across 10,000 cells.
+
+(a) How many cells are zero under Poisson?
+
+(b) How many under a negative binomial with $\theta = 1$?
+
+(c) Comment on the size of the difference.
+
+<div slot="solution">
+
+(a) $e^{-0.1} = 0.904837$, so **9,048 cells**.
+
+(b) $(1/1.1)^1 = 0.909091$, so **9,091 cells**.
+
+(c) The two models differ by **43 cells out of 10,000**, or 0.43 percentage points — and that
+is with $\theta = 1$, which is strong overdispersion. Whatever else is true, the choice of
+count model is not what determines whether this gene looks mostly zero. It is mostly zero
+because its mean is 0.1.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Auditing a dropout claim" difficulty="core">
+
+A paper reports that a gene shows substantial dropout. Across 5,000 cells its mean count is
+2.0, its variance is 8.0, and 1,950 cells are zero.
+
+(a) Fit $\theta$ from the moments.
+
+(b) How many zeros does the negative binomial predict?
+
+(c) How many does Poisson predict, and what would the "dropout rate" be if Poisson were used
+as the baseline?
+
+(d) What should the paper have concluded?
+
+<div slot="solution">
+
+(a) $\hat\theta = 2.0^2/(8.0 - 2.0) = 4/6 = 0.6667$.
+
+(b) $\Pr(c=0) = (0.6667/2.6667)^{0.6667} = 0.25^{0.6667} = 0.396850$, so **1,984 cells**.
+
+(c) Poisson gives $e^{-2} = 0.135335$, or **677 cells**. Against that baseline the gene has
+$1{,}950 - 677 = 1{,}273$ "extra" zeros, which is 25.5% of all cells — a dramatic-sounding
+dropout rate.
+
+(d) That the gene is overdispersed and its zeros are fully accounted for. Observed 1,950
+against 1,984 predicted is a shortfall of 34 cells; the standard deviation of a binomial count
+with $n = 5{,}000$ and $p = 0.3969$ is $\sqrt{5{,}000(0.3969)(0.6031)} = 34.6$, so the
+discrepancy is under one standard deviation and in the *wrong direction* for dropout. The
+entire "25.5% dropout" is the gap between a Poisson and the negative binomial that fits.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="When zero-inflation is not identifiable" difficulty="stretch">
+
+Exercise 1 found a 43-cell difference between two count models at a mean of 0.1 in 10,000
+cells.
+
+(a) Compute the standard deviation of the number of zeros observed in 10,000 cells under the
+Poisson model.
+
+(b) How many standard deviations is the 43-cell difference?
+
+(c) A collaborator proposes settling the zero-inflation question using the lowly expressed
+genes, since they have the most zeros. Explain why that is exactly backwards, and say which
+genes carry the information.
+
+<div slot="solution">
+
+(a) The zero count is binomial with $n = 10{,}000$ and $p = 0.904837$:
+
+$$
+\sqrt{10{,}000 \times 0.904837 \times 0.095163} = \sqrt{861.06} = 29.34.
+$$
+
+(b) $43/29.34 = 1.47$ standard deviations. Two models as different as Poisson and
+$\theta = 1$ are separated by less than one and a half standard errors on this gene, so no
+amount of care distinguishes them here — and a zero-inflation parameter, which sits between
+them, is even less identifiable.
+
+(c) Lowly expressed genes have the most zeros and the least *information about where the zeros
+came from*, because at low mean every candidate model predicts nearly the same number. The
+discriminating power is in the mean–variance behaviour and the zero counts of **well-expressed
+genes**, where Figure 1's curves are far apart: at a mean of 5, Poisson predicts 0.67% zeros
+and a negative binomial with $\theta = 2$ predicts 8.16%, a twelvefold difference that
+thousands of cells resolve easily. The uncomfortable consequence is that the question is
+settled on the minority of genes that have almost no zeros.
+
+</div>
+
+</Exercise>

@@ -1,0 +1,331 @@
+---
+title: "Cell Calling and Quality Control: Every Filter Is a Hypothesis"
+shortTitle: Cell Calling and QC
+description: "Deciding which barcodes are cells, and which cells to keep — with each threshold priced in the cells it removes and, more importantly, in which cells they are."
+abstract: "Quality control is presented as hygiene and is in fact a series of biological claims. A fixed UMI cutoff assumes cells have comparable RNA content: at 500 UMIs it retains 99.9% of a population averaging 5,000 UMIs and 26.5% of one averaging 400, so the small cells are mostly deleted and the atlas reports them as rare. A mitochondrial cutoff assumes high mitochondrial share means damage, when it mostly means aerobic metabolism: at a 10% threshold, essentially no cardiomyocyte survives and 88.5% of lymphocytes do, which is not a quality filter but a cell-type filter. The knee in a barcode-rank plot is not one knee, and the modern answer is to stop thresholding depth and test each barcode against the ambient profile instead. This lesson prices each standard filter in both currencies — how many cells, and which ones — and gives the order that makes the damage visible."
+date: 2026-08-25
+track: theory
+hub: single-cell
+moduleId: s02-matrix
+moduleLabel: Module 2 · Building a Usable Matrix
+order: 4
+level: foundational
+objectives:
+  - "Read a barcode-rank plot and say why a single UMI threshold cannot separate small cells from empty droplets."
+  - "Explain what EmptyDrops tests and why testing against the ambient profile succeeds where a depth cutoff fails."
+  - "Price each standard QC filter in cells retained and in which cell types those cells belong to."
+  - "Explain why a fixed mitochondrial cutoff is a cell-type filter, and what to do instead."
+  - "Order a QC pipeline so that its effects are diagnosable rather than compounded invisibly."
+prerequisites:
+  - sc-from-cells-to-counts
+  - sc-ambient-and-doublets
+relatedLessons:
+  - sc-ambient-and-doublets
+  - sc-count-noise-model
+keyEquations:
+  - 'F(x) = \sum_c w_c \, F_{\Gamma(k_c, s_c)}(x)'
+  - '\text{retained}_c = 1 - F_{\Gamma(k_c, s_c)}(t)'
+  - '\text{kept} = \prod_i (1 - d_i) \quad \text{only if the filters are independent}'
+referenceIds:
+  - lun2019emptydrops
+  - osorio2021mito
+  - ilicic2016lowquality
+  - young2020soupx
+  - wolock2019scrublet
+  - luecken2019bestpractices
+  - zheng2017chromium
+  - macosko2015dropseq
+tags: [single-cell, quality control, cell calling, EmptyDrops, mitochondrial fraction, filtering]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The instrument returns several hundred thousand barcodes and perhaps five thousand of them are
+cells. Deciding which, and then deciding which of those to keep, is the step everyone describes
+in one sentence of a methods section and nobody reports the consequences of.
+
+The framing that causes the trouble is that QC is *hygiene* — a neutral tidying-up before the
+real work. It is not neutral. Every threshold encodes a claim about what a good cell looks
+like, and cells of different types look different in exactly the properties being thresholded.
+A filter that removes 15% of cells has not removed 15% of each type; it has removed most of
+one type and none of another, and which is which is decided by the threshold, not by the
+biology.
+
+<Notation
+  rows={[
+    { symbol: 't', meaning: 'A threshold — on UMIs, genes, or mitochondrial share', dims: 'varies' },
+    { symbol: 'w_c', meaning: 'Share of barcodes belonging to population c', dims: 'in [0,1]' },
+    { symbol: 'k_c, s_c', meaning: 'Gamma shape and scale of population c\'s depth', dims: '> 0' },
+    { symbol: 'F_{\\Gamma}', meaning: 'Gamma cumulative distribution function', dims: 'in [0,1]' },
+    { symbol: 'm_c', meaning: 'Typical mitochondrial share of cell type c', dims: 'in [0,1]' },
+    { symbol: 'd_i', meaning: 'Fraction of the remaining cells removed by filter i', dims: 'in [0,1]' },
+  ]}
+/>
+
+## The knee, and why it is not one knee
+
+Rank every barcode by its total UMI count and plot rank against depth on log axes. Real cells
+sit on a high plateau at the left, empty droplets on a low one at the right, and the drop
+between them is the **knee**. The traditional method picks the knee and calls everything above
+it a cell <Citation id="macosko2015dropseq" /><Citation id="zheng2017chromium" />.
+
+This works when there is one population of cells and they are all much bigger than the
+droplets' background. It fails whenever a tissue contains cells of genuinely different sizes —
+which is most tissues. Lymphocytes carry an order of magnitude less RNA than hepatocytes;
+platelets, granulocytes and many neurons are similarly light. Their plateau sits *below* where
+the knee is usually drawn, and no single horizontal line separates them from the soup.
+
+Figure 1 makes this concrete with a mixture whose composition is known exactly: 100,000
+barcodes made of 4,000 large cells, 6,000 small cells and 90,000 empty droplets, with depths
+Gamma-distributed about means of 5,000, 400 and 60 UMIs. Because the depth at each rank is
+just the corresponding quantile of that mixture, the curve is computed rather than simulated,
+and every retention rate quoted below follows from it.
+
+<Figure
+  caption="Figure 1. A barcode-rank plot built exactly from a mixture rather than simulated: 4,000 large cells averaging 5,000 UMIs, 6,000 small cells averaging 400, and 90,000 empty droplets averaging 60. The depth at each rank is the corresponding quantile of the mixture. A 500-UMI cutoff, drawn dashed, lands inside the small-cell range and recovers 26.5% of them while keeping 99.9% of the large cells — and lowering it far enough to keep the small cells begins admitting empty droplets."
+  alt="A barcode-rank plot on logarithmic axes descending from about fifteen thousand UMIs at rank one to under twenty by rank one hundred thousand, annotated with three regions for large cells, small cells and empty droplets. A dashed horizontal line marks a 500-UMI cutoff crossing the curve within the small-cell region."
+>
+<svg viewBox="0 0 760 306" width="760" height="306" font-family="inherit"><line x1="112.0" y1="44.0" x2="112.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="236.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10</text><line x1="112.0" y1="177.9" x2="424.0" y2="177.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="181.9" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">100</text><line x1="112.0" y1="123.9" x2="424.0" y2="123.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="127.9" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1,000</text><line x1="112.0" y1="69.8" x2="424.0" y2="69.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="73.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10,000</text><line x1="112.0" y1="232.0" x2="112.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="112.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="174.4" y1="232.0" x2="174.4" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="174.4" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="236.8" y1="232.0" x2="236.8" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="236.8" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="299.2" y1="232.0" x2="299.2" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="299.2" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1,000</text><line x1="361.6" y1="232.0" x2="361.6" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="361.6" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10k</text><line x1="424.0" y1="232.0" x2="424.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100k</text><path d="M112.0,55.4 L114.1,55.5 L116.2,55.7 L118.2,55.8 L120.3,56.0 L122.4,56.1 L124.5,56.3 L126.6,56.4 L128.6,56.6 L130.7,56.8 L132.8,56.9 L134.9,57.1 L137.0,57.3 L139.0,57.4 L141.1,57.6 L143.2,57.8 L145.3,57.9 L147.4,58.1 L149.4,58.3 L151.5,58.4 L153.6,58.6 L155.7,58.8 L157.8,59.0 L159.8,59.2 L161.9,59.4 L164.0,59.5 L166.1,59.7 L168.2,59.9 L170.2,60.1 L172.3,60.3 L174.4,60.5 L176.5,60.7 L178.6,60.9 L180.6,61.1 L182.7,61.3 L184.8,61.5 L186.9,61.7 L189.0,61.9 L191.0,62.1 L193.1,62.4 L195.2,62.6 L197.3,62.8 L199.4,63.0 L201.4,63.3 L203.5,63.5 L205.6,63.7 L207.7,64.0 L209.8,64.2 L211.8,64.4 L213.9,64.7 L216.0,64.9 L218.1,65.2 L220.2,65.4 L222.2,65.7 L224.3,66.0 L226.4,66.2 L228.5,66.5 L230.6,66.8 L232.6,67.1 L234.7,67.4 L236.8,67.6 L238.9,67.9 L241.0,68.2 L243.0,68.6 L245.1,68.9 L247.2,69.2 L249.3,69.5 L251.4,69.8 L253.4,70.2 L255.5,70.5 L257.6,70.9 L259.7,71.2 L261.8,71.6 L263.8,72.0 L265.9,72.4 L268.0,72.8 L270.1,73.2 L272.2,73.6 L274.2,74.0 L276.3,74.4 L278.4,74.9 L280.5,75.4 L282.6,75.8 L284.6,76.3 L286.7,76.8 L288.8,77.4 L290.9,77.9 L293.0,78.5 L295.0,79.1 L297.1,79.7 L299.2,80.3 L301.3,81.0 L303.4,81.7 L305.4,82.4 L307.5,83.2 L309.6,84.1 L311.7,85.0 L313.8,85.9 L315.8,86.9 L317.9,88.0 L320.0,89.3 L322.1,90.6 L324.2,92.2 L326.2,93.9 L328.3,96.0 L330.4,98.6 L332.5,102.1 L334.6,107.6 L336.6,121.7 L338.7,130.0 L340.8,133.8 L342.9,136.6 L345.0,139.1 L347.0,141.5 L349.1,143.9 L351.2,146.4 L353.3,149.2 L355.4,152.2 L357.4,155.6 L359.5,158.8 L361.6,161.6 L363.7,163.9 L365.8,165.8 L367.8,167.4 L369.9,168.9 L372.0,170.3 L374.1,171.6 L376.2,172.8 L378.2,174.0 L380.3,175.2 L382.4,176.4 L384.5,177.6 L386.6,178.8 L388.6,180.0 L390.7,181.2 L392.8,182.5 L394.9,183.8 L397.0,185.2 L399.0,186.7 L401.1,188.2 L403.2,189.9 L405.3,191.7 L407.4,193.6 L409.4,195.8 L411.5,198.2 L413.6,201.0 L415.7,204.4 L417.8,208.6 L419.8,214.4 L421.9,223.8 L424.0,232.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.3"/><line x1="112.0" y1="140.1" x2="424.0" y2="140.1" stroke="currentColor" stroke-width="1.4" opacity=".5" stroke-dasharray="5 4"/><text x="118.0" y="132.1" font-size="10" fill="currentColor" opacity=".75">a 500-UMI cutoff</text><text x="223.0" y="57.3" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">large cells</text><text x="347.8" y="101.4" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".8">small cells</text><text x="395.5" y="158.4" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".8">empty droplets</text><text x="268.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Barcode rank</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Total UMIs</text><text x="450.0" y="62.0" font-size="11" fill="currentColor" font-weight="700">There is no clean cut.</text><text x="450.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">Two size classes do not give</text><text x="450.0" y="93.0" font-size="10" fill="currentColor" opacity=".8">two flat steps - they give one</text><text x="450.0" y="106.0" font-size="10" fill="currentColor" opacity=".8">long descent, and the small</text><text x="450.0" y="119.0" font-size="10" fill="currentColor" opacity=".8">cells overlap the empties in</text><text x="450.0" y="132.0" font-size="10" fill="currentColor" opacity=".8">depth however the curve is</text><text x="450.0" y="145.0" font-size="10" fill="currentColor" opacity=".8">read.</text><text x="450.0" y="158.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="450.0" y="171.0" font-size="10" fill="currentColor" opacity=".8">A cutoff at 500 lands inside</text><text x="450.0" y="184.0" font-size="10" fill="currentColor" opacity=".8">the small-cell range and</text><text x="450.0" y="197.0" font-size="10" fill="currentColor" opacity=".8">recovers 26.5% of them. Move</text><text x="450.0" y="210.0" font-size="10" fill="currentColor" opacity=".8">it down to keep them and the</text><text x="450.0" y="223.0" font-size="10" fill="currentColor" opacity=".8">empties come too.</text><text x="450.0" y="236.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="450.0" y="249.0" font-size="10" fill="currentColor" opacity=".8">This is the problem the</text><text x="450.0" y="262.0" font-size="10" fill="currentColor" opacity=".8">ambient profile solves: test</text><text x="450.0" y="275.0" font-size="10" fill="currentColor" opacity=".8">each barcode against the</text><text x="450.0" y="288.0" font-size="10" fill="currentColor" opacity=".8">soup, not against a number.</text></svg>
+</Figure>
+
+The modern answer abandons the threshold. **EmptyDrops** estimates the ambient profile from the
+very low-count barcodes — which are unambiguously soup — and then tests every remaining barcode
+against it: not *is this barcode deep enough*, but *is this barcode's expression profile
+different from the soup* <Citation id="lun2019emptydrops" />. A small cell with 400 UMIs of a
+distinctive profile is retained; an empty droplet with 400 UMIs of soup is not. That is exactly
+the discrimination a depth cutoff cannot make, and it is the same ambient profile that lesson 3
+used for contamination correction <Citation id="young2020soupx" />.
+
+<Callout variant="intuition" title="Ask what the filter would do to a cell type you care about">
+
+The useful habit is not to ask "is this threshold standard?" but "what fraction of each cell
+type does it remove?"
+
+That question is answerable. Annotate first with permissive filters, then look at what a
+proposed threshold would delete, broken down by cluster. If a filter removes 3% of every
+cluster, it is doing what QC is supposed to do. If it removes 90% of one cluster and 2% of the
+rest, it is not a quality filter — it is a decision to exclude a cell type, and it should be
+reported as one.
+
+This inverts the usual order, which is why it is rarely done. But QC-then-cluster hides
+precisely the information needed to judge the QC.
+
+</Callout>
+
+## The mitochondrial threshold is a cell-type filter
+
+The standard reasoning: a dying cell's membrane becomes permeable, cytoplasmic mRNA leaks out,
+mitochondrial mRNA is retained inside the mitochondria, so the mitochondrial *share* rises.
+Filter cells above 5% or 10% and you remove the dying ones <Citation id="ilicic2016lowquality" />.
+
+The reasoning is sound and the threshold is not, because baseline mitochondrial share is a
+property of the cell type. Mitochondrial content tracks energy demand, and it varies across
+tissues by a factor of ten: cardiomyocytes, hepatocytes, kidney proximal tubule cells and
+skeletal muscle sit far above 10% when perfectly healthy, while most lymphocytes sit below 5%
+<Citation id="osorio2021mito" />.
+
+Applying one number across all of them does not remove the dying cells. It removes the aerobic
+ones.
+
+<Figure
+  caption="Figure 2. What a single 10% mitochondrial cutoff retains, by cell type, taking each type's mitochondrial share as roughly normal about its median with a standard deviation of 5 percentage points. Cardiomyocytes at a 30% median are removed essentially entirely and hepatocytes at 22% keep 0.8%, while fibroblasts at 6% keep 78.8% and lymphocytes at 4% keep 88.5%. The filter's effect is almost entirely a function of cell type rather than of cell health."
+  alt="A horizontal bar chart of the percentage of cells surviving a ten percent mitochondrial cutoff for four cell types, with bars starting at zero. Cardiomyocytes at 30 percent median mitochondrial share keep 0.0 percent, hepatocytes at 22 percent keep 0.8 percent, fibroblasts at 6 percent keep 78.8 percent and lymphocytes at 4 percent keep 88.5 percent."
+>
+<svg viewBox="0 0 760 292" width="760" height="292" font-family="inherit"><line x1="196.0" y1="216.0" x2="196.0" y2="44.0" stroke="currentColor" stroke-width="1.25"/><line x1="196.0" y1="216.0" x2="196.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="196.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0%</text><line x1="245.0" y1="216.0" x2="245.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="245.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">25%</text><line x1="294.0" y1="216.0" x2="294.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="294.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50%</text><line x1="343.0" y1="216.0" x2="343.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="343.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">75%</text><line x1="392.0" y1="216.0" x2="392.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="392.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100%</text><rect x="196.0" y="54.5" width="0.6" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><text x="188.0" y="66.5" font-size="10.5" fill="currentColor" text-anchor="end">Cardiomyocytes</text><text x="188.0" y="78.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".65">30% mito</text><text x="204.0" y="69.5" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">0.0% kept</text><rect x="196.0" y="93.2" width="1.6" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><text x="188.0" y="105.2" font-size="10.5" fill="currentColor" text-anchor="end">Hepatocytes</text><text x="188.0" y="117.2" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".65">22% mito</text><text x="205.6" y="108.2" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">0.8% kept</text><rect x="196.0" y="131.9" width="154.5" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><text x="188.0" y="143.9" font-size="10.5" fill="currentColor" text-anchor="end">Fibroblasts</text><text x="188.0" y="155.9" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".65">6% mito</text><text x="358.5" y="146.9" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">78.8% kept</text><rect x="196.0" y="170.6" width="173.4" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><text x="188.0" y="182.6" font-size="10.5" fill="currentColor" text-anchor="end">Lymphocytes</text><text x="188.0" y="194.6" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".65">4% mito</text><text x="377.4" y="185.6" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">88.5% kept</text><text x="294.0" y="256.0" font-size="12" fill="currentColor" text-anchor="middle">Cells surviving a 10% mitochondrial cutoff</text><text x="478.0" y="62.0" font-size="11" fill="currentColor" font-weight="700">It deletes a cell type.</text><text x="478.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">Mitochondrial share tracks</text><text x="478.0" y="93.0" font-size="10" fill="currentColor" opacity=".8">energy demand, so it is a</text><text x="478.0" y="106.0" font-size="10" fill="currentColor" opacity=".8">property of the cell type as</text><text x="478.0" y="119.0" font-size="10" fill="currentColor" opacity=".8">much as of its health.</text><text x="478.0" y="132.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="478.0" y="145.0" font-size="10" fill="currentColor" opacity=".8">One threshold across the</text><text x="478.0" y="158.0" font-size="10" fill="currentColor" opacity=".8">whole dataset removes every</text><text x="478.0" y="171.0" font-size="10" fill="currentColor" opacity=".8">cardiomyocyte and keeps</text><text x="478.0" y="184.0" font-size="10" fill="currentColor" opacity=".8">most lymphocytes - and the</text><text x="478.0" y="197.0" font-size="10" fill="currentColor" opacity=".8">atlas then reports a heart</text><text x="478.0" y="210.0" font-size="10" fill="currentColor" opacity=".8">with no muscle in it.</text></svg>
+</Figure>
+
+The fix is not a different number but a different unit: set the threshold **per cluster**,
+relative to that cluster's own distribution, so that "unusually high mitochondrial share *for a
+cardiomyocyte*" is what gets removed. That again requires clustering before filtering.
+
+<WorkedExample
+  title="Pricing a standard pipeline, in cells and in cell types"
+  given={[
+    '10,000 called cells',
+    'Filters in the usual order: min 500 UMIs, min 200 genes, mito < 10%, doublet removal',
+    'Each removes 4%, 3%, 8% and 5% of what reaches it',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the headline number.** Filters compose multiplicatively on what reaches them:
+
+$$
+10{,}000 \to 9{,}600 \to 9{,}312 \to 8{,}567 \to 8{,}139,
+$$
+
+so **81.4%** of cells survive. That is the number that appears in the methods section, and it
+sounds unremarkable.
+
+**Step 2 — where the losses fall.** The 400 cells lost to the UMI filter are not a random 4%.
+From Figure 1, a 500-UMI cutoff keeps 99.92% of a 5,000-UMI population and 26.50% of a
+400-UMI one. If the small population was 15% of the sample — 1,500 cells — then it loses
+
+$$
+1{,}500 \times 0.734974 = 1{,}102
+$$
+
+cells on its own, which is more than the 400 the filter is recorded as removing. The
+arithmetic only reconciles if the small population is smaller than assumed: at a 4% overall
+loss, the small cells can be at most $400/0.734974 = 544$ of the original 10,000. **The filter's
+own retention rate tells you the composition it implies**, and if that contradicts what the
+tissue is known to contain, the filter is deleting a population.
+
+**Step 3 — the mitochondrial filter, done twice.** 8% of 9,312 is 745 cells. Under a global
+10% cutoff, Figure 2 says those 745 are drawn almost entirely from the high-mitochondrial
+types. If the sample contains 800 cardiomyocytes, essentially all 800 are gone — the recorded
+"8% removed" *is* the cardiomyocyte population, and the finished atlas contains none.
+
+**Step 4 — the order that makes this visible.** Run the permissive pipeline first, cluster,
+then apply each candidate threshold and tabulate removals by cluster. The cost is one extra
+clustering run. The benefit is that step 3 becomes a table instead of an inference.
+
+**What the 81.4% conceals.** Nothing in the headline number distinguishes a pipeline that
+removed 1,861 damaged cells from one that removed a cell type and some debris. The retained
+fraction is not a quality metric.
+
+</WorkedExample>
+
+## An order of operations
+
+The filters interact, so the sequence matters — not for the final count, which is nearly
+order-independent, but for what can be diagnosed.
+
+1. **Call cells against the ambient profile**, not a depth cutoff <Citation id="lun2019emptydrops" />.
+2. **Remove obvious debris only** — barcodes with almost no genes detected — using a threshold
+   loose enough that no real population is near it.
+3. **Cluster.** This is the step usually placed last.
+4. **Detect doublets** with a simulation-based method <Citation id="wolock2019scrublet" />, which
+   needs the clustering to define what a heterotypic mixture looks like.
+5. **Apply mitochondrial and complexity thresholds per cluster**, relative to each cluster's own
+   distribution.
+6. **Re-cluster** on the filtered matrix.
+
+The standard order — filter everything, then cluster once — is faster and produces a number for
+the methods section. It cannot tell you what the filters did <Citation id="luecken2019bestpractices" />.
+
+## Summary
+
+- QC thresholds are **biological claims**, not hygiene. A filter's headline retention rate says
+  nothing about which cells it removed.
+- A barcode-rank plot has as many shoulders as the tissue has size classes. A 500-UMI cutoff
+  keeps **99.9%** of a 5,000-UMI population and **26.5%** of a 400-UMI one.
+- **EmptyDrops** replaces the depth question with a profile question — is this barcode different
+  from the soup — which is the only version that separates small cells from empty droplets.
+- A global mitochondrial cutoff is a **cell-type filter**: at 10%, cardiomyocytes keep 0.0% and
+  lymphocytes keep 88.5%. Threshold per cluster instead.
+- Filters compose multiplicatively: 4%, 3%, 8% and 5% leave **81.4%**. That number is
+  compatible with both a careful pipeline and one that deleted a population.
+- Cluster **before** the aggressive filters, so that every threshold can be priced by cluster.
+
+<Exercise n={1} title="Reading a cutoff off the populations" difficulty="warm-up">
+
+A sample contains a population averaging 5,000 UMIs with depth $\Gamma(4, 1250)$ and one
+averaging 400 UMIs with depth $\Gamma(4, 100)$.
+
+(a) What fraction of each survives a 200-UMI cutoff?
+
+(b) What fraction survives a 1,000-UMI cutoff?
+
+(c) A collaborator argues that 1,000 is "safely above the noise". Respond.
+
+<div slot="solution">
+
+(a) At 200 UMIs: **100.0%** of the large population and **85.7%** of the small one.
+
+(b) At 1,000 UMIs: **99.1%** of the large population and **1.0%** of the small one.
+
+(c) It is safely above the noise and also above the signal. Moving from 200 to 1,000 costs the
+large population 0.9% of its cells and costs the small population 98.8% of its own — from 85.7%
+retained to 1.0%. After this filter the small population is present at roughly one cell in a
+hundred of its true abundance, which will read as a rare type rather than a common one. "Safely
+above the noise" is only meaningful relative to a stated claim about the smallest cell the
+experiment intends to see.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="What a retention rate implies about composition" difficulty="core">
+
+A pipeline reports that a 500-UMI cutoff removed 6% of 20,000 called cells. The tissue is known
+to contain a small-cell population with depth $\Gamma(4, 100)$, and the rest of the cells are
+$\Gamma(4, 1250)$.
+
+(a) What fraction of each population does the cutoff retain?
+
+(b) If the small population is a fraction $f$ of the sample, write the overall loss in terms of
+$f$ and solve for it.
+
+(c) The tissue is known from histology to be about 25% small cells. What does that imply?
+
+<div slot="solution">
+
+(a) From the Gamma distributions: **99.92%** of the large population and **26.50%** of the
+small one survive, so they lose 0.000776 and 0.734974 of their cells respectively.
+
+(b) The overall loss is
+
+$$
+f(0.734974) + (1 - f)(0.000776) = 0.06,
+$$
+
+so $0.734198f = 0.059224$ and
+
+$$
+f = 0.080665,
+$$
+
+about **8%**.
+
+(c) The observed 6% loss is only consistent with the small cells being 8% of the *called*
+barcodes. If histology says 25%, then most of the small cells were never called in the first
+place — they were classified as empty droplets, before this filter ever ran. The 6% figure is
+measuring the tail of a population that was already largely lost at the cell-calling step, and
+the fix is upstream: call cells against the ambient profile rather than by depth.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="A per-cluster mitochondrial threshold" difficulty="stretch">
+
+Cardiomyocytes have mitochondrial share roughly normal with mean 30% and standard deviation 5
+percentage points; lymphocytes mean 4% and standard deviation 5 points.
+
+(a) What fraction of each survives a global 10% cutoff?
+
+(b) Replace it with a per-cluster rule removing cells above the cluster mean plus two standard
+deviations. What fraction of each survives, and what are the two thresholds?
+
+(c) Give one situation in which the per-cluster rule fails, and say what it would take to
+detect it.
+
+<div slot="solution">
+
+(a) Cardiomyocytes: $\Phi((0.10 - 0.30)/0.05) = \Phi(-4) = 0.0032\%$, so **0.0%** to one
+decimal. Lymphocytes: $\Phi((0.10 - 0.04)/0.05) = \Phi(1.2) = 0.8849$, so **88.5%**.
+
+(b) Two standard deviations above each cluster's own mean is 40% for cardiomyocytes and 14% for
+lymphocytes. Both retain $\Phi(2) = 0.9772$, so **97.7%** of each — by construction the rule
+removes the same fraction everywhere, which is exactly the property a global threshold lacks.
+
+(c) It fails when a whole cluster is damaged. If dissociation destroyed most cardiomyocytes,
+their cluster's mean mitochondrial share is elevated *as a cluster*, and a rule defined
+relative to that mean removes only the tail of an already-bad population — it normalises away
+the very signal that should have condemned the sample. Detecting it needs an external
+reference: the healthy mitochondrial share for that cell type in that tissue
+<Citation id="osorio2021mito" />, or the same cell type from a sample known to have dissociated
+well. A rule that only ever looks within a dataset cannot tell a healthy cardiomyocyte
+distribution from a damaged one.
+
+</div>
+
+</Exercise>

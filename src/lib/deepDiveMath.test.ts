@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  nbTheta,
   clusteredFalsePositiveRate,
   effectiveIndependentCells,
   designEffect,
@@ -2447,5 +2448,38 @@ describe('clustered sampling — the design effect and what it does to a test', 
     // going from 5% to 0.05% at 500 cells per sample still leaves a third of nulls rejected
     expect(clusteredFalsePositiveRate(500, 0.05, 0.05)).toBeCloseTo(0.7004, 4);
     expect(clusteredFalsePositiveRate(500, 0.05, 5e-4)).toBeGreaterThan(0.3);
+  });
+});
+
+
+describe('nbTheta — the method-of-moments dispersion', () => {
+  it('inverts nbVariance exactly', () => {
+    for (const mu of [0.1, 0.5, 1, 3, 10])
+      for (const theta of [0.25, 0.7, 2, 8]) {
+        expect(nbTheta(mu, nbVariance(mu, theta))).toBeCloseTo(theta, 8);
+      }
+  });
+
+  it('returns Infinity when the data is not overdispersed', () => {
+    expect(nbTheta(0.5, 0.5)).toBe(Number.POSITIVE_INFINITY);
+    expect(nbTheta(0.5, 0.4)).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('grows without bound as the variance approaches the mean, recovering Poisson', () => {
+    const mu = 0.5;
+    let prev = 0;
+    for (const v of [1, 0.75, 0.55, 0.505, 0.5005]) {
+      const theta = nbTheta(mu, v);
+      expect(theta).toBeGreaterThan(prev);
+      prev = theta;
+    }
+    // and the zero probability converges on the Poisson one from above
+    expect(nbZeroProbability(mu, nbTheta(mu, 0.5005))).toBeCloseTo(poissonZeroProbability(mu), 3);
+    expect(nbZeroProbability(mu, nbTheta(mu, 0.5005))).toBeGreaterThan(poissonZeroProbability(mu));
+  });
+
+  it('rejects a non-positive mean', () => {
+    expect(() => nbTheta(0, 1)).toThrow(RangeError);
+    expect(() => nbTheta(-1, 1)).toThrow(RangeError);
   });
 });
