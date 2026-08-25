@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   effectiveSampleSize, controlCeiling, genotypeDosage, imputationR2,
+  poissonPmf, poissonZeroProbability, negBinomialPmf, nbVariance, nbZeroProbability,
+  multipletRate,
   callRate, piHat, inbreedingF, armitageTrend, liabilityRisk,
   expectedR2, falconerACE, haldaneTheta, kosambiTheta, ldHalfLife, ldMeasures,
   liabilityScale, ncp, ncpForPower, normalCdf, normalPdf, normalQuantile,
@@ -228,6 +230,90 @@ describe('polygenic prediction', () => {
 
   it('needs infinitely many samples to reach the ceiling itself', () => {
     expect(sampleSizeForR2(0.5, 1e6, 0.5)).toBe(Infinity);
+  });
+});
+
+describe('single-cell counts', () => {
+  const sum = (f: (k: number) => number, n = 4000) => {
+    let t = 0;
+    for (let k = 0; k <= n; k += 1) t += f(k);
+    return t;
+  };
+
+  it('gives both pmfs total mass 1', () => {
+    expect(sum((k) => poissonPmf(k, 3.5), 200)).toBeCloseTo(1, 12);
+    expect(sum((k) => poissonPmf(k, 0.1), 50)).toBeCloseTo(1, 12);
+    expect(sum((k) => negBinomialPmf(k, 5, 2))).toBeCloseTo(1, 10);
+    expect(sum((k) => negBinomialPmf(k, 0.3, 0.5))).toBeCloseTo(1, 10);
+  });
+
+  it('matches the Poisson closed form at small k', () => {
+    // e^{-2} 2^k / k!
+    for (const k of [0, 1, 2, 3, 5]) {
+      const closed = (Math.exp(-2) * Math.pow(2, k)) / [1, 1, 2, 6, 24, 120][k === 5 ? 4 : k] /
+        (k === 5 ? 5 : 1);
+      expect(poissonPmf(k, 2)).toBeCloseTo(closed, 12);
+    }
+    expect(poissonPmf(0, 2)).toBeCloseTo(Math.exp(-2), 12);
+  });
+
+  it('recovers the Poisson as the negative binomial dispersion goes to infinity', () => {
+    for (const k of [0, 1, 3, 7]) {
+      // theta = 1e7, not something larger. Accuracy is U-shaped in theta: the gap falls to
+      // 1.1e-8 around 1e7 and then *rises* again — 1.0e-6 at 1e9, 9.7e-3 at 1e13 — because
+      // lnGamma(k + theta) - lnGamma(theta) cancels catastrophically. Testing the limit at
+      // an extreme theta would measure floating point, not convergence.
+      expect(negBinomialPmf(k, 4, 1e7)).toBeCloseTo(poissonPmf(k, 4), 7);
+    }
+    expect(nbVariance(4, 1e12)).toBeCloseTo(4, 6); // closed form, no cancellation here
+  });
+
+  it('gives the zero probabilities their closed forms', () => {
+    expect(poissonZeroProbability(0.1)).toBeCloseTo(Math.exp(-0.1), 12);
+    expect(poissonZeroProbability(0.1)).toBeCloseTo(poissonPmf(0, 0.1), 12);
+    expect(nbZeroProbability(5, 2)).toBeCloseTo(Math.pow(2 / 7, 2), 12);
+    expect(nbZeroProbability(5, 2)).toBeCloseTo(negBinomialPmf(0, 5, 2), 12);
+  });
+
+  it('makes overdispersion add zeros, never remove them', () => {
+    // The check that decides whether a zero-inflated model is needed at all.
+    for (const mu of [0.1, 1, 5, 20]) {
+      for (const theta of [0.5, 2, 10]) {
+        expect(nbZeroProbability(mu, theta)).toBeGreaterThanOrEqual(poissonZeroProbability(mu));
+        expect(nbVariance(mu, theta)).toBeGreaterThan(mu);
+      }
+    }
+  });
+
+  it('prices a lowly-expressed gene as 90% zero from sampling alone', () => {
+    expect(100 * poissonZeroProbability(0.1)).toBeCloseTo(90.4837, 4);
+  });
+
+  it('derives the multiplet rate from Poisson loading', () => {
+    // P(k>=2)/P(k>=1), computed independently from the pmf.
+    for (const lam of [0.05, 0.1, 0.4, 1.2]) {
+      const p0 = poissonPmf(0, lam);
+      const p1 = poissonPmf(1, lam);
+      expect(multipletRate(lam)).toBeCloseTo((1 - p0 - p1) / (1 - p0), 10);
+    }
+    expect(multipletRate(0)).toBe(0);
+    // monotone in loading — more cells per droplet, more doublets
+    let prev = -1;
+    for (const lam of [0.02, 0.05, 0.1, 0.2, 0.5, 1]) {
+      const r = multipletRate(lam);
+      expect(r).toBeGreaterThan(prev);
+      prev = r;
+    }
+    // and it approaches 1 as loading grows without bound
+    expect(multipletRate(50)).toBeCloseTo(1, 10);
+  });
+
+  it('rejects impossible arguments rather than returning a number', () => {
+    expect(() => poissonPmf(-1, 2)).toThrow(RangeError);
+    expect(() => poissonPmf(1.5, 2)).toThrow(RangeError);
+    expect(() => nbVariance(2, 0)).toThrow(RangeError);
+    expect(() => nbZeroProbability(2, -1)).toThrow(RangeError);
+    expect(() => multipletRate(-0.1)).toThrow(RangeError);
   });
 });
 
