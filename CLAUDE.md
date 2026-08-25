@@ -259,6 +259,14 @@ Things specific to this subsystem:
   never states elsewhere. Two legitimate cases are allowlisted: alt text describing an axis
   *domain*, whose endpoints carry no tick label.
 
+- **A guard that only asserts the new wording cannot catch an incomplete fix.** Removing a
+  claim from one passage and leaving it standing in the summary is the commonest way a
+  correction goes wrong — it produced four of the six defects one audit pass found, including
+  a lesson that asserted a thing in an exercise and its negation fifty-five lines below. The
+  test file had 111 `.toContain` assertions against 11 `.not.toContain`, and only the latter
+  scan the whole lesson. **Every prose fix needs `.not.toContain(<the old claim>)`**, not just
+  `.toContain(<the replacement>)`. Then grep the lesson for the claim before committing.
+
 - **A bar chart truncated at a non-zero baseline lies in the one channel a bar is read by.**
   The relatedness figure drew surviving effective size from a 30,800 baseline, so its bars ran
   216.8 px against 32.0 px — a 6.8:1 picture of a 1.03:1 difference. It was also the only

@@ -44,8 +44,11 @@ for i, t in enumerate(['At 4:1 the study already', 'holds 80% of everything',
                        'controls can ever buy.', 'Doubling them to 8:1 adds', 'nine points.']):
     o.append(text(LX, 80 + 13 * i, t, 10, opacity='.8'))
 o.append(text(LX, 164, 'Cases do not.', 11, weight='700'))
+# "sixteen times" needs its baseline named: it is cases against controls for the SAME
+# 10,000 people (21,333 vs 1,333), not against the +40,000-controls gain above.
 for i, t in enumerate(['Ten thousand more cases', 'lifts the ceiling itself,',
-                       'to 53,333 effective —', 'sixteen times the gain.']):
+                       'to 53,333 effective — a', 'gain of 21,333 against',
+                       'the 1,333 those same', 'ten thousand buy as', 'controls.']):
     o.append(text(LX, 182 + 13 * i, t, 10, opacity='.8'))
 
 print('bytes:', write(os.path.join(OUT, 'gwas-study-design-saturation.svg'),
