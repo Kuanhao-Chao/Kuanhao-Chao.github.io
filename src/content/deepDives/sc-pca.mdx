@@ -1,0 +1,329 @@
+---
+title: "Principal Components: How Many to Keep, and How to Know"
+shortTitle: Principal Components
+description: "Why the analysis becomes geometry at this step, what a scree plot can and cannot tell you, and the noise floor that turns 'pick the elbow' into a decision with an answer."
+abstract: "Choosing the number of principal components is the last unexamined judgement call in a single-cell pipeline, and it is usually made by looking at a scree plot. That is unreliable for a reason with a closed form. A matrix of pure noise does not produce equal eigenvalues: with n observations of p independent features they spread across the Marchenko-Pastur interval, whose upper edge is (1 + sqrt(p/n))^2. A simulation of 400 samples and 60 pure-noise features produces a top eigenvalue of 1.9272 against a predicted edge of 1.9246 — an elbow, a shoulder and a long tail, all of it structureless, with the first component carrying 3.22% of the variance. Plant a single real two-group structure and its eigenvalue is 22.43, 11.7 times the edge, while every other component stays below it. The edge also moves with the data's shape: for 2,000 genes it is 0.450% of total variance at 500 cells and 0.0866% at 20,000, a factor of 5.2, so no fixed percentage-of-variance rule can be right at both ends."
+date: 2026-08-25
+track: theory
+hub: single-cell
+moduleId: s03-geometry
+moduleLabel: Module 3 · Geometry
+order: 7
+level: intermediate
+objectives:
+  - "State what PCA computes on a single-cell matrix and why it is run before anything else geometric."
+  - "Explain why a pure-noise matrix produces a scree plot with an elbow, and compute where its eigenvalues fall."
+  - "Use the Marchenko-Pastur upper edge as a noise floor, and state precisely what it does and does not license."
+  - "Show that the noise floor depends on the number of cells, and that fixed percentage-of-variance rules therefore cannot be transferred."
+  - "Choose a component count defensibly, and say what to do when the choice changes the result."
+prerequisites:
+  - sc-normalization
+  - sc-feature-selection
+relatedLessons:
+  - sc-feature-selection
+  - sc-normalization
+keyEquations:
+  - '\lambda_{\pm} = \sigma^2\left(1 \pm \sqrt{\gamma}\right)^2, \quad \gamma = p/n'
+  - '\mathrm{Var}(\mathbf{X}) = \dfrac{1}{n-1}\mathbf{X}^{\top}\mathbf{X}'
+  - '\text{share of variance} = \lambda_k / p'
+referenceIds:
+  - johnstone2001largest
+  - buja1992parallel
+  - golub2013matrix
+  - lause2021pearson
+  - townes2019glmpca
+  - stuart2019seurat3
+  - hafemeister2019sctransform
+  - luecken2019bestpractices
+tags: [single-cell, PCA, eigenvalues, Marchenko-Pastur, dimensionality, scree plot]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Every step so far has been about the counts. From here on the analysis is geometry: cells are
+points, distances between them mean similarity, and clusters are regions of high density.
+Principal component analysis is where the change happens, and it is run for two reasons at
+once — to compress two thousand dimensions into a few dozen, and to denoise, on the argument
+that the leading components carry the structure and the trailing ones carry noise.
+
+That argument is right in outline. The question it leaves open is where the boundary sits, and
+the near-universal answer — look at the scree plot and find the elbow — does not survive
+contact with what a scree plot of pure noise looks like.
+
+<Notation
+  rows={[
+    { symbol: 'n', meaning: 'Number of cells', dims: 'count' },
+    { symbol: 'p', meaning: 'Number of genes retained after feature selection', dims: 'count' },
+    { symbol: '\\gamma', meaning: 'Aspect ratio p/n — the shape of the matrix', dims: '> 0' },
+    { symbol: '\\lambda_k', meaning: 'k-th eigenvalue of the covariance matrix', dims: '>= 0' },
+    { symbol: '\\lambda_{+}', meaning: 'Upper Marchenko-Pastur edge — the noise floor', dims: '> 0' },
+    { symbol: '\\sigma^2', meaning: 'Variance per feature, 1 after scaling', dims: '> 0' },
+  ]}
+/>
+
+## What PCA computes, briefly
+
+Scale each gene to unit variance, form the covariance matrix
+$\mathbf{C} = \mathbf{X}^{\top}\mathbf{X}/(n-1)$, and take its eigenvectors. The eigenvector
+with the largest eigenvalue is the direction along which cells vary most; the eigenvalue is how
+much variance lies along it. Because the genes were scaled, the total variance is exactly $p$,
+so component $k$ explains $\lambda_k / p$ of it. Standard numerical linear algebra
+<Citation id="golub2013matrix" />; nothing single-cell about it yet.
+
+What is single-cell about it is the input. Lesson 5 showed that the transform decides how genes
+are weighted, and lesson 6 showed that feature selection decides which genes exist at all. PCA
+inherits both. Running it on log1p-transformed data weights mid-expression genes most heavily,
+because that is where the log transform's variance is largest — which is a defensible choice
+only if it was a choice <Citation id="hafemeister2019sctransform" />
+<Citation id="lause2021pearson" />.
+
+## A scree plot of pure noise has an elbow
+
+Here is the fact that makes the elbow unreliable. If you take $n$ observations of $p$
+*completely independent* features and compute the covariance eigenvalues, they do not come out
+equal. They spread — and the spread has a closed form. As $n, p \to \infty$ with
+$\gamma = p/n$ fixed, the eigenvalues fill the **Marchenko–Pastur** interval
+
+$$
+\lambda_{\pm} = \sigma^2\left(1 \pm \sqrt{\gamma}\right)^2.
+$$
+
+For $n = 400$ and $p = 60$, $\gamma = 0.15$ and the interval is $[0.3754,\ 1.9246]$. A
+simulation of exactly that shape, with nothing in it but independent standard normals,
+produces a largest eigenvalue of **1.9272** — and a scree plot with a visible elbow, a
+shoulder and a long tail. Every feature a scree plot is read for is present, and there is no
+structure whatsoever to find.
+
+<Figure
+  caption="Figure 1. Scree plots of two matrices, both 400 observations of 60 features. The dashed series is pure noise; the solid series has a single two-group structure planted in fifteen features. The horizontal line is the Marchenko–Pastur upper edge at 1.92. The noise series peaks at 1.9272, a tenth of a percent above the edge, and then decays smoothly — an elbow with nothing behind it. The planted structure gives 22.43, eleven times the edge, and no other component in either series clears it."
+  alt="A scree plot on a logarithmic y-axis with component index from one to twenty. One curve spikes to about 22 at the first component and then drops below a dashed horizontal line at 1.92; a dashed curve starts just above that line and decays smoothly. The two curves coincide from the second component onward."
+>
+<svg viewBox="0 0 772 336" width="772" height="336" font-family="inherit"><line x1="112.0" y1="44.0" x2="112.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="236.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="112.0" y1="193.7" x2="424.0" y2="193.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="197.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">2</text><line x1="112.0" y1="143.0" x2="424.0" y2="143.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="147.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">5</text><line x1="112.0" y1="104.7" x2="424.0" y2="104.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="108.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10</text><line x1="112.0" y1="44.0" x2="424.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="48.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">30</text><line x1="112.0" y1="232.0" x2="112.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="112.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="177.7" y1="232.0" x2="177.7" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="177.7" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="259.8" y1="232.0" x2="259.8" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="259.8" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="341.9" y1="232.0" x2="341.9" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="341.9" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">15</text><line x1="424.0" y1="232.0" x2="424.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">20</text><line x1="112.0" y1="195.8" x2="424.0" y2="195.8" stroke="currentColor" stroke-width="2.0" opacity=".8" stroke-dasharray="6 4"/><text x="420.0" y="186.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">Marchenko-Pastur edge, 1.92</text><path d="M112.0,60.1 L128.4,198.5 L144.8,201.3 L161.3,202.2 L177.7,205.3 L194.1,206.2 L210.5,206.9 L226.9,208.6 L243.4,208.9 L259.8,210.7 L276.2,212.9 L292.6,213.5 L309.1,214.3 L325.5,216.3 L341.9,216.9 L358.3,219.2 L374.7,219.4 L391.2,220.1 L407.6,220.8 L424.0,222.1" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><path d="M112.0,195.7 L128.4,198.5 L144.8,200.1 L161.3,201.1 L177.7,203.2 L194.1,203.9 L210.5,205.0 L226.9,207.5 L243.4,209.6 L259.8,210.2 L276.2,210.8 L292.6,213.6 L309.1,215.5 L325.5,216.9 L341.9,217.1 L358.3,217.9 L374.7,219.8 L391.2,220.3 L407.6,223.1 L424.0,223.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="5 3" opacity=".85"/><circle cx="112.0" cy="60.1" r="3.4" fill="var(--color-accent, #2e6e5e)"/><circle cx="128.4" cy="198.5" r="3.4" fill="var(--color-accent, #2e6e5e)"/><circle cx="144.8" cy="201.3" r="3.4" fill="var(--color-accent, #2e6e5e)"/><text x="117.7" y="60.1" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">22.43</text><text x="243.4" y="140.9" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">noise peaks at 1.93, just over the edge</text><text x="268.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Component</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Eigenvalue</text><line x1="450.0" y1="54.0" x2="472.0" y2="54.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><text x="480.0" y="58.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">one planted structure</text><line x1="450.0" y1="71.0" x2="472.0" y2="71.0" stroke="currentColor" stroke-width="2.2" opacity=".85" stroke-dasharray="5 3"/><text x="480.0" y="75.0" font-size="10" fill="currentColor" opacity=".85">pure noise</text><text x="450.0" y="110.0" font-size="11" fill="currentColor" font-weight="700">The elbow is not the cut.</text><text x="450.0" y="128.0" font-size="10" fill="currentColor" opacity=".8">Both series are 400 samples</text><text x="450.0" y="141.0" font-size="10" fill="currentColor" opacity=".8">of 60 features. The noise one</text><text x="450.0" y="154.0" font-size="10" fill="currentColor" opacity=".8">has an elbow, a shoulder and</text><text x="450.0" y="167.0" font-size="10" fill="currentColor" opacity=".8">a long tail - every feature a</text><text x="450.0" y="180.0" font-size="10" fill="currentColor" opacity=".8">scree plot is read for - and</text><text x="450.0" y="193.0" font-size="10" fill="currentColor" opacity=".8">no structure whatsoever.</text><text x="450.0" y="206.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="450.0" y="219.0" font-size="10" fill="currentColor" opacity=".8">Its first component still</text><text x="450.0" y="232.0" font-size="10" fill="currentColor" opacity=".8">carries 3.22% of the variance,</text><text x="450.0" y="245.0" font-size="10" fill="currentColor" opacity=".8">which is the range people</text><text x="450.0" y="258.0" font-size="10" fill="currentColor" opacity=".8">routinely keep down to.</text><text x="450.0" y="271.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="450.0" y="284.0" font-size="10" fill="currentColor" opacity=".8">The planted structure is 11.7</text><text x="450.0" y="297.0" font-size="10" fill="currentColor" opacity=".8">times the edge. Nothing else</text><text x="450.0" y="310.0" font-size="10" fill="currentColor" opacity=".8">in either series clears it.</text></svg>
+</Figure>
+
+Plant one real structure — two groups of cells differing in fifteen of the sixty features — and
+the picture separates cleanly. The leading eigenvalue becomes **22.43**, which is **11.7×** the
+edge, and every remaining component sits below it. The signal is not "the components before
+the elbow". It is the components that clear the noise floor, and there is exactly one.
+
+<Callout variant="intuition" title="The edge is a floor, not a certificate">
+
+Two honest limits, both of which matter in practice.
+
+**The edge is asymptotic, so the top noise eigenvalue overshoots it.** In the simulation above
+it lands at 1.9272 against a predicted 1.9246 — 0.13% over. That fluctuation has its own
+limiting law <Citation id="johnstone2001largest" />, and the practical consequence is that
+"above the edge" is not a test. "Well above the edge" is; a component at 1.05 times the edge is
+noise, and one at 11.7 times is not.
+
+**Marchenko–Pastur describes independent features, and genes are not independent.** Genes in a
+pathway covary for reasons that have nothing to do with cell type, so the real noise floor for
+expression data sits *above* the MP edge, not at it. The edge is therefore a lower bound on
+where noise stops — useful for rejecting components, not for accepting them.
+
+The empirical version of the same idea avoids both caveats by construction: permute each gene's
+values across cells independently, which destroys between-gene structure while preserving each
+gene's own distribution exactly, recompute the eigenvalues, and keep the components that exceed
+the largest permuted one. That is parallel analysis <Citation id="buja1992parallel" />, it costs
+a handful of extra decompositions, and it is the right answer when the closed form's assumptions
+are in doubt.
+
+</Callout>
+
+<WorkedExample
+  title="Where the noise floor sits for a real dataset"
+  given={[
+    '5,000 cells and 2,000 highly variable genes',
+    'Each gene scaled to unit variance',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the aspect ratio.**
+
+$$
+\gamma = \frac{p}{n} = \frac{2{,}000}{5{,}000} = 0.4,
+\qquad
+\sqrt{\gamma} = 0.632456.
+$$
+
+**Step 2 — the edges.**
+
+$$
+\lambda_{+} = (1 + 0.632456)^2 = 2.664911,
+\qquad
+\lambda_{-} = (1 - 0.632456)^2 = 0.135089.
+$$
+
+So a component whose eigenvalue is below **2.6649** is consistent with carrying nothing.
+
+**Step 3 — in the units people actually report.** Total variance is $p = 2{,}000$, so the edge
+corresponds to
+
+$$
+\frac{2.664911}{2{,}000} = 0.1332\%
+$$
+
+of the variance. A component explaining a tenth of a percent is exactly at the noise floor —
+and a scree plot's y-axis, which is usually "percent variance explained", gives no hint of that.
+
+**Step 4 — the same calculation at other cell counts.** With 2,000 genes fixed:
+
+- 500 cells: $\gamma = 4$, $\lambda_{+} = 9.0000$, which is **0.450%** of variance.
+- 5,000 cells: $\lambda_{+} = 2.6649$, **0.1332%**.
+- 20,000 cells: $\gamma = 0.1$, $\lambda_{+} = 1.7325$, **0.0866%**.
+
+The floor falls by a factor of **5.19** from the smallest dataset to the largest.
+
+**What this rules out.** Any rule of the form "keep components explaining more than *x*% of
+variance", transferred between datasets. At 500 cells such a rule set at 1% is conservative; at
+20,000 cells the same rule discards everything between 0.0866% and 1%, which is where a real but
+modest structure in a large dataset would sit. The rule has to move with $\gamma$, and $\gamma$
+is a property of the experiment, not of the biology.
+
+</WorkedExample>
+
+## What to do in practice
+
+Three things, in order of how much they cost.
+
+**Compute the edge.** It is one line, it needs only the matrix shape, and it immediately rules
+out the components that cannot be real. Most pipelines default to 50 components; for many
+datasets a substantial fraction of those are below the floor.
+
+**Run parallel analysis if the answer matters.** Permuting within genes and re-decomposing gives
+an empirical floor that accounts for the between-gene correlation MP ignores
+<Citation id="buja1992parallel" />.
+
+**Check that the downstream result survives the choice.** This is the one that actually protects
+you. Re-run the clustering at 15, 30 and 50 components; if the populations you intend to report
+appear at all three, the choice was not load-bearing. If they appear only at one, that is a
+result about the component count <Citation id="luecken2019bestpractices" />.
+
+It is also worth knowing that the question can be avoided. Model-based dimension reductions fit
+a count likelihood directly and select dimensionality by the same criterion they fit with, which
+sidesteps both the transform and the scree plot <Citation id="townes2019glmpca" />. The reason
+PCA-on-scaled-log-counts remains standard is speed and the ecosystem built on it
+<Citation id="stuart2019seurat3" />, not superior statistics.
+
+## Summary
+
+- PCA turns the count matrix into geometry, and inherits every decision from lessons 5 and 6:
+  the transform sets the gene weighting, feature selection sets the gene set.
+- **A pure-noise matrix has a scree plot with an elbow.** Its eigenvalues fill the
+  Marchenko–Pastur interval $\sigma^2(1 \pm \sqrt{\gamma})^2$; at $n = 400$, $p = 60$ the top
+  one is **1.9272** against a predicted edge of **1.9246**, carrying 3.22% of the variance.
+- One planted structure gives **22.43**, **11.7×** the edge, with nothing else above it. Signal
+  is what clears the floor, not what precedes the elbow.
+- **The edge is a floor, not a certificate.** It overshoots slightly at finite size, and genes
+  are not independent, so the true noise floor is higher. Parallel analysis measures it
+  empirically.
+- **The floor depends on the matrix shape.** With 2,000 genes it is 0.450% of variance at 500
+  cells and 0.0866% at 20,000 — a factor of **5.19** — so fixed percent-of-variance rules do not
+  transfer between datasets.
+- The reliable check is whether the downstream result survives the choice.
+
+<Exercise n={1} title="Computing a noise floor" difficulty="warm-up">
+
+A dataset has 1,000 cells and 3,000 highly variable genes, each scaled to unit variance.
+
+(a) Compute $\gamma$ and both Marchenko–Pastur edges.
+
+(b) What fraction of the total variance does the upper edge correspond to?
+
+(c) The pipeline kept 50 components. What does the edge tell you about that choice?
+
+<div slot="solution">
+
+(a) $\gamma = 3{,}000/1{,}000 = 3$, so $\sqrt{\gamma} = 1.732051$ and
+
+$$
+\lambda_{+} = (1 + 1.732051)^2 = 7.464102,
+\qquad
+\lambda_{-} = (1 - 1.732051)^2 = 0.535898.
+$$
+
+(b) Total variance is 3,000, so the edge is $7.464102/3{,}000 = 0.2488\%$.
+
+(c) Nothing directly — the edge constrains eigenvalues, not counts. What it says is that any of
+those 50 components whose eigenvalue falls below 7.4641 is indistinguishable from noise, and
+with $\gamma = 3$ the noise interval is wide, so a large share of them probably are. The check
+is to compute the eigenvalues and count how many clear 7.4641; keeping 50 regardless is the
+part that has no justification.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Why the rule cannot be transferred" difficulty="core">
+
+A method paper reports that keeping components explaining more than 0.5% of variance worked
+well on their data of 800 cells and 2,000 genes.
+
+(a) Compute their noise floor as a percentage of variance.
+
+(b) You have 30,000 cells and the same 2,000 genes. Compute yours.
+
+(c) What happens if you apply their rule to your data?
+
+<div slot="solution">
+
+(a) $\gamma = 2{,}000/800 = 2.5$, $\lambda_{+} = (1 + 1.581139)^2 = 6.662278$, which over a
+total variance of 2,000 is **0.3331%**.
+
+(b) $\gamma = 2{,}000/30{,}000 = 0.066667$, $\lambda_{+} = (1 + 0.258199)^2 = 1.583064$, which
+is **0.0792%**.
+
+(c) Their 0.5% rule sits just above their own floor of 0.333%, so on their data it is a
+reasonable, slightly conservative cut. On yours the floor is 0.0792%, and a 0.5% rule discards
+everything between 0.0792% and 0.5% — a range that on 30,000 cells comfortably contains real
+populations, because a rare cell type contributes variance in proportion to its abundance. The
+rule was never about 0.5%; it was about their $\gamma$, and $\gamma$ changed by a factor of
+**37.5**.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="What the edge cannot tell you" difficulty="stretch">
+
+A component has an eigenvalue of 1.03 times the Marchenko–Pastur upper edge.
+
+(a) Is it signal?
+
+(b) A colleague proposes running parallel analysis instead. What would that change, and in
+which direction would you expect the threshold to move?
+
+(c) Give a case where a real, important biological structure produces an eigenvalue *below* the
+edge, and say what would find it.
+
+<div slot="solution">
+
+(a) Almost certainly not. The edge is the asymptotic limit and the largest noise eigenvalue
+fluctuates above it at finite size — 0.13% over in the lesson's simulation, and the overshoot
+grows as the matrix gets smaller. A ratio of 1.03 is well inside that fluctuation band, so the
+component is consistent with noise. This is why the usable rule is "well above", not "above".
+
+(b) Parallel analysis permutes each gene independently across cells, which destroys correlation
+*between* genes while preserving each gene's own marginal distribution exactly. Since real genes
+are positively correlated in pathways and that correlation inflates the leading eigenvalues, the
+permuted floor should come out **higher** than the MP edge. So the threshold moves up and the
+component in (a) is rejected more firmly.
+
+(c) A cell type at 0.5% abundance that differs in a modest number of genes. Its contribution to
+total variance scales with the product of its abundance and the squared effect, so a rare
+population produces a small eigenvalue however distinct it is — the variance is an average over
+all cells, and 99.5% of them are unaffected. Nothing in a global eigenvalue spectrum recovers
+it. What finds it is a method that does not average over all cells: a neighbour graph, which
+only ever compares a cell to its own locality, and which is the subject of the next lesson.
+
+</div>
+
+</Exercise>

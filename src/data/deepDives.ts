@@ -133,6 +133,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'sc-cell-calling-qc',
   'sc-normalization',
   'sc-feature-selection',
+  'sc-pca',
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',

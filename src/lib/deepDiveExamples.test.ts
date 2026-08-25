@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  covarianceMatrix,
+  symmetricEigenvalues,
+  marchenkoPasturEdge,
   transformSd,
   transformMean,
   poissonZeroProbability,
@@ -6829,6 +6832,132 @@ describe('sc-feature-selection — every simple criterion ranks by expression', 
       expect(mixVar(0.5, 1)).toBeCloseTo(0.25, 6);
       expect(mixVar(0.5, 1) / mixVar(0.01, 1)).toBeCloseTo(25.25, 2);
       expect(mdx).toContain('99% one component');
+    });
+  });
+});
+
+
+describe('sc-pca — the noise floor, and what a scree plot cannot say', () => {
+  const mdx = lesson('sc-pca');
+  const pct4 = (x: number) => (Math.round(x * 1e6) / 1e4).toFixed(4);
+
+  /** The same deterministic generator the math test uses. */
+  const normals = (n: number, p: number, seed: number) => {
+    let state = seed >>> 0;
+    const u = () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+    const g = () => {
+      const a = Math.max(u(), 1e-12);
+      return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * u());
+    };
+    return Array.from({ length: n }, () => Array.from({ length: p }, g));
+  };
+
+
+  describe('worked example — where the floor sits for a real dataset', () => {
+    it('step 1: 5,000 cells and 2,000 genes give gamma = 0.4', () => {
+      const e = marchenkoPasturEdge(5000, 2000);
+      expect(e.gamma).toBeCloseTo(0.4, 12);
+      expect(Math.sqrt(e.gamma)).toBeCloseTo(0.632456, 6);
+      expect(mdx).toContain('0.632456');
+    });
+
+    it('step 2: the edges are 2.664911 and 0.135089', () => {
+      const e = marchenkoPasturEdge(5000, 2000);
+      expect(e.upper).toBeCloseTo(2.664911, 6);
+      expect(e.lower).toBeCloseTo(0.135089, 6);
+      for (const v of ['2.664911', '0.135089', '2.6649']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: the edge is 0.1332% of total variance', () => {
+      const e = marchenkoPasturEdge(5000, 2000);
+      expect(pct4(e.upper / 2000)).toBe('0.1332');
+      expect(mdx).toContain('0.1332\\%');
+    });
+
+    it('step 4: the floor moves 5.19x between 500 and 20,000 cells', () => {
+      const small = marchenkoPasturEdge(500, 2000);
+      const large = marchenkoPasturEdge(20000, 2000);
+      expect(small.upper).toBeCloseTo(9, 12);
+      expect(large.upper).toBeCloseTo(1.732456, 6);
+      expect(pct4(small.upper / 2000)).toBe('0.4500');
+      expect(pct4(large.upper / 2000)).toBe('0.0866');
+      expect(small.upper / large.upper).toBeCloseTo(5.1949, 4);
+      // the printed ratio is 5.19, not 5.20 -- 5.1949 rounds down
+      expect((Math.round((small.upper / large.upper) * 100) / 100).toFixed(2)).toBe('5.19');
+      expect(mdx).not.toContain('5.20');
+      for (const v of ['9.0000', '1.7325', '0.450%', '0.0866%', '5.19'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — the eigenvalues it draws are the ones the module produces', () => {
+    it('pure noise peaks at 1.9272 against an edge of 1.9246', () => {
+      const ev = symmetricEigenvalues(covarianceMatrix(normals(400, 60, 102)));
+      const { upper } = marchenkoPasturEdge(400, 60);
+      expect(upper).toBeCloseTo(1.924597, 6);
+      expect(marchenkoPasturEdge(400, 60).lower).toBeCloseTo(0.375403, 6);
+      expect(mdx).toContain('0.3754');
+      expect(ev[0]).toBeCloseTo(1.9272, 4);
+      expect(ev[0] / upper).toBeCloseTo(1.00134, 5);
+      // and it carries 3.22% of the variance, which is the range people keep down to
+      expect(((100 * ev[0]) / ev.reduce((a, b) => a + b, 0)).toFixed(2)).toBe('3.22');
+      for (const v of ['1.9272', '1.9246', '1.92', '3.22%']) expect(mdx, v).toContain(v);
+    });
+
+    it('one planted structure gives 22.43, which is 11.7x the edge', () => {
+      const X = normals(400, 60, 7);
+      for (let i = 0; i < 400; i += 1) {
+        const g = i < 200 ? 1 : -1;
+        for (let j = 0; j < 15; j += 1) X[i][j] += g * 1.2;
+      }
+      const ev = symmetricEigenvalues(covarianceMatrix(X));
+      const { upper } = marchenkoPasturEdge(400, 60);
+      expect(ev[0]).toBeCloseTo(22.43, 2);
+      expect((ev[0] / upper).toFixed(1)).toBe('11.7');
+      expect(ev.slice(1).filter((e) => e > upper)).toHaveLength(0);
+      for (const v of ['22.43', '11.7']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — 1,000 cells and 3,000 genes give edges 7.464102 and 0.535898', () => {
+      const e = marchenkoPasturEdge(1000, 3000);
+      expect(e.gamma).toBe(3);
+      expect(Math.sqrt(3)).toBeCloseTo(1.732051, 6);
+      expect(e.upper).toBeCloseTo(7.464102, 6);
+      expect(e.lower).toBeCloseTo(0.535898, 6);
+      expect(pct4(e.upper / 3000)).toBe('0.2488');
+      for (const v of ['1.732051', '7.464102', '0.535898', '0.2488\\%', '7.4641'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('2 — their floor is 0.3331%, yours is 0.0792%, and gamma differs 37.5x', () => {
+      const theirs = marchenkoPasturEdge(800, 2000);
+      const mine = marchenkoPasturEdge(30000, 2000);
+      expect(theirs.gamma).toBe(2.5);
+      expect(Math.sqrt(2.5)).toBeCloseTo(1.581139, 6);
+      expect(theirs.upper).toBeCloseTo(6.662278, 6);
+      expect(pct4(theirs.upper / 2000)).toBe('0.3331');
+      expect(Math.sqrt(mine.gamma)).toBeCloseTo(0.258199, 6);
+      expect(mine.upper).toBeCloseTo(1.583064, 6);
+      expect(pct4(mine.upper / 2000)).toBe('0.0792');
+      expect(theirs.gamma / mine.gamma).toBeCloseTo(37.5, 10);
+      // the page must not carry the mis-multiplied value it originally printed
+      expect(mdx).not.toContain('1.583288');
+      for (const v of ['1.581139', '6.662278', '0.3331%', '0.258199', '1.583064',
+                       '0.0792%', '37.5']) expect(mdx, v).toContain(v);
+    });
+
+    it('3 — the overshoot band is why 1.03x the edge is not signal', () => {
+      // the simulated overshoot is a tenth of a percent, well under 1.03
+      const ev = symmetricEigenvalues(covarianceMatrix(normals(400, 60, 102)));
+      const { upper } = marchenkoPasturEdge(400, 60);
+      expect(ev[0] / upper).toBeLessThan(1.03);
+      expect(mdx).toContain('1.03');
+      expect(mdx).toContain('0.13%');
     });
   });
 });

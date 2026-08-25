@@ -3717,3 +3717,19 @@ yip2019hvgbenchmark:
   venue: "Briefings in Bioinformatics 20:1583-1589"
   doi: https://doi.org/10.1093/bib/bby011
   verified: 2026-08-25
+
+johnstone2001largest:
+  authors: ['Iain M. Johnstone']
+  year: 2001
+  title: "On the distribution of the largest eigenvalue in principal components analysis"
+  venue: "Annals of Statistics 29:295-327"
+  doi: https://doi.org/10.1214/aos/1009210544
+  verified: 2026-08-25
+
+buja1992parallel:
+  authors: ['Andreas Buja', 'Nermin Eyuboglu']
+  year: 1992
+  title: "Remarks on Parallel Analysis"
+  venue: "Multivariate Behavioral Research 27:509-540"
+  doi: https://doi.org/10.1207/s15327906mbr2704_2
+  verified: 2026-08-25
