@@ -5454,6 +5454,17 @@ describe('gwas-reading-the-output', () => {
 
 describe('gwas-ld-reference-panels', () => {
 
+  it('gives the 4:1 headcounts that correspond to those effective sizes', () => {
+    // At 4:1, N_eff = 3.2 x cases and the headcount is 5 x cases.
+    for (const [neff, head] of [[61877, 96683], [505115, 789242]] as [number, number][]) {
+      const cases = neff / 3.2;
+      expect(effectiveSampleSize(cases, 4 * cases)).toBeCloseTo(neff, 6);
+      expect(Math.round(5 * cases)).toBe(head);
+    }
+    expect(mdx).toContain('96,683');
+    expect(mdx).toContain('789,242');
+  });
+
   it('counts in effective samples, the unit the rest of the track uses', () => {
     expect(mdx).toContain('N_{\\mathrm{eff}}');
     expect(mdx).not.toContain('**Step 5 — in people.**');
