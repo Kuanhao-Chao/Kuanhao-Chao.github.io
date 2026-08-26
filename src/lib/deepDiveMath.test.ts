@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  trustworthiness,
+  adjustedRandIndex,
+  graphModularity,
+  knnGraph,
   marchenkoPasturEdge,
   symmetricEigenvalues,
   covarianceMatrix,
@@ -2628,5 +2632,116 @@ describe('PCA — covariance, eigenvalues, and where noise lands', () => {
     expect(ev[0] / upper).toBeGreaterThan(10);
     // and nothing else clears the edge
     expect(ev.slice(1).filter((e) => e > upper)).toHaveLength(0);
+  });
+});
+
+
+describe('neighbour graphs, modularity and partition agreement', () => {
+  it('knnGraph finds the right neighbours on a line, and is deterministic in ties', () => {
+    const line = [[0], [1], [2], [3], [4]];
+    expect(knnGraph(line, 1)).toEqual([[1], [0], [1], [2], [3]]);
+    expect(knnGraph(line, 2)).toEqual([[1, 2], [0, 2], [1, 3], [2, 4], [3, 2]]);
+    // point 2 is equidistant from 1 and 3; the lower index wins, every time
+    expect(knnGraph(line, 1)[2]).toEqual([1]);
+    expect(knnGraph(line, 1)[2]).toEqual(knnGraph(line, 1)[2]);
+  });
+
+  it('knnGraph rejects a k the graph cannot support', () => {
+    const pts = [[0], [1], [2]];
+    expect(() => knnGraph(pts, 0)).toThrow(RangeError);
+    expect(() => knnGraph(pts, 3)).toThrow(RangeError);
+    expect(knnGraph(pts, 2)).toHaveLength(3);
+  });
+
+  it('graphModularity matches the closed form for equal disjoint cliques', () => {
+    // two triangles, no edge between them. For c equal components with no cross edges the
+    // correct partition gives Q = 1 - c*(1/c)^2 = 1 - 1/c.
+    const twoTriangles = [[1, 2], [0, 2], [0, 1], [4, 5], [3, 5], [3, 4]];
+    expect(graphModularity(twoTriangles, [0, 0, 0, 1, 1, 1])).toBeCloseTo(0.5, 12);
+    // lumping everything together gives exactly zero: the partition explains nothing
+    expect(graphModularity(twoTriangles, [0, 0, 0, 0, 0, 0])).toBeCloseTo(0, 12);
+    // three disjoint edges -> Q = 1 - 1/3
+    const threeEdges = [[1], [0], [3], [2], [5], [4]];
+    expect(graphModularity(threeEdges, [0, 0, 1, 1, 2, 2])).toBeCloseTo(2 / 3, 12);
+  });
+
+  it('graphModularity symmetrises a directed kNN graph rather than double counting', () => {
+    // 0->1 but not 1->0; the undirected edge exists once
+    expect(graphModularity([[1], [], [3], [2]], [0, 0, 1, 1])).toBeCloseTo(0.5, 12);
+    expect(graphModularity([[1], [0], [3], [2]], [0, 0, 1, 1])).toBeCloseTo(0.5, 12);
+  });
+
+  it('adjustedRandIndex is 1 for identical partitions and label-invariant', () => {
+    expect(adjustedRandIndex([0, 0, 1, 1], [0, 0, 1, 1])).toBeCloseTo(1, 12);
+    expect(adjustedRandIndex([0, 0, 1, 1], [5, 5, 9, 9])).toBeCloseTo(1, 12);
+    expect(adjustedRandIndex([2, 2, 2, 7], [1, 1, 1, 4])).toBeCloseTo(1, 12);
+  });
+
+  it('adjustedRandIndex is 0 when a partition carries no information about the other', () => {
+    // one cluster split arbitrarily in two: no agreement beyond chance
+    expect(adjustedRandIndex([0, 0, 0, 0], [0, 0, 1, 1])).toBeCloseTo(0, 12);
+    // and it reproduces a hand-checkable contingency table
+    expect(adjustedRandIndex([0, 0, 0, 1, 1, 1, 2, 2, 2], [0, 0, 1, 1, 1, 2, 2, 2, 2]))
+      .toBeCloseTo(0.357143, 6);
+  });
+
+  it('adjustedRandIndex falls as two partitions diverge', () => {
+    const truth = [0, 0, 0, 0, 1, 1, 1, 1];
+    expect(adjustedRandIndex(truth, [0, 0, 0, 0, 1, 1, 1, 1])).toBeCloseTo(1, 12);
+    const oneMoved = adjustedRandIndex(truth, [0, 0, 0, 1, 1, 1, 1, 1]);
+    const twoMoved = adjustedRandIndex(truth, [0, 0, 1, 1, 1, 1, 1, 1]);
+    expect(oneMoved).toBeLessThan(1);
+    expect(twoMoved).toBeLessThan(oneMoved);
+  });
+
+  it('adjustedRandIndex rejects mismatched inputs', () => {
+    expect(() => adjustedRandIndex([0, 1], [0])).toThrow(RangeError);
+    expect(() => adjustedRandIndex([0], [0])).toThrow(RangeError);
+  });
+});
+
+
+describe('trustworthiness — what an embedding metric can and cannot see', () => {
+  const line = Array.from({ length: 12 }, (_, i) => [i]);
+
+  it('is 1 for an embedding that preserves every neighbourhood', () => {
+    expect(trustworthiness(line, line, 3)).toBeCloseTo(1, 12);
+    // a similarity transform preserves every distance rank, so these are perfect
+    expect(trustworthiness(line, line.map(([x]) => [3 * x]), 3)).toBeCloseTo(1, 12);
+    expect(trustworthiness(line, line.map(([x]) => [-x]), 3)).toBeCloseTo(1, 12);
+  });
+
+  it('a monotone but nonlinear map does NOT preserve distance ranks', () => {
+    // Monotone is not enough: from 5, point 9 is nearer than point 0 (4 against 5), but
+    // after cubing, from 125 point 0 is nearer than 729 (125 against 604). Rank flipped.
+    expect(Math.abs(5 - 9)).toBeLessThan(Math.abs(5 - 0));
+    expect(Math.abs(125 - 0)).toBeLessThan(Math.abs(125 - 729));
+    expect(trustworthiness(line, line.map(([x]) => [x ** 3]), 3)).toBeCloseTo(0.992063, 6);
+  });
+
+  it('falls well below 1 when the embedding invents neighbours', () => {
+    const scrambled = [0, 7, 3, 11, 1, 9, 5, 2, 10, 4, 8, 6].map((v) => [v]);
+    const t = trustworthiness(line, scrambled, 3);
+    expect(t).toBeGreaterThan(0);
+    expect(t).toBeLessThan(0.6);
+    expect(t).toBeCloseTo(0.468254, 6);
+  });
+
+  it('is blind to the distortion a UMAP is actually read for', () => {
+    // two tight triplets. The embedding multiplies the gap between them by fifty and
+    // trustworthiness does not notice, because no neighbourhood changed.
+    const high = [[0], [0.1], [0.2], [10], [10.1], [10.2]];
+    const stretched = [[0], [0.1], [0.2], [500], [500.1], [500.2]];
+    expect(trustworthiness(high, stretched, 2)).toBeCloseTo(1, 12);
+    // and equally blind to the gap being crushed
+    const squashed = [[0], [0.1], [0.2], [1], [1.1], [1.2]];
+    expect(trustworthiness(high, squashed, 2)).toBeCloseTo(1, 12);
+  });
+
+  it('rejects a neighbourhood size the formula cannot take', () => {
+    expect(() => trustworthiness(line, line, 0)).toThrow(RangeError);
+    // k must not exceed (n-1)/2 or the normalisation goes negative
+    expect(() => trustworthiness(line, line, 6)).toThrow(RangeError);
+    expect(() => trustworthiness(line, line.slice(0, 5), 3)).toThrow(RangeError);
   });
 });

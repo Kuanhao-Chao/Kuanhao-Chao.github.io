@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  relativeContrast,
+  neighborPurity,
+  knnGraph,
+  seededNormals,
   covarianceMatrix,
   symmetricEigenvalues,
   marchenkoPasturEdge,
@@ -6958,6 +6962,144 @@ describe('sc-pca — the noise floor, and what a scree plot cannot say', () => {
       expect(ev[0] / upper).toBeLessThan(1.03);
       expect(mdx).toContain('1.03');
       expect(mdx).toContain('0.13%');
+    });
+  });
+});
+
+
+describe('sc-neighbor-graphs — what the graph is joining, and what breaks it', () => {
+  const mdx = lesson('sc-neighbor-graphs');
+  const pct1 = (x: number) => (Math.round(x * 10) / 10).toFixed(1);
+
+  // The lesson's construction, stated exactly: 90 cells, three types of 30, separated by
+  // three SDs in dimensions 0 and 1 and by nothing at all in any other.
+  const CENTRES = [[3, 0], [-3, 0], [0, 3]];
+  const SEEDS = [77, 178, 279, 380, 481, 582, 683, 784];
+  const build = (d: number, seed: number) => {
+    const M = seededNormals(90, d, seed);
+    const labels: number[] = [];
+    for (let i = 0; i < 90; i += 1) {
+      const c = Math.floor(i / 30);
+      labels.push(c);
+      M[i][0] += CENTRES[c][0];
+      if (d > 1) M[i][1] += CENTRES[c][1];
+    }
+    return { M, labels };
+  };
+  const purity = (d: number, k: number) => {
+    let total = 0;
+    for (const seed of SEEDS) {
+      const { M, labels } = build(d, seed);
+      total += neighborPurity(knnGraph(M, k), labels);
+    }
+    return (100 * total) / SEEDS.length;
+  };
+  const CHANCE = (100 * 29) / 89;
+  const P2 = purity(2, 10);
+  const P30 = purity(30, 10);
+  const P2000 = purity(2000, 10);
+
+  describe('the chance floor', () => {
+    it('is 29/89 for three equal types among ninety cells', () => {
+      expect(29 / 89).toBeCloseTo(0.325843, 6);
+      expect(CHANCE).toBeCloseTo(32.5843, 4);
+      for (const v of ['29}{89} = 0.325843', '32.58\\%']) expect(mdx, v).toContain(v);
+    });
+
+    it('moves with the number of types, as exercise 1 states', () => {
+      expect((100 * 44) / 89).toBeCloseTo(49.4382, 4);
+      expect((100 * 14) / 89).toBeCloseTo(15.7303, 4);
+      expect((100 * 9) / 89).toBeCloseTo(10.1124, 4);
+      for (const v of ['49.44\\%', '15.73\\%', '10.11\\%']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('worked example — what reducing to thirty components buys', () => {
+    it('step 2 and 3: purity falls 96.4% to 41.5% with the signal untouched', () => {
+      expect(pct1(P2)).toBe('96.4');
+      expect(pct1(P2000)).toBe('41.5');
+      expect(P2).toBeGreaterThan(P2000);
+      for (const v of ['96.4%', '41.5%']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: that is 86.1% of the graph’s excess over chance', () => {
+      const hi = P2 - CHANCE;
+      const lo = P2000 - CHANCE;
+      expect(hi).toBeCloseTo(63.82, 2);
+      expect(lo).toBeCloseTo(8.89, 2);
+      expect(1 - lo / hi).toBeCloseTo(0.861, 3);
+      for (const v of ['63.82', '8.89', '86.1%']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 4: thirty components recover 69.6% of what was destroyed', () => {
+      expect(pct1(P30)).toBe('79.7');
+      const mid = P30 - CHANCE;
+      expect(mid).toBeCloseTo(47.12, 2);
+      expect((mid - (P2000 - CHANCE)) / (P2 - CHANCE - (P2000 - CHANCE))).toBeCloseTo(0.696, 3);
+      for (const v of ['79.7%', '47.12', '69.6%']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — relative contrast', () => {
+    const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+    const contrast = (d: number) =>
+      mean(Array.from({ length: 20 }, (_, q) => {
+        const M = seededNormals(1001, d, 4242 + q);
+        return relativeContrast(M[0], M.slice(1));
+      }));
+
+    it('is 1.1417 at thirty dimensions and 0.0942 at two thousand', () => {
+      expect(contrast(30)).toBeCloseTo(1.1417, 4);
+      expect(contrast(2000)).toBeCloseTo(0.0942, 4);
+      expect(contrast(30) / contrast(2000)).toBeCloseTo(12.12, 2);
+      for (const v of ['1.14', '0.09', '9% further']) expect(mdx, v).toContain(v);
+    });
+
+    it('the caption’s d^(-1/2) claim holds where the caption says it does', () => {
+      expect(contrast(500) / contrast(2000)).toBeCloseTo(2.12, 2);
+      expect(Math.sqrt(2000 / 500)).toBeCloseTo(2.0, 10);
+      // and the caption is explicit that it does NOT hold at thirty
+      expect(contrast(30) / contrast(2000)).toBeGreaterThan(1.3 * Math.sqrt(2000 / 30));
+      expect(mdx).toContain('2.12-fold against a predicted 2.00');
+      expect(mdx).toContain('not yet that clean at thirty');
+    });
+  });
+
+  describe('figure 2 — every value it draws', () => {
+    it('draws the three readings and the chance line', () => {
+      for (const l of ['chance, 32.6%', '2 dims', '30 dims', '2,000 dims',
+                       '96.4%', '79.7%', '41.5%', 'Dimensions the graph is built in'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — a graph at 41.5% holds about 13% of the available headroom', () => {
+      expect(100 - CHANCE).toBeCloseTo(67.42, 2);
+      expect(41.5 - CHANCE).toBeCloseTo(8.92, 2);
+      expect((41.5 - CHANCE) / (100 - CHANCE)).toBeCloseTo(0.132, 3);
+      for (const v of ['67.42', '8.92', '13%']) expect(mdx, v).toContain(v);
+      // 55% purity really is worse than chance at two types, which is the point of (c)
+      expect(55).toBeGreaterThan((100 * 44) / 89);
+      expect(55 - (100 * 44) / 89).toBeLessThan(6);
+    });
+
+    it('2 — purity falls monotonically in k, by 20.3 points from k=3 to k=30', () => {
+      const byK = [3, 5, 10, 20, 30].map((k) => purity(30, k));
+      expect(byK.map(pct1)).toEqual(['85.9', '84.0', '79.7', '72.9', '65.6']);
+      for (let i = 1; i < byK.length; i += 1) expect(byK[i]).toBeLessThan(byK[i - 1]);
+      expect(byK[0] - byK[byK.length - 1]).toBeCloseTo(20.3, 1);
+      for (const v of ['85.9%', '84.0%', '72.9%', '65.6%', '20.3']) expect(mdx, v).toContain(v);
+      // k = 10 reaches 40% of the way through a 25-cell population
+      expect(10 / 25).toBeCloseTo(0.4, 10);
+    });
+
+    it('3 — the full-gene graph holds 8.89 of 63.82 available points', () => {
+      expect(P2000 - CHANCE).toBeCloseTo(8.89, 2);
+      expect(P2 - CHANCE).toBeCloseTo(63.82, 2);
+      expect(P30 - CHANCE).toBeCloseTo(47.12, 2);
+      // line-wrapped in the source, so match across the break
+      expect(mdx).toMatch(/1,998\s+uninformative dimensions/);
     });
   });
 });

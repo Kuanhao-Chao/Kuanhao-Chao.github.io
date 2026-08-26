@@ -17,6 +17,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'attention-temperature',
   'sc-dropout',
   'sc-normalize',
+  'sc-knn-graph',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];

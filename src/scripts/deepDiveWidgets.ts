@@ -18,6 +18,10 @@
  */
 
 import {
+  relativeContrast,
+  neighborPurity,
+  knnGraph,
+  seededNormals,
   transformSd,
   transformMean,
   poissonZeroProbability,
@@ -1591,6 +1595,118 @@ const scNormalize: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * What a neighbour graph is actually joining.
+ *
+ * Ninety cells in three clusters, separated by three standard deviations in dimensions 0 and
+ * 1 and by nothing at all in every dimension after that. The plot always shows those first
+ * two dimensions — the true picture, unchanged by any slider — while the edges are the graph
+ * built in `d` dimensions. Raising `d` adds only noise, and the edges start joining clusters
+ * that are plainly separate on screen.
+ *
+ * The matrix is regenerated at exactly `d` columns rather than sliced from a wider one, so
+ * the widget draws the same numbers the lesson's tests assert.
+ */
+const scKnnGraph: Renderer = (canvas, controlHost, readoutHost) => {
+  const N = 90;
+  const PER = 30;
+  const CENTRES = [[3, 0], [-3, 0], [0, 3]];
+  const CHANCE = (PER - 1) / (N - 1);
+
+  const build = (d: number) => {
+    const M = seededNormals(N, d, 77);
+    const labels: number[] = [];
+    for (let i = 0; i < N; i += 1) {
+      const c = Math.floor(i / PER);
+      labels.push(c);
+      M[i][0] += CENTRES[c][0];
+      if (d > 1) M[i][1] += CENTRES[c][1];
+    }
+    return { M, labels };
+  };
+
+  const draw = () => {
+    const d = Math.max(2, Math.round(c.get('dims')));
+    const k = Math.round(c.get('k'));
+    const { M, labels } = build(d);
+    const adjacency = knnGraph(M, k);
+
+    const x = linear(-7, 7, PAD.left, PAD.left + PLOT.w, [-6, -3, 0, 3, 6], (v) => String(v));
+    const y = linear(-5, 7, PAD.top + PLOT.h, PAD.top, [-4, 0, 4], (v) => String(v));
+    const svg = newSvg();
+    const g = frame(x, y, 'Dimension 1 — where the biology is', 'Dimension 2', svg);
+
+    // edges that join different clusters are the mistakes; draw them last and darker
+    const wrong: [number, number][] = [];
+    for (let i = 0; i < N; i += 1)
+      for (const j of adjacency[i]) {
+        if (labels[i] === labels[j])
+          g.appendChild(el('line', {
+            x1: x(M[i][0]), y1: y(M[i][1]), x2: x(M[j][0]), y2: y(M[j][1]),
+            stroke: ACCENT, 'stroke-width': 1, opacity: 0.3,
+          }));
+        else wrong.push([i, j]);
+      }
+    for (const [i, j] of wrong)
+      g.appendChild(el('line', {
+        x1: x(M[i][0]), y1: y(M[i][1]), x2: x(M[j][0]), y2: y(M[j][1]),
+        stroke: 'currentColor', 'stroke-width': 1.4, opacity: 0.75,
+      }));
+
+    for (let i = 0; i < N; i += 1) {
+      const cluster = labels[i];
+      g.appendChild(el('circle', {
+        cx: x(M[i][0]), cy: y(M[i][1]), r: 3.4,
+        fill: cluster === 0 ? ACCENT : cluster === 1 ? 'currentColor' : 'none',
+        stroke: cluster === 2 ? 'currentColor' : 'none',
+        'stroke-width': 1.4,
+        opacity: 0.9,
+      }));
+    }
+
+    g.appendChild(label(PAD.left + PLOT.w - 4, PAD.top + 16, 'dark edges join different clusters', {
+      'text-anchor': 'end', opacity: 0.72,
+    }));
+
+    canvas.replaceChildren(svg);
+
+    const purity = neighborPurity(adjacency, labels);
+    const contrast = relativeContrast(M[0], M.slice(1));
+    readout(readoutHost, [
+      ['edges joining the same cluster', `${(100 * purity).toFixed(1)}%`],
+      ['chance', `${(100 * CHANCE).toFixed(1)}%`],
+      ['relative contrast', contrast.toFixed(2)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'dims',
+        label: 'Dimensions the graph is built in',
+        min: Math.log10(2),
+        max: Math.log10(2000),
+        step: 0.02,
+        value: Math.log10(2),
+        scale: (v) => 10 ** v,
+        format: (v) => String(Math.max(2, Math.round(10 ** v))),
+      },
+      {
+        key: 'k',
+        label: 'Neighbours per cell (k)',
+        min: 1,
+        max: 20,
+        step: 1,
+        value: 10,
+        format: (v) => String(Math.round(v)),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'ld-decay': ldDecay,
   drift,
@@ -1604,6 +1720,7 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'attention-temperature': attentionTemperature,
   'sc-dropout': scDropout,
   'sc-normalize': scNormalize,
+  'sc-knn-graph': scKnnGraph,
 };
 
 /**

@@ -1,0 +1,336 @@
+---
+title: "Neighbour Graphs: The Object Everything Downstream Is Built On"
+shortTitle: Neighbour Graphs
+description: "Why clustering, embedding and label transfer all operate on a k-nearest-neighbour graph rather than on the cells, what k decides, and why building that graph on raw genes destroys it."
+abstract: "After principal components the analysis stops using the expression matrix at all. Clustering, UMAP and label transfer are all functions of one object — the k-nearest-neighbour graph — so its quality is a ceiling on everything that follows, and it is built with two parameters nobody reports. The consequence of getting the first one wrong is measurable and severe. Take ninety cells in three clusters separated by three standard deviations in two dimensions, and add dimensions that contain nothing whatsoever: the signal is unchanged throughout, yet the fraction of graph edges joining cells of the same cluster falls from 96.4% at two dimensions to 41.5% at two thousand, against a chance rate of 32.6%. That is 86.1% of everything the graph knew, destroyed by columns carrying no information. The mechanism is distance concentration — at 2,000 dimensions the most distant of a thousand points is only 9% further away than the nearest — and reducing to thirty principal components first recovers 69.6% of what was lost."
+date: 2026-08-25
+track: theory
+hub: single-cell
+moduleId: s03-geometry
+moduleLabel: Module 3 · Geometry
+order: 8
+level: intermediate
+objectives:
+  - "State what a k-nearest-neighbour graph is and name the later steps that are functions of it alone."
+  - "Explain distance concentration and compute the relative contrast of a point cloud at a given dimensionality."
+  - "Measure a graph's quality as the fraction of edges joining cells of the same type, against the chance rate."
+  - "Show that adding uninformative dimensions degrades the graph even though the signal is unchanged, and price the effect."
+  - "Say what k trades off, and why no single value is correct for a dataset with populations of different sizes."
+prerequisites:
+  - sc-pca
+  - sc-feature-selection
+relatedLessons:
+  - sc-pca
+  - sc-clustering
+keyEquations:
+  - '\mathrm{contrast} = \dfrac{d_{\max} - d_{\min}}{d_{\min}} \sim d^{-1/2}'
+  - '\mathrm{purity} = \dfrac{\#\{(i,j) \in E : \ell_i = \ell_j\}}{|E|}'
+  - '\Pr(\text{same label by chance}) = \dfrac{n/C - 1}{n - 1}'
+referenceIds:
+  - beyer1999nearest
+  - aggarwal2001distance
+  - levine2015phenograph
+  - wolf2018scanpy
+  - hao2021seurat
+  - stuart2019seurat3
+  - mcinnes2018umap
+  - luecken2019bestpractices
+tags: [single-cell, kNN graph, distance concentration, curse of dimensionality, neighbourhoods]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Once the principal components are computed, the expression matrix is set aside and never
+touched again. What the rest of the pipeline consumes is a graph: each cell joined to its *k*
+nearest neighbours in PC space. Clustering partitions that graph
+<Citation id="levine2015phenograph" />, UMAP lays it out
+<Citation id="mcinnes2018umap" />, and label transfer walks it
+<Citation id="stuart2019seurat3" />. Every one of them is a function of the graph and of
+nothing else.
+
+So the graph is a ceiling. A structure it fails to represent cannot be recovered by any later
+step, because no later step can see the data. And it is built from two numbers — how many
+dimensions, and *k* — that are almost never reported and almost always left at their defaults
+<Citation id="wolf2018scanpy" />
+<Citation id="hao2021seurat" />.
+
+This lesson measures what those two numbers do.
+
+<Notation
+  rows={[
+    { symbol: 'd', meaning: 'Dimensions the graph is built in — PCs, or genes if no reduction was done', dims: 'count' },
+    { symbol: 'k', meaning: 'Neighbours joined to each cell', dims: 'count' },
+    { symbol: 'n', meaning: 'Number of cells', dims: 'count' },
+    { symbol: 'C', meaning: 'Number of true cell types', dims: 'count' },
+    { symbol: '\\ell_i', meaning: 'True label of cell i', dims: 'in 1..C' },
+    { symbol: 'E', meaning: 'Edge set of the kNN graph', dims: 'nk edges' },
+    { symbol: '\\mathrm{purity}', meaning: 'Fraction of edges joining cells of the same type', dims: 'in [0,1]' },
+  ]}
+/>
+
+## Distances stop distinguishing
+
+The reason a graph built on raw genes fails is not that the signal is weak. It is that in
+enough dimensions, *every pair of points is about equally far apart*.
+
+Take a query point and a cloud of others, and measure the **relative contrast**
+
+$$
+\frac{d_{\max} - d_{\min}}{d_{\min}}.
+$$
+
+In two dimensions this is enormous — the nearest point is far nearer than the farthest. As
+dimensions are added, each contributes its own independent squared difference, and by the law
+of large numbers every distance converges on the same value. The numerator grows like
+$\sqrt{d}$ while the denominator grows like $d$, so the contrast decays as roughly
+$d^{-1/2}$ and the notion of "nearest" empties out
+<Citation id="beyer1999nearest" />
+<Citation id="aggarwal2001distance" />.
+
+For a thousand points the contrast is 1.14 at thirty dimensions and **0.09 at two thousand**:
+the most distant point in the cloud is 9% further away than the closest one. Nothing is near
+anything.
+
+<Figure
+  caption="Figure 1. Relative contrast between the nearest and farthest of a thousand points, against the dimensionality they live in, averaged over twenty query points. Both axes are logarithmic, so the roughly straight decay is the d^(−1/2) law: between 500 and 2,000 dimensions the contrast falls 2.12-fold against a predicted 2.00. It is not yet that clean at thirty dimensions, where the asymptotic argument has not taken hold."
+  alt="A steeply falling curve on logarithmic axes showing relative contrast against dimensions from two to two thousand, with a dashed straight reference line of shallower slope beneath it labelled as a one-over-root-d line. Two points on the curve are marked, at thirty dimensions and at two thousand."
+>
+<svg viewBox="0 0 772 322" width="772" height="322" font-family="inherit"><line x1="120.0" y1="44.0" x2="120.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="120.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="120.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="236.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.05</text><line x1="120.0" y1="179.8" x2="424.0" y2="179.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="183.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.5</text><line x1="120.0" y1="127.6" x2="424.0" y2="127.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="131.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">5</text><line x1="120.0" y1="75.4" x2="424.0" y2="75.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="112.0" y="79.4" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">50</text><line x1="120.0" y1="232.0" x2="120.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="120.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="190.8" y1="232.0" x2="190.8" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="190.8" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="292.2" y1="232.0" x2="292.2" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="292.2" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="393.5" y1="232.0" x2="393.5" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="393.5" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1,000</text><path d="M120.0,139.4 L122.5,140.0 L125.1,140.7 L127.6,141.3 L130.1,142.0 L132.7,142.6 L135.2,143.3 L137.7,143.9 L140.3,144.6 L142.8,145.2 L145.3,145.9 L147.9,146.5 L150.4,147.2 L152.9,147.8 L155.5,148.5 L158.0,149.1 L160.5,149.8 L163.1,150.4 L165.6,151.1 L168.1,151.8 L170.7,152.4 L173.2,153.1 L175.7,153.7 L178.3,154.4 L180.8,155.0 L183.3,155.7 L185.9,156.3 L188.4,157.0 L190.9,157.6 L193.5,158.3 L196.0,158.9 L198.5,159.6 L201.1,160.2 L203.6,160.9 L206.1,161.5 L208.7,162.2 L211.2,162.8 L213.7,163.5 L216.3,164.1 L218.8,164.8 L221.3,165.5 L223.9,166.1 L226.4,166.8 L228.9,167.4 L231.5,168.1 L234.0,168.7 L236.5,169.4 L239.1,170.0 L241.6,170.7 L244.1,171.3 L246.7,172.0 L249.2,172.6 L251.7,173.3 L254.3,173.9 L256.8,174.6 L259.3,175.2 L261.9,175.9 L264.4,176.5 L266.9,177.2 L269.5,177.8 L272.0,178.5 L274.5,179.2 L277.1,179.8 L279.6,180.5 L282.1,181.1 L284.7,181.8 L287.2,182.4 L289.7,183.1 L292.3,183.7 L294.8,184.4 L297.3,185.0 L299.9,185.7 L302.4,186.3 L304.9,187.0 L307.5,187.6 L310.0,188.3 L312.5,188.9 L315.1,189.6 L317.6,190.2 L320.1,190.9 L322.7,191.5 L325.2,192.2 L327.7,192.9 L330.3,193.5 L332.8,194.2 L335.3,194.8 L337.9,195.5 L340.4,196.1 L342.9,196.8 L345.5,197.4 L348.0,198.1 L350.5,198.7 L353.1,199.4 L355.6,200.0 L358.1,200.7 L360.7,201.3 L363.2,202.0 L365.7,202.6 L368.3,203.3 L370.8,203.9 L373.3,204.6 L375.9,205.2 L378.4,205.9 L380.9,206.6 L383.5,207.2 L386.0,207.9 L388.5,208.5 L391.1,209.2 L393.6,209.8 L396.1,210.5 L398.7,211.1 L401.2,211.8 L403.7,212.4 L406.3,213.1 L408.8,213.7 L411.3,214.4 L413.9,215.0 L416.4,215.7 L418.9,216.3 L421.5,217.0 L424.0,217.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="5 3" opacity=".45"/><text x="160.3" y="165.7" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">a 1/sqrt(d) line</text><path d="M120.0,58.1 L137.8,89.1 L160.3,114.0 L181.0,130.6 L198.9,143.8 L221.3,154.6 L239.2,161.1 L261.7,170.3 L282.3,177.3 L300.2,183.1 L322.7,189.6 L343.4,195.2 L363.0,200.6 L383.7,206.4 L405.0,212.7 L424.0,217.6" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="239.2" cy="161.1" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="424.0" cy="217.6" r="4.2" fill="var(--color-accent, #2e6e5e)"/><text x="272.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Dimensions</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Relative contrast, (far - near) / near</text><text x="450.0" y="60.0" font-size="11" fill="currentColor" font-weight="700">Nothing is near anything.</text><text x="450.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">30 dims</text><text x="554.0" y="80.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">1.14</text><text x="450.0" y="96.0" font-size="10" fill="currentColor" opacity=".8">2,000 dims</text><text x="554.0" y="96.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">0.09</text><text x="450.0" y="128.0" font-size="10" fill="currentColor" opacity=".8">At 2,000 dimensions the most</text><text x="450.0" y="141.0" font-size="10" fill="currentColor" opacity=".8">distant of a thousand points</text><text x="450.0" y="154.0" font-size="10" fill="currentColor" opacity=".8">is 9% further away than the</text><text x="450.0" y="167.0" font-size="10" fill="currentColor" opacity=".8">closest one. There is almost</text><text x="450.0" y="180.0" font-size="10" fill="currentColor" opacity=".8">no such thing as a nearest</text><text x="450.0" y="193.0" font-size="10" fill="currentColor" opacity=".8">neighbour left to find.</text><text x="450.0" y="206.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="450.0" y="219.0" font-size="10" fill="currentColor" opacity=".8">The decay is about 1/sqrt(d):</text><text x="450.0" y="232.0" font-size="10" fill="currentColor" opacity=".8">from 500 to 2,000 dimensions</text><text x="450.0" y="245.0" font-size="10" fill="currentColor" opacity=".8">the contrast falls 2.12-fold</text><text x="450.0" y="258.0" font-size="10" fill="currentColor" opacity=".8">against a predicted 2.00. It is</text><text x="450.0" y="271.0" font-size="10" fill="currentColor" opacity=".8">not yet that clean at 30.</text></svg>
+</Figure>
+
+## What that does to the graph
+
+Contrast is the mechanism; the graph is the consequence, and the consequence can be measured
+directly. Label every cell with the type it truly belongs to, build the graph, and count the
+fraction of edges that join two cells of the same type. Call it **purity**. Its floor is the
+rate you would get by joining cells at random — with $C$ equal types among $n$ cells,
+
+$$
+\Pr(\text{same label by chance}) = \frac{n/C - 1}{n - 1}.
+$$
+
+Now the experiment that makes the point. Ninety cells, three types of thirty, separated by
+three standard deviations — in **two** dimensions. Every further dimension is pure noise: it
+contains no information about type whatsoever, and the two informative dimensions are
+untouched no matter how many noise dimensions are added beside them.
+
+<Figure
+  caption="Figure 2. Fraction of k-nearest-neighbour edges joining cells of the same type, against the number of dimensions the graph was built in, with k = 10 and averaged over eight independent draws. The three types are separated by three standard deviations in the first two dimensions and by nothing in any other, so the signal is identical at every point on this axis. Purity nonetheless falls from 96.4% at two dimensions to 41.5% at two thousand, against a chance rate of 32.6% — 86.1% of the graph's excess over chance, destroyed by columns carrying no information."
+  alt="A curve falling from about ninety-six percent at two dimensions to about forty-one percent at two thousand, on a logarithmic horizontal axis, with a dashed horizontal line near thirty-three percent marked as the chance rate. Three points on the curve are marked, at two, thirty and two thousand dimensions."
+>
+<svg viewBox="0 0 772 336" width="772" height="336" font-family="inherit"><line x1="112.0" y1="44.0" x2="112.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="236.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0%</text><line x1="112.0" y1="185.0" x2="424.0" y2="185.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="189.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">25%</text><line x1="112.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="142.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">50%</text><line x1="112.0" y1="91.0" x2="424.0" y2="91.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="95.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">75%</text><line x1="112.0" y1="44.0" x2="424.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="48.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">100%</text><line x1="112.0" y1="232.0" x2="112.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="112.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="184.7" y1="232.0" x2="184.7" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="184.7" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="288.7" y1="232.0" x2="288.7" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="288.7" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="392.7" y1="232.0" x2="392.7" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="392.7" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1,000</text><line x1="112.0" y1="170.7" x2="424.0" y2="170.7" stroke="currentColor" stroke-width="1.8" opacity=".55" stroke-dasharray="6 4"/><text x="118.0" y="186.7" font-size="10" fill="currentColor" opacity=".75">chance, 32.6%</text><path d="M112.0,50.8 L130.3,53.0 L153.4,58.2 L174.6,63.1 L192.9,65.1 L216.0,76.0 L234.3,82.1 L257.4,91.4 L278.6,103.7 L296.9,112.0 L320.0,121.7 L341.2,134.0 L361.4,140.9 L382.6,148.4 L404.5,151.1 L424.0,154.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="112.0" cy="50.8" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="234.3" cy="82.1" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="424.0" cy="154.0" r="4.2" fill="var(--color-accent, #2e6e5e)"/><text x="268.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Dimensions the graph is built in</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">kNN edges joining the same cluster</text><text x="450.0" y="60.0" font-size="11" fill="currentColor" font-weight="700">The signal never changes.</text><text x="450.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">2 dims</text><text x="554.0" y="80.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">96.4%</text><text x="450.0" y="96.0" font-size="10" fill="currentColor" opacity=".8">30 dims</text><text x="554.0" y="96.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">79.7%</text><text x="450.0" y="112.0" font-size="10" fill="currentColor" opacity=".8">2,000 dims</text><text x="554.0" y="112.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">41.5%</text><text x="450.0" y="146.0" font-size="10" fill="currentColor" opacity=".8">Three clusters, three standard</text><text x="450.0" y="159.0" font-size="10" fill="currentColor" opacity=".8">deviations apart, in two</text><text x="450.0" y="172.0" font-size="10" fill="currentColor" opacity=".8">dimensions. Every dimension</text><text x="450.0" y="185.0" font-size="10" fill="currentColor" opacity=".8">past the second is noise and</text><text x="450.0" y="198.0" font-size="10" fill="currentColor" opacity=".8">carries nothing.</text><text x="450.0" y="211.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="450.0" y="224.0" font-size="10" fill="currentColor" opacity=".8">Piling that noise on takes the</text><text x="450.0" y="237.0" font-size="10" fill="currentColor" opacity=".8">graph from 96.4% correct to</text><text x="450.0" y="250.0" font-size="10" fill="currentColor" opacity=".8">41.5%, against a chance rate of</text><text x="450.0" y="263.0" font-size="10" fill="currentColor" opacity=".8">32.6%. That is 86.1% of what</text><text x="450.0" y="276.0" font-size="10" fill="currentColor" opacity=".8">the graph knew, gone - and not</text><text x="450.0" y="289.0" font-size="10" fill="currentColor" opacity=".8">one bit of signal was removed</text><text x="450.0" y="302.0" font-size="10" fill="currentColor" opacity=".8">to do it.</text></svg>
+</Figure>
+
+That is the result worth carrying: **adding columns that contain nothing degrades the graph
+almost to chance.** Not because the biology got weaker — it is bit-for-bit the same — but
+because the noise dimensions each contribute distance, and in aggregate they swamp the two
+dimensions that carry the signal.
+
+This is the argument for running PCA before building the graph, and it is a quantitative one
+rather than a matter of speed.
+
+<Widget
+  kind="sc-knn-graph"
+  title="Add dimensions that contain nothing, and watch the graph come apart"
+  alt="An interactive scatter plot of ninety cells in three visually separated clusters, with k-nearest-neighbour edges drawn between them. Edges joining different clusters are drawn darker. Sliders control the number of dimensions the graph is built in and the number of neighbours per cell, and a readout gives the fraction of edges joining the same cluster, the chance rate, and the relative contrast."
+  caption="The plot always shows the two dimensions the biology lives in, so the three clusters stay visibly separate no matter what the sliders do. Start at two dimensions: almost every edge is short and local. Now drag the dimension slider right — the clusters do not move, because they cannot, and yet dark edges start reaching across the plot to join cells that are plainly far apart. Every dimension you added contains nothing. Then set the dimensions back to thirty and drag k instead: purity falls again, but for a different reason, and one the next lesson depends on."
+/>
+
+<WorkedExample
+  title="What reducing to thirty components buys"
+  given={[
+    'Ninety cells, three types of thirty, separated by three standard deviations',
+    'The separation lives in two dimensions; all others are noise',
+    'k = 10, averaged over eight independent draws',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the chance floor.** Three equal types among ninety cells: of the eighty-nine other
+cells, twenty-nine share your label, so
+
+$$
+\frac{29}{89} = 0.325843,
+$$
+
+**32.58%**. A graph at that purity contains no information at all.
+
+**Step 2 — the best case.** Built on the two informative dimensions alone, purity is
+**96.4%** — headroom above chance of 63.82 percentage points.
+
+**Step 3 — the raw-gene case.** Built on all two thousand dimensions, purity is **41.5%**.
+The headroom is 8.89 points, against 63.82. So
+
+$$
+1 - \frac{8.89}{63.82} = 0.861
+$$
+
+— **86.1%** of what the graph knew has been destroyed, by dimensions containing nothing.
+
+**Step 4 — what PCA recovers.** Built on thirty dimensions, purity is **79.7%**, a headroom
+of 47.12 points. Against the 8.89 it started from and the 63.82 available:
+
+$$
+\frac{47.12 - 8.89}{63.82 - 8.89} = 0.696,
+$$
+
+so reducing to thirty components recovers **69.6%** of what the noise destroyed.
+
+**What this does not say.** It does not say thirty is the right number — that was lesson 7's
+question, and the answer there was that the noise floor moves with the shape of the matrix.
+What it says is that the reduction step is not a convenience. It is the difference between a
+graph that carries most of the structure and one that is a quarter of the way from chance.
+
+</WorkedExample>
+
+## What k trades
+
+The second parameter is *k*, and it is a bias–variance choice in disguise.
+
+Small *k* gives a graph whose edges are almost all correct, because a cell's very nearest
+neighbours are the ones most likely to be its own type — but the graph is sparse and easily
+fragmented, so a single population can break into several disconnected pieces that clustering
+will report as several types.
+
+Large *k* gives a well-connected graph whose edges are increasingly wrong. At thirty
+dimensions, purity falls from 85.9% at $k = 3$ to 79.7% at $k = 10$ and 65.6% at $k = 30$ —
+because reaching further from each cell eventually reaches past its own population.
+
+<Callout variant="intuition" title="k is measured in cells, and populations are not the same size">
+
+The trap is that *k* is an absolute count while the thing it should adapt to is relative.
+
+Set $k = 15$ in a dataset whose smallest real population has 20 cells, and every cell in that
+population is joined to three quarters of its own kind plus whatever else is closest —
+the graph cannot represent it as a separate group because *k* is comparable to its size. The
+same $k = 15$ in a population of 5,000 reaches only its immediate locality and represents it
+perfectly.
+
+So a single *k* is simultaneously too large for the rare populations and too small for the
+abundant ones, and the rare populations are usually the reason the experiment was run. This is
+the third mechanism in three lessons by which a rare cell type disappears — lesson 7 showed its
+eigenvalue is small because variance averages over all cells, and the next lesson shows that
+modularity maximisation merges it outright <Citation id="luecken2019bestpractices" />.
+
+</Callout>
+
+## Summary
+
+- After PCA the pipeline consumes **only the kNN graph**. Clustering, UMAP and label transfer
+  are all functions of it, so its quality caps everything downstream.
+- **Distances concentrate.** Relative contrast decays as about $d^{-1/2}$: at 2,000 dimensions
+  the farthest of a thousand points is 9% further than the nearest, against 114% at thirty.
+- Graph quality is measurable as **purity** — the fraction of edges joining cells of one type —
+  against a chance floor of $(n/C - 1)/(n - 1)$, which is 32.58% for three equal types of thirty.
+- **Uninformative dimensions destroy the graph.** With the signal held bit-for-bit identical,
+  purity falls 96.4% → 41.5% as noise dimensions are added: **86.1%** of its excess over chance.
+  Reducing to thirty components recovers **69.6%** of that.
+- **k trades correctness against connectivity**, and because it is an absolute count it is
+  always wrong for populations of different sizes at once.
+
+<Exercise n={1} title="Reading the floor" difficulty="warm-up">
+
+A dataset has 90 cells.
+
+(a) What is the chance purity if they form 2 equal types? 6 equal types? 9 equal types?
+
+(b) A graph on this dataset scores 41.5% purity and the dataset has 3 equal types. How much of
+the available headroom above chance does it hold?
+
+(c) A colleague reports 55% purity as evidence their graph is good. What do you need to know
+before agreeing?
+
+<div slot="solution">
+
+(a) $(n/C - 1)/(n - 1)$ with $n = 90$: two types give $44/89 = 49.44\%$, six give
+$14/89 = 15.73\%$, nine give $9/89 = 10.11\%$.
+
+(b) Chance is $29/89 = 32.58\%$ and the ceiling is 100%, so the headroom is 67.42 points and
+the graph holds $41.5 - 32.58 = 8.92$ of them, or about **13%**.
+
+(c) The number of types, and their sizes. At two types, 55% purity is *worse than chance*
+(49.44% is free). At nine types it is excellent. Purity is uninterpretable without its floor,
+and the floor depends entirely on the composition — which is also why purity cannot be compared
+between datasets.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Choosing k against a rare population" difficulty="core">
+
+At thirty dimensions the purity of this dataset is 85.9% at $k = 3$, 84.0% at $k = 5$, 79.7%
+at $k = 10$, 72.9% at $k = 20$ and 65.6% at $k = 30$.
+
+(a) Describe the trend and give the mechanism.
+
+(b) Given only these numbers, why can you not conclude that $k = 3$ is the right choice?
+
+(c) The dataset also contains a population of 25 cells that you care about. What does that
+imply for $k$, and what does it imply for the populations of 5,000?
+
+<div slot="solution">
+
+(a) Purity falls monotonically with *k*, from 85.9% to 65.6% — a loss of 20.3 points. Each
+additional neighbour is further away than the last, and past some radius the next-nearest cell
+is more likely to belong to another population than to your own.
+
+(b) Because purity measures only edge correctness, not whether the graph is *connected* enough
+to represent a population as one object. At $k = 3$ a population can fragment into several
+disconnected components, and clustering will report those as separate cell types — an error
+purity cannot see, because every one of those edges is correct. Optimising purity alone drives
+$k$ towards 1, which is obviously wrong.
+
+(c) For the 25-cell population, $k$ must be comfortably below 25 or its cells are forced to
+connect outside it — $k = 10$ already reaches 40% of the way through it. For the 5,000-cell
+populations, $k = 10$ is a very local view and they will be represented well but may fragment.
+No single $k$ serves both, which is an argument for checking that a reported population
+survives a range of $k$ rather than for finding the best one.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="Why the reduction cannot be skipped" difficulty="stretch">
+
+A collaborator proposes skipping PCA, arguing that principal components discard information and
+the kNN graph should be built on all 2,000 genes so that nothing is lost.
+
+(a) Address the argument on its own terms: is it true that PCA discards information?
+
+(b) Use the purity numbers to say what the proposal costs.
+
+(c) Give the circumstance under which the collaborator would nevertheless be right, and say what
+you would measure to find out.
+
+<div slot="solution">
+
+(a) Yes, strictly. Projecting onto thirty components discards everything orthogonal to them,
+and if a real biological axis lies in the discarded subspace it is gone. The argument is not
+wrong about the mechanism; it is wrong about the balance.
+
+(b) The full-gene graph scores 41.5% purity against a 32.58% floor — it holds 8.89 of 63.82
+available points. The thirty-dimensional graph holds 47.12. So the proposal discards nothing in
+principle and destroys 69.6% of the recoverable structure in practice, because the 1,998
+uninformative dimensions contribute distance without contributing signal, and distance is all
+the graph sees.
+
+(c) When the discarded subspace is not uninformative — that is, when the structure of interest
+is genuinely low-variance and PCA drops it. A rare population is exactly this case: lesson 7
+showed its eigenvalue is small because variance averages over all cells. To find out, measure
+whether the population of interest survives: cluster at several component counts and check
+whether it appears at all of them. If it appears only without reduction, the collaborator is
+right for this dataset — and the answer is then not "skip PCA" but "use a reduction that does
+not rank by global variance".
+
+</div>
+
+</Exercise>

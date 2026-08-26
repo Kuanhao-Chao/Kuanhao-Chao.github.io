@@ -3733,3 +3733,43 @@ buja1992parallel:
   venue: "Multivariate Behavioral Research 27:509-540"
   doi: https://doi.org/10.1207/s15327906mbr2704_2
   verified: 2026-08-25
+
+beyer1999nearest:
+  authors: ['Kevin Beyer', 'Jonathan Goldstein', 'Raghu Ramakrishnan', 'Uri Shaft']
+  year: 1999
+  title: "When Is Nearest Neighbor Meaningful?"
+  venue: "Database Theory - ICDT'99, LNCS 1540:217-235"
+  doi: https://doi.org/10.1007/3-540-49257-7_15
+  verified: 2026-08-25
+
+aggarwal2001distance:
+  authors: ['Charu C. Aggarwal', 'Alexander Hinneburg', 'Daniel A. Keim']
+  year: 2001
+  title: "On the Surprising Behavior of Distance Metrics in High Dimensional Space"
+  venue: "Database Theory - ICDT 2001, LNCS 1973:420-434"
+  doi: https://doi.org/10.1007/3-540-44503-X_27
+  verified: 2026-08-25
+
+levine2015phenograph:
+  authors: ['Jacob H. Levine', 'Erin F. Simonds', 'Sean C. Bendall', 'et al.']
+  year: 2015
+  title: "Data-Driven Phenotypic Dissection of AML Reveals Progenitor-like Cells that Correlate with Prognosis"
+  venue: "Cell 162:184-197"
+  doi: https://doi.org/10.1016/j.cell.2015.05.047
+  verified: 2026-08-25
+
+blondel2008louvain:
+  authors: ['Vincent D. Blondel', 'Jean-Loup Guillaume', 'Renaud Lambiotte', 'Etienne Lefebvre']
+  year: 2008
+  title: "Fast unfolding of communities in large networks"
+  venue: "Journal of Statistical Mechanics 2008:P10008"
+  doi: https://doi.org/10.1088/1742-5468/2008/10/P10008
+  verified: 2026-08-25
+
+traag2019leiden:
+  authors: ['V. A. Traag', 'L. Waltman', 'N. J. van Eck']
+  year: 2019
+  title: "From Louvain to Leiden: guaranteeing well-connected communities"
+  venue: "Scientific Reports 9:5233"
+  doi: https://doi.org/10.1038/s41598-019-41695-z
+  verified: 2026-08-25
