@@ -6924,6 +6924,8 @@ describe('sc-pca — the noise floor, and what a scree plot cannot say', () => {
       // the printed ratio is 5.19, not 5.20 -- 5.1949 rounds down
       expect((Math.round((small.upper / large.upper) * 100) / 100).toFixed(2)).toBe('5.19');
       expect(mdx).not.toContain('5.20');
+      // the abstract once carried a coarser rounding of the same quantity
+      expect(mdx).not.toMatch(/factor of 5\.2(?![\d])/);
       for (const v of ['9.0000', '1.7325', '0.450%', '0.0866%', '5.19'])
         expect(mdx, v).toContain(v);
     });

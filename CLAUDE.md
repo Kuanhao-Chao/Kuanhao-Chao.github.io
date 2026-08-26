@@ -324,6 +324,18 @@ Things specific to this subsystem:
   never states elsewhere. Two legitimate cases are allowlisted: alt text describing an axis
   *domain*, whose endpoints carry no tick label.
 
+- **Three deterministic close-out checks the test suite does not perform**, each of which
+  found something the 2,989 tests did not. (a) **Every `lesson N` cross-reference resolves, and
+  its target actually contains the claimed result** — the second half is what `audit:links`
+  cannot see. (b) **Every number in an `abstract:` also appears in the body**, since the body is
+  asserted and the abstract is not; this caught `sc-pca` still saying "a factor of 5.2" after
+  the body had been corrected to 5.19, an incomplete fix of exactly the kind described below.
+  (c) **Re-derive the track's headline theorems with an independent implementation**, not by
+  re-running the module. Both false positives that came out of these were line-wrapping in the
+  search string and a float bug in the harness (`i < 0.3 * 40000` admits one extra element),
+  so verify every hit by hand before acting — and prefer `Fraction` over floats when the claim
+  is that two quantities are *exactly* equal.
+
 - **A guard that only asserts the new wording cannot catch an incomplete fix.** Removing a
   claim from one passage and leaving it standing in the summary is the commonest way a
   correction goes wrong — it produced four of the six defects one audit pass found, including
