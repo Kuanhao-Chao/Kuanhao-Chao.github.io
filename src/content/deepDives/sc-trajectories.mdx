@@ -1,0 +1,323 @@
+---
+title: "Trajectories: Pseudotime Is an Ordering, and the Cells Are the Clock"
+shortTitle: Trajectories
+description: "Why the pseudotime coordinate carries no duration information, why the density of cells along it carries all of it, and what that means for reading a trajectory plot."
+abstract: "Ordering cells along a continuous process is the closest single-cell data comes to watching something happen, and the axis it produces is routinely read as time. It is not time; it is arc length, and it is defined only up to any strictly increasing reparameterisation, so nothing but the ordering is data. The consequence is measurable. Take a process with a fast opening, a ten-fold slower bottleneck and a fast finish: the bottleneck occupies 20% of the pseudotime axis and 71.4% of the elapsed duration, a discrepancy of 3.57-fold, while the fast opening occupies 30% of the axis and 10.7% of the time. But the data does contain the durations, in the one place nobody looks. At steady state the density of cells is the entry rate divided by the local speed, so the share of cells in a pseudotime interval equals the share of real time spent crossing it — exactly, not approximately. A bottleneck is short on the axis and crowded with cells, and it is the crowding that measures it."
+date: 2026-08-26
+track: theory
+hub: single-cell
+moduleId: s05-beyond
+moduleLabel: Module 5 · Beyond One Snapshot
+order: 15
+level: advanced
+objectives:
+  - "State what a pseudotime coordinate is and what transformations leave it unchanged."
+  - "Show that equal pseudotime intervals do not correspond to equal durations, and quantify the gap."
+  - "Derive the steady-state relation between cell density and rate of progress."
+  - "Use cell counts along a trajectory to recover the relative durations of its stages."
+  - "Say which claims a trajectory plot supports and which need an independent measurement."
+prerequisites:
+  - sc-embeddings
+  - sc-neighbor-graphs
+relatedLessons:
+  - sc-embeddings
+  - sc-batch-integration
+keyEquations:
+  - '\rho(s) = \dfrac{\lambda}{v(s)}'
+  - '\dfrac{\text{cells in }[s_1, s_2]}{\text{cells total}} = \dfrac{\text{time to cross }[s_1, s_2]}{\text{total time}}'
+  - 's \mapsto g(s), \ g\text{ increasing} \implies \text{same ordering}'
+referenceIds:
+  - trapnell2014monocle
+  - haghverdi2016dpt
+  - street2018slingshot
+  - saelens2019trajectory
+  - wolf2018scanpy
+  - luecken2019bestpractices
+  - mcinnes2018umap
+  - squair2021falsediscoveries
+tags: [single-cell, trajectories, pseudotime, RNA dynamics, differentiation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+A dissociated sample is a snapshot: every cell is destroyed at the moment it is measured, and
+nothing is ever observed twice. Yet if a process is asynchronous — cells entering it
+continuously and progressing at their own pace — a single snapshot contains cells at every
+stage, and ordering them by similarity recovers the sequence
+<Citation id="trapnell2014monocle" />
+<Citation id="haghverdi2016dpt" />
+<Citation id="street2018slingshot" />.
+
+That ordering is the closest this data comes to watching something happen, and the axis it
+produces gets read as time. This lesson is about what that axis actually is, and where the time
+information really lives.
+
+<Notation
+  rows={[
+    { symbol: 's', meaning: 'Position along the trajectory — the pseudotime coordinate', dims: 'arc length' },
+    { symbol: 'v(s)', meaning: 'Rate of progress at position s', dims: '> 0' },
+    { symbol: '\\lambda', meaning: 'Rate at which cells enter the process', dims: 'cells per unit time' },
+    { symbol: '\\rho(s)', meaning: 'Density of cells at position s', dims: 'cells per unit s' },
+    { symbol: 'g', meaning: 'A strictly increasing reparameterisation of s', dims: '—' },
+  ]}
+/>
+
+## The axis is defined only up to its ordering
+
+A pseudotime method assigns each cell a number, but the numbers are not identified. Apply any
+strictly increasing function $g$ to every value — square them, take logs, exponentiate — and
+every cell keeps its position relative to every other. Nothing downstream that uses only the
+ordering can distinguish the two assignments, and nothing in the data prefers one.
+
+So the pseudotime *value* is a convention. Different methods produce different conventions, and
+a benchmark comparing them finds their orderings agree far better than their values do
+<Citation id="saelens2019trajectory" />. That is not a flaw; it is what the methods claim.
+
+The trouble is what gets read off the axis anyway: that a gene turns on "halfway through", that
+one stage is "longer" than another, that a change is "gradual". Each of those is a statement
+about the parameterisation, and each survives being made false by reparameterising.
+
+## Equal spans, unequal durations
+
+Make it concrete. A process runs through three stretches: a fast opening, a bottleneck where
+progress is ten times slower, and a fast finish. In arc length they are 30%, 20% and 50% of the
+trajectory.
+
+In elapsed time they are nothing like that. Time is length over speed, so the bottleneck —
+short on the axis — takes far the longest:
+
+$$
+\frac{0.2}{0.1} = 2.0
+\quad\text{against}\quad
+\frac{0.3}{1.0} = 0.3
+\quad\text{and}\quad
+\frac{0.5}{1.0} = 0.5.
+$$
+
+As shares of the total, that is **10.71%**, **71.43%** and **17.86%**. The bottleneck occupies a
+fifth of the axis and nearly three quarters of the duration, a discrepancy of **3.57-fold**;
+the fast opening occupies 30% of the axis and 10.7% of the time, a discrepancy of 0.357 the
+other way.
+
+<Figure
+  caption="Figure 1. The same three stretches of one trajectory, measured two ways. The upper bar is the pseudotime axis, which reports arc length: 30%, 20% and 50%. The lower bar is elapsed time, which is also the share of cells at steady state: 10.7%, 71.4% and 17.9%. The bottleneck is a fifth of the axis and 71.4% of the duration, and the dashed lines connect its two representations."
+  alt="Two horizontal bars stacked over a common axis from zero to one. The upper bar, labelled pseudotime axis, is divided into segments of thirty, twenty and fifty percent. The lower bar, labelled real elapsed time and share of cells, is divided into ten point seven, seventy-one point four and seventeen point nine percent, with the middle segment drawn in accent colour in both bars and dashed lines joining them."
+>
+<svg viewBox="0 0 772 330" width="772" height="330" font-family="inherit"><line x1="112.0" y1="182.7" x2="112.0" y2="58.6" stroke="currentColor" stroke-width="1" opacity=".10"/><text x="112.0" y="176.7" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".7">0.0</text><line x1="169.6" y1="182.7" x2="169.6" y2="58.6" stroke="currentColor" stroke-width="1" opacity=".10"/><text x="169.6" y="176.7" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".7">0.2</text><line x1="227.2" y1="182.7" x2="227.2" y2="58.6" stroke="currentColor" stroke-width="1" opacity=".10"/><text x="227.2" y="176.7" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".7">0.4</text><line x1="284.8" y1="182.7" x2="284.8" y2="58.6" stroke="currentColor" stroke-width="1" opacity=".10"/><text x="284.8" y="176.7" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".7">0.6</text><line x1="342.4" y1="182.7" x2="342.4" y2="58.6" stroke="currentColor" stroke-width="1" opacity=".10"/><text x="342.4" y="176.7" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".7">0.8</text><line x1="400.0" y1="182.7" x2="400.0" y2="58.6" stroke="currentColor" stroke-width="1" opacity=".10"/><text x="400.0" y="176.7" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".7">1.0</text><text x="104.0" y="84.5" font-size="10.5" fill="currentColor" text-anchor="end">pseudotime axis</text><rect x="112.0" y="69.5" width="86.4" height="22.0" rx="2" fill="currentColor" opacity=".3"/><text x="155.2" y="84.5" font-size="10.5" fill="currentColor" text-anchor="middle">30%</text><rect x="198.4" y="69.5" width="57.6" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><text x="227.2" y="84.5" font-size="10.5" fill="var(--color-bg, #fff)" text-anchor="middle">20%</text><rect x="256.0" y="69.5" width="144.0" height="22.0" rx="2" fill="currentColor" opacity=".3"/><text x="328.0" y="84.5" font-size="10.5" fill="currentColor" text-anchor="middle">50%</text><text x="104.0" y="142.9" font-size="10.5" fill="currentColor" text-anchor="end">real elapsed time</text><text x="104.0" y="155.9" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".65">= share of cells</text><rect x="112.0" y="127.9" width="30.9" height="22.0" rx="2" fill="currentColor" opacity=".3"/><text x="127.4" y="142.9" font-size="10.5" fill="currentColor" text-anchor="middle">10.7%</text><rect x="142.9" y="127.9" width="205.7" height="22.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><text x="245.7" y="142.9" font-size="10.5" fill="var(--color-bg, #fff)" text-anchor="middle">71.4%</text><rect x="348.6" y="127.9" width="51.4" height="22.0" rx="2" fill="currentColor" opacity=".3"/><text x="374.3" y="142.9" font-size="10.5" fill="currentColor" text-anchor="middle">17.9%</text><line x1="198.4" y1="67.5" x2="142.9" y2="151.9" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="3 3"/><line x1="256.0" y1="67.5" x2="348.6" y2="151.9" stroke="currentColor" stroke-width="1" opacity=".35" stroke-dasharray="3 3"/><text x="256.0" y="216.7" font-size="12" fill="currentColor" text-anchor="middle">the same three stretches, twice</text><text x="430.0" y="60.0" font-size="11" fill="currentColor" font-weight="700">The axis is not a clock.</text><text x="430.0" y="78.0" font-size="10" fill="currentColor" opacity=".8">The bottleneck is 20% of the</text><text x="430.0" y="91.0" font-size="10" fill="currentColor" opacity=".8">pseudotime axis and 71.4% of</text><text x="430.0" y="104.0" font-size="10" fill="currentColor" opacity=".8">the elapsed time - a factor</text><text x="430.0" y="117.0" font-size="10" fill="currentColor" opacity=".8">of 3.57 between the ruler you</text><text x="430.0" y="130.0" font-size="10" fill="currentColor" opacity=".8">are handed and the one you</text><text x="430.0" y="143.0" font-size="10" fill="currentColor" opacity=".8">wanted.</text><text x="430.0" y="156.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="430.0" y="169.0" font-size="10" fill="currentColor" opacity=".8">But the cells count it for</text><text x="430.0" y="182.0" font-size="10" fill="currentColor" opacity=".8">you. At steady state the</text><text x="430.0" y="195.0" font-size="10" fill="currentColor" opacity=".8">density is the entry rate over</text><text x="430.0" y="208.0" font-size="10" fill="currentColor" opacity=".8">the speed, so the share of</text><text x="430.0" y="221.0" font-size="10" fill="currentColor" opacity=".8">cells in a stretch IS the</text><text x="430.0" y="234.0" font-size="10" fill="currentColor" opacity=".8">share of time spent there,</text><text x="430.0" y="247.0" font-size="10" fill="currentColor" opacity=".8">exactly.</text><text x="430.0" y="260.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="430.0" y="273.0" font-size="10" fill="currentColor" opacity=".8">The information is in the</text><text x="430.0" y="286.0" font-size="10" fill="currentColor" opacity=".8">crowding, which most pipelines</text><text x="430.0" y="299.0" font-size="10" fill="currentColor" opacity=".8">discard as sampling.</text></svg>
+</Figure>
+
+## Where the durations actually are
+
+Here is the part worth carrying, and it is a positive result rather than a caveat.
+
+Suppose cells enter the process at a constant rate $\lambda$ and move along it at speed $v(s)$.
+At steady state, the flux through every point is the same — $\lambda$ cells per unit time cross
+each position — and flux is density times speed. So
+
+$$
+\rho(s)\,v(s) = \lambda
+\qquad\Longrightarrow\qquad
+\rho(s) = \frac{\lambda}{v(s)}.
+$$
+
+Integrating over a stretch, the number of cells it holds is $\lambda$ times the time taken to
+cross it. Normalising away the unknown $\lambda$:
+
+$$
+\frac{\text{cells in }[s_1, s_2]}{\text{cells in total}}
+= \frac{\text{time to cross }[s_1,s_2]}{\text{total time}}.
+$$
+
+**The share of cells in a pseudotime interval is exactly the share of real time spent there.**
+Not approximately, and with no unknown constants left over. Where cells pile up, the process is
+slow; where they are sparse, it is fast. A bottleneck is short on the axis and crowded, and it
+is the crowding that measures it.
+
+The information was never missing. It is in the density along the trajectory — which is
+routinely smoothed away, or discarded as an artefact of how many cells happened to be captured
+<Citation id="luecken2019bestpractices" />.
+
+<Callout variant="intuition" title="What the steady-state assumption is doing">
+
+The result rests on the process being in steady state: cells entering at a roughly constant
+rate over a window long compared with the time to traverse the trajectory. That is a real
+assumption and it is worth stating whenever the result is used.
+
+It holds well for continuously renewing systems — haematopoiesis, gut epithelium, spermatogenesis
+— where production has been running for far longer than a cell takes to mature. It fails for a
+synchronised process: an experiment where a stimulus is applied at $t = 0$ and everything moves
+together has no cells at the early stages an hour later, so density reflects the wave's
+position rather than the local speed.
+
+The tell is whether the sample is a cross-section of an ongoing process or a snapshot of a
+cohort moving in step. For the second, the cells cannot tell you the durations, and nothing
+else in the snapshot can either — you need the time course.
+
+</Callout>
+
+<WorkedExample
+  title="Reading the durations off the cell counts"
+  given={[
+    'A trajectory in three stretches: arc lengths 0.3, 0.2, 0.5',
+    'Speeds 1.0, 0.1, 1.0 — the middle stretch is a ten-fold bottleneck',
+    'Cells entering at a constant rate, sampled at steady state',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — what the axis says.** Arc length shares are 0.3, 0.2, 0.5 — **30%, 20%, 50%**. This
+is what a pseudotime plot displays, and it is the only thing most analyses use.
+
+**Step 2 — what the times are.** Length over speed gives 0.3, 2.0 and 0.5 hours, totalling 2.8.
+As shares:
+
+$$
+\frac{0.3}{2.8} = \frac{3}{28} = 10.71\%,
+\qquad
+\frac{2.0}{2.8} = \frac{5}{7} = 71.43\%,
+\qquad
+\frac{0.5}{2.8} = \frac{5}{28} = 17.86\%.
+$$
+
+**Step 3 — what the cell counts are.** By $\rho = \lambda/v$, the same three numbers:
+**10.71%, 71.43%, 17.86%**. Counting cells in each stretch and dividing by the total recovers
+the duration shares with no further modelling.
+
+**Step 4 — the size of the error avoided.** Reading durations off the axis instead would put the
+bottleneck at 20% rather than 71.43% — understating it **3.57-fold** — and the opening at 30%
+rather than 10.71%, overstating it 2.8-fold. Those errors run in opposite directions, so the
+ordering of stage durations comes out wrong as well as their sizes: on the axis the opening
+looks longer than the bottleneck, and in reality it is nearly seven times shorter.
+
+**Step 5 — what is still not available.** The absolute durations. $\lambda$ is unknown, so
+everything here is a share. Turning 71.43% into hours needs one external measurement — a
+labelling experiment, a known cell-cycle length, anything that fixes the scale — and then all
+three follow.
+
+</WorkedExample>
+
+## Two inherited problems
+
+A trajectory is built on the neighbour graph of lesson 8 and is usually displayed on the
+embedding of lesson 10, so it inherits both of their limits. An arm in a UMAP is not evidence
+of a continuum — the embedding preserves neighbourhoods and is free to invent the shape that
+joins them <Citation id="mcinnes2018umap" /> — and a trajectory fitted to a graph built in two
+thousand noisy dimensions is fitted to a graph that was 41.5% correct. The pseudotime
+implementations in the standard toolkits take the graph as given
+<Citation id="wolf2018scanpy" />.
+
+And testing genes along pseudotime inherits lesson 12 exactly. Cells from one donor sit at
+adjacent pseudotimes because they share that donor, so a regression of expression on pseudotime
+across pooled cells has the same clustered structure and the same inflated false-positive rate.
+The fix is the same one: fit per donor and combine, rather than pooling cells
+<Citation id="squair2021falsediscoveries" />.
+
+## Summary
+
+- Pseudotime is **arc length**, identified only up to any strictly increasing
+  reparameterisation, so only the ordering is data. Claims about *where* on the axis something
+  happens are claims about a convention.
+- Equal spans are not equal durations. A ten-fold bottleneck occupying **20%** of the axis is
+  **71.43%** of the elapsed time; the fast opening at 30% of the axis is **10.71%** of the time.
+- At steady state the flux is constant, so $\rho(s) = \lambda/v(s)$, and therefore **the share
+  of cells in a pseudotime interval is exactly the share of real time spent there**.
+- Cell density along a trajectory is a duration measurement, not a sampling artefact. Smoothing
+  it away discards the only timing information the snapshot contains.
+- **The steady-state assumption is load-bearing.** It holds for continuously renewing systems
+  and fails for a synchronised cohort, where the density reflects the wave's position instead.
+- Absolute durations still need one external measurement to fix $\lambda$; without it every
+  statement is a share.
+
+<Exercise n={1} title="Two stretches, one bottleneck" difficulty="warm-up">
+
+A trajectory has two equal-length halves. Cells cross the first at speed 1 and the second at
+speed 0.25.
+
+(a) What share of the pseudotime axis does each occupy?
+
+(b) What share of the elapsed time?
+
+(c) If 4,000 cells are on the trajectory, how many are in each half?
+
+<div slot="solution">
+
+(a) Equal arc lengths, so **50% each**. The axis cannot see the difference.
+
+(b) Times are $0.5/1 = 0.5$ and $0.5/0.25 = 2.0$, totalling 2.5, so **20%** and **80%**.
+
+(c) Cell shares equal time shares, so **800** and **3,200** — a four-fold pile-up in the slow
+half, which is exactly the speed ratio. Counting them recovers the 20/80 split with no
+modelling at all.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Inverting the counts" difficulty="core">
+
+A trajectory is divided into four equal-length stretches, and the cells in them are counted:
+1,200, 400, 2,000 and 400.
+
+(a) What are the relative durations of the four stretches?
+
+(b) What are the relative speeds?
+
+(c) An author writes that the third stretch is "a brief transitional state, occupying a quarter
+of the trajectory". Assess.
+
+<div slot="solution">
+
+(a) Duration shares are cell shares: total 4,000, so **30%, 10%, 50%, 10%**.
+
+(b) Equal arc lengths mean speed is inversely proportional to duration, so relative speeds are
+$1/30 : 1/10 : 1/50 : 1/10$, or normalising to the fastest, **1 : 3 : 0.6 : 3**. The second and
+fourth stretches are crossed three times faster than the first and five times faster than the
+third.
+
+(c) It is wrong twice over. "A quarter of the trajectory" is true of the axis and irrelevant —
+all four stretches are a quarter by construction. And "brief" is exactly backwards: the third
+stretch holds half of all the cells, so it takes half of the total time and is the *longest* of
+the four. The author has read a duration off the axis, and the crowding that contradicts it is
+visible in their own data.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="When the cells cannot tell you" difficulty="stretch">
+
+(a) A stimulus is applied to a synchronised culture at $t = 0$ and cells are collected six
+hours later. Why does the density argument fail?
+
+(b) What does the density measure in that experiment?
+
+(c) Give a design that restores the argument, and one that answers the question directly.
+
+<div slot="solution">
+
+(a) Because the flux is not constant in time. The derivation sets $\rho v = \lambda$ with
+$\lambda$ the steady entry rate, and a synchronised culture has $\lambda = 0$ after the single
+pulse at $t = 0$. There are no cells at the early stages six hours later, not because those
+stages are fast but because nothing is entering behind the wave.
+
+(b) The distribution of the cohort at six hours — that is, the spread accumulated by cells
+moving at slightly different rates. It is informative about *variability* between cells, which
+is a different and also interesting quantity, but it says nothing about the local speed.
+
+(c) To restore the argument: stimulate continuously rather than as a pulse, so entry becomes
+steady and the population reaches a stationary distribution. To answer directly: collect at
+several times and follow the wave, which measures the durations without needing the steady-state
+assumption at all — and lets you check the assumption for any future cross-sectional study of
+the same system. Note the second design also fixes the missing $\lambda$, so it converts every
+share in this lesson into hours.
+
+</div>
+
+</Exercise>
