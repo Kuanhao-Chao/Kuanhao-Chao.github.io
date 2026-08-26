@@ -243,6 +243,17 @@ Things specific to this subsystem:
   contradicting the prose beside it. Six kinds exist (`ld-decay`, `drift`, `power`,
   `selection`, `finemap`, `prs`); the contract test rejects any other. Things specific to
   it:
+  - **`format` receives the value *after* `scale`, not the raw slider position.**
+    `buildControls` calls `spec.format(spec.scale ? spec.scale(raw) : raw)`, so a log control
+    written as `scale: v => 10**v, format: v => (10**v).toFixed(2)` squares the exponent and
+    displays 10^(10^raw). Seven controls across six `sc-*` widgets shipped with this, and it is
+    almost invisible: at a default of 2 the label reads `100.00` — a plausible number in the
+    wrong place — and only `sc-pseudobulk`, whose default scaled to 200, blew up to 10^200 and
+    overflowed the document by 1,678px. **`audit:deep-dives` cannot catch it**: it checks that
+    moving a control *changes* a readout, never that the control's own label is right. The
+    pre-existing widgets use `format: v => sci(v, 2)` and are correct; copy that, not the log
+    form.
+
   - **The frame must not use `--color-figure-mat`.** That token is a deliberately *light*
     card for raster figures with baked-in dark line art. A widget draws in `currentColor`,
     so on the mat it is light-on-light in dark mode and the entire plot disappears.

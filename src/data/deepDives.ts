@@ -138,6 +138,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'sc-clustering',
   'sc-embeddings',
   'sc-annotation',
+  'sc-differential-expression',
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',
