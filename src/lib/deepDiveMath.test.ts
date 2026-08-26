@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  varianceInflationFactor,
+  centeringAttenuation,
+  batchTypeCorrelation,
   chi2Cdf,
   dirichletMultinomialIcc,
   compositionCorrelation,
@@ -2998,5 +3001,58 @@ describe('compositional data — closure and what it does', () => {
         expect(chi2Cdf(chi2Quantile(p, df), df)).toBeCloseTo(p, 8);
     expect(chi2Cdf(0, 3)).toBe(0);
     expect(() => chi2Cdf(1, 0)).toThrow(RangeError);
+  });
+});
+
+
+describe('batch confounding — what centring costs and what regression costs', () => {
+  it('the batch/type correlation is exactly the difference in composition', () => {
+    for (const [f1, f2] of [[0.5, 0.5], [0.6, 0.4], [0.8, 0.2], [0.95, 0.05], [1, 0]] as const)
+      expect(Math.abs(batchTypeCorrelation(f1, f2))).toBeCloseTo(Math.abs(f1 - f2), 12);
+    // balanced composition means no confounding at all
+    expect(batchTypeCorrelation(0.5, 0.5)).toBeCloseTo(0, 12);
+    // and the sign flips with which batch is enriched
+    expect(batchTypeCorrelation(0.8, 0.2)).toBeCloseTo(-batchTypeCorrelation(0.2, 0.8), 12);
+    expect(() => batchTypeCorrelation(0, 0)).toThrow(RangeError);
+    expect(() => batchTypeCorrelation(1.2, 0.2)).toThrow(RangeError);
+  });
+
+  it('centring attenuates a real difference by exactly 1 - r squared', () => {
+    expect(centeringAttenuation(0)).toBe(1);
+    expect(centeringAttenuation(0.6)).toBeCloseTo(0.64, 12);
+    expect(centeringAttenuation(0.8)).toBeCloseTo(0.36, 12);
+    expect(centeringAttenuation(0.9)).toBeCloseTo(0.19, 12);
+    expect(centeringAttenuation(0.98)).toBeCloseTo(0.0396, 12);
+    // perfect confounding removes the signal entirely
+    expect(centeringAttenuation(1)).toBe(0);
+    expect(centeringAttenuation(-1)).toBe(0);
+    expect(() => centeringAttenuation(1.1)).toThrow(RangeError);
+  });
+
+  it('the attenuation follows from the composition, computed independently', () => {
+    // recompute from first principles: centre each batch, then pool and difference
+    const attenuationFromScratch = (f1: number) => {
+      const f2 = 1 - f1;
+      // after centring, type A sits at (1-f_k)d and type B at -f_k d within batch k
+      const meanA = (f1 * (1 - f1) + f2 * (1 - f2)) / (f1 + f2);
+      const meanB = ((1 - f1) * -f1 + (1 - f2) * -f2) / (2 - f1 - f2);
+      return meanA - meanB;
+    };
+    for (const f1 of [0.5, 0.6, 0.7, 0.8, 0.9, 0.95]) {
+      const r = batchTypeCorrelation(f1, 1 - f1);
+      expect(attenuationFromScratch(f1)).toBeCloseTo(centeringAttenuation(r), 10);
+    }
+  });
+
+  it('a correct regression pays the same r squared as variance instead', () => {
+    expect(varianceInflationFactor(0)).toBe(1);
+    expect(varianceInflationFactor(0.6)).toBeCloseTo(1.5625, 10);
+    expect(varianceInflationFactor(0.8)).toBeCloseTo(2.7778, 4);
+    expect(varianceInflationFactor(0.9)).toBeCloseTo(5.2632, 4);
+    expect(varianceInflationFactor(0.98)).toBeCloseTo(25.2525, 4);
+    expect(varianceInflationFactor(1)).toBe(Number.POSITIVE_INFINITY);
+    // the two are exact reciprocals: neither route escapes the other
+    for (const r of [0.2, 0.5, 0.75, 0.9])
+      expect(centeringAttenuation(r) * varianceInflationFactor(r)).toBeCloseTo(1, 12);
   });
 });

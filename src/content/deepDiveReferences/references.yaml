@@ -3830,3 +3830,27 @@ buettner2021sccoda:
   venue: "Nature Communications 12:6876"
   doi: https://doi.org/10.1038/s41467-021-27150-6
   verified: 2026-08-26
+
+luecken2022benchmark:
+  authors: ['Malte D. Luecken', 'Maren Büttner', 'Kridsadakorn Chaichoompu', 'et al.']
+  year: 2022
+  title: "Benchmarking atlas-level data integration in single-cell genomics"
+  venue: "Nature Methods 19:41-50"
+  doi: https://doi.org/10.1038/s41592-021-01336-8
+  verified: 2026-08-26
+
+haghverdi2018mnn:
+  authors: ['Laleh Haghverdi', 'Aaron T. L. Lun', 'Michael D. Morgan', 'John C. Marioni']
+  year: 2018
+  title: "Batch effects in single-cell RNA-sequencing data are corrected by matching mutual nearest neighbors"
+  venue: "Nature Biotechnology 36:421-427"
+  doi: https://doi.org/10.1038/nbt.4091
+  verified: 2026-08-26
+
+korsunsky2019harmony:
+  authors: ['Ilya Korsunsky', 'Nghia Millard', 'Jean Fan', 'et al.']
+  year: 2019
+  title: "Fast, sensitive and accurate integration of single-cell data with Harmony"
+  venue: "Nature Methods 16:1289-1296"
+  doi: https://doi.org/10.1038/s41592-019-0619-0
+  verified: 2026-08-26

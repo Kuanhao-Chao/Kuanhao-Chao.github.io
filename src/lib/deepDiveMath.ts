@@ -1006,6 +1006,52 @@ export function chi2Cdf(x: number, df: number): number {
   return regularizedGammaP(df / 2, x / 2);
 }
 
+/**
+ * Correlation between the batch indicator and a cell-type indicator, for two equal-sized
+ * batches in which the type makes up fractions f₁ and f₂.
+ *
+ * Works out to exactly f₁ − f₂ in magnitude, which makes "how confounded is this design" a
+ * quantity you can read straight off the composition table rather than a judgement.
+ */
+export function batchTypeCorrelation(f1: number, f2: number): number {
+  for (const f of [f1, f2])
+    if (f < 0 || f > 1) throw new RangeError(`batchTypeCorrelation needs fractions in [0,1], got ${f}`);
+  const pType = (f1 + f2) / 2;
+  if (pType === 0 || pType === 1)
+    throw new RangeError('batchTypeCorrelation needs the type present in at least one batch and absent from at least one cell');
+  const cov = f2 / 2 - 0.5 * pType;
+  return cov / Math.sqrt(0.25 * pType * (1 - pType));
+}
+
+/**
+ * What per-batch centring does to a real biological difference: it survives multiplied by
+ * 1 − r².
+ *
+ * Centring removes each batch's own mean, and when composition differs between batches that
+ * mean contains part of the biological signal. The attenuation is exactly the classic
+ * collinearity factor — at r = 1 the signal is removed entirely, which is the identifiability
+ * statement rather than a failure of any particular integration method.
+ */
+export function centeringAttenuation(correlation: number): number {
+  if (correlation < -1 || correlation > 1)
+    throw new RangeError(`centeringAttenuation needs r in [-1,1], got ${correlation}`);
+  return 1 - correlation * correlation;
+}
+
+/**
+ * Variance inflation factor, 1/(1 − r²) — the price a *correct* regression pays for the same
+ * confounding that centring pays in attenuation.
+ *
+ * The pair is the whole argument of the lesson that uses it: one route loses the estimate and
+ * the other loses its precision, both by the same r², and neither can do better because the
+ * information is not in the data.
+ */
+export function varianceInflationFactor(correlation: number): number {
+  const remaining = centeringAttenuation(correlation);
+  if (remaining === 0) return Number.POSITIVE_INFINITY;
+  return 1 / remaining;
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**
