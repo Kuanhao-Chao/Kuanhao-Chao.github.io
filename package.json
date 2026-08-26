@@ -24,6 +24,7 @@
     "audit:datasets:offline": "node scripts/verify-datasets.mjs --offline",
     "audit:deep-dives": "node scripts/audit-deep-dive-ui.mjs",
     "audit:deep-dives:ci": "node scripts/audit-deep-dive-ui.mjs --smoke",
+    "audit:narrow": "node scripts/audit-narrow.mjs",
     "audit:ml-interview": "node scripts/audit-ml-interview.mjs",
     "audit:games": "node scripts/audit-game-ui.mjs",
     "audit:cells": "node scripts/audit-living-cells-ui.mjs",

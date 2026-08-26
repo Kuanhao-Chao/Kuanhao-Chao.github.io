@@ -23,6 +23,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'sc-marker-contrast',
   'sc-pseudobulk',
   'sc-composition',
+  'pca-structure',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];
