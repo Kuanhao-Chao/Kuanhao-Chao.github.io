@@ -3886,3 +3886,36 @@ haghverdi2016dpt:
   venue: "Nature Methods 13:845-848"
   doi: https://doi.org/10.1038/nmeth.3971
   verified: 2026-08-26
+
+lamanno2018velocity:
+  authors: ['Gioele La Manno', 'Ruslan Soldatov', 'Amit Zeisel', 'et al.']
+  surname: La Manno
+  year: 2018
+  title: "RNA velocity of single cells"
+  venue: "Nature 560:494-498"
+  doi: https://doi.org/10.1038/s41586-018-0414-6
+  verified: 2026-08-26
+
+bergen2020scvelo:
+  authors: ['Volker Bergen', 'Marius Lange', 'Stefan Peidli', 'F. Alexander Wolf', 'Fabian J. Theis']
+  year: 2020
+  title: "Generalizing RNA velocity to transient cell states through dynamical modeling"
+  venue: "Nature Biotechnology 38:1408-1414"
+  doi: https://doi.org/10.1038/s41587-020-0591-3
+  verified: 2026-08-26
+
+gayoso2024velovi:
+  authors: ['Adam Gayoso', 'Philipp Weiler', 'Mohammad Lotfollahi', 'et al.']
+  year: 2024
+  title: "Deep generative modeling of transcriptional dynamics for RNA velocity analysis in single cells"
+  venue: "Nature Methods 21:50-59"
+  doi: https://doi.org/10.1038/s41592-023-01994-w
+  verified: 2026-08-26
+
+bergen2021challenges:
+  authors: ['Volker Bergen', 'Ruslan A. Soldatov', 'Peter V. Kharchenko', 'Fabian J. Theis']
+  year: 2021
+  title: "RNA velocity - current challenges and future perspectives"
+  venue: "Molecular Systems Biology 17:e10282"
+  doi: https://doi.org/10.15252/msb.202110282
+  verified: 2026-08-26

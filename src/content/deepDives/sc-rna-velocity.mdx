@@ -1,0 +1,330 @@
+---
+title: "RNA Velocity: The Arrow Is a Comparison Against One Fitted Number"
+shortTitle: RNA Velocity
+description: "What the two-state splicing model actually infers, why the direction of every arrow reduces to a comparison against the degradation rate, and how far that rate has to be wrong before the picture reverses."
+abstract: "RNA velocity promises direction from a snapshot: unspliced transcripts appear before spliced ones, so their ratio should say whether a gene is turning on or off. Under the standard two-state model the velocity of the spliced count is u − γs, which means a cell is called inducing exactly when its unspliced-to-spliced ratio exceeds γ — the degradation rate — and the arrow encodes nothing else about that gene. So every arrow in the figure is a comparison against one number fitted from the data, and the sensitivity to it is severe. Taking the ratios as lognormal about the true γ with log-standard-deviation 0.5, estimating γ two-fold too high reverses the inferred direction for 41.72% of cells, systematically in one direction. The dependence runs the opposite way to intuition: a gene whose ratios are tightly clustered sits almost entirely on one side of a shifted threshold, so at a log-sd of 0.25 a three-fold error inverts essentially every cell."
+date: 2026-08-26
+track: theory
+hub: single-cell
+moduleId: s05-beyond
+moduleLabel: Module 5 · Beyond One Snapshot
+order: 16
+level: advanced
+objectives:
+  - "State the two-state splicing model and derive the velocity of the spliced count."
+  - "Show that the sign of the velocity is a comparison of the unspliced-to-spliced ratio against the degradation rate."
+  - "Compute the fraction of cells whose inferred direction reverses when that rate is misestimated."
+  - "Explain why tightly distributed genes are more vulnerable to the error, not less."
+  - "Say what an RNA velocity figure supports, and what would need an independent measurement."
+prerequisites:
+  - sc-trajectories
+  - sc-count-noise-model
+relatedLessons:
+  - sc-trajectories
+  - sc-embeddings
+keyEquations:
+  - '\dfrac{ds}{dt} = \beta u - \gamma s'
+  - 'v > 0 \iff \dfrac{u}{s} > \gamma \quad (\beta = 1)'
+  - '\text{fraction reversed} = \left|\Phi\!\left(\dfrac{\ln k}{\sigma}\right) - \dfrac{1}{2}\right|'
+referenceIds:
+  - lamanno2018velocity
+  - bergen2020scvelo
+  - bergen2021challenges
+  - gayoso2024velovi
+  - saelens2019trajectory
+  - trapnell2014monocle
+  - wolf2018scanpy
+  - luecken2019bestpractices
+tags: [single-cell, RNA velocity, splicing kinetics, directionality, model assumptions]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The previous lesson recovered an *ordering* and, from the cell density, the *durations*. What
+it could not supply is a direction: an ordering read backwards is the same ordering, and
+nothing in a similarity graph says which end is the start.
+
+RNA velocity claims to supply it, from a real and elegant observation. A transcript is made
+unspliced and becomes spliced, so when a gene is switching on the unspliced pool runs ahead of
+the spliced one, and when it is switching off the unspliced pool empties first
+<Citation id="lamanno2018velocity" />. The ratio of the two is a derivative, and derivatives
+have signs.
+
+This lesson works out what that sign actually depends on.
+
+<Notation
+  rows={[
+    { symbol: 'u', meaning: 'Unspliced count of a gene in a cell', dims: '>= 0' },
+    { symbol: 's', meaning: 'Spliced count of the same gene', dims: '>= 0' },
+    { symbol: '\\alpha', meaning: 'Transcription rate', dims: '> 0' },
+    { symbol: '\\beta', meaning: 'Splicing rate, conventionally scaled to 1', dims: '> 0' },
+    { symbol: '\\gamma', meaning: 'Degradation rate of the spliced transcript', dims: '> 0' },
+    { symbol: 'k', meaning: 'Factor by which γ is misestimated', dims: '> 0' },
+    { symbol: '\\sigma', meaning: 'Log-standard-deviation of u/s across cells', dims: '> 0' },
+  ]}
+/>
+
+## The model, and what the sign reduces to
+
+Two compartments and three rates:
+
+$$
+\frac{du}{dt} = \alpha - \beta u,
+\qquad
+\frac{ds}{dt} = \beta u - \gamma s.
+$$
+
+The second equation is the velocity of the spliced count, and it is what gets estimated. With
+$\beta$ scaled to 1 — the usual convention, since only ratios of rates are identifiable —
+
+$$
+v = u - \gamma s.
+$$
+
+So $v > 0$, meaning the gene is being induced, exactly when
+
+$$
+\frac{u}{s} > \gamma.
+$$
+
+**The arrow is a comparison of one ratio against one number.** Everything else about the
+gene — its expression level, its variance, how many cells express it — enters only through
+that ratio. And $\gamma$ is not measured; it is fitted, classically from the slope of a
+steady-state line through the extreme cells <Citation id="lamanno2018velocity" />, and in
+later methods from a full kinetic model fitted per gene
+<Citation id="bergen2020scvelo" /> or from a latent-variable model fitted jointly
+<Citation id="gayoso2024velovi" />.
+
+## How wrong can γ be, and what does that cost
+
+Suppose the true rate is $\gamma$ and the estimate is $k\gamma$. Then every cell whose ratio
+lies between the two changes sign: it was on one side of the threshold and is now on the other.
+The cells outside that band keep their direction.
+
+Taking $u/s$ as lognormal about $\gamma$ with log-standard-deviation $\sigma$ — a reasonable
+description of a gene at steady state with cell-to-cell variability — the reversed fraction is
+
+$$
+\left|\Phi\!\left(\frac{\ln k}{\sigma}\right) - \frac{1}{2}\right|.
+$$
+
+At $\sigma = 0.5$ and a two-fold error, that is **41.72%** of cells. Not 41.72% at random:
+every one of them is called *repressing* when it is inducing, because the threshold moved one
+way. A figure built from these arrows will show a coherent flow in the wrong direction.
+
+<Figure
+  caption="Figure 1. Fraction of cells whose inferred velocity direction reverses, against the factor by which the degradation rate is misestimated, for four spreads of the unspliced-to-spliced ratio. A two-fold error at a log-standard-deviation of 0.50 reverses 41.72% of cells; the same error at 0.25 reverses 49.72%, and at 1.00 reverses 25.59%. The dashed line at 50% is the maximum possible, reached when the shifted threshold falls entirely outside the distribution."
+  alt="Four rising curves of the fraction of cells reversed against the misestimation factor from one to four, one per spread of the ratio, all approaching a dashed horizontal line at fifty percent. A point is marked at a two-fold error on the second curve, and a margin table names the four spreads and gives the reading at that point."
+>
+<svg viewBox="0 0 772 392" width="772" height="392" font-family="inherit"><line x1="112.0" y1="44.0" x2="112.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="400.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="400.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="236.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0%</text><line x1="112.0" y1="197.8" x2="400.0" y2="197.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="201.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">10%</text><line x1="112.0" y1="163.6" x2="400.0" y2="163.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="167.6" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">20%</text><line x1="112.0" y1="129.5" x2="400.0" y2="129.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="133.5" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">30%</text><line x1="112.0" y1="95.3" x2="400.0" y2="95.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="99.3" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">40%</text><line x1="112.0" y1="61.1" x2="400.0" y2="61.1" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="104.0" y="65.1" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">50%</text><line x1="112.0" y1="232.0" x2="112.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="112.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1x</text><line x1="160.0" y1="232.0" x2="160.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="160.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.5x</text><line x1="208.0" y1="232.0" x2="208.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="208.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2x</text><line x1="256.0" y1="232.0" x2="256.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="256.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2.5x</text><line x1="304.0" y1="232.0" x2="304.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="304.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">3x</text><line x1="352.0" y1="232.0" x2="352.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="352.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">3.5x</text><line x1="400.0" y1="232.0" x2="400.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="400.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">4x</text><text x="396.0" y="52.1" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">half the cells — the most that can flip</text><path d="M112.0,232.0 L113.3,224.6 L114.6,217.4 L115.9,210.2 L117.2,203.2 L118.5,196.4 L119.9,189.8 L121.2,183.4 L122.5,177.1 L123.8,171.0 L125.1,165.2 L126.4,159.6 L127.7,154.1 L129.0,148.9 L130.3,143.9 L131.6,139.1 L132.9,134.6 L134.3,130.2 L135.6,126.0 L136.9,122.1 L138.2,118.3 L139.5,114.7 L140.8,111.3 L142.1,108.1 L143.4,105.1 L144.7,102.2 L146.0,99.5 L147.3,97.0 L148.7,94.6 L150.0,92.3 L151.3,90.2 L152.6,88.2 L153.9,86.3 L155.2,84.5 L156.5,82.9 L157.8,81.4 L159.1,79.9 L160.4,78.6 L161.7,77.3 L163.1,76.1 L164.4,75.0 L165.7,74.0 L167.0,73.1 L168.3,72.2 L169.6,71.4 L170.9,70.6 L172.2,69.9 L173.5,69.2 L174.8,68.6 L176.1,68.0 L177.5,67.5 L178.8,67.0 L180.1,66.6 L181.4,66.1 L182.7,65.8 L184.0,65.4 L185.3,65.1 L186.6,64.8 L187.9,64.5 L189.2,64.2 L190.5,64.0 L191.9,63.7 L193.2,63.5 L194.5,63.3 L195.8,63.2 L197.1,63.0 L198.4,62.8 L199.7,62.7 L201.0,62.6 L202.3,62.5 L203.6,62.3 L204.9,62.2 L206.3,62.2 L207.6,62.1 L208.9,62.0 L210.2,61.9 L211.5,61.9 L212.8,61.8 L214.1,61.7 L215.4,61.7 L216.7,61.6 L218.0,61.6 L219.3,61.5 L220.7,61.5 L222.0,61.5 L223.3,61.4 L224.6,61.4 L225.9,61.4 L227.2,61.4 L228.5,61.3 L229.8,61.3 L231.1,61.3 L232.4,61.3 L233.7,61.3 L235.1,61.3 L236.4,61.2 L237.7,61.2 L239.0,61.2 L240.3,61.2 L241.6,61.2 L242.9,61.2 L244.2,61.2 L245.5,61.2 L246.8,61.2 L248.1,61.2 L249.5,61.2 L250.8,61.2 L252.1,61.1 L253.4,61.1 L254.7,61.1 L256.0,61.1 L257.3,61.1 L258.6,61.1 L259.9,61.1 L261.2,61.1 L262.5,61.1 L263.9,61.1 L265.2,61.1 L266.5,61.1 L267.8,61.1 L269.1,61.1 L270.4,61.1 L271.7,61.1 L273.0,61.1 L274.3,61.1 L275.6,61.1 L276.9,61.1 L278.3,61.1 L279.6,61.1 L280.9,61.1 L282.2,61.1 L283.5,61.1 L284.8,61.1 L286.1,61.1 L287.4,61.1 L288.7,61.1 L290.0,61.1 L291.3,61.1 L292.7,61.1 L294.0,61.1 L295.3,61.1 L296.6,61.1 L297.9,61.1 L299.2,61.1 L300.5,61.1 L301.8,61.1 L303.1,61.1 L304.4,61.1 L305.7,61.1 L307.1,61.1 L308.4,61.1 L309.7,61.1 L311.0,61.1 L312.3,61.1 L313.6,61.1 L314.9,61.1 L316.2,61.1 L317.5,61.1 L318.8,61.1 L320.1,61.1 L321.5,61.1 L322.8,61.1 L324.1,61.1 L325.4,61.1 L326.7,61.1 L328.0,61.1 L329.3,61.1 L330.6,61.1 L331.9,61.1 L333.2,61.1 L334.5,61.1 L335.9,61.1 L337.2,61.1 L338.5,61.1 L339.8,61.1 L341.1,61.1 L342.4,61.1 L343.7,61.1 L345.0,61.1 L346.3,61.1 L347.6,61.1 L348.9,61.1 L350.3,61.1 L351.6,61.1 L352.9,61.1 L354.2,61.1 L355.5,61.1 L356.8,61.1 L358.1,61.1 L359.4,61.1 L360.7,61.1 L362.0,61.1 L363.3,61.1 L364.7,61.1 L366.0,61.1 L367.3,61.1 L368.6,61.1 L369.9,61.1 L371.2,61.1 L372.5,61.1 L373.8,61.1 L375.1,61.1 L376.4,61.1 L377.7,61.1 L379.1,61.1 L380.4,61.1 L381.7,61.1 L383.0,61.1 L384.3,61.1 L385.6,61.1 L386.9,61.1 L388.2,61.1 L389.5,61.1 L390.8,61.1 L392.1,61.1 L393.5,61.1 L394.8,61.1 L396.1,61.1 L397.4,61.1 L398.7,61.1 L400.0,61.1" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><path d="M112.0,232.0 L113.3,228.3 L114.6,224.7 L115.9,221.1 L117.2,217.5 L118.5,214.1 L119.9,210.6 L121.2,207.3 L122.5,204.0 L123.8,200.7 L125.1,197.5 L126.4,194.4 L127.7,191.3 L129.0,188.3 L130.3,185.3 L131.6,182.4 L132.9,179.5 L134.3,176.7 L135.6,174.0 L136.9,171.3 L138.2,168.7 L139.5,166.1 L140.8,163.6 L142.1,161.1 L143.4,158.7 L144.7,156.4 L146.0,154.0 L147.3,151.8 L148.7,149.6 L150.0,147.4 L151.3,145.3 L152.6,143.2 L153.9,141.2 L155.2,139.3 L156.5,137.3 L157.8,135.5 L159.1,133.6 L160.4,131.8 L161.7,130.1 L163.1,128.4 L164.4,126.7 L165.7,125.1 L167.0,123.5 L168.3,121.9 L169.6,120.4 L170.9,119.0 L172.2,117.5 L173.5,116.1 L174.8,114.7 L176.1,113.4 L177.5,112.1 L178.8,110.8 L180.1,109.6 L181.4,108.4 L182.7,107.2 L184.0,106.0 L185.3,104.9 L186.6,103.8 L187.9,102.8 L189.2,101.7 L190.5,100.7 L191.9,99.7 L193.2,98.8 L194.5,97.8 L195.8,96.9 L197.1,96.0 L198.4,95.1 L199.7,94.3 L201.0,93.5 L202.3,92.7 L203.6,91.9 L204.9,91.1 L206.3,90.4 L207.6,89.6 L208.9,88.9 L210.2,88.2 L211.5,87.6 L212.8,86.9 L214.1,86.3 L215.4,85.7 L216.7,85.0 L218.0,84.5 L219.3,83.9 L220.7,83.3 L222.0,82.8 L223.3,82.2 L224.6,81.7 L225.9,81.2 L227.2,80.7 L228.5,80.2 L229.8,79.8 L231.1,79.3 L232.4,78.9 L233.7,78.4 L235.1,78.0 L236.4,77.6 L237.7,77.2 L239.0,76.8 L240.3,76.4 L241.6,76.0 L242.9,75.7 L244.2,75.3 L245.5,75.0 L246.8,74.6 L248.1,74.3 L249.5,74.0 L250.8,73.7 L252.1,73.4 L253.4,73.1 L254.7,72.8 L256.0,72.5 L257.3,72.2 L258.6,72.0 L259.9,71.7 L261.2,71.5 L262.5,71.2 L263.9,71.0 L265.2,70.7 L266.5,70.5 L267.8,70.3 L269.1,70.1 L270.4,69.9 L271.7,69.6 L273.0,69.4 L274.3,69.2 L275.6,69.1 L276.9,68.9 L278.3,68.7 L279.6,68.5 L280.9,68.3 L282.2,68.2 L283.5,68.0 L284.8,67.8 L286.1,67.7 L287.4,67.5 L288.7,67.4 L290.0,67.2 L291.3,67.1 L292.7,66.9 L294.0,66.8 L295.3,66.7 L296.6,66.6 L297.9,66.4 L299.2,66.3 L300.5,66.2 L301.8,66.1 L303.1,66.0 L304.4,65.8 L305.7,65.7 L307.1,65.6 L308.4,65.5 L309.7,65.4 L311.0,65.3 L312.3,65.2 L313.6,65.1 L314.9,65.0 L316.2,65.0 L317.5,64.9 L318.8,64.8 L320.1,64.7 L321.5,64.6 L322.8,64.5 L324.1,64.5 L325.4,64.4 L326.7,64.3 L328.0,64.2 L329.3,64.2 L330.6,64.1 L331.9,64.0 L333.2,64.0 L334.5,63.9 L335.9,63.8 L337.2,63.8 L338.5,63.7 L339.8,63.7 L341.1,63.6 L342.4,63.5 L343.7,63.5 L345.0,63.4 L346.3,63.4 L347.6,63.3 L348.9,63.3 L350.3,63.2 L351.6,63.2 L352.9,63.2 L354.2,63.1 L355.5,63.1 L356.8,63.0 L358.1,63.0 L359.4,62.9 L360.7,62.9 L362.0,62.9 L363.3,62.8 L364.7,62.8 L366.0,62.7 L367.3,62.7 L368.6,62.7 L369.9,62.6 L371.2,62.6 L372.5,62.6 L373.8,62.5 L375.1,62.5 L376.4,62.5 L377.7,62.5 L379.1,62.4 L380.4,62.4 L381.7,62.4 L383.0,62.3 L384.3,62.3 L385.6,62.3 L386.9,62.3 L388.2,62.2 L389.5,62.2 L390.8,62.2 L392.1,62.2 L393.5,62.1 L394.8,62.1 L396.1,62.1 L397.4,62.1 L398.7,62.1 L400.0,62.0" fill="none" stroke="currentColor" stroke-width="1.9" opacity=".72"/><path d="M112.0,232.0 L113.3,229.5 L114.6,227.1 L115.9,224.7 L117.2,222.4 L118.5,220.0 L119.9,217.7 L121.2,215.5 L122.5,213.2 L123.8,211.0 L125.1,208.9 L126.4,206.7 L127.7,204.6 L129.0,202.6 L130.3,200.5 L131.6,198.5 L132.9,196.5 L134.3,194.6 L135.6,192.7 L136.9,190.8 L138.2,188.9 L139.5,187.1 L140.8,185.3 L142.1,183.5 L143.4,181.7 L144.7,180.0 L146.0,178.3 L147.3,176.6 L148.7,175.0 L150.0,173.3 L151.3,171.8 L152.6,170.2 L153.9,168.6 L155.2,167.1 L156.5,165.6 L157.8,164.1 L159.1,162.7 L160.4,161.2 L161.7,159.8 L163.1,158.4 L164.4,157.1 L165.7,155.7 L167.0,154.4 L168.3,153.1 L169.6,151.8 L170.9,150.6 L172.2,149.3 L173.5,148.1 L174.8,146.9 L176.1,145.7 L177.5,144.5 L178.8,143.4 L180.1,142.2 L181.4,141.1 L182.7,140.0 L184.0,139.0 L185.3,137.9 L186.6,136.8 L187.9,135.8 L189.2,134.8 L190.5,133.8 L191.9,132.8 L193.2,131.8 L194.5,130.9 L195.8,129.9 L197.1,129.0 L198.4,128.1 L199.7,127.2 L201.0,126.3 L202.3,125.5 L203.6,124.6 L204.9,123.8 L206.3,122.9 L207.6,122.1 L208.9,121.3 L210.2,120.5 L211.5,119.7 L212.8,118.9 L214.1,118.2 L215.4,117.4 L216.7,116.7 L218.0,116.0 L219.3,115.3 L220.7,114.6 L222.0,113.9 L223.3,113.2 L224.6,112.5 L225.9,111.8 L227.2,111.2 L228.5,110.5 L229.8,109.9 L231.1,109.3 L232.4,108.7 L233.7,108.1 L235.1,107.5 L236.4,106.9 L237.7,106.3 L239.0,105.7 L240.3,105.2 L241.6,104.6 L242.9,104.1 L244.2,103.5 L245.5,103.0 L246.8,102.5 L248.1,101.9 L249.5,101.4 L250.8,100.9 L252.1,100.4 L253.4,100.0 L254.7,99.5 L256.0,99.0 L257.3,98.5 L258.6,98.1 L259.9,97.6 L261.2,97.2 L262.5,96.7 L263.9,96.3 L265.2,95.9 L266.5,95.4 L267.8,95.0 L269.1,94.6 L270.4,94.2 L271.7,93.8 L273.0,93.4 L274.3,93.0 L275.6,92.6 L276.9,92.3 L278.3,91.9 L279.6,91.5 L280.9,91.2 L282.2,90.8 L283.5,90.5 L284.8,90.1 L286.1,89.8 L287.4,89.4 L288.7,89.1 L290.0,88.8 L291.3,88.4 L292.7,88.1 L294.0,87.8 L295.3,87.5 L296.6,87.2 L297.9,86.9 L299.2,86.6 L300.5,86.3 L301.8,86.0 L303.1,85.7 L304.4,85.4 L305.7,85.2 L307.1,84.9 L308.4,84.6 L309.7,84.3 L311.0,84.1 L312.3,83.8 L313.6,83.6 L314.9,83.3 L316.2,83.0 L317.5,82.8 L318.8,82.6 L320.1,82.3 L321.5,82.1 L322.8,81.8 L324.1,81.6 L325.4,81.4 L326.7,81.1 L328.0,80.9 L329.3,80.7 L330.6,80.5 L331.9,80.3 L333.2,80.1 L334.5,79.9 L335.9,79.6 L337.2,79.4 L338.5,79.2 L339.8,79.0 L341.1,78.8 L342.4,78.7 L343.7,78.5 L345.0,78.3 L346.3,78.1 L347.6,77.9 L348.9,77.7 L350.3,77.5 L351.6,77.4 L352.9,77.2 L354.2,77.0 L355.5,76.8 L356.8,76.7 L358.1,76.5 L359.4,76.3 L360.7,76.2 L362.0,76.0 L363.3,75.9 L364.7,75.7 L366.0,75.5 L367.3,75.4 L368.6,75.2 L369.9,75.1 L371.2,74.9 L372.5,74.8 L373.8,74.7 L375.1,74.5 L376.4,74.4 L377.7,74.2 L379.1,74.1 L380.4,74.0 L381.7,73.8 L383.0,73.7 L384.3,73.6 L385.6,73.4 L386.9,73.3 L388.2,73.2 L389.5,73.1 L390.8,72.9 L392.1,72.8 L393.5,72.7 L394.8,72.6 L396.1,72.5 L397.4,72.3 L398.7,72.2 L400.0,72.1" fill="none" stroke="currentColor" stroke-width="1.9" opacity=".5"/><path d="M112.0,232.0 L113.3,230.2 L114.6,228.3 L115.9,226.5 L117.2,224.8 L118.5,223.0 L119.9,221.3 L121.2,219.6 L122.5,217.9 L123.8,216.2 L125.1,214.6 L126.4,213.0 L127.7,211.4 L129.0,209.8 L130.3,208.3 L131.6,206.8 L132.9,205.3 L134.3,203.8 L135.6,202.3 L136.9,200.9 L138.2,199.4 L139.5,198.0 L140.8,196.6 L142.1,195.3 L143.4,193.9 L144.7,192.6 L146.0,191.2 L147.3,189.9 L148.7,188.7 L150.0,187.4 L151.3,186.1 L152.6,184.9 L153.9,183.7 L155.2,182.5 L156.5,181.3 L157.8,180.1 L159.1,179.0 L160.4,177.8 L161.7,176.7 L163.1,175.6 L164.4,174.5 L165.7,173.4 L167.0,172.3 L168.3,171.2 L169.6,170.2 L170.9,169.2 L172.2,168.1 L173.5,167.1 L174.8,166.1 L176.1,165.1 L177.5,164.2 L178.8,163.2 L180.1,162.3 L181.4,161.3 L182.7,160.4 L184.0,159.5 L185.3,158.6 L186.6,157.7 L187.9,156.8 L189.2,155.9 L190.5,155.1 L191.9,154.2 L193.2,153.4 L194.5,152.6 L195.8,151.7 L197.1,150.9 L198.4,150.1 L199.7,149.3 L201.0,148.6 L202.3,147.8 L203.6,147.0 L204.9,146.3 L206.3,145.5 L207.6,144.8 L208.9,144.0 L210.2,143.3 L211.5,142.6 L212.8,141.9 L214.1,141.2 L215.4,140.5 L216.7,139.8 L218.0,139.2 L219.3,138.5 L220.7,137.8 L222.0,137.2 L223.3,136.5 L224.6,135.9 L225.9,135.3 L227.2,134.7 L228.5,134.0 L229.8,133.4 L231.1,132.8 L232.4,132.2 L233.7,131.6 L235.1,131.1 L236.4,130.5 L237.7,129.9 L239.0,129.3 L240.3,128.8 L241.6,128.2 L242.9,127.7 L244.2,127.1 L245.5,126.6 L246.8,126.1 L248.1,125.6 L249.5,125.0 L250.8,124.5 L252.1,124.0 L253.4,123.5 L254.7,123.0 L256.0,122.5 L257.3,122.0 L258.6,121.6 L259.9,121.1 L261.2,120.6 L262.5,120.2 L263.9,119.7 L265.2,119.2 L266.5,118.8 L267.8,118.3 L269.1,117.9 L270.4,117.5 L271.7,117.0 L273.0,116.6 L274.3,116.2 L275.6,115.7 L276.9,115.3 L278.3,114.9 L279.6,114.5 L280.9,114.1 L282.2,113.7 L283.5,113.3 L284.8,112.9 L286.1,112.5 L287.4,112.1 L288.7,111.8 L290.0,111.4 L291.3,111.0 L292.7,110.6 L294.0,110.3 L295.3,109.9 L296.6,109.5 L297.9,109.2 L299.2,108.8 L300.5,108.5 L301.8,108.1 L303.1,107.8 L304.4,107.5 L305.7,107.1 L307.1,106.8 L308.4,106.5 L309.7,106.1 L311.0,105.8 L312.3,105.5 L313.6,105.2 L314.9,104.9 L316.2,104.5 L317.5,104.2 L318.8,103.9 L320.1,103.6 L321.5,103.3 L322.8,103.0 L324.1,102.7 L325.4,102.4 L326.7,102.1 L328.0,101.9 L329.3,101.6 L330.6,101.3 L331.9,101.0 L333.2,100.7 L334.5,100.5 L335.9,100.2 L337.2,99.9 L338.5,99.7 L339.8,99.4 L341.1,99.1 L342.4,98.9 L343.7,98.6 L345.0,98.4 L346.3,98.1 L347.6,97.9 L348.9,97.6 L350.3,97.4 L351.6,97.1 L352.9,96.9 L354.2,96.6 L355.5,96.4 L356.8,96.2 L358.1,95.9 L359.4,95.7 L360.7,95.5 L362.0,95.2 L363.3,95.0 L364.7,94.8 L366.0,94.6 L367.3,94.3 L368.6,94.1 L369.9,93.9 L371.2,93.7 L372.5,93.5 L373.8,93.3 L375.1,93.1 L376.4,92.9 L377.7,92.6 L379.1,92.4 L380.4,92.2 L381.7,92.0 L383.0,91.8 L384.3,91.6 L385.6,91.5 L386.9,91.3 L388.2,91.1 L389.5,90.9 L390.8,90.7 L392.1,90.5 L393.5,90.3 L394.8,90.1 L396.1,89.9 L397.4,89.8 L398.7,89.6 L400.0,89.4" fill="none" stroke="currentColor" stroke-width="1.9" opacity=".34"/><circle cx="208.0" cy="89.4" r="4.4" fill="currentColor" opacity=".72"/><text x="256.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">How far the degradation rate is misestimated</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Cells whose arrow points the wrong way</text><text x="430.0" y="52.0" font-size="9.5" fill="currentColor" opacity=".6">spread of u/s</text><line x1="430.0" y1="66.0" x2="450.0" y2="66.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><text x="458.0" y="70.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">log sd 0.25</text><line x1="430.0" y1="81.0" x2="450.0" y2="81.0" stroke="currentColor" stroke-width="1.9" opacity=".72"/><text x="458.0" y="85.0" font-size="10" fill="currentColor" opacity=".72">log sd 0.50</text><line x1="430.0" y1="96.0" x2="450.0" y2="96.0" stroke="currentColor" stroke-width="1.9" opacity=".5"/><text x="458.0" y="100.0" font-size="10" fill="currentColor" opacity=".5">log sd 0.75</text><line x1="430.0" y1="111.0" x2="450.0" y2="111.0" stroke="currentColor" stroke-width="1.9" opacity=".34"/><text x="458.0" y="115.0" font-size="10" fill="currentColor" opacity=".34">log sd 1.00</text><text x="430.0" y="148.0" font-size="10" fill="currentColor" opacity=".8">at a two-fold error, log sd 0.50:</text><text x="430.0" y="163.0" font-size="10" fill="currentColor" font-weight="600">41.7% of arrows reverse</text><text x="430.0" y="190.0" font-size="11" fill="currentColor" font-weight="700">Tighter is worse.</text><text x="430.0" y="208.0" font-size="10" fill="currentColor" opacity=".8">The arrow says "inducing"</text><text x="430.0" y="221.0" font-size="10" fill="currentColor" opacity=".8">exactly when u/s exceeds the</text><text x="430.0" y="234.0" font-size="10" fill="currentColor" opacity=".8">degradation rate, so an error</text><text x="430.0" y="247.0" font-size="10" fill="currentColor" opacity=".8">in that rate reverses every</text><text x="430.0" y="260.0" font-size="10" fill="currentColor" opacity=".8">cell between the two values.</text><text x="430.0" y="273.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="430.0" y="286.0" font-size="10" fill="currentColor" opacity=".8">A tightly clustered gene sits</text><text x="430.0" y="299.0" font-size="10" fill="currentColor" opacity=".8">almost entirely on one side of</text><text x="430.0" y="312.0" font-size="10" fill="currentColor" opacity=".8">a shifted threshold, so it</text><text x="430.0" y="325.0" font-size="10" fill="currentColor" opacity=".8">inverts more completely, not</text><text x="430.0" y="338.0" font-size="10" fill="currentColor" opacity=".8">less - the sd 0.25 curve</text><text x="430.0" y="351.0" font-size="10" fill="currentColor" opacity=".8">reaches half the cells by a</text><text x="430.0" y="364.0" font-size="10" fill="currentColor" opacity=".8">three-fold error, and every</text><text x="430.0" y="377.0" font-size="10" fill="currentColor" opacity=".8">flipped cell goes the same way.</text></svg>
+</Figure>
+
+The direction of the dependence on $\sigma$ is the part that catches people out. **A
+tighter gene is more vulnerable, not less.** If every cell has nearly the same ratio, the whole
+population sits just above or just below the threshold, and moving the threshold past it flips
+all of them together: at $\sigma = 0.25$ a three-fold error reverses essentially every cell. A
+gene with wide cell-to-cell variation keeps most of its cells far from the boundary, so a
+modest error touches only the ones near it — 25.59% at $\sigma = 1.0$ against 49.72% at
+$\sigma = 0.25$ for the same two-fold error.
+
+That is the reverse of the usual intuition about noise, and it means the genes that look
+cleanest are the ones whose arrows are least robust.
+
+<WorkedExample
+  title="What a two-fold error does to a figure"
+  given={[
+    'A gene whose u/s ratios are lognormal about the true γ',
+    'Log-standard-deviation σ = 0.5',
+    'γ estimated two-fold too high',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — where the threshold sits.** A cell is called inducing when $u/s > \gamma$. With the
+estimate at $2\gamma$, the cells reclassified are exactly those with
+
+$$
+\gamma < \frac{u}{s} < 2\gamma.
+$$
+
+**Step 2 — how many cells that is.** On the log scale the band runs from 0 to $\ln 2 = 0.693147$
+standard-deviations-worth, i.e. to $0.693147/0.5 = 1.386294$ standard deviations:
+
+$$
+\Phi(1.386294) - \Phi(0) = 0.917171 - 0.5 = 0.417171,
+$$
+
+so **41.72%** of the gene's cells reverse.
+
+**Step 3 — the direction.** All of them the same way. The threshold moved up, so cells that
+were above it and below $2\gamma$ are now below: every reversed cell goes from "inducing" to
+"repressing". The figure does not become noisy; it becomes coherently wrong.
+
+**Step 4 — the same error on a tighter and a looser gene.** At $\sigma = 0.25$ the same
+two-fold error reverses **49.72%** — essentially the entire half of the distribution above
+$\gamma$. At $\sigma = 1.0$ it reverses **25.59%**.
+
+**Step 5 — what would be needed to rule it out.** An independent estimate of $\gamma$, which
+means a measurement of degradation rate — metabolic labelling, a transcription block, anything
+that observes the same cells twice. Absent that, the arrows are a consequence of the fit, and
+the honest statement is conditional: *if* the fitted rates are right, the flow runs this way.
+
+</WorkedExample>
+
+<Callout variant="intuition" title="What the model assumes that a snapshot cannot check">
+
+Three assumptions carry the whole inference, and none is testable from the data being analysed.
+
+**That β and γ are constant across cells.** They are fitted once per gene, so a cell type with
+different splicing kinetics is being measured against another cell type's rates. This is the
+assumption that fails most often in practice, and it fails hardest exactly where cell states
+differ most — which is where the arrows are being read <Citation id="bergen2021challenges" />.
+
+**That the extreme cells are at steady state.** The classical estimator fits the slope through
+cells assumed to have reached equilibrium. Transient states are the interesting ones and are by
+definition not at equilibrium; later methods drop the assumption by fitting full kinetics
+instead <Citation id="bergen2020scvelo" />.
+
+**That unspliced counts mean what they appear to.** Intronic reads come from pre-mRNA, but also
+from intron retention, from internal priming, and from annotation choices about where a gene
+ends. Two pipelines can produce materially different $u$ for the same library.
+
+None of this makes velocity useless. It makes it a model-based inference whose conclusions
+should be reported with the model, exactly as a phylogeny is reported with its substitution
+model — not as an observation.
+
+</Callout>
+
+## Where this sits in the track
+
+Velocity is the only tool in the curriculum that claims a *direction* from a snapshot, and it
+is worth being clear about what the alternatives supply. A trajectory method supplies an
+ordering and, through lesson 15's density argument, the relative durations — but not which end
+is the beginning <Citation id="trapnell2014monocle" />
+<Citation id="saelens2019trajectory" />. Velocity supplies the direction, conditional on the
+fitted kinetics. A time course supplies both unconditionally, and is the only one of the three
+that does.
+
+The practical reading, then: use velocity to generate a directional hypothesis, state the
+fitted $\gamma$ and the method that produced it, and check whether the conclusion survives a
+plausible perturbation of it — which this lesson's formula makes a one-line calculation
+<Citation id="wolf2018scanpy" />
+<Citation id="luecken2019bestpractices" />.
+
+## Summary
+
+- Under the two-state model the spliced velocity is $v = u - \gamma s$, so with $\beta$ scaled
+  to 1 a cell is called inducing exactly when $u/s > \gamma$. **The arrow is one ratio compared
+  against one fitted number.**
+- Misestimating $\gamma$ by a factor $k$ reverses every cell whose ratio lies between the true
+  and estimated values — a fraction $|\Phi(\ln k/\sigma) - 1/2|$.
+- At $\sigma = 0.5$, a **two-fold error reverses 41.72%** of cells, and all of them the same
+  way. The figure becomes coherently wrong rather than noisy.
+- **Tighter genes are more vulnerable**: 49.72% at $\sigma = 0.25$ against 25.59% at
+  $\sigma = 1.0$ for the same error. The genes that look cleanest have the least robust arrows.
+- Three untestable assumptions carry the inference: constant kinetics across cells, steady state
+  in the cells used for fitting, and that intronic reads mean pre-mRNA.
+- Velocity gives a direction conditional on a model. A time course gives one unconditionally.
+
+<Exercise n={1} title="Reading the sensitivity off the formula" difficulty="warm-up">
+
+A gene has $\sigma = 0.5$.
+
+(a) What fraction of cells reverse if $\gamma$ is 25% too high?
+
+(b) What fraction if it is 50% too high?
+
+(c) Compare with a two-fold error, and comment on the shape.
+
+<div slot="solution">
+
+(a) $k = 1.25$, so $\ln k/\sigma = 0.223144/0.5 = 0.446287$ and the fraction is
+$\Phi(0.446287) - 0.5 = 0.1723$, or **17.23%**.
+
+(b) $k = 1.5$ gives $\ln 1.5/0.5 = 0.810930$ and $\Phi(0.810930) - 0.5 = 0.2913$, or
+**29.13%**.
+
+(c) A two-fold error gives 41.72%. So the damage accumulates fast at first and then saturates
+towards the ceiling of 50% — the first 25% of error already costs a sixth of the cells, and
+doubling the error from 1.5× to 3× adds less than the first 1.5× did. There is no regime in
+which a small error in $\gamma$ is harmless.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Two genes, one error" difficulty="core">
+
+Two genes are fitted with the same relative error in $\gamma$, a factor of 2. Gene A has
+$\sigma = 0.25$; gene B has $\sigma = 1.0$.
+
+(a) Which gene has the more reproducible-looking scatter of u against s?
+
+(b) Which loses more arrows to the error?
+
+(c) Reconcile (a) and (b), and say what it implies for how genes should be chosen for a velocity
+figure.
+
+<div slot="solution">
+
+(a) Gene A. A small $\sigma$ means the ratio $u/s$ is nearly the same in every cell, so the
+points lie close to a line through the origin and the fit looks excellent.
+
+(b) Gene A, and by a wide margin: **49.72%** against **25.59%**. Nearly every cell above the
+true threshold in gene A lies below the inflated one, because they are all packed close to it.
+
+(c) The apparent quality of the fit and the robustness of the direction run in opposite
+directions here. A tight scatter means the cells carry little independent information about
+where the threshold belongs — they are all saying the same thing — so the fitted $\gamma$ is
+poorly constrained *and* an error in it moves everything at once. Choosing genes for a figure
+by how clean their phase portrait looks therefore selects for exactly the genes whose arrows are
+least trustworthy. Selecting on variability in $u/s$, or reporting the sensitivity alongside the
+arrows, would be the honest alternative.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="What a claim of direction requires" difficulty="stretch">
+
+A paper reports that velocity arrows show a population differentiating from state X into state
+Y, and that this reverses a previously published ordering.
+
+(a) What is the minimum the paper must report for the claim to be checkable?
+
+(b) The authors note their arrows are consistent across three velocity methods. How much does
+that establish?
+
+(c) Propose one experiment that would settle it, and say what it costs relative to the
+sequencing already done.
+
+<div slot="solution">
+
+(a) The fitted $\gamma$ per gene, the method and its assumptions, and the distribution of $u/s$
+per gene — from which a reader can compute the reversal fraction for any perturbation of
+$\gamma$ using this lesson's formula. Without those, the arrows are unfalsifiable.
+
+(b) Less than it appears. The three methods differ in how they fit kinetics, but all of them
+compare a ratio against a rate estimated from the same counts, and all inherit the same three
+assumptions — constant kinetics across cells, steady state where it is assumed, and intronic
+reads meaning pre-mRNA. Agreement rules out an implementation error and does not address a
+shared modelling assumption. If a cell type genuinely splices faster, every method will be
+wrong about it in the same direction.
+
+(c) Metabolic labelling: a pulse of a modified nucleotide marks newly made transcripts, so new
+and old can be separated in the same cells and the direction read without fitting $\gamma$ at
+all. Relative to the sequencing already done it is a modest addition — the same library
+preparation with one extra step and a chemical conversion — and it converts a model-conditional
+claim into an observation. A time course does the same and is simpler still where the system
+can be sampled repeatedly.
+
+</div>
+
+</Exercise>
