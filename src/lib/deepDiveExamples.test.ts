@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  dirichletMultinomialIcc,
+  compositionCorrelation,
+  clrShiftUnderSingleChange,
+  centeredLogRatio,
+  apparentLogFoldChanges,
+  closureUpdate,
+  closeComposition,
   twoSampleT,
   studentTQuantile,
   markerEvidenceMultiple,
@@ -7674,6 +7681,139 @@ describe('sc-differential-expression — the test that gets worse with more data
       for (const v of ['77.07', '154.14', '78.51', '1.44', '53.6'])
         expect(mdx, v).toContain(v);
       expect(mdx).toMatch(/96\.3%\s+of it/);
+    });
+  });
+});
+
+
+describe('sc-composition — closure, and the five declines that did not happen', () => {
+  const mdx = lesson('sc-composition');
+  const ABUND_A = [40, 20, 10, 8, 20, 2];
+  const ABUND_B = [20, 10, 5, 4, 10, 1];
+  const BEFORE = closeComposition(ABUND_A);
+
+  describe('worked example — doubling monocytes at a 20% share', () => {
+    it('the baseline composition is the one the figures draw', () => {
+      expect(BEFORE).toEqual([0.4, 0.2, 0.1, 0.08, 0.2, 0.02]);
+      expect(BEFORE.reduce((s, x) => s + x, 0)).toBeCloseTo(1, 12);
+      for (const v of ['40%', '20%', '10%', '8%', '2%']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 1: the closure factor is 1.2', () => {
+      const { closureFactor } = closureUpdate(BEFORE, 1, 2);
+      expect(closureFactor).toBeCloseTo(1.2, 12);
+      expect(mdx).toContain('(2 - 1)(0.20) = 1.2');
+    });
+
+    it('step 2: all five untouched populations fall by exactly the same amount', () => {
+      const { proportions } = closureUpdate(BEFORE, 1, 2);
+      const lfc = apparentLogFoldChanges(BEFORE, proportions);
+      const others = lfc.filter((_, i) => i !== 1);
+      for (const v of others) expect(v).toBeCloseTo(-0.263034, 6);
+      // identical, not merely similar — that is the claim
+      expect(new Set(others.map((v) => v.toFixed(12))).size).toBe(1);
+      expect(Math.log2(1 / 1.2)).toBeCloseTo(-0.263034, 6);
+      expect(1 / 1.2).toBeCloseTo(0.8333, 4);
+      for (const v of ['16.67%', '-0.263034']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 3 and 4: monocytes rise 0.736966 and the difference is exactly 1', () => {
+      const { proportions } = closureUpdate(BEFORE, 1, 2);
+      const lfc = apparentLogFoldChanges(BEFORE, proportions);
+      expect(proportions[1]).toBeCloseTo(0.333333, 6);
+      expect(lfc[1]).toBeCloseTo(0.736966, 6);
+      expect(lfc[1] - lfc[0]).toBeCloseTo(1, 12);
+      // and it recovers log2 c for any c, which is the identifiability claim
+      for (const c of [0.25, 0.5, 3, 10]) {
+        const q = closureUpdate(BEFORE, 1, c).proportions;
+        const d = apparentLogFoldChanges(BEFORE, q);
+        expect(d[1] - d[0]).toBeCloseTo(Math.log2(c), 12);
+      }
+      for (const v of ['0.333333', '0.736966', '1.000000']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 2 — the exact ambiguity', () => {
+    it('halving every abundance closes to the identical proportions', () => {
+      const halved = closeComposition(ABUND_B);
+      BEFORE.forEach((p, i) => expect(halved[i]).toBeCloseTo(p, 15));
+      expect(ABUND_A.map((x) => x / 2)).toEqual(ABUND_B);
+      for (const l of ['T cells', 'Monocytes', 'Dendritic',
+                       'filled = experiment A, faint = experiment B'])
+        expect(mdx, `figure 2 label ${l}`).toContain(l);
+    });
+  });
+
+  describe('the centred log-ratio', () => {
+    it('shifts by the closed form and the shifts sum to zero', () => {
+      const shift = clrShiftUnderSingleChange(6, 2);
+      expect(shift.changed).toBeCloseTo(0.833333, 6);
+      expect(shift.others).toBeCloseTo(-0.166667, 6);
+      expect(shift.changed + 5 * shift.others).toBeCloseTo(0, 12);
+      // and the closed form matches the numerical CLR of the actual vectors
+      const after = closureUpdate(BEFORE, 1, 2).proportions;
+      const numeric = centeredLogRatio(after).map((x, i) => x - centeredLogRatio(BEFORE)[i]);
+      expect(numeric[1]).toBeCloseTo(shift.changed, 10);
+      for (const i of [0, 2, 3, 4, 5]) expect(numeric[i]).toBeCloseTo(shift.others, 10);
+      // smaller than the raw shift, but not zero — the lesson's point
+      expect(Math.abs(shift.others)).toBeLessThan(Math.abs(-0.263034));
+      expect(shift.others).not.toBe(0);
+      for (const v of ['0.833333', '-0.166667']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('closure correlation and the bridge to lesson 12', () => {
+    it('two parts are negatively correlated before any biology acts', () => {
+      expect(compositionCorrelation(0.2, 0.4)).toBeCloseTo(-0.408248, 6);
+      expect(compositionCorrelation(0.2, 0.4)).toBeLessThan(0);
+      expect(mdx).toContain('-0.408248');
+      // 1/1.2 = 83.33% of the former share, and the monocyte rise of 0.74 in exercise 1
+      expect((100 / 1.2).toFixed(2)).toBe('83.33');
+      expect(mdx).toContain('83.33');
+      expect(Math.log2(2 / 1.2)).toBeCloseTo(0.736966, 6);
+      expect(mdx).toContain('+0.74');
+    });
+
+    it('a Dirichlet-multinomial reproduces lesson 12’s design effect exactly', () => {
+      expect(dirichletMultinomialIcc(19)).toBeCloseTo(0.05, 12);
+      expect(designEffect(500, dirichletMultinomialIcc(19))).toBeCloseTo(25.95, 10);
+      // the same 25.95 lesson 9's exercises and lesson 12 both use
+      expect(designEffect(500, 0.05)).toBeCloseTo(25.95, 10);
+      for (const v of ['19', '25.95']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — the reported numbers invert to a 20% baseline and a true doubling', () => {
+      expect(2 ** 0.263).toBeCloseTo(1.19997, 5);
+      expect(2 ** 1.0).toBe(2);
+      expect((1.2 - 1) / (2 - 1)).toBeCloseTo(0.2, 12);
+      expect(mdx).toContain('1.19997');
+    });
+
+    it('2 — the artefact scales with the moving population’s share', () => {
+      const rows = [0.02, 0.2, 0.5].map((pk) => {
+        const D = 1 + (2 - 1) * pk;
+        return { D, lfc: Math.log2(1 / D) };
+      });
+      expect(rows[0].D).toBeCloseTo(1.02, 12);
+      expect(rows[1].D).toBeCloseTo(1.2, 12);
+      expect(rows[2].D).toBeCloseTo(1.5, 12);
+      expect(rows[0].lfc).toBeCloseTo(-0.028569, 6);
+      expect(rows[1].lfc).toBeCloseTo(-0.263034, 6);
+      expect(rows[2].lfc).toBeCloseTo(-0.584963, 6);
+      for (const v of ['1.02', '1.50', '-0.028569', '-0.584963'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('3 — no zero-sum transform can leave five parts fixed', () => {
+      for (const K of [3, 6, 20]) {
+        const shift = clrShiftUnderSingleChange(K, 2);
+        expect(shift.changed + (K - 1) * shift.others).toBeCloseTo(0, 12);
+        expect(shift.others).toBeLessThan(0);
+      }
+      expect(centeredLogRatio(BEFORE).reduce((s, x) => s + x, 0)).toBeCloseTo(0, 12);
+      expect(mdx).toMatch(/sums to zero\s+by construction/);
     });
   });
 });

@@ -18,6 +18,8 @@
  */
 
 import {
+  apparentLogFoldChanges,
+  closureUpdate,
   effectiveIndependentCells,
   clusteredFalsePositiveRate,
   designEffect,
@@ -2113,6 +2115,105 @@ const scPseudobulk: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * One population moves, and every other proportion follows.
+ *
+ * Six populations on a logarithmic share axis, where a constant factor is a constant vertical
+ * distance — so the five that did not change draw five parallel segments however different
+ * their sizes. Nothing about the other five is altered in the underlying data at any point.
+ */
+const scComposition: Renderer = (canvas, controlHost, readoutHost) => {
+  const NAMES = ['T cells', 'Monocytes', 'B cells', 'NK cells', 'Other', 'Dendritic'];
+  const CHANGED = 1;
+  const REST = [0.5, 0.125, 0.1, 0.25, 0.025]; // how the remainder splits among the other five
+
+  const draw = () => {
+    const share = c.get('share');
+    const fold = c.get('fold');
+
+    const before = NAMES.map((_, i) => {
+      if (i === CHANGED) return share;
+      const j = i < CHANGED ? i : i - 1;
+      return (1 - share) * REST[j];
+    });
+    const { proportions: after, closureFactor } = closureUpdate(before, CHANGED, fold);
+    const lfc = apparentLogFoldChanges(before, after);
+
+    const lo = Math.max(1e-4, Math.min(...before, ...after) * 0.7);
+    const hi = Math.max(...before, ...after) * 1.4;
+    const y = logarithmic(lo, hi, PAD.top + PLOT.h, PAD.top, [], () => '');
+    const xL = PAD.left + 40;
+    const xR = PAD.left + PLOT.w - 78;
+
+    const svg = newSvg();
+    const g = el('g');
+    for (const tick of [0.01, 0.02, 0.05, 0.1, 0.2, 0.5]) {
+      if (tick < lo || tick > hi) continue;
+      g.appendChild(el('line', {
+        x1: xL, y1: y(tick), x2: xR, y2: y(tick),
+        stroke: 'currentColor', 'stroke-width': 1, opacity: 0.12,
+      }));
+      g.appendChild(label(xL - 8, y(tick) + 4, `${(100 * tick).toFixed(0)}%`,
+        { 'text-anchor': 'end', opacity: 0.7 }));
+    }
+    for (const [i, name] of NAMES.entries()) {
+      const up = i === CHANGED;
+      g.appendChild(el('line', {
+        x1: xL, y1: y(before[i]), x2: xR, y2: y(after[i]),
+        stroke: up ? ACCENT : 'currentColor',
+        'stroke-width': up ? 2.4 : 1.8,
+        opacity: up ? 1 : 0.5,
+      }));
+      g.appendChild(el('circle', {
+        cx: xR, cy: y(after[i]), r: 3.4, fill: up ? ACCENT : 'currentColor',
+        opacity: up ? 1 : 0.5,
+      }));
+      g.appendChild(label(xR + 8, y(after[i]) + 4, name,
+        { fill: up ? ACCENT : 'currentColor', opacity: up ? 1 : 0.7 }));
+    }
+    g.appendChild(label(xL, PAD.top + PLOT.h + 18, 'before', { 'text-anchor': 'middle', opacity: 0.75 }));
+    g.appendChild(label(xR, PAD.top + PLOT.h + 18, 'after', { 'text-anchor': 'middle', opacity: 0.75 }));
+    svg.appendChild(g);
+    canvas.replaceChildren(svg);
+
+    readout(readoutHost, [
+      ['closure factor', closureFactor.toFixed(4)],
+      ['apparent log2 change, the other five', lfc[0].toFixed(4)],
+      ['apparent log2 change, monocytes', lfc[CHANGED].toFixed(4)],
+      ['their difference', (lfc[CHANGED] - lfc[0]).toFixed(4)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'fold',
+        label: 'True change in monocyte abundance',
+        min: -2,
+        max: 2,
+        step: 0.05,
+        // the slider is log2, so 0 is "no change" — the state the caption tells the reader
+        // to drag away from
+        value: 0,
+        scale: (v) => 2 ** v,
+        format: (v) => `${v.toFixed(2)}x`,
+      },
+      {
+        key: 'share',
+        label: 'Monocyte share before the change',
+        min: 0.02,
+        max: 0.6,
+        step: 0.01,
+        value: 0.2,
+        format: (v) => `${(100 * v).toFixed(0)}%`,
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'ld-decay': ldDecay,
   drift,
@@ -2131,6 +2232,7 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'sc-embedding': scEmbedding,
   'sc-marker-contrast': scMarkerContrast,
   'sc-pseudobulk': scPseudobulk,
+  'sc-composition': scComposition,
 };
 
 /**
