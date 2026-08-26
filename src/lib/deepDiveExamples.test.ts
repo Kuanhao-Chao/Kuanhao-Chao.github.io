@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  twoSampleT,
+  studentTQuantile,
   markerEvidenceMultiple,
   markerEvidenceBreakEven,
   markerContrastCeiling,
@@ -7501,6 +7503,177 @@ describe('sc-annotation — the ceiling on what a marker can do', () => {
         .toBeCloseTo(58.19, 2);
       expect(mdx).toContain('1901');
       expect(mdx).toMatch(/58\.19 times less\s+headroom/);
+    });
+  });
+});
+
+
+describe('sc-differential-expression — the test that gets worse with more data', () => {
+  const mdx = lesson('sc-differential-expression');
+  const RHO = 0.05;
+  const Z = 1.959963984540054;
+
+  describe('worked example — what the two analyses charge', () => {
+    it('step 1: four donors of 200 cells give a design effect of 10.95', () => {
+      expect(designEffect(200, RHO)).toBeCloseTo(10.95, 10);
+      expect(1 + 199 * RHO).toBeCloseTo(10.95, 10);
+      expect(mdx).toContain('(200 - 1)(0.05) = 10.95');
+    });
+
+    it('step 2: the standard error is 3.309078x too small and the FPR is 55.4%', () => {
+      expect(Math.sqrt(designEffect(200, RHO))).toBeCloseTo(3.309078, 6);
+      expect(100 * (Math.sqrt(designEffect(200, RHO)) - 1)).toBeCloseTo(230.9, 1);
+      expect(clusteredFalsePositiveRate(200, RHO)).toBeCloseTo(0.5537, 4);
+      // 0.55365 sits on a two-decimal rounding boundary, so the page must not print 55.37%
+      expect(mdx).not.toContain('55.37');
+      for (const v of ['3.309078', '230.9%', '0.5537', '55.4%'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: six degrees of freedom instead of 1,598 widen the interval 24.84%', () => {
+      expect(2 * 4 * 200 - 2).toBe(1598);
+      expect(2 * 4 - 2).toBe(6);
+      expect(studentTQuantile(0.975, 6)).toBeCloseTo(2.446912, 6);
+      expect(normalQuantile(0.975)).toBeCloseTo(1.959964, 6);
+      expect(studentTQuantile(0.975, 6) / normalQuantile(0.975) - 1).toBeCloseTo(0.2484, 4);
+      for (const v of ['1{,}598', '2.446912', '1.959964', '24.84%'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('the simulation behind figure 1', () => {
+    const N = 4;
+    const SB = Math.sqrt(RHO);
+    const SW = Math.sqrt(1 - RHO);
+
+    /** One null dataset: no group differs, only donors carry a shared offset. */
+    const trial = (m: number, seed: number) => {
+      const g = seededNormals(1, 2 * N * (m + 1), seed)[0];
+      let k = 0;
+      const half = N * m;
+      let s0 = 0;
+      let s1 = 0;
+      let ss0 = 0;
+      let ss1 = 0;
+      const donors: number[][] = [[], []];
+      for (let grp = 0; grp < 2; grp += 1)
+        for (let d = 0; d < N; d += 1) {
+          const effect = SB * g[k];
+          k += 1;
+          let sum = 0;
+          for (let cell = 0; cell < m; cell += 1) {
+            const v = effect + SW * g[k];
+            k += 1;
+            sum += v;
+            if (grp) {
+              s1 += v;
+              ss1 += v * v;
+            } else {
+              s0 += v;
+              ss0 += v * v;
+            }
+          }
+          donors[grp].push(sum / m);
+        }
+      const m0 = s0 / half;
+      const m1 = s1 / half;
+      const pooled = (ss0 - half * m0 * m0 + (ss1 - half * m1 * m1)) / (2 * half - 2);
+      return {
+        perCell: (m0 - m1) / Math.sqrt(pooled * (2 / half)),
+        pseudobulk: twoSampleT(donors[0], donors[1]),
+        cellDiff: m0 - m1,
+        donorDiff:
+          donors[0].reduce((a, b) => a + b, 0) / N - donors[1].reduce((a, b) => a + b, 0) / N,
+      };
+    };
+
+    it('the pseudobulk point estimate is the per-cell one, to machine precision', () => {
+      let worst = 0;
+      for (let s = 0; s < 60; s += 1) {
+        const t = trial(120, 4000 + s * 11);
+        worst = Math.max(worst, Math.abs(t.cellDiff - t.donorDiff));
+      }
+      expect(worst).toBeLessThan(1e-14);
+      expect(mdx).toContain('9.4 \\times 10^{-16}');
+    });
+
+    it('reproduces the rejection rates the caption reports', () => {
+      const tCrit = studentTQuantile(0.975, 2 * N - 2);
+      const run = (m: number) => {
+        let a = 0;
+        let b = 0;
+        for (let s = 0; s < 1000; s += 1) {
+          const t = trial(m, 90000 + s * 17 + m * 3);
+          if (Math.abs(t.perCell) > Z) a += 1;
+          if (Math.abs(t.pseudobulk) > tCrit) b += 1;
+        }
+        return { perCell: (100 * a) / 1000, pseudobulk: (100 * b) / 1000 };
+      };
+      const at50 = run(50);
+      const at200 = run(200);
+      expect(at50.perCell).toBeCloseTo(29.5, 5);
+      expect(at200.perCell).toBeCloseTo(56.6, 5);
+      // and the theory the caption compares them against
+      expect(100 * clusteredFalsePositiveRate(50, RHO)).toBeCloseTo(29.1, 1);
+      expect(100 * clusteredFalsePositiveRate(200, RHO)).toBeCloseTo(55.4, 1);
+      // pseudobulk stays near nominal at both
+      expect(at50.pseudobulk).toBeLessThan(9);
+      expect(at200.pseudobulk).toBeLessThan(9);
+      for (const v of ['29.5%', '56.6%', '4.75%', '2.8 points']) expect(mdx, v).toContain(v);
+    }, 40000);
+
+    it('agrees with the hub rather than contradicting it', () => {
+      // the hub publishes 29.1 / 70.0 / 90.2 at 50 / 500 / 5,000 cells
+      expect((Math.round(clusteredFalsePositiveRate(50, RHO) * 1e3) / 10).toFixed(1)).toBe('29.1');
+      expect((Math.round(clusteredFalsePositiveRate(500, RHO) * 1e3) / 10).toFixed(1)).toBe('70.0');
+      expect((Math.round(clusteredFalsePositiveRate(5000, RHO) * 1e3) / 10).toFixed(1)).toBe('90.2');
+      expect(lesson('single-cell')).toContain('29.1% at 50 cells per sample, 70.0% at 500, and 90.2% at 5,000');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — same cells, two designs, 9.22x the evidence', () => {
+      expect(designEffect(2000, RHO)).toBeCloseTo(100.95, 10);
+      expect(designEffect(200, RHO)).toBeCloseTo(10.95, 10);
+      expect(clusteredFalsePositiveRate(2000, RHO)).toBeCloseTo(0.8453, 4);
+      expect(100 * clusteredFalsePositiveRate(2000, RHO)).toBeCloseTo(84.5, 1);
+      expect(mdx).toContain('0.8453');
+      expect(effectiveIndependentCells(2, 2000, RHO)).toBeCloseTo(39.62, 2);
+      expect(effectiveIndependentCells(20, 200, RHO)).toBeCloseTo(365.30, 2);
+      expect(effectiveIndependentCells(20, 200, RHO) / effectiveIndependentCells(2, 2000, RHO))
+        .toBeCloseTo(9.22, 2);
+      // the units error the page originally carried
+      expect(mdx).not.toContain('79.25');
+      for (const v of ['100.95', '84.5%', '39.62', '365.30', '9.22'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('2 — three patients of 1,500 cells reject 82.2% of nulls', () => {
+      expect(designEffect(1500, RHO)).toBeCloseTo(75.95, 10);
+      expect(mdx).toContain('4,200'); // the scenario's reported gene count
+      expect(Math.sqrt(75.95)).toBeCloseTo(8.715, 3);
+      expect(clusteredFalsePositiveRate(1500, RHO)).toBeCloseTo(0.8221, 4);
+      expect(mdx).not.toContain('82.3%');
+      expect(mdx).not.toContain('0.8222');
+      for (const v of ['75.95', '8.715', '0.8221', '82.2%']) expect(mdx, v).toContain(v);
+    });
+
+    it('3 — donors buy 53.6 times what cells buy, at the same budget', () => {
+      const now = effectiveIndependentCells(4, 500, RHO);
+      const donors = effectiveIndependentCells(8, 500, RHO);
+      const cells = effectiveIndependentCells(4, 1000, RHO);
+      expect(now).toBeCloseTo(77.07, 2);
+      expect(donors).toBeCloseTo(154.14, 2);
+      expect(cells).toBeCloseTo(78.51, 2);
+      expect(donors - now).toBeCloseTo(77.07, 2);
+      expect(cells - now).toBeCloseTo(1.44, 2);
+      expect((donors - now) / (cells - now)).toBeCloseTo(53.6, 1);
+      expect(4 / RHO).toBe(80);
+      expect((100 * now) / 80).toBeCloseTo(96.3, 1);
+      expect(mdx).not.toContain('53.5');
+      for (const v of ['77.07', '154.14', '78.51', '1.44', '53.6'])
+        expect(mdx, v).toContain(v);
+      expect(mdx).toMatch(/96\.3%\s+of it/);
     });
   });
 });

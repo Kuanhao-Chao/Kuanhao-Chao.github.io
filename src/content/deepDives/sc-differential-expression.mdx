@@ -1,0 +1,366 @@
+---
+title: "Differential Expression: The Test That Gets Worse With More Data"
+shortTitle: Differential Expression
+description: "Why a per-cell test's false-positive rate rises with the number of cells, why aggregating to one value per sample costs no information at all, and what the correct analysis actually charges."
+abstract: "This is the result the whole track is arranged around, derived in full. Cells from one sample are correlated, so the variance of a group mean is inflated by the design effect 1 + (m − 1)ρ — linear in cells per sample and unbounded — and a per-cell test at nominal α therefore rejects true nulls at 2Φ(−z/√DE), which rises towards 1. A thousand simulated null datasets per point confirm it: with four donors per group at an intra-donor correlation of 0.05, the per-cell test calls 29.5% of true nulls significant at fifty cells per sample and 56.6% at two hundred, against a theory predicting 29.1% and 55.4%. The corrective is the surprising half. Aggregating each sample to a single value costs zero information about the effect — across eight hundred simulations the pseudobulk point estimate never differed from the per-cell one by more than 9.4 × 10⁻¹⁶ — because for a balanced design the mean of sample means is identically the grand mean. The entire price is degrees of freedom: a 24.84% wider confidence interval, against a standard error otherwise 230.9% too small."
+date: 2026-08-25
+track: theory
+hub: single-cell
+moduleId: s04-meaning
+moduleLabel: Module 4 · Meaning
+order: 12
+level: advanced
+objectives:
+  - "Derive the design effect from the one-way random-effects model and state what it does to a group mean."
+  - "Show that a per-cell test's false-positive rate rises with cells per sample and tends to one."
+  - "Prove that pseudobulk aggregation loses no information about the effect in a balanced design."
+  - "Price the correct analysis in degrees of freedom, and the incorrect one in standard-error inflation."
+  - "Estimate the intra-class correlation from data rather than assuming it."
+prerequisites:
+  - sc-annotation
+  - sc-normalization
+relatedLessons:
+  - sc-annotation
+  - sc-composition
+keyEquations:
+  - '\mathrm{DE} = 1 + (m-1)\rho'
+  - '\mathrm{FPR} = 2\Phi\!\left(-z_{\alpha/2}/\sqrt{\mathrm{DE}}\right)'
+  - '\hat{\rho} = \dfrac{\mathrm{MSB} - \mathrm{MSW}}{\mathrm{MSB} + (m-1)\mathrm{MSW}}'
+referenceIds:
+  - squair2021falsediscoveries
+  - crowell2020muscat
+  - luecken2019bestpractices
+  - lause2021pearson
+  - hafemeister2019sctransform
+  - wolf2018scanpy
+  - hao2021seurat
+  - svensson2020zeroinflation
+tags: [single-cell, differential expression, pseudobulk, pseudoreplication, design effect, mixed models]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+An experiment treats four mice and leaves four untreated, and twenty thousand cells come back
+from each condition. A gene is tested for a difference between conditions. How many
+observations does that test have?
+
+The default answer, and the one both major toolkits make easy, is twenty thousand per group
+<Citation id="wolf2018scanpy" />
+<Citation id="hao2021seurat" />. The right answer is four. Everything else in this lesson
+follows from the gap between those two numbers.
+
+<Notation
+  rows={[
+    { symbol: 'n', meaning: 'Samples per group — mice, donors, patients', dims: 'count' },
+    { symbol: 'm', meaning: 'Cells assayed per sample', dims: 'count' },
+    { symbol: '\\sigma_b^2', meaning: 'Variance between samples', dims: '>= 0' },
+    { symbol: '\\sigma_w^2', meaning: 'Variance between cells within a sample', dims: '> 0' },
+    { symbol: '\\rho', meaning: 'Intra-class correlation, σ_b²/(σ_b² + σ_w²)', dims: 'in [0,1]' },
+    { symbol: '\\mathrm{DE}', meaning: 'Design effect — variance inflation from clustering', dims: '>= 1' },
+    { symbol: '\\mathrm{MSB}, \\mathrm{MSW}', meaning: 'Between- and within-sample mean squares', dims: '> 0' },
+  ]}
+/>
+
+## Where the design effect comes from
+
+Write a cell's measurement as a sample effect plus a cell effect:
+
+$$
+y_{ij} = \mu + a_i + e_{ij},
+\qquad
+a_i \sim (0, \sigma_b^2),
+\qquad
+e_{ij} \sim (0, \sigma_w^2),
+$$
+
+with $a_i$ shared by every cell of sample $i$. Two cells from the same sample have covariance
+$\sigma_b^2$; two from different samples have none. That shared term is everything the sample
+has in common — its genotype, its age, its treatment history, its dissociation batch, its
+sequencing run.
+
+The mean of one sample's $m$ cells has variance $\sigma_b^2 + \sigma_w^2/m$, so the mean of $n$
+such samples has
+
+$$
+\mathrm{Var}(\bar{y}) = \frac{1}{n}\left(\sigma_b^2 + \frac{\sigma_w^2}{m}\right).
+$$
+
+A per-cell analysis instead treats all $nm$ cells as independent draws of total variance
+$\sigma_b^2 + \sigma_w^2$, giving $(\sigma_b^2 + \sigma_w^2)/(nm)$. The ratio of the truth to
+that belief is
+
+$$
+\mathrm{DE}
+= \frac{\sigma_b^2 + \sigma_w^2/m}{(\sigma_b^2 + \sigma_w^2)/m}
+= 1 + (m-1)\rho,
+\qquad
+\rho = \frac{\sigma_b^2}{\sigma_b^2 + \sigma_w^2}.
+$$
+
+**Linear in $m$, and unbounded.** Every standard error computed as though cells were
+independent is too small by $\sqrt{\mathrm{DE}}$, so a two-sided test at nominal $\alpha$ has
+false-positive rate
+
+$$
+\mathrm{FPR} = 2\,\Phi\!\left(\frac{-z_{\alpha/2}}{\sqrt{1 + (m-1)\rho}}\right),
+$$
+
+which increases monotonically in $m$ with limit 1. **More cells make the test worse.** That is
+not a figure of speech; it is what the formula says, and it is why lists of thousands of
+differentially expressed genes with vanishing p-values are the field's most reproducible
+artefact <Citation id="squair2021falsediscoveries" />.
+
+## The simulation
+
+The derivation assumes a variance structure. It is worth checking that data generated with
+that structure behaves as predicted, because if it does then nothing about the argument depends
+on the reader accepting an algebraic step.
+
+<Figure
+  caption="Figure 1. False-positive rate of a two-sided test at nominal 5%, against cells per sample, for four donors per group at an intra-donor correlation of 0.05. The line is the theory, 2Φ(−z/√(1 + (m−1)ρ)). Open circles are the observed rejection rate over a thousand simulated null datasets per point, in which no gene differs between groups at all; filled circles are the same datasets analysed by aggregating each donor to one value first. The per-cell rate reaches 29.5% at fifty cells per sample and 56.6% at two hundred, tracking the theory to within 2.8 points across the range, while pseudobulk averages 4.75% and does not move."
+  alt="A rising curve of false-positive rate against cells per sample on a logarithmic axis, from about ten percent at ten cells to nearly seventy percent at four hundred. Open circles sit close to the curve, and a row of filled circles runs flat along a dashed horizontal line near five percent."
+>
+<svg viewBox="0 0 772 336" width="772" height="336" font-family="inherit"><line x1="112.0" y1="44.0" x2="112.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="412.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="412.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="236.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0%</text><line x1="112.0" y1="185.0" x2="412.0" y2="185.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="189.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">20%</text><line x1="112.0" y1="138.0" x2="412.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="142.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">40%</text><line x1="112.0" y1="91.0" x2="412.0" y2="91.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="95.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">60%</text><line x1="112.0" y1="44.0" x2="412.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="48.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">80%</text><line x1="128.2" y1="232.0" x2="128.2" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="128.2" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="207.9" y1="232.0" x2="207.9" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="207.9" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">30</text><line x1="295.2" y1="232.0" x2="295.2" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="295.2" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="374.9" y1="232.0" x2="374.9" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="374.9" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">300</text><line x1="112.0" y1="220.2" x2="412.0" y2="220.2" stroke="currentColor" stroke-width="1.8" opacity=".55" stroke-dasharray="6 4"/><text x="408.0" y="210.2" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">what the p-value promises: 5%</text><path d="M112.0,210.5 L113.4,210.3 L114.7,210.0 L116.1,209.8 L117.5,209.6 L118.8,209.4 L120.2,209.1 L121.5,208.9 L122.9,208.6 L124.3,208.4 L125.6,208.1 L127.0,207.9 L128.4,207.6 L129.7,207.4 L131.1,207.1 L132.5,206.8 L133.8,206.5 L135.2,206.2 L136.5,206.0 L137.9,205.7 L139.3,205.4 L140.6,205.1 L142.0,204.7 L143.4,204.4 L144.7,204.1 L146.1,203.8 L147.5,203.4 L148.8,203.1 L150.2,202.8 L151.5,202.4 L152.9,202.1 L154.3,201.7 L155.6,201.3 L157.0,201.0 L158.4,200.6 L159.7,200.2 L161.1,199.8 L162.5,199.4 L163.8,199.0 L165.2,198.6 L166.5,198.2 L167.9,197.8 L169.3,197.3 L170.6,196.9 L172.0,196.5 L173.4,196.0 L174.7,195.6 L176.1,195.1 L177.5,194.6 L178.8,194.2 L180.2,193.7 L181.5,193.2 L182.9,192.7 L184.3,192.2 L185.6,191.7 L187.0,191.2 L188.4,190.7 L189.7,190.2 L191.1,189.6 L192.5,189.1 L193.8,188.5 L195.2,188.0 L196.5,187.4 L197.9,186.9 L199.3,186.3 L200.6,185.7 L202.0,185.1 L203.4,184.5 L204.7,183.9 L206.1,183.3 L207.5,182.7 L208.8,182.1 L210.2,181.5 L211.5,180.9 L212.9,180.2 L214.3,179.6 L215.6,178.9 L217.0,178.3 L218.4,177.6 L219.7,176.9 L221.1,176.3 L222.5,175.6 L223.8,174.9 L225.2,174.2 L226.5,173.5 L227.9,172.8 L229.3,172.1 L230.6,171.4 L232.0,170.6 L233.4,169.9 L234.7,169.2 L236.1,168.5 L237.5,167.7 L238.8,167.0 L240.2,166.2 L241.5,165.5 L242.9,164.7 L244.3,163.9 L245.6,163.1 L247.0,162.4 L248.4,161.6 L249.7,160.8 L251.1,160.0 L252.5,159.2 L253.8,158.4 L255.2,157.6 L256.5,156.8 L257.9,156.0 L259.3,155.2 L260.6,154.4 L262.0,153.6 L263.4,152.7 L264.7,151.9 L266.1,151.1 L267.5,150.3 L268.8,149.4 L270.2,148.6 L271.5,147.7 L272.9,146.9 L274.3,146.1 L275.6,145.2 L277.0,144.4 L278.4,143.5 L279.7,142.7 L281.1,141.8 L282.5,141.0 L283.8,140.1 L285.2,139.2 L286.5,138.4 L287.9,137.5 L289.3,136.7 L290.6,135.8 L292.0,134.9 L293.4,134.1 L294.7,133.2 L296.1,132.4 L297.5,131.5 L298.8,130.6 L300.2,129.8 L301.5,128.9 L302.9,128.1 L304.3,127.2 L305.6,126.3 L307.0,125.5 L308.4,124.6 L309.7,123.8 L311.1,122.9 L312.5,122.1 L313.8,121.2 L315.2,120.3 L316.5,119.5 L317.9,118.6 L319.3,117.8 L320.6,116.9 L322.0,116.1 L323.4,115.3 L324.7,114.4 L326.1,113.6 L327.5,112.7 L328.8,111.9 L330.2,111.1 L331.5,110.2 L332.9,109.4 L334.3,108.6 L335.6,107.8 L337.0,107.0 L338.4,106.1 L339.7,105.3 L341.1,104.5 L342.5,103.7 L343.8,102.9 L345.2,102.1 L346.5,101.3 L347.9,100.5 L349.3,99.7 L350.6,98.9 L352.0,98.1 L353.4,97.3 L354.7,96.6 L356.1,95.8 L357.5,95.0 L358.8,94.3 L360.2,93.5 L361.5,92.7 L362.9,92.0 L364.3,91.2 L365.6,90.5 L367.0,89.7 L368.4,89.0 L369.7,88.2 L371.1,87.5 L372.5,86.8 L373.8,86.0 L375.2,85.3 L376.5,84.6 L377.9,83.9 L379.3,83.2 L380.6,82.5 L382.0,81.8 L383.4,81.1 L384.7,80.4 L386.1,79.7 L387.5,79.0 L388.8,78.3 L390.2,77.7 L391.5,77.0 L392.9,76.3 L394.3,75.6 L395.6,75.0 L397.0,74.3 L398.4,73.7 L399.7,73.0 L401.1,72.4 L402.5,71.8 L403.8,71.1 L405.2,70.5 L406.5,69.9 L407.9,69.2 L409.3,68.6 L410.6,68.0 L412.0,67.4" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="128.2" cy="201.0" r="4.4" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><circle cx="194.7" cy="184.5" r="4.4" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><circle cx="245.0" cy="162.7" r="4.4" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><circle cx="295.2" cy="127.9" r="4.4" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><circle cx="345.5" cy="99.0" r="4.4" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><circle cx="395.8" cy="79.2" r="4.4" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><circle cx="128.2" cy="220.7" r="4.0" fill="currentColor" opacity=".7"/><circle cx="194.7" cy="220.0" r="4.0" fill="currentColor" opacity=".7"/><circle cx="245.0" cy="217.9" r="4.0" fill="currentColor" opacity=".7"/><circle cx="295.2" cy="222.6" r="4.0" fill="currentColor" opacity=".7"/><circle cx="345.5" cy="222.8" r="4.0" fill="currentColor" opacity=".7"/><circle cx="395.8" cy="221.0" r="4.0" fill="currentColor" opacity=".7"/><text x="262.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Cells per sample</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">True nulls called significant</text><line x1="438.0" y1="54.0" x2="458.0" y2="54.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><text x="466.0" y="58.0" font-size="10" fill="var(--color-accent, #2e6e5e)">theory</text><circle cx="448.0" cy="71.0" r="4.2" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><text x="466.0" y="75.0" font-size="10" fill="var(--color-accent, #2e6e5e)">per-cell, simulated</text><circle cx="448.0" cy="88.0" r="4.2" fill="currentColor" opacity=".7"/><text x="466.0" y="92.0" font-size="10" fill="currentColor" opacity=".7">pseudobulk, simulated</text><text x="438.0" y="128.0" font-size="11" fill="currentColor" font-weight="700">The curve is real.</text><text x="438.0" y="146.0" font-size="10" fill="currentColor" opacity=".8">One thousand null datasets</text><text x="438.0" y="159.0" font-size="10" fill="currentColor" opacity=".8">per point, four donors per</text><text x="438.0" y="172.0" font-size="10" fill="currentColor" opacity=".8">group. Theory and simulation</text><text x="438.0" y="185.0" font-size="10" fill="currentColor" opacity=".8">agree to within 2.8 points</text><text x="438.0" y="198.0" font-size="10" fill="currentColor" opacity=".8">across the whole range.</text><text x="438.0" y="211.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="438.0" y="224.0" font-size="10" fill="currentColor" opacity=".8">The per-cell test rejects</text><text x="438.0" y="237.0" font-size="10" fill="currentColor" opacity=".8">29.5% of true nulls at fifty</text><text x="438.0" y="250.0" font-size="10" fill="currentColor" opacity=".8">cells per sample and 56.6% at</text><text x="438.0" y="263.0" font-size="10" fill="currentColor" opacity=".8">two hundred. Pseudobulk</text><text x="438.0" y="276.0" font-size="10" fill="currentColor" opacity=".8">averages 4.75% and does not</text><text x="438.0" y="289.0" font-size="10" fill="currentColor" opacity=".8">move.</text></svg>
+</Figure>
+
+There is nothing in these datasets to find. Every gene is null by construction; the only
+structure is that cells from a donor share that donor's offset. The per-cell test finds
+differences anyway, at exactly the rate the design effect predicts.
+
+<Callout variant="intuition" title="Ask how many times the experiment was done">
+
+The cure is a question rather than a method: **how many times was this experiment performed?**
+
+Four mice treated and four untreated is eight times. Sequencing twenty thousand cells from each
+does not make it eighty thousand times; it makes it eight very precise measurements. The number
+of cells controls how well each of the eight was measured, and the number of mice controls how
+many measurements there are — and it is the second that a test between conditions runs on.
+
+Everything in the rest of this lesson is that sentence made arithmetic.
+
+</Callout>
+
+## Aggregating costs nothing
+
+The reflex objection to pseudobulk is that it throws away 99.99% of the data. It does not throw
+away any of it, and this is provable rather than a matter of taste.
+
+For a balanced design — the same $m$ for every sample — the mean of the sample means is
+identically the mean of all cells:
+
+$$
+\frac{1}{n}\sum_i \left(\frac{1}{m}\sum_j y_{ij}\right) = \frac{1}{nm}\sum_{i,j} y_{ij}.
+$$
+
+The two estimators are the *same number*. Across eight hundred simulated datasets the two
+never differed by more than $9.4 \times 10^{-16}$, which is floating-point noise and not a
+statistical difference. Under the mixed model this aggregate is also the best linear unbiased
+estimator of the group mean, so nothing is lost in the technical sense either
+<Citation id="crowell2020muscat" />.
+
+What changes is only the standard error — and the standard error was the thing that was wrong.
+
+<Widget
+  kind="sc-pseudobulk"
+  title="Drag the cells and watch one bar grow while the other stops"
+  alt="Two interactive horizontal bars. The upper shows the fraction of true nulls a per-cell test calls significant, against a marked nominal five percent; the lower shows how many independent cells the design is worth against its ceiling. Sliders control cells per sample, samples per group, and the intra-sample correlation, with a readout of the design effect, the standard-error inflation, and what one more sample or double the cells buys."
+  caption="Start at the defaults and drag cells-per-sample to the right. The top bar fills steadily — the test gets worse — while the bottom bar stops moving almost immediately, because it has already reached its ceiling of n/ρ. That divergence is the lesson: cells and samples are not interchangeable currencies. Then read the last two rows, which price it directly: one more sample against twice as many cells. Finally set the correlation to its smallest value and see the whole problem disappear, which is why the honest first step is to estimate ρ rather than assume it is negligible."
+/>
+
+<WorkedExample
+  title="What the two analyses charge"
+  given={[
+    'Four donors per group, 200 cells from each',
+    'Intra-donor correlation ρ = 0.05',
+    'A two-sided test at nominal 5%',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the design effect.**
+
+$$
+\mathrm{DE} = 1 + (200 - 1)(0.05) = 10.95.
+$$
+
+**Step 2 — what the per-cell analysis gets wrong.** Its standard error is too small by
+$\sqrt{10.95} = 3.309078$ — that is, **230.9%** too small — and its false-positive rate is
+
+$$
+2\Phi\!\left(\frac{-1.959964}{3.309078}\right) = 0.5537,
+$$
+
+so **55.4%** of null genes are reported as significant. The simulation of Figure 1 returns
+56.6% at this setting.
+
+**Step 3 — what the correct analysis charges.** The point estimate is unchanged, so the only
+change is the reference distribution: with four donors per group there are $2(4) - 2 = 6$
+degrees of freedom instead of $2(4)(200) - 2 = 1{,}598$. The critical value moves from
+$z = 1.959964$ to $t_{0.975,\,6} = 2.446912$, widening the interval by
+
+$$
+\frac{2.446912}{1.959964} - 1 = 0.2484,
+$$
+
+**24.84%**.
+
+**Step 4 — the comparison.** Doing it correctly costs a quarter more width. Doing it
+incorrectly reports a standard error three and a third times too small, and a false-positive
+rate eleven times the nominal one. Those are the two options, and they are not close.
+
+**Step 5 — what the cells were for.** The 200 cells per donor are not wasted. They make each
+donor's value precise: that donor's mean has variance $\sigma_b^2 + \sigma_w^2/200$, and the
+second term is nearly gone. What they cannot do is create donors. Cells buy precision within a
+sample; samples buy evidence about the population.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 2. The two errors, to scale. Analysing correctly widens the confidence interval by 24.84%, because six degrees of freedom demand a larger critical value than sixteen hundred do. Analysing per cell leaves the standard error 230.9% too small. Both bars start at zero and measure the same thing — how wrong the reported number is — so the comparison is a direct one."
+  alt="A horizontal bar chart with two bars starting at zero on a common percentage axis. The upper, shorter bar is labelled as the interval widening by 24.84 percent when the analysis is done correctly; the lower, much longer bar is labelled as the standard error being 230.9 percent too small when it is not."
+>
+<svg viewBox="0 0 772 268" width="772" height="268" font-family="inherit"><line x1="224.0" y1="150.0" x2="224.0" y2="44.0" stroke="currentColor" stroke-width="1.25"/><line x1="224.0" y1="150.0" x2="224.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="224.0" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0%</text><line x1="264.0" y1="150.0" x2="264.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="264.0" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50%</text><line x1="304.0" y1="150.0" x2="304.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="304.0" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100%</text><line x1="344.0" y1="150.0" x2="344.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="344.0" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">150%</text><line x1="384.0" y1="150.0" x2="384.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="384.0" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">200%</text><line x1="424.0" y1="150.0" x2="424.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="424.0" y="168.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">250%</text><rect x="224.0" y="58.5" width="19.9" height="24.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><text x="216.0" y="68.5" font-size="10.5" fill="currentColor" text-anchor="end">doing it right:</text><text x="216.0" y="81.5" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".7">the interval widens</text><text x="251.9" y="74.5" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">24.84%</text><rect x="224.0" y="106.2" width="184.7" height="24.0" rx="2" fill="currentColor" opacity=".4"/><text x="216.0" y="116.2" font-size="10.5" fill="currentColor" text-anchor="end">doing it wrong:</text><text x="216.0" y="129.2" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".7">the standard error shrinks</text><text x="416.7" y="122.2" font-size="10.5" fill="currentColor" font-weight="600">230.9%</text><text x="324.0" y="190.0" font-size="12" fill="currentColor" text-anchor="middle">How wrong the number is</text><text x="490.0" y="56.0" font-size="11" fill="currentColor" font-weight="700">Twenty-five against</text><text x="490.0" y="70.0" font-size="11" fill="currentColor" font-weight="700">two hundred and thirty.</text><text x="490.0" y="92.0" font-size="10" fill="currentColor" opacity=".8">Aggregating to one value per</text><text x="490.0" y="105.0" font-size="10" fill="currentColor" opacity=".8">donor loses no information</text><text x="490.0" y="118.0" font-size="10" fill="currentColor" opacity=".8">about the effect - the point</text><text x="490.0" y="131.0" font-size="10" fill="currentColor" opacity=".8">estimate is identical to</text><text x="490.0" y="144.0" font-size="10" fill="currentColor" opacity=".8">machine precision. The whole</text><text x="490.0" y="157.0" font-size="10" fill="currentColor" opacity=".8">cost is degrees of freedom:</text><text x="490.0" y="170.0" font-size="10" fill="currentColor" opacity=".8">six instead of sixteen hundred,</text><text x="490.0" y="183.0" font-size="10" fill="currentColor" opacity=".8">so the interval widens by a</text><text x="490.0" y="196.0" font-size="10" fill="currentColor" opacity=".8">quarter.</text><text x="490.0" y="209.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="490.0" y="222.0" font-size="10" fill="currentColor" opacity=".8">Not aggregating leaves the</text><text x="490.0" y="235.0" font-size="10" fill="currentColor" opacity=".8">standard error three and a</text><text x="490.0" y="248.0" font-size="10" fill="currentColor" opacity=".8">third times too small.</text></svg>
+</Figure>
+
+## Estimating ρ instead of assuming it
+
+Everything above depends on $\rho$, and $\rho$ is measurable from the same data. A one-way
+analysis of variance of cells within samples gives
+
+$$
+\hat{\rho} = \frac{\mathrm{MSB} - \mathrm{MSW}}{\mathrm{MSB} + (m-1)\mathrm{MSW}},
+$$
+
+which needs nothing the per-cell analysis has not already computed. There is therefore no
+excuse for not knowing it, and reporting it per gene — or its distribution across genes —
+would let a reader judge a differential expression result in one line.
+
+The practical range in real data is 0.01 to 0.20 depending on the gene and the tissue, so
+almost nothing sits at the $\rho \approx 0$ where a per-cell test would be safe
+<Citation id="squair2021falsediscoveries" />. Reporting it is the single cheapest thing a
+paper can do to make its differential expression checkable
+<Citation id="luecken2019bestpractices" />. Note also what $\rho$ is *not*: it is not a
+property of the technology, and it does not shrink with better normalisation
+<Citation id="hafemeister2019sctransform" />
+<Citation id="lause2021pearson" /> or with a better count model
+<Citation id="svensson2020zeroinflation" />. It is the fraction of a gene's variance that lives
+between animals, and that is biology.
+
+## Summary
+
+- Cells within a sample share the sample's effect, so the variance of a group mean is inflated
+  by $\mathrm{DE} = 1 + (m-1)\rho$ — **linear in cells per sample and unbounded**.
+- A per-cell test therefore has false-positive rate $2\Phi(-z_{\alpha/2}/\sqrt{\mathrm{DE}})$,
+  which **rises with the number of cells**. Simulation confirms it: 29.5% at fifty cells per
+  sample, 56.6% at two hundred, against a theory of 29.1% and 55.4%.
+- **Aggregating to one value per sample loses no information about the effect.** For a balanced
+  design the mean of sample means is identically the grand mean — across 800 simulations the
+  two never differed by more than $9.4 \times 10^{-16}$ — and it is the BLUE under the model.
+- The entire price is degrees of freedom: 6 instead of 1,598, so the interval widens
+  **24.84%**. The alternative leaves the standard error **230.9%** too small.
+- $\rho$ is estimable by one-way ANOVA from data the analysis already has. Real values run 0.01
+  to 0.20, and no normalisation or count model reduces it, because it is biology.
+
+<Exercise n={1} title="Two designs, same cell count" difficulty="warm-up">
+
+Two studies each sequence 4,000 cells per group at $\rho = 0.05$. Study A uses 2 donors of
+2,000 cells; study B uses 20 donors of 200 cells.
+
+(a) Compute the design effect for each.
+
+(b) Compute the false-positive rate of a per-cell test in each.
+
+(c) Which study is better powered, and by roughly how much?
+
+<div slot="solution">
+
+(a) Study A: $1 + 1999(0.05) = 100.95$. Study B: $1 + 199(0.05) = 10.95$.
+
+(b) Study A: $2\Phi(-1.959964/\sqrt{100.95}) = 0.8453$, so **84.5%**. Study B: 0.5537, so
+**55.4%**. Both are catastrophic, which is the point — the per-cell test is not rescued by a
+better design, only made less absurd.
+
+(c) Compare the analyses that are actually valid. Study A has 2 degrees of freedom and study B
+has 38, and effective sample size is $nm/\mathrm{DE}$: **39.62** for A against **365.30** for
+B, a factor of **9.22**. Same cells, same reagent cost, nine times the evidence — because the
+currency is donors.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Reading a reported result" difficulty="core">
+
+A paper reports 4,200 differentially expressed genes at FDR < 0.05, from 3 patients per group
+with about 1,500 cells each, analysed per cell.
+
+(a) Estimate the design effect at $\rho = 0.05$ and the per-cell false-positive rate.
+
+(b) The authors argue FDR control handles this. Respond.
+
+(c) Roughly how many of the 4,200 would you expect to survive a correct analysis, and what
+would you need to know to say?
+
+<div slot="solution">
+
+(a) $\mathrm{DE} = 1 + 1499(0.05) = 75.95$ and
+$\mathrm{FPR} = 2\Phi(-1.959964/\sqrt{75.95}) = 0.8221$, so **82.2%** of null genes are
+called significant before any correction.
+
+(b) FDR procedures control the false discovery rate *given valid p-values*. Here every p-value
+is computed from a standard error $\sqrt{75.95} = 8.715$ times too small, so they are not
+p-values in the required sense — they are not uniform under the null. Benjamini–Hochberg
+applied to them controls nothing, because its guarantee is conditional on exactly the property
+that has failed. The same objection defeats Bonferroni, permutation over cells, and any other
+multiplicity method: they fix the number of tests, not the calibration of each.
+
+(c) Not answerable from what is reported, and that is the honest answer. With 3 patients per
+group there are 4 degrees of freedom, so only very large effects will clear the correct
+threshold; published re-analyses of this design typically retain a small fraction
+<Citation id="squair2021falsediscoveries" />. To say more you would need $\rho$ per gene —
+estimable by one-way ANOVA from their own data — and the effect sizes at the patient level.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="Where the next money goes" difficulty="stretch">
+
+A pilot has 4 donors per group and 500 cells each, at $\rho = 0.05$. There is budget for either
+4 more donors per group or a doubling of cells per donor.
+
+(a) Compute the effective sample size now, and under each option.
+
+(b) Which wins, and by how much?
+
+(c) Give a circumstance in which more cells would nevertheless be the right purchase.
+
+<div slot="solution">
+
+(a) $N_{\mathrm{eff}} = nm/(1 + (m-1)\rho)$. Now: $4 \times 500/25.95 = 77.07$. Doubling the
+donors to 8: $8 \times 500/25.95 = 154.14$. Doubling the cells to 1,000:
+$4 \times 1000/50.95 = 78.51$.
+
+(b) Donors, overwhelmingly. Four more donors buy **77.07** effective cells; twice as many cells
+buy **1.44**. That is a factor of **53.6** for the same budget line, and it gets worse as cells
+accumulate, because the ceiling is $n/\rho = 80$ and 500 cells per donor has already reached
+96.3% of it.
+
+(c) When the question is not about the population. If you need to characterise a rare
+subpopulation — describe its states, find its markers, resolve its substructure — that is a
+within-sample question and cells are exactly what buys it. Lessons 7 to 9 showed a rare
+population needs cells to survive dimensionality reduction, graph construction and clustering
+at all. The rule is that cells buy resolution and samples buy power, and a study usually needs
+both, but only one of them is on the critical path for a test between conditions.
+
+</div>
+
+</Exercise>

@@ -21,6 +21,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'sc-resolution',
   'sc-embedding',
   'sc-marker-contrast',
+  'sc-pseudobulk',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];

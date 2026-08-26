@@ -18,6 +18,9 @@
  */
 
 import {
+  effectiveIndependentCells,
+  clusteredFalsePositiveRate,
+  designEffect,
   markerEvidenceMultiple,
   markerContrastCeiling,
   markerContrast,
@@ -1507,7 +1510,7 @@ const scDropout: Renderer = (canvas, controlHost, readoutHost) => {
         step: 0.05,
         value: Math.log10(2),
         scale: (v) => 10 ** v,
-        format: (v) => (10 ** v).toFixed(2),
+        format: (v) => v.toFixed(2),
       },
     ],
     draw
@@ -1597,7 +1600,7 @@ const scNormalize: Renderer = (canvas, controlHost, readoutHost) => {
         step: 0.02,
         value: Math.log10(0.5),
         scale: (v) => 10 ** v,
-        format: (v) => (10 ** v).toFixed(2),
+        format: (v) => v.toFixed(2),
       },
     ],
     draw
@@ -1700,7 +1703,7 @@ const scKnnGraph: Renderer = (canvas, controlHost, readoutHost) => {
         step: 0.02,
         value: Math.log10(2),
         scale: (v) => 10 ** v,
-        format: (v) => String(Math.max(2, Math.round(10 ** v))),
+        format: (v) => String(Math.max(2, Math.round(v))),
       },
       {
         key: 'k',
@@ -1893,7 +1896,7 @@ const scEmbedding: Renderer = (canvas, controlHost, readoutHost) => {
         step: 0.02,
         value: 0,
         scale: (v) => 10 ** v,
-        format: (v) => `${(10 ** v).toFixed(2)}x`,
+        format: (v) => `${v.toFixed(2)}x`,
       },
       {
         key: 'k',
@@ -1976,7 +1979,7 @@ const scMarkerContrast: Renderer = (canvas, controlHost, readoutHost) => {
         step: 0.01,
         value: Math.log10(0.05),
         scale: (v) => 10 ** v,
-        format: (v) => `${(100 * 10 ** v).toFixed(1)}%`,
+        format: (v) => `${(100 * v).toFixed(1)}%`,
       },
       {
         key: 'phi',
@@ -1995,7 +1998,114 @@ const scMarkerContrast: Renderer = (canvas, controlHost, readoutHost) => {
         step: 0.01,
         value: Math.log10(0.05),
         scale: (v) => 10 ** v,
-        format: (v) => `${(100 * 10 ** v).toFixed(2)}%`,
+        format: (v) => `${(100 * v).toFixed(2)}%`,
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
+/**
+ * More cells, worse test — and where the information actually is.
+ *
+ * Two bars driven by the same three controls. The upper one is the false-positive rate of a
+ * per-cell test at nominal 5%; the lower is how many independent cells the design is worth,
+ * against its own hard ceiling of n/ρ. Dragging cells-per-sample to the right grows the first
+ * and stops moving the second, which is the whole lesson in one gesture.
+ */
+const scPseudobulk: Renderer = (canvas, controlHost, readoutHost) => {
+  const draw = () => {
+    const samples = Math.round(c.get('samples'));
+    const cells = Math.round(c.get('cells'));
+    const icc = c.get('icc');
+
+    const de = designEffect(cells, icc);
+    const fpr = clusteredFalsePositiveRate(cells, icc);
+    const eff = effectiveIndependentCells(samples, cells, icc);
+    const ceiling = samples / icc;
+
+    const svg = newSvg();
+    const g = el('g');
+    const left = PAD.left + 46;
+    const right = PAD.left + PLOT.w - 10;
+    const track = right - left;
+
+    const bar = (row: number, frac: number, title: string, value: string, accent: boolean) => {
+      const y0 = PAD.top + 24 + row * 74;
+      g.appendChild(label(left, y0 - 8, title, { opacity: 0.8 }));
+      g.appendChild(el('rect', {
+        x: left, y: y0, width: track, height: 22, fill: 'currentColor', opacity: 0.1, rx: 2,
+      }));
+      g.appendChild(el('rect', {
+        x: left, y: y0, width: Math.max(1, track * Math.min(1, Math.max(0, frac))), height: 22,
+        fill: accent ? ACCENT : 'currentColor', opacity: accent ? 0.85 : 0.5, rx: 2,
+      }));
+      g.appendChild(label(left + track + 6, y0 + 16, value, { opacity: 0.95 }));
+      return y0;
+    };
+
+    const y0 = bar(0, fpr, 'True nulls a per-cell test calls significant',
+      `${(100 * fpr).toFixed(1)}%`, true);
+    // the nominal rate, for scale
+    g.appendChild(el('line', {
+      x1: left + track * 0.05, y1: y0 - 4, x2: left + track * 0.05, y2: y0 + 26,
+      stroke: 'currentColor', 'stroke-width': 1.6, opacity: 0.75,
+    }));
+    g.appendChild(label(left + track * 0.05 + 5, y0 - 8, 'nominal 5%', { opacity: 0.65 }));
+
+    const y1 = bar(1, eff / ceiling, 'Independent cells the design is worth',
+      `${eff.toFixed(1)}`, false);
+    g.appendChild(el('line', {
+      x1: left + track, y1: y1 - 4, x2: left + track, y2: y1 + 26,
+      stroke: 'currentColor', 'stroke-width': 1.6, opacity: 0.75,
+    }));
+    g.appendChild(label(left + track - 5, y1 - 8, `ceiling ${ceiling.toFixed(0)}`,
+      { 'text-anchor': 'end', opacity: 0.65 }));
+
+    svg.appendChild(g);
+    canvas.replaceChildren(svg);
+
+    const perSample = effectiveIndependentCells(samples + 1, cells, icc) - eff;
+    const perCells = effectiveIndependentCells(samples, 2 * cells, icc) - eff;
+    readout(readoutHost, [
+      ['design effect', de.toFixed(2)],
+      ['standard error too small by', `${Math.sqrt(de).toFixed(2)}x`],
+      ['one more sample buys', perSample.toFixed(2)],
+      ['doubling the cells buys', perCells.toFixed(2)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'cells',
+        label: 'Cells per sample',
+        min: 1,
+        max: 4,
+        step: 0.02,
+        value: Math.log10(200),
+        scale: (v) => 10 ** v,
+        format: (v) => whole(Math.round(v)),
+      },
+      {
+        key: 'samples',
+        label: 'Samples per group (donors, mice, patients)',
+        min: 2,
+        max: 20,
+        step: 1,
+        value: 4,
+        format: (v) => String(Math.round(v)),
+      },
+      {
+        key: 'icc',
+        label: 'Intra-sample correlation',
+        min: 0.005,
+        max: 0.3,
+        step: 0.005,
+        value: 0.05,
+        format: (v) => v.toFixed(3),
       },
     ],
     draw
@@ -2020,6 +2130,7 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'sc-resolution': scResolution,
   'sc-embedding': scEmbedding,
   'sc-marker-contrast': scMarkerContrast,
+  'sc-pseudobulk': scPseudobulk,
 };
 
 /**
