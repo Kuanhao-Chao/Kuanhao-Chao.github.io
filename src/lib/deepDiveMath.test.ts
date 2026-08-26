@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  moransI,
+  spatialDesignEffectLimit,
+  spatialDesignEffect,
   velocityDirectionFlipped,
   spliceVelocity,
   sameOrdering,
@@ -3179,5 +3182,66 @@ describe('RNA velocity — the direction is a comparison against gamma', () => {
     // and the share is bounded by a half: it cannot exceed one side of the distribution
     for (const k of [2, 10, 1e6]) expect(velocityDirectionFlipped(0.3, k)).toBeLessThanOrEqual(0.5);
     expect(() => velocityDirectionFlipped(0, 2)).toThrow(RangeError);
+  });
+});
+
+
+describe('spatial data — the design effect, arriving from geometry', () => {
+  it('spatialDesignEffect converges on (1+rho)/(1-rho)', () => {
+    for (const rho of [0.2, 0.5, 0.8, 0.9]) {
+      // convergence is slower the stronger the correlation, so the tolerance loosens with rho
+      expect(spatialDesignEffect(2000, rho)).toBeCloseTo(spatialDesignEffectLimit(rho), 0);
+      expect(spatialDesignEffect(20000, rho)).toBeCloseTo(spatialDesignEffectLimit(rho), 1);
+    }
+    expect(spatialDesignEffectLimit(0.2)).toBeCloseTo(1.5, 12);
+    expect(spatialDesignEffectLimit(0.5)).toBeCloseTo(3, 12);
+    expect(spatialDesignEffectLimit(0.8)).toBeCloseTo(9, 12);
+    expect(spatialDesignEffectLimit(0.9)).toBeCloseTo(19, 12);
+  });
+
+  it('reproduces the finite-field values the lesson tabulates', () => {
+    expect(spatialDesignEffect(10, 0.5)).toBeCloseTo(2.6004, 4);
+    expect(spatialDesignEffect(50, 0.5)).toBeCloseTo(2.92, 4);
+    expect(spatialDesignEffect(200, 0.5)).toBeCloseTo(2.98, 4);
+    expect(spatialDesignEffect(2000, 0.5)).toBeCloseTo(2.998, 3);
+    expect(spatialDesignEffect(10, 0.9)).toBeCloseTo(7.2762, 4);
+  });
+
+  it('is 1 when there is no autocorrelation, and rises with rho', () => {
+    expect(spatialDesignEffect(500, 0)).toBe(1);
+    let previous = 0;
+    for (const rho of [0, 0.2, 0.5, 0.8, 0.95]) {
+      const de = spatialDesignEffect(500, rho);
+      expect(de).toBeGreaterThan(previous);
+      previous = de;
+    }
+    expect(() => spatialDesignEffect(10, 1)).toThrow(RangeError);
+  });
+
+  it('the effective number of spots is n over the design effect', () => {
+    const n = 2000;
+    expect(n / spatialDesignEffect(n, 0.5)).toBeCloseTo(667.1, 1);
+    // and it saturates: ten times the spots does not give ten times the information
+    expect(20000 / spatialDesignEffect(20000, 0.9)).toBeCloseTo(1053.13, 2);
+  });
+
+  it("Moran's I is +1 for a gradient, -1 for a checkerboard, -1/(n-1) for neither", () => {
+    const n = 50;
+    const gradient = Array.from({ length: n }, (_, i) => i);
+    const alternating = Array.from({ length: n }, (_, i) => (-1) ** i);
+    expect(moransI(gradient)).toBeCloseTo(0.9592, 4);
+    expect(moransI(alternating)).toBeCloseTo(-1, 10);
+    // the null expectation is negative, not zero — a detail that traps people
+    expect(-1 / (n - 1)).toBeCloseTo(-0.0204, 4);
+    expect(() => moransI([1, 1, 1])).toThrow(RangeError);
+    expect(() => moransI([1, 2])).toThrow(RangeError);
+  });
+
+  it("Moran's I is invariant to shifting and rescaling the values", () => {
+    const gradient = Array.from({ length: 30 }, (_, i) => i);
+    const base = moransI(gradient);
+    expect(moransI(gradient.map((x) => x + 100))).toBeCloseTo(base, 12);
+    expect(moransI(gradient.map((x) => 7 * x))).toBeCloseTo(base, 12);
+    expect(moransI(gradient.map((x) => -x))).toBeCloseTo(base, 12);
   });
 });
