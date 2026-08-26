@@ -87,15 +87,30 @@ Five tracks, each with a hub carrying `isHub: true`:
 | `gwas` | 10 | `workflow` | commands, thresholds, diagnostics, failure modes |
 | `genomic-data` | 13 | `resource` | the resource ecosystem and its access rules |
 | `ml-dl-interview` | 24 | `workflow` / `elective` | 351 interview questions |
-| `single-cell` | 6 of 18 | `theory` | the count model up through the analysis pipeline |
+| `single-cell` | 18 | `theory` | the count model up through the analysis pipeline |
 
-**The single-cell track is in progress** — hub plus lessons 1–5 of a planned 17, in five
-modules (`s00-hub`, `s01-counts`, `s02-matrix`, `s03-geometry`, `s04-meaning`,
-`s05-beyond`). Its spine is the design effect `1 + (m-1)ρ`: cells from one donor are not
-replicates of that donor, so a per-cell test's false-positive rate *rises* with the number
-of cells (70.0% at 500 cells per donor, ρ = 0.05) and effective sample size saturates at
-`n/ρ`. That is the same shape as the GWAS control ceiling, and the hub is built on it.
-Its widgets are prefixed `sc-`; two of six exist (`sc-dropout`, `sc-normalize`).
+**The single-cell track is complete** — hub plus 17 lessons in five modules (`s00-hub`,
+`s01-counts`, `s02-matrix`, `s03-geometry`, `s04-meaning`, `s05-beyond`), with eight `sc-`
+widgets: `sc-dropout`, `sc-normalize`, `sc-knn-graph`, `sc-resolution`, `sc-embedding`,
+`sc-marker-contrast`, `sc-pseudobulk`, `sc-composition`.
+
+Its spine is the design effect `1 + (m-1)ρ`: cells from one donor are not replicates of that
+donor, so a per-cell test's false-positive rate *rises* with the number of cells (70.0% at 500
+cells per donor, ρ = 0.05) and effective sample size saturates at `n/ρ`. That is the same shape
+as the GWAS control ceiling, and the hub is built on it. **The track then reaches the same
+quantity twice more by unrelated routes** — from composition, where a Dirichlet-multinomial has
+`ρ = 1/(1+α₀)` so `α₀ = 19` reproduces `ρ = 0.05` and DE 25.95 exactly (lesson 13), and from
+geometry, where spatial neighbour correlation inflates a mean's variance by `(1+ρ)/(1-ρ)`
+(lesson 17). Lesson 17 closes on that symmetry deliberately; changing any of the three numbers
+breaks the other two.
+
+A second thread runs through Module 3: a rare population fails to survive dimensionality
+reduction (its eigenvalue is small because variance averages over all cells, lesson 7), graph
+construction (`k` is an absolute count so one value cannot serve populations of different
+sizes, lesson 8), and clustering (modularity's null term is quadratic in community size, so
+merging small communities is profitable — lesson 9 shows a ring of 40 complete K₅ cliques where
+the *correct* partition scores 389/440 and the pairwise-merged one scores 199/220). Three
+unrelated mechanisms, none with a software fix.
 
 **The hub shipped first here, not last.** `isHub` derives the module map from siblings, so a
 hub works with one sibling and fills in as lessons land — and shipping it first keeps

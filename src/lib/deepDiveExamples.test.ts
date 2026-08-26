@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  moransI,
+  spatialDesignEffectLimit,
+  spatialDesignEffect,
   velocityDirectionFlipped,
   spliceVelocity,
   sameOrdering,
@@ -8127,6 +8130,107 @@ describe('sc-rna-velocity — the arrow is one ratio against one fitted number',
     it('3 — agreement across methods does not address a shared assumption', () => {
       expect(mdx).toContain('shared modelling assumption');
       expect(mdx).toContain('Metabolic labelling');
+    });
+  });
+});
+
+
+describe('sc-multiomic-spatial — the design effect, reached a third way', () => {
+  const mdx = lesson('sc-multiomic-spatial');
+
+  describe('worked example — what a spatial field is worth', () => {
+    it('step 1: 2,000 spots at rho = 0.5 give a design effect of 2.998', () => {
+      expect(spatialDesignEffect(2000, 0.5)).toBeCloseTo(2.998, 3);
+      expect(spatialDesignEffectLimit(0.5)).toBe(3);
+      for (const v of ['2.998', '(1+0.5)/(1-0.5) = 3']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 2: the field is worth 667 independent spots', () => {
+      expect(2000 / spatialDesignEffect(2000, 0.5)).toBeCloseTo(667.1, 1);
+      expect(Math.sqrt(3)).toBeCloseTo(1.732, 3);
+      for (const v of ['667.1', '667', '1.732']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: enlarging the field helps proportionally', () => {
+      expect(spatialDesignEffect(20000, 0.5)).toBeCloseTo(2.9998, 4);
+      expect(20000 / spatialDesignEffect(20000, 0.5)).toBeCloseTo(6667, 0);
+      for (const v of ['2.9998', '6,667']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 4: raising the correlation does not', () => {
+      expect(spatialDesignEffect(20000, 0.9)).toBeCloseTo(18.99, 2);
+      expect(20000 / spatialDesignEffect(20000, 0.9)).toBeCloseTo(1053.13, 2);
+      // ten times the data, a sixth of the effective size at rho = 0.5
+      expect((20000 / spatialDesignEffect(20000, 0.9)) / (2000 / spatialDesignEffect(2000, 0.5)))
+        .toBeCloseTo(1.579, 3);
+      for (const v of ['18.99', '1,053']) expect(mdx, v).toContain(v);
+    });
+
+    it("step 5: Moran's I has a negative null, and the two extremes are +1 and -1", () => {
+      const n = 50;
+      const gradient = Array.from({ length: n }, (_, i) => i);
+      const checker = Array.from({ length: n }, (_, i) => (-1) ** i);
+      expect(moransI(gradient)).toBeCloseTo(0.9592, 4);
+      expect(moransI(checker)).toBeCloseTo(-1, 10);
+      expect(-1 / (n - 1)).toBeCloseTo(-0.0204, 4);
+      for (const v of ['0.9592', '-0.0204']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — the four marked limits', () => {
+    it('draws 1.50, 3.00, 9.00 and 19.00', () => {
+      expect(spatialDesignEffectLimit(0.2)).toBeCloseTo(1.5, 12);
+      expect(spatialDesignEffectLimit(0.8)).toBeCloseTo(9, 12);
+      expect(spatialDesignEffectLimit(0.9)).toBeCloseTo(19, 12);
+      for (const l of ['1.50', '3.00', '9.00', '19.00', 'very large', '200 spots',
+                       '50 spots', '10 spots', 'limit = (1+r)/(1-r)'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+
+    it('the caption’s claim that small fields fall below the limit is true', () => {
+      for (const rho of [0.5, 0.8, 0.9])
+        for (const n of [10, 50, 200])
+          expect(spatialDesignEffect(n, rho)).toBeLessThan(spatialDesignEffectLimit(rho));
+      expect(mdx).toContain('fall below it');
+    });
+  });
+
+  describe('the closing symmetry', () => {
+    it('all three routes reach the same quantity', () => {
+      // donors, lesson 12
+      expect(designEffect(500, 0.05)).toBeCloseTo(25.95, 10);
+      // composition, lesson 13 — a Dirichlet-multinomial with alpha0 = 19
+      expect(designEffect(500, dirichletMultinomialIcc(19))).toBeCloseTo(25.95, 10);
+      // space, this lesson
+      expect(spatialDesignEffectLimit(0.5)).toBe(3);
+      expect(mdx).toContain('Three unrelated routes');
+      // and the hub still says what this lesson says it says
+      expect(lesson('single-cell')).toContain('1 + (m - 1)\\rho');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — 200 spots at rho 0.8 are worth about 23', () => {
+      expect(spatialDesignEffect(200, 0.8)).toBeCloseTo(8.8, 4);
+      expect(200 / 8.8).toBeCloseTo(22.7, 1);
+      expect(Math.sqrt(8.8)).toBeCloseTo(2.966, 3);
+      for (const v of ['8.80', '22.7', '2.966']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — a small negative I is the null, not anti-correlation', () => {
+      expect(-1 / 49).toBeCloseTo(-0.0204, 4);
+      expect(Math.abs(-0.02 - -1 / 49)).toBeLessThan(0.001);
+      // negative autocorrelation deflates rather than inflates
+      expect(spatialDesignEffect(200, -0.5)).toBeLessThan(1);
+      expect(mdx).toContain('conservative rather than anti-conservative');
+    });
+
+    it('3 — the two assays that remove a limitation rather than adding one', () => {
+      expect(mdx).toContain('Lineage barcoding');
+      expect(mdx).toContain('Metabolic labelling');
+      // the velocity figure it refers back to
+      expect((100 * velocityDirectionFlipped(0.5, 2)).toFixed(2)).toBe('41.72');
+      expect(mdx).toContain('41.72%');
     });
   });
 });

@@ -143,6 +143,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'sc-batch-integration',
   'sc-trajectories',
   'sc-rna-velocity',
+  'sc-multiomic-spatial',
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',

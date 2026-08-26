@@ -3919,3 +3919,27 @@ bergen2021challenges:
   venue: "Molecular Systems Biology 17:e10282"
   doi: https://doi.org/10.15252/msb.202110282
   verified: 2026-08-26
+
+rodriques2019slideseq:
+  authors: ['Samuel G. Rodriques', 'Robert R. Stickels', 'Aleksandrina Goeva', 'et al.']
+  year: 2019
+  title: "Slide-seq: A scalable technology for measuring genome-wide expression at high spatial resolution"
+  venue: "Science 363:1463-1467"
+  doi: https://doi.org/10.1126/science.aaw1219
+  verified: 2026-08-26
+
+lewis2021spatialomics:
+  authors: ['Sabrina M. Lewis', 'Marie-Liesse Asselin-Labat', 'Quan Nguyen', 'et al.']
+  year: 2021
+  title: "Spatial omics and multiplexed imaging to explore cancer biology"
+  venue: "Nature Methods 18:997-1012"
+  doi: https://doi.org/10.1038/s41592-021-01203-6
+  verified: 2026-08-26
+
+stoeckius2017citeseq:
+  authors: ['Marlon Stoeckius', 'Christoph Hafemeister', 'William Stephenson', 'et al.']
+  year: 2017
+  title: "Simultaneous epitope and transcriptome measurement in single cells"
+  venue: "Nature Methods 14:865-868"
+  doi: https://doi.org/10.1038/nmeth.4380
+  verified: 2026-08-26

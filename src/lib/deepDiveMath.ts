@@ -1147,6 +1147,49 @@ export function velocityDirectionFlipped(logSd: number, gammaFactor: number): nu
   return Math.abs(normalCdf(Math.log(gammaFactor) / logSd) - 0.5);
 }
 
+/**
+ * Design effect for the mean of `n` spots on a line with AR(1) correlation `rho` between
+ * neighbours: 1 + (2/n) Σ_{k=1}^{n-1} (n − k) ρ^k.
+ *
+ * Converges to (1 + ρ)/(1 − ρ) as n grows. This is lesson 12's design effect arriving from
+ * geometry rather than from donors — neighbouring spots are correlated for the same reason
+ * cells from one animal are, and the consequence for a test is identical.
+ */
+export function spatialDesignEffect(nSpots: number, rho: number): number {
+  if (nSpots < 1) throw new RangeError(`spatialDesignEffect needs n >= 1, got ${nSpots}`);
+  if (rho <= -1 || rho >= 1) throw new RangeError(`spatialDesignEffect needs rho in (-1,1), got ${rho}`);
+  let total = 0;
+  for (let k = 1; k < nSpots; k += 1) total += (nSpots - k) * rho ** k;
+  return 1 + (2 / nSpots) * total;
+}
+
+/** The limit of `spatialDesignEffect` as the field grows: (1 + ρ)/(1 − ρ). */
+export function spatialDesignEffectLimit(rho: number): number {
+  if (rho <= -1 || rho >= 1) throw new RangeError(`spatialDesignEffectLimit needs rho in (-1,1), got ${rho}`);
+  return (1 + rho) / (1 - rho);
+}
+
+/**
+ * Moran's I for values on a line, with each spot weighted to its immediate neighbours.
+ *
+ * The measurable version of "is this pattern spatial": +1 for a perfect gradient, −1 for a
+ * perfect checkerboard, and −1/(n−1) rather than 0 under no autocorrelation at all — a detail
+ * that matters, because a small negative I is the null and not evidence of anti-correlation.
+ */
+export function moransI(values: number[]): number {
+  const n = values.length;
+  if (n < 3) throw new RangeError(`moransI needs at least 3 values, got ${n}`);
+  const mean = values.reduce((s, x) => s + x, 0) / n;
+  let numerator = 0;
+  let denominator = 0;
+  for (let i = 0; i < n; i += 1) denominator += (values[i] - mean) ** 2;
+  if (denominator === 0) throw new RangeError('moransI needs a non-constant vector');
+  for (let i = 0; i < n - 1; i += 1)
+    numerator += 2 * (values[i] - mean) * (values[i + 1] - mean);
+  const weightTotal = 2 * (n - 1);
+  return (n / weightTotal) * (numerator / denominator);
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**
