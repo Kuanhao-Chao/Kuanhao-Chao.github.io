@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  iccFromAnova,
+  intraclassCorrelation,
+  twoSampleT,
+  studentTQuantile,
+  studentTCdf,
+  regularizedIncompleteBeta,
+  markerEvidenceMultiple,
+  markerEvidenceBreakEven,
+  markerContrastCeiling,
+  markerContrast,
+  markerEnrichment,
+  expectedMarkerCounts,
+  ambientExpectedCounts,
+  soupShare,
   trustworthiness,
   adjustedRandIndex,
   graphModularity,
@@ -2743,5 +2757,146 @@ describe('trustworthiness — what an embedding metric can and cannot see', () =
     // k must not exceed (n-1)/2 or the normalisation goes negative
     expect(() => trustworthiness(line, line, 6)).toThrow(RangeError);
     expect(() => trustworthiness(line, line.slice(0, 5), 3)).toThrow(RangeError);
+  });
+});
+
+
+describe('marker contrast against the ambient soup', () => {
+  it('soupShare is the composition-weighted average, and validates its inputs', () => {
+    expect(soupShare([{ share: 0.6, geneShare: 0.05 }])).toBeCloseTo(0.03, 12);
+    expect(soupShare([{ share: 0.5, geneShare: 0.02 }, { share: 0.5, geneShare: 0.04 }]))
+      .toBeCloseTo(0.03, 12);
+    expect(soupShare([])).toBe(0);
+    expect(() => soupShare([{ share: 1.2, geneShare: 0.1 }])).toThrow(RangeError);
+  });
+
+  it('contrast is independent of depth and of the marker’s own expression', () => {
+    const phi = 0.6;
+    const alpha = 0.05;
+    // a perfectly specific marker: only type A expresses it, so s = phi * x
+    for (const x of [0.05, 0.005, 0.0005, 0.2])
+      for (const depth of [500, 2000, 8000, 50000]) {
+        const s = soupShare([{ share: phi, geneShare: x }]);
+        const ratio = expectedMarkerCounts(depth, alpha, x, s) / ambientExpectedCounts(depth, alpha, s);
+        expect(ratio).toBeCloseTo(32.666667, 6);
+      }
+  });
+
+  it('markerContrast(alpha, 1/phi) is exactly markerContrastCeiling(alpha, phi)', () => {
+    for (const alpha of [0.01, 0.05, 0.1, 0.3])
+      for (const phi of [0.01, 0.05, 0.2, 0.6, 1])
+        expect(markerContrast(alpha, 1 / phi)).toBeCloseTo(markerContrastCeiling(alpha, phi), 10);
+  });
+
+  it('no gene can beat the ceiling, however specific', () => {
+    const phi = 0.4;
+    const x = 0.03;
+    // adding any other expressor only raises the soup, which only lowers the contrast
+    const alone = soupShare([{ share: phi, geneShare: x }]);
+    for (const other of [0, 0.001, 0.01, 0.05]) {
+      const s = soupShare([{ share: phi, geneShare: x }, { share: 0.6, geneShare: other }]);
+      expect(s).toBeGreaterThanOrEqual(alone);
+      const r = markerContrast(0.05, markerEnrichment(x, s));
+      expect(r).toBeLessThanOrEqual(markerContrastCeiling(0.05, phi) + 1e-9);
+    }
+  });
+
+  it('the ceiling moves with the ambient fraction and with abundance, not with the gene', () => {
+    expect(markerContrastCeiling(0.01, 0.6)).toBeCloseTo(166, 10);
+    expect(markerContrastCeiling(0.05, 0.6)).toBeCloseTo(32.666667, 6);
+    expect(markerContrastCeiling(0.1, 0.6)).toBeCloseTo(16, 10);
+    expect(markerContrastCeiling(0.2, 0.6)).toBeCloseTo(7.666667, 6);
+    expect(markerContrastCeiling(0.01, 0.6) / markerContrastCeiling(0.2, 0.6))
+      .toBeCloseTo(21.6522, 4);
+    // markers of rare types have far more headroom than markers of abundant ones
+    expect(markerContrastCeiling(0.05, 0.2)).toBeCloseTo(96, 10);
+    expect(markerContrastCeiling(0.05, 0.05)).toBeCloseTo(381, 10);
+    expect(markerContrastCeiling(0.05, 0.01)).toBeCloseTo(1901, 10);
+  });
+
+  it('the evidence break-even is depth-free as a multiple of the ambient rate', () => {
+    const R = markerContrastCeiling(0.05, 0.6);
+    expect(markerEvidenceBreakEven(12, R)).toBeCloseTo(108.996353, 6);
+    expect(markerEvidenceMultiple(R)).toBeCloseTo(9.083029, 6);
+    for (const lambda of [0.5, 3, 12, 400])
+      expect(markerEvidenceBreakEven(lambda, R) / lambda).toBeCloseTo(markerEvidenceMultiple(R), 10);
+    // at the break-even the Poisson log-likelihood ratio is exactly zero
+    const c = markerEvidenceBreakEven(12, R);
+    expect(c * Math.log(R) - 12 * (R - 1)).toBeCloseTo(0, 9);
+  });
+
+  it('rejects impossible inputs', () => {
+    expect(() => markerContrast(0, 5)).toThrow(RangeError);
+    expect(() => markerContrastCeiling(0.05, 0)).toThrow(RangeError);
+    expect(() => markerEnrichment(0.1, 0)).toThrow(RangeError);
+    expect(() => markerEvidenceBreakEven(12, 1)).toThrow(RangeError);
+  });
+});
+
+
+describe("the incomplete beta, and Student's t built on it", () => {
+  it('regularizedIncompleteBeta satisfies I_x(a,b) = 1 - I_{1-x}(b,a)', () => {
+    for (const [a, b, x] of [[2, 3, 0.3], [0.5, 3, 0.8], [5, 5, 0.5], [1, 1, 0.42],
+                             [0.5, 0.5, 0.11], [8, 2, 0.95]] as const)
+      expect(regularizedIncompleteBeta(a, b, x) + regularizedIncompleteBeta(b, a, 1 - x))
+        .toBeCloseTo(1, 11);
+  });
+
+  it('reduces to the uniform CDF at a = b = 1, and is monotone in x', () => {
+    for (const x of [0, 0.2, 0.5, 0.9, 1])
+      expect(regularizedIncompleteBeta(1, 1, x)).toBeCloseTo(x, 10);
+    let prev = -1;
+    for (const x of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+      const v = regularizedIncompleteBeta(2, 3, x);
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
+  });
+
+  it('studentTQuantile reproduces published table values exactly', () => {
+    expect(studentTQuantile(0.975, 1)).toBeCloseTo(12.706205, 6);
+    expect(studentTQuantile(0.975, 4)).toBeCloseTo(2.776445, 6);
+    expect(studentTQuantile(0.975, 6)).toBeCloseTo(2.446912, 6);
+    expect(studentTQuantile(0.975, 10)).toBeCloseTo(2.228139, 6);
+    expect(studentTQuantile(0.95, 20)).toBeCloseTo(1.724718, 6);
+    expect(studentTQuantile(0.995, 4)).toBeCloseTo(4.604095, 6);
+  });
+
+  it('converges on the normal as df grows, and is symmetric', () => {
+    expect(studentTQuantile(0.975, 1e6)).toBeCloseTo(normalQuantile(0.975), 4);
+    expect(studentTCdf(0, 7)).toBeCloseTo(0.5, 12);
+    for (const t of [0.4, 1.3, 2.9])
+      expect(studentTCdf(t, 9) + studentTCdf(-t, 9)).toBeCloseTo(1, 11);
+  });
+
+  it('studentTCdf inverts studentTQuantile', () => {
+    for (const df of [3, 6, 25])
+      for (const p of [0.6, 0.83, 0.975, 0.999])
+        expect(studentTCdf(studentTQuantile(p, df), df)).toBeCloseTo(p, 9);
+  });
+
+  it('twoSampleT matches a hand-computed case and is antisymmetric', () => {
+    const a = [1, 2, 3, 4];
+    const b = [3, 4, 5, 6];
+    // means 2.5 and 4.5, each SS = 5, pooled variance 10/6, se = sqrt(10/6 * 0.5)
+    expect(twoSampleT(a, b)).toBeCloseTo(-2 / Math.sqrt((10 / 6) * 0.5), 10);
+    expect(twoSampleT(a, b)).toBeCloseTo(-twoSampleT(b, a), 12);
+    // identical groups give exactly zero
+    expect(twoSampleT([1, 2, 3], [1, 2, 3])).toBeCloseTo(0, 12);
+    expect(() => twoSampleT([1], [1, 2])).toThrow(RangeError);
+  });
+
+  it('intraclassCorrelation and iccFromAnova agree on a constructed case', () => {
+    expect(intraclassCorrelation(0.05, 0.95)).toBeCloseTo(0.05, 12);
+    expect(intraclassCorrelation(0, 1)).toBe(0);
+    expect(intraclassCorrelation(1, 0)).toBe(1);
+    // in a balanced one-way design E[MSB] = sw^2 + m*sb^2 and E[MSW] = sw^2
+    const sb = 0.05;
+    const sw = 0.95;
+    const m = 200;
+    expect(iccFromAnova(sw + m * sb, sw, m)).toBeCloseTo(intraclassCorrelation(sb, sw), 9);
+    // a between-component indistinguishable from zero is clamped, not returned negative
+    expect(iccFromAnova(0.5, 1, 10)).toBe(0);
+    expect(() => iccFromAnova(1, 0, 10)).toThrow(RangeError);
   });
 });

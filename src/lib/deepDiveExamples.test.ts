@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  markerEvidenceMultiple,
+  markerEvidenceBreakEven,
+  markerContrastCeiling,
+  markerContrast,
+  markerEnrichment,
+  expectedMarkerCounts,
+  ambientExpectedCounts,
+  soupShare,
+  trustworthiness,
   adjustedRandIndex,
   graphModularity,
   relativeContrast,
@@ -7261,6 +7270,237 @@ describe('sc-clustering — the best-scoring partition is the wrong one', () => 
       expect(community0).toHaveLength(10);
       expect(graphModularity(A, merged)).toBeGreaterThan(graphModularity(A, grouped(40, 1)));
       expect(mdx).toContain('more likely than Louvain');
+    });
+  });
+});
+
+
+describe('sc-embeddings — what the faithfulness score cannot see', () => {
+  const mdx = lesson('sc-embeddings');
+  const HIGH = [[0], [0.1], [0.2], [10], [10.1], [10.2]];
+  /** Between-cluster centroid gap over mean within-cluster spread — the thing readers judge. */
+  const apparent = (P: number[][]) => {
+    const centroid = (g: number[][]) => g.reduce((s, p) => s + p[0], 0) / g.length;
+    const spread = (g: number[][]) => {
+      const c = centroid(g);
+      return g.reduce((s, p) => s + Math.abs(p[0] - c), 0) / g.length;
+    };
+    const A = P.slice(0, 3);
+    const B = P.slice(3);
+    return Math.abs(centroid(B) - centroid(A)) / ((spread(A) + spread(B)) / 2);
+  };
+
+  describe('worked example — four embeddings, one score', () => {
+    it('step 1: the true separation is exactly 150', () => {
+      expect((0.1 + 0 + 0.1) / 3).toBeCloseTo(0.066667, 6);
+      expect(apparent(HIGH)).toBeCloseTo(150, 10);
+      expect(trustworthiness(HIGH, HIGH, 2)).toBeCloseTo(1, 12);
+      for (const v of ['0.066667', '{0.066667} = 150']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 2: stretching fifty-fold gives 7,500 at a perfect score', () => {
+      const P = [[0], [0.1], [0.2], [500], [500.1], [500.2]];
+      expect(apparent(P)).toBeCloseTo(7500, 6);
+      expect(trustworthiness(HIGH, P, 2)).toBe(1);
+      expect(mdx).toContain('7,500');
+    });
+
+    it('step 3: crushing tenfold gives 15, also at a perfect score', () => {
+      const P = [[0], [0.1], [0.2], [1], [1.1], [1.2]];
+      expect(apparent(P)).toBeCloseTo(15, 10);
+      expect(trustworthiness(HIGH, P, 2)).toBe(1);
+    });
+
+    it('step 4: the span across three perfect scores is exactly 500-fold', () => {
+      expect(7500 / 15).toBe(500);
+      for (const v of ['500}{15}', '500-fold', 'five-hundred-fold'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 5: only a fifty-fold crush moves it, and only to 0.933333', () => {
+      const P = [[0], [0.1], [0.2], [0.2001], [0.3001], [0.4001]];
+      expect(trustworthiness(HIGH, P, 2)).toBeCloseTo(0.933333, 6);
+      expect(apparent(P)).toBeCloseTo(3.0015, 4);
+      expect(mdx).toContain('0.933333');
+    });
+  });
+
+  describe('the metric is sharp about what it does measure', () => {
+    it('one point moved between clusters drops it to 0.466667', () => {
+      const swapped = [[0], [0.1], [10.05], [10], [10.1], [0.2]];
+      expect(trustworthiness(HIGH, swapped, 2)).toBeCloseTo(0.466667, 6);
+      expect(mdx).toContain('0.466667');
+    });
+
+    it('stretching is invisible at any factor whatsoever, as exercise 2 claims', () => {
+      for (const gap of [50, 500, 5000, 1e6]) {
+        const P = [[0], [0.1], [0.2], [gap], [gap + 0.1], [gap + 0.2]];
+        expect(trustworthiness(HIGH, P, 2)).toBe(1);
+      }
+    });
+
+    it('crushing becomes visible only once the gap reaches the within-cluster spread', () => {
+      // the largest distance inside a triplet is 0.2, so intrusion starts around there
+      expect(trustworthiness(HIGH, [[0], [0.1], [0.2], [0.5], [0.6], [0.7]], 2)).toBe(1);
+      expect(trustworthiness(HIGH, [[0], [0.1], [0.2], [0.2001], [0.3001], [0.4001]], 2))
+        .toBeLessThan(1);
+      expect(10 / 50).toBeCloseTo(0.2, 12);
+      expect(mdx).toContain('roughly 0.2');
+    });
+  });
+
+  describe('figure 1 — every value it draws', () => {
+    it('draws the four rows with their scores and apparent separations', () => {
+      for (const l of ['true structure', 'gap stretched 50x', 'gap crushed 10x',
+                       'gap crushed 50x', 'trustworthiness 1.000000',
+                       'trustworthiness 0.933333', 'trustworthiness = 1.000000 throughout'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — a high trustworthiness cannot support a distance claim', () => {
+      // the lesson's own embeddings are the counterexample: perfect score, 500-fold span
+      const stretched = [[0], [0.1], [0.2], [500], [500.1], [500.2]];
+      const crushed = [[0], [0.1], [0.2], [1], [1.1], [1.2]];
+      expect(trustworthiness(HIGH, stretched, 2)).toBe(trustworthiness(HIGH, crushed, 2));
+      expect(apparent(stretched) / apparent(crushed)).toBeCloseTo(500, 6);
+      expect(mdx).toContain('0.98');
+    });
+
+    it('3 — the invariance is to any monotone map of the distances', () => {
+      // squaring every coordinate gap preserves order and so preserves the score
+      const monotone = HIGH.map(([x]) => [x ** 2]);
+      expect(trustworthiness(HIGH, monotone, 2)).toBe(1);
+      expect(mdx).toContain('monotone transformation');
+    });
+  });
+});
+
+
+describe('sc-annotation — the ceiling on what a marker can do', () => {
+  const mdx = lesson('sc-annotation');
+  const PHI = 0.6;
+  const ALPHA = 0.05;
+  const DEPTH = 8000;
+
+  describe('worked example — albumin against the soup', () => {
+    it('step 1: 392.0 counts in a hepatocyte against 12.0 in a Kupffer cell', () => {
+      const s = soupShare([{ share: PHI, geneShare: 0.05 }]);
+      expect(s).toBeCloseTo(0.03, 12);
+      expect(expectedMarkerCounts(DEPTH, ALPHA, 0.05, s)).toBeCloseTo(392, 10);
+      expect(ambientExpectedCounts(DEPTH, ALPHA, s)).toBeCloseTo(12, 10);
+      for (const v of ['392.0', '12.0', '0.60 \\times 0.05 = 0.03'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 2: the contrast is 32.666667, and is 5.029747 in log2', () => {
+      const s = soupShare([{ share: PHI, geneShare: 0.05 }]);
+      const r = expectedMarkerCounts(DEPTH, ALPHA, 0.05, s) / ambientExpectedCounts(DEPTH, ALPHA, s);
+      expect(r).toBeCloseTo(32.666667, 6);
+      expect(markerContrastCeiling(ALPHA, PHI)).toBeCloseTo(32.666667, 6);
+      expect(Math.log2(r)).toBeCloseTo(5.029747, 6);
+      for (const v of ['32.666667', '5.029747']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: three markers a hundred-fold apart give the identical contrast', () => {
+      const rows: number[] = [];
+      for (const x of [0.05, 0.005, 0.0005]) {
+        const s = soupShare([{ share: PHI, geneShare: x }]);
+        rows.push(expectedMarkerCounts(DEPTH, ALPHA, x, s) / ambientExpectedCounts(DEPTH, ALPHA, s));
+      }
+      for (const r of rows) expect(r).toBeCloseTo(rows[0], 12);
+      for (const r of rows) expect(r).toBeCloseTo(32.666667, 6);
+      // and the counts the lesson quotes for each
+      const counts = [0.05, 0.005, 0.0005].map((x) => {
+        const s = soupShare([{ share: PHI, geneShare: x }]);
+        return [expectedMarkerCounts(DEPTH, ALPHA, x, s), ambientExpectedCounts(DEPTH, ALPHA, s)];
+      });
+      expect(counts[1][0]).toBeCloseTo(39.2, 9);
+      expect(counts[1][1]).toBeCloseTo(1.2, 9);
+      expect(counts[2][0]).toBeCloseTo(3.92, 9);
+      expect(counts[2][1]).toBeCloseTo(0.12, 9);
+      for (const v of ['39.2', '1.2', '3.92', '0.12']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 4: evidence balances at 108.996353 counts, 9.083029x ambient', () => {
+      const R = markerContrastCeiling(ALPHA, PHI);
+      expect(R - 1).toBeCloseTo(31.666667, 6);
+      expect(Math.log(R)).toBeCloseTo(3.486355, 6);
+      expect(mdx).toContain('31.666667');
+      expect(markerEvidenceBreakEven(12, R)).toBeCloseTo(108.996353, 6);
+      expect(markerEvidenceMultiple(R)).toBeCloseTo(9.083029, 6);
+      for (const v of ['3.486355', '108.996353', '9.083029']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 5: 99.999386% of Kupffer cells are positive at 8,000 UMIs, 52.76% at 500', () => {
+      const s = soupShare([{ share: PHI, geneShare: 0.05 }]);
+      expect(1 - Math.exp(-ambientExpectedCounts(8000, ALPHA, s))).toBeCloseTo(0.99999386, 8);
+      expect(ambientExpectedCounts(500, ALPHA, s)).toBeCloseTo(0.75, 12);
+      expect(100 * (1 - Math.exp(-0.75))).toBeCloseTo(52.7633, 4);
+      for (const v of ['0.99999386', '52.76%', '0.75']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figures — every value drawn', () => {
+    it('figure 1 draws the four ceilings on the 60% curve', () => {
+      expect(markerContrastCeiling(0.01, 0.6)).toBeCloseTo(166, 10);
+      expect(markerContrastCeiling(0.1, 0.6)).toBeCloseTo(16, 10);
+      expect(markerContrastCeiling(0.2, 0.6)).toBeCloseTo(7.666667, 6);
+      expect(markerContrastCeiling(0.01, 0.6) / markerContrastCeiling(0.2, 0.6))
+        .toBeCloseTo(21.6522, 4);
+      for (const l of ['1% ambient', '5% ambient', '10% ambient', '20% ambient',
+                       '166', '32.67', '7.67', 'of the soup'])
+        expect(mdx, `figure 1 label ${l}`).toContain(l);
+      expect(mdx).toContain('21.65');
+    });
+
+    it('figure 2 draws three equal connectors, which is the caption’s encoding rule', () => {
+      // the caption says connector length is the log contrast: decode it the same way
+      const logs = [0.05, 0.005, 0.0005].map((x) => {
+        const s = soupShare([{ share: PHI, geneShare: x }]);
+        return Math.log10(expectedMarkerCounts(DEPTH, ALPHA, x, s))
+          - Math.log10(ambientExpectedCounts(DEPTH, ALPHA, s));
+      });
+      for (const v of logs) expect(v).toBeCloseTo(logs[0], 12);
+      for (const l of ['32.67x', 'filled = hepatocyte, open = Kupffer cell'])
+        expect(mdx, `figure 2 label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — a six-fold stronger marker gives the identical contrast', () => {
+      const contrasts = [0.05, 0.3].map((x) => {
+        const s = soupShare([{ share: PHI, geneShare: x }]);
+        return markerContrast(ALPHA, markerEnrichment(x, s));
+      });
+      expect(contrasts[0]).toBeCloseTo(contrasts[1], 12);
+      expect(contrasts[0]).toBeCloseTo(32.666667, 6);
+      expect(1 / PHI).toBeCloseTo(1.6667, 4);
+      expect(mdx).toContain('1.6667');
+      expect(mdx).toMatch(/166\s+instead of 32\.67/);
+    });
+
+    it('2 — depth changes detection completely and the contrast not at all', () => {
+      const s = soupShare([{ share: PHI, geneShare: 0.05 }]);
+      const detect = (n: number) => 1 - Math.exp(-ambientExpectedCounts(n, ALPHA, s));
+      expect(100 * detect(500)).toBeCloseTo(52.7633, 4);
+      expect(100 * detect(8000)).toBeCloseTo(99.999386, 6);
+      // the contrast is identical in both runs
+      const at500 = expectedMarkerCounts(500, ALPHA, 0.05, s) / ambientExpectedCounts(500, ALPHA, s);
+      const at8000 = expectedMarkerCounts(8000, ALPHA, 0.05, s) / ambientExpectedCounts(8000, ALPHA, s);
+      expect(at500).toBeCloseTo(at8000, 12);
+      expect(at500).toBeCloseTo(32.666667, 6);
+      expect(32.666667 * 12).toBeCloseTo(392, 3);
+      expect(mdx).toContain('99.999386%');
+    });
+
+    it('3 — a 1%-abundant type has 58.19x more headroom', () => {
+      expect(markerContrastCeiling(ALPHA, 0.01)).toBeCloseTo(1901, 10);
+      expect(markerContrastCeiling(ALPHA, 0.01) / markerContrastCeiling(ALPHA, PHI))
+        .toBeCloseTo(58.19, 2);
+      expect(mdx).toContain('1901');
+      expect(mdx).toMatch(/58\.19 times less\s+headroom/);
     });
   });
 });

@@ -18,6 +18,13 @@
  */
 
 import {
+  markerEvidenceMultiple,
+  markerContrastCeiling,
+  markerContrast,
+  markerEnrichment,
+  expectedMarkerCounts,
+  ambientExpectedCounts,
+  soupShare,
   trustworthiness,
   adjustedRandIndex,
   graphModularity,
@@ -1903,6 +1910,99 @@ const scEmbedding: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * What a marker gene is worth against the ambient soup.
+ *
+ * Draws the two expected counts — in a cell that expresses the marker and in one that does
+ * not — as a dumbbell on a logarithmic axis, so the connector's length *is* the log contrast.
+ * Dragging the marker's own expression slides both ends together and leaves the connector
+ * exactly as long, which is the cancellation the lesson proves algebraically.
+ */
+const scMarkerContrast: Renderer = (canvas, controlHost, readoutHost) => {
+  const DEPTH = 8000;
+
+  const draw = () => {
+    const alpha = c.get('alpha');
+    const phi = c.get('phi');
+    const own = c.get('own');
+
+    // the marker is expressed only by this type, so the soup carries it in proportion to phi
+    const soup = soupShare([{ share: phi, geneShare: own }]);
+    const expressing = expectedMarkerCounts(DEPTH, alpha, own, soup);
+    const silent = ambientExpectedCounts(DEPTH, alpha, soup);
+    const contrast = markerContrast(alpha, markerEnrichment(own, soup));
+    const ceiling = markerContrastCeiling(alpha, phi);
+
+    const x = logarithmic(1e-3, 1e4, PAD.left, PAD.left + PLOT.w,
+      [1e-2, 1, 100, 1e4], (v) => (v >= 1 ? whole(v) : String(v)));
+    const y = linear(0, 1, PAD.top + PLOT.h, PAD.top, [], () => '');
+
+    const svg = newSvg();
+    const g = frame(x, y, `Expected counts at ${whole(DEPTH)} UMIs`, '', svg);
+    const row = y(0.55);
+
+    g.appendChild(el('line', {
+      x1: x(Math.max(silent, 1e-3)), y1: row, x2: x(Math.max(expressing, 1e-3)), y2: row,
+      stroke: 'currentColor', 'stroke-width': 3, opacity: 0.45,
+    }));
+    g.appendChild(el('circle', {
+      cx: x(Math.max(silent, 1e-3)), cy: row, r: 6,
+      fill: 'none', stroke: 'currentColor', 'stroke-width': 2, opacity: 0.8,
+    }));
+    g.appendChild(el('circle', {
+      cx: x(Math.max(expressing, 1e-3)), cy: row, r: 6, fill: ACCENT,
+    }));
+    g.appendChild(label((x(Math.max(silent, 1e-3)) + x(Math.max(expressing, 1e-3))) / 2, row - 14,
+      `${contrast.toFixed(2)}x`, { 'text-anchor': 'middle', opacity: 0.9 }));
+    g.appendChild(label(PAD.left + PLOT.w - 4, PAD.top + 16,
+      'filled = expresses it, open = does not', { 'text-anchor': 'end', opacity: 0.7 }));
+
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['contrast', `${contrast.toFixed(3)}x`],
+      ['the ceiling for this type', `${ceiling.toFixed(3)}x`],
+      ['evidence balances at', `${markerEvidenceMultiple(contrast).toFixed(2)}x ambient`],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'alpha',
+        label: 'Ambient fraction of the run',
+        min: Math.log10(0.005),
+        max: Math.log10(0.3),
+        step: 0.01,
+        value: Math.log10(0.05),
+        scale: (v) => 10 ** v,
+        format: (v) => `${(100 * 10 ** v).toFixed(1)}%`,
+      },
+      {
+        key: 'phi',
+        label: 'This cell type’s share of the soup',
+        min: 0.01,
+        max: 0.8,
+        step: 0.01,
+        value: 0.6,
+        format: (v) => `${(100 * v).toFixed(0)}%`,
+      },
+      {
+        key: 'own',
+        label: 'The marker’s share of this type’s transcripts',
+        min: Math.log10(0.0005),
+        max: Math.log10(0.3),
+        step: 0.01,
+        value: Math.log10(0.05),
+        scale: (v) => 10 ** v,
+        format: (v) => `${(100 * 10 ** v).toFixed(2)}%`,
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'ld-decay': ldDecay,
   drift,
@@ -1919,6 +2019,7 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'sc-knn-graph': scKnnGraph,
   'sc-resolution': scResolution,
   'sc-embedding': scEmbedding,
+  'sc-marker-contrast': scMarkerContrast,
 };
 
 /**

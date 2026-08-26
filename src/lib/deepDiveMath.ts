@@ -687,6 +687,204 @@ export function neighborPurity(adjacency: number[][], labels: number[]): number 
   return same / total;
 }
 
+/**
+ * Share of the ambient soup that is gene g: s_g = Σ_t φ_t x_gt.
+ *
+ * The composition-weighted average of every cell type's transcriptome, where φ_t is type t's
+ * share of the soup's transcript mass. Lesson 3 computed this inline; lesson 11 needs it as a
+ * primitive because the marker-contrast ceiling is stated in terms of it.
+ */
+export function soupShare(parts: { share: number; geneShare: number }[]): number {
+  let total = 0;
+  for (const { share, geneShare } of parts) {
+    if (share < 0 || share > 1) throw new RangeError(`soupShare needs shares in [0,1], got ${share}`);
+    if (geneShare < 0 || geneShare > 1) throw new RangeError(`soupShare needs geneShares in [0,1], got ${geneShare}`);
+    total += share * geneShare;
+  }
+  return total;
+}
+
+/** Expected ambient counts of a gene in a barcode: λ₀ = n·α·s_g. */
+export function ambientExpectedCounts(depth: number, ambientFraction: number, soup: number): number {
+  if (depth < 0) throw new RangeError(`ambientExpectedCounts needs depth >= 0, got ${depth}`);
+  if (ambientFraction < 0 || ambientFraction > 1)
+    throw new RangeError(`ambientExpectedCounts needs alpha in [0,1], got ${ambientFraction}`);
+  return depth * ambientFraction * soup;
+}
+
+/** Expected counts in a cell that does express the gene: λ = n[(1−α)x + α s_g]. */
+export function expectedMarkerCounts(
+  depth: number,
+  ambientFraction: number,
+  ownShare: number,
+  soup: number,
+): number {
+  if (ambientFraction < 0 || ambientFraction > 1)
+    throw new RangeError(`expectedMarkerCounts needs alpha in [0,1], got ${ambientFraction}`);
+  return depth * ((1 - ambientFraction) * ownShare + ambientFraction * soup);
+}
+
+/** A marker's enrichment over the soup, E = x/s_g — the only property of it that survives. */
+export function markerEnrichment(ownShare: number, soup: number): number {
+  if (soup <= 0) throw new RangeError(`markerEnrichment needs soup > 0, got ${soup}`);
+  return ownShare / soup;
+}
+
+/**
+ * Expected-count contrast between a cell expressing the marker and one that does not:
+ * R = 1 + (1−α)E/α.
+ *
+ * Sequencing depth cancels identically — it is a ratio of two Poisson means at the same
+ * depth — so the contrast is a property of the biology and the run, never of how deeply a
+ * particular cell happened to be read.
+ */
+export function markerContrast(ambientFraction: number, enrichment: number): number {
+  if (ambientFraction <= 0 || ambientFraction > 1)
+    throw new RangeError(`markerContrast needs alpha in (0,1], got ${ambientFraction}`);
+  return 1 + ((1 - ambientFraction) * enrichment) / ambientFraction;
+}
+
+/**
+ * The unimprovable ceiling on that contrast: R_max = 1 + (1−α)/(αφ).
+ *
+ * Because s_g = Σ_t φ_t x_gt ≥ φ_A x_A, enrichment can never exceed 1/φ_A, so no gene in the
+ * genome beats this bound — and the marker's own expression level cancels out of it entirely.
+ * Curating a better marker cannot move the ceiling. Only reducing the ambient fraction can.
+ */
+export function markerContrastCeiling(ambientFraction: number, transcriptShare: number): number {
+  if (transcriptShare <= 0 || transcriptShare > 1)
+    throw new RangeError(`markerContrastCeiling needs phi in (0,1], got ${transcriptShare}`);
+  return markerContrast(ambientFraction, 1 / transcriptShare);
+}
+
+/**
+ * Counts at which the evidence for expression exactly balances the evidence against:
+ * c* = λ₀(R−1)/ln R, from the Poisson log-likelihood ratio c·ln R − λ₀(R−1).
+ *
+ * This is a derivation of where the evidence turns, not a threshold to apply. Its useful form
+ * is the multiple below, which is depth-free.
+ */
+export function markerEvidenceBreakEven(ambientLambda: number, contrast: number): number {
+  if (contrast <= 1) throw new RangeError(`markerEvidenceBreakEven needs contrast > 1, got ${contrast}`);
+  return (ambientLambda * (contrast - 1)) / Math.log(contrast);
+}
+
+/** The same break-even as a multiple of the ambient expectation, (R−1)/ln R. */
+export function markerEvidenceMultiple(contrast: number): number {
+  return markerEvidenceBreakEven(1, contrast);
+}
+
+/**
+ * Regularized incomplete beta function I_x(a, b), by Lentz's continued fraction.
+ *
+ * The repo already has `regularizedGammaP` for the chi-square family; this is its companion,
+ * and Student's t needs it. Nothing else in the curriculum produces a t quantile, and the
+ * whole cost of analysing a clustered design correctly is a t quantile.
+ */
+export function regularizedIncompleteBeta(a: number, b: number, x: number): number {
+  if (a <= 0 || b <= 0) throw new RangeError(`regularizedIncompleteBeta needs a, b > 0, got ${a}, ${b}`);
+  if (x < 0 || x > 1) throw new RangeError(`regularizedIncompleteBeta needs x in [0,1], got ${x}`);
+  if (x === 0 || x === 1) return x;
+  const front = Math.exp(
+    lnGamma(a + b) - lnGamma(a) - lnGamma(b) + a * Math.log(x) + b * Math.log1p(-x),
+  );
+  // the continued fraction converges quickly only for x < (a+1)/(a+b+2); reflect otherwise
+  if (x > (a + 1) / (a + b + 2)) return 1 - regularizedIncompleteBeta(b, a, 1 - x);
+
+  const tiny = 1e-300;
+  let c = 1;
+  let d = 1 - ((a + b) * x) / (a + 1);
+  if (Math.abs(d) < tiny) d = tiny;
+  d = 1 / d;
+  let h = d;
+  for (let i = 1; i <= 400; i += 1) {
+    const m2 = 2 * i;
+    // even step
+    let num = (i * (b - i) * x) / ((a + m2 - 1) * (a + m2));
+    d = 1 + num * d;
+    if (Math.abs(d) < tiny) d = tiny;
+    c = 1 + num / c;
+    if (Math.abs(c) < tiny) c = tiny;
+    d = 1 / d;
+    h *= d * c;
+    // odd step
+    num = (-((a + i) * (a + b + i) * x)) / ((a + m2) * (a + m2 + 1));
+    d = 1 + num * d;
+    if (Math.abs(d) < tiny) d = tiny;
+    c = 1 + num / c;
+    if (Math.abs(c) < tiny) c = tiny;
+    d = 1 / d;
+    const delta = d * c;
+    h *= delta;
+    if (Math.abs(delta - 1) < 1e-15) break;
+  }
+  return (front * h) / a;
+}
+
+/** CDF of Student's t with `df` degrees of freedom. */
+export function studentTCdf(t: number, df: number): number {
+  if (df <= 0) throw new RangeError(`studentTCdf needs df > 0, got ${df}`);
+  const p = 0.5 * regularizedIncompleteBeta(df / 2, 0.5, df / (df + t * t));
+  return t >= 0 ? 1 - p : p;
+}
+
+/**
+ * Quantile of Student's t, by bisection on the CDF.
+ *
+ * Bisection rather than an asymptotic expansion because the degrees of freedom that matter
+ * here are tiny — a study with four donors per group has six of them — and that is exactly
+ * where series approximations are worst.
+ */
+export function studentTQuantile(p: number, df: number): number {
+  if (p <= 0 || p >= 1) throw new RangeError(`studentTQuantile needs p in (0,1), got ${p}`);
+  let lo = -1e4;
+  let hi = 1e4;
+  for (let i = 0; i < 300; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (studentTCdf(mid, df) < p) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/** Pooled two-sample t statistic. */
+export function twoSampleT(a: number[], b: number[]): number {
+  if (a.length < 2 || b.length < 2)
+    throw new RangeError(`twoSampleT needs at least 2 observations per group, got ${a.length} and ${b.length}`);
+  const mean = (v: number[]) => v.reduce((s, x) => s + x, 0) / v.length;
+  const ss = (v: number[]) => {
+    const m = mean(v);
+    return v.reduce((s, x) => s + (x - m) ** 2, 0);
+  };
+  const df = a.length + b.length - 2;
+  const pooled = (ss(a) + ss(b)) / df;
+  return (mean(a) - mean(b)) / Math.sqrt(pooled * (1 / a.length + 1 / b.length));
+}
+
+/** Intra-class correlation from its variance components, ρ = σ_b²/(σ_b² + σ_w²). */
+export function intraclassCorrelation(betweenVar: number, withinVar: number): number {
+  if (betweenVar < 0 || withinVar < 0)
+    throw new RangeError(`intraclassCorrelation needs non-negative variances, got ${betweenVar}, ${withinVar}`);
+  const total = betweenVar + withinVar;
+  if (total === 0) throw new RangeError('intraclassCorrelation needs a non-zero total variance');
+  return betweenVar / total;
+}
+
+/**
+ * ICC estimated from a one-way ANOVA, ρ̂ = (MSB − MSW)/(MSB + (m−1)MSW).
+ *
+ * This is what makes ρ measurable rather than stipulated: it comes out of the same table a
+ * per-cell analysis already computes, so nobody has an excuse for not knowing it. Clamped at
+ * zero, since a negative estimate means the between-sample component is indistinguishable
+ * from nothing.
+ */
+export function iccFromAnova(msBetween: number, msWithin: number, cellsPerSample: number): number {
+  if (msWithin <= 0) throw new RangeError(`iccFromAnova needs msWithin > 0, got ${msWithin}`);
+  if (cellsPerSample < 2) throw new RangeError(`iccFromAnova needs m >= 2, got ${cellsPerSample}`);
+  const raw = (msBetween - msWithin) / (msBetween + (cellsPerSample - 1) * msWithin);
+  return Math.max(0, raw);
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**
