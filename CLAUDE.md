@@ -84,7 +84,7 @@ Five tracks, each with a hub carrying `isHub: true`:
 
 | hub | pages | `track` | owns |
 | --- | --- | --- | --- |
-| `statistical-genetics` | 19 | `theory` | definitions, assumptions, derivations |
+| `statistical-genetics` | 20 | `theory` | definitions, assumptions, derivations |
 | `gwas` | 10 | `workflow` | commands, thresholds, diagnostics, failure modes |
 | `genomic-data` | 13 | `resource` | the resource ecosystem and its access rules |
 | `ml-dl-interview` | 24 | `workflow` / `elective` | 351 interview questions |
@@ -354,6 +354,15 @@ Things specific to this subsystem:
   search string and a float bug in the harness (`i < 0.3 * 40000` admits one extra element),
   so verify every hit by hand before acting — and prefer `Fraction` over floats when the claim
   is that two quantities are *exactly* equal.
+
+- **Check the bibliography key, not just the topic, before adding a reference.** `benjamini1995fdr`
+  already existed for the GWAS track and got appended a second time; `references.yaml` has no
+  uniqueness constraint and the duplicate only surfaced on a manual key count. Grep for the exact
+  key first.
+
+- **A `\n` inside a `toContain` is an odd backslash run** and the examples suite's self-check
+  rejects it, correctly: an assertion that depends on where the prose happens to wrap is an
+  assertion about the line-filling, not the content. Use `toMatch(/… \s+ …/)`.
 
 - **A derivation that will not close can be the lesson's best material.** `statgen-detecting-selection`
   set out to compare a swept haplotype against the neutral expectation and could not: the

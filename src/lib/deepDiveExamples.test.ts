@@ -89,6 +89,11 @@ import {
   neutralAlleleAge,
   ehhHalfLength,
   sweepAgeAnomaly,
+  sidakThreshold,
+  harmonic,
+  bhRealisedFdr,
+  storeyPi0,
+  benjaminiYekutieli,
   type FstSite,
 } from './deepDiveMath.ts';
 
@@ -8554,6 +8559,149 @@ describe('statgen-detecting-selection', () => {
     for (const v of ['0.786', '0.681', '0.598']) expect(mdx).toContain(v);
     expect(mdx).toContain('not a constant');
     expect(mdx).toContain('within-locus contrast');
+  });
+});
+
+describe('statgen-multiple-testing', () => {
+  const mdx = lesson('statgen-multiple-testing');
+  const P = [0.0001, 0.0008, 0.0021, 0.0115, 0.0120, 0.0130, 0.0140, 0.0290, 0.0360, 0.0450,
+             0.0610, 0.0930, 0.1400, 0.2100, 0.3500, 0.4600, 0.6100, 0.7100, 0.7800, 0.9200];
+
+  describe('worked example — twenty tests, three procedures', () => {
+    it('rejects seven, three and two', () => {
+      expect(benjaminiHochberg(P, 0.05).rejected).toBe(7);
+      expect(benjaminiHochberg(P, 0.05).threshold).toBeCloseTo(0.014, 12);
+      expect(P.filter((p) => p <= 0.05 / 20).length).toBe(3);
+      expect(benjaminiYekutieli(P, 0.05).rejected).toBe(2);
+      expect(P.filter((p) => p <= 0.05).length).toBe(10);
+      expect(mdx).toContain('**7 rejections**');
+      expect(mdx).toContain('**3 rejections**');
+      expect(mdx).toContain('**2 rejections**');
+      expect(mdx).toContain('**10**');
+    });
+
+    it('has rank 4 failing its own line and rejected regardless', () => {
+      expect(P[3]).toBeCloseTo(0.0115, 12);
+      expect((4 / 20) * 0.05).toBeCloseTo(0.01, 12);
+      expect(P[3]).toBeGreaterThan((4 / 20) * 0.05);
+      expect(P[3]).toBeLessThanOrEqual(benjaminiHochberg(P, 0.05).threshold);
+      // matched with a regex rather than an embedded newline: the exact wrap position is
+      // an artefact of the prose, not something an assertion should depend on
+      expect(mdx).toMatch(/0\.0115 against\s+0\.0100/);
+      expect(mdx).toMatch(/0\.0140 against\s+0\.0175/);
+    });
+
+    it('gives the BY line the lesson quotes', () => {
+      const H = harmonic(20);
+      expect(H.toFixed(4)).toBe('3.5977');
+      expect((0.05 / H / 20).toFixed(6)).toBe('0.000695');
+      expect((3 * (0.05 / H)) / 20).toBeCloseTo(0.002085, 6);
+      expect(mdx).toContain('3.5977');
+      expect(mdx).toContain('0.000695');
+      expect(mdx).toContain('0.002085');
+    });
+  });
+
+  describe('what BH controls', () => {
+    it('is pi0 q at every null fraction the lesson lists', () => {
+      const pairs: [number, string][] = [[0.95, '0.0475'], [0.9, '0.0450'], [0.75, '0.0375'],
+        [0.5, '0.0250'], [0.25, '0.0125']];
+      for (const [pi0, want] of pairs) {
+        expect(bhRealisedFdr(pi0, 0.05).toFixed(4)).toBe(want);
+        expect(mdx).toContain(want);
+      }
+    });
+
+    it('quotes the simulated values beside the predicted ones', () => {
+      for (const v of ['0.0474', '0.0449', '0.0376', '0.0251']) expect(mdx).toContain(v);
+    });
+  });
+
+  describe('Storey', () => {
+    it('estimates 0.40 on the worked p-values', () => {
+      expect(storeyPi0(P, 0.5)).toBeCloseTo(0.4, 12);
+      expect(P.filter((p) => p > 0.5).length).toBe(4);
+      expect(mdx).toContain('4/10 = 0.40');
+    });
+
+    it('has the gain table the lesson tabulates', () => {
+      const rows: [number, number, number, number][] = [
+        [0.222, 2281, 3444, 1.510], [0.507, 5197, 6673, 1.284], [0.744, 7635, 8792, 1.152],
+        [0.890, 9125, 9865, 1.081], [0.960, 9847, 10314, 1.048]];
+      for (const [power, bh, st, gain] of rows) {
+        expect(st / bh).toBeCloseTo(gain, 2);
+        expect(mdx).toContain(power.toFixed(3));
+        expect(mdx).toContain(gain.toFixed(3));
+        expect(mdx).toContain(bh.toLocaleString('en-US'));
+        expect(mdx).toContain(st.toLocaleString('en-US'));
+      }
+      // the threshold doubles in every row, and the count never does
+      expect(0.05 / 0.5).toBeCloseTo(0.1, 12);
+      expect(rows.every(([, bh, st]) => st / bh < 2)).toBe(true);
+    });
+  });
+
+  describe('dependence', () => {
+    it('prices arbitrary dependence at the harmonic number', () => {
+      expect(harmonic(20).toFixed(4)).toBe('3.5977');
+      expect(harmonic(20_000).toFixed(4)).toBe('10.4807');
+      expect(harmonic(1_000_000).toFixed(4)).toBe('14.3927');
+      expect((0.05 / harmonic(1_000_000)).toExponential(3)).toBe('3.474e-3');
+      expect(mdx).toContain('10.4807');
+      expect(mdx).toContain('14.3927');
+      expect(mdx).toContain('3.474\\times10^{-3}');
+    });
+
+    it('crosses Bonferroni at exactly rank H_m', () => {
+      for (const m of [20, 1000, 1_000_000]) {
+        const H = harmonic(m);
+        expect((H * (0.05 / H)) / m).toBeCloseTo(bonferroni(0.05, m), 15);
+      }
+      expect(mdx).toContain('rank $i = H_m = 14.3927$');
+    });
+
+    it('keeps Sidak above Bonferroni by a factor that converges to -ln(1-a)/a', () => {
+      // the ratio does not tend to 1 -- it tends to 1.025866 at alpha = 0.05, and is
+      // essentially independent of m once m is large
+      const limit = -Math.log(1 - 0.05) / 0.05;
+      expect(limit.toFixed(6)).toBe('1.025866');
+      for (const m of [1000, 1_000_000, 100_000_000]) {
+        expect(sidakThreshold(0.05, m)).toBeGreaterThan(bonferroni(0.05, m));
+        expect(sidakThreshold(0.05, m) / bonferroni(0.05, m)).toBeCloseTo(limit, 3);
+      }
+      expect(sidakThreshold(0.05, 1_000_000).toExponential(3)).toBe('5.129e-8');
+      expect(mdx).toContain('1.025866');
+      expect(mdx).toContain('5.129\\times10^{-8}');
+    });
+  });
+
+  describe('a rate for a set, not a member', () => {
+    it('quotes the set rate and the marginal rate and their ratio', () => {
+      expect((0.1062 / 0.0251).toFixed(2)).toBe('4.23');
+      expect(mdx).toContain('0.0251');
+      expect(mdx).toContain('10.62%');
+      expect(mdx).toContain('4.22 times');
+      // exercise 4 propagates the same factor
+      expect((0.05 * 4.22).toFixed(3)).toBe('0.211');
+      expect(mdx).toContain('0.211');
+    });
+  });
+
+  describe('exercises', () => {
+    it('exercise 1 — BH rejects two, Bonferroni one', () => {
+      const Q = [0.0004, 0.009, 0.018, 0.022, 0.03, 0.04, 0.06, 0.12, 0.4, 0.7];
+      expect(benjaminiHochberg(Q, 0.05).rejected).toBe(2);
+      expect(Q.filter((p) => p <= 0.05 / 10).length).toBe(1);
+      expect(mdx).toContain('**2 rejections**');
+      expect(mdx).toContain('**1 rejection**');
+    });
+
+    it('exercise 3 — the BY line at rank 400 clears 1e-7', () => {
+      const level = 0.05 / harmonic(1_000_000);
+      expect(((400 * level) / 1e6).toExponential(2)).toBe('1.39e-6');
+      expect(1.39e-6).toBeGreaterThan(1e-7);
+      expect(mdx).toContain('1.39\\times10^{-6}');
+    });
   });
 });
 

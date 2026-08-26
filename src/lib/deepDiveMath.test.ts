@@ -80,6 +80,7 @@ import {
   fstHudsonParts, fstRatioOfAverages, fstAverageOfRatios, weirCockerhamFst,
   structureSpike, bbpThreshold, spikedEigenvalue, spikedEigenvectorOverlap, structureChiSquare,
   neutralAlleleAge, ehhHalfLength, sweepAgeAnomaly,
+  sidakThreshold, bhRealisedFdr, storeyPi0, benjaminiYekutieli, bhAdjustedPValues, benjaminiHochberg, bonferroni,
   type FstSite,
 } from './deepDiveMath.ts';
 
@@ -1392,6 +1393,92 @@ describe('population structure and the PCA phase transition', () => {
     // 20,000 cells in sc-pca. The same edge decides both questions.
     expect(bbpThreshold(2000, 20_000).bulkEdge).toBeCloseTo(marchenkoPasturEdge(20_000, 2000).upper, 12);
     expect(bbpThreshold(2000, 20_000).bulkEdge).toBeCloseTo(1.7325, 4);
+  });
+});
+
+describe('multiple testing beyond Bonferroni', () => {
+  // p(4) exceeds its own line but is rejected anyway, which is the step-up
+  const P = [0.0001, 0.0008, 0.0021, 0.0115, 0.0120, 0.0130, 0.0140, 0.0290, 0.0360, 0.0450,
+             0.0610, 0.0930, 0.1400, 0.2100, 0.3500, 0.4600, 0.6100, 0.7100, 0.7800, 0.9200];
+
+  it('makes Bonferroni the first-order approximation to Sidak', () => {
+    for (const m of [20, 1000, 1e6]) {
+      expect(sidakThreshold(0.05, m)).toBeGreaterThan(bonferroni(0.05, m));
+      expect(sidakThreshold(0.05, m) / bonferroni(0.05, m)).toBeCloseTo(1, 1);
+    }
+    // at one test they are identical
+    expect(sidakThreshold(0.05, 1)).toBeCloseTo(0.05, 12);
+  });
+
+  it('rejects seven where Bonferroni rejects three, by stepping up', () => {
+    const bh = benjaminiHochberg(P, 0.05);
+    expect(bh.rejected).toBe(7);
+    expect(bh.threshold).toBeCloseTo(0.014, 12);
+    expect(P.filter((p) => p <= bonferroni(0.05, 20)).length).toBe(3);
+    expect(P.filter((p) => p <= 0.05).length).toBe(10);
+    // the fourth p-value fails its own criterion and is rejected regardless
+    expect(P[3]).toBeGreaterThan((4 / 20) * 0.05);
+    expect(P[3]).toBeLessThan(bh.threshold);
+  });
+
+  it('controls at pi0 q rather than q', () => {
+    expect(bhRealisedFdr(1, 0.05)).toBeCloseTo(0.05, 12);
+    expect(bhRealisedFdr(0.9, 0.05)).toBeCloseTo(0.045, 12);
+    expect(bhRealisedFdr(0.5, 0.05)).toBeCloseTo(0.025, 12);
+    expect(bhRealisedFdr(0.2, 0.05)).toBeCloseTo(0.01, 12);
+  });
+
+  it('estimates the null fraction from the flat tail', () => {
+    // four of twenty p-values exceed 0.5, over a width of 0.5
+    expect(storeyPi0(P, 0.5)).toBeCloseTo(4 / (20 * 0.5), 12);
+    expect(storeyPi0(P, 0.5)).toBeCloseTo(0.4, 12);
+    // a uniform sample estimates pi0 near 1
+    const uniform = Array.from({ length: 1000 }, (_, i) => (i + 0.5) / 1000);
+    expect(storeyPi0(uniform, 0.5)).toBeCloseTo(1, 2);
+    // and it is capped at 1 rather than exceeding it
+    expect(storeyPi0([0.9, 0.95, 0.99], 0.5)).toBe(1);
+  });
+
+  it('prices arbitrary dependence at the harmonic number', () => {
+    expect(harmonic(1_000_000)).toBeCloseTo(14.3927, 4);
+    // H_m = ln m + gamma + 1/(2m)
+    const gamma = 0.5772156649015329;
+    for (const m of [1000, 20_000, 1_000_000]) {
+      expect(harmonic(m)).toBeCloseTo(Math.log(m) + gamma + 1 / (2 * m), 6);
+    }
+    // BY is BH at q/H_m, so it rejects no more than BH and usually fewer
+    expect(benjaminiYekutieli(P, 0.05).rejected).toBeLessThanOrEqual(
+      benjaminiHochberg(P, 0.05).rejected
+    );
+    // 2, not 3: the third p-value 0.0021 just exceeds its BY line of 0.002085
+    expect(benjaminiYekutieli(P, 0.05).rejected).toBe(2);
+  });
+
+  it('crosses Bonferroni at exactly rank H_m, so it is stricter below it', () => {
+    // BY's line at rank i is i*q/(H_m*m); Bonferroni's is q/m. They are equal at i = H_m.
+    const m = 20;
+    const H = harmonic(m);
+    const byLine = (i: number) => (i * (0.05 / H)) / m;
+    expect(byLine(H)).toBeCloseTo(bonferroni(0.05, m), 15);
+    expect(byLine(1)).toBeLessThan(bonferroni(0.05, m));
+    expect(byLine(m)).toBeGreaterThan(bonferroni(0.05, m));
+    // which is why BY here rejects fewer than Bonferroni: only three p-values are small
+    // enough to matter and all sit at ranks below H_20 = 3.5977
+    expect(H).toBeCloseTo(3.5977, 4);
+    expect(benjaminiYekutieli(P, 0.05).rejected).toBeLessThan(
+      P.filter((p) => p <= bonferroni(0.05, 20)).length
+    );
+  });
+
+  it('gives adjusted p-values that are monotone and agree with the BH cut', () => {
+    const adj = bhAdjustedPValues(P);
+    const sortedAdj = [...adj].sort((a, b) => a - b);
+    // monotone in the same order as the raw p-values
+    const byRaw = P.map((p, i) => i).sort((a, b) => P[a] - P[b]).map((i) => adj[i]);
+    for (let i = 1; i < byRaw.length; i += 1) expect(byRaw[i]).toBeGreaterThanOrEqual(byRaw[i - 1]);
+    // exactly the tests BH rejects are those with an adjusted p at or below q
+    expect(sortedAdj.filter((a) => a <= 0.05).length).toBe(benjaminiHochberg(P, 0.05).rejected);
+    expect(adj.every((a) => a <= 1)).toBe(true);
   });
 });
 

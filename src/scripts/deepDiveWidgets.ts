@@ -71,6 +71,12 @@ import {
   neutralAlleleAge,
   ehhHalfLength,
   sweepAgeAnomaly,
+  benjaminiHochberg,
+  benjaminiYekutieli,
+  bonferroni,
+  bhRealisedFdr,
+  harmonic,
+  normalCdf,
 } from '../lib/deepDiveMath';
 import {
   biasVarianceToy,
@@ -2427,9 +2433,116 @@ const sweepAge: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * Three comparison lines through one set of p-values.
+ *
+ * Plotted against rank *fraction* i/m rather than rank, the Benjamini-Hochberg line is
+ * exactly the diagonal from the origin to (1, q) — which makes the procedure legible at a
+ * glance: BH rejects everything left of where the sorted p-value curve crosses that diagonal.
+ * Bonferroni is a horizontal line at q/m and Benjamini-Yekutieli is the diagonal divided by
+ * the harmonic number, so the crossing at rank H_m is visible as the two lines meet.
+ *
+ * The p-values are constructed from exact quantiles rather than sampled, so the picture is
+ * deterministic: nulls are uniform, alternatives are two-sided normal tail areas at the
+ * given mean.
+ */
+const fdrStaircase: Renderer = (canvas, controlHost, readoutHost) => {
+  const draw = () => {
+    const m = Math.round(c.get('m'));
+    const q = c.get('q');
+    const pi0 = c.get('pi0');
+    const mu = c.get('mu');
+    const m0 = Math.round(pi0 * m);
+    const m1 = m - m0;
+
+    const ps: number[] = [];
+    for (let i = 1; i <= m0; i += 1) ps.push((i - 0.5) / m0);
+    for (let j = 1; j <= m1; j += 1) {
+      const z = mu + normalQuantile((j - 0.5) / m1);
+      ps.push(2 * (1 - normalCdf(Math.abs(z))));
+    }
+    ps.sort((a, b) => a - b);
+
+    const bh = benjaminiHochberg(ps, q);
+    const by = benjaminiYekutieli(ps, q);
+    const bonf = ps.filter((p) => p <= bonferroni(q, m)).length;
+
+    const x = linear(0, 1, PAD.left, PAD.left + PLOT.w, [0, 0.25, 0.5, 0.75, 1],
+      (v) => v.toFixed(2));
+    const y = linear(0, q, PAD.top + PLOT.h, PAD.top, [0, q / 4, q / 2, (3 * q) / 4, q],
+      (v) => sci(v, 2));
+    const svg = newSvg();
+    const g = frame(x, y, 'Rank fraction i / m', 'p-value', svg);
+
+    // Bonferroni, flat
+    g.appendChild(el('line', {
+      x1: x(0), x2: x(1), y1: y(Math.min(bonferroni(q, m), q)), y2: y(Math.min(bonferroni(q, m), q)),
+      stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-dasharray': '2 3', opacity: 0.8,
+    }));
+    // Benjamini-Yekutieli, the shallow diagonal
+    g.appendChild(el('line', {
+      x1: x(0), x2: x(1), y1: y(0), y2: y(q / harmonic(m)),
+      stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-dasharray': '6 3', opacity: 0.55,
+    }));
+    // Benjamini-Hochberg is the diagonal itself
+    g.appendChild(el('line', {
+      x1: x(0), x2: x(1), y1: y(0), y2: y(q), stroke: ACCENT, 'stroke-width': 2.4,
+    }));
+
+    const step = Math.max(1, Math.floor(m / 220));
+    const curve: string[] = [];
+    for (let i = 1; i <= m; i += step) {
+      curve.push(`${curve.length ? 'L' : 'M'}${x(i / m).toFixed(1)},${y(Math.min(ps[i - 1], q)).toFixed(1)}`);
+    }
+    g.appendChild(el('path', {
+      d: curve.join(' '), fill: 'none', stroke: 'currentColor', 'stroke-width': 2.2, opacity: 0.9,
+    }));
+
+    if (bh.rejected > 0) {
+      g.appendChild(el('circle', {
+        cx: x(bh.rejected / m), cy: y(Math.min(bh.threshold, q)), r: 5, fill: ACCENT,
+      }));
+    }
+
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['BH rejects', bh.rejected.toLocaleString('en-US')],
+      ['BY rejects', by.rejected.toLocaleString('en-US')],
+      ['Bonferroni rejects', bonf.toLocaleString('en-US')],
+      ['BH controls at π₀q', bhRealisedFdr(pi0, q).toFixed(4)],
+      ['crossing rank H_m', harmonic(m).toFixed(2)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'm',
+        label: 'Tests m',
+        min: Math.log10(50),
+        max: 4,
+        step: 0.01,
+        value: Math.log10(2000),
+        scale: (v) => 10 ** v,
+        format: (v) => Math.round(v).toLocaleString('en-US'),
+      },
+      { key: 'q', label: 'Level q', min: 0.01, max: 0.2, step: 0.005, value: 0.05,
+        format: (v) => v.toFixed(3) },
+      { key: 'pi0', label: 'Null fraction π₀', min: 0.1, max: 1, step: 0.01, value: 0.8,
+        format: (v) => v.toFixed(2) },
+      { key: 'mu', label: 'Alternative mean z', min: 1.5, max: 5, step: 0.05, value: 3,
+        format: (v) => v.toFixed(2) },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'pca-structure': pcaStructure,
   'sweep-age': sweepAge,
+  'fdr-staircase': fdrStaircase,
   'ld-decay': ldDecay,
   drift,
   power,
