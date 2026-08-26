@@ -18,6 +18,9 @@
  */
 
 import {
+  trustworthiness,
+  adjustedRandIndex,
+  graphModularity,
   relativeContrast,
   neighborPurity,
   knnGraph,
@@ -1707,6 +1710,199 @@ const scKnnGraph: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * The resolution dial, on a graph whose right answer is known.
+ *
+ * A ring of complete K5 cliques joined by single edges: every clique is a maximally distinct
+ * community, so the correct partition is one per clique and any merger is unambiguously
+ * wrong. The bars are the modularity of each candidate partition at the chosen resolution.
+ * The reader's job is to notice how large a range of resolution returns the same wrong answer.
+ */
+const scResolution: Renderer = (canvas, controlHost, readoutHost) => {
+  const K = 5;
+
+  const ringOfCliques = (n: number) => {
+    const adjacency: number[][] = Array.from({ length: n * K }, () => []);
+    const join = (a: number, b: number) => {
+      adjacency[a].push(b);
+      adjacency[b].push(a);
+    };
+    for (let c = 0; c < n; c += 1) {
+      const base = c * K;
+      for (let i = 0; i < K; i += 1)
+        for (let j = i + 1; j < K; j += 1) join(base + i, base + j);
+      join(base, ((c + 1) % n) * K);
+    }
+    return adjacency;
+  };
+  const grouped = (n: number, g: number) =>
+    Array.from({ length: n * K }, (_, i) => Math.floor(Math.floor(i / K) / g));
+
+  const draw = () => {
+    const n = 2 * Math.round(c.get('cliques') / 2);
+    const gamma = c.get('gamma');
+    const adjacency = ringOfCliques(n);
+    const truth = grouped(n, 1);
+
+    const groupings: number[] = [];
+    for (let g = 1; g <= n; g += 1) if (n % g === 0 && n / g >= 2) groupings.push(g);
+    const scored = groupings.map((g) => ({
+      g,
+      communities: n / g,
+      q: graphModularity(adjacency, grouped(n, g), gamma),
+    }));
+    const best = scored.reduce((a, b) => (b.q > a.q ? b : a));
+
+    const lo = Math.min(0, ...scored.map((s) => s.q));
+    const hi = Math.max(...scored.map((s) => s.q));
+    const x = linear(-0.5, scored.length - 0.5, PAD.left, PAD.left + PLOT.w,
+      scored.map((_, i) => i), (v) => String(scored[Math.round(v)]?.communities ?? ''));
+    const y = linear(lo, hi * 1.08, PAD.top + PLOT.h, PAD.top, [lo, hi], (v) => v.toFixed(2));
+
+    const svg = newSvg();
+    const g2 = frame(x, y, 'Communities in the candidate partition', 'Modularity', svg);
+    const slot = ((x(1) - x(0)) || 30) * 0.34;
+
+    for (const [i, s] of scored.entries()) {
+      const isBest = s.g === best.g;
+      const isTruth = s.communities === n;
+      g2.appendChild(el('rect', {
+        x: x(i) - slot,
+        y: y(Math.max(s.q, y.ticks[0])),
+        width: slot * 2,
+        height: Math.max(0, y(Math.min(s.q, 0)) - y(Math.max(s.q, 0))) || 1,
+        fill: isBest ? ACCENT : 'currentColor',
+        opacity: isBest ? 0.9 : 0.35,
+      }));
+      if (isTruth)
+        g2.appendChild(label(x(i), y(s.q) - 8, 'the truth', {
+          'text-anchor': 'middle', opacity: 0.85,
+        }));
+    }
+
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['best-scoring partition', `${best.communities} communities`],
+      ['the truth', `${n}`],
+      ['ARI against the truth', adjustedRandIndex(truth, grouped(n, best.g)).toFixed(3)],
+      ['its modularity', best.q.toFixed(4)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'gamma',
+        label: 'Resolution',
+        min: 0.3,
+        max: 3,
+        step: 0.02,
+        value: 1,
+        format: (v) => v.toFixed(2),
+      },
+      {
+        key: 'cliques',
+        label: 'Cliques in the ring (the true number of communities)',
+        min: 8,
+        max: 48,
+        step: 2,
+        value: 40,
+        format: (v) => String(2 * Math.round(v / 2)),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
+/**
+ * What an embedding's faithfulness score can and cannot see.
+ *
+ * Two clusters of fifteen points whose true centres sit ten apart. The slider scales only the
+ * gap between them in the embedding — no point ever changes which cluster it belongs to or
+ * which points are nearest within it. Trustworthiness therefore sits at 1 across almost the
+ * whole range, while the picture goes from two specks at opposite ends to a single blob.
+ *
+ * The reader is meant to notice that the number stays put while the thing they would actually
+ * conclude from the plot reverses completely.
+ */
+const scEmbedding: Renderer = (canvas, controlHost, readoutHost) => {
+  const PER = 15;
+  const TRUE_GAP = 10;
+  const base = seededNormals(2 * PER, 2, 909);
+  const high = base.map((p, i) => [p[0] + (i < PER ? 0 : TRUE_GAP), p[1]]);
+
+  const spread = (pts: number[][]) => {
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+    const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    return pts.reduce((s, p) => s + Math.hypot(p[0] - cx, p[1] - cy), 0) / pts.length;
+  };
+
+  const draw = () => {
+    const scale = c.get('gap');
+    const k = Math.round(c.get('k'));
+    const low = base.map((p, i) => [p[0] + (i < PER ? 0 : TRUE_GAP * scale), p[1]]);
+
+    const xs = low.map((p) => p[0]);
+    const pad = Math.max(1.5, (Math.max(...xs) - Math.min(...xs)) * 0.12);
+    const x = linear(Math.min(...xs) - pad, Math.max(...xs) + pad,
+      PAD.left, PAD.left + PLOT.w, [], () => '');
+    const y = linear(-4, 4, PAD.top + PLOT.h, PAD.top, [-3, 0, 3], (v) => String(v));
+
+    const svg = newSvg();
+    const g = frame(x, y, 'The embedding, as you would look at it', '', svg);
+    for (const [i, p] of low.entries())
+      g.appendChild(el('circle', {
+        cx: x(p[0]), cy: y(p[1]), r: 3.6,
+        fill: i < PER ? ACCENT : 'none',
+        stroke: i < PER ? 'none' : 'currentColor',
+        'stroke-width': 1.5,
+        opacity: 0.85,
+      }));
+
+    canvas.replaceChildren(svg);
+
+    const gapNow = Math.abs(
+      low.slice(PER).reduce((s, p) => s + p[0], 0) / PER
+      - low.slice(0, PER).reduce((s, p) => s + p[0], 0) / PER,
+    );
+    const within = (spread(low.slice(0, PER)) + spread(low.slice(PER))) / 2;
+    readout(readoutHost, [
+      ['trustworthiness', trustworthiness(high, low, k).toFixed(4)],
+      ['how separated it looks', `${(gapNow / within).toFixed(1)}x`],
+      ['true separation', `${(TRUE_GAP / within).toFixed(1)}x`],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'gap',
+        label: 'Stretch or squash the gap between the clusters',
+        min: -1.7,
+        max: 1.7,
+        step: 0.02,
+        value: 0,
+        scale: (v) => 10 ** v,
+        format: (v) => `${(10 ** v).toFixed(2)}x`,
+      },
+      {
+        key: 'k',
+        label: 'Neighbourhood size the score uses (k)',
+        min: 2,
+        max: 12,
+        step: 1,
+        value: 5,
+        format: (v) => String(Math.round(v)),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'ld-decay': ldDecay,
   drift,
@@ -1721,6 +1917,8 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'sc-dropout': scDropout,
   'sc-normalize': scNormalize,
   'sc-knn-graph': scKnnGraph,
+  'sc-resolution': scResolution,
+  'sc-embedding': scEmbedding,
 };
 
 /**

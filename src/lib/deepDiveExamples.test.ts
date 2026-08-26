@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  adjustedRandIndex,
+  graphModularity,
   relativeContrast,
   neighborPurity,
   knnGraph,
@@ -7100,6 +7102,165 @@ describe('sc-neighbor-graphs — what the graph is joining, and what breaks it',
       expect(P30 - CHANCE).toBeCloseTo(47.12, 2);
       // line-wrapped in the source, so match across the break
       expect(mdx).toMatch(/1,998\s+uninformative dimensions/);
+    });
+  });
+});
+
+
+describe('sc-clustering — the best-scoring partition is the wrong one', () => {
+  const mdx = lesson('sc-clustering');
+  const K = 5;
+
+  /** A ring of n complete K-cliques, consecutive cliques joined by one edge. */
+  const ring = (n: number) => {
+    const adjacency: number[][] = Array.from({ length: n * K }, () => []);
+    const join = (a: number, b: number) => {
+      adjacency[a].push(b);
+      adjacency[b].push(a);
+    };
+    for (let c = 0; c < n; c += 1) {
+      const base = c * K;
+      for (let i = 0; i < K; i += 1)
+        for (let j = i + 1; j < K; j += 1) join(base + i, base + j);
+      join(base, ((c + 1) % n) * K);
+    }
+    return adjacency;
+  };
+  const grouped = (n: number, g: number) =>
+    Array.from({ length: n * K }, (_, i) => Math.floor(Math.floor(i / K) / g));
+
+  describe('worked example — a ring of forty complete five-node cliques', () => {
+    const A = ring(40);
+
+    it('step 1: the correct partition scores 389/440', () => {
+      expect(graphModularity(A, grouped(40, 1))).toBeCloseTo(389 / 440, 12);
+      expect(389 / 440).toBeCloseTo(0.884091, 6);
+      // and the counts the derivation quotes
+      expect(40 * (K * (K - 1)) / 2 + 40).toBe(440);
+      for (const v of ['389}{440} = 0.884091', 'l_c = 10', 'd_c = 22'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 2: fusing neighbouring cliques scores 199/220, which is higher', () => {
+      expect(graphModularity(A, grouped(40, 2))).toBeCloseTo(199 / 220, 12);
+      expect(199 / 220).toBeCloseTo(0.904545, 6);
+      expect(graphModularity(A, grouped(40, 2))).toBeGreaterThan(graphModularity(A, grouped(40, 1)));
+      for (const v of ['199}{220} = 0.904545', 'l_c = 21', 'd_c = 44'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: the margin is exactly 9/440', () => {
+      expect(graphModularity(A, grouped(40, 2)) - graphModularity(A, grouped(40, 1)))
+        .toBeCloseTo(9 / 440, 12);
+      expect(9 / 440).toBeCloseTo(0.020455, 6);
+      expect(mdx).toContain('9/440 = 0.020455');
+    });
+
+    it('step 4: ARI against the truth is 0.604374', () => {
+      expect(adjustedRandIndex(grouped(40, 1), grouped(40, 2))).toBeCloseTo(0.604374, 6);
+      expect(mdx).toContain('0.604374');
+    });
+
+    it('step 5: the crossover is exactly 20/11', () => {
+      const GS = 20 / 11;
+      expect(GS).toBeCloseTo(1.818182, 6);
+      // below it the merged partition wins; above it the truth does
+      expect(graphModularity(A, grouped(40, 2), GS - 0.01))
+        .toBeGreaterThan(graphModularity(A, grouped(40, 1), GS - 0.01));
+      expect(graphModularity(A, grouped(40, 1), GS + 0.01))
+        .toBeGreaterThan(graphModularity(A, grouped(40, 2), GS + 0.01));
+      // and they tie there
+      expect(graphModularity(A, grouped(40, 1), GS))
+        .toBeCloseTo(graphModularity(A, grouped(40, 2), GS), 10);
+      expect(mdx).toContain('20}{11} = 1.818182');
+    });
+  });
+
+  describe('the closed form the lesson publishes', () => {
+    it('Q(g) = 1 - 1/(11g) - gamma*g/40 reproduces the module exactly', () => {
+      const A = ring(40);
+      for (const g of [1, 2, 4, 5, 8, 10])
+        for (const gamma of [0.4, 1, 1.8, 3])
+          expect(graphModularity(A, grouped(40, g), gamma))
+            .toBeCloseTo(1 - 1 / (11 * g) - (gamma * g) / 40, 12);
+      expect(mdx).toContain('\\frac{1}{11g} - \\frac{\\gamma g}{40}');
+    });
+
+    it('the exact tie sits at n = 2l + 2, where sqrt(2m) = n', () => {
+      // K5: l = 10, so the tie is at 22 rings
+      const l = (K * (K - 1)) / 2;
+      expect(l).toBe(10);
+      const nTie = 2 * l + 2;
+      expect(nTie).toBe(22);
+      const tie = ring(nTie);
+      expect(graphModularity(tie, grouped(nTie, 1)))
+        .toBeCloseTo(graphModularity(tie, grouped(nTie, 2)), 12);
+      // strictly wins two rings later, and not before
+      const before = ring(20);
+      expect(graphModularity(before, grouped(20, 1)))
+        .toBeGreaterThan(graphModularity(before, grouped(20, 2)));
+      const after = ring(24);
+      expect(graphModularity(after, grouped(24, 2)))
+        .toBeGreaterThan(graphModularity(after, grouped(24, 1)));
+      // the sqrt(2m) = n relation at the tie
+      const m = nTie * (l + 1);
+      expect(m).toBe(242);
+      expect(Math.sqrt(2 * m)).toBeCloseTo(nTie, 12);
+      for (const v of ['n = 2l + 2', '\\sqrt{2m} = n']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 2 — the plateau, and its exact edges', () => {
+    it('twenty communities wins across (5/11, 20/11), a four-fold range', () => {
+      const A = ring(40);
+      const argmax = (gamma: number) =>
+        [1, 2, 4, 5, 8, 10, 20, 40]
+          .map((g) => ({ g, q: graphModularity(A, grouped(40, g), gamma) }))
+          .reduce((a, b) => (b.q > a.q ? b : a)).g;
+      expect(5 / 11).toBeCloseTo(0.454545, 6);
+      expect(20 / 11).toBeCloseTo(1.818182, 6);
+      expect((20 / 11) / (5 / 11)).toBeCloseTo(4, 12);
+      for (const gamma of [0.46, 0.8, 1.0, 1.2, 1.5, 1.8]) expect(argmax(gamma)).toBe(2);
+      expect(argmax(0.44)).toBe(4);
+      expect(argmax(1.9)).toBe(1);
+      for (const l of ['20 communities, ARI 0.60', '40 communities, ARI 1.00',
+                       '10 communities, ARI 0.33', 'the default', 'Communities returned'])
+        expect(mdx, `figure 2 label ${l}`).toContain(l);
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — six-node cliques tie at 32 rings, ten-node at 92', () => {
+      for (const [k, nTie] of [[4, 14], [5, 22], [6, 32], [10, 92]] as const) {
+        const l = (k * (k - 1)) / 2;
+        expect(2 * l + 2).toBe(nTie);
+        expect(Math.sqrt(2 * nTie * (l + 1))).toBeCloseTo(nTie, 10);
+      }
+      expect((6 * 5) / 2).toBe(15);
+      expect(32 * 16).toBe(512);
+      expect(Math.sqrt(1024)).toBe(32);
+      // the million-edge dataset the solution quotes
+      expect(Math.sqrt(2 * 1e6)).toBeCloseTo(1414.2, 1);
+      for (const v of ['n = 2l + 2 = 32', '512', '\\sqrt{1024} = 32', '1{,}414'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('2 — all five swept resolutions lie inside the wrong plateau', () => {
+      for (const gamma of [0.5, 0.8, 1.0, 1.2, 1.5]) {
+        expect(gamma).toBeGreaterThan(5 / 11);
+        expect(gamma).toBeLessThan(20 / 11);
+      }
+      expect(mdx).toContain('0.454545,\\ 1.818182');
+    });
+
+    it('3 — Leiden’s connectivity guarantee cannot help, because the merger is connected', () => {
+      // two K5s joined by one edge is a connected subgraph, so nothing is violated
+      const A = ring(40);
+      const merged = grouped(40, 2);
+      const community0 = [...Array(10).keys()].filter((i) => merged[i] === 0);
+      expect(community0).toHaveLength(10);
+      expect(graphModularity(A, merged)).toBeGreaterThan(graphModularity(A, grouped(40, 1)));
+      expect(mdx).toContain('more likely than Louvain');
     });
   });
 });

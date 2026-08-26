@@ -503,8 +503,17 @@ export function knnGraph(points: Matrix, k: number): number[][] {
  *
  * `adjacency` is symmetrised internally: a kNN graph is directed, and treating it as
  * undirected is what every clustering implementation does.
+ *
+ * `resolution` scales the null term. Above 1 the null is penalised harder, so smaller
+ * communities win; below 1, larger ones do. It is the dial every single-cell pipeline exposes
+ * and it has no correct setting the data can supply — which is the point of the lesson that
+ * uses it.
  */
-export function graphModularity(adjacency: number[][], communities: number[]): number {
+export function graphModularity(
+  adjacency: number[][],
+  communities: number[],
+  resolution = 1,
+): number {
   const n = adjacency.length;
   if (communities.length !== n)
     throw new RangeError(`graphModularity needs one label per node, got ${communities.length} for ${n}`);
@@ -531,7 +540,7 @@ export function graphModularity(adjacency: number[][], communities: number[]): n
   const byComm = new Map<number, number>();
   for (let i = 0; i < n; i += 1)
     byComm.set(communities[i], (byComm.get(communities[i]) ?? 0) + degree[i]);
-  for (const total of byComm.values()) q -= (total / (2 * m)) ** 2;
+  for (const total of byComm.values()) q -= resolution * (total / (2 * m)) ** 2;
   return q;
 }
 

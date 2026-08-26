@@ -135,6 +135,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'sc-feature-selection',
   'sc-pca',
   'sc-neighbor-graphs',
+  'sc-clustering',
   // Outlined but not written.
   'dna-foundation-models',
   'splice-neural-mechanisms',
