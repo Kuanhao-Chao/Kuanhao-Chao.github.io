@@ -885,6 +885,127 @@ export function iccFromAnova(msBetween: number, msWithin: number, cellsPerSample
   return Math.max(0, raw);
 }
 
+/**
+ * Close a vector of abundances into proportions, a / Σa.
+ *
+ * The map at the heart of the composition problem: it is many-to-one along every ray, so
+ * abundances and 2× those abundances produce byte-identical proportions. Any statistic
+ * computed from proportions alone therefore cannot distinguish "this population grew" from
+ * "everything else shrank".
+ */
+export function closeComposition(abundances: number[]): number[] {
+  if (abundances.length === 0) throw new RangeError('closeComposition needs a non-empty vector');
+  let total = 0;
+  for (const a of abundances) {
+    if (a < 0) throw new RangeError(`closeComposition needs non-negative abundances, got ${a}`);
+    total += a;
+  }
+  if (total === 0) throw new RangeError('closeComposition needs a non-zero total');
+  return abundances.map((a) => a / total);
+}
+
+/**
+ * What happens to every proportion when one population's abundance changes by a factor.
+ *
+ * Returns the new proportion vector alongside the closure factor D = 1 + (c − 1)p_k. Every
+ * unchanged population is divided by exactly D — the *same* number for all of them, whatever
+ * their own size — which is why a single expansion produces a uniform apparent decline across
+ * the rest of the sample.
+ */
+export function closureUpdate(
+  proportions: number[],
+  index: number,
+  foldChange: number,
+): { proportions: number[]; closureFactor: number } {
+  if (index < 0 || index >= proportions.length)
+    throw new RangeError(`closureUpdate index out of range: ${index}`);
+  if (foldChange <= 0) throw new RangeError(`closureUpdate needs foldChange > 0, got ${foldChange}`);
+  const closureFactor = 1 + (foldChange - 1) * proportions[index];
+  return {
+    proportions: proportions.map((p, i) => (i === index ? (p * foldChange) / closureFactor : p / closureFactor)),
+    closureFactor,
+  };
+}
+
+/** Log fold-changes of each part between two compositions. */
+export function apparentLogFoldChanges(before: number[], after: number[], base = 2): number[] {
+  if (before.length !== after.length)
+    throw new RangeError(`apparentLogFoldChanges needs equal lengths, got ${before.length} and ${after.length}`);
+  return before.map((b, i) => Math.log(after[i] / b) / Math.log(base));
+}
+
+/**
+ * Centred log-ratio: log(p_i / geometric mean of p), which sums to zero by construction.
+ *
+ * The standard compositional transform. It removes the closure constraint but does not undo
+ * it — see `clrShiftUnderSingleChange` for exactly how it redistributes a single population's
+ * change across all the others.
+ */
+export function centeredLogRatio(proportions: number[], base = 2): number[] {
+  const k = proportions.length;
+  if (k === 0) throw new RangeError('centeredLogRatio needs a non-empty vector');
+  let logSum = 0;
+  for (const p of proportions) {
+    if (p <= 0) throw new RangeError(`centeredLogRatio needs strictly positive parts, got ${p}`);
+    logSum += Math.log(p);
+  }
+  const geoMeanLog = logSum / k;
+  return proportions.map((p) => (Math.log(p) - geoMeanLog) / Math.log(base));
+}
+
+/**
+ * Closed form for how the CLR moves when exactly one of K parts changes by a factor c.
+ *
+ * The changed part shifts by +log c (K−1)/K and every other part by −log c / K. So the CLR
+ * does not isolate the change either: it splits it across the whole vector by a known rule,
+ * and the other parts still move even though nothing happened to them.
+ */
+export function clrShiftUnderSingleChange(
+  nParts: number,
+  foldChange: number,
+  base = 2,
+): { changed: number; others: number } {
+  if (nParts < 2) throw new RangeError(`clrShiftUnderSingleChange needs at least 2 parts, got ${nParts}`);
+  if (foldChange <= 0) throw new RangeError(`clrShiftUnderSingleChange needs foldChange > 0, got ${foldChange}`);
+  const l = Math.log(foldChange) / Math.log(base);
+  return { changed: (l * (nParts - 1)) / nParts, others: -l / nParts };
+}
+
+/**
+ * Correlation induced between two parts of a multinomial purely by the closure constraint,
+ * −√(p_j p_k / ((1−p_j)(1−p_k))).
+ *
+ * It depends on nothing but the two proportions — not on the number of cells counted, and not
+ * on any overdispersion — so it is present in every composition ever measured, and it is
+ * always negative. Two populations appearing to move in opposite directions is the null, not
+ * a finding.
+ */
+export function compositionCorrelation(pj: number, pk: number): number {
+  for (const p of [pj, pk])
+    if (p <= 0 || p >= 1) throw new RangeError(`compositionCorrelation needs proportions in (0,1), got ${p}`);
+  return -Math.sqrt((pj * pk) / ((1 - pj) * (1 - pk)));
+}
+
+/**
+ * Intra-class correlation of a Dirichlet-multinomial, ρ = 1/(1 + α₀).
+ *
+ * The bridge that makes lesson 12's design effect apply verbatim to cell counts: overdispersed
+ * composition data has exactly the clustered structure that inflates a test's variance, with
+ * α₀ the Dirichlet concentration. Small α₀ means samples differ a lot in composition, which
+ * means ρ near 1 and a design effect near m.
+ */
+export function dirichletMultinomialIcc(alpha0: number): number {
+  if (alpha0 <= 0) throw new RangeError(`dirichletMultinomialIcc needs alpha0 > 0, got ${alpha0}`);
+  return 1 / (1 + alpha0);
+}
+
+/** Chi-square CDF — a thin wrapper on the existing regularized lower incomplete gamma. */
+export function chi2Cdf(x: number, df: number): number {
+  if (df <= 0) throw new RangeError(`chi2Cdf needs df > 0, got ${df}`);
+  if (x <= 0) return 0;
+  return regularizedGammaP(df / 2, x / 2);
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**

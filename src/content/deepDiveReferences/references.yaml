@@ -3821,3 +3821,12 @@ venna2006localmds:
   venue: "Neural Networks 19:889-899"
   doi: https://doi.org/10.1016/j.neunet.2006.05.014
   verified: 2026-08-25
+
+buettner2021sccoda:
+  authors: ['Maren Büttner', 'Jonas Ostner', 'Christian L. Müller', 'Fabian J. Theis', 'Benjamin Schubert']
+  surname: Büttner
+  year: 2021
+  title: "scCODA is a Bayesian model for compositional single-cell data analysis"
+  venue: "Nature Communications 12:6876"
+  doi: https://doi.org/10.1038/s41467-021-27150-6
+  verified: 2026-08-26

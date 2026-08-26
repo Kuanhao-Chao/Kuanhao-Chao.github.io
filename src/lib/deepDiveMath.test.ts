@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chi2Cdf,
+  dirichletMultinomialIcc,
+  compositionCorrelation,
+  clrShiftUnderSingleChange,
+  centeredLogRatio,
+  apparentLogFoldChanges,
+  closureUpdate,
+  closeComposition,
   iccFromAnova,
   intraclassCorrelation,
   twoSampleT,
@@ -2898,5 +2906,97 @@ describe("the incomplete beta, and Student's t built on it", () => {
     // a between-component indistinguishable from zero is clamped, not returned negative
     expect(iccFromAnova(0.5, 1, 10)).toBe(0);
     expect(() => iccFromAnova(1, 0, 10)).toThrow(RangeError);
+  });
+});
+
+
+describe('compositional data — closure and what it does', () => {
+  it('closeComposition is scale-invariant, which is the whole problem', () => {
+    const a = [40, 20, 10, 8, 40, 2];
+    expect(closeComposition(a).reduce((s, x) => s + x, 0)).toBeCloseTo(1, 12);
+    // halving every abundance gives byte-identical proportions
+    for (const factor of [0.5, 2, 17.3]) {
+      const scaled = closeComposition(a.map((x) => x * factor));
+      closeComposition(a).forEach((p, i) => expect(scaled[i]).toBeCloseTo(p, 15));
+    }
+    expect(() => closeComposition([])).toThrow(RangeError);
+    expect(() => closeComposition([0, 0])).toThrow(RangeError);
+  });
+
+  it('closureUpdate moves every unchanged part by the identical factor', () => {
+    const p = [0.2, 0.2, 0.2, 0.2, 0.2];
+    const { proportions, closureFactor } = closureUpdate(p, 0, 2);
+    expect(closureFactor).toBeCloseTo(1.2, 12);
+    // all four unchanged parts land on exactly the same value
+    for (let i = 1; i < 5; i += 1) expect(proportions[i]).toBeCloseTo(p[i] / 1.2, 12);
+    expect(new Set(proportions.slice(1).map((x) => x.toFixed(12))).size).toBe(1);
+    expect(proportions.reduce((s, x) => s + x, 0)).toBeCloseTo(1, 12);
+    // and the factor is 1 + (c-1)p_k for any starting composition
+    for (const pk of [0.05, 0.2, 0.5])
+      for (const c of [0.5, 2, 5])
+        expect(closureUpdate([pk, 1 - pk], 0, c).closureFactor).toBeCloseTo(1 + (c - 1) * pk, 12);
+  });
+
+  it('the apparent decline is uniform, and the difference of logs recovers the truth', () => {
+    const p = [0.2, 0.2, 0.2, 0.2, 0.2];
+    const { proportions } = closureUpdate(p, 0, 2);
+    const lfc = apparentLogFoldChanges(p, proportions);
+    expect(lfc[0]).toBeCloseTo(0.736966, 6);
+    for (let i = 1; i < 5; i += 1) expect(lfc[i]).toBeCloseTo(-0.263034, 6);
+    // the difference is exactly log2 of the true fold change, whatever the composition
+    for (const c of [0.25, 0.5, 2, 3, 10]) {
+      const q = closureUpdate(p, 0, c).proportions;
+      const d = apparentLogFoldChanges(p, q);
+      expect(d[0] - d[1]).toBeCloseTo(Math.log2(c), 12);
+    }
+  });
+
+  it('two different abundance vectors close to the same proportions', () => {
+    const grew = closeComposition([40, 20, 10, 8, 40, 2]);
+    const shrank = closeComposition([20, 10, 5, 4, 20, 1]);
+    grew.forEach((p, i) => expect(shrank[i]).toBeCloseTo(p, 15));
+  });
+
+  it('centeredLogRatio sums to zero and matches its closed form under one change', () => {
+    const p = [0.2, 0.2, 0.2, 0.2, 0.2];
+    expect(centeredLogRatio(p).reduce((s, x) => s + x, 0)).toBeCloseTo(0, 12);
+    const q = closureUpdate(p, 0, 2).proportions;
+    expect(centeredLogRatio(q).reduce((s, x) => s + x, 0)).toBeCloseTo(0, 12);
+    const shift = clrShiftUnderSingleChange(5, 2);
+    expect(shift.changed).toBeCloseTo(0.8, 12);
+    expect(shift.others).toBeCloseTo(-0.2, 12);
+    const numeric = centeredLogRatio(q).map((x, i) => x - centeredLogRatio(p)[i]);
+    expect(numeric[0]).toBeCloseTo(shift.changed, 10);
+    for (let i = 1; i < 5; i += 1) expect(numeric[i]).toBeCloseTo(shift.others, 10);
+    // the shifts must cancel: one part up (K-1)/K, K-1 parts down 1/K each
+    expect(shift.changed + (5 - 1) * shift.others).toBeCloseTo(0, 12);
+  });
+
+  it('compositionCorrelation is always negative and free of sample size', () => {
+    expect(compositionCorrelation(0.2, 0.2)).toBeCloseTo(-0.25, 12);
+    expect(compositionCorrelation(0.5, 0.4)).toBeCloseTo(-0.816497, 6);
+    expect(compositionCorrelation(0.02, 0.02)).toBeCloseTo(-0.020408, 6);
+    for (const [a, b] of [[0.01, 0.9], [0.3, 0.3], [0.45, 0.45]] as const)
+      expect(compositionCorrelation(a, b)).toBeLessThan(0);
+    // two equal halves are perfectly anticorrelated
+    expect(compositionCorrelation(0.5, 0.5)).toBeCloseTo(-1, 12);
+    expect(() => compositionCorrelation(0, 0.2)).toThrow(RangeError);
+  });
+
+  it('dirichletMultinomialIcc bridges composition to the design effect of lesson 12', () => {
+    expect(dirichletMultinomialIcc(19)).toBeCloseTo(0.05, 12);
+    expect(designEffect(500, dirichletMultinomialIcc(19))).toBeCloseTo(25.95, 10);
+    expect(dirichletMultinomialIcc(1)).toBeCloseTo(0.5, 12);
+    // concentration to infinity is a plain multinomial: no clustering at all
+    expect(dirichletMultinomialIcc(1e9)).toBeCloseTo(0, 8);
+    expect(() => dirichletMultinomialIcc(0)).toThrow(RangeError);
+  });
+
+  it('chi2Cdf agrees with the existing quantile function', () => {
+    for (const df of [1, 3, 10])
+      for (const p of [0.5, 0.9, 0.99])
+        expect(chi2Cdf(chi2Quantile(p, df), df)).toBeCloseTo(p, 8);
+    expect(chi2Cdf(0, 3)).toBe(0);
+    expect(() => chi2Cdf(1, 0)).toThrow(RangeError);
   });
 });

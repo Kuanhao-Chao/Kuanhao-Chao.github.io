@@ -1,0 +1,356 @@
+---
+title: "Composition: Why One Population Expanding Makes Every Other Decline"
+shortTitle: Composition
+description: "What the constraint that proportions sum to one does to a comparison of cell-type abundances, why no proportion-based statistic can escape it, and what would."
+abstract: "A single-cell experiment counts cells, but it cannot count the tissue: the number recovered is a property of the dissociation and the loading, not of the animal. So cell-type abundance is only ever known as a proportion, and proportions carry a constraint. If one population changes by a factor c and nothing else moves, every other proportion falls by the identical factor 1/(1 + (c−1)p_k) — the same number for all of them, regardless of their own size. Doubling monocytes from a 20% share sends the other five populations down 16.67%, a log2 change of −0.263034 apiece, and a differential-abundance test will report five significant declines that did not happen. Worse, the ambiguity is exact: abundances of 40, 20, 10, 8, 20 and 2 thousand cells and abundances of exactly half those numbers close to the identical proportion vector, so no statistic computed from proportions distinguishes 'monocytes doubled' from 'everything else halved'. What is identified is any difference of log-proportions, which recovers log2 c exactly."
+date: 2026-08-26
+track: theory
+hub: single-cell
+moduleId: s04-meaning
+moduleLabel: Module 4 · Meaning
+order: 13
+level: intermediate
+objectives:
+  - "Derive the closure factor and show that every unchanged population's proportion falls by the same amount."
+  - "Show that two different abundance vectors can close to identical proportions, and say what that rules out."
+  - "Explain what the centred log-ratio does and does not fix, using its closed form."
+  - "State the correlation the closure constraint induces between any two populations."
+  - "Connect overdispersed composition to the design effect of lesson 12, and say what an honest test needs."
+prerequisites:
+  - sc-differential-expression
+  - sc-annotation
+relatedLessons:
+  - sc-differential-expression
+  - sc-clustering
+keyEquations:
+  - 'D = 1 + (c-1)p_k'
+  - 'p_j \mapsto p_j / D \quad \text{for every } j \neq k'
+  - '\mathrm{corr}(p_j, p_k) = -\sqrt{\dfrac{p_j p_k}{(1-p_j)(1-p_k)}}'
+referenceIds:
+  - crowell2020muscat
+  - squair2021falsediscoveries
+  - luecken2019bestpractices
+  - buettner2021sccoda
+  - hao2021seurat
+  - wolf2018scanpy
+  - stoeckius2018hashing
+tags: [single-cell, composition, differential abundance, closure, centred log-ratio, simplex]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+A treatment is applied, cells are counted, and monocytes come back at 33% of the sample where
+they were 20%. Something happened to the monocytes. What happened to the T cells, which fell
+from 40% to 33%?
+
+Nothing. The T cells were not touched, and this lesson is about why the data cannot say so.
+
+The root of it is that the experiment never measures a tissue. It measures whatever survived
+dissociation and got loaded, and that number is set by the protocol. Absolute abundance is
+therefore unavailable, and everything is a share of a total that means nothing.
+
+<Notation
+  rows={[
+    { symbol: 'a_i', meaning: 'Absolute abundance of population i in the tissue', dims: '> 0' },
+    { symbol: 'p_i', meaning: 'Its proportion, a_i / Σa', dims: 'in (0,1)' },
+    { symbol: 'c', meaning: 'True fold change in one population\'s abundance', dims: '> 0' },
+    { symbol: 'k', meaning: 'Index of the population that actually changed', dims: '1..K' },
+    { symbol: 'D', meaning: 'Closure factor, 1 + (c-1)p_k', dims: '> 0' },
+    { symbol: 'K', meaning: 'Number of populations', dims: '>= 2' },
+    { symbol: '\\alpha_0', meaning: 'Dirichlet concentration — how alike samples are', dims: '> 0' },
+  ]}
+/>
+
+## The closure factor
+
+Let population $k$ change by a factor $c$ while every other abundance stays fixed. The total
+becomes
+
+$$
+\sum_i a_i' = c\,a_k + \sum_{i \neq k} a_i = \left(\sum_i a_i\right)\left[1 + (c-1)p_k\right],
+$$
+
+so writing $D = 1 + (c-1)p_k$, the new proportions are
+
+$$
+p_k' = \frac{c\,p_k}{D},
+\qquad
+p_j' = \frac{p_j}{D} \quad \text{for every } j \neq k.
+$$
+
+Every untouched population is divided by the **same** $D$. Not proportionally to its size, not
+more for the large ones — the identical factor for all of them. A differential-abundance test
+comparing proportions will therefore find every other population significantly decreased, with
+the same effect size, and every one of those findings is an artefact of the one population that
+did move — and comparing cluster proportions between conditions is a one-line operation in both
+major toolkits <Citation id="wolf2018scanpy" />
+<Citation id="hao2021seurat" />.
+
+<Figure
+  caption="Figure 1. Six populations before and after monocytes double in absolute number, with nothing else changed. The vertical axis is the share of the sample on a logarithmic scale, so a constant factor is a constant distance — and the five untouched populations therefore draw five parallel segments despite spanning 2% to 40% of the sample. Each falls by 1/1.2, a log2 change of −0.263034, while monocytes rise 0.736966. The difference between them is exactly 1, which is log2 of the true doubling."
+  alt="A slope chart with six lines running between a before column and an after column, on a logarithmic share axis from about one percent to forty percent. Five lines descend in parallel and one, labelled monocytes, rises. Labels at the right name each population."
+>
+<svg viewBox="0 0 772 300" width="772" height="300" font-family="inherit"><line x1="150.0" y1="228.0" x2="150.0" y2="44.0" stroke="currentColor" stroke-width="1.25"/><line x1="372.0" y1="228.0" x2="372.0" y2="44.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="203.4" x2="372.0" y2="203.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="142.0" y="207.4" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".75">2%</text><line x1="150.0" y1="159.3" x2="372.0" y2="159.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="142.0" y="163.3" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".75">5%</text><line x1="150.0" y1="126.0" x2="372.0" y2="126.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="142.0" y="130.0" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".75">10%</text><line x1="150.0" y1="92.7" x2="372.0" y2="92.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="142.0" y="96.7" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".75">20%</text><line x1="150.0" y1="59.3" x2="372.0" y2="59.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="142.0" y="63.3" font-size="10.5" fill="currentColor" text-anchor="end" opacity=".75">40%</text><text x="150.0" y="248.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".8">before</text><text x="372.0" y="248.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".8">after</text><path d="M150.0,59.3 L372.0,68.1" fill="none" stroke="currentColor" stroke-width="1.9" opacity=".55"/><circle cx="150.0" cy="59.3" r="3.6" fill="currentColor" opacity=".55"/><circle cx="372.0" cy="68.1" r="3.6" fill="currentColor" opacity=".55"/><text x="380.0" y="83.1" font-size="10" fill="currentColor" opacity=".75">T cells</text><path d="M150.0,92.7 L372.0,68.1" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="150.0" cy="92.7" r="3.6" fill="var(--color-accent, #2e6e5e)"/><circle cx="372.0" cy="68.1" r="3.6" fill="var(--color-accent, #2e6e5e)"/><text x="380.0" y="62.1" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">Monocytes</text><path d="M150.0,126.0 L372.0,134.8" fill="none" stroke="currentColor" stroke-width="1.9" opacity=".55"/><circle cx="150.0" cy="126.0" r="3.6" fill="currentColor" opacity=".55"/><circle cx="372.0" cy="134.8" r="3.6" fill="currentColor" opacity=".55"/><text x="380.0" y="138.8" font-size="10" fill="currentColor" opacity=".75">B cells</text><path d="M150.0,136.7 L372.0,145.5" fill="none" stroke="currentColor" stroke-width="1.9" opacity=".55"/><circle cx="150.0" cy="136.7" r="3.6" fill="currentColor" opacity=".55"/><circle cx="372.0" cy="145.5" r="3.6" fill="currentColor" opacity=".55"/><text x="380.0" y="149.5" font-size="10" fill="currentColor" opacity=".75">NK cells</text><path d="M150.0,92.7 L372.0,101.4" fill="none" stroke="currentColor" stroke-width="1.9" opacity=".55"/><circle cx="150.0" cy="92.7" r="3.6" fill="currentColor" opacity=".55"/><circle cx="372.0" cy="101.4" r="3.6" fill="currentColor" opacity=".55"/><text x="380.0" y="105.4" font-size="10" fill="currentColor" opacity=".75">Other</text><path d="M150.0,203.4 L372.0,212.2" fill="none" stroke="currentColor" stroke-width="1.9" opacity=".55"/><circle cx="150.0" cy="203.4" r="3.6" fill="currentColor" opacity=".55"/><circle cx="372.0" cy="212.2" r="3.6" fill="currentColor" opacity=".55"/><text x="380.0" y="216.2" font-size="10" fill="currentColor" opacity=".75">Dendritic</text><text x="261.0" y="268.0" font-size="12" fill="currentColor" text-anchor="middle">Only the monocytes changed</text><text x="54.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Share of the sample</text><text x="468.0" y="60.0" font-size="11" fill="currentColor" font-weight="700">Five parallel lines.</text><text x="468.0" y="78.0" font-size="10" fill="currentColor" opacity=".8">Monocytes doubled in absolute</text><text x="468.0" y="91.0" font-size="10" fill="currentColor" opacity=".8">number. Nothing else moved at</text><text x="468.0" y="104.0" font-size="10" fill="currentColor" opacity=".8">all - and every one of the</text><text x="468.0" y="117.0" font-size="10" fill="currentColor" opacity=".8">other five falls by the same</text><text x="468.0" y="130.0" font-size="10" fill="currentColor" opacity=".8">factor, 1/1.2, for a log2</text><text x="468.0" y="143.0" font-size="10" fill="currentColor" opacity=".8">change of -0.263034 apiece.</text><text x="468.0" y="156.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="468.0" y="169.0" font-size="10" fill="currentColor" opacity=".8">On a log axis a constant</text><text x="468.0" y="182.0" font-size="10" fill="currentColor" opacity=".8">factor is a constant distance,</text><text x="468.0" y="195.0" font-size="10" fill="currentColor" opacity=".8">so those five segments are</text><text x="468.0" y="208.0" font-size="10" fill="currentColor" opacity=".8">parallel. That parallelism is</text><text x="468.0" y="221.0" font-size="10" fill="currentColor" opacity=".8">the whole result.</text><text x="468.0" y="234.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="468.0" y="247.0" font-size="10" fill="currentColor" opacity=".8">The monocyte line rises</text><text x="468.0" y="260.0" font-size="10" fill="currentColor" opacity=".8">0.736966, and the difference</text><text x="468.0" y="273.0" font-size="10" fill="currentColor" opacity=".8">is exactly 1.</text></svg>
+</Figure>
+
+## The ambiguity is exact
+
+It is worse than an inflated error rate. Two genuinely different experiments produce
+numerically identical data.
+
+Take abundances of 40, 20, 10, 8, 20 and 2 thousand cells across six populations. Now take an
+experiment that recovered exactly half of everything — 20, 10, 5, 4, 10 and 1. The proportions
+are
+
+$$
+0.40,\; 0.20,\; 0.10,\; 0.08,\; 0.20,\; 0.02
+$$
+
+in **both** cases, to the last decimal place. No statistic computed from proportions can
+distinguish them, because there is nothing to distinguish: the closure map sends an entire ray
+of abundance vectors to one point.
+
+<Figure
+  caption="Figure 2. Two experiments whose cell counts differ by a factor of two in every population, drawn as bars from zero on a common axis, with the proportions each one closes to printed at the right. The bar charts are plainly different and the proportions are identical to the last decimal place. Distinguishing them requires a total cell count per unit of tissue, which a dissociation-and-loading protocol does not provide."
+  alt="A horizontal bar chart with six population rows, each showing a filled bar for experiment A and a fainter bar for experiment B at half its length, on an axis of thousands of cells recovered. A column at the right prints one share per population, the same for both experiments."
+>
+<svg viewBox="0 0 772 300" width="772" height="300" font-family="inherit"><line x1="150.0" y1="226.0" x2="150.0" y2="44.0" stroke="currentColor" stroke-width="1.25"/><line x1="150.0" y1="226.0" x2="150.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="150.0" y="244.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="196.7" y1="226.0" x2="196.7" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="196.7" y="244.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="243.3" y1="226.0" x2="243.3" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="243.3" y="244.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">20</text><line x1="290.0" y1="226.0" x2="290.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="290.0" y="244.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">30</text><line x1="336.7" y1="226.0" x2="336.7" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="336.7" y="244.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">40</text><rect x="150.0" y="49.5" width="186.7" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><rect x="150.0" y="61.5" width="93.3" height="10.0" rx="2" fill="currentColor" opacity=".45"/><text x="142.0" y="64.5" font-size="10.5" fill="currentColor" text-anchor="end">T cells</text><text x="370.0" y="64.5" font-size="10.5" fill="currentColor" font-weight="600">40%</text><rect x="150.0" y="77.1" width="93.3" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><rect x="150.0" y="89.1" width="46.7" height="10.0" rx="2" fill="currentColor" opacity=".45"/><text x="142.0" y="92.1" font-size="10.5" fill="currentColor" text-anchor="end">Monocytes</text><text x="370.0" y="92.1" font-size="10.5" fill="currentColor" font-weight="600">20%</text><rect x="150.0" y="104.7" width="46.7" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><rect x="150.0" y="116.7" width="23.3" height="10.0" rx="2" fill="currentColor" opacity=".45"/><text x="142.0" y="119.7" font-size="10.5" fill="currentColor" text-anchor="end">B cells</text><text x="370.0" y="119.7" font-size="10.5" fill="currentColor" font-weight="600">10%</text><rect x="150.0" y="132.3" width="37.3" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><rect x="150.0" y="144.3" width="18.7" height="10.0" rx="2" fill="currentColor" opacity=".45"/><text x="142.0" y="147.3" font-size="10.5" fill="currentColor" text-anchor="end">NK cells</text><text x="370.0" y="147.3" font-size="10.5" fill="currentColor" font-weight="600">8%</text><rect x="150.0" y="159.8" width="93.3" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><rect x="150.0" y="171.8" width="46.7" height="10.0" rx="2" fill="currentColor" opacity=".45"/><text x="142.0" y="174.8" font-size="10.5" fill="currentColor" text-anchor="end">Other</text><text x="370.0" y="174.8" font-size="10.5" fill="currentColor" font-weight="600">20%</text><rect x="150.0" y="187.4" width="9.3" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".85"/><rect x="150.0" y="199.4" width="4.7" height="10.0" rx="2" fill="currentColor" opacity=".45"/><text x="142.0" y="202.4" font-size="10.5" fill="currentColor" text-anchor="end">Dendritic</text><text x="370.0" y="202.4" font-size="10.5" fill="currentColor" font-weight="600">2%</text><text x="255.0" y="266.0" font-size="12" fill="currentColor" text-anchor="middle">Cells recovered, thousands</text><text x="370.0" y="42.0" font-size="10" fill="currentColor" opacity=".7">share</text><text x="156.0" y="42.0" font-size="10" fill="currentColor" opacity=".7">filled = experiment A, faint = experiment B</text><text x="426.0" y="62.0" font-size="11" fill="currentColor" font-weight="700">Same answer, twice.</text><text x="426.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">Experiment B recovered half</text><text x="426.0" y="93.0" font-size="10" fill="currentColor" opacity=".8">as many cells of every type</text><text x="426.0" y="106.0" font-size="10" fill="currentColor" opacity=".8">as experiment A. The two bar</text><text x="426.0" y="119.0" font-size="10" fill="currentColor" opacity=".8">charts are plainly different.</text><text x="426.0" y="132.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="426.0" y="145.0" font-size="10" fill="currentColor" opacity=".8">They close to the identical</text><text x="426.0" y="158.0" font-size="10" fill="currentColor" opacity=".8">proportion vector, to the last</text><text x="426.0" y="171.0" font-size="10" fill="currentColor" opacity=".8">decimal place - so no statistic</text><text x="426.0" y="184.0" font-size="10" fill="currentColor" opacity=".8">computed from proportions can</text><text x="426.0" y="197.0" font-size="10" fill="currentColor" opacity=".8">tell them apart, and neither</text><text x="426.0" y="210.0" font-size="10" fill="currentColor" opacity=".8">can any amount of care.</text><text x="426.0" y="223.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="426.0" y="236.0" font-size="10" fill="currentColor" opacity=".8">What separates them is a</text><text x="426.0" y="249.0" font-size="10" fill="currentColor" opacity=".8">total cell count, which is a</text><text x="426.0" y="262.0" font-size="10" fill="currentColor" opacity=".8">measurement nobody makes.</text></svg>
+</Figure>
+
+## What the centred log-ratio does
+
+The standard compositional remedy is the centred log-ratio, $\log(p_i / \tilde{g})$ where
+$\tilde{g}$ is the geometric mean. It removes the sum-to-one constraint — the CLR of any
+composition sums to zero rather than to one — and it makes the data live in an unconstrained
+space where ordinary methods apply.
+
+It does not, however, undo the closure. Under a single population changing by $c$ among $K$
+parts, the CLR shifts by exactly
+
+$$
+\Delta_k = +\log c \cdot \frac{K-1}{K},
+\qquad
+\Delta_j = -\frac{\log c}{K},
+$$
+
+so the untouched parts still move. For the six populations above with $c = 2$, monocytes shift
+by $+0.833333$ and each of the other five by $-0.166667$ — smaller than the raw $-0.263034$,
+but not zero, and still identical across five populations that did not change.
+
+The CLR is a genuine improvement because the shifts are *known*, and because ratios between
+parts are preserved exactly. It is not a way of recovering absolute abundance, because nothing
+computed from proportions can be. Methods built for this data model the composition directly
+and report which populations are credibly changed *given* the constraint, rather than testing
+each one as though it were free <Citation id="buettner2021sccoda" />.
+
+<Widget
+  kind="sc-composition"
+  title="Move one population and watch five lines you did not touch"
+  alt="An interactive slope chart of six populations on a logarithmic share axis, running from a before column to an after column. Sliders set the true fold change in monocyte abundance and the monocyte share before the change. A readout gives the closure factor, the apparent log2 change of the five untouched populations, the apparent log2 change of monocytes, and the difference between them."
+  caption="Drag the fold change away from 1 in either direction. Five lines move that you have not touched, and they stay parallel throughout, because they are all divided by the same closure factor. Then drag the monocyte share: at 2% the artefact nearly vanishes and at 60% it dominates everything, which is the practical rule — the damage a real change does to everyone else's numbers is set by how large that population already was. Watch the last readout row while you do all of it: the difference between the two log2 changes never budges from log2 of the true fold change, because that difference is the one thing the data does identify."
+/>
+
+<WorkedExample
+  title="Five significant declines that did not happen"
+  given={[
+    'Six populations at 40%, 20%, 10%, 8%, 20% and 2%',
+    'Monocytes, at 20%, double in absolute number',
+    'Nothing else changes at all',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the closure factor.**
+
+$$
+D = 1 + (2 - 1)(0.20) = 1.2.
+$$
+
+**Step 2 — what the other five do.** Each is divided by 1.2, so each falls to 83.33% of its
+former share — a decline of **16.67%** and a log2 change of
+
+$$
+\log_2(1/1.2) = -0.263034
+$$
+
+for T cells at 40%, for dendritic cells at 2%, and for everything between. Five identical
+effect sizes.
+
+**Step 3 — what monocytes do.** $0.20 \times 2/1.2 = 0.333333$, a log2 change of
+$+0.736966$.
+
+**Step 4 — what is actually identified.** The difference:
+
+$$
+0.736966 - (-0.263034) = 1.000000,
+$$
+
+which is exactly $\log_2 2$. Differences of log-proportions are estimable; individual log
+fold-changes are not, because they all carry the unknown $-\log_2 D$.
+
+**Step 5 — what a test would report.** Every one of the five untouched populations at
+$-0.263034$, all with the same sign and similar magnitude, and with as much statistical
+confidence as the cell counts allow. A reader sees a coordinated contraction of five cell types
+and a monocyte expansion. Only the second is real.
+
+**The tell.** When several populations move by *the same* log fold-change in the same
+direction, and one moves the other way, closure is the first hypothesis. Real biology rarely
+produces five identical effect sizes.
+
+</WorkedExample>
+
+## Two further consequences
+
+**Closure induces a correlation whatever you do.** For a multinomial the correlation between
+two parts is
+
+$$
+\mathrm{corr}(p_j, p_k) = -\sqrt{\frac{p_j p_k}{(1-p_j)(1-p_k)}},
+$$
+
+which depends on nothing but the two proportions — not on how many cells were counted, and not
+on any overdispersion. It is always negative. Monocytes at 20% and T cells at 40% are
+correlated $-0.408248$ before any biology is allowed to act, so two populations appearing to
+move in opposite directions is the null and not a finding.
+
+**And the design effect of lesson 12 applies here too.** Real samples differ in composition by
+more than multinomial sampling allows, which is a Dirichlet-multinomial with concentration
+$\alpha_0$, and its intra-class correlation is $\rho = 1/(1 + \alpha_0)$. So
+$\alpha_0 = 19$ gives $\rho = 0.05$, and at 500 cells per sample the design effect is 25.95 —
+the same number lesson 12 derived, reached from composition rather than from expression. A
+differential-abundance test that treats cells as independent has the same problem as a
+differential-expression test that does, and the same fix: aggregate to one composition per
+sample <Citation id="crowell2020muscat" />
+<Citation id="squair2021falsediscoveries" />.
+
+<Callout variant="intuition" title="The measurement that would settle it">
+
+Everything here follows from not knowing the denominator. If you knew how many cells of each
+type there were per gram of tissue, none of this would arise — the closure map would not be
+applied, and each population could be tested on its own.
+
+That measurement exists and is not usually made: spike in a known number of foreign cells or
+synthetic transcripts, or count nuclei per unit mass before dissociation, and the total becomes
+estimable. Hashing gives it for free when samples are pooled, since each hashtag's cell count
+is a direct readout <Citation id="stoeckius2018hashing" />.
+
+Absent that, the honest framing is comparative rather than absolute: report ratios between
+populations, which are identified, and say plainly that a decline in the others is what a single
+expansion looks like. The framing that causes trouble is the one where each population gets its
+own p-value <Citation id="luecken2019bestpractices" />.
+
+</Callout>
+
+## Summary
+
+- A single-cell experiment measures **shares of an arbitrary total**, so abundance is only ever
+  known up to a scale factor.
+- If one population changes by $c$, every other proportion is divided by the identical
+  $D = 1 + (c-1)p_k$. Doubling monocytes from 20% sends five untouched populations to
+  $-0.263034$ apiece, whatever their own size.
+- **The ambiguity is exact**: abundances of 40, 20, 10, 8, 20, 2 and of exactly half those
+  close to the same proportions, so no proportion-based statistic can tell them apart.
+- What *is* identified is a difference of log-proportions: $0.736966 - (-0.263034) = 1$, which
+  is $\log_2$ of the true change.
+- The **CLR** removes the constraint but not the artefact: the untouched parts shift by
+  $-\log c/K$, which is $-0.166667$ here rather than zero.
+- Closure induces a **negative correlation** between any two parts,
+  $-\sqrt{p_jp_k/((1-p_j)(1-p_k))}$, which is $-0.408248$ for 20% and 40%, before any biology.
+- Overdispersed composition is Dirichlet-multinomial with $\rho = 1/(1+\alpha_0)$, so lesson
+  12's design effect applies unchanged: $\alpha_0 = 19$ gives $\rho = 0.05$ and DE 25.95 at 500
+  cells.
+
+<Exercise n={1} title="Reading five identical declines" difficulty="warm-up">
+
+A study reports that after treatment, four cell types decline significantly with log2 fold
+changes of −0.26, −0.26, −0.27 and −0.26, while one expands with +0.74.
+
+(a) What is the first hypothesis?
+
+(b) Estimate the closure factor and the expanding population's baseline share.
+
+(c) What would you ask the authors for?
+
+<div slot="solution">
+
+(a) That only the expanding population changed, and the four declines are closure. Four nearly
+identical effect sizes in the same direction is not what independent biology produces.
+
+(b) The declines imply $\log_2(1/D) = -0.263$, so $D = 2^{0.263} = 1.19997$, essentially 1.2.
+The difference between the expansion and the declines is $0.74 - (-0.26) = 1.00$, so the true
+fold change is $2^{1.00} = 2$. Then $D = 1 + (c-1)p_k$ gives $p_k = 0.2/1 = 0.20$ — a baseline
+share of **20%**, which the paper can confirm directly.
+
+(c) The baseline proportions, so (b) can be checked; and any absolute measurement — spike-ins,
+nuclei per gram, hashtag counts — that would fix the denominator. Failing that, ratios between
+the four "declining" populations, which should be unchanged if closure is the explanation.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Where the artefact bites hardest" difficulty="core">
+
+(a) Compute the closure factor for a doubling of a population at 2%, at 20% and at 50%.
+
+(b) Convert each to the apparent log2 change of the untouched populations.
+
+(c) A collaborator proposes avoiding the problem by only testing rare populations. Assess.
+
+<div slot="solution">
+
+(a) $D = 1 + (2-1)p_k$: **1.02** at 2%, **1.20** at 20%, **1.50** at 50%.
+
+(b) $\log_2(1/D)$: **-0.028569** at 2%, **-0.263034** at 20%, **-0.584963** at 50%. A doubling
+of a rare population barely perturbs anyone; a doubling of a dominant one halves everyone else's
+apparent share.
+
+(c) It half-works and creates a worse problem. Testing only rare populations does limit the
+artefact those populations *cause* — but it does nothing about the artefact they *suffer*, since
+a rare population's proportion is divided by $D$ whenever any abundant population moves. So the
+rare types remain the most vulnerable readings in the dataset: at 2% of the sample, a genuine
+change is competing with a closure shift driven by whatever the 40% population did. The
+asymmetry is the point — a rare population is a weak cause and a sensitive victim.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="What the CLR leaves behind" difficulty="stretch">
+
+Six populations, one of which doubles.
+
+(a) Compute the CLR shift for the changed population and for each other, using the closed form.
+
+(b) Verify the shifts sum to zero, and explain why they must.
+
+(c) The CLR shifts are smaller than the raw ones. Does that make CLR-based testing safe?
+
+<div slot="solution">
+
+(a) With $K = 6$ and $c = 2$: $\Delta_k = \log_2 2 \times 5/6 = +0.833333$ and
+$\Delta_j = -\log_2 2/6 = -0.166667$ for each of the other five.
+
+(b) $0.833333 + 5(-0.166667) = 0$. They must, because the CLR of any composition sums to zero
+by construction — it is a log vector with its own mean subtracted — so any change to it is a
+vector of shifts summing to zero. No transform with that property can leave five parts fixed
+while moving the sixth.
+
+(c) No. Smaller is not zero, and the five untouched populations still receive an identical
+$-0.166667$, which a test with enough cells will call significant just as readily. What CLR
+genuinely buys is that the shift is *known in closed form* — given $K$ and an estimate of $c$
+you can say exactly how much of each apparent change is closure — and that ratios between parts
+are untouched. Those are real gains, and neither is "the artefact is gone". The artefact is
+gone only when the denominator is measured.
+
+</div>
+
+</Exercise>
