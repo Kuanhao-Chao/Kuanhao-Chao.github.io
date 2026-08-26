@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  varianceInflationFactor,
+  centeringAttenuation,
+  batchTypeCorrelation,
   dirichletMultinomialIcc,
   compositionCorrelation,
   clrShiftUnderSingleChange,
@@ -7814,6 +7817,101 @@ describe('sc-composition — closure, and the five declines that did not happen'
       }
       expect(centeredLogRatio(BEFORE).reduce((s, x) => s + x, 0)).toBeCloseTo(0, 12);
       expect(mdx).toMatch(/sums to zero\s+by construction/);
+    });
+  });
+});
+
+
+describe('sc-batch-integration — what confounding costs, twice over', () => {
+  const mdx = lesson('sc-batch-integration');
+
+  describe('worked example — an 80/20 design', () => {
+    it('step 1: the correlation is the composition difference', () => {
+      expect(Math.abs(batchTypeCorrelation(0.8, 0.2))).toBeCloseTo(0.6, 12);
+      expect(Math.abs(0.8 - 0.2)).toBeCloseTo(0.6, 12);
+      expect(mdx).toContain('|0.8 - 0.2| = 0.6');
+    });
+
+    it('step 2: centring leaves 64% of the difference', () => {
+      expect(centeringAttenuation(0.6)).toBeCloseTo(0.64, 12);
+      expect(1 - 0.36).toBeCloseTo(0.64, 12);
+      for (const v of ['1 - 0.36 = 0.64', '64%']) expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: regression instead inflates variance 1.5625-fold', () => {
+      expect(varianceInflationFactor(0.6)).toBeCloseTo(1.5625, 10);
+      expect(1 / 0.64).toBeCloseTo(1.5625, 10);
+      expect(mdx).toContain('1.5625');
+    });
+
+    it('step 4: the two are exact reciprocals', () => {
+      expect(0.64 * 1.5625).toBeCloseTo(1, 12);
+      for (const r of [0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.98])
+        expect(centeringAttenuation(r) * varianceInflationFactor(r)).toBeCloseTo(1, 12);
+      expect(mdx).toContain('0.64 \\times 1.5625 = 1');
+    });
+
+    it('step 5: splitting samples across batches sets r to zero', () => {
+      expect(batchTypeCorrelation(0.5, 0.5)).toBeCloseTo(0, 12);
+      expect(centeringAttenuation(batchTypeCorrelation(0.5, 0.5))).toBe(1);
+    });
+  });
+
+  describe('figure 1 — every value in its table', () => {
+    it('draws the five compositions with their kept fraction and variance multiplier', () => {
+      const rows: [number, string, string][] = [
+        [0.0, '100%', '1.00'], [0.6, '64%', '1.56'], [0.8, '36%', '2.78'],
+        [0.9, '19%', '5.26'], [0.98, '4%', '25.25'],
+      ];
+      for (const [r, kept, vif] of rows) {
+        expect(`${Math.round(100 * centeringAttenuation(r))}%`).toBe(kept);
+        expect(varianceInflationFactor(r).toFixed(2)).toBe(vif);
+      }
+      for (const l of ['50 / 50', '80 / 20', '90 / 10', '95 / 5', '99 / 1',
+                       '100%', '64%', '36%', '19%', '4%', '25.25'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+
+    it('the caption decodes the curve the way the figure draws it', () => {
+      expect(centeringAttenuation(0.98)).toBeCloseTo(0.0396, 12);
+      expect(varianceInflationFactor(0.98)).toBeCloseTo(25.2525, 4);
+      expect(mdx).toContain('3.96%');
+      expect(mdx).toContain('25.25');
+    });
+  });
+
+  describe('perfect confounding', () => {
+    it('leaves nothing and costs infinity, which is one statement', () => {
+      expect(Math.abs(batchTypeCorrelation(1, 0))).toBeCloseTo(1, 12);
+      expect(centeringAttenuation(batchTypeCorrelation(1, 0))).toBe(0);
+      expect(varianceInflationFactor(batchTypeCorrelation(1, 0))).toBe(Number.POSITIVE_INFINITY);
+      expect(mdx).toContain('no method separates them');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — a 70/30 split keeps 84% and inflates variance 1.1905-fold', () => {
+      expect(Math.abs(batchTypeCorrelation(0.7, 0.3))).toBeCloseTo(0.4, 12);
+      expect(centeringAttenuation(0.4)).toBeCloseTo(0.84, 12);
+      expect(varianceInflationFactor(0.4)).toBeCloseTo(1.1905, 4);
+      expect(0.84 * 1.1905).toBeCloseTo(1, 3);
+      for (const v of ['1 - 0.16 = 0.84', '84%', '1.1905']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — the two designs are all-or-nothing', () => {
+      expect(Math.abs(batchTypeCorrelation(1, 0))).toBeCloseTo(1, 12);
+      expect(centeringAttenuation(batchTypeCorrelation(1, 0))).toBe(0);
+      expect(batchTypeCorrelation(0.5, 0.5)).toBeCloseTo(0, 12);
+      expect(centeringAttenuation(0)).toBe(1);
+      expect(mdx).toContain('100%');
+    });
+
+    it('3 — a 95/5 imbalance leaves 19% and widens intervals 2.294-fold', () => {
+      expect(centeringAttenuation(0.9)).toBeCloseTo(0.19, 12);
+      expect(varianceInflationFactor(0.9)).toBeCloseTo(5.2632, 4);
+      expect(1 / 0.19).toBeCloseTo(5.26, 2);
+      expect(Math.sqrt(varianceInflationFactor(0.9))).toBeCloseTo(2.294, 3);
+      for (const v of ['19%', '5.2632', '5.26', '2.294']) expect(mdx, v).toContain(v);
     });
   });
 });

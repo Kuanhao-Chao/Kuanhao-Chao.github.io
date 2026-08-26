@@ -1,0 +1,321 @@
+---
+title: "Batch Integration: Removing the Batch, and the Biology With It"
+shortTitle: Batch Integration
+description: "What integration methods actually do to a dataset, why a design in which batch and condition are correlated cannot be repaired by any of them, and how to price the damage before running one."
+abstract: "Integration aligns datasets that were processed separately, and it works by removing what distinguishes them. That is exactly right when the only thing distinguishing them is the batch, and exactly wrong otherwise — and the boundary between the two cases has a closed form. For two equal batches in which a cell type makes up fractions f₁ and f₂, the correlation between the batch label and the cell-type label is precisely |f₁ − f₂|, so a composition table is a confounding table. Centring each batch then retains exactly 1 − r² of any real biological difference along the same axis: 64% at an 80/20 split, 36% at 90/10, and 4% at 99/1. Regressing the batch out instead keeps the estimate intact and multiplies its variance by the reciprocal, 1/(1 − r²), which is 25.25 at 99/1. The two routes are the same bill presented twice, because 1 − r² is how much information about the effect the design contains — and at r = 1, where every treated sample sits in one batch, that is zero and no method can return more."
+date: 2026-08-26
+track: theory
+hub: single-cell
+moduleId: s05-beyond
+moduleLabel: Module 5 · Beyond One Snapshot
+order: 14
+level: advanced
+objectives:
+  - "State what integration methods optimise and what that implies about biological differences between batches."
+  - "Compute the correlation between batch and cell type from a composition table."
+  - "Derive the attenuation per-batch centring applies to a real difference, and evaluate it."
+  - "Show that regressing the batch out pays the same confounding as variance inflation."
+  - "Say what makes a design unrepairable, and what to do at the bench instead."
+prerequisites:
+  - sc-composition
+  - sc-differential-expression
+relatedLessons:
+  - sc-differential-expression
+  - sc-composition
+keyEquations:
+  - 'r = |f_1 - f_2|'
+  - '\text{signal retained} = 1 - r^2'
+  - '\mathrm{VIF} = \dfrac{1}{1 - r^2}'
+referenceIds:
+  - haghverdi2018mnn
+  - korsunsky2019harmony
+  - luecken2022benchmark
+  - luecken2019bestpractices
+  - stoeckius2018hashing
+  - crowell2020muscat
+  - squair2021falsediscoveries
+  - hao2021seurat
+tags: [single-cell, batch effects, integration, confounding, Harmony, MNN]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Samples processed on different days, by different people, with different reagent lots, differ
+systematically. Integration methods remove that difference: mutual nearest neighbours match
+cells across datasets and subtract the offset between them
+<Citation id="haghverdi2018mnn" />, Harmony iterates between clustering and correcting until
+batches are mixed within every cluster <Citation id="korsunsky2019harmony" />, anchor-based transfer aligns one dataset onto another
+<Citation id="hao2021seurat" />, and dozens more exist with the same objective
+<Citation id="luecken2022benchmark" />.
+
+The objective is always some version of *make the batches indistinguishable*. So the question
+that decides whether integration helps is not which method to use. It is whether the batches
+ought to be distinguishable — and if the treated samples were run on Tuesday and the controls
+on Wednesday, they ought to be, by exactly the amount the experiment was designed to measure.
+
+<Notation
+  rows={[
+    { symbol: 'f_1, f_2', meaning: 'A cell type\'s share of batch 1 and of batch 2', dims: 'in [0,1]' },
+    { symbol: 'r', meaning: 'Correlation between the batch label and the cell-type label', dims: 'in [-1,1]' },
+    { symbol: '\\delta', meaning: 'True difference between two cell types along some axis', dims: 'real' },
+    { symbol: 'b_k', meaning: 'Batch k\'s technical offset along that axis', dims: 'real' },
+    { symbol: '\\mathrm{VIF}', meaning: 'Variance inflation factor of a regression estimate', dims: '>= 1' },
+  ]}
+/>
+
+## A composition table is a confounding table
+
+Take two equal-sized batches, and a cell type that is fraction $f_1$ of the first and $f_2$ of
+the second. Code batch as an indicator and cell type as an indicator, and their correlation
+works out to
+
+$$
+r = |f_1 - f_2|
+$$
+
+exactly. Nothing else enters — not the number of cells, not the size of the batch effect. So
+the degree to which a design confounds batch with biology is readable straight off the
+composition table, and it needs no model to compute.
+
+A 50/50 split gives $r = 0$: batch and type are independent, and removing the batch cannot
+touch the type. An 80/20 split gives $r = 0.6$. Every treated sample in one batch and every
+control in the other gives $r = 1$.
+
+## What centring costs
+
+Now let the two cell types differ by $\delta$ along the same axis the batch effect acts on —
+the worst case, and the one integration is designed for. Per-batch centring subtracts each
+batch's own mean. But that mean is
+
+$$
+\bar{y}_k = \mu_B + f_k\,\delta + b_k,
+$$
+
+which contains $f_k \delta$: a piece of the *biological* signal, present because the batch
+happens to hold more of one type than the other. Subtracting it removes that piece.
+
+Working the pooled difference through after centring gives an estimate of
+
+$$
+\left(1 - r^2\right)\delta,
+$$
+
+so the fraction of the real difference that survives is exactly $1 - r^2$. At an 80/20 split
+that is 64%; at 90/10, 36%; at 99/1, 3.96%. The loss is silent — the output is a corrected
+matrix with no indication that a third of the effect went into the correction.
+
+<Figure
+  caption="Figure 1. Fraction of the information about a biological effect that survives batch correction, against the batch–cell-type correlation, which for two equal batches is just the difference in composition. The curve is 1 − r². Centring each batch keeps that fraction of the effect itself; regressing the batch out keeps the whole effect and multiplies its variance by the reciprocal, so the surviving information is the same either way. The margin table reads both: an 80/20 composition keeps 64% and inflates variance 1.56-fold, and a 99/1 composition keeps 4% and inflates it 25.25-fold."
+  alt="A curve falling from one hundred percent at zero to zero at one, on axes of information surviving against the batch–cell-type correlation. Five points are marked along it, and a table at the right lists five compositions with the fraction kept and the variance multiplier for each."
+>
+<svg viewBox="0 0 772 356" width="772" height="356" font-family="inherit"><line x1="112.0" y1="44.0" x2="112.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="400.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="400.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="236.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0%</text><line x1="112.0" y1="185.0" x2="400.0" y2="185.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="189.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">25%</text><line x1="112.0" y1="138.0" x2="400.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="142.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">50%</text><line x1="112.0" y1="91.0" x2="400.0" y2="91.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="95.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">75%</text><line x1="112.0" y1="44.0" x2="400.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="48.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">100%</text><line x1="112.0" y1="232.0" x2="112.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="112.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="169.6" y1="232.0" x2="169.6" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="169.6" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="227.2" y1="232.0" x2="227.2" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="227.2" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="284.8" y1="232.0" x2="284.8" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="284.8" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.6</text><line x1="342.4" y1="232.0" x2="342.4" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="342.4" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.8</text><line x1="400.0" y1="232.0" x2="400.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="400.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.0</text><path d="M112.0,44.0 L113.3,44.0 L114.6,44.0 L115.9,44.0 L117.2,44.1 L118.5,44.1 L119.9,44.1 L121.2,44.2 L122.5,44.2 L123.8,44.3 L125.1,44.4 L126.4,44.5 L127.7,44.6 L129.0,44.7 L130.3,44.8 L131.6,44.9 L132.9,45.0 L134.3,45.1 L135.6,45.3 L136.9,45.4 L138.2,45.6 L139.5,45.7 L140.8,45.9 L142.1,46.1 L143.4,46.2 L144.7,46.4 L146.0,46.6 L147.3,46.8 L148.7,47.0 L150.0,47.3 L151.3,47.5 L152.6,47.7 L153.9,48.0 L155.2,48.2 L156.5,48.5 L157.8,48.8 L159.1,49.0 L160.4,49.3 L161.7,49.6 L163.1,49.9 L164.4,50.2 L165.7,50.5 L167.0,50.9 L168.3,51.2 L169.6,51.5 L170.9,51.9 L172.2,52.2 L173.5,52.6 L174.8,52.9 L176.1,53.3 L177.5,53.7 L178.8,54.1 L180.1,54.5 L181.4,54.9 L182.7,55.3 L184.0,55.8 L185.3,56.2 L186.6,56.6 L187.9,57.1 L189.2,57.5 L190.5,58.0 L191.9,58.5 L193.2,58.9 L194.5,59.4 L195.8,59.9 L197.1,60.4 L198.4,60.9 L199.7,61.4 L201.0,62.0 L202.3,62.5 L203.6,63.0 L204.9,63.6 L206.3,64.1 L207.6,64.7 L208.9,65.3 L210.2,65.8 L211.5,66.4 L212.8,67.0 L214.1,67.6 L215.4,68.2 L216.7,68.9 L218.0,69.5 L219.3,70.1 L220.7,70.8 L222.0,71.4 L223.3,72.1 L224.6,72.7 L225.9,73.4 L227.2,74.1 L228.5,74.8 L229.8,75.5 L231.1,76.2 L232.4,76.9 L233.7,77.6 L235.1,78.3 L236.4,79.1 L237.7,79.8 L239.0,80.5 L240.3,81.3 L241.6,82.1 L242.9,82.8 L244.2,83.6 L245.5,84.4 L246.8,85.2 L248.1,86.0 L249.5,86.8 L250.8,87.6 L252.1,88.5 L253.4,89.3 L254.7,90.1 L256.0,91.0 L257.3,91.9 L258.6,92.7 L259.9,93.6 L261.2,94.5 L262.5,95.4 L263.9,96.3 L265.2,97.2 L266.5,98.1 L267.8,99.0 L269.1,99.9 L270.4,100.9 L271.7,101.8 L273.0,102.8 L274.3,103.7 L275.6,104.7 L276.9,105.7 L278.3,106.6 L279.6,107.6 L280.9,108.6 L282.2,109.6 L283.5,110.7 L284.8,111.7 L286.1,112.7 L287.4,113.7 L288.7,114.8 L290.0,115.8 L291.3,116.9 L292.7,118.0 L294.0,119.0 L295.3,120.1 L296.6,121.2 L297.9,122.3 L299.2,123.4 L300.5,124.5 L301.8,125.7 L303.1,126.8 L304.4,127.9 L305.7,129.1 L307.1,130.2 L308.4,131.4 L309.7,132.6 L311.0,133.7 L312.3,134.9 L313.6,136.1 L314.9,137.3 L316.2,138.5 L317.5,139.7 L318.8,141.0 L320.1,142.2 L321.5,143.4 L322.8,144.7 L324.1,145.9 L325.4,147.2 L326.7,148.5 L328.0,149.8 L329.3,151.0 L330.6,152.3 L331.9,153.6 L333.2,154.9 L334.5,156.3 L335.9,157.6 L337.2,158.9 L338.5,160.3 L339.8,161.6 L341.1,163.0 L342.4,164.3 L343.7,165.7 L345.0,167.1 L346.3,168.5 L347.6,169.9 L348.9,171.3 L350.3,172.7 L351.6,174.1 L352.9,175.5 L354.2,176.9 L355.5,178.4 L356.8,179.8 L358.1,181.3 L359.4,182.8 L360.7,184.2 L362.0,185.7 L363.3,187.2 L364.7,188.7 L366.0,190.2 L367.3,191.7 L368.6,193.2 L369.9,194.7 L371.2,196.3 L372.5,197.8 L373.8,199.4 L375.1,200.9 L376.4,202.5 L377.7,204.1 L379.1,205.6 L380.4,207.2 L381.7,208.8 L383.0,210.4 L384.3,212.1 L385.6,213.7 L386.9,215.3 L388.2,216.9 L389.5,218.6 L390.8,220.2 L392.1,221.9 L393.5,223.6 L394.8,225.2 L396.1,226.9 L397.4,228.6 L398.7,230.3 L400.0,232.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="112.0" cy="44.0" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="284.8" cy="111.7" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="342.4" cy="164.3" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="371.2" cy="196.3" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="394.2" cy="224.6" r="4.2" fill="var(--color-accent, #2e6e5e)"/><line x1="400.0" y1="232.0" x2="400.0" y2="166.2" stroke="currentColor" stroke-width="1.4" opacity=".45" stroke-dasharray="4 3"/><text x="129.3" y="183.1" font-size="10" fill="currentColor" opacity=".75">every treated sample in one batch</text><text x="129.3" y="196.1" font-size="10" fill="currentColor" opacity=".75">puts r at 1, and nothing survives</text><line x1="319.4" y1="196.3" x2="391.4" y2="223.5" stroke="currentColor" stroke-width="1" opacity=".35"/><text x="256.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Batch–cell-type correlation, which is just |f1 − f2|</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Information about the effect that survives</text><text x="430.0" y="56.0" font-size="9.5" fill="currentColor" opacity=".6">composition</text><text x="506.0" y="56.0" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".6">kept</text><text x="578.0" y="56.0" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".6">variance x</text><text x="430.0" y="74.0" font-size="10" fill="currentColor" opacity=".8">50 / 50</text><text x="506.0" y="74.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">100%</text><text x="578.0" y="74.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">1.00</text><text x="430.0" y="89.0" font-size="10" fill="currentColor" opacity=".8">80 / 20</text><text x="506.0" y="89.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">64%</text><text x="578.0" y="89.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">1.56</text><text x="430.0" y="104.0" font-size="10" fill="currentColor" opacity=".8">90 / 10</text><text x="506.0" y="104.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">36%</text><text x="578.0" y="104.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">2.78</text><text x="430.0" y="119.0" font-size="10" fill="currentColor" opacity=".8">95 / 5</text><text x="506.0" y="119.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">19%</text><text x="578.0" y="119.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">5.26</text><text x="430.0" y="134.0" font-size="10" fill="currentColor" opacity=".8">99 / 1</text><text x="506.0" y="134.0" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">4%</text><text x="578.0" y="134.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">25.25</text><text x="430.0" y="168.0" font-size="11" fill="currentColor" font-weight="700">One number, two bills.</text><text x="430.0" y="186.0" font-size="10" fill="currentColor" opacity=".8">Centring each batch keeps</text><text x="430.0" y="199.0" font-size="10" fill="currentColor" opacity=".8">1 - r squared of the real</text><text x="430.0" y="212.0" font-size="10" fill="currentColor" opacity=".8">difference and silently drops</text><text x="430.0" y="225.0" font-size="10" fill="currentColor" opacity=".8">the rest. Regressing the batch</text><text x="430.0" y="238.0" font-size="10" fill="currentColor" opacity=".8">out keeps the estimate whole</text><text x="430.0" y="251.0" font-size="10" fill="currentColor" opacity=".8">and multiplies its variance by</text><text x="430.0" y="264.0" font-size="10" fill="currentColor" opacity=".8">the reciprocal.</text><text x="430.0" y="277.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="430.0" y="290.0" font-size="10" fill="currentColor" opacity=".8">Either way the information</text><text x="430.0" y="303.0" font-size="10" fill="currentColor" opacity=".8">that survives is 1 - r squared,</text><text x="430.0" y="316.0" font-size="10" fill="currentColor" opacity=".8">because that is all the design</text><text x="430.0" y="329.0" font-size="10" fill="currentColor" opacity=".8">contains. No integration</text><text x="430.0" y="342.0" font-size="10" fill="currentColor" opacity=".8">method can return more.</text></svg>
+</Figure>
+
+## The same bill, presented twice
+
+The obvious objection is that centring is crude, and a proper regression — fitting batch and
+biology jointly — handles collinearity correctly. It does. It returns an unbiased estimate of
+$\delta$, with no attenuation at all.
+
+What it cannot do is invent precision. The variance of that estimate is multiplied by the
+variance inflation factor
+
+$$
+\mathrm{VIF} = \frac{1}{1 - r^2},
+$$
+
+which is 1.56 at an 80/20 composition, 2.78 at 90/10, 5.26 at 95/5 and 25.25 at 99/1. Since
+$(1 - r^2)$ and $1/(1 - r^2)$ are reciprocals, both routes leave exactly $1 - r^2$ of the
+information about the effect. Centring spends it on the point estimate; regression spends it on
+the standard error. Neither can spend less, because $1 - r^2$ is how much the design contains.
+
+At $r = 1$ this is zero and infinite respectively, which is the same statement twice:
+**batch and condition are the same column, and no method separates them.**
+
+<Callout variant="intuition" title="Integration is a claim about what the batches share">
+
+The useful way to hold this is that running an integration method asserts something: that the
+cell types present in these batches are the same cell types, in the same states, and that the
+differences between batches are technical.
+
+When that assertion is true — an atlas assembled from healthy donors, a technical replicate —
+integration is doing exactly what it should, and the benchmarks that rank methods are answering
+a real question <Citation id="luecken2022benchmark" />.
+
+When it is false, integration is not a preprocessing step but a hypothesis being imposed on the
+data, and the more effective the method the more thoroughly the hypothesis wins. A method that
+mixes batches perfectly has, in a confounded design, perfectly erased the finding.
+
+The diagnostic is the composition table, and it costs nothing to look at
+<Citation id="luecken2019bestpractices" />.
+
+</Callout>
+
+<WorkedExample
+  title="An 80/20 design, priced before it is run"
+  given={[
+    'Two batches of equal size',
+    'The cell type of interest is 80% of batch 1 and 20% of batch 2',
+    'The biological difference lies along the same axis as the batch effect',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the confounding.**
+
+$$
+r = |0.8 - 0.2| = 0.6.
+$$
+
+**Step 2 — what centring leaves.**
+
+$$
+1 - r^2 = 1 - 0.36 = 0.64,
+$$
+
+so **64%** of the difference survives and 36% is absorbed into the batch correction. A reported
+log fold change of 1.0 was really 1.5625 before the pipeline touched it.
+
+**Step 3 — what regression costs instead.**
+
+$$
+\mathrm{VIF} = \frac{1}{0.64} = 1.5625,
+$$
+
+so the estimate is correct and its variance is 56% larger — equivalent to having run the study
+with 64% of the samples.
+
+**Step 4 — the two are one number.** $0.64 \times 1.5625 = 1$ exactly. The design contains 64%
+of the information a balanced one would, and every analysis route spends that same budget
+somewhere.
+
+**Step 5 — what would have fixed it.** Not a better method. Splitting each sample across both
+batches, which sets $f_1 = f_2$ and $r = 0$, at no cost beyond planning. Where samples are
+pooled and hashed this is automatic, because every donor appears in every lane
+<Citation id="stoeckius2018hashing" />.
+
+</WorkedExample>
+
+## Where this sits relative to the rest of the track
+
+Two connections are worth making explicit.
+
+**It is the same failure as lesson 13's.** There, one population's change contaminated every
+other proportion because the total was unknown. Here, the batch mean contaminates the
+biological difference because composition is unbalanced. Both are cases of a quantity being
+estimated from data that does not identify it, and in both the remedy is a design change rather
+than an analysis choice.
+
+**And it compounds with lesson 12's.** Integration is applied per cell, and the corrected values
+are then usually tested per cell. A confounded design therefore attenuates the effect *and*
+inflates the false-positive rate at the same time, and the two errors point in opposite
+directions — the effect gets smaller while the confidence in it gets larger. Aggregating to one
+value per sample before testing addresses the second
+<Citation id="crowell2020muscat" />
+<Citation id="squair2021falsediscoveries" />; nothing addresses the first except the bench.
+
+## Summary
+
+- Integration methods optimise **batch indistinguishability**, so they remove biological
+  differences between batches whenever those exist.
+- For two equal batches, the batch–cell-type correlation is exactly $r = |f_1 - f_2|$: a
+  **composition table is a confounding table**, computable with no model.
+- Per-batch centring retains exactly $1 - r^2$ of a real difference — **64%** at 80/20, 36% at
+  90/10, **3.96%** at 99/1 — and the loss is silent.
+- A correct regression keeps the estimate and multiplies its variance by
+  $1/(1 - r^2)$: 1.5625 at 80/20, **25.25** at 99/1.
+- The two are reciprocals, so the surviving information is $1 - r^2$ either way. **At $r = 1$
+  it is zero**, and no method can do better because the design contains nothing to recover.
+- The fix is at the bench: split samples across batches so $f_1 = f_2$. Hashing gives it for
+  free.
+
+<Exercise n={1} title="Reading a composition table" difficulty="warm-up">
+
+A study has two batches. A cell type of interest makes up 70% of batch 1 and 30% of batch 2.
+
+(a) What is the batch–cell-type correlation?
+
+(b) What fraction of a real difference survives per-batch centring?
+
+(c) What is the variance inflation if the batch is regressed out instead?
+
+<div slot="solution">
+
+(a) $r = |0.7 - 0.3| = 0.4$.
+
+(b) $1 - r^2 = 1 - 0.16 = 0.84$, so **84%** survives and 16% is absorbed.
+
+(c) $1/0.84 = 1.1905$, so variance rises about 19%. Note $0.84 \times 1.1905 = 1$ — the same
+budget, spent differently.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Two designs, same cells" difficulty="core">
+
+A lab has 8 samples, 4 treated and 4 control, and can run 2 batches of 4.
+
+(a) Design A puts all 4 treated in batch 1. Compute $r$ and the surviving information.
+
+(b) Design B puts 2 treated and 2 control in each batch. Compute the same.
+
+(c) The lab argues design A is simpler to execute and that integration will fix it. Respond.
+
+<div slot="solution">
+
+(a) The treated fraction is 1.0 in batch 1 and 0.0 in batch 2, so $r = |1 - 0| = 1$ and the
+surviving information is $1 - 1 = 0$. Nothing about the treatment effect is recoverable.
+
+(b) The treated fraction is 0.5 in both, so $r = 0$ and **100%** survives. Integration removes
+the batch effect and leaves the treatment effect untouched, which is exactly what it is for.
+
+(c) Integration cannot fix design A, and the stronger the method the worse the outcome. Batch
+and treatment are the same column: any procedure that removes one removes the other, and a
+method that mixes the batches perfectly has removed the entire treatment effect while reporting
+success on its own objective. The cost of design B is a few minutes of planning, and it moves
+the study from zero recoverable information to all of it.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="Partial confounding, and what to report" difficulty="stretch">
+
+A dataset has an unavoidable 95/5 imbalance for a rare population.
+
+(a) Compute the surviving information and the variance inflation.
+
+(b) The analysis reports a significant difference in this population after integration. How
+should the effect size be interpreted?
+
+(c) What should the paper report so a reader can judge it?
+
+<div slot="solution">
+
+(a) $r = 0.9$, so $1 - r^2 = 0.19$ — **19%** survives — and $\mathrm{VIF} = 5.2632$.
+
+(b) With care, and depending on which route was taken. If the pipeline centred or integrated
+per batch, the reported effect is attenuated: the true difference is roughly $1/0.19 = 5.26$
+times what was reported, so a modest-looking effect may be large. If the batch was regressed
+out properly, the effect size is unbiased but its confidence interval should be about
+$\sqrt{5.2632} = 2.294$ times wider than a balanced design would give. The two readings differ
+by a factor of five, so a paper that does not say which route it took cannot be interpreted at
+all.
+
+(c) The composition table, from which $r$ follows immediately; which correction was applied and
+at what stage; and the effect size with an interval that accounts for the inflation. None of
+these is expensive, and together they let a reader recompute everything in this lesson. A claim
+about a rare population in a confounded design is not wrong by default — it is just weaker than
+its p-value suggests, by a factor the reader can compute if given four numbers.
+
+</div>
+
+</Exercise>
