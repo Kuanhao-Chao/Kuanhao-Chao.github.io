@@ -1,0 +1,329 @@
+---
+title: "Embeddings: What a UMAP Preserves, and What It Invents"
+shortTitle: Embeddings
+description: "What t-SNE and UMAP optimise, why distance and cluster size in an embedding carry no information, and why the standard faithfulness metric cannot detect the distortion readers actually rely on."
+abstract: "A UMAP is the image every single-cell paper leads with, and almost everything readers take from it is unsupported by what the algorithm optimises. These methods preserve neighbourhoods and nothing else: which points are near a given point, not how near, and not how far apart two groups of points are. The gap is measurable. Take two triplets whose true centres sit ten apart and embed them four ways: stretching the gap fifty-fold, crushing it tenfold, or leaving it alone all give trustworthiness of exactly 1.000000, while the apparent separation — the between-cluster gap over the within-cluster spread — moves from 15 to 7,500, a five-hundred-fold range. The score cannot see any of it, because it only ever compares rank inside a neighbourhood. Move a single point from one cluster to the other and the same score drops to 0.466667 immediately. The metric is exquisitely sensitive to what it measures and blind to the one thing a reader concludes from the picture."
+date: 2026-08-25
+track: theory
+hub: single-cell
+moduleId: s03-geometry
+moduleLabel: Module 3 · Geometry
+order: 10
+level: intermediate
+objectives:
+  - "State what t-SNE and UMAP optimise, and derive what that does and does not constrain."
+  - "Define trustworthiness and compute it for a given embedding."
+  - "Show that an embedding's apparent cluster separation can change by orders of magnitude at constant trustworthiness."
+  - "List the visual features of an embedding that carry information and those that do not."
+  - "Say what a figure should be used to claim, and what needs a different measurement."
+prerequisites:
+  - sc-neighbor-graphs
+  - sc-clustering
+relatedLessons:
+  - sc-neighbor-graphs
+  - sc-clustering
+keyEquations:
+  - 'T(k) = 1 - \dfrac{2}{nk(2n - 3k - 1)}\sum_i \sum_{j \in U_k(i)} \left(r(i,j) - k\right)'
+  - '\text{apparent separation} = \dfrac{\|\bar{x}_A - \bar{x}_B\|}{\tfrac{1}{2}(s_A + s_B)}'
+referenceIds:
+  - vandermaaten2008tsne
+  - mcinnes2018umap
+  - becht2019umapviz
+  - kobak2019tsneart
+  - chari2023specious
+  - venna2006localmds
+  - luecken2019bestpractices
+  - wolf2018scanpy
+tags: [single-cell, UMAP, t-SNE, embeddings, trustworthiness, visualisation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Almost every single-cell paper opens with the same image: a two-dimensional scatter, coloured
+by cluster, produced by t-SNE <Citation id="vandermaaten2008tsne" /> or UMAP
+<Citation id="mcinnes2018umap" />
+<Citation id="becht2019umapviz" />. Readers take a great deal from it — that these two
+populations are similar because they sit adjacent, that this one is rare because its blob is
+small, that this trajectory is continuous because the points form an arm.
+
+Very little of that is supported. These algorithms optimise a neighbourhood-preservation
+objective: for each point, keep the same points nearby. That is the whole contract. It says
+nothing about *how* near, nothing about the distance between two groups, and nothing about the
+area a group occupies.
+
+This lesson makes the gap between the contract and the reading quantitative.
+
+<Notation
+  rows={[
+    { symbol: 'n', meaning: 'Number of points embedded', dims: 'count' },
+    { symbol: 'k', meaning: 'Neighbourhood size the score is computed at', dims: 'count' },
+    { symbol: 'r(i,j)', meaning: 'Rank of j among i\'s neighbours in the original space', dims: '1..n-1' },
+    { symbol: 'U_k(i)', meaning: 'Points in i\'s embedded k-neighbourhood but not its true one', dims: 'set' },
+    { symbol: 'T(k)', meaning: 'Trustworthiness — 1 when the embedding invents no neighbours', dims: 'in [0,1]' },
+    { symbol: 's_A', meaning: 'Mean distance of cluster A\'s points from its centroid', dims: '> 0' },
+  ]}
+/>
+
+## The measurable version of "faithful"
+
+Trustworthiness formalises the contract these methods actually make
+<Citation id="venna2006localmds" />. For each point it finds the intruders — points that are
+in its embedded neighbourhood but were not in its true one — and penalises each by how far
+away it really was:
+
+$$
+T(k) = 1 - \frac{2}{nk(2n - 3k - 1)}\sum_i \sum_{j \in U_k(i)} \left(r(i,j) - k\right).
+$$
+
+It is 1 when no false neighbours are introduced at all, and it falls as the embedding puts
+things together that were apart.
+
+Read the definition carefully and its blind spot is already visible: every quantity in it is a
+**rank**. Nothing in the formula refers to a distance in the embedding. An embedding can
+therefore place a neighbourhood anywhere, at any scale, and score identically — as long as the
+*ordering* of neighbours is preserved.
+
+## What that blindness costs
+
+Take six points in one dimension: a triplet at 0, 0.1, 0.2 and another at 10, 10.1, 10.2. Their
+centres sit ten apart and each triplet spreads about 0.067 from its own centre, so the true
+separation — the between-cluster gap in units of within-cluster spread — is exactly 150.
+
+Now embed them three ways: stretch the gap fifty-fold, crush it tenfold, or leave it alone. In
+all three, no point ever changes which point is its nearest, second-nearest, or third. So all
+three score
+
+$$
+T(2) = 1.000000
+$$
+
+while the apparent separation reads 7,500, 15 and 150 respectively — a **five-hundred-fold**
+range in the thing a reader would actually conclude from the picture, at a constant, perfect
+score.
+
+<Figure
+  caption="Figure 1. Four one-dimensional embeddings of the same six points, whose two triplets have true centres ten apart and a true separation of 150 in units of within-cluster spread. Three of them — the true structure, the gap stretched fifty-fold, and the gap crushed tenfold — score trustworthiness of exactly 1.000000 while their apparent separation spans 15 to 7,500, a five-hundred-fold range. Only crushing the gap fifty-fold, which finally makes points from different triplets into mutual neighbours, moves the score, and then only to 0.933333."
+  alt="Four labelled rows on a logarithmic axis of apparent cluster separation from one to ten thousand, each row a differently scaled embedding of the same six points, with its trustworthiness printed beneath the label. A horizontal bar spans the three points scoring exactly one, annotated as trustworthiness being unchanged throughout."
+>
+<svg viewBox="0 0 772 306" width="772" height="306" font-family="inherit"><line x1="196.0" y1="208.0" x2="196.0" y2="44.0" stroke="currentColor" stroke-width="1.25"/><line x1="196.0" y1="208.0" x2="196.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="196.0" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="247.0" y1="208.0" x2="247.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="247.0" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="298.0" y1="208.0" x2="298.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="298.0" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="349.0" y1="208.0" x2="349.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="349.0" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1,000</text><line x1="400.0" y1="208.0" x2="400.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="400.0" y="226.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10,000</text><circle cx="307.0" cy="64.5" r="5.0" fill="var(--color-accent, #2e6e5e)"/><text x="188.0" y="65.5" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">true structure</text><text x="188.0" y="77.5" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".65">trustworthiness 1.000000</text><circle cx="393.6" cy="101.4" r="5.0" fill="currentColor" opacity=".65"/><text x="188.0" y="102.4" font-size="10.5" fill="currentColor" text-anchor="end">gap stretched 50x</text><text x="188.0" y="114.4" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".65">trustworthiness 1.000000</text><circle cx="256.0" cy="138.3" r="5.0" fill="currentColor" opacity=".65"/><text x="188.0" y="139.3" font-size="10.5" fill="currentColor" text-anchor="end">gap crushed 10x</text><text x="188.0" y="151.3" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".65">trustworthiness 1.000000</text><circle cx="220.3" cy="175.2" r="5.0" fill="currentColor" opacity=".65"/><text x="188.0" y="176.2" font-size="10.5" fill="currentColor" text-anchor="end">gap crushed 50x</text><text x="188.0" y="188.2" font-size="9.5" fill="currentColor" text-anchor="end" opacity=".65">trustworthiness 0.933333</text><line x1="256.0" y1="193.7" x2="393.6" y2="193.7" stroke="currentColor" stroke-width="2.0" opacity=".5"/><line x1="256.0" y1="199.0" x2="256.0" y2="188.3" stroke="currentColor" stroke-width="1.4" opacity=".5"/><line x1="393.6" y1="199.0" x2="393.6" y2="188.3" stroke="currentColor" stroke-width="1.4" opacity=".5"/><text x="324.8" y="210.7" font-size="10" fill="currentColor" text-anchor="middle" opacity=".8">trustworthiness = 1.000000 throughout</text><text x="298.0" y="248.0" font-size="12" fill="currentColor" text-anchor="middle">How separated the two clusters look: between-gap over within-spread</text><text x="430.0" y="62.0" font-size="11" fill="currentColor" font-weight="700">Pinned at one.</text><text x="430.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">The same six points, embedded</text><text x="430.0" y="93.0" font-size="10" fill="currentColor" opacity=".8">four ways. Three of them score</text><text x="430.0" y="106.0" font-size="10" fill="currentColor" opacity=".8">a perfect 1.000000 while the</text><text x="430.0" y="119.0" font-size="10" fill="currentColor" opacity=".8">apparent separation between</text><text x="430.0" y="132.0" font-size="10" fill="currentColor" opacity=".8">the two clusters moves by a</text><text x="430.0" y="145.0" font-size="10" fill="currentColor" opacity=".8">factor of five hundred.</text><text x="430.0" y="158.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="430.0" y="171.0" font-size="10" fill="currentColor" opacity=".8">Trustworthiness only compares</text><text x="430.0" y="184.0" font-size="10" fill="currentColor" opacity=".8">rank inside a neighbourhood.</text><text x="430.0" y="197.0" font-size="10" fill="currentColor" opacity=".8">It cannot see a gap being</text><text x="430.0" y="210.0" font-size="10" fill="currentColor" opacity=".8">stretched or squashed, which</text><text x="430.0" y="223.0" font-size="10" fill="currentColor" opacity=".8">is the one thing readers</text><text x="430.0" y="236.0" font-size="10" fill="currentColor" opacity=".8">take from these plots.</text><text x="430.0" y="249.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="430.0" y="262.0" font-size="10" fill="currentColor" opacity=".8">Move a single point between</text><text x="430.0" y="275.0" font-size="10" fill="currentColor" opacity=".8">clusters and it drops to</text><text x="430.0" y="288.0" font-size="10" fill="currentColor" opacity=".8">0.466667 at once.</text></svg>
+</Figure>
+
+The contrast with what *does* move the score is stark. Take one point out of the first triplet
+and put it in the second — a single mislocated cell out of six — and trustworthiness falls to
+**0.466667** immediately. The metric is not insensitive. It is precisely sensitive to
+neighbourhood membership and completely blind to scale, which is exactly what its definition
+says it should be.
+
+<Widget
+  kind="sc-embedding"
+  title="Stretch the gap and watch the score refuse to move"
+  alt="An interactive scatter of two clusters of fifteen points each, with a slider that stretches or squashes the gap between them and a second slider for the neighbourhood size. A readout gives the trustworthiness of the embedding, how separated the clusters look, and their true separation."
+  caption="Drag the gap slider from one end to the other. The picture goes from two specks at opposite edges to a single indistinct blob — every conclusion a reader would draw reverses — and the trustworthiness readout barely moves off 1. The number only falls once the clusters are squashed far enough that points genuinely swap neighbourhoods, which is long after the plot has stopped meaning what you would have said it meant. Then raise k and watch that point arrive sooner: the score's blind spot has a size, and it is set by the neighbourhood you evaluate at."
+/>
+
+<WorkedExample
+  title="Four embeddings, one score"
+  given={[
+    'Six points: triplets at 0, 0.1, 0.2 and at 10, 10.1, 10.2',
+    'Trustworthiness evaluated at k = 2',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the true separation.** Each triplet's centroid is its middle point, and the mean
+distance from it is $(0.1 + 0 + 0.1)/3 = 0.066667$. The centres are 10 apart, so
+
+$$
+\frac{10}{0.066667} = 150.
+$$
+
+**Step 2 — stretch the gap fifty-fold.** Move the second triplet to 500, 500.1, 500.2. Apparent
+separation becomes **7,500**. No point's neighbour ordering changed — the second-nearest point
+to 0 is still 0.2, whatever happened five hundred units away — so $T(2) = 1.000000$.
+
+**Step 3 — crush it tenfold.** Move the second triplet to 1, 1.1, 1.2. Apparent separation is
+now **15**. Still no ordering changed, since 0.2 is nearer to 0.1 than 1 is. Again
+$T(2) = 1.000000$.
+
+**Step 4 — the span.** Across three embeddings all scoring a perfect 1.000000, apparent
+separation runs from 15 to 7,500:
+
+$$
+\frac{7{,}500}{15} = 500.
+$$
+
+**Step 5 — where the score finally moves.** Crush the gap fifty-fold, to 0.2001, 0.3001,
+0.4001. Now 0.2 and 0.2001 are adjacent, orderings genuinely change, and
+$T(2) = 0.933333$ — a drop of under seven points for an embedding in which the two clusters
+have effectively merged.
+
+**What this rules out.** Any claim of the form "these two populations are more similar than
+those two, because they sit closer in the UMAP". The embedding's distances were never fitted to
+mean that, and the standard check for whether an embedding is faithful cannot detect it if they
+do not.
+
+</WorkedExample>
+
+## What is safe to read
+
+Given the contract, the features of an embedding sort cleanly.
+
+**Carries information:** which points are adjacent to which. If two cells sit inside the same
+dense region, they were neighbours in the graph — and that is exactly what the previous two
+lessons built and partitioned. An embedding is a picture of the kNN graph, so it inherits the
+graph's quality and nothing more.
+
+**Carries none:** the distance between two clusters, the area or diameter of a cluster, the
+density of points within it, and the position of anything relative to the axes. t-SNE and UMAP
+both actively normalise local density, so a large sparse blob and a small tight one can be the
+same number of equally-related cells <Citation id="kobak2019tsneart" />.
+
+**Depends entirely on parameters:** whether a group appears as one blob or several, and whether
+a continuum appears connected or broken. Perplexity and `n_neighbors` change these, and the same
+data at two settings supports two different narratives <Citation id="wolf2018scanpy" />.
+
+<Callout variant="intuition" title="The picture is a hypothesis display, not evidence">
+
+The useful discipline is to treat the embedding as a way of *showing* a result obtained
+elsewhere, never as the result.
+
+Cluster identity comes from the graph partition, not from what looks separate. Similarity
+between populations comes from a distance computed in PC space, or from a correlation of
+pseudobulk profiles — a number you can report and someone can check. Rarity comes from counting
+cells, not from blob area. A trajectory needs the analysis of lesson 15, not an arm in a
+scatter plot.
+
+Every one of those is a quantity, and every one can go in the text next to the figure. The
+figure then does what it is good at: showing the reader where things are, so they can follow
+the argument. The stronger claim — that the arrangement itself is evidence — is the one the
+algorithm never promised and the one a growing literature keeps finding does not hold
+<Citation id="chari2023specious" />
+<Citation id="luecken2019bestpractices" />.
+
+</Callout>
+
+## Summary
+
+- t-SNE and UMAP optimise **neighbourhood preservation** and nothing else: which points are
+  near, not how near, and not how far two groups are.
+- **Trustworthiness** measures exactly that contract, and every term in it is a *rank* — so it
+  is scale-free by construction.
+- Consequently the apparent separation of two clusters can span **500-fold** — 15 to 7,500 in
+  units of within-cluster spread — at trustworthiness **exactly 1.000000**.
+- The score is not weak: moving one point of six between clusters drops it to **0.466667**. It
+  is sharply sensitive to neighbourhood membership and blind to scale.
+- **Adjacency carries information; distance, area and density do not.** Whether a group appears
+  as one blob or several depends on parameters, not only on data.
+- Report the quantity, show the picture. Similarity is a number in PC space, rarity is a cell
+  count, and a trajectory is an analysis.
+
+<Exercise n={1} title="Reading a figure legend" difficulty="warm-up">
+
+A paper's figure legend states: "Cluster 3 lies adjacent to cluster 5 and far from cluster 9,
+indicating that clusters 3 and 5 represent closely related states."
+
+(a) Which part of that sentence is supported by what UMAP optimises?
+
+(b) What would need to be reported instead?
+
+(c) The authors add that they verified the embedding with a trustworthiness of 0.98. Does that
+change your answer?
+
+<div slot="solution">
+
+(a) Essentially none of it. Adjacency of individual *points* is what the algorithm preserves;
+the *distance between two clusters* is not something it fits, so "far from cluster 9" carries
+no information. Even "adjacent" is weaker than it sounds when applied to whole clusters rather
+than to cells.
+
+(b) A distance computed where distances mean something — for example the correlation or
+Euclidean distance between cluster centroids in PC space, or between pseudobulk profiles.
+That is one number per pair, reportable and checkable.
+
+(c) No, and it is the interesting part. A trustworthiness of 0.98 says the embedding introduced
+few false neighbours, which is a genuine and useful fact. It says nothing about inter-cluster
+distance, because the statistic is built entirely from ranks — this lesson's embeddings score a
+perfect 1.000000 across a five-hundred-fold range of apparent separation. Quoting it in support
+of a distance claim is using a correct number as evidence for something it cannot measure.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Computing the blind spot" difficulty="core">
+
+The lesson's six points score $T(2) = 1.000000$ when the gap is stretched fifty-fold and when
+it is crushed tenfold.
+
+(a) Why does stretching never change the score, however far you go?
+
+(b) Crushing eventually does. Estimate the gap at which it must, and check it against the
+lesson's fifty-fold case.
+
+(c) What does this imply about the direction of the metric's blindness?
+
+<div slot="solution">
+
+(a) Because moving the second triplet further away only increases every cross-cluster distance.
+No point's nearest neighbours can change, since they were already all within its own triplet
+and remain so. There is no upper limit — the score is 1 at any stretch factor whatsoever.
+
+(b) The orderings change once a point of the other triplet becomes nearer to some point than
+that point's own triplet-mates are. Within a triplet the largest internal distance is 0.2, so
+the gap must fall to roughly 0.2 before cross-cluster points intrude. A fifty-fold crush of a
+gap of 10 gives 0.2, which is exactly that boundary — and indeed the lesson's fifty-fold case
+is the first one to move the score, to 0.933333.
+
+(c) The blindness is **asymmetric and unbounded in one direction**. Exaggerating separation is
+completely invisible to the metric no matter how extreme; understating it is invisible only
+until clusters actually overlap. Since exaggerated separation is what makes a figure
+persuasive, the failure mode the metric cannot see is precisely the one that gets published.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="Designing a check that would work" difficulty="stretch">
+
+You want a check that would catch an embedding that misrepresents the relationship between two
+clusters.
+
+(a) Explain why any purely rank-based measure will fail, however sophisticated.
+
+(b) Propose a check that would succeed, and state what it costs.
+
+(c) Your collaborator objects that if the check is done in PC space, the embedding is
+unnecessary. Respond.
+
+<div slot="solution">
+
+(a) A rank-based measure is invariant to any monotone transformation of the distances, and
+scaling the gap between two clusters is such a transformation as long as no ordering changes.
+So the entire family — trustworthiness, continuity, rank correlations of neighbourhoods —
+is blind to it by construction, not by oversight. Sophistication within the family cannot help;
+the invariance is the point of the family.
+
+(b) Compare the embedding's inter-centroid distances against the same distances computed in PC
+space, as a correlation across all cluster pairs, or simply report the PC-space distances
+alongside the figure. The cost is that it needs a distance in PC space to be meaningful — which
+lesson 8 showed requires the reduction to have been done well — and that a single number per
+pair is less compelling than a picture.
+
+(c) The embedding is not doing the inferential work and was never able to. It is doing
+communication: letting a reader see which of forty clusters the argument is about, and follow a
+comparison across a figure. That is a real job and worth the panel. The objection is right that
+it is not evidence, which is why the numbers belong in the text — and it is the strongest
+argument for reporting them there rather than leaving readers to measure the picture with their
+eyes.
+
+</div>
+
+</Exercise>

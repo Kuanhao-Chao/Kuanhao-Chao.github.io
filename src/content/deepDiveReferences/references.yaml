@@ -3789,3 +3789,35 @@ newman2004modularity:
   venue: "Physical Review E 69:026113"
   doi: https://doi.org/10.1103/PhysRevE.69.026113
   verified: 2026-08-25
+
+kobak2019tsneart:
+  authors: ['Dmitry Kobak', 'Philipp Berens']
+  year: 2019
+  title: "The art of using t-SNE for single-cell transcriptomics"
+  venue: "Nature Communications 10:5416"
+  doi: https://doi.org/10.1038/s41467-019-13056-x
+  verified: 2026-08-25
+
+chari2023specious:
+  authors: ['Tara Chari', 'Lior Pachter']
+  year: 2023
+  title: "The specious art of single-cell genomics"
+  venue: "PLOS Computational Biology 19:e1011288"
+  doi: https://doi.org/10.1371/journal.pcbi.1011288
+  verified: 2026-08-25
+
+becht2019umapviz:
+  authors: ['Etienne Becht', 'Leland McInnes', 'John Healy', 'et al.']
+  year: 2019
+  title: "Dimensionality reduction for visualizing single-cell data using UMAP"
+  venue: "Nature Biotechnology 37:38-44"
+  doi: https://doi.org/10.1038/nbt.4314
+  verified: 2026-08-25
+
+venna2006localmds:
+  authors: ['Jarkko Venna', 'Samuel Kaski']
+  year: 2006
+  title: "Local multidimensional scaling"
+  venue: "Neural Networks 19:889-899"
+  doi: https://doi.org/10.1016/j.neunet.2006.05.014
+  verified: 2026-08-25

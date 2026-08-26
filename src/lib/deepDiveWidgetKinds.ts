@@ -20,6 +20,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'sc-knn-graph',
   'sc-resolution',
   'sc-embedding',
+  'sc-marker-contrast',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];
