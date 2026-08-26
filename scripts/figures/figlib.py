@@ -136,3 +136,37 @@ def svg(width, height, body, extra=''):
 def write(path_, s):
     open(path_, 'w').write(s)
     return len(s)
+
+def splice(mdx_path, index, svg_text):
+    """Replace the inline <svg> inside the index-th <Figure> block of a lesson.
+
+    The SVG in an MDX file was pasted by hand for the first hundred figures of this
+    curriculum, which is exactly how a caption comes to describe a drawing that has since
+    been regenerated. Writing it from the generator closes that gap. Returns False rather
+    than raising when the lesson or the block does not exist yet, so a generator can be run
+    before its MDX is written.
+    """
+    import os
+    import re as _re
+    if not os.path.exists(mdx_path):
+        print('  (no %s yet; wrote the .svg only)' % os.path.basename(mdx_path))
+        return False
+    body = open(mdx_path, encoding='utf-8').read()
+    blocks = list(_re.finditer(r'<Figure\b.*?</Figure>', body, _re.S))
+    if index >= len(blocks):
+        print('  (%s has %d Figure blocks; index %d not spliced)'
+              % (os.path.basename(mdx_path), len(blocks), index))
+        return False
+    block = blocks[index]
+    inner, n = _re.subn(r'<svg\b.*?</svg>', lambda _m: svg_text, block.group(0), count=1, flags=_re.S)
+    if n == 0:
+        # First run for this lesson: the block exists but is still empty. Insert rather
+        # than replace, keeping the blank line the MDX parser wants around the slot.
+        inner = _re.sub(r'\n*</Figure>$', '\n\n' + svg_text + '\n\n</Figure>', block.group(0))
+        if inner == block.group(0):
+            print('  (could not place SVG in Figure block %d of %s)'
+                  % (index, os.path.basename(mdx_path)))
+            return False
+    open(mdx_path, 'w', encoding='utf-8').write(body[:block.start()] + inner + body[block.end():])
+    print('  spliced figure %d into %s' % (index + 1, os.path.basename(mdx_path)))
+    return True

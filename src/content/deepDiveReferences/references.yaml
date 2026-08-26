@@ -3943,3 +3943,47 @@ stoeckius2017citeseq:
   venue: "Nature Methods 14:865-868"
   doi: https://doi.org/10.1038/nmeth.4380
   verified: 2026-08-26
+
+# ── statgen-population-structure-fst ──────────────────────────────────────────
+weir1984fst:
+  authors: ['B. S. Weir', 'C. Clark Cockerham']
+  year: 1984
+  title: "Estimating F-statistics for the analysis of population structure"
+  venue: "Evolution 38:1358-1370"
+  doi: https://doi.org/10.1111/j.1558-5646.1984.tb05657.x
+  verified: 2026-08-26
+hudson1992gene:
+  authors: ['R R Hudson', 'M Slatkin', 'W P Maddison']
+  year: 1992
+  title: "Estimation of levels of gene flow from DNA sequence data"
+  venue: "Genetics 132:583-589"
+  doi: https://doi.org/10.1093/genetics/132.2.583
+  verified: 2026-08-26
+bhatia2013fst:
+  authors: ['Gaurav Bhatia', 'Nick Patterson', 'Sriram Sankararaman', 'et al.']
+  year: 2013
+  title: "Estimating and interpreting F_ST: the impact of rare variants"
+  venue: "Genome Research 23:1514-1521"
+  doi: https://doi.org/10.1101/gr.154831.113
+  verified: 2026-08-26
+patterson2006eigen:
+  authors: ['Nick Patterson', 'Alkes L. Price', 'David Reich']
+  year: 2006
+  title: "Population Structure and Eigenanalysis"
+  venue: "PLoS Genetics 2:e190"
+  doi: https://doi.org/10.1371/journal.pgen.0020190
+  verified: 2026-08-26
+baik2005phase:
+  authors: ['Jinho Baik', 'Gérard Ben Arous', 'Sandrine Péché']
+  year: 2005
+  title: "Phase transition of the largest eigenvalue for nonnull complex sample covariance matrices"
+  venue: "The Annals of Probability 33:1643-1697"
+  doi: https://doi.org/10.1214/009117905000000233
+  verified: 2026-08-26
+novembre2008genes:
+  authors: ['John Novembre', 'Toby Johnson', 'Katarzyna Bryc', 'et al.']
+  year: 2008
+  title: "Genes mirror geography within Europe"
+  venue: "Nature 456:98-101"
+  doi: https://doi.org/10.1038/nature07331
+  verified: 2026-08-26

@@ -84,6 +84,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'statgen-mathematical-foundations',
   'statgen-population-infinitesimal',
   'statgen-linkage-disequilibrium',
+  'statgen-population-structure-fst',
   'statgen-pedigrees-linkage-qtl',
   'statgen-quantitative-genetics-selection',
   'statgen-heritability-greml',

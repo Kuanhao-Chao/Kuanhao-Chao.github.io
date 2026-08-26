@@ -77,6 +77,9 @@ import {
   colocPosteriors,
   fisherExactP, foldEnrichment,
   contingencyTests,
+  fstHudsonParts, fstRatioOfAverages, fstAverageOfRatios, weirCockerhamFst,
+  structureSpike, bbpThreshold, spikedEigenvalue, spikedEigenvectorOverlap, structureChiSquare,
+  type FstSite,
 } from './deepDiveMath.ts';
 
 /**
@@ -1253,6 +1256,157 @@ describe('F_ST', () => {
     expect(fstHudson(0.5, 0.1, 1000, 1000)).toBeCloseTo(0.3193193193, 9);
     expect(fstHudson(0.2, 0.8, 500, 500)).toBeCloseTo(0.5284687021, 9);
     expect(fstHudson(0.5, 0.1, 1000, 1000)).toBeCloseTo(fstHudson(0.1, 0.5, 1000, 1000), 12);
+  });
+});
+
+describe('F_ST: pooling, and the estimator that is wrong', () => {
+  it('splits Hudson into parts that recombine into Hudson', () => {
+    const part = fstHudsonParts({ p1: 0.5, p2: 0.1, n1: 1000, n2: 1000 });
+    expect(part.numerator / part.denominator).toBeCloseTo(fstHudson(0.5, 0.1, 1000, 1000), 12);
+  });
+
+  it('refuses a sample too small for the bias correction to mean anything', () => {
+    expect(() => fstHudsonParts({ p1: 0.5, p2: 0.1, n1: 1, n2: 100 })).toThrow(RangeError);
+  });
+
+  it('pools numerators and denominators rather than averaging ratios', () => {
+    // Two sites with the same frequency gap but very different denominators. The ratio of
+    // averages is a denominator-weighted mean; the average of ratios weights them equally.
+    const sites: FstSite[] = [
+      { p1: 0.5, p2: 0.3, n1: 400, n2: 400 },
+      { p1: 0.05, p2: 0.25, n1: 400, n2: 400 },
+    ];
+    const parts = sites.map(fstHudsonParts);
+    const roa = (parts[0].numerator + parts[1].numerator) / (parts[0].denominator + parts[1].denominator);
+    const aor = (parts[0].numerator / parts[0].denominator + parts[1].numerator / parts[1].denominator) / 2;
+    expect(fstRatioOfAverages(sites)).toBeCloseTo(roa, 12);
+    expect(fstAverageOfRatios(sites)).toBeCloseTo(aor, 12);
+    expect(fstRatioOfAverages(sites)).not.toBeCloseTo(fstAverageOfRatios(sites), 6);
+  });
+
+  it('agrees with the per-site value when every site is identical', () => {
+    const sites: FstSite[] = Array.from({ length: 25 }, () => ({ p1: 0.4, p2: 0.2, n1: 500, n2: 500 }));
+    expect(fstRatioOfAverages(sites)).toBeCloseTo(fstHudson(0.4, 0.2, 500, 500), 12);
+    expect(fstAverageOfRatios(sites)).toBeCloseTo(fstHudson(0.4, 0.2, 500, 500), 12);
+  });
+
+  it('gives Weir & Cockerham one for fixed differences', () => {
+    expect(weirCockerhamFst(1, 0, 200, 200)).toBeCloseTo(1, 12);
+  });
+
+  it('lets both estimators go slightly negative at zero divergence, and shrinks it as 1/n', () => {
+    // An estimator that is unbiased at F_ST = 0 must be able to return a negative number,
+    // because the sampling variance it subtracts is not itself zero. Both do, by O(1/n) --
+    // so the right check is that the excursion shrinks with the sample, not that it is zero.
+    const wc = (n: number) => weirCockerhamFst(0.3, 0.3, n, n);
+    const hd = (n: number) => fstHudson(0.3, 0.3, n, n);
+    expect(wc(200)).toBeLessThan(0);
+    expect(hd(200)).toBeLessThan(0);
+    for (const f of [wc, hd]) {
+      expect(Math.abs(f(2000))).toBeLessThan(Math.abs(f(200)));
+      expect(Math.abs(f(2000)) / Math.abs(f(200))).toBeCloseTo(0.1, 1);
+      expect(Math.abs(f(20_000))).toBeLessThan(1e-3);
+    }
+  });
+
+  it('makes Weir & Cockerham reproduce its own algebra on a case checked by hand', () => {
+    // r=2, n1=n2=50 so nBar=50 and nc=50; pBar=0.35, s2=(50*0.0225+50*0.0225)/50=0.045;
+    // h1=2(.5)(.5)=0.5, h2=2(.2)(.8)=0.32, hBar=(50*0.5+50*0.32)/100=0.41.
+    const nBar = 50, nc = 50, pBar = 0.35, s2 = 0.045, hBar = 0.41;
+    const common = pBar * (1 - pBar) - s2 / 2;
+    const a = (nBar / nc) * (s2 - (1 / (nBar - 1)) * (common - hBar / 4));
+    const b = (nBar / (nBar - 1)) * (common - ((2 * nBar - 1) / (4 * nBar)) * hBar);
+    const c = hBar / 2;
+    expect(weirCockerhamFst(0.5, 0.2, 50, 50)).toBeCloseTo(a / (a + b + c), 12);
+  });
+});
+
+describe('population structure and the PCA phase transition', () => {
+  it('makes the structure spike linear in the sample size', () => {
+    expect(structureSpike(5000, 0.001)).toBeCloseTo(5, 12);
+    expect(structureSpike(10000, 0.001)).toBeCloseTo(2 * structureSpike(5000, 0.001), 12);
+    expect(structureSpike(5000, 0.002)).toBeCloseTo(2 * structureSpike(5000, 0.001), 12);
+  });
+
+  it('puts the critical F_ST at 1/sqrt(NM), symmetric in samples and markers', () => {
+    const t = bbpThreshold(5000, 500_000);
+    expect(t.gamma).toBeCloseTo(0.01, 12);
+    expect(t.sqrtGamma).toBeCloseTo(0.1, 12);
+    expect(t.criticalFst).toBeCloseTo(2e-5, 15);
+    expect(t.criticalFst).toBeCloseTo(1 / Math.sqrt(5000 * 500_000), 15);
+    // ten times the markers buys exactly what ten times the people does
+    expect(bbpThreshold(500, 500_000).criticalFst).toBeCloseTo(bbpThreshold(5000, 50_000).criticalFst, 15);
+  });
+
+  it('is exactly the F_ST at which the spike equals sqrt(gamma)', () => {
+    for (const [n, m] of [[5000, 500_000], [200, 2000], [1000, 4000]] as const) {
+      const t = bbpThreshold(n, m);
+      expect(structureSpike(n, t.criticalFst)).toBeCloseTo(t.sqrtGamma, 12);
+    }
+  });
+
+  it('joins the bulk edge continuously at the transition', () => {
+    // (1+sqrt g)(1 + g/sqrt g) = (1+sqrt g)^2 identically, so the two branches meet.
+    for (const gamma of [0.01, 0.1, 0.4, 1, 2.5]) {
+      const edge = (1 + Math.sqrt(gamma)) ** 2;
+      expect(spikedEigenvalue(Math.sqrt(gamma) * (1 + 1e-12), gamma)).toBeCloseTo(edge, 9);
+      expect(spikedEigenvalue(Math.sqrt(gamma) * 0.5, gamma)).toBeCloseTo(edge, 12);
+    }
+  });
+
+  it('inflates a real spike rather than reporting it', () => {
+    // above the transition the observed eigenvalue exceeds 1 + lambda
+    for (const spike of [1, 5, 20]) {
+      expect(spikedEigenvalue(spike, 0.1)).toBeGreaterThan(1 + spike);
+    }
+    expect(spikedEigenvalue(5, 0.01)).toBeCloseTo(6.012, 12);
+  });
+
+  it('puts the cliff in the eigenvector, not the eigenvalue', () => {
+    // Below the transition the estimated axis is a random direction: overlap exactly 0.
+    for (const spike of [0.01, 0.1, 0.3, Math.sqrt(0.1)]) {
+      expect(spikedEigenvectorOverlap(spike, 0.1)).toBe(0);
+    }
+    // Above it, the closed form. gamma=0.1, spike=0.5 gives (1-0.4)/(1.2) = exactly 1/2.
+    expect(spikedEigenvectorOverlap(0.5, 0.1)).toBeCloseTo(0.5, 12);
+    expect(spikedEigenvectorOverlap(0.8, 0.1)).toBeCloseTo(0.75, 12);
+    expect(spikedEigenvectorOverlap(5, 0.1)).toBeCloseTo(0.9765, 4);
+    // it approaches but never reaches 1
+    expect(spikedEigenvectorOverlap(1e6, 0.1)).toBeLessThan(1);
+    expect(spikedEigenvectorOverlap(1e6, 0.1)).toBeGreaterThan(0.999999);
+  });
+
+  it('leaves the bulk edge with zero derivative while the overlap leaves with a jump', () => {
+    const g = 0.1, c = Math.sqrt(g);
+    const edge = (1 + c) ** 2;
+    // eigenvalue: 1% above the transition is still within 0.1% of the edge
+    expect(spikedEigenvalue(c * 1.01, g) / edge - 1).toBeLessThan(1e-3);
+    // overlap: 20% above the transition is already a quarter of the way up
+    expect(spikedEigenvectorOverlap(c * 1.2, g)).toBeCloseTo(0.2418, 4);
+    expect(spikedEigenvectorOverlap(c * 1.2, g)).toBeGreaterThan(0.24);
+  });
+
+  it('shares one Marchenko-Pastur edge with the single-cell track', () => {
+    // gamma = 0.1 either way: 2,000 markers on 20,000 samples here, 2,000 genes on
+    // 20,000 cells in sc-pca. The same edge decides both questions.
+    expect(bbpThreshold(2000, 20_000).bulkEdge).toBeCloseTo(marchenkoPasturEdge(20_000, 2000).upper, 12);
+    expect(bbpThreshold(2000, 20_000).bulkEdge).toBeCloseTo(1.7325, 4);
+  });
+});
+
+describe('stratification as a chi-square inflation', () => {
+  it('is linear in N and quadratic in the phenotype gap', () => {
+    expect(structureChiSquare(100_000, 0.001, 0.2)).toBeCloseTo(2, 12);
+    expect(structureChiSquare(10_000, 0.001, 0.2)).toBeCloseTo(1.1, 12);
+    expect(structureChiSquare(1_000_000, 0.001, 0.2)).toBeCloseTo(11, 12);
+    // doubling the trait gap quadruples the excess
+    const excess = (n: number, d: number) => structureChiSquare(n, 0.001, d) - 1;
+    expect(excess(100_000, 0.4)).toBeCloseTo(4 * excess(100_000, 0.2), 12);
+  });
+
+  it('is exactly 1 when either the structure or the phenotype gap vanishes', () => {
+    expect(structureChiSquare(1_000_000, 0, 0.5)).toBe(1);
+    expect(structureChiSquare(1_000_000, 0.1, 0)).toBe(1);
   });
 });
 

@@ -1,0 +1,521 @@
+---
+title: "Population Structure, F_ST and the Phase Transition That Decides What PCA Can See"
+shortTitle: Population Structure & F_ST
+description: "What F_ST measures and how to estimate it without the bias almost everyone introduces, why a principal component finds ancestry at all, the exact threshold below which it provably cannot, and the formula that turns a differentiation into an inflated association test."
+abstract: "Two lessons in this module treat population structure as a nuisance to be corrected and never say how much of it there is. This one supplies the quantity. It defines F_ST as a variance ratio, derives Hudson's estimator and shows why pooling numerators and denominators separately matters more than which estimator you pick — on a two-variant example the average of per-variant ratios reads 0.087700 where the correct pooled value is 0.131688, low by a third. It then shows why principal components find ancestry: for two populations the genotype Gram matrix carries a rank-one term whose eigenvalue is exactly N·F_ST, which puts the question of whether PCA can see structure inside the Marchenko–Pastur theory of random matrices. The answer is a sharp threshold at F_ST = 1/√(NM) — 2 × 10⁻⁵ for a study of 5,000 people at 500,000 markers — below which the leading component is not a weak signal but a random direction, its overlap with the truth exactly zero. The same N that makes structure visible makes the confounding worse: at a null variant the expected chi-square is 1 + N·F_ST·δ²/4, linear in the sample size, so a study of 1,000,000 people at a within-Europe divergence of 0.001 and a trait gap of a fifth of a standard deviation is inflated eleven-fold at every variant in the genome."
+date: 2026-08-26
+track: theory
+hub: statistical-genetics
+moduleId: m02-populations
+moduleLabel: Module 2 · Populations & Inheritance
+order: 5
+level: intermediate
+objectives:
+  - "Define F_ST as a ratio of variance components and say which variance sits in the numerator."
+  - "Estimate F_ST from allele counts with Hudson's correction, and explain why the sample size in that correction is chromosomes rather than individuals."
+  - "Pool F_ST across variants as a ratio of averages, and quantify the bias in averaging per-variant ratios instead."
+  - "Show that the structure eigenvalue of the genotype Gram matrix is N·F_ST, and derive the threshold F_ST = 1/√(NM) below which PCA recovers nothing."
+  - "Distinguish what happens to the eigenvalue at that threshold from what happens to the eigenvector, and say which one a scree plot can see."
+  - "Predict the chi-square inflation a given F_ST and trait gap produce, and explain why it grows with sample size rather than averaging away."
+prerequisites:
+  - statgen-population-infinitesimal
+relatedLessons:
+  - statgen-association-linear-mixed-models
+  - statgen-linkage-disequilibrium
+keyEquations:
+  - 'F_{\mathrm{ST}} = \frac{\mathrm{Var}(p)}{\bar{p}(1-\bar{p})}'
+  - '\lambda = N F_{\mathrm{ST}} > \sqrt{N/M} \iff F_{\mathrm{ST}} > \frac{1}{\sqrt{NM}}'
+  - '\mathbb{E}[\chi^2] = 1 + \frac{N F_{\mathrm{ST}}\,\delta^2}{4}'
+referenceIds:
+  - wright1931drift
+  - weir1984fst
+  - hudson1992gene
+  - bhatia2013fst
+  - patterson2006eigen
+  - baik2005phase
+  - johnstone2001largest
+  - price2006eigenstrat
+  - novembre2008genes
+  - astle2009structure
+tags: [population structure, F_ST, principal components, random matrix theory, stratification, ancestry]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+Two lessons in this curriculum treat population structure as something to be corrected.
+Association testing describes it as a mechanism that manufactures signal out of nothing, and
+LD score regression offers a way to tell it apart from real polygenicity. Neither says **how
+much structure there is**, and without that number three questions have no answers: whether a
+given sample has enough of it to matter, whether principal components will find it, and how
+much a scan is inflated if they do not.
+
+This lesson supplies the quantity. It is one number, F_ST, and it turns out to sit at the
+centre of a much larger story than "a correction to apply" — because the same F_ST that makes
+ancestry visible to PCA is the F_ST that inflates every null test in the genome, and the two
+effects scale with sample size in the same direction. Collecting more people makes the
+confounding worse and the correction better at the same time.
+
+<Notation
+  rows={[
+    { symbol: 'p_1,\\; p_2', meaning: 'Allele frequency at one variant in each of two populations', dims: 'fraction' },
+    { symbol: '\\bar{p}', meaning: 'Mean allele frequency across populations', dims: 'fraction' },
+    { symbol: 'F_{\\mathrm{ST}}', meaning: 'Fraction of allele-frequency variance that lies between populations', dims: 'fraction' },
+    { symbol: 'N,\\; M', meaning: 'Number of individuals genotyped, and number of markers', dims: 'counts' },
+    { symbol: '\\mathbf{X}', meaning: 'Standardised genotype matrix, individuals by markers', dims: 'N × M' },
+    { symbol: '\\gamma', meaning: 'Aspect ratio N/M of the genotype matrix', dims: 'ratio' },
+    { symbol: '\\lambda', meaning: 'Strength of the structure spike in the Gram matrix', dims: 'ratio' },
+    { symbol: '\\mathbf{s}', meaning: 'Population indicator, +1 for one population and −1 for the other', dims: 'N × 1' },
+    { symbol: '\\hat{\\mathbf{v}},\\; \\mathbf{v}', meaning: 'Estimated leading eigenvector and the true structure axis', dims: 'N × 1' },
+    { symbol: 'd_j', meaning: 'Allele-frequency difference between the populations at marker j', dims: 'fraction' },
+    { symbol: '\\delta', meaning: 'Difference in trait mean between the populations, in phenotype SDs — not d_j', dims: 'SD' },
+    { symbol: 'n_1,\\; n_2', meaning: 'Chromosomes sampled per population — not individuals', dims: 'counts' },
+  ]}
+/>
+
+## F_ST is a variance ratio, and the numerator is the interesting part
+
+Take one variant and two populations. The allele frequency is $p_1$ in the first and $p_2$ in
+the second, with mean $\bar{p}$. Wright's insight <Citation id="wright1931drift" /> was that the
+right way to describe differentiation is not the raw gap $p_1 - p_2$ — which depends on where
+in the frequency range you happen to be — but the gap as a fraction of the variance the
+frequency could have had:
+
+$$
+F_{\mathrm{ST}} = \frac{\mathrm{Var}(p)}{\bar{p}(1-\bar{p})}
+$$
+
+The denominator is the variance of a Bernoulli draw at the mean frequency, which is the most
+variance a two-allele locus can carry. So F_ST is bounded in $[0, 1]$, it is 0 when the
+populations have identical frequencies and 1 when each is fixed for a different allele, and —
+crucially — it is comparable across variants of very different frequency. That last property
+is what makes it a genome-wide summary rather than a per-variant curiosity.
+
+<Callout variant="intuition" title="F_ST answers 'how surprised should I be that these two people differ?'">
+
+Pick two chromosomes at random from the same population, and two from the whole sample
+pooled. Both pairs will sometimes carry different alleles. F_ST is the *extra* probability of
+difference you get from the second draw over the first, as a fraction of the total.
+
+Written in heterozygosities, $F_{\mathrm{ST}} = (H_T - H_S)/H_T$, so
+$H_T/H_S = 1/(1-F_{\mathrm{ST}})$. At an F_ST of 0.11 — roughly the divergence between
+European and East Asian ancestries — that ratio is 1.123596: a draw from the pooled sample
+finds a difference about 12.4% more often than a draw from within one population.
+It does **not** mean that 11% of variants differ between continents, and it does not mean two
+people from different continents are 11% different. It is a statement about variance, and
+variance is not the same currency as difference.
+
+</Callout>
+
+### Estimating it, and the sample size that is not the one you think
+
+With real data you have counts, not frequencies, and the sample frequencies carry their own
+sampling variance which inflates $(p_1 - p_2)^2$ even when the populations are identical.
+Hudson's estimator <Citation id="hudson1992gene" /> subtracts it:
+
+$$
+\hat{N}_{\mathrm{H}} = (p_1-p_2)^2 - \frac{p_1(1-p_1)}{n_1-1} - \frac{p_2(1-p_2)}{n_2-1},
+\qquad
+\hat{D}_{\mathrm{H}} = p_1(1-p_2) + p_2(1-p_1)
+$$
+
+with $F_{\mathrm{ST}} = \hat{N}_{\mathrm{H}} / \hat{D}_{\mathrm{H}}$. The alternative in wide
+use is the ANOVA estimator of <Citation id="weir1984fst" />, which conditions on observed
+heterozygosity and is more sensitive to unequal sample sizes.
+
+<Callout variant="warning" title="n is chromosomes, not individuals">
+
+The correction terms divide by $n-1$ where $n$ is the number of **sampled chromosomes**. Pass
+diploid individual counts instead and the correction is twice as large as it should be, which
+at a genuinely small F_ST drives the estimate negative. A negative F_ST is not by itself a
+bug — an estimator that is unbiased at zero has to be able to return one, and both estimators
+here go slightly below zero at zero divergence, by an amount that shrinks as $1/n$. But a
+*systematically* negative genome-wide estimate is almost always this.
+
+</Callout>
+
+### Pool the numerators, not the ratios
+
+The choice that matters more than the estimator is what you do across variants.
+<Citation id="bhatia2013fst" /> is the reference: pool the numerators, pool the denominators,
+and divide **once**. Averaging per-variant ratios estimates a different quantity, because it
+weights every variant equally regardless of how much information it carries, and low-frequency
+variants have tiny denominators and enormous relative noise.
+
+<WorkedExample
+  title="Two variants, two answers, one of them wrong"
+  given={[
+    { label: 'Variant A', value: 'p₁ = 0.60, p₂ = 0.30' },
+    { label: 'Variant B', value: 'p₁ = 0.05, p₂ = 0.10' },
+    { label: 'Sample', value: '200 chromosomes per population' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Variant A.** The raw gap squared is $0.30^2 = 0.09$. The corrections are
+$0.6 \times 0.4 / 199$ and $0.3 \times 0.7 / 199$, together $0.002261$, so
+$\hat{N}_{\mathrm{H}} = 0.087739$. The denominator is
+$0.6 \times 0.7 + 0.3 \times 0.6 = 0.54$. That gives $F_{\mathrm{ST}} = 0.162479$ —
+against $0.09/0.54 = 0.166667$ if the correction is skipped.
+
+**Variant B.** The gap squared is $0.05^2 = 0.0025$, the corrections total $0.000691$, so
+$\hat{N}_{\mathrm{H}} = 0.001809$, and the denominator is
+$0.05 \times 0.90 + 0.10 \times 0.95 = 0.140$. That gives $F_{\mathrm{ST}} = 0.012922$.
+
+**Pooled, the right way.** $(0.087739 + 0.001809)/(0.54 + 0.14) = 0.131688$.
+
+**Averaged, the wrong way.** $(0.162479 + 0.012922)/2 = 0.087700$.
+
+The wrong answer is low by 33.4%, on two variants. Across a genome the gap does not cancel —
+it grows with the spread in per-variant divergence, because the mis-weighting is worst exactly
+where the frequencies are most different. Extend the set to six variants spanning common and
+rare, strongly and negligibly differentiated — frequency pairs 0.60/0.30, 0.50/0.46, 0.20/0.35,
+0.05/0.10, 0.80/0.78 and 0.12/0.30, at 1,000 chromosomes per population — and the pooled
+estimate is 0.064880 against an average of ratios of 0.055207, low by 14.9%.
+
+</WorkedExample>
+
+## Why a principal component finds ancestry at all
+
+Standardise the genotype matrix the way <Citation id="patterson2006eigen" /> does: for marker
+$j$ with pooled frequency $\bar{p}_j$, replace the genotype $g_{ij} \in \{0,1,2\}$ by
+$x_{ij} = (g_{ij} - 2\bar{p}_j)/\sqrt{2\bar{p}_j(1-\bar{p}_j)}$, so every column has unit
+variance and no marker dominates through frequency alone. Then form the $N \times N$ Gram
+matrix $\mathbf{X}\mathbf{X}^{\top}/M$ and take its eigenvectors — this is exactly what
+EIGENSTRAT <Citation id="price2006eigenstrat" /> does.
+
+Here is why structure shows up in it. For an individual in population 1 the expected
+standardised genotype at marker $j$ is $d_j/\sqrt{2\bar{p}_j(1-\bar{p}_j)}$ with
+$d_j = p_{1j} - p_{2j}$, and for population 2 it is the negative of that. So the
+between-population mean vector contributes, per marker,
+
+$$
+\frac{\mathbb{E}[d_j^2]}{2\bar{p}_j(1-\bar{p}_j)}
+= \frac{2 F_{\mathrm{ST}}\,\bar{p}_j(1-\bar{p}_j)}{2\bar{p}_j(1-\bar{p}_j)}
+= F_{\mathrm{ST}}
+$$
+
+independent of the marker's frequency — which is the payoff from F_ST being a ratio. Summing
+over $M$ markers and dividing by $M$, the Gram matrix picks up the rank-one term
+$F_{\mathrm{ST}}\,\mathbf{s}\mathbf{s}^{\top}$, where $\mathbf{s}$ is the ±1 population
+indicator. Since $\lVert\mathbf{s}\rVert^2 = N$, the eigenvalue of that term is
+
+$$
+\lambda = N F_{\mathrm{ST}}
+$$
+
+<Callout variant="key" title="The structure spike is linear in the sample size">
+
+Every extra person adds to the spike. This is the formal version of the observation that
+<Citation id="novembre2008genes" /> made visible — that a large enough European sample
+resolves geography at the scale of a few hundred kilometres, at F_ST values around 0.001 that
+no smaller study could see at all. Nothing about the populations changed; N did.
+
+</Callout>
+
+## The threshold below which there is nothing to find
+
+The spike sits on top of noise, and the noise is not zero. For a matrix of independent
+standardised entries the eigenvalues of the Gram matrix spread over the Marchenko–Pastur
+interval, whose upper edge is $(1+\sqrt{\gamma})^2$ with $\gamma = N/M$ — the same edge that
+decides how many components a single-cell experiment has, and the distribution whose
+fluctuations <Citation id="johnstone2001largest" /> characterised.
+
+A spike is visible only if it clears that edge. The Baik–Ben Arous–Péché transition
+<Citation id="baik2005phase" /> makes this exact: the leading sample eigenvalue separates from
+the bulk if and only if $\lambda > \sqrt{\gamma}$. Substituting $\lambda = N F_{\mathrm{ST}}$:
+
+$$
+N F_{\mathrm{ST}} > \sqrt{N/M}
+\qquad\Longleftrightarrow\qquad
+F_{\mathrm{ST}} > \frac{1}{\sqrt{NM}}
+$$
+
+The threshold is symmetric in $N$ and $M$: ten times the markers buys exactly what ten times
+the people does.
+
+<Callout variant="warning" title="The cliff is in the eigenvector, and a scree plot cannot see it">
+
+Below the transition the squared overlap between the estimated leading eigenvector and the
+true structure axis is **exactly zero** in the limit. Not small — zero. The leading principal
+component is a random direction, and plotting PC1 against PC2 shows a featureless blob that
+is not a faint version of the truth but an unrelated one.
+
+Above the transition the overlap is $(1 - \gamma/\lambda^2)/(1 + \gamma/\lambda)$, and it
+climbs steeply. The eigenvalue, meanwhile, leaves the bulk edge with zero derivative: 1% past
+the transition it is still within 0.1% of the edge, while the overlap is already 0.2418 at 20%
+past it. So the quantity a scree plot displays is precisely the one that says nothing at the
+point where it matters.
+
+</Callout>
+
+<Figure
+  caption="Figure 1. The phase transition, as the alignment between the leading principal component and the true population axis. The horizontal axis is the structure spike measured against its own threshold, N F_ST divided by √(N/M); the vertical axis is the squared overlap between the estimated leading eigenvector and the ±1 population indicator. The curve is the closed form at γ = 0.1, and the filled points are the mean over five Balding–Nichols simulations at N = 200 and M = 2,000, which is that γ. The threshold at 1 is universal but the climb away from it is not — a different aspect ratio gives a different curve through the same corner. Left of the dashed line the overlap is exactly zero in the limit, and the two simulated points there read 0.02 and 0.01 against a random-vector baseline of 1/200 = 0.005. The point sitting on the line reads 0.19, which is finite-size smearing — largest, as always, exactly at a critical point. The ring marks the closed form at 1.58 times the threshold, where the overlap is exactly 0.50."
+  alt="A curve rising from zero. It is flat at zero from the left edge to a vertical dashed line at one, then rises steeply to about 0.75 by two and flattens towards 0.95 near six. Filled dots follow the curve closely; two dots left of the dashed line sit almost on zero. A hollow ring sits on the curve at about 1.6 on the horizontal axis and 0.5 on the vertical."
+>
+
+<svg viewBox="0 0 772 400" width="772" height="400" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="430.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="430.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="104.0" y1="187.0" x2="430.0" y2="187.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="191.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.25</text><line x1="104.0" y1="138.0" x2="430.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="142.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.50</text><line x1="104.0" y1="89.0" x2="430.0" y2="89.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="93.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.75</text><line x1="104.0" y1="40.0" x2="430.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="153.4" y1="236.0" x2="153.4" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="153.4" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="202.8" y1="236.0" x2="202.8" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="202.8" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="252.2" y1="236.0" x2="252.2" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="252.2" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">3</text><line x1="301.6" y1="236.0" x2="301.6" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="301.6" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">4</text><line x1="351.0" y1="236.0" x2="351.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="351.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="400.4" y1="236.0" x2="400.4" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="400.4" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">6</text><line x1="153.4" y1="40.0" x2="153.4" y2="236.0" stroke="currentColor" stroke-width="2.0" opacity=".85" stroke-dasharray="6 4"/><text x="160.4" y="53.0" font-size="10" fill="currentColor" opacity=".85" font-weight="600">transition</text><path d="M104.0,236.0 L153.4,236.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="3.0"/><path d="M153.4,236.0 L155.1,226.0 L156.9,216.9 L158.6,208.4 L160.3,200.6 L162.0,193.4 L163.8,186.7 L165.5,180.5 L167.2,174.8 L169.0,169.4 L170.7,164.3 L172.4,159.6 L174.1,155.2 L175.9,151.0 L177.6,147.1 L179.3,143.5 L181.1,140.0 L182.8,136.7 L184.5,133.6 L186.2,130.7 L188.0,127.9 L189.7,125.3 L191.4,122.8 L193.2,120.4 L194.9,118.1 L196.6,116.0 L198.3,113.9 L200.1,112.0 L201.8,110.1 L203.5,108.3 L205.3,106.6 L207.0,105.0 L208.7,103.4 L210.4,101.9 L212.2,100.4 L213.9,99.1 L215.6,97.7 L217.4,96.4 L219.1,95.2 L220.8,94.0 L222.5,92.9 L224.3,91.8 L226.0,90.7 L227.7,89.7 L229.5,88.7 L231.2,87.8 L232.9,86.8 L234.6,86.0 L236.4,85.1 L238.1,84.3 L239.8,83.5 L241.6,82.7 L243.3,81.9 L245.0,81.2 L246.7,80.5 L248.5,79.8 L250.2,79.1 L251.9,78.5 L253.7,77.9 L255.4,77.2 L257.1,76.7 L258.9,76.1 L260.6,75.5 L262.3,75.0 L264.0,74.4 L265.8,73.9 L267.5,73.4 L269.2,72.9 L271.0,72.5 L272.7,72.0 L274.4,71.5 L276.1,71.1 L277.9,70.7 L279.6,70.3 L281.3,69.8 L283.1,69.4 L284.8,69.1 L286.5,68.7 L288.2,68.3 L290.0,67.9 L291.7,67.6 L293.4,67.2 L295.2,66.9 L296.9,66.6 L298.6,66.3 L300.3,65.9 L302.1,65.6 L303.8,65.3 L305.5,65.0 L307.3,64.7 L309.0,64.5 L310.7,64.2 L312.4,63.9 L314.2,63.6 L315.9,63.4 L317.6,63.1 L319.4,62.9 L321.1,62.6 L322.8,62.4 L324.5,62.1 L326.3,61.9 L328.0,61.7 L329.7,61.5 L331.5,61.2 L333.2,61.0 L334.9,60.8 L336.6,60.6 L338.4,60.4 L340.1,60.2 L341.8,60.0 L343.6,59.8 L345.3,59.6 L347.0,59.4 L348.7,59.3 L350.5,59.1 L352.2,58.9 L353.9,58.7 L355.7,58.6 L357.4,58.4 L359.1,58.2 L360.8,58.1 L362.6,57.9 L364.3,57.8 L366.0,57.6 L367.8,57.4 L369.5,57.3 L371.2,57.2 L372.9,57.0 L374.7,56.9 L376.4,56.7 L378.1,56.6 L379.9,56.4 L381.6,56.3 L383.3,56.2 L385.1,56.1 L386.8,55.9 L388.5,55.8 L390.2,55.7 L392.0,55.6 L393.7,55.4 L395.4,55.3 L397.2,55.2 L398.9,55.1 L400.6,55.0 L402.3,54.9 L404.1,54.7 L405.8,54.6 L407.5,54.5 L409.3,54.4 L411.0,54.3 L412.7,54.2 L414.4,54.1 L416.2,54.0 L417.9,53.9 L419.6,53.8 L421.4,53.7 L423.1,53.6 L424.8,53.5 L426.5,53.4 L428.3,53.3 L430.0,53.3" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="3.0"/><circle cx="119.6" cy="231.9" r="3.6" fill="currentColor" opacity=".8"/><circle cx="135.2" cy="233.2" r="3.6" fill="currentColor" opacity=".8"/><circle cx="153.4" cy="198.4" r="3.6" fill="currentColor" opacity=".8"/><circle cx="182.1" cy="133.3" r="3.6" fill="currentColor" opacity=".8"/><circle cx="229.0" cy="87.1" r="3.6" fill="currentColor" opacity=".8"/><circle cx="300.8" cy="65.6" r="3.6" fill="currentColor" opacity=".8"/><circle cx="416.4" cy="51.9" r="3.6" fill="currentColor" opacity=".8"/><circle cx="182.1" cy="138.0" r="4.6" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><text x="192.1" y="152.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">0.50</text><text x="267.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Spike relative to the transition,  N F<tspan font-size="8.5" dy="3">ST</tspan><tspan dy="-3"></tspan> / √(N/M)</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Squared overlap of the leading PC with the true axis</text><circle cx="464.0" cy="36.0" r="3.6" fill="currentColor" opacity=".8"/><text x="478.0" y="40.0" font-size="10" fill="currentColor" opacity=".8">simulation, N = 200, M = 2,000</text><circle cx="464.0" cy="53.0" r="4.6" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><text x="478.0" y="57.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">closed form at gamma = 0.1</text><text x="456.0" y="85.0" font-size="11" fill="currentColor" font-weight="700">Below the transition there</text><text x="456.0" y="99.0" font-size="11" fill="currentColor" font-weight="700">is nothing to find.</text><text x="456.0" y="121.0" font-size="10" fill="currentColor" opacity=".8">The leading PC is a random</text><text x="456.0" y="134.0" font-size="10" fill="currentColor" opacity=".8">direction, not a faint version</text><text x="456.0" y="147.0" font-size="10" fill="currentColor" opacity=".8">of the truth: the overlap is</text><text x="456.0" y="160.0" font-size="10" fill="currentColor" opacity=".8">exactly zero in the limit. The</text><text x="456.0" y="173.0" font-size="10" fill="currentColor" opacity=".8">two points left of the line sit</text><text x="456.0" y="186.0" font-size="10" fill="currentColor" opacity=".8">at 0.02 and 0.01, against a</text><text x="456.0" y="199.0" font-size="10" fill="currentColor" opacity=".8">random-vector baseline of</text><text x="456.0" y="212.0" font-size="10" fill="currentColor" opacity=".8">1/200 = 0.005. The point on the</text><text x="456.0" y="225.0" font-size="10" fill="currentColor" opacity=".8">line reads 0.19 - finite-size</text><text x="456.0" y="238.0" font-size="10" fill="currentColor" opacity=".8">smearing, largest exactly at a</text><text x="456.0" y="251.0" font-size="10" fill="currentColor" opacity=".8">critical point.</text><text x="456.0" y="264.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="456.0" y="277.0" font-size="10" fill="currentColor" opacity=".8">The eigenvalue is no help. It</text><text x="456.0" y="290.0" font-size="10" fill="currentColor" opacity=".8">leaves the bulk edge with zero</text><text x="456.0" y="303.0" font-size="10" fill="currentColor" opacity=".8">derivative, so a scree plot</text><text x="456.0" y="316.0" font-size="10" fill="currentColor" opacity=".8">looks unremarkable at exactly</text><text x="456.0" y="329.0" font-size="10" fill="currentColor" opacity=".8">the divergence where the PC</text><text x="456.0" y="342.0" font-size="10" fill="currentColor" opacity=".8">becomes usable: 1% past the</text><text x="456.0" y="355.0" font-size="10" fill="currentColor" opacity=".8">transition it is within 0.1% of</text><text x="456.0" y="368.0" font-size="10" fill="currentColor" opacity=".8">the edge, while the overlap is</text><text x="456.0" y="381.0" font-size="10" fill="currentColor" opacity=".8">already 0.2418 at 20% past.</text><text x="456.0" y="394.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="456.0" y="407.0" font-size="10" fill="currentColor" opacity=".8">The threshold at 1 is universal;</text><text x="456.0" y="420.0" font-size="10" fill="currentColor" opacity=".8">this climb is drawn for one</text><text x="456.0" y="433.0" font-size="10" fill="currentColor" opacity=".8">aspect ratio.</text></svg>
+
+</Figure>
+
+<Widget
+  kind="pca-structure"
+  title="Move the sample size and the markers, and watch the threshold move"
+  caption="The bulk edge, the structure spike and the overlap between the estimated component and the truth, for two equal-sized populations. The threshold F_ST = 1/√(NM) is symmetric in the two, so dragging markers has exactly the effect of dragging people — and below it the overlap is zero however hard you look."
+  alt="An interactive panel with sliders for sample size, marker count and F_ST. It reports the aspect ratio, the Marchenko-Pastur bulk edge, the critical F_ST, the structure spike, the observed leading eigenvalue and the squared overlap with the true axis, and draws the eigenvalue against F_ST with the bulk edge marked."
+/>
+
+<WorkedExample
+  title="A study of 5,000 people at 500,000 markers"
+  given={[
+    { label: 'Individuals N', value: '5,000' },
+    { label: 'Markers M', value: '500,000' },
+    { label: 'Two populations', value: 'equal sized' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+The aspect ratio is $\gamma = 5000/500000 = 0.01$, so $\sqrt{\gamma} = 0.1$ and the
+Marchenko–Pastur upper edge is $(1+0.1)^2 = 1.21$.
+
+**The threshold.** $F_{\mathrm{ST}}^{*} = 1/\sqrt{NM} = 1/\sqrt{2.5\times10^{9}} = 2\times10^{-5}$.
+Equivalently, the spike at that F_ST is $\lambda = 5000 \times 2\times10^{-5} = 0.1$, which is
+$\sqrt{\gamma}$ exactly — the two statements of the threshold are the same statement.
+
+**Below it.** At $F_{\mathrm{ST}} = 10^{-5}$ the spike is $\lambda = 0.05$. The leading
+eigenvalue is pinned at 1.21, the overlap with the truth is 0, and no amount of care in the
+plotting recovers the split.
+
+**A realistic within-Europe value.** At $F_{\mathrm{ST}} = 0.001$ the spike is $\lambda = 5$,
+fifty times the threshold. The leading eigenvalue is $(1+5)(1+0.01/5) = 6.012$ and the overlap
+is 0.997605. The component is essentially the population label.
+
+**What it would take to go lower.** To reach $F_{\mathrm{ST}}^{*} = 10^{-5}$ at the same
+$N$ you need $M = 1/(N F_{\mathrm{ST}}^{2}) = 2{,}000{,}000$ markers — four times as many for
+half the F_ST, because the threshold falls only as $1/\sqrt{M}$.
+
+</WorkedExample>
+
+## What structure does to an association test
+
+Now give the two populations different trait means: $\delta$ phenotype standard deviations
+apart, for reasons that have nothing to do with any genotype. Test a variant with **no
+effect whatsoever**.
+
+The covariance between genotype and trait is $d_j \sigma \delta / 2$ over the pooled
+sample. The genotype variance is the within-population part plus the between part, which is
+$\bar{p}(1-\bar{p})$ terms plus $d_j^2$ — and when the expectation is taken over markers
+those denominators cancel against the numerator's $\mathbb{E}[d_j^2] = 2F_{\mathrm{ST}}\bar{p}(1-\bar{p})$
+exactly. What survives is
+
+$$
+\mathbb{E}[\chi^2] = 1 + \frac{N F_{\mathrm{ST}}\,\delta^2}{4}
+$$
+
+to first order in F_ST. That cancellation is why one number summarises the whole genome
+instead of each variant needing its own frequency gap.
+
+Put the within-Europe divergence of 0.001 and a trait gap of a fifth of a standard deviation
+into it. A study of 10,000 is inflated by a tenth — invisible on a quantile–quantile plot, and
+harmless. The same populations at 100,000 give 2.00. At 1,000,000 the expected chi-square at a
+variant with no effect whatsoever is 11.00: an eleven-fold inflation, at every null variant in
+the genome, from a divergence small enough that the two groups would not be described as
+different populations by anyone looking at them.
+
+<Figure
+  caption="Figure 2. Expected chi-square at a variant with no effect, against sample size, for three degrees of differentiation and a trait gap of 0.2 phenotype standard deviations. Both axes are logarithmic. The relation is linear in N, so on these axes every curve is a straight line of slope one that has not yet turned over. The marked points on the solid curve are the three values the worked text quotes: at a within-Europe divergence of 0.001, a study of 10,000 is inflated by a tenth, 100,000 reaches 2.00, and 1,000,000 reaches 11.00."
+  alt="Three rising curves on logarithmic axes, sample size from one thousand to one million horizontally and expected chi-square from one to one hundred vertically. All three start flat near one and rise; the highest, for the largest differentiation, passes one hundred at the right edge. Three dots mark points on the middle curve."
+>
+
+<svg viewBox="0 0 772 400" width="772" height="400" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="400.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="400.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="104.0" y1="207.6" x2="400.0" y2="207.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="211.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">2</text><line x1="104.0" y1="170.1" x2="400.0" y2="170.1" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="174.1" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">5</text><line x1="104.0" y1="141.7" x2="400.0" y2="141.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="145.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10</text><line x1="104.0" y1="96.8" x2="400.0" y2="96.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="100.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">30</text><line x1="104.0" y1="47.5" x2="400.0" y2="47.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="51.5" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">100</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1,000</text><line x1="202.7" y1="236.0" x2="202.7" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="202.7" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10,000</text><line x1="301.3" y1="236.0" x2="301.3" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="301.3" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100,000</text><line x1="400.0" y1="236.0" x2="400.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="400.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1,000,000</text><path d="M104.0,235.8 L105.8,235.8 L107.7,235.8 L109.5,235.8 L111.4,235.8 L113.2,235.7 L115.1,235.7 L117.0,235.7 L118.8,235.7 L120.7,235.7 L122.5,235.7 L124.3,235.7 L126.2,235.7 L128.0,235.6 L129.9,235.6 L131.8,235.6 L133.6,235.6 L135.5,235.6 L137.3,235.6 L139.2,235.5 L141.0,235.5 L142.8,235.5 L144.7,235.5 L146.5,235.5 L148.4,235.4 L150.2,235.4 L152.1,235.4 L154.0,235.3 L155.8,235.3 L157.7,235.3 L159.5,235.3 L161.3,235.2 L163.2,235.2 L165.0,235.2 L166.9,235.1 L168.8,235.1 L170.6,235.0 L172.5,235.0 L174.3,235.0 L176.2,234.9 L178.0,234.9 L179.8,234.8 L181.7,234.8 L183.6,234.7 L185.4,234.7 L187.2,234.6 L189.1,234.5 L190.9,234.5 L192.8,234.4 L194.7,234.3 L196.5,234.3 L198.3,234.2 L200.2,234.1 L202.1,234.0 L203.9,233.9 L205.8,233.9 L207.6,233.8 L209.4,233.7 L211.3,233.6 L213.2,233.5 L215.0,233.4 L216.8,233.2 L218.7,233.1 L220.6,233.0 L222.4,232.9 L224.2,232.7 L226.1,232.6 L227.9,232.5 L229.8,232.3 L231.7,232.2 L233.5,232.0 L235.3,231.8 L237.2,231.7 L239.1,231.5 L240.9,231.3 L242.8,231.1 L244.6,230.9 L246.4,230.7 L248.3,230.5 L250.2,230.2 L252.0,230.0 L253.8,229.7 L255.7,229.5 L257.6,229.2 L259.4,229.0 L261.2,228.7 L263.1,228.4 L264.9,228.1 L266.8,227.7 L268.6,227.4 L270.5,227.1 L272.4,226.7 L274.2,226.4 L276.1,226.0 L277.9,225.6 L279.8,225.2 L281.6,224.8 L283.4,224.3 L285.3,223.9 L287.1,223.4 L289.0,223.0 L290.9,222.5 L292.7,222.0 L294.6,221.4 L296.4,220.9 L298.2,220.4 L300.1,219.8 L301.9,219.2 L303.8,218.6 L305.6,218.0 L307.5,217.3 L309.4,216.7 L311.2,216.0 L313.1,215.3 L314.9,214.6 L316.8,213.9 L318.6,213.1 L320.4,212.4 L322.3,211.6 L324.1,210.8 L326.0,210.0 L327.9,209.1 L329.7,208.3 L331.6,207.4 L333.4,206.5 L335.2,205.6 L337.1,204.6 L338.9,203.7 L340.8,202.7 L342.6,201.7 L344.5,200.7 L346.4,199.7 L348.2,198.6 L350.1,197.5 L351.9,196.5 L353.8,195.3 L355.6,194.2 L357.4,193.1 L359.3,191.9 L361.2,190.8 L363.0,189.6 L364.8,188.4 L366.7,187.1 L368.6,185.9 L370.4,184.6 L372.2,183.4 L374.1,182.1 L375.9,180.8 L377.8,179.5 L379.7,178.1 L381.5,176.8 L383.3,175.4 L385.2,174.1 L387.1,172.7 L388.9,171.3 L390.8,169.9 L392.6,168.4 L394.4,167.0 L396.3,165.6 L398.2,164.1 L400.0,162.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="5 3" opacity=".85"/><path d="M104.0,235.6 L105.8,235.6 L107.7,235.6 L109.5,235.5 L111.4,235.5 L113.2,235.5 L115.1,235.5 L117.0,235.4 L118.8,235.4 L120.7,235.4 L122.5,235.4 L124.3,235.3 L126.2,235.3 L128.0,235.3 L129.9,235.3 L131.8,235.2 L133.6,235.2 L135.5,235.2 L137.3,235.1 L139.2,235.1 L141.0,235.0 L142.8,235.0 L144.7,235.0 L146.5,234.9 L148.4,234.9 L150.2,234.8 L152.1,234.8 L154.0,234.7 L155.8,234.7 L157.7,234.6 L159.5,234.5 L161.3,234.5 L163.2,234.4 L165.0,234.3 L166.9,234.3 L168.8,234.2 L170.6,234.1 L172.5,234.0 L174.3,233.9 L176.2,233.9 L178.0,233.8 L179.8,233.7 L181.7,233.6 L183.6,233.5 L185.4,233.4 L187.2,233.2 L189.1,233.1 L190.9,233.0 L192.8,232.9 L194.7,232.7 L196.5,232.6 L198.3,232.5 L200.2,232.3 L202.1,232.2 L203.9,232.0 L205.8,231.8 L207.6,231.6 L209.4,231.5 L211.3,231.3 L213.2,231.1 L215.0,230.9 L216.8,230.7 L218.7,230.4 L220.6,230.2 L222.4,230.0 L224.2,229.7 L226.1,229.5 L227.9,229.2 L229.8,228.9 L231.7,228.6 L233.5,228.4 L235.3,228.0 L237.2,227.7 L239.1,227.4 L240.9,227.1 L242.8,226.7 L244.6,226.3 L246.4,226.0 L248.3,225.6 L250.2,225.2 L252.0,224.8 L253.8,224.3 L255.7,223.9 L257.6,223.4 L259.4,222.9 L261.2,222.4 L263.1,221.9 L264.9,221.4 L266.8,220.9 L268.6,220.3 L270.5,219.8 L272.4,219.2 L274.2,218.6 L276.1,217.9 L277.9,217.3 L279.8,216.6 L281.6,216.0 L283.4,215.3 L285.3,214.6 L287.1,213.8 L289.0,213.1 L290.9,212.3 L292.7,211.5 L294.6,210.7 L296.4,209.9 L298.2,209.1 L300.1,208.2 L301.9,207.3 L303.8,206.4 L305.6,205.5 L307.5,204.6 L309.4,203.6 L311.2,202.6 L313.1,201.6 L314.9,200.6 L316.8,199.6 L318.6,198.5 L320.4,197.5 L322.3,196.4 L324.1,195.3 L326.0,194.2 L327.9,193.0 L329.7,191.9 L331.6,190.7 L333.4,189.5 L335.2,188.3 L337.1,187.1 L338.9,185.8 L340.8,184.6 L342.6,183.3 L344.5,182.0 L346.4,180.7 L348.2,179.4 L350.1,178.1 L351.9,176.7 L353.8,175.4 L355.6,174.0 L357.4,172.6 L359.3,171.2 L361.2,169.8 L363.0,168.4 L364.8,166.9 L366.7,165.5 L368.6,164.0 L370.4,162.6 L372.2,161.1 L374.1,159.6 L375.9,158.1 L377.8,156.6 L379.7,155.1 L381.5,153.5 L383.3,152.0 L385.2,150.5 L387.1,148.9 L388.9,147.3 L390.8,145.8 L392.6,144.2 L394.4,142.6 L396.3,141.0 L398.2,139.4 L400.0,137.8" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><path d="M104.0,232.1 L105.8,231.9 L107.7,231.8 L109.5,231.6 L111.4,231.4 L113.2,231.2 L115.1,231.0 L117.0,230.8 L118.8,230.6 L120.7,230.4 L122.5,230.1 L124.3,229.9 L126.2,229.6 L128.0,229.4 L129.9,229.1 L131.8,228.8 L133.6,228.6 L135.5,228.3 L137.3,227.9 L139.2,227.6 L141.0,227.3 L142.8,226.9 L144.7,226.6 L146.5,226.2 L148.4,225.8 L150.2,225.4 L152.1,225.0 L154.0,224.6 L155.8,224.2 L157.7,223.7 L159.5,223.3 L161.3,222.8 L163.2,222.3 L165.0,221.8 L166.9,221.2 L168.8,220.7 L170.6,220.1 L172.5,219.6 L174.3,219.0 L176.2,218.4 L178.0,217.7 L179.8,217.1 L181.7,216.4 L183.6,215.7 L185.4,215.0 L187.2,214.3 L189.1,213.6 L190.9,212.8 L192.8,212.1 L194.7,211.3 L196.5,210.5 L198.3,209.6 L200.2,208.8 L202.1,207.9 L203.9,207.0 L205.8,206.1 L207.6,205.2 L209.4,204.3 L211.3,203.3 L213.2,202.3 L215.0,201.3 L216.8,200.3 L218.7,199.3 L220.6,198.2 L222.4,197.1 L224.2,196.0 L226.1,194.9 L227.9,193.8 L229.8,192.6 L231.7,191.5 L233.5,190.3 L235.3,189.1 L237.2,187.9 L239.1,186.7 L240.9,185.4 L242.8,184.2 L244.6,182.9 L246.4,181.6 L248.3,180.3 L250.2,179.0 L252.0,177.6 L253.8,176.3 L255.7,174.9 L257.6,173.5 L259.4,172.1 L261.2,170.7 L263.1,169.3 L264.9,167.9 L266.8,166.5 L268.6,165.0 L270.5,163.5 L272.4,162.1 L274.2,160.6 L276.1,159.1 L277.9,157.6 L279.8,156.1 L281.6,154.6 L283.4,153.0 L285.3,151.5 L287.1,149.9 L289.0,148.4 L290.9,146.8 L292.7,145.3 L294.6,143.7 L296.4,142.1 L298.2,140.5 L300.1,138.9 L301.9,137.3 L303.8,135.7 L305.6,134.1 L307.5,132.4 L309.4,130.8 L311.2,129.2 L313.1,127.5 L314.9,125.9 L316.8,124.2 L318.6,122.6 L320.4,120.9 L322.3,119.3 L324.1,117.6 L326.0,115.9 L327.9,114.3 L329.7,112.6 L331.6,110.9 L333.4,109.2 L335.2,107.5 L337.1,105.8 L338.9,104.1 L340.8,102.4 L342.6,100.7 L344.5,99.0 L346.4,97.3 L348.2,95.6 L350.1,93.9 L351.9,92.2 L353.8,90.5 L355.6,88.7 L357.4,87.0 L359.3,85.3 L361.2,83.6 L363.0,81.9 L364.8,80.1 L366.7,78.4 L368.6,76.7 L370.4,74.9 L372.2,73.2 L374.1,71.5 L375.9,69.7 L377.8,68.0 L379.7,66.3 L381.5,64.5 L383.3,62.8 L385.2,61.0 L387.1,59.3 L388.9,57.5 L390.8,55.8 L392.6,54.1 L394.4,52.3 L396.3,50.6 L398.2,48.8 L400.0,47.1" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="2 3" opacity=".85"/><circle cx="202.7" cy="232.1" r="3.6" fill="var(--color-accent, #2e6e5e)"/><circle cx="301.3" cy="207.6" r="3.6" fill="var(--color-accent, #2e6e5e)"/><circle cx="400.0" cy="137.8" r="3.6" fill="var(--color-accent, #2e6e5e)"/><text x="293.3" y="198.6" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">2.00</text><text x="392.0" y="128.8" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">11.00</text><text x="252.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Sample size N</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Expected χ² at a variant with no effect</text><line x1="452.0" y1="36.0" x2="474.0" y2="36.0" stroke="currentColor" stroke-width="2.4" opacity=".85" stroke-dasharray="5 3"/><text x="482.0" y="40.0" font-size="10" fill="currentColor" opacity=".85">F<tspan font-size="8.5" dy="3">ST</tspan><tspan dy="-3"></tspan> = 0.0005</text><line x1="452.0" y1="53.0" x2="474.0" y2="53.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><text x="482.0" y="57.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">F<tspan font-size="8.5" dy="3">ST</tspan><tspan dy="-3"></tspan> = 0.001</text><line x1="452.0" y1="70.0" x2="474.0" y2="70.0" stroke="currentColor" stroke-width="2.4" opacity=".85" stroke-dasharray="2 3"/><text x="482.0" y="74.0" font-size="10" fill="currentColor" opacity=".85">F<tspan font-size="8.5" dy="3">ST</tspan><tspan dy="-3"></tspan> = 0.01</text><text x="452.0" y="116.0" font-size="11" fill="currentColor" font-weight="700">Confounding that grows</text><text x="452.0" y="130.0" font-size="11" fill="currentColor" font-weight="700">with the cure.</text><text x="452.0" y="152.0" font-size="10" fill="currentColor" opacity=".8">E[χ²] = 1 + N F<tspan font-size="8.5" dy="3">ST</tspan><tspan dy="-3"></tspan> δ²/4, linear</text><text x="452.0" y="165.0" font-size="10" fill="currentColor" opacity=".8">in N. Collecting more people</text><text x="452.0" y="178.0" font-size="10" fill="currentColor" opacity=".8">does not average this away -</text><text x="452.0" y="191.0" font-size="10" fill="currentColor" opacity=".8">it multiplies it.</text><text x="452.0" y="204.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="452.0" y="217.0" font-size="10" fill="currentColor" opacity=".8">At the within-Europe divergence</text><text x="452.0" y="230.0" font-size="10" fill="currentColor" opacity=".8">of 0.001 and a trait gap of 0.2</text><text x="452.0" y="243.0" font-size="10" fill="currentColor" opacity=".8">standard deviations, a study of</text><text x="452.0" y="256.0" font-size="10" fill="currentColor" opacity=".8">10,000 is inflated 10%; the same</text><text x="452.0" y="269.0" font-size="10" fill="currentColor" opacity=".8">study at 1,000,000 is inflated</text><text x="452.0" y="282.0" font-size="10" fill="currentColor" opacity=".8">eleven-fold, at every null</text><text x="452.0" y="295.0" font-size="10" fill="currentColor" opacity=".8">variant in the genome.</text><text x="452.0" y="308.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="452.0" y="321.0" font-size="10" fill="currentColor" opacity=".8">This is why the fix has to be</text><text x="452.0" y="334.0" font-size="10" fill="currentColor" opacity=".8">structural rather than a</text><text x="452.0" y="347.0" font-size="10" fill="currentColor" opacity=".8">constant divisor.</text></svg>
+
+</Figure>
+
+<Callout variant="key" title="The confounding grows with the cure">
+
+Both the spike and the inflation are linear in $N$. A study large enough to resolve its own
+structure by PCA is, by exactly the same token, a study large enough for that structure to
+have inflated every null test in the genome. This is why the fix cannot be a constant divisor:
+genomic control rescales all statistics by one factor, but the thing being rescaled grew with
+the sample and is not the same shape as real polygenic signal. Distinguishing the two is what
+LD score regression is for, and correcting it properly is what principal-component covariates
+and mixed models are for.
+
+</Callout>
+
+The practical consequences — how many components to fit, how to diagnose residual inflation,
+and when a correction over-corrects — belong to the workflow track and are covered in the
+GWAS series' population-structure lesson. The derivation of what a mixed model does with the
+same information is in
+<Citation id="astle2009structure" />
+and in this track's association lesson, which quotes the linear-in-N result proved here.
+
+<Exercise n={1} title="Reading a differentiation" difficulty="warm-up">
+
+A variant has $p_1 = 0.40$ and $p_2 = 0.44$, measured on 500 chromosomes in each population.
+(a) Compute Hudson's estimate. (b) The same frequencies measured on 50 chromosomes per
+population give what? (c) What does the comparison say about single-variant F_ST?
+
+<div slot="solution">
+
+**(a)** The gap squared is $0.04^2 = 0.0016$. The corrections are $0.40 \times 0.60/499 = 0.000481$
+and $0.44 \times 0.56 / 499 = 0.000494$, together $0.000975$, so the numerator is $0.000625$.
+The denominator is $0.40\times0.56 + 0.44\times0.60 = 0.224 + 0.264 = 0.488$. The estimate is
+$0.001281$.
+
+**(b)** With 50 chromosomes the corrections are $0.24/49 = 0.004898$ and $0.2464/49 = 0.005029$,
+together $0.009927$ — nearly six times the raw gap. The numerator is $-0.008327$ and the
+estimate is $-0.017063$.
+
+**(c)** A single variant carries almost no information about F_ST at realistic sample sizes.
+The correction is $O(1/n)$ while the signal is $O(F_{\mathrm{ST}})$, so any variant with
+$F_{\mathrm{ST}} \ll 1/n$ is dominated by its own sampling noise and individually returns
+something negative about as often as not. F_ST is a genome-wide quantity by necessity, not by
+convention — which is also why it must be pooled as a ratio of averages.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Will this study see its own structure?" difficulty="core">
+
+A cohort of 800 individuals is genotyped at 45,000 markers. The two subpopulations it draws
+from have $F_{\mathrm{ST}} = 0.0002$. (a) Will PCA resolve them? (b) How many markers would
+be needed? (c) How many individuals, at the original marker count?
+
+<div slot="solution">
+
+**(a)** $F_{\mathrm{ST}}^{*} = 1/\sqrt{800 \times 45000} = 1/\sqrt{3.6\times10^{7}} = 1.6667\times10^{-4}$.
+The actual F_ST of $2\times10^{-4}$ is above it, so — just barely — yes. The spike is
+$\lambda = 800 \times 0.0002 = 0.16$ against $\sqrt{\gamma} = \sqrt{800/45000} = 0.13333$,
+a ratio of 1.20. The overlap is
+$(1 - \gamma/\lambda^2)/(1 + \gamma/\lambda) = 0.305556/1.111111 = 0.275$: the component is
+real but is more noise than signal, and would be a poor covariate.
+
+Note what you cannot do here — read that number off Figure 1. That curve is drawn at
+$\gamma = 0.1$ and gives 0.2418 at the same ratio of 1.20. The overlap is not a function of
+$\lambda/\sqrt{\gamma}$ alone: writing $u = \lambda/\sqrt{\gamma}$ it is
+$(1 - 1/u^2)/(1 + \sqrt{\gamma}/u)$, and only the first factor is universal. The threshold is
+universal; the climb away from it is not.
+
+**(b)** To put the threshold at, say, a quarter of the true F_ST — comfortably resolved —
+you need $F_{\mathrm{ST}}^{*} = 5\times10^{-5}$, so $NM = 4\times10^{8}$ and
+$M = 500{,}000$ markers.
+
+**(c)** Alternatively $N = 4\times10^{8}/45000 = 8{,}889$ individuals. Both routes work
+because the threshold depends only on the product — which is worth noticing, because markers
+are usually much cheaper than people.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="The inflation, and what it is not" difficulty="core">
+
+A study of 250,000 people is drawn from two groups with $F_{\mathrm{ST}} = 0.0008$, whose
+trait means differ by 0.15 standard deviations. (a) What is the expected chi-square at a null
+variant? (b) A colleague proposes dividing every chi-square by that number. What does that
+cost, and what does it fail to fix?
+
+<div slot="solution">
+
+**(a)** $1 + 250000 \times 0.0008 \times 0.15^2/4 = 1 + 200 \times 0.0225/4 = 1 + 1.125 = 2.125$.
+
+**(b)** Dividing by 2.125 restores the mean of the null distribution, and for that reason it
+will make a quantile–quantile plot look acceptable. It costs power everywhere: a real
+association is divided by the same factor, so its chi-square falls by more than half. And it
+fails to fix the thing that matters, because stratification is not a uniform lift. Variants
+whose frequencies differ most between the groups are inflated most, and those are not
+distributed at random across the genome — they cluster wherever the two ancestries have the
+most distinct history. A constant divisor leaves the ranking of variants unchanged, which
+means the most structure-driven variants stay at the top of the list.
+
+Note also that the quantity computed here is the *mean* chi-square. λ_GC is built from the
+median and rescaled by the median of the null χ²₁ distribution; for a non-central chi-square
+the two are not equal, so they should not be quoted for one another.
+
+</div>
+
+</Exercise>
+
+<Exercise n={4} title="Why the threshold is symmetric" difficulty="stretch">
+
+The detection threshold $F_{\mathrm{ST}}^{*} = 1/\sqrt{NM}$ treats individuals and markers
+identically, which is surprising: one is a sample from a population and the other is a sample
+from a genome. Explain where the symmetry comes from, and give a reason it must eventually
+break in real data.
+
+<div slot="solution">
+
+**Where it comes from.** The spike grows as $\lambda = N F_{\mathrm{ST}}$ — linear in
+individuals only. The noise, however, grows as $\sqrt{\gamma} = \sqrt{N/M}$, which rises with
+$N$ too. Detection needs $N F_{\mathrm{ST}} > \sqrt{N/M}$, and the $N$ on both sides partly
+cancels: $\sqrt{N} F_{\mathrm{ST}} > 1/\sqrt{M}$. So the *product* is what matters. Adding
+people helps the signal linearly but also raises the noise floor as $\sqrt{N}$, leaving a net
+$\sqrt{N}$; adding markers lowers the noise floor as $1/\sqrt{M}$ and does nothing to the
+signal. The two happen to enter with the same exponent.
+
+**Why it breaks.** The Marchenko–Pastur law assumes independent columns, and markers are not
+independent — they are in linkage disequilibrium. The effective number of independent markers
+saturates as $M$ grows past the number of independent LD blocks, so doubling the array beyond
+that point buys nothing while doubling the cohort still buys $\sqrt{2}$. The symmetry is a
+property of the idealised matrix, and the idealisation fails on exactly the axis where markers
+are cheap.
+
+</div>
+
+</Exercise>
+
+<Exercise n={5} title="Two estimators, one dataset" difficulty="stretch">
+
+You compute F_ST across 100,000 variants two ways and get 0.0421 by pooling and 0.0361 by
+averaging per-variant ratios. (a) Which is the estimate to report? (b) What does the size of
+the gap tell you about the variant set? (c) Would restricting to common variants shrink it?
+
+<div slot="solution">
+
+**(a)** The pooled value, 0.0421. Averaging ratios weights each variant equally regardless of
+how much information it carries.
+
+**(b)** The gap is 14.3% of the pooled value. A gap that size says the variant set is
+dominated in *count* by variants that contribute little to either sum — low-frequency
+variants, whose denominators $p_1(1-p_2)+p_2(1-p_1)$ are small and whose individual ratios are
+therefore both noisy and, on average, biased low.
+
+**(c)** Yes. Restricting to common variants removes exactly the variants whose per-variant
+ratios are least informative, so the two estimators converge. This is the central practical
+point of <Citation id="bhatia2013fst" />: the discrepancy between published F_ST values for
+the same pair of populations is often not a disagreement about the populations but about which
+variants went in and how they were pooled.
+
+</div>
+
+</Exercise>
+
+## Summary
+
+- **F_ST is a variance ratio**, the between-population share of the allele-frequency variance,
+  normalised by $\bar{p}(1-\bar{p})$ so that it is comparable across variants of any frequency.
+- **Correct for sampling, and count chromosomes.** Hudson's correction divides by $n-1$ in
+  sampled gametes; passing diploid counts doubles it and can drive a small F_ST negative.
+- **Pool as a ratio of averages.** On a two-variant example the average of ratios reads
+  0.087700 against a pooled 0.131688, low by a third; on a six-variant set it reads 0.055207
+  against a pooled 0.064880, low by 14.9%.
+- **The structure spike is $\lambda = N F_{\mathrm{ST}}$**, exactly, for two equal populations
+  under Patterson normalisation — which puts the visibility of ancestry inside random matrix
+  theory rather than inside intuition.
+- **PCA resolves structure if and only if $F_{\mathrm{ST}} > 1/\sqrt{NM}$** — $2\times10^{-5}$
+  for 5,000 people at 500,000 markers. Below it the leading component is a random direction
+  with overlap exactly zero, not a weak signal.
+- **The cliff is in the eigenvector.** The eigenvalue leaves the bulk edge with zero
+  derivative, so the scree plot is uninformative precisely where the decision is being made.
+- **Inflation is $1 + N F_{\mathrm{ST}}\delta^2/4$**, linear in $N$. More data makes
+  stratification worse, which is why the correction has to be structural rather than a
+  constant divisor.

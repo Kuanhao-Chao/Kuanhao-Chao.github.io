@@ -64,6 +64,10 @@ import {
   varianceExplained,
   wakefieldAbf,
   type Matrix,
+  bbpThreshold,
+  structureSpike,
+  spikedEigenvalue,
+  spikedEigenvectorOverlap,
 } from '../lib/deepDiveMath';
 import {
   biasVarianceToy,
@@ -2214,7 +2218,119 @@ const scComposition: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * When population structure becomes visible to PCA, and when it provably does not.
+ *
+ * The reader's instinct is that a weaker structure gives a weaker principal component. It
+ * does not: below the Baik-Ben Arous-Peche threshold the leading eigenvector is a random
+ * direction and its overlap with the truth is exactly zero, which is what the third readout
+ * makes it possible to feel by dragging. The threshold is symmetric in samples and markers,
+ * so the two sliders have interchangeable effects -- also worth feeling rather than reading.
+ */
+const pcaStructure: Renderer = (canvas, controlHost, readoutHost) => {
+  const draw = () => {
+    const n = Math.round(c.get('n'));
+    const m = Math.round(c.get('m'));
+    const fst = c.get('fst');
+    const { gamma, criticalFst, bulkEdge } = bbpThreshold(n, m);
+    const spike = structureSpike(n, fst);
+    const eigenvalue = spikedEigenvalue(spike, gamma);
+    const overlap = spikedEigenvectorOverlap(spike, gamma);
+
+    const lo = 1e-6;
+    const hi = 0.1;
+    const top = Math.max(bulkEdge * 4, spikedEigenvalue(structureSpike(n, hi), gamma));
+    const x = logarithmic(lo, hi, PAD.left, PAD.left + PLOT.w, [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1],
+      (v) => sci(v, 1));
+    const y = logarithmic(bulkEdge * 0.8, top, PAD.top + PLOT.h, PAD.top,
+      [1, 2, 5, 10, 50, 200, 1000].filter((t) => t >= bulkEdge * 0.8 && t <= top),
+      (v) => sci(v, 2));
+    const svg = newSvg();
+    const g = frame(x, y, 'F_ST between the two populations', 'Leading eigenvalue', svg);
+
+    // the bulk edge: everything below this is indistinguishable from noise
+    g.appendChild(el('line', {
+      x1: PAD.left, x2: PAD.left + PLOT.w, y1: y(bulkEdge), y2: y(bulkEdge),
+      stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-dasharray': '6 4', opacity: 0.65,
+    }));
+    g.appendChild(label(PAD.left + PLOT.w - 4, y(bulkEdge) - 7,
+      `bulk edge ${bulkEdge.toFixed(3)}`, { 'text-anchor': 'end', opacity: '0.7' }));
+
+    // the threshold
+    if (criticalFst >= lo && criticalFst <= hi) {
+      g.appendChild(el('line', {
+        x1: x(criticalFst), x2: x(criticalFst), y1: PAD.top, y2: PAD.top + PLOT.h,
+        stroke: ACCENT, 'stroke-width': 1.6, 'stroke-dasharray': '4 4', opacity: 0.8,
+      }));
+      g.appendChild(label(x(criticalFst) + 5, PAD.top + 12, 'threshold',
+        { fill: ACCENT, opacity: '0.9' }));
+    }
+
+    const pts: string[] = [];
+    for (let i = 0; i <= 160; i += 1) {
+      const f = 10 ** (Math.log10(lo) + (Math.log10(hi) - Math.log10(lo)) * (i / 160));
+      const v = spikedEigenvalue(structureSpike(n, f), gamma);
+      pts.push(`${i ? 'L' : 'M'}${x(f).toFixed(1)},${y(Math.min(v, top)).toFixed(1)}`);
+    }
+    g.appendChild(el('path', {
+      d: pts.join(' '), fill: 'none', stroke: ACCENT, 'stroke-width': 2.4,
+    }));
+    g.appendChild(el('circle', {
+      cx: x(Math.min(Math.max(fst, lo), hi)), cy: y(Math.min(eigenvalue, top)), r: 5,
+      fill: ACCENT,
+    }));
+
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['γ = N/M', sci(gamma, 3)],
+      ['critical F_ST', sci(criticalFst, 2)],
+      ['spike λ = N·F_ST', sci(spike, 3)],
+      ['leading eigenvalue', eigenvalue.toFixed(4)],
+      ['overlap with truth', overlap === 0 ? 'exactly 0' : overlap.toFixed(4)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'n',
+        label: 'Individuals N',
+        min: Math.log10(500),
+        max: 5,
+        step: 0.01,
+        value: Math.log10(5000),
+        scale: (v) => 10 ** v,
+        format: (v) => Math.round(v).toLocaleString('en-US'),
+      },
+      {
+        key: 'm',
+        label: 'Markers M',
+        min: 4,
+        max: Math.log10(2_000_000),
+        step: 0.01,
+        value: Math.log10(500_000),
+        scale: (v) => 10 ** v,
+        format: (v) => Math.round(v).toLocaleString('en-US'),
+      },
+      {
+        key: 'fst',
+        label: 'F_ST',
+        min: -6,
+        max: -1,
+        step: 0.01,
+        value: -3,
+        scale: (v) => 10 ** v,
+        format: (v) => sci(v, 2),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
+  'pca-structure': pcaStructure,
   'ld-decay': ldDecay,
   drift,
   power,

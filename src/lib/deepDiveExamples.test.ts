@@ -78,6 +78,15 @@ import {
   callRate, piHat, inbreedingF, armitageTrend, benjaminiHochberg, bonferroni,
   liabilityRisk,
 
+  fstHudsonParts,
+  fstRatioOfAverages,
+  fstAverageOfRatios,
+  bbpThreshold,
+  structureSpike,
+  spikedEigenvalue,
+  spikedEigenvectorOverlap,
+  structureChiSquare,
+  type FstSite,
 } from './deepDiveMath.ts';
 
 /**
@@ -8236,3 +8245,196 @@ describe('sc-multiomic-spatial — the design effect, reached a third way', () =
     });
   });
 });
+
+describe('statgen-population-structure-fst', () => {
+  const mdx = lesson('statgen-population-structure-fst');
+
+  describe('worked example — two variants, two answers, one of them wrong', () => {
+    const A: FstSite = { p1: 0.6, p2: 0.3, n1: 200, n2: 200 };
+    const B: FstSite = { p1: 0.05, p2: 0.1, n1: 200, n2: 200 };
+
+    it('has the per-variant numerators, denominators and ratios the lesson prints', () => {
+      const a = fstHudsonParts(A);
+      const b = fstHudsonParts(B);
+      expect(a.numerator.toFixed(6)).toBe('0.087739');
+      expect(a.denominator.toFixed(2)).toBe('0.54');
+      expect((a.numerator / a.denominator).toFixed(6)).toBe('0.162479');
+      expect(b.numerator.toFixed(6)).toBe('0.001809');
+      expect(b.denominator.toFixed(3)).toBe('0.140');
+      expect((b.numerator / b.denominator).toFixed(6)).toBe('0.012922');
+      expect(mdx).toContain('= 0.087739$');
+      expect(mdx).toContain('= 0.54$');
+      expect(mdx).toContain('= 0.162479$');
+      expect(mdx).toContain('= 0.001809$');
+      expect(mdx).toContain('= 0.140$');
+      expect(mdx).toContain('= 0.012922$');
+    });
+
+    it('shows the sampling correction moving the answer off the naive ratio', () => {
+      expect((0.09 / 0.54).toFixed(6)).toBe('0.166667');
+      expect((0.6 * 0.4 / 199 + 0.3 * 0.7 / 199).toFixed(6)).toBe('0.002261');
+      expect((0.05 * 0.95 / 199 + 0.1 * 0.9 / 199).toFixed(6)).toBe('0.000691');
+      expect(mdx).toContain('0.166667');
+      expect(mdx).toContain('0.002261');
+      expect(mdx).toContain('0.000691');
+    });
+
+    it('separates the ratio of averages from the average of ratios', () => {
+      expect(fstRatioOfAverages([A, B]).toFixed(6)).toBe('0.131688');
+      expect(fstAverageOfRatios([A, B]).toFixed(6)).toBe('0.087700');
+      const gap = (fstRatioOfAverages([A, B]) - fstAverageOfRatios([A, B])) / fstRatioOfAverages([A, B]);
+      expect((100 * gap).toFixed(1)).toBe('33.4');
+      expect(mdx).toContain('= 0.131688$');
+      expect(mdx).toContain('= 0.087700$');
+      expect(mdx).toContain('low by 33.4%');
+    });
+
+    it('reproduces the six-variant set exactly, which replaced an unreproducible claim', () => {
+      const six: FstSite[] = ([[0.6, 0.3], [0.5, 0.46], [0.2, 0.35], [0.05, 0.1], [0.8, 0.78], [0.12, 0.3]] as const)
+        .map(([p1, p2]) => ({ p1, p2, n1: 1000, n2: 1000 }));
+      expect(fstRatioOfAverages(six).toFixed(6)).toBe('0.064880');
+      expect(fstAverageOfRatios(six).toFixed(6)).toBe('0.055207');
+      const gap = (fstRatioOfAverages(six) - fstAverageOfRatios(six)) / fstRatioOfAverages(six);
+      expect((100 * gap).toFixed(1)).toBe('14.9');
+      expect(mdx).toContain('0.064880');
+      expect(mdx).toContain('0.055207');
+      expect(mdx).toContain('low by 14.9%');
+      // the sentence this replaced claimed a 20,000,000-variant simulation that was
+      // actually run on 200,000, and that no test could reproduce
+      expect(mdx).not.toContain('twenty million');
+      expect(mdx).not.toContain('17.8');
+    });
+  });
+
+  it('states the heterozygosity ratio exactly rather than glossing it', () => {
+    // F_ST = (H_T - H_S)/H_T  =>  H_T/H_S = 1/(1 - F_ST)
+    expect((1 / (1 - 0.11)).toFixed(6)).toBe('1.123596');
+    expect((100 * (1 / (1 - 0.11) - 1)).toFixed(1)).toBe('12.4');
+    expect(mdx).toContain('1.123596');
+    expect(mdx).toContain('12.4% more often');
+    expect(mdx).not.toContain('about a ninth');
+  });
+
+  describe('worked example — 5,000 people at 500,000 markers', () => {
+    const N = 5000;
+    const M = 500_000;
+    const t = bbpThreshold(N, M);
+
+    it('has the aspect ratio, bulk edge and threshold the lesson prints', () => {
+      expect(t.gamma).toBeCloseTo(0.01, 12);
+      expect(t.sqrtGamma).toBeCloseTo(0.1, 12);
+      expect(t.bulkEdge.toFixed(2)).toBe('1.21');
+      expect(t.criticalFst).toBeCloseTo(2e-5, 15);
+      expect(mdx).toContain('= 1.21$');
+      expect(mdx).toContain('2\\times10^{-5}');
+      expect(mdx).toContain('2.5\\times10^{9}');
+    });
+
+    it('makes the two statements of the threshold the same statement', () => {
+      expect(structureSpike(N, t.criticalFst)).toBeCloseTo(0.1, 12);
+      expect(structureSpike(N, t.criticalFst)).toBeCloseTo(t.sqrtGamma, 12);
+    });
+
+    it('finds nothing below the threshold and almost everything at 0.001', () => {
+      expect(structureSpike(N, 1e-5)).toBeCloseTo(0.05, 12);
+      expect(spikedEigenvalue(structureSpike(N, 1e-5), t.gamma).toFixed(2)).toBe('1.21');
+      expect(spikedEigenvectorOverlap(structureSpike(N, 1e-5), t.gamma)).toBe(0);
+
+      expect(structureSpike(N, 0.001)).toBeCloseTo(5, 12);
+      expect(spikedEigenvalue(5, t.gamma).toFixed(3)).toBe('6.012');
+      expect(spikedEigenvectorOverlap(5, t.gamma).toFixed(6)).toBe('0.997605');
+      expect(mdx).toContain('= 6.012$');
+      expect(mdx).toContain('0.997605');
+    });
+
+    it('needs 2,000,000 markers to reach a threshold of 1e-5 at the same N', () => {
+      expect(1 / (N * 1e-5 ** 2)).toBeCloseTo(2_000_000, 6);
+      expect(bbpThreshold(N, 2_000_000).criticalFst).toBeCloseTo(1e-5, 15);
+      expect(mdx).toContain('2{,}000{,}000');
+    });
+  });
+
+  describe('the figures', () => {
+    it('draws the overlap value the transition callout quotes', () => {
+      const g = 0.1;
+      expect(spikedEigenvectorOverlap(Math.sqrt(g) * 1.2, g).toFixed(4)).toBe('0.2418');
+      expect(mdx).toContain('0.2418');
+    });
+
+    it('rings the closed form at exactly one half', () => {
+      expect(spikedEigenvectorOverlap(0.5, 0.1)).toBeCloseTo(0.5, 12);
+      // 0.5 / sqrt(0.1) = 1.5811..., which the caption rounds to 1.58
+      expect((0.5 / Math.sqrt(0.1)).toFixed(2)).toBe('1.58');
+      expect(mdx).toContain('1.58 times the threshold');
+      expect(mdx).toContain('exactly 0.50');
+    });
+
+    it('draws the three stratification points figure 2 marks', () => {
+      expect(structureChiSquare(10_000, 0.001, 0.2).toFixed(2)).toBe('1.10');
+      expect(structureChiSquare(100_000, 0.001, 0.2).toFixed(2)).toBe('2.00');
+      expect(structureChiSquare(1_000_000, 0.001, 0.2).toFixed(2)).toBe('11.00');
+      expect(mdx).toContain('100,000 reaches 2.00');
+      expect(mdx).toContain('1,000,000 reaches 11.00');
+      // the abstract leads with "eleven-fold"; it must be grounded in the prose, not only
+      // inside the figure SVG, which every prose-scanning check strips before reading
+      expect(mdx).toContain('an eleven-fold inflation');
+      expect(mdx).toContain('The same populations at 100,000 give 2.00');
+    });
+  });
+
+  describe('exercises', () => {
+    it('exercise 1 — a single variant carries almost no information', () => {
+      const big = fstHudsonParts({ p1: 0.4, p2: 0.44, n1: 500, n2: 500 });
+      expect((big.numerator / big.denominator).toFixed(6)).toBe('0.001281');
+      const small = fstHudsonParts({ p1: 0.4, p2: 0.44, n1: 50, n2: 50 });
+      expect((small.numerator / small.denominator).toFixed(6)).toBe('-0.017063');
+      expect(big.denominator.toFixed(3)).toBe('0.488');
+      expect(mdx).toContain('0.001281');
+      expect(mdx).toContain('-0.017063');
+      expect(mdx).toContain('= 0.488$');
+    });
+
+    it('exercise 2 — the overlap is not a function of the ratio alone', () => {
+      const t = bbpThreshold(800, 45_000);
+      expect(t.criticalFst.toFixed(6)).toBe('0.000167');
+      expect((1 / Math.sqrt(800 * 45_000)).toFixed(4)).toBe('0.0002');
+      expect(t.sqrtGamma.toFixed(5)).toBe('0.13333');
+      const spike = structureSpike(800, 0.0002);
+      expect(spike).toBeCloseTo(0.16, 12);
+      expect((spike / t.sqrtGamma).toFixed(2)).toBe('1.20');
+      // the answer, which is NOT the 0.2418 that figure 1 shows at the same ratio
+      expect(spikedEigenvectorOverlap(spike, t.gamma).toFixed(3)).toBe('0.275');
+      expect((1 - t.gamma / spike ** 2).toFixed(6)).toBe('0.305556');
+      expect((1 + t.gamma / spike).toFixed(6)).toBe('1.111111');
+      expect(mdx).toContain('0.13333');
+      expect(mdx).toContain('= 0.275$');
+      expect(mdx).toContain('0.305556/1.111111');
+      // the first draft read this off figure 1 and got the wrong aspect ratio's answer
+      expect(mdx).not.toContain('an overlap around 0.24');
+
+      // and the two routes to a comfortable threshold
+      expect(4e8 / 800).toBeCloseTo(500_000, 6);
+      expect(Math.round(4e8 / 45_000)).toBe(8889);
+      expect(mdx).toContain('8{,}889');
+    });
+
+    it('exercise 3 — inflation, and the mean it is not', () => {
+      expect(structureChiSquare(250_000, 0.0008, 0.15)).toBeCloseTo(2.125, 12);
+      expect(mdx).toContain('= 2.125$');
+      // the lesson must keep saying this is the mean, not lambda_GC
+      expect(mdx).toContain('median');
+    });
+
+    it('exercise 5 — the gap as a fraction of the pooled value', () => {
+      expect((100 * (0.0421 - 0.0361) / 0.0421).toFixed(1)).toBe('14.3');
+      expect(mdx).toContain('14.3%');
+    });
+  });
+
+  it('states the linear-in-N result the association lesson defers to', () => {
+    const excess = (n: number) => structureChiSquare(n, 0.001, 0.2) - 1;
+    expect(excess(200_000) / excess(100_000)).toBeCloseTo(2, 12);
+    expect(mdx).toContain('linear in $N$');
+  });
+});
+

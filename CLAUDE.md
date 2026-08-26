@@ -17,6 +17,7 @@ Astro 7 static site for the personal academic website `khchao.com` (Kuan-Hao Cha
 - `npm run audit:indexing` — post-build SEO/indexing invariant checker (see below). Run after `npm run build`.
 - `npm run audit:posts` — Playwright-driven visual/behavioral audit of interactive post animations (`scripts/audit-post-ui.mjs`): boots a preview server, drives chromium+webkit across desktop/phone × light/dark, and checks figure zoom, animation playback, `prefers-reduced-motion`, and print output against a per-post `inventory` of expected animation/figure counts. Update `inventory` when a post's interactive component count changes.
 - `npm run audit:deep-dives` — Playwright rendering gate for the statistical-genetics curriculum (see below); `audit:deep-dives:ci` is the chromium-only smoke form.
+- `npm run audit:narrow` — the 320px profile alone, chromium, both themes, every deep-dive route: document overflow (naming the unclipped elements), KaTeX errors, empty SVGs and un-typeset `$…$`. Exists because the full gate does not fit in a ten-minute budget and the smoke form's matrix is desktop and phone only — **it never opens a 320px viewport**, which is the one width this curriculum actually breaks at. Takes a substring filter: `npm run audit:narrow statgen`.
 - `npm run audit:security` — static scan (`scripts/audit-security.mjs`) over `src/`, `public/`, `scripts/`, `.github/`, and config files for `target="_blank"` without `rel=noopener`, plain-`http://` links, hardcoded secrets, unsanitized `set:html`/`innerHTML` sinks (outside an allowlist), iframe issues, privacy leaks, missing `noindex` on invite pages, and `javascript:`/`data:` protocol usage. `npm run audit:security:live` additionally fetches the live site to check response headers.
 - `npm run preview` — serve the built site.
 
@@ -83,7 +84,7 @@ Five tracks, each with a hub carrying `isHub: true`:
 
 | hub | pages | `track` | owns |
 | --- | --- | --- | --- |
-| `statistical-genetics` | 17 | `theory` | definitions, assumptions, derivations |
+| `statistical-genetics` | 18 | `theory` | definitions, assumptions, derivations |
 | `gwas` | 10 | `workflow` | commands, thresholds, diagnostics, failure modes |
 | `genomic-data` | 13 | `resource` | the resource ecosystem and its access rules |
 | `ml-dl-interview` | 24 | `workflow` / `elective` | 351 interview questions |
@@ -115,6 +116,24 @@ unrelated mechanisms, none with a software fix.
 **The hub shipped first here, not last.** `isHub` derives the module map from siblings, so a
 hub works with one sibling and fills in as lessons land — and shipping it first keeps
 `audit:links` green on every intermediate push, because each lesson's back-link targets it.
+
+**The statistical-genetics track is being deepened**, having been built to the contract floor
+and never revisited: every one of its original 16 lessons carried exactly 2 figures and exactly
+3 exercises, and 10 of the 16 had no interactive panel. Five lessons are being inserted for
+concepts absent from the whole curriculum, and `order` already has gaps at 2, 5, 6, 10 and 18
+reserved for them. What matters when inserting is **not contiguity** — `deepDives.test.ts`
+requires each hub's reading order to be monotonic and duplicate-free, and `orderLessons` sorts
+`moduleId` before `order`, so the thing that breaks the pager is one module's range
+*interleaving* with the next, which gaps inside a module do not cause.
+
+**`figlib.splice(mdx_path, index, svg_text)` writes a generated figure into its lesson.** The
+first hundred figures in this curriculum were pasted by hand, which is exactly how a caption
+comes to describe a drawing that has since been regenerated. It inserts on the first run (when
+the `<Figure>` block is still empty) and replaces thereafter, and returns False rather than
+raising when the MDX does not exist yet, so a generator can run before its lesson is written.
+
+**`verifiedBy` must be a repo-root-relative path**, `src/lib/deepDiveExamples.test.ts`, not the
+bare filename — the contract calls `existsSync` on it. 83 lessons use the full form.
 
 **The `theory`/`workflow` split is load-bearing, not decorative.** The GWAS track used to
 re-derive Wakefield's ABF, the LDSC proof, PRS shrinkage, EIGENSTRAT and the 5 × 10⁻⁸
@@ -335,6 +354,29 @@ Things specific to this subsystem:
   search string and a float bug in the harness (`i < 0.3 * 40000` admits one extra element),
   so verify every hit by hand before acting — and prefer `Fraction` over floats when the claim
   is that two quantities are *exactly* equal.
+
+- **A failing assertion is more often the assertion's fault than the code's.** Three times in
+  one lesson the test expectation was the wrong thing and the module was right: Weir & Cockerham
+  legitimately returns a *small negative* F_ST at zero divergence (an estimator unbiased at zero
+  must be able to), the BBP eigenvector overlap 20% past the transition is 0.2418 rather than the
+  ">0.25" guessed for it, and an exercise answer read off a figure gave 0.2418 where the correct
+  value was 0.275. **Recompute from the definition before changing code to satisfy a test.**
+
+- **The BBP overlap is not a function of `λ/√γ` alone**, though the *threshold* is. Writing
+  `u = λ/√γ` it is `(1 - 1/u²)/(1 + √γ/u)`: the first factor is universal, the second is not.
+  So a phase-transition figure drawn at one aspect ratio cannot be read off for another — which
+  is how an exercise answer came out 0.2418 instead of 0.275. Name the γ in the caption.
+
+- **`nohup cmd &` inside a backgrounded Bash call reports exit 0 immediately** and the real work
+  dies with the shell. The task notification then says "completed (exit code 0)" for a gate that
+  ran 32 of ~500 lines. This is the truncated-pass trap wearing a new hat: pass the command
+  directly to `run_in_background` rather than backgrounding inside it, and **always confirm the
+  verdict line** — `grep -c 'audit passed'` — rather than trusting an exit code.
+
+- **Crossref dates a volume that straddles years by its `issued` field**, so Wright's 1951
+  *Annals of Eugenics* F-statistics paper comes back as 1949. `verify-references.mjs` treats a
+  gap of one as a warning and **a gap of two as a hard error**, so that entry cannot be recorded
+  by its conventional year. Check the year before writing the citation, not after.
 
 - **A guard that only asserts the new wording cannot catch an incomplete fix.** Removing a
   claim from one passage and leaving it standing in the summary is the commonest way a

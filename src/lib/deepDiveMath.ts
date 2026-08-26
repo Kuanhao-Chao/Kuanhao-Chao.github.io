@@ -2089,6 +2089,186 @@ export function fstHudson(p1: number, p2: number, n1: number, n2: number): numbe
   return den === 0 ? 0 : num / den;
 }
 
+/** One site's Hudson numerator and denominator, kept apart so they can be pooled. */
+export interface FstSite {
+  /** Allele frequency in population 1, and the number of **chromosomes** it was read from. */
+  p1: number;
+  p2: number;
+  n1: number;
+  n2: number;
+}
+
+/**
+ * Hudson's numerator and denominator for one site, unreduced.
+ *
+ * `n1`/`n2` are **chromosomes, not individuals** — the bias correction is `p(1-p)/(n-1)`
+ * over sampled gametes, so passing diploid counts doubles the correction and can drive a
+ * genuinely small F_ST negative.
+ */
+export function fstHudsonParts(site: FstSite): { numerator: number; denominator: number } {
+  const { p1, p2, n1, n2 } = site;
+  if (n1 < 2 || n2 < 2) throw new RangeError('fstHudsonParts needs at least 2 chromosomes per population');
+  return {
+    numerator: (p1 - p2) ** 2 - (p1 * (1 - p1)) / (n1 - 1) - (p2 * (1 - p2)) / (n2 - 1),
+    denominator: p1 * (1 - p2) + p2 * (1 - p1),
+  };
+}
+
+/**
+ * Genome-wide F_ST as a **ratio of averages**: pool the numerators, pool the denominators,
+ * divide once.
+ *
+ * This is the estimator to use, and the choice matters more than which per-site formula it
+ * is built on. F_ST is a ratio of variance components, and the average of per-site ratios
+ * estimates a different quantity — one that weights sites by how uninformative they are.
+ * The bias is downward and grows with divergence.
+ *
+ * @see fstAverageOfRatios for the form that is wrong, kept so a lesson can show the gap.
+ */
+export function fstRatioOfAverages(sites: FstSite[]): number {
+  if (sites.length === 0) throw new RangeError('fstRatioOfAverages needs at least one site');
+  let num = 0;
+  let den = 0;
+  for (const site of sites) {
+    const part = fstHudsonParts(site);
+    if (part.denominator <= 0) continue;
+    num += part.numerator;
+    den += part.denominator;
+  }
+  return den === 0 ? 0 : num / den;
+}
+
+/** The average of per-site F_ST. Biased downward; here so the bias can be measured. */
+export function fstAverageOfRatios(sites: FstSite[]): number {
+  const ratios: number[] = [];
+  for (const site of sites) {
+    const part = fstHudsonParts(site);
+    if (part.denominator > 0) ratios.push(part.numerator / part.denominator);
+  }
+  if (ratios.length === 0) throw new RangeError('fstAverageOfRatios needs one usable site');
+  return ratios.reduce((a, b) => a + b, 0) / ratios.length;
+}
+
+/**
+ * Weir & Cockerham's θ for two populations — the ANOVA estimator.
+ *
+ * Included beside Hudson's because the two are often quoted interchangeably and are not:
+ * WC conditions on the observed heterozygosity and is sensitive to unequal sample sizes in a
+ * way Hudson's is not. `h1`/`h2` are observed heterozygosities; they default to the
+ * Hardy-Weinberg expectation, which is the right default only when HWE holds within each
+ * population. `n1`/`n2` are **diploid individuals** here — WC's own convention, and
+ * deliberately not the same as `fstHudsonParts`, which is why both say so.
+ */
+export function weirCockerhamFst(
+  p1: number, p2: number, n1: number, n2: number,
+  h1 = 2 * p1 * (1 - p1), h2 = 2 * p2 * (1 - p2),
+): number {
+  if (n1 < 2 || n2 < 2) throw new RangeError('weirCockerhamFst needs at least 2 individuals per population');
+  const r = 2;
+  const nBar = (n1 + n2) / r;
+  const nc = (r * nBar - (n1 * n1 + n2 * n2) / (r * nBar)) / (r - 1);
+  const pBar = (n1 * p1 + n2 * p2) / (n1 + n2);
+  const s2 = (n1 * (p1 - pBar) ** 2 + n2 * (p2 - pBar) ** 2) / ((r - 1) * nBar);
+  const hBar = (n1 * h1 + n2 * h2) / (r * nBar);
+  const common = pBar * (1 - pBar) - ((r - 1) / r) * s2;
+  const a = (nBar / nc) * (s2 - (1 / (nBar - 1)) * (common - hBar / 4));
+  const b = (nBar / (nBar - 1)) * (common - ((2 * nBar - 1) / (4 * nBar)) * hBar);
+  const c = hBar / 2;
+  const total = a + b + c;
+  return total === 0 ? 0 : a / total;
+}
+
+/**
+ * The eigenvalue that population structure contributes to the genotype Gram matrix.
+ *
+ * For two equally sized populations and Patterson-normalised genotypes, the between-population
+ * mean vector has squared norm `M·F_ST` summed over markers, so `(1/M)XXᵀ` picks up the rank-one
+ * term `F_ST·ssᵀ` where `s` is the ±1 population indicator. `‖s‖² = N`, so the spike is `N·F_ST`
+ * — linear in the sample size, which is why more people makes structure *easier* to see and
+ * simultaneously makes the stratification it causes *worse*. See `structureChiSquare`.
+ */
+export function structureSpike(nSamples: number, fst: number): number {
+  if (nSamples < 1) throw new RangeError(`structureSpike needs n >= 1, got ${nSamples}`);
+  if (fst < 0) throw new RangeError(`structureSpike needs F_ST >= 0, got ${fst}`);
+  return nSamples * fst;
+}
+
+/**
+ * The Baik–Ben Arous–Péché transition for genotype PCA: when structure becomes visible.
+ *
+ * A rank-one spike of strength λ separates from the Marchenko–Pastur bulk if and only if
+ * λ > √γ with γ = N/M. Substituting `structureSpike` gives `N·F_ST > √(N/M)`, i.e. a critical
+ * differentiation of **1/√(NM)** — symmetric in samples and markers, so ten times the markers
+ * buys exactly what ten times the people does.
+ *
+ * Below it PCA sees nothing: not a weak signal, *nothing*, because the leading eigenvector of
+ * a bulk eigenvalue is unrelated to the spike's direction. That is a statement about the
+ * infinite-data limit of a random matrix, not about statistical power.
+ */
+export function bbpThreshold(
+  nSamples: number, nMarkers: number,
+): { gamma: number; sqrtGamma: number; criticalFst: number; bulkEdge: number } {
+  if (nSamples < 1) throw new RangeError(`bbpThreshold needs n >= 1, got ${nSamples}`);
+  if (nMarkers < 1) throw new RangeError(`bbpThreshold needs m >= 1, got ${nMarkers}`);
+  const gamma = nSamples / nMarkers;
+  const sqrtGamma = Math.sqrt(gamma);
+  return {
+    gamma,
+    sqrtGamma,
+    criticalFst: sqrtGamma / nSamples,
+    bulkEdge: (1 + sqrtGamma) ** 2,
+  };
+}
+
+/**
+ * The top sample eigenvalue a spike of strength λ actually produces.
+ *
+ * Above the transition the observed eigenvalue is `(1+λ)(1+γ/λ)`, which sits strictly above
+ * λ+1: finite data inflates a real spike as well as manufacturing false ones. Below the
+ * transition the top eigenvalue is pinned to the bulk edge and carries no information about λ.
+ */
+export function spikedEigenvalue(spike: number, gamma: number): number {
+  if (gamma <= 0) throw new RangeError(`spikedEigenvalue needs gamma > 0, got ${gamma}`);
+  if (spike <= Math.sqrt(gamma)) return (1 + Math.sqrt(gamma)) ** 2;
+  return (1 + spike) * (1 + gamma / spike);
+}
+
+/**
+ * Squared overlap between the estimated leading eigenvector and the true structure axis.
+ *
+ * This, not the eigenvalue, is where the transition is a cliff. Below λ = √γ the overlap is
+ * **exactly zero** in the limit: the leading PC is a random direction, not a faint version of
+ * the truth, and no amount of squinting at the scatter plot recovers it. Above the transition
+ * it climbs as `(1 - γ/λ²)/(1 + γ/λ)` and reaches 1 only as λ → ∞, so even a strong spike
+ * leaves a few percent of the estimated axis as noise.
+ *
+ * The eigenvalue, by contrast, leaves the bulk edge with zero derivative — which is why a
+ * scree plot looks unremarkable at exactly the F_ST where the PC becomes usable.
+ */
+export function spikedEigenvectorOverlap(spike: number, gamma: number): number {
+  if (gamma <= 0) throw new RangeError(`spikedEigenvectorOverlap needs gamma > 0, got ${gamma}`);
+  if (spike <= Math.sqrt(gamma)) return 0;
+  return (1 - gamma / spike ** 2) / (1 + gamma / spike);
+}
+
+/**
+ * Expected association chi-square at a *null* variant under population stratification.
+ *
+ * Two equally sized populations differing by `delta` phenotype standard deviations and by
+ * F_ST in allele frequency give `E[χ²] = 1 + N·F_ST·δ²/4` to first order in F_ST. The
+ * denominators cancel exactly — the between-population genotype variance that inflates the
+ * covariance also inflates the variance divided out — which is why a single F_ST summarises
+ * the whole genome rather than each variant needing its own frequency gap.
+ *
+ * This is the *mean*, not λ_GC, which is a median rescaled by `CHI2_1DF_MEDIAN`; for a
+ * non-central χ² the two differ, so do not quote one as the other.
+ */
+export function structureChiSquare(nSamples: number, fst: number, deltaSd: number): number {
+  if (nSamples < 1) throw new RangeError(`structureChiSquare needs n >= 1, got ${nSamples}`);
+  if (fst < 0) throw new RangeError(`structureChiSquare needs F_ST >= 0, got ${fst}`);
+  return 1 + (nSamples * fst * deltaSd ** 2) / 4;
+}
+
 // ── Pedigrees, relatedness and linkage ────────────────────────────────────────
 
 /** One individual and its parents. A missing parent is an unrelated founder. */
