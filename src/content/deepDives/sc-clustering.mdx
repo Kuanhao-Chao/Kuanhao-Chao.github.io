@@ -1,0 +1,339 @@
+---
+title: "Clustering: The Best-Scoring Answer Is Not the Right One"
+shortTitle: Clustering
+description: "What modularity actually optimises, why it provably merges small communities however distinct they are, and why finding the same clusters across resolutions is not evidence that they are real."
+abstract: "Every single-cell pipeline clusters by maximising modularity, and modularity has a defect that is not a heuristic failure but a theorem. Build a ring of forty complete five-node cliques joined by single edges — forty communities that could not be more separable — and at the default resolution the forty-community partition scores 389/440 while fusing them into twenty scores 199/220, which is higher by 9/440. The optimiser is not making a mistake: the wrong answer genuinely wins. The effect has an exact threshold, and for a ring of cliques with l internal edges apiece the two partitions tie precisely at n = 2l + 2 rings, where the graph's edge count satisfies the relation sqrt(2m) = n. Worse for practice, the wrong answer is stable: twenty communities is what you get for every resolution from 5/11 to 20/11, a range exactly four-fold wide that covers everything anyone would think to try. Re-running across resolutions and seeing the same clusters is therefore not evidence they are correct."
+date: 2026-08-25
+track: theory
+hub: single-cell
+moduleId: s03-geometry
+moduleLabel: Module 3 · Geometry
+order: 9
+level: intermediate
+objectives:
+  - "Write down what modularity measures and state the null model it compares a partition against."
+  - "Show that modularity maximisation merges maximally distinct communities once the graph is large enough, and locate the exact threshold."
+  - "Explain what the resolution parameter does to the null term and compute where it changes the answer."
+  - "Explain why cluster stability across resolutions is not evidence of correctness."
+  - "Say what would actually constitute evidence that a reported cluster is a real population."
+prerequisites:
+  - sc-neighbor-graphs
+relatedLessons:
+  - sc-neighbor-graphs
+  - sc-pca
+keyEquations:
+  - 'Q = \sum_c \left[\dfrac{l_c}{m} - \gamma\left(\dfrac{d_c}{2m}\right)^2\right]'
+  - 'Q_{\gamma}(g) = 1 - \dfrac{1}{11g} - \dfrac{\gamma g}{40}'
+  - '\gamma^{*} = \dfrac{20}{11}'
+referenceIds:
+  - newman2004modularity
+  - fortunato2007resolution
+  - blondel2008louvain
+  - traag2019leiden
+  - levine2015phenograph
+  - wolf2018scanpy
+  - hao2021seurat
+  - luecken2019bestpractices
+tags: [single-cell, clustering, modularity, Louvain, Leiden, resolution limit]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The graph from the last lesson gets partitioned, and the partition is what the paper calls
+cell types. Essentially every pipeline does this the same way — Louvain
+<Citation id="blondel2008louvain" /> or its better-behaved successor Leiden
+<Citation id="traag2019leiden" />, applied to the kNN graph, as introduced to this field by
+PhenoGraph <Citation id="levine2015phenograph" /> and defaulted to by both major toolkits
+<Citation id="wolf2018scanpy" />
+<Citation id="hao2021seurat" />.
+
+Both algorithms optimise the same objective, and this lesson is about what that objective
+does when you give it a graph whose right answer is known.
+
+<Notation
+  rows={[
+    { symbol: 'm', meaning: 'Total edges in the graph', dims: 'count' },
+    { symbol: 'l_c', meaning: 'Edges with both ends inside community c', dims: 'count' },
+    { symbol: 'd_c', meaning: 'Sum of degrees of the nodes in community c', dims: 'count' },
+    { symbol: 'Q', meaning: 'Modularity of a partition', dims: 'in [-1, 1]' },
+    { symbol: '\\gamma', meaning: 'Resolution — weight on the null term', dims: '> 0' },
+    { symbol: 'k', meaning: 'Clique size in the test graph', dims: 'count' },
+    { symbol: 'l', meaning: 'Internal edges per clique, k(k-1)/2', dims: 'count' },
+  ]}
+/>
+
+## What modularity measures
+
+Modularity scores a partition by how much more internal edge weight it captures than a random
+graph with the same degrees would <Citation id="newman2004modularity" />:
+
+$$
+Q = \sum_c \left[\frac{l_c}{m} - \gamma\left(\frac{d_c}{2m}\right)^2\right].
+$$
+
+The first term rewards communities with many internal edges. The second subtracts what you
+would expect by chance: a community holding a fraction $d_c/2m$ of all edge endpoints would,
+in a degree-preserving random graph, capture about the square of that fraction internally. The
+resolution $\gamma$ weights that subtraction, and is 1 by default.
+
+The important structural fact is in the second term. It is **quadratic in the community's
+size**, so merging two communities more than doubles their combined penalty — but merging also
+adds whatever edges ran between them to the first term. When a community is small relative to
+the whole graph, its penalty is negligible, and any edge at all between two small communities
+can make merging them profitable. That is not a failure of the optimiser. It is the objective
+preferring the merged partition <Citation id="fortunato2007resolution" />.
+
+## A graph whose right answer is not in doubt
+
+Take $n$ complete graphs on five nodes, and join them in a ring with a single edge between
+consecutive cliques. Each clique is a maximally dense community; the links between them are as
+sparse as a connected graph allows. If any structure is unambiguous, this is.
+
+Grouping $g$ consecutive cliques into each community, the modularity of a ring of forty is
+exactly
+
+$$
+Q_{\gamma}(g) = 1 - \frac{1}{11g} - \frac{\gamma g}{40},
+$$
+
+a straight line in $\gamma$. At the default $\gamma = 1$ the correct partition, $g = 1$,
+scores $389/440 = 0.884091$ — and $g = 2$, which fuses every clique with its neighbour, scores
+$199/220 = 0.904545$. The wrong answer wins by exactly $9/440$.
+
+<Figure
+  caption="Figure 1. Modularity of six candidate partitions of a ring of forty complete five-node cliques, against the resolution parameter. Each is a straight line, because modularity is linear in the resolution. At the default resolution of 1.0 the correct forty-community partition scores 0.884091 while the twenty-community partition scores 0.904545 — the marked pair — so the optimiser returns twenty. The correct partition only becomes optimal past the exact crossover at 20/11."
+  alt="Six descending straight lines of modularity against resolution from 0.4 to 3.0, one per candidate partition, with the forty-community line drawn in accent colour. Two points are marked at a resolution of 1.0 where the twenty-community line lies above the forty-community line, and a third where the accent line overtakes it near a resolution of 1.82."
+>
+<svg viewBox="0 0 772 348" width="772" height="348" font-family="inherit"><line x1="112.0" y1="44.0" x2="112.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="232.0" x2="424.0" y2="232.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="236.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.2</text><line x1="112.0" y1="185.0" x2="424.0" y2="185.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="189.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.4</text><line x1="112.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="142.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.6</text><line x1="112.0" y1="91.0" x2="424.0" y2="91.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="95.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0.8</text><line x1="112.0" y1="44.0" x2="424.0" y2="44.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="48.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">1.0</text><line x1="124.0" y1="232.0" x2="124.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="124.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.5</text><line x1="184.0" y1="232.0" x2="184.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="184.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.0</text><line x1="244.0" y1="232.0" x2="244.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="244.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.5</text><line x1="304.0" y1="232.0" x2="304.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="304.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2.0</text><line x1="364.0" y1="232.0" x2="364.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="364.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2.5</text><line x1="424.0" y1="232.0" x2="424.0" y2="237.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="250.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">3.0</text><path d="M112.0,67.7 L424.0,83.0" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><path d="M112.0,59.4 L424.0,89.9" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".5"/><path d="M112.0,58.7 L424.0,119.8" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".5"/><path d="M112.0,60.0 L424.0,136.4" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".5"/><path d="M112.0,65.5 L424.0,187.7" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".5"/><path d="M112.0,69.6 L424.0,222.4" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".5"/><line x1="184.0" y1="232.0" x2="184.0" y2="44.0" stroke="currentColor" stroke-width="1.2" opacity=".4" stroke-dasharray="4 3"/><text x="191.0" y="56.0" font-size="10" fill="currentColor" opacity=".75">the default, 1.0</text><line x1="282.2" y1="232.0" x2="282.2" y2="44.0" stroke="currentColor" stroke-width="1.2" opacity=".4" stroke-dasharray="4 3"/><text x="289.2" y="69.0" font-size="10" fill="currentColor" opacity=".75">truth wins past 1.82</text><circle cx="184.0" cy="71.2" r="4.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="184.0" cy="66.4" r="4.2" fill="currentColor"/><circle cx="282.2" cy="76.0" r="4.2" fill="var(--color-accent, #2e6e5e)"/><text x="268.0" y="272.0" font-size="12" fill="currentColor" text-anchor="middle">Resolution</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Modularity</text><text x="450.0" y="58.0" font-size="10" fill="currentColor" opacity=".6">communities scored</text><line x1="450.0" y1="72.0" x2="470.0" y2="72.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><text x="478.0" y="76.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">40 (the truth)</text><line x1="450.0" y1="87.0" x2="470.0" y2="87.0" stroke="currentColor" stroke-width="2.2" opacity=".5"/><text x="478.0" y="91.0" font-size="10" fill="currentColor" opacity=".7">20</text><line x1="450.0" y1="102.0" x2="470.0" y2="102.0" stroke="currentColor" stroke-width="2.2" opacity=".5"/><text x="478.0" y="106.0" font-size="10" fill="currentColor" opacity=".7">10</text><line x1="450.0" y1="117.0" x2="470.0" y2="117.0" stroke="currentColor" stroke-width="2.2" opacity=".5"/><text x="478.0" y="121.0" font-size="10" fill="currentColor" opacity=".7">8</text><line x1="450.0" y1="132.0" x2="470.0" y2="132.0" stroke="currentColor" stroke-width="2.2" opacity=".5"/><text x="478.0" y="136.0" font-size="10" fill="currentColor" opacity=".7">5</text><line x1="450.0" y1="147.0" x2="470.0" y2="147.0" stroke="currentColor" stroke-width="2.2" opacity=".5"/><text x="478.0" y="151.0" font-size="10" fill="currentColor" opacity=".7">4</text><text x="450.0" y="182.0" font-size="11" fill="currentColor" font-weight="700">The truth loses.</text><text x="450.0" y="200.0" font-size="10" fill="currentColor" opacity=".8">At the default resolution the</text><text x="450.0" y="213.0" font-size="10" fill="currentColor" opacity=".8">forty-community answer scores</text><text x="450.0" y="226.0" font-size="10" fill="currentColor" opacity=".8">0.884 and the twenty-community</text><text x="450.0" y="239.0" font-size="10" fill="currentColor" opacity=".8">answer scores 0.905. Every one</text><text x="450.0" y="252.0" font-size="10" fill="currentColor" opacity=".8">of those twenty is two complete</text><text x="450.0" y="265.0" font-size="10" fill="currentColor" opacity=".8">cliques fused.</text><text x="450.0" y="278.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="450.0" y="291.0" font-size="10" fill="currentColor" opacity=".8">The lines cross at exactly</text><text x="450.0" y="304.0" font-size="10" fill="currentColor" opacity=".8">20/11. Nothing in the data</text><text x="450.0" y="317.0" font-size="10" fill="currentColor" opacity=".8">says to go there.</text></svg>
+</Figure>
+
+The threshold is exact, and it scales. For a ring of cliques with $l = k(k-1)/2$ internal edges
+each, the correct and merged partitions tie precisely at
+
+$$
+n = 2l + 2,
+$$
+
+and at that point the graph's total edge count satisfies $\sqrt{2m} = n$ exactly. For
+five-node cliques $l = 10$, so the tie is at 22 rings and merging strictly wins from 24. For
+six-node cliques it is 32 and 34; for ten-node cliques, 92 and 94. Bigger communities survive
+longer, but every size has a graph large enough to swallow it — which in single-cell terms
+means that **a rare population becomes unresolvable as the dataset grows**, however distinct it
+is.
+
+<Callout variant="intuition" title="This is the third mechanism, not a new one">
+
+Three lessons have now each shown a rare population disappearing, by three unrelated routes.
+
+Lesson 7: its eigenvalue is small, because variance is an average over all cells and 99% of
+them are unaffected — so it does not survive dimensionality reduction.
+
+Lesson 8: *k* is an absolute count, so a value that gives abundant populations a local view
+reaches straight through a small one — so it does not survive graph construction.
+
+This lesson: modularity's null term is quadratic in community size, so a small community's
+penalty is negligible and merging it is profitable — so it does not survive clustering.
+
+None of these is a bug and none has a software fix. They are three consequences of averaging
+over a population that is mostly not the thing you are looking for. If the experiment exists to
+find a rare cell type, the pipeline has to be told that, because none of its defaults will find
+one on its own.
+
+</Callout>
+
+<Widget
+  kind="sc-resolution"
+  title="Turn the dial on a graph whose answer you know"
+  alt="An interactive bar chart of the modularity of each candidate partition of a ring of complete cliques, with the highest-scoring bar highlighted and the correct partition labelled. Sliders control the resolution parameter and the number of cliques in the ring, and a readout gives the best-scoring number of communities, the true number, the adjusted Rand index between them, and the modularity attained."
+  caption="Leave the resolution at 1.0 and drag the ring size from 8 cliques upward. Somewhere around 22 the highlighted bar stops being the one labelled 'the truth' and never comes back — that is the resolution limit arriving, on a graph where every community is a complete subgraph. Then set the ring to 40 and drag the resolution instead: the answer is twenty communities across the whole span from about 0.45 to about 1.82, and only then jumps to forty. Note how much of the slider's range returns the same confident, wrong number."
+/>
+
+<WorkedExample
+  title="What the optimiser returns, and how wrong it is"
+  given={[
+    'A ring of 40 complete five-node cliques, joined by single edges',
+    '200 nodes, 440 edges, 40 unambiguous communities',
+    'Default resolution, gamma = 1',
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Step 1 — the correct partition.** Each clique has $l_c = 10$ internal edges and degree sum
+$d_c = 22$ (four nodes of degree 4, one of degree 6). With $m = 440$,
+
+$$
+Q = 40\left[\frac{10}{440} - \left(\frac{22}{880}\right)^2\right] = \frac{389}{440} = 0.884091.
+$$
+
+**Step 2 — the merged partition.** Fusing each clique with its neighbour gives 20 communities
+of $l_c = 21$ internal edges and $d_c = 44$:
+
+$$
+Q = 20\left[\frac{21}{440} - \left(\frac{44}{880}\right)^2\right] = \frac{199}{220} = 0.904545.
+$$
+
+**Step 3 — the optimiser prefers the wrong one**, by $9/440 = 0.020455$. Louvain and Leiden
+will return 20 communities, and they are right to: 20 communities genuinely scores higher on
+the objective they were asked to maximise.
+
+**Step 4 — how wrong that is.** The adjusted Rand index between the returned partition and the
+truth is **0.604374**. Every one of the twenty reported communities is two complete cliques
+fused, so half of the structure is gone — and nothing in the output says so. The partition is
+clean, the modularity is high, and each returned community is internally dense.
+
+**Step 5 — what recovers it.** Raising the resolution. The two lines cross at
+
+$$
+\gamma^{*} = \frac{20}{11} = 1.818182,
+$$
+
+past which the correct partition scores highest. Nothing in the data indicates that value; it
+is a property of this graph's size, and on a real dataset it is unknown.
+
+</WorkedExample>
+
+## Stability is not evidence
+
+The standard defence is to re-run at several resolutions and report the clusters that persist.
+On this graph that defence fails completely.
+
+The twenty-community answer is optimal for every $\gamma$ from $5/11$ to $20/11$ — a range
+exactly **four-fold** wide. Anyone sweeping "0.5, 0.8, 1.0, 1.2, 1.5" and finding twenty
+communities every time would conclude, reasonably and wrongly, that the result is robust.
+
+<Figure
+  caption="Figure 2. The number of communities the optimiser returns, against the resolution parameter, for the same ring of forty cliques. The answer is twenty communities across the whole interval from 5/11 to 20/11 — a four-fold range of resolution — with an adjusted Rand index against the truth of 0.60. The correct answer of forty appears only above 20/11. A resolution sweep confined to the usual range returns the same wrong number at every point in it."
+  alt="A step plot of communities returned against resolution, showing three flat bands: ten communities in a narrow interval at the far left, twenty communities across a wide central interval, and forty communities to the right of about 1.82. Each band is annotated with its adjusted Rand index against the truth."
+>
+<svg viewBox="0 0 772 300" width="772" height="300" font-family="inherit"><line x1="112.0" y1="44.0" x2="112.0" y2="216.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="216.0" x2="424.0" y2="216.0" stroke="currentColor" stroke-width="1.25"/><line x1="112.0" y1="216.0" x2="424.0" y2="216.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="220.0" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="112.0" y1="177.8" x2="424.0" y2="177.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="181.8" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">10</text><line x1="112.0" y1="139.6" x2="424.0" y2="139.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="143.6" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">20</text><line x1="112.0" y1="101.3" x2="424.0" y2="101.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="104.0" y="105.3" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">30</text><line x1="112.0" y1="63.1" x2="424.0" y2="63.1" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="104.0" y="67.1" font-size="11" fill="currentColor" text-anchor="end" opacity=".75">40</text><line x1="124.0" y1="216.0" x2="124.0" y2="221.0" stroke="currentColor" stroke-width="1"/><text x="124.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.5</text><line x1="184.0" y1="216.0" x2="184.0" y2="221.0" stroke="currentColor" stroke-width="1"/><text x="184.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.0</text><line x1="244.0" y1="216.0" x2="244.0" y2="221.0" stroke="currentColor" stroke-width="1"/><text x="244.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.5</text><line x1="304.0" y1="216.0" x2="304.0" y2="221.0" stroke="currentColor" stroke-width="1"/><text x="304.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2.0</text><line x1="364.0" y1="216.0" x2="364.0" y2="221.0" stroke="currentColor" stroke-width="1"/><text x="364.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2.5</text><line x1="424.0" y1="216.0" x2="424.0" y2="221.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="234.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">3.0</text><rect x="112.0" y="177.8" width="6.5" height="3.0" rx="2" fill="currentColor" opacity=".55"/><text x="126.5" y="181.8" font-size="10" fill="currentColor" opacity=".85">10 communities, ARI 0.33</text><rect x="118.5" y="139.6" width="163.6" height="3.0" rx="2" fill="currentColor" opacity=".55"/><text x="200.4" y="130.6" font-size="10" fill="currentColor" text-anchor="middle" opacity=".85">20 communities, ARI 0.60</text><rect x="282.2" y="63.1" width="141.8" height="3.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".9"/><text x="353.1" y="54.1" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">40 communities, ARI 1.00</text><line x1="184.0" y1="216.0" x2="184.0" y2="44.0" stroke="currentColor" stroke-width="1.2" opacity=".4" stroke-dasharray="4 3"/><text x="191.0" y="56.0" font-size="10" fill="currentColor" opacity=".75">the default</text><text x="268.0" y="256.0" font-size="12" fill="currentColor" text-anchor="middle">Resolution</text><text x="22.0" y="26.0" font-size="11" fill="currentColor" opacity=".8">Communities returned</text><text x="450.0" y="62.0" font-size="11" fill="currentColor" font-weight="700">Stable, and wrong.</text><text x="450.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">Twenty communities is the</text><text x="450.0" y="93.0" font-size="10" fill="currentColor" opacity=".8">answer everywhere from 5/11 to</text><text x="450.0" y="106.0" font-size="10" fill="currentColor" opacity=".8">20/11 - a range exactly four-</text><text x="450.0" y="119.0" font-size="10" fill="currentColor" opacity=".8">fold wide, covering every</text><text x="450.0" y="132.0" font-size="10" fill="currentColor" opacity=".8">resolution anyone would try.</text><text x="450.0" y="145.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="450.0" y="158.0" font-size="10" fill="currentColor" opacity=".8">Re-running across resolutions</text><text x="450.0" y="171.0" font-size="10" fill="currentColor" opacity=".8">and finding the same clusters</text><text x="450.0" y="184.0" font-size="10" fill="currentColor" opacity=".8">is therefore not evidence they</text><text x="450.0" y="197.0" font-size="10" fill="currentColor" opacity=".8">are right. Here it is evidence</text><text x="450.0" y="210.0" font-size="10" fill="currentColor" opacity=".8">of a plateau that happens to</text><text x="450.0" y="223.0" font-size="10" fill="currentColor" opacity=".8">be the wrong plateau.</text></svg>
+</Figure>
+
+What stability across resolutions actually shows is that a partition sits in the interior of a
+plateau of the objective. That is a fact about the objective's landscape, not about biology, and
+a wrong plateau is exactly as stable as a right one <Citation id="luecken2019bestpractices" />.
+
+Evidence that a cluster is a real population has to come from outside the objective: it is
+reproducible in an independent sample, it is separable by a marker whose behaviour is
+independently known, or splitting it produces sub-clusters that differ in something the
+clustering did not use.
+
+## Summary
+
+- Clustering means maximising **modularity**, $Q = \sum_c [l_c/m - \gamma(d_c/2m)^2]$, whose
+  null term is quadratic in community size.
+- On a ring of forty complete five-node cliques the correct partition scores $389/440$ and the
+  pairwise-merged one scores $199/220$ — higher by $9/440$. The optimiser is not failing; the
+  wrong answer wins.
+- The threshold is exact: cliques of $l$ internal edges tie at **$n = 2l + 2$** rings, where
+  $\sqrt{2m} = n$. Merging strictly wins from $n = 24$ for five-node cliques, 34 for six-node,
+  94 for ten-node. **Every community size has a graph large enough to swallow it.**
+- The returned partition has ARI **0.604374** against the truth, and looks entirely healthy.
+- **Stability is not evidence.** Twenty communities is optimal across a four-fold range of
+  resolution, from $5/11$ to $20/11$. A sweep over the usual range returns the same wrong
+  answer throughout.
+- This is the third independent mechanism by which a rare population vanishes, after the small
+  eigenvalue of lesson 7 and the absolute *k* of lesson 8.
+
+<Exercise n={1} title="Locating the limit" difficulty="warm-up">
+
+(a) A ring of complete six-node cliques: how many internal edges does each have, and at what
+ring size do the correct and merged partitions tie?
+
+(b) Verify that $\sqrt{2m} = n$ at that tie.
+
+(c) A colleague says the problem only affects tiny communities. Respond using the ten-node case.
+
+<div slot="solution">
+
+(a) $l = 6 \times 5 / 2 = 15$ internal edges, so the tie is at $n = 2l + 2 = 32$ rings, and
+merging strictly wins from $n = 34$.
+
+(b) At $n = 32$ the graph has $m = 32 \times (15 + 1) = 512$ edges, so
+$\sqrt{2m} = \sqrt{1024} = 32 = n$. Exactly.
+
+(c) Ten-node cliques have $l = 45$ and tie at $n = 92$ — so a 45-edge community, which is
+substantial, is unresolvable in a graph of only 92 such communities. The threshold grows with
+community size, but so does any real dataset: a study with 200,000 cells and a graph of a
+million edges has $\sqrt{2m} \approx 1{,}414$, so communities below roughly 700 internal edges
+are at risk regardless of how distinct they are. The problem is not that communities are tiny.
+It is that graphs are large.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Auditing a resolution sweep" difficulty="core">
+
+A paper reports that it swept the resolution over 0.5, 0.8, 1.0, 1.2 and 1.5, obtained twenty
+clusters every time, and concludes the clustering is robust.
+
+(a) On this lesson's graph, what would that sweep have returned?
+
+(b) What is the ARI of that answer against the truth?
+
+(c) State precisely what the sweep does and does not establish, and give one thing the authors
+could have done instead.
+
+<div slot="solution">
+
+(a) Twenty communities at every one of the five settings, since all five lie inside
+$(5/11,\ 20/11) = (0.454545,\ 1.818182)$.
+
+(b) **0.604374** — the twenty returned communities are each two complete cliques fused, so the
+partition is wrong in a completely systematic way while looking clean.
+
+(c) The sweep establishes that the partition is in the interior of a plateau of the modularity
+landscape, which is a statement about the objective and not about cells. It does not establish
+correctness, because a wrong plateau is exactly as flat as a right one — and here the wrong
+plateau is four-fold wide while the correct answer occupies everything above it. Instead: split
+each reported cluster and test whether the halves differ in something the clustering never
+used — a held-out gene set, a second sample, a protein measurement. On this graph that test
+succeeds immediately, because each of the twenty splits cleanly into two cliques joined by a
+single edge.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="Why raising the resolution is not the fix" difficulty="stretch">
+
+The crossover on this graph is at $\gamma^{*} = 20/11 = 1.818182$.
+
+(a) Why can you not simply set the resolution above the crossover on a real dataset?
+
+(b) Suppose you set it very high anyway. What goes wrong?
+
+(c) Leiden guarantees that every returned community is internally connected, which Louvain does
+not. Does that guarantee help here?
+
+<div slot="solution">
+
+(a) Because $\gamma^{*}$ is a property of the graph's size and of the community you are trying
+to resolve — $20/11$ here follows from forty cliques of ten edges in a graph of 440. On real
+data neither the true partition nor its scale is known, so the crossover cannot be computed. A
+resolution chosen without it is a guess, and the lesson's whole point is that the guess is
+stable enough to feel like a finding.
+
+(b) The same argument runs in reverse: at high enough $\gamma$ the null term dominates and
+splitting becomes profitable for genuinely homogeneous communities. There is no setting that is
+safe in both directions, because one number is being asked to fix a scale that varies across the
+dataset — abundant and rare populations need different resolutions simultaneously, exactly as
+they needed different values of *k* in lesson 8.
+
+(c) No. Leiden's guarantee is that no returned community is internally disconnected, and every
+community here is *perfectly* connected — two complete cliques joined by an edge is a connected
+subgraph. The defect is in the objective, not in the optimiser's diligence, so a better
+optimiser finds the wrong answer more reliably. That is worth stating plainly: on this graph
+Leiden is more likely than Louvain to return exactly twenty communities.
+
+</div>
+
+</Exercise>

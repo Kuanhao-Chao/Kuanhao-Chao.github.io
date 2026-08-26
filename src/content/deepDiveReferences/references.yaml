@@ -3773,3 +3773,19 @@ traag2019leiden:
   venue: "Scientific Reports 9:5233"
   doi: https://doi.org/10.1038/s41598-019-41695-z
   verified: 2026-08-25
+
+fortunato2007resolution:
+  authors: ['Santo Fortunato', 'Marc Barthélemy']
+  year: 2007
+  title: "Resolution limit in community detection"
+  venue: "Proceedings of the National Academy of Sciences 104:36-41"
+  doi: https://doi.org/10.1073/pnas.0605965104
+  verified: 2026-08-25
+
+newman2004modularity:
+  authors: ['M. E. J. Newman', 'M. Girvan']
+  year: 2004
+  title: "Finding and evaluating community structure in networks"
+  venue: "Physical Review E 69:026113"
+  doi: https://doi.org/10.1103/PhysRevE.69.026113
+  verified: 2026-08-25

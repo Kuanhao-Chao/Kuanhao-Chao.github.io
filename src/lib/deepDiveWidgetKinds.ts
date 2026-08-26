@@ -18,6 +18,8 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'sc-dropout',
   'sc-normalize',
   'sc-knn-graph',
+  'sc-resolution',
+  'sc-embedding',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];
