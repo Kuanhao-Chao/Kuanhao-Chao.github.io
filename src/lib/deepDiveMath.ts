@@ -1275,6 +1275,83 @@ export function benjaminiHochberg(pValues: number[], q: number, m = pValues.leng
   };
 }
 
+/**
+ * Šidák's exact family-wise cutoff, `1 - (1-α)^(1/m)`.
+ *
+ * Bonferroni's `α/m` is its first-order approximation, and at genome scale the two are
+ * indistinguishable — the gap is `O(α²/m)`. Worth deriving once so that "Bonferroni is
+ * conservative" can be quantified rather than repeated: it is conservative by an amount too
+ * small to matter, and the conservatism people actually feel comes from testing correlated
+ * hypotheses as though they were independent.
+ */
+export function sidakThreshold(alpha: number, m: number): number {
+  if (m < 1) throw new RangeError(`sidakThreshold needs m >= 1, got ${m}`);
+  return 1 - (1 - alpha) ** (1 / m);
+}
+
+/**
+ * The level at which Benjamini–Hochberg actually controls the false discovery rate.
+ *
+ * BH at nominal `q` controls the FDR at `π₀q`, where π₀ is the proportion of true nulls —
+ * not at `q`. So it spends only the null fraction of the budget it was given, and is
+ * conservative by exactly the share of hypotheses that are non-null. When almost everything
+ * is null, as in a genome-wide scan, `π₀ ≈ 1` and the distinction is invisible; when half the
+ * tests are real, as in a cis-eQTL scan, BH is controlling at half the rate asked for.
+ */
+export function bhRealisedFdr(pi0: number, q: number): number {
+  if (!(pi0 >= 0 && pi0 <= 1)) throw new RangeError(`bhRealisedFdr needs 0 <= pi0 <= 1, got ${pi0}`);
+  return pi0 * q;
+}
+
+/**
+ * Storey's estimate of the null proportion, from the flat right-hand tail of the p-value
+ * histogram.
+ *
+ * Non-null p-values pile up near zero, so above some λ the histogram is essentially all null
+ * and uniform. Counting what lands there and scaling by the width `1-λ` estimates π₀. The
+ * estimator is only as good as that flatness assumption and needs many tests: at m = 20 it
+ * rests on a handful of observations and should not be used.
+ */
+export function storeyPi0(pValues: number[], lambda = 0.5): number {
+  if (!(lambda > 0 && lambda < 1)) throw new RangeError(`storeyPi0 needs 0 < lambda < 1, got ${lambda}`);
+  if (pValues.length === 0) throw new RangeError('storeyPi0 needs at least one p-value');
+  const above = pValues.filter((p) => p > lambda).length;
+  return Math.min(1, above / (pValues.length * (1 - lambda)));
+}
+
+/**
+ * Benjamini–Yekutieli: BH run at `q/H_m` so it controls under *arbitrary* dependence.
+ *
+ * BH itself already survives positive regression dependence, which is what LD produces, so
+ * this is insurance against dependence structures a genome scan does not have. The price is
+ * the harmonic number: `H_m = ln m + γ + O(1/m)`, so 14.39 at a million tests. That is a real
+ * cost and a far smaller one than Bonferroni's factor of m.
+ */
+export function benjaminiYekutieli(pValues: number[], q: number, m = pValues.length): BhResult {
+  return benjaminiHochberg(pValues, q / harmonic(m), m);
+}
+
+/**
+ * Step-up adjusted p-values — the q-value attached to each test.
+ *
+ * The enforced monotonicity running back from the largest is what makes BH a *step-up*
+ * procedure: a p-value that fails its own line is still rejected when a larger one passes,
+ * so the adjusted value takes the minimum over everything above it.
+ */
+export function bhAdjustedPValues(pValues: number[], pi0 = 1): number[] {
+  const m = pValues.length;
+  if (m === 0) return [];
+  const order = pValues.map((p, i) => i).sort((a, b) => pValues[a] - pValues[b]);
+  const adjusted = new Array<number>(m);
+  let running = Infinity;
+  for (let rank = m; rank >= 1; rank -= 1) {
+    const idx = order[rank - 1];
+    running = Math.min(running, (pi0 * m * pValues[idx]) / rank);
+    adjusted[idx] = Math.min(1, running);
+  }
+  return adjusted;
+}
+
 /** The Bonferroni cutoff for m tests at family-wise level α. */
 export function bonferroni(alpha: number, m: number): number {
   return alpha / m;

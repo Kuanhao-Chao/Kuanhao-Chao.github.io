@@ -25,6 +25,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'sc-composition',
   'pca-structure',
   'sweep-age',
+  'fdr-staircase',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];

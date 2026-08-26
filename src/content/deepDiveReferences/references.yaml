@@ -4045,3 +4045,33 @@ pritchard2010polygenic:
   venue: "Current Biology 20:R208-R215"
   doi: https://doi.org/10.1016/j.cub.2009.11.055
   verified: 2026-08-26
+
+# ── statgen-multiple-testing ─────────────────────────────────────────────────
+benjamini2001dependency:
+  authors: ['Yoav Benjamini', 'Daniel Yekutieli']
+  year: 2001
+  title: "The control of the false discovery rate in multiple testing under dependency"
+  venue: "The Annals of Statistics 29"
+  doi: https://doi.org/10.1214/aos/1013699998
+  verified: 2026-08-26
+storey2003qvalue:
+  authors: ['John D. Storey', 'Robert Tibshirani']
+  year: 2003
+  title: "Statistical significance for genomewide studies"
+  venue: "Proceedings of the National Academy of Sciences 100:9440-9445"
+  doi: https://doi.org/10.1073/pnas.1530509100
+  verified: 2026-08-26
+efron2004largescale:
+  authors: ['Bradley Efron']
+  year: 2004
+  title: "Large-Scale Simultaneous Hypothesis Testing"
+  venue: "Journal of the American Statistical Association 99:96-104"
+  doi: https://doi.org/10.1198/016214504000000089
+  verified: 2026-08-26
+sidak1967:
+  authors: ['Zbyněk Šidák']
+  year: 1967
+  title: "Rectangular Confidence Regions for the Means of Multivariate Normal Distributions"
+  venue: "Journal of the American Statistical Association 62:626-633"
+  doi: https://doi.org/10.1080/01621459.1967.10482935
+  verified: 2026-08-26

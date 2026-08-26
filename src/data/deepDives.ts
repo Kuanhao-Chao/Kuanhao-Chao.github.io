@@ -82,6 +82,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   // Statistical Genetics — curriculum order, matching the hub's module map.
   'statistical-genetics',
   'statgen-mathematical-foundations',
+  'statgen-multiple-testing',
   'statgen-population-infinitesimal',
   'statgen-linkage-disequilibrium',
   'statgen-population-structure-fst',

@@ -1,0 +1,471 @@
+---
+title: "Multiple Testing: Family-Wise Error, False Discovery Rate, and What Each One Buys"
+shortTitle: Multiple Testing
+description: "Two different error rates, the procedures that control them, and the exact price of each. Why Benjamini–Hochberg controls at π₀q rather than q, where Storey's correction recovers the difference and how much it is worth, what arbitrary dependence costs, and why a false discovery rate is a property of a set rather than of any discovery in it."
+abstract: "The previous lesson derived the genome-wide threshold by insisting on no false positives at all, anywhere. That is one error rate; it is not the only one, and for most of molecular genetics it is the wrong one. This lesson derives the alternative. Benjamini and Hochberg's step-up procedure controls the expected proportion of discoveries that are false, and its central property is easy to state and easy to get wrong: run at nominal q, it controls the false discovery rate at π₀q, where π₀ is the null fraction — so it spends only the null share of the budget it was given. Simulation confirms it to three decimals across five values of π₀. Storey's estimator recovers the unspent remainder, and what that is worth turns out to depend sharply on power: at π₀ = 0.5 the threshold doubles at every point, but the discovery count rises 51% when per-test power is 0.22 and only 5% when it is 0.96, because what decides the gain is the slope of the sorted p-value curve where it meets the staircase. Benjamini–Yekutieli buys control under arbitrary dependence for a factor of H_m — 14.39 at a million tests — and crosses Bonferroni at exactly rank H_m, so it is stricter below that rank and more permissive above it. The lesson ends on the misreading that matters most: at q = 0.05 with half the tests real, 2.51% of discoveries are false overall but 10.62% of those nearest the cut are, because a false discovery rate describes a set and not a member of it."
+date: 2026-08-26
+track: theory
+hub: statistical-genetics
+moduleId: m01-foundations
+moduleLabel: Module 1 · Mathematical Foundations
+order: 2
+level: foundational
+objectives:
+  - "State the family-wise error rate and the false discovery rate as distinct quantities, and say which is larger."
+  - "Run the Benjamini–Hochberg step-up procedure by hand and explain why a p-value above its own line can still be rejected."
+  - "Explain why BH controls the false discovery rate at π₀q rather than q, and when that conservatism matters."
+  - "Estimate π₀ from the flat tail of a p-value histogram and say how much power the correction recovers."
+  - "Give the price of false-discovery control under arbitrary dependence, and the rank at which Benjamini–Yekutieli crosses Bonferroni."
+  - "Explain why the false discovery rate of a set says little about any individual discovery in it."
+prerequisites:
+  - statgen-mathematical-foundations
+relatedLessons:
+  - statgen-mathematical-foundations
+keyEquations:
+  - '\mathrm{FDR} = \mathbb{E}\!\left[\frac{V}{R} \,\middle|\, R>0\right]\Pr(R>0)'
+  - 'k = \max\left\{ i : p_{(i)} \le \frac{i}{m}q \right\}'
+  - '\mathrm{FDR}_{\mathrm{BH}} = \pi_0 q'
+referenceIds:
+  - benjamini1995fdr
+  - benjamini2001dependency
+  - storey2003qvalue
+  - efron2004largescale
+  - sidak1967
+  - peer2008threshold
+  - dudbridge2008threshold
+tags: [multiple testing, false discovery rate, Benjamini-Hochberg, q-value, family-wise error rate, Storey]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The previous lesson arrived at $5\times10^{-8}$ by demanding that the probability of **even
+one** false positive across the whole scan stay below 0.05. That demand has a name — the
+family-wise error rate — and it is a strong one. It is the right demand when a single false
+claim is expensive: a variant reported as disease-causing, a locus that will absorb a decade
+of follow-up.
+
+It is the wrong demand almost everywhere else in molecular genetics. An eQTL scan testing
+twenty thousand genes expects thousands of real signals, and a procedure built to avoid one
+error will discard most of them. What is wanted there is not "no mistakes" but "a known and
+tolerable proportion of mistakes" — a different quantity, controlled by a different procedure,
+at a different price.
+
+This lesson derives that quantity and that price. It owns the theory only: the genome-wide
+threshold and its $M_{\mathrm{eff}}$ belong to lesson 1, and which to reach for on a given
+dataset belongs to the GWAS track's lesson on reading a scan's output.
+
+<Notation
+  rows={[
+    { symbol: 'm', meaning: 'Number of hypotheses tested', dims: 'count' },
+    { symbol: 'm_0', meaning: 'Number of them for which the null is true', dims: 'count' },
+    { symbol: '\\pi_0', meaning: 'Null proportion, m₀/m', dims: 'fraction' },
+    { symbol: 'R', meaning: 'Number of hypotheses rejected', dims: 'count' },
+    { symbol: 'V', meaning: 'Number of rejections that are false', dims: 'count' },
+    { symbol: 'p_{(i)}', meaning: 'The i-th smallest p-value', dims: 'probability' },
+    { symbol: 'q', meaning: 'Nominal false-discovery level asked for', dims: 'fraction' },
+    { symbol: '\\alpha', meaning: 'Family-wise error level asked for', dims: 'fraction' },
+    { symbol: 'H_m', meaning: 'Harmonic number Σ 1/i, the price of arbitrary dependence', dims: 'ratio' },
+  ]}
+/>
+
+## Two error rates, and which is larger
+
+Write $V$ for the number of false rejections and $R$ for the total. The two rates are
+
+$$
+\mathrm{FWER} = \Pr(V \ge 1),
+\qquad
+\mathrm{FDR} = \mathbb{E}\!\left[\frac{V}{R}\,\middle|\,R>0\right]\Pr(R>0)
+$$
+
+The conditioning is a convention that sets the ratio to zero when nothing is rejected, which
+is the only sensible reading of "what fraction of my discoveries are wrong" when there are no
+discoveries.
+
+**FWER is never smaller than FDR.** If $V \ge 1$ then $V/R \le 1$, so
+$\mathbb{E}[V/R] \le \Pr(V \ge 1)$. Controlling the family-wise rate therefore controls the
+false discovery rate automatically — the converse fails, and that gap is exactly the power
+that FDR control buys.
+
+The two coincide when every null is true. Then any rejection is false, $V = R$, and $V/R = 1$
+whenever $R > 0$. So a procedure that controls FDR at $q$ under the global null also controls
+FWER at $q$ — which is worth knowing, because it means FDR control is not a weaker guarantee
+in the case where nothing is there to find. It is weaker only when something is.
+
+<Callout variant="intuition" title="The two questions a reviewer might be asking">
+
+"Is any of this real?" is a family-wise question. One false positive ruins the answer, so the
+procedure has to make one false positive unlikely, and the cost of that is a threshold that
+scales with how many tests you ran.
+
+"How much of this list can I trust?" is a false-discovery question. The answer "about 95% of
+it" is useful even when the list is long, and crucially the threshold does **not** have to
+scale with $m$ in the same punishing way — it adapts to how many signals are actually there.
+
+A genome-wide scan looking for the handful of loci that will be followed up is asking the
+first question. A differential-expression analysis producing a gene list for enrichment
+testing is asking the second. Neither procedure is more correct; they answer different
+questions.
+
+</Callout>
+
+## The step-up procedure
+
+<Citation id="benjamini1995fdr" /> sort the p-values and find
+
+$$
+k = \max\left\{ i : p_{(i)} \le \frac{i}{m}\,q \right\}
+$$
+
+then reject the $k$ smallest. The comparison line rises with rank, which is the whole idea: a
+p-value does not have to clear the strictest possible bar, only the bar appropriate to how
+many other tests are also small.
+
+<Callout variant="key" title="Why it is a step-up, and what that changes">
+
+The rule takes the **largest** $i$ that passes, not every $i$ that passes. A p-value sitting
+above its own line is still rejected if some larger rank clears its own — because the
+evidence that many tests are small is itself evidence that this one is not a fluke.
+
+That is not a technicality; it is where the extra power comes from. Comparing each $p_{(i)}$
+against $iq/m$ independently and rejecting only those that pass would be a different, weaker
+procedure.
+
+</Callout>
+
+<Figure
+  caption="Figure 1. Twenty p-values against three comparison lines. The solid rising line is Benjamini–Hochberg's iq/m; the dashed rising line is Benjamini–Yekutieli's iq/(H_m·m); the dotted horizontal line is Bonferroni's q/m. Filled points are the seven BH rejects, hollow-grey the thirteen it does not. The ringed point at rank 4 has p = 0.0115 against its own line of 0.0100 — it fails, and is rejected anyway, because rank 7 passes at 0.0175. Bonferroni rejects three and Benjamini–Yekutieli two, which is not a misprint: the BY and Bonferroni lines cross at exactly rank H_m = 3.5977, so BY is stricter below that rank and only becomes more permissive above it."
+  alt="A scatter of ten points rising left to right against three lines: a solid line rising steeply from the origin, a dashed line rising shallowly, and a dotted horizontal line near the bottom. The first seven points are filled and lie near or below the solid line; the remaining points are grey and lie above it. One point at rank four is circled and sits just above the solid line."
+>
+
+<svg viewBox="0 0 772 386" width="772" height="386" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="104.0" y1="200.4" x2="424.0" y2="200.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="204.4" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.01</text><line x1="104.0" y1="164.7" x2="424.0" y2="164.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="168.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.02</text><line x1="104.0" y1="129.1" x2="424.0" y2="129.1" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="133.1" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.03</text><line x1="104.0" y1="93.5" x2="424.0" y2="93.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="97.5" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.04</text><line x1="104.0" y1="57.8" x2="424.0" y2="57.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="61.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.05</text><line x1="120.0" y1="236.0" x2="120.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="120.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="152.0" y1="236.0" x2="152.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="152.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="184.0" y1="236.0" x2="184.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="184.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">3</text><line x1="216.0" y1="236.0" x2="216.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="216.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">4</text><line x1="248.0" y1="236.0" x2="248.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="248.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="280.0" y1="236.0" x2="280.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="280.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">6</text><line x1="312.0" y1="236.0" x2="312.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="312.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">7</text><line x1="344.0" y1="236.0" x2="344.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="344.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">8</text><line x1="376.0" y1="236.0" x2="376.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="376.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">9</text><line x1="408.0" y1="236.0" x2="408.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="408.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="104.0" y1="227.1" x2="424.0" y2="227.1" stroke="currentColor" stroke-width="2.0" opacity=".85" stroke-dasharray="2 3"/><path d="M120.0,233.5 L152.0,231.0 L184.0,228.6 L216.0,226.1 L248.0,223.6 L280.0,221.1 L312.0,218.7 L344.0,216.2 L376.0,213.7 L408.0,211.2" fill="none" stroke="currentColor" stroke-width="2.0" stroke-dasharray="6 3" opacity=".6"/><path d="M120.0,227.1 L152.0,218.2 L184.0,209.3 L216.0,200.4 L248.0,191.5 L280.0,182.5 L312.0,173.6 L344.0,164.7 L376.0,155.8 L408.0,146.9" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="120.0" cy="235.6" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="152.0" cy="233.1" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="184.0" cy="228.5" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="216.0" cy="195.0" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="248.0" cy="193.2" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="280.0" cy="189.7" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="312.0" cy="186.1" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="344.0" cy="132.7" r="4.0" fill="currentColor" opacity=".45"/><circle cx="376.0" cy="107.7" r="4.0" fill="currentColor" opacity=".45"/><circle cx="408.0" cy="75.6" r="4.0" fill="currentColor" opacity=".45"/><circle cx="216.0" cy="195.0" r="7.2" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.8"/><line x1="171.2" y1="113.1" x2="208.0" y2="184.3" stroke="currentColor" stroke-width="1.2" opacity=".55"/><text x="112.0" y="86.3" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">above its own line,</text><text x="112.0" y="98.8" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">rejected anyway</text><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Rank i of the sorted p-value</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">p-value</text><line x1="454.0" y1="36.0" x2="478.0" y2="36.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><text x="486.0" y="40.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">BH:  i q / m</text><line x1="454.0" y1="53.0" x2="478.0" y2="53.0" stroke="currentColor" stroke-width="2.2" opacity=".6" stroke-dasharray="6 3"/><text x="486.0" y="57.0" font-size="10" fill="currentColor" opacity=".6">BY:  i q / (H<tspan font-size="8.5" dy="3">m</tspan><tspan dy="-3"></tspan> m)</text><line x1="454.0" y1="70.0" x2="478.0" y2="70.0" stroke="currentColor" stroke-width="2.2" opacity=".85" stroke-dasharray="2 3"/><text x="486.0" y="74.0" font-size="10" fill="currentColor" opacity=".85">Bonferroni:  q / m</text><text x="454.0" y="116.0" font-size="11" fill="currentColor" font-weight="700">Three lines, three counts.</text><text x="454.0" y="138.0" font-size="10" fill="currentColor" opacity=".8">Twenty tests. BH rejects seven,</text><text x="454.0" y="151.0" font-size="10" fill="currentColor" opacity=".8">Bonferroni three, and BY two.</text><text x="454.0" y="164.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="177.0" font-size="10" fill="currentColor" opacity=".8">BY is not uniformly weaker than</text><text x="454.0" y="190.0" font-size="10" fill="currentColor" opacity=".8">Bonferroni - the two lines cross</text><text x="454.0" y="203.0" font-size="10" fill="currentColor" opacity=".8">at exactly rank H<tspan font-size="8.5" dy="3">m</tspan><tspan dy="-3"></tspan> = 3.5977, so</text><text x="454.0" y="216.0" font-size="10" fill="currentColor" opacity=".8">BY is stricter below that rank</text><text x="454.0" y="229.0" font-size="10" fill="currentColor" opacity=".8">and more permissive above it.</text><text x="454.0" y="242.0" font-size="10" fill="currentColor" opacity=".8">Here only three p-values are</text><text x="454.0" y="255.0" font-size="10" fill="currentColor" opacity=".8">small enough to matter and all</text><text x="454.0" y="268.0" font-size="10" fill="currentColor" opacity=".8">sit below the crossing, so BY</text><text x="454.0" y="281.0" font-size="10" fill="currentColor" opacity=".8">loses.</text><text x="454.0" y="294.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="307.0" font-size="10" fill="currentColor" opacity=".8">The ringed point is what makes</text><text x="454.0" y="320.0" font-size="10" fill="currentColor" opacity=".8">BH a step-up procedure: it</text><text x="454.0" y="333.0" font-size="10" fill="currentColor" opacity=".8">exceeds its own line at 0.0100</text><text x="454.0" y="346.0" font-size="10" fill="currentColor" opacity=".8">and is rejected because rank 7</text><text x="454.0" y="359.0" font-size="10" fill="currentColor" opacity=".8">passes at 0.0175.</text></svg>
+
+</Figure>
+
+<WorkedExample
+  title="Twenty tests, three procedures, three answers"
+  given={[
+    { label: 'Tests m', value: '20' },
+    { label: 'Level', value: 'q = α = 0.05' },
+    { label: 'Smallest p-values', value: '0.0001, 0.0008, 0.0021, 0.0115, 0.0120, 0.0130, 0.0140, …' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**Benjamini–Hochberg.** The line at rank $i$ is $i \times 0.05/20 = 0.0025i$. Rank 1 passes
+(0.0001 against 0.0025), rank 2 passes, rank 3 passes, **rank 4 fails** (0.0115 against
+0.0100), rank 5 passes (0.0120 against 0.0125), rank 6 passes, rank 7 passes (0.0140 against
+0.0175), rank 8 fails and nothing beyond it passes. The largest passing rank is 7, so
+**7 rejections** at an effective threshold of 0.0140 — including the rank-4 test that failed
+its own comparison.
+
+**Bonferroni.** Every test against $0.05/20 = 0.0025$: three p-values clear it, so
+**3 rejections**.
+
+**Benjamini–Yekutieli.** The same staircase divided by $H_{20} = 3.5977$, so the line at rank
+$i$ is $0.000695i$. Rank 1 passes, rank 2 passes, rank 3 fails (0.0021 against 0.002085), and
+nothing later recovers it: **2 rejections**, fewer than Bonferroni.
+
+**Uncorrected.** Ten p-values fall below 0.05, so the naive count is **10** — of which, if the
+nulls were all true, one would be expected by chance at this many tests.
+
+</WorkedExample>
+
+## What BH actually controls
+
+Here is the property that matters, and that is most often misquoted. Run at nominal $q$, the
+Benjamini–Hochberg procedure controls the false discovery rate not at $q$ but at
+
+$$
+\mathrm{FDR}_{\mathrm{BH}} = \pi_0\, q
+$$
+
+where $\pi_0 = m_0/m$ is the proportion of hypotheses for which the null is true. The
+procedure spends only the null share of the budget it was handed.
+
+Simulation with 2,000 independent tests and 3,000 replicates reproduces it: at $\pi_0 = 0.95$
+the realised rate is 0.0474 against a predicted 0.0475; at 0.90, 0.0449 against 0.0450; at
+0.75, 0.0376 against 0.0375; at 0.50, 0.0251 against 0.0250; at 0.25, 0.0125 against 0.0125.
+Every one within a standard error.
+
+<Callout variant="assumption" title="When the conservatism matters, and when it does not">
+
+In a genome-wide scan almost everything is null — $\pi_0$ is 0.999 or better — so $\pi_0 q$
+and $q$ are the same number and nothing is lost.
+
+In a *cis*-eQTL scan a large fraction of genes have a real signal, and $\pi_0$ near 0.5 means
+BH is controlling at half the rate asked for. That is where recovering the difference is worth
+something, and it is why q-value machinery is standard in molecular-QTL work and essentially
+absent from GWAS.
+
+</Callout>
+
+## Recovering the unspent budget, and what it is worth
+
+If $\pi_0$ were known, running BH at $q/\pi_0$ would control at exactly $q$.
+<Citation id="storey2003qvalue" /> estimates it from the shape of the p-value histogram: real
+effects pile up near zero, so above some $\lambda$ the histogram is essentially all null and
+flat. Count what lands there and scale by the width:
+
+$$
+\hat{\pi}_0 = \frac{\#\{p_i > \lambda\}}{m(1-\lambda)}
+$$
+
+On the twenty p-values above, four exceed 0.5, giving $\hat{\pi}_0 = 4/10 = 0.40$. That
+estimate rests on four observations and should not be trusted — Storey's method is a large-$m$
+method, and at $m = 20$ the histogram has no shape to read.
+
+<Figure
+  caption="Figure 2. What Storey's correction is worth, against the per-test power of the true effects. Twenty thousand tests, half of them real, so π₀ = 0.5 and the corrected procedure runs at q/π₀ = 0.10 against BH's 0.05 — twice as permissive at every point on the curve. The discovery count does not double anywhere: it rises 51% when per-test power is 0.222 and 5% when it is 0.960. What decides the gain is the slope of the sorted p-value curve where it meets the staircase, and that slope is shallow when the effects are weak."
+  alt="A curve falling from left to right, from about 1.51 at a power of 0.22 down to about 1.05 at a power of 0.96, with five marked points. The vertical axis runs from 1.0 to 1.6 and is labelled as discoveries relative to Benjamini-Hochberg."
+>
+
+<svg viewBox="0 0 772 372" width="772" height="372" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.0</text><line x1="104.0" y1="203.3" x2="424.0" y2="203.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="207.3" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.1</text><line x1="104.0" y1="170.7" x2="424.0" y2="170.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="174.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.2</text><line x1="104.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="142.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.3</text><line x1="104.0" y1="105.3" x2="424.0" y2="105.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="109.3" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.4</text><line x1="104.0" y1="72.7" x2="424.0" y2="72.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="76.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.5</text><line x1="104.0" y1="40.0" x2="424.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.6</text><line x1="122.8" y1="236.0" x2="122.8" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="122.8" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="198.1" y1="236.0" x2="198.1" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="198.1" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="273.4" y1="236.0" x2="273.4" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="273.4" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.6</text><line x1="348.7" y1="236.0" x2="348.7" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="348.7" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.8</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.0</text><path d="M131.1,69.4 L238.4,143.2 L327.6,186.3 L382.6,209.5 L408.9,220.3" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="131.1" cy="69.4" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="238.4" cy="143.2" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="327.6" cy="186.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="382.6" cy="209.5" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="408.9" cy="220.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="141.1" y="73.4" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">1.51×</text><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Per-test power of the true effects</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Discoveries with Storey, relative to BH</text><text x="454.0" y="44.0" font-size="11" fill="currentColor" font-weight="700">The threshold doubles</text><text x="454.0" y="58.0" font-size="11" fill="currentColor" font-weight="700">every time. The count</text><text x="454.0" y="72.0" font-size="11" fill="currentColor" font-weight="700">does not.</text><text x="454.0" y="96.0" font-size="10" fill="currentColor" opacity=".8">Half of these 20,000 tests are</text><text x="454.0" y="109.0" font-size="10" fill="currentColor" opacity=".8">real, so pi<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan> = 0.5 and Storey</text><text x="454.0" y="122.0" font-size="10" fill="currentColor" opacity=".8">runs BH at q/pi<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan> = 0.10 rather</text><text x="454.0" y="135.0" font-size="10" fill="currentColor" opacity=".8">than 0.05 - twice as permissive</text><text x="454.0" y="148.0" font-size="10" fill="currentColor" opacity=".8">at every point on this curve.</text><text x="454.0" y="161.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="174.0" font-size="10" fill="currentColor" opacity=".8">The extra discoveries range from</text><text x="454.0" y="187.0" font-size="10" fill="currentColor" opacity=".8">51% to 5%. What decides it is</text><text x="454.0" y="200.0" font-size="10" fill="currentColor" opacity=".8">the slope of the sorted p-value</text><text x="454.0" y="213.0" font-size="10" fill="currentColor" opacity=".8">curve where it meets the</text><text x="454.0" y="226.0" font-size="10" fill="currentColor" opacity=".8">staircase: shallow when the</text><text x="454.0" y="239.0" font-size="10" fill="currentColor" opacity=".8">effects are weak, steep when</text><text x="454.0" y="252.0" font-size="10" fill="currentColor" opacity=".8">they are strong.</text><text x="454.0" y="265.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="278.0" font-size="10" fill="currentColor" opacity=".8">So the correction pays most</text><text x="454.0" y="291.0" font-size="10" fill="currentColor" opacity=".8">exactly where power is worst,</text><text x="454.0" y="304.0" font-size="10" fill="currentColor" opacity=".8">which is the opposite of the</text><text x="454.0" y="317.0" font-size="10" fill="currentColor" opacity=".8">usual intuition about a</text><text x="454.0" y="330.0" font-size="10" fill="currentColor" opacity=".8">refinement being a luxury.</text></svg>
+
+</Figure>
+
+<Widget
+  kind="fdr-staircase"
+  title="Move the level and the null fraction, and count the rejections"
+  caption="The sorted p-values against the three comparison lines, with the counts each procedure returns. The BH line pivots with q, the BY line trails it by the harmonic number, and Bonferroni stays flat — which is what makes the crossing at rank H_m visible as you move the level."
+  alt="An interactive panel with sliders for the number of tests, the level q and the null proportion. It draws sorted p-values against the Benjamini-Hochberg, Benjamini-Yekutieli and Bonferroni comparison lines, and reports how many hypotheses each procedure rejects together with the realised false discovery rate."
+/>
+
+<WorkedExample
+  title="Twice the threshold, a twentieth more discoveries"
+  given={[
+    { label: 'Tests m', value: '20,000' },
+    { label: 'Null proportion π₀', value: '0.500' },
+    { label: 'Level q', value: '0.05' },
+    { label: 'Alternatives', value: 'z ~ N(μ, 1)' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+Because $\pi_0 = 0.5$, the corrected procedure runs BH at $q/\hat{\pi}_0 = 0.10$ — exactly
+twice as permissive, at every rank, in every row below. The discovery counts, averaged over
+200 replicates:
+
+| Alternative mean *z* | Per-test power | BH finds | Storey finds | Gain |
+| --- | --- | --- | --- | --- |
+| 2.0 | 0.222 | 2,281 | 3,444 | 1.510 |
+| 2.5 | 0.507 | 5,197 | 6,673 | 1.284 |
+| 3.0 | 0.744 | 7,635 | 8,792 | 1.152 |
+| 3.5 | 0.890 | 9,125 | 9,865 | 1.081 |
+| 4.0 | 0.960 | 9,847 | 10,314 | 1.048 |
+
+**Doubling the threshold does not double the discoveries anywhere.** The gain runs from 51%
+down to 5%, and the reason is geometric: the procedure stops where the sorted p-value curve
+crosses the staircase, and moving the staircase up buys many extra rejections only if the
+p-value curve is shallow there. Strong effects make that curve steep — most of the real
+p-values are far below the crossing and already rejected — so raising the line catches almost
+nothing new.
+
+The practical reading is the opposite of the usual intuition about refinements. **Storey's
+correction pays most exactly where power is worst**, which is where a study can least afford
+to leave discoveries on the table.
+
+</WorkedExample>
+
+## The price of dependence
+
+BH's guarantee as proved assumes independent tests. Real ones are not: variants in LD produce
+correlated statistics, and so do genes in a co-expression module.
+
+<Citation id="benjamini2001dependency" /> settled this in two parts. Under **positive
+regression dependence** — which is what LD produces, since correlated tests are pushed in the
+same direction — plain BH still controls the FDR at $\pi_0 q$, unmodified. Under *arbitrary*
+dependence it does not, and the fix is to run at $q/H_m$ with $H_m = \sum_{i=1}^{m} 1/i$.
+
+$H_m$ grows as $\ln m + \gamma$, so the price is logarithmic rather than linear: 3.5977 at
+twenty tests, 10.4807 at twenty thousand, **14.3927 at a million**. Against Bonferroni's
+factor of $m$, a factor of 14 is cheap.
+
+<Callout variant="warning" title="BY is not uniformly weaker than Bonferroni">
+
+The BY line at rank $i$ is $iq/(H_m m)$ and Bonferroni's is $\alpha/m$. Setting them equal
+gives $i = H_m$ exactly. So for the $H_m$ smallest p-values BY is **stricter** than
+Bonferroni, and only above that rank does it become more permissive.
+
+At $m = 20$ that crossing is at rank 3.5977, which is why the worked example above has BY
+rejecting two where Bonferroni rejects three: only three p-values were small enough to matter
+and all of them sat below the crossing. BY wins when there are many signals, and loses when
+there are few — which is the same trade FDR control always makes, sharpened by the harmonic
+penalty.
+
+</Callout>
+
+For completeness, the family-wise side has an exact counterpart to Bonferroni's approximation.
+<Citation id="sidak1967" /> gives $1-(1-\alpha)^{1/m}$, which is what
+$\Pr(\text{no false positive}) = (1-\alpha_{\text{per test}})^m$ inverts to under
+independence. It is uniformly less strict than $\alpha/m$, by a factor that converges to
+$-\ln(1-\alpha)/\alpha = 1.025866$ at $\alpha = 0.05$ and is essentially independent of $m$:
+at a million tests Šidák gives $5.129\times10^{-8}$ against Bonferroni's $5\times10^{-8}$.
+Two and a half percent on a threshold changes nothing anyone will notice — the conservatism
+people actually feel in Bonferroni comes from treating correlated tests as independent, which
+is the $M_{\mathrm{eff}}$ question of lesson 1
+<Citation id="peer2008threshold" />
+
+<Citation id="dudbridge2008threshold" />.
+
+## What a false discovery rate does not tell you
+
+A false discovery rate is a property of a **set**. It says that among everything you rejected,
+such-and-such a fraction is expected to be wrong. It says almost nothing about any particular
+member of that set, and the difference is large.
+
+Take 20,000 tests with $\pi_0 = 0.5$ and alternatives at $z \sim N(3,1)$, run BH at
+$q = 0.05$. Over 300 replicates the realised FDR is 0.0251, as $\pi_0 q$ predicts. But among
+the discoveries in the **last tenth before the cut** — the ones that only just made it —
+**10.62% are false**, 4.22 times the set-level rate.
+
+<Callout variant="warning" title="The misreading this produces">
+
+"This gene passed at q &lt; 0.05, so there is a 5% chance it is a false positive" does not
+follow, and is wrong in the direction that matters: for a marginal discovery the chance is
+several times higher. The quantity that *does* answer the per-test question is the local false
+discovery rate <Citation id="efron2004largescale" />, the posterior probability of the null
+given that test's own statistic — a different object, computed from the mixture density rather
+than from a tail area.
+
+The practical consequence is that a ranked list should be read as a ranked list. The top of a
+q &lt; 0.05 list is far more trustworthy than the bottom of it, and the single summary number
+attached to the whole list conceals that entirely.
+
+</Callout>
+
+<Exercise n={1} title="Walking the staircase" difficulty="warm-up">
+
+Ten tests give p-values 0.0004, 0.0090, 0.0180, 0.0220, 0.0300, 0.0400, 0.0600, 0.1200,
+0.4000, 0.7000. At $q = 0.05$: (a) how many does BH reject? (b) how many does Bonferroni?
+(c) which p-values fail their own line but are rejected anyway?
+
+<div slot="solution">
+
+**(a)** The line at rank $i$ is $0.005i$. Rank 1: 0.0004 ≤ 0.005 ✓. Rank 2: 0.0090 ≤ 0.010 ✓.
+Rank 3: 0.0180 > 0.015 ✗. Rank 4: 0.0220 > 0.020 ✗. Rank 5: 0.0300 > 0.025 ✗. Rank 6:
+0.0400 > 0.030 ✗. Rank 7: 0.0600 > 0.035 ✗, and the rest are worse. The largest passing rank
+is 2, so **2 rejections**.
+
+**(b)** $0.05/10 = 0.005$; only 0.0004 clears it, so **1 rejection**.
+
+**(c)** None — here the largest passing rank is 2 and both of the rejected p-values pass their
+own lines. The step-up only matters when a later rank rescues an earlier one, which needs a
+run of small p-values rather than one very small one. This dataset has a single strong signal
+and a long tail, which is the shape where BH gains least over Bonferroni.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Which rate for which study" difficulty="core">
+
+For each, say which error rate is appropriate and why: (a) a GWAS reporting loci that will
+each receive a functional follow-up study; (b) a differential-expression analysis whose output
+is a gene list fed to pathway enrichment; (c) a screen returning a single candidate drug
+target for a five-year programme.
+
+<div slot="solution">
+
+**(a) Family-wise.** Each reported locus commissions expensive work, so the cost of one false
+positive is measured in years. It is also the case that $\pi_0$ is very close to 1 here, so
+FDR control at $q$ and at $\pi_0 q$ are the same thing and the choice costs nothing in
+conservatism terms — the real difference is that FWER at 0.05 across a million tests is a far
+stricter bar than FDR at 0.05.
+
+**(b) False discovery.** The list is an input to an aggregate procedure that is itself robust
+to a minority of wrong entries; enrichment testing over a list that is 95% correct gives
+essentially the right answer. Insisting on FWER here would shrink the list to a handful of
+genes and destroy the enrichment analysis's power. This is also the setting where $\pi_0$ is
+far from 1, so Storey's correction is worth applying.
+
+**(c) Family-wise, and arguably stricter.** With one candidate going forward, the false
+discovery rate of the *set* is irrelevant — what matters is the probability that this
+particular candidate is wrong, which is the local false discovery rate, not the tail one. A
+q-value of 0.05 on a list whose marginal members are 10% false is not the reassurance it looks
+like.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="The crossing" difficulty="core">
+
+At $m = 1{,}000{,}000$ and $q = 0.05$: (a) what is the Benjamini–Yekutieli level $q/H_m$?
+(b) at what rank does the BY line cross Bonferroni's? (c) a scan yields 400 p-values below
+$10^{-7}$. Which procedure rejects more, and why?
+
+<div slot="solution">
+
+**(a)** $H_{10^6} = 14.3927$, so $q/H_m = 0.05/14.3927 = 3.474\times10^{-3}$.
+
+**(b)** At rank $i = H_m = 14.3927$ — call it the fifteenth smallest p-value. Below that rank
+BY is stricter than Bonferroni; above it, more permissive.
+
+**(c)** BY, by a wide margin. Bonferroni's cutoff is $5\times10^{-8}$, so of the 400 p-values
+below $10^{-7}$ only those also below $5\times10^{-8}$ are rejected. BY's line at rank 400 is
+$400 \times 3.474\times10^{-3}/10^6 = 1.39\times10^{-6}$, comfortably above $10^{-7}$, so all
+400 clear it provided the staircase is satisfied at that rank. The crossing at rank 14 is far
+behind; with 400 signals present, the procedure that scales its line with the number of
+signals wins easily.
+
+</div>
+
+</Exercise>
+
+<Exercise n={4} title="Reading a q-value correctly" difficulty="stretch">
+
+A collaborator reports 1,000 genes at $q < 0.05$ and says "so about 50 of these are false
+positives, and any one of them has a 5% chance of being wrong." (a) Which half of that is
+right? (b) Given that in a comparable simulation the last tenth of discoveries ran 4.22 times
+the set-level false rate, roughly how many of the bottom 100 genes would you expect to be
+false? (c) What would you ask for instead?
+
+<div slot="solution">
+
+**(a)** The first half is right and the second is wrong. The expected number of false
+discoveries in the set really is about $0.05 \times 1000 = 50$ — that is what controlling the
+rate at 0.05 means. The per-gene statement does not follow, because the 50 are not spread
+evenly through the list.
+
+**(b)** If the bottom tenth runs at 4.22 times the set rate, that is roughly
+$0.05 \times 4.22 = 0.211$, so about 21 of the bottom 100 genes — nearly half the total false
+discoveries concentrated in a tenth of the list. The top of the list is correspondingly
+cleaner than 5%.
+
+**(c)** A local false discovery rate per gene, or at minimum the ranked list with its
+p-values, so that the reader can see where in the list a gene sits. "Made the cut" is not a
+statement about a gene; where it sits relative to the cut is.
+
+</div>
+
+</Exercise>
+
+## Summary
+
+- **Two rates, and FWER ≥ FDR always**, with equality under the global null. Controlling the
+  family-wise rate controls the false discovery rate automatically; the converse fails, and
+  that gap is the power FDR control buys.
+- **BH is a step-up procedure**: take the largest rank whose p-value clears $iq/m$ and reject
+  everything below it. A p-value above its own line is still rejected — that is where the
+  power comes from, not a technicality.
+- **BH controls at $\pi_0 q$, not $q$.** Simulation reproduces it at five null fractions to
+  within a standard error. When almost everything is null the distinction vanishes; at
+  $\pi_0 = 0.5$ the procedure is controlling at half the rate asked for.
+- **Storey's correction recovers the remainder, and pays most where power is worst** — at
+  $\pi_0 = 0.5$ the threshold doubles everywhere, but the discovery count rises 51% at a
+  per-test power of 0.222 and 5% at 0.960.
+- **Arbitrary dependence costs a factor of $H_m$** — 14.3927 at a million tests — and
+  Benjamini–Yekutieli crosses Bonferroni at exactly rank $H_m$, so it is stricter below that
+  rank. Under the positive dependence that LD produces, plain BH needs no correction at all.
+- **A false discovery rate describes a set.** At a set-level 2.51%, the discoveries nearest
+  the cut ran 10.62% false — 4.22 times higher. The per-test question is answered by the local
+  false discovery rate, which is a different object.
