@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  velocityDirectionFlipped,
+  spliceVelocity,
   sameOrdering,
   steadyStateCellShares,
   traversalTimeShares,
@@ -8031,6 +8033,100 @@ describe('sc-trajectories — the axis is arc length, the cells are the clock', 
       expect(mdx).toContain('synchronised');
       // a pulse means lambda = 0 afterwards, so the flux relation has nothing to balance
       expect(mdx).toContain('\\lambda = 0');
+    });
+  });
+});
+
+
+describe('sc-rna-velocity — the arrow is one ratio against one fitted number', () => {
+  const mdx = lesson('sc-rna-velocity');
+
+  describe('the sign reduces to a ratio comparison', () => {
+    it('v > 0 exactly when u/s exceeds gamma, at any scale of the counts', () => {
+      for (const scale of [0.1, 1, 50]) {
+        expect(spliceVelocity(10 * scale, 4 * scale, 2)).toBeGreaterThan(0);
+        expect(spliceVelocity(10 * scale, 6 * scale, 2)).toBeLessThan(0);
+      }
+      expect(spliceVelocity(4, 2, 2)).toBe(0);
+      expect(mdx).toContain('v = u - \\gamma s');
+    });
+  });
+
+  describe('worked example — what a two-fold error does', () => {
+    it('step 2: the band is 1.386294 standard deviations wide and holds 41.72%', () => {
+      expect(Math.log(2)).toBeCloseTo(0.693147, 6);
+      expect(Math.log(2) / 0.5).toBeCloseTo(1.386294, 6);
+      expect(normalCdf(1.386294)).toBeCloseTo(0.917171, 6);
+      expect(velocityDirectionFlipped(0.5, 2)).toBeCloseTo(0.417171, 5);
+      expect((100 * velocityDirectionFlipped(0.5, 2)).toFixed(2)).toBe('41.72');
+      for (const v of ['0.693147', '1.386294', '0.917171', '0.417171', '41.72%'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: all the reversed cells move the same way', () => {
+      // the band is one-sided: everything between gamma and k*gamma was above and is now below
+      expect(velocityDirectionFlipped(0.5, 2)).toBeLessThanOrEqual(0.5);
+      expect(mdx).toContain('coherently wrong');
+    });
+
+    it('step 4: tighter genes lose more, which is the counterintuitive part', () => {
+      expect((100 * velocityDirectionFlipped(0.25, 2)).toFixed(2)).toBe('49.72');
+      expect((100 * velocityDirectionFlipped(1.0, 2)).toFixed(2)).toBe('25.59');
+      expect(velocityDirectionFlipped(0.25, 2)).toBeGreaterThan(velocityDirectionFlipped(1.0, 2));
+      // monotone in the spread, at a fixed error
+      let previous = 1;
+      for (const sd of [0.25, 0.5, 0.75, 1.0]) {
+        const f = velocityDirectionFlipped(sd, 2);
+        expect(f).toBeLessThan(previous);
+        previous = f;
+      }
+      for (const v of ['49.72%', '25.59%']) expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — every value it draws', () => {
+    it('the four spreads and the marked reading', () => {
+      expect(velocityDirectionFlipped(0.25, 3)).toBeGreaterThan(0.4999);
+      for (const l of ['log sd 0.25', 'log sd 0.50', 'log sd 0.75', 'log sd 1.00',
+                       '41.7% of arrows reverse', 'half the cells'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+
+    it('the 50% ceiling in the caption is real', () => {
+      for (const k of [4, 100, 1e9]) expect(velocityDirectionFlipped(0.5, k)).toBeLessThanOrEqual(0.5);
+      expect(mdx).toContain('maximum possible');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — 17.23% at a 25% error and 29.13% at 50%', () => {
+      expect(Math.log(1.25)).toBeCloseTo(0.223144, 6);
+      expect(Math.log(1.25) / 0.5).toBeCloseTo(0.446287, 6);
+      expect(velocityDirectionFlipped(0.5, 1.25)).toBeCloseTo(0.1723, 4);
+      expect((100 * velocityDirectionFlipped(0.5, 1.25)).toFixed(2)).toBe('17.23');
+      expect(mdx).toContain('0.1723');
+      expect(Math.log(1.5) / 0.5).toBeCloseTo(0.810930, 6);
+      expect(velocityDirectionFlipped(0.5, 1.5)).toBeCloseTo(0.2913, 4);
+      expect((100 * velocityDirectionFlipped(0.5, 1.5)).toFixed(2)).toBe('29.13');
+      expect(mdx).toContain('0.2913');
+      // saturating: doubling the error from 1.5x to 3x adds less than the first 1.5x
+      const a = velocityDirectionFlipped(0.5, 1.5);
+      const b = velocityDirectionFlipped(0.5, 3);
+      expect(b - a).toBeLessThan(a);
+      for (const v of ['0.223144', '0.446287', '17.23%', '0.810930', '29.13%'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('2 — the tight gene looks better and loses nearly twice as many arrows', () => {
+      const tight = velocityDirectionFlipped(0.25, 2);
+      const loose = velocityDirectionFlipped(1.0, 2);
+      expect(tight / loose).toBeCloseTo(1.943, 3);
+      expect(mdx).toContain('least trustworthy');
+    });
+
+    it('3 — agreement across methods does not address a shared assumption', () => {
+      expect(mdx).toContain('shared modelling assumption');
+      expect(mdx).toContain('Metabolic labelling');
     });
   });
 });

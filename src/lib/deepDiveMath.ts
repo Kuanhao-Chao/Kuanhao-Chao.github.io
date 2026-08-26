@@ -1117,6 +1117,36 @@ export function sameOrdering(a: number[], b: number[]): boolean {
   return ra.every((x, i) => x === rb[i]);
 }
 
+/**
+ * Velocity of the spliced count under the standard two-state model, v = u − γs.
+ *
+ * With the splicing rate scaled to 1, a cell is inferred to be *inducing* the gene when
+ * v > 0 — that is, whenever its unspliced-to-spliced ratio exceeds γ. So the arrow's
+ * direction is a comparison against γ, and nothing else.
+ */
+export function spliceVelocity(unspliced: number, spliced: number, gamma: number): number {
+  if (gamma <= 0) throw new RangeError(`spliceVelocity needs gamma > 0, got ${gamma}`);
+  return unspliced - gamma * spliced;
+}
+
+/**
+ * Fraction of cells whose inferred velocity direction reverses when γ is misestimated.
+ *
+ * Direction is decided by whether u/s exceeds γ, so estimating kγ instead flips every cell
+ * whose ratio lies between the two. Taking the ratios as lognormal about the true γ with
+ * log-standard-deviation σ, that fraction is |Φ(ln k / σ) − 1/2|.
+ *
+ * The consequence that is easy to get backwards: a *tighter* gene is more vulnerable, not
+ * less. When the ratios are tightly clustered they sit almost entirely on one side of a
+ * shifted threshold, so a modest error in γ can invert nearly all of them at once — and the
+ * error is systematic, sending every affected cell the same way.
+ */
+export function velocityDirectionFlipped(logSd: number, gammaFactor: number): number {
+  if (logSd <= 0) throw new RangeError(`velocityDirectionFlipped needs logSd > 0, got ${logSd}`);
+  if (gammaFactor <= 0) throw new RangeError(`velocityDirectionFlipped needs gammaFactor > 0, got ${gammaFactor}`);
+  return Math.abs(normalCdf(Math.log(gammaFactor) / logSd) - 0.5);
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**

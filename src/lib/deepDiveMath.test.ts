@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  velocityDirectionFlipped,
+  spliceVelocity,
   sameOrdering,
   steadyStateCellShares,
   traversalTimeShares,
@@ -3131,5 +3133,51 @@ describe('trajectories — what pseudotime measures and what it does not', () =>
     // a fold is not monotone, and the ordering does change
     expect(sameOrdering(pt, pt.map((x) => (x - 0.5) ** 2))).toBe(false);
     expect(() => sameOrdering([1, 2], [1])).toThrow(RangeError);
+  });
+});
+
+
+describe('RNA velocity — the direction is a comparison against gamma', () => {
+  it('spliceVelocity is positive exactly when u/s exceeds gamma', () => {
+    expect(spliceVelocity(10, 4, 2)).toBeCloseTo(2, 12);
+    expect(spliceVelocity(10, 6, 2)).toBeCloseTo(-2, 12);
+    // the sign depends only on the ratio, not on the scale of the counts
+    for (const scale of [0.1, 1, 100])
+      expect(Math.sign(spliceVelocity(10 * scale, 4 * scale, 2))).toBe(1);
+    expect(spliceVelocity(4, 2, 2)).toBe(0);
+    expect(() => spliceVelocity(1, 1, 0)).toThrow(RangeError);
+  });
+
+  it('a correctly estimated gamma flips nobody', () => {
+    // normalCdf is a rational approximation, so Phi(0) is 0.5 only to about 1e-9
+    for (const sd of [0.25, 0.5, 1]) expect(velocityDirectionFlipped(sd, 1)).toBeCloseTo(0, 8);
+  });
+
+  it('reproduces the fractions the lesson publishes', () => {
+    expect(velocityDirectionFlipped(0.5, 2)).toBeCloseTo(0.4172, 4);
+    expect(velocityDirectionFlipped(0.5, 1.5)).toBeCloseTo(0.2913, 4);
+    expect(velocityDirectionFlipped(0.5, 1.25)).toBeCloseTo(0.1723, 4);
+    expect(velocityDirectionFlipped(0.25, 2)).toBeCloseTo(0.4972, 4);
+    expect(velocityDirectionFlipped(1.0, 2)).toBeCloseTo(0.2559, 4);
+  });
+
+  it('tighter genes are more vulnerable, not less', () => {
+    // the same error in gamma inverts a larger share when the ratios are tightly clustered
+    let previous = 0;
+    for (const sd of [1.0, 0.75, 0.5, 0.25]) {
+      const flipped = velocityDirectionFlipped(sd, 2);
+      expect(flipped).toBeGreaterThan(previous);
+      previous = flipped;
+    }
+    // at a tight spread a three-fold error inverts essentially everything
+    expect(velocityDirectionFlipped(0.25, 3)).toBeGreaterThan(0.4999);
+  });
+
+  it('over- and under-estimating gamma flip the same share, opposite ways', () => {
+    for (const [sd, k] of [[0.5, 2], [0.75, 1.5], [1, 3]] as const)
+      expect(velocityDirectionFlipped(sd, k)).toBeCloseTo(velocityDirectionFlipped(sd, 1 / k), 12);
+    // and the share is bounded by a half: it cannot exceed one side of the distribution
+    for (const k of [2, 10, 1e6]) expect(velocityDirectionFlipped(0.3, k)).toBeLessThanOrEqual(0.5);
+    expect(() => velocityDirectionFlipped(0, 2)).toThrow(RangeError);
   });
 });
