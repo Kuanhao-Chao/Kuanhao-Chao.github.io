@@ -1,0 +1,454 @@
+---
+title: "Detecting Selection: Why a Common Allele Should Be Old, and What It Means When It Is Not"
+shortTitle: Detecting Selection
+description: "Neutrality ties an allele's age to its frequency, and every single-locus test for selection is a way of measuring the gap. The closed form for the age, the haplotype length it implies, the reason that length has no absolute expectation, and the three signatures that read the same mismatch on three different timescales."
+abstract: "A common allele should be an old one. Drift is slow, so getting a new mutation to half the population takes 4N ln 2 generations — 27,725.89 at an effective size of 10,000, about 693,000 years. That single relation, Kimura and Ohta's E[age | p] = −4N·p/(1−p)·ln p, is what every single-locus test for selection is measuring against: a variant that is common and young is a variant something pushed. This lesson derives the relation, checks it against a Wright–Fisher simulation, and follows it into the observable. Because haplotype homozygosity decays as exp(−2dt), an allele's age bounds the length of the haplotype it can still carry, and at p = ½ that bound collapses to exactly 1/(8N) Morgans — the ln 2 cancels — or 1.25 kb at an effective size of 10,000. A variant swept to the same frequency in 500 generations is 55.45 times too young and carries 69.31 kb. The lesson then makes an admission that turns out to be the point: the neutral haplotype length has no clean closed form, because the coalescence time within an allele class depends on the trajectory that got it there, and simulation puts it at a frequency-dependent fraction of 2Np rather than any constant. That is exactly why iHS compares the derived and ancestral haplotypes at one locus instead of measuring either against an absolute expectation."
+date: 2026-08-26
+track: theory
+hub: statistical-genetics
+moduleId: m02-populations
+moduleLabel: Module 2 · Populations & Inheritance
+order: 6
+level: intermediate
+objectives:
+  - "State the expected age of a neutral allele as a function of its frequency, and give the two limits that make it plausible."
+  - "Show that at p = ½ the expected age is exactly 4N ln 2, and that the haplotype bound it implies is exactly 1/(8N) Morgans."
+  - "Convert a genealogy depth into an extended-haplotype-homozygosity half-length, and back."
+  - "Explain why an absolute haplotype length carries no threshold, and why iHS is therefore built as a within-locus contrast."
+  - "Say which of the three classical signatures — frequency spectrum, haplotype length, between-population divergence — is sensitive on which timescale."
+  - "Explain why a polygenic response to selection is invisible to all three."
+prerequisites:
+  - statgen-population-infinitesimal
+relatedLessons:
+  - statgen-population-structure-fst
+  - statgen-linkage-disequilibrium
+keyEquations:
+  - '\mathbb{E}[t \mid p] = -4N\,\frac{p}{1-p}\,\ln p'
+  - '\mathbb{E}[t \mid p = \tfrac{1}{2}] = 4N\ln 2'
+  - '\mathrm{EHH}(d) = e^{-2dt}, \qquad d_{1/2} = \frac{\ln 2}{2t}'
+referenceIds:
+  - kimura1973age
+  - smith1974hitchhiking
+  - tajima1989
+  - sabeti2002ehh
+  - voight2006ihs
+  - sabeti2007xpehh
+  - bersaglieri2004lactase
+  - field2016sds
+  - pritchard2010polygenic
+tags: [selection, selective sweep, allele age, coalescent, extended haplotype homozygosity, iHS, polygenic adaptation]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The previous lesson gave a number for how far apart two populations have drifted. This one
+asks a different question of the same data: not how far apart they are, but whether anything
+*pushed* them.
+
+The difficulty is that selection leaves no direct trace. Nobody observes a selection
+coefficient; what is observed is a pattern of variation, and drift produces patterns too.
+Every test in this lesson works the same way — it finds a quantity that neutrality pins down,
+and asks whether the data respect the pin.
+
+The quantity is **age**. Under neutrality an allele's frequency and its age are not
+independent: drift is slow, so a variant that has reached high frequency has had to spend a
+long time getting there. A variant that is common *and* young is the signature, and every
+method below is a way of noticing one.
+
+<Notation
+  rows={[
+    { symbol: 'p', meaning: 'Frequency of the derived allele', dims: 'fraction' },
+    { symbol: 'N', meaning: 'Diploid effective population size', dims: 'individuals' },
+    { symbol: 't', meaning: 'Time in generations before the present', dims: 'generations' },
+    { symbol: '\\mathbb{E}[t \\mid p]', meaning: 'Expected age of a neutral allele now at frequency p', dims: 'generations' },
+    { symbol: 'd', meaning: 'Genetic distance from the core variant', dims: 'Morgans' },
+    { symbol: '\\mathrm{EHH}(d)', meaning: 'Probability two carrier haplotypes are still identical out to d', dims: 'probability' },
+    { symbol: 'd_{1/2}', meaning: 'Distance at which EHH falls to one half', dims: 'Morgans' },
+    { symbol: 's', meaning: 'Selection coefficient of the favoured allele', dims: 'per generation' },
+  ]}
+/>
+
+## Frequency pins age
+
+<Citation id="kimura1973age" /> solved the diffusion for the age of a neutral allele
+conditional on its present frequency:
+
+$$
+\mathbb{E}[t \mid p] = -4N\,\frac{p}{1-p}\,\ln p
+$$
+
+The two limits are the sanity check. As $p \to 1$ the expression tends to $4N$, the coalescent
+depth of the whole population — an allele on its way to fixation is as old as the genealogy
+gets. As $p \to 0$ it tends to zero, because a rare allele is a young one. In between it rises
+smoothly, and at $p = \tfrac{1}{2}$ it takes the clean value
+
+$$
+\mathbb{E}\!\left[t \mid p = \tfrac{1}{2}\right] = 4N\ln 2
+$$
+
+<Callout variant="intuition" title="Why drift is so slow that age becomes a measurement">
+
+Drift moves an allele's frequency by about $\sqrt{p(1-p)/2N}$ per generation. At $N = 10{,}000$
+and $p = \tfrac{1}{2}$ that is a step of roughly 0.0035% per generation — a random walk with a
+very short stride. Covering half the frequency range by accumulating steps that small takes
+tens of thousands of generations, and the exact answer is $4N\ln 2 = 27{,}725.89$ of them,
+about 693,000 years at 25 years per generation.
+
+That slowness is what makes the test possible. If drift were fast, every frequency would be
+compatible with every age and there would be nothing to check.
+
+</Callout>
+
+<Figure
+  caption="Figure 1. Expected age of a neutral allele against its frequency, in units of 4N generations so the curve holds for any effective size. The line is Kimura and Ohta's closed form; the points are the mean age of segregating alleles in a Wright–Fisher population of 2N = 1,000 chromosomes run for 60,000 generations, binned at ±0.01 in frequency. The points sit 3–4% below the curve at every frequency — a flat offset rather than a trend, which is the diffusion approximation being asymptotic in N rather than the shape being wrong. The ring at p = 0.50 is a variant swept to that frequency in 500 generations, which at an effective size of 10,000 places it at 0.0125 on this axis: 55.45 times younger than its frequency permits."
+  alt="A curve rising from the origin, steeply at first and then flattening, reaching about 0.95 at a frequency of 0.9. Seven filled dots follow it closely, each a little below the line. A hollow ring sits near zero on the vertical axis at a frequency of one half, with a dashed line connecting it up to the curve."
+>
+
+<svg viewBox="0 0 772 372" width="772" height="372" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="104.0" y1="187.0" x2="424.0" y2="187.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="191.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.25</text><line x1="104.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="142.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.50</text><line x1="104.0" y1="89.0" x2="424.0" y2="89.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="93.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.75</text><line x1="104.0" y1="40.0" x2="424.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="184.0" y1="236.0" x2="184.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="184.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.25</text><line x1="264.0" y1="236.0" x2="264.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="264.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.50</text><line x1="344.0" y1="236.0" x2="344.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="344.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.75</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><path d="M104.6,233.6 L106.2,229.2 L107.8,225.5 L109.4,222.2 L111.0,219.2 L112.6,216.4 L114.2,213.8 L115.8,211.2 L117.4,208.8 L119.0,206.5 L120.6,204.3 L122.2,202.2 L123.8,200.1 L125.4,198.1 L127.0,196.1 L128.5,194.2 L130.1,192.3 L131.7,190.5 L133.3,188.7 L134.9,187.0 L136.5,185.3 L138.1,183.7 L139.7,182.0 L141.3,180.4 L142.9,178.9 L144.5,177.3 L146.1,175.8 L147.7,174.3 L149.3,172.8 L150.9,171.4 L152.4,170.0 L154.0,168.6 L155.6,167.2 L157.2,165.9 L158.8,164.5 L160.4,163.2 L162.0,161.9 L163.6,160.6 L165.2,159.3 L166.8,158.1 L168.4,156.8 L170.0,155.6 L171.6,154.4 L173.2,153.2 L174.8,152.0 L176.4,150.9 L177.9,149.7 L179.5,148.6 L181.1,147.4 L182.7,146.3 L184.3,145.2 L185.9,144.1 L187.5,143.0 L189.1,142.0 L190.7,140.9 L192.3,139.8 L193.9,138.8 L195.5,137.8 L197.1,136.7 L198.7,135.7 L200.3,134.7 L201.8,133.7 L203.4,132.7 L205.0,131.7 L206.6,130.8 L208.2,129.8 L209.8,128.8 L211.4,127.9 L213.0,127.0 L214.6,126.0 L216.2,125.1 L217.8,124.2 L219.4,123.3 L221.0,122.4 L222.6,121.5 L224.2,120.6 L225.8,119.7 L227.3,118.8 L228.9,117.9 L230.5,117.1 L232.1,116.2 L233.7,115.3 L235.3,114.5 L236.9,113.7 L238.5,112.8 L240.1,112.0 L241.7,111.2 L243.3,110.3 L244.9,109.5 L246.5,108.7 L248.1,107.9 L249.7,107.1 L251.3,106.3 L252.8,105.5 L254.4,104.7 L256.0,104.0 L257.6,103.2 L259.2,102.4 L260.8,101.7 L262.4,100.9 L264.0,100.1 L265.6,99.4 L267.2,98.6 L268.8,97.9 L270.4,97.2 L272.0,96.4 L273.6,95.7 L275.2,95.0 L276.7,94.2 L278.3,93.5 L279.9,92.8 L281.5,92.1 L283.1,91.4 L284.7,90.7 L286.3,90.0 L287.9,89.3 L289.5,88.6 L291.1,87.9 L292.7,87.2 L294.3,86.5 L295.9,85.9 L297.5,85.2 L299.1,84.5 L300.7,83.9 L302.2,83.2 L303.8,82.5 L305.4,81.9 L307.0,81.2 L308.6,80.6 L310.2,79.9 L311.8,79.3 L313.4,78.6 L315.0,78.0 L316.6,77.4 L318.2,76.7 L319.8,76.1 L321.4,75.5 L323.0,74.8 L324.6,74.2 L326.2,73.6 L327.7,73.0 L329.3,72.4 L330.9,71.8 L332.5,71.1 L334.1,70.5 L335.7,69.9 L337.3,69.3 L338.9,68.7 L340.5,68.1 L342.1,67.6 L343.7,67.0 L345.3,66.4 L346.9,65.8 L348.5,65.2 L350.1,64.6 L351.6,64.0 L353.2,63.5 L354.8,62.9 L356.4,62.3 L358.0,61.8 L359.6,61.2 L361.2,60.6 L362.8,60.1 L364.4,59.5 L366.0,58.9 L367.6,58.4 L369.2,57.8 L370.8,57.3 L372.4,56.7 L374.0,56.2 L375.6,55.6 L377.1,55.1 L378.7,54.6 L380.3,54.0 L381.9,53.5 L383.5,53.0 L385.1,52.4 L386.7,51.9 L388.3,51.4 L389.9,50.8 L391.5,50.3 L393.1,49.8 L394.7,49.3 L396.3,48.7 L397.9,48.2 L399.5,47.7 L401.0,47.2 L402.6,46.7 L404.2,46.2 L405.8,45.7 L407.4,45.2 L409.0,44.7 L410.6,44.2 L412.2,43.7 L413.8,43.2 L415.4,42.7 L417.0,42.2 L418.6,41.7 L420.2,41.2 L421.8,40.7 L423.4,40.2" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><circle cx="120.0" cy="206.1" r="3.5" fill="currentColor" opacity=".8"/><circle cx="136.0" cy="187.0" r="3.5" fill="currentColor" opacity=".8"/><circle cx="168.0" cy="160.8" r="3.5" fill="currentColor" opacity=".8"/><circle cx="200.0" cy="137.1" r="3.5" fill="currentColor" opacity=".8"/><circle cx="264.0" cy="104.4" r="3.5" fill="currentColor" opacity=".8"/><circle cx="328.0" cy="78.5" r="3.5" fill="currentColor" opacity=".8"/><circle cx="392.0" cy="58.7" r="3.5" fill="currentColor" opacity=".8"/><circle cx="264.0" cy="233.6" r="5.2" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.2"/><line x1="264.0" y1="233.6" x2="264.0" y2="104.4" stroke="currentColor" stroke-width="1.4" opacity=".55" stroke-dasharray="3 3"/><text x="270.4" y="213.5" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">a sweep lands here</text><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Derived allele frequency p</text><text x="28.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Expected age, in units of 4N generations</text><circle cx="462.0" cy="36.0" r="3.5" fill="currentColor" opacity=".8"/><text x="476.0" y="40.0" font-size="10" fill="currentColor" opacity=".8">Wright-Fisher simulation</text><line x1="454.0" y1="53.0" x2="470.0" y2="53.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><text x="476.0" y="57.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">closed form</text><text x="454.0" y="85.0" font-size="11" fill="currentColor" font-weight="700">Frequency pins age.</text><text x="454.0" y="107.0" font-size="10" fill="currentColor" opacity=".8">A common allele is an old one:</text><text x="454.0" y="120.0" font-size="10" fill="currentColor" opacity=".8">drift is slow, and getting to</text><text x="454.0" y="133.0" font-size="10" fill="currentColor" opacity=".8">one half takes 4N ln2 = 27,726</text><text x="454.0" y="146.0" font-size="10" fill="currentColor" opacity=".8">generations at N = 10,000,</text><text x="454.0" y="159.0" font-size="10" fill="currentColor" opacity=".8">about 693,000 years.</text><text x="454.0" y="172.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="185.0" font-size="10" fill="currentColor" opacity=".8">The simulation sits 3-4% under</text><text x="454.0" y="198.0" font-size="10" fill="currentColor" opacity=".8">the curve at every frequency -</text><text x="454.0" y="211.0" font-size="10" fill="currentColor" opacity=".8">a flat offset, which is the</text><text x="454.0" y="224.0" font-size="10" fill="currentColor" opacity=".8">diffusion approximation being</text><text x="454.0" y="237.0" font-size="10" fill="currentColor" opacity=".8">asymptotic in N rather than the</text><text x="454.0" y="250.0" font-size="10" fill="currentColor" opacity=".8">shape being wrong.</text><text x="454.0" y="263.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="276.0" font-size="10" fill="currentColor" opacity=".8">The ring is a variant swept to</text><text x="454.0" y="289.0" font-size="10" fill="currentColor" opacity=".8">one half in 500 generations.</text><text x="454.0" y="302.0" font-size="10" fill="currentColor" opacity=".8">It is 55.45 times too young for</text><text x="454.0" y="315.0" font-size="10" fill="currentColor" opacity=".8">its frequency, and that single</text><text x="454.0" y="328.0" font-size="10" fill="currentColor" opacity=".8">mismatch is what every method</text><text x="454.0" y="341.0" font-size="10" fill="currentColor" opacity=".8">in this lesson is measuring.</text></svg>
+
+</Figure>
+
+The simulation behind those points is worth stating, because the closed form comes from a
+diffusion approximation and it is reasonable to want it checked. A Wright–Fisher population of
+2N = 1,000 chromosomes was run for 60,000 generations with recurrent mutation at
+$\theta = 4N\mu = 10$, every mutation's birth generation recorded, and the mean age taken over
+all segregating alleles falling within ±0.01 of each target frequency. Sampling that way — from
+a stationary population rather than at an allele's first arrival — matters: taking the first
+time an allele *reaches* a frequency selects the youngest ones and biases the answer downward
+by more than a factor of two.
+
+<WorkedExample
+  title="How old is a variant at half frequency?"
+  given={[
+    { label: 'Effective size N', value: '10,000' },
+    { label: 'Derived frequency p', value: '0.50' },
+    { label: 'Generation time', value: '25 years' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**The age.** With $p/(1-p) = 1$ and $\ln \tfrac{1}{2} = -\ln 2$,
+
+$$
+\mathbb{E}[t] = -4 \times 10^4 \times 1 \times (-\ln 2) = 4N\ln 2 = 27{,}725.89 \text{ generations}
+$$
+
+which is about 693,000 years — older than the split between modern humans and Neanderthals.
+An allele at half frequency is, under neutrality, expected to predate the species carrying it
+in anything like its present form.
+
+**The same calculation at other frequencies.** At $p = 0.10$ it is 10,233.71 generations; at
+$p = 0.90$, 37,929.79. The curve is steep at the bottom and flat at the top, which is worth
+noting: **most of the information about age is in low-frequency variants**, because that is
+where age changes fastest with frequency.
+
+**What a sweep looks like.** A variant driven to $p = 0.50$ by selection in 500 generations
+has an age anomaly of $27{,}725.89 / 500 = 55.45$. Nothing about the frequency is unusual;
+everything about the pairing of that frequency with that age is.
+
+</WorkedExample>
+
+## From age to haplotype, which is what you can actually see
+
+Nobody observes an allele's age directly. What is observable is the haplotype it sits on, and
+the link is recombination.
+
+Take two chromosomes carrying the allele, whose lineages coalesced $t$ generations ago. Each
+lineage has had $t$ generations in which recombination could break the ancestral haplotype, so
+$2t$ in total. Over a genetic distance $d$ the chance that neither lineage recombined is
+$e^{-2dt}$ — which is exactly extended haplotype homozygosity <Citation id="sabeti2002ehh" />:
+
+$$
+\mathrm{EHH}(d) = e^{-2dt}, \qquad d_{1/2} = \frac{\ln 2}{2t}
+$$
+
+Length and depth are inversely proportional. A young genealogy carries a long haplotype
+because there has been little time to break it, which is the whole hitchhiking argument of
+<Citation id="smith1974hitchhiking" />: a favoured allele drags its neighbourhood to high
+frequency faster than recombination can separate them.
+
+<Callout variant="key" title="At half frequency the bound is exactly 1/(8N) Morgans">
+
+Substitute the neutral age at $p = \tfrac{1}{2}$ into the half-length and the $\ln 2$ cancels:
+
+$$
+d_{1/2} = \frac{\ln 2}{2 \times 4N\ln 2} = \frac{1}{8N}
+$$
+
+At $N = 10{,}000$ that is $1.25\times10^{-5}$ Morgans, or 1.25 kb where the map runs at
+1 cM/Mb. The mutation rate does not appear, the logarithm does not appear, and neither does
+the recombination rate except through the units.
+
+This is a **floor**, not an estimate. Two copies of an allele must coalesce at or before the
+allele arose, so they have had *at most* the allele's full age in which to recombine, and the
+real neutral haplotype is longer than 1.25 kb.
+
+</Callout>
+
+<Figure
+  caption="Figure 2. Extended haplotype homozygosity against distance for two alleles at the same frequency of one half, on a logarithmic distance axis. The solid curve is a variant swept in 500 generations, whose copies all coalesce at the sweep, giving a half-length of 69.31 kb. The dashed curve takes the genealogy depth to be the neutral allele's full age of 27,725.89 generations, which is the most recombination neutrality can allow and therefore a floor on the neutral length: 1.25 kb, exactly 1/(8N) Morgans. The real neutral curve lies between the two, and where between depends on demography — which is the reason the next section exists."
+  alt="Two decay curves on a logarithmic horizontal axis from 0.1 to 300 kb. A dashed curve falls steeply, crossing one half near 1 kb and reaching zero by 10 kb. A solid curve stays near one until about 10 kb, crosses one half near 70 kb, and is still above zero at 300 kb. A dashed horizontal line marks one half, with a dot on each curve where it crosses."
+>
+
+<svg viewBox="0 0 772 420" width="772" height="420" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="104.0" y1="187.0" x2="424.0" y2="187.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="191.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.25</text><line x1="104.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="96.0" y="142.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.50</text><line x1="104.0" y1="89.0" x2="424.0" y2="89.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="93.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.75</text><line x1="104.0" y1="40.0" x2="424.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.1</text><line x1="196.0" y1="236.0" x2="196.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="196.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="288.1" y1="236.0" x2="288.1" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="288.1" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="380.1" y1="236.0" x2="380.1" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="380.1" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><path d="M104.0,40.2 L105.8,40.2 L107.6,40.2 L109.3,40.2 L111.1,40.2 L112.9,40.2 L114.7,40.3 L116.4,40.3 L118.2,40.3 L120.0,40.3 L121.8,40.3 L123.6,40.3 L125.3,40.3 L127.1,40.3 L128.9,40.4 L130.7,40.4 L132.4,40.4 L134.2,40.4 L136.0,40.4 L137.8,40.5 L139.6,40.5 L141.3,40.5 L143.1,40.5 L144.9,40.5 L146.7,40.6 L148.4,40.6 L150.2,40.6 L152.0,40.7 L153.8,40.7 L155.6,40.7 L157.3,40.7 L159.1,40.8 L160.9,40.8 L162.7,40.8 L164.4,40.9 L166.2,40.9 L168.0,41.0 L169.8,41.0 L171.6,41.1 L173.3,41.1 L175.1,41.2 L176.9,41.2 L178.7,41.3 L180.4,41.3 L182.2,41.4 L184.0,41.4 L185.8,41.5 L187.6,41.6 L189.3,41.7 L191.1,41.7 L192.9,41.8 L194.7,41.9 L196.4,42.0 L198.2,42.1 L200.0,42.2 L201.8,42.3 L203.6,42.4 L205.3,42.5 L207.1,42.6 L208.9,42.7 L210.7,42.8 L212.4,42.9 L214.2,43.1 L216.0,43.2 L217.8,43.3 L219.6,43.5 L221.3,43.7 L223.1,43.8 L224.9,44.0 L226.7,44.2 L228.4,44.4 L230.2,44.6 L232.0,44.8 L233.8,45.0 L235.6,45.2 L237.3,45.4 L239.1,45.7 L240.9,45.9 L242.7,46.2 L244.4,46.5 L246.2,46.8 L248.0,47.1 L249.8,47.4 L251.6,47.7 L253.3,48.1 L255.1,48.4 L256.9,48.8 L258.7,49.2 L260.4,49.6 L262.2,50.0 L264.0,50.4 L265.8,50.9 L267.6,51.4 L269.3,51.9 L271.1,52.4 L272.9,53.0 L274.7,53.5 L276.4,54.1 L278.2,54.7 L280.0,55.4 L281.8,56.1 L283.6,56.8 L285.3,57.5 L287.1,58.2 L288.9,59.0 L290.7,59.8 L292.4,60.7 L294.2,61.6 L296.0,62.5 L297.8,63.5 L299.6,64.5 L301.3,65.5 L303.1,66.6 L304.9,67.7 L306.7,68.9 L308.4,70.1 L310.2,71.3 L312.0,72.6 L313.8,74.0 L315.6,75.4 L317.3,76.8 L319.1,78.3 L320.9,79.9 L322.7,81.5 L324.4,83.1 L326.2,84.8 L328.0,86.6 L329.8,88.5 L331.6,90.3 L333.3,92.3 L335.1,94.3 L336.9,96.4 L338.7,98.5 L340.4,100.7 L342.2,103.0 L344.0,105.3 L345.8,107.7 L347.6,110.2 L349.3,112.7 L351.1,115.2 L352.9,117.9 L354.7,120.6 L356.4,123.3 L358.2,126.1 L360.0,129.0 L361.8,131.9 L363.6,134.8 L365.3,137.8 L367.1,140.9 L368.9,143.9 L370.7,147.0 L372.4,150.2 L374.2,153.3 L376.0,156.5 L377.8,159.7 L379.6,162.9 L381.3,166.1 L383.1,169.3 L384.9,172.5 L386.7,175.7 L388.4,178.8 L390.2,182.0 L392.0,185.0 L393.8,188.1 L395.6,191.0 L397.3,194.0 L399.1,196.8 L400.9,199.6 L402.7,202.2 L404.4,204.8 L406.2,207.3 L408.0,209.7 L409.8,212.0 L411.6,214.2 L413.3,216.3 L415.1,218.2 L416.9,220.1 L418.7,221.8 L420.4,223.4 L422.2,224.9 L424.0,226.2" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><path d="M104.0,50.6 L105.8,51.0 L107.6,51.5 L109.3,52.0 L111.1,52.6 L112.9,53.1 L114.7,53.7 L116.4,54.3 L118.2,54.9 L120.0,55.6 L121.8,56.2 L123.6,56.9 L125.3,57.7 L127.1,58.5 L128.9,59.2 L130.7,60.1 L132.4,60.9 L134.2,61.8 L136.0,62.8 L137.8,63.7 L139.6,64.7 L141.3,65.8 L143.1,66.9 L144.9,68.0 L146.7,69.2 L148.4,70.4 L150.2,71.7 L152.0,73.0 L153.8,74.3 L155.6,75.8 L157.3,77.2 L159.1,78.7 L160.9,80.3 L162.7,81.9 L164.4,83.6 L166.2,85.3 L168.0,87.1 L169.8,89.0 L171.6,90.9 L173.3,92.9 L175.1,94.9 L176.9,97.0 L178.7,99.1 L180.4,101.4 L182.2,103.6 L184.0,106.0 L185.8,108.4 L187.6,110.8 L189.3,113.4 L191.1,116.0 L192.9,118.6 L194.7,121.3 L196.4,124.1 L198.2,126.9 L200.0,129.8 L201.8,132.7 L203.6,135.6 L205.3,138.7 L207.1,141.7 L208.9,144.8 L210.7,147.9 L212.4,151.1 L214.2,154.2 L216.0,157.4 L217.8,160.6 L219.6,163.8 L221.3,167.0 L223.1,170.2 L224.9,173.4 L226.7,176.6 L228.4,179.7 L230.2,182.8 L232.0,185.9 L233.8,188.9 L235.6,191.9 L237.3,194.8 L239.1,197.6 L240.9,200.3 L242.7,203.0 L244.4,205.5 L246.2,208.0 L248.0,210.4 L249.8,212.7 L251.6,214.8 L253.3,216.8 L255.1,218.8 L256.9,220.6 L258.7,222.3 L260.4,223.8 L262.2,225.3 L264.0,226.6 L265.8,227.8 L267.6,228.9 L269.3,229.9 L271.1,230.8 L272.9,231.6 L274.7,232.3 L276.4,232.9 L278.2,233.4 L280.0,233.9 L281.8,234.3 L283.6,234.6 L285.3,234.9 L287.1,235.1 L288.9,235.3 L290.7,235.5 L292.4,235.6 L294.2,235.7 L296.0,235.8 L297.8,235.8 L299.6,235.9 L301.3,235.9 L303.1,235.9 L304.9,236.0 L306.7,236.0 L308.4,236.0 L310.2,236.0 L312.0,236.0 L313.8,236.0 L315.6,236.0 L317.3,236.0 L319.1,236.0 L320.9,236.0 L322.7,236.0 L324.4,236.0 L326.2,236.0 L328.0,236.0 L329.8,236.0 L331.6,236.0 L333.3,236.0 L335.1,236.0 L336.9,236.0 L338.7,236.0 L340.4,236.0 L342.2,236.0 L344.0,236.0 L345.8,236.0 L347.6,236.0 L349.3,236.0 L351.1,236.0 L352.9,236.0 L354.7,236.0 L356.4,236.0 L358.2,236.0 L360.0,236.0 L361.8,236.0 L363.6,236.0 L365.3,236.0 L367.1,236.0 L368.9,236.0 L370.7,236.0 L372.4,236.0 L374.2,236.0 L376.0,236.0 L377.8,236.0 L379.6,236.0 L381.3,236.0 L383.1,236.0 L384.9,236.0 L386.7,236.0 L388.4,236.0 L390.2,236.0 L392.0,236.0 L393.8,236.0 L395.6,236.0 L397.3,236.0 L399.1,236.0 L400.9,236.0 L402.7,236.0 L404.4,236.0 L406.2,236.0 L408.0,236.0 L409.8,236.0 L411.6,236.0 L413.3,236.0 L415.1,236.0 L416.9,236.0 L418.7,236.0 L420.4,236.0 L422.2,236.0 L424.0,236.0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="5 3" opacity=".85"/><circle cx="365.4" cy="138.0" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="204.9" cy="138.0" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="377.4" y="129.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">69.31 kb</text><text x="193.9" y="155.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">1.25 kb</text><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Distance from the core variant, kb at 1 cM/Mb</text><text x="28.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Extended haplotype homozygosity</text><line x1="454.0" y1="36.0" x2="470.0" y2="36.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><text x="476.0" y="40.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">swept, 500 generations</text><line x1="454.0" y1="53.0" x2="470.0" y2="53.0" stroke="currentColor" stroke-width="2.6" opacity=".85" stroke-dasharray="5 3"/><text x="476.0" y="57.0" font-size="10" fill="currentColor" opacity=".85">neutral floor</text><text x="454.0" y="85.0" font-size="11" fill="currentColor" font-weight="700">Both alleles sit at p = 1/2.</text><text x="454.0" y="107.0" font-size="10" fill="currentColor" opacity=".8">Homozygosity decays as</text><text x="454.0" y="120.0" font-size="10" fill="currentColor" opacity=".8">exp(-2dt): two lineages that</text><text x="454.0" y="133.0" font-size="10" fill="currentColor" opacity=".8">coalesced t generations ago</text><text x="454.0" y="146.0" font-size="10" fill="currentColor" opacity=".8">have had 2t generations of</text><text x="454.0" y="159.0" font-size="10" fill="currentColor" opacity=".8">recombination between them.</text><text x="454.0" y="172.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="185.0" font-size="10" fill="currentColor" opacity=".8">The dashed curve takes t to be</text><text x="454.0" y="198.0" font-size="10" fill="currentColor" opacity=".8">the allele’s own age, which is</text><text x="454.0" y="211.0" font-size="10" fill="currentColor" opacity=".8">the most recombination</text><text x="454.0" y="224.0" font-size="10" fill="currentColor" opacity=".8">neutrality can allow - so it is</text><text x="454.0" y="237.0" font-size="10" fill="currentColor" opacity=".8">a floor on the neutral length,</text><text x="454.0" y="250.0" font-size="10" fill="currentColor" opacity=".8">not an estimate of it. At</text><text x="454.0" y="263.0" font-size="10" fill="currentColor" opacity=".8">p = 1/2 the ln2 cancels and it</text><text x="454.0" y="276.0" font-size="10" fill="currentColor" opacity=".8">is exactly 1/(8N) Morgans.</text><text x="454.0" y="289.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="302.0" font-size="10" fill="currentColor" opacity=".8">The real neutral curve lies</text><text x="454.0" y="315.0" font-size="10" fill="currentColor" opacity=".8">between the two, and where</text><text x="454.0" y="328.0" font-size="10" fill="currentColor" opacity=".8">exactly depends on demography.</text><text x="454.0" y="341.0" font-size="10" fill="currentColor" opacity=".8">That is why iHS compares the</text><text x="454.0" y="354.0" font-size="10" fill="currentColor" opacity=".8">derived and ancestral</text><text x="454.0" y="367.0" font-size="10" fill="currentColor" opacity=".8">haplotypes at one locus rather</text><text x="454.0" y="380.0" font-size="10" fill="currentColor" opacity=".8">than measuring either against</text><text x="454.0" y="393.0" font-size="10" fill="currentColor" opacity=".8">an absolute expectation.</text></svg>
+
+</Figure>
+
+<Widget
+  kind="sweep-age"
+  title="Set a frequency and an age, and see what neutrality permits"
+  caption="The neutral age curve with the observed variant placed on it, and the two haplotype half-lengths that follow. The anomaly in age and the anomaly in length are the same number, because length goes as the reciprocal of depth — move the age slider and watch the two readouts stay locked together."
+  alt="An interactive panel with sliders for effective population size, derived allele frequency and observed age. It draws the neutral expected-age curve with the observed variant marked, and reports the neutral age, the age anomaly, the neutral haplotype floor and the observed haplotype half-length."
+/>
+
+<WorkedExample
+  title="The same anomaly, read as a length"
+  given={[
+    { label: 'Effective size N', value: '10,000' },
+    { label: 'Derived frequency p', value: '0.50' },
+    { label: 'Observed age', value: '500 generations' },
+    { label: 'Map', value: '1 cM/Mb' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**The swept haplotype.** A hard sweep gives a star genealogy: every copy of the favoured
+allele descends from the one that was selected, so they all coalesce at the sweep. With
+$t = 500$,
+
+$$
+d_{1/2} = \frac{\ln 2}{1000} = 6.931472\times10^{-4}\ \text{Morgans} = 69.31\ \text{kb}
+$$
+
+**The neutral floor.** From the callout above, 1.25 kb.
+
+**The ratio.** $69.31 / 1.25 = 55.45$ — the *same number* as the age anomaly, and necessarily
+so: half-length is $\ln 2 / 2t$, so the ratio of lengths is the reciprocal ratio of depths,
+which is the ratio of ages. **The age anomaly and the length anomaly are one quantity seen
+twice.**
+
+That is the useful form, because the length is measurable and the age is not.
+
+</WorkedExample>
+
+## The admission that explains the method
+
+Everything above compared a sweep against a *floor*. The obvious next step is to compare it
+against the neutral expectation itself — and that is where the derivation stops working.
+
+Two copies of a neutral allele at frequency $p$ sit in a class of about $2Np$ chromosomes, so
+a first guess is that they coalesce in about $2Np$ generations. But the class was not always
+that size: going backwards the allele was rarer, the class was smaller, and coalescence was
+correspondingly faster. The answer depends on the whole trajectory that brought the allele to
+$p$, and there is no tidy closed form for it.
+
+A Wright–Fisher simulation with unbiased sampling of segregating alleles puts the mean
+pairwise coalescence time at **0.786, 0.681 and 0.598 of $2Np$** at frequencies of 0.2, 0.5
+and 0.8 — a fraction that falls as the allele gets commoner, not a constant. And that is at
+one constant population size; real demography moves it further.
+
+<Callout variant="warning" title="This is why iHS is a within-locus contrast">
+
+There is no absolute haplotype length that means "selected". The expectation depends on the
+local recombination rate, on the population's size history, and on the allele's own trajectory
+— none of which is known well enough to calibrate a threshold.
+
+<Citation id="voight2006ihs" /> solves this by not needing one. iHS compares the integrated
+haplotype homozygosity of the **derived** allele against the **ancestral** allele *at the same
+locus*. The local recombination rate is shared by both and divides out; so does most of the
+demographic history, because both alleles experienced it. What survives is the asymmetry, and
+an asymmetry is exactly what a sweep produces and drift does not.
+
+<Citation id="sabeti2007xpehh" /> applies the same trick across populations instead of across
+alleles, which extends the reach to sweeps that have gone to fixation locally — where there is
+no ancestral allele left to compare against.
+
+**A derivation that will not close is not always a failure.** Here it is the reason the method
+has the shape it has, and a reader who has felt the derivation fail understands the design in
+a way that reading the method's definition would not supply.
+
+</Callout>
+
+## Three signatures, three timescales
+
+The mismatch between frequency and age can be read in three places, and they are sensitive at
+different depths.
+
+| Signature | What it reads | Sensitive window | Owned by |
+| --- | --- | --- | --- |
+| Frequency spectrum, Tajima's D | Excess of rare variants after a sweep purges diversity | Roughly $0.1N$ to $N$ generations | Lesson 3 |
+| Haplotype length, EHH and iHS | Genealogy too shallow for the frequency | Under $\sim 0.05N$ generations | This lesson |
+| Between-population divergence, F_ST outliers | One population pushed and the other not | Since the populations split | Lesson 5 |
+
+The ordering is not arbitrary. Haplotypes are the most recent signal because recombination
+destroys them fastest: at $N = 10{,}000$ a sweep older than about 1,000 generations has
+already had its haplotype broken down to a few tens of kilobases. The frequency spectrum
+recovers more slowly and so remembers longer — that is the contrast
+<Citation id="tajima1989" /> turned into a test, derived in lesson 3. F_ST outliers can in
+principle reach back to the population split, but only for selection that acted on one side
+of it.
+
+The best-attested human example sits squarely in the haplotype window.
+<Citation id="bersaglieri2004lactase" /> found the lactase-persistence allele at around 0.77
+in northern Europe on a haplotype far longer than that frequency permits. Neutrality expects
+an allele at 0.77 to be roughly 35,000 generations old; the sweep is dated to a few hundred.
+
+## What all three miss
+
+Every method above detects a *sweep* — one locus, one allele, a large enough selection
+coefficient to move it against drift. Most selection is not like that.
+
+If a trait is polygenic and the environment shifts, the response is spread over thousands of
+loci and each allele moves by a fraction of a percent. No single locus becomes young for its
+frequency by any detectable margin, no haplotype is unusually long, and no F_ST is an outlier.
+The genome-wide response can be substantial while every individual signature is invisible
+<Citation id="pritchard2010polygenic" />.
+
+Detecting that requires aggregating across loci that a GWAS has already identified — asking
+whether trait-increasing alleles have systematically shifted in frequency, rather than whether
+any one of them has. <Citation id="field2016sds" /> does this with a statistic built from the
+singleton density around each variant, which is a haplotype-age measure by another route:
+recent frequency change leaves a local deficit of singletons.
+
+That approach inherits every weakness of the GWAS it starts from, and in particular the
+ancestry stratification of the previous lesson — which has produced at least one prominent
+retraction in this literature. A polygenic selection signal and uncorrected population
+structure produce the same pattern, and telling them apart needs the machinery of lesson 5.
+
+<Exercise n={1} title="Age from frequency" difficulty="warm-up">
+
+At an effective size of 10,000, how old is a neutral allele at frequency 0.20 expected to be,
+in generations and in years at 25 years per generation? Compare it with the value at 0.50, and
+say what the comparison implies about which variants carry the most information.
+
+<div slot="solution">
+
+$\mathbb{E}[t] = -4 \times 10^4 \times (0.2/0.8) \times \ln 0.2 = -40{,}000 \times 0.25 \times (-1.609438) = 16{,}094.38$
+generations, or about 402,000 years.
+
+At $p = 0.50$ the value is 27,725.89 generations. So doubling the frequency from 0.20 to 0.50
+raises the expected age by a factor of only 1.72, while dropping from 0.20 to 0.10 halves it
+to 10,233.71.
+
+The curve is steep at low frequency and flat at high frequency, so **age is most informative
+about frequency where the allele is rare**. Equivalently, a common allele that is a bit too
+young is a weaker signal than a rare allele that is far too old — which is one reason sweep
+detection concentrates on alleles at intermediate frequency, where the derivative is large
+enough to notice but the allele is common enough to have a haplotype worth measuring.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Two readings of one anomaly" difficulty="core">
+
+A variant sits at frequency 0.75 in a population of effective size 10,000, and independent
+dating puts its age at 1,200 generations. (a) What is the age anomaly? (b) What haplotype
+half-length does the observed age imply, and what does the neutral floor allow? (c) Verify
+that the two anomalies agree.
+
+<div slot="solution">
+
+**(a)** Neutral expectation is $-40{,}000 \times (0.75/0.25) \times \ln 0.75 = -40{,}000 \times 3 \times (-0.287682) = 34{,}521.85$
+generations. The anomaly is $34{,}521.85/1200 = 28.77$.
+
+**(b)** Observed: $d_{1/2} = \ln 2 / 2400 = 2.888\times10^{-4}$ Morgans, or 28.88 kb at
+1 cM/Mb. Floor: $\ln 2 / (2 \times 34{,}521.85) = 1.004\times10^{-5}$ Morgans, 1.004 kb.
+
+**(c)** $28.88/1.004 = 28.77$, the same as the age anomaly, because both are
+$\mathbb{E}[t]/t_{\text{obs}}$ — the $\ln 2$ and the factor of 2 cancel in the ratio. Note
+this is the anomaly measured against the *floor*, so it is an upper bound on the length excess
+you would actually observe, not a prediction of it.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="Why a fixed threshold cannot work" difficulty="core">
+
+A colleague proposes flagging any variant whose haplotype extends past 50 kb at half
+homozygosity as a sweep candidate. (a) What genealogy depth does 50 kb correspond to at
+1 cM/Mb? (b) Give two reasons the threshold will misfire, one demographic and one genomic.
+
+<div slot="solution">
+
+**(a)** $d = 50 \times 10^{-5} = 5\times10^{-4}$ Morgans, so
+$t = \ln 2 / (2 \times 5\times10^{-4}) = 693.15$ generations.
+
+**(b)** *Demographic.* The neutral expectation scales with $N$: the floor is $1/(8N)$ Morgans
+at half frequency, so it is 2.5 kb at $N = 5{,}000$ and 0.625 kb at $N = 20{,}000$ — a
+four-fold range across plausible effective sizes, before any bottleneck is considered. A
+bottleneck shortens coalescence times everywhere and lengthens every haplotype in the genome,
+so the same threshold flags a different fraction of the genome in each population.
+
+*Genomic.* The map is not uniform. A variant in a recombination cold spot carries a long
+haplotype for entirely neutral reasons, and one inside a hotspot cannot carry a long haplotype
+however hard it was selected. Since the threshold is stated in physical distance, it is really
+a statement about the local map, not about selection.
+
+Both failures are removed by the same move: compare within a locus, where the map and the
+demography are shared, rather than against an absolute number.
+
+</div>
+
+</Exercise>
+
+<Exercise n={4} title="The sweep you cannot see" difficulty="stretch">
+
+A trait under stabilising selection shifts its optimum. Two hundred loci each move by 0.4% in
+frequency in response, from a starting frequency of 0.50. (a) Estimate the age anomaly at a
+single one of those loci. (b) What does this say about the relationship between the strength
+of selection on a *trait* and the detectability of selection at a *locus*?
+
+<div slot="solution">
+
+**(a)** Essentially none. A 0.4% frequency change is well within what drift produces at
+$N = 10{,}000$ over a few hundred generations: the per-generation drift step at $p = 0.5$ is
+about $\sqrt{0.25/20{,}000} = 0.0035$, so 0.004 is roughly one generation's worth of noise.
+The allele's genealogy is unchanged to any measurable degree, its age is unchanged, and its
+haplotype is exactly as long as neutrality predicts. The age anomaly is indistinguishable
+from 1.
+
+**(b)** The two are almost unrelated. Detectability at a locus depends on the *per-locus*
+selection coefficient, which for a polygenic trait is the total response divided over many
+loci. A trait can be under strong selection — a large, fast, biologically important shift in
+the mean — while no individual locus experiences enough of it to leave any of the three
+signatures.
+
+This is why the polygenic case needs a different instrument entirely: not a scan for outlier
+loci, but a test of whether trait-increasing alleles have moved *together*, which borrows its
+locus list from a GWAS and therefore inherits the GWAS's confounding.
+
+</div>
+
+</Exercise>
+
+## Summary
+
+- **Neutrality ties frequency to age**: $\mathbb{E}[t \mid p] = -4N\,p/(1-p)\,\ln p$, tending
+  to $4N$ at fixation and to zero at the bottom. Simulation reproduces it to within 3–4%
+  across the frequency range, a flat offset rather than a trend.
+- **At half frequency the age is exactly $4N\ln 2$** — 27,725.89 generations at
+  $N = 10{,}000$, about 693,000 years.
+- **Haplotype homozygosity decays as $e^{-2dt}$**, so length is the reciprocal of genealogy
+  depth and the age anomaly and the length anomaly are the same number.
+- **The neutral bound at half frequency is exactly $1/(8N)$ Morgans**, 1.25 kb at
+  $N = 10{,}000$ — with the $\ln 2$ cancelling. A variant swept there in 500 generations
+  carries 69.31 kb, 55.45 times more.
+- **There is no absolute length threshold**, because the neutral expectation depends on the
+  trajectory, the demography and the local map. Simulation puts the within-class coalescence
+  at 0.786, 0.681 and 0.598 of $2Np$ at frequencies 0.2, 0.5 and 0.8 — no constant to
+  calibrate against. That is why iHS contrasts derived against ancestral at one locus.
+- **Three signatures, three windows**: haplotypes for the most recent sweeps, the frequency
+  spectrum for older ones, F_ST outliers for selection that acted on one population.
+- **All three miss polygenic adaptation**, where the response is spread thin enough that no
+  locus is individually anomalous — and the aggregate tests that catch it inherit the ancestry
+  confounding of lesson 5.

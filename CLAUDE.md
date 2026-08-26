@@ -84,7 +84,7 @@ Five tracks, each with a hub carrying `isHub: true`:
 
 | hub | pages | `track` | owns |
 | --- | --- | --- | --- |
-| `statistical-genetics` | 18 | `theory` | definitions, assumptions, derivations |
+| `statistical-genetics` | 19 | `theory` | definitions, assumptions, derivations |
 | `gwas` | 10 | `workflow` | commands, thresholds, diagnostics, failure modes |
 | `genomic-data` | 13 | `resource` | the resource ecosystem and its access rules |
 | `ml-dl-interview` | 24 | `workflow` / `elective` | 351 interview questions |
@@ -354,6 +354,22 @@ Things specific to this subsystem:
   search string and a float bug in the harness (`i < 0.3 * 40000` admits one extra element),
   so verify every hit by hand before acting — and prefer `Fraction` over floats when the claim
   is that two quantities are *exactly* equal.
+
+- **A derivation that will not close can be the lesson's best material.** `statgen-detecting-selection`
+  set out to compare a swept haplotype against the neutral expectation and could not: the
+  pairwise coalescence time inside an allele class depends on the trajectory that produced the
+  frequency, and simulation puts it at 0.786, 0.681 and 0.598 of `2Np` at p = 0.2, 0.5 and 0.8
+  — a frequency-dependent fraction with no closed form. That failure **is** why iHS contrasts
+  the derived against the ancestral haplotype at one locus instead of using an absolute
+  threshold, so the lesson publishes the floor (`1/(8N)` Morgans at p = ½, exact, the ln 2
+  cancelling) and says plainly that the expectation itself has no clean form. Publish the bound
+  you can prove and name the gap; do not quietly publish a constant you measured once.
+
+- **Sampling an allele at its first passage to frequency p is not sampling an allele at
+  frequency p.** First-passage selects the youngest trajectories and biased the measured
+  coalescence time low by more than a factor of two (0.40 × 2Np against 0.68 × 2Np). Draw from
+  a stationary population instead. The control that catches it is to measure allele *age* the
+  same way and check it against Kimura–Ohta.
 
 - **A failing assertion is more often the assertion's fault than the code's.** Three times in
   one lesson the test expectation was the wrong thing and the module was right: Weir & Cockerham

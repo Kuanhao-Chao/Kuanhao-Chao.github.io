@@ -3987,3 +3987,61 @@ novembre2008genes:
   venue: "Nature 456:98-101"
   doi: https://doi.org/10.1038/nature07331
   verified: 2026-08-26
+
+# ── statgen-detecting-selection ───────────────────────────────────────────────
+kimura1973age:
+  authors: ['Motoo Kimura', 'Tomoko Ohta']
+  year: 1973
+  title: "The Age Of A Neutral Mutant Persisting In A Finite Population"
+  venue: "Genetics 75:199-212"
+  doi: https://doi.org/10.1093/genetics/75.1.199
+  verified: 2026-08-26
+smith1974hitchhiking:
+  authors: ['John Maynard Smith', 'John Haigh']
+  year: 1974
+  title: "The hitch-hiking effect of a favourable gene"
+  venue: "Genetical Research 23:23-35"
+  doi: https://doi.org/10.1017/S0016672300014634
+  verified: 2026-08-26
+sabeti2002ehh:
+  authors: ['Pardis C. Sabeti', 'David E. Reich', 'John M. Higgins', 'et al.']
+  year: 2002
+  title: "Detecting recent positive selection in the human genome from haplotype structure"
+  venue: "Nature 419:832-837"
+  doi: https://doi.org/10.1038/nature01140
+  verified: 2026-08-26
+voight2006ihs:
+  authors: ['Benjamin F Voight', 'Sridhar Kudaravalli', 'Xiaoquan Wen', 'et al.']
+  year: 2006
+  title: "A Map of Recent Positive Selection in the Human Genome"
+  venue: "PLoS Biology 4:e72"
+  doi: https://doi.org/10.1371/journal.pbio.0040072
+  verified: 2026-08-26
+sabeti2007xpehh:
+  authors: ['The International HapMap Consortium', 'Pardis C. Sabeti', 'Patrick Varilly', 'et al.']
+  year: 2007
+  title: "Genome-wide detection and characterization of positive selection in human populations"
+  venue: "Nature 449:913-918"
+  doi: https://doi.org/10.1038/nature06250
+  verified: 2026-08-26
+bersaglieri2004lactase:
+  authors: ['Todd Bersaglieri', 'Pardis C. Sabeti', 'Nick Patterson', 'et al.']
+  year: 2004
+  title: "Genetic Signatures of Strong Recent Positive Selection at the Lactase Gene"
+  venue: "The American Journal of Human Genetics 74:1111-1120"
+  doi: https://doi.org/10.1086/421051
+  verified: 2026-08-26
+field2016sds:
+  authors: ['Yair Field', 'Evan A Boyle', 'Natalie Telis', 'et al.']
+  year: 2016
+  title: "Detection of human adaptation during the past 2000 years"
+  venue: "Science 354:760-764"
+  doi: https://doi.org/10.1126/science.aag0776
+  verified: 2026-08-26
+pritchard2010polygenic:
+  authors: ['Jonathan K. Pritchard', 'Joseph K. Pickrell', 'Graham Coop']
+  year: 2010
+  title: "The Genetics of Human Adaptation: Hard Sweeps, Soft Sweeps, and Polygenic Adaptation"
+  venue: "Current Biology 20:R208-R215"
+  doi: https://doi.org/10.1016/j.cub.2009.11.055
+  verified: 2026-08-26

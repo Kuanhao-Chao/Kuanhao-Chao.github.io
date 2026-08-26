@@ -68,6 +68,9 @@ import {
   structureSpike,
   spikedEigenvalue,
   spikedEigenvectorOverlap,
+  neutralAlleleAge,
+  ehhHalfLength,
+  sweepAgeAnomaly,
 } from '../lib/deepDiveMath';
 import {
   biasVarianceToy,
@@ -2329,8 +2332,104 @@ const pcaStructure: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * What neutrality permits, and where an observed variant sits against it.
+ *
+ * The point the readouts make together is that the age anomaly and the haplotype-length
+ * anomaly are one number: length goes as the reciprocal of genealogy depth, so the ratio is
+ * the same either way. Moving the age slider changes both readouts by the same factor, which
+ * is easier to believe having watched it than having read it.
+ */
+const sweepAge: Renderer = (canvas, controlHost, readoutHost) => {
+  const KB_PER_MORGAN = 1e5; // 1 cM/Mb
+  const draw = () => {
+    const n = Math.round(c.get('n'));
+    const p = c.get('p');
+    const observed = Math.round(c.get('age'));
+    const neutral = neutralAlleleAge(n, p);
+    const anomaly = sweepAgeAnomaly(n, p, observed);
+    const floorKb = ehhHalfLength(neutral) * KB_PER_MORGAN;
+    const observedKb = ehhHalfLength(observed) * KB_PER_MORGAN;
+
+    const x = linear(0, 1, PAD.left, PAD.left + PLOT.w, [0, 0.25, 0.5, 0.75, 1],
+      (v) => v.toFixed(2));
+    const top = Math.max(4 * n, neutral * 1.1);
+    const y = linear(0, top, PAD.top + PLOT.h, PAD.top,
+      [0, top / 4, top / 2, (3 * top) / 4, top], (v) => sci(v, 2));
+    const svg = newSvg();
+    const g = frame(x, y, 'Derived allele frequency', 'Age in generations', svg);
+
+    const pts: string[] = [];
+    for (let i = 0; i <= 200; i += 1) {
+      const q = 0.002 + (i * 0.996) / 200;
+      pts.push(`${i ? 'L' : 'M'}${x(q).toFixed(1)},${y(Math.min(neutralAlleleAge(n, q), top)).toFixed(1)}`);
+    }
+    g.appendChild(el('path', { d: pts.join(' '), fill: 'none', stroke: ACCENT, 'stroke-width': 2.4 }));
+
+    // the observed variant, and a dropped line to what neutrality expects at that frequency
+    g.appendChild(el('line', {
+      x1: x(p), x2: x(p), y1: y(Math.min(observed, top)), y2: y(Math.min(neutral, top)),
+      stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-dasharray': '3 3', opacity: 0.6,
+    }));
+    g.appendChild(el('circle', {
+      cx: x(p), cy: y(Math.min(neutral, top)), r: 4, fill: ACCENT, opacity: 0.55,
+    }));
+    g.appendChild(el('circle', {
+      cx: x(p), cy: y(Math.min(observed, top)), r: 5.4, fill: 'none',
+      stroke: ACCENT, 'stroke-width': 2.2,
+    }));
+
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['neutral age', `${Math.round(neutral).toLocaleString('en-US')} gen`],
+      ['age anomaly', `${anomaly.toFixed(2)}×`],
+      ['neutral floor', `${floorKb.toFixed(2)} kb`],
+      ['observed haplotype', `${observedKb.toFixed(2)} kb`],
+      ['length anomaly', `${(observedKb / floorKb).toFixed(2)}×`],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'n',
+        label: 'Effective size N',
+        min: 3,
+        max: 5,
+        step: 0.01,
+        value: 4,
+        scale: (v) => 10 ** v,
+        format: (v) => Math.round(v).toLocaleString('en-US'),
+      },
+      {
+        key: 'p',
+        label: 'Derived frequency',
+        min: 0.02,
+        max: 0.98,
+        step: 0.01,
+        value: 0.5,
+        format: (v) => v.toFixed(2),
+      },
+      {
+        key: 'age',
+        label: 'Observed age (generations)',
+        min: 2,
+        max: 4.7,
+        step: 0.01,
+        value: Math.log10(500),
+        scale: (v) => 10 ** v,
+        format: (v) => Math.round(v).toLocaleString('en-US'),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'pca-structure': pcaStructure,
+  'sweep-age': sweepAge,
   'ld-decay': ldDecay,
   drift,
   power,
