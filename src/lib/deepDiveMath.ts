@@ -463,6 +463,221 @@ export function marchenkoPasturEdge(
   };
 }
 
+/** Squared Euclidean distance, the only metric the graph code needs. */
+function sqDist(a: number[], b: number[]): number {
+  let total = 0;
+  for (let i = 0; i < a.length; i += 1) total += (a[i] - b[i]) ** 2;
+  return total;
+}
+
+/**
+ * k-nearest-neighbour adjacency, as a sorted neighbour list per point.
+ *
+ * Every geometric method downstream of PCA is built on this object rather than on the
+ * coordinates: clustering partitions it, UMAP lays it out, and label transfer walks it. That
+ * makes k the most consequential parameter in the second half of a single-cell pipeline, and
+ * the one most often left at its default.
+ *
+ * Ties are broken by index so the graph is deterministic.
+ */
+export function knnGraph(points: Matrix, k: number): number[][] {
+  const n = points.length;
+  if (k < 1) throw new RangeError(`knnGraph needs k >= 1, got ${k}`);
+  if (k > n - 1) throw new RangeError(`knnGraph needs k <= n-1 = ${n - 1}, got ${k}`);
+  return points.map((p, i) => {
+    const order = [];
+    for (let j = 0; j < n; j += 1) if (j !== i) order.push([sqDist(p, points[j]), j] as const);
+    order.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    return order.slice(0, k).map(([, j]) => j);
+  });
+}
+
+/**
+ * Newman modularity of a partition of an undirected graph,
+ * Q = (1/2m) Σ_ij [A_ij − k_i k_j / 2m] δ(c_i, c_j).
+ *
+ * This is the objective Louvain and Leiden maximise, so it is what "a cluster" means in a
+ * single-cell pipeline — not a density, not a mode, but a group that has more internal edges
+ * than a degree-matched random graph would. Q rises with resolution because the null term
+ * shrinks, which is why cluster count is a dial rather than a discovery.
+ *
+ * `adjacency` is symmetrised internally: a kNN graph is directed, and treating it as
+ * undirected is what every clustering implementation does.
+ */
+export function graphModularity(adjacency: number[][], communities: number[]): number {
+  const n = adjacency.length;
+  if (communities.length !== n)
+    throw new RangeError(`graphModularity needs one label per node, got ${communities.length} for ${n}`);
+  const edges = new Set<string>();
+  for (let i = 0; i < n; i += 1)
+    for (const j of adjacency[i]) {
+      if (j === i) continue;
+      edges.add(i < j ? `${i},${j}` : `${j},${i}`);
+    }
+  const degree = new Array(n).fill(0);
+  for (const e of edges) {
+    const [a, b] = e.split(',').map(Number);
+    degree[a] += 1;
+    degree[b] += 1;
+  }
+  const m = edges.size;
+  if (m === 0) return 0;
+  let q = 0;
+  for (const e of edges) {
+    const [a, b] = e.split(',').map(Number);
+    if (communities[a] === communities[b]) q += 2; // both (a,b) and (b,a) in the sum
+  }
+  q /= 2 * m;
+  const byComm = new Map<number, number>();
+  for (let i = 0; i < n; i += 1)
+    byComm.set(communities[i], (byComm.get(communities[i]) ?? 0) + degree[i]);
+  for (const total of byComm.values()) q -= (total / (2 * m)) ** 2;
+  return q;
+}
+
+/**
+ * Adjusted Rand index between two partitions — agreement corrected for chance.
+ *
+ * 1 for identical partitions, ~0 for independent ones, and it can go negative. Used here to
+ * ask how much a clustering actually changes between two resolutions, which is the honest
+ * version of "is there a stable number of clusters".
+ */
+export function adjustedRandIndex(a: number[], b: number[]): number {
+  const n = a.length;
+  if (b.length !== n) throw new RangeError(`adjustedRandIndex needs equal lengths, got ${n} and ${b.length}`);
+  if (n < 2) throw new RangeError(`adjustedRandIndex needs at least 2 items, got ${n}`);
+  const table = new Map<string, number>();
+  const rows = new Map<number, number>();
+  const cols = new Map<number, number>();
+  for (let i = 0; i < n; i += 1) {
+    const key = `${a[i]},${b[i]}`;
+    table.set(key, (table.get(key) ?? 0) + 1);
+    rows.set(a[i], (rows.get(a[i]) ?? 0) + 1);
+    cols.set(b[i], (cols.get(b[i]) ?? 0) + 1);
+  }
+  const choose2 = (x: number) => (x * (x - 1)) / 2;
+  const sumTable = [...table.values()].reduce((s, v) => s + choose2(v), 0);
+  const sumRows = [...rows.values()].reduce((s, v) => s + choose2(v), 0);
+  const sumCols = [...cols.values()].reduce((s, v) => s + choose2(v), 0);
+  const total = choose2(n);
+  const expected = (sumRows * sumCols) / total;
+  const max = (sumRows + sumCols) / 2;
+  if (max === expected) return 0;
+  return (sumTable - expected) / (max - expected);
+}
+
+/**
+ * Trustworthiness of a low-dimensional embedding at neighbourhood size k.
+ *
+ * Answers one question and only one: of the points that appear close together in the
+ * embedding, how many were actually close in the original space? It penalises each intruder
+ * by how far away it really was, and returns 1 when the embedding introduces no false
+ * neighbours at all.
+ *
+ * This is the measurable version of what a UMAP or t-SNE plot can be read for. Note what it
+ * does *not* measure — distances, densities, and the relative sizes and separations of
+ * clusters are all free to be wrong while trustworthiness stays near 1, because it only ever
+ * looks at rank within a neighbourhood.
+ */
+export function trustworthiness(high: Matrix, low: Matrix, k: number): number {
+  const n = high.length;
+  if (low.length !== n)
+    throw new RangeError(`trustworthiness needs matching row counts, got ${n} and ${low.length}`);
+  if (k < 1 || k > (n - 1) / 2)
+    throw new RangeError(`trustworthiness needs 1 <= k <= (n-1)/2 = ${(n - 1) / 2}, got ${k}`);
+
+  /** Rank of every other point by distance from i, 1 = nearest. Ties broken by index. */
+  const ranksFrom = (pts: Matrix, i: number) => {
+    const order = [];
+    for (let j = 0; j < n; j += 1) if (j !== i) order.push([sqDist(pts[i], pts[j]), j] as const);
+    order.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const rank = new Array(n).fill(0);
+    order.forEach(([, j], idx) => {
+      rank[j] = idx + 1;
+    });
+    return rank;
+  };
+
+  let penalty = 0;
+  for (let i = 0; i < n; i += 1) {
+    const rHigh = ranksFrom(high, i);
+    const rLow = ranksFrom(low, i);
+    for (let j = 0; j < n; j += 1) {
+      // j is a neighbour in the embedding but not in the original space: an intruder
+      if (j !== i && rLow[j] <= k && rHigh[j] > k) penalty += rHigh[j] - k;
+    }
+  }
+  return 1 - (2 / (n * k * (2 * n - 3 * k - 1))) * penalty;
+}
+
+/**
+ * Deterministic standard normal deviates — an LCG through Box-Muller.
+ *
+ * Promoted out of the test file so that a figure generator, a widget and a test all draw the
+ * same numbers from the same seed. That is the only way a slider cannot contradict the prose
+ * beside it, which is the rule the whole interactive layer rests on. No Math.random anywhere
+ * in the curriculum.
+ */
+export function seededNormals(rows: number, cols: number, seed: number): Matrix {
+  if (rows < 1 || cols < 1) throw new RangeError(`seededNormals needs positive dimensions, got ${rows}x${cols}`);
+  let state = seed >>> 0;
+  const u = () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  const g = () => {
+    const a = Math.max(u(), 1e-12);
+    return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * u());
+  };
+  return Array.from({ length: rows }, () => Array.from({ length: cols }, g));
+}
+
+/**
+ * Relative contrast of a query point against a cloud: (d_max − d_min) / d_min.
+ *
+ * The quantity that decides whether "nearest neighbour" means anything. In d independent
+ * dimensions every pairwise distance concentrates on the same value, so the contrast falls
+ * as roughly 1/√d — and a kNN graph built where the contrast is near zero is joining points
+ * that are not meaningfully nearer than any others.
+ *
+ * Returns Infinity when the query coincides with a cloud point, which is the honest answer:
+ * a zero denominator means the nearest neighbour is at distance zero.
+ */
+export function relativeContrast(query: number[], cloud: Matrix): number {
+  if (cloud.length < 2) throw new RangeError(`relativeContrast needs at least 2 cloud points, got ${cloud.length}`);
+  let lo = Infinity;
+  let hi = 0;
+  for (const point of cloud) {
+    const d = Math.sqrt(sqDist(query, point));
+    if (d < lo) lo = d;
+    if (d > hi) hi = d;
+  }
+  if (lo === 0) return Number.POSITIVE_INFINITY;
+  return (hi - lo) / lo;
+}
+
+/**
+ * Fraction of a kNN graph's edges that join points carrying the same label.
+ *
+ * The graph is what every later step actually consumes, so this is the honest measure of
+ * whether it is worth consuming: a purity of 1 means every neighbour relation the clustering
+ * will see is real, and a purity near the chance rate means the graph is noise with a
+ * plausible shape.
+ */
+export function neighborPurity(adjacency: number[][], labels: number[]): number {
+  if (adjacency.length !== labels.length)
+    throw new RangeError(`neighborPurity needs one label per node, got ${labels.length} for ${adjacency.length}`);
+  let same = 0;
+  let total = 0;
+  for (let i = 0; i < adjacency.length; i += 1)
+    for (const j of adjacency[i]) {
+      total += 1;
+      if (labels[i] === labels[j]) same += 1;
+    }
+  if (total === 0) throw new RangeError('neighborPurity needs a graph with at least one edge');
+  return same / total;
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**
