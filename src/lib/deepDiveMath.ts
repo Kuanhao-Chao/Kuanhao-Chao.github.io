@@ -2263,6 +2263,56 @@ export function spikedEigenvectorOverlap(spike: number, gamma: number): number {
  * This is the *mean*, not λ_GC, which is a median rescaled by `CHI2_1DF_MEDIAN`; for a
  * non-central χ² the two differ, so do not quote one as the other.
  */
+/**
+ * Kimura & Ohta's expected age of a neutral allele now at frequency p, in generations.
+ *
+ * `-4N (p/(1-p)) ln p`, for diploid effective size N. The two limits are the sanity check:
+ * as p → 1 it tends to 4N, the coalescent depth of the whole population, and as p → 0 it
+ * tends to 0, because a rare allele is a young one. Everything selection detection does at a
+ * single locus is a comparison against this number — an allele that is common has had to
+ * spend a long time getting there by drift, and a sweep is what it looks like when it did not.
+ *
+ * At p = 1/2 this is exactly `4N ln 2`, which is what makes `ehhHalfLength` collapse to 1/(8N).
+ */
+export function neutralAlleleAge(effectivePopulation: number, frequency: number): number {
+  if (effectivePopulation <= 0) throw new RangeError('neutralAlleleAge needs N > 0');
+  if (!(frequency > 0 && frequency < 1)) {
+    throw new RangeError(`neutralAlleleAge needs 0 < p < 1, got ${frequency}`);
+  }
+  return (-4 * effectivePopulation * (frequency / (1 - frequency)) * Math.log(frequency));
+}
+
+/**
+ * Genetic distance, in Morgans, at which extended haplotype homozygosity falls to one half,
+ * for a star genealogy of depth `generations`.
+ *
+ * Two lineages that coalesced `t` generations ago have had `2t` generations of recombination
+ * opportunity between them, so homozygosity over a distance `d` decays as `exp(-2dt)` and the
+ * half-length is `ln2/(2t)`. Exact for a hard sweep, whose copies really do all coalesce at
+ * the sweep; for a neutral allele it is a *floor* on the length, because two copies must
+ * coalesce at or before the allele arose and therefore have less recombination between them
+ * than the allele's full age allows.
+ */
+export function ehhHalfLength(generations: number): number {
+  if (generations <= 0) throw new RangeError('ehhHalfLength needs t > 0');
+  return Math.LN2 / (2 * generations);
+}
+
+/**
+ * How many times younger a swept allele is than neutrality predicts for its frequency.
+ *
+ * This is the whole single-locus selection signal in one number, and because haplotype length
+ * goes as `1/t` it is simultaneously the factor by which the swept haplotype is too long —
+ * measured against the neutral floor, so it is an upper bound on the length anomaly rather
+ * than an estimate of it.
+ */
+export function sweepAgeAnomaly(
+  effectivePopulation: number, frequency: number, observedAge: number,
+): number {
+  if (observedAge <= 0) throw new RangeError('sweepAgeAnomaly needs an age > 0');
+  return neutralAlleleAge(effectivePopulation, frequency) / observedAge;
+}
+
 export function structureChiSquare(nSamples: number, fst: number, deltaSd: number): number {
   if (nSamples < 1) throw new RangeError(`structureChiSquare needs n >= 1, got ${nSamples}`);
   if (fst < 0) throw new RangeError(`structureChiSquare needs F_ST >= 0, got ${fst}`);

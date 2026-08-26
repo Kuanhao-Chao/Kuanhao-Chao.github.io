@@ -86,6 +86,9 @@ import {
   spikedEigenvalue,
   spikedEigenvectorOverlap,
   structureChiSquare,
+  neutralAlleleAge,
+  ehhHalfLength,
+  sweepAgeAnomaly,
   type FstSite,
 } from './deepDiveMath.ts';
 
@@ -8435,6 +8438,122 @@ describe('statgen-population-structure-fst', () => {
     const excess = (n: number) => structureChiSquare(n, 0.001, 0.2) - 1;
     expect(excess(200_000) / excess(100_000)).toBeCloseTo(2, 12);
     expect(mdx).toContain('linear in $N$');
+  });
+});
+
+describe('statgen-detecting-selection', () => {
+  const mdx = lesson('statgen-detecting-selection');
+  const N = 10_000;
+  const KB = 1e5; // 1 cM/Mb
+
+  describe('worked example — how old is a variant at half frequency', () => {
+    it('gives 4N ln 2 exactly, and the years the lesson quotes', () => {
+      expect(neutralAlleleAge(N, 0.5)).toBeCloseTo(4 * N * Math.LN2, 9);
+      expect(neutralAlleleAge(N, 0.5).toFixed(2)).toBe('27725.89');
+      expect(Math.round((neutralAlleleAge(N, 0.5) * 25) / 1000) * 1000).toBe(693_000);
+      expect(mdx).toContain('27{,}725.89');
+      expect(mdx).toContain('693,000 years');
+    });
+
+    it('gives the other two frequencies the lesson tabulates', () => {
+      expect(neutralAlleleAge(N, 0.1).toFixed(2)).toBe('10233.71');
+      expect(neutralAlleleAge(N, 0.9).toFixed(2)).toBe('37929.79');
+      expect(mdx).toContain('10,233.71');
+      expect(mdx).toContain('37,929.79');
+    });
+
+    it('puts the sweep anomaly at 55.45', () => {
+      expect(sweepAgeAnomaly(N, 0.5, 500).toFixed(2)).toBe('55.45');
+      expect(mdx).toContain('55.45');
+    });
+  });
+
+  describe('worked example — the same anomaly read as a length', () => {
+    it('collapses the neutral bound to exactly 1/(8N)', () => {
+      expect(ehhHalfLength(neutralAlleleAge(N, 0.5))).toBeCloseTo(1 / (8 * N), 15);
+      expect((ehhHalfLength(neutralAlleleAge(N, 0.5)) * KB).toFixed(2)).toBe('1.25');
+      expect(mdx).toContain('1.25\\times10^{-5}');
+      expect(mdx).toContain('1.25 kb');
+    });
+
+    it('gives the swept half-length and its ratio', () => {
+      expect(ehhHalfLength(500)).toBeCloseTo(6.931472e-4, 10);
+      expect((ehhHalfLength(500) * KB).toFixed(2)).toBe('69.31');
+      const ratio = ehhHalfLength(500) / ehhHalfLength(neutralAlleleAge(N, 0.5));
+      expect(ratio.toFixed(2)).toBe('55.45');
+      expect(ratio).toBeCloseTo(sweepAgeAnomaly(N, 0.5, 500), 9);
+      expect(mdx).toContain('6.931472\\times10^{-4}');
+      expect(mdx).toContain('69.31');
+    });
+  });
+
+  describe('the figures', () => {
+    it('draws the age curve in units of 4N, matching the closed form', () => {
+      // the generator plots -(p/(1-p)) ln p; the simulated points are 3-4% under it
+      const overFourN = (p: number) => -(p / (1 - p)) * Math.log(p);
+      expect(overFourN(0.5)).toBeCloseTo(Math.LN2, 12);
+      expect(neutralAlleleAge(N, 0.5) / (4 * N)).toBeCloseTo(overFourN(0.5), 12);
+      // the sweep ring: 500 generations at N = 10,000 is 0.0125 on that axis
+      expect(500 / (4 * N)).toBeCloseTo(0.0125, 12);
+      expect(mdx).toContain('0.0125');
+      expect(mdx).toContain('3–4% below the curve');
+      // the caption names the simulation's parameters, so the prose has to as well
+      expect(mdx).toContain('60,000 generations');
+      expect(mdx).toContain('2N = 1,000 chromosomes');
+    });
+
+    it('marks both EHH crossings where the curves actually cross one half', () => {
+      expect(Math.exp(-2 * 69.31e-5 * 500)).toBeCloseTo(0.5, 3);
+      expect(Math.exp(-2 * 1.25e-5 * neutralAlleleAge(N, 0.5))).toBeCloseTo(0.5, 6);
+    });
+  });
+
+  describe('exercises', () => {
+    it('exercise 1 — age at 0.20, and the shape of the curve', () => {
+      expect(neutralAlleleAge(N, 0.2).toFixed(2)).toBe('16094.38');
+      expect(Math.round((neutralAlleleAge(N, 0.2) * 25) / 1000)).toBe(402);
+      expect((neutralAlleleAge(N, 0.5) / neutralAlleleAge(N, 0.2)).toFixed(2)).toBe('1.72');
+      expect(mdx).toContain('16{,}094.38');
+      expect(mdx).toContain('402,000 years');
+      expect(mdx).toContain('factor of only 1.72');
+    });
+
+    it('exercise 2 — the two anomalies agree', () => {
+      expect(neutralAlleleAge(N, 0.75).toFixed(2)).toBe('34521.85');
+      expect(sweepAgeAnomaly(N, 0.75, 1200).toFixed(2)).toBe('28.77');
+      expect((ehhHalfLength(1200) * KB).toFixed(2)).toBe('28.88');
+      expect((ehhHalfLength(neutralAlleleAge(N, 0.75)) * KB).toFixed(3)).toBe('1.004');
+      expect((ehhHalfLength(1200) / ehhHalfLength(neutralAlleleAge(N, 0.75))).toFixed(2)).toBe('28.77');
+      expect(mdx).toContain('34{,}521.85');
+      expect(mdx).toContain('28.77');
+      expect(mdx).toContain('28.88 kb');
+      expect(mdx).toContain('1.004 kb');
+    });
+
+    it('exercise 3 — 50 kb is a genealogy depth, and N moves the floor four-fold', () => {
+      expect((Math.LN2 / (2 * 50e-5)).toFixed(2)).toBe('693.15');
+      expect((1 / (8 * 5000) * KB).toFixed(1)).toBe('2.5');
+      expect((1 / (8 * 20_000) * KB).toFixed(3)).toBe('0.625');
+      expect((1 / (8 * 5000)) / (1 / (8 * 20_000))).toBeCloseTo(4, 12);
+      expect(mdx).toContain('693.15');
+      expect(mdx).toContain('2.5 kb at $N = 5{,}000$');
+      expect(mdx).toContain('0.625 kb at $N = 20{,}000$');
+    });
+
+    it('exercise 4 — a polygenic response is inside the drift step', () => {
+      const driftStep = Math.sqrt(0.25 / 20_000);
+      expect(driftStep.toFixed(4)).toBe('0.0035');
+      expect(0.004).toBeGreaterThan(driftStep);
+      expect(mdx).toContain('0.0035');
+    });
+  });
+
+  it('reports the simulation constants as measured, not as a closed form', () => {
+    // these are the one set of numbers in this lesson that no closed form produces; the
+    // prose has to say so, because that admission is what motivates the iHS contrast
+    for (const v of ['0.786', '0.681', '0.598']) expect(mdx).toContain(v);
+    expect(mdx).toContain('not a constant');
+    expect(mdx).toContain('within-locus contrast');
   });
 });
 

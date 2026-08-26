@@ -79,6 +79,7 @@ import {
   contingencyTests,
   fstHudsonParts, fstRatioOfAverages, fstAverageOfRatios, weirCockerhamFst,
   structureSpike, bbpThreshold, spikedEigenvalue, spikedEigenvectorOverlap, structureChiSquare,
+  neutralAlleleAge, ehhHalfLength, sweepAgeAnomaly,
   type FstSite,
 } from './deepDiveMath.ts';
 
@@ -1391,6 +1392,49 @@ describe('population structure and the PCA phase transition', () => {
     // 20,000 cells in sc-pca. The same edge decides both questions.
     expect(bbpThreshold(2000, 20_000).bulkEdge).toBeCloseTo(marchenkoPasturEdge(20_000, 2000).upper, 12);
     expect(bbpThreshold(2000, 20_000).bulkEdge).toBeCloseTo(1.7325, 4);
+  });
+});
+
+describe('allele age and the haplotype it can carry', () => {
+  const N = 10_000;
+
+  it('tends to 4N as the allele approaches fixation and to 0 as it vanishes', () => {
+    expect(neutralAlleleAge(N, 0.999999)).toBeCloseTo(4 * N, 1);
+    expect(neutralAlleleAge(N, 1e-9)).toBeLessThan(1);
+    expect(neutralAlleleAge(N, 0.5)).toBeGreaterThan(neutralAlleleAge(N, 0.1));
+    expect(neutralAlleleAge(N, 0.9)).toBeGreaterThan(neutralAlleleAge(N, 0.5));
+  });
+
+  it('is exactly 4N ln 2 at one half', () => {
+    expect(neutralAlleleAge(N, 0.5)).toBeCloseTo(4 * N * Math.LN2, 9);
+    expect(neutralAlleleAge(N, 0.5).toFixed(2)).toBe('27725.89');
+  });
+
+  it('rejects a frequency outside the open unit interval', () => {
+    expect(() => neutralAlleleAge(N, 0)).toThrow(RangeError);
+    expect(() => neutralAlleleAge(N, 1)).toThrow(RangeError);
+  });
+
+  it('collapses to exactly 1/(8N) at one half, because the ln 2 cancels', () => {
+    // d = ln2 / (2 * 4N ln2) = 1/(8N). Independent of ln2 and of the mutation rate.
+    for (const n of [1000, 10_000, 50_000]) {
+      expect(ehhHalfLength(neutralAlleleAge(n, 0.5))).toBeCloseTo(1 / (8 * n), 15);
+    }
+    expect(ehhHalfLength(neutralAlleleAge(N, 0.5))).toBeCloseTo(1.25e-5, 15);
+  });
+
+  it('makes haplotype length inversely proportional to genealogy depth', () => {
+    expect(ehhHalfLength(500)).toBeCloseTo(Math.LN2 / 1000, 15);
+    expect(ehhHalfLength(500) / ehhHalfLength(1000)).toBeCloseTo(2, 12);
+    expect((ehhHalfLength(500) * 1e5).toFixed(2)).toBe('69.31');
+  });
+
+  it('makes the age anomaly and the length anomaly the same number', () => {
+    const anomaly = sweepAgeAnomaly(N, 0.5, 500);
+    expect(anomaly.toFixed(2)).toBe('55.45');
+    // length ratio against the neutral floor is the same ratio, exactly
+    const lengthRatio = ehhHalfLength(500) / ehhHalfLength(neutralAlleleAge(N, 0.5));
+    expect(lengthRatio).toBeCloseTo(anomaly, 9);
   });
 });
 

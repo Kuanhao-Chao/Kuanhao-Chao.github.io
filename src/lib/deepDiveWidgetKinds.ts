@@ -24,6 +24,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'sc-pseudobulk',
   'sc-composition',
   'pca-structure',
+  'sweep-age',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];
