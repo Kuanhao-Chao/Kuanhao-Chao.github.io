@@ -3854,3 +3854,35 @@ korsunsky2019harmony:
   venue: "Nature Methods 16:1289-1296"
   doi: https://doi.org/10.1038/s41592-019-0619-0
   verified: 2026-08-26
+
+trapnell2014monocle:
+  authors: ['Cole Trapnell', 'Davide Cacchiarelli', 'Jonna Grimsby', 'et al.']
+  year: 2014
+  title: "The dynamics and regulators of cell fate decisions are revealed by pseudotemporal ordering of single cells"
+  venue: "Nature Biotechnology 32:381-386"
+  doi: https://doi.org/10.1038/nbt.2859
+  verified: 2026-08-26
+
+street2018slingshot:
+  authors: ['Kelly Street', 'Davide Risso', 'Russell B. Fletcher', 'et al.']
+  year: 2018
+  title: "Slingshot: cell lineage and pseudotime inference for single-cell transcriptomics"
+  venue: "BMC Genomics 19:477"
+  doi: https://doi.org/10.1186/s12864-018-4772-0
+  verified: 2026-08-26
+
+saelens2019trajectory:
+  authors: ['Wouter Saelens', 'Robrecht Cannoodt', 'Helena Todorov', 'Yvan Saeys']
+  year: 2019
+  title: "A comparison of single-cell trajectory inference methods"
+  venue: "Nature Biotechnology 37:547-554"
+  doi: https://doi.org/10.1038/s41587-019-0071-9
+  verified: 2026-08-26
+
+haghverdi2016dpt:
+  authors: ['Laleh Haghverdi', 'Maren Büttner', 'F. Alexander Wolf', 'Florian Buettner', 'Fabian J. Theis']
+  year: 2016
+  title: "Diffusion pseudotime robustly reconstructs lineage branching"
+  venue: "Nature Methods 13:845-848"
+  doi: https://doi.org/10.1038/nmeth.3971
+  verified: 2026-08-26

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  sameOrdering,
+  steadyStateCellShares,
+  traversalTimeShares,
+  pseudotimeShares,
   varianceInflationFactor,
   centeringAttenuation,
   batchTypeCorrelation,
@@ -7912,6 +7916,121 @@ describe('sc-batch-integration — what confounding costs, twice over', () => {
       expect(1 / 0.19).toBeCloseTo(5.26, 2);
       expect(Math.sqrt(varianceInflationFactor(0.9))).toBeCloseTo(2.294, 3);
       for (const v of ['19%', '5.2632', '5.26', '2.294']) expect(mdx, v).toContain(v);
+    });
+  });
+});
+
+
+describe('sc-trajectories — the axis is arc length, the cells are the clock', () => {
+  const mdx = lesson('sc-trajectories');
+  const SEGMENTS = [
+    { length: 0.3, speed: 1.0 },
+    { length: 0.2, speed: 0.1 },
+    { length: 0.5, speed: 1.0 },
+  ];
+  const pct2 = (x: number) => (Math.round(x * 1e4) / 100).toFixed(2);
+
+  describe('worked example — reading the durations off the cell counts', () => {
+    it('step 1: the axis reports 30 / 20 / 50', () => {
+      expect(pseudotimeShares(SEGMENTS)).toEqual([0.3, 0.2, 0.5]);
+      expect(mdx).toContain('**30%, 20%, 50%**');
+    });
+
+    it('step 2: the times are 0.3, 2.0 and 0.5 hours, totalling 2.8', () => {
+      const times = SEGMENTS.map((s) => s.length / s.speed);
+      expect(times).toEqual([0.3, 2, 0.5]);
+      expect(times.reduce((a, b) => a + b, 0)).toBeCloseTo(2.8, 12);
+      const shares = traversalTimeShares(SEGMENTS);
+      expect(shares[0]).toBeCloseTo(3 / 28, 12);
+      expect(shares[1]).toBeCloseTo(5 / 7, 12);
+      expect(shares[2]).toBeCloseTo(5 / 28, 12);
+      expect(pct2(shares[0])).toBe('10.71');
+      expect(pct2(shares[1])).toBe('71.43');
+      expect(pct2(shares[2])).toBe('17.86');
+      for (const v of ['{3}{28} = 10.71\\%', '{5}{7} = 71.43\\%', '{5}{28} = 17.86\\%'])
+        expect(mdx, v).toContain(v);
+    });
+
+    it('step 3: the cell shares are those same numbers, identically', () => {
+      const time = traversalTimeShares(SEGMENTS);
+      steadyStateCellShares(SEGMENTS).forEach((c, i) => expect(c).toBe(time[i]));
+      expect(mdx).toContain('10.71%, 71.43%, 17.86%');
+    });
+
+    it('step 4: the axis understates the bottleneck 3.57-fold and overstates the opening 2.8', () => {
+      const axis = pseudotimeShares(SEGMENTS);
+      const time = traversalTimeShares(SEGMENTS);
+      expect(time[1] / axis[1]).toBeCloseTo(3.5714, 4);
+      expect(axis[0] / time[0]).toBeCloseTo(2.8, 10);
+      // the same discrepancy stated the other way round, as the lesson does
+      expect(time[0] / axis[0]).toBeCloseTo(0.357, 3);
+      expect(mdx).toContain('0.357');
+      // and the ordering of stage durations is inverted, not merely mis-scaled
+      expect(axis[0]).toBeGreaterThan(axis[1]);
+      expect(time[0]).toBeLessThan(time[1]);
+      expect(time[1] / time[0]).toBeCloseTo(6.6667, 4);
+      for (const v of ['3.57-fold', '2.8-fold', 'nearly seven times shorter'])
+        expect(mdx, v).toContain(v);
+    });
+  });
+
+  describe('figure 1 — both rulers', () => {
+    it('draws the arc-length shares and the duration shares', () => {
+      for (const l of ['30%', '20%', '50%', '10.7%', '71.4%', '17.9%',
+                       'pseudotime axis', 'real elapsed time', '= share of cells'])
+        expect(mdx, `figure label ${l}`).toContain(l);
+    });
+  });
+
+  describe('the ordering is all that is identified', () => {
+    it('any strictly increasing map leaves the ordering alone', () => {
+      const pt = [0.1, 0.3, 0.5, 0.7, 0.9];
+      for (const f of [(x: number) => x * x, (x: number) => Math.log(x),
+                       (x: number) => Math.exp(3 * x), (x: number) => 5 * x + 2])
+        expect(sameOrdering(pt, pt.map(f))).toBe(true);
+      expect(sameOrdering(pt, pt.map((x) => (x - 0.5) ** 2))).toBe(false);
+      expect(mdx).toContain('strictly increasing');
+    });
+  });
+
+  describe('exercises', () => {
+    it('1 — a four-fold slower half holds four times the cells', () => {
+      const halves = [{ length: 0.5, speed: 1 }, { length: 0.5, speed: 0.25 }];
+      expect(pseudotimeShares(halves)).toEqual([0.5, 0.5]);
+      const shares = traversalTimeShares(halves);
+      expect(shares[0]).toBeCloseTo(0.2, 12);
+      expect(shares[1]).toBeCloseTo(0.8, 12);
+      expect(4000 * shares[0]).toBeCloseTo(800, 9);
+      expect(4000 * shares[1]).toBeCloseTo(3200, 9);
+      expect(shares[1] / shares[0]).toBeCloseTo(4, 12);
+      for (const v of ['800', '3,200', '**20%**', '**80%**']) expect(mdx, v).toContain(v);
+    });
+
+    it('2 — counts of 1,200/400/2,000/400 invert to durations and speeds', () => {
+      const counts = [1200, 400, 2000, 400];
+      const total = counts.reduce((a, b) => a + b, 0);
+      expect(total).toBe(4000);
+      const durations = counts.map((c) => c / total);
+      expect(durations).toEqual([0.3, 0.1, 0.5, 0.1]);
+      // equal arc lengths, so speed is inversely proportional to duration
+      const speeds = durations.map((d) => 1 / d);
+      const normalised = speeds.map((v) => v / Math.max(...speeds));
+      expect(normalised[0]).toBeCloseTo(1 / 3, 12);
+      expect(normalised[1]).toBeCloseTo(1, 12);
+      expect(normalised[2]).toBeCloseTo(0.2, 12);
+      // the lesson quotes them relative to the slowest instead
+      expect(speeds[1] / speeds[0]).toBeCloseTo(3, 12);
+      expect(speeds[1] / speeds[2]).toBeCloseTo(5, 12);
+      for (const v of ['30%, 10%, 50%, 10%', '1 : 3 : 0.6 : 3']) expect(mdx, v).toContain(v);
+      // the third stretch is the longest, not the briefest
+      expect(Math.max(...durations)).toBe(durations[2]);
+    });
+
+    it('3 — the steady-state assumption is what the argument rests on', () => {
+      expect(mdx).toContain('steady state');
+      expect(mdx).toContain('synchronised');
+      // a pulse means lambda = 0 afterwards, so the flux relation has nothing to balance
+      expect(mdx).toContain('\\lambda = 0');
     });
   });
 });

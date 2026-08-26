@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  sameOrdering,
+  steadyStateCellShares,
+  traversalTimeShares,
+  pseudotimeShares,
   varianceInflationFactor,
   centeringAttenuation,
   batchTypeCorrelation,
@@ -3054,5 +3058,78 @@ describe('batch confounding — what centring costs and what regression costs', 
     // the two are exact reciprocals: neither route escapes the other
     for (const r of [0.2, 0.5, 0.75, 0.9])
       expect(centeringAttenuation(r) * varianceInflationFactor(r)).toBeCloseTo(1, 12);
+  });
+});
+
+
+describe('trajectories — what pseudotime measures and what it does not', () => {
+  // a fast start, a ten-fold slower bottleneck, a fast finish
+  const SEGMENTS = [
+    { length: 0.3, speed: 1.0 },
+    { length: 0.2, speed: 0.1 },
+    { length: 0.5, speed: 1.0 },
+  ];
+
+  it('cell shares and time shares are the same numbers, exactly', () => {
+    const time = traversalTimeShares(SEGMENTS);
+    const cells = steadyStateCellShares(SEGMENTS);
+    cells.forEach((c, i) => expect(c).toBe(time[i]));
+    // and they are the fractions the lesson publishes
+    expect(cells[0]).toBeCloseTo(3 / 28, 12);
+    expect(cells[1]).toBeCloseTo(5 / 7, 12);
+    expect(cells[2]).toBeCloseTo(5 / 28, 12);
+    expect(cells.reduce((s, x) => s + x, 0)).toBeCloseTo(1, 12);
+  });
+
+  it('the pseudotime axis reports arc length, which is a different vector', () => {
+    const axis = pseudotimeShares(SEGMENTS);
+    expect(axis).toEqual([0.3, 0.2, 0.5]);
+    const time = traversalTimeShares(SEGMENTS);
+    // the bottleneck is short on the axis and long in reality
+    expect(time[1] / axis[1]).toBeCloseTo(3.5714, 4);
+    // and the fast opening is the reverse
+    expect(time[0] / axis[0]).toBeCloseTo(0.3571, 4);
+  });
+
+  it('equal speeds make the two coincide, which is the only case they do', () => {
+    const uniform = [
+      { length: 0.3, speed: 2 },
+      { length: 0.2, speed: 2 },
+      { length: 0.5, speed: 2 },
+    ];
+    const axis = pseudotimeShares(uniform);
+    traversalTimeShares(uniform).forEach((t, i) => expect(t).toBeCloseTo(axis[i], 12));
+    // any single speed gives the same answer: only ratios of speed matter
+    for (const v of [0.01, 1, 77]) {
+      const scaled = uniform.map((seg) => ({ ...seg, speed: v }));
+      traversalTimeShares(scaled).forEach((t, i) => expect(t).toBeCloseTo(axis[i], 12));
+    }
+  });
+
+  it('a segment crossed n times slower holds n times the cells per unit length', () => {
+    for (const factor of [2, 5, 10, 100]) {
+      const pair = [
+        { length: 0.5, speed: 1 },
+        { length: 0.5, speed: 1 / factor },
+      ];
+      const cells = steadyStateCellShares(pair);
+      expect(cells[1] / cells[0]).toBeCloseTo(factor, 10);
+    }
+  });
+
+  it('rejects impossible trajectories', () => {
+    expect(() => pseudotimeShares([])).toThrow(RangeError);
+    expect(() => traversalTimeShares([{ length: 0, speed: 1 }])).toThrow(RangeError);
+    expect(() => traversalTimeShares([{ length: 1, speed: 0 }])).toThrow(RangeError);
+  });
+
+  it('any monotone reparameterisation leaves the ordering untouched', () => {
+    const pt = [0.1, 0.3, 0.5, 0.7, 0.9];
+    for (const f of [(x: number) => x * x, (x: number) => x ** 3,
+                     (x: number) => Math.exp(3 * x), Math.sqrt, (x: number) => 5 * x + 2])
+      expect(sameOrdering(pt, pt.map(f))).toBe(true);
+    // a fold is not monotone, and the ordering does change
+    expect(sameOrdering(pt, pt.map((x) => (x - 0.5) ** 2))).toBe(false);
+    expect(() => sameOrdering([1, 2], [1])).toThrow(RangeError);
   });
 });

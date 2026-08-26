@@ -1052,6 +1052,71 @@ export function varianceInflationFactor(correlation: number): number {
   return 1 / remaining;
 }
 
+/** A stretch of a trajectory: how far it runs in pseudotime, and how fast cells cross it. */
+export interface TrajectorySegment {
+  /** Arc length in the pseudotime coordinate. */
+  length: number;
+  /** Rate of progress along it — small means a bottleneck. */
+  speed: number;
+}
+
+function checkSegments(segments: TrajectorySegment[]): void {
+  if (segments.length === 0) throw new RangeError('a trajectory needs at least one segment');
+  for (const { length, speed } of segments) {
+    if (length <= 0) throw new RangeError(`a segment needs length > 0, got ${length}`);
+    if (speed <= 0) throw new RangeError(`a segment needs speed > 0, got ${speed}`);
+  }
+}
+
+/** Share of the pseudotime axis each segment occupies — its arc length, normalised. */
+export function pseudotimeShares(segments: TrajectorySegment[]): number[] {
+  checkSegments(segments);
+  const total = segments.reduce((s, x) => s + x.length, 0);
+  return segments.map((x) => x.length / total);
+}
+
+/** Share of the real elapsed time each segment accounts for: length/speed, normalised. */
+export function traversalTimeShares(segments: TrajectorySegment[]): number[] {
+  checkSegments(segments);
+  const times = segments.map((x) => x.length / x.speed);
+  const total = times.reduce((s, x) => s + x, 0);
+  return times.map((t) => t / total);
+}
+
+/**
+ * Share of the cells each segment holds, at steady state.
+ *
+ * With cells entering at a constant rate and progressing at speed v(s), the density is
+ * λ/v(s), so the count in a stretch is λ times the time taken to cross it. The consequence is
+ * the result worth carrying: **the share of cells in a pseudotime interval is exactly the
+ * share of real time spent there**, while the pseudotime *coordinate* is arc length and
+ * carries no duration information at all. A bottleneck is short on the axis and crowded with
+ * cells, and it is the crowding that measures it.
+ *
+ * Identical to `traversalTimeShares` by construction; both are provided because the point of
+ * the lesson is that one is measurable and the other is what you wanted.
+ */
+export function steadyStateCellShares(segments: TrajectorySegment[]): number[] {
+  return traversalTimeShares(segments);
+}
+
+/**
+ * Whether a pseudotime assignment is invariant under a monotone reparameterisation.
+ *
+ * Any strictly increasing map of the pseudotime axis leaves every cell's *ordering* alone, so
+ * a method that only uses the ordering cannot tell the two apart. Returns true when the two
+ * vectors induce the same ranking — which is the precise sense in which pseudotime values
+ * are arbitrary and only their order is data.
+ */
+export function sameOrdering(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) throw new RangeError(`sameOrdering needs equal lengths, got ${a.length} and ${b.length}`);
+  const rank = (v: number[]) =>
+    v.map((_, i) => i).sort((i, j) => v[i] - v[j] || i - j);
+  const ra = rank(a);
+  const rb = rank(b);
+  return ra.every((x, i) => x === rb[i]);
+}
+
 // ── Study design ──────────────────────────────────────────────────────────────
 
 /**
