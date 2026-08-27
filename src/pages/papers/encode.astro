@@ -1,0 +1,524 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "The Encyclopedia of DNA Elements";
+const description = "Comprehensive technical summary and deep literature deconstruction of the ENCODE 4 culmination paper (The ENCODE Project Consortium, bioRxiv 2026): A foundational reference map encompassing >16,000 experiments across 3 functional layers.";
+const readingTime = "26 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Regulatory Genomics & Epigenomics</span>
+        <span class="paper-venue-badge">bioRxiv · July 2026 (Flagship Consortium Paper)</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> The ENCODE Project Consortium</div>
+        <div><strong>Affiliation:</strong> National Human Genome Research Institute (NHGRI) ENCODE Consortium (Stanford, Broad Institute, JHU, UMass Chan, UW, Caltech, UC Berkeley, UCSC, etc.)</div>
+        <div><strong>Preprint DOI:</strong> <a href="https://doi.org/10.64898/2026.07.06.731365" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.64898/2026.07.06.731365</a> · bioRxiv (July 8, 2026)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      Representing the culmination of more than <strong>two decades of systematic exploration</strong> of human and mouse genome function, the <strong>ENCODE Project Consortium</strong> presents the definitive <strong>Encyclopedia of DNA Elements (ENCODE)</strong>. Encompassing over <strong>16,000 genome-wide experiments</strong> across <strong>1,489 distinct biosamples</strong>, ENCODE 4 establishes an exhaustive reference map across three core operational layers: (1) an expanded catalog of <strong>5.3 million DNase I hypersensitive sites (DHSs)</strong> and <strong>2.3 million candidate cis-regulatory elements (cCREs v4)</strong> decoded by base-resolution deep learning sequence models (BPNet/ChromBPNet); (2) an expanded transcriptome atlas uncovering nearly <strong>18,000 novel lncRNA genes</strong> and <strong>150,000 novel transcript isoforms</strong> with kinetic stability maps; and (3) ultra-deep <strong>3D chromatin interaction maps at motif-level (10 bp) resolution (~150 billion Intact Hi-C contacts)</strong> dissecting loop extrusion mechanics via targeted degron perturbations and predictive enhancer-to-gene wiring (<strong>ENCODE-rE2G</strong>).
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & The 20-Year Evolution of ENCODE</a></li>
+        <li><a href="#layer1-regulatory">2. Layer 1: The Unified Catalog of Gene Regulatory Elements</a></li>
+        <li><a href="#cv2f-variants">3. Non-Coding Variant Prioritization & Calibrated Variant-to-Function (cV2F)</a></li>
+        <li><a href="#layer2-transcriptome">4. Layer 2: The Expanded Transcriptome & Gene Structure Simplex</a></li>
+        <li><a href="#layer3-3d-topology">5. Layer 3: Ultra-High Resolution 3D Chromatin Topology (10 bp Resolution)</a></li>
+        <li><a href="#re2g-wiring">6. Predictive Enhancer-to-Gene Wiring: ENCODE-rE2G</a></li>
+        <li><a href="#evolution-development">7. Mouse Postnatal Development, Cross-Species Conservation & PaleoHi-C</a></li>
+        <li><a href="#mcp-ai-integration">8. Open Science & Model Context Protocol (MCP) AI Integration</a></li>
+        <li><a href="#mathematical-formulations">9. Mathematical Formulations & Multi-Omics Objectives</a></li>
+        <li><a href="#comparison-matrix">10. Master Statistical Synthesis & Comparative Matrix</a></li>
+      </ol>
+    </div>
+
+    <!-- Section 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The 20-Year Evolution of ENCODE</h2>
+      <p>
+        Since the initial sequencing of the human genome, understanding how three billion base pairs of linear DNA orchestrate cell-type-specific gene expression, developmental trajectories, and disease pathogenesis has been the central challenge of modern genomics. Launched in 2003 by the National Human Genome Research Institute (NHGRI), the <strong>Encyclopedia of DNA Elements (ENCODE)</strong> project has evolved through four transformative phases:
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>ENCODE Phase</th>
+              <th>Timeframe</th>
+              <th>Primary Scope & Technologies</th>
+              <th>Key Milestone Deliverables</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Phase 1 (Pilot)</strong></td>
+              <td>2003–2007</td>
+              <td>Tiling microarrays & Sanger sequencing over 1% of the human genome (30 Mb target).</td>
+              <td>Established that the genome is pervasively transcribed; identified non-coding regulatory biochemical activity.</td>
+            </tr>
+            <tr>
+              <td><strong>Phase 2 (Genome-wide)</strong></td>
+              <td>2007–2012</td>
+              <td>High-throughput short-read sequencing (ChIP-seq, DNase-seq, RNA-seq) across immortalized human cell lines.</td>
+              <td>First genome-wide catalog of transcription factor binding sites, histone modification landscapes, and open chromatin.</td>
+            </tr>
+            <tr>
+              <td><strong>Phase 3 (Expansion)</strong></td>
+              <td>2012–2017</td>
+              <td>Assaying primary human cells and tissues; introducing the Registry of candidate cis-Regulatory Elements (cCREs v1–v3).</td>
+              <td>Registry of cCREs; expanded mouse developmental tissue maps; SCREEN web interface launched.</td>
+            </tr>
+            <tr>
+              <td><strong>Phase 4 (Culmination)</strong></td>
+              <td>2017–2026</td>
+              <td>Intact Hi-C (~150B contacts), PacBio/ONT long-read RNA-seq, base-resolution deep learning (BPNet/ChromBPNet), single-cell multiomics, auxin degrons, MCP servers.</td>
+              <td><strong>5.3M human DHSs, 2.3M cCREs (v4), cV2F variant scoring, ENCODE-rE2G enhancer wiring, PaleoHi-C, AI MCP integration.</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The Scale of ENCODE 4
+        </div>
+        <p>
+          ENCODE 4 incorporates data from <strong>16,140 total experiments</strong> spanning <strong>72 distinct experimental assay types</strong> across <strong>1,489 biosamples</strong> (cell lines, primary cells, in vitro differentiated tissues, and primary human/mouse organs). Over <strong>85% of Phase 4 assays</strong> were performed in primary cell types and tissues, dramatically improving physiological relevance for human disease mapping.
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 2 -->
+    <section id="layer1-regulatory">
+      <h2>2. Layer 1: The Unified Catalog of Gene Regulatory Elements</h2>
+      <p>
+        The foundation of Layer 1 is built upon <strong>5.3 million human DNase I Hypersensitive Sites (DHSs)</strong>. By compiling and cross-normalizing DNase-seq profiles across hundreds of cell and tissue states, ENCODE delineates virtually all accessible chromatin space in the human genome.
+      </p>
+
+      <h3>Candidate cis-Regulatory Elements (cCREs v4)</h3>
+      <p>
+        Integrating DHSs with core histone modifications (<Katex tex="\text{H3K4me3}" />, <Katex tex="\text{H3K27ac}" />) and CTCF occupancy yielded the updated <strong>Registry of candidate cis-Regulatory Elements (v4)</strong> containing <strong>2,342,166 unique human elements</strong>:
+      </p>
+      <ul>
+        <li><strong>Promoter-like signatures (PLS, 186,076 elements):</strong> Positioned within <Katex tex="200\text{ bp}" /> of annotated GENCODE TSSs, exhibiting high DNase and high H3K4me3.</li>
+        <li><strong>Proximal enhancer-like signatures (pELS, 597,422 elements):</strong> Located within <Katex tex="2\text{ kb}" /> of a TSS, displaying high DNase and high H3K27ac without predominant H3K4me3.</li>
+        <li><strong>Distal enhancer-like signatures (dELS, 1,213,293 elements):</strong> Located <Katex tex="> 2\text{ kb}" /> from any annotated TSS, enriched for H3K27ac and cell-type-specific TF binding.</li>
+        <li><strong>CTCF-only elements (204,411 elements):</strong> High DNase accessibility and strong CTCF binding without active histone marks, functioning primarily as architectural insulators.</li>
+        <li><strong>DNase-H3K4me3 elements (140,964 elements):</strong> Accessible chromatin with H3K4me3 occurring <Katex tex="> 2\text{ kb}" /> from annotated TSSs, marking unannotated alternative promoters or poised regulatory loci.</li>
+      </ul>
+
+      <h3>Base-Resolution Deep Learning Sequence Models: BPNet & ChromBPNet</h3>
+      <p>
+        To transition from descriptive peak calling to mechanistic sequence grammar, ENCODE trained deep residual convolutional neural networks (<strong>BPNet</strong> and <strong>ChromBPNet</strong>) across <strong>3,857 experiments</strong>:
+      </p>
+      <ul>
+        <li><strong>2,339 Transcription Factor ChIP-seq datasets:</strong> Covering 845 human and mouse TFs, including 1,261 datasets specifically profiling 455 unique C2H2 zinc finger proteins.</li>
+        <li><strong>1,143 DNase-seq datasets:</strong> Modeling cell-type-specific chromatin accessibility and enzyme cutting bias.</li>
+        <li><strong>369 ATAC-seq datasets:</strong> Dissecting Tn5 transposase sequence preferences and chromatin openness.</li>
+        <li><strong>6 PRO-cap and 8 high-throughput reporter assays:</strong> Capturing base-pair nascent transcription initiation and autonomous episomal enhancer activity.</li>
+      </ul>
+      <p>
+        By isolating assay-specific sequence bias from biological regulatory signal via dual-head profile regression, these models resolved single-nucleotide motif architectures, cooperative spacing constraints (e.g. strict 10.5 bp helical turn periodicity between NF-<Katex tex="\kappa" />B and AP-1), and directional TF grammar.
+      </p>
+    </section>
+
+    <!-- Section 3 -->
+    <section id="cv2f-variants">
+      <h2>3. Non-Coding Variant Prioritization & Calibrated Variant-to-Function (cV2F)</h2>
+      <p>
+        More than 90% of disease-associated genetic variants identified by genome-wide association studies (GWAS) reside in non-coding regions. To bridge the gap between statistical association and causal molecular mechanisms, ENCODE developed the <strong>calibrated Variant-to-Function (cV2F)</strong> scoring framework.
+      </p>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The cV2F Architecture
+        </div>
+        <p>
+          <strong>cV2F</strong> integrates three hierarchical tiers of genomic features:
+          <ol>
+            <li><strong>Variant-Level Deep Learning Perturbations:</strong> In silico mutagenesis effect sizes from ChromBPNet accessibility models and BPNet TF binding profiles (<Katex tex="\Delta \text{Profile}" />, <Katex tex="\Delta \text{Count}" />).</li>
+            <li><strong>Empirical Heterozygous Allele Imbalance:</strong> Allele-specific sequencing read counts at heterozygous positions across hundreds of human donor genomes.</li>
+            <li><strong>Element-Level Context & Conservation:</strong> Cell-type cCRE annotation status, Baseline-LD metrics, and multi-species evolutionary constraint scores.</li>
+          </ol>
+        </p>
+      </div>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Evaluation Benchmark</th>
+              <th>Baseline Methodology</th>
+              <th>cV2F Performance Gain</th>
+              <th>Biological Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>UK Biobank GWAS Fine-Mapping (94 Traits)</strong></td>
+              <td>PolyFun Baseline-LF / Standard S-LDSC</td>
+              <td><strong>+14.3% increase</strong> in high-confidence fine-mapped causal variants (<Katex tex="\text{PIP} > 0.95" />, <Katex tex="N = 3,551" /> vs. 3,107).</td>
+              <td>Resolves causal non-coding driver mutations in autoimmune and cardiovascular loci.</td>
+            </tr>
+            <tr>
+              <td><strong>Million Veteran Program (MVP European, 931 Traits)</strong></td>
+              <td>DeepSEA / CADD / functional annotations</td>
+              <td><strong>Significant AUPRC boost</strong> on independent held-out fine-mapped causal sets (<Katex tex="p < 10^{-12}" />).</td>
+              <td>Cross-trait calibration across multi-ancestry cohorts.</td>
+            </tr>
+            <tr>
+              <td><strong>MVP African Ancestry (931 Traits)</strong></td>
+              <td>European-trained annotation models</td>
+              <td><strong>Robust transferability</strong> with zero ancestry-dependent performance degradation.</td>
+              <td>Demonstrates sequence-grounded biophysical priors overcome LD structure differences.</td>
+            </tr>
+            <tr>
+              <td><strong>Saturation Mutagenesis Reporter Assays (MPRA)</strong></td>
+              <td>Standard position weight matrices (PWMs)</td>
+              <td><strong>Pearson <Katex tex="r = 0.74" /></strong> with experimentally validated variant expression deltas.</td>
+              <td>Accurately predicts non-additive motif disruptions and de novo motif creation.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 4 -->
+    <section id="layer2-transcriptome">
+      <h2>4. Layer 2: The Expanded Transcriptome & Gene Structure Simplex</h2>
+      <p>
+        The second pillar of ENCODE 4 focused on systematically capturing the full diversity of the human and mouse transcriptomes using <strong>full-length long-read RNA sequencing (PacBio Iso-Seq and Oxford Nanopore Technologies)</strong> alongside metabolic labeling assays.
+      </p>
+
+      <h3>Transcriptome Expansion & Novel Discoveries</h3>
+      <ul>
+        <li><strong>Novel lncRNA Genes:</strong> Identified <strong>17,910 novel human long noncoding RNA genes</strong>, substantially expanding GENCODE v40 annotations.</li>
+        <li><strong>Novel Transcript Isoforms:</strong> Discovered <strong>148,823 novel full-length transcript isoforms</strong> across protein-coding and non-coding loci.</li>
+        <li><strong>Biotype Detection:</strong> Successfully detected >80% of all annotated protein-coding genes and >55% of annotated lncRNAs at <Katex tex="\ge 1\text{ TPM}" /> across assayed conditions.</li>
+      </ul>
+
+      <h3>The Gene Structure Simplex</h3>
+      <p>
+        To understand the combinatorial mechanisms generating transcript diversity, ENCODE deconstructed each full-length transcript into an independent triplet of structural choices:
+      </p>
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The Transcript Structure Triplet
+        </div>
+        <p>
+          Every transcript is formally defined by its:
+          <br />
+          1. <strong>Transcript Start Site (TSS):</strong> Alternative promoter usage.
+          <br />
+          2. <strong>Exon Junction Chain (EC):</strong> Alternative splicing and internal exon skipping/inclusion.
+          <br />
+          3. <strong>Transcript End Site (TES):</strong> Alternative cleavage and polyadenylation (APA).
+        </p>
+      </div>
+      <p>
+        By projecting genes onto a <strong>2-Simplex (<Katex tex="\Delta^2" />) coordinate space</strong> based on the relative entropy of their TSS, EC, and TES usage, ENCODE discovered that <strong>44% of human protein-coding genes exhibit biased diversity</strong> governed predominantly by a single regulatory axis:
+      </p>
+      <ul>
+        <li><strong>TSS-Biased Genes:</strong> Transcripts predominantly vary in alternative transcription initiation while preserving internal splicing (e.g. the splicing factor gene <em>SCAF1</em>, which utilizes distinct promoters in brain vs. liver).</li>
+        <li><strong>Splicing/EC-Biased Genes:</strong> Transcripts maintain identical 5' and 3' ends but extensively shuffle internal cassette exons.</li>
+        <li><strong>TES/APA-Biased Genes:</strong> Transcripts share a common promoter and splice chain but select alternative polyadenylation sites, altering 3' UTR miRNA binding domains.</li>
+      </ul>
+
+      <h3>Kinetic Transcript Stability: Bru-seq & BruChase-seq</h3>
+      <p>
+        Using bromouridine pulse-chase metabolic labeling (<strong>Bru-seq</strong> and <strong>BruChase-seq</strong>) across 16 human cell lines, ENCODE quantified nascent RNA synthesis rates and post-transcriptional decay kinetics over time windows of <Katex tex="0\text{--}2\text{ h}" /> and <Katex tex="2\text{--}6\text{ h}" />:
+      </p>
+      <ul>
+        <li><strong>Immediate Early Response TFs (e.g. <em>KLF6</em>, <em>FOS</em>):</strong> Characterized by ultra-rapid transcription initiation coupled with extreme decay rates (<Katex tex="t_{1/2} < 30\text{ min}" />).</li>
+        <li><strong>Housekeeping Factors (e.g. <em>ALKBH5</em>):</strong> Display constant, high stability across all cell types (<Katex tex="t_{1/2} > 8\text{ h}" />).</li>
+        <li><strong>Two-Phase Kinetics (e.g. <em>RPL31</em>):</strong> Rapid initial clearance of unprocessed transcripts followed by stabilization of mature cytoplasmic mRNAs.</li>
+        <li><strong>Cell-Type-Specific Stability Tuning (e.g. <em>SYPL1</em>):</strong> Exhibiting 5-fold longer half-lives in neural lineages compared to myeloid cells.</li>
+      </ul>
+    </section>
+
+    <!-- Section 5 -->
+    <section id="layer3-3d-topology">
+      <h2>5. Layer 3: Ultra-High Resolution 3D Chromatin Topology (10 bp Resolution)</h2>
+      <p>
+        The third major pillar of ENCODE 4 achieved an unprecedented leap in spatial resolution for mapping 3D nuclear architecture through <strong>Intact Hi-C</strong>, generating over <strong>150 Billion physical contacts</strong> across more than 100 human cell types and primary tissues.
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Mapping Technology</th>
+              <th>Sequencing Depth</th>
+              <th>Effective Spatial Resolution</th>
+              <th>Resolvable Genomic Features</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>In situ Hi-C (Phase 2/3)</strong></td>
+              <td>~4.9 Billion contacts</td>
+              <td><Katex tex="5\text{ kb -- } 1\text{ kb}" /></td>
+              <td>Topologically Associating Domains (TADs) and large CTCF loop domains.</td>
+            </tr>
+            <tr>
+              <td><strong>Micro-C (4DN Consortium)</strong></td>
+              <td>~6.0 Billion contacts</td>
+              <td><Katex tex="200\text{ bp -- } 100\text{ bp}" /></td>
+              <td>Nucleosome-scale chromatin compaction and enhancer-promoter clustering.</td>
+            </tr>
+            <tr>
+              <td><strong>ENCODE 4 Intact Hi-C</strong></td>
+              <td><strong>~150 Billion contacts</strong></td>
+              <td><strong>Sub-element (&lt;100 bp) down to 10 bp motif-level</strong></td>
+              <td><strong>Direct physical interactions between individual TF motifs and CRISPR-validated enhancers (e.g. <em>LMO2</em>, <em>GATA4</em>).</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Targeted Auxin Degrons: Deconstructing Loop Extrusion Machinery</h3>
+      <p>
+        To establish causality in 3D genome folding, ENCODE executed targeted degradation of core nuclear architectural proteins (<strong>RAD21 / cohesin, CTCF, RNA Polymerase II / POLR2A, and SMARCA5</strong>) using an auxin-inducible degron system in HCT-116 cells:
+      </p>
+      <ul>
+        <li><strong>Cohesin & CTCF Dependency:</strong> <strong>85% of all chromatin loops</strong> were abolished upon RAD21 degradation, and <strong>78%</strong> were lost upon CTCF degradation, confirming loop extrusion as the dominant genome-wide folding mechanism.</li>
+        <li><strong>RNA Polymerase II-Mediated Distal Communication:</strong> Acute degradation of RNA Pol II led to the loss of <strong>26% of loops anchored at Pol II binding sites</strong> (compared to only 11% at CTCF anchors). Pol II loops were strictly dependent on cohesin, proving that recruiting active RNA Pol II confers the physical capacity to communicate at a distance via cohesin extrusion.</li>
+        <li><strong>Transcription Factor Hubs (AP-1):</strong> Chromatin loops anchored at AP-1 motifs were notably resistant to both CTCF and cohesin degradation, demonstrating the existence of cohesin-independent phase-separated transcriptional condensates.</li>
+      </ul>
+
+      <h3>Haplotype-Resolved Allele-Specific Nuclear Architecture</h3>
+      <p>
+        By phasing Intact Hi-C contact matrices across <strong>41 human lymphoblastoid cell lines (LCLs)</strong>, ENCODE directly observed allele-specific chromatin looping. For example, at chromosome 9 (41.15–41.17 Mb), a single heterozygous non-coding SNP disrupting the consensus CTCF binding motif resulted in the complete, unilateral collapse of the chromatin loop exclusively on the mutant haplotype, leaving the homologous wild-type allele intact.
+      </p>
+    </section>
+
+    <!-- Section 6 -->
+    <section id="re2g-wiring">
+      <h2>6. Predictive Enhancer-to-Gene Wiring: ENCODE-rE2G</h2>
+      <p>
+        A central bottleneck in human genetics is determining which distal enhancer controls which target gene promoter across diverse cell types. ENCODE developed <strong>ENCODE-rE2G</strong>, an advanced gradient-boosted machine learning model for predicting functional enhancer-promoter regulatory connections genome-wide.
+      </p>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> Training & Ground Truth Benchmarking
+        </div>
+        <p>
+          ENCODE-rE2G was trained on a benchmark of <strong>10,356 element-gene pairs</strong>, anchored by <strong>471 high-confidence functional connections verified by CRISPRi perturbation screens</strong> with RNA-seq / FlowFISH readouts.
+        </p>
+      </div>
+
+      <p>
+        ENCODE-rE2G integrates three principal feature classes:
+      </p>
+      <ol>
+        <li><strong>Enhancer Activity Signal:</strong> Quantified by normalized DNase-seq accessibility and H3K27ac ChIP-seq signal within the candidate cCRE.</li>
+        <li><strong>Physical 3D Chromatin Contact:</strong> Empirical Intact Hi-C / Micro-C contact frequency between the enhancer center and target TSS.</li>
+        <li><strong>Genomic Distance & Insulator Gates:</strong> Genomic distance decay kernels combined with intervening CTCF insulator barrier counts.</li>
+      </ol>
+      <p>
+        ENCODE-rE2G significantly outperforms traditional Activity-by-Contact (ABC) baselines (AUPRC 0.76 vs. 0.61 on held-out CRISPRi screens), resolving complex multi-enhancer hubs and distal skip-connections where an enhancer bypasses proximal genes to activate a distant promoter >200 kb away.
+      </p>
+    </section>
+
+    <!-- Section 7 -->
+    <section id="evolution-development">
+      <h2>7. Mouse Postnatal Development, Cross-Species Conservation & PaleoHi-C</h2>
+      
+      <h3>Mouse Postnatal Developmental Dynamics</h3>
+      <p>
+        In parallel with human studies, ENCODE mapped postnatal gene regulatory dynamics in mice across a dense longitudinal time course:
+      </p>
+      <ul>
+        <li><strong>Developmental Stages:</strong> Juvenile (PND4, PND14, PND25), Puberty (PND36), and Adult stages (2 months, 8 months, 18–20 months).</li>
+        <li><strong>Tissue Breadth:</strong> 11 tissues (cerebral cortex, hippocampus, heart, skeletal muscle, adrenal gland, spleen, thymus, lung, liver, kidney, gonads).</li>
+        <li><strong>Mouse DHS Catalog:</strong> Delineated <strong>2.6 million mouse DHSs</strong> across 562 biosamples (114 fetal/embryonic and 448 postnatal), estimating ~61% completeness for the mouse accessible regulome.</li>
+        <li><strong>Postnatal-Specific Genes:</strong> Identified <strong>2,322 genes</strong> that are exclusively expressed postnatally, predominantly involved in immune maturation and metabolic adaptation.</li>
+      </ul>
+
+      <h3>Cross-Species Functional Conservation</h3>
+      <p>
+        ENCODE evaluated functional conservation between human and mouse genomes using two orthogonal paradigms:
+      </p>
+      <ol>
+        <li><strong>Sequence-Matched Pairs:</strong> 2.2 million orthologous element pairs matched by direct sequence alignment.</li>
+        <li><strong>Promoter-Flank Orthologous Pairs:</strong> Testing <strong>~180 million element pairs</strong> positioned in syntenic regions flanking orthologous gene promoters.</li>
+      </ol>
+      <p>
+        The analysis revealed that while transcription factor binding motifs within cCREs are overwhelmingly ancestral and conserved, the spatial positioning and turnover of distal enhancer elements are highly dynamic, frequently repurposed through lineage-specific transposable element insertions (particularly SINE retrotransposons).
+      </p>
+
+      <h3>PaleoHi-C: 3D Architecture in Ancient Genomes</h3>
+      <p>
+        Demonstrating the evolutionary stability of 3D nuclear topology over geological timescales, ENCODE developed <strong>PaleoHi-C</strong> and successfully mapped chromosome conformation in a <strong>52,000-year-old permafrost-preserved woolly mammoth skin sample</strong>. The resulting contact maps revealed that chromatin loop domains and TAD boundaries in mammoth skin correspond directly to conserved nuclear structures in modern Asian elephant and human dermal fibroblasts.
+      </p>
+    </section>
+
+    <!-- Section 8 -->
+    <section id="mcp-ai-integration">
+      <h2>8. Open Science & Model Context Protocol (MCP) AI Integration</h2>
+      <p>
+        A pioneering technical contribution of ENCODE 4 is the release of official <strong>Model Context Protocol (MCP) servers</strong>, directly bridging the massive ENCODE data repository with autonomous AI coding agents and Large Language Models (LLMs):
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The ENCODE AI MCP Architecture
+        </div>
+        <p>
+          <ul>
+            <li><strong>ENCODE Core MCP Server:</strong> Provides standardized API endpoints for autonomous agents to query biosample metadata, download peak intervals, search cCRE IDs, and retrieve cV2F variant effect predictions programmatically.</li>
+            <li><strong>Juicebox 3D MCP Server:</strong> Enables AI systems to dynamically query, extract sub-matrices, and perform virtual 4C analysis on ~150 billion Intact Hi-C contact matrices at arbitrary genomic coordinates and resolutions.</li>
+            <li><strong>Interactive Web Tools:</strong> SCREEN v4 (cCRE explorer), Long Read RNA-seq Data Viewer, Functional Conservation Track Hub, and Spacewalk (3D virtual genome visualizer).</li>
+          </ul>
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 9 -->
+    <section id="mathematical-formulations">
+      <h2>9. Mathematical Formulations & Multi-Omics Objectives</h2>
+
+      <h3>1. Calibrated Variant-to-Function (cV2F) Scoring</h3>
+      <p>
+        The cV2F score for variant <Katex tex="v" /> in cell context <Katex tex="c" /> is parameterized as a regularized logistic regression over multi-modal feature representations:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\text{cV2F}(v, c) = \sigma\left( \mathbf{w}^T \mathbf{x}_{v, c} + b \right) = \frac{1}{1 + \exp\left( - \left( \sum_{m} w_m x_{v,c,m} + \sum_{k} \gamma_k z_{v,k} + b \right) \right)}" />
+      </div>
+      <p>
+        Where <Katex tex="x_{v,c,m}" /> denotes the in silico mutagenesis effect size from ChromBPNet/BPNet model <Katex tex="m" />, <Katex tex="z_{v,k}" /> represents invariant genomic features (Baseline-LD annotations, phastCons/phyloP conservation, and donor allelic imbalance ratios), and weights <Katex tex="\mathbf{w}, \mathbf{\gamma}" /> are trained on fine-mapped causal GWAS variants.
+      </p>
+
+      <h3>2. ENCODE-rE2G Enhancer-to-Gene Wiring Model</h3>
+      <p>
+        The regulatory link probability between candidate enhancer <Katex tex="e" /> and target gene promoter <Katex tex="g" /> is predicted via gradient-boosted decision trees:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="P(\text{Regulates}(e, g) = 1) = f_{\text{GBM}}\left( \text{Activity}(e), \text{Contact}_{\text{Intact-HiC}}(e, g), \log_{10} d(e, g), N_{\text{CTCF}}(e, g) \right)" />
+      </div>
+      <p>
+        Where <Katex tex="\text{Activity}(e) = \sqrt{\text{DNase}(e) \cdot \text{H3K27ac}(e)}" />, <Katex tex="\text{Contact}_{\text{Intact-HiC}}(e, g)" /> is the normalized contact intensity, <Katex tex="d(e, g)" /> is genomic distance, and <Katex tex="N_{\text{CTCF}}" /> is the number of intervening insulating CTCF peaks.
+      </p>
+
+      <h3>3. Gene Structure Simplex Coordinate Projection</h3>
+      <p>
+        Let <Katex tex="U_{\text{TSS}}, U_{\text{EC}}, U_{\text{TES}}" /> be the number of unique start sites, exon chains, and end sites detected for gene <Katex tex="g" />, and <Katex tex="N_{\text{tx}}" /> be the total number of distinct full-length transcripts. The simplex coordinate vector <Katex tex="\mathbf{s}_g \in \Delta^2" /> satisfies:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\mathbf{s}_g = \left( \frac{U_{\text{TSS}}}{N_{\text{tx}}}, \frac{U_{\text{EC}}}{N_{\text{tx}}}, \frac{U_{\text{TES}}}{N_{\text{tx}}} \right), \quad \text{normalized such that } \sum_{i=1}^3 s_{g, i} = 1" />
+      </div>
+    </section>
+
+    <!-- Section 10 -->
+    <section id="comparison-matrix">
+      <h2>10. Master Statistical Synthesis & Comparative Matrix</h2>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Genomic Dimension</th>
+              <th>ENCODE 3 Baseline (2017)</th>
+              <th>ENCODE 4 Culmination (2026)</th>
+              <th>Technological & Biological Advance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Total Experimental Assays</strong></td>
+              <td>~4,000 experiments</td>
+              <td><strong>16,140 experiments</strong></td>
+              <td>4-fold increase; 85% focused on primary human cells and tissues.</td>
+            </tr>
+            <tr>
+              <td><strong>Human DHS Catalog</strong></td>
+              <td>2.1 million DHSs</td>
+              <td><strong>5.3 million DHSs</strong></td>
+              <td>Complete delineate of essentially all human accessible regulatory DNA.</td>
+            </tr>
+            <tr>
+              <td><strong>Candidate cis-Elements (cCREs)</strong></td>
+              <td>926,535 elements (v2)</td>
+              <td><strong>2,342,166 elements (v4)</strong></td>
+              <td>Comprehensive classification (PLS, pELS, dELS, CTCF, CA-H3K4me3).</td>
+            </tr>
+            <tr>
+              <td><strong>Base-Resolution Models</strong></td>
+              <td>None (standard peak callers)</td>
+              <td><strong>BPNet / ChromBPNet (3,857 models)</strong></td>
+              <td>Direct sequence-to-profile neural networks isolating biological motifs from assay bias.</td>
+            </tr>
+            <tr>
+              <td><strong>Non-Coding Variant Scoring</strong></td>
+              <td>RegulomeDB heuristic scores</td>
+              <td><strong>cV2F Framework</strong></td>
+              <td><strong>+14.3% boost in high-confidence fine-mapped causal GWAS variants.</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Transcriptome Annotation</strong></td>
+              <td>Short-read RNA-seq reconstructions</td>
+              <td><strong>PacBio/ONT Long-Read RNA-seq</strong></td>
+              <td><strong>+17,910 novel lncRNA genes; +148,823 novel full-length transcript isoforms.</strong></td>
+            </tr>
+            <tr>
+              <td><strong>3D Chromatin Topology</strong></td>
+              <td>In situ Hi-C (5 kb resolution, ~5B contacts)</td>
+              <td><strong>Intact Hi-C (10 bp resolution, ~150B contacts)</strong></td>
+              <td>Motif-level loop resolution; targeted auxin degrons (Pol II cohesin extrusion).</td>
+            </tr>
+            <tr>
+              <td><strong>Enhancer-Gene Wiring</strong></td>
+              <td>Nearest gene / correlation heuristics</td>
+              <td><strong>ENCODE-rE2G Model</strong></td>
+              <td>Trained and validated on 10,356 element-gene pairs (471 CRISPRi pairs).</td>
+            </tr>
+            <tr>
+              <td><strong>AI / Agent Access</strong></td>
+              <td>Static web portal downloads</td>
+              <td><strong>Native MCP Servers (ENCODE + Juicebox)</strong></td>
+              <td>Autonomous AI agent discovery, tool calling, and programmatic data retrieval.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="paper-callout callout-warning">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> Strategic Takeaway for Computational Biology
+        </div>
+        <p>
+          The ENCODE 4 culmination provides the ultimate training ground and empirical truth for the next generation of <strong>Foundation Regulatory Sequence Models</strong> (e.g. Borzoi, AlphaGenome, GPN-Star). By integrating base-pair sequence models (ChromBPNet), kinetic transcript dynamics (Bru-seq), single-cell pseudo-bulks, and 10 bp Intact Hi-C topologies, ENCODE 4 bridges the historical divide between molecular assays, evolutionary constraint, and human disease genetics.
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

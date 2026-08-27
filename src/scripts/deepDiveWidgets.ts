@@ -85,6 +85,9 @@ import {
   twasFalsePositiveProbability,
   contingencyTests,
   chi2Cdf,
+  ivwMr,
+  eggerRegression,
+  weightedMedianMr,
 } from '../lib/deepDiveMath';
 import {
   biasVarianceToy,
@@ -2794,6 +2797,89 @@ const threeTests: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * Three MR estimators on one set of instruments, as pleiotropy is turned up.
+ *
+ * The instruments are the lesson's own eight. Dragging the pleiotropy slider tilts the
+ * IVW line — which is forced through the origin and can only absorb a constant shift by
+ * changing its slope — while Egger frees the intercept and the weighted median ignores the
+ * outliers as long as they are a minority. Push the *count* past four and the median breaks
+ * too, which is the assumption it rests on made visible.
+ */
+const mrPleiotropy: Renderer = (canvas, controlHost, readoutHost) => {
+  const GX = [0.1, 0.12, 0.08, 0.15, 0.09, 0.11, 0.13, 0.07];
+  const SEY = GX.map(() => 0.006);
+
+  const draw = () => {
+    const truth = c.get('truth');
+    const shift = c.get('shift');
+    const k = Math.round(c.get('k'));
+    // the k weakest instruments carry the pleiotropy, which is where it does most damage
+    const order = GX.map((g, i) => i).sort((a, b) => GX[a] - GX[b]);
+    const pleio = GX.map(() => 0);
+    for (let i = 0; i < k; i += 1) pleio[order[i]] = shift;
+    const GY = GX.map((g, i) => truth * g + pleio[i]);
+
+    const ivw = ivwMr(GX, GY, SEY);
+    const egg = eggerRegression(GX, GY, SEY);
+    const med = weightedMedianMr(GX, GY, SEY);
+
+    const yMax = Math.max(...GY, truth * 0.16) * 1.15;
+    const x = linear(0, 0.17, PAD.left, PAD.left + PLOT.w, [0, 0.05, 0.1, 0.15],
+      (v) => v.toFixed(2));
+    const y = linear(0, yMax, PAD.top + PLOT.h, PAD.top,
+      [0, yMax / 3, (2 * yMax) / 3, yMax], (v) => v.toFixed(3));
+    const svg = newSvg();
+    const g = frame(x, y, 'Effect on the exposure', 'Effect on the outcome', svg);
+
+    const ray = (slope: number, intercept: number, stroke: string, dash: string | null, w: number) => {
+      const attrs: Record<string, string | number> = {
+        x1: x(0), y1: y(Math.max(0, Math.min(intercept, yMax))),
+        x2: x(0.17), y2: y(Math.max(0, Math.min(intercept + slope * 0.17, yMax))),
+        stroke, 'stroke-width': w,
+      };
+      if (dash) { attrs['stroke-dasharray'] = dash; attrs.opacity = 0.75; }
+      g.appendChild(el('line', attrs));
+    };
+    ray(truth, 0, 'currentColor', '1 3', 1.8);          // the truth
+    ray(med, 0, 'currentColor', '6 3', 2.0);            // weighted median
+    ray(egg.slope, egg.intercept, 'currentColor', '3 3', 2.0); // Egger
+    ray(ivw.beta, 0, ACCENT, null, 2.6);               // IVW
+
+    GX.forEach((gx, i) => {
+      g.appendChild(el('circle', {
+        cx: x(gx), cy: y(Math.min(GY[i], yMax)), r: 4.2,
+        fill: pleio[i] > 0 ? ACCENT : 'currentColor',
+        opacity: pleio[i] > 0 ? 1 : 0.45,
+      }));
+    });
+
+    canvas.replaceChildren(svg);
+    const off = (v: number) => `${(((v - truth) / truth) * 100).toFixed(1)}%`;
+    readout(readoutHost, [
+      ['truth', truth.toFixed(4)],
+      ['IVW', `${ivw.beta.toFixed(4)} (${off(ivw.beta)})`],
+      ['Egger slope', `${egg.slope.toFixed(4)} (${off(egg.slope)})`],
+      ['Egger intercept', egg.intercept.toFixed(5)],
+      ['weighted median', `${med.toFixed(4)} (${off(med)})`],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      { key: 'truth', label: 'True causal effect', min: 0.05, max: 0.5, step: 0.01, value: 0.3,
+        format: (v) => v.toFixed(2) },
+      { key: 'shift', label: 'Pleiotropic shift', min: 0, max: 0.05, step: 0.001, value: 0.02,
+        format: (v) => v.toFixed(3) },
+      { key: 'k', label: 'Instruments affected', min: 0, max: 8, step: 1, value: 3,
+        format: (v) => String(Math.round(v)) },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'pca-structure': pcaStructure,
   'sweep-age': sweepAge,
@@ -2801,6 +2887,7 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'assortative-mating': assortativeMating,
   'twas-ld': twasLd,
   'three-tests': threeTests,
+  'mr-pleiotropy': mrPleiotropy,
   'ld-decay': ldDecay,
   drift,
   power,

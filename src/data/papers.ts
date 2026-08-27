@@ -44,6 +44,43 @@ export const PAPER_CATEGORIES: PaperCategory[] = [
 
 export const PAPERS: PaperEntry[] = [
   {
+    id: 'encode',
+    title: 'The Encyclopedia of DNA Elements',
+    shortTitle: 'ENCODE 4 (Consortium)',
+    authors: ['The ENCODE Project Consortium'],
+    affiliation: 'The ENCODE Project Consortium',
+    venue: 'bioRxiv',
+    year: 2026,
+    doi: '10.64898/2026.07.06.731365',
+    doiUrl: 'https://doi.org/10.64898/2026.07.06.731365',
+    area: 'Regulatory Genomics & Epigenomics',
+    category: 'gene-regulation',
+    tag: 'ENCODE Consortium · bioRxiv 2026',
+    readingTime: '26 min read',
+    summary:
+      'The culmination of over two decades of systematic exploration of human and mouse genome function encompassing >16,000 genome-wide experiments. Maps three foundational layers: 5.3M human DHSs (2.3M cCREs v4), an expanded transcriptome (~18k novel lncRNAs, ~150k novel isoforms), and high-resolution 3D chromatin topology up to 10 bp resolution (Intact Hi-C, ~150B contacts), introducing the cV2F variant scoring framework and ENCODE-rE2G enhancer wiring model.',
+    highlights: [
+      'Integrates >16,000 genome-wide experiments across 1,489 biosamples in human and mouse',
+      'Delineates 5.3 million human DNase I hypersensitive sites (DHSs) and 2.3 million candidate cis-regulatory elements (cCREs v4)',
+      'Trains deep-learning models (BPNet, ChromBPNet) across 3,857 experiments to decode base-resolution cis-regulatory grammar',
+      'Introduces cV2F (calibrated Variant-to-Function), boosting high-confidence UK Biobank fine-mapped variants by +14% (PIP > 0.95)',
+      'Discovers nearly 18,000 novel lncRNA genes and ~150,000 novel transcript isoforms via long-read RNA-seq',
+      'Maps ~150 billion Intact Hi-C physical contacts resolving 3D loop interactions at motif-level (<10 bp) resolution',
+      'Dissects loop mechanics via targeted auxin degrons (RAD21, CTCF, RNA Pol II) and builds the predictive ENCODE-rE2G enhancer wiring model',
+      'Releases native Model Context Protocol (MCP) servers enabling autonomous AI agent exploration of the ENCODE ecosystem',
+    ],
+    equations: [
+      '\\text{cV2F}(v, c) = \\sigma\\left( \\mathbf{w}^T \\mathbf{x}_{v, c} + b \\right)',
+      '\\text{rE2G}(e, g) = f_{\\text{GBM}}\\left( \\text{Activity}(e), \\text{Contact}(e, g), \\text{Distance}(e, g) \\right)',
+      '\\mathbf{s}_g = \\left( \\frac{U_{\\text{TSS}}}{N_{\\text{tx}}}, \\frac{U_{\\text{EC}}}{N_{\\text{tx}}}, \\frac{U_{\\text{TES}}}{N_{\\text{tx}}} \\right) \\in \\Delta^2',
+    ],
+    href: '/papers/encode/',
+    actionText: 'Read full technical paper summary',
+    featured: true,
+    icon: 'ism',
+    status: 'published',
+  },
+  {
     id: 'borzoi',
     title: 'Predicting RNA-seq Coverage from DNA Sequence as a Unifying Model of Gene Regulation',
     shortTitle: 'Borzoi (Calico)',
