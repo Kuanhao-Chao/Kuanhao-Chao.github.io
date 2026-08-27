@@ -4075,3 +4075,26 @@ sidak1967:
   venue: "Journal of the American Statistical Association 62:626-633"
   doi: https://doi.org/10.1080/01621459.1967.10482935
   verified: 2026-08-26
+
+# ── statgen-within-family ────────────────────────────────────────────────────
+kong2018nurture:
+  authors: ['Augustine Kong', 'Gudmar Thorleifsson', 'Michael L. Frigge', 'et al.']
+  year: 2018
+  title: "The nature of nurture: Effects of parental genotypes"
+  venue: "Science 359:424-428"
+  doi: https://doi.org/10.1126/science.aan6877
+  verified: 2026-08-26
+young2018relatedness:
+  authors: ['Alexander I. Young', 'Michael L. Frigge', 'Daniel F. Gudbjartsson', 'et al.']
+  year: 2018
+  title: "Relatedness disequilibrium regression estimates heritability without environmental bias"
+  venue: "Nature Genetics 50:1304-1310"
+  doi: https://doi.org/10.1038/s41588-018-0178-9
+  verified: 2026-08-26
+okbay2022polygenic:
+  authors: ['Aysu Okbay', 'Yeda Wu', 'Nancy Wang', 'et al.']
+  year: 2022
+  title: "Polygenic prediction of educational attainment within and between families from genome-wide association analyses in 3 million individuals"
+  venue: "Nature Genetics 54:437-449"
+  doi: https://doi.org/10.1038/s41588-022-01016-z
+  verified: 2026-08-26

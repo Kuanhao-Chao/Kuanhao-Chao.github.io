@@ -80,6 +80,10 @@ import {
   fstHudsonParts, fstRatioOfAverages, fstAverageOfRatios, weirCockerhamFst,
   structureSpike, bbpThreshold, spikedEigenvalue, spikedEigenvectorOverlap, structureChiSquare,
   neutralAlleleAge, ehhHalfLength, sweepAgeAnomaly,
+  assortativeEquilibrium,
+  sibBreedingValueCorrelation,
+  falconerUnderAssortment,
+  nurtureInflation,
   sidakThreshold, bhRealisedFdr, storeyPi0, benjaminiYekutieli, bhAdjustedPValues, benjaminiHochberg, bonferroni,
   type FstSite,
 } from './deepDiveMath.ts';
@@ -1479,6 +1483,75 @@ describe('multiple testing beyond Bonferroni', () => {
     // exactly the tests BH rejects are those with an adjusted p at or below q
     expect(sortedAdj.filter((a) => a <= 0.05).length).toBe(benjaminiHochberg(P, 0.05).rejected);
     expect(adj.every((a) => a <= 1)).toBe(true);
+  });
+});
+
+describe('assortative mating and what a within-family design removes', () => {
+  it('is exactly sqrt(5/3) at h2 = 1/2 and mu = 0.4, because the linear term vanishes', () => {
+    const eq = assortativeEquilibrium(0.5, 0.4);
+    expect(eq.ratio).toBeCloseTo(Math.sqrt(5 / 3), 12);
+    expect(eq.ratio.toFixed(6)).toBe('1.290994');
+    expect(eq.additiveVariance).toBeCloseTo(Math.sqrt((0.5 * 0.5) / 0.6), 12);
+    expect(eq.h2.toFixed(6)).toBe('0.563508');
+    expect(eq.rhoA.toFixed(6)).toBe('0.225403');
+  });
+
+  it('beats the naive 1/(1 - mu h2_0), which uses the wrong heritability', () => {
+    const naive = 1 / (1 - 0.4 * 0.5);
+    expect(naive).toBeCloseTo(1.25, 12);
+    expect(assortativeEquilibrium(0.5, 0.4).ratio).toBeGreaterThan(naive);
+    // and the self-consistent answer satisfies the implicit relation exactly
+    const eq = assortativeEquilibrium(0.5, 0.4);
+    expect(eq.ratio).toBeCloseTo(1 / (1 - eq.rhoA), 12);
+  });
+
+  it('reduces to no inflation when either mating is random or the trait has no genetics', () => {
+    expect(assortativeEquilibrium(0.5, 0).ratio).toBeCloseTo(1, 12);
+    expect(assortativeEquilibrium(0.001, 0.4).ratio).toBeCloseTo(1, 2);
+    expect(assortativeEquilibrium(0.5, 0).rhoA).toBe(0);
+  });
+
+  it('rises monotonically in both the heritability and the mate correlation', () => {
+    expect(assortativeEquilibrium(0.5, 0.6).ratio).toBeGreaterThan(assortativeEquilibrium(0.5, 0.4).ratio);
+    expect(assortativeEquilibrium(0.8, 0.4).ratio).toBeGreaterThan(assortativeEquilibrium(0.5, 0.4).ratio);
+  });
+
+  it('raises the sibling breeding-value correlation off one half', () => {
+    expect(sibBreedingValueCorrelation(0)).toBeCloseTo(0.5, 12);
+    const eq = assortativeEquilibrium(0.5, 0.4);
+    expect(sibBreedingValueCorrelation(eq.rhoA).toFixed(6)).toBe('0.612702');
+  });
+
+  it('makes a twin study understate h2 and invent shared environment', () => {
+    const eq = assortativeEquilibrium(0.5, 0.4);
+    const f = falconerUnderAssortment(eq.h2, eq.rhoA);
+    expect(f.rMZ.toFixed(6)).toBe('0.563508');
+    expect(f.rDZ.toFixed(6)).toBe('0.345262');
+    expect(f.h2Estimate).toBeCloseTo(eq.h2 * (1 - eq.rhoA), 12);
+    expect(f.h2Estimate.toFixed(6)).toBe('0.436492');
+    expect(f.c2Estimate).toBeCloseTo(eq.h2 * eq.rhoA, 12);
+    expect(f.c2Estimate.toFixed(6)).toBe('0.127017');
+    // it understates, which is the opposite of the usual summary
+    expect(f.h2Estimate).toBeLessThan(eq.h2);
+  });
+
+  it('agrees with the plain Falconer decomposition when mating is random', () => {
+    const f = falconerUnderAssortment(0.6, 0);
+    expect(f.h2Estimate).toBeCloseTo(0.6, 12);
+    expect(f.c2Estimate).toBeCloseTo(0, 12);
+    expect(falconerACE(f.rMZ, f.rDZ).h2).toBeCloseTo(0.6, 12);
+    expect(falconerACE(f.rMZ, f.rDZ).c2).toBeCloseTo(0, 12);
+  });
+
+  it('prices genetic nurture as an inflation of the population effect', () => {
+    const rho = assortativeEquilibrium(0.5, 0.4).rhoA;
+    expect(nurtureInflation(0, rho)).toBeCloseTo(1, 12);
+    // 1.3063508 sits on a 4-dp rounding boundary, so it is published at five digits
+    expect(nurtureInflation(0.5, rho).toFixed(5)).toBe('1.30635');
+    expect(nurtureInflation(1, rho).toFixed(4)).toBe('1.6127');
+    // under random mating the factor is exactly 1 + eta/(2 delta)
+    expect(nurtureInflation(0.5, 0)).toBeCloseTo(1.25, 12);
+    expect(nurtureInflation(1, 0)).toBeCloseTo(1.5, 12);
   });
 });
 

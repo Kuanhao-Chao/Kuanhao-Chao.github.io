@@ -2340,6 +2340,105 @@ export function spikedEigenvectorOverlap(spike: number, gamma: number): number {
  * This is the *mean*, not λ_GC, which is a median rescaled by `CHI2_1DF_MEDIAN`; for a
  * non-central χ² the two differ, so do not quote one as the other.
  */
+/** Equilibrium of the infinitesimal model under primary phenotypic assortative mating. */
+export interface AssortativeEquilibrium {
+  /** Additive variance at equilibrium, with the pre-assortment phenotypic variance set to 1. */
+  additiveVariance: number;
+  /** Its ratio to the random-mating value — the inflation assortment produces. */
+  ratio: number;
+  /** Heritability at equilibrium, which is itself raised. */
+  h2: number;
+  /** Correlation between mates' breeding values, μh². */
+  rhoA: number;
+}
+
+/**
+ * How much assortative mating inflates the additive variance, solved self-consistently.
+ *
+ * Segregation variance is untouched by assortment — it depends on allele frequencies, which
+ * assortment does not change — so the recursion `V_A = V_A(1+ρ_A)/2 + V_A0/2` gives
+ * `V_A = V_A0/(1-ρ_A)` with `ρ_A = μh²`. The catch is that `h²` there is the *equilibrium*
+ * heritability, not the starting one, so the relation is implicit and the naive
+ * `1/(1 - μh²₀)` understates it.
+ *
+ * Substituting `h² = V_A/(V_A+V_E)` turns it into a quadratic. At `h²₀ = ½` the linear term
+ * vanishes and the answer is exactly `√(V_A0 V_E/(1-μ))`, which at `μ = 0.4` is `√(5/3)` times
+ * the starting variance.
+ *
+ * Equilibrium is approached, not jumped to: simulation takes roughly ten generations, so a
+ * population whose mating patterns changed recently is not at it.
+ */
+export function assortativeEquilibrium(
+  h2Initial: number, mateCorrelation: number,
+): AssortativeEquilibrium {
+  if (!(h2Initial > 0 && h2Initial < 1)) {
+    throw new RangeError(`assortativeEquilibrium needs 0 < h2 < 1, got ${h2Initial}`);
+  }
+  if (!(mateCorrelation >= 0 && mateCorrelation < 1)) {
+    throw new RangeError(`assortativeEquilibrium needs 0 <= mu < 1, got ${mateCorrelation}`);
+  }
+  const va0 = h2Initial;
+  const ve = 1 - h2Initial;
+  const a = 1 - mateCorrelation;
+  const b = ve - va0;
+  const c = -va0 * ve;
+  const va = (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a);
+  const h2 = va / (va + ve);
+  return { additiveVariance: va, ratio: va / va0, h2, rhoA: mateCorrelation * h2 };
+}
+
+/**
+ * Correlation between full sibs' breeding values, `(1+ρ_A)/2`.
+ *
+ * One half under random mating — the familiar figure — and higher under assortment, because
+ * the parents are themselves correlated. That rise is what biases a twin design.
+ */
+export function sibBreedingValueCorrelation(rhoA: number): number {
+  return (1 + rhoA) / 2;
+}
+
+/** What a twin study reports when assortative mating is present and shared environment is not. */
+export interface FalconerUnderAssortment {
+  rMZ: number;
+  rDZ: number;
+  /** 2(r_MZ − r_DZ). Equals h²(1−ρ_A), so it *understates* the true heritability. */
+  h2Estimate: number;
+  /** 2r_DZ − r_MZ. Equals h²ρ_A — shared environment that is not there. */
+  c2Estimate: number;
+}
+
+/**
+ * The bias assortative mating puts into the classical twin decomposition.
+ *
+ * Falconer's estimator assumes dizygotic twins share half their additive variance. Under
+ * assortment they share `(1+ρ_A)/2`, so the MZ−DZ gap shrinks, and both halves of the
+ * decomposition move: heritability is *understated* by the factor `(1-ρ_A)` and the missing
+ * variance is booked as shared environment, `c² = h²ρ_A`, whether or not any exists.
+ *
+ * This is the opposite of the usual summary that assortment "inflates heritability
+ * estimates". It inflates the true population heritability — see `assortativeEquilibrium` —
+ * while deflating what the twin design reports for it.
+ */
+export function falconerUnderAssortment(h2: number, rhoA: number): FalconerUnderAssortment {
+  const rMZ = h2;
+  const rDZ = (h2 * (1 + rhoA)) / 2;
+  return { rMZ, rDZ, h2Estimate: 2 * (rMZ - rDZ), c2Estimate: 2 * rDZ - rMZ };
+}
+
+/**
+ * How much a population association overstates the direct genetic effect when parents'
+ * genotypes act on the offspring's environment.
+ *
+ * With `Y = δA_child + ηA_midparent + E`, a population regression of Y on the child's
+ * breeding value picks up `δ + η(1+ρ_A)/2`, because the child's value is correlated with the
+ * mid-parent value it partly came from. A sibling-difference regression cancels the
+ * mid-parent term exactly and returns `δ` unbiased. The ratio is what a within-family design
+ * removes.
+ */
+export function nurtureInflation(indirectOverDirect: number, rhoA: number): number {
+  return 1 + indirectOverDirect * ((1 + rhoA) / 2);
+}
+
 /**
  * Kimura & Ohta's expected age of a neutral allele now at frequency p, in generations.
  *

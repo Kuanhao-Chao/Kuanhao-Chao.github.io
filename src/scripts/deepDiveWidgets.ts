@@ -77,6 +77,9 @@ import {
   bhRealisedFdr,
   harmonic,
   normalCdf,
+  assortativeEquilibrium,
+  sibBreedingValueCorrelation,
+  falconerUnderAssortment,
 } from '../lib/deepDiveMath';
 import {
   biasVarianceToy,
@@ -2539,10 +2542,72 @@ const fdrStaircase: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * The self-consistent equilibrium against the naive one.
+ *
+ * Both curves are drawn against the mate correlation, and the gap between them is the whole
+ * point: `1/(1 - mu h0^2)` uses the heritability you started with, and assortment raises it.
+ * The gap widens with both sliders, so the approximation is worst exactly where the effect
+ * is largest.
+ */
+const assortativeMating: Renderer = (canvas, controlHost, readoutHost) => {
+  const draw = () => {
+    const h20 = c.get('h20');
+    const mu = c.get('mu');
+    const eq = assortativeEquilibrium(h20, mu);
+    const naive = 1 / (1 - mu * h20);
+
+    const top = Math.max(2, assortativeEquilibrium(h20, 0.85).ratio * 1.05);
+    const x = linear(0, 0.85, PAD.left, PAD.left + PLOT.w, [0, 0.2, 0.4, 0.6, 0.8],
+      (v) => v.toFixed(2));
+    const y = linear(1, top, PAD.top + PLOT.h, PAD.top,
+      [1, 1 + (top - 1) / 4, 1 + (top - 1) / 2, 1 + (3 * (top - 1)) / 4, top],
+      (v) => v.toFixed(2));
+    const svg = newSvg();
+    const g = frame(x, y, 'Spousal phenotypic correlation μ', 'Additive variance, relative', svg);
+
+    const line1: string[] = [];
+    const line2: string[] = [];
+    for (let i = 0; i <= 160; i += 1) {
+      const m = (i * 0.85) / 160;
+      line1.push(`${i ? 'L' : 'M'}${x(m).toFixed(1)},${y(Math.min(assortativeEquilibrium(h20, m).ratio, top)).toFixed(1)}`);
+      line2.push(`${i ? 'L' : 'M'}${x(m).toFixed(1)},${y(Math.min(1 / (1 - m * h20), top)).toFixed(1)}`);
+    }
+    g.appendChild(el('path', { d: line2.join(' '), fill: 'none', stroke: 'currentColor',
+      'stroke-width': 1.8, 'stroke-dasharray': '5 3', opacity: 0.6 }));
+    g.appendChild(el('path', { d: line1.join(' '), fill: 'none', stroke: ACCENT, 'stroke-width': 2.4 }));
+    g.appendChild(el('circle', { cx: x(mu), cy: y(Math.min(eq.ratio, top)), r: 5, fill: ACCENT }));
+
+    canvas.replaceChildren(svg);
+    const f = falconerUnderAssortment(eq.h2, eq.rhoA);
+    readout(readoutHost, [
+      ['V_A ratio', eq.ratio.toFixed(4)],
+      ['naive', naive.toFixed(4)],
+      ['h² at equilibrium', eq.h2.toFixed(4)],
+      ['ρ_A', eq.rhoA.toFixed(4)],
+      ['sib A correlation', sibBreedingValueCorrelation(eq.rhoA).toFixed(4)],
+      ['twin study would report c²', f.c2Estimate.toFixed(4)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      { key: 'h20', label: 'Heritability before assortment', min: 0.05, max: 0.9, step: 0.01,
+        value: 0.5, format: (v) => v.toFixed(2) },
+      { key: 'mu', label: 'Spousal correlation μ', min: 0, max: 0.8, step: 0.01, value: 0.4,
+        format: (v) => v.toFixed(2) },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'pca-structure': pcaStructure,
   'sweep-age': sweepAge,
   'fdr-staircase': fdrStaircase,
+  'assortative-mating': assortativeMating,
   'ld-decay': ldDecay,
   drift,
   power,

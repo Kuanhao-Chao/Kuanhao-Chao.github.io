@@ -90,6 +90,10 @@ import {
   ehhHalfLength,
   sweepAgeAnomaly,
   sidakThreshold,
+  assortativeEquilibrium,
+  sibBreedingValueCorrelation,
+  falconerUnderAssortment,
+  nurtureInflation,
   harmonic,
   bhRealisedFdr,
   storeyPi0,
@@ -8701,6 +8705,120 @@ describe('statgen-multiple-testing', () => {
       expect(((400 * level) / 1e6).toExponential(2)).toBe('1.39e-6');
       expect(1.39e-6).toBeGreaterThan(1e-7);
       expect(mdx).toContain('1.39\\times10^{-6}');
+    });
+  });
+});
+
+describe('statgen-within-family', () => {
+  const mdx = lesson('statgen-within-family');
+  const EQ = assortativeEquilibrium(0.5, 0.4);
+
+  describe('worked example — h0 = 0.5, mu = 0.4', () => {
+    it('is exactly sqrt(5/3) and not the naive 1.25', () => {
+      expect(EQ.ratio).toBeCloseTo(Math.sqrt(5 / 3), 12);
+      expect(EQ.ratio.toFixed(6)).toBe('1.290994');
+      expect(EQ.additiveVariance.toFixed(6)).toBe('0.645497');
+      expect((1 / (1 - 0.4 * 0.5)).toFixed(2)).toBe('1.25');
+      expect(mdx).toContain('1.290994');
+      expect(mdx).toContain('0.645497');
+      expect(mdx).toContain('1.25');
+    });
+
+    it('raises the heritability and the mate breeding-value correlation with it', () => {
+      expect(EQ.h2.toFixed(6)).toBe('0.563508');
+      expect(EQ.rhoA.toFixed(6)).toBe('0.225403');
+      // and the implicit relation closes on itself
+      expect(1 / (1 - EQ.rhoA)).toBeCloseTo(EQ.ratio, 12);
+      expect(mdx).toContain('0.563508');
+      expect(mdx).toContain('0.225403');
+    });
+
+    it('quotes the simulation beside the closed form', () => {
+      for (const v of ['0.64907', '0.39907', '0.61405']) expect(mdx).toContain(v);
+    });
+  });
+
+  describe('the twin bias', () => {
+    it('raises the sibling correlation off one half', () => {
+      expect(sibBreedingValueCorrelation(EQ.rhoA).toFixed(6)).toBe('0.612702');
+      expect(sibBreedingValueCorrelation(0)).toBeCloseTo(0.5, 12);
+      expect(mdx).toContain('0.612702');
+    });
+
+    it('understates h2 and invents shared environment', () => {
+      const f = falconerUnderAssortment(EQ.h2, EQ.rhoA);
+      expect(f.h2Estimate.toFixed(6)).toBe('0.436492');
+      expect(f.c2Estimate.toFixed(6)).toBe('0.127017');
+      expect(f.h2Estimate).toBeLessThan(EQ.h2);
+      // the two estimates sum to the true h2 whatever rho is -- exercise 2 turns on this
+      expect(f.h2Estimate + f.c2Estimate).toBeCloseTo(EQ.h2, 12);
+      expect(mdx).toContain('0.436492');
+      expect(mdx).toContain('0.127017');
+      expect(mdx).toContain('0.4393');
+      expect(mdx).toContain('0.1268');
+    });
+  });
+
+  describe('genetic nurture', () => {
+    it('inflates the population effect by 1 + (eta/delta)(1+rho)/2', () => {
+      expect(nurtureInflation(0.5, EQ.rhoA).toFixed(5)).toBe('1.30635');
+      expect(nurtureInflation(1, EQ.rhoA).toFixed(4)).toBe('1.6127');
+      expect(nurtureInflation(0.25, EQ.rhoA).toFixed(5)).toBe('1.15318');
+      expect(nurtureInflation(0, EQ.rhoA)).toBeCloseTo(1, 12);
+      expect(mdx).toContain('1.30635');
+      expect(mdx).toContain('1.6127');
+      expect(mdx).toContain('1.15318');
+    });
+
+    it('collapses to 1 + eta/2delta under random mating', () => {
+      expect(nurtureInflation(0.5, 0)).toBeCloseTo(1.25, 12);
+      expect(mdx).toContain('1 + \\eta/2\\delta');
+    });
+
+    it('quotes the simulated ratios beside the predictions', () => {
+      for (const v of ['1.1562', '1.3070', '1.6168', '0.9970', '0.9988', '0.9971']) {
+        expect(mdx).toContain(v);
+      }
+    });
+  });
+
+  describe('exercises', () => {
+    it('exercise 1 — a more heritable, more assorted trait', () => {
+      const e = assortativeEquilibrium(0.8, 0.4);
+      expect(e.additiveVariance.toFixed(6)).toBe('1.218795');
+      expect(e.h2.toFixed(6)).toBe('0.859035');
+      expect(e.ratio.toFixed(6)).toBe('1.523494');
+      expect(Math.sqrt(0.36 + 0.384).toFixed(6)).toBe('0.862554');
+      expect(mdx).toContain('1.218795');
+      expect(mdx).toContain('0.859035');
+      expect(mdx).toContain('1.523494');
+      expect(mdx).toContain('0.862554');
+    });
+
+    it('exercise 2 — the two estimates sum to the truth', () => {
+      expect(0.4 + 0.18).toBeCloseTo(0.58, 12);
+      expect((0.18 / 0.58).toFixed(6)).toBe('0.310345');
+      expect(0.5 * 0.58).toBeCloseTo(0.29, 12);
+      expect(mdx).toContain('0.310345');
+    });
+
+    it('exercise 3 — the nurture ratio that would explain a 60% attenuation', () => {
+      const target = 1 / 0.6;
+      expect(target.toFixed(6)).toBe('1.666667');
+      expect(((target - 1) / (1.29 / 2)).toFixed(6)).toBe('1.033592');
+      expect(mdx).toContain('1.666667');
+      expect(mdx).toContain('1.033592');
+    });
+
+    it('exercise 4 — the power cost of differencing', () => {
+      // 1 - rho_A is exactly sqrt(0.6) here, so the surviving fraction is exactly sqrt(0.15)
+      expect(1 - EQ.rhoA).toBeCloseTo(Math.sqrt(0.6), 12);
+      expect((1 - EQ.rhoA) / 2).toBeCloseTo(Math.sqrt(0.15), 12);
+      expect(((1 - EQ.rhoA) / 2).toFixed(6)).toBe('0.387298');
+      expect(Math.round(500_000 / ((1 - EQ.rhoA) / 2) / 1000) * 1000).toBe(1_291_000);
+      expect(mdx).toContain('0.387298');
+      expect(mdx).toContain('\\sqrt{0.15}');
+      expect(mdx).toContain('1{,}291{,}000');
     });
   });
 });
