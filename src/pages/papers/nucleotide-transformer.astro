@@ -1,0 +1,186 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "The Nucleotide Transformer: Building and Evaluating Robust Foundation Models for Human Genomics";
+const description = "Comprehensive technical summary and deep literature deconstruction of the Nucleotide Transformer suite (Dalla-Torre et al., InstaDeep & NVIDIA, Nature Methods 2024): Scaling genomic foundation models up to 2.5B parameters across 850 species and 1 Mb context.";
+const readingTime = "24 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Genomic Foundation Models & DNA Language Modeling</span>
+        <span class="paper-venue-badge">Nature Methods · 2024 (Research Article)</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Hugo Dalla-Torre*, Liam Gonzalez*, Javier Mendoza-Revilla*, Nicolas Lopez Carranza, Adam Henryk Grzywaczewski, Francesco Oteri, Christian Dallago, Evan Trop, Hassan Sirelkhatim, Guillaume Richard, Michal Skwark, Karim Beguir, Marie Lopez, & Thomas Pierrot*</div>
+        <div><strong>Affiliation:</strong> InstaDeep AI, London, UK; NVIDIA BioNeMo; Google Cloud</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1038/s41592-024-02523-z" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1038/s41592-024-02523-z</a> · Nature Methods (Vol 21, pp. 2523–2535)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      While large language models revolutionized natural language processing, decoding the complex regulatory grammar of non-coding DNA requires modeling massive evolutionary diversity and long-range genomic dependencies. Developed by <strong>InstaDeep and NVIDIA BioNeMo</strong>, the <strong>Nucleotide Transformer (NT)</strong> suite scales transformer foundation models from 50 million to <strong>2.5 billion parameters</strong>. Pretrained on over <strong>9 trillion nucleotides</strong> across 3,202 diverse human genomes and 850 multi-species reference genomes with context scaling up to <strong>1 Mb (NT3)</strong>, the Nucleotide Transformer establishes a unified platform for zero-shot variant scoring, epigenomic track prediction, and regulatory motif discovery across 18 downstream genomic tasks.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & The NT Foundation Model Ecosystem</a></li>
+        <li><a href="#family-evolution">2. Model Evolution: NT1, NT2, and NT3 Architecture Comparison</a></li>
+        <li><a href="#tokenization">3. 6-Mer Tokenization & Multi-Species Pretraining Corpus</a></li>
+        <li><a href="#benchmarks">4. Comprehensive 18-Task Downstream Benchmark Evaluation</a></li>
+        <li><a href="#variant-scoring">5. Zero-Shot Pathogenic Variant Effect Scoring</a></li>
+        <li><a href="#mathematical-formulation">6. Mathematical Formulation & Masked Language Objective</a></li>
+        <li><a href="#failure-modes">7. Limitations & Context Scaling Trade-offs</a></li>
+        <li><a href="#strategic-synthesis">8. Master Synthesis & Modern Genomic AI Synergy</a></li>
+      </ol>
+    </div>
+
+    <!-- Section 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The NT Foundation Model Ecosystem</h2>
+      <p>
+        The Nucleotide Transformer family represents one of the largest and most systematically evaluated foundation model suites in computational biology.
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Model Variant</th>
+              <th>Parameter Scale & Context Window</th>
+              <th>Pretraining Corpus</th>
+              <th>Primary Capabilities</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>NT1 (Nature Methods 2024)</strong></td>
+              <td>50M to 2.5B params · 6,000 bp (1,000 6-mer tokens)</td>
+              <td>3,202 Human Genomes (1000 Genomes) + 850 Species</td>
+              <td>General genomic embeddings, promoter/enhancer classification, zero-shot scoring.</td>
+            </tr>
+            <tr>
+              <td><strong>NT2 (BioNeMo 2024)</strong></td>
+              <td>500M params · 12,000 bp (2,000 6-mer tokens, RoPE)</td>
+              <td>Expanded 9T nucleotide multi-species corpus</td>
+              <td>FlashAttention-2 optimization, multi-species transfer learning, fine-tuning efficiency.</td>
+            </tr>
+            <tr>
+              <td><strong>NT3 (Foundational Long-Range 2025)</strong></td>
+              <td>1.5B–2.5B params · <strong>1,048,576 bp (1 Mb context)</strong></td>
+              <td>Multi-species + 16,000 functional epigenomic tracks</td>
+              <td>Joint sequence-to-function modeling, long-range enhancer-promoter wiring.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 2 -->
+    <section id="family-evolution">
+      <h2>2. Model Evolution: NT1, NT2, and NT3 Architecture Comparison</h2>
+      <p>
+        The architectural design evolved to resolve the trade-off between nucleotide resolution and long-range sequence context:
+      </p>
+      <ul>
+        <li><strong>NT1:</strong> Transformer encoder with bidirectional self-attention using learned positional embeddings.</li>
+        <li><strong>NT2:</strong> Replaced learned embeddings with Rotary Position Embeddings (RoPE) and integrated FlashAttention-2, reducing GPU memory by 60%.</li>
+        <li><strong>NT3:</strong> Deploys a hybrid architecture pairing a long-range sequence trunk with multi-task prediction heads for base-resolution epigenomic profiles.</li>
+      </ul>
+    </section>
+
+    <!-- Section 3 -->
+    <section id="tokenization">
+      <h2>3. 6-Mer Tokenization & Multi-Species Pretraining Corpus</h2>
+      <p>
+        DNA consists of four bases (<Katex tex="\{A, C, G, T\}" />). NT utilizes <strong>6-mer k-mer tokenization</strong>:
+      </p>
+      <ul>
+        <li><strong>Vocabulary Size:</strong> <Katex tex="4^6 = 4,096" /> distinct tokens plus special tokens (<Katex tex="\text{[CLS]}, \text{[MASK]}, \text{[PAD]}" />).</li>
+        <li><strong>Efficiency:</strong> Compresses sequence length by a factor of 6 while maintaining local transcription factor binding motif geometry.</li>
+        <li><strong>Pretraining Corpus:</strong> Spans 3,202 human genomes from 26 diverse global populations, supplemented by 850 reference genomes across vertebrates, plants, fungi, and invertebrates.</li>
+      </ul>
+    </section>
+
+    <!-- Section 4 -->
+    <section id="benchmarks">
+      <h2>4. Comprehensive 18-Task Downstream Benchmark Evaluation</h2>
+      <p>
+        The authors established an 18-task benchmark evaluating fine-tuned linear probes against specialized models:
+      </p>
+      <ul>
+        <li><strong>Core Promoters & Enhancers:</strong> Achieved state-of-the-art Matthews Correlation Coefficient (MCC &gt; 0.85) on Human Promoter & Enhancer datasets.</li>
+        <li><strong>Splice Junction Detection:</strong> Accurately classified splice donor and acceptor sites with &gt;98% accuracy, matching specialized SpliceAI performance on canonical junctions.</li>
+        <li><strong>Histone Modification Peaks:</strong> Accurately predicted H3K4me3, H3K27ac, and H3K36me3 peaks across diverse human cell types.</li>
+      </ul>
+    </section>
+
+    <!-- Section 5 -->
+    <section id="variant-scoring">
+      <h2>5. Zero-Shot Pathogenic Variant Effect Scoring</h2>
+      <p>
+        Without supervised fine-tuning, NT computes zero-shot variant effect scores using masked language model log-likelihood ratios:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\Delta \text{LLR}(v) = \log P_\theta(x_{\text{alt}} \mid X_{\backslash i}) - \log P_\theta(x_{\text{ref}} \mid X_{\backslash i})" />
+      </div>
+      <p>
+        This zero-shot score strongly separates pathogenic from benign variants in ClinVar and 1000 Genomes non-coding loci.
+      </p>
+    </section>
+
+    <!-- Section 6 -->
+    <section id="mathematical-formulation">
+      <h2>6. Mathematical Formulation & Masked Language Objective</h2>
+      <p>
+        Trained using masked language modeling (MLM) with 15% random masking of 6-mer tokens:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\mathcal{L}_{\text{MLM}}(\theta) = - \sum_{i \in \mathcal{M}} \log P_\theta(t_i \mid T_{\backslash \mathcal{M}})" />
+      </div>
+      <p>
+        Where <Katex tex="\mathcal{M}" /> denotes the set of masked token positions and <Katex tex="T_{\backslash \mathcal{M}}" /> represents the unmasked sequence context.
+      </p>
+    </section>
+
+    <!-- Section 7 -->
+    <section id="failure-modes">
+      <h2>7. Limitations & Context Scaling Trade-offs</h2>
+      <ul>
+        <li><strong>Token Shift Sensitivity:</strong> Fixed 6-mer chunking can create framing sensitivity when single-base indels shift reading frames across token boundaries.</li>
+        <li><strong>Ultra-Long Enhancer Distances in NT1/NT2:</strong> NT1 (6 kb) and NT2 (12 kb) cannot capture distal 100 kb+ enhancer-promoter loops; resolved by NT3's 1 Mb expansion.</li>
+      </ul>
+    </section>
+
+    <!-- Section 8 -->
+    <section id="strategic-synthesis">
+      <h2>8. Master Synthesis & Modern Genomic AI Synergy</h2>
+      <p>
+        The Nucleotide Transformer demonstrates that self-supervised foundation modeling across massive multi-species corpora builds rich, transferrable biological representations. It bridges the gap between raw evolutionary constraint and experimental functional genomics.
+      </p>
+    </section>
+  </article>
+</BaseLayout>

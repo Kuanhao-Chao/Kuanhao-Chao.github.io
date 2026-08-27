@@ -1,0 +1,205 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Accurate Proteome-Wide Missense Variant Effect Prediction with AlphaMissense";
+const description = "Comprehensive technical summary and deep literature deconstruction of AlphaMissense (Cheng et al., Google DeepMind, Science 2023): Structural context and evolutionary constraint for predicting missense variant pathogenicity.";
+const readingTime = "22 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Protein Structure & Clinical Variant Prediction</span>
+        <span class="paper-venue-badge">Science · September 2023 (Research Article)</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Jun Cheng*, Guido Novati*, Joshua Pan, Clare Bycroft, Akvilė Žemgulytė, Taylor Applebaum, Alexander Pritzel, Luuk Wong, Michal Zielinski, Tobias Sargeant, Roman G. Schneider, Andrew W. Senior, John Jumper, Demis Hassabis, Pushmeet Kohli, Žiga Avsec*</div>
+        <div><strong>Affiliation:</strong> Google DeepMind, London, UK</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1126/science.adg7492" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1126/science.adg7492</a> · Science (Vol 381, Issue 6664, eadg7492)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      Of the over 4 million missense variants observed in human sequencing cohorts, the vast majority are classified as <strong>Variants of Uncertain Significance (VUS)</strong>. Developed by <strong>Google DeepMind</strong>, <strong>AlphaMissense</strong> adapts the revolutionary <strong>AlphaFold</strong> structure prediction engine to evaluate the phenotypic consequences of missense mutations proteome-wide. By fine-tuning AlphaFold's Evoformer architecture on population frequency data from human and primate genomes, AlphaMissense scores all <strong>216 million possible single-amino-acid substitutions across 19,233 canonical human proteins</strong>, classifying <strong>89% of all variants</strong> into high-confidence pathogenic (32%) or benign (57%) categories with 90% expected clinical precision.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & Clinical Paradigm</a></li>
+        <li><a href="#architecture">2. Model Architecture: Adapting AlphaFold for Pathogenicity</a></li>
+        <li><a href="#training-corpus">3. Training Regime & Primate Population Supervision</a></li>
+        <li><a href="#benchmarks">4. Empirical Benchmarks: ClinVar & Deep Mutational Scanning (DMS)</a></li>
+        <li><a href="#proteome-landscape">5. Proteome-Wide Pathogenicity Landscape & Essential Genes</a></li>
+        <li><a href="#mathematical-formulation">6. Mathematical Formulation & Scoring Objectives</a></li>
+        <li><a href="#failure-modes">7. Limitations & Structural Failure Modes</a></li>
+        <li><a href="#strategic-synthesis">8. Master Synthesis & Synergy with Foundation Models</a></li>
+      </ol>
+    </div>
+
+    <!-- Section 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & Clinical Paradigm</h2>
+      <p>
+        Missense variants alter a single amino acid in a translated protein. While individual patients typically carry ~10,000 missense mutations, fewer than 2% have been experimentally or clinically characterized in ClinVar.
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Evaluation Metric</th>
+              <th>Existing Clinical Standards (REVEL, EVE, ESM-1v)</th>
+              <th>AlphaMissense Breakthrough</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>ClinVar Benchmark (ROC-AUC)</strong></td>
+              <td>REVEL (0.912), EVE (0.908), ESM-1v (0.893), PolyPhen-2 (0.840)</td>
+              <td><strong>0.940 ROC-AUC (0.871 AUPRC)</strong> — Highest overall performance.</td>
+            </tr>
+            <tr>
+              <td><strong>Deep Mutational Scanning (72 DMS Assays)</strong></td>
+              <td>EVE (Spearman <Katex tex="\rho = 0.47" />), ESM-1v (<Katex tex="\rho = 0.49" />)</td>
+              <td><strong>Spearman <Katex tex="\rho = 0.52" /></strong> across diverse experimental readouts.</td>
+            </tr>
+            <tr>
+              <td><strong>Proteome-Wide Classification Coverage</strong></td>
+              <td>~20%–40% categorized with high confidence</td>
+              <td><strong>89% of all 216M missense variants classified (32% pathogenic, 57% benign).</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Input Context Integration</strong></td>
+              <td>Sequence MSA only (EVE) or 3D structure only (FoldX)</td>
+              <td><strong>Simultaneous 3D structural backbone + Multiple Sequence Alignment.</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 2 -->
+    <section id="architecture">
+      <h2>2. Model Architecture: Adapting AlphaFold for Pathogenicity</h2>
+      <p>
+        AlphaMissense modifies the original AlphaFold architecture by removing the structural coordination head and replacing it with a masked language model scoring head:
+      </p>
+      <ul>
+        <li><strong>Evoformer Backbone:</strong> Processes MSA representations and pair spatial representations across the target protein structure.</li>
+        <li><strong>Structural Conditioning:</strong> Conditions amino acid probabilities directly on the predicted 3D coordinate frame and spatial distances between residues.</li>
+        <li><strong>Variant Scoring Head:</strong> Computes the log-odds ratio between the mutant amino acid <Katex tex="x_{\text{alt}}" /> and reference amino acid <Katex tex="x_{\text{ref}}" /> at position <Katex tex="i" />:
+          <div class="paper-equation-block">
+            <Katex tex="s(v) = \log P_\theta(x_{\text{alt}} \mid \text{Structure}, \text{MSA}) - \log P_\theta(x_{\text{ref}} \mid \text{Structure}, \text{MSA})" />
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Section 3 -->
+    <section id="training-corpus">
+      <h2>3. Training Regime & Primate Population Supervision</h2>
+      <p>
+        A central innovation of AlphaMissense is its self-supervised training scheme avoiding circularity:
+      </p>
+      <ul>
+        <li><strong>Unsupervised Pretraining:</strong> AlphaFold masked language modeling across UniRef multi-species MSAs.</li>
+        <li><strong>Fine-Tuning on Primate & Human Variation:</strong> Trained on common human variants (gnomAD allele frequency <Katex tex="> 0.001" />) and primate population variation from 6 non-human primate species (labeled as benign proxies), contrasted with unobserved substitutions across conserved structural sites (labeled as pathogenic proxies).</li>
+        <li><strong>Zero Data Leakage:</strong> The model is never trained on ClinVar or experimental DMS labels, ensuring unbiased clinical evaluation.</li>
+      </ul>
+    </section>
+
+    <!-- Section 4 -->
+    <section id="benchmarks">
+      <h2>4. Empirical Benchmarks: ClinVar & Deep Mutational Scanning</h2>
+      <p>
+        AlphaMissense was evaluated across extensive independent clinical and functional datasets:
+      </p>
+      <ul>
+        <li><strong>ClinVar Pathogenic vs. Benign:</strong> Outperformed all supervised and unsupervised baselines across all 19 autosomal and sex chromosomes.</li>
+        <li><strong>Multiplexed Assays of Variant Effect (MAVE / DMS):</strong> Tested on 72 assays encompassing cell growth, stability, enzyme activity, and ligand binding, achieving the top average Spearman correlation (<Katex tex="\rho = 0.52" />).</li>
+        <li><strong>De Novo Mutations in Rare Disease:</strong> Significantly enriched in individuals with developmental disorders (DDD study) and autism spectrum disorder (Simons Simplex Collection).</li>
+      </ul>
+    </section>
+
+    <!-- Section 5 -->
+    <section id="proteome-landscape">
+      <h2>5. Proteome-Wide Pathogenicity Landscape & Essential Genes</h2>
+      <p>
+        AlphaMissense computed scores for all <strong>216,431,800 possible missense variants</strong> across 19,233 human proteins.
+      </p>
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> Key Proteome Discoveries
+        </div>
+        <p>
+          1. <strong>Gene-Level Mean Pathogenicity Score:</strong> Strongly correlates with cellular essentiality in CRISPR screens (<Katex tex="r = -0.68" />).
+          <br />
+          2. <strong>Short Essential Genes:</strong> Correctly pinpoints short, highly conserved essential genes (e.g. mitochondrial oxidative phosphorylation subunits such as <em>UQCR11</em>, ribosomal proteins like <em>RPL39</em>) where traditional population constraint metrics (LOEUF) lack statistical power due to small target size.
+          <br />
+          3. <strong>Structural Domain Hotspots:</strong> Clearly delineates active enzyme catalytic clefts, zinc-finger coordination domains, and protein-protein binding interfaces.
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 6 -->
+    <section id="mathematical-formulation">
+      <h2>6. Mathematical Formulation & Scoring Objectives</h2>
+      <p>
+        The continuous pathogenicity score <Katex tex="s(v) \in [0, 1]" /> is calibrated using logistic regression over the raw log-odds output:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="s(v) = \sigma\left( w \cdot \left[ \log \frac{P(x_{\text{alt}})}{P(x_{\text{ref}})} \right] + b \right) = \frac{1}{1 + \exp\left( - \left( w \cdot \Delta \text{LLR}(v) + b \right) \right)}" />
+      </div>
+      <p>
+        Where cutoffs are thresholded based on 90% expected precision on ClinVar benign and pathogenic controls:
+        <br />
+        • <strong>Likely Benign:</strong> <Katex tex="s(v) \le 0.340" />
+        <br />
+        • <strong>Ambiguous:</strong> <Katex tex="0.340 < s(v) < 0.564" />
+        <br />
+        • <strong>Likely Pathogenic:</strong> <Katex tex="s(v) \ge 0.564" />
+      </p>
+    </section>
+
+    <!-- Section 7 -->
+    <section id="failure-modes">
+      <h2>7. Limitations & Structural Failure Modes</h2>
+      <ul>
+        <li><strong>Protein-Protein Complexes:</strong> Evaluates monomeric structures; may underestimate pathogenicity of variants residing in quaternary interfaces or multi-protein complexes.</li>
+        <li><strong>Post-Translational Modifications:</strong> Unaware of dynamic phosphorylation, ubiquitination, or glycosylation regulatory signals unless captured via structural packing.</li>
+        <li><strong>Intrinsically Disordered Regions (IDRs):</strong> Lower confidence in flexible, unstructured loop regions with low AlphaFold pLDDT scores.</li>
+        <li><strong>Coding Only:</strong> Does not evaluate non-coding regulatory, splicing, or synonymous mutations.</li>
+      </ul>
+    </section>
+
+    <!-- Section 8 -->
+    <section id="strategic-synthesis">
+      <h2>8. Master Synthesis & Synergy with Foundation Models</h2>
+      <p>
+        AlphaMissense represents the premier gold standard for coding missense variant effect prediction. In the modern foundation genomics stack, it operates in perfect synergy with non-coding sequence-to-function models (Borzoi, AlphaGenome) and alignment constraint models (GPN-Star), providing end-to-end variant interpretation from whole-genome sequencing down to atomic proteomic resolution.
+      </p>
+    </section>
+  </article>
+</BaseLayout>

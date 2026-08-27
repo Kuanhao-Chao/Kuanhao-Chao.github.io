@@ -1,0 +1,195 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Benchmarking DNA Sequence Models for Causal Regulatory Variant Prediction in Human Genetics";
+const description = "Comprehensive technical summary and deep literature deconstruction of TraitGym (Benegas et al., UC Berkeley / Song Lab, bioRxiv 2025): Benchmarking 20+ sequence-to-function, language, and alignment models across 113 Mendelian and 83 complex human traits.";
+const readingTime = "22 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Variant Effect Prediction & Empirical Benchmarking</span>
+        <span class="paper-venue-badge">bioRxiv · February 2025 (Preprint)</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Gonzalo Benegas*, Gökcen Eraslan, & Yun S. Song*</div>
+        <div><strong>Affiliation:</strong> University of California, Berkeley, Departments of EECS & Statistics; Genentech, South San Francisco, CA</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1101/2025.02.11.637758" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1101/2025.02.11.637758</a> · bioRxiv (Preprint v1/v2)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      Identifying causal non-coding regulatory genetic variants is the defining challenge of modern human genetics. While two competing modeling paradigms have emerged—<strong>functional genomics supervised sequence-to-function (S2F) models</strong> (such as Borzoi and Enformer) and <strong>self-supervised DNA language models</strong> (such as Evo2 and Nucleotide Transformer)—the field lacked a gold-standard, non-coding benchmark. Developed by <strong>UC Berkeley (Song Lab) and Genentech</strong>, <strong>TraitGym</strong> curates causal regulatory variants across <strong>113 Mendelian and 83 complex human traits</strong>. TraitGym reveals a fundamental biological divide: <strong>alignment-based evolutionary models (GPN-MSA, CADD)</strong> dominate Mendelian and disease phenotypes by capturing organismal fitness, while <strong>functional genomics S2F models (Borzoi)</strong> lead on continuous non-disease traits by measuring cellular molecular activity.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & The Fitness vs. Assay Divide</a></li>
+        <li><a href="#traitgym-dataset">2. TraitGym Dataset Curation: 113 Mendelian & 83 Complex Traits</a></li>
+        <li><a href="#model-taxonomy">3. Systematic Model Taxonomy: S2F, gLMs, and Alignment Models</a></li>
+        <li><a href="#benchmarks">4. Empirical Results: Mendelian, Disease, and Non-Disease Splits</a></li>
+        <li><a href="#ensembling">5. The Power of Ensembling: Borzoi + GPN-MSA Synergies</a></li>
+        <li><a href="#mathematical-formulation">6. Mathematical Formulation of the Benchmark Metric</a></li>
+        <li><a href="#failure-modes">7. Limitations & Future Benchmark Directions</a></li>
+        <li><a href="#strategic-synthesis">8. Master Synthesis & Implications for Drug Target Discovery</a></li>
+      </ol>
+    </div>
+
+    <!-- Section 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & The Fitness vs. Assay Divide</h2>
+      <p>
+        TraitGym delivers the most comprehensive independent audit of modern DNA sequence models to date:
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Model Category</th>
+              <th>Representative Models</th>
+              <th>Mendelian & Disease Traits (AUPRC)</th>
+              <th>Non-Disease Complex Traits (AUPRC)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Alignment-Based Constraint</strong></td>
+              <td>GPN-MSA, CADD, PhyloP</td>
+              <td><strong>Top Performer (0.76 AUPRC)</strong> — Captures organismal purifying selection.</td>
+              <td>Moderate (0.64 AUPRC) — Blind to tissue-specific quantitative effect sizes.</td>
+            </tr>
+            <tr>
+              <td><strong>Functional Genomics S2F</strong></td>
+              <td>Borzoi, Enformer, Basenji2</td>
+              <td>Moderate (0.61 AUPRC) — Limited by cell-type coverage and noise.</td>
+              <td><strong>Top Performer (0.74 AUPRC)</strong> — Accurately models cellular molecular activity.</td>
+            </tr>
+            <tr>
+              <td><strong>Self-Supervised DNA LMs</strong></td>
+              <td>Evo2 (7B), Caduceus, NT2, HyenaDNA</td>
+              <td>Moderate (0.58–0.66 AUPRC) — Gains with parameter scale.</td>
+              <td>Moderate (0.55–0.62 AUPRC) — Struggles with distal enhancer elements.</td>
+            </tr>
+            <tr>
+              <td><strong>Optimal Ensemble</strong></td>
+              <td><strong>Borzoi + GPN-MSA</strong></td>
+              <td><strong>0.79 AUPRC (Best Overall)</strong></td>
+              <td><strong>0.78 AUPRC (Best Overall)</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 2 -->
+    <section id="traitgym-dataset">
+      <h2>2. TraitGym Dataset Curation: 113 Mendelian & 83 Complex Traits</h2>
+      <p>
+        TraitGym addresses severe label noise and ascertainment bias in human genetics:
+      </p>
+      <ul>
+        <li><strong>Mendelian Dataset (113 Traits):</strong> ClinVar non-coding pathogenic regulatory variants matched against high-allele-frequency population controls within the same promoter/enhancer elements.</li>
+        <li><strong>Complex Trait Dataset (83 Traits):</strong> Fine-mapped causal GWAS variants from UK Biobank and CAUSALdb with posterior inclusion probability (PIP &gt; 0.9) matched to LD-pruned non-causal control variants with matched distance-to-TSS, GC content, and allele frequencies.</li>
+      </ul>
+    </section>
+
+    <!-- Section 3 -->
+    <section id="model-taxonomy">
+      <h2>3. Systematic Model Taxonomy: S2F, gLMs, and Alignment Models</h2>
+      <p>
+        The study categorizes 20+ models into three distinct theoretical pillars:
+      </p>
+      <ul>
+        <li><strong>1. Supervised Sequence-to-Function (S2F):</strong> Trained to predict experimental functional genomics assay readouts (RNA-seq, CAGE, DNase, ChIP-seq). Examples: Borzoi (524 kb), Enformer (196 kb).</li>
+        <li><strong>2. Self-Supervised Genomic LMs (gLMs):</strong> Trained via next-token or masked-token prediction on single reference or multi-species genomes. Examples: Evo 2, Nucleotide Transformer, Caduceus.</li>
+        <li><strong>3. Alignment-Based Multi-Species Models:</strong> Explicitly model evolutionary conservation across whole-genome multiple sequence alignments (MSAs). Examples: GPN-MSA, CADD, PhyloP.</li>
+      </ul>
+    </section>
+
+    <!-- Section 4 -->
+    <section id="benchmarks">
+      <h2>4. Empirical Results: Mendelian, Disease, and Non-Disease Splits</h2>
+      <p>
+        The empirical benchmark yields profound insights into model behavior:
+      </p>
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> Core Benchmark Findings
+        </div>
+        <p>
+          1. <strong>Why Alignment Wins on Disease:</strong> Pathogenic disease variants disrupt organismal survival across millions of years of evolutionary history, generating a clean phylogenetic conservation signal that alignment models detect effortlessly.
+          <br />
+          2. <strong>Why S2F Leads on Non-Disease Traits:</strong> Many complex traits (e.g. height, metabolic traits) involve mild, non-deleterious regulatory modulations where evolutionary constraint is weak, but tissue-specific transcriptional effect sizes measured by Borzoi provide decisive predictive power.
+          <br />
+          3. <strong>Evo 2 Scaling:</strong> Evo 2 (7B parameters) showed dramatic improvements over smaller gLMs, proving that model scale enhances non-coding causal variant scoring.
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 5 -->
+    <section id="ensembling">
+      <h2>5. The Power of Ensembling: Borzoi + GPN-MSA Synergies</h2>
+      <p>
+        Because functional genomics (Borzoi) and phylogenetic conservation (GPN-MSA) capture orthogonal biological signals, a simple linear ensemble yields dramatic performance gains:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\text{Score}_{\text{Ensemble}}(v) = \alpha \cdot z_{\text{Borzoi}}(v) + (1 - \alpha) \cdot z_{\text{GPN-MSA}}(v)" />
+      </div>
+      <p>
+        This simple combination outperforms every individual model across all 196 human traits.
+      </p>
+    </section>
+
+    <!-- Section 6 -->
+    <section id="mathematical-formulation">
+      <h2>6. Mathematical Formulation of the Benchmark Metric</h2>
+      <p>
+        Each model outputs a continuous effect score <Katex tex="f(v)" /> for variant <Katex tex="v" />. Models are evaluated using Area Under the Precision-Recall Curve (AUPRC) normalized against random baseline prevalence:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\text{AUPRC} = \sum_{k=1}^K P(k) \Delta R(k) = \sum_{k=1}^K \left[ \frac{\text{TP}_k}{\text{TP}_k + \text{FP}_k} \right] \cdot \left[ \frac{\text{TP}_k - \text{TP}_{k-1}}{\text{Positives}} \right]" />
+      </div>
+    </section>
+
+    <!-- Section 7 -->
+    <section id="failure-modes">
+      <h2>7. Limitations & Future Benchmark Directions</h2>
+      <ul>
+        <li><strong>Fine-Mapping Uncertainty:</strong> Even with PIP &gt; 0.9, some complex trait GWAS variants may be in tight LD with untracked structural variants.</li>
+        <li><strong>Cell-Type Specificity:</strong> Evaluates organismal trait association rather than single-cell perturbation states.</li>
+      </ul>
+    </section>
+
+    <!-- Section 8 -->
+    <section id="strategic-synthesis">
+      <h2>8. Master Synthesis & Implications for Drug Target Discovery</h2>
+      <p>
+        TraitGym establishes that neither functional genomics alone nor language modeling alone is sufficient. The future of computational genomics lies in unifying <strong>long-range functional sequence-to-function predictions with multi-species phylogenetic evolutionary constraint</strong>.
+      </p>
+    </section>
+  </article>
+</BaseLayout>
