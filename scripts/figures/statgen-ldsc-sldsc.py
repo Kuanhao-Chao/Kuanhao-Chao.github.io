@@ -1,9 +1,11 @@
 import sys, os, math
 sys.path.insert(0, os.path.dirname(__file__))
 os.makedirs(os.path.join(os.path.dirname(__file__), 'out'), exist_ok=True)
-from figlib import svg, text, line, path, write, circle, rect, Axes, ACCENT
+from figlib import svg, text, line, path, write, circle, rect, Axes, ACCENT, splice
 
 OUT = os.path.join(os.path.dirname(__file__), 'out')
+MDX = os.path.join(os.path.dirname(__file__), '..', '..',
+                   'src', 'content', 'deepDives', 'statgen-ldsc-sldsc.mdx')
 
 # ── Figure 1: the regression, and what each of its two numbers absorbs ────────
 # The worked example's data: E[chi2] = 1.05 + (N h^2 / M) * ell, with N = 100,000,
@@ -100,3 +102,63 @@ for name, pSnp, pH2 in CATS:
     print('   %-20s %.3f of SNPs, %.2f of h2 -> %.4f x' % (name, pSnp, pH2, pH2 / pSnp))
 print('   h2 shares sum to %.4f, SNP shares to %.4f'
       % (sum(h for _, _, h in CATS), sum(s for _, s, _ in CATS)))
+
+
+# ── Figure 3 ── the intercept an imperfect LD reference produces on its own ──
+# LDSC regresses chi2 on the LD score. A reference panel measures the score with error, the
+# slope attenuates by the reliability, and the intercept absorbs b(1-lambda)E[l]. Drawn with
+# the worked example's slope b = N h2 / M = 0.025 and a mean LD score of 80. Simulation over
+# 100,000 variants reproduces the closed form to three decimals; values asserted in
+# src/lib/deepDiveExamples.test.ts.
+B_SLOPE, MEAN_LD = 0.025, 80.0
+REL = [1.0 - i * 0.001 for i in range(0, 61)]          # 1.000 down to 0.940
+
+a3 = Axes(104.0, 424.0, 40.0, 236.0, (0.94, 1.0), (1.0, 1.13))
+q = [a3.frame()]
+q.append(a3.ygrid([1.0, 1.03, 1.06, 1.09, 1.12],
+                  ['1.00', '1.03', '1.06', '1.09', '1.12'], size=10, emphasise=(1.0,)))
+q.append(a3.xticks([0.94, 0.955, 0.97, 0.985, 1.0],
+                   ['0.94', '0.955', '0.97', '0.985', '1.00'], size=10))
+
+q.append(path([(a3.px(r), a3.py(min(1.0 + B_SLOPE * (1 - r) * MEAN_LD, 1.13))) for r in REL],
+              width=2.6, stroke=ACCENT))
+
+# the lesson's own intercept, and the reliability that alone would explain it
+q.append(line(a3.x0, a3.py(1.05), a3.x1, a3.py(1.05), 1.8, opacity='.55', dash='5 3'))
+q.append(text(a3.x0 + 6, a3.py(1.05) - 8, "the worked example's intercept, 1.05", 10,
+              opacity='.8'))
+q.append(circle(a3.px(0.975), a3.py(1.05), 5.0, fill=ACCENT))
+q.append(line(a3.px(0.975), a3.py(1.05) + 7, a3.px(0.975), a3.py(1.004), 1.2,
+              opacity='.5', dash='3 3'))
+q.append(text(a3.px(0.975), a3.py(1.0015), '0.975', 10.5, anchor='middle',
+              fill=ACCENT, weight='600'))
+
+q.append(text((a3.x0 + a3.x1) / 2, a3.py(1.0) + 42,
+              'Reliability of the LD scores', 12, anchor='middle'))
+q.append(text(a3.x0 - 78, 24, 'Intercept, with no confounding whatsoever', 10.5, opacity='.85'))
+
+LX3 = a3.x1 + 30
+q.append(text(LX3, 44, 'An intercept above one', 11, weight='700'))
+q.append(text(LX3, 58, 'is not proof of anything.', 11, weight='700'))
+for i, t in enumerate([
+        'The regression is run against LD',
+        'scores estimated from a reference',
+        'panel, so they carry error. That',
+        'attenuates the slope by the',
+        'reliability lambda, and the',
+        'intercept takes up the difference:', '',
+        '   intercept = 1 + b(1 - lambda)E[l]', '',
+        'with b = N h_{SNP}^2 / M = 0.025 and a',
+        'mean LD score of 80. There is no',
+        'confounding anywhere in this',
+        'calculation.', '',
+        'At lambda = 0.975 the intercept',
+        'reads 1.05 - the whole of the',
+        'worked example\u2019s excess. So the',
+        'intercept bounds confounding from',
+        'above; it does not measure it.']):
+    q.append(text(LX3, 80 + 13 * i, t, 10, opacity='.8'))
+
+_atten = svg(772, 380, ''.join(q))
+print('fig3 bytes:', write(os.path.join(OUT, 'statgen-ldsc-attenuation.svg'), _atten))
+splice(MDX, 2, _atten)

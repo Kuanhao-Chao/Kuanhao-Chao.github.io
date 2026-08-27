@@ -31,6 +31,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'three-tests',
   'mr-pleiotropy',
   'burden-skat',
+  'ldsc-regression',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];

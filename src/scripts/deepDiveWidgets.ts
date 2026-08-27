@@ -92,6 +92,7 @@ import {
   burdenStatistic,
   skatQ,
   skatOQ,
+  ldscRegression,
 } from '../lib/deepDiveMath';
 import {
   biasVarianceToy,
@@ -2963,6 +2964,88 @@ const burdenSkat: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * The two things that lift an LDSC intercept, side by side.
+ *
+ * Genuine confounding adds a constant to every chi-square. Unreliable LD scores attenuate the
+ * slope, and the fitted line — which must pass through the means — raises the intercept to
+ * compensate. The panel reports the split, and the point is that the *fit* cannot: both
+ * sliders move the intercept and only one of them is stratification.
+ */
+const ldscRegressionWidget: Renderer = (canvas, controlHost, readoutHost) => {
+  const LD = [10, 30, 50, 80, 120, 200];
+  const MEAN_LD = LD.reduce((a, b) => a + b, 0) / LD.length;
+
+  const draw = () => {
+    const n = Math.round(c.get('n'));
+    const h2 = c.get('h2');
+    const conf = c.get('conf');
+    const lambda = c.get('lambda');
+    const m = 1_000_000;
+
+    const slope = (n * h2) / m;
+    // the observed points: true line plus confounding, read against attenuated scores
+    const chi = LD.map((l) => 1 + conf + slope * l);
+    const observedLd = LD.map((l) => MEAN_LD + lambda * (l - MEAN_LD));
+    const fit = ldscRegression(observedLd, chi, n, m);
+    const attenuation = slope * (1 - lambda) * MEAN_LD;
+
+    const top = Math.max(...chi) * 1.12;
+    const x = linear(0, 210, PAD.left, PAD.left + PLOT.w, [0, 50, 100, 150, 200],
+      (v) => String(v));
+    const y = linear(0.9, top, PAD.top + PLOT.h, PAD.top,
+      [1, 1 + (top - 1) / 3, 1 + (2 * (top - 1)) / 3, top], (v) => v.toFixed(2));
+    const svg = newSvg();
+    const g = frame(x, y, 'LD score', 'Mean χ²', svg);
+
+    g.appendChild(el('line', {
+      x1: x(0), x2: x(210), y1: y(Math.min(fit.intercept, top)),
+      y2: y(Math.min(fit.intercept + fit.slope * 210, top)),
+      stroke: ACCENT, 'stroke-width': 2.6,
+    }));
+    g.appendChild(el('line', {
+      x1: x(0), x2: x(210), y1: y(1), y2: y(1),
+      stroke: 'currentColor', 'stroke-width': 1.6, opacity: 0.45, 'stroke-dasharray': '4 4',
+    }));
+    observedLd.forEach((l, i) => {
+      g.appendChild(el('circle', { cx: x(l), cy: y(Math.min(chi[i], top)), r: 4.2, fill: ACCENT }));
+    });
+
+    canvas.replaceChildren(svg);
+    readout(readoutHost, [
+      ['fitted intercept', fit.intercept.toFixed(4)],
+      ['— of which confounding', conf.toFixed(4)],
+      ['— of which attenuation', attenuation.toFixed(4)],
+      ['fitted slope', sci(fit.slope, 3)],
+      ['h² from the slope', ((fit.slope * m) / n).toFixed(4)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      { key: 'lambda', label: 'LD score reliability', min: 0.9, max: 1, step: 0.005, value: 1,
+        format: (v) => v.toFixed(3) },
+      {
+        key: 'n',
+        label: 'Sample size N',
+        min: 4,
+        max: 6,
+        step: 0.01,
+        value: 5,
+        scale: (v) => 10 ** v,
+        format: (v) => Math.round(v).toLocaleString('en-US'),
+      },
+      { key: 'h2', label: 'SNP heritability', min: 0.05, max: 0.6, step: 0.01, value: 0.25,
+        format: (v) => v.toFixed(2) },
+      { key: 'conf', label: 'Genuine confounding', min: 0, max: 0.2, step: 0.005, value: 0.05,
+        format: (v) => v.toFixed(3) },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'pca-structure': pcaStructure,
   'sweep-age': sweepAge,
@@ -2972,6 +3055,7 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'three-tests': threeTests,
   'mr-pleiotropy': mrPleiotropy,
   'burden-skat': burdenSkat,
+  'ldsc-regression': ldscRegressionWidget,
   'ld-decay': ldDecay,
   drift,
   power,

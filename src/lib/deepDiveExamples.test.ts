@@ -1833,13 +1833,16 @@ describe('statgen-ldsc-sldsc', () => {
       expect(mdx).toContain('{100{,}000} = 0.2500');
     });
 
-    it('attributes only 2.4% of the inflation to confounding', () => {
+    it('bounds the confounding at 2.4% of the inflation rather than measuring it', () => {
       const meanChi = CHI.reduce((a, b) => a + b, 0) / CHI.length;
       expect(meanChi).toBeCloseTo(3.091667, 6);
       expect(fit.ratio).toBeCloseTo(0.023904, 6);
       expect(fit.ratio).toBeCloseTo((INTERCEPT - 1) / (meanChi - 1), 10);
       expect(mdx).toContain('\\frac{0.05}{2.091667} = 0.023904');
-      expect(mdx).toContain('**Only 2.4% of the inflation is confounding.**');
+      // the ratio is an upper bound: attenuation from an imperfect LD reference lifts the
+      // intercept too, and at a reliability of 0.975 accounts for the whole 0.05 excess
+      expect(mdx).toContain('**At most 2.4% of the inflation is confounding.**');
+      expect(mdx).not.toContain('**Only 2.4% of the inflation is confounding.**');
     });
 
     it('would be condemned by λ_GC, which reads 5.8799 on the same data', () => {
@@ -9269,6 +9272,65 @@ describe('statgen-rare-variant-association — sign sweep, the tail, and ACAT', 
     expect(mdx).toContain('liu2019acat');
     expect(mdx).toContain('Cauchy');
     for (const v of ['0.0492', '0.0592', '0.0535']) expect(mdx).toContain(v);
+  });
+});
+
+describe('statgen-ldsc-sldsc — the intercept is a bound, not a measurement', () => {
+  const mdx = lesson('statgen-ldsc-sldsc');
+  const LD = [10, 30, 50, 80, 120, 200];
+  const MEAN_LD = 80;
+  const B = 0.025; // N h2 / M for the worked example
+
+  it('has the attenuation term the section derives', () => {
+    // intercept = 1 + Na + b(1 - lambda) E[l]
+    const atten = (lam: number) => B * (1 - lam) * MEAN_LD;
+    expect(atten(0.99).toFixed(4)).toBe('0.0200');
+    expect(atten(0.975).toFixed(4)).toBe('0.0500');
+    expect(mdx).toContain('0.0200');
+    expect(mdx).toContain('0.0500');
+    // the reliability that alone explains the worked example's entire excess
+    expect(1 - 0.05 / (B * MEAN_LD)).toBeCloseTo(0.975, 10);
+    expect(mdx).toContain('0.975');
+  });
+
+  it('leaves the slope attenuated by exactly lambda', () => {
+    const chi = LD.map((l) => 1 + B * l);
+    for (const lam of [1, 0.975, 0.95]) {
+      const obs = LD.map((l) => MEAN_LD + lam * (l - MEAN_LD));
+      const fit = ldscRegression(obs, chi, 100_000, 1_000_000);
+      expect(fit.slope).toBeCloseTo(B / lam, 6);
+    }
+  });
+
+  it('softens every passage that read the intercept as a measurement', () => {
+    // four places asserted the intercept WAS the confounding; all four are now bounds
+    expect(mdx).toContain('At most 2.4% of the inflation is confounding');
+    expect(mdx).toContain('At least 97.6% is real polygenic signal');
+    expect(mdx).toContain('at most 6.7% confounding');
+    expect(mdx).toContain('up to 83.3% confounding');
+    expect(mdx).toContain('accounts for at most 2.4%');
+    expect(mdx).not.toContain('Only 2.4% of the inflation is confounding');
+    expect(mdx).not.toMatch(/The other 97\.6% is real polygenic signal/);
+    expect(mdx).not.toMatch(/inflation is 6\.7% confounding and 93/);
+  });
+
+  it('exercise 4 — the range of confounding consistent with an intercept of 1.08', () => {
+    const b = (200_000 * 0.15) / 1_000_000;
+    expect(b).toBeCloseTo(0.03, 12);
+    expect((b * 0.03 * MEAN_LD).toFixed(4)).toBe('0.0720');
+    expect((0.08 - b * 0.03 * MEAN_LD).toFixed(4)).toBe('0.0080');
+    expect(mdx).toContain('0.0720');
+    expect(mdx).toContain('0.0080');
+  });
+
+  it('exercise 5 — the same error is amplified into one estimate and not the other', () => {
+    // the slope loses a factor of lambda; the intercept gains (1-lambda) times the MEAN LD
+    const lam = 0.97;
+    expect(1 - lam).toBeCloseTo(0.03, 12);
+    expect((B * (1 - lam) * MEAN_LD) / (B * (1 - lam))).toBeCloseTo(MEAN_LD, 10);
+    // wraps across a line break in the prose, so matched by pattern rather than literal
+    expect(mdx).toMatch(/a\s+factor of 80/);
+    expect(mdx).toContain('amplified eighty-fold');
   });
 });
 
