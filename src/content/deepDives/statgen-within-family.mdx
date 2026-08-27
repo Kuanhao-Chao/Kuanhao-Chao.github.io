@@ -1,0 +1,427 @@
+---
+title: "Within-Family Genetics: Assortative Mating, Genetic Nurture and What a Population Estimate Contains"
+shortTitle: Within-Family Genetics
+description: "Three things a population sample confounds with direct genetic effect — assortment between parents, the environment parents build, and ancestry — and the sibling comparison that removes all three. With the equilibrium algebra for assortative mating, the bias it puts into a twin study, and the exact factor a within-family design strips out."
+abstract: "Everything Module 3 has estimated so far was estimated between families, and three distinct things live in that comparison besides the direct effect of a genotype. This lesson separates them. Assortative mating correlates parents' breeding values, which inflates the population additive variance without changing a single allele frequency: solving the recursion self-consistently gives V_A0/(1−μh²) with the equilibrium heritability, exactly √(5/3) times the random-mating value at h² = ½ and a spousal correlation of 0.4, and simulation confirms it — 0.64907 against a predicted 0.645497, reached over about ten generations rather than instantly. The same correlation biases the classical twin decomposition in a direction most summaries get backwards: dizygotic twins share (1+ρ)/2 = 0.612702 of their additive variance rather than one half, so the MZ−DZ gap shrinks, heritability is understated as 0.436492 against a true 0.563508, and the missing variance is booked as 0.127017 of shared environment that does not exist. Genetic nurture adds a third term, and its size is exactly computable: a population regression returns δ + η(1+ρ)/2 where a sibling difference returns δ alone, so an indirect effect half the size of the direct one inflates the population estimate by 1.30635. All three vanish in the sibling comparison, which is why within-family estimates are the ones a causal claim needs."
+date: 2026-08-26
+track: theory
+hub: statistical-genetics
+moduleId: m03-quantitative
+moduleLabel: Module 3 · Quantitative Genetics
+order: 10
+level: advanced
+objectives:
+  - "Derive the equilibrium additive variance under assortative mating, and say why the naive formula understates it."
+  - "Explain why segregation variance is unchanged by assortment, and what that fact does to the recursion."
+  - "Compute the sibling breeding-value correlation under assortment and state the direction of the bias it puts into a twin study."
+  - "Separate the direct genetic effect from the parental indirect effect, and give the factor by which a population regression inflates the first."
+  - "Say what a sibling-difference design removes and what it costs."
+prerequisites:
+  - statgen-heritability-greml
+relatedLessons:
+  - statgen-heritability-greml
+  - statgen-population-structure-fst
+keyEquations:
+  - 'V_A = \frac{V_{A_0}}{1 - \rho_A}, \qquad \rho_A = \mu h^2'
+  - 'r_{\mathrm{DZ}}^{A} = \frac{1 + \rho_A}{2}'
+  - '\frac{\beta_{\mathrm{pop}}}{\beta_{\mathrm{within}}} = 1 + \frac{\eta}{\delta}\cdot\frac{1+\rho_A}{2}'
+referenceIds:
+  - fisher1918infinitesimal
+  - visscher2008
+  - yang2011gcta
+  - kong2018nurture
+  - young2018relatedness
+  - okbay2022polygenic
+tags: [assortative mating, genetic nurture, within-family, twin studies, indirect genetic effects, heritability]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The previous lesson estimated heritability by comparing people who differ in relatedness —
+twins, or unrelated individuals with a genomic relationship matrix
+<Citation id="yang2011gcta" />. Every one of those comparisons is **between families**, and a between-family comparison contains more than the
+direct effect of the genotype on the person carrying it.
+
+It contains at least three other things. Parents who resemble each other make offspring whose
+parents' contributions are correlated, which changes the variance without changing any allele
+frequency. Parents also build the environment their children grow up in, and they build it
+partly with their own genotypes. And families differ in ancestry, which the previous lesson on
+population structure showed is worth quantifying rather than assuming away.
+
+That is the concrete form of a warning the heritability lesson made in general terms
+<Citation id="visscher2008" />: the ratio is a property of a population, and a population
+contains structure that the ratio does not distinguish from genetics.
+
+All three are removed by one design: compare siblings with each other. This lesson works out
+what each of the three is worth, so that the difference between a population estimate and a
+within-family estimate becomes a number rather than a worry.
+
+<Notation
+  rows={[
+    { symbol: 'A', meaning: 'Breeding value — the additive genetic value of an individual', dims: 'trait units' },
+    { symbol: 'V_{A_0},\\; V_A', meaning: 'Additive variance under random mating, and at assortative equilibrium', dims: 'trait units²' },
+    { symbol: 'V_E', meaning: 'Environmental variance, held fixed throughout', dims: 'trait units²' },
+    { symbol: '\\mu', meaning: 'Phenotypic correlation between mates', dims: 'correlation' },
+    { symbol: '\\rho_A', meaning: "Correlation between mates' breeding values, μh²", dims: 'correlation' },
+    { symbol: '\\delta', meaning: "Direct effect of an individual's own genotype", dims: 'per allele' },
+    { symbol: '\\eta', meaning: "Indirect effect of the parents' genotypes, through the environment they build", dims: 'per allele' },
+    { symbol: 'A_{\\mathrm{mid}}', meaning: 'Mid-parent breeding value, (A_sire + A_dam)/2', dims: 'trait units' },
+  ]}
+/>
+
+## Assortative mating changes the variance without changing the alleles
+
+People do not choose partners at random with respect to height, education or almost any other
+trait. Spousal correlations of 0.2 to 0.4 are ordinary, and for education they run higher.
+
+<Citation id="fisher1918infinitesimal" /> worked out the consequence in the paper that founded
+the field. The key observation is negative: **assortment does not change allele frequencies.**
+It changes who mates with whom, not which alleles exist at what rate, so the variance
+generated afresh each generation by Mendelian segregation is untouched. Under random mating
+that segregation variance is $V_{A_0}/2$, and it stays $V_{A_0}/2$ forever.
+
+What does change is the covariance between the two parental contributions. Writing the
+offspring's breeding value as the mid-parent value plus a segregation term,
+
+$$
+V_A = \frac{V_A + V_A + 2\rho_A V_A}{4} + \frac{V_{A_0}}{2}
+= \frac{V_A(1+\rho_A)}{2} + \frac{V_{A_0}}{2}
+$$
+
+which rearranges to
+
+$$
+V_A = \frac{V_{A_0}}{1 - \rho_A}
+$$
+
+The correlation between mates' *breeding values* follows from the correlation between their
+phenotypes: regressing $A$ on $P$ has slope $h^2$, so
+$\mathrm{Cov}(A_s, A_d) = h^4\mu V_P$ and therefore $\rho_A = \mu h^2$.
+
+<Callout variant="warning" title="The h² in that formula is not the one you started with">
+
+It is tempting to write $V_A = V_{A_0}/(1 - \mu h_0^2)$ and stop. That is wrong, and it
+understates the answer, because assortment raises $h^2$ — which raises $\rho_A$, which raises
+$V_A$ again. The relation is implicit and has to be solved.
+
+Substituting $h^2 = V_A/(V_A + V_E)$ turns it into a quadratic in $V_A$:
+
+$$
+(1-\mu)V_A^2 + (V_E - V_{A_0})V_A - V_{A_0}V_E = 0
+$$
+
+At $h_0^2 = \tfrac{1}{2}$ the linear term vanishes and the root is exactly
+$\sqrt{V_{A_0}V_E/(1-\mu)}$.
+
+</Callout>
+
+<WorkedExample
+  title="A trait at half heritability, with a spousal correlation of 0.4"
+  given={[
+    { label: 'Initial heritability h₀²', value: '0.50' },
+    { label: 'Spousal phenotypic correlation μ', value: '0.40' },
+    { label: 'Phenotypic variance', value: '1, before assortment' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**The naive answer.** $1/(1 - 0.4 \times 0.5) = 1.25$, giving $V_A = 0.625$.
+
+**The right one.** With $V_{A_0} = V_E = 0.5$ the linear term is zero, so
+
+$$
+V_A = \sqrt{\frac{V_{A_0}V_E}{1-\mu}} = \sqrt{\frac{0.25}{0.6}} = 0.645497
+$$
+
+a ratio of $0.645497/0.5 = 1.290994$ — **exactly $\sqrt{5/3}$**. Heritability rises with it,
+to $0.645497/1.145497 = 0.563508$, and the breeding-value correlation between mates settles at
+$\rho_A = 0.4 \times 0.563508 = 0.225403$.
+
+**Check it against the implicit relation.** $1/(1-0.225403) = 1.290994$, the same ratio — which
+is what "solved self-consistently" means.
+
+**Simulation.** An infinitesimal model with 200,000 individuals reaches 0.64907 after forty
+generations, within 0.6% of the closed form, with a realised spousal correlation of 0.39907
+and a sibling breeding-value correlation of 0.61405.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 1. Additive variance by generation of assortative mating, from an infinitesimal simulation of 200,000 individuals starting at h₀² = 0.5 with a spousal correlation of 0.4. The dashed line is the self-consistent equilibrium at 0.645497; the dotted line is the naive 1/(1 − μh₀²) = 0.625, which the process passes through around the fifth generation and keeps going. Equilibrium is approached over roughly ten generations, not reached in one."
+  alt="A rising curve on a logarithmic generation axis from 1 to 40, starting at 0.50 and flattening near 0.65. A dashed horizontal line sits at about 0.645 and a dotted horizontal line at 0.625, which the curve crosses around generation five."
+>
+
+<svg viewBox="0 0 772 372" width="772" height="372" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.45</text><line x1="104.0" y1="193.4" x2="424.0" y2="193.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="197.4" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.50</text><line x1="104.0" y1="150.8" x2="424.0" y2="150.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="154.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.55</text><line x1="104.0" y1="108.2" x2="424.0" y2="108.2" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="112.2" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.60</text><line x1="104.0" y1="65.6" x2="424.0" y2="65.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="69.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.65</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="164.1" y1="236.0" x2="164.1" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="164.1" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="243.6" y1="236.0" x2="243.6" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="243.6" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="303.7" y1="236.0" x2="303.7" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="303.7" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="363.9" y1="236.0" x2="363.9" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="363.9" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">20</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">40</text><line x1="104.0" y1="69.4" x2="424.0" y2="69.4" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0" opacity=".85" stroke-dasharray="6 4"/><text x="420.0" y="61.4" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">equilibrium  0.645497</text><line x1="104.0" y1="86.9" x2="424.0" y2="86.9" stroke="currentColor" stroke-width="1.8" opacity=".6" stroke-dasharray="2 3"/><text x="420.0" y="100.9" font-size="10" fill="currentColor" text-anchor="end" opacity=".7">naive 1/(1 - mu h<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan>²) = 0.625</text><path d="M104.0,194.4 L164.1,152.5 L199.3,121.8 L243.6,94.3 L303.7,73.9 L363.9,67.9 L424.0,66.4" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><circle cx="104.0" cy="194.4" r="3.6" fill="var(--color-accent, #2e6e5e)"/><circle cx="164.1" cy="152.5" r="3.6" fill="var(--color-accent, #2e6e5e)"/><circle cx="199.3" cy="121.8" r="3.6" fill="var(--color-accent, #2e6e5e)"/><circle cx="243.6" cy="94.3" r="3.6" fill="var(--color-accent, #2e6e5e)"/><circle cx="303.7" cy="73.9" r="3.6" fill="var(--color-accent, #2e6e5e)"/><circle cx="363.9" cy="67.9" r="3.6" fill="var(--color-accent, #2e6e5e)"/><circle cx="424.0" cy="66.4" r="3.6" fill="var(--color-accent, #2e6e5e)"/><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Generation of assortative mating</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Additive variance</text><text x="454.0" y="44.0" font-size="11" fill="currentColor" font-weight="700">Ten generations, not one.</text><text x="454.0" y="66.0" font-size="10" fill="currentColor" opacity=".8">Assortment does not change allele</text><text x="454.0" y="79.0" font-size="10" fill="currentColor" opacity=".8">frequencies, so segregation</text><text x="454.0" y="92.0" font-size="10" fill="currentColor" opacity=".8">variance is untouched, and</text><text x="454.0" y="105.0" font-size="10" fill="currentColor" opacity=".8">V<tspan font-size="8.5" dy="3">A</tspan><tspan dy="-3"></tspan> = V<tspan font-size="8.5" dy="3">A</tspan><tspan dy="-3"></tspan>(1+rho)/2 + V<tspan font-size="8.5" dy="3">A</tspan><tspan dy="-3"></tspan>0/2</text><text x="454.0" y="118.0" font-size="10" fill="currentColor" opacity=".8">closes on V<tspan font-size="8.5" dy="3">A</tspan><tspan dy="-3"></tspan>0/(1-rho), with</text><text x="454.0" y="131.0" font-size="10" fill="currentColor" opacity=".8">rho = mu h².</text><text x="454.0" y="144.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="157.0" font-size="10" fill="currentColor" opacity=".8">The catch is that h² there is the</text><text x="454.0" y="170.0" font-size="10" fill="currentColor" opacity=".8">EQUILIBRIUM heritability, not the</text><text x="454.0" y="183.0" font-size="10" fill="currentColor" opacity=".8">starting one. Using h<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan>² gives 0.625;</text><text x="454.0" y="196.0" font-size="10" fill="currentColor" opacity=".8">solving self-consistently gives</text><text x="454.0" y="209.0" font-size="10" fill="currentColor" opacity=".8">0.645497, which at h<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan>² = 1/2 is</text><text x="454.0" y="222.0" font-size="10" fill="currentColor" opacity=".8">exactly sqrt(5/3) times the start.</text><text x="454.0" y="235.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="248.0" font-size="10" fill="currentColor" opacity=".8">The approach takes about ten</text><text x="454.0" y="261.0" font-size="10" fill="currentColor" opacity=".8">generations, so a population whose</text><text x="454.0" y="274.0" font-size="10" fill="currentColor" opacity=".8">mating patterns changed recently is</text><text x="454.0" y="287.0" font-size="10" fill="currentColor" opacity=".8">not at equilibrium and neither</text><text x="454.0" y="300.0" font-size="10" fill="currentColor" opacity=".8">formula describes it.</text></svg>
+
+</Figure>
+
+<Widget
+  kind="assortative-mating"
+  title="Move the heritability and the spousal correlation"
+  caption="The equilibrium additive variance against the mate correlation, with the naive formula shown alongside for comparison. The gap between them is what solving self-consistently buys, and it widens with both heritability and assortment — which is why the naive form is worst exactly where it matters most."
+  alt="An interactive panel with sliders for the initial heritability and the spousal phenotypic correlation. It draws the equilibrium additive-variance ratio against the mate correlation together with the naive approximation, and reports the equilibrium variance, its ratio, the equilibrium heritability, the breeding-value correlation between mates, and what a twin study would report."
+/>
+
+## What that does to a twin study
+
+Falconer's estimator, derived in the heritability lesson, is $h^2 = 2(r_{\mathrm{MZ}} - r_{\mathrm{DZ}})$
+and $c^2 = 2r_{\mathrm{DZ}} - r_{\mathrm{MZ}}$. Both rest on dizygotic twins sharing exactly
+half their additive variance.
+
+Under assortment they share more. The correlation between full sibs' breeding values is
+
+$$
+r^{A}_{\mathrm{DZ}} = \frac{1+\rho_A}{2}
+$$
+
+which at $\rho_A = 0.225403$ is $0.612702$ rather than $0.5$. So $r_{\mathrm{DZ}}$ rises, the
+$\mathrm{MZ}-\mathrm{DZ}$ gap shrinks, and both halves of the decomposition move:
+
+$$
+\hat{h}^2 = h^2(1-\rho_A), \qquad \hat{c}^2 = h^2\rho_A
+$$
+
+<Callout variant="key" title="The direction most summaries get backwards">
+
+Assortative mating is usually described as inflating heritability estimates. It does inflate
+the **true** heritability — that is the whole of the previous section. What it does to the
+**twin estimate** of that heritability is the opposite: it deflates it, and books the
+difference as shared environment.
+
+At $h^2 = 0.563508$ and $\rho_A = 0.225403$ the twin design reports $\hat{h}^2 = 0.436492$
+against a truth of $0.563508$, and $\hat{c}^2 = 0.127017$ where the truth is zero. Simulation
+gives 0.4393 and 0.1268.
+
+So a twin study of a strongly assorted trait will report a substantial shared-environment
+component with no shared environment anywhere in the generating model. Family resemblance that
+is entirely genetic gets attributed to upbringing.
+
+</Callout>
+
+<Figure
+  caption="Figure 2. The same population decomposed twice. Above, the truth: 0.564 additive, no shared environment, 0.436 unique. Below, what a classical twin study reports for it: 0.436 additive, 0.127 of shared environment, 0.436 unique. The middle band exists only because dizygotic twins under assortative mating share 0.612702 of their additive variance rather than the one half Falconer's estimator assumes."
+  alt="Two stacked horizontal bars. The upper bar, labelled truth, has a large left segment of 0.564 and a right segment of 0.436. The lower bar, labelled what a twin study reports, has a left segment of 0.436, a narrow middle segment of 0.127 annotated as shared environment that does not exist, and a right segment of 0.436."
+>
+
+<svg viewBox="0 0 772 300" width="772" height="300" font-family="inherit"><text x="138.0" y="90.0" font-size="11.5" fill="currentColor" text-anchor="end" font-weight="600">Truth</text><rect x="150.0" y="70.0" width="169.1" height="32.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".9"/><text x="234.5" y="91.0" font-size="10.5" fill="var(--color-on-accent, #fff)" text-anchor="middle" font-weight="600">0.564</text><rect x="319.1" y="70.0" width="0.0" height="32.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".5"/><rect x="319.1" y="70.0" width="130.9" height="32.0" rx="2" fill="currentColor" opacity=".2"/><text x="384.5" y="91.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">0.436</text><text x="138.0" y="182.0" font-size="11.5" fill="currentColor" text-anchor="end" font-weight="600">Twin study reports</text><rect x="150.0" y="162.0" width="130.9" height="32.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".9"/><text x="215.5" y="183.0" font-size="10.5" fill="var(--color-on-accent, #fff)" text-anchor="middle" font-weight="600">0.436</text><rect x="280.9" y="162.0" width="38.1" height="32.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".5"/><text x="300.0" y="183.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">0.127</text><rect x="319.1" y="162.0" width="130.9" height="32.0" rx="2" fill="currentColor" opacity=".2"/><text x="384.5" y="183.0" font-size="10.5" fill="currentColor" text-anchor="middle" font-weight="600">0.436</text><line x1="300.0" y1="156.0" x2="300.0" y2="142.0" stroke="currentColor" stroke-width="1.2" opacity=".7"/><text x="300.0" y="136.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">0.127 of shared environment</text><text x="300.0" y="210.0" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">that does not exist</text><text x="150.0" y="250.0" font-size="10" fill="currentColor" opacity=".85">additive</text><rect x="136.0" y="241.0" width="10.0" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".9"/><text x="226.0" y="250.0" font-size="10" fill="currentColor" opacity=".85">shared environment</text><rect x="212.0" y="241.0" width="10.0" height="10.0" rx="2" fill="var(--color-accent, #2e6e5e)" opacity=".5"/><text x="360.0" y="250.0" font-size="10" fill="currentColor" opacity=".85">unique environment</text><rect x="346.0" y="241.0" width="10.0" height="10.0" rx="2" fill="currentColor" opacity=".2"/><text x="500.0" y="44.0" font-size="11" fill="currentColor" font-weight="700">The bias runs both ways.</text><text x="500.0" y="66.0" font-size="10" fill="currentColor" opacity=".8">Falconer assumes dizygotic twins</text><text x="500.0" y="79.0" font-size="10" fill="currentColor" opacity=".8">share half their additive variance.</text><text x="500.0" y="92.0" font-size="10" fill="currentColor" opacity=".8">Under assortment they share</text><text x="500.0" y="105.0" font-size="10" fill="currentColor" opacity=".8">(1+rho)/2 = 0.612702, so the</text><text x="500.0" y="118.0" font-size="10" fill="currentColor" opacity=".8">MZ - DZ gap shrinks.</text><text x="500.0" y="131.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="500.0" y="144.0" font-size="10" fill="currentColor" opacity=".8">Both halves move. Heritability is</text><text x="500.0" y="157.0" font-size="10" fill="currentColor" opacity=".8">understated by the factor (1-rho):</text><text x="500.0" y="170.0" font-size="10" fill="currentColor" opacity=".8">0.436492 against a true 0.563508.</text><text x="500.0" y="183.0" font-size="10" fill="currentColor" opacity=".8">The missing variance is booked as</text><text x="500.0" y="196.0" font-size="10" fill="currentColor" opacity=".8">shared environment, h² rho = 0.127017,</text><text x="500.0" y="209.0" font-size="10" fill="currentColor" opacity=".8">whether or not any exists.</text><text x="500.0" y="222.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="500.0" y="235.0" font-size="10" fill="currentColor" opacity=".8">Note the direction. Assortment</text><text x="500.0" y="248.0" font-size="10" fill="currentColor" opacity=".8">raises the TRUE heritability, and</text><text x="500.0" y="261.0" font-size="10" fill="currentColor" opacity=".8">lowers what the twin design says</text><text x="500.0" y="274.0" font-size="10" fill="currentColor" opacity=".8">about it.</text></svg>
+
+</Figure>
+
+## Genetic nurture: the parents' genotype in the child's environment
+
+A parent's genotype affects the child twice. Half of it is transmitted, and acts directly. All
+of it shapes the household — the books, the vocabulary, the neighbourhood — and acts on the
+child through the environment. <Citation id="kong2018nurture" /> demonstrated the second
+channel cleanly by showing that the alleles a parent did **not** transmit still predict the
+child's educational attainment.
+
+Model it as
+
+$$
+Y = \delta A_{\mathrm{child}} + \eta A_{\mathrm{mid}} + E
+$$
+
+A population regression of $Y$ on the child's breeding value picks up both terms, because the
+child's value is correlated with the mid-parent value it half came from:
+
+$$
+\beta_{\mathrm{pop}} = \delta + \eta\,\frac{1+\rho_A}{2}
+$$
+
+A **sibling difference** cancels $A_{\mathrm{mid}}$ exactly — the two siblings have the same
+parents — leaving
+
+$$
+\beta_{\mathrm{within}} = \delta
+$$
+
+<WorkedExample
+  title="What a population estimate contains"
+  given={[
+    { label: 'Indirect over direct, η/δ', value: '0.50' },
+    { label: 'ρ_A at equilibrium', value: '0.225403' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+$$
+\frac{\beta_{\mathrm{pop}}}{\beta_{\mathrm{within}}} = 1 + 0.5 \times \frac{1.225403}{2} = 1.30635
+$$
+
+So a population GWAS overstates the direct effect by 31%. At $\eta = \delta$ the factor is
+$1.6127$; at $\eta/\delta = 0.25$ it is $1.15318$. Under random mating the same expression
+collapses to $1 + \eta/2\delta$, so the assortment contributes only the difference between
+$(1+\rho_A)/2$ and $\tfrac{1}{2}$ — a modest part of the total, and the nurture term is the
+larger effect.
+
+Simulation with 200,000 sibling pairs recovers all three: 1.1562, 1.3070 and 1.6168 against
+predictions of 1.15320, 1.30635 and 1.61270 — and $\beta_{\mathrm{within}}$ returns
+0.9970, 0.9988 and 0.9971 against a true $\delta$ of 1, which is the point: **the
+sibling-difference estimate is unbiased by construction, not approximately.**
+
+</WorkedExample>
+
+<Callout variant="intuition" title="Why the sibling difference is so clean">
+
+Two siblings have the same parents, the same ancestry and the same household. Every term in
+the model that is a property of the *family* rather than of the *individual* is identical for
+both, so subtracting one from the other removes it exactly — not approximately, not
+conditionally on a covariate being correctly specified, but algebraically.
+
+What remains is Mendelian segregation: the coin-flips that decided which of each parent's two
+alleles went to which child. That randomisation is the closest thing genetics has to a
+randomised trial <Citation id="young2018relatedness" />, and it is why within-family estimates
+carry a causal warrant that population estimates do not.
+
+</Callout>
+
+## What it costs
+
+The design is not free, and the cost is power.
+
+Siblings share half their genome, so the variance available to a within-family regression is
+about half of what a population sample offers — and under assortment it is
+$(1-\rho_A)/2 = 0.387298$ of the population additive variance rather than one half, because
+assortment inflates the denominator while leaving segregation variance alone. That figure is
+exact: $1-\rho_A$ is $V_{A_0}/V_A = \sqrt{0.6}$ here, so the surviving fraction is
+$\sqrt{0.15}$. Recovering the same standard error therefore takes on the order of two and a
+half times as many individuals,
+and they have to come in sibling pairs, which no biobank has in unlimited supply.
+
+That is the trade <Citation id="okbay2022polygenic" /> and others make explicitly: population
+estimates for discovery, where power is scarce and some confounding is tolerable, and
+within-family estimates for anything that has to be causal. It is the same division of labour
+that Mendelian randomisation makes in Module 5, and for the same reason.
+
+<Exercise n={1} title="A more heritable, more assorted trait" difficulty="warm-up">
+
+A trait has $h_0^2 = 0.8$ and a spousal correlation of 0.4. (a) What is the equilibrium
+additive variance, taking the pre-assortment phenotypic variance as 1? (b) What is the
+equilibrium heritability? (c) Compare the inflation with the $h_0^2 = 0.5$ case.
+
+<div slot="solution">
+
+**(a)** $V_{A_0} = 0.8$, $V_E = 0.2$, $a = 0.6$, $b = 0.2 - 0.8 = -0.6$, $c = -0.16$. Then
+$V_A = [0.6 + \sqrt{0.36 + 0.384}]/1.2 = [0.6 + 0.862554]/1.2 = 1.218795$.
+
+**(b)** $h^2 = 1.218795/(1.218795 + 0.2) = 0.859035$.
+
+**(c)** The ratio is $1.218795/0.8 = 1.523494$, against $1.290994$ at $h_0^2 = 0.5$. Assortment
+compounds: a more heritable trait has a larger $\rho_A = \mu h^2$ for the same $\mu$, which
+inflates $V_A$ more, which raises $h^2$ further. The effect is strongest exactly where
+heritability was already high, which is why height and education — both heritable and both
+strongly assorted — are the traits where this matters most.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Reading a twin study that reports shared environment" difficulty="core">
+
+A twin study of educational attainment reports $\hat{h}^2 = 0.40$ and $\hat{c}^2 = 0.18$. The
+spousal correlation for education is about 0.5. (a) If all of the apparent shared environment
+were an assortment artefact, what would the true heritability be? (b) What would $\rho_A$ have
+to be? (c) Is that consistent with $\mu = 0.5$?
+
+<div slot="solution">
+
+**(a)** With $\hat{h}^2 = h^2(1-\rho_A)$ and $\hat{c}^2 = h^2\rho_A$, the two sum to $h^2$
+regardless of $\rho_A$: $h^2 = 0.40 + 0.18 = 0.58$.
+
+**(b)** $\rho_A = \hat{c}^2/h^2 = 0.18/0.58 = 0.310345$.
+
+**(c)** $\rho_A = \mu h^2 = 0.5 \times 0.58 = 0.29$, close to the 0.310345 required. So the
+whole of the reported shared environment is consistent with assortment and none of it need be
+environmental at all.
+
+That is not proof that it is — genuine shared environment exists, and separating the two needs
+a design that does not rely on the MZ/DZ contrast. But a twin study on its own cannot
+distinguish them, and reporting $c^2$ for a strongly assorted trait without saying so
+overstates what the design can support.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="How much nurture would explain the gap?" difficulty="core">
+
+A within-family GWAS of educational attainment finds effect sizes about 60% of the population
+ones. Taking $\rho_A = 0.29$: (a) what $\eta/\delta$ would account for that entirely?
+(b) What else could account for it?
+
+<div slot="solution">
+
+**(a)** $\beta_{\mathrm{pop}}/\beta_{\mathrm{within}} = 1/0.6 = 1.666667$. Setting
+$1 + (\eta/\delta)(1.29/2) = 1.666667$ gives $\eta/\delta = 0.666667/0.645 = 1.033592$ — an
+indirect effect slightly *larger* than the direct one.
+
+**(b)** Population stratification is the other candidate, and it produces exactly the same
+signature: a between-family association that a sibling comparison removes. The previous
+lesson's machinery is what separates them — residual stratification should scale with $N F_{ST}\delta^2$
+and be visible in the LD score intercept, while genetic nurture should not.
+
+A third possibility is that the within-family estimate is itself attenuated, since sibling
+differences have lower variance and any genotyping error is proportionally larger relative to
+the signal. All three are usually present, which is why attributing the whole gap to nurture
+is a claim rather than a measurement.
+
+</div>
+
+</Exercise>
+
+<Exercise n={4} title="The cost of the design" difficulty="stretch">
+
+You have 500,000 unrelated individuals and can instead recruit sibling pairs. (a) Roughly how
+many pairs match the population design's power for a direct effect, at
+$\rho_A = 0.225403$? (b) Why might you still prefer the smaller within-family study?
+
+<div slot="solution">
+
+**(a)** The within-family additive variance available is $(1-\rho_A)/2 = \sqrt{0.15} = 0.387298$ of the
+population value, and each pair contributes one difference. Power scales with the product of
+sample size and variance explained, so matching it needs roughly
+$500{,}000/0.387299 \approx 1{,}291{,}000$ individuals in pairs — about 645,000 pairs, which
+is more sibling pairs than exist in any current biobank.
+
+**(b)** Because the two designs estimate different things. The population study estimates
+$\delta + \eta(1+\rho_A)/2$ with a standard error; the within-family study estimates $\delta$.
+If the question is "what would happen if we changed this genotype", only the second is an
+answer, and a precise estimate of the wrong quantity is not progress. If the question is
+"which loci are worth investigating", the first is the right tool and its confounding is
+tolerable.
+
+</div>
+
+</Exercise>
+
+## Summary
+
+- **Assortment changes no allele frequencies**, so segregation variance is untouched at
+  $V_{A_0}/2$ and the whole effect runs through the correlation between parental
+  contributions.
+- **The equilibrium is $V_{A_0}/(1-\rho_A)$ with $\rho_A = \mu h^2$**, solved
+  self-consistently because $h^2$ is itself raised. At $h_0^2 = \tfrac12$ and $\mu = 0.4$ the
+  answer is exactly $\sqrt{5/3} = 1.290994$; the naive $1/(1-\mu h_0^2) = 1.25$ understates it.
+- **Equilibrium takes about ten generations.** A population whose mating patterns changed
+  recently is at neither value.
+- **Twin studies are biased in the direction most summaries reverse.** Dizygotic twins share
+  $(1+\rho_A)/2 = 0.612702$ of their additive variance, so $\hat{h}^2 = h^2(1-\rho_A) = 0.436492$
+  understates a true 0.563508 and $\hat{c}^2 = h^2\rho_A = 0.127017$ appears where no shared
+  environment exists.
+- **Genetic nurture is separable and computable**: a population regression returns
+  $\delta + \eta(1+\rho_A)/2$ where a sibling difference returns $\delta$, so an indirect
+  effect half the size of the direct one inflates the population estimate by 1.30635.
+- **The sibling difference removes all of it algebraically**, because everything that is a
+  property of the family cancels. What is left is Mendelian segregation — the nearest thing
+  genetics has to randomisation.
+- **The cost is power**: only $(1-\rho_A)/2 = \sqrt{0.15} = 0.387298$ of the additive variance survives the
+  differencing, so matching a population study takes roughly two and a half times the people,
+  in pairs.

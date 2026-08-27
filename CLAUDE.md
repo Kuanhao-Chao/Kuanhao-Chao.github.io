@@ -84,7 +84,7 @@ Five tracks, each with a hub carrying `isHub: true`:
 
 | hub | pages | `track` | owns |
 | --- | --- | --- | --- |
-| `statistical-genetics` | 20 | `theory` | definitions, assumptions, derivations |
+| `statistical-genetics` | 21 | `theory` | definitions, assumptions, derivations |
 | `gwas` | 10 | `workflow` | commands, thresholds, diagnostics, failure modes |
 | `genomic-data` | 13 | `resource` | the resource ecosystem and its access rules |
 | `ml-dl-interview` | 24 | `workflow` / `elective` | 351 interview questions |
@@ -354,6 +354,18 @@ Things specific to this subsystem:
   search string and a float bug in the harness (`i < 0.3 * 40000` admits one extra element),
   so verify every hit by hand before acting — and prefer `Fraction` over floats when the claim
   is that two quantities are *exactly* equal.
+
+- **A `referenceIds` entry that is never cited fails the contract**, and it is the easy half of
+  the both-ways rule to forget: `statgen-within-family` listed four references it did not cite.
+  Decide per reference whether to cite it in the body or drop it from the list — do not leave it
+  listed on the grounds that it is relevant.
+
+- **A hand-computed constant carried into prose from a rounded intermediate will be wrong in the
+  last digit.** Three values in `statgen-within-family` were computed from a rounded ρ_A and
+  disagreed with the module in the sixth decimal (0.387299 against 0.387298, 1.15320 against
+  1.15318). Chasing them found the closed forms: at h₀² = ½ and μ = 0.4, `1 − ρ_A` is exactly
+  `√0.6`, so the within-family fraction is exactly `√0.15`. **Recompute from the module, then
+  look for the exact form** — the discrepancy is often pointing at one.
 
 - **Check the bibliography key, not just the topic, before adding a reference.** `benjamini1995fdr`
   already existed for the GWAS track and got appended a second time; `references.yaml` has no

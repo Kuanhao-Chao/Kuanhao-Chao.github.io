@@ -90,6 +90,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'statgen-pedigrees-linkage-qtl',
   'statgen-quantitative-genetics-selection',
   'statgen-heritability-greml',
+  'statgen-within-family',
   'statgen-blup-genomic-selection',
   'statgen-multivariate-genetics-gxe',
   'statgen-association-linear-mixed-models',
