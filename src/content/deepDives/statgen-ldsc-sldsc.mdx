@@ -45,6 +45,7 @@ import Notation from '../../components/deepdive/Notation.astro';
 import WorkedExample from '../../components/deepdive/WorkedExample.astro';
 import Exercise from '../../components/deepdive/Exercise.astro';
 import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
 import Citation from '../../components/deepdive/Citation.astro';
 
 ## The question this lesson answers
@@ -142,7 +143,7 @@ h^2 = \text{slope} \times \frac{M}{N} = 0.025 \times \frac{1{,}000{,}000}{100{,}
 $$
 
 **Step 3 — read the intercept as everything else.** A clean analysis has intercept 1. This
-one is 1.05, so there is a small amount of confounding or uncontrolled relatedness.
+one is 1.05, so there is **at most** a small amount of confounding or uncontrolled relatedness — see the caution below, which is why that is a bound and not a measurement.
 
 **Step 4 — the attenuation ratio.** The mean $\chi^2$ across these variants is $3.091667$,
 so the fraction of the excess attributable to the intercept rather than to polygenicity is
@@ -151,7 +152,7 @@ $$
 \frac{\text{intercept} - 1}{\text{mean }\chi^2 - 1} = \frac{0.05}{2.091667} = 0.023904
 $$
 
-**Only 2.4% of the inflation is confounding.** The other 97.6% is real polygenic signal.
+**At most 2.4% of the inflation is confounding.** At least 97.6% is real polygenic signal.
 
 **Step 5 — now compute what the previous lesson would have reported.** The median of these
 six statistics is $2.675$, and $\lambda_{\mathrm{GC}} = 2.675/0.4549364\ldots = 5.8799$.
@@ -188,6 +189,61 @@ The practical rule that follows is short: **report $\lambda_{\mathrm{GC}}$ if co
 demands it, act on the intercept.** And never correct test statistics by
 $\lambda_{\mathrm{GC}}$, which after this lesson should look like dividing by a number that
 measures the wrong thing.
+
+### Why that is a bound and not a measurement
+
+The intercept is read as confounding because, under the model, confounding is the only thing
+that shifts every $\chi^2$ up by a constant. The model has a second ingredient that does the
+same, and it is always present.
+
+LDSC does not regress on the true LD score. It regresses on an **estimate** of it, computed
+from a reference panel of a few hundred to a few thousand people. That estimate carries error,
+and measurement error in a regressor attenuates the slope by the reliability $\lambda$ — the
+fraction of the observed variance in $\hat\ell$ that is real. The fitted line still has to pass
+through the means, so whatever the slope gives up, the intercept takes:
+
+$$
+\mathbb{E}[\hat{a}] = 1 + Na + b(1-\lambda)\,\mathbb{E}[\ell]
+$$
+
+where $b = Nh^2_{\mathrm{SNP}}/M$ is the true slope and $Na$ is the genuine confounding. The
+last term is inflation with no confounding in it at all.
+
+<Callout variant="warning" title="An intercept of 1.05 is consistent with no confounding whatsoever">
+
+Put the worked example's own numbers in. The slope is $b = 0.025$ and the mean LD score is
+about 80, so the attenuation term is $0.025\,(1-\lambda)\,(80) = 2(1-\lambda)$.
+
+A reliability of 0.99 contributes 0.0200 to the intercept. A reliability of 0.975 contributes
+**0.0500 — the entire excess the worked example attributes to confounding.** Simulation over
+100,000 variants reproduces the closed form to three decimals.
+
+So the honest reading of $\hat{a} = 1.05$ is *confounding is at most 2.4% of the inflation, and
+may be none of it*. That is why every number in this lesson is a bound. It is still a useful
+bound — it is the thing genomic control could not give — but an intercept above one is evidence
+that the model is incomplete, not a measurement of by how much the population is stratified.
+
+The practical consequence is about panels rather than statistics: an LD reference that matches
+the study population raises $\lambda$ and lowers the apparent confounding, and a mismatched one
+manufactures it. A study reporting an intercept without saying which panel produced it has not
+reported enough to interpret it.
+
+</Callout>
+
+<Figure
+  caption="Figure 3. The intercept LD score regression returns when there is no confounding at all, against the reliability of the LD scores it was given. The slope is the worked example's own b = Nh²/M = 0.025 and the mean LD score is 80, so the attenuation term is 2(1 − λ). At a reliability of 0.975, marked, the intercept reads 1.05 — the whole of the excess that the worked example reads as stratification. Nothing in this calculation contains any confounding."
+  alt="A curve rising from left to right on a horizontal axis running from 0.94 to 1.00 in reliability, and a vertical axis of intercept values from 1.00 to about 1.13. The curve meets 1.00 exactly at a reliability of one. A dashed horizontal line at 1.05 crosses it at a marked point near 0.975."
+  wide
+>
+
+</Figure>
+
+<Widget
+  kind="ldsc-regression"
+  title="Separate the two things that lift the intercept"
+  caption="The regression on the worked example's six points, with the sample size, the SNP heritability, the genuine confounding and the reliability of the LD scores on sliders. Confounding and unreliable LD scores move the intercept in exactly the same way and the fit cannot tell them apart — which is the point. Watch the slope fall as the reliability drops while the intercept rises to compensate."
+  alt="An interactive panel with sliders for sample size, SNP heritability, the amount of genuine confounding and the reliability of the LD scores. It plots chi-square against LD score with the fitted line, and reports the fitted intercept and slope, the heritability recovered from the slope, how much of the intercept is confounding and how much is attenuation."
+/>
 
 ## Two traits at once: genetic correlation
 
@@ -262,7 +318,7 @@ $\tau_C$ indistinguishable from zero is explaining nothing the model did not alr
   alt="A horizontal bar chart of enrichment by functional category. Conserved non-coding sequence at 2.5 percent of variants reaches 8.0 times, coding at 1.1 percent reaches 7.3 times, promoters 4.4 times and enhancers 3.2 times. Intronic sequence at 39 percent reaches 0.6 times and intergenic at 48 percent reaches 0.3 times, both below the no-enrichment line."
   wide
 >
-<svg viewBox="0 0 640 300" width="640" height="300" font-family="inherit"><line x1="190.0" y1="50.0" x2="190.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="190.0" y1="244.0" x2="452.0" y2="244.0" stroke="currentColor" stroke-width="1.25"/><line x1="190.0" y1="244.0" x2="190.0" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="190.0" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="245.2" y1="244.0" x2="245.2" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="245.2" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="300.3" y1="244.0" x2="300.3" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="300.3" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">4</text><line x1="355.5" y1="244.0" x2="355.5" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="355.5" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">6</text><line x1="410.6" y1="244.0" x2="410.6" y2="249.0" stroke="currentColor" stroke-width="1"/><text x="410.6" y="262.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">8</text><line x1="217.6" y1="244.0" x2="217.6" y2="50.0" stroke="currentColor" stroke-width="1.4" opacity=".5" stroke-dasharray="4 3"/><text x="223.6" y="57.8" font-size="10" fill="currentColor" opacity=".7">no enrichment</text><text x="178.0" y="72.8" font-size="10.5" fill="currentColor" text-anchor="end">conserved, non-coding  (2.5%)</text><rect x="190.0" y="60.8" width="220.6" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="417.6" y="72.8" font-size="10" fill="currentColor" font-weight="600">8.0×</text><text x="178.0" y="104.1" font-size="10.5" fill="currentColor" text-anchor="end">coding  (1.1%)</text><rect x="190.0" y="92.1" width="200.6" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="397.6" y="104.1" font-size="10" fill="currentColor" font-weight="600">7.3×</text><text x="178.0" y="135.4" font-size="10.5" fill="currentColor" text-anchor="end">promoter  (1.8%)</text><rect x="190.0" y="123.4" width="122.6" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="319.6" y="135.4" font-size="10" fill="currentColor" font-weight="600">4.4×</text><text x="178.0" y="166.6" font-size="10.5" fill="currentColor" text-anchor="end">enhancer  (7.6%)</text><rect x="190.0" y="154.6" width="87.1" height="16.0" rx="2" fill="var(--color-accent, #2e6e5e)"/><text x="284.1" y="166.6" font-size="10" fill="currentColor" font-weight="600">3.2×</text><text x="178.0" y="197.9" font-size="10.5" fill="currentColor" text-anchor="end">intronic  (39.0%)</text><rect x="190.0" y="185.9" width="17.7" height="16.0" rx="2" fill="currentColor" opacity=".45"/><text x="214.7" y="197.9" font-size="10" fill="currentColor" font-weight="600">0.6×</text><text x="178.0" y="229.2" font-size="10.5" fill="currentColor" text-anchor="end">intergenic  (48.0%)</text><rect x="190.0" y="217.2" width="8.6" height="16.0" rx="2" fill="currentColor" opacity=".45"/><text x="205.6" y="229.2" font-size="10" fill="currentColor" font-weight="600">0.3×</text><text x="321.0" y="286.0" font-size="12" fill="currentColor" text-anchor="middle">Enrichment: share of heritability ÷ share of variants</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Where the heritability actually is: a few percent of the genome carries most of it</text></svg>
+<svg viewBox="0 0 772 380" width="772" height="380" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.00</text><line x1="104.0" y1="190.8" x2="424.0" y2="190.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="194.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.03</text><line x1="104.0" y1="145.5" x2="424.0" y2="145.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="149.5" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.06</text><line x1="104.0" y1="100.3" x2="424.0" y2="100.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="104.3" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.09</text><line x1="104.0" y1="55.1" x2="424.0" y2="55.1" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="59.1" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.12</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">0.94</text><line x1="184.0" y1="236.0" x2="184.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="184.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">0.955</text><line x1="264.0" y1="236.0" x2="264.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="264.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">0.97</text><line x1="344.0" y1="236.0" x2="344.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="344.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">0.985</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">1.00</text><path d="M424.0,236.0 L418.7,233.0 L413.3,230.0 L408.0,227.0 L402.7,223.9 L397.3,220.9 L392.0,217.9 L386.7,214.9 L381.3,211.9 L376.0,208.9 L370.7,205.8 L365.3,202.8 L360.0,199.8 L354.7,196.8 L349.3,193.8 L344.0,190.8 L338.7,187.8 L333.3,184.7 L328.0,181.7 L322.7,178.7 L317.3,175.7 L312.0,172.7 L306.7,169.7 L301.3,166.6 L296.0,163.6 L290.7,160.6 L285.3,157.6 L280.0,154.6 L274.7,151.6 L269.3,148.6 L264.0,145.5 L258.7,142.5 L253.3,139.5 L248.0,136.5 L242.7,133.5 L237.3,130.5 L232.0,127.4 L226.7,124.4 L221.3,121.4 L216.0,118.4 L210.7,115.4 L205.3,112.4 L200.0,109.4 L194.7,106.3 L189.3,103.3 L184.0,100.3 L178.7,97.3 L173.3,94.3 L168.0,91.3 L162.7,88.2 L157.3,85.2 L152.0,82.2 L146.7,79.2 L141.3,76.2 L136.0,73.2 L130.7,70.2 L125.3,67.1 L120.0,64.1 L114.7,61.1 L109.3,58.1 L104.0,55.1" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><line x1="104.0" y1="160.6" x2="424.0" y2="160.6" stroke="currentColor" stroke-width="1.8" opacity=".55" stroke-dasharray="5 3"/><text x="110.0" y="152.6" font-size="10" fill="currentColor" opacity=".8">the worked example's intercept, 1.05</text><circle cx="290.7" cy="160.6" r="5.0" fill="var(--color-accent, #2e6e5e)"/><line x1="290.7" y1="167.6" x2="290.7" y2="230.0" stroke="currentColor" stroke-width="1.2" opacity=".5" stroke-dasharray="3 3"/><text x="290.7" y="233.7" font-size="10.5" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">0.975</text><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Reliability of the LD scores</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Intercept, with no confounding whatsoever</text><text x="454.0" y="44.0" font-size="11" fill="currentColor" font-weight="700">An intercept above one</text><text x="454.0" y="58.0" font-size="11" fill="currentColor" font-weight="700">is not proof of anything.</text><text x="454.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">The regression is run against LD</text><text x="454.0" y="93.0" font-size="10" fill="currentColor" opacity=".8">scores estimated from a reference</text><text x="454.0" y="106.0" font-size="10" fill="currentColor" opacity=".8">panel, so they carry error. That</text><text x="454.0" y="119.0" font-size="10" fill="currentColor" opacity=".8">attenuates the slope by the</text><text x="454.0" y="132.0" font-size="10" fill="currentColor" opacity=".8">reliability lambda, and the</text><text x="454.0" y="145.0" font-size="10" fill="currentColor" opacity=".8">intercept takes up the difference:</text><text x="454.0" y="158.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="171.0" font-size="10" fill="currentColor" opacity=".8">   intercept = 1 + b(1 - lambda)E[l]</text><text x="454.0" y="184.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="197.0" font-size="10" fill="currentColor" opacity=".8">with b = N h<tspan font-size="8.5" dy="3">SNP</tspan><tspan dy="-3"></tspan>^2 / M = 0.025 and a</text><text x="454.0" y="210.0" font-size="10" fill="currentColor" opacity=".8">mean LD score of 80. There is no</text><text x="454.0" y="223.0" font-size="10" fill="currentColor" opacity=".8">confounding anywhere in this</text><text x="454.0" y="236.0" font-size="10" fill="currentColor" opacity=".8">calculation.</text><text x="454.0" y="249.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="262.0" font-size="10" fill="currentColor" opacity=".8">At lambda = 0.975 the intercept</text><text x="454.0" y="275.0" font-size="10" fill="currentColor" opacity=".8">reads 1.05 - the whole of the</text><text x="454.0" y="288.0" font-size="10" fill="currentColor" opacity=".8">worked example’s excess. So the</text><text x="454.0" y="301.0" font-size="10" fill="currentColor" opacity=".8">intercept bounds confounding from</text><text x="454.0" y="314.0" font-size="10" fill="currentColor" opacity=".8">above; it does not measure it.</text></svg>
 </Figure>
 
 <Citation id="gazal2017baselineld" /> extended the annotation set with LD-dependent terms,
@@ -339,8 +395,8 @@ $$
 \text{B: } \frac{0.25}{0.30} = 0.833333
 $$
 
-**(b)** Study A's inflation is 6.7% confounding and 93.3% signal — a normal, healthy
-polygenic result. Study B's is 83.3% confounding: almost all of its apparent inflation is
+**(b)** Study A's inflation is at most 6.7% confounding and at least 93.3% signal — a normal, healthy
+polygenic result. Study B's is up to 83.3% confounding: almost all of its apparent inflation is
 artefact, and its association results should not be trusted until the source is found.
 
 **(c)** Nothing useful, and that is the point. Both studies have the same mean $\chi^2$, so
@@ -384,6 +440,63 @@ running from two to eighteen is a different claim from one running from eight to
 </div>
 </Exercise>
 
+<Exercise n={4} title="How much confounding is there really?" difficulty="stretch">
+
+A study reports $\hat{a} = 1.08$ with $N = 200{,}000$, $M = 1{,}000{,}000$ and a fitted slope
+giving $h^2_{\mathrm{SNP}} = 0.15$. Its LD reference is 1000 Genomes Europeans against a
+Finnish cohort. (a) What is the attenuation term for a reliability of 0.97? (b) What range of
+genuine confounding is consistent with the reported intercept? (c) What would you ask the
+authors for?
+
+<div slot="solution">
+
+**(a)** The slope is $b = Nh^2/M = 200{,}000 \times 0.15/10^6 = 0.03$. With a mean LD score of
+80 the attenuation term is $0.03 \times 0.03 \times 80 = 0.0720$.
+
+**(b)** The excess intercept is 0.08. If the reliability really is 0.97, attenuation accounts
+for 0.0720 of it and genuine confounding for 0.0080 — a tenth of what the intercept appears to
+say. If the reliability is 1.00, all 0.08 is confounding. So the honest range is
+**0 to 0.08**, and the reported number is the top of it.
+
+The mismatched panel makes the low-reliability end the more likely: Finnish LD structure
+differs from the pooled European reference, so the LD scores are systematically wrong rather
+than merely noisy.
+
+**(c)** The reliability, or something that stands in for it: the intercept recomputed against a
+Finnish LD reference. If it drops toward 1, the original excess was the panel. If it stays at
+1.08, the confounding is real. That comparison costs one extra run and settles a question the
+single number cannot.
+
+</div>
+
+</Exercise>
+
+<Exercise n={5} title="Why the slope is safer than the intercept" difficulty="stretch">
+
+Attenuation moves both the slope and the intercept. (a) By what factor is the heritability
+estimate wrong at a reliability of 0.97? (b) Compare that with the intercept's error in the
+same setting. (c) Explain why LDSC's heritability estimates are quoted with more confidence
+than its intercepts.
+
+<div slot="solution">
+
+**(a)** The slope attenuates to $b\lambda$, so $\hat{h}^2 = 0.97 h^2$ — an underestimate of 3%.
+
+**(b)** The intercept's excess in the same setting is 0.0720 on a true value of 1, and if the
+truth is no confounding then the *relative* error in the confounding estimate is infinite. Even
+against the study's 0.08 excess, attenuation is 90% of it.
+
+**(c)** Because the two quantities sit on opposite sides of the same leverage. The slope is
+scaled by $\lambda$, so a 3% unreliability costs 3%. The intercept absorbs
+$b(1-\lambda)\mathbb{E}[\ell]$, which is that same 3% multiplied by the *mean LD score* — a
+factor of 80. The same measurement error is amplified eighty-fold into one estimate and not the
+other, which is why $h^2_{\mathrm{SNP}}$ from LDSC is quoted freely and the intercept is best
+read as a diagnostic rather than a quantity.
+
+</div>
+
+</Exercise>
+
 ## Summary
 
 - **LD score regression separates confounding from polygenicity** by using the one variable
@@ -391,7 +504,7 @@ running from two to eighteen is a different claim from one running from eight to
   and confounding does not.
 - **$\mathbb{E}[\chi^2_j] = 1 + Na + (Nh^2/M)\ell_j$.** The slope is heritability; the
   intercept is everything else. On the worked example a slope of 0.025 returns
-  $h^2 = 0.2500$ exactly, and the intercept of 1.05 accounts for only 2.4% of the inflation.
+  $h^2 = 0.2500$ exactly, and the intercept of 1.05 accounts for at most 2.4% of the inflation.
 - **On that same data $\lambda_{\mathrm{GC}}$ reads 5.8799.** The two diagnostics disagree
   completely, and the regression is right. Report $\lambda_{\mathrm{GC}}$ if convention
   demands it; act on the intercept.

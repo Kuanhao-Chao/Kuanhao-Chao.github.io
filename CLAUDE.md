@@ -399,6 +399,16 @@ Things specific to this subsystem:
   same correlation that drags an innocent gene over the threshold is what stops it outranking
   the causal gene, so the failure mode is *too many genes reported*, not *the wrong gene first*.
 
+- **An LDSC intercept above 1 is an upper bound on confounding, not a measurement of it.**
+  The regression runs against LD scores *estimated* from a reference panel, so measurement error
+  attenuates the slope by the reliability λ and the intercept absorbs `b(1-λ)E[ℓ]` — with no
+  confounding present at all. At the curriculum's own worked numbers (b = 0.025, mean LD score
+  80) a reliability of **0.975 produces an intercept of exactly 1.05**, the whole of the excess
+  the lesson had read as stratification. Four passages asserted the intercept *was* the
+  confounding and all four had to move together, plus the test that asserted the old wording.
+  The same measurement error is amplified by the mean LD score into the intercept and only by λ
+  into h², which is why LDSC heritabilities are quoted freely and intercepts are diagnostics.
+
 - **A greedy `re.S` replace across a 9,000-line file will silently delete hundreds of lines.**
   A pattern meant to fix one assertion matched from an earlier identical fragment to a later
   one and removed ~850 lines and several whole describe blocks; the suite still passed, because
