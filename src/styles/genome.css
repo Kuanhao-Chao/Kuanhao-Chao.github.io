@@ -1,0 +1,86 @@
+/* Palette for the genome assembly/annotation step-through panels (Han1GapClosing,
+   HG002CopySearch). Every colour is a token with a dark-theme counterpart, because a
+   literal reads fine in the theme it was written for and strands in the other.
+
+   `--genome-sample` / `--genome-guide` deliberately echo Figure 1 of the Han1 post: red
+   for sequence assembled from the individual, light pink for sequence inserted from
+   T2T-CHM13. The panel builds up the same encoding causally, so the two must not drift. */
+
+.genome-viz {
+  --genome-sample: #b0455a;
+  --genome-guide: #d99aa8;
+  --genome-hifi: #3976a8;
+  --genome-ont: #2f8069;
+  --genome-manual: #b07d00;
+  --genome-keep: #2f8069;
+  --genome-drop: #a2564f;
+  --genome-maternal: #6f62a8;
+  --genome-paternal: #2d7f96;
+  --genome-neutral: #8a9491;
+  --lvz-mobile-min-width: 0px;
+}
+
+html[data-theme='dark'] .genome-viz {
+  --genome-sample: #e07f92;
+  --genome-guide: #f7cdd7;
+  --genome-hifi: #6ca6d6;
+  --genome-ont: #58b49a;
+  --genome-manual: #d5a73d;
+  --genome-keep: #58b49a;
+  --genome-drop: #d08a83;
+  --genome-maternal: #a292d7;
+  --genome-paternal: #6bb6cd;
+  --genome-neutral: #a4adaa;
+}
+
+.genome-viz .genome-card {
+  fill: var(--color-bg);
+}
+
+.genome-viz .genome-arrow {
+  fill: none;
+  stroke: var(--color-muted);
+  stroke-width: 1.8;
+}
+
+.genome-viz .genome-label {
+  fill: var(--color-ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.genome-viz .genome-detail {
+  fill: var(--color-muted);
+  font-size: 11.5px;
+  text-anchor: middle;
+}
+
+.genome-viz .genome-mini {
+  fill: var(--color-muted);
+  font-size: 10.5px;
+  text-anchor: middle;
+}
+
+.genome-viz .genome-left {
+  text-anchor: start;
+}
+
+.genome-viz .genome-count {
+  fill: var(--color-ink);
+  font-size: 17px;
+  font-weight: 700;
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+.genome-viz .genome-track {
+  fill: var(--color-rule);
+}
+
+.genome-viz .genome-gap {
+  fill: var(--color-bg);
+  stroke: var(--color-muted);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2.5;
+}

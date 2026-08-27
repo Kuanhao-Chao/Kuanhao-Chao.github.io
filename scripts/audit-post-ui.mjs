@@ -9,11 +9,11 @@ const navigationTimeout = 30_000;
 const imageDecodeTimeout = 5_000;
 
 const inventory = {
-  han1: { animations: 0, figures: 3 },
-  'hg002-diploid-benchmark': { animations: 0, figures: 1 },
+  han1: { animations: 1, figures: 3 },
+  'hg002-diploid-benchmark': { animations: 1, figures: 1 },
   lifton: { animations: 4, figures: 4 },
   openspliceai: { animations: 5, figures: 1 },
-  sangeranalyser: { animations: 0, figures: 3 },
+  sangeranalyser: { animations: 1, figures: 3 },
   shorkie: { animations: 3, figures: 4 },
   splam: { animations: 2, figures: 3 },
   wgt: { animations: 2, figures: 5 },

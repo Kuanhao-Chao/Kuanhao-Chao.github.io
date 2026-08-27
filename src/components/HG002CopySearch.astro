@@ -1,0 +1,231 @@
+---
+import '../styles/lvz.css';
+import '../styles/genome.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+// Every count here is stated in the post body, which takes them from the released HG002
+// annotation and Hansen et al. 2026. The funnel is real, not schematic: 19,354 MANE proteins
+// in, 41,386 alignments, two filters, 51 new gene models out (30 maternal + 21 paternal).
+const steps = [
+  ['One representative protein per gene', 'The query set is MANE v1.4 — 19,354 proteins, one representative transcript for each protein-coding gene. Protein is the right currency here: an orthologous protein stays recognizable across far more divergence than its DNA.'],
+  ['Align them all, in one pass', 'A single miniprot run against the whole diploid assembly produced 41,386 alignments from 19,351 of those proteins. The search is deliberately blunt — almost all of these land on genes the DNA lift already found.'],
+  ['Filter one — drop what is already annotated', 'Discard any alignment overlapping 10% or more of an existing gene. What survives is alignment to unannotated space, which is where a missed copy would have to be.'],
+  ['Filter two — drop read-through alignments', 'Discard any alignment spanning more than two adjacent gene loci. Those are proteins stretched across a gene family rather than a genuine extra copy. This is where the work is; the search itself is easy.'],
+  ['What survives is rebuilt as real gene models', 'Survivors become full gene–transcript–exon records: 30 new genes on the maternal haplotype and 21 on the paternal. They stay identifiable in the released annotation by their miniprot source column.'],
+  ['They are good models, at known loci', 'All but a single 48 bp fragment exceeded 92% identity to the MANE reference protein, the median was above 99%, and 18 matched exactly. The gene list reads like a roll-call of the canonical copy-number-variable loci.'],
+] as const;
+
+const C = {
+  keep: 'var(--genome-keep)',
+  drop: 'var(--genome-drop)',
+  maternal: 'var(--genome-maternal)',
+  paternal: 'var(--genome-paternal)',
+  neutral: 'var(--genome-neutral)',
+};
+
+function esc(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// The funnel stages, drawn to a log width so 51 out of 41,386 is still visible. A linear bar
+// would render the answer as a hairline -- which is true to the ratio and useless to read.
+const STAGES: Array<[string, string, number, number]> = [
+  ['MANE v1.4 proteins', '19,354', 19354, 0],
+  ['miniprot alignments', '41,386', 41386, 1],
+  ['not already annotated', 'filter 1', 900, 2],
+  ['not read-through', 'filter 2', 150, 3],
+  ['new gene models', '51', 51, 4],
+];
+
+function widthFor(n: number, full: number) {
+  return Math.max(46, (Math.log10(n) / Math.log10(41386)) * full);
+}
+
+function funnel(step: number, cx: number, top: number, full: number, rowH: number, small: boolean) {
+  let s = '';
+  STAGES.forEach(([label, value, n, at], i) => {
+    const on = step >= at;
+    const w = widthFor(n, full);
+    const y = top + i * rowH;
+    s += `<g opacity="${on ? 1 : 0.28}">`;
+    s += `<rect x="${(cx - w / 2).toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${rowH - (small ? 10 : 14)}" rx="4" fill="${i === 4 ? C.keep : C.neutral}" fill-opacity="${i === 4 ? 0.85 : 0.22}" stroke="${i === 4 ? C.keep : 'var(--color-rule)'}" stroke-width="${step === at ? 2.4 : 1}"/>`;
+    s += `<text x="${cx.toFixed(1)}" y="${y + (small ? 15 : 20)}" class="genome-label">${esc(value)}</text>`;
+    s += `<text x="${(cx + w / 2 + 9).toFixed(1)}" y="${y + (small ? 15 : 20)}" class="genome-mini genome-left">${esc(label)}</text>`;
+    s += `</g>`;
+    if (i < STAGES.length - 1) {
+      const ay = y + rowH - (small ? 10 : 14);
+      s += `<path d="M${cx} ${ay} V${ay + (small ? 8 : 11)}" class="genome-arrow" opacity="${step >= at ? 1 : 0.28}"/>`;
+    }
+  });
+  return s;
+}
+
+/** One mini-scene: a stretch of genome with an existing gene and a candidate alignment. */
+function scene(x: number, y: number, w: number, gene: [number, number], aln: [number, number], verdict: string, ok: boolean) {
+  const colour = ok ? C.keep : C.drop;
+  let s = `<line x1="${x}" y1="${y + 4}" x2="${x + w}" y2="${y + 4}" stroke="var(--color-rule)" stroke-width="1.5"/>`;
+  s += `<rect x="${x + gene[0]}" y="${y + 12}" width="${gene[1]}" height="17" rx="3" fill="${C.neutral}" fill-opacity=".3" stroke="var(--color-rule)"/>`;
+  s += `<text x="${x + gene[0] + gene[1] / 2}" y="${y + 24}" class="genome-mini">existing gene</text>`;
+  s += `<rect x="${x + aln[0]}" y="${y + 35}" width="${aln[1]}" height="17" rx="3" fill="${colour}" fill-opacity=".26" stroke="${colour}"/>`;
+  s += `<text x="${x + aln[0] + aln[1] / 2}" y="${y + 47}" class="genome-mini">alignment</text>`;
+  s += `<text x="${x}" y="${y + 68}" class="genome-mini genome-left" style="fill:${colour}">${esc(verdict)}</text>`;
+  return s;
+}
+
+/** Two loci-strip scenes for filter 2: one alignment across many loci, one across two. */
+function lociScene(x: number, y: number, count: number, verdict: string, ok: boolean) {
+  const colour = ok ? C.keep : C.drop;
+  const bw = 40, gap = 8;
+  let s = '';
+  for (let k = 0; k < count; k += 1) {
+    s += `<rect x="${x + k * (bw + gap)}" y="${y + 12}" width="${bw}" height="17" rx="3" fill="${C.neutral}" fill-opacity=".3" stroke="var(--color-rule)"/>`;
+  }
+  const span = count * bw + (count - 1) * gap;
+  s += `<text x="${x + span / 2}" y="${y + 6}" class="genome-mini">${count} adjacent loci</text>`;
+  s += `<rect x="${x}" y="${y + 35}" width="${span}" height="17" rx="3" fill="${colour}" fill-opacity=".26" stroke="${colour}"/>`;
+  s += `<text x="${x + span / 2}" y="${y + 47}" class="genome-mini">one alignment</text>`;
+  s += `<text x="${x}" y="${y + 68}" class="genome-mini genome-left" style="fill:${colour}">${esc(verdict)}</text>`;
+  return s;
+}
+
+function haplotypes(step: number, x: number, y: number, small: boolean) {
+  if (step < 4) return '';
+  const w = small ? 156 : 200;
+  const rows: Array<[string, string, string]> = [
+    ['maternal', '30', C.maternal],
+    ['paternal', '21', C.paternal],
+  ];
+  let s = '';
+  rows.forEach(([label, n, colour], i) => {
+    const bx = x + (w + 16) * i;
+    s += `<rect x="${bx}" y="${y}" width="${w}" height="${small ? 42 : 48}" rx="5" class="genome-card" stroke="${colour}" stroke-width="1.6"/>`;
+    s += `<text x="${bx + w / 2}" y="${y + (small ? 20 : 22)}" class="genome-count">${n}</text>`;
+    s += `<text x="${bx + w / 2}" y="${y + (small ? 34 : 39)}" class="genome-mini">new genes · ${label}</text>`;
+  });
+  return s;
+}
+
+// Right-hand column budget: x 470 to 930 on a 960-wide canvas. Everything drawn there has to
+// fit inside it, which is what the first version got wrong -- the filter sketches ran off the
+// right edge and the funnel's own row labels collided with the column.
+const RX = 470;
+
+function desktop(step: number) {
+  let s = `<text x="24" y="24" class="lvz-tl">The extra-copy search: 19,354 proteins in, 51 gene models out</text>`;
+  s += funnel(step, 176, 44, 234, 44, false);
+
+  if (step === 0) {
+    s += `<text x="${RX}" y="112" class="genome-mini genome-left">MANE v1.4 — one representative transcript per</text>`;
+    s += `<text x="${RX}" y="130" class="genome-mini genome-left">protein-coding gene, so one query per gene.</text>`;
+  }
+  if (step === 1) {
+    s += `<text x="${RX}" y="112" class="genome-mini genome-left">one miniprot run against the whole diploid assembly</text>`;
+    s += `<text x="${RX}" y="130" class="genome-mini genome-left">41,386 alignments from 19,351 of the 19,354 proteins</text>`;
+    s += `<text x="${RX}" y="152" class="genome-mini genome-left">almost all of them land on genes the DNA lift already found</text>`;
+  }
+  if (step === 2) {
+    s += `<text x="${RX}" y="86" class="genome-mini genome-left">filter 1 · overlap ≥ 10% of an existing gene</text>`;
+    s += scene(RX, 96, 200, [0, 105], [66, 105], '46% overlap · drop', false);
+    s += scene(RX + 250, 96, 200, [0, 84], [116, 84], 'unannotated space · keep', true);
+  }
+  if (step === 3) {
+    s += `<text x="${RX}" y="86" class="genome-mini genome-left">filter 2 · spans more than two adjacent gene loci</text>`;
+    s += lociScene(RX, 96, 4, 'read-through · drop', false);
+    s += lociScene(RX + 250, 96, 2, 'a real extra copy · keep', true);
+  }
+  if (step >= 4) s += haplotypes(step, RX, 90, false);
+  if (step === 4) {
+    s += `<text x="${RX}" y="160" class="genome-mini genome-left">rebuilt as full gene–transcript–exon records, and still</text>`;
+    s += `<text x="${RX}" y="178" class="genome-mini genome-left">identifiable by their miniprot source column</text>`;
+  }
+  if (step === 5) {
+    s += `<text x="${RX}" y="160" class="genome-mini genome-left">&gt;92% identity to MANE (all but one 48 bp fragment)</text>`;
+    s += `<text x="${RX}" y="178" class="genome-mini genome-left">median above 99% · 18 exact matches</text>`;
+    s += `<text x="${RX}" y="204" class="genome-mini genome-left">CFHR3, CFHR1, GSTT1, PRSS1, PRSS2, KIR2DL5A, LILRA3</text>`;
+    s += `<text x="${RX}" y="222" class="genome-mini genome-left">GSTM1, DMBT1, SULT1A1 — canonical CNV loci</text>`;
+  }
+
+  s += `<text x="24" y="288" class="genome-mini genome-left">Bar widths are log-scaled: 51 out of 41,386 would otherwise be a hairline.</text>`;
+  return `<svg viewBox="0 0 960 298" class="lvz-svg" role="img" aria-label="HG002 extra-copy search funnel, step ${step + 1} of 6" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobile(step: number) {
+  let s = `<text x="12" y="18" class="lvz-tl">19,354 proteins in, 51 gene models out</text>`;
+  s += funnel(step, 104, 30, 150, 34, true);
+
+  let y = 210;
+  if (step === 2) { s += `<text x="12" y="${y}" class="genome-mini genome-left">drop if ≥10% overlaps an existing gene</text>`; y += 18; }
+  if (step === 3) { s += `<text x="12" y="${y}" class="genome-mini genome-left">drop if it spans more than two loci</text>`; y += 18; }
+  if (step >= 4) { s += haplotypes(step, 12, y - 12, true); y += 48; }
+  if (step === 5) {
+    s += `<text x="12" y="${y}" class="genome-mini genome-left">&gt;92% identity; median &gt;99%; 18 exact</text>`; y += 18;
+    s += `<text x="12" y="${y}" class="genome-mini genome-left">CFHR3/1, GSTT1, PRSS1/2, GSTM1, DMBT1…</text>`; y += 18;
+  }
+  s += `<text x="12" y="308" class="genome-mini genome-left">bar widths are log-scaled</text>`;
+  return `<svg viewBox="0 0 360 318" class="lvz-svg" role="img" aria-label="HG002 extra-copy search funnel, step ${step + 1} of 6" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+---
+
+<section
+  class="lvz genome-viz hg002-copysearch"
+  role="group"
+  aria-label="Interactive: the extra-copy search that recovered 51 gene models on the HG002 haplotypes"
+  data-autoplay={autoPlay ? 'true' : undefined}
+  data-print-final-state="true"
+>
+  <div class="lvz-head">
+    <p class="lvz-title">Find the copies a DNA lift missed</p>
+    <span class="lvz-tag">Extra-copy search</span>
+  </div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Extra-copy search steps">
+    {steps.map(([title], index) => (
+      <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>
+    ))}
+  </nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktop(index)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
+    </div>
+  ))}
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button>
+    <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button>
+    <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
+  </div>
+  <div class="lvz-legend">
+    <span><span class="lvz-sw" style={`background:${C.keep}`}></span>kept</span>
+    <span><span class="lvz-sw" style={`background:${C.drop}`}></span>discarded</span>
+    <span><span class="lvz-sw" style={`background:${C.maternal}`}></span>maternal haplotype</span>
+    <span><span class="lvz-sw" style={`background:${C.paternal}`}></span>paternal haplotype</span>
+  </div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootHG002CopySearch() {
+    document.querySelectorAll<HTMLElement>('.hg002-copysearch').forEach((root) => {
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, {
+        total: scenes.length,
+        onShow: (index) =>
+          scenes.forEach((scene, sceneIndex) => {
+            const current = sceneIndex === index;
+            scene.hidden = !current;
+            scene.setAttribute('aria-current', current ? 'step' : 'false');
+          }),
+        caption: (index) => scenes[index]?.dataset.caption || '',
+        interval: 6500,
+        autoPlay: root.dataset.autoplay === 'true',
+      });
+    });
+  }
+  bootHG002CopySearch();
+  document.addEventListener('astro:page-load', bootHG002CopySearch);
+</script>
