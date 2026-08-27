@@ -36,7 +36,7 @@ The first question is **generalization**. A genomic model can fit abundant measu
 
 The second is **where prior knowledge should come from**. Functional labels are expensive and concentrated in a few organisms, while genome sequence is abundant. Evolution leaves patterns of conservation and divergence that self-supervised models can learn. Species-aware language models show that evolutionary context can expose regulatory structure ([Karollus et al., 2024](https://doi.org/10.1186/s13059-024-03221-x)), but the best pretraining scope depends on the target organism and task. A larger corpus is not automatically better if distant genomes dilute the relevant signal.
 
-The third is **biological interpretation**. Attribution and in-silico mutagenesis can highlight important bases, but a score is not yet a mechanism. I look for agreement with known motifs, controlled perturbations, independent variant measurements, and condition-specific responses. A useful model should produce hypotheses that can be tested rather than explanations that must be accepted on faith.
+The third is **biological interpretation**. Attribution and *in silico* mutagenesis can highlight important bases, but a score is not yet a mechanism. I look for agreement with known motifs, controlled perturbations, independent variant measurements, and condition-specific responses. A useful model should produce hypotheses that can be tested rather than explanations that must be accepted on faith.
 
 ## Directions I have explored
 
@@ -44,14 +44,16 @@ The third is **biological interpretation**. Attribution and in-silico mutagenesi
 
 My main project in this direction is **Shorkie** ([Chao et al., 2025](https://doi.org/10.1101/2025.09.19.677475)), a fungal DNA language model for budding yeast. We first trained a supervised sequence-to-expression model directly. In our experiments, it learned the genes it had seen but did not generalize as strongly as we wanted to unseen genes. This led us to test whether self-supervised pretraining on related fungal genomes could provide a better starting point.
 
-We trained the same masked-DNA model across nested evolutionary scopes: one *Saccharomyces cerevisiae* reference, multiple strains, the Saccharomycetales order, and the fungal kingdom. Pretraining helped, but the largest corpus was not the best. The strongest transfer came from 165 Saccharomycetales genomes, which supplied useful diversity while remaining close enough to budding yeast for the learned patterns to transfer.
+We trained the same masked-DNA model across nested evolutionary scopes: one *Saccharomyces cerevisiae* reference genome, 80 strains, 165 genomes from the *Saccharomycetales* order, and 1,341 genomes spanning the fungal kingdom. Pretraining helped, but the largest corpus was not the best. The strongest transfer came from the 165-genome order, which supplied useful diversity while staying close enough to budding yeast for the learned patterns to carry over.
 
 We then fine-tuned the model on high-resolution regulatory measurements, including time-course RNA-seq after transcription-factor induction. This connects static sequence with a dynamic response. Motif sensitivity and regulatory-variant scoring provide additional tests of whether pretraining contributed biological information rather than only improving optimization.
 
 ### Connecting observation with intervention
 
-Sequence models learn from naturally occurring variation and observational assays. Perturbational data ask what happens when a gene or pathway is deliberately changed. My contribution to a large genome-wide Perturb-seq effort ([You et al., 2026](https://doi.org/10.1016/j.gimo.2026.104079)) is adjacent to Shorkie, but it supports the same broader goal: connecting genomic information, cellular interventions, and expression responses at scale.
+Sequence models learn from naturally occurring variation and observational assays. Perturbational data ask a different question: what happens when a gene or pathway is deliberately changed.
+
+I contributed to a genome-wide Perturb-seq effort at that scale ([You et al., 2026](https://doi.org/10.1016/j.gimo.2026.104079)), which reads the expression response to single-gene perturbations across roughly 100 million cells. Those measurements are the intervention side of the problem Shorkie approaches from sequence, and each is most informative read against the other.
 
 ## Future directions
 
-Future work in gene-regulation modeling should connect evolutionary pretraining, natural variation, functional assays, and controlled perturbations within the same evaluation framework. A promising next step is to test when these evidence sources agree and use their disagreements to design informative experiments. Building on Shorkie and large-scale perturbational data, I want to develop sequence models that generalize across genes and conditions, reveal testable regulatory hypotheses, and help distinguish predictive correlation from biological mechanism.
+Evolutionary pretraining, natural variation, functional assays, and controlled perturbations are four windows onto the same regulatory program, and they are usually reported separately. Putting them in one evaluation framework is worth doing mostly for the disagreements: a model that predicts an effect the perturbation does not show, or a conserved element that no assay marks, is pointing either at a flaw in the model or at an experiment worth running. Telling those two cases apart is what would move a sequence model from a good predictor to a source of testable biology.

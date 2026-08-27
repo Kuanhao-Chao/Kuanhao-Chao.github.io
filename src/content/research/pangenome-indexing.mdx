@@ -26,7 +26,7 @@ references:
   - text: 'Liao, W.-W. et al. A draft human pangenome reference. Nature (2023).'
     doi: 'https://doi.org/10.1038/s41586-023-05896-x'
 ---
-A linear reference chooses one path through a species' variation. That simplification made modern genomics possible, but it creates reference bias: divergent sequence can be harder to align, genotype, and interpret. A **pangenome** represents many genomes together so shared sequence and alternative alleles remain part of the reference.
+A linear reference chooses one path through a species’ variation. That simplification made modern genomics possible, but it creates reference bias: divergent sequence can be harder to align, genotype, and interpret. A **pangenome** represents many genomes together so shared sequence and alternative alleles remain part of the reference.
 
 Graphs are a natural representation for this diversity. Common regions can share nodes and edges; divergent haplotypes can follow different paths. The draft [Human Pangenome Reference (Liao et al., 2023)](https://doi.org/10.1038/s41586-023-05896-x) demonstrates why this matters at human scale, while tools such as [vg (Garrison et al., 2018)](https://doi.org/10.1038/nbt.4227) show that graph references can support read mapping and variant analysis.
 
@@ -40,7 +40,7 @@ The second is **how to recognize useful structure**. Wheeler graphs ([Gagie et a
 
 The third is **how to trust a solver-backed algorithm**. Heuristics and satisfiability solvers can make hard problems practical, but speed is not correctness. Every accepted graph should have an independently checkable order, and optimizations should preserve decisions.
 
-I am also interested in **repair rather than diagnosis alone**: when a graph lacks an indexable structure, can we construct a related graph while preserving the biological paths that matter?
+The fourth is **repair rather than diagnosis alone**: when a graph lacks an indexable structure, the useful question is whether we can construct a related graph that preserves the biological paths that matter.
 
 ## Directions I have explored
 
@@ -48,7 +48,7 @@ I am also interested in **repair rather than diagnosis alone**: when a graph lac
 
 I developed the **Wheeler Graph Toolkit (WGT)** ([Chao et al., 2023](https://doi.org/10.1016/j.isci.2023.107402)) so researchers could generate, recognize, and visualize Wheeler graphs. The project addressed a practical gap between theoretical recognition algorithms and a complete workflow for deciding and inspecting an input graph.
 
-WGT's recognizer, Wheelie, combines a fast renaming heuristic with exact solvers. Incoming labels constrain where a node can appear; propagating those constraints resolves much of the order before search begins. Remaining ambiguity goes to permutation search or an SMT solver. The pattern is simple: use inexpensive structure to shrink the problem, then apply an exact method where uncertainty remains.
+WGT’s recognizer, Wheelie, combines a fast renaming heuristic with exact solvers. Incoming labels constrain where a node can appear; propagating those constraints resolves much of the order before search begins. Remaining ambiguity goes to permutation search or an SMT solver. The pattern is simple: use inexpensive structure to shrink the problem, then apply an exact method where uncertainty remains.
 
 Generators provide known examples and counterexamples, while visualization makes the structure behind a solver result inspectable.
 
@@ -56,8 +56,10 @@ Generators provide known examples and counterexamples, while visualization makes
 
 I have continued this work by separating correctness, capacity, and speed. Current methods compare recognition with an independent brute-force oracle on small graphs, re-validate every emitted order, and use regression tests to ensure faster encodings do not change decisions.
 
-On the algorithmic side, lazy constraint generation avoids materializing the full solver encoding up front. The solver begins with a relaxation, checks candidate orders, and adds only constraints exposed by counterexamples. A separate repair direction unfolds non-Wheeler directed acyclic graphs into Wheeler graphs while preserving their represented path strings. These results are documented in the linked technical report; I keep them separate from the published WGT paper so the original contribution and ongoing work remain clear.
+On the algorithmic side, lazy constraint generation avoids materializing the full solver encoding up front. The solver begins with a relaxation, checks candidate orders, and adds only the constraints a counterexample exposes.
+
+Repair is a separate direction: unfolding a non-Wheeler directed acyclic graph into a Wheeler graph while preserving the path strings it represents. A graph that cannot be indexed then becomes a starting point rather than a dead end. These results are documented in the linked technical report, kept separate from the published WGT paper so the original contribution and the ongoing work remain distinguishable.
 
 ## Future directions
 
-As pangenomes grow, a promising goal is to make graph diversity searchable without hiding the assumptions that enable efficient indexing. The next steps are to scale verified Wheeler-graph recognition, refine lazy solver formulations, and develop repair algorithms that preserve biologically meaningful paths when an input graph is not directly indexable. I want to connect these guarantees to practical pangenome indexes, so researchers can understand which sequences are preserved, why a graph supports a given search method, and how failures are detected or repaired.
+Every fast index buys its speed with an assumption about the shape of the data, and in this corner of genomics that assumption is usually invisible to whoever runs the tool. The direction worth pursuing is the opposite one: recognition that scales and reports why it failed, repair that names which paths it had to change, and node orders a reader can verify without trusting the solver that produced them. A pangenome index should be able to say what it preserved, not only how fast it searched.
