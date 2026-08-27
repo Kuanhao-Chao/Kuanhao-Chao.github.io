@@ -34,17 +34,17 @@ Models such as [SpliceAI (Jaganathan et al., 2019)](https://doi.org/10.1016/j.ce
 
 ## Questions that drive my work
 
-One question is **what the model should recognize**. Scanning a chromosome for splice sites differs from evaluating a donor–acceptor pair proposed by an RNA-seq alignment. For junction filtering, the relevant question is whether that pair is credible in its local context. The model and evaluation should match the decision being supported.
+The first question is **what the model should recognize**. Scanning a chromosome for splice sites differs from evaluating a donor–acceptor pair proposed by an RNA-seq alignment. For junction filtering, the relevant question is whether that pair is credible in its local context. The model and evaluation should match the decision being supported.
 
-A second question is **how to separate novelty from noise**. Unannotated RNA-seq junctions can be real alternative isoforms or alignment errors. Read support helps, but abundance does not guarantee correctness. Sequence recognition provides independent evidence to combine with the alignment.
+The second is **how to separate novelty from noise**. Unannotated RNA-seq junctions can be real alternative isoforms or alignment errors. Read support helps, but abundance does not guarantee correctness. Sequence recognition provides independent evidence to combine with the alignment.
 
-A third question is **portability**. Species differ in intron architecture, sequence composition, and annotation quality. A human model can be informative elsewhere, but an open training pipeline lets the model adapt to the target species.
+The third is **portability**. Species differ in intron architecture, sequence composition, and annotation quality. A human model can be informative elsewhere, but an open training pipeline lets the model adapt to the target species.
 
 ## Directions I have explored
 
 ### Recognizing candidate junctions to clean RNA-seq alignments
 
-I developed **Splam** ([Chao et al., 2024](https://doi.org/10.1186/s13059-024-03379-4)) around the junction-filtering problem. Splam scores the donor and acceptor of a candidate intron jointly from focused sequence windows. It was trained with canonical-transcript junctions, alternative annotated junctions, and carefully constructed negative examples so that alternative isoforms are represented as positive biology rather than treated as errors.
+I developed **Splam** ([Chao et al., 2024](https://doi.org/10.1186/s13059-024-03379-4)) around the junction-filtering problem. Splam scores the donor and acceptor of a candidate intron jointly, from 400 nt of sequence centered on each. It was trained with canonical-transcript junctions, alternative annotated junctions, and carefully constructed negative examples so that alternative isoforms are represented as positive biology rather than treated as errors.
 
 Applied to spliced alignments, Splam removes low-scoring junctions and reads while retaining supported transcript structure. The test is not only classification accuracy: filtering should improve transcript assembly without erasing credible alternative isoforms. This connects a local recognizer to an operational transcriptomics problem.
 
@@ -52,8 +52,8 @@ Applied to spliced alignments, Splam removes low-scoring junctions and reads whi
 
 **OpenSpliceAI** ([Chao et al., 2025](https://doi.org/10.7554/eLife.107454.3)) rebuilds the SpliceAI architecture in PyTorch and exposes data preparation, training, transfer learning, genome-scale prediction, and variant scoring. Its contribution is to turn a strong fixed model into a platform that can be inspected, reproduced, and adapted.
 
-We used that capability to train and transfer models for non-human species. The farther a target species is from human, the more important species-specific training becomes. The same software also supports variant-effect prediction, where the reference and alternate alleles are compared to identify gained or lost donor and acceptor signals.
+We used that capability to train and transfer models for non-human species. In mouse, zebrafish, honeybee, and *Arabidopsis*, models trained on the target species outperformed direct application of the human model, and transfer from a human checkpoint converged faster and more stably than training from random weights. The same software also supports variant-effect prediction, where the reference and alternate alleles are compared to identify gained or lost donor and acceptor signals.
 
 ## Future directions
 
-Open, task-specific splicing models can connect sequence recognition to better alignments, transcript assemblies, and variant interpretation. The next steps are to make these models easier to retrain across species, calibrate them for each decision, combine their scores with RNA-seq evidence, and evaluate biological outputs rather than classification metrics alone. I want to build this evidence stack so that novel isoforms can be separated from artifacts more reliably and every prediction can be traced to a model, dataset, and downstream test.
+A splice-site score is evidence, not a verdict. It earns its place when it is calibrated for the decision it serves, combined with RNA-seq support rather than substituted for it, and judged by whether the resulting transcripts are better — not by classification accuracy on a held-out set. That is the stack I am working toward: recognizers retrainable for the species at hand, scores that mean the same thing from one model to the next, and a path from any prediction back to the model, dataset, and downstream test that produced it.

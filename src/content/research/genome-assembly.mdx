@@ -38,11 +38,11 @@ Completeness is not the only goal. A useful reference also needs provenance, val
 
 The first question is **what “complete” should mean**. A complete reference should distinguish sequence assembled from an individual’s reads from regions filled using another reference, and support difficult regions with independent evidence.
 
-The second question is **how to represent diploidy**. Human genomes contain two homologous copies of each autosome. Collapsing them into one mosaic can hide heterozygous sequence and structural variation, while haplotype-resolved assembly preserves maternal and paternal chromosomes separately. I see diploid assembly as a promising direction because that additional resolution supports more precise comparisons, personalized annotation, and analysis of variation between haplotypes.
+The second is **how to represent diploidy**. Human genomes contain two homologous copies of each autosome. Collapsing them into one mosaic can hide heterozygous sequence and structural variation, while haplotype-resolved assembly preserves maternal and paternal chromosomes separately. I see diploid assembly as a promising direction because that additional resolution supports more precise comparisons, personalized annotation, and analysis of variation between haplotypes.
 
-The third question is **whose genomes become references**. GRCh38 and T2T-CHM13 are indispensable, but neither represents human diversity. The [Human Pangenome Reference](https://doi.org/10.1038/s41586-023-05896-x) instead connects diverse, haplotype-resolved assemblies into a broader representation.
+The third is **whose genomes become references**. GRCh38 and T2T-CHM13 are indispensable, but neither represents human diversity. The [Human Pangenome Reference (Liao et al., 2023)](https://doi.org/10.1038/s41586-023-05896-x) instead connects diverse, haplotype-resolved assemblies into a broader representation.
 
-Finally, **sequence and annotation should advance together**. An assembly without genes is difficult to compare biologically, while annotation can turn assembly errors into apparent gene differences.
+The fourth is **why sequence and annotation must advance together**. An assembly without genes is difficult to compare biologically, while annotation can turn assembly errors into apparent gene differences.
 
 ## Directions I have explored
 
@@ -50,16 +50,16 @@ Finally, **sequence and annotation should advance together**. An assembly withou
 
 My first Ph.D. project was **Han1** ([Chao et al., 2023](https://doi.org/10.1093/g3journal/jkac321)). Inspired by T2T-CHM13, Steven Salzberg proposed completing another individual genome from a different genetic background. I chose the Southern Han Chinese sample because it matched my ethnicity, broadened the ancestry represented, and had complementary HiFi and Nanopore data.
 
-The workflow combined de novo assembly, chromosome-scale scaffolding, reference-guided gap closing, manual review of difficult regions, polishing, and gene annotation. The resulting reference is gapless and chromosome-complete, but it is important to describe it precisely: roughly 120 Mb of the hardest sequence was filled using T2T-CHM13 guidance, so Han1 is not a purely de novo representation of every base in HG00621. The assembly records those guided regions rather than obscuring them.
+The workflow combined de novo assembly, chromosome-scale scaffolding, reference-guided gap closing, manual review of difficult regions, polishing, and gene annotation. The resulting reference is gapless and chromosome-complete. One qualification belongs with that claim: roughly 120 Mb of the hardest sequence was filled using T2T-CHM13 guidance, so Han1 is not a purely de novo representation of every base in HG00621. The assembly records those guided regions rather than obscuring them.
 
 Annotation enabled gene-level comparison between Han1 and T2T-CHM13. Most genes remain similar and collinear, while a smaller set intersects structural, copy-number, or predicted coding differences. The value is not to replace one reference with another, but to make those differences inspectable.
 
 ### Annotating a complete diploid genome
 
-The **complete diploid human genome benchmark** ([Hansen et al., 2026](https://doi.org/10.1016/j.cell.2026.06.016)) represents the maternal and paternal HG002 haplotypes separately. I was excited to join this team effort to advance complete diploid genomics, with my contribution centered on genome annotation. As described in my [genome annotation research](/research/genome-annotation/), I used LiftOn as part of the effort to identify additional gene copies from translated MANE transcripts on the two haplotypes.
+The **complete diploid human genome benchmark** ([Hansen et al., 2026](https://doi.org/10.1016/j.cell.2026.06.016)) represents the maternal and paternal HG002 haplotypes separately. I joined this team effort on the annotation side. As described in my [genome annotation research](/research/genome-annotation/), I used LiftOn to help identify additional gene copies from translated MANE transcripts on the two haplotypes.
 
 What interests me about the result is the direction it establishes. A complete diploid reference retains differences between homologous chromosomes instead of compressing them into one sequence. That resolution makes allele- and haplotype-specific gene content easier to represent and gives annotation a more faithful substrate for personalized genomics.
 
 ## Future directions
 
-Complete, diverse, haplotype-resolved references offer a more faithful foundation for studying human variation than any single genome. The next steps are to improve diploid assembly, document difficult sequence and provenance clearly, connect individual genomes through pangenomes, and annotate both haplotypes accurately. Building on Han1 and my annotation work for the HG002 benchmark, I want to help make these references biologically comparable at the gene level, with methods that preserve individual variation and support more precise personalized genomics.
+No single genome is a reference for everyone. What is still unsettled is how to make a growing set of complete, haplotype-resolved genomes comparable to one another: each needs provenance precise enough to say which bases came from the individual and which came from elsewhere, and annotation carried across both haplotypes rather than one. Han1 and the HG002 benchmark are two points on that path, and connecting them is the work I care about.
