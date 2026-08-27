@@ -83,6 +83,8 @@ import {
   twasNullZ,
   twasCriticalCorrelation,
   twasFalsePositiveProbability,
+  contingencyTests,
+  chi2Cdf,
 } from '../lib/deepDiveMath';
 import {
   biasVarianceToy,
@@ -2684,12 +2686,121 @@ const twasLd: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * Wald, score and likelihood ratio on one balanced 2x2 table, against the odds ratio.
+ *
+ * The three agree while the effect is small and separate as it grows, always in the order
+ * Wald < score < likelihood ratio for this family. Push the odds ratio far enough and the
+ * Wald statistic does not merely lag — it turns over and starts falling, which is the
+ * Hauck-Donner effect. Watching a test statistic *decrease* as the effect it is testing
+ * grows is the point of the panel.
+ */
+const threeTests: Renderer = (canvas, controlHost, readoutHost) => {
+  const stats = (orr: number, n: number, pc: number) => {
+    const p = (orr * pc) / (1 + pc * (orr - 1));
+    // guard the corner where a cell empties and the log odds ratio diverges
+    const a = Math.max(n * p, 1e-6);
+    const b = Math.max(n * (1 - p), 1e-6);
+    return contingencyTests(a, b, Math.max(n * pc, 1e-6), Math.max(n * (1 - pc), 1e-6));
+  };
+
+  const draw = () => {
+    const n = Math.round(c.get('n'));
+    const pc = c.get('pc');
+    const orr = c.get('or');
+    const here = stats(orr, n, pc);
+
+    const lo = 1.5;
+    const hi = 200;
+    let top = 0;
+    const grid: number[] = [];
+    for (let i = 0; i <= 160; i += 1) {
+      const v = 10 ** (Math.log10(lo) + (i / 160) * (Math.log10(hi) - Math.log10(lo)));
+      grid.push(v);
+      top = Math.max(top, stats(v, n, pc).lrt);
+    }
+    top = Math.max(top * 1.05, 5);
+
+    const x = logarithmic(lo, hi, PAD.left, PAD.left + PLOT.w, [2, 5, 10, 20, 50, 100, 200],
+      (v) => String(v));
+    const y = linear(0, top, PAD.top + PLOT.h, PAD.top,
+      [0, top / 4, top / 2, (3 * top) / 4, top], (v) => sci(v, 2));
+    const svg = newSvg();
+    const g = frame(x, y, 'True odds ratio', 'Statistic on 1 df', svg);
+
+    const series: [(t: ReturnType<typeof stats>) => number, string, string | null, number][] = [
+      [(t) => t.lrt, 'currentColor', '2 3', 2.0],
+      [(t) => t.score, 'currentColor', '5 3', 2.0],
+      [(t) => t.wald, ACCENT, null, 2.6],
+    ];
+    for (const [pick, stroke, dash, w] of series) {
+      const d = grid
+        .map((v, i) => `${i ? 'L' : 'M'}${x(v).toFixed(1)},${y(Math.min(pick(stats(v, n, pc)), top)).toFixed(1)}`)
+        .join(' ');
+      const attrs: Record<string, string | number> = {
+        d, fill: 'none', stroke, 'stroke-width': w,
+      };
+      if (dash) {
+        attrs['stroke-dasharray'] = dash;
+        attrs.opacity = dash === '2 3' ? 0.55 : 0.8;
+      }
+      g.appendChild(el('path', attrs));
+    }
+    g.appendChild(el('circle', {
+      cx: x(Math.min(Math.max(orr, lo), hi)), cy: y(Math.min(here.wald, top)), r: 5, fill: ACCENT,
+    }));
+
+    canvas.replaceChildren(svg);
+    const p = (v: number) => {
+      const tail = 1 - chi2Cdf(v, 1);
+      return tail < 1e-4 ? sci(tail, 2) : tail.toFixed(4);
+    };
+    readout(readoutHost, [
+      ['Wald', `${here.wald.toFixed(3)} (p ${p(here.wald)})`],
+      ['score', `${here.score.toFixed(3)} (p ${p(here.score)})`],
+      ['likelihood ratio', `${here.lrt.toFixed(3)} (p ${p(here.lrt)})`],
+      ['Wald / LRT', (here.wald / here.lrt).toFixed(3)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      {
+        key: 'n',
+        label: 'Per group',
+        min: Math.log10(20),
+        max: Math.log10(2000),
+        step: 0.01,
+        value: 2,
+        scale: (v) => 10 ** v,
+        format: (v) => Math.round(v).toLocaleString('en-US'),
+      },
+      { key: 'pc', label: 'Control allele frequency', min: 0.05, max: 0.95, step: 0.01,
+        value: 0.5, format: (v) => v.toFixed(2) },
+      {
+        key: 'or',
+        label: 'True odds ratio',
+        min: Math.log10(1.5),
+        max: Math.log10(200),
+        step: 0.01,
+        value: Math.log10(6),
+        scale: (v) => 10 ** v,
+        format: (v) => v.toFixed(2),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'pca-structure': pcaStructure,
   'sweep-age': sweepAge,
   'fdr-staircase': fdrStaircase,
   'assortative-mating': assortativeMating,
   'twas-ld': twasLd,
+  'three-tests': threeTests,
   'ld-decay': ldDecay,
   drift,
   power,

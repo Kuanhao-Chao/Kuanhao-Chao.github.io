@@ -1,9 +1,11 @@
 import sys, os, math
 sys.path.insert(0, os.path.dirname(__file__))
 os.makedirs(os.path.join(os.path.dirname(__file__), 'out'), exist_ok=True)
-from figlib import svg, text, line, path, write, Axes, ACCENT, circle
+from figlib import svg, text, line, path, write, Axes, ACCENT, circle, splice
 
 OUT = os.path.join(os.path.dirname(__file__), 'out')
+MDX = os.path.join(os.path.dirname(__file__), '..', '..',
+                   'src', 'content', 'deepDives', 'statgen-mathematical-foundations.mdx')
 
 # ── Figure 1: Wald, score and LRT are three readings of one curve ─────────────
 # The 2x2 table from the worked example, as a logistic model with the intercept profiled
@@ -164,6 +166,100 @@ p.append(text(18, 142, 'Chance of at least one false positive', 11.5, anchor='mi
 p.append(text(18, 22,
               'The threshold is not a convention: it is 0.05 divided by how many tests there really are',
               11.5, opacity='.8'))
+_multiplicity = svg(640, 306, ''.join(p))
 print('fig2 bytes:', write(os.path.join(OUT, 'statgen-mathematical-foundations-multiplicity.svg'),
-                           svg(640, 306, ''.join(p))))
+                           _multiplicity))
+# document order is: the three-tests curve, the Hauck-Donner curve, then this one. The
+# Hauck-Donner block is spliced below at index 1, so this is index 2.
+splice(MDX, 2, _multiplicity)
 print('  FWER at 1M tests, alpha=5e-8: %.6f' % reached)
+
+# ── Figure 3 ── where Wald stops being a test of anything ────────────────────
+# The three statistics for a balanced 2x2 table, 100 per group, control allele frequency
+# 0.5, against the odds ratio. Wald peaks at OR = 15.9647 and then DECREASES while the
+# likelihood ratio climbs, which is the Hauck-Donner effect the callout above names.
+# Every drawn value is asserted in src/lib/deepDiveExamples.test.ts.
+N_PER, P_CTRL = 100, 0.5
+
+
+def three(orr):
+    p = orr * P_CTRL / (1 + P_CTRL * (orr - 1))
+    a, b, c, d = N_PER * p, N_PER * (1 - p), N_PER * P_CTRL, N_PER * (1 - P_CTRL)
+    n = a + b + c + d
+    E = [(a + b) * (a + c) / n, (a + b) * (b + d) / n,
+         (c + d) * (a + c) / n, (c + d) * (b + d) / n]
+    O = [a, b, c, d]
+    se = math.sqrt(1 / a + 1 / b + 1 / c + 1 / d)
+    lo = math.log((a * d) / (b * c))
+    return ((lo / se) ** 2,
+            sum((O[i] - E[i]) ** 2 / E[i] for i in range(4)),
+            2 * sum(O[i] * math.log(O[i] / E[i]) for i in range(4)))
+
+
+ax = Axes(104.0, 424.0, 40.0, 236.0, (1.5, 200.0), (0.0, 85.0), xlog=True)
+o = [ax.frame()]
+o.append(ax.ygrid([0, 20, 40, 60, 80], ['0', '20', '40', '60', '80'], size=10))
+o.append(ax.xticks([2, 5, 10, 20, 50, 100, 200], ['2', '5', '10', '20', '50', '100', '200']))
+
+GRID = [10 ** (math.log10(1.5) + i * (math.log10(200) - math.log10(1.5)) / 180)
+        for i in range(181)]
+for idx, (lab, dash, stroke, op) in enumerate(
+        (('Wald', None, ACCENT, None),
+         ('score', '5 3', 'currentColor', '.8'),
+         ('likelihood ratio', '2 3', 'currentColor', '.55'))):
+    o.append(path([(ax.px(v), ax.py(min(three(v)[idx], 85.0))) for v in GRID],
+                  width=2.6 if dash is None else 2.0, stroke=stroke, dash=dash, opacity=op))
+
+PEAK_OR, PEAK_W = 15.9647, 34.8431
+o.append(circle(ax.px(PEAK_OR), ax.py(PEAK_W), 4.4, fill=ACCENT))
+o.append(line(ax.px(PEAK_OR), ax.py(PEAK_W) + 7, ax.px(PEAK_OR), ax.py(6.0), 1.2,
+              opacity='.5', dash='3 3'))
+o.append(text(ax.px(PEAK_OR), ax.py(2.5), 'Wald peaks at OR = 16', 10, anchor='middle',
+              fill=ACCENT, weight='600'))
+
+# the two statistics at OR = 128, where they disagree by fourteen orders of magnitude in p
+W128, S128, L128 = three(128.0)
+o.append(circle(ax.px(128), ax.py(W128), 3.8, fill=ACCENT))
+o.append(circle(ax.px(128), ax.py(L128), 3.8, fill='currentColor', opacity='.55'))
+o.append(line(ax.px(128), ax.py(W128) - 5, ax.px(128), ax.py(L128) + 5, 1.4, opacity='.45'))
+o.append(text(ax.px(128) - 8, ax.py((W128 + L128) / 2) + 4, '17.57 against 78.91', 10,
+              anchor='end', weight='600'))
+
+o.append(text((ax.x0 + ax.x1) / 2, ax.py(0.0) + 42, 'True odds ratio', 12, anchor='middle'))
+o.append(text(ax.x0 - 78, 24, 'Test statistic on 1 degree of freedom', 10.5, opacity='.85'))
+
+LX = ax.x1 + 30
+for i, (lab, dash, op) in enumerate((('Wald', None, None), ('score', '5 3', '.8'),
+                                     ('likelihood ratio', '2 3', '.55'))):
+    yy = 40 + 17 * i
+    solid = dash is None
+    o.append(line(LX, yy - 4, LX + 22, yy - 4, 2.6 if solid else 2.0,
+                  stroke=ACCENT if solid else 'currentColor', dash=dash, opacity=op))
+    o.append(text(LX + 30, yy, lab, 10, fill=ACCENT if solid else 'currentColor',
+                  opacity=op, weight='600' if solid else None))
+
+o.append(text(LX, 112, 'Wald stops being a test.', 11, weight='700'))
+for i, t in enumerate([
+        '100 per group, control allele',
+        'frequency 0.5. All three agree',
+        'while the effect is small - at',
+        'OR = 2 they are 5.652, 5.714',
+        'and 5.745.', '',
+        'Then Wald turns over. It peaks',
+        'at OR = 15.9647 with 34.8431',
+        'and FALLS from there, while the',
+        'likelihood ratio keeps climbing.', '',
+        'At OR = 128 Wald gives 17.57 and',
+        'the likelihood ratio 78.91 - a',
+        'p of 2.8x10' + '⁻' + '⁵ against 6.5x10' + '⁻' + '¹' + '⁹,',
+        'fourteen orders of magnitude',
+        'apart on the same table.', '',
+        'This is the Hauck-Donner effect,',
+        'and it is why a rare penetrant',
+        'variant can fail a Wald test.']):
+    o.append(text(LX, 134 + 13 * i, t, 10, opacity='.8'))
+
+svg3 = svg(772, 400, ''.join(o))
+write(os.path.join(OUT, 'statgen-hauck-donner.svg'), svg3)
+splice(MDX, 1, svg3)
+print('wrote statgen-hauck-donner.svg')
