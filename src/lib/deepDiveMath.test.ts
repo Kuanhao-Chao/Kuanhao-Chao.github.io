@@ -80,6 +80,10 @@ import {
   fstHudsonParts, fstRatioOfAverages, fstAverageOfRatios, weirCockerhamFst,
   structureSpike, bbpThreshold, spikedEigenvalue, spikedEigenvectorOverlap, structureChiSquare,
   neutralAlleleAge, ehhHalfLength, sweepAgeAnomaly,
+  predictedExpressionCorrelation,
+  twasNullZ,
+  twasCriticalCorrelation,
+  twasFalsePositiveProbability,
   assortativeEquilibrium,
   sibBreedingValueCorrelation,
   falconerUnderAssortment,
@@ -1483,6 +1487,87 @@ describe('multiple testing beyond Bonferroni', () => {
     // exactly the tests BH rejects are those with an adjusted p at or below q
     expect(sortedAdj.filter((a) => a <= 0.05).length).toBe(benjaminiHochberg(P, 0.05).rejected);
     expect(adj.every((a) => a <= 1)).toBe(true);
+  });
+});
+
+describe('TWAS: one correlation in two roles', () => {
+  const I = (n: number) => Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)));
+
+  it('is 1 for identical weights and symmetric in its arguments', () => {
+    const w = [1, 0.6, 0.35, 0];
+    expect(predictedExpressionCorrelation(w, w, I(4))).toBeCloseTo(1, 12);
+    const v = [0, 0.2, 1, 0.5];
+    expect(predictedExpressionCorrelation(w, v, I(4)))
+      .toBeCloseTo(predictedExpressionCorrelation(v, w, I(4)), 12);
+  });
+
+  it('is 0 for genes on disjoint variants when those variants are unlinked', () => {
+    expect(predictedExpressionCorrelation([1, 1, 0, 0], [0, 0, 1, 1], I(4))).toBeCloseTo(0, 12);
+  });
+
+  it('picks up correlation the moment LD connects the two variant sets', () => {
+    // exponential-decay LD: the same disjoint weights now correlate
+    const ld = Array.from({ length: 4 }, (_, i) =>
+      Array.from({ length: 4 }, (_, j) => 0.9 ** Math.abs(i - j)));
+    const r = predictedExpressionCorrelation([1, 1, 0, 0], [0, 0, 1, 1], ld);
+    expect(r).toBeGreaterThan(0.5);
+    expect(r).toBeLessThan(1);
+  });
+
+  it('reduces to the quadratic form worked by hand', () => {
+    const ld = [[1, 0.5], [0.5, 1]];
+    const a = [1, 0];
+    const b = [0, 1];
+    // w_a'R w_b = 0.5; each self term is 1; so r = 0.5 exactly
+    expect(predictedExpressionCorrelation(a, b, ld)).toBeCloseTo(0.5, 12);
+  });
+
+  it('passes the causal statistic to a null gene in proportion to r', () => {
+    expect(twasNullZ(0.8, 8)).toBeCloseTo(6.4, 12);
+    expect(twasNullZ(1, 8)).toBeCloseTo(8, 12);
+    expect(twasNullZ(0, 8)).toBe(0);
+    // linear in both arguments
+    expect(twasNullZ(0.5, 12)).toBeCloseTo(2 * twasNullZ(0.5, 6), 12);
+  });
+
+  it('puts the transcriptome-wide threshold at 4.7081', () => {
+    // 0.05 / 20,000 two-sided. scipy and Python's statistics module both give
+    // 4.7081297158; normalQuantile returns 4.7081297206, agreeing to nine decimals.
+    expect(twasCriticalCorrelation(1).toFixed(4)).toBe('4.7081');
+    expect(twasCriticalCorrelation(1)).toBeCloseTo(4.70812972, 8);
+  });
+
+  it('LOWERS the critical correlation as the causal signal strengthens', () => {
+    const rs = [6, 8, 10, 15].map((z) => twasCriticalCorrelation(z));
+    expect(rs[0].toFixed(4)).toBe('0.7847');
+    expect(rs[1].toFixed(4)).toBe('0.5885');
+    expect(rs[2].toFixed(4)).toBe('0.4708');
+    expect(rs[3].toFixed(4)).toBe('0.3139');
+    // strictly decreasing: a stronger locus implicates MORE innocent genes
+    for (let i = 1; i < rs.length; i += 1) expect(rs[i]).toBeLessThan(rs[i - 1]);
+  });
+
+  it('gives a null gene at r = 0.8 a 95% chance of reaching significance', () => {
+    expect(twasFalsePositiveProbability(0.8, 8).toFixed(4)).toBe('0.9547');
+    expect(twasFalsePositiveProbability(0.7, 8).toFixed(4)).toBe('0.8138');
+    expect(twasFalsePositiveProbability(0.6, 8).toFixed(4)).toBe('0.5366');
+    expect(twasFalsePositiveProbability(0.5, 8).toFixed(4)).toBe('0.2394');
+    expect(twasFalsePositiveProbability(0.9, 8).toFixed(4)).toBe('0.9936');
+  });
+
+  it('collapses to the nominal per-gene rate when the genes are uncorrelated', () => {
+    // normalQuantile is exact to ~5e-9 but normalCdf is A&S 7.1.26 (~7.5e-8 absolute),
+    // so the round trip recovers the tail area to about a part in 10^3 of itself
+    expect(twasFalsePositiveProbability(0, 8)).toBeCloseTo(0.05 / 20_000, 8);
+    expect(twasFalsePositiveProbability(0, 8) / (0.05 / 20_000)).toBeCloseTo(1, 2);
+  });
+
+  it('is one half exactly at the critical correlation, where mean meets threshold', () => {
+    for (const z of [6, 8, 12]) {
+      const r = twasCriticalCorrelation(z);
+      expect(twasFalsePositiveProbability(r, z)).toBeCloseTo(0.5, 6);
+    }
   });
 });
 

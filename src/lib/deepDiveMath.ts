@@ -2340,6 +2340,71 @@ export function spikedEigenvectorOverlap(spike: number, gamma: number): number {
  * This is the *mean*, not λ_GC, which is a median rescaled by `CHI2_1DF_MEDIAN`; for a
  * non-central χ² the two differ, so do not quote one as the other.
  */
+/**
+ * Correlation between two genes' predicted expression, from their eQTL weights and the LD
+ * between the variants those weights sit on.
+ *
+ * This is the quantity that decides everything else in a transcriptome-wide scan, because it
+ * is *also* exactly the correlation between the two genes' TWAS statistics. A TWAS statistic
+ * is `w'Z/√(w'Rw)`; under the null `Z ~ N(0, R)`, so the covariance of two statistics is
+ * `w_g'R w_h` over the same normalisation that predicted expression carries. One number, two
+ * roles.
+ */
+export function predictedExpressionCorrelation(
+  weightsA: number[], weightsB: number[], ld: Matrix,
+): number {
+  const quad = (u: number[], v: number[]) => {
+    let total = 0;
+    for (let i = 0; i < u.length; i += 1) {
+      for (let j = 0; j < v.length; j += 1) total += u[i] * ld[i][j] * v[j];
+    }
+    return total;
+  };
+  const denominator = Math.sqrt(quad(weightsA, weightsA) * quad(weightsB, weightsB));
+  return denominator === 0 ? 0 : quad(weightsA, weightsB) / denominator;
+}
+
+/**
+ * The TWAS statistic a gene with no causal role inherits from a causal neighbour.
+ *
+ * If the phenotype acts through gene A's expression the mean GWAS z-vector is proportional to
+ * `R w_A`, and the ratio of the two genes' expected statistics reduces to their correlation
+ * exactly: `E[z_B] = r · E[z_A]`. So a null gene's expected statistic is a fixed fraction of
+ * the causal one, and the fraction is not small for genes that share a neighbourhood.
+ */
+export function twasNullZ(correlation: number, causalZ: number): number {
+  return correlation * causalZ;
+}
+
+/**
+ * The correlation above which a null gene inherits transcriptome-wide significance.
+ *
+ * `r* = z_threshold / z_causal`, which **falls** as the causal signal strengthens: a stronger
+ * locus drags in more innocent genes, not fewer. That inversion is the lesson's point, and it
+ * is the opposite of how a significance threshold is usually expected to behave.
+ */
+export function twasCriticalCorrelation(
+  causalZ: number, nGenes = 20_000, alpha = 0.05,
+): number {
+  if (causalZ <= 0) throw new RangeError('twasCriticalCorrelation needs a positive causal z');
+  return Math.abs(normalQuantile(alpha / nGenes / 2)) / causalZ;
+}
+
+/**
+ * Probability that a non-causal gene at correlation `r` reaches transcriptome-wide significance.
+ *
+ * Its statistic is normal with mean `r·z_causal` and unit variance, so this is the ordinary
+ * two-sided tail beyond the Bonferroni threshold — a power calculation for an effect nobody
+ * wants to detect.
+ */
+export function twasFalsePositiveProbability(
+  correlation: number, causalZ: number, nGenes = 20_000, alpha = 0.05,
+): number {
+  const threshold = Math.abs(normalQuantile(alpha / nGenes / 2));
+  const mean = twasNullZ(correlation, causalZ);
+  return 1 - normalCdf(threshold - mean) + normalCdf(-threshold - mean);
+}
+
 /** Equilibrium of the infinitesimal model under primary phenotypic assortative mating. */
 export interface AssortativeEquilibrium {
   /** Additive variance at equilibrium, with the pre-assortment phenotypic variance set to 1. */

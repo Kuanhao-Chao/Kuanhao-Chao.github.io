@@ -8552,8 +8552,31 @@ describe('statgen-detecting-selection', () => {
     it('exercise 4 — a polygenic response is inside the drift step', () => {
       const driftStep = Math.sqrt(0.25 / 20_000);
       expect(driftStep.toFixed(4)).toBe('0.0035');
+      expect(driftStep.toFixed(6)).toBe('0.003536');
       expect(0.004).toBeGreaterThan(driftStep);
       expect(mdx).toContain('0.0035');
+      // the callout printed this fraction as a PERCENTAGE, 100x too small
+      expect(mdx).toContain('0.003536');
+      expect(mdx).not.toContain('0.0035% per generation');
+      expect((100 * driftStep).toFixed(3)).toBe('0.354');
+    });
+
+    it('exercise 1 — states the frequency and age ratios correctly', () => {
+      // 0.20 -> 0.50 is a factor of 2.5 in frequency, 1.72 in age
+      expect(0.5 / 0.2).toBeCloseTo(2.5, 12);
+      expect((neutralAlleleAge(N, 0.5) / neutralAlleleAge(N, 0.2)).toFixed(2)).toBe('1.72');
+      // 0.20 -> 0.10 halves the FREQUENCY but cuts the age only to 0.636 of it
+      expect((neutralAlleleAge(N, 0.1) / neutralAlleleAge(N, 0.2)).toFixed(3)).toBe('0.636');
+      expect(mdx).toContain('factor of 2.5');
+      expect(mdx).toContain('factor of 0.636');
+      expect(mdx).not.toContain('doubling the frequency from 0.20 to 0.50');
+      expect(mdx).not.toMatch(/halves it\s+to 10,233\.71/);
+    });
+
+    it('gives the haplotype window a value consistent with the prose', () => {
+      // the table said 0.05N (500 generations) while the paragraph below said ~1,000
+      expect(mdx).toContain('0.1N');
+      expect(mdx).not.toContain('0.05N');
     });
   });
 
@@ -8628,20 +8651,59 @@ describe('statgen-multiple-testing', () => {
       expect(mdx).toContain('4/10 = 0.40');
     });
 
-    it('has the gain table the lesson tabulates', () => {
-      const rows: [number, number, number, number][] = [
-        [0.222, 2281, 3444, 1.510], [0.507, 5197, 6673, 1.284], [0.744, 7635, 8792, 1.152],
-        [0.890, 9125, 9865, 1.081], [0.960, 9847, 10314, 1.048]];
-      for (const [power, bh, st, gain] of rows) {
-        expect(st / bh).toBeCloseTo(gain, 2);
+    it('has the corrected gain table, produced with pi0 ESTIMATED not assumed', () => {
+      const rows: [number, number, number, number, number, number][] = [
+        // mu, power, pi0_hat, level, BH, Storey
+        [2.0, 0.223, 0.5886, 0.0849, 2282, 3440],
+        [2.5, 0.506, 0.5331, 0.0938, 5185, 6665],
+        [3.0, 0.744, 0.5099, 0.0981, 7629, 8788],
+        [3.5, 0.889, 0.5025, 0.0995, 9122, 9863],
+        [4.0, 0.960, 0.5007, 0.0999, 9848, 10313],
+      ];
+      for (const [, power, pi0hat, level, bh, st] of rows) {
+        // the level is q / pi0_hat, which is NOT 0.10 except in the limit
+        expect(0.05 / pi0hat).toBeCloseTo(level, 4);
         expect(mdx).toContain(power.toFixed(3));
-        expect(mdx).toContain(gain.toFixed(3));
+        expect(mdx).toContain(pi0hat.toFixed(4));
+        expect(mdx).toContain(level.toFixed(4));
         expect(mdx).toContain(bh.toLocaleString('en-US'));
         expect(mdx).toContain(st.toLocaleString('en-US'));
+        expect(mdx).toContain((st / bh).toFixed(3));
       }
-      // the threshold doubles in every row, and the count never does
-      expect(0.05 / 0.5).toBeCloseTo(0.1, 12);
-      expect(rows.every(([, bh, st]) => st / bh < 2)).toBe(true);
+      // only the last row's level is within a thousandth of the doubled 0.10
+      expect(0.05 / rows[0][2]).toBeLessThan(0.09);
+      expect(0.05 / rows[4][2]).toBeGreaterThan(0.0995);
+    });
+
+    it('derives the leak that biases pi0_hat, and matches the simulation', () => {
+      // p > lambda  <=>  |z| < Phi^-1(1 - lambda/2); at lambda = 0.5 that is 0.6745
+      const zl = normalQuantile(0.75);
+      expect(zl).toBeCloseTo(0.6744898, 6);
+      const leak = (mu: number) => normalCdf(zl - mu) - normalCdf(-zl - mu);
+      expect(leak(2)).toBeCloseTo(0.0888, 4);
+      // pi0_hat = pi0 + (1 - pi0) * leak / (1 - lambda); at pi0 = lambda = 0.5 that is 0.5 + leak
+      expect(0.5 + leak(2)).toBeCloseTo(0.5888, 4);
+      expect(0.5 + leak(2)).toBeCloseTo(0.5886, 3); // the simulated value
+      expect(mdx).toContain('0.0888');
+      expect(mdx).toContain('0.5888');
+      // and the leak vanishes as the alternatives strengthen, which is why the top of the
+      // table is where the estimator is honest
+      expect(leak(4)).toBeLessThan(leak(2) / 100);
+    });
+
+    it('quotes the counterfactual a known pi0 would have delivered', () => {
+      expect(mdx).toContain('1.694');
+      expect(mdx).toContain('1.70 times as permissive, not twice');
+      expect(mdx).toContain('4.7%');
+    });
+
+    it('no longer claims the threshold doubles everywhere', () => {
+      // the original draft said this in five places; it is false because pi0_hat != pi0
+      expect(mdx).not.toContain('twice as permissive, at every rank');
+      expect(mdx).not.toContain('at every point on the curve');
+      expect(mdx).not.toContain('the threshold doubles at every point');
+      expect(mdx).not.toContain('the threshold doubles everywhere');
+      expect(mdx).not.toContain('Twice the threshold');
     });
   });
 
@@ -8684,10 +8746,12 @@ describe('statgen-multiple-testing', () => {
       expect((0.1062 / 0.0251).toFixed(2)).toBe('4.23');
       expect(mdx).toContain('0.0251');
       expect(mdx).toContain('10.62%');
-      expect(mdx).toContain('4.22 times');
+      expect(mdx).toContain('4.23 times');
+      // the prose said 4.22 in four places while this very test computed 4.23
+      expect(mdx).not.toContain('4.22');
       // exercise 4 propagates the same factor
-      expect((0.05 * 4.22).toFixed(3)).toBe('0.211');
-      expect(mdx).toContain('0.211');
+      expect((0.05 * 4.23).toFixed(3)).toBe('0.212');
+      expect(mdx).toContain('0.212');
     });
   });
 
@@ -8768,6 +8832,8 @@ describe('statgen-within-family', () => {
       expect(mdx).toContain('1.30635');
       expect(mdx).toContain('1.6127');
       expect(mdx).toContain('1.15318');
+      // the same quantity was printed 1.15320 two sentences later
+      expect(mdx).not.toContain('1.15320');
     });
 
     it('collapses to 1 + eta/2delta under random mating', () => {
