@@ -90,6 +90,7 @@ import {
   ehhHalfLength,
   sweepAgeAnomaly,
   sidakThreshold,
+  chi2Cdf,
   predictedExpressionCorrelation,
   twasFalsePositiveProbability,
   twasCriticalCorrelation,
@@ -277,7 +278,7 @@ describe('statgen-mathematical-foundations', () => {
     });
   });
 
-  describe('the genome-wide threshold, and figure 2', () => {
+  describe('the genome-wide threshold, and figure 3', () => {
     const fwer = (m: number, a: number) => 1 - (1 - a) ** m;
 
     it('is Bonferroni over a million effectively independent tests', () => {
@@ -8983,6 +8984,84 @@ describe('statgen-molecular-qtl-twas', () => {
   it('defers practice and colocalisation rather than re-deriving them', () => {
     expect(mdx).toContain('giambartolomei2014coloc');
     expect(mdx).toContain('previous lesson');
+  });
+});
+
+describe('statgen-mathematical-foundations — Hauck-Donner figure and widget', () => {
+  const mdx = lesson('statgen-mathematical-foundations');
+  const N = 100;
+  const PC = 0.5;
+  const table = (orr: number) => {
+    const p = (orr * PC) / (1 + PC * (orr - 1));
+    return contingencyTests(N * p, N * (1 - p), N * PC, N * (1 - PC));
+  };
+
+  it('has all three statistics agreeing near the null', () => {
+    const t = table(2);
+    expect(t.wald.toFixed(3)).toBe('5.652');
+    expect(t.score.toFixed(3)).toBe('5.714');
+    expect(t.lrt.toFixed(3)).toBe('5.745');
+    for (const v of ['5.652', '5.714', '5.745']) expect(mdx).toContain(v);
+    // and the spread is 1.8% of the mean, which exercise 5 asks for
+    const vals = [t.wald, t.score, t.lrt];
+    const spread = (Math.max(...vals) - Math.min(...vals)) / (vals.reduce((a, b) => a + b) / 3);
+    expect((100 * spread).toFixed(1)).toBe('1.6');
+    expect(mdx).toContain('1.6\\%');
+    // rounding the three to two decimals first gives 1.8% -- a spread is a difference of
+    // nearby numbers and loses precision fast, so the exercise quotes three decimals
+    expect(mdx).toContain('gives 1.8%');
+  });
+
+  it('keeps the order Wald < score < likelihood ratio across the family', () => {
+    for (const orr of [1.2, 2, 4, 8, 16, 32, 64, 128]) {
+      const t = table(orr);
+      expect(t.wald).toBeLessThan(t.score);
+      expect(t.score).toBeLessThan(t.lrt);
+    }
+  });
+
+  it('makes the Wald statistic peak and then FALL, which is the whole figure', () => {
+    expect(table(15.9647).wald.toFixed(4)).toBe('34.8431');
+    // it is a genuine maximum: lower on both sides
+    expect(table(8).wald).toBeLessThan(table(15.9647).wald);
+    expect(table(32).wald).toBeLessThan(table(15.9647).wald);
+    expect(table(128).wald).toBeLessThan(table(32).wald);
+    // while the likelihood ratio is still climbing at every one of those points
+    for (const [a, b] of [[8, 16], [16, 32], [32, 64], [64, 128]] as const) {
+      expect(table(b).lrt).toBeGreaterThan(table(a).lrt);
+    }
+    expect(mdx).toContain('15.9647');
+    expect(mdx).toContain('34.8431');
+  });
+
+  it('has the two values at OR = 128 and their p-values fourteen orders apart', () => {
+    const t = table(128);
+    expect(t.wald.toFixed(2)).toBe('17.57');
+    expect(t.lrt.toFixed(2)).toBe('78.91');
+    const pW = 1 - chi2Cdf(t.wald, 1);
+    const pL = 1 - chi2Cdf(t.lrt, 1);
+    expect(pW).toBeGreaterThan(1e-5);
+    expect(pW).toBeLessThan(1e-4);
+    expect(pL).toBeLessThan(1e-17);
+    expect(Math.log10(pW) - Math.log10(pL)).toBeGreaterThan(13);
+    expect(mdx).toContain('17.57');
+    expect(mdx).toContain('78.91');
+  });
+
+  it('exercise 4 — the emptying cell that drives the turnover', () => {
+    const p = (128 * PC) / (PC * (128 - 1) + 1);
+    expect(p.toFixed(4)).toBe('0.9922');
+    expect((N * (1 - p)).toFixed(2)).toBe('0.78');
+    expect(mdx).toContain('0.9922');
+    expect(mdx).toContain('0.78');
+  });
+
+  it('exercise 5 — the p-value ratio at the worked example', () => {
+    const w = 1 - chi2Cdf(30.8199, 1);
+    const l = 1 - chi2Cdf(34.5218, 1);
+    expect((w / l).toFixed(1)).toBe('6.7');
+    expect(mdx).toContain('factor of 6.7 in the p-value');
+    expect(mdx).not.toContain('factor of 4.6');
   });
 });
 

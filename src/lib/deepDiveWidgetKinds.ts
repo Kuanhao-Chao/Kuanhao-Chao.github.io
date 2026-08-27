@@ -28,6 +28,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'fdr-staircase',
   'assortative-mating',
   'twas-ld',
+  'three-tests',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];

@@ -399,6 +399,14 @@ Things specific to this subsystem:
   same correlation that drags an innocent gene over the threshold is what stops it outranking
   the causal gene, so the failure mode is *too many genes reported*, not *the wrong gene first*.
 
+- **`figlib.splice` indexes `<Figure>` blocks in DOCUMENT order, not by figure number**, and
+  inserting a new figure ahead of an existing one silently renumbers everything after it. A new
+  block placed before the multiplicity figure in `statgen-mathematical-foundations` landed at
+  index 1, so `splice(MDX, 2, …)` overwrote the multiplicity figure's SVG with the new drawing
+  and left the new block empty. **Count the blocks after inserting, before choosing the index** —
+  and when a figure is inserted mid-document, renumber every later caption and every prose
+  reference to them in the same commit.
+
 - **Adding lessons to a track leaves them orphaned unless you wire them in, and no gate says
   so.** After five new statgen lessons every gate was green while the only inbound
   `relatedLessons` links came from other new lessons — a reader working the original track

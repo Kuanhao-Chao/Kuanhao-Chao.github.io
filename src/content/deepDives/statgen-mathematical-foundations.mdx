@@ -44,6 +44,7 @@ import Notation from '../../components/deepdive/Notation.astro';
 import WorkedExample from '../../components/deepdive/WorkedExample.astro';
 import Exercise from '../../components/deepdive/Exercise.astro';
 import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
 import Citation from '../../components/deepdive/Citation.astro';
 
 ## The question this lesson answers
@@ -327,6 +328,23 @@ untroubled by it.
 
 </Callout>
 
+<Figure
+  caption="Figure 2. The three statistics for a balanced 2 × 2 table — 100 per group, control allele frequency 0.5 — against the true odds ratio. While the effect is small they are indistinguishable: at an odds ratio of 2 they read 5.652, 5.714 and 5.745. Then the Wald statistic turns over. It peaks at an odds ratio of 15.9647 with a value of 34.8431 and falls from there, while the likelihood ratio climbs without limit. At an odds ratio of 128 the two read 17.57 and 78.91 — p-values of 2.8 × 10⁻⁵ and 6.5 × 10⁻¹⁹ from the same table. That is the Hauck–Donner effect drawn rather than described, and the reason a rare, highly penetrant variant can fail a Wald test that the likelihood ratio passes overwhelmingly."
+  alt="Three curves against a logarithmic odds-ratio axis. Two rise steadily across the whole range. The third rises with them at first, reaches a maximum near an odds ratio of sixteen marked with a dot, and then declines, ending well below the other two. A vertical bar at the right edge links the lowest and highest curves."
+  wide
+>
+
+<svg viewBox="0 0 772 400" width="772" height="400" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="104.0" y1="189.9" x2="424.0" y2="189.9" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="193.9" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">20</text><line x1="104.0" y1="143.8" x2="424.0" y2="143.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="147.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">40</text><line x1="104.0" y1="97.6" x2="424.0" y2="97.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="101.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">60</text><line x1="104.0" y1="51.5" x2="424.0" y2="51.5" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="55.5" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">80</text><line x1="122.8" y1="236.0" x2="122.8" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="122.8" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="182.7" y1="236.0" x2="182.7" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="182.7" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="228.1" y1="236.0" x2="228.1" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="228.1" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">10</text><line x1="273.4" y1="236.0" x2="273.4" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="273.4" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">20</text><line x1="333.3" y1="236.0" x2="333.3" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="333.3" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">50</text><line x1="378.7" y1="236.0" x2="378.7" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="378.7" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">100</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">200</text><path d="M104.0,231.4 L105.8,230.7 L107.6,230.1 L109.3,229.4 L111.1,228.6 L112.9,227.9 L114.7,227.1 L116.4,226.2 L118.2,225.3 L120.0,224.5 L121.8,223.5 L123.6,222.6 L125.3,221.6 L127.1,220.6 L128.9,219.5 L130.7,218.5 L132.4,217.4 L134.2,216.3 L136.0,215.2 L137.8,214.0 L139.6,212.8 L141.3,211.7 L143.1,210.5 L144.9,209.3 L146.7,208.0 L148.4,206.8 L150.2,205.6 L152.0,204.3 L153.8,203.0 L155.6,201.8 L157.3,200.5 L159.1,199.2 L160.9,198.0 L162.7,196.7 L164.4,195.4 L166.2,194.1 L168.0,192.9 L169.8,191.6 L171.6,190.4 L173.3,189.1 L175.1,187.9 L176.9,186.6 L178.7,185.4 L180.4,184.2 L182.2,183.0 L184.0,181.8 L185.8,180.7 L187.6,179.5 L189.3,178.4 L191.1,177.3 L192.9,176.2 L194.7,175.2 L196.4,174.1 L198.2,173.1 L200.0,172.1 L201.8,171.1 L203.6,170.2 L205.3,169.3 L207.1,168.4 L208.9,167.5 L210.7,166.7 L212.4,165.9 L214.2,165.1 L216.0,164.3 L217.8,163.6 L219.6,162.9 L221.3,162.3 L223.1,161.6 L224.9,161.1 L226.7,160.5 L228.4,160.0 L230.2,159.5 L232.0,159.0 L233.8,158.5 L235.6,158.1 L237.3,157.8 L239.1,157.4 L240.9,157.1 L242.7,156.8 L244.4,156.6 L246.2,156.4 L248.0,156.2 L249.8,156.0 L251.6,155.9 L253.3,155.8 L255.1,155.7 L256.9,155.7 L258.7,155.7 L260.4,155.7 L262.2,155.7 L264.0,155.8 L265.8,155.9 L267.6,156.0 L269.3,156.1 L271.1,156.3 L272.9,156.5 L274.7,156.7 L276.4,157.0 L278.2,157.2 L280.0,157.5 L281.8,157.8 L283.6,158.1 L285.3,158.5 L287.1,158.8 L288.9,159.2 L290.7,159.6 L292.4,160.0 L294.2,160.5 L296.0,160.9 L297.8,161.4 L299.6,161.9 L301.3,162.4 L303.1,162.9 L304.9,163.4 L306.7,163.9 L308.4,164.5 L310.2,165.0 L312.0,165.6 L313.8,166.2 L315.6,166.8 L317.3,167.3 L319.1,168.0 L320.9,168.6 L322.7,169.2 L324.4,169.8 L326.2,170.4 L328.0,171.1 L329.8,171.7 L331.6,172.4 L333.3,173.0 L335.1,173.7 L336.9,174.3 L338.7,175.0 L340.4,175.6 L342.2,176.3 L344.0,177.0 L345.8,177.6 L347.6,178.3 L349.3,179.0 L351.1,179.7 L352.9,180.3 L354.7,181.0 L356.4,181.7 L358.2,182.3 L360.0,183.0 L361.8,183.7 L363.6,184.3 L365.3,185.0 L367.1,185.7 L368.9,186.3 L370.7,187.0 L372.4,187.6 L374.2,188.3 L376.0,188.9 L377.8,189.6 L379.6,190.2 L381.3,190.8 L383.1,191.5 L384.9,192.1 L386.7,192.7 L388.4,193.3 L390.2,193.9 L392.0,194.5 L393.8,195.1 L395.6,195.7 L397.3,196.3 L399.1,196.9 L400.9,197.5 L402.7,198.1 L404.4,198.7 L406.2,199.2 L408.0,199.8 L409.8,200.3 L411.6,200.9 L413.3,201.4 L415.1,202.0 L416.9,202.5 L418.7,203.0 L420.4,203.6 L422.2,204.1 L424.0,204.6" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><path d="M104.0,231.3 L105.8,230.7 L107.6,230.0 L109.3,229.3 L111.1,228.6 L112.9,227.8 L114.7,227.0 L116.4,226.1 L118.2,225.3 L120.0,224.3 L121.8,223.4 L123.6,222.4 L125.3,221.4 L127.1,220.4 L128.9,219.3 L130.7,218.2 L132.4,217.1 L134.2,215.9 L136.0,214.8 L137.8,213.6 L139.6,212.3 L141.3,211.1 L143.1,209.8 L144.9,208.5 L146.7,207.2 L148.4,205.9 L150.2,204.6 L152.0,203.2 L153.8,201.9 L155.6,200.5 L157.3,199.1 L159.1,197.7 L160.9,196.3 L162.7,194.8 L164.4,193.4 L166.2,192.0 L168.0,190.5 L169.8,189.1 L171.6,187.6 L173.3,186.1 L175.1,184.7 L176.9,183.2 L178.7,181.7 L180.4,180.3 L182.2,178.8 L184.0,177.3 L185.8,175.8 L187.6,174.4 L189.3,172.9 L191.1,171.5 L192.9,170.0 L194.7,168.6 L196.4,167.1 L198.2,165.7 L200.0,164.3 L201.8,162.9 L203.6,161.5 L205.3,160.1 L207.1,158.7 L208.9,157.3 L210.7,156.0 L212.4,154.6 L214.2,153.3 L216.0,151.9 L217.8,150.6 L219.6,149.3 L221.3,148.0 L223.1,146.8 L224.9,145.5 L226.7,144.3 L228.4,143.1 L230.2,141.8 L232.0,140.6 L233.8,139.5 L235.6,138.3 L237.3,137.1 L239.1,136.0 L240.9,134.9 L242.7,133.8 L244.4,132.7 L246.2,131.6 L248.0,130.6 L249.8,129.6 L251.6,128.5 L253.3,127.5 L255.1,126.5 L256.9,125.6 L258.7,124.6 L260.4,123.7 L262.2,122.8 L264.0,121.9 L265.8,121.0 L267.6,120.1 L269.3,119.2 L271.1,118.4 L272.9,117.6 L274.7,116.8 L276.4,116.0 L278.2,115.2 L280.0,114.4 L281.8,113.7 L283.6,112.9 L285.3,112.2 L287.1,111.5 L288.9,110.8 L290.7,110.2 L292.4,109.5 L294.2,108.8 L296.0,108.2 L297.8,107.6 L299.6,107.0 L301.3,106.4 L303.1,105.8 L304.9,105.2 L306.7,104.7 L308.4,104.1 L310.2,103.6 L312.0,103.1 L313.8,102.5 L315.6,102.1 L317.3,101.6 L319.1,101.1 L320.9,100.6 L322.7,100.2 L324.4,99.7 L326.2,99.3 L328.0,98.9 L329.8,98.4 L331.6,98.0 L333.3,97.6 L335.1,97.3 L336.9,96.9 L338.7,96.5 L340.4,96.1 L342.2,95.8 L344.0,95.5 L345.8,95.1 L347.6,94.8 L349.3,94.5 L351.1,94.2 L352.9,93.9 L354.7,93.6 L356.4,93.3 L358.2,93.0 L360.0,92.7 L361.8,92.4 L363.6,92.2 L365.3,91.9 L367.1,91.7 L368.9,91.4 L370.7,91.2 L372.4,91.0 L374.2,90.7 L376.0,90.5 L377.8,90.3 L379.6,90.1 L381.3,89.9 L383.1,89.7 L384.9,89.5 L386.7,89.3 L388.4,89.1 L390.2,89.0 L392.0,88.8 L393.8,88.6 L395.6,88.4 L397.3,88.3 L399.1,88.1 L400.9,88.0 L402.7,87.8 L404.4,87.7 L406.2,87.5 L408.0,87.4 L409.8,87.3 L411.6,87.1 L413.3,87.0 L415.1,86.9 L416.9,86.8 L418.7,86.6 L420.4,86.5 L422.2,86.4 L424.0,86.3" fill="none" stroke="currentColor" stroke-width="2.0" stroke-dasharray="5 3" opacity=".8"/><path d="M104.0,231.3 L105.8,230.7 L107.6,230.0 L109.3,229.3 L111.1,228.6 L112.9,227.8 L114.7,227.0 L116.4,226.1 L118.2,225.2 L120.0,224.3 L121.8,223.3 L123.6,222.3 L125.3,221.3 L127.1,220.3 L128.9,219.2 L130.7,218.1 L132.4,216.9 L134.2,215.8 L136.0,214.6 L137.8,213.3 L139.6,212.1 L141.3,210.8 L143.1,209.5 L144.9,208.2 L146.7,206.9 L148.4,205.5 L150.2,204.1 L152.0,202.7 L153.8,201.3 L155.6,199.9 L157.3,198.4 L159.1,196.9 L160.9,195.5 L162.7,194.0 L164.4,192.4 L166.2,190.9 L168.0,189.4 L169.8,187.8 L171.6,186.3 L173.3,184.7 L175.1,183.2 L176.9,181.6 L178.7,180.0 L180.4,178.4 L182.2,176.8 L184.0,175.2 L185.8,173.6 L187.6,172.0 L189.3,170.4 L191.1,168.8 L192.9,167.2 L194.7,165.6 L196.4,164.0 L198.2,162.4 L200.0,160.8 L201.8,159.2 L203.6,157.6 L205.3,156.0 L207.1,154.5 L208.9,152.9 L210.7,151.3 L212.4,149.7 L214.2,148.2 L216.0,146.6 L217.8,145.1 L219.6,143.5 L221.3,142.0 L223.1,140.5 L224.9,139.0 L226.7,137.5 L228.4,136.0 L230.2,134.5 L232.0,133.1 L233.8,131.6 L235.6,130.2 L237.3,128.7 L239.1,127.3 L240.9,125.9 L242.7,124.5 L244.4,123.1 L246.2,121.8 L248.0,120.4 L249.8,119.1 L251.6,117.7 L253.3,116.4 L255.1,115.1 L256.9,113.8 L258.7,112.5 L260.4,111.3 L262.2,110.0 L264.0,108.8 L265.8,107.6 L267.6,106.4 L269.3,105.2 L271.1,104.0 L272.9,102.9 L274.7,101.7 L276.4,100.6 L278.2,99.5 L280.0,98.4 L281.8,97.3 L283.6,96.2 L285.3,95.1 L287.1,94.1 L288.9,93.1 L290.7,92.1 L292.4,91.1 L294.2,90.1 L296.0,89.1 L297.8,88.1 L299.6,87.2 L301.3,86.3 L303.1,85.3 L304.9,84.4 L306.7,83.6 L308.4,82.7 L310.2,81.8 L312.0,81.0 L313.8,80.1 L315.6,79.3 L317.3,78.5 L319.1,77.7 L320.9,76.9 L322.7,76.2 L324.4,75.4 L326.2,74.7 L328.0,73.9 L329.8,73.2 L331.6,72.5 L333.3,71.8 L335.1,71.1 L336.9,70.4 L338.7,69.8 L340.4,69.1 L342.2,68.5 L344.0,67.9 L345.8,67.2 L347.6,66.6 L349.3,66.0 L351.1,65.5 L352.9,64.9 L354.7,64.3 L356.4,63.8 L358.2,63.2 L360.0,62.7 L361.8,62.2 L363.6,61.7 L365.3,61.2 L367.1,60.7 L368.9,60.2 L370.7,59.7 L372.4,59.2 L374.2,58.8 L376.0,58.3 L377.8,57.9 L379.6,57.4 L381.3,57.0 L383.1,56.6 L384.9,56.2 L386.7,55.8 L388.4,55.4 L390.2,55.0 L392.0,54.6 L393.8,54.2 L395.6,53.9 L397.3,53.5 L399.1,53.2 L400.9,52.8 L402.7,52.5 L404.4,52.2 L406.2,51.8 L408.0,51.5 L409.8,51.2 L411.6,50.9 L413.3,50.6 L415.1,50.3 L416.9,50.0 L418.7,49.8 L420.4,49.5 L422.2,49.2 L424.0,48.9" fill="none" stroke="currentColor" stroke-width="2.0" stroke-dasharray="2 3" opacity=".55"/><circle cx="258.7" cy="155.7" r="4.4" fill="var(--color-accent, #2e6e5e)"/><line x1="258.7" y1="162.7" x2="258.7" y2="222.2" stroke="currentColor" stroke-width="1.2" opacity=".5" stroke-dasharray="3 3"/><text x="258.7" y="230.2" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="middle" font-weight="600">Wald peaks at OR = 16</text><circle cx="394.8" cy="195.5" r="3.8" fill="var(--color-accent, #2e6e5e)"/><circle cx="394.8" cy="54.0" r="3.8" fill="currentColor" opacity=".55"/><line x1="394.8" y1="190.5" x2="394.8" y2="59.0" stroke="currentColor" stroke-width="1.4" opacity=".45"/><text x="386.8" y="128.8" font-size="10" fill="currentColor" text-anchor="end" font-weight="600">17.57 against 78.91</text><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">True odds ratio</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Test statistic on 1 degree of freedom</text><line x1="454.0" y1="36.0" x2="476.0" y2="36.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><text x="484.0" y="40.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">Wald</text><line x1="454.0" y1="53.0" x2="476.0" y2="53.0" stroke="currentColor" stroke-width="2.0" opacity=".8" stroke-dasharray="5 3"/><text x="484.0" y="57.0" font-size="10" fill="currentColor" opacity=".8">score</text><line x1="454.0" y1="70.0" x2="476.0" y2="70.0" stroke="currentColor" stroke-width="2.0" opacity=".55" stroke-dasharray="2 3"/><text x="484.0" y="74.0" font-size="10" fill="currentColor" opacity=".55">likelihood ratio</text><text x="454.0" y="112.0" font-size="11" fill="currentColor" font-weight="700">Wald stops being a test.</text><text x="454.0" y="134.0" font-size="10" fill="currentColor" opacity=".8">100 per group, control allele</text><text x="454.0" y="147.0" font-size="10" fill="currentColor" opacity=".8">frequency 0.5. All three agree</text><text x="454.0" y="160.0" font-size="10" fill="currentColor" opacity=".8">while the effect is small - at</text><text x="454.0" y="173.0" font-size="10" fill="currentColor" opacity=".8">OR = 2 they are 5.652, 5.714</text><text x="454.0" y="186.0" font-size="10" fill="currentColor" opacity=".8">and 5.745.</text><text x="454.0" y="199.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="212.0" font-size="10" fill="currentColor" opacity=".8">Then Wald turns over. It peaks</text><text x="454.0" y="225.0" font-size="10" fill="currentColor" opacity=".8">at OR = 15.9647 with 34.8431</text><text x="454.0" y="238.0" font-size="10" fill="currentColor" opacity=".8">and FALLS from there, while the</text><text x="454.0" y="251.0" font-size="10" fill="currentColor" opacity=".8">likelihood ratio keeps climbing.</text><text x="454.0" y="264.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="277.0" font-size="10" fill="currentColor" opacity=".8">At OR = 128 Wald gives 17.57 and</text><text x="454.0" y="290.0" font-size="10" fill="currentColor" opacity=".8">the likelihood ratio 78.91 - a</text><text x="454.0" y="303.0" font-size="10" fill="currentColor" opacity=".8">p of 2.8x10⁻⁵ against 6.5x10⁻¹⁹,</text><text x="454.0" y="316.0" font-size="10" fill="currentColor" opacity=".8">fourteen orders of magnitude</text><text x="454.0" y="329.0" font-size="10" fill="currentColor" opacity=".8">apart on the same table.</text><text x="454.0" y="342.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="355.0" font-size="10" fill="currentColor" opacity=".8">This is the Hauck-Donner effect,</text><text x="454.0" y="368.0" font-size="10" fill="currentColor" opacity=".8">and it is why a rare penetrant</text><text x="454.0" y="381.0" font-size="10" fill="currentColor" opacity=".8">variant can fail a Wald test.</text></svg>
+
+</Figure>
+
+<Widget
+  kind="three-tests"
+  title="Push the odds ratio and watch one of the three give up"
+  caption="Wald, score and likelihood ratio for a balanced 2 × 2 table, against the true odds ratio. They are indistinguishable near the null and separate as the effect grows, always in the order Wald < score < likelihood ratio. Push the odds ratio far enough — or lower the sample size, which brings the turnover forward — and the Wald statistic stops rising and starts falling."
+  alt="An interactive panel with sliders for the number per group, the control allele frequency and the true odds ratio. It draws the Wald, score and likelihood-ratio statistics against the odds ratio on a logarithmic axis, marks the current odds ratio on the Wald curve, and reports all three statistics with their p-values and the ratio of Wald to likelihood ratio."
+/>
+
 ## The linear model is a projection
 
 The second reusable object is the linear model. Write
@@ -445,7 +463,7 @@ a compatible figure by permutation. On the $\chi^2_1$ scale the threshold is 29.
 $|z| = 5.4513$.
 
 <Figure
-  caption="Figure 2. Why the divisor has to be there. Each curve is the chance of at least one false positive against the number of independent tests performed. Testing every variant at 0.05 reaches near-certainty by a hundred tests; testing each at 5 × 10⁻⁸ is still at 0.0488 after a million, which is the 5% the correction was built to spend. The threshold is not a stricter convention — it is the value that makes the family-wise error come out at the level you asked for, and it is only correct for the number of tests it was derived from."
+  caption="Figure 3. Why the divisor has to be there. Each curve is the chance of at least one false positive against the number of independent tests performed. Testing every variant at 0.05 reaches near-certainty by a hundred tests; testing each at 5 × 10⁻⁸ is still at 0.0488 after a million, which is the 5% the correction was built to spend. The threshold is not a stricter convention — it is the value that makes the family-wise error come out at the level you asked for, and it is only correct for the number of tests it was derived from."
   alt="A log-scale plot of the chance of at least one false positive against the number of independent tests. A solid curve for a per-test level of 0.05 rises to 1.00 by about a hundred tests. A dashed curve for a per-test level of 5 times ten to the minus eight stays near zero until about a hundred thousand tests and crosses the 5 percent line at one million tests, marked at 0.0488."
   wide
 >
@@ -639,6 +657,68 @@ stating explicitly that "conservative" is not a synonym for "correct" — a boun
 analysis and a naive one disagree about which traits are heritable at all near the margin.
 
 </div>
+</Exercise>
+
+<Exercise n={4} title="A test statistic that falls as the effect grows" difficulty="stretch">
+
+Take the balanced table of Figure 2 — 100 per group, control allele frequency 0.5. At an odds
+ratio of 16 the Wald statistic is 34.84; at 128 it is 17.57, while the likelihood ratio has
+gone from 53.54 to 78.91. (a) Explain in terms of $\hat\beta$ and its standard error why Wald
+can fall. (b) What does that imply for a rare, highly penetrant variant in a case-control
+scan? (c) Which of the three tests would you use for such a variant, and what does it cost?
+
+<div slot="solution">
+
+**(a)** $W = \hat\beta^2/\mathrm{SE}(\hat\beta)^2$, and Woolf's standard error is
+$\sqrt{1/a + 1/b + 1/c + 1/d}$. As the odds ratio grows, one cell empties: at OR = 128 the
+case-side minor-allele count is $100(1-0.9922) = 0.78$. $\hat\beta$ grows like $\log(\mathrm{OR})$
+— logarithmically — while the standard error grows like $1/\sqrt{b}$, which diverges as
+$b \to 0$. The denominator eventually outruns the numerator and the ratio turns over.
+
+**(b)** Exactly that configuration is a rare penetrant variant: nearly all carriers are cases,
+so the control-side or case-side count is tiny. The Wald statistic is then at its least
+trustworthy precisely where the biology is most interesting, and a variant with an enormous
+true effect can fail to reach significance.
+
+**(c)** The likelihood ratio, which is monotone in the evidence here, or the score test, which
+is computed entirely under the null and never sees the empty cell. The cost is computational:
+Wald comes free from a fit you already did, while the likelihood ratio needs a second fit under
+the null and the score test needs the null fit. In a genome-wide scan that difference is
+multiplied by a million, which is why Wald is the default despite this — and why software for
+rare-variant tests goes back to the score statistic.
+
+</div>
+
+</Exercise>
+
+<Exercise n={5} title="Where the three separate" difficulty="stretch">
+
+Using the same table family, the three statistics at an odds ratio of 2 are 5.652, 5.714 and
+5.745. (a) Express the spread as a percentage of the mean. (b) At the worked example's table it
+is 11.3%. What distinguishes the two cases? (c) A referee asks you to report "the" chi-square
+for a locus. What should you report and why?
+
+<div slot="solution">
+
+**(a)** The mean is 5.704 and the spread is $5.745 - 5.652 = 0.093$, so
+$0.093/5.704 = 1.6\%$. (Rounding the three to two decimals first gives 1.8% — the spread is a
+difference of nearby numbers, so it loses precision fast, which is why the exercise quotes
+three.)
+
+**(b)** Effect size. The three tests are asymptotically equivalent — they agree to first order
+around the null — so their disagreement is a second-order effect that grows with the distance
+between $\hat\beta$ and $\beta_0$. At OR = 2 that distance is small and the three parabolas
+almost coincide; at the worked example's OR = 6 it is large enough for the curvature to differ
+noticeably between the null and the estimate.
+
+**(c)** Report which test produced it. The three are different statistics, not three estimates
+of one statistic, and at a strong locus they differ enough to matter — 30.82 against 34.52 in
+the worked example is a factor of 6.7 in the p-value. A summary-statistics file that does not
+say which test it used cannot be combined with another that used a different one, which is a
+real problem in meta-analysis.
+
+</div>
+
 </Exercise>
 
 ## Summary
