@@ -399,6 +399,18 @@ Things specific to this subsystem:
   same correlation that drags an innocent gene over the threshold is what stops it outranking
   the causal gene, so the failure mode is *too many genes reported*, not *the wrong gene first*.
 
+- **A widget's default state must reproduce the lesson's worked example**, or the slider
+  disagrees with the prose beside it — the one thing the three-layer split exists to prevent.
+  The MR panel first assigned pleiotropy to the *weakest* instruments, which was a defensible
+  choice and gave 0.3504 where the worked example says 0.365058. Ordering the lesson's own
+  three first makes the default reproduce all three estimators to six decimals. **Check the
+  default against the published table before anything else.**
+
+- **`ls | grep` is not a check unless you read the output.** A new figure generator was written
+  with `cat >` over `statgen-mendelian-randomization.py`, which already existed and produced
+  both of that lesson's figures — the `ls` immediately before it had printed the filename.
+  Recovered with `git checkout`. Append to an existing generator; never `cat >` one.
+
 - **`figlib.splice` indexes `<Figure>` blocks in DOCUMENT order, not by figure number**, and
   inserting a new figure ahead of an existing one silently renumbers everything after it. A new
   block placed before the multiplicity figure in `statgen-mathematical-foundations` landed at

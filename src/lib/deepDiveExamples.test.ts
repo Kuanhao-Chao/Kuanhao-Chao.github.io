@@ -9065,3 +9065,97 @@ describe('statgen-mathematical-foundations — Hauck-Donner figure and widget', 
   });
 });
 
+describe('statgen-mendelian-randomization — estimator sweep and instrument selection', () => {
+  const mdx = lesson('statgen-mendelian-randomization');
+  const GX = [0.1, 0.12, 0.08, 0.15, 0.09, 0.11, 0.13, 0.07];
+  const SEY = GX.map(() => 0.006);
+  const TRUTH = 0.3;
+  const SHIFT = 0.02;
+  // the worked example's three instruments first, so k = 3 reproduces its table
+  const ORDER = [5, 6, 7, 2, 4, 0, 1, 3];
+  const at = (k: number) => {
+    const pleio = GX.map(() => 0);
+    for (let i = 0; i < k; i += 1) pleio[ORDER[i]] = SHIFT;
+    const GY = GX.map((g, i) => TRUTH * g + pleio[i]);
+    return {
+      ivw: ivwMr(GX, GY, SEY).beta,
+      egger: eggerRegression(GX, GY, SEY).slope,
+      median: weightedMedianMr(GX, GY, SEY),
+    };
+  };
+
+  it('reproduces the worked example at three pleiotropic instruments', () => {
+    const t = at(3);
+    expect(t.ivw).toBeCloseTo(0.365058, 6);
+    expect(t.egger).toBeCloseTo(0.264912, 6);
+    expect(t.median).toBeCloseTo(0.3, 10);
+  });
+
+  it('has the sweep the figure draws', () => {
+    const ivw = [0.3, 0.3231, 0.3504, 0.3651, 0.3818, 0.4007, 0.4217, 0.4469, 0.4784];
+    const egg = [0.3, 0.315, 0.4103, 0.2649, 0.1596, 0.0945, 0.0694, 0.1246, 0.3];
+    const med = [0.3, 0.3, 0.3, 0.3, 0.3, 0.3937, 0.4583, 0.4679, 0.4679];
+    for (let k = 0; k <= 8; k += 1) {
+      const t = at(k);
+      expect(+t.ivw.toFixed(4)).toBeCloseTo(ivw[k], 4);
+      expect(+t.egger.toFixed(4)).toBeCloseTo(egg[k], 4);
+      expect(+t.median.toFixed(4)).toBeCloseTo(med[k], 4);
+    }
+    for (const v of ['0.4784', '0.0694', '0.3937', '0.4679', '0.1596']) expect(mdx).toContain(v);
+  });
+
+  it('keeps the weighted median EXACT until the invalid instruments are half', () => {
+    for (let k = 0; k <= 4; k += 1) expect(at(k).median).toBeCloseTo(0.3, 10);
+    expect(at(5).median).toBeGreaterThan(0.35);
+    expect(at(5).median.toFixed(4)).toBe('0.3937');
+  });
+
+  it('makes Egger exact at both ends and worst in the middle', () => {
+    expect(at(0).egger).toBeCloseTo(0.3, 10);
+    // uniform pleiotropy is absorbed entirely by the intercept
+    expect(at(8).egger).toBeCloseTo(0.3, 10);
+    expect(eggerRegression(GX, GX.map((g) => TRUTH * g + SHIFT), SEY).intercept)
+      .toBeCloseTo(SHIFT, 10);
+    // and IVW is at its WORST exactly there
+    expect(at(8).ivw).toBeGreaterThan(at(7).ivw);
+    expect(Math.abs(at(8).egger - TRUTH)).toBeLessThan(Math.abs(at(8).ivw - TRUTH));
+    for (const k of [4, 5, 6]) expect(Math.abs(at(k).egger - TRUTH)).toBeGreaterThan(0.1);
+  });
+
+  it('exercise 4 — Egger is 47% off at four of eight', () => {
+    expect(Math.round((100 * Math.abs(at(4).egger - TRUTH)) / TRUTH)).toBe(47);
+    expect(mdx).toContain('wrong by 47%');
+  });
+
+  describe('the winner\'s curse on instrument selection', () => {
+    const T = zThreshold(5e-8);
+
+    it('biases the causal estimate toward the null, and worst at the margin', () => {
+      expect(T).toBeCloseTo(5.4513, 4);
+      const inflation = (z: number) => winnersCurseExpectation(z, T) / z;
+      expect(inflation(5.6).toFixed(4)).toBe('1.1260');
+      // an inflated denominator makes the ratio too small
+      expect(((5.6 / winnersCurseExpectation(5.6, T) - 1) * 100).toFixed(1)).toBe('-11.2');
+      expect(((6 / winnersCurseExpectation(6, T) - 1) * 100).toFixed(1)).toBe('-7.5');
+      expect(((7 / winnersCurseExpectation(7, T) - 1) * 100).toFixed(1)).toBe('-1.8');
+      // and it vanishes for a strong instrument
+      expect(Math.abs(8 / winnersCurseExpectation(8, T) - 1)).toBeLessThan(0.005);
+      for (const v of ['1.1260', '11.2%', '7.5%', '1.8%']) expect(mdx).toContain(v);
+    });
+
+    it('runs opposite to the pleiotropy bias, which exercise 5 turns on', () => {
+      expect(at(3).ivw).toBeGreaterThan(TRUTH);       // pleiotropy pushes away from the null
+      expect(winnersCurseExpectation(5.6, T)).toBeGreaterThan(5.6); // selection inflates gamma_X
+      expect(mdx).toContain('toward the null');
+      expect(mdx).toContain('away from the null');
+    });
+  });
+
+  it('adds multivariable MR and Steiger, which had no mention anywhere', () => {
+    expect(mdx).toContain('sanderson2019mvmr');
+    expect(mdx).toContain('hemani2017steiger');
+    expect(mdx).toContain('Multivariable MR');
+    expect(mdx).toContain('Steiger filtering');
+  });
+});
+

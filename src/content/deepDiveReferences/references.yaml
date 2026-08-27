@@ -4135,3 +4135,20 @@ zhu2016smr:
   venue: "Nature Genetics 48:481-487"
   doi: https://doi.org/10.1038/ng.3538
   verified: 2026-08-26
+
+# ── statgen-mendelian-randomization, multivariable and directionality ────────
+sanderson2019mvmr:
+  authors: ['Eleanor Sanderson', 'George Davey Smith', 'Frank Windmeijer', 'et al.']
+  surname: Davey Smith
+  year: 2019
+  title: "An examination of multivariable Mendelian randomization in the single-sample and two-sample summary data settings"
+  venue: "International Journal of Epidemiology 48:713-727"
+  doi: https://doi.org/10.1093/ije/dyy262
+  verified: 2026-08-26
+hemani2017steiger:
+  authors: ['Gibran Hemani', 'Kate Tilling', 'George Davey Smith']
+  year: 2017
+  title: "Orienting the causal relationship between imprecisely measured traits using GWAS summary data"
+  venue: "PLOS Genetics 13:e1007081"
+  doi: https://doi.org/10.1371/journal.pgen.1007081
+  verified: 2026-08-26

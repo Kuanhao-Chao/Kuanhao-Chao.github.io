@@ -1,9 +1,11 @@
 import sys, os, math
 sys.path.insert(0, os.path.dirname(__file__))
 os.makedirs(os.path.join(os.path.dirname(__file__), 'out'), exist_ok=True)
-from figlib import svg, text, line, path, write, circle, rect, Axes, ACCENT
+from figlib import svg, text, line, path, write, circle, rect, Axes, ACCENT, splice
 
 OUT = os.path.join(os.path.dirname(__file__), 'out')
+MDX = os.path.join(os.path.dirname(__file__), '..', '..',
+                   'src', 'content', 'deepDives', 'statgen-mendelian-randomization.mdx')
 
 TRUE = 0.30
 GX = [0.10, 0.12, 0.08, 0.15, 0.09, 0.11, 0.13, 0.07]
@@ -105,3 +107,76 @@ print('fig2 bytes:', write(os.path.join(OUT, 'statgen-mendelian-randomization-es
                            svg(640, 312, ''.join(p2))))
 print('  Egger 95%% CI: %.4f to %.4f' % (EGG_SLOPE - 1.96 * EGG_SE, EGG_SLOPE + 1.96 * EGG_SE))
 print('  IVW   95%% CI: %.4f to %.4f' % (IVW - 1.96 * IVW_SE, IVW + 1.96 * IVW_SE))
+
+
+# ── Figure 3 ── three estimators, three different ways of failing ────────────
+# The same eight instruments, true effect 0.30, a +0.02 shift added to k of them in the
+# order [6,7,8,3,5,1,2,4] — the worked example's three first, then the rest weakest-first,
+# so k = 3 reproduces the table above exactly. Values are the output of ivwMr /
+# eggerRegression / weightedMedianMr, asserted in src/lib/deepDiveExamples.test.ts.
+SWEEP_IVW = [0.3000, 0.3231, 0.3504, 0.3651, 0.3818, 0.4007, 0.4217, 0.4469, 0.4784]
+SWEEP_EGG = [0.3000, 0.3150, 0.4103, 0.2649, 0.1596, 0.0945, 0.0694, 0.1246, 0.3000]
+SWEEP_MED = [0.3000, 0.3000, 0.3000, 0.3000, 0.3000, 0.3937, 0.4583, 0.4679, 0.4679]
+
+a3 = Axes(104.0, 424.0, 40.0, 236.0, (0, 8), (0.0, 0.50))
+q = [a3.frame()]
+q.append(a3.ygrid([0, 0.1, 0.2, 0.3, 0.4, 0.5],
+                  ['0', '0.1', '0.2', '0.3', '0.4', '0.5'], size=10, emphasise=(0.3,)))
+q.append(a3.xticks(list(range(9)), [str(i) for i in range(9)], size=10))
+# the median lies exactly on the truth for k <= 4, so the label goes where they have parted
+q.append(text(a3.px(5.55), a3.py(0.262), 'truth 0.30', 10, opacity='.85', weight='600'))
+
+for vals, stroke, dash, w, op in ((SWEEP_MED, 'currentColor', '2 3', 2.0, '.6'),
+                                  (SWEEP_EGG, 'currentColor', '5 3', 2.0, '.8'),
+                                  (SWEEP_IVW, ACCENT, None, 2.6, None)):
+    q.append(path([(a3.px(i), a3.py(v)) for i, v in enumerate(vals)],
+                  width=w, stroke=stroke, dash=dash, opacity=op))
+    for i, v in enumerate(vals):
+        q.append(circle(a3.px(i), a3.py(v), 3.0,
+                        fill=stroke if stroke == ACCENT else 'currentColor',
+                        opacity=None if stroke == ACCENT else op))
+
+q.append(line(a3.px(4.5), a3.py(0.0), a3.px(4.5), a3.py(0.50), 1.4, opacity='.45', dash='4 4'))
+q.append(text(a3.px(4.4), a3.py(0.075), 'half the instruments', 10, anchor='end', opacity='.8'))
+q.append(circle(a3.px(5), a3.py(0.3937), 5.4, fill=None, stroke='currentColor', sw=1.8))
+
+q.append(text((a3.x0 + a3.x1) / 2, a3.py(0.0) + 42,
+              'Number of the eight instruments that are pleiotropic', 12, anchor='middle'))
+q.append(text(a3.x0 - 78, 24, 'Causal effect the estimator returns', 10.5, opacity='.85'))
+
+LX3 = a3.x1 + 30
+for i, (lab, dash, op) in enumerate((('IVW', None, None), ('MR-Egger', '5 3', '.8'),
+                                     ('weighted median', '2 3', '.6'))):
+    yy = 40 + 17 * i
+    solid = dash is None
+    q.append(line(LX3, yy - 4, LX3 + 22, yy - 4, 2.6 if solid else 2.0,
+                  stroke=ACCENT if solid else 'currentColor', dash=dash, opacity=op))
+    q.append(text(LX3 + 30, yy, lab, 10, fill=ACCENT if solid else 'currentColor',
+                  opacity=op, weight='600' if solid else None))
+
+q.append(text(LX3, 112, 'Three ways of being wrong.', 11, weight='700'))
+for i, t in enumerate([
+        'IVW degrades smoothly and never',
+        'recovers: 0.3000 to 0.4784 as the',
+        'pleiotropy spreads.', '',
+        'The weighted median is EXACT -',
+        '0.3000 to four places - while the',
+        'bad instruments are a minority,',
+        'and breaks the moment they are',
+        'half: 0.3937 at five of eight.',
+        'That is its assumption, drawn.', '',
+        'MR-Egger is the strange one. It is',
+        'exact at both ends and worst in',
+        'the middle, reaching 0.0694 at six.',
+        'At eight the pleiotropy is uniform,',
+        'the intercept absorbs all of it and',
+        'Egger returns exactly 0.3000 - where',
+        'IVW is at its worst.', '',
+        'No estimator dominates. Which one',
+        'is safe depends on a fact about the',
+        'pleiotropy you cannot observe.']):
+    q.append(text(LX3, 134 + 13 * i, t, 10, opacity='.8'))
+
+_sweep = svg(772, 420, ''.join(q))
+print('fig3 bytes:', write(os.path.join(OUT, 'statgen-mr-estimators.svg'), _sweep))
+splice(MDX, 2, _sweep)
