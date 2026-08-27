@@ -38,6 +38,8 @@ referenceIds:
   - verbanck2018presso
   - davies2018reading
   - brumpton2020withinfamily
+  - sanderson2019mvmr
+  - hemani2017steiger
 tags: [Mendelian randomization, instrumental variables, pleiotropy, MR-Egger, weighted median, causal inference]
 ---
 
@@ -46,6 +48,7 @@ import Notation from '../../components/deepdive/Notation.astro';
 import WorkedExample from '../../components/deepdive/WorkedExample.astro';
 import Exercise from '../../components/deepdive/Exercise.astro';
 import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
 import Citation from '../../components/deepdive/Citation.astro';
 
 ## The question this lesson answers
@@ -271,6 +274,23 @@ pleiotropy" — as papers do — states almost nothing.
 <svg viewBox="0 0 640 312" width="640" height="312" font-family="inherit"><line x1="178.0" y1="54.0" x2="178.0" y2="176.0" stroke="currentColor" stroke-width="1.25"/><line x1="178.0" y1="176.0" x2="470.0" y2="176.0" stroke="currentColor" stroke-width="1.25"/><line x1="214.5" y1="176.0" x2="214.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="214.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="287.5" y1="176.0" x2="287.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="287.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="360.5" y1="176.0" x2="360.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="360.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="433.5" y1="176.0" x2="433.5" y2="181.0" stroke="currentColor" stroke-width="1"/><text x="433.5" y="194.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.6</text><line x1="324.0" y1="176.0" x2="324.0" y2="54.0" stroke="currentColor" stroke-width="1.4" opacity=".5" stroke-dasharray="4 3"/><text x="324.0" y="46.0" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".75">the true causal effect, 0.30</text><line x1="333.8" y1="79.1" x2="361.7" y2="79.1" stroke="currentColor" stroke-width="1.8" opacity=".6"/><line x1="333.8" y1="74.1" x2="333.8" y2="84.1" stroke="currentColor" stroke-width="1.8" opacity=".6"/><line x1="361.7" y1="74.1" x2="361.7" y2="84.1" stroke="currentColor" stroke-width="1.8" opacity=".6"/><circle cx="347.7" cy="79.1" r="6.0" fill="currentColor"/><text x="166.0" y="83.1" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">IVW</text><text x="482.0" y="83.1" font-size="10.5" fill="currentColor" font-weight="600">0.3651</text><line x1="198.4" y1="115.0" x2="424.0" y2="115.0" stroke="currentColor" stroke-width="1.8" opacity=".6"/><line x1="198.4" y1="110.0" x2="198.4" y2="120.0" stroke="currentColor" stroke-width="1.8" opacity=".6"/><line x1="424.0" y1="110.0" x2="424.0" y2="120.0" stroke="currentColor" stroke-width="1.8" opacity=".6"/><circle cx="311.2" cy="115.0" r="6.0" fill="currentColor"/><text x="166.0" y="119.0" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">MR-Egger</text><text x="482.0" y="119.0" font-size="10.5" fill="currentColor" font-weight="600">0.2649</text><circle cx="324.0" cy="150.9" r="6.0" fill="var(--color-accent, #2e6e5e)"/><text x="166.0" y="154.9" font-size="10.5" fill="currentColor" text-anchor="end" font-weight="600">weighted median</text><text x="482.0" y="154.9" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">0.3000</text><text x="30.0" y="244.0" font-size="10.5" fill="currentColor" opacity=".85">IVW is off by 21.7% because it must pass through the origin and three</text><text x="30.0" y="260.0" font-size="10.5" fill="currentColor" opacity=".85">instruments do not. Egger frees the intercept and lands near the truth,</text><text x="30.0" y="276.0" font-size="10.5" fill="currentColor" opacity=".85">but its interval spans 0 to 0.57. The median needs only that a majority</text><text x="30.0" y="292.0" font-size="10.5" fill="currentColor" opacity=".85">of weight sits on valid instruments — here it does, and it is exact.</text><text x="324.0" y="216.0" font-size="12" fill="currentColor" text-anchor="middle">Estimated causal effect (95% CI)</text><text x="20.0" y="22.0" font-size="11.5" fill="currentColor" opacity=".8">Three estimators, one dataset: bias and precision trade against each other</text></svg>
 </Figure>
 
+<Figure
+  caption="Figure 3. The same eight instruments with the pleiotropic shift spread over more and more of them — the worked example's three first, so the count of three reproduces the table above. Each estimator fails in a different shape. Inverse-variance weighting degrades smoothly from 0.3000 to 0.4784 and never recovers. The weighted median is exact to four places while the bad instruments are a minority and breaks the moment they are half, at 0.3937 for five of eight — its assumption made visible. MR-Egger is the strange one: worst in the middle at 0.0694, and exact at both ends, because when all eight carry the same shift the intercept absorbs it entirely and the slope returns 0.3000 — precisely where IVW is at its worst."
+  alt="Three series against the number of pleiotropic instruments from zero to eight, with a horizontal reference line at 0.30. One rises steadily across the whole range. One stays flat on the reference line until five and then jumps above it, with the jump ringed. The third dips far below the line in the middle and returns to it at both ends. A vertical dashed line marks the halfway point."
+  wide
+>
+
+<svg viewBox="0 0 772 420" width="772" height="420" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="104.0" y1="196.8" x2="424.0" y2="196.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="200.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.1</text><line x1="104.0" y1="157.6" x2="424.0" y2="157.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="161.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.2</text><line x1="104.0" y1="118.4" x2="424.0" y2="118.4" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="96.0" y="122.4" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.3</text><line x1="104.0" y1="79.2" x2="424.0" y2="79.2" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="83.2" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.4</text><line x1="104.0" y1="40.0" x2="424.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.5</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="144.0" y1="236.0" x2="144.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="144.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="184.0" y1="236.0" x2="184.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="184.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="224.0" y1="236.0" x2="224.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="224.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">3</text><line x1="264.0" y1="236.0" x2="264.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="264.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">4</text><line x1="304.0" y1="236.0" x2="304.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="304.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="344.0" y1="236.0" x2="344.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="344.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">6</text><line x1="384.0" y1="236.0" x2="384.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="384.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">7</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">8</text><text x="326.0" y="133.3" font-size="10" fill="currentColor" opacity=".85" font-weight="600">truth 0.30</text><path d="M104.0,118.4 L144.0,118.4 L184.0,118.4 L224.0,118.4 L264.0,118.4 L304.0,81.7 L344.0,56.3 L384.0,52.6 L424.0,52.6" fill="none" stroke="currentColor" stroke-width="2.0" stroke-dasharray="2 3" opacity=".6"/><circle cx="104.0" cy="118.4" r="3.0" fill="currentColor" opacity=".6"/><circle cx="144.0" cy="118.4" r="3.0" fill="currentColor" opacity=".6"/><circle cx="184.0" cy="118.4" r="3.0" fill="currentColor" opacity=".6"/><circle cx="224.0" cy="118.4" r="3.0" fill="currentColor" opacity=".6"/><circle cx="264.0" cy="118.4" r="3.0" fill="currentColor" opacity=".6"/><circle cx="304.0" cy="81.7" r="3.0" fill="currentColor" opacity=".6"/><circle cx="344.0" cy="56.3" r="3.0" fill="currentColor" opacity=".6"/><circle cx="384.0" cy="52.6" r="3.0" fill="currentColor" opacity=".6"/><circle cx="424.0" cy="52.6" r="3.0" fill="currentColor" opacity=".6"/><path d="M104.0,118.4 L144.0,112.5 L184.0,75.2 L224.0,132.2 L264.0,173.4 L304.0,199.0 L344.0,208.8 L384.0,187.2 L424.0,118.4" fill="none" stroke="currentColor" stroke-width="2.0" stroke-dasharray="5 3" opacity=".8"/><circle cx="104.0" cy="118.4" r="3.0" fill="currentColor" opacity=".8"/><circle cx="144.0" cy="112.5" r="3.0" fill="currentColor" opacity=".8"/><circle cx="184.0" cy="75.2" r="3.0" fill="currentColor" opacity=".8"/><circle cx="224.0" cy="132.2" r="3.0" fill="currentColor" opacity=".8"/><circle cx="264.0" cy="173.4" r="3.0" fill="currentColor" opacity=".8"/><circle cx="304.0" cy="199.0" r="3.0" fill="currentColor" opacity=".8"/><circle cx="344.0" cy="208.8" r="3.0" fill="currentColor" opacity=".8"/><circle cx="384.0" cy="187.2" r="3.0" fill="currentColor" opacity=".8"/><circle cx="424.0" cy="118.4" r="3.0" fill="currentColor" opacity=".8"/><path d="M104.0,118.4 L144.0,109.3 L184.0,98.6 L224.0,92.9 L264.0,86.3 L304.0,78.9 L344.0,70.7 L384.0,60.8 L424.0,48.5" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><circle cx="104.0" cy="118.4" r="3.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="144.0" cy="109.3" r="3.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="184.0" cy="98.6" r="3.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="224.0" cy="92.9" r="3.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="264.0" cy="86.3" r="3.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="304.0" cy="78.9" r="3.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="344.0" cy="70.7" r="3.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="384.0" cy="60.8" r="3.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="424.0" cy="48.5" r="3.0" fill="var(--color-accent, #2e6e5e)"/><line x1="284.0" y1="236.0" x2="284.0" y2="40.0" stroke="currentColor" stroke-width="1.4" opacity=".45" stroke-dasharray="4 4"/><text x="280.0" y="206.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">half the instruments</text><circle cx="304.0" cy="81.7" r="5.4" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Number of the eight instruments that are pleiotropic</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Causal effect the estimator returns</text><line x1="454.0" y1="36.0" x2="476.0" y2="36.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><text x="484.0" y="40.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">IVW</text><line x1="454.0" y1="53.0" x2="476.0" y2="53.0" stroke="currentColor" stroke-width="2.0" opacity=".8" stroke-dasharray="5 3"/><text x="484.0" y="57.0" font-size="10" fill="currentColor" opacity=".8">MR-Egger</text><line x1="454.0" y1="70.0" x2="476.0" y2="70.0" stroke="currentColor" stroke-width="2.0" opacity=".6" stroke-dasharray="2 3"/><text x="484.0" y="74.0" font-size="10" fill="currentColor" opacity=".6">weighted median</text><text x="454.0" y="112.0" font-size="11" fill="currentColor" font-weight="700">Three ways of being wrong.</text><text x="454.0" y="134.0" font-size="10" fill="currentColor" opacity=".8">IVW degrades smoothly and never</text><text x="454.0" y="147.0" font-size="10" fill="currentColor" opacity=".8">recovers: 0.3000 to 0.4784 as the</text><text x="454.0" y="160.0" font-size="10" fill="currentColor" opacity=".8">pleiotropy spreads.</text><text x="454.0" y="173.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="186.0" font-size="10" fill="currentColor" opacity=".8">The weighted median is EXACT -</text><text x="454.0" y="199.0" font-size="10" fill="currentColor" opacity=".8">0.3000 to four places - while the</text><text x="454.0" y="212.0" font-size="10" fill="currentColor" opacity=".8">bad instruments are a minority,</text><text x="454.0" y="225.0" font-size="10" fill="currentColor" opacity=".8">and breaks the moment they are</text><text x="454.0" y="238.0" font-size="10" fill="currentColor" opacity=".8">half: 0.3937 at five of eight.</text><text x="454.0" y="251.0" font-size="10" fill="currentColor" opacity=".8">That is its assumption, drawn.</text><text x="454.0" y="264.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="277.0" font-size="10" fill="currentColor" opacity=".8">MR-Egger is the strange one. It is</text><text x="454.0" y="290.0" font-size="10" fill="currentColor" opacity=".8">exact at both ends and worst in</text><text x="454.0" y="303.0" font-size="10" fill="currentColor" opacity=".8">the middle, reaching 0.0694 at six.</text><text x="454.0" y="316.0" font-size="10" fill="currentColor" opacity=".8">At eight the pleiotropy is uniform,</text><text x="454.0" y="329.0" font-size="10" fill="currentColor" opacity=".8">the intercept absorbs all of it and</text><text x="454.0" y="342.0" font-size="10" fill="currentColor" opacity=".8">Egger returns exactly 0.3000 - where</text><text x="454.0" y="355.0" font-size="10" fill="currentColor" opacity=".8">IVW is at its worst.</text><text x="454.0" y="368.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="381.0" font-size="10" fill="currentColor" opacity=".8">No estimator dominates. Which one</text><text x="454.0" y="394.0" font-size="10" fill="currentColor" opacity=".8">is safe depends on a fact about the</text><text x="454.0" y="407.0" font-size="10" fill="currentColor" opacity=".8">pleiotropy you cannot observe.</text></svg>
+
+</Figure>
+
+<Widget
+  kind="mr-pleiotropy"
+  title="Spread the pleiotropy and watch which estimator survives"
+  caption="The lesson's eight instruments, with the true effect, the size of the pleiotropic shift and how many instruments carry it all on sliders. At the default — three instruments, a shift of 0.02, a true effect of 0.30 — the readouts reproduce the table above exactly. Push the count to five and the weighted median gives up; push it to eight and MR-Egger becomes exact while IVW is at its worst."
+  alt="An interactive panel with sliders for the true causal effect, the size of the pleiotropic shift and how many of the eight instruments carry it. It plots each instrument's effect on the exposure against its effect on the outcome, draws the inverse-variance-weighted, MR-Egger and weighted-median fits together with the true line, and reports each estimate with its percentage error and the Egger intercept."
+/>
+
 <Callout variant="warning" title="Agreement between methods is weak evidence, and disagreement is strong">
 
 The standard practice is to report IVW alongside Egger, the weighted median and
@@ -289,6 +309,71 @@ Concordance across methods that share an assumption is not independent confirmat
 
 <Citation id="davies2018reading" /> is the practical guide to reading these studies, and its
 recommendations are mostly about what to look at besides the point estimate.
+
+</Callout>
+
+## Three things the two-variable picture leaves out
+
+Everything so far has one exposure, one outcome and instruments taken as given. Each of those
+is an assumption, and each has a standard repair.
+
+### The exposure is not the only thing the instrument moves
+
+Assumption 3 says the instrument affects the outcome only through the exposure. When a variant
+plausibly acts through a *second* measured trait — body-mass index and lipids share instruments
+constantly — the honest response is not to hope, but to condition.
+
+**Multivariable MR** <Citation id="sanderson2019mvmr" /> extends the weighted regression to
+several exposures at once, fitting
+
+$$
+\hat\gamma_Y = \beta_1 \hat\gamma_{X_1} + \beta_2 \hat\gamma_{X_2} + \varepsilon
+$$
+
+so each coefficient is the effect of one exposure holding the other fixed. This does not remove
+assumption 3; it *narrows* it, from "no path except through the exposure" to "no path except
+through the exposures in the model". That is a weaker claim and therefore a better one, and it
+comes at the usual price — the instruments must now be strong for each exposure *conditionally*,
+which is a stricter requirement than being strong for either alone.
+
+### The arrow might point the other way
+
+Nothing in the algebra distinguishes "X causes Y" from "Y causes X". Both give a variant that
+associates with both traits, and the ratio $\hat\gamma_Y/\hat\gamma_X$ is computable either way.
+
+**Steiger filtering** <Citation id="hemani2017steiger" /> resolves this by asking which trait
+the variant explains *better*. If the instrument is a genuine cause of X and X causes Y, the variant's correlation
+with X should exceed its correlation with Y, because the effect on Y is transmitted through X and
+attenuated by everything else that affects Y. Comparing the two correlations gives a directional
+test, and instruments failing it are dropped.
+
+The caveat is in the paper's title: *imprecisely measured* traits. If Y is measured much more
+accurately than X, the correlation comparison can favour Y even when X is the cause, so the
+test's answer depends on measurement error in both traits.
+
+### The instruments were chosen by looking at the data
+
+This one is quantifiable. Genome-wide significance is a selection rule, and a variant selected
+at $5\times10^{-8}$ has an inflated $\hat\gamma_X$ — the winner's curse of the meta-analysis
+lesson, applied to the denominator of a ratio.
+
+<Callout variant="key" title="Selection biases the causal estimate toward the null">
+
+$\hat\beta_{\mathrm{Wald}} = \hat\gamma_Y/\hat\gamma_X$, so an inflated denominator makes
+the ratio too **small**. Conditioning on $|z| > 5.4513$, the expected inflation of an
+instrument whose true $z$ is 5.6 — one that just cleared the bar — is a factor of 1.1260,
+which biases the causal estimate 11.2% low. At a true $z$ of 6 it is 7.5%, at 7 it is 1.8%,
+and by 8 it has effectively vanished.
+
+Two things follow. The bias is worst for the marginal instruments, which are the ones a larger
+scan keeps adding. And it runs **toward the null**, which is the opposite direction from the
+pleiotropy above — so a study with both may report something close to the truth for entirely
+the wrong reasons.
+
+The fix is the same as everywhere else: select instruments in one sample and estimate
+$\hat\gamma_X$ in another. Two-sample MR with non-overlapping cohorts does this by
+construction, which is one of its real advantages over the one-sample design and not merely a
+convenience.
 
 </Callout>
 
@@ -401,6 +486,64 @@ or assortative-mating confounding, which a within-sibship analysis would test an
 three sensitivity analyses touches.
 
 </div>
+</Exercise>
+
+<Exercise n={4} title="Which estimator, and on what evidence?" difficulty="stretch">
+
+Using Figure 3: (a) at four pleiotropic instruments of eight, which estimator is closest to
+the truth and which is furthest? (b) At eight of eight the answer reverses completely — explain
+why. (c) A referee asks you to "use the most robust method". What is wrong with the request?
+
+<div slot="solution">
+
+**(a)** The weighted median is exact at 0.3000; MR-Egger is furthest at 0.1596, wrong by 47%
+and in the *opposite* direction from IVW's 0.3818.
+
+**(b)** At eight of eight every instrument carries the same $+0.02$, so the pleiotropy is
+perfectly directional and constant. That is exactly what Egger's intercept is built to absorb:
+the intercept takes the whole $0.02$ and the slope returns 0.3000. The weighted median, which
+assumes a *majority* of instruments are valid, now has none and returns 0.4679. IVW, forced
+through the origin, is at its worst at 0.4784.
+
+**(c)** There is no most robust method, only methods robust to different violations. Egger
+needs pleiotropy to be directional and uncorrelated with instrument strength; the median needs
+the invalid instruments to be a minority; IVW needs no pleiotropy at all. Each is exactly right
+where its own assumption holds and can be the worst of the three where it does not. Choosing
+between them requires a belief about the pleiotropy, which is unobserved — which is why the
+useful output of an MR analysis is the *pattern* across estimators, not one number from the one
+that sounds safest.
+
+</div>
+
+</Exercise>
+
+<Exercise n={5} title="Two biases pointing in opposite directions" difficulty="stretch">
+
+A two-sample MR uses instruments selected at $5\times10^{-8}$ in the same cohort that estimated
+$\hat\gamma_X$. Several instruments sit just past the threshold, and there is also modest
+positive directional pleiotropy. (a) Which way does each bias push? (b) The reported estimate
+comes out very close to the observational association. What should you conclude? (c) What
+single design change removes one of the two?
+
+<div slot="solution">
+
+**(a)** The winner's curse inflates $\hat\gamma_X$, so the ratio $\hat\gamma_Y/\hat\gamma_X$
+is biased **toward the null** — 11.2% low for an instrument whose true $z$ is 5.6. Directional
+pleiotropy adds a constant to $\hat\gamma_Y$, which IVW can only absorb by tilting the line, so
+it biases the estimate **away from the null**.
+
+**(b)** Nothing reassuring. Two biases of opposite sign can cancel to any degree, so an estimate
+that looks sensible is not evidence that either is absent — and the cancellation is a
+coincidence of magnitudes that will not survive a change of instrument set. Agreement with the
+observational association is particularly weak evidence here, since confounding is what MR was
+brought in to escape.
+
+**(c)** Split the samples: select the instruments in one cohort and estimate $\hat\gamma_X$ in
+another. That removes the winner's curse entirely and leaves the pleiotropy, which the estimator
+comparison in Figure 3 can then speak to without a second bias confusing it.
+
+</div>
+
 </Exercise>
 
 ## Summary

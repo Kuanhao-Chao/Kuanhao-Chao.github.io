@@ -2814,10 +2814,12 @@ const mrPleiotropy: Renderer = (canvas, controlHost, readoutHost) => {
     const truth = c.get('truth');
     const shift = c.get('shift');
     const k = Math.round(c.get('k'));
-    // the k weakest instruments carry the pleiotropy, which is where it does most damage
-    const order = GX.map((g, i) => i).sort((a, b) => GX[a] - GX[b]);
+    // The lesson's own three instruments come first, so the panel's default state (k = 3,
+    // shift = 0.02, truth = 0.30) reproduces the worked example exactly: 0.3651, 0.2649,
+    // 0.3000. The remaining five are added weakest-first, where pleiotropy does most damage.
+    const ORDER = [5, 6, 7, 2, 4, 0, 1, 3];
     const pleio = GX.map(() => 0);
-    for (let i = 0; i < k; i += 1) pleio[order[i]] = shift;
+    for (let i = 0; i < k; i += 1) pleio[ORDER[i]] = shift;
     const GY = GX.map((g, i) => truth * g + pleio[i]);
 
     const ivw = ivwMr(GX, GY, SEY);
