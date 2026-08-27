@@ -16,6 +16,7 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const d = entry.data;
 const { Content } = await render(entry);
+const ogImage = d.image?.src;
 const relatedPosts = await resolveRelatedPosts(d.relatedPosts.map((r) => r.id));
 const publicationsById = new Map(
   (await getCollection('publications')).map((item) => [item.id, item])
@@ -66,6 +67,7 @@ const breadcrumbLd = {
   description={d.summary}
   links={links}
   relatedPosts={relatedPosts}
+  image={ogImage}
 >
   <div class="research-motif"><ResearchMotif id={entry.id} /></div>
   <Prose>
