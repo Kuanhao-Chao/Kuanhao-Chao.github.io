@@ -98,6 +98,7 @@ export const DEEP_DIVE_ORDER: string[] = [
   'statgen-rare-variant-association',
   'statgen-meta-analysis-replication',
   'statgen-bayesian-fine-mapping',
+  'statgen-molecular-qtl-twas',
   'statgen-polygenic-risk-scores',
   'statgen-mendelian-randomization',
   'statgen-deep-learning-synthesis',

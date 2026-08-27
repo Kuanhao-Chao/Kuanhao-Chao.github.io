@@ -90,6 +90,10 @@ import {
   ehhHalfLength,
   sweepAgeAnomaly,
   sidakThreshold,
+  predictedExpressionCorrelation,
+  twasFalsePositiveProbability,
+  twasCriticalCorrelation,
+  twasNullZ,
   assortativeEquilibrium,
   sibBreedingValueCorrelation,
   falconerUnderAssortment,
@@ -8886,6 +8890,99 @@ describe('statgen-within-family', () => {
       expect(mdx).toContain('\\sqrt{0.15}');
       expect(mdx).toContain('1{,}291{,}000');
     });
+  });
+});
+
+describe('statgen-molecular-qtl-twas', () => {
+  const mdx = lesson('statgen-molecular-qtl-twas');
+  const G = 20_000;
+
+  describe('worked example — a causal statistic of 8', () => {
+    it('has the threshold and the critical correlation', () => {
+      expect(twasCriticalCorrelation(1, G).toFixed(4)).toBe('4.7081');
+      expect(twasCriticalCorrelation(8, G).toFixed(4)).toBe('0.5885');
+      expect(mdx).toContain('4.7081');
+      expect(mdx).toContain('0.5885');
+    });
+
+    it('LOWERS the critical correlation as the causal signal rises', () => {
+      const rs = [6, 8, 10, 15].map((z) => twasCriticalCorrelation(z, G));
+      expect(rs.map((r) => r.toFixed(4))).toEqual(['0.7847', '0.5885', '0.4708', '0.3139']);
+      for (let i = 1; i < rs.length; i += 1) expect(rs[i]).toBeLessThan(rs[i - 1]);
+      for (const v of ['0.7847', '0.4708', '0.3139']) expect(mdx).toContain(v);
+      expect(mdx).toContain('falls as the signal strengthens');
+    });
+
+    it('has the probability table the lesson tabulates', () => {
+      const rows: [number, string, string][] = [
+        [0.5, '4.00', '0.2394'], [0.6, '4.80', '0.5366'], [0.7, '5.60', '0.8138'],
+        [0.8, '6.40', '0.9547'], [0.9, '7.20', '0.9936']];
+      for (const [r, ez, p] of rows) {
+        expect(twasNullZ(r, 8).toFixed(2)).toBe(ez);
+        expect(twasFalsePositiveProbability(r, 8, G).toFixed(4)).toBe(p);
+        expect(mdx).toContain(ez);
+        expect(mdx).toContain(p);
+      }
+      expect(mdx).toContain('95.47%');
+    });
+
+    it('crosses one half exactly at the critical correlation', () => {
+      for (const z of [6, 8, 10]) {
+        expect(twasFalsePositiveProbability(twasCriticalCorrelation(z, G), z, G))
+          .toBeCloseTo(0.5, 6);
+      }
+    });
+  });
+
+  describe('the identity the lesson turns on', () => {
+    it('makes the two genes correlate as their predicted expression does', () => {
+      // exponential-decay LD over six variants; two genes on shifted weight vectors
+      const ld = Array.from({ length: 12 }, (_, i) =>
+        Array.from({ length: 12 }, (_, j) => 0.92 ** Math.abs(i - j)));
+      const wA = [0, 0, 1, 0.6, 0.35, 0, 0, 0, 0, 0, 0, 0];
+      const shifted = (k: number) => wA.map((_, i) => wA[(i - k + 12) % 12]);
+      const rs = [0, 2, 4, 6].map((k) => predictedExpressionCorrelation(wA, shifted(k), ld));
+      expect(rs[0]).toBeCloseTo(1, 12);
+      for (let i = 1; i < rs.length; i += 1) expect(rs[i]).toBeLessThan(rs[i - 1]);
+      // the lesson quotes the simulated block
+      for (const v of ['0.906', '0.767', '0.649', '0.465', '0.202']) expect(mdx).toContain(v);
+    });
+  });
+
+  describe('exercises', () => {
+    it('exercise 1 — critical correlation at two signal strengths', () => {
+      expect(twasCriticalCorrelation(5.5, G).toFixed(4)).toBe('0.8560');
+      expect(twasCriticalCorrelation(12, G).toFixed(4)).toBe('0.3923');
+      expect(mdx).toContain('0.8560');
+      expect(mdx).toContain('0.3923');
+    });
+
+    it('exercise 2 — four genes, and the ranking question done with the correlation', () => {
+      expect(twasCriticalCorrelation(9, G).toFixed(4)).toBe('0.5231');
+      for (const [r, ez] of [[1.0, '9.00'], [0.88, '7.92'], [0.71, '6.39'], [0.34, '3.06']] as const) {
+        expect(twasNullZ(r, 9).toFixed(2)).toBe(ez);
+        expect(mdx).toContain(ez);
+      }
+      expect(twasFalsePositiveProbability(0.34, 9, G).toFixed(4)).toBe('0.0497');
+      expect(mdx).toContain('0.0497');
+      // the ranking probability MUST account for the correlation between the two statistics:
+      // Var(z_A - z_B) = 2 - 2r, not 2. Treating them as independent gives 0.2225, sixteen
+      // times too pessimistic.
+      const r = 0.88;
+      const sd = Math.sqrt(2 - 2 * r);
+      expect(sd.toFixed(4)).toBe('0.4899');
+      expect(normalCdf(-(9 - r * 9) / sd).toFixed(4)).toBe('0.0137');
+      expect(normalCdf(-(9 - r * 9) / Math.SQRT2).toFixed(4)).toBe('0.2225');
+      expect(mdx).toContain('0.4899');
+      expect(mdx).toContain('0.0137');
+      expect(mdx).toContain('0.2225');
+      expect(mdx).not.toContain('roughly a fifth of the time');
+    });
+  });
+
+  it('defers practice and colocalisation rather than re-deriving them', () => {
+    expect(mdx).toContain('giambartolomei2014coloc');
+    expect(mdx).toContain('previous lesson');
   });
 });
 

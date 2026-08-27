@@ -1,0 +1,375 @@
+---
+title: "Molecular QTLs and TWAS: Why a Transcriptome-Wide Hit Names a Locus, Not a Gene"
+shortTitle: Molecular QTLs & TWAS
+description: "Expression as an intermediate phenotype, the transcriptome-wide association statistic built from it, and the exact reason that statistic implicates innocent genes — with the correlation above which a neighbour inherits significance, and the inversion that makes a stronger locus implicate more of them."
+abstract: "Fine-mapping resolves an association into a set of variants. It does not name a gene, and the method most used to bridge that gap has a failure mode that is exactly computable. A TWAS statistic is a weighted sum of GWAS z-scores, w′Z/√(w′Rw), with the weights predicted from an expression reference. Under the null Z is normal with covariance R, so the covariance of two genes' statistics is w_g′R w_h over the same normalisation that predicted expression carries: the correlation between two genes' TWAS statistics *is* the correlation between their predicted expression. One quantity, two roles. If the trait acts through gene A the mean z-vector is proportional to R w_A, and the ratio of the two genes' expected statistics reduces to that same correlation exactly — a null gene inherits E[z] = r·z_causal. Against the 0.05/20,000 threshold of |z| > 4.7081 the critical correlation is 4.7081/z_causal, which **falls** as the signal strengthens: 0.7847 at z = 6, 0.5885 at z = 8, 0.3139 at z = 15. A stronger locus implicates more innocent genes, not fewer. As a probability rather than an expectation, a gene with no causal role at r = 0.8 reaches transcriptome-wide significance 95.47% of the time, and in a realistic LD block a gene whose eQTLs sit four variants away already carries r = 0.767."
+date: 2026-08-26
+track: theory
+hub: statistical-genetics
+moduleId: m05-inference
+moduleLabel: Module 5 · Inference, Prediction & Causality
+order: 18
+level: advanced
+objectives:
+  - "Write down the TWAS statistic and say what its weights and its normalisation are."
+  - "Show that the correlation between two genes' TWAS statistics equals the correlation between their predicted expression."
+  - "Derive the statistic a non-causal gene inherits from a causal neighbour, and the correlation above which it reaches significance."
+  - "Explain why that critical correlation falls as the causal signal strengthens."
+  - "Distinguish what TWAS answers from what colocalisation answers, and say which question each leaves open."
+prerequisites:
+  - statgen-bayesian-fine-mapping
+relatedLessons:
+  - statgen-bayesian-fine-mapping
+  - statgen-linkage-disequilibrium
+keyEquations:
+  - 'z_g = \frac{\mathbf{w}_g^{\!\top}\mathbf{Z}}{\sqrt{\mathbf{w}_g^{\!\top}\mathbf{R}\,\mathbf{w}_g}}'
+  - '\mathrm{Cor}(z_g, z_h) = \frac{\mathbf{w}_g^{\!\top}\mathbf{R}\,\mathbf{w}_h}{\sqrt{(\mathbf{w}_g^{\!\top}\mathbf{R}\mathbf{w}_g)(\mathbf{w}_h^{\!\top}\mathbf{R}\mathbf{w}_h)}}'
+  - 'r^{*} = \frac{z_{\alpha/2G}}{z_{\mathrm{causal}}}'
+referenceIds:
+  - gamazon2015predixcan
+  - gusev2016fusion
+  - wainberg2019twas
+  - mancuso2019focus
+  - zhu2016smr
+  - giambartolomei2014coloc
+  - gtex2020
+tags: [TWAS, eQTL, molecular QTL, transcriptome, gene prioritisation, linkage disequilibrium]
+---
+
+import Callout from '../../components/deepdive/Callout.astro';
+import Notation from '../../components/deepdive/Notation.astro';
+import WorkedExample from '../../components/deepdive/WorkedExample.astro';
+import Exercise from '../../components/deepdive/Exercise.astro';
+import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
+import Citation from '../../components/deepdive/Citation.astro';
+
+## The question this lesson answers
+
+The previous lesson took an association and resolved it into a credible set of variants. That
+is progress and it is not an answer, because a set of variants in an intergenic region names
+nothing a biologist can work on. The question everyone actually wants answered is *which gene*.
+
+The most-used bridge is to put expression in between. Genotype affects expression; expression
+affects the trait; so find the gene whose predicted expression associates with the trait.
+That is a transcriptome-wide association study, and it works well enough to be standard.
+
+It also has a failure mode that is not a caveat but a theorem. This lesson derives it. The
+practical machinery — running the scan, reading the output, choosing a reference panel — is
+the GWAS track's; the colocalisation framework that TWAS is often compared against belongs to
+the previous lesson. What is here is the statistic and what it is entitled to claim.
+
+<Notation
+  rows={[
+    { symbol: '\\mathbf{Z}', meaning: 'GWAS z-scores at the variants of one locus', dims: 'p × 1' },
+    { symbol: '\\mathbf{R}', meaning: 'LD correlation matrix among those variants', dims: 'p × p' },
+    { symbol: '\\mathbf{w}_g', meaning: 'eQTL weights predicting gene g’s expression from those variants', dims: 'p × 1' },
+    { symbol: 'z_g', meaning: 'TWAS statistic for gene g', dims: 'standard normal' },
+    { symbol: 'r', meaning: 'Correlation between two genes’ predicted expression', dims: 'correlation' },
+    { symbol: 'z_{\\mathrm{causal}}', meaning: 'TWAS statistic at the gene that really acts', dims: 'standard normal' },
+    { symbol: 'r^{*}', meaning: 'Correlation above which a null gene reaches significance', dims: 'correlation' },
+    { symbol: 'G', meaning: 'Number of genes tested', dims: 'count' },
+  ]}
+/>
+
+## The statistic
+
+An expression reference — <Citation id="gtex2020" /> is the usual one — gives, for each gene, a
+set of weights $\mathbf{w}_g$ predicting its expression from nearby genotypes. Predicted
+expression in the GWAS cohort is then $\mathbf{X}\mathbf{w}_g$, and its association with the
+trait can be formed from summary statistics alone:
+
+$$
+z_g = \frac{\mathbf{w}_g^{\!\top}\mathbf{Z}}{\sqrt{\mathbf{w}_g^{\!\top}\mathbf{R}\,\mathbf{w}_g}}
+$$
+
+This is PrediXcan <Citation id="gamazon2015predixcan" /> and FUSION
+<Citation id="gusev2016fusion" />, which differ in how the weights are fitted and not in the
+statistic. Under the null $\mathbf{Z} \sim \mathcal{N}(\mathbf{0}, \mathbf{R})$, so
+$\mathrm{Var}(\mathbf{w}_g^{\!\top}\mathbf{Z}) = \mathbf{w}_g^{\!\top}\mathbf{R}\mathbf{w}_g$
+and $z_g$ is standard normal. That is the whole appeal: no individual-level data, one number
+per gene, tested like any other association.
+
+<Callout variant="intuition" title="Two genes at a locus are predicted from overlapping evidence">
+
+The weights come from eQTLs, and eQTLs are variants. Two genes a hundred kilobases apart are
+predicted from variants that sit in the same LD block — sometimes literally the same variants,
+often different ones that tag each other well.
+
+So the two predicted expressions are two weighted sums of largely the same numbers. They have
+to correlate, and the correlation has nothing to do with whether the genes are biologically
+related, co-regulated or even transcribed in the same direction. It is a property of the map.
+
+That is the whole difficulty in one sentence: **a locus is, by definition, a place where the
+evidence about neighbouring genes is shared.** Anything that predicts genes from local
+genotype inherits that sharing, and no amount of care in fitting the weights removes it.
+
+</Callout>
+
+## One correlation, two roles
+
+Take two genes at the same locus. Their statistics are not independent, and the covariance is
+
+$$
+\mathrm{Cov}(z_g, z_h) = \frac{\mathbf{w}_g^{\!\top}\mathbf{R}\,\mathbf{w}_h}
+{\sqrt{(\mathbf{w}_g^{\!\top}\mathbf{R}\mathbf{w}_g)(\mathbf{w}_h^{\!\top}\mathbf{R}\mathbf{w}_h)}}
+$$
+
+Now write down the correlation between the two genes' **predicted expression**. With
+standardised genotypes, $\mathrm{Cov}(\mathbf{X}\mathbf{w}_g, \mathbf{X}\mathbf{w}_h) =
+\mathbf{w}_g^{\!\top}\mathbf{R}\mathbf{w}_h$, normalised the same way. It is the same
+expression.
+
+<Callout variant="key" title="The correlation between two TWAS statistics is the correlation between two predicted expressions">
+
+Not approximately, and not under an assumption — identically, because both are the same
+quadratic form over the same normalisation. That single fact does all the work below.
+
+It also explains why the problem cannot be filtered away. The correlation is a property of the
+eQTL weights and the LD between them, both of which are fixed before the GWAS is run. Nothing
+about the trait, the sample size or the significance threshold changes it.
+
+</Callout>
+
+## What a null gene inherits
+
+Suppose the trait acts through gene A's expression and no other. Then the mean of the GWAS
+z-vector is proportional to $\mathbf{R}\mathbf{w}_A$, and for any other gene B
+
+$$
+\frac{\mathbb{E}[z_B]}{\mathbb{E}[z_A]}
+= \frac{\mathbf{w}_B^{\!\top}\mathbf{R}\mathbf{w}_A}
+{\sqrt{(\mathbf{w}_B^{\!\top}\mathbf{R}\mathbf{w}_B)(\mathbf{w}_A^{\!\top}\mathbf{R}\mathbf{w}_A)}} = r
+$$
+
+exactly. **A gene with no causal role has expected statistic $r$ times the causal one.** Its
+own weights, its own expression level, its own biology do not enter.
+
+Simulating an LD block confirms both halves: across genes whose eQTLs sit 0, 2, 4, 6, 10 and
+20 variants from the causal gene's, the correlation of predicted expression is 1.000, 0.906,
+0.767, 0.649, 0.465 and 0.202, the empirical correlation of the TWAS statistics matches to
+within Monte-Carlo error, and $\mathbb{E}[z_B]/\mathbb{E}[z_A]$ equals it to machine precision.
+
+<Figure
+  caption="Figure 1. The statistic a non-causal gene inherits, against its correlation with the causal gene's predicted expression. Each rising line is one value of the causal statistic; the horizontal line is the transcriptome-wide threshold at 4.7081, which is 0.05 over 20,000 genes, two-sided. The four dots are the crossings — the critical correlation r* = 4.7081/z_causal, which is 0.7847 at z = 6, 0.5885 at z = 8, 0.4708 at z = 10 and 0.3139 at z = 15. The dotted vertical marks the z = 8 case at 0.5885."
+  alt="Four straight lines rising from the origin with different slopes, against a horizontal line at about 4.7. Each rising line crosses the horizontal one at a different point, marked with a dot; the steeper the line the further left its crossing. A short dotted vertical line drops from one crossing to the axis."
+>
+
+<svg viewBox="0 0 772 344" width="772" height="344" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="104.0" y1="170.7" x2="424.0" y2="170.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="174.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">5</text><line x1="104.0" y1="105.3" x2="424.0" y2="105.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="109.3" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10</text><line x1="104.0" y1="40.0" x2="424.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">15</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="184.0" y1="236.0" x2="184.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="184.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.25</text><line x1="264.0" y1="236.0" x2="264.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="264.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.50</text><line x1="344.0" y1="236.0" x2="344.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="344.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.75</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="104.0" y1="174.5" x2="424.0" y2="174.5" stroke="currentColor" stroke-width="2.2" opacity=".5"/><text x="109.0" y="167.5" font-size="10" fill="currentColor" opacity=".75" font-weight="600">4.7081</text><path d="M104.0,236.0 L424.0,157.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-dasharray="2 3" opacity=".7"/><circle cx="355.1" cy="174.5" r="3.8" fill="currentColor" opacity=".7"/><text x="420.0" y="151.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".7">z = 6</text><path d="M104.0,236.0 L424.0,131.5" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="292.3" cy="174.5" r="3.8" fill="var(--color-accent, #2e6e5e)"/><text x="420.0" y="125.5" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">z = 8</text><path d="M104.0,236.0 L424.0,105.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-dasharray="6 3" opacity=".7"/><circle cx="254.7" cy="174.5" r="3.8" fill="currentColor" opacity=".7"/><text x="420.0" y="99.3" font-size="10" fill="currentColor" text-anchor="end" opacity=".7">z = 10</text><path d="M104.0,236.0 L424.0,40.0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-dasharray="1 3" opacity=".7"/><circle cx="204.4" cy="174.5" r="3.8" fill="currentColor" opacity=".7"/><text x="420.0" y="34.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".7">z = 15</text><text x="300.3" y="217.7" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">0.5885</text><line x1="292.3" y1="174.5" x2="292.3" y2="207.3" stroke="currentColor" stroke-width="1.2" opacity=".5" stroke-dasharray="2 2"/><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Correlation r between the two genes’ predicted expression</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Expected TWAS statistic at the innocent gene</text><text x="454.0" y="44.0" font-size="11" fill="currentColor" font-weight="700">A stronger locus implicates</text><text x="454.0" y="58.0" font-size="11" fill="currentColor" font-weight="700">MORE innocent genes.</text><text x="454.0" y="80.0" font-size="10" fill="currentColor" opacity=".8">A null gene inherits E[z] = r z from</text><text x="454.0" y="93.0" font-size="10" fill="currentColor" opacity=".8">a causal neighbour, exactly. So it</text><text x="454.0" y="106.0" font-size="10" fill="currentColor" opacity=".8">clears the threshold whenever</text><text x="454.0" y="119.0" font-size="10" fill="currentColor" opacity=".8">r > 4.7081/z - and that critical</text><text x="454.0" y="132.0" font-size="10" fill="currentColor" opacity=".8">value FALLS as z rises:</text><text x="454.0" y="145.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="158.0" font-size="10" fill="currentColor" opacity=".8">   z =  6   ->   r* = 0.7847</text><text x="454.0" y="171.0" font-size="10" fill="currentColor" opacity=".8">   z =  8   ->   r* = 0.5885</text><text x="454.0" y="184.0" font-size="10" fill="currentColor" opacity=".8">   z = 10   ->   r* = 0.4708</text><text x="454.0" y="197.0" font-size="10" fill="currentColor" opacity=".8">   z = 15   ->   r* = 0.3139</text><text x="454.0" y="210.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="223.0" font-size="10" fill="currentColor" opacity=".8">The dots are those crossings. A</text><text x="454.0" y="236.0" font-size="10" fill="currentColor" opacity=".8">locus twice as significant drags</text><text x="454.0" y="249.0" font-size="10" fill="currentColor" opacity=".8">in every gene down to half the</text><text x="454.0" y="262.0" font-size="10" fill="currentColor" opacity=".8">correlation.</text><text x="454.0" y="275.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="288.0" font-size="10" fill="currentColor" opacity=".8">For scale: in a realistic LD block</text><text x="454.0" y="301.0" font-size="10" fill="currentColor" opacity=".8">a gene whose eQTLs sit four SNPs</text><text x="454.0" y="314.0" font-size="10" fill="currentColor" opacity=".8">away already has r = 0.767.</text></svg>
+
+</Figure>
+
+<Callout variant="warning" title="The critical correlation falls as the signal strengthens">
+
+$r^{*} = 4.7081/z_{\mathrm{causal}}$ is a *decreasing* function of the causal statistic. A
+locus twice as significant drags in every gene down to half the correlation.
+
+This is the opposite of how a significance threshold usually behaves, and it is worth sitting
+with. Strengthening a study — more samples, a better-powered GWAS — does not clean up the gene
+list. It lengthens it, and the genes it adds are the ones with weaker claims.
+
+</Callout>
+
+<WorkedExample
+  title="A locus with a causal statistic of 8"
+  given={[
+    { label: 'Genes tested G', value: '20,000' },
+    { label: 'Family-wise level', value: '0.05' },
+    { label: 'Causal gene statistic', value: 'z = 8' },
+  ]}
+  verifiedBy="src/lib/deepDiveExamples.test.ts"
+>
+
+**The threshold.** $0.05/20{,}000$ two-sided gives $|z| > 4.7081$.
+
+**The critical correlation.** $r^{*} = 4.7081/8 = 0.5885$. Any gene whose predicted expression
+correlates above 0.5885 with the causal gene's has expected statistic past the threshold.
+
+**Is that a lot?** No. In the simulated LD block above, a gene whose eQTLs sit four variants
+away already has $r = 0.767$, and one six variants away has $0.649$. Both clear 0.5885
+comfortably. Genes at a locus share a neighbourhood by construction — that is what makes them
+a locus.
+
+**As a probability.** The inherited statistic is normal with mean $r z$ and unit variance, so
+the chance a null gene actually reaches significance is an ordinary tail:
+
+| r | E[z] at the null gene | chance it reaches significance |
+| --- | --- | --- |
+| 0.5 | 4.00 | 0.2394 |
+| 0.6 | 4.80 | 0.5366 |
+| 0.7 | 5.60 | 0.8138 |
+| 0.8 | 6.40 | 0.9547 |
+| 0.9 | 7.20 | 0.9936 |
+
+At $r = 0.8$ a gene with **no causal role whatsoever** is reported as transcriptome-wide
+significant 95.47% of the time. This is a power calculation for an effect nobody wants to
+detect.
+
+**A check.** Each curve passes through exactly one half at its own $r^{*}$, because there the
+mean equals the threshold.
+
+</WorkedExample>
+
+<Figure
+  caption="Figure 2. The same statement as a probability. Each curve is the chance that a gene with no causal role is reported as transcriptome-wide significant, against its correlation with the causal gene's predicted expression, for three values of the causal statistic. The marked point is r = 0.80 at a causal z of 8, where the chance is 0.9547. Each curve crosses one half exactly at its own critical correlation, because that is where the inherited expected statistic equals the threshold."
+  alt="Three S-shaped curves rising from zero to one, shifted horizontally from one another. The leftmost corresponds to the largest causal statistic. A dot marks a point near the top of the middle curve at a correlation of 0.8. A dashed horizontal line marks one half."
+>
+
+<svg viewBox="0 0 772 420" width="772" height="420" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0</text><line x1="104.0" y1="187.0" x2="424.0" y2="187.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="191.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.25</text><line x1="104.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="96.0" y="142.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.50</text><line x1="104.0" y1="89.0" x2="424.0" y2="89.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="93.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">0.75</text><line x1="104.0" y1="40.0" x2="424.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0</text><line x1="184.0" y1="236.0" x2="184.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="184.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.25</text><line x1="264.0" y1="236.0" x2="264.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="264.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.50</text><line x1="344.0" y1="236.0" x2="344.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="344.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.75</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1</text><path d="M104.0,236.0 L105.6,236.0 L107.2,236.0 L108.8,236.0 L110.4,236.0 L112.0,236.0 L113.6,236.0 L115.2,236.0 L116.8,236.0 L118.4,236.0 L120.0,236.0 L121.6,236.0 L123.2,236.0 L124.8,236.0 L126.4,236.0 L128.0,236.0 L129.6,236.0 L131.2,236.0 L132.8,236.0 L134.4,236.0 L136.0,236.0 L137.6,236.0 L139.2,236.0 L140.8,236.0 L142.4,236.0 L144.0,236.0 L145.6,236.0 L147.2,236.0 L148.8,236.0 L150.4,236.0 L152.0,236.0 L153.6,236.0 L155.2,236.0 L156.8,236.0 L158.4,236.0 L160.0,236.0 L161.6,236.0 L163.2,236.0 L164.8,236.0 L166.4,236.0 L168.0,236.0 L169.6,236.0 L171.2,235.9 L172.8,235.9 L174.4,235.9 L176.0,235.9 L177.6,235.9 L179.2,235.9 L180.8,235.9 L182.4,235.9 L184.0,235.9 L185.6,235.9 L187.2,235.8 L188.8,235.8 L190.4,235.8 L192.0,235.8 L193.6,235.8 L195.2,235.7 L196.8,235.7 L198.4,235.7 L200.0,235.6 L201.6,235.6 L203.2,235.6 L204.8,235.5 L206.4,235.5 L208.0,235.4 L209.6,235.4 L211.2,235.3 L212.8,235.3 L214.4,235.2 L216.0,235.1 L217.6,235.0 L219.2,234.9 L220.8,234.8 L222.4,234.7 L224.0,234.6 L225.6,234.5 L227.2,234.4 L228.8,234.2 L230.4,234.1 L232.0,233.9 L233.6,233.8 L235.2,233.6 L236.8,233.4 L238.4,233.2 L240.0,233.0 L241.6,232.7 L243.2,232.5 L244.8,232.2 L246.4,231.9 L248.0,231.6 L249.6,231.3 L251.2,231.0 L252.8,230.6 L254.4,230.2 L256.0,229.8 L257.6,229.4 L259.2,228.9 L260.8,228.4 L262.4,227.9 L264.0,227.4 L265.6,226.9 L267.2,226.3 L268.8,225.6 L270.4,225.0 L272.0,224.3 L273.6,223.6 L275.2,222.9 L276.8,222.1 L278.4,221.3 L280.0,220.4 L281.6,219.5 L283.2,218.6 L284.8,217.6 L286.4,216.6 L288.0,215.6 L289.6,214.5 L291.2,213.4 L292.8,212.2 L294.4,211.0 L296.0,209.8 L297.6,208.5 L299.2,207.1 L300.8,205.8 L302.4,204.3 L304.0,202.9 L305.6,201.4 L307.2,199.8 L308.8,198.2 L310.4,196.6 L312.0,194.9 L313.6,193.2 L315.2,191.5 L316.8,189.7 L318.4,187.8 L320.0,186.0 L321.6,184.1 L323.2,182.1 L324.8,180.1 L326.4,178.1 L328.0,176.1 L329.6,174.0 L331.2,171.9 L332.8,169.8 L334.4,167.6 L336.0,165.4 L337.6,163.2 L339.2,161.0 L340.8,158.7 L342.4,156.4 L344.0,154.2 L345.6,151.9 L347.2,149.5 L348.8,147.2 L350.4,144.9 L352.0,142.5 L353.6,140.2 L355.2,137.9 L356.8,135.5 L358.4,133.2 L360.0,130.8 L361.6,128.5 L363.2,126.2 L364.8,123.9 L366.4,121.6 L368.0,119.3 L369.6,117.0 L371.2,114.7 L372.8,112.5 L374.4,110.3 L376.0,108.1 L377.6,106.0 L379.2,103.8 L380.8,101.7 L382.4,99.7 L384.0,97.6 L385.6,95.6 L387.2,93.6 L388.8,91.7 L390.4,89.8 L392.0,87.9 L393.6,86.1 L395.2,84.3 L396.8,82.6 L398.4,80.9 L400.0,79.2 L401.6,77.6 L403.2,76.0 L404.8,74.4 L406.4,72.9 L408.0,71.5 L409.6,70.1 L411.2,68.7 L412.8,67.4 L414.4,66.1 L416.0,64.8 L417.6,63.6 L419.2,62.5 L420.8,61.4 L422.4,60.3 L424.0,59.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-dasharray="2 3" opacity=".7"/><path d="M104.0,236.0 L105.6,236.0 L107.2,236.0 L108.8,236.0 L110.4,236.0 L112.0,236.0 L113.6,236.0 L115.2,236.0 L116.8,236.0 L118.4,236.0 L120.0,236.0 L121.6,236.0 L123.2,236.0 L124.8,236.0 L126.4,236.0 L128.0,236.0 L129.6,236.0 L131.2,236.0 L132.8,236.0 L134.4,236.0 L136.0,236.0 L137.6,236.0 L139.2,236.0 L140.8,236.0 L142.4,236.0 L144.0,236.0 L145.6,236.0 L147.2,236.0 L148.8,236.0 L150.4,236.0 L152.0,236.0 L153.6,235.9 L155.2,235.9 L156.8,235.9 L158.4,235.9 L160.0,235.9 L161.6,235.9 L163.2,235.9 L164.8,235.9 L166.4,235.8 L168.0,235.8 L169.6,235.8 L171.2,235.8 L172.8,235.7 L174.4,235.7 L176.0,235.6 L177.6,235.6 L179.2,235.5 L180.8,235.5 L182.4,235.4 L184.0,235.3 L185.6,235.3 L187.2,235.2 L188.8,235.1 L190.4,234.9 L192.0,234.8 L193.6,234.7 L195.2,234.5 L196.8,234.3 L198.4,234.2 L200.0,233.9 L201.6,233.7 L203.2,233.5 L204.8,233.2 L206.4,232.9 L208.0,232.6 L209.6,232.2 L211.2,231.8 L212.8,231.4 L214.4,231.0 L216.0,230.5 L217.6,229.9 L219.2,229.4 L220.8,228.8 L222.4,228.1 L224.0,227.4 L225.6,226.7 L227.2,225.9 L228.8,225.0 L230.4,224.1 L232.0,223.1 L233.6,222.1 L235.2,221.0 L236.8,219.8 L238.4,218.6 L240.0,217.3 L241.6,215.9 L243.2,214.5 L244.8,213.0 L246.4,211.4 L248.0,209.8 L249.6,208.0 L251.2,206.2 L252.8,204.3 L254.4,202.4 L256.0,200.3 L257.6,198.2 L259.2,196.1 L260.8,193.8 L262.4,191.5 L264.0,189.1 L265.6,186.6 L267.2,184.1 L268.8,181.5 L270.4,178.8 L272.0,176.1 L273.6,173.3 L275.2,170.5 L276.8,167.6 L278.4,164.7 L280.0,161.7 L281.6,158.7 L283.2,155.7 L284.8,152.6 L286.4,149.5 L288.0,146.4 L289.6,143.3 L291.2,140.2 L292.8,137.1 L294.4,133.9 L296.0,130.8 L297.6,127.7 L299.2,124.6 L300.8,121.6 L302.4,118.5 L304.0,115.5 L305.6,112.5 L307.2,109.6 L308.8,106.7 L310.4,103.8 L312.0,101.0 L313.6,98.3 L315.2,95.6 L316.8,93.0 L318.4,90.4 L320.0,87.9 L321.6,85.5 L323.2,83.1 L324.8,80.9 L326.4,78.6 L328.0,76.5 L329.6,74.4 L331.2,72.4 L332.8,70.5 L334.4,68.7 L336.0,66.9 L337.6,65.3 L339.2,63.6 L340.8,62.1 L342.4,60.6 L344.0,59.2 L345.6,57.9 L347.2,56.7 L348.8,55.5 L350.4,54.4 L352.0,53.3 L353.6,52.3 L355.2,51.4 L356.8,50.5 L358.4,49.7 L360.0,48.9 L361.6,48.2 L363.2,47.5 L364.8,46.9 L366.4,46.3 L368.0,45.7 L369.6,45.2 L371.2,44.8 L372.8,44.3 L374.4,43.9 L376.0,43.6 L377.6,43.2 L379.2,42.9 L380.8,42.6 L382.4,42.4 L384.0,42.1 L385.6,41.9 L387.2,41.7 L388.8,41.6 L390.4,41.4 L392.0,41.2 L393.6,41.1 L395.2,41.0 L396.8,40.9 L398.4,40.8 L400.0,40.7 L401.6,40.6 L403.2,40.5 L404.8,40.5 L406.4,40.4 L408.0,40.4 L409.6,40.3 L411.2,40.3 L412.8,40.3 L414.4,40.2 L416.0,40.2 L417.6,40.2 L419.2,40.1 L420.8,40.1 L422.4,40.1 L424.0,40.1" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><path d="M104.0,236.0 L105.6,236.0 L107.2,236.0 L108.8,236.0 L110.4,236.0 L112.0,236.0 L113.6,236.0 L115.2,236.0 L116.8,236.0 L118.4,236.0 L120.0,236.0 L121.6,236.0 L123.2,236.0 L124.8,236.0 L126.4,236.0 L128.0,236.0 L129.6,236.0 L131.2,236.0 L132.8,236.0 L134.4,236.0 L136.0,236.0 L137.6,236.0 L139.2,236.0 L140.8,236.0 L142.4,236.0 L144.0,235.9 L145.6,235.9 L147.2,235.9 L148.8,235.9 L150.4,235.9 L152.0,235.9 L153.6,235.8 L155.2,235.8 L156.8,235.8 L158.4,235.7 L160.0,235.7 L161.6,235.6 L163.2,235.6 L164.8,235.5 L166.4,235.4 L168.0,235.3 L169.6,235.2 L171.2,235.1 L172.8,235.0 L174.4,234.8 L176.0,234.6 L177.6,234.4 L179.2,234.2 L180.8,233.9 L182.4,233.7 L184.0,233.3 L185.6,233.0 L187.2,232.6 L188.8,232.1 L190.4,231.6 L192.0,231.1 L193.6,230.5 L195.2,229.8 L196.8,229.1 L198.4,228.3 L200.0,227.4 L201.6,226.5 L203.2,225.4 L204.8,224.3 L206.4,223.1 L208.0,221.8 L209.6,220.4 L211.2,218.9 L212.8,217.3 L214.4,215.6 L216.0,213.8 L217.6,211.8 L219.2,209.8 L220.8,207.6 L222.4,205.3 L224.0,202.9 L225.6,200.3 L227.2,197.7 L228.8,194.9 L230.4,192.1 L232.0,189.1 L233.6,186.0 L235.2,182.8 L236.8,179.5 L238.4,176.1 L240.0,172.6 L241.6,169.0 L243.2,165.4 L244.8,161.7 L246.4,158.0 L248.0,154.2 L249.6,150.3 L251.2,146.4 L252.8,142.5 L254.4,138.6 L256.0,134.7 L257.6,130.8 L259.2,126.9 L260.8,123.1 L262.4,119.3 L264.0,115.5 L265.6,111.8 L267.2,108.1 L268.8,104.5 L270.4,101.0 L272.0,97.6 L273.6,94.3 L275.2,91.1 L276.8,87.9 L278.4,84.9 L280.0,82.0 L281.6,79.2 L283.2,76.5 L284.8,73.9 L286.4,71.5 L288.0,69.2 L289.6,66.9 L291.2,64.8 L292.8,62.9 L294.4,61.0 L296.0,59.2 L297.6,57.6 L299.2,56.1 L300.8,54.6 L302.4,53.3 L304.0,52.1 L305.6,50.9 L307.2,49.9 L308.8,48.9 L310.4,48.0 L312.0,47.2 L313.6,46.4 L315.2,45.7 L316.8,45.1 L318.4,44.5 L320.0,44.0 L321.6,43.6 L323.2,43.2 L324.8,42.8 L326.4,42.4 L328.0,42.1 L329.6,41.9 L331.2,41.6 L332.8,41.4 L334.4,41.2 L336.0,41.1 L337.6,40.9 L339.2,40.8 L340.8,40.7 L342.4,40.6 L344.0,40.5 L345.6,40.4 L347.2,40.4 L348.8,40.3 L350.4,40.3 L352.0,40.2 L353.6,40.2 L355.2,40.2 L356.8,40.1 L358.4,40.1 L360.0,40.1 L361.6,40.1 L363.2,40.1 L364.8,40.1 L366.4,40.0 L368.0,40.0 L369.6,40.0 L371.2,40.0 L372.8,40.0 L374.4,40.0 L376.0,40.0 L377.6,40.0 L379.2,40.0 L380.8,40.0 L382.4,40.0 L384.0,40.0 L385.6,40.0 L387.2,40.0 L388.8,40.0 L390.4,40.0 L392.0,40.0 L393.6,40.0 L395.2,40.0 L396.8,40.0 L398.4,40.0 L400.0,40.0 L401.6,40.0 L403.2,40.0 L404.8,40.0 L406.4,40.0 L408.0,40.0 L409.6,40.0 L411.2,40.0 L412.8,40.0 L414.4,40.0 L416.0,40.0 L417.6,40.0 L419.2,40.0 L420.8,40.0 L422.4,40.0 L424.0,40.0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-dasharray="6 3" opacity=".7"/><circle cx="360.0" cy="48.9" r="4.2" fill="var(--color-accent, #2e6e5e)"/><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Correlation r between the two genes’ predicted expression</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Chance the innocent gene reaches significance</text><line x1="454.0" y1="36.0" x2="476.0" y2="36.0" stroke="currentColor" stroke-width="1.9" opacity=".7" stroke-dasharray="6 3"/><text x="484.0" y="40.0" font-size="10" fill="currentColor" opacity=".7">causal z = 10</text><line x1="454.0" y1="53.0" x2="476.0" y2="53.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><text x="484.0" y="57.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">causal z = 8</text><line x1="454.0" y1="70.0" x2="476.0" y2="70.0" stroke="currentColor" stroke-width="1.9" opacity=".7" stroke-dasharray="2 3"/><text x="484.0" y="74.0" font-size="10" fill="currentColor" opacity=".7">causal z = 6</text><text x="454.0" y="116.0" font-size="11" fill="currentColor" font-weight="700">Not a tail risk.</text><text x="454.0" y="138.0" font-size="10" fill="currentColor" opacity=".8">The dot is r = 0.80, where the</text><text x="454.0" y="151.0" font-size="10" fill="currentColor" opacity=".8">chance is 0.9547.</text><text x="454.0" y="164.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="177.0" font-size="10" fill="currentColor" opacity=".8">At a causal z of 8, a gene with no</text><text x="454.0" y="190.0" font-size="10" fill="currentColor" opacity=".8">causal role whatsoever reaches</text><text x="454.0" y="203.0" font-size="10" fill="currentColor" opacity=".8">transcriptome-wide significance</text><text x="454.0" y="216.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="229.0" font-size="10" fill="currentColor" opacity=".8">   r = 0.5   ->   23.9% of the time</text><text x="454.0" y="242.0" font-size="10" fill="currentColor" opacity=".8">   r = 0.6   ->   53.7%</text><text x="454.0" y="255.0" font-size="10" fill="currentColor" opacity=".8">   r = 0.7   ->   81.4%</text><text x="454.0" y="268.0" font-size="10" fill="currentColor" opacity=".8">   r = 0.8   ->   95.5%</text><text x="454.0" y="281.0" font-size="10" fill="currentColor" opacity=".8">   r = 0.9   ->   99.4%</text><text x="454.0" y="294.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="307.0" font-size="10" fill="currentColor" opacity=".8">Each curve passes through one half</text><text x="454.0" y="320.0" font-size="10" fill="currentColor" opacity=".8">exactly at its own critical r, where</text><text x="454.0" y="333.0" font-size="10" fill="currentColor" opacity=".8">the expected statistic equals the</text><text x="454.0" y="346.0" font-size="10" fill="currentColor" opacity=".8">threshold.</text><text x="454.0" y="359.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="372.0" font-size="10" fill="currentColor" opacity=".8">This is a power calculation for an</text><text x="454.0" y="385.0" font-size="10" fill="currentColor" opacity=".8">effect nobody wants to detect, and</text><text x="454.0" y="398.0" font-size="10" fill="currentColor" opacity=".8">it is why a TWAS hit names a locus</text><text x="454.0" y="411.0" font-size="10" fill="currentColor" opacity=".8">rather than a gene.</text></svg>
+
+</Figure>
+
+<Widget
+  kind="twas-ld"
+  title="Move the causal statistic and the correlation"
+  caption="The inherited statistic and the chance of significance for a gene with no causal role, against the transcriptome-wide threshold for the number of genes tested. Raising the causal z moves the critical correlation left, not right — which is the inversion the lesson turns on, and is easier to believe having dragged it."
+  alt="An interactive panel with sliders for the causal statistic, the correlation between the two genes' predicted expression and the number of genes tested. It reports the threshold, the critical correlation, the statistic the innocent gene inherits and the probability that it reaches significance, and draws the inherited statistic against correlation with the threshold marked."
+/>
+
+## What this does and does not say
+
+It does **not** say TWAS is uninformative. A TWAS hit is strong evidence that *something at
+this locus* affects the trait through expression, which is more than a credible set of
+intergenic variants supplies.
+
+What it says is that the ranking within a locus is not trustworthy. The gene with the largest
+TWAS statistic need not be the causal one; it need only have the largest $r$ with whatever is
+causal, and the weights that determine $r$ come from an expression reference of a few hundred
+people in a tissue that may not be the relevant one <Citation id="wainberg2019twas" />.
+
+Two responses exist, and both are honest about the problem rather than solving it.
+<Citation id="mancuso2019focus" /> fine-maps *within* the TWAS signal, returning a credible set
+of genes with posterior probabilities instead of a ranked list — the same move the previous
+lesson made for variants, and it inherits the same dependence on getting the correlation
+structure right. <Citation id="zhu2016smr" /> tests whether the expression and trait signals
+are consistent with one causal variant and adds a heterogeneity test to detect when they are
+not.
+
+<Callout variant="assumption" title="TWAS and colocalisation ask different questions">
+
+Colocalisation, derived in the previous lesson, asks whether the trait signal and the
+expression signal share a causal *variant* <Citation id="giambartolomei2014coloc" />. TWAS asks
+whether predicted expression associates with the trait. These are not the same question and
+they fail differently.
+
+Colocalisation's H₃ — two distinct causal variants — is exactly the case TWAS cannot see,
+because a weighted sum does not care whether the weight it loaded came from the trait's causal
+variant or a neighbour. Conversely a gene can colocalise and still not be causal, if the shared
+variant acts on the trait through a different gene.
+
+Running both and requiring agreement is the standard defence. It is a filter, not a proof, and
+neither method can distinguish a causal gene from a gene whose expression merely correlates
+with the causal one — because at a locus, that correlation is the normal state.
+
+</Callout>
+
+<Exercise n={1} title="A weaker locus, and a stronger one" difficulty="warm-up">
+
+Twenty thousand genes are tested. (a) What is the critical correlation at a causal statistic of
+5.5? (b) At 12? (c) State in one sentence what the comparison implies for a study that doubles
+its sample size.
+
+<div slot="solution">
+
+**(a)** $4.7081/5.5 = 0.8560$.
+
+**(b)** $4.7081/12 = 0.3923$.
+
+**(c)** Doubling the sample size multiplies a genuine $z$ by about $\sqrt{2}$, which *lowers*
+the critical correlation by the same factor — so the better-powered study reports every gene
+the weaker one did, plus every gene between the two critical values. The extra genes are the
+ones whose claim to the locus is weakest, and nothing in the output distinguishes them from
+the original hit.
+
+</div>
+
+</Exercise>
+
+<Exercise n={2} title="Reading a locus with four genes" difficulty="core">
+
+A locus contains four genes. Their predicted expressions correlate with the causal gene's at
+$r = 1.00$ (itself), 0.88, 0.71 and 0.34. The causal gene's TWAS statistic is 9.
+(a) Which reach significance in expectation? (b) What is the chance the $r = 0.34$ gene does?
+(c) A collaborator proposes reporting only the top-ranked gene. What does that assume?
+
+<div slot="solution">
+
+**(a)** $r^{*} = 4.7081/9 = 0.5231$. The genes at 1.00, 0.88 and 0.71 all exceed it, with
+expected statistics 9.00, 7.92 and 6.39. The gene at 0.34 has expected statistic 3.06 and does
+not.
+
+**(b)** Its statistic is normal with mean 3.06 and unit variance, so the chance of exceeding
+4.7081 is $1 - \Phi(1.648) = 0.0497$ — about one in twenty, which across a genome of loci is
+not rare.
+
+**(c)** It assumes the largest statistic belongs to the causal gene. Since
+$\mathbb{E}[z_B] = r\,\mathbb{E}[z_A]$ with $r \le 1$, the causal gene does have the largest
+*expected* statistic, so the assumption is right on average.
+
+How often it fails is worth computing carefully, because the obvious calculation is wrong. The
+two statistics are **not independent** — they are correlated at exactly the same $r = 0.88$
+that put the neighbour over the threshold. So
+$\mathrm{Var}(z_A - z_B) = 2 - 2(0.88) = 0.24$, a standard deviation of 0.4899 rather than the
+$\sqrt{2}$ independence would give, and
+
+$$
+\Pr(z_B > z_A) = \Phi\!\left(\frac{-1.08}{0.4899}\right) = \Phi(-2.2045) = 0.0137
+$$
+
+about one time in seventy-three. Treating them as independent gives 0.2225 — sixteen times too
+pessimistic.
+
+**The correlation cuts both ways, and that is the useful thing to take away.** It is what drags
+the innocent gene over the threshold, and it is also what keeps the innocent gene from
+outranking the causal one, because it makes the two statistics move together. So the failure
+mode of TWAS is *too many genes reported at a locus*, not *the wrong gene ranked first* — which
+is why the sensible response is a credible set of genes rather than a better ranking.
+
+</div>
+
+</Exercise>
+
+<Exercise n={3} title="Why a bigger reference panel does not fix it" difficulty="stretch">
+
+A colleague argues that the problem comes from noisy eQTL weights, and that a reference panel
+ten times larger would resolve it. (a) What does a larger panel improve? (b) Why does it leave
+$r$ essentially unchanged? (c) What would actually reduce $r$?
+
+<div slot="solution">
+
+**(a)** It improves the *accuracy* of each gene's weights — the predicted expression becomes a
+better estimate of true expression, so each gene's own TWAS statistic gains power.
+
+**(b)** Because $r$ is a property of the LD between the variants the weights load on, not of
+how precisely they are estimated. Two genes whose eQTLs sit in the same LD block will have
+correlated predicted expression however well each is measured; in the limit of perfect
+weights, $r$ is the correlation of their *true* genetically-determined expression, which is
+still high. A larger panel makes both statistics larger and leaves their ratio alone.
+
+**(c)** Only something that breaks the LD: a population with shorter haplotypes, or a
+multi-ancestry analysis where the variants tag differently in each group, or conditioning on
+the causal variant directly if it is known. That is the same list as for fine-mapping, and for
+the same reason — the limit is the correlation structure of the genome, not the size of the
+study.
+
+</div>
+
+</Exercise>
+
+## Summary
+
+- **A TWAS statistic is $\mathbf{w}^{\!\top}\mathbf{Z}/\sqrt{\mathbf{w}^{\!\top}\mathbf{R}\mathbf{w}}$**,
+  computable from summary statistics and an expression reference.
+- **The correlation between two genes' statistics is the correlation between their predicted
+  expression** — identically, because both are the same quadratic form over the same
+  normalisation.
+- **A non-causal gene inherits $\mathbb{E}[z_B] = r\,\mathbb{E}[z_A]$ exactly.** Its own
+  biology does not enter.
+- **The critical correlation is $r^{*} = 4.7081/z_{\mathrm{causal}}$ and it falls as the signal
+  strengthens** — 0.7847 at $z = 6$, 0.5885 at 8, 0.3139 at 15. A stronger locus implicates
+  more innocent genes.
+- **At $r = 0.8$ and a causal $z$ of 8 a null gene is reported significant 95.47% of the
+  time**, and four variants of separation in a realistic LD block already gives $r = 0.767$.
+- **A TWAS hit is evidence about a locus, not an identification of a gene.** Fine-mapping the
+  TWAS signal or requiring agreement with colocalisation narrows it; neither separates a causal
+  gene from one whose expression merely correlates with it.

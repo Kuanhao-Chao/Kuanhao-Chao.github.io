@@ -84,7 +84,7 @@ Five tracks, each with a hub carrying `isHub: true`:
 
 | hub | pages | `track` | owns |
 | --- | --- | --- | --- |
-| `statistical-genetics` | 21 | `theory` | definitions, assumptions, derivations |
+| `statistical-genetics` | 22 | `theory` | definitions, assumptions, derivations |
 | `gwas` | 10 | `workflow` | commands, thresholds, diagnostics, failure modes |
 | `genomic-data` | 13 | `resource` | the resource ecosystem and its access rules |
 | `ml-dl-interview` | 24 | `workflow` / `elective` | 351 interview questions |
@@ -391,6 +391,13 @@ Things specific to this subsystem:
   coalescence time low by more than a factor of two (0.40 × 2Np against 0.68 × 2Np). Draw from
   a stationary population instead. The control that catches it is to measure allele *age* the
   same way and check it against Kimura–Ohta.
+
+- **Two correlated test statistics do not compare like independent ones**, and the difference
+  is large in the direction that matters. Asked how often a neighbouring gene outranks the
+  causal one in a TWAS, the independent calculation gives 0.2225 and the correct one — which
+  uses `Var(z_A − z_B) = 2 − 2r` rather than 2 — gives **0.0137**, sixteen times smaller. The
+  same correlation that drags an innocent gene over the threshold is what stops it outranking
+  the causal gene, so the failure mode is *too many genes reported*, not *the wrong gene first*.
 
 - **An adversarial re-derivation of a finished track found three MAJOR defects that 3,149
   passing tests and every rendering gate had passed over**, and all three were of one kind: a
