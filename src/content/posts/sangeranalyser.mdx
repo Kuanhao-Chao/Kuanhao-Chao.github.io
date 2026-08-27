@@ -28,6 +28,7 @@ references:
     doi: 'https://doi.org/10.1101/gr.8.3.186'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
+import SangerTrimming from '../../components/SangerTrimming.astro';
 import figWorkflow from '../../assets/posts/sangeranalyser/sanger-workflow.png';
 import figExample from '../../assets/posts/sangeranalyser/sanger-example.png';
 import figShiny from '../../assets/posts/sangeranalyser/sanger-shiny.png';
@@ -71,11 +72,15 @@ generateReport(aln)   # write a full, interactive HTML report
 
 ## What it does
 
-**A few lines, but explicit underneath.** That single `SangerAlignment` call does a sequence of concrete operations. It reads ABIF or FASTA inputs, groups reads into contigs by filename patterns or a CSV file, trims reads with either a modified Mott quality algorithm associated with Phred (per-base sequencing quality scores) or a configurable sliding-window approach, assembles forward and reverse reads into consensus contigs, and aligns the contigs together. The paper demonstrates this on eight annelid (*Allolobophora chlorotica*) samples, with one forward and one reverse ABIF read per sample.
+**A few lines, but explicit underneath.** That single `SangerAlignment` call does a sequence of concrete operations. It reads ABIF or FASTA inputs, groups reads into contigs by filename patterns or a CSV file, trims reads with either the modified Mott algorithm implemented in Phred (per-base sequencing quality scores) or the sliding-window approach implemented in Trimmomatic, both under one adjustable trimming cutoff, assembles forward and reverse reads into consensus contigs, and aligns the contigs together. The paper demonstrates this on eight annelid (*Allolobophora chlorotica*) samples, with one forward and one reverse ABIF read per sample.
 
 <ZoomFigure src={figExample} alt="A worked example: four lines of R code, the input file structure, the Shiny overview screen, a multiple sequence alignment of eight consensus contigs, and a quality-control tree." variant="wide">
   <strong>Figure 2.</strong> A complete analysis of eight samples. <strong>(A)</strong> The few lines of R that drive it. <strong>(B)</strong> The ABIF input files, organized in folders and named so the package can infer contig groups and read direction. <strong>(C)</strong> The optional Shiny overview page. <strong>(D)</strong> The resulting multiple sequence alignment of the eight consensus contigs, and <strong>(E)</strong> a tree used as a quality-control view.
 </ZoomFigure>
+
+Trimming is the one step where the two algorithms can hand you different reads from the same trace, so it is worth watching them disagree.
+
+<SangerTrimming />
 
 **Interactive when you need inspection.** The workflow is automated, but the paper is clear that users sometimes need to inspect reads and tune parameters. The Shiny applications expose that inspection layer inside R: users can view read alignments, Hamming-distance heatmaps (counting the positions at which two reads differ) between reads in a contig, trimmed primary and secondary sequences, per-base Phred quality scores ([Ewing and Green, 1998](https://doi.org/10.1101/gr.8.3.186)), secondary peaks, trimming positions, and chromatograms with the 5' and 3' trimmed regions highlighted. If an amino-acid reference is supplied, the app also reports indels and stop codons in individual reads.
 

@@ -1,0 +1,55 @@
+/* Palette for the Sanger read-trimming panel. Same shape as splam.css: a light block plus a
+   dark override, every colour behind a token so neither theme strands a literal. */
+
+.sanger-viz {
+  --sng-keep: #2f8069;
+  --sng-trim: #a2564f;
+  --sng-mott: #3976a8;
+  --sng-window: #6f62a8;
+  --sng-cutoff: #b07d00;
+  --sng-neutral: #8a9491;
+  --lvz-mobile-min-width: 0px;
+}
+
+html[data-theme='dark'] .sanger-viz {
+  --sng-keep: #58b49a;
+  --sng-trim: #d08a83;
+  --sng-mott: #6ca6d6;
+  --sng-window: #a292d7;
+  --sng-cutoff: #d5a73d;
+  --sng-neutral: #a4adaa;
+}
+
+.sanger-viz .sng-card {
+  fill: var(--color-bg);
+}
+
+.sanger-viz .sng-label {
+  fill: var(--color-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.sanger-viz .sng-mini {
+  fill: var(--color-muted);
+  font-size: 10.5px;
+  text-anchor: middle;
+}
+
+.sanger-viz .sng-left {
+  text-anchor: start;
+}
+
+.sanger-viz .sng-count {
+  fill: var(--color-ink);
+  font-size: 16px;
+  font-weight: 700;
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+.sanger-viz .sng-axis {
+  stroke: var(--color-rule);
+  stroke-width: 1.2;
+}

@@ -44,6 +44,9 @@ const SCAN_ROOTS = [
 
 const SAFE_SET_HTML_FILES = new Set([
   'src/components/BaseHead.astro',
+  'src/components/Han1GapClosing.astro',
+  'src/components/HG002CopySearch.astro',
+  'src/components/SangerTrimming.astro',
   'src/components/Icon.astro',
   'src/components/Katex.astro',
   'src/components/LiftOnChaining.astro',

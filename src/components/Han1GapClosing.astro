@@ -1,0 +1,225 @@
+---
+import '../styles/lvz.css';
+import '../styles/genome.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+// Every count below is the Han1 paper's own (Chao et al. 2023, G3). The gap POSITIONS drawn
+// here are schematic -- nine notches standing in for the real ledger -- because the paper
+// reports counts per closing step, not coordinates. Note the paper's tail does not subtract:
+// 58 - 45 is 13, but it reports "only 7 gaps remaining in chromosomes 13, 14, 15, and 22".
+// So this panel shows each step's closures as reported and never draws a running total.
+const steps = [
+  ['Two assemblies, one backbone', 'hifiasm on the HiFi reads gave 182 contigs with a 95.8 Mb N50 at QV 57.8; Flye on the Nanopore reads gave 1,658 contigs at N50 40.9 Mb. The HiFi assembly became the backbone — but its contigs are not yet ordered into chromosomes.'],
+  ['Order the contigs against a guide', 'The MaSuRCA chromosome scaffolder placed the contigs along T2T-CHM13, splitting 12 misassembled contigs first. Now there are chromosomes — with gaps between the contigs that formed them.'],
+  ['Layer 1 — close what the HiFi reads can', 'The first automated gap-closing pass used the HiFi reads at default parameters and closed 24 gaps. Sequence added here is the individual’s own.'],
+  ['Layer 2 — close what the long reads can reach', 'The second pass used contigs assembled by Flye from the Nanopore ultralong reads, which span repeats the HiFi reads cannot. It closed 19 more gaps, again with HG00621 sequence.'],
+  ['Layer 3 — fill the rest from T2T-CHM13', 'The third pass attempted the remaining 58 gaps using T2T-CHM13 sequence and closed 45 of them. About 120 Mb came in this way, concentrated in the hardest repeat-rich regions. This is the sequence that makes Han1 not purely de novo.'],
+  ['What was left had to be done by hand', 'Seven gaps remained, on chromosomes 13, 14, 15, and 22. Manual inspection found repeat-induced pericentromeric misassemblies and redundant haplotype contigs. After polishing with JASPER: 3,099,707,698 bases in 25 sequences, every chromosome a single gapless contig.'],
+] as const;
+
+const C = {
+  sample: 'var(--genome-sample)',
+  guide: 'var(--genome-guide)',
+  hifi: 'var(--genome-hifi)',
+  ont: 'var(--genome-ont)',
+  manual: 'var(--genome-manual)',
+};
+
+// Nine schematic gap slots, and which step closes each.
+const SLOTS = [0.085, 0.175, 0.285, 0.375, 0.47, 0.575, 0.675, 0.785, 0.885];
+const CLOSED_AT = [2, 2, 2, 3, 3, 4, 4, 4, 5];
+const SLOT_FILL = [C.hifi, C.hifi, C.hifi, C.ont, C.ont, C.guide, C.guide, C.guide, C.manual];
+
+function esc(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** The chromosome bar with its gap slots, at a given step. */
+function bar(step: number, x0: number, width: number, y: number, h: number) {
+  const gw = Math.max(9, width * 0.017);
+  let s = `<rect x="${x0}" y="${y}" width="${width}" height="${h}" rx="${h / 2}" class="genome-track"/>`;
+  // Assembled sequence: everything that is not still an open gap.
+  const opens = SLOTS.filter((_, i) => CLOSED_AT[i] > step).map((f) => x0 + f * width);
+  let cursor = x0;
+  const solids: Array<[number, number]> = [];
+  for (const gx of opens) {
+    solids.push([cursor, gx - gw / 2]);
+    cursor = gx + gw / 2;
+  }
+  solids.push([cursor, x0 + width]);
+  for (const [a, b] of solids) {
+    if (b - a <= 0.5) continue;
+    s += `<rect x="${a.toFixed(1)}" y="${y}" width="${(b - a).toFixed(1)}" height="${h}" fill="${C.sample}" fill-opacity=".78"/>`;
+  }
+  // Closed gaps keep the colour of whatever closed them.
+  SLOTS.forEach((f, i) => {
+    if (CLOSED_AT[i] > step) return;
+    const gx = x0 + f * width;
+    const justNow = CLOSED_AT[i] === step;
+    s += `<rect x="${(gx - gw / 2).toFixed(1)}" y="${y}" width="${gw.toFixed(1)}" height="${h}" fill="${SLOT_FILL[i]}"/>`;
+    if (justNow) {
+      s += `<rect x="${(gx - gw / 2 - 2).toFixed(1)}" y="${y - 3}" width="${(gw + 4).toFixed(1)}" height="${h + 6}" rx="3" fill="none" stroke="${SLOT_FILL[i]}" stroke-width="2.4"/>`;
+    }
+  });
+  // Still-open gaps.
+  for (const gx of opens) {
+    s += `<rect x="${(gx - gw / 2).toFixed(1)}" y="${y}" width="${gw.toFixed(1)}" height="${h}" class="genome-gap"/>`;
+  }
+  s += `<rect x="${x0}" y="${y}" width="${width}" height="${h}" rx="${h / 2}" fill="none" stroke="var(--color-rule)" stroke-width="1.2"/>`;
+  return s;
+}
+
+/** The running ledger of what closed what. */
+function ledger(step: number, x0: number, width: number, y: number, small = false) {
+  const rows: Array<[string, string, string, string, number]> = [
+    ['HiFi reads', 'HiFi', '24 gaps', C.hifi, 2],
+    ['Nanopore contigs', 'ONT', '19 gaps', C.ont, 3],
+    ['T2T-CHM13', 'CHM13', '45 of 58', C.guide, 4],
+    ['By hand', 'by hand', '7 left', C.manual, 5],
+  ];
+  const cw = width / rows.length;
+  let s = '';
+  rows.forEach(([label, shortLabel, count, colour, at], i) => {
+    const cx = x0 + cw * i + cw / 2;
+    const on = step >= at;
+    s += `<g opacity="${on ? 1 : 0.32}">`;
+    s += `<rect x="${(cx - cw / 2 + 6).toFixed(1)}" y="${y}" width="${(cw - 12).toFixed(1)}" height="${small ? 44 : 52}" rx="5" class="genome-card" stroke="${colour}" stroke-width="${step === at ? 2.6 : 1.2}"/>`;
+    s += `<text x="${cx.toFixed(1)}" y="${y + (small ? 19 : 22)}" class="genome-count">${on ? esc(count) : '—'}</text>`;
+    s += `<text x="${cx.toFixed(1)}" y="${y + (small ? 34 : 39)}" class="genome-mini">${esc(small ? shortLabel : label)}</text>`;
+    s += `</g>`;
+  });
+  return s;
+}
+
+function desktop(step: number) {
+  const x0 = 56, width = 848, y = 132, h = 34;
+  let s = `<text x="24" y="26" class="lvz-tl">One chromosome, from unordered contigs to gapless sequence</text>`;
+
+  if (step === 0) {
+    // Contigs exist but are not ordered: stagger them off the line.
+    const seg = [[56, 150], [214, 96], [326, 132], [472, 88], [576, 118], [710, 74], [800, 104]];
+    const dy = [-14, 12, -6, 16, -12, 6, -2];
+    seg.forEach(([sx, sw], i) => {
+      s += `<rect x="${sx}" y="${y + dy[i]}" width="${sw}" height="${h}" rx="${h / 2}" fill="${C.sample}" fill-opacity=".78"/>`;
+    });
+    s += `<text x="480" y="${y + h + 52}" class="genome-detail">182 contigs · N50 95.8 Mb · QV 57.8 — contiguous, but not yet chromosomes</text>`;
+  } else {
+    if (step >= 1) {
+      s += `<text x="${x0}" y="82" class="genome-mini genome-left">T2T-CHM13 guide</text>`;
+      s += `<rect x="${x0}" y="90" width="${width}" height="14" rx="7" fill="var(--color-rule)"/>`;
+      for (let i = 0; i < 6; i += 1) {
+        s += `<line x1="${x0 + (width / 6) * i}" y1="90" x2="${x0 + (width / 6) * i}" y2="104" stroke="var(--color-muted)" stroke-width="1"/>`;
+      }
+      s += `<path d="M480 108 V${y - 8}" class="genome-arrow"/><path d="M475 ${y - 14} L480 ${y - 7} L485 ${y - 14}" class="genome-arrow"/>`;
+    }
+    s += bar(step, x0, width, y, h);
+    s += `<text x="${x0}" y="${y + h + 24}" class="genome-mini genome-left">chr1 → chrY (schematic; gap positions are illustrative, counts are from the paper)</text>`;
+  }
+
+  s += ledger(step, x0, width, 224);
+
+  if (step === 5) {
+    s += `<text x="480" y="296" class="genome-detail">3,099,707,698 bases · 25 sequences · every chromosome a single contig</text>`;
+  } else if (step === 4) {
+    s += `<text x="480" y="296" class="genome-detail">≈120 Mb of T2T-CHM13 sequence — why Han1 is mostly, but not purely, HG00621</text>`;
+  }
+
+  return `<svg viewBox="0 0 960 312" class="lvz-svg" role="img" aria-label="Han1 gap closing, step ${step + 1} of 6" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobile(step: number) {
+  const x0 = 16, width = 328, y = 96, h = 26;
+  let s = `<text x="${x0}" y="22" class="lvz-tl">From unordered contigs to gapless sequence</text>`;
+
+  if (step === 0) {
+    const seg = [[16, 78], [104, 52], [166, 66], [242, 44], [296, 48]];
+    const dy = [-10, 9, -5, 12, -8];
+    seg.forEach(([sx, sw], i) => {
+      s += `<rect x="${sx}" y="${y + dy[i]}" width="${sw}" height="${h}" rx="${h / 2}" fill="${C.sample}" fill-opacity=".78"/>`;
+    });
+    s += `<text x="180" y="${y + h + 40}" class="genome-mini">182 contigs · N50 95.8 Mb · QV 57.8</text>`;
+  } else {
+    if (step >= 1) {
+      s += `<rect x="${x0}" y="62" width="${width}" height="10" rx="5" fill="var(--color-rule)"/>`;
+      s += `<text x="180" y="56" class="genome-mini">T2T-CHM13 guide</text>`;
+    }
+    s += bar(step, x0, width, y, h);
+    s += `<text x="180" y="${y + h + 22}" class="genome-mini">gap positions schematic; counts from the paper</text>`;
+  }
+
+  s += ledger(step, x0, width, 164, true);
+
+  if (step === 5) {
+    s += `<text x="180" y="232" class="genome-mini">3,099,707,698 bases in 25 sequences</text>`;
+  } else if (step === 4) {
+    s += `<text x="180" y="232" class="genome-mini">≈120 Mb from T2T-CHM13</text>`;
+  }
+
+  return `<svg viewBox="0 0 360 244" class="lvz-svg" role="img" aria-label="Han1 gap closing, step ${step + 1} of 6" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+---
+
+<section
+  class="lvz genome-viz han1-gapclosing"
+  role="group"
+  aria-label="Interactive: closing the gaps in the Han1 assembly, layer by layer"
+  data-autoplay={autoPlay ? 'true' : undefined}
+  data-print-final-state="true"
+>
+  <div class="lvz-head">
+    <p class="lvz-title">Close the gaps, one layer at a time</p>
+    <span class="lvz-tag">Assembly finishing</span>
+  </div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Han1 gap-closing steps">
+    {steps.map(([title], index) => (
+      <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>
+    ))}
+  </nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktop(index)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
+    </div>
+  ))}
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button>
+    <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button>
+    <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
+  </div>
+  <div class="lvz-legend">
+    <span><span class="lvz-sw" style={`background:${C.sample}`}></span>assembled from HG00621</span>
+    <span><span class="lvz-sw" style={`background:${C.hifi}`}></span>gap closed with HiFi reads</span>
+    <span><span class="lvz-sw" style={`background:${C.ont}`}></span>closed with Nanopore contigs</span>
+    <span><span class="lvz-sw" style={`background:${C.guide}`}></span>filled from T2T-CHM13</span>
+    <span><span class="lvz-sw" style={`background:${C.manual}`}></span>resolved by hand</span>
+  </div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootHan1GapClosing() {
+    document.querySelectorAll<HTMLElement>('.han1-gapclosing').forEach((root) => {
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, {
+        total: scenes.length,
+        onShow: (index) =>
+          scenes.forEach((scene, sceneIndex) => {
+            const current = sceneIndex === index;
+            scene.hidden = !current;
+            scene.setAttribute('aria-current', current ? 'step' : 'false');
+          }),
+        caption: (index) => scenes[index]?.dataset.caption || '',
+        interval: 6500,
+        autoPlay: root.dataset.autoplay === 'true',
+      });
+    });
+  }
+  bootHan1GapClosing();
+  document.addEventListener('astro:page-load', bootHan1GapClosing);
+</script>

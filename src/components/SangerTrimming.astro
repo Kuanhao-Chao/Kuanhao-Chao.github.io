@@ -1,0 +1,221 @@
+---
+import '../styles/lvz.css';
+import '../styles/sanger.css';
+
+interface Props { autoPlay?: boolean }
+const { autoPlay = false } = Astro.props;
+
+// An illustrative Phred trace with the shape every Sanger read has: unusable at both ends,
+// usable in the middle. The quality values are made up; the two trimming algorithms drawn on
+// top of them are NOT -- both are computed below from this array, so the trim points shown are
+// whatever the algorithms actually return. sangeranalyseR offers exactly these two (Chao et al.
+// 2021): the modified Mott algorithm implemented in Phred, and the sliding window implemented
+// in Trimmomatic, under one shared "Trimming Cutoff".
+const Q = [
+  4, 6, 5, 9, 8, 12, 15, 11, 18, 24, 31, 38, 44, 49, 52, 55, 54, 56, 53, 57,
+  55, 58, 56, 54, 57, 55, 53, 56, 54, 52, 50, 47, 49, 44, 41, 38, 34, 30, 26, 22,
+  19, 15, 12, 10, 8, 7, 5, 4,
+];
+const CUTOFF = 30;
+const WINDOW = 5;
+
+/** Modified Mott: score each base by (cutoff error rate − its own), keep the best-scoring run. */
+function mottSegment(q: number[], cutoff: number): [number, number] {
+  const pCut = 10 ** (-cutoff / 10);
+  let best = -Infinity, bestStart = 0, bestEnd = 0;
+  let run = 0, start = 0;
+  for (let i = 0; i < q.length; i += 1) {
+    const s = pCut - 10 ** (-q[i] / 10);
+    if (run <= 0) { run = s; start = i; } else { run += s; }
+    if (run > best) { best = run; bestStart = start; bestEnd = i; }
+  }
+  return [bestStart, bestEnd];
+}
+
+/** Sliding window: keep from the first window whose mean clears the cutoff to the last. */
+function windowSegment(q: number[], cutoff: number, w: number): [number, number] {
+  const mean = (i: number) => q.slice(i, i + w).reduce((a, b) => a + b, 0) / w;
+  let lo = 0, hi = q.length - 1;
+  for (let i = 0; i + w <= q.length; i += 1) { if (mean(i) >= cutoff) { lo = i; break; } }
+  for (let i = q.length - w; i >= 0; i -= 1) { if (mean(i) >= cutoff) { hi = i + w - 1; break; } }
+  return [lo, hi];
+}
+
+const MOTT = mottSegment(Q, CUTOFF);
+const WIN = windowSegment(Q, CUTOFF, WINDOW);
+
+const steps = [
+  ['A read arrives with its quality trace', `Every Sanger read is unusable at both ends and good in the middle: the polymerase has not settled at the 5′ end, and the signal decays at the 3′. The Phred score at each base is what makes that measurable rather than a matter of eyeballing the chromatogram.`],
+  ['Set one cutoff', `Both trimming algorithms in sangeranalyseR run off a single "Trimming Cutoff" — here Phred ${CUTOFF}, one expected error in a thousand bases. It is one parameter, adjustable from R or from the Shiny app, and it is what you tune when the defaults are wrong for your data.`],
+  ['Modified Mott, as implemented in Phred', `Score each base by how far its error probability sits below the cutoff, then keep the highest-scoring contiguous run. Bases below the cutoff score negatively, so a short dip inside a good region is tolerated but a sustained one ends the run. On this trace it keeps bases ${MOTT[0]}–${MOTT[1]}.`],
+  ['Sliding window, as implemented in Trimmomatic', `Average the quality over a ${WINDOW}-base window and keep from the first window that clears the cutoff to the last one that does. It reacts to local averages rather than to a running total, so it forgives the ragged shoulders — here it keeps bases ${WIN[0]}–${WIN[1]}, a wider read than Mott returns.`],
+  ['The two disagree, and that is the point', `Neither answer is the right one: Mott is stricter at the shoulders, the window is more permissive, and which you want depends on whether a downstream consensus or a downstream alignment is paying for the mistake. Offering both under one cutoff is what makes the choice explicit instead of buried.`],
+  ['Trimmed reads become a contig', `The surviving forward and reverse reads are what go into SangerContig, where DECIPHER builds the consensus. Trimming is upstream of everything: every base kept here is a base the consensus has to reconcile, and every base cut is one it never sees.`],
+] as const;
+
+const C = {
+  keep: 'var(--sng-keep)',
+  trim: 'var(--sng-trim)',
+  mott: 'var(--sng-mott)',
+  window: 'var(--sng-window)',
+  cutoff: 'var(--sng-cutoff)',
+  neutral: 'var(--sng-neutral)',
+};
+
+function esc(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** The quality trace as bars, with whichever segment the current step is arguing about. */
+function trace(step: number, x0: number, width: number, base: number, maxH: number) {
+  const bw = width / Q.length;
+  const qMax = 60;
+  let s = '';
+  const seg: [number, number] | null = step === 2 ? MOTT : step === 3 ? WIN : step === 5 ? MOTT : null;
+  Q.forEach((q, i) => {
+    const h = (q / qMax) * maxH;
+    const inSeg = seg ? i >= seg[0] && i <= seg[1] : false;
+    const colour = !seg ? (q >= CUTOFF ? C.neutral : C.neutral) : inSeg ? C.keep : C.trim;
+    const op = !seg ? 0.55 : inSeg ? 0.9 : 0.32;
+    s += `<rect x="${(x0 + i * bw).toFixed(2)}" y="${(base - h).toFixed(2)}" width="${(bw - 0.9).toFixed(2)}" height="${h.toFixed(2)}" fill="${colour}" fill-opacity="${op}"/>`;
+  });
+  // Cutoff line, from step 1 on.
+  if (step >= 1) {
+    const cy = base - (CUTOFF / qMax) * maxH;
+    s += `<line x1="${x0}" y1="${cy.toFixed(1)}" x2="${x0 + width}" y2="${cy.toFixed(1)}" stroke="${C.cutoff}" stroke-width="1.8" stroke-dasharray="5 3"/>`;
+    s += `<text x="${x0 + width + 8}" y="${(cy + 4).toFixed(1)}" class="sng-mini sng-left" style="fill:${C.cutoff}">Q${CUTOFF}</text>`;
+  }
+  s += `<line x1="${x0}" y1="${base}" x2="${x0 + width}" y2="${base}" class="sng-axis"/>`;
+  return s;
+}
+
+/** A bracket under the trace marking one algorithm's kept span. */
+function span(seg: [number, number], x0: number, width: number, y: number, colour: string, label: string) {
+  const bw = width / Q.length;
+  const a = x0 + seg[0] * bw;
+  const b = x0 + (seg[1] + 1) * bw;
+  let s = `<line x1="${a.toFixed(1)}" y1="${y}" x2="${b.toFixed(1)}" y2="${y}" stroke="${colour}" stroke-width="3"/>`;
+  s += `<line x1="${a.toFixed(1)}" y1="${y - 5}" x2="${a.toFixed(1)}" y2="${y + 5}" stroke="${colour}" stroke-width="3"/>`;
+  s += `<line x1="${b.toFixed(1)}" y1="${y - 5}" x2="${b.toFixed(1)}" y2="${y + 5}" stroke="${colour}" stroke-width="3"/>`;
+  s += `<text x="${((a + b) / 2).toFixed(1)}" y="${y + 18}" class="sng-mini" style="fill:${colour}">${esc(label)}</text>`;
+  return s;
+}
+
+function contigArt(x0: number, width: number, y: number) {
+  const bw = width / Q.length;
+  const a = x0 + MOTT[0] * bw, b = x0 + (MOTT[1] + 1) * bw;
+  let s = `<rect x="${a.toFixed(1)}" y="${y}" width="${(b - a).toFixed(1)}" height="15" rx="3" fill="${C.keep}" fill-opacity=".55"/>`;
+  s += `<text x="${(a - 8).toFixed(1)}" y="${y + 12}" class="sng-mini" text-anchor="end">forward</text>`;
+  s += `<rect x="${(a + 34).toFixed(1)}" y="${y + 22}" width="${(b - a).toFixed(1)}" height="15" rx="3" fill="${C.keep}" fill-opacity=".35"/>`;
+  s += `<text x="${(a + 26).toFixed(1)}" y="${y + 34}" class="sng-mini" text-anchor="end">reverse</text>`;
+  s += `<rect x="${a.toFixed(1)}" y="${y + 46}" width="${(b - a + 34).toFixed(1)}" height="15" rx="3" fill="${C.window}" fill-opacity=".45"/>`;
+  s += `<text x="${(a - 8).toFixed(1)}" y="${y + 58}" class="sng-mini" text-anchor="end">consensus</text>`;
+  s += `<text x="${(a + (b - a + 34) / 2).toFixed(1)}" y="${y + 78}" class="sng-mini">SangerContig · consensus built with DECIPHER</text>`;
+  return s;
+}
+
+function desktop(step: number) {
+  const x0 = 62, width = 800, base = 176, maxH = 118;
+  let s = `<text x="24" y="24" class="lvz-tl">One read's Phred trace, and the two ways sangeranalyseR trims it</text>`;
+  s += `<text x="${x0 - 10}" y="${base - maxH + 6}" class="sng-mini" text-anchor="end">Q60</text>`;
+  s += `<text x="${x0 - 10}" y="${base + 4}" class="sng-mini" text-anchor="end">Q0</text>`;
+  s += trace(step, x0, width, base, maxH);
+  s += `<text x="${x0}" y="${base + 18}" class="sng-mini sng-left">5′</text>`;
+  s += `<text x="${x0 + width}" y="${base + 18}" class="sng-mini" text-anchor="end">3′</text>`;
+
+  if (step === 2) s += span(MOTT, x0, width, base + 36, C.mott, `modified Mott · keeps bases ${MOTT[0]}–${MOTT[1]} (${MOTT[1] - MOTT[0] + 1} of ${Q.length})`);
+  if (step === 3) s += span(WIN, x0, width, base + 36, C.window, `sliding window · keeps bases ${WIN[0]}–${WIN[1]} (${WIN[1] - WIN[0] + 1} of ${Q.length})`);
+  if (step === 4) {
+    s += span(MOTT, x0, width, base + 34, C.mott, `modified Mott · ${MOTT[1] - MOTT[0] + 1} bases`);
+    s += span(WIN, x0, width, base + 68, C.window, `sliding window · ${WIN[1] - WIN[0] + 1} bases`);
+    s += `<text x="${x0}" y="${base + 104}" class="sng-mini sng-left">Same read, same cutoff, ${Math.abs((WIN[1] - WIN[0]) - (MOTT[1] - MOTT[0]))} bases of difference — at both shoulders, which is where the ambiguous bases are.</text>`;
+  }
+  if (step === 5) s += contigArt(x0, width, base + 34);
+  if (step === 0) s += `<text x="${x0}" y="${base + 40}" class="sng-mini sng-left">Illustrative Phred scores; both trim spans below are computed from them, not drawn by hand.</text>`;
+  if (step === 1) s += `<text x="${x0}" y="${base + 40}" class="sng-mini sng-left">Q${CUTOFF} means one expected error per 1,000 bases. One parameter drives both algorithms.</text>`;
+
+  return `<svg viewBox="0 0 960 300" class="lvz-svg" role="img" aria-label="Sanger read trimming, step ${step + 1} of 6" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+function mobile(step: number) {
+  const x0 = 30, width = 296, base = 128, maxH = 82;
+  let s = `<text x="12" y="18" class="lvz-tl">Trimming one Sanger read</text>`;
+  s += trace(step, x0, width, base, maxH);
+  s += `<text x="${x0}" y="${base + 16}" class="sng-mini sng-left">5′</text>`;
+  s += `<text x="${x0 + width}" y="${base + 16}" class="sng-mini" text-anchor="end">3′</text>`;
+
+  if (step === 2) s += span(MOTT, x0, width, base + 32, C.mott, `Mott · ${MOTT[0]}–${MOTT[1]}`);
+  if (step === 3) s += span(WIN, x0, width, base + 32, C.window, `window · ${WIN[0]}–${WIN[1]}`);
+  if (step === 4) {
+    s += span(MOTT, x0, width, base + 30, C.mott, `Mott · ${MOTT[1] - MOTT[0] + 1} bases`);
+    s += span(WIN, x0, width, base + 62, C.window, `window · ${WIN[1] - WIN[0] + 1} bases`);
+  }
+  if (step === 5) s += contigArt(x0, width, base + 30);
+  if (step <= 1) s += `<text x="12" y="${base + 40}" class="sng-mini sng-left">illustrative scores; trim spans are computed</text>`;
+
+  return `<svg viewBox="0 0 360 240" class="lvz-svg" role="img" aria-label="Sanger read trimming, step ${step + 1} of 6" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+---
+
+<section
+  class="lvz sanger-viz sanger-trimming"
+  role="group"
+  aria-label="Interactive: how sangeranalyseR trims a Sanger read"
+  data-autoplay={autoPlay ? 'true' : undefined}
+  data-print-final-state="true"
+>
+  <div class="lvz-head">
+    <p class="lvz-title">Where does the read actually start?</p>
+    <span class="lvz-tag">Read trimming</span>
+  </div>
+  <p class="lvz-caption" data-wgi-caption aria-live="polite">{steps[0][1]}</p>
+  <nav class="lvz-progress" aria-label="Read trimming steps">
+    {steps.map(([title], index) => (
+      <button type="button" class="lvz-jump" data-wgi-jump aria-label={`Step ${index + 1}: ${title}`} title={title}>{index + 1}</button>
+    ))}
+  </nav>
+  {steps.map(([title, caption], index) => (
+    <div class="lvz-step" data-wgi-step data-caption={caption} data-print-final={index === steps.length - 1 ? 'true' : undefined} hidden={index !== 0}>
+      <p class="lvz-steptitle"><span class="lvz-num">{index + 1}</span>{title}</p>
+      <div class="lvz-fig lvz-visual--desktop" set:html={desktop(index)} />
+      <div class="lvz-fig lvz-visual--mobile" set:html={mobile(index)} />
+    </div>
+  ))}
+  <div class="lvz-controls">
+    <button type="button" class="lvz-btn" data-wgi-prev aria-label="Previous step">← Prev</button>
+    <button type="button" class="lvz-btn" data-wgi-play aria-pressed="false" aria-label="Play animation"><span data-wgi-play-icon>▶</span> <span data-wgi-play-label>Play</span></button>
+    <button type="button" class="lvz-btn" data-wgi-next aria-label="Next step">Next →</button>
+    <button type="button" class="lvz-btn" data-wgi-reset aria-label="Restart from first step">↺ Restart</button>
+    <span class="lvz-pos" data-wgi-pos>1 / {steps.length}</span>
+  </div>
+  <div class="lvz-legend">
+    <span><span class="lvz-sw" style={`background:${C.keep}`}></span>kept</span>
+    <span><span class="lvz-sw" style={`background:${C.trim}`}></span>trimmed</span>
+    <span><span class="lvz-sw" style={`background:${C.cutoff}`}></span>trimming cutoff</span>
+    <span><span class="lvz-sw" style={`background:${C.mott}`}></span>modified Mott</span>
+    <span><span class="lvz-sw" style={`background:${C.window}`}></span>sliding window</span>
+  </div>
+</section>
+
+<script>
+  import { mountStepper } from '../scripts/wgiStepper';
+  function bootSangerTrimming() {
+    document.querySelectorAll<HTMLElement>('.sanger-trimming').forEach((root) => {
+      const scenes = Array.from(root.querySelectorAll<HTMLElement>('[data-wgi-step]'));
+      mountStepper(root, {
+        total: scenes.length,
+        onShow: (index) =>
+          scenes.forEach((scene, sceneIndex) => {
+            const current = sceneIndex === index;
+            scene.hidden = !current;
+            scene.setAttribute('aria-current', current ? 'step' : 'false');
+          }),
+        caption: (index) => scenes[index]?.dataset.caption || '',
+        interval: 6500,
+        autoPlay: root.dataset.autoplay === 'true',
+      });
+    });
+  }
+  bootSangerTrimming();
+  document.addEventListener('astro:page-load', bootSangerTrimming);
+</script>
