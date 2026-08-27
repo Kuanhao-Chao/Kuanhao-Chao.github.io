@@ -77,54 +77,67 @@ write(os.path.join(OUT, 'statgen-bh-staircase.svg'), svg1)
 splice(MDX, 0, svg1)
 print('wrote statgen-bh-staircase.svg')
 
-# ── Figure 2 ── what Storey's correction is worth ────────────────────────────
-# 20,000 tests, pi0 = 0.5, q = 0.05, 200 trials per point; alternatives at N(mu,1).
-# The nominal threshold doubles at every point; the discovery count does not.
-GAIN = [(0.222, 1.510), (0.507, 1.284), (0.744, 1.152), (0.890, 1.081), (0.960, 1.048)]
+# ── Figure 2 ── what Storey's correction is worth, and the two things limiting it ──
+# 20,000 tests, pi0 = 0.5, q = 0.05, 600 replicates; alternatives at N(mu,1).
+# Two curves: the gain Storey actually delivers (pi0 estimated at lambda = 0.5) and the
+# gain a KNOWN pi0 = 0.5 would deliver. They part company at low power because the
+# estimator is biased upward exactly there. Every value asserted in deepDiveExamples.
+EST   = [(0.223, 1.507), (0.506, 1.285), (0.744, 1.152), (0.889, 1.081), (0.960, 1.047)]
+KNOWN = [(0.223, 1.694), (0.506, 1.316), (0.744, 1.156), (0.889, 1.082), (0.960, 1.047)]
 
-ax2 = Axes(104.0, 424.0, 40.0, 236.0, (0.15, 1.0), (1.0, 1.6))
+ax2 = Axes(104.0, 424.0, 40.0, 236.0, (0.15, 1.0), (1.0, 1.75))
 o = [ax2.frame()]
-o.append(ax2.ygrid([1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6],
-                   ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6'], size=10,
+o.append(ax2.ygrid([1.0, 1.15, 1.30, 1.45, 1.60, 1.75],
+                   ['1.00', '1.15', '1.30', '1.45', '1.60', '1.75'], size=10,
                    emphasise=(1.0,)))
 o.append(ax2.xticks([0.2, 0.4, 0.6, 0.8, 1.0], ['0.2', '0.4', '0.6', '0.8', '1.0']))
 
-o.append(path([(ax2.px(p), ax2.py(g)) for p, g in GAIN], width=2.4, stroke=ACCENT))
-for p, g in GAIN:
+o.append(path([(ax2.px(p), ax2.py(g)) for p, g in KNOWN], width=1.9,
+              stroke='currentColor', dash='5 3', opacity='.7'))
+for p, g in KNOWN:
+    o.append(circle(ax2.px(p), ax2.py(g), 3.4, fill='currentColor', opacity='.55'))
+o.append(path([(ax2.px(p), ax2.py(g)) for p, g in EST], width=2.4, stroke=ACCENT))
+for p, g in EST:
     o.append(circle(ax2.px(p), ax2.py(g), 4.0, fill=ACCENT))
-o.append(text(ax2.px(0.222) + 10, ax2.py(1.510) + 4, '1.51×', 10.5, fill=ACCENT, weight='600'))
-# no label on the right-hand point: every placement sat on the curve, and the margin
-# already gives the range as 51% to 5%
+
+o.append(line(ax2.px(0.223), ax2.py(1.507), ax2.px(0.223), ax2.py(1.694), 1.6, opacity='.6'))
+# the empty quadrant is upper-right; a leader runs back to the gap it labels
+o.append(line(ax2.px(0.243), ax2.py(1.600), ax2.px(0.44), ax2.py(1.660), 1.0, opacity='.5'))
+o.append(text(ax2.px(0.46), ax2.py(1.690), 'what the estimator costs', 10, opacity='.85'))
+o.append(text(ax2.px(0.46), ax2.py(1.648), 'at low power: 1.507, not 1.694', 10, opacity='.85'))
 
 o.append(text((ax2.x0 + ax2.x1) / 2, ax2.py(1.0) + 42, 'Per-test power of the true effects',
               12, anchor='middle'))
 o.append(text(ax2.x0 - 78, 24, 'Discoveries with Storey, relative to BH', 10.5, opacity='.85'))
 
 LX = ax2.x1 + 30
-o.append(text(LX, 44, 'The threshold doubles', 11, weight='700'))
-o.append(text(LX, 58, 'every time. The count', 11, weight='700'))
-o.append(text(LX, 72, 'does not.', 11, weight='700'))
-for i, t in enumerate([
-        'Half of these 20,000 tests are',
-        'real, so pi_0 = 0.5 and Storey',
-        'runs BH at q/pi_0 = 0.10 rather',
-        'than 0.05 - twice as permissive',
-        'at every point on this curve.', '',
-        'The extra discoveries range from',
-        '51% to 5%. What decides it is',
-        'the slope of the sorted p-value',
-        'curve where it meets the',
-        'staircase: shallow when the',
-        'effects are weak, steep when',
-        'they are strong.', '',
-        'So the correction pays most',
-        'exactly where power is worst,',
-        'which is the opposite of the',
-        'usual intuition about a',
-        'refinement being a luxury.']):
-    o.append(text(LX, 96 + 13 * i, t, 10, opacity='.8'))
+o.append(line(LX, 40, LX + 16, 40, 2.4, stroke=ACCENT))
+o.append(text(LX + 24, 44, 'pi_0 estimated (real)', 10, fill=ACCENT, weight='600'))
+o.append(line(LX, 57, LX + 16, 57, 1.9, stroke='currentColor', dash='5 3', opacity='.7'))
+o.append(text(LX + 24, 61, 'pi_0 known = 0.5', 10, opacity='.8'))
 
-svg2 = svg(772, 372, ''.join(o))
+o.append(text(LX, 88, 'Two limits, one at each end.', 11, weight='700'))
+for i, t in enumerate([
+        'Storey runs BH at q/pi_0. If pi_0 were',
+        'known the level would be 0.10, twice',
+        '0.05 - the dashed curve.', '',
+        'It is not known. At lambda = 0.5 the',
+        'estimator counts alternatives that',
+        'leaked past 0.5 as nulls, and that',
+        'leak is worst where power is worst:',
+        'pi_0 reads 0.5886 at a power of 0.22',
+        'and 0.5007 at 0.96. So the level is',
+        '0.0849, not 0.10, exactly where the',
+        'geometry would have paid best.', '',
+        'At the other end the estimator is',
+        'nearly exact and the threshold really',
+        'does double - but the sorted p-value',
+        'curve is steep there, so doubling it',
+        'buys 4.7%.', '',
+        'Neither end gets the full factor.']):
+    o.append(text(LX, 110 + 13 * i, t, 10, opacity='.8'))
+
+svg2 = svg(772, 392, ''.join(o))
 write(os.path.join(OUT, 'statgen-storey-gain.svg'), svg2)
 splice(MDX, 1, svg2)
 print('wrote statgen-storey-gain.svg')

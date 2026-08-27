@@ -97,8 +97,9 @@ $$
 <Callout variant="intuition" title="Why drift is so slow that age becomes a measurement">
 
 Drift moves an allele's frequency by about $\sqrt{p(1-p)/2N}$ per generation. At $N = 10{,}000$
-and $p = \tfrac{1}{2}$ that is a step of roughly 0.0035% per generation — a random walk with a
-very short stride. Covering half the frequency range by accumulating steps that small takes
+and $p = \tfrac{1}{2}$ that is a step of $\sqrt{0.25/20{,}000} = 0.003536$ in frequency — about
+a third of one percent — per generation, a random walk with a very short stride. Covering half
+the frequency range by accumulating steps that small takes
 tens of thousands of generations, and the exact answer is $4N\ln 2 = 27{,}725.89$ of them,
 about 693,000 years at 25 years per generation.
 
@@ -285,7 +286,7 @@ different depths.
 | Signature | What it reads | Sensitive window | Owned by |
 | --- | --- | --- | --- |
 | Frequency spectrum, Tajima's D | Excess of rare variants after a sweep purges diversity | Roughly $0.1N$ to $N$ generations | Lesson 3 |
-| Haplotype length, EHH and iHS | Genealogy too shallow for the frequency | Under $\sim 0.05N$ generations | This lesson |
+| Haplotype length, EHH and iHS | Genealogy too shallow for the frequency | Under $\sim 0.1N$ generations | This lesson |
 | Between-population divergence, F_ST outliers | One population pushed and the other not | Since the populations split | Lesson 5 |
 
 The ordering is not arbitrary. Haplotypes are the most recent signal because recombination
@@ -334,15 +335,16 @@ say what the comparison implies about which variants carry the most information.
 $\mathbb{E}[t] = -4 \times 10^4 \times (0.2/0.8) \times \ln 0.2 = -40{,}000 \times 0.25 \times (-1.609438) = 16{,}094.38$
 generations, or about 402,000 years.
 
-At $p = 0.50$ the value is 27,725.89 generations. So doubling the frequency from 0.20 to 0.50
-raises the expected age by a factor of only 1.72, while dropping from 0.20 to 0.10 halves it
-to 10,233.71.
+At $p = 0.50$ the value is 27,725.89 generations. So raising the frequency by a factor of 2.5,
+from 0.20 to 0.50, raises the expected age by a factor of only 1.72 — while halving the
+frequency from 0.20 to 0.10 cuts the age to 10,233.71, a factor of 0.636.
 
-The curve is steep at low frequency and flat at high frequency, so **age is most informative
-about frequency where the allele is rare**. Equivalently, a common allele that is a bit too
-young is a weaker signal than a rare allele that is far too old — which is one reason sweep
-detection concentrates on alleles at intermediate frequency, where the derivative is large
-enough to notice but the allele is common enough to have a haplotype worth measuring.
+The curve is steep at low frequency and flat at high frequency, so **frequency pins age most
+tightly where the allele is rare** — a small change in frequency implies a large change in
+expected age there, and almost none at the top. That cuts both ways for detection: at high
+frequency the expected age barely moves, so an anomalously young common allele stands out
+against a well-determined expectation, which is exactly the regime sweeps are found in and
+where the allele is common enough to carry a haplotype worth measuring.
 
 </div>
 

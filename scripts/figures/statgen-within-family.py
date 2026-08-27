@@ -25,7 +25,7 @@ o.append(line(ax.x0, ax.py(EQ), ax.x1, ax.py(EQ), 2.0, opacity='.85', dash='6 4'
 o.append(text(ax.x1 - 4, ax.py(EQ) - 8, 'equilibrium  0.645497', 10, anchor='end',
               fill=ACCENT, weight='600'))
 o.append(line(ax.x0, ax.py(NAIVE), ax.x1, ax.py(NAIVE), 1.8, opacity='.6', dash='2 3'))
-o.append(text(ax.x1 - 4, ax.py(NAIVE) + 14, 'naive 1/(1 - mu h_0²) = 0.625', 10,
+o.append(text(ax.x1 - 4, ax.py(NAIVE) + 14, 'naive ratio 1.25 gives V_A = 0.625', 10,
               anchor='end', opacity='.7'))
 
 o.append(path([(ax.px(g), ax.py(v)) for g, v in SIM], width=2.6, stroke=ACCENT))
@@ -47,10 +47,11 @@ for i, t in enumerate([
         'rho = mu h².', '',
         'The catch is that h² there is the',
         'EQUILIBRIUM heritability, not the',
-        'starting one. Using h_0² gives 0.625;',
+        'starting one. Using h_0² gives a',
+        'ratio of 1.25 and V_A = 0.625;',
         'solving self-consistently gives',
-        '0.645497, which at h_0² = 1/2 is',
-        'exactly sqrt(5/3) times the start.', '',
+        '1.290994 and V_A = 0.645497, which',
+        'at h_0² = 1/2 is exactly sqrt(5/3).', '',
         'The approach takes about ten',
         'generations, so a population whose',
         'mating patterns changed recently is',

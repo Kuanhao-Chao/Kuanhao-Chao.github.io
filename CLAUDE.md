@@ -392,6 +392,22 @@ Things specific to this subsystem:
   a stationary population instead. The control that catches it is to measure allele *age* the
   same way and check it against Kimura–Ohta.
 
+- **An adversarial re-derivation of a finished track found three MAJOR defects that 3,149
+  passing tests and every rendering gate had passed over**, and all three were of one kind: a
+  *claim about* correct numbers rather than a wrong number. (a) A gain table produced with
+  Storey's *estimated* π̂₀ was described five times as "twice as permissive at every point" —
+  π̂₀ is 0.5886 at low power, so the level was 0.0849, not 0.10. (b) `1/(1−F_ST)` was called a
+  pooled-sample ratio; under Hudson's estimator it is the *between-population* ratio, and the
+  two conventions differ by 1.83× on the lesson's own example. (c) A drift step of 0.003536
+  was printed as "0.0035%", off by 100×, while the same lesson's exercise gave it correctly.
+  **The test suite cannot see any of these**, because each number it asserts is right; what is
+  wrong is the sentence around it. Re-derive the *interpretation*, not just the value.
+
+- **Numbers computed by a script that estimates a nuisance parameter are not numbers computed
+  with that parameter known.** The Storey table's own generator called `pi0hat(p)` and the
+  prose then described a fixed `q/π₀`. If a simulation estimates something, the prose has to
+  say so — and the counterfactual is usually the more interesting number (1.694 against 1.507).
+
 - **A failing assertion is more often the assertion's fault than the code's.** Three times in
   one lesson the test expectation was the wrong thing and the module was right: Weir & Cockerham
   legitimately returns a *small negative* F_ST at zero divergence (an estimator unbiased at zero

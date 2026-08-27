@@ -2,7 +2,7 @@
 title: "Multiple Testing: Family-Wise Error, False Discovery Rate, and What Each One Buys"
 shortTitle: Multiple Testing
 description: "Two different error rates, the procedures that control them, and the exact price of each. Why Benjamini–Hochberg controls at π₀q rather than q, where Storey's correction recovers the difference and how much it is worth, what arbitrary dependence costs, and why a false discovery rate is a property of a set rather than of any discovery in it."
-abstract: "The previous lesson derived the genome-wide threshold by insisting on no false positives at all, anywhere. That is one error rate; it is not the only one, and for most of molecular genetics it is the wrong one. This lesson derives the alternative. Benjamini and Hochberg's step-up procedure controls the expected proportion of discoveries that are false, and its central property is easy to state and easy to get wrong: run at nominal q, it controls the false discovery rate at π₀q, where π₀ is the null fraction — so it spends only the null share of the budget it was given. Simulation confirms it to three decimals across five values of π₀. Storey's estimator recovers the unspent remainder, and what that is worth turns out to depend sharply on power: at π₀ = 0.5 the threshold doubles at every point, but the discovery count rises 51% when per-test power is 0.22 and only 5% when it is 0.96, because what decides the gain is the slope of the sorted p-value curve where it meets the staircase. Benjamini–Yekutieli buys control under arbitrary dependence for a factor of H_m — 14.39 at a million tests — and crosses Bonferroni at exactly rank H_m, so it is stricter below that rank and more permissive above it. The lesson ends on the misreading that matters most: at q = 0.05 with half the tests real, 2.51% of discoveries are false overall but 10.62% of those nearest the cut are, because a false discovery rate describes a set and not a member of it."
+abstract: "The previous lesson derived the genome-wide threshold by insisting on no false positives at all, anywhere. That is one error rate; it is not the only one, and for most of molecular genetics it is the wrong one. This lesson derives the alternative. Benjamini and Hochberg's step-up procedure controls the expected proportion of discoveries that are false, and its central property is easy to state and easy to get wrong: run at nominal q, it controls the false discovery rate at π₀q, where π₀ is the null fraction — so it spends only the null share of the budget it was given. Simulation confirms it to three decimals across five values of π₀. Storey's estimator recovers the unspent remainder, and what that is worth is held down by two different things acting at opposite ends: at low power the estimator itself is biased, because weak alternatives leak past λ = 0.5 and are counted as nulls — π̂₀ reads 0.5886 where the truth is 0.5, so the level is 0.0849 rather than the 0.10 a known π₀ would give, and the gain is 1.507 rather than 1.694 — while at high power the estimate is nearly exact and the threshold really does double, but the sorted p-value curve is steep there and doubling it buys 4.7%. The full factor of two is never available. Benjamini–Yekutieli buys control under arbitrary dependence for a factor of H_m — 14.39 at a million tests — and crosses Bonferroni at exactly rank H_m, so it is stricter below that rank and more permissive above it. The lesson ends on the misreading that matters most: at q = 0.05 with half the tests real, 2.51% of discoveries are false overall but 10.62% of those nearest the cut are, because a false discovery rate describes a set and not a member of it."
 date: 2026-08-26
 track: theory
 hub: statistical-genetics
@@ -142,7 +142,7 @@ procedure.
 </Callout>
 
 <Figure
-  caption="Figure 1. Twenty p-values against three comparison lines. The solid rising line is Benjamini–Hochberg's iq/m; the dashed rising line is Benjamini–Yekutieli's iq/(H_m·m); the dotted horizontal line is Bonferroni's q/m. Filled points are the seven BH rejects, hollow-grey the thirteen it does not. The ringed point at rank 4 has p = 0.0115 against its own line of 0.0100 — it fails, and is rejected anyway, because rank 7 passes at 0.0175. Bonferroni rejects three and Benjamini–Yekutieli two, which is not a misprint: the BY and Bonferroni lines cross at exactly rank H_m = 3.5977, so BY is stricter below that rank and only becomes more permissive above it."
+  caption="Figure 1. The ten smallest of twenty p-values, against three comparison lines. The solid rising line is Benjamini–Hochberg's iq/m; the dashed rising line is Benjamini–Yekutieli's iq/(H_m·m); the dotted horizontal line is Bonferroni's q/m. Filled points are the seven BH rejects; the three hollow-grey ones are the next three, which it does not. The ringed point at rank 4 has p = 0.0115 against its own line of 0.0100 — it fails, and is rejected anyway, because rank 7 passes at 0.0175. Bonferroni rejects three and Benjamini–Yekutieli two, which is not a misprint: the BY and Bonferroni lines cross at exactly rank H_m = 3.5977, so BY is stricter below that rank and only becomes more permissive above it."
   alt="A scatter of ten points rising left to right against three lines: a solid line rising steeply from the origin, a dashed line rising shallowly, and a dotted horizontal line near the bottom. The first seven points are filled and lie near or below the solid line; the remaining points are grey and lie above it. One point at rank four is circled and sits just above the solid line."
 >
 
@@ -224,11 +224,11 @@ estimate rests on four observations and should not be trusted — Storey's metho
 method, and at $m = 20$ the histogram has no shape to read.
 
 <Figure
-  caption="Figure 2. What Storey's correction is worth, against the per-test power of the true effects. Twenty thousand tests, half of them real, so π₀ = 0.5 and the corrected procedure runs at q/π₀ = 0.10 against BH's 0.05 — twice as permissive at every point on the curve. The discovery count does not double anywhere: it rises 51% when per-test power is 0.222 and 5% when it is 0.960. What decides the gain is the slope of the sorted p-value curve where it meets the staircase, and that slope is shallow when the effects are weak."
+  caption="Figure 2. What Storey's correction is worth against the per-test power of the true effects, and the two separate things limiting it. Twenty thousand tests, half of them real, q = 0.05, 600 replicates. The dashed curve is the gain a *known* π₀ = 0.5 would deliver, where the level really is 0.10 — twice 0.05. The solid curve is what the estimator actually delivers. They part company at low power because π̂₀ counts alternatives that leaked past λ = 0.5 as nulls: it reads 0.5886 at a power of 0.223, so the level is 0.0849 rather than 0.10, and the gain is 1.507 rather than 1.694. At the other end π̂₀ is nearly exact and the threshold does double, but the sorted p-value curve is steep there and doubling it buys 4.7%."
   alt="A curve falling from left to right, from about 1.51 at a power of 0.22 down to about 1.05 at a power of 0.96, with five marked points. The vertical axis runs from 1.0 to 1.6 and is labelled as discoveries relative to Benjamini-Hochberg."
 >
 
-<svg viewBox="0 0 772 372" width="772" height="372" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.0</text><line x1="104.0" y1="203.3" x2="424.0" y2="203.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="207.3" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.1</text><line x1="104.0" y1="170.7" x2="424.0" y2="170.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="174.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.2</text><line x1="104.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="142.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.3</text><line x1="104.0" y1="105.3" x2="424.0" y2="105.3" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="109.3" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.4</text><line x1="104.0" y1="72.7" x2="424.0" y2="72.7" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="76.7" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.5</text><line x1="104.0" y1="40.0" x2="424.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.6</text><line x1="122.8" y1="236.0" x2="122.8" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="122.8" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="198.1" y1="236.0" x2="198.1" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="198.1" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="273.4" y1="236.0" x2="273.4" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="273.4" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.6</text><line x1="348.7" y1="236.0" x2="348.7" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="348.7" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.8</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.0</text><path d="M131.1,69.4 L238.4,143.2 L327.6,186.3 L382.6,209.5 L408.9,220.3" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="131.1" cy="69.4" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="238.4" cy="143.2" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="327.6" cy="186.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="382.6" cy="209.5" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="408.9" cy="220.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><text x="141.1" y="73.4" font-size="10.5" fill="var(--color-accent, #2e6e5e)" font-weight="600">1.51×</text><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Per-test power of the true effects</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Discoveries with Storey, relative to BH</text><text x="454.0" y="44.0" font-size="11" fill="currentColor" font-weight="700">The threshold doubles</text><text x="454.0" y="58.0" font-size="11" fill="currentColor" font-weight="700">every time. The count</text><text x="454.0" y="72.0" font-size="11" fill="currentColor" font-weight="700">does not.</text><text x="454.0" y="96.0" font-size="10" fill="currentColor" opacity=".8">Half of these 20,000 tests are</text><text x="454.0" y="109.0" font-size="10" fill="currentColor" opacity=".8">real, so pi<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan> = 0.5 and Storey</text><text x="454.0" y="122.0" font-size="10" fill="currentColor" opacity=".8">runs BH at q/pi<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan> = 0.10 rather</text><text x="454.0" y="135.0" font-size="10" fill="currentColor" opacity=".8">than 0.05 - twice as permissive</text><text x="454.0" y="148.0" font-size="10" fill="currentColor" opacity=".8">at every point on this curve.</text><text x="454.0" y="161.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="174.0" font-size="10" fill="currentColor" opacity=".8">The extra discoveries range from</text><text x="454.0" y="187.0" font-size="10" fill="currentColor" opacity=".8">51% to 5%. What decides it is</text><text x="454.0" y="200.0" font-size="10" fill="currentColor" opacity=".8">the slope of the sorted p-value</text><text x="454.0" y="213.0" font-size="10" fill="currentColor" opacity=".8">curve where it meets the</text><text x="454.0" y="226.0" font-size="10" fill="currentColor" opacity=".8">staircase: shallow when the</text><text x="454.0" y="239.0" font-size="10" fill="currentColor" opacity=".8">effects are weak, steep when</text><text x="454.0" y="252.0" font-size="10" fill="currentColor" opacity=".8">they are strong.</text><text x="454.0" y="265.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="278.0" font-size="10" fill="currentColor" opacity=".8">So the correction pays most</text><text x="454.0" y="291.0" font-size="10" fill="currentColor" opacity=".8">exactly where power is worst,</text><text x="454.0" y="304.0" font-size="10" fill="currentColor" opacity=".8">which is the opposite of the</text><text x="454.0" y="317.0" font-size="10" fill="currentColor" opacity=".8">usual intuition about a</text><text x="454.0" y="330.0" font-size="10" fill="currentColor" opacity=".8">refinement being a luxury.</text></svg>
+<svg viewBox="0 0 772 392" width="772" height="392" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".3" stroke-dasharray="4 4"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.00</text><line x1="104.0" y1="196.8" x2="424.0" y2="196.8" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="200.8" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.15</text><line x1="104.0" y1="157.6" x2="424.0" y2="157.6" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="161.6" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.30</text><line x1="104.0" y1="118.4" x2="424.0" y2="118.4" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="122.4" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.45</text><line x1="104.0" y1="79.2" x2="424.0" y2="79.2" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="83.2" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.60</text><line x1="104.0" y1="40.0" x2="424.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1.75</text><line x1="122.8" y1="236.0" x2="122.8" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="122.8" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.2</text><line x1="198.1" y1="236.0" x2="198.1" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="198.1" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.4</text><line x1="273.4" y1="236.0" x2="273.4" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="273.4" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.6</text><line x1="348.7" y1="236.0" x2="348.7" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="348.7" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">0.8</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">1.0</text><path d="M131.5,54.6 L238.0,153.4 L327.6,195.2 L382.2,214.6 L408.9,223.7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-dasharray="5 3" opacity=".7"/><circle cx="131.5" cy="54.6" r="3.4" fill="currentColor" opacity=".55"/><circle cx="238.0" cy="153.4" r="3.4" fill="currentColor" opacity=".55"/><circle cx="327.6" cy="195.2" r="3.4" fill="currentColor" opacity=".55"/><circle cx="382.2" cy="214.6" r="3.4" fill="currentColor" opacity=".55"/><circle cx="408.9" cy="223.7" r="3.4" fill="currentColor" opacity=".55"/><path d="M131.5,103.5 L238.0,161.5 L327.6,196.3 L382.2,214.8 L408.9,223.7" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><circle cx="131.5" cy="103.5" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="238.0" cy="161.5" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="327.6" cy="196.3" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="382.2" cy="214.8" r="4.0" fill="var(--color-accent, #2e6e5e)"/><circle cx="408.9" cy="223.7" r="4.0" fill="var(--color-accent, #2e6e5e)"/><line x1="131.5" y1="103.5" x2="131.5" y2="54.6" stroke="currentColor" stroke-width="1.6" opacity=".6"/><line x1="139.0" y1="79.2" x2="213.2" y2="63.5" stroke="currentColor" stroke-width="1.0" opacity=".5"/><text x="220.7" y="55.7" font-size="10" fill="currentColor" opacity=".85">what the estimator costs</text><text x="220.7" y="66.7" font-size="10" fill="currentColor" opacity=".85">at low power: 1.507, not 1.694</text><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Per-test power of the true effects</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Discoveries with Storey, relative to BH</text><line x1="454.0" y1="40.0" x2="470.0" y2="40.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.4"/><text x="478.0" y="44.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">pi<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan> estimated (real)</text><line x1="454.0" y1="57.0" x2="470.0" y2="57.0" stroke="currentColor" stroke-width="1.9" opacity=".7" stroke-dasharray="5 3"/><text x="478.0" y="61.0" font-size="10" fill="currentColor" opacity=".8">pi<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan> known = 0.5</text><text x="454.0" y="88.0" font-size="11" fill="currentColor" font-weight="700">Two limits, one at each end.</text><text x="454.0" y="110.0" font-size="10" fill="currentColor" opacity=".8">Storey runs BH at q/pi<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan>. If pi<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan> were</text><text x="454.0" y="123.0" font-size="10" fill="currentColor" opacity=".8">known the level would be 0.10, twice</text><text x="454.0" y="136.0" font-size="10" fill="currentColor" opacity=".8">0.05 - the dashed curve.</text><text x="454.0" y="149.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="162.0" font-size="10" fill="currentColor" opacity=".8">It is not known. At lambda = 0.5 the</text><text x="454.0" y="175.0" font-size="10" fill="currentColor" opacity=".8">estimator counts alternatives that</text><text x="454.0" y="188.0" font-size="10" fill="currentColor" opacity=".8">leaked past 0.5 as nulls, and that</text><text x="454.0" y="201.0" font-size="10" fill="currentColor" opacity=".8">leak is worst where power is worst:</text><text x="454.0" y="214.0" font-size="10" fill="currentColor" opacity=".8">pi<tspan font-size="8.5" dy="3">0</tspan><tspan dy="-3"></tspan> reads 0.5886 at a power of 0.22</text><text x="454.0" y="227.0" font-size="10" fill="currentColor" opacity=".8">and 0.5007 at 0.96. So the level is</text><text x="454.0" y="240.0" font-size="10" fill="currentColor" opacity=".8">0.0849, not 0.10, exactly where the</text><text x="454.0" y="253.0" font-size="10" fill="currentColor" opacity=".8">geometry would have paid best.</text><text x="454.0" y="266.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="279.0" font-size="10" fill="currentColor" opacity=".8">At the other end the estimator is</text><text x="454.0" y="292.0" font-size="10" fill="currentColor" opacity=".8">nearly exact and the threshold really</text><text x="454.0" y="305.0" font-size="10" fill="currentColor" opacity=".8">does double - but the sorted p-value</text><text x="454.0" y="318.0" font-size="10" fill="currentColor" opacity=".8">curve is steep there, so doubling it</text><text x="454.0" y="331.0" font-size="10" fill="currentColor" opacity=".8">buys 4.7%.</text><text x="454.0" y="344.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="357.0" font-size="10" fill="currentColor" opacity=".8">Neither end gets the full factor.</text></svg>
 
 </Figure>
 
@@ -240,38 +240,54 @@ method, and at $m = 20$ the histogram has no shape to read.
 />
 
 <WorkedExample
-  title="Twice the threshold, a twentieth more discoveries"
+  title="Neither end gets the full factor"
   given={[
     { label: 'Tests m', value: '20,000' },
     { label: 'Null proportion π₀', value: '0.500' },
     { label: 'Level q', value: '0.05' },
     { label: 'Alternatives', value: 'z ~ N(μ, 1)' },
+    { label: 'Storey λ', value: '0.5' },
   ]}
   verifiedBy="src/lib/deepDiveExamples.test.ts"
 >
 
-Because $\pi_0 = 0.5$, the corrected procedure runs BH at $q/\hat{\pi}_0 = 0.10$ — exactly
-twice as permissive, at every rank, in every row below. The discovery counts, averaged over
-200 replicates:
+If $\pi_0$ were *known* to be 0.5 the corrected level would be $q/\pi_0 = 0.10$, exactly twice
+as permissive. It is not known, and the estimate is not 0.5. Averaged over 600 replicates:
 
-| Alternative mean *z* | Per-test power | BH finds | Storey finds | Gain |
-| --- | --- | --- | --- | --- |
-| 2.0 | 0.222 | 2,281 | 3,444 | 1.510 |
-| 2.5 | 0.507 | 5,197 | 6,673 | 1.284 |
-| 3.0 | 0.744 | 7,635 | 8,792 | 1.152 |
-| 3.5 | 0.890 | 9,125 | 9,865 | 1.081 |
-| 4.0 | 0.960 | 9,847 | 10,314 | 1.048 |
+| Alternative mean *z* | Power | $\hat{\pi}_0$ | Level $q/\hat{\pi}_0$ | BH finds | Storey finds | Gain |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2.0 | 0.223 | 0.5886 | 0.0849 | 2,282 | 3,440 | 1.507 |
+| 2.5 | 0.506 | 0.5331 | 0.0938 | 5,185 | 6,665 | 1.285 |
+| 3.0 | 0.744 | 0.5099 | 0.0981 | 7,629 | 8,788 | 1.152 |
+| 3.5 | 0.889 | 0.5025 | 0.0995 | 9,122 | 9,863 | 1.081 |
+| 4.0 | 0.960 | 0.5007 | 0.0999 | 9,848 | 10,313 | 1.047 |
 
-**Doubling the threshold does not double the discoveries anywhere.** The gain runs from 51%
-down to 5%, and the reason is geometric: the procedure stops where the sorted p-value curve
-crosses the staircase, and moving the staircase up buys many extra rejections only if the
-p-value curve is shallow there. Strong effects make that curve steep — most of the real
-p-values are far below the crossing and already rejected — so raising the line catches almost
-nothing new.
+**Two different things hold the gain down, and they act at opposite ends.**
 
-The practical reading is the opposite of the usual intuition about refinements. **Storey's
-correction pays most exactly where power is worst**, which is where a study can least afford
-to leave discoveries on the table.
+*At low power, the estimator.* $\hat{\pi}_0$ counts everything above $\lambda$ as null, and
+weak alternatives leak past $\lambda = 0.5$ in quantity. The leak is exactly computable:
+$\Pr(p > \tfrac12 \mid z \sim N(\mu,1)) = \Phi(0.6745-\mu) - \Phi(-0.6745-\mu)$, which is
+0.0888 at $\mu = 2$ — so $\hat{\pi}_0 = 0.5 + 0.0888 = 0.5888$, against a simulated 0.5886.
+The level is therefore 0.0849, not 0.10: **1.70 times as permissive, not twice.** Had $\pi_0$
+been known, the gain at $\mu = 2$ would have been 1.694 rather than 1.507.
+
+*At high power, the geometry.* By $\mu = 4$ the estimator is nearly exact — 0.5007, a level of
+0.0999 — so the threshold really does double. It buys 4.7%, because the procedure stops where
+the sorted p-value curve crosses the staircase, and strong effects make that curve steep:
+almost every real p-value is far below the crossing and already rejected.
+
+So the correction is least reliable exactly where the geometry would have paid best, and most
+reliable exactly where the geometry pays nothing. **The full factor of two is never available.**
+
+<Callout variant="warning" title="λ is a bias–variance dial, not a constant">
+
+$\lambda = 0.5$ is a convention, not a derivation. Raising it reduces the leak — fewer
+alternatives survive above a higher cut — and increases the variance of $\hat{\pi}_0$, because
+fewer p-values are left to count. Lowering it does the reverse. Any $\hat{\pi}_0$ reported
+without its $\lambda$ is under-specified, and the number above would be a different number at
+$\lambda = 0.8$.
+
+</Callout>
 
 </WorkedExample>
 
@@ -325,7 +341,7 @@ member of that set, and the difference is large.
 Take 20,000 tests with $\pi_0 = 0.5$ and alternatives at $z \sim N(3,1)$, run BH at
 $q = 0.05$. Over 300 replicates the realised FDR is 0.0251, as $\pi_0 q$ predicts. But among
 the discoveries in the **last tenth before the cut** — the ones that only just made it —
-**10.62% are false**, 4.22 times the set-level rate.
+**10.62% are false**, 4.23 times the set-level rate.
 
 <Callout variant="warning" title="The misreading this produces">
 
@@ -407,13 +423,13 @@ $10^{-7}$. Which procedure rejects more, and why?
 
 **(a)** $H_{10^6} = 14.3927$, so $q/H_m = 0.05/14.3927 = 3.474\times10^{-3}$.
 
-**(b)** At rank $i = H_m = 14.3927$ — call it the fifteenth smallest p-value. Below that rank
+**(b)** At rank $i = H_m = 14.3927$, so between the fourteenth and fifteenth smallest. Below it
 BY is stricter than Bonferroni; above it, more permissive.
 
 **(c)** BY, by a wide margin. Bonferroni's cutoff is $5\times10^{-8}$, so of the 400 p-values
 below $10^{-7}$ only those also below $5\times10^{-8}$ are rejected. BY's line at rank 400 is
 $400 \times 3.474\times10^{-3}/10^6 = 1.39\times10^{-6}$, comfortably above $10^{-7}$, so all
-400 clear it provided the staircase is satisfied at that rank. The crossing at rank 14 is far
+400 clear it provided the staircase is satisfied at that rank. The crossing near rank 14 is far
 behind; with 400 signals present, the procedure that scales its line with the number of
 signals wins easily.
 
@@ -425,7 +441,7 @@ signals wins easily.
 
 A collaborator reports 1,000 genes at $q < 0.05$ and says "so about 50 of these are false
 positives, and any one of them has a 5% chance of being wrong." (a) Which half of that is
-right? (b) Given that in a comparable simulation the last tenth of discoveries ran 4.22 times
+right? (b) Given that in a comparable simulation the last tenth of discoveries ran 4.23 times
 the set-level false rate, roughly how many of the bottom 100 genes would you expect to be
 false? (c) What would you ask for instead?
 
@@ -436,8 +452,8 @@ discoveries in the set really is about $0.05 \times 1000 = 50$ — that is what 
 rate at 0.05 means. The per-gene statement does not follow, because the 50 are not spread
 evenly through the list.
 
-**(b)** If the bottom tenth runs at 4.22 times the set rate, that is roughly
-$0.05 \times 4.22 = 0.211$, so about 21 of the bottom 100 genes — nearly half the total false
+**(b)** If the bottom tenth runs at 4.23 times the set rate, that is roughly
+$0.05 \times 4.23 = 0.212$, so about 21 of the bottom 100 genes — nearly half the total false
 discoveries concentrated in a tenth of the list. The top of the list is correspondingly
 cleaner than 5%.
 
@@ -460,12 +476,14 @@ statement about a gene; where it sits relative to the cut is.
 - **BH controls at $\pi_0 q$, not $q$.** Simulation reproduces it at five null fractions to
   within a standard error. When almost everything is null the distinction vanishes; at
   $\pi_0 = 0.5$ the procedure is controlling at half the rate asked for.
-- **Storey's correction recovers the remainder, and pays most where power is worst** — at
-  $\pi_0 = 0.5$ the threshold doubles everywhere, but the discovery count rises 51% at a
-  per-test power of 0.222 and 5% at 0.960.
+- **Storey's correction is held down at both ends.** At low power $\hat{\pi}_0$ is biased
+  upward — 0.5886 against a true 0.5, because weak alternatives leak past $\lambda$ — so the
+  level is 0.0849 rather than 0.10 and the gain is 1.507 rather than the 1.694 a known
+  $\pi_0$ would give. At high power the estimate is nearly exact but the p-value curve is
+  steep, and doubling the threshold buys 4.7%.
 - **Arbitrary dependence costs a factor of $H_m$** — 14.3927 at a million tests — and
   Benjamini–Yekutieli crosses Bonferroni at exactly rank $H_m$, so it is stricter below that
   rank. Under the positive dependence that LD produces, plain BH needs no correction at all.
 - **A false discovery rate describes a set.** At a set-level 2.51%, the discoveries nearest
-  the cut ran 10.62% false — 4.22 times higher. The per-test question is answered by the local
+  the cut ran 10.62% false — 4.23 times higher. The per-test question is answered by the local
   false discovery rate, which is a different object.
