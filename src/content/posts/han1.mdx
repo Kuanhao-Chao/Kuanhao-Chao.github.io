@@ -30,6 +30,7 @@ references:
     doi: 'https://doi.org/10.1093/bioinformatics/btaa1016'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
+import Han1GapClosing from '../../components/Han1GapClosing.astro';
 import figChromosomes from '../../assets/posts/han1/han1-chromosomes.png';
 import figSynteny from '../../assets/posts/han1/han1-synteny.png';
 import figInversion from '../../assets/posts/han1/han1-inversion.png';
@@ -58,8 +59,13 @@ The workflow was deliberately staged:
 
 1. Assemble contigs (continuous stretches of sequence) de novo — from scratch, without copying a reference. We assembled the HiFi reads with [hifiasm (Cheng et al., 2021)](https://doi.org/10.1038/s41592-020-01056-5) and the Nanopore reads with [Flye (Kolmogorov et al., 2019)](https://doi.org/10.1038/s41587-019-0072-8), then chose the hifiasm assembly as the backbone because it was much more contiguous and accurate: 182 contigs, a 95.8 Mb contig N50 (half the assembly lies in contigs at least this long), and QV 57.8 (a log-scaled base-accuracy score, higher being fewer errors).
 2. Order those contigs into chromosomes. We used the [MaSuRCA chromosome scaffolder (Zimin et al., 2013)](https://doi.org/10.1093/bioinformatics/btt476) with T2T-CHM13 as the guide, split 12 misassembled contigs, and produced chromosome scaffolds for chromosomes 1–22, X, and Y.
-3. Close the remaining gaps in layers. HiFi reads closed 24 gaps; Nanopore-derived contigs closed 19 more; CHM13 sequence closed 45 of the remaining 58. The final unresolved cases required manual inspection of pericentromeric (near the centromere) repeat misassemblies and redundant haplotype contigs.
+3. Close the remaining gaps in layers. HiFi reads closed 24 gaps; Nanopore-derived contigs closed 19 more; CHM13 sequence closed 45 of the remaining 58. That left 7 gaps, on chromosomes 13, 14, 15, and 22, which needed manual inspection of pericentromeric (near the centromere) repeat misassemblies and redundant haplotype contigs.
 4. Clean up and polish. We removed an Epstein-Barr virus contaminant contig, treated the remaining unplaced contigs as redundant haplotype sequence, extracted a single mitochondrial genome, and polished the chromosomes with JASPER.
+
+Those four stages are easier to follow as one sequence than as a list, because each gap-closing
+layer uses a different source of sequence and it is the last one that carries the caveat.
+
+<Han1GapClosing />
 
 The final Han1 assembly contains 3,099,707,698 bases in 25 sequences: chromosomes 1–22, X, Y, and the mitochondrial genome. The autosomes, sex chromosomes, and mitochondrial genome were assembled end to end with no gaps, and every chromosome is a single contig. About 120 Mb was filled with T2T-CHM13 sequence, concentrated in the hardest repeat-rich regions, so the finished assembly is mostly HG00621 sequence but not purely de novo sequence.
 
@@ -81,7 +87,7 @@ That annotation problem became one of the threads that later led me to [LiftOn](
 
 But "highly similar" is not "identical," and the differences are where annotation matters. LiftoffTools compared 181,029 transcripts between T2T-CHM13 and Han1. At the gene level, we focused on 235 protein-coding genes with major predicted coding differences: frameshifts (insertions or deletions that shift the reading frame), truncations, start-codon changes, or premature stop codons. The raw-read check then narrowed the claim. Many apparent disruptive differences were heterozygous, where the other haplotype likely carried an unaffected copy. After filtering for homozygous non-SNP (single-nucleotide polymorphism) mutations in coding regions, the paper identified 54 distinct mutation sites in 46 distinct genes.
 
-That is a much more careful conclusion than treating all 235 target genes as fixed disruptive differences. Among the 46 genes, many were hypothetical proteins, olfactory receptors, or VDJ segments (immune-receptor gene segments), where copy number and annotation are difficult. The protein-level follow-up found two protein-coding genes that appeared severely truncated in Han1 relative to RefSeq and five genes where Han1 was better conserved than T2T-CHM13. The point is not that one genome is better than the other; the point is that finished sequence plus finished annotation lets us ask this question at gene resolution.
+That is a much more careful conclusion than treating all 235 target genes as fixed disruptive differences. Among the 46 genes, many were hypothetical proteins, olfactory receptors, or VDJ segments (immune-receptor gene segments), where copy number and annotation are difficult. The protein-level follow-up found two protein-coding genes, *MUC19* and *AQP12A*, that appeared severely truncated in Han1 against the full-length protein in both T2T-CHM13 and GRCh38, and five genes truncated the other way, in T2T-CHM13 rather than Han1. The point is not that one genome is better than the other; the point is that finished sequence plus finished annotation lets us ask this question at gene resolution.
 
 **A structural difference you can see.** The clearest example is on chromosome 8, where Han1 and T2T-CHM13 carry a 4.1 Mb segment in opposite orientations. In Han1 the interval is chr8:7,306,407–11,410,283; in T2T-CHM13 it corresponds to chr8:11,717,452–7,617,994. This is one of the largest common inversion polymorphisms in humans and includes the β-defensin gene cluster, a structurally dynamic immune-related locus.
 

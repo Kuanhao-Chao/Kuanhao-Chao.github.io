@@ -43,6 +43,7 @@ references:
     doi: 'https://doi.org/10.1093/g3journal/jkac321'
 ---
 import ZoomFigure from '../../components/ZoomFigure.astro';
+import HG002CopySearch from '../../components/HG002CopySearch.astro';
 import figPipeline from '../../assets/posts/hg002-diploid-benchmark/hg002-annotation-pipeline.png';
 
 You have two genomes, not one — one from your mother, one from your father, differing at almost every position. Yet nearly every tool we use flattens them back into one: we map reads to a single reference, call the places where they disagree, and hand the result to a clinician as a list of variants.
@@ -87,6 +88,10 @@ Hyun Joo Ji led the released pipeline, which extends that backbone. Masking cove
 
 **The search is deliberately blunt; the filter is where the work is.** The protein set was MANE v1.4 ([Morales et al., 2022](https://doi.org/10.1038/s41586-022-04558-8)), one representative transcript per protein-coding gene. Those 19,354 proteins were aligned to the whole diploid assembly in a single [miniprot (Li, 2023)](https://doi.org/10.1093/bioinformatics/btad014) run, producing 41,386 alignments from 19,351 of them. Almost all land on genes we already have. An alignment was discarded if it overlapped 10% or more of an existing gene, or spanned more than two adjacent gene loci — the first finds unannotated space, the second removes read-through alignments across gene families. Survivors were rebuilt into full gene–transcript–exon records.
 
+The whole search is five stages wide at the top and two gene models wide at the bottom, and the interesting part is which alignments each filter throws away.
+
+<HG002CopySearch />
+
 **That procedure added 30 genes to the maternal haplotype and 21 to the paternal**, and they are good models rather than marginal alignments: all but a single 48 bp fragment exceeded 92% identity to their MANE reference protein, the median was above 99%, and 18 matched exactly. They remain identifiable in the released annotation by their `miniprot` source column.
 
 They also show up in the paper's headline count — the cleanest check I know that a contribution landed. Table 1 reports 19,117 protein-coding genes on the maternal autosomes; counting the released annotation, Liftoff accounts for 19,088, and the remaining 29 are the autosomal copies from this pass.
@@ -95,7 +100,7 @@ They also show up in the paper's headline count — the cleanest check I know th
 
 ## What the annotation shows
 
-**Both haplotypes carry a nearly complete gene complement, and the interesting numbers are the differences.** Adding the paternal autosomes (19,084), ChrX (838) and ChrY (105) to that maternal figure gives 39,144 protein-coding genes across the diploid genome — and 60,074 distinct genes in total, 2,755 more than T2T-CHM13.
+**Both haplotypes carry a nearly complete gene complement, and the interesting numbers are the differences.** Adding the paternal autosomes (19,084) and the two sex chromosomes (ChrX at 838 on the maternal haplotype, ChrY at 105 on the paternal) to that maternal figure gives 39,144 protein-coding genes across the diploid genome, and 60,074 distinct genes in total — 2,755 more than T2T-CHM13.
 
 Fourteen autosomal genes appear only on the maternal haplotype and twelve only on the paternal — including a *DUSP22* copy in the maternal Chr16 pericentromere, present on neither the paternal haplotype nor GRCh38.
 
