@@ -29,6 +29,7 @@ export const DEEP_DIVE_WIDGET_KINDS = [
   'assortative-mating',
   'twas-ld',
   'three-tests',
+  'mr-pleiotropy',
 ] as const;
 
 export type DeepDiveWidgetKind = (typeof DEEP_DIVE_WIDGET_KINDS)[number];
