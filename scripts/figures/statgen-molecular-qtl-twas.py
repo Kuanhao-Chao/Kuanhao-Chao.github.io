@@ -16,9 +16,9 @@ o = [ax.frame()]
 o.append(ax.ygrid([0, 5, 10, 15], ['0', '5', '10', '15'], size=10))
 o.append(ax.xticks([0, 0.25, 0.5, 0.75, 1.0], ['0', '0.25', '0.50', '0.75', '1']))
 
-o.append(line(ax.x0, ax.py(THRESH), ax.x1, ax.py(THRESH), 2.0, opacity='.85', dash='5 4'))
-o.append(text(ax.x0 + 6, ax.py(THRESH) - 8, 'transcriptome-wide threshold, 4.7081', 10,
-              opacity='.85'))
+# solid and horizontal, so it never reads as one of the rising dashed z-lines
+o.append(line(ax.x0, ax.py(THRESH), ax.x1, ax.py(THRESH), 2.2, opacity='.5'))
+o.append(text(ax.x0 + 5, ax.py(THRESH) - 7, '4.7081', 10, opacity='.75', weight='600'))
 
 for z, lab, dash in ZS:
     solid = dash is None
@@ -85,21 +85,30 @@ for z, lab, dash in [(6, '6', '2 3'), (8, '8', None), (10, '10', '6 3')]:
     o.append(path([(ax2.px(i / 200), ax2.py(ppass(i / 200, z))) for i in range(201)],
                   width=2.4 if solid else 1.9, stroke=ACCENT if solid else 'currentColor',
                   dash=dash, opacity=None if solid else '.7'))
-    o.append(text(ax2.px(0.985), ax2.py(min(ppass(0.985, z), 0.97)) - 7, f'z = {lab}', 10,
-                  anchor='end', fill=ACCENT if solid else 'currentColor',
-                  opacity=None if solid else '.7', weight='600' if solid else None))
+    # no in-plot label: the three curves saturate together at the right edge and every
+    # placement collided. The margin legend carries them.
 
 o.append(circle(ax2.px(0.8), ax2.py(ppass(0.8, 8)), 4.2, fill=ACCENT))
-o.append(text(ax2.px(0.8) - 10, ax2.py(ppass(0.8, 8)) + 16, '0.9547 at r = 0.80', 10.5,
-              anchor='end', fill=ACCENT, weight='600'))
 
 o.append(text((ax2.x0 + ax2.x1) / 2, ax2.py(0.0) + 42,
               'Correlation r between the two genes’ predicted expression', 12, anchor='middle'))
 o.append(text(ax2.x0 - 78, 24, 'Chance the innocent gene reaches significance', 10.5, opacity='.85'))
 
 LX = ax2.x1 + 30
-o.append(text(LX, 44, 'Not a tail risk.', 11, weight='700'))
+for i, (z, lab, dash) in enumerate([(10, '10', '6 3'), (8, '8', None), (6, '6', '2 3')]):
+    yy = 40 + 17 * i
+    solid = dash is None
+    o.append(line(LX, yy - 4, LX + 22, yy - 4, 2.4 if solid else 1.9,
+                  stroke=ACCENT if solid else 'currentColor', dash=dash,
+                  opacity=None if solid else '.7'))
+    o.append(text(LX + 30, yy, f'causal z = {lab}', 10,
+                  fill=ACCENT if solid else 'currentColor',
+                  opacity=None if solid else '.7', weight='600' if solid else None))
+
+o.append(text(LX, 116, 'Not a tail risk.', 11, weight='700'))
 for i, t in enumerate([
+        'The dot is r = 0.80, where the',
+        'chance is 0.9547.', '',
         'At a causal z of 8, a gene with no',
         'causal role whatsoever reaches',
         'transcriptome-wide significance', '',
@@ -116,9 +125,9 @@ for i, t in enumerate([
         'effect nobody wants to detect, and',
         'it is why a TWAS hit names a locus',
         'rather than a gene.']):
-    o.append(text(LX, 66 + 13 * i, t, 10, opacity='.8'))
+    o.append(text(LX, 138 + 13 * i, t, 10, opacity='.8'))
 
-svg2 = svg(772, 344, ''.join(o))
+svg2 = svg(772, 420, ''.join(o))
 write(os.path.join(OUT, 'statgen-twas-probability.svg'), svg2)
 splice(MDX, 1, svg2)
 print('wrote statgen-twas-probability.svg')

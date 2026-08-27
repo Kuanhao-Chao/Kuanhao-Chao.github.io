@@ -80,6 +80,9 @@ import {
   assortativeEquilibrium,
   sibBreedingValueCorrelation,
   falconerUnderAssortment,
+  twasNullZ,
+  twasCriticalCorrelation,
+  twasFalsePositiveProbability,
 } from '../lib/deepDiveMath';
 import {
   biasVarianceToy,
@@ -2603,11 +2606,90 @@ const assortativeMating: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * What an innocent gene inherits from a causal neighbour.
+ *
+ * The slider that matters is the causal statistic, because raising it moves the critical
+ * correlation LEFT — a stronger locus implicates more genes, not fewer. That is the opposite
+ * of what a significance threshold normally does and is much easier to believe having dragged
+ * it than having read it.
+ */
+const twasLd: Renderer = (canvas, controlHost, readoutHost) => {
+  const draw = () => {
+    const causal = c.get('causal');
+    const r = c.get('r');
+    const genes = Math.round(c.get('genes'));
+    const threshold = twasCriticalCorrelation(1, genes) * 1; // r* at z = 1 is the threshold
+    const rStar = twasCriticalCorrelation(causal, genes);
+
+    const top = Math.max(causal * 1.05, threshold * 1.6);
+    const x = linear(0, 1, PAD.left, PAD.left + PLOT.w, [0, 0.25, 0.5, 0.75, 1],
+      (v) => v.toFixed(2));
+    const y = linear(0, top, PAD.top + PLOT.h, PAD.top,
+      [0, top / 4, top / 2, (3 * top) / 4, top], (v) => v.toFixed(1));
+    const svg = newSvg();
+    const g = frame(x, y, 'Correlation r of predicted expression', 'Inherited statistic', svg);
+
+    g.appendChild(el('line', {
+      x1: x(0), x2: x(1), y1: y(Math.min(threshold, top)), y2: y(Math.min(threshold, top)),
+      stroke: 'currentColor', 'stroke-width': 2.2, opacity: 0.5,
+    }));
+    g.appendChild(label(PAD.left + 5, y(Math.min(threshold, top)) - 7, threshold.toFixed(4),
+      { opacity: '0.75' }));
+
+    g.appendChild(el('line', {
+      x1: x(0), y1: y(0), x2: x(1), y2: y(Math.min(causal, top)),
+      stroke: ACCENT, 'stroke-width': 2.4,
+    }));
+    if (rStar <= 1) {
+      g.appendChild(el('line', {
+        x1: x(rStar), x2: x(rStar), y1: y(0), y2: y(Math.min(threshold, top)),
+        stroke: ACCENT, 'stroke-width': 1.4, 'stroke-dasharray': '3 3', opacity: 0.7,
+      }));
+    }
+    g.appendChild(el('circle', {
+      cx: x(r), cy: y(Math.min(twasNullZ(r, causal), top)), r: 5, fill: ACCENT,
+    }));
+
+    canvas.replaceChildren(svg);
+    const p = twasFalsePositiveProbability(r, causal, genes);
+    readout(readoutHost, [
+      ['threshold', threshold.toFixed(4)],
+      ['critical r*', rStar <= 1 ? rStar.toFixed(4) : '> 1 (safe)'],
+      ['inherited E[z]', twasNullZ(r, causal).toFixed(3)],
+      ['chance it is reported', `${(100 * p).toFixed(2)}%`],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      { key: 'causal', label: 'Causal gene statistic z', min: 4, max: 16, step: 0.1, value: 8,
+        format: (v) => v.toFixed(1) },
+      { key: 'r', label: 'Correlation r', min: 0, max: 0.99, step: 0.01, value: 0.8,
+        format: (v) => v.toFixed(2) },
+      {
+        key: 'genes',
+        label: 'Genes tested',
+        min: 3,
+        max: Math.log10(60_000),
+        step: 0.01,
+        value: Math.log10(20_000),
+        scale: (v) => 10 ** v,
+        format: (v) => Math.round(v).toLocaleString('en-US'),
+      },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'pca-structure': pcaStructure,
   'sweep-age': sweepAge,
   'fdr-staircase': fdrStaircase,
   'assortative-mating': assortativeMating,
+  'twas-ld': twasLd,
   'ld-decay': ldDecay,
   drift,
   power,

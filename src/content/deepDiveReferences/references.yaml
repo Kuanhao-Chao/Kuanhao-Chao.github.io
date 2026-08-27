@@ -4098,3 +4098,40 @@ okbay2022polygenic:
   venue: "Nature Genetics 54:437-449"
   doi: https://doi.org/10.1038/s41588-022-01016-z
   verified: 2026-08-26
+
+# ── statgen-molecular-qtl-twas ───────────────────────────────────────────────
+gamazon2015predixcan:
+  authors: ['Eric R Gamazon', 'Heather E Wheeler', 'Kaanan P Shah', 'et al.']
+  year: 2015
+  title: "A gene-based association method for mapping traits using reference transcriptome data"
+  venue: "Nature Genetics 47:1091-1098"
+  doi: https://doi.org/10.1038/ng.3367
+  verified: 2026-08-26
+gusev2016fusion:
+  authors: ['Alexander Gusev', 'Arthur Ko', 'Huwenbo Shi', 'et al.']
+  year: 2016
+  title: "Integrative approaches for large-scale transcriptome-wide association studies"
+  venue: "Nature Genetics 48:245-252"
+  doi: https://doi.org/10.1038/ng.3506
+  verified: 2026-08-26
+wainberg2019twas:
+  authors: ['Michael Wainberg', 'Nasa Sinnott-Armstrong', 'Nicholas Mancuso', 'et al.']
+  year: 2019
+  title: "Opportunities and challenges for transcriptome-wide association studies"
+  venue: "Nature Genetics 51:592-599"
+  doi: https://doi.org/10.1038/s41588-019-0385-z
+  verified: 2026-08-26
+mancuso2019focus:
+  authors: ['Nicholas Mancuso', 'Malika K. Freund', 'Ruth Johnson', 'et al.']
+  year: 2019
+  title: "Probabilistic fine-mapping of transcriptome-wide association studies"
+  venue: "Nature Genetics 51:675-682"
+  doi: https://doi.org/10.1038/s41588-019-0367-1
+  verified: 2026-08-26
+zhu2016smr:
+  authors: ['Zhihong Zhu', 'Futao Zhang', 'Han Hu', 'et al.']
+  year: 2016
+  title: "Integration of summary data from GWAS and eQTL studies predicts complex trait gene targets"
+  venue: "Nature Genetics 48:481-487"
+  doi: https://doi.org/10.1038/ng.3538
+  verified: 2026-08-26
