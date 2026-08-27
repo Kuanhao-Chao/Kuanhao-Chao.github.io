@@ -54,8 +54,11 @@ export default defineConfig({
     '/year-archive': '/news/',
     // LiftOn report/post renamed v2.0.0 -> v1.0.9 (this is the incremental
     // release of the published tool; "v2.0.0" is reserved for a separate
-    // experimental project). Keep the previously-shared URLs working.
-    '/posts/lifton-v2': '/posts/lifton-v1-0-9',
+    // experimental project). This pointed at /posts/lifton-v1-0-9 until that
+    // post went `draft: true` and stopped being built, which turned every
+    // previously-shared /posts/lifton-v2 link into a 404. It now lands on the
+    // published LiftOn post; repoint it at the version post if that ships.
+    '/posts/lifton-v2': '/posts/lifton/',
     '/deep_dive': '/deep_dives/',
     '/deep-dive': '/deep_dives/',
     '/deep-dives': '/deep_dives/',

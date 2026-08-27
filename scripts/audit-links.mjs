@@ -32,7 +32,10 @@ const REQUIRED_STRINGS = [
 // same custom domain. They must be checked live, but are not emitted by this
 // Astro build and therefore cannot be resolved inside dist/.
 const LIVE_SAME_ORIGIN_PREFIXES = ['/shorkie', '/splam', '/LiftOn', '/OpenSpliceAI', '/gffbase'];
-const LEGACY_SAME_ORIGIN_PATHS = ['/404/', '/posts/lifton-v1-0-9'];
+// '/posts/lifton-v1-0-9' used to sit here, which is exactly how a redirect to a
+// `draft: true` post stayed green while 404ing on the live site. Do not re-add a
+// path here to silence a redirect; point the redirect at a page that is built.
+const LEGACY_SAME_ORIGIN_PATHS = ['/404/'];
 
 function relPath(path) {
   return relative(ROOT, path).split(sep).join('/');
