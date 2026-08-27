@@ -579,6 +579,107 @@ Things specific to this subsystem:
   deliberate: twelve icon names rendered as empty `<svg>` for months precisely because
   `Icon.astro` failed quietly, and `src/lib/icons.test.ts` now guards that class of bug.
 
+### The chromatin playground (`/chromatin/`)
+
+A full-screen WebGL model of chromosome packaging, from the B-form duplex to a metaphase
+chromosome. Same three-layer split as the games and the deep-dive widgets:
+
+| file | role | Three.js? |
+| --- | --- | --- |
+| `src/lib/chromatinModel.ts` | **pure** — dimensions, parametric paths, scrubber mapping, LOD, compaction | no |
+| `src/lib/chromatinModel.test.ts` | 73 tests against closed forms and the structural literature | no |
+| `src/scripts/chromatin.ts` | scene, instancing, camera, annotations | yes |
+| `src/scripts/chromatin.test.ts` | the index arithmetic in `tubesGeometry` | no (three, but no GL) |
+| `src/pages/chromatin.astro` | `bare` page: canvas, scrubber, toggles, legend | no |
+
+**`three` is the repo's first runtime dependency.** It has no dependencies of its own, and Astro
+code-splits per page, so only `/chromatin/` pays: 548 KB raw / 139 KB gzipped, in one chunk that
+one HTML file references. No other route's payload changed. No CDN — the CSP in `BaseHead.astro`
+is `script-src 'self' 'unsafe-inline' data:`.
+
+**The whole hierarchy is drawn at true nanometre scale, all of it at the origin, and the camera
+pulls back logarithmically.** Nothing is swapped for a stand-in: a nucleosome really is 11 nm
+inside a 260 nm string inside a 620 nm fibre inside a 2.4 µm loop domain, so zooming out reveals
+each in turn because it is genuinely nested. That is what makes the transitions seamless with no
+scene-swapping machinery — there is no scene to swap. Cross-fades come from `regimeWeights`,
+which sums to 1 everywhere and is asserted never to step across a 4,000-sample sweep.
+
+Things specific to it, most of which were bugs first:
+
+- **Camera keys are the band *centres*, not the band starts.** `cameraFieldNm` interpolates
+  between keyframes; keying off `from` means the field is already halfway to the next regime by
+  the middle of every band, and no regime is ever seen at its own declared size except in the
+  instant its band begins. That framed an 11 nm nucleosome in a 94 nm field **at the nucleosome
+  milestone**. The centres are also what `milestones()` snaps to, so clicking a milestone now
+  frames the thing it names.
+- **Compaction divides by `packagedNm`, never by the field of view.** Dividing by the field
+  makes the headline number an artefact of camera distance: the metaphase scene draws the whole
+  of chromosome 1 and read "1,700×" against a 12 µm frame where the chromatid it was drawing is
+  10 µm and 8,465×. Each regime declares the end-to-end length of the structure holding its
+  `bpInView`, and a test pins all six against the literature (1×, ~6×, ~6–7×, ~40×, a few
+  hundred, ~8,500×).
+- **`nucleosomeBudget` is bounded from *both* directions.** The instance cap is the obvious one.
+  The one that is easy to forget is `impliedNucleosomeCount`: drawing more nucleosomes than the
+  sequence in view contains is not a performance question, it is a false statement about the
+  scene, and the readout said "4,000 of 1,310" before the bound existed.
+- **The telemetry reports what each node actually draws**, via `nucleosomeCount()`, not what the
+  model budgets. The two can disagree and only one of them is on screen.
+- **An `InstancedMesh` must recentre on the count it is *drawing*, not the count it allocated.**
+  Framing 430 nucleosomes while showing 160 pushed the whole fibre to the bottom of the viewport.
+- **`setColorAt` MULTIPLIES into the material colour.** Any mesh using per-instance colour needs
+  a white material, or the ramp collapses to one muddy hue — a blue→violet sequence ramp over a
+  pink material rendered as flat purple everywhere.
+- **A permanently semi-transparent material must record `userData.baseOpacity`.** The frame loop
+  multiplies regime weight into `opacity`, so an unrecorded 0.22 is overwritten to 1 and the
+  ChromEMT envelope — meant to be a haze over the nucleosomes it contains — renders as a wall.
+- **Annotation anchors are in the node's LOCAL space**; the controller adds `group.position` when
+  projecting. Four of the six builders originally subtracted the group offset *as well*, which
+  put every label off-screen. They also need standing off the structure by ~0.3–0.45 × the
+  regime's own `fieldNm`, or they all project into the middle of the screen and bury the thing
+  they describe.
+- **`tubesGeometry`'s per-path vertex offset is `vo / 3`, not `vo / 3 / radial`.** `vo` counts
+  floats. Dividing by the radial count a second time makes every path after the first index back
+  into the first path's vertices — the metaphase array rendered only its bottom quarter, silently,
+  because a wrong index does not throw, it draws the wrong triangles. `chromatin.test.ts` now
+  asserts every triangle lies wholly inside its own path's vertex range.
+- **Reading a control *after* calling something that reports state clobbers the read.** The
+  scrubber's `input` handler called `setPlaying(false)` first, which calls `report()`, which
+  writes the controller's current scrub back into that same input — so the handler then read the
+  old value. Chrome hid it because a pointerdown focuses a range input and the focus guard skips
+  the write; **Safari does not always focus one**, so it would have surfaced there. Read the DOM
+  value into a local before doing anything else.
+- **`audit:security` matches the bare markup-assignment token even inside a comment.** Two
+  comments *explaining that the token must never be used* failed the build.
+
+The science the model refuses to smooth over, each with a test:
+
+- **147 bp is 49.98 nm of duplex; an ideal helix at the published radius (4.18 nm) and pitch
+  (2.39 nm) holds only 43.51 nm over 1.65 turns.** The 14.9% gap is real — nucleosomal DNA is
+  kinked at the histone contacts — and the radius that *would* reconcile them is 4.806 nm, which
+  is not the published value. `superhelixContourNm()` returns both.
+- **The octamer radius is derived, not quoted**: the protein surface and the DNA's inner surface
+  are in contact, so it is 4.18 − 1.0 = 3.18 nm, which agrees with the ~6.5 nm octamer diameter.
+  Quoting 3.25 and drawing both pushes protein through DNA.
+- **The wrap grows outward from the dyad**, because the (H3–H4)₂ tetramer binds the central
+  ~60 bp before the dimers take the flanks — which the `dnaT` values in `HISTONE_SUBUNITS`
+  independently encode, and a test ties the two together. It is also 4× the smoother animation:
+  wrapping from one end leaves a 50 nm tail whose tip sweeps 5.2 nm per 1% of wrap.
+- **H2A–H2B dimers explode as units**, not as four loose spheres. A dimer dissociates whole.
+- **The mitotic geometry is forced by published numbers, not fitted.** Outer loops set the
+  chromatid width (400 kb → half of 700 nm), and a 12 Mb helical turn must rise
+  10,000 × 12/249 = 482 nm or the chromosome fails to reconstruct its own 10 µm length. Both are
+  asserted. Early guesses were out by orders of magnitude (a 1.77 nm loop reach, a 294 nm rise).
+- **Molecular colours are fixed across themes** — H3 is the same colour in light and dark, as it
+  would be in a PyMOL figure. What adapts is the *lighting*, set from the measured luminance of
+  `--color-bg`, because the site ships six themes and hardcoding two rigs leaves four wrong.
+
+Verification beyond the test suite: `scripts/` has no gate for this page, so it was driven
+directly in headless chromium — every regime screenshotted, `drawElements` patched to count
+draw calls and triangles (1–5 calls, ≤81k triangles per frame), and 320/390/768/1440 × light/dark
+checked for document overflow along with reduced motion and a client-side navigation round trip
+(no leaked canvas, renderer restarts). Headless chromium rasterises in software, so its frame
+rate is a floor and not a GPU figure.
+
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.
 - **Cross-links between sections** use `relatedPosts` references in frontmatter, resolved by `src/lib/relatedPosts.ts` into "Blog" chips on publication/research entries.

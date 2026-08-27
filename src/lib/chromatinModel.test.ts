@@ -17,6 +17,8 @@ import {
   NUCLEOSOME_CORE_BP,
   NUCLEOSOME_DIAMETER_NM,
   NUCLEOSOME_HEIGHT_NM,
+  OCTAMER_RADIUS_NM,
+  HISTONE_SUBUNIT_RADIUS_NM,
   NUCLEOSOME_INSTANCE_BUDGET,
   NUCLEOSOME_REPEAT_BP,
   PROMETA_INNER_LOOP_BP,
@@ -27,18 +29,25 @@ import {
   SUPERHELICAL_TURNS,
   SUPERHELIX_PITCH_NM,
   SUPERHELIX_RADIUS_NM,
+  TEN_NM_RISE_PER_NUCLEOSOME_NM,
   bDnaBasePairs,
   bDnaStrand,
   beadsOnAString,
   bpInViewAt,
   cameraFieldNm,
+  centromereConstriction,
+  CHR1_CENTROMERE_BP,
   compactionAt,
   compactionRatio,
   contourLengthNm,
   coreParticleEnvelope,
+  packagedNmAt,
   disorderedChain,
+  duplexStrandsAlong,
   extrudedLoop,
   helicalLoopArray,
+  helicalRisePerTurnNm,
+  loopReachNm,
   histoneLayout,
   impliedNucleosomeCount,
   milestones,
@@ -50,6 +59,7 @@ import {
   snapTarget,
   solenoidFibre,
   superhelixContourNm,
+  wrappingPath,
   zigzagFibre,
   type Vec3,
 } from './chromatinModel.ts';
@@ -234,10 +244,239 @@ describe('the nucleosome superhelix', () => {
   });
 });
 
+describe('wrapping the duplex onto the octamer', () => {
+  const contour = (pts: Vec3[]) => {
+    let l = 0;
+    for (let i = 1; i < pts.length; i += 1) l += dist(pts[i], pts[i - 1]);
+    return l;
+  };
+
+  it('is a straight rod of the full 147 bp before it wraps', () => {
+    const p = wrappingPath(0, 300);
+    expect(contour(p)).toBeCloseTo(contourLengthNm(NUCLEOSOME_CORE_BP), 6);
+    // collinear: every step points the same way
+    const d0: Vec3 = [p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]];
+    const n0 = Math.hypot(...d0);
+    for (let i = 2; i < p.length; i += 1) {
+      const d: Vec3 = [p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1], p[i][2] - p[i - 1][2]];
+      const cos = (d[0] * d0[0] + d[1] * d0[1] + d[2] * d0[2]) / (Math.hypot(...d) * n0);
+      expect(cos).toBeCloseTo(1, 9);
+    }
+  });
+
+  it('lands exactly on the finished superhelix when fully wrapped', () => {
+    const wrapped = wrappingPath(1, 160);
+    const target = nucleosomeSuperhelix(160);
+    expect(wrapped).toHaveLength(target.length);
+    for (let i = 0; i < wrapped.length; i += 1) expect(dist(wrapped[i], target[i])).toBeCloseTo(0, 9);
+  });
+
+  it('shortens over the wrap by exactly the kinking the model reports', () => {
+    const { ideal, actual, ratio } = superhelixContourNm();
+    expect(contour(wrappingPath(0, 400))).toBeCloseTo(actual, 5);
+    expect(contour(wrappingPath(1, 400))).toBeCloseTo(ideal, 1);
+    // the loss over a full wrap IS the 14.9% gap, not an independent fudge
+    const loss = contour(wrappingPath(0, 400)) / contour(wrappingPath(1, 400));
+    expect(loss).toBeCloseTo(ratio, 2);
+  });
+
+  it('grows outward from the dyad, in the order the histones actually bind', () => {
+    const half = wrappingPath(0.5, 400);
+    const onHelix = (p: Vec3) => Math.abs(radius(p) - SUPERHELIX_RADIUS_NM) < 1e-6;
+    const wrappedIdx = half.map((p, i) => (onHelix(p) ? i : -1)).filter((i) => i >= 0);
+
+    // half the sequence is down, and it is the CENTRAL half: a contiguous run about the dyad
+    expect(wrappedIdx.length / half.length).toBeCloseTo(0.5, 1);
+    expect(wrappedIdx[wrappedIdx.length - 1] - wrappedIdx[0]).toBe(wrappedIdx.length - 1);
+    const centre = (wrappedIdx[0] + wrappedIdx[wrappedIdx.length - 1]) / 2 / (half.length - 1);
+    expect(centre).toBeCloseTo(0.5, 2);
+
+    // two free tails, one either side, not one long one
+    expect(wrappedIdx[0]).toBeGreaterThan(0);
+    expect(wrappedIdx[wrappedIdx.length - 1]).toBeLessThan(half.length - 1);
+
+    // and the region that goes down first is exactly where the (H3-H4)2 tetramer binds
+    const lo = wrappedIdx[0] / (half.length - 1);
+    const hi = wrappedIdx[wrappedIdx.length - 1] / (half.length - 1);
+    for (const h of histoneLayout(0).filter((x) => x.group === 'tetramer')) {
+      expect(h.dnaT).toBeGreaterThanOrEqual(lo);
+      expect(h.dnaT).toBeLessThanOrEqual(hi);
+    }
+    // while the dimers' sites are still free at this point in the wrap
+    for (const h of histoneLayout(0).filter((x) => x.group !== 'tetramer')) {
+      expect(h.dnaT < lo || h.dnaT > hi).toBe(true);
+    }
+  });
+
+  it('moves continuously as the wrap advances, with no whip at the free ends', () => {
+    // wrapping from one end instead would leave a 50 nm tail whose tip sweeps 5.2 nm per 1%
+    // of wrap; from the dyad the tails are half as long and advance at half the angular rate
+    let prev = wrappingPath(0, 120);
+    let worst = 0;
+    for (let w = 0.01; w <= 1.0001; w += 0.01) {
+      const now = wrappingPath(w, 120);
+      for (let i = 0; i < now.length; i += 1) worst = Math.max(worst, dist(now[i], prev[i]));
+      prev = now;
+    }
+    expect(worst).toBeLessThan(1.4);
+    expect(worst).toBeGreaterThan(0.5); // it does move; this is not a no-op
+  });
+});
+
+describe('duplex backbones along an arbitrary axis', () => {
+  it('reproduces the straight duplex when given a straight axis', () => {
+    const bp = 40;
+    const axis: Vec3[] = [];
+    for (let i = 0; i <= 200; i += 1) axis.push([0, (i / 200) * bp * BP_RISE_NM, 0]);
+    const { a, b } = duplexStrandsAlong(axis, bp);
+    for (let i = 0; i < a.length; i += 1) {
+      // both backbones sit one duplex-radius off the axis
+      expect(Math.hypot(a[i][0], a[i][2])).toBeCloseTo(DNA_DIAMETER_NM / 2, 9);
+      expect(Math.hypot(b[i][0], b[i][2])).toBeCloseTo(DNA_DIAMETER_NM / 2, 9);
+    }
+  });
+
+  it('turns once every 10.5 bp whatever the axis does', () => {
+    const bp = 42; // exactly four turns
+    const sweep = (pts: Vec3[], project: (p: Vec3, i: number) => number) => {
+      let total = 0;
+      for (let i = 1; i < pts.length; i += 1) {
+        let d = project(pts[i], i) - project(pts[i - 1], i - 1);
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        total += d;
+      }
+      return Math.abs(total) / (2 * Math.PI);
+    };
+    const straight: Vec3[] = [];
+    for (let i = 0; i <= 400; i += 1) straight.push([0, (i / 400) * bp * BP_RISE_NM, 0]);
+    const s = duplexStrandsAlong(straight, bp);
+    expect(sweep(s.a, (p) => Math.atan2(p[2], p[0]))).toBeCloseTo(bp / BP_PER_TURN, 6);
+
+    // The same bp count on a CURVED axis must make the same number of turns. Measuring that
+    // needs the twist about the tangent, not the raw 3D angle between successive radial
+    // vectors: the latter also picks up the frame's transport as the axis bends, which is
+    // perpendicular to the tangent and not twist at all. Projecting onto the tangent is the
+    // standard twist integral and is independent of how the module computes its frame.
+    const curved = wrappingPath(1, 800);
+    const c = duplexStrandsAlong(curved, bp);
+    let twist = 0;
+    for (let i = 1; i < c.a.length; i += 1) {
+      const r0: Vec3 = [c.a[i - 1][0] - curved[i - 1][0], c.a[i - 1][1] - curved[i - 1][1], c.a[i - 1][2] - curved[i - 1][2]];
+      const r1: Vec3 = [c.a[i][0] - curved[i][0], c.a[i][1] - curved[i][1], c.a[i][2] - curved[i][2]];
+      const t: Vec3 = [curved[i][0] - curved[i - 1][0], curved[i][1] - curved[i - 1][1], curved[i][2] - curved[i - 1][2]];
+      const tl = Math.hypot(...t) || 1;
+      const tn: Vec3 = [t[0] / tl, t[1] / tl, t[2] / tl];
+      const cx: Vec3 = [
+        r0[1] * r1[2] - r0[2] * r1[1],
+        r0[2] * r1[0] - r0[0] * r1[2],
+        r0[0] * r1[1] - r0[1] * r1[0],
+      ];
+      const sin = cx[0] * tn[0] + cx[1] * tn[1] + cx[2] * tn[2];
+      const cos = r0[0] * r1[0] + r0[1] * r1[1] + r0[2] * r1[2];
+      twist += Math.atan2(sin, cos);
+    }
+    expect(Math.abs(twist) / (2 * Math.PI)).toBeCloseTo(bp / BP_PER_TURN, 2);
+  });
+
+  it('keeps both backbones on the duplex surface around a wrapped axis', () => {
+    const axis = wrappingPath(1, 300);
+    const { a, b } = duplexStrandsAlong(axis, NUCLEOSOME_CORE_BP);
+    for (let i = 0; i < axis.length; i += 1) {
+      expect(dist(a[i], axis[i])).toBeCloseTo(DNA_DIAMETER_NM / 2, 9);
+      expect(dist(b[i], axis[i])).toBeCloseTo(DNA_DIAMETER_NM / 2, 9);
+    }
+  });
+
+  it('never lets the frame flip, even through the straight-to-curved junction', () => {
+    // a Frenet frame is undefined where curvature is zero and would snap here; the
+    // parallel-transported one must not
+    const axis = wrappingPath(0.5, 400);
+    const { a } = duplexStrandsAlong(axis, NUCLEOSOME_CORE_BP);
+    let worst = 0;
+    for (let i = 1; i < a.length; i += 1) worst = Math.max(worst, dist(a[i], a[i - 1]));
+    const typical = dist(a[1], a[0]);
+    expect(worst).toBeLessThan(typical * 4);
+  });
+
+  it('refuses an axis too short to have a direction', () => {
+    expect(() => duplexStrandsAlong([[0, 0, 0]], 10)).toThrow(RangeError);
+  });
+});
+
 describe('the exploded octamer', () => {
   it('returns all eight histones assembled and separated alike', () => {
     expect(histoneLayout(0)).toHaveLength(8);
     expect(histoneLayout(1)).toHaveLength(8);
+  });
+
+  it('seats the octamer TANGENT to the DNA it wraps, not through it', () => {
+    // the derivation is the structural fact: protein surface meets duplex surface
+    expect(OCTAMER_RADIUS_NM + DNA_DIAMETER_NM / 2).toBeCloseTo(SUPERHELIX_RADIUS_NM, 12);
+    expect(OCTAMER_RADIUS_NM).toBeCloseTo(3.18, 12);
+    // and that agrees with the ~6.5 nm octamer diameter from the crystal structure
+    expect(2 * OCTAMER_RADIUS_NM).toBeGreaterThan(6.0);
+    expect(2 * OCTAMER_RADIUS_NM).toBeLessThan(6.6);
+
+    // no assembled subunit may protrude past the DNA's inner surface
+    const innerSurface = SUPERHELIX_RADIUS_NM - DNA_DIAMETER_NM / 2;
+    for (const h of histoneLayout(0)) {
+      expect(radius(h.at) + h.radiusNm).toBeLessThanOrEqual(innerSurface + 1e-9);
+    }
+  });
+
+  it('fuses into a spool rather than a ring of separate blobs', () => {
+    // adjacent subunits must overlap, or the octamer reads as eight beads
+    const closed = histoneLayout(0);
+    for (let i = 1; i < closed.length; i += 1) {
+      const gap = dist(closed[i].at, closed[i - 1].at);
+      expect(gap).toBeLessThan(closed[i].radiusNm + closed[i - 1].radiusNm);
+    }
+    expect(HISTONE_SUBUNIT_RADIUS_NM).toBe(1.6);
+  });
+
+  it('orders the subunits along the DNA with the tetramer at the dyad', () => {
+    const l = histoneLayout(0);
+    for (let i = 1; i < l.length; i += 1) expect(l[i].dnaT).toBeGreaterThan(l[i - 1].dnaT);
+
+    // (H3-H4)2 binds the central ~60 bp, so its contacts cluster around the dyad at 0.5
+    const tet = l.filter((h) => h.group === 'tetramer');
+    expect(tet).toHaveLength(4);
+    for (const h of tet) expect(Math.abs(h.dnaT - 0.5)).toBeLessThan(0.2);
+    const spanBp = (Math.max(...tet.map((h) => h.dnaT)) - Math.min(...tet.map((h) => h.dnaT))) * NUCLEOSOME_CORE_BP;
+    expect(spanBp).toBeGreaterThan(40);
+    expect(spanBp).toBeLessThan(60);
+
+    // a H2A-H2B dimer sits on each side, near entry and exit
+    const a = l.filter((h) => h.group === 'dimerA');
+    const b = l.filter((h) => h.group === 'dimerB');
+    expect(a.every((h) => h.dnaT < 0.3)).toBe(true);
+    expect(b.every((h) => h.dnaT > 0.7)).toBe(true);
+    // and the tetramer therefore sits between them in height, not beside them
+    const midY = tet.reduce((m, h) => m + h.at[1], 0) / 4;
+    expect(Math.abs(midY)).toBeLessThan(0.1);
+    expect(a[0].at[1]).toBeLessThan(midY);
+    expect(b[0].at[1]).toBeGreaterThan(midY);
+  });
+
+  it('moves each H2A-H2B dimer as ONE unit, not as two loose spheres', () => {
+    // a dimer dissociates whole; showing its two subunits fly apart independently would be a
+    // claim about the chemistry, and the wrong one
+    const closed = histoneLayout(0);
+    const open = histoneLayout(1);
+    for (const g of ['dimerA', 'dimerB']) {
+      const idx = closed.map((h, i) => (h.group === g ? i : -1)).filter((i) => i >= 0);
+      expect(idx).toHaveLength(2);
+      const before = dist(closed[idx[0]].at, closed[idx[1]].at);
+      const after = dist(open[idx[0]].at, open[idx[1]].at);
+      // internal geometry preserved: the pair travels, it does not stretch
+      expect(after).toBeCloseTo(before, 9);
+      // and it really did travel
+      expect(dist(closed[idx[0]].at, open[idx[0]].at)).toBeGreaterThan(8);
+    }
+    // the tetramer expands in place instead, staying nearer the centre
+    const tet = closed.map((h, i) => (h.group === 'tetramer' ? i : -1)).filter((i) => i >= 0);
+    for (const i of tet) expect(dist(closed[i].at, open[i].at)).toBeLessThan(6);
   });
 
   it('moves every subunit outward as the view explodes, and the dimers furthest', () => {
@@ -309,7 +548,18 @@ describe('fibre models', () => {
     expect(reversals).toBe(0); // persistent: it never doubles back within one step
   });
 
-  it('spaces beads by the linker they are joined with', () => {
+  it('spaces beads so the 10 nm fibre comes out at the 6-7x it is quoted at', () => {
+    const std = beadsOnAString(4);
+    const rise = std[1][1] - std[0][1];
+    expect(rise).toBeCloseTo(TEN_NM_RISE_PER_NUCLEOSOME_NM, 9);
+    // one repeat is 63.6 nm of duplex laid down in 10 nm of fibre
+    expect(contourLengthNm(NUCLEOSOME_REPEAT_BP) / rise).toBeCloseTo(6.36, 2);
+    // spacing by the linker's full contour instead gives 19.7 nm and only 3.2x -- a low-salt
+    // spreading artefact, not the fibre
+    const stretched = NUCLEOSOME_DIAMETER_NM * 0.55 + contourLengthNm(NUCLEOSOME_REPEAT_BP - NUCLEOSOME_CORE_BP);
+    expect(stretched).toBeCloseTo(19.65, 2);
+    expect(contourLengthNm(NUCLEOSOME_REPEAT_BP) / stretched).toBeCloseTo(3.24, 2);
+
     const tight = beadsOnAString(4, NUCLEOSOME_CORE_BP + 20);
     const loose = beadsOnAString(4, NUCLEOSOME_CORE_BP + 90);
     expect(loose[1][1] - loose[0][1]).toBeGreaterThan(tight[1][1] - tight[0][1]);
@@ -332,6 +582,33 @@ describe('loops and the mitotic array', () => {
     expect(big).toBeGreaterThan(small);
   });
 
+  it('lets the outer loops SET the chromatid width, rather than fitting to it', () => {
+    // this is the Gibcus result, and it is a derivation rather than a tuned constant
+    expect(2 * loopReachNm(PROMETA_OUTER_LOOP_BP)).toBeCloseTo(CHROMATID_DIAMETER_NM, 9);
+    // the condensin I inner loops then nest inside on their own
+    expect(loopReachNm(PROMETA_INNER_LOOP_BP)).toBeCloseTo(156.52, 2);
+    expect(loopReachNm(PROMETA_INNER_LOOP_BP)).toBeLessThan(loopReachNm(PROMETA_OUTER_LOOP_BP));
+    expect(loopReachNm(PROMETA_OUTER_LOOP_BP) / loopReachNm(PROMETA_INNER_LOOP_BP)).toBeCloseTo(Math.sqrt(5), 9);
+    expect(() => loopReachNm(0)).toThrow(RangeError);
+  });
+
+  it('rises 482 nm per turn, which is the only value that rebuilds chromosome 1', () => {
+    expect(helicalRisePerTurnNm()).toBeCloseTo(482.01, 2);
+    // walk the whole chromosome up the staircase and it must come out 10 um long
+    const turns = CHR1_BP / HELICAL_TURN_BP;
+    expect(turns * helicalRisePerTurnNm()).toBeCloseTo(CHR1_METAPHASE_NM, 6);
+    expect(turns).toBeCloseTo(20.75, 2);
+  });
+
+  it('spaces the loops up the staircase at the derived pitch', () => {
+    const arr = helicalLoopArray(40, PROMETA_OUTER_LOOP_BP);
+    const perLoop = helicalRisePerTurnNm() / (HELICAL_TURN_BP / PROMETA_OUTER_LOOP_BP);
+    expect(perLoop).toBeCloseTo(16.07, 2);
+    expect(arr[1].anchor[1] - arr[0].anchor[1]).toBeCloseTo(perLoop, 9);
+    // one turn's worth of loops rises exactly one turn
+    expect(arr[30].anchor[1] - arr[0].anchor[1]).toBeCloseTo(helicalRisePerTurnNm(), 9);
+  });
+
   it('winds the loop array into a staircase of the right pitch', () => {
     const arr = helicalLoopArray(60, PROMETA_OUTER_LOOP_BP);
     const loopsPerTurn = HELICAL_TURN_BP / PROMETA_OUTER_LOOP_BP;
@@ -347,6 +624,42 @@ describe('loops and the mitotic array', () => {
     const outerStep = outer[1].azimuth - outer[0].azimuth;
     const innerStep = inner[1].azimuth - inner[0].azimuth;
     expect(outerStep / innerStep).toBeCloseTo(5, 9);
+  });
+});
+
+describe('the metaphase constriction', () => {
+  it('pinches at the centromere and relaxes along both arms', () => {
+    const centre = CHR1_CENTROMERE_BP / CHR1_BP;
+    expect(centromereConstriction(centre)).toBeCloseTo(0.28, 9);
+    expect(centromereConstriction(0)).toBeCloseTo(1, 6);
+    expect(centromereConstriction(1)).toBeCloseTo(1, 6);
+    expect(centromereConstriction(0.25)).toBeGreaterThan(0.99);
+  });
+
+  it('puts chromosome 1s centromere in the middle, because it is metacentric', () => {
+    const centre = CHR1_CENTROMERE_BP / CHR1_BP;
+    expect(centre).toBeCloseTo(0.4957, 3);
+    // the two arms differ by under 2% of the chromosome, which is what metacentric means
+    expect(Math.abs(centre - (1 - centre))).toBeLessThan(0.02);
+  });
+
+  it('narrows smoothly, with no step to catch the eye', () => {
+    let prev = centromereConstriction(0);
+    for (let u = 0.001; u <= 1; u += 0.001) {
+      const now = centromereConstriction(u);
+      expect(Math.abs(now - prev)).toBeLessThan(0.05);
+      prev = now;
+    }
+  });
+
+  it('is a local feature, not a global taper', () => {
+    // the pinch is ~3.5% of sequence wide, so at 10% away the arm is back to full width
+    expect(centromereConstriction(0.4)).toBeGreaterThan(0.98);
+    expect(centromereConstriction(0.6)).toBeGreaterThan(0.98);
+    expect(centromereConstriction(0.3)).toBeGreaterThan(0.9999);
+    expect(centromereConstriction(0.7)).toBeGreaterThan(0.9999);
+    // and it really does pinch: half width is reached within ~4% of the centre
+    expect(centromereConstriction(0.46)).toBeLessThan(0.6);
   });
 });
 
@@ -427,6 +740,21 @@ describe('camera and scale readouts', () => {
     }
   });
 
+  it('frames each regime at its OWN declared scale, at its own milestone', () => {
+    // the failure this replaces: keying off band starts put an 11 nm nucleosome in a 94 nm
+    // field at the nucleosome milestone, because the camera was already halfway to the beads
+    for (const r of REGIMES) {
+      const centre = (r.from + r.to) / 2;
+      expect(cameraFieldNm(centre)).toBeCloseTo(r.fieldNm, 6);
+      expect(bpInViewAt(centre)).toBeCloseTo(r.bpInView, 3);
+    }
+    // and the milestones the scrubber snaps to ARE those positions
+    for (const m of milestones()) {
+      const r = REGIMES.find((x) => x.id === m.id)!;
+      expect(cameraFieldNm(m.at)).toBeCloseTo(r.fieldNm, 6);
+    }
+  });
+
   it('spans 20 nm to 12 micrometres', () => {
     expect(cameraFieldNm(0)).toBeCloseTo(20, 6);
     expect(cameraFieldNm(1)).toBeCloseTo(12_000, 6);
@@ -461,14 +789,39 @@ describe('camera and scale readouts', () => {
       prev = bp;
     }
     expect(bpInViewAt(0)).toBeCloseTo(60, 6);
-    expect(bpInViewAt(1)).toBeCloseTo(60_000_000, 3);
+    expect(bpInViewAt(1)).toBeCloseTo(CHR1_BP, 0);
   });
 
-  it('reports a compaction that rises across the hierarchy', () => {
-    expect(compactionAt(0)).toBeLessThan(2);
-    expect(compactionAt(1)).toBeGreaterThan(1_000);
-    // the duplex is not compacted at all: 60 bp is 20.4 nm in a 20 nm field
-    expect(compactionAt(0)).toBeCloseTo((60 * BP_RISE_NM) / 20, 6);
+  it('reports each level at the compaction it is quoted at in the literature', () => {
+    // compaction is contour over the PACKAGED length of the structure, not over the field of
+    // view -- dividing by the field made the number an artefact of camera distance, and read
+    // 1,700x at metaphase where the chromatid being drawn is 8,500x
+    const at = (id: string) => {
+      const r = REGIMES.find((x) => x.id === id)!;
+      return compactionAt((r.from + r.to) / 2);
+    };
+    expect(at('duplex')).toBeCloseTo(1.0, 2); // naked DNA is not compacted
+    expect(at('nucleosome')).toBeCloseTo(5.78, 2); // quoted ~6x
+    expect(at('beads')).toBeCloseTo(6.375, 6); // quoted 6-7x; 1020/160 exactly
+    expect(at('fibre')).toBeCloseTo(34.68, 2); // quoted ~40x
+    expect(at('loops')).toBeCloseTo(357.9, 1); // a few hundred
+    expect(at('mitotic')).toBeCloseTo(8464.5, 1); // the headline ~8,500x
+
+    // and it is monotone: no level in the hierarchy loses compaction
+    let prev = 0;
+    for (const r of REGIMES) {
+      const c = compactionAt((r.from + r.to) / 2);
+      expect(c).toBeGreaterThan(prev);
+      prev = c;
+    }
+  });
+
+  it('reconstructs chromosome 1 exactly at the far end of the scrubber', () => {
+    // the metaphase scene draws the whole of chr1, so the readout must say so
+    expect(bpInViewAt(1)).toBeCloseTo(CHR1_BP, 0);
+    expect(packagedNmAt(1)).toBeCloseTo(CHR1_METAPHASE_NM, 6);
+    expect(compactionAt(1)).toBeCloseTo(compactionRatio(CHR1_BP, CHR1_METAPHASE_NM), 6);
+    expect(contourLengthNm(bpInViewAt(1)) / 1e6).toBeCloseTo(84.65, 2); // millimetres
   });
 });
 
@@ -480,9 +833,22 @@ describe('level of detail', () => {
     }
   });
 
+  it('NEVER draws more nucleosomes than the sequence in view contains', () => {
+    // the readout reported "4,000 of 1,310" before this bound existed, which is not a
+    // performance bug but a false claim about what is on screen
+    for (let i = 0; i <= 2000; i += 1) {
+      const s = i / 2000;
+      expect(nucleosomeBudget(s)).toBeLessThanOrEqual(impliedNucleosomeCount(s));
+    }
+    // and specifically at the positions that were wrong
+    for (const s of [0.21, 0.38, 0.53]) {
+      expect(nucleosomeBudget(s)).toBeLessThanOrEqual(impliedNucleosomeCount(s));
+    }
+  });
+
   it('caps a count the biology would otherwise blow past', () => {
     // a metaphase chromosome really does hold well over a million nucleosomes
-    expect(impliedNucleosomeCount(1)).toBeGreaterThan(300_000);
+    expect(impliedNucleosomeCount(1)).toBeGreaterThan(1_300_000);
     expect(nucleosomeBudget(1)).toBeLessThan(impliedNucleosomeCount(1) / 100);
     expect(Math.round(CHR1_BP / NUCLEOSOME_REPEAT_BP)).toBeGreaterThan(1_300_000);
   });
@@ -520,5 +886,18 @@ describe('milestones', () => {
     const labels = new Set(REGIMES.map((r) => r.label));
     expect(labels.size).toBe(REGIMES.length);
     expect(CHROMATID_DIAMETER_NM).toBe(700);
+  });
+
+  it('carries a short tick label that is not a truncation of the long one', () => {
+    const shorts = new Set(REGIMES.map((r) => r.short));
+    expect(shorts.size).toBe(REGIMES.length);
+    for (const r of REGIMES) {
+      expect(r.short.length).toBeGreaterThan(4);
+      expect(r.short.length).toBeLessThanOrEqual(14);
+    }
+    // the failure this guards: deriving the tick label by splitting the long one on a dash
+    // renders 'B-form double helix' as the single letter 'B'
+    expect(REGIMES[0].label.split(/[—-]/)[0].trim()).toBe('B');
+    expect(REGIMES[0].short).toBe('B-form DNA');
   });
 });
