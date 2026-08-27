@@ -1,0 +1,200 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+const title = "Predicting Transcriptional Outcomes of Novel Multigene Perturbations with GEARS";
+const description = "Comprehensive technical summary and deep literature deconstruction of GEARS (Roohani et al., Stanford & Genentech, Nature Biotechnology 2024): Graph-enhanced deep learning for combinatorial single-cell Perturb-seq simulation.";
+const readingTime = "22 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <!-- Back to Catalog -->
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <!-- Header -->
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Perturbation Biology & Single-Cell Genomics</span>
+        <span class="paper-venue-badge">Nature Biotechnology · June 2024 (Research Article)</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Yusuf Roohani*, Kexin Huang*, & Jure Leskovec*</div>
+        <div><strong>Affiliation:</strong> Stanford University, Department of Computer Science & Genentech, South San Francisco, CA</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1038/s41587-023-01905-6" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1038/s41587-023-01905-6</a> · Nature Biotechnology (Vol 42, Issue 6, pp. 927–935)</div>
+      </div>
+    </header>
+
+    <!-- Lead / Overview -->
+    <p class="paper-lead">
+      Combinatorial genetic screens using CRISPR Perturb-seq offer profound insights into gene regulatory networks and drug target interactions. However, the combinatorial space of multigene perturbations (<Katex tex="\sim 2 \times 10^8" /> two-gene combinations in the human genome) renders experimental screening intractable. Developed by <strong>Stanford University and Genentech</strong>, <strong>GEARS (Graph-Enhanced gene Activation and Repression Simulator)</strong> integrates single-cell RNA sequencing with prior biological knowledge graphs (Gene Ontology and STRING). GEARS accurately predicts the whole-transcriptome expression outcomes of <strong>novel combinatorial multigene knockouts that have never been experimentally tested</strong>, achieving a <strong>+40% improvement in precision</strong> for classifying non-additive epistatic and synergistic genetic interactions.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. Executive Summary & Combinatorial Bottleneck</a></li>
+        <li><a href="#architecture">2. Model Architecture: Knowledge-Graph Enhanced GNN</a></li>
+        <li><a href="#graph-integration">3. Integrating Gene Knowledge Graphs & Co-Expression</a></li>
+        <li><a href="#benchmarks">4. Empirical Benchmarks: 0/2 & 1/2 Seen Perturbation Generalization</a></li>
+        <li><a href="#genetic-interactions">5. Genetic Interaction Subtype Classification (Epistasis & Synergy)</a></li>
+        <li><a href="#mathematical-formulation">6. Mathematical Formulation & Loss Function</a></li>
+        <li><a href="#failure-modes">7. Limitations & Structural Caveats</a></li>
+        <li><a href="#strategic-synthesis">8. Master Synthesis & Virtual Cell Simulation</a></li>
+      </ol>
+    </div>
+
+    <!-- Section 1 -->
+    <section id="summary">
+      <h2>1. Executive Summary & Combinatorial Bottleneck</h2>
+      <p>
+        While single-cell CRISPR perturbation screens (Perturb-seq, CROP-seq) measure post-knockout transcriptional profiles with single-cell resolution, scaling from single-gene knockouts to pairs or triplets leads to an exponential explosion in experimental cost and cell requirements.
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Evaluation Setting</th>
+              <th>Baseline Linear Additive / Standard Autoencoders (CPA)</th>
+              <th>GEARS (Stanford / Genentech)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1/2 Seen Combinations (One gene seen alone)</strong></td>
+              <td>Mean MSE ~0.65; fails to capture nonlinear repression</td>
+              <td><strong>Mean MSE 0.38</strong> — Accurate whole-genome transcript prediction.</td>
+            </tr>
+            <tr>
+              <td><strong>0/2 Seen Combinations (Neither gene seen in combo)</strong></td>
+              <td>Degrades to unperturbed control baseline</td>
+              <td><strong>Robust transferability</strong> via Gene Ontology graph message passing.</td>
+            </tr>
+            <tr>
+              <td><strong>Genetic Interaction Classification</strong></td>
+              <td>Precision ~0.42 on non-additive interaction subtypes</td>
+              <td><strong>Precision 0.62 (+40% gain)</strong> for synergistic and buffering interactions.</td>
+            </tr>
+            <tr>
+              <td><strong>Biological Knowledge Integration</strong></td>
+              <td>Data-driven latent space without biological priors</td>
+              <td><strong>Explicit Gene Ontology + STRING PPI Graph Neural Network.</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 2 -->
+    <section id="architecture">
+      <h2>2. Model Architecture: Knowledge-Graph Enhanced GNN</h2>
+      <p>
+        GEARS operates across three structural computational stages:
+      </p>
+      <ul>
+        <li><strong>Gene Embedding Layer:</strong> Embeds each perturbed gene into a low-dimensional representation <Katex tex="\mathbf{z}_g \in \mathbb{R}^d" /> using prior pathway graphs.</li>
+        <li><strong>Combinatorial Composition Module:</strong> Computes the combined perturbation vector for multigene knockouts <Katex tex="\{g_1, g_2\}" />:
+          <div class="paper-equation-block">
+            <Katex tex="\mathbf{z}_{g_1, g_2} = \mathbf{z}_{g_1} + \mathbf{z}_{g_2} + \mathbf{W}_{\text{cross}} (\mathbf{z}_{g_1} \odot \mathbf{z}_{g_2})" />
+          </div>
+        </li>
+        <li><strong>Gene Co-Expression Decoder GNN:</strong> Propagates the perturbation effect across all ~5,000 expressed target genes through graph convolutional message passing to predict post-perturbation transcript levels.</li>
+      </ul>
+    </section>
+
+    <!-- Section 3 -->
+    <section id="graph-integration">
+      <h2>3. Integrating Gene Knowledge Graphs & Co-Expression</h2>
+      <p>
+        GEARS bridges molecular data with biological knowledge graphs:
+      </p>
+      <ul>
+        <li><strong>Gene Ontology (GO) Knowledge Graph:</strong> Connects genes sharing biological process and molecular function annotations, allowing the model to generalize to unperturbed genes that share pathway neighbors with perturbed genes.</li>
+        <li><strong>STRING Protein-Protein Interaction (PPI) Graph:</strong> Guides the message passing of physical binding complexes.</li>
+        <li><strong>Co-Expression Graphs:</strong> Constructed directly from unperturbed baseline single-cell transcriptomes.</li>
+      </ul>
+    </section>
+
+    <!-- Section 4 -->
+    <section id="benchmarks">
+      <h2>4. Empirical Benchmarks: 0/2 & 1/2 Seen Perturbation Generalization</h2>
+      <p>
+        GEARS was evaluated on extensive single-cell Perturb-seq datasets (e.g. Norman et al. containing 284 2-gene combinations across 110 distinct genes in K562 cells):
+      </p>
+      <ul>
+        <li><strong>Top 20 Differentially Expressed (DE) Genes:</strong> Achieved lowest mean squared error and highest Pearson correlation (<Katex tex="r = 0.81" />).</li>
+        <li><strong>Directional Sign Accuracy:</strong> Accurately predicted whether target genes are upregulated or downregulated following combinatorial knockout with >88% directional accuracy.</li>
+      </ul>
+    </section>
+
+    <!-- Section 5 -->
+    <section id="genetic-interactions">
+      <h2>5. Genetic Interaction Subtype Classification</h2>
+      <p>
+        GEARS was tasked with classifying non-linear genetic interactions into biological subclasses:
+      </p>
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> Dissecting Non-Additive Epistasis
+        </div>
+        <p>
+          1. <strong>Synergistic Interactions:</strong> Combined phenotype is significantly stronger than additive expectation (e.g. synthetic lethal gene pairs).
+          <br />
+          2. <strong>Buffering / Epistatic Interactions:</strong> One perturbation masks or dampens the downstream effect of the other.
+          <br />
+          3. <strong>Neomorphic Interactions:</strong> Combinatorial perturbation triggers novel transcriptional programs not induced by either individual knockout.
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 6 -->
+    <section id="mathematical-formulation">
+      <h2>6. Mathematical Formulation & Loss Function</h2>
+      <p>
+        The post-perturbation expression vector <Katex tex="\hat{\mathbf{y}} \in \mathbb{R}^G" /> is predicted as a delta from unperturbed control cells <Katex tex="\mathbf{y}_{\text{ctrl}}" />:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\hat{\mathbf{y}} = \mathbf{y}_{\text{ctrl}} + \text{GNN}_{\text{decoder}}\left( \mathbf{z}_{g_1, g_2}, \mathcal{G}_{\text{co-expression}} \right)" />
+      </div>
+      <p>
+        Trained using a composite loss balancing overall transcriptome MSE with a focused penalty on top differentially expressed (DE) genes:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\mathcal{L}_{\text{GEARS}} = \text{MSE}(\mathbf{y}, \hat{\mathbf{y}}) + \lambda_{\text{DE}} \cdot \text{MSE}\left( \mathbf{y}_{\text{DE}}, \hat{\mathbf{y}}_{\text{DE}} \right) + \lambda_{\text{dir}} \cdot \mathcal{L}_{\text{direction}}(\mathbf{y}, \hat{\mathbf{y}})" />
+      </div>
+    </section>
+
+    <!-- Section 7 -->
+    <section id="failure-modes">
+      <h2>7. Limitations & Structural Caveats</h2>
+      <ul>
+        <li><strong>Incomplete Prior Graphs:</strong> Performance depends on the completeness of Gene Ontology annotations; unannotated novel genes may experience lower generalization.</li>
+        <li><strong>Cell-Type Specificity:</strong> Requires retraining or fine-tuning when transferring between radically distinct cell lineages (e.g. immune vs. neural).</li>
+        <li><strong>Dynamic Kinetic Trajectories:</strong> Models steady-state post-perturbation expression rather than time-resolved transient dynamics.</li>
+      </ul>
+    </section>
+
+    <!-- Section 8 -->
+    <section id="strategic-synthesis">
+      <h2>8. Master Synthesis & Virtual Cell Simulation</h2>
+      <p>
+        GEARS represents a foundational pillar in the transition from descriptive single-cell genomics to <strong>in silico perturbation simulation</strong>. It serves as the primary computational engine for designing multi-target therapeutic interventions, synthetic lethality screens in oncology, and guiding wet-lab combinatorial experimental prioritization.
+      </p>
+    </section>
+  </article>
+</BaseLayout>
