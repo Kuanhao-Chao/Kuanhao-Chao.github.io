@@ -399,6 +399,20 @@ Things specific to this subsystem:
   same correlation that drags an innocent gene over the threshold is what stops it outranking
   the causal gene, so the failure mode is *too many genes reported*, not *the wrong gene first*.
 
+- **A greedy `re.S` replace across a 9,000-line file will silently delete hundreds of lines.**
+  A pattern meant to fix one assertion matched from an earlier identical fragment to a later
+  one and removed ~850 lines and several whole describe blocks; the suite still passed, because
+  what was deleted was tests. Recovered with `git checkout`. **Use a literal `str.replace` with
+  an anchor unique enough to assert on, and never a `.*?` spanning more than a few lines.**
+
+- **`audit:deep-dives` drives the FIRST control to whichever endpoint is further from its
+  current value**, so a widget whose first slider is symmetric about its default fails the
+  "readout did not change" check. `burden-skat` opens at zero sign-flips and the gate pushed it
+  to five, where the burden statistic *recovers to the same value* — the panel's whole point.
+  The fix was to publish the **signed** weighted sum alongside its square, which distinguishes
+  the endpoints and makes the recovery legible. A widget that fails this check may be telling
+  you the readout is incomplete rather than the control is broken.
+
 - **A widget's default state must reproduce the lesson's worked example**, or the slider
   disagrees with the prose beside it — the one thing the three-layer split exists to prevent.
   The MR panel first assigned pleiotropy to the *weakest* instruments, which was a defensible

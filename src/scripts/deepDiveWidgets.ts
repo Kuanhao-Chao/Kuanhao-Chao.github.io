@@ -88,6 +88,10 @@ import {
   ivwMr,
   eggerRegression,
   weightedMedianMr,
+  betaWeight,
+  burdenStatistic,
+  skatQ,
+  skatOQ,
 } from '../lib/deepDiveMath';
 import {
   biasVarianceToy,
@@ -2882,6 +2886,83 @@ const mrPleiotropy: Renderer = (canvas, controlHost, readoutHost) => {
   draw();
 };
 
+/**
+ * The burden test's blind spot, as a slider.
+ *
+ * SKAT squares each score before summing, so it is invariant to every sign flip and reads
+ * 32,097 at all six settings. The burden test sums first and squares after, so it collapses
+ * from 144,476 to 1,356 as the directions mix — and RECOVERS to 144,476 when all five are
+ * flipped, because it does not care about direction, only agreement. That recovery is the
+ * part a static figure cannot show.
+ */
+const burdenSkat: Renderer = (canvas, controlHost, readoutHost) => {
+  const MAF = [0.001, 0.002, 0.005, 0.008, 0.01];
+  const W = MAF.map((m) => betaWeight(m));
+  const BASE = [4, 3, 5, 2, 3];
+  // flip order chosen so three flips reproduce the lesson's second gene exactly
+  const ORDER = [1, 3, 4, 0, 2];
+
+  const draw = () => {
+    const flips = Math.round(c.get('flips'));
+    const scale = c.get('scale');
+    const scores = BASE.map((v) => v * scale);
+    for (let i = 0; i < flips; i += 1) scores[ORDER[i]] *= -1;
+
+    const burden = burdenStatistic(scores, W);
+    const skat = skatQ(scores, W);
+    const skato = skatOQ(scores, W, 0.5);
+
+    const lim = Math.max(...BASE) * scale * 1.25;
+    const x = linear(-0.5, MAF.length - 0.5, PAD.left, PAD.left + PLOT.w,
+      MAF.map((_, i) => i), (v) => `${(MAF[Math.round(v)] * 100).toFixed(1)}%`);
+    const y = linear(-lim, lim, PAD.top + PLOT.h, PAD.top, [-lim, -lim / 2, 0, lim / 2, lim],
+      (v) => v.toFixed(1));
+    const svg = newSvg();
+    const g = frame(x, y, 'Variant, by minor allele frequency', 'Signed score', svg);
+
+    g.appendChild(el('line', {
+      x1: PAD.left, x2: PAD.left + PLOT.w, y1: y(0), y2: y(0),
+      stroke: 'currentColor', 'stroke-width': 1.4, opacity: 0.5,
+    }));
+    const bw = PLOT.w / (MAF.length * 1.8);
+    scores.forEach((s, i) => {
+      g.appendChild(el('rect', {
+        x: x(i) - bw / 2, y: y(Math.max(s, 0)), width: bw,
+        height: Math.abs(y(s) - y(0)),
+        fill: s >= 0 ? ACCENT : 'currentColor', opacity: s >= 0 ? 0.9 : 0.45,
+      }));
+      g.appendChild(label(x(i), s >= 0 ? y(s) - 6 : y(s) + 14, s.toFixed(1),
+        { 'text-anchor': 'middle' }));
+    });
+
+    canvas.replaceChildren(svg);
+    const whole = (v: number) => Math.round(v).toLocaleString('en-US');
+    // The signed weighted sum is what the burden test squares. Showing it is what makes the
+    // recovery legible: at no flips and at all five the burden statistic is identical, and
+    // only the sign of this quantity distinguishes them.
+    const signed = scores.reduce((t, sc, i) => t + W[i] * sc, 0);
+    readout(readoutHost, [
+      ['Σ w·S (signed)', signed.toFixed(1)],
+      ['burden = (Σ w·S)²', whole(burden)],
+      ['SKAT = Σ w²S²', whole(skat)],
+      ['SKAT-O (ρ = 0.5)', whole(skato)],
+      ['burden / SKAT', (burden / skat).toFixed(3)],
+    ]);
+  };
+
+  const c = buildControls(
+    controlHost,
+    [
+      { key: 'flips', label: 'Scores with the sign flipped', min: 0, max: 5, step: 1, value: 0,
+        format: (v) => String(Math.round(v)) },
+      { key: 'scale', label: 'Score magnitude', min: 0.5, max: 2, step: 0.05, value: 1,
+        format: (v) => `${v.toFixed(2)}×` },
+    ],
+    draw
+  );
+  draw();
+};
+
 const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'pca-structure': pcaStructure,
   'sweep-age': sweepAge,
@@ -2890,6 +2971,7 @@ const RENDERERS: Record<DeepDiveWidgetKind, Renderer> = {
   'twas-ld': twasLd,
   'three-tests': threeTests,
   'mr-pleiotropy': mrPleiotropy,
+  'burden-skat': burdenSkat,
   'ld-decay': ldDecay,
   drift,
   power,

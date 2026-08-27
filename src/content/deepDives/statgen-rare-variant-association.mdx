@@ -36,6 +36,7 @@ referenceIds:
   - povysil2019collapsing
   - zhou2020saigegene
   - backman2021exome
+  - liu2019acat
 tags: [rare variants, burden test, SKAT, SKAT-O, collapsing, gene-based test, exome sequencing]
 ---
 
@@ -44,6 +45,7 @@ import Notation from '../../components/deepdive/Notation.astro';
 import WorkedExample from '../../components/deepdive/WorkedExample.astro';
 import Exercise from '../../components/deepdive/Exercise.astro';
 import Figure from '../../components/deepdive/Figure.astro';
+import Widget from '../../components/deepdive/Widget.astro';
 import Citation from '../../components/deepdive/Citation.astro';
 
 ## The question this lesson answers
@@ -271,6 +273,13 @@ architecture puts it. That is why SKAT-O rather than either component is the def
 modern pipelines — not because it is more powerful than the best of the two, but because it
 does not require knowing which is the best of the two.
 
+<Widget
+  kind="burden-skat"
+  title="Flip the signs and watch one statistic collapse"
+  caption="The lesson's five variants, with the number of scores whose sign is flipped on a slider. At none flipped the burden statistic is 144,476 against SKAT's 32,097; at three it is 1,356 while SKAT has not moved. Flip all five and the burden returns to 144,476 — because the burden test does not care about direction, it cares about agreement, and five variants agreeing on the opposite direction agree just as well. Only the signed weighted sum distinguishes the two, at +380.1 and −380.1; the burden statistic is its square."
+  alt="An interactive panel with a slider for how many of the five variant scores have their sign flipped and a slider scaling the score magnitudes. It draws the signed scores as a bar chart and reports the signed weighted sum, the burden statistic, the SKAT statistic, SKAT-O and the ratio of burden to SKAT, showing the burden statistic falling and recovering while SKAT stays constant."
+/>
+
 <Callout variant="warning" title="At biobank scale the asymptotics fail before the methods do">
 
 Everything above assumes the score statistic is approximately normal, which is the
@@ -295,6 +304,66 @@ The order of operations matters here: a beautifully chosen kernel on a badly cal
 score is still a badly calibrated test.
 
 </Callout>
+
+### How badly, exactly
+
+The callout above is qualitative, and the size of the failure is worth having. Take one
+variant in that study carried by thirty people. Under the null the number of carriers who are
+cases is $\mathrm{Binomial}(30, \phi)$ with $\phi = 5{,}000/405{,}000 = 0.012346$, so the score
+has mean 0.3704 and standard deviation 0.6048 — and the normal approximation reads a normal
+tail off a distribution that puts 68.9% of its mass on zero.
+
+| carriers who are cases | exact probability of that or more | what the score test claims |
+| --- | --- | --- |
+| 1 | 0.3111 | 0.2979 |
+| 2 | 0.05278 | 0.007051 |
+| 3 | 0.005955 | 1.375 × 10⁻⁵ |
+| 4 | 4.925 × 10⁻⁴ | 1.958 × 10⁻⁹ |
+| 6 | 1.630 × 10⁻⁶ | 1.302 × 10⁻²⁰ |
+
+<Callout variant="key" title="It is a tail failure, which is why a pilot will not show it">
+
+**At the nominal 0.05 the approximation is fine.** Its true size is 0.0528, a factor of 1.06 —
+and at a hundred or three hundred carriers it is actually *conservative*. Anyone checking
+calibration at conventional levels would find nothing wrong.
+
+**At exome-wide significance it is not fine.** Against $2.5\times10^{-6}$ the score test fires
+whenever four of the thirty carriers are cases, and four or more really happens with
+probability $4.925\times10^{-4}$ — **197 times the threshold it believes it is using**. The
+exact test needs six.
+
+That is the whole case for the saddlepoint approximation: it is not a refinement of a working
+method, it is a repair of one that is broken exactly where it is being read.
+
+</Callout>
+
+<Figure
+  caption="Figure 3. The null distribution of a rare variant's score in a study of 5,000 cases and 400,000 controls, for a variant carried by thirty people. The solid curve is the exact binomial tail; the dashed curve is what the score test's normal approximation claims. They are within 4% of each other at one carrier case and a factor of 250,000 apart at four. The horizontal line is exome-wide significance: the normal-based test fires at four carrier cases, ringed in grey, where the exact tail is still 4.925 × 10⁻⁴; the exact test needs six, ringed in colour."
+  alt="Two curves falling steeply on a logarithmic vertical axis against the number of carriers who are cases, from one to eight. They begin together at the top left and separate rapidly, the dashed one falling far faster. A horizontal reference line crosses the dashed curve between three and four and the solid curve between five and six, with each crossing ringed."
+  wide
+>
+
+<svg viewBox="0 0 772 400" width="772" height="400" font-family="inherit"><line x1="104.0" y1="40.0" x2="104.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1.25"/><line x1="104.0" y1="236.0" x2="424.0" y2="236.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="240.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10⁻¹²</text><line x1="104.0" y1="187.0" x2="424.0" y2="187.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="191.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10⁻⁹</text><line x1="104.0" y1="138.0" x2="424.0" y2="138.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="142.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10⁻⁶</text><line x1="104.0" y1="89.0" x2="424.0" y2="89.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="93.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">10⁻³</text><line x1="104.0" y1="40.0" x2="424.0" y2="40.0" stroke="currentColor" stroke-width="1" opacity=".12"/><text x="96.0" y="44.0" font-size="10" fill="currentColor" text-anchor="end" opacity=".75">1</text><line x1="104.0" y1="236.0" x2="104.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="104.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">1</text><line x1="149.7" y1="236.0" x2="149.7" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="149.7" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">2</text><line x1="195.4" y1="236.0" x2="195.4" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="195.4" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">3</text><line x1="241.1" y1="236.0" x2="241.1" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="241.1" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">4</text><line x1="286.9" y1="236.0" x2="286.9" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="286.9" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">5</text><line x1="332.6" y1="236.0" x2="332.6" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="332.6" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">6</text><line x1="378.3" y1="236.0" x2="378.3" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="378.3" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">7</text><line x1="424.0" y1="236.0" x2="424.0" y2="241.0" stroke="currentColor" stroke-width="1"/><text x="424.0" y="254.0" font-size="10" fill="currentColor" text-anchor="middle" opacity=".75">8</text><line x1="104.0" y1="131.5" x2="424.0" y2="131.5" stroke="currentColor" stroke-width="2.0" opacity=".55"/><text x="420.0" y="123.5" font-size="10" fill="currentColor" text-anchor="end" opacity=".8">exome-wide 2.5×10⁻⁶</text><path d="M104.0,48.6 L149.7,75.1 L195.4,119.4 L241.1,182.2" fill="none" stroke="currentColor" stroke-width="2.0" stroke-dasharray="5 3" opacity=".8"/><circle cx="104.0" cy="48.6" r="3.2" fill="currentColor" opacity=".8"/><circle cx="149.7" cy="75.1" r="3.2" fill="currentColor" opacity=".8"/><circle cx="195.4" cy="119.4" r="3.2" fill="currentColor" opacity=".8"/><circle cx="241.1" cy="182.2" r="3.2" fill="currentColor" opacity=".8"/><path d="M104.0,48.3 L149.7,60.9 L195.4,76.3 L241.1,94.0 L286.9,113.5 L332.6,134.5 L378.3,156.9 L424.0,180.6" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><circle cx="104.0" cy="48.3" r="3.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="149.7" cy="60.9" r="3.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="195.4" cy="76.3" r="3.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="241.1" cy="94.0" r="3.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="286.9" cy="113.5" r="3.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="332.6" cy="134.5" r="3.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="378.3" cy="156.9" r="3.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="424.0" cy="180.6" r="3.2" fill="var(--color-accent, #2e6e5e)"/><circle cx="241.1" cy="182.2" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="249.1" y="182.2" font-size="10" fill="currentColor" opacity=".85">the normal test fires here</text><circle cx="332.6" cy="134.5" r="5.6" fill="none" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.0"/><text x="324.6" y="124.5" font-size="10" fill="var(--color-accent, #2e6e5e)" text-anchor="end" font-weight="600">the exact test needs six</text><text x="264.0" y="278.0" font-size="12" fill="currentColor" text-anchor="middle">Carriers who are cases, out of 30</text><text x="26.0" y="24.0" font-size="10.5" fill="currentColor" opacity=".85">Probability under the null</text><line x1="454.0" y1="36.0" x2="476.0" y2="36.0" stroke="var(--color-accent, #2e6e5e)" stroke-width="2.6"/><text x="484.0" y="40.0" font-size="10" fill="var(--color-accent, #2e6e5e)" font-weight="600">exact (binomial)</text><line x1="454.0" y1="53.0" x2="476.0" y2="53.0" stroke="currentColor" stroke-width="2.0" opacity=".8" stroke-dasharray="5 3"/><text x="484.0" y="57.0" font-size="10" fill="currentColor" opacity=".8">what the score test claims</text><text x="454.0" y="88.0" font-size="11" fill="currentColor" font-weight="700">A tail failure, invisible</text><text x="454.0" y="102.0" font-size="11" fill="currentColor" font-weight="700">at conventional levels.</text><text x="454.0" y="124.0" font-size="10" fill="currentColor" opacity=".8">At the nominal 0.05 the normal</text><text x="454.0" y="137.0" font-size="10" fill="currentColor" opacity=".8">approximation is fine - true size</text><text x="454.0" y="150.0" font-size="10" fill="currentColor" opacity=".8">0.053, a factor of 1.06.</text><text x="454.0" y="163.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="176.0" font-size="10" fill="currentColor" opacity=".8">In the tail it is not. The two</text><text x="454.0" y="189.0" font-size="10" fill="currentColor" opacity=".8">curves are together at one carrier</text><text x="454.0" y="202.0" font-size="10" fill="currentColor" opacity=".8">case and 250,000 times apart at</text><text x="454.0" y="215.0" font-size="10" fill="currentColor" opacity=".8">four.</text><text x="454.0" y="228.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="241.0" font-size="10" fill="currentColor" opacity=".8">So the score test fires whenever</text><text x="454.0" y="254.0" font-size="10" fill="currentColor" opacity=".8">four of the thirty carriers are</text><text x="454.0" y="267.0" font-size="10" fill="currentColor" opacity=".8">cases, which really happens with</text><text x="454.0" y="280.0" font-size="10" fill="currentColor" opacity=".8">probability 4.9×10⁻⁴ - 197 times the</text><text x="454.0" y="293.0" font-size="10" fill="currentColor" opacity=".8">threshold it thinks it is using.</text><text x="454.0" y="306.0" font-size="10" fill="currentColor" opacity=".8">The exact test needs six.</text><text x="454.0" y="319.0" font-size="10" fill="currentColor" opacity=".8"></text><text x="454.0" y="332.0" font-size="10" fill="currentColor" opacity=".8">A pilot at 0.05 would never show</text><text x="454.0" y="345.0" font-size="10" fill="currentColor" opacity=".8">this, which is what makes it</text><text x="454.0" y="358.0" font-size="10" fill="currentColor" opacity=".8">dangerous at exome scale.</text></svg>
+
+</Figure>
+
+### Combining tests without knowing how they correlate
+
+A gene-based scan does not run one test. It runs a burden test, a SKAT, several masks —
+loss-of-function only, loss-of-function plus missense, different frequency cuts — and then has
+to combine them. The results are heavily correlated, in a way nobody can write down, because
+the masks share variants.
+
+The aggregated Cauchy association test <Citation id="liu2019acat" /> solves this with a
+distributional accident. Transform each p-value to $\tan[(0.5 - p_i)\pi]$ and average: under
+the null each term is standard Cauchy, and a weighted average of Cauchy variables is Cauchy
+*whatever their dependence*. So the combined p-value is analytic, needs no permutation, and
+does not require the correlation structure to be known.
+
+Simulation over ten tests bears the robustness out: at nominal 0.05 the realised size is
+0.0492 when the tests are independent, 0.0592 at a pairwise correlation of 0.5, and 0.0535 at
+0.9. Mildly anti-conservative in the middle, and nothing like the collapse that assuming
+independence would produce.
 
 ## Exercises
 
@@ -400,6 +469,63 @@ The two failure modes point in opposite directions, which is why both checks are
 burden test can hide a real signal, and an uncorrected asymptotic test can manufacture one.
 
 </div>
+</Exercise>
+
+<Exercise n={4} title="Reading a tail failure that a pilot cannot see" difficulty="stretch">
+
+A collaborator checks a rare-variant pipeline by simulating null data and confirming that the
+p-values are uniform: 5.1% fall below 0.05 and 1.03% below 0.01. They conclude the test is
+calibrated. (a) Why does that check pass? (b) At exome-wide significance the same pipeline
+gives 197 times the nominal rate. Reconcile the two. (c) What would a valid check look like?
+
+<div slot="solution">
+
+**(a)** Because near the centre of the distribution the normal approximation is genuinely
+good. With thirty carriers and a case fraction of 0.012346 the true size of a nominal 0.05
+test is 0.0528 — off by 6%, invisible in a simulation of any reasonable size.
+
+**(b)** The failure is in the *tail*, and the tail is where the approximation has nothing to
+work with. The score's exact distribution puts 68.9% of its mass on zero and 25.8% on one; by
+four carrier-cases the normal approximation is understating the true probability by a factor
+of 250,000. A calibration check at 0.05 samples a region the approximation handles and never
+visits the region it does not.
+
+**(c)** Simulate at the significance level you will actually use. That means either an exact
+or saddlepoint tail rather than a normal one, or — if the check must be empirical — enough
+null replicates to estimate a $2.5\times10^{-6}$ rate, which is millions of them per variant.
+The practical answer in the literature is to stop approximating: the saddlepoint approximation
+is accurate in the tail by construction, so no calibration check is needed there.
+
+</div>
+
+</Exercise>
+
+<Exercise n={5} title="Why the burden test recovers" difficulty="stretch">
+
+Using the widget: with none of the five scores flipped the burden statistic is 144,476; with
+three flipped it is 1,356; with all five flipped it is 144,476 again. (a) Explain the
+recovery. (b) What does it say about what the burden test is actually testing? (c) SKAT reads
+32,097 at all six settings — state its corresponding blind spot.
+
+<div slot="solution">
+
+**(a)** The burden statistic is $\left(\sum_j w_j S_j\right)^2$ — the weighted sum is squared
+*after* summing. Flipping every sign negates the sum and the square is unchanged. Five variants
+agreeing that the gene is protective agree exactly as well as five agreeing it is harmful.
+
+**(b)** It is testing **agreement**, not direction. That is the right test when the biological
+prior is that a gene's rare variants act one way — loss-of-function in a haploinsufficient gene
+— and it is the wrong test whenever some variants are damaging and others compensatory, which
+is the case the lesson's second gene is built from.
+
+**(c)** SKAT squares each score *before* summing, so it is blind to direction entirely and
+therefore blind to agreement. When all five variants genuinely point the same way it throws
+that information away: 32,097 against the burden test's 144,476, a factor of 4.5. Each test is
+blind to what the other is built to see, which is why SKAT-O exists and why the choice between
+them is a statement about the gene, not about statistics.
+
+</div>
+
 </Exercise>
 
 ## Summary

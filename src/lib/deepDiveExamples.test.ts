@@ -9159,3 +9159,116 @@ describe('statgen-mendelian-randomization — estimator sweep and instrument sel
   });
 });
 
+describe('statgen-rare-variant-association — sign sweep, the tail, and ACAT', () => {
+  const mdx = lesson('statgen-rare-variant-association');
+  const MAF = [0.001, 0.002, 0.005, 0.008, 0.01];
+  const W = MAF.map((m) => betaWeight(m));
+  const BASE = [4, 3, 5, 2, 3];
+  const ORDER = [1, 3, 4, 0, 2];
+  const at = (flips: number) => {
+    const s = [...BASE];
+    for (let i = 0; i < flips; i += 1) s[ORDER[i]] *= -1;
+    return { burden: burdenStatistic(s, W), skat: skatQ(s, W), scores: s };
+  };
+
+  it('reproduces both of the lesson’s genes from the flip order', () => {
+    expect(Math.round(at(0).burden)).toBe(144_476);
+    expect(Math.round(at(0).skat)).toBe(32_097);
+    expect(at(3).scores).toEqual([4, -3, 5, -2, -3]);
+    expect(Math.round(at(3).burden)).toBe(1356);
+    expect(Math.round(at(3).skat)).toBe(32_097);
+  });
+
+  it('leaves SKAT invariant under every sign flip', () => {
+    for (let k = 0; k <= 5; k += 1) expect(Math.round(at(k).skat)).toBe(32_097);
+  });
+
+  it('makes the burden statistic RECOVER when all five are flipped', () => {
+    expect(Math.round(at(5).burden)).toBe(144_476);
+    expect(at(5).burden).toBeCloseTo(at(0).burden, 6);
+    expect(at(3).burden).toBeLessThan(at(2).burden);
+    expect(at(3).burden).toBeLessThan(at(4).burden);
+    expect(mdx).toContain('returns to 144,476');
+    // the readout shows the SIGNED sum, which is what distinguishes the two endpoints --
+    // without it every number in the panel is identical at no flips and at all five, which
+    // is exactly what the rendering gate caught
+    const signed = (flips: number) => {
+      const sc = [...BASE];
+      for (let i = 0; i < flips; i += 1) sc[ORDER[i]] *= -1;
+      return sc.reduce((t, v, i) => t + W[i] * v, 0);
+    };
+    expect(signed(0).toFixed(1)).toBe('380.1');
+    expect(signed(5).toFixed(1)).toBe('-380.1');
+    expect(signed(0)).toBeCloseTo(-signed(5), 9);
+    expect(mdx).toContain('+380.1');
+  });
+
+  it('exercise 5 — the factor SKAT gives up when the variants agree', () => {
+    expect((at(0).burden / at(0).skat).toFixed(1)).toBe('4.5');
+    expect(mdx).toContain('a factor of 4.5');
+  });
+
+  describe('the tail the normal approximation cannot see', () => {
+    const M = 30;
+    const PHI = 5000 / 405_000;
+    const choose = (n: number, k: number) => {
+      let r = 1;
+      for (let i = 0; i < k; i += 1) r = (r * (n - i)) / (i + 1);
+      return r;
+    };
+    const pmf = (k: number) => choose(M, k) * PHI ** k * (1 - PHI) ** (M - k);
+    const tail = (k: number) => {
+      let t = 0;
+      for (let i = k; i <= M; i += 1) t += pmf(i);
+      return t;
+    };
+
+    it('has the case fraction, mean and standard deviation the lesson quotes', () => {
+      expect(PHI.toFixed(6)).toBe('0.012346');
+      expect((M * PHI).toFixed(4)).toBe('0.3704');
+      expect(Math.sqrt(M * PHI * (1 - PHI)).toFixed(4)).toBe('0.6048');
+      expect(pmf(0).toFixed(3)).toBe('0.689');
+      for (const v of ['0.012346', '0.3704', '0.6048', '68.9%']) expect(mdx).toContain(v);
+    });
+
+    it('has the exact tail column of the table', () => {
+      expect(tail(1).toFixed(4)).toBe('0.3111');
+      expect(tail(2).toFixed(5)).toBe('0.05278');
+      expect(tail(3).toFixed(6)).toBe('0.005955');
+      expect(tail(4)).toBeCloseTo(4.925e-4, 7);
+      expect(tail(6)).toBeCloseTo(1.63e-6, 9);
+      for (const v of ['0.3111', '0.05278', '0.005955']) expect(mdx).toContain(v);
+    });
+
+    it('fires at four where the exact test needs six, at 197x the nominal', () => {
+      const EXOME = 2.5e-6;
+      const z = (k: number) => (k - M * PHI) / Math.sqrt(M * PHI * (1 - PHI));
+      const claimed = (k: number) => 2 * (1 - normalCdf(Math.abs(z(k))));
+      expect(claimed(3)).toBeGreaterThan(EXOME);
+      expect(claimed(4)).toBeLessThan(EXOME);
+      expect(tail(4)).toBeGreaterThan(EXOME);
+      expect(Math.round(tail(4) / EXOME)).toBe(197);
+      expect(tail(5)).toBeGreaterThan(EXOME);
+      expect(tail(6)).toBeLessThan(EXOME);
+      expect(mdx).toContain('197 times the threshold');
+      expect(mdx).toMatch(/exact test needs six/);
+    });
+
+    it('is nearly exact at the nominal 0.05, which is why a pilot misses it', () => {
+      const c = 1.959963985;
+      const sd = Math.sqrt(M * PHI * (1 - PHI));
+      const trueSize = tail(Math.ceil(M * PHI + c * sd));
+      expect(trueSize.toFixed(4)).toBe('0.0528');
+      expect((trueSize / 0.05).toFixed(2)).toBe('1.06');
+      expect(mdx).toContain('0.0528');
+      expect(mdx).toContain('a factor of 1.06');
+    });
+  });
+
+  it('adds ACAT, which had no mention in any deep-dive file', () => {
+    expect(mdx).toContain('liu2019acat');
+    expect(mdx).toContain('Cauchy');
+    for (const v of ['0.0492', '0.0592', '0.0535']) expect(mdx).toContain(v);
+  });
+});
+
