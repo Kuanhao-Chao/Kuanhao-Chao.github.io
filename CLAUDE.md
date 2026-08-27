@@ -399,6 +399,14 @@ Things specific to this subsystem:
   same correlation that drags an innocent gene over the threshold is what stops it outranking
   the causal gene, so the failure mode is *too many genes reported*, not *the wrong gene first*.
 
+- **Adding lessons to a track leaves them orphaned unless you wire them in, and no gate says
+  so.** After five new statgen lessons every gate was green while the only inbound
+  `relatedLessons` links came from other new lessons — a reader working the original track
+  would never learn the new material existed. The hub was worse: the commit that opened the
+  slots promised each module's description would be updated as its lesson landed, and
+  `git show` confirmed the hub was touched by none of them. **A lesson is not integrated when
+  it renders; it is integrated when something already in the track points at it.**
+
 - **An adversarial re-derivation of a finished track found three MAJOR defects that 3,149
   passing tests and every rendering gate had passed over**, and all three were of one kind: a
   *claim about* correct numbers rather than a wrong number. (a) A gain table produced with

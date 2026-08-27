@@ -33,6 +33,10 @@ referenceIds:
   - bulik2015ldsc
   - wang2020susie
   - daveysmith2003mr
+  - benjamini1995fdr
+  - patterson2006eigen
+  - kong2018nurture
+  - gusev2016fusion
 tags: [statistical genetics, quantitative genetics, GWAS, heritability, fine-mapping, polygenic scores, Mendelian randomisation]
 ---
 
@@ -74,8 +78,11 @@ mostly differences in what they are willing to assume about "everything else".
 three tests that fall out of them. The likelihood framework all three descend from is
 Fisher's <Citation id="fisher1922likelihood" />; every later method in this curriculum is one
 of the three tests wearing different clothing, so their disagreements are worth meeting once,
-on a table small enough to check by hand. This is also where the genome-wide threshold comes from, and where the two
-situations that break the χ² approximation are named.
+on a table small enough to check by hand. This is also where the genome-wide threshold comes
+from, and where the two situations that break the χ² approximation are named. The module then
+asks what a threshold is *for*: controlling the chance of any false positive at all is one
+answer, and controlling the fraction of discoveries that are wrong <Citation id="benjamini1995fdr" />
+is a different one, with a different price and a different procedure.
 
 **Module 2 — Populations & Inheritance.** What a locus is before anyone tests it. Allele
 frequencies under random mating, the drift that moves them in a finite population
@@ -83,6 +90,11 @@ frequencies under random mating, the drift that moves them in a finite populatio
 a proxy for its neighbours rather than a thing in itself <Citation id="hill1968" />. The last
 of these is why Module 5 exists: the variant with the smallest p-value in a region is usually
 not the causal one, and nothing in Module 4 can tell them apart.
+
+The module then asks two questions of the same data. How far apart have populations drifted —
+which turns out to have a sharp answer, and to decide whether principal components can see the
+structure at all <Citation id="patterson2006eigen" /> — and whether anything *pushed* them,
+which is the difference between an allele's frequency and the age that frequency implies.
 
 **Module 3 — Quantitative Genetics.** How much genetic signal a trait has at all. Fisher's
 reconciliation of Mendelian inheritance with continuous variation
@@ -94,6 +106,11 @@ a measurable quantity in unrelated people, and predicting breeding values from d
 Heritability is a ceiling: no predictor built from additive genetic data can beat it, and
 knowing its value tells you how much of the problem is left.
 
+The module closes by asking what a between-family estimate actually contains. Parents who
+resemble each other, and parents who build the environment their children grow up in
+<Citation id="kong2018nurture" />, both put something into that comparison that is not the
+direct effect of a genotype — and a sibling comparison removes all of it algebraically.
+
 **Module 4 — Association & Discovery.** Finding the positions. Marginal tests at millions of
 sites, the population structure that inflates them, mixed models that absorb it, aggregation
 tests for variants too rare to test one at a time, and meta-analysis to combine studies that
@@ -102,7 +119,9 @@ were never designed together. Distinguishing genuine polygenicity from confoundi
 
 **Module 5 — Inference, Prediction & Causality.** What may be done with a hit. Fine-mapping
 resolves an association into a small set of candidate variants
-<Citation id="wang2020susie" />; polygenic scores turn thousands of small effects into one
+<Citation id="wang2020susie" />; putting expression in between turns a set of variants into a
+ranked list of genes, at a cost that is exactly computable
+<Citation id="gusev2016fusion" />; polygenic scores turn thousands of small effects into one
 number per person; Mendelian randomisation uses genotype as an instrument to ask whether an
 exposure causes an outcome <Citation id="daveysmith2003mr" />; and sequence models supply
 functional predictions that are only evidence once they have been calibrated.
