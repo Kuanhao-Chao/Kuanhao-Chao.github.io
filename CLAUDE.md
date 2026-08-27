@@ -623,7 +623,10 @@ Things specific to it, most of which were bugs first:
   sequence in view contains is not a performance question, it is a false statement about the
   scene, and the readout said "4,000 of 1,310" before the bound existed.
 - **The telemetry reports what each node actually draws**, via `nucleosomeCount()`, not what the
-  model budgets. The two can disagree and only one of them is on screen.
+  model budgets. The two can disagree and only one of them is on screen. Those counts are then
+  **weighted by regime weight** before summing: across a cross-fade two representations are
+  alive at partial opacity, and summing raw counts double-counts them — the beads/fibre seam
+  reported "91 of 63", more nucleosomes than the sequence in view contains.
 - **An `InstancedMesh` must recentre on the count it is *drawing*, not the count it allocated.**
   Framing 430 nucleosomes while showing 160 pushed the whole fibre to the bottom of the viewport.
 - **`setColorAt` MULTIPLIES into the material colour.** Any mesh using per-instance colour needs

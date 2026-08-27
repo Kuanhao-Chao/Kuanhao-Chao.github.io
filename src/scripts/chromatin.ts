@@ -1259,11 +1259,22 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
     camera.updateProjectionMatrix();
   }
 
-  /** What the scene is actually drawing, summed over every node currently visible. */
-  function drawnNucleosomes(): number {
+  /**
+   * Nucleosomes the scene is drawing, weighted by how visible each node is.
+   *
+   * Summing raw counts double-counts across a cross-fade, where two representations are alive
+   * at partial opacity: at the beads/fibre seam it reported "91 of 63", claiming more
+   * nucleosomes on screen than the sequence in view contains. Each is at half opacity there,
+   * so the weighted sum is what the reader is actually looking at -- and it stays inside the
+   * implied count, which is the whole point of the comparison.
+   */
+  function drawnNucleosomes(weights: Map<RegimeId, number>): number {
     let n = 0;
-    for (const node of nodes) if (node.group.visible) n += node.nucleosomeCount();
-    return n;
+    for (const node of nodes) {
+      if (!node.group.visible) continue;
+      n += node.nucleosomeCount() * (weights.get(node.id) ?? 0);
+    }
+    return Math.round(n);
   }
 
   function report(): void {
@@ -1277,7 +1288,7 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
       bpInView: bp,
       contourNm: contourLengthNm(bp),
       compaction: compactionAt(scrub),
-      nucleosomesDrawn: drawnNucleosomes(),
+      nucleosomesDrawn: drawnNucleosomes(regimeWeights(scrub)),
       nucleosomesImplied: impliedNucleosomeCount(scrub),
       fps,
       playing,
@@ -1447,7 +1458,7 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
         bpInView: bpInViewAt(scrub),
         contourNm: contourLengthNm(bpInViewAt(scrub)),
         compaction: compactionAt(scrub),
-        nucleosomesDrawn: drawnNucleosomes(),
+        nucleosomesDrawn: drawnNucleosomes(regimeWeights(scrub)),
         nucleosomesImplied: impliedNucleosomeCount(scrub),
         fps,
         playing,
