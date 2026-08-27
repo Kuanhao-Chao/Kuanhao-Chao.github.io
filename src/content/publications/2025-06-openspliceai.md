@@ -1,5 +1,5 @@
 ---
-title: 'OpenSpliceAI: An efficient, modular implementation of SpliceAI enabling easy retraining on non-human species'
+title: 'OpenSpliceAI provides an efficient modular implementation of SpliceAI enabling easy retraining across nonhuman species'
 authors: 'Kuan-Hao Chao*†, Alan Mao†, Anqi Liu, Steven L. Salzberg*, Mihaela Pertea*'
 venue: 'eLife'
 date: 2025-06-01
@@ -16,7 +16,7 @@ featured: true
 selectedOrder: 2
 bibtex: |
   @article{chao2025openspliceai,
-    title   = {OpenSpliceAI: An efficient, modular implementation of SpliceAI enabling easy retraining on non-human species},
+    title   = {OpenSpliceAI provides an efficient modular implementation of SpliceAI enabling easy retraining across nonhuman species},
     author  = {Chao, Kuan-Hao and Mao, Alan and Liu, Anqi and Salzberg, Steven L. and Pertea, Mihaela},
     journal = {eLife},
     year    = {2025},

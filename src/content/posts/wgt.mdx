@@ -91,7 +91,7 @@ That convergence does one of two things. Often it settles the whole ordering, or
 
 ## What it showed
 
-**Substantially faster than the prior algorithm.** On the paper's benchmark suite of De Bruijn graphs, tries, reverse-deterministic graphs, and random graphs, the Gibney–Thankachan recognizer timed out after 30 seconds on **8,461** graphs; **Wheelie-PR** timed out on **784**. The same experiments show Wheelie handling benchmark graphs with thousands of nodes on practical time scales.
+**Substantially faster than the prior algorithm.** On the paper's benchmark suite of De Bruijn graphs, tries, reverse-deterministic graphs, and random graphs, the Gibney–Thankachan recognizer timed out after 30 seconds on **8,461** graphs, spread across every graph type; **Wheelie-PR** timed out on **784**, all of them random graphs — it never timed out on a structured type at all. The same experiments show Wheelie handling benchmark graphs with thousands of nodes on practical time scales.
 
 <ZoomFigure src={figRecognition} alt="A scatter plot comparing Wheelie-PR recognition time against the Gibney–Thankachan algorithm across graph types, with most points below the diagonal, plus a table of graph counts and timeout counts." variant="wide">
   <strong>Figure 4.</strong> Recognition time versus the prior algorithm. <strong>(A)</strong> Each point is a graph, plotting Wheelie-PR's time against the Gibney–Thankachan algorithm's (log–log); points below the diagonal are faster for Wheelie-PR, and the red lines mark the 30-second timeout. <strong>(B)</strong> Across the tested graph types, the prior algorithm timed out on 8,461 graphs in total, compared with 784 for Wheelie-PR.
