@@ -4152,3 +4152,12 @@ hemani2017steiger:
   venue: "PLOS Genetics 13:e1007081"
   doi: https://doi.org/10.1371/journal.pgen.1007081
   verified: 2026-08-26
+
+# ── statgen-rare-variant-association, combining correlated tests ─────────────
+liu2019acat:
+  authors: ['Yaowu Liu', 'Sixing Chen', 'Zilin Li', 'et al.']
+  year: 2019
+  title: "ACAT: A Fast and Powerful p Value Combination Method for Rare-Variant Analysis in Sequencing Studies"
+  venue: "The American Journal of Human Genetics 104:410-421"
+  doi: https://doi.org/10.1016/j.ajhg.2019.01.002
+  verified: 2026-08-27

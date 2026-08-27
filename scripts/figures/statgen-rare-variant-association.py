@@ -1,9 +1,11 @@
 import sys, os, math
 sys.path.insert(0, os.path.dirname(__file__))
 os.makedirs(os.path.join(os.path.dirname(__file__), 'out'), exist_ok=True)
-from figlib import svg, text, line, path, write, circle, rect, Axes, ACCENT
+from figlib import svg, text, line, path, write, circle, rect, Axes, ACCENT, splice
 
 OUT = os.path.join(os.path.dirname(__file__), 'out')
+MDX = os.path.join(os.path.dirname(__file__), '..', '..',
+                   'src', 'content', 'deepDives', 'statgen-rare-variant-association.mdx')
 K = 39.600989007          # (z_alpha/2 + z_beta)^2 at 5e-8 and 80% power, from lesson 9
 
 # ── Figure 1: the power cliff, and what aggregation buys back ────────────────
@@ -109,3 +111,75 @@ for title, S in GENES:
                                                 format(round(skat(S)), ',')))
 print('   burden ratio A/B %.1f   SKAT ratio A/B %.3f'
       % (burden(GENES[0][1]) / burden(GENES[1][1]), skat(GENES[0][1]) / skat(GENES[1][1])))
+
+
+# ── Figure 3 ── where the normal approximation stops being an approximation ──
+# One rare variant carried by 30 people, 5,000 cases against 400,000 controls. Under the
+# null the number of carriers who are cases is Binomial(30, 0.012346); the score test's
+# normal approximation standardises it and reads the normal tail. The two tails are drawn
+# together. Values are exact binomial and normal tail areas, asserted in
+# src/lib/deepDiveExamples.test.ts.
+EXACT = [0.3111, 0.05278, 0.005955, 4.925e-4, 3.159e-5, 1.630e-6, 6.935e-8, 2.479e-9]
+NORMAL = [0.2979, 7.051e-3, 1.375e-5, 1.958e-9, 1.938e-14, 1.302e-20, 5.854e-28, 1.748e-36]
+EXOME = 2.5e-6
+
+a3 = Axes(104.0, 424.0, 40.0, 236.0, (1, 8), (1e-12, 1.0), ylog=True)
+q = [a3.frame()]
+q.append(a3.ygrid([1e-12, 1e-9, 1e-6, 1e-3, 1.0],
+                  ['10' + '\u207b\u00b9\u00b2', '10' + '\u207b\u2079', '10' + '\u207b\u2076',
+                   '10' + '\u207b\u00b3', '1'], size=10))
+q.append(a3.xticks(list(range(1, 9)), [str(i) for i in range(1, 9)], size=10))
+
+q.append(line(a3.x0, a3.py(EXOME), a3.x1, a3.py(EXOME), 2.0, opacity='.55'))
+q.append(text(a3.x1 - 4, a3.py(EXOME) - 8, 'exome-wide 2.5\u00d710' + '\u207b\u2076', 10,
+              anchor='end', opacity='.8'))
+
+for vals, stroke, dash, w, op in ((NORMAL, 'currentColor', '5 3', 2.0, '.8'),
+                                  (EXACT, ACCENT, None, 2.6, None)):
+    pts = [(a3.px(i + 1), a3.py(max(v, 1e-12))) for i, v in enumerate(vals) if v >= 1e-12]
+    q.append(path(pts, width=w, stroke=stroke, dash=dash, opacity=op))
+    for x0, y0 in pts:
+        q.append(circle(x0, y0, 3.2, fill=stroke if stroke == ACCENT else 'currentColor',
+                        opacity=None if stroke == ACCENT else op))
+
+# where each test fires
+q.append(circle(a3.px(4), a3.py(NORMAL[3]), 5.6, fill=None, stroke='currentColor', sw=1.8))
+q.append(text(a3.px(4) + 8, a3.py(NORMAL[3]), 'the normal test fires here', 10, opacity='.85'))
+q.append(circle(a3.px(6), a3.py(EXACT[5]), 5.6, fill=None, stroke=ACCENT, sw=2.0))
+q.append(text(a3.px(6) - 8, a3.py(EXACT[5]) - 10, 'the exact test needs six', 10,
+              anchor='end', fill=ACCENT, weight='600'))
+
+q.append(text((a3.x0 + a3.x1) / 2, a3.py(1e-12) + 42,
+              'Carriers who are cases, out of 30', 12, anchor='middle'))
+q.append(text(a3.x0 - 78, 24, 'Probability under the null', 10.5, opacity='.85'))
+
+LX3 = a3.x1 + 30
+q.append(line(LX3, 36, LX3 + 22, 36, 2.6, stroke=ACCENT))
+q.append(text(LX3 + 30, 40, 'exact (binomial)', 10, fill=ACCENT, weight='600'))
+q.append(line(LX3, 53, LX3 + 22, 53, 2.0, stroke='currentColor', dash='5 3', opacity='.8'))
+q.append(text(LX3 + 30, 57, 'what the score test claims', 10, opacity='.8'))
+
+q.append(text(LX3, 88, 'A tail failure, invisible', 11, weight='700'))
+q.append(text(LX3, 102, 'at conventional levels.', 11, weight='700'))
+for i, t in enumerate([
+        'At the nominal 0.05 the normal',
+        'approximation is fine - true size',
+        '0.053, a factor of 1.06.', '',
+        'In the tail it is not. The two',
+        'curves are together at one carrier',
+        'case and 250,000 times apart at',
+        'four.', '',
+        'So the score test fires whenever',
+        'four of the thirty carriers are',
+        'cases, which really happens with',
+        'probability 4.9\u00d710' + '\u207b\u2074 - 197 times the',
+        'threshold it thinks it is using.',
+        'The exact test needs six.', '',
+        'A pilot at 0.05 would never show',
+        'this, which is what makes it',
+        'dangerous at exome scale.']):
+    q.append(text(LX3, 124 + 13 * i, t, 10, opacity='.8'))
+
+_spa = svg(772, 400, ''.join(q))
+print('fig3 bytes:', write(os.path.join(OUT, 'statgen-spa-tail.svg'), _spa))
+splice(MDX, 2, _spa)
