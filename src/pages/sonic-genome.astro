@@ -409,10 +409,12 @@ const description = "A full-screen interactive biological DNA synthesizer and am
         frameCount = 0;
         lastFrameTime = now;
       }
-      requestAnimationFrame(calcFps);
+      fpsAnimId = requestAnimationFrame(calcFps);
     };
-    requestAnimationFrame(calcFps);
+    fpsAnimId = requestAnimationFrame(calcFps);
   }
+
+  let fpsAnimId: number | null = null;
 
   function loadPreset(presetId: string) {
     const preset = SONIC_PRESETS.find((p) => p.id === presetId) || SONIC_PRESETS[0];
@@ -544,7 +546,9 @@ const description = "A full-screen interactive biological DNA synthesizer and am
   }
 
   async function togglePlay() {
-    if (!audioEngine) return;
+    if (!audioEngine) {
+      audioEngine = new SonicAudioEngine();
+    }
     await audioEngine.init();
 
     if (isPlaying) {
@@ -650,6 +654,30 @@ const description = "A full-screen interactive biological DNA synthesizer and am
     }
   }
 
+  function onKeydown(e: KeyboardEvent) {
+    if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      togglePlay();
+    } else if (e.code === 'KeyR') {
+      e.preventDefault();
+      resetPlayback();
+    } else if (e.code === 'Escape') {
+      themePopover?.setAttribute('hidden', '');
+      themeBtn?.setAttribute('aria-expanded', 'false');
+      [drawerTuning, drawerSeq, drawerInfo].forEach((d) => d?.setAttribute('hidden', 'true'));
+      [btnToggleTuning, btnToggleSeq, btnToggleInfo].forEach((b) => b?.classList.remove('is-active'));
+    }
+  }
+
+  function onDocumentClick(e: MouseEvent) {
+    const target = e.target as Node;
+    if (themePopover && !themePopover.contains(target) && themeBtn && !themeBtn.contains(target)) {
+      themePopover.setAttribute('hidden', '');
+      themeBtn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
   function setupEvents() {
     btnPlay?.addEventListener('click', togglePlay);
     btnReset?.addEventListener('click', resetPlayback);
@@ -683,9 +711,18 @@ const description = "A full-screen interactive biological DNA synthesizer and am
     });
 
     // Drawer triggers
-    btnToggleTuning?.addEventListener('click', () => toggleDrawer(drawerTuning, btnToggleTuning));
-    btnToggleSeq?.addEventListener('click', () => toggleDrawer(drawerSeq, btnToggleSeq));
-    btnToggleInfo?.addEventListener('click', () => toggleDrawer(drawerInfo, btnToggleInfo));
+    btnToggleTuning?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDrawer(drawerTuning, btnToggleTuning);
+    });
+    btnToggleSeq?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDrawer(drawerSeq, btnToggleSeq);
+    });
+    btnToggleInfo?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDrawer(drawerInfo, btnToggleInfo);
+    });
 
     drawerCloseButtons.forEach((cb) => {
       cb.addEventListener('click', () => {
@@ -764,17 +801,19 @@ const description = "A full-screen interactive biological DNA synthesizer and am
       }
     });
 
-    // Theme selector menu
+    // Theme selector menu toggle & dismiss
     themeBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      const hidden = themePopover?.hasAttribute('hidden');
-      if (hidden) themePopover?.removeAttribute('hidden');
-      else themePopover?.setAttribute('hidden', 'true');
+      const open = themeBtn.getAttribute('aria-expanded') === 'true';
+      themeBtn.setAttribute('aria-expanded', String(!open));
+      if (open) {
+        themePopover?.setAttribute('hidden', '');
+      } else {
+        themePopover?.removeAttribute('hidden');
+      }
     });
 
-    document.addEventListener('click', () => {
-      themePopover?.setAttribute('hidden', 'true');
-    });
+    document.addEventListener('click', onDocumentClick);
 
     themeOptions.forEach((opt) => {
       opt.addEventListener('click', () => {
@@ -783,27 +822,58 @@ const description = "A full-screen interactive biological DNA synthesizer and am
           (window as any).__khcTheme.set(targetTheme);
           if (themeName) themeName.textContent = targetTheme.charAt(0).toUpperCase() + targetTheme.slice(1);
         }
-        themePopover?.setAttribute('hidden', 'true');
+        themePopover?.setAttribute('hidden', '');
+        themeBtn?.setAttribute('aria-expanded', 'false');
       });
     });
 
-    // Keyboard Shortcuts
-    window.addEventListener('keydown', (e) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
-      if (e.code === 'Space') {
-        e.preventDefault();
-        togglePlay();
-      } else if (e.code === 'KeyR') {
-        e.preventDefault();
-        resetPlayback();
-      }
-    });
+    window.addEventListener('keydown', onKeydown);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initInstrument);
-  } else {
+  function cleanupSonicGenome() {
+    if (stepTimer !== null) {
+      clearTimeout(stepTimer);
+      stepTimer = null;
+    }
+    isPlaying = false;
+    updatePlayUI(false);
+
+    if (fpsAnimId !== null) {
+      cancelAnimationFrame(fpsAnimId);
+      fpsAnimId = null;
+    }
+
+    if (visualizer) {
+      visualizer.destroy();
+      visualizer = null;
+    }
+
+    if (audioEngine) {
+      audioEngine.destroy();
+      audioEngine = null;
+    }
+
+    window.removeEventListener('keydown', onKeydown);
+    document.removeEventListener('click', onDocumentClick);
+  }
+
+  function initSonicGenome() {
+    const root = document.getElementById('sonic-root');
+    if (!root) return;
+
+    cleanupSonicGenome();
     initInstrument();
+
+    document.addEventListener('astro:before-swap', cleanupSonicGenome, { once: true });
+    window.addEventListener('pagehide', cleanupSonicGenome, { once: true });
+  }
+
+  // Bind on Astro page loads and cold load
+  document.addEventListener('astro:page-load', initSonicGenome);
+  if (document.readyState !== 'loading') {
+    initSonicGenome();
+  } else {
+    document.addEventListener('DOMContentLoaded', initSonicGenome);
   }
 </script>
 
