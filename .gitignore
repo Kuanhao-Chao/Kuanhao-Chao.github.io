@@ -34,3 +34,8 @@ __pycache__/
 
 # source documents the deep-dive tracks were written from — inputs, not site content
 resources/
+
+# Shorkie conversion scratch: the 55 MB Keras checkpoint and intermediates are downloaded
+# on demand by scripts/shorkie/, never committed. The shipped artefacts are public/models/
+# and src/data/shorkie*.json.
+scripts/shorkie/_scratch/

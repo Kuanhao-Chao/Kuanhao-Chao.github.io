@@ -1,0 +1,136 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import '../styles/variantPlayground.css';
+import { SPEC_NOTES, N_ATTN_LAYERS, SPECIES_S_CEREVISIAE, N_SPECIES } from '../lib/shorkieModel';
+
+// A `bare` page, so it carries its own header and needs its own <h1> -- audit:indexing asserts a
+// visible heading on every sitemap URL. The page is NOT at /shorkie/: that path already serves the
+// project documentation site on this domain.
+const title = 'The Live Variant Playground — Shorkie, layer by layer';
+const description =
+  'An in-browser sandbox running the real Shorkie fungal sequence-to-function model: edit DNA and watch the conv-stem neurons fire live, then run the full 14 M-parameter network to predict RNA-seq coverage across a 16,384 bp yeast window.';
+---
+
+<BaseLayout title={title} description={description} bare={true}>
+  <div class="vp" data-vp data-vp-active-mode="type">
+    <header class="vp-top">
+      <h1 class="vp-title">The Live Variant Playground</h1>
+      <span class="vp-sub">Shorkie · Chao et al. 2025 · fold f0, 14,253,567 parameters</span>
+      <span class="vp-spacer"></span>
+      <a class="vp-sub" href="/posts/shorkie/">Read the post →</a>
+      <a class="vp-sub" href="/">Home</a>
+    </header>
+
+    <div class="vp-body">
+      <!-- ------------------------------------------------- left column -->
+      <div>
+        <section class="vp-panel">
+          <h2>Sequence</h2>
+          <div class="vp-controls" style="margin-bottom:0.55rem;">
+            <button type="button" class="vp-btn" data-vp-mode="type" aria-pressed="true">Free typing</button>
+            <button type="button" class="vp-btn" data-vp-mode="locus" aria-pressed="false">Yeast locus</button>
+            <select class="vp-select" data-vp-locus aria-label="Preset locus"></select>
+          </div>
+          <textarea
+            class="vp-seq"
+            data-vp-seq
+            spellcheck="false"
+            aria-label="DNA sequence"
+          ></textarea>
+          <p class="vp-stat" data-vp-livestat></p>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            Typing runs the <strong>real conv stem</strong> in TypeScript on every keystroke — valid on a
+            bare fragment because a convolution is translation-equivariant. Predicting a track needs the
+            full 16,384 bp window, so switch to a locus for that.
+          </p>
+        </section>
+
+        <section class="vp-panel">
+          <h2>Conv-stem neurons — live, every keystroke</h2>
+          <canvas class="vp-canvas" data-vp-neurons
+                  aria-label="Activation raster: 96 conv-stem filters by sequence position"
+                  role="img"></canvas>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            Each row is one of the 96 filters in Shorkie's first convolution; a mark means that neuron
+            fired at that position. Click a row to see what it detects.
+          </p>
+        </section>
+
+        <section class="vp-panel">
+          <h2>Predicted coverage — the full model</h2>
+          <div class="vp-controls" style="margin-bottom:0.5rem;">
+            <button type="button" class="vp-btn" data-vp-run>Load model &amp; predict</button>
+            <span class="vp-status" data-vp-status></span>
+          </div>
+          <svg class="vp-svg" data-vp-track role="img"
+               aria-label="Predicted RNA-seq coverage across 896 bins"></svg>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            896 bins of 16 bp across the window's 14,336 bp interior. Purple bars are annotated ORFs.
+            A dashed line, once you mutate, is the unedited reference.
+          </p>
+        </section>
+      </div>
+
+      <!-- ------------------------------------------------- right column -->
+      <div>
+        <section class="vp-panel">
+          <h2>What this neuron detects</h2>
+          <svg class="vp-svg" data-vp-logo role="img" aria-label="Sequence logo of the selected filter"></svg>
+        </section>
+
+        <section class="vp-panel">
+          <h2>Species conditioning</h2>
+          <input class="vp-range" type="range" min="0" max={N_SPECIES - 1}
+                 value={SPECIES_S_CEREVISIAE} data-vp-species
+                 style="width:100%" aria-label="Species index" />
+          <p class="vp-stat" data-vp-species-label>{SPECIES_S_CEREVISIAE} — S. cerevisiae</p>
+          <p class="vp-notes" style="margin:0.3rem 0 0;">
+            Shorkie's input carries a one-hot identity for each of 165 <em>Saccharomycetales</em> genomes.
+            Nothing published says which index is <em>S. cerevisiae</em>; index 109 was determined here by
+            sweeping all 165 and taking the one that maximises predicted coverage over annotated ORFs.
+          </p>
+        </section>
+
+        <section class="vp-panel">
+          <h2>Attention · layer <input class="vp-range" type="range" min="0" max={N_ATTN_LAYERS - 1}
+              value="0" data-vp-attn-layer style="width:7rem;vertical-align:middle"
+              aria-label="Attention layer" /></h2>
+          <svg class="vp-svg" data-vp-attn role="img"
+               aria-label="Attention map over the 128-position bottleneck"></svg>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            128 × 128 over the bottleneck, averaged across the 4 heads. Each position is 128 bp.
+          </p>
+        </section>
+
+        <section class="vp-panel">
+          <h2>The network, end to end</h2>
+          <ol class="vp-layers" data-vp-layers></ol>
+        </section>
+
+        <section class="vp-panel">
+          <h2>Paper vs checkpoint</h2>
+          <div class="vp-notes">
+            <p style="margin:0 0 0.4rem;">
+              Six places where the published Methods and the released f0 checkpoint disagree. This page
+              follows the checkpoint, because that is the model actually running.
+            </p>
+            <table>
+              <tbody>
+                {SPEC_NOTES.map((n) => (
+                  <tr>
+                    <th scope="row">{n.topic}</th>
+                    <td><em>paper:</em> {n.paper}<br /><em>checkpoint:</em> {n.checkpoint}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import '../scripts/variantPlayground';
+</script>

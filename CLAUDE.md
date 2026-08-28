@@ -57,7 +57,7 @@ An interactive UNIX shell over the site's own content, following the same three-
 - **One controller, two mountings.** `initTerminal(root, options)` powers both the full-screen page and `src/components/HomeTerminal.astro` on the homepage; `TerminalOptions` differ only in `boot`, `demo` and `exitHref`. The inline mounting types a build-time demo and hands over on the first keydown/pointerdown — via a **capture-phase** listener, so the takeover lands before the keystroke and the demo's half-typed text can't interleave. The index is fetched only on that first interaction. **A component mounting the shell must import `src/styles/terminal.css` itself** — miss it and every behaviour test still passes against a completely unstyled card.
 
 - **`BaseLayout` has a `bare` prop**, used only here: it drops the header, footer, fixed overlays and skip link, and `main` becomes a flex column that fills the viewport (`.main--bare` in `global.css`). A bare page still needs an `<h1>` — `audit-indexing.mjs` asserts one on every sitemap URL — so `/terminal/` carries a `.visually-hidden` heading. `bare` also drops the **theme toggle** (it lives in the header), which is why the shell carries its own: a `theme` command returning a `{ type: 'theme' }` effect, plus a `☾`/`☀` button in the title bar. `window.__khcTheme` itself *is* present on bare pages — the layout's second inline script is unconditional.
-- **`bare` is why every `transition:persist` script must re-acquire its element.** `transition:persist` normally keeps a node *identical* across navigations, which tempts a script into `const el = document.querySelector(...)` once at module top level. That guarantee dies on a page that doesn't render the element: `/terminal/` is the only bare page, so `Header`, `SiteBackground`, `ReadingProgress` and `PageScan` are destroyed there and rebuilt on the way back — and Astro will not re-execute an already-loaded module script. All four once captured their element once, and a single `/` → `/terminal/` → `/` round trip left the theme toggle and mobile menu unbound, the background canvas at its default 300×150 painting nothing, and the reading bar writing to a detached node. Each now re-acquires inside a `bind()`/`attach()` called on `astro:page-load`, guarded by a `dataset` flag so the persisted case stays a no-op; document-level listeners are installed once and read a mutable reference the rebind updates. **Add a persisted element, or a second bare page, and this is the trap.**
+- **`bare` is why every `transition:persist` script must re-acquire its element.** `transition:persist` normally keeps a node *identical* across navigations, which tempts a script into `const el = document.querySelector(...)` once at module top level. That guarantee dies on a page that doesn't render the element: there are now four bare pages — `/terminal/`, `/lab/`, `/chromatin/` and `/variant-playground/` — so `Header`, `SiteBackground`, `ReadingProgress` and `PageScan` are destroyed on each of them and rebuilt on the way back — and Astro will not re-execute an already-loaded module script. All four once captured their element once, and a single `/` → `/terminal/` → `/` round trip left the theme toggle and mobile menu unbound, the background canvas at its default 300×150 painting nothing, and the reading bar writing to a detached node. Each now re-acquires inside a `bind()`/`attach()` called on `astro:page-load`, guarded by a `dataset` flag so the persisted case stays a no-op; document-level listeners are installed once and read a mutable reference the rebind updates. **Add a persisted element, or a second bare page, and this is the trap.**
 - **The shell follows the site theme.** `src/styles/terminal.css` defines the light palette on `.term` and overrides it under `html[data-theme='dark']`. That plain descendant selector works only because the file is imported as plain CSS; inside a component `<style>` Astro would scope both halves and it would silently never match. Every colour must go through a `--term-*` token — a literal reads fine in the theme it was written for and strands in the other.
 - **The DNA helix is a pure function**, `dnaFrame(phase, rows, width)`: two antiphase sine strands, with the cosine sign deciding which is nearer and therefore which base is uppercase. Frame size and base complementarity are unit-tested, so changes to it fail loudly.
 - **The boot is a genome assembly + annotation pipeline**, not a stat block: `pipelineStages()`, `progressBar()` and `stageLine()` are pure and tested, and the controller's single rAF drives the helix, the bar fills *and* the closing report off one clock so they cannot drift. It deliberately reports **no publication or talk counts** — a test asserts their absence, and `neofetch` is where the counts live now.
@@ -682,6 +682,52 @@ draw calls and triangles (1–5 calls, ≤81k triangles per frame), and 320/390/
 checked for document overflow along with reduced motion and a client-side navigation round trip
 (no leaked canvas, renderer restarts). Headless chromium rasterises in software, so its frame
 rate is a floor and not a GPU figure.
+
+### The Live Variant Playground (`/variant-playground/`)
+
+Runs the **real Shorkie model** in the browser — the fungal sequence-to-function network from Chao
+et al. 2025, fold f0, 14,253,567 parameters. Not a re-creation and not a heuristic: the released
+Keras checkpoint, ported and exported, producing the same numbers the paper's model produces.
+
+**Not at `/shorkie/`** — that path already serves the project documentation site on this domain
+(`LIVE_SAME_ORIGIN_PREFIXES` in `audit-links.mjs`).
+
+| file | role |
+| --- | --- |
+| `scripts/shorkie/` | offline conversion pipeline + its README; never runs in CI |
+| `src/lib/shorkieModel.ts` | **pure** — architecture spec, encoding, the live conv-stem forward pass |
+| `src/lib/shorkieModel.test.ts` | spec conformance + parity against the real model's stem |
+| `src/scripts/variantPlayground.ts` | DOM, ONNX session, panels |
+| `src/pages/variant-playground.astro` | `bare` page |
+| `public/models/shorkie-fp16.onnx` | 28.7 MB, lazy-loaded on explicit click |
+| `public/ort/` | the ONNX Runtime WASM binary, self-hosted so `connect-src` stays `'self'` |
+
+- **Two inference paths, and the page says which is which.** The conv stem (11 × 4 × 96 = 4,224
+  weights) runs in TypeScript on every keystroke — ~1 ms compute, ~6 ms with the draw, inside the
+  frame budget. The full model runs through ONNX Runtime Web on an explicit click. **"60 FPS
+  predictions" is not achievable and must not be claimed**: GitHub Pages cannot send COOP/COEP, so
+  there is no SharedArrayBuffer, so no multi-threaded WASM. WebGPU where available, single-threaded
+  WASM otherwise, and the readout names the backend that actually initialised rather than guessing
+  from `navigator.gpu`.
+- **The raster is a `<canvas>`, not SVG.** 96 filters × 390 positions is ~37k nodes; as SVG a
+  keystroke cost **47 ms**, as canvas **6 ms**. Any dense per-cell visualisation on this page has
+  to go to canvas.
+- **The model input is 170 channels** — 4 DNA + 1 mask + **165 species one-hot** — which the paper
+  never states. A 4-channel input produces silent garbage. **Species index 109 is *S. cerevisiae***,
+  determined by sweeping all 165 (12.1× ORF/intergenic against 9.0× for the runner-up, replicated
+  out-of-sample); nothing published names it.
+- **`onnxruntime-web` is the repo's second runtime dependency** (after `three`) and the first with
+  transitive deps. Astro code-splits it, so only this route pays; verify no other chunk grows.
+- **The CSP gained `'wasm-unsafe-eval'`, `blob:` in `script-src`, and `worker-src 'self' blob:`**,
+  documented inline in `BaseHead.astro`. That is the WASM-only permission, not `'unsafe-eval'`.
+  Model and runtime are same-origin, so `connect-src` stays `'self'`.
+- **Six places the paper and the checkpoint disagree** are listed in `SPEC_NOTES` and rendered on
+  the page. Resolve toward the checkpoint; it is the model that runs.
+- **The verification chain is in `scripts/shorkie/README.md` and is not optional.** The port cannot
+  be diffed against TensorFlow (TF 2.15 does not support Python 3.13), so correctness rests on:
+  every tensor consumed exactly once, exact parameter accounting, **ORF/intergenic enrichment on
+  real yeast sequence**, and python↔browser parity — which came out exact (peak 659.5000 vs 659.5,
+  same bin). Re-run all of it after any change to `shorkie_torch.py`.
 
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.
