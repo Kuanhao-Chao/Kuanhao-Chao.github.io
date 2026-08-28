@@ -748,8 +748,13 @@ describe('Figure 4 loci', () => {
     A: 'A', C: 'C', G: 'G', T: 'T', R: '[AG]', Y: '[CT]', S: '[GC]',
     W: '[AT]', K: '[GT]', M: '[AC]', N: '.',
   };
-  const rc = (s: string) =>
-    [...s].reverse().map((b) => ({ A: 'T', C: 'G', G: 'C', T: 'A' })[b] ?? b).join('');
+  const COMP: Record<string, string> = {
+    A: 'T', C: 'G', G: 'C', T: 'A', R: 'Y', Y: 'R', S: 'S', W: 'W', K: 'M', M: 'K', N: 'N',
+  };
+  const rcIupac = (s: string) => [...s].reverse().map((b) => COMP[b] ?? b).join('');
+  type Motif = {
+    name: string; consensus: string; strand: string; start: number; end: number; source: string;
+  };
   const fig4 = loci.loci.filter((l) => 'figurePanel' in l);
 
   it('ships all six panels of Figure 4 alongside the original eight loci', () => {
@@ -788,23 +793,71 @@ describe('Figure 4 loci', () => {
     }
   });
 
-  it('every marked motif really is at that offset in the shipped sequence', () => {
-    // The whole point of scanning rather than reading positions off the figure's pixels: this is
-    // checkable. A motif is marked only where its consensus actually occurs.
+  it('every SCANNED motif really is at that offset in the shipped sequence', () => {
+    // The point of scanning rather than reading positions off the figure's pixels: it is checkable.
     let checked = 0;
     for (const l of fig4) {
-      const motifs = (l as { motifs: { name: string; consensus: string; strand: string; start: number; end: number }[] }).motifs;
+      const motifs = (l as { motifs: Motif[] }).motifs;
       expect(motifs.length, `${l.gene} has no motifs`).toBeGreaterThan(0);
-      for (const m of motifs) {
+      for (const m of motifs.filter((x) => x.source === 'scan')) {
         const slice = l.sequence.slice(m.start, m.end);
-        const pattern = m.strand === '+' ? m.consensus : rc(m.consensus);
+        const pattern = m.strand === '+' ? m.consensus : rcIupac(m.consensus);
         const rx = new RegExp(`^${[...pattern].map((b) => IUPAC[b]).join('')}$`);
         expect(rx.test(slice), `${l.gene} ${m.name} at ${m.start}: got ${slice}`).toBe(true);
         expect(m.end - m.start).toBe(m.consensus.length);
         checked += 1;
       }
     }
-    expect(checked).toBeGreaterThan(15); // a silently-empty scan must fail
+    expect(checked).toBeGreaterThan(8); // a silently-empty scan must fail
+  });
+
+  it('reverse-complements IUPAC codes, not just ACGT', () => {
+    // str.maketrans("ACGT","TGCA") leaves R, Y and N alone, so the minus-strand Abf1 pattern it
+    // produced was a different motif -- and Abf1, which Figure 4B labels, went unfound.
+    expect(rcIupac('RTCRYNNNNNACG')).toBe('CGTNNNNNRYGAY');
+    expect(rcIupac('GTATGT')).toBe('ACATAC');
+  });
+
+  it('takes splice sites from the annotation, and they read GT…AG', () => {
+    // Scanning for GTATGT put HOP2's donor 633 bp from the real one, inside exon 2 -- a 6-mer
+    // matches by chance every few kb. Exon boundaries are known, so these are derived, and the
+    // canonical dinucleotides prove the arithmetic. Minus-strand genes read the complements.
+    let donors = 0;
+    let acceptors = 0;
+    for (const l of fig4) {
+      for (const m of (l as { motifs: Motif[] }).motifs) {
+        if (m.source !== 'annotation') continue;
+        const bases = l.sequence.slice(m.start, m.end);
+        if (m.name === "5' splice site") {
+          expect(bases, `${l.gene} donor`).toBe(m.strand === '+' ? 'GT' : 'AC');
+          donors += 1;
+        } else {
+          expect(bases, `${l.gene} acceptor`).toBe(m.strand === '+' ? 'AG' : 'CT');
+          acceptors += 1;
+        }
+      }
+    }
+    expect(donors).toBeGreaterThanOrEqual(4);
+    expect(acceptors).toBeGreaterThanOrEqual(3);
+  });
+
+  it('anchors the branch point upstream of a real acceptor, not anywhere TACTAAC occurs', () => {
+    for (const l of fig4) {
+      const motifs = (l as { motifs: Motif[] }).motifs;
+      const acceptors = motifs.filter((m) => m.name === "3' splice site");
+      for (const bp of motifs.filter((m) => m.name === 'branch point')) {
+        // On the forward genome a minus-strand branch point reads the reverse complement.
+        expect(l.sequence.slice(bp.start, bp.end), `${l.gene} branch point`)
+          .toBe(bp.strand === '+' ? 'TACTAAC' : 'GTTAGTA');
+        // "Upstream" is in gene orientation: lower forward coordinates on +, higher on −.
+        const near = acceptors.some((a) =>
+          bp.strand === '+'
+            ? bp.start < a.start && a.start - bp.start <= 100
+            : bp.start > a.end && bp.start - a.end <= 100,
+        );
+        expect(near, `${l.gene} branch point at ${bp.start} is not upstream of an acceptor`).toBe(true);
+      }
+    }
   });
 
   it('keeps every motif inside the window the figure draws', () => {
@@ -821,6 +874,10 @@ describe('Figure 4 loci', () => {
     const named = (gene: string) =>
       new Set((fig4.find((l) => l.gene === gene) as { motifs: { name: string }[] }).motifs.map((m) => m.name));
     // 4B and 4C are the RRPE/PAC panels; 4E and 4F are the splicing panels.
+    // Figure 4B labels Dot6p, Abf1 and RRPE; the corrected IUPAC complement recovers Abf1, and
+    // the corrected Rap1 consensus recovers the UASrpg element Figure 4A labels.
+    expect(named('FUN12')).toContain('Abf1');
+    expect(named('RPL26A')).toContain('Rap1');
     expect(named('FUN12')).toContain('RRPE (Stb3)');
     expect(named('KRE33')).toContain('RRPE (Stb3)');
     expect(named('KRE33')).toContain('Reb1');

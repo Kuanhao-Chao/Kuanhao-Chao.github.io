@@ -6,7 +6,7 @@
  *   LIVE  — src/lib/shorkieModel.ts runs the real conv stem in TypeScript on every keystroke.
  *           4,224 weights, a few microseconds, genuinely 60 FPS. Valid on a bare typed sequence
  *           because convolutions are translation-equivariant.
- *   FULL  — the exported ONNX graph (28.7 MB fp16) through onnxruntime-web, debounced. Produces
+ *   FULL  — the exported ONNX graph (28.6 MB fp16) through onnxruntime-web, debounced. Produces
  *           the real 896-bin predicted track and the deep activations. Needs the full 16,384 bp
  *           window, so it only runs in locus mode.
  *
@@ -42,6 +42,7 @@ import {
   trackRowBinning,
   logAxis,
   N_TRACKS,
+  BIN_BP,
   SEQ_LEN,
   SPECIES_S_CEREVISIAE,
   cleanSequence,
@@ -221,12 +222,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    let lo = Infinity;
-    let hi = -Infinity;
-    for (let i = 0; i < act.map.length; i += 1) {
-      if (act.map[i] < lo) lo = act.map[i];
-      if (act.map[i] > hi) hi = act.map[i];
-    }
+    // Percentile, matching the layer detail and this panel's own caption.
+    const { lo, hi } = percentileRange(act.map);
     const cellW = cssW / Math.max(act.positions, 1);
     const fire = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
 
@@ -373,7 +370,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     ort = await import('onnxruntime-web');
     ort.env.wasm.wasmPaths = '/ort/';
     ort.env.wasm.numThreads = 1; // no cross-origin isolation on GitHub Pages, so no SharedArrayBuffer
-    setStatus('Downloading Shorkie (28.7 MB)…');
+    setStatus('Downloading Shorkie (28.6 MB)…');
     // Try WebGPU first, then fall back -- and record which one actually initialised. Reporting
     // "WebGPU or maybe WASM" would be a guess, and the whole point of the readout is the real
     // number attached to the real backend.
@@ -474,7 +471,9 @@ export function initVariantPlayground(root: ParentNode = document) {
     const bins = renderHeatmapRows(ctx, plotW, cssH, labelW);
     if (heatStat) {
       heatStat.textContent = `${N_TRACKS.toLocaleString()} tracks × ${N_BINS} bins`
-        + (bins < N_TRACKS ? ` · ${bins} drawn rows, each the max of ${Math.ceil(N_TRACKS / bins)}` : '');
+        + (bins < N_TRACKS
+          ? ` · ${bins} drawn rows, each the max of ${Math.floor(N_TRACKS / bins)}–${Math.ceil(N_TRACKS / bins)}`
+          : '');
     }
   }
 
@@ -770,12 +769,7 @@ export function initVariantPlayground(root: ParentNode = document) {
 
     // Attention is a second view of a transformer layer, not a panel of its own: it is that
     // layer's most characteristic internal state, but it is not an activation map.
-    logToggle?.addEventListener('change', () => {
-    useLogAxis = logToggle.checked;
-    renderTrack();       // one control, both plots -- they show the same quantity
-    renderSingleTrack();
-  });
-
+  
   tabBtns.forEach((b) => {
       const which = b.dataset.vpTab;
       if (which === 'attention') b.hidden = !isAttn;
@@ -895,13 +889,22 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx.fillText(`channel #${ch}  ${chLo.toFixed(2)} … ${chHi.toFixed(2)}`, 3, cssH - profH + 9);
 
     if (stageNote) {
-      const bp = Math.round(SEQ_LEN / positions);
+      // The head's 896 positions are 16 bp BINS covering the cropped 14,336 bp interior, not
+      // SEQ_LEN/896 = 18.3. Every other stage does span the whole 16,384 bp input.
+      const bp = spec.id === 'head' ? BIN_BP : Math.round(SEQ_LEN / positions);
+      // The head's 5,215 channels are drawn in full by the per-track section; here it shows the
+      // four assay-group means, so say which is which rather than let the header imply 5,215 rows.
+      const drawn =
+        spec.id === 'head'
+          ? `The four assay-group means of the head's ${spec.channels.toLocaleString()} channels — ` +
+            `every track individually is in "Every output track" below. `
+          : '';
       stageNote.textContent =
         stageTab === 'attention'
           ? `Row = query position, column = key position. Each position covers ${bp} bp.`
-          : `One row per channel, one column per position; ink is the activation between its 1st ` +
-            `and 99th percentile. Each column covers ${bp} bp of input. The line below is channel ` +
-            `#${ch} alone — click a row in the conv-stem raster to change it.`;
+          : `${drawn}One row per channel, one column per position; ink is the activation between ` +
+            `its 1st and 99th percentile. Each column covers ${bp} bp of input. The line below is ` +
+            `channel #${ch} alone — click a row in the conv-stem raster to change it.`;
     }
   }
 

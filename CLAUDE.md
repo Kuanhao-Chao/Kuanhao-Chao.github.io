@@ -788,7 +788,7 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   deselect. `hitTest` returns the nearest centre and never null.
 - **Scrubbing moves through the depth of one already-computed forward pass** and never re-runs the
   model; inference stays on an explicit click. The per-stage maps come from the same ONNX call as
-  the prediction (`encoder_maps`, `decoder_maps`, pooled to 128 positions inside the graph), so no
+  the prediction (`stage_maps`, pooled to 128 positions inside the graph), so no
   panel on the page is fed by a second, decorative model.
 - **`onnxruntime-web` is the repo's second runtime dependency** (after `three`) and the first with
   transitive deps. Astro code-splits it, so only this route pays; verify no other chunk grows.
@@ -805,11 +805,11 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
 - **python and the browser do not run the same fp16 graph, and parity is a bound rather than a
   zero.** onnxruntime's desktop CPU provider prints `Could not find a CPU kernel ... MatMul node
   '/core/attn.N/MatMul_4'` and casts the attention matmuls up to fp32; the WASM provider in the
-  browser does not. The two agree on every argmax bin and to ≤ **1.5e-3** relative on the peaks —
-  a gap *larger* than fp16 quantisation itself contributes (2.2e-4). An earlier run recorded this
-  as exact because it compared the two **displayed** values, and `toFixed(2)` had folded 12.6953
-  and 12.6875 into "12.70" and "12.69". The track SVG now carries `data-peak` at full precision so
-  the check has something real to compare.
+  browser does not. On the shipped graph they agree on every argmax bin and to ≤ **1.4e-3**
+  relative on the peaks (RNA-seq 994.8802 vs 994.4959 at bin 435). An earlier run recorded this as
+  exact because it compared the two **displayed** values, and `toFixed(2)` had folded 12.6953 and
+  12.6875 into "12.70" and "12.69"; a later `toFixed(4)` write then silently clobbered the
+  full-precision one. The track SVG now carries `data-peak` at full precision, written once.
 
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.

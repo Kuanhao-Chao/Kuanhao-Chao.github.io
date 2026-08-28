@@ -316,7 +316,7 @@ export function receptiveFields(): { id: string; receptiveField: number; stride:
 /**
  * Lay the 20 stages out for the flow canvas.
  *
- * Width is log-scaled in positions and the page says so: at true linear scale the 128-position
+ * Width is log-scaled in CHANNELS (height carries positions) and the page says so: at true linear scale the 128-position
  * bottleneck would be 0.8% the width of the 16,384-position stem, and the eight attention layers
  * where the model does its long-range work would be invisible.
  */
@@ -395,8 +395,8 @@ export const STAGE_MAP_POSITIONS = 128;
  * Where each stage's channels live inside the single concatenated `stage_maps` tensor.
  *
  * The graph emits one [5760, 128] tensor covering the seven residual blocks, the eight transformer
- * layers and the three decoder stages, in flow order. It used to emit `encoder_maps` and
- * `decoder_maps` separately with the transformer layers missing entirely -- which is why the flow
+ * layers and the three decoder stages, in flow order. It used to emit `stage_maps` and
+ * `stage_maps` separately with the transformer layers missing entirely -- which is why the flow
  * canvas fell back to drawing their attention matrices, an object of a different kind from every
  * other stage's activation map.
  */
@@ -685,7 +685,7 @@ export function knockoutMotif(sequence: string, start: number, end: number, seed
  * Judging by the peak of the whole 896-bin window is wrong, and quietly so. A 14,336 bp yeast
  * window holds a dozen genes, and the tallest is usually not the one whose promoter you edited --
  * on the KRE33 window the global peak is 114.3 at bin 249 (YNL135C) while KRE33's own body peaks
- * at 7.8 around bin 460. Knocking out KRE33's RRPE site then moves the global peak by 0.4%, which
+ * at 7.8, in its body at bins 460-659. Knocking out KRE33's RRPE site then moves the global peak by 0.4%, which
  * reads as "this motif does nothing" when the truth is "you measured the wrong gene".
  *
  * Returns null when the named gene is not among the annotated features, so the caller can say it

@@ -64,25 +64,82 @@ FIGURE4 = [
      "Meiotic pairing; a whole intron plus start and stop codons"),
 ]
 
-# Panel H's database motifs, plus panel D's splicing motifs. IUPAC. Scanned for on both strands in
-# the extracted sequence -- a motif is marked only where it is actually found, never placed by eye.
+# Panel H's database motifs, plus panel D's splicing motifs. IUPAC, scanned on both strands.
+#
+# Two rules learned the hard way. A short consensus matches by chance -- GTATGT turns up every few
+# kb, and scanning for it put HOP2's "5' splice site" 633 bp from the real donor, inside exon 2. So
+# SPLICE SITES ARE NOT SCANNED: they come from the annotation's exon boundaries, where they are
+# known rather than guessed, and the branch point is only accepted where it sits upstream of the
+# real acceptor. And a consensus so strict it matches almost nothing is not evidence either: the
+# 12-mer first used for Rap1 occurs twice in the whole genome.
 MOTIFS = [
     ("RRPE (Stb3)", "TGAAAAATTTT"), ("PAC (Dot6)", "GCGATGAG"), ("Reb1", "CGGGTAA"),
-    ("Rap1", "ACACCCATACAT"), ("Fhl1", "GTAAACA"), ("Abf1", "RTCRYNNNNNACG"),
+    ("Rap1", "MACCCANNCAY"), ("Fhl1", "GTAAACA"), ("Abf1", "RTCRYNNNNNACG"),
     ("Cbf1", "GTCACGTG"), ("TATA box", "TATAAA"), ("Tbf1", "AACCCTAA"),
     ("Ume6", "TAGCCGCC"), ("Dot6p", "CTCATCG"), ("Sfp1", "ATGTATGGGT"),
-    ("5' splice site", "GTATGT"), ("branch point", "TACTAAC"),
 ]
+BRANCH_POINT = "TACTAAC"
 IUPAC = {"A": "A", "C": "C", "G": "G", "T": "T", "R": "[AG]", "Y": "[CT]", "S": "[GC]",
          "W": "[AT]", "K": "[GT]", "M": "[AC]", "N": "."}
+# Complementing has to know about ambiguity codes. str.maketrans("ACGT","TGCA") leaves R, Y and N
+# unchanged, so the minus-strand Abf1 pattern it produced was a different motif entirely.
+COMPLEMENT = {"A": "T", "C": "G", "G": "C", "T": "A", "R": "Y", "Y": "R",
+              "S": "S", "W": "W", "K": "M", "M": "K", "N": "N"}
 
 
 def _rc(s: str) -> str:
-    return s.translate(str.maketrans("ACGT", "TGCA"))[::-1]
+    return "".join(COMPLEMENT[c] for c in reversed(s))
+
+
+def splice_spans(gene_row, left: int) -> list[dict]:
+    """Donor, acceptor and branch point from the ANNOTATION, not from a sequence scan.
+
+    genePred gives exonStarts/exonEnds; an intron runs from the end of one exon to the start of the
+    next. The donor is its first two bases and the acceptor its last two. The branch point is the
+    TACTAAC nearest the acceptor, searched only in the 100 bp upstream of it -- where a branch point
+    has to be -- so a chance match elsewhere cannot be mistaken for one.
+    """
+    import re
+
+    chrom, strand = gene_row[2], gene_row[3]
+    starts = [int(x) for x in gene_row[9].rstrip(",").split(",")]
+    ends = [int(x) for x in gene_row[10].rstrip(",").split(",")]
+    if len(starts) < 2:
+        return []
+
+    out = []
+    for i in range(len(starts) - 1):
+        i_start, i_end = ends[i], starts[i + 1]                 # intron, 0-based half-open
+        donor, acceptor = (i_start, i_end - 2) if strand == "+" else (i_end - 2, i_start)
+        out.append({"name": "5' splice site", "consensus": "annotation", "strand": strand,
+                    "start": donor - left, "end": donor - left + 2, "source": "annotation"})
+        out.append({"name": "3' splice site", "consensus": "annotation", "strand": strand,
+                    "start": acceptor - left, "end": acceptor - left + 2, "source": "annotation"})
+    return [m for m in out if 0 <= m["start"] and m["end"] <= SEQ_LEN]
+
+
+def branch_point_spans(seq: str, splices: list[dict]) -> list[dict]:
+    """TACTAAC, but only within 100 bp upstream of an annotated acceptor."""
+    import re
+
+    out = []
+    for acc in [m for m in splices if m["name"] == "3' splice site"]:
+        # "Upstream of the acceptor" is in GENE orientation. On a minus-strand gene that is HIGHER
+        # forward coordinates, so searching only [acc-100, acc) finds nothing -- which is how MMS2
+        # lost its branch point.
+        if acc["strand"] == "+":
+            lo, hi = max(0, acc["start"] - 100), acc["start"]
+        else:
+            lo, hi = acc["end"], min(len(seq), acc["end"] + 100)
+        pattern = BRANCH_POINT if acc["strand"] == "+" else _rc(BRANCH_POINT)
+        for m in re.finditer(pattern, seq[lo:hi]):
+            out.append({"name": "branch point", "consensus": BRANCH_POINT, "strand": acc["strand"],
+                        "start": lo + m.start(), "end": lo + m.end(), "source": "annotation-anchored"})
+    return out
 
 
 def motif_spans(seq: str, lo: int, hi: int) -> list[dict]:
-    """Every database motif occurrence inside [lo, hi) of `seq`, on either strand.
+    """Every database TF motif occurrence inside [lo, hi) of `seq`, on either strand.
 
     Positions are offsets into the 16,384 bp window, so a test can assert the motif string really
     is at that offset in the shipped sequence.
@@ -98,8 +155,8 @@ def motif_spans(seq: str, lo: int, hi: int) -> list[dict]:
             rx = re.compile("".join(IUPAC[b] for b in pattern))
             for m in rx.finditer(window):
                 found.append({"name": name, "consensus": cons, "strand": strand,
-                              "start": lo + m.start(), "end": lo + m.end()})
-    return sorted(found, key=lambda f: (f["start"], f["name"]))
+                              "start": lo + m.start(), "end": lo + m.end(), "source": "scan"})
+    return found
 
 
 def main() -> int:
@@ -138,6 +195,13 @@ def main() -> int:
 
     # ---- 3. preset loci ---------------------------------------------------------------
     fa, genes = read_fasta(fasta), read_genes(genes_path)
+    # The full genePred rows too: read_genes() drops exonStarts/exonEnds, and the splice sites are
+    # derived from exon structure rather than scanned for.
+    genes_raw = {}
+    for line in Path(genes_path).read_text().splitlines():
+        cols = line.split("\t")
+        if len(cols) >= 11:
+            genes_raw[cols[1]] = cols
     loci = []
     for systematic, common, blurb in PRESETS:
         if systematic not in genes:
@@ -190,7 +254,11 @@ def main() -> int:
         ]
         # The figure's own window, as offsets into the 16,384 bp input and as predicted bins.
         lo, hi = fa_start - 1 - left, fa_end - left
-        motifs = motif_spans(seq, lo, hi)
+        splices = splice_spans(genes_raw[systematic], left) if systematic in genes_raw else []
+        motifs = motif_spans(seq, lo, hi) + splices + branch_point_spans(seq, splices)
+        # Keep only what falls in the window the figure prints.
+        motifs = [m for m in motifs if m["start"] >= lo and m["end"] <= hi]
+        motifs.sort(key=lambda m: (m["start"], m["name"]))
         loci.append({
             "id": systematic, "gene": common, "blurb": f"{panel} — {blurb}",
             "chrom": chrom, "start": left, "strand": strand,
