@@ -56,6 +56,10 @@ import {
   regimeAt,
   regimeWeights,
   smoothstep,
+  smoothstep5,
+  cameraTargetNmAt,
+  playbackSpeedMultiplier,
+  physicalScaleBar,
   snapTarget,
   solenoidFibre,
   superhelixContourNm,
@@ -901,3 +905,55 @@ describe('milestones', () => {
     expect(REGIMES[0].short).toBe('B-form DNA');
   });
 });
+
+describe('continuous transition mathematics & scale bar', () => {
+  it('smoothstep5 has C2 zero derivatives at boundaries and smooth monotonic rise', () => {
+    expect(smoothstep5(0)).toBe(0);
+    expect(smoothstep5(1)).toBe(1);
+    expect(smoothstep5(0.5)).toBeCloseTo(0.5, 10);
+    expect(smoothstep5(-0.2)).toBe(0);
+    expect(smoothstep5(1.2)).toBe(1);
+
+    // Verify monotonicity across [0, 1]
+    let prev = 0;
+    for (let t = 0.01; t <= 1; t += 0.01) {
+      const v = smoothstep5(t);
+      expect(v).toBeGreaterThanOrEqual(prev);
+      prev = v;
+    }
+  });
+
+  it('cameraTargetNmAt returns valid coordinate tuples centered at origin', () => {
+    for (let s = 0; s <= 1; s += 0.1) {
+      const target = cameraTargetNmAt(s);
+      expect(target).toHaveLength(3);
+      expect(target[0]).toBe(0);
+      expect(target[1]).toBe(0);
+      expect(target[2]).toBe(0);
+    }
+  });
+
+  it('playbackSpeedMultiplier eases near milestones and speeds across spans', () => {
+    const ms = milestones();
+    for (const m of ms) {
+      const speedAtMilestone = playbackSpeedMultiplier(m.at);
+      expect(speedAtMilestone).toBeLessThan(0.75);
+    }
+    // Midpoint between milestones has higher pace
+    const midSpeed = playbackSpeedMultiplier(0.2);
+    expect(midSpeed).toBeGreaterThan(0.68);
+  });
+
+  it('physicalScaleBar returns appropriate metric units and clean round numbers', () => {
+    const s20 = physicalScaleBar(20);
+    expect(s20.barWidthNm).toBeGreaterThan(0);
+    expect(s20.ratioOfField).toBeGreaterThanOrEqual(0.1);
+    expect(s20.ratioOfField).toBeLessThanOrEqual(0.4);
+    expect(s20.label).toContain('nm');
+
+    const s12000 = physicalScaleBar(12000);
+    expect(s12000.barWidthNm).toBeGreaterThanOrEqual(1000);
+    expect(s12000.label).toContain('µm');
+  });
+});
+

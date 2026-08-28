@@ -16,7 +16,8 @@ import {
   N_ATTN_LAYERS,
   flowGeometry,
   stageAt,
-  encoderMapOffsets,
+  stageMapOffsets,
+  percentileRange,
   type FlowStage,
 } from '../lib/shorkieModel';
 import { prefersReducedMotion } from './motion';
@@ -24,8 +25,7 @@ import { prefersReducedMotion } from './motion';
 /** Reduced per-stage activation maps returned by the ONNX graph, all pooled to 128 positions. */
 export interface FlowActivations {
   stemProfile: Float32Array;   // [96, 1024]
-  encoderMaps: Float32Array;   // [1536, 128]
-  decoderMaps: Float32Array;   // [1152, 128]
+  stageMaps: Float32Array;     // [5760, 128] -- blocks 1-7, attn 1-8, decoder 1-3, in flow order
   attention: Float32Array;     // [8, 128, 128]
   tracks: Float32Array;        // [896, 4]
 }
@@ -44,7 +44,7 @@ export interface FlowController {
 }
 
 const STAGES = flowGeometry();
-const ENC_OFFSETS = encoderMapOffsets();
+const STAGE_OFFSETS = stageMapOffsets();
 const PAD = { left: 8, right: 8, top: 34, bottom: 46 };
 const SWEEP_MS = 9000;
 
@@ -54,27 +54,45 @@ export function stageMap(stage: FlowStage, a: FlowActivations | null): {
 } | null {
   if (!a) return null;
   if (stage.id === 'stem') return { data: a.stemProfile, channels: 96, positions: 1024 };
-  const enc = ENC_OFFSETS.find((o) => o.id === stage.id);
-  if (enc) {
-    return {
-      data: a.encoderMaps.subarray(enc.start * 128, (enc.start + enc.channels) * 128),
-      channels: enc.channels,
-      positions: 128,
-    };
-  }
-  if (stage.id.startsWith('decoder')) {
-    const i = Number(stage.id.slice('decoder'.length)) - 1;
-    return { data: a.decoderMaps.subarray(i * 384 * 128, (i + 1) * 384 * 128), channels: 384, positions: 128 };
-  }
-  if (stage.id.startsWith('attn')) {
-    // An attention layer has no channel map; show its own 128x128 map as the "activation".
-    const i = Number(stage.id.slice('attn'.length)) - 1;
-    return { data: a.attention.subarray(i * 128 * 128, (i + 1) * 128 * 128), channels: 128, positions: 128 };
-  }
-  if (stage.id === 'head') {
-    return { data: a.tracks, channels: 4, positions: 896 };
-  }
-  return null;
+  if (stage.id === 'head') return { data: a.tracks, channels: 4, positions: 896 };
+  // Every other stage -- the seven residual blocks, the eight transformer layers and the three
+  // decoder stages -- is one slice of the single stage_maps tensor. The transformer layers used to
+  // be missing here entirely, which left them drawing an attention matrix instead.
+  const off = STAGE_OFFSETS.find((o) => o.id === stage.id);
+  if (!off) return null;
+  return {
+    data: a.stageMaps.subarray(off.start * off.positions, (off.start + off.channels) * off.positions),
+    channels: off.channels,
+    positions: off.positions,
+  };
+}
+
+/** The 128x128 attention map for one transformer layer, or null if that stage has none. */
+export function attentionMap(stage: FlowStage, a: FlowActivations | null): Float32Array | null {
+  if (!a || !stage.id.startsWith('attn')) return null;
+  const i = Number(stage.id.slice('attn'.length)) - 1;
+  if (!Number.isInteger(i) || i < 0 || i >= N_ATTN_LAYERS) return null;
+  return a.attention.subarray(i * 128 * 128, (i + 1) * 128 * 128);
+}
+
+/**
+ * Nearest stage to a fractional x position, never null.
+ *
+ * Extracted from the click handler so it can be tested: twenty blocks separated by gaps, the
+ * narrowest under 3% of the width, means requiring a click *inside* a block silently deselects
+ * over a third of the canvas.
+ */
+export function nearestStage(frac: number, stages: FlowStage[]): number {
+  let best = 0;
+  let bestD = Infinity;
+  stages.forEach((s, i) => {
+    const d = Math.abs(frac - (s.x + s.width / 2));
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
 }
 
 export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowController {
@@ -163,12 +181,7 @@ export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowCo
         // Paint the real activation: channels across the block's width, positions down its height,
         // matching the axes the block itself encodes.
         const { data, channels, positions } = map;
-        let lo = Infinity;
-        let hi = -Infinity;
-        for (let k = 0; k < data.length; k += 1) {
-          if (data[k] < lo) lo = data[k];
-          if (data[k] > hi) hi = data[k];
-        }
+        const { lo, hi } = percentileRange(data);
         const cols = Math.min(channels, Math.max(2, Math.round(bw)));
         const rows = Math.min(positions, Math.max(2, Math.round(bh)));
         const cw = bw / cols;
@@ -309,17 +322,7 @@ export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowCo
   function hitTest(ev: MouseEvent): number {
     const box = canvas.getBoundingClientRect();
     const x = ((ev.clientX - box.left) / box.width) * w;
-    const frac = (x - PAD.left) / plotW();
-    let best = 0;
-    let bestD = Infinity;
-    STAGES.forEach((s, i) => {
-      const d = Math.abs(frac - (s.x + s.width / 2));
-      if (d < bestD) {
-        bestD = d;
-        best = i;
-      }
-    });
-    return best;
+    return nearestStage((x - PAD.left) / plotW(), STAGES);
   }
 
   const onClick = (ev: MouseEvent) => {

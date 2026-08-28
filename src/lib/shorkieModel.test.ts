@@ -33,13 +33,21 @@ import {
   receptiveFields,
   flowGeometry,
   stageAt,
-  encoderMapOffsets,
+  stageMapOffsets,
+  STAGE_MAP_POSITIONS,
+  percentileRange,
+  trackGroupOf,
+  trackRowBinning,
+  logAxis,
   RNA_SEQ_GROUP,
   type StemWeights,
   pearson,
   activationInk,
+  subLayers,
+  layerSpecs as specs,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
+import trackNames from '../data/shorkieTrackNames.json';
 
 const stem = stemWeights as StemWeights;
 
@@ -246,8 +254,9 @@ describe('mutation', () => {
 });
 
 describe('preset loci', () => {
-  it('ships eight full-length windows with annotation', () => {
-    expect(loci.loci.length).toBe(8);
+  it('ships fourteen full-length windows with annotation', () => {
+    // Eight chosen to span the interpretive range, plus the six of Figure 4.
+    expect(loci.loci.length).toBe(14);
     expect(loci.speciesIndex).toBe(SPECIES_S_CEREVISIAE);
     expect(loci.bins).toBe(N_BINS);
     loci.loci.forEach((l) => {
@@ -263,7 +272,22 @@ describe('preset loci', () => {
   });
 
   it('every preset contains the gene it is named for', () => {
-    const wanted = ['TDH3', 'PGK1', 'ACT1', 'ADH1', 'FBA1', 'PDC1', 'GAL1', 'GAL3'];
+    const wanted = [
+      'TDH3',
+      'PGK1',
+      'ACT1',
+      'ADH1',
+      'FBA1',
+      'PDC1',
+      'GAL1',
+      'GAL3',
+      'RPL26A',
+      'FUN12',
+      'KRE33',
+      'DTD1',
+      'MMS2',
+      'HOP2',
+    ];
     expect(loci.loci.map((l) => l.gene)).toEqual(wanted);
   });
 });
@@ -382,20 +406,6 @@ describe('wavefront', () => {
   });
 });
 
-describe('encoder map slicing', () => {
-  it('offsets tile the 1,536 concatenated channels in block order', () => {
-    const offs = encoderMapOffsets();
-    expect(offs).toHaveLength(7);
-    expect(offs.map((o) => o.channels)).toEqual([...BLOCK_FILTERS]);
-    let cursor = 0;
-    for (const o of offs) {
-      expect(o.start).toBe(cursor);
-      cursor += o.channels;
-    }
-    expect(cursor).toBe(1536);
-  });
-});
-
 describe('pearson', () => {
   it('is 1 for a series against itself and -1 against its negation', () => {
     const a = [1, 4, 9, 16, 25, 36];
@@ -465,5 +475,375 @@ describe('activationInk', () => {
   it('returns exactly 0 below the floor so near-zero cells are not drawn', () => {
     expect(activationInk(0.01, 0, 10, 0.18)).toBe(0);
     expect(activationInk(9, 0, 10, 0.18)).toBeGreaterThan(0.9);
+  });
+});
+
+describe('stage map slicing', () => {
+  const offsets = stageMapOffsets();
+
+  it('covers every mapped stage: 7 blocks + 8 transformer layers + 3 decoder stages', () => {
+    expect(offsets).toHaveLength(7 + N_ATTN_LAYERS + 3);
+    expect(offsets.map((o) => o.id).slice(0, 7)).toEqual([
+      'block1', 'block2', 'block3', 'block4', 'block5', 'block6', 'block7',
+    ]);
+    // The transformer layers are the ones that used to be missing, which is why they rendered
+    // as attention matrices rather than activation maps.
+    expect(offsets.filter((o) => o.id.startsWith('attn'))).toHaveLength(N_ATTN_LAYERS);
+    expect(offsets.filter((o) => o.id.startsWith('decoder'))).toHaveLength(3);
+  });
+
+  it('is contiguous from zero with no gap and no overlap', () => {
+    expect(offsets[0].start).toBe(0);
+    for (let i = 1; i < offsets.length; i += 1) {
+      expect(offsets[i].start).toBe(offsets[i - 1].start + offsets[i - 1].channels);
+    }
+  });
+
+  it('totals the 5,760 channels the exported tensor carries', () => {
+    const total = offsets.reduce((a, o) => a + o.channels, 0);
+    expect(total).toBe(1536 + N_ATTN_LAYERS * D_MODEL + 3 * D_MODEL);
+    expect(total).toBe(5760);
+    expect(BLOCK_FILTERS.reduce((a, b) => a + b, 0)).toBe(1536);
+  });
+
+  it('gives every stage the channel count the architecture says it has', () => {
+    BLOCK_FILTERS.forEach((channels, i) => {
+      expect(offsets.find((o) => o.id === `block${i + 1}`)!.channels).toBe(channels);
+    });
+    for (const o of offsets) {
+      if (!o.id.startsWith('block')) expect(o.channels).toBe(D_MODEL);
+      expect(o.positions).toBe(STAGE_MAP_POSITIONS);
+    }
+  });
+
+  it('slices stay inside a [5760, 128] tensor', () => {
+    const last = offsets.at(-1)!;
+    expect((last.start + last.channels) * STAGE_MAP_POSITIONS).toBe(5760 * 128);
+  });
+});
+
+describe('percentileRange', () => {
+  /** The definition, by sorting -- what the histogram has to approximate. */
+  const exact = (a: number[], pct: number) => {
+    const s = [...a].sort((x, y) => x - y);
+    return s[Math.min(s.length - 1, Math.max(0, Math.floor((pct / 100) * (s.length - 1))))];
+  };
+
+  it('brackets the true quantiles on a uniform sample', () => {
+    const a = Array.from({ length: 1000 }, (_, i) => i);
+    const { lo, hi } = percentileRange(a, 1, 99);
+    expect(lo).toBeLessThanOrEqual(exact(a, 1));
+    expect(hi).toBeGreaterThanOrEqual(exact(a, 99));
+    // and is tight: within one bin width of the truth
+    const binWidth = (999 - 0) / 1024;
+    expect(exact(a, 1) - lo).toBeLessThan(binWidth + 1e-9);
+  });
+
+  it('is what min-max is not: it ignores the tail that sets the range', () => {
+    // The measured failure. block7 spans -19.4..37.4 while its p1..p99 is only -3.4..3.8, so a
+    // min-max ramp puts almost every cell at the same ink.
+    const bulk = Array.from({ length: 10000 }, (_, i) => -3 + (6 * i) / 10000);
+    const a = [...bulk, -19.4, 37.4];
+    const { lo, hi } = percentileRange(a, 1, 99);
+    expect(hi - lo).toBeLessThan(7);
+    expect(Math.max(...a) - Math.min(...a)).toBeGreaterThan(56);
+  });
+
+  it('is monotone in the requested percentiles', () => {
+    const a = Array.from({ length: 500 }, (_, i) => Math.sin(i) * 10);
+    const wide = percentileRange(a, 1, 99);
+    const narrow = percentileRange(a, 10, 90);
+    expect(narrow.lo).toBeGreaterThanOrEqual(wide.lo);
+    expect(narrow.hi).toBeLessThanOrEqual(wide.hi);
+  });
+
+  it('handles negatives, all-equal input and an empty array without producing a bad range', () => {
+    const neg = percentileRange([-5, -4, -3, -2, -1]);
+    expect(neg.lo).toBeLessThan(neg.hi);
+    const flat = percentileRange([7, 7, 7, 7]);
+    expect(flat.lo).toBe(7);
+    expect(flat.hi).toBe(7);
+    expect(percentileRange([])).toEqual({ lo: 0, hi: 1 });
+    expect(percentileRange([3])).toEqual({ lo: 3, hi: 3 });
+  });
+
+  it('never mutates its input -- it is called on live tensors every redraw', () => {
+    const a = new Float32Array([5, 1, 4, 2, 3]);
+    const before = Array.from(a);
+    percentileRange(a);
+    expect(Array.from(a)).toEqual(before);
+  });
+
+  it('works on a Float32Array as well as a plain array', () => {
+    const plain = Array.from({ length: 300 }, (_, i) => i * 0.5);
+    const typed = new Float32Array(plain);
+    expect(percentileRange(typed)).toEqual(percentileRange(plain));
+  });
+});
+
+describe('trackGroupOf', () => {
+  it('maps every one of the 5,215 indices to exactly one group', () => {
+    for (let i = 0; i < N_TRACKS; i += 1) {
+      const g = trackGroupOf(i);
+      expect(i).toBeGreaterThanOrEqual(g.start);
+      expect(i).toBeLessThan(g.end);
+    }
+  });
+
+  it('puts the block boundaries where the released targets sheet puts them', () => {
+    expect(trackGroupOf(0).id).toBe('chip_exo');
+    expect(trackGroupOf(1127).id).toBe('chip_exo');
+    expect(trackGroupOf(1128).id).toBe('chip_mnase');
+    expect(trackGroupOf(1147).id).toBe('chip_mnase');
+    expect(trackGroupOf(1148).id).toBe('rnaseq_tf');
+    expect(trackGroupOf(4200).id).toBe('rnaseq_tf');
+    expect(trackGroupOf(4201).id).toBe('rnaseq_strain');
+    expect(trackGroupOf(5214).id).toBe('rnaseq_strain');
+  });
+
+  it('throws outside the range rather than silently returning a neighbour', () => {
+    expect(() => trackGroupOf(-1)).toThrow();
+    expect(() => trackGroupOf(N_TRACKS)).toThrow();
+  });
+});
+
+describe('trackRowBinning', () => {
+  it('covers every track exactly once, in order, with no empty bin', () => {
+    const bins = trackRowBinning(N_TRACKS, 400);
+    expect(bins).toHaveLength(400);
+    expect(bins[0].start).toBe(0);
+    expect(bins.at(-1)!.end).toBe(N_TRACKS);
+    for (let i = 0; i < bins.length; i += 1) {
+      expect(bins[i].end).toBeGreaterThan(bins[i].start); // an empty bin draws a false blank stripe
+      if (i > 0) expect(bins[i].start).toBe(bins[i - 1].end);
+    }
+  });
+
+  it('is the identity when every track already has its own pixel row', () => {
+    const bins = trackRowBinning(50, 200);
+    expect(bins).toHaveLength(50);
+    expect(bins.every((b) => b.end - b.start === 1)).toBe(true);
+  });
+
+  it('keeps bins within one track of each other', () => {
+    const sizes = trackRowBinning(N_TRACKS, 300).map((b) => b.end - b.start);
+    expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
+  });
+
+  it('returns nothing for a degenerate canvas', () => {
+    expect(trackRowBinning(0, 100)).toEqual([]);
+    expect(trackRowBinning(100, 0)).toEqual([]);
+  });
+});
+
+describe('logAxis', () => {
+  it('pins the ends: zero coverage draws at zero, the peak at one', () => {
+    expect(logAxis(0, 995)).toBe(0);
+    expect(logAxis(995, 995)).toBeCloseTo(1, 12);
+  });
+
+  it('is monotone', () => {
+    let prev = -1;
+    for (const v of [0, 0.5, 1, 5, 50, 500, 995]) {
+      const y = logAxis(v, 995);
+      expect(y).toBeGreaterThan(prev);
+      prev = y;
+    }
+  });
+
+  it('rescues the signal a linear axis erases', () => {
+    // The measured failure: on the TDH3 window the peak is 995 while 642 of 896 bins sit above
+    // 1.0. Linear puts a 1.0 bin at 0.001 of the axis -- one tenth of a pixel.
+    expect(1 / 995).toBeLessThan(0.002);
+    expect(logAxis(1, 995)).toBeGreaterThan(0.09);
+    expect(logAxis(50, 995)).toBeGreaterThan(0.5);
+  });
+
+  it('clamps rather than extrapolating past the peak or below zero', () => {
+    expect(logAxis(-5, 995)).toBe(0);
+    expect(logAxis(2000, 995)).toBeCloseTo(1, 12);
+    expect(logAxis(5, 0)).toBe(0);
+  });
+});
+
+describe('subLayers', () => {
+  const all = specs();
+  const byId = (id: string) => all.find((s) => s.id === id)!;
+
+  it('ends every stage on the shape layerSpecs promises for it', () => {
+    // "Ends" means the last row that is this stage's own output -- the pooling hand-off that
+    // follows a residual block belongs to the transition, and the recorded activation predates it.
+    // The detail view prints these beside the stage's own header; if the last sub-layer disagreed
+    // with the header the page would contradict itself on screen.
+    for (const spec of all) {
+      const own = subLayers(spec).filter((s) => !s.handoff).at(-1)!;
+      expect(own.positions, `${spec.id} positions`).toBe(spec.positions);
+      expect(own.channels, `${spec.id} channels`).toBe(spec.channels);
+    }
+  });
+
+  it('chains: each sub-layer starts from the shape the previous one produced', () => {
+    for (const spec of all) {
+      const subs = subLayers(spec);
+      for (let i = 1; i < subs.length; i += 1) {
+        const grew = subs[i].positions / subs[i - 1].positions;
+        // Only three things may change resolution: a x2 pool down, a x2 upsample, or a crop.
+        expect([0.5, 1, 2]).toContain(grew === 896 / 1024 ? 1 : grew);
+      }
+    }
+  });
+
+  it('halves resolution exactly once per residual block, at the pool', () => {
+    for (let i = 1; i <= 7; i += 1) {
+      const subs = subLayers(byId(`block${i}`));
+      const drops = subs.filter((s, k) => k > 0 && s.positions === subs[k - 1].positions / 2);
+      expect(drops).toHaveLength(1);
+      expect(drops[0].handoff).toBe(true);
+      expect(drops[0].op).toContain('MaxPool(2)');
+    }
+  });
+
+  it('changes channel count at the 5 bp convolution, where the checkpoint changes it', () => {
+    // The skip is taken after conv1d_1, so the residual add is between two tensors that already
+    // carry the block's output width.
+    const subs = subLayers(byId('block2'));
+    expect(subs[0].channels).toBe(96);            // block1's output feeds block2
+    expect(subs[1].channels).toBe(96);
+    expect(subs[2].op).toBe('Conv1D(5)');
+    expect(subs[2].channels).toBe(128);
+    expect(subs.find((s) => s.op === 'add (residual)')!.channels).toBe(128);
+  });
+
+  it('gives a transformer layer two residual adds and never changes its shape', () => {
+    const subs = subLayers(byId('attn4'));
+    expect(subs.filter((s) => s.op === 'add (residual)')).toHaveLength(2);
+    expect(subs.every((s) => s.positions === 128 && s.channels === D_MODEL)).toBe(true);
+  });
+
+  it('doubles resolution in each decoder stage and names the block it merges', () => {
+    for (let i = 1; i <= 3; i += 1) {
+      const subs = subLayers(byId(`decoder${i}`));
+      expect(subs[1].op).toContain('upsample');
+      expect(subs[1].positions).toBe(subs[0].positions * 2);
+      expect(subs[2].op).toContain(`residual block ${8 - i}`);
+    }
+  });
+
+  it('expands the head from 384 channels to all 5,215 tracks at the Dense', () => {
+    const subs = subLayers(byId('head'));
+    expect(subs[0].channels).toBe(D_MODEL);
+    expect(subs.find((s) => s.op === 'Dense')!.channels).toBe(N_TRACKS);
+    expect(subs.every((s) => s.positions === N_BINS)).toBe(true);
+  });
+
+  it('covers every stage with at least one operation', () => {
+    for (const spec of all) expect(subLayers(spec).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Figure 4 loci', () => {
+  const IUPAC: Record<string, string> = {
+    A: 'A', C: 'C', G: 'G', T: 'T', R: '[AG]', Y: '[CT]', S: '[GC]',
+    W: '[AT]', K: '[GT]', M: '[AC]', N: '.',
+  };
+  const rc = (s: string) =>
+    [...s].reverse().map((b) => ({ A: 'T', C: 'G', G: 'C', T: 'A' })[b] ?? b).join('');
+  const fig4 = loci.loci.filter((l) => 'figurePanel' in l);
+
+  it('ships all six panels of Figure 4 alongside the original eight loci', () => {
+    expect(loci.loci).toHaveLength(14);
+    expect(fig4.map((l) => (l as { figurePanel: string }).figurePanel).sort()).toEqual([
+      'Fig 4A', 'Fig 4B', 'Fig 4C', 'Fig 4E', 'Fig 4F', 'Fig 4G',
+    ]);
+    // DTD1 is YDL219W. YDL100C is a different gene; the figure's coordinates are what settle it.
+    expect(fig4.find((l) => l.gene === 'DTD1')!.id).toBe('YDL219W');
+  });
+
+  it('gives every locus a full 16,384 bp window of real bases', () => {
+    for (const l of loci.loci) {
+      expect(l.sequence.length, l.gene).toBe(SEQ_LEN);
+      expect(/^[ACGTN]+$/.test(l.sequence), l.gene).toBe(true);
+    }
+  });
+
+  it('puts the window the figure prints inside the 896 predicted bins', () => {
+    for (const l of fig4) {
+      const w = (l as { figureWindow: Record<string, number> }).figureWindow;
+      expect(w.binStart, l.gene).toBeGreaterThanOrEqual(0);
+      expect(w.binEnd, l.gene).toBeLessThanOrEqual(N_BINS);
+      expect(w.binEnd).toBeGreaterThan(w.binStart);
+      // and near the middle, because the window is centred on it
+      expect(Math.abs((w.binStart + w.binEnd) / 2 - N_BINS / 2)).toBeLessThan(40);
+    }
+  });
+
+  it('records the figure window as offsets that recover its own chromosome coordinates', () => {
+    for (const l of fig4) {
+      const w = (l as { figureWindow: Record<string, number> }).figureWindow;
+      expect(l.start + w.seqStart).toBe(w.chromStart - 1);
+      expect(l.start + w.seqEnd).toBe(w.chromEnd);
+      expect(w.seqEnd - w.seqStart).toBe(w.chromEnd - w.chromStart + 1);
+    }
+  });
+
+  it('every marked motif really is at that offset in the shipped sequence', () => {
+    // The whole point of scanning rather than reading positions off the figure's pixels: this is
+    // checkable. A motif is marked only where its consensus actually occurs.
+    let checked = 0;
+    for (const l of fig4) {
+      const motifs = (l as { motifs: { name: string; consensus: string; strand: string; start: number; end: number }[] }).motifs;
+      expect(motifs.length, `${l.gene} has no motifs`).toBeGreaterThan(0);
+      for (const m of motifs) {
+        const slice = l.sequence.slice(m.start, m.end);
+        const pattern = m.strand === '+' ? m.consensus : rc(m.consensus);
+        const rx = new RegExp(`^${[...pattern].map((b) => IUPAC[b]).join('')}$`);
+        expect(rx.test(slice), `${l.gene} ${m.name} at ${m.start}: got ${slice}`).toBe(true);
+        expect(m.end - m.start).toBe(m.consensus.length);
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(15); // a silently-empty scan must fail
+  });
+
+  it('keeps every motif inside the window the figure draws', () => {
+    for (const l of fig4) {
+      const w = (l as { figureWindow: Record<string, number> }).figureWindow;
+      for (const m of (l as { motifs: { start: number; end: number }[] }).motifs) {
+        expect(m.start).toBeGreaterThanOrEqual(w.seqStart);
+        expect(m.end).toBeLessThanOrEqual(w.seqEnd);
+      }
+    }
+  });
+
+  it('finds the motifs the figure names, where the figure names them', () => {
+    const named = (gene: string) =>
+      new Set((fig4.find((l) => l.gene === gene) as { motifs: { name: string }[] }).motifs.map((m) => m.name));
+    // 4B and 4C are the RRPE/PAC panels; 4E and 4F are the splicing panels.
+    expect(named('FUN12')).toContain('RRPE (Stb3)');
+    expect(named('KRE33')).toContain('RRPE (Stb3)');
+    expect(named('KRE33')).toContain('Reb1');
+    expect(named('DTD1')).toContain('branch point');
+    expect(named('DTD1')).toContain("5' splice site");
+    expect(named('MMS2')).toContain('branch point');
+  });
+});
+
+describe('shipped track names', () => {
+  it('names all 5,215 output channels in sheet order', () => {
+    expect(trackNames.count).toBe(N_TRACKS);
+    expect(trackNames.identifiers).toHaveLength(N_TRACKS);
+    expect(new Set(trackNames.identifiers).size).toBeGreaterThan(N_TRACKS - 10);
+  });
+
+  it('agrees with the group boundaries the model uses', () => {
+    // If these drifted apart the page would name one experiment while plotting another.
+    expect(trackNames.identifiers[TRACK_GROUPS[0].start]).toBe('AAP1_S0');
+    expect(trackNames.identifiers[TRACK_GROUPS[1].start]).toBe('H2B_S0');
+    expect(trackNames.identifiers[TRACK_GROUPS[2].start]).toBe('ARG80_T0_S757');
+    expect(trackNames.identifiers[TRACK_GROUPS[3].start]).toBe('ERR9593592');
+  });
+
+  it('starts the RNA-seq block on a T0 baseline, which is what Figure 4 uses', () => {
+    expect(trackNames.identifiers[TRACK_GROUPS[RNA_SEQ_GROUP].start]).toMatch(/_T0_/);
   });
 });

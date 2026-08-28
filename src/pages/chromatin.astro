@@ -104,18 +104,52 @@ const milestones = REGIMES.map((r) => ({
         Two antiparallel sugar–phosphate backbones, 2 nm apart, turning once every 10.5 base
         pairs. Every base pair adds 0.34 nm — which is why chromosome 1 is 84.6 mm of it.
       </p>
+      <div class="chr-subunits" id="chr-subunits" aria-label="Interactive Structural Highlights"></div>
       <dl class="chr-legend__facts" data-legend-facts></dl>
     </aside>
+
+    <!-- Physical Scale Bar Overlay -->
+    <div class="chr-scalebar" id="chr-scalebar" aria-label="Physical Nanometre Scale">
+      <div class="chr-scalebar__bracket">
+        <span class="chr-scalebar__cap"></span>
+        <span class="chr-scalebar__bar" id="chr-scalebar-bar"></span>
+        <span class="chr-scalebar__cap"></span>
+      </div>
+      <span class="chr-scalebar__label" id="chr-scalebar-label">20 nm</span>
+    </div>
 
     <div class="chr-console">
       <div class="chr-scrub-row">
         <button
           type="button"
+          class="chr-btn-step"
+          id="chr-step-prev"
+          aria-label="Previous level"
+          title="Previous level (Left Arrow)"
+        >
+          <span>◀</span>
+        </button>
+
+        <button
+          type="button"
           class="chr-play"
           id="chr-play"
           aria-label="Play the compaction sequence"
-          title="Play / pause"><span data-play-icon>▶</span></button
+          title="Play / pause"
         >
+          <span data-play-icon>▶</span>
+        </button>
+
+        <button
+          type="button"
+          class="chr-btn-step"
+          id="chr-step-next"
+          aria-label="Next level"
+          title="Next level (Right Arrow)"
+        >
+          <span>▶</span>
+        </button>
+
         <div class="chr-scrub-wrap">
           <input
             type="range"
@@ -159,11 +193,20 @@ const milestones = REGIMES.map((r) => ({
           <button type="button" class="chr-seg__btn" data-fibre="disordered">In&nbsp;situ</button>
         </div>
 
+        <div class="chr-seg" role="group" aria-label="Camera Presets">
+          <span class="chr-seg__label">Camera</span>
+          <button type="button" class="chr-seg__btn is-active" data-cam="default" title="Free 3D Orbit">Free</button>
+          <button type="button" class="chr-seg__btn" data-cam="profile" title="Side Profile View">Profile</button>
+          <button type="button" class="chr-seg__btn" data-cam="axial" title="Top Down Cylinder View">Axial</button>
+          <button type="button" class="chr-seg__btn" data-cam="dyad" title="Close-Up Contact Dyad">Dyad</button>
+          <button type="button" class="chr-seg__btn" data-cam="turntable" title="Toggle Gentle Auto-Spin">Spin 🔄</button>
+        </div>
+
         <button type="button" class="chr-toggle is-on" id="chr-annos" aria-pressed="true">
           Annotations
         </button>
 
-        <span class="chr-hint">drag to orbit · scroll to zoom · ← → to step</span>
+        <span class="chr-hint">drag to orbit · pinch/scroll to zoom · ← → to step</span>
       </div>
     </div>
   </main>
@@ -455,7 +498,26 @@ const milestones = REGIMES.map((r) => ({
   .chr-scrub-row {
     display: flex;
     align-items: center;
-    gap: 0.7rem;
+    gap: 0.5rem;
+  }
+  .chr-btn-step {
+    flex: none;
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 50%;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .chr-btn-step:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
   .chr-play {
     flex: none;
@@ -467,9 +529,90 @@ const milestones = REGIMES.map((r) => ({
     color: var(--color-text);
     font-size: 0.8rem;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .chr-play:hover {
     border-color: var(--color-accent);
+  }
+
+  /* ── Subunits Inspector ── */
+  .chr-subunits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .chr-sub-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.18rem 0.45rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+    color: var(--color-text);
+    font-size: 0.68rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .chr-sub-chip:hover,
+  .chr-sub-chip.is-active {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 15%, var(--color-surface));
+    color: var(--color-accent);
+  }
+  .chr-sub-chip__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex: none;
+  }
+
+  /* ── Physical Scale Bar ── */
+  .chr-scalebar {
+    position: absolute;
+    bottom: calc(var(--chr-console-h, 5.8rem) + 1.2rem);
+    right: 1.2rem;
+    z-index: 80;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--color-surface) 84%, transparent);
+    border: 1px solid var(--color-border);
+    backdrop-filter: blur(8px);
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.45rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+  .chr-scalebar__bracket {
+    display: flex;
+    align-items: center;
+    height: 6px;
+    position: relative;
+  }
+  .chr-scalebar__cap {
+    width: 2px;
+    height: 6px;
+    background: var(--color-text);
+    flex: none;
+  }
+  .chr-scalebar__bar {
+    height: 2px;
+    background: var(--color-text);
+    min-width: 20px;
+    transition: width 0.12s ease-out;
+  }
+  .chr-scalebar__label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--color-text);
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
   }
   .chr-scrub-wrap {
     position: relative;
@@ -610,6 +753,56 @@ const milestones = REGIMES.map((r) => ({
       overflow: hidden;
     }
     .chr-legend__facts {
+      display: none;
+    }
+    .chr-subunits {
+      margin-top: 0.35rem;
+      margin-bottom: 0.2rem;
+      gap: 0.25rem;
+    }
+    .chr-sub-chip {
+      font-size: 0.62rem;
+      padding: 0.15rem 0.35rem;
+    }
+    .chr-scalebar {
+      top: 3.8rem;
+      bottom: auto;
+      right: 0.75rem;
+      padding: 0.25rem 0.45rem;
+    }
+    .chr-scalebar__bracket {
+      height: 4px;
+    }
+    .chr-scalebar__cap {
+      height: 4px;
+    }
+    .chr-scalebar__label {
+      font-size: 0.6rem;
+    }
+    .chr-console {
+      padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
+    }
+  }
+
+  @media (max-width: 520px) {
+    .chr-topbar {
+      padding: 0.4rem 0.6rem;
+    }
+    .chr-brand .chr-title {
+      font-size: 0.85rem;
+    }
+    .chr-badge {
+      display: none;
+    }
+    .chr-controls {
+      gap: 0.35rem;
+    }
+    .chr-toggle,
+    .chr-seg__btn {
+      font-size: 0.66rem;
+      padding: 0.22rem 0.45rem;
+    }
+    .chr-seg__label {
       display: none;
     }
   }
@@ -804,10 +997,21 @@ const milestones = REGIMES.map((r) => ({
       });
     });
 
-    // ── transport ──
+    // ── transport & stepping ──
     const play = document.getElementById('chr-play');
     const playIcon = document.querySelector('[data-play-icon]');
     play?.addEventListener('click', () => chr.togglePlaying());
+
+    const btnPrev = document.getElementById('chr-step-prev');
+    const btnNext = document.getElementById('chr-step-next');
+    btnPrev?.addEventListener('click', () => {
+      chr.setPlaying(false);
+      chr.stepRegime(-1);
+    });
+    btnNext?.addEventListener('click', () => {
+      chr.setPlaying(false);
+      chr.stepRegime(1);
+    });
 
     const explode = document.getElementById('chr-explode');
     explode?.addEventListener('click', () => {
@@ -836,6 +1040,56 @@ const milestones = REGIMES.map((r) => ({
       });
     });
 
+    // ── camera presets ──
+    const camBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cam]'));
+    camBtns.forEach((b) => {
+      b.addEventListener('click', () => {
+        const cam = b.dataset.cam as 'profile' | 'axial' | 'dyad' | 'turntable' | 'default';
+        if (cam !== 'turntable') {
+          camBtns.forEach((o) => {
+            if (o.dataset.cam !== 'turntable') o.classList.toggle('is-active', o === b);
+          });
+        } else {
+          b.classList.toggle('is-active');
+        }
+        chr.setCameraPreset(cam);
+      });
+    });
+
+    // ── touch gestures: multi-touch pinch to zoom ──
+    let touchStartDist = 0;
+    canvas.addEventListener(
+      'touchstart',
+      (e: TouchEvent) => {
+        if (e.touches.length === 2) {
+          touchStartDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY,
+          );
+        }
+      },
+      { passive: true },
+    );
+
+    canvas.addEventListener(
+      'touchmove',
+      (e: TouchEvent) => {
+        if (e.touches.length === 2 && touchStartDist > 0) {
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY,
+          );
+          const factor = dist / touchStartDist;
+          touchStartDist = dist;
+          const delta = (factor - 1) * 2;
+          if (Math.abs(delta) > 0.01) {
+            canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: -delta * 120 }));
+          }
+        }
+      },
+      { passive: true },
+    );
+
     // ── keyboard ──
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -859,6 +1113,36 @@ const milestones = REGIMES.map((r) => ({
     syncConsoleHeight();
     if (console_) new ResizeObserver(syncConsoleHeight).observe(console_);
 
+    // ── Subunits configuration ──
+    const SUBUNITS_CONFIG: Record<string, { id: string; label: string; color: string }[]> = {
+      duplex: [
+        { id: 'duplex', label: 'B-DNA Duplex (2 nm)', color: '#4f8ff7' },
+        { id: 'strandA', label: 'Strand A (5′→3′)', color: '#4f8ff7' },
+        { id: 'strandB', label: 'Strand B (3′→5′)', color: '#f2814a' },
+      ],
+      nucleosome: [
+        { id: 'tetramer', label: '(H3–H4)₂ Tetramer (60 bp)', color: '#e05a7a' },
+        { id: 'dimerA', label: 'H2A–H2B Dimer 1', color: '#3fb8a6' },
+        { id: 'dimerB', label: 'H2A–H2B Dimer 2', color: '#8b7ae0' },
+        { id: 'H3', label: 'Histone H3', color: '#e05a7a' },
+        { id: 'H4', label: 'Histone H4', color: '#f0a23c' },
+      ],
+      fibre: [
+        { id: 'solenoid', label: '1-Start Solenoid', color: '#5b8ff2' },
+        { id: 'zigzag', label: '2-Start Zigzag', color: '#b06ce0' },
+        { id: 'disordered', label: 'In Situ Disordered (5–24 nm)', color: '#8fa6c4' },
+      ],
+      loops: [
+        { id: 'cohesin', label: 'Cohesin Extrusion Ring', color: '#f3c03f' },
+        { id: 'ctcf', label: 'Convergent CTCF Pins', color: '#35a86b' },
+        { id: 'loop', label: 'Extruded Loop (~400 kb)', color: '#62b6e8' },
+      ],
+      mitotic: [
+        { id: 'condensin', label: 'Condensin II Scaffold', color: '#e2574f' },
+        { id: 'chromatid', label: 'Outer Loop Array', color: '#93a4bb' },
+      ],
+    };
+
     // ── readouts ──
     const badge = document.querySelector('[data-regime]');
     const tField = document.querySelector('[data-t-field]');
@@ -870,6 +1154,9 @@ const milestones = REGIMES.map((r) => ({
     const legendTitle = document.querySelector('[data-legend-title]');
     const legendBody = document.querySelector('[data-legend-body]');
     const legendFacts = document.querySelector('[data-legend-facts]');
+    const subunitsWrap = document.getElementById('chr-subunits');
+    const scaleBarBar = document.getElementById('chr-scalebar-bar');
+    const scaleBarLabel = document.getElementById('chr-scalebar-label');
     let shownRegime = '';
 
     const render = (s: ChromatinState) => {
@@ -889,6 +1176,15 @@ const milestones = REGIMES.map((r) => ({
       if (scrubValue) scrubValue.textContent = `${Math.round(s.scrub * 100)}%`;
       if (scrub && !dragging && document.activeElement !== scrub) scrub.value = String(Math.round(s.scrub * 1000));
 
+      // Physical scale bar
+      if (scaleBarBar) {
+        const barPx = Math.min(100, Math.max(16, Math.round(s.scaleBar.ratioOfField * 160)));
+        scaleBarBar.style.width = `${barPx}px`;
+      }
+      if (scaleBarLabel) {
+        scaleBarLabel.textContent = s.scaleBar.label;
+      }
+
       ticks.forEach((t) => {
         t.classList.toggle('is-active', Math.abs(Number(t.dataset.milestone) - s.scrub) < 0.02);
       });
@@ -906,6 +1202,30 @@ const milestones = REGIMES.map((r) => ({
             const dd = document.createElement('dd');
             dd.textContent = v;
             legendFacts.append(dt, dd);
+          }
+        }
+
+        // Subunits dynamic inspector chips
+        if (subunitsWrap) {
+          subunitsWrap.replaceChildren();
+          const items = SUBUNITS_CONFIG[s.regime] || [];
+          for (const item of items) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'chr-sub-chip';
+            const dot = document.createElement('span');
+            dot.className = 'chr-sub-chip__dot';
+            dot.style.backgroundColor = item.color;
+            const lbl = document.createElement('span');
+            lbl.textContent = item.label;
+            chip.append(dot, lbl);
+            chip.addEventListener('mouseenter', () => chr.setHighlight(item.id));
+            chip.addEventListener('mouseleave', () => chr.setHighlight(null));
+            chip.addEventListener('click', () => {
+              const active = chip.classList.toggle('is-active');
+              chr.setHighlight(active ? item.id : null);
+            });
+            subunitsWrap.append(chip);
           }
         }
       }

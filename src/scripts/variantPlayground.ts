@@ -17,8 +17,16 @@
 
 import stemWeightsJson from '../data/shorkieStem.json';
 import lociJson from '../data/shorkieLoci.json';
-import { createFlow, stageMap, type FlowController, type FlowActivations, type FlowStage } from './shorkieFlow';
+import {
+  createFlow,
+  stageMap,
+  attentionMap,
+  type FlowController,
+  type FlowActivations,
+  type FlowStage,
+} from './shorkieFlow';
 import truthJson from '../data/shorkieTruth.json';
+import trackNamesJson from '../data/shorkieTrackNames.json';
 import {
   BASES,
   N_BINS,
@@ -26,12 +34,18 @@ import {
   RNA_SEQ_GROUP,
   pearson,
   activationInk,
+  percentileRange,
+  subLayers,
+  trackGroupOf,
+  trackRowBinning,
+  logAxis,
+  N_TRACKS,
   SEQ_LEN,
   SPECIES_S_CEREVISIAE,
   cleanSequence,
   encodeInput,
-  filterLogo,
   layerSpecs,
+  N_HEADS,
   stemActivations,
   type StemActivation,
   type StemWeights,
@@ -54,6 +68,7 @@ const LOCI = (lociJson as { loci: Locus[] }).loci;
 /** Measured coverage per locus per group, binned exactly as the model's labels were. */
 interface Truth { loci: Record<string, Record<string, number[]>>; tracks: Record<string, string[]>; }
 const TRUTH = truthJson as Truth;
+const TRACK_NAMES = (trackNamesJson as { identifiers: string[] }).identifiers;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const el = <K extends keyof SVGElementTagNameMap>(tag: K) => document.createElementNS(SVG_NS, tag);
@@ -80,8 +95,8 @@ interface FullResult {
   stemPeak: Float32Array;     // [96]
   blockPeaks: Float32Array;   // [1536]
   attention: Float32Array;    // [8, 128, 128]
-  encoderMaps: Float32Array;  // [1536, 128]
-  decoderMaps: Float32Array;  // [1152, 128]
+  stageMaps: Float32Array;    // [5760, 128] -- every mapped stage, in flow order
+  allTracks: Float32Array;    // [896, 5215] -- every track, unreduced
   backend: string;
   ms: number;
 }
@@ -101,12 +116,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   const runBtn = $<HTMLButtonElement>('[data-vp-run]');
   const statusEl = $('[data-vp-status]');
   const neuronCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-neurons]');
-  const logoSvg = host.querySelector<SVGSVGElement>('[data-vp-logo]');
   const trackSvg = host.querySelector<SVGSVGElement>('[data-vp-track]');
-  const attnSvg = host.querySelector<SVGSVGElement>('[data-vp-attn]');
   const layerList = $('[data-vp-layers]');
   const liveStat = $('[data-vp-livestat]');
-  const attnLayer = $<HTMLInputElement>('[data-vp-attn-layer]');
   const flowCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-flow]');
   const playBtn = $<HTMLButtonElement>('[data-vp-play]');
   const scrubInput = $<HTMLInputElement>('[data-vp-scrub]');
@@ -115,10 +127,17 @@ export function initVariantPlayground(root: ParentNode = document) {
   const groupSelect = $<HTMLSelectElement>('[data-vp-group]');
   const truthStat = $('[data-vp-truthstat]');
   const stageDetail = $('[data-vp-stage-detail]');
+  const subLayerList = $('[data-vp-sublayers]');
+  const stageNote = $('[data-vp-stage-note]');
+  const tabBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-tab]');
+  const heatCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-heat]');
+  const heatStat = $('[data-vp-heat-stat]');
+  const trackNameEl = $('[data-vp-track-name]');
+  const singleSvg = host.querySelector<SVGSVGElement>('[data-vp-single]');
+  const logToggle = $<HTMLInputElement>('[data-vp-logaxis]');
   const stageTitle = $('[data-vp-stage-title]');
   const stageTop = $('[data-vp-stage-top]');
   const stageMapCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-map]');
-  const stageClose = $<HTMLButtonElement>('[data-vp-stage-close]');
 
   let mode: 'type' | 'locus' = 'type';
   /** The full 16,384 bp window fed to ONNX. In free-typing mode it is just the typed text. */
@@ -138,6 +157,11 @@ export function initVariantPlayground(root: ParentNode = document) {
   let flow: FlowController | null = null;
   let groupIndex = RNA_SEQ_GROUP;
   let showTruth = true;
+  let stageTab: 'activation' | 'attention' = 'activation';
+  // ARG80_T0_S757 -- a real T0 baseline experiment, which is the set Figure 4's ISM uses,
+  // rather than a mean over all 3,053 induction tracks.
+  let selectedTrack: number = TRACK_GROUPS[RNA_SEQ_GROUP].start;
+  let useLogAxis = true;
 
   // ---------------------------------------------------------------- layer map (static)
   function renderLayers(): void {
@@ -210,44 +234,11 @@ export function initVariantPlayground(root: ParentNode = document) {
     };
   }
 
-  function renderLogo(act: StemActivation): void {
-    if (!logoSvg) return;
-    clear(logoSvg);
-    const rows = filterLogo(selectedFilter, STEM);
-    const W = 300;
-    const H = 130;
-    attr(logoSvg, { viewBox: `0 0 ${W} ${H}` });
-    const colW = W / rows.length;
-    const maxAbs = Math.max(...rows.flat().map(Math.abs), 1e-6);
-    const mid = H / 2;
-    rows.forEach((row, i) => {
-      const order = row.map((v, b) => ({ v, b })).sort((a, b) => b.v - a.v);
-      let up = mid;
-      let down = mid;
-      for (const { v, b } of order) {
-        const h = (Math.abs(v) / maxAbs) * (H / 2 - 12);
-        if (h < 0.5) continue;
-        const g = text(i * colW + colW / 2, v > 0 ? up : down + h, BASES[b], `vp-base vp-base-${BASES[b]}`);
-        attr(g, { 'font-size': h * 1.9 });
-        logoSvg.append(g);
-        if (v > 0) up -= h;
-        else down += h;
-      }
-    });
-    const axis = el('line');
-    attr(axis, { x1: 0, y1: mid, x2: W, y2: mid, stroke: 'var(--color-rule)', 'stroke-width': 1 });
-    logoSvg.append(axis);
-    logoSvg.append(
-      text(2, 12, `filter ${selectedFilter} · peak ${act.peak[selectedFilter].toFixed(2)}`, 'vp-ax', 'start'),
-    );
-  }
-
   function refreshLive(): void {
     const t0 = performance.now();
     const act = stemActivations(editable, STEM);
     const tCompute = performance.now() - t0;
     renderNeurons(act);
-    renderLogo(act);
     const fired = Array.from(act.peak).filter((v) => v > 0).length;
     if (liveStat) {
       liveStat.textContent =
@@ -331,37 +322,8 @@ export function initVariantPlayground(root: ParentNode = document) {
         `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp · peak ${max.toFixed(2)} at bin ${argmax}`,
         'vp-ax', 'start'),
     );
-    trackSvg.dataset.peak = max.toFixed(4);
-    trackSvg.dataset.argmax = String(argmax);
   }
 
-  function renderAttention(): void {
-    if (!attnSvg) return;
-    clear(attnSvg);
-    const S = 220;
-    attr(attnSvg, { viewBox: `0 0 ${S} ${S}` });
-    if (!current) {
-      attnSvg.append(text(S / 2, S / 2, 'no inference yet', 'vp-ax'));
-      return;
-    }
-    const layer = Number(attnLayer?.value ?? 0);
-    const T = 128;
-    const off = layer * T * T;
-    let max = 1e-6;
-    for (let i = 0; i < T * T; i += 1) max = Math.max(max, current.attention[off + i]);
-    const c = S / T;
-    for (let i = 0; i < T; i += 1) {
-      for (let j = 0; j < T; j += 1) {
-        const v = current.attention[off + i * T + j] / max;
-        if (v < 0.08) continue;
-        const r = el('rect');
-        attr(r, { x: j * c, y: i * c, width: c, height: c, fill: 'var(--vp-accent)', 'fill-opacity': v.toFixed(3) });
-        attnSvg.append(r);
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------- ONNX
   async function ensureSession(): Promise<boolean> {
     if (session) return true;
     setStatus('Loading ONNX Runtime…');
@@ -412,28 +374,179 @@ export function initVariantPlayground(root: ParentNode = document) {
         stemPeak: out.stem_peak.data,
         blockPeaks: out.block_peaks.data,
         attention: out.attention.data,
-        encoderMaps: out.encoder_maps.data,
-        decoderMaps: out.decoder_maps.data,
+        stageMaps: out.stage_maps.data,
+        allTracks: out.all_tracks.data,
         backend,
         ms,
       };
       if (!reference) reference = current;
       flow?.setActivations({
         stemProfile: current.stemProfile,
-        encoderMaps: current.encoderMaps,
-        decoderMaps: current.decoderMaps,
+        stageMaps: current.stageMaps,
         attention: current.attention,
         tracks: current.tracks,
       } satisfies FlowActivations);
       renderTrack();
-      renderAttention();
       renderStageDetail(flow?.selected() ?? null);
+      renderHeatmap();
+      renderSingleTrack();
       setStatus(`Done — ${ms.toFixed(0)} ms on ${current.backend}.`);
     } catch (err) {
       setStatus(`Inference failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       if (runBtn) runBtn.disabled = false;
     }
+  }
+
+  /**
+   * Every predicted track, one row each, in the order the targets sheet lists them -- so the four
+   * assay blocks read as contiguous bands rather than needing a legend to believe.
+   */
+  function renderHeatmap(): void {
+    if (!heatCanvas) return;
+    const cssW = heatCanvas.clientWidth || 900;
+    const cssH = 300;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    heatCanvas.width = Math.round(cssW * dpr);
+    heatCanvas.height = Math.round(cssH * dpr);
+    heatCanvas.style.height = `${cssH}px`;
+    const ctx = heatCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+
+    if (!current) {
+      ctx.fillStyle = muted;
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.fillText('Run the model to see all 5,215 predicted tracks.', 4, 22);
+      if (heatStat) heatStat.textContent = '';
+      return;
+    }
+
+    const labelW = 78;
+    const plotW = cssW - labelW;
+    const bins = renderHeatmapRows(ctx, plotW, cssH, labelW);
+    if (heatStat) {
+      heatStat.textContent = `${N_TRACKS.toLocaleString()} tracks × ${N_BINS} bins`
+        + (bins < N_TRACKS ? ` · ${bins} drawn rows, each the max of ${Math.ceil(N_TRACKS / bins)}` : '');
+    }
+  }
+
+  function renderHeatmapRows(
+    ctx: CanvasRenderingContext2D, plotW: number, cssH: number, labelW: number,
+  ): number {
+    const all = current!.allTracks;                      // [896, 5215], bin-major
+    const rows = trackRowBinning(N_TRACKS, cssH);
+    const rowH = cssH / rows.length;
+    const colW = plotW / N_BINS;
+    const fire = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    const rule = getComputedStyle(host).getPropertyValue('--color-rule').trim() || '#e5e7eb';
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+
+    // One scale for the whole matrix, so the bands are comparable to each other. Log, because the
+    // assays differ by orders of magnitude and a linear ramp shows only RNA-seq.
+    let max = 0;
+    for (let i = 0; i < all.length; i += 1) if (all[i] > max) max = all[i];
+
+    ctx.fillStyle = fire;
+    rows.forEach((span, r) => {
+      for (let b = 0; b < N_BINS; b += 1) {
+        let peak = 0;
+        for (let k = span.start; k < span.end; k += 1) {
+          const v = all[b * N_TRACKS + k];
+          if (v > peak) peak = v;
+        }
+        const a = logAxis(peak, max);
+        if (a < 0.06) continue;
+        ctx.globalAlpha = a;
+        ctx.fillRect(labelW + b * colW, r * rowH, Math.max(colW, 0.7), Math.max(rowH, 0.7));
+      }
+    });
+    ctx.globalAlpha = 1;
+
+    // Band boundaries and labels down the left edge.
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    let labelY = -Infinity;
+    for (const g of TRACK_GROUPS) {
+      const y0 = (g.start / N_TRACKS) * cssH;
+      const y1 = (g.end / N_TRACKS) * cssH;
+      ctx.strokeStyle = rule;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(labelW, y0);
+      ctx.lineTo(labelW + plotW, y0);
+      ctx.stroke();
+      ctx.fillStyle = muted;
+      // ChIP-MNase is 20 tracks of 5,215, so its band is under 2 px tall and its label would sit
+      // on its neighbour's. Give every label the row it needs and push it down past the last one.
+      const label = `${g.label.replace('RNA-seq · ', '')} ${g.count.toLocaleString()}`;
+      const wanted = Math.max(y0 + 9, labelY + 11);
+      if (wanted < cssH - 2) {
+        ctx.fillText(label, 2, wanted);
+        labelY = wanted;
+      }
+    }
+    // Where the selected track sits.
+    ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.lineWidth = 1.4;
+    const sy = (selectedTrack / N_TRACKS) * cssH;
+    ctx.beginPath();
+    ctx.moveTo(labelW, sy);
+    ctx.lineTo(labelW + plotW, sy);
+    ctx.stroke();
+
+    heatCanvas!.onclick = (ev) => {
+      const box = heatCanvas!.getBoundingClientRect();
+      const frac = (ev.clientY - box.top) / box.height;
+      selectedTrack = Math.min(N_TRACKS - 1, Math.max(0, Math.floor(frac * N_TRACKS)));
+      renderHeatmap();
+      renderSingleTrack();
+    };
+    return rows.length;
+  }
+
+  /** The one track the reader picked, at full 896-bin resolution, named. */
+  function renderSingleTrack(): void {
+    if (!singleSvg) return;
+    clear(singleSvg);
+    const W = 960;
+    const H = 150;
+    attr(singleSvg, { viewBox: `0 0 ${W} ${H}` });
+    const group = trackGroupOf(selectedTrack);
+    if (trackNameEl) {
+      trackNameEl.textContent =
+        `track ${selectedTrack.toLocaleString()} · ${TRACK_NAMES[selectedTrack]} · ${group.label}`;
+    }
+    if (!current) {
+      singleSvg.append(text(W / 2, H / 2, 'no inference yet', 'vp-ax'));
+      return;
+    }
+    const vals = new Float32Array(N_BINS);
+    for (let b = 0; b < N_BINS; b += 1) vals[b] = current.allTracks[b * N_TRACKS + selectedTrack];
+    let max = 0;
+    for (let i = 0; i < N_BINS; i += 1) if (vals[i] > max) max = vals[i];
+    const bw = W / N_BINS;
+    const y = (v: number) =>
+      H - 24 - (useLogAxis ? logAxis(v, max) : max > 0 ? v / max : 0) * (H - 40);
+
+    let d = `M0 ${y(vals[0])}`;
+    for (let i = 1; i < N_BINS; i += 1) d += ` L${(i * bw).toFixed(2)} ${y(vals[i]).toFixed(2)}`;
+    const path = el('path');
+    attr(path, { d, fill: 'none', stroke: 'var(--vp-track)', 'stroke-width': 1.2 });
+    singleSvg.append(path);
+
+    let argmax = 0;
+    for (let i = 1; i < N_BINS; i += 1) if (vals[i] > vals[argmax]) argmax = i;
+    singleSvg.append(
+      text(4, 14,
+        `${TRACK_NAMES[selectedTrack]} · peak ${max.toFixed(2)} at bin ${argmax}`
+        + ` · ${useLogAxis ? 'log' : 'linear'} axis`,
+        'vp-ax', 'start'),
+    );
+    singleSvg.dataset.peak = String(max);
+    singleSvg.dataset.track = TRACK_NAMES[selectedTrack];
   }
 
   function setStatus(msg: string): void {
@@ -444,14 +557,12 @@ export function initVariantPlayground(root: ParentNode = document) {
   function setMode(next: 'type' | 'locus'): void {
     mode = next;
     modeBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vpMode === next)));
-    host.dataset.vpActiveMode = next;
     if (next === 'locus') {
       sequence = LOCI[locusIndex].sequence;
       editable = sequence.slice(SLICE_START, SLICE_START + SLICE_LEN);
       reference = null;
       current = null;
       renderTrack();
-      renderAttention();
       if (seqInput) seqInput.value = editable;
     } else {
       editable = cleanSequence(seqInput?.value ?? '') || editable;
@@ -494,11 +605,11 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
   });
 
-  attnLayer?.addEventListener('input', renderAttention);
 
   // The neuron raster is a canvas painted with tokens read at draw time; SVG panels restyle
   // themselves, but a canvas does not.
   const onTheme = () => {
+    renderHeatmap();
     refreshLive();
     renderStageDetail(flow?.selected() ?? null);
   };
@@ -511,30 +622,66 @@ export function initVariantPlayground(root: ParentNode = document) {
    */
   function renderStageDetail(stage: FlowStage | null): void {
     if (!stageDetail || !stageMapCanvas) return;
-    if (!stage) {
-      stageDetail.hidden = true;
-      return;
-    }
-    stageDetail.hidden = false;
+    const spec = stage ?? layerSpecs().find((s) => s.id === 'stem')!;
+    const isAttn = spec.id.startsWith('attn');
+
     if (stageTitle) {
       stageTitle.textContent =
-        `${stage.label} — ${stage.positions.toLocaleString()} positions × ` +
-        `${stage.channels.toLocaleString()} channels, receptive field ${stage.receptiveField.toLocaleString()} bp`;
+        `${spec.label} · ${spec.positions.toLocaleString()} positions × ` +
+        `${spec.channels.toLocaleString()} channels`;
+    }
+
+    // Attention is a second view of a transformer layer, not a panel of its own: it is that
+    // layer's most characteristic internal state, but it is not an activation map.
+    logToggle?.addEventListener('change', () => {
+    useLogAxis = logToggle.checked;
+    renderSingleTrack();
+  });
+
+  tabBtns.forEach((b) => {
+      const which = b.dataset.vpTab;
+      if (which === 'attention') b.hidden = !isAttn;
+      b.setAttribute('aria-pressed', String(which === stageTab));
+    });
+    if (!isAttn) stageTab = 'activation';
+
+    // The operations inside this stage, each with the tensor it produces.
+    if (subLayerList) {
+      clear(subLayerList);
+      for (const sub of subLayers(spec)) {
+        const li = document.createElement('li');
+        if (sub.handoff) li.dataset.handoff = 'true';
+        const op = document.createElement('span');
+        op.className = 'op';
+        op.textContent = sub.op;
+        const shape = document.createElement('span');
+        shape.className = 'shape';
+        shape.textContent = `${sub.positions.toLocaleString()} × ${sub.channels.toLocaleString()}`;
+        li.append(op, shape);
+        subLayerList.append(li);
+      }
     }
 
     const acts: FlowActivations | null = current
       ? {
           stemProfile: current.stemProfile,
-          encoderMaps: current.encoderMaps,
-          decoderMaps: current.decoderMaps,
+          stageMaps: current.stageMaps,
           attention: current.attention,
           tracks: current.tracks,
         }
       : null;
-    const map = stageMap(stage, acts);
+
+    const map =
+      stageTab === 'attention'
+        ? (() => {
+            const a = attentionMap(spec as FlowStage, acts);
+            return a ? { data: a, channels: 128, positions: 128 } : null;
+          })()
+        : stageMap(spec as FlowStage, acts);
+
     const ctx = stageMapCanvas.getContext('2d');
     const cssW = stageMapCanvas.clientWidth || 900;
-    const rowH = map ? Math.max(1, Math.min(4, Math.floor(260 / map.channels))) : 3;
+    const rowH = map ? Math.max(1, Math.min(5, Math.floor(300 / map.channels))) : 3;
     const cssH = map ? map.channels * rowH : 40;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     stageMapCanvas.width = Math.round(cssW * dpr);
@@ -547,31 +694,29 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (!map) {
       ctx.fillStyle = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
       ctx.font = '11px system-ui, sans-serif';
-      ctx.fillText('Run the model to fill this stage with its activations.', 4, 22);
+      ctx.fillText('Run the model to fill this layer with its activations.', 4, 22);
       if (stageTop) stageTop.textContent = '';
+      if (stageNote) stageNote.textContent = '';
       return;
     }
 
     const { data, channels, positions } = map;
-    let lo = Infinity;
-    let hi = -Infinity;
-    for (let i = 0; i < data.length; i += 1) {
-      if (data[i] < lo) lo = data[i];
-      if (data[i] > hi) hi = data[i];
-    }
+    // Percentile, not min-max. These tensors are heavy-tailed and a handful of outliers otherwise
+    // set the range, flattening every other cell onto the same ink -- measured, the drawn contrast
+    // falls tenfold from block 1 to block 7.
+    const { lo, hi } = percentileRange(data);
     const cellW = cssW / positions;
     ctx.fillStyle = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
     for (let c = 0; c < channels; c += 1) {
       for (let p = 0; p < positions; p += 1) {
-        const ink = activationInk(data[c * positions + p], lo, hi, FIRE_FLOOR);
-        if (ink === 0) continue;
-        ctx.globalAlpha = ink;
+        const inkV = activationInk(data[c * positions + p], lo, hi, FIRE_FLOOR);
+        if (inkV === 0) continue;
+        ctx.globalAlpha = inkV;
         ctx.fillRect(p * cellW, c * rowH, Math.max(cellW, 0.7), Math.max(rowH - 0.3, 0.7));
       }
     }
     ctx.globalAlpha = 1;
 
-    // Top-k by peak activation -- "which neurons fired hardest anywhere in the window".
     const peaks: { c: number; v: number }[] = [];
     for (let c = 0; c < channels; c += 1) {
       let m = -Infinity;
@@ -581,7 +726,17 @@ export function initVariantPlayground(root: ParentNode = document) {
     peaks.sort((a, b) => b.v - a.v);
     if (stageTop) {
       stageTop.textContent =
-        'loudest channels: ' + peaks.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ');
+        stageTab === 'attention'
+          ? `${positions} × ${positions} over the bottleneck, mean of ${N_HEADS} heads`
+          : 'loudest channels: ' + peaks.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ');
+    }
+    if (stageNote) {
+      const bp = Math.round(SEQ_LEN / positions);
+      stageNote.textContent =
+        stageTab === 'attention'
+          ? `Row = query position, column = key position. Each position covers ${bp} bp.`
+          : `One row per channel, one column per position; ink is the activation between its 1st ` +
+            `and 99th percentile. Each column covers ${bp} bp of input.`;
     }
   }
 
@@ -624,10 +779,17 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (next && !on && scrubInput) scrubInput.value = '1000';
   });
 
-  stageClose?.addEventListener('click', () => {
-    flow?.select(null);
-    renderStageDetail(null);
+  logToggle?.addEventListener('change', () => {
+    useLogAxis = logToggle.checked;
+    renderSingleTrack();
   });
+
+  tabBtns.forEach((b) =>
+    b.addEventListener('click', () => {
+      stageTab = b.dataset.vpTab === 'attention' ? 'attention' : 'activation';
+      renderStageDetail(flow?.selected() ?? null);
+    }),
+  );
 
   truthToggle?.addEventListener('change', () => {
     showTruth = truthToggle.checked;
@@ -663,7 +825,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   if (seqInput) seqInput.value = editable;
   refreshLive();
   renderTrack();
-  renderAttention();
+  renderStageDetail(null);
+  renderHeatmap();
+  renderSingleTrack();
   setStatus('Live conv-stem view is running. Load the full model to predict a track.');
 
   return {
