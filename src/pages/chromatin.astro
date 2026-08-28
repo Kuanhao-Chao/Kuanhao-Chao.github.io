@@ -879,30 +879,34 @@ const milestones = REGIMES.map((r) => ({
       ],
     },
     loops: {
-      title: 'Loop domains and TADs',
+      title: 'Interphase loop domains and TADs',
       body:
-        'Cohesin reels chromatin through itself until it meets two CTCF sites pointing at each ' +
-        'other. Contacts are dense inside the loop and sparse across its boundary, which is what ' +
-        'a TAD is on a Hi-C map — a consequence of the extrusion, not a separate object.',
+        'Cohesin reels the continuous chromatin fibre into an array of topologically associating ' +
+        'domains (TADs) until halted by convergent CTCF insulator pins (➔ and ⬅). Within each ' +
+        'domain, looping brings distal enhancers into direct physical contact with promoters while ' +
+        'insulating neighboring genes from ectopic activation.',
       facts: [
-        ['Loop size', '150 kb – 1 Mb'],
-        ['Reach', '∝ √bp — 900 kb reaches 525 nm'],
-        ['Anchors', 'convergent CTCF sites'],
-        ['Motor', 'cohesin, an SMC complex'],
+        ['Domain size', '150 kb – 1 Mb'],
+        ['Primary loop', '800 kb → 520 nm reach'],
+        ['Regulatory', 'Enhancer–Promoter contact bridge'],
+        ['Boundary', 'Convergent CTCF motifs (➔ ⬅)'],
+        ['Motor', 'Cohesin (40 nm SMC ring)'],
       ],
     },
     mitotic: {
-      title: 'Mitotic loop array',
+      title: 'Mitotic loop array (Metaphase)',
       body:
-        'In prophase condensin II lays down ~60 kb loops. By prometaphase those are ~80 kb inner ' +
-        'loops nested inside ~400 kb outer ones, and the whole array winds helically at 12 Mb per ' +
-        'turn. The outer loops are what set the chromatid width; the helix is what sets its length.',
+        'In prophase, arm cohesin is released while condensin II lays down ~400 kb outer loops. ' +
+        'Condensin I subdivides these into ~80 kb nested inner loops, and the central scaffold winds ' +
+        'into a 12 Mb/turn helical spiral staircase. The loop reach defines the 700 nm arm diameter, ' +
+        'and the centromeric constriction holds the sisters together.',
       facts: [
-        ['Outer loops', '~400 kb → 350 nm reach'],
-        ['Inner loops', '~80 kb, nested'],
-        ['Helical turn', '12 Mb — 482 nm of rise'],
-        ['Chromatid', '700 nm wide, 10 µm long'],
-        ['Total', '84.6 mm into 10 µm ≈ 8,500×'],
+        ['Chromatids', '2 sister arms, 700 nm diameter'],
+        ['Outer loops', '~400 kb → 350 nm radius'],
+        ['Inner loops', '~80 kb nested (Condensin I)'],
+        ['Helical turn', '12 Mb — 482 nm pitch'],
+        ['Centromere', 'Cohesin cuff + Kinetochore plates'],
+        ['Compaction', '84.6 mm into 10 µm ≈ 8,500×'],
       ],
     },
   };

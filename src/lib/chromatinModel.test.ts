@@ -65,7 +65,9 @@ import {
   coilingFibrePositions,
   extrudingLoopPath,
   tadDomainGeometry,
+  multiTadDomainGeometry,
   kinetochorePlates,
+  mitoticChromosomeGeometry,
   snapTarget,
   solenoidFibre,
   superhelixContourNm,
@@ -1072,6 +1074,52 @@ describe('seamless phase transition geometry', () => {
     expect(right.at[1]).toBe(0);
     expect(left.normal[0]).toBeLessThan(0);
     expect(right.normal[0]).toBeGreaterThan(0);
+  });
+
+  it('multiTadDomainGeometry produces 3 contiguous domains with convergent CTCF pins and active bridge', () => {
+    const multi = multiTadDomainGeometry(1);
+    expect(multi.tad1Loop.length).toBeGreaterThan(10);
+    expect(multi.tad2PrimaryLoop.length).toBeGreaterThan(10);
+    expect(multi.tad3Loop.length).toBeGreaterThan(10);
+    expect(multi.cohesinPositions).toHaveLength(3);
+    expect(multi.ctcfPins).toHaveLength(6);
+    expect(multi.bridge.length).toBeGreaterThan(3);
+
+    // TAD 1 is upstream (negative Y), TAD 2 is center (Y ~ 0), TAD 3 is downstream (positive Y)
+    const yTad1 = multi.tad1Loop[0][1];
+    const yTad3 = multi.tad3Loop[0][1];
+    expect(yTad1).toBeLessThan(-300);
+    expect(yTad3).toBeGreaterThan(300);
+
+    // CTCF pins at each domain boundary are convergent
+    const pinTad1L = multi.ctcfPins[0];
+    const pinTad1R = multi.ctcfPins[1];
+    expect(pinTad1L.dir[0]).toBeGreaterThan(0);
+    expect(pinTad1R.dir[0]).toBeLessThan(0);
+
+    const pinTad2L = multi.ctcfPins[2];
+    const pinTad2R = multi.ctcfPins[3];
+    expect(pinTad2L.dir[0]).toBeGreaterThan(0);
+    expect(pinTad2R.dir[0]).toBeLessThan(0);
+  });
+
+  it('mitoticChromosomeGeometry produces paired sister chromatids with condensin II core and radial rosettes', () => {
+    const chr = mitoticChromosomeGeometry();
+    expect(chr.leftArm.loops.length).toBeGreaterThan(100);
+    expect(chr.rightArm.loops.length).toBeGreaterThan(100);
+    expect(chr.leftArm.scaffold.length).toBeGreaterThan(50);
+    expect(chr.rightArm.scaffold.length).toBeGreaterThan(50);
+
+    // Left arm scaffold is at negative X, right arm scaffold is at positive X
+    const leftScafX = chr.leftArm.scaffold[0][0];
+    const rightScafX = chr.rightArm.scaffold[0][0];
+    expect(leftScafX).toBeLessThan(0);
+    expect(rightScafX).toBeGreaterThan(0);
+
+    // Scaffold spans the full 10 µm chromosome height
+    const yVals = chr.leftArm.scaffold.map((p) => p[1]);
+    const height = Math.max(...yVals) - Math.min(...yVals);
+    expect(height).toBeCloseTo(10000, -2);
   });
 });
 

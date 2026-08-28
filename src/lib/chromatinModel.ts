@@ -798,55 +798,140 @@ export interface TadDomainData {
   spine: Vec3[];
 }
 
+export interface MultiTadDomainData {
+  tad1Loop: Vec3[];
+  tad2PrimaryLoop: Vec3[];
+  tad2SubLoop: Vec3[];
+  tad3Loop: Vec3[];
+  enhancer: Vec3;
+  promoter: Vec3;
+  bridge: Vec3[];
+  cohesinPositions: Vec3[];
+  ctcfPins: { at: Vec3; dir: Vec3; domain: number }[];
+  spine: Vec3[];
+}
+
 /**
- * Hero Topologically Associating Domain (TAD) model with active loop extrusion,
- * convergent CTCF boundaries, and nested enhancer-promoter regulatory contacts.
+ * Continuous multi-TAD domain chain with active cohesin extrusion,
+ * convergent CTCF insulation boundaries, and enhancer-promoter regulatory communication.
  */
-export function tadDomainGeometry(extrusionFraction: number): TadDomainData {
+export function multiTadDomainGeometry(extrusionFraction: number): MultiTadDomainData {
   const ext = smoothstep5(Math.min(1, Math.max(0.04, extrusionFraction)));
-  const primaryReach = loopReachNm(800_000) * ext; // ~525 nm at full extrusion
-  const subReach = loopReachNm(220_000) * ext; // ~260 nm at full extrusion
   const SAMPLES = 48;
 
-  const primaryLoop: Vec3[] = [];
-  const primaryWidth = 240 * ext;
+  // 1. Upstream TAD 1 (400 kb, centered at y = -600 nm)
+  const tad1Reach = loopReachNm(400_000) * ext;
+  const tad1Width = 180 * ext;
+  const tad1Loop: Vec3[] = [];
+  const base1Y = -600;
   for (let i = 0; i <= SAMPLES; i += 1) {
-    const u = i / SAMPLES; // 0 to 1
-    const x = primaryWidth * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
-    const y = primaryReach * Math.sin(Math.PI * u);
-    const z = primaryWidth * 0.28 * Math.sin(2 * Math.PI * u);
-    primaryLoop.push([x, y, z]);
+    const u = i / SAMPLES;
+    const x = -tad1Reach * Math.sin(Math.PI * u);
+    const y = base1Y + tad1Width * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
+    const z = tad1Width * 0.25 * Math.sin(2 * Math.PI * u);
+    tad1Loop.push([x - 10, y, z]);
   }
 
-  const subLoop: Vec3[] = [];
+  // 2. Hero TAD 2 (800 kb primary loop + 220 kb nested sub-loop at y = 0)
+  const tad2Reach = loopReachNm(800_000) * ext;
+  const tad2Width = 240 * ext;
+  const tad2PrimaryLoop: Vec3[] = [];
+  for (let i = 0; i <= SAMPLES; i += 1) {
+    const u = i / SAMPLES;
+    const x = tad2Width * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
+    const y = tad2Reach * Math.sin(Math.PI * u);
+    const z = tad2Width * 0.28 * Math.sin(2 * Math.PI * u);
+    tad2PrimaryLoop.push([x, y, z]);
+  }
+
+  const subReach = loopReachNm(220_000) * ext;
   const subWidth = 110 * ext;
+  const tad2SubLoop: Vec3[] = [];
   for (let i = 0; i <= SAMPLES; i += 1) {
     const u = i / SAMPLES;
     const x = subWidth * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
     const y = subReach * Math.sin(Math.PI * u);
     const z = -subWidth * 0.25 * Math.sin(2 * Math.PI * u);
-    subLoop.push([x, y, z]);
+    tad2SubLoop.push([x, y, z]);
   }
 
-  const enhancer = subLoop[Math.round(SAMPLES * 0.35)];
-  const promoter = subLoop[Math.round(SAMPLES * 0.65)];
+  // 3. Downstream TAD 3 (500 kb, centered at y = +600 nm)
+  const tad3Reach = loopReachNm(500_000) * ext;
+  const tad3Width = 200 * ext;
+  const tad3Loop: Vec3[] = [];
+  const base3Y = 600;
+  for (let i = 0; i <= SAMPLES; i += 1) {
+    const u = i / SAMPLES;
+    const x = tad3Reach * Math.sin(Math.PI * u);
+    const y = base3Y + tad3Width * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
+    const z = -tad3Width * 0.25 * Math.sin(2 * Math.PI * u);
+    tad3Loop.push([x + 10, y, z]);
+  }
 
+  const enhancer = tad2SubLoop[Math.round(SAMPLES * 0.32)];
+  const promoter = tad2SubLoop[Math.round(SAMPLES * 0.68)];
+
+  // Enhancer-Promoter transcription contact bridge
+  const bridge: Vec3[] = [];
+  for (let i = 0; i <= 8; i += 1) {
+    const t = i / 8;
+    const bx = enhancer[0] + (promoter[0] - enhancer[0]) * t;
+    const by = enhancer[1] + (promoter[1] - enhancer[1]) * t + Math.sin(t * Math.PI) * 14;
+    const bz = enhancer[2] + (promoter[2] - enhancer[2]) * t + Math.sin(t * Math.PI) * 10;
+    bridge.push([bx, by, bz]);
+  }
+
+  // 4. Continuous chromatin backbone threading through all domains
   const spine: Vec3[] = [];
-  for (let i = -30; i <= 30; i += 1) {
+  for (let i = -50; i <= 50; i += 1) {
     const y = i * 28;
-    const wobble = Math.sin(i * 0.3) * 12;
-    spine.push([wobble, y, Math.cos(i * 0.25) * 12]);
+    const wobble = Math.sin(i * 0.25) * 12;
+    spine.push([wobble, y, Math.cos(i * 0.22) * 12]);
   }
+
+  const cohesinPositions: Vec3[] = [
+    [-10, -600, 0],
+    [0, 0, 0],
+    [10, 600, 0],
+  ];
+
+  const ctcfPins = [
+    { at: [-34, -600, 0] as Vec3, dir: [1, 0, 0] as Vec3, domain: 1 },
+    { at: [14, -600, 0] as Vec3, dir: [-1, 0, 0] as Vec3, domain: 1 },
+    { at: [-24, 0, 0] as Vec3, dir: [1, 0, 0] as Vec3, domain: 2 },
+    { at: [24, 0, 0] as Vec3, dir: [-1, 0, 0] as Vec3, domain: 2 },
+    { at: [-14, 600, 0] as Vec3, dir: [1, 0, 0] as Vec3, domain: 3 },
+    { at: [34, 600, 0] as Vec3, dir: [-1, 0, 0] as Vec3, domain: 3 },
+  ];
 
   return {
-    primaryLoop,
-    subLoop,
+    tad1Loop,
+    tad2PrimaryLoop,
+    tad2SubLoop,
+    tad3Loop,
     enhancer,
     promoter,
-    cohesinPos: [0, 0, 0],
-    ctcfLeft: { at: [-24, 0, 0], dir: [1, 0, 0] },
-    ctcfRight: { at: [24, 0, 0], dir: [-1, 0, 0] },
+    bridge,
+    cohesinPositions,
+    ctcfPins,
     spine,
+  };
+}
+
+/**
+ * Hero Topologically Associating Domain (TAD) model (backward-compatible wrapper).
+ */
+export function tadDomainGeometry(extrusionFraction: number): TadDomainData {
+  const multi = multiTadDomainGeometry(extrusionFraction);
+  return {
+    primaryLoop: multi.tad2PrimaryLoop,
+    subLoop: multi.tad2SubLoop,
+    enhancer: multi.enhancer,
+    promoter: multi.promoter,
+    cohesinPos: multi.cohesinPositions[1],
+    ctcfLeft: multi.ctcfPins[2],
+    ctcfRight: multi.ctcfPins[3],
+    spine: multi.spine,
   };
 }
 
@@ -866,6 +951,70 @@ export function kinetochorePlates(): [KinetochorePlate, KinetochorePlate] {
     { at: [-plateOffset, 0, 0], normal: [-1, 0, 0], radiusNm: 85 },
     { at: [plateOffset, 0, 0], normal: [1, 0, 0], radiusNm: 85 },
   ];
+}
+
+export interface MitoticArmData {
+  loops: Vec3[][];
+  scaffold: Vec3[];
+}
+
+export interface MitoticChromosomeData {
+  leftArm: MitoticArmData;
+  rightArm: MitoticArmData;
+  kinetochores: [KinetochorePlate, KinetochorePlate];
+  centromereCohesinPos: Vec3;
+}
+
+/**
+ * Full metaphase chromosome model (Chromosome 1, 10 µm, 249 Mb)
+ * organized into paired sister chromatids with central Condensin II spiral scaffold (12 Mb/turn)
+ * and radial volumetric loop rosettes.
+ */
+export function mitoticChromosomeGeometry(): MitoticChromosomeData {
+  const LOOPS_PER_ARM = 84;
+  const rise = helicalRisePerTurnNm(); // 482 nm
+  const halfGap = CHROMATID_DIAMETER_NM * 0.52; // 364 nm
+
+  const buildArm = (sign: number): MitoticArmData => {
+    const loops: Vec3[][] = [];
+    const scaffold: Vec3[] = [];
+    const N = LOOPS_PER_ARM;
+
+    for (let i = 0; i <= N; i += 1) {
+      const u = i / N;
+      const y = (u - 0.5) * CHR1_METAPHASE_NM;
+      const az = (y / rise) * 2 * Math.PI;
+      const pinch = centromereConstriction(u);
+
+      const sx = sign * halfGap + Math.cos(az) * (50 * pinch);
+      const sz = Math.sin(az) * (50 * pinch);
+      scaffold.push([sx, y, sz]);
+
+      if (i === N) break;
+
+      const reach = loopReachNm(PROMETA_OUTER_LOOP_BP) * pinch;
+      for (let p = 0; p < 3; p += 1) {
+        const petalAz = az + (p * 2 * Math.PI) / 3;
+        const raw = extrudedLoop(y, PROMETA_OUTER_LOOP_BP, petalAz, 18);
+        const k = reach / loopReachNm(PROMETA_OUTER_LOOP_BP);
+        loops.push(
+          raw.map((pt) => [sx + pt[0] * k, pt[1], sz + pt[2] * k] as Vec3),
+        );
+      }
+    }
+    return { loops, scaffold };
+  };
+
+  const leftArm = buildArm(-1);
+  const rightArm = buildArm(1);
+  const kinetochores = kinetochorePlates();
+
+  return {
+    leftArm,
+    rightArm,
+    kinetochores,
+    centromereCohesinPos: [0, 0, 0],
+  };
 }
 
 /**
