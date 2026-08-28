@@ -427,4 +427,21 @@ export class SonicAudioEngine {
     }
     return { timeData: new Uint8Array(0), freqData: new Uint8Array(0) };
   }
+
+  public stopAll(): void {
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+    }
+  }
+
+  public destroy(): void {
+    this.stopAll();
+    if (this.ctx && this.ctx.state !== 'closed') {
+      try {
+        this.ctx.close();
+      } catch {}
+    }
+    this.ctx = null;
+    this.isInitialized = false;
+  }
 }
