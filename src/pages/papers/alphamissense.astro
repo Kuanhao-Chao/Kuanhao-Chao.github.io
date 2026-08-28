@@ -5,201 +5,312 @@ import Katex from '../../components/Katex.astro';
 import '../../styles/paper.css';
 import 'katex/dist/katex.min.css';
 
+// Every number here is traceable to the paper's main text and checked by
+// `node scripts/verify-paper-claims.mjs --slug alphamissense`.
+// Note on what is deliberately absent: the released data files classify variants with numeric
+// score cutoffs, but the paper states only that the cutoff is calibrated to 90% precision on
+// ClinVar. The specific boundaries could not be sourced to anything citable, so they are not
+// asserted here -- an earlier version of this page gave them as 0.340 and 0.564.
 const title = "Accurate Proteome-Wide Missense Variant Effect Prediction with AlphaMissense";
-const description = "Comprehensive technical summary and deep literature deconstruction of AlphaMissense (Cheng et al., Google DeepMind, Science 2023): Structural context and evolutionary constraint for predicting missense variant pathogenicity.";
+const description = "Technical summary of AlphaMissense (Cheng et al., Google DeepMind, Science 2023): fine-tuning AlphaFold on human and primate population frequency data to classify all 71 million possible human missense variants.";
 const readingTime = "22 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article" noindex={true}>
   <article class="paper-article">
-    <!-- Back to Catalog -->
     <nav style="margin-bottom: var(--space-4);">
       <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
         <Icon name="arrow-left" size={14} /> Back to Paper Summaries
       </a>
     </nav>
 
-    <!-- Header -->
     <header class="paper-header">
       <div class="paper-meta-bar">
         <span class="paper-tag">Protein Structure & Clinical Variant Prediction</span>
-        <span class="paper-venue-badge">Science · September 2023 (Research Article)</span>
+        <span class="paper-venue-badge">Science · 19 September 2023 (Research Article)</span>
         <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
       </div>
 
       <h1 class="paper-title">{title}</h1>
 
       <div class="paper-authors-box">
-        <div><strong>Authors:</strong> Jun Cheng*, Guido Novati*, Joshua Pan, Clare Bycroft, Akvilė Žemgulytė, Taylor Applebaum, Alexander Pritzel, Luuk Wong, Michal Zielinski, Tobias Sargeant, Roman G. Schneider, Andrew W. Senior, John Jumper, Demis Hassabis, Pushmeet Kohli, Žiga Avsec*</div>
+        <div><strong>Authors:</strong> Jun Cheng*, Guido Novati, Joshua Pan, Clare Bycroft, Akvilė Žemgulytė, Taylor Applebaum, Alexander Pritzel, Lai Hong Wong, Michal Zielinski, Tobias Sargeant, Rosalia G. Schneider, Andrew W. Senior, John Jumper, Demis Hassabis, Pushmeet Kohli*, Žiga Avsec* (16 authors)</div>
         <div><strong>Affiliation:</strong> Google DeepMind, London, UK</div>
-        <div><strong>DOI:</strong> <a href="https://doi.org/10.1126/science.adg7492" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1126/science.adg7492</a> · Science (Vol 381, Issue 6664, eadg7492)</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1126/science.adg7492" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1126/science.adg7492</a> · Science 381, eadg7492</div>
       </div>
     </header>
 
-    <!-- Lead / Overview -->
     <p class="paper-lead">
-      Of the over 4 million missense variants observed in human sequencing cohorts, the vast majority are classified as <strong>Variants of Uncertain Significance (VUS)</strong>. Developed by <strong>Google DeepMind</strong>, <strong>AlphaMissense</strong> adapts the revolutionary <strong>AlphaFold</strong> structure prediction engine to evaluate the phenotypic consequences of missense mutations proteome-wide. By fine-tuning AlphaFold's Evoformer architecture on population frequency data from human and primate genomes, AlphaMissense scores all <strong>216 million possible single-amino-acid substitutions across 19,233 canonical human proteins</strong>, classifying <strong>89% of all variants</strong> into high-confidence pathogenic (32%) or benign (57%) categories with 90% expected clinical precision.
+      Genome sequencing finds far more missense variants than anyone can interpret: more than
+      <strong>4 million</strong> have been observed in humans, and only a small fraction carry a clinical
+      annotation. <strong>AlphaMissense</strong> attacks the gap by fine-tuning AlphaFold on
+      <strong>human and primate variant population frequency data</strong> — weak labels rather than
+      human-curated ones — and predicting a pathogenicity probability for every possible substitution. It
+      classifies <strong>89% of all missense variants</strong> as likely benign or likely pathogenic
+      (<strong>32% pathogenic, 57% benign</strong>) at a cutoff calibrated to <strong>90% precision on
+      ClinVar</strong>, reaching an <strong>auROC of 0.940 on 18,924 held-out ClinVar variants</strong>
+      against 0.911 for EVE.
     </p>
 
-    <!-- Table of Contents -->
     <div class="paper-toc">
       <div class="paper-toc-title">
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. Executive Summary & Clinical Paradigm</a></li>
-        <li><a href="#architecture">2. Model Architecture: Adapting AlphaFold for Pathogenicity</a></li>
-        <li><a href="#training-corpus">3. Training Regime & Primate Population Supervision</a></li>
-        <li><a href="#benchmarks">4. Empirical Benchmarks: ClinVar & Deep Mutational Scanning (DMS)</a></li>
-        <li><a href="#proteome-landscape">5. Proteome-Wide Pathogenicity Landscape & Essential Genes</a></li>
-        <li><a href="#mathematical-formulation">6. Mathematical Formulation & Scoring Objectives</a></li>
-        <li><a href="#failure-modes">7. Limitations & Structural Failure Modes</a></li>
-        <li><a href="#strategic-synthesis">8. Master Synthesis & Synergy with Foundation Models</a></li>
+        <li><a href="#summary">1. The Variant Interpretation Gap</a></li>
+        <li><a href="#architecture">2. Architecture: AlphaFold as a Foundation</a></li>
+        <li><a href="#weak-labels">3. The Central Trick: Weak Labels from Population Frequency</a></li>
+        <li><a href="#benchmarks">4. Clinical and Experimental Benchmarks</a></li>
+        <li><a href="#proteome">5. Saturating the Proteome</a></li>
+        <li><a href="#emergent">6. Emergent Properties: Essentiality, Structure, Disorder</a></li>
+        <li><a href="#mathematical-formulation">7. Mathematical Formulation</a></li>
+        <li><a href="#failure-modes">8. Limitations & What the Score Does Not Mean</a></li>
       </ol>
     </div>
 
-    <!-- Section 1 -->
-    <section id="summary">
-      <h2>1. Executive Summary & Clinical Paradigm</h2>
+    <section id="summary" class="paper-section">
+      <h2>1. The Variant Interpretation Gap</h2>
       <p>
-        Missense variants alter a single amino acid in a translated protein. While individual patients typically carry ~10,000 missense mutations, fewer than 2% have been experimentally or clinically characterized in ClinVar.
+        A missense variant changes one amino acid. Most are harmless; a few cause disease; and for the
+        overwhelming majority nobody knows, which is why "variant of uncertain significance" is the commonest
+        result a clinical sequencing lab returns. Of the more than <strong>4 million observed missense
+        variants</strong>, only a small share have been curated into a clinical database.
+      </p>
+      <p>
+        The paper's framing is that this is a labelling problem masquerading as a modelling problem. Curated
+        labels are scarce, biased toward well-studied genes, and shaped by the very heuristics a model would
+        be asked to learn. AlphaMissense's answer is to avoid them during training.
+      </p>
+    </section>
+
+    <section id="architecture" class="paper-section">
+      <h2>2. Architecture: AlphaFold as a Foundation</h2>
+
+      <h3>What is inherited, and what changes</h3>
+      <p>
+        The implementation <strong>closely follows AlphaFold, with minor architectural changes</strong>. The
+        inputs are the reference protein sequence together with the multiple sequence alignment that AlphaFold
+        already relies on; the structural understanding is not re-learned but reused.
+      </p>
+      <p>
+        The pathogenicity readout comes from a <strong>masked residue prediction head</strong>: the score is
+        the <strong>difference in predicted log-likelihood between the alternate and the reference
+        residue</strong> at that position. This is the standard variant-effect construction from protein
+        language models, applied to a network whose representation was built for structure.
+      </p>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="target" size={15} /> Why start from a structure model at all
+        </div>
+        <p>
+          A protein language model learns which residues are tolerated from sequence alignments. AlphaFold
+          learns that <em>plus</em> the geometry those alignments imply. The bet is that a representation
+          which can place a residue in three dimensions already encodes why substituting it matters — and
+          the emergent results in section 6, none of which were trained for, are the evidence offered.
+        </p>
+      </div>
+    </section>
+
+    <section id="weak-labels" class="paper-section">
+      <h2>3. The Central Trick: Weak Labels from Population Frequency</h2>
+      <p>
+        Rather than fine-tuning on ClinVar, AlphaMissense fine-tunes on <strong>human and primate variant
+        population frequency data</strong>, described in the paper as <strong>weak labels</strong>, explicitly
+        <strong>avoiding bias from human-curated annotations</strong>.
+      </p>
+      <p>
+        The logic is population-genetic rather than clinical. A substitution observed at appreciable frequency
+        in humans or in closely related primates has survived purifying selection and is therefore probably
+        tolerated; one that never appears may not be. Neither signal requires a clinician to have written
+        anything down, and critically, neither is contaminated by the annotation practices that a
+        ClinVar-trained model would otherwise learn to reproduce.
+      </p>
+      <p>
+        The confidence calibration is then done separately, on known disease variants — so curated data enters
+        the pipeline only to set a threshold, never to shape the representation.
+      </p>
+    </section>
+
+    <section id="benchmarks" class="paper-section">
+      <h2>4. Clinical and Experimental Benchmarks</h2>
+
+      <h3>ClinVar, held out</h3>
+      <p>
+        On <strong>18,924 held-out ClinVar test variants</strong>, AlphaMissense achieves an
+        <strong>auROC of 0.940</strong>, against <strong>0.911</strong> for the Evolutionary model of Variant
+        Effect (EVE), a difference the paper reports at <strong>P = 0.001</strong>.
+      </p>
+
+      <h3>De novo variants in developmental disorders</h3>
+      <p>
+        On the <strong>Deciphering Developmental Disorders (DDD)</strong> benchmark, AlphaMissense achieves an
+        <strong>auROC of 0.809</strong>. This is the harder and more honest test: DDD variants are <em>de
+        novo</em>, so they cannot have been seen in the population-frequency data the model was fine-tuned on.
+      </p>
+
+      <h3>Multiplexed assays of variant effect</h3>
+      <p>
+        The third axis is experimental rather than clinical — <strong>ProteinGym</strong>, a collection of
+        multiplexed assays of variant effect (deep mutational scans). Performance here is measured by rank
+        correlation with the assay, and it matters because it tests the score against a physical measurement
+        with no curation in the loop at all.
       </p>
 
       <div class="paper-table-wrap">
         <table class="paper-table">
           <thead>
             <tr>
-              <th>Evaluation Metric</th>
-              <th>Existing Clinical Standards (REVEL, EVE, ESM-1v)</th>
-              <th>AlphaMissense Breakthrough</th>
+              <th>Benchmark</th>
+              <th>What it tests</th>
+              <th>Reported result</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>ClinVar Benchmark (ROC-AUC)</strong></td>
-              <td>REVEL (0.912), EVE (0.908), ESM-1v (0.893), PolyPhen-2 (0.840)</td>
-              <td><strong>0.940 ROC-AUC (0.871 AUPRC)</strong> — Highest overall performance.</td>
+              <td><strong>ClinVar (held out)</strong></td>
+              <td>Agreement with expert clinical classification</td>
+              <td><strong>auROC 0.940</strong> on 18,924 variants (EVE: 0.911, P = 0.001)</td>
             </tr>
             <tr>
-              <td><strong>Deep Mutational Scanning (72 DMS Assays)</strong></td>
-              <td>EVE (Spearman <Katex tex="\rho = 0.47" />), ESM-1v (<Katex tex="\rho = 0.49" />)</td>
-              <td><strong>Spearman <Katex tex="\rho = 0.52" /></strong> across diverse experimental readouts.</td>
+              <td><strong>DDD de novo</strong></td>
+              <td>Variants absent from population data by construction</td>
+              <td><strong>auROC 0.809</strong></td>
             </tr>
             <tr>
-              <td><strong>Proteome-Wide Classification Coverage</strong></td>
-              <td>~20%–40% categorized with high confidence</td>
-              <td><strong>89% of all 216M missense variants classified (32% pathogenic, 57% benign).</strong></td>
-            </tr>
-            <tr>
-              <td><strong>Input Context Integration</strong></td>
-              <td>Sequence MSA only (EVE) or 3D structure only (FoldX)</td>
-              <td><strong>Simultaneous 3D structural backbone + Multiple Sequence Alignment.</strong></td>
+              <td><strong>ProteinGym (MAVE/DMS)</strong></td>
+              <td>Rank agreement with direct experimental measurement</td>
+              <td>Evaluated by Spearman correlation across assays</td>
             </tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <!-- Section 2 -->
-    <section id="architecture">
-      <h2>2. Model Architecture: Adapting AlphaFold for Pathogenicity</h2>
-      <p>
-        AlphaMissense modifies the original AlphaFold architecture by removing the structural coordination head and replacing it with a masked language model scoring head:
-      </p>
-      <ul>
-        <li><strong>Evoformer Backbone:</strong> Processes MSA representations and pair spatial representations across the target protein structure.</li>
-        <li><strong>Structural Conditioning:</strong> Conditions amino acid probabilities directly on the predicted 3D coordinate frame and spatial distances between residues.</li>
-        <li><strong>Variant Scoring Head:</strong> Computes the log-odds ratio between the mutant amino acid <Katex tex="x_{\text{alt}}" /> and reference amino acid <Katex tex="x_{\text{ref}}" /> at position <Katex tex="i" />:
-          <div class="paper-equation-block">
-            <Katex tex="s(v) = \log P_\theta(x_{\text{alt}} \mid \text{Structure}, \text{MSA}) - \log P_\theta(x_{\text{ref}} \mid \text{Structure}, \text{MSA})" />
-          </div>
-        </li>
-      </ul>
-    </section>
+    <section id="proteome" class="paper-section">
+      <h2>5. Saturating the Proteome</h2>
 
-    <!-- Section 3 -->
-    <section id="training-corpus">
-      <h2>3. Training Regime & Primate Population Supervision</h2>
+      <h3>Two counts that are not the same number</h3>
       <p>
-        A central innovation of AlphaMissense is its self-supervised training scheme avoiding circularity:
+        AlphaMissense predicts the pathogenicity of all <strong>216 million possible single amino acid
+        changes</strong> across <strong>19,233 canonical human proteins</strong>. That is the space of amino
+        acid substitutions. The subset reachable by a single nucleotide change — the missense variants that
+        can actually occur — is <strong>71 million</strong>, and the paper describes this as
+        <strong>saturating the human proteome</strong>.
       </p>
-      <ul>
-        <li><strong>Unsupervised Pretraining:</strong> AlphaFold masked language modeling across UniRef multi-species MSAs.</li>
-        <li><strong>Fine-Tuning on Primate & Human Variation:</strong> Trained on common human variants (gnomAD allele frequency <Katex tex="> 0.001" />) and primate population variation from 6 non-human primate species (labeled as benign proxies), contrasted with unobserved substitutions across conserved structural sites (labeled as pathogenic proxies).</li>
-        <li><strong>Zero Data Leakage:</strong> The model is never trained on ClinVar or experimental DMS labels, ensuring unbiased clinical evaluation.</li>
-      </ul>
-    </section>
 
-    <!-- Section 4 -->
-    <section id="benchmarks">
-      <h2>4. Empirical Benchmarks: ClinVar & Deep Mutational Scanning</h2>
-      <p>
-        AlphaMissense was evaluated across extensive independent clinical and functional datasets:
-      </p>
-      <ul>
-        <li><strong>ClinVar Pathogenic vs. Benign:</strong> Outperformed all supervised and unsupervised baselines across all 19 autosomal and sex chromosomes.</li>
-        <li><strong>Multiplexed Assays of Variant Effect (MAVE / DMS):</strong> Tested on 72 assays encompassing cell growth, stability, enzyme activity, and ligand binding, achieving the top average Spearman correlation (<Katex tex="\rho = 0.52" />).</li>
-        <li><strong>De Novo Mutations in Rare Disease:</strong> Significantly enriched in individuals with developmental disorders (DDD study) and autism spectrum disorder (Simons Simplex Collection).</li>
-      </ul>
-    </section>
-
-    <!-- Section 5 -->
-    <section id="proteome-landscape">
-      <h2>5. Proteome-Wide Pathogenicity Landscape & Essential Genes</h2>
-      <p>
-        AlphaMissense computed scores for all <strong>216,431,800 possible missense variants</strong> across 19,233 human proteins.
-      </p>
       <div class="paper-callout">
         <div class="paper-callout-title">
-          <Icon name="sparkles" size={15} /> Key Proteome Discoveries
+          <Icon name="sparkles" size={15} /> The coverage result that makes it a resource
         </div>
         <p>
-          1. <strong>Gene-Level Mean Pathogenicity Score:</strong> Strongly correlates with cellular essentiality in CRISPR screens (<Katex tex="r = -0.68" />).
-          <br />
-          2. <strong>Short Essential Genes:</strong> Correctly pinpoints short, highly conserved essential genes (e.g. mitochondrial oxidative phosphorylation subunits such as <em>UQCR11</em>, ribosomal proteins like <em>RPL39</em>) where traditional population constraint metrics (LOEUF) lack statistical power due to small target size.
-          <br />
-          3. <strong>Structural Domain Hotspots:</strong> Clearly delineates active enzyme catalytic clefts, zinc-finger coordination domains, and protein-protein binding interfaces.
+          Of <strong>69.5 million variants unobserved in gnomAD</strong> — the ones with no population
+          frequency to read off, and therefore the ones a frequency-based method has nothing to say about —
+          AlphaMissense makes a confident prediction for <strong>61.7 million (88.8%)</strong>. That is the
+          claim that turns a good classifier into a lookup table for clinical genetics: the coverage is
+          concentrated exactly where the evidence was missing.
         </p>
       </div>
+
+      <p>
+        Across the whole set, <strong>89%</strong> of missense variants are classified as either likely benign
+        or likely pathogenic — <strong>32% likely pathogenic and 57% likely benign</strong> — using a cutoff
+        chosen to yield <strong>90% precision on ClinVar</strong>. The remaining ~11% stay ambiguous, and the
+        paper does not pretend otherwise.
+      </p>
     </section>
 
-    <!-- Section 6 -->
-    <section id="mathematical-formulation">
-      <h2>6. Mathematical Formulation & Scoring Objectives</h2>
+    <section id="emergent" class="paper-section">
+      <h2>6. Emergent Properties: Essentiality, Structure, Disorder</h2>
       <p>
-        The continuous pathogenicity score <Katex tex="s(v) \in [0, 1]" /> is calibrated using logistic regression over the raw log-odds output:
+        The results in this section were not trained for, which is what makes them interesting.
+      </p>
+
+      <h3>Gene-level essentiality</h3>
+      <p>
+        The <strong>average pathogenicity score of a gene predicts its cell essentiality</strong>, and does so
+        well enough to identify <strong>short essential genes that existing statistical approaches are
+        underpowered to detect</strong>. Population-constraint metrics need mutational opportunity to
+        accumulate; a short gene does not provide it, so constraint-based methods lose power exactly where a
+        per-variant model does not.
+      </p>
+
+      <h3>Structured domains versus disordered regions</h3>
+      <p>
+        Variants located in structured domains receive <strong>higher pathogenicity scores than variants in
+        disordered regions</strong>, with disorder predicted by AlphaFold itself. The paper is candid that
+        this cuts both ways: it also notes <strong>reduced performance on variants at residues predicted to
+        be disordered</strong>. A model grounded in structure is least reliable where there is least
+        structure.
+      </p>
+
+      <h3>Protein stability</h3>
+      <p>
+        The analysis also reports that <strong>disease-causing variants are more likely to reside in thermally
+        stable proteins</strong> — a property of the disease-variant distribution rather than of the model,
+        surfaced by having scores for everything.
+      </p>
+    </section>
+
+    <section id="mathematical-formulation" class="paper-section">
+      <h2>7. Mathematical Formulation</h2>
+      <p>
+        Pathogenicity is read out of the masked residue prediction head as the log-likelihood difference
+        between the alternate residue <Katex tex="a" /> and the reference residue <Katex tex="r" /> at
+        position <Katex tex="i" />, conditioned on the surrounding sequence <Katex tex="\mathbf{x}" /> and its
+        multiple sequence alignment <Katex tex="\mathcal{M}" />:
       </p>
       <div class="paper-equation-block">
-        <Katex tex="s(v) = \sigma\left( w \cdot \left[ \log \frac{P(x_{\text{alt}})}{P(x_{\text{ref}})} \right] + b \right) = \frac{1}{1 + \exp\left( - \left( w \cdot \Delta \text{LLR}(v) + b \right) \right)}" />
+        <Katex tex="s(v) \;\propto\; \log p\big(a \mid \mathbf{x}_{\setminus i}, \mathcal{M}\big) - \log p\big(r \mid \mathbf{x}_{\setminus i}, \mathcal{M}\big)" />
       </div>
       <p>
-        Where cutoffs are thresholded based on 90% expected precision on ClinVar benign and pathogenic controls:
-        <br />
-        • <strong>Likely Benign:</strong> <Katex tex="s(v) \le 0.340" />
-        <br />
-        • <strong>Ambiguous:</strong> <Katex tex="0.340 < s(v) < 0.564" />
-        <br />
-        • <strong>Likely Pathogenic:</strong> <Katex tex="s(v) \ge 0.564" />
+        Two things follow from the form. It is a <em>difference</em>, so any per-position bias in the head
+        cancels — the score asks how much worse the alternate is than the reference, not how likely either is
+        in absolute terms. And it is defined for every substitution at every position without needing labels,
+        which is what makes proteome-wide saturation possible at all.
       </p>
-    </section>
-
-    <!-- Section 7 -->
-    <section id="failure-modes">
-      <h2>7. Limitations & Structural Failure Modes</h2>
-      <ul>
-        <li><strong>Protein-Protein Complexes:</strong> Evaluates monomeric structures; may underestimate pathogenicity of variants residing in quaternary interfaces or multi-protein complexes.</li>
-        <li><strong>Post-Translational Modifications:</strong> Unaware of dynamic phosphorylation, ubiquitination, or glycosylation regulatory signals unless captured via structural packing.</li>
-        <li><strong>Intrinsically Disordered Regions (IDRs):</strong> Lower confidence in flexible, unstructured loop regions with low AlphaFold pLDDT scores.</li>
-        <li><strong>Coding Only:</strong> Does not evaluate non-coding regulatory, splicing, or synonymous mutations.</li>
-      </ul>
-    </section>
-
-    <!-- Section 8 -->
-    <section id="strategic-synthesis">
-      <h2>8. Master Synthesis & Synergy with Foundation Models</h2>
       <p>
-        AlphaMissense represents the premier gold standard for coding missense variant effect prediction. In the modern foundation genomics stack, it operates in perfect synergy with non-coding sequence-to-function models (Borzoi, AlphaGenome) and alignment constraint models (GPN-Star), providing end-to-end variant interpretation from whole-genome sequencing down to atomic proteomic resolution.
+        The final classification is a threshold on the calibrated score, chosen so that precision on ClinVar
+        reaches 90%:
       </p>
+      <div class="paper-equation-block">
+        <Katex tex="\text{class}(v) = \begin{cases} \text{likely pathogenic} & s(v) > \tau_{\text{high}} \\ \text{ambiguous} & \tau_{\text{low}} \le s(v) \le \tau_{\text{high}} \\ \text{likely benign} & s(v) < \tau_{\text{low}} \end{cases}" />
+      </div>
+    </section>
+
+    <section id="failure-modes" class="paper-section">
+      <h2>8. Limitations & What the Score Does Not Mean</h2>
+
+      <h3>Where the model is weakest</h3>
+      <ul>
+        <li><strong>Disordered residues.</strong> The paper explicitly reports reduced performance there. Intrinsically disordered regions are a large fraction of the human proteome and are enriched for regulatory and signalling function.</li>
+        <li><strong>Coding, missense, single substitutions only.</strong> Nothing here addresses non-coding variants, splice-disrupting synonymous changes, indels, or structural variation — which is most of the variation in a genome.</li>
+      </ul>
+
+      <h3>The label question the design raises</h3>
+      <ul>
+        <li><strong>Population frequency is a proxy for tolerance, not for benignity.</strong> A variant can be common and still contribute risk, particularly for late-onset or low-penetrance disease, where selection has had little to act on. The weak-label design buys freedom from curation bias at the cost of inheriting this one.</li>
+        <li><strong>Primate frequency data imports its own assumption</strong> — that a substitution tolerated in a related species is tolerated in the human protein context.</li>
+      </ul>
+
+      <h3>What "likely pathogenic" licenses clinically</h3>
+      <ul>
+        <li><strong>A calibrated 90%-precision cutoff is a population-level guarantee, not a per-variant one.</strong> The paper offers a resource for prioritisation; ACMG-style clinical classification requires evidence types — segregation, functional assay, allele frequency in matched controls — that a sequence model does not supply.</li>
+        <li><strong>89% classified is not 89% solved.</strong> The remaining ambiguous fraction is not random: it concentrates where the model has least signal, which is where the hard cases already were.</li>
+      </ul>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="book" size={15} /> Source note
+        </div>
+        <p>
+          Written against the full text of the published Science article (13 pp). Figures cited as "fig. S…"
+          in the paper live in the supplementary materials, which are not part of this reading — where a
+          number appears only there, this page describes the finding without quoting the value. The page is
+          checked by <code>scripts/verify-paper-claims.mjs</code>, which flags any number the paper's own
+          text does not contain.
+        </p>
+      </div>
     </section>
   </article>
 </BaseLayout>

@@ -5,182 +5,307 @@ import Katex from '../../components/Katex.astro';
 import '../../styles/paper.css';
 import 'katex/dist/katex.min.css';
 
-const title = "The Nucleotide Transformer: Building and Evaluating Robust Foundation Models for Human Genomics";
-const description = "Comprehensive technical summary and deep literature deconstruction of the Nucleotide Transformer suite (Dalla-Torre et al., InstaDeep & NVIDIA, Nature Methods 2024): Scaling genomic foundation models up to 2.5B parameters across 850 species and 1 Mb context.";
+// Two corrections of record, both verified against the paper's full text:
+//  1. There is no separate "NT2" publication. The NT-v2 models (50M-500M params, 12 kb context,
+//     rotary embeddings, swiGLU) are introduced in THIS paper -- 18 "NT-v2" mentions in it.
+//     The previous version of this page listed "NT2 (BioNeMo 2024): 500M params" as its own work.
+//  2. The citation said "Nature Methods Vol 21, pp. 2523-2535". Crossref: volume 22, pages
+//     287-297, issue 2, online 28 Nov 2024. The old page range was the DOI suffix (02523) reused.
+// NTv3 is a genuinely separate paper and now has its own page at /papers/nucleotide-transformer-v3/.
+// Checked by `node scripts/verify-paper-claims.mjs --slug nucleotide-transformer`.
+const title = "Nucleotide Transformer: Building and Evaluating Robust Foundation Models for Human Genomics";
+const description = "Technical summary of the Nucleotide Transformer (Dalla-Torre et al., InstaDeep, Nature Methods 2025): DNA foundation models from 50M to 2.5B parameters pretrained on 3,202 human and 850 multispecies genomes, evaluated by probing and fine-tuning across 18 tasks.";
 const readingTime = "24 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article" noindex={true}>
   <article class="paper-article">
-    <!-- Back to Catalog -->
     <nav style="margin-bottom: var(--space-4);">
       <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
         <Icon name="arrow-left" size={14} /> Back to Paper Summaries
       </a>
     </nav>
 
-    <!-- Header -->
     <header class="paper-header">
       <div class="paper-meta-bar">
-        <span class="paper-tag">Genomic Foundation Models & DNA Language Modeling</span>
-        <span class="paper-venue-badge">Nature Methods · 2024 (Research Article)</span>
+        <span class="paper-tag">DNA Language Models & Foundation Models</span>
+        <span class="paper-venue-badge">Nature Methods · online 28 November 2024</span>
         <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
       </div>
 
       <h1 class="paper-title">{title}</h1>
 
       <div class="paper-authors-box">
-        <div><strong>Authors:</strong> Hugo Dalla-Torre*, Liam Gonzalez*, Javier Mendoza-Revilla*, Nicolas Lopez Carranza, Adam Henryk Grzywaczewski, Francesco Oteri, Christian Dallago, Evan Trop, Hassan Sirelkhatim, Guillaume Richard, Michal Skwark, Karim Beguir, Marie Lopez, & Thomas Pierrot*</div>
-        <div><strong>Affiliation:</strong> InstaDeep AI, London, UK; NVIDIA BioNeMo; Google Cloud</div>
-        <div><strong>DOI:</strong> <a href="https://doi.org/10.1038/s41592-024-02523-z" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1038/s41592-024-02523-z</a> · Nature Methods (Vol 21, pp. 2523–2535)</div>
+        <div><strong>Authors:</strong> Hugo Dalla-Torre*, Liam Gonzalez*, Javier Mendoza-Revilla*, Nicolas Lopez Carranza, Adam Henryk Grzywaczewski, Francesco Oteri, Christian Dallago, Evan Trop, Hassan Sirelkhatim, Guillaume Richard, Michael Skwark, Karim Beguir, Marie Lopez, Thomas Pierrot*</div>
+        <div><strong>Affiliation:</strong> InstaDeep, London, UK; NVIDIA; Technical University of Munich</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1038/s41592-024-02523-z" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1038/s41592-024-02523-z</a> · Nature Methods 22(2), 287–297</div>
       </div>
     </header>
 
-    <!-- Lead / Overview -->
     <p class="paper-lead">
-      While large language models revolutionized natural language processing, decoding the complex regulatory grammar of non-coding DNA requires modeling massive evolutionary diversity and long-range genomic dependencies. Developed by <strong>InstaDeep and NVIDIA BioNeMo</strong>, the <strong>Nucleotide Transformer (NT)</strong> suite scales transformer foundation models from 50 million to <strong>2.5 billion parameters</strong>. Pretrained on over <strong>9 trillion nucleotides</strong> across 3,202 diverse human genomes and 850 multi-species reference genomes with context scaling up to <strong>1 Mb (NT3)</strong>, the Nucleotide Transformer establishes a unified platform for zero-shot variant scoring, epigenomic track prediction, and regulatory motif discovery across 18 downstream genomic tasks.
+      Protein language models showed that self-supervised pretraining on sequence alone yields
+      representations that transfer. The <strong>Nucleotide Transformer</strong> asks whether the same holds
+      for DNA, and does so as a controlled study rather than a single model: transformers from
+      <strong>50 million to 2.5 billion parameters</strong>, pretrained on <strong>3,202 human genomes</strong>
+      and <strong>850 genomes from diverse species</strong>, evaluated by both <strong>probing and
+      fine-tuning</strong> across <strong>18 genomic tasks</strong>. Its central finding is about data, not
+      scale: the <strong>Multispecies 2.5B</strong> model <strong>outperforms or matches</strong> the
+      same-sized model trained on 3,202 human genomes — on human tasks.
     </p>
 
-    <!-- Table of Contents -->
     <div class="paper-toc">
       <div class="paper-toc-title">
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. Executive Summary & The NT Foundation Model Ecosystem</a></li>
-        <li><a href="#family-evolution">2. Model Evolution: NT1, NT2, and NT3 Architecture Comparison</a></li>
-        <li><a href="#tokenization">3. 6-Mer Tokenization & Multi-Species Pretraining Corpus</a></li>
-        <li><a href="#benchmarks">4. Comprehensive 18-Task Downstream Benchmark Evaluation</a></li>
-        <li><a href="#variant-scoring">5. Zero-Shot Pathogenic Variant Effect Scoring</a></li>
-        <li><a href="#mathematical-formulation">6. Mathematical Formulation & Masked Language Objective</a></li>
-        <li><a href="#failure-modes">7. Limitations & Context Scaling Trade-offs</a></li>
-        <li><a href="#strategic-synthesis">8. Master Synthesis & Modern Genomic AI Synergy</a></li>
+        <li><a href="#summary">1. The Question: Does Pretraining Transfer to DNA?</a></li>
+        <li><a href="#models">2. The Four Pretraining Corpora</a></li>
+        <li><a href="#tokenization">3. Six-Mer Tokenization and the 6 kb Ceiling</a></li>
+        <li><a href="#evaluation">4. Probing versus Fine-Tuning</a></li>
+        <li><a href="#results">5. The Multispecies Result</a></li>
+        <li><a href="#ntv2">6. NT-v2: What This Paper Actually Introduces Second</a></li>
+        <li><a href="#mathematical-formulation">7. Mathematical Formulation</a></li>
+        <li><a href="#failure-modes">8. Limitations & Where the Line Runs to NTv3</a></li>
       </ol>
     </div>
 
-    <!-- Section 1 -->
-    <section id="summary">
-      <h2>1. Executive Summary & The NT Foundation Model Ecosystem</h2>
+    <section id="summary" class="paper-section">
+      <h2>1. The Question: Does Pretraining Transfer to DNA?</h2>
       <p>
-        The Nucleotide Transformer family represents one of the largest and most systematically evaluated foundation model suites in computational biology.
+        Protein language models trained by masked-residue prediction on large sequence datasets compete with
+        and outperform earlier approaches on downstream tasks through transfer learning. DNA presents both
+        <strong>an opportunity and a challenge</strong>: intricate patterns of natural variability across
+        species and populations are readily available, but the signal is sparse in a way protein sequence is
+        not.
+      </p>
+      <p>
+        The paper's contribution is as much benchmark as model. It positions itself as a
+        <strong>benchmark of foundational genomics models</strong> that should <strong>serve as a reference
+        for the development of further language models in genomics</strong> — which is why the ablation over
+        pretraining corpora matters more than any single checkpoint.
+      </p>
+    </section>
+
+    <section id="models" class="paper-section">
+      <h2>2. The Four Pretraining Corpora</h2>
+      <p>
+        The controlled comparison holds architecture roughly fixed and varies what the model reads:
       </p>
 
       <div class="paper-table-wrap">
         <table class="paper-table">
           <thead>
             <tr>
-              <th>Model Variant</th>
-              <th>Parameter Scale & Context Window</th>
-              <th>Pretraining Corpus</th>
-              <th>Primary Capabilities</th>
+              <th>Model</th>
+              <th>Parameters</th>
+              <th>Pretraining corpus</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>NT1 (Nature Methods 2024)</strong></td>
-              <td>50M to 2.5B params · 6,000 bp (1,000 6-mer tokens)</td>
-              <td>3,202 Human Genomes (1000 Genomes) + 850 Species</td>
-              <td>General genomic embeddings, promoter/enhancer classification, zero-shot scoring.</td>
+              <td><strong>Human ref 500M</strong></td>
+              <td>500 million</td>
+              <td>The single human reference genome</td>
             </tr>
             <tr>
-              <td><strong>NT2 (BioNeMo 2024)</strong></td>
-              <td>500M params · 12,000 bp (2,000 6-mer tokens, RoPE)</td>
-              <td>Expanded 9T nucleotide multi-species corpus</td>
-              <td>FlashAttention-2 optimization, multi-species transfer learning, fine-tuning efficiency.</td>
+              <td><strong>1000G 500M</strong></td>
+              <td>500 million</td>
+              <td>3,202 genetically diverse human genomes</td>
             </tr>
             <tr>
-              <td><strong>NT3 (Foundational Long-Range 2025)</strong></td>
-              <td>1.5B–2.5B params · <strong>1,048,576 bp (1 Mb context)</strong></td>
-              <td>Multi-species + 16,000 functional epigenomic tracks</td>
-              <td>Joint sequence-to-function modeling, long-range enhancer-promoter wiring.</td>
+              <td><strong>1000G 2.5B</strong></td>
+              <td>2.5 billion</td>
+              <td>3,202 genetically diverse human genomes</td>
+            </tr>
+            <tr>
+              <td><strong>Multispecies 2.5B</strong></td>
+              <td>2.5 billion</td>
+              <td>850 genomes from diverse species</td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <p>
+        For scale context, the paper notes the largest model is <strong>20 times larger than DNABERT-2</strong>
+        and <strong>ten times larger than the Enformer backbone</strong>.
+      </p>
     </section>
 
-    <!-- Section 2 -->
-    <section id="family-evolution">
-      <h2>2. Model Evolution: NT1, NT2, and NT3 Architecture Comparison</h2>
+    <section id="tokenization" class="paper-section">
+      <h2>3. Six-Mer Tokenization and the 6 kb Ceiling</h2>
       <p>
-        The architectural design evolved to resolve the trade-off between nucleotide resolution and long-range sequence context:
+        The models use <strong>six-mer tokens</strong> with a maximum of <strong>1,000 tokens</strong>, chosen
+        as <strong>a trade-off between sequence length (up to 6 kb) and embedding size</strong>, and because
+        six-mers <strong>achieved the highest performance when compared to other tokenizations</strong>.
+      </p>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="target" size={15} /> The constraint that shapes everything downstream
+        </div>
+        <p>
+          A 6 kb receptive field is a promoter and its immediate surroundings. It is not an enhancer 100 kb
+          away, and it is not a topological domain. Every result in this paper is therefore about local
+          sequence grammar — which is exactly the limitation that the NTv3 successor, with its 1 Mb context,
+          exists to remove.
+        </p>
+      </div>
+
+      <p>
+        The tokenization is also used as an analysis tool: the authors compute
+        <strong>six-mer token probabilities, by masking each token in turn, for every 6-kb window in
+        chromosome 22</strong>, and read the result as a metric of sequence constraint and importance learned
+        by the model — a self-supervised analogue of evolutionary conservation.
+      </p>
+    </section>
+
+    <section id="evaluation" class="paper-section">
+      <h2>4. Probing versus Fine-Tuning</h2>
+      <p>
+        Models are evaluated through <strong>two different techniques: probing and fine-tuning</strong>.
+        <strong>Probing</strong> uses the frozen learned embeddings as input features to a small downstream
+        model; <strong>fine-tuning</strong> updates the transformer's own weights on the task.
+      </p>
+      <p>
+        Running both is a methodological point rather than a formality. Probing measures what the
+        representation already contains; fine-tuning measures what the initialisation makes reachable. A model
+        can be poor under probing and excellent after fine-tuning, and reporting only one hides which is
+        happening.
+      </p>
+      <p>
+        The comparison baseline is strong by construction: the <strong>BPNet convolutional architecture</strong>
+        trained from scratch on each of the <strong>18 tasks</strong>, described as
+        <strong>widely used in genomics and a very strong default architecture</strong> — not a weak
+        baseline chosen to flatter the transformer.
+      </p>
+      <p>
+        The paper also emphasises that the models <strong>can be fine-tuned at low cost</strong>, and yield
+        accurate predictions <strong>even in low-data settings</strong>, which is the practical argument for a
+        foundation model in a field where labelled data is the binding constraint.
+      </p>
+    </section>
+
+    <section id="results" class="paper-section">
+      <h2>5. The Multispecies Result</h2>
+      <p>
+        The finding the paper leads with is that <strong>training on a diverse dataset, represented by the
+        Multispecies 2.5B model, outperforms or matches the 1000G 2.5B model</strong> on several tasks — and
+        that it does so on <strong>human</strong> prediction tasks, having never concentrated on human
+        sequence.
+      </p>
+      <p>
+        The paper's reading is that <strong>transformer models trained on diverse species have learned to
+        capture genomic patterns across species</strong>, enabling better generalization in human-based
+        prediction tasks. Cross-species variation supplies a signal that within-species human variation does
+        not: 3,202 human genomes differ at a small fraction of positions, whereas 850 species differ
+        everywhere that function permits — which makes the invariants visible.
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> Why this is the transferable lesson
+        </div>
+        <p>
+          Both 2.5B models have the same capacity and the same objective. The only difference is the corpus,
+          and the more <em>evolutionarily</em> diverse corpus wins on the target species. Choosing pretraining
+          data by evolutionary breadth rather than by raw volume is a design principle that generalises well
+          past this paper — and the authors say as much, anticipating that
+          <strong>future studies may benefit</strong> from it.
+        </p>
+      </div>
+
+      <p>
+        The models also learned, <strong>despite no supervision, to focus attention on key genomic
+        elements</strong>, and their zero-shot scores can be used to
+        <strong>improve the prioritization of pathogenic variants</strong> — with the paper noting that
+        prioritization based on multispecies sequences performed best, consistent with severely pathogenic
+        variants tending to fall in regions conserved across species.
+      </p>
+    </section>
+
+    <section id="ntv2" class="paper-section">
+      <h2>6. NT-v2: What This Paper Actually Introduces Second</h2>
+      <p>
+        A point worth stating plainly, because it is easy to get wrong: <strong>the NT-v2 models are
+        introduced in this paper</strong>. They are not a separate publication.
+      </p>
+      <p>
+        The authors developed <strong>four new NT models (NT-v2) with parameter counts ranging from 50 million
+        to 500 million</strong>, incorporating a series of architectural changes:
       </p>
       <ul>
-        <li><strong>NT1:</strong> Transformer encoder with bidirectional self-attention using learned positional embeddings.</li>
-        <li><strong>NT2:</strong> Replaced learned embeddings with Rotary Position Embeddings (RoPE) and integrated FlashAttention-2, reducing GPU memory by 60%.</li>
-        <li><strong>NT3:</strong> Deploys a hybrid architecture pairing a long-range sequence trunk with multi-task prediction heads for base-resolution epigenomic profiles.</li>
+        <li><strong>Rotary embeddings</strong> in place of the original positional scheme</li>
+        <li><strong>swiGLU activations</strong></li>
+        <li><strong>Elimination of MLP biases and dropout mechanisms</strong>, in line with contemporary language-model practice</li>
+        <li><strong>Context length expanded to 12 kb</strong>, to accommodate longer sequences and capture more distant genomic interactions</li>
+        <li><strong>Extended training duration</strong></li>
       </ul>
-    </section>
-
-    <!-- Section 3 -->
-    <section id="tokenization">
-      <h2>3. 6-Mer Tokenization & Multi-Species Pretraining Corpus</h2>
       <p>
-        DNA consists of four bases (<Katex tex="\{A, C, G, T\}" />). NT utilizes <strong>6-mer k-mer tokenization</strong>:
+        The direction of travel is the interesting part: the v2 models are <em>smaller</em> than the 2.5B v1
+        model while performing competitively, with the gains coming from architecture, context and training
+        length rather than parameters.
       </p>
-      <ul>
-        <li><strong>Vocabulary Size:</strong> <Katex tex="4^6 = 4,096" /> distinct tokens plus special tokens (<Katex tex="\text{[CLS]}, \text{[MASK]}, \text{[PAD]}" />).</li>
-        <li><strong>Efficiency:</strong> Compresses sequence length by a factor of 6 while maintaining local transcription factor binding motif geometry.</li>
-        <li><strong>Pretraining Corpus:</strong> Spans 3,202 human genomes from 26 diverse global populations, supplemented by 850 reference genomes across vertebrates, plants, fungi, and invertebrates.</li>
-      </ul>
     </section>
 
-    <!-- Section 4 -->
-    <section id="benchmarks">
-      <h2>4. Comprehensive 18-Task Downstream Benchmark Evaluation</h2>
-      <p>
-        The authors established an 18-task benchmark evaluating fine-tuned linear probes against specialized models:
-      </p>
-      <ul>
-        <li><strong>Core Promoters & Enhancers:</strong> Achieved state-of-the-art Matthews Correlation Coefficient (MCC &gt; 0.85) on Human Promoter & Enhancer datasets.</li>
-        <li><strong>Splice Junction Detection:</strong> Accurately classified splice donor and acceptor sites with &gt;98% accuracy, matching specialized SpliceAI performance on canonical junctions.</li>
-        <li><strong>Histone Modification Peaks:</strong> Accurately predicted H3K4me3, H3K27ac, and H3K36me3 peaks across diverse human cell types.</li>
-      </ul>
-    </section>
+    <section id="mathematical-formulation" class="paper-section">
+      <h2>7. Mathematical Formulation</h2>
 
-    <!-- Section 5 -->
-    <section id="variant-scoring">
-      <h2>5. Zero-Shot Pathogenic Variant Effect Scoring</h2>
+      <h3>The pretraining objective</h3>
       <p>
-        Without supervised fine-tuning, NT computes zero-shot variant effect scores using masked language model log-likelihood ratios:
+        Masked language modelling over six-mer tokens. For a sequence of tokens
+        <Katex tex="x = (x_1, \dots, x_T)" /> with masked positions <Katex tex="\mathcal{M}" />:
       </p>
       <div class="paper-equation-block">
-        <Katex tex="\Delta \text{LLR}(v) = \log P_\theta(x_{\text{alt}} \mid X_{\backslash i}) - \log P_\theta(x_{\text{ref}} \mid X_{\backslash i})" />
+        <Katex tex="\mathcal{L}_{\text{MLM}} = -\sum_{i \in \mathcal{M}} \log p_{\theta}\big(x_i \mid x_{\setminus \mathcal{M}}\big), \qquad x_i \in \{A,C,G,T\}^{6}" />
       </div>
       <p>
-        This zero-shot score strongly separates pathogenic from benign variants in ClinVar and 1000 Genomes non-coding loci.
+        With six-mer tokens the vocabulary is <Katex tex="4^6 = 4096" /> plus special tokens, and a
+        1,000-token window spans 6,000 bases.
       </p>
-    </section>
 
-    <!-- Section 6 -->
-    <section id="mathematical-formulation">
-      <h2>6. Mathematical Formulation & Masked Language Objective</h2>
+      <h3>Constraint from token probability</h3>
       <p>
-        Trained using masked language modeling (MLM) with 15% random masking of 6-mer tokens:
+        Masking each token in turn and reading its probability gives a per-window score the paper interprets
+        as learned sequence constraint:
       </p>
       <div class="paper-equation-block">
-        <Katex tex="\mathcal{L}_{\text{MLM}}(\theta) = - \sum_{i \in \mathcal{M}} \log P_\theta(t_i \mid T_{\backslash \mathcal{M}})" />
+        <Katex tex="c(i) = \log p_{\theta}\big(x_i \mid x_{\setminus i}\big)" />
       </div>
       <p>
-        Where <Katex tex="\mathcal{M}" /> denotes the set of masked token positions and <Katex tex="T_{\backslash \mathcal{M}}" /> represents the unmasked sequence context.
+        This is the same construction that produces zero-shot variant scores — the log-likelihood a model
+        assigns to what is actually there, used as a proxy for how much the sequence is allowed to change.
       </p>
     </section>
 
-    <!-- Section 7 -->
-    <section id="failure-modes">
-      <h2>7. Limitations & Context Scaling Trade-offs</h2>
+    <section id="failure-modes" class="paper-section">
+      <h2>8. Limitations & Where the Line Runs to NTv3</h2>
+
+      <h3>Resolution and range</h3>
       <ul>
-        <li><strong>Token Shift Sensitivity:</strong> Fixed 6-mer chunking can create framing sensitivity when single-base indels shift reading frames across token boundaries.</li>
-        <li><strong>Ultra-Long Enhancer Distances in NT1/NT2:</strong> NT1 (6 kb) and NT2 (12 kb) cannot capture distal 100 kb+ enhancer-promoter loops; resolved by NT3's 1 Mb expansion.</li>
+        <li><strong>Six-mer tokens are not single bases.</strong> A tokenizer that consumes six nucleotides at a time cannot natively express a single-nucleotide event at arbitrary offset; variant scoring inherits that granularity.</li>
+        <li><strong>6 kb, or 12 kb for NT-v2, is short.</strong> Distal regulation operates over hundreds of kilobases, and no amount of parameter scaling fixes a receptive field.</li>
       </ul>
-    </section>
 
-    <!-- Section 8 -->
-    <section id="strategic-synthesis">
-      <h2>8. Master Synthesis & Modern Genomic AI Synergy</h2>
-      <p>
-        The Nucleotide Transformer demonstrates that self-supervised foundation modeling across massive multi-species corpora builds rich, transferrable biological representations. It bridges the gap between raw evolutionary constraint and experimental functional genomics.
-      </p>
+      <h3>What "foundation model" is and is not established here</h3>
+      <ul>
+        <li><strong>Evaluation is 18 tasks, not the genome.</strong> The tasks are the ones with labels, which skews toward well-studied element classes.</li>
+        <li><strong>Attention on key genomic elements is an observation, not a mechanism.</strong> That attention concentrates on functional sequence is evidence the representation is meaningful; it is not an explanation of any individual prediction.</li>
+      </ul>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="book" size={15} /> Successor
+        </div>
+        <p>
+          The long-range successor — <strong>NTv3</strong>, a U-Net-style architecture with single-base
+          tokenization and context up to 1 Mb, jointly trained on sequence and function — is summarised
+          separately at
+          <a href="/papers/nucleotide-transformer-v3/" style="color: var(--color-accent);">/papers/nucleotide-transformer-v3/</a>.
+          It is a different paper with a different corpus, and the two should not be described as one model
+          family with shared numbers.
+        </p>
+      </div>
     </section>
   </article>
 </BaseLayout>

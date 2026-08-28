@@ -499,6 +499,17 @@
 }
 
 /* Semantic Callout Boxes */
+/* `.callout-info` is a cooler variant used where a callout carries background rather than a
+   headline finding. It was used in encode.astro before it existed, and rendered as a plain
+   accent callout. */
+.paper-callout.callout-info {
+  border-left-color: var(--color-muted);
+  background: color-mix(in srgb, var(--color-muted) 6%, var(--color-surface));
+  border-top-color: color-mix(in srgb, var(--color-muted) 15%, var(--color-rule));
+  border-right-color: color-mix(in srgb, var(--color-muted) 15%, var(--color-rule));
+  border-bottom-color: color-mix(in srgb, var(--color-muted) 15%, var(--color-rule));
+}
+
 .paper-callout {
   margin: var(--space-5, 1.25rem) 0;
   padding: var(--space-4, 1rem) var(--space-5, 1.25rem);
@@ -586,7 +597,8 @@
 }
 
 /* Equation Cards */
-.paper-equation-card {
+.paper-equation-card,
+.paper-equation-block {
   margin: var(--space-5, 1.25rem) 0;
   padding: var(--space-4, 1rem) var(--space-5, 1.25rem);
   background: var(--color-surface);

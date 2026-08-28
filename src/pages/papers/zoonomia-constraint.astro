@@ -1,0 +1,272 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Katex from '../../components/Katex.astro';
+import '../../styles/paper.css';
+import 'katex/dist/katex.min.css';
+
+// New page. The /papers/zoonomia/ entry covers Sullivan et al. (human disease constraint); this
+// covers the Zoonomia resource paper itself. Written against the author manuscript PMC10250106.
+// Checked by `node scripts/verify-paper-claims.mjs --slug zoonomia-constraint`.
+const title = "Evolutionary Constraint and Innovation Across Hundreds of Placental Mammals";
+const description = "Technical summary of Christmas et al. (Zoonomia Consortium, Science 2023): the 240-species mammalian alignment, 332 million constrained bases, 4,552 ultraconserved elements, and what fraction of functional sequence has no ENCODE annotation.";
+const readingTime = "24 min read";
+---
+
+<BaseLayout title={title} description={description} type="article" noindex={true}>
+  <article class="paper-article">
+    <nav style="margin-bottom: var(--space-4);">
+      <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
+        <Icon name="arrow-left" size={14} /> Back to Paper Summaries
+      </a>
+    </nav>
+
+    <header class="paper-header">
+      <div class="paper-meta-bar">
+        <span class="paper-tag">Comparative Genomics & Mammalian Evolution</span>
+        <span class="paper-venue-badge">Science · 28 April 2023 (Zoonomia Consortium)</span>
+        <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
+      </div>
+
+      <h1 class="paper-title">{title}</h1>
+
+      <div class="paper-authors-box">
+        <div><strong>Authors:</strong> Matthew J. Christmas, Irene M. Kaplow, Diane P. Genereux, Michael X. Dong, Graham M. Hughes … Zoonomia Consortium, Elinor K. Karlsson, Kerstin Lindblad-Toh</div>
+        <div><strong>Affiliation:</strong> Uppsala University; Broad Institute of MIT and Harvard; Carnegie Mellon University; UMass Chan Medical School; and the Zoonomia Consortium</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1126/science.abn3943" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1126/science.abn3943</a> · Science 380(6643), eabn3943</div>
+      </div>
+    </header>
+
+    <p class="paper-lead">
+      This is the Zoonomia resource paper — <strong>the largest comparative genomics resource for mammals
+      produced to date</strong>. By aligning genomes for <strong>240 species</strong>, it identifies bases
+      that, when mutated, are likely to <strong>affect fitness and alter disease risk</strong>. At least
+      <strong>332 million bases (~10.7%) of the human genome are unusually conserved</strong> relative to
+      neutrally evolving repeats, and <strong>4,552 ultraconserved elements</strong> are nearly perfectly
+      conserved. The number that should reorganise how you read functional genomics: of
+      <strong>101 million significantly constrained single bases, 80% lie outside protein-coding exons and
+      half have no functional annotation in ENCODE at all</strong>.
+    </p>
+
+    <div class="paper-toc">
+      <div class="paper-toc-title">
+        <Icon name="list" size={14} /> Table of Contents
+      </div>
+      <ol class="paper-toc-list">
+        <li><a href="#summary">1. The Resource, and How It Compares</a></li>
+        <li><a href="#constraint">2. How Much of the Genome Is Constrained</a></li>
+        <li><a href="#annotation-gap">3. The Annotation Gap</a></li>
+        <li><a href="#ultraconserved">4. Ultraconserved Elements and Highly Constrained Positions</a></li>
+        <li><a href="#multi-reference">5. Measuring Constraint Against Five Reference Genomes</a></li>
+        <li><a href="#enrichment">6. Constraint Enrichment by Genomic Feature</a></li>
+        <li><a href="#mathematical-formulation">7. Mathematical Formulation</a></li>
+        <li><a href="#failure-modes">8. Limitations & Reconciling the Two Zoonomia Papers</a></li>
+      </ol>
+    </div>
+
+    <section id="summary" class="paper-section">
+      <h2>1. The Resource, and How It Compares</h2>
+      <p>
+        Zoonomia aligns genomes for <strong>240 diverse species</strong>, which the paper benchmarks against
+        the previous standard directly: <strong>2.3-fold more families and 3.9-fold more species than the
+        mammals included in the earlier 100 Vertebrates alignment</strong>. Protein-coding sequences are
+        aligned for <strong>427 species</strong> through a companion reference-based approach.
+      </p>
+      <p>
+        Two numbers appear for the assembly count and they are not in conflict: the whole-genome Cactus
+        alignment covers <strong>240 species</strong>, while orthologous protein-coding sequence was extracted
+        from ENSEMBL across <strong>241 assemblies</strong> — the alignment plus the human reference it is
+        projected onto.
+      </p>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="target" size={15} /> Why species count is the binding parameter
+        </div>
+        <p>
+          Detecting constraint at a <em>single base</em> requires enough independent evolutionary time for the
+          absence of substitutions to be statistically surprising. With 100 vertebrates you can call
+          conserved elements; with 240 mammals spanning ~100 million years you can call conserved bases. That
+          resolution change is what the entire Zoonomia package is built to exploit.
+        </p>
+      </div>
+    </section>
+
+    <section id="constraint" class="paper-section">
+      <h2>2. How Much of the Genome Is Constrained</h2>
+      <p>
+        <strong>At least 332 million bases — about 10.7% of the human genome — are unusually conserved across
+        species, relative to neutrally evolving repeats.</strong>
+      </p>
+      <p>
+        The comparison baseline matters as much as the figure. Constraint here is defined against
+        <strong>neutrally evolving repeats</strong>, sequence assumed to be evolving without selection.
+        Everything downstream inherits that assumption: if the repeat baseline is itself under weak selection,
+        the constrained fraction is underestimated.
+      </p>
+    </section>
+
+    <section id="annotation-gap" class="paper-section">
+      <h2>3. The Annotation Gap</h2>
+      <p>
+        Of <strong>101 million significantly constrained single bases</strong>:
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Partition</th>
+              <th>Share</th>
+              <th>Consequence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Outside protein-coding exons</strong></td>
+              <td><strong>80%</strong></td>
+              <td>Function is overwhelmingly non-coding, and gene-centric interpretation misses most of it</td>
+            </tr>
+            <tr>
+              <td><strong>No functional annotation in ENCODE</strong></td>
+              <td><strong>Half</strong></td>
+              <td>Even the most comprehensive functional-genomics resource does not cover half of what selection says matters</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> The result that should change practice
+        </div>
+        <p>
+          "Half of significantly constrained bases have no ENCODE annotation" is a statement about the limits
+          of assay-based annotation, and it is not a criticism of ENCODE. Assays measure the conditions they
+          are run in; evolution integrates over every condition an organism ever experienced. A variant
+          prioritisation pipeline that filters to annotated regulatory elements is discarding, by
+          construction, half the sequence that 100 million years of selection has been protecting.
+        </p>
+      </div>
+    </section>
+
+    <section id="ultraconserved" class="paper-section">
+      <h2>4. Ultraconserved Elements and Highly Constrained Positions</h2>
+      <p>
+        <strong>4,552 ultraconserved elements are nearly perfectly conserved</strong> across the alignment —
+        the extreme tail, where essentially no substitution has been tolerated in any lineage.
+      </p>
+      <p>
+        The paper also defines a stricter per-base category, identifying <strong>all positions where the
+        number of species aligned was ≥ 235</strong> and the base met the constraint criterion. The alignment
+        depth requirement is doing real work: a position aligned in only a handful of species can look
+        conserved purely for lack of evidence, and requiring near-complete alignment depth removes that
+        artefact.
+      </p>
+    </section>
+
+    <section id="multi-reference" class="paper-section">
+      <h2>5. Measuring Constraint Against Five Reference Genomes</h2>
+      <p>
+        Constraint was measured across the <strong>human, chimpanzee, mouse, dog and little brown bat</strong>
+        reference genomes, by projecting the Cactus alignment onto each species and then measuring sequence
+        constraint with <strong>phyloP</strong>.
+      </p>
+      <p>
+        Each projection answers a question the human-referenced one cannot. The
+        <strong>chimpanzee-referenced alignment supports investigation of bases deleted in only humans</strong>
+        — sequence that is simply absent from a human-referenced view, and therefore invisible to any analysis
+        anchored there. <strong>Mouse, dog and little brown bat</strong> were chosen as
+        <strong>well-annotated reference genomes</strong>, letting constraint be compared against independent
+        annotation rather than only against human annotation.
+      </p>
+    </section>
+
+    <section id="enrichment" class="paper-section">
+      <h2>6. Constraint Enrichment by Genomic Feature</h2>
+      <p>
+        Constraint enrichment is computed for coding sequences, 5′ untranslated regions, 3′ untranslated
+        regions, introns, DNase hypersensitivity sites, and the <strong>five types of ENCODE candidate
+        cis-regulatory elements (cCREs)</strong>, defined as:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\text{Enrichment}(f) = \frac{\text{constrained fraction of feature } f}{\text{constrained fraction of the genome}}" />
+      </div>
+      <p>
+        The ratio form is what makes features of very different sizes comparable — a small feature class that
+        is mostly constrained and a large one that is slightly constrained can both be scored on the same
+        scale.
+      </p>
+    </section>
+
+    <section id="mathematical-formulation" class="paper-section">
+      <h2>7. Mathematical Formulation</h2>
+
+      <h3>phyloP against a neutral repeat baseline</h3>
+      <p>
+        At each aligned column, phyloP compares the likelihood of the observed substitution pattern under a
+        neutral model to that under a fitted rate scaling <Katex tex="\rho" />, with the neutral rate
+        estimated from repeats:
+      </p>
+      <div class="paper-equation-block">
+        <Katex tex="\Lambda(i) = -2\left[\log L\big(\text{data}_i \mid \rho = 1\big) - \log L\big(\text{data}_i \mid \hat{\rho}_i\big)\right]" />
+      </div>
+      <p>
+        Constrained bases are those with <Katex tex="\hat{\rho} < 1" /> at significance; accelerated bases are
+        the opposite tail. Because the test is per column, statistical power depends on how many species are
+        aligned there — which is exactly why the ≥ 235-species depth filter exists for the strictest category.
+      </p>
+
+      <h3>What "at least" is doing in the headline</h3>
+      <p>
+        The paper says <em>at least</em> 332 million bases. Per-base constraint calling is a hypothesis test
+        with finite power, so bases under real but weak constraint fail to reach significance. The reported
+        figure is a lower bound, and it is stated as one.
+      </p>
+    </section>
+
+    <section id="failure-modes" class="paper-section">
+      <h2>8. Limitations & Reconciling the Two Zoonomia Papers</h2>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="target" size={15} /> Why 10.7% here and 3.3% in the companion paper
+        </div>
+        <p>
+          <a href="/papers/zoonomia/" style="color: var(--color-accent);">Sullivan et al.</a> reports
+          <strong>3.3%</strong> of the human genome as significantly constrained; this paper reports
+          <strong>~10.7%</strong>. Both are correct and they are not the same quantity. Christmas et al.
+          measures bases <em>unusually conserved relative to neutrally evolving repeats</em> across the
+          alignment; Sullivan et al. applies a significance threshold to single-base phyloP scores computed
+          across placental mammals for the purposes of human disease analysis. Different null models and
+          different thresholds give different fractions of the same genome — which is why quoting a
+          "constrained fraction" without naming the method is meaningless.
+        </p>
+      </div>
+
+      <h3>What the alignment can and cannot see</h3>
+      <ul>
+        <li><strong>Constraint requires alignability.</strong> Rapidly evolving, repetitive and structurally variable regions align poorly across 240 species, so they are systematically under-called — and they are also where a good deal of regulatory innovation lives.</li>
+        <li><strong>Lineage-specific function is invisible.</strong> Sequence that acquired function recently in one lineage has no cross-mammalian conservation signal by definition.</li>
+        <li><strong>The neutral baseline is an assumption.</strong> Repeats are taken as neutrally evolving; to the extent that they are not, the constrained fraction is biased.</li>
+      </ul>
+
+      <h3>What a constrained base licenses</h3>
+      <ul>
+        <li><strong>Constraint is direction-free.</strong> It says a position matters, not which allele is deleterious, in what tissue, or through what mechanism.</li>
+        <li><strong>Half of constrained bases lacking ENCODE annotation is an invitation, not a conclusion.</strong> It marks where to look; it does not say what is there.</li>
+      </ul>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="book" size={15} /> Source note
+        </div>
+        <p>
+          Written against the full text of the author manuscript deposited as PMC10250106. The companion
+          paper on human disease and heritability is summarised at
+          <a href="/papers/zoonomia/" style="color: var(--color-accent);">/papers/zoonomia/</a>.
+        </p>
+      </div>
+    </section>
+  </article>
+</BaseLayout>

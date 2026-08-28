@@ -5,188 +5,375 @@ import Katex from '../../components/Katex.astro';
 import '../../styles/paper.css';
 import 'katex/dist/katex.min.css';
 
+// Every number on this page is traceable to the paper's own text and is checked by
+// `node scripts/verify-paper-claims.mjs --slug gtex` against
+// ~/Documents/papers_summaries/gtex/extracted_text.txt (the PMC7737656 author manuscript).
 const title = "The GTEx Consortium Atlas of Genetic Regulatory Effects Across Human Tissues";
-const description = "Comprehensive technical summary and deep literature deconstruction of the GTEx Consortium Flagship v8 (Aguet et al., Broad Institute, Science 2020): Mapping cis/trans eQTLs and sQTLs across 15k RNA-seq samples from 49 human tissues.";
+const description = "Technical summary of the GTEx Consortium v8 flagship (Science 2020): cis- and trans-eQTL and sQTL discovery across 15,201 RNA-seq samples from 49 tissues of 838 donors, cell-type interaction QTLs, and integration with 87 GWAS.";
 const readingTime = "26 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article" noindex={true}>
   <article class="paper-article">
-    <!-- Back to Catalog -->
     <nav style="margin-bottom: var(--space-4);">
       <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
         <Icon name="arrow-left" size={14} /> Back to Paper Summaries
       </a>
     </nav>
 
-    <!-- Header -->
     <header class="paper-header">
       <div class="paper-meta-bar">
         <span class="paper-tag">Functional Genomics, eQTLs & Multi-Tissue Regulation</span>
-        <span class="paper-venue-badge">Science · September 2020 (Research Article)</span>
+        <span class="paper-venue-badge">Science · 11 September 2020 (Research Article)</span>
         <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
       </div>
 
       <h1 class="paper-title">{title}</h1>
 
       <div class="paper-authors-box">
-        <div><strong>Authors:</strong> The GTEx Consortium (Lead Analysts: François Aguet, Alvaro N. Barbeira, Reza Bonab, Scott B. Montgomery, Hae Kyung Im, Kristin G. Ardlie*, et al.)</div>
-        <div><strong>Affiliation:</strong> Broad Institute of MIT and Harvard, Cambridge, MA; University of Chicago; Stanford University</div>
-        <div><strong>DOI:</strong> <a href="https://doi.org/10.1126/science.aaz1776" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1126/science.aaz1776</a> · Science (Vol 369, Issue 6509, pp. 1318–1330)</div>
+        <div><strong>Authors:</strong> The GTEx Consortium. Lead analysts: François Aguet, Alvaro N. Barbeira, Rodrigo Bonazzola, Andrew Brown, Stephane E. Castel, Brian Jo, Silva Kasela, Sarah Kim-Hellmuth, Yanyu Liang, Meritxell Oliva, Princy Parsana … with Kristin G. Ardlie and Stephen B. Montgomery among the manuscript working group.</div>
+        <div><strong>Affiliation:</strong> Broad Institute of MIT and Harvard; University of Chicago; Stanford University; New York Genome Center; and the wider GTEx Consortium</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1126/science.aaz1776" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1126/science.aaz1776</a> · Science 369(6509), 1318–1330</div>
       </div>
     </header>
 
-    <!-- Lead / Overview -->
     <p class="paper-lead">
-      Genome-Wide Association Studies (GWAS) have mapped thousands of loci linked to human traits and complex diseases, yet over 90% of causal variants reside in non-coding regulatory sequences with unknown mechanisms. The definitive <strong>Version 8 (v8) release of the Genotype-Tissue Expression (GTEx) project</strong> established the largest human multi-tissue regulatory atlas to date. By profiling <strong>15,201 high-depth RNA-seq transcriptomes alongside 30x whole-genome sequencing across 838 postmortem donors and 49 diverse human tissues</strong>, GTEx identified <em>cis</em>-expression quantitative trait loci (<em>cis</em>-eQTLs) for <strong>94.7% of all protein-coding genes</strong>, mapped <em>cis</em>-splicing QTLs (sQTLs) for <strong>72.8% of genes</strong>, deconvoluted cell-type-specific interaction QTLs, and provided the primary ground-truth resource for human functional variant interpretation.
+      Most variants that genome-wide association studies implicate in human traits fall outside protein-coding
+      sequence, which leaves the mechanism unstated: the variant is associated with the trait, but nothing says
+      which gene it acts on, in which tissue, or how. The <strong>v8 release of the Genotype-Tissue Expression
+      (GTEx) project</strong> is the reference answer to that question at scale. Analysing <strong>15,201 RNA-seq
+      samples from 49 tissues of 838 post-mortem donors</strong>, GTEx v8 found <em>cis</em>-eQTLs for
+      <strong>18,262 protein-coding genes — 94.7% of those detected</strong> — mapped <em>cis</em>-sQTLs for
+      <strong>12,828 protein-coding genes (66.5%)</strong> from intron-excision ratios, recovered cell-type
+      interaction QTLs hidden inside bulk tissue, and connected all of it to <strong>87 complex traits</strong>.
     </p>
 
-    <!-- Table of Contents -->
     <div class="paper-toc">
       <div class="paper-toc-title">
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. Executive Summary & GTEx v8 Dataset Scale</a></li>
-        <li><a href="#eqtl-discovery">2. Comprehensive cis- and trans-eQTL Discovery Across 49 Tissues</a></li>
-        <li><a href="#splicing-sqtls">3. Splicing QTLs (sQTLs) & Transcript Diversity (LeafCutter)</a></li>
-        <li><a href="#cell-type-deconvolution">4. Cell-Type Specificity & Interaction eQTLs (ieQTLs)</a></li>
-        <li><a href="#gwas-colocalization">5. GWAS Fine-Mapping, Colocalization & Trait Architecture</a></li>
-        <li><a href="#mathematical-formulation">6. Mathematical Formulation: Linear Mixed Models & ieQTLs</a></li>
-        <li><a href="#failure-modes">7. Limitations & Missing Contexts (Transient / Diseased States)</a></li>
-        <li><a href="#strategic-synthesis">8. Master Synthesis & Foundational Role in Sequence-to-Function AI</a></li>
+        <li><a href="#summary">1. The v8 Dataset: What Was Actually Measured</a></li>
+        <li><a href="#eqtl-discovery">2. cis- and trans-eQTL Discovery Across 49 Tissues</a></li>
+        <li><a href="#splicing-sqtls">3. Splicing QTLs from Intron Excision Ratios (LeafCutter)</a></li>
+        <li><a href="#fine-mapping">4. Fine-Mapping: From Association to Candidate Causal Variant</a></li>
+        <li><a href="#cell-type-deconvolution">5. Cell-Type Specificity & Interaction QTLs (ieQTLs)</a></li>
+        <li><a href="#gwas-colocalization">6. Integration with 87 GWAS: Enrichment and Mechanism</a></li>
+        <li><a href="#mathematical-formulation">7. Mathematical Formulation: The QTL and Interaction Models</a></li>
+        <li><a href="#failure-modes">8. Limitations, and Why They Matter Downstream</a></li>
       </ol>
     </div>
 
-    <!-- Section 1 -->
-    <section id="summary">
-      <h2>1. Executive Summary & GTEx v8 Dataset Scale</h2>
+    <section id="summary" class="paper-section">
+      <h2>1. The v8 Dataset: What Was Actually Measured</h2>
+
+      <h3>Scale, and the difference between collected and analysed</h3>
       <p>
-        The final v8 data release expanded sample size and analytical power across nearly every tissue in the human body:
+        Two sample counts appear in this paper and they are not interchangeable. After quality control the v8
+        data set consists of <strong>838 donors and 17,382 samples from 52 tissues and two cell lines</strong>.
+        The QTL analyses use a subset: the <strong>49 tissues or cell lines with at least 70 individuals</strong>
+        having both RNA-seq and whole-genome genotype data, comprising <strong>15,201 samples</strong>. The
+        ≥70-individual floor is what makes the per-tissue association tests comparable, and it is why three
+        tissues drop out of the analysis entirely.
       </p>
 
       <div class="paper-table-wrap">
         <table class="paper-table">
           <thead>
             <tr>
-              <th>Dataset Dimension</th>
-              <th>GTEx v6 Pilot</th>
-              <th>GTEx v8 Final Flagship</th>
+              <th>Dimension</th>
+              <th>v8, as collected</th>
+              <th>v8, as analysed for QTLs</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>Postmortem Donors (WGS)</strong></td>
-              <td>449 donors (Illumina WGS)</td>
-              <td><strong>838 donors (30x WGS coverage)</strong></td>
+              <td><strong>Donors</strong></td>
+              <td>838 post-mortem donors</td>
+              <td><strong>838 donors</strong></td>
             </tr>
             <tr>
-              <td><strong>High-Depth RNA-seq Samples</strong></td>
-              <td>7,051 bulk tissue samples</td>
-              <td><strong>15,201 RNA-seq samples across 49 tissues + 2 cell lines</strong></td>
+              <td><strong>RNA-seq samples</strong></td>
+              <td>17,382 samples</td>
+              <td><strong>15,201 samples</strong></td>
             </tr>
             <tr>
-              <td><strong>Protein-Coding Genes with cis-eQTLs</strong></td>
-              <td>~70% of expressed genes</td>
-              <td><strong>94.7% of all protein-coding genes (18,241 genes)</strong></td>
+              <td><strong>Tissues</strong></td>
+              <td>52 tissues + 2 cell lines (Fig. 1 illustrates 54 tissue types, including 11 brain regions)</td>
+              <td><strong>49 tissues or cell lines</strong>, each with ≥70 individuals</td>
             </tr>
             <tr>
-              <td><strong>Splicing QTLs (cis-sQTLs)</strong></td>
-              <td>Limited transcript-ratio analysis</td>
-              <td><strong>72.8% of genes (12,915 genes) mapped via LeafCutter</strong></td>
+              <td><strong>Genotypes</strong></td>
+              <td colspan="2">Whole-genome sequencing on every donor</td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <h3>Who the donors are — and the constraint that follows</h3>
+      <p>
+        Of the 838 donors, <strong>715 (85.3%) were European American, 103 (12.3%) African American and 12
+        (1.4%) Asian American</strong>. That distribution is the single most important caveat attached to every
+        number below: allele frequencies, LD structure and therefore fine-mapping resolution are all estimated
+        predominantly in one ancestry, and a causal variant common in another population may simply not be
+        segregating here.
+      </p>
     </section>
 
-    <!-- Section 2 -->
-    <section id="eqtl-discovery">
-      <h2>2. Comprehensive cis- and trans-eQTL Discovery Across 49 Tissues</h2>
-      <p>
-        GTEx v8 mapped regulatory effects at both local and distal genomic ranges:
-      </p>
-      <ul>
-        <li><strong>cis-eQTL Window (<Katex tex="\pm 1\text{ Mb}" />):</strong> Identified significant regulatory variants for 18,241 protein-coding genes and 5,006 lncRNAs at 5% FDR.</li>
-        <li><strong>Tissue Sharing vs. Specificity:</strong> Most cis-eQTLs are broadly shared across multiple related tissues, whereas tissue-specific eQTLs are heavily enriched in whole blood, testis, brain, and liver.</li>
-        <li><strong>trans-eQTL Discovery:</strong> Mapped distal regulatory networks connecting master transcription factors to downstream target genes across chromosomes.</li>
-      </ul>
-    </section>
+    <section id="eqtl-discovery" class="paper-section">
+      <h2>2. cis- and trans-eQTL Discovery Across 49 Tissues</h2>
 
-    <!-- Section 3 -->
-    <section id="splicing-sqtls">
-      <h2>3. Splicing QTLs (sQTLs) & Transcript Diversity (LeafCutter)</h2>
+      <h3>The cis catalogue</h3>
       <p>
-        Using annotation-free intron excision quantification (LeafCutter):
+        Genes carrying an eQTL or sQTL are called <em>eGenes</em> and <em>sGenes</em>; the significant variants
+        are <em>eVariants</em> and <em>sVariants</em>. Across all tissues, at 5% FDR per tissue, GTEx discovered
+        <em>cis</em>-eQTLs for <strong>18,262 protein-coding and 5,006 lincRNA genes — 23,268 genes in total</strong>,
+        corresponding to <strong>94.7% of all protein-coding and 67.3% of all detected lincRNA genes</strong>
+        found in at least one tissue. The catalogue contains <strong>4,278,636 significant variants</strong>, which
+        is <strong>43% of all variants with MAF ≥ 0.01</strong>.
       </p>
-      <ul>
-        <li><strong>Widespread Splicing Regulation:</strong> Discovered cis-sQTLs for 12,915 genes across human tissues.</li>
-        <li><strong>Orthogonality to eQTLs:</strong> Over 50% of sQTLs act independently of overall total gene expression levels, altering exon skipping, alternative splice site choice, and intron retention without changing steady-state transcript abundance.</li>
-      </ul>
-    </section>
 
-    <!-- Section 4 -->
-    <section id="cell-type-deconvolution">
-      <h2>4. Cell-Type Specificity & Interaction eQTLs (ieQTLs)</h2>
-      <p>
-        Bulk tissue homogenates obscure the cell-type-specific nature of gene regulation:
-      </p>
       <div class="paper-callout">
         <div class="paper-callout-title">
-          <Icon name="sparkles" size={15} /> Single-Cell Deconvolution & ieQTLs
+          <Icon name="sparkles" size={15} /> The saturation result, and what it means for bigger studies
         </div>
         <p>
-          1. <strong>Computational Deconvolution:</strong> Deconvoluted cell-type proportions (e.g. neurons, astrocytes, myocytes, hepatocytes) across all 15k bulk RNA-seq samples using single-cell marker signatures.
-          <br />
-          2. <strong>Interaction eQTLs (ieQTLs):</strong> Identified genetic variants whose regulatory effect size depends linearly on the estimated cell-type fraction, uncovering cell-type-specific regulatory variants hidden within bulk tissue.
+          <em>cis</em>-QTL discovery tracks sample size closely — Spearman's ρ = <strong>0.95 for
+          <em>cis</em>-eQTLs and 0.92 for <em>cis</em>-sQTLs</strong> against per-tissue sample size. But the
+          gain from more samples is almost entirely in <em>small</em> effects: discovery of <em>cis</em>-eGenes
+          with an over-two-fold effect <strong>saturates at roughly 1,500 genes in tissues with more than 200
+          samples</strong>. Measured as allelic fold change, an average of <strong>22% of <em>cis</em>-eQTLs</strong>
+          have an over-two-fold effect on expression. Sequencing more donors therefore buys statistical power,
+          not new large-effect biology.
+        </p>
+      </div>
+
+      <h3>The trans catalogue is two orders of magnitude smaller</h3>
+      <p>
+        Interchromosomal <em>trans</em>-eQTL mapping yielded <strong>143 <em>trans</em>-eGenes</strong> (121
+        protein-coding and 22 lincRNA, at 5% FDR assessed per gene type) after controlling for false positives
+        from read misalignment — the artefact that has historically inflated <em>trans</em> discovery. Effects
+        are larger where they exist: over-two-fold effects on <em>trans</em>-eGene expression were observed for
+        <strong>19% of <em>trans</em>-eQTLs</strong>. <em>trans</em>-sQTL mapping yielded <strong>29
+        <em>trans</em>-sGenes</strong>.
+      </p>
+    </section>
+
+    <section id="splicing-sqtls" class="paper-section">
+      <h2>3. Splicing QTLs from Intron Excision Ratios (LeafCutter)</h2>
+      <p>
+        Splicing QTLs were mapped in <em>cis</em> using <strong>intron excision ratios from LeafCutter</strong>,
+        an annotation-free quantification that measures the relative usage of introns sharing a splice site
+        rather than the abundance of annotated transcripts. This matters because it does not require the
+        alternative isoform to be in the annotation to detect that its usage is under genetic control.
+      </p>
+      <p>
+        GTEx discovered <strong>12,828 protein-coding (66.5%) and 1,600 lincRNA (21.5%) genes — 14,424 in
+        total</strong> — with a <em>cis</em>-sQTL at 5% FDR per tissue in at least one tissue.
+      </p>
+
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Molecular phenotype</th>
+              <th>Protein-coding genes</th>
+              <th>lincRNA genes</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong><em>cis</em>-eQTL (expression)</strong></td>
+              <td>18,262 (94.7%)</td>
+              <td>5,006 (67.3%)</td>
+              <td><strong>23,268</strong></td>
+            </tr>
+            <tr>
+              <td><strong><em>cis</em>-sQTL (splicing)</strong></td>
+              <td>12,828 (66.5%)</td>
+              <td>1,600 (21.5%)</td>
+              <td><strong>14,424</strong></td>
+            </tr>
+            <tr>
+              <td><strong><em>trans</em>-eQTL</strong></td>
+              <td>121</td>
+              <td>22</td>
+              <td><strong>143</strong></td>
+            </tr>
+            <tr>
+              <td><strong><em>trans</em>-sQTL</strong></td>
+              <td colspan="2">—</td>
+              <td><strong>29</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        The gap between the expression and splicing columns is the interesting part. Expression is under
+        detectable genetic control for almost every protein-coding gene GTEx can see; splicing is under
+        detectable genetic control for about two-thirds of them. Both are far commoner than the trans numbers,
+        which is a statement about power as much as about biology.
+      </p>
+    </section>
+
+    <section id="fine-mapping" class="paper-section">
+      <h2>4. Fine-Mapping: From Association to Candidate Causal Variant</h2>
+      <p>
+        An eQTL is an association, and linkage disequilibrium means the associated variant is usually not the
+        causal one. GTEx applied <strong>three independent fine-mapping methods — CaVEMaN, CAVIAR and
+        dap-g</strong> — to infer likely causal variants for each <em>cis</em>-eQTL in each tissue.
+      </p>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="target" size={15} /> How far fine-mapping actually gets you
+        </div>
+        <p>
+          Using dap-g, the <strong>90% credible set contains a median of 6 variants</strong> per
+          <em>cis</em>-eQTL — narrow enough to inspect, far too wide to call a mechanism. Only
+          <strong>9.3% of <em>cis</em>-eQTLs have a variant with posterior probability above 0.8</strong>,
+          which is the fraction where a single likely causal variant can be named. The other ~91% remain sets,
+          not answers.
+        </p>
+      </div>
+
+      <h3>A worked example: <em>CBX8</em></h3>
+      <p>
+        The paper's illustrative case is an eQTL for <em>CBX8</em> that colocalizes with breast cancer risk and
+        with birth weight, at <strong>posterior probability 0.68 for both in lung</strong>. One of the three
+        variants in its confident set overlaps and disrupts the binding motif of the transcription factor
+        <strong>EGR1</strong>, and the role of EGR1 as the upstream driver is further supported by cross-tissue
+        correlation. This is the shape of a complete mechanistic story — variant, motif, transcription factor,
+        gene, trait — and the paper offers it as an example precisely because it is not the common case.
+      </p>
+    </section>
+
+    <section id="cell-type-deconvolution" class="paper-section">
+      <h2>5. Cell-Type Specificity & Interaction QTLs (ieQTLs)</h2>
+      <p>
+        A bulk tissue sample is a mixture. If a regulatory variant acts only in neutrophils, its effect in whole
+        blood is diluted by every other cell type present, and the dilution varies from donor to donor with cell
+        composition. GTEx turns that nuisance into signal: estimate each sample's cell-type fractions, then test
+        whether a variant's effect size <em>scales with</em> the fraction of a given cell type.
+      </p>
+
+      <h3>The interaction QTLs recovered</h3>
+      <p>
+        The largest sets of cell-type interacting QTLs were <strong>1,120 neutrophil ieQTLs and 169 isQTLs in
+        whole blood</strong>, and <strong>1,087 epithelial-cell ieQTLs and 117 isQTLs in transverse colon</strong>.
+        Of these ieQTLs, <strong>76 and 229 respectively involved an eGene for which no QTL had been detected in
+        the standard analysis</strong> — that is, the interaction model finds regulation that the bulk model
+        cannot see at all, rather than merely re-describing what it already found.
+      </p>
+
+      <div class="paper-callout">
+        <div class="paper-callout-title">
+          <Icon name="sparkles" size={15} /> Why this is the most transferable idea in the paper
+        </div>
+        <p>
+          Cell composition is a confounder in every bulk assay ever run. The ieQTL formulation says that when
+          composition is <em>measured</em> rather than merely adjusted away, the composition-by-genotype
+          interaction is itself a discoverable regulatory phenotype. The same construction reappears wherever a
+          measurement averages over a heterogeneous population — which is also why single-cell data changed what
+          questions could be asked of these tissues.
         </p>
       </div>
     </section>
 
-    <!-- Section 5 -->
-    <section id="gwas-colocalization">
-      <h2>5. GWAS Fine-Mapping, Colocalization & Trait Architecture</h2>
+    <section id="gwas-colocalization" class="paper-section">
+      <h2>6. Integration with 87 GWAS: Enrichment and Mechanism</h2>
       <p>
-        Integrated with statistical fine-mapping across 87 complex traits from UK Biobank and GWAS catalogs:
+        For the trait analyses the consortium selected <strong>87 genome-wide association studies</strong>
+        spanning binary and continuous complex traits with summary statistics in the public domain.
       </p>
-      <ul>
-        <li><strong>Colocalization (enloc / coloc):</strong> Over 43% of fine-mapped causal GWAS loci colocalized with at least one cis-eQTL or cis-sQTL in a relevant human tissue.</li>
-        <li><strong>Splicing vs. Expression:</strong> Splicing QTLs explain a substantial fraction of GWAS loci that lacked an eQTL, proving the critical importance of post-transcriptional regulation in human disease.</li>
-      </ul>
+
+      <h3>The enrichment, with the obvious confounder removed</h3>
+      <p>
+        Blood cellularity traits are a trap here: they are GWAS traits whose biology <em>is</em> cell
+        composition, so they would inflate any enrichment computed in a tissue like whole blood. Repeating the
+        enrichment analysis with those traits excluded gives <strong>5.21-fold enrichment for
+        <em>trans</em>-eQTLs, 1.43-fold for <em>cis</em>-eQTLs and 1.81 for <em>cis</em>-sQTLs</strong>, largely
+        preserving the pattern seen on the full trait set.
+      </p>
+      <p>
+        The ordering is the finding. <em>trans</em>-eQTLs are far more enriched for trait associations than
+        <em>cis</em>-eQTLs despite being ~160× rarer in the catalogue, which is what you would expect if
+        <em>trans</em> effects sit closer to the trait in the causal chain — and it is also why the small
+        <em>trans</em> catalogue is worth its cost.
+      </p>
     </section>
 
-    <!-- Section 6 -->
-    <section id="mathematical-formulation">
-      <h2>6. Mathematical Formulation: Linear Mixed Models & ieQTLs</h2>
+    <section id="mathematical-formulation" class="paper-section">
+      <h2>7. Mathematical Formulation: The QTL and Interaction Models</h2>
+
+      <h3>The standard cis-QTL model</h3>
       <p>
-        Standard cis-eQTL association is modeled via linear regression adjusting for genotype principal components, PEER expression hidden factors, and demographic covariates:
+        For gene <Katex tex="g" /> in tissue <Katex tex="t" />, expression is regressed on the genotype dosage
+        of variant <Katex tex="v" /> with covariates for genotype principal components, PEER factors capturing
+        hidden expression structure, sex and platform:
       </p>
       <div class="paper-equation-block">
-        <Katex tex="Y_{g,t} = \beta_{v,g,t} X_v + \sum_{k=1}^K \gamma_k C_{k,t} + \epsilon_{g,t}" />
+        <Katex tex="Y_{g,t} = \beta_{v,g,t} X_v + \sum_{k=1}^{K} \gamma_k C_{k,t} + \epsilon_{g,t}" />
       </div>
+
+      <h3>Effect size as allelic fold change</h3>
       <p>
-        Cell-type interaction QTLs (ieQTLs) include an explicit interaction term between the genotype <Katex tex="X_v" /> and inferred cell-type fraction <Katex tex="W_{\text{cell}}" />:
+        Reporting <Katex tex="\beta" /> from a model fitted to normalised expression makes effect sizes
+        incomparable across genes. GTEx instead reports <strong>allelic fold change (aFC)</strong>, the ratio of
+        expression attributable to the two haplotypes, which is why "an over-two-fold effect" is a meaningful
+        threshold and why 22% of <em>cis</em>-eQTLs clearing it is a statement about biology rather than about
+        units.
+      </p>
+
+      <h3>The interaction model</h3>
+      <p>
+        An ieQTL adds an explicit product term between genotype <Katex tex="X_v" /> and the estimated fraction
+        <Katex tex="W_{\text{cell}}" /> of the cell type of interest. The interaction coefficient
+        <Katex tex="\beta_{\text{int}}" /> — not the main effect — is the quantity tested:
       </p>
       <div class="paper-equation-block">
-        <Katex tex="Y_{g,t} = \beta_0 X_v + \beta_{\text{int}} \left( X_v \cdot W_{\text{cell}} \right) + \alpha W_{\text{cell}} + \mathbf{\gamma}^T \mathbf{C} + \epsilon_{g,t}" />
+        <Katex tex="Y_{g,t} = \beta_0 X_v + \beta_{\text{int}} \left( X_v \cdot W_{\text{cell}} \right) + \alpha W_{\text{cell}} + \boldsymbol{\gamma}^{T} \mathbf{C} + \epsilon_{g,t}" />
       </div>
-    </section>
-
-    <!-- Section 7 -->
-    <section id="failure-modes">
-      <h2>7. Limitations & Missing Contexts</h2>
-      <ul>
-        <li><strong>Steady-State Normal Tissues:</strong> Measures healthy baseline expression in adult postmortem donors; blind to developmental embryonic stages, acute immune stimulation, or active tumor microenvironments.</li>
-        <li><strong>Ancestry Imbalance:</strong> ~85% of donors are of European ancestry, underscoring the vital need for multi-ancestry functional genomics cohorts.</li>
-      </ul>
-    </section>
-
-    <!-- Section 8 -->
-    <section id="strategic-synthesis">
-      <h2>8. Master Synthesis & Foundational Role in Sequence-to-Function AI</h2>
       <p>
-        GTEx v8 serves as the ground-truth benchmark and training target for the entire sequence-to-function deep learning ecosystem (Borzoi, Enformer, Basenji). By providing comprehensive tissue-matched expression profiles across hundreds of humans, GTEx bridges the gap between digital DNA sequence and organismal human phenotypes.
+        Both main effects must stay in the model. Dropping <Katex tex="\alpha W_{\text{cell}}" /> would let a
+        pure composition effect — a gene simply more highly expressed in neutrophil-rich samples — masquerade as
+        genotype-dependent.
       </p>
+    </section>
+
+    <section id="failure-modes" class="paper-section">
+      <h2>8. Limitations, and Why They Matter Downstream</h2>
+
+      <h3>What the tissues are</h3>
+      <ul>
+        <li><strong>Post-mortem, adult, steady-state.</strong> These are baseline adult tissues. Developmental stages, acute stimulation, and disease states are absent, so a variant that only acts under those conditions has no eQTL here to find.</li>
+        <li><strong>Bulk, with composition estimated rather than observed.</strong> The ieQTL analysis mitigates this but depends on the quality of the deconvolution; a cell type without a clean marker signature is invisible to it.</li>
+      </ul>
+
+      <h3>What the donors are</h3>
+      <ul>
+        <li><strong>85.3% European American.</strong> Fine-mapping resolution, and therefore any downstream claim about a specific causal variant, inherits this ancestry composition along with its LD structure.</li>
+      </ul>
+
+      <h3>What "we found an eQTL" does and does not license</h3>
+      <ul>
+        <li><strong>A credible set of median size 6 is not a mechanism.</strong> Only 9.3% of <em>cis</em>-eQTLs resolve to a single variant at posterior probability &gt; 0.8. Colocalization between a GWAS signal and an eQTL is consistent with a shared causal variant; it does not establish one, and two distinct causal variants in LD produce the same picture.</li>
+        <li><strong>Saturation is a warning to sequence-to-function modelling.</strong> Large-effect eGenes saturate by ~200 samples per tissue. A model trained to predict GTEx effect sizes is therefore learning mostly small effects estimated with wide intervals — which is a property of the label set, not of the model.</li>
+      </ul>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="book" size={15} /> Source note
+        </div>
+        <p>
+          This summary was written against the full text of the author manuscript deposited as PMC7737656
+          (Science 369(6509), 1318–1330). Every figure quoted above appears in that text; the page is checked
+          automatically by <code>scripts/verify-paper-claims.mjs</code>, which flags any number on it that the
+          paper does not contain.
+        </p>
+      </div>
     </section>
   </article>
 </BaseLayout>

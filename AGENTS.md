@@ -16,6 +16,13 @@ Astro static site for `khchao.com` (Node 22 — see `.nvmrc`). No client-side fr
 - Push to `main` triggers `.github/workflows/deploy.yml` → build → GitHub Pages. Keep `public/CNAME` (`khchao.com`), `astro.config.mjs` `site` (`https://khchao.com`), and SEO metadata aligned.
 
 ## Content collections
+**`node scripts/verify-paper-claims.mjs`** cross-checks every number rendered on a `/papers/<slug>/`
+page against the full text of the paper it summarises (`extracted_text.txt` beside each PDF in
+`~/Documents/papers_summaries/`). It is **local-only and deliberately not in CI** — the papers live
+outside the repo. Run `npm run build` first; it reads `dist/`. Pass `--slug <name>` for one page.
+The `ALLOW` map at the top is for numbers a page may legitimately carry that its own paper does not
+contain (a cross-reference to another paper, say) — every entry must state why.
+
 Collections live in `src/content/` (`publications`, `presentations`, `research`, `teaching`, `news`, `posts`, `reports`). `src/content.config.ts` is the **source of truth** for frontmatter fields — read it before adding/editing content. Identity, nav, and CV data are centralized in `src/data/site.ts` and `src/data/cv.ts`; the design system is `src/styles/tokens.css`. `public/` is served verbatim; `src/assets/` images are optimized at build via `astro:assets`.
 
 ## The Scholar, SEO, and Indexing Pipeline
