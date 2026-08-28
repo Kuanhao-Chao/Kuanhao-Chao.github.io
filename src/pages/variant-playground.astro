@@ -22,6 +22,33 @@ const description =
     </header>
 
     <div class="vp-body">
+      <!-- ------------------------------------------------- full-width flow -->
+      <section class="vp-panel vp-flow-panel">
+        <h2>The network, end to end — watch a sequence pass through it</h2>
+        <canvas class="vp-canvas vp-flow" data-vp-flow role="img"
+                aria-label="Shorkie architecture: 20 stages from the 16,384 bp input to 896 output bins"></canvas>
+        <div class="vp-controls" style="margin-top:0.5rem;">
+          <button type="button" class="vp-btn" data-vp-play aria-pressed="false">▶ Play</button>
+          <input class="vp-range" type="range" min="0" max="1000" value="1000" data-vp-scrub
+                 style="flex:1;min-width:9rem" aria-label="Position of the wavefront through the network" />
+          <span class="vp-stat" data-vp-stagestat></span>
+        </div>
+        <div class="vp-stage-detail" data-vp-stage-detail hidden>
+          <div class="vp-controls" style="margin-bottom:0.4rem;">
+            <strong class="vp-stat" data-vp-stage-title></strong>
+            <span class="vp-stat" data-vp-stage-top></span>
+            <button type="button" class="vp-btn" data-vp-stage-close>close</button>
+          </div>
+          <canvas class="vp-canvas" data-vp-stage-map role="img"
+                  aria-label="Activation map for the selected stage: channels down, positions across"></canvas>
+        </div>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          Each block is one stage, drawn at its real dimensions. Click a stage to inspect it.
+          Before you run the model the blocks are empty outlines; afterwards they fill with the
+          activations from that same forward pass.
+        </p>
+      </section>
+
       <!-- ------------------------------------------------- left column -->
       <div>
         <section class="vp-panel">
@@ -64,9 +91,21 @@ const description =
           </div>
           <svg class="vp-svg" data-vp-track role="img"
                aria-label="Predicted RNA-seq coverage across 896 bins"></svg>
+          <div class="vp-controls" style="margin-top:0.5rem;">
+            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
+              <input type="checkbox" data-vp-truth checked /> measured coverage
+            </label>
+            <select class="vp-select" data-vp-group aria-label="Output track group"></select>
+            <span class="vp-stat" data-vp-truthstat></span>
+          </div>
           <p class="vp-notes" style="margin:0.4rem 0 0;">
             896 bins of 16 bp across the window's 14,336 bp interior. Purple bars are annotated ORFs.
-            A dashed line, once you mutate, is the unedited reference.
+            A dashed line, once you mutate, is the unedited reference. <strong>Measured coverage</strong>
+            is the second curve where it is loaded: Shorkie's own BigWigs binned exactly as its training
+            labels were — 16 bp sums, soft-clipped, 1,024 bp cropped from each end — so the two curves are
+            the same quantity and Pearson <em>r</em> means something. The bucket they live in is
+            requester-pays, so this site ships none of them; <code>scripts/shorkie/make_truth.py</code>
+            builds the overlay from a local copy.
           </p>
         </section>
       </div>
@@ -85,9 +124,14 @@ const description =
                  style="width:100%" aria-label="Species index" />
           <p class="vp-stat" data-vp-species-label>{SPECIES_S_CEREVISIAE} — S. cerevisiae</p>
           <p class="vp-notes" style="margin:0.3rem 0 0;">
-            Shorkie's input carries a one-hot identity for each of 165 <em>Saccharomycetales</em> genomes.
-            Nothing published says which index is <em>S. cerevisiae</em>; index 109 was determined here by
-            sweeping all 165 and taking the one that maximises predicted coverage over annotated ORFs.
+            Shorkie's input carries a one-hot identity for each of 165 <em>Saccharomycetales</em> genomes,
+            and nothing published says which index is <em>S. cerevisiae</em>. Moving this slider barely
+            changes the <em>shape</em> of the prediction — any two settings correlate above 0.993 — but it
+            moves the peak by a factor of about three, so the channel behaves as a gain. Index 109 was
+            identified here as the one giving the highest peak on all six of a set of classic
+            high-expressers; on block-shuffled, random and poly-A sequence it drops to rank 96, 120 and
+            165 of 165, which is what says it is responding to yeast sequence rather than simply being
+            the loudest channel.
           </p>
         </section>
 

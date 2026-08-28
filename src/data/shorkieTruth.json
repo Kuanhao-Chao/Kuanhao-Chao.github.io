@@ -1,0 +1,1 @@
+{"note": "Measured coverage, binned exactly as the model's labels were (16 bp sums, clip_soft 100000, 1024 bp cropped each end). Empty until BigWigs are supplied; see scripts/shorkie/make_truth.py.", "loci": {}, "tracks": {}}

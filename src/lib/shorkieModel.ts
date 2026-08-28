@@ -44,13 +44,24 @@ export const N_TRACKS = 5_215;
 export const BASES = ['A', 'C', 'G', 'T'] as const;
 export type Base = (typeof BASES)[number];
 
-/** The four output track groups, in the order they are concatenated into the 5,215 channels. */
+/**
+ * The four output track groups, in the order the checkpoint actually emits them.
+ *
+ * Read from the released targets sheet (`minimal_example/sheet.txt` in calico/shorkie-paper), NOT
+ * from the paper: the Methods list the same four counts in a different order, and building this
+ * from the paper mislabels the output curve. The measured ORF/intergenic enrichment separates the
+ * groups exactly as biology demands and confirms the sheet -- ChIP-exo 1.20 (TF binding is
+ * promoter-enriched, not ORF-enriched), ChIP-MNase 1.86, RNA-seq 17.94, 1,000-strain RNA-seq 4.07.
+ */
 export const TRACK_GROUPS = [
-  { id: 'rnaseq_tf', label: 'RNA-seq · TF perturbation', count: 3053 },
-  { id: 'rnaseq_strain', label: 'RNA-seq · 1,000 strains', count: 1014 },
-  { id: 'chip_exo', label: 'ChIP-exo', count: 1128 },
-  { id: 'chip_mnase', label: 'ChIP-MNase', count: 20 },
+  { id: 'chip_exo', label: 'ChIP-exo', start: 0, end: 1128, count: 1128, orfEnrichment: 1.2 },
+  { id: 'chip_mnase', label: 'ChIP-MNase', start: 1128, end: 1148, count: 20, orfEnrichment: 1.86 },
+  { id: 'rnaseq_tf', label: 'RNA-seq · TF induction', start: 1148, end: 4201, count: 3053, orfEnrichment: 17.94 },
+  { id: 'rnaseq_strain', label: 'RNA-seq · 1,000 strains', start: 4201, end: 5215, count: 1014, orfEnrichment: 4.07 },
 ] as const;
+
+/** Index into TRACK_GROUPS of the group the page plots by default. */
+export const RNA_SEQ_GROUP = 2;
 
 /**
  * Where the published Methods and the released checkpoint disagree. Surfaced on the page rather
@@ -80,6 +91,11 @@ export const SPEC_NOTES = [
     checkpoint: '96, 128, 160, 192, 256, 320, 384',
   },
   { topic: 'Parameter count', paper: '13.7 M', checkpoint: '14,253,567' },
+  {
+    topic: 'Output track order',
+    paper: 'RNA-seq (3,053), 1,000-strain (1,014), ChIP-exo (1,128), ChIP-MNase (20)',
+    checkpoint: 'ChIP-exo 0–1127, ChIP-MNase 1128–1147, RNA-seq 1148–4200, 1,000-strain 4201–5214',
+  },
 ] as const;
 
 /** One row of the layer-by-layer walkthrough. `positions` is the sequence length at that depth. */
@@ -247,4 +263,183 @@ export function windowOffsetToBin(offset: number): number {
 export function mutate(sequence: string, index: number, base: Base): string {
   if (index < 0 || index >= sequence.length) return sequence;
   return sequence.slice(0, index) + base + sequence.slice(index + 1);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Flow-diagram geometry and receptive fields
+// ---------------------------------------------------------------------------------------------
+
+export type StageGroup = 'encoder' | 'bottleneck' | 'decoder';
+
+export interface FlowStage extends LayerSpec {
+  group: StageGroup;
+  /** Horizontal extent in [0, 1] across the diagram. Width is LOG-scaled in *channels*. */
+  x: number;
+  width: number;
+  /** Vertical extent in [0, 1]. Height is LOG-scaled in *positions*. */
+  height: number;
+  /** Input bases reachable by one unit at this depth. */
+  receptiveField: number;
+  /** Input bases between neighbouring units at this depth. */
+  stride: number;
+  /** Encoder stage this decoder stage merges its skip from, if any. */
+  skipFrom?: string;
+}
+
+/**
+ * Receptive field and stride at each depth, by the standard recurrence
+ *   r_out = r_in + (k - 1) * j_in,   j_out = j_in * s
+ *
+ * The conv stem sees 11 bp. Every residual block adds 4 bp of 5-tap convolution then doubles the
+ * stride through its MaxPool, so by the bottleneck one position sees 646 bp and neighbouring
+ * positions sit 128 bp apart. Attention then makes every bottleneck position see the whole window,
+ * which is the entire reason the transformer is there.
+ */
+export function receptiveFields(): { id: string; receptiveField: number; stride: number }[] {
+  const out: { id: string; receptiveField: number; stride: number }[] = [];
+  let r = 1;
+  let j = 1;
+  r += (11 - 1) * j; // conv stem, 11 bp kernel
+  out.push({ id: 'stem', receptiveField: r, stride: j });
+  for (let i = 0; i < BLOCK_FILTERS.length; i += 1) {
+    r += (5 - 1) * j; // Conv1D(5); the pointwise Conv1D(1) adds nothing
+    r += (2 - 1) * j; // MaxPool(2)
+    j *= 2;
+    out.push({ id: `block${i + 1}`, receptiveField: r, stride: j });
+  }
+  return out;
+}
+
+/**
+ * Lay the 20 stages out for the flow canvas.
+ *
+ * Width is log-scaled in positions and the page says so: at true linear scale the 128-position
+ * bottleneck would be 0.8% the width of the 16,384-position stem, and the eight attention layers
+ * where the model does its long-range work would be invisible.
+ */
+export function flowGeometry(): FlowStage[] {
+  const specs = layerSpecs();
+  const rf = new Map(receptiveFields().map((x) => [x.id, x]));
+
+  // The canonical U-Net encoding: HEIGHT is spatial resolution, WIDTH is channel count. That puts
+  // the bottleneck at the visible waist and lets a skip arc connect two stages of equal height,
+  // which is exactly what a skip connection joins.
+  //
+  // Both axes are log-scaled, and both are scaled over the *range* actually present rather than
+  // from zero. A raw log flattens this architecture into twenty near-identical boxes: positions
+  // span 16,384 to 128, so raw log2 runs only 14 to 7, and channels 96 to 5,215 runs 6.6 to 12.3.
+  // Mapping each range onto [MIN_EXTENT, 1] keeps the ordering exactly (it is monotone in the
+  // true quantity) while making the differences legible.
+  const MIN_EXTENT = 0.26;
+  const span = (v: number, lo: number, hi: number) =>
+    MIN_EXTENT + (1 - MIN_EXTENT) * ((Math.log2(v) - Math.log2(lo)) / (Math.log2(hi) - Math.log2(lo)));
+
+  const posLo = Math.min(...specs.map((s) => s.positions));
+  const posHi = Math.max(...specs.map((s) => s.positions));
+  const chLo = Math.min(...specs.map((s) => s.channels));
+  const chHi = Math.max(...specs.map((s) => s.channels));
+
+  const rawWidths = specs.map((s) => span(s.channels, chLo, chHi));
+  const gap = 0.004;
+  const usable = 1 - gap * (specs.length - 1);
+  const totalRaw = rawWidths.reduce((a, w) => a + w, 0);
+
+  let cursor = 0;
+  return specs.map((spec, i) => {
+    const width = (rawWidths[i] / totalRaw) * usable;
+    const group: StageGroup = spec.id.startsWith('attn')
+      ? 'bottleneck'
+      : spec.id.startsWith('decoder') || spec.id === 'head'
+        ? 'decoder'
+        : 'encoder';
+    const height = span(spec.positions, posLo, posHi);
+    const bottleneck = rf.get('block7');
+    const known = rf.get(spec.id);
+    const stage: FlowStage = {
+      ...spec,
+      group,
+      x: cursor,
+      width,
+      height,
+      // Past the encoder every position has seen the whole window, via attention.
+      receptiveField: known ? known.receptiveField : SEQ_LEN,
+      stride: known ? known.stride : (bottleneck?.stride ?? 128),
+      skipFrom: spec.id.startsWith('decoder')
+        ? `block${7 - (Number(spec.id.slice('decoder'.length)) - 1)}`
+        : undefined,
+    };
+    cursor += width + gap;
+    return stage;
+  });
+}
+
+/** Which stage the wavefront is crossing at scrub position `t` in [0, 1], and how far into it. */
+export function stageAt(t: number, stages: FlowStage[]): { index: number; local: number } {
+  const clamped = Math.min(Math.max(t, 0), 1);
+  for (let i = 0; i < stages.length; i += 1) {
+    const s = stages[i];
+    if (clamped <= s.x + s.width || i === stages.length - 1) {
+      return { index: i, local: Math.min(Math.max((clamped - s.x) / s.width, 0), 1) };
+    }
+  }
+  return { index: stages.length - 1, local: 1 };
+}
+
+/** Channel offset of each encoder stage inside the concatenated `encoder_maps` tensor. */
+export function encoderMapOffsets(): { id: string; start: number; channels: number }[] {
+  let start = 0;
+  return BLOCK_FILTERS.map((channels, i) => {
+    const row = { id: `block${i + 1}`, start, channels };
+    start += channels;
+    return row;
+  });
+}
+
+/**
+ * Pearson correlation between a predicted track and a measured one.
+ *
+ * This is the number that carries the ground-truth comparison on the playground, so it lives here
+ * with the rest of the tested arithmetic rather than in the DOM layer. Returns NaN when either
+ * series is constant -- a flat track has no correlation with anything, and reporting 0 for it
+ * would read as "uncorrelated" when the truth is "undefined".
+ */
+export function pearson(a: ArrayLike<number>, b: ArrayLike<number>): number {
+  const n = Math.min(a.length, b.length);
+  if (n < 2) return NaN;
+  let ma = 0;
+  let mb = 0;
+  for (let i = 0; i < n; i += 1) {
+    ma += a[i];
+    mb += b[i];
+  }
+  ma /= n;
+  mb /= n;
+  let num = 0;
+  let da = 0;
+  let db = 0;
+  for (let i = 0; i < n; i += 1) {
+    const x = a[i] - ma;
+    const y = b[i] - mb;
+    num += x * y;
+    da += x * x;
+    db += y * y;
+  }
+  return da > 0 && db > 0 ? num / Math.sqrt(da * db) : NaN;
+}
+
+/**
+ * Map a raw activation onto the ink a cell is drawn with.
+ *
+ * `floor` is a statement about the *activation*: nothing below that fraction of the tensor's range
+ * is drawn at all, which is what keeps a hundred thousand near-baseline cells from fogging the
+ * raster. The square root is a statement about the *ink*: above the floor a linear ramp puts almost
+ * everything at a few percent alpha, because a handful of large activations set `hi`. Keeping the
+ * two separate means raising the floor removes cells and never dims the ones that remain.
+ *
+ * Monotone throughout, so a brighter cell is always a larger activation.
+ */
+export function activationInk(value: number, lo: number, hi: number, floor = 0.18): number {
+  const span = Math.max(hi - lo, 1e-9);
+  const v = Math.min(Math.max((value - lo) / span, 0), 1);
+  return v < floor ? 0 : Math.sqrt((v - floor) / (1 - floor));
 }

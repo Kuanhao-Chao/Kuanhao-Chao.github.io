@@ -23,14 +23,16 @@ import torch.nn.functional as F
 sys.path.insert(0, str(Path(__file__).parent))
 from shorkie_torch import build, SEQ_LEN, IN_CHANNELS, N_BINS  # noqa: E402
 
-# Determined empirically by scripts/shorkie/sanity_check.py: index 109 maximises the
-# ORF/intergenic contrast both on six classic high-expressers (12.1x) and on an independent
-# random hold-out of 24 genes (2.66x vs 2.28x for the runner-up). Nothing published names it.
+# Determined empirically by scripts/shorkie/sanity_check.py: index 109 gives the highest peak
+# predicted RNA-seq on 6/6 probe genes, and falls to rank 96, 120 and 165 of 165 on block-shuffled,
+# random and poly-A sequence -- so it responds to real S. cerevisiae sequence rather than simply
+# being the loudest channel. Nothing published names it.
 SPECIES_SCEREVISIAE = 109
 
-# Track blocks, in the concatenation order the paper gives for the 5,215 outputs.
-TRACK_BLOCKS = {"rnaseq_tf": (0, 3053), "rnaseq_strain": (3053, 4067),
-                "chip_exo": (4067, 5195), "chip_mnase": (5195, 5215)}
+# Track blocks, read from the released targets sheet -- NOT from the paper, which lists the same
+# four counts in a different order. Getting this wrong silently mislabels the output curve.
+TRACK_BLOCKS = {"chip_exo": (0, 1128), "chip_mnase": (1128, 1148),
+                "rnaseq_tf": (1148, 4201), "rnaseq_strain": (4201, 5215)}
 
 
 class ShorkieExport(nn.Module):
@@ -61,7 +63,26 @@ class ShorkieExport(nn.Module):
             [acts[f"block{i}"].max(dim=-1).values for i in range(1, 8)], dim=-1
         )                                                          # [1, 1536]
         attention = acts["attention"].mean(dim=2)                  # [1, 8, 128, 128] mean over heads
-        return tracks, stem_profile, stem_peak, block_peaks, attention
+
+        # Per-stage activation maps for the flow animation. Every stage is pooled to a common
+        # 128-position width inside the graph, so the whole set costs ~1.4 MB of typed array per
+        # inference instead of the ~100 MB the raw tensors would. Channels are concatenated in
+        # stage order and sliced back out in TypeScript from BLOCK_FILTERS.
+        # Pool factors are stated, not derived from x.shape: under ONNX tracing a shape read
+        # becomes a tensor and max_pool1d then rejects it as a kernel size.
+        def to128(x: torch.Tensor, factor: int) -> torch.Tensor:
+            return F.max_pool1d(x, factor, factor) if factor > 1 else x
+
+        enc_factors = [128, 64, 32, 16, 8, 4, 2]   # blocks 1..7 at 16384..256 positions
+        dec_factors = [2, 4, 8]                     # decoder stages at 256, 512, 1024
+        encoder_maps = torch.cat(
+            [to128(acts[f"block{i}"], f) for i, f in zip(range(1, 8), enc_factors)], dim=1
+        )
+        decoder_maps = torch.cat(
+            [to128(acts[f"decoder{i}"], f) for i, f in zip(range(1, 4), dec_factors)], dim=1
+        )
+        return (tracks, stem_profile, stem_peak, block_peaks, attention,
+                encoder_maps, decoder_maps)
 
 
 def main() -> int:
@@ -80,7 +101,8 @@ def main() -> int:
 
     ref = model(xt)
     print("reference output shapes:")
-    names = ["tracks", "stem_profile", "stem_peak", "block_peaks", "attention"]
+    names = ["tracks", "stem_profile", "stem_peak", "block_peaks", "attention",
+             "encoder_maps", "decoder_maps"]
     for n, t in zip(names, ref):
         print(f"  {n:<14} {tuple(t.shape)}")
 

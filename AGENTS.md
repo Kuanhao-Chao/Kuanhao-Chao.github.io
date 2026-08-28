@@ -42,6 +42,7 @@ The blog `posts` and technical `reports` use a highly coordinated pipeline for G
   5. Update the indexing checks/expectations in `scripts/audit-indexing.mjs`.
 - **`src/legacy-redirects.mjs` is auto-generated** by `scripts/gen-legacy-redirects.mjs` ("do not edit by hand"). Edit the generator, not the data file.
 - **`scripts/gen-legacy-redirects.mjs`, `scripts/gen-og-and-icons.mjs`, and `scripts/migrate-content.mjs` are one-time, local-only** — CI never runs them; their outputs (redirects, `og.jpg`, favicons, manifest) are committed.
+- **`scripts/shorkie/` is offline model tooling** — it turns the released Keras checkpoint into the ONNX and JSON that `/variant-playground/` loads. CI never runs it and it needs `h5py numpy torch onnx onnxruntime` (plus `pyBigWig` for the optional measured-coverage overlay). Its outputs are committed; `scripts/shorkie/_scratch/` is not. `scripts/shorkie/README.md` holds the verification chain, and no change to `shorkie_torch.py` ships without re-running all of it.
 - **The LiftOn `v2` → `v1-0-9` redirects in `astro.config.mjs` are intentional** ("v2.0.0" is reserved for a separate experimental project). Do not "fix" them back.
 - **Math (KaTeX) is configured** in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy `reports` section; `mdx()` extends the same markdown config to `.mdx`.
 
