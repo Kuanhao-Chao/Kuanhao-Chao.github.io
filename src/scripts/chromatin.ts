@@ -78,6 +78,8 @@ import {
   smoothstep,
   smoothstep5,
   solenoidFibre,
+  tadDomainGeometry,
+  kinetochorePlates,
   wrappingPath,
   zigzagFibre,
   type RegimeId,
@@ -107,9 +109,12 @@ const PALETTE = {
   fibreStart: 0x5b8ff2,
   fibreEnd: 0xb06ce0,
   loop: 0x62b6e8,
+  enhancer: 0xf59e0b,
+  promoter: 0x10b981,
   cohesin: 0xf3c03f,
   ctcf: 0x35a86b,
   condensin: 0xe2574f,
+  kinetochore: 0xec4899,
   chromatid: 0x93a4bb,
 } as const;
 
@@ -906,46 +911,45 @@ function buildFibre(): RegimeNode {
 
 function buildLoops(): RegimeNode {
   const group = new Group();
-  const AXIS_NM = 1900;
-  const LOOPS = [
-    { bp: 200_000, at: 0.08, az: 0.4 },
-    { bp: 900_000, at: 0.22, az: 2.3 },
-    { bp: 320_000, at: 0.38, az: 4.1 },
-    { bp: 650_000, at: 0.52, az: 0.9 },
-    { bp: 240_000, at: 0.66, az: 3.2 },
-    { bp: 480_000, at: 0.79, az: 5.3 },
-    { bp: 150_000, at: 0.91, az: 1.7 },
-  ];
 
-  const axisPath: Vec3[] = [];
-  for (let i = 0; i <= 60; i += 1) {
-    const t = i / 60;
-    axisPath.push([Math.sin(t * 5.2) * 26, (t - 0.5) * AXIS_NM, Math.cos(t * 4.4) * 26]);
-  }
-  const axisMat = standard(PALETTE.fibreStart, { roughness: 0.6 });
-  const axisTube = new Tube(200, 8, FIBRE_30NM_DIAMETER_NM / 2);
-  axisTube.update(axisPath);
-  group.add(new Mesh(axisTube.geometry, axisMat));
+  // 1. Central chromatin fibre spine running vertically through the domain
+  const spineMat = standard(PALETTE.fibreStart, { roughness: 0.6 });
+  const spineTube = new Tube(61, 8, FIBRE_30NM_DIAMETER_NM / 2);
+  group.add(new Mesh(spineTube.geometry, spineMat));
 
-  const loopTubes = LOOPS.map(() => new Tube(40, 8, FIBRE_30NM_DIAMETER_NM / 2));
-  const loopMat = standard(PALETTE.loop, { roughness: 0.6 });
-  loopTubes.forEach((t) => group.add(new Mesh(t.geometry, loopMat)));
+  // 2. Primary 800 kb TAD loop
+  const primaryLoopMat = standard(PALETTE.loop, { roughness: 0.5 });
+  const primaryTube = new Tube(49, 8, FIBRE_30NM_DIAMETER_NM / 2);
+  group.add(new Mesh(primaryTube.geometry, primaryLoopMat));
 
-  const ringGeom = new CylinderGeometry(22, 22, 9, 16, 1, true);
+  // 3. Nested 220 kb Enhancer-Promoter Sub-loop
+  const subLoopMat = standard(0x4fa8e8, { roughness: 0.5 });
+  const subTube = new Tube(49, 8, (FIBRE_30NM_DIAMETER_NM / 2) * 0.85);
+  group.add(new Mesh(subTube.geometry, subLoopMat));
+
+  // 4. Enhancer (Amber) and Promoter (Emerald) regulatory spheres
+  const regGeom = new IcosahedronGeometry(22, 2);
+  const enhancerMat = standard(PALETTE.enhancer, { roughness: 0.35 });
+  const promoterMat = standard(PALETTE.promoter, { roughness: 0.35 });
+  const enhancerMesh = new Mesh(regGeom, enhancerMat);
+  const promoterMesh = new Mesh(regGeom, promoterMat);
+  group.add(enhancerMesh, promoterMesh);
+
+  // 5. Cohesin Extrusion Ring Motor (40 nm lumen ring)
+  const ringGeom = new CylinderGeometry(28, 28, 14, 24, 1, true);
   const ringMat = standard(PALETTE.cohesin, { roughness: 0.35, side: DoubleSide });
-  const rings = new InstancedMesh(ringGeom, ringMat, LOOPS.length);
-  const ctcfGeom = new IcosahedronGeometry(16, 2);
+  const cohesinMesh = new Mesh(ringGeom, ringMat);
+  cohesinMesh.rotation.z = Math.PI / 2;
+  group.add(cohesinMesh);
+
+  // 6. Convergent CTCF Boundary Anchor Pins
+  const ctcfGeom = new IcosahedronGeometry(20, 2);
   const ctcfMat = standard(PALETTE.ctcf, { roughness: 0.4 });
-  const ctcf = new InstancedMesh(ctcfGeom, ctcfMat, LOOPS.length * 2);
+  const ctcfLeftMesh = new Mesh(ctcfGeom, ctcfMat);
+  const ctcfRightMesh = new Mesh(ctcfGeom, ctcfMat);
+  group.add(ctcfLeftMesh, ctcfRightMesh);
 
-  LOOPS.forEach((l, i) => {
-    const base = axisPath[Math.round(l.at * 60)];
-    placeInstance(rings, i, base, [Math.cos(l.az), 0.25, Math.sin(l.az)]);
-  });
-  rings.instanceMatrix.needsUpdate = true;
-  group.add(rings, ctcf);
   group.position.y = 0;
-
   let lastExtrusion = -1;
 
   const updateExtrusion = (localT: number) => {
@@ -953,33 +957,33 @@ function buildLoops(): RegimeNode {
     if (Math.abs(ext - lastExtrusion) < 0.005) return;
     lastExtrusion = ext;
 
-    LOOPS.forEach((l, i) => {
-      const base = axisPath[Math.round(l.at * 60)];
-      const rawLoop = extrudedLoop(base[1], l.bp, l.az, 40);
-      const scaledPath: Vec3[] = rawLoop.map((p) => [
-        base[0] + (p[0] - base[0]) * ext,
-        base[1] + (p[1] - base[1]) * ext,
-        base[2] + (p[2] - base[2]) * ext,
-      ]);
-      loopTubes[i].update(scaledPath);
-      placeInstance(ctcf, i * 2, scaledPath[0], [0, 1, 0]);
-      placeInstance(ctcf, i * 2 + 1, scaledPath[scaledPath.length - 1], [0, 1, 0]);
-    });
-    ctcf.instanceMatrix.needsUpdate = true;
+    const data = tadDomainGeometry(ext);
+    spineTube.update(data.spine);
+    primaryTube.update(data.primaryLoop);
+    subTube.update(data.subLoop);
+
+    enhancerMesh.position.set(data.enhancer[0], data.enhancer[1], data.enhancer[2]);
+    promoterMesh.position.set(data.promoter[0], data.promoter[1], data.promoter[2]);
+
+    cohesinMesh.position.set(data.cohesinPos[0], data.cohesinPos[1], data.cohesinPos[2]);
+
+    ctcfLeftMesh.position.set(data.ctcfLeft.at[0], data.ctcfLeft.at[1], data.ctcfLeft.at[2]);
+    ctcfRightMesh.position.set(data.ctcfRight.at[0], data.ctcfRight.at[1], data.ctcfRight.at[2]);
   };
   updateExtrusion(1);
 
   return {
     id: 'loops',
     group,
-    materials: [axisMat, loopMat, ringMat, ctcfMat],
+    materials: [spineMat, primaryLoopMat, subLoopMat, enhancerMat, promoterMat, ringMat, ctcfMat],
     frame(_w, localT, ctx) {
       updateExtrusion(localT);
       const target = ctx.highlightTarget;
+
       if (target === 'cohesin') {
         const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
         ringMat.emissive.setHex(PALETTE.cohesin);
-        ringMat.emissiveIntensity = 0.5 + pulse * 0.5;
+        ringMat.emissiveIntensity = 0.6 + pulse * 0.4;
       } else {
         ringMat.emissive.setHex(0x000000);
         ringMat.emissiveIntensity = 0;
@@ -988,44 +992,59 @@ function buildLoops(): RegimeNode {
       if (target === 'ctcf') {
         const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
         ctcfMat.emissive.setHex(PALETTE.ctcf);
-        ctcfMat.emissiveIntensity = 0.5 + pulse * 0.5;
+        ctcfMat.emissiveIntensity = 0.6 + pulse * 0.4;
       } else {
         ctcfMat.emissive.setHex(0x000000);
         ctcfMat.emissiveIntensity = 0;
+      }
+
+      if (target === 'enhancer-promoter' || target === 'enhancer' || target === 'promoter') {
+        const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
+        enhancerMat.emissive.setHex(PALETTE.enhancer);
+        enhancerMat.emissiveIntensity = 0.6 + pulse * 0.4;
+        promoterMat.emissive.setHex(PALETTE.promoter);
+        promoterMat.emissiveIntensity = 0.6 + pulse * 0.4;
+      } else {
+        enhancerMat.emissive.setHex(0x000000);
+        enhancerMat.emissiveIntensity = 0;
+        promoterMat.emissive.setHex(0x000000);
+        promoterMat.emissiveIntensity = 0;
       }
     },
     anchors: () => [
       {
         id: 'loop-extrusion',
-        title: 'Cohesin, extruding',
-        detail: 'reels chromatin through until it meets two convergent CTCF sites',
-        at: [560, axisPath[Math.round(0.22 * 60)][1] + 120, 180],
+        title: 'Cohesin Ring Motor',
+        detail: 'reels chromatin symmetrically into an expanding loop until arrested',
+        at: [65, 30, 20],
         regime: 'loops',
       },
       {
-        id: 'loop-size',
-        title: '150 kb – 1 Mb',
-        detail: 'a 900 kb loop reaches 525 nm; loop reach goes as √bp',
-        at: [-620, axisPath[Math.round(0.22 * 60)][1] - 150, 120],
+        id: 'loop-ctcf',
+        title: 'Convergent CTCF Pins',
+        detail: 'boundary motifs (➔ and ⬅) orient inward to block cohesin extrusion',
+        at: [-80, -25, 20],
         regime: 'loops',
       },
       {
-        id: 'loop-tad',
-        title: 'This is the TAD',
-        detail: 'contacts are dense inside a loop and sparse across its boundary',
-        at: [180, -180, 200],
+        id: 'loop-ep',
+        title: 'Enhancer–Promoter Contact',
+        detail: 'looping brings distant regulatory elements together inside the TAD',
+        at: [120, 260, 20],
         regime: 'loops',
       },
     ],
     nucleosomeCount: () => 0,
     dispose() {
-      axisTube.dispose();
-      loopTubes.forEach((t) => t.dispose());
+      spineTube.dispose();
+      primaryTube.dispose();
+      subTube.dispose();
+      regGeom.dispose();
       ringGeom.dispose();
       ctcfGeom.dispose();
-      rings.dispose();
-      ctcf.dispose();
-      [axisMat, loopMat, ringMat, ctcfMat].forEach((m) => m.dispose());
+      [spineMat, primaryLoopMat, subLoopMat, enhancerMat, promoterMat, ringMat, ctcfMat].forEach(
+        (m) => m.dispose(),
+      );
     },
   };
 }
@@ -1034,57 +1053,88 @@ function buildLoops(): RegimeNode {
 
 function buildMitotic(): RegimeNode {
   const group = new Group();
-  const LOOPS_DRAWN = 220;
-  const rise = helicalRisePerTurnNm();
-  const halfGap = CHROMATID_DIAMETER_NM * 0.52;
+  const LOOPS_PER_ARM = 80;
+  const rise = helicalRisePerTurnNm(); // 482 nm
+  const halfGap = CHROMATID_DIAMETER_NM * 0.52; // 364 nm
 
-  const chromatidPaths = (sign: number) => {
+  const buildArm = (sign: number) => {
     const loops: Vec3[][] = [];
     const scaffold: Vec3[] = [];
-    for (let i = 0; i <= LOOPS_DRAWN; i += 1) {
-      const u = i / LOOPS_DRAWN;
-      const y = u * CHR1_METAPHASE_NM;
+    const N = LOOPS_PER_ARM;
+
+    for (let i = 0; i <= N; i += 1) {
+      const u = i / N;
+      const y = (u - 0.5) * CHR1_METAPHASE_NM; // centered at centromere y=0
       const az = (y / rise) * 2 * Math.PI;
       const pinch = centromereConstriction(u);
-      // the condensin axis is itself helical - Gibcus's spiral staircase
-      const sx = sign * halfGap + Math.cos(az) * 55 * pinch;
-      const sz = Math.sin(az) * 55 * pinch;
+
+      // Condensin II axial spiral scaffold
+      const sx = sign * halfGap + Math.cos(az) * (50 * pinch);
+      const sz = Math.sin(az) * (50 * pinch);
       scaffold.push([sx, y, sz]);
-      if (i === LOOPS_DRAWN) break;
+
+      if (i === N) break;
+
+      // Volumetric radial loop rosette (3 petals per level for full 3D body)
       const reach = loopReachNm(PROMETA_OUTER_LOOP_BP) * pinch;
-      const path = extrudedLoop(y, PROMETA_OUTER_LOOP_BP, az, 14).map((p) => {
+      for (let p = 0; p < 3; p += 1) {
+        const petalAz = az + (p * 2 * Math.PI) / 3;
+        const raw = extrudedLoop(y, PROMETA_OUTER_LOOP_BP, petalAz, 18);
         const k = reach / loopReachNm(PROMETA_OUTER_LOOP_BP);
-        return [sx + p[0] * k, p[1], sz + p[2] * k] as Vec3;
-      });
-      loops.push(path);
+        loops.push(
+          raw.map((pt) => [sx + pt[0] * k, pt[1], sz + pt[2] * k] as Vec3),
+        );
+      }
     }
     return { loops, scaffold };
   };
 
-  const left = chromatidPaths(-1);
-  const right = chromatidPaths(1);
+  const leftArm = buildArm(-1);
+  const rightArm = buildArm(1);
 
+  // 1. Volumetric loop arrays
   const loopMat = standard(PALETTE.chromatid, { roughness: 0.65 });
-  const loopGeom = tubesGeometry([...left.loops, ...right.loops], 26, 6);
+  const loopGeom = tubesGeometry([...leftArm.loops, ...rightArm.loops], 32, 6);
   group.add(new Mesh(loopGeom, loopMat));
 
-  const scafMat = standard(PALETTE.condensin, { roughness: 0.4 });
-  const scafGeom = tubesGeometry([left.scaffold, right.scaffold], 34, 8);
+  // 2. Condensin II glowing spiral core
+  const scafMat = standard(PALETTE.condensin, { roughness: 0.35 });
+  const scafGeom = tubesGeometry([leftArm.scaffold, rightArm.scaffold], 45, 8);
   group.add(new Mesh(scafGeom, scafMat));
 
-  group.position.y = -CHR1_METAPHASE_NM / 2;
-  const centreY = (CHR1_CENTROMERE_BP / CHR1_BP) * CHR1_METAPHASE_NM;
+  // 3. Centromeric Kinetochore Plates
+  const kPlates = kinetochorePlates();
+  const kPlateGeom = new CylinderGeometry(85, 85, 24, 24, 1);
+  const kPlateMat = standard(PALETTE.kinetochore, { roughness: 0.3 });
+  const kMeshLeft = new Mesh(kPlateGeom, kPlateMat);
+  kMeshLeft.position.set(kPlates[0].at[0], kPlates[0].at[1], kPlates[0].at[2]);
+  kMeshLeft.rotation.z = Math.PI / 2;
+
+  const kMeshRight = new Mesh(kPlateGeom, kPlateMat);
+  kMeshRight.position.set(kPlates[1].at[0], kPlates[1].at[1], kPlates[1].at[2]);
+  kMeshRight.rotation.z = Math.PI / 2;
+  group.add(kMeshLeft, kMeshRight);
+
+  // 4. Centromeric Cohesin binding ring holding sister chromatids together at y=0
+  const centromereCohesinGeom = new CylinderGeometry(140, 140, 180, 24, 1, true);
+  const centromereCohesinMat = standard(PALETTE.cohesin, { roughness: 0.35, side: DoubleSide });
+  const centromereCohesin = new Mesh(centromereCohesinGeom, centromereCohesinMat);
+  centromereCohesin.position.set(0, 0, 0);
+  centromereCohesin.rotation.x = Math.PI / 2;
+  group.add(centromereCohesin);
+
+  group.position.y = 0; // centered at centromere
 
   return {
     id: 'mitotic',
     group,
-    materials: [loopMat, scafMat],
+    materials: [loopMat, scafMat, kPlateMat, centromereCohesinMat],
     frame(_w, _t, ctx) {
       const target = ctx.highlightTarget;
       if (target === 'condensin') {
         const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
         scafMat.emissive.setHex(PALETTE.condensin);
-        scafMat.emissiveIntensity = 0.55 + pulse * 0.45;
+        scafMat.emissiveIntensity = 0.65 + pulse * 0.35;
       } else {
         scafMat.emissive.setHex(0x000000);
         scafMat.emissiveIntensity = 0;
@@ -1093,39 +1143,57 @@ function buildMitotic(): RegimeNode {
       if (target === 'chromatid') {
         const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
         loopMat.emissive.setHex(PALETTE.chromatid);
-        loopMat.emissiveIntensity = 0.4 + pulse * 0.4;
+        loopMat.emissiveIntensity = 0.45 + pulse * 0.35;
       } else {
         loopMat.emissive.setHex(0x000000);
         loopMat.emissiveIntensity = 0;
+      }
+
+      if (target === 'kinetochore') {
+        const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
+        kPlateMat.emissive.setHex(PALETTE.kinetochore);
+        kPlateMat.emissiveIntensity = 0.7 + pulse * 0.3;
+      } else {
+        kPlateMat.emissive.setHex(0x000000);
+        kPlateMat.emissiveIntensity = 0;
+      }
+
+      if (target === 'centromere') {
+        const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
+        centromereCohesinMat.emissive.setHex(PALETTE.cohesin);
+        centromereCohesinMat.emissiveIntensity = 0.65 + pulse * 0.35;
+      } else {
+        centromereCohesinMat.emissive.setHex(0x000000);
+        centromereCohesinMat.emissiveIntensity = 0;
       }
     },
     anchors: () => [
       {
         id: 'mit-chromatids',
-        title: 'Two sister chromatids',
-        detail: 'replicated in S phase, still held together',
-        at: [halfGap + 1350, CHR1_METAPHASE_NM * 0.82, 0],
+        title: 'Two Sister Chromatids',
+        detail: '700 nm cylindrical arms organized by helical loop rosettes',
+        at: [halfGap + 950, CHR1_METAPHASE_NM * 0.28, 0],
         regime: 'mitotic',
       },
       {
         id: 'mit-centromere',
-        title: 'Centromere',
-        detail: 'chr1 is metacentric — 123.4 Mb of 249.0, so the arms come out even',
-        at: [halfGap + 1150, centreY, 300],
+        title: 'Primary Constriction & Kinetochores',
+        detail: 'centromeric cohesin links sisters; outer plates bind spindle microtubules',
+        at: [halfGap + 750, 0, 150],
         regime: 'mitotic',
       },
       {
-        id: 'mit-helix',
-        title: '12 Mb per turn',
-        detail: '482 nm of rise — the only value that rebuilds a 10 µm chromosome',
-        at: [-halfGap - 1400, CHR1_METAPHASE_NM * 0.30, 0],
+        id: 'mit-condensin',
+        title: 'Condensin II Core (12 Mb / turn)',
+        detail: '482 nm helical rise per turn forming the central axial scaffold',
+        at: [-halfGap - 980, -CHR1_METAPHASE_NM * 0.25, 0],
         regime: 'mitotic',
       },
       {
         id: 'mit-total',
-        title: '≈ 8,500×',
-        detail: '84.6 mm of chromosome 1, in 10 µm',
-        at: [-halfGap - 1250, CHR1_METAPHASE_NM * 0.06, 0],
+        title: '≈ 8,500× Linear Compaction',
+        detail: '84.6 mm of chromosome 1 DNA packed into 10 µm',
+        at: [-halfGap - 900, -CHR1_METAPHASE_NM * 0.42, 0],
         regime: 'mitotic',
       },
     ],
@@ -1133,7 +1201,9 @@ function buildMitotic(): RegimeNode {
     dispose() {
       loopGeom.dispose();
       scafGeom.dispose();
-      [loopMat, scafMat].forEach((m) => m.dispose());
+      kPlateGeom.dispose();
+      centromereCohesinGeom.dispose();
+      [loopMat, scafMat, kPlateMat, centromereCohesinMat].forEach((m) => m.dispose());
     },
   };
 }

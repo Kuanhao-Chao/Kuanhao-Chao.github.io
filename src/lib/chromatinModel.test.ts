@@ -64,6 +64,8 @@ import {
   anchoredBeadsOnAString,
   coilingFibrePositions,
   extrudingLoopPath,
+  tadDomainGeometry,
+  kinetochorePlates,
   snapTarget,
   solenoidFibre,
   superhelixContourNm,
@@ -1038,6 +1040,38 @@ describe('seamless phase transition geometry', () => {
     expect(reach0).toBeLessThan(25);
     expect(reachMid).toBeGreaterThan(reach0);
     expect(reach1).toBeCloseTo(525, 0);
+  });
+
+  it('tadDomainGeometry generates primary TAD loop, nested sub-loop, and convergent CTCF anchors', () => {
+    const tad = tadDomainGeometry(1);
+    expect(tad.primaryLoop.length).toBeGreaterThan(10);
+    expect(tad.subLoop.length).toBeGreaterThan(10);
+
+    // Primary loop reaches ~490-525 nm
+    const maxPrimaryReach = Math.max(...tad.primaryLoop.map((p) => p[1]));
+    expect(maxPrimaryReach).toBeGreaterThan(450);
+
+    // Sub-loop is nested inside primary loop
+    const maxSubReach = Math.max(...tad.subLoop.map((p) => p[1]));
+    expect(maxSubReach).toBeLessThan(maxPrimaryReach);
+
+    // Enhancer and promoter are on the sub-loop
+    expect(tad.enhancer).toHaveLength(3);
+    expect(tad.promoter).toHaveLength(3);
+
+    // CTCF anchors are convergent (left points +X, right points -X)
+    expect(tad.ctcfLeft.dir[0]).toBeGreaterThan(0);
+    expect(tad.ctcfRight.dir[0]).toBeLessThan(0);
+  });
+
+  it('kinetochorePlates returns bilateral disc plates centered at centromere', () => {
+    const [left, right] = kinetochorePlates();
+    expect(left.at[0]).toBeLessThan(0);
+    expect(right.at[0]).toBeGreaterThan(0);
+    expect(left.at[1]).toBe(0); // centromere at y=0
+    expect(right.at[1]).toBe(0);
+    expect(left.normal[0]).toBeLessThan(0);
+    expect(right.normal[0]).toBeGreaterThan(0);
   });
 });
 

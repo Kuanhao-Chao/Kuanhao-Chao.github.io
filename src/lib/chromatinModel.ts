@@ -787,6 +787,87 @@ export function extrudedLoop(
   return out;
 }
 
+export interface TadDomainData {
+  primaryLoop: Vec3[];
+  subLoop: Vec3[];
+  enhancer: Vec3;
+  promoter: Vec3;
+  cohesinPos: Vec3;
+  ctcfLeft: { at: Vec3; dir: Vec3 };
+  ctcfRight: { at: Vec3; dir: Vec3 };
+  spine: Vec3[];
+}
+
+/**
+ * Hero Topologically Associating Domain (TAD) model with active loop extrusion,
+ * convergent CTCF boundaries, and nested enhancer-promoter regulatory contacts.
+ */
+export function tadDomainGeometry(extrusionFraction: number): TadDomainData {
+  const ext = smoothstep5(Math.min(1, Math.max(0.04, extrusionFraction)));
+  const primaryReach = loopReachNm(800_000) * ext; // ~525 nm at full extrusion
+  const subReach = loopReachNm(220_000) * ext; // ~260 nm at full extrusion
+  const SAMPLES = 48;
+
+  const primaryLoop: Vec3[] = [];
+  const primaryWidth = 240 * ext;
+  for (let i = 0; i <= SAMPLES; i += 1) {
+    const u = i / SAMPLES; // 0 to 1
+    const x = primaryWidth * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
+    const y = primaryReach * Math.sin(Math.PI * u);
+    const z = primaryWidth * 0.28 * Math.sin(2 * Math.PI * u);
+    primaryLoop.push([x, y, z]);
+  }
+
+  const subLoop: Vec3[] = [];
+  const subWidth = 110 * ext;
+  for (let i = 0; i <= SAMPLES; i += 1) {
+    const u = i / SAMPLES;
+    const x = subWidth * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
+    const y = subReach * Math.sin(Math.PI * u);
+    const z = -subWidth * 0.25 * Math.sin(2 * Math.PI * u);
+    subLoop.push([x, y, z]);
+  }
+
+  const enhancer = subLoop[Math.round(SAMPLES * 0.35)];
+  const promoter = subLoop[Math.round(SAMPLES * 0.65)];
+
+  const spine: Vec3[] = [];
+  for (let i = -30; i <= 30; i += 1) {
+    const y = i * 28;
+    const wobble = Math.sin(i * 0.3) * 12;
+    spine.push([wobble, y, Math.cos(i * 0.25) * 12]);
+  }
+
+  return {
+    primaryLoop,
+    subLoop,
+    enhancer,
+    promoter,
+    cohesinPos: [0, 0, 0],
+    ctcfLeft: { at: [-24, 0, 0], dir: [1, 0, 0] },
+    ctcfRight: { at: [24, 0, 0], dir: [-1, 0, 0] },
+    spine,
+  };
+}
+
+export interface KinetochorePlate {
+  at: Vec3;
+  normal: Vec3;
+  radiusNm: number;
+}
+
+/**
+ * Centromeric outer kinetochore plates where spindle microtubules attach.
+ */
+export function kinetochorePlates(): [KinetochorePlate, KinetochorePlate] {
+  const halfGap = CHROMATID_DIAMETER_NM * 0.52;
+  const plateOffset = halfGap + 120;
+  return [
+    { at: [-plateOffset, 0, 0], normal: [-1, 0, 0], radiusNm: 85 },
+    { at: [plateOffset, 0, 0], normal: [1, 0, 0], radiusNm: 85 },
+  ];
+}
+
 /**
  * The prometaphase loop array: consecutive loops emanating from a central condensin scaffold
  * that is itself wound into a helix — Gibcus's "spiral staircase".
