@@ -87,10 +87,20 @@ const structuredData = {
 }
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 {
+  /*
+   * Three directives here exist only for /variant-playground/, which runs the real Shorkie model
+   * through ONNX Runtime Web:
+   *   'wasm-unsafe-eval'  — compiling the ORT WebAssembly module. This is the narrow WASM-only
+   *                         permission, NOT 'unsafe-eval'; it does not enable eval() or new Function().
+   *   blob: in script-src — ORT instantiates its backend from a blob URL.
+   *   worker-src self blob: — ORT spawns a worker for the WASM backend.
+   * Everything is same-origin: the model and the .wasm are served from /models/ and /ort/, so
+   * connect-src stays 'self' and no third party is contacted at runtime.
+   */
   import.meta.env.PROD && (
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' data:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src https://storage.googleapis.com; connect-src 'self' https://khchao-ask.khchao.workers.dev; base-uri 'self'; form-action 'self'; object-src 'none'"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' data: blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src https://storage.googleapis.com; connect-src 'self' https://khchao-ask.khchao.workers.dev; worker-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'"
     />
   )
 }
